@@ -1,0 +1,890 @@
+import SwiftUI
+import SwiftData
+
+struct ViewSingleActivity: View {
+    @Bindable var activity: DiveActivity
+    @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
+    @Query private var diveSites: [DiveSite]
+
+    private enum DetailNotes {
+        static let maxCharacterCount = 2500
+    }
+
+    @State private var selectedActivityTab: DiveActivityTab = .map
+    @State private var overviewSheetDetent = DiveActivityOverviewDetent.defaultSelection
+    @State private var isOverviewSheetPresented = true
+    /// Tank hero gas column (**1** = full); animates toward **`ending/beginning`** PSI when the sheet snaps to a shorter detent.
+    @State private var tankHeroPressureFillFraction: CGFloat = 1
+    @FocusState private var isNotesFieldFocused: Bool
+    /// While the depth chart is scrubbed, holds the nearest profile sample (elapsed from dive start + depth).
+    @State private var depthProfileScrubSample: DiveDepthProfileSample?
+
+    /// **More** tab: profile samples sorted by time (read-only).
+    private var moreTabSortedProfilePoints: [DiveProfilePoint] {
+        activity.profilePoints.sorted { $0.timestamp < $1.timestamp }
+    }
+
+    /// **More** tab: samples with non-**`nil`** **`tankPressurePSI`** (e.g. UDDF waypoint **`tankpressure`**).
+    private var moreTabProfilePointsWithTankPressure: [DiveProfilePoint] {
+        moreTabSortedProfilePoints.filter { $0.tankPressurePSI != nil }
+    }
+
+    var body: some View {
+        AppHeaderlessPage {
+            diveOverviewHeroLayer
+                .overlay(alignment: .top) {
+                    activityTopChrome
+                        .zIndex(1_000)
+                }
+        }
+        .hidesBottomTabBarWhenPushed()
+        .onAppear {
+            syncOverviewSheetPresentation(for: selectedActivityTab)
+        }
+        .onChange(of: selectedActivityTab) { _, newTab in
+            syncOverviewSheetPresentation(for: newTab)
+            if newTab == .tank {
+                tankHeroPressureFillFraction = 1
+            }
+        }
+        .onChange(of: overviewSheetDetent) { oldDetent, newDetent in
+            guard oldDetent != newDetent else { return }
+            handleOverviewSheetDetentChange(from: oldDetent, to: newDetent)
+        }
+        .onChange(of: activity.id) { _, _ in
+            tankHeroPressureFillFraction = 1
+        }
+        .sheet(isPresented: $isOverviewSheetPresented) {
+            diveOverviewSheetContent
+                .diveActivityOverviewSheetPresentation(selectedDetent: $overviewSheetDetent)
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    isNotesFieldFocused = false
+                }
+                .font(.body.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.tabSelected)
+            }
+        }
+    }
+
+    private var activityTopChrome: some View {
+        HStack(alignment: .center, spacing: 0) {
+            SecondaryDestinationBackButton(minTapDimension: DiveActivityTabIcon.menuRowHeight)
+                .frame(width: DiveActivityTabIcon.menuRowHeight, height: DiveActivityTabIcon.menuRowHeight)
+
+            activityIconTabBar
+                .frame(maxWidth: .infinity)
+        }
+        .padding(.horizontal, AppTheme.Spacing.md)
+        .padding(.top, AppTheme.Spacing.sm)
+        .allowsHitTesting(true)
+    }
+
+    private var activityIconTabBar: some View {
+        HStack(spacing: 0) {
+            ForEach(DiveActivityTab.allCases, id: \.self) { tab in
+                Button {
+                    selectedActivityTab = tab
+                } label: {
+                    tab.tabIconImage(isSelected: selectedActivityTab == tab)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: DiveActivityTabIcon.menuRowHeight)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(tab.accessibilityLabel)
+                .accessibilityAddTraits(selectedActivityTab == tab ? .isSelected : [])
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("DiveActivity.IconTabs")
+    }
+
+    private var diveOverviewHeroLayer: some View {
+        GeometryReader { geometry in
+            let layoutHeight = max(geometry.size.height, 1)
+            let bottomObstruction = DiveActivityOverviewDetent.bottomObstructionHeight(
+                layoutHeight: layoutHeight,
+                detent: overviewSheetDetent,
+                bottomSafeInset: geometry.safeAreaInsets.bottom
+            )
+            let topObstruction = DiveActivityOverviewPanelMetrics.mapTopObstructionHeight(
+                topSafeInset: geometry.safeAreaInsets.top,
+                chromeRowHeight: DiveActivityTabIcon.menuRowHeight,
+                chromeTopPadding: AppTheme.Spacing.sm
+            )
+
+            Group {
+                switch selectedActivityTab {
+                case .map:
+                    DiveLocationMapView(
+                        coordinate: overviewMapCoordinate,
+                        markerTitle: DiveLocationMapPresentation.markerTitle(
+                            siteName: activity.siteName,
+                            fallback: activity.deviceSource.overviewFallbackSiteTitle
+                        ),
+                        bottomContentMargin: bottomObstruction,
+                        topObstructionHeight: topObstruction,
+                        layoutHeight: layoutHeight,
+                        cameraLayoutDetent: overviewSheetDetent
+                    )
+                    .ignoresSafeArea()
+                case .tank:
+                    DiveTankOverviewHeroView(
+                        bottomContentMargin: bottomObstruction,
+                        layoutHeight: layoutHeight,
+                        pressureRemainingFraction: tankHeroPressureFillFraction
+                    )
+                case .camera:
+                    placeholderContent(title: "Photos")
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .ignoresSafeArea()
+    }
+
+    private var diveOverviewSheetContent: some View {
+        DiveActivityOverviewSheetContent(
+            selectedDetent: $overviewSheetDetent,
+            collapsedSummary: {
+                switch selectedActivityTab {
+                case .map:
+                    overviewCollapsedSummary
+                case .tank:
+                    tankCollapsedSummary
+                case .camera:
+                    EmptyView()
+                }
+            },
+            panelContent: {
+                switch selectedActivityTab {
+                case .map:
+                    overviewBottomPanelContent
+                case .tank:
+                    tankPanelContent
+                case .camera:
+                    EmptyView()
+                }
+            }
+        )
+    }
+
+    private func syncOverviewSheetPresentation(for tab: DiveActivityTab) {
+        switch tab {
+        case .map, .tank:
+            if !isOverviewSheetPresented {
+                isOverviewSheetPresented = true
+            }
+        case .camera:
+            isOverviewSheetPresented = false
+        }
+    }
+
+    private func handleOverviewSheetDetentChange(
+        from oldDetent: DiveActivityOverviewDetent,
+        to newDetent: DiveActivityOverviewDetent
+    ) {
+        guard selectedActivityTab == .tank else { return }
+        let epsilon: CGFloat = 0.007
+        if newDetent.heightFraction + epsilon < oldDetent.heightFraction {
+            animateTankHeroPressureDrainIfNeeded()
+        } else if newDetent.heightFraction > oldDetent.heightFraction + epsilon {
+            tankHeroPressureFillFraction = 1
+        }
+    }
+
+    private func animateTankHeroPressureDrainIfNeeded() {
+        guard let target = DiveActivityTankPanelSummary.remainingPressureFillFraction(
+            startPSI: activity.tankPressureStartPSI,
+            endPSI: activity.tankPressureEndPSI
+        ) else { return }
+        let fraction = CGFloat(target)
+        guard fraction < 0.999 else { return }
+        withAnimation(.easeInOut(duration: 0.55)) {
+            tankHeroPressureFillFraction = fraction
+        }
+    }
+
+    /// **Temporary:** full field dump for **`DiveActivity`** + **`DiveProfilePoint`** (remove when More is productized).
+    private var moreTabDebugDumpContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                Text("Temporary: all persisted fields")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.tabUnselected)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                detailsSectionHeader("DiveActivity")
+                basicSectionCard {
+                    VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                        detailLabeledRow(label: "id", value: activity.id.uuidString)
+                        detailLabeledRow(label: "deviceSource", value: activity.deviceSource.rawValue)
+                        detailLabeledRow(label: "sourceDiveId", value: activity.sourceDiveId ?? "nil")
+                        detailLabeledRow(label: "startTime", value: activity.startTime.formatted(.iso8601))
+                        detailLabeledRow(label: "durationMinutes", value: "\(activity.durationMinutes)")
+                        detailLabeledRow(label: "maxDepthMeters", value: String(format: "%.6f", activity.maxDepthMeters))
+                        detailLabeledRow(
+                            label: "averageDepthMeters",
+                            value: activity.averageDepthMeters.map { String(format: "%.6f", $0) } ?? "nil"
+                        )
+                        detailLabeledRow(
+                            label: "bottomTimeSeconds",
+                            value: activity.bottomTimeSeconds.map(String.init) ?? "nil"
+                        )
+                        detailLabeledRow(
+                            label: "surfaceIntervalSeconds",
+                            value: activity.surfaceIntervalSeconds.map(String.init) ?? "nil"
+                        )
+                        detailLabeledRow(
+                            label: "diveNumber",
+                            value: activity.diveNumber.map(String.init) ?? "nil"
+                        )
+                        detailLabeledRow(
+                            label: "diveNumberExplicitlyNone",
+                            value: activity.diveNumberExplicitlyNone ? "true" : "false"
+                        )
+                        detailLabeledRow(
+                            label: "waterTempAvgCelsius",
+                            value: activity.waterTempAvgCelsius.map { String(format: "%.6f", $0) } ?? "nil"
+                        )
+                        detailLabeledRow(
+                            label: "waterTempMaxCelsius",
+                            value: activity.waterTempMaxCelsius.map { String(format: "%.6f", $0) } ?? "nil"
+                        )
+                        detailLabeledRow(
+                            label: "waterTempMinCelsius",
+                            value: activity.waterTempMinCelsius.map { String(format: "%.6f", $0) } ?? "nil"
+                        )
+                        detailLabeledRow(
+                            label: "avgAscentRateMetersPerSecond",
+                            value: activity.avgAscentRateMetersPerSecond.map { String(format: "%.8f", $0) } ?? "nil"
+                        )
+                        detailLabeledRow(label: "siteName", value: activity.siteName ?? "nil")
+                        detailLabeledRow(label: "locationName", value: activity.locationName ?? "nil")
+                        if let c = activity.coordinate {
+                            detailLabeledRow(
+                                label: "coordinate",
+                                value: String(format: "lat %.8f, lon %.8f", c.latitude, c.longitude)
+                            )
+                        } else {
+                            detailLabeledRow(label: "coordinate", value: "nil")
+                        }
+                        detailLabeledRow(
+                            label: "notes",
+                            value: activity.notes.map { $0.isEmpty ? "(empty string)" : $0 } ?? "nil"
+                        )
+                        detailLabeledRow(label: "buddies.count", value: "\(activity.buddies.count)")
+                        ForEach(Array(activity.buddies.enumerated()), id: \.element.id) { index, buddy in
+                            detailLabeledRow(
+                                label: "buddies[\(index)].id",
+                                value: buddy.id.uuidString
+                            )
+                            detailLabeledRow(
+                                label: "buddies[\(index)].displayName",
+                                value: buddy.displayName
+                            )
+                        }
+                        detailLabeledRow(label: "profilePoints.count", value: "\(activity.profilePoints.count)")
+                        detailLabeledRow(label: "rawImportVersion", value: activity.rawImportVersion ?? "nil")
+                    }
+                }
+
+                detailsSectionHeader("Tank / cylinder")
+                basicSectionCard {
+                    VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                        detailLabeledRow(label: "tankMaterial", value: activity.tankMaterial ?? "nil")
+                        detailLabeledRow(label: "tankVolumeDescription", value: activity.tankVolumeDescription ?? "nil")
+                        detailLabeledRow(
+                            label: "tankPressureStartPSI",
+                            value: activity.tankPressureStartPSI.map { String(format: "%.4f", $0) } ?? "nil"
+                        )
+                        detailLabeledRow(
+                            label: "tankPressureEndPSI",
+                            value: activity.tankPressureEndPSI.map { String(format: "%.4f", $0) } ?? "nil"
+                        )
+                    }
+                }
+
+                detailsSectionHeader("Tank on profile (samples)")
+                basicSectionCard {
+                    VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                        detailLabeledRow(
+                            label: "Samples with tankPressurePSI",
+                            value: "\(moreTabProfilePointsWithTankPressure.count) / \(moreTabSortedProfilePoints.count)"
+                        )
+                        if let tankSample = moreTabProfilePointsWithTankPressure.first {
+                            detailLabeledRow(
+                                label: "First sample (timestamp)",
+                                value: tankSample.timestamp.formatted(.iso8601)
+                            )
+                            detailLabeledRow(
+                                label: "First sample depthMeters",
+                                value: String(format: "%.6f", tankSample.depthMeters)
+                            )
+                            detailLabeledRow(
+                                label: "First sample tankPressurePSI",
+                                value: tankSample.tankPressurePSI.map { String(format: "%.4f", $0) } ?? "nil"
+                            )
+                        } else {
+                            Text("No per-sample cylinder pressure on profile points (missing tank stream in FIT, or UDDF without waypoint tankpressure).")
+                                .font(.subheadline)
+                                .foregroundStyle(AppTheme.Colors.tabUnselected)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }
+
+                detailsSectionHeader("DiveProfilePoint (one sample — earliest timestamp)")
+                if let point = moreTabSortedProfilePoints.first {
+                    basicSectionCard {
+                        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                            detailLabeledRow(label: "persistentModelID", value: "\(point.persistentModelID)")
+                            detailLabeledRow(label: "timestamp", value: point.timestamp.formatted(.iso8601))
+                            detailLabeledRow(label: "depthMeters", value: String(format: "%.6f", point.depthMeters))
+                            detailLabeledRow(
+                                label: "temperatureCelsius",
+                                value: point.temperatureCelsius.map { String(format: "%.6f", $0) } ?? "nil"
+                            )
+                            detailLabeledRow(
+                                label: "ascentRateMetersPerSecond",
+                                value: point.ascentRateMetersPerSecond.map { String(format: "%.8f", $0) } ?? "nil"
+                            )
+                            detailLabeledRow(
+                                label: "ndlSeconds",
+                                value: point.ndlSeconds.map(String.init) ?? "nil"
+                            )
+                            detailLabeledRow(
+                                label: "timeToSurfaceSeconds",
+                                value: point.timeToSurfaceSeconds.map(String.init) ?? "nil"
+                            )
+                            detailLabeledRow(
+                                label: "tankPressurePSI",
+                                value: point.tankPressurePSI.map { String(format: "%.4f", $0) } ?? "nil"
+                            )
+                            detailLabeledRow(
+                                label: "heartRateBPM",
+                                value: point.heartRateBPM.map(String.init) ?? "nil"
+                            )
+                            detailLabeledRow(
+                                label: "po2Bars",
+                                value: point.po2Bars.map { String(format: "%.6f", $0) } ?? "nil"
+                            )
+                            detailLabeledRow(
+                                label: "n2Load",
+                                value: point.n2Load.map(String.init) ?? "nil"
+                            )
+                            detailLabeledRow(
+                                label: "cnsLoad",
+                                value: point.cnsLoad.map(String.init) ?? "nil"
+                            )
+                            detailLabeledRow(
+                                label: "dive (parent id)",
+                                value: point.dive?.id.uuidString ?? "nil"
+                            )
+                        }
+                    }
+                } else {
+                    basicSectionCard {
+                        Text("No profile points.")
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.Colors.tabUnselected)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
+            .padding(AppTheme.Spacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var detailsContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                detailsSectionHeader("Source & import")
+                basicSectionCard {
+                    VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                        detailLabeledRow(label: "Device", value: activity.deviceSource.rawValue)
+                        if let sid = activity.sourceDiveId, !sid.isEmpty {
+                            detailLabeledRow(label: "Source ID", value: sid)
+                        }
+                        if let ver = activity.rawImportVersion, !ver.isEmpty {
+                            detailLabeledRow(label: "Import / format", value: ver)
+                        }
+                        detailLabeledRow(label: "Profile samples", value: "\(activity.profilePoints.count)")
+                        if let coord = activity.coordinate {
+                            detailLabeledRow(
+                                label: "GPS (first fix)",
+                                value: String(format: "%.5f°, %.5f°", coord.latitude, coord.longitude)
+                            )
+                        } else {
+                            detailLabeledRow(label: "GPS", value: "—")
+                        }
+                    }
+                }
+
+                detailsSectionHeader("Gas")
+                basicSectionCard {
+                    VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                        detailLabeledRow(label: "Tank type", value: activity.gasDetailsTankTypeLine)
+                        detailLabeledRow(
+                            label: "Volume",
+                            value: activity.gasDetailsTankVolumeLine(displayUnits: diveDisplayUnitSystem)
+                        )
+                        detailLabeledRow(
+                            label: "Beginning pressure",
+                            value: activity.gasDetailsBeginningPressureLine(displayUnits: diveDisplayUnitSystem)
+                        )
+                        detailLabeledRow(
+                            label: "Ending pressure",
+                            value: activity.gasDetailsEndingPressureLine(displayUnits: diveDisplayUnitSystem)
+                        )
+                    }
+                }
+
+                detailsSectionHeader("Buddies")
+                basicSectionCard {
+                    if activity.buddies.isEmpty {
+                        Text("No buddies tagged.")
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.Colors.tabUnselected)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                            ForEach(activity.buddies, id: \.id) { buddy in
+                                Text(buddy.displayName)
+                                    .font(.body)
+                                    .foregroundStyle(AppTheme.Colors.textPrimary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                    }
+                }
+
+                detailsSectionHeader("Notes")
+                notesEditorBox
+            }
+            .padding(AppTheme.Spacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var notesEditorBox: some View {
+        TextEditor(text: notesBinding)
+            .font(.body)
+            .foregroundStyle(AppTheme.Colors.textPrimary)
+            .scrollContentBackground(.hidden)
+            .scrollIndicators(.visible)
+            .focused($isNotesFieldFocused)
+            .padding(AppTheme.Spacing.md)
+            .frame(maxWidth: .infinity, minHeight: 180, alignment: .topLeading)
+            .background(AppTheme.Colors.surfaceMuted.opacity(0.5))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(AppTheme.Colors.tabUnselected.opacity(0.22), lineWidth: 1)
+            }
+            .onAppear {
+                clampNotesToLimitIfNeeded()
+            }
+    }
+
+    private func clampNotesToLimitIfNeeded() {
+        guard let notes = activity.notes else { return }
+        guard notes.count > DetailNotes.maxCharacterCount else { return }
+        activity.notes = String(notes.prefix(DetailNotes.maxCharacterCount))
+    }
+
+    private var notesBinding: Binding<String> {
+        Binding(
+            get: {
+                String((activity.notes ?? "").prefix(DetailNotes.maxCharacterCount))
+            },
+            set: { newValue in
+                let capped = String(newValue.prefix(DetailNotes.maxCharacterCount))
+                activity.notes = capped.isEmpty ? nil : capped
+            }
+        )
+    }
+
+    private func detailLabeledRow(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(AppTheme.Colors.tabUnselected)
+            Text(value)
+                .font(.body)
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+                .textSelection(.enabled)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func detailsSectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(AppTheme.Colors.tabUnselected)
+    }
+
+    private func placeholderContent(title: String) -> some View {
+        VStack {
+            Spacer()
+            Text("\(title) content coming next")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.tabUnselected)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var overviewMapCoordinate: DiveCoordinate? {
+        DiveMapCoordinateResolver.effectiveCoordinate(
+            activityCoordinate: activity.coordinate,
+            siteName: activity.siteName,
+            catalogSites: diveSites
+        )
+    }
+
+    private var tankCollapsedSummary: some View {
+        DiveActivityTankCollapsedSummary(
+            dateText: formattedDate(activity.startTime),
+            titleText: "Tank & gas",
+            diveNumberText: activity.diveNumberPlainLabel,
+            startPressureText: shortPressureChip(activity.tankPressureStartPSI),
+            endPressureText: shortPressureChip(activity.tankPressureEndPSI)
+        )
+    }
+
+    private var tankPanelContent: some View {
+        let stats = DiveActivityTankPanelSummary.profilePressureStats(from: activity.profilePoints)
+        return VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                Text(formattedDate(activity.startTime))
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+
+                Text("Tank & gas")
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+
+                Text("Dive \(activity.diveNumberPlainLabel) · \(activity.deviceSource.rawValue)")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.Colors.tabUnselected)
+            }
+
+            detailsSectionHeader("Cylinder")
+            basicSectionCard {
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                    detailLabeledRow(label: "Material", value: activity.gasDetailsTankTypeLine)
+                    detailLabeledRow(
+                        label: "Volume",
+                        value: activity.gasDetailsTankVolumeLine(displayUnits: diveDisplayUnitSystem)
+                    )
+                    detailLabeledRow(
+                        label: "Beginning pressure",
+                        value: activity.gasDetailsBeginningPressureLine(displayUnits: diveDisplayUnitSystem)
+                    )
+                    detailLabeledRow(
+                        label: "Ending pressure",
+                        value: activity.gasDetailsEndingPressureLine(displayUnits: diveDisplayUnitSystem)
+                    )
+                }
+            }
+
+            detailsSectionHeader("Profile samples (gas)")
+            basicSectionCard {
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                    detailLabeledRow(
+                        label: "Samples with cylinder pressure",
+                        value: "\(stats.sampleCount) / \(activity.profilePoints.count)"
+                    )
+                    if stats.sampleCount > 0 {
+                        detailLabeledRow(
+                            label: "Min pressure (sample)",
+                            value: DiveQuantityFormatting.cylinderPressure(fromPSI: stats.minPSI, system: diveDisplayUnitSystem)
+                        )
+                        detailLabeledRow(
+                            label: "Max pressure (sample)",
+                            value: DiveQuantityFormatting.cylinderPressure(fromPSI: stats.maxPSI, system: diveDisplayUnitSystem)
+                        )
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func shortPressureChip(_ psi: Double?) -> String {
+        guard let psi else { return "—" }
+        let line = DiveQuantityFormatting.cylinderPressure(fromPSI: psi, system: diveDisplayUnitSystem)
+        return line == "—" ? "—" : line
+    }
+
+    private var overviewCollapsedSummary: some View {
+        DiveActivityOverviewCollapsedSummary(
+            dateText: formattedDate(activity.startTime),
+            titleText: activity.siteName ?? activity.deviceSource.overviewFallbackSiteTitle,
+            diveNumberText: activity.diveNumberPlainLabel,
+            maxDepthText: formatDepth(activity.maxDepthMeters),
+            durationText: "\(activity.durationMinutes) min"
+        )
+    }
+
+    private var overviewBottomPanelContent: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                Text(formattedDate(activity.startTime))
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+
+                Text(activity.siteName ?? activity.deviceSource.overviewFallbackSiteTitle)
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+
+                Text("Dive \(activity.diveNumberPlainLabel) · \(activity.deviceSource.rawValue)")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.Colors.tabUnselected)
+
+                if overviewMapCoordinate == nil {
+                    Text("No location coordinates recorded for this dive.")
+                        .font(.footnote)
+                        .foregroundStyle(AppTheme.Colors.tabUnselected)
+                }
+            }
+
+            overviewDepthProfileSection
+
+            overviewStatsSection
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var overviewDepthProfileSection: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            let samples = DiveDepthProfileSeries.samples(fromProfilePoints: activity.profilePoints)
+            depthProfileHeroRow(scrubSample: depthProfileScrubSample)
+
+            if samples.isEmpty {
+                Text("No profile samples for this dive.")
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.Colors.tabUnselected)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                DiveDepthProfileChart(
+                    samples: samples,
+                    maxDepthHintMeters: activity.maxDepthMeters,
+                    onScrubSampleChange: { depthProfileScrubSample = $0 }
+                )
+                .frame(height: 220)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Depth profile chart")
+                .accessibilityValue(depthProfileChartAccessibilitySummary(samples: samples))
+            }
+        }
+        .padding(AppTheme.Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppTheme.Colors.surfaceElevated.opacity(0.65))
+        }
+    }
+
+    private var overviewStatsSection: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            Text("Stats")
+                .font(.headline)
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+
+            HStack {
+                Text("Duration: \(activity.durationMinutes) min")
+                Spacer()
+                Text(waterTemperatureSummaryText(activity))
+            }
+            HStack {
+                Text("Surface Interval: \(formatSurfaceInterval(activity.surfaceIntervalSeconds))")
+                Spacer()
+                Text(bottomTimeSummaryText(activity))
+            }
+        }
+        .font(.subheadline)
+        .foregroundStyle(AppTheme.Colors.textPrimary)
+        .padding(AppTheme.Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppTheme.Colors.surfaceElevated.opacity(0.65))
+        }
+    }
+
+    private func basicSectionCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(AppTheme.Spacing.md)
+            .frame(maxWidth: .infinity)
+            .background {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(AppTheme.Colors.surfaceElevated)
+            }
+    }
+
+    private func formattedDate(_ date: Date) -> String {
+        date.formatted(date: .abbreviated, time: .omitted)
+    }
+
+    @ViewBuilder
+    private func depthProfileHeroRow(scrubSample: DiveDepthProfileSample?) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: AppTheme.Spacing.lg) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(depthProfileHeroPrimaryLabel(scrubSample: scrubSample))
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.Colors.tabUnselected)
+                Text(depthProfileHeroPrimaryValue(scrubSample: scrubSample))
+                    .font(.title2.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+                    .minimumScaleFactor(0.75)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(depthProfileHeroSecondaryLabel(scrubSample: scrubSample))
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.Colors.tabUnselected)
+                Text(depthProfileHeroSecondaryValue(scrubSample: scrubSample))
+                    .font(.title2.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+                    .minimumScaleFactor(0.75)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+    }
+
+    private func depthProfileHeroPrimaryLabel(scrubSample: DiveDepthProfileSample?) -> String {
+        scrubSample == nil ? "Total dive time" : "From start"
+    }
+
+    private func depthProfileHeroSecondaryLabel(scrubSample: DiveDepthProfileSample?) -> String {
+        scrubSample == nil ? "Max depth" : "Depth"
+    }
+
+    private func depthProfileHeroPrimaryValue(scrubSample: DiveDepthProfileSample?) -> String {
+        if let scrub = scrubSample {
+            return formattedMinutesSinceDiveStart(scrub.elapsedSeconds)
+        }
+        return "\(activity.durationMinutes) min"
+    }
+
+    private func depthProfileHeroSecondaryValue(scrubSample: DiveDepthProfileSample?) -> String {
+        if let scrub = scrubSample {
+            return formatDepth(scrub.depthMeters)
+        }
+        return formatDepth(activity.maxDepthMeters)
+    }
+
+    /// Elapsed time from dive **`startTime`** for the scrubbed profile sample (minutes).
+    private func formattedMinutesSinceDiveStart(_ elapsedSeconds: Double) -> String {
+        let minutes = elapsedSeconds / 60.0
+        let roundedToTenth = (minutes * 10).rounded() / 10
+        if abs(roundedToTenth - roundedToTenth.rounded()) < 0.001 {
+            return "\(Int(roundedToTenth.rounded())) min"
+        }
+        return String(format: "%.1f min", roundedToTenth)
+    }
+
+    private func depthProfileChartAccessibilitySummary(samples: [DiveDepthProfileSample]) -> String {
+        if let scrub = depthProfileScrubSample {
+            return "\(formattedMinutesSinceDiveStart(scrub.elapsedSeconds)), \(formatDepth(scrub.depthMeters))"
+        }
+        return "Total dive time \(activity.durationMinutes) minutes, max depth \(formatDepth(activity.maxDepthMeters))"
+    }
+
+    private func formatDepth(_ meters: Double) -> String {
+        DiveQuantityFormatting.depth(meters: meters, system: diveDisplayUnitSystem)
+    }
+
+    private func formatTemperature(_ celsius: Double?) -> String {
+        DiveQuantityFormatting.waterTemperature(celsius: celsius, system: diveDisplayUnitSystem)
+    }
+
+    private func formatSurfaceInterval(_ seconds: Int?) -> String {
+        guard let seconds else { return "-" }
+        return "\(seconds / 60) min"
+    }
+
+    private func waterTemperatureSummaryText(_ activity: DiveActivity) -> String {
+        let avg = formatTemperature(activity.waterTempAvgCelsius)
+        let max = activity.waterTempMaxCelsius.map { formatTemperature($0) }
+        let min = activity.waterTempMinCelsius.map { formatTemperature($0) }
+        if max != nil || min != nil {
+            let maxPart = max.map { " max \($0)" } ?? ""
+            let minPart = min.map { " min \($0)" } ?? ""
+            return "Water: \(avg)\(maxPart)\(minPart)"
+        }
+        return "Water: \(avg)"
+    }
+
+    private func bottomTimeSummaryText(_ activity: DiveActivity) -> String {
+        guard let sec = activity.bottomTimeSeconds, sec > 0 else {
+            return "Bottom time: -"
+        }
+        let min = sec / 60
+        return "Bottom time: \(min) min"
+    }
+}
+
+@MainActor
+private func viewSingleActivityPreview() -> some View {
+    let schema = Schema([
+        DiveActivity.self,
+        DiveBuddyTag.self,
+        DiveProfilePoint.self,
+        DiveSite.self,
+    ])
+    let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: schema, configurations: [configuration])
+    let sampleActivity = DiveActivity(
+        deviceSource: .manual,
+        sourceDiveId: "preview-dive",
+        startTime: .now,
+        durationMinutes: 42,
+        maxDepthMeters: 18.3,
+        averageDepthMeters: 12.0,
+        bottomTimeSeconds: 2100,
+        surfaceIntervalSeconds: 3600,
+        diveNumber: 44,
+        waterTempAvgCelsius: 27.3,
+        waterTempMaxCelsius: 28.0,
+        waterTempMinCelsius: 26.0,
+        siteName: "Salt Pier",
+        locationName: "Bonaire",
+        coordinate: DiveCoordinate(latitude: 12.08316, longitude: -68.28330),
+        notes: "Day Two Dive Five. Night dive at Salt Pier from MacDive XML sample.\n\nTarpon under the pier, octopus on the east piling. Jamie spotted a frogfish near the ladder.",
+        tankMaterial: "aluminum",
+        tankVolumeDescription: "11.1 L",
+        tankPressureStartPSI: 2999.6,
+        tankPressureEndPSI: 752.4,
+        rawImportVersion: "preview"
+    )
+    let previewDepths: [Double] = [1, 6, 14, 18.3, 18, 12, 5, 1]
+    for (i, depth) in previewDepths.enumerated() {
+        let t = sampleActivity.startTime.addingTimeInterval(TimeInterval(i * 4 * 60))
+        sampleActivity.profilePoints.append(DiveProfilePoint(timestamp: t, depthMeters: depth))
+    }
+    let previewContext = ModelContext(container)
+    previewContext.insert(sampleActivity)
+    try! previewContext.save()
+
+    return NavigationStack {
+        ViewSingleActivity(activity: sampleActivity)
+    }
+    .modelContainer(container)
+}
+
+#Preview {
+    MainActor.assumeIsolated {
+        viewSingleActivityPreview()
+    }
+}

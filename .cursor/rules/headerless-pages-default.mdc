@@ -1,0 +1,18 @@
+---
+description: Default new SwiftUI pages to headerless shell; optional status-bar-only scrim for scroll-under top controls
+alwaysApply: true
+---
+
+# New pages: headerless by default + optional status-bar scrim
+
+When adding a **new SwiftUI screen** (tab root, `navigationDestination`, or other full-page content inside `NavigationStack`):
+
+1. **Default wrapper:** **`AppHeaderlessPage { … }`** — same shell as Logbook / Field Guide / Profile-style flows: hides the system nav bar, applies **`screenBackgroundGradient`**, and wires **interactive pop** + leading-edge swipe helpers already on that type.
+
+2. **Do not default to `AppPage` / `AppHeader`** unless the user (or existing pattern like Settings / Trip Planner) explicitly wants the shared **GoDive** title bar, back chevron in **`AppHeader`**, or `AppPage`’s titled chrome.
+
+3. **Logbook-style top bar:** Prefer **`AppHeader`** with **`showsBrandWordmark: false`** and your trailing actions — same status scrim + **`AppHeaderMetrics`** as **Home** (see **`logbook.swift`**). If you cannot use **`AppHeader`**, add **`AppStatusBarEdgeScrim(safeAreaTop:)`** in a **`ZStack`** above the scroll surface and below the control row, plus **`AppHeaderMetrics.HeightKey`** + an **in-scroll spacer** (e.g. first **`List`** row **`Color.clear`**).
+
+4. **Skip a pinned top bar** when there is no need for one (e.g. static placeholder tab): plain **`AppHeaderlessPage`** content only.
+
+5. **Exceptions:** Use **`AppPage`** for pushed flows that need the shared titled header + optional `trailingContent`. Document in the PR / change log when a new screen intentionally breaks the headerless default.

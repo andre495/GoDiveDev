@@ -1,0 +1,35 @@
+---
+description: SwiftUI keyboard dismissal — Done toolbar above keyboard for text fields
+globs: GoDiveMVP/**/*.swift
+alwaysApply: false
+---
+
+# Text entry and keyboard (GoDive)
+
+For **every** SwiftUI text entry control (`TextEditor`, `TextField`, multi-line fields):
+
+1. **Drive focus with `@FocusState`** — `Bool` for a single field, or an `enum` + optional (`Field?`) when one screen has multiple fields.
+2. **Bind the control** with `.focused($yourFocusBinding)` (or `.focused($binding, equals: .someCase)` for enums).
+3. **Add a keyboard accessory** on the **screen root** (the outermost view that owns that field — same chain as `.toolbar` / navigation):
+
+```swift
+.toolbar {
+    ToolbarItemGroup(placement: .keyboard) {
+        Spacer()
+        Button("Done") {
+            // single field:
+            isFocused = false
+            // or multi-field:
+            // focusedField = nil
+        }
+        .font(.body.weight(.semibold))
+        .foregroundStyle(AppTheme.Colors.tabSelected)
+    }
+}
+```
+
+Use **`ToolbarItemGroup(placement: .keyboard)`** so iOS shows the bar **above** the keyboard.
+
+**Do not** rely on the user swiping the keyboard away as the only dismissal path; **Done** must clear focus (`false` / `nil`), which dismisses the keyboard.
+
+Prefer this SwiftUI **focus** approach over `UIApplication` / `resignFirstResponder` unless focus APIs cannot be applied to that control.

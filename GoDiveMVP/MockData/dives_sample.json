@@ -1,0 +1,70 @@
+[
+  {
+    "id": "5E7C0A43-DA58-4A7E-8754-C6C5F9CC9A5F",
+    "deviceSource": "Manual",
+    "sourceDiveId": "20231023205730-83270279",
+    "startTime": "2023-10-23T20:57:30Z",
+    "durationMinutes": 34,
+    "maxDepthMeters": 7.89,
+    "averageDepthMeters": 5.02,
+    "bottomTimeSeconds": 2060,
+    "surfaceIntervalSeconds": 5400,
+    "diveNumber": 44,
+    "waterTempAvgCelsius": 30.0,
+    "waterTempMaxCelsius": 30.0,
+    "waterTempMinCelsius": 29.5,
+    "avgAscentRateMetersPerSecond": 0.11,
+    "siteName": "Salt Pier",
+    "locationName": "Bonaire",
+    "coordinate": {
+      "latitude": 12.08316,
+      "longitude": -68.2833
+    },
+    "notes": "Day Two Dive Five. Night dive at Salt Pier from MacDive XML sample.\n\nTarpon under the pier, octopus on the east piling. Jamie spotted a frogfish near the ladder.",
+    "buddies": [
+      {
+        "id": "B2F8E9A1-6C44-4F2E-9D01-7A88F3C12E90",
+        "displayName": "Jamie Chen"
+      }
+    ],
+    "rawImportVersion": "macdive-schema-2.2.0",
+    "profilePoints": [
+      { "timestamp": "2023-10-23T20:57:30Z", "depthMeters": 1.46, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T20:58:30Z", "depthMeters": 2.72, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T20:59:30Z", "depthMeters": 3.11, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:00:30Z", "depthMeters": 3.55, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:01:30Z", "depthMeters": 4.37, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:02:30Z", "depthMeters": 5.02, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:03:30Z", "depthMeters": 4.86, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:04:30Z", "depthMeters": 5.43, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:05:30Z", "depthMeters": 5.97, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:06:30Z", "depthMeters": 5.18, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:07:30Z", "depthMeters": 4.75, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:08:30Z", "depthMeters": 5.26, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:09:30Z", "depthMeters": 6.16, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:10:30Z", "depthMeters": 5.39, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:11:30Z", "depthMeters": 5.84, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:12:30Z", "depthMeters": 5.65, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:13:30Z", "depthMeters": 5.31, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:14:30Z", "depthMeters": 5.57, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:15:30Z", "depthMeters": 6.45, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:16:30Z", "depthMeters": 6.00, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:17:30Z", "depthMeters": 7.48, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:18:30Z", "depthMeters": 6.74, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:19:30Z", "depthMeters": 6.38, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:20:30Z", "depthMeters": 6.65, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:21:30Z", "depthMeters": 6.03, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:22:30Z", "depthMeters": 6.45, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:23:30Z", "depthMeters": 7.11, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:24:30Z", "depthMeters": 7.06, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:25:30Z", "depthMeters": 6.65, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:26:30Z", "depthMeters": 6.40, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:27:30Z", "depthMeters": 6.12, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:28:30Z", "depthMeters": 5.44, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:29:30Z", "depthMeters": 4.58, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:30:30Z", "depthMeters": 4.10, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:31:30Z", "depthMeters": 3.39, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null },
+      { "timestamp": "2023-10-23T21:31:50Z", "depthMeters": 1.53, "temperatureCelsius": 30.0, "ascentRateMetersPerSecond": null, "ndlSeconds": null, "timeToSurfaceSeconds": null }
+    ]
+  }
+]

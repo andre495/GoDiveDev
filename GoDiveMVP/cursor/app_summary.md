@@ -1,0 +1,133 @@
+# GoDive MVP App Summary
+
+High-level architecture and conventions. For detailed **change history**, see `cursor/change_log.md`. For **coding rules**, see `cursor/rules.md`.
+
+---
+
+## Stack and entry
+
+- **SwiftUI** UI, **SwiftData** persistence, iOS **26** target.
+- **`GoDiveMVP/GoDiveMVPApp.swift`:** `@main`; production SwiftData via **`AppModelContainer.production`**. **Debug:** **`SeedingLaunchOverlay`** while **`MockDataSeeder`** runs (**`ContentView`** hidden until seed finishes). **UI tests** (**`-GoDiveUITest`** / env **`GoDiveUITest=1`**): **`GoDiveUITestRootView`** only — no SwiftData init, no MapKit. **Release:** no mock seeding on launch (see **Mock data & testing**).
+
+---
+
+## App shell and navigation
+
+- **Root:** `GoDiveMVP/Views/Pages/ContentView.swift` — **`TabView`** with four tabs; **Home** is first / default. **`tabBarMinimizeBehavior(.onScrollDown)`** (iOS 26, iPhone) collapses the tab bar while scrolling down in tab content. **`@AppStorage(AppUserSettings.useImperialDisplayUnitsKey)`** maps to **`EnvironmentValues.diveDisplayUnitSystem`** (**`DiveDisplayUnitSystem`**: **`.metric`** vs **`.imperial`**) so every tab inherits the same display-units choice for depth / temp / pressure strings.
+- **Tabs:** Home (`LogOverviewView`), Logbook (`LogbookView`), Field Guide (`FieldGuideView`), Explore (`ExploreView`) — all under **`Views/Pages/`** unless noted.
+- **Navigation:** Home (and Logbook / Field Guide per current wiring) use **`NavigationStack`** for pushes. Pushed flows that should hide the system tab bar use **`hidesBottomTabBarWhenPushed()`** (e.g. Profile, Settings, Activity upload, Trip Planner, single-dive screen).
+- **Secondary destinations:** Pushed headerless flows use **`SecondaryDestinationBackButton`** and related chrome from **`Views/Components/SecondaryDestinationChrome.swift`**.
+
+---
+
+## Headers and page wrappers
+
+### Top chrome & header strategy
+
+- **Visual:** **`AppStatusBarEdgeScrim`** ( **`AppHeader.swift`** ) — **narrow** fade at the **status bar** only (**`surfaceElevated` → `surfaceGradientTop` → clear**); **GoDive** / **+** / dive tab rows sit on the uninterrupted **`screenBackgroundGradient`** (no full-row chrome tint). **Reduce Transparency** uses a short solid **`surfaceElevated`** band.
+- **Layout invariant:** Never reserve header clearance with outer **`padding(.top:)`** on **`ScrollView`** / **`List`** — that keeps rows **below** the bar so nothing composites **under** it. Prefer an **in‑scroll** top **`Color.clear`** spacer (or Logbook’s measured first row) plus **`scrollContentBackground(.hidden)`** where the scroll surface would otherwise occlude the page gradient.
+- **Sizing:** **`AppHeaderMetrics.HeightKey`** publishes the height of **`AppHeader`** and of Logbook’s **top chrome row** (same padding as **`AppHeader`**); **`AppTheme.Layout.appHeaderClearanceFallback`** seeds spacer height before the first layout pass.
+- **Home & `AppPage`:** Root **`GeometryReader`** passes **`safeAreaInsets.top`** into **`AppHeader`** (**`statusBarSafeAreaTop`**); **`ZStack`** overlay — **GoDive** wordmark **horizontally centered**; **`headerTitleForegroundGradient`**; **`ScrollView`** full height; spacer **inside** scroll axis.
+- **Logbook:** **`AppHeaderlessPage`**; **`AppHeader`** (**`showsBrandWordmark: false`**) with trailing **+** only — **same** status scrim + padding + **`HeightKey`** as Home so the top gradient matches. **`GeometryReader`**: list / empty-state top inset = **`safeAreaInsets.top` + `HeightKey`** ( **`List`** **`ignoresSafeArea(edges: .top)`** ); swipe delete → single **Delete dive?** modal (no second **Renumber** sheet — see **Settings** for automatic **1…n** renumbering); **Delete** dismisses the modal **instantly** and removes the row via **`optimisticallyRemovedActivityIDs`** before **`save()`**. **`zIndex`** for modal above chrome.
+- **`ViewSingleActivity`:** **`AppHeaderlessPage`**; back + icon strip in **`overlay`** above map content (not buried under MapKit). **Tabs:** **22** pt **`Image(systemName:)`** for map/camera; **`ScubaTankTab`** template matches the **22** pt cap height, **`fixedSize()`**, and **`templateAssetMaxWidth`** so **`resizable()`** doesn’t stretch across the wide tab cell (**`DiveActivityTabIcon`**).
+- **Other tabs:** Field Guide uses **`AppHeaderlessPage`**; **Explore** is a full-bleed map (**`NavigationStack`** + hidden nav bar). Stack-level **`navigationInteractivePopGestureForHiddenNavBar()`** where needed. **`.cursor/rules/headerless-pages-default.mdc`:** new pages default **headerless**; optional **`AppStatusBarEdgeScrim`** + **`AppHeaderMetrics`** like Logbook when scroll-under top controls are needed. Pushed **secondary** flows use **`SecondaryDestinationChrome`** / **`SecondaryDestinationBackButton`** where applicable.
+- **`AppPage`:** Settings, Trip Planner, Add activity, etc. — same **`AppHeader`** **`ZStack`** + measured inset as Home; hides the **system** navigation bar for a consistent look.
+- **`AppHeaderlessPage`:** Hides the default nav bar; applies **`screenBackgroundGradient`** with **`ignoresSafeArea()`** for full-bleed chrome (see **Theme and chrome**).
+- **Swipe back (hidden system bar):** **`NavigationInteractivePopGestureEnabler.swift`** — **`UIViewController`** anchor + **`UINavigationController`** **`@retroactive UIGestureRecognizerDelegate`** (pop + simultaneous scroll pan); optional foreground **nav** walk when the anchor has no **`navigationController`**; **`goDiveLeadingEdgeSwipePopOverlay`** (narrow leading strip + **`dismiss()`**). Applied on **`AppPage`**, **`AppHeaderlessPage`**, and outer **`NavigationStack`**s where needed. **`GoDiveMVPTests`:** UIKit navigation tests are **`@MainActor`**.
+
+## Theme and chrome
+
+- **`Views/Components/AppTheme.swift`:** semantic colors (light/dark), spacing, typography tokens — prefer these over one-off RGB in views. **Full-screen backgrounds** use **`screenBackgroundGradient`** (**`surfaceGradientTop`** → **`surfaceGradientBottom`**). **Status-only** top fade lives on **`AppStatusBarEdgeScrim`** in **`AppHeader.swift`** (not a second full-row gradient token). **`AppTheme.Layout.appHeaderClearanceFallback`** seeds header / Logbook spacer height before **`AppHeaderMetrics.HeightKey`** first fires.
+- **Launch:** **`LaunchScreen.storyboard`** — **one** inline **light** sRGB background ( **`surfaceGradientBottom`** **light** ), **`GoDiveLogoPin`**, centered **GoDive** label (**`accent`** **light** inline). No catalog **`name=`** on the storyboard (reliable **`ibtool`**). **`LaunchScreen*`** colorsets in **Assets** document gradient/title stops for reference; cold start does **not** switch with Dark Mode until SwiftUI runs.
+
+---
+
+## Visual background (Home & Profile)
+
+- **Page chrome:** **`AppTheme.Colors.screenBackgroundGradient`** behind tab roots and pushed **`AppPage`** / **`AppHeaderlessPage`** flows (and seeding overlay) so bubbles and lists sit on the same vertical tint as **Home** / **Profile**.
+- **`WaterBubbleBackground`** (`Views/Components/WaterBubbleBackground.swift`): **`Canvas`** + **`TimelineView`** decorative bubbles (legacy-style **two-stop radial** fills on the accent palette, soft opacity band, gentle **scale-up** while rising); **`WaterBubbleRendering`** holds the tuned numeric rules; **`allowsHitTesting(false)`**; omitted entirely when **`accessibilityReduceMotion`** is on. Placed behind main content on **Home** and **Profile** via **`ZStack`**.
+
+---
+
+## SwiftData models
+
+Canonical summary vs time-series split:
+
+| Model | Role |
+|--------|------|
+| **`DiveActivity`** | Dive summary: identity, times, depths (**m** in store), temps (**°C**), ascent (**m/s**), site/location strings, **`DiveCoordinate`**, notes, optional **tank** fields (**`tankMaterial`**, **`tankVolumeDescription`** importer text, **`tankPressureStartPSI`** / **`End`** in **psi**), **`rawImportVersion`**, optional **`diveNumber`**, **`diveNumberExplicitlyNone`** (“show **`-`** / skip in import chain”); relationships to buddies and profile points. **UI** formats depths/temps/pressures/volume via **`DiveQuantityFormatting`** + **`diveDisplayUnitSystem`** (no row rewrite on unit toggle). |
+| **`DiveProfilePoint`** | Time-series samples per dive (depth **m**, temp **°C**, ascent **m/s**, NDL, time-to-surface, optional **`tankPressurePSI`**). Chart and labels use the same display-units environment as **`DiveActivity`**. |
+| **`DiveBuddyTag`** | Buddy name tags linked to a dive. |
+| **`DiveSite`** | Catalog site: **`siteName`**, optional **`latCoords`** / **`longCoords`**, **`siteTags`**, **`siteRating`**. Not yet linked from **`DiveActivity`** by relationship; coordinate **matching** supports **`DiveSiteReviewIndicator.needsReview`** (no dedicated UI yet). |
+
+Supporting **`DiveCoordinate`** and **`DeviceSource`** are in **`Models/DiveActivitySupportTypes.swift`** (not in **`DiveActivity.swift`**) so Swift 6 does not treat their **`Equatable`** / **`Codable`** conformances as **Main actor** with **`@Model`**.
+
+**Display (non-persisted):** **`Data/DiveDisplayUnitSystem.swift`** (**`EnvironmentValues.diveDisplayUnitSystem`**) and **`Data/DiveQuantityFormatting.swift`** turn canonical stored numbers into user-facing strings (metric vs imperial).
+
+---
+
+## Data storage strategy
+
+- **Single source of truth:** All durable dive and catalog data lives in **SwiftData** via one **`ModelContainer`** in **`GoDiveMVPApp`** (default **on-disk** store for the app process). **`@Model`** types (**`DiveActivity`**, **`DiveProfilePoint`**, **`DiveBuddyTag`**, **`DiveSite`**) are the persisted shape; there is **no second database** and **no archive of raw import file bytes** (**.fit** / **.uddf**) after import.
+- **User preferences (`UserDefaults` / `AppUserSettings`):** **`automaticallyRenumberDives`** can rewrite persisted **`diveNumber`** after import, seed, or delete. **`useImperialDisplayUnits`** only drives **`EnvironmentValues.diveDisplayUnitSystem`** and **`DiveQuantityFormatting`** for on-screen strings; SwiftData fields stay in canonical **m** / **°C** / **psi** (no unit migration on toggle).
+- **Dives:** Each saved dive is a **`DiveActivity`** row with a generated **`id`** (**UUID**). Time-series samples are **`DiveProfilePoint`** rows linked through **`DiveActivity.profilePoints`** (**`@Relationship`**, **`.cascade`** delete). **`DiveBuddyTag`** is a separate child collection on the activity. Imported dives and mock-seeded dives use the **same** model types and store. The **Logbook** tab lists every **`DiveActivity`** (newest first) from the same store. **`DiveActivityDiveNumbering`** owns chained **file-import** **`diveNumber`** assignment (**`nextChainedDiveNumberForNewImport`**), **`backfillMissingDiveNumbers`** (skips **`diveNumberExplicitlyNone`**), **`renumberAllChronologically`** (full **1…n** by **`startTime`**), **`applyAutomaticSequentialRenumberIfNeeded`** (calls **`renumberAllChronologically`** when **`AppUserSettings.automaticallyRenumberDives`** is **on** — after import, seed, and after delete via **`DiveActivityDeletion`**), and **`renumberDivesNewerThanDeleted`** (tail-only; tests / internal). **`DiveActivityDeletion`** (**`async`**, **`Task.yield`** before **`save()`**; optional full renumber in a separate **`.utility`** **`Task`** when automatic renumber is on — UI uses **`awaitPostDeleteRenumber: false`**, tests **`true`**) removes a dive and updates **`diveNumber`** per **Settings** (tests pass **`applySequentialRenumberOverride`**).
+- **Ingress vs storage:**  
+  - **JSON fixtures (Debug):** Bundled **`MockData/*.json`** → DTOs → **`DiveActivityMapper`** / **`DiveSiteMapper`** → **`modelContext.insert`** / **`save`** (see **`MockDataSeeder`**).  
+  - **File import (Logbook → Add activity):** **`.fit`** — read via **`FitDiveFileImport.readFitFileData`**, **`FitDiveFileDecoder`**, **`importFitData`** → **`DiveFileImportOutcome`** (**`userMessage`** + **`primaryInsertedDiveId`**). **`.uddf`** — **`UddfDiveFileImport.readUddfFileData`**, **`UddfDiveFileDecoder.buildDiveActivities`** (may return **multiple** dives per file), **`importUddfData`** (same outcome type; multi-dive files set **`primaryInsertedDiveId`** to the **newest** inserted dive by **`startTime`**, **`id`** tie-break). Before insert, **`DiveActivityDuplicateMatcher`** blocks or skips rows that match the log (**same `sourceDiveId`**, or cross-format **fingerprint**: start ±2 min, max depth ±0.6 m, bottom/duration tolerance — e.g. same dive from **FIT** and **UDDF**). **Logbook** shows **Possible duplicate** on matching pairs. Both paths use security-scoped **`Data`**, then **`DiveActivityDiveNumbering.assignNextDiveNumberChainedAfterNewest`** per dive (insert **oldest-first** for multi-dive UDDF so chained **#** matches chronology); **`insert`** + **`save`**. When **`AppUserSettings.automaticallyRenumberDives`** is **on**, **`applyAutomaticSequentialRenumberIfNeeded`** runs so **`diveNumber`** is **1…n** by date. Only canonical fields are written; **source files are not retained**. **`rawImportVersion`** / **`sourceDiveId`** record provenance (**FIT:** **`FileIdMesg`**; **UDDF:** generator string + **`<dive id>`**). **FIT** also fills **`bottomTimeSeconds`**, **`surfaceIntervalSeconds`**, **`waterTempAvgCelsius`** / **`waterTempMaxCelsius`** / **`waterTempMinCelsius`** from **`DiveSummaryMesg`** + session/record temps (**`DiveImportWaterTemperatureSummary`**); **UDDF** sets **`bottomTimeSeconds`** from **`diveduration`**, **`waterTempMinCelsius`** from **`lowesttemperature`** + waypoint min. **`DiveProfilePoint`**: **FIT** maps **`ndl_time`**, **`time_to_surface`**, **`ascent_rate`** when present; **FIT** / **UDDF** may set **`tankPressurePSI`** when the source includes per-sample cylinder pressure. **FIT** tank summary / updates → dive-level **`tankPressure*PSI`**, **`tankVolumeDescription`** (L + **~ft³** from **`TankSummary.volume_used`**); **UDDF** **`tankdata`** / waypoint **`tankpressure`**. **FIT** entry **`DiveCoordinate`** prefers **`SessionMesg`** **`start_position_*`** (then first **`RecordMesg`** fix); **FIT** rejects **>1** diving session or **>2** tank sensor ids (**`FitDecodeError`**).
+- **Catalog:** **`DiveSite`** rows are independent entities (fixture-seeded); **`DiveActivity`** does **not** yet hold a **`@Relationship`** to **`DiveSite`**—only string **`siteName`** / **`coordinate`** on the dive plus optional **coordinate-match** UX.
+- **Not implemented yet:** Storing original FIT or JSON attachments, CloudKit / multi-device sync, export, or merge/delete-duplicate UX beyond **import block** + **Possible duplicate** logbook hint (**`DiveActivityDuplicateMatcher`**).
+
+---
+
+## Data pipeline (mock / fixtures)
+
+- **`MockData/`** — JSON fixtures (`dives_sample.json`, `divesites_sample.json`, …).
+- **`Data/DTOs`**, **`Data/Loaders`**, **`Data/Mappers`**, **`Data/Seed`** — decode, load, map to `@Model` types, **`MockDataSeeder.seedIfNeeded`** (insert when empty; selective **sync** when store already has dives — see seeder implementation).
+- **Dive site hints (logic only today):** **`DiveSiteCoordinateMatcher`** (±0.01° per axis) and **`DiveSiteReviewIndicator.needsReview`** (GPS matches a catalog **`DiveSite`** but the dive’s **`siteName`** text differs). **Debug** loads **`divesites_sample`** catalog sites; **Release** has no bundled catalog unless you add one. Nothing in the current UI reads **`needsReview`** for a row icon; it remains available for future “align with catalog” flows.
+
+---
+
+## Dive file import (Garmin FIT + UDDF)
+
+- **FIT — dependency:** Swift package **[FITSwiftSDK](https://github.com/garmin/fit-swift-sdk)** (v21.x+) on **`GoDiveMVP`**; **`Package.resolved`** in **`swiftpm`** shareddata.
+- **FIT — decode + map:** **`Data/Import/FitDiveFileDecoder.swift`** — **`Decoder`** + **`FitListener`**; **`SessionMesg`** with **`Sport.diving`** (exactly **one** diving session per file); **`DiveActivity`** (**`deviceSource: .garminMK3`**, **`rawImportVersion`**); **`DiveSummaryMesg`** (session-linked) for **`bottomTimeSeconds`** / **`surfaceIntervalSeconds`**; **`DiveImportWaterTemperatureSummary`** for **`waterTemp*Celsius`**; **`DiveProfilePoint`** from **`RecordMesg`** (depth, time, temp, NDL, time-to-surface, instantaneous **ascent rate** m/s, optional per-sample **`tankPressurePSI`** from **`TankUpdateMesg`** time-alignment, optional **`heartRateBPM`**, **`po2Bars`**, **`n2Load`**, **`cnsLoad`** when present in the file); **entry GPS** from **`SessionMesg.start_position_*`** when set, else first **`RecordMesg`** position (invalid semicircle **`0x7FFFFFFF`** skipped); **tank** dive-level fields from **`TankSummaryMesg`** / **`TankUpdateMesg`** via **`FitTankFieldImport`** (bar→psi; **≤2** tank sensors; **`>2`** sensors or **>1** diving session → **`FitDecodeError`**); **`sourceDiveId`** from **`FileIdMesg`**. **`FitDecodeError`** for invalid FIT.
+- **UDDF — decode + map:** **`Data/Import/UddfDiveFileDecoder.swift`** — **`XMLParser`** for **`http://www.streit.cc/uddf/3.2/`** (e.g. **MacDive** export); **`DiveActivity`** (**`deviceSource: .macDive`**), optional **tank** fields from **`tankdata`** (Pa→psi, m³ volume string, optional **`tankmaterial`**), **`bottomTimeSeconds`** from **`diveduration`**, **`waterTempMinCelsius`** from **`lowesttemperature`** + waypoint min, profile from **`samples/waypoint`** (including waypoint **`tankpressure`** → **`tankPressurePSI`**), buddies from **`diver/buddy`** + links, site from **`divesite/site`**; **`UddfDecodeError`** for invalid / empty / no dives. Unmapped UDDF fields are listed in **`cursor/todo.md`** (UDDF section).
+- **UI:** **Logbook** **`plus`** → **`ActivityUploadView`** — **File upload** panel runs **`fileImporter`** (**`.fit`** / **`.uddf`**); **`UTType.goDiveFit`** + **`goDiveUddf`** (**`Data/Import/UTType+Fit.swift`**); **`FitImportOverlayState`** scrim: synchronous show then **`Task`** + pre-read **`yield`** (**`activity_upload.swift`**); **`DiveFileImportOutcome.didSucceed`** (same rules as **`DiveFileImportSuccess`**) for completion detection. **Settings** — import hint + **Automatically renumber dives** + **Imperial units** toggles (**`AppUserSettings`** / **`@AppStorage`**); Logbook **+** remains the import entry point.
+
+---
+
+## Notable screens (MVP)
+
+- **`LogbookView`:** **`NavigationStack(path:)`** with a private **`Route`** enum (**`addActivity`** / **`diveDetail(UUID)`**). **`@Query`** all **`DiveActivity`** (**newest first:** **`startTime`** descending, then **`id`** ascending for ties); **`visibleActivities`** filters **`optimisticallyRemovedActivityIDs`** so the row vanishes on **Delete** before **`save()`**. **Top:** same **`AppHeader`** shell as Home (**`showsBrandWordmark: false`**, trailing **+** with **44×44** pt hit target) so **`AppStatusBarEdgeScrim`** composites like Home. **`GeometryReader`**: inset = **`safeAreaInsets.top` + `AppHeaderMetrics`** (**`List`** **`ignoresSafeArea(edges: .top)`**, hidden list background). **`LogbookActivityRow`** may show **Possible duplicate** when **`DiveActivityDuplicateMatcher`** finds a fingerprint or **`sourceDiveId`** match. **+** and empty-state CTA push **`addActivity`**. Swipe **Delete** → **Delete dive?** modal; **Delete** calls **`confirmDeleteDive`** — overlay **`dismissDeleteOverlayImmediately`**, optimistic row hide, optional detail pop, then **`Task`** **`deletePermanently`** (deferred renumber when **Settings** automatic renumber is on). **`List`** uses **`animation(nil, value: visibleActivities.count)`**. **`navigationDestination`:** **`ActivityUploadView`** with **`onSuccessfulImport`** (pop upload, push **`ViewSingleActivity`** for **`primaryInsertedDiveId`**). Empty state → **`NavigationLink(value: .addActivity)`**.
+- **`SettingsView`:** **`AppPage`** titled **Settings**; **`Toggle`** **Automatically renumber dives** ( **`@AppStorage`** **`goDiveAutomaticallyRenumberDives`** ); **`Toggle`** **Imperial units** ( **`@AppStorage`** **`goDiveUseImperialDisplayUnits`** ); enabling renumber runs **`renumberAllChronologically`** once; import/seed/delete honor **`AppUserSettings`** (see **Data storage**). Imperial toggle only affects on-screen formatting (**`DiveQuantityFormatting`**), not persisted **`DiveActivity`** fields.
+- **`ActivityUploadView`:** **`AppPage`** titled **Add activity**; optional **`onSuccessfulImport(UUID)`** (Logbook wires navigation). Root body is two **equal-height, full-width** tap targets stacked **top / bottom** (**File upload** opens **`.fit` / `.uddf`** **`fileImporter`**; **Manual entry** is a placeholder with no flow yet). While the import scrim is up, both targets are **disabled**. After pick, **`importOverlay`** is set **synchronously** (**`Importing dive…`**) before read / decode / duplicate check; **`yieldForImportOverlayPaint`** + **`Task.detached`** file read keep the scrim visible; **`persistImportedActivity`** / **`persistImportedActivities`** run duplicate matching after decode. **Linear `ProgressView`** stages (**Reading file…** → **Processing dive…** → **Complete**); on success a **short dwell on Complete** (see **`FitImportSuccessTiming`** in **`activity_upload.swift`**) before the scrim dismisses and **`onSuccessfulImport`** runs; failure shows message + **Dismiss**.
+- **`ViewSingleActivity`:** **Map-first** from **Logbook** — full-bleed **`DiveLocationMapView`** / **`DiveTankOverviewHeroView`** behind a native SwiftUI **`.sheet`** (**`DiveActivityOverviewSheetContent`** + **`diveActivityOverviewSheetPresentation`**) on **map** and **tank** (dismissed on **camera**). **`DiveActivityOverviewDetent`**: **~20% / ~50%** (default) **/ ~85%**; **`.thinMaterial`** sheet background (**`sheetBackgroundOpacity`** **0.86**); **`presentationBackgroundInteraction`** through **medium**; scroll expand / pull-to-medium; tap minimized summary → **medium**. Map camera reframes on detent snap via **`cameraLayoutDetent`** (no MapKit rebuild per height). Expanded sheet body stays mounted when minimized to avoid chart teardown. **map** sheet: site header, **`DiveDepthProfileChart`** (scrub), stats. **tank** sheet: cylinder + profile pressure stats; shorter detent drains **`DiveTankCylinderVisual`**. Top chrome: back + icon tabs in **`overlay`**; **`view_single_activity`**.
+
+---
+
+## Not yet built / placeholders
+
+These gaps are intentional for an MVP shell; **`cursor/rules.md`** also lists larger deferrals (Garmin import, sync, media, etc.).
+
+- **Tabs with almost no content:** **Field Guide** is still an **`AppHeaderlessPage`** + **`Spacer()`** placeholder (no species content). **Explore** is a full-screen **`DiveLocationMapView`** (default world region, **muted** standard style; no dive pins yet) with a top-trailing **Trip Planner** link. **Profile** is still a sparse shell (toolbar row + space). **Logbook** now lists dives from SwiftData (see **Notable screens**).
+- **Home is not a real log:** The **Home** tab body is intentionally **blank** for now (header + profile only); use **Logbook** to open dives.
+- **Single-dive screen:** Icon tabs (**map**, tank, camera) on the overview; **map** and **tank** share the bottom sheet; **camera** is still a lightweight placeholder. **Details** and **More** (debug dump) remain in source for later.
+- **Data model gaps:** **`DiveActivity`** still stores **`siteName`**, **`locationName`**, and **`DiveCoordinate`** as free text / embedded values. **`DiveSite`** exists as a **catalog** table and supports **coordinate matching** / **`needsReview`** logic, but there is **no `@Relationship`** from a dive to a chosen **`DiveSite`** yet, no user “accept suggestion” persistence, and no general **location** model beyond strings on the dive.
+- **Production data path:** **Debug** still uses JSON **`MockDataSeeder`**; **`.fit`** and **`.uddf`** are on-device paths (**Logbook** → **Add activity**). **Duplicate detection** blocks re-import of the same dive (including cross-format); no merge/delete-duplicate UX yet. Full-field parity with every exporter is still incomplete (**`cursor/todo.md`**).
+- **UI tests:** **`GoDiveMVPUITests`** is a minimal template, not a regression suite.
+
+---
+
+## Mock data & testing
+
+- **Policy:** Non-trivial **`GoDiveMVP/`** changes should add or update tests in **`GoDiveMVPTests`** or **`GoDiveMVPUITests`** (see **`.cursor/rules/code-changes-require-tests.mdc`** and **`cursor/rules.md`**).
+- **Debug builds:** Launch-time **`MockDataSeeder`** (bundled JSON). **Release:** no automatic mock seeding.
+- **Unit tests:** **`GoDiveMVPTests`** — Swift Testing, logic-focused: matchers, **`.fit`** / **`.uddf`** import decoders + outcomes, **`DiveActivityDuplicateMatcher`**, depth-profile math, **`diveLocationMapPresentation_*`** (incl. **`adjustedMapCenter`** with top + bottom obstructions), **`diveMapCoordinateResolver_*`**, **`diveActivityOverviewDetent_*`**, **`diveActivityOverviewPanelMetrics_*`** (scroll snap, detent helpers), tank tab (**`diveActivityTankPanelSummary_*`**), tab icons, **`DiveQuantityFormatting`**, **`DiveActivityDeletion`**, **`AppUserSettings`**, **`FitTankFieldImport_*`**, etc.
+- **UI tests:** **`GoDiveMVPUITests`** — **`XCUIApplication.goDiveForUITesting()`** launches **`GoDiveUITestRootView`** (stable AX shell, not production **`ContentView`**). **`testLaunch`**: **`GoDive.UITest.Root`**, Home tab, Profile. Scheme: test bundles **`parallelizable = "NO"`**; **`runsForEachTargetApplicationUIConfiguration = false`**.
+- **Manual:** **⌘R** in Debug on simulator/device with fixtures; previews where present.
+
+---
+
+## Documentation maintenance
+
+When **`GoDiveMVP/`** behavior changes, update the **latest open** section in **`cursor/change_log.md`** and refresh **`cursor/app_summary.md`** in the same effort (see **`.cursor/rules/changelog-app-summary-sync.mdc`**). Only add a **new** numbered section when the user asks; they mark **`(pushed)`** and handle git themselves.

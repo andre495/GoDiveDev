@@ -1,0 +1,24 @@
+# Xcode / Swift
+build/
+DerivedData/
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+xcuserdata/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Swift Package Manager
+.swiftpm/
+.build/
+Package.resolved
+
+# Cursor / IDE (optional local settings)
+.vscode/
+
+# Secrets
+.env
+*.pem

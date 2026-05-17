@@ -1,0 +1,21 @@
+---
+description: New code changes must include tests in GoDiveMVPTests or GoDiveMVPUITests.
+alwaysApply: true
+---
+
+# Code changes require tests
+
+For **non-trivial** updates to **`GoDiveMVP/`** (new behavior, bug fixes, data rules, navigation, models beyond renames, new public APIs, or user-visible flows), **add or update automated tests** in the same change set:
+
+| Target | Use for |
+|--------|---------|
+| **`GoDiveMVPTests`** | Pure logic, decoders/mappers, matchers, seed rules, `ModelContext`-free SwiftData helpers, and anything testable without driving the full UI. Prefer Swift Testing (`@Test`, `#expect`) to match the existing suite. |
+| **`GoDiveMVPUITests`** | End-to-end SwiftUI flows, tab navigation, and behavior that depends on the running app, accessibility trees, or layout. |
+
+**Expectations**
+
+- **Default:** Do not finish a feature or fix without **at least one** new or adjusted test that would fail if the change regressed.
+- **Prefer unit tests** when the behavior does not require `XCUIApplication`; keep UI tests **small and stable** (deterministic launch, avoid flaky timing).
+- **Exceptions (rare):** Purely cosmetic one-line tweaks, comment-only edits, or changes the user **explicitly** asks to ship without tests — state the exception briefly when you skip tests.
+
+If Xcode is unavailable in the environment, still **author** the tests; the user runs **⌘U** locally.
