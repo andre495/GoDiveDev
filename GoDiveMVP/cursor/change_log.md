@@ -183,7 +183,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ---
 
-## 22 - Logbook delete renumber performance (not pushed)
+## 22 - Logbook delete renumber performance **(pushed)**
 
 **Summary:** Logbook stays responsive on delete; **Logbook** / **Field Guide** bubbles; **`AppComingSoonPlaceholder`** on Field Guide and Profile. **#** labels come from chronology (not live **`diveNumber`** while auto-renumber is on), **`Equatable`** row snapshots avoid re-layout when background persist catches up, debounced background **`renumberAllChronologically`** for multi-delete. Single-dive **map** tab drops live MapKit before pop so back to Logbook is snappier when the overview sheet is up.
 
