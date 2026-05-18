@@ -1,6 +1,10 @@
+import SwiftData
 import SwiftUI
 
 struct ProfileView: View {
+    @Environment(AccountSession.self) private var accountSession
+    @Environment(\.dismiss) private var dismiss
+
     var body: some View {
         AppHeaderlessPage {
             ZStack {
@@ -27,21 +31,54 @@ struct ProfileView: View {
                     .padding(.horizontal, AppTheme.Spacing.lg)
                     .padding(.vertical, AppTheme.Spacing.md)
 
-                    Spacer(minLength: AppTheme.Spacing.lg)
-
-                    AppComingSoonPlaceholder(
-                        systemImage: "person.circle",
-                        message: "Your diver profile and dive stats will show up here."
-                    )
+                    profileHeader
+                        .padding(.horizontal, AppTheme.Spacing.lg)
+                        .padding(.top, AppTheme.Spacing.sm)
 
                     Spacer()
+
+                    signOutButton
+                        .padding(.horizontal, AppTheme.Spacing.lg)
+                        .padding(.bottom, AppTheme.Spacing.lg)
                 }
             }
         }
         .hidesBottomTabBarWhenPushed()
     }
+
+    private var profileHeader: some View {
+        VStack(spacing: AppTheme.Spacing.sm) {
+            Text(accountSession.currentProfile?.displayName ?? UserProfileStore.defaultDisplayName)
+                .font(.largeTitle.weight(.bold))
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+                .multilineTextAlignment(.center)
+                .accessibilityIdentifier("Profile.DisplayName")
+
+            Text("Rescue Diver")
+                .font(.title3.weight(.medium))
+                .foregroundStyle(AppTheme.Colors.secondaryText)
+                .multilineTextAlignment(.center)
+                .accessibilityIdentifier("Profile.CertificationSubtitle")
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var signOutButton: some View {
+        Button("Sign out", role: .destructive) {
+            accountSession.signOut()
+            dismiss()
+        }
+        .font(.body.weight(.semibold))
+        .frame(maxWidth: .infinity)
+        .accessibilityIdentifier("Profile.SignOut")
+    }
 }
 
 #Preview {
-    ProfileView()
+    NavigationStack {
+        ProfileView()
+    }
+    .environment(AccountSession.shared)
+    .modelContainer(try! AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true))
 }

@@ -16,8 +16,18 @@ struct LogOverviewView: View {
                             VStack(spacing: 0) {
                                 Color.clear
                                     .frame(height: headerClearance)
-                                Color.clear
-                                    .frame(maxWidth: .infinity, minHeight: max(0, geometry.size.height - headerClearance))
+
+                                VStack {
+                                    Spacer(minLength: AppTheme.Spacing.lg)
+
+                                    AppComingSoonPlaceholder(
+                                        systemImage: "sparkles",
+                                        message: "Trip highlights, stats, and more home features are on the way."
+                                    )
+
+                                    Spacer()
+                                }
+                                .frame(maxWidth: .infinity, minHeight: max(0, geometry.size.height - headerClearance))
                             }
                         }
                         .scrollContentBackground(.hidden)

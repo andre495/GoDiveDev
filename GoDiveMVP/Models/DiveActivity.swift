@@ -68,6 +68,11 @@ final class DiveActivity {
     @Relationship(deleteRule: .cascade)
     var profilePoints: [DiveProfilePoint] = []
 
+    /// Denormalized for **`#Predicate`** / logbook filtering; kept in sync with **`owner`**.
+    var ownerProfileID: UUID?
+    @Relationship
+    var owner: UserProfile?
+
     // Metadata
     var rawImportVersion: String?
 

@@ -2,6 +2,7 @@ import SwiftData
 import SwiftUI
 
 struct LogbookView: View {
+    @Environment(AccountSession.self) private var accountSession
     @Environment(\.modelContext) private var modelContext
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
 
@@ -24,8 +25,13 @@ struct LogbookView: View {
     @State private var optimisticallyRemovedActivityIDs: Set<UUID> = []
     @State private var logbookHeaderClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
 
+    private var ownedActivities: [DiveActivity] {
+        guard let ownerID = accountSession.currentProfile?.id else { return [] }
+        return activities.filter { $0.ownerProfileID == ownerID }
+    }
+
     private var visibleActivities: [DiveActivity] {
-        activities.filter { !optimisticallyRemovedActivityIDs.contains($0.id) }
+        ownedActivities.filter { !optimisticallyRemovedActivityIDs.contains($0.id) }
     }
 
     @MainActor

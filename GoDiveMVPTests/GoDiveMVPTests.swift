@@ -104,6 +104,86 @@ struct GoDiveMVPTests {
         #expect(sorted[2].id.uuidString < sorted[3].id.uuidString)
     }
 
+    @Test func mockDataSeeding_launchSeedingDisabledByDefault() {
+        #expect(!MockDataSeeding.isLaunchSeedingEnabled)
+    }
+
+    @Test func userProfileStore_displayNameFromPersonNameComponents() {
+        var components = PersonNameComponents()
+        components.givenName = "Alex"
+        components.familyName = "Diver"
+        #expect(UserProfileStore.displayName(from: components) == "Alex Diver")
+        #expect(UserProfileStore.displayName(from: nil) == nil)
+    }
+
+    @Test @MainActor
+    func userProfileStore_findOrCreateProfile_reusesAppleUser() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let first = try UserProfileStore.findOrCreateProfile(
+            appleUserIdentifier: "apple-user-1",
+            displayName: "Casey",
+            modelContext: context
+        )
+        let second = try UserProfileStore.findOrCreateProfile(
+            appleUserIdentifier: "apple-user-1",
+            displayName: "Ignored",
+            modelContext: context
+        )
+
+        #expect(first.id == second.id)
+        #expect(second.displayName == "Casey")
+        #expect(try context.fetchCount(FetchDescriptor<UserProfile>()) == 1)
+    }
+
+    @Test @MainActor
+    func userProfileStore_findOrCreateProfile_upgradesDefaultDisplayName() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let first = try UserProfileStore.findOrCreateProfile(
+            appleUserIdentifier: "apple-user-2",
+            displayName: nil,
+            modelContext: context
+        )
+        #expect(first.displayName == UserProfileStore.defaultDisplayName)
+
+        let second = try UserProfileStore.findOrCreateProfile(
+            appleUserIdentifier: "apple-user-2",
+            displayName: "Casey",
+            modelContext: context
+        )
+
+        #expect(first.id == second.id)
+        #expect(second.displayName == "Casey")
+    }
+
+    @Test @MainActor
+    func diveActivityOwnership_assignOwnerAndClaimUnowned() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let owner = UserProfile(appleUserIdentifier: "apple-1", displayName: "Owner")
+        context.insert(owner)
+
+        let unowned = DiveActivity(
+            deviceSource: .manual,
+            startTime: Date(),
+            durationMinutes: 1,
+            maxDepthMeters: 1
+        )
+        context.insert(unowned)
+        try context.save()
+
+        try DiveActivityOwnership.claimUnownedDives(for: owner, modelContext: context)
+
+        #expect(unowned.ownerProfileID == owner.id)
+        #expect(unowned.owner?.id == owner.id)
+        let owned = try DiveActivityOwnership.activities(forOwnerProfileID: owner.id, modelContext: context)
+        #expect(owned.count == 1)
+    }
+
     @Test func appUserSettings_automaticallyRenumberDivesKey_matchesAppStorage() {
         #expect(AppUserSettings.automaticallyRenumberDivesKey == "goDiveAutomaticallyRenumberDives")
     }
@@ -1238,18 +1318,24 @@ struct GoDiveMVPTests {
     }
 
     @Test @MainActor
-    func uddfImport_twoDives_insertsBoth() throws {
-        let schema = Schema([
-            DiveActivity.self,
-            DiveBuddyTag.self,
-            DiveProfilePoint.self,
-            DiveSite.self,
-        ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: schema, configurations: [configuration])
+    func uddfImport_withoutOwner_returnsSignInMessage() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = ModelContext(container)
-        let data = Data(UddfTestXML.twoDives.utf8)
+        let data = Data(UddfTestXML.oneDive.utf8)
         let outcome = UddfDiveFileImport.importUddfData(data, modelContext: context)
+        #expect(!outcome.didSucceed)
+        #expect(outcome.userMessage == "Sign in to import dives.")
+    }
+
+    @Test @MainActor
+    func uddfImport_twoDives_insertsBoth() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "test-uddf-import", displayName: "Import Test")
+        context.insert(owner)
+        try context.save()
+        let data = Data(UddfTestXML.twoDives.utf8)
+        let outcome = UddfDiveFileImport.importUddfData(data, modelContext: context, owner: owner)
         #expect(outcome.didSucceed)
         let fetched = try context.fetch(FetchDescriptor<DiveActivity>())
         #expect(fetched.count == 2)
@@ -1410,19 +1496,15 @@ struct GoDiveMVPTests {
 
     @Test @MainActor
     func uddfImport_secondImportOfSameFile_blockedAsDuplicate() throws {
-        let schema = Schema([
-            DiveActivity.self,
-            DiveBuddyTag.self,
-            DiveProfilePoint.self,
-            DiveSite.self,
-        ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "test-uddf-dup", displayName: "Dup Test")
+        context.insert(owner)
+        try context.save()
         let data = Data(UddfTestXML.oneDive.utf8)
-        let first = UddfDiveFileImport.importUddfData(data, modelContext: context)
+        let first = UddfDiveFileImport.importUddfData(data, modelContext: context, owner: owner)
         #expect(first.didSucceed)
-        let second = UddfDiveFileImport.importUddfData(data, modelContext: context)
+        let second = UddfDiveFileImport.importUddfData(data, modelContext: context, owner: owner)
         #expect(!second.didSucceed)
         #expect(second.userMessage.contains("already in your log"))
         let fetched = try context.fetch(FetchDescriptor<DiveActivity>())

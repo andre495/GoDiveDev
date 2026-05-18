@@ -12,4 +12,4 @@ Expected JSON shape:
 - Each activity includes `profilePoints` as an array.
 - Dates must use ISO-8601 format.
 
-This file is loaded at app launch by `MockDataSeeder` only when the database has no existing `DiveActivity` records.
+Launch seeding is **off** by default (`MockDataSeeding.isLaunchSeedingEnabled` in `Data/Seed/MockDataSeeding.swift`). Set it to `true` in Debug to load fixtures when the store is empty. Use **Logbook → Add activity** for real `.fit` / `.uddf` imports.

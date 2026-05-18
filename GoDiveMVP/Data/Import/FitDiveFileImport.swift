@@ -34,10 +34,14 @@ enum FitDiveFileImport {
     }
 
     @MainActor
-    static func importFitData(_ data: Data, modelContext: ModelContext) -> DiveFileImportOutcome {
+    static func importFitData(
+        _ data: Data,
+        modelContext: ModelContext,
+        owner: UserProfile? = nil
+    ) -> DiveFileImportOutcome {
         do {
             let activity = try FitDiveFileDecoder.buildDiveActivity(from: data)
-            return persistImportedActivity(activity, modelContext: modelContext)
+            return persistImportedActivity(activity, modelContext: modelContext, owner: owner)
         } catch let fit as FitDecodeError {
             return DiveFileImportOutcome(userMessage: fit.localizedDescription, primaryInsertedDiveId: nil)
         } catch {
@@ -47,9 +51,19 @@ enum FitDiveFileImport {
 
     /// Duplicate check + SwiftData insert (call after decode so UI can show progress first).
     @MainActor
-    static func persistImportedActivity(_ activity: DiveActivity, modelContext: ModelContext) -> DiveFileImportOutcome {
+    static func persistImportedActivity(
+        _ activity: DiveActivity,
+        modelContext: ModelContext,
+        owner: UserProfile? = nil
+    ) -> DiveFileImportOutcome {
         do {
-            let stored = try modelContext.fetch(FetchDescriptor<DiveActivity>())
+            guard let owner = owner ?? AccountSession.shared.currentProfile else {
+                return DiveFileImportOutcome(
+                    userMessage: "Sign in to import dives.",
+                    primaryInsertedDiveId: nil
+                )
+            }
+            let stored = try DiveActivityOwnership.activities(forOwnerProfileID: owner.id, modelContext: modelContext)
             let existing = stored.map(DiveActivityDuplicateMatcher.Signature.init)
             let candidate = DiveActivityDuplicateMatcher.Signature(activity)
             if let match = DiveActivityDuplicateMatcher.findDuplicate(for: candidate, among: existing),
@@ -60,6 +74,7 @@ enum FitDiveFileImport {
                 )
             }
             try DiveActivityDiveNumbering.assignNextDiveNumberChainedAfterNewest(for: activity, modelContext: modelContext)
+            DiveActivityOwnership.assignOwner(owner, to: activity)
             modelContext.insert(activity)
             try modelContext.save()
             try DiveActivityDiveNumbering.applyAutomaticSequentialRenumberIfNeeded(modelContext: modelContext)

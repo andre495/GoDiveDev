@@ -201,3 +201,27 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Tests:** **`diveLogbookDisplay_*`**, delete / renumber / post-delete renumber tests.
 - **Docs:** **`cursor/app_summary.md`**.
 
+---
+
+## 23 - Disable launch mock seeding **(pushed)**
+
+**Summary:** Bundled **`dives_sample.json`** no longer loads on app launch; **`SeedingLaunchOverlay`** removed from startup. **`MockDataSeeder`** remains for opt-in Debug use.
+
+- **`MockDataSeeding.isLaunchSeedingEnabled`** — default **`false`**; **`GoDiveMVPApp`** skips **`MockDataSeeder`** and shows **`ContentView`** immediately.
+- **`MockData/README.md`**, **`DiveSiteReviewIndicator`** comment updated.
+- **Test:** **`mockDataSeeding_launchSeedingDisabledByDefault`**.
+
+---
+
+## 24 - Sign in with Apple + local user profile (not pushed)
+
+**Summary:** Lightweight accounts: **`SignInView`** (native **Sign in with Apple**), **`UserProfile`** in SwiftData, **`AccountSession`** gates **`ContentView`**, Profile shows name + sign out; dives link via **`owner`** / **`ownerProfileID`**.
+
+- **`UserProfile`** model; **`UserProfileStore`**, **`AccountSession`**, **`DiveActivityOwnership`**; **`AppSwiftDataSchema`** shared container schema.
+- **`AppSessionRootView`** + **`SignInView`**; **`GoDiveMVP.entitlements`** (Sign in with Apple).
+- **Logbook** / **`.fit`** / **`.uddf`** import scope dives and duplicate checks to the signed-in profile; unowned dives claimed on sign-in.
+- **Profile** replaces coming-soon placeholder with centered large display name + **Rescue Diver** subtitle; red **Sign out** at bottom (no Apple sign-in copy).
+- **`SignInView`:** **`GoDiveLogoPin`** (128×128, same asset as launch screen) above title; tagline **Log every dive. Explore marine life. Connect with buddies.**; full-screen **`surface`** scrim over bubbles for legibility.
+- **Tests:** **`userProfileStore_*`**, **`diveActivityOwnership_*`**; import tests pass **`owner`** (or assert sign-in gate); **`UserProfileStore`** keeps display name on re-sign-in unless still default **Diver**.
+- **Home (`LogOverviewView`):** **`AppComingSoonPlaceholder`** for upcoming dashboard features.
+

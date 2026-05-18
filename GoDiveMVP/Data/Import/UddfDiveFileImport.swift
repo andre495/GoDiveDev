@@ -26,10 +26,14 @@ enum UddfDiveFileImport {
 
     /// Inserts all dives in **`startTime`** order (required for chained **`diveNumber`**). **`primaryInsertedDiveId`** is the newest dive by **`startTime`** ( **`id`** tie-break) when multiple rows are inserted.
     @MainActor
-    static func importUddfData(_ data: Data, modelContext: ModelContext) -> DiveFileImportOutcome {
+    static func importUddfData(
+        _ data: Data,
+        modelContext: ModelContext,
+        owner: UserProfile? = nil
+    ) -> DiveFileImportOutcome {
         do {
             let activities = try UddfDiveFileDecoder.buildDiveActivities(from: data)
-            return persistImportedActivities(activities, modelContext: modelContext)
+            return persistImportedActivities(activities, modelContext: modelContext, owner: owner)
         } catch let uddf as UddfDecodeError {
             return DiveFileImportOutcome(userMessage: uddf.localizedDescription, primaryInsertedDiveId: nil)
         } catch {
@@ -39,9 +43,20 @@ enum UddfDiveFileImport {
 
     /// Duplicate check + SwiftData insert (call after decode so UI can show progress first).
     @MainActor
-    static func persistImportedActivities(_ activities: [DiveActivity], modelContext: ModelContext) -> DiveFileImportOutcome {
+    static func persistImportedActivities(
+        _ activities: [DiveActivity],
+        modelContext: ModelContext,
+        owner: UserProfile? = nil
+    ) -> DiveFileImportOutcome {
         do {
-            var existing = try DiveActivityDuplicateMatcher.allSignatures(modelContext: modelContext)
+            guard let owner = owner ?? AccountSession.shared.currentProfile else {
+                return DiveFileImportOutcome(
+                    userMessage: "Sign in to import dives.",
+                    primaryInsertedDiveId: nil
+                )
+            }
+            var existing = try DiveActivityOwnership.activities(forOwnerProfileID: owner.id, modelContext: modelContext)
+                .map(DiveActivityDuplicateMatcher.Signature.init)
             var inserted: [DiveActivity] = []
             var skippedDuplicates = 0
 
@@ -53,6 +68,7 @@ enum UddfDiveFileImport {
                     continue
                 }
                 try DiveActivityDiveNumbering.assignNextDiveNumberChainedAfterNewest(for: activity, modelContext: modelContext)
+                DiveActivityOwnership.assignOwner(owner, to: activity)
                 modelContext.insert(activity)
                 inserted.append(activity)
                 existing.append(candidate)
