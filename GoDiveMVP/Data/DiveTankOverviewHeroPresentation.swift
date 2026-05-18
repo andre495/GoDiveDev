@@ -27,9 +27,6 @@ enum DiveTankOverviewHeroPresentation: Sendable {
 
     nonisolated static let heroDetentAnimationDuration: TimeInterval = 0.45
 
-    /// Placeholder until dive-level gas mix is modeled on **`DiveActivity`**.
-    nonisolated static let placeholderGasMixLabel = "Nitrox 33%"
-
     nonisolated static func scale(for detent: DiveActivityOverviewDetent) -> CGFloat {
         detent == .minimized ? minimizedScale : 1
     }

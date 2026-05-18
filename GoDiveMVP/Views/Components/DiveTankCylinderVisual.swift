@@ -54,7 +54,8 @@ private struct DiveTankDomeCapShape: Shape {
 // MARK: - View
 
 /// Minimal scuba cylinder (reference-style silhouette): body + gap + dome + valve.
-/// **`pressureRemainingFraction`** is **end/start** PSI (**0...1**): gas column is bottom-anchored; yellow/green band ratio is unchanged within the visible gas.
+/// **`pressureRemainingFraction`** is **end/start** PSI (**0...1**): gas column is bottom-anchored.
+/// Yellow (bottom) = **`yellowFillFraction`** of the gas column; green (top) = the remainder (O₂ vs diluent).
 struct DiveTankCylinderVisual: View {
     /// Overall height of the drawn tank in points.
     var height: CGFloat = 220
@@ -62,13 +63,13 @@ struct DiveTankCylinderVisual: View {
     /// **0...1** — remaining pressure (**ending / beginning**). **1** = visually full.
     var pressureRemainingFraction: CGFloat = 1
 
+    /// **0...1** — yellow band as a fraction of the **gas column** (typically **`oxygenMix` / 100**, default **0.21**).
+    var yellowFillFraction: CGFloat = DiveGasMixImport.tankYellowFillFraction(oxygenMixPercent: nil)
+
     private let yellowFill = Color(red: 0.92, green: 0.78, blue: 0.12)
     private let greenFill = Color(red: 0.14, green: 0.55, blue: 0.38)
     private let outlineColor = Color.primary.opacity(0.24)
     private let outlineWidth: CGFloat = 1.25
-
-    /// Fraction of the **gas column** (not the whole body) that is green at the top — same at every fill level.
-    private let greenBodyFillFraction: CGFloat = 0.27
 
     var body: some View {
         let fill = min(1, max(0, pressureRemainingFraction))
@@ -152,8 +153,9 @@ struct DiveTankCylinderVisual: View {
     private func bodyColumn(width: CGFloat, height: CGFloat, bottomCornerRadius: CGFloat, fillFraction: CGFloat) -> some View {
         let f = min(1, max(0, fillFraction))
         let gasH = height * f
-        let greenGasH = gasH * greenBodyFillFraction
-        let yellowGasH = max(0, gasH - greenGasH)
+        let yellowBand = min(1, max(0, yellowFillFraction))
+        let yellowGasH = gasH * yellowBand
+        let greenGasH = max(0, gasH - yellowGasH)
 
         return ZStack(alignment: .bottom) {
             VStack(spacing: 0) {

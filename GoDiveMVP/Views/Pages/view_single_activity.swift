@@ -160,7 +160,9 @@ struct ViewSingleActivity: View {
                         topObstructionHeight: topObstruction,
                         layoutHeight: layoutHeight,
                         sheetDetent: overviewSheetDetent,
-                        pressureRemainingFraction: tankHeroPressureFillFraction
+                        gasMixLabel: activity.tankHeroGasMixLabel,
+                        pressureRemainingFraction: tankHeroPressureFillFraction,
+                        oxygenMixPercent: activity.oxygenMix
                     )
                 case .camera:
                     placeholderContent(title: "Photos")
@@ -456,6 +458,8 @@ struct ViewSingleActivity: View {
                 detailsSectionHeader("Gas")
                 basicSectionCard {
                     VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                        detailLabeledRow(label: "Gas", value: activity.gasDetailsGasTypeLine)
+                        detailLabeledRow(label: "O₂ mix", value: activity.gasDetailsOxygenMixLine)
                         detailLabeledRow(label: "Tank type", value: activity.gasDetailsTankTypeLine)
                         detailLabeledRow(
                             label: "Volume",

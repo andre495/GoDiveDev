@@ -45,6 +45,7 @@ enum UddfDiveFileDecoder {
                 from: scratch,
                 sites: sites,
                 buddies: buddies,
+                gasMixById: engine.gasMixO2ById,
                 rawImportVersion: rawImportVersion
             )
             activities.append(activity)
@@ -79,6 +80,8 @@ enum UddfDiveFileDecoder {
         var tankPressureEndPascals: Double?
         /// **`tankdata/tankmaterial`** when present.
         var tankMaterial: String?
+        /// **`tankdata/link/@ref`** → **`gasdefinitions/mix/@id`**.
+        var tankMixRef: String?
     }
 
     private struct WaypointScratch {
@@ -93,6 +96,7 @@ enum UddfDiveFileDecoder {
         from scratch: DiveScratch,
         sites: [String: UddfSiteRecord],
         buddies: [String: UddfBuddyRecord],
+        gasMixById: [String: Double],
         rawImportVersion: String
     ) throws -> DiveActivity {
         let diveId = scratch.diveId
@@ -150,6 +154,10 @@ enum UddfDiveFileDecoder {
 
         let avgAscent = averageAscentRateMetersPerSecond(waypoints: waypoints.map { (time: $0.elapsedSeconds, depth: $0.depthMeters) })
 
+        let gasResolved = scratch.tankMixRef
+            .flatMap { gasMixById[$0] }
+            .map { DiveGasMixImport.resolved(fromUddfO2: $0) }
+
         let activity = DiveActivity(
             deviceSource: .macDive,
             sourceDiveId: diveId,
@@ -173,6 +181,8 @@ enum UddfDiveFileDecoder {
             tankVolumeDescription: UddfTankVolumeFormatting.volumeDescription(fromCubicMeters: scratch.tankVolumeCubicMeters),
             tankPressureStartPSI: UddfTankPressureConversion.psi(fromPascals: scratch.tankPressureBeginPascals),
             tankPressureEndPSI: UddfTankPressureConversion.psi(fromPascals: scratch.tankPressureEndPascals),
+            gasType: gasResolved?.gasType,
+            oxygenMix: gasResolved?.oxygenMix,
             rawImportVersion: rawImportVersion
         )
 
@@ -323,7 +333,12 @@ enum UddfDiveFileDecoder {
 
         private(set) var sites: [String: UddfSiteRecord] = [:]
         private(set) var buddies: [String: UddfBuddyRecord] = [:]
+        /// Mix **`id`** → raw **`<o2>`** (fraction or percent).
+        private(set) var gasMixO2ById: [String: Double] = [:]
         private(set) var diveScratches: [DiveScratch] = []
+
+        private var mixId: String?
+        private var mixO2Raw: Double?
 
         private var siteId: String?
         private var siteName: String?
@@ -391,9 +406,16 @@ enum UddfDiveFileDecoder {
                 buddyId = attributeDict["id"]?.trimmingCharacters(in: .whitespacesAndNewlines)
                 buddyFirst = nil
                 buddyLast = nil
+            case "mix":
+                mixId = attributeDict["id"]?.trimmingCharacters(in: .whitespacesAndNewlines)
+                mixO2Raw = nil
             case "link":
-                guard var d = diveScratch, pathEnds(with: ["informationbeforedive", "link"]) else { break }
-                if let ref = attributeDict["ref"]?.trimmingCharacters(in: .whitespacesAndNewlines), !ref.isEmpty {
+                if var d = diveScratch, pathEnds(with: ["tankdata", "link"]),
+                   let ref = attributeDict["ref"]?.trimmingCharacters(in: .whitespacesAndNewlines), !ref.isEmpty {
+                    d.tankMixRef = ref
+                    diveScratch = d
+                } else if var d = diveScratch, pathEnds(with: ["informationbeforedive", "link"]),
+                          let ref = attributeDict["ref"]?.trimmingCharacters(in: .whitespacesAndNewlines), !ref.isEmpty {
                     d.linkRefs.append(ref)
                     diveScratch = d
                 }
@@ -538,6 +560,16 @@ enum UddfDiveFileDecoder {
                     w.tankPressurePascals = Double(trimmed)
                     waypointScratch = w
                 }
+            case "o2":
+                if pathEnds(with: ["gasdefinitions", "mix", "o2"]), let o2 = Double(trimmed) {
+                    mixO2Raw = o2
+                }
+            case "mix":
+                if let id = mixId, !id.isEmpty, let o2 = mixO2Raw {
+                    gasMixO2ById[id] = o2
+                }
+                mixId = nil
+                mixO2Raw = nil
             case "tankvolume":
                 if var d = diveScratch, pathEnds(with: ["tankdata", "tankvolume"]) {
                     d.tankVolumeCubicMeters = Double(trimmed)

@@ -98,6 +98,8 @@ enum FitDiveFileDecoder {
             tankVolumeDescription = FitTankFieldImport.volumeUsedDescription(volumeUsedLiters: used)
         }
 
+        let gasFromFit = diveGasMix(from: messages.diveGasMesgs)
+
         let activity = DiveActivity(
             deviceSource: .garminMK3,
             sourceDiveId: sourceDiveId,
@@ -114,6 +116,8 @@ enum FitDiveFileDecoder {
             tankVolumeDescription: tankVolumeDescription,
             tankPressureStartPSI: tankStartPSI,
             tankPressureEndPSI: tankEndPSI,
+            gasType: gasFromFit?.gasType,
+            oxygenMix: gasFromFit?.oxygenMix,
             rawImportVersion: fitImportVersion
         )
 
@@ -156,6 +160,15 @@ enum FitDiveFileDecoder {
         activity.profilePoints = points
 
         return activity
+    }
+
+    /// First **`DiveGasMesg`** with **`oxygen_content`** (percent in FIT profile).
+    private static func diveGasMix(from messages: [DiveGasMesg]) -> (oxygenMix: Double, gasType: String)? {
+        for mesg in messages {
+            guard let content = mesg.getOxygenContent() else { continue }
+            return DiveGasMixImport.resolved(fromFitOxygenContent: Float(content))
+        }
+        return nil
     }
 
     /// Prefer **`DiveSummaryMesg`** linked to this **`SessionMesg`** (same **`reference_index`**); otherwise first summary.

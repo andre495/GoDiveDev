@@ -143,7 +143,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 ## 21 -
 (not pushed)
 
-**Summary:** Dive overview **map** + **tank** tabs: native **`.sheet`** with shared frosted chrome, satellite map with per-detent pin framing and zoom, animated tank hero (full + gas label on **medium**, corner mini-tank + PSI drain on **minimized**, hidden on **large**). Sheet reaches the physical bottom edge; tab switches reset to **medium** detent.
+**Summary:** Dive overview **map** + **tank** tabs: native **`.sheet`** with shared frosted chrome, satellite map with per-detent pin framing and zoom, animated tank hero (full + gas label on **medium**, corner mini-tank + PSI drain on **minimized**, hidden on **large**). **Gas mix** on **`DiveActivity`** from FIT/UDDF import (**`oxygenMix`**, **`gasType`** Air/Nitrox); tank hero label and yellow/green cylinder fill follow O₂ % (default **21%** air). Sheet reaches the physical bottom edge; tab switches reset to **medium** detent.
 
 ### Map (dive overview + Explore)
 
@@ -162,9 +162,16 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`DiveActivityOverviewDetent+Presentation`:** height-based detents from live **`screenHeight`** + **`bottomSafeInset`** on **`ViewSingleActivity`**.
 - **Tab switch** (**map** / **tank** / **camera**): sheet returns to **medium** detent.
 
+### Gas mix (import + model)
+
+- **`DiveActivity`:** **`oxygenMix`** (percent), **`gasType`** (**Air** at ~21% O₂, else **Nitrox**); **`DiveGasMixImport`** normalizes UDDF **`<o2>`** (fraction→percent) and FIT **`DiveGasMesg.oxygen_content`**.
+- **FIT:** **`FitDiveFileDecoder`** reads first **`dive_gas`** message; **UDDF:** **`gasdefinitions/mix`** + **`tankdata/link`** ref.
+- **UI:** tank hero shows **`gasType`** + **`oxygenMix`** (**`tankHeroGasMixLabel`**, e.g. **Nitrox 32%**) or **No gas specified**; cylinder yellow/green split follows **`oxygenMix`** (default **21%** yellow when unknown); **Details → Gas** rows; DTO/mapper updated.
+- **Tests:** **`diveGasMixImport_*`**, UDDF tank fixture gas assertions.
+
 ### Tank tab (hero + chrome)
 
-- **`DiveTankOverviewHeroPresentation`** + **`TankHeroLayoutMetrics`:** **medium** — full cylinder + placeholder **`Nitrox 33%`**; **minimized** — **~50%** scale, top-trailing, **56** pt extra downshift; animated **position** + **scale** (**0.45** s); **large** — hero hidden (**`showsTankHero`**), gradient only.
+- **`DiveTankOverviewHeroPresentation`** + **`TankHeroLayoutMetrics`:** **medium** — full cylinder + **`tankHeroGasMixLabel`** (**`gasType`** + **`oxygenMix`**, or **No gas specified**); **`DiveTankCylinderVisual`** yellow band = O₂ % (bottom), green = remainder; **minimized** — **~50%** scale, top-trailing, **56** pt extra downshift; animated **position** + **scale** (**0.45** s); **large** — hero hidden (**`showsTankHero`**), gradient only.
 - PSI drain animation when snapping to **minimized** only (not **large** → **medium**).
 - Full-bleed **`screenBackgroundGradient`** behind tank hero (**`ignoresSafeArea`**).
 - **`ScubaTankTab`:** RGBA-trimmed asset, **@2x/@3x**, **`DiveActivityTabIcon.templateAssetSize`**.

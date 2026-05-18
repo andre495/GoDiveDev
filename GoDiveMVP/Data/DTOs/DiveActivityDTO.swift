@@ -24,6 +24,8 @@ struct DiveActivityDTO: Decodable {
     let tankVolumeDescription: String?
     let tankPressureStartPSI: Double?
     let tankPressureEndPSI: Double?
+    let gasType: String?
+    let oxygenMix: Double?
     let buddies: [DiveBuddyDTO]?
     let rawImportVersion: String?
     let profilePoints: [DiveProfilePointDTO]

@@ -26,6 +26,8 @@ enum DiveActivityMapper {
             tankVolumeDescription: dto.tankVolumeDescription,
             tankPressureStartPSI: dto.tankPressureStartPSI,
             tankPressureEndPSI: dto.tankPressureEndPSI,
+            gasType: dto.gasType,
+            oxygenMix: dto.oxygenMix,
             rawImportVersion: dto.rawImportVersion
         )
 

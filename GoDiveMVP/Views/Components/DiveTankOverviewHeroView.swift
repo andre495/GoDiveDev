@@ -6,10 +6,13 @@ struct DiveTankOverviewHeroView: View {
     let topObstructionHeight: CGFloat
     let layoutHeight: CGFloat
     var sheetDetent: DiveActivityOverviewDetent = .medium
-    var gasMixLabel: String = DiveTankOverviewHeroPresentation.placeholderGasMixLabel
+    var gasMixLabel: String = DiveGasMixImport.tankHeroNoGasSpecifiedLabel
 
     /// **0...1** — **`tankPressureEndPSI / tankPressureStartPSI`** when not on **medium** (animated on shorter detents).
     var pressureRemainingFraction: CGFloat = 1
+
+    /// O₂ percent for yellow/green band split; **`nil`** → **21%** yellow (air).
+    var oxygenMixPercent: Double?
 
     private var showsTankHero: Bool {
         DiveTankOverviewHeroPresentation.showsTankHero(for: sheetDetent)
@@ -49,7 +52,10 @@ struct DiveTankOverviewHeroView: View {
                 Group {
                     DiveTankCylinderVisual(
                         height: cylinderHeight,
-                        pressureRemainingFraction: displayFillFraction
+                        pressureRemainingFraction: displayFillFraction,
+                        yellowFillFraction: DiveGasMixImport.tankYellowFillFraction(
+                            oxygenMixPercent: oxygenMixPercent
+                        )
                     )
                     .opacity(0.92)
                     .scaleEffect(metrics.scale, anchor: .center)

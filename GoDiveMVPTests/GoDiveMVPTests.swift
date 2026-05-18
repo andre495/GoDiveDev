@@ -397,7 +397,9 @@ struct GoDiveMVPTests {
                 animatedFillFraction: 0.25
             ) == 0.25
         )
-        #expect(DiveTankOverviewHeroPresentation.placeholderGasMixLabel == "Nitrox 33%")
+        #expect(DiveGasMixImport.tankHeroLabel(gasType: "Nitrox", oxygenMix: 32) == "Nitrox 32%")
+        #expect(DiveGasMixImport.tankHeroLabel(gasType: nil, oxygenMix: 32) == "No gas specified")
+        #expect(DiveGasMixImport.tankHeroLabel(gasType: "Air", oxygenMix: nil) == "No gas specified")
     }
 
     @Test func diveTankOverviewHeroPresentation_minimizedTopInset_includesDownshift() {
@@ -909,6 +911,24 @@ struct GoDiveMVPTests {
         ) == nil)
     }
 
+    @Test func diveGasMixImport_tankYellowFillFraction_usesOxygenOrAirDefault() {
+        #expect(DiveGasMixImport.tankYellowFillFraction(oxygenMixPercent: 33) == 0.33)
+        #expect(DiveGasMixImport.tankYellowFillFraction(oxygenMixPercent: nil) == 0.21)
+        #expect(DiveGasMixImport.tankYellowFillFraction(oxygenMixPercent: 21) == 0.21)
+    }
+
+    @Test func diveGasMixImport_gasType_airAt21_nitroxOtherwise() {
+        #expect(DiveGasMixImport.gasType(forOxygenPercent: 21) == "Air")
+        #expect(DiveGasMixImport.gasType(forOxygenPercent: 21.0) == "Air")
+        #expect(DiveGasMixImport.gasType(forOxygenPercent: 32) == "Nitrox")
+        let fromUddf = DiveGasMixImport.resolved(fromUddfO2: 0.21)
+        #expect(fromUddf.oxygenMix == 21)
+        #expect(fromUddf.gasType == "Air")
+        let fromFit = DiveGasMixImport.resolved(fromFitOxygenContent: 32)
+        #expect(fromFit.oxygenMix == 32)
+        #expect(fromFit.gasType == "Nitrox")
+    }
+
     @Test func fitTankFieldImport_volumeUsedDescription() {
         #expect(FitTankFieldImport.volumeUsedDescription(volumeUsedLiters: 12.26) == "12 L used (~0.4 ft³) (FIT)")
         #expect(FitTankFieldImport.volumeUsedDescription(volumeUsedLiters: 1347.87)?.contains("1348") == true)
@@ -1000,6 +1020,14 @@ struct GoDiveMVPTests {
         <diver>
             <buddy id="b1"><personal><firstname>Ann</firstname><lastname>Bee</lastname></personal></buddy>
         </diver>
+        <gasdefinitions>
+            <mix id="mix-1">
+                <name>EAN33</name>
+                <o2>0.33</o2>
+                <n2>0.67</n2>
+                <he>0.00</he>
+            </mix>
+        </gasdefinitions>
         <profiledata>
             <repetitiongroup id="rg1">
             <dive id="d1-uuid">
@@ -1082,6 +1110,9 @@ struct GoDiveMVPTests {
         let data = Data(UddfTestXML.oneDiveWithTank.utf8)
         let dives = try UddfDiveFileDecoder.buildDiveActivities(from: data)
         let d = try #require(dives.first)
+        #expect(d.gasType == "Nitrox")
+        #expect(d.oxygenMix == 33)
+        #expect(d.tankHeroGasMixLabel == "Nitrox 33%")
         #expect(d.tankMaterial == "steel")
         #expect(d.tankVolumeDescription == "80 L (0.080 m³)")
         let startExpected = try #require(UddfTankPressureConversion.psi(fromPascals: 21_242_747.21))

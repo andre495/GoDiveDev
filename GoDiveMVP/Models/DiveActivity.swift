@@ -56,6 +56,11 @@ final class DiveActivity {
     /// Cylinder pressure at end of dive (**psi**). **`nil`** if not in file.
     var tankPressureEndPSI: Double?
 
+    /// Breathing gas category: **Air** (~21% O₂) or **Nitrox** (any other **`oxygenMix`**). **`nil`** when import has no mix.
+    var gasType: String?
+    /// Fraction of oxygen in the breathing mix, as **percent** (e.g. **21**, **32**). **`nil`** when not in file.
+    var oxygenMix: Double?
+
     @Relationship(deleteRule: .cascade)
     var buddies: [DiveBuddyTag] = []
 
@@ -90,6 +95,8 @@ final class DiveActivity {
         tankVolumeDescription: String? = nil,
         tankPressureStartPSI: Double? = nil,
         tankPressureEndPSI: Double? = nil,
+        gasType: String? = nil,
+        oxygenMix: Double? = nil,
         rawImportVersion: String? = nil
     ) {
         self.id = id
@@ -115,6 +122,8 @@ final class DiveActivity {
         self.tankVolumeDescription = tankVolumeDescription
         self.tankPressureStartPSI = tankPressureStartPSI
         self.tankPressureEndPSI = tankPressureEndPSI
+        self.gasType = gasType
+        self.oxygenMix = oxygenMix
         self.rawImportVersion = rawImportVersion
     }
 }
@@ -137,6 +146,22 @@ extension DiveActivity {
 // MARK: - Details tab: Gas section
 
 extension DiveActivity {
+    /// Tank hero label (**`gasType`** + **`oxygenMix`** %), or **No gas specified**.
+    var tankHeroGasMixLabel: String {
+        DiveGasMixImport.tankHeroLabel(gasType: gasType, oxygenMix: oxygenMix)
+    }
+
+    /// **Gas** row (**`gasType`**), or **—** when unknown.
+    var gasDetailsGasTypeLine: String {
+        Self.gasDetailsTrimmedTextOrDash(gasType)
+    }
+
+    /// **O₂ mix** row from **`oxygenMix`** percent, or **—** when unknown.
+    var gasDetailsOxygenMixLine: String {
+        guard let oxygenMix else { return "—" }
+        return "\(Int(oxygenMix.rounded()))%"
+    }
+
     /// **Tank type** row (**`tankMaterial`**), trimmed, or **—** when unknown / blank.
     var gasDetailsTankTypeLine: String {
         Self.gasDetailsTrimmedTextOrDash(tankMaterial)
