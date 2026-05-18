@@ -109,4 +109,11 @@ enum AppTheme {
         /// Fallback before **`AppHeader`** publishes its measured height (see **`AppHeaderMetrics.HeightKey`**). Sized for **`.largeTitle`** brand + vertical **`Spacing.md`** padding.
         static let appHeaderClearanceFallback: CGFloat = 72
     }
+
+    /// Shared chrome for SwiftUI **`.sheet`** presentations (see **`appSheetPresentationChrome()`**).
+    enum Sheet {
+        static let cornerRadius: CGFloat = 20
+        /// Opacity on **`.thinMaterial`** in **`presentationBackground`** — lower values let more of the hero / page show through.
+        static let backgroundMaterialOpacity: CGFloat = 0.64
+    }
 }

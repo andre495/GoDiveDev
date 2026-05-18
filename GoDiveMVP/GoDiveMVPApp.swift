@@ -36,6 +36,11 @@ struct GoDiveMVPApp: App {
 
     private var productionRoot: some View {
         ZStack {
+            if MapKitWarmup.shouldWarmUp {
+                MapKitWarmupView()
+                    .allowsHitTesting(false)
+            }
+
             ContentView()
                 .opacity(isSeedingData ? 0 : 1)
 

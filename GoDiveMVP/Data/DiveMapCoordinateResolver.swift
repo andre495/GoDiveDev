@@ -2,6 +2,18 @@ import Foundation
 
 /// Resolves the coordinate shown on dive maps (stored GPS, then catalog **`DiveSite`** match).
 enum DiveMapCoordinateResolver {
+    /// Pure coordinate validation — **`nonisolated`** for map presentation helpers and tests (Swift 6).
+    nonisolated static func isUsable(_ coordinate: DiveCoordinate?) -> Bool {
+        guard let coordinate else { return false }
+        guard (-90 ... 90).contains(coordinate.latitude),
+              (-180 ... 180).contains(coordinate.longitude)
+        else { return false }
+        if abs(coordinate.latitude) < 0.000_001, abs(coordinate.longitude) < 0.000_001 {
+            return false
+        }
+        return true
+    }
+
     static func effectiveCoordinate(
         activityCoordinate: DiveCoordinate?,
         siteName: String?,
@@ -18,17 +30,6 @@ enum DiveMapCoordinateResolver {
             return byName
         }
         return nil
-    }
-
-    static func isUsable(_ coordinate: DiveCoordinate?) -> Bool {
-        guard let coordinate else { return false }
-        guard (-90 ... 90).contains(coordinate.latitude),
-              (-180 ... 180).contains(coordinate.longitude)
-        else { return false }
-        if abs(coordinate.latitude) < 0.000_001, abs(coordinate.longitude) < 0.000_001 {
-            return false
-        }
-        return true
     }
 
     static func coordinate(from site: DiveSite) -> DiveCoordinate? {

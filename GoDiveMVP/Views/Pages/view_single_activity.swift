@@ -13,6 +13,8 @@ struct ViewSingleActivity: View {
     @State private var selectedActivityTab: DiveActivityTab = .map
     @State private var overviewSheetDetent = DiveActivityOverviewDetent.defaultSelection
     @State private var isOverviewSheetPresented = true
+    @State private var overviewScreenHeight: CGFloat = 0
+    @State private var overviewBottomSafeInset: CGFloat = 0
     /// Tank hero gas column (**1** = full); animates toward **`ending/beginning`** PSI when the sheet snaps to a shorter detent.
     @State private var tankHeroPressureFillFraction: CGFloat = 1
     @FocusState private var isNotesFieldFocused: Bool
@@ -43,9 +45,6 @@ struct ViewSingleActivity: View {
         }
         .onChange(of: selectedActivityTab) { _, newTab in
             syncOverviewSheetPresentation(for: newTab)
-            if newTab == .tank {
-                tankHeroPressureFillFraction = 1
-            }
         }
         .onChange(of: overviewSheetDetent) { oldDetent, newDetent in
             guard oldDetent != newDetent else { return }
@@ -56,7 +55,11 @@ struct ViewSingleActivity: View {
         }
         .sheet(isPresented: $isOverviewSheetPresented) {
             diveOverviewSheetContent
-                .diveActivityOverviewSheetPresentation(selectedDetent: $overviewSheetDetent)
+                .diveActivityOverviewSheetPresentation(
+                    selectedDetent: $overviewSheetDetent,
+                    screenHeight: overviewScreenHeight,
+                    bottomSafeInset: overviewBottomSafeInset
+                )
         }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -106,9 +109,27 @@ struct ViewSingleActivity: View {
     private var diveOverviewHeroLayer: some View {
         GeometryReader { geometry in
             let layoutHeight = max(geometry.size.height, 1)
+            Color.clear
+                .frame(width: 0, height: 0)
+                .onAppear {
+                    overviewScreenHeight = layoutHeight
+                    overviewBottomSafeInset = geometry.safeAreaInsets.bottom
+                }
+                .onChange(of: layoutHeight) { _, height in
+                    overviewScreenHeight = height
+                }
+                .onChange(of: geometry.safeAreaInsets.bottom) { _, inset in
+                    overviewBottomSafeInset = inset
+                }
+            let mapCameraDetent = overviewSheetDetent.mapCameraDetent
             let bottomObstruction = DiveActivityOverviewDetent.bottomObstructionHeight(
                 layoutHeight: layoutHeight,
                 detent: overviewSheetDetent,
+                bottomSafeInset: geometry.safeAreaInsets.bottom
+            )
+            let mapBottomObstruction = DiveActivityOverviewDetent.bottomObstructionHeight(
+                layoutHeight: layoutHeight,
+                detent: mapCameraDetent,
                 bottomSafeInset: geometry.safeAreaInsets.bottom
             )
             let topObstruction = DiveActivityOverviewPanelMetrics.mapTopObstructionHeight(
@@ -126,16 +147,19 @@ struct ViewSingleActivity: View {
                             siteName: activity.siteName,
                             fallback: activity.deviceSource.overviewFallbackSiteTitle
                         ),
-                        bottomContentMargin: bottomObstruction,
+                        bottomContentMargin: mapBottomObstruction,
                         topObstructionHeight: topObstruction,
                         layoutHeight: layoutHeight,
-                        cameraLayoutDetent: overviewSheetDetent
+                        cameraLayoutDetent: mapCameraDetent
                     )
+                    .id(activity.id)
                     .ignoresSafeArea()
                 case .tank:
                     DiveTankOverviewHeroView(
                         bottomContentMargin: bottomObstruction,
+                        topObstructionHeight: topObstruction,
                         layoutHeight: layoutHeight,
+                        sheetDetent: overviewSheetDetent,
                         pressureRemainingFraction: tankHeroPressureFillFraction
                     )
                 case .camera:
@@ -179,6 +203,10 @@ struct ViewSingleActivity: View {
             if !isOverviewSheetPresented {
                 isOverviewSheetPresented = true
             }
+            overviewSheetDetent = DiveActivityOverviewDetent.defaultSelection
+            if tab == .tank {
+                tankHeroPressureFillFraction = 1
+            }
         case .camera:
             isOverviewSheetPresented = false
         }
@@ -189,10 +217,9 @@ struct ViewSingleActivity: View {
         to newDetent: DiveActivityOverviewDetent
     ) {
         guard selectedActivityTab == .tank else { return }
-        let epsilon: CGFloat = 0.007
-        if newDetent.heightFraction + epsilon < oldDetent.heightFraction {
+        if newDetent == .minimized, newDetent.heightFraction < oldDetent.heightFraction {
             animateTankHeroPressureDrainIfNeeded()
-        } else if newDetent.heightFraction > oldDetent.heightFraction + epsilon {
+        } else if newDetent.heightFraction > oldDetent.heightFraction + 0.007 {
             tankHeroPressureFillFraction = 1
         }
     }

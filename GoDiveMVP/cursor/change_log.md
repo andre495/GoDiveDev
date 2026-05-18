@@ -138,3 +138,42 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Tests:** **`diveActivityOverviewDetent_*`**; **`diveActivityOverviewPanelMetrics_*`** (unchanged).
 - **Docs:** **`cursor/app_summary.md`**.
 
+---
+
+## 21 -
+(not pushed)
+
+**Summary:** Dive overview **map** + **tank** tabs: native **`.sheet`** with shared frosted chrome, satellite map with per-detent pin framing and zoom, animated tank hero (full + gas label on **medium**, corner mini-tank + PSI drain on **minimized**, hidden on **large**). Sheet reaches the physical bottom edge; tab switches reset to **medium** detent.
+
+### Map (dive overview + Explore)
+
+- **`DiveLocationMapPresentation`:** **`targetPinScreenYFraction`** (pin centered in band above sheet); **`cameraDistanceMeters(for:)`** — **~1.2 km** minimized, **~6.2 km** medium/large; **`mapCameraDetent`** keeps camera at **medium** when sheet is **large**; latitude shift via **`latitudeShiftMultiplier`** (~0.52 on **medium**).
+- **`DiveOverviewMapStyle`:** satellite **`MapStyle.imagery`** (dive overview, **Explore**, warm-up).
+- **`DiveLocationMapView`:** **`DiveMapCameraLayoutContext`** — camera refreshes when coordinate, layout, sheet obstruction, or detent settle; deferred apply after layout; **`activity.id`** resets map between dives (fixes missing pin on first open).
+- **`MapKitWarmup`** + **`MapKitWarmupView`:** one-time MapKit init at launch (skipped for UI tests).
+- **`DiveMapCoordinateResolver.isUsable`:** **`nonisolated`** for Swift 6.
+- **Tests:** **`targetPinScreenYFraction_*`**, **`cameraDistanceMeters_*`**, **`adjustedMapCenter_*`**, **`diveMapCameraLayoutContext_*`**, **`mapKitWarmup_*`**.
+
+### Sheet (map + tank tabs)
+
+- Native **`.sheet`** via **`diveActivityOverviewSheetPresentation`** — detents **~20% / ~50% / ~85%** as **`.height`** (fraction × screen + home-indicator inset), not safe-area-only **`.fraction`**.
+- **`AppTheme.Sheet`** + **`appSheetPresentationChrome()`** — **`.thinMaterial`** at **0.64** opacity; background **`ignoresSafeArea(.bottom)`**; **`.cursor/rules/swiftui-sheet-standard.mdc`** for all future sheets.
+- Removed **`DiveActivityOverviewPanelChrome`** (logic moved to **`AppSheetPresentation`** / **`AppTheme`**).
+- **`DiveActivityOverviewDetent+Presentation`:** height-based detents from live **`screenHeight`** + **`bottomSafeInset`** on **`ViewSingleActivity`**.
+- **Tab switch** (**map** / **tank** / **camera**): sheet returns to **medium** detent.
+
+### Tank tab (hero + chrome)
+
+- **`DiveTankOverviewHeroPresentation`** + **`TankHeroLayoutMetrics`:** **medium** — full cylinder + placeholder **`Nitrox 33%`**; **minimized** — **~50%** scale, top-trailing, **56** pt extra downshift; animated **position** + **scale** (**0.45** s); **large** — hero hidden (**`showsTankHero`**), gradient only.
+- PSI drain animation when snapping to **minimized** only (not **large** → **medium**).
+- Full-bleed **`screenBackgroundGradient`** behind tank hero (**`ignoresSafeArea`**).
+- **`ScubaTankTab`:** RGBA-trimmed asset, **@2x/@3x**, **`DiveActivityTabIcon.templateAssetSize`**.
+- **Tests:** **`diveTankOverviewHeroPresentation_*`**, **`appTheme_sheet_*`**.
+
+### Swift 6 / misc
+
+- **`nonisolated`** on **`DiveActivityOverviewPanelMetrics`**, **`DiveLocationMapPresentation`**, **`DiveTankOverviewHeroPresentation`**, **`DiveMapCameraLayoutContext`**, **`DiveActivityOverviewDetent`** helpers.
+- **Docs:** **`cursor/app_summary.md`**.
+
+-
+

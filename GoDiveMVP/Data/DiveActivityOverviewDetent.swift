@@ -22,26 +22,44 @@ enum DiveActivityOverviewDetent: CaseIterable, Equatable, Hashable, Sendable {
 
     static let defaultSelection: Self = .medium
 
-    static func bottomObstructionHeight(
+    /// Map camera zoom / pin framing — **large** matches **medium** (map is mostly covered by the sheet).
+    nonisolated var mapCameraDetent: Self {
+        self == .large ? .medium : self
+    }
+
+    /// Reference layout for **`presentationDetent(screenHeight:bottomSafeInset:)`** round-trip tests.
+    nonisolated static let presentationReferenceScreenHeight: CGFloat = 844
+    nonisolated static let presentationReferenceBottomSafeInset: CGFloat = 34
+
+    /// Sheet height in points — includes **`bottomSafeInset`** so the panel meets the physical bottom edge.
+    nonisolated static func sheetHeight(
+        for detent: Self,
         layoutHeight: CGFloat,
-        detent: Self,
         bottomSafeInset: CGFloat
     ) -> CGFloat {
         layoutHeight * detent.heightFraction + bottomSafeInset
     }
 
-    var accessibilityDescription: String {
+    nonisolated static func bottomObstructionHeight(
+        layoutHeight: CGFloat,
+        detent: Self,
+        bottomSafeInset: CGFloat
+    ) -> CGFloat {
+        sheetHeight(for: detent, layoutHeight: layoutHeight, bottomSafeInset: bottomSafeInset)
+    }
+
+    nonisolated var accessibilityDescription: String {
         DiveActivityOverviewPanelMetrics.accessibilityDetentDescription(for: heightFraction)
     }
 
-    func nextTaller() -> Self? {
+    nonisolated func nextTaller() -> Self? {
         guard let fraction = DiveActivityOverviewPanelMetrics.nextTallerDetent(after: heightFraction) else {
             return nil
         }
         return Self(fraction: fraction)
     }
 
-    func nextShorter() -> Self? {
+    nonisolated func nextShorter() -> Self? {
         guard let fraction = DiveActivityOverviewPanelMetrics.nextShorterDetent(after: heightFraction) else {
             return nil
         }
@@ -66,7 +84,7 @@ enum DiveActivityOverviewDetent: CaseIterable, Equatable, Hashable, Sendable {
         }
     }
 
-    private init?(fraction: CGFloat) {
+    nonisolated private init?(fraction: CGFloat) {
         if DiveActivityOverviewPanelMetrics.isMinimized(fraction) {
             self = .minimized
         } else if DiveActivityOverviewPanelMetrics.isExpanded(fraction) {

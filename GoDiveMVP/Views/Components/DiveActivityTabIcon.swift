@@ -6,15 +6,13 @@ extension DiveActivityTab {
         let color = isSelected ? AppTheme.Colors.tabSelected : AppTheme.Colors.tabUnselected
 
         if let asset = assetImageName {
-            // **`Image(systemName:)`** sizes intrinsically. **`resizable` + `scaledToFit`** inside a wide
-            // tab label would absorb **`maxWidth: .infinity`** and balloon — cap with **`fixedSize()`**.
+            let glyphSize = DiveActivityTabIcon.templateAssetSize(for: asset)
             Image(asset)
-                .resizable()
                 .renderingMode(.template)
+                .resizable()
                 .interpolation(.high)
                 .scaledToFit()
-                .frame(height: DiveActivityTabIcon.tabGlyphPointSize)
-                .frame(maxWidth: DiveActivityTabIcon.templateAssetMaxWidth)
+                .frame(width: glyphSize.width, height: glyphSize.height)
                 .foregroundStyle(color)
                 .fixedSize()
         } else if let system = systemImageName {
@@ -32,6 +30,21 @@ enum DiveActivityTabIcon {
     /// Matches **`Image(systemName:)`** with **`.font(.system(size:weight:))`**.
     static let tabGlyphPointSize: CGFloat = 22
 
-    /// **`ScubaTankTab`** (template) width cap so it doesn’t outgrow typical **22** pt SF Symbol glyphs.
-    static let templateAssetMaxWidth: CGFloat = 26
+    /// Trimmed **`ScubaTankTab.png`** pixel width ÷ height (must match asset catalog art).
+    static let scubaTankTabAspectWidthOverHeight: CGFloat = 35 / 72
+
+    /// Tab-bar frame for a template asset at **`tabGlyphPointSize`** height.
+    static func templateAssetSize(for assetName: String) -> CGSize {
+        switch assetName {
+        case "ScubaTankTab":
+            let height = tabGlyphPointSize
+            return CGSize(
+                width: height * scubaTankTabAspectWidthOverHeight,
+                height: height
+            )
+        default:
+            let side = tabGlyphPointSize
+            return CGSize(width: side, height: side)
+        }
+    }
 }

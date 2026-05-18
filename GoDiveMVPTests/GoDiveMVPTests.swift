@@ -272,38 +272,267 @@ struct GoDiveMVPTests {
         #expect(resolved?.longitude == -68.283)
     }
 
-    @Test func diveLocationMapPresentation_adjustedMapCenter_shiftsSouthForBottomOverlay() {
-        let coordinate = DiveCoordinate(latitude: 12, longitude: -68)
+    @Test func diveLocationMapPresentation_targetPinScreenYFraction_centersVisibleBand() {
         let layoutHeight: CGFloat = 800
-        let bottom = layoutHeight * DiveActivityOverviewPanelMetrics.mediumHeightFraction
+        let top: CGFloat = 100
+        let sheetMedium = DiveActivityOverviewPanelMetrics.mediumHeightFraction
+
+        let target = DiveLocationMapPresentation.targetPinScreenYFraction(
+            layoutHeight: layoutHeight,
+            topObstructionHeight: top,
+            sheetHeightFraction: sheetMedium
+        )
+        let topFraction = top / layoutHeight
+        let expected = topFraction + (1 - topFraction - sheetMedium) / 2
+        #expect(abs(target - expected) < 0.001)
+    }
+
+    @Test func diveLocationMapPresentation_targetPinScreenYFraction_ignoresHomeIndicatorInSheetFraction() {
+        let layoutHeight: CGFloat = 800
+        let top: CGFloat = 100
+        let withSafe = layoutHeight * 0.50 + 34
+        let withSheetOnly = DiveLocationMapPresentation.targetPinScreenYFraction(
+            layoutHeight: layoutHeight,
+            topObstructionHeight: top,
+            sheetHeightFraction: 0.50
+        )
+        let withObstructionHeight = DiveLocationMapPresentation.targetPinScreenYFraction(
+            layoutHeight: layoutHeight,
+            topObstructionHeight: top,
+            sheetHeightFraction: withSafe / layoutHeight
+        )
+        #expect(withSheetOnly > withObstructionHeight)
+    }
+
+    @Test func diveLocationMapPresentation_targetPinScreenYFraction_minimized_isBelowMedium() {
+        let layoutHeight: CGFloat = 800
+        let top: CGFloat = 100
+        let medium = DiveLocationMapPresentation.targetPinScreenYFraction(
+            layoutHeight: layoutHeight,
+            topObstructionHeight: top,
+            sheetHeightFraction: DiveActivityOverviewPanelMetrics.mediumHeightFraction
+        )
+        let minimized = DiveLocationMapPresentation.targetPinScreenYFraction(
+            layoutHeight: layoutHeight,
+            topObstructionHeight: top,
+            sheetHeightFraction: DiveActivityOverviewPanelMetrics.minimizedHeightFraction
+        )
+        #expect(minimized > medium)
+    }
+
+    @Test func diveMapCameraLayoutContext_equatable() {
+        let a = DiveMapCameraLayoutContext(
+            coordinateIdentity: "1,2",
+            layoutHeight: 800,
+            bottomContentMargin: 400,
+            topObstructionHeight: 100,
+            cameraLayoutDetent: .medium
+        )
+        let b = DiveMapCameraLayoutContext(
+            coordinateIdentity: "1,2",
+            layoutHeight: 800,
+            bottomContentMargin: 400,
+            topObstructionHeight: 100,
+            cameraLayoutDetent: .medium
+        )
+        #expect(a == b)
+        #expect(
+            DiveMapCameraLayoutContext(
+                coordinateIdentity: "1,2",
+                layoutHeight: 800,
+                bottomContentMargin: 400,
+                topObstructionHeight: 100,
+                cameraLayoutDetent: .minimized
+            ) != a
+        )
+    }
+
+    @Test func diveLocationMapPresentation_cameraDistanceMeters_detentZoomSteps() {
+        #expect(DiveLocationMapPresentation.minimizedCameraDistanceMeters == 1_200)
+        #expect(DiveLocationMapPresentation.cameraDistanceMeters(for: .minimized) < DiveLocationMapPresentation.referenceCameraDistanceMeters)
+        #expect(
+            DiveLocationMapPresentation.cameraDistanceMeters(for: .minimized)
+                < DiveLocationMapPresentation.cameraDistanceMeters(for: .medium)
+        )
+        #expect(DiveLocationMapPresentation.cameraDistanceMeters(for: .medium) > DiveLocationMapPresentation.referenceCameraDistanceMeters)
+        #expect(DiveLocationMapPresentation.cameraDistanceMeters(for: .large) == DiveLocationMapPresentation.cameraDistanceMeters(for: .medium))
+    }
+
+    @Test func diveActivityOverviewDetent_mapCameraDetent_largeMatchesMedium() {
+        #expect(DiveActivityOverviewDetent.large.mapCameraDetent == .medium)
+        #expect(DiveActivityOverviewDetent.medium.mapCameraDetent == .medium)
+        #expect(DiveActivityOverviewDetent.minimized.mapCameraDetent == .minimized)
+    }
+
+    @Test func appTheme_sheet_sharedPresentationChrome_isTranslucent() {
+        #expect(AppTheme.Sheet.cornerRadius == 20)
+        #expect(AppTheme.Sheet.backgroundMaterialOpacity > 0)
+        #expect(AppTheme.Sheet.backgroundMaterialOpacity < 1)
+        #expect(AppTheme.Sheet.backgroundMaterialOpacity < 0.75)
+    }
+
+    @Test func diveTankOverviewHeroPresentation_scale_byDetent() {
+        #expect(DiveTankOverviewHeroPresentation.scale(for: .minimized) == 0.5)
+        #expect(DiveTankOverviewHeroPresentation.scale(for: .medium) == 1)
+    }
+
+    @Test func diveTankOverviewHeroPresentation_medium_fullFill_andGasLabelOnly() {
+        #expect(DiveTankOverviewHeroPresentation.showsTankHero(for: .medium))
+        #expect(DiveTankOverviewHeroPresentation.showsTankHero(for: .minimized))
+        #expect(!DiveTankOverviewHeroPresentation.showsTankHero(for: .large))
+        #expect(DiveTankOverviewHeroPresentation.layoutDetent(for: .large) == .medium)
+        #expect(DiveTankOverviewHeroPresentation.layoutDetent(for: .minimized) == .minimized)
+        #expect(DiveTankOverviewHeroPresentation.showsGasMixLabel(for: .medium))
+        #expect(!DiveTankOverviewHeroPresentation.showsGasMixLabel(for: .minimized))
+        #expect(!DiveTankOverviewHeroPresentation.showsGasMixLabel(for: .large))
+        #expect(
+            DiveTankOverviewHeroPresentation.displayPressureFillFraction(
+                sheetDetent: .medium,
+                animatedFillFraction: 0.25
+            ) == 1
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.displayPressureFillFraction(
+                sheetDetent: .minimized,
+                animatedFillFraction: 0.25
+            ) == 0.25
+        )
+        #expect(DiveTankOverviewHeroPresentation.placeholderGasMixLabel == "Nitrox 33%")
+    }
+
+    @Test func diveTankOverviewHeroPresentation_minimizedTopInset_includesDownshift() {
+        let chromeTop: CGFloat = 100
+        let padding = DiveTankOverviewHeroPresentation.topTrailingPadding(topObstructionHeight: chromeTop)
+        #expect(
+            padding.top
+                == chromeTop
+                + DiveTankOverviewHeroPresentation.minimizedTopInsetBelowChrome
+                + DiveTankOverviewHeroPresentation.minimizedAdditionalTopOffset
+        )
+    }
+
+    @Test func diveTankOverviewHeroPresentation_layoutMetrics_animatesMediumToMinimized() {
+        let layoutSize = CGSize(width: 390, height: 640)
+        let layoutHeight: CGFloat = 844
+        let topObstruction: CGFloat = 100
+        let bottomMargin = layoutHeight * DiveActivityOverviewPanelMetrics.minimizedHeightFraction
+        let cylinderHeight: CGFloat = 148
+
+        let medium = DiveTankOverviewHeroPresentation.layoutMetrics(
+            detent: .medium,
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstruction,
+            bottomContentMargin: layoutHeight * DiveActivityOverviewPanelMetrics.mediumHeightFraction,
+            cylinderHeight: cylinderHeight
+        )
+        let minimized = DiveTankOverviewHeroPresentation.layoutMetrics(
+            detent: .minimized,
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstruction,
+            bottomContentMargin: bottomMargin,
+            cylinderHeight: cylinderHeight
+        )
+
+        #expect(medium.scale == 1)
+        #expect(minimized.scale == DiveTankOverviewHeroPresentation.minimizedScale)
+        #expect(minimized.cylinderCenterX > medium.cylinderCenterX)
+        #expect(minimized.cylinderCenterY < medium.cylinderCenterY)
+        #expect(minimized.gasLabelCenterY > minimized.cylinderCenterY)
+    }
+
+    @Test func diveTankOverviewHeroPresentation_verticalCenterOffset_medium_shiftsFromPaddedMidpoint() {
+        let layoutHeight: CGFloat = 800
+        let topObstruction: CGFloat = 100
+        let bottomMargin = layoutHeight * DiveActivityOverviewPanelMetrics.mediumHeightFraction
+        let offset = DiveTankOverviewHeroPresentation.verticalCenterOffset(
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstruction,
+            bottomContentMargin: bottomMargin,
+            sheetHeightFraction: DiveActivityOverviewPanelMetrics.mediumHeightFraction
+        )
+        let targetY = DiveLocationMapPresentation.targetPinScreenYFraction(
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstruction,
+            sheetHeightFraction: DiveActivityOverviewPanelMetrics.mediumHeightFraction
+        ) * layoutHeight
+        let defaultCenterY = (layoutHeight - bottomMargin) / 2
+        #expect(abs(offset - (targetY - defaultCenterY)) < 0.01)
+        #expect(offset > 0)
+    }
+
+    @Test func diveTankOverviewHeroPresentation_layoutMetrics_medium_centerY_matchesTargetPinY() {
+        let layoutSize = CGSize(width: 390, height: 844)
+        let layoutHeight = layoutSize.height
+        let topObstruction: CGFloat = 100
+        let bottomMargin = layoutHeight * DiveActivityOverviewPanelMetrics.mediumHeightFraction
+        let cylinderHeight: CGFloat = 148
+        let metrics = DiveTankOverviewHeroPresentation.layoutMetrics(
+            detent: .medium,
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstruction,
+            bottomContentMargin: bottomMargin,
+            cylinderHeight: cylinderHeight
+        )
+        let targetY = DiveLocationMapPresentation.targetPinScreenYFraction(
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstruction,
+            sheetHeightFraction: DiveActivityOverviewPanelMetrics.mediumHeightFraction
+        ) * layoutHeight
+        #expect(abs(metrics.cylinderCenterY - targetY) < 0.5)
+    }
+
+    @Test func diveLocationMapPresentation_adjustedMapCenter_medium_shiftsSouthOfPin() {
+        let coordinate = DiveCoordinate(latitude: 12, longitude: -68)
         let center = DiveLocationMapPresentation.adjustedMapCenter(
             for: coordinate,
-            layoutHeight: layoutHeight,
-            bottomObstructionHeight: bottom,
-            topObstructionHeight: 0
+            layoutHeight: 800,
+            topObstructionHeight: 100,
+            sheetHeightFraction: DiveActivityOverviewPanelMetrics.mediumHeightFraction,
+            mapCameraDetent: .medium
         )
         #expect(center.latitude < coordinate.latitude)
         #expect(center.longitude == coordinate.longitude)
     }
 
-    @Test func diveLocationMapPresentation_adjustedMapCenter_reducesShiftWhenTopChromePresent() {
+    @Test func diveLocationMapPresentation_adjustedMapCenter_medium_shiftIsLessThanUnscaledHalfBand() {
         let coordinate = DiveCoordinate(latitude: 12, longitude: -68)
         let layoutHeight: CGFloat = 800
-        let bottom = layoutHeight * DiveActivityOverviewPanelMetrics.mediumHeightFraction
-        let withoutTop = DiveLocationMapPresentation.adjustedMapCenter(
+        let top: CGFloat = 100
+        let halfBand = ((0.50 - top / layoutHeight) / 2) * 0.05
+        let center = DiveLocationMapPresentation.adjustedMapCenter(
             for: coordinate,
             layoutHeight: layoutHeight,
-            bottomObstructionHeight: bottom,
-            topObstructionHeight: 0
+            topObstructionHeight: top,
+            sheetHeightFraction: 0.50,
+            mapCameraDetent: .medium
         )
-        let withTop = DiveLocationMapPresentation.adjustedMapCenter(
+        let appliedShift = coordinate.latitude - center.latitude
+        #expect(appliedShift < halfBand)
+        #expect(appliedShift > 0)
+    }
+
+    @Test func diveLocationMapPresentation_adjustedMapCenter_minimized_shiftsLessThanMedium() {
+        let coordinate = DiveCoordinate(latitude: 12, longitude: -68)
+        let layoutHeight: CGFloat = 800
+        let top: CGFloat = 100
+        let medium = DiveLocationMapPresentation.adjustedMapCenter(
             for: coordinate,
             layoutHeight: layoutHeight,
-            bottomObstructionHeight: bottom,
-            topObstructionHeight: 100
+            topObstructionHeight: top,
+            sheetHeightFraction: DiveActivityOverviewPanelMetrics.mediumHeightFraction,
+            mapCameraDetent: .medium
         )
-        #expect(withTop.latitude > withoutTop.latitude)
-        #expect(withTop.longitude == coordinate.longitude)
+        let minimized = DiveLocationMapPresentation.adjustedMapCenter(
+            for: coordinate,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: top,
+            sheetHeightFraction: DiveActivityOverviewPanelMetrics.minimizedHeightFraction,
+            mapCameraDetent: .minimized
+        )
+        #expect(coordinate.latitude - minimized.latitude < coordinate.latitude - medium.latitude)
     }
 
     @Test func diveMapCoordinateResolver_rejectsNullIsland() {
@@ -349,7 +578,14 @@ struct GoDiveMVPTests {
 
     @Test func diveActivityTabIcon_matchesGlyphHeight() {
         #expect(DiveActivityTabIcon.tabGlyphPointSize == 22)
-        #expect(DiveActivityTabIcon.templateAssetMaxWidth >= DiveActivityTabIcon.tabGlyphPointSize)
+        let tankSize = DiveActivityTabIcon.templateAssetSize(for: "ScubaTankTab")
+        #expect(tankSize.height == 22)
+        #expect(tankSize.width < tankSize.height)
+        #expect(abs(tankSize.width / tankSize.height - DiveActivityTabIcon.scubaTankTabAspectWidthOverHeight) < 0.001)
+    }
+
+    @Test @MainActor func mapKitWarmup_shouldWarmUp_matchesUITestLaunchFlag() {
+        #expect(MapKitWarmup.shouldWarmUp == !GoDiveUITestConfiguration.isActive)
     }
 
     @Test func diveActivityTab_iconSources() {
@@ -513,6 +749,15 @@ struct GoDiveMVPTests {
             bottomSafeInset: 34
         )
         #expect(abs(height - (800 * 0.50 + 34)) < 0.01)
+    }
+
+    @Test func diveActivityOverviewDetent_sheetHeight_includesBottomSafeInset() {
+        let sheet = DiveActivityOverviewDetent.sheetHeight(
+            for: .minimized,
+            layoutHeight: 844,
+            bottomSafeInset: 34
+        )
+        #expect(abs(sheet - (844 * 0.20 + 34)) < 0.01)
     }
 
     @Test func diveActivityOverviewPanelMetrics_accessibilityDetentDescription_labelsRestingHeights() {

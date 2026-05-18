@@ -4,7 +4,7 @@ import SwiftUI
 /// MapKit map for a single dive: pin at **`coordinate`** when present, otherwise a default world region.
 struct DiveLocationMapView: View {
     let coordinate: DiveCoordinate?
-    var markerTitle: String
+    var markerTitle: String = DiveLocationMapPresentation.defaultMarkerTitle
     /// Height from the **bottom** of **`layoutHeight`** covered by the sheet + home indicator (**points**).
     var bottomContentMargin: CGFloat = 0
     /// Height from the **top** of **`layoutHeight`** covered by status bar + dive toolbar (**points**).
@@ -13,33 +13,8 @@ struct DiveLocationMapView: View {
     /// Resting sheet detent — camera reframes when this changes (not on every layout tick).
     var cameraLayoutDetent: DiveActivityOverviewDetent = .medium
 
-    @State private var position: MapCameraPosition
-    @State private var lastAppliedCameraDetent: DiveActivityOverviewDetent?
-
-    init(
-        coordinate: DiveCoordinate?,
-        markerTitle: String = DiveLocationMapPresentation.defaultMarkerTitle,
-        bottomContentMargin: CGFloat = 0,
-        topObstructionHeight: CGFloat = 0,
-        layoutHeight: CGFloat = 0,
-        cameraLayoutDetent: DiveActivityOverviewDetent = .medium
-    ) {
-        self.coordinate = coordinate
-        self.markerTitle = markerTitle
-        self.bottomContentMargin = bottomContentMargin
-        self.topObstructionHeight = topObstructionHeight
-        self.layoutHeight = layoutHeight
-        self.cameraLayoutDetent = cameraLayoutDetent
-        _position = State(
-            initialValue: Self.cameraPosition(
-                for: coordinate,
-                bottomContentMargin: bottomContentMargin,
-                topObstructionHeight: topObstructionHeight,
-                layoutHeight: layoutHeight
-            )
-        )
-        _lastAppliedCameraDetent = State(initialValue: cameraLayoutDetent)
-    }
+    @State private var position: MapCameraPosition = .automatic
+    @State private var lastAppliedLayoutContext: DiveMapCameraLayoutContext?
 
     var body: some View {
         Group {
@@ -67,22 +42,16 @@ struct DiveLocationMapView: View {
                 }
             }
         }
-        .mapStyle(.standard(elevation: .flat, emphasis: .muted))
-        .id(coordinateIdentity)
+        .mapStyle(DiveOverviewMapStyle.mapStyle)
         .onAppear {
-            applyCameraPosition(animated: false)
+            scheduleCameraRefresh(animated: false)
         }
-        .onChange(of: coordinateIdentity) { _, _ in
-            applyCameraPosition(animated: false)
-        }
-        .onChange(of: cameraLayoutDetent) { _, newDetent in
-            guard newDetent != lastAppliedCameraDetent else { return }
-            lastAppliedCameraDetent = newDetent
-            applyCameraPosition(animated: false)
-        }
-        .onChange(of: layoutHeight) { oldHeight, newHeight in
-            guard abs(oldHeight - newHeight) > 1 else { return }
-            applyCameraPosition(animated: false)
+        .task(id: mapLayoutContext) {
+            await Task.yield()
+            let previous = lastAppliedLayoutContext
+            let animateDetentChange = previous != nil
+                && previous?.cameraLayoutDetent != mapLayoutContext.cameraLayoutDetent
+            applyCameraPosition(animated: animateDetentChange)
         }
     }
 
@@ -100,6 +69,16 @@ struct DiveLocationMapView: View {
         return "\(coordinate.latitude),\(coordinate.longitude)"
     }
 
+    private var mapLayoutContext: DiveMapCameraLayoutContext {
+        DiveMapCameraLayoutContext(
+            coordinateIdentity: coordinateIdentity,
+            layoutHeight: layoutHeight,
+            bottomContentMargin: bottomContentMargin,
+            topObstructionHeight: topObstructionHeight,
+            cameraLayoutDetent: cameraLayoutDetent
+        )
+    }
+
     private var accessibilityLabelText: String {
         if let coordinate, DiveMapCoordinateResolver.isUsable(coordinate) {
             return "Map showing dive location at \(coordinate.latitude), \(coordinate.longitude)"
@@ -107,13 +86,28 @@ struct DiveLocationMapView: View {
         return "Map with no dive location recorded"
     }
 
+    private func scheduleCameraRefresh(animated: Bool) {
+        Task { @MainActor in
+            await Task.yield()
+            applyCameraPosition(animated: animated)
+        }
+    }
+
     private func applyCameraPosition(animated: Bool) {
+        guard layoutHeight > 1 else { return }
+
+        let context = mapLayoutContext
+        guard context != lastAppliedLayoutContext else { return }
+
         let target = Self.cameraPosition(
             for: coordinate,
             bottomContentMargin: bottomContentMargin,
             topObstructionHeight: topObstructionHeight,
-            layoutHeight: layoutHeight
+            layoutHeight: layoutHeight,
+            cameraLayoutDetent: cameraLayoutDetent
         )
+
+        lastAppliedLayoutContext = context
         if animated {
             withAnimation(.easeOut(duration: 0.2)) {
                 position = target
@@ -127,22 +121,30 @@ struct DiveLocationMapView: View {
         for coordinate: DiveCoordinate?,
         bottomContentMargin: CGFloat,
         topObstructionHeight: CGFloat,
-        layoutHeight: CGFloat
+        layoutHeight: CGFloat,
+        cameraLayoutDetent: DiveActivityOverviewDetent
     ) -> MapCameraPosition {
         guard let coordinate, DiveMapCoordinateResolver.isUsable(coordinate) else {
             return .region(DiveLocationMapPresentation.defaultRegion.mkCoordinateRegion)
         }
+        let distance = DiveLocationMapPresentation.cameraDistanceMeters(for: cameraLayoutDetent)
         let center = DiveLocationMapPresentation.adjustedMapCenter(
             for: coordinate,
             layoutHeight: layoutHeight,
-            bottomObstructionHeight: bottomContentMargin,
-            topObstructionHeight: topObstructionHeight
+            topObstructionHeight: topObstructionHeight,
+            sheetHeightFraction: cameraLayoutDetent.heightFraction,
+            mapCameraDetent: cameraLayoutDetent
         )
         return .camera(
             MapCamera(
                 centerCoordinate: center,
-                distance: DiveLocationMapPresentation.diveSiteCameraDistanceMeters
+                distance: distance
             )
         )
     }
+}
+
+/// Shared MapKit base layer for **Explore** and dive overview maps.
+enum DiveOverviewMapStyle {
+    static let mapStyle = MapStyle.imagery(elevation: .realistic)
 }

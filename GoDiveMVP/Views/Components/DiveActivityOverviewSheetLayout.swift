@@ -74,15 +74,37 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
 extension View {
     /// Standard dive overview sheet chrome: three detents, system grabber, hero interaction through **medium**.
     func diveActivityOverviewSheetPresentation(
-        selectedDetent: Binding<DiveActivityOverviewDetent>
+        selectedDetent: Binding<DiveActivityOverviewDetent>,
+        screenHeight: CGFloat,
+        bottomSafeInset: CGFloat
     ) -> some View {
-        presentationDetents(
-            DiveActivityOverviewDetent.allPresentationDetents,
+        let resolvedScreenHeight = screenHeight > 1
+            ? screenHeight
+            : DiveActivityOverviewDetent.presentationReferenceScreenHeight
+        let resolvedBottomSafeInset = screenHeight > 1
+            ? bottomSafeInset
+            : DiveActivityOverviewDetent.presentationReferenceBottomSafeInset
+        let detents = DiveActivityOverviewDetent.allPresentationDetents(
+            screenHeight: resolvedScreenHeight,
+            bottomSafeInset: resolvedBottomSafeInset
+        )
+        return presentationDetents(
+            detents,
             selection: Binding(
-                get: { selectedDetent.wrappedValue.presentationDetent },
+                get: {
+                    selectedDetent.wrappedValue.presentationDetent(
+                        screenHeight: resolvedScreenHeight,
+                        bottomSafeInset: resolvedBottomSafeInset
+                    )
+                },
                 set: { newDetent in
-                    guard let matched = DiveActivityOverviewDetent(presentationDetent: newDetent),
-                          matched != selectedDetent.wrappedValue
+                    guard
+                        let matched = DiveActivityOverviewDetent(
+                            presentationDetent: newDetent,
+                            screenHeight: resolvedScreenHeight,
+                            bottomSafeInset: resolvedBottomSafeInset
+                        ),
+                        matched != selectedDetent.wrappedValue
                     else { return }
                     selectedDetent.wrappedValue = matched
                 }
@@ -90,14 +112,14 @@ extension View {
         )
         .presentationDragIndicator(.visible)
         .presentationBackgroundInteraction(
-            .enabled(upThrough: DiveActivityOverviewDetent.medium.presentationDetent)
+            .enabled(
+                upThrough: DiveActivityOverviewDetent.medium.presentationDetent(
+                    screenHeight: resolvedScreenHeight,
+                    bottomSafeInset: resolvedBottomSafeInset
+                )
+            )
         )
-        .presentationCornerRadius(DiveActivityOverviewPanelChrome.topCornerRadius)
-        .presentationBackground {
-            Rectangle()
-                .fill(.thinMaterial)
-                .opacity(DiveActivityOverviewPanelChrome.sheetBackgroundOpacity)
-        }
+        .appSheetPresentationChrome()
         .presentationContentInteraction(.scrolls)
         .interactiveDismissDisabled()
     }

@@ -1,26 +1,28 @@
 import CoreGraphics
 
 /// Height ratios for the dive overview bottom panel (Strava-style map + sheet).
-enum DiveActivityOverviewPanelMetrics {
+///
+/// Pure **CoreGraphics** math — **`nonisolated`** so **`DiveActivityOverviewDetent`** and tests stay off the main actor (Swift 6).
+enum DiveActivityOverviewPanelMetrics: Sendable {
     /// Compact summary strip (~20% of the screen) over the full-bleed map.
-    static let minimizedHeightFraction: CGFloat = 0.20
+    nonisolated static let minimizedHeightFraction: CGFloat = 0.20
     /// Default resting detent (~half screen).
-    static let mediumHeightFraction: CGFloat = 0.50
+    nonisolated static let mediumHeightFraction: CGFloat = 0.50
     /// Nearly full screen; back button remains above in the parent **`ZStack`**.
-    static let largeHeightFraction: CGFloat = 0.85
+    nonisolated static let largeHeightFraction: CGFloat = 0.85
 
-    static let allDetents: [CGFloat] = [
+    nonisolated static let allDetents: [CGFloat] = [
         minimizedHeightFraction,
         mediumHeightFraction,
         largeHeightFraction,
     ]
 
     /// Scroll offset (pt) past which a **medium** sheet expands to **large** (one-shot, no per-frame resize).
-    static let scrollExpandTriggerOffset: CGFloat = 32
-    static let scrollCommitCollapseOffset: CGFloat = -28
+    nonisolated static let scrollExpandTriggerOffset: CGFloat = 32
+    nonisolated static let scrollCommitCollapseOffset: CGFloat = -28
 
     /// Picks the nearest detent after a drag ends.
-    static func snappedHeightFraction(
+    nonisolated static func snappedHeightFraction(
         currentFraction: CGFloat,
         predictedFraction: CGFloat
     ) -> CGFloat {
@@ -30,7 +32,7 @@ enum DiveActivityOverviewPanelMetrics {
 
     /// Grabber drag snap with one-step transitions at the ends: **minimized ↔ medium ↔ large**.
     /// - **`verticalTranslation`:** drag gesture Y (> 0 finger moved down, < 0 moved up).
-    static func snappedHeightFractionAfterDrag(
+    nonisolated static func snappedHeightFractionAfterDrag(
         currentFraction: CGFloat,
         predictedFraction: CGFloat,
         verticalTranslation: CGFloat
@@ -47,12 +49,12 @@ enum DiveActivityOverviewPanelMetrics {
         )
     }
 
-    static func clampedHeightFraction(_ fraction: CGFloat) -> CGFloat {
+    nonisolated static func clampedHeightFraction(_ fraction: CGFloat) -> CGFloat {
         min(max(fraction, minimizedHeightFraction), largeHeightFraction)
     }
 
     /// Visible panel fraction while the grabber is moving (clamped between detents).
-    static func heightFractionWhileDragging(
+    nonisolated static func heightFractionWhileDragging(
         restingFraction: CGFloat,
         dragTranslation: CGFloat,
         layoutHeight: CGFloat
@@ -65,7 +67,7 @@ enum DiveActivityOverviewPanelMetrics {
     }
 
     /// Whether scrolling in the panel should snap from **medium** to **large** (not used for continuous layout).
-    static func shouldExpandFromScroll(
+    nonisolated static func shouldExpandFromScroll(
         restingFraction: CGFloat,
         scrollOffsetY: CGFloat
     ) -> Bool {
@@ -74,7 +76,7 @@ enum DiveActivityOverviewPanelMetrics {
     }
 
     /// Pull down at the top while **large** → back to **medium** (default).
-    static func shouldCollapseToMediumFromScroll(
+    nonisolated static func shouldCollapseToMediumFromScroll(
         restingFraction: CGFloat,
         scrollOffsetY: CGFloat
     ) -> Bool {
@@ -82,16 +84,16 @@ enum DiveActivityOverviewPanelMetrics {
             && scrollOffsetY <= scrollCommitCollapseOffset
     }
 
-    static func isExpanded(_ fraction: CGFloat) -> Bool {
+    nonisolated static func isExpanded(_ fraction: CGFloat) -> Bool {
         fraction >= largeHeightFraction - 0.01
     }
 
-    static func isMinimized(_ fraction: CGFloat) -> Bool {
+    nonisolated static func isMinimized(_ fraction: CGFloat) -> Bool {
         fraction <= minimizedHeightFraction + 0.02
     }
 
     /// Next taller detent after **`fraction`**, or **`nil`** if already at **large**.
-    static func nextTallerDetent(after fraction: CGFloat) -> CGFloat? {
+    nonisolated static func nextTallerDetent(after fraction: CGFloat) -> CGFloat? {
         guard let index = allDetents.firstIndex(where: { abs($0 - fraction) < 0.03 }) else {
             return allDetents.first { $0 > fraction + 0.02 }
         }
@@ -101,7 +103,7 @@ enum DiveActivityOverviewPanelMetrics {
     }
 
     /// Next shorter detent after **`fraction`**, or **`nil`** if already at **minimized**.
-    static func nextShorterDetent(after fraction: CGFloat) -> CGFloat? {
+    nonisolated static func nextShorterDetent(after fraction: CGFloat) -> CGFloat? {
         guard let index = allDetents.firstIndex(where: { abs($0 - fraction) < 0.03 }) else {
             return allDetents.last { $0 < fraction - 0.02 }
         }
@@ -111,7 +113,7 @@ enum DiveActivityOverviewPanelMetrics {
     }
 
     /// Top coverage for map framing: safe area + dive toolbar row (**points**).
-    static func mapTopObstructionHeight(
+    nonisolated static func mapTopObstructionHeight(
         topSafeInset: CGFloat,
         chromeRowHeight: CGFloat,
         chromeTopPadding: CGFloat
@@ -120,7 +122,7 @@ enum DiveActivityOverviewPanelMetrics {
     }
 
     /// VoiceOver label for the current resting detent.
-    static func accessibilityDetentDescription(for fraction: CGFloat) -> String {
+    nonisolated static func accessibilityDetentDescription(for fraction: CGFloat) -> String {
         if isMinimized(fraction) { return "Minimized" }
         if isExpanded(fraction) { return "Expanded" }
         return "Half height"

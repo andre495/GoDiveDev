@@ -1,0 +1,20 @@
+---
+description: Standard frosted translucent chrome for all SwiftUI .sheet presentations
+alwaysApply: true
+---
+
+# SwiftUI sheets: shared presentation chrome
+
+When adding or updating a SwiftUI **`.sheet`** in **GoDiveMVP**:
+
+1. **Background:** Use **`appSheetPresentationChrome()`** on the sheet content (after **`presentationDetents`**, **`presentationDragIndicator`**, and any **`presentationBackgroundInteraction`** modifiers). Do **not** hand-roll **`presentationBackground`** fills or one-off opacity values.
+
+2. **Tokens:** Corner radius and material opacity live in **`AppTheme.Sheet`** (**`cornerRadius`**, **`backgroundMaterialOpacity`**). Change transparency app-wide there — not per screen.
+
+3. **Material:** **`Rectangle().fill(.thinMaterial)`** at **`AppTheme.Sheet.backgroundMaterialOpacity`** so heroes and full-bleed content remain visible under the panel.
+
+4. **Detents / behavior:** Sheet-specific detents, grabber visibility, background interaction, scroll interaction, and dismiss rules stay in the feature modifier (e.g. **`diveActivityOverviewSheetPresentation`**). Only the frosted fill + corner radius are shared.
+
+5. **Exceptions:** If a sheet must be opaque or use a different material, document why in the change log and prefer a named exception helper rather than inline magic numbers.
+
+Reference implementation: **`AppSheetPresentation.swift`**, **`diveActivityOverviewSheetPresentation`** in **`DiveActivityOverviewSheetLayout.swift`**.

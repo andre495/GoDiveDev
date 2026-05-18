@@ -1,26 +1,43 @@
+import CoreGraphics
 import CoreLocation
-import MapKit
 
 /// Map camera / marker rules for the dive overview map (testable without SwiftUI).
-enum DiveLocationMapPresentation {
-    static let defaultMarkerTitle = "Dive site"
+///
+/// Pure geometry — **`nonisolated`** so tank hero layout and tests stay off the main actor (Swift 6).
+enum DiveLocationMapPresentation: Sendable {
+    nonisolated static let defaultMarkerTitle = "Dive site"
 
     /// Wide world view when a dive has no stored coordinates.
-    static let defaultRegion = DiveLocationMapRegionSpec(
+    nonisolated static let defaultRegion = DiveLocationMapRegionSpec(
         centerLatitude: 20,
         centerLongitude: 0,
         latitudeDelta: 120,
         longitudeDelta: 120
     )
 
-    /// Local zoom when coordinates are present (~few km). Tighter than a typical “block” default for overview context.
-    static let diveSiteLatitudeDelta = 0.05
-    static let diveSiteLongitudeDelta = 0.05
+    /// Baseline span for latitude shift math at **`referenceCameraDistanceMeters`**.
+    nonisolated static let diveSiteLatitudeDelta = 0.05
+    nonisolated static let diveSiteLongitudeDelta = 0.05
 
-    /// Altitude for **`MapCamera`** when centering on a dive site (meters).
-    static let diveSiteCameraDistanceMeters: CLLocationDistance = 4_500
+    /// Legacy default; prefer **`cameraDistanceMeters(for:)`** per sheet detent.
+    nonisolated static let diveSiteCameraDistanceMeters: CLLocationDistance = 4_500
 
-    static func regionSpec(for coordinate: DiveCoordinate?) -> DiveLocationMapRegionSpec {
+    /// Reference altitude for **`diveSiteLatitudeDelta`** scaling.
+    nonisolated static let referenceCameraDistanceMeters: CLLocationDistance = 4_500
+
+    /// **Minimized** sheet — tight zoom above the summary strip.
+    nonisolated static let minimizedCameraDistanceMeters: CLLocationDistance = 1_200
+    /// **Medium** (~half screen sheet) — slightly wider than legacy default. Also used for **large** (map hidden by sheet).
+    nonisolated static let mediumCameraDistanceMeters: CLLocationDistance = 6_200
+
+    nonisolated static func cameraDistanceMeters(for detent: DiveActivityOverviewDetent) -> CLLocationDistance {
+        switch detent.mapCameraDetent {
+        case .minimized: minimizedCameraDistanceMeters
+        case .medium, .large: mediumCameraDistanceMeters
+        }
+    }
+
+    nonisolated static func regionSpec(for coordinate: DiveCoordinate?) -> DiveLocationMapRegionSpec {
         guard let coordinate, DiveMapCoordinateResolver.isUsable(coordinate) else { return defaultRegion }
         return DiveLocationMapRegionSpec(
             centerLatitude: coordinate.latitude,
@@ -30,34 +47,60 @@ enum DiveLocationMapPresentation {
         )
     }
 
-    static func showsDiveMarker(for coordinate: DiveCoordinate?) -> Bool {
+    nonisolated static func showsDiveMarker(for coordinate: DiveCoordinate?) -> Bool {
         DiveMapCoordinateResolver.isUsable(coordinate)
     }
 
-    static func markerTitle(siteName: String?, fallback: String) -> String {
+    nonisolated static func markerTitle(siteName: String?, fallback: String) -> String {
         let trimmed = siteName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmed.isEmpty ? fallback : trimmed
     }
 
-    /// Shifts the camera center so a pin at **`coordinate`** sits in the middle of the map band between
-    /// **`topObstructionHeight`** and **`bottomObstructionHeight`** (both in the same coordinate space as **`layoutHeight`**).
-    static func adjustedMapCenter(
+    /// Pin Y on the full-bleed map (fraction from top) — midpoint of the band between top chrome and the **sheet top edge**.
+    ///
+    /// Uses **`sheetHeightFraction`** (detent ratio only), not obstruction height including the home indicator,
+    /// so the target sits in the map area the user actually sees above the sheet.
+    nonisolated static func targetPinScreenYFraction(
+        layoutHeight: CGFloat,
+        topObstructionHeight: CGFloat,
+        sheetHeightFraction: CGFloat
+    ) -> CGFloat {
+        let h = max(layoutHeight, 1)
+        let top = min(max(topObstructionHeight / h, 0), 0.9)
+        let sheet = min(max(sheetHeightFraction, 0), 0.92)
+        let visible = max(0, 1 - top - sheet)
+        return top + visible / 2
+    }
+
+    /// Scales latitude offset — **`MapCamera`** distance does not match region **`latitudeDelta`** linearly; medium was overshooting.
+    nonisolated static func latitudeShiftMultiplier(for detent: DiveActivityOverviewDetent) -> CGFloat {
+        switch detent.mapCameraDetent {
+        case .minimized: 1.0
+        case .medium, .large: 0.52
+        }
+    }
+
+    /// Shifts the camera center so the pin at **`coordinate`** sits in the visible band above the sheet.
+    nonisolated static func adjustedMapCenter(
         for coordinate: DiveCoordinate,
         layoutHeight: CGFloat,
-        bottomObstructionHeight: CGFloat,
-        topObstructionHeight: CGFloat
+        topObstructionHeight: CGFloat,
+        sheetHeightFraction: CGFloat,
+        mapCameraDetent: DiveActivityOverviewDetent
     ) -> CLLocationCoordinate2D {
         let h = max(layoutHeight, 1)
-        let bottomFraction = min(max(bottomObstructionHeight / h, 0), 0.92)
-        let topFraction = min(max(topObstructionHeight / h, 0), 0.92)
+        let topFraction = min(max(topObstructionHeight / h, 0), 0.9)
+        let sheetFraction = min(max(sheetHeightFraction, 0), 0.92)
 
-        // Fraction of viewport the camera must move (in “screen space”) so the target sits mid-band:
-        // (visibleCenter - fullMapCenter) / H  ==  (bottom - top) / (2H).
-        let halfBandShiftFraction = max(0, (bottomFraction - topFraction) / 2)
-        guard halfBandShiftFraction > 0.001 else {
+        // Midpoint of visible strip: shift camera south so the pin reads higher on screen.
+        let halfBandShift = max(0, (sheetFraction - topFraction) / 2)
+        guard halfBandShift > 0.001 else {
             return CLLocationCoordinate2D(latitude: coordinate.latitude, longitude: coordinate.longitude)
         }
-        let shift = halfBandShiftFraction * diveSiteLatitudeDelta
+
+        let shift = halfBandShift
+            * diveSiteLatitudeDelta
+            * latitudeShiftMultiplier(for: mapCameraDetent)
         return CLLocationCoordinate2D(
             latitude: coordinate.latitude - shift,
             longitude: coordinate.longitude
