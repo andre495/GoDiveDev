@@ -12,10 +12,10 @@ After **meaningful** work in **`GoDiveMVP/`** (features, UX, data rules, navigat
 
 ## Section rules
 
-- **Do not** create a **new** numbered section unless the user explicitly asks (e.g. “start §19”, “mark §18 pushed and open a new section”).
-- **Do not** mark a section **`(pushed)`** unless the user says that batch was pushed.
-- **Do not** use git status to decide push state; the user handles git and will instruct you.
-- When the user **does** ask for a new section: close the prior section with **`(pushed)`** (if they said it was pushed), add the next empty **`## NN - … (not pushed)`**, and sync **`app_summary.md`** for everything in the closed section.
+- **Do not** create a **new** numbered section unless the user explicitly asks (e.g. “start §22”, “open a new section”).
+- After a **successful `git push`** in the same task (following a commit that included the work), mark the latest open section **`(pushed)`** per **`.cursor/rules/changelog-mark-pushed-on-git-push.mdc`**. The user may also ask to mark pushed without you pushing.
+- **Do not** mark **`(pushed)`** if the push failed or only local commits exist without a requested push.
+- When the user asks for a **new** section: ensure the prior section is **`(pushed)`**, add **`## NN - …`** (title only; no **`(not pushed)`** line unless the user wants it), and sync **`app_summary.md`** for everything in the closed section.
 
 ## `app_summary.md` scope
 

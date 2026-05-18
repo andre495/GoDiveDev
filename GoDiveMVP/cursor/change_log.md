@@ -1,6 +1,6 @@
 # Change Log
 
-Keep ongoing work under **one numbered section** until you explicitly say changes have been pushed to git; then start the **next number** for new work. The user marks **`(pushed)`** and will say when to open a new section — agents do not infer push state from git.
+Keep ongoing work under **one numbered section** until that batch is **`(pushed)`** to git. After a successful **commit + push** you requested, the agent marks the latest open section **`(pushed)`** (see **`.cursor/rules/changelog-mark-pushed-on-git-push.mdc`**). Start the **next number** only when you ask for a new section.
 
 Agents: log work in the **latest open section** and update **`cursor/app_summary.md`** in the same effort (see **`.cursor/rules/changelog-app-summary-sync.mdc`**).
 
@@ -140,8 +140,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ---
 
-## 21 -
-(not pushed)
+## 21 - Dive overview map, sheet, tank, gas mix **(pushed)**
 
 **Summary:** Dive overview **map** + **tank** tabs: native **`.sheet`** with shared frosted chrome, satellite map with per-detent pin framing and zoom, animated tank hero (full + gas label on **medium**, corner mini-tank + PSI drain on **minimized**, hidden on **large**). **Gas mix** on **`DiveActivity`** from FIT/UDDF import (**`oxygenMix`**, **`gasType`** Air/Nitrox); tank hero label and yellow/green cylinder fill follow O₂ % (default **21%** air). Sheet reaches the physical bottom edge; tab switches reset to **medium** detent.
 
