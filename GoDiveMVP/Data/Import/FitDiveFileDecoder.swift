@@ -92,9 +92,11 @@ enum FitDiveFileDecoder {
         } ?? (nil, nil)
 
         var tankVolumeDescription: String?
+        var volumeUsedSurfaceLiters: Double?
         if let sensor = primaryTankSensor,
            let summary = FitTankFieldImport.tankSummary(forSensor: sensor, in: tankSummaries),
            let used = summary.getVolumeUsed(), used > 0 {
+            volumeUsedSurfaceLiters = used
             tankVolumeDescription = FitTankFieldImport.volumeUsedDescription(volumeUsedLiters: used)
         }
 
@@ -158,6 +160,7 @@ enum FitDiveFileDecoder {
             )
         }
         activity.profilePoints = points
+        activity.applyImportedGasConsumptionMetrics(volumeUsedSurfaceLiters: volumeUsedSurfaceLiters)
 
         return activity
     }

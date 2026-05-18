@@ -28,6 +28,7 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
                     onCollapseToMedium: { selectedDetent = .medium }
                 ) {
                     panelContent()
+                        .padding(.top, DiveActivityOverviewPanelMetrics.panelContentTopPadding)
                         .padding(.horizontal, AppTheme.Spacing.md)
                         .padding(.bottom, AppTheme.Spacing.lg)
                 }
@@ -48,6 +49,7 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
                 }
                 .buttonStyle(.plain)
                 .accessibilityHint("Expands dive details")
+                .padding(.top, DiveActivityOverviewPanelMetrics.panelContentTopPadding)
                 .padding(.horizontal, AppTheme.Spacing.md)
                 .padding(.bottom, AppTheme.Spacing.md)
             }

@@ -7,6 +7,12 @@ struct DiveDepthProfileSample: Equatable, Sendable {
     var depthMeters: Double
 }
 
+/// Remaining cylinder pressure at elapsed time (subset of profile samples with **`tankPressurePSI`**).
+struct DiveDepthProfilePressureSample: Equatable, Sendable {
+    var elapsedSeconds: Double
+    var pressurePSI: Double
+}
+
 /// Builds elapsed-time series from profile samples (sorted by timestamp).
 enum DiveDepthProfileSeries {
     /// `points` must be sorted by **`timestamp`** ascending.
@@ -25,6 +31,20 @@ enum DiveDepthProfileSeries {
         let sorted = points.sorted { $0.timestamp < $1.timestamp }
         let tuples = sorted.map { (timestamp: $0.timestamp, depthMeters: $0.depthMeters) }
         return samples(sortedAscending: tuples)
+    }
+
+    /// Elapsed time + **psi** only where **`DiveProfilePoint.tankPressurePSI`** is set (same time base as depth series).
+    static func pressureSamples(fromProfilePoints points: [DiveProfilePoint]) -> [DiveDepthProfilePressureSample] {
+        let sorted = points.sorted { $0.timestamp < $1.timestamp }
+        guard let first = sorted.first else { return [] }
+        let t0 = first.timestamp
+        return sorted.compactMap { point in
+            guard let psi = point.tankPressurePSI else { return nil }
+            return DiveDepthProfilePressureSample(
+                elapsedSeconds: point.timestamp.timeIntervalSince(t0),
+                pressurePSI: psi
+            )
+        }
     }
 
     /// Elapsed seconds corresponding to **`x`** in chart space (linear map across **`rectWidth`**).

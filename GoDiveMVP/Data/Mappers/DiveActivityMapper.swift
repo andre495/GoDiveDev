@@ -52,6 +52,8 @@ enum DiveActivityMapper {
             DiveBuddyTag(id: buddyDTO.id ?? UUID(), displayName: buddyDTO.displayName, dive: activity)
         }
 
+        activity.applyImportedGasConsumptionMetrics(volumeUsedSurfaceLiters: nil)
+
         return activity
     }
 }

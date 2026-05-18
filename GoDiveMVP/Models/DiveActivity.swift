@@ -61,6 +61,11 @@ final class DiveActivity {
     /// Fraction of oxygen in the breathing mix, as **percent** (e.g. **21**, **32**). **`nil`** when not in file.
     var oxygenMix: Double?
 
+    /// Surface air consumption (pressure SAC): **psi/min** at the surface. Computed on import when tank pressures, time, and depth allow (**`DiveSACRMVCalculation`**).
+    var avgSAC: Double?
+    /// Respiratory minute volume at the surface: **L/min**. Computed on import from SAC × tank factor or FIT **`volume_used`** / time.
+    var avgRMV: Double?
+
     @Relationship(deleteRule: .cascade)
     var buddies: [DiveBuddyTag] = []
 
@@ -102,6 +107,8 @@ final class DiveActivity {
         tankPressureEndPSI: Double? = nil,
         gasType: String? = nil,
         oxygenMix: Double? = nil,
+        avgSAC: Double? = nil,
+        avgRMV: Double? = nil,
         rawImportVersion: String? = nil
     ) {
         self.id = id
@@ -129,6 +136,8 @@ final class DiveActivity {
         self.tankPressureEndPSI = tankPressureEndPSI
         self.gasType = gasType
         self.oxygenMix = oxygenMix
+        self.avgSAC = avgSAC
+        self.avgRMV = avgRMV
         self.rawImportVersion = rawImportVersion
     }
 }
@@ -185,6 +194,16 @@ extension DiveActivity {
     /// Ending cylinder pressure from stored **psi** for the given display system.
     func gasDetailsEndingPressureLine(displayUnits: DiveDisplayUnitSystem) -> String {
         DiveQuantityFormatting.cylinderPressure(fromPSI: tankPressureEndPSI, system: displayUnits)
+    }
+
+    /// Minimized tank hero / SAC row from **`avgSAC`** (**psi/min** or **bar/min**).
+    func tankHeroSACRateLine(displayUnits: DiveDisplayUnitSystem) -> String? {
+        DiveQuantityFormatting.surfaceAirConsumption(sacPSIPerMinute: avgSAC, system: displayUnits)
+    }
+
+    /// Minimized tank hero / RMV row from **`avgRMV`** (**L/min** or **cu ft/min**).
+    func tankHeroRMVRateLine(displayUnits: DiveDisplayUnitSystem) -> String? {
+        DiveQuantityFormatting.respiratoryMinuteVolume(litersPerMinute: avgRMV, system: displayUnits)
     }
 
     private static func gasDetailsTrimmedTextOrDash(_ value: String?) -> String {

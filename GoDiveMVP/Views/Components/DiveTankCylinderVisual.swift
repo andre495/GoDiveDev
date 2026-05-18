@@ -66,7 +66,7 @@ struct DiveTankCylinderVisual: View {
     /// **0...1** — yellow band as a fraction of the **gas column** (typically **`oxygenMix` / 100**, default **0.21**).
     var yellowFillFraction: CGFloat = DiveGasMixImport.tankYellowFillFraction(oxygenMixPercent: nil)
 
-    private let yellowFill = Color(red: 0.92, green: 0.78, blue: 0.12)
+    private let yellowFill = AppTheme.Colors.tankGasAccent
     private let greenFill = Color(red: 0.14, green: 0.55, blue: 0.38)
     private let outlineColor = Color.primary.opacity(0.24)
     private let outlineWidth: CGFloat = 1.25

@@ -14,7 +14,17 @@ enum DiveTankOverviewHeroPresentation: Sendable {
     /// Minimized detent — visual scale of the cylinder (**~half** size).
     nonisolated static let minimizedScale: CGFloat = 0.5
 
-    nonisolated static let minimizedTrailingInset: CGFloat = 16
+    /// Trailing inset for the small cylinder on **minimized** (larger → cylinder sits further left).
+    nonisolated static let minimizedTrailingInset: CGFloat = 56
+    nonisolated static let minimizedChartHorizontalInset: CGFloat = 20
+    nonisolated static let minimizedChartVerticalPadding: CGFloat = 16
+    nonisolated static let minimizedChartMaxWidthFraction: CGFloat = 0.92
+    nonisolated static let minimizedChartMaxHeightFraction: CGFloat = 0.88
+    /// Plot width ÷ height when sizing the centered minimized chart.
+    nonisolated static let minimizedChartAspectWidthOverHeight: CGFloat = 1.65
+    nonisolated static let minimizedTankSummaryGapBeforeTank: CGFloat = 10
+    /// Vertical space for left-aligned header-style gas summary (used + SAC + RMV).
+    nonisolated static let minimizedTankGasSummaryHeight: CGFloat = 96
     nonisolated static let minimizedTopInsetBelowChrome: CGFloat = 8
     /// Extra downward shift for the small tank on the **minimized** detent.
     nonisolated static let minimizedAdditionalTopOffset: CGFloat = 56
@@ -33,6 +43,62 @@ enum DiveTankOverviewHeroPresentation: Sendable {
 
     nonisolated static func showsGasMixLabel(for detent: DiveActivityOverviewDetent) -> Bool {
         detent == .medium
+    }
+
+    /// Depth mini-chart beside the small cylinder on the **minimized** detent.
+    nonisolated static func showsMinimizedProfileChart(
+        for detent: DiveActivityOverviewDetent,
+        depthSampleCount: Int
+    ) -> Bool {
+        detent == .minimized && depthSampleCount >= 2
+    }
+
+    nonisolated static func showsMinimizedTankGasSummary(
+        for detent: DiveActivityOverviewDetent,
+        startPSI: Double?,
+        endPSI: Double?
+    ) -> Bool {
+        detent == .minimized && DiveTankMinimizedGasSummary.psiConsumedPSI(startPSI: startPSI, endPSI: endPSI) != nil
+    }
+
+    /// Two-line gas summary to the left of the minimized cylinder.
+    nonisolated static func minimizedTankGasSummaryFrame(
+        layoutSize: CGSize,
+        metrics: TankHeroLayoutMetrics,
+        cylinderHeight: CGFloat
+    ) -> CGRect {
+        let scaledWidth = cylinderHeight * cylinderLayoutWidthOverHeight * metrics.scale
+        let tankLeft = metrics.cylinderCenterX - scaledWidth / 2
+        let right = tankLeft - minimizedTankSummaryGapBeforeTank
+        let left = minimizedChartHorizontalInset
+        let width = max(right - left, 0)
+        let height: CGFloat = minimizedTankGasSummaryHeight
+        let y = metrics.cylinderCenterY - height / 2
+        return CGRect(x: left, y: y, width: width, height: height)
+    }
+
+    /// Large plot centered in the visible band above the minimized sheet.
+    nonisolated static func minimizedProfileChartFrame(
+        layoutSize: CGSize,
+        layoutHeight: CGFloat,
+        topObstructionHeight: CGFloat,
+        bottomContentMargin: CGFloat
+    ) -> CGRect {
+        let bandTop = topObstructionHeight + minimizedChartVerticalPadding
+        let bandBottom = layoutHeight - bottomContentMargin - minimizedChartVerticalPadding
+        let availableHeight = max(bandBottom - bandTop, 0)
+        let availableWidth = max(layoutSize.width - minimizedChartHorizontalInset * 2, 0)
+
+        var width = availableWidth * minimizedChartMaxWidthFraction
+        var height = width / minimizedChartAspectWidthOverHeight
+        if height > availableHeight * minimizedChartMaxHeightFraction {
+            height = availableHeight * minimizedChartMaxHeightFraction
+            width = height * minimizedChartAspectWidthOverHeight
+        }
+
+        let x = (layoutSize.width - width) / 2
+        let y = bandTop + (availableHeight - height) / 2
+        return CGRect(x: x, y: y, width: width, height: height)
     }
 
     /// Cylinder hero is hidden when the sheet covers the tab (**large**); returns on **medium** / **minimized**.

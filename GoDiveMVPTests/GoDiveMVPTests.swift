@@ -320,6 +320,158 @@ struct GoDiveMVPTests {
         #expect(DiveDepthProfileSeries.indexNearestElapsed(200, in: s) == 2)
     }
 
+    @Test func diveDepthProfileSeries_pressureSamples_omitsNilTankPressure() throws {
+        let t0 = Date(timeIntervalSince1970: 1_000_000)
+        let dive = DiveActivity(
+            deviceSource: .manual,
+            startTime: t0,
+            durationMinutes: 30,
+            maxDepthMeters: 20
+        )
+        let p0 = DiveProfilePoint(timestamp: t0, depthMeters: 0, tankPressurePSI: 3000)
+        let p1 = DiveProfilePoint(timestamp: t0.addingTimeInterval(60), depthMeters: 10)
+        let p2 = DiveProfilePoint(timestamp: t0.addingTimeInterval(120), depthMeters: 15, tankPressurePSI: 1500)
+        dive.profilePoints = [p0, p1, p2]
+
+        let samples = DiveDepthProfileSeries.pressureSamples(fromProfilePoints: dive.profilePoints)
+        #expect(samples.count == 2)
+        #expect(samples[0].pressurePSI == 3000)
+        #expect(abs(samples[1].elapsedSeconds - 120) < 0.001)
+        #expect(samples[1].pressurePSI == 1500)
+    }
+
+    @Test func diveTankOverviewHeroPresentation_showsMinimizedProfileChart_onlyAtMinimizedWithSamples() {
+        #expect(
+            DiveTankOverviewHeroPresentation.showsMinimizedProfileChart(for: .minimized, depthSampleCount: 2)
+        )
+        #expect(
+            !DiveTankOverviewHeroPresentation.showsMinimizedProfileChart(for: .minimized, depthSampleCount: 1)
+        )
+        #expect(
+            !DiveTankOverviewHeroPresentation.showsMinimizedProfileChart(for: .medium, depthSampleCount: 10)
+        )
+    }
+
+    @Test func diveTankOverviewHeroPresentation_minimizedProfileChartFrame_isCenteredInVisibleBand() {
+        let layoutSize = CGSize(width: 390, height: 640)
+        let layoutHeight: CGFloat = 844
+        let topObstruction: CGFloat = 100
+        let bottomMargin = layoutHeight * DiveActivityOverviewPanelMetrics.minimizedHeightFraction
+        let frame = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstruction,
+            bottomContentMargin: bottomMargin
+        )
+        #expect(frame.width > 200)
+        #expect(abs(frame.midX - layoutSize.width / 2) < 1)
+        #expect(frame.minY > topObstruction)
+        #expect(frame.maxY < layoutHeight - bottomMargin)
+    }
+
+    @Test func diveDepthProfileOverlayChartLayout_resolvedBaseline_prefersEndingPSI() {
+        let samples = [
+            DiveDepthProfilePressureSample(elapsedSeconds: 0, pressurePSI: 3000),
+            DiveDepthProfilePressureSample(elapsedSeconds: 100, pressurePSI: 1500),
+        ]
+        let baseline = DiveDepthProfileOverlayChartLayout.resolvedPressureBaselinePSI(
+            endingPSI: 1400,
+            pressureSamples: samples
+        )
+        #expect(baseline == 1400)
+    }
+
+    @Test func diveTankMinimizedGasSummary_psiConsumed_subtractsEndFromStart() {
+        #expect(DiveTankMinimizedGasSummary.psiConsumedPSI(startPSI: 3000, endPSI: 1200) == 1800)
+        #expect(DiveTankMinimizedGasSummary.psiConsumedPSI(startPSI: 3000, endPSI: nil) == nil)
+        #expect(DiveTankMinimizedGasSummary.psiConsumedPSI(startPSI: nil, endPSI: 500) == nil)
+        #expect(DiveTankMinimizedGasSummary.psiConsumedPSI(startPSI: 1000, endPSI: 1500) == 0)
+    }
+
+    @Test func diveTankMinimizedGasSummary_sacRateLine_formatsValue() {
+        #expect(DiveTankMinimizedGasSummary.usedLine(formattedConsumed: "1,800 psi") == "1,800 psi used.")
+        #expect(DiveTankMinimizedGasSummary.sacRateLine(formattedRate: "24.3 psi/min") == "SAC: 24.3 psi/min")
+        #expect(DiveTankMinimizedGasSummary.rmvRateLine(formattedRate: "18.4 L/min") == "RMV: 18.4 L/min")
+        #expect(DiveTankMinimizedGasSummary.sacRateLabel == "SAC:")
+        #expect(DiveTankMinimizedGasSummary.rmvRateLabel == "RMV:")
+    }
+
+    @Test func diveSACRMVCalculation_scubascribblesFreshwaterAL80Example() throws {
+        let feetPerMeter = 3.280839895013123
+        let depthMeters = 64.0 / feetPerMeter
+        let al80GasLiters = 80.0 * 28.316846592
+        let input = DiveSACRMVCalculation.Input(
+            tankPressureStartPSI: 3000,
+            tankPressureEndPSI: 2300,
+            bottomTimeSeconds: 600,
+            durationMinutes: 10,
+            averageDepthMeters: depthMeters,
+            maxDepthMeters: depthMeters,
+            waterColumn: .freshwater,
+            tankVolumeDescription: "\(Int(al80GasLiters.rounded())) L (AL80 gas)",
+            defaultRatedPressurePSI: 3000
+        )
+        let result = try #require(DiveSACRMVCalculation.compute(input))
+        #expect(abs(result.sacPSIPerMinute - 24.3) < 0.2)
+        let expectedCFM = 0.65
+        let expectedLPM = expectedCFM * 28.316846592
+        #expect(abs(result.rmvLitersPerMinute - expectedLPM) < 1.5)
+    }
+
+    @Test func diveSACRMVCalculation_fitVolumeUsedPath_withoutRatedTankSize() throws {
+        let input = DiveSACRMVCalculation.Input(
+            tankPressureStartPSI: 3000,
+            tankPressureEndPSI: 2000,
+            bottomTimeSeconds: 600,
+            durationMinutes: 10,
+            averageDepthMeters: 20,
+            maxDepthMeters: 20,
+            tankVolumeDescription: "500 L used (~17.7 ft³) (FIT)",
+            volumeUsedSurfaceLiters: 500
+        )
+        let sac = try #require(DiveSACRMVCalculation.sacPSIPerMinute(from: input))
+        #expect(sac > 0)
+        let rmv = try #require(DiveSACRMVCalculation.rmvLitersPerMinute(from: input, sacPSIPerMinute: sac))
+        #expect(abs(rmv - 50.0) < 0.01)
+    }
+
+    @Test func diveQuantityFormatting_surfaceAirConsumption_and_rmv() throws {
+        #expect(DiveQuantityFormatting.surfaceAirConsumption(sacPSIPerMinute: 24.3, system: .imperial) == "24.3 psi/min")
+        let barLine = try #require(DiveQuantityFormatting.surfaceAirConsumption(sacPSIPerMinute: 24.3, system: .metric))
+        #expect(barLine.contains("bar/min"))
+        #expect(DiveQuantityFormatting.respiratoryMinuteVolume(litersPerMinute: 18.4, system: .metric) == "18.4 L/min")
+        let cfm = try #require(DiveQuantityFormatting.respiratoryMinuteVolume(litersPerMinute: 18.4, system: .imperial))
+        #expect(cfm.contains("cu ft/min"))
+    }
+
+    @Test func diveDepthProfileOverlayChartLayout_pressurePoint_endingPSIAtBottom() {
+        let rect = CGRect(x: 10, y: 20, width: 100, height: 80)
+        let baseline: Double = 1500
+        let maxAbove = DiveDepthProfileOverlayChartLayout.maxPressureAboveBaseline(
+            pressureSamples: [
+                DiveDepthProfilePressureSample(elapsedSeconds: 0, pressurePSI: 3000),
+                DiveDepthProfilePressureSample(elapsedSeconds: 100, pressurePSI: 1500),
+            ],
+            baselinePSI: baseline
+        )
+        let start = DiveDepthProfileOverlayChartLayout.pressurePoint(
+            sample: DiveDepthProfilePressureSample(elapsedSeconds: 0, pressurePSI: 3000),
+            in: rect,
+            maxElapsed: 100,
+            baselinePSI: baseline,
+            maxPressureAboveBaseline: maxAbove
+        )
+        let end = DiveDepthProfileOverlayChartLayout.pressurePoint(
+            sample: DiveDepthProfilePressureSample(elapsedSeconds: 100, pressurePSI: 1500),
+            in: rect,
+            maxElapsed: 100,
+            baselinePSI: baseline,
+            maxPressureAboveBaseline: maxAbove
+        )
+        #expect(abs(end.y - rect.maxY) < 0.01)
+        #expect(start.y < end.y)
+    }
+
     @Test func goDiveUITestConfiguration_launchArgument_matchesAppCheck() {
         #expect(GoDiveUITestConfiguration.launchArgument == "-GoDiveUITest")
         #expect(GoDiveUITestConfiguration.launchEnvironmentKey == "GoDiveUITest")
@@ -1090,6 +1242,10 @@ struct GoDiveMVPTests {
         #expect(abs(c.latitude - 12.035237) < 1e-4)
         #expect(abs(c.longitude - (-68.262683)) < 1e-4)
         #expect(a.profilePoints.contains { $0.tankPressurePSI != nil })
+        let sac = try #require(a.avgSAC)
+        #expect(sac > 0)
+        let rmv = try #require(a.avgRMV)
+        #expect(rmv > 0)
     }
 
     // MARK: - UDDF
@@ -1262,6 +1418,10 @@ struct GoDiveMVPTests {
         #expect(sorted[0].tankPressurePSI == nil)
         let p1psi = try #require(sorted[1].tankPressurePSI)
         #expect(abs(p1psi - waypointExpected) < 1e-6)
+        let sac = try #require(d.avgSAC)
+        #expect(sac > 0)
+        let rmv = try #require(d.avgRMV)
+        #expect(rmv > 0)
     }
 
     @Test func uddfTankPressureConversion_macDiveSamplePascals() throws {

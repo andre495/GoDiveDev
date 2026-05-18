@@ -161,7 +161,16 @@ struct ViewSingleActivity: View {
                             sheetDetent: overviewSheetDetent,
                             gasMixLabel: activity.tankHeroGasMixLabel,
                             pressureRemainingFraction: tankHeroPressureFillFraction,
-                            oxygenMixPercent: activity.oxygenMix
+                            oxygenMixPercent: activity.oxygenMix,
+                            depthSamples: DiveDepthProfileSeries.samples(fromProfilePoints: moreTabSortedProfilePoints),
+                            pressureSamples: DiveDepthProfileSeries.pressureSamples(fromProfilePoints: moreTabSortedProfilePoints),
+                            maxDepthMeters: activity.maxDepthMeters,
+                            pressureBaselinePSI: activity.tankPressureEndPSI
+                                ?? DiveDepthProfileSeries.pressureSamples(fromProfilePoints: moreTabSortedProfilePoints).last?.pressurePSI,
+                            tankPressureStartPSI: activity.tankPressureStartPSI,
+                            tankPressureEndPSI: activity.tankPressureEndPSI,
+                            sacRateDisplay: activity.tankHeroSACRateLine(displayUnits: diveDisplayUnitSystem),
+                            rmvRateDisplay: activity.tankHeroRMVRateLine(displayUnits: diveDisplayUnitSystem)
                         )
                     case .camera:
                         placeholderContent(title: "Photos")
@@ -700,8 +709,23 @@ struct ViewSingleActivity: View {
             overviewDepthProfileSection
 
             overviewStatsSection
+
+            if overviewSheetDetent == .large {
+                overviewNotesSection
+                    .transition(.opacity)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .animation(.easeInOut(duration: 0.25), value: overviewSheetDetent == .large)
+    }
+
+    private var overviewNotesSection: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            detailsSectionHeader("Notes")
+
+            notesEditorBox
+        }
+        .accessibilityIdentifier("DiveOverview.MapPanel.Notes")
     }
 
     private var overviewDepthProfileSection: some View {

@@ -57,6 +57,30 @@ enum DiveQuantityFormatting {
         }
     }
 
+    /// **`avgSAC`** stored as **psi/min**; metric UI shows **bar/min**.
+    static func surfaceAirConsumption(sacPSIPerMinute: Double?, system: DiveDisplayUnitSystem) -> String? {
+        guard let sacPSIPerMinute, sacPSIPerMinute > 0 else { return nil }
+        switch system {
+        case .metric:
+            let barPerMin = sacPSIPerMinute / psiPerBar
+            return String(format: "%.1f bar/min", barPerMin)
+        case .imperial:
+            return String(format: "%.1f psi/min", sacPSIPerMinute)
+        }
+    }
+
+    /// **`avgRMV`** stored as **L/min**; imperial UI shows **cu ft/min**.
+    static func respiratoryMinuteVolume(litersPerMinute: Double?, system: DiveDisplayUnitSystem) -> String? {
+        guard let litersPerMinute, litersPerMinute > 0 else { return nil }
+        switch system {
+        case .metric:
+            return String(format: "%.1f L/min", litersPerMinute)
+        case .imperial:
+            let cfm = litersPerMinute * cubicFeetPerLiter
+            return String(format: "%.2f cu ft/min", cfm)
+        }
+    }
+
     /// Parses the first **`number` + `L`** segment (e.g. **`80 L (0.080 m³)`** → **80**). Exposed for tests.
     static func firstLitersValue(in description: String) -> Double? {
         let pattern = #"(\d+(?:\.\d+)?)\s*L"#

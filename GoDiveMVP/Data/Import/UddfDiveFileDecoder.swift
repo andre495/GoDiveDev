@@ -207,6 +207,7 @@ enum UddfDiveFileDecoder {
             )
         }
         activity.profilePoints = points
+        activity.applyImportedGasConsumptionMetrics(volumeUsedSurfaceLiters: nil)
 
         return activity
     }

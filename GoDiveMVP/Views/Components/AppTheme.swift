@@ -65,6 +65,9 @@ enum AppTheme {
             dark: UIColor(red: 0.10, green: 0.34, blue: 0.48, alpha: 1.0)
         )
 
+        /// Tank gas chart line, cylinder O₂ band, and minimized **PSI / SAC / RMV** values.
+        static let tankGasAccent = Color(red: 0.92, green: 0.78, blue: 0.12)
+
         static let headerGradientStart = accent
         static let headerGradientEnd = accentDeep
         static let headerBackground = surfaceElevated

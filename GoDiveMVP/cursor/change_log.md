@@ -225,3 +225,19 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Tests:** **`userProfileStore_*`**, **`diveActivityOwnership_*`**; import tests pass **`owner`** (or assert sign-in gate); **`UserProfileStore`** keeps display name on re-sign-in unless still default **Diver**.
 - **Home (`LogOverviewView`):** **`AppComingSoonPlaceholder`** for upcoming dashboard features.
 
+---
+
+## 25 - Tank hero minimized depth + gas profile chart (pushed)
+
+**Summary:** At the **minimized** tank sheet detent, a large centered depth + gas profile sits in the hero band; yellow gas line uses **ending PSI** as **y = 0**; touch-and-hold scrub shows depth and pressure.
+
+- **`DiveDepthProfileOverlayChart`** + **`DiveDepthProfileOverlayChartLayout`** — depth (accent) + yellow **PSI above ending pressure**; scrub callout for depth + nearest sample pressure; gas line omitted without two PSI samples.
+- **`DiveDepthProfileSeries.pressureSamples`**; centered **`minimizedProfileChartFrame`**; **`DiveTankOverviewHeroView`** passes **`pressureBaselinePSI`** (**`tankPressureEndPSI`**).
+- **Tests:** **`diveDepthProfileSeries_pressureSamples_*`**, **`diveTankOverviewHeroPresentation_*`**, **`diveDepthProfileOverlayChartLayout_*`**.
+- **Map panel:** **Notes** editor (shared **`notesBinding`**) when overview sheet is at **large** detent.
+- **`DiveActivityOverviewPanelMetrics.panelContentTopPadding`** — space below grabber for expanded + minimized overview sheet content.
+- **Tank minimized hero:** **`DiveTankMinimizedGasSummary`** — left-aligned header-style **PSI used** + **SAC** / **RMV** from **`avgSAC`** / **`avgRMV`** when import provides tank pressures, time, and depth.
+- **`avgSAC`** / **`avgRMV`** on **`DiveActivity`** (**psi/min**, **L/min**); **`DiveSACRMVCalculation`** (Scuba Scribbles single-tank formulas); computed in **`.fit`** / **`.uddf`** decoders + seed mapper. **Tests:** **`diveSACRMVCalculation_*`**, import regressions.
+- **`AppTheme.Colors.tankGasAccent`** — shared yellow for profile gas line, cylinder band, and minimized **PSI / SAC / RMV** values (labels stay primary).
+- Minimized cylinder **`minimizedTrailingInset`** **56** (further left); gas summary uses **`HStack`** inline text (no deprecated **`Text`** **`+`**).
+
