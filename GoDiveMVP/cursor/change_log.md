@@ -213,7 +213,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ---
 
-## 24 - Sign in with Apple + local user profile (not pushed)
+## 24 - Sign in with Apple + local user profile **(pushed)**
 
 **Summary:** Lightweight accounts: **`SignInView`** (native **Sign in with Apple**), **`UserProfile`** in SwiftData, **`AccountSession`** gates **`ContentView`**, Profile shows name + sign out; dives link via **`owner`** / **`ownerProfileID`**.
 
