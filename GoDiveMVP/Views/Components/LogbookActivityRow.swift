@@ -1,35 +1,32 @@
 import SwiftUI
 
-/// Compact logbook row: name, persisted dive **#**, date · depth · duration.
-struct LogbookActivityRow: View {
-    @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
-
-    let activity: DiveActivity
-    var showsDuplicateHint: Bool = false
+/// Compact logbook row: name, dive **#**, date · depth · duration.
+struct LogbookActivityRow: View, Equatable {
+    let data: DiveLogbookRowDisplayData
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: AppTheme.Spacing.sm) {
-                Text(Self.displayName(for: activity))
+                Text(data.displayName)
                     .font(.headline)
                     .foregroundStyle(AppTheme.Colors.textPrimary)
                     .lineLimit(1)
 
                 Spacer(minLength: AppTheme.Spacing.sm)
 
-                Text(activity.diveNumberLogbookLabel)
+                Text(data.diveNumberLabel)
                     .font(.subheadline.weight(.medium).monospacedDigit())
                     .foregroundStyle(AppTheme.Colors.tabUnselected)
                     .accessibilityLabel("Dive number \(diveNumberForAccessibility)")
             }
 
-            Text(detailLine)
+            Text(data.detailLine)
                 .font(.footnote)
                 .foregroundStyle(AppTheme.Colors.secondaryText)
                 .lineLimit(2)
                 .minimumScaleFactor(0.85)
 
-            if showsDuplicateHint {
+            if data.showsDuplicateHint {
                 Text("Possible duplicate")
                     .font(.caption)
                     .foregroundStyle(AppTheme.Colors.mutedText)
@@ -49,17 +46,12 @@ struct LogbookActivityRow: View {
     }
 
     private var diveNumberForAccessibility: String {
-        if let n = activity.diveNumber {
-            return String(n)
+        let trimmed = data.diveNumberLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed == "-" { return "none" }
+        if trimmed.hasPrefix("#") {
+            return String(trimmed.dropFirst())
         }
-        return "none"
-    }
-
-    private var detailLine: String {
-        let dateStr = activity.startTime.formatted(date: .abbreviated, time: .omitted)
-        let depth = DiveQuantityFormatting.depth(meters: activity.maxDepthMeters, system: diveDisplayUnitSystem)
-        let dur = "\(activity.durationMinutes) min"
-        return "\(dateStr) · \(depth) · \(dur)"
+        return trimmed
     }
 
     /// Dive site name when set; otherwise **"New Dive"**.
@@ -78,11 +70,15 @@ struct LogbookActivityRow: View {
         startTime: .now,
         durationMinutes: 34,
         maxDepthMeters: 22.5,
-        diveNumber: 3,
-        siteName: nil,
-        rawImportVersion: "FITSwiftSDK-21.202.0"
+        diveNumber: 12
     )
-    return LogbookActivityRow(activity: a)
+    let data = DiveLogbookRowDisplayData(
+        id: a.id,
+        displayName: "Salt Pier",
+        diveNumberLabel: "#12",
+        detailLine: "May 17, 2026 · 74 ft · 34 min",
+        showsDuplicateHint: false
+    )
+    return LogbookActivityRow(data: data)
         .padding()
-        .background(AppTheme.Colors.screenBackgroundGradient)
 }

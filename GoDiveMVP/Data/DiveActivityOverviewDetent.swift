@@ -1,6 +1,6 @@
 import CoreGraphics
 
-/// Resting heights for the dive overview **`.sheet`** (map + tank tabs).
+/// Resting heights for the dive overview bottom panel (map + tank tabs).
 ///
 /// Kept free of **SwiftUI** so **`Equatable`** / **`Hashable`** stay **nonisolated** (Swift 6).
 /// See **`DiveActivityOverviewDetent+Presentation.swift`** for **`PresentationDetent`** mapping.
@@ -37,7 +37,20 @@ enum DiveActivityOverviewDetent: CaseIterable, Equatable, Hashable, Sendable {
         layoutHeight: CGFloat,
         bottomSafeInset: CGFloat
     ) -> CGFloat {
-        layoutHeight * detent.heightFraction + bottomSafeInset
+        sheetHeight(
+            forHeightFraction: detent.heightFraction,
+            layoutHeight: layoutHeight,
+            bottomSafeInset: bottomSafeInset
+        )
+    }
+
+    /// Continuous height while the grabber is moving (not quantized to resting detents).
+    nonisolated static func sheetHeight(
+        forHeightFraction fraction: CGFloat,
+        layoutHeight: CGFloat,
+        bottomSafeInset: CGFloat
+    ) -> CGFloat {
+        layoutHeight * fraction + bottomSafeInset
     }
 
     nonisolated static func bottomObstructionHeight(
@@ -82,6 +95,20 @@ enum DiveActivityOverviewDetent: CaseIterable, Equatable, Hashable, Sendable {
         case .medium: hasher.combine(1)
         case .large: hasher.combine(2)
         }
+    }
+
+    /// Maps a height fraction (e.g. after grabber drag) to the nearest resting detent.
+    nonisolated static func nearest(toHeightFraction fraction: CGFloat) -> Self {
+        if DiveActivityOverviewPanelMetrics.isMinimized(fraction) {
+            return .minimized
+        }
+        if DiveActivityOverviewPanelMetrics.isExpanded(fraction) {
+            return .large
+        }
+        if abs(fraction - DiveActivityOverviewPanelMetrics.mediumHeightFraction) < 0.03 {
+            return .medium
+        }
+        return .medium
     }
 
     nonisolated private init?(fraction: CGFloat) {

@@ -1,13 +1,23 @@
 import SwiftUI
 
-/// Body of the persistent dive overview **`.sheet`** (map + tank tabs).
+/// Body of the persistent dive overview panel (map + tank tabs) — embedded or **`.sheet`**.
 struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: View>: View {
     @Binding var selectedDetent: DiveActivityOverviewDetent
+    /// When set (embedded grabber drag), layout follows the finger instead of the resting detent.
+    var liveHeightFraction: CGFloat? = nil
     @ViewBuilder var collapsedSummary: () -> CollapsedSummary
     @ViewBuilder var panelContent: () -> PanelContent
 
     /// Keeps the heavy scroll body mounted after first expand so detent changes do not rebuild the chart.
     @State private var keepsExpandedPanelMounted = true
+
+    private var layoutHeightFraction: CGFloat {
+        liveHeightFraction ?? selectedDetent.heightFraction
+    }
+
+    private var showsMinimizedLayout: Bool {
+        DiveActivityOverviewPanelMetrics.isMinimized(layoutHeightFraction)
+    }
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -21,14 +31,14 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
                         .padding(.horizontal, AppTheme.Spacing.md)
                         .padding(.bottom, AppTheme.Spacing.lg)
                 }
-                .opacity(selectedDetent == .minimized ? 0 : 1)
-                .allowsHitTesting(selectedDetent != .minimized)
-                .accessibilityHidden(selectedDetent == .minimized)
-                .frame(maxWidth: .infinity, maxHeight: selectedDetent == .minimized ? 1 : nil)
+                .opacity(showsMinimizedLayout ? 0 : 1)
+                .allowsHitTesting(!showsMinimizedLayout)
+                .accessibilityHidden(showsMinimizedLayout)
+                .frame(maxWidth: .infinity, maxHeight: showsMinimizedLayout ? 1 : nil)
                 .clipped()
             }
 
-            if selectedDetent == .minimized {
+            if showsMinimizedLayout {
                 Button {
                     selectedDetent = .medium
                 } label: {
@@ -62,7 +72,7 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
             }
         }
         .onAppear {
-            if selectedDetent != .minimized {
+            if !DiveActivityOverviewPanelMetrics.isMinimized(layoutHeightFraction) {
                 keepsExpandedPanelMounted = true
             }
         }

@@ -12,9 +12,12 @@ struct SecondaryDestinationBackButton: View {
 
     /// Minimum tappable width/height (e.g. **44** matches Logbook **+**).
     var minTapDimension: CGFloat = 44
+    /// Runs immediately before **`dismiss()`** (e.g. drop MapKit before the pop animation).
+    var onWillDismiss: (() -> Void)? = nil
 
     var body: some View {
         Button {
+            onWillDismiss?()
             dismiss()
         } label: {
             Image(systemName: "chevron.left")

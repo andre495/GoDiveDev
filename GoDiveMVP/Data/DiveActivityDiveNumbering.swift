@@ -5,11 +5,11 @@ import SwiftData
 ///
 /// **Rules**
 /// - **`.fit` import:** **`assignNextDiveNumberChainedAfterNewest`** — next **#** is **(last numbered dive in **`startTime`** order) + 1**; dives with **`diveNumber == nil`** (unset or **`diveNumberExplicitlyNone`**) do not advance the chain. Garmin **`SessionMesg`** is not used.
-/// - **After delete (when automatic renumber is on in Settings):** **`DiveActivityDeletion`** calls **`renumberAllChronologically`**. **`renumberDivesNewerThanDeleted`** remains for targeted tail fixes (tests / internal). **`renumberAllChronologically`** assigns **1…n** to **every** dive. **`partialRenumberAfterDeleteWouldBeNoop`** supports tests and any future callers that compare partial vs full strategies.
+/// - **After delete (when automatic renumber is on in Settings):** **`DiveBackgroundRenumberingWorker`** (**`@ModelActor`**) persists **#**s off the main actor; Logbook labels use chronological display. **`renumberAllChronologically`** on the main context is for Settings / import. **`partialRenumberAfterDeleteWouldBeNoop`** skips work when tail **#**s are already correct.
 /// - **JSON fixtures / mapper:** **`diveNumber`** from the DTO when present; **`backfillMissingDiveNumbers`** fills **`nil`** only when **`diveNumberExplicitlyNone`** is **`false`**.
 enum DiveActivityDiveNumbering {
     /// Oldest **`startTime`** → **1**; ties broken by **`id`**.
-    static func sequentialIndicesById(for activities: [DiveActivity]) -> [UUID: Int] {
+    nonisolated static func sequentialIndicesById(for activities: [DiveActivity]) -> [UUID: Int] {
         guard !activities.isEmpty else { return [:] }
         let sorted = activities.sorted {
             if $0.startTime != $1.startTime {
@@ -21,7 +21,7 @@ enum DiveActivityDiveNumbering {
     }
 
     /// **`a`** is strictly before **`(deletedStartTime, deletedId)`** in chronological order (same tie-break as **`sequentialIndicesById`**).
-    static func chronologicallyBefore(
+    nonisolated static func chronologicallyBefore(
         _ a: DiveActivity,
         deletedStartTime: Date,
         deletedId: UUID
@@ -33,7 +33,7 @@ enum DiveActivityDiveNumbering {
     }
 
     /// **`true`** when renumbering **only** dives after the deleted slot would not write any row (skip **Renumber dives?**).
-    static func partialRenumberAfterDeleteWouldBeNoop(
+    nonisolated static func partialRenumberAfterDeleteWouldBeNoop(
         remaining: [DiveActivity],
         deletedStartTime: Date,
         deletedId: UUID
@@ -58,7 +58,7 @@ enum DiveActivityDiveNumbering {
     }
 
     /// Next **`.fit`** **#** = **(last non-**`nil`** **`diveNumber`** in **`startTime`** order) + 1**, or **1** if none. Dives with no number (unset or explicit none) do not advance the chain. Sets **`diveNumberExplicitlyNone`** to **`false`**.
-    static func nextChainedDiveNumberForNewImport(existingDives: [DiveActivity]) -> Int {
+    nonisolated static func nextChainedDiveNumberForNewImport(existingDives: [DiveActivity]) -> Int {
         guard !existingDives.isEmpty else { return 1 }
         let sorted = existingDives.sorted {
             if $0.startTime != $1.startTime {
@@ -82,7 +82,7 @@ enum DiveActivityDiveNumbering {
         activity.diveNumberExplicitlyNone = false
     }
 
-    /// Rewrites **`diveNumber`** on **every** persisted dive to **1…n** in **`startTime`** order (ties **`id`**).
+    /// Rewrites **`diveNumber`** on **every** persisted dive to **1…n** in **`startTime`** order (ties **`id`**). Main-context only; background delete uses **`DiveBackgroundRenumberingWorker`**.
     @MainActor
     static func renumberAllChronologically(modelContext: ModelContext) throws {
         let all = try modelContext.fetch(FetchDescriptor<DiveActivity>())
@@ -109,7 +109,7 @@ enum DiveActivityDiveNumbering {
         try renumberAllChronologically(modelContext: modelContext)
     }
 
-    /// Renumbers only dives **strictly after** **`(deletedStartTime, deletedId)`** in chronological order: **`base + 1`**, **`base + 2`**, … where **`base`** = **`max(diveNumber)`** among older dives (or **0**). Older dives are untouched.
+    /// Renumbers only dives **strictly after** **`(deletedStartTime, deletedId)`** in chronological order: **`base + 1`**, **`base + 2`**, … where **`base`** = **`max(diveNumber)`** among older dives (or **0**). Older dives are untouched. Main-context only; background delete uses **`DiveBackgroundRenumberingWorker`**.
     @MainActor
     static func renumberDivesNewerThanDeleted(
         deletedStartTime: Date,

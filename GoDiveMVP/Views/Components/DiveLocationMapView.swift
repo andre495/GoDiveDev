@@ -132,7 +132,7 @@ struct DiveLocationMapView: View {
             for: coordinate,
             layoutHeight: layoutHeight,
             topObstructionHeight: topObstructionHeight,
-            sheetHeightFraction: cameraLayoutDetent.heightFraction,
+            bottomContentMargin: bottomContentMargin,
             mapCameraDetent: cameraLayoutDetent
         )
         return .camera(

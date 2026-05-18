@@ -72,37 +72,49 @@ enum DiveLocationMapPresentation: Sendable {
         return top + visible / 2
     }
 
-    /// Scales latitude offset — **`MapCamera`** distance does not match region **`latitudeDelta`** linearly; medium was overshooting.
-    nonisolated static func latitudeShiftMultiplier(for detent: DiveActivityOverviewDetent) -> CGFloat {
+    /// Empirical tuning — **`MapCamera`** altitude does not match region **`latitudeDelta`** linearly.
+    nonisolated static func latitudeShiftTuning(for detent: DiveActivityOverviewDetent) -> CGFloat {
         switch detent.mapCameraDetent {
-        case .minimized: 1.0
+        case .minimized: 0.38
         case .medium, .large: 0.52
         }
     }
 
-    /// Shifts the camera center so the pin at **`coordinate`** sits in the visible band above the sheet.
+    /// Sheet coverage as a fraction of **`layoutHeight`** (panel + home indicator), for map framing.
+    nonisolated static func sheetHeightFraction(
+        layoutHeight: CGFloat,
+        bottomContentMargin: CGFloat
+    ) -> CGFloat {
+        min(max(bottomContentMargin / max(layoutHeight, 1), 0), 0.92)
+    }
+
+    /// Shifts the camera center so the pin at **`coordinate`** sits at **`targetPinScreenYFraction`**.
     nonisolated static func adjustedMapCenter(
         for coordinate: DiveCoordinate,
         layoutHeight: CGFloat,
         topObstructionHeight: CGFloat,
-        sheetHeightFraction: CGFloat,
+        bottomContentMargin: CGFloat,
         mapCameraDetent: DiveActivityOverviewDetent
     ) -> CLLocationCoordinate2D {
         let h = max(layoutHeight, 1)
-        let topFraction = min(max(topObstructionHeight / h, 0), 0.9)
-        let sheetFraction = min(max(sheetHeightFraction, 0), 0.92)
-
-        // Midpoint of visible strip: shift camera south so the pin reads higher on screen.
-        let halfBandShift = max(0, (sheetFraction - topFraction) / 2)
-        guard halfBandShift > 0.001 else {
+        let sheetFraction = sheetHeightFraction(layoutHeight: h, bottomContentMargin: bottomContentMargin)
+        let targetY = targetPinScreenYFraction(
+            layoutHeight: h,
+            topObstructionHeight: topObstructionHeight,
+            sheetHeightFraction: sheetFraction
+        )
+        let offsetFromCenter = 0.5 - targetY
+        guard abs(offsetFromCenter) > 0.0005 else {
             return CLLocationCoordinate2D(latitude: coordinate.latitude, longitude: coordinate.longitude)
         }
 
-        let shift = halfBandShift
+        let distanceScale = CGFloat(cameraDistanceMeters(for: mapCameraDetent) / referenceCameraDistanceMeters)
+        let latitudeShift = offsetFromCenter
             * diveSiteLatitudeDelta
-            * latitudeShiftMultiplier(for: mapCameraDetent)
+            * distanceScale
+            * latitudeShiftTuning(for: mapCameraDetent)
         return CLLocationCoordinate2D(
-            latitude: coordinate.latitude - shift,
+            latitude: coordinate.latitude - latitudeShift,
             longitude: coordinate.longitude
         )
     }

@@ -4,7 +4,9 @@ struct ProfileView: View {
     var body: some View {
         AppHeaderlessPage {
             ZStack {
-                WaterBubbleBackground()
+                if !GoDiveUITestConfiguration.isActive {
+                    WaterBubbleBackground()
+                }
 
                 VStack(spacing: 0) {
                     HStack(spacing: AppTheme.Spacing.md) {
@@ -24,6 +26,13 @@ struct ProfileView: View {
                     }
                     .padding(.horizontal, AppTheme.Spacing.lg)
                     .padding(.vertical, AppTheme.Spacing.md)
+
+                    Spacer(minLength: AppTheme.Spacing.lg)
+
+                    AppComingSoonPlaceholder(
+                        systemImage: "person.circle",
+                        message: "Your diver profile and dive stats will show up here."
+                    )
 
                     Spacer()
                 }

@@ -3,6 +3,7 @@ import SwiftUI
 
 struct LogbookView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
 
     private enum Route: Hashable {
         case addActivity
@@ -19,7 +20,7 @@ struct LogbookView: View {
 
     @State private var path: [Route] = []
     @State private var activityPendingDeletion: DiveActivity?
-    /// Rows hidden until **`deletePermanently`** finishes (or fails); keeps the list responsive while **`save()`** / renumber run.
+    /// Rows hidden until **`deletePermanently`** finishes (or fails); keeps the list responsive while **`save()`** runs (renumber is background).
     @State private var optimisticallyRemovedActivityIDs: Set<UUID> = []
     @State private var logbookHeaderClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
 
@@ -33,6 +34,16 @@ struct LogbookView: View {
         return DiveActivityDuplicateMatcher.idsWithDuplicates(in: signatures)
     }
 
+    /// Row snapshots: **#** from chronology when auto-renumber is on (not live **`diveNumber`**), so background persist does not force row re-layout.
+    private var logbookDisplayRows: [DiveLogbookRowDisplayData] {
+        DiveLogbookDisplay.rowData(
+            activities: visibleActivities,
+            unitSystem: diveDisplayUnitSystem,
+            duplicateIds: duplicateActivityIds,
+            useChronologicalNumbers: AppUserSettings.automaticallyRenumberDives
+        )
+    }
+
     var body: some View {
         NavigationStack(path: $path) {
             AppHeaderlessPage {
@@ -41,6 +52,10 @@ struct LogbookView: View {
                     let logbookListTopInset = proxy.safeAreaInsets.top + logbookHeaderClearance
                     ZStack {
                         ZStack(alignment: .top) {
+                            if !GoDiveUITestConfiguration.isActive {
+                                WaterBubbleBackground()
+                            }
+
                             Group {
                                 if visibleActivities.isEmpty {
                                     logbookEmptyState
@@ -54,12 +69,10 @@ struct LogbookView: View {
                                             .listRowBackground(Color.clear)
                                             .accessibilityHidden(true)
 
-                                        ForEach(visibleActivities, id: \.id) { activity in
-                                            NavigationLink(value: Route.diveDetail(activity.id)) {
-                                                LogbookActivityRow(
-                                                    activity: activity,
-                                                    showsDuplicateHint: duplicateActivityIds.contains(activity.id)
-                                                )
+                                        ForEach(logbookDisplayRows) { row in
+                                            NavigationLink(value: Route.diveDetail(row.id)) {
+                                                LogbookActivityRow(data: row)
+                                                    .equatable()
                                             }
                                             .buttonStyle(.plain)
                                             .navigationLinkIndicatorVisibility(.hidden)
@@ -75,7 +88,7 @@ struct LogbookView: View {
                                             .listRowBackground(Color.clear)
                                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                                 Button(role: .destructive) {
-                                                    activityPendingDeletion = activity
+                                                    activityPendingDeletion = visibleActivities.first { $0.id == row.id }
                                                 } label: {
                                                     Label("Delete", systemImage: "trash")
                                                 }

@@ -2,8 +2,8 @@ import SwiftData
 
 /// Removes a **`DiveActivity`** from the store; related **`DiveProfilePoint`** and **`DiveBuddyTag`** rows follow **`@Relationship(deleteRule: .cascade)`** on the model.
 enum DiveActivityDeletion {
-    /// - **`applySequentialRenumberOverride`:** **`nil`** → use **`AppUserSettings.automaticallyRenumberDives`**; when **`true`**, after delete + save, **`DiveActivityDiveNumbering.renumberAllChronologically`** runs.
-    /// - **`awaitPostDeleteRenumber`:** **`false`** (default for UI) schedules renumber on a separate main-actor task so **`deletePermanently`** returns after delete + save; **`true`** awaits renumber (tests).
+    /// - **`applySequentialRenumberOverride`:** **`nil`** → use **`AppUserSettings.automaticallyRenumberDives`**; when **`true`**, after delete + save, partial renumber runs on a **background** context.
+    /// - **`awaitPostDeleteRenumber`:** **`false`** (default for UI) returns after delete + save and schedules background renumber; **`true`** runs partial renumber on **`modelContext`** and awaits it (tests — same-context **`diveNumber`** reads).
     /// - **Async:** **`await Task.yield()`** at the start so the run loop can paint optimistic UI / modal dismissal before **`save()`**.
     @MainActor
     static func deletePermanently(
@@ -13,19 +13,40 @@ enum DiveActivityDeletion {
         awaitPostDeleteRenumber: Bool = false
     ) async throws {
         await Task.yield()
+
+        let deletedStartTime = activity.startTime
+        let deletedId = activity.id
+        let container = modelContext.container
+
+        let shouldRenumber = applySequentialRenumberOverride ?? AppUserSettings.automaticallyRenumberDives
+        let skipRenumber: Bool
+        if shouldRenumber {
+            let all = try modelContext.fetch(FetchDescriptor<DiveActivity>())
+            let remaining = all.filter { $0.id != deletedId }
+            skipRenumber = DiveActivityDiveNumbering.partialRenumberAfterDeleteWouldBeNoop(
+                remaining: remaining,
+                deletedStartTime: deletedStartTime,
+                deletedId: deletedId
+            )
+        } else {
+            skipRenumber = true
+        }
+
         modelContext.delete(activity)
         try modelContext.save()
 
-        let renumber = applySequentialRenumberOverride ?? AppUserSettings.automaticallyRenumberDives
-        guard renumber else { return }
+        guard shouldRenumber, !skipRenumber else { return }
 
         if awaitPostDeleteRenumber {
             await Task.yield()
-            try DiveActivityDiveNumbering.renumberAllChronologically(modelContext: modelContext)
+            try DiveActivityDiveNumbering.renumberDivesNewerThanDeleted(
+                deletedStartTime: deletedStartTime,
+                deletedId: deletedId,
+                modelContext: modelContext
+            )
         } else {
-            Task(priority: .utility) { @MainActor in
-                await Task.yield()
-                try? DiveActivityDiveNumbering.renumberAllChronologically(modelContext: modelContext)
+            Task {
+                await DivePostDeleteRenumberScheduler.shared.scheduleFullRenumber(container: container)
             }
         }
     }

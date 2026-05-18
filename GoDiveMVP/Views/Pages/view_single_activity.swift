@@ -12,14 +12,14 @@ struct ViewSingleActivity: View {
 
     @State private var selectedActivityTab: DiveActivityTab = .map
     @State private var overviewSheetDetent = DiveActivityOverviewDetent.defaultSelection
-    @State private var isOverviewSheetPresented = true
-    @State private var overviewScreenHeight: CGFloat = 0
-    @State private var overviewBottomSafeInset: CGFloat = 0
+    @State private var isOverviewPanelPresented = true
     /// Tank hero gas column (**1** = full); animates toward **`ending/beginning`** PSI when the sheet snaps to a shorter detent.
     @State private var tankHeroPressureFillFraction: CGFloat = 1
     @FocusState private var isNotesFieldFocused: Bool
     /// While the depth chart is scrubbed, holds the nearest profile sample (elapsed from dive start + depth).
     @State private var depthProfileScrubSample: DiveDepthProfileSample?
+    /// When **`true`**, map tab uses **`DiveOverviewMapTeardownPlaceholder`** instead of live MapKit (set before pop).
+    @State private var overviewMapTeardownRequested = false
 
     /// **More** tab: profile samples sorted by time (read-only).
     private var moreTabSortedProfilePoints: [DiveProfilePoint] {
@@ -31,8 +31,12 @@ struct ViewSingleActivity: View {
         moreTabSortedProfilePoints.filter { $0.tankPressurePSI != nil }
     }
 
+    private var showsLiveOverviewMap: Bool {
+        DiveActivityOverviewMapTeardown.showsLiveMap(teardownRequested: overviewMapTeardownRequested)
+    }
+
     var body: some View {
-        AppHeaderlessPage {
+        AppHeaderlessPage(leadingEdgePopOnWillDismiss: requestOverviewMapTeardown) {
             diveOverviewHeroLayer
                 .overlay(alignment: .top) {
                     activityTopChrome
@@ -41,7 +45,11 @@ struct ViewSingleActivity: View {
         }
         .hidesBottomTabBarWhenPushed()
         .onAppear {
+            overviewMapTeardownRequested = false
             syncOverviewSheetPresentation(for: selectedActivityTab)
+        }
+        .onDisappear {
+            requestOverviewMapTeardown()
         }
         .onChange(of: selectedActivityTab) { _, newTab in
             syncOverviewSheetPresentation(for: newTab)
@@ -52,14 +60,6 @@ struct ViewSingleActivity: View {
         }
         .onChange(of: activity.id) { _, _ in
             tankHeroPressureFillFraction = 1
-        }
-        .sheet(isPresented: $isOverviewSheetPresented) {
-            diveOverviewSheetContent
-                .diveActivityOverviewSheetPresentation(
-                    selectedDetent: $overviewSheetDetent,
-                    screenHeight: overviewScreenHeight,
-                    bottomSafeInset: overviewBottomSafeInset
-                )
         }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -75,8 +75,11 @@ struct ViewSingleActivity: View {
 
     private var activityTopChrome: some View {
         HStack(alignment: .center, spacing: 0) {
-            SecondaryDestinationBackButton(minTapDimension: DiveActivityTabIcon.menuRowHeight)
-                .frame(width: DiveActivityTabIcon.menuRowHeight, height: DiveActivityTabIcon.menuRowHeight)
+            SecondaryDestinationBackButton(
+                minTapDimension: DiveActivityTabIcon.menuRowHeight,
+                onWillDismiss: requestOverviewMapTeardown
+            )
+            .frame(width: DiveActivityTabIcon.menuRowHeight, height: DiveActivityTabIcon.menuRowHeight)
 
             activityIconTabBar
                 .frame(maxWidth: .infinity)
@@ -109,28 +112,17 @@ struct ViewSingleActivity: View {
     private var diveOverviewHeroLayer: some View {
         GeometryReader { geometry in
             let layoutHeight = max(geometry.size.height, 1)
-            Color.clear
-                .frame(width: 0, height: 0)
-                .onAppear {
-                    overviewScreenHeight = layoutHeight
-                    overviewBottomSafeInset = geometry.safeAreaInsets.bottom
-                }
-                .onChange(of: layoutHeight) { _, height in
-                    overviewScreenHeight = height
-                }
-                .onChange(of: geometry.safeAreaInsets.bottom) { _, inset in
-                    overviewBottomSafeInset = inset
-                }
+            let bottomSafeInset = geometry.safeAreaInsets.bottom
             let mapCameraDetent = overviewSheetDetent.mapCameraDetent
             let bottomObstruction = DiveActivityOverviewDetent.bottomObstructionHeight(
                 layoutHeight: layoutHeight,
                 detent: overviewSheetDetent,
-                bottomSafeInset: geometry.safeAreaInsets.bottom
+                bottomSafeInset: bottomSafeInset
             )
             let mapBottomObstruction = DiveActivityOverviewDetent.bottomObstructionHeight(
                 layoutHeight: layoutHeight,
                 detent: mapCameraDetent,
-                bottomSafeInset: geometry.safeAreaInsets.bottom
+                bottomSafeInset: bottomSafeInset
             )
             let topObstruction = DiveActivityOverviewPanelMetrics.mapTopObstructionHeight(
                 topSafeInset: geometry.safeAreaInsets.top,
@@ -138,79 +130,98 @@ struct ViewSingleActivity: View {
                 chromeTopPadding: AppTheme.Spacing.sm
             )
 
-            Group {
-                switch selectedActivityTab {
-                case .map:
-                    DiveLocationMapView(
-                        coordinate: overviewMapCoordinate,
-                        markerTitle: DiveLocationMapPresentation.markerTitle(
-                            siteName: activity.siteName,
-                            fallback: activity.deviceSource.overviewFallbackSiteTitle
-                        ),
-                        bottomContentMargin: mapBottomObstruction,
-                        topObstructionHeight: topObstruction,
+            ZStack(alignment: .bottom) {
+                Group {
+                    switch selectedActivityTab {
+                    case .map:
+                        Group {
+                            if showsLiveOverviewMap {
+                                DiveLocationMapView(
+                                    coordinate: overviewMapCoordinate,
+                                    markerTitle: DiveLocationMapPresentation.markerTitle(
+                                        siteName: activity.siteName,
+                                        fallback: activity.deviceSource.overviewFallbackSiteTitle
+                                    ),
+                                    bottomContentMargin: mapBottomObstruction,
+                                    topObstructionHeight: topObstruction,
+                                    layoutHeight: layoutHeight,
+                                    cameraLayoutDetent: mapCameraDetent
+                                )
+                                .id(activity.id)
+                            } else {
+                                DiveOverviewMapTeardownPlaceholder()
+                            }
+                        }
+                        .ignoresSafeArea()
+                    case .tank:
+                        DiveTankOverviewHeroView(
+                            bottomContentMargin: bottomObstruction,
+                            topObstructionHeight: topObstruction,
+                            layoutHeight: layoutHeight,
+                            sheetDetent: overviewSheetDetent,
+                            gasMixLabel: activity.tankHeroGasMixLabel,
+                            pressureRemainingFraction: tankHeroPressureFillFraction,
+                            oxygenMixPercent: activity.oxygenMix
+                        )
+                    case .camera:
+                        placeholderContent(title: "Photos")
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                if isOverviewPanelPresented {
+                    DiveActivityOverviewEmbeddedPanel(
+                        selectedDetent: $overviewSheetDetent,
                         layoutHeight: layoutHeight,
-                        cameraLayoutDetent: mapCameraDetent
+                        bottomSafeInset: bottomSafeInset,
+                        collapsedSummary: {
+                            switch selectedActivityTab {
+                            case .map:
+                                overviewCollapsedSummary
+                            case .tank:
+                                tankCollapsedSummary
+                            case .camera:
+                                EmptyView()
+                            }
+                        },
+                        panelContent: {
+                            switch selectedActivityTab {
+                            case .map:
+                                overviewBottomPanelContent
+                            case .tank:
+                                tankPanelContent
+                            case .camera:
+                                EmptyView()
+                            }
+                        }
                     )
-                    .id(activity.id)
-                    .ignoresSafeArea()
-                case .tank:
-                    DiveTankOverviewHeroView(
-                        bottomContentMargin: bottomObstruction,
-                        topObstructionHeight: topObstruction,
-                        layoutHeight: layoutHeight,
-                        sheetDetent: overviewSheetDetent,
-                        gasMixLabel: activity.tankHeroGasMixLabel,
-                        pressureRemainingFraction: tankHeroPressureFillFraction,
-                        oxygenMixPercent: activity.oxygenMix
-                    )
-                case .camera:
-                    placeholderContent(title: "Photos")
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .ignoresSafeArea()
     }
 
-    private var diveOverviewSheetContent: some View {
-        DiveActivityOverviewSheetContent(
-            selectedDetent: $overviewSheetDetent,
-            collapsedSummary: {
-                switch selectedActivityTab {
-                case .map:
-                    overviewCollapsedSummary
-                case .tank:
-                    tankCollapsedSummary
-                case .camera:
-                    EmptyView()
-                }
-            },
-            panelContent: {
-                switch selectedActivityTab {
-                case .map:
-                    overviewBottomPanelContent
-                case .tank:
-                    tankPanelContent
-                case .camera:
-                    EmptyView()
-                }
-            }
-        )
+    private func requestOverviewMapTeardown() {
+        guard showsLiveOverviewMap else { return }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            overviewMapTeardownRequested = true
+        }
     }
 
     private func syncOverviewSheetPresentation(for tab: DiveActivityTab) {
         switch tab {
         case .map, .tank:
-            if !isOverviewSheetPresented {
-                isOverviewSheetPresented = true
+            if !isOverviewPanelPresented {
+                isOverviewPanelPresented = true
             }
             overviewSheetDetent = DiveActivityOverviewDetent.defaultSelection
             if tab == .tank {
                 tankHeroPressureFillFraction = 1
             }
         case .camera:
-            isOverviewSheetPresented = false
+            isOverviewPanelPresented = false
         }
     }
 

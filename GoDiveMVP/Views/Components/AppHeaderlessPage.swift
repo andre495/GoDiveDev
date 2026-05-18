@@ -2,8 +2,13 @@ import SwiftUI
 
 struct AppHeaderlessPage<Content: View>: View {
     let content: Content
+    var leadingEdgePopOnWillDismiss: (() -> Void)?
 
-    init(@ViewBuilder content: () -> Content) {
+    init(
+        leadingEdgePopOnWillDismiss: (() -> Void)? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.leadingEdgePopOnWillDismiss = leadingEdgePopOnWillDismiss
         self.content = content()
     }
 
@@ -17,7 +22,7 @@ struct AppHeaderlessPage<Content: View>: View {
             .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(.hidden, for: .navigationBar)
             .navigationInteractivePopGestureForHiddenNavBar()
-            .goDiveLeadingEdgeSwipePopOverlay()
+            .goDiveLeadingEdgeSwipePopOverlay(onWillDismiss: leadingEdgePopOnWillDismiss)
     }
 }
 

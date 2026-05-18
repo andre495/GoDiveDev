@@ -181,5 +181,23 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`nonisolated`** on **`DiveActivityOverviewPanelMetrics`**, **`DiveLocationMapPresentation`**, **`DiveTankOverviewHeroPresentation`**, **`DiveMapCameraLayoutContext`**, **`DiveActivityOverviewDetent`** helpers.
 - **Docs:** **`cursor/app_summary.md`**.
 
--
+---
+
+## 22 - Logbook delete renumber performance (not pushed)
+
+**Summary:** Logbook stays responsive on delete; **Logbook** / **Field Guide** bubbles; **`AppComingSoonPlaceholder`** on Field Guide and Profile. **#** labels come from chronology (not live **`diveNumber`** while auto-renumber is on), **`Equatable`** row snapshots avoid re-layout when background persist catches up, debounced background **`renumberAllChronologically`** for multi-delete. Single-dive **map** tab drops live MapKit before pop so back to Logbook is snappier when the overview sheet is up.
+
+- **`AppComingSoonPlaceholder`** + **Field Guide** / **Profile** tab shells: centered icon + “Coming soon” copy; **`WaterBubbleBackground`** on Field Guide (UI-test skip) and Profile (existing).
+- **`logbook.swift`:** **`WaterBubbleBackground`** in the root **`ZStack`** (same as **`LogOverviewView`**, hidden for UI tests).
+- **`DiveActivityOverviewEmbeddedPanel`:** map/tank overview panel lives in the navigation destination (not a separate **`.sheet`**) so it slides off with the page on back; grabber + three detents reuse **`DiveActivityOverviewSheetContent`** / panel metrics. Grabber uses **continuous** height while dragging (no detent quantization), **`liveHeightFraction`** for minimized/expanded body, one-step snap via **`snappedHeightFractionAfterDrag`** (minimized ↔ medium ↔ large only), **`interactiveSpring`** on release.
+- **`DiveLocationMapPresentation.adjustedMapCenter`:** uses live **`bottomContentMargin`** (panel + safe area) for visible-band math; latitude shift from **`targetPinScreenYFraction`** offset × camera-distance scale (fixes minimized pin sitting too high).
+- **`DiveActivityOverviewMapTeardown`** + **`DiveOverviewMapTeardownPlaceholder`:** **`ViewSingleActivity`** swaps **`DiveLocationMapView`** for a gradient placeholder when teardown is requested (back, leading-edge pop strip, **`onDisappear`**); reset on appear.
+- **`SecondaryDestinationBackButton`** / **`goDiveLeadingEdgeSwipePopOverlay`** / **`AppHeaderlessPage`:** optional **`onWillDismiss`** / **`leadingEdgePopOnWillDismiss`** hooks.
+- **Tests:** **`diveActivityOverviewMapTeardown_showsLiveMap_untilRequested`**.
+
+- **`DiveLogbookDisplay`** + **`DiveLogbookRowDisplayData`:** chronological **#** when Settings → auto renumber; **`LogbookActivityRow`** uses equatable row data.
+- **`DiveActivityDeletion`:** partial noop skip; tests await partial renumber; UI schedules **`DivePostDeleteRenumberScheduler`** (300 ms debounce → background full renumber).
+- **`DiveBackgroundRenumberingWorker`** (**`@ModelActor`**) for Swift 6–safe off–main-actor persist; UI scheduler + **`DiveActivityPostDeleteRenumbering`** call the worker; **`deletePermanently(..., awaitPostDeleteRenumber: true)`** uses main-context partial renumber so tests see updated **`diveNumber`** on the same **`ModelContext`**.
+- **Tests:** **`diveLogbookDisplay_*`**, delete / renumber / post-delete renumber tests.
+- **Docs:** **`cursor/app_summary.md`**.
 

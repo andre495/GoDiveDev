@@ -245,6 +245,11 @@ struct GoDiveMVPTests {
         #expect(GoDiveUITestConfiguration.launchEnvironmentKey == "GoDiveUITest")
     }
 
+    @Test func diveActivityOverviewMapTeardown_showsLiveMap_untilRequested() {
+        #expect(DiveActivityOverviewMapTeardown.showsLiveMap(teardownRequested: false))
+        #expect(!DiveActivityOverviewMapTeardown.showsLiveMap(teardownRequested: true))
+    }
+
     @Test func diveMapCoordinateResolver_prefersActivityCoordinate() {
         let activity = DiveCoordinate(latitude: 12.08, longitude: -68.28)
         let site = DiveSite(siteName: "Other", latCoords: 1, longCoords: 2)
@@ -287,7 +292,7 @@ struct GoDiveMVPTests {
         #expect(abs(target - expected) < 0.001)
     }
 
-    @Test func diveLocationMapPresentation_targetPinScreenYFraction_ignoresHomeIndicatorInSheetFraction() {
+    @Test func diveLocationMapPresentation_targetPinScreenYFraction_lowerWhenSheetIncludesSafeInset() {
         let layoutHeight: CGFloat = 800
         let top: CGFloat = 100
         let withSafe = layoutHeight * 0.50 + 34
@@ -302,6 +307,17 @@ struct GoDiveMVPTests {
             sheetHeightFraction: withSafe / layoutHeight
         )
         #expect(withSheetOnly > withObstructionHeight)
+    }
+
+    @Test func diveLocationMapPresentation_sheetHeightFraction_fromBottomMargin() {
+        let layoutHeight: CGFloat = 800
+        let bottomContentMargin: CGFloat = 194
+        #expect(
+            DiveLocationMapPresentation.sheetHeightFraction(
+                layoutHeight: layoutHeight,
+                bottomContentMargin: bottomContentMargin
+            ) == bottomContentMargin / layoutHeight
+        )
     }
 
     @Test func diveLocationMapPresentation_targetPinScreenYFraction_minimized_isBelowMedium() {
@@ -488,31 +504,39 @@ struct GoDiveMVPTests {
 
     @Test func diveLocationMapPresentation_adjustedMapCenter_medium_shiftsSouthOfPin() {
         let coordinate = DiveCoordinate(latitude: 12, longitude: -68)
+        let layoutHeight: CGFloat = 800
         let center = DiveLocationMapPresentation.adjustedMapCenter(
             for: coordinate,
-            layoutHeight: 800,
+            layoutHeight: layoutHeight,
             topObstructionHeight: 100,
-            sheetHeightFraction: DiveActivityOverviewPanelMetrics.mediumHeightFraction,
+            bottomContentMargin: layoutHeight * DiveActivityOverviewPanelMetrics.mediumHeightFraction,
             mapCameraDetent: .medium
         )
         #expect(center.latitude < coordinate.latitude)
         #expect(center.longitude == coordinate.longitude)
     }
 
-    @Test func diveLocationMapPresentation_adjustedMapCenter_medium_shiftIsLessThanUnscaledHalfBand() {
+    @Test func diveLocationMapPresentation_adjustedMapCenter_medium_shiftIsLessThanUnscaledOffset() {
         let coordinate = DiveCoordinate(latitude: 12, longitude: -68)
         let layoutHeight: CGFloat = 800
         let top: CGFloat = 100
-        let halfBand = ((0.50 - top / layoutHeight) / 2) * 0.05
+        let bottom = layoutHeight * 0.50
+        let sheetFraction = bottom / layoutHeight
+        let targetY = DiveLocationMapPresentation.targetPinScreenYFraction(
+            layoutHeight: layoutHeight,
+            topObstructionHeight: top,
+            sheetHeightFraction: sheetFraction
+        )
+        let unscaled = (0.5 - targetY) * 0.05
         let center = DiveLocationMapPresentation.adjustedMapCenter(
             for: coordinate,
             layoutHeight: layoutHeight,
             topObstructionHeight: top,
-            sheetHeightFraction: 0.50,
+            bottomContentMargin: bottom,
             mapCameraDetent: .medium
         )
         let appliedShift = coordinate.latitude - center.latitude
-        #expect(appliedShift < halfBand)
+        #expect(appliedShift < unscaled)
         #expect(appliedShift > 0)
     }
 
@@ -520,18 +544,19 @@ struct GoDiveMVPTests {
         let coordinate = DiveCoordinate(latitude: 12, longitude: -68)
         let layoutHeight: CGFloat = 800
         let top: CGFloat = 100
+        let bottomInset: CGFloat = 34
         let medium = DiveLocationMapPresentation.adjustedMapCenter(
             for: coordinate,
             layoutHeight: layoutHeight,
             topObstructionHeight: top,
-            sheetHeightFraction: DiveActivityOverviewPanelMetrics.mediumHeightFraction,
+            bottomContentMargin: layoutHeight * DiveActivityOverviewPanelMetrics.mediumHeightFraction + bottomInset,
             mapCameraDetent: .medium
         )
         let minimized = DiveLocationMapPresentation.adjustedMapCenter(
             for: coordinate,
             layoutHeight: layoutHeight,
             topObstructionHeight: top,
-            sheetHeightFraction: DiveActivityOverviewPanelMetrics.minimizedHeightFraction,
+            bottomContentMargin: layoutHeight * DiveActivityOverviewPanelMetrics.minimizedHeightFraction + bottomInset,
             mapCameraDetent: .minimized
         )
         #expect(coordinate.latitude - minimized.latitude < coordinate.latitude - medium.latitude)
@@ -732,6 +757,24 @@ struct GoDiveMVPTests {
         #expect(DiveActivityOverviewPanelMetrics.nextShorterDetent(after: minimized) == nil)
     }
 
+    @Test func diveActivityOverviewDetent_nearest_toHeightFraction_mapsDetents() {
+        #expect(
+            DiveActivityOverviewDetent.nearest(
+                toHeightFraction: DiveActivityOverviewPanelMetrics.minimizedHeightFraction
+            ) == .minimized
+        )
+        #expect(
+            DiveActivityOverviewDetent.nearest(
+                toHeightFraction: DiveActivityOverviewPanelMetrics.mediumHeightFraction
+            ) == .medium
+        )
+        #expect(
+            DiveActivityOverviewDetent.nearest(
+                toHeightFraction: DiveActivityOverviewPanelMetrics.largeHeightFraction
+            ) == .large
+        )
+    }
+
     @Test func diveActivityOverviewDetent_roundTripsPresentationDetent() {
         for detent in DiveActivityOverviewDetent.allCases {
             let presentation = detent.presentationDetent
@@ -751,6 +794,19 @@ struct GoDiveMVPTests {
             bottomSafeInset: 34
         )
         #expect(abs(height - (800 * 0.50 + 34)) < 0.01)
+    }
+
+    @Test func diveActivityOverviewDetent_sheetHeight_forHeightFraction_isContinuous() {
+        let layoutHeight: CGFloat = 800
+        let inset: CGFloat = 34
+        let fraction: CGFloat = 0.62
+        #expect(
+            DiveActivityOverviewDetent.sheetHeight(
+                forHeightFraction: fraction,
+                layoutHeight: layoutHeight,
+                bottomSafeInset: inset
+            ) == layoutHeight * fraction + inset
+        )
     }
 
     @Test func diveActivityOverviewDetent_sheetHeight_includesBottomSafeInset() {
@@ -1783,6 +1839,89 @@ struct GoDiveMVPTests {
         #expect(c.diveNumber == 2)
     }
 
+    @Test func diveLogbookDisplay_chronologicalNumbers_whenAutoRenumberEnabled() {
+        let t0 = Date(timeIntervalSince1970: 0)
+        let t1 = Date(timeIntervalSince1970: 86_400)
+        let t2 = Date(timeIntervalSince1970: 172_800)
+        let a = DiveActivity(deviceSource: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 99)
+        let b = DiveActivity(deviceSource: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 99)
+        let c = DiveActivity(deviceSource: .manual, startTime: t2, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 99)
+
+        let rows = DiveLogbookDisplay.rowData(
+            activities: [c, b, a],
+            unitSystem: .metric,
+            duplicateIds: [],
+            useChronologicalNumbers: true
+        )
+        let byId = Dictionary(uniqueKeysWithValues: rows.map { ($0.id, $0.diveNumberLabel) })
+        #expect(byId[a.id] == "#1")
+        #expect(byId[b.id] == "#2")
+        #expect(byId[c.id] == "#3")
+    }
+
+    @Test func diveLogbookDisplay_usesPersistedNumber_whenChronologicalDisabled() {
+        let a = DiveActivity(
+            deviceSource: .manual,
+            startTime: Date(),
+            durationMinutes: 1,
+            maxDepthMeters: 1,
+            diveNumber: 7
+        )
+        let rows = DiveLogbookDisplay.rowData(
+            activities: [a],
+            unitSystem: .metric,
+            duplicateIds: [],
+            useChronologicalNumbers: false
+        )
+        #expect(rows.first?.diveNumberLabel == "#7")
+    }
+
+    @Test func diveActivityPostDeleteRenumbering_partialRenumberOnBackgroundContext() async throws {
+        let schema = Schema([
+            DiveActivity.self,
+            DiveBuddyTag.self,
+            DiveProfilePoint.self,
+            DiveSite.self,
+        ])
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+
+        let t0 = Date(timeIntervalSince1970: 0)
+        let t1 = Date(timeIntervalSince1970: 86_400)
+        let t2 = Date(timeIntervalSince1970: 172_800)
+
+        let deletedId = try await MainActor.run { () throws -> UUID in
+            let context = ModelContext(container)
+            let a = DiveActivity(deviceSource: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
+            let b = DiveActivity(deviceSource: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
+            let c = DiveActivity(deviceSource: .manual, startTime: t2, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 3)
+            context.insert(a)
+            context.insert(b)
+            context.insert(c)
+            try context.save()
+            let deletedId = b.id
+            context.delete(b)
+            try context.save()
+            return deletedId
+        }
+
+        try await DiveActivityPostDeleteRenumbering.renumberAfterDelete(
+            container: container,
+            deletedStartTime: t1,
+            deletedId: deletedId
+        )
+
+        let numbers = try await MainActor.run { () throws -> (Int?, Int?) in
+            let context = ModelContext(container)
+            let all = try context.fetch(FetchDescriptor<DiveActivity>())
+            let sorted = all.sorted { $0.startTime < $1.startTime }
+            #expect(sorted.count == 2)
+            return (sorted[0].diveNumber, sorted[1].diveNumber)
+        }
+        #expect(numbers.0 == 1)
+        #expect(numbers.1 == 2)
+    }
+
     @Test @MainActor
     func diveActivityDeletion_deferredRenumber_preservesNumbersUntilBackgroundPass() async throws {
         let schema = Schema([
@@ -1814,11 +1953,22 @@ struct GoDiveMVPTests {
         #expect(divesAfterDelete.count == 1)
         #expect(remaining.diveNumber == 2)
 
-        for _ in 0 ..< 50 {
-            if remaining.diveNumber == 1 { break }
+        // Background renumber persists via **`@ModelActor`**; poll the store (fresh context), not the pre-delete **`remaining`** instance.
+        let remainingId = remaining.id
+        var persistedNumber: Int?
+        for _ in 0 ..< 100 {
+            persistedNumber = try Self.persistedDiveNumber(id: remainingId, container: container)
+            if persistedNumber == 1 { break }
             try await Task.sleep(for: .milliseconds(10))
         }
-        #expect(remaining.diveNumber == 1)
+        #expect(persistedNumber == 1)
+    }
+
+    /// Reads **`diveNumber`** from a new **`ModelContext`** so background **`@ModelActor`** saves are visible in tests.
+    private static func persistedDiveNumber(id: UUID, container: ModelContainer) throws -> Int? {
+        let readContext = ModelContext(container)
+        let all = try readContext.fetch(FetchDescriptor<DiveActivity>())
+        return all.first { $0.id == id }?.diveNumber
     }
 
     @Test @MainActor
