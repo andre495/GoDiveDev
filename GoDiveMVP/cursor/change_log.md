@@ -247,7 +247,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 **Summary:** **Equipment Locker** with banner **Add new equipment**, native sheet form, and SwiftData **`EquipmentItem`** persistence.
 
-- **`EquipmentLockerView`** — accent **Add new equipment** banner, elevated list rows (photo thumb, title, type, retired); destination links on Home stack.
+- **`EquipmentLockerView`** — header **+** (logbook-style), elevated list rows (photo thumb, title, type, retired); destination links on Home stack.
 - **`EquipmentAddSheetView`** + **`equipmentAddSheetPresentation()`** — **`.large`** sheet, **`appSheetPresentationChrome()`**, **`Form`** for all **`EquipmentItem`** fields + **`PhotosPicker`**; **Save** creates row for signed-in **`UserProfile`**.
 - **`EquipmentItemFormValues`** — draft mapping + **`canSave`** (manufacturer + model required). **Tests:** **`equipmentItemFormValues_*`**, **`equipmentItem_*`**, **`equipmentItemOwnership_*`**.
 - **Service schedule:** **Recurring service** toggle shows **next service date** + **Every** *n* **days/weeks/years**; off clears **`nextServiceDate`**, **`serviceRecurrenceDays`**, and **`serviceDate`**. **`EquipmentServiceSchedule`**.
@@ -255,4 +255,19 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`ViewEquipmentDetails`** (**`view_equipment_details.swift`**) — tap row → detail sections; **Edit** opens **`EquipmentEditSheetView`**. Shared **`EquipmentItemFormContent`**; **`EquipmentItemFormValues`** **`init()`** / **`init(from:)`** / **`apply(to:)`**.
 - **Locker → detail navigation:** destination-style row **`NavigationLink`** on Home’s stack (Profile → Locker → Detail); no nested **`NavigationStack`** (nested stack caused back-to-detail to pop to Home and first-open locker glitch).
 - **`EquipmentItem`** model; **`ProfileView`** link; **`EquipmentItemOwnership`**; **`AppSwiftDataSchema`**.
+
+---
+
+## 27 - Certifications model + list / add / edit (not pushed)
+
+**Summary:** SwiftData **`Certification`** with Profile → list → detail, add/edit sheets (equipment pattern), primary-card handling.
+
+- **`Certification`** — **`certName`** (title, e.g. Rescue Diver), **`agency`**, **`certNumber`**, **`dateAttained`**, instructor fields, **`diveShop`**, **`isPrimaryCert`**, front/back **`Data?`** photos.
+- **`UserProfile.certifications`** cascade; **`CertificationOwnership`**, **`CertificationDeletion`**, **`setAsPrimary`**.
+- **`CertificationsListView`** — header **+** (logbook-style), rows (thumb, primary badge), swipe delete; destination links on Home stack.
+- **`CertificationAddSheetView`** / **`CertificationEditSheetView`** + **`CertificationFormContent`** + **`certificationAddSheetPresentation()`**.
+- **`ViewCertificationDetails`** — read-only sections + **Edit**; **`ProfileView`** **Certifications** link.
+- **Tests:** **`certification_*`**, **`certificationOwnership_*`**, **`certificationDeletion_*`**, **`certificationFormValues_*`**, **`certificationPresentation_*`**.
+- **Profile subtitle:** **`CertificationPresentation.profileCertificationSubtitle`** — newest primary **`certName`**, else **GoDive User** (replaces static **Rescue Diver**).
+- **Profile layout:** dark bubble scrim; **Certifications** / **Equipment Locker** as square tiles anchored above **Sign out**.
 

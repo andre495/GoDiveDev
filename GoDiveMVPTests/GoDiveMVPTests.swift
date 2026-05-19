@@ -429,6 +429,233 @@ struct GoDiveMVPTests {
         #expect(try EquipmentItemOwnership.items(forOwnerProfileID: a.id, modelContext: context).first?.model == "Avanti")
     }
 
+    @Test @MainActor
+    func certification_persistsFieldsAndOwner() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let owner = UserProfile(appleUserIdentifier: "apple-cert", displayName: "Diver")
+        context.insert(owner)
+
+        let attained = Date(timeIntervalSince1970: 1_600_000_000)
+        let frontBytes = Data([0xFF, 0xD8, 0x01])
+        let backBytes = Data([0xFF, 0xD8, 0x02])
+
+        let cert = Certification(
+            agency: "PADI",
+            certName: "Rescue Diver",
+            certNumber: "OW-12345",
+            dateAttained: attained,
+            instructor: "Jane Smith",
+            instructorNumber: "INS-99",
+            diveShop: "Blue Water Dive Center",
+            isPrimaryCert: true,
+            certFrontPicture: frontBytes,
+            certBackPicture: backBytes
+        )
+        CertificationOwnership.assignOwner(owner, to: cert)
+        context.insert(cert)
+        try context.save()
+
+        let fetched = try CertificationOwnership.items(forOwnerProfileID: owner.id, modelContext: context)
+        #expect(fetched.count == 1)
+        let card = try #require(fetched.first)
+        #expect(card.agency == "PADI")
+        #expect(card.certName == "Rescue Diver")
+        #expect(card.certNumber == "OW-12345")
+        #expect(card.dateAttained == attained)
+        #expect(card.instructor == "Jane Smith")
+        #expect(card.instructorNumber == "INS-99")
+        #expect(card.diveShop == "Blue Water Dive Center")
+        #expect(card.isPrimaryCert == true)
+        #expect(card.certFrontPicture == frontBytes)
+        #expect(card.certBackPicture == backBytes)
+        #expect(card.ownerProfileID == owner.id)
+        #expect(owner.certifications.count == 1)
+    }
+
+    @Test @MainActor
+    func certificationOwnership_setAsPrimary_clearsOtherPrimaries() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let owner = UserProfile(appleUserIdentifier: "apple-cert-primary", displayName: "Diver")
+        context.insert(owner)
+
+        let first = Certification(agency: "PADI", certNumber: "1", isPrimaryCert: true)
+        let second = Certification(agency: "NAUI", certNumber: "2", isPrimaryCert: false)
+        CertificationOwnership.assignOwner(owner, to: first)
+        CertificationOwnership.assignOwner(owner, to: second)
+        context.insert(first)
+        context.insert(second)
+        try context.save()
+
+        try CertificationOwnership.setAsPrimary(second, ownerProfileID: owner.id, modelContext: context)
+
+        #expect(first.isPrimaryCert == false)
+        #expect(second.isPrimaryCert == true)
+        let primary = try CertificationOwnership.primaryCertification(forOwnerProfileID: owner.id, modelContext: context)
+        #expect(primary?.id == second.id)
+    }
+
+    @Test @MainActor
+    func certificationDeletion_deletePermanently_removesRow() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let owner = UserProfile(appleUserIdentifier: "apple-cert-del", displayName: "Diver")
+        context.insert(owner)
+
+        let cert = Certification(agency: "SSI", certNumber: "ADV-1")
+        CertificationOwnership.assignOwner(owner, to: cert)
+        context.insert(cert)
+        try context.save()
+
+        try CertificationDeletion.deletePermanently(cert, modelContext: context)
+        #expect(try CertificationOwnership.items(forOwnerProfileID: owner.id, modelContext: context).isEmpty)
+    }
+
+    @Test @MainActor
+    func certificationOwnership_filtersByOwnerProfileID() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let a = UserProfile(appleUserIdentifier: "apple-cert-a", displayName: "A")
+        let b = UserProfile(appleUserIdentifier: "apple-cert-b", displayName: "B")
+        context.insert(a)
+        context.insert(b)
+
+        let certA = Certification(agency: "PADI", certNumber: "A-1")
+        CertificationOwnership.assignOwner(a, to: certA)
+        context.insert(certA)
+
+        let certB = Certification(agency: "NAUI", certNumber: "B-1")
+        CertificationOwnership.assignOwner(b, to: certB)
+        context.insert(certB)
+        try context.save()
+
+        #expect(try CertificationOwnership.items(forOwnerProfileID: a.id, modelContext: context).count == 1)
+        #expect(try CertificationOwnership.items(forOwnerProfileID: b.id, modelContext: context).count == 1)
+        #expect(try CertificationOwnership.items(forOwnerProfileID: a.id, modelContext: context).first?.agency == "PADI")
+    }
+
+    @Test func certificationFormValues_canSave_requiresNameAgencyAndCertNumber() {
+        var form = CertificationFormValues()
+        #expect(form.canSave == false)
+        form.certName = "Rescue Diver"
+        #expect(form.canSave == false)
+        form.agency = "PADI"
+        #expect(form.canSave == false)
+        form.certNumber = "OW-1"
+        #expect(form.canSave == true)
+    }
+
+    @Test func certificationFormValues_makeCertification_mapsOptionalFields() {
+        let attained = Date(timeIntervalSince1970: 1_500_000)
+        var form = CertificationFormValues()
+        form.agency = "  NAUI  "
+        form.certName = "  Advanced Open Water  "
+        form.certNumber = " ADV-99 "
+        form.dateAttained = attained
+        form.instructor = " Pat "
+        form.instructorNumber = " INS-1 "
+        form.diveShop = " Reef Shop "
+        form.isPrimaryCert = true
+        form.certFrontPicture = Data([0x01])
+        form.certBackPicture = Data([0x02])
+        let cert = form.makeCertification()
+        #expect(cert.agency == "NAUI")
+        #expect(cert.certName == "Advanced Open Water")
+        #expect(cert.certNumber == "ADV-99")
+        #expect(cert.dateAttained == attained)
+        #expect(cert.instructor == "Pat")
+        #expect(cert.instructorNumber == "INS-1")
+        #expect(cert.diveShop == "Reef Shop")
+        #expect(cert.isPrimaryCert == true)
+        #expect(cert.certFrontPicture == Data([0x01]))
+        #expect(cert.certBackPicture == Data([0x02]))
+    }
+
+    @Test func certificationFormValues_apply_updatesExistingCertification() {
+        let cert = Certification(agency: "Old", certNumber: "1", isPrimaryCert: false)
+        var form = CertificationFormValues()
+        form.agency = "SSI"
+        form.certName = "Divemaster"
+        form.certNumber = "DM-2"
+        form.diveShop = ""
+        form.isPrimaryCert = true
+        form.apply(to: cert)
+        #expect(cert.agency == "SSI")
+        #expect(cert.certName == "Divemaster")
+        #expect(cert.certNumber == "DM-2")
+        #expect(cert.diveShop == nil)
+        #expect(cert.isPrimaryCert == true)
+    }
+
+    @Test func certificationFormValues_initFromCertification_restoresFields() {
+        let attained = Date(timeIntervalSince1970: 2_000_000)
+        let cert = Certification(
+            agency: "PADI",
+            certName: "Open Water",
+            certNumber: "OW-1",
+            dateAttained: attained,
+            instructor: "Alex",
+            instructorNumber: "99",
+            diveShop: "Blue Shop",
+            isPrimaryCert: true,
+            certFrontPicture: Data([0xAA])
+        )
+        let form = CertificationFormValues(from: cert)
+        #expect(form.agency == "PADI")
+        #expect(form.certName == "Open Water")
+        #expect(form.certNumber == "OW-1")
+        #expect(form.dateAttained == attained)
+        #expect(form.instructor == "Alex")
+        #expect(form.diveShop == "Blue Shop")
+        #expect(form.isPrimaryCert == true)
+        #expect(form.certFrontPicture == Data([0xAA]))
+    }
+
+    @Test func certificationPresentation_title_prefersCertName() {
+        let cert = Certification(agency: "PADI", certName: "Rescue Diver", certNumber: "123")
+        #expect(CertificationPresentation.title(for: cert) == "Rescue Diver")
+    }
+
+    @Test func certificationPresentation_title_fallsBackToAgencyAndNumber() {
+        let cert = Certification(agency: "PADI", certNumber: "123")
+        #expect(CertificationPresentation.title(for: cert) == "PADI · 123")
+    }
+
+    @Test func certificationPresentation_profileSubtitle_usesNewestPrimaryCertName() {
+        let older = Certification(
+            agency: "PADI",
+            certName: "Open Water",
+            certNumber: "1",
+            dateAttained: Date(timeIntervalSince1970: 1_000),
+            isPrimaryCert: true
+        )
+        let newer = Certification(
+            agency: "PADI",
+            certName: "Rescue Diver",
+            certNumber: "2",
+            dateAttained: Date(timeIntervalSince1970: 2_000),
+            isPrimaryCert: true
+        )
+        let subtitle = CertificationPresentation.profileCertificationSubtitle(from: [older, newer])
+        #expect(subtitle == "Rescue Diver")
+    }
+
+    @Test func certificationPresentation_profileSubtitle_defaultsWithoutPrimary() {
+        let cert = Certification(
+            agency: "PADI",
+            certName: "Advanced Open Water",
+            certNumber: "1",
+            dateAttained: .now,
+            isPrimaryCert: false
+        )
+        #expect(CertificationPresentation.profileCertificationSubtitle(from: [cert]) == "GoDive User")
+    }
+
     @Test func appUserSettings_automaticallyRenumberDivesKey_matchesAppStorage() {
         #expect(AppUserSettings.automaticallyRenumberDivesKey == "goDiveAutomaticallyRenumberDives")
     }

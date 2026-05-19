@@ -2,14 +2,35 @@ import SwiftData
 import SwiftUI
 
 struct ProfileView: View {
+    private enum Layout {
+        /// Dark veil between **`WaterBubbleBackground`** and profile content.
+        static let bubbleScrimOpacity: CGFloat = 0.48
+        static let tileCornerRadius: CGFloat = 16
+    }
+
     @Environment(AccountSession.self) private var accountSession
     @Environment(\.dismiss) private var dismiss
+
+    @Query(sort: [SortDescriptor(\Certification.dateAttained, order: .reverse)])
+    private var allCertifications: [Certification]
+
+    private var ownedCertifications: [Certification] {
+        guard let ownerID = accountSession.currentProfile?.id else { return [] }
+        return allCertifications.filter { $0.ownerProfileID == ownerID }
+    }
+
+    private var certificationSubtitle: String {
+        CertificationPresentation.profileCertificationSubtitle(from: ownedCertifications)
+    }
 
     var body: some View {
         AppHeaderlessPage {
             ZStack {
                 if !GoDiveUITestConfiguration.isActive {
                     WaterBubbleBackground()
+                    Color.black
+                        .opacity(Layout.bubbleScrimOpacity)
+                        .ignoresSafeArea()
                 }
 
                 VStack(spacing: 0) {
@@ -23,6 +44,8 @@ struct ProfileView: View {
                         } label: {
                             Image(systemName: "gearshape")
                                 .font(.title3)
+                                .frame(minWidth: 44, minHeight: 44)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(AppTheme.Colors.iconPrimary)
@@ -35,11 +58,11 @@ struct ProfileView: View {
                         .padding(.horizontal, AppTheme.Spacing.lg)
                         .padding(.top, AppTheme.Spacing.sm)
 
-                    equipmentLockerLink
-                        .padding(.horizontal, AppTheme.Spacing.lg)
-                        .padding(.top, AppTheme.Spacing.lg)
+                    Spacer(minLength: AppTheme.Spacing.lg)
 
-                    Spacer()
+                    profileDestinationTiles
+                        .padding(.horizontal, AppTheme.Spacing.lg)
+                        .padding(.bottom, AppTheme.Spacing.lg)
 
                     signOutButton
                         .padding(.horizontal, AppTheme.Spacing.lg)
@@ -58,7 +81,7 @@ struct ProfileView: View {
                 .multilineTextAlignment(.center)
                 .accessibilityIdentifier("Profile.DisplayName")
 
-            Text("Rescue Diver")
+            Text(certificationSubtitle)
                 .font(.title3.weight(.medium))
                 .foregroundStyle(AppTheme.Colors.secondaryText)
                 .multilineTextAlignment(.center)
@@ -68,34 +91,65 @@ struct ProfileView: View {
         .accessibilityElement(children: .combine)
     }
 
-    private var equipmentLockerLink: some View {
+    private var profileDestinationTiles: some View {
+        HStack(spacing: AppTheme.Spacing.md) {
+            profileDestinationTile(
+                title: "Certifications",
+                systemImage: "checkmark.seal.fill",
+                accessibilityIdentifier: "Profile.CertificationsLink"
+            ) {
+                CertificationsListView()
+            }
+
+            profileDestinationTile(
+                title: "Equipment Locker",
+                systemImage: "archivebox.fill",
+                accessibilityIdentifier: "Profile.EquipmentLockerLink"
+            ) {
+                EquipmentLockerView()
+            }
+        }
+    }
+
+    private func profileDestinationTile<Destination: View>(
+        title: String,
+        systemImage: String,
+        accessibilityIdentifier: String,
+        @ViewBuilder destination: () -> Destination
+    ) -> some View {
         NavigationLink {
-            EquipmentLockerView()
+            destination()
         } label: {
-            HStack(spacing: AppTheme.Spacing.md) {
-                Image(systemName: "archivebox.fill")
-                    .font(.title3)
+            VStack(spacing: AppTheme.Spacing.md) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 34))
                     .foregroundStyle(AppTheme.Colors.accent)
                     .accessibilityHidden(true)
 
-                Text("Equipment Locker")
-                    .font(.body.weight(.semibold))
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.Colors.textPrimary)
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(AppTheme.Spacing.md)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .aspectRatio(1, contentMode: .fit)
+            .background {
+                RoundedRectangle(cornerRadius: Layout.tileCornerRadius, style: .continuous)
                     .fill(AppTheme.Colors.surfaceElevated)
-            )
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: Layout.tileCornerRadius, style: .continuous)
+                    .strokeBorder(AppTheme.Colors.accentDeep.opacity(0.12), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier("Profile.EquipmentLockerLink")
+        .accessibilityLabel(title)
+        .accessibilityIdentifier(accessibilityIdentifier)
     }
 
     private var signOutButton: some View {

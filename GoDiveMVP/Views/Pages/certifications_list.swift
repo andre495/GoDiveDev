@@ -4,62 +4,66 @@ import SwiftUI
 import UIKit
 #endif
 
-/// Create and manage **`EquipmentItem`** rows for the signed-in profile.
-///
-/// Pushed from **Profile** on Home’s **`NavigationStack`** — use destination-style row links (not a nested stack) so **Back** pops one level at a time.
-struct EquipmentLockerView: View {
+/// List and manage **`Certification`** rows for the signed-in profile.
+struct CertificationsListView: View {
     @Environment(AccountSession.self) private var accountSession
     @Environment(\.modelContext) private var modelContext
 
     @Query(
         sort: [
-            SortDescriptor(\EquipmentItem.manufacturer, order: .forward),
-            SortDescriptor(\EquipmentItem.model, order: .forward),
+            SortDescriptor(\Certification.dateAttained, order: .reverse),
+            SortDescriptor(\Certification.agency, order: .forward),
         ]
     )
-    private var allEquipment: [EquipmentItem]
+    private var allCertifications: [Certification]
 
-    @State private var showsAddEquipmentSheet = false
-    @State private var equipmentPendingDeletion: EquipmentItem?
-    @State private var optimisticallyRemovedEquipmentIDs: Set<UUID> = []
+    @State private var showsAddCertificationSheet = false
+    @State private var certificationPendingDeletion: Certification?
+    @State private var optimisticallyRemovedCertificationIDs: Set<UUID> = []
 
-    private var ownedEquipment: [EquipmentItem] {
+    private var ownedCertifications: [Certification] {
         guard let ownerID = accountSession.currentProfile?.id else { return [] }
-        return allEquipment.filter {
-            $0.ownerProfileID == ownerID && !optimisticallyRemovedEquipmentIDs.contains($0.id)
-        }
+        return allCertifications
+            .filter {
+                $0.ownerProfileID == ownerID && !optimisticallyRemovedCertificationIDs.contains($0.id)
+            }
+            .sorted { lhs, rhs in
+                if lhs.isPrimaryCert != rhs.isPrimaryCert { return lhs.isPrimaryCert }
+                if lhs.dateAttained != rhs.dateAttained { return lhs.dateAttained > rhs.dateAttained }
+                return lhs.agency.localizedCaseInsensitiveCompare(rhs.agency) == .orderedAscending
+            }
     }
 
     var body: some View {
         ZStack {
-            AppPage(title: "Equipment Locker", showsBackButton: true, trailingContent: {
-                addEquipmentToolbarButton
+            AppPage(title: "Certifications", showsBackButton: true, trailingContent: {
+                addCertificationToolbarButton
             }, content: {
                 Group {
-                    if ownedEquipment.isEmpty {
-                        emptyLockerState
+                    if ownedCertifications.isEmpty {
+                        emptyCertificationsState
                     } else {
-                        equipmentList
+                        certificationsList
                     }
                 }
                 .padding(AppTheme.Spacing.md)
             })
 
-            if equipmentPendingDeletion != nil {
+            if certificationPendingDeletion != nil {
                 deleteFlowOverlay
             }
         }
         .hidesBottomTabBarWhenPushed()
-        .sheet(isPresented: $showsAddEquipmentSheet) {
-            EquipmentAddSheetView {
-                showsAddEquipmentSheet = false
+        .sheet(isPresented: $showsAddCertificationSheet) {
+            CertificationAddSheetView {
+                showsAddCertificationSheet = false
             }
         }
     }
 
-    private var addEquipmentToolbarButton: some View {
+    private var addCertificationToolbarButton: some View {
         Button {
-            showsAddEquipmentSheet = true
+            showsAddCertificationSheet = true
         } label: {
             Image(systemName: "plus")
                 .font(.title3.weight(.semibold))
@@ -67,37 +71,37 @@ struct EquipmentLockerView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Add equipment")
-        .accessibilityIdentifier("EquipmentLocker.AddNewEquipment")
+        .accessibilityLabel("Add certification")
+        .accessibilityIdentifier("CertificationsList.AddNew")
     }
 
-    private var emptyLockerState: some View {
+    private var emptyCertificationsState: some View {
         VStack(spacing: AppTheme.Spacing.md) {
-            Image(systemName: "archivebox")
+            Image(systemName: "checkmark.seal")
                 .font(.system(size: 40))
                 .foregroundStyle(AppTheme.Colors.accent.opacity(0.85))
 
-            Text("No equipment yet")
+            Text("No certifications yet")
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(AppTheme.Colors.textPrimary)
 
-            Text("Tap + in the corner to log your first item.")
+            Text("Tap + in the corner to log your first card.")
                 .font(.body)
                 .foregroundStyle(AppTheme.Colors.secondaryText)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, AppTheme.Spacing.lg)
-        .accessibilityIdentifier("EquipmentLocker.EmptyState")
+        .accessibilityIdentifier("CertificationsList.EmptyState")
     }
 
-    private var equipmentList: some View {
+    private var certificationsList: some View {
         List {
-            ForEach(ownedEquipment, id: \.id) { item in
+            ForEach(ownedCertifications, id: \.id) { certification in
                 NavigationLink {
-                    ViewEquipmentDetails(item: item)
+                    ViewCertificationDetails(certification: certification)
                 } label: {
-                    EquipmentLockerRowView(item: item)
+                    CertificationListRowView(certification: certification)
                 }
                 .buttonStyle(.plain)
                 .navigationLinkIndicatorVisibility(.hidden)
@@ -106,7 +110,7 @@ struct EquipmentLockerView: View {
                 .listRowBackground(Color.clear)
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button(role: .destructive) {
-                        equipmentPendingDeletion = item
+                        certificationPendingDeletion = certification
                     } label: {
                         Label("Delete", systemImage: "trash")
                     }
@@ -116,31 +120,31 @@ struct EquipmentLockerView: View {
         .listStyle(.plain)
         .listRowSpacing(AppTheme.Spacing.sm)
         .scrollContentBackground(.hidden)
-        .accessibilityIdentifier("EquipmentLocker.List")
+        .accessibilityIdentifier("CertificationsList.List")
     }
 
     private var deleteFlowOverlay: some View {
         Group {
-            if let item = equipmentPendingDeletion {
-                confirmDeleteEquipmentOverlay(item: item)
+            if let certification = certificationPendingDeletion {
+                confirmDeleteOverlay(certification: certification)
             }
         }
     }
 
-    private func confirmDeleteEquipmentOverlay(item: EquipmentItem) -> some View {
+    private func confirmDeleteOverlay(certification: Certification) -> some View {
         ZStack {
             Color.black.opacity(0.45)
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture {
                     withAnimation(.easeOut(duration: 0.16)) {
-                        equipmentPendingDeletion = nil
+                        certificationPendingDeletion = nil
                     }
                 }
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-                Text("Delete equipment?")
+                Text("Delete certification?")
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(AppTheme.Colors.textPrimary)
 
@@ -152,7 +156,7 @@ struct EquipmentLockerView: View {
                 HStack(alignment: .center) {
                     Button("Cancel") {
                         withAnimation(.easeOut(duration: 0.16)) {
-                            equipmentPendingDeletion = nil
+                            certificationPendingDeletion = nil
                         }
                     }
                     .font(.body.weight(.semibold))
@@ -162,7 +166,7 @@ struct EquipmentLockerView: View {
                     Spacer(minLength: AppTheme.Spacing.lg)
 
                     Button("Delete") {
-                        confirmDeleteEquipment(item)
+                        confirmDelete(certification)
                     }
                     .font(.body.weight(.semibold))
                     .foregroundStyle(Color.red)
@@ -184,17 +188,17 @@ struct EquipmentLockerView: View {
             .accessibilityAddTraits(.isModal)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityIdentifier("EquipmentLocker.DeleteConfirmation")
+        .accessibilityIdentifier("CertificationsList.DeleteConfirmation")
     }
 
-    private func confirmDeleteEquipment(_ item: EquipmentItem) {
-        let id = item.id
+    private func confirmDelete(_ certification: Certification) {
+        let id = certification.id
         dismissDeleteOverlayImmediately()
-        optimisticallyRemovedEquipmentIDs.insert(id)
+        optimisticallyRemovedCertificationIDs.insert(id)
         Task(priority: .userInitiated) { @MainActor in
             await Task.yield()
-            defer { optimisticallyRemovedEquipmentIDs.remove(id) }
-            try? EquipmentItemDeletion.deletePermanently(item, modelContext: modelContext)
+            defer { optimisticallyRemovedCertificationIDs.remove(id) }
+            try? CertificationDeletion.deletePermanently(certification, modelContext: modelContext)
         }
     }
 
@@ -202,36 +206,49 @@ struct EquipmentLockerView: View {
         var transaction = Transaction()
         transaction.disablesAnimations = true
         withTransaction(transaction) {
-            equipmentPendingDeletion = nil
+            certificationPendingDeletion = nil
         }
     }
 }
 
 // MARK: - Row
 
-private struct EquipmentLockerRowView: View {
-    let item: EquipmentItem
+private struct CertificationListRowView: View {
+    let certification: Certification
 
     var body: some View {
         HStack(spacing: AppTheme.Spacing.md) {
             rowThumbnail
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(itemTitle)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
-                    .lineLimit(2)
+                HStack(spacing: AppTheme.Spacing.sm) {
+                    Text(CertificationPresentation.title(for: certification))
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(AppTheme.Colors.textPrimary)
+                        .lineLimit(2)
 
-                if !item.type.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text(item.type)
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.Colors.secondaryText)
+                    if certification.isPrimaryCert {
+                        Text("Primary")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(AppTheme.Colors.accentDeep)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background {
+                                Capsule()
+                                    .fill(AppTheme.Colors.accentLight.opacity(0.45))
+                            }
+                    }
                 }
 
-                if item.isRetired {
-                    Text("Retired")
-                        .font(.caption.weight(.semibold))
+                Text(CertificationPresentation.subtitle(for: certification))
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+
+                if !certification.instructor.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(certification.instructor)
+                        .font(.caption)
                         .foregroundStyle(AppTheme.Colors.secondaryText)
+                        .lineLimit(1)
                 }
             }
 
@@ -243,26 +260,25 @@ private struct EquipmentLockerRowView: View {
                 .fill(AppTheme.Colors.surfaceElevated)
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(itemTitle)
+        .accessibilityLabel(rowAccessibilityLabel)
     }
 
-    private var itemTitle: String {
-        let manufacturer = item.manufacturer.trimmingCharacters(in: .whitespacesAndNewlines)
-        let model = item.model.trimmingCharacters(in: .whitespacesAndNewlines)
-        if manufacturer.isEmpty { return model }
-        if model.isEmpty { return manufacturer }
-        return "\(manufacturer) \(model)"
+    private var rowAccessibilityLabel: String {
+        var parts = [CertificationPresentation.title(for: certification)]
+        if certification.isPrimaryCert { parts.append("Primary") }
+        parts.append(CertificationPresentation.subtitle(for: certification))
+        return parts.joined(separator: ", ")
     }
 
     @ViewBuilder
     private var rowThumbnail: some View {
         #if canImport(UIKit)
-        if let data = item.equipmentPhoto, let image = UIImage(data: data) {
+        if let data = certification.certFrontPicture, let image = UIImage(data: data) {
             Image(uiImage: image)
                 .resizable()
                 .scaledToFill()
-                .frame(width: 48, height: 48)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .frame(width: 48, height: 36)
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         } else {
             rowThumbnailPlaceholder
         }
@@ -272,18 +288,18 @@ private struct EquipmentLockerRowView: View {
     }
 
     private var rowThumbnailPlaceholder: some View {
-        Image(systemName: "archivebox.fill")
+        Image(systemName: "checkmark.seal.fill")
             .font(.title3)
             .foregroundStyle(AppTheme.Colors.accent)
-            .frame(width: 48, height: 48)
+            .frame(width: 48, height: 36)
             .background(AppTheme.Colors.surfaceMuted.opacity(0.5))
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 }
 
 #Preview {
     NavigationStack {
-        EquipmentLockerView()
+        CertificationsListView()
     }
     .environment(AccountSession.shared)
     .modelContainer(try! AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true))

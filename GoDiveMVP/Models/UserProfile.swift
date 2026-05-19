@@ -17,6 +17,9 @@ final class UserProfile {
     @Relationship(deleteRule: .cascade, inverse: \EquipmentItem.owner)
     var equipmentItems: [EquipmentItem] = []
 
+    @Relationship(deleteRule: .cascade, inverse: \Certification.owner)
+    var certifications: [Certification] = []
+
     init(
         id: UUID = UUID(),
         appleUserIdentifier: String,

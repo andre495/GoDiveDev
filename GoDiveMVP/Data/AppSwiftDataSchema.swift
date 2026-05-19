@@ -9,6 +9,7 @@ enum AppSwiftDataSchema {
         DiveProfilePoint.self,
         DiveSite.self,
         EquipmentItem.self,
+        Certification.self,
     ]
 
     static func makeContainer(isStoredInMemoryOnly: Bool) throws -> ModelContainer {
