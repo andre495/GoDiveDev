@@ -91,16 +91,15 @@ enum FitDiveFileDecoder {
             )
         } ?? (nil, nil)
 
-        var tankVolumeDescription: String?
         var volumeUsedSurfaceLiters: Double?
         if let sensor = primaryTankSensor,
            let summary = FitTankFieldImport.tankSummary(forSensor: sensor, in: tankSummaries),
            let used = summary.getVolumeUsed(), used > 0 {
             volumeUsedSurfaceLiters = used
-            tankVolumeDescription = FitTankFieldImport.volumeUsedDescription(volumeUsedLiters: used)
         }
 
         let gasFromFit = diveGasMix(from: messages.diveGasMesgs)
+        let defaultTank = DiveActivityTankDefaults.resolvedSpecification()
 
         let activity = DiveActivity(
             deviceSource: .garminMK3,
@@ -114,8 +113,8 @@ enum FitDiveFileDecoder {
             waterTempAvgCelsius: mergedWater.avg,
             waterTempMaxCelsius: mergedWater.max,
             waterTempMinCelsius: mergedWater.min,
-            tankMaterial: nil,
-            tankVolumeDescription: tankVolumeDescription,
+            tankMaterial: defaultTank.materialLabel,
+            tankVolumeDescription: defaultTank.storedDescription,
             tankPressureStartPSI: tankStartPSI,
             tankPressureEndPSI: tankEndPSI,
             gasType: gasFromFit?.gasType,

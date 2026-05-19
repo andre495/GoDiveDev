@@ -15,8 +15,11 @@ final class EquipmentItem {
     var type: String
 
     var isRetired: Bool
-    /// When **`true`**, the item may be suggested automatically on new dives (future UX).
+    /// When **`true`**, linked automatically to new dives via **`DiveActivityEquipmentAssociation.applyAutoAdd`**.
     var autoAdd: Bool
+
+    @Relationship(deleteRule: .nullify)
+    var diveEquipmentEntries: [DiveEquipmentEntry] = []
 
     var purchaseDate: Date?
     var purchasedShop: String?
@@ -76,5 +79,12 @@ final class EquipmentItem {
         self.equipmentPhoto = equipmentPhoto
         self.ownerProfileID = ownerProfileID
         self.owner = owner
+    }
+}
+
+extension EquipmentItem {
+    /// Dive activity IDs where this gear appears (**`DiveEquipmentEntry.diveActivityID`**).
+    var divesUsedOn: [UUID] {
+        diveEquipmentEntries.map(\.diveActivityID)
     }
 }

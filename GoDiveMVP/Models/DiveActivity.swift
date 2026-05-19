@@ -4,9 +4,9 @@ import SwiftData
 // MARK: - DiveActivity
 
 /// **Canonical storage (import / SwiftData):** depth fields in **meters**, water temps in **°C**, ascent in **m/s**,
-/// cylinder pressures in **psi** (FIT bar and UDDF Pa are converted on import). **`tankVolumeDescription`** is
-/// importer text (typically **L** / **m³**). **Settings → Imperial units** only changes **on-screen** formatting
-/// via **`DiveQuantityFormatting`** + **`EnvironmentValues.diveDisplayUnitSystem`** — values here are not rewritten.
+/// cylinder pressures in **psi** (FIT bar and UDDF Pa are converted on import). **`tankVolumeDescription`** stores the
+/// **`DiveActivityTankDefaults`** / **Settings → Default tank** for volume + material on import; volume UI follows current default.
+/// **Settings → Imperial units** only changes **on-screen** formatting — stored numeric fields are not rewritten.
 @Model
 final class DiveActivity {
 
@@ -49,7 +49,7 @@ final class DiveActivity {
     // Tank / cylinder (import: **UDDF** when present; **FIT** has no standard tank SPG fields in decoded messages → **`nil`**)
     /// Material label when known (e.g. **steel**, **aluminum**). **`nil`** if not in file.
     var tankMaterial: String?
-    /// Human-readable size from import (e.g. volume in **L** derived from **`tankvolume`** m³). **`nil`** if not in file.
+    /// Persisted rated size label at import (**`DefaultTankSpecification.storedDescription`**). **`nil`** on legacy rows until metrics run.
     var tankVolumeDescription: String?
     /// Cylinder pressure at start of dive (**psi**). **`nil`** if not in file.
     var tankPressureStartPSI: Double?
@@ -68,6 +68,10 @@ final class DiveActivity {
 
     @Relationship(deleteRule: .cascade)
     var buddies: [DiveBuddyTag] = []
+
+    /// Gear used on this dive (**`DiveEquipmentEntry`** rows). Created on first link / auto-add.
+    @Relationship(deleteRule: .cascade)
+    var equipmentList: DiveActivityEquipmentList?
 
     // Time-series profile (Garmin record messages mapped to canonical points)
     @Relationship(deleteRule: .cascade)
@@ -143,6 +147,12 @@ final class DiveActivity {
 }
 
 extension DiveActivity {
+    /// **`EquipmentItem.id`** values on this dive's equipment list.
+    var equipmentItemIDs: [UUID] {
+        guard let entries = equipmentList?.entries else { return [] }
+        return entries.map(\.equipmentItemID)
+    }
+
     /// Logbook row: **`#n`** or **`-`** when there is no number.
     var diveNumberLogbookLabel: String {
         if let n = diveNumber {
@@ -176,14 +186,22 @@ extension DiveActivity {
         return "\(Int(oxygenMix.rounded()))%"
     }
 
-    /// **Tank type** row (**`tankMaterial`**), trimmed, or **—** when unknown / blank.
-    var gasDetailsTankTypeLine: String {
-        Self.gasDetailsTrimmedTextOrDash(tankMaterial)
+    /// **Tank type** row — import material when set, otherwise **Settings** default material.
+    func gasDetailsTankTypeLine(
+        defaultSpecification: DefaultTankSpecification = DiveActivityTankDefaults.resolvedSpecification()
+    ) -> String {
+        if let trimmed = tankMaterial?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty {
+            return trimmed
+        }
+        return defaultSpecification.materialLabel
     }
 
-    /// **Volume** row from **`tankVolumeDescription`** for the given display system (**`DiveQuantityFormatting`**).
-    func gasDetailsTankVolumeLine(displayUnits: DiveDisplayUnitSystem) -> String {
-        DiveQuantityFormatting.tankVolumeDisplay(storedDescription: tankVolumeDescription, system: displayUnits)
+    /// **Volume** row — **Settings → Default tank** (**`DiveQuantityFormatting`**).
+    func gasDetailsTankVolumeLine(
+        displayUnits: DiveDisplayUnitSystem,
+        defaultSpecification: DefaultTankSpecification = DiveActivityTankDefaults.resolvedSpecification()
+    ) -> String {
+        DiveQuantityFormatting.tankVolumeDisplay(system: displayUnits, specification: defaultSpecification)
     }
 
     /// Beginning cylinder pressure from stored **psi** for the given display system.

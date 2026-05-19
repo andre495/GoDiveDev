@@ -150,13 +150,13 @@ enum DiveSACRMVCalculation: Sendable {
         return nil
     }
 
-    /// Parses rated cylinder **L** from import description; skips FIT **“… used …”** strings.
-    static func ratedTankVolumeLiters(from tankVolumeDescription: String?) -> Double? {
-        guard let raw = tankVolumeDescription?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !raw.isEmpty
-        else { return nil }
-        if raw.range(of: "used", options: .caseInsensitive) != nil { return nil }
-        return DiveQuantityFormatting.firstLitersValue(in: raw)
+    /// Rated cylinder size for RMV — **Settings → Default tank** (import text ignored).
+    static func ratedTankVolumeLiters(
+        from tankVolumeDescription: String?,
+        userDefaults: UserDefaults = .standard
+    ) -> Double? {
+        _ = tankVolumeDescription
+        return DiveActivityTankDefaults.resolvedSpecification(userDefaults: userDefaults).ratedVolumeSurfaceLiters
     }
 
     static func resolvedRatedPressurePSI(from input: Input) -> Double? {
@@ -173,6 +173,11 @@ extension DiveActivity {
 
     /// Fills **`avgSAC`** / **`avgRMV`** after import (or seed) when inputs allow.
     func applyImportedGasConsumptionMetrics(volumeUsedSurfaceLiters: Double?) {
+        let specification = DiveActivityTankDefaults.resolvedSpecification()
+        tankVolumeDescription = specification.storedDescription
+        if tankMaterial?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+            tankMaterial = specification.materialLabel
+        }
         let input = DiveSACRMVCalculation.Input(
             tankPressureStartPSI: tankPressureStartPSI,
             tankPressureEndPSI: tankPressureEndPSI,

@@ -109,7 +109,7 @@ extension View {
         background {
             Rectangle()
                 .fill(.thinMaterial)
-                .opacity(AppTheme.Sheet.backgroundMaterialOpacity)
+                .opacity(AppTheme.Sheet.embeddedOverviewMaterialOpacity)
         }
         .clipShape(
             .rect(

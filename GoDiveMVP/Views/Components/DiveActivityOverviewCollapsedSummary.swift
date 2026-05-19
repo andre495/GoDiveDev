@@ -10,14 +10,14 @@ struct DiveActivityOverviewCollapsedSummary: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(dateText)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.tabUnselected)
-
             Text(titleText)
                 .font(.headline.weight(.semibold))
                 .foregroundStyle(AppTheme.Colors.textPrimary)
                 .lineLimit(2)
+
+            Text(dateText)
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.Colors.tabUnselected)
 
             HStack(spacing: AppTheme.Spacing.sm) {
                 summaryChip(label: "Dive", value: diveNumberText)

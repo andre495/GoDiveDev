@@ -42,18 +42,16 @@ enum DiveQuantityFormatting {
         }
     }
 
-    /// **`tankVolumeDescription`** is import text (often **`… L …`**). Metric shows the stored string; imperial prefers **cu ft** when a leading **`… L`** segment can be parsed.
-    static func tankVolumeDisplay(storedDescription: String?, system: DiveDisplayUnitSystem) -> String {
-        guard let raw = storedDescription?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
-            return "—"
-        }
+    /// Rated cylinder size from **Settings → Default tank** (or **`specification`** when passed).
+    static func tankVolumeDisplay(
+        system: DiveDisplayUnitSystem,
+        specification: DefaultTankSpecification = DiveActivityTankDefaults.resolvedSpecification()
+    ) -> String {
         switch system {
-        case .metric:
-            return raw
         case .imperial:
-            guard let liters = firstLitersValue(in: raw) else { return raw }
-            let cubicFeet = liters * cubicFeetPerLiter
-            return String(format: "%.1f cu ft", cubicFeet)
+            return String(format: "%.0f cu ft", specification.ratedVolumeCubicFeet)
+        case .metric:
+            return String(format: "%.0f L", specification.ratedVolumeSurfaceLiters.rounded())
         }
     }
 

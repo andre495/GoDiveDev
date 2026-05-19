@@ -118,5 +118,7 @@ enum AppTheme {
         static let cornerRadius: CGFloat = 20
         /// Opacity on **`.thinMaterial`** in **`presentationBackground`** — lower values let more of the hero / page show through.
         static let backgroundMaterialOpacity: CGFloat = 0.64
+        /// Embedded dive overview panel (**map** / **tank**) — more opaque than modal sheets over the map hero.
+        static let embeddedOverviewMaterialOpacity: CGFloat = 0.82
     }
 }

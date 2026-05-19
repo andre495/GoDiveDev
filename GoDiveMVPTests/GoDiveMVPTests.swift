@@ -123,11 +123,16 @@ struct GoDiveMVPTests {
     }
 
     @Test func profilePhotoCropRenderer_baseFillScale_coversViewport() {
+        let imageSize = CGSize(width: 800, height: 600)
+        let cropDiameter: CGFloat = 280
         let scale = ProfilePhotoCropRenderer.baseFillScale(
-            imageSize: CGSize(width: 800, height: 600),
-            cropDiameter: 280
+            imageSize: imageSize,
+            cropDiameter: cropDiameter
         )
-        #expect(scale == 280.0 / 600.0)
+        // Must use CGFloat division — `280 / 600` (Int) is 0.
+        let expectedScale = CGFloat(280) / CGFloat(600)
+        #expect(scale == expectedScale)
+        #expect(expectedScale > 0)
     }
 
     @Test func profilePhotoCropRenderer_croppedJPEGData_returnsBytes() {
@@ -448,6 +453,12 @@ struct GoDiveMVPTests {
         #expect(EquipmentItemPresentation.formattedRecurrence(days: 14) == "Every 2 weeks")
     }
 
+    @Test func equipmentItemPresentation_divesUsedOnLabel_pluralizes() {
+        #expect(EquipmentItemPresentation.divesUsedOnLabel(count: 0) == "Not used on any dives")
+        #expect(EquipmentItemPresentation.divesUsedOnLabel(count: 1) == "1 dive")
+        #expect(EquipmentItemPresentation.divesUsedOnLabel(count: 5) == "5 dives")
+    }
+
     @Test @MainActor
     func equipmentItemDeletion_deletePermanently_removesRow() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
@@ -487,6 +498,196 @@ struct GoDiveMVPTests {
         #expect(try EquipmentItemOwnership.items(forOwnerProfileID: a.id, modelContext: context).count == 1)
         #expect(try EquipmentItemOwnership.items(forOwnerProfileID: b.id, modelContext: context).count == 1)
         #expect(try EquipmentItemOwnership.items(forOwnerProfileID: a.id, modelContext: context).first?.model == "Avanti")
+    }
+
+    @Test @MainActor
+    func diveActivityEquipmentAssociation_link_syncsListAndDivesUsedOn() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let owner = UserProfile(appleUserIdentifier: "apple-gear-link", displayName: "Diver")
+        context.insert(owner)
+
+        let gear = EquipmentItem(manufacturer: "Apeks", model: "XTX", type: "Regulator")
+        EquipmentItemOwnership.assignOwner(owner, to: gear)
+        context.insert(gear)
+
+        let dive = DiveActivity(
+            deviceSource: .garminMK3,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 42,
+            maxDepthMeters: 22
+        )
+        DiveActivityOwnership.assignOwner(owner, to: dive)
+        context.insert(dive)
+        try context.save()
+
+        try DiveActivityEquipmentAssociation.link(gear, to: dive, modelContext: context)
+        try context.save()
+
+        #expect(dive.equipmentList != nil)
+        #expect(dive.equipmentItemIDs == [gear.id])
+        #expect(gear.divesUsedOn == [dive.id])
+        #expect(gear.diveEquipmentEntries.count == 1)
+        #expect(gear.diveEquipmentEntries.first?.diveActivityID == dive.id)
+
+        try DiveActivityEquipmentAssociation.link(gear, to: dive, modelContext: context)
+        #expect(dive.equipmentItemIDs.count == 1)
+    }
+
+    @Test @MainActor
+    func diveActivityEquipmentAssociation_applyAutoAdd_respectsFlags() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let owner = UserProfile(appleUserIdentifier: "apple-auto-add", displayName: "Diver")
+        context.insert(owner)
+
+        let autoItem = EquipmentItem(
+            manufacturer: "Suunto",
+            model: "D5",
+            type: "Computer",
+            autoAdd: true
+        )
+        let retiredAuto = EquipmentItem(
+            manufacturer: "Mares",
+            model: "Avanti",
+            type: "Fins",
+            isRetired: true,
+            autoAdd: true
+        )
+        let manualItem = EquipmentItem(manufacturer: "Apeks", model: "XTX", type: "Regulator", autoAdd: false)
+        for item in [autoItem, retiredAuto, manualItem] {
+            EquipmentItemOwnership.assignOwner(owner, to: item)
+            context.insert(item)
+        }
+
+        let dive = DiveActivity(
+            deviceSource: .garminMK3,
+            startTime: Date(timeIntervalSince1970: 1_700_000_100),
+            durationMinutes: 40,
+            maxDepthMeters: 20
+        )
+        DiveActivityOwnership.assignOwner(owner, to: dive)
+        context.insert(dive)
+        try context.save()
+
+        try DiveActivityEquipmentAssociation.applyAutoAdd(
+            to: dive,
+            ownerProfileID: owner.id,
+            modelContext: context
+        )
+        try context.save()
+
+        #expect(dive.equipmentItemIDs == [autoItem.id])
+        #expect(autoItem.divesUsedOn == [dive.id])
+        #expect(retiredAuto.divesUsedOn.isEmpty)
+        #expect(manualItem.divesUsedOn.isEmpty)
+    }
+
+    @Test @MainActor
+    func diveActivityEquipmentAssociation_diveDelete_clearsDivesUsedOn() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let owner = UserProfile(appleUserIdentifier: "apple-dive-del", displayName: "Diver")
+        context.insert(owner)
+
+        let gear = EquipmentItem(manufacturer: "Apeks", model: "XTX", type: "Regulator", autoAdd: true)
+        EquipmentItemOwnership.assignOwner(owner, to: gear)
+        context.insert(gear)
+
+        let dive = DiveActivity(
+            deviceSource: .garminMK3,
+            startTime: Date(timeIntervalSince1970: 1_700_000_200),
+            durationMinutes: 38,
+            maxDepthMeters: 18
+        )
+        DiveActivityOwnership.assignOwner(owner, to: dive)
+        context.insert(dive)
+        try DiveActivityEquipmentAssociation.link(gear, to: dive, modelContext: context)
+        try context.save()
+        #expect(gear.divesUsedOn == [dive.id])
+
+        context.delete(dive)
+        try context.save()
+
+        #expect(gear.divesUsedOn.isEmpty)
+    }
+
+    @Test @MainActor
+    func diveActivityEquipmentAssociation_addableEquipment_omitsRetiredAndLinked() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let owner = UserProfile(appleUserIdentifier: "apple-addable", displayName: "Diver")
+        context.insert(owner)
+
+        let linked = EquipmentItem(manufacturer: "Apeks", model: "XTX", type: "Regulator")
+        let retired = EquipmentItem(
+            manufacturer: "Mares",
+            model: "Old",
+            type: "BCD",
+            isRetired: true
+        )
+        let available = EquipmentItem(manufacturer: "Suunto", model: "D5", type: "Computer")
+        for item in [linked, retired, available] {
+            EquipmentItemOwnership.assignOwner(owner, to: item)
+            context.insert(item)
+        }
+
+        let dive = DiveActivity(
+            deviceSource: .garminMK3,
+            startTime: Date(timeIntervalSince1970: 1_700_000_400),
+            durationMinutes: 35,
+            maxDepthMeters: 15
+        )
+        DiveActivityOwnership.assignOwner(owner, to: dive)
+        context.insert(dive)
+        try DiveActivityEquipmentAssociation.link(linked, to: dive, modelContext: context)
+        try context.save()
+
+        let addable = try DiveActivityEquipmentAssociation.addableEquipment(
+            for: dive,
+            ownerProfileID: owner.id,
+            modelContext: context
+        )
+        #expect(addable.count == 1)
+        #expect(addable.first?.id == available.id)
+
+        let onDive = try DiveActivityEquipmentAssociation.linkedEquipment(on: dive, modelContext: context)
+        #expect(onDive.map(\.id) == [linked.id])
+    }
+
+    @Test @MainActor
+    func diveActivityEquipmentAssociation_unlinkAll_clearsEntries() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let owner = UserProfile(appleUserIdentifier: "apple-gear-del", displayName: "Diver")
+        context.insert(owner)
+
+        let gear = EquipmentItem(manufacturer: "Apeks", model: "XTX", type: "Regulator")
+        EquipmentItemOwnership.assignOwner(owner, to: gear)
+        context.insert(gear)
+
+        let dive = DiveActivity(
+            deviceSource: .garminMK3,
+            startTime: Date(timeIntervalSince1970: 1_700_000_300),
+            durationMinutes: 36,
+            maxDepthMeters: 16
+        )
+        DiveActivityOwnership.assignOwner(owner, to: dive)
+        context.insert(dive)
+        try DiveActivityEquipmentAssociation.link(gear, to: dive, modelContext: context)
+        try context.save()
+
+        try DiveActivityEquipmentAssociation.unlinkAll(from: gear, modelContext: context)
+        try context.save()
+
+        #expect(gear.divesUsedOn.isEmpty)
+        #expect(gear.diveEquipmentEntries.isEmpty)
+        #expect(dive.equipmentItemIDs.isEmpty)
     }
 
     @Test @MainActor
@@ -950,7 +1151,7 @@ struct GoDiveMVPTests {
         #expect(abs(result.rmvLitersPerMinute - expectedLPM) < 1.5)
     }
 
-    @Test func diveSACRMVCalculation_fitVolumeUsedPath_withoutRatedTankSize() throws {
+    @Test func diveSACRMVCalculation_usesAL80RatedVolume_evenWithFITVolumeUsedText() throws {
         let input = DiveSACRMVCalculation.Input(
             tankPressureStartPSI: 3000,
             tankPressureEndPSI: 2000,
@@ -964,7 +1165,9 @@ struct GoDiveMVPTests {
         let sac = try #require(DiveSACRMVCalculation.sacPSIPerMinute(from: input))
         #expect(sac > 0)
         let rmv = try #require(DiveSACRMVCalculation.rmvLitersPerMinute(from: input, sacPSIPerMinute: sac))
-        #expect(abs(rmv - 50.0) < 0.01)
+        let ratedLitersPerPSI = DiveActivityTankDefaults.resolvedSpecification().ratedVolumeSurfaceLiters / 3000
+        #expect(abs(rmv - sac * ratedLitersPerPSI) < 0.01)
+        #expect(abs(rmv - 50.0) > 1)
     }
 
     @Test func diveQuantityFormatting_surfaceAirConsumption_and_rmv() throws {
@@ -1012,6 +1215,15 @@ struct GoDiveMVPTests {
     @Test func diveActivityOverviewMapTeardown_showsLiveMap_untilRequested() {
         #expect(DiveActivityOverviewMapTeardown.showsLiveMap(teardownRequested: false))
         #expect(!DiveActivityOverviewMapTeardown.showsLiveMap(teardownRequested: true))
+    }
+
+    @Test func diveLocationMapPresentation_mapViewIdentity_changesWithCoordinate() {
+        let diveID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+        let coord = DiveCoordinate(latitude: 12.08, longitude: -68.28)
+        let without = DiveLocationMapPresentation.mapViewIdentity(activityID: diveID, coordinate: nil)
+        let withCoord = DiveLocationMapPresentation.mapViewIdentity(activityID: diveID, coordinate: coord)
+        #expect(without == "\(diveID.uuidString)-none")
+        #expect(withCoord == "\(diveID.uuidString)-12.08,-68.28")
     }
 
     @Test func diveMapCoordinateResolver_prefersActivityCoordinate() {
@@ -1136,6 +1348,12 @@ struct GoDiveMVPTests {
         )
         #expect(DiveLocationMapPresentation.cameraDistanceMeters(for: .medium) > DiveLocationMapPresentation.referenceCameraDistanceMeters)
         #expect(DiveLocationMapPresentation.cameraDistanceMeters(for: .large) == DiveLocationMapPresentation.cameraDistanceMeters(for: .medium))
+    }
+
+    @Test func diveActivityOverviewTabSelection_mapAndTank_useMediumDetent() {
+        #expect(DiveActivityOverviewTabSelection.overviewDetent(whenSelecting: .map) == .medium)
+        #expect(DiveActivityOverviewTabSelection.overviewDetent(whenSelecting: .tank) == .medium)
+        #expect(DiveActivityOverviewTabSelection.overviewDetent(whenSelecting: .camera) == nil)
     }
 
     @Test func diveActivityOverviewDetent_mapCameraDetent_largeMatchesMedium() {
@@ -1600,15 +1818,15 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func diveLocationMapPresentation_markerTitle_prefersTrimmedSiteName() {
+    @Test func diveActivityOverviewPresentation_siteHeaderTitle_prefersTrimmedSiteName() {
         #expect(
-            DiveLocationMapPresentation.markerTitle(siteName: "Salt Pier", fallback: "Dive") == "Salt Pier"
+            DiveActivityOverviewPresentation.siteHeaderTitle(siteName: "Salt Pier", fallback: "Dive") == "Salt Pier"
         )
         #expect(
-            DiveLocationMapPresentation.markerTitle(siteName: "  ", fallback: "Garmin MK3") == "Garmin MK3"
+            DiveActivityOverviewPresentation.siteHeaderTitle(siteName: "  ", fallback: "Garmin MK3") == "Garmin MK3"
         )
         #expect(
-            DiveLocationMapPresentation.markerTitle(siteName: nil, fallback: "Dive") == "Dive"
+            DiveActivityOverviewPresentation.siteHeaderTitle(siteName: nil, fallback: "Dive") == "Dive"
         )
     }
 
@@ -1767,9 +1985,9 @@ struct GoDiveMVPTests {
         let end = try #require(a.tankPressureEndPSI)
         #expect(abs(start - 3081) < 2.0)
         #expect(abs(end - 1294) < 2.0)
-        let vol = try #require(a.tankVolumeDescription)
-        #expect(vol.contains("ft³"))
-        #expect(vol.contains("47."))
+        #expect(a.tankVolumeDescription == DefaultTankSize.al80.specification.storedDescription)
+        #expect(a.gasDetailsTankVolumeLine(displayUnits: .imperial) == "80 cu ft")
+        #expect(a.gasDetailsTankTypeLine() == "aluminum")
         let c = try #require(a.coordinate)
         #expect(abs(c.latitude - 12.035237) < 1e-4)
         #expect(abs(c.longitude - (-68.262683)) < 1e-4)
@@ -1938,7 +2156,8 @@ struct GoDiveMVPTests {
         #expect(d.oxygenMix == 33)
         #expect(d.tankHeroGasMixLabel == "Nitrox 33%")
         #expect(d.tankMaterial == "steel")
-        #expect(d.tankVolumeDescription == "80 L (0.080 m³)")
+        #expect(d.tankVolumeDescription == DefaultTankSize.al80.specification.storedDescription)
+        #expect(d.tankMaterial == "steel")
         let startExpected = try #require(UddfTankPressureConversion.psi(fromPascals: 21_242_747.21))
         let endExpected = try #require(UddfTankPressureConversion.psi(fromPascals: 8_921_815.93))
         let waypointExpected = try #require(UddfTankPressureConversion.psi(fromPascals: 21_241_999.83))
@@ -2325,9 +2544,9 @@ struct GoDiveMVPTests {
             tankMaterial: "   ",
             tankVolumeDescription: "\n\t"
         )
-        #expect(emptyStrings.gasDetailsTankTypeLine == "—")
-        #expect(emptyStrings.gasDetailsTankVolumeLine(displayUnits: .metric) == "—")
-        #expect(emptyStrings.gasDetailsTankVolumeLine(displayUnits: .imperial) == "—")
+        #expect(emptyStrings.gasDetailsTankTypeLine() == "aluminum")
+        #expect(emptyStrings.gasDetailsTankVolumeLine(displayUnits: .metric) == "2265 L")
+        #expect(emptyStrings.gasDetailsTankVolumeLine(displayUnits: .imperial) == "80 cu ft")
         #expect(emptyStrings.gasDetailsBeginningPressureLine(displayUnits: .imperial) == "—")
         #expect(emptyStrings.gasDetailsEndingPressureLine(displayUnits: .imperial) == "—")
 
@@ -2341,16 +2560,16 @@ struct GoDiveMVPTests {
             tankPressureStartPSI: 2999.6,
             tankPressureEndPSI: 800.2
         )
-        #expect(filled.gasDetailsTankTypeLine == "steel")
-        #expect(filled.gasDetailsTankVolumeLine(displayUnits: .metric) == "12 L")
-        #expect(filled.gasDetailsTankVolumeLine(displayUnits: .imperial) == "0.4 cu ft")
+        #expect(filled.gasDetailsTankTypeLine() == "steel")
+        #expect(filled.gasDetailsTankVolumeLine(displayUnits: .metric) == "2265 L")
+        #expect(filled.gasDetailsTankVolumeLine(displayUnits: .imperial) == "80 cu ft")
         #expect(filled.gasDetailsBeginningPressureLine(displayUnits: .imperial) == "3000 psi")
         #expect(filled.gasDetailsEndingPressureLine(displayUnits: .imperial) == "800 psi")
         #expect(filled.gasDetailsBeginningPressureLine(displayUnits: .metric) == "206.8 bar")
         #expect(filled.gasDetailsEndingPressureLine(displayUnits: .metric) == "55.2 bar")
     }
 
-    @Test func diveQuantityFormatting_depth_temperature_liters() {
+    @Test func diveQuantityFormatting_depth_temperature_tankVolume() {
         #expect(DiveQuantityFormatting.depth(meters: 10, system: .metric) == "10.0 m")
         #expect(DiveQuantityFormatting.depth(meters: 1, system: .imperial) == "3.3 ft")
 
@@ -2358,8 +2577,47 @@ struct GoDiveMVPTests {
         #expect(DiveQuantityFormatting.waterTemperature(celsius: 100, system: .imperial) == "212.0 °F")
         #expect(DiveQuantityFormatting.waterTemperature(celsius: nil, system: .metric) == "—")
 
+        #expect(DiveQuantityFormatting.tankVolumeDisplay(system: .imperial) == "80 cu ft")
+        #expect(DiveQuantityFormatting.tankVolumeDisplay(system: .metric) == "2265 L")
         #expect(DiveQuantityFormatting.firstLitersValue(in: "80 L (0.080 m³)") == 80)
         #expect(DiveQuantityFormatting.firstLitersValue(in: "no liters here") == nil)
+    }
+
+    @Test func defaultTankSize_specifications() {
+        #expect(DefaultTankSize.al80.ratedVolumeCubicFeet == 80)
+        #expect(DefaultTankSize.al80.materialLabel == "aluminum")
+        #expect(DefaultTankSize.al63.ratedVolumeCubicFeet == 63)
+        #expect(DefaultTankSize.st100.materialLabel == "steel")
+        #expect(DefaultTankSize.st120.ratedVolumeCubicFeet == 120)
+        #expect(DefaultTankSize.st120.specification.storedDescription == "120 cu ft (ST120)")
+    }
+
+    @Test func diveActivityTankDefaults_respectsUserDefaults() {
+        let defaults = UserDefaults(suiteName: "GoDiveMVPTests.DefaultTank")!
+        defaults.removePersistentDomain(forName: "GoDiveMVPTests.DefaultTank")
+        defaults.set(DefaultTankSize.st120.rawValue, forKey: AppUserSettings.defaultTankSizeKey)
+
+        let spec = DiveActivityTankDefaults.resolvedSpecification(userDefaults: defaults)
+        #expect(spec.size == .st120)
+        #expect(DiveQuantityFormatting.tankVolumeDisplay(system: .imperial, specification: spec) == "120 cu ft")
+        #expect(DiveSACRMVCalculation.ratedTankVolumeLiters(from: nil, userDefaults: defaults) == spec.ratedVolumeSurfaceLiters)
+
+        let activity = DiveActivity(
+            deviceSource: .manual,
+            startTime: Date(),
+            durationMinutes: 1,
+            maxDepthMeters: 1
+        )
+        #expect(activity.gasDetailsTankTypeLine(defaultSpecification: spec) == "steel")
+        #expect(activity.gasDetailsTankVolumeLine(displayUnits: .metric, defaultSpecification: spec) == "3398 L")
+    }
+
+    @Test func appUserSettings_defaultTankSize_fallsBackToAL80() {
+        let defaults = UserDefaults(suiteName: "GoDiveMVPTests.DefaultTankFallback")!
+        defaults.removePersistentDomain(forName: "GoDiveMVPTests.DefaultTankFallback")
+        defaults.set("INVALID", forKey: AppUserSettings.defaultTankSizeKey)
+        let spec = DiveActivityTankDefaults.resolvedSpecification(userDefaults: defaults)
+        #expect(spec.size == .al80)
     }
 
     @Test func diveActivityDiveNumbering_nextChained_skipsExplicitNoneMidSequence() {

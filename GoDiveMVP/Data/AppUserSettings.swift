@@ -1,12 +1,15 @@
 import Foundation
 
 /// User-facing preferences stored in **`UserDefaults.standard`** (not SwiftData).
-enum AppUserSettings {
+enum AppUserSettings: Sendable {
     /// When **`true`**, import/seed may run **`renumberAllChronologically`**; **delete** uses partial tail renumber on a background context (**`DiveActivityPostDeleteRenumbering`**).
-    static let automaticallyRenumberDivesKey = "goDiveAutomaticallyRenumberDives"
+    nonisolated static let automaticallyRenumberDivesKey = "goDiveAutomaticallyRenumberDives"
 
-    /// When **`true`**, **`EnvironmentValues.diveDisplayUnitSystem`** is **`.imperial`** (depth in **ft**, temps in **°F**, cylinder pressure in **psi**, tank volume in **cu ft** when parsable). **`false`** → **`.metric`**. Stored **`DiveActivity`** values stay canonical (m, °C, psi).
-    static let useImperialDisplayUnitsKey = "goDiveUseImperialDisplayUnits"
+    /// When **`true`**, **`EnvironmentValues.diveDisplayUnitSystem`** is **`.imperial`** (depth in **ft**, temps in **°F**, cylinder pressure in **psi**, tank volume in **cu ft**). **`false`** → **`.metric`**. Stored **`DiveActivity`** values stay canonical (m, °C, psi).
+    nonisolated static let useImperialDisplayUnitsKey = "goDiveUseImperialDisplayUnits"
+
+    /// **`DefaultTankSize.rawValue`** — default rated size + material for new imports (**AL80**, **AL63**, **ST100**, **ST120**).
+    nonisolated static let defaultTankSizeKey = "goDiveDefaultTankSize"
 
     static var automaticallyRenumberDives: Bool {
         UserDefaults.standard.bool(forKey: automaticallyRenumberDivesKey)
@@ -14,5 +17,10 @@ enum AppUserSettings {
 
     static var useImperialDisplayUnits: Bool {
         UserDefaults.standard.bool(forKey: useImperialDisplayUnitsKey)
+    }
+
+    static var defaultTankSize: DefaultTankSize {
+        let raw = UserDefaults.standard.string(forKey: defaultTankSizeKey)
+        return raw.flatMap(DefaultTankSize.init(rawValue:)) ?? DiveActivityTankDefaults.defaultSize
     }
 }

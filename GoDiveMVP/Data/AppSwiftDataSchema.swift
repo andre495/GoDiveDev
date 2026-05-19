@@ -5,6 +5,8 @@ enum AppSwiftDataSchema {
     static let modelTypes: [any PersistentModel.Type] = [
         UserProfile.self,
         DiveActivity.self,
+        DiveActivityEquipmentList.self,
+        DiveEquipmentEntry.self,
         DiveBuddyTag.self,
         DiveProfilePoint.self,
         DiveSite.self,

@@ -5,8 +5,6 @@ import CoreLocation
 ///
 /// Pure geometry — **`nonisolated`** so tank hero layout and tests stay off the main actor (Swift 6).
 enum DiveLocationMapPresentation: Sendable {
-    nonisolated static let defaultMarkerTitle = "Dive site"
-
     /// Wide world view when a dive has no stored coordinates.
     nonisolated static let defaultRegion = DiveLocationMapRegionSpec(
         centerLatitude: 20,
@@ -51,9 +49,15 @@ enum DiveLocationMapPresentation: Sendable {
         DiveMapCoordinateResolver.isUsable(coordinate)
     }
 
-    nonisolated static func markerTitle(siteName: String?, fallback: String) -> String {
-        let trimmed = siteName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return trimmed.isEmpty ? fallback : trimmed
+    /// Stable **`View.id`** so MapKit remounts when the dive or resolved coordinate changes.
+    nonisolated static func mapViewIdentity(activityID: UUID, coordinate: DiveCoordinate?) -> String {
+        let coordinatePart: String
+        if let coordinate, DiveMapCoordinateResolver.isUsable(coordinate) {
+            coordinatePart = "\(coordinate.latitude),\(coordinate.longitude)"
+        } else {
+            coordinatePart = "none"
+        }
+        return "\(activityID.uuidString)-\(coordinatePart)"
     }
 
     /// Pin Y on the full-bleed map (fraction from top) — midpoint of the band between top chrome and the **sheet top edge**.

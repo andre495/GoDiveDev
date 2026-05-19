@@ -70,6 +70,11 @@ enum UddfDiveFileImport {
                 try DiveActivityDiveNumbering.assignNextDiveNumberChainedAfterNewest(for: activity, modelContext: modelContext)
                 DiveActivityOwnership.assignOwner(owner, to: activity)
                 modelContext.insert(activity)
+                try DiveActivityEquipmentAssociation.applyAutoAdd(
+                    to: activity,
+                    ownerProfileID: owner.id,
+                    modelContext: modelContext
+                )
                 inserted.append(activity)
                 existing.append(candidate)
             }

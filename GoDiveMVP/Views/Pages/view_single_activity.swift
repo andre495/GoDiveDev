@@ -48,11 +48,11 @@ struct ViewSingleActivity: View {
             overviewMapTeardownRequested = false
             syncOverviewSheetPresentation(for: selectedActivityTab)
         }
-        .onDisappear {
-            requestOverviewMapTeardown()
-        }
         .onChange(of: selectedActivityTab) { _, newTab in
             syncOverviewSheetPresentation(for: newTab)
+            if newTab == .map {
+                overviewMapTeardownRequested = false
+            }
         }
         .onChange(of: overviewSheetDetent) { oldDetent, newDetent in
             guard oldDetent != newDetent else { return }
@@ -60,6 +60,7 @@ struct ViewSingleActivity: View {
         }
         .onChange(of: activity.id) { _, _ in
             tankHeroPressureFillFraction = 1
+            overviewMapTeardownRequested = false
         }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -93,7 +94,7 @@ struct ViewSingleActivity: View {
         HStack(spacing: 0) {
             ForEach(DiveActivityTab.allCases, id: \.self) { tab in
                 Button {
-                    selectedActivityTab = tab
+                    selectActivityTab(tab)
                 } label: {
                     tab.tabIconImage(isSelected: selectedActivityTab == tab)
                         .frame(maxWidth: .infinity)
@@ -138,16 +139,12 @@ struct ViewSingleActivity: View {
                             if showsLiveOverviewMap {
                                 DiveLocationMapView(
                                     coordinate: overviewMapCoordinate,
-                                    markerTitle: DiveLocationMapPresentation.markerTitle(
-                                        siteName: activity.siteName,
-                                        fallback: activity.deviceSource.overviewFallbackSiteTitle
-                                    ),
                                     bottomContentMargin: mapBottomObstruction,
                                     topObstructionHeight: topObstruction,
                                     layoutHeight: layoutHeight,
                                     cameraLayoutDetent: mapCameraDetent
                                 )
-                                .id(activity.id)
+                                .id(overviewMapViewIdentity)
                             } else {
                                 DiveOverviewMapTeardownPlaceholder()
                             }
@@ -219,13 +216,34 @@ struct ViewSingleActivity: View {
         }
     }
 
+    private func selectActivityTab(_ tab: DiveActivityTab) {
+        guard tab != selectedActivityTab else { return }
+
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            if let detent = DiveActivityOverviewTabSelection.overviewDetent(whenSelecting: tab) {
+                overviewSheetDetent = detent
+                isOverviewPanelPresented = true
+                if tab == .tank {
+                    tankHeroPressureFillFraction = 1
+                }
+            } else {
+                isOverviewPanelPresented = false
+            }
+            selectedActivityTab = tab
+        }
+    }
+
     private func syncOverviewSheetPresentation(for tab: DiveActivityTab) {
         switch tab {
         case .map, .tank:
             if !isOverviewPanelPresented {
                 isOverviewPanelPresented = true
             }
-            overviewSheetDetent = DiveActivityOverviewDetent.defaultSelection
+            if let detent = DiveActivityOverviewTabSelection.overviewDetent(whenSelecting: tab) {
+                overviewSheetDetent = detent
+            }
             if tab == .tank {
                 tankHeroPressureFillFraction = 1
             }
@@ -480,7 +498,7 @@ struct ViewSingleActivity: View {
                     VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
                         detailLabeledRow(label: "Gas", value: activity.gasDetailsGasTypeLine)
                         detailLabeledRow(label: "O₂ mix", value: activity.gasDetailsOxygenMixLine)
-                        detailLabeledRow(label: "Tank type", value: activity.gasDetailsTankTypeLine)
+                        detailLabeledRow(label: "Tank type", value: activity.gasDetailsTankTypeLine())
                         detailLabeledRow(
                             label: "Volume",
                             value: activity.gasDetailsTankVolumeLine(displayUnits: diveDisplayUnitSystem)
@@ -599,6 +617,14 @@ struct ViewSingleActivity: View {
         )
     }
 
+    /// Remounts **`DiveLocationMapView`** when dive or resolved coordinate changes (MapKit annotation refresh).
+    private var overviewMapViewIdentity: String {
+        DiveLocationMapPresentation.mapViewIdentity(
+            activityID: activity.id,
+            coordinate: overviewMapCoordinate
+        )
+    }
+
     private var tankCollapsedSummary: some View {
         DiveActivityTankCollapsedSummary(
             dateText: formattedDate(activity.startTime),
@@ -629,7 +655,7 @@ struct ViewSingleActivity: View {
             detailsSectionHeader("Cylinder")
             basicSectionCard {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                    detailLabeledRow(label: "Material", value: activity.gasDetailsTankTypeLine)
+                    detailLabeledRow(label: "Material", value: activity.gasDetailsTankTypeLine())
                     detailLabeledRow(
                         label: "Volume",
                         value: activity.gasDetailsTankVolumeLine(displayUnits: diveDisplayUnitSystem)
@@ -664,6 +690,9 @@ struct ViewSingleActivity: View {
                     }
                 }
             }
+
+            DiveActivityTankEquipmentSection(activity: activity)
+                .accessibilityIdentifier("DiveTankEquipment.Section")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -674,10 +703,17 @@ struct ViewSingleActivity: View {
         return line == "—" ? "—" : line
     }
 
+    private var overviewSiteHeaderTitle: String {
+        DiveActivityOverviewPresentation.siteHeaderTitle(
+            siteName: activity.siteName,
+            fallback: activity.deviceSource.overviewFallbackSiteTitle
+        )
+    }
+
     private var overviewCollapsedSummary: some View {
         DiveActivityOverviewCollapsedSummary(
             dateText: formattedDate(activity.startTime),
-            titleText: activity.siteName ?? activity.deviceSource.overviewFallbackSiteTitle,
+            titleText: overviewSiteHeaderTitle,
             diveNumberText: activity.diveNumberPlainLabel,
             maxDepthText: formatDepth(activity.maxDepthMeters),
             durationText: "\(activity.durationMinutes) min"
@@ -687,11 +723,11 @@ struct ViewSingleActivity: View {
     private var overviewBottomPanelContent: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                Text(formattedDate(activity.startTime))
+                Text(overviewSiteHeaderTitle)
                     .font(.title2.weight(.bold))
                     .foregroundStyle(AppTheme.Colors.textPrimary)
 
-                Text(activity.siteName ?? activity.deviceSource.overviewFallbackSiteTitle)
+                Text(formattedDate(activity.startTime))
                     .font(.headline)
                     .foregroundStyle(AppTheme.Colors.textPrimary)
 

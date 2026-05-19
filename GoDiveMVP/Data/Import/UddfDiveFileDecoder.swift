@@ -118,6 +118,7 @@ enum UddfDiveFileDecoder {
             .joined(separator: "\n\n")
         let notesNonEmpty = notesJoined.isEmpty ? nil : notesJoined
 
+        let defaultTank = DiveActivityTankDefaults.resolvedSpecification()
         let tankMaterialTrimmed = scratch.tankMaterial?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let tankMaterialNonEmpty = (tankMaterialTrimmed?.isEmpty == false) ? tankMaterialTrimmed : nil
@@ -177,8 +178,8 @@ enum UddfDiveFileDecoder {
             locationName: site?.locationName,
             coordinate: coordinate,
             notes: notesNonEmpty,
-            tankMaterial: tankMaterialNonEmpty,
-            tankVolumeDescription: UddfTankVolumeFormatting.volumeDescription(fromCubicMeters: scratch.tankVolumeCubicMeters),
+            tankMaterial: tankMaterialNonEmpty ?? defaultTank.materialLabel,
+            tankVolumeDescription: defaultTank.storedDescription,
             tankPressureStartPSI: UddfTankPressureConversion.psi(fromPascals: scratch.tankPressureBeginPascals),
             tankPressureEndPSI: UddfTankPressureConversion.psi(fromPascals: scratch.tankPressureEndPascals),
             gasType: gasResolved?.gasType,

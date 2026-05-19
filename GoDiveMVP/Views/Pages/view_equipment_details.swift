@@ -68,6 +68,13 @@ struct ViewEquipmentDetails: View {
 
     private var flagsSection: some View {
         detailSection(title: "Status") {
+            detailRow(
+                label: "Dives used on",
+                value: EquipmentItemPresentation.divesUsedOnLabel(
+                    count: EquipmentItemPresentation.divesUsedOnCount(for: item)
+                )
+            )
+            .accessibilityIdentifier("EquipmentDetails.DivesUsedOn")
             detailRow(label: "Retired", value: EquipmentItemPresentation.yesNo(item.isRetired))
             detailRow(label: "Auto-add on new dives", value: EquipmentItemPresentation.yesNo(item.autoAdd))
         }

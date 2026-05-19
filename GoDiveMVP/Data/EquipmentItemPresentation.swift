@@ -39,4 +39,19 @@ enum EquipmentItemPresentation: Sendable {
     static func yesNo(_ value: Bool) -> String {
         value ? "Yes" : "No"
     }
+
+    static func divesUsedOnCount(for item: EquipmentItem) -> Int {
+        item.divesUsedOn.count
+    }
+
+    static func divesUsedOnLabel(count: Int) -> String {
+        switch count {
+        case 0:
+            return "Not used on any dives"
+        case 1:
+            return "1 dive"
+        default:
+            return "\(count) dives"
+        }
+    }
 }

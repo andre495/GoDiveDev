@@ -76,6 +76,11 @@ enum FitDiveFileImport {
             try DiveActivityDiveNumbering.assignNextDiveNumberChainedAfterNewest(for: activity, modelContext: modelContext)
             DiveActivityOwnership.assignOwner(owner, to: activity)
             modelContext.insert(activity)
+            try DiveActivityEquipmentAssociation.applyAutoAdd(
+                to: activity,
+                ownerProfileID: owner.id,
+                modelContext: modelContext
+            )
             try modelContext.save()
             try DiveActivityDiveNumbering.applyAutomaticSequentialRenumberIfNeeded(modelContext: modelContext)
             let msg = "\(importSuccessMessagePrefix) starting \(activity.startTime.formatted(date: .abbreviated, time: .shortened))."

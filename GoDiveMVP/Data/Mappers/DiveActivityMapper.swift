@@ -3,6 +3,10 @@ import Foundation
 /// Maps seed / JSON DTOs into **`DiveActivity`** using **canonical** persisted units (m, °C, psi — see **`DiveActivity`**).
 enum DiveActivityMapper {
     static func map(_ dto: DiveActivityDTO) -> DiveActivity {
+        let defaultTank = DiveActivityTankDefaults.resolvedSpecification()
+        let importedMaterial = dto.tankMaterial?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let tankMaterial = (importedMaterial?.isEmpty == false) ? importedMaterial : defaultTank.materialLabel
         let activity = DiveActivity(
             id: dto.id ?? UUID(),
             deviceSource: dto.deviceSource,
@@ -22,8 +26,8 @@ enum DiveActivityMapper {
             locationName: dto.locationName,
             coordinate: dto.coordinate.map { DiveCoordinate(latitude: $0.latitude, longitude: $0.longitude) },
             notes: dto.notes,
-            tankMaterial: dto.tankMaterial,
-            tankVolumeDescription: dto.tankVolumeDescription,
+            tankMaterial: tankMaterial,
+            tankVolumeDescription: defaultTank.storedDescription,
             tankPressureStartPSI: dto.tankPressureStartPSI,
             tankPressureEndPSI: dto.tankPressureEndPSI,
             gasType: dto.gasType,

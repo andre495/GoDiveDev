@@ -1,0 +1,28 @@
+---
+description: Avoid Swift integer division in tests and numeric expectations (use CGFloat/Double).
+globs: "**/*Tests*.swift,GoDiveMVP/**/*.swift"
+alwaysApply: false
+---
+
+# Swift: integer division vs floating-point
+
+Before finishing tests or numeric comparisons, **double-check** that `/` is not accidentally **integer division**.
+
+## The trap
+
+In Swift, `280 / 600` with integer literals is **`0`**, not `0.467…`. This often breaks `#expect` in **`GoDiveMVPTests`** (e.g. crop scale, ratios, averages).
+
+## Do
+
+- Use **`CGFloat`** or **`Double`** literals: `280.0 / 600.0`, or `CGFloat(280) / 600`.
+- Prefer deriving expected values with the **same types** as production code (e.g. `max(cropDiameter / imageSize.width, …)`).
+- For geometry / UI math, type crop sizes and dimensions as **`CGFloat`** explicitly in tests.
+
+## Don’t
+
+- Don’t compare a **`CGFloat`** result to `280 / 600` without a floating-point denominator.
+- Don’t assume `==` between mixed numeric literals is safe without checking literal types.
+
+## Quick check
+
+If an expectation shows `(280 / 600 → 0)` in a failure message, fix the **expected** side (or both sides) to use floating-point division.

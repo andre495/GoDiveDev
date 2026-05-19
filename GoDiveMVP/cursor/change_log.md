@@ -284,3 +284,35 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`ProfileAvatarView`** — shared circle photo or **`person.circle.fill`** default; **Home** header profile link uses saved photo.
 - **Tests:** **`userProfile_persistsProfilePhoto`**, **`profilePhotoCropRenderer_*`**.
 
+---
+
+## 29 - Dive equipment association **(pushed)**
+
+**Summary:** Link gear to dives via **`DiveActivityEquipmentList`** / **`DiveEquipmentEntry`**; **`autoAdd`** gear attaches on new dive import; **`divesUsedOn`** on **`EquipmentItem`**. Data + import/delete wiring only (no UI).
+
+- **`DiveActivityEquipmentList`**, **`DiveEquipmentEntry`** — per-dive list with equipment pointers; denormalized IDs.
+- **`EquipmentItem.divesUsedOn`** — computed from **`diveEquipmentEntries`** (SwiftData does not persist **`[UUID]`** on **`@Model`**).
+- **SwiftData inverses** — only the “child” side declares **`inverse:`** (**`DiveEquipmentEntry`**, **`DiveActivityEquipmentList.dive`**); parents use **`deleteRule`** only (**`DiveActivity.equipmentList`**, **`DiveActivityEquipmentList.entries`**, **`EquipmentItem.diveEquipmentEntries`**).
+- **`DiveActivityEquipmentAssociation`** — link / unlink / **`applyAutoAdd`** / cleanup on dive or gear delete.
+- **Import:** **`FitDiveFileImport`** / **`UddfDiveFileImport`** call **`applyAutoAdd`** after insert.
+- **Tests:** **`diveActivityEquipmentAssociation_*`**.
+- **`ViewEquipmentDetails`** — **Dives used on** row in **Status** (**`EquipmentItemPresentation.divesUsedOnLabel`**).
+- **Tank tab** — **`DiveActivityTankEquipmentSection`**: linked gear list + **+** sheet (**`DiveActivityAddEquipmentSheet`**) for non-retired locker items not yet on the dive.
+
+---
+
+## 30 - Dive map pin reliability (not pushed)
+
+**Summary:** Fix intermittent missing dive location pin when opening or returning to the **map** tab.
+
+- **`DiveLocationMapView`** — reset camera context on appear / coordinate change; refresh when coordinate identity updates.
+- **`ViewSingleActivity`** — **`mapViewIdentity`** remounts map when dive or resolved coordinate changes; clear teardown placeholder when opening **map** tab or switching dives (removed **`onDisappear`** teardown that could leave placeholder stuck).
+- **Tests:** **`diveLocationMapPresentation_mapViewIdentity_changesWithCoordinate`**.
+- **Embedded overview panel** — **`AppTheme.Sheet.embeddedOverviewMaterialOpacity`** (**0.82**) on **map** / **tank** sheet (modal sheets stay **0.64**).
+- **Tab switch** — **`selectActivityTab`** resets to **medium** before rendering **tank** (fixes flash of minimized depth chart when leaving **map** at low detent).
+- **Dive map pin** — **`DiveLocationMapRepresentable`** (**`MKMapView`**) replaces SwiftUI **`Map`** + **`Annotation`** so the custom pin and site callout stay visible when the camera moves.
+- **`DiveSiteMapAnnotationView`** — pin only (no on-map label); dive site name is the overview sheet header (**`DiveActivityOverviewPresentation.siteHeaderTitle`**).
+- **`DiveLocationMapRepresentable`** — pin **`ImageRenderer`** uses **`mapView.traitCollection.displayScale`** (cached per scale) instead of deprecated **`UIScreen.main`**.
+- **Tank volume** — **`DiveActivityTankDefaults`** / **`DefaultTankSize`**; imports / seed / RMV use rated surface liters; UI no longer mis-converts UDDF **80 L** or FIT **volume used** strings.
+- **Settings → Default tank** — **`DefaultTankSize`** picker (**AL80**, **AL63**, **ST100**, **ST120**); material + rated **cu ft** on import and gas detail rows when the file omits them.
+
