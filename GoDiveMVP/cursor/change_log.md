@@ -258,7 +258,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ---
 
-## 27 - Certifications model + list / add / edit (not pushed)
+## 27 - Certifications model + list / add / edit **(pushed)**
 
 **Summary:** SwiftData **`Certification`** with Profile → list → detail, add/edit sheets (equipment pattern), primary-card handling.
 
