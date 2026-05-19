@@ -243,7 +243,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ---
 
-## 26 - Equipment Locker placeholder + model (not pushed)
+## 26 - Equipment Locker placeholder + model **(pushed)**
 
 **Summary:** **Equipment Locker** with banner **Add new equipment**, native sheet form, and SwiftData **`EquipmentItem`** persistence.
 
