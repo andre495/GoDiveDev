@@ -301,7 +301,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ---
 
-## 30 - Dive map pin reliability (not pushed)
+## 30 - Dive map pin reliability **(pushed)**
 
 **Summary:** Fix intermittent missing dive location pin when opening or returning to the **map** tab.
 
