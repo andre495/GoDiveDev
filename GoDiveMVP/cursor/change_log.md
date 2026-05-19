@@ -241,3 +241,18 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`AppTheme.Colors.tankGasAccent`** — shared yellow for profile gas line, cylinder band, and minimized **PSI / SAC / RMV** values (labels stay primary).
 - Minimized cylinder **`minimizedTrailingInset`** **56** (further left); gas summary uses **`HStack`** inline text (no deprecated **`Text`** **`+`**).
 
+---
+
+## 26 - Equipment Locker placeholder + model (not pushed)
+
+**Summary:** **Equipment Locker** with banner **Add new equipment**, native sheet form, and SwiftData **`EquipmentItem`** persistence.
+
+- **`EquipmentLockerView`** — accent **Add new equipment** banner, elevated list rows (photo thumb, title, type, retired); destination links on Home stack.
+- **`EquipmentAddSheetView`** + **`equipmentAddSheetPresentation()`** — **`.large`** sheet, **`appSheetPresentationChrome()`**, **`Form`** for all **`EquipmentItem`** fields + **`PhotosPicker`**; **Save** creates row for signed-in **`UserProfile`**.
+- **`EquipmentItemFormValues`** — draft mapping + **`canSave`** (manufacturer + model required). **Tests:** **`equipmentItemFormValues_*`**, **`equipmentItem_*`**, **`equipmentItemOwnership_*`**.
+- **Service schedule:** **Recurring service** toggle shows **next service date** + **Every** *n* **days/weeks/years**; off clears **`nextServiceDate`**, **`serviceRecurrenceDays`**, and **`serviceDate`**. **`EquipmentServiceSchedule`**.
+- **Equipment Locker:** swipe **Delete** + confirmation modal (logbook pattern); **`EquipmentItemDeletion`**. **Tests:** **`equipmentItemDeletion_*`**.
+- **`ViewEquipmentDetails`** (**`view_equipment_details.swift`**) — tap row → detail sections; **Edit** opens **`EquipmentEditSheetView`**. Shared **`EquipmentItemFormContent`**; **`EquipmentItemFormValues`** **`init()`** / **`init(from:)`** / **`apply(to:)`**.
+- **Locker → detail navigation:** destination-style row **`NavigationLink`** on Home’s stack (Profile → Locker → Detail); no nested **`NavigationStack`** (nested stack caused back-to-detail to pop to Home and first-open locker glitch).
+- **`EquipmentItem`** model; **`ProfileView`** link; **`EquipmentItemOwnership`**; **`AppSwiftDataSchema`**.
+

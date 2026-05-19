@@ -35,6 +35,10 @@ struct ProfileView: View {
                         .padding(.horizontal, AppTheme.Spacing.lg)
                         .padding(.top, AppTheme.Spacing.sm)
 
+                    equipmentLockerLink
+                        .padding(.horizontal, AppTheme.Spacing.lg)
+                        .padding(.top, AppTheme.Spacing.lg)
+
                     Spacer()
 
                     signOutButton
@@ -62,6 +66,36 @@ struct ProfileView: View {
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
+    }
+
+    private var equipmentLockerLink: some View {
+        NavigationLink {
+            EquipmentLockerView()
+        } label: {
+            HStack(spacing: AppTheme.Spacing.md) {
+                Image(systemName: "archivebox.fill")
+                    .font(.title3)
+                    .foregroundStyle(AppTheme.Colors.accent)
+                    .accessibilityHidden(true)
+
+                Text("Equipment Locker")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+            }
+            .padding(AppTheme.Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppTheme.Colors.surfaceElevated)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("Profile.EquipmentLockerLink")
     }
 
     private var signOutButton: some View {

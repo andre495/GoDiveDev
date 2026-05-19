@@ -14,6 +14,9 @@ final class UserProfile {
     @Relationship(deleteRule: .cascade, inverse: \DiveActivity.owner)
     var diveActivities: [DiveActivity] = []
 
+    @Relationship(deleteRule: .cascade, inverse: \EquipmentItem.owner)
+    var equipmentItems: [EquipmentItem] = []
+
     init(
         id: UUID = UUID(),
         appleUserIdentifier: String,

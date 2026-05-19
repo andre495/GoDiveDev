@@ -184,6 +184,251 @@ struct GoDiveMVPTests {
         #expect(owned.count == 1)
     }
 
+    @Test @MainActor
+    func equipmentItem_persistsFieldsAndOwner() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let owner = UserProfile(appleUserIdentifier: "apple-equipment", displayName: "Diver")
+        context.insert(owner)
+
+        let purchase = Date(timeIntervalSince1970: 1_700_000_000)
+        let nextService = Date(timeIntervalSince1970: 1_900_000_000)
+        let lastService = Date(timeIntervalSince1970: 1_900_000_000 - 86_400 * 365)
+        let photoBytes = Data([0xFF, 0xD8, 0xFF, 0xE0])
+
+        let item = EquipmentItem(
+            manufacturer: "Apeks",
+            model: "XTX50",
+            type: "Regulator",
+            isRetired: false,
+            autoAdd: true,
+            purchaseDate: purchase,
+            purchasedShop: "Local Dive Shop",
+            price: 899.99,
+            serviceDate: lastService,
+            nextServiceDate: nextService,
+            serviceRecurrenceDays: 365,
+            serviceNotes: "Annual overhaul",
+            notes: "Primary reg",
+            equipmentPhoto: photoBytes
+        )
+        EquipmentItemOwnership.assignOwner(owner, to: item)
+        context.insert(item)
+        try context.save()
+
+        let fetched = try EquipmentItemOwnership.items(forOwnerProfileID: owner.id, modelContext: context)
+        #expect(fetched.count == 1)
+        let gear = try #require(fetched.first)
+        #expect(gear.manufacturer == "Apeks")
+        #expect(gear.model == "XTX50")
+        #expect(gear.type == "Regulator")
+        #expect(gear.autoAdd == true)
+        #expect(gear.isRetired == false)
+        #expect(gear.purchasedShop == "Local Dive Shop")
+        #expect(gear.price == 899.99)
+        #expect(gear.nextServiceDate == nextService)
+        #expect(gear.serviceRecurrenceDays == 365)
+        #expect(gear.serviceDate == lastService)
+        #expect(gear.serviceNotes == "Annual overhaul")
+        #expect(gear.notes == "Primary reg")
+        #expect(gear.equipmentPhoto == photoBytes)
+        #expect(gear.ownerProfileID == owner.id)
+        #expect(owner.equipmentItems.count == 1)
+    }
+
+    @Test func equipmentItemFormValues_canSave_requiresManufacturerAndModel() {
+        var form = EquipmentItemFormValues()
+        #expect(form.canSave == false)
+        form.manufacturer = "Apeks"
+        #expect(form.canSave == false)
+        form.model = "XTX"
+        #expect(form.canSave == true)
+    }
+
+    @Test func equipmentItemFormValues_makeEquipmentItem_mapsOptionalFields() {
+        let nextService = Date(timeIntervalSince1970: 2_000_000)
+        var form = EquipmentItemFormValues()
+        form.manufacturer = "  Mares  "
+        form.model = "Avanti"
+        form.type = "Fins"
+        form.isRetired = true
+        form.autoAdd = true
+        form.includesPurchaseDate = true
+        form.purchaseDate = Date(timeIntervalSince1970: 1_000)
+        form.purchasedShop = " Dive Shop "
+        form.priceText = "199.50"
+        form.includesRecurringService = true
+        form.nextServiceDate = nextService
+        form.recurrenceIntervalCount = 2
+        form.recurrenceUnit = .weeks
+        form.serviceNotes = " Annual "
+        form.notes = " Travel fins "
+        form.equipmentPhoto = Data([0x01])
+        let item = form.makeEquipmentItem()
+        #expect(item.manufacturer == "Mares")
+        #expect(item.model == "Avanti")
+        #expect(item.type == "Fins")
+        #expect(item.isRetired == true)
+        #expect(item.autoAdd == true)
+        #expect(item.purchaseDate == Date(timeIntervalSince1970: 1_000))
+        #expect(item.purchasedShop == "Dive Shop")
+        #expect(item.price == 199.5)
+        #expect(item.nextServiceDate == nextService)
+        #expect(item.serviceRecurrenceDays == 14)
+        #expect(
+            item.serviceDate == EquipmentServiceSchedule.lastServiceDate(
+                nextServiceDate: nextService,
+                recurrenceDays: 14
+            )
+        )
+        #expect(item.serviceNotes == "Annual")
+        #expect(item.notes == "Travel fins")
+        #expect(item.equipmentPhoto == Data([0x01]))
+    }
+
+    @Test func equipmentItemFormValues_parsedPrice_emptyWhenBlank() {
+        var form = EquipmentItemFormValues()
+        #expect(form.parsedPrice() == nil)
+        form.priceText = "12"
+        #expect(form.parsedPrice() == 12)
+    }
+
+    @Test func equipmentServiceSchedule_recurrenceDays_convertsUnits() {
+        #expect(EquipmentServiceSchedule.recurrenceDays(interval: 2, unit: .weeks) == 14)
+        #expect(EquipmentServiceSchedule.recurrenceDays(interval: 1, unit: .years) == 365)
+        #expect(EquipmentServiceSchedule.recurrenceDays(interval: 30, unit: .days) == 30)
+        #expect(EquipmentServiceSchedule.recurrenceDays(interval: 0, unit: .days) == nil)
+    }
+
+    @Test func equipmentServiceSchedule_lastServiceDate_subtractsRecurrenceFromNext() {
+        let next = Date(timeIntervalSince1970: 1_000_000)
+        let last = EquipmentServiceSchedule.lastServiceDate(nextServiceDate: next, recurrenceDays: 14)
+        #expect(last == Calendar(identifier: .gregorian).date(byAdding: .day, value: -14, to: next))
+    }
+
+    @Test func equipmentServiceSchedule_recurrenceIntervalAndUnit_roundTripsStoredDays() throws {
+        #expect(try #require(EquipmentServiceSchedule.recurrenceIntervalAndUnit(forStoredDays: 365)) == (interval: 1, unit: .years))
+        #expect(try #require(EquipmentServiceSchedule.recurrenceIntervalAndUnit(forStoredDays: 14)) == (interval: 2, unit: .weeks))
+        #expect(try #require(EquipmentServiceSchedule.recurrenceIntervalAndUnit(forStoredDays: 10)) == (interval: 10, unit: .days))
+    }
+
+    @Test func equipmentItemFormValues_apply_updatesExistingItem() {
+        let item = EquipmentItem(
+            manufacturer: "Old",
+            model: "Model",
+            type: "BCD",
+            serviceRecurrenceDays: 30
+        )
+        var form = EquipmentItemFormValues()
+        form.manufacturer = "Scubapro"
+        form.model = "MK25"
+        form.type = "Regulator"
+        form.includesRecurringService = true
+        form.nextServiceDate = Date(timeIntervalSince1970: 3_000_000)
+        form.recurrenceIntervalCount = 2
+        form.recurrenceUnit = .weeks
+        form.notes = "Updated"
+        form.apply(to: item)
+        #expect(item.manufacturer == "Scubapro")
+        #expect(item.model == "MK25")
+        #expect(item.serviceRecurrenceDays == 14)
+        #expect(item.notes == "Updated")
+        #expect(item.nextServiceDate == Date(timeIntervalSince1970: 3_000_000))
+    }
+
+    @Test func equipmentItemFormValues_initFromItem_restoresRecurrenceAndNextDate() {
+        let next = Date(timeIntervalSince1970: 2_000_000)
+        let item = EquipmentItem(
+            manufacturer: "Mares",
+            model: "Prestige",
+            type: "Fins",
+            nextServiceDate: next,
+            serviceRecurrenceDays: 14
+        )
+        let form = EquipmentItemFormValues(from: item)
+        #expect(form.manufacturer == "Mares")
+        #expect(form.includesRecurringService == true)
+        #expect(form.nextServiceDate == next)
+        #expect(form.recurrenceIntervalCount == 2)
+        #expect(form.recurrenceUnit == .weeks)
+    }
+
+    @Test func equipmentItemFormValues_makeEquipmentItem_clearsScheduleWhenRecurringOff() {
+        var form = EquipmentItemFormValues()
+        form.manufacturer = "Mares"
+        form.model = "Avanti"
+        form.includesRecurringService = false
+        form.nextServiceDate = Date(timeIntervalSince1970: 2_000_000)
+        form.recurrenceIntervalCount = 2
+        form.recurrenceUnit = .weeks
+        let item = form.makeEquipmentItem()
+        #expect(item.nextServiceDate == nil)
+        #expect(item.serviceDate == nil)
+        #expect(item.serviceRecurrenceDays == nil)
+    }
+
+    @Test func equipmentItemFormValues_apply_clearsScheduleWhenRecurringOff() {
+        let item = EquipmentItem(
+            manufacturer: "Mares",
+            model: "Avanti",
+            type: "Fins",
+            nextServiceDate: Date(timeIntervalSince1970: 2_000_000),
+            serviceRecurrenceDays: 14
+        )
+        var form = EquipmentItemFormValues(from: item)
+        form.includesRecurringService = false
+        form.apply(to: item)
+        #expect(item.nextServiceDate == nil)
+        #expect(item.serviceDate == nil)
+        #expect(item.serviceRecurrenceDays == nil)
+    }
+
+    @Test func equipmentItemPresentation_formattedRecurrence_describesInterval() {
+        #expect(EquipmentItemPresentation.formattedRecurrence(days: 14) == "Every 2 weeks")
+    }
+
+    @Test @MainActor
+    func equipmentItemDeletion_deletePermanently_removesRow() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let owner = UserProfile(appleUserIdentifier: "apple-del", displayName: "Diver")
+        context.insert(owner)
+
+        let item = EquipmentItem(manufacturer: "Apeks", model: "XTX", type: "Regulator")
+        EquipmentItemOwnership.assignOwner(owner, to: item)
+        context.insert(item)
+        try context.save()
+
+        try EquipmentItemDeletion.deletePermanently(item, modelContext: context)
+        #expect(try EquipmentItemOwnership.items(forOwnerProfileID: owner.id, modelContext: context).isEmpty)
+    }
+
+    @Test @MainActor
+    func equipmentItemOwnership_filtersByOwnerProfileID() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let a = UserProfile(appleUserIdentifier: "apple-a", displayName: "A")
+        let b = UserProfile(appleUserIdentifier: "apple-b", displayName: "B")
+        context.insert(a)
+        context.insert(b)
+
+        let itemA = EquipmentItem(manufacturer: "Mares", model: "Avanti", type: "Fins")
+        EquipmentItemOwnership.assignOwner(a, to: itemA)
+        context.insert(itemA)
+
+        let itemB = EquipmentItem(manufacturer: "Suunto", model: "D5", type: "Computer")
+        EquipmentItemOwnership.assignOwner(b, to: itemB)
+        context.insert(itemB)
+        try context.save()
+
+        #expect(try EquipmentItemOwnership.items(forOwnerProfileID: a.id, modelContext: context).count == 1)
+        #expect(try EquipmentItemOwnership.items(forOwnerProfileID: b.id, modelContext: context).count == 1)
+        #expect(try EquipmentItemOwnership.items(forOwnerProfileID: a.id, modelContext: context).first?.model == "Avanti")
+    }
+
     @Test func appUserSettings_automaticallyRenumberDivesKey_matchesAppStorage() {
         #expect(AppUserSettings.automaticallyRenumberDivesKey == "goDiveAutomaticallyRenumberDives")
     }
