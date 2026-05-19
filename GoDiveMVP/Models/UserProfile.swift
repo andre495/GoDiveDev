@@ -8,6 +8,8 @@ final class UserProfile {
     /// Stable identifier from **`ASAuthorizationAppleIDCredential.user`**.
     var appleUserIdentifier: String
     var displayName: String
+    /// Profile picture bytes (JPEG/PNG from photo picker).
+    var profilePhoto: Data?
     var createdAt: Date
     var lastSignedInAt: Date
 
@@ -24,12 +26,14 @@ final class UserProfile {
         id: UUID = UUID(),
         appleUserIdentifier: String,
         displayName: String,
+        profilePhoto: Data? = nil,
         createdAt: Date = .now,
         lastSignedInAt: Date = .now
     ) {
         self.id = id
         self.appleUserIdentifier = appleUserIdentifier
         self.displayName = displayName
+        self.profilePhoto = profilePhoto
         self.createdAt = createdAt
         self.lastSignedInAt = lastSignedInAt
     }

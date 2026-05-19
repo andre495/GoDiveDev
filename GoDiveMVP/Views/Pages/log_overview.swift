@@ -1,7 +1,13 @@
 import SwiftUI
 
 struct LogOverviewView: View {
+    @Environment(AccountSession.self) private var accountSession
     @State private var headerClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
+
+    private enum Layout {
+        /// ~1.5× prior **32** pt header avatar for easier recognition.
+        static let profileAvatarDiameter: CGFloat = 48
+    }
 
     var body: some View {
         NavigationStack {
@@ -38,11 +44,16 @@ struct LogOverviewView: View {
                         NavigationLink {
                             ProfileView()
                         } label: {
-                            Image(systemName: "person.circle")
-                                .font(.title3)
+                            ProfileAvatarView(
+                                profilePhoto: accountSession.currentProfile?.profilePhoto,
+                                diameter: Layout.profileAvatarDiameter
+                            )
+                            .frame(minWidth: Layout.profileAvatarDiameter, minHeight: Layout.profileAvatarDiameter)
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Profile")
+                        .accessibilityIdentifier("Home.ProfileLink")
                     }
                     .zIndex(1)
                 }

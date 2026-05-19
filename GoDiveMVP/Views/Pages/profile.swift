@@ -6,6 +6,7 @@ struct ProfileView: View {
         /// Dark veil between **`WaterBubbleBackground`** and profile content.
         static let bubbleScrimOpacity: CGFloat = 0.48
         static let tileCornerRadius: CGFloat = 16
+        static let headerSpacing: CGFloat = 20
     }
 
     @Environment(AccountSession.self) private var accountSession
@@ -14,6 +15,8 @@ struct ProfileView: View {
     @Query(sort: [SortDescriptor(\Certification.dateAttained, order: .reverse)])
     private var allCertifications: [Certification]
 
+    @Query private var allDiveActivities: [DiveActivity]
+
     private var ownedCertifications: [Certification] {
         guard let ownerID = accountSession.currentProfile?.id else { return [] }
         return allCertifications.filter { $0.ownerProfileID == ownerID }
@@ -21,6 +24,15 @@ struct ProfileView: View {
 
     private var certificationSubtitle: String {
         CertificationPresentation.profileCertificationSubtitle(from: ownedCertifications)
+    }
+
+    private var ownedDiveActivityCount: Int {
+        guard let ownerID = accountSession.currentProfile?.id else { return 0 }
+        return allDiveActivities.filter { $0.ownerProfileID == ownerID }.count
+    }
+
+    private var diveCountLabel: String {
+        ProfilePresentation.diveActivityCountLabel(ownedDiveActivityCount)
     }
 
     var body: some View {
@@ -74,21 +86,33 @@ struct ProfileView: View {
     }
 
     private var profileHeader: some View {
-        VStack(spacing: AppTheme.Spacing.sm) {
-            Text(accountSession.currentProfile?.displayName ?? UserProfileStore.defaultDisplayName)
-                .font(.largeTitle.weight(.bold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-                .multilineTextAlignment(.center)
-                .accessibilityIdentifier("Profile.DisplayName")
+        VStack(spacing: Layout.headerSpacing) {
+            if let profile = accountSession.currentProfile {
+                ProfileAvatarEditor(profile: profile)
+            }
 
-            Text(certificationSubtitle)
-                .font(.title3.weight(.medium))
-                .foregroundStyle(AppTheme.Colors.secondaryText)
-                .multilineTextAlignment(.center)
-                .accessibilityIdentifier("Profile.CertificationSubtitle")
+            VStack(spacing: AppTheme.Spacing.sm) {
+                Text(accountSession.currentProfile?.displayName ?? UserProfileStore.defaultDisplayName)
+                    .font(.largeTitle.weight(.bold))
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+                    .multilineTextAlignment(.center)
+                    .accessibilityIdentifier("Profile.DisplayName")
+
+                Text(certificationSubtitle)
+                    .font(.title3.weight(.medium))
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+                    .multilineTextAlignment(.center)
+                    .accessibilityIdentifier("Profile.CertificationSubtitle")
+
+                Text(diveCountLabel)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+                    .multilineTextAlignment(.center)
+                    .accessibilityIdentifier("Profile.DiveCount")
+            }
+            .accessibilityElement(children: .combine)
         }
         .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .combine)
     }
 
     private var profileDestinationTiles: some View {

@@ -116,6 +116,66 @@ struct GoDiveMVPTests {
         #expect(UserProfileStore.displayName(from: nil) == nil)
     }
 
+    @Test func profilePresentation_diveActivityCountLabel_pluralizes() {
+        #expect(ProfilePresentation.diveActivityCountLabel(0) == "No dives logged")
+        #expect(ProfilePresentation.diveActivityCountLabel(1) == "1 dive")
+        #expect(ProfilePresentation.diveActivityCountLabel(12) == "12 dives")
+    }
+
+    @Test func profilePhotoCropRenderer_baseFillScale_coversViewport() {
+        let scale = ProfilePhotoCropRenderer.baseFillScale(
+            imageSize: CGSize(width: 800, height: 600),
+            cropDiameter: 280
+        )
+        #expect(scale == 280.0 / 600.0)
+    }
+
+    @Test func profilePhotoCropRenderer_croppedJPEGData_returnsBytes() {
+        #if canImport(UIKit)
+        let size = CGSize(width: 200, height: 300)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        let image = renderer.image { context in
+            UIColor.systemBlue.setFill()
+            context.fill(CGRect(origin: .zero, size: size))
+        }
+        let data = ProfilePhotoCropRenderer.croppedJPEGData(
+            from: image,
+            cropDiameter: 280,
+            gestureScale: 1,
+            offset: .zero
+        )
+        #expect(data != nil)
+        #expect(data?.isEmpty == false)
+        #else
+        #expect(Bool(true))
+        #endif
+    }
+
+    @Test @MainActor
+    func userProfile_persistsProfilePhoto() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let photo = Data([0xFF, 0xD8, 0xFF, 0xE0])
+        let profile = UserProfile(
+            appleUserIdentifier: "apple-photo",
+            displayName: "Diver",
+            profilePhoto: photo
+        )
+        context.insert(profile)
+        try context.save()
+
+        let fetched = try UserProfileStore.profile(id: profile.id, modelContext: context)
+        let stored = try #require(fetched)
+        #expect(stored.profilePhoto == photo)
+
+        stored.profilePhoto = nil
+        try context.save()
+        let clearedFetched = try UserProfileStore.profile(id: profile.id, modelContext: context)
+        let cleared = try #require(clearedFetched)
+        #expect(cleared.profilePhoto == nil)
+    }
+
     @Test @MainActor
     func userProfileStore_findOrCreateProfile_reusesAppleUser() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)

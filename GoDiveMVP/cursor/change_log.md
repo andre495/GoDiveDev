@@ -271,3 +271,16 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Profile subtitle:** **`CertificationPresentation.profileCertificationSubtitle`** — newest primary **`certName`**, else **GoDive User** (replaces static **Rescue Diver**).
 - **Profile layout:** dark bubble scrim; **Certifications** / **Equipment Locker** as square tiles anchored above **Sign out**.
 
+---
+
+## 28 - Profile photo **(pushed)**
+
+**Summary:** **`UserProfile.profilePhoto`** with circular avatar on **Profile** and **Home**, crop-before-save, and dive count subtitle.
+
+- **`UserProfile.profilePhoto`** — **`Data?`** bytes (equipment/cert photo pattern).
+- **`ProfileAvatarEditor`** — 120pt circle; camera badge to add/change photo (no separate remove control).
+- **Profile** dive total under certification subtitle (**`ProfilePresentation.diveActivityCountLabel`**).
+- **`ProfilePhotoCropSheet`** + **`ProfilePhotoCropRenderer`** — pinch/drag position and zoom before save (circular JPEG).
+- **`ProfileAvatarView`** — shared circle photo or **`person.circle.fill`** default; **Home** header profile link uses saved photo.
+- **Tests:** **`userProfile_persistsProfilePhoto`**, **`profilePhotoCropRenderer_*`**.
+
