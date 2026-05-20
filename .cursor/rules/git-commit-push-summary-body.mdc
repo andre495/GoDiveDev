@@ -1,0 +1,67 @@
+---
+description: On commit+push, put a features/bug-fix summary in the git commit message body.
+alwaysApply: true
+---
+
+# Git commit + push — summary in commit message
+
+When you **`git commit`** and **`git push`** (because the user asked, or to ship completed work), the commit must record **what shipped**, not only a short subject line.
+
+## Commit message shape
+
+Use a **subject** (≤72 chars, imperative) plus a **body** (the “comment” in git history):
+
+```text
+Short subject summarizing the batch.
+
+## Summary
+One or two sentences on why this batch ships.
+
+## Features
+- Bullet: user-visible feature or data model addition
+- …
+
+## Bug fixes
+- Bullet: what was broken and how it was fixed
+- …
+
+## Notes (optional)
+- Tests, docs, migration caveats
+```
+
+- Pull bullets from the **latest open** section(s) in **`GoDiveMVP/cursor/change_log.md`** being shipped (and **`app_summary.md`** if helpful).
+- **Features** vs **bug fixes**: put regressions, wrong values, missing UI, and reliability issues under **Bug fixes**; new capability under **Features**.
+- If the batch is fixes-only, omit **Features** (or write “None.”). If features-only, omit **Bug fixes**.
+
+## Workflow with changelog
+
+1. Ensure **`change_log.md`** / **`app_summary.md`** reflect the work (**`.cursor/rules/changelog-app-summary-sync.mdc`**).
+2. **`git commit`** with subject + body via HEREDOC (see user commit rules).
+3. **`git push`** when requested.
+4. Mark shipped section(s) **`(pushed)`** per **`.cursor/rules/changelog-mark-pushed-on-git-push.mdc`** — include that edit in the commit when possible; otherwise a tiny follow-up commit after push.
+
+## Do not
+
+- Push with **only** a one-line subject when the batch includes multiple features or bug fixes.
+- Paste the entire change log; synthesize scannable bullets.
+- Skip the body because the user will “read it in chat” — the body is for **`git log`** and reviewers.
+
+## Example
+
+```text
+Fix dive map pin, tank volume display, and add equipment linking.
+
+## Summary
+Ship dive equipment association, reliable map pin + overview sheet UX,
+and corrected default tank volume for display and RMV.
+
+## Features
+- Link locker gear to dives; tank tab list + add sheet; auto-add on import.
+- Settings → Default tank (AL80, AL63, ST100, ST120).
+
+## Bug fixes
+- MKMapView pin no longer disappears after camera updates.
+- Site name on overview sheet header; pin-only map (no truncated callout).
+- Tank volume uses rated cu ft (not mis-parsed UDDF L or FIT volume-used).
+- Tab switch map→tank no longer flashes minimized depth chart.
+```
