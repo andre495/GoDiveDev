@@ -125,13 +125,12 @@ private struct DiveSiteMapPickerPinOverlay: View {
     var body: some View {
         VStack(spacing: 0) {
             DiveSiteMapPinView()
-                .scaleEffect(1.15)
-            Circle()
-                .fill(AppTheme.Colors.accentDeep.opacity(0.35))
-                .frame(width: 10, height: 10)
-                .offset(y: -6)
+                .scaleEffect(1.12)
+            Ellipse()
+                .fill(AppTheme.Colors.accentDeep.opacity(0.28))
+                .frame(width: 12, height: 5)
+                .offset(y: -5)
         }
-        .shadow(color: .black.opacity(0.22), radius: 3, y: 1)
         .accessibilityHidden(true)
     }
 }

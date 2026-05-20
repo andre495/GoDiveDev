@@ -8,6 +8,7 @@
 import CoreGraphics
 import CoreLocation
 import Foundation
+import MapKit
 import SwiftData
 import Testing
 #if os(iOS)
@@ -1476,6 +1477,77 @@ struct GoDiveMVPTests {
         )
         #expect(resolved?.latitude == 12.0835)
         #expect(resolved?.longitude == -68.283)
+    }
+
+    @Test func exploreCatalogMapPresentation_plottableSites_filtersInvalidCoordinates() {
+        let reef = DiveSite(siteName: "Reef", latCoords: 12.083, longCoords: -68.283)
+        let missing = DiveSite(siteName: "No GPS")
+        let nullIsland = DiveSite(siteName: "Zero", latCoords: 0, longCoords: 0)
+
+        let plotted = ExploreCatalogMapPresentation.plottableSites(from: [reef, missing, nullIsland])
+
+        #expect(plotted.count == 1)
+        #expect(plotted[0].id == reef.id)
+        #expect(plotted[0].siteName == "Reef")
+        #expect(plotted[0].coordinate.latitude == 12.083)
+    }
+
+    @Test func exploreCatalogMapPresentation_region_fitsMultipleSites() {
+        let sites = [
+            ExploreCatalogMapPresentation.PlottedSite(
+                id: UUID(),
+                siteName: "South",
+                coordinate: DiveCoordinate(latitude: 10, longitude: -70)
+            ),
+            ExploreCatalogMapPresentation.PlottedSite(
+                id: UUID(),
+                siteName: "North",
+                coordinate: DiveCoordinate(latitude: 14, longitude: -66)
+            ),
+        ]
+
+        let region = ExploreCatalogMapPresentation.region(for: sites)
+
+        #expect(region != nil)
+        #expect(abs(region!.center.latitude - 12) < 0.001)
+        #expect(abs(region!.center.longitude - (-68)) < 0.001)
+        #expect(region!.span.latitudeDelta >= 0.04)
+        #expect(region!.span.longitudeDelta >= 0.04)
+    }
+
+    @Test func mapAnnotationPinAnchor_pinOnly_usesZeroOffset() {
+        #expect(MapAnnotationPinAnchor.pinOnlyCenterOffset == .zero)
+    }
+
+    @Test func mapAnnotationPinAnchor_labelBelowPin_offsetsTipToCoordinate() {
+        let totalHeight: CGFloat = 70
+        let offset = MapAnnotationPinAnchor.centerOffsetForLabelBelowPin(totalViewHeight: totalHeight)
+
+        #expect(offset.x == 0)
+        #expect(abs(offset.y - (MapPushPinMetrics.tipYInAnnotationView - totalHeight * 0.5)) < 0.001)
+    }
+
+    @Test func mapPushPinMetrics_mapAnnotationImage_tipIsVerticallyCentered() {
+        #expect(MapPushPinMetrics.mapAnnotationImageHeight == MapPushPinMetrics.renderedHeight * 2)
+        #expect(MapPushPinMetrics.tipYInMapAnnotationImage == MapPushPinMetrics.mapAnnotationImageHeight * 0.5)
+        #expect(MapPushPinMetrics.tipYInAnnotationView == MapPushPinMetrics.renderedHeight)
+    }
+
+    @Test func exploreCatalogMapPresentation_region_singleSite_usesDiveSiteSpan() {
+        let sites = [
+            ExploreCatalogMapPresentation.PlottedSite(
+                id: UUID(),
+                siteName: "Solo",
+                coordinate: DiveCoordinate(latitude: 12.083, longitude: -68.283)
+            ),
+        ]
+
+        let region = ExploreCatalogMapPresentation.region(for: sites)
+
+        #expect(region?.center.latitude == 12.083)
+        #expect(region?.center.longitude == -68.283)
+        #expect(region?.span.latitudeDelta == DiveLocationMapPresentation.diveSiteLatitudeDelta)
+        #expect(region?.span.longitudeDelta == DiveLocationMapPresentation.diveSiteLongitudeDelta)
     }
 
     @Test func diveLocationMapPresentation_targetPinScreenYFraction_centersVisibleBand() {

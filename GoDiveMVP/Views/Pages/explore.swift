@@ -1,11 +1,21 @@
+import SwiftData
 import SwiftUI
 
 struct ExploreView: View {
+    @Query(sort: \DiveSite.siteName) private var diveSites: [DiveSite]
+    @State private var selectedSite: DiveSite?
+
+    private var plottableSites: [ExploreCatalogMapPresentation.PlottedSite] {
+        ExploreCatalogMapPresentation.plottableSites(from: diveSites)
+    }
+
     var body: some View {
         NavigationStack {
             ZStack(alignment: .topTrailing) {
-                DiveLocationMapView(coordinate: nil)
-                    .ignoresSafeArea()
+                ExploreCatalogMapView(sites: plottableSites) { siteID in
+                    selectedSite = diveSites.first(where: { $0.id == siteID })
+                }
+                .ignoresSafeArea()
 
                 NavigationLink {
                     TripPlannerView()
@@ -23,6 +33,9 @@ struct ExploreView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(.hidden, for: .navigationBar)
+            .sheet(item: $selectedSite) { site in
+                ExploreDiveSiteDetailSheet(site: site)
+            }
         }
         .navigationInteractivePopGestureForHiddenNavBar()
     }
@@ -30,4 +43,5 @@ struct ExploreView: View {
 
 #Preview {
     ExploreView()
+        .modelContainer(try! AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true))
 }

@@ -14,10 +14,12 @@ final class DiveSiteMapAnnotationView: MKAnnotationView {
     private let pinImageView = UIImageView()
     private let coordinateLabelContainer = UIView()
     private let coordinateLabel = UILabel()
+    private var layoutTotalHeight: CGFloat = 0
 
     override init(annotation: MKAnnotation?, reuseIdentifier: String?) {
         super.init(annotation: annotation, reuseIdentifier: reuseIdentifier)
         canShowCallout = false
+        image = nil
         setupViews()
     }
 
@@ -26,17 +28,37 @@ final class DiveSiteMapAnnotationView: MKAnnotationView {
         nil
     }
 
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        layoutTotalHeight = 0
+    }
+
     func configure(pinImage: UIImage, coordinateLabel text: String) {
         pinImageView.image = pinImage
         coordinateLabel.text = text
         accessibilityLabel = "Dive site, \(text)"
+
+        let pinSize = pinImage.size
+        let maxLabelWidth = max(pinSize.width, 160)
+        let labelTextSize = coordinateLabel.sizeThatFits(
+            CGSize(width: maxLabelWidth, height: .greatestFiniteMagnitude)
+        )
+        let labelBoxHeight = labelTextSize.height + Layout.labelPadding.top + Layout.labelPadding.bottom
+        layoutTotalHeight = MapPushPinMetrics.tipYInAnnotationView
+            + Layout.pinToLabelSpacing
+            + labelBoxHeight
+
+        centerOffset = MapAnnotationPinAnchor.centerOffsetForLabelBelowPin(
+            totalViewHeight: layoutTotalHeight
+        )
         setNeedsLayout()
     }
 
     override func layoutSubviews() {
-        super.layoutSubviews()
+        guard let pinSize = pinImageView.image?.size, pinSize.height > 0, layoutTotalHeight > 0 else {
+            return
+        }
 
-        let pinSize = pinImageView.image?.size ?? .zero
         let maxLabelWidth = max(pinSize.width, 160)
         let labelTextSize = coordinateLabel.sizeThatFits(
             CGSize(width: maxLabelWidth, height: .greatestFiniteMagnitude)
@@ -46,32 +68,30 @@ final class DiveSiteMapAnnotationView: MKAnnotationView {
             height: labelTextSize.height + Layout.labelPadding.top + Layout.labelPadding.bottom
         )
         let totalWidth = max(pinSize.width, labelBoxSize.width)
-        let totalHeight = pinSize.height + Layout.pinToLabelSpacing + labelBoxSize.height
 
-        bounds = CGRect(origin: .zero, size: CGSize(width: totalWidth, height: totalHeight))
+        bounds = CGRect(
+            origin: .zero,
+            size: CGSize(width: totalWidth, height: layoutTotalHeight)
+        )
 
         pinImageView.frame = CGRect(
             x: (totalWidth - pinSize.width) / 2,
-            y: 0,
+            y: MapPushPinMetrics.tipYInAnnotationView - pinSize.height,
             width: pinSize.width,
             height: pinSize.height
         )
 
         coordinateLabelContainer.frame = CGRect(
             x: (totalWidth - labelBoxSize.width) / 2,
-            y: pinSize.height + Layout.pinToLabelSpacing,
+            y: MapPushPinMetrics.tipYInAnnotationView + Layout.pinToLabelSpacing,
             width: labelBoxSize.width,
             height: labelBoxSize.height
         )
         coordinateLabel.frame = coordinateLabelContainer.bounds.inset(by: Layout.labelPadding)
-
-        // Anchor the geographic coordinate at the bottom of the pin (tip on the map).
-        let pinTipY = pinImageView.frame.maxY
-        centerOffset = CGPoint(x: 0, y: pinTipY - bounds.midY)
     }
 
     private func setupViews() {
-        pinImageView.contentMode = .scaleAspectFit
+        pinImageView.contentMode = .top
         addSubview(pinImageView)
 
         coordinateLabelContainer.backgroundColor = UIColor.secondarySystemBackground.withAlphaComponent(0.92)

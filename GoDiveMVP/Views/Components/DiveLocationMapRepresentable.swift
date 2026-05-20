@@ -22,7 +22,7 @@ struct DiveLocationMapRepresentable: UIViewRepresentable {
         let mapView = MKMapView(frame: .zero)
         mapView.preferredConfiguration = MKImageryMapConfiguration()
         mapView.isRotateEnabled = false
-        mapView.isPitchEnabled = true
+        mapView.isPitchEnabled = false
         mapView.showsCompass = false
         mapView.delegate = context.coordinator
         return mapView
@@ -63,7 +63,7 @@ struct DiveLocationMapRepresentable: UIViewRepresentable {
     private func applyUserInteraction(on mapView: MKMapView) {
         mapView.isScrollEnabled = isUserInteractionEnabled
         mapView.isZoomEnabled = isUserInteractionEnabled
-        mapView.isPitchEnabled = isUserInteractionEnabled
+        mapView.isPitchEnabled = false
     }
 
     // MARK: - Coordinator
@@ -133,19 +133,22 @@ struct DiveLocationMapRepresentable: UIViewRepresentable {
             return pinView
         }
 
+        func mapView(_ mapView: MKMapView, didAdd views: [MKAnnotationView]) {
+            for view in views where view is DiveSiteMapAnnotationView {
+                view.setNeedsLayout()
+                view.layoutIfNeeded()
+            }
+        }
+
         private func pinImage(for mapView: MKMapView) -> UIImage {
             let scale = mapView.traitCollection.displayScale
             if let cachedPinImage, cachedPinImageScale == scale {
                 return cachedPinImage
             }
-            let renderer = ImageRenderer(content: DiveSiteMapPinView())
-            renderer.scale = scale
-            let image: UIImage
-            if let rendered = renderer.uiImage, rendered.size.width > 0 {
-                image = rendered
-            } else {
-                image = UIImage(systemName: "mappin.circle.fill") ?? UIImage()
-            }
+            let image = MapPushPinImageFactory.makeMapAnnotationPinImage(
+                headColor: AppTheme.Colors.accentDeep,
+                scale: scale
+            )
             cachedPinImage = image
             cachedPinImageScale = scale
             return image

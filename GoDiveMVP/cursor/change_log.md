@@ -342,3 +342,16 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Map tab UX:** Pan/zoom only at **minimized** detent; **`DiveOverviewMapTopScrim`** under toolbar; pin shows coordinates (**3** decimals).
 - **Tests:** site association, map prompt, coordinate picker, map interaction detent.
 
+---
+
+## 33 - Explore catalog map pins **(pushed)**
+
+**Summary:** Plot every catalog **`DiveSite`** with valid coordinates on the **Explore** map as red pins; tap a pin to open a detail sheet.
+
+- **`ExploreCatalogMapPresentation`** — filters plottable sites, fits **`MKCoordinateRegion`** to all pins (or single-site dive span).
+- **`ExploreCatalogMapView`** / **`ExploreCatalogMapRepresentable`** — **`MKMapView`** with red **`ExploreCatalogMapPinView`** annotations; selection opens sheet.
+- **`ExploreDiveSiteDetailSheet`** — sheet title is the site name; coordinates (3 decimals), rating, tags, dive count; **`appSheetPresentationChrome()`**.
+- **`ExploreView`** — **`@Query`** catalog sites; replaces single-dive **`DiveLocationMapView`**.
+- **Tests:** **`exploreCatalogMapPresentation_plottableSites_filtersInvalidCoordinates`**, region fitting (multi + single site).
+- **`MapPushPinView`** — shared push-pin shape; **`MapPushPinImageFactory`** draws the tip on the **vertical center** of the map asset so Explore pins use **`centerOffset = .zero`** (stable when zooming); dive map label uses a one-time offset; dive map **`isPitchEnabled = false`** to avoid 3D drift.
+
