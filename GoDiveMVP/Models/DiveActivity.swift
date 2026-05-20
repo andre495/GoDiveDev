@@ -46,6 +46,17 @@ final class DiveActivity {
     // User-Provided Data
     var notes: String?
 
+    // Manual log (overview sheet, large detent — not from import)
+    /// **`nil`** = none / unset (optional for SwiftData migration — do not use a non-optional enum default).
+    var diveCurrentStrength: DiveCurrentStrength?
+    var surfaceCondition: String?
+    var entryType: String?
+    var diveVisibility: DiveVisibilityRating?
+    var diveOperatorName: String?
+    var diveMasterName: String?
+    /// **`PKDrawing`** archive from **`DiveSignaturePadView`**; **`nil`** when empty.
+    var diveSignatureData: Data?
+
     // Tank / cylinder (import: **UDDF** when present; **FIT** has no standard tank SPG fields in decoded messages → **`nil`**)
     /// Material label when known (e.g. **steel**, **aluminum**). **`nil`** if not in file.
     var tankMaterial: String?
@@ -105,6 +116,13 @@ final class DiveActivity {
         locationName: String? = nil,
         coordinate: DiveCoordinate? = nil,
         notes: String? = nil,
+        diveCurrentStrength: DiveCurrentStrength? = nil,
+        surfaceCondition: String? = nil,
+        entryType: String? = nil,
+        diveVisibility: DiveVisibilityRating? = nil,
+        diveOperatorName: String? = nil,
+        diveMasterName: String? = nil,
+        diveSignatureData: Data? = nil,
         tankMaterial: String? = nil,
         tankVolumeDescription: String? = nil,
         tankPressureStartPSI: Double? = nil,
@@ -134,6 +152,13 @@ final class DiveActivity {
         self.locationName = locationName
         self.coordinate = coordinate
         self.notes = notes
+        self.diveCurrentStrength = diveCurrentStrength
+        self.surfaceCondition = surfaceCondition
+        self.entryType = entryType
+        self.diveVisibility = diveVisibility
+        self.diveOperatorName = diveOperatorName
+        self.diveMasterName = diveMasterName
+        self.diveSignatureData = diveSignatureData
         self.tankMaterial = tankMaterial
         self.tankVolumeDescription = tankVolumeDescription
         self.tankPressureStartPSI = tankPressureStartPSI
@@ -147,6 +172,12 @@ final class DiveActivity {
 }
 
 extension DiveActivity {
+    /// UI / display default when **`diveCurrentStrength`** is **`nil`** (legacy rows after schema add).
+    var resolvedDiveCurrentStrength: DiveCurrentStrength {
+        get { diveCurrentStrength ?? .none }
+        set { diveCurrentStrength = newValue == .none ? nil : newValue }
+    }
+
     /// **`EquipmentItem.id`** values on this dive's equipment list.
     var equipmentItemIDs: [UUID] {
         guard let entries = equipmentList?.entries else { return [] }

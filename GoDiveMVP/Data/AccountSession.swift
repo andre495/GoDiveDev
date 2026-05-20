@@ -10,6 +10,8 @@ final class AccountSession {
 
     private(set) var currentProfile: UserProfile?
     private(set) var isRestoringSession = true
+    /// **`true`** after sign-in when the profile still has the placeholder name and needs user input.
+    private(set) var isAwaitingDisplayNameCapture = false
 
     var isSignedIn: Bool { currentProfile != nil }
 
@@ -39,7 +41,9 @@ final class AccountSession {
         }
         switch state {
         case .authorized:
+            try? UserProfileStore.applyCachedDisplayNameIfNeeded(to: profile, modelContext: modelContext)
             currentProfile = profile
+            isAwaitingDisplayNameCapture = profile.displayName == UserProfileStore.defaultDisplayName
             try? DiveActivityOwnership.claimUnownedDives(for: profile, modelContext: modelContext)
         default:
             clearPersistedSession()
@@ -51,21 +55,34 @@ final class AccountSession {
         credential: ASAuthorizationAppleIDCredential,
         modelContext: ModelContext
     ) throws {
-        let displayName = UserProfileStore.displayName(from: credential.fullName)
+        let appleProvidedName = UserProfileStore.displayName(from: credential.fullName)
+        if let appleProvidedName {
+            UserProfileStore.cacheDisplayName(appleProvidedName, forAppleUserIdentifier: credential.user)
+        }
+        let resolvedName = UserProfileStore.resolvedDisplayName(
+            appleProvided: appleProvidedName,
+            appleUserIdentifier: credential.user
+        )
         let profile = try UserProfileStore.findOrCreateProfile(
             appleUserIdentifier: credential.user,
-            displayName: displayName,
+            displayName: resolvedName,
             modelContext: modelContext
         )
         try DiveActivityOwnership.claimUnownedDives(for: profile, modelContext: modelContext)
         try modelContext.save()
         persistSession(profile: profile)
         currentProfile = profile
+        isAwaitingDisplayNameCapture = profile.displayName == UserProfileStore.defaultDisplayName
+    }
+
+    func finishDisplayNameCapture() {
+        isAwaitingDisplayNameCapture = false
     }
 
     func signOut() {
         clearPersistedSession()
         currentProfile = nil
+        isAwaitingDisplayNameCapture = false
     }
 
     func recordSignInFailure(_ error: Error) {

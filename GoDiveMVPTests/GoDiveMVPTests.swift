@@ -114,6 +114,44 @@ struct GoDiveMVPTests {
         components.familyName = "Diver"
         #expect(UserProfileStore.displayName(from: components) == "Alex Diver")
         #expect(UserProfileStore.displayName(from: nil) == nil)
+
+        var givenOnly = PersonNameComponents()
+        givenOnly.givenName = "Jamie"
+        #expect(UserProfileStore.displayName(from: givenOnly) == "Jamie")
+    }
+
+    @Test func userProfileStore_cachedDisplayName_roundTrips() {
+        let appleID = "apple-cache-test-\(UUID().uuidString)"
+        defer { UserProfileStore.cacheDisplayName(nil, forAppleUserIdentifier: appleID) }
+
+        #expect(UserProfileStore.cachedDisplayName(forAppleUserIdentifier: appleID) == nil)
+        UserProfileStore.cacheDisplayName("Casey", forAppleUserIdentifier: appleID)
+        #expect(UserProfileStore.cachedDisplayName(forAppleUserIdentifier: appleID) == "Casey")
+        #expect(
+            UserProfileStore.resolvedDisplayName(appleProvided: nil, appleUserIdentifier: appleID) == "Casey"
+        )
+        #expect(
+            UserProfileStore.resolvedDisplayName(appleProvided: "Fresh", appleUserIdentifier: appleID) == "Fresh"
+        )
+    }
+
+    @Test @MainActor
+    func userProfileStore_applyCachedDisplayNameIfNeeded_upgradesPlaceholder() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let appleID = "apple-cache-upgrade-\(UUID().uuidString)"
+        defer { UserProfileStore.cacheDisplayName(nil, forAppleUserIdentifier: appleID) }
+
+        UserProfileStore.cacheDisplayName("Riley", forAppleUserIdentifier: appleID)
+        let profile = try UserProfileStore.findOrCreateProfile(
+            appleUserIdentifier: appleID,
+            displayName: nil,
+            modelContext: context
+        )
+        #expect(profile.displayName == UserProfileStore.defaultDisplayName)
+
+        try UserProfileStore.applyCachedDisplayNameIfNeeded(to: profile, modelContext: context)
+        #expect(profile.displayName == "Riley")
     }
 
     @Test func profilePresentation_diveActivityCountLabel_pluralizes() {
@@ -2610,6 +2648,90 @@ struct GoDiveMVPTests {
         )
         #expect(activity.gasDetailsTankTypeLine(defaultSpecification: spec) == "steel")
         #expect(activity.gasDetailsTankVolumeLine(displayUnits: .metric, defaultSpecification: spec) == "3398 L")
+    }
+
+    @Test func diveActivityUserFieldTypes_displayTitles() {
+        #expect(DiveCurrentStrength.none.displayTitle == "None")
+        #expect(DiveVisibilityRating.great.displayTitle == "Great")
+    }
+
+    @Test @MainActor
+    func diveActivity_resolvedDiveCurrentStrength_defaultsToNoneWhenNil() {
+        let activity = DiveActivity(
+            deviceSource: .manual,
+            startTime: Date(),
+            durationMinutes: 1,
+            maxDepthMeters: 10
+        )
+        #expect(activity.diveCurrentStrength == nil)
+        #expect(activity.resolvedDiveCurrentStrength == .none)
+    }
+
+    @Test @MainActor
+    func diveActivity_persistsUserLogFields() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let activity = DiveActivity(
+            deviceSource: .manual,
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            diveCurrentStrength: .medium,
+            surfaceCondition: "Calm",
+            entryType: "Boat",
+            diveVisibility: .good,
+            diveOperatorName: "Coral Reef Divers",
+            diveMasterName: "Alex"
+        )
+        context.insert(activity)
+        try context.save()
+
+        let id = activity.id
+        let descriptor = FetchDescriptor<DiveActivity>(predicate: #Predicate { $0.id == id })
+        let fetched = try #require(try context.fetch(descriptor).first)
+        #expect(fetched.diveCurrentStrength == .medium)
+        #expect(fetched.resolvedDiveCurrentStrength == .medium)
+        #expect(fetched.surfaceCondition == "Calm")
+        #expect(fetched.entryType == "Boat")
+        #expect(fetched.diveVisibility == .good)
+        #expect(fetched.diveOperatorName == "Coral Reef Divers")
+        #expect(fetched.diveMasterName == "Alex")
+    }
+
+    @Test @MainActor func diveActivityDetailsPresentation_includesAllModelFieldGroups() {
+        let activity = DiveActivity(
+            deviceSource: .macDive,
+            sourceDiveId: "uddf-1",
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 45,
+            maxDepthMeters: 22,
+            averageDepthMeters: 14,
+            bottomTimeSeconds: 2400,
+            surfaceIntervalSeconds: 1800,
+            diveNumber: 12,
+            waterTempAvgCelsius: 27,
+            siteName: "Salt Pier",
+            locationName: "Bonaire",
+            tankPressureStartPSI: 3000,
+            tankPressureEndPSI: 1200,
+            gasType: "Nitrox",
+            oxygenMix: 32,
+            avgSAC: 20,
+            avgRMV: 16,
+            rawImportVersion: "MacDive UDDF"
+        )
+        activity.buddies.append(DiveBuddyTag(displayName: "Jamie"))
+        let titles = DiveActivityDetailsPresentation.sections(for: activity, displayUnits: .metric).map(\.title)
+        #expect(titles.contains("Dive"))
+        #expect(titles.contains("Location"))
+        #expect(titles.contains("Gas & cylinder"))
+        #expect(titles.contains("Buddies"))
+        #expect(titles.contains("Source & import"))
+        #expect(titles.contains("Record"))
+        let labels = Set(DiveActivityDetailsPresentation.sections(for: activity, displayUnits: .metric).flatMap(\.rows).map(\.label))
+        #expect(labels.contains("Max depth"))
+        #expect(labels.contains("Beginning pressure"))
+        #expect(labels.contains("Source dive ID"))
     }
 
     @Test func appUserSettings_defaultTankSize_fallsBackToAL80() {

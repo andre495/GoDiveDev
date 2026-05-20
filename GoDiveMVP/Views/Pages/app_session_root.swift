@@ -12,6 +12,13 @@ struct AppSessionRootView: View {
                 sessionRestorePlaceholder
             } else if accountSession.isSignedIn {
                 ContentView()
+                    .sheet(isPresented: displayNameCapturePresented) {
+                        if let profile = accountSession.currentProfile {
+                            ProfileDisplayNameCaptureSheet(profile: profile) {
+                                accountSession.finishDisplayNameCapture()
+                            }
+                        }
+                    }
             } else {
                 SignInView()
             }
@@ -19,6 +26,17 @@ struct AppSessionRootView: View {
         .task {
             await accountSession.restoreSession(modelContext: modelContext)
         }
+    }
+
+    private var displayNameCapturePresented: Binding<Bool> {
+        Binding(
+            get: { accountSession.isAwaitingDisplayNameCapture },
+            set: { presented in
+                if !presented {
+                    accountSession.finishDisplayNameCapture()
+                }
+            }
+        )
     }
 
     private var sessionRestorePlaceholder: some View {

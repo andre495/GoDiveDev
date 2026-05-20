@@ -52,7 +52,7 @@ struct SignInView: View {
                         "GoDive. Log every dive. Explore marine life. Connect with buddies."
                     )
 
-                    SignInWithAppleButton(.signIn) { request in
+                    SignInWithAppleButton(.continue) { request in
                         request.requestedScopes = [.fullName, .email]
                     } onCompletion: { result in
                         handleSignInCompletion(result)

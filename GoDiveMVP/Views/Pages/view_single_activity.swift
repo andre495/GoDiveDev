@@ -744,9 +744,12 @@ struct ViewSingleActivity: View {
 
             overviewDepthProfileSection
 
-            overviewStatsSection
+            activityAllFieldsSections
 
             if overviewSheetDetent == .large {
+                DiveActivityUserLogSection(activity: activity)
+                    .transition(.opacity)
+
                 overviewNotesSection
                     .transition(.opacity)
             }
@@ -794,30 +797,22 @@ struct ViewSingleActivity: View {
         }
     }
 
-    private var overviewStatsSection: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            Text("Stats")
-                .font(.headline)
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-
-            HStack {
-                Text("Duration: \(activity.durationMinutes) min")
-                Spacer()
-                Text(waterTemperatureSummaryText(activity))
+    private var activityAllFieldsSections: some View {
+        let sections = DiveActivityDetailsPresentation.sections(
+            for: activity,
+            displayUnits: diveDisplayUnitSystem
+        )
+        return ForEach(sections) { section in
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                detailsSectionHeader(section.title)
+                basicSectionCard {
+                    VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                        ForEach(section.rows) { row in
+                            detailLabeledRow(label: row.label, value: row.value)
+                        }
+                    }
+                }
             }
-            HStack {
-                Text("Surface Interval: \(formatSurfaceInterval(activity.surfaceIntervalSeconds))")
-                Spacer()
-                Text(bottomTimeSummaryText(activity))
-            }
-        }
-        .font(.subheadline)
-        .foregroundStyle(AppTheme.Colors.textPrimary)
-        .padding(AppTheme.Spacing.md)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(AppTheme.Colors.surfaceElevated.opacity(0.65))
         }
     }
 
@@ -907,34 +902,6 @@ struct ViewSingleActivity: View {
         DiveQuantityFormatting.depth(meters: meters, system: diveDisplayUnitSystem)
     }
 
-    private func formatTemperature(_ celsius: Double?) -> String {
-        DiveQuantityFormatting.waterTemperature(celsius: celsius, system: diveDisplayUnitSystem)
-    }
-
-    private func formatSurfaceInterval(_ seconds: Int?) -> String {
-        guard let seconds else { return "-" }
-        return "\(seconds / 60) min"
-    }
-
-    private func waterTemperatureSummaryText(_ activity: DiveActivity) -> String {
-        let avg = formatTemperature(activity.waterTempAvgCelsius)
-        let max = activity.waterTempMaxCelsius.map { formatTemperature($0) }
-        let min = activity.waterTempMinCelsius.map { formatTemperature($0) }
-        if max != nil || min != nil {
-            let maxPart = max.map { " max \($0)" } ?? ""
-            let minPart = min.map { " min \($0)" } ?? ""
-            return "Water: \(avg)\(maxPart)\(minPart)"
-        }
-        return "Water: \(avg)"
-    }
-
-    private func bottomTimeSummaryText(_ activity: DiveActivity) -> String {
-        guard let sec = activity.bottomTimeSeconds, sec > 0 else {
-            return "Bottom time: -"
-        }
-        let min = sec / 60
-        return "Bottom time: \(min) min"
-    }
 }
 
 @MainActor

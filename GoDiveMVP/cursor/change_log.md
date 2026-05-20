@@ -316,3 +316,17 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Tank volume** — **`DiveActivityTankDefaults`** / **`DefaultTankSize`**; imports / seed / RMV use rated surface liters; UI no longer mis-converts UDDF **80 L** or FIT **volume used** strings.
 - **Settings → Default tank** — **`DefaultTankSize`** picker (**AL80**, **AL63**, **ST100**, **ST120**); material + rated **cu ft** on import and gas detail rows when the file omits them.
 
+---
+
+## 31 - Dive user log and profile name on sign-in (not pushed)
+
+**Summary:** Manual **Conditions** / **Operator** log on dives (map overview, large detent); read-only dive detail sections; profile display name from Apple sign-in with cache and fallback prompt.
+
+- **`DiveCurrentStrength`**, **`DiveVisibilityRating`** — segmented pickers; strings for surface, entry, operator, divemaster.
+- **`DiveSignaturePadView`** — **PencilKit** canvas; **`diveSignatureData`** (**`PKDrawing`** bytes).
+- **`DiveActivityUserLogSection`** — map tab, **large** detent only; read-only **Your log** rows in **`DiveActivityDetailsPresentation`** when set.
+- **Tests:** **`diveActivity_persistsUserLogFields`**, **`diveActivityUserFieldTypes_displayTitles`**.
+- **Fix:** **`diveCurrentStrength`** is **`DiveCurrentStrength?`** (no non-optional enum default on **`@Model`**) so existing stores migrate without SIGABRT.
+- **Profile name on sign-in:** Cache Apple **`fullName`** in **`UserDefaults`** (Apple only sends it once); **`resolvedDisplayName`** + **`applyCachedDisplayNameIfNeeded`** upgrade placeholder **Diver**; **`ProfileDisplayNameCaptureSheet`** when still unnamed; **`SignInWithAppleButton(.continue)`**.
+- **Tests:** **`userProfileStore_cachedDisplayName_roundTrips`**, **`userProfileStore_applyCachedDisplayNameIfNeeded_upgradesPlaceholder`**, given-name-only **`displayName`**.
+
