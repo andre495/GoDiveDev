@@ -332,7 +332,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ---
 
-## 32 - Dive site link and map UX (not pushed)
+## 32 - Dive site link and map UX **(pushed)**
 
 **Summary:** Link dives to catalog **`DiveSite`** on import; split **entry** vs **site** coordinates; map-tab prompt to add sites with draggable coordinate picker; map chrome and interaction polish.
 
