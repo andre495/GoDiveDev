@@ -357,7 +357,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ---
 
-## 34 - Logbook delete performance and Explore pin cleanup
+## 34 - Logbook delete performance and Explore pin cleanup **(pushed)**
 
 **Summary:** Faster, reliable dive delete off the main actor; Explore map drops pins when the last dive at a site is removed.
 
