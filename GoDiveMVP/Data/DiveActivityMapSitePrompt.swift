@@ -36,7 +36,14 @@ enum DiveActivityMapSitePrompt {
         let name = activity.siteName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let latitude = activity.entryCoordinate.map { String(format: "%.5f", $0.latitude) } ?? ""
         let longitude = activity.entryCoordinate.map { String(format: "%.5f", $0.longitude) } ?? ""
-        return DiveSiteFormDraft(siteName: name, latitudeText: latitude, longitudeText: longitude)
+        return DiveSiteFormDraft(
+            siteName: name,
+            country: "",
+            region: "",
+            bodyOfWater: "",
+            latitudeText: latitude,
+            longitudeText: longitude
+        )
     }
 }
 
@@ -60,12 +67,24 @@ enum DiveActivityMapSitePromptStorage {
 
 struct DiveSiteFormDraft: Equatable, Sendable {
     var siteName: String
+    var country: String
+    var region: String
+    var bodyOfWater: String
     var latitudeText: String
     var longitudeText: String
 }
 
 enum DiveSiteFormValidation {
     nonisolated static func sanitizedSiteName(_ raw: String) -> String? {
+        trimmedNonEmpty(raw)
+    }
+
+    /// Trims whitespace; returns `""` when empty (optional hierarchy fields on the add-site form).
+    nonisolated static func sanitizedPlaceField(_ raw: String) -> String {
+        raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    nonisolated static func trimmedNonEmpty(_ raw: String) -> String? {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }

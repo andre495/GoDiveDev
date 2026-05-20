@@ -39,12 +39,18 @@ enum DiveActivitySiteAssociation {
     static func createSiteAndLink(
         to activity: DiveActivity,
         siteName: String,
+        country: String = "",
+        region: String = "",
+        bodyOfWater: String = "",
         latCoords: Double?,
         longCoords: Double?,
         modelContext: ModelContext
     ) throws -> DiveSite {
         let site = DiveSite(
             siteName: siteName,
+            country: DiveSiteFormValidation.sanitizedPlaceField(country),
+            region: DiveSiteFormValidation.sanitizedPlaceField(region),
+            bodyOfWater: DiveSiteFormValidation.sanitizedPlaceField(bodyOfWater),
             latCoords: latCoords,
             longCoords: longCoords
         )

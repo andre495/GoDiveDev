@@ -36,6 +36,24 @@ struct DiveSiteAddSheet: View {
                 }
 
                 Section {
+                    TextField("Country", text: $draft.country)
+                        .textInputAutocapitalization(.words)
+                        .accessibilityIdentifier("DiveSiteAddSheet.Country")
+
+                    TextField("Region", text: $draft.region)
+                        .textInputAutocapitalization(.words)
+                        .accessibilityIdentifier("DiveSiteAddSheet.Region")
+
+                    TextField("Body of water", text: $draft.bodyOfWater)
+                        .textInputAutocapitalization(.words)
+                        .accessibilityIdentifier("DiveSiteAddSheet.BodyOfWater")
+                } header: {
+                    Text("Place")
+                } footer: {
+                    Text("Optional. Country is the broadest level; region is a state, province, or survey area; body of water is the sea, reef, or bay.")
+                }
+
+                Section {
                     DiveSiteCoordinatePickerMapView(
                         latitudeText: $draft.latitudeText,
                         longitudeText: $draft.longitudeText,
@@ -107,6 +125,9 @@ struct DiveSiteAddSheet: View {
             _ = try DiveActivitySiteAssociation.createSiteAndLink(
                 to: activity,
                 siteName: siteName,
+                country: DiveSiteFormValidation.sanitizedPlaceField(draft.country),
+                region: DiveSiteFormValidation.sanitizedPlaceField(draft.region),
+                bodyOfWater: DiveSiteFormValidation.sanitizedPlaceField(draft.bodyOfWater),
                 latCoords: lat,
                 longCoords: lon,
                 modelContext: modelContext

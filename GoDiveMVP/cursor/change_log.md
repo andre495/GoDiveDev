@@ -368,3 +368,17 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`DiveSiteCatalogMaintenance`** — after dive delete, removes catalog **`DiveSite`** rows with no linked dives so **Explore** drops the pin; dismisses open site sheet when the row is gone.
 - **Bug fixes:** no batch-delete of dive children/parent (Core Data **`diveSite`** / profile inverse constraints); compile fixes (**`deletePermanentlyByID`**, **`import Foundation`**).
 
+---
+
+## 35 - Dive site place hierarchy **(pushed)**
+
+**Summary:** Catalog **`DiveSite`** rows and the new-site sheet capture optional **country → region → body of water** labels.
+
+- **`DiveSite`** — **`country`**, **`region`**, **`bodyOfWater`** with **`= ""` on the property** (required for SwiftData lightweight migration; init-only defaults caused **`loadIssueModelContainer`** on existing stores).
+- **`DiveSiteDTO`** / **`DiveSiteMapper`**, **`divesites_sample.json`** (sample place fields on Salt Pier).
+- **`DiveSiteFormDraft`** + **`DiveSiteAddSheet`** — **Place** section (Country, Region, Body of water); **`DiveActivitySiteAssociation.createSiteAndLink`** persists trimmed values.
+- **`ExploreDiveSiteDetailSheet`** — **Place** section when any hierarchy field is set.
+- **Tests:** **`diveActivitySiteAssociation_createSiteAndLink_persists`** (place trimming), **`diveSiteMapper_mapsOptionalPlaceFields`**, **`diveSiteFormValidation_sanitizedPlaceField_trimsWhitespace`**.
+- **`DiveActivityDuplicateMatcher.Signature`** — nonisolated value **`init`** for tests; **`@MainActor init(_: DiveActivity)`** delegates to it (fixes Swift 6 **`#expect`** isolation in duplicate-matcher tests).
+- **`DiveSiteCatalogMaintenance.deleteSitesWithNoLinkedDives`** — **`nonisolated`**, uses **`diveSiteID`** predicate (not **`diveActivities`**) so **`DiveBackgroundDeletionWorker`** can run catalog cleanup off the main actor.
+

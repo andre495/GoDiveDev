@@ -16,15 +16,34 @@ enum DiveActivityDuplicateMatcher {
         let durationMinutes: Int
         let bottomTimeSeconds: Int?
 
+        /// Value initializer for tests and non–**`DiveActivity`** callers (no **Main actor**).
+        init(
+            id: UUID = UUID(),
+            sourceDiveId: String? = nil,
+            startTime: Date,
+            maxDepthMeters: Double,
+            durationMinutes: Int,
+            bottomTimeSeconds: Int? = nil
+        ) {
+            self.id = id
+            let trimmed = sourceDiveId?.trimmingCharacters(in: .whitespacesAndNewlines)
+            self.sourceDiveId = (trimmed?.isEmpty == false) ? trimmed : nil
+            self.startTime = startTime
+            self.maxDepthMeters = maxDepthMeters
+            self.durationMinutes = durationMinutes
+            self.bottomTimeSeconds = bottomTimeSeconds
+        }
+
         @MainActor
         init(_ activity: DiveActivity) {
-            id = activity.id
-            let trimmed = activity.sourceDiveId?.trimmingCharacters(in: .whitespacesAndNewlines)
-            sourceDiveId = (trimmed?.isEmpty == false) ? trimmed : nil
-            startTime = activity.startTime
-            maxDepthMeters = activity.maxDepthMeters
-            durationMinutes = activity.durationMinutes
-            bottomTimeSeconds = activity.bottomTimeSeconds
+            self.init(
+                id: activity.id,
+                sourceDiveId: activity.sourceDiveId,
+                startTime: activity.startTime,
+                maxDepthMeters: activity.maxDepthMeters,
+                durationMinutes: activity.durationMinutes,
+                bottomTimeSeconds: activity.bottomTimeSeconds
+            )
         }
 
         /// **`DiveActivity`** is **Main actor**; explicit **nonisolated** **`Equatable`** keeps **`#expect`** usable in Swift 6.

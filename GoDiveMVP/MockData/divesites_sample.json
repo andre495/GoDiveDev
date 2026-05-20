@@ -2,6 +2,9 @@
   {
     "id": "C4D5E6F7-A8B9-4C0D-9E1F-2A3B4C5D6E7F",
     "siteName": "Salt Pier — Bonaire (catalog)",
+    "country": "Caribbean Netherlands",
+    "region": "Bonaire",
+    "bodyOfWater": "Caribbean Sea",
     "latCoords": 12.0835,
     "longCoords": -68.283,
     "siteTags": ["shore", "bonaire", "pier"],

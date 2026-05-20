@@ -1427,6 +1427,9 @@ struct GoDiveMVPTests {
         let site = try DiveActivitySiteAssociation.createSiteAndLink(
             to: activity,
             siteName: "New Wall",
+            country: "Caribbean Netherlands",
+            region: " Bonaire ",
+            bodyOfWater: "Caribbean Sea",
             latCoords: 12.05,
             longCoords: -68.27,
             modelContext: context
@@ -1435,7 +1438,33 @@ struct GoDiveMVPTests {
         #expect(activity.diveSite?.id == site.id)
         #expect(activity.diveSiteID == site.id)
         #expect(activity.siteCoordinate?.latitude == 12.05)
+        #expect(site.country == "Caribbean Netherlands")
+        #expect(site.region == "Bonaire")
+        #expect(site.bodyOfWater == "Caribbean Sea")
         #expect(try context.fetchCount(FetchDescriptor<DiveSite>()) == 1)
+    }
+
+    @Test func diveSiteMapper_mapsOptionalPlaceFields() {
+        let dto = DiveSiteDTO(
+            id: nil,
+            siteName: "Test Reef",
+            country: "Mexico",
+            region: nil,
+            bodyOfWater: "Gulf of California",
+            latCoords: 24.0,
+            longCoords: -110.0,
+            siteTags: nil,
+            siteRating: nil
+        )
+        let site = DiveSiteMapper.map(dto)
+        #expect(site.country == "Mexico")
+        #expect(site.region == "")
+        #expect(site.bodyOfWater == "Gulf of California")
+    }
+
+    @Test func diveSiteFormValidation_sanitizedPlaceField_trimsWhitespace() {
+        #expect(DiveSiteFormValidation.sanitizedPlaceField("  Bonaire  ") == "Bonaire")
+        #expect(DiveSiteFormValidation.sanitizedPlaceField("   ") == "")
     }
 
     @Test @MainActor
@@ -2620,22 +2649,16 @@ struct GoDiveMVPTests {
     @Test func diveActivityDuplicateMatcher_sameSourceDiveId() {
         let start = Date(timeIntervalSince1970: 1_700_000_000)
         let a = DiveActivityDuplicateMatcher.Signature(
-            DiveActivity(
-                deviceSource: .macDive,
-                sourceDiveId: "d1-uuid",
-                startTime: start,
-                durationMinutes: 40,
-                maxDepthMeters: 20
-            )
+            sourceDiveId: "d1-uuid",
+            startTime: start,
+            maxDepthMeters: 20,
+            durationMinutes: 40
         )
         let b = DiveActivityDuplicateMatcher.Signature(
-            DiveActivity(
-                deviceSource: .macDive,
-                sourceDiveId: "d1-uuid",
-                startTime: start.addingTimeInterval(3600),
-                durationMinutes: 99,
-                maxDepthMeters: 99
-            )
+            sourceDiveId: "d1-uuid",
+            startTime: start.addingTimeInterval(3600),
+            maxDepthMeters: 99,
+            durationMinutes: 99
         )
         #expect(DiveActivityDuplicateMatcher.matchReason(candidate: a, existing: b) == .sameSourceDiveId)
     }
@@ -2643,46 +2666,34 @@ struct GoDiveMVPTests {
     @Test func diveActivityDuplicateMatcher_fingerprint_crossFormat() {
         let start = Date(timeIntervalSince1970: 1_700_000_000)
         let garmin = DiveActivityDuplicateMatcher.Signature(
-            DiveActivity(
-                deviceSource: .garminMK3,
-                sourceDiveId: "fit-1-2-3",
-                startTime: start,
-                durationMinutes: 45,
-                maxDepthMeters: 18.2,
-                bottomTimeSeconds: 2700
-            )
+            sourceDiveId: "fit-1-2-3",
+            startTime: start,
+            maxDepthMeters: 18.2,
+            durationMinutes: 45,
+            bottomTimeSeconds: 2700
         )
         let mac = DiveActivityDuplicateMatcher.Signature(
-            DiveActivity(
-                deviceSource: .macDive,
-                sourceDiveId: "uddf-uuid",
-                startTime: start.addingTimeInterval(30),
-                durationMinutes: 45,
-                maxDepthMeters: 18.0,
-                bottomTimeSeconds: 2701
-            )
+            sourceDiveId: "uddf-uuid",
+            startTime: start.addingTimeInterval(30),
+            maxDepthMeters: 18.0,
+            durationMinutes: 45,
+            bottomTimeSeconds: 2701
         )
         #expect(DiveActivityDuplicateMatcher.matchReason(candidate: garmin, existing: mac) == .matchingFingerprint)
     }
 
     @Test func diveActivityDuplicateMatcher_differentStartTimes_noMatch() {
         let a = DiveActivityDuplicateMatcher.Signature(
-            DiveActivity(
-                deviceSource: .garminMK3,
-                startTime: Date(timeIntervalSince1970: 1_700_000_000),
-                durationMinutes: 45,
-                maxDepthMeters: 18,
-                bottomTimeSeconds: 2700
-            )
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            maxDepthMeters: 18,
+            durationMinutes: 45,
+            bottomTimeSeconds: 2700
         )
         let b = DiveActivityDuplicateMatcher.Signature(
-            DiveActivity(
-                deviceSource: .macDive,
-                startTime: Date(timeIntervalSince1970: 1_800_000_000),
-                durationMinutes: 45,
-                maxDepthMeters: 18,
-                bottomTimeSeconds: 2700
-            )
+            startTime: Date(timeIntervalSince1970: 1_800_000_000),
+            maxDepthMeters: 18,
+            durationMinutes: 45,
+            bottomTimeSeconds: 2700
         )
         #expect(DiveActivityDuplicateMatcher.matchReason(candidate: a, existing: b) == nil)
     }
@@ -2691,24 +2702,18 @@ struct GoDiveMVPTests {
         let start = Date(timeIntervalSince1970: 1_700_000_000)
         let sigs = [
             DiveActivityDuplicateMatcher.Signature(
-                DiveActivity(
-                    deviceSource: .garminMK3,
-                    sourceDiveId: "fit-a",
-                    startTime: start,
-                    durationMinutes: 30,
-                    maxDepthMeters: 15,
-                    bottomTimeSeconds: 1800
-                )
+                sourceDiveId: "fit-a",
+                startTime: start,
+                maxDepthMeters: 15,
+                durationMinutes: 30,
+                bottomTimeSeconds: 1800
             ),
             DiveActivityDuplicateMatcher.Signature(
-                DiveActivity(
-                    deviceSource: .macDive,
-                    sourceDiveId: "uddf-b",
-                    startTime: start,
-                    durationMinutes: 30,
-                    maxDepthMeters: 15.2,
-                    bottomTimeSeconds: 1800
-                )
+                sourceDiveId: "uddf-b",
+                startTime: start,
+                maxDepthMeters: 15.2,
+                durationMinutes: 30,
+                bottomTimeSeconds: 1800
             ),
         ]
         let ids = DiveActivityDuplicateMatcher.idsWithDuplicates(in: sigs)

@@ -5,6 +5,9 @@ enum DiveSiteMapper {
         DiveSite(
             id: dto.id ?? UUID(),
             siteName: dto.siteName,
+            country: dto.country ?? "",
+            region: dto.region ?? "",
+            bodyOfWater: dto.bodyOfWater ?? "",
             latCoords: dto.latCoords,
             longCoords: dto.longCoords,
             siteTags: dto.siteTags ?? [],
