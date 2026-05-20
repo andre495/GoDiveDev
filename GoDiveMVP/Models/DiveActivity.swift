@@ -41,7 +41,14 @@ final class DiveActivity {
     // Location
     var siteName: String?
     var locationName: String?
-    var coordinate: DiveCoordinate?
+    /// GPS from import / manual entry (entry point). Map uses **`siteCoordinate`** when **`diveSite`** is linked.
+    @Attribute(originalName: "coordinate")
+    var entryCoordinate: DiveCoordinate?
+
+    /// Denormalized for **`#Predicate`**; kept in sync with **`diveSite`**.
+    var diveSiteID: UUID?
+    @Relationship(deleteRule: .nullify)
+    var diveSite: DiveSite?
 
     // User-Provided Data
     var notes: String?
@@ -114,7 +121,9 @@ final class DiveActivity {
         avgAscentRateMetersPerSecond: Double? = nil,
         siteName: String? = nil,
         locationName: String? = nil,
-        coordinate: DiveCoordinate? = nil,
+        entryCoordinate: DiveCoordinate? = nil,
+        diveSiteID: UUID? = nil,
+        diveSite: DiveSite? = nil,
         notes: String? = nil,
         diveCurrentStrength: DiveCurrentStrength? = nil,
         surfaceCondition: String? = nil,
@@ -150,7 +159,9 @@ final class DiveActivity {
         self.avgAscentRateMetersPerSecond = avgAscentRateMetersPerSecond
         self.siteName = siteName
         self.locationName = locationName
-        self.coordinate = coordinate
+        self.entryCoordinate = entryCoordinate
+        self.diveSiteID = diveSiteID
+        self.diveSite = diveSite
         self.notes = notes
         self.diveCurrentStrength = diveCurrentStrength
         self.surfaceCondition = surfaceCondition
@@ -172,6 +183,34 @@ final class DiveActivity {
 }
 
 extension DiveActivity {
+    /// Catalog **`DiveSite`** coordinates when linked and usable.
+    var siteCoordinate: DiveCoordinate? {
+        guard let site = diveSite else { return nil }
+        return DiveMapCoordinateResolver.coordinate(from: site)
+    }
+
+    /// Coordinate for map pin: linked site first, then entry GPS, then unlinked name lookup in **`catalogSites`**.
+    func resolvedMapCoordinate(catalogSites: [DiveSite]) -> DiveCoordinate? {
+        if let siteCoordinate {
+            return siteCoordinate
+        }
+        if let entry = entryCoordinate, DiveMapCoordinateResolver.isUsable(entry) {
+            return entry
+        }
+        return DiveMapCoordinateResolver.coordinate(
+            fromSiteName: siteName,
+            in: catalogSites
+        )
+    }
+
+    /// Primary site title: linked catalog name, else import **`siteName`**.
+    var resolvedSiteName: String? {
+        let linked = diveSite?.siteName.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !linked.isEmpty { return linked }
+        let imported = siteName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return imported.isEmpty ? nil : imported
+    }
+
     /// UI / display default when **`diveCurrentStrength`** is **`nil`** (legacy rows after schema add).
     var resolvedDiveCurrentStrength: DiveCurrentStrength {
         get { diveCurrentStrength ?? .none }

@@ -984,7 +984,7 @@ struct GoDiveMVPTests {
             maxDepthMeters: 7.89
         )
         activity.siteName = "Salt Pier"
-        activity.coordinate = DiveCoordinate(latitude: 12.08316, longitude: -68.2833)
+        activity.entryCoordinate = DiveCoordinate(latitude: 12.08316, longitude: -68.2833)
 
         let site = DiveSite(
             siteName: "Salt Pier — Bonaire (catalog)",
@@ -1005,7 +1005,7 @@ struct GoDiveMVPTests {
             maxDepthMeters: 7.89
         )
         activity.siteName = "  salt pier — bonaire (catalog)  "
-        activity.coordinate = DiveCoordinate(latitude: 12.08316, longitude: -68.2833)
+        activity.entryCoordinate = DiveCoordinate(latitude: 12.08316, longitude: -68.2833)
 
         let site = DiveSite(
             siteName: "Salt Pier — Bonaire (catalog)",
@@ -1265,15 +1265,202 @@ struct GoDiveMVPTests {
     }
 
     @Test func diveMapCoordinateResolver_prefersActivityCoordinate() {
-        let activity = DiveCoordinate(latitude: 12.08, longitude: -68.28)
+        let entry = DiveCoordinate(latitude: 12.08, longitude: -68.28)
         let site = DiveSite(siteName: "Other", latCoords: 1, longCoords: 2)
         #expect(
             DiveMapCoordinateResolver.effectiveCoordinate(
-                activityCoordinate: activity,
+                activityCoordinate: entry,
                 siteName: "Salt Pier",
                 catalogSites: [site]
-            ) == activity
+            ) == entry
         )
+    }
+
+    @Test @MainActor
+    func diveActivity_resolvedMapCoordinate_prefersLinkedSite() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let catalog = DiveSite(
+            siteName: "Salt Pier — Bonaire (catalog)",
+            latCoords: 12.0835,
+            longCoords: -68.283
+        )
+        context.insert(catalog)
+
+        let activity = DiveActivity(
+            deviceSource: .garminMK3,
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            siteName: "Salt Pier",
+            entryCoordinate: DiveCoordinate(latitude: 12.084, longitude: -68.284)
+        )
+        DiveActivitySiteAssociation.link(activity, to: catalog)
+
+        let mapCoord = activity.resolvedMapCoordinate(catalogSites: [catalog])
+        #expect(mapCoord?.latitude == 12.0835)
+        #expect(mapCoord?.longitude == -68.283)
+        #expect(activity.siteCoordinate?.latitude == 12.0835)
+    }
+
+    @Test @MainActor
+    func diveActivitySiteAssociation_matchesByCoordinateBeforeName() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let byCoord = DiveSite(
+            siteName: "GPS Site",
+            latCoords: 12.0835,
+            longCoords: -68.283
+        )
+        let byNameOnly = DiveSite(
+            siteName: "Salt Pier — Bonaire (catalog)",
+            latCoords: 1,
+            longCoords: 1
+        )
+        context.insert(byCoord)
+        context.insert(byNameOnly)
+
+        let activity = DiveActivity(
+            deviceSource: .macDive,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 10,
+            siteName: "Salt Pier",
+            entryCoordinate: DiveCoordinate(latitude: 12.08316, longitude: -68.2833)
+        )
+
+        DiveActivitySiteAssociation.applyBestMatch(to: activity, catalogSites: [byCoord, byNameOnly])
+        #expect(activity.diveSite?.siteName == "GPS Site")
+        #expect(activity.diveSiteID == byCoord.id)
+    }
+
+    @Test func diveActivityMapSitePrompt_isEligibleWhenUnlinkedWithEntryOrName() {
+        let withGPS = DiveActivity(
+            deviceSource: .garminMK3,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 10,
+            entryCoordinate: DiveCoordinate(latitude: 12, longitude: -68)
+        )
+        #expect(DiveActivityMapSitePrompt.isEligible(for: withGPS))
+
+        let withName = DiveActivity(
+            deviceSource: .macDive,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 10,
+            siteName: "Salt Pier"
+        )
+        #expect(DiveActivityMapSitePrompt.isEligible(for: withName))
+
+        let linked = DiveActivity(
+            deviceSource: .manual,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 10,
+            siteName: "Salt Pier"
+        )
+        let site = DiveSite(siteName: "Catalog", latCoords: 12, longCoords: -68)
+        linked.diveSite = site
+        #expect(!DiveActivityMapSitePrompt.isEligible(for: linked))
+    }
+
+    @Test func diveSiteCoordinatePickerPresentation_initialCenter_prefersParsedText() {
+        let center = DiveSiteCoordinatePickerPresentation.initialCenter(
+            latitudeText: "12.08316",
+            longitudeText: "-68.28330",
+            fallback: DiveCoordinate(latitude: 1, longitude: 2)
+        )
+        #expect(center.latitude == 12.08316)
+        #expect(center.longitude == -68.28330)
+    }
+
+    @Test func diveSiteCoordinatePickerPresentation_initialCenter_usesFallbackWhenTextEmpty() {
+        let fallback = DiveCoordinate(latitude: 12.05, longitude: -68.27)
+        let center = DiveSiteCoordinatePickerPresentation.initialCenter(
+            latitudeText: "",
+            longitudeText: "",
+            fallback: fallback
+        )
+        #expect(center == fallback)
+    }
+
+    @Test func diveSiteCoordinatePickerPresentation_formattedTexts_useFiveDecimals() {
+        let coordinate = DiveCoordinate(latitude: 12.08316, longitude: -68.28330)
+        let formatted = DiveSiteCoordinatePickerPresentation.formattedTexts(for: coordinate)
+        #expect(formatted.latitude == "12.08316")
+        #expect(formatted.longitude == "-68.28330")
+    }
+
+    @Test func diveActivityMapSitePrompt_showsInfoButtonOnlyAfterDecline() {
+        let activity = DiveActivity(
+            deviceSource: .garminMK3,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 10,
+            entryCoordinate: DiveCoordinate(latitude: 12, longitude: -68)
+        )
+        #expect(DiveActivityMapSitePrompt.shouldPresentAutomatically(for: activity, userDeclined: false))
+        #expect(!DiveActivityMapSitePrompt.showsInfoButton(for: activity, userDeclined: false))
+        #expect(!DiveActivityMapSitePrompt.shouldPresentAutomatically(for: activity, userDeclined: true))
+        #expect(DiveActivityMapSitePrompt.showsInfoButton(for: activity, userDeclined: true))
+    }
+
+    @Test @MainActor
+    func diveActivitySiteAssociation_createSiteAndLink_persists() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let activity = DiveActivity(
+            deviceSource: .garminMK3,
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            siteName: "New Wall",
+            entryCoordinate: DiveCoordinate(latitude: 12.05, longitude: -68.27)
+        )
+        context.insert(activity)
+
+        let site = try DiveActivitySiteAssociation.createSiteAndLink(
+            to: activity,
+            siteName: "New Wall",
+            latCoords: 12.05,
+            longCoords: -68.27,
+            modelContext: context
+        )
+
+        #expect(activity.diveSite?.id == site.id)
+        #expect(activity.diveSiteID == site.id)
+        #expect(activity.siteCoordinate?.latitude == 12.05)
+        #expect(try context.fetchCount(FetchDescriptor<DiveSite>()) == 1)
+    }
+
+    @Test @MainActor
+    func diveActivitySiteAssociation_matchesByNameWhenNoEntryGPS() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let catalog = DiveSite(
+            siteName: "Salt Pier — Bonaire (catalog)",
+            latCoords: 12.0835,
+            longCoords: -68.283
+        )
+        context.insert(catalog)
+
+        let activity = DiveActivity(
+            deviceSource: .macDive,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 10,
+            siteName: "Salt Pier"
+        )
+
+        DiveActivitySiteAssociation.applyBestMatch(to: activity, catalogSites: [catalog])
+        #expect(activity.diveSite?.id == catalog.id)
+        #expect(activity.entryCoordinate == nil)
+        #expect(activity.siteCoordinate?.latitude == 12.0835)
     }
 
     @Test func diveMapCoordinateResolver_fallsBackToCatalogSiteName() {
@@ -1398,6 +1585,19 @@ struct GoDiveMVPTests {
         #expect(DiveActivityOverviewDetent.large.mapCameraDetent == .medium)
         #expect(DiveActivityOverviewDetent.medium.mapCameraDetent == .medium)
         #expect(DiveActivityOverviewDetent.minimized.mapCameraDetent == .minimized)
+    }
+
+    @Test func diveActivityOverviewDetent_allowsMapInteraction_onlyWhenMinimized() {
+        #expect(DiveActivityOverviewDetent.minimized.allowsMapInteraction)
+        #expect(!DiveActivityOverviewDetent.medium.allowsMapInteraction)
+        #expect(!DiveActivityOverviewDetent.large.allowsMapInteraction)
+    }
+
+    @Test func diveLocationMapPresentation_coordinateLabel_usesThreeDecimalPlaces() {
+        let coordinate = DiveCoordinate(latitude: 12.08316, longitude: -68.28330)
+        #expect(
+            DiveLocationMapPresentation.coordinateLabel(for: coordinate) == "12.083°, -68.283°"
+        )
     }
 
     @Test func appTheme_sheet_sharedPresentationChrome_isTranslucent() {
@@ -2026,7 +2226,7 @@ struct GoDiveMVPTests {
         #expect(a.tankVolumeDescription == DefaultTankSize.al80.specification.storedDescription)
         #expect(a.gasDetailsTankVolumeLine(displayUnits: .imperial) == "80 cu ft")
         #expect(a.gasDetailsTankTypeLine() == "aluminum")
-        let c = try #require(a.coordinate)
+        let c = try #require(a.entryCoordinate)
         #expect(abs(c.latitude - 12.035237) < 1e-4)
         #expect(abs(c.longitude - (-68.262683)) < 1e-4)
         #expect(a.profilePoints.contains { $0.tankPressurePSI != nil })

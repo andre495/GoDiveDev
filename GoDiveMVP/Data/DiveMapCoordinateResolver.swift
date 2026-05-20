@@ -38,20 +38,19 @@ enum DiveMapCoordinateResolver {
         return isUsable(candidate) ? candidate : nil
     }
 
-    static func coordinate(fromSiteName siteName: String?, in sites: [DiveSite]) -> DiveCoordinate? {
+    static func matchingSite(forSiteName siteName: String?, in sites: [DiveSite]) -> DiveSite? {
         guard let normalized = normalizedSiteName(siteName) else { return nil }
 
-        if let exact = sites.first(where: { normalizedSiteName($0.siteName) == normalized }),
-           let resolved = coordinate(from: exact) {
-            return resolved
+        if let exact = sites.first(where: { normalizedSiteName($0.siteName) == normalized }) {
+            return exact
         }
 
-        if let fuzzy = sites.first(where: { catalogNameContainsDiveName($0.siteName, diveName: normalized) }),
-           let resolved = coordinate(from: fuzzy) {
-            return resolved
-        }
+        return sites.first(where: { catalogNameContainsDiveName($0.siteName, diveName: normalized) })
+    }
 
-        return nil
+    static func coordinate(fromSiteName siteName: String?, in sites: [DiveSite]) -> DiveCoordinate? {
+        guard let site = matchingSite(forSiteName: siteName, in: sites) else { return nil }
+        return coordinate(from: site)
     }
 
     private static func catalogNameContainsDiveName(_ catalogName: String, diveName: String) -> Bool {

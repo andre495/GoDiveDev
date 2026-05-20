@@ -56,7 +56,7 @@ struct LogbookActivityRow: View, Equatable {
 
     /// Dive site name when set; otherwise **"New Dive"**.
     static func displayName(for activity: DiveActivity) -> String {
-        if let name = activity.siteName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+        if let name = activity.resolvedSiteName {
             return name
         }
         return "New Dive"

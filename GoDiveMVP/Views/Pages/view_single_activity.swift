@@ -20,6 +20,9 @@ struct ViewSingleActivity: View {
     @State private var depthProfileScrubSample: DiveDepthProfileSample?
     /// When **`true`**, map tab uses **`DiveOverviewMapTeardownPlaceholder`** instead of live MapKit (set before pop).
     @State private var overviewMapTeardownRequested = false
+    @State private var showsMapSitePromptDialog = false
+    @State private var showsAddDiveSiteSheet = false
+    @State private var mapSitePromptUserDeclined = false
 
     /// **More** tab: profile samples sorted by time (read-only).
     private var moreTabSortedProfilePoints: [DiveProfilePoint] {
@@ -35,6 +38,19 @@ struct ViewSingleActivity: View {
         DiveActivityOverviewMapTeardown.showsLiveMap(teardownRequested: overviewMapTeardownRequested)
     }
 
+    /// Pan/zoom on the map tab only when the overview sheet is at the low (**minimized**) detent.
+    private var isOverviewMapInteractive: Bool {
+        selectedActivityTab == .map && overviewSheetDetent.allowsMapInteraction
+    }
+
+    private var showsMapSitePromptInfoButton: Bool {
+        selectedActivityTab == .map
+            && DiveActivityMapSitePrompt.showsInfoButton(
+                for: activity,
+                userDeclined: mapSitePromptUserDeclined
+            )
+    }
+
     var body: some View {
         AppHeaderlessPage(leadingEdgePopOnWillDismiss: requestOverviewMapTeardown) {
             diveOverviewHeroLayer
@@ -46,21 +62,53 @@ struct ViewSingleActivity: View {
         .hidesBottomTabBarWhenPushed()
         .onAppear {
             overviewMapTeardownRequested = false
+            reloadMapSitePromptDeclinedState()
             syncOverviewSheetPresentation(for: selectedActivityTab)
+            presentMapSitePromptIfNeeded()
         }
         .onChange(of: selectedActivityTab) { _, newTab in
             syncOverviewSheetPresentation(for: newTab)
             if newTab == .map {
                 overviewMapTeardownRequested = false
+                presentMapSitePromptIfNeeded()
             }
+        }
+        .onChange(of: activity.diveSite?.id) { _, _ in
+            if activity.diveSite != nil {
+                showsMapSitePromptDialog = false
+            }
+        }
+        .onChange(of: activity.id) { _, _ in
+            tankHeroPressureFillFraction = 1
+            overviewMapTeardownRequested = false
+            reloadMapSitePromptDeclinedState()
+            presentMapSitePromptIfNeeded()
         }
         .onChange(of: overviewSheetDetent) { oldDetent, newDetent in
             guard oldDetent != newDetent else { return }
             handleOverviewSheetDetentChange(from: oldDetent, to: newDetent)
         }
-        .onChange(of: activity.id) { _, _ in
-            tankHeroPressureFillFraction = 1
-            overviewMapTeardownRequested = false
+        .alert(
+            DiveActivityMapSitePrompt.dialogTitle,
+            isPresented: $showsMapSitePromptDialog
+        ) {
+            Button("Add new site") {
+                showsAddDiveSiteSheet = true
+            }
+            Button("No", role: .cancel) {
+                declineMapSitePrompt()
+            }
+        } message: {
+            Text(DiveActivityMapSitePrompt.dialogMessage)
+        }
+        .sheet(isPresented: $showsAddDiveSiteSheet) {
+            DiveSiteAddSheet(
+                activity: activity,
+                initialDraft: DiveActivityMapSitePrompt.draft(from: activity),
+                onSaved: {
+                    mapSitePromptUserDeclined = false
+                }
+            )
         }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -142,11 +190,32 @@ struct ViewSingleActivity: View {
                                     bottomContentMargin: mapBottomObstruction,
                                     topObstructionHeight: topObstruction,
                                     layoutHeight: layoutHeight,
-                                    cameraLayoutDetent: mapCameraDetent
+                                    cameraLayoutDetent: mapCameraDetent,
+                                    isUserInteractionEnabled: isOverviewMapInteractive
                                 )
+                                .allowsHitTesting(isOverviewMapInteractive)
                                 .id(overviewMapViewIdentity)
                             } else {
                                 DiveOverviewMapTeardownPlaceholder()
+                            }
+                        }
+                        .overlay(alignment: .top) {
+                            DiveOverviewMapTopScrim(topObstructionHeight: topObstruction)
+                        }
+                        .overlay(alignment: .topTrailing) {
+                            if showsMapSitePromptInfoButton {
+                                DiveMapSitePromptInfoButton {
+                                    showsMapSitePromptDialog = true
+                                }
+                                .padding(
+                                    .top,
+                                    DiveActivityOverviewPanelMetrics.mapSitePromptInfoButtonTopPadding(
+                                        topSafeInset: geometry.safeAreaInsets.top,
+                                        chromeRowHeight: DiveActivityTabIcon.menuRowHeight,
+                                        chromeTopPadding: AppTheme.Spacing.sm
+                                    )
+                                )
+                                .padding(.trailing, AppTheme.Spacing.md)
                             }
                         }
                         .ignoresSafeArea()
@@ -205,6 +274,25 @@ struct ViewSingleActivity: View {
             }
         }
         .ignoresSafeArea()
+    }
+
+    private func reloadMapSitePromptDeclinedState() {
+        mapSitePromptUserDeclined = DiveActivityMapSitePromptStorage.isDeclined(activityID: activity.id)
+    }
+
+    private func presentMapSitePromptIfNeeded() {
+        guard selectedActivityTab == .map else { return }
+        guard DiveActivityMapSitePrompt.shouldPresentAutomatically(
+            for: activity,
+            userDeclined: mapSitePromptUserDeclined
+        ) else { return }
+        showsMapSitePromptDialog = true
+    }
+
+    private func declineMapSitePrompt() {
+        mapSitePromptUserDeclined = true
+        DiveActivityMapSitePromptStorage.setDeclined(activityID: activity.id, declined: true)
+        showsMapSitePromptDialog = false
     }
 
     private func requestOverviewMapTeardown() {
@@ -332,7 +420,7 @@ struct ViewSingleActivity: View {
                         )
                         detailLabeledRow(label: "siteName", value: activity.siteName ?? "nil")
                         detailLabeledRow(label: "locationName", value: activity.locationName ?? "nil")
-                        if let c = activity.coordinate {
+                        if let c = activity.entryCoordinate {
                             detailLabeledRow(
                                 label: "coordinate",
                                 value: String(format: "lat %.8f, lon %.8f", c.latitude, c.longitude)
@@ -482,7 +570,7 @@ struct ViewSingleActivity: View {
                             detailLabeledRow(label: "Import / format", value: ver)
                         }
                         detailLabeledRow(label: "Profile samples", value: "\(activity.profilePoints.count)")
-                        if let coord = activity.coordinate {
+                        if let coord = activity.entryCoordinate {
                             detailLabeledRow(
                                 label: "GPS (first fix)",
                                 value: String(format: "%.5f°, %.5f°", coord.latitude, coord.longitude)
@@ -610,11 +698,7 @@ struct ViewSingleActivity: View {
     }
 
     private var overviewMapCoordinate: DiveCoordinate? {
-        DiveMapCoordinateResolver.effectiveCoordinate(
-            activityCoordinate: activity.coordinate,
-            siteName: activity.siteName,
-            catalogSites: diveSites
-        )
+        activity.resolvedMapCoordinate(catalogSites: diveSites)
     }
 
     /// Remounts **`DiveLocationMapView`** when dive or resolved coordinate changes (MapKit annotation refresh).
@@ -705,7 +789,7 @@ struct ViewSingleActivity: View {
 
     private var overviewSiteHeaderTitle: String {
         DiveActivityOverviewPresentation.siteHeaderTitle(
-            siteName: activity.siteName,
+            siteName: activity.resolvedSiteName,
             fallback: activity.deviceSource.overviewFallbackSiteTitle
         )
     }
@@ -929,7 +1013,7 @@ private func viewSingleActivityPreview() -> some View {
         waterTempMinCelsius: 26.0,
         siteName: "Salt Pier",
         locationName: "Bonaire",
-        coordinate: DiveCoordinate(latitude: 12.08316, longitude: -68.28330),
+        entryCoordinate: DiveCoordinate(latitude: 12.08316, longitude: -68.28330),
         notes: "Day Two Dive Five. Night dive at Salt Pier from MacDive XML sample.\n\nTarpon under the pier, octopus on the east piling. Jamie spotted a frogfish near the ladder.",
         tankMaterial: "aluminum",
         tankVolumeDescription: "11.1 L",

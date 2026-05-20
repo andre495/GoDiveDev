@@ -1,0 +1,85 @@
+import Foundation
+
+/// When a dive has location hints but no linked **`DiveSite`**, offers creating a catalog site from the map tab.
+enum DiveActivityMapSitePrompt {
+    static let dialogTitle = "No existing dive site found."
+    static let dialogMessage = "Add new site?"
+
+    /// **`true`** when the dive is unlinked and has import **`entryCoordinate`** and/or **`siteName`**.
+    nonisolated static func isEligible(for activity: DiveActivity) -> Bool {
+        activity.diveSite == nil && hasLocationHint(activity)
+    }
+
+    nonisolated static func hasLocationHint(_ activity: DiveActivity) -> Bool {
+        if let entry = activity.entryCoordinate, DiveMapCoordinateResolver.isUsable(entry) {
+            return true
+        }
+        let name = activity.siteName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return !name.isEmpty
+    }
+
+    nonisolated static func shouldPresentAutomatically(
+        for activity: DiveActivity,
+        userDeclined: Bool
+    ) -> Bool {
+        isEligible(for: activity) && !userDeclined
+    }
+
+    nonisolated static func showsInfoButton(
+        for activity: DiveActivity,
+        userDeclined: Bool
+    ) -> Bool {
+        isEligible(for: activity) && userDeclined
+    }
+
+    nonisolated static func draft(from activity: DiveActivity) -> DiveSiteFormDraft {
+        let name = activity.siteName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let latitude = activity.entryCoordinate.map { String(format: "%.5f", $0.latitude) } ?? ""
+        let longitude = activity.entryCoordinate.map { String(format: "%.5f", $0.longitude) } ?? ""
+        return DiveSiteFormDraft(siteName: name, latitudeText: latitude, longitudeText: longitude)
+    }
+}
+
+/// UserDefaults flag: user chose **Not now** on the map-tab site prompt (per dive).
+enum DiveActivityMapSitePromptStorage {
+    private nonisolated static let keyPrefix = "goDiveDeclinedMapSitePrompt."
+
+    nonisolated static func isDeclined(activityID: UUID) -> Bool {
+        UserDefaults.standard.bool(forKey: keyPrefix + activityID.uuidString)
+    }
+
+    nonisolated static func setDeclined(activityID: UUID, declined: Bool) {
+        let key = keyPrefix + activityID.uuidString
+        if declined {
+            UserDefaults.standard.set(true, forKey: key)
+        } else {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+    }
+}
+
+struct DiveSiteFormDraft: Equatable, Sendable {
+    var siteName: String
+    var latitudeText: String
+    var longitudeText: String
+}
+
+enum DiveSiteFormValidation {
+    nonisolated static func sanitizedSiteName(_ raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    nonisolated static func parsedCoordinate(latitudeText: String, longitudeText: String) -> DiveCoordinate? {
+        let latRaw = latitudeText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lonRaw = longitudeText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !latRaw.isEmpty, !lonRaw.isEmpty else { return nil }
+        guard let lat = Double(latRaw), let lon = Double(lonRaw) else { return nil }
+        let candidate = DiveCoordinate(latitude: lat, longitude: lon)
+        return DiveMapCoordinateResolver.isUsable(candidate) ? candidate : nil
+    }
+
+    nonisolated static func canSave(draft: DiveSiteFormDraft) -> Bool {
+        sanitizedSiteName(draft.siteName) != nil
+    }
+}

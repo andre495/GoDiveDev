@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// Named dive site with optional coordinates, tags, and rating. Dives will reference this model (relationship wired later).
+/// Named dive site catalog entry (coordinates, tags, rating). Linked from **`DiveActivity`** after import match.
 @Model
 final class DiveSite {
 
@@ -11,6 +11,9 @@ final class DiveSite {
     var longCoords: Double?
     var siteTags: [String]
     var siteRating: Int?
+
+    @Relationship(inverse: \DiveActivity.diveSite)
+    var diveActivities: [DiveActivity] = []
 
     init(
         id: UUID = UUID(),

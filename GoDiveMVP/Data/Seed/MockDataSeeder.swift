@@ -74,6 +74,9 @@ enum MockDataSeeder {
         for buddy in activity.buddies {
             context.insert(buddy)
         }
+        if let sites = try? context.fetch(FetchDescriptor<DiveSite>()) {
+            DiveActivitySiteAssociation.applyBestMatch(to: activity, catalogSites: sites)
+        }
     }
 
     /// For dives already in the store: matches rows by JSON `id` and reapplies `notes` / missing `buddies` from the fixture. Rows without `id` are skipped here (insert path still works via mapper).

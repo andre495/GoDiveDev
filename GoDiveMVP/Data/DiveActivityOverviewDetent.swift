@@ -27,6 +27,11 @@ enum DiveActivityOverviewDetent: CaseIterable, Equatable, Hashable, Sendable {
         self == .large ? .medium : self
     }
 
+    /// Pan/zoom on the dive overview map is enabled only at the low (**minimized**) sheet detent.
+    nonisolated var allowsMapInteraction: Bool {
+        self == .minimized
+    }
+
     /// Reference layout for **`presentationDetent(screenHeight:bottomSafeInset:)`** round-trip tests.
     nonisolated static let presentationReferenceScreenHeight: CGFloat = 844
     nonisolated static let presentationReferenceBottomSafeInset: CGFloat = 34

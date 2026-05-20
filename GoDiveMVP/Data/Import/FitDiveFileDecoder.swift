@@ -122,7 +122,7 @@ enum FitDiveFileDecoder {
             rawImportVersion: fitImportVersion
         )
 
-        activity.coordinate = diveEntryCoordinate(session: session, records: records)
+        activity.entryCoordinate = diveEntryCoordinate(session: session, records: records)
 
         let points: [DiveProfilePoint] = records.compactMap { record in
             guard let ts = record.getTimestamp()?.date, let depth = record.getDepth() else {

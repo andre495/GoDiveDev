@@ -24,7 +24,7 @@ enum DiveActivityMapper {
             avgAscentRateMetersPerSecond: dto.avgAscentRateMetersPerSecond,
             siteName: dto.siteName,
             locationName: dto.locationName,
-            coordinate: dto.coordinate.map { DiveCoordinate(latitude: $0.latitude, longitude: $0.longitude) },
+            entryCoordinate: dto.coordinate.map { DiveCoordinate(latitude: $0.latitude, longitude: $0.longitude) },
             notes: dto.notes,
             tankMaterial: tankMaterial,
             tankVolumeDescription: defaultTank.storedDescription,

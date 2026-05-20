@@ -11,6 +11,8 @@ struct DiveLocationMapView: View {
     var layoutHeight: CGFloat = 0
     /// Resting sheet detent — camera reframes when this changes (not on every layout tick).
     var cameraLayoutDetent: DiveActivityOverviewDetent = .medium
+    /// When **`false`**, the map does not accept pan/zoom (dive overview at medium/large detents).
+    var isUserInteractionEnabled: Bool = true
 
     var body: some View {
         Group {
@@ -32,7 +34,8 @@ struct DiveLocationMapView: View {
             bottomContentMargin: bottomContentMargin,
             topObstructionHeight: topObstructionHeight,
             layoutHeight: layoutHeight,
-            cameraLayoutDetent: cameraLayoutDetent
+            cameraLayoutDetent: cameraLayoutDetent,
+            isUserInteractionEnabled: isUserInteractionEnabled
         )
         #else
         Color.clear

@@ -49,6 +49,11 @@ enum DiveLocationMapPresentation: Sendable {
         DiveMapCoordinateResolver.isUsable(coordinate)
     }
 
+    /// On-map pin subtitle (max **3** decimal places).
+    nonisolated static func coordinateLabel(for coordinate: DiveCoordinate) -> String {
+        String(format: "%.3f°, %.3f°", coordinate.latitude, coordinate.longitude)
+    }
+
     /// Stable **`View.id`** so MapKit remounts when the dive or resolved coordinate changes.
     nonisolated static func mapViewIdentity(activityID: UUID, coordinate: DiveCoordinate?) -> String {
         let coordinatePart: String

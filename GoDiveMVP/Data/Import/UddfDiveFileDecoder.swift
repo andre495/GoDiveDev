@@ -176,7 +176,7 @@ enum UddfDiveFileDecoder {
             avgAscentRateMetersPerSecond: avgAscent,
             siteName: site?.name,
             locationName: site?.locationName,
-            coordinate: coordinate,
+            entryCoordinate: coordinate,
             notes: notesNonEmpty,
             tankMaterial: tankMaterialNonEmpty ?? defaultTank.materialLabel,
             tankVolumeDescription: defaultTank.storedDescription,

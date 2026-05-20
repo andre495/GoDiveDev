@@ -12,6 +12,7 @@ struct DiveLocationMapRepresentable: UIViewRepresentable {
     let topObstructionHeight: CGFloat
     let layoutHeight: CGFloat
     let cameraLayoutDetent: DiveActivityOverviewDetent
+    var isUserInteractionEnabled: Bool = true
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -30,6 +31,7 @@ struct DiveLocationMapRepresentable: UIViewRepresentable {
     func updateUIView(_ mapView: MKMapView, context: Context) {
         context.coordinator.parent = self
         context.coordinator.syncDiveAnnotation(on: mapView)
+        applyUserInteraction(on: mapView)
 
         guard layoutHeight > 1 else { return }
 
@@ -56,6 +58,12 @@ struct DiveLocationMapRepresentable: UIViewRepresentable {
     private var coordinateIdentity: String {
         guard let coordinate else { return "none" }
         return "\(coordinate.latitude),\(coordinate.longitude)"
+    }
+
+    private func applyUserInteraction(on mapView: MKMapView) {
+        mapView.isScrollEnabled = isUserInteractionEnabled
+        mapView.isZoomEnabled = isUserInteractionEnabled
+        mapView.isPitchEnabled = isUserInteractionEnabled
     }
 
     // MARK: - Coordinator
@@ -115,7 +123,13 @@ struct DiveLocationMapRepresentable: UIViewRepresentable {
                 )
 
             pinView.annotation = annotation
-            pinView.configure(pinImage: pinImage(for: mapView))
+            if let coordinate = parent?.coordinate,
+               DiveMapCoordinateResolver.isUsable(coordinate) {
+                pinView.configure(
+                    pinImage: pinImage(for: mapView),
+                    coordinateLabel: DiveLocationMapPresentation.coordinateLabel(for: coordinate)
+                )
+            }
             return pinView
         }
 

@@ -62,18 +62,29 @@ enum DiveActivityDetailsPresentation: Sendable {
 
     private static func locationSection(_ activity: DiveActivity) -> Section {
         var rows: [Row] = []
-        if let site = trimmed(activity.siteName) {
-            rows.append(row("siteName", "Site", site))
+        if let site = trimmed(activity.resolvedSiteName) {
+            rows.append(row("site", "Site", site))
+        } else if let imported = trimmed(activity.siteName) {
+            rows.append(row("siteName", "Import site", imported))
         }
         if let location = trimmed(activity.locationName) {
             rows.append(row("locationName", "Location", location))
         }
-        if let coordinate = activity.coordinate {
+        if let entry = activity.entryCoordinate, DiveMapCoordinateResolver.isUsable(entry) {
             rows.append(
                 row(
-                    "coordinate",
-                    "GPS",
-                    String(format: "%.5f°, %.5f°", coordinate.latitude, coordinate.longitude)
+                    "entryCoordinate",
+                    "Entry GPS",
+                    String(format: "%.5f°, %.5f°", entry.latitude, entry.longitude)
+                )
+            )
+        }
+        if let siteCoordinate = activity.siteCoordinate {
+            rows.append(
+                row(
+                    "siteCoordinate",
+                    "Site GPS",
+                    String(format: "%.5f°, %.5f°", siteCoordinate.latitude, siteCoordinate.longitude)
                 )
             )
         }

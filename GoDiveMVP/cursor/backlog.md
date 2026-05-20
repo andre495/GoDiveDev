@@ -20,4 +20,4 @@ Add a **filter component** on **Logbook** so divers can narrow the dive list to 
 
 **UX notes:** Filter chip bar or sheet above the list; show active filter count; clear-all; persist last-used filters optionally. Empty state when no dives match.
 
-**Dependencies / gaps today:** **`DiveActivity`** has **`siteName`** / **`locationName`** but no country field, no dive tags, and no **`@Relationship`** to **`DiveSite`** yet — some filters may need model work first.
+**Dependencies / gaps today:** **`DiveActivity`** has **`diveSite`** link + **`siteName`** / **`locationName`** but no country field and no dive tags — site filter can use **`diveSiteID`**; country may need new **`DiveSite`** fields.

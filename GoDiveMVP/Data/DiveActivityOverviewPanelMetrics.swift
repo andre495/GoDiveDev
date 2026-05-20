@@ -124,6 +124,22 @@ enum DiveActivityOverviewPanelMetrics: Sendable {
         topSafeInset + chromeTopPadding + chromeRowHeight
     }
 
+    /// Extra space below the back + tab row before the map **info** site-prompt control.
+    nonisolated static let mapSitePromptInfoGapBelowChrome: CGFloat = 72
+
+    /// Top padding for **`DiveMapSitePromptInfoButton`** — fully below the tab menu.
+    nonisolated static func mapSitePromptInfoButtonTopPadding(
+        topSafeInset: CGFloat,
+        chromeRowHeight: CGFloat,
+        chromeTopPadding: CGFloat
+    ) -> CGFloat {
+        mapTopObstructionHeight(
+            topSafeInset: topSafeInset,
+            chromeRowHeight: chromeRowHeight,
+            chromeTopPadding: chromeTopPadding
+        ) + mapSitePromptInfoGapBelowChrome
+    }
+
     /// VoiceOver label for the current resting detent.
     nonisolated static func accessibilityDetentDescription(for fraction: CGFloat) -> String {
         if isMinimized(fraction) { return "Minimized" }

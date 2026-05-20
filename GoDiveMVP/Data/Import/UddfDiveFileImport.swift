@@ -79,6 +79,11 @@ enum UddfDiveFileImport {
                 existing.append(candidate)
             }
 
+            let catalogSites = try DiveActivitySiteAssociation.fetchCatalogSites(modelContext: modelContext)
+            for activity in inserted {
+                DiveActivitySiteAssociation.applyBestMatch(to: activity, catalogSites: catalogSites)
+            }
+
             if inserted.isEmpty {
                 if skippedDuplicates == 1,
                    let only = activities.first,

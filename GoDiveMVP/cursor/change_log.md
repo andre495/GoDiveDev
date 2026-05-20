@@ -330,3 +330,15 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Profile name on sign-in:** Cache Apple **`fullName`** in **`UserDefaults`** (Apple only sends it once); **`resolvedDisplayName`** + **`applyCachedDisplayNameIfNeeded`** upgrade placeholder **Diver**; **`ProfileDisplayNameCaptureSheet`** when still unnamed; **`SignInWithAppleButton(.continue)`**.
 - **Tests:** **`userProfileStore_cachedDisplayName_roundTrips`**, **`userProfileStore_applyCachedDisplayNameIfNeeded_upgradesPlaceholder`**, given-name-only **`displayName`**.
 
+---
+
+## 32 - Dive site link and map UX (not pushed)
+
+**Summary:** Link dives to catalog **`DiveSite`** on import; split **entry** vs **site** coordinates; map-tab prompt to add sites with draggable coordinate picker; map chrome and interaction polish.
+
+- **`diveSite`** / **`diveSiteID`**; **`entryCoordinate`** (migrated from **`coordinate`**); **`siteCoordinate`** / **`resolvedMapCoordinate`** for map pin.
+- **`DiveActivitySiteAssociation`** — GPS match first, name second, on **FIT** / **UDDF** import + mock seed; **`createSiteAndLink`**.
+- **Map tab — no catalog match:** Alert **Add new site?**; **`DiveSiteAddSheet`** + **`DiveSiteCoordinatePickerMapView`** (drag map, center pin, lat/lon sync); **`DiveMapSitePromptInfoButton`** after **No**.
+- **Map tab UX:** Pan/zoom only at **minimized** detent; **`DiveOverviewMapTopScrim`** under toolbar; pin shows coordinates (**3** decimals).
+- **Tests:** site association, map prompt, coordinate picker, map interaction detent.
+
