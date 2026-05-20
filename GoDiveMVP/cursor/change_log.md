@@ -318,7 +318,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ---
 
-## 31 - Dive user log and profile name on sign-in (not pushed)
+## 31 - Dive user log and profile name on sign-in **(pushed)**
 
 **Summary:** Manual **Conditions** / **Operator** log on dives (map overview, large detent); read-only dive detail sections; profile display name from Apple sign-in with cache and fallback prompt.
 
