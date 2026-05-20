@@ -3349,6 +3349,133 @@ struct GoDiveMVPTests {
     }
 
     @Test @MainActor
+    func diveSiteCatalogMaintenance_deletesSiteWithNoLinkedDives() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let site = DiveSite(siteName: "Solo Reef", latCoords: 12, longCoords: -68)
+        context.insert(site)
+        try context.save()
+
+        try DiveSiteCatalogMaintenance.deleteSitesWithNoLinkedDives(modelContext: context)
+
+        #expect(try context.fetch(FetchDescriptor<DiveSite>()).isEmpty)
+    }
+
+    @Test @MainActor
+    func diveSiteCatalogMaintenance_keepsSiteWhenAnotherDiveRemains() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let site = DiveSite(siteName: "Shared", latCoords: 12, longCoords: -68)
+        let dive = DiveActivity(deviceSource: .manual, startTime: .now, durationMinutes: 30, maxDepthMeters: 20)
+        context.insert(site)
+        context.insert(dive)
+        DiveActivitySiteAssociation.link(dive, to: site)
+        try context.save()
+
+        try DiveSiteCatalogMaintenance.deleteSitesWithNoLinkedDives(modelContext: context)
+
+        let sites = try context.fetch(FetchDescriptor<DiveSite>())
+        #expect(sites.count == 1)
+        #expect(sites.first?.id == site.id)
+    }
+
+    @Test func diveBackgroundDeletionWorker_batchDelete_removesProfilePointsByDiveActivityID() async throws {
+        let schema = Schema([
+            DiveActivity.self,
+            DiveBuddyTag.self,
+            DiveProfilePoint.self,
+            DiveSite.self,
+        ])
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+
+        let diveID = try await MainActor.run { () throws -> UUID in
+            let context = ModelContext(container)
+            let activity = DiveActivity(
+                deviceSource: .manual,
+                startTime: Date(),
+                durationMinutes: 45,
+                maxDepthMeters: 30
+            )
+            context.insert(activity)
+            for i in 0 ..< 120 {
+                let point = DiveProfilePoint(
+                    timestamp: Date(timeIntervalSince1970: TimeInterval(i)),
+                    depthMeters: Double(i % 20),
+                    dive: activity
+                )
+                activity.profilePoints.append(point)
+            }
+            try context.save()
+            return activity.id
+        }
+
+        _ = try await DiveBackgroundDeletionWorker(modelContainer: container)
+            .deleteDive(
+                id: diveID,
+                deletedStartTime: Date(),
+                deletedId: diveID,
+                shouldCheckRenumber: false
+            )
+
+        let counts = try await MainActor.run { () throws -> (Int, Int) in
+            let context = ModelContext(container)
+            let dives = try context.fetch(FetchDescriptor<DiveActivity>())
+            let points = try context.fetch(FetchDescriptor<DiveProfilePoint>())
+            return (dives.count, points.count)
+        }
+        #expect(counts.0 == 0)
+        #expect(counts.1 == 0)
+    }
+
+    @Test func diveBackgroundDeletionWorker_deleteDive_removesActivityAndBuddies() async throws {
+        let schema = Schema([
+            DiveActivity.self,
+            DiveBuddyTag.self,
+            DiveProfilePoint.self,
+            DiveSite.self,
+        ])
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+
+        let activityID = try await MainActor.run { () throws -> UUID in
+            let context = ModelContext(container)
+            let activity = DiveActivity(
+                deviceSource: .manual,
+                startTime: .now,
+                durationMinutes: 12,
+                maxDepthMeters: 18
+            )
+            let buddy = DiveBuddyTag(displayName: "Pat")
+            buddy.dive = activity
+            activity.buddies.append(buddy)
+            context.insert(activity)
+            try context.save()
+            return activity.id
+        }
+
+        let skipRenumber = try await DiveBackgroundDeletionWorker(modelContainer: container)
+            .deleteDive(
+                id: activityID,
+                deletedStartTime: Date(),
+                deletedId: activityID,
+                shouldCheckRenumber: false
+            )
+        #expect(skipRenumber == true)
+
+        let counts = try await MainActor.run { () throws -> (Int, Int) in
+            let context = ModelContext(container)
+            let dives = try context.fetch(FetchDescriptor<DiveActivity>())
+            let buddies = try context.fetch(FetchDescriptor<DiveBuddyTag>())
+            return (dives.count, buddies.count)
+        }
+        #expect(counts.0 == 0)
+        #expect(counts.1 == 0)
+    }
+
+    @Test @MainActor
     func diveActivityDeletion_deferredRenumber_preservesNumbersUntilBackgroundPass() async throws {
         let schema = Schema([
             DiveActivity.self,

@@ -9,6 +9,10 @@ struct ExploreView: View {
         ExploreCatalogMapPresentation.plottableSites(from: diveSites)
     }
 
+    private var diveSiteListSignature: String {
+        diveSites.map(\.id.uuidString).joined(separator: "|")
+    }
+
     var body: some View {
         NavigationStack {
             ZStack(alignment: .topTrailing) {
@@ -38,6 +42,12 @@ struct ExploreView: View {
             }
         }
         .navigationInteractivePopGestureForHiddenNavBar()
+        .onChange(of: diveSiteListSignature) { _, _ in
+            guard let selectedSite else { return }
+            if !diveSites.contains(where: { $0.id == selectedSite.id }) {
+                self.selectedSite = nil
+            }
+        }
     }
 }
 

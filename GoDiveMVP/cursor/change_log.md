@@ -355,3 +355,16 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Tests:** **`exploreCatalogMapPresentation_plottableSites_filtersInvalidCoordinates`**, region fitting (multi + single site).
 - **`MapPushPinView`** — shared push-pin shape; **`MapPushPinImageFactory`** draws the tip on the **vertical center** of the map asset so Explore pins use **`centerOffset = .zero`** (stable when zooming); dive map label uses a one-time offset; dive map **`isPitchEnabled = false`** to avoid 3D drift.
 
+---
+
+## 34 - Logbook delete performance and Explore pin cleanup
+
+**Summary:** Faster, reliable dive delete off the main actor; Explore map drops pins when the last dive at a site is removed.
+
+- **`DiveBackgroundDeletionWorker`** — batch-delete equipment only; parent dive **`modelContext.delete`** (batch dive delete fails when **`diveSite`** is linked); clears **`diveSite`** then cascade drops profile points / buddies.
+- **`DivePostDeleteRenumberScheduler`** — **`schedulePartialRenumber`** (tail **#**s only) instead of full **1…n** after every delete; **500 ms** debounce.
+- **Logbook** — owner-scoped **`@Query`**, cached row snapshots, optimistic hide kept until delete fails (no extra list pass on success).
+- **Tests:** **`diveBackgroundDeletionWorker_batchDelete_removesProfilePointsByDiveActivityID`**, buddy removal test.
+- **`DiveSiteCatalogMaintenance`** — after dive delete, removes catalog **`DiveSite`** rows with no linked dives so **Explore** drops the pin; dismisses open site sheet when the row is gone.
+- **Bug fixes:** no batch-delete of dive children/parent (Core Data **`diveSite`** / profile inverse constraints); compile fixes (**`deletePermanentlyByID`**, **`import Foundation`**).
+

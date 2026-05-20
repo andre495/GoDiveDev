@@ -26,6 +26,9 @@ final class DiveProfilePoint {
     /// **FIT `RecordMesg`:** **CNS** load (native **`UInt8`** stored as **`Int`**, commonly **0…100**).
     var cnsLoad: Int?
 
+    /// Denormalized for batch **`delete(model:where:)`** (avoids per-row cascade deletes).
+    var diveActivityID: UUID?
+
     @Relationship(inverse: \DiveActivity.profilePoints)
     var dive: DiveActivity?
 
@@ -55,5 +58,6 @@ final class DiveProfilePoint {
         self.n2Load = n2Load
         self.cnsLoad = cnsLoad
         self.dive = dive
+        self.diveActivityID = dive?.id
     }
 }

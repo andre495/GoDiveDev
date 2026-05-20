@@ -8,6 +8,9 @@ final class DiveBuddyTag {
     var id: UUID
     var displayName: String
 
+    /// Denormalized for batch **`delete(model:where:)`**.
+    var diveActivityID: UUID?
+
     @Relationship(inverse: \DiveActivity.buddies)
     var dive: DiveActivity?
 
@@ -15,5 +18,6 @@ final class DiveBuddyTag {
         self.id = id
         self.displayName = displayName
         self.dive = dive
+        self.diveActivityID = dive?.id
     }
 }

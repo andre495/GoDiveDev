@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(AccountSession.self) private var accountSession
     @AppStorage(AppUserSettings.useImperialDisplayUnitsKey) private var useImperialDisplayUnits = false
 
     var body: some View {
@@ -17,7 +18,8 @@ struct ContentView: View {
                     Label("Home", systemImage: "house")
                 }
 
-            LogbookView()
+            LogbookView(ownerProfileID: accountSession.currentProfile?.id)
+                .id(accountSession.currentProfile?.id)
                 .tabItem {
                     Label("Logbook", systemImage: "book.closed")
                 }

@@ -16,6 +16,7 @@ enum DiveActivityDuplicateMatcher {
         let durationMinutes: Int
         let bottomTimeSeconds: Int?
 
+        @MainActor
         init(_ activity: DiveActivity) {
             id = activity.id
             let trimmed = activity.sourceDiveId?.trimmingCharacters(in: .whitespacesAndNewlines)

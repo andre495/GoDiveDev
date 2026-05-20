@@ -2,52 +2,45 @@ import SwiftData
 import SwiftUI
 
 struct LogbookView: View {
-    @Environment(AccountSession.self) private var accountSession
     @Environment(\.modelContext) private var modelContext
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
+    @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = false
 
     private enum Route: Hashable {
         case addActivity
         case diveDetail(UUID)
     }
 
-    /// Newest **`startTime`** first (full instant = calendar date + time). **`id`** breaks ties deterministically.
-    @Query(
-        sort: [
-            SortDescriptor(\DiveActivity.startTime, order: .reverse),
-            SortDescriptor(\DiveActivity.id, order: .forward),
-        ]
-    ) private var activities: [DiveActivity]
+    @Query private var activities: [DiveActivity]
 
     @State private var path: [Route] = []
     @State private var activityPendingDeletion: DiveActivity?
-    /// Rows hidden until **`deletePermanently`** finishes (or fails); keeps the list responsive while **`save()`** runs (renumber is background).
+    /// Hides the row immediately; cleared only if background delete fails.
     @State private var optimisticallyRemovedActivityIDs: Set<UUID> = []
     @State private var logbookHeaderClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
+    @State private var logbookDisplayRows: [DiveLogbookRowDisplayData] = []
+    @State private var duplicateActivityIds: Set<UUID> = []
 
-    private var ownedActivities: [DiveActivity] {
-        guard let ownerID = accountSession.currentProfile?.id else { return [] }
-        return activities.filter { $0.ownerProfileID == ownerID }
+    private let ownerProfileID: UUID?
+
+    init(ownerProfileID: UUID?) {
+        self.ownerProfileID = ownerProfileID
+        let filterOwnerID = ownerProfileID ?? LogbookView.noOwnerQueryToken
+        _activities = Query(
+            filter: #Predicate<DiveActivity> { $0.ownerProfileID == filterOwnerID },
+            sort: [
+                SortDescriptor(\DiveActivity.startTime, order: .reverse),
+                SortDescriptor(\DiveActivity.id, order: .forward),
+            ]
+        )
     }
 
     private var visibleActivities: [DiveActivity] {
-        ownedActivities.filter { !optimisticallyRemovedActivityIDs.contains($0.id) }
+        activities.filter { !optimisticallyRemovedActivityIDs.contains($0.id) }
     }
 
-    @MainActor
-    private var duplicateActivityIds: Set<UUID> {
-        let signatures = visibleActivities.map(DiveActivityDuplicateMatcher.Signature.init)
-        return DiveActivityDuplicateMatcher.idsWithDuplicates(in: signatures)
-    }
-
-    /// Row snapshots: **#** from chronology when auto-renumber is on (not live **`diveNumber`**), so background persist does not force row re-layout.
-    private var logbookDisplayRows: [DiveLogbookRowDisplayData] {
-        DiveLogbookDisplay.rowData(
-            activities: visibleActivities,
-            unitSystem: diveDisplayUnitSystem,
-            duplicateIds: duplicateActivityIds,
-            useChronologicalNumbers: AppUserSettings.automaticallyRenumberDives
-        )
+    private var visibleActivitySignature: String {
+        visibleActivities.map(\.id.uuidString).joined(separator: "|")
     }
 
     var body: some View {
@@ -162,6 +155,16 @@ struct LogbookView: View {
             }
         }
         .navigationInteractivePopGestureForHiddenNavBar()
+        .onAppear { refreshLogbookCaches() }
+        .onChange(of: visibleActivitySignature) { _, _ in
+            refreshLogbookCaches()
+        }
+        .onChange(of: diveDisplayUnitSystem) { _, _ in
+            refreshLogbookCaches()
+        }
+        .onChange(of: automaticallyRenumberDives) { _, _ in
+            refreshLogbookCaches()
+        }
     }
 
     private var logbookEmptyState: some View {
@@ -267,21 +270,41 @@ struct LogbookView: View {
 
     private func confirmDeleteDive(_ activity: DiveActivity) {
         let id = activity.id
+        let deletedStartTime = activity.startTime
+        let container = modelContext.container
         dismissDeleteOverlayImmediately()
         optimisticallyRemovedActivityIDs.insert(id)
         path.removeAll {
             if case .diveDetail(let detailId) = $0 { return detailId == id }
             return false
         }
-        Task(priority: .userInitiated) { @MainActor in
-            await Task.yield()
-            defer { optimisticallyRemovedActivityIDs.remove(id) }
-            try? await DiveActivityDeletion.deletePermanently(
-                activity,
-                modelContext: modelContext,
-                awaitPostDeleteRenumber: false
-            )
+        Task(priority: .utility) {
+            do {
+                try await DiveActivityDeletion.deletePermanentlyByID(
+                    activityID: id,
+                    deletedStartTime: deletedStartTime,
+                    deletedId: id,
+                    container: container,
+                    awaitPostDeleteRenumber: false
+                )
+            } catch {
+                Task { @MainActor in
+                    optimisticallyRemovedActivityIDs.remove(id)
+                }
+            }
         }
+    }
+
+    @MainActor
+    private func refreshLogbookCaches() {
+        let signatures = visibleActivities.map { DiveActivityDuplicateMatcher.Signature($0) }
+        duplicateActivityIds = DiveActivityDuplicateMatcher.idsWithDuplicates(in: signatures)
+        logbookDisplayRows = DiveLogbookDisplay.rowData(
+            activities: visibleActivities,
+            unitSystem: diveDisplayUnitSystem,
+            duplicateIds: duplicateActivityIds,
+            useChronologicalNumbers: automaticallyRenumberDives
+        )
     }
 
     /// Removes the confirmation sheet without waiting on a fade or on **`save()`**.
@@ -292,8 +315,11 @@ struct LogbookView: View {
             activityPendingDeletion = nil
         }
     }
+
+    /// Sentinel **`ownerProfileID`** so **`@Query`** returns no rows when signed out.
+    private static let noOwnerQueryToken = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
 }
 
 #Preview {
-    LogbookView()
+    LogbookView(ownerProfileID: nil)
 }
