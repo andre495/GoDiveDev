@@ -10,6 +10,14 @@ enum DiveActivityMediaPresentation: Sendable {
         detent != .large
     }
 
+    /// Muted, looping background video plays on the **Media** tab at **minimized** or **medium** detent.
+    nonisolated static func shouldPlayBackgroundVideo(
+        isMediaTabSelected: Bool,
+        detent: DiveActivityOverviewDetent
+    ) -> Bool {
+        isMediaTabSelected && showsBackgroundPhotos(for: detent)
+    }
+
     nonisolated static func sortedMedia(on activity: DiveActivity) -> [DiveMediaPhoto] {
         sortedPhotos(on: activity)
     }

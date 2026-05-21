@@ -6,6 +6,8 @@ import UIKit
 /// One pager page — image or video for a **`DiveMediaPhoto`** row.
 struct DiveActivityMediaItemView: View {
     let media: DiveMediaPhoto
+    var isVideoPlaybackActive: Bool = false
+    var loopsVideoPlayback: Bool = false
 
     var body: some View {
         Group {
@@ -13,7 +15,11 @@ struct DiveActivityMediaItemView: View {
             case .image:
                 imagePage
             case .video:
-                DiveActivityVideoPlayerView(fileURL: media.videoFileURL)
+                DiveActivityVideoPlayerView(
+                    fileURL: media.videoFileURL,
+                    isPlaybackActive: isVideoPlaybackActive,
+                    loopsPlayback: loopsVideoPlayback
+                )
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

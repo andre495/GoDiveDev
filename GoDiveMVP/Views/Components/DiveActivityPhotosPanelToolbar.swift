@@ -4,6 +4,7 @@ import SwiftUI
 /// **Media** overview sheet toolbar — trailing **+** opens the photo / video picker.
 struct DiveActivityPhotosPanelToolbar: View {
     @Binding var mediaPickerItems: [PhotosPickerItem]
+    var isImportInProgress = false
 
     var body: some View {
         HStack {
@@ -19,6 +20,8 @@ struct DiveActivityPhotosPanelToolbar: View {
                     .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
             }
+            .disabled(isImportInProgress)
+            .opacity(isImportInProgress ? 0.45 : 1)
             .accessibilityLabel("Add photos or videos")
             .accessibilityIdentifier("DiveOverview.MediaAdd")
         }

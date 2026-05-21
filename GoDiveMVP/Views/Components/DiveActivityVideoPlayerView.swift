@@ -7,15 +7,21 @@ import UIKit
 /// Full-bleed dive video (**`resizeAspectFill`**, same crop behavior as photos).
 struct DiveActivityVideoPlayerView: View {
     let fileURL: URL?
+    var isPlaybackActive: Bool = true
+    var loopsPlayback: Bool = false
 
     var body: some View {
         Group {
             #if canImport(UIKit)
             if let fileURL {
                 GeometryReader { geometry in
-                    DiveActivityFillVideoPlayerRepresentable(fileURL: fileURL)
-                        .frame(width: geometry.size.width, height: geometry.size.height)
-                        .clipped()
+                    DiveActivityFillVideoPlayerRepresentable(
+                        fileURL: fileURL,
+                        isPlaybackActive: isPlaybackActive,
+                        loopsPlayback: loopsPlayback
+                    )
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .clipped()
                 }
                 .accessibilityLabel("Dive video")
             } else {
@@ -41,15 +47,25 @@ struct DiveActivityVideoPlayerView: View {
 /// **`AVPlayerLayer`** with **`videoGravity = .resizeAspectFill`** (no letterboxing).
 private struct DiveActivityFillVideoPlayerRepresentable: UIViewRepresentable {
     let fileURL: URL
+    let isPlaybackActive: Bool
+    let loopsPlayback: Bool
 
     func makeUIView(context: Context) -> DiveActivityFillVideoPlayerUIView {
         let view = DiveActivityFillVideoPlayerUIView()
-        view.play(url: fileURL)
+        view.configure(
+            url: fileURL,
+            isPlaybackActive: isPlaybackActive,
+            loopsPlayback: loopsPlayback
+        )
         return view
     }
 
     func updateUIView(_ uiView: DiveActivityFillVideoPlayerUIView, context: Context) {
-        uiView.play(url: fileURL)
+        uiView.configure(
+            url: fileURL,
+            isPlaybackActive: isPlaybackActive,
+            loopsPlayback: loopsPlayback
+        )
     }
 
     static func dismantleUIView(_ uiView: DiveActivityFillVideoPlayerUIView, coordinator: ()) {
@@ -63,6 +79,9 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
     private var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
     private var player: AVPlayer?
     private var currentURL: URL?
+    private var loopsPlayback = false
+    private var isPlaybackActive = false
+    private var endObserver: NSObjectProtocol?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -75,24 +94,71 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
         nil
     }
 
-    func play(url: URL) {
-        if currentURL == url {
-            player?.play()
-            return
+    deinit {
+        removeEndObserver()
+    }
+
+    func configure(url: URL, isPlaybackActive: Bool, loopsPlayback: Bool) {
+        self.isPlaybackActive = isPlaybackActive
+        if currentURL != url {
+            loadPlayer(url: url)
         }
-        stop()
-        currentURL = url
-        let newPlayer = AVPlayer(url: url)
-        player = newPlayer
-        playerLayer.player = newPlayer
-        newPlayer.play()
+        setLooping(loopsPlayback)
+        applyPlaybackState()
     }
 
     func stop() {
+        removeEndObserver()
         player?.pause()
         player = nil
         playerLayer.player = nil
         currentURL = nil
+        loopsPlayback = false
+        isPlaybackActive = false
+    }
+
+    private func loadPlayer(url: URL) {
+        removeEndObserver()
+        player?.pause()
+        currentURL = url
+        let newPlayer = AVPlayer(url: url)
+        newPlayer.isMuted = true
+        player = newPlayer
+        playerLayer.player = newPlayer
+    }
+
+    private func setLooping(_ enabled: Bool) {
+        guard loopsPlayback != enabled else { return }
+        loopsPlayback = enabled
+        removeEndObserver()
+        guard loopsPlayback, let item = player?.currentItem else { return }
+        endObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: item,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self, let player = self.player else { return }
+            player.seek(to: .zero) { [weak self] _ in
+                guard let self, self.isPlaybackActive else { return }
+                player.play()
+            }
+        }
+    }
+
+    private func applyPlaybackState() {
+        guard player != nil else { return }
+        if isPlaybackActive {
+            player?.play()
+        } else {
+            player?.pause()
+        }
+    }
+
+    private func removeEndObserver() {
+        if let endObserver {
+            NotificationCenter.default.removeObserver(endObserver)
+            self.endObserver = nil
+        }
     }
 }
 #endif

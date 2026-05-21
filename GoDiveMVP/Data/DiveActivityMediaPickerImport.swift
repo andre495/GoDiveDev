@@ -1,5 +1,6 @@
 import Foundation
 import PhotosUI
+import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -52,5 +53,75 @@ enum DiveActivityMediaPickerImport: Sendable {
             throw DiveMediaImportError.unsupportedItem
         }
         return .image(data)
+    }
+}
+
+/// Imports multiple **`PhotosPicker`** items onto a dive with progress callbacks.
+enum DiveActivityMediaBatchImport {
+    struct Outcome: Sendable {
+        let savedCount: Int
+        let lastAddedMediaID: UUID?
+        let failureMessage: String?
+    }
+
+    typealias ProgressHandler = @MainActor (_ completed: Int, _ total: Int, _ stage: String) -> Void
+
+    @MainActor
+    static func importPickerItems(
+        _ items: [PhotosPickerItem],
+        into activity: DiveActivity,
+        modelContext: ModelContext,
+        onProgress: ProgressHandler? = nil
+    ) async -> Outcome {
+        let total = items.count
+        guard total > 0 else {
+            return Outcome(savedCount: 0, lastAddedMediaID: nil, failureMessage: nil)
+        }
+
+        var savedCount = 0
+        var lastAddedID: UUID?
+
+        for (index, item) in items.enumerated() {
+            let itemIndex = index + 1
+            onProgress?(savedCount, total, DiveMediaImportProgressPresentation.loadingStage(itemIndex: itemIndex, total: total))
+            await Task.yield()
+
+            let payload: DiveMediaImportPayload
+            do {
+                payload = try await DiveActivityMediaPickerImport.loadPayload(from: item)
+            } catch {
+                continue
+            }
+
+            onProgress?(savedCount, total, DiveMediaImportProgressPresentation.savingStage(itemIndex: itemIndex, total: total))
+            await Task.yield()
+
+            do {
+                let addedID = try DiveActivityMediaStorage.addMedia(
+                    payload,
+                    to: activity,
+                    modelContext: modelContext
+                )
+                lastAddedID = addedID
+                savedCount += 1
+                onProgress?(savedCount, total, DiveMediaImportProgressPresentation.savingStage(itemIndex: itemIndex, total: total))
+            } catch {
+                return Outcome(
+                    savedCount: savedCount,
+                    lastAddedMediaID: lastAddedID,
+                    failureMessage: error.localizedDescription
+                )
+            }
+        }
+
+        if savedCount == 0 {
+            return Outcome(
+                savedCount: 0,
+                lastAddedMediaID: nil,
+                failureMessage: DiveMediaImportProgressPresentation.failureMessageWhenNoneSaved(attempted: total)
+            )
+        }
+
+        return Outcome(savedCount: savedCount, lastAddedMediaID: lastAddedID, failureMessage: nil)
     }
 }

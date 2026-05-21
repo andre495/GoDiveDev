@@ -48,10 +48,26 @@ struct ProfileView: View {
                 }
 
                 VStack(spacing: 0) {
-                    HStack(spacing: AppTheme.Spacing.md) {
+                    HStack(spacing: AppTheme.Spacing.sm) {
                         SecondaryDestinationBackButton()
 
                         Spacer()
+
+                        if accountSession.currentProfile != nil {
+                            Button {
+                                showsProfileEditSheet = true
+                            } label: {
+                                Image(systemName: "ellipsis")
+                                    .font(.title3.weight(.semibold))
+                                    .rotationEffect(.degrees(90))
+                                    .frame(minWidth: 44, minHeight: 44)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(AppTheme.Colors.iconPrimary)
+                            .accessibilityLabel("Edit profile")
+                            .accessibilityIdentifier("Profile.EditButton")
+                        }
 
                         NavigationLink {
                             SettingsView()
@@ -99,31 +115,13 @@ struct ProfileView: View {
             }
 
             VStack(spacing: AppTheme.Spacing.sm) {
-                HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
-                    Text(accountSession.currentProfile?.displayName ?? UserProfileStore.defaultDisplayName)
-                        .font(.largeTitle.weight(.bold))
-                        .foregroundStyle(AppTheme.Colors.textPrimary)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.85)
-
-                    if accountSession.currentProfile != nil {
-                        Button {
-                            showsProfileEditSheet = true
-                        } label: {
-                            Image(systemName: "ellipsis")
-                                .font(.title3.weight(.semibold))
-                                .rotationEffect(.degrees(90))
-                                .foregroundStyle(AppTheme.Colors.iconPrimary)
-                                .frame(minWidth: 44, minHeight: 44)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Edit profile")
-                        .accessibilityIdentifier("Profile.EditButton")
-                    }
-                }
-                .frame(maxWidth: .infinity)
+                Text(accountSession.currentProfile?.displayName ?? UserProfileStore.defaultDisplayName)
+                    .font(.largeTitle.weight(.bold))
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+                    .frame(maxWidth: .infinity)
 
                 if let dan = accountSession.currentProfile?.danInsuranceNumber, !dan.isEmpty {
                     Text(ProfilePresentation.danInsuranceLabel(dan))

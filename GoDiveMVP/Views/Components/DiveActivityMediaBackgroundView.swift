@@ -5,10 +5,18 @@ struct DiveActivityMediaBackgroundView: View {
     let mediaItems: [DiveMediaPhoto]
     @Binding var selectedMediaID: UUID?
     var sheetDetent: DiveActivityOverviewDetent = .medium
+    var isMediaTabSelected: Bool = true
     let bottomContentMargin: CGFloat
 
     private var showsBackgroundMedia: Bool {
         DiveActivityMediaPresentation.showsBackgroundPhotos(for: sheetDetent)
+    }
+
+    private var shouldPlayBackgroundVideo: Bool {
+        DiveActivityMediaPresentation.shouldPlayBackgroundVideo(
+            isMediaTabSelected: isMediaTabSelected,
+            detent: sheetDetent
+        )
     }
 
     var body: some View {
@@ -43,9 +51,13 @@ struct DiveActivityMediaBackgroundView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 0) {
                     ForEach(mediaItems, id: \.id) { item in
-                        DiveActivityMediaItemView(media: item)
-                            .frame(width: geometry.size.width, height: geometry.size.height)
-                            .id(item.id)
+                        DiveActivityMediaItemView(
+                            media: item,
+                            isVideoPlaybackActive: shouldPlayBackgroundVideo && selectedMediaID == item.id,
+                            loopsVideoPlayback: shouldPlayBackgroundVideo
+                        )
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .id(item.id)
                     }
                 }
                 .scrollTargetLayout()

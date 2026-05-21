@@ -566,3 +566,29 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **FIT** / single **UDDF** import always create a catalog site for unmatched import names; bulk UDDF still respects **Create dive sites** toggle.
 - **Tests:** **`diveActivitySiteAssociation_namedSite_doesNotLinkToNearbyDifferentName`**, **`createSiteForImportNameIfNeeded_insertsNamedSite`**; updated ambiguous-name GPS disambiguation test.
 
+---
+
+## 42 - Dive media upload progress **(pushed)**
+
+**Summary:** Progress overlay when adding photos/videos to a dive from the **Media** tab.
+
+- **`DiveMediaImportProgressOverlay`** — scrim + progress bar, **N of M added**, stage label; failure card with **Dismiss**.
+- **`DiveActivityMediaBatchImport`** (in **`DiveActivityMediaPickerImport.swift`**) — sequential picker import with **`onProgress`** callbacks.
+- **`DiveMediaImportProgressPresentation`** — progress fraction + stage copy.
+- **`ViewSingleActivity`** — overlay during import; **+** disabled while importing.
+- **Tests:** **`diveMediaImportProgressPresentation_*`**.
+
+**Summary (continued):** Muted looping dive videos on **Media** tab.
+
+- **`DiveActivityVideoPlayerView`** — **`isMuted`**; loop on end while playback active; pause when tab/detent hides background or another pager item is selected.
+- **`DiveActivityMediaPresentation.shouldPlayBackgroundVideo`** — **Media** tab + **minimized** / **medium** detent only.
+- **Tests:** **`diveActivityMediaPresentation_shouldPlayBackgroundVideo_mediaTabAndSmallDetents`**.
+
+**Summary (continued):** Profile edit control in top bar.
+
+- **`profile.swift`** — **⋮** edit beside **Settings** (top trailing); display name centered without inline menu.
+
+**Summary (continued):** Site-association tests aligned with exact-name import rules.
+
+- **Tests:** **`diveActivitySiteAssociation_matchesExactNameWhenNoEntryGPS`**, **`diveActivitySiteAssociation_doesNotFuzzyMatchPartialCatalogName`** (partial import name no longer links to longer catalog title).
+

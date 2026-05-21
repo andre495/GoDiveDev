@@ -1848,7 +1848,33 @@ struct GoDiveMVPTests {
     }
 
     @Test @MainActor
-    func diveActivitySiteAssociation_matchesByNameWhenNoEntryGPS() throws {
+    func diveActivitySiteAssociation_matchesExactNameWhenNoEntryGPS() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let catalog = DiveSite(
+            siteName: "Salt Pier",
+            latCoords: 12.0835,
+            longCoords: -68.283
+        )
+        context.insert(catalog)
+
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 10,
+            siteName: "Salt Pier"
+        )
+
+        DiveActivitySiteAssociation.applyBestMatch(to: activity, catalogSites: [catalog])
+        #expect(activity.diveSite?.id == catalog.id)
+        #expect(activity.entryCoordinate == nil)
+        #expect(activity.siteCoordinate?.latitude == 12.0835)
+    }
+
+    @Test @MainActor
+    func diveActivitySiteAssociation_doesNotFuzzyMatchPartialCatalogName() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = ModelContext(container)
 
@@ -1868,9 +1894,9 @@ struct GoDiveMVPTests {
         )
 
         DiveActivitySiteAssociation.applyBestMatch(to: activity, catalogSites: [catalog])
-        #expect(activity.diveSite?.id == catalog.id)
+        #expect(activity.diveSite == nil)
         #expect(activity.entryCoordinate == nil)
-        #expect(activity.siteCoordinate?.latitude == 12.0835)
+        #expect(activity.siteCoordinate == nil)
     }
 
     @Test func diveMapCoordinateResolver_fallsBackToCatalogSiteName() {
@@ -2104,6 +2130,29 @@ struct GoDiveMVPTests {
         #expect(sorted.map(\.sortOrder) == [0, 1])
     }
 
+    @Test func diveMediaImportProgressPresentation_progressFraction_clampsToUnitInterval() {
+        #expect(DiveMediaImportProgressPresentation.progressFraction(completed: 2, total: 5) == 0.4)
+        #expect(DiveMediaImportProgressPresentation.progressFraction(completed: 5, total: 5) == 1.0)
+        #expect(DiveMediaImportProgressPresentation.progressFraction(completed: 0, total: 0) == 0)
+    }
+
+    @Test func diveMediaImportProgressPresentation_stageLabels_includeIndex() {
+        #expect(DiveMediaImportProgressPresentation.loadingStage(itemIndex: 2, total: 5) == "Loading 2 of 5…")
+        #expect(DiveMediaImportProgressPresentation.savingStage(itemIndex: 3, total: 5) == "Saving 3 of 5…")
+        #expect(DiveMediaImportProgressPresentation.countLabel(completed: 3, total: 5) == "3 of 5 added")
+    }
+
+    @Test func diveMediaImportProgressPresentation_failureMessageWhenNoneSaved_pluralizes() {
+        #expect(
+            DiveMediaImportProgressPresentation.failureMessageWhenNoneSaved(attempted: 1)
+                .contains("selected item")
+        )
+        #expect(
+            DiveMediaImportProgressPresentation.failureMessageWhenNoneSaved(attempted: 3)
+                .contains("selected items")
+        )
+    }
+
     @Test func diveActivityMediaPresentation_emptyStateMessage() {
         #expect(DiveActivityMediaPresentation.emptyStateMessage == "No media added")
         #expect(DiveActivityMediaPresentation.mediaCountLabel(photoCount: 0) == "No media added")
@@ -2128,6 +2177,33 @@ struct GoDiveMVPTests {
         #expect(DiveActivityMediaPresentation.showsBackgroundPhotos(for: .minimized))
         #expect(DiveActivityMediaPresentation.showsBackgroundPhotos(for: .medium))
         #expect(!DiveActivityMediaPresentation.showsBackgroundPhotos(for: .large))
+    }
+
+    @Test func diveActivityMediaPresentation_shouldPlayBackgroundVideo_mediaTabAndSmallDetents() {
+        #expect(
+            DiveActivityMediaPresentation.shouldPlayBackgroundVideo(
+                isMediaTabSelected: true,
+                detent: .minimized
+            )
+        )
+        #expect(
+            DiveActivityMediaPresentation.shouldPlayBackgroundVideo(
+                isMediaTabSelected: true,
+                detent: .medium
+            )
+        )
+        #expect(
+            !DiveActivityMediaPresentation.shouldPlayBackgroundVideo(
+                isMediaTabSelected: true,
+                detent: .large
+            )
+        )
+        #expect(
+            !DiveActivityMediaPresentation.shouldPlayBackgroundVideo(
+                isMediaTabSelected: false,
+                detent: .medium
+            )
+        )
     }
 
     @Test func diveActivityMediaPresentation_resolvedSelectedPhotoID() {

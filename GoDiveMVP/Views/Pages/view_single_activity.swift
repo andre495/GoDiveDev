@@ -32,7 +32,7 @@ struct ViewSingleActivity: View {
     @State private var equipmentLinkErrorMessage: String?
     @State private var diveMediaPickerItems: [PhotosPickerItem] = []
     @State private var selectedDiveMediaPhotoID: UUID?
-    @State private var diveMediaAddErrorMessage: String?
+    @State private var mediaImportOverlay: DiveMediaImportOverlayState = .hidden
 
     /// **More** tab: profile samples sorted by time (read-only).
     private var moreTabSortedProfilePoints: [DiveProfilePoint] {
@@ -67,6 +67,14 @@ struct ViewSingleActivity: View {
                 .overlay(alignment: .top) {
                     activityTopChrome
                         .zIndex(1_000)
+                }
+                .overlay {
+                    if mediaImportOverlay != .hidden {
+                        DiveMediaImportProgressOverlay(state: mediaImportOverlay) {
+                            mediaImportOverlay = .hidden
+                        }
+                        .zIndex(2_000)
+                    }
                 }
         }
         .hidesBottomTabBarWhenPushed()
@@ -144,11 +152,6 @@ struct ViewSingleActivity: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(equipmentLinkErrorMessage ?? "Try again.")
-        }
-        .alert("Could not add media", isPresented: diveMediaAddErrorBinding) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(diveMediaAddErrorMessage ?? "Try again.")
         }
         .onChange(of: diveMediaPickerItems) { _, items in
             guard !items.isEmpty else { return }
@@ -274,6 +277,7 @@ struct ViewSingleActivity: View {
                             mediaItems: activity.sortedMediaPhotos,
                             selectedMediaID: $selectedDiveMediaPhotoID,
                             sheetDetent: overviewSheetDetent,
+                            isMediaTabSelected: selectedActivityTab == .camera,
                             bottomContentMargin: bottomObstruction
                         )
                         .ignoresSafeArea()
@@ -767,47 +771,52 @@ struct ViewSingleActivity: View {
     }
 
     private var photosPanelContent: some View {
-        DiveActivityPhotosPanelToolbar(mediaPickerItems: $diveMediaPickerItems)
-            .accessibilityIdentifier("DiveOverview.MediaPanel")
-    }
-
-    private var diveMediaAddErrorBinding: Binding<Bool> {
-        Binding(
-            get: { diveMediaAddErrorMessage != nil },
-            set: { if !$0 { diveMediaAddErrorMessage = nil } }
+        DiveActivityPhotosPanelToolbar(
+            mediaPickerItems: $diveMediaPickerItems,
+            isImportInProgress: mediaImportOverlay.isBlocking
         )
+        .accessibilityIdentifier("DiveOverview.MediaPanel")
     }
 
+    @MainActor
     private func importDiveMediaPickerItems(_ items: [PhotosPickerItem]) async {
-        var lastAddedID: UUID?
-        for item in items {
-            let payload: DiveMediaImportPayload
-            do {
-                payload = try await DiveActivityMediaPickerImport.loadPayload(from: item)
-            } catch {
-                continue
-            }
-            do {
-                let addedID = try await MainActor.run {
-                    try DiveActivityMediaStorage.addMedia(
-                        payload,
-                        to: activity,
-                        modelContext: modelContext
-                    )
-                }
-                lastAddedID = addedID
-            } catch {
-                await MainActor.run {
-                    diveMediaAddErrorMessage = error.localizedDescription
-                }
-                break
+        let total = items.count
+        withAnimation(.easeInOut(duration: 0.15)) {
+            mediaImportOverlay = .importing(completed: 0, total: total, stage: "Preparing…")
+        }
+        await Task.yield()
+
+        let outcome = await DiveActivityMediaBatchImport.importPickerItems(
+            items,
+            into: activity,
+            modelContext: modelContext
+        ) { completed, total, stage in
+            withAnimation(.easeInOut(duration: 0.12)) {
+                mediaImportOverlay = .importing(completed: completed, total: total, stage: stage)
             }
         }
-        await MainActor.run {
-            diveMediaPickerItems = []
-            if let lastAddedID {
-                selectedDiveMediaPhotoID = lastAddedID
+
+        if let failureMessage = outcome.failureMessage {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                mediaImportOverlay = .failed(failureMessage)
             }
+            diveMediaPickerItems = []
+            return
+        }
+
+        withAnimation(.easeInOut(duration: 0.15)) {
+            mediaImportOverlay = .importing(
+                completed: outcome.savedCount,
+                total: total,
+                stage: "Complete"
+            )
+        }
+        try? await Task.sleep(for: .milliseconds(450))
+
+        mediaImportOverlay = .hidden
+        diveMediaPickerItems = []
+        if let lastAddedID = outcome.lastAddedMediaID {
+            selectedDiveMediaPhotoID = lastAddedID
         }
     }
 
