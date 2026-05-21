@@ -12,15 +12,17 @@ struct DiveLogbookRowDisplayData: Equatable, Identifiable, Sendable {
 /// Builds logbook row display values (including **#** labels).
 enum DiveLogbookDisplay {
 
-    /// When **`useChronologicalNumbers`** is **`true`** (Settings → automatic renumber), **#** comes from **`startTime`** order in **`activities`**, not persisted **`diveNumber`**, so the list stays correct right after delete without waiting for background persist.
+    /// When **`useChronologicalNumbers`** is **`true`** (Settings → automatic renumber), **#** comes from **`startTime`** order in **`numberingActivities`** (full logbook), not the filtered **`activities`** rows — site search only hides rows; it does not renumber them.
     static func rowData(
         activities: [DiveActivity],
         unitSystem: DiveDisplayUnitSystem,
         duplicateIds: Set<UUID>,
-        useChronologicalNumbers: Bool
+        useChronologicalNumbers: Bool,
+        numberingActivities: [DiveActivity]? = nil
     ) -> [DiveLogbookRowDisplayData] {
+        let numberingSource = numberingActivities ?? activities
         let chronologicalNumbers: [UUID: Int] = useChronologicalNumbers
-            ? DiveActivityDiveNumbering.sequentialIndicesById(for: activities)
+            ? DiveActivityDiveNumbering.numberedDiveSequentialIndicesById(for: numberingSource)
             : [:]
 
         return activities.map { activity in

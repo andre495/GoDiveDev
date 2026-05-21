@@ -114,6 +114,15 @@ enum DiveActivityEquipmentAssociation {
         modelContext: ModelContext
     ) throws {
         let candidates = try autoAddCandidates(forOwnerProfileID: ownerProfileID, modelContext: modelContext)
+        try applyAutoAdd(to: dive, candidates: candidates, modelContext: modelContext)
+    }
+
+    /// Batch import: reuse one **`autoAddCandidates`** fetch for every dive in the file.
+    static func applyAutoAdd(
+        to dive: DiveActivity,
+        candidates: [EquipmentItem],
+        modelContext: ModelContext
+    ) throws {
         for item in candidates {
             try link(item, to: dive, modelContext: modelContext)
         }

@@ -1347,7 +1347,62 @@ struct GoDiveMVPTests {
     }
 
     @Test @MainActor
-    func diveActivitySiteAssociation_matchesByCoordinateBeforeName() throws {
+    func diveActivitySiteAssociation_uniqueExactName_beatsNearbyCoordinate() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let nearbyWrong = DiveSite(
+            siteName: "Nearby GPS Only",
+            latCoords: 12.0835,
+            longCoords: -68.283
+        )
+        let saltPier = DiveSite(
+            siteName: "Salt Pier",
+            latCoords: 1,
+            longCoords: 1
+        )
+        context.insert(nearbyWrong)
+        context.insert(saltPier)
+
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 10,
+            siteName: "Salt Pier",
+            entryCoordinate: DiveCoordinate(latitude: 12.08316, longitude: -68.2833)
+        )
+
+        DiveActivitySiteAssociation.applyBestMatch(to: activity, catalogSites: [nearbyWrong, saltPier])
+        #expect(activity.diveSite?.siteName == "Salt Pier")
+        #expect(activity.diveSiteID == saltPier.id)
+    }
+
+    @Test @MainActor
+    func diveActivitySiteAssociation_ambiguousExactName_usesCoordinate() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let saltPierA = DiveSite(siteName: "Salt Pier", latCoords: 12.0835, longCoords: -68.283)
+        let saltPierB = DiveSite(siteName: "Salt Pier", latCoords: 5, longCoords: 5)
+        context.insert(saltPierA)
+        context.insert(saltPierB)
+
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 10,
+            siteName: "Salt Pier",
+            entryCoordinate: DiveCoordinate(latitude: 12.08316, longitude: -68.2833)
+        )
+
+        DiveActivitySiteAssociation.applyBestMatch(to: activity, catalogSites: [saltPierA, saltPierB])
+        #expect(activity.diveSiteID == saltPierA.id)
+    }
+
+    @Test @MainActor
+    func diveActivitySiteAssociation_fuzzyNameOnly_usesCoordinateBeforeContainsMatch() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = ModelContext(container)
 
@@ -2814,6 +2869,97 @@ struct GoDiveMVPTests {
         """
     }
 
+    @Test func uddfDiveNumberFields_zero_isExplicitlyNone() {
+        let resolved = UddfDiveFileDecoder.diveNumberFields(fromUddfDiveNumber: 0)
+        #expect(resolved.diveNumber == nil)
+        #expect(resolved.diveNumberExplicitlyNone == true)
+    }
+
+    @Test func uddfDiveNumberFields_positive_preservesNumber() {
+        let resolved = UddfDiveFileDecoder.diveNumberFields(fromUddfDiveNumber: 146)
+        #expect(resolved.diveNumber == 146)
+        #expect(resolved.diveNumberExplicitlyNone == false)
+    }
+
+    @Test func uddfDecoder_divenumberZero_showsDashInLogbook() throws {
+        let xml = """
+        <?xml version="1.0" encoding="UTF-8" ?>
+        <uddf xmlns="http://www.streit.cc/uddf/3.2/" version="3.2.1">
+        <generator><name>TestGen</name><version>1</version></generator>
+        <profiledata><repetitiongroup id="rg">
+        <dive id="d-zero">
+            <informationbeforedive>
+                <datetime>2025-05-09T11:26:28</datetime>
+                <divenumber>0</divenumber>
+            </informationbeforedive>
+            <informationafterdive>
+                <greatestdepth>10</greatestdepth>
+                <diveduration>60</diveduration>
+            </informationafterdive>
+            <samples><waypoint><depth>5</depth><divetime>0</divetime></waypoint></samples>
+        </dive>
+        </repetitiongroup></profiledata>
+        </uddf>
+        """
+        let dive = try UddfDiveFileDecoder.buildDiveActivities(from: Data(xml.utf8)).first
+        let activity = try #require(dive)
+        #expect(activity.diveNumber == nil)
+        #expect(activity.diveNumberExplicitlyNone == true)
+        #expect(activity.diveNumberLogbookLabel == "-")
+    }
+
+    @Test @MainActor
+    func uddfImport_createMissingDiveSites_linksNewAndExisting() async throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let existingSite = DiveSite(siteName: "Salt Pier", country: "Bonaire", latCoords: 12.08, longCoords: -68.28)
+        context.insert(existingSite)
+        try context.save()
+
+        let owner = UserProfile(appleUserIdentifier: "test-sites", displayName: "Sites")
+        context.insert(owner)
+        try context.save()
+
+        let xml = """
+        <?xml version="1.0" encoding="UTF-8" ?>
+        <uddf xmlns="http://www.streit.cc/uddf/3.2/" version="3.2.1">
+        <generator><name>TestGen</name><version>1</version></generator>
+        <divesite>
+            <site id="s-known"><name>Salt Pier</name><geography><location>Bonaire</location></geography></site>
+            <site id="s-new"><name>Angel City</name><geography><location>Bonaire</location><latitude>12.1</latitude><longitude>-68.2</longitude></geography></site>
+        </divesite>
+        <profiledata><repetitiongroup id="rg">
+        <dive id="d-known">
+            <informationbeforedive><link ref="s-known"/><datetime>2025-06-01T12:00:00</datetime></informationbeforedive>
+            <informationafterdive><greatestdepth>12</greatestdepth><diveduration>60</diveduration></informationafterdive>
+            <samples><waypoint><depth>5</depth><divetime>0</divetime></waypoint></samples>
+        </dive>
+        <dive id="d-new">
+            <informationbeforedive><link ref="s-new"/><datetime>2025-06-02T12:00:00</datetime></informationbeforedive>
+            <informationafterdive><greatestdepth>14</greatestdepth><diveduration>60</diveduration></informationafterdive>
+            <samples><waypoint><depth>6</depth><divetime>0</divetime></waypoint></samples>
+        </dive>
+        </repetitiongroup></profiledata>
+        </uddf>
+        """
+        let outcome = await UddfDiveFileImport.importUddfData(
+            Data(xml.utf8),
+            modelContext: context,
+            owner: owner,
+            createMissingDiveSites: true
+        )
+        #expect(outcome.didSucceed)
+        #expect(outcome.createdDiveSiteCount == 1)
+        let sites = try context.fetch(FetchDescriptor<DiveSite>())
+        #expect(sites.count == 2)
+        let dives = try context.fetch(FetchDescriptor<DiveActivity>())
+        #expect(dives.count == 2)
+        let known = try #require(dives.first { $0.sourceDiveId == "d-known" })
+        let newDive = try #require(dives.first { $0.sourceDiveId == "d-new" })
+        #expect(known.diveSite?.id == existingSite.id)
+        #expect(newDive.diveSite?.siteName == "Angel City")
+    }
+
     @Test func uddfDecoder_minimal_buildsOneDive() throws {
         let data = Data(UddfTestXML.oneDive.utf8)
         let dives = try UddfDiveFileDecoder.buildDiveActivities(from: data)
@@ -2907,10 +3053,106 @@ struct GoDiveMVPTests {
         #expect(cal.component(.day, from: d) == 9)
     }
 
+    @Test func bulkUddfImportSummary_message_listsCounts() {
+        let summary = BulkUddfImportSummary(
+            imported: 143,
+            duplicates: 5,
+            diveSitesCreated: 12,
+            primaryInsertedDiveId: nil
+        )
+        let message = BulkUddfImportSummary.message(for: summary)
+        #expect(message.contains("143 dives imported"))
+        #expect(message.contains("5 duplicate dives found"))
+        #expect(message.contains("12 dive sites created"))
+    }
+
     @Test func diveFileImportSuccess_matchesFitAndMultiUddf() {
         #expect(DiveFileImportSuccess.matches("\(FitDiveFileImport.importSuccessMessagePrefix) starting test."))
         #expect(DiveFileImportSuccess.matches("Imported 3 dives."))
+        #expect(DiveFileImportSuccess.matches("Imported 143 dives. 5 duplicate dives found."))
         #expect(!DiveFileImportSuccess.matches("Could not read UDDF XML: broken"))
+    }
+
+    @Test @MainActor
+    func uddfImport_onProgress_reportsInsertedAndProcessed() async throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "test-uddf-progress", displayName: "Progress")
+        context.insert(owner)
+        try context.save()
+        let activities = try UddfDiveFileDecoder.buildDiveActivities(from: Data(UddfTestXML.twoDives.utf8))
+        var snapshots: [(Int, Int, Int, Int)] = []
+        _ = await UddfDiveFileImport.persistImportedActivities(
+            activities,
+            modelContext: context,
+            owner: owner
+        ) { imported, duplicates, processed, total in
+            snapshots.append((imported, duplicates, processed, total))
+        }
+        #expect(snapshots.count == 2)
+        #expect(snapshots[0] == (1, 0, 1, 2))
+        #expect(snapshots[1] == (2, 0, 2, 2))
+    }
+
+    @Test @MainActor
+    func uddfImport_skipsWhenGarminFingerprintAlreadyInLog() async throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "test-cross-fmt", displayName: "Cross")
+        context.insert(owner)
+        let start = Date(timeIntervalSince1970: 1_750_000_000)
+        let garmin = DiveActivity(
+            source: .garminMK3,
+            sourceDiveId: "garmin-fit-abc",
+            startTime: start,
+            durationMinutes: 76,
+            maxDepthMeters: 13.18,
+            bottomTimeSeconds: 4561
+        )
+        DiveActivityOwnership.assignOwner(owner, to: garmin)
+        context.insert(garmin)
+        try context.save()
+
+        let mac = DiveActivity(
+            source: .macDive,
+            sourceDiveId: "5B4EE0E4-1075-45A2-AF0A-BB08B0635051",
+            startTime: start.addingTimeInterval(45),
+            durationMinutes: 76,
+            maxDepthMeters: 13.0,
+            bottomTimeSeconds: 4560
+        )
+        let outcome = await UddfDiveFileImport.persistImportedActivities(
+            [mac],
+            modelContext: context,
+            owner: owner
+        )
+        #expect(!outcome.didSucceed)
+        #expect(outcome.insertedCount == 0)
+        #expect(outcome.skippedDuplicateCount == 1)
+        let fetched = try context.fetch(FetchDescriptor<DiveActivity>())
+        #expect(fetched.count == 1)
+        #expect(fetched.first?.source == .garminMK3)
+    }
+
+    @Test @MainActor
+    func uddfImport_bulk_skipsDuplicateAgainstExistingLog() async throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "test-uddf-bulk-dup", displayName: "Bulk Dup")
+        context.insert(owner)
+        try context.save()
+        let data = Data(UddfTestXML.twoDives.utf8)
+        let first = await UddfDiveFileImport.importUddfData(data, modelContext: context, owner: owner)
+        #expect(first.didSucceed)
+        #expect(first.insertedCount == 2)
+        let second = await UddfDiveFileImport.importUddfData(data, modelContext: context, owner: owner)
+        #expect(!second.didSucceed)
+        #expect(second.insertedCount == 0)
+        #expect(second.skippedDuplicateCount == 2)
+        #expect(second.totalInFile == 2)
+        #expect(second.userMessage.contains("2 duplicate dives found"))
+        let fetched = try context.fetch(FetchDescriptor<DiveActivity>())
+        #expect(fetched.count == 2)
     }
 
     @Test func diveFileImportOutcome_didSucceed_matchesDiveFileImportSuccess() {
@@ -2922,24 +3164,24 @@ struct GoDiveMVPTests {
     }
 
     @Test @MainActor
-    func uddfImport_withoutOwner_returnsSignInMessage() throws {
+    func uddfImport_withoutOwner_returnsSignInMessage() async throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = ModelContext(container)
         let data = Data(UddfTestXML.oneDive.utf8)
-        let outcome = UddfDiveFileImport.importUddfData(data, modelContext: context)
+        let outcome = await UddfDiveFileImport.importUddfData(data, modelContext: context)
         #expect(!outcome.didSucceed)
         #expect(outcome.userMessage == "Sign in to import dives.")
     }
 
     @Test @MainActor
-    func uddfImport_twoDives_insertsBoth() throws {
+    func uddfImport_twoDives_insertsBoth() async throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = ModelContext(container)
         let owner = UserProfile(appleUserIdentifier: "test-uddf-import", displayName: "Import Test")
         context.insert(owner)
         try context.save()
         let data = Data(UddfTestXML.twoDives.utf8)
-        let outcome = UddfDiveFileImport.importUddfData(data, modelContext: context, owner: owner)
+        let outcome = await UddfDiveFileImport.importUddfData(data, modelContext: context, owner: owner)
         #expect(outcome.didSucceed)
         let fetched = try context.fetch(FetchDescriptor<DiveActivity>())
         #expect(fetched.count == 2)
@@ -3092,6 +3334,42 @@ struct GoDiveMVPTests {
         #expect(DiveActivityDuplicateMatcher.matchReason(candidate: garmin, existing: mac) == .matchingFingerprint)
     }
 
+    @Test func diveActivityDuplicateMatcher_fingerprint_mixedBottomAndDurationMinutes() {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let garmin = DiveActivityDuplicateMatcher.Signature(
+            sourceDiveId: "fit-session",
+            startTime: start,
+            maxDepthMeters: 21.5,
+            durationMinutes: 45,
+            bottomTimeSeconds: 2700
+        )
+        let mac = DiveActivityDuplicateMatcher.Signature(
+            sourceDiveId: "uddf-macdive-uuid",
+            startTime: start.addingTimeInterval(90),
+            maxDepthMeters: 21.2,
+            durationMinutes: 45,
+            bottomTimeSeconds: nil
+        )
+        #expect(DiveActivityDuplicateMatcher.matchReason(candidate: garmin, existing: mac) == .matchingFingerprint)
+    }
+
+    @Test func diveActivityDuplicateMatcher_fingerprint_sessionDurationVsBottomTime_noMatch() {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let garmin = DiveActivityDuplicateMatcher.Signature(
+            startTime: start,
+            maxDepthMeters: 21.5,
+            durationMinutes: 50,
+            bottomTimeSeconds: nil
+        )
+        let mac = DiveActivityDuplicateMatcher.Signature(
+            startTime: start,
+            maxDepthMeters: 21.5,
+            durationMinutes: 45,
+            bottomTimeSeconds: 2700
+        )
+        #expect(DiveActivityDuplicateMatcher.matchReason(candidate: garmin, existing: mac) == nil)
+    }
+
     @Test func diveActivityDuplicateMatcher_differentStartTimes_noMatch() {
         let a = DiveActivityDuplicateMatcher.Signature(
             startTime: Date(timeIntervalSince1970: 1_700_000_000),
@@ -3131,18 +3409,18 @@ struct GoDiveMVPTests {
     }
 
     @Test @MainActor
-    func uddfImport_secondImportOfSameFile_blockedAsDuplicate() throws {
+    func uddfImport_secondImportOfSameFile_blockedAsDuplicate() async throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = ModelContext(container)
         let owner = UserProfile(appleUserIdentifier: "test-uddf-dup", displayName: "Dup Test")
         context.insert(owner)
         try context.save()
         let data = Data(UddfTestXML.oneDive.utf8)
-        let first = UddfDiveFileImport.importUddfData(data, modelContext: context, owner: owner)
+        let first = await UddfDiveFileImport.importUddfData(data, modelContext: context, owner: owner)
         #expect(first.didSucceed)
-        let second = UddfDiveFileImport.importUddfData(data, modelContext: context, owner: owner)
+        let second = await UddfDiveFileImport.importUddfData(data, modelContext: context, owner: owner)
         #expect(!second.didSucceed)
-        #expect(second.userMessage.contains("already in your log"))
+        #expect(second.userMessage.contains("already in your log") || second.userMessage.contains("duplicate"))
         let fetched = try context.fetch(FetchDescriptor<DiveActivity>())
         #expect(fetched.count == 1)
     }
@@ -3525,6 +3803,52 @@ struct GoDiveMVPTests {
         #expect(legacyNil.diveNumber == 2)
     }
 
+    @Test func diveActivityDiveNumbering_numberedSequentialIndices_skipsExplicitNone() {
+        let t0 = Date(timeIntervalSince1970: 0)
+        let t1 = Date(timeIntervalSince1970: 86_400)
+        let t2 = Date(timeIntervalSince1970: 172_800)
+        let a = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
+        let hidden = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 99)
+        hidden.diveNumberExplicitlyNone = true
+        let c = DiveActivity(source: .manual, startTime: t2, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 99)
+        let map = DiveActivityDiveNumbering.numberedDiveSequentialIndicesById(for: [c, hidden, a])
+        #expect(map[a.id] == 1)
+        #expect(map[hidden.id] == nil)
+        #expect(map[c.id] == 2)
+    }
+
+    @Test @MainActor
+    func diveActivityDiveNumbering_renumberAllChronologically_skipsExplicitNone() throws {
+        let schema = Schema([
+            DiveActivity.self,
+            DiveBuddyTag.self,
+            DiveProfilePoint.self,
+            DiveSite.self,
+        ])
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = ModelContext(container)
+
+        let t0 = Date(timeIntervalSince1970: 0)
+        let t1 = Date(timeIntervalSince1970: 86_400)
+        let t2 = Date(timeIntervalSince1970: 172_800)
+        let a = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
+        let hidden = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 50)
+        hidden.diveNumberExplicitlyNone = true
+        let c = DiveActivity(source: .manual, startTime: t2, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 99)
+        context.insert(a)
+        context.insert(hidden)
+        context.insert(c)
+        try context.save()
+
+        try DiveActivityDiveNumbering.renumberAllChronologically(modelContext: context)
+
+        #expect(a.diveNumber == 1)
+        #expect(hidden.diveNumber == 50)
+        #expect(hidden.diveNumberExplicitlyNone == true)
+        #expect(c.diveNumber == 2)
+    }
+
     @Test @MainActor
     func diveActivityDiveNumbering_renumberAllChronologically_rewritesPersisted() throws {
         let schema = Schema([
@@ -3745,6 +4069,46 @@ struct GoDiveMVPTests {
         #expect(byId[a.id] == "#1")
         #expect(byId[b.id] == "#2")
         #expect(byId[c.id] == "#3")
+    }
+
+    @Test func diveLogbookDisplay_filteredRows_keepFullLogbookChronologicalNumbers() {
+        let t0 = Date(timeIntervalSince1970: 0)
+        let t1 = Date(timeIntervalSince1970: 86_400)
+        let t2 = Date(timeIntervalSince1970: 172_800)
+        let a = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 99)
+        let b = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 99)
+        let c = DiveActivity(source: .manual, startTime: t2, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 99)
+
+        let rows = DiveLogbookDisplay.rowData(
+            activities: [c],
+            unitSystem: .metric,
+            duplicateIds: [],
+            useChronologicalNumbers: true,
+            numberingActivities: [a, b, c]
+        )
+        #expect(rows.count == 1)
+        #expect(rows.first?.diveNumberLabel == "#3")
+    }
+
+    @Test func diveLogbookDisplay_chronologicalNumbers_skipHiddenMiddleSlot() {
+        let t0 = Date(timeIntervalSince1970: 0)
+        let t1 = Date(timeIntervalSince1970: 86_400)
+        let t2 = Date(timeIntervalSince1970: 172_800)
+        let a = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 99)
+        let hidden = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 50)
+        hidden.diveNumberExplicitlyNone = true
+        let c = DiveActivity(source: .manual, startTime: t2, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 99)
+
+        let rows = DiveLogbookDisplay.rowData(
+            activities: [a, hidden, c],
+            unitSystem: .metric,
+            duplicateIds: [],
+            useChronologicalNumbers: true
+        )
+        let byId = Dictionary(uniqueKeysWithValues: rows.map { ($0.id, $0.diveNumberLabel) })
+        #expect(byId[a.id] == "#1")
+        #expect(byId[hidden.id] == "-")
+        #expect(byId[c.id] == "#2")
     }
 
     @Test func diveLogbookDisplay_usesPersistedNumber_whenChronologicalDisabled() {

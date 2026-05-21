@@ -5,7 +5,7 @@ import SwiftData
 ///
 /// **Rules**
 /// - **`.fit` import:** **`assignNextDiveNumberChainedAfterNewest`** — next **#** is **(last numbered dive in **`startTime`** order) + 1**; dives with **`diveNumber == nil`** (unset or **`diveNumberExplicitlyNone`**) do not advance the chain. Garmin **`SessionMesg`** is not used.
-/// - **After delete (when automatic renumber is on in Settings):** **`DiveBackgroundRenumberingWorker`** (**`@ModelActor`**) persists **#**s off the main actor; Logbook labels use chronological display. **`renumberAllChronologically`** on the main context is for Settings / import. **`partialRenumberAfterDeleteWouldBeNoop`** skips work when tail **#**s are already correct.
+/// - **After delete (when automatic renumber is on in Settings):** **`DiveBackgroundRenumberingWorker`** (**`@ModelActor`**) persists **#**s off the main actor; Logbook labels use chronological display. **`renumberAllChronologically`** on the main context is for Settings / import. Dives with **`diveNumberExplicitlyNone`** (logbook **`-`**) are never renumbered and do not consume a **#** slot. **`partialRenumberAfterDeleteWouldBeNoop`** skips work when tail **#**s are already correct.
 /// - **JSON fixtures / mapper:** **`diveNumber`** from the DTO when present; **`backfillMissingDiveNumbers`** fills **`nil`** only when **`diveNumberExplicitlyNone`** is **`false`**.
 enum DiveActivityDiveNumbering {
     /// Oldest **`startTime`** → **1**; ties broken by **`id`**.
@@ -18,6 +18,24 @@ enum DiveActivityDiveNumbering {
             return $0.id.uuidString < $1.id.uuidString
         }
         return Dictionary(uniqueKeysWithValues: sorted.enumerated().map { ($0.element.id, $0.offset + 1) })
+    }
+
+    /// Chronological **1…n** for dives that show a **#** in the logbook (skips **`diveNumberExplicitlyNone`** / **`-`**).
+    nonisolated static func numberedDiveSequentialIndicesById(for activities: [DiveActivity]) -> [UUID: Int] {
+        guard !activities.isEmpty else { return [:] }
+        let sorted = activities.sorted {
+            if $0.startTime != $1.startTime {
+                return $0.startTime < $1.startTime
+            }
+            return $0.id.uuidString < $1.id.uuidString
+        }
+        var map: [UUID: Int] = [:]
+        var next = 1
+        for activity in sorted where !activity.diveNumberExplicitlyNone {
+            map[activity.id] = next
+            next += 1
+        }
+        return map
     }
 
     /// **`a`** is strictly before **`(deletedStartTime, deletedId)`** in chronological order (same tie-break as **`sequentialIndicesById`**).
@@ -41,18 +59,19 @@ enum DiveActivityDiveNumbering {
         guard !remaining.isEmpty else { return true }
         let older = remaining.filter { chronologicallyBefore($0, deletedStartTime: deletedStartTime, deletedId: deletedId) }
         let newer = remaining.filter { !chronologicallyBefore($0, deletedStartTime: deletedStartTime, deletedId: deletedId) }
-        let base = older.compactMap(\.diveNumber).max() ?? 0
+        let base = older.filter { !$0.diveNumberExplicitlyNone }.compactMap(\.diveNumber).max() ?? 0
         let newerSorted = newer.sorted {
             if $0.startTime != $1.startTime {
                 return $0.startTime < $1.startTime
             }
             return $0.id.uuidString < $1.id.uuidString
         }
-        for (i, a) in newerSorted.enumerated() {
-            let expected = base + 1 + i
-            if a.diveNumberExplicitlyNone || a.diveNumber != expected {
+        var next = base + 1
+        for a in newerSorted where !a.diveNumberExplicitlyNone {
+            if a.diveNumber != next {
                 return false
             }
+            next += 1
         }
         return true
     }
@@ -77,23 +96,27 @@ enum DiveActivityDiveNumbering {
 
     @MainActor
     static func assignNextDiveNumberChainedAfterNewest(for activity: DiveActivity, modelContext: ModelContext) throws {
-        let existing = try modelContext.fetch(FetchDescriptor<DiveActivity>())
-        activity.diveNumber = nextChainedDiveNumberForNewImport(existingDives: existing)
-        activity.diveNumberExplicitlyNone = false
+        var existing = try modelContext.fetch(FetchDescriptor<DiveActivity>())
+        assignNextChainedDiveNumber(to: activity, among: &existing)
     }
 
-    /// Rewrites **`diveNumber`** on **every** persisted dive to **1…n** in **`startTime`** order (ties **`id`**). Main-context only; background delete uses **`DiveBackgroundRenumberingWorker`**.
+    /// In-memory chained **#** for batch import (avoids refetching the logbook each dive).
+    nonisolated static func assignNextChainedDiveNumber(to activity: DiveActivity, among existingDives: inout [DiveActivity]) {
+        activity.diveNumber = nextChainedDiveNumberForNewImport(existingDives: existingDives)
+        activity.diveNumberExplicitlyNone = false
+        existingDives.append(activity)
+    }
+
+    /// Rewrites **`diveNumber`** on numbered dives to **1…n** in **`startTime`** order (ties **`id`**); leaves **`-`** dives untouched. Main-context only; background delete uses **`DiveBackgroundRenumberingWorker`**.
     @MainActor
     static func renumberAllChronologically(modelContext: ModelContext) throws {
         let all = try modelContext.fetch(FetchDescriptor<DiveActivity>())
         guard !all.isEmpty else { return }
-        let map = sequentialIndicesById(for: all)
+        let map = numberedDiveSequentialIndicesById(for: all)
         var changed = false
-        for a in all {
-            let next = map[a.id]
-            let needsWrite = a.diveNumberExplicitlyNone || a.diveNumber != next
-            if needsWrite {
-                a.diveNumberExplicitlyNone = false
+        for a in all where !a.diveNumberExplicitlyNone {
+            guard let next = map[a.id] else { continue }
+            if a.diveNumber != next {
                 a.diveNumber = next
                 changed = true
             }
@@ -119,7 +142,7 @@ enum DiveActivityDiveNumbering {
         let all = try modelContext.fetch(FetchDescriptor<DiveActivity>())
         let older = all.filter { chronologicallyBefore($0, deletedStartTime: deletedStartTime, deletedId: deletedId) }
         let newer = all.filter { !chronologicallyBefore($0, deletedStartTime: deletedStartTime, deletedId: deletedId) }
-        let base = older.compactMap(\.diveNumber).max() ?? 0
+        let base = older.filter { !$0.diveNumberExplicitlyNone }.compactMap(\.diveNumber).max() ?? 0
         let newerSorted = newer.sorted {
             if $0.startTime != $1.startTime {
                 return $0.startTime < $1.startTime
@@ -128,9 +151,8 @@ enum DiveActivityDiveNumbering {
         }
         var changed = false
         var next = base + 1
-        for a in newerSorted {
-            if a.diveNumberExplicitlyNone || a.diveNumber != next {
-                a.diveNumberExplicitlyNone = false
+        for a in newerSorted where !a.diveNumberExplicitlyNone {
+            if a.diveNumber != next {
                 a.diveNumber = next
                 changed = true
             }

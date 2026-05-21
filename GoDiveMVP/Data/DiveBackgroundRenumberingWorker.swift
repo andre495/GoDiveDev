@@ -8,13 +8,11 @@ actor DiveBackgroundRenumberingWorker {
     func renumberAllChronologically() throws {
         let all = try modelContext.fetch(FetchDescriptor<DiveActivity>())
         guard !all.isEmpty else { return }
-        let map = DiveActivityDiveNumbering.sequentialIndicesById(for: all)
+        let map = DiveActivityDiveNumbering.numberedDiveSequentialIndicesById(for: all)
         var changed = false
-        for a in all {
-            let next = map[a.id]
-            let needsWrite = a.diveNumberExplicitlyNone || a.diveNumber != next
-            if needsWrite {
-                a.diveNumberExplicitlyNone = false
+        for a in all where !a.diveNumberExplicitlyNone {
+            guard let next = map[a.id] else { continue }
+            if a.diveNumber != next {
                 a.diveNumber = next
                 changed = true
             }
@@ -32,7 +30,7 @@ actor DiveBackgroundRenumberingWorker {
         let newer = all.filter {
             !DiveActivityDiveNumbering.chronologicallyBefore($0, deletedStartTime: deletedStartTime, deletedId: deletedId)
         }
-        let base = older.compactMap(\.diveNumber).max() ?? 0
+        let base = older.filter { !$0.diveNumberExplicitlyNone }.compactMap(\.diveNumber).max() ?? 0
         let newerSorted = newer.sorted {
             if $0.startTime != $1.startTime {
                 return $0.startTime < $1.startTime
@@ -41,9 +39,8 @@ actor DiveBackgroundRenumberingWorker {
         }
         var changed = false
         var next = base + 1
-        for a in newerSorted {
-            if a.diveNumberExplicitlyNone || a.diveNumber != next {
-                a.diveNumberExplicitlyNone = false
+        for a in newerSorted where !a.diveNumberExplicitlyNone {
+            if a.diveNumber != next {
                 a.diveNumber = next
                 changed = true
             }

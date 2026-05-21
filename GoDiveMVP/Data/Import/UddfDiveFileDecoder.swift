@@ -61,9 +61,18 @@ enum UddfDiveFileDecoder {
 
     // MARK: - Dive scratch
 
+    /// Maps MacDive **`<divenumber>`** onto persisted fields. **`0`** → hidden **`-`** in the logbook.
+    static func diveNumberFields(fromUddfDiveNumber raw: Int?) -> (diveNumber: Int?, diveNumberExplicitlyNone: Bool) {
+        guard let raw else { return (nil, false) }
+        if raw == 0 { return (nil, true) }
+        if raw > 0 { return (raw, false) }
+        return (nil, false)
+    }
+
     private struct DiveScratch {
         var diveId: String
         var linkRefs: [String] = []
+        var uddfDiveNumber: Int?
         var datetimeRaw: String?
         var surfaceIntervalPassed: Double?
         var greatestDepth: Double?
@@ -159,6 +168,8 @@ enum UddfDiveFileDecoder {
             .flatMap { gasMixById[$0] }
             .map { DiveGasMixImport.resolved(fromUddfO2: $0) }
 
+        let diveNumberResolved = diveNumberFields(fromUddfDiveNumber: scratch.uddfDiveNumber)
+
         let activity = DiveActivity(
             source: .macDive,
             sourceDiveId: diveId,
@@ -168,8 +179,8 @@ enum UddfDiveFileDecoder {
             averageDepthMeters: averageDepthMeters,
             bottomTimeSeconds: bottomTimeSeconds,
             surfaceIntervalSeconds: surfaceIntervalSeconds,
-            diveNumber: nil,
-            diveNumberExplicitlyNone: false,
+            diveNumber: diveNumberResolved.diveNumber,
+            diveNumberExplicitlyNone: diveNumberResolved.diveNumberExplicitlyNone,
             waterTempAvgCelsius: waterTempAvgCelsius,
             waterTempMaxCelsius: waterTempMaxCelsius,
             waterTempMinCelsius: waterTempMinCelsius,
@@ -520,6 +531,18 @@ enum UddfDiveFileDecoder {
             case "passedtime":
                 if var d = diveScratch, pathEnds(with: ["informationbeforedive", "surfaceintervalbeforedive", "passedtime"]) {
                     d.surfaceIntervalPassed = Double(trimmed)
+                    diveScratch = d
+                }
+            case "divenumber":
+                if var d = diveScratch, pathEnds(with: ["informationbeforedive", "divenumber"]) {
+                    d.uddfDiveNumber = Int(trimmed)
+                    diveScratch = d
+                }
+            case "divenumberofday":
+                if var d = diveScratch,
+                   pathEnds(with: ["informationbeforedive", "divenumberofday"]),
+                   d.uddfDiveNumber == nil {
+                    d.uddfDiveNumber = Int(trimmed)
                     diveScratch = d
                 }
             case "greatestdepth":

@@ -11,6 +11,9 @@ enum AppUserSettings: Sendable {
     /// **`DefaultTankSize.rawValue`** — default rated size + material for new imports (**AL80**, **AL63**, **ST100**, **ST120**).
     nonisolated static let defaultTankSizeKey = "goDiveDefaultTankSize"
 
+    /// Bulk **UDDF** import: insert catalog **`DiveSite`** rows for unmatched site names in the file.
+    nonisolated static let bulkUddfCreateDiveSitesKey = "goDiveBulkUddfCreateDiveSites"
+
     static var automaticallyRenumberDives: Bool {
         UserDefaults.standard.bool(forKey: automaticallyRenumberDivesKey)
     }

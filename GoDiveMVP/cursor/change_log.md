@@ -487,3 +487,20 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`LogbookTopChrome`** — single top row: search field; trailing **+** swaps to **Cancel** while search is focused.
 - **`LogbookSiteSearchField`** — **`@FocusState`** binding; list **`scrollDismissesKeyboard(.interactively)`**.
 
+---
+
+## 39 - Bulk UDDF import, logbook polish, site linking
+
+**Summary:** MacDive **`.uddf`** bulk import (dives only — not media, locker gear, or other MacDive export data yet), live progress + completion alert, Add activity layout/sheet UX, duplicate + site-link fixes, and renumber/search display rules.
+
+- **`ActivityUploadView`** — **VStack** tiles: **File upload** (**.uddf or .fit**), **Manual entry**, compact **Bulk UDDF**; **`.large`** options sheet with MacDive export instructions + **Create dive sites from import** toggle (**`AppUserSettings.bulkUddfCreateDiveSitesKey`**).
+- **`UddfDiveFileImport`** — multi-dive persist with per-dive progress (**`Task.yield()`**), in-memory chained **`diveNumber`** + prefetched **`autoAdd`**; **`createdDiveSiteCount`** on **`DiveFileImportOutcome`**; **`BulkUddfImportSummary`** completion alert (imported / duplicates / sites created).
+- **`UddfDiveFileDecoder`** — **`divenumber` `0`** → **`diveNumberExplicitlyNone`** (logbook **`-`**).
+- **`DiveActivityDuplicateMatcher`** — cross-format FIT/UDDF fingerprint; duration/bottom tolerance fix.
+- **`DiveActivitySiteAssociation`** — unique exact **`siteName`** before GPS; optional catalog site creation on bulk import.
+- **`DiveLogbookDisplay`** — site search uses full logbook for **#** when auto-renumber is on (**`numberingActivities`**).
+- **`DiveActivityDiveNumbering`** / **`DiveBackgroundRenumberingWorker`** — renumber skips **`diveNumberExplicitlyNone`** (**`-`**).
+- **Tests:** bulk import, progress, site linking, renumber/search display, duplicate matcher, **`BulkUddfImportSummary`**.
+
+**Scope note:** Bulk UDDF imports **`DiveActivity`** rows (profile, tank, site, buddies from UDDF). MacDive **photos, equipment locker, certifications**, and other export payloads are **not** imported yet.
+

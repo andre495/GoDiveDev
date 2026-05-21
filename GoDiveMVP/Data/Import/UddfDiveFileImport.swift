@@ -29,11 +29,17 @@ enum UddfDiveFileImport {
     static func importUddfData(
         _ data: Data,
         modelContext: ModelContext,
-        owner: UserProfile? = nil
-    ) -> DiveFileImportOutcome {
+        owner: UserProfile? = nil,
+        createMissingDiveSites: Bool = false
+    ) async -> DiveFileImportOutcome {
         do {
             let activities = try UddfDiveFileDecoder.buildDiveActivities(from: data)
-            return persistImportedActivities(activities, modelContext: modelContext, owner: owner)
+            return await persistImportedActivities(
+                activities,
+                modelContext: modelContext,
+                owner: owner,
+                createMissingDiveSites: createMissingDiveSites
+            )
         } catch let uddf as UddfDecodeError {
             return DiveFileImportOutcome(userMessage: uddf.localizedDescription, primaryInsertedDiveId: nil)
         } catch {
@@ -41,67 +47,101 @@ enum UddfDiveFileImport {
         }
     }
 
+    /// **`imported`** = rows inserted; **`duplicates`** = skipped; **`processed`** = dives handled so far; **`total`** = dives in file.
+    typealias ProgressHandler = @MainActor (_ imported: Int, _ duplicates: Int, _ processed: Int, _ total: Int) -> Void
+
     /// Duplicate check + SwiftData insert (call after decode so UI can show progress first).
     @MainActor
     static func persistImportedActivities(
         _ activities: [DiveActivity],
         modelContext: ModelContext,
-        owner: UserProfile? = nil
-    ) -> DiveFileImportOutcome {
+        owner: UserProfile? = nil,
+        createMissingDiveSites: Bool = false,
+        onProgress: ProgressHandler? = nil
+    ) async -> DiveFileImportOutcome {
         do {
             guard let owner = owner ?? AccountSession.shared.currentProfile else {
                 return DiveFileImportOutcome(
                     userMessage: "Sign in to import dives.",
-                    primaryInsertedDiveId: nil
+                    primaryInsertedDiveId: nil,
+                    totalInFile: activities.count
                 )
             }
-            var existing = try DiveActivityOwnership.activities(forOwnerProfileID: owner.id, modelContext: modelContext)
-                .map(DiveActivityDuplicateMatcher.Signature.init)
+            let ownedExisting = try DiveActivityOwnership.activities(forOwnerProfileID: owner.id, modelContext: modelContext)
+            var duplicateBaseline = ownedExisting.map(DiveActivityDuplicateMatcher.Signature.init)
+            var numberingBaseline = ownedExisting
+            let autoAddCandidates = try DiveActivityEquipmentAssociation.autoAddCandidates(
+                forOwnerProfileID: owner.id,
+                modelContext: modelContext
+            )
             var inserted: [DiveActivity] = []
             var skippedDuplicates = 0
 
-            for activity in activities {
+            for (index, activity) in activities.enumerated() {
                 let candidate = DiveActivityDuplicateMatcher.Signature(activity)
-                if let match = DiveActivityDuplicateMatcher.findDuplicate(for: candidate, among: existing) {
+                if let match = DiveActivityDuplicateMatcher.findDuplicate(for: candidate, among: duplicateBaseline) {
                     skippedDuplicates += 1
                     _ = match
-                    continue
+                } else {
+                    if !activity.diveNumberExplicitlyNone, activity.diveNumber == nil {
+                        DiveActivityDiveNumbering.assignNextChainedDiveNumber(
+                            to: activity,
+                            among: &numberingBaseline
+                        )
+                    }
+                    DiveActivityOwnership.assignOwner(owner, to: activity)
+                    modelContext.insert(activity)
+                    try DiveActivityEquipmentAssociation.applyAutoAdd(
+                        to: activity,
+                        candidates: autoAddCandidates,
+                        modelContext: modelContext
+                    )
+                    inserted.append(activity)
+                    duplicateBaseline.append(candidate)
                 }
-                try DiveActivityDiveNumbering.assignNextDiveNumberChainedAfterNewest(for: activity, modelContext: modelContext)
-                DiveActivityOwnership.assignOwner(owner, to: activity)
-                modelContext.insert(activity)
-                try DiveActivityEquipmentAssociation.applyAutoAdd(
-                    to: activity,
-                    ownerProfileID: owner.id,
-                    modelContext: modelContext
-                )
-                inserted.append(activity)
-                existing.append(candidate)
+                onProgress?(inserted.count, skippedDuplicates, index + 1, activities.count)
+                if onProgress != nil {
+                    await Task.yield()
+                }
             }
 
-            let catalogSites = try DiveActivitySiteAssociation.fetchCatalogSites(modelContext: modelContext)
-            for activity in inserted {
-                DiveActivitySiteAssociation.applyBestMatch(to: activity, catalogSites: catalogSites)
-            }
+            var catalogSites = try DiveActivitySiteAssociation.fetchCatalogSites(modelContext: modelContext)
+            let createdDiveSites = DiveActivitySiteAssociation.applySiteLinksForImportedActivities(
+                inserted,
+                catalogSites: &catalogSites,
+                createMissingSites: createMissingDiveSites,
+                modelContext: modelContext
+            )
 
             if inserted.isEmpty {
                 if skippedDuplicates == 1,
                    let only = activities.first,
                    let match = DiveActivityDuplicateMatcher.findDuplicate(
                        for: DiveActivityDuplicateMatcher.Signature(only),
-                       among: existing
+                       among: duplicateBaseline
                    ),
                    let stored = try? modelContext.fetch(FetchDescriptor<DiveActivity>()),
                    let duplicate = stored.first(where: { $0.id == match.existingId }) {
                     return DiveFileImportOutcome(
                         userMessage: DiveActivityDuplicateMatcher.importBlockedMessage(matching: duplicate),
-                        primaryInsertedDiveId: nil
+                        primaryInsertedDiveId: nil,
+                        insertedCount: 0,
+                        skippedDuplicateCount: skippedDuplicates,
+                        totalInFile: activities.count,
+                        createdDiveSiteCount: createdDiveSites
                     )
                 }
                 let msg = skippedDuplicates == 1
                     ? "This dive is already in your log."
-                    : "All \(skippedDuplicates) dives in this file are already in your log."
-                return DiveFileImportOutcome(userMessage: msg, primaryInsertedDiveId: nil)
+                    : "\(skippedDuplicates) duplicate dive\(skippedDuplicates == 1 ? "" : "s") found. None were imported."
+                return DiveFileImportOutcome(
+                    userMessage: msg,
+                    primaryInsertedDiveId: nil,
+                    insertedCount: 0,
+                    skippedDuplicateCount: skippedDuplicates,
+                    totalInFile: activities.count,
+                    createdDiveSiteCount: createdDiveSites
+                )
             }
 
             try modelContext.save()
@@ -113,13 +153,27 @@ enum UddfDiveFileImport {
                 if skippedDuplicates > 0 {
                     msg += " Skipped \(skippedDuplicates) duplicate(s)."
                 }
-                return DiveFileImportOutcome(userMessage: msg, primaryInsertedDiveId: primaryId)
+                return DiveFileImportOutcome(
+                    userMessage: msg,
+                    primaryInsertedDiveId: primaryId,
+                    insertedCount: inserted.count,
+                    skippedDuplicateCount: skippedDuplicates,
+                    totalInFile: activities.count,
+                    createdDiveSiteCount: createdDiveSites
+                )
             }
             var msg = "Imported \(inserted.count) dives."
             if skippedDuplicates > 0 {
-                msg += " Skipped \(skippedDuplicates) duplicate(s)."
+                msg += " \(skippedDuplicates) duplicate dive\(skippedDuplicates == 1 ? "" : "s") found."
             }
-            return DiveFileImportOutcome(userMessage: msg, primaryInsertedDiveId: primaryId)
+            return DiveFileImportOutcome(
+                userMessage: msg,
+                primaryInsertedDiveId: primaryId,
+                insertedCount: inserted.count,
+                skippedDuplicateCount: skippedDuplicates,
+                totalInFile: activities.count,
+                createdDiveSiteCount: createdDiveSites
+            )
         } catch {
             return DiveFileImportOutcome(userMessage: error.localizedDescription, primaryInsertedDiveId: nil)
         }

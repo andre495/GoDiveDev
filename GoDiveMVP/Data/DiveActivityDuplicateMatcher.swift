@@ -5,7 +5,7 @@ import SwiftData
 ///
 /// **Same file / same exporter id:** equal non-empty **`sourceDiveId`** (re-import **`.fit`** or same UDDF **`<dive id>`**).
 ///
-/// **Cross-format (e.g. Garmin `.fit` vs MacDive `.uddf`):** matching **fingerprint** — start within **2 min**, max depth within **0.6 m**, and bottom time within **5 s** when both sides have it, else **durationMinutes** within **1 min**.
+/// **Cross-format (e.g. Garmin `.fit` vs MacDive `.uddf`):** matching **fingerprint** when **`sourceDiveId`** differs — start within **2 min**, max depth within **0.6 m**, and in-water time within tolerance (prefers **`bottomTimeSeconds`**, else **`durationMinutes`**).
 enum DiveActivityDuplicateMatcher {
 
     struct Signature: Equatable {
@@ -70,8 +70,8 @@ enum DiveActivityDuplicateMatcher {
     /// Start times may differ slightly between exporters (timezone / rounding).
     static let startTimeToleranceSeconds: TimeInterval = 120
     static let maxDepthToleranceMeters = 0.6
-    static let bottomTimeToleranceSeconds = 5
-    static let durationMinutesTolerance = 1
+    static let bottomTimeToleranceSeconds: Int = 5
+    static let durationMinutesTolerance: Int = 1
 
     @MainActor
     static func allSignatures(modelContext: ModelContext) throws -> [Signature] {
@@ -127,9 +127,25 @@ enum DiveActivityDuplicateMatcher {
         return "This dive is already in your log (\(when))."
     }
 
+    /// Seconds used for fingerprint compare; prefers explicit bottom time from FIT summary or UDDF **`diveduration`**.
+    static func effectiveInWaterSeconds(_ signature: Signature) -> Int {
+        if let bottom = signature.bottomTimeSeconds {
+            return bottom
+        }
+        return signature.durationMinutes * 60
+    }
+
     private static func durationOrBottomTimeMatches(_ a: Signature, _ b: Signature) -> Bool {
-        if let aBottom = a.bottomTimeSeconds, let bBottom = b.bottomTimeSeconds {
-            return abs(aBottom - bBottom) <= bottomTimeToleranceSeconds
+        let aSeconds = effectiveInWaterSeconds(a)
+        let bSeconds = effectiveInWaterSeconds(b)
+        let delta = abs(aSeconds - bSeconds)
+
+        if a.bottomTimeSeconds != nil, b.bottomTimeSeconds != nil {
+            return delta <= bottomTimeToleranceSeconds
+        }
+        if a.bottomTimeSeconds != nil || b.bottomTimeSeconds != nil {
+            // Mixed FIT/UDDF: one side may only have session **`durationMinutes`** while the other has **`bottomTimeSeconds`**.
+            return delta <= durationMinutesTolerance * 60
         }
         return abs(a.durationMinutes - b.durationMinutes) <= durationMinutesTolerance
     }

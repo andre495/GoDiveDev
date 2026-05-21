@@ -154,12 +154,19 @@ struct LogbookView: View {
             .navigationDestination(for: Route.self) { route in
                 switch route {
                 case .addActivity:
-                    ActivityUploadView { diveId in
-                        if !path.isEmpty {
-                            path.removeLast()
+                    ActivityUploadView(
+                        onSuccessfulImport: { diveId in
+                            if !path.isEmpty {
+                                path.removeLast()
+                            }
+                            path.append(.diveDetail(diveId))
+                        },
+                        onBulkImportComplete: {
+                            if !path.isEmpty {
+                                path.removeLast()
+                            }
                         }
-                        path.append(.diveDetail(diveId))
-                    }
+                    )
                 case .diveDetail(let id):
                     if let activity = activities.first(where: { $0.id == id }) {
                         ViewSingleActivity(activity: activity)
@@ -347,7 +354,8 @@ struct LogbookView: View {
             activities: filteredActivities,
             unitSystem: diveDisplayUnitSystem,
             duplicateIds: duplicateActivityIds,
-            useChronologicalNumbers: automaticallyRenumberDives
+            useChronologicalNumbers: automaticallyRenumberDives,
+            numberingActivities: visibleActivities
         )
     }
 
