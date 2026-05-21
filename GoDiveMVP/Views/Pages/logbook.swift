@@ -63,6 +63,7 @@ struct LogbookView: View {
                 GeometryReader { proxy in
                     /// **`List`** uses **`ignoresSafeArea(edges: .top)`**, so coordinates start at the **window** top; **`AppHeader`** on Home does not, so its spacer is only the measured row. Match **row** padding to **`AppHeader`**, then add **`safeAreaInsets.top`** here only.
                     let logbookListTopInset = proxy.safeAreaInsets.top + logbookHeaderClearance
+                    let logbookListBottomInset = proxy.safeAreaInsets.bottom + AppTheme.Spacing.md
                     ZStack {
                         ZStack(alignment: .top) {
                             if !GoDiveUITestConfiguration.isActive {
@@ -110,23 +111,35 @@ struct LogbookView: View {
                                                 }
                                             }
                                         }
+
+                                        Color.clear
+                                            .frame(height: logbookListBottomInset)
+                                            .listRowInsets(EdgeInsets())
+                                            .listRowSeparator(.hidden)
+                                            .listRowBackground(Color.clear)
+                                            .accessibilityHidden(true)
                                     }
                                     .listStyle(.plain)
                                     .listRowSpacing(AppTheme.Spacing.md)
                                     .scrollContentBackground(.hidden)
                                     .background(Color.clear)
-                                    .padding(.bottom, AppTheme.Spacing.md)
                                     .animation(nil, value: visibleActivities.count)
                                     .scrollDismissesKeyboard(.interactively)
-                                    .ignoresSafeArea(edges: .top)
+                                    .ignoresSafeArea(edges: [.top, .bottom])
                                 }
                             }
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
+                            LogbookTopChromeScrim(
+                                topObstructionHeight: logbookListTopInset
+                            )
+                            .padding(.top, -proxy.safeAreaInsets.top)
+                            .ignoresSafeArea(edges: .top)
+                            .zIndex(0.5)
+
                             LogbookTopChrome(
                                 searchText: $siteSearchQuery,
-                                isSearchFocused: $isSiteSearchFocused,
-                                statusBarSafeAreaTop: proxy.safeAreaInsets.top
+                                isSearchFocused: $isSiteSearchFocused
                             ) {
                                 NavigationLink(value: Route.addActivity) {
                                     Image(systemName: "plus")
@@ -146,6 +159,7 @@ struct LogbookView: View {
                         }
                     }
                     .frame(width: proxy.size.width, height: proxy.size.height)
+                    .ignoresSafeArea(edges: .bottom)
                 }
                 .onPreferenceChange(AppHeaderMetrics.HeightKey.self) { height in
                     if height > 0 { logbookHeaderClearance = height }

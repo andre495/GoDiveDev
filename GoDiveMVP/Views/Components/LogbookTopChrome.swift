@@ -4,7 +4,6 @@ import SwiftUI
 struct LogbookTopChrome<TrailingActions: View>: View {
     @Binding var searchText: String
     @FocusState.Binding var isSearchFocused: Bool
-    let statusBarSafeAreaTop: CGFloat
     @ViewBuilder let trailingActions: () -> TrailingActions
 
     var body: some View {
@@ -27,12 +26,6 @@ struct LogbookTopChrome<TrailingActions: View>: View {
         }
         .padding(.horizontal, AppTheme.Spacing.lg)
         .padding(.vertical, AppTheme.Spacing.md)
-        .background(alignment: .top) {
-            if statusBarSafeAreaTop > 0.5 {
-                AppStatusBarEdgeScrim(safeAreaTop: statusBarSafeAreaTop)
-                    .ignoresSafeArea(edges: .top)
-            }
-        }
         .background {
             GeometryReader { proxy in
                 Color.clear.preference(key: AppHeaderMetrics.HeightKey.self, value: proxy.size.height)

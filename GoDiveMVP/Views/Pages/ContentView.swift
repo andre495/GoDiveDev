@@ -36,6 +36,7 @@ struct ContentView: View {
         }
         .accessibilityIdentifier("GoDive.RootTabs")
         .tint(AppTheme.Colors.tabSelected)
+        .goDiveRootTabBarChrome()
         .modifier(TabBarMinimizeWhenNotUITesting())
         .environment(\.diveDisplayUnitSystem, useImperialDisplayUnits ? .imperial : .metric)
     }

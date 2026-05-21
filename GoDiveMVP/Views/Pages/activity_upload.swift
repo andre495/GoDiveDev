@@ -1,6 +1,5 @@
 import SwiftData
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct ActivityUploadView: View {
     @Environment(\.modelContext) private var modelContext
@@ -10,13 +9,15 @@ struct ActivityUploadView: View {
     /// Called after bulk UDDF import when more than one dive was inserted (returns to logbook without opening a dive).
     var onBulkImportComplete: (() -> Void)?
 
-    @State private var showDiveFileImporter = false
+    @State private var isFileImporterPresented = false
+    @State private var fileImporterMode: DiveFileImporterPresentation.PickerMode = .singleDive
     @State private var showBulkUddfOptionsSheet = false
-    @State private var showBulkUddfImporter = false
     @State private var showsManualEntrySheet = false
     @State private var importOverlay: DiveImportOverlayState = .hidden
     @State private var bulkImportSummary: BulkUddfImportSummary?
     @State private var showBulkImportCompleteAlert = false
+    @State private var presentBulkUddfImporterAfterOptionsSheet = false
+    @State private var activeImportTask: Task<Void, Never>?
     @AppStorage(AppUserSettings.bulkUddfCreateDiveSitesKey) private var bulkCreateDiveSitesFromImport = true
 
     init(
@@ -37,7 +38,7 @@ struct ActivityUploadView: View {
                         systemImage: "doc.badge.arrow.up",
                         accessibilityIdentifier: "ActivityUpload.FileUpload"
                     ) {
-                        showDiveFileImporter = true
+                        presentFileImporter(mode: .singleDive)
                     }
 
                     addActivitySourcePanel(
@@ -67,19 +68,20 @@ struct ActivityUploadView: View {
                         .zIndex(1)
                 }
             }
-            .fileImporter(
-                isPresented: $showDiveFileImporter,
-                allowedContentTypes: [.goDiveFit, .goDiveUddf],
-                allowsMultipleSelection: false
-            ) { result in
-                handleDiveFileImportResult(result, bulkUddf: false)
-            }
-            .fileImporter(
-                isPresented: $showBulkUddfImporter,
-                allowedContentTypes: [.goDiveUddf],
-                allowsMultipleSelection: false
-            ) { result in
-                handleDiveFileImportResult(result, bulkUddf: true)
+        }
+        .fileImporter(
+            isPresented: $isFileImporterPresented,
+            allowedContentTypes: fileImporterMode.allowedContentTypes,
+            allowsMultipleSelection: false
+        ) { result in
+            handleDiveFileImportResult(result, bulkUddf: fileImporterMode.isBulkUddf)
+        }
+        .onDisappear {
+            activeImportTask?.cancel()
+            activeImportTask = nil
+            // Do not reset `isFileImporterPresented` here — that cancels the picker mid-presentation.
+            if importOverlay.disablesSourceButtons {
+                importOverlay = .hidden
             }
         }
         .sheet(isPresented: $showsManualEntrySheet) {
@@ -87,7 +89,12 @@ struct ActivityUploadView: View {
                 confirmManualDive(input)
             }
         }
-        .sheet(isPresented: $showBulkUddfOptionsSheet) {
+        .sheet(isPresented: $showBulkUddfOptionsSheet, onDismiss: {
+            if presentBulkUddfImporterAfterOptionsSheet {
+                presentBulkUddfImporterAfterOptionsSheet = false
+                presentFileImporter(mode: .bulkUddf)
+            }
+        }) {
             bulkUddfImportOptionsSheet
         }
         .alert("Import complete", isPresented: $showBulkImportCompleteAlert) {
@@ -135,9 +142,10 @@ struct ActivityUploadView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(AppTheme.Spacing.md)
             .background { activitySourceTileBackground }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(importOverlay.isBlocking)
+        .disabled(importOverlay.disablesSourceButtons)
         .accessibilityLabel(subtitle.map { "\(title). \($0)" } ?? title)
         .accessibilityIdentifier(accessibilityIdentifier)
     }
@@ -178,9 +186,10 @@ struct ActivityUploadView: View {
             .padding(.vertical, AppTheme.Spacing.md)
             .frame(maxWidth: .infinity)
             .background { activitySourceTileBackground }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(importOverlay.isBlocking)
+        .disabled(importOverlay.disablesSourceButtons)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityIdentifier(accessibilityIdentifier)
     }
@@ -221,8 +230,8 @@ struct ActivityUploadView: View {
                 Spacer(minLength: 0)
 
                 Button("Choose UDDF file") {
+                    presentBulkUddfImporterAfterOptionsSheet = true
                     showBulkUddfOptionsSheet = false
-                    showBulkUddfImporter = true
                 }
                 .font(.body.weight(.semibold))
                 .frame(maxWidth: .infinity)
@@ -328,25 +337,41 @@ struct ActivityUploadView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    /// One **`.fileImporter`** per screen; set mode then present on the next run loop (matches bulk sheet timing).
+    private func presentFileImporter(mode: DiveFileImporterPresentation.PickerMode) {
+        fileImporterMode = mode
+        isFileImporterPresented = false
+        DispatchQueue.main.async {
+            isFileImporterPresented = true
+        }
+    }
+
     private func handleDiveFileImportResult(_ result: Result<[URL], Error>, bulkUddf: Bool) {
         switch result {
         case .success(let urls):
             guard let url = urls.first else { return }
-            if bulkUddf {
-                importOverlay = .bulkProgress(imported: 0, duplicates: 0, processed: 0, total: 0, stage: "Reading file…")
-            } else {
-                importOverlay = .singleProgress(0.05, "Importing dive…")
-            }
-            Task(priority: .userInitiated) { @MainActor in
-                await yieldForImportOverlayPaint()
-                if bulkUddf {
-                    await runBulkUddfImport(from: url)
-                } else {
-                    await runDiveFileImport(from: url)
-                }
-            }
+            beginImport(from: url, bulkUddf: bulkUddf)
         case .failure(let error):
+            guard !DiveFileImporterPresentation.isUserCancellation(error) else { return }
             importOverlay = .failed(error.localizedDescription)
+        }
+    }
+
+    private func beginImport(from url: URL, bulkUddf: Bool) {
+        if bulkUddf {
+            importOverlay = .bulkProgress(imported: 0, duplicates: 0, processed: 0, total: 0, stage: "Reading file…")
+        } else {
+            importOverlay = .singleProgress(0.05, "Importing dive…")
+        }
+        activeImportTask?.cancel()
+        activeImportTask = Task(priority: .userInitiated) { @MainActor in
+            await yieldForImportOverlayPaint()
+            guard !Task.isCancelled else { return }
+            if bulkUddf {
+                await runBulkUddfImport(from: url)
+            } else {
+                await runDiveFileImport(from: url)
+            }
         }
     }
 
@@ -370,6 +395,8 @@ struct ActivityUploadView: View {
 
     @MainActor
     private func runDiveFileImport(from url: URL) async {
+        defer { activeImportTask = nil }
+        guard !Task.isCancelled else { return }
         do {
             let ext = url.pathExtension.lowercased()
 
@@ -402,14 +429,18 @@ struct ActivityUploadView: View {
                 await yieldForImportOverlayPaint()
                 outcome = FitDiveFileImport.persistImportedActivity(activity, modelContext: modelContext)
             }
+            guard !Task.isCancelled else { return }
             await finishImport(outcome: outcome, isBulkUddf: false)
         } catch {
+            guard !Task.isCancelled else { return }
             importOverlay = .failed(error.localizedDescription)
         }
     }
 
     @MainActor
     private func runBulkUddfImport(from url: URL) async {
+        defer { activeImportTask = nil }
+        guard !Task.isCancelled else { return }
         do {
             guard url.pathExtension.lowercased() == "uddf" else {
                 importOverlay = .failed("Bulk import requires a .uddf file.")
@@ -459,16 +490,20 @@ struct ActivityUploadView: View {
             )
             await yieldForImportOverlayPaint()
 
+            guard !Task.isCancelled else { return }
             await finishImport(outcome: outcome, isBulkUddf: true)
         } catch let uddf as UddfDecodeError {
+            guard !Task.isCancelled else { return }
             importOverlay = .failed(uddf.localizedDescription)
         } catch {
+            guard !Task.isCancelled else { return }
             importOverlay = .failed(error.localizedDescription)
         }
     }
 
     @MainActor
     private func finishImport(outcome: DiveFileImportOutcome, isBulkUddf: Bool) async {
+        guard !Task.isCancelled else { return }
         if isBulkUddf, outcome.bulkImportFinishedWithCounts {
             importOverlay = .hidden
             bulkImportSummary = BulkUddfImportSummary(
@@ -533,10 +568,11 @@ private enum DiveImportOverlayState: Equatable {
     case bulkProgress(imported: Int, duplicates: Int, processed: Int, total: Int, stage: String?)
     case failed(String)
 
-    var isBlocking: Bool {
+    /// Disables Add-activity tiles only while an import is actively running (not on failure).
+    var disablesSourceButtons: Bool {
         switch self {
-        case .hidden: return false
-        case .singleProgress, .bulkProgress, .failed: return true
+        case .hidden, .failed: return false
+        case .singleProgress, .bulkProgress: return true
         }
     }
 }

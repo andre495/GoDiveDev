@@ -102,6 +102,21 @@ enum UserProfileStore {
         return profile
     }
 
+    /// Applies Sign in with Apple name to **`displayName`**: fresh **`fullName`** wins; else cached name upgrades placeholder **Diver**.
+    static func applyDisplayNameFromApple(
+        to profile: UserProfile,
+        appleProvided: String?,
+        appleUserIdentifier: String,
+        modelContext: ModelContext
+    ) throws {
+        if let appleProvided, !appleProvided.isEmpty {
+            profile.displayName = appleProvided
+            try modelContext.save()
+            return
+        }
+        try applyCachedDisplayNameIfNeeded(to: profile, modelContext: modelContext)
+    }
+
     /// Applies a cached Apple name when the stored profile still has the placeholder.
     static func applyCachedDisplayNameIfNeeded(
         to profile: UserProfile,
@@ -117,5 +132,18 @@ enum UserProfileStore {
     nonisolated static func sanitizedUserEnteredDisplayName(_ raw: String) -> String? {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    /// Trims a DAN membership number; empty input clears the field. Letters, digits, spaces, and hyphens only (max 40).
+    nonisolated static func sanitizedDanInsuranceNumber(_ raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -")
+        let filteredScalars = trimmed.unicodeScalars.filter { allowed.contains($0) }
+        let filtered = String(String.UnicodeScalarView(filteredScalars))
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !filtered.isEmpty else { return nil }
+        return String(filtered.prefix(40))
     }
 }

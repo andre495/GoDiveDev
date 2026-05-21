@@ -10,6 +10,8 @@ final class UserProfile {
     var displayName: String
     /// Profile picture bytes (JPEG/PNG from photo picker).
     var profilePhoto: Data?
+    /// DAN (Divers Alert Network) insurance membership number, when provided.
+    var danInsuranceNumber: String?
     var createdAt: Date
     var lastSignedInAt: Date
 
@@ -27,6 +29,7 @@ final class UserProfile {
         appleUserIdentifier: String,
         displayName: String,
         profilePhoto: Data? = nil,
+        danInsuranceNumber: String? = nil,
         createdAt: Date = .now,
         lastSignedInAt: Date = .now
     ) {
@@ -34,6 +37,7 @@ final class UserProfile {
         self.appleUserIdentifier = appleUserIdentifier
         self.displayName = displayName
         self.profilePhoto = profilePhoto
+        self.danInsuranceNumber = danInsuranceNumber
         self.createdAt = createdAt
         self.lastSignedInAt = lastSignedInAt
     }

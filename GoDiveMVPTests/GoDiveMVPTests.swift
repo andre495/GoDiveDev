@@ -140,6 +140,28 @@ struct GoDiveMVPTests {
     }
 
     @Test @MainActor
+    func userProfileStore_applyDisplayNameFromApple_writesFreshFullName() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let appleID = "apple-fresh-name-\(UUID().uuidString)"
+
+        let profile = try UserProfileStore.findOrCreateProfile(
+            appleUserIdentifier: appleID,
+            displayName: nil,
+            modelContext: context
+        )
+        #expect(profile.displayName == UserProfileStore.defaultDisplayName)
+
+        try UserProfileStore.applyDisplayNameFromApple(
+            to: profile,
+            appleProvided: "Alex Diver",
+            appleUserIdentifier: appleID,
+            modelContext: context
+        )
+        #expect(profile.displayName == "Alex Diver")
+    }
+
+    @Test @MainActor
     func userProfileStore_applyCachedDisplayNameIfNeeded_upgradesPlaceholder() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = ModelContext(container)
@@ -156,6 +178,10 @@ struct GoDiveMVPTests {
 
         try UserProfileStore.applyCachedDisplayNameIfNeeded(to: profile, modelContext: context)
         #expect(profile.displayName == "Riley")
+    }
+
+    @Test func profilePresentation_danInsuranceLabel_formatsMemberNumber() {
+        #expect(ProfilePresentation.danInsuranceLabel("1234567") == "DAN 1234567")
     }
 
     @Test func profilePresentation_diveActivityCountLabel_pluralizes() {
@@ -221,6 +247,35 @@ struct GoDiveMVPTests {
         let clearedFetched = try UserProfileStore.profile(id: profile.id, modelContext: context)
         let cleared = try #require(clearedFetched)
         #expect(cleared.profilePhoto == nil)
+    }
+
+    @Test func userProfileStore_sanitizedDanInsuranceNumber_trimsAndFilters() {
+        #expect(UserProfileStore.sanitizedDanInsuranceNumber("") == nil)
+        #expect(UserProfileStore.sanitizedDanInsuranceNumber("   ") == nil)
+        #expect(UserProfileStore.sanitizedDanInsuranceNumber("  US-12345  ") == "US-12345")
+        #expect(UserProfileStore.sanitizedDanInsuranceNumber("AB#12!") == "AB12")
+    }
+
+    @Test @MainActor
+    func userProfile_persistsDanInsuranceNumber() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let profile = UserProfile(appleUserIdentifier: "apple-dan", displayName: "Diver")
+        context.insert(profile)
+        try context.save()
+
+        profile.danInsuranceNumber = UserProfileStore.sanitizedDanInsuranceNumber("1234567")
+        try context.save()
+
+        let fetched = try UserProfileStore.profile(id: profile.id, modelContext: context)
+        let stored = try #require(fetched)
+        #expect(stored.danInsuranceNumber == "1234567")
+
+        profile.danInsuranceNumber = nil
+        try context.save()
+        let cleared = try UserProfileStore.profile(id: profile.id, modelContext: context)
+        #expect(cleared?.danInsuranceNumber == nil)
     }
 
     @Test @MainActor
@@ -3051,6 +3106,23 @@ struct GoDiveMVPTests {
         #expect(cal.component(.year, from: d) == 2025)
         #expect(cal.component(.month, from: d) == 5)
         #expect(cal.component(.day, from: d) == 9)
+    }
+
+    @Test func diveFileImporterPresentation_pickerMode_allowedTypes() {
+        #expect(DiveFileImporterPresentation.PickerMode.singleDive.allowedContentTypes.contains(.goDiveFit))
+        #expect(DiveFileImporterPresentation.PickerMode.singleDive.allowedContentTypes.contains(.goDiveUddf))
+        #expect(!DiveFileImporterPresentation.PickerMode.bulkUddf.allowedContentTypes.contains(.goDiveFit))
+        #expect(DiveFileImporterPresentation.PickerMode.bulkUddf.isBulkUddf)
+        #expect(!DiveFileImporterPresentation.PickerMode.singleDive.isBulkUddf)
+    }
+
+    @Test func diveFileImporterPresentation_isUserCancellation_recognizesPickerCancel() {
+        let cocoaCancel = NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)
+        #expect(DiveFileImporterPresentation.isUserCancellation(cocoaCancel))
+        #expect(DiveFileImporterPresentation.isUserCancellation(CancellationError()))
+        #expect(DiveFileImporterPresentation.isUserCancellation(URLError(.cancelled)))
+        let other = NSError(domain: NSCocoaErrorDomain, code: NSFileReadCorruptFileError)
+        #expect(!DiveFileImporterPresentation.isUserCancellation(other))
     }
 
     @Test func bulkUddfImportSummary_message_listsCounts() {

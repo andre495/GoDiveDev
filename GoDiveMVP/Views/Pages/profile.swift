@@ -17,6 +17,8 @@ struct ProfileView: View {
 
     @Query private var allDiveActivities: [DiveActivity]
 
+    @State private var showsProfileEditSheet = false
+
     private var ownedCertifications: [Certification] {
         guard let ownerID = accountSession.currentProfile?.id else { return [] }
         return allCertifications.filter { $0.ownerProfileID == ownerID }
@@ -82,6 +84,11 @@ struct ProfileView: View {
                 }
             }
         }
+        .sheet(isPresented: $showsProfileEditSheet) {
+            if let profile = accountSession.currentProfile {
+                ProfileEditSheet(profile: profile)
+            }
+        }
         .hidesBottomTabBarWhenPushed()
     }
 
@@ -92,11 +99,39 @@ struct ProfileView: View {
             }
 
             VStack(spacing: AppTheme.Spacing.sm) {
-                Text(accountSession.currentProfile?.displayName ?? UserProfileStore.defaultDisplayName)
-                    .font(.largeTitle.weight(.bold))
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
-                    .multilineTextAlignment(.center)
-                    .accessibilityIdentifier("Profile.DisplayName")
+                HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
+                    Text(accountSession.currentProfile?.displayName ?? UserProfileStore.defaultDisplayName)
+                        .font(.largeTitle.weight(.bold))
+                        .foregroundStyle(AppTheme.Colors.textPrimary)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.85)
+
+                    if accountSession.currentProfile != nil {
+                        Button {
+                            showsProfileEditSheet = true
+                        } label: {
+                            Image(systemName: "ellipsis")
+                                .font(.title3.weight(.semibold))
+                                .rotationEffect(.degrees(90))
+                                .foregroundStyle(AppTheme.Colors.iconPrimary)
+                                .frame(minWidth: 44, minHeight: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Edit profile")
+                        .accessibilityIdentifier("Profile.EditButton")
+                    }
+                }
+                .frame(maxWidth: .infinity)
+
+                if let dan = accountSession.currentProfile?.danInsuranceNumber, !dan.isEmpty {
+                    Text(ProfilePresentation.danInsuranceLabel(dan))
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(AppTheme.Colors.secondaryText)
+                        .multilineTextAlignment(.center)
+                        .accessibilityIdentifier("Profile.DanInsuranceNumber")
+                }
 
                 Text(profilePrimaryCertification.title)
                     .font(.title3.weight(.medium))
@@ -118,7 +153,6 @@ struct ProfileView: View {
                     .multilineTextAlignment(.center)
                     .accessibilityIdentifier("Profile.DiveCount")
             }
-            .accessibilityElement(children: .combine)
         }
         .frame(maxWidth: .infinity)
     }

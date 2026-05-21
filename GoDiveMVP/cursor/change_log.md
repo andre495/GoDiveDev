@@ -504,3 +504,46 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 **Scope note:** Bulk UDDF imports **`DiveActivity`** rows (profile, tank, site, buddies from UDDF). MacDive **photos, equipment locker, certifications**, and other export payloads are **not** imported yet.
 
+---
+
+## 40 - Profile DAN insurance number **(pushed)**
+
+**Summary:** Optional DAN (Divers Alert Network) membership number on **`UserProfile`**, editable on **Profile** and optional on post-sign-in name capture.
+
+- **`UserProfile.danInsuranceNumber`** — optional persisted string.
+- **`UserProfileStore.sanitizedDanInsuranceNumber`** — trim, alphanumeric + spaces/hyphens, max 40.
+- **`ProfileDanInsuranceEditor`** — **Profile** card with **Done** keyboard dismiss.
+- **`ProfileDisplayNameCaptureSheet`** — optional **DAN member number** field at sign-up.
+- **Tests:** **`userProfileStore_sanitizedDanInsuranceNumber_*`**, **`userProfile_persistsDanInsuranceNumber`**.
+
+**Summary (continued):** Logbook scrolls under frosted tab bar.
+
+- **`goDiveRootTabBarChrome()`** — **`.ultraThinMaterial`** on root **`TabView`** tab bar.
+- **`logbook.swift`** — **`List`** **`ignoresSafeArea(edges: [.top, .bottom])`** + bottom clear inset row for tab-bar safe area.
+
+**Summary (continued):** Stronger logbook top fade under search chrome.
+
+- **`LogbookTopChromeScrim`** — tall **`surfaceElevated`** gradient over scrolling rows, under **`LogbookTopChrome`** (replaces narrow status-only scrim on that bar).
+
+**Summary (continued):** Apple display name applied directly to profile when available.
+
+- **`UserProfileStore.applyDisplayNameFromApple`** — writes fresh **`fullName`** to **`UserProfile`**; else cached name upgrades **Diver**.
+- **`AccountSession`** — uses on sign-in and session restore; name sheet only when still placeholder.
+- **Tests:** **`userProfileStore_applyDisplayNameFromApple_writesFreshFullName`**.
+
+**Summary (continued):** Profile edit sheet; no sign-up name prompt.
+
+- Removed **`ProfileDisplayNameCaptureSheet`** — no Apple name → default **Diver**; edit on **Profile** via **⋮** (**`ProfileEditSheet`**: display name + DAN).
+- Removed inline **`ProfileDanInsuranceEditor`**; DAN shown on profile when set.
+
+**Summary (continued):** Fix Add activity file import not responding.
+
+- **`activity_upload.swift`** — single SwiftUI **`.fileImporter`** (two modifiers broke **File upload**; bulk still worked); **`PickerMode`** selects UTTypes; **`presentFileImporter`** defers **`isPresented`** one run loop; do **not** reset **`isPresented`** in **`onDisappear`**.
+- **`DiveFileImporterPresentation.swift`** — **`PickerMode`**, allowed UTTypes, **`isUserCancellation`**.
+- Removed temporary **`DiveFileDocumentPicker`** UIKit wrapper (same system Files UI; SwiftUI API preferred).
+
+**Summary (continued):** Logbook top fade reaches screen top.
+
+- **`LogbookTopChromeScrim`** — removed 14pt clear band above the gradient; Logbook offsets scrim **`padding(.top, -safeArea.top)`** so the fade covers the status-bar region (height already includes safe top).
+- **Tests:** **`diveFileImporterPresentation_isUserCancellation_recognizesPickerCancel`**.
+

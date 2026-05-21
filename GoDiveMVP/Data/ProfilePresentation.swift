@@ -2,6 +2,10 @@ import Foundation
 
 /// Read-only copy for the **Profile** header.
 enum ProfilePresentation: Sendable {
+    static func danInsuranceLabel(_ memberNumber: String) -> String {
+        "DAN \(memberNumber)"
+    }
+
     static func diveActivityCountLabel(_ count: Int) -> String {
         switch count {
         case 0:
