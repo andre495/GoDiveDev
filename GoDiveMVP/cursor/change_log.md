@@ -460,3 +460,30 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Hero tab **`Group`** uses **`ignoresSafeArea(edges: [.top, .horizontal])`**.
 - **`DiveActivityMediaBackgroundView`** — horizontal paging **`ScrollView`** (replaces **`TabView`** offset hack that covered the embedded sheet); media tab uses **`ignoresSafeArea()`** only on the hero layer; panel **`zIndex(1)`**.
 
+---
+
+## 38 - Logbook search, profile cert number, and polish **(pushed)**
+
+**Summary:** Logbook site search inline with **+** (**Cancel** while focused); profile shows primary cert number under the name; **`nonisolated`** dive media delete for background worker.
+
+- **`DiveLogbookSiteSearch`** — case-insensitive substring filter; empty query shows all dives.
+- **`LogbookSiteSearchField`** — magnifying glass, clear button, elevated field chrome.
+- **`logbook.swift`** — **`LogbookTopChrome`** search inline with **+**; **Cancel** dismisses keyboard and clears query; list inset from single chrome row.
+- **`AppTheme.Layout`** — **`logbookSearchFieldHeight`** token.
+- **Tests:** **`diveLogbookSiteSearch_*`**, **`appTheme_logbookSearchFieldHeight_*`**.
+
+**Summary (continued):** Profile shows primary certification number under the cert name.
+
+- **`CertificationPresentation.profilePrimaryCertification`** — title + optional **`certNumber`** line for the newest primary card.
+- **`profile.swift`** — second subtitle line when a cert name and number are set.
+- **Tests:** **`certificationPresentation_profilePrimary_*`**.
+
+**Summary (continued):** Fix Swift 6 warning deleting dive media off the main actor.
+
+- **`DiveActivityMediaStorage.deleteMediaFiles`** — **`nonisolated`**; passes video file names to **`DiveMediaFileStore.deleteFiles(named:)`** for **`@ModelActor`** delete.
+
+**Summary (continued):** Logbook search inline with **+**; **Cancel** dismisses keyboard.
+
+- **`LogbookTopChrome`** — single top row: search field; trailing **+** swaps to **Cancel** while search is focused.
+- **`LogbookSiteSearchField`** — **`@FocusState`** binding; list **`scrollDismissesKeyboard(.interactively)`**.
+

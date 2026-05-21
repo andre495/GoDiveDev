@@ -111,6 +111,8 @@ enum AppTheme {
     enum Layout {
         /// Fallback before **`AppHeader`** publishes its measured height (see **`AppHeaderMetrics.HeightKey`**). Sized for **`.largeTitle`** brand + vertical **`Spacing.md`** padding.
         static let appHeaderClearanceFallback: CGFloat = 72
+        /// Inner height of **`LogbookSiteSearchField`** in **`LogbookTopChrome`** (same row as **+**).
+        static let logbookSearchFieldHeight: CGFloat = 44
     }
 
     /// Shared chrome for SwiftUI **`.sheet`** presentations (see **`appSheetPresentationChrome()`**).

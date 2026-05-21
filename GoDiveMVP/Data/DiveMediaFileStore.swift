@@ -43,9 +43,9 @@ enum DiveMediaFileStore: Sendable {
         try? FileManager.default.removeItem(at: url)
     }
 
-    nonisolated static func deleteFiles(for mediaItems: [DiveMediaPhoto]) {
-        for item in mediaItems where item.mediaKind == DiveMediaKind.video.rawValue {
-            deleteFileIfNeeded(fileName: item.mediaFileName)
+    nonisolated static func deleteFiles(named fileNames: [String]) {
+        for fileName in fileNames {
+            deleteFileIfNeeded(fileName: fileName)
         }
     }
 }

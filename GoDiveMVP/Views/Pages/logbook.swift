@@ -18,6 +18,8 @@ struct LogbookView: View {
     /// Hides the row immediately; cleared only if background delete fails.
     @State private var optimisticallyRemovedActivityIDs: Set<UUID> = []
     @State private var logbookHeaderClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
+    @State private var siteSearchQuery = ""
+    @FocusState private var isSiteSearchFocused: Bool
     @State private var logbookDisplayRows: [DiveLogbookRowDisplayData] = []
     @State private var duplicateActivityIds: Set<UUID> = []
 
@@ -37,6 +39,14 @@ struct LogbookView: View {
 
     private var visibleActivities: [DiveActivity] {
         activities.filter { !optimisticallyRemovedActivityIDs.contains($0.id) }
+    }
+
+    private var filteredActivities: [DiveActivity] {
+        DiveLogbookSiteSearch.filtering(visibleActivities, query: siteSearchQuery)
+    }
+
+    private var isFilteringBySiteName: Bool {
+        DiveLogbookSiteSearch.isFiltering(query: siteSearchQuery)
     }
 
     /// Row ids plus dive-number display inputs so logbook labels refresh after hide/edit on a detail screen.
@@ -62,6 +72,9 @@ struct LogbookView: View {
                             Group {
                                 if visibleActivities.isEmpty {
                                     logbookEmptyState
+                                        .padding(.top, logbookListTopInset)
+                                } else if logbookDisplayRows.isEmpty && isFilteringBySiteName {
+                                    logbookSearchEmptyState
                                         .padding(.top, logbookListTopInset)
                                 } else {
                                     List {
@@ -104,15 +117,15 @@ struct LogbookView: View {
                                     .background(Color.clear)
                                     .padding(.bottom, AppTheme.Spacing.md)
                                     .animation(nil, value: visibleActivities.count)
+                                    .scrollDismissesKeyboard(.interactively)
                                     .ignoresSafeArea(edges: .top)
                                 }
                             }
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                            AppHeader(
-                                title: "Logbook",
-                                showsBackButton: false,
-                                showsBrandWordmark: false,
+                            LogbookTopChrome(
+                                searchText: $siteSearchQuery,
+                                isSearchFocused: $isSiteSearchFocused,
                                 statusBarSafeAreaTop: proxy.safeAreaInsets.top
                             ) {
                                 NavigationLink(value: Route.addActivity) {
@@ -169,6 +182,33 @@ struct LogbookView: View {
         .onChange(of: automaticallyRenumberDives) { _, _ in
             refreshLogbookCaches()
         }
+        .onChange(of: siteSearchQuery) { _, _ in
+            refreshLogbookCaches()
+        }
+    }
+
+    private var logbookSearchEmptyState: some View {
+        VStack(spacing: AppTheme.Spacing.lg) {
+            Spacer(minLength: AppTheme.Spacing.lg)
+
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 44))
+                .foregroundStyle(AppTheme.Colors.accent.opacity(0.85))
+
+            Text("No matching dives")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+                .multilineTextAlignment(.center)
+
+            Text("Try a different dive site name.")
+                .font(.body)
+                .foregroundStyle(AppTheme.Colors.secondaryText)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, AppTheme.Spacing.lg)
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var logbookEmptyState: some View {
@@ -304,7 +344,7 @@ struct LogbookView: View {
         let signatures = visibleActivities.map { DiveActivityDuplicateMatcher.Signature($0) }
         duplicateActivityIds = DiveActivityDuplicateMatcher.idsWithDuplicates(in: signatures)
         logbookDisplayRows = DiveLogbookDisplay.rowData(
-            activities: visibleActivities,
+            activities: filteredActivities,
             unitSystem: diveDisplayUnitSystem,
             duplicateIds: duplicateActivityIds,
             useChronologicalNumbers: automaticallyRenumberDives

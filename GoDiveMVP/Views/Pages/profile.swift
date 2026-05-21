@@ -22,8 +22,8 @@ struct ProfileView: View {
         return allCertifications.filter { $0.ownerProfileID == ownerID }
     }
 
-    private var certificationSubtitle: String {
-        CertificationPresentation.profileCertificationSubtitle(from: ownedCertifications)
+    private var profilePrimaryCertification: CertificationPresentation.ProfilePrimaryCertificationDisplay {
+        CertificationPresentation.profilePrimaryCertification(from: ownedCertifications)
     }
 
     private var ownedDiveActivityCount: Int {
@@ -98,11 +98,19 @@ struct ProfileView: View {
                     .multilineTextAlignment(.center)
                     .accessibilityIdentifier("Profile.DisplayName")
 
-                Text(certificationSubtitle)
+                Text(profilePrimaryCertification.title)
                     .font(.title3.weight(.medium))
                     .foregroundStyle(AppTheme.Colors.secondaryText)
                     .multilineTextAlignment(.center)
                     .accessibilityIdentifier("Profile.CertificationSubtitle")
+
+                if let certNumber = profilePrimaryCertification.certNumber {
+                    Text(certNumber)
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(AppTheme.Colors.secondaryText)
+                        .multilineTextAlignment(.center)
+                        .accessibilityIdentifier("Profile.CertificationNumber")
+                }
 
                 Text(diveCountLabel)
                     .font(.body.weight(.medium))

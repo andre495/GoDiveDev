@@ -60,11 +60,18 @@ enum DiveActivityMediaStorage {
     }
 
     /// Removes on-disk video files for a dive before the parent row is deleted.
-    static func deleteMediaFiles(forDiveID diveID: UUID, modelContext: ModelContext) throws {
+    ///
+    /// **`nonisolated`** so **`DiveBackgroundDeletionWorker`** (**`@ModelActor`**) can call this without hopping to the main actor.
+    nonisolated static func deleteMediaFiles(forDiveID diveID: UUID, modelContext: ModelContext) throws {
         let descriptor = FetchDescriptor<DiveMediaPhoto>(
             predicate: #Predicate { $0.diveActivityID == diveID }
         )
         let items = try modelContext.fetch(descriptor)
-        DiveMediaFileStore.deleteFiles(for: items)
+        let videoFileNames = items.compactMap { item -> String? in
+            guard item.mediaKind == DiveMediaKind.video.rawValue else { return nil }
+            let name = item.mediaFileName.trimmingCharacters(in: .whitespacesAndNewlines)
+            return name.isEmpty ? nil : name
+        }
+        DiveMediaFileStore.deleteFiles(named: videoFileNames)
     }
 }

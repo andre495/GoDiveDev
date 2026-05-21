@@ -959,6 +959,44 @@ struct GoDiveMVPTests {
         #expect(CertificationPresentation.profileCertificationSubtitle(from: [cert]) == "GoDive User")
     }
 
+    @Test func certificationPresentation_profilePrimary_includesCertNumberUnderName() {
+        let cert = Certification(
+            agency: "PADI",
+            certName: "Rescue Diver",
+            certNumber: "  RD-991  ",
+            dateAttained: .now,
+            isPrimaryCert: true
+        )
+        let display = CertificationPresentation.profilePrimaryCertification(from: [cert])
+        #expect(display.title == "Rescue Diver")
+        #expect(display.certNumber == "RD-991")
+    }
+
+    @Test func certificationPresentation_profilePrimary_omitsNumberWhenNameMissing() {
+        let cert = Certification(
+            agency: "PADI",
+            certNumber: "RD-991",
+            dateAttained: .now,
+            isPrimaryCert: true
+        )
+        let display = CertificationPresentation.profilePrimaryCertification(from: [cert])
+        #expect(display.title == "PADI · RD-991")
+        #expect(display.certNumber == nil)
+    }
+
+    @Test func certificationPresentation_profilePrimary_omitsNumberWhenEmpty() {
+        let cert = Certification(
+            agency: "PADI",
+            certName: "Rescue Diver",
+            certNumber: "   ",
+            dateAttained: .now,
+            isPrimaryCert: true
+        )
+        let display = CertificationPresentation.profilePrimaryCertification(from: [cert])
+        #expect(display.title == "Rescue Diver")
+        #expect(display.certNumber == nil)
+    }
+
     @Test func appUserSettings_automaticallyRenumberDivesKey_matchesAppStorage() {
         #expect(AppUserSettings.automaticallyRenumberDivesKey == "goDiveAutomaticallyRenumberDives")
     }
@@ -1995,7 +2033,7 @@ struct GoDiveMVPTests {
         #expect(row.resolvedMediaKind == .video)
         #expect(!row.mediaFileName.isEmpty)
         #expect(row.videoFileURL != nil)
-        defer { DiveMediaFileStore.deleteFileIfNeeded(fileName: row.mediaFileName) }
+        DiveMediaFileStore.deleteFileIfNeeded(fileName: row.mediaFileName)
     }
 
     @Test func diveActivityOverviewDetent_mapCameraDetent_largeMatchesMedium() {
@@ -2958,6 +2996,62 @@ struct GoDiveMVPTests {
             maxDepthMeters: 5
         )
         #expect(LogbookActivityRow.displayName(for: noSite) == "New Dive")
+    }
+
+    @Test func diveLogbookSiteSearch_emptyQuery_returnsAllActivities() {
+        let a = DiveActivity(
+            source: .garminMK3,
+            startTime: Date(),
+            durationMinutes: 10,
+            maxDepthMeters: 5,
+            siteName: "Salt Pier"
+        )
+        let b = DiveActivity(
+            source: .garminMK3,
+            startTime: Date().addingTimeInterval(-3600),
+            durationMinutes: 12,
+            maxDepthMeters: 8
+        )
+        let filtered = DiveLogbookSiteSearch.filtering([a, b], query: "   ")
+        #expect(filtered.count == 2)
+        #expect(DiveLogbookSiteSearch.isFiltering(query: "") == false)
+    }
+
+    @Test func diveLogbookSiteSearch_matchesResolvedSiteName_caseInsensitiveSubstring() {
+        let saltPier = DiveActivity(
+            source: .garminMK3,
+            startTime: Date(),
+            durationMinutes: 10,
+            maxDepthMeters: 5,
+            siteName: "Salt Pier"
+        )
+        let linked = DiveSite(siteName: "Turtle Bay", country: "US")
+        let turtleDive = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 20,
+            maxDepthMeters: 12,
+            siteName: "ignored import label"
+        )
+        turtleDive.diveSite = linked
+
+        let unnamed = DiveActivity(
+            source: .garminMK3,
+            startTime: Date(),
+            durationMinutes: 8,
+            maxDepthMeters: 4
+        )
+
+        #expect(DiveLogbookSiteSearch.matches(activity: saltPier, query: "salt"))
+        #expect(DiveLogbookSiteSearch.matches(activity: saltPier, query: "PIER"))
+        #expect(!DiveLogbookSiteSearch.matches(activity: saltPier, query: "turtle"))
+        #expect(DiveLogbookSiteSearch.matches(activity: turtleDive, query: "bay"))
+        #expect(!DiveLogbookSiteSearch.matches(activity: unnamed, query: "new"))
+        #expect(DiveLogbookSiteSearch.filtering([saltPier, turtleDive, unnamed], query: "turtle").map(\.id) == [turtleDive.id])
+    }
+
+    @Test func appTheme_logbookSearchFieldHeight_matchesInlineChromeRow() {
+        #expect(AppTheme.Layout.logbookSearchFieldHeight == 44)
     }
 
     // MARK: - Duplicate dive matching
