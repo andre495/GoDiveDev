@@ -384,7 +384,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ---
 
-## 36 - Dive activity tap-to-edit overview panels
+## 36 - Dive activity tap-to-edit overview panels **(pushed)**
 
 **Summary:** Map and tank overview panels reorganized with chevron rows; nearly every dive parameter is editable via field sheets.
 
