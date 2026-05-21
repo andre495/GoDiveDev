@@ -547,3 +547,22 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`LogbookTopChromeScrim`** — removed 14pt clear band above the gradient; Logbook offsets scrim **`padding(.top, -safeArea.top)`** so the fade covers the status-bar region (height already includes safe top).
 - **Tests:** **`diveFileImporterPresentation_isUserCancellation_recognizesPickerCancel`**.
 
+---
+
+## 41 - Explore map / list toggle **(pushed)**
+
+**Summary:** **Explore** tab — map/list toggle beside Trip Planner; dive-site list uses logbook-style rows.
+
+- **`ExploreTopChrome`** — map/list toggle **leading**, Trip Planner calendar **trailing**; **`AppHeader`** padding + status scrim + **`AppHeaderMetrics`** height.
+- **`ExploreViewModeToggle`** — map / list segmented control (top leading).
+- **`ExploreDiveSiteListDisplay`** + **`ExploreDiveSiteRow`** — logbook card layout (name, trailing rating or dive count, place · coordinates).
+- **`explore.swift`** — **`List`** with logbook insets/spacing, top scrim, tap → **`ExploreDiveSiteDetailSheet`**; **`AppHeaderlessPage`** + pin **`ExploreTopChrome`** to top (**`fixedSize`** / row height measure — fixes controls and list inset centered mid-screen).
+- **Tests:** **`exploreDiveSiteListDisplay_rowData_placeRatingAndDiveCount`**, **`exploreDiveSiteListDisplay_placeSummary_omitsEmptyFields`**.
+
+**Summary (continued):** Import site linking prefers dive **`siteName`** over nearby GPS.
+
+- **`DiveActivitySiteAssociation`** — when import has **`siteName`**, exact catalog name match only (duplicate names disambiguate within that set); never link to a different nearby site; **`createSiteForImportNameIfNeeded`** for new catalog rows.
+- **`DiveMapCoordinateResolver.exactMatchingSites`** — shared exact-name filter.
+- **FIT** / single **UDDF** import always create a catalog site for unmatched import names; bulk UDDF still respects **Create dive sites** toggle.
+- **Tests:** **`diveActivitySiteAssociation_namedSite_doesNotLinkToNearbyDifferentName`**, **`createSiteForImportNameIfNeeded_insertsNamedSite`**; updated ambiguous-name GPS disambiguation test.
+

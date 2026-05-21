@@ -422,7 +422,11 @@ struct ActivityUploadView: View {
                 await yieldForImportOverlayPaint()
                 let activities = try UddfDiveFileDecoder.buildDiveActivities(from: data)
                 await yieldForImportOverlayPaint()
-                outcome = await UddfDiveFileImport.persistImportedActivities(activities, modelContext: modelContext)
+                outcome = await UddfDiveFileImport.persistImportedActivities(
+                    activities,
+                    modelContext: modelContext,
+                    createMissingDiveSites: true
+                )
             } else {
                 await yieldForImportOverlayPaint()
                 let activity = try FitDiveFileDecoder.buildDiveActivity(from: data)

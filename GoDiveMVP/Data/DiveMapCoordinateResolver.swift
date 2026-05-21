@@ -39,10 +39,15 @@ enum DiveMapCoordinateResolver {
         return isUsable(candidate) ? candidate : nil
     }
 
+    /// Catalog rows whose **`siteName`** equals the import name (case-insensitive trim).
+    static func exactMatchingSites(forSiteName siteName: String?, in sites: [DiveSite]) -> [DiveSite] {
+        guard let normalized = normalizedSiteName(siteName) else { return [] }
+        return sites.filter { normalizedSiteName($0.siteName) == normalized }
+    }
+
     /// Single catalog row whose **`siteName`** equals **`siteName`** (case-insensitive trim). **`nil`** when none or ambiguous.
     static func uniquelyMatchingSite(forSiteName siteName: String?, in sites: [DiveSite]) -> DiveSite? {
-        guard let normalized = normalizedSiteName(siteName) else { return nil }
-        let matches = sites.filter { normalizedSiteName($0.siteName) == normalized }
+        let matches = exactMatchingSites(forSiteName: siteName, in: sites)
         guard matches.count == 1 else { return nil }
         return matches[0]
     }

@@ -81,8 +81,13 @@ enum FitDiveFileImport {
                 ownerProfileID: owner.id,
                 modelContext: modelContext
             )
-            let catalogSites = try DiveActivitySiteAssociation.fetchCatalogSites(modelContext: modelContext)
+            var catalogSites = try DiveActivitySiteAssociation.fetchCatalogSites(modelContext: modelContext)
             DiveActivitySiteAssociation.applyBestMatch(to: activity, catalogSites: catalogSites)
+            _ = DiveActivitySiteAssociation.createSiteForImportNameIfNeeded(
+                to: activity,
+                catalogSites: &catalogSites,
+                modelContext: modelContext
+            )
             try modelContext.save()
             try DiveActivityDiveNumbering.applyAutomaticSequentialRenumberIfNeeded(modelContext: modelContext)
             let msg = "\(importSuccessMessagePrefix) starting \(activity.startTime.formatted(date: .abbreviated, time: .shortened))."

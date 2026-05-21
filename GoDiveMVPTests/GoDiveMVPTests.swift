@@ -1457,7 +1457,7 @@ struct GoDiveMVPTests {
     }
 
     @Test @MainActor
-    func diveActivitySiteAssociation_fuzzyNameOnly_usesCoordinateBeforeContainsMatch() throws {
+    func diveActivitySiteAssociation_namedSite_doesNotLinkToNearbyDifferentName() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = ModelContext(container)
 
@@ -1466,13 +1466,13 @@ struct GoDiveMVPTests {
             latCoords: 12.0835,
             longCoords: -68.283
         )
-        let byNameOnly = DiveSite(
+        let fuzzyCatalog = DiveSite(
             siteName: "Salt Pier — Bonaire (catalog)",
             latCoords: 1,
             longCoords: 1
         )
         context.insert(byCoord)
-        context.insert(byNameOnly)
+        context.insert(fuzzyCatalog)
 
         let activity = DiveActivity(
             source: .macDive,
@@ -1483,9 +1483,44 @@ struct GoDiveMVPTests {
             entryCoordinate: DiveCoordinate(latitude: 12.08316, longitude: -68.2833)
         )
 
-        DiveActivitySiteAssociation.applyBestMatch(to: activity, catalogSites: [byCoord, byNameOnly])
-        #expect(activity.diveSite?.siteName == "GPS Site")
-        #expect(activity.diveSiteID == byCoord.id)
+        DiveActivitySiteAssociation.applyBestMatch(to: activity, catalogSites: [byCoord, fuzzyCatalog])
+        #expect(activity.diveSite == nil)
+    }
+
+    @Test @MainActor
+    func diveActivitySiteAssociation_createSiteForImportNameIfNeeded_insertsNamedSite() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let neighbor = DiveSite(
+            siteName: "Other Reef",
+            latCoords: 12.0835,
+            longCoords: -68.283
+        )
+        context.insert(neighbor)
+        var catalog = try DiveActivitySiteAssociation.fetchCatalogSites(modelContext: context)
+
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 10,
+            siteName: "Salt Pier",
+            entryCoordinate: DiveCoordinate(latitude: 12.08316, longitude: -68.2833)
+        )
+        context.insert(activity)
+
+        DiveActivitySiteAssociation.applyBestMatch(to: activity, catalogSites: catalog)
+        let created = DiveActivitySiteAssociation.createSiteForImportNameIfNeeded(
+            to: activity,
+            catalogSites: &catalog,
+            modelContext: context
+        )
+
+        #expect(created)
+        #expect(activity.diveSite?.siteName == "Salt Pier")
+        #expect(activity.diveSite?.latCoords == 12.08316)
+        #expect(try context.fetchCount(FetchDescriptor<DiveSite>()) == 2)
     }
 
     @Test func diveActivityMapSitePrompt_isEligibleWhenUnlinkedWithEntryOrName() {
@@ -1905,6 +1940,34 @@ struct GoDiveMVPTests {
         #expect(MapPushPinMetrics.mapAnnotationImageHeight == MapPushPinMetrics.renderedHeight * 2)
         #expect(MapPushPinMetrics.tipYInMapAnnotationImage == MapPushPinMetrics.mapAnnotationImageHeight * 0.5)
         #expect(MapPushPinMetrics.tipYInAnnotationView == MapPushPinMetrics.renderedHeight)
+    }
+
+    @Test func exploreDiveSiteListDisplay_rowData_placeRatingAndDiveCount() {
+        let rated = DiveSite(
+            siteName: "Salt Pier",
+            country: "Bonaire",
+            region: "Caribbean",
+            latCoords: 12.083,
+            longCoords: -68.283,
+            siteRating: 4
+        )
+        let unrated = DiveSite(siteName: "Mystery Reef", country: "Belize")
+        unrated.diveActivities = [DiveActivity(source: .macDive, sourceDiveId: "a", startTime: .now, durationMinutes: 40, maxDepthMeters: 18)]
+
+        let rows = ExploreDiveSiteListDisplay.rowData(for: [rated, unrated])
+
+        #expect(rows.count == 2)
+        #expect(rows[0].displayName == "Salt Pier")
+        #expect(rows[0].trailingLabel == "★ 4")
+        #expect(rows[0].detailLine.contains("Bonaire"))
+        #expect(rows[0].detailLine.contains("Caribbean"))
+        #expect(rows[1].trailingLabel == "1 dive")
+        #expect(rows[1].detailLine.contains("No map pin"))
+    }
+
+    @Test func exploreDiveSiteListDisplay_placeSummary_omitsEmptyFields() {
+        let site = DiveSite(siteName: "Reef", country: "  ", region: "Pacific", bodyOfWater: "Coral Sea")
+        #expect(ExploreDiveSiteListDisplay.placeSummary(for: site) == "Pacific · Coral Sea")
     }
 
     @Test func exploreCatalogMapPresentation_region_singleSite_usesDiveSiteSpan() {
