@@ -489,7 +489,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ---
 
-## 39 - Bulk UDDF import, logbook polish, site linking
+## 39 - Bulk UDDF import, logbook polish, site linking **(pushed)**
 
 **Summary:** MacDive **`.uddf`** bulk import (dives only — not media, locker gear, or other MacDive export data yet), live progress + completion alert, Add activity layout/sheet UX, duplicate + site-link fixes, and renumber/search display rules.
 
