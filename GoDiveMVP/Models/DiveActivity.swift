@@ -89,6 +89,10 @@ final class DiveActivity {
     @Relationship(deleteRule: .cascade)
     var buddies: [DiveBuddyTag] = []
 
+    /// Post-dive photos and videos (**`DiveMediaPhoto`**). Empty until the user adds media.
+    @Relationship(deleteRule: .cascade)
+    var mediaPhotos: [DiveMediaPhoto] = []
+
     /// Gear used on this dive (**`DiveEquipmentEntry`** rows). Created on first link / auto-add.
     @Relationship(deleteRule: .cascade)
     var equipmentList: DiveActivityEquipmentList?
@@ -223,6 +227,11 @@ extension DiveActivity {
     var equipmentItemIDs: [UUID] {
         guard let entries = equipmentList?.entries else { return [] }
         return entries.map(\.equipmentItemID)
+    }
+
+    /// **`mediaPhotos`** ordered for gallery UI (**`sortOrder`**, then **`id`**).
+    var sortedMediaPhotos: [DiveMediaPhoto] {
+        DiveActivityMediaPresentation.sortedPhotos(on: self)
     }
 
     /// Logbook row: **`#n`** or **`-`** when hidden or unset.

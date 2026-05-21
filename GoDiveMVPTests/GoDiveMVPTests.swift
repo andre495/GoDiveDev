@@ -1517,6 +1517,10 @@ struct GoDiveMVPTests {
         #expect(stored.first?.ownerProfileID == profile.id)
     }
 
+    @Test func diveActivityOverviewPanelMetrics_panelContentTopPadding_matchesSheetToken() {
+        #expect(DiveActivityOverviewPanelMetrics.panelContentTopPadding == AppTheme.Sheet.contentTopSpacing)
+    }
+
     @Test func diveActivityEditableCatalog_sourceDiveIdIsNotEditable() {
         #expect(!DiveActivityEditableCatalog.isEditable(.sourceDiveId))
     }
@@ -1869,10 +1873,129 @@ struct GoDiveMVPTests {
         #expect(DiveLocationMapPresentation.cameraDistanceMeters(for: .large) == DiveLocationMapPresentation.cameraDistanceMeters(for: .medium))
     }
 
-    @Test func diveActivityOverviewTabSelection_mapAndTank_useMediumDetent() {
+    @Test func diveActivityOverviewTabSelection_allTabs_useMediumDetent() {
         #expect(DiveActivityOverviewTabSelection.overviewDetent(whenSelecting: .map) == .medium)
         #expect(DiveActivityOverviewTabSelection.overviewDetent(whenSelecting: .tank) == .medium)
-        #expect(DiveActivityOverviewTabSelection.overviewDetent(whenSelecting: .camera) == nil)
+        #expect(DiveActivityOverviewTabSelection.overviewDetent(whenSelecting: .camera) == .medium)
+    }
+
+    @Test func diveActivityMediaPresentation_sortedPhotos_respectsSortOrder() {
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 0,
+            maxDepthMeters: 0
+        )
+        let second = DiveMediaPhoto(sortOrder: 1, mediaData: Data([2]), dive: activity)
+        let first = DiveMediaPhoto(sortOrder: 0, mediaData: Data([1]), dive: activity)
+        activity.mediaPhotos = [second, first]
+        let sorted = DiveActivityMediaPresentation.sortedPhotos(on: activity)
+        #expect(sorted.map(\.sortOrder) == [0, 1])
+    }
+
+    @Test func diveActivityMediaPresentation_emptyStateMessage() {
+        #expect(DiveActivityMediaPresentation.emptyStateMessage == "No media added")
+        #expect(DiveActivityMediaPresentation.mediaCountLabel(photoCount: 0) == "No media added")
+        #expect(DiveActivityMediaPresentation.mediaCountLabel(photoCount: 2) == "2 items")
+    }
+
+    @Test func diveActivityMediaPresentation_nextSortOrder_increments() {
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 0,
+            maxDepthMeters: 0
+        )
+        activity.mediaPhotos = [
+            DiveMediaPhoto(sortOrder: 0, mediaData: Data([1])),
+            DiveMediaPhoto(sortOrder: 2, mediaData: Data([2])),
+        ]
+        #expect(DiveActivityMediaPresentation.nextSortOrder(on: activity) == 3)
+    }
+
+    @Test func diveActivityMediaPresentation_showsBackgroundPhotos_onlyWhenNotLarge() {
+        #expect(DiveActivityMediaPresentation.showsBackgroundPhotos(for: .minimized))
+        #expect(DiveActivityMediaPresentation.showsBackgroundPhotos(for: .medium))
+        #expect(!DiveActivityMediaPresentation.showsBackgroundPhotos(for: .large))
+    }
+
+    @Test func diveActivityMediaPresentation_resolvedSelectedPhotoID() {
+        let first = UUID()
+        let second = UUID()
+        let photos = [
+            DiveMediaPhoto(id: first, sortOrder: 0, mediaData: Data()),
+            DiveMediaPhoto(id: second, sortOrder: 1, mediaData: Data()),
+        ]
+        #expect(
+            DiveActivityMediaPresentation.resolvedSelectedPhotoID(selectedID: second, in: photos) == second
+        )
+        #expect(
+            DiveActivityMediaPresentation.resolvedSelectedPhotoID(selectedID: UUID(), in: photos) == first
+        )
+        #expect(DiveActivityMediaPresentation.resolvedSelectedPhotoID(selectedID: first, in: []) == nil)
+    }
+
+    @Test @MainActor
+    func diveActivityMediaStorage_addMedia_persistsOrderedImageRows() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 0,
+            maxDepthMeters: 0
+        )
+        context.insert(activity)
+        try context.save()
+
+        _ = try DiveActivityMediaStorage.addMedia(.image(Data([1])), to: activity, modelContext: context)
+        _ = try DiveActivityMediaStorage.addMedia(.image(Data([2])), to: activity, modelContext: context)
+
+        let sorted = DiveActivityMediaPresentation.sortedPhotos(on: activity)
+        #expect(sorted.count == 2)
+        #expect(sorted.map(\.sortOrder) == [0, 1])
+        #expect(sorted.allSatisfy { $0.resolvedMediaKind == .image })
+    }
+
+    @Test func diveMediaFileStore_importVideo_writesFile() throws {
+        let temp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("dive-media-test-\(UUID().uuidString).mov")
+        try Data([0x00, 0x01]).write(to: temp)
+        defer { try? FileManager.default.removeItem(at: temp) }
+
+        let mediaID = UUID()
+        let fileName = try DiveMediaFileStore.importVideo(from: temp, mediaID: mediaID)
+        defer { DiveMediaFileStore.deleteFileIfNeeded(fileName: fileName) }
+
+        #expect(fileName == "\(mediaID.uuidString).mov")
+        let url = try #require(DiveMediaFileStore.fileURL(fileName: fileName))
+        #expect(FileManager.default.fileExists(atPath: url.path))
+    }
+
+    @Test @MainActor
+    func diveActivityMediaStorage_addMedia_persistsVideoRow() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 0,
+            maxDepthMeters: 0
+        )
+        context.insert(activity)
+        try context.save()
+
+        let temp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("dive-video-persist-\(UUID().uuidString).mov")
+        try Data([0xAB]).write(to: temp)
+        defer { try? FileManager.default.removeItem(at: temp) }
+
+        let addedID = try DiveActivityMediaStorage.addMedia(.video(temp), to: activity, modelContext: context)
+        let row = try #require(activity.mediaPhotos.first { $0.id == addedID })
+        #expect(row.resolvedMediaKind == .video)
+        #expect(!row.mediaFileName.isEmpty)
+        #expect(row.videoFileURL != nil)
+        defer { DiveMediaFileStore.deleteFileIfNeeded(fileName: row.mediaFileName) }
     }
 
     @Test func diveActivityOverviewDetent_mapCameraDetent_largeMatchesMedium() {

@@ -1,10 +1,16 @@
 import SwiftUI
 
 extension View {
-    /// Standard GoDive sheet chrome: rounded top corners + frosted **`.thinMaterial`** background.
+    /// Breathing room below the sheet grabber before the first content row (modal and embedded overview).
+    func appSheetContentTopSpacing() -> some View {
+        padding(.top, AppTheme.Sheet.contentTopSpacing)
+    }
+
+    /// Standard GoDive sheet chrome: top spacing, rounded corners, frosted **`.thinMaterial`** background.
     /// Apply on any **`.sheet`** content after detent / drag-indicator modifiers (see **`.cursor/rules/swiftui-sheet-standard.mdc`**).
     func appSheetPresentationChrome() -> some View {
-        presentationCornerRadius(AppTheme.Sheet.cornerRadius)
+        appSheetContentTopSpacing()
+            .presentationCornerRadius(AppTheme.Sheet.cornerRadius)
             .presentationBackground {
                 Rectangle()
                     .fill(.thinMaterial)

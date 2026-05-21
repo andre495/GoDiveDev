@@ -46,6 +46,8 @@ actor DiveBackgroundDeletionWorker {
             where: #Predicate<DiveActivityEquipmentList> { $0.diveActivityID == diveID }
         )
 
+        try DiveActivityMediaStorage.deleteMediaFiles(forDiveID: diveID, modelContext: modelContext)
+
         try deleteDiveViaParentCascade(diveID: diveID)
     }
 

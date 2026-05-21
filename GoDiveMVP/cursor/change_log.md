@@ -401,3 +401,62 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Swift 6:** **`DiveMapCoordinateResolver.coordinate(from:)`** **`nonisolated`**; **`DiveActivityDTO`** (+ nested DTOs) **`Sendable`** with **`nonisolated`** **`init(from:)`** for unit tests.
 - **Tests:** **`diveActivityEditableCatalog_mapAndTankSectionsAreDistinct`**, **`diveActivityFieldValueParsing_depthAndPressureRespectDisplayUnits`**, **`diveActivityFieldEditing_applyDraft_updatesDuration`**, **`diveSignatureDataFormatting_emptyOrMissingIsNotDisplayable`**, **`diveActivityFieldEditing_signatureDisplayValue_usesPlaceholderWhenEmpty`**, **`diveLogbookDisplay_hiddenDiveNumber_showsHyphen_*`**, hidden-number label on **`DiveActivity`**, **`diveImportedLocationParsing_*`**, **`diveActivityMapSitePrompt_draft_*`**, **`diveActivityDTO_decodesSourceAndLegacyDeviceSourceKey`**, **`diveActivityManualCreation_*`**, **`diveActivityEditableCatalog_sourceDiveIdIsNotEditable`**.
 
+---
+
+## 37 - Media tab, sheet spacing, and dive overview chrome **(pushed)**
+
+**Summary:** Shared sheet grabber spacing; full-bleed **Media** tab (photos + videos, swipe pager, embedded panel); depth profile on **tank** only; darker top gradient behind dive tab chrome.
+
+- **`AppTheme.Sheet.contentTopSpacing`** (**`Spacing.lg`**, 24pt) — shared grabber-to-content gap.
+- **`appSheetContentTopSpacing()`** + **`appSheetPresentationChrome()`** — all frosted **`.sheet`** flows (equipment, certifications, dive field editors, explore detail, manual dive, dive site add, etc.) pick up top padding automatically.
+- **`DiveActivityOverviewPanelMetrics.panelContentTopPadding`** — embedded **map** / **tank** overview panel uses the same 24pt below the custom grabber row.
+- **Profile sheets** — **`ProfileDisplayNameCaptureSheet`**, **`ProfilePhotoCropSheet`**: **`appSheetContentTopSpacing()`** + system grabber (no frosted chrome).
+- **Test:** **`diveActivityOverviewPanelMetrics_panelContentTopPadding_matchesSheetToken`**.
+
+**Summary (continued):** Depth profile chart only on **tank** overview panel, not **map**.
+
+- **`ViewSingleActivity`** — removed **`DiveDepthProfileChart`** + scrub hero from **map** panel; **`tankDepthProfileSection`** on **tank** panel (minimized hero overlay unchanged). Clears scrub sample when leaving **tank** tab.
+
+**Summary (continued):** **Photos** tab uses the shared overview sheet; dive media model for future gallery.
+
+- **`DiveMediaPhoto`** — SwiftData row (**`imageData`**, **`sortOrder`**, cascade with **`DiveActivity`**); **`mediaPhotos`** relationship + **`sortedMediaPhotos`**.
+- **`DiveActivityMediaBackgroundView`** — grid when media exists; **No media added** placeholder when empty.
+- **`ViewSingleActivity`** — **Photos** tab: media hero + embedded panel (blank **`photosPanelContent`** for now); **`DiveActivityOverviewTabSelection`** includes **camera** at **medium** detent.
+- **Tests:** **`diveActivityOverviewTabSelection_allTabs_useMediumDetent`**, **`diveActivityMediaPresentation_*`**.
+
+**Summary (continued):** **Photos** picker, persistence, and swipeable full-bleed gallery.
+
+- **`DiveActivityMediaStorage`** — **`addPhoto`** (JPEG normalize, **`sortOrder`**, SwiftData insert + save).
+- **`DiveActivityPhotosPanelToolbar`** — trailing **+** **`PhotosPicker`** (up to 20 images) in the overview sheet.
+- **`DiveActivityMediaBackgroundView`** — **`TabView`** page pager (one photo, swipe between); empty state unchanged.
+- **`ViewSingleActivity`** — imports picker items, selects newest photo, error alert on save failure.
+- **Tests:** **`diveActivityMediaPresentation_nextSortOrder_increments`**, **`resolvedSelectedPhotoID`**, **`diveActivityMediaStorage_addPhoto_persistsOrderedRows`**.
+
+**Summary (continued):** **Photos** background hidden at **large** sheet detent.
+
+- **`DiveActivityMediaPresentation.showsBackgroundPhotos`** — pager / empty state off when detent is **large**; gradient only behind the sheet.
+- **Test:** **`diveActivityMediaPresentation_showsBackgroundPhotos_onlyWhenNotLarge`**.
+
+**Summary (continued):** **Media** tab accepts photos and videos in one picker and pager.
+
+- **`DiveMediaKind`** + **`mediaKind`** / **`mediaData`** (migrated from **`imageData`**) / **`mediaFileName`** on **`DiveMediaPhoto`**.
+- **`DiveActivityMediaPickerImport`** — **`PhotosPicker`** images + movies; **`DiveMediaFileStore`** copies videos to Application Support.
+- **`DiveActivityMediaItemView`** / **`DiveActivityVideoPlayerView`** — swipe pager plays video or shows image; tab label **Media**.
+- **`DiveBackgroundDeletionWorker`** — deletes on-disk video files when a dive is removed.
+- **Tests:** **`diveMediaFileStore_importVideo_writesFile`**, **`diveActivityMediaStorage_addMedia_persistsVideoRow`**, image row test updated for **`addMedia`**.
+
+**Summary (continued):** Dive videos use aspect-fill crop in the media pager (matches photos).
+
+- **`DiveActivityVideoPlayerView`** — **`AVPlayerLayer`** + **`resizeAspectFill`** instead of letterboxed **`VideoPlayer`**.
+
+**Summary (continued):** **Media** background is edge-to-edge under the status bar (matches **map**).
+
+- **`DiveActivityMediaBackgroundView`** — no top inset on pager; **`ViewSingleActivity`** applies **`ignoresSafeArea()`** on the **Media** tab.
+- **`DiveOverviewMapTopScrim`** — much darker at the top (**~90%** black), easing to light/clear at the bottom of the band; shared overlay behind **`activityTopChrome`** on all overview tabs.
+
+**Summary (continued):** **Media** pager truly edge-to-edge at the top ( **`TabView`** safe-area fix).
+
+- **`DiveActivityMediaBackgroundView`** — extends pager height by top safe inset + **`offset`** so photos/videos draw under the status bar (same as **map**).
+- Hero tab **`Group`** uses **`ignoresSafeArea(edges: [.top, .horizontal])`**.
+- **`DiveActivityMediaBackgroundView`** — horizontal paging **`ScrollView`** (replaces **`TabView`** offset hack that covered the embedded sheet); media tab uses **`ignoresSafeArea()`** only on the hero layer; panel **`zIndex(1)`**.
+

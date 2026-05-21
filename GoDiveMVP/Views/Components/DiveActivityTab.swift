@@ -27,7 +27,7 @@ enum DiveActivityTab: CaseIterable, Hashable {
         switch self {
         case .map: "Map"
         case .tank: "Tank"
-        case .camera: "Photos"
+        case .camera: "Media"
         }
     }
 }

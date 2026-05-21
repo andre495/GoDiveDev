@@ -1,0 +1,88 @@
+import SwiftUI
+
+/// Full-bleed **Media** tab hero — one photo or video at a time; horizontal paging.
+struct DiveActivityMediaBackgroundView: View {
+    let mediaItems: [DiveMediaPhoto]
+    @Binding var selectedMediaID: UUID?
+    var sheetDetent: DiveActivityOverviewDetent = .medium
+    let bottomContentMargin: CGFloat
+
+    private var showsBackgroundMedia: Bool {
+        DiveActivityMediaPresentation.showsBackgroundPhotos(for: sheetDetent)
+    }
+
+    var body: some View {
+        ZStack {
+            AppTheme.Colors.screenBackgroundGradient
+                .ignoresSafeArea()
+
+            if showsBackgroundMedia {
+                if mediaItems.isEmpty {
+                    emptyState
+                } else {
+                    mediaPager
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(backgroundAccessibilityLabel)
+        .accessibilityIdentifier("DiveActivity.MediaBackground")
+        .onAppear { syncSelectionToMedia() }
+        .onChange(of: mediaIDsSignature) { _, _ in
+            syncSelectionToMedia()
+        }
+    }
+
+    private var mediaIDsSignature: String {
+        mediaItems.map(\.id.uuidString).joined(separator: ",")
+    }
+
+    private var mediaPager: some View {
+        GeometryReader { geometry in
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 0) {
+                    ForEach(mediaItems, id: \.id) { item in
+                        DiveActivityMediaItemView(media: item)
+                            .frame(width: geometry.size.width, height: geometry.size.height)
+                            .id(item.id)
+                    }
+                }
+                .scrollTargetLayout()
+            }
+            .scrollTargetBehavior(.paging)
+            .scrollPosition(id: $selectedMediaID)
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .ignoresSafeArea()
+        }
+        .ignoresSafeArea()
+        .padding(.bottom, bottomContentMargin)
+        .accessibilityIdentifier("DiveActivity.MediaBackground.Pager")
+    }
+
+    private var emptyState: some View {
+        Text(DiveActivityMediaPresentation.emptyStateMessage)
+            .font(.title3.weight(.semibold))
+            .foregroundStyle(AppTheme.Colors.tabUnselected)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, AppTheme.Spacing.lg)
+            .padding(.bottom, bottomContentMargin)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityIdentifier("DiveActivity.MediaBackground.Empty")
+    }
+
+    private var backgroundAccessibilityLabel: String {
+        guard showsBackgroundMedia else { return "Media sheet expanded" }
+        if mediaItems.isEmpty {
+            return DiveActivityMediaPresentation.emptyStateMessage
+        }
+        return "Dive media, \(mediaItems.count) items, swipe to change"
+    }
+
+    private func syncSelectionToMedia() {
+        selectedMediaID = DiveActivityMediaPresentation.resolvedSelectedPhotoID(
+            selectedID: selectedMediaID,
+            in: mediaItems
+        )
+    }
+}

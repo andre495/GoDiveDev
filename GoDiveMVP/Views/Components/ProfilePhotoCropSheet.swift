@@ -51,6 +51,9 @@ struct ProfilePhotoCropSheet: View {
                 }
             }
         }
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+        .appSheetContentTopSpacing()
         .onAppear {
             resetCropGestures()
         }

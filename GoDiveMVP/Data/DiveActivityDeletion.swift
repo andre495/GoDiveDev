@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// Removes a **`DiveActivity`** from the store; related **`DiveProfilePoint`** and **`DiveBuddyTag`** rows follow **`@Relationship(deleteRule: .cascade)`** on the model.
+/// Removes a **`DiveActivity`** from the store; related **`DiveProfilePoint`**, **`DiveBuddyTag`**, and **`DiveMediaPhoto`** rows follow **`@Relationship(deleteRule: .cascade)`** on the model.
 enum DiveActivityDeletion {
     /// - **`applySequentialRenumberOverride`:** **`nil`** → use **`AppUserSettings.automaticallyRenumberDives`**; when **`true`**, schedules or awaits background renumber after delete.
     /// - **`awaitPostDeleteRenumber`:** **`false`** (default for UI) returns after background delete + save and schedules background renumber; **`true`** awaits partial renumber on the **main** **`ModelContext`** (tests).

@@ -60,6 +60,9 @@ struct ProfileDisplayNameCaptureSheet: View {
                 isNameFocused = true
             }
         }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .appSheetContentTopSpacing()
         .accessibilityIdentifier("ProfileDisplayNameCapture.Sheet")
     }
 

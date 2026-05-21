@@ -8,6 +8,7 @@ enum AppSwiftDataSchema {
         DiveActivityEquipmentList.self,
         DiveEquipmentEntry.self,
         DiveBuddyTag.self,
+        DiveMediaPhoto.self,
         DiveProfilePoint.self,
         DiveSite.self,
         EquipmentItem.self,
