@@ -592,3 +592,31 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 - **Tests:** **`diveActivitySiteAssociation_matchesExactNameWhenNoEntryGPS`**, **`diveActivitySiteAssociation_doesNotFuzzyMatchPartialCatalogName`** (partial import name no longer links to longer catalog title).
 
+---
+
+## 43 - Certification card type (certification vs specialty) **(pushed)**
+
+**Summary:** Replaced **Primary** toggle with **Certification** / **Specialty** type; colored badges on list rows; profile features newest **certification**-type card only.
+
+- **`CertificationCardType`** + **`cardTypeRaw`** on **`Certification`** (replaces **`isPrimaryCert`**).
+- **`CertificationFormContent`** — segmented **Type** picker; removed **`setAsPrimary`**.
+- **`CertificationTypeBadge`** — blue **Certification** pill, violet **Specialty** pill.
+- **`CertificationPresentation.profileFeaturedCertification`** — newest **`certification`** type for profile subtitle (specialties ignored).
+- **`CertificationPresentation.sortedForList`** — newest **`dateAttained`** first.
+- **Tests:** profile featured / specialty ignored / badge styles / sorted list.
+
+**Summary (continued):** Specialty badge color + detail header layout.
+
+- **`CertificationPresentation`** — specialty badge uses violet palette (replaces gold); **`detailHeaderName`** for detail page title row.
+- **`ViewCertificationDetails`** — cert name + type badge at top of scroll; removed bottom **Type** section and duplicate **Name** row; **`AppPage`** title **Certification**.
+
+**Summary (continued):** Prominent certification card photos on detail page.
+
+- **`ViewCertificationDetails`** — full-width card heroes (ID-1 aspect, shadow); front + back use paged **`TabView`**; single photo uses one large hero.
+
+**Summary (continued):** Profile featured cert opens detail.
+
+- **`CertificationPresentation.profileFeaturedCertificationCard`** — resolves newest certification-type row for navigation.
+- **`profile.swift`** — featured cert name/number **`NavigationLink`** → **`ViewCertificationDetails`** (inactive when default **GoDive User** copy).
+- **Tests:** **`certificationPresentation_profileFeaturedCertificationCard_*`**.
+

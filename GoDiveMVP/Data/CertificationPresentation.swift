@@ -1,40 +1,81 @@
 import Foundation
+import SwiftUI
+import UIKit
 
 /// Read-only labels for certification list and detail UI.
 enum CertificationPresentation: Sendable {
 
     static let profileSubtitleDefault = "GoDive User"
 
-    /// Primary certification copy under the profile display name.
-    struct ProfilePrimaryCertificationDisplay: Equatable, Sendable {
+    struct TypeBadgeStyle: Equatable, Sendable {
+        let label: String
+        let foreground: Color
+        let background: Color
+    }
+
+    /// Profile header: newest **`certification`**-type card, else **`profileSubtitleDefault`**.
+    struct ProfileFeaturedCertificationDisplay: Equatable, Sendable {
         let title: String
-        /// **`certNumber`** on the primary card when **`title`** is the certification name.
+        /// **`certNumber`** when **`title`** is the certification name.
         let certNumber: String?
     }
 
-    /// Profile header: newest primary **`certName`**, optional **`certNumber`** on the next line, else **`profileSubtitleDefault`**.
-    static func profilePrimaryCertification(from certifications: [Certification]) -> ProfilePrimaryCertificationDisplay {
-        let primaryCards = certifications.filter(\.isPrimaryCert)
-        guard let newestPrimary = primaryCards.max(by: { $0.dateAttained < $1.dateAttained }) else {
-            return ProfilePrimaryCertificationDisplay(title: profileSubtitleDefault, certNumber: nil)
+    static func typeBadgeStyle(for cardType: CertificationCardType) -> TypeBadgeStyle {
+        switch cardType {
+        case .certification:
+            return TypeBadgeStyle(
+                label: cardType.displayName,
+                foreground: AppTheme.Colors.accentDeep,
+                background: AppTheme.Colors.accentLight.opacity(0.45)
+            )
+        case .specialty:
+            return TypeBadgeStyle(
+                label: cardType.displayName,
+                foreground: specialtyBadgeForeground,
+                background: specialtyBadgeBackground
+            )
         }
-        let name = newestPrimary.certName.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Newest **`CertificationCardType.certification`** row for profile navigation and subtitle copy.
+    static func profileFeaturedCertificationCard(from certifications: [Certification]) -> Certification? {
+        certifications
+            .filter { $0.cardType == .certification }
+            .max(by: { $0.dateAttained < $1.dateAttained })
+    }
+
+    /// Newest **`CertificationCardType.certification`** card for the profile subtitle block.
+    static func profileFeaturedCertification(from certifications: [Certification]) -> ProfileFeaturedCertificationDisplay {
+        guard let newest = profileFeaturedCertificationCard(from: certifications) else {
+            return ProfileFeaturedCertificationDisplay(title: profileSubtitleDefault, certNumber: nil)
+        }
+        let name = newest.certName.trimmingCharacters(in: .whitespacesAndNewlines)
         if !name.isEmpty {
-            let number = newestPrimary.certNumber.trimmingCharacters(in: .whitespacesAndNewlines)
-            return ProfilePrimaryCertificationDisplay(
+            let number = newest.certNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+            return ProfileFeaturedCertificationDisplay(
                 title: name,
                 certNumber: number.isEmpty ? nil : number
             )
         }
-        return ProfilePrimaryCertificationDisplay(
-            title: title(for: newestPrimary),
+        return ProfileFeaturedCertificationDisplay(
+            title: title(for: newest),
             certNumber: nil
         )
     }
 
-    /// Profile subtitle: **`certName`** of the primary card with the newest **`dateAttained`**, else **`profileSubtitleDefault`**.
+    /// Profile subtitle: featured certification name, else **`profileSubtitleDefault`**.
     static func profileCertificationSubtitle(from certifications: [Certification]) -> String {
-        profilePrimaryCertification(from: certifications).title
+        profileFeaturedCertification(from: certifications).title
+    }
+
+    /// Certifications list: newest **`dateAttained`** first; **`agency`** tie-break (case-insensitive).
+    static func sortedForList(_ certifications: [Certification]) -> [Certification] {
+        certifications.sorted { lhs, rhs in
+            if lhs.dateAttained != rhs.dateAttained {
+                return lhs.dateAttained > rhs.dateAttained
+            }
+            return lhs.agency.localizedCaseInsensitiveCompare(rhs.agency) == .orderedAscending
+        }
     }
 
     static func title(for certification: Certification) -> String {
@@ -74,7 +115,30 @@ enum CertificationPresentation: Sendable {
         return date.formatted(date: .abbreviated, time: .omitted)
     }
 
-    static func yesNo(_ value: Bool) -> String {
-        value ? "Yes" : "No"
+    /// Prominent name for certification detail header (prefers **`certName`**).
+    static func detailHeaderName(for certification: Certification) -> String {
+        let name = certification.certName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !name.isEmpty { return name }
+        return title(for: certification)
+    }
+
+    private static var specialtyBadgeForeground: Color {
+        Color(
+            uiColor: UIColor { traits in
+                traits.userInterfaceStyle == .dark
+                    ? UIColor(red: 0.82, green: 0.74, blue: 0.98, alpha: 1.0)
+                    : UIColor(red: 0.36, green: 0.20, blue: 0.52, alpha: 1.0)
+            }
+        )
+    }
+
+    private static var specialtyBadgeBackground: Color {
+        Color(
+            uiColor: UIColor { traits in
+                traits.userInterfaceStyle == .dark
+                    ? UIColor(red: 0.22, green: 0.14, blue: 0.34, alpha: 0.72)
+                    : UIColor(red: 0.90, green: 0.84, blue: 0.98, alpha: 1.0)
+            }
+        )
     }
 }

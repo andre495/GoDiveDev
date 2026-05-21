@@ -24,8 +24,12 @@ struct ProfileView: View {
         return allCertifications.filter { $0.ownerProfileID == ownerID }
     }
 
-    private var profilePrimaryCertification: CertificationPresentation.ProfilePrimaryCertificationDisplay {
-        CertificationPresentation.profilePrimaryCertification(from: ownedCertifications)
+    private var profileFeaturedCertification: CertificationPresentation.ProfileFeaturedCertificationDisplay {
+        CertificationPresentation.profileFeaturedCertification(from: ownedCertifications)
+    }
+
+    private var featuredCertificationCard: Certification? {
+        CertificationPresentation.profileFeaturedCertificationCard(from: ownedCertifications)
     }
 
     private var ownedDiveActivityCount: Int {
@@ -131,19 +135,7 @@ struct ProfileView: View {
                         .accessibilityIdentifier("Profile.DanInsuranceNumber")
                 }
 
-                Text(profilePrimaryCertification.title)
-                    .font(.title3.weight(.medium))
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-                    .multilineTextAlignment(.center)
-                    .accessibilityIdentifier("Profile.CertificationSubtitle")
-
-                if let certNumber = profilePrimaryCertification.certNumber {
-                    Text(certNumber)
-                        .font(.body.weight(.medium))
-                        .foregroundStyle(AppTheme.Colors.secondaryText)
-                        .multilineTextAlignment(.center)
-                        .accessibilityIdentifier("Profile.CertificationNumber")
-                }
+                profileFeaturedCertificationSummary
 
                 Text(diveCountLabel)
                     .font(.body.weight(.medium))
@@ -153,6 +145,49 @@ struct ProfileView: View {
             }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private var profileFeaturedCertificationSummary: some View {
+        let summary = profileCertificationSummaryLabels
+        if let featured = featuredCertificationCard {
+            NavigationLink {
+                ViewCertificationDetails(certification: featured)
+            } label: {
+                summary
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("View certification, \(profileFeaturedCertification.title)")
+            .accessibilityIdentifier("Profile.FeaturedCertificationLink")
+        } else {
+            summary
+        }
+    }
+
+    private var profileCertificationSummaryLabels: some View {
+        VStack(spacing: AppTheme.Spacing.sm) {
+            Text(profileFeaturedCertification.title)
+                .font(.title3.weight(.medium))
+                .foregroundStyle(
+                    featuredCertificationCard != nil
+                        ? AppTheme.Colors.tabSelected
+                        : AppTheme.Colors.secondaryText
+                )
+                .multilineTextAlignment(.center)
+                .accessibilityIdentifier("Profile.CertificationSubtitle")
+
+            if let certNumber = profileFeaturedCertification.certNumber {
+                Text(certNumber)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(
+                        featuredCertificationCard != nil
+                            ? AppTheme.Colors.tabSelected
+                            : AppTheme.Colors.secondaryText
+                    )
+                    .multilineTextAlignment(.center)
+                    .accessibilityIdentifier("Profile.CertificationNumber")
+            }
+        }
     }
 
     private var profileDestinationTiles: some View {

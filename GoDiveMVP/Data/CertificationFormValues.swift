@@ -11,7 +11,7 @@ struct CertificationFormValues: Equatable, Sendable {
     var instructorNumber: String = ""
     var diveShop: String = ""
 
-    var isPrimaryCert: Bool = false
+    var cardType: CertificationCardType = .certification
 
     var certFrontPicture: Data?
     var certBackPicture: Data?
@@ -32,7 +32,7 @@ struct CertificationFormValues: Equatable, Sendable {
         instructor = certification.instructor
         instructorNumber = certification.instructorNumber
         diveShop = certification.diveShop ?? ""
-        isPrimaryCert = certification.isPrimaryCert
+        cardType = certification.cardType
         certFrontPicture = certification.certFrontPicture
         certBackPicture = certification.certBackPicture
     }
@@ -46,7 +46,7 @@ struct CertificationFormValues: Equatable, Sendable {
         certification.instructorNumber = instructorNumber.trimmingCharacters(in: .whitespacesAndNewlines)
         let shop = diveShop.trimmingCharacters(in: .whitespacesAndNewlines)
         certification.diveShop = shop.isEmpty ? nil : shop
-        certification.isPrimaryCert = isPrimaryCert
+        certification.cardType = cardType
         certification.certFrontPicture = certFrontPicture
         certification.certBackPicture = certBackPicture
     }
@@ -61,7 +61,7 @@ struct CertificationFormValues: Equatable, Sendable {
             instructor: instructor.trimmingCharacters(in: .whitespacesAndNewlines),
             instructorNumber: instructorNumber.trimmingCharacters(in: .whitespacesAndNewlines),
             diveShop: shop.isEmpty ? nil : shop,
-            isPrimaryCert: isPrimaryCert,
+            cardType: cardType,
             certFrontPicture: certFrontPicture,
             certBackPicture: certBackPicture
         )

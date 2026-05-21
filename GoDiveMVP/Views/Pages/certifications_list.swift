@@ -23,15 +23,10 @@ struct CertificationsListView: View {
 
     private var ownedCertifications: [Certification] {
         guard let ownerID = accountSession.currentProfile?.id else { return [] }
-        return allCertifications
-            .filter {
-                $0.ownerProfileID == ownerID && !optimisticallyRemovedCertificationIDs.contains($0.id)
-            }
-            .sorted { lhs, rhs in
-                if lhs.isPrimaryCert != rhs.isPrimaryCert { return lhs.isPrimaryCert }
-                if lhs.dateAttained != rhs.dateAttained { return lhs.dateAttained > rhs.dateAttained }
-                return lhs.agency.localizedCaseInsensitiveCompare(rhs.agency) == .orderedAscending
-            }
+        let owned = allCertifications.filter {
+            $0.ownerProfileID == ownerID && !optimisticallyRemovedCertificationIDs.contains($0.id)
+        }
+        return CertificationPresentation.sortedForList(owned)
     }
 
     var body: some View {
@@ -227,17 +222,7 @@ private struct CertificationListRowView: View {
                         .foregroundStyle(AppTheme.Colors.textPrimary)
                         .lineLimit(2)
 
-                    if certification.isPrimaryCert {
-                        Text("Primary")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(AppTheme.Colors.accentDeep)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background {
-                                Capsule()
-                                    .fill(AppTheme.Colors.accentLight.opacity(0.45))
-                            }
-                    }
+                    CertificationTypeBadge(cardType: certification.cardType)
                 }
 
                 Text(CertificationPresentation.subtitle(for: certification))
@@ -265,7 +250,7 @@ private struct CertificationListRowView: View {
 
     private var rowAccessibilityLabel: String {
         var parts = [CertificationPresentation.title(for: certification)]
-        if certification.isPrimaryCert { parts.append("Primary") }
+        parts.append(certification.cardType.displayName)
         parts.append(CertificationPresentation.subtitle(for: certification))
         return parts.joined(separator: ", ")
     }

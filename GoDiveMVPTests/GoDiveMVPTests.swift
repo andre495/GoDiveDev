@@ -807,7 +807,7 @@ struct GoDiveMVPTests {
             instructor: "Jane Smith",
             instructorNumber: "INS-99",
             diveShop: "Blue Water Dive Center",
-            isPrimaryCert: true,
+            cardType: .certification,
             certFrontPicture: frontBytes,
             certBackPicture: backBytes
         )
@@ -825,35 +825,11 @@ struct GoDiveMVPTests {
         #expect(card.instructor == "Jane Smith")
         #expect(card.instructorNumber == "INS-99")
         #expect(card.diveShop == "Blue Water Dive Center")
-        #expect(card.isPrimaryCert == true)
+        #expect(card.cardType == .certification)
         #expect(card.certFrontPicture == frontBytes)
         #expect(card.certBackPicture == backBytes)
         #expect(card.ownerProfileID == owner.id)
         #expect(owner.certifications.count == 1)
-    }
-
-    @Test @MainActor
-    func certificationOwnership_setAsPrimary_clearsOtherPrimaries() throws {
-        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
-        let context = ModelContext(container)
-
-        let owner = UserProfile(appleUserIdentifier: "apple-cert-primary", displayName: "Diver")
-        context.insert(owner)
-
-        let first = Certification(agency: "PADI", certNumber: "1", isPrimaryCert: true)
-        let second = Certification(agency: "NAUI", certNumber: "2", isPrimaryCert: false)
-        CertificationOwnership.assignOwner(owner, to: first)
-        CertificationOwnership.assignOwner(owner, to: second)
-        context.insert(first)
-        context.insert(second)
-        try context.save()
-
-        try CertificationOwnership.setAsPrimary(second, ownerProfileID: owner.id, modelContext: context)
-
-        #expect(first.isPrimaryCert == false)
-        #expect(second.isPrimaryCert == true)
-        let primary = try CertificationOwnership.primaryCertification(forOwnerProfileID: owner.id, modelContext: context)
-        #expect(primary?.id == second.id)
     }
 
     @Test @MainActor
@@ -918,7 +894,7 @@ struct GoDiveMVPTests {
         form.instructor = " Pat "
         form.instructorNumber = " INS-1 "
         form.diveShop = " Reef Shop "
-        form.isPrimaryCert = true
+        form.cardType = .specialty
         form.certFrontPicture = Data([0x01])
         form.certBackPicture = Data([0x02])
         let cert = form.makeCertification()
@@ -929,25 +905,25 @@ struct GoDiveMVPTests {
         #expect(cert.instructor == "Pat")
         #expect(cert.instructorNumber == "INS-1")
         #expect(cert.diveShop == "Reef Shop")
-        #expect(cert.isPrimaryCert == true)
+        #expect(cert.cardType == .specialty)
         #expect(cert.certFrontPicture == Data([0x01]))
         #expect(cert.certBackPicture == Data([0x02]))
     }
 
     @Test func certificationFormValues_apply_updatesExistingCertification() {
-        let cert = Certification(agency: "Old", certNumber: "1", isPrimaryCert: false)
+        let cert = Certification(agency: "Old", certNumber: "1", cardType: .certification)
         var form = CertificationFormValues()
         form.agency = "SSI"
         form.certName = "Divemaster"
         form.certNumber = "DM-2"
         form.diveShop = ""
-        form.isPrimaryCert = true
+        form.cardType = .specialty
         form.apply(to: cert)
         #expect(cert.agency == "SSI")
         #expect(cert.certName == "Divemaster")
         #expect(cert.certNumber == "DM-2")
         #expect(cert.diveShop == nil)
-        #expect(cert.isPrimaryCert == true)
+        #expect(cert.cardType == .specialty)
     }
 
     @Test func certificationFormValues_initFromCertification_restoresFields() {
@@ -960,7 +936,7 @@ struct GoDiveMVPTests {
             instructor: "Alex",
             instructorNumber: "99",
             diveShop: "Blue Shop",
-            isPrimaryCert: true,
+            cardType: .certification,
             certFrontPicture: Data([0xAA])
         )
         let form = CertificationFormValues(from: cert)
@@ -970,7 +946,7 @@ struct GoDiveMVPTests {
         #expect(form.dateAttained == attained)
         #expect(form.instructor == "Alex")
         #expect(form.diveShop == "Blue Shop")
-        #expect(form.isPrimaryCert == true)
+        #expect(form.cardType == .certification)
         #expect(form.certFrontPicture == Data([0xAA]))
     }
 
@@ -984,72 +960,160 @@ struct GoDiveMVPTests {
         #expect(CertificationPresentation.title(for: cert) == "PADI · 123")
     }
 
-    @Test func certificationPresentation_profileSubtitle_usesNewestPrimaryCertName() {
+    @Test func certificationPresentation_profileFeaturedCertificationCard_returnsNewestCertificationType() {
         let older = Certification(
             agency: "PADI",
             certName: "Open Water",
             certNumber: "1",
             dateAttained: Date(timeIntervalSince1970: 1_000),
-            isPrimaryCert: true
+            cardType: .certification
         )
         let newer = Certification(
             agency: "PADI",
             certName: "Rescue Diver",
             certNumber: "2",
             dateAttained: Date(timeIntervalSince1970: 2_000),
-            isPrimaryCert: true
+            cardType: .certification
+        )
+        let featured = CertificationPresentation.profileFeaturedCertificationCard(from: [older, newer])
+        #expect(featured?.certName == "Rescue Diver")
+    }
+
+    @Test func certificationPresentation_profileFeaturedCertificationCard_nilWhenOnlySpecialty() {
+        let specialty = Certification(
+            agency: "PADI",
+            certName: "Enriched Air",
+            certNumber: "1",
+            cardType: .specialty
+        )
+        #expect(CertificationPresentation.profileFeaturedCertificationCard(from: [specialty]) == nil)
+    }
+
+    @Test func certificationPresentation_profileSubtitle_usesNewestCertificationTypeName() {
+        let older = Certification(
+            agency: "PADI",
+            certName: "Open Water",
+            certNumber: "1",
+            dateAttained: Date(timeIntervalSince1970: 1_000),
+            cardType: .certification
+        )
+        let newer = Certification(
+            agency: "PADI",
+            certName: "Rescue Diver",
+            certNumber: "2",
+            dateAttained: Date(timeIntervalSince1970: 2_000),
+            cardType: .certification
         )
         let subtitle = CertificationPresentation.profileCertificationSubtitle(from: [older, newer])
         #expect(subtitle == "Rescue Diver")
     }
 
-    @Test func certificationPresentation_profileSubtitle_defaultsWithoutPrimary() {
+    @Test func certificationPresentation_profileSubtitle_ignoresNewerSpecialty() {
+        let olderCert = Certification(
+            agency: "PADI",
+            certName: "Open Water",
+            certNumber: "1",
+            dateAttained: Date(timeIntervalSince1970: 1_000),
+            cardType: .certification
+        )
+        let newerSpecialty = Certification(
+            agency: "PADI",
+            certName: "Enriched Air",
+            certNumber: "2",
+            dateAttained: Date(timeIntervalSince1970: 2_000),
+            cardType: .specialty
+        )
+        let subtitle = CertificationPresentation.profileCertificationSubtitle(
+            from: [olderCert, newerSpecialty]
+        )
+        #expect(subtitle == "Open Water")
+    }
+
+    @Test func certificationPresentation_profileSubtitle_defaultsWithoutCertificationType() {
         let cert = Certification(
             agency: "PADI",
-            certName: "Advanced Open Water",
+            certName: "Wreck Diver",
             certNumber: "1",
             dateAttained: .now,
-            isPrimaryCert: false
+            cardType: .specialty
         )
         #expect(CertificationPresentation.profileCertificationSubtitle(from: [cert]) == "GoDive User")
     }
 
-    @Test func certificationPresentation_profilePrimary_includesCertNumberUnderName() {
+    @Test func certificationPresentation_profileFeatured_includesCertNumberUnderName() {
         let cert = Certification(
             agency: "PADI",
             certName: "Rescue Diver",
             certNumber: "  RD-991  ",
             dateAttained: .now,
-            isPrimaryCert: true
+            cardType: .certification
         )
-        let display = CertificationPresentation.profilePrimaryCertification(from: [cert])
+        let display = CertificationPresentation.profileFeaturedCertification(from: [cert])
         #expect(display.title == "Rescue Diver")
         #expect(display.certNumber == "RD-991")
     }
 
-    @Test func certificationPresentation_profilePrimary_omitsNumberWhenNameMissing() {
+    @Test func certificationPresentation_profileFeatured_omitsNumberWhenNameMissing() {
         let cert = Certification(
             agency: "PADI",
             certNumber: "RD-991",
             dateAttained: .now,
-            isPrimaryCert: true
+            cardType: .certification
         )
-        let display = CertificationPresentation.profilePrimaryCertification(from: [cert])
+        let display = CertificationPresentation.profileFeaturedCertification(from: [cert])
         #expect(display.title == "PADI · RD-991")
         #expect(display.certNumber == nil)
     }
 
-    @Test func certificationPresentation_profilePrimary_omitsNumberWhenEmpty() {
+    @Test func certificationPresentation_profileFeatured_omitsNumberWhenEmpty() {
         let cert = Certification(
             agency: "PADI",
             certName: "Rescue Diver",
             certNumber: "   ",
             dateAttained: .now,
-            isPrimaryCert: true
+            cardType: .certification
         )
-        let display = CertificationPresentation.profilePrimaryCertification(from: [cert])
+        let display = CertificationPresentation.profileFeaturedCertification(from: [cert])
         #expect(display.title == "Rescue Diver")
         #expect(display.certNumber == nil)
+    }
+
+    @Test func certificationPresentation_typeBadgeStyle_differsByCardType() {
+        let certification = CertificationPresentation.typeBadgeStyle(for: .certification)
+        let specialty = CertificationPresentation.typeBadgeStyle(for: .specialty)
+        #expect(certification.label == "Certification")
+        #expect(specialty.label == "Specialty")
+        #expect(certification.foreground != specialty.foreground)
+        #expect(certification.background != specialty.background)
+    }
+
+    @Test func certificationPresentation_detailHeaderName_prefersCertName() {
+        let cert = Certification(agency: "PADI", certName: "Rescue Diver", certNumber: "99")
+        #expect(CertificationPresentation.detailHeaderName(for: cert) == "Rescue Diver")
+    }
+
+    @Test func certificationPresentation_detailHeaderName_fallsBackToTitle() {
+        let cert = Certification(agency: "PADI", certNumber: "99")
+        #expect(CertificationPresentation.detailHeaderName(for: cert) == "PADI · 99")
+    }
+
+    @Test func certificationPresentation_sortedForList_newestDateAttainedFirst() {
+        let older = Certification(
+            agency: "PADI",
+            certName: "Open Water",
+            certNumber: "1",
+            dateAttained: Date(timeIntervalSince1970: 1_000),
+            cardType: .certification
+        )
+        let newer = Certification(
+            agency: "NAUI",
+            certName: "Rescue Diver",
+            certNumber: "2",
+            dateAttained: Date(timeIntervalSince1970: 2_000),
+            cardType: .specialty
+        )
+        let sorted = CertificationPresentation.sortedForList([older, newer])
+        #expect(sorted.map(\.certName) == ["Rescue Diver", "Open Water"])
     }
 
     @Test func appUserSettings_automaticallyRenumberDivesKey_matchesAppStorage() {

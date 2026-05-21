@@ -15,7 +15,7 @@ struct CertificationFormContent: View {
             cardPhotosSection
             certificationSection
             instructorSection
-            primarySection
+            cardTypeSection
         }
     }
 
@@ -146,12 +146,17 @@ struct CertificationFormContent: View {
         }
     }
 
-    private var primarySection: some View {
+    private var cardTypeSection: some View {
         Section {
-            Toggle("Primary certification", isOn: $form.isPrimaryCert)
-                .accessibilityIdentifier("CertificationForm.IsPrimary")
+            Picker("Type", selection: $form.cardType) {
+                ForEach(CertificationCardType.allCases, id: \.self) { type in
+                    Text(type.displayName).tag(type)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("CertificationForm.CardType")
         } footer: {
-            Text("Your primary card is shown first and used as your main certification on your profile.")
+            Text("Certification cards can appear on your profile when they are the newest certification-type entry.")
                 .foregroundStyle(AppTheme.Colors.secondaryText)
         }
     }

@@ -72,13 +72,6 @@ struct CertificationAddSheetView: View {
 
         do {
             try modelContext.save()
-            if form.isPrimaryCert {
-                try CertificationOwnership.setAsPrimary(
-                    certification,
-                    ownerProfileID: profile.id,
-                    modelContext: modelContext
-                )
-            }
             onSaved()
             dismiss()
         } catch {

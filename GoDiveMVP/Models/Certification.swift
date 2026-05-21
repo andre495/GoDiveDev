@@ -20,8 +20,8 @@ final class Certification {
     var instructorNumber: String
     var diveShop: String?
 
-    /// When **`true`**, this card is the profile’s primary certification (at most one per owner).
-    var isPrimaryCert: Bool
+    /// **`CertificationCardType`** raw value (**`certification`** / **`specialty`**).
+    var cardTypeRaw: String = CertificationCardType.certification.rawValue
 
     /// Front of certification card (JPEG/PNG bytes from photo picker).
     var certFrontPicture: Data?
@@ -42,7 +42,7 @@ final class Certification {
         instructor: String = "",
         instructorNumber: String = "",
         diveShop: String? = nil,
-        isPrimaryCert: Bool = false,
+        cardType: CertificationCardType = .certification,
         certFrontPicture: Data? = nil,
         certBackPicture: Data? = nil,
         ownerProfileID: UUID? = nil,
@@ -56,7 +56,7 @@ final class Certification {
         self.instructor = instructor
         self.instructorNumber = instructorNumber
         self.diveShop = diveShop
-        self.isPrimaryCert = isPrimaryCert
+        self.cardTypeRaw = cardType.rawValue
         self.certFrontPicture = certFrontPicture
         self.certBackPicture = certBackPicture
         self.ownerProfileID = ownerProfileID

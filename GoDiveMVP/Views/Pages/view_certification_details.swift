@@ -10,12 +10,8 @@ struct ViewCertificationDetails: View {
 
     @State private var showsEditSheet = false
 
-    private var pageTitle: String {
-        CertificationPresentation.title(for: certification)
-    }
-
     var body: some View {
-        AppPage(title: pageTitle, showsBackButton: true, trailingContent: {
+        AppPage(title: "Certification", showsBackButton: true, trailingContent: {
             Button("Edit") {
                 showsEditSheet = true
             }
@@ -25,10 +21,10 @@ struct ViewCertificationDetails: View {
         }, content: {
             ScrollView {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+                    detailHeaderSection
                     cardPhotosSection
                     certificationSection
                     instructorSection
-                    primarySection
                 }
                 .padding(AppTheme.Spacing.md)
             }
@@ -42,43 +38,111 @@ struct ViewCertificationDetails: View {
         .accessibilityIdentifier("CertificationDetails.Root")
     }
 
-    private var cardPhotosSection: some View {
+    private var detailHeaderSection: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            if certification.certFrontPicture != nil || certification.certBackPicture != nil {
-                Text("Card photos")
-                    .font(.headline.weight(.semibold))
+            HStack(alignment: .firstTextBaseline, spacing: AppTheme.Spacing.sm) {
+                Text(CertificationPresentation.detailHeaderName(for: certification))
+                    .font(.title2.weight(.bold))
                     .foregroundStyle(AppTheme.Colors.textPrimary)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                HStack(spacing: AppTheme.Spacing.md) {
-                    cardPhoto(data: certification.certFrontPicture, label: "Front")
-                    cardPhoto(data: certification.certBackPicture, label: "Back")
+                CertificationTypeBadge(cardType: certification.cardType)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(detailHeaderAccessibilityLabel)
+        .accessibilityIdentifier("CertificationDetails.Header")
+    }
+
+    private var detailHeaderAccessibilityLabel: String {
+        let name = CertificationPresentation.detailHeaderName(for: certification)
+        return "\(name), \(certification.cardType.displayName)"
+    }
+
+    private var hasCardPhotos: Bool {
+        certification.certFrontPicture != nil || certification.certBackPicture != nil
+    }
+
+    @ViewBuilder
+    private var cardPhotosSection: some View {
+        if hasCardPhotos {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+                if certification.certFrontPicture != nil, certification.certBackPicture != nil {
+                    cardPhotosPager
+                } else if let front = certification.certFrontPicture {
+                    cardPhotoHero(data: front, label: "Front")
+                } else if let back = certification.certBackPicture {
+                    cardPhotoHero(data: back, label: "Back")
                 }
             }
         }
     }
 
+    private var cardPhotosPager: some View {
+        TabView {
+            cardPhotoHero(data: certification.certFrontPicture, label: "Front", showsLabelInPager: true)
+            cardPhotoHero(data: certification.certBackPicture, label: "Back", showsLabelInPager: true)
+        }
+        .tabViewStyle(.page(indexDisplayMode: .automatic))
+        .frame(height: Self.cardPhotoHeroHeight)
+        .accessibilityIdentifier("CertificationDetails.CardPhotosPager")
+    }
+
+    /// ISO/IEC 7810 ID-1 aspect (credit-card style).
+    private static let cardPhotoAspectRatio: CGFloat = 85.6 / 53.98
+    private static let cardPhotoHeroHeight: CGFloat = 248
+
     @ViewBuilder
-    private func cardPhoto(data: Data?, label: String) -> some View {
+    private func cardPhotoHero(data: Data?, label: String, showsLabelInPager: Bool = false) -> some View {
         #if canImport(UIKit)
         if let data, let image = UIImage(data: data) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(label)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                if !showsLabelInPager {
+                    cardPhotoLabel(label)
+                }
+
                 Image(uiImage: image)
                     .resizable()
-                    .scaledToFill()
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 140)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .scaledToFit()
+                    .aspectRatio(Self.cardPhotoAspectRatio, contentMode: .fit)
+                    .frame(maxWidth: .infinity, maxHeight: Self.cardPhotoHeroHeight)
+                    .background(AppTheme.Colors.surfaceMuted.opacity(0.35))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(AppTheme.Colors.tabUnselected.opacity(0.18), lineWidth: 1)
+                    }
+                    .shadow(color: .black.opacity(0.14), radius: 14, y: 8)
+                    .accessibilityLabel("\(label) of certification card")
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .overlay(alignment: .topLeading) {
+                if showsLabelInPager {
+                    cardPhotoLabel(label)
+                        .padding(AppTheme.Spacing.sm)
+                }
+            }
+            .accessibilityIdentifier("CertificationDetails.CardPhoto.\(label)")
         }
         #endif
     }
 
+    private func cardPhotoLabel(_ label: String) -> some View {
+        Text(label)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(AppTheme.Colors.textPrimary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background {
+                Capsule()
+                    .fill(AppTheme.Colors.surfaceElevated.opacity(0.92))
+            }
+    }
+
     private var certificationSection: some View {
         detailSection(title: "Certification") {
-            detailRow(label: "Name", value: CertificationPresentation.displayString(certification.certName))
             detailRow(label: "Agency", value: CertificationPresentation.displayString(certification.agency))
             detailRow(label: "Number", value: CertificationPresentation.displayString(certification.certNumber))
             detailRow(label: "Date attained", value: CertificationPresentation.formattedDate(certification.dateAttained))
@@ -93,15 +157,6 @@ struct ViewCertificationDetails: View {
                 value: CertificationPresentation.displayString(certification.instructorNumber)
             )
             detailRow(label: "Dive shop", value: CertificationPresentation.displayString(certification.diveShop))
-        }
-    }
-
-    private var primarySection: some View {
-        detailSection(title: "Profile") {
-            detailRow(
-                label: "Primary certification",
-                value: CertificationPresentation.yesNo(certification.isPrimaryCert)
-            )
         }
     }
 
@@ -144,7 +199,7 @@ struct ViewCertificationDetails: View {
         certNumber: "OW-12345",
         dateAttained: .now,
         instructor: "Jane Smith",
-        isPrimaryCert: true
+        cardType: .specialty
     )
     return NavigationStack {
         ViewCertificationDetails(certification: certification)

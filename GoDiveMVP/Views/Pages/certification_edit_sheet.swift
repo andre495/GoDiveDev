@@ -76,13 +76,6 @@ struct CertificationEditSheetView: View {
         form.apply(to: certification)
         do {
             try modelContext.save()
-            if form.isPrimaryCert {
-                try CertificationOwnership.setAsPrimary(
-                    certification,
-                    ownerProfileID: ownerID,
-                    modelContext: modelContext
-                )
-            }
             onSaved()
             dismiss()
         } catch {
