@@ -102,7 +102,7 @@ enum FitDiveFileDecoder {
         let defaultTank = DiveActivityTankDefaults.resolvedSpecification()
 
         let activity = DiveActivity(
-            deviceSource: .garminMK3,
+            source: .garminMK3,
             sourceDiveId: sourceDiveId,
             startTime: start,
             durationMinutes: durationMinutes,

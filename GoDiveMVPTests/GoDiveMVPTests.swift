@@ -11,6 +11,9 @@ import Foundation
 import MapKit
 import SwiftData
 import Testing
+#if canImport(PencilKit)
+import PencilKit
+#endif
 #if os(iOS)
 import UIKit
 #endif
@@ -25,8 +28,8 @@ struct GoDiveMVPTests {
     @Test func diveActivityDiveNumbering_partialRenumberNoop_whenDeletingNewest() {
         let t0 = Date(timeIntervalSince1970: 0)
         let t1 = Date(timeIntervalSince1970: 86_400)
-        let a = DiveActivity(deviceSource: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
-        let b = DiveActivity(deviceSource: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
+        let a = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
+        let b = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
         #expect(
             DiveActivityDiveNumbering.partialRenumberAfterDeleteWouldBeNoop(
                 remaining: [a],
@@ -40,9 +43,9 @@ struct GoDiveMVPTests {
         let t0 = Date(timeIntervalSince1970: 0)
         let t1 = Date(timeIntervalSince1970: 86_400)
         let t2 = Date(timeIntervalSince1970: 172_800)
-        let a = DiveActivity(deviceSource: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
-        let c = DiveActivity(deviceSource: .manual, startTime: t2, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
-        let deletedMid = DiveActivity(deviceSource: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
+        let a = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
+        let c = DiveActivity(source: .manual, startTime: t2, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
+        let deletedMid = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
         #expect(
             DiveActivityDiveNumbering.partialRenumberAfterDeleteWouldBeNoop(
                 remaining: [a, c],
@@ -56,9 +59,9 @@ struct GoDiveMVPTests {
         let t0 = Date(timeIntervalSince1970: 0)
         let t1 = Date(timeIntervalSince1970: 86_400)
         let t2 = Date(timeIntervalSince1970: 172_800)
-        let a = DiveActivity(deviceSource: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
-        let c = DiveActivity(deviceSource: .manual, startTime: t2, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 3)
-        let deletedMid = DiveActivity(deviceSource: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
+        let a = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
+        let c = DiveActivity(source: .manual, startTime: t2, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 3)
+        let deletedMid = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
         #expect(
             DiveActivityDiveNumbering.partialRenumberAfterDeleteWouldBeNoop(
                 remaining: [a, c],
@@ -71,9 +74,9 @@ struct GoDiveMVPTests {
     @Test func diveActivityDiveNumbering_partialRenumberWouldRun_whenNilInTail() {
         let t0 = Date(timeIntervalSince1970: 0)
         let t1 = Date(timeIntervalSince1970: 86_400)
-        let a = DiveActivity(deviceSource: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
-        let c = DiveActivity(deviceSource: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: nil)
-        let deleted = DiveActivity(deviceSource: .manual, startTime: Date(timeIntervalSince1970: -10_000), durationMinutes: 1, maxDepthMeters: 1)
+        let a = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
+        let c = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: nil)
+        let deleted = DiveActivity(source: .manual, startTime: Date(timeIntervalSince1970: -10_000), durationMinutes: 1, maxDepthMeters: 1)
         #expect(
             DiveActivityDiveNumbering.partialRenumberAfterDeleteWouldBeNoop(
                 remaining: [a, c],
@@ -85,10 +88,10 @@ struct GoDiveMVPTests {
 
     @Test func logbookDiveOrdering_newestStartTimeFirstThenId() {
         let t = Date(timeIntervalSince1970: 1_000_000)
-        let newest = DiveActivity(deviceSource: .manual, startTime: t.addingTimeInterval(100), durationMinutes: 1, maxDepthMeters: 1)
-        let older = DiveActivity(deviceSource: .manual, startTime: t, durationMinutes: 1, maxDepthMeters: 1)
-        let sameTimeA = DiveActivity(deviceSource: .manual, startTime: t, durationMinutes: 1, maxDepthMeters: 1)
-        let sameTimeB = DiveActivity(deviceSource: .manual, startTime: t, durationMinutes: 1, maxDepthMeters: 1)
+        let newest = DiveActivity(source: .manual, startTime: t.addingTimeInterval(100), durationMinutes: 1, maxDepthMeters: 1)
+        let older = DiveActivity(source: .manual, startTime: t, durationMinutes: 1, maxDepthMeters: 1)
+        let sameTimeA = DiveActivity(source: .manual, startTime: t, durationMinutes: 1, maxDepthMeters: 1)
+        let sameTimeB = DiveActivity(source: .manual, startTime: t, durationMinutes: 1, maxDepthMeters: 1)
 
         let sorted = [older, newest, sameTimeB, sameTimeA].sorted {
             if $0.startTime != $1.startTime {
@@ -272,7 +275,7 @@ struct GoDiveMVPTests {
         context.insert(owner)
 
         let unowned = DiveActivity(
-            deviceSource: .manual,
+            source: .manual,
             startTime: Date(),
             durationMinutes: 1,
             maxDepthMeters: 1
@@ -552,7 +555,7 @@ struct GoDiveMVPTests {
         context.insert(gear)
 
         let dive = DiveActivity(
-            deviceSource: .garminMK3,
+            source: .garminMK3,
             startTime: Date(timeIntervalSince1970: 1_700_000_000),
             durationMinutes: 42,
             maxDepthMeters: 22
@@ -602,7 +605,7 @@ struct GoDiveMVPTests {
         }
 
         let dive = DiveActivity(
-            deviceSource: .garminMK3,
+            source: .garminMK3,
             startTime: Date(timeIntervalSince1970: 1_700_000_100),
             durationMinutes: 40,
             maxDepthMeters: 20
@@ -637,7 +640,7 @@ struct GoDiveMVPTests {
         context.insert(gear)
 
         let dive = DiveActivity(
-            deviceSource: .garminMK3,
+            source: .garminMK3,
             startTime: Date(timeIntervalSince1970: 1_700_000_200),
             durationMinutes: 38,
             maxDepthMeters: 18
@@ -676,7 +679,7 @@ struct GoDiveMVPTests {
         }
 
         let dive = DiveActivity(
-            deviceSource: .garminMK3,
+            source: .garminMK3,
             startTime: Date(timeIntervalSince1970: 1_700_000_400),
             durationMinutes: 35,
             maxDepthMeters: 15
@@ -711,7 +714,7 @@ struct GoDiveMVPTests {
         context.insert(gear)
 
         let dive = DiveActivity(
-            deviceSource: .garminMK3,
+            source: .garminMK3,
             startTime: Date(timeIntervalSince1970: 1_700_000_300),
             durationMinutes: 36,
             maxDepthMeters: 16
@@ -979,7 +982,7 @@ struct GoDiveMVPTests {
 
     @Test func diveSiteReviewIndicator_trueWhenCatalogNameDiffersFromActivity() {
         let activity = DiveActivity(
-            deviceSource: .manual,
+            source: .manual,
             startTime: Date(),
             durationMinutes: 34,
             maxDepthMeters: 7.89
@@ -1000,7 +1003,7 @@ struct GoDiveMVPTests {
 
     @Test func diveSiteReviewIndicator_falseWhenNamesMatchAfterTrim() {
         let activity = DiveActivity(
-            deviceSource: .manual,
+            source: .manual,
             startTime: Date(),
             durationMinutes: 34,
             maxDepthMeters: 7.89
@@ -1059,7 +1062,7 @@ struct GoDiveMVPTests {
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
         let dive = DiveActivity(
-            deviceSource: .manual,
+            source: .manual,
             startTime: Date(timeIntervalSince1970: 100_000),
             durationMinutes: 30,
             maxDepthMeters: 20
@@ -1095,7 +1098,7 @@ struct GoDiveMVPTests {
     @Test func diveDepthProfileSeries_pressureSamples_omitsNilTankPressure() throws {
         let t0 = Date(timeIntervalSince1970: 1_000_000)
         let dive = DiveActivity(
-            deviceSource: .manual,
+            source: .manual,
             startTime: t0,
             durationMinutes: 30,
             maxDepthMeters: 20
@@ -1290,7 +1293,7 @@ struct GoDiveMVPTests {
         context.insert(catalog)
 
         let activity = DiveActivity(
-            deviceSource: .garminMK3,
+            source: .garminMK3,
             startTime: Date(),
             durationMinutes: 40,
             maxDepthMeters: 18,
@@ -1324,7 +1327,7 @@ struct GoDiveMVPTests {
         context.insert(byNameOnly)
 
         let activity = DiveActivity(
-            deviceSource: .macDive,
+            source: .macDive,
             startTime: Date(),
             durationMinutes: 30,
             maxDepthMeters: 10,
@@ -1339,7 +1342,7 @@ struct GoDiveMVPTests {
 
     @Test func diveActivityMapSitePrompt_isEligibleWhenUnlinkedWithEntryOrName() {
         let withGPS = DiveActivity(
-            deviceSource: .garminMK3,
+            source: .garminMK3,
             startTime: Date(),
             durationMinutes: 30,
             maxDepthMeters: 10,
@@ -1348,7 +1351,7 @@ struct GoDiveMVPTests {
         #expect(DiveActivityMapSitePrompt.isEligible(for: withGPS))
 
         let withName = DiveActivity(
-            deviceSource: .macDive,
+            source: .macDive,
             startTime: Date(),
             durationMinutes: 30,
             maxDepthMeters: 10,
@@ -1357,7 +1360,7 @@ struct GoDiveMVPTests {
         #expect(DiveActivityMapSitePrompt.isEligible(for: withName))
 
         let linked = DiveActivity(
-            deviceSource: .manual,
+            source: .manual,
             startTime: Date(),
             durationMinutes: 30,
             maxDepthMeters: 10,
@@ -1397,7 +1400,7 @@ struct GoDiveMVPTests {
 
     @Test func diveActivityMapSitePrompt_showsInfoButtonOnlyAfterDecline() {
         let activity = DiveActivity(
-            deviceSource: .garminMK3,
+            source: .garminMK3,
             startTime: Date(),
             durationMinutes: 30,
             maxDepthMeters: 10,
@@ -1415,7 +1418,7 @@ struct GoDiveMVPTests {
         let context = ModelContext(container)
 
         let activity = DiveActivity(
-            deviceSource: .garminMK3,
+            source: .garminMK3,
             startTime: Date(),
             durationMinutes: 40,
             maxDepthMeters: 18,
@@ -1467,6 +1470,196 @@ struct GoDiveMVPTests {
         #expect(DiveSiteFormValidation.sanitizedPlaceField("   ") == "")
     }
 
+    @Test func diveActivityManualCreation_makeBlank_usesManualSourceAndNoSourceDiveId() {
+        let dive = DiveActivityManualCreation.makeBlankActivity(
+            defaultTank: DefaultTankSize.al80.specification
+        )
+        #expect(dive.source == .manual)
+        #expect(dive.sourceDiveId == nil)
+        #expect(dive.durationMinutes == 0)
+        #expect(dive.maxDepthMeters == 0)
+        #expect(dive.profilePoints.isEmpty)
+        #expect(dive.tankMaterial == "aluminum")
+    }
+
+    @Test func diveActivityManualCreation_makeBlank_appliesStartTimeAndSiteName() {
+        let when = Date(timeIntervalSince1970: 1_700_000_000)
+        let dive = DiveActivityManualCreation.makeBlankActivity(
+            startTime: when,
+            siteName: "Salt Pier"
+        )
+        #expect(dive.startTime == when)
+        #expect(dive.siteName == "Salt Pier")
+    }
+
+    @Test func diveActivityManualCreation_sanitizedSiteName_trimsAndEmptyIsNil() {
+        #expect(DiveActivityManualCreation.sanitizedSiteName("  Salt Pier  ") == "Salt Pier")
+        #expect(DiveActivityManualCreation.sanitizedSiteName("   ") == nil)
+    }
+
+    @Test @MainActor
+    func diveActivityManualCreation_persist_insertsOwnedDive() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let profile = UserProfile(appleUserIdentifier: "manual-create-test", displayName: "Diver")
+        context.insert(profile)
+        try context.save()
+
+        let dive = DiveActivityManualCreation.makeBlankActivity()
+        let outcome = DiveActivityManualCreation.persist(dive, modelContext: context, owner: profile)
+        #expect(outcome.primaryInsertedDiveId == dive.id)
+        #expect(outcome.userMessage.hasPrefix(DiveActivityManualCreation.successMessagePrefix))
+
+        let stored = try DiveActivityOwnership.activities(forOwnerProfileID: profile.id, modelContext: context)
+        #expect(stored.count == 1)
+        #expect(stored.first?.source == .manual)
+        #expect(stored.first?.sourceDiveId == nil)
+        #expect(stored.first?.ownerProfileID == profile.id)
+    }
+
+    @Test func diveActivityEditableCatalog_sourceDiveIdIsNotEditable() {
+        #expect(!DiveActivityEditableCatalog.isEditable(.sourceDiveId))
+    }
+
+    @Test func diveActivityDTO_decodesSourceAndLegacyDeviceSourceKey() throws {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let json = """
+        {"deviceSource":"Manual","startTime":"2025-01-01T12:00:00Z","durationMinutes":1,"maxDepthMeters":1,"profilePoints":[]}
+        """
+        let dto = try decoder.decode(DiveActivityDTO.self, from: Data(json.utf8))
+        #expect(dto.source == .manual)
+
+        let jsonNew = """
+        {"source":"Garmin MK3","startTime":"2025-01-01T12:00:00Z","durationMinutes":1,"maxDepthMeters":1,"profilePoints":[]}
+        """
+        let dtoNew = try decoder.decode(DiveActivityDTO.self, from: Data(jsonNew.utf8))
+        #expect(dtoNew.source == .garminMK3)
+    }
+
+    @Test func diveImportedLocationParsing_splitsCommaSeparatedRegionAndCountry() {
+        let fields = DiveImportedLocationParsing.placeFields(
+            fromLocationName: " Bonaire , Caribbean Netherlands "
+        )
+        #expect(fields.region == "Bonaire")
+        #expect(fields.country == "Caribbean Netherlands")
+    }
+
+    @Test func diveImportedLocationParsing_singleSegmentIsRegion() {
+        let fields = DiveImportedLocationParsing.placeFields(fromLocationName: "Bonaire")
+        #expect(fields.region == "Bonaire")
+        #expect(fields.country == "")
+    }
+
+    @Test func diveActivityMapSitePrompt_draft_prefillsPlaceFromImportLocation() {
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            siteName: "Salt Pier",
+            locationName: "Bonaire, Caribbean Netherlands"
+        )
+        let draft = DiveActivityMapSitePrompt.draft(from: activity)
+        #expect(draft.siteName == "Salt Pier")
+        #expect(draft.region == "Bonaire")
+        #expect(draft.country == "Caribbean Netherlands")
+    }
+
+    @Test func diveActivityMapSitePrompt_draft_keepsCatalogPlaceWhenEditing() {
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 1,
+            maxDepthMeters: 1,
+            locationName: "Ignored, Place"
+        )
+        let site = DiveSite(
+            siteName: "Catalog Reef",
+            country: "Mexico",
+            region: "Baja",
+            bodyOfWater: "Sea of Cortez",
+            latCoords: 24.5,
+            longCoords: -110.2
+        )
+        let draft = DiveActivityMapSitePrompt.draft(from: activity, catalogSite: site)
+        #expect(draft.siteName == "Catalog Reef")
+        #expect(draft.country == "Mexico")
+        #expect(draft.region == "Baja")
+        #expect(draft.bodyOfWater == "Sea of Cortez")
+    }
+
+    @Test func diveActivityMapSitePrompt_draft_fillsEmptyCatalogPlaceFromImport() {
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: Date(),
+            durationMinutes: 1,
+            maxDepthMeters: 1,
+            locationName: "Bonaire, Caribbean Netherlands"
+        )
+        let site = DiveSite(siteName: "Salt Pier")
+        let draft = DiveActivityMapSitePrompt.draft(from: activity, catalogSite: site)
+        #expect(draft.region == "Bonaire")
+        #expect(draft.country == "Caribbean Netherlands")
+    }
+
+    @Test func diveActivityEditableCatalog_mapAndTankSectionsAreDistinct() {
+        let mapIDs = Set(DiveActivityEditableCatalog.sections(for: .map).flatMap(\.fieldIDs))
+        let tankIDs = Set(DiveActivityEditableCatalog.sections(for: .tank).flatMap(\.fieldIDs))
+        #expect(mapIDs.contains(.siteName))
+        #expect(mapIDs.contains(.notes))
+        #expect(!mapIDs.contains(.tankPressureStartPSI))
+        #expect(tankIDs.contains(.tankPressureStartPSI))
+        #expect(!tankIDs.contains(.startTime))
+    }
+
+    @Test func diveActivityFieldValueParsing_depthAndPressureRespectDisplayUnits() {
+        #expect(DiveActivityFieldValueParsing.parseDepthMeters("30", displayUnits: .metric) == 30)
+        #expect(
+            abs((DiveActivityFieldValueParsing.parseDepthMeters("100", displayUnits: .imperial) ?? 0) - 30.48) < 0.1
+        )
+        #expect(DiveActivityFieldValueParsing.parsePressurePSI("200", displayUnits: .imperial) == 200)
+        #expect(
+            abs((DiveActivityFieldValueParsing.parsePressurePSI("200", displayUnits: .metric) ?? 0) - 2900.75) < 1
+        )
+    }
+
+    @Test func diveActivityFieldEditing_applyDraft_updatesDuration() {
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        var draft = DiveActivityFieldEditDraft()
+        draft.text = "52"
+        DiveActivityFieldEditing.applyDraft(draft, for: .durationMinutes, to: activity, displayUnits: .metric)
+        #expect(activity.durationMinutes == 52)
+    }
+
+    @Test func diveSignatureDataFormatting_emptyOrMissingIsNotDisplayable() {
+        #expect(!DiveSignatureDataFormatting.hasDisplayableContent(nil))
+        #if canImport(PencilKit)
+        #expect(!DiveSignatureDataFormatting.hasDisplayableContent(PKDrawing().dataRepresentation()))
+        #endif
+    }
+
+    @Test func diveActivityFieldEditing_signatureDisplayValue_usesPlaceholderWhenEmpty() {
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        let empty = DiveActivityFieldEditing.displayValue(
+            for: .diveSignature,
+            activity: activity,
+            displayUnits: .metric,
+            profileGasStats: .init(sampleCount: 0, minPSI: 0, maxPSI: 0)
+        )
+        #expect(empty == "—")
+    }
+
     @Test @MainActor
     func diveActivitySiteAssociation_matchesByNameWhenNoEntryGPS() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
@@ -1480,7 +1673,7 @@ struct GoDiveMVPTests {
         context.insert(catalog)
 
         let activity = DiveActivity(
-            deviceSource: .macDive,
+            source: .macDive,
             startTime: Date(),
             durationMinutes: 30,
             maxDepthMeters: 10,
@@ -2465,7 +2658,7 @@ struct GoDiveMVPTests {
         let dives = try UddfDiveFileDecoder.buildDiveActivities(from: data)
         #expect(dives.count == 1)
         let d = try #require(dives.first)
-        #expect(d.deviceSource == .macDive)
+        #expect(d.source == .macDive)
         #expect(d.sourceDiveId == "d1-uuid")
         #expect(d.siteName == "Test Wall")
         #expect(d.locationName == "Bonaire")
@@ -2606,7 +2799,7 @@ struct GoDiveMVPTests {
         let context = ModelContext(container)
 
         let activity = DiveActivity(
-            deviceSource: .manual,
+            source: .manual,
             startTime: .now,
             durationMinutes: 12,
             maxDepthMeters: 18
@@ -2627,7 +2820,7 @@ struct GoDiveMVPTests {
 
     @Test func logbookRow_displayName_usesTrimmedSiteElseNewDive() {
         let named = DiveActivity(
-            deviceSource: .garminMK3,
+            source: .garminMK3,
             startTime: Date(),
             durationMinutes: 10,
             maxDepthMeters: 5,
@@ -2636,7 +2829,7 @@ struct GoDiveMVPTests {
         #expect(LogbookActivityRow.displayName(for: named) == "Wall")
 
         let noSite = DiveActivity(
-            deviceSource: .garminMK3,
+            source: .garminMK3,
             startTime: Date(),
             durationMinutes: 10,
             maxDepthMeters: 5
@@ -2750,7 +2943,7 @@ struct GoDiveMVPTests {
         let context = ModelContext(container)
 
         let newDive = DiveActivity(
-            deviceSource: .manual,
+            source: .manual,
             startTime: Date(),
             durationMinutes: 5,
             maxDepthMeters: 10
@@ -2772,7 +2965,7 @@ struct GoDiveMVPTests {
         let context = ModelContext(container)
 
         let imported = DiveActivity(
-            deviceSource: .garminMK3,
+            source: .garminMK3,
             startTime: Date(),
             durationMinutes: 5,
             maxDepthMeters: 10,
@@ -2796,14 +2989,14 @@ struct GoDiveMVPTests {
 
         let t0 = Date(timeIntervalSince1970: 0)
         let t1 = Date(timeIntervalSince1970: 86_400)
-        let oldest = DiveActivity(deviceSource: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
-        let newest = DiveActivity(deviceSource: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 3)
+        let oldest = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
+        let newest = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 3)
         context.insert(oldest)
         context.insert(newest)
         try context.save()
 
         let incoming = DiveActivity(
-            deviceSource: .garminMK3,
+            source: .garminMK3,
             startTime: Date(timeIntervalSince1970: 200_000),
             durationMinutes: 5,
             maxDepthMeters: 10
@@ -2826,14 +3019,14 @@ struct GoDiveMVPTests {
 
         let t0 = Date(timeIntervalSince1970: 0)
         let t1 = Date(timeIntervalSince1970: 86_400)
-        let older = DiveActivity(deviceSource: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 5)
-        let newestNoNumber = DiveActivity(deviceSource: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: nil)
+        let older = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 5)
+        let newestNoNumber = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: nil)
         context.insert(older)
         context.insert(newestNoNumber)
         try context.save()
 
         let incoming = DiveActivity(
-            deviceSource: .garminMK3,
+            source: .garminMK3,
             startTime: Date(timeIntervalSince1970: 200_000),
             durationMinutes: 5,
             maxDepthMeters: 10
@@ -2843,16 +3036,63 @@ struct GoDiveMVPTests {
     }
 
     @Test func diveActivity_diveNumberLogbookLabel_numberOrHyphen() {
-        let numbered = DiveActivity(deviceSource: .manual, startTime: Date(), durationMinutes: 1, maxDepthMeters: 1, diveNumber: 7)
+        let numbered = DiveActivity(source: .manual, startTime: Date(), durationMinutes: 1, maxDepthMeters: 1, diveNumber: 7)
         #expect(numbered.diveNumberLogbookLabel == "#7")
 
-        let unset = DiveActivity(deviceSource: .manual, startTime: Date(), durationMinutes: 1, maxDepthMeters: 1, diveNumber: nil)
+        let unset = DiveActivity(source: .manual, startTime: Date(), durationMinutes: 1, maxDepthMeters: 1, diveNumber: nil)
         #expect(unset.diveNumberLogbookLabel == "-")
+
+        let hiddenButStored = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 1,
+            maxDepthMeters: 1,
+            diveNumber: 12
+        )
+        hiddenButStored.diveNumberExplicitlyNone = true
+        #expect(hiddenButStored.diveNumberLogbookLabel == "-")
+        #expect(hiddenButStored.diveNumberPlainLabel == "-")
+    }
+
+    @Test func diveLogbookDisplay_hiddenDiveNumber_showsHyphen_whenAutoRenumberOn() {
+        let hidden = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 1,
+            maxDepthMeters: 1,
+            diveNumber: 5
+        )
+        hidden.diveNumberExplicitlyNone = true
+        let rows = DiveLogbookDisplay.rowData(
+            activities: [hidden],
+            unitSystem: .metric,
+            duplicateIds: [],
+            useChronologicalNumbers: true
+        )
+        #expect(rows.first?.diveNumberLabel == "-")
+    }
+
+    @Test func diveLogbookDisplay_hiddenDiveNumber_showsHyphen_whenAutoRenumberOff() {
+        let hidden = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 1,
+            maxDepthMeters: 1,
+            diveNumber: 5
+        )
+        hidden.diveNumberExplicitlyNone = true
+        let rows = DiveLogbookDisplay.rowData(
+            activities: [hidden],
+            unitSystem: .metric,
+            duplicateIds: [],
+            useChronologicalNumbers: false
+        )
+        #expect(rows.first?.diveNumberLabel == "-")
     }
 
     @Test func diveActivity_gasDetailsLines_trimAndDash() {
         let emptyStrings = DiveActivity(
-            deviceSource: .manual,
+            source: .manual,
             startTime: Date(),
             durationMinutes: 1,
             maxDepthMeters: 1,
@@ -2866,7 +3106,7 @@ struct GoDiveMVPTests {
         #expect(emptyStrings.gasDetailsEndingPressureLine(displayUnits: .imperial) == "—")
 
         let filled = DiveActivity(
-            deviceSource: .manual,
+            source: .manual,
             startTime: Date(),
             durationMinutes: 1,
             maxDepthMeters: 1,
@@ -2918,7 +3158,7 @@ struct GoDiveMVPTests {
         #expect(DiveSACRMVCalculation.ratedTankVolumeLiters(from: nil, userDefaults: defaults) == spec.ratedVolumeSurfaceLiters)
 
         let activity = DiveActivity(
-            deviceSource: .manual,
+            source: .manual,
             startTime: Date(),
             durationMinutes: 1,
             maxDepthMeters: 1
@@ -2935,7 +3175,7 @@ struct GoDiveMVPTests {
     @Test @MainActor
     func diveActivity_resolvedDiveCurrentStrength_defaultsToNoneWhenNil() {
         let activity = DiveActivity(
-            deviceSource: .manual,
+            source: .manual,
             startTime: Date(),
             durationMinutes: 1,
             maxDepthMeters: 10
@@ -2949,7 +3189,7 @@ struct GoDiveMVPTests {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = ModelContext(container)
         let activity = DiveActivity(
-            deviceSource: .manual,
+            source: .manual,
             startTime: Date(),
             durationMinutes: 40,
             maxDepthMeters: 18,
@@ -2977,7 +3217,7 @@ struct GoDiveMVPTests {
 
     @Test @MainActor func diveActivityDetailsPresentation_includesAllModelFieldGroups() {
         let activity = DiveActivity(
-            deviceSource: .macDive,
+            source: .macDive,
             sourceDiveId: "uddf-1",
             startTime: Date(timeIntervalSince1970: 1_700_000_000),
             durationMinutes: 45,
@@ -3024,10 +3264,10 @@ struct GoDiveMVPTests {
         let t1 = t0.addingTimeInterval(1_000)
         let t2 = t0.addingTimeInterval(2_000)
         let t3 = t0.addingTimeInterval(3_000)
-        let a = DiveActivity(deviceSource: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
-        let b = DiveActivity(deviceSource: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
-        let c = DiveActivity(deviceSource: .manual, startTime: t2, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 3)
-        let d = DiveActivity(deviceSource: .manual, startTime: t3, durationMinutes: 1, maxDepthMeters: 1, diveNumber: nil)
+        let a = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
+        let b = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
+        let c = DiveActivity(source: .manual, startTime: t2, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 3)
+        let d = DiveActivity(source: .manual, startTime: t3, durationMinutes: 1, maxDepthMeters: 1, diveNumber: nil)
         d.diveNumberExplicitlyNone = true
         let n = DiveActivityDiveNumbering.nextChainedDiveNumberForNewImport(existingDives: [a, b, c, d])
         #expect(n == 4)
@@ -3035,7 +3275,7 @@ struct GoDiveMVPTests {
 
     @Test func diveActivityDiveNumbering_nextChained_afterOnlyExplicitNoneRowsIsOne() {
         let t0 = Date(timeIntervalSince1970: 50_000)
-        let a = DiveActivity(deviceSource: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: nil)
+        let a = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: nil)
         a.diveNumberExplicitlyNone = true
         #expect(DiveActivityDiveNumbering.nextChainedDiveNumberForNewImport(existingDives: [a]) == 1)
     }
@@ -3054,9 +3294,9 @@ struct GoDiveMVPTests {
 
         let t0 = Date(timeIntervalSince1970: 0)
         let t1 = Date(timeIntervalSince1970: 86_400)
-        let explicitNone = DiveActivity(deviceSource: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: nil)
+        let explicitNone = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: nil)
         explicitNone.diveNumberExplicitlyNone = true
-        let legacyNil = DiveActivity(deviceSource: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: nil)
+        let legacyNil = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: nil)
         context.insert(explicitNone)
         context.insert(legacyNil)
         try context.save()
@@ -3082,8 +3322,8 @@ struct GoDiveMVPTests {
 
         let t0 = Date(timeIntervalSince1970: 0)
         let t1 = Date(timeIntervalSince1970: 86_400)
-        let a = DiveActivity(deviceSource: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 99)
-        let b = DiveActivity(deviceSource: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
+        let a = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 99)
+        let b = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
         context.insert(a)
         context.insert(b)
         try context.save()
@@ -3118,8 +3358,8 @@ struct GoDiveMVPTests {
 
         let t0 = Date(timeIntervalSince1970: 0)
         let t1 = Date(timeIntervalSince1970: 86_400)
-        let a = DiveActivity(deviceSource: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 9)
-        let b = DiveActivity(deviceSource: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 8)
+        let a = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 9)
+        let b = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 8)
         context.insert(a)
         context.insert(b)
         try context.save()
@@ -3160,8 +3400,8 @@ struct GoDiveMVPTests {
 
         let t0 = Date(timeIntervalSince1970: 0)
         let t1 = Date(timeIntervalSince1970: 86_400)
-        let toDelete = DiveActivity(deviceSource: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
-        let remaining = DiveActivity(deviceSource: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
+        let toDelete = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
+        let remaining = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
         context.insert(toDelete)
         context.insert(remaining)
         try context.save()
@@ -3191,8 +3431,8 @@ struct GoDiveMVPTests {
 
         let t0 = Date(timeIntervalSince1970: 0)
         let t1 = Date(timeIntervalSince1970: 86_400)
-        let toDelete = DiveActivity(deviceSource: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
-        let remaining = DiveActivity(deviceSource: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
+        let toDelete = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
+        let remaining = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
         context.insert(toDelete)
         context.insert(remaining)
         try context.save()
@@ -3218,8 +3458,8 @@ struct GoDiveMVPTests {
 
         let t0 = Date(timeIntervalSince1970: 0)
         let t1 = Date(timeIntervalSince1970: 86_400)
-        let toDelete = DiveActivity(deviceSource: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
-        let remaining = DiveActivity(deviceSource: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
+        let toDelete = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
+        let remaining = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
         context.insert(toDelete)
         context.insert(remaining)
         try context.save()
@@ -3251,9 +3491,9 @@ struct GoDiveMVPTests {
         let t0 = Date(timeIntervalSince1970: 0)
         let t1 = Date(timeIntervalSince1970: 86_400)
         let t2 = Date(timeIntervalSince1970: 172_800)
-        let a = DiveActivity(deviceSource: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
-        let b = DiveActivity(deviceSource: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
-        let c = DiveActivity(deviceSource: .manual, startTime: t2, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 3)
+        let a = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
+        let b = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
+        let c = DiveActivity(source: .manual, startTime: t2, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 3)
         context.insert(a)
         context.insert(b)
         context.insert(c)
@@ -3274,9 +3514,9 @@ struct GoDiveMVPTests {
         let t0 = Date(timeIntervalSince1970: 0)
         let t1 = Date(timeIntervalSince1970: 86_400)
         let t2 = Date(timeIntervalSince1970: 172_800)
-        let a = DiveActivity(deviceSource: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 99)
-        let b = DiveActivity(deviceSource: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 99)
-        let c = DiveActivity(deviceSource: .manual, startTime: t2, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 99)
+        let a = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 99)
+        let b = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 99)
+        let c = DiveActivity(source: .manual, startTime: t2, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 99)
 
         let rows = DiveLogbookDisplay.rowData(
             activities: [c, b, a],
@@ -3292,7 +3532,7 @@ struct GoDiveMVPTests {
 
     @Test func diveLogbookDisplay_usesPersistedNumber_whenChronologicalDisabled() {
         let a = DiveActivity(
-            deviceSource: .manual,
+            source: .manual,
             startTime: Date(),
             durationMinutes: 1,
             maxDepthMeters: 1,
@@ -3323,9 +3563,9 @@ struct GoDiveMVPTests {
 
         let deletedId = try await MainActor.run { () throws -> UUID in
             let context = ModelContext(container)
-            let a = DiveActivity(deviceSource: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
-            let b = DiveActivity(deviceSource: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
-            let c = DiveActivity(deviceSource: .manual, startTime: t2, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 3)
+            let a = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
+            let b = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
+            let c = DiveActivity(source: .manual, startTime: t2, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 3)
             context.insert(a)
             context.insert(b)
             context.insert(c)
@@ -3373,7 +3613,7 @@ struct GoDiveMVPTests {
         let context = ModelContext(container)
 
         let site = DiveSite(siteName: "Shared", latCoords: 12, longCoords: -68)
-        let dive = DiveActivity(deviceSource: .manual, startTime: .now, durationMinutes: 30, maxDepthMeters: 20)
+        let dive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 30, maxDepthMeters: 20)
         context.insert(site)
         context.insert(dive)
         DiveActivitySiteAssociation.link(dive, to: site)
@@ -3399,7 +3639,7 @@ struct GoDiveMVPTests {
         let diveID = try await MainActor.run { () throws -> UUID in
             let context = ModelContext(container)
             let activity = DiveActivity(
-                deviceSource: .manual,
+                source: .manual,
                 startTime: Date(),
                 durationMinutes: 45,
                 maxDepthMeters: 30
@@ -3448,7 +3688,7 @@ struct GoDiveMVPTests {
         let activityID = try await MainActor.run { () throws -> UUID in
             let context = ModelContext(container)
             let activity = DiveActivity(
-                deviceSource: .manual,
+                source: .manual,
                 startTime: .now,
                 durationMinutes: 12,
                 maxDepthMeters: 18
@@ -3494,8 +3734,8 @@ struct GoDiveMVPTests {
 
         let t0 = Date(timeIntervalSince1970: 0)
         let t1 = Date(timeIntervalSince1970: 86_400)
-        let toDelete = DiveActivity(deviceSource: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
-        let remaining = DiveActivity(deviceSource: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
+        let toDelete = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
+        let remaining = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
         context.insert(toDelete)
         context.insert(remaining)
         try context.save()
@@ -3543,8 +3783,8 @@ struct GoDiveMVPTests {
 
         let t0 = Date(timeIntervalSince1970: 0)
         let t1 = Date(timeIntervalSince1970: 86_400)
-        let a = DiveActivity(deviceSource: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1)
-        let b = DiveActivity(deviceSource: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1)
+        let a = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1)
+        let b = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1)
         context.insert(a)
         context.insert(b)
         try context.save()
@@ -3560,9 +3800,9 @@ struct GoDiveMVPTests {
         let t1 = Date(timeIntervalSince1970: 86_400)
         let t2 = Date(timeIntervalSince1970: 172_800)
 
-        let oldest = DiveActivity(deviceSource: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1)
-        let mid = DiveActivity(deviceSource: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1)
-        let newest = DiveActivity(deviceSource: .manual, startTime: t2, durationMinutes: 1, maxDepthMeters: 1)
+        let oldest = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1)
+        let mid = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1)
+        let newest = DiveActivity(source: .manual, startTime: t2, durationMinutes: 1, maxDepthMeters: 1)
 
         let shuffled = [newest, oldest, mid]
         let map = DiveActivityDiveNumbering.sequentialIndicesById(for: shuffled)

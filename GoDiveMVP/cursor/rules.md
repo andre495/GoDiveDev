@@ -102,7 +102,7 @@ The goal is fast iteration, not production architecture.
 Must include:
 
 - id
-- deviceSource
+- source (DiveSource; persisted column migrated from deviceSource)
 - sourceDiveId
 - startTime
 - durationMinutes
@@ -140,7 +140,7 @@ Must include:
 
 Include only:
 
-- DeviceSource
+- DiveSource
 - DiveCoordinate
 
 ---

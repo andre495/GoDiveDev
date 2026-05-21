@@ -3,7 +3,9 @@ import SwiftData
 
 struct ViewSingleActivity: View {
     @Bindable var activity: DiveActivity
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
+    @Environment(AccountSession.self) private var accountSession
     @Query private var diveSites: [DiveSite]
 
     private enum DetailNotes {
@@ -23,6 +25,10 @@ struct ViewSingleActivity: View {
     @State private var showsMapSitePromptDialog = false
     @State private var showsAddDiveSiteSheet = false
     @State private var mapSitePromptUserDeclined = false
+    @State private var editingField: DiveActivityEditableFieldID?
+    @State private var showsBuddiesEditSheet = false
+    @State private var showsAddEquipmentSheet = false
+    @State private var equipmentLinkErrorMessage: String?
 
     /// **More** tab: profile samples sorted by time (read-only).
     private var moreTabSortedProfilePoints: [DiveProfilePoint] {
@@ -104,21 +110,32 @@ struct ViewSingleActivity: View {
         .sheet(isPresented: $showsAddDiveSiteSheet) {
             DiveSiteAddSheet(
                 activity: activity,
-                initialDraft: DiveActivityMapSitePrompt.draft(from: activity),
+                initialDraft: DiveActivityMapSitePrompt.draft(from: activity, catalogSite: activity.diveSite),
                 onSaved: {
                     mapSitePromptUserDeclined = false
                 }
             )
         }
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Done") {
-                    isNotesFieldFocused = false
-                }
-                .font(.body.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.tabSelected)
-            }
+        .sheet(item: $editingField) { field in
+            DiveActivityFieldEditSheet(
+                activity: activity,
+                field: field,
+                displayUnits: diveDisplayUnitSystem
+            )
+        }
+        .sheet(isPresented: $showsBuddiesEditSheet) {
+            DiveActivityBuddiesEditSheet(activity: activity)
+        }
+        .sheet(isPresented: $showsAddEquipmentSheet) {
+            DiveActivityAddEquipmentSheet(
+                items: addableEquipmentForSheet,
+                onAdd: { linkEquipmentToDive($0) }
+            )
+        }
+        .alert("Could not add equipment", isPresented: equipmentLinkErrorBinding) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(equipmentLinkErrorMessage ?? "Try again.")
         }
     }
 
@@ -377,7 +394,7 @@ struct ViewSingleActivity: View {
                 basicSectionCard {
                     VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
                         detailLabeledRow(label: "id", value: activity.id.uuidString)
-                        detailLabeledRow(label: "deviceSource", value: activity.deviceSource.rawValue)
+                        detailLabeledRow(label: "source", value: activity.source.rawValue)
                         detailLabeledRow(label: "sourceDiveId", value: activity.sourceDiveId ?? "nil")
                         detailLabeledRow(label: "startTime", value: activity.startTime.formatted(.iso8601))
                         detailLabeledRow(label: "durationMinutes", value: "\(activity.durationMinutes)")
@@ -562,7 +579,7 @@ struct ViewSingleActivity: View {
                 detailsSectionHeader("Source & import")
                 basicSectionCard {
                     VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                        detailLabeledRow(label: "Device", value: activity.deviceSource.rawValue)
+                        detailLabeledRow(label: "Source", value: activity.source.rawValue)
                         if let sid = activity.sourceDiveId, !sid.isEmpty {
                             detailLabeledRow(label: "Source ID", value: sid)
                         }
@@ -722,63 +739,63 @@ struct ViewSingleActivity: View {
     private var tankPanelContent: some View {
         let stats = DiveActivityTankPanelSummary.profilePressureStats(from: activity.profilePoints)
         return VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                Text(formattedDate(activity.startTime))
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
+            tankPanelHeader
 
-                Text("Tank & gas")
-                    .font(.headline)
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
-
-                Text("Dive \(activity.diveNumberPlainLabel) · \(activity.deviceSource.rawValue)")
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.Colors.tabUnselected)
-            }
-
-            detailsSectionHeader("Cylinder")
-            basicSectionCard {
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                    detailLabeledRow(label: "Material", value: activity.gasDetailsTankTypeLine())
-                    detailLabeledRow(
-                        label: "Volume",
-                        value: activity.gasDetailsTankVolumeLine(displayUnits: diveDisplayUnitSystem)
-                    )
-                    detailLabeledRow(
-                        label: "Beginning pressure",
-                        value: activity.gasDetailsBeginningPressureLine(displayUnits: diveDisplayUnitSystem)
-                    )
-                    detailLabeledRow(
-                        label: "Ending pressure",
-                        value: activity.gasDetailsEndingPressureLine(displayUnits: diveDisplayUnitSystem)
-                    )
-                }
-            }
-
-            detailsSectionHeader("Profile samples (gas)")
-            basicSectionCard {
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                    detailLabeledRow(
-                        label: "Samples with cylinder pressure",
-                        value: "\(stats.sampleCount) / \(activity.profilePoints.count)"
-                    )
-                    if stats.sampleCount > 0 {
-                        detailLabeledRow(
-                            label: "Min pressure (sample)",
-                            value: DiveQuantityFormatting.cylinderPressure(fromPSI: stats.minPSI, system: diveDisplayUnitSystem)
-                        )
-                        detailLabeledRow(
-                            label: "Max pressure (sample)",
-                            value: DiveQuantityFormatting.cylinderPressure(fromPSI: stats.maxPSI, system: diveDisplayUnitSystem)
-                        )
-                    }
-                }
-            }
-
-            DiveActivityTankEquipmentSection(activity: activity)
-                .accessibilityIdentifier("DiveTankEquipment.Section")
+            DiveActivityEditableSectionsView(
+                activity: activity,
+                tab: .tank,
+                displayUnits: diveDisplayUnitSystem,
+                profileGasStats: stats,
+                onEditField: { editingField = $0 },
+                onManageEquipment: { showsAddEquipmentSheet = true },
+                onManageLinkedSite: { showsAddDiveSiteSheet = true },
+                onManageBuddies: { showsBuddiesEditSheet = true }
+            )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var addableEquipmentForSheet: [EquipmentItem] {
+        guard let ownerID = accountSession.currentProfile?.id ?? activity.ownerProfileID else { return [] }
+        return (
+            try? DiveActivityEquipmentAssociation.addableEquipment(
+                for: activity,
+                ownerProfileID: ownerID,
+                modelContext: modelContext
+            )
+        ) ?? []
+    }
+
+    private var equipmentLinkErrorBinding: Binding<Bool> {
+        Binding(
+            get: { equipmentLinkErrorMessage != nil },
+            set: { if !$0 { equipmentLinkErrorMessage = nil } }
+        )
+    }
+
+    private func linkEquipmentToDive(_ item: EquipmentItem) {
+        do {
+            try DiveActivityEquipmentAssociation.link(item, to: activity, modelContext: modelContext)
+            try modelContext.save()
+        } catch {
+            equipmentLinkErrorMessage = error.localizedDescription
+        }
+    }
+
+    private var tankPanelHeader: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            Text(formattedDate(activity.startTime))
+                .font(.title2.weight(.bold))
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+
+            Text("Tank & gas")
+                .font(.headline)
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+
+            Text("Dive \(activity.diveNumberPlainLabel) · \(activity.source.rawValue)")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.Colors.tabUnselected)
+        }
     }
 
     private func shortPressureChip(_ psi: Double?) -> String {
@@ -790,7 +807,7 @@ struct ViewSingleActivity: View {
     private var overviewSiteHeaderTitle: String {
         DiveActivityOverviewPresentation.siteHeaderTitle(
             siteName: activity.resolvedSiteName,
-            fallback: activity.deviceSource.overviewFallbackSiteTitle
+            fallback: activity.source.overviewFallbackSiteTitle
         )
     }
 
@@ -815,7 +832,7 @@ struct ViewSingleActivity: View {
                     .font(.headline)
                     .foregroundStyle(AppTheme.Colors.textPrimary)
 
-                Text("Dive \(activity.diveNumberPlainLabel) · \(activity.deviceSource.rawValue)")
+                Text("Dive \(activity.diveNumberPlainLabel) · \(activity.source.rawValue)")
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.Colors.tabUnselected)
 
@@ -828,27 +845,20 @@ struct ViewSingleActivity: View {
 
             overviewDepthProfileSection
 
-            activityAllFieldsSections
-
-            if overviewSheetDetent == .large {
-                DiveActivityUserLogSection(activity: activity)
-                    .transition(.opacity)
-
-                overviewNotesSection
-                    .transition(.opacity)
-            }
+            DiveActivityEditableSectionsView(
+                activity: activity,
+                tab: .map,
+                displayUnits: diveDisplayUnitSystem,
+                profileGasStats: DiveActivityTankPanelSummary.profilePressureStats(
+                    from: activity.profilePoints
+                ),
+                onEditField: { editingField = $0 },
+                onManageEquipment: { showsAddEquipmentSheet = true },
+                onManageLinkedSite: { showsAddDiveSiteSheet = true },
+                onManageBuddies: { showsBuddiesEditSheet = true }
+            )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .animation(.easeInOut(duration: 0.25), value: overviewSheetDetent == .large)
-    }
-
-    private var overviewNotesSection: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            detailsSectionHeader("Notes")
-
-            notesEditorBox
-        }
-        .accessibilityIdentifier("DiveOverview.MapPanel.Notes")
     }
 
     private var overviewDepthProfileSection: some View {
@@ -856,22 +866,19 @@ struct ViewSingleActivity: View {
             let samples = DiveDepthProfileSeries.samples(fromProfilePoints: activity.profilePoints)
             depthProfileHeroRow(scrubSample: depthProfileScrubSample)
 
-            if samples.isEmpty {
-                Text("No profile samples for this dive.")
-                    .font(.footnote)
-                    .foregroundStyle(AppTheme.Colors.tabUnselected)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                DiveDepthProfileChart(
-                    samples: samples,
-                    maxDepthHintMeters: activity.maxDepthMeters,
-                    onScrubSampleChange: { depthProfileScrubSample = $0 }
-                )
-                .frame(height: 220)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Depth profile chart")
-                .accessibilityValue(depthProfileChartAccessibilitySummary(samples: samples))
-            }
+            DiveDepthProfileChart(
+                samples: samples,
+                maxDepthHintMeters: activity.maxDepthMeters,
+                onScrubSampleChange: { depthProfileScrubSample = $0 }
+            )
+            .frame(height: 220)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Depth profile chart")
+            .accessibilityValue(
+                samples.isEmpty
+                    ? "No sample data available"
+                    : depthProfileChartAccessibilitySummary(samples: samples)
+            )
         }
         .padding(AppTheme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -881,24 +888,6 @@ struct ViewSingleActivity: View {
         }
     }
 
-    private var activityAllFieldsSections: some View {
-        let sections = DiveActivityDetailsPresentation.sections(
-            for: activity,
-            displayUnits: diveDisplayUnitSystem
-        )
-        return ForEach(sections) { section in
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                detailsSectionHeader(section.title)
-                basicSectionCard {
-                    VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                        ForEach(section.rows) { row in
-                            detailLabeledRow(label: row.label, value: row.value)
-                        }
-                    }
-                }
-            }
-        }
-    }
 
     private func basicSectionCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         content()
@@ -999,7 +988,7 @@ private func viewSingleActivityPreview() -> some View {
     let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
     let container = try! ModelContainer(for: schema, configurations: [configuration])
     let sampleActivity = DiveActivity(
-        deviceSource: .manual,
+        source: .manual,
         sourceDiveId: "preview-dive",
         startTime: .now,
         durationMinutes: 42,

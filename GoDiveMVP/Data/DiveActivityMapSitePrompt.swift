@@ -32,18 +32,45 @@ enum DiveActivityMapSitePrompt {
         isEligible(for: activity) && userDeclined
     }
 
-    nonisolated static func draft(from activity: DiveActivity) -> DiveSiteFormDraft {
-        let name = activity.siteName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let latitude = activity.entryCoordinate.map { String(format: "%.5f", $0.latitude) } ?? ""
-        let longitude = activity.entryCoordinate.map { String(format: "%.5f", $0.longitude) } ?? ""
+    /// Prepopulates the add/edit site sheet from import fields and optional linked **`catalogSite`**.
+    nonisolated static func draft(from activity: DiveActivity, catalogSite: DiveSite? = nil) -> DiveSiteFormDraft {
+        let importedPlace = DiveImportedLocationParsing.placeFields(fromLocationName: activity.locationName)
+
+        let siteName: String = {
+            if let site = catalogSite {
+                let catalog = site.siteName.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !catalog.isEmpty { return catalog }
+            }
+            return activity.siteName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        }()
+
+        let country = nonEmptyPlaceField(catalogSite?.country) ?? importedPlace.country
+        let region = nonEmptyPlaceField(catalogSite?.region) ?? importedPlace.region
+        let bodyOfWater = nonEmptyPlaceField(catalogSite?.bodyOfWater) ?? ""
+
+        let coordinate = catalogCoordinate(catalogSite) ?? activity.entryCoordinate
+        let latitude = coordinate.map { String(format: "%.5f", $0.latitude) } ?? ""
+        let longitude = coordinate.map { String(format: "%.5f", $0.longitude) } ?? ""
+
         return DiveSiteFormDraft(
-            siteName: name,
-            country: "",
-            region: "",
-            bodyOfWater: "",
+            siteName: siteName,
+            country: country,
+            region: region,
+            bodyOfWater: bodyOfWater,
             latitudeText: latitude,
             longitudeText: longitude
         )
+    }
+
+    private nonisolated static func nonEmptyPlaceField(_ raw: String?) -> String? {
+        guard let raw else { return nil }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private nonisolated static func catalogCoordinate(_ site: DiveSite?) -> DiveCoordinate? {
+        guard let site else { return nil }
+        return DiveMapCoordinateResolver.coordinate(from: site)
     }
 }
 

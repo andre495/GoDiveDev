@@ -12,7 +12,7 @@ Update this file whenever a model, view, or feature is added or changed.
 **Status:** Initial model created. Not yet connected to UI or persistence layer.
 
 **What was built:**
-- `DeviceSource` enum (`garminMK3`, **`macDive`**, `manual`) — `String`, `Codable`, `CaseIterable`
+- `DiveSource` enum (`garminMK3`, **`macDive`**, `manual`) — `String`, `Codable`, `CaseIterable`
 - `DiveCoordinate` struct — `Codable`, stores `latitude` / `longitude`
 - `DiveActivity` SwiftData `@Model` with all canonical fields defined in rules.md
 
@@ -21,8 +21,8 @@ Update this file whenever a model, view, or feature is added or changed.
 - [ ] Connect to a list view so stored dives are displayed (see Views section below)
 - [x] Add a `@Relationship` to `DiveProfilePoint` (`profilePoints` on `DiveActivity`, inverse on `DiveProfilePoint.dive`)
 - [ ] Confirm SwiftData correctly encodes/decodes `DiveCoordinate` (test with mock data)
-- [x] Add `DeviceSource.macDive` for **UDDF** / **MacDive** logbook import
-- [ ] Add further `DeviceSource` cases as additional hardware sources become supported
+- [x] Add `DiveSource.macDive` for **UDDF** / **MacDive** logbook import
+- [ ] Add further `DiveSource` cases as additional import origins become supported
 
 ---
 

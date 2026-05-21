@@ -197,7 +197,7 @@ enum DiveActivityDetailsPresentation: Sendable {
 
     private static func sourceSection(_ activity: DiveActivity) -> Section {
         var rows: [Row] = [
-            row("deviceSource", "Device", activity.deviceSource.rawValue),
+            row("source", "Source", activity.source.rawValue),
         ]
         if let sourceID = trimmed(activity.sourceDiveId) {
             rows.append(row("sourceDiveId", "Source dive ID", sourceID))

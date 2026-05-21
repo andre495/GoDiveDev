@@ -39,8 +39,12 @@ struct LogbookView: View {
         activities.filter { !optimisticallyRemovedActivityIDs.contains($0.id) }
     }
 
+    /// Row ids plus dive-number display inputs so logbook labels refresh after hide/edit on a detail screen.
     private var visibleActivitySignature: String {
-        visibleActivities.map(\.id.uuidString).joined(separator: "|")
+        visibleActivities.map { activity in
+            let number = activity.diveNumber.map(String.init) ?? "nil"
+            return "\(activity.id.uuidString)|\(activity.diveNumberExplicitlyNone)|\(number)"
+        }.joined(separator: "|")
     }
 
     var body: some View {

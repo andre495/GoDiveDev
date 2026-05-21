@@ -160,7 +160,7 @@ enum UddfDiveFileDecoder {
             .map { DiveGasMixImport.resolved(fromUddfO2: $0) }
 
         let activity = DiveActivity(
-            deviceSource: .macDive,
+            source: .macDive,
             sourceDiveId: diveId,
             startTime: startTime,
             durationMinutes: durationMinutes,

@@ -3,6 +3,38 @@ import SwiftUI
 import PencilKit
 #endif
 
+/// Read-only thumbnail of stored **`PKDrawing`** bytes (overview rows, etc.).
+struct DiveSignaturePreview: View {
+    let data: Data
+    var height: CGFloat = 52
+
+    var body: some View {
+        #if canImport(PencilKit)
+        if DiveSignatureDataFormatting.hasDisplayableContent(data),
+           let drawing = try? PKDrawing(data: data) {
+            let bounds = drawing.bounds.insetBy(dx: -6, dy: -6)
+            Image(uiImage: drawing.image(from: bounds, scale: 2))
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: height)
+                .accessibilityLabel("Signature")
+        } else {
+            missingPreview
+        }
+        #else
+        missingPreview
+        #endif
+    }
+
+    private var missingPreview: some View {
+        Text("—")
+            .font(.body)
+            .foregroundStyle(AppTheme.Colors.textPrimary)
+    }
+
+}
+
 /// Finger/stylus signature capture; persists **`PKDrawing`** bytes on **`DiveActivity.diveSignatureData`**.
 struct DiveSignaturePadView: View {
     @Binding var signatureData: Data?

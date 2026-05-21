@@ -9,7 +9,7 @@ enum DiveActivityMapper {
         let tankMaterial = (importedMaterial?.isEmpty == false) ? importedMaterial : defaultTank.materialLabel
         let activity = DiveActivity(
             id: dto.id ?? UUID(),
-            deviceSource: dto.deviceSource,
+            source: dto.source,
             sourceDiveId: dto.sourceDiveId,
             startTime: dto.startTime,
             durationMinutes: dto.durationMinutes,

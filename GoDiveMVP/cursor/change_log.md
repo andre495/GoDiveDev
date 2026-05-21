@@ -382,3 +382,22 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`DiveActivityDuplicateMatcher.Signature`** — nonisolated value **`init`** for tests; **`@MainActor init(_: DiveActivity)`** delegates to it (fixes Swift 6 **`#expect`** isolation in duplicate-matcher tests).
 - **`DiveSiteCatalogMaintenance.deleteSitesWithNoLinkedDives`** — **`nonisolated`**, uses **`diveSiteID`** predicate (not **`diveActivities`**) so **`DiveBackgroundDeletionWorker`** can run catalog cleanup off the main actor.
 
+---
+
+## 36 - Dive activity tap-to-edit overview panels
+
+**Summary:** Map and tank overview panels reorganized with chevron rows; nearly every dive parameter is editable via field sheets.
+
+- **`DiveActivityEditableCatalog`** / **`DiveActivityFieldEditing`** / **`DiveActivityFieldValueParsing`** — tab-specific sections (map vs tank), display values, unit-aware parse/apply.
+- **`DiveActivityEditableRow`** + **`DiveActivityEditableSectionsView`** — chevron-only affordance on editable rows; read-only rows (profile sample count, record ID) without chevron. **Signature** row shows **`DiveSignaturePreview`** when **`diveSignatureData`** has ink (**`DiveSignatureDataFormatting`**).
+- **`DiveActivityFieldEditSheet`** — per-field editors (text, numbers, date, coordinate, dive #, conditions, signature, notes).
+- **`DiveActivityBuddiesEditSheet`** — add/rename/delete buddy tags.
+- **`ViewSingleActivity`** — map panel: depth chart + editable sections (replaces read-only **`DiveActivityDetailsPresentation`** dump and large-detent-only **`DiveActivityUserLogSection`**); tank panel: gas/consumption editable sections only — **Equipment** is the chevron row (**`linkedEquipment`**) opening **`DiveActivityAddEquipmentSheet`** (removed duplicate **`DiveActivityTankEquipmentSection`** list).
+- **Logbook dive #:** **`diveNumberLogbookLabel`** / **`diveNumberPlainLabel`** honor **`diveNumberExplicitlyNone`**; **`LogbookView`** row-cache signature includes hide + number so labels refresh after editing on a dive.
+- **`DiveImportedLocationParsing`** — import **`locationName`** → **region** (before comma) + **country** (after); **`DiveActivityMapSitePrompt.draft`** prefills **`DiveSiteAddSheet`** (linked catalog site keeps saved place fields).
+- **`deviceSource`** → **`source`** (**`DiveSource`** enum, was **`DeviceSource`**); SwiftData **`@Attribute(originalName: "deviceSource")`**; UI label **Source**; fixture JSON key **`source`** (DTO still decodes legacy **`deviceSource`**).
+- **`DiveActivityManualCreation`** — **Manual entry** on **`ActivityUploadView`** inserts a blank **`DiveActivity`** (**`source: .manual`**, no **`sourceDiveId`**, no profile) and navigates to **`ViewSingleActivity`**; **`sourceDiveId`** read-only in overview; depth chart empty state **No sample data available**.
+- **`ManualDiveEntrySheet`** — **New dive** sheet: date + optional **Site name**; **Create** / **Cancel**; **`ManualDiveEntryInput`** → **`siteName`** on new manual dive.
+- **Swift 6:** **`DiveMapCoordinateResolver.coordinate(from:)`** **`nonisolated`**; **`DiveActivityDTO`** (+ nested DTOs) **`Sendable`** with **`nonisolated`** **`init(from:)`** for unit tests.
+- **Tests:** **`diveActivityEditableCatalog_mapAndTankSectionsAreDistinct`**, **`diveActivityFieldValueParsing_depthAndPressureRespectDisplayUnits`**, **`diveActivityFieldEditing_applyDraft_updatesDuration`**, **`diveSignatureDataFormatting_emptyOrMissingIsNotDisplayable`**, **`diveActivityFieldEditing_signatureDisplayValue_usesPlaceholderWhenEmpty`**, **`diveLogbookDisplay_hiddenDiveNumber_showsHyphen_*`**, hidden-number label on **`DiveActivity`**, **`diveImportedLocationParsing_*`**, **`diveActivityMapSitePrompt_draft_*`**, **`diveActivityDTO_decodesSourceAndLegacyDeviceSourceKey`**, **`diveActivityManualCreation_*`**, **`diveActivityEditableCatalog_sourceDiveIdIsNotEditable`**.
+

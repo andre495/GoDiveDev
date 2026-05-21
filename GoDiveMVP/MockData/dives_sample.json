@@ -1,7 +1,7 @@
 [
   {
     "id": "5E7C0A43-DA58-4A7E-8754-C6C5F9CC9A5F",
-    "deviceSource": "Manual",
+    "source": "Manual",
     "sourceDiveId": "20231023205730-83270279",
     "startTime": "2023-10-23T20:57:30Z",
     "durationMinutes": 34,

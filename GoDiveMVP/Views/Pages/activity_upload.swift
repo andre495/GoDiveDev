@@ -9,6 +9,7 @@ struct ActivityUploadView: View {
     var onSuccessfulImport: ((UUID) -> Void)?
 
     @State private var showDiveFileImporter = false
+    @State private var showsManualEntrySheet = false
     @State private var importOverlay: FitImportOverlayState = .hidden
 
     init(onSuccessfulImport: ((UUID) -> Void)? = nil) {
@@ -30,8 +31,9 @@ struct ActivityUploadView: View {
                         title: "Manual entry",
                         systemImage: "square.and.pencil"
                     ) {
-                        // Placeholder until manual dive creation ships.
+                        showsManualEntrySheet = true
                     }
+                    .accessibilityIdentifier("ActivityUpload.ManualEntry")
                 }
                 .padding(.horizontal, AppTheme.Spacing.lg)
                 .padding(.vertical, AppTheme.Spacing.md)
@@ -48,6 +50,11 @@ struct ActivityUploadView: View {
                 allowsMultipleSelection: false
             ) { result in
                 handleDiveFileImportResult(result)
+            }
+        }
+        .sheet(isPresented: $showsManualEntrySheet) {
+            ManualDiveEntrySheet { input in
+                confirmManualDive(input)
             }
         }
         .hidesBottomTabBarWhenPushed()
@@ -160,6 +167,17 @@ struct ActivityUploadView: View {
     private func yieldForImportOverlayPaint() async {
         await Task.yield()
         await Task.yield()
+    }
+
+    @MainActor
+    private func confirmManualDive(_ input: ManualDiveEntryInput) {
+        let activity = DiveActivityManualCreation.makeBlankActivity(from: input)
+        let outcome = DiveActivityManualCreation.persist(activity, modelContext: modelContext)
+        if let id = outcome.primaryInsertedDiveId {
+            onSuccessfulImport?(id)
+        } else {
+            importOverlay = .failed(outcome.userMessage)
+        }
     }
 
     @MainActor

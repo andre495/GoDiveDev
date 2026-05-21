@@ -2,7 +2,7 @@ import Foundation
 
 /// Kept **outside** **`DiveActivity.swift`** so value types are not Swift-6–inferred as **Main actor** along with **`@Model`** (fixes **`Equatable`** in **`#expect`** and cross-island concurrency).
 
-enum DeviceSource: String, Codable, CaseIterable, Sendable {
+enum DiveSource: String, Codable, CaseIterable, Sendable {
     case garminMK3 = "Garmin MK3"
     case macDive = "MacDive"
     case manual = "Manual"
@@ -18,7 +18,7 @@ struct DiveCoordinate: Codable, Equatable, Sendable {
     }
 }
 
-extension DeviceSource {
+extension DiveSource {
     /// **Overview** title when **`siteName`** is missing (imported dives without a named site).
     var overviewFallbackSiteTitle: String {
         switch self {

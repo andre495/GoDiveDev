@@ -65,7 +65,7 @@ struct LogbookActivityRow: View, Equatable {
 
 #Preview {
     let a = DiveActivity(
-        deviceSource: .garminMK3,
+        source: .garminMK3,
         sourceDiveId: "fit-123-0-456",
         startTime: .now,
         durationMinutes: 34,

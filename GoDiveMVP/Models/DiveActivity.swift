@@ -12,7 +12,9 @@ final class DiveActivity {
 
     // Core Identity
     var id: UUID
-    var deviceSource: DeviceSource
+    /// Import / entry origin (Garmin, MacDive, manual). Persisted column was **`deviceSource`**.
+    @Attribute(originalName: "deviceSource")
+    var source: DiveSource
     var sourceDiveId: String?
 
     // Core Dive Data
@@ -105,7 +107,7 @@ final class DiveActivity {
 
     init(
         id: UUID = UUID(),
-        deviceSource: DeviceSource,
+        source: DiveSource,
         sourceDiveId: String? = nil,
         startTime: Date,
         durationMinutes: Int,
@@ -143,7 +145,7 @@ final class DiveActivity {
         rawImportVersion: String? = nil
     ) {
         self.id = id
-        self.deviceSource = deviceSource
+        self.source = source
         self.sourceDiveId = sourceDiveId
         self.startTime = startTime
         self.durationMinutes = durationMinutes
@@ -223,17 +225,19 @@ extension DiveActivity {
         return entries.map(\.equipmentItemID)
     }
 
-    /// Logbook row: **`#n`** or **`-`** when there is no number.
+    /// Logbook row: **`#n`** or **`-`** when hidden or unset.
     var diveNumberLogbookLabel: String {
+        if diveNumberExplicitlyNone { return "-" }
         if let n = diveNumber {
             return "#\(n)"
         }
         return "-"
     }
 
-    /// Overview / plain fields: decimal text or **`-`**.
+    /// Overview / plain fields: decimal text or **`-`** when hidden or unset.
     var diveNumberPlainLabel: String {
-        diveNumber.map(String.init) ?? "-"
+        if diveNumberExplicitlyNone { return "-" }
+        return diveNumber.map(String.init) ?? "-"
     }
 }
 

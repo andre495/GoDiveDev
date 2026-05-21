@@ -36,10 +36,11 @@ struct DiveDepthProfileChart: View {
 
             ZStack(alignment: .topLeading) {
                 if samples.count < 2 {
-                    Text("Not enough points to draw a profile.")
+                    Text("No sample data available.")
                         .font(.footnote)
                         .foregroundStyle(AppTheme.Colors.tabUnselected)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                        .accessibilityIdentifier("DiveDepthProfileChart.NoSamples")
                 } else {
                     depthPolyline(in: rect, maxElapsed: maxElapsed, maxDepth: maxDepth)
 
