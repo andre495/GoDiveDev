@@ -55,7 +55,7 @@ enum DiveLogbookDisplay {
     }
 
     private static func detailLine(for activity: DiveActivity, unitSystem: DiveDisplayUnitSystem) -> String {
-        let dateStr = activity.startTime.formatted(date: .abbreviated, time: .omitted)
+        let dateStr = activity.formattedStartDateOnly()
         let depth = DiveQuantityFormatting.depth(meters: activity.maxDepthMeters, system: unitSystem)
         let dur = "\(activity.durationMinutes) min"
         return "\(dateStr) · \(depth) · \(dur)"

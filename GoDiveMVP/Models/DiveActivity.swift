@@ -18,7 +18,10 @@ final class DiveActivity {
     var sourceDiveId: String?
 
     // Core Dive Data
+    /// Dive start instant (UTC). Display via **`formattedStartDateTime()`** using **`timeZoneOffsetSeconds`** when set.
     var startTime: Date
+    /// Seconds east of UTC for dive-local display (from UDDF **`timezone`**, **`Z`**, or **`±HH:MM`** on import).
+    var timeZoneOffsetSeconds: Int?
     var durationMinutes: Int
     var maxDepthMeters: Double
     var averageDepthMeters: Double?
@@ -114,6 +117,7 @@ final class DiveActivity {
         source: DiveSource,
         sourceDiveId: String? = nil,
         startTime: Date,
+        timeZoneOffsetSeconds: Int? = nil,
         durationMinutes: Int,
         maxDepthMeters: Double,
         averageDepthMeters: Double? = nil,
@@ -152,6 +156,7 @@ final class DiveActivity {
         self.source = source
         self.sourceDiveId = sourceDiveId
         self.startTime = startTime
+        self.timeZoneOffsetSeconds = timeZoneOffsetSeconds
         self.durationMinutes = durationMinutes
         self.maxDepthMeters = maxDepthMeters
         self.averageDepthMeters = averageDepthMeters

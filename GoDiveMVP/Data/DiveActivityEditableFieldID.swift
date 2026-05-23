@@ -3,6 +3,8 @@ import Foundation
 /// Stable identifiers for dive overview fields (map / tank editable panels).
 enum DiveActivityEditableFieldID: String, Identifiable, Sendable, CaseIterable, Hashable {
     case startTime
+    case startTimeUTC
+    case timeZoneOffset
     case durationMinutes
     case maxDepthMeters
     case averageDepthMeters

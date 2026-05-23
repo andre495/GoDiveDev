@@ -78,6 +78,13 @@ struct ViewSingleActivity: View {
                 }
         }
         .hidesBottomTabBarWhenPushed()
+        .task(id: activity.id) {
+            let previousOffset = activity.timeZoneOffsetSeconds
+            await DiveActivityTimeZoneResolution.resolveMissingOffset(for: activity)
+            if activity.timeZoneOffsetSeconds != previousOffset {
+                try? modelContext.save()
+            }
+        }
         .onAppear {
             overviewMapTeardownRequested = false
             reloadMapSitePromptDeclinedState()
@@ -515,6 +522,10 @@ struct ViewSingleActivity: View {
                         if let tankSample = moreTabProfilePointsWithTankPressure.first {
                             detailLabeledRow(
                                 label: "First sample (timestamp)",
+                                value: tankSample.formattedTimestamp(for: activity)
+                            )
+                            detailLabeledRow(
+                                label: "First sample (timestamp, UTC)",
                                 value: tankSample.timestamp.formatted(.iso8601)
                             )
                             detailLabeledRow(
@@ -539,7 +550,11 @@ struct ViewSingleActivity: View {
                     basicSectionCard {
                         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
                             detailLabeledRow(label: "persistentModelID", value: "\(point.persistentModelID)")
-                            detailLabeledRow(label: "timestamp", value: point.timestamp.formatted(.iso8601))
+                            detailLabeledRow(label: "timestamp", value: point.formattedTimestamp(for: activity))
+                            detailLabeledRow(
+                                label: "timestamp (UTC)",
+                                value: point.timestamp.formatted(.iso8601)
+                            )
                             detailLabeledRow(label: "depthMeters", value: String(format: "%.6f", point.depthMeters))
                             detailLabeledRow(
                                 label: "temperatureCelsius",
@@ -752,7 +767,7 @@ struct ViewSingleActivity: View {
 
     private var tankCollapsedSummary: some View {
         DiveActivityTankCollapsedSummary(
-            dateText: formattedDate(activity.startTime),
+            dateText: activity.formattedStartDateOnly(),
             titleText: "Tank & gas",
             diveNumberText: activity.diveNumberPlainLabel,
             startPressureText: shortPressureChip(activity.tankPressureStartPSI),
@@ -762,7 +777,7 @@ struct ViewSingleActivity: View {
 
     private var photosCollapsedSummary: some View {
         DiveActivityPhotosCollapsedSummary(
-            dateText: formattedDate(activity.startTime),
+            dateText: activity.formattedStartDateOnly(),
             titleText: "Media",
             mediaCountText: DiveActivityMediaPresentation.mediaCountLabel(
                 photoCount: activity.mediaPhotos.count
@@ -870,7 +885,7 @@ struct ViewSingleActivity: View {
 
     private var tankPanelHeader: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            Text(formattedDate(activity.startTime))
+            Text(activity.formattedStartDateOnly())
                 .font(.title2.weight(.bold))
                 .foregroundStyle(AppTheme.Colors.textPrimary)
 
@@ -899,7 +914,7 @@ struct ViewSingleActivity: View {
 
     private var overviewCollapsedSummary: some View {
         DiveActivityOverviewCollapsedSummary(
-            dateText: formattedDate(activity.startTime),
+            dateText: activity.formattedStartDateOnly(),
             titleText: overviewSiteHeaderTitle,
             diveNumberText: activity.diveNumberPlainLabel,
             maxDepthText: formatDepth(activity.maxDepthMeters),
@@ -914,7 +929,7 @@ struct ViewSingleActivity: View {
                     .font(.title2.weight(.bold))
                     .foregroundStyle(AppTheme.Colors.textPrimary)
 
-                Text(formattedDate(activity.startTime))
+                Text(activity.formattedStartDateOnly())
                     .font(.headline)
                     .foregroundStyle(AppTheme.Colors.textPrimary)
 
@@ -981,10 +996,6 @@ struct ViewSingleActivity: View {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(AppTheme.Colors.surfaceElevated)
             }
-    }
-
-    private func formattedDate(_ date: Date) -> String {
-        date.formatted(date: .abbreviated, time: .omitted)
     }
 
     @ViewBuilder

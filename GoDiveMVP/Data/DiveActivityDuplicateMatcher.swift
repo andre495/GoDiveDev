@@ -123,7 +123,10 @@ enum DiveActivityDuplicateMatcher {
     }
 
     static func importBlockedMessage(matching existing: DiveActivity) -> String {
-        let when = existing.startTime.formatted(date: .abbreviated, time: .shortened)
+        let when = DiveActivityTimePresentation.formatDateTime(
+            existing.startTime,
+            timeZoneOffsetSeconds: existing.timeZoneOffsetSeconds
+        )
         return "This dive is already in your log (\(when))."
     }
 

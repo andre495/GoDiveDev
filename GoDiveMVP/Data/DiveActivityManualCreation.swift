@@ -29,6 +29,7 @@ enum DiveActivityManualCreation {
             source: .manual,
             sourceDiveId: nil,
             startTime: startTime,
+            timeZoneOffsetSeconds: TimeZone.current.secondsFromGMT(),
             durationMinutes: 0,
             maxDepthMeters: 0,
             siteName: siteName,

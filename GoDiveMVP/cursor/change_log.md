@@ -620,3 +620,18 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`profile.swift`** — featured cert name/number **`NavigationLink`** → **`ViewCertificationDetails`** (inactive when default **GoDive User** copy).
 - **Tests:** **`certificationPresentation_profileFeaturedCertificationCard_*`**.
 
+---
+
+## 44 - Dive timestamps: UTC storage + timezone offset display **(pushed)**
+
+**Summary:** Persist dive-local **`timeZoneOffsetSeconds`**; parse UDDF site **`timezone`** and **`Z`/`±HH:MM`** datetimes; MacDive naive **`datetime`** as UTC; geographic DST lookup when offset missing; format logbook and dive UI in dive-local offset.
+
+- **`DiveActivity.timeZoneOffsetSeconds`** — optional seconds east of UTC for display.
+- **`DiveDateTimeParsing`** — UDDF naive **`datetime`** (MacDive) treated as **UTC** wall time; site **`geography/timezone`** is display offset only; **`Z`** / RFC 3339 offsets on **`datetime`** when present.
+- **`DiveGeographicTimeZoneLookup`** + **`DiveActivityTimeZoneResolution`** — when offset is still **`nil`**, reverse-geocode entry / site coordinates (**`MKReverseGeocodingRequest`**, cached) and set **`timeZoneOffsetSeconds`** via **`TimeZone.secondsFromGMT(for: startTime)`** (DST-aware). Runs after UDDF/FIT import and when opening a dive.
+- **`UddfDiveFileDecoder`** — reads **`timezone`** on site; assigns offset on import.
+- **`FitImportTimeZone`** — FIT **`ActivityMesg`** local − UTC delta when present.
+- **`DiveActivityTimePresentation`** + **`formattedStartDateTime()`** / **`formattedStartDateOnly()`** on **`DiveActivity`**; **`DiveProfilePoint.formattedTimestamp(for:)`** uses the same offset (profile samples store UTC instants from FIT / UDDF **`startTime + divetime`**).
+- **Map tab** — read-only **Start (UTC)** and **Timezone offset** rows in the Dive section (**`startTimeUTC`**, **`timeZoneOffset`**).
+- **Tests:** **`diveDateTimeParsing_*`**, **`uddfDecoder_siteGeographyTimeZone_setsActivityOffset`**.
+

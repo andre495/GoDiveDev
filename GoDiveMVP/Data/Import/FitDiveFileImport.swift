@@ -24,10 +24,10 @@ enum FitDiveFileImport {
     }
 
     @MainActor
-    static func importFromSecurityScopedURL(_ url: URL, modelContext: ModelContext) -> DiveFileImportOutcome {
+    static func importFromSecurityScopedURL(_ url: URL, modelContext: ModelContext) async -> DiveFileImportOutcome {
         do {
             let data = try readFitFileData(from: url)
-            return importFitData(data, modelContext: modelContext)
+            return await importFitData(data, modelContext: modelContext)
         } catch {
             return DiveFileImportOutcome(userMessage: error.localizedDescription, primaryInsertedDiveId: nil)
         }
@@ -38,10 +38,10 @@ enum FitDiveFileImport {
         _ data: Data,
         modelContext: ModelContext,
         owner: UserProfile? = nil
-    ) -> DiveFileImportOutcome {
+    ) async -> DiveFileImportOutcome {
         do {
             let activity = try FitDiveFileDecoder.buildDiveActivity(from: data)
-            return persistImportedActivity(activity, modelContext: modelContext, owner: owner)
+            return await persistImportedActivity(activity, modelContext: modelContext, owner: owner)
         } catch let fit as FitDecodeError {
             return DiveFileImportOutcome(userMessage: fit.localizedDescription, primaryInsertedDiveId: nil)
         } catch {
@@ -55,7 +55,7 @@ enum FitDiveFileImport {
         _ activity: DiveActivity,
         modelContext: ModelContext,
         owner: UserProfile? = nil
-    ) -> DiveFileImportOutcome {
+    ) async -> DiveFileImportOutcome {
         do {
             guard let owner = owner ?? AccountSession.shared.currentProfile else {
                 return DiveFileImportOutcome(
@@ -88,9 +88,10 @@ enum FitDiveFileImport {
                 catalogSites: &catalogSites,
                 modelContext: modelContext
             )
+            await DiveActivityTimeZoneResolution.resolveMissingOffset(for: activity)
             try modelContext.save()
             try DiveActivityDiveNumbering.applyAutomaticSequentialRenumberIfNeeded(modelContext: modelContext)
-            let msg = "\(importSuccessMessagePrefix) starting \(activity.startTime.formatted(date: .abbreviated, time: .shortened))."
+            let msg = "\(importSuccessMessagePrefix) starting \(activity.formattedStartDateTime())."
             return DiveFileImportOutcome(userMessage: msg, primaryInsertedDiveId: activity.id)
         } catch {
             return DiveFileImportOutcome(userMessage: error.localizedDescription, primaryInsertedDiveId: nil)

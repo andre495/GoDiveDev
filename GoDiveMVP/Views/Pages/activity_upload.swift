@@ -431,7 +431,7 @@ struct ActivityUploadView: View {
                 await yieldForImportOverlayPaint()
                 let activity = try FitDiveFileDecoder.buildDiveActivity(from: data)
                 await yieldForImportOverlayPaint()
-                outcome = FitDiveFileImport.persistImportedActivity(activity, modelContext: modelContext)
+                outcome = await FitDiveFileImport.persistImportedActivity(activity, modelContext: modelContext)
             }
             guard !Task.isCancelled else { return }
             await finishImport(outcome: outcome, isBulkUddf: false)

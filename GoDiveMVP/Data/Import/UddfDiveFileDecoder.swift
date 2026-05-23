@@ -110,11 +110,17 @@ enum UddfDiveFileDecoder {
     ) throws -> DiveActivity {
         let diveId = scratch.diveId
 
-        guard let raw = scratch.datetimeRaw?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty,
-              let startTime = parseUddfDate(raw)
+        guard let raw = scratch.datetimeRaw?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty
         else {
             throw UddfDecodeError.missingDiveDateTime
         }
+
+        let site = scratch.linkRefs.compactMap { sites[$0] }.first
+        guard let parsedStart = DiveDateTimeParsing.parseUddfDateTime(raw, siteTimeZoneHours: site?.timeZoneHours)
+        else {
+            throw UddfDecodeError.missingDiveDateTime
+        }
+        let startTime = parsedStart.instant
 
         let surfaceIntervalSeconds = scratch.surfaceIntervalPassed.map { Int($0.rounded(.towardZero)) }
 
@@ -142,8 +148,8 @@ enum UddfDiveFileDecoder {
             }
         }
 
-        let site = siteRef.flatMap { sites[$0] }
-        let coordinate: DiveCoordinate? = site.flatMap { rec in
+        let linkedSite = siteRef.flatMap { sites[$0] }
+        let coordinate: DiveCoordinate? = linkedSite.flatMap { rec in
             guard let lat = rec.latitude, let lon = rec.longitude else { return nil }
             return DiveCoordinate(latitude: lat, longitude: lon)
         }
@@ -174,6 +180,7 @@ enum UddfDiveFileDecoder {
             source: .macDive,
             sourceDiveId: diveId,
             startTime: startTime,
+            timeZoneOffsetSeconds: parsedStart.timeZoneOffsetSeconds,
             durationMinutes: durationMinutes,
             maxDepthMeters: maxDepthMeters,
             averageDepthMeters: averageDepthMeters,
@@ -185,8 +192,8 @@ enum UddfDiveFileDecoder {
             waterTempMaxCelsius: waterTempMaxCelsius,
             waterTempMinCelsius: waterTempMinCelsius,
             avgAscentRateMetersPerSecond: avgAscent,
-            siteName: site?.name,
-            locationName: site?.locationName,
+            siteName: linkedSite?.name,
+            locationName: linkedSite?.locationName,
             entryCoordinate: coordinate,
             notes: notesNonEmpty,
             tankMaterial: tankMaterialNonEmpty ?? defaultTank.materialLabel,
@@ -301,6 +308,8 @@ enum UddfDiveFileDecoder {
         var locationName: String?
         var latitude: Double?
         var longitude: Double?
+        /// **`geography/timezone`** — hours from UTC (UDDF float).
+        var timeZoneHours: Double?
     }
 
     fileprivate struct UddfBuddyRecord {
@@ -309,26 +318,9 @@ enum UddfDiveFileDecoder {
 
     // MARK: - Dates
 
-    /// Parses ISO-like wall times from UDDF (may omit timezone).
+    /// Parses ISO-like wall times from UDDF (legacy helper — prefer **`DiveDateTimeParsing`**).
     static func parseUddfDate(_ raw: String) -> Date? {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        let isoFrac = ISO8601DateFormatter()
-        isoFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let d = isoFrac.date(from: trimmed) { return d }
-
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime]
-        if let d = iso.date(from: trimmed) { return d }
-
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = .current
-        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-        if let d = f.date(from: trimmed) { return d }
-
-        f.dateFormat = "yyyy-MM-dd"
-        return f.date(from: trimmed)
+        DiveDateTimeParsing.parseUddfDateTime(raw)?.instant
     }
 
     // MARK: - XMLParser engine
@@ -359,6 +351,7 @@ enum UddfDiveFileDecoder {
         private var siteCountry: String?
         private var siteLatitude: Double?
         private var siteLongitude: Double?
+        private var siteTimeZoneHours: Double?
 
         private var buddyId: String?
         private var buddyFirst: String?
@@ -415,6 +408,7 @@ enum UddfDiveFileDecoder {
                 siteCountry = nil
                 siteLatitude = nil
                 siteLongitude = nil
+                siteTimeZoneHours = nil
             case "buddy":
                 buddyId = attributeDict["id"]?.trimmingCharacters(in: .whitespacesAndNewlines)
                 buddyFirst = nil
@@ -488,6 +482,10 @@ enum UddfDiveFileDecoder {
                 if pathEnds(with: ["site", "geography", "longitude"]) {
                     siteLongitude = Double(trimmed)
                 }
+            case "timezone":
+                if pathEnds(with: ["site", "geography", "timezone"]) {
+                    siteTimeZoneHours = Double(trimmed)
+                }
             case "site":
                 if let id = siteId, !id.isEmpty {
                     let locLine: String? = {
@@ -502,7 +500,8 @@ enum UddfDiveFileDecoder {
                         name: siteName,
                         locationName: locLine,
                         latitude: siteLatitude,
-                        longitude: siteLongitude
+                        longitude: siteLongitude,
+                        timeZoneHours: siteTimeZoneHours
                     )
                 }
                 siteId = nil

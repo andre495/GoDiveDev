@@ -2895,7 +2895,7 @@ struct GoDiveMVPTests {
     }
 
     @Test @MainActor
-    func fitFileImport_emptyData_returnsOutcomeWithEmptyFileMessage() throws {
+    func fitFileImport_emptyData_returnsOutcomeWithEmptyFileMessage() async throws {
         let schema = Schema([
             DiveActivity.self,
             DiveBuddyTag.self,
@@ -2905,7 +2905,7 @@ struct GoDiveMVPTests {
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
-        let outcome = FitDiveFileImport.importFitData(Data(), modelContext: context)
+        let outcome = await FitDiveFileImport.importFitData(Data(), modelContext: context)
         #expect(outcome.userMessage == FitDecodeError.emptyFile.localizedDescription)
         #expect(outcome.primaryInsertedDiveId == nil)
     }
@@ -3309,6 +3309,177 @@ struct GoDiveMVPTests {
         #expect(cal.component(.year, from: d) == 2025)
         #expect(cal.component(.month, from: d) == 5)
         #expect(cal.component(.day, from: d) == 9)
+    }
+
+    @Test func diveDateTimeParsing_zuluStoresZeroOffset() {
+        let parsed = DiveDateTimeParsing.parseUddfDateTime("2025-05-09T14:00:00Z")
+        #expect(parsed?.timeZoneOffsetSeconds == 0)
+        #expect(parsed?.instant != nil)
+    }
+
+    @Test func diveDateTimeParsing_explicitOffsetFromDatetime() {
+        let parsed = DiveDateTimeParsing.parseUddfDateTime("2025-05-09T11:26:28+07:00")
+        #expect(parsed?.timeZoneOffsetSeconds == 7 * 3600)
+    }
+
+    @Test func diveDateTimeParsing_naiveMacDiveDatetime_isUTC_instant() {
+        let parsed = DiveDateTimeParsing.parseUddfDateTime("2024-08-23T22:22:27")
+        #expect(parsed?.timeZoneOffsetSeconds == nil)
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        #expect(cal.component(.hour, from: parsed!.instant) == 22)
+    }
+
+    @Test func diveDateTimeParsing_naiveMacDiveDatetime_siteTimezone_isDisplayOnly() {
+        let parsed = DiveDateTimeParsing.parseUddfDateTime("2024-08-23T22:22:27", siteTimeZoneHours: -4)
+        #expect(parsed?.timeZoneOffsetSeconds == -4 * 3600)
+        var utcCal = Calendar(identifier: .gregorian)
+        utcCal.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        #expect(utcCal.component(.hour, from: parsed!.instant) == 22)
+        var localCal = Calendar(identifier: .gregorian)
+        localCal.timeZone = TimeZone(secondsFromGMT: -4 * 3600) ?? .gmt
+        #expect(localCal.component(.hour, from: parsed!.instant) == 18)
+    }
+
+    @Test func diveDateTimeParsing_naiveUsesSiteTimeZoneHours() {
+        let parsed = DiveDateTimeParsing.parseUddfDateTime("2025-05-09T11:26:28", siteTimeZoneHours: -4)
+        #expect(parsed?.timeZoneOffsetSeconds == -4 * 3600)
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        #expect(cal.component(.hour, from: parsed!.instant) == 11)
+    }
+
+    @Test @MainActor
+    func diveGeographicTimeZoneLookup_offsetSeconds_atInstant() async throws {
+        let tz = try #require(TimeZone(identifier: "America/Kralendijk"))
+        let resolver = FixedGeocodingTimeZoneResolver(timeZone: tz)
+        let coord = DiveGeographicTimeZoneLookup.CoordinateInput(latitude: 12.12201, longitude: -68.29050)
+        var comps = DateComponents()
+        comps.calendar = Calendar(identifier: .gregorian)
+        comps.timeZone = TimeZone(secondsFromGMT: 0)
+        comps.year = 2024
+        comps.month = 8
+        comps.day = 23
+        comps.hour = 22
+        comps.minute = 22
+        comps.second = 27
+        let instant = try #require(comps.date)
+        let offset = await DiveGeographicTimeZoneLookup.offsetSeconds(
+            for: coord,
+            at: instant,
+            resolver: resolver
+        )
+        #expect(offset == -4 * 3600)
+        var localCal = Calendar(identifier: .gregorian)
+        localCal.timeZone = tz
+        #expect(localCal.component(.hour, from: instant) == 18)
+    }
+
+    @Test @MainActor
+    func diveActivityTimeZoneResolution_fillsMissingOffsetFromCoordinates() async throws {
+        var comps = DateComponents()
+        comps.calendar = Calendar(identifier: .gregorian)
+        comps.timeZone = TimeZone(secondsFromGMT: 0)
+        comps.year = 2024
+        comps.month = 8
+        comps.day = 23
+        comps.hour = 22
+        comps.minute = 22
+        comps.second = 27
+        let start = try #require(comps.date)
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: start,
+            timeZoneOffsetSeconds: nil,
+            durationMinutes: 64,
+            maxDepthMeters: 11.5,
+            entryCoordinate: DiveCoordinate(latitude: 12.12201, longitude: -68.29050)
+        )
+        let tz = try #require(TimeZone(identifier: "America/Kralendijk"))
+        await DiveActivityTimeZoneResolution.resolveMissingOffset(
+            for: activity,
+            resolver: FixedGeocodingTimeZoneResolver(timeZone: tz)
+        )
+        #expect(activity.timeZoneOffsetSeconds == -4 * 3600)
+        var localCal = Calendar(identifier: .gregorian)
+        localCal.timeZone = tz
+        #expect(localCal.component(.hour, from: activity.startTime) == 18)
+    }
+
+    @Test func uddfDecoder_siteGeographyTimeZone_setsActivityOffset() throws {
+        let xml = """
+        <?xml version="1.0" encoding="UTF-8" ?>
+        <uddf xmlns="http://www.streit.cc/uddf/3.2/" version="3.2.1">
+        <generator><name>TestGen</name><version>1</version></generator>
+        <divesite>
+            <site id="s1">
+                <name>Reef</name>
+                <geography>
+                    <latitude>12.1</latitude>
+                    <longitude>-68.29</longitude>
+                    <timezone>-4.0</timezone>
+                </geography>
+            </site>
+        </divesite>
+        <profiledata><repetitiongroup id="rg">
+        <dive id="d1">
+            <informationbeforedive><link ref="s1"/><datetime>2025-05-09T11:26:28</datetime></informationbeforedive>
+            <informationafterdive><greatestdepth>10</greatestdepth><diveduration>60</diveduration></informationafterdive>
+            <samples><waypoint><depth>5</depth><divetime>0</divetime></waypoint></samples>
+        </dive>
+        </repetitiongroup></profiledata>
+        </uddf>
+        """
+        let dive = try UddfDiveFileDecoder.buildDiveActivities(from: Data(xml.utf8)).first
+        let activity = try #require(dive)
+        #expect(activity.timeZoneOffsetSeconds == -4 * 3600)
+    }
+
+    @Test func diveActivityTimePresentation_formatUTCDateTime_usesZulu() {
+        let instant = Date(timeIntervalSince1970: 0)
+        let label = DiveActivityTimePresentation.formatUTCDateTime(instant)
+        #expect(label.hasSuffix("Z"))
+    }
+
+    @Test func diveActivityTimePresentation_formatTimeZoneOffsetLabel_formatsHoursAndMinutes() {
+        #expect(DiveActivityTimePresentation.formatTimeZoneOffsetLabel(offsetSeconds: -4 * 3600) == "UTC-4:00")
+        #expect(DiveActivityTimePresentation.formatTimeZoneOffsetLabel(offsetSeconds: 5 * 3600 + 30 * 60) == "UTC+5:30")
+        #expect(DiveActivityTimePresentation.formatTimeZoneOffsetLabel(offsetSeconds: nil) == "Not set (device timezone)")
+    }
+
+    @Test func diveActivityTimePresentation_usesStoredOffset() {
+        let instant = Date(timeIntervalSince1970: 0)
+        let formatted = DiveActivityTimePresentation.formatDateTime(instant, timeZoneOffsetSeconds: -4 * 3600)
+        #expect(!formatted.isEmpty)
+    }
+
+    @Test func diveProfilePoint_formattedTimestamp_usesActivityOffset() {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: start,
+            timeZoneOffsetSeconds: 5 * 3600,
+            durationMinutes: 60,
+            maxDepthMeters: 18
+        )
+        let point = DiveProfilePoint(timestamp: start.addingTimeInterval(120), depthMeters: 12, dive: activity)
+        #expect(
+            point.formattedTimestamp(for: activity)
+                == DiveActivityTimePresentation.formatDateTime(
+                    point.timestamp,
+                    timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds
+                )
+        )
+    }
+
+    @Test func uddfProfilePoint_timestamps_followParsedStartInstant() throws {
+        let dive = try UddfDiveFileDecoder.buildDiveActivities(from: Data(UddfTestXML.oneDive.utf8)).first
+        let activity = try #require(dive)
+        let sorted = activity.profilePoints.sorted { $0.timestamp < $1.timestamp }
+        let first = try #require(sorted.first)
+        let last = try #require(sorted.last)
+        #expect(first.timestamp == activity.startTime)
+        #expect(last.timestamp > activity.startTime)
     }
 
     @Test func diveFileImporterPresentation_pickerMode_allowedTypes() {
@@ -4786,4 +4957,13 @@ struct GoDiveMVPTests {
         )
     }
     #endif
+}
+
+@MainActor
+private struct FixedGeocodingTimeZoneResolver: GeocodingTimeZoneResolving {
+    let timeZone: TimeZone
+
+    func timeZone(for coordinate: DiveGeographicTimeZoneLookup.CoordinateInput) async -> TimeZone? {
+        timeZone
+    }
 }

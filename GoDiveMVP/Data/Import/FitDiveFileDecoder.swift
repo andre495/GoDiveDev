@@ -123,6 +123,7 @@ enum FitDiveFileDecoder {
         )
 
         activity.entryCoordinate = diveEntryCoordinate(session: session, records: records)
+        activity.timeZoneOffsetSeconds = FitImportTimeZone.activityOffsetSeconds(from: messages)
 
         let points: [DiveProfilePoint] = records.compactMap { record in
             guard let ts = record.getTimestamp()?.date, let depth = record.getDepth() else {

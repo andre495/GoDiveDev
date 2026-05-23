@@ -44,7 +44,7 @@ These paths (or concepts) appear in **UDDF 3.2** exports such as **`MacDiveExpor
 | **`divesite/site/geography/address`** | Beyond **`country`** + **`location`** (e.g. street) — not mapped. |
 | **`profiledata/repetitiongroup`** | Group **`id`** / repetition semantics — dives flattened. |
 | **NDL, deco, ceiling, alarm, heartbeat, samples other than `waypoint`** | Not in the sample; add rows here when seen in the wild. |
-| **Timezone on `datetime`** | Naive **`yyyy-MM-dd'T'HH:mm:ss`** parsed with **`TimeZone.current`** — may differ from exporter intent. |
+| **Timezone on `datetime`** | **Partial:** naive MacDive **`datetime`** → **UTC** instant; offset from site **`geography/timezone`**, else **`DiveGeographicTimeZoneLookup`** (coords + **`startTime`**, DST). Requires network for **`MKReverseGeocodingRequest`**; no offline tz DB yet. |
 
 **Implemented mapping (high level):** **`informationbeforedive/datetime`** → **`startTime`**; **`informationafterdive/greatestdepth`** + profile max → **`maxDepthMeters`**; **`diveduration`** → **`durationMinutes`** and **`bottomTimeSeconds`**; **`surfaceintervalbeforedive/passedtime`** → **`surfaceIntervalSeconds`**; **`informationafterdive/lowesttemperature`** (K→°C) with waypoint min → **`waterTempMinCelsius`**; site **`link`** → **`siteName`**, **`locationName`**, **`coordinate`**; buddy **`link`**s → **`DiveBuddyTag`**; **`notes/para`** (CDATA) → **`notes`**; **`samples/waypoint`** → **`DiveProfilePoint`** (depth, time, K→°C temp, segment **`ascentRateMetersPerSecond`**); mean depth / mean ascent from samples; **`dive/@id`** → **`sourceDiveId`**.
 

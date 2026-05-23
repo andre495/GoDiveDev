@@ -68,7 +68,7 @@ struct CertificationEditSheetView: View {
 
     private func saveChanges() {
         guard form.canSave else { return }
-        guard let ownerID = accountSession.currentProfile?.id ?? certification.ownerProfileID else {
+        guard (accountSession.currentProfile?.id ?? certification.ownerProfileID) != nil else {
             saveErrorMessage = "Sign in to save changes."
             return
         }

@@ -11,7 +11,11 @@ enum DiveActivityFieldEditing {
     ) -> String {
         switch field {
         case .startTime:
-            return activity.startTime.formatted(date: .abbreviated, time: .shortened)
+            return activity.formattedStartDateTime()
+        case .startTimeUTC:
+            return activity.formattedStartUTCDateTime()
+        case .timeZoneOffset:
+            return activity.formattedTimeZoneOffsetLabel()
         case .durationMinutes:
             return "\(activity.durationMinutes) min"
         case .maxDepthMeters:
@@ -131,7 +135,9 @@ enum DiveActivityFieldEditing {
         case .surfaceCondition, .entryType, .diveOperatorName, .diveMasterName,
              .siteName, .locationName, .gasType, .tankMaterial, .tankVolumeDescription,
              .rawImportVersion: .shortText
-        case .sourceDiveId, .profileSampleCount, .profileGasSampleStats, .recordID, .ownerName: .readOnly
+        case .sourceDiveId, .profileSampleCount, .profileGasSampleStats,
+             .startTimeUTC, .timeZoneOffset,
+             .recordID, .ownerName: .readOnly
         }
     }
 
@@ -289,6 +295,7 @@ enum DiveActivityFieldEditing {
         case .rawImportVersion:
             activity.rawImportVersion = trimmedOptional(draft.text)
         case .diveSignature, .buddies, .linkedEquipment, .linkedCatalogSite, .sourceDiveId,
+             .startTimeUTC, .timeZoneOffset,
              .profileSampleCount, .profileGasSampleStats, .recordID, .ownerName:
             break
         }

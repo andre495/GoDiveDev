@@ -14,7 +14,8 @@ enum DiveActivityEditableCatalog: Sendable {
         case .map:
             return [
                 Section(id: "dive", title: "Dive", fieldIDs: [
-                    .startTime, .durationMinutes, .maxDepthMeters, .averageDepthMeters,
+                    .startTime, .startTimeUTC, .timeZoneOffset,
+                    .durationMinutes, .maxDepthMeters, .averageDepthMeters,
                     .bottomTimeSeconds, .surfaceIntervalSeconds, .diveNumber,
                     .avgAscentRateMetersPerSecond, .profileSampleCount,
                 ]),
@@ -52,7 +53,9 @@ enum DiveActivityEditableCatalog: Sendable {
 
     static func label(for field: DiveActivityEditableFieldID) -> String {
         switch field {
-        case .startTime: "Start"
+        case .startTime: "Start (dive time)"
+        case .startTimeUTC: "Start (UTC)"
+        case .timeZoneOffset: "Timezone offset"
         case .durationMinutes: "Duration"
         case .maxDepthMeters: "Max depth"
         case .averageDepthMeters: "Average depth"
@@ -98,6 +101,7 @@ enum DiveActivityEditableCatalog: Sendable {
     static func isEditable(_ field: DiveActivityEditableFieldID) -> Bool {
         switch field {
         case .profileSampleCount, .linkedCatalogSite, .profileGasSampleStats, .sourceDiveId,
+             .startTimeUTC, .timeZoneOffset,
              .recordID, .ownerName:
             return false
         default:

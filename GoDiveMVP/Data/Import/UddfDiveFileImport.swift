@@ -113,6 +113,8 @@ enum UddfDiveFileImport {
                 modelContext: modelContext
             )
 
+            await DiveActivityTimeZoneResolution.resolveMissingOffsets(for: inserted)
+
             if inserted.isEmpty {
                 if skippedDuplicates == 1,
                    let only = activities.first,
@@ -149,7 +151,7 @@ enum UddfDiveFileImport {
 
             let primaryId = primaryInsertedActivity(from: inserted)?.id
             if inserted.count == 1, let only = inserted.first {
-                var msg = "\(importSingleSuccessMessagePrefix) starting \(only.startTime.formatted(date: .abbreviated, time: .shortened))."
+                var msg = "\(importSingleSuccessMessagePrefix) starting \(only.formattedStartDateTime())."
                 if skippedDuplicates > 0 {
                     msg += " Skipped \(skippedDuplicates) duplicate(s)."
                 }

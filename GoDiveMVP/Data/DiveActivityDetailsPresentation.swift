@@ -40,7 +40,7 @@ enum DiveActivityDetailsPresentation: Sendable {
         displayUnits: DiveDisplayUnitSystem
     ) -> Section {
         var rows: [Row] = [
-            row("startTime", "Start", formatDateTime(activity.startTime)),
+            row("startTime", "Start", activity.formattedStartDateTime()),
             row("durationMinutes", "Duration", "\(activity.durationMinutes) min"),
             row("maxDepthMeters", "Max depth", DiveQuantityFormatting.depth(meters: activity.maxDepthMeters, system: displayUnits)),
         ]
@@ -221,10 +221,6 @@ enum DiveActivityDetailsPresentation: Sendable {
     }
 
     // MARK: - Formatting
-
-    private static func formatDateTime(_ date: Date) -> String {
-        date.formatted(date: .abbreviated, time: .shortened)
-    }
 
     private static func formatDurationSeconds(_ seconds: Int?) -> String {
         guard let seconds, seconds > 0 else { return "—" }
