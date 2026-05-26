@@ -101,6 +101,10 @@ struct DiveActivityVideoThumbnailView: View {
         .task(id: fileURL?.absoluteString) {
             await loadThumbnail()
         }
+        .onAppear {
+            guard thumbnail == nil else { return }
+            Task { await loadThumbnail() }
+        }
     }
 
     #if canImport(UIKit) && canImport(AVFoundation)

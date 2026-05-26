@@ -698,5 +698,25 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ---
 
-## 46 - Next batch
+## 46 - Logbook delete, tank profile gestures, and SwiftData fixes **(pushed)**
+
+**Summary:** Logbook delete keeps taps and bubble animation responsive; faster background delete with safe batch SQL; tank hero profile zoom/pan/scrub; duplicate panel chart removed; Swift 6 test fixes.
+
+- **`LogbookListSurface`** + **`.equatable()`** — list and **`WaterBubbleBackground`** do not rebuild on every SwiftData merge; bubbles pause during delete (**`animationPaused`**).
+- **`suppressStoreDrivenRefresh`** — skips **`onChange(of: activities.count)`** cache rebuilds while delete + background renumber run; one refresh after both finish.
+- **`LogbookActivitySnapshotSeed`**, **`LogbookDisplayCacheBuilder`**, **`LogbookCacheRefreshScheduler`** — seed copy on main actor, build rows off-thread; optional **`includeDuplicateScan: false`** on post-delete refresh.
+- **Dive delete rebuilt:** **`DiveActivityDeletion.Request`** (`renumberAfterDelete` from **Settings**); **`DiveBackgroundDeletionWorker.deleteDive(id:)`** — detach relationship inverses, batch-delete children by **`diveActivityID`**, batch-delete dive; orphan site cleanup; video file removal.
+- **Logbook:** **`LogbookDiveDeleteProgressOverlay`** stays until **`DiveActivityDeletion.delete`** finishes (delete + site cleanup + video files + renumber + main-context visibility), then min display time before dismiss.
+- **`DiveActivityChildRecordLinking`** / **`link(to:)`** — keeps **`diveActivityID`** on buddies, profile points, and media when linked after **`init`** (SwiftData ignores relationship **`didSet`**).
+- **Bug fix:** batch delete no longer crashes on **`DiveBuddyTag.dive`** constraint; removed stale **`modelContext.delete(activity)`** cascade on invalidated children.
+- **Bug fix:** **Media** carousel thumbnails at **medium** detent — fixed row height for nested panel **`ScrollView`**; remount carousel on detent change; stop squashing hidden expanded panel to **1pt**.
+- **Logbook tab re-tap:** iOS 18+ **`TabView(selection:)`** + **`Tab(value:)`**; **`LogbookTabBarReselectForwarder`** chains tab bar delegate + UIKit scroll-to-top fallback.
+- **Tank landscape profile:** **`DiveDepthProfileChartViewport`** + **`DiveDepthProfileChartGesturePolicy`** — pinch zoom, two-finger pan, one-finger scrub; UIKit gesture arbitration.
+- **Tank panel:** removed duplicate **`DiveDepthProfileChart`** at **medium** detent — interactive hero overlay only.
+- **Bug fixes:** logbook restores row only when delete throws; **`DiveLogbookSiteSearch`** nonisolated APIs for Swift 6 tests.
+- **Tests:** delete/renumber workers, gesture policy, viewport layout, background renumber path, site-search seeds, carousel height.
+
+---
+
+## 47 - Next batch
 

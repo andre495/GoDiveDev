@@ -39,7 +39,12 @@ final class DiveMediaPhoto {
         self.mediaData = mediaData
         self.mediaFileName = mediaFileName
         self.capturedAt = capturedAt
-        self.dive = dive
         self.diveActivityID = dive?.id
+        self.dive = dive
+    }
+
+    /// Links this media row to a dive and updates **`diveActivityID`** for batch deletes.
+    func link(to dive: DiveActivity) {
+        DiveActivityChildRecordLinking.link(self, to: dive)
     }
 }

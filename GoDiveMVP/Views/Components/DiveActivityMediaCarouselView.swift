@@ -16,6 +16,7 @@ struct DiveActivityMediaCarouselView: View {
                 }
                 .padding(.vertical, 2)
             }
+            .frame(height: DiveActivityMediaPresentation.carouselRowHeight)
             .accessibilityIdentifier("DiveActivity.MediaCarousel")
             .onAppear {
                 scrollToSelected(proxy, animated: false)

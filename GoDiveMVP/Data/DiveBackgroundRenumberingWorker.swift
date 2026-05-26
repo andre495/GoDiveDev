@@ -22,12 +22,17 @@ actor DiveBackgroundRenumberingWorker {
         }
     }
 
+    /// Tail renumber with predicate-scoped fetches (tie-break on **`id`** applied in memory).
     func renumberDivesNewerThanDeleted(deletedStartTime: Date, deletedId: UUID) throws {
-        let all = try modelContext.fetch(FetchDescriptor<DiveActivity>())
-        let older = all.filter {
-            DiveActivityDiveNumbering.chronologicallyBefore($0, deletedStartTime: deletedStartTime, deletedId: deletedId)
-        }
-        let newer = all.filter {
+        let newerCandidates = try modelContext.fetch(
+            FetchDescriptor<DiveActivity>(
+                predicate: #Predicate<DiveActivity> { dive in
+                    dive.startTime > deletedStartTime
+                        || dive.startTime == deletedStartTime
+                }
+            )
+        )
+        let newer = newerCandidates.filter {
             DiveActivityDiveNumbering.chronologicallyAfterDeletedSlot(
                 $0,
                 deletedStartTime: deletedStartTime,
@@ -36,6 +41,21 @@ actor DiveBackgroundRenumberingWorker {
         }
         guard !newer.isEmpty else { return }
 
+        let olderCandidates = try modelContext.fetch(
+            FetchDescriptor<DiveActivity>(
+                predicate: #Predicate<DiveActivity> { dive in
+                    dive.startTime < deletedStartTime
+                        || dive.startTime == deletedStartTime
+                }
+            )
+        )
+        let older = olderCandidates.filter {
+            DiveActivityDiveNumbering.chronologicallyBefore(
+                $0,
+                deletedStartTime: deletedStartTime,
+                deletedId: deletedId
+            )
+        }
         let base = DiveActivityDiveNumbering.maxNumberedDiveNumber(among: older)
         let newerSorted = newer.sorted(by: DiveActivityDiveNumbering.isChronologicallyOrdered)
         if DiveActivityDiveNumbering.applyPartialRenumberTail(newerSorted: newerSorted, base: base) {

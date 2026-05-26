@@ -53,6 +53,8 @@ enum DiveActivityMediaPresentation: Sendable {
     nonisolated static let carouselThumbnailSize: CGFloat = 72
     nonisolated static let carouselThumbnailSpacing: CGFloat = 10
     nonisolated static let carouselThumbnailCornerRadius: CGFloat = 10
+    /// Fixed row height so the carousel lays out inside the overview panel's vertical **`ScrollView`**.
+    nonisolated static var carouselRowHeight: CGFloat { carouselThumbnailSize + 4 }
 
     nonisolated static let captureDateUnknownMessage = "Capture date unavailable"
 

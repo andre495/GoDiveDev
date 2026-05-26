@@ -1,24 +1,133 @@
 import Foundation
 import SwiftData
 
-/// Removes a **`DiveActivity`** from the store; related **`DiveProfilePoint`**, **`DiveBuddyTag`**, and **`DiveMediaPhoto`** rows follow **`@Relationship(deleteRule: .cascade)`** on the model.
+/// Deletes a dive from the logbook and optionally tail-renumbers newer dives.
+///
+/// The progress dialog should stay up until this method returns successfully — it covers:
+/// background delete (equipment entries, dive + cascaded profile/buddies/media, orphan site cleanup, video files),
+/// optional tail renumber, and main-**`ModelContext`** visibility of the removal.
 enum DiveActivityDeletion {
-    /// - **`applySequentialRenumberOverride`:** **`nil`** → use **`AppUserSettings.automaticallyRenumberDives`**; when **`true`**, schedules or awaits background renumber after delete.
-    /// - **`awaitPostDeleteRenumber`:** **`false`** (default for UI) returns after background delete + save and schedules background renumber; **`true`** awaits partial renumber on the **main** **`ModelContext`** (tests).
-    /// - Delete + **`save()`** run on **`DiveBackgroundDeletionWorker`** (**`@ModelActor`**) so cascade removal of profile points does not block Logbook.
+
+    enum DeletionError: Error, Equatable {
+        case diveStillVisibleOnMainContext(UUID)
+    }
+
+    /// What to delete and whether to renumber dives chronologically newer than the deleted slot.
+    struct Request: Sendable {
+        let activityID: UUID
+        let deletedStartTime: Date
+        let deletedId: UUID
+        /// When **`true`**, runs tail renumber after the dive is removed (**Settings → Automatically renumber dives**).
+        let renumberAfterDelete: Bool
+    }
+
+    /// Deletes on a background **`@ModelActor`** context, then renumbers when requested.
+    ///
+    /// - **`awaitRenumberOnMainContext`:** **`true`** for tests that assert on the same **`ModelContext`** as the UI.
+    /// - **`mainModelContext`:** when provided (Logbook), waits until the dive row is gone from the UI context before reporting **`1.0`**.
+    static func delete(
+        _ request: Request,
+        container: ModelContainer,
+        awaitRenumberOnMainContext: Bool = false,
+        mainModelContext: ModelContext? = nil,
+        reportProgress: (@MainActor @Sendable (Double) -> Void)? = nil
+    ) async throws {
+        await emitDeleteProgress(0.12, handler: reportProgress)
+
+        let worker = DiveBackgroundDeletionWorker(modelContainer: container)
+        try await worker.deleteDive(id: request.activityID)
+        await emitDeleteProgress(0.42, handler: reportProgress)
+
+        if request.renumberAfterDelete {
+            await emitDeleteProgress(0.58, handler: reportProgress)
+            if awaitRenumberOnMainContext {
+                guard let mainModelContext else { return }
+                try await MainActor.run {
+                    try DiveActivityDiveNumbering.renumberDivesNewerThanDeleted(
+                        deletedStartTime: request.deletedStartTime,
+                        deletedId: request.deletedId,
+                        modelContext: mainModelContext
+                    )
+                }
+            } else {
+                try await DiveActivityPostDeleteRenumbering.renumberAfterDelete(
+                    container: container,
+                    deletedStartTime: request.deletedStartTime,
+                    deletedId: request.deletedId
+                )
+            }
+            await emitDeleteProgress(0.78, handler: reportProgress)
+        }
+
+        if let mainModelContext {
+            await emitDeleteProgress(0.88, handler: reportProgress)
+            try await waitForDeletionVisibleOnMainContext(
+                diveID: request.activityID,
+                modelContext: mainModelContext
+            )
+        }
+
+        await emitDeleteProgress(1.0, handler: reportProgress)
+    }
+
+    /// Polls the main **`ModelContext`** until the deleted dive no longer appears (background **`@ModelActor`** save merged).
+    @MainActor
+    static func waitForDeletionVisibleOnMainContext(
+        diveID: UUID,
+        modelContext: ModelContext,
+        timeoutNanoseconds: UInt64 = 500_000_000,
+        pollIntervalNanoseconds: UInt64 = 8_000_000
+    ) async throws {
+        var descriptor = FetchDescriptor<DiveActivity>(
+            predicate: #Predicate { $0.id == diveID }
+        )
+        descriptor.fetchLimit = 1
+
+        modelContext.processPendingChanges()
+        if try modelContext.fetch(descriptor).isEmpty {
+            return
+        }
+
+        let deadline = Date().addingTimeInterval(Double(timeoutNanoseconds) / 1_000_000_000)
+        while Date() < deadline {
+            await Task.yield()
+            modelContext.processPendingChanges()
+            if try modelContext.fetch(descriptor).isEmpty {
+                return
+            }
+            try await Task.sleep(nanoseconds: pollIntervalNanoseconds)
+        }
+        throw DeletionError.diveStillVisibleOnMainContext(diveID)
+    }
+
+    private static func emitDeleteProgress(
+        _ value: Double,
+        handler: (@MainActor @Sendable (Double) -> Void)?
+    ) async {
+        guard let handler else { return }
+        await MainActor.run {
+            handler(value)
+        }
+    }
+
+    // MARK: - Legacy entry points (tests + call sites)
+
     static func deletePermanently(
         _ activity: DiveActivity,
         modelContext: ModelContext,
         applySequentialRenumberOverride: Bool? = nil,
         awaitPostDeleteRenumber: Bool = false
     ) async throws {
-        try await deletePermanentlyByID(
-            activityID: activity.id,
-            deletedStartTime: activity.startTime,
-            deletedId: activity.id,
+        let renumber = applySequentialRenumberOverride ?? AppUserSettings.automaticallyRenumberDives
+        try await delete(
+            Request(
+                activityID: activity.id,
+                deletedStartTime: activity.startTime,
+                deletedId: activity.id,
+                renumberAfterDelete: renumber
+            ),
             container: modelContext.container,
-            applySequentialRenumberOverride: applySequentialRenumberOverride,
-            awaitPostDeleteRenumber: awaitPostDeleteRenumber,
+            awaitRenumberOnMainContext: awaitPostDeleteRenumber,
             mainModelContext: modelContext
         )
     }
@@ -32,35 +141,17 @@ enum DiveActivityDeletion {
         awaitPostDeleteRenumber: Bool = false,
         mainModelContext: ModelContext? = nil
     ) async throws {
-        await Task.yield()
-
-        let shouldRenumber = applySequentialRenumberOverride ?? AppUserSettings.automaticallyRenumberDives
-        let worker = DiveBackgroundDeletionWorker(modelContainer: container)
-        let skipPostDeleteRenumber = try await worker.deleteDive(
-            id: activityID,
-            deletedStartTime: deletedStartTime,
-            deletedId: deletedId,
-            shouldCheckRenumber: shouldRenumber
-        )
-
-        guard shouldRenumber, !skipPostDeleteRenumber else { return }
-
-        if awaitPostDeleteRenumber {
-            await Task.yield()
-            guard let mainModelContext else { return }
-            try await MainActor.run {
-                try DiveActivityDiveNumbering.renumberDivesNewerThanDeleted(
-                    deletedStartTime: deletedStartTime,
-                    deletedId: deletedId,
-                    modelContext: mainModelContext
-                )
-            }
-        } else {
-            await DivePostDeleteRenumberScheduler.shared.schedulePartialRenumber(
-                container: container,
+        let renumber = applySequentialRenumberOverride ?? AppUserSettings.automaticallyRenumberDives
+        try await delete(
+            Request(
+                activityID: activityID,
                 deletedStartTime: deletedStartTime,
-                deletedId: deletedId
-            )
-        }
+                deletedId: deletedId,
+                renumberAfterDelete: renumber
+            ),
+            container: container,
+            awaitRenumberOnMainContext: awaitPostDeleteRenumber,
+            mainModelContext: mainModelContext
+        )
     }
 }

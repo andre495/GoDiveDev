@@ -22,8 +22,36 @@ enum DiveActivityDiveNumbering {
 
     /// Chronological **1…n** for dives that show a **#** in the logbook (skips **`diveNumberExplicitlyNone`** / **`-`**).
     nonisolated static func numberedDiveSequentialIndicesById(for activities: [DiveActivity]) -> [UUID: Int] {
-        guard !activities.isEmpty else { return [:] }
-        let sorted = activities.sorted {
+        numberedDiveSequentialIndicesById(
+            for: activities.map {
+                NumberingRow(
+                    id: $0.id,
+                    startTime: $0.startTime,
+                    diveNumberExplicitlyNone: $0.diveNumberExplicitlyNone
+                )
+            }
+        )
+    }
+
+    struct NumberingRow: Sendable {
+        let id: UUID
+        let startTime: Date
+        let diveNumberExplicitlyNone: Bool
+
+        nonisolated init(id: UUID, startTime: Date, diveNumberExplicitlyNone: Bool) {
+            self.id = id
+            self.startTime = startTime
+            self.diveNumberExplicitlyNone = diveNumberExplicitlyNone
+        }
+    }
+
+    nonisolated static func numberedDiveSequentialIndicesById(for rows: [NumberingRow]) -> [UUID: Int] {
+        numberedDiveSequentialIndicesById(rows: rows)
+    }
+
+    private nonisolated static func numberedDiveSequentialIndicesById(rows: [NumberingRow]) -> [UUID: Int] {
+        guard !rows.isEmpty else { return [:] }
+        let sorted = rows.sorted {
             if $0.startTime != $1.startTime {
                 return $0.startTime < $1.startTime
             }
@@ -31,8 +59,8 @@ enum DiveActivityDiveNumbering {
         }
         var map: [UUID: Int] = [:]
         var next = 1
-        for activity in sorted where !activity.diveNumberExplicitlyNone {
-            map[activity.id] = next
+        for row in sorted where !row.diveNumberExplicitlyNone {
+            map[row.id] = next
             next += 1
         }
         return map

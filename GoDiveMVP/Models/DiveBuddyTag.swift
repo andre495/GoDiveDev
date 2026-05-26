@@ -17,7 +17,12 @@ final class DiveBuddyTag {
     init(id: UUID = UUID(), displayName: String, dive: DiveActivity? = nil) {
         self.id = id
         self.displayName = displayName
-        self.dive = dive
         self.diveActivityID = dive?.id
+        self.dive = dive
+    }
+
+    /// Links this buddy to a dive and updates **`diveActivityID`** for batch deletes.
+    func link(to dive: DiveActivity) {
+        DiveActivityChildRecordLinking.link(self, to: dive)
     }
 }

@@ -46,8 +46,24 @@ enum DiveDepthProfileOverlayChartLayout: Sendable {
         maxElapsed: Double,
         maxDepth: Double
     ) -> CGPoint {
-        let x = rect.minX + CGFloat(sample.elapsedSeconds / maxElapsed) * rect.width
-        let y = rect.minY + CGFloat(sample.depthMeters / maxDepth) * rect.height
+        depthPoint(
+            sample: sample,
+            in: rect,
+            viewport: DiveDepthProfileChartViewport.full(elapsedMax: maxElapsed),
+            maxDepth: maxDepth
+        )
+    }
+
+    static func depthPoint(
+        sample: DiveDepthProfileSample,
+        in rect: CGRect,
+        viewport: DiveDepthProfileChartViewport,
+        maxDepth: Double
+    ) -> CGPoint {
+        let span = max(viewport.elapsedSpan, 0.001)
+        let xFraction = (sample.elapsedSeconds - viewport.elapsedStart) / span
+        let x = rect.minX + CGFloat(xFraction) * rect.width
+        let y = rect.minY + CGFloat(sample.depthMeters / max(maxDepth, 0.001)) * rect.height
         return CGPoint(x: x, y: y)
     }
 
@@ -59,11 +75,41 @@ enum DiveDepthProfileOverlayChartLayout: Sendable {
         baselinePSI: Double,
         maxPressureAboveBaseline: Double
     ) -> CGPoint {
-        let x = rect.minX + CGFloat(sample.elapsedSeconds / maxElapsed) * rect.width
+        pressurePoint(
+            sample: sample,
+            in: rect,
+            viewport: DiveDepthProfileChartViewport.full(elapsedMax: maxElapsed),
+            baselinePSI: baselinePSI,
+            maxPressureAboveBaseline: maxPressureAboveBaseline
+        )
+    }
+
+    static func pressurePoint(
+        sample: DiveDepthProfilePressureSample,
+        in rect: CGRect,
+        viewport: DiveDepthProfileChartViewport,
+        baselinePSI: Double,
+        maxPressureAboveBaseline: Double
+    ) -> CGPoint {
+        let span = max(viewport.elapsedSpan, 0.001)
+        let xFraction = (sample.elapsedSeconds - viewport.elapsedStart) / span
+        let x = rect.minX + CGFloat(xFraction) * rect.width
         let aboveBaseline = max(0, sample.pressurePSI - baselinePSI)
-        let fraction = aboveBaseline / maxPressureAboveBaseline
+        let fraction = aboveBaseline / max(maxPressureAboveBaseline, 0.001)
         let y = rect.maxY - CGFloat(fraction) * rect.height
         return CGPoint(x: x, y: y)
+    }
+
+    static func elapsedSeconds(
+        atChartX x: CGFloat,
+        rectMinX: CGFloat,
+        rectWidth: CGFloat,
+        viewport: DiveDepthProfileChartViewport
+    ) -> Double {
+        let maxW = max(rectWidth, 1)
+        let clampedX = min(max(x, rectMinX), rectMinX + maxW)
+        let fraction = Double((clampedX - rectMinX) / maxW)
+        return viewport.elapsedStart + fraction * viewport.elapsedSpan
     }
 
     static func indexNearestPressure(

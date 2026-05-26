@@ -1372,6 +1372,69 @@ struct GoDiveMVPTests {
         #expect(abs(frame.midX - layoutSize.width / 2) < 1)
     }
 
+    @Test func diveDepthProfileChartViewport_zoomAndPan_clampsToFullDive() {
+        var viewport = DiveDepthProfileChartViewport.full(elapsedMax: 600)
+        #expect(!viewport.isZoomed(fullElapsedMax: 600))
+
+        viewport.zoom(scale: 2, anchorFraction: 0.5, fullElapsedMax: 600)
+        #expect(viewport.isZoomed(fullElapsedMax: 600))
+        #expect(viewport.elapsedSpan < 600)
+        #expect(viewport.elapsedStart >= 0)
+        #expect(viewport.elapsedEnd <= 600)
+
+        viewport.pan(elapsedDelta: 400, fullElapsedMax: 600)
+        #expect(viewport.elapsedEnd <= 600 + 0.001)
+        #expect(viewport.elapsedStart >= 0)
+
+        viewport.reset(fullElapsedMax: 600)
+        #expect(!viewport.isZoomed(fullElapsedMax: 600))
+        #expect(abs(viewport.elapsedEnd - 600) < 0.001)
+    }
+
+    @Test func diveDepthProfileChartGesturePolicy_prefersHorizontalPanOverPinchDrift() {
+        #expect(
+            DiveDepthProfileChartGesturePolicy.prefersPanOverPinch(
+                horizontalTranslation: 24,
+                verticalTranslation: 6,
+                cumulativeScaleChange: 0.02
+            )
+        )
+        #expect(
+            !DiveDepthProfileChartGesturePolicy.prefersPanOverPinch(
+                horizontalTranslation: 24,
+                verticalTranslation: 6,
+                cumulativeScaleChange: 0.12
+            )
+        )
+        #expect(
+            !DiveDepthProfileChartGesturePolicy.prefersPanOverPinch(
+                horizontalTranslation: 6,
+                verticalTranslation: 2,
+                cumulativeScaleChange: 0.01
+            )
+        )
+    }
+
+    @Test func diveDepthProfileChartGesturePolicy_ignoresSmallPinchSteps() {
+        #expect(!DiveDepthProfileChartGesturePolicy.shouldApplyPinchZoom(scaleDeltaSinceLastApply: 1.01))
+        #expect(DiveDepthProfileChartGesturePolicy.shouldApplyPinchZoom(scaleDeltaSinceLastApply: 1.04))
+        #expect(DiveDepthProfileChartGesturePolicy.shouldApplyPinchZoom(scaleDeltaSinceLastApply: 0.96))
+    }
+
+    @Test func diveDepthProfileOverlayChartLayout_depthPoint_respectsViewportWindow() {
+        let rect = CGRect(x: 0, y: 0, width: 200, height: 100)
+        let viewport = DiveDepthProfileChartViewport(elapsedStart: 100, elapsedEnd: 300)
+        let sample = DiveDepthProfileSample(elapsedSeconds: 200, depthMeters: 10)
+        let point = DiveDepthProfileOverlayChartLayout.depthPoint(
+            sample: sample,
+            in: rect,
+            viewport: viewport,
+            maxDepth: 20
+        )
+        #expect(abs(point.x - 100) < 0.5)
+        #expect(abs(point.y - 50) < 0.5)
+    }
+
     @Test func diveTankOverviewHeroPresentation_landscapeMinimized_hidesGasSummaryAndShowsMediaMarkers() {
         #expect(
             !DiveTankOverviewHeroPresentation.showsMinimizedTankGasSummary(
@@ -2565,6 +2628,21 @@ struct GoDiveMVPTests {
         #expect(DiveActivityMediaPresentation.showsMediaCarouselInSheet(for: .minimized))
         #expect(DiveActivityMediaPresentation.showsMediaCarouselInSheet(for: .medium))
         #expect(!DiveActivityMediaPresentation.showsMediaCarouselInSheet(for: .large))
+    }
+
+    @Test func diveActivityMediaPresentation_carouselRowHeight_fitsNestedScrollView() {
+        #expect(
+            DiveActivityMediaPresentation.carouselRowHeight
+                > DiveActivityMediaPresentation.carouselThumbnailSize
+        )
+        #expect(DiveActivityMediaPresentation.carouselRowHeight == 76)
+    }
+
+    @Test func rootTab_logbook_matchesContentViewTabOrder() {
+        #expect(RootTabIndex.home == 0)
+        #expect(RootTabIndex.logbook == 1)
+        #expect(RootTabIndex.fieldGuide == 2)
+        #expect(RootTabIndex.explore == 3)
     }
 
     @Test func diveActivityMediaPresentation_showsMediaSheetDetails_onlyAtMedium() {
@@ -3988,7 +4066,7 @@ struct GoDiveMVPTests {
             maxDepthMeters: 18
         )
         let buddy = DiveBuddyTag(displayName: "Pat")
-        buddy.dive = activity
+        buddy.link(to: activity)
         activity.buddies.append(buddy)
         context.insert(activity)
         try context.save()
@@ -4002,74 +4080,46 @@ struct GoDiveMVPTests {
     }
 
     @Test func logbookRow_displayName_usesTrimmedSiteElseNewDive() {
-        let named = DiveActivity(
-            source: .garminMK3,
-            startTime: Date(),
-            durationMinutes: 10,
-            maxDepthMeters: 5,
-            siteName: "  Wall  "
-        )
-        #expect(LogbookActivityRow.displayName(for: named) == "Wall")
+        #expect(LogbookActivityRow.displayName(resolvedSiteName: "  Wall  ") == "Wall")
+        #expect(LogbookActivityRow.displayName(resolvedSiteName: nil) == "New Dive")
+        #expect(LogbookActivityRow.displayName(resolvedSiteName: "   ") == "New Dive")
+    }
 
-        let noSite = DiveActivity(
-            source: .garminMK3,
+    @Test func diveBuddyTag_assigningDiveAfterInit_syncsDiveActivityID() {
+        let activity = DiveActivity(
+            source: .manual,
             startTime: Date(),
             durationMinutes: 10,
             maxDepthMeters: 5
         )
-        #expect(LogbookActivityRow.displayName(for: noSite) == "New Dive")
+        let buddy = DiveBuddyTag(displayName: "Pat")
+        #expect(buddy.diveActivityID == nil)
+        buddy.link(to: activity)
+        #expect(buddy.diveActivityID == activity.id)
     }
 
-    @Test func diveLogbookSiteSearch_emptyQuery_returnsAllActivities() {
-        let a = DiveActivity(
-            source: .garminMK3,
-            startTime: Date(),
-            durationMinutes: 10,
-            maxDepthMeters: 5,
-            siteName: "Salt Pier"
-        )
-        let b = DiveActivity(
-            source: .garminMK3,
-            startTime: Date().addingTimeInterval(-3600),
-            durationMinutes: 12,
-            maxDepthMeters: 8
-        )
+    @Test func diveLogbookSiteSearch_emptyQuery_returnsAllSeeds() {
+        let a = logbookSnapshotSeed(resolvedSiteNameLowercased: "salt pier")
+        let b = logbookSnapshotSeed(resolvedSiteNameLowercased: nil)
         let filtered = DiveLogbookSiteSearch.filtering([a, b], query: "   ")
         #expect(filtered.count == 2)
         #expect(DiveLogbookSiteSearch.isFiltering(query: "") == false)
     }
 
     @Test func diveLogbookSiteSearch_matchesResolvedSiteName_caseInsensitiveSubstring() {
-        let saltPier = DiveActivity(
-            source: .garminMK3,
-            startTime: Date(),
-            durationMinutes: 10,
-            maxDepthMeters: 5,
-            siteName: "Salt Pier"
-        )
-        let linked = DiveSite(siteName: "Turtle Bay", country: "US")
-        let turtleDive = DiveActivity(
-            source: .manual,
-            startTime: Date(),
-            durationMinutes: 20,
-            maxDepthMeters: 12,
-            siteName: "ignored import label"
-        )
-        turtleDive.diveSite = linked
+        #expect(DiveLogbookSiteSearch.matches(resolvedSiteName: "Salt Pier", query: "salt"))
+        #expect(DiveLogbookSiteSearch.matches(resolvedSiteName: "Salt Pier", query: "PIER"))
+        #expect(!DiveLogbookSiteSearch.matches(resolvedSiteName: "Salt Pier", query: "turtle"))
+        #expect(DiveLogbookSiteSearch.matches(resolvedSiteName: "Turtle Bay", query: "bay"))
+        #expect(!DiveLogbookSiteSearch.matches(resolvedSiteName: nil, query: "new"))
 
-        let unnamed = DiveActivity(
-            source: .garminMK3,
-            startTime: Date(),
-            durationMinutes: 8,
-            maxDepthMeters: 4
+        let saltPier = logbookSnapshotSeed(resolvedSiteNameLowercased: "salt pier")
+        let turtleBay = logbookSnapshotSeed(resolvedSiteNameLowercased: "turtle bay")
+        let unnamed = logbookSnapshotSeed(resolvedSiteNameLowercased: nil)
+        #expect(
+            DiveLogbookSiteSearch.filtering([saltPier, turtleBay, unnamed], query: "turtle").map(\.id)
+                == [turtleBay.id]
         )
-
-        #expect(DiveLogbookSiteSearch.matches(activity: saltPier, query: "salt"))
-        #expect(DiveLogbookSiteSearch.matches(activity: saltPier, query: "PIER"))
-        #expect(!DiveLogbookSiteSearch.matches(activity: saltPier, query: "turtle"))
-        #expect(DiveLogbookSiteSearch.matches(activity: turtleDive, query: "bay"))
-        #expect(!DiveLogbookSiteSearch.matches(activity: unnamed, query: "new"))
-        #expect(DiveLogbookSiteSearch.filtering([saltPier, turtleDive, unnamed], query: "turtle").map(\.id) == [turtleDive.id])
     }
 
     @Test func appTheme_logbookSearchFieldHeight_matchesInlineChromeRow() {
@@ -4732,6 +4782,7 @@ struct GoDiveMVPTests {
         try await DiveActivityDeletion.deletePermanently(
             toDelete,
             modelContext: context,
+            applySequentialRenumberOverride: true,
             awaitPostDeleteRenumber: true
         )
 
@@ -4765,6 +4816,44 @@ struct GoDiveMVPTests {
         let dives = try context.fetch(FetchDescriptor<DiveActivity>())
         #expect(dives.count == 1)
         #expect(remaining.diveNumber == 2)
+    }
+
+    @Test @MainActor
+    func diveActivityDeletion_reportProgress_finishesAtOne() async throws {
+        let schema = Schema([
+            DiveActivity.self,
+            DiveBuddyTag.self,
+            DiveProfilePoint.self,
+            DiveSite.self,
+        ])
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = ModelContext(container)
+
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 1,
+            maxDepthMeters: 1,
+            diveNumber: 1
+        )
+        context.insert(activity)
+        try context.save()
+
+        var progressSamples: [Double] = []
+        try await DiveActivityDeletion.delete(
+            DiveActivityDeletion.Request(
+                activityID: activity.id,
+                deletedStartTime: activity.startTime,
+                deletedId: activity.id,
+                renumberAfterDelete: false
+            ),
+            container: container,
+            reportProgress: { progressSamples.append($0) }
+        )
+
+        #expect(progressSamples.first == 0.12)
+        #expect(progressSamples.last == 1.0)
     }
 
     @Test @MainActor
@@ -4908,6 +4997,47 @@ struct GoDiveMVPTests {
             useChronologicalNumbers: false
         )
         #expect(rows.first?.diveNumberLabel == "#7")
+    }
+
+    @Test @MainActor func logbookDisplayCacheBuilder_matchesDiveLogbookDisplay() {
+        let t0 = Date(timeIntervalSince1970: 0)
+        let t1 = Date(timeIntervalSince1970: 86_400)
+        let t2 = Date(timeIntervalSince1970: 172_800)
+        let a = DiveActivity(source: .manual, startTime: t0, durationMinutes: 30, maxDepthMeters: 12, diveNumber: 99)
+        let hidden = DiveActivity(source: .manual, startTime: t1, durationMinutes: 20, maxDepthMeters: 8, diveNumber: 50)
+        hidden.diveNumberExplicitlyNone = true
+        let c = DiveActivity(source: .manual, startTime: t2, durationMinutes: 45, maxDepthMeters: 18, diveNumber: 99)
+
+        let visible = [a, hidden, c]
+        let signatures = visible.map { DiveActivityDuplicateMatcher.signature(for: $0) }
+        let duplicateIds = DiveActivityDuplicateMatcher.idsWithDuplicates(in: signatures)
+        let seeds = LogbookActivitySnapshotSeeding.seeds(from: visible)
+
+        for useChronological in [true, false] {
+            let legacy = DiveLogbookDisplay.rowData(
+                activities: visible,
+                unitSystem: .imperial,
+                duplicateIds: duplicateIds,
+                useChronologicalNumbers: useChronological,
+                numberingActivities: visible
+            )
+            let built = LogbookDisplayCacheBuilder.build(
+                visibleSeeds: seeds,
+                siteSearchQuery: "",
+                unitSystem: .imperial,
+                useChronologicalNumbers: useChronological
+            )
+            #expect(built.rows == legacy)
+            #expect(built.duplicateIds == duplicateIds)
+        }
+
+        let filteredBuilt = LogbookDisplayCacheBuilder.build(
+            visibleSeeds: seeds,
+            siteSearchQuery: "zzz-no-match",
+            unitSystem: .metric,
+            useChronologicalNumbers: true
+        )
+        #expect(filteredBuilt.rows.isEmpty)
     }
 
     @Test func diveActivityPostDeleteRenumbering_partialRenumberOnBackgroundContext() async throws {
@@ -5106,13 +5236,8 @@ struct GoDiveMVPTests {
             return activity.id
         }
 
-        _ = try await DiveBackgroundDeletionWorker(modelContainer: container)
-            .deleteDive(
-                id: diveID,
-                deletedStartTime: Date(),
-                deletedId: diveID,
-                shouldCheckRenumber: false
-            )
+        try await DiveBackgroundDeletionWorker(modelContainer: container)
+            .deleteDive(id: diveID)
 
         let counts = try await MainActor.run { () throws -> (Int, Int) in
             let context = ModelContext(container)
@@ -5124,10 +5249,61 @@ struct GoDiveMVPTests {
         #expect(counts.1 == 0)
     }
 
-    @Test func diveBackgroundDeletionWorker_deleteDive_removesActivityAndBuddies() async throws {
+    @Test func diveBackgroundDeletionWorker_deleteDive_withLinkedSite_removesDiveProfilePointsAndCatalogSite() async throws {
         let schema = Schema([
             DiveActivity.self,
             DiveBuddyTag.self,
+            DiveProfilePoint.self,
+            DiveSite.self,
+        ])
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+
+        let diveID = try await MainActor.run { () throws -> UUID in
+            let context = ModelContext(container)
+            let site = DiveSite(siteName: "Batch Delete Site", latCoords: 12, longCoords: -68)
+            let activity = DiveActivity(
+                source: .manual,
+                startTime: Date(),
+                durationMinutes: 40,
+                maxDepthMeters: 25
+            )
+            context.insert(site)
+            context.insert(activity)
+            DiveActivitySiteAssociation.link(activity, to: site)
+            for i in 0 ..< 80 {
+                activity.profilePoints.append(
+                    DiveProfilePoint(
+                        timestamp: Date(timeIntervalSince1970: TimeInterval(i)),
+                        depthMeters: Double(i),
+                        dive: activity
+                    )
+                )
+            }
+            try context.save()
+            return activity.id
+        }
+
+        try await DiveBackgroundDeletionWorker(modelContainer: container)
+            .deleteDive(id: diveID)
+
+        let counts = try await MainActor.run { () throws -> (Int, Int, Int) in
+            let context = ModelContext(container)
+            let dives = try context.fetch(FetchDescriptor<DiveActivity>())
+            let points = try context.fetch(FetchDescriptor<DiveProfilePoint>())
+            let sites = try context.fetch(FetchDescriptor<DiveSite>())
+            return (dives.count, points.count, sites.count)
+        }
+        #expect(counts.0 == 0)
+        #expect(counts.1 == 0)
+        #expect(counts.2 == 0)
+    }
+
+    @Test func diveBackgroundDeletionWorker_deleteDive_removesActivityBuddiesAndMedia() async throws {
+        let schema = Schema([
+            DiveActivity.self,
+            DiveBuddyTag.self,
+            DiveMediaPhoto.self,
             DiveProfilePoint.self,
             DiveSite.self,
         ])
@@ -5143,34 +5319,32 @@ struct GoDiveMVPTests {
                 maxDepthMeters: 18
             )
             let buddy = DiveBuddyTag(displayName: "Pat")
-            buddy.dive = activity
+            buddy.link(to: activity)
             activity.buddies.append(buddy)
+            let photo = DiveMediaPhoto(sortOrder: 0, mediaKind: .image, dive: activity)
+            activity.mediaPhotos.append(photo)
             context.insert(activity)
             try context.save()
             return activity.id
         }
 
-        let skipRenumber = try await DiveBackgroundDeletionWorker(modelContainer: container)
-            .deleteDive(
-                id: activityID,
-                deletedStartTime: Date(),
-                deletedId: activityID,
-                shouldCheckRenumber: false
-            )
-        #expect(skipRenumber == true)
+        try await DiveBackgroundDeletionWorker(modelContainer: container)
+            .deleteDive(id: activityID)
 
-        let counts = try await MainActor.run { () throws -> (Int, Int) in
+        let counts = try await MainActor.run { () throws -> (Int, Int, Int) in
             let context = ModelContext(container)
             let dives = try context.fetch(FetchDescriptor<DiveActivity>())
             let buddies = try context.fetch(FetchDescriptor<DiveBuddyTag>())
-            return (dives.count, buddies.count)
+            let media = try context.fetch(FetchDescriptor<DiveMediaPhoto>())
+            return (dives.count, buddies.count, media.count)
         }
         #expect(counts.0 == 0)
         #expect(counts.1 == 0)
+        #expect(counts.2 == 0)
     }
 
     @Test @MainActor
-    func diveActivityDeletion_deferredRenumber_preservesNumbersUntilBackgroundPass() async throws {
+    func diveActivityDeletion_backgroundRenumber_collapsesTailNumbers() async throws {
         let schema = Schema([
             DiveActivity.self,
             DiveBuddyTag.self,
@@ -5198,17 +5372,9 @@ struct GoDiveMVPTests {
 
         let divesAfterDelete = try context.fetch(FetchDescriptor<DiveActivity>())
         #expect(divesAfterDelete.count == 1)
-        #expect(remaining.diveNumber == 2)
-
-        // Background renumber persists via **`@ModelActor`**; poll the store (fresh context), not the pre-delete **`remaining`** instance.
-        let remainingId = remaining.id
-        var persistedNumber: Int?
-        for _ in 0 ..< 100 {
-            persistedNumber = try Self.persistedDiveNumber(id: remainingId, container: container)
-            if persistedNumber == 1 { break }
-            try await Task.sleep(for: .milliseconds(10))
-        }
-        #expect(persistedNumber == 1)
+        // Production path: tail renumber runs on **`DiveBackgroundRenumberingWorker`**, then merges into the UI context before **`delete`** returns.
+        #expect(remaining.diveNumber == 1)
+        #expect(try Self.persistedDiveNumber(id: remaining.id, container: container) == 1)
     }
 
     /// Reads **`diveNumber`** from a new **`ModelContext`** so background **`@ModelActor`** saves are visible in tests.
@@ -5379,6 +5545,25 @@ struct GoDiveMVPTests {
         )
     }
     #endif
+}
+
+private func logbookSnapshotSeed(
+    id: UUID = UUID(),
+    resolvedSiteNameLowercased: String?
+) -> LogbookActivitySnapshotSeed {
+    LogbookActivitySnapshotSeed(
+        id: id,
+        sourceDiveId: nil,
+        startTime: Date(timeIntervalSince1970: 0),
+        maxDepthMeters: 10,
+        durationMinutes: 30,
+        bottomTimeSeconds: nil,
+        diveNumber: 1,
+        diveNumberExplicitlyNone: false,
+        displayName: resolvedSiteNameLowercased ?? "New Dive",
+        formattedStartDateOnly: "Jan 1, 1970",
+        resolvedSiteNameLowercased: resolvedSiteNameLowercased
+    )
 }
 
 @MainActor

@@ -38,6 +38,8 @@ enum WaterBubbleRendering {
 /// Expands past safe areas so motion reads edge-to-edge (under status bar, home indicator, tab bar).
 struct WaterBubbleBackground: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Pauses **`TimelineView`** during heavy logbook store work so the main thread stays responsive.
+    var animationPaused: Bool = false
 
     private static let bubbleCount = 12
 
@@ -52,7 +54,7 @@ struct WaterBubbleBackground: View {
             if reduceMotion {
                 Color.clear
             } else {
-                TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: false)) { timeline in
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: animationPaused)) { timeline in
                     Canvas { context, size in
                         Self.drawBubbles(
                             in: &context,

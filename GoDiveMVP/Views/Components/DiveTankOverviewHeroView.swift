@@ -140,6 +140,7 @@ struct DiveTankOverviewHeroView: View {
                             mediaPhotosByID: mediaPhotosByID,
                             maxDepthHintMeters: maxDepthMeters,
                             pressureBaselinePSI: pressureBaselinePSI,
+                            allowsZoomAndPan: showsMediaMarkersOnChart(isLandscape: isLandscape),
                             onMediaMarkerTap: onMediaMarkerTap
                         )
                         .frame(width: chartFrame.width, height: chartFrame.height)

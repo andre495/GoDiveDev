@@ -37,7 +37,6 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
                 .opacity(showsMinimizedLayout ? 0 : 1)
                 .allowsHitTesting(!showsMinimizedLayout)
                 .accessibilityHidden(showsMinimizedLayout)
-                .frame(maxWidth: .infinity, maxHeight: showsMinimizedLayout ? 1 : nil)
                 .clipped()
             }
 

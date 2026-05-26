@@ -68,7 +68,7 @@ enum UddfDiveFileImport {
                 )
             }
             let ownedExisting = try DiveActivityOwnership.activities(forOwnerProfileID: owner.id, modelContext: modelContext)
-            var duplicateBaseline = ownedExisting.map(DiveActivityDuplicateMatcher.Signature.init)
+            var duplicateBaseline = ownedExisting.map { DiveActivityDuplicateMatcher.signature(for: $0) }
             var numberingBaseline = ownedExisting
             let autoAddCandidates = try DiveActivityEquipmentAssociation.autoAddCandidates(
                 forOwnerProfileID: owner.id,
@@ -78,7 +78,7 @@ enum UddfDiveFileImport {
             var skippedDuplicates = 0
 
             for (index, activity) in activities.enumerated() {
-                let candidate = DiveActivityDuplicateMatcher.Signature(activity)
+                let candidate = DiveActivityDuplicateMatcher.signature(for: activity)
                 if let match = DiveActivityDuplicateMatcher.findDuplicate(for: candidate, among: duplicateBaseline) {
                     skippedDuplicates += 1
                     _ = match
@@ -119,7 +119,7 @@ enum UddfDiveFileImport {
                 if skippedDuplicates == 1,
                    let only = activities.first,
                    let match = DiveActivityDuplicateMatcher.findDuplicate(
-                       for: DiveActivityDuplicateMatcher.Signature(only),
+                       for: DiveActivityDuplicateMatcher.signature(for: only),
                        among: duplicateBaseline
                    ),
                    let stored = try? modelContext.fetch(FetchDescriptor<DiveActivity>()),

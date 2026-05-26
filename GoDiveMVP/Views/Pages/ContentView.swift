@@ -11,28 +11,27 @@ struct ContentView: View {
     @Environment(AccountSession.self) private var accountSession
     @AppStorage(AppUserSettings.useImperialDisplayUnitsKey) private var useImperialDisplayUnits = false
 
+    /// Selection binding is required for iOS 18+ tab re-tap scroll-to-top / pop-to-root (see Apple Developer Forums thread 773497).
+    @State private var selectedTab: RootTab = .home
+
     var body: some View {
-        TabView {
-            LogOverviewView()
-                .tabItem {
-                    Label("Home", systemImage: "house")
-                }
+        TabView(selection: $selectedTab) {
+            Tab("Home", systemImage: "house", value: RootTab.home) {
+                LogOverviewView()
+            }
 
-            LogbookView(ownerProfileID: accountSession.currentProfile?.id)
-                .id(accountSession.currentProfile?.id)
-                .tabItem {
-                    Label("Logbook", systemImage: "book.closed")
-                }
+            Tab("Logbook", systemImage: "book.closed", value: RootTab.logbook) {
+                LogbookView(ownerProfileID: accountSession.currentProfile?.id)
+                    .id(accountSession.currentProfile?.id)
+            }
 
-            FieldGuideView()
-                .tabItem {
-                    Label("Field Guide", systemImage: "leaf")
-                }
+            Tab("Field Guide", systemImage: "leaf", value: RootTab.fieldGuide) {
+                FieldGuideView()
+            }
 
-            ExploreView()
-                .tabItem {
-                    Label("Explore", systemImage: "map")
-                }
+            Tab("Explore", systemImage: "map", value: RootTab.explore) {
+                ExploreView()
+            }
         }
         .accessibilityIdentifier("GoDive.RootTabs")
         .tint(AppTheme.Colors.tabSelected)

@@ -9,6 +9,11 @@ actor DivePostDeleteRenumberScheduler {
     private var pendingTask: Task<Void, Never>?
     private let debounceNanoseconds: UInt64 = 500_000_000
 
+    /// Waits for the in-flight debounced renumber task (if any). Used after logbook delete before a single UI cache refresh.
+    func waitForPending() async {
+        await pendingTask?.value
+    }
+
     /// Tail-only renumber after delete (preferred — does not rewrite every dive **#**).
     func schedulePartialRenumber(
         container: ModelContainer,

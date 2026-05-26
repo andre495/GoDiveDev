@@ -8,7 +8,7 @@ import SwiftData
 /// **Cross-format (e.g. Garmin `.fit` vs MacDive `.uddf`):** matching **fingerprint** when **`sourceDiveId`** differs — start within **2 min**, max depth within **0.6 m**, and in-water time within tolerance (prefers **`bottomTimeSeconds`**, else **`durationMinutes`**).
 enum DiveActivityDuplicateMatcher {
 
-    struct Signature: Equatable {
+    struct Signature: Equatable, Sendable {
         let id: UUID
         let sourceDiveId: String?
         let startTime: Date
@@ -16,8 +16,8 @@ enum DiveActivityDuplicateMatcher {
         let durationMinutes: Int
         let bottomTimeSeconds: Int?
 
-        /// Value initializer for tests and non–**`DiveActivity`** callers (no **Main actor**).
-        init(
+        /// Value initializer for tests and off–main-actor logbook cache builds.
+        nonisolated init(
             id: UUID = UUID(),
             sourceDiveId: String? = nil,
             startTime: Date,
@@ -32,18 +32,6 @@ enum DiveActivityDuplicateMatcher {
             self.maxDepthMeters = maxDepthMeters
             self.durationMinutes = durationMinutes
             self.bottomTimeSeconds = bottomTimeSeconds
-        }
-
-        @MainActor
-        init(_ activity: DiveActivity) {
-            self.init(
-                id: activity.id,
-                sourceDiveId: activity.sourceDiveId,
-                startTime: activity.startTime,
-                maxDepthMeters: activity.maxDepthMeters,
-                durationMinutes: activity.durationMinutes,
-                bottomTimeSeconds: activity.bottomTimeSeconds
-            )
         }
 
         /// **`DiveActivity`** is **Main actor**; explicit **nonisolated** **`Equatable`** keeps **`#expect`** usable in Swift 6.
@@ -68,17 +56,29 @@ enum DiveActivityDuplicateMatcher {
     }
 
     /// Start times may differ slightly between exporters (timezone / rounding).
-    static let startTimeToleranceSeconds: TimeInterval = 120
-    static let maxDepthToleranceMeters = 0.6
-    static let bottomTimeToleranceSeconds: Int = 5
-    static let durationMinutesTolerance: Int = 1
+    nonisolated static let startTimeToleranceSeconds: TimeInterval = 120
+    nonisolated static let maxDepthToleranceMeters = 0.6
+    nonisolated static let bottomTimeToleranceSeconds: Int = 5
+    nonisolated static let durationMinutesTolerance: Int = 1
+
+    @MainActor
+    static func signature(for activity: DiveActivity) -> Signature {
+        Signature(
+            id: activity.id,
+            sourceDiveId: activity.sourceDiveId,
+            startTime: activity.startTime,
+            maxDepthMeters: activity.maxDepthMeters,
+            durationMinutes: activity.durationMinutes,
+            bottomTimeSeconds: activity.bottomTimeSeconds
+        )
+    }
 
     @MainActor
     static func allSignatures(modelContext: ModelContext) throws -> [Signature] {
-        try modelContext.fetch(FetchDescriptor<DiveActivity>()).map(Signature.init)
+        try modelContext.fetch(FetchDescriptor<DiveActivity>()).map { signature(for: $0) }
     }
 
-    static func matchReason(candidate: Signature, existing: Signature) -> MatchReason? {
+    nonisolated static func matchReason(candidate: Signature, existing: Signature) -> MatchReason? {
         guard candidate.id != existing.id else { return nil }
 
         if let cid = candidate.sourceDiveId, let eid = existing.sourceDiveId, cid == eid {
@@ -98,7 +98,7 @@ enum DiveActivityDuplicateMatcher {
         return .matchingFingerprint
     }
 
-    static func findDuplicate(for candidate: Signature, among existing: [Signature]) -> Match? {
+    nonisolated static func findDuplicate(for candidate: Signature, among existing: [Signature]) -> Match? {
         for row in existing {
             if let reason = matchReason(candidate: candidate, existing: row) {
                 return Match(existingId: row.id, reason: reason)
@@ -108,7 +108,7 @@ enum DiveActivityDuplicateMatcher {
     }
 
     /// Activity ids that have at least one other row in **`signatures`** that **`matchReason`** considers a duplicate.
-    static func idsWithDuplicates(in signatures: [Signature]) -> Set<UUID> {
+    nonisolated static func idsWithDuplicates(in signatures: [Signature]) -> Set<UUID> {
         guard signatures.count > 1 else { return [] }
         var result = Set<UUID>()
         for i in signatures.indices {
@@ -131,14 +131,14 @@ enum DiveActivityDuplicateMatcher {
     }
 
     /// Seconds used for fingerprint compare; prefers explicit bottom time from FIT summary or UDDF **`diveduration`**.
-    static func effectiveInWaterSeconds(_ signature: Signature) -> Int {
+    nonisolated static func effectiveInWaterSeconds(_ signature: Signature) -> Int {
         if let bottom = signature.bottomTimeSeconds {
             return bottom
         }
         return signature.durationMinutes * 60
     }
 
-    private static func durationOrBottomTimeMatches(_ a: Signature, _ b: Signature) -> Bool {
+    private nonisolated static func durationOrBottomTimeMatches(_ a: Signature, _ b: Signature) -> Bool {
         let aSeconds = effectiveInWaterSeconds(a)
         let bSeconds = effectiveInWaterSeconds(b)
         let delta = abs(aSeconds - bSeconds)

@@ -64,8 +64,8 @@ enum FitDiveFileImport {
                 )
             }
             let stored = try DiveActivityOwnership.activities(forOwnerProfileID: owner.id, modelContext: modelContext)
-            let existing = stored.map(DiveActivityDuplicateMatcher.Signature.init)
-            let candidate = DiveActivityDuplicateMatcher.Signature(activity)
+            let existing = stored.map { DiveActivityDuplicateMatcher.signature(for: $0) }
+            let candidate = DiveActivityDuplicateMatcher.signature(for: activity)
             if let match = DiveActivityDuplicateMatcher.findDuplicate(for: candidate, among: existing),
                let duplicate = stored.first(where: { $0.id == match.existingId }) {
                 return DiveFileImportOutcome(

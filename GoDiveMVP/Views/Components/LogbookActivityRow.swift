@@ -55,11 +55,14 @@ struct LogbookActivityRow: View, Equatable {
     }
 
     /// Dive site name when set; otherwise **"New Dive"**.
+    nonisolated static func displayName(resolvedSiteName: String?) -> String {
+        let trimmed = resolvedSiteName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? "New Dive" : trimmed
+    }
+
+    @MainActor
     static func displayName(for activity: DiveActivity) -> String {
-        if let name = activity.resolvedSiteName {
-            return name
-        }
-        return "New Dive"
+        displayName(resolvedSiteName: activity.resolvedSiteName)
     }
 }
 

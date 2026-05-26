@@ -8,6 +8,8 @@ struct DiveActivityPhotosPanelContent: View {
     let timeZoneOffsetSeconds: Int?
     var showsMediaCarousel = false
     var showsSheetDetails = false
+    /// When this changes (e.g. sheet detent), remounts the carousel so thumbnails reload after hidden minimized layout.
+    var carouselLayoutToken: AnyHashable = 0
     @Binding var mediaPickerItems: [PhotosPickerItem]
     var isImportInProgress = false
 
@@ -32,6 +34,7 @@ struct DiveActivityPhotosPanelContent: View {
             } else {
                 if showsMediaCarousel {
                     carouselRow
+                        .id(carouselLayoutToken)
                 }
 
                 if showsSheetDetails, let selectedMedia {

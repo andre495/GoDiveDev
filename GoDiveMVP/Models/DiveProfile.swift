@@ -57,7 +57,12 @@ final class DiveProfilePoint {
         self.po2Bars = po2Bars
         self.n2Load = n2Load
         self.cnsLoad = cnsLoad
-        self.dive = dive
         self.diveActivityID = dive?.id
+        self.dive = dive
+    }
+
+    /// Links this sample to a dive and updates **`diveActivityID`** for batch deletes.
+    func link(to dive: DiveActivity) {
+        DiveActivityChildRecordLinking.link(self, to: dive)
     }
 }

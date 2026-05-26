@@ -1,25 +1,25 @@
 import Foundation
 import SwiftData
 
-/// Deletes a dive and related rows off the main actor.
+/// Deletes one **`DiveActivity`** and its related rows on a background **`ModelContext`** (**`@ModelActor`**).
 ///
-/// Equipment rows use **`delete(model:where:)`** batch delete. Profile points, buddies, and media cascade when the
-/// parent **`DiveActivity`** is deleted — store-level batch delete of those children fails (Core Data mandatory
-/// nullify inverse on **`DiveProfilePoint.dive`**).
+/// Uses **`delete(model:where:)`** for equipment and child rows (SQL deletes, no in-memory cascade walk), then
+/// batch-deletes the dive. Profile points with large FIT imports are the main cost if the parent row is deleted via
+/// **`modelContext.delete(activity)`** alone.
 @ModelActor
 actor DiveBackgroundDeletionWorker {
 
-    /// Deletes the dive with **`id`**. Returns whether post-delete renumber can be skipped ( **`true`** when automatic renumber is off).
-    func deleteDive(
-        id: UUID,
-        deletedStartTime: Date,
-        deletedId: UUID,
-        shouldCheckRenumber: Bool
-    ) throws -> Bool {
+    enum DeletionError: Error, Equatable {
+        case diveNotFound(UUID)
+    }
+
+    /// Removes the dive and related data. Throws **`DeletionError.diveNotFound`** when no row matches **`id`**.
+    func deleteDive(id: UUID) throws {
         let linkedSiteID = try linkedSiteID(forDiveID: id)
-        try deleteDiveAndRelatedRecords(diveID: id)
+        guard try deleteDiveAndRelatedRecords(diveID: id) else {
+            throw DeletionError.diveNotFound(id)
+        }
         try DiveSiteCatalogMaintenance.deleteSiteIfOrphaned(siteID: linkedSiteID, modelContext: modelContext)
-        return !shouldCheckRenumber
     }
 
     private func linkedSiteID(forDiveID diveID: UUID) throws -> UUID? {
@@ -30,9 +30,82 @@ actor DiveBackgroundDeletionWorker {
         return try modelContext.fetch(descriptor).first?.diveSiteID
     }
 
-    private func deleteDiveAndRelatedRecords(diveID: UUID) throws {
-        try DiveActivityMediaStorage.deleteMediaFiles(forDiveID: diveID, modelContext: modelContext)
+    @discardableResult
+    private func deleteDiveAndRelatedRecords(diveID: UUID) throws -> Bool {
+        var descriptor = FetchDescriptor<DiveActivity>(
+            predicate: #Predicate { $0.id == diveID }
+        )
+        descriptor.fetchLimit = 1
+        guard let activity = try modelContext.fetch(descriptor).first else {
+            return false
+        }
 
+        syncDenormalizedChildIDs(on: activity)
+
+        // Collect before batch-deleting **`DiveMediaPhoto`** rows.
+        let videoFileNames = try videoFileNames(forDiveID: diveID)
+        detachRelatedRecords(from: activity)
+        try modelContext.save()
+
+        try batchDeleteRelatedRecords(diveID: diveID)
+
+        try modelContext.delete(
+            model: DiveActivity.self,
+            where: #Predicate<DiveActivity> { $0.id == diveID }
+        )
+        try modelContext.save()
+
+        if !videoFileNames.isEmpty {
+            DiveMediaFileStore.deleteFiles(named: videoFileNames)
+        }
+        return true
+    }
+
+    /// Ensures batch **`delete(model:where:)`** predicates match rows linked only via inverse relationships.
+    private func syncDenormalizedChildIDs(on activity: DiveActivity) {
+        let diveID = activity.id
+        for buddy in activity.buddies where buddy.diveActivityID != diveID {
+            buddy.diveActivityID = diveID
+        }
+        for point in activity.profilePoints where point.diveActivityID != diveID {
+            point.diveActivityID = diveID
+        }
+        for photo in activity.mediaPhotos where photo.diveActivityID != diveID {
+            photo.diveActivityID = diveID
+        }
+    }
+
+    /// Breaks SwiftData relationship inverses so **`delete(model:where:)`** can run (batch delete fails on linked rows).
+    private func detachRelatedRecords(from activity: DiveActivity) {
+        for buddy in activity.buddies {
+            buddy.dive = nil
+        }
+        activity.buddies.removeAll()
+
+        for point in activity.profilePoints {
+            point.dive = nil
+        }
+        activity.profilePoints.removeAll()
+
+        for photo in activity.mediaPhotos {
+            photo.dive = nil
+        }
+        activity.mediaPhotos.removeAll()
+
+        if let equipmentList = activity.equipmentList {
+            for entry in equipmentList.entries {
+                entry.equipmentList = nil
+            }
+            equipmentList.entries.removeAll()
+            equipmentList.dive = nil
+        }
+        activity.equipmentList = nil
+
+        activity.diveSite = nil
+        activity.diveSiteID = nil
+    }
+
+    private func batchDeleteRelatedRecords(diveID: UUID) throws {
         try modelContext.delete(
             model: DiveEquipmentEntry.self,
             where: #Predicate<DiveEquipmentEntry> { $0.diveActivityID == diveID }
@@ -41,21 +114,28 @@ actor DiveBackgroundDeletionWorker {
             model: DiveActivityEquipmentList.self,
             where: #Predicate<DiveActivityEquipmentList> { $0.diveActivityID == diveID }
         )
-
-        try deleteDiveViaParentCascade(diveID: diveID)
+        try modelContext.delete(
+            model: DiveProfilePoint.self,
+            where: #Predicate<DiveProfilePoint> { $0.diveActivityID == diveID }
+        )
+        try modelContext.delete(
+            model: DiveBuddyTag.self,
+            where: #Predicate<DiveBuddyTag> { $0.diveActivityID == diveID }
+        )
+        try modelContext.delete(
+            model: DiveMediaPhoto.self,
+            where: #Predicate<DiveMediaPhoto> { $0.diveActivityID == diveID }
+        )
     }
 
-    private func deleteDiveViaParentCascade(diveID: UUID) throws {
-        var descriptor = FetchDescriptor<DiveActivity>(
-            predicate: #Predicate { $0.id == diveID }
+    private func videoFileNames(forDiveID diveID: UUID) throws -> [String] {
+        let descriptor = FetchDescriptor<DiveMediaPhoto>(
+            predicate: #Predicate { $0.diveActivityID == diveID }
         )
-        descriptor.fetchLimit = 1
-
-        guard let activity = try modelContext.fetch(descriptor).first else { return }
-
-        activity.diveSite = nil
-        activity.diveSiteID = nil
-        modelContext.delete(activity)
-        try modelContext.save()
+        return try modelContext.fetch(descriptor).compactMap { item -> String? in
+            guard item.mediaKind == DiveMediaKind.video.rawValue else { return nil }
+            let name = item.mediaFileName.trimmingCharacters(in: .whitespacesAndNewlines)
+            return name.isEmpty ? nil : name
+        }
     }
 }

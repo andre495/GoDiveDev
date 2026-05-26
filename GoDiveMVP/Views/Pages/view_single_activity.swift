@@ -19,8 +19,6 @@ struct ViewSingleActivity: View {
     /// Tank hero gas column (**1** = full); animates toward **`ending/beginning`** PSI when the sheet snaps to a shorter detent.
     @State private var tankHeroPressureFillFraction: CGFloat = 1
     @FocusState private var isNotesFieldFocused: Bool
-    /// While the depth chart is scrubbed, holds the nearest profile sample (elapsed from dive start + depth).
-    @State private var depthProfileScrubSample: DiveDepthProfileSample?
     @State private var depthChartPreviewMediaID: UUID?
     /// When **`true`**, map tab uses **`DiveOverviewMapTeardownPlaceholder`** instead of live MapKit (set before pop).
     @State private var overviewMapTeardownRequested = false
@@ -94,9 +92,6 @@ struct ViewSingleActivity: View {
         }
         .onChange(of: selectedActivityTab) { _, newTab in
             syncOverviewSheetPresentation(for: newTab)
-            if newTab != .tank {
-                depthProfileScrubSample = nil
-            }
             if newTab == .map {
                 overviewMapTeardownRequested = false
                 presentMapSitePromptIfNeeded()
@@ -839,6 +834,7 @@ struct ViewSingleActivity: View {
             showsSheetDetails: DiveActivityMediaPresentation.showsMediaSheetDetails(
                 for: overviewSheetDetent
             ),
+            carouselLayoutToken: overviewSheetDetent,
             mediaPickerItems: $diveMediaPickerItems,
             isImportInProgress: mediaImportOverlay.isBlocking
         )
@@ -891,8 +887,6 @@ struct ViewSingleActivity: View {
         let stats = DiveActivityTankPanelSummary.profilePressureStats(from: activity.profilePoints)
         return VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
             tankPanelHeader
-
-            tankDepthProfileSection
 
             DiveActivityEditableSectionsView(
                 activity: activity,
@@ -1012,33 +1006,6 @@ struct ViewSingleActivity: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var tankDepthProfileSection: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            let samples = DiveDepthProfileSeries.samples(fromProfilePoints: activity.profilePoints)
-            depthProfileHeroRow(scrubSample: depthProfileScrubSample)
-
-            DiveDepthProfileChart(
-                samples: samples,
-                maxDepthHintMeters: activity.maxDepthMeters,
-                onScrubSampleChange: { depthProfileScrubSample = $0 }
-            )
-            .frame(height: 220)
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("Depth profile chart")
-            .accessibilityValue(
-                samples.isEmpty
-                    ? "No sample data available"
-                    : depthProfileChartAccessibilitySummary(samples: samples)
-            )
-        }
-        .padding(AppTheme.Spacing.md)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(AppTheme.Colors.surfaceElevated.opacity(0.65))
-        }
-    }
-
     private var depthChartMediaPreviewPresented: Binding<Bool> {
         Binding(
             get: { depthChartPreviewMediaID != nil },
@@ -1091,76 +1058,6 @@ struct ViewSingleActivity: View {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(AppTheme.Colors.surfaceElevated)
             }
-    }
-
-    @ViewBuilder
-    private func depthProfileHeroRow(scrubSample: DiveDepthProfileSample?) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: AppTheme.Spacing.lg) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(depthProfileHeroPrimaryLabel(scrubSample: scrubSample))
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.Colors.tabUnselected)
-                Text(depthProfileHeroPrimaryValue(scrubSample: scrubSample))
-                    .font(.title2.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
-                    .minimumScaleFactor(0.75)
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(depthProfileHeroSecondaryLabel(scrubSample: scrubSample))
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.Colors.tabUnselected)
-                Text(depthProfileHeroSecondaryValue(scrubSample: scrubSample))
-                    .font(.title2.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
-                    .minimumScaleFactor(0.75)
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity, alignment: .trailing)
-        }
-    }
-
-    private func depthProfileHeroPrimaryLabel(scrubSample: DiveDepthProfileSample?) -> String {
-        scrubSample == nil ? "Total dive time" : "From start"
-    }
-
-    private func depthProfileHeroSecondaryLabel(scrubSample: DiveDepthProfileSample?) -> String {
-        scrubSample == nil ? "Max depth" : "Depth"
-    }
-
-    private func depthProfileHeroPrimaryValue(scrubSample: DiveDepthProfileSample?) -> String {
-        if let scrub = scrubSample {
-            return formattedMinutesSinceDiveStart(scrub.elapsedSeconds)
-        }
-        return "\(activity.durationMinutes) min"
-    }
-
-    private func depthProfileHeroSecondaryValue(scrubSample: DiveDepthProfileSample?) -> String {
-        if let scrub = scrubSample {
-            return formatDepth(scrub.depthMeters)
-        }
-        return formatDepth(activity.maxDepthMeters)
-    }
-
-    /// Elapsed time from dive **`startTime`** for the scrubbed profile sample (minutes).
-    private func formattedMinutesSinceDiveStart(_ elapsedSeconds: Double) -> String {
-        let minutes = elapsedSeconds / 60.0
-        let roundedToTenth = (minutes * 10).rounded() / 10
-        if abs(roundedToTenth - roundedToTenth.rounded()) < 0.001 {
-            return "\(Int(roundedToTenth.rounded())) min"
-        }
-        return String(format: "%.1f min", roundedToTenth)
-    }
-
-    private func depthProfileChartAccessibilitySummary(
-        samples: [DiveDepthProfileSample]
-    ) -> String {
-        if let scrub = depthProfileScrubSample {
-            return "\(formattedMinutesSinceDiveStart(scrub.elapsedSeconds)), \(formatDepth(scrub.depthMeters))"
-        }
-        return "Total dive time \(activity.durationMinutes) minutes, max depth \(formatDepth(activity.maxDepthMeters))"
     }
 
     private func formatDepth(_ meters: Double) -> String {
