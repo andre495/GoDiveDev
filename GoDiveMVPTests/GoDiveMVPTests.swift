@@ -190,6 +190,15 @@ struct GoDiveMVPTests {
         #expect(ProfilePresentation.diveActivityCountLabel(12) == "12 dives")
     }
 
+    @Test func profilePresentation_certificationAndEquipmentCountLabels_pluralize() {
+        #expect(ProfilePresentation.certificationCountLabel(0) == "No certifications")
+        #expect(ProfilePresentation.certificationCountLabel(1) == "1 certification")
+        #expect(ProfilePresentation.certificationCountLabel(3) == "3 certifications")
+        #expect(ProfilePresentation.equipmentItemCountLabel(0) == "No gear")
+        #expect(ProfilePresentation.equipmentItemCountLabel(1) == "1 item")
+        #expect(ProfilePresentation.equipmentItemCountLabel(5) == "5 items")
+    }
+
     @Test func profilePhotoCropRenderer_baseFillScale_coversViewport() {
         let imageSize = CGSize(width: 800, height: 600)
         let cropDiameter: CGFloat = 280
@@ -201,6 +210,18 @@ struct GoDiveMVPTests {
         let expectedScale = CGFloat(280) / CGFloat(600)
         #expect(scale == expectedScale)
         #expect(expectedScale > 0)
+    }
+
+    @Test func profilePhotoCropRenderer_clampedOffset_keepsCropInsideImage() {
+        let drawSize = CGSize(width: 400, height: 400)
+        let cropDiameter: CGFloat = 280
+        let clamped = ProfilePhotoCropRenderer.clampedOffset(
+            CGSize(width: 500, height: -500),
+            drawSize: drawSize,
+            cropDiameter: cropDiameter
+        )
+        #expect(clamped.width == 60)
+        #expect(clamped.height == -60)
     }
 
     @Test func profilePhotoCropRenderer_croppedJPEGData_returnsBytes() {
@@ -1122,6 +1143,36 @@ struct GoDiveMVPTests {
 
     @Test func appUserSettings_useImperialDisplayUnitsKey_matchesAppStorage() {
         #expect(AppUserSettings.useImperialDisplayUnitsKey == "goDiveUseImperialDisplayUnits")
+    }
+
+    @Test func settingsPresentation_exposesSettingTitlesAndInfoCopy() {
+        #expect(SettingsPresentation.ImperialUnits.title == "Imperial units")
+        #expect(SettingsPresentation.ImperialUnits.infoMessage.contains("feet"))
+        #expect(SettingsPresentation.DefaultTank.title == "Default tank")
+        #expect(SettingsPresentation.AutomaticallyRenumberDives.title == "Automatically renumber dives")
+        #expect(
+            SettingsPresentation.infoAccessibilityLabel(forSettingTitle: "Imperial units")
+                == "More information about Imperial units"
+        )
+    }
+
+    @Test func appScrollUnderHeaderListLayout_usesLogbookHorizontalInsets() {
+        #expect(AppScrollUnderHeaderListLayout.horizontalListRowInset == AppTheme.Spacing.lg)
+        #expect(AppScrollUnderHeaderListLayout.listRowSpacing == AppTheme.Spacing.md)
+    }
+
+    @Test func appScrollUnderHeaderListLayout_listTopInset_matchesLogbookFormula() {
+        #expect(
+            AppScrollUnderHeaderListLayout.listTopInset(safeAreaTop: 59, headerClearance: 72) == 131
+        )
+        #expect(
+            AppScrollUnderHeaderListLayout.listBottomInset(safeAreaBottom: 34) == 34 + AppTheme.Spacing.md
+        )
+        #expect(AppScrollUnderHeaderListLayout.resolvedSafeAreaTop(59) == 59)
+    }
+
+    @Test func secondaryDestinationBackButton_defaultTapDimensionIsFortyFourPoints() {
+        #expect(SecondaryDestinationChromeMetrics.backButtonMinimumTapDimension == 44)
     }
 
     @Test func diveSiteCoordinateMatcher_findsSiteNearMockDiveCoordinate() {
@@ -4365,6 +4416,8 @@ struct GoDiveMVPTests {
     @Test func defaultTankSize_specifications() {
         #expect(DefaultTankSize.al80.ratedVolumeCubicFeet == 80)
         #expect(DefaultTankSize.al80.materialLabel == "aluminum")
+        #expect(DefaultTankSize.al80.settingsPickerTitle == "AL80")
+        #expect(DefaultTankSize.al80.settingsPickerMaterialLabel == "Aluminum")
         #expect(DefaultTankSize.al63.ratedVolumeCubicFeet == 63)
         #expect(DefaultTankSize.st100.materialLabel == "steel")
         #expect(DefaultTankSize.st120.ratedVolumeCubicFeet == 120)

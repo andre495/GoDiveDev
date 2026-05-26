@@ -32,17 +32,20 @@ struct EquipmentLockerView: View {
 
     var body: some View {
         ZStack {
-            AppPage(title: "Equipment Locker", showsBackButton: true, trailingContent: {
+            AppPage(
+                title: "Equipment Locker",
+                showsBackButton: true,
+                scrollContentUnderHeader: true,
+                trailingContent: {
                 addEquipmentToolbarButton
             }, content: {
-                Group {
-                    if ownedEquipment.isEmpty {
+                if ownedEquipment.isEmpty {
+                    AppScrollUnderHeaderEmptyState {
                         emptyLockerState
-                    } else {
-                        equipmentList
                     }
+                } else {
+                    equipmentList
                 }
-                .padding(AppTheme.Spacing.md)
             })
 
             if equipmentPendingDeletion != nil {
@@ -92,7 +95,7 @@ struct EquipmentLockerView: View {
     }
 
     private var equipmentList: some View {
-        List {
+        AppScrollUnderHeaderList(listAccessibilityIdentifier: "EquipmentLocker.List") {
             ForEach(ownedEquipment, id: \.id) { item in
                 NavigationLink {
                     ViewEquipmentDetails(item: item)
@@ -101,7 +104,7 @@ struct EquipmentLockerView: View {
                 }
                 .buttonStyle(.plain)
                 .navigationLinkIndicatorVisibility(.hidden)
-                .listRowInsets(EdgeInsets())
+                .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -113,10 +116,6 @@ struct EquipmentLockerView: View {
                 }
             }
         }
-        .listStyle(.plain)
-        .listRowSpacing(AppTheme.Spacing.sm)
-        .scrollContentBackground(.hidden)
-        .accessibilityIdentifier("EquipmentLocker.List")
     }
 
     private var deleteFlowOverlay: some View {

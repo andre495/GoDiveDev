@@ -15,6 +15,39 @@ enum ProfilePhotoCropRenderer: Sendable {
         return max(cropDiameter / imageSize.width, cropDiameter / imageSize.height)
     }
 
+    static func scaledDrawSize(
+        imageSize: CGSize,
+        cropDiameter: CGFloat,
+        gestureScale: CGFloat
+    ) -> CGSize {
+        let total = baseFillScale(imageSize: imageSize, cropDiameter: cropDiameter)
+            * max(gestureScale, minimumGestureScale)
+        return CGSize(width: imageSize.width * total, height: imageSize.height * total)
+    }
+
+    /// Keeps the fixed crop circle fully covered by the panned/zoomed image.
+    static func clampedOffset(
+        _ proposed: CGSize,
+        drawSize: CGSize,
+        cropDiameter: CGFloat
+    ) -> CGSize {
+        let radius = cropDiameter / 2
+        let minX = radius - drawSize.width / 2
+        let maxX = drawSize.width / 2 - radius
+        let minY = radius - drawSize.height / 2
+        let maxY = drawSize.height / 2 - radius
+
+        func clamp(_ value: CGFloat, min minValue: CGFloat, max maxValue: CGFloat) -> CGFloat {
+            guard minValue <= maxValue else { return 0 }
+            return min(max(value, minValue), maxValue)
+        }
+
+        return CGSize(
+            width: clamp(proposed.width, min: minX, max: maxX),
+            height: clamp(proposed.height, min: minY, max: maxY)
+        )
+    }
+
     #if canImport(UIKit)
     /// Circular crop in **`outputPixelSize`** × **`outputPixelSize`** pixels (JPEG).
     static func croppedJPEGData(

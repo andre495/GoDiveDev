@@ -671,3 +671,28 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Tests:** **`diveMutedVideoAudioSession_usesAmbientMixWithOthers`**.
 - **Tests:** **`diveMediaCaptureDateExtraction_*`**, **`diveActivityMediaStorage_addMedia_persistsCapturedAt`**, **`diveActivityMediaPresentation_showsCaptureDateOnHero_*`**, **`diveActivityMediaPresentation_mediaPositionLabel_*`**.
 
+**Summary (continued):** Profile avatar ring + crop bounds.
+
+- **`ProfileAvatarView`** — **`accentDeep`** circular stroke on **Home** and **Profile** (replaces editor-only white ring).
+- **`ProfileView`** — larger profile avatar (**168** pt) sits closer under the top chrome.
+- **`ProfilePhotoCropRenderer.clampedOffset`** — pan/zoom cannot move the crop circle outside the image; **Tests:** **`profilePhotoCropRenderer_clampedOffset_keepsCropInsideImage`**.
+
+**Summary (continued):** Compact Settings rows with info alerts.
+
+- **`SettingsPresentation`** — titles + long descriptions for **Imperial units**, **Default tank**, **Automatically renumber dives**.
+- **`SettingsToggleRow`** / **`SettingsPickerRow`** — title beside control; **`info.circle`** opens alert with full copy. **Default tank** menu shows compact codes (**AL80**, **AL63**, …) inline on the right.
+- **Tests:** **`settingsPresentation_exposesSettingTitlesAndInfoCopy`**.
+
+**Summary (continued):** Equipment Locker + Certifications scroll-under header.
+
+- **`AppPage`** — scroll-under list only **`ignoresSafeArea(edges: .top)`**; **`AppHeader`** stays in the safe area. Key-window inset fallback when geometry reports **0**.
+- **`EquipmentLockerView`** / **`CertificationsListView`** — shared scroll-under list container; first row aligns with Logbook / Explore list.
+- **`AppHeader`** — **`SecondaryDestinationBackButton`** (44×44 pt); scroll-under pages add a header hit shield so the list does not steal taps from back / **+**.
+
+**Summary (continued):** Profile destination tile counts.
+
+- **`ProfilePresentation`** — **`certificationCountLabel`**, **`equipmentItemCountLabel`** for Certifications / Equipment Locker tiles.
+- **`ProfileView`** — tiles show owned certification and gear counts (e.g. **3 certifications**, **5 items**).
+- **Tests:** **`profilePresentation_certificationAndEquipmentCountLabels_pluralize`**.
+- **Tests:** **`appScrollUnderHeaderListLayout_usesLogbookHorizontalInsets`**.
+

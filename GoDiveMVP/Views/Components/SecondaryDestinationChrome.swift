@@ -7,11 +7,16 @@ extension View {
     }
 }
 
+enum SecondaryDestinationChromeMetrics {
+    /// Minimum tappable width/height for **`SecondaryDestinationBackButton`** (matches Logbook **+**).
+    static let backButtonMinimumTapDimension: CGFloat = 44
+}
+
 struct SecondaryDestinationBackButton: View {
     @Environment(\.dismiss) private var dismiss
 
     /// Minimum tappable width/height (e.g. **44** matches Logbook **+**).
-    var minTapDimension: CGFloat = 44
+    var minTapDimension: CGFloat = SecondaryDestinationChromeMetrics.backButtonMinimumTapDimension
     /// Runs immediately before **`dismiss()`** (e.g. drop MapKit before the pop animation).
     var onWillDismiss: (() -> Void)? = nil
 

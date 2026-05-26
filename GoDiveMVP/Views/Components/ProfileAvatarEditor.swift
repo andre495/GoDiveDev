@@ -7,9 +7,14 @@ import UIKit
 
 /// Circular profile photo with **PhotosPicker** and crop sheet (camera badge to change).
 struct ProfileAvatarEditor: View {
-    private enum Layout {
-        static let diameter: CGFloat = 120
-        static let cameraBadgeSize: CGFloat = 32
+    var diameter: CGFloat = 120
+
+    private var cameraBadgeSize: CGFloat {
+        max(32, diameter * 0.27)
+    }
+
+    private var placeholderIconSize: CGFloat {
+        diameter * 0.47
     }
 
     @Bindable var profile: UserProfile
@@ -26,19 +31,15 @@ struct ProfileAvatarEditor: View {
             ZStack(alignment: .bottomTrailing) {
                 ProfileAvatarView(
                     profilePhoto: profile.profilePhoto,
-                    diameter: Layout.diameter,
-                    iconFont: .system(size: 56)
+                    diameter: diameter,
+                    iconFont: .system(size: placeholderIconSize)
                 )
-                .overlay {
-                    Circle()
-                        .strokeBorder(Color.white.opacity(0.35), lineWidth: 2)
-                }
                 .shadow(color: .black.opacity(0.2), radius: 10, y: 4)
 
                 Image(systemName: "camera.fill")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.white)
-                    .frame(width: Layout.cameraBadgeSize, height: Layout.cameraBadgeSize)
+                    .frame(width: cameraBadgeSize, height: cameraBadgeSize)
                     .background(Circle().fill(AppTheme.Colors.accent))
                     .overlay {
                         Circle()

@@ -16,4 +16,26 @@ enum ProfilePresentation: Sendable {
             return "\(count) dives"
         }
     }
+
+    static func certificationCountLabel(_ count: Int) -> String {
+        switch count {
+        case 0:
+            return "No certifications"
+        case 1:
+            return "1 certification"
+        default:
+            return "\(count) certifications"
+        }
+    }
+
+    static func equipmentItemCountLabel(_ count: Int) -> String {
+        switch count {
+        case 0:
+            return "No gear"
+        case 1:
+            return "1 item"
+        default:
+            return "\(count) items"
+        }
+    }
 }

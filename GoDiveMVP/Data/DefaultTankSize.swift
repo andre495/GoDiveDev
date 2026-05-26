@@ -25,13 +25,16 @@ enum DefaultTankSize: String, CaseIterable, Sendable {
         }
     }
 
-    /// Short label for **Settings** picker rows.
+    /// Short label for **Settings** picker (compact row + menu).
     nonisolated var settingsPickerTitle: String {
+        rawValue
+    }
+
+    /// Material hint for accessibility / future menu subtitles.
+    nonisolated var settingsPickerMaterialLabel: String {
         switch self {
-        case .al80: "AL80 · Aluminum"
-        case .al63: "AL63 · Aluminum"
-        case .st100: "ST100 · Steel"
-        case .st120: "ST120 · Steel"
+        case .al80, .al63: "Aluminum"
+        case .st100, .st120: "Steel"
         }
     }
 

@@ -25,6 +25,14 @@ struct ProfileAvatarView: View {
         }
         .frame(width: diameter, height: diameter)
         .clipShape(Circle())
+        .overlay {
+            Circle()
+                .strokeBorder(AppTheme.Colors.accentDeep, lineWidth: ringLineWidth)
+        }
+    }
+
+    private var ringLineWidth: CGFloat {
+        max(2, diameter / 24)
     }
 
     private var placeholder: some View {

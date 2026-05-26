@@ -63,13 +63,24 @@ struct ProfilePhotoCropSheet: View {
     }
 
     #if canImport(UIKit)
-    private var drawSize: CGSize {
-        let base = ProfilePhotoCropRenderer.baseFillScale(
+    private func drawSize(for gestureScale: CGFloat) -> CGSize {
+        ProfilePhotoCropRenderer.scaledDrawSize(
             imageSize: sourceImage.size,
+            cropDiameter: Layout.cropDiameter,
+            gestureScale: gestureScale
+        )
+    }
+
+    private var drawSize: CGSize {
+        drawSize(for: gestureScale)
+    }
+
+    private func clamped(_ offset: CGSize, for gestureScale: CGFloat) -> CGSize {
+        ProfilePhotoCropRenderer.clampedOffset(
+            offset,
+            drawSize: drawSize(for: gestureScale),
             cropDiameter: Layout.cropDiameter
         )
-        let total = base * gestureScale
-        return CGSize(width: sourceImage.size.width * total, height: sourceImage.size.height * total)
     }
 
     private var cropCanvas: some View {
@@ -103,13 +114,15 @@ struct ProfilePhotoCropSheet: View {
     private var dragGesture: some Gesture {
         DragGesture()
             .onChanged { value in
-                offset = CGSize(
+                let proposed = CGSize(
                     width: lastOffset.width + value.translation.width,
                     height: lastOffset.height + value.translation.height
                 )
+                offset = clamped(proposed, for: gestureScale)
             }
             .onEnded { _ in
-                lastOffset = offset
+                lastOffset = clamped(offset, for: gestureScale)
+                offset = lastOffset
             }
     }
 
@@ -118,9 +131,12 @@ struct ProfilePhotoCropSheet: View {
             .onChanged { value in
                 let proposed = lastGestureScale * value
                 gestureScale = max(proposed, ProfilePhotoCropRenderer.minimumGestureScale)
+                offset = clamped(offset, for: gestureScale)
             }
             .onEnded { _ in
                 lastGestureScale = gestureScale
+                lastOffset = clamped(offset, for: gestureScale)
+                offset = lastOffset
             }
     }
 
@@ -132,11 +148,12 @@ struct ProfilePhotoCropSheet: View {
     }
 
     private func saveCroppedPhoto() {
+        let resolvedOffset = clamped(offset, for: gestureScale)
         guard let data = ProfilePhotoCropRenderer.croppedJPEGData(
             from: sourceImage,
             cropDiameter: Layout.cropDiameter,
             gestureScale: gestureScale,
-            offset: offset
+            offset: resolvedOffset
         ) else {
             onCancel()
             return

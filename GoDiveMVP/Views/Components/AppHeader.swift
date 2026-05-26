@@ -48,8 +48,6 @@ struct AppStatusBarEdgeScrim: View {
 }
 
 struct AppHeader<TrailingContent: View>: View {
-    @Environment(\.dismiss) private var dismiss
-
     private let appName = "GoDive"
     let title: String
     let showsBackButton: Bool
@@ -77,16 +75,7 @@ struct AppHeader<TrailingContent: View>: View {
         HStack(alignment: .center, spacing: AppTheme.Spacing.md) {
             HStack(spacing: AppTheme.Spacing.sm) {
                 if showsBackButton {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(AppTheme.Colors.iconPrimary)
-                    .accessibilityLabel("Back")
+                    SecondaryDestinationBackButton()
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -109,6 +98,8 @@ struct AppHeader<TrailingContent: View>: View {
         }
         .padding(.horizontal, AppTheme.Spacing.lg)
         .padding(.vertical, AppTheme.Spacing.md)
+        .fixedSize(horizontal: false, vertical: true)
+        .contentShape(Rectangle())
         .background(alignment: .top) {
             if statusBarSafeAreaTop > 0.5 {
                 AppStatusBarEdgeScrim(safeAreaTop: statusBarSafeAreaTop)

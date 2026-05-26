@@ -31,17 +31,20 @@ struct CertificationsListView: View {
 
     var body: some View {
         ZStack {
-            AppPage(title: "Certifications", showsBackButton: true, trailingContent: {
+            AppPage(
+                title: "Certifications",
+                showsBackButton: true,
+                scrollContentUnderHeader: true,
+                trailingContent: {
                 addCertificationToolbarButton
             }, content: {
-                Group {
-                    if ownedCertifications.isEmpty {
+                if ownedCertifications.isEmpty {
+                    AppScrollUnderHeaderEmptyState {
                         emptyCertificationsState
-                    } else {
-                        certificationsList
                     }
+                } else {
+                    certificationsList
                 }
-                .padding(AppTheme.Spacing.md)
             })
 
             if certificationPendingDeletion != nil {
@@ -91,7 +94,7 @@ struct CertificationsListView: View {
     }
 
     private var certificationsList: some View {
-        List {
+        AppScrollUnderHeaderList(listAccessibilityIdentifier: "CertificationsList.List") {
             ForEach(ownedCertifications, id: \.id) { certification in
                 NavigationLink {
                     ViewCertificationDetails(certification: certification)
@@ -100,7 +103,7 @@ struct CertificationsListView: View {
                 }
                 .buttonStyle(.plain)
                 .navigationLinkIndicatorVisibility(.hidden)
-                .listRowInsets(EdgeInsets())
+                .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -112,10 +115,6 @@ struct CertificationsListView: View {
                 }
             }
         }
-        .listStyle(.plain)
-        .listRowSpacing(AppTheme.Spacing.sm)
-        .scrollContentBackground(.hidden)
-        .accessibilityIdentifier("CertificationsList.List")
     }
 
     private var deleteFlowOverlay: some View {

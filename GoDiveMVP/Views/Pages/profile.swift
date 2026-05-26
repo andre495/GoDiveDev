@@ -6,7 +6,8 @@ struct ProfileView: View {
         /// Dark veil between **`WaterBubbleBackground`** and profile content.
         static let bubbleScrimOpacity: CGFloat = 0.48
         static let tileCornerRadius: CGFloat = 16
-        static let headerSpacing: CGFloat = 20
+        static let headerSpacing: CGFloat = 16
+        static let profileAvatarDiameter: CGFloat = 168
     }
 
     @Environment(AccountSession.self) private var accountSession
@@ -15,6 +16,14 @@ struct ProfileView: View {
     @Query(sort: [SortDescriptor(\Certification.dateAttained, order: .reverse)])
     private var allCertifications: [Certification]
 
+    @Query(
+        sort: [
+            SortDescriptor(\EquipmentItem.manufacturer, order: .forward),
+            SortDescriptor(\EquipmentItem.model, order: .forward),
+        ]
+    )
+    private var allEquipment: [EquipmentItem]
+
     @Query private var allDiveActivities: [DiveActivity]
 
     @State private var showsProfileEditSheet = false
@@ -22,6 +31,19 @@ struct ProfileView: View {
     private var ownedCertifications: [Certification] {
         guard let ownerID = accountSession.currentProfile?.id else { return [] }
         return allCertifications.filter { $0.ownerProfileID == ownerID }
+    }
+
+    private var ownedEquipment: [EquipmentItem] {
+        guard let ownerID = accountSession.currentProfile?.id else { return [] }
+        return allEquipment.filter { $0.ownerProfileID == ownerID }
+    }
+
+    private var certificationCountLabel: String {
+        ProfilePresentation.certificationCountLabel(ownedCertifications.count)
+    }
+
+    private var equipmentItemCountLabel: String {
+        ProfilePresentation.equipmentItemCountLabel(ownedEquipment.count)
     }
 
     private var profileFeaturedCertification: CertificationPresentation.ProfileFeaturedCertificationDisplay {
@@ -86,11 +108,11 @@ struct ProfileView: View {
                         .accessibilityLabel("Settings")
                     }
                     .padding(.horizontal, AppTheme.Spacing.lg)
-                    .padding(.vertical, AppTheme.Spacing.md)
+                    .padding(.top, AppTheme.Spacing.sm)
+                    .padding(.bottom, AppTheme.Spacing.sm)
 
                     profileHeader
                         .padding(.horizontal, AppTheme.Spacing.lg)
-                        .padding(.top, AppTheme.Spacing.sm)
 
                     Spacer(minLength: AppTheme.Spacing.lg)
 
@@ -115,7 +137,7 @@ struct ProfileView: View {
     private var profileHeader: some View {
         VStack(spacing: Layout.headerSpacing) {
             if let profile = accountSession.currentProfile {
-                ProfileAvatarEditor(profile: profile)
+                ProfileAvatarEditor(diameter: Layout.profileAvatarDiameter, profile: profile)
             }
 
             VStack(spacing: AppTheme.Spacing.sm) {
@@ -194,6 +216,7 @@ struct ProfileView: View {
         HStack(spacing: AppTheme.Spacing.md) {
             profileDestinationTile(
                 title: "Certifications",
+                subtitle: certificationCountLabel,
                 systemImage: "checkmark.seal.fill",
                 accessibilityIdentifier: "Profile.CertificationsLink"
             ) {
@@ -202,6 +225,7 @@ struct ProfileView: View {
 
             profileDestinationTile(
                 title: "Equipment Locker",
+                subtitle: equipmentItemCountLabel,
                 systemImage: "archivebox.fill",
                 accessibilityIdentifier: "Profile.EquipmentLockerLink"
             ) {
@@ -212,6 +236,7 @@ struct ProfileView: View {
 
     private func profileDestinationTile<Destination: View>(
         title: String,
+        subtitle: String,
         systemImage: String,
         accessibilityIdentifier: String,
         @ViewBuilder destination: () -> Destination
@@ -219,7 +244,7 @@ struct ProfileView: View {
         NavigationLink {
             destination()
         } label: {
-            VStack(spacing: AppTheme.Spacing.md) {
+            VStack(spacing: AppTheme.Spacing.sm) {
                 Image(systemName: systemImage)
                     .font(.system(size: 34))
                     .foregroundStyle(AppTheme.Colors.accent)
@@ -232,6 +257,13 @@ struct ProfileView: View {
                     .lineLimit(2)
                     .minimumScaleFactor(0.85)
                     .fixedSize(horizontal: false, vertical: true)
+
+                Text(subtitle)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(AppTheme.Spacing.md)
@@ -247,7 +279,7 @@ struct ProfileView: View {
             .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(title)
+        .accessibilityLabel("\(title), \(subtitle)")
         .accessibilityIdentifier(accessibilityIdentifier)
     }
 
