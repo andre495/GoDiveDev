@@ -121,6 +121,7 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
         removeEndObserver()
         player?.pause()
         currentURL = url
+        DiveMutedVideoAudioSession.activateForMutedPlayback()
         let newPlayer = AVPlayer(url: url)
         newPlayer.isMuted = true
         player = newPlayer

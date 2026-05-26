@@ -18,6 +18,9 @@ struct DiveTankOverviewHeroView: View {
 
     var depthSamples: [DiveDepthProfileSample] = []
     var pressureSamples: [DiveDepthProfilePressureSample] = []
+    var mediaMarkers: [DiveDepthProfileMediaMarker] = []
+    var mediaPhotosByID: [UUID: DiveMediaPhoto] = [:]
+    var onMediaMarkerTap: ((DiveDepthProfileMediaMarker) -> Void)? = nil
     var maxDepthMeters: Double = 1
     /// Gas-line **y = 0** (ending cylinder pressure).
     var pressureBaselinePSI: Double?
@@ -50,12 +53,31 @@ struct DiveTankOverviewHeroView: View {
         )
     }
 
-    private var showsMinimizedTankGasSummary: Bool {
+    private func showsMinimizedTankGasSummary(isLandscape: Bool) -> Bool {
         DiveTankOverviewHeroPresentation.showsMinimizedTankGasSummary(
             for: sheetDetent,
+            isLandscape: isLandscape,
             startPSI: tankPressureStartPSI,
             endPSI: tankPressureEndPSI
         )
+    }
+
+    private func showsMinimizedCylinder(isLandscape: Bool) -> Bool {
+        DiveTankOverviewHeroPresentation.showsMinimizedCylinder(
+            for: sheetDetent,
+            isLandscape: isLandscape
+        )
+    }
+
+    private func showsMediaMarkersOnChart(isLandscape: Bool) -> Bool {
+        DiveTankOverviewHeroPresentation.showsMediaMarkersOnMinimizedProfile(
+            for: sheetDetent,
+            isLandscape: isLandscape
+        )
+    }
+
+    private func chartMediaMarkers(isLandscape: Bool) -> [DiveDepthProfileMediaMarker] {
+        showsMediaMarkersOnChart(isLandscape: isLandscape) ? mediaMarkers : []
     }
 
     private var psiConsumedPSI: Double? {
@@ -76,6 +98,9 @@ struct DiveTankOverviewHeroView: View {
                 .ignoresSafeArea()
 
             GeometryReader { geometry in
+                let isLandscape = DiveTankOverviewHeroPresentation.isLandscapeLayout(
+                    layoutSize: geometry.size
+                )
                 let metrics = DiveTankOverviewHeroPresentation.layoutMetrics(
                     detent: DiveTankOverviewHeroPresentation.layoutDetent(for: sheetDetent),
                     layoutSize: geometry.size,
@@ -91,31 +116,51 @@ struct DiveTankOverviewHeroView: View {
                             layoutSize: geometry.size,
                             layoutHeight: layoutHeight,
                             topObstructionHeight: topObstructionHeight,
-                            bottomContentMargin: bottomContentMargin
+                            bottomContentMargin: bottomContentMargin,
+                            isLandscape: isLandscape
                         )
+                        if DiveTankOverviewHeroPresentation.showsRotatePhoneHint(
+                            for: sheetDetent,
+                            isLandscape: isLandscape,
+                            depthSampleCount: depthSamples.count
+                        ) {
+                            let hintCenter = DiveTankOverviewHeroPresentation.minimizedPortraitRotateHintCenter(
+                                layoutSize: geometry.size,
+                                chartFrame: chartFrame,
+                                layoutHeight: layoutHeight,
+                                bottomContentMargin: bottomContentMargin
+                            )
+                            DiveTankRotatePhoneHintView()
+                                .position(x: hintCenter.x, y: hintCenter.y)
+                        }
                         DiveDepthProfileOverlayChart(
                             depthSamples: depthSamples,
                             pressureSamples: pressureSamples,
+                            mediaMarkers: chartMediaMarkers(isLandscape: isLandscape),
+                            mediaPhotosByID: mediaPhotosByID,
                             maxDepthHintMeters: maxDepthMeters,
-                            pressureBaselinePSI: pressureBaselinePSI
+                            pressureBaselinePSI: pressureBaselinePSI,
+                            onMediaMarkerTap: onMediaMarkerTap
                         )
                         .frame(width: chartFrame.width, height: chartFrame.height)
                         .position(x: chartFrame.midX, y: chartFrame.midY)
                         .accessibilityIdentifier("DiveTank.Hero.ProfileChart")
                     }
 
-                    DiveTankCylinderVisual(
-                        height: cylinderHeight,
-                        pressureRemainingFraction: displayFillFraction,
-                        yellowFillFraction: DiveGasMixImport.tankYellowFillFraction(
-                            oxygenMixPercent: oxygenMixPercent
+                    if sheetDetent == .medium || showsMinimizedCylinder(isLandscape: isLandscape) {
+                        DiveTankCylinderVisual(
+                            height: cylinderHeight,
+                            pressureRemainingFraction: displayFillFraction,
+                            yellowFillFraction: DiveGasMixImport.tankYellowFillFraction(
+                                oxygenMixPercent: oxygenMixPercent
+                            )
                         )
-                    )
-                    .opacity(0.92)
-                    .scaleEffect(metrics.scale, anchor: .center)
-                    .position(x: metrics.cylinderCenterX, y: metrics.cylinderCenterY)
+                        .opacity(0.92)
+                        .scaleEffect(metrics.scale, anchor: .center)
+                        .position(x: metrics.cylinderCenterX, y: metrics.cylinderCenterY)
+                    }
 
-                    if showsMinimizedTankGasSummary, let consumed = psiConsumedPSI {
+                    if showsMinimizedTankGasSummary(isLandscape: isLandscape), let consumed = psiConsumedPSI {
                         let summaryFrame = DiveTankOverviewHeroPresentation.minimizedTankGasSummaryFrame(
                             layoutSize: geometry.size,
                             metrics: metrics,
@@ -135,6 +180,10 @@ struct DiveTankOverviewHeroView: View {
                         .position(x: metrics.cylinderCenterX, y: metrics.gasLabelCenterY)
                         .accessibilityHidden(!showsGasMixLabel)
                 }
+                .animation(
+                    .easeInOut(duration: DiveTankOverviewHeroPresentation.heroDetentAnimationDuration),
+                    value: isLandscape
+                )
                 .opacity(showsTankHero ? 1 : 0)
                 .accessibilityHidden(!showsTankHero)
             }
@@ -215,12 +264,8 @@ struct DiveTankOverviewHeroView: View {
         if showsGasMixLabel {
             return "Cylinder overview, \(gasMixLabel), full"
         }
-        if showsMinimizedTankGasSummary, let consumed = psiConsumedPSI {
-            let consumedText = DiveQuantityFormatting.cylinderPressure(
-                fromPSI: consumed,
-                system: diveDisplayUnitSystem
-            )
-            return minimizedGasSummaryAccessibility(consumedText: consumedText)
+        if sheetDetent == .minimized {
+            return "Depth profile with gas overlay"
         }
         return "Cylinder overview"
     }

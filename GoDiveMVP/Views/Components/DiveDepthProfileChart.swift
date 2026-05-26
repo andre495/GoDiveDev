@@ -132,10 +132,20 @@ struct DiveDepthProfileChart: View {
         return CGPoint(x: x, y: y)
     }
 
-    private func plotPoint(sample: DiveDepthProfileSample, in rect: CGRect, maxElapsed: Double, maxDepth: Double) -> CGPoint {
-        let x = rect.minX + CGFloat(sample.elapsedSeconds / maxElapsed) * rect.width
-        let y = rect.minY + CGFloat(sample.depthMeters / maxDepth) * rect.height
+    private func plotPoint(elapsedSeconds: Double, depthMeters: Double, in rect: CGRect, maxElapsed: Double, maxDepth: Double) -> CGPoint {
+        let x = rect.minX + CGFloat(elapsedSeconds / maxElapsed) * rect.width
+        let y = rect.minY + CGFloat(depthMeters / maxDepth) * rect.height
         return CGPoint(x: x, y: y)
+    }
+
+    private func plotPoint(sample: DiveDepthProfileSample, in rect: CGRect, maxElapsed: Double, maxDepth: Double) -> CGPoint {
+        plotPoint(
+            elapsedSeconds: sample.elapsedSeconds,
+            depthMeters: sample.depthMeters,
+            in: rect,
+            maxElapsed: maxElapsed,
+            maxDepth: maxDepth
+        )
     }
 
     private func formattedDepth(_ meters: Double) -> String {

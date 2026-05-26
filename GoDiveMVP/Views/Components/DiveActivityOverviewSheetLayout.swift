@@ -7,6 +7,8 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
     var liveHeightFraction: CGFloat? = nil
     @ViewBuilder var collapsedSummary: () -> CollapsedSummary
     @ViewBuilder var panelContent: () -> PanelContent
+    /// When **`false`**, minimized content handles its own taps (e.g. **Media** carousel); expand via grabber.
+    var collapsedSummaryExpandsOnTap: Bool = true
 
     /// Keeps the heavy scroll body mounted after first expand so detent changes do not rebuild the chart.
     @State private var keepsExpandedPanelMounted = true
@@ -40,15 +42,22 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
             }
 
             if showsMinimizedLayout {
-                Button {
-                    selectedDetent = .medium
-                } label: {
-                    collapsedSummary()
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
+                Group {
+                    if collapsedSummaryExpandsOnTap {
+                        Button {
+                            selectedDetent = .medium
+                        } label: {
+                            collapsedSummary()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Expands dive details")
+                    } else {
+                        collapsedSummary()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
-                .buttonStyle(.plain)
-                .accessibilityHint("Expands dive details")
                 .padding(.top, DiveActivityOverviewPanelMetrics.panelContentTopPadding)
                 .padding(.horizontal, AppTheme.Spacing.md)
                 .padding(.bottom, AppTheme.Spacing.md)

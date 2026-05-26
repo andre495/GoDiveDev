@@ -25,6 +25,7 @@ enum DiveActivityMediaStorage {
     @discardableResult
     static func addMedia(
         _ payload: DiveMediaImportPayload,
+        capturedAt: Date? = nil,
         to activity: DiveActivity,
         modelContext: ModelContext
     ) throws -> UUID {
@@ -39,6 +40,7 @@ enum DiveActivityMediaStorage {
                 sortOrder: sortOrder,
                 mediaKind: .image,
                 mediaData: preparedImageData(data),
+                capturedAt: capturedAt,
                 dive: activity
             )
         case .video(let sourceURL):
@@ -49,6 +51,7 @@ enum DiveActivityMediaStorage {
                 mediaKind: .video,
                 mediaData: Data(),
                 mediaFileName: fileName,
+                capturedAt: capturedAt,
                 dive: activity
             )
         }

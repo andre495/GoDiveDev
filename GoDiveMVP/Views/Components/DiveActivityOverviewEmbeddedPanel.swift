@@ -7,6 +7,7 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
     let bottomSafeInset: CGFloat
     @ViewBuilder var collapsedSummary: () -> CollapsedSummary
     @ViewBuilder var panelContent: () -> PanelContent
+    var collapsedSummaryExpandsOnTap: Bool = true
 
     @State private var grabberDragTranslation: CGFloat = 0
 
@@ -48,7 +49,8 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
                 selectedDetent: $selectedDetent,
                 liveHeightFraction: isDragging ? displayHeightFraction : nil,
                 collapsedSummary: collapsedSummary,
-                panelContent: panelContent
+                panelContent: panelContent,
+                collapsedSummaryExpandsOnTap: collapsedSummaryExpandsOnTap
             )
         }
         .frame(height: panelHeight, alignment: .top)

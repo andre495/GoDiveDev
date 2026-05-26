@@ -635,3 +635,39 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Map tab** — read-only **Start (UTC)** and **Timezone offset** rows in the Dive section (**`startTimeUTC`**, **`timeZoneOffset`**).
 - **Tests:** **`diveDateTimeParsing_*`**, **`uddfDecoder_siteGeographyTimeZone_setsActivityOffset`**.
 
+---
+
+## 45 - Logbook delete performance
+
+**Summary:** Faster dive delete on and off the main actor — batch-related deletes, no full-log prefetch before delete, targeted tail renumber, single-site catalog cleanup.
+
+- **`DiveBackgroundDeletionWorker`** — batch **`delete(model:where:)`** for equipment rows; profile points, buddies, and media cascade from parent delete (batch child delete hits Core Data mandatory-nullify on **`DiveProfilePoint.dive`**); one-site **`deleteSiteIfOrphaned`** instead of scanning the whole catalog; removed pre-delete full-log fetch for renumber noop (background tail pass exits early when nothing follows the deleted slot).
+- **`DiveBackgroundRenumberingWorker`** — partial renumber uses **`chronologicallyAfterDeletedSlot`** (same partition as main-context **`renumberDivesNewerThanDeleted`**) so the deleted slot is not double-counted.
+- **`DiveActivityDiveNumbering`** — shared **`applyPartialRenumberTail`** / **`maxNumberedDiveNumber`** / **`chronologicallyAfterDeletedSlot`** helpers.
+- **Tests:** **`diveSiteCatalogMaintenance_deleteSiteIfOrphaned_*`**, **`diveBackgroundRenumberingWorker_partialRenumberOnlyTouchesTail`**, **`diveActivityDiveNumbering_chronologicallyAfterDeletedSlot_*`**.
+
+**Summary (continued):** Persist dive media capture time — EXIF / file metadata first, Photos library fallback.
+
+- **`DiveMediaPhoto.capturedAt`** — optional capture instant on import.
+- **`DiveMediaCaptureDateExtraction`** — ImageIO EXIF/TIFF/IPTC/GPS/file dates; AVFoundation scans all metadata formats; **`PHAsset.creationDate`** / **`modificationDate`** (videos prefer library before temp-file metadata). **`PhotosPicker`** uses **`photoLibrary: .shared()`** so **`itemIdentifier`** resolves; **`NSPhotoLibraryUsageDescription`** added.
+- **`DiveActivityMediaPickerImport.load`** — reads metadata from original picker bytes / copied video **before** JPEG re-encode.
+- **`DiveActivityMediaItemView`** — bottom-leading capture timestamp (dive-local offset when the dive has one).
+- **`DiveActivityPhotosPanelContent`** — **medium** sheet shows **Captured** date for the swiped item (+ position label); **Media** hero at **minimized** shows the same two-line capture overlay as profile preview (date/time + depth / minutes into dive).
+- **`DiveActivityMediaCarouselView`** — thumbnail strip at **minimized** and **medium**; tap updates **`selectedDiveMediaPhotoID`** so the hero pager shows/plays that item (stays in sync when swiping the hero). **Minimized** shows carousel + **+** only (no title, count, or capture date); **medium** adds those details. **Media** minimized content does not expand the sheet on tap (use grabber).
+
+**Summary (continued):** Media markers on tank hero depth profile (landscape, minimized only).
+
+- **`DiveDepthProfileMediaPlotting`** — maps **`capturedAt`** to elapsed seconds on the profile axis (within dive window); interpolates depth at capture time; square marker size tokens.
+- **`DiveTankOverviewHeroPresentation`** — **landscape** + **minimized** tank tab: full-width profile chart, **no** PSI-used summary or small cylinder, **embedded sheet hidden**; **portrait** minimized unchanged (chart + cylinder + gas text, no markers) + **`DiveTankRotatePhoneHintView`** (animated rotate cue above the sheet).
+- **`DiveDepthProfileOverlayChart`** + **`DiveTankOverviewHeroView`** — square **media thumbnails** on the landscape minimized profile only; tap opens **`DiveDepthProfileMediaPreviewSheet`** at **large** detent (full-sheet photo / looping video; overlay adds **Captured at** depth + minutes into dive, unit-aware).
+- **`DiveMediaCaptureContext`** + **`DiveDepthProfileMediaPlotting.captureContext`** — profile depth/elapsed at **`capturedAt`**; **`DiveActivityMediaPresentation.formattedCaptureAtDivePosition`**.
+- **`DiveActivityMediaThumbnailView`** — shared image / video-frame thumbnails (carousel + profile markers).
+- **`DiveDepthProfileChart`** (tank panel) — scrub only; markers removed from this chart.
+- **Tests:** **`diveDepthProfileMediaPlotting_*`**, **`diveDepthProfileMediaPlotting_markerThumbnailMetrics_*`**.
+
+**Summary (continued):** Muted dive video does not interrupt background music.
+
+- **`DiveMutedVideoAudioSession`** — **`AVAudioSession`** **`.ambient`** + **`.mixWithOthers`** before **`AVPlayer`** starts (all videos stay **`isMuted`**).
+- **Tests:** **`diveMutedVideoAudioSession_usesAmbientMixWithOthers`**.
+- **Tests:** **`diveMediaCaptureDateExtraction_*`**, **`diveActivityMediaStorage_addMedia_persistsCapturedAt`**, **`diveActivityMediaPresentation_showsCaptureDateOnHero_*`**, **`diveActivityMediaPresentation_mediaPositionLabel_*`**.
+

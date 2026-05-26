@@ -6,10 +6,13 @@ struct DiveDepthProfileOverlayChart: View {
 
     let depthSamples: [DiveDepthProfileSample]
     let pressureSamples: [DiveDepthProfilePressureSample]
+    var mediaMarkers: [DiveDepthProfileMediaMarker] = []
+    var mediaPhotosByID: [UUID: DiveMediaPhoto] = [:]
     /// Used when depth samples are empty or max depth in samples is 0.
     var maxDepthHintMeters: Double
     /// **Y = 0** for the gas line; typically dive ending **PSI**.
     var pressureBaselinePSI: Double?
+    var onMediaMarkerTap: ((DiveDepthProfileMediaMarker) -> Void)? = nil
 
     private static let scrubHoldDuration: Duration = .milliseconds(180)
     @State private var fingerLocationInChart: CGPoint?
@@ -46,6 +49,7 @@ struct DiveDepthProfileOverlayChart: View {
                         )
                     }
                     depthPolyline(in: rect, maxElapsed: maxElapsed, maxDepth: maxDepth)
+                    mediaMarkerLayer(in: rect, maxElapsed: maxElapsed, maxDepth: maxDepth)
 
                     if scrubActive, let idx = scrubDepthIndex, depthSamples.indices.contains(idx) {
                         scrubChrome(
@@ -108,6 +112,31 @@ struct DiveDepthProfileOverlayChart: View {
             }
         }
         .stroke(AppTheme.Colors.accent, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+    }
+
+    private func mediaMarkerLayer(in rect: CGRect, maxElapsed: Double, maxDepth: Double) -> some View {
+        ForEach(mediaMarkers) { marker in
+            if let media = mediaPhotosByID[marker.mediaID] {
+                Button {
+                    onMediaMarkerTap?(marker)
+                } label: {
+                    DiveDepthProfileMediaMarkerView(media: media)
+                }
+                .buttonStyle(.plain)
+                .position(
+                    DiveDepthProfileOverlayChartLayout.depthPoint(
+                        sample: DiveDepthProfileSample(
+                            elapsedSeconds: marker.elapsedSeconds,
+                            depthMeters: marker.depthMeters
+                        ),
+                        in: rect,
+                        maxElapsed: maxElapsed,
+                        maxDepth: maxDepth
+                    )
+                )
+                .accessibilityIdentifier("DiveDepthProfileOverlayChart.MediaMarker.\(marker.mediaID.uuidString)")
+            }
+        }
     }
 
     private func pressurePolyline(

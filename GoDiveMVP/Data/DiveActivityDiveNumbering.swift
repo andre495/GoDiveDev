@@ -5,7 +5,7 @@ import SwiftData
 ///
 /// **Rules**
 /// - **`.fit` import:** **`assignNextDiveNumberChainedAfterNewest`** — next **#** is **(last numbered dive in **`startTime`** order) + 1**; dives with **`diveNumber == nil`** (unset or **`diveNumberExplicitlyNone`**) do not advance the chain. Garmin **`SessionMesg`** is not used.
-/// - **After delete (when automatic renumber is on in Settings):** **`DiveBackgroundRenumberingWorker`** (**`@ModelActor`**) persists **#**s off the main actor; Logbook labels use chronological display. **`renumberAllChronologically`** on the main context is for Settings / import. Dives with **`diveNumberExplicitlyNone`** (logbook **`-`**) are never renumbered and do not consume a **#** slot. **`partialRenumberAfterDeleteWouldBeNoop`** skips work when tail **#**s are already correct.
+/// - **After delete (when automatic renumber is on in Settings):** **`DiveBackgroundRenumberingWorker`** (**`@ModelActor`**) tail-renumbers off the main actor (predicate-scoped fetches). Logbook labels use chronological display when automatic renumber is on. **`renumberAllChronologically`** on the main context is for Settings / import. Dives with **`diveNumberExplicitlyNone`** (logbook **`-`**) are never renumbered and do not consume a **#** slot.
 /// - **JSON fixtures / mapper:** **`diveNumber`** from the DTO when present; **`backfillMissingDiveNumbers`** fills **`nil`** only when **`diveNumberExplicitlyNone`** is **`false`**.
 enum DiveActivityDiveNumbering {
     /// Oldest **`startTime`** → **1**; ties broken by **`id`**.
@@ -38,6 +38,16 @@ enum DiveActivityDiveNumbering {
         return map
     }
 
+    /// **`a`** is strictly after **`(deletedStartTime, deletedId)`** (excludes the deleted row when still present).
+    nonisolated static func chronologicallyAfterDeletedSlot(
+        _ a: DiveActivity,
+        deletedStartTime: Date,
+        deletedId: UUID
+    ) -> Bool {
+        !chronologicallyBefore(a, deletedStartTime: deletedStartTime, deletedId: deletedId)
+            && a.id != deletedId
+    }
+
     /// **`a`** is strictly before **`(deletedStartTime, deletedId)`** in chronological order (same tie-break as **`sequentialIndicesById`**).
     nonisolated static func chronologicallyBefore(
         _ a: DiveActivity,
@@ -50,7 +60,33 @@ enum DiveActivityDiveNumbering {
         return a.id.uuidString < deletedId.uuidString
     }
 
-    /// **`true`** when renumbering **only** dives after the deleted slot would not write any row (skip **Renumber dives?**).
+    /// Sort key for **`startTime`** then **`id`** (shared by renumber + partial tail passes).
+    nonisolated static func isChronologicallyOrdered(_ lhs: DiveActivity, _ rhs: DiveActivity) -> Bool {
+        if lhs.startTime != rhs.startTime {
+            return lhs.startTime < rhs.startTime
+        }
+        return lhs.id.uuidString < rhs.id.uuidString
+    }
+
+    nonisolated static func maxNumberedDiveNumber(among activities: [DiveActivity]) -> Int {
+        activities.filter { !$0.diveNumberExplicitlyNone }.compactMap(\.diveNumber).max() ?? 0
+    }
+
+    /// Rewrites **`diveNumber`** on **`newerSorted`** to **`base + 1`**, **`base + 2`**, … Skips **`-`** dives. Returns whether any row changed.
+    nonisolated static func applyPartialRenumberTail(newerSorted: [DiveActivity], base: Int) -> Bool {
+        var changed = false
+        var next = base + 1
+        for activity in newerSorted where !activity.diveNumberExplicitlyNone {
+            if activity.diveNumber != next {
+                activity.diveNumber = next
+                changed = true
+            }
+            next += 1
+        }
+        return changed
+    }
+
+    /// **`true`** when renumbering **only** dives after the deleted slot would not write any row.
     nonisolated static func partialRenumberAfterDeleteWouldBeNoop(
         remaining: [DiveActivity],
         deletedStartTime: Date,
@@ -58,17 +94,12 @@ enum DiveActivityDiveNumbering {
     ) -> Bool {
         guard !remaining.isEmpty else { return true }
         let older = remaining.filter { chronologicallyBefore($0, deletedStartTime: deletedStartTime, deletedId: deletedId) }
-        let newer = remaining.filter { !chronologicallyBefore($0, deletedStartTime: deletedStartTime, deletedId: deletedId) }
-        let base = older.filter { !$0.diveNumberExplicitlyNone }.compactMap(\.diveNumber).max() ?? 0
-        let newerSorted = newer.sorted {
-            if $0.startTime != $1.startTime {
-                return $0.startTime < $1.startTime
-            }
-            return $0.id.uuidString < $1.id.uuidString
-        }
+        let newer = remaining.filter { chronologicallyAfterDeletedSlot($0, deletedStartTime: deletedStartTime, deletedId: deletedId) }
+        let base = maxNumberedDiveNumber(among: older)
+        let newerSorted = newer.sorted(by: isChronologicallyOrdered)
         var next = base + 1
-        for a in newerSorted where !a.diveNumberExplicitlyNone {
-            if a.diveNumber != next {
+        for activity in newerSorted where !activity.diveNumberExplicitlyNone {
+            if activity.diveNumber != next {
                 return false
             }
             next += 1
@@ -141,24 +172,11 @@ enum DiveActivityDiveNumbering {
     ) throws {
         let all = try modelContext.fetch(FetchDescriptor<DiveActivity>())
         let older = all.filter { chronologicallyBefore($0, deletedStartTime: deletedStartTime, deletedId: deletedId) }
-        let newer = all.filter { !chronologicallyBefore($0, deletedStartTime: deletedStartTime, deletedId: deletedId) }
-        let base = older.filter { !$0.diveNumberExplicitlyNone }.compactMap(\.diveNumber).max() ?? 0
-        let newerSorted = newer.sorted {
-            if $0.startTime != $1.startTime {
-                return $0.startTime < $1.startTime
-            }
-            return $0.id.uuidString < $1.id.uuidString
-        }
-        var changed = false
-        var next = base + 1
-        for a in newerSorted where !a.diveNumberExplicitlyNone {
-            if a.diveNumber != next {
-                a.diveNumber = next
-                changed = true
-            }
-            next += 1
-        }
-        if changed {
+        let newer = all.filter { chronologicallyAfterDeletedSlot($0, deletedStartTime: deletedStartTime, deletedId: deletedId) }
+        guard !newer.isEmpty else { return }
+        let base = maxNumberedDiveNumber(among: older)
+        let newerSorted = newer.sorted(by: isChronologicallyOrdered)
+        if applyPartialRenumberTail(newerSorted: newerSorted, base: base) {
             try modelContext.save()
         }
     }

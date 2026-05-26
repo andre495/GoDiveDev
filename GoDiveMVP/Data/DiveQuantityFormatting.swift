@@ -8,7 +8,7 @@ enum DiveQuantityFormatting {
     private static let psiPerBar = 14.5037738007
     private static let cubicFeetPerLiter = 0.0353146667214888
 
-    static func depth(meters: Double, system: DiveDisplayUnitSystem) -> String {
+    nonisolated static func depth(meters: Double, system: DiveDisplayUnitSystem) -> String {
         switch system {
         case .metric:
             return String(format: "%.1f m", meters)

@@ -3,39 +3,35 @@ import SwiftData
 
 /// Deletes a dive and related rows off the main actor.
 ///
-/// Equipment rows use **`delete(model:where:)`** batch delete. The **`DiveActivity`** itself is loaded once and
-/// **`modelContext.delete`** — store-level batch delete of dives fails when a **`diveSite`** link exists (Core Data
-/// mandatory nullify inverse). Profile points and buddies cascade from the parent delete.
+/// Equipment rows use **`delete(model:where:)`** batch delete. Profile points, buddies, and media cascade when the
+/// parent **`DiveActivity`** is deleted — store-level batch delete of those children fails (Core Data mandatory
+/// nullify inverse on **`DiveProfilePoint.dive`**).
 @ModelActor
 actor DiveBackgroundDeletionWorker {
 
-    /// Deletes the dive with **`id`**. Returns whether post-delete renumber can be skipped.
+    /// Deletes the dive with **`id`**. Returns whether post-delete renumber can be skipped ( **`true`** when automatic renumber is off).
     func deleteDive(
         id: UUID,
         deletedStartTime: Date,
         deletedId: UUID,
         shouldCheckRenumber: Bool
     ) throws -> Bool {
-        let skipRenumber: Bool
-        if shouldCheckRenumber {
-            let all = try modelContext.fetch(FetchDescriptor<DiveActivity>())
-            let remaining = all.filter { $0.id != deletedId }
-            skipRenumber = DiveActivityDiveNumbering.partialRenumberAfterDeleteWouldBeNoop(
-                remaining: remaining,
-                deletedStartTime: deletedStartTime,
-                deletedId: deletedId
-            )
-        } else {
-            skipRenumber = true
-        }
-
+        let linkedSiteID = try linkedSiteID(forDiveID: id)
         try deleteDiveAndRelatedRecords(diveID: id)
-        try DiveSiteCatalogMaintenance.deleteSitesWithNoLinkedDives(modelContext: modelContext)
-        return skipRenumber
+        try DiveSiteCatalogMaintenance.deleteSiteIfOrphaned(siteID: linkedSiteID, modelContext: modelContext)
+        return !shouldCheckRenumber
+    }
+
+    private func linkedSiteID(forDiveID diveID: UUID) throws -> UUID? {
+        var descriptor = FetchDescriptor<DiveActivity>(
+            predicate: #Predicate { $0.id == diveID }
+        )
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first?.diveSiteID
     }
 
     private func deleteDiveAndRelatedRecords(diveID: UUID) throws {
-        let diveID = diveID
+        try DiveActivityMediaStorage.deleteMediaFiles(forDiveID: diveID, modelContext: modelContext)
 
         try modelContext.delete(
             model: DiveEquipmentEntry.self,
@@ -45,8 +41,6 @@ actor DiveBackgroundDeletionWorker {
             model: DiveActivityEquipmentList.self,
             where: #Predicate<DiveActivityEquipmentList> { $0.diveActivityID == diveID }
         )
-
-        try DiveActivityMediaStorage.deleteMediaFiles(forDiveID: diveID, modelContext: modelContext)
 
         try deleteDiveViaParentCascade(diveID: diveID)
     }

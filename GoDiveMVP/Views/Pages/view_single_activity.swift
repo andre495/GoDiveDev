@@ -21,6 +21,7 @@ struct ViewSingleActivity: View {
     @FocusState private var isNotesFieldFocused: Bool
     /// While the depth chart is scrubbed, holds the nearest profile sample (elapsed from dive start + depth).
     @State private var depthProfileScrubSample: DiveDepthProfileSample?
+    @State private var depthChartPreviewMediaID: UUID?
     /// When **`true`**, map tab uses **`DiveOverviewMapTeardownPlaceholder`** instead of live MapKit (set before pop).
     @State private var overviewMapTeardownRequested = false
     @State private var showsMapSitePromptDialog = false
@@ -155,6 +156,21 @@ struct ViewSingleActivity: View {
                 onAdd: { linkEquipmentToDive($0) }
             )
         }
+        .sheet(isPresented: depthChartMediaPreviewPresented) {
+            if let media = depthChartPreviewMedia {
+                DiveDepthProfileMediaPreviewSheet(
+                    media: media,
+                    timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds,
+                    captureContext: depthChartPreviewCaptureContext
+                )
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(AppTheme.Sheet.cornerRadius)
+                .presentationBackground {
+                    Color.black.ignoresSafeArea()
+                }
+            }
+        }
         .alert("Could not add equipment", isPresented: equipmentLinkErrorBinding) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -222,6 +238,19 @@ struct ViewSingleActivity: View {
                 chromeRowHeight: DiveActivityTabIcon.menuRowHeight,
                 chromeTopPadding: AppTheme.Spacing.sm
             )
+            let isLandscape = DiveTankOverviewHeroPresentation.isLandscapeLayout(layoutSize: geometry.size)
+            let hidesOverviewPanelForTankLandscape =
+                selectedActivityTab == .tank
+                && DiveTankOverviewHeroPresentation.hidesOverviewPanelInLandscapeTankMinimized(
+                    detent: overviewSheetDetent,
+                    isLandscape: isLandscape
+                )
+            let tankHeroBottomMargin = DiveTankOverviewHeroPresentation.tankHeroBottomContentMargin(
+                layoutHeight: layoutHeight,
+                detent: overviewSheetDetent,
+                bottomSafeInset: bottomSafeInset,
+                isLandscape: isLandscape
+            )
 
             ZStack(alignment: .bottom) {
                 Group {
@@ -262,7 +291,7 @@ struct ViewSingleActivity: View {
                         .ignoresSafeArea()
                     case .tank:
                         DiveTankOverviewHeroView(
-                            bottomContentMargin: bottomObstruction,
+                            bottomContentMargin: tankHeroBottomMargin,
                             topObstructionHeight: topObstruction,
                             layoutHeight: layoutHeight,
                             sheetDetent: overviewSheetDetent,
@@ -271,6 +300,9 @@ struct ViewSingleActivity: View {
                             oxygenMixPercent: activity.oxygenMix,
                             depthSamples: DiveDepthProfileSeries.samples(fromProfilePoints: moreTabSortedProfilePoints),
                             pressureSamples: DiveDepthProfileSeries.pressureSamples(fromProfilePoints: moreTabSortedProfilePoints),
+                            mediaMarkers: depthProfileMediaMarkers,
+                            mediaPhotosByID: depthProfileMediaPhotosByID,
+                            onMediaMarkerTap: { depthChartPreviewMediaID = $0.mediaID },
                             maxDepthMeters: activity.maxDepthMeters,
                             pressureBaselinePSI: activity.tankPressureEndPSI
                                 ?? DiveDepthProfileSeries.pressureSamples(fromProfilePoints: moreTabSortedProfilePoints).last?.pressurePSI,
@@ -283,6 +315,8 @@ struct ViewSingleActivity: View {
                         DiveActivityMediaBackgroundView(
                             mediaItems: activity.sortedMediaPhotos,
                             selectedMediaID: $selectedDiveMediaPhotoID,
+                            timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds,
+                            mediaCaptureContextsByID: mediaCaptureContextsByID,
                             sheetDetent: overviewSheetDetent,
                             isMediaTabSelected: selectedActivityTab == .camera,
                             bottomContentMargin: bottomObstruction
@@ -292,7 +326,7 @@ struct ViewSingleActivity: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                if isOverviewPanelPresented {
+                if isOverviewPanelPresented, !hidesOverviewPanelForTankLandscape {
                     DiveActivityOverviewEmbeddedPanel(
                         selectedDetent: $overviewSheetDetent,
                         layoutHeight: layoutHeight,
@@ -316,15 +350,21 @@ struct ViewSingleActivity: View {
                             case .camera:
                                 photosPanelContent
                             }
-                        }
+                        },
+                        collapsedSummaryExpandsOnTap: selectedActivityTab != .camera
                     )
                     .zIndex(1)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
             .overlay(alignment: .top) {
                 DiveOverviewMapTopScrim(topObstructionHeight: topObstruction)
                     .ignoresSafeArea(edges: .top)
             }
+            .animation(
+                .easeInOut(duration: DiveTankOverviewHeroPresentation.heroDetentAnimationDuration),
+                value: hidesOverviewPanelForTankLandscape
+            )
         }
         .ignoresSafeArea()
     }
@@ -776,17 +816,29 @@ struct ViewSingleActivity: View {
     }
 
     private var photosCollapsedSummary: some View {
-        DiveActivityPhotosCollapsedSummary(
-            dateText: activity.formattedStartDateOnly(),
-            titleText: "Media",
-            mediaCountText: DiveActivityMediaPresentation.mediaCountLabel(
-                photoCount: activity.mediaPhotos.count
-            )
+        DiveActivityPhotosPanelContent(
+            mediaItems: activity.sortedMediaPhotos,
+            selectedMediaID: $selectedDiveMediaPhotoID,
+            timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds,
+            showsMediaCarousel: DiveActivityMediaPresentation.showsMediaCarouselInSheet(for: .minimized),
+            showsSheetDetails: false,
+            mediaPickerItems: $diveMediaPickerItems,
+            isImportInProgress: mediaImportOverlay.isBlocking
         )
+        .accessibilityIdentifier("DiveOverview.MediaPanel.Minimized")
     }
 
     private var photosPanelContent: some View {
-        DiveActivityPhotosPanelToolbar(
+        DiveActivityPhotosPanelContent(
+            mediaItems: activity.sortedMediaPhotos,
+            selectedMediaID: $selectedDiveMediaPhotoID,
+            timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds,
+            showsMediaCarousel: DiveActivityMediaPresentation.showsMediaCarouselInSheet(
+                for: overviewSheetDetent
+            ),
+            showsSheetDetails: DiveActivityMediaPresentation.showsMediaSheetDetails(
+                for: overviewSheetDetent
+            ),
             mediaPickerItems: $diveMediaPickerItems,
             isImportInProgress: mediaImportOverlay.isBlocking
         )
@@ -971,7 +1023,7 @@ struct ViewSingleActivity: View {
                 onScrubSampleChange: { depthProfileScrubSample = $0 }
             )
             .frame(height: 220)
-            .accessibilityElement(children: .ignore)
+            .accessibilityElement(children: .contain)
             .accessibilityLabel("Depth profile chart")
             .accessibilityValue(
                 samples.isEmpty
@@ -985,6 +1037,49 @@ struct ViewSingleActivity: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(AppTheme.Colors.surfaceElevated.opacity(0.65))
         }
+    }
+
+    private var depthChartMediaPreviewPresented: Binding<Bool> {
+        Binding(
+            get: { depthChartPreviewMediaID != nil },
+            set: { if !$0 { depthChartPreviewMediaID = nil } }
+        )
+    }
+
+    private var depthChartPreviewMedia: DiveMediaPhoto? {
+        guard let depthChartPreviewMediaID else { return nil }
+        return activity.mediaPhotos.first { $0.id == depthChartPreviewMediaID }
+    }
+
+    private var mediaCaptureContextsByID: [UUID: DiveMediaCaptureContext] {
+        let samples = DiveDepthProfileSeries.samples(fromProfilePoints: moreTabSortedProfilePoints)
+        return DiveDepthProfileMediaPlotting.captureContextsByMediaID(
+            mediaPhotos: activity.sortedMediaPhotos,
+            profileSamples: samples,
+            activityStartTime: activity.startTime,
+            durationMinutes: activity.durationMinutes,
+            profilePoints: moreTabSortedProfilePoints
+        )
+    }
+
+    private var depthChartPreviewCaptureContext: DiveMediaCaptureContext? {
+        guard let depthChartPreviewMediaID else { return nil }
+        return mediaCaptureContextsByID[depthChartPreviewMediaID]
+    }
+
+    private var depthProfileMediaMarkers: [DiveDepthProfileMediaMarker] {
+        let samples = DiveDepthProfileSeries.samples(fromProfilePoints: moreTabSortedProfilePoints)
+        return DiveDepthProfileMediaPlotting.markers(
+            mediaPhotos: activity.sortedMediaPhotos,
+            profileSamples: samples,
+            activityStartTime: activity.startTime,
+            durationMinutes: activity.durationMinutes,
+            profilePoints: moreTabSortedProfilePoints
+        )
+    }
+
+    private var depthProfileMediaPhotosByID: [UUID: DiveMediaPhoto] {
+        Dictionary(uniqueKeysWithValues: activity.sortedMediaPhotos.map { ($0.id, $0) })
     }
 
 
@@ -1059,7 +1154,9 @@ struct ViewSingleActivity: View {
         return String(format: "%.1f min", roundedToTenth)
     }
 
-    private func depthProfileChartAccessibilitySummary(samples: [DiveDepthProfileSample]) -> String {
+    private func depthProfileChartAccessibilitySummary(
+        samples: [DiveDepthProfileSample]
+    ) -> String {
         if let scrub = depthProfileScrubSample {
             return "\(formattedMinutesSinceDiveStart(scrub.elapsedSeconds)), \(formatDepth(scrub.depthMeters))"
         }

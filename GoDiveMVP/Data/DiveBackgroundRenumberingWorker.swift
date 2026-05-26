@@ -10,10 +10,10 @@ actor DiveBackgroundRenumberingWorker {
         guard !all.isEmpty else { return }
         let map = DiveActivityDiveNumbering.numberedDiveSequentialIndicesById(for: all)
         var changed = false
-        for a in all where !a.diveNumberExplicitlyNone {
-            guard let next = map[a.id] else { continue }
-            if a.diveNumber != next {
-                a.diveNumber = next
+        for activity in all where !activity.diveNumberExplicitlyNone {
+            guard let next = map[activity.id] else { continue }
+            if activity.diveNumber != next {
+                activity.diveNumber = next
                 changed = true
             }
         }
@@ -28,25 +28,17 @@ actor DiveBackgroundRenumberingWorker {
             DiveActivityDiveNumbering.chronologicallyBefore($0, deletedStartTime: deletedStartTime, deletedId: deletedId)
         }
         let newer = all.filter {
-            !DiveActivityDiveNumbering.chronologicallyBefore($0, deletedStartTime: deletedStartTime, deletedId: deletedId)
+            DiveActivityDiveNumbering.chronologicallyAfterDeletedSlot(
+                $0,
+                deletedStartTime: deletedStartTime,
+                deletedId: deletedId
+            )
         }
-        let base = older.filter { !$0.diveNumberExplicitlyNone }.compactMap(\.diveNumber).max() ?? 0
-        let newerSorted = newer.sorted {
-            if $0.startTime != $1.startTime {
-                return $0.startTime < $1.startTime
-            }
-            return $0.id.uuidString < $1.id.uuidString
-        }
-        var changed = false
-        var next = base + 1
-        for a in newerSorted where !a.diveNumberExplicitlyNone {
-            if a.diveNumber != next {
-                a.diveNumber = next
-                changed = true
-            }
-            next += 1
-        }
-        if changed {
+        guard !newer.isEmpty else { return }
+
+        let base = DiveActivityDiveNumbering.maxNumberedDiveNumber(among: older)
+        let newerSorted = newer.sorted(by: DiveActivityDiveNumbering.isChronologicallyOrdered)
+        if DiveActivityDiveNumbering.applyPartialRenumberTail(newerSorted: newerSorted, base: base) {
             try modelContext.save()
         }
     }

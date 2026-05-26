@@ -1293,12 +1293,109 @@ struct GoDiveMVPTests {
             layoutSize: layoutSize,
             layoutHeight: layoutHeight,
             topObstructionHeight: topObstruction,
-            bottomContentMargin: bottomMargin
+            bottomContentMargin: bottomMargin,
+            isLandscape: false
         )
         #expect(frame.width > 200)
         #expect(abs(frame.midX - layoutSize.width / 2) < 1)
         #expect(frame.minY > topObstruction)
         #expect(frame.maxY < layoutHeight - bottomMargin)
+    }
+
+    @Test func diveTankOverviewHeroPresentation_landscapeMinimizedProfileChart_isFullWidth() {
+        let layoutSize = CGSize(width: 844, height: 390)
+        let layoutHeight: CGFloat = 390
+        let topObstruction: CGFloat = 60
+        let bottomMargin: CGFloat = 120
+        #expect(DiveTankOverviewHeroPresentation.isLandscapeLayout(layoutSize: layoutSize))
+        let frame = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstruction,
+            bottomContentMargin: bottomMargin,
+            isLandscape: true
+        )
+        let expectedWidth =
+            layoutSize.width - DiveTankOverviewHeroPresentation.minimizedLandscapeChartHorizontalInset * 2
+        #expect(abs(frame.width - expectedWidth) < 1)
+        #expect(abs(frame.midX - layoutSize.width / 2) < 1)
+    }
+
+    @Test func diveTankOverviewHeroPresentation_landscapeMinimized_hidesGasSummaryAndShowsMediaMarkers() {
+        #expect(
+            !DiveTankOverviewHeroPresentation.showsMinimizedTankGasSummary(
+                for: .minimized,
+                isLandscape: true,
+                startPSI: 3000,
+                endPSI: 1200
+            )
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.showsMinimizedTankGasSummary(
+                for: .minimized,
+                isLandscape: false,
+                startPSI: 3000,
+                endPSI: 1200
+            )
+        )
+        #expect(
+            !DiveTankOverviewHeroPresentation.showsMinimizedCylinder(for: .minimized, isLandscape: true)
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.showsMediaMarkersOnMinimizedProfile(
+                for: .minimized,
+                isLandscape: true
+            )
+        )
+        #expect(
+            !DiveTankOverviewHeroPresentation.showsMediaMarkersOnMinimizedProfile(
+                for: .minimized,
+                isLandscape: false
+            )
+        )
+    }
+
+    @Test func diveTankOverviewHeroPresentation_landscapeMinimized_hidesSheetAndShowsRotateHintInPortrait() {
+        #expect(
+            DiveTankOverviewHeroPresentation.hidesOverviewPanelInLandscapeTankMinimized(
+                detent: .minimized,
+                isLandscape: true
+            )
+        )
+        #expect(
+            !DiveTankOverviewHeroPresentation.hidesOverviewPanelInLandscapeTankMinimized(
+                detent: .minimized,
+                isLandscape: false
+            )
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.showsRotatePhoneHint(
+                for: .minimized,
+                isLandscape: false,
+                depthSampleCount: 4
+            )
+        )
+        #expect(
+            !DiveTankOverviewHeroPresentation.showsRotatePhoneHint(
+                for: .minimized,
+                isLandscape: true,
+                depthSampleCount: 4
+            )
+        )
+        let layoutHeight: CGFloat = 844
+        let bottomSafe: CGFloat = 34
+        let withSheet = DiveActivityOverviewDetent.bottomObstructionHeight(
+            layoutHeight: layoutHeight,
+            detent: .minimized,
+            bottomSafeInset: bottomSafe
+        )
+        let withoutSheet = DiveTankOverviewHeroPresentation.tankHeroBottomContentMargin(
+            layoutHeight: layoutHeight,
+            detent: .minimized,
+            bottomSafeInset: bottomSafe,
+            isLandscape: true
+        )
+        #expect(withoutSheet < withSheet)
     }
 
     @Test func diveDepthProfileOverlayChartLayout_resolvedBaseline_prefersEndingPSI() {
@@ -2347,6 +2444,192 @@ struct GoDiveMVPTests {
         #expect(!row.mediaFileName.isEmpty)
         #expect(row.videoFileURL != nil)
         DiveMediaFileStore.deleteFileIfNeeded(fileName: row.mediaFileName)
+    }
+
+    @Test func diveMediaCaptureDateExtraction_parseExifDateTime_respectsOffset() {
+        let parsed = DiveMediaCaptureDateExtraction.parseExifDateTime(
+            "2024:08:23 18:22:27",
+            offsetSeconds: -4 * 3600
+        )
+        let expected = Date(timeIntervalSince1970: 1_724_451_747)
+        #expect(parsed == expected)
+    }
+
+    @Test func diveMediaCaptureDateExtraction_exifOffsetSeconds_parsesSignedHoursAndMinutes() {
+        #expect(DiveMediaCaptureDateExtraction.exifOffsetSeconds(from: "-04:00") == -14_400)
+        #expect(DiveMediaCaptureDateExtraction.exifOffsetSeconds(from: "+05:30") == 19_800)
+        #expect(DiveMediaCaptureDateExtraction.exifOffsetSeconds(from: nil) == nil)
+    }
+
+    @Test func diveMediaCaptureDateExtraction_firstCaptureDate_prefersEarlierCandidate() {
+        let exif = Date(timeIntervalSince1970: 1_700_000_000)
+        let library = Date(timeIntervalSince1970: 1_800_000_000)
+        #expect(DiveMediaCaptureDateExtraction.firstCaptureDate([exif, library]) == exif)
+        #expect(DiveMediaCaptureDateExtraction.firstCaptureDate([nil, library]) == library)
+    }
+
+    @Test func diveMediaCaptureDateExtraction_parseMetadataDateString_parsesISO8601() {
+        let parsed = DiveMediaCaptureDateExtraction.parseMetadataDateString("2024-08-23T18:22:27Z")
+        let expected = Date(timeIntervalSince1970: 1_724_437_347)
+        #expect(parsed == expected)
+    }
+
+    @Test func diveMediaCaptureDateExtraction_parseIPTCDateTime_combinesDateAndTime() {
+        let parsed = DiveMediaCaptureDateExtraction.parseIPTCDateTime(date: "20240823", time: "182227")
+        #expect(parsed != nil)
+    }
+
+    @Test @MainActor
+    func diveActivityMediaStorage_addMedia_persistsCapturedAt() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 0,
+            maxDepthMeters: 0
+        )
+        context.insert(activity)
+        try context.save()
+
+        let capturedAt = Date(timeIntervalSince1970: 1_724_446_947)
+        _ = try DiveActivityMediaStorage.addMedia(
+            .image(Data([1])),
+            capturedAt: capturedAt,
+            to: activity,
+            modelContext: context
+        )
+
+        let row = try #require(activity.mediaPhotos.first)
+        #expect(row.capturedAt == capturedAt)
+    }
+
+    @Test func diveActivityMediaPresentation_showsCaptureDateOnHero_onlyAtMinimized() {
+        #expect(DiveActivityMediaPresentation.showsCaptureDateOnHero(for: .minimized))
+        #expect(!DiveActivityMediaPresentation.showsCaptureDateOnHero(for: .medium))
+        #expect(!DiveActivityMediaPresentation.showsCaptureDateOnHero(for: .large))
+    }
+
+    @Test func diveActivityMediaPresentation_showsMediaCarouselInSheet_atMinimizedAndMedium() {
+        #expect(DiveActivityMediaPresentation.showsMediaCarouselInSheet(for: .minimized))
+        #expect(DiveActivityMediaPresentation.showsMediaCarouselInSheet(for: .medium))
+        #expect(!DiveActivityMediaPresentation.showsMediaCarouselInSheet(for: .large))
+    }
+
+    @Test func diveActivityMediaPresentation_showsMediaSheetDetails_onlyAtMedium() {
+        #expect(!DiveActivityMediaPresentation.showsMediaSheetDetails(for: .minimized))
+        #expect(DiveActivityMediaPresentation.showsMediaSheetDetails(for: .medium))
+        #expect(!DiveActivityMediaPresentation.showsMediaSheetDetails(for: .large))
+    }
+
+    @Test func diveDepthProfileMediaPlotting_depthMeters_interpolatesBetweenSamples() {
+        let samples = [
+            DiveDepthProfileSample(elapsedSeconds: 0, depthMeters: 0),
+            DiveDepthProfileSample(elapsedSeconds: 100, depthMeters: 20),
+        ]
+        #expect(DiveDepthProfileMediaPlotting.depthMeters(atElapsed: 50, in: samples) == 10)
+    }
+
+    @Test func diveDepthProfileMediaPlotting_markers_onlyWithinDiveWindow() {
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        let points = [
+            DiveProfilePoint(timestamp: start, depthMeters: 5),
+            DiveProfilePoint(timestamp: start.addingTimeInterval(600), depthMeters: 18),
+        ]
+        let samples = DiveDepthProfileSeries.samples(fromProfilePoints: points)
+        let inWindow = DiveMediaPhoto(
+            sortOrder: 0,
+            mediaKind: .image,
+            capturedAt: start.addingTimeInterval(300)
+        )
+        let before = DiveMediaPhoto(
+            sortOrder: 1,
+            mediaKind: .image,
+            capturedAt: start.addingTimeInterval(-60)
+        )
+        let after = DiveMediaPhoto(
+            sortOrder: 2,
+            mediaKind: .video,
+            capturedAt: start.addingTimeInterval(900)
+        )
+        let markers = DiveDepthProfileMediaPlotting.markers(
+            mediaPhotos: [inWindow, before, after],
+            profileSamples: samples,
+            activityStartTime: start,
+            durationMinutes: 10,
+            profilePoints: points
+        )
+        #expect(markers.count == 1)
+        #expect(markers.first?.mediaID == inWindow.id)
+        #expect(markers.first?.isVideo == false)
+        #expect(markers.first?.elapsedSeconds == 300)
+    }
+
+    @Test func diveMutedVideoAudioSession_usesAmbientMixWithOthers() {
+        #expect(DiveMutedVideoAudioSession.categoryRawValueForTesting == "AVAudioSessionCategoryAmbient")
+        #expect(DiveMutedVideoAudioSession.includesMixWithOthersForTesting)
+    }
+
+    @Test func diveActivityMediaPresentation_formattedCaptureAtDivePosition_usesDisplayUnits() {
+        let context = DiveMediaCaptureContext(elapsedSeconds: 720, depthMeters: 18.288)
+        let imperial = DiveActivityMediaPresentation.formattedCaptureAtDivePosition(
+            context: context,
+            displayUnits: .imperial
+        )
+        #expect(imperial.contains("ft"))
+        #expect(imperial.contains("12 minutes into the dive"))
+
+        let metric = DiveActivityMediaPresentation.formattedCaptureAtDivePosition(
+            context: context,
+            displayUnits: .metric
+        )
+        #expect(metric.contains("m"))
+        #expect(metric.contains("12 minutes into the dive"))
+    }
+
+    @Test func diveDepthProfileMediaPlotting_captureContext_matchesMarkerWindow() {
+        let start = Date(timeIntervalSince1970: 2_000_000)
+        let points = [
+            DiveProfilePoint(timestamp: start, depthMeters: 0),
+            DiveProfilePoint(timestamp: start.addingTimeInterval(1200), depthMeters: 30),
+        ]
+        let samples = DiveDepthProfileSeries.samples(fromProfilePoints: points)
+        let media = DiveMediaPhoto(
+            sortOrder: 0,
+            mediaKind: .image,
+            capturedAt: start.addingTimeInterval(600)
+        )
+        let context = DiveDepthProfileMediaPlotting.captureContext(
+            for: media,
+            profileSamples: samples,
+            activityStartTime: start,
+            durationMinutes: 20,
+            profilePoints: points
+        )
+        #expect(context?.elapsedSeconds == 600)
+        #expect(context?.depthMeters == 15)
+    }
+
+    @Test func diveDepthProfileMediaPlotting_markerThumbnailMetrics_areCompactSquares() {
+        #expect(DiveDepthProfileMediaPlotting.markerThumbnailSize == 28)
+        #expect(DiveDepthProfileMediaPlotting.markerThumbnailCornerRadius == 5)
+        #expect(
+            DiveDepthProfileMediaPlotting.markerThumbnailSize
+                < DiveActivityMediaPresentation.carouselThumbnailSize
+        )
+    }
+
+    @Test func diveActivityMediaPresentation_mediaPositionLabel_usesSelectedItem() {
+        let first = DiveMediaPhoto(sortOrder: 0, mediaKind: .image)
+        let second = DiveMediaPhoto(sortOrder: 1, mediaKind: .video)
+        let photos = [first, second]
+
+        #expect(
+            DiveActivityMediaPresentation.mediaPositionLabel(selectedID: second.id, in: photos) == "Video 2 of 2"
+        )
+        #expect(
+            DiveActivityMediaPresentation.mediaPositionLabel(selectedID: UUID(), in: photos) == "Photo 1 of 2"
+        )
     }
 
     @Test func diveActivityOverviewDetent_mapCameraDetent_largeMatchesMedium() {
@@ -4618,6 +4901,92 @@ struct GoDiveMVPTests {
         }
         #expect(numbers.0 == 1)
         #expect(numbers.1 == 2)
+    }
+
+    @Test @MainActor
+    func diveSiteCatalogMaintenance_deleteSiteIfOrphaned_removesOnlyUnlinkedSite() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let orphan = DiveSite(siteName: "Orphan", latCoords: 12, longCoords: -68)
+        let linked = DiveSite(siteName: "Linked", latCoords: 12.1, longCoords: -68.1)
+        context.insert(orphan)
+        context.insert(linked)
+        try context.save()
+
+        try DiveSiteCatalogMaintenance.deleteSiteIfOrphaned(siteID: orphan.id, modelContext: context)
+
+        let sites = try context.fetch(FetchDescriptor<DiveSite>())
+        #expect(sites.count == 1)
+        #expect(sites.first?.id == linked.id)
+    }
+
+    @Test func diveBackgroundRenumberingWorker_partialRenumberOnlyTouchesTail() async throws {
+        let schema = Schema([
+            DiveActivity.self,
+            DiveBuddyTag.self,
+            DiveProfilePoint.self,
+            DiveSite.self,
+        ])
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+
+        let t0 = Date(timeIntervalSince1970: 0)
+        let t1 = Date(timeIntervalSince1970: 86_400)
+        let t2 = Date(timeIntervalSince1970: 172_800)
+        let deletedId = try await MainActor.run { () throws -> UUID in
+            let context = ModelContext(container)
+            let a = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
+            let b = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
+            let c = DiveActivity(source: .manual, startTime: t2, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 99)
+            context.insert(a)
+            context.insert(b)
+            context.insert(c)
+            try context.save()
+            return b.id
+        }
+
+        try await DiveBackgroundRenumberingWorker(modelContainer: container)
+            .renumberDivesNewerThanDeleted(deletedStartTime: t1, deletedId: deletedId)
+
+        let numbers = try await MainActor.run { () throws -> [Int?] in
+            let context = ModelContext(container)
+            let all = try context.fetch(FetchDescriptor<DiveActivity>())
+            let sorted = all.sorted { $0.startTime < $1.startTime }
+            return sorted.map(\.diveNumber)
+        }
+        #expect(numbers == [1, 2, 2])
+    }
+
+    @Test func diveActivityDiveNumbering_chronologicallyAfterDeletedSlot_excludesDeletedRow() {
+        let t0 = Date(timeIntervalSince1970: 0)
+        let t1 = Date(timeIntervalSince1970: 86_400)
+        let t2 = Date(timeIntervalSince1970: 172_800)
+        let deleted = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 2)
+        let older = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
+        let newer = DiveActivity(source: .manual, startTime: t2, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 99)
+
+        #expect(
+            !DiveActivityDiveNumbering.chronologicallyAfterDeletedSlot(
+                deleted,
+                deletedStartTime: t1,
+                deletedId: deleted.id
+            )
+        )
+        #expect(
+            !DiveActivityDiveNumbering.chronologicallyAfterDeletedSlot(
+                older,
+                deletedStartTime: t1,
+                deletedId: deleted.id
+            )
+        )
+        #expect(
+            DiveActivityDiveNumbering.chronologicallyAfterDeletedSlot(
+                newer,
+                deletedStartTime: t1,
+                deletedId: deleted.id
+            )
+        )
     }
 
     @Test @MainActor

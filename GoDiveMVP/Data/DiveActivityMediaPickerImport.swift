@@ -13,6 +13,11 @@ enum DiveMediaImportPayload: Sendable {
     case video(URL)
 }
 
+struct LoadedDiveMedia: Sendable {
+    var payload: DiveMediaImportPayload
+    var capturedAt: Date?
+}
+
 /// **`PhotosPicker`** → image bytes or copied video file URL.
 enum DiveActivityMediaPickerImport: Sendable {
 
@@ -42,17 +47,25 @@ enum DiveActivityMediaPickerImport: Sendable {
         }
     }
 
-    static func loadPayload(from item: PhotosPickerItem) async throws -> DiveMediaImportPayload {
+    static func load(from item: PhotosPickerItem) async throws -> LoadedDiveMedia {
         if isVideoItem(item) {
             guard let picked = try await item.loadTransferable(type: PickedVideoFile.self) else {
                 throw DiveMediaImportError.unsupportedItem
             }
-            return .video(picked.url)
+            let capturedAt = await DiveMediaCaptureDateExtraction.resolveVideoCaptureDate(
+                fileURL: picked.url,
+                photosLocalIdentifier: item.itemIdentifier
+            )
+            return LoadedDiveMedia(payload: .video(picked.url), capturedAt: capturedAt)
         }
         guard let data = try await item.loadTransferable(type: Data.self) else {
             throw DiveMediaImportError.unsupportedItem
         }
-        return .image(data)
+        let capturedAt = await DiveMediaCaptureDateExtraction.resolveImageCaptureDate(
+            data: data,
+            photosLocalIdentifier: item.itemIdentifier
+        )
+        return LoadedDiveMedia(payload: .image(data), capturedAt: capturedAt)
     }
 }
 
@@ -86,9 +99,9 @@ enum DiveActivityMediaBatchImport {
             onProgress?(savedCount, total, DiveMediaImportProgressPresentation.loadingStage(itemIndex: itemIndex, total: total))
             await Task.yield()
 
-            let payload: DiveMediaImportPayload
+            let loaded: LoadedDiveMedia
             do {
-                payload = try await DiveActivityMediaPickerImport.loadPayload(from: item)
+                loaded = try await DiveActivityMediaPickerImport.load(from: item)
             } catch {
                 continue
             }
@@ -98,7 +111,8 @@ enum DiveActivityMediaBatchImport {
 
             do {
                 let addedID = try DiveActivityMediaStorage.addMedia(
-                    payload,
+                    loaded.payload,
+                    capturedAt: loaded.capturedAt,
                     to: activity,
                     modelContext: modelContext
                 )

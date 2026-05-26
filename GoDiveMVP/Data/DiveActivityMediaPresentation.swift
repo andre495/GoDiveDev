@@ -35,6 +35,107 @@ enum DiveActivityMediaPresentation: Sendable {
         !sortedPhotos(on: activity).isEmpty
     }
 
+    /// Date/time + dive-position subtitle on the **Media** hero at **minimized** only (details row at **medium**).
+    nonisolated static func showsCaptureDateOnHero(for detent: DiveActivityOverviewDetent) -> Bool {
+        detent == .minimized
+    }
+
+    /// Thumbnail strip in the **Media** sheet at **minimized** and **medium** detents.
+    nonisolated static func showsMediaCarouselInSheet(for detent: DiveActivityOverviewDetent) -> Bool {
+        detent == .minimized || detent == .medium
+    }
+
+    /// Title, position label, capture date, and header **+** at **medium** only.
+    nonisolated static func showsMediaSheetDetails(for detent: DiveActivityOverviewDetent) -> Bool {
+        detent == .medium
+    }
+
+    nonisolated static let carouselThumbnailSize: CGFloat = 72
+    nonisolated static let carouselThumbnailSpacing: CGFloat = 10
+    nonisolated static let carouselThumbnailCornerRadius: CGFloat = 10
+
+    nonisolated static let captureDateUnknownMessage = "Capture date unavailable"
+
+    nonisolated static func selectedMedia(
+        selectedID: UUID?,
+        in photos: [DiveMediaPhoto]
+    ) -> DiveMediaPhoto? {
+        guard let resolvedID = resolvedSelectedPhotoID(selectedID: selectedID, in: photos) else { return nil }
+        return photos.first { $0.id == resolvedID }
+    }
+
+    nonisolated static func mediaPositionLabel(selectedID: UUID?, in photos: [DiveMediaPhoto]) -> String? {
+        guard let resolvedID = resolvedSelectedPhotoID(selectedID: selectedID, in: photos),
+              let index = photos.firstIndex(where: { $0.id == resolvedID })
+        else { return nil }
+
+        let kindLabel = photos[index].resolvedMediaKind == .video ? "Video" : "Photo"
+        return "\(kindLabel) \(index + 1) of \(photos.count)"
+    }
+
+    static func captureDatePanelText(for media: DiveMediaPhoto, timeZoneOffsetSeconds: Int?) -> String {
+        formattedCapturedAt(media, timeZoneOffsetSeconds: timeZoneOffsetSeconds) ?? captureDateUnknownMessage
+    }
+
+    static func formattedCapturedAt(_ media: DiveMediaPhoto, timeZoneOffsetSeconds: Int?) -> String? {
+        guard let capturedAt = media.capturedAt else { return nil }
+        return DiveActivityTimePresentation.formatDateTime(capturedAt, timeZoneOffsetSeconds: timeZoneOffsetSeconds)
+    }
+
+    /// **Captured at 45.0 ft, 12 minutes into the dive.** (unit-aware depth).
+    nonisolated static func formattedCaptureAtDivePosition(
+        context: DiveMediaCaptureContext,
+        displayUnits: DiveDisplayUnitSystem
+    ) -> String {
+        let depth = DiveQuantityFormatting.depth(meters: context.depthMeters, system: displayUnits)
+        let elapsed = formattedMinutesIntoDive(elapsedSeconds: context.elapsedSeconds)
+        return "Captured at \(depth), \(elapsed)"
+    }
+
+    nonisolated static func formattedMinutesIntoDive(elapsedSeconds: Double) -> String {
+        let minutes = elapsedSeconds / 60.0
+        let roundedToTenth = (minutes * 10).rounded() / 10
+        if abs(roundedToTenth - roundedToTenth.rounded()) < 0.001 {
+            let whole = Int(roundedToTenth.rounded())
+            return whole == 1 ? "1 minute into the dive" : "\(whole) minutes into the dive"
+        }
+        return String(format: "%.1f minutes into the dive", roundedToTenth)
+    }
+
+    /// Bottom overlay on full-screen media preview (date/time + optional profile position).
+    static func mediaPreviewCaptureOverlayLines(
+        media: DiveMediaPhoto,
+        captureContext: DiveMediaCaptureContext?,
+        timeZoneOffsetSeconds: Int?,
+        displayUnits: DiveDisplayUnitSystem
+    ) -> (dateTimeLine: String, divePositionLine: String?)? {
+        guard let dateTimeLine = formattedCapturedAt(media, timeZoneOffsetSeconds: timeZoneOffsetSeconds) else {
+            return nil
+        }
+        let divePositionLine = captureContext.map {
+            formattedCaptureAtDivePosition(context: $0, displayUnits: displayUnits)
+        }
+        return (dateTimeLine, divePositionLine)
+    }
+
+    static func mediaPreviewCaptureAccessibilityLabel(
+        media: DiveMediaPhoto,
+        captureContext: DiveMediaCaptureContext?,
+        timeZoneOffsetSeconds: Int?,
+        displayUnits: DiveDisplayUnitSystem
+    ) -> String? {
+        guard let overlay = mediaPreviewCaptureOverlayLines(
+            media: media,
+            captureContext: captureContext,
+            timeZoneOffsetSeconds: timeZoneOffsetSeconds,
+            displayUnits: displayUnits
+        ) else { return nil }
+        if let divePositionLine = overlay.divePositionLine {
+            return "Captured \(overlay.dateTimeLine). \(divePositionLine)"
+        }
+        return "Captured \(overlay.dateTimeLine)"
+    }
+
     nonisolated static func mediaCountLabel(photoCount: Int) -> String {
         switch photoCount {
         case 0:

@@ -4,6 +4,8 @@ import SwiftUI
 struct DiveActivityMediaBackgroundView: View {
     let mediaItems: [DiveMediaPhoto]
     @Binding var selectedMediaID: UUID?
+    var timeZoneOffsetSeconds: Int?
+    var mediaCaptureContextsByID: [UUID: DiveMediaCaptureContext] = [:]
     var sheetDetent: DiveActivityOverviewDetent = .medium
     var isMediaTabSelected: Bool = true
     let bottomContentMargin: CGFloat
@@ -53,6 +55,11 @@ struct DiveActivityMediaBackgroundView: View {
                     ForEach(mediaItems, id: \.id) { item in
                         DiveActivityMediaItemView(
                             media: item,
+                            timeZoneOffsetSeconds: timeZoneOffsetSeconds,
+                            captureContext: mediaCaptureContextsByID[item.id],
+                            showsCaptureDateOverlay: DiveActivityMediaPresentation.showsCaptureDateOnHero(
+                                for: sheetDetent
+                            ),
                             isVideoPlaybackActive: shouldPlayBackgroundVideo && selectedMediaID == item.id,
                             loopsVideoPlayback: shouldPlayBackgroundVideo
                         )

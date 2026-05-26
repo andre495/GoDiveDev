@@ -36,14 +36,14 @@ enum DiveActivityDeletion {
 
         let shouldRenumber = applySequentialRenumberOverride ?? AppUserSettings.automaticallyRenumberDives
         let worker = DiveBackgroundDeletionWorker(modelContainer: container)
-        let skipRenumber = try await worker.deleteDive(
+        let skipPostDeleteRenumber = try await worker.deleteDive(
             id: activityID,
             deletedStartTime: deletedStartTime,
             deletedId: deletedId,
             shouldCheckRenumber: shouldRenumber
         )
 
-        guard shouldRenumber, !skipRenumber else { return }
+        guard shouldRenumber, !skipPostDeleteRenumber else { return }
 
         if awaitPostDeleteRenumber {
             await Task.yield()
