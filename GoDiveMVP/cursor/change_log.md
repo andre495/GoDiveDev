@@ -637,7 +637,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ---
 
-## 45 - Logbook delete performance
+## 45 - Logbook delete performance **(pushed)**
 
 **Summary:** Faster dive delete on and off the main actor — batch-related deletes, no full-log prefetch before delete, targeted tail renumber, single-site catalog cleanup.
 
