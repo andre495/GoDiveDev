@@ -1,6 +1,6 @@
 # Change Log
 
-Keep ongoing work under **one numbered section** until that batch is **`(pushed)`** to git. After a successful **commit + push** you requested, the agent marks the latest open section **`(pushed)`** (see **`.cursor/rules/changelog-mark-pushed-on-git-push.mdc`**). Start the **next number** only when you ask for a new section.
+Keep ongoing work under **one numbered section** until that batch is **`(pushed)`** to git. After a successful **commit + push** you requested, the agent marks that section **`(pushed)`** and adds the **next** numbered header (empty, for new notes) — see **`.cursor/rules/changelog-mark-pushed-on-git-push.mdc`**.
 
 Agents: log work in the **latest open section** and update **`cursor/app_summary.md`** in the same effort (see **`.cursor/rules/changelog-app-summary-sync.mdc`**).
 
@@ -695,4 +695,8 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`ProfileView`** — tiles show owned certification and gear counts (e.g. **3 certifications**, **5 items**).
 - **Tests:** **`profilePresentation_certificationAndEquipmentCountLabels_pluralize`**.
 - **Tests:** **`appScrollUnderHeaderListLayout_usesLogbookHorizontalInsets`**.
+
+---
+
+## 46 - Next batch
 

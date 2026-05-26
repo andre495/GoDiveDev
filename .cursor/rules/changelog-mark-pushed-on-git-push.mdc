@@ -1,9 +1,9 @@
 ---
-description: After a successful git commit and push, mark the latest open change_log section as (pushed).
+description: After a successful git commit and push, mark the latest open change_log section as (pushed) and open the next empty section.
 alwaysApply: true
 ---
 
-# Change log — mark (pushed) after commit + push
+# Change log — mark (pushed) + open next section after commit + push
 
 When you **`git commit`** and **`git push`** successfully in the same task (because the user asked you to commit/push, or to ship the current batch):
 
@@ -12,14 +12,18 @@ When you **`git commit`** and **`git push`** successfully in the same task (beca
 3. Mark it **`(pushed)`**:
    - Put **`(pushed)`** on the section header line (same style as §20: `## 21 - Title **(pushed)**`).
    - Remove a standalone **`(not pushed)`** line under the header if present.
-4. **Include** the updated **`change_log.md`** in the commit when possible; if the push already happened, make a small follow-up commit with only the mark, or amend only if your commit rules allow and the prior commit was yours and unpushed.
+4. Add the **next** section immediately below (increment **`NN`** by 1):
+   - Header only: **`## NN - …`** with a short title (e.g. **Next batch**). No **`(pushed)`** marker.
+   - Leave the body **empty** so future work appends there.
+   - Update the file intro if it still describes the old “ask for a new section” workflow.
+5. **Include** the updated **`change_log.md`** in the commit when possible; if the push already happened, make a small follow-up commit with the mark + new section, or amend only if your commit rules allow and the prior commit was yours and unpushed.
 
 ## Do not
 
 - Mark **`(pushed)`** if **`git push`** failed, was skipped, or only a local commit exists without a successful push the user requested.
-- Open a **new** numbered section unless the user explicitly asks.
+- Skip opening the **next** empty section after a successful push the user requested (unless they explicitly say not to).
 - Mark multiple sections in one push unless the user says several batches shipped together.
 
 ## With changelog sync
 
-This complements **`.cursor/rules/changelog-app-summary-sync.mdc`**: doc updates for the work still happen **before** commit; **`(pushed)`** is the post-push bookkeeping step.
+This complements **`.cursor/rules/changelog-app-summary-sync.mdc`**: doc updates for the work still happen **before** commit; **`(pushed)`** + the new section header are the post-push bookkeeping step.
