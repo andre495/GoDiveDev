@@ -744,4 +744,14 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ---
 
-## 48 - Next batch
+## 48 - Swift 6 depth profile Equatable in tests **(pushed)**
+
+**Summary:** Fix Swift 6 **`Equatable`** isolation errors in depth-profile unit tests (**`#expect`** on samples, pressure samples, and media capture context).
+
+- **`DiveDepthProfileSample.swift`** (new): **`DiveDepthProfileSample`**, **`DiveDepthProfilePressureSample`**, and **`DiveMediaCaptureContext`** live outside SwiftData-touching files with explicit **`nonisolated`** **`==`** (same pattern as **`DiveCoordinate`**).
+- **`DiveDepthProfileSeries`**: sample structs removed; keeps SwiftData profile-point builders only.
+- **`DiveDerivedDataBuilder`**: repaired file structure; SwiftData snapshot helpers in **`#if canImport(SwiftData)`** extension; core builder stays SwiftData-free for off-main use.
+
+---
+
+## 49 - Next batch

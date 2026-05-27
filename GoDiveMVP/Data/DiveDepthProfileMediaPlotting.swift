@@ -1,12 +1,6 @@
 import CoreGraphics
 import Foundation
 
-/// Depth and elapsed time on the dive profile when media was captured.
-struct DiveMediaCaptureContext: Equatable, Sendable {
-    var elapsedSeconds: Double
-    var depthMeters: Double
-}
-
 /// A dive photo/video positioned on the depth profile time axis.
 struct DiveDepthProfileMediaMarker: Identifiable, Equatable, Sendable {
     var mediaID: UUID

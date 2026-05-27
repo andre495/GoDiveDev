@@ -1,17 +1,6 @@
+import CoreGraphics
 import Foundation
 import SwiftData
-
-/// One point in a depth-vs-time profile (time from first sample).
-struct DiveDepthProfileSample: Equatable, Sendable {
-    var elapsedSeconds: Double
-    var depthMeters: Double
-}
-
-/// Remaining cylinder pressure at elapsed time (subset of profile samples with **`tankPressurePSI`**).
-struct DiveDepthProfilePressureSample: Equatable, Sendable {
-    var elapsedSeconds: Double
-    var pressurePSI: Double
-}
 
 /// Builds elapsed-time series from profile samples (sorted by timestamp).
 enum DiveDepthProfileSeries {

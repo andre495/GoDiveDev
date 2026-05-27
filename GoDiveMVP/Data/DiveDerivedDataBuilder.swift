@@ -1,5 +1,4 @@
 import Foundation
-import SwiftData
 
 /// Value snapshots for building dive derived chart/media data off the main actor.
 struct DiveDerivedProfilePointSnapshot: Sendable, Equatable {
@@ -16,7 +15,7 @@ struct DiveDerivedMediaSnapshot: Sendable, Equatable {
 }
 
 /// Precomputed chart + media plotting payloads for **`ViewSingleActivity`**.
-struct DiveDerivedDataBuildResult: Sendable, Equatable {
+struct DiveDerivedDataBuildResult: Sendable {
     var depthSamples: [DiveDepthProfileSample] = []
     var pressureSamples: [DiveDepthProfilePressureSample] = []
     var mediaMarkers: [DiveDepthProfileMediaMarker] = []
@@ -28,7 +27,7 @@ struct DiveDerivedDataBuildResult: Sendable, Equatable {
     )
 }
 
-struct DiveDerivedDataBuildInput: Sendable, Equatable {
+struct DiveDerivedDataBuildInput: Sendable {
     var profilePointSnapshots: [DiveDerivedProfilePointSnapshot]
     var sortedMediaSnapshots: [DiveDerivedMediaSnapshot]
     var activityStartTime: Date
@@ -72,30 +71,8 @@ enum DiveDerivedDataBuilder: Sendable {
         )
     }
 
-    nonisolated static func profilePointSnapshots(from points: [DiveProfilePoint]) -> [DiveDerivedProfilePointSnapshot] {
-        points.map {
-            DiveDerivedProfilePointSnapshot(
-                timestamp: $0.timestamp,
-                depthMeters: $0.depthMeters,
-                tankPressurePSI: $0.tankPressurePSI
-            )
-        }
-    }
-
-    nonisolated static func mediaSnapshots(from photos: [DiveMediaPhoto]) -> [DiveDerivedMediaSnapshot] {
-        photos.map {
-            DiveDerivedMediaSnapshot(
-                id: $0.id,
-                sortOrder: $0.sortOrder,
-                mediaKind: $0.mediaKind,
-                capturedAt: $0.capturedAt
-            )
-        }
-    }
-
-    nonisolated static func sortedMediaSnapshots(from photos: [DiveMediaPhoto]) -> [DiveDerivedMediaSnapshot] {
-        let snapshots = mediaSnapshots(from: photos)
-        return snapshots.sorted { lhs, rhs in
+    nonisolated static func sortedMediaSnapshots(from snapshots: [DiveDerivedMediaSnapshot]) -> [DiveDerivedMediaSnapshot] {
+        snapshots.sorted { lhs, rhs in
             mediaOrderedBefore(lhs, rhs)
         }
     }
@@ -203,7 +180,7 @@ enum DiveDerivedDataBuilder: Sendable {
         )
     }
 
-    private nonisolated static func mediaOrderedBefore(
+    fileprivate nonisolated static func mediaOrderedBefore(
         _ lhs: DiveDerivedMediaSnapshot,
         _ rhs: DiveDerivedMediaSnapshot
     ) -> Bool {
@@ -223,3 +200,34 @@ enum DiveDerivedDataBuilder: Sendable {
         return lhs.id.uuidString < rhs.id.uuidString
     }
 }
+
+#if canImport(SwiftData)
+import SwiftData
+
+extension DiveDerivedDataBuilder {
+    nonisolated static func profilePointSnapshots(from points: [DiveProfilePoint]) -> [DiveDerivedProfilePointSnapshot] {
+        points.map {
+            DiveDerivedProfilePointSnapshot(
+                timestamp: $0.timestamp,
+                depthMeters: $0.depthMeters,
+                tankPressurePSI: $0.tankPressurePSI
+            )
+        }
+    }
+
+    nonisolated static func mediaSnapshots(from photos: [DiveMediaPhoto]) -> [DiveDerivedMediaSnapshot] {
+        photos.map {
+            DiveDerivedMediaSnapshot(
+                id: $0.id,
+                sortOrder: $0.sortOrder,
+                mediaKind: $0.mediaKind,
+                capturedAt: $0.capturedAt
+            )
+        }
+    }
+
+    nonisolated static func sortedMediaSnapshots(from photos: [DiveMediaPhoto]) -> [DiveDerivedMediaSnapshot] {
+        sortedMediaSnapshots(from: mediaSnapshots(from: photos))
+    }
+}
+#endif
