@@ -9,6 +9,7 @@ struct DiveActivityVideoPlayerView: View {
     let fileURL: URL?
     var isPlaybackActive: Bool = true
     var loopsPlayback: Bool = false
+    var isPausedByUserHold: Bool = false
 
     var body: some View {
         Group {
@@ -18,7 +19,8 @@ struct DiveActivityVideoPlayerView: View {
                     DiveActivityFillVideoPlayerRepresentable(
                         fileURL: fileURL,
                         isPlaybackActive: isPlaybackActive,
-                        loopsPlayback: loopsPlayback
+                        loopsPlayback: loopsPlayback,
+                        isPausedByUserHold: isPausedByUserHold
                     )
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .clipped()
@@ -49,13 +51,15 @@ private struct DiveActivityFillVideoPlayerRepresentable: UIViewRepresentable {
     let fileURL: URL
     let isPlaybackActive: Bool
     let loopsPlayback: Bool
+    let isPausedByUserHold: Bool
 
     func makeUIView(context: Context) -> DiveActivityFillVideoPlayerUIView {
         let view = DiveActivityFillVideoPlayerUIView()
         view.configure(
             url: fileURL,
             isPlaybackActive: isPlaybackActive,
-            loopsPlayback: loopsPlayback
+            loopsPlayback: loopsPlayback,
+            isPausedByUserHold: isPausedByUserHold
         )
         return view
     }
@@ -64,7 +68,8 @@ private struct DiveActivityFillVideoPlayerRepresentable: UIViewRepresentable {
         uiView.configure(
             url: fileURL,
             isPlaybackActive: isPlaybackActive,
-            loopsPlayback: loopsPlayback
+            loopsPlayback: loopsPlayback,
+            isPausedByUserHold: isPausedByUserHold
         )
     }
 
@@ -81,6 +86,8 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
     private var currentURL: URL?
     private var loopsPlayback = false
     private var isPlaybackActive = false
+    private var isPausedByUserHold = false
+    private var lastAppliedPlaybackActive = false
     private var endObserver: NSObjectProtocol?
 
     override init(frame: CGRect) {
@@ -98,13 +105,34 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
         removeEndObserver()
     }
 
-    func configure(url: URL, isPlaybackActive: Bool, loopsPlayback: Bool) {
+    func configure(
+        url: URL,
+        isPlaybackActive: Bool,
+        loopsPlayback: Bool,
+        isPausedByUserHold: Bool
+    ) {
+        let mediaURLChanged = currentURL != url
+        let shouldRestart = DiveActivityVideoPlaybackPolicy.shouldRestartFromBeginning(
+            wasPlaybackActive: lastAppliedPlaybackActive,
+            isPlaybackActive: isPlaybackActive,
+            mediaURLChanged: mediaURLChanged
+        )
+
         self.isPlaybackActive = isPlaybackActive
-        if currentURL != url {
+        self.isPausedByUserHold = isPausedByUserHold
+
+        if mediaURLChanged {
             loadPlayer(url: url)
         }
         setLooping(loopsPlayback)
-        applyPlaybackState()
+
+        if shouldRestart {
+            restartFromBeginning()
+        } else {
+            syncPlaybackState()
+        }
+
+        lastAppliedPlaybackActive = isPlaybackActive
     }
 
     func stop() {
@@ -115,6 +143,8 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
         currentURL = nil
         loopsPlayback = false
         isPlaybackActive = false
+        isPausedByUserHold = false
+        lastAppliedPlaybackActive = false
     }
 
     private func loadPlayer(url: URL) {
@@ -140,15 +170,28 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
         ) { [weak self] _ in
             guard let self, let player = self.player else { return }
             player.seek(to: .zero) { [weak self] _ in
-                guard let self, self.isPlaybackActive else { return }
+                guard let self, DiveActivityVideoPlaybackPolicy.shouldPlay(
+                    isPlaybackActive: self.isPlaybackActive,
+                    isPausedByUserHold: self.isPausedByUserHold
+                ) else { return }
                 player.play()
             }
         }
     }
 
-    private func applyPlaybackState() {
+    private func restartFromBeginning() {
         guard player != nil else { return }
-        if isPlaybackActive {
+        player?.seek(to: .zero) { [weak self] _ in
+            self?.syncPlaybackState()
+        }
+    }
+
+    private func syncPlaybackState() {
+        guard player != nil else { return }
+        if DiveActivityVideoPlaybackPolicy.shouldPlay(
+            isPlaybackActive: isPlaybackActive,
+            isPausedByUserHold: isPausedByUserHold
+        ) {
             player?.play()
         } else {
             player?.pause()

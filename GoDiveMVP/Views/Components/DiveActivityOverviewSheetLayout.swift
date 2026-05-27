@@ -9,6 +9,10 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
     @ViewBuilder var panelContent: () -> PanelContent
     /// When **`false`**, minimized content handles its own taps (e.g. **Media** carousel); expand via grabber.
     var collapsedSummaryExpandsOnTap: Bool = true
+    /// **Media** tab: keep one panel (and carousel) mounted at **minimized** instead of swapping to **`collapsedSummary`**.
+    var showsPanelContentWhenMinimized: Bool = false
+    /// Disables vertical scroll in the compact minimized band (avoids scroll geometry churn).
+    var disablesPanelScrollWhenMinimized: Bool = false
 
     /// Keeps the heavy scroll body mounted after first expand so detent changes do not rebuild the chart.
     @State private var keepsExpandedPanelMounted = true
@@ -21,26 +25,35 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
         DiveActivityOverviewPanelMetrics.isMinimized(layoutHeightFraction)
     }
 
+    private var showsCollapsedSummaryOverlay: Bool {
+        showsMinimizedLayout && !showsPanelContentWhenMinimized
+    }
+
+    private var hidesMountedPanelContent: Bool {
+        showsMinimizedLayout && !showsPanelContentWhenMinimized
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
             if keepsExpandedPanelMounted {
                 OverviewPanelScrollArea(
                     restingDetent: selectedDetent,
                     onExpand: { selectedDetent = .large },
-                    onCollapseToMedium: { selectedDetent = .medium }
+                    onCollapseToMedium: { selectedDetent = .medium },
+                    isScrollDisabled: showsMinimizedLayout && disablesPanelScrollWhenMinimized
                 ) {
                     panelContent()
                         .padding(.top, DiveActivityOverviewPanelMetrics.panelContentTopPadding)
                         .padding(.horizontal, AppTheme.Spacing.md)
                         .padding(.bottom, AppTheme.Spacing.lg)
                 }
-                .opacity(showsMinimizedLayout ? 0 : 1)
-                .allowsHitTesting(!showsMinimizedLayout)
-                .accessibilityHidden(showsMinimizedLayout)
+                .opacity(hidesMountedPanelContent ? 0 : 1)
+                .allowsHitTesting(!hidesMountedPanelContent)
+                .accessibilityHidden(hidesMountedPanelContent)
                 .clipped()
             }
 
-            if showsMinimizedLayout {
+            if showsCollapsedSummaryOverlay {
                 Group {
                     if collapsedSummaryExpandsOnTap {
                         Button {
@@ -82,7 +95,12 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
             }
         }
         .onAppear {
-            if !DiveActivityOverviewPanelMetrics.isMinimized(layoutHeightFraction) {
+            if !DiveActivityOverviewPanelMetrics.isMinimized(layoutHeightFraction) || showsPanelContentWhenMinimized {
+                keepsExpandedPanelMounted = true
+            }
+        }
+        .onChange(of: showsPanelContentWhenMinimized) { _, showsPanelContent in
+            if showsPanelContent {
                 keepsExpandedPanelMounted = true
             }
         }
@@ -152,6 +170,7 @@ struct OverviewPanelScrollArea<Content: View>: View {
     let restingDetent: DiveActivityOverviewDetent
     let onExpand: () -> Void
     let onCollapseToMedium: () -> Void
+    var isScrollDisabled = false
     @ViewBuilder var content: () -> Content
 
     @State private var lastScrollOffsetY: CGFloat = 0
@@ -162,6 +181,7 @@ struct OverviewPanelScrollArea<Content: View>: View {
         ScrollView {
             content()
         }
+        .scrollDisabled(isScrollDisabled)
         .scrollIndicators(.hidden)
         .onScrollGeometryChange(for: CGFloat.self) { geometry in
             geometry.contentOffset.y

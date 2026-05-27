@@ -3,11 +3,26 @@ import SwiftUI
 import SwiftData
 
 struct ViewSingleActivity: View {
+    private struct DerivedDiveData {
+        var sortedProfilePoints: [DiveProfilePoint] = []
+        var profilePointsWithTankPressure: [DiveProfilePoint] = []
+        var sortedMediaItems: [DiveMediaPhoto] = []
+        var depthSamples: [DiveDepthProfileSample] = []
+        var pressureSamples: [DiveDepthProfilePressureSample] = []
+        var mediaMarkers: [DiveDepthProfileMediaMarker] = []
+        var mediaCaptureContextsByID: [UUID: DiveMediaCaptureContext] = [:]
+        var mediaPhotosByID: [UUID: DiveMediaPhoto] = [:]
+        var profileGasStats = DiveActivityTankPanelSummary.ProfilePressureStats(
+            sampleCount: 0,
+            minPSI: nil,
+            maxPSI: nil
+        )
+    }
+
     @Bindable var activity: DiveActivity
     @Environment(\.modelContext) private var modelContext
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @Environment(AccountSession.self) private var accountSession
-    @Query private var diveSites: [DiveSite]
 
     private enum DetailNotes {
         static let maxCharacterCount = 2500
@@ -32,15 +47,17 @@ struct ViewSingleActivity: View {
     @State private var diveMediaPickerItems: [PhotosPickerItem] = []
     @State private var selectedDiveMediaPhotoID: UUID?
     @State private var mediaImportOverlay: DiveMediaImportOverlayState = .hidden
+    @State private var derivedDiveData = DerivedDiveData()
+    @State private var catalogSitesForMapResolution: [DiveSite] = []
 
     /// **More** tab: profile samples sorted by time (read-only).
     private var moreTabSortedProfilePoints: [DiveProfilePoint] {
-        activity.profilePoints.sorted { $0.timestamp < $1.timestamp }
+        derivedDiveData.sortedProfilePoints
     }
 
     /// **More** tab: samples with non-**`nil`** **`tankPressurePSI`** (e.g. UDDF waypoint **`tankpressure`**).
     private var moreTabProfilePointsWithTankPressure: [DiveProfilePoint] {
-        moreTabSortedProfilePoints.filter { $0.tankPressurePSI != nil }
+        derivedDiveData.profilePointsWithTankPressure
     }
 
     private var showsLiveOverviewMap: Bool {
@@ -61,6 +78,10 @@ struct ViewSingleActivity: View {
     }
 
     var body: some View {
+        singleActivityWithPresentationModifiers
+    }
+
+    private var singleActivityMainPage: some View {
         AppHeaderlessPage(leadingEdgePopOnWillDismiss: requestOverviewMapTeardown) {
             diveOverviewHeroLayer
                 .overlay(alignment: .top) {
@@ -68,113 +89,206 @@ struct ViewSingleActivity: View {
                         .zIndex(1_000)
                 }
                 .overlay {
-                    if mediaImportOverlay != .hidden {
-                        DiveMediaImportProgressOverlay(state: mediaImportOverlay) {
-                            mediaImportOverlay = .hidden
-                        }
-                        .zIndex(2_000)
+                    mediaImportOverlayIfNeeded
+                }
+        }
+    }
+
+    @ViewBuilder
+    private var mediaImportOverlayIfNeeded: some View {
+        if mediaImportOverlay != .hidden {
+            DiveMediaImportProgressOverlay(state: mediaImportOverlay) {
+                mediaImportOverlay = .hidden
+            }
+            .zIndex(2_000)
+        }
+    }
+
+    private var singleActivityWithLifecycleModifiers: some View {
+        singleActivityMainPage
+            .hidesBottomTabBarWhenPushed()
+            .task(id: activity.id) {
+                let previousOffset = activity.timeZoneOffsetSeconds
+                await DiveActivityTimeZoneResolution.resolveMissingOffset(for: activity)
+                if activity.timeZoneOffsetSeconds != previousOffset {
+                    try? modelContext.save()
+                }
+            }
+            .onAppear(perform: handleSingleActivityAppear)
+            .onChange(of: selectedActivityTab) { _, newTab in
+                handleSelectedActivityTabChange(newTab)
+            }
+            .onChange(of: activity.diveSite?.id) { _, _ in
+                if activity.diveSite != nil {
+                    showsMapSitePromptDialog = false
+                }
+            }
+            .onChange(of: activity.id) { _, _ in
+                handleActivityIdentityChange()
+            }
+            .task(id: derivedDiveDataRefreshToken) {
+                await refreshDerivedDiveDataAsync()
+            }
+            .task(id: catalogSiteMapLookupToken) {
+                await loadCatalogSitesForMapResolutionIfNeeded()
+            }
+            .onChange(of: overviewSheetDetent) { oldDetent, newDetent in
+                guard oldDetent != newDetent else { return }
+                handleOverviewSheetDetentChange(from: oldDetent, to: newDetent)
+            }
+    }
+
+    private var singleActivityWithPresentationModifiers: some View {
+        singleActivityWithLifecycleModifiers
+            .alert(
+                DiveActivityMapSitePrompt.dialogTitle,
+                isPresented: $showsMapSitePromptDialog
+            ) {
+                Button("Add new site") {
+                    showsAddDiveSiteSheet = true
+                }
+                Button("No", role: .cancel) {
+                    declineMapSitePrompt()
+                }
+            } message: {
+                Text(DiveActivityMapSitePrompt.dialogMessage)
+            }
+            .sheet(isPresented: $showsAddDiveSiteSheet) {
+                DiveSiteAddSheet(
+                    activity: activity,
+                    initialDraft: DiveActivityMapSitePrompt.draft(
+                        from: activity,
+                        catalogSite: activity.diveSite
+                    ),
+                    onSaved: {
+                        mapSitePromptUserDeclined = false
                     }
-                }
-        }
-        .hidesBottomTabBarWhenPushed()
-        .task(id: activity.id) {
-            let previousOffset = activity.timeZoneOffsetSeconds
-            await DiveActivityTimeZoneResolution.resolveMissingOffset(for: activity)
-            if activity.timeZoneOffsetSeconds != previousOffset {
-                try? modelContext.save()
-            }
-        }
-        .onAppear {
-            overviewMapTeardownRequested = false
-            reloadMapSitePromptDeclinedState()
-            syncOverviewSheetPresentation(for: selectedActivityTab)
-            presentMapSitePromptIfNeeded()
-        }
-        .onChange(of: selectedActivityTab) { _, newTab in
-            syncOverviewSheetPresentation(for: newTab)
-            if newTab == .map {
-                overviewMapTeardownRequested = false
-                presentMapSitePromptIfNeeded()
-            }
-        }
-        .onChange(of: activity.diveSite?.id) { _, _ in
-            if activity.diveSite != nil {
-                showsMapSitePromptDialog = false
-            }
-        }
-        .onChange(of: activity.id) { _, _ in
-            tankHeroPressureFillFraction = 1
-            overviewMapTeardownRequested = false
-            selectedDiveMediaPhotoID = nil
-            reloadMapSitePromptDeclinedState()
-            presentMapSitePromptIfNeeded()
-        }
-        .onChange(of: overviewSheetDetent) { oldDetent, newDetent in
-            guard oldDetent != newDetent else { return }
-            handleOverviewSheetDetentChange(from: oldDetent, to: newDetent)
-        }
-        .alert(
-            DiveActivityMapSitePrompt.dialogTitle,
-            isPresented: $showsMapSitePromptDialog
-        ) {
-            Button("Add new site") {
-                showsAddDiveSiteSheet = true
-            }
-            Button("No", role: .cancel) {
-                declineMapSitePrompt()
-            }
-        } message: {
-            Text(DiveActivityMapSitePrompt.dialogMessage)
-        }
-        .sheet(isPresented: $showsAddDiveSiteSheet) {
-            DiveSiteAddSheet(
-                activity: activity,
-                initialDraft: DiveActivityMapSitePrompt.draft(from: activity, catalogSite: activity.diveSite),
-                onSaved: {
-                    mapSitePromptUserDeclined = false
-                }
-            )
-        }
-        .sheet(item: $editingField) { field in
-            DiveActivityFieldEditSheet(
-                activity: activity,
-                field: field,
-                displayUnits: diveDisplayUnitSystem
-            )
-        }
-        .sheet(isPresented: $showsBuddiesEditSheet) {
-            DiveActivityBuddiesEditSheet(activity: activity)
-        }
-        .sheet(isPresented: $showsAddEquipmentSheet) {
-            DiveActivityAddEquipmentSheet(
-                items: addableEquipmentForSheet,
-                onAdd: { linkEquipmentToDive($0) }
-            )
-        }
-        .sheet(isPresented: depthChartMediaPreviewPresented) {
-            if let media = depthChartPreviewMedia {
-                DiveDepthProfileMediaPreviewSheet(
-                    media: media,
-                    timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds,
-                    captureContext: depthChartPreviewCaptureContext
                 )
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
-                .presentationCornerRadius(AppTheme.Sheet.cornerRadius)
-                .presentationBackground {
-                    Color.black.ignoresSafeArea()
-                }
+            }
+            .sheet(item: $editingField) { field in
+                DiveActivityFieldEditSheet(
+                    activity: activity,
+                    field: field,
+                    displayUnits: diveDisplayUnitSystem
+                )
+            }
+            .sheet(isPresented: $showsBuddiesEditSheet) {
+                DiveActivityBuddiesEditSheet(activity: activity)
+            }
+            .sheet(isPresented: $showsAddEquipmentSheet) {
+                DiveActivityAddEquipmentSheet(
+                    items: addableEquipmentForSheet,
+                    onAdd: { linkEquipmentToDive($0) }
+                )
+            }
+            .sheet(isPresented: depthChartMediaPreviewPresented) {
+                depthChartMediaPreviewSheet
+            }
+            .alert("Could not add equipment", isPresented: equipmentLinkErrorBinding) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(equipmentLinkErrorMessage ?? "Try again.")
+            }
+            .onChange(of: diveMediaPickerItems) { _, items in
+                guard !items.isEmpty else { return }
+                Task { await importDiveMediaPickerItems(items) }
+            }
+    }
+
+    @ViewBuilder
+    private var depthChartMediaPreviewSheet: some View {
+        if let media = depthChartPreviewMedia {
+            DiveDepthProfileMediaPreviewSheet(
+                media: media,
+                timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds,
+                captureContext: depthChartPreviewCaptureContext
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+            .presentationCornerRadius(AppTheme.Sheet.cornerRadius)
+            .presentationBackground {
+                Color.black.ignoresSafeArea()
             }
         }
-        .alert("Could not add equipment", isPresented: equipmentLinkErrorBinding) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(equipmentLinkErrorMessage ?? "Try again.")
+    }
+
+    private func handleSingleActivityAppear() {
+        overviewMapTeardownRequested = false
+        catalogSitesForMapResolution = []
+        reloadMapSitePromptDeclinedState()
+        syncOverviewSheetPresentation(for: selectedActivityTab)
+        presentMapSitePromptIfNeeded()
+    }
+
+    private func handleSelectedActivityTabChange(_ newTab: DiveActivityTab) {
+        syncOverviewSheetPresentation(for: newTab)
+        if newTab == .map {
+            overviewMapTeardownRequested = false
+            presentMapSitePromptIfNeeded()
         }
-        .onChange(of: diveMediaPickerItems) { _, items in
-            guard !items.isEmpty else { return }
-            Task { await importDiveMediaPickerItems(items) }
+    }
+
+    private func handleActivityIdentityChange() {
+        tankHeroPressureFillFraction = 1
+        overviewMapTeardownRequested = false
+        catalogSitesForMapResolution = []
+        selectedDiveMediaPhotoID = nil
+        reloadMapSitePromptDeclinedState()
+        presentMapSitePromptIfNeeded()
+    }
+
+    private var derivedDiveDataRefreshToken: String {
+        "\(activity.id.uuidString)|\(activity.profilePoints.count)|\(activity.mediaPhotos.count)|\(activity.startTime.timeIntervalSinceReferenceDate)|\(activity.durationMinutes)"
+    }
+
+    private var catalogSiteMapLookupToken: String {
+        let linkedSiteID = activity.diveSite?.id.uuidString ?? "none"
+        let siteName = activity.siteName ?? ""
+        let entry = activity.entryCoordinate.map { "\($0.latitude),\($0.longitude)" } ?? "none"
+        return "\(activity.id.uuidString)|\(linkedSiteID)|\(siteName)|\(entry)"
+    }
+
+    @MainActor
+    private func loadCatalogSitesForMapResolutionIfNeeded() async {
+        guard DiveActivityMapCoordinateResolution.needsCatalogSiteLookup(for: activity) else {
+            catalogSitesForMapResolution = []
+            return
         }
+        guard catalogSitesForMapResolution.isEmpty else { return }
+        catalogSitesForMapResolution = (try? DiveActivityMapCoordinateResolution.loadCatalogSitesIfNeeded(
+            for: activity,
+            modelContext: modelContext
+        )) ?? []
+    }
+
+    @MainActor
+    private func refreshDerivedDiveDataAsync() async {
+        let sortedProfilePoints = activity.profilePoints.sorted { $0.timestamp < $1.timestamp }
+        let sortedMediaItems = activity.sortedMediaPhotos
+        let buildInput = DiveDerivedDataBuildInput(
+            profilePointSnapshots: DiveDerivedDataBuilder.profilePointSnapshots(from: sortedProfilePoints),
+            sortedMediaSnapshots: DiveDerivedDataBuilder.sortedMediaSnapshots(from: sortedMediaItems),
+            activityStartTime: activity.startTime,
+            durationMinutes: activity.durationMinutes
+        )
+
+        let built = await Task.detached(priority: .userInitiated) {
+            DiveDerivedDataBuilder.build(from: buildInput)
+        }.value
+
+        guard !Task.isCancelled else { return }
+
+        derivedDiveData = DerivedDiveData(
+            sortedProfilePoints: sortedProfilePoints,
+            profilePointsWithTankPressure: sortedProfilePoints.filter { $0.tankPressurePSI != nil },
+            sortedMediaItems: sortedMediaItems,
+            depthSamples: built.depthSamples,
+            pressureSamples: built.pressureSamples,
+            mediaMarkers: built.mediaMarkers,
+            mediaCaptureContextsByID: built.mediaCaptureContextsByID,
+            mediaPhotosByID: Dictionary(uniqueKeysWithValues: sortedMediaItems.map { ($0.id, $0) }),
+            profileGasStats: built.profileGasStats
+        )
     }
 
     private var activityTopChrome: some View {
@@ -286,6 +400,7 @@ struct ViewSingleActivity: View {
                         .ignoresSafeArea()
                     case .tank:
                         DiveTankOverviewHeroView(
+                            layoutSize: geometry.size,
                             bottomContentMargin: tankHeroBottomMargin,
                             topObstructionHeight: topObstruction,
                             layoutHeight: layoutHeight,
@@ -293,14 +408,14 @@ struct ViewSingleActivity: View {
                             gasMixLabel: activity.tankHeroGasMixLabel,
                             pressureRemainingFraction: tankHeroPressureFillFraction,
                             oxygenMixPercent: activity.oxygenMix,
-                            depthSamples: DiveDepthProfileSeries.samples(fromProfilePoints: moreTabSortedProfilePoints),
-                            pressureSamples: DiveDepthProfileSeries.pressureSamples(fromProfilePoints: moreTabSortedProfilePoints),
-                            mediaMarkers: depthProfileMediaMarkers,
+                            depthSamples: derivedDiveData.depthSamples,
+                            pressureSamples: derivedDiveData.pressureSamples,
+                            mediaMarkers: derivedDiveData.mediaMarkers,
                             mediaPhotosByID: depthProfileMediaPhotosByID,
                             onMediaMarkerTap: { depthChartPreviewMediaID = $0.mediaID },
                             maxDepthMeters: activity.maxDepthMeters,
                             pressureBaselinePSI: activity.tankPressureEndPSI
-                                ?? DiveDepthProfileSeries.pressureSamples(fromProfilePoints: moreTabSortedProfilePoints).last?.pressurePSI,
+                                ?? derivedDiveData.pressureSamples.last?.pressurePSI,
                             tankPressureStartPSI: activity.tankPressureStartPSI,
                             tankPressureEndPSI: activity.tankPressureEndPSI,
                             sacRateDisplay: activity.tankHeroSACRateLine(displayUnits: diveDisplayUnitSystem),
@@ -308,7 +423,7 @@ struct ViewSingleActivity: View {
                         )
                     case .camera:
                         DiveActivityMediaBackgroundView(
-                            mediaItems: activity.sortedMediaPhotos,
+                            mediaItems: derivedDiveData.sortedMediaItems,
                             selectedMediaID: $selectedDiveMediaPhotoID,
                             timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds,
                             mediaCaptureContextsByID: mediaCaptureContextsByID,
@@ -333,7 +448,7 @@ struct ViewSingleActivity: View {
                             case .tank:
                                 tankCollapsedSummary
                             case .camera:
-                                photosCollapsedSummary
+                                EmptyView()
                             }
                         },
                         panelContent: {
@@ -343,13 +458,14 @@ struct ViewSingleActivity: View {
                             case .tank:
                                 tankPanelContent
                             case .camera:
-                                photosPanelContent
+                                photosOverviewPanelContent
                             }
                         },
-                        collapsedSummaryExpandsOnTap: selectedActivityTab != .camera
+                        collapsedSummaryExpandsOnTap: selectedActivityTab != .camera,
+                        showsPanelContentWhenMinimized: selectedActivityTab == .camera,
+                        disablesPanelScrollWhenMinimized: selectedActivityTab == .camera
                     )
                     .zIndex(1)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
             .overlay(alignment: .top) {
@@ -358,8 +474,9 @@ struct ViewSingleActivity: View {
             }
             .animation(
                 .easeInOut(duration: DiveTankOverviewHeroPresentation.heroDetentAnimationDuration),
-                value: hidesOverviewPanelForTankLandscape
+                value: overviewSheetDetent
             )
+            .animation(nil, value: isLandscape)
         }
         .ignoresSafeArea()
     }
@@ -789,7 +906,7 @@ struct ViewSingleActivity: View {
     }
 
     private var overviewMapCoordinate: DiveCoordinate? {
-        activity.resolvedMapCoordinate(catalogSites: diveSites)
+        activity.resolvedMapCoordinate(catalogSites: catalogSitesForMapResolution)
     }
 
     /// Remounts **`DiveLocationMapView`** when dive or resolved coordinate changes (MapKit annotation refresh).
@@ -810,22 +927,9 @@ struct ViewSingleActivity: View {
         )
     }
 
-    private var photosCollapsedSummary: some View {
+    private var photosOverviewPanelContent: some View {
         DiveActivityPhotosPanelContent(
-            mediaItems: activity.sortedMediaPhotos,
-            selectedMediaID: $selectedDiveMediaPhotoID,
-            timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds,
-            showsMediaCarousel: DiveActivityMediaPresentation.showsMediaCarouselInSheet(for: .minimized),
-            showsSheetDetails: false,
-            mediaPickerItems: $diveMediaPickerItems,
-            isImportInProgress: mediaImportOverlay.isBlocking
-        )
-        .accessibilityIdentifier("DiveOverview.MediaPanel.Minimized")
-    }
-
-    private var photosPanelContent: some View {
-        DiveActivityPhotosPanelContent(
-            mediaItems: activity.sortedMediaPhotos,
+            mediaItems: derivedDiveData.sortedMediaItems,
             selectedMediaID: $selectedDiveMediaPhotoID,
             timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds,
             showsMediaCarousel: DiveActivityMediaPresentation.showsMediaCarouselInSheet(
@@ -834,11 +938,15 @@ struct ViewSingleActivity: View {
             showsSheetDetails: DiveActivityMediaPresentation.showsMediaSheetDetails(
                 for: overviewSheetDetent
             ),
-            carouselLayoutToken: overviewSheetDetent,
             mediaPickerItems: $diveMediaPickerItems,
             isImportInProgress: mediaImportOverlay.isBlocking
         )
-        .accessibilityIdentifier("DiveOverview.MediaPanel")
+        .animation(nil, value: overviewSheetDetent)
+        .accessibilityIdentifier(
+            DiveActivityMediaPresentation.showsMediaSheetDetails(for: overviewSheetDetent)
+                ? "DiveOverview.MediaPanel"
+                : "DiveOverview.MediaPanel.Minimized"
+        )
     }
 
     @MainActor
@@ -884,7 +992,6 @@ struct ViewSingleActivity: View {
     }
 
     private var tankPanelContent: some View {
-        let stats = DiveActivityTankPanelSummary.profilePressureStats(from: activity.profilePoints)
         return VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
             tankPanelHeader
 
@@ -892,7 +999,7 @@ struct ViewSingleActivity: View {
                 activity: activity,
                 tab: .tank,
                 displayUnits: diveDisplayUnitSystem,
-                profileGasStats: stats,
+                profileGasStats: derivedDiveData.profileGasStats,
                 onEditField: { editingField = $0 },
                 onManageEquipment: { showsAddEquipmentSheet = true },
                 onManageLinkedSite: { showsAddDiveSiteSheet = true },
@@ -994,9 +1101,7 @@ struct ViewSingleActivity: View {
                 activity: activity,
                 tab: .map,
                 displayUnits: diveDisplayUnitSystem,
-                profileGasStats: DiveActivityTankPanelSummary.profilePressureStats(
-                    from: activity.profilePoints
-                ),
+                profileGasStats: derivedDiveData.profileGasStats,
                 onEditField: { editingField = $0 },
                 onManageEquipment: { showsAddEquipmentSheet = true },
                 onManageLinkedSite: { showsAddDiveSiteSheet = true },
@@ -1019,14 +1124,7 @@ struct ViewSingleActivity: View {
     }
 
     private var mediaCaptureContextsByID: [UUID: DiveMediaCaptureContext] {
-        let samples = DiveDepthProfileSeries.samples(fromProfilePoints: moreTabSortedProfilePoints)
-        return DiveDepthProfileMediaPlotting.captureContextsByMediaID(
-            mediaPhotos: activity.sortedMediaPhotos,
-            profileSamples: samples,
-            activityStartTime: activity.startTime,
-            durationMinutes: activity.durationMinutes,
-            profilePoints: moreTabSortedProfilePoints
-        )
+        derivedDiveData.mediaCaptureContextsByID
     }
 
     private var depthChartPreviewCaptureContext: DiveMediaCaptureContext? {
@@ -1034,21 +1132,9 @@ struct ViewSingleActivity: View {
         return mediaCaptureContextsByID[depthChartPreviewMediaID]
     }
 
-    private var depthProfileMediaMarkers: [DiveDepthProfileMediaMarker] {
-        let samples = DiveDepthProfileSeries.samples(fromProfilePoints: moreTabSortedProfilePoints)
-        return DiveDepthProfileMediaPlotting.markers(
-            mediaPhotos: activity.sortedMediaPhotos,
-            profileSamples: samples,
-            activityStartTime: activity.startTime,
-            durationMinutes: activity.durationMinutes,
-            profilePoints: moreTabSortedProfilePoints
-        )
-    }
-
     private var depthProfileMediaPhotosByID: [UUID: DiveMediaPhoto] {
-        Dictionary(uniqueKeysWithValues: activity.sortedMediaPhotos.map { ($0.id, $0) })
+        derivedDiveData.mediaPhotosByID
     }
-
 
     private func basicSectionCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         content()

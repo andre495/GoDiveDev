@@ -14,6 +14,12 @@ struct DiveActivityMediaItemView: View {
     var isVideoPlaybackActive: Bool = false
     var loopsVideoPlayback: Bool = false
 
+    @State private var isHoldingVideoPause = false
+
+    private var isVideo: Bool {
+        media.resolvedMediaKind == .video
+    }
+
     private var captureOverlay: (dateTimeLine: String, divePositionLine: String?)? {
         DiveActivityMediaPresentation.mediaPreviewCaptureOverlayLines(
             media: media,
@@ -33,7 +39,8 @@ struct DiveActivityMediaItemView: View {
                     DiveActivityVideoPlayerView(
                         fileURL: media.videoFileURL,
                         isPlaybackActive: isVideoPlaybackActive,
-                        loopsPlayback: loopsVideoPlayback
+                        loopsPlayback: loopsVideoPlayback,
+                        isPausedByUserHold: isHoldingVideoPause
                     )
                 }
             }
@@ -45,6 +52,20 @@ struct DiveActivityMediaItemView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
+        .modifier(
+            DiveActivityVideoHoldToPauseModifier(
+                isEnabled: isVideo,
+                isHoldingVideoPause: $isHoldingVideoPause
+            )
+        )
+        .onChange(of: isVideoPlaybackActive) { _, isActive in
+            if !isActive {
+                isHoldingVideoPause = false
+            }
+        }
+        .onDisappear {
+            isHoldingVideoPause = false
+        }
     }
 
     @ViewBuilder
@@ -98,5 +119,26 @@ struct DiveActivityMediaItemView: View {
                 .foregroundStyle(AppTheme.Colors.tabUnselected)
         }
         .frame(width: size.width, height: size.height)
+    }
+}
+
+/// **`onLongPressGesture(maximumDistance:)`** — movement fails the press so horizontal pager swipes win.
+private struct DiveActivityVideoHoldToPauseModifier: ViewModifier {
+    let isEnabled: Bool
+    @Binding var isHoldingVideoPause: Bool
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.onLongPressGesture(
+                minimumDuration: DiveActivityVideoPlaybackPolicy.holdPauseMinimumDurationSeconds,
+                maximumDistance: DiveActivityVideoPlaybackPolicy.holdPauseMaximumMovementPoints,
+                pressing: { isPressing in
+                    isHoldingVideoPause = isPressing
+                },
+                perform: {}
+            )
+        } else {
+            content
+        }
     }
 }

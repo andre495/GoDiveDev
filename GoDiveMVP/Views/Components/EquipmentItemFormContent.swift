@@ -17,6 +17,7 @@ struct EquipmentItemFormContent: View {
             purchaseSection
             serviceSection
             notesSection
+            retiredSection
         }
     }
 
@@ -96,10 +97,19 @@ struct EquipmentItemFormContent: View {
 
     private var flagsSection: some View {
         Section {
-            Toggle("Retired", isOn: $form.isRetired)
-                .accessibilityIdentifier("EquipmentForm.IsRetired")
             Toggle("Auto-add on new dives", isOn: $form.autoAdd)
                 .accessibilityIdentifier("EquipmentForm.AutoAdd")
+        }
+    }
+
+    private var retiredSection: some View {
+        Section {
+            Toggle(isOn: $form.isRetired) {
+                Text("Retired")
+                    .foregroundStyle(Color.red)
+            }
+            .tint(.red)
+            .accessibilityIdentifier("EquipmentForm.IsRetired")
         }
     }
 

@@ -3,14 +3,16 @@ import SwiftUI
 /// Square media thumbnail pinned on a depth profile chart.
 struct DiveDepthProfileMediaMarkerView: View {
     let media: DiveMediaPhoto
+    var thumbnailSize: CGFloat = DiveDepthProfileMediaPlotting.markerThumbnailSize
 
-    private var size: CGFloat { DiveDepthProfileMediaPlotting.markerThumbnailSize }
-    private var cornerRadius: CGFloat { DiveDepthProfileMediaPlotting.markerThumbnailCornerRadius }
+    private var cornerRadius: CGFloat {
+        DiveDepthProfileMediaPlotting.markerThumbnailCornerRadius(forDisplaySize: thumbnailSize)
+    }
 
     var body: some View {
         DiveActivityMediaThumbnailView(
             media: media,
-            size: size,
+            size: thumbnailSize,
             cornerRadius: cornerRadius,
             showsPlayBadge: true
         )

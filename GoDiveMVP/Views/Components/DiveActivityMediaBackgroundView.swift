@@ -2,6 +2,12 @@ import SwiftUI
 
 /// Full-bleed **Media** tab hero — one photo or video at a time; horizontal paging.
 struct DiveActivityMediaBackgroundView: View {
+    private struct MediaSelectionSignature: Equatable {
+        var count: Int
+        var firstID: UUID?
+        var lastID: UUID?
+    }
+
     let mediaItems: [DiveMediaPhoto]
     @Binding var selectedMediaID: UUID?
     var timeZoneOffsetSeconds: Int?
@@ -44,8 +50,12 @@ struct DiveActivityMediaBackgroundView: View {
         }
     }
 
-    private var mediaIDsSignature: String {
-        mediaItems.map(\.id.uuidString).joined(separator: ",")
+    private var mediaIDsSignature: MediaSelectionSignature {
+        MediaSelectionSignature(
+            count: mediaItems.count,
+            firstID: mediaItems.first?.id,
+            lastID: mediaItems.last?.id
+        )
     }
 
     private var mediaPager: some View {

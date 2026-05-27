@@ -113,6 +113,10 @@ struct DiveActivityVideoThumbnailView: View {
             thumbnail = nil
             return
         }
+        if let cached = DiveActivityVideoThumbnailCache.image(for: fileURL, maxPixelSize: maxPixelSize) {
+            thumbnail = cached
+            return
+        }
         let asset = AVURLAsset(url: fileURL)
         let generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
@@ -120,7 +124,9 @@ struct DiveActivityVideoThumbnailView: View {
         let time = CMTime(seconds: 0.1, preferredTimescale: 600)
         do {
             let frame = try await generator.image(at: time)
-            thumbnail = UIImage(cgImage: frame.image)
+            let image = UIImage(cgImage: frame.image)
+            DiveActivityVideoThumbnailCache.store(image, for: fileURL, maxPixelSize: maxPixelSize)
+            thumbnail = image
         } catch {
             thumbnail = nil
         }
@@ -131,3 +137,21 @@ struct DiveActivityVideoThumbnailView: View {
     }
     #endif
 }
+
+#if canImport(UIKit)
+enum DiveActivityVideoThumbnailCache {
+    private static let cache = NSCache<NSString, UIImage>()
+
+    static func image(for fileURL: URL, maxPixelSize: CGFloat) -> UIImage? {
+        cache.object(forKey: cacheKey(fileURL: fileURL, maxPixelSize: maxPixelSize))
+    }
+
+    static func store(_ image: UIImage, for fileURL: URL, maxPixelSize: CGFloat) {
+        cache.setObject(image, forKey: cacheKey(fileURL: fileURL, maxPixelSize: maxPixelSize))
+    }
+
+    private static func cacheKey(fileURL: URL, maxPixelSize: CGFloat) -> NSString {
+        "\(fileURL.absoluteString)|\(Int(maxPixelSize))" as NSString
+    }
+}
+#endif

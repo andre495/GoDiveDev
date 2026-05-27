@@ -1323,6 +1323,25 @@ struct GoDiveMVPTests {
         #expect(samples[1].pressurePSI == 1500)
     }
 
+    @Test func diveDepthProfileSeries_sortedOverloads_matchDefaultBuilders() {
+        let t0 = Date(timeIntervalSince1970: 4_000_000)
+        let points = [
+            DiveProfilePoint(timestamp: t0.addingTimeInterval(600), depthMeters: 20, tankPressurePSI: 2400),
+            DiveProfilePoint(timestamp: t0, depthMeters: 3, tankPressurePSI: 3000),
+            DiveProfilePoint(timestamp: t0.addingTimeInterval(300), depthMeters: 12, tankPressurePSI: nil),
+        ]
+        let sorted = points.sorted { $0.timestamp < $1.timestamp }
+
+        #expect(
+            DiveDepthProfileSeries.samples(fromProfilePoints: points)
+                == DiveDepthProfileSeries.samples(fromSortedProfilePoints: sorted)
+        )
+        #expect(
+            DiveDepthProfileSeries.pressureSamples(fromProfilePoints: points)
+                == DiveDepthProfileSeries.pressureSamples(fromSortedProfilePoints: sorted)
+        )
+    }
+
     @Test func diveTankOverviewHeroPresentation_showsMinimizedProfileChart_onlyAtMinimizedWithSamples() {
         #expect(
             DiveTankOverviewHeroPresentation.showsMinimizedProfileChart(for: .minimized, depthSampleCount: 2)
@@ -1391,36 +1410,6 @@ struct GoDiveMVPTests {
         #expect(abs(viewport.elapsedEnd - 600) < 0.001)
     }
 
-    @Test func diveDepthProfileChartGesturePolicy_prefersHorizontalPanOverPinchDrift() {
-        #expect(
-            DiveDepthProfileChartGesturePolicy.prefersPanOverPinch(
-                horizontalTranslation: 24,
-                verticalTranslation: 6,
-                cumulativeScaleChange: 0.02
-            )
-        )
-        #expect(
-            !DiveDepthProfileChartGesturePolicy.prefersPanOverPinch(
-                horizontalTranslation: 24,
-                verticalTranslation: 6,
-                cumulativeScaleChange: 0.12
-            )
-        )
-        #expect(
-            !DiveDepthProfileChartGesturePolicy.prefersPanOverPinch(
-                horizontalTranslation: 6,
-                verticalTranslation: 2,
-                cumulativeScaleChange: 0.01
-            )
-        )
-    }
-
-    @Test func diveDepthProfileChartGesturePolicy_ignoresSmallPinchSteps() {
-        #expect(!DiveDepthProfileChartGesturePolicy.shouldApplyPinchZoom(scaleDeltaSinceLastApply: 1.01))
-        #expect(DiveDepthProfileChartGesturePolicy.shouldApplyPinchZoom(scaleDeltaSinceLastApply: 1.04))
-        #expect(DiveDepthProfileChartGesturePolicy.shouldApplyPinchZoom(scaleDeltaSinceLastApply: 0.96))
-    }
-
     @Test func diveDepthProfileOverlayChartLayout_depthPoint_respectsViewportWindow() {
         let rect = CGRect(x: 0, y: 0, width: 200, height: 100)
         let viewport = DiveDepthProfileChartViewport(elapsedStart: 100, elapsedEnd: 300)
@@ -1467,6 +1456,10 @@ struct GoDiveMVPTests {
                 isLandscape: false
             )
         )
+    }
+
+    @Test func diveTankOverviewHeroPresentation_landscapeChartChromeCommitDelay_isPositive() {
+        #expect(DiveTankOverviewHeroPresentation.landscapeChartChromeCommitDelay > .zero)
     }
 
     @Test func diveTankOverviewHeroPresentation_landscapeMinimized_hidesSheetAndShowsRotateHintInPortrait() {
@@ -2391,7 +2384,7 @@ struct GoDiveMVPTests {
         #expect(DiveActivityOverviewTabSelection.overviewDetent(whenSelecting: .camera) == .medium)
     }
 
-    @Test func diveActivityMediaPresentation_sortedPhotos_respectsSortOrder() {
+    @Test func diveActivityMediaPresentation_sortedPhotos_withoutCaptureDate_respectsSortOrder() {
         let activity = DiveActivity(
             source: .manual,
             startTime: Date(),
@@ -2403,6 +2396,25 @@ struct GoDiveMVPTests {
         activity.mediaPhotos = [second, first]
         let sorted = DiveActivityMediaPresentation.sortedPhotos(on: activity)
         #expect(sorted.map(\.sortOrder) == [0, 1])
+    }
+
+    @Test func diveActivityMediaPresentation_sortedPhotos_ordersByCapturedAt_oldestFirst() {
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 0,
+            maxDepthMeters: 0
+        )
+        let oldest = Date(timeIntervalSince1970: 1_000)
+        let middle = Date(timeIntervalSince1970: 2_000)
+        let newest = Date(timeIntervalSince1970: 3_000)
+        activity.mediaPhotos = [
+            DiveMediaPhoto(sortOrder: 2, mediaData: Data([3]), capturedAt: newest, dive: activity),
+            DiveMediaPhoto(sortOrder: 0, mediaData: Data([1]), capturedAt: oldest, dive: activity),
+            DiveMediaPhoto(sortOrder: 1, mediaData: Data([2]), capturedAt: middle, dive: activity),
+        ]
+        let sorted = DiveActivityMediaPresentation.sortedPhotos(on: activity)
+        #expect(sorted.map(\.capturedAt) == [oldest, middle, newest])
     }
 
     @Test func diveMediaImportProgressPresentation_progressFraction_clampsToUnitInterval() {
@@ -2452,6 +2464,93 @@ struct GoDiveMVPTests {
         #expect(DiveActivityMediaPresentation.showsBackgroundPhotos(for: .minimized))
         #expect(DiveActivityMediaPresentation.showsBackgroundPhotos(for: .medium))
         #expect(!DiveActivityMediaPresentation.showsBackgroundPhotos(for: .large))
+    }
+
+    @Test func diveActivityVideoPlaybackPolicy_shouldRestartFromBeginning_whenPageBecomesActive() {
+        #expect(
+            DiveActivityVideoPlaybackPolicy.shouldRestartFromBeginning(
+                wasPlaybackActive: false,
+                isPlaybackActive: true,
+                mediaURLChanged: false
+            )
+        )
+        #expect(
+            !DiveActivityVideoPlaybackPolicy.shouldRestartFromBeginning(
+                wasPlaybackActive: true,
+                isPlaybackActive: true,
+                mediaURLChanged: false
+            )
+        )
+        #expect(
+            DiveActivityVideoPlaybackPolicy.shouldRestartFromBeginning(
+                wasPlaybackActive: true,
+                isPlaybackActive: true,
+                mediaURLChanged: true
+            )
+        )
+    }
+
+    @Test func diveActivityVideoPlaybackPolicy_shouldPlay_respectsHoldPause() {
+        #expect(
+            DiveActivityVideoPlaybackPolicy.shouldPlay(
+                isPlaybackActive: true,
+                isPausedByUserHold: false
+            )
+        )
+        #expect(
+            !DiveActivityVideoPlaybackPolicy.shouldPlay(
+                isPlaybackActive: true,
+                isPausedByUserHold: true
+            )
+        )
+        #expect(
+            !DiveActivityVideoPlaybackPolicy.shouldPlay(
+                isPlaybackActive: false,
+                isPausedByUserHold: false
+            )
+        )
+    }
+
+    @Test func diveActivityVideoPlaybackPolicy_holdPauseGesture_failsOnSmallMovement() {
+        #expect(DiveActivityVideoPlaybackPolicy.holdPauseMaximumMovementPoints <= 8)
+        #expect(DiveActivityVideoPlaybackPolicy.holdPauseMinimumDurationSeconds >= 0.15)
+    }
+
+    @Test func diveDerivedDataBuilder_buildsDepthAndPressureFromSnapshots() {
+        let input = DiveDerivedDataBuildInput(
+            profilePointSnapshots: [
+                DiveDerivedProfilePointSnapshot(
+                    timestamp: Date(timeIntervalSince1970: 0),
+                    depthMeters: 0,
+                    tankPressurePSI: 3_000
+                ),
+                DiveDerivedProfilePointSnapshot(
+                    timestamp: Date(timeIntervalSince1970: 60),
+                    depthMeters: 12,
+                    tankPressurePSI: 2_000
+                ),
+            ],
+            sortedMediaSnapshots: [],
+            activityStartTime: Date(timeIntervalSince1970: 0),
+            durationMinutes: 60
+        )
+        let result = DiveDerivedDataBuilder.build(from: input)
+        #expect(result.depthSamples.count == 2)
+        #expect(result.depthSamples[1].elapsedSeconds == 60)
+        #expect(result.pressureSamples.count == 2)
+        #expect(result.profileGasStats.sampleCount == 2)
+    }
+
+    @Test @MainActor
+    func diveActivityMapCoordinateResolution_skipsCatalogLookupWhenEntryGPSPresent() {
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 45,
+            maxDepthMeters: 18
+        )
+        activity.entryCoordinate = DiveCoordinate(latitude: 12.1, longitude: -68.9)
+        #expect(!DiveActivityMapCoordinateResolution.needsCatalogSiteLookup(for: activity))
     }
 
     @Test func diveActivityMediaPresentation_shouldPlayBackgroundVideo_mediaTabAndSmallDetents() {
@@ -2651,6 +2750,18 @@ struct GoDiveMVPTests {
         #expect(!DiveActivityMediaPresentation.showsMediaSheetDetails(for: .large))
     }
 
+    #if canImport(UIKit)
+    @Test func diveActivityVideoThumbnailCache_roundTripsStoredImage() {
+        let url = URL(fileURLWithPath: "/tmp/test-video.mov")
+        let size: CGFloat = 120
+        #expect(DiveActivityVideoThumbnailCache.image(for: url, maxPixelSize: size) == nil)
+        let image = UIImage(systemName: "film")!
+        DiveActivityVideoThumbnailCache.store(image, for: url, maxPixelSize: size)
+        #expect(DiveActivityVideoThumbnailCache.image(for: url, maxPixelSize: size) === image)
+        #expect(DiveActivityVideoThumbnailCache.image(for: url, maxPixelSize: 80) == nil)
+    }
+    #endif
+
     @Test func diveDepthProfileMediaPlotting_depthMeters_interpolatesBetweenSamples() {
         let samples = [
             DiveDepthProfileSample(elapsedSeconds: 0, depthMeters: 0),
@@ -2737,6 +2848,68 @@ struct GoDiveMVPTests {
         )
         #expect(context?.elapsedSeconds == 600)
         #expect(context?.depthMeters == 15)
+    }
+
+    @Test func diveDepthProfileMediaPlotting_captureContextsByMediaID_matchesCaptureContext() {
+        let start = Date(timeIntervalSince1970: 2_100_000)
+        let points = [
+            DiveProfilePoint(timestamp: start, depthMeters: 0),
+            DiveProfilePoint(timestamp: start.addingTimeInterval(1200), depthMeters: 30),
+        ]
+        let samples = DiveDepthProfileSeries.samples(fromProfilePoints: points)
+        let inWindow = DiveMediaPhoto(sortOrder: 0, mediaKind: .image, capturedAt: start.addingTimeInterval(300))
+        let outWindow = DiveMediaPhoto(sortOrder: 1, mediaKind: .video, capturedAt: start.addingTimeInterval(1300))
+
+        let contexts = DiveDepthProfileMediaPlotting.captureContextsByMediaID(
+            mediaPhotos: [inWindow, outWindow],
+            profileSamples: samples,
+            activityStartTime: start,
+            durationMinutes: 20,
+            profilePoints: points
+        )
+        let single = DiveDepthProfileMediaPlotting.captureContext(
+            for: inWindow,
+            profileSamples: samples,
+            activityStartTime: start,
+            durationMinutes: 20,
+            profilePoints: points
+        )
+
+        #expect(contexts[inWindow.id] == single)
+        #expect(contexts[outWindow.id] == nil)
+    }
+
+    @Test func diveDepthProfileMediaPlotting_markerThumbnailScale_isOneAtFullViewport() {
+        let viewport = DiveDepthProfileChartViewport.full(elapsedMax: 1000)
+        #expect(
+            DiveDepthProfileMediaPlotting.markerThumbnailScale(
+                viewport: viewport,
+                fullElapsedMax: 1000
+            ) == 1
+        )
+        #expect(
+            DiveDepthProfileMediaPlotting.markerThumbnailDisplaySize(
+                viewport: viewport,
+                fullElapsedMax: 1000
+            ) == DiveDepthProfileMediaPlotting.markerThumbnailSize
+        )
+    }
+
+    @Test func diveDepthProfileMediaPlotting_markerThumbnailScale_growsWhenZoomedIn() {
+        var viewport = DiveDepthProfileChartViewport.full(elapsedMax: 1000)
+        viewport.zoom(scale: 4, anchorFraction: 0.5, fullElapsedMax: 1000)
+        let scale = DiveDepthProfileMediaPlotting.markerThumbnailScale(
+            viewport: viewport,
+            fullElapsedMax: 1000
+        )
+        #expect(scale > 1)
+        #expect(scale <= DiveDepthProfileMediaPlotting.markerThumbnailMaxScale)
+        #expect(
+            DiveDepthProfileMediaPlotting.markerThumbnailDisplaySize(
+                viewport: viewport,
+                fullElapsedMax: 1000
+            ) > DiveDepthProfileMediaPlotting.markerThumbnailSize
+        )
     }
 
     @Test func diveDepthProfileMediaPlotting_markerThumbnailMetrics_areCompactSquares() {

@@ -8,6 +8,8 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
     @ViewBuilder var collapsedSummary: () -> CollapsedSummary
     @ViewBuilder var panelContent: () -> PanelContent
     var collapsedSummaryExpandsOnTap: Bool = true
+    var showsPanelContentWhenMinimized: Bool = false
+    var disablesPanelScrollWhenMinimized: Bool = false
 
     @State private var grabberDragTranslation: CGFloat = 0
 
@@ -50,7 +52,9 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
                 liveHeightFraction: isDragging ? displayHeightFraction : nil,
                 collapsedSummary: collapsedSummary,
                 panelContent: panelContent,
-                collapsedSummaryExpandsOnTap: collapsedSummaryExpandsOnTap
+                collapsedSummaryExpandsOnTap: collapsedSummaryExpandsOnTap,
+                showsPanelContentWhenMinimized: showsPanelContentWhenMinimized,
+                disablesPanelScrollWhenMinimized: disablesPanelScrollWhenMinimized
             )
         }
         .frame(height: panelHeight, alignment: .top)

@@ -5,7 +5,7 @@ import UIKit
 #endif
 
 #if canImport(UIKit)
-/// **Explore** map: all catalog dive sites as red pins; tap opens site details.
+/// **Explore** map: all catalog dive sites as standard red markers; tap opens site details.
 struct ExploreCatalogMapRepresentable: UIViewRepresentable {
     let sites: [ExploreCatalogMapPresentation.PlottedSite]
     var onSiteSelected: (UUID) -> Void
@@ -37,8 +37,6 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
     final class Coordinator: NSObject, MKMapViewDelegate {
         var onSiteSelected: (UUID) -> Void
         private var annotationsBySiteID: [UUID: ExploreDiveSiteMapAnnotation] = [:]
-        private var cachedPinImage: UIImage?
-        private var cachedPinImageScale: CGFloat?
         private var lastSitesSignature: String?
 
         init(onSiteSelected: @escaping (UUID) -> Void) {
@@ -74,43 +72,23 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
             guard let siteAnnotation = annotation as? ExploreDiveSiteMapAnnotation else { return nil }
 
-            let pinView = mapView.dequeueReusableAnnotationView(
-                withIdentifier: ExploreCatalogMapAnnotationView.reuseIdentifier
-            ) as? ExploreCatalogMapAnnotationView
-                ?? ExploreCatalogMapAnnotationView(
-                    annotation: annotation,
-                    reuseIdentifier: ExploreCatalogMapAnnotationView.reuseIdentifier
-                )
+            let identifier = Self.standardMarkerReuseIdentifier
+            let markerView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
+                ?? MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
 
-            pinView.annotation = annotation
-            pinView.configure(
-                pinImage: pinImage(for: mapView),
-                accessibilityTitle: siteAnnotation.siteName
-            )
-            return pinView
+            markerView.annotation = annotation
+            markerView.markerTintColor = .systemRed
+            markerView.canShowCallout = false
+            markerView.accessibilityLabel = siteAnnotation.siteName
+            return markerView
         }
 
-        func mapView(_ mapView: MKMapView, didAdd views: [MKAnnotationView]) {
-            for view in views where view is ExploreCatalogMapAnnotationView {
-                view.centerOffset = MapAnnotationPinAnchor.pinOnlyCenterOffset
-            }
-        }
+        private static let standardMarkerReuseIdentifier = "ExploreCatalog.StandardMarker"
 
         func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
             guard let siteAnnotation = view.annotation as? ExploreDiveSiteMapAnnotation else { return }
             onSiteSelected(siteAnnotation.siteID)
             mapView.deselectAnnotation(view.annotation, animated: false)
-        }
-
-        private func pinImage(for mapView: MKMapView) -> UIImage {
-            let scale = mapView.traitCollection.displayScale
-            if let cachedPinImage, cachedPinImageScale == scale {
-                return cachedPinImage
-            }
-            let image = MapPushPinImageFactory.makeMapAnnotationPinImage(headColor: .red, scale: scale)
-            cachedPinImage = image
-            cachedPinImageScale = scale
-            return image
         }
     }
 }

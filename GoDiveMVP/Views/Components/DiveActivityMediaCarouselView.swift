@@ -2,6 +2,12 @@ import SwiftUI
 
 /// Horizontal thumbnail strip — tap to select which item plays in the **Media** hero.
 struct DiveActivityMediaCarouselView: View {
+    private struct MediaSelectionSignature: Equatable {
+        var count: Int
+        var firstID: UUID?
+        var lastID: UUID?
+    }
+
     let mediaItems: [DiveMediaPhoto]
     @Binding var selectedMediaID: UUID?
 
@@ -30,8 +36,12 @@ struct DiveActivityMediaCarouselView: View {
         }
     }
 
-    private var mediaIDsSignature: String {
-        mediaItems.map(\.id.uuidString).joined(separator: ",")
+    private var mediaIDsSignature: MediaSelectionSignature {
+        MediaSelectionSignature(
+            count: mediaItems.count,
+            firstID: mediaItems.first?.id,
+            lastID: mediaItems.last?.id
+        )
     }
 
     private func carouselButton(for item: DiveMediaPhoto) -> some View {

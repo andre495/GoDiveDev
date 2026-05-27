@@ -5,7 +5,7 @@ import UIKit
 #endif
 
 #if canImport(UIKit)
-/// UIKit **`MKMapView`** dive map — reliable custom pin (SwiftUI **`Map`** + **`Annotation`** can drop markers after camera updates).
+/// UIKit **`MKMapView`** dive map — standard **`MKMarkerAnnotationView`** (SwiftUI **`Map`** + **`Annotation`** can drop markers after camera updates).
 struct DiveLocationMapRepresentable: UIViewRepresentable {
     let coordinate: DiveCoordinate?
     let bottomContentMargin: CGFloat
@@ -73,8 +73,6 @@ struct DiveLocationMapRepresentable: UIViewRepresentable {
         var lastAppliedLayoutContext: DiveMapCameraLayoutContext?
         private var diveAnnotation: MKPointAnnotation?
         private var lastAnnotationKey: String?
-        private var cachedPinImage: UIImage?
-        private var cachedPinImageScale: CGFloat?
 
         func syncDiveAnnotation(on mapView: MKMapView) {
             guard let parent else { return }
@@ -114,45 +112,21 @@ struct DiveLocationMapRepresentable: UIViewRepresentable {
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
             guard !(annotation is MKUserLocation) else { return nil }
 
-            let pinView = mapView.dequeueReusableAnnotationView(
-                withIdentifier: DiveSiteMapAnnotationView.reuseIdentifier
-            ) as? DiveSiteMapAnnotationView
-                ?? DiveSiteMapAnnotationView(
-                    annotation: annotation,
-                    reuseIdentifier: DiveSiteMapAnnotationView.reuseIdentifier
-                )
+            let identifier = Self.standardMarkerReuseIdentifier
+            let markerView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
+                ?? MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
 
-            pinView.annotation = annotation
+            markerView.annotation = annotation
+            markerView.markerTintColor = .systemRed
+            markerView.canShowCallout = false
             if let coordinate = parent?.coordinate,
                DiveMapCoordinateResolver.isUsable(coordinate) {
-                pinView.configure(
-                    pinImage: pinImage(for: mapView),
-                    coordinateLabel: DiveLocationMapPresentation.coordinateLabel(for: coordinate)
-                )
+                markerView.accessibilityLabel = "Dive site, \(DiveLocationMapPresentation.coordinateLabel(for: coordinate))"
             }
-            return pinView
+            return markerView
         }
 
-        func mapView(_ mapView: MKMapView, didAdd views: [MKAnnotationView]) {
-            for view in views where view is DiveSiteMapAnnotationView {
-                view.setNeedsLayout()
-                view.layoutIfNeeded()
-            }
-        }
-
-        private func pinImage(for mapView: MKMapView) -> UIImage {
-            let scale = mapView.traitCollection.displayScale
-            if let cachedPinImage, cachedPinImageScale == scale {
-                return cachedPinImage
-            }
-            let image = MapPushPinImageFactory.makeMapAnnotationPinImage(
-                headColor: AppTheme.Colors.accentDeep,
-                scale: scale
-            )
-            cachedPinImage = image
-            cachedPinImageScale = scale
-            return image
-        }
+        private static let standardMarkerReuseIdentifier = "DiveLocation.StandardMarker"
 
         private static func makeCamera(parent: DiveLocationMapRepresentable) -> MKMapCamera {
             guard let coordinate = parent.coordinate,

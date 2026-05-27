@@ -58,7 +58,7 @@ struct DiveDepthProfileChartViewport: Equatable, Sendable {
     /// Pans by **`elapsedDelta`** seconds (positive → later in the dive).
     nonisolated mutating func pan(elapsedDelta: Double, fullElapsedMax: Double) {
         let fullMax = max(fullElapsedMax, 0.001)
-        guard elapsedSpan < fullMax * 0.98 else { return }
+        guard elapsedSpan < fullMax * 0.999 else { return }
 
         var newStart = elapsedStart + elapsedDelta
         var newEnd = elapsedEnd + elapsedDelta

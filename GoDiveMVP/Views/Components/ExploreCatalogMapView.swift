@@ -18,7 +18,7 @@ struct ExploreCatalogMapView: View {
             }
         }
         .accessibilityLabel("Explore dive sites map")
-        .accessibilityHint("Tap a red pin to view dive site details")
+        .accessibilityHint("Tap a site marker to view dive site details")
         .accessibilityIdentifier("Explore.CatalogMap")
     }
 

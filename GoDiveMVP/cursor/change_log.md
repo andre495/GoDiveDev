@@ -718,5 +718,30 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ---
 
-## 47 - Next batch
+## 47 - Dive overview perf, map pins, media UX, tank gestures **(pushed)**
 
+**Summary:** Faster dive screen open and smoother sheet/rotation; landscape tank pinch-zoom + pan; system map markers; media carousel ordering, hold-to-pause video, and zoom-scaling profile thumbnails; equipment **Retired** at bottom in red.
+
+- **`DiveDepthProfileOverlayChart`** — UIKit pinch + two-finger pan via iOS 18 **`UIGestureRecognizerRepresentable`** on the chart (simultaneous with one-finger scrub). Replaces background superview installer + SwiftUI **`MagnificationGesture`**.
+- Removed **`DiveDepthProfileChartGesturePolicy`** (no longer needed).
+- Removed on-chart pinch/pan hint capsule on **`DiveDepthProfileOverlayChart`**.
+- **Landscape rotation perf:** **`DiveTankOverviewHeroView`** no longer animates on **`isLandscape`** changes; **`ViewSingleActivity`** computes depth samples / pressure samples / media markers once per tank render pass instead of repeating conversions in the same layout cycle.
+- **`DiveDepthProfileMediaPlotting`** perf: compute dive time axis once per marker/context batch (instead of once per media item), then reuse it for capture interpolation.
+- **`DiveDepthProfileSeries`** added sorted-point overloads so callers that already sort profile points can skip redundant sorting; tank hero + media context path now use those overloads.
+- **Tests:** **`diveDepthProfileSeries_sortedOverloads_matchDefaultBuilders`**, **`diveDepthProfileMediaPlotting_captureContextsByMediaID_matchesCaptureContext`**.
+- **Detent-drag perf (`ViewSingleActivity`):** added cached **`DerivedDiveData`** (**sorted profile points/media**, depth + pressure samples, markers, capture contexts, media lookup map, gas stats) refreshed on dive/profile/media changes so map/tank/camera panel transitions reuse precomputed arrays instead of rebuilding every frame.
+- **Map + tank panel sections:** both now consume cached **`profileGasStats`** instead of recomputing from **`activity.profilePoints`** on each render.
+- **Media hero pager:** replaced per-render comma-joined media-ID signature with lightweight **`MediaSelectionSignature`** (**count + first/last ID**) for selection-sync change detection.
+- **Media tab detent transitions:** one **`photosOverviewPanelContent`** instance for **minimized** + **medium** (no swap between collapsed summary and scroll panel); removed **`carouselLayoutToken`** forced remount; **`showsPanelContentWhenMinimized`** on embedded overview sheet; scroll disabled in minimized media band; **`DiveActivityVideoThumbnailCache`** for carousel video frames.
+- **Dive map pin:** **`DiveLocationMapRepresentable`** uses system **`MKMarkerAnnotationView`** (red) instead of custom accent push pin + on-map coordinate label; site name stays on the overview sheet header.
+- **Explore map pins:** **`ExploreCatalogMapRepresentable`** uses the same system **`MKMarkerAnnotationView`**; removed custom push-pin annotation views.
+- **Media video playback:** hold still on a hero video to pause (**`onLongPressGesture`**, **~0.22s**, **5pt** max movement — pager swipe wins if the finger moves); resume on release. Pager/tab selection restarts the visible video from the beginning (**`DiveActivityVideoPlaybackPolicy`**).
+- **Open dive screen perf:** **`DiveDerivedDataBuilder`** builds profile/media chart data off the main actor; **`ViewSingleActivity`** drops always-on **`@Query`** catalog sites (lazy fetch only when map needs name lookup). MapKit still mounts immediately on the **map** tab.
+- **Media carousel / pager:** **`DiveActivityMediaPresentation.sortedPhotos`** orders by **`capturedAt`** ascending (oldest left, newest right); undated items fall back to **`sortOrder`** at the end.
+- **Equipment add/edit form:** **Retired** toggle moved to the bottom of **`EquipmentItemFormContent`**; label + switch tint styled **red**.
+- **Tank tab portrait ↔ landscape perf:** stop animating overview panel hide on orientation (animate sheet **detent** only); remove panel **transition** during rotation; single layout pass (**`layoutSize`** into hero, no nested **`GeometryReader`**); defer landscape media markers + zoom **~120ms** after rotation; **`drawingGroup()`** on depth/pressure polylines.
+- **Depth chart media markers:** thumbnail size scales with chart zoom (**`markerThumbnailScale`**, up to **2.5×** base **28pt**); corner radius scales proportionally.
+
+---
+
+## 48 - Next batch

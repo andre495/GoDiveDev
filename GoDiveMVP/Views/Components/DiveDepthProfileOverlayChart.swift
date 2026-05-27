@@ -46,16 +46,25 @@ struct DiveDepthProfileOverlayChart: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 } else {
                     Group {
-                        if showsGasOverlay, let baseline, let maxAboveBaseline {
-                            pressurePolyline(
-                                in: rect,
-                                viewport: viewport,
-                                baselinePSI: baseline,
-                                maxPressureAboveBaseline: maxAboveBaseline
-                            )
+                        Group {
+                            if showsGasOverlay, let baseline, let maxAboveBaseline {
+                                pressurePolyline(
+                                    in: rect,
+                                    viewport: viewport,
+                                    baselinePSI: baseline,
+                                    maxPressureAboveBaseline: maxAboveBaseline
+                                )
+                            }
+                            depthPolyline(in: rect, viewport: viewport, maxDepth: maxDepth)
                         }
-                        depthPolyline(in: rect, viewport: viewport, maxDepth: maxDepth)
-                        mediaMarkerLayer(in: rect, viewport: viewport, maxDepth: maxDepth)
+                        .drawingGroup()
+
+                        mediaMarkerLayer(
+                            in: rect,
+                            viewport: viewport,
+                            maxDepth: maxDepth,
+                            fullElapsedMax: maxElapsed
+                        )
 
                         if scrubActive, let idx = scrubDepthIndex, depthSamples.indices.contains(idx) {
                             scrubChrome(
@@ -69,12 +78,6 @@ struct DiveDepthProfileOverlayChart: View {
                         }
                     }
                     .clipShape(Rectangle())
-
-                    if allowsZoomAndPan {
-                        zoomInteractionHint(isZoomed: viewport.isZoomed(fullElapsedMax: maxElapsed))
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                            .padding(8)
-                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -115,26 +118,6 @@ struct DiveDepthProfileOverlayChart: View {
                 clearScrubState()
             }
         }
-    }
-
-    @ViewBuilder
-    private func zoomInteractionHint(isZoomed: Bool) -> some View {
-        VStack(alignment: .trailing, spacing: 2) {
-            Text("Pinch to zoom · 2 fingers to pan")
-            if isZoomed {
-                Text("Double-tap to reset")
-            }
-        }
-        .font(.caption2.weight(.medium))
-        .foregroundStyle(AppTheme.Colors.tabUnselected)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(.ultraThinMaterial, in: Capsule())
-        .accessibilityLabel(
-            isZoomed
-                ? "Pinch to zoom. Two fingers to pan. Double tap to reset zoom."
-                : "Pinch to zoom. Two fingers to pan. Hold and drag with one finger to inspect depth and pressure."
-        )
     }
 
     private func activeViewport(fullElapsedMax: Double) -> DiveDepthProfileChartViewport {
@@ -195,29 +178,40 @@ struct DiveDepthProfileOverlayChart: View {
     private func mediaMarkerLayer(
         in rect: CGRect,
         viewport: DiveDepthProfileChartViewport,
-        maxDepth: Double
+        maxDepth: Double,
+        fullElapsedMax: Double
     ) -> some View {
-        ForEach(mediaMarkers) { marker in
-            if viewport.contains(elapsedSeconds: marker.elapsedSeconds),
-               let media = mediaPhotosByID[marker.mediaID] {
-                Button {
-                    onMediaMarkerTap?(marker)
-                } label: {
-                    DiveDepthProfileMediaMarkerView(media: media)
-                }
-                .buttonStyle(.plain)
-                .position(
-                    DiveDepthProfileOverlayChartLayout.depthPoint(
-                        sample: DiveDepthProfileSample(
-                            elapsedSeconds: marker.elapsedSeconds,
-                            depthMeters: marker.depthMeters
-                        ),
-                        in: rect,
-                        viewport: viewport,
-                        maxDepth: maxDepth
+        let markerThumbnailSize = DiveDepthProfileMediaPlotting.markerThumbnailDisplaySize(
+            viewport: viewport,
+            fullElapsedMax: fullElapsedMax
+        )
+
+        return Group {
+            ForEach(mediaMarkers) { marker in
+                if viewport.contains(elapsedSeconds: marker.elapsedSeconds),
+                   let media = mediaPhotosByID[marker.mediaID] {
+                    Button {
+                        onMediaMarkerTap?(marker)
+                    } label: {
+                        DiveDepthProfileMediaMarkerView(
+                            media: media,
+                            thumbnailSize: markerThumbnailSize
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .position(
+                        DiveDepthProfileOverlayChartLayout.depthPoint(
+                            sample: DiveDepthProfileSample(
+                                elapsedSeconds: marker.elapsedSeconds,
+                                depthMeters: marker.depthMeters
+                            ),
+                            in: rect,
+                            viewport: viewport,
+                            maxDepth: maxDepth
+                        )
                     )
-                )
-                .accessibilityIdentifier("DiveDepthProfileOverlayChart.MediaMarker.\(marker.mediaID.uuidString)")
+                    .accessibilityIdentifier("DiveDepthProfileOverlayChart.MediaMarker.\(marker.mediaID.uuidString)")
+                }
             }
         }
     }
@@ -419,16 +413,14 @@ private struct DiveDepthProfileOverlayChartInteractionModifier: ViewModifier {
         if allowsZoomAndPan {
             content
                 .simultaneousGesture(scrubGesture)
-                .background {
-                    DiveDepthProfileChartZoomPanInstaller(
+                .gesture(
+                    DiveDepthProfileChartZoomPanGestures(
                         rect: rect,
                         maxElapsed: maxElapsed,
                         chartViewport: $chartViewport,
                         panGestureLastTranslationX: $panGestureLastTranslationX
                     )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .allowsHitTesting(false)
-                }
+                )
                 .onTapGesture(count: 2) {
                     chartViewport?.reset(fullElapsedMax: maxElapsed)
                 }
@@ -466,187 +458,151 @@ private struct DiveDepthProfileOverlayChartInteractionModifier: ViewModifier {
 #if canImport(UIKit)
 import UIKit
 
-/// UIKit pinch + two-finger pan on the chart host (avoids SwiftUI magnification stealing parallel-finger drags).
-private struct DiveDepthProfileChartZoomPanInstaller: UIViewRepresentable {
-    let rect: CGRect
-    let maxElapsed: Double
+/// UIKit pinch + two-finger pan on the chart view (iOS 18 **`UIGestureRecognizerRepresentable`**).
+///
+/// Uses **`.gesture(_:)`** (not **`simultaneousGesture`**) per Apple’s API; the coordinator installs
+/// a companion pan recognizer on the same host view.
+private struct DiveDepthProfileChartZoomPanGestures: UIGestureRecognizerRepresentable {
+    var rect: CGRect
+    var maxElapsed: Double
     @Binding var chartViewport: DiveDepthProfileChartViewport?
     @Binding var panGestureLastTranslationX: CGFloat
 
-    func makeCoordinator() -> Coordinator {
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator {
         Coordinator(
-            rect: rect,
-            maxElapsed: maxElapsed,
             chartViewport: $chartViewport,
             panGestureLastTranslationX: $panGestureLastTranslationX
         )
     }
 
-    func makeUIView(context: Context) -> AnchorView {
-        let view = AnchorView()
-        view.coordinator = context.coordinator
-        return view
+    func makeUIGestureRecognizer(context: Context) -> UIPinchGestureRecognizer {
+        let pinch = UIPinchGestureRecognizer()
+        pinch.delegate = context.coordinator
+        pinch.cancelsTouchesInView = false
+        return pinch
     }
 
-    func updateUIView(_ uiView: AnchorView, context: Context) {
-        uiView.coordinator = context.coordinator
-        context.coordinator.rect = rect
-        context.coordinator.maxElapsed = maxElapsed
-        context.coordinator.attachIfNeeded(from: uiView)
+    func updateUIGestureRecognizer(_ recognizer: UIPinchGestureRecognizer, context: Context) {
+        context.coordinator.syncLayout(rect: rect, maxElapsed: maxElapsed)
+        context.coordinator.ensurePanInstalled(on: recognizer.view)
     }
 
-    final class AnchorView: UIView {
-        var coordinator: Coordinator?
+    func handleUIGestureRecognizerAction(_ recognizer: UIPinchGestureRecognizer, context: Context) {
+        context.coordinator.syncLayout(rect: rect, maxElapsed: maxElapsed)
+        context.coordinator.ensurePanInstalled(on: recognizer.view)
 
-        override func didMoveToSuperview() {
-            super.didMoveToSuperview()
-            coordinator?.attachIfNeeded(from: self)
+        switch recognizer.state {
+        case .began:
+            context.coordinator.pinchLastAppliedScale = 1
+        case .changed:
+            let scaleDelta = Double(recognizer.scale / max(context.coordinator.pinchLastAppliedScale, 0.001))
+            guard scaleDelta > 0, var viewport = chartViewport else { return }
+            viewport.zoom(
+                scale: scaleDelta,
+                anchorFraction: 0.5,
+                fullElapsedMax: maxElapsed
+            )
+            chartViewport = viewport
+            context.coordinator.pinchLastAppliedScale = recognizer.scale
+        case .ended, .cancelled, .failed:
+            context.coordinator.pinchLastAppliedScale = 1
+            recognizer.scale = 1
+        default:
+            break
         }
+    }
 
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-            coordinator?.attachIfNeeded(from: self)
-        }
+    func dismantleUIGestureRecognizer(_ recognizer: UIPinchGestureRecognizer, coordinator: Coordinator) {
+        coordinator.detachPan()
     }
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
-        var rect: CGRect
-        var maxElapsed: Double
         @Binding var chartViewport: DiveDepthProfileChartViewport?
         @Binding var panGestureLastTranslationX: CGFloat
 
+        var rect: CGRect = .zero
+        var maxElapsed: Double = 0
+        var pinchLastAppliedScale: CGFloat = 1
+
         private weak var hostView: UIView?
         private var panRecognizer: UIPanGestureRecognizer?
-        private var pinchRecognizer: UIPinchGestureRecognizer?
-
-        private var panActive = false
-        private var pinchActive = false
-        private var sessionPrefersPan = false
-        private var pinchLastAppliedScale: CGFloat = 1
 
         init(
-            rect: CGRect,
-            maxElapsed: Double,
             chartViewport: Binding<DiveDepthProfileChartViewport?>,
             panGestureLastTranslationX: Binding<CGFloat>
         ) {
-            self.rect = rect
-            self.maxElapsed = maxElapsed
             _chartViewport = chartViewport
             _panGestureLastTranslationX = panGestureLastTranslationX
         }
 
-        func attachIfNeeded(from anchor: UIView) {
-            guard let host = anchor.superview else { return }
-            guard hostView !== host else { return }
-            detach()
-            hostView = host
-            host.isMultipleTouchEnabled = true
+        func syncLayout(rect: CGRect, maxElapsed: Double) {
+            self.rect = rect
+            self.maxElapsed = maxElapsed
+        }
+
+        func ensurePanInstalled(on view: UIView?) {
+            guard let view else { return }
+            guard hostView !== view || panRecognizer == nil else { return }
+            detachPan()
+            hostView = view
+            view.isMultipleTouchEnabled = true
 
             let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
             pan.minimumNumberOfTouches = 2
             pan.maximumNumberOfTouches = 2
             pan.delegate = self
-            host.addGestureRecognizer(pan)
+            pan.cancelsTouchesInView = false
+            view.addGestureRecognizer(pan)
             panRecognizer = pan
-
-            let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
-            pinch.delegate = self
-            host.addGestureRecognizer(pinch)
-            pinchRecognizer = pinch
         }
 
-        func detach() {
+        func detachPan() {
             if let panRecognizer, let hostView {
                 hostView.removeGestureRecognizer(panRecognizer)
             }
-            if let pinchRecognizer, let hostView {
-                hostView.removeGestureRecognizer(pinchRecognizer)
-            }
             panRecognizer = nil
-            pinchRecognizer = nil
             hostView = nil
         }
 
         @objc private func handlePan(_ recognizer: UIPanGestureRecognizer) {
             switch recognizer.state {
             case .began:
-                panActive = true
                 panGestureLastTranslationX = 0
             case .changed:
-                guard var viewport = chartViewport, viewport.isZoomed(fullElapsedMax: maxElapsed) else { return }
+                guard var viewport = chartViewport, canPan(viewport: viewport) else { return }
 
-                let translation = recognizer.translation(in: hostView)
-                let cumulativeScaleChange = Double((pinchRecognizer?.scale ?? 1) - 1)
-                let panIntent = DiveDepthProfileChartGesturePolicy.prefersPanOverPinch(
-                    horizontalTranslation: translation.x,
-                    verticalTranslation: translation.y,
-                    cumulativeScaleChange: cumulativeScaleChange
-                )
-                if panIntent {
-                    sessionPrefersPan = true
-                }
-                guard sessionPrefersPan else { return }
-
-                let deltaX = translation.x - panGestureLastTranslationX
-                panGestureLastTranslationX = translation.x
+                let translationX = recognizer.translation(in: recognizer.view).x
+                let deltaX = translationX - panGestureLastTranslationX
+                panGestureLastTranslationX = translationX
                 let elapsedDelta = -Double(deltaX / max(rect.width, 1)) * viewport.elapsedSpan
                 viewport.pan(elapsedDelta: elapsedDelta, fullElapsedMax: maxElapsed)
                 chartViewport = viewport
             case .ended, .cancelled, .failed:
-                panActive = false
                 panGestureLastTranslationX = 0
-                endSessionIfNeeded()
             default:
                 break
             }
         }
 
-        @objc private func handlePinch(_ recognizer: UIPinchGestureRecognizer) {
-            switch recognizer.state {
-            case .began:
-                pinchActive = true
-                pinchLastAppliedScale = 1
-            case .changed:
-                guard !sessionPrefersPan else { return }
-
-                let scaleDelta = Double(recognizer.scale / max(pinchLastAppliedScale, 0.001))
-                guard scaleDelta > 0,
-                      DiveDepthProfileChartGesturePolicy.shouldApplyPinchZoom(scaleDeltaSinceLastApply: scaleDelta)
-                else { return }
-
-                chartViewport?.zoom(
-                    scale: scaleDelta,
-                    anchorFraction: 0.5,
-                    fullElapsedMax: maxElapsed
-                )
-                pinchLastAppliedScale = recognizer.scale
-            case .ended, .cancelled, .failed:
-                pinchActive = false
-                pinchLastAppliedScale = 1
-                recognizer.scale = 1
-                endSessionIfNeeded()
-            default:
-                break
-            }
+        private func canPan(viewport: DiveDepthProfileChartViewport) -> Bool {
+            viewport.elapsedSpan < max(maxElapsed, 0.001) * 0.999
         }
 
-        private func endSessionIfNeeded() {
-            guard !panActive, !pinchActive else { return }
-            sessionPrefersPan = false
+        @objc func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard gestureRecognizer === panRecognizer else { return true }
+            guard let viewport = chartViewport else { return false }
+            return canPan(viewport: viewport)
         }
 
-        func gestureRecognizer(
+        @objc func gestureRecognizer(
             _ gestureRecognizer: UIGestureRecognizer,
             shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
         ) -> Bool {
-            guard let panRecognizer, let pinchRecognizer else { return false }
-            let pair = Set([gestureRecognizer, otherGestureRecognizer])
-            return pair == Set([panRecognizer, pinchRecognizer])
+            true
         }
 
         deinit {
-            detach()
+            detachPan()
         }
     }
 }

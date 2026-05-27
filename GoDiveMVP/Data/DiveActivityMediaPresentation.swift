@@ -23,12 +23,25 @@ enum DiveActivityMediaPresentation: Sendable {
     }
 
     nonisolated static func sortedPhotos(on activity: DiveActivity) -> [DiveMediaPhoto] {
-        activity.mediaPhotos.sorted { lhs, rhs in
-            if lhs.sortOrder != rhs.sortOrder {
-                return lhs.sortOrder < rhs.sortOrder
-            }
-            return lhs.id.uuidString < rhs.id.uuidString
+        activity.mediaPhotos.sorted(by: isOrderedBeforeInGallery)
+    }
+
+    /// Gallery / carousel order: oldest **`capturedAt`** first (left); undated items last, then **`sortOrder`**, then **`id`**.
+    nonisolated static func isOrderedBeforeInGallery(_ lhs: DiveMediaPhoto, _ rhs: DiveMediaPhoto) -> Bool {
+        switch (lhs.capturedAt, rhs.capturedAt) {
+        case let (left?, right?):
+            if left != right { return left < right }
+        case (nil, .some):
+            return false
+        case (.some, nil):
+            return true
+        case (nil, nil):
+            break
         }
+        if lhs.sortOrder != rhs.sortOrder {
+            return lhs.sortOrder < rhs.sortOrder
+        }
+        return lhs.id.uuidString < rhs.id.uuidString
     }
 
     nonisolated static func hasDisplayableMedia(on activity: DiveActivity) -> Bool {

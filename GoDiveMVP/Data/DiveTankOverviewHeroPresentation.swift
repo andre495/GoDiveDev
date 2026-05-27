@@ -40,6 +40,9 @@ enum DiveTankOverviewHeroPresentation: Sendable {
 
     nonisolated static let heroDetentAnimationDuration: TimeInterval = 0.45
 
+    /// Defer landscape-only chart chrome (media markers, zoom) until after rotation settles.
+    nonisolated static let landscapeChartChromeCommitDelay: Duration = .milliseconds(120)
+
     nonisolated static func scale(for detent: DiveActivityOverviewDetent) -> CGFloat {
         detent == .minimized ? minimizedScale : 1
     }

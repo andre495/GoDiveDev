@@ -234,7 +234,7 @@ extension DiveActivity {
         return entries.map(\.equipmentItemID)
     }
 
-    /// **`mediaPhotos`** ordered for gallery UI (**`sortOrder`**, then **`id`**).
+    /// **`mediaPhotos`** ordered for gallery UI (**`capturedAt`** oldest first, then **`sortOrder`**, then **`id`**).
     var sortedMediaPhotos: [DiveMediaPhoto] {
         DiveActivityMediaPresentation.sortedPhotos(on: self)
     }
