@@ -5,7 +5,7 @@ import UIKit
 #endif
 
 #if canImport(UIKit)
-/// UIKit **`MKMapView`** dive map — standard **`MKMarkerAnnotationView`** (SwiftUI **`Map`** + **`Annotation`** can drop markers after camera updates).
+/// UIKit **`MKMapView`** dive map — system **`MKMarkerAnnotationView`** with native coordinate title (site name on sheet header).
 struct DiveLocationMapRepresentable: UIViewRepresentable {
     let coordinate: DiveCoordinate?
     let bottomContentMargin: CGFloat
@@ -94,6 +94,7 @@ struct DiveLocationMapRepresentable: UIViewRepresentable {
                 latitude: coordinate.latitude,
                 longitude: coordinate.longitude
             )
+            annotation.title = DiveLocationMapPresentation.mapMarkerCoordinateTitle(for: coordinate)
             diveAnnotation = annotation
             mapView.addAnnotation(annotation)
         }
@@ -118,10 +119,12 @@ struct DiveLocationMapRepresentable: UIViewRepresentable {
 
             markerView.annotation = annotation
             markerView.markerTintColor = .systemRed
+            markerView.titleVisibility = .visible
+            markerView.subtitleVisibility = .hidden
             markerView.canShowCallout = false
             if let coordinate = parent?.coordinate,
                DiveMapCoordinateResolver.isUsable(coordinate) {
-                markerView.accessibilityLabel = "Dive site, \(DiveLocationMapPresentation.coordinateLabel(for: coordinate))"
+                markerView.accessibilityLabel = "Dive site, \(DiveLocationMapPresentation.mapMarkerCoordinateTitle(for: coordinate))"
             }
             return markerView
         }

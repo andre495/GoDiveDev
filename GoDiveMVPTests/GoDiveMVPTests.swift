@@ -2953,6 +2953,15 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func diveLocationMapPresentation_mapMarkerCoordinateTitle_usesLocaleFormatting() {
+        let coordinate = DiveCoordinate(latitude: 12.08316, longitude: -68.28330)
+        let enUS = Locale(identifier: "en_US")
+        #expect(
+            DiveLocationMapPresentation.mapMarkerCoordinateTitle(for: coordinate, locale: enUS)
+                == "12.083°, -68.283°"
+        )
+    }
+
     @Test func appTheme_sheet_sharedPresentationChrome_isTranslucent() {
         #expect(AppTheme.Sheet.cornerRadius == 20)
         #expect(AppTheme.Sheet.backgroundMaterialOpacity > 0)

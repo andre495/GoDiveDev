@@ -54,6 +54,28 @@ enum DiveLocationMapPresentation: Sendable {
         String(format: "%.3f°, %.3f°", coordinate.latitude, coordinate.longitude)
     }
 
+    /// Coordinate string for **`MKMarkerAnnotationView`** title (locale decimal separators, **3** fractional digits).
+    nonisolated static func mapMarkerCoordinateTitle(
+        for coordinate: DiveCoordinate,
+        locale: Locale = .current
+    ) -> String {
+        let formatter = NumberFormatter()
+        formatter.locale = locale
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 3
+        formatter.maximumFractionDigits = 3
+        formatter.usesGroupingSeparator = false
+
+        func formattedDegrees(_ value: Double) -> String {
+            guard let number = formatter.string(from: NSNumber(value: value)) else {
+                return String(format: "%.3f", locale: locale, value)
+            }
+            return "\(number)°"
+        }
+
+        return "\(formattedDegrees(coordinate.latitude)), \(formattedDegrees(coordinate.longitude))"
+    }
+
     /// Stable **`View.id`** so MapKit remounts when the dive or resolved coordinate changes.
     nonisolated static func mapViewIdentity(activityID: UUID, coordinate: DiveCoordinate?) -> String {
         let coordinatePart: String

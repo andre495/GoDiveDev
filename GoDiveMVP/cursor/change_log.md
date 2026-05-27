@@ -754,4 +754,14 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ---
 
-## 49 - Next batch
+## 49 - Dive map native pin and coordinate title **(pushed)**
+
+**Summary:** Dive overview map uses Apple native markers with visible coordinate titles.
+
+- **`DiveLocationMapRepresentable`**: **`MKMarkerAnnotationView`** (red) with **`titleVisibility = .visible`**; annotation **`title`** is **`mapMarkerCoordinateTitle`** (locale decimal separators, 3 fractional digits).
+- **`DiveLocationMapPresentation`**: **`mapMarkerCoordinateTitle(for:locale:)`** for map marker titles.
+- **Tests:** **`diveLocationMapPresentation_mapMarkerCoordinateTitle_usesLocaleFormatting`**.
+
+---
+
+## 50 - Next batch
