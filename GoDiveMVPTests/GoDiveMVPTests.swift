@@ -1916,6 +1916,503 @@ struct GoDiveMVPTests {
         #expect(site.bodyOfWater == "Gulf of California")
     }
 
+    @Test func marineLifeMapper_mapsSnakeCaseDTO() {
+        let dto = MarineLifeDTO(
+            uuid: "marine-life-test-turtle",
+            commonName: "Green Sea Turtle",
+            featureImage: "https://example.com/turtle.jpg",
+            scientificName: "Chelonia mydas",
+            category: "Reptile",
+            description: "Herbivorous sea turtle.",
+            minSize: 0.5,
+            maxSize: 1.1,
+            avgDepth: 10
+        )
+        let species = MarineLifeMapper.map(dto)
+        #expect(species.uuid == "marine-life-test-turtle")
+        #expect(species.commonName == "Green Sea Turtle")
+        #expect(species.featureImageURL == "https://example.com/turtle.jpg")
+        #expect(species.aboutText == "Herbivorous sea turtle.")
+        #expect(species.minSizeMeters == 0.5)
+        #expect(species.avgDepthMeters == 10)
+    }
+
+    @Test @MainActor func marineLifeCatalogSeeder_isIdempotentByUUID() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+        let firstCount = try context.fetchCount(FetchDescriptor<MarineLife>())
+        #expect(firstCount > 0)
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+        #expect(try context.fetchCount(FetchDescriptor<MarineLife>()) == firstCount)
+    }
+
+    @Test func sightingInstanceDateTimeResolution_prefersMediaCapturedAt() {
+        let diveStart = Date(timeIntervalSince1970: 1_000_000)
+        let mediaTime = Date(timeIntervalSince1970: 1_000_500)
+        #expect(
+            SightingInstanceDateTimeResolution.resolvedUTCDateTime(
+                diveStartTime: diveStart,
+                mediaCapturedAt: mediaTime
+            ) == mediaTime
+        )
+        #expect(
+            SightingInstanceDateTimeResolution.resolvedUTCDateTime(
+                diveStartTime: diveStart,
+                mediaCapturedAt: nil
+            ) == diveStart
+        )
+    }
+
+    @Test @MainActor func sightingInstanceCreation_insert_linksMarineLifeAndDive() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 2_000_000),
+            durationMinutes: 45,
+            maxDepthMeters: 18
+        )
+        let species = MarineLife(uuid: "marine-life-test-ray", commonName: "Spotted Eagle Ray")
+        context.insert(dive)
+        context.insert(species)
+
+        let draft = SightingInstanceCreation.makeDraft(
+            marineLifeUUID: species.uuid,
+            dive: dive,
+            sightingDepthMeters: 12
+        )
+        let sighting = try SightingInstanceCreation.insert(
+            draft: draft,
+            marineLife: species,
+            dive: dive,
+            modelContext: context
+        )
+
+        #expect(sighting.marineLifeUUID == species.uuid)
+        #expect(sighting.diveActivityID == dive.id)
+        #expect(sighting.sightingDateTime == dive.startTime)
+        #expect(sighting.sightingDepthMeters == 12)
+        #expect(sighting.mediaPhotoID == nil)
+    }
+
+    @Test func diveActivityMediaPresentation_showsMarineLifeTagOnHero_onlyAtMinimized() {
+        #expect(DiveActivityMediaPresentation.showsMarineLifeTagOnHero(for: .minimized))
+        #expect(!DiveActivityMediaPresentation.showsMarineLifeTagOnHero(for: .medium))
+        #expect(!DiveActivityMediaPresentation.showsMarineLifeTagOnHero(for: .large))
+    }
+
+    @Test func diveActivityMediaPresentation_showsMarineLifeTagInSheet_onlyAtMedium() {
+        #expect(!DiveActivityMediaPresentation.showsMarineLifeTagInSheet(for: .minimized))
+        #expect(DiveActivityMediaPresentation.showsMarineLifeTagInSheet(for: .medium))
+        #expect(!DiveActivityMediaPresentation.showsMarineLifeTagInSheet(for: .large))
+    }
+
+    @Test func diveActivityOverviewPanelMetrics_mediaCarouselScreenAlignmentTopInset_matchesDetentGap() {
+        let layoutHeight: CGFloat = 800
+        let inset = DiveActivityOverviewPanelMetrics.mediaCarouselScreenAlignmentTopInset(
+            layoutHeight: layoutHeight
+        )
+        #expect(inset == layoutHeight * (0.50 - 0.20))
+    }
+
+    @Test @MainActor func marineLifeSightingRecorder_tagsMediaAndUpdatesUserRecord() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+
+        let owner = UserProfile(appleUserIdentifier: "test-tag", displayName: "Diver")
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 3_000_000),
+            durationMinutes: 40,
+            maxDepthMeters: 20
+        )
+        dive.owner = owner
+        dive.ownerProfileID = owner.id
+        let media = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 3_000_100))
+        media.link(to: dive)
+        let species = MarineLife(uuid: "marine-life-tag-test", commonName: "French Angelfish")
+
+        context.insert(owner)
+        context.insert(dive)
+        context.insert(media)
+        context.insert(species)
+
+        let contextCapture = DiveMediaCaptureContext(elapsedSeconds: 600, depthMeters: 15)
+        _ = try MarineLifeSightingRecorder.tagSpecies(
+            species,
+            on: media,
+            dive: dive,
+            captureContext: contextCapture,
+            owner: owner,
+            modelContext: context
+        )
+
+        let sightings = try context.fetch(FetchDescriptor<SightingInstance>())
+        #expect(sightings.count == 1)
+        #expect(sightings[0].marineLifeUUID == species.uuid)
+        #expect(sightings[0].mediaPhotoID == media.id)
+        #expect(sightings[0].sightingDateTime == media.capturedAt)
+        #expect(sightings[0].sightingDepthMeters == 15)
+
+        let records = try MarineLifeUserRecordOwnership.userRecords(
+            forOwnerProfileID: owner.id,
+            modelContext: context
+        )
+        #expect(records.count == 1)
+        #expect(records[0].isSighted)
+        #expect(records[0].activitiesSightedOn.contains(dive.id))
+        #expect(records[0].userTaggedMedia.contains("media:\(media.id.uuidString)"))
+    }
+
+    @Test @MainActor func marineLifeSightingRecorder_sightingsForMedia_filtersByPhotoID() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+
+        let owner = UserProfile(appleUserIdentifier: "test-sightings-filter", displayName: "Diver")
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 3_100_000),
+            durationMinutes: 40,
+            maxDepthMeters: 20
+        )
+        dive.owner = owner
+        dive.ownerProfileID = owner.id
+        let taggedMedia = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 3_100_100))
+        let otherMedia = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 3_100_200))
+        taggedMedia.link(to: dive)
+        otherMedia.link(to: dive)
+        let angelfish = MarineLife(uuid: "marine-life-filter-angelfish", commonName: "French Angelfish")
+        let ray = MarineLife(uuid: "marine-life-filter-ray", commonName: "Spotted Eagle Ray")
+        let turtle = MarineLife(uuid: "marine-life-filter-turtle", commonName: "Green Turtle")
+
+        context.insert(owner)
+        context.insert(dive)
+        context.insert(taggedMedia)
+        context.insert(otherMedia)
+        context.insert(angelfish)
+        context.insert(ray)
+        context.insert(turtle)
+
+        _ = try MarineLifeSightingRecorder.tagSpecies(
+            angelfish,
+            on: taggedMedia,
+            dive: dive,
+            captureContext: nil,
+            owner: owner,
+            modelContext: context
+        )
+        _ = try MarineLifeSightingRecorder.tagSpecies(
+            ray,
+            on: taggedMedia,
+            dive: dive,
+            captureContext: nil,
+            owner: owner,
+            modelContext: context
+        )
+        _ = try MarineLifeSightingRecorder.tagSpecies(
+            turtle,
+            on: otherMedia,
+            dive: dive,
+            captureContext: nil,
+            owner: owner,
+            modelContext: context
+        )
+
+        let taggedSightings = try MarineLifeSightingRecorder.sightings(
+            forMediaPhotoID: taggedMedia.id,
+            modelContext: context
+        )
+        #expect(taggedSightings.count == 2)
+        #expect(Set(taggedSightings.map(\.marineLifeUUID)) == Set([angelfish.uuid, ray.uuid]))
+    }
+
+    @Test func marineLifeMediaTagPresentation_taggedRows_listsUniqueSpeciesOnMedia() {
+        let taggedMedia = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 4_000_000))
+        let otherMedia = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 4_000_200))
+        let angelfish = MarineLife(uuid: "marine-life-row-angelfish", commonName: "Zebra Angelfish")
+        let ray = MarineLife(uuid: "marine-life-row-ray", commonName: "Spotted Eagle Ray")
+
+        let sightingOnMedia = SightingInstance(
+            marineLifeUUID: angelfish.uuid,
+            sightingDateTime: Date(timeIntervalSince1970: 4_000_000),
+            marineLife: angelfish,
+            mediaPhoto: taggedMedia
+        )
+        let duplicateOnMedia = SightingInstance(
+            marineLifeUUID: angelfish.uuid,
+            sightingDateTime: Date(timeIntervalSince1970: 4_000_100),
+            marineLife: angelfish,
+            mediaPhoto: taggedMedia
+        )
+        let otherMediaSighting = SightingInstance(
+            marineLifeUUID: ray.uuid,
+            sightingDateTime: Date(timeIntervalSince1970: 4_000_200),
+            marineLife: ray,
+            mediaPhoto: otherMedia
+        )
+
+        let rows = MarineLifeMediaTagPresentation.taggedRows(
+            mediaPhotoID: taggedMedia.id,
+            sightings: [sightingOnMedia, duplicateOnMedia, otherMediaSighting],
+            catalog: [angelfish, ray],
+            unitSystem: .metric
+        )
+
+        #expect(rows.count == 1)
+        #expect(rows[0].marineLifeUUID == angelfish.uuid)
+        #expect(rows[0].commonName == "Zebra Angelfish")
+    }
+
+    @Test func fieldGuideMarineLifeSearch_matchesCommonScientificOrCategory() {
+        let angelfish = MarineLifeCatalogSnapshot(
+            uuid: "marine-life-angelfish",
+            commonName: "French Angelfish",
+            scientificName: "Pomacanthus paru",
+            category: "Fish",
+            featureImageURL: "",
+            minSizeMeters: 0.2,
+            maxSizeMeters: 0.35,
+            avgDepthMeters: 15
+        )
+        #expect(FieldGuideMarineLifeSearch.matches(angelfish, query: "french"))
+        #expect(FieldGuideMarineLifeSearch.matches(angelfish, query: "pomacanthus"))
+        #expect(FieldGuideMarineLifeSearch.matches(angelfish, query: "fish"))
+        #expect(!FieldGuideMarineLifeSearch.matches(angelfish, query: "turtle"))
+        #expect(FieldGuideMarineLifeSearch.filtering([angelfish], query: "paru").count == 1)
+        #expect(FieldGuideMarineLifeSearch.filtering([angelfish], query: "").count == 1)
+    }
+
+    @Test func diveSiteMarineLifePresentation_sightedSpeciesLinks_dedupesAndSorts() {
+        let siteID = UUID()
+        let ownerID = UUID()
+        let diveID = UUID()
+        let angelfishUUID = "marine-life-angelfish"
+        let rayUUID = "marine-life-ray"
+
+        let angelfish = MarineLife(uuid: angelfishUUID, commonName: "French Angelfish")
+        let ray = MarineLife(uuid: rayUUID, commonName: "Spotted Eagle Ray")
+
+        let sightings = [
+            SightingInstance(
+                marineLifeUUID: angelfishUUID,
+                sightingDateTime: Date(timeIntervalSince1970: 1_000_000),
+                diveActivity: DiveActivity(
+                    source: .manual,
+                    startTime: Date(timeIntervalSince1970: 1_000_000),
+                    durationMinutes: 40,
+                    maxDepthMeters: 20
+                ),
+                diveSite: DiveSite(siteName: "Salt Pier")
+            ),
+            SightingInstance(
+                marineLifeUUID: angelfishUUID,
+                sightingDateTime: Date(timeIntervalSince1970: 1_000_100),
+                marineLife: angelfish
+            ),
+            SightingInstance(
+                marineLifeUUID: rayUUID,
+                sightingDateTime: Date(timeIntervalSince1970: 1_000_200),
+                marineLife: ray
+            ),
+        ]
+        sightings[0].diveSiteID = siteID
+        sightings[0].diveActivityID = diveID
+        sightings[1].diveSiteID = siteID
+        sightings[1].diveActivityID = diveID
+        sightings[2].diveSiteID = siteID
+        sightings[2].diveActivityID = diveID
+
+        let catalogByUUID = [
+            angelfishUUID: angelfish.fieldGuideCatalogSnapshot,
+            rayUUID: ray.fieldGuideCatalogSnapshot,
+        ]
+
+        let links = DiveSiteMarineLifePresentation.sightedSpeciesLinks(
+            diveSiteID: siteID,
+            ownerProfileID: ownerID,
+            sightings: sightings,
+            ownerDiveActivityIDs: [diveID],
+            catalogByUUID: catalogByUUID
+        )
+
+        #expect(links.count == 2)
+        #expect(links[0].displayName == "French Angelfish")
+        #expect(links[1].displayName == "Spotted Eagle Ray")
+    }
+
+    @Test func exploreDiveSiteListSearch_matchesNameAndPlace() {
+        let site = DiveSite(siteName: "Salt Pier", country: "Bonaire", region: "Caribbean")
+        #expect(ExploreDiveSiteListSearch.matches(site, query: "salt"))
+        #expect(ExploreDiveSiteListSearch.matches(site, query: "bonaire"))
+        #expect(!ExploreDiveSiteListSearch.matches(site, query: "aruba"))
+        #expect(ExploreDiveSiteListSearch.filtering([site], query: "pier").count == 1)
+    }
+
+    @Test func fieldGuidePresentation_listDetailLine_joinsScientificNameAndSizeDepth() {
+        #expect(
+            FieldGuidePresentation.listDetailLine(
+                scientificName: "Pomacanthus paru",
+                sizeDepthLine: "up to 18 in · avg 45 ft"
+            ) == "Pomacanthus paru · up to 18 in · avg 45 ft"
+        )
+        #expect(
+            FieldGuidePresentation.listDetailLine(
+                scientificName: "",
+                sizeDepthLine: "avg 15 m"
+            ) == "avg 15 m"
+        )
+        #expect(FieldGuidePresentation.listTrailingLabel(category: "Fish") == "Fish")
+        #expect(FieldGuidePresentation.listTrailingLabel(category: "  ") == "—")
+    }
+
+    @Test func diveMediaPhotoImageLoader_emptyData_returnsNilThumbnail() async {
+        #if canImport(UIKit)
+        let image = await DiveMediaPhotoImageLoader.thumbnail(from: Data(), maxPixelSize: 144)
+        #expect(image == nil)
+        #endif
+    }
+
+    @Test func fieldGuideTaggedMediaPresentation_galleryRefreshToken_changesWhenSightingsChange() {
+        let dive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 1, maxDepthMeters: 1)
+        let firstPhoto = DiveMediaPhoto(capturedAt: .now, dive: dive)
+        let secondPhoto = DiveMediaPhoto(capturedAt: .now, dive: dive)
+        let first = SightingInstance(
+            marineLifeUUID: "a",
+            sightingDateTime: .now,
+            diveActivity: dive,
+            mediaPhoto: firstPhoto
+        )
+        let second = SightingInstance(
+            marineLifeUUID: "a",
+            sightingDateTime: .now,
+            diveActivity: dive,
+            mediaPhoto: secondPhoto
+        )
+        let diveID = dive.id
+        let tokenA = FieldGuideTaggedMediaPresentation.galleryRefreshToken(
+            sightings: [first],
+            ownerDiveActivityIDs: [diveID]
+        )
+        let tokenB = FieldGuideTaggedMediaPresentation.galleryRefreshToken(
+            sightings: [first, second],
+            ownerDiveActivityIDs: [diveID]
+        )
+        #expect(tokenA != tokenB)
+    }
+
+    @Test @MainActor func fieldGuideTaggedMediaPresentation_resolvedTaggedMediaPhotos_fetchesByMediaPhotoID() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let dive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 1, maxDepthMeters: 1)
+        context.insert(dive)
+        let media = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 5_000), dive: dive)
+        context.insert(media)
+
+        let sighting = SightingInstance(
+            marineLifeUUID: "species-fetch-by-id",
+            sightingDateTime: Date(timeIntervalSince1970: 5_000),
+            diveActivity: dive
+        )
+        sighting.mediaPhoto = nil
+        sighting.mediaPhotoID = media.id
+        context.insert(sighting)
+        try context.save()
+
+        let photos = FieldGuideTaggedMediaPresentation.resolvedTaggedMediaPhotos(
+            sightings: [sighting],
+            ownerDiveActivityIDs: [dive.id],
+            modelContext: context
+        )
+        #expect(photos.count == 1)
+        #expect(photos[0].id == media.id)
+    }
+
+    @Test func fieldGuideTaggedMediaPresentation_collectsUniqueOwnerPhotos_oldestCaptureFirst() {
+        let dive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 1, maxDepthMeters: 1)
+        let otherDive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 1, maxDepthMeters: 1)
+        let older = DiveMediaPhoto(
+            capturedAt: Date(timeIntervalSince1970: 1_000),
+            dive: dive
+        )
+        let newer = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 2_000), dive: dive)
+        let otherDivePhoto = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 3_000), dive: otherDive)
+
+        let speciesUUID = "marine-life-tagged-media"
+        let sightings = [
+            SightingInstance(
+                marineLifeUUID: speciesUUID,
+                sightingDateTime: Date(timeIntervalSince1970: 2_000),
+                diveActivity: dive,
+                mediaPhoto: newer
+            ),
+            SightingInstance(
+                marineLifeUUID: speciesUUID,
+                sightingDateTime: Date(timeIntervalSince1970: 1_500),
+                diveActivity: dive,
+                mediaPhoto: older
+            ),
+            SightingInstance(
+                marineLifeUUID: speciesUUID,
+                sightingDateTime: Date(timeIntervalSince1970: 1_600),
+                diveActivity: dive,
+                mediaPhoto: older
+            ),
+            SightingInstance(
+                marineLifeUUID: speciesUUID,
+                sightingDateTime: Date(timeIntervalSince1970: 3_000),
+                diveActivity: otherDive,
+                mediaPhoto: otherDivePhoto
+            ),
+        ]
+
+        let photos = FieldGuideTaggedMediaPresentation.taggedMediaPhotos(
+            sightings: sightings,
+            ownerDiveActivityIDs: [dive.id]
+        )
+        #expect(photos.map(\.id) == [older.id, newer.id])
+
+        let offsets = FieldGuideTaggedMediaPresentation.timeZoneOffsetByMediaID(
+            sightings: sightings,
+            ownerDiveActivityIDs: [dive.id],
+            timeZoneOffsetByActivityID: [dive.id: -14_400]
+        )
+        #expect(offsets[older.id] == -14_400)
+        #expect(offsets[newer.id] == -14_400)
+        #expect(offsets[otherDivePhoto.id] == nil)
+    }
+
+    @Test func fieldGuidePresentation_sightedActivityLinks_sortsNewestFirstAndFormatsTitle() {
+        let olderID = UUID()
+        let newerID = UUID()
+        let links = FieldGuidePresentation.sightedActivityLinks(
+            activityIDs: [olderID, newerID],
+            activities: [
+                DiveActivitySightingLinkSnapshot(
+                    id: olderID,
+                    resolvedSiteName: "Salt Pier",
+                    startTime: Date(timeIntervalSince1970: 1_000_000),
+                    timeZoneOffsetSeconds: nil
+                ),
+                DiveActivitySightingLinkSnapshot(
+                    id: newerID,
+                    resolvedSiteName: nil,
+                    startTime: Date(timeIntervalSince1970: 2_000_000),
+                    timeZoneOffsetSeconds: nil
+                ),
+            ]
+        )
+
+        #expect(links.count == 2)
+        #expect(links[0].id == newerID)
+        #expect(links[0].title == "New Dive")
+        #expect(links[1].id == olderID)
+        #expect(links[1].title == "Salt Pier")
+        #expect(!links[0].dateText.isEmpty)
+    }
+
     @Test func diveSiteFormValidation_sanitizedPlaceField_trimsWhitespace() {
         #expect(DiveSiteFormValidation.sanitizedPlaceField("  Bonaire  ") == "Bonaire")
         #expect(DiveSiteFormValidation.sanitizedPlaceField("   ") == "")
@@ -2749,18 +3246,6 @@ struct GoDiveMVPTests {
         #expect(DiveActivityMediaPresentation.showsMediaSheetDetails(for: .medium))
         #expect(!DiveActivityMediaPresentation.showsMediaSheetDetails(for: .large))
     }
-
-    #if canImport(UIKit)
-    @Test func diveActivityVideoThumbnailCache_roundTripsStoredImage() {
-        let url = URL(fileURLWithPath: "/tmp/test-video.mov")
-        let size: CGFloat = 120
-        #expect(DiveActivityVideoThumbnailCache.image(for: url, maxPixelSize: size) == nil)
-        let image = UIImage(systemName: "film")!
-        DiveActivityVideoThumbnailCache.store(image, for: url, maxPixelSize: size)
-        #expect(DiveActivityVideoThumbnailCache.image(for: url, maxPixelSize: size) === image)
-        #expect(DiveActivityVideoThumbnailCache.image(for: url, maxPixelSize: 80) == nil)
-    }
-    #endif
 
     @Test func diveDepthProfileMediaPlotting_depthMeters_interpolatesBetweenSamples() {
         let samples = [
@@ -4306,6 +4791,22 @@ struct GoDiveMVPTests {
 
     @Test func appTheme_logbookSearchFieldHeight_matchesInlineChromeRow() {
         #expect(AppTheme.Layout.logbookSearchFieldHeight == 44)
+    }
+
+    @Test func logbookListSurfaceEquatableInputs_searchFocusChangeIsNotEqual() {
+        let base = LogbookListSurfaceEquatableInputs(
+            rows: [],
+            showsStoredDiveEmptyState: false,
+            isFilteringBySiteName: false,
+            isSiteSearchFocused: false,
+            bubbleAnimationPaused: false,
+            headerClearance: 0,
+            scrollToTopNonce: 0
+        )
+        var focused = base
+        focused.isSiteSearchFocused = true
+        #expect(base == base)
+        #expect(base != focused)
     }
 
     // MARK: - Duplicate dive matching

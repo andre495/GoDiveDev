@@ -61,3 +61,25 @@ enum DiveLogbookDisplay {
         return "\(dateStr) · \(depth) · \(dur)"
     }
 }
+
+/// Equality inputs for **`LogbookListSurface`** (**.equatable()**). Includes search focus so top chrome can swap **+** / **Cancel** without rebuilding the list on every SwiftData merge.
+struct LogbookListSurfaceEquatableInputs: Equatable, Sendable {
+    var rows: [DiveLogbookRowDisplayData]
+    var showsStoredDiveEmptyState: Bool
+    var isFilteringBySiteName: Bool
+    var isSiteSearchFocused: Bool
+    var bubbleAnimationPaused: Bool
+    var headerClearance: CGFloat
+    var scrollToTopNonce: Int
+
+    /// Explicit **`nonisolated`** equality — avoids MainActor-isolated synthesis when compared from **`LogbookListSurface`** and unit tests.
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.rows == rhs.rows
+            && lhs.showsStoredDiveEmptyState == rhs.showsStoredDiveEmptyState
+            && lhs.isFilteringBySiteName == rhs.isFilteringBySiteName
+            && lhs.isSiteSearchFocused == rhs.isSiteSearchFocused
+            && lhs.bubbleAnimationPaused == rhs.bubbleAnimationPaused
+            && lhs.headerClearance == rhs.headerClearance
+            && lhs.scrollToTopNonce == rhs.scrollToTopNonce
+    }
+}

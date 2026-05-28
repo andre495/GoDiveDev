@@ -5,6 +5,7 @@ Place local fixture files in this folder for app testing.
 Minimum setup expects:
 
 - `dives_sample.json`
+- `marine_life_sample.json` (field-guide catalog; seeded on launch when missing)
 
 Expected JSON shape:
 

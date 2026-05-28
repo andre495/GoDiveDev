@@ -2,25 +2,49 @@ import SwiftData
 import SwiftUI
 
 struct ExploreView: View {
+    @Environment(AccountSession.self) private var accountSession
     @Query(sort: \DiveSite.siteName) private var diveSites: [DiveSite]
-    @State private var selectedSite: DiveSite?
+    @Query(sort: \MarineLife.commonName) private var marineLifeCatalog: [MarineLife]
+    @Query(
+        sort: [
+            SortDescriptor(\DiveActivity.startTime, order: .reverse),
+            SortDescriptor(\DiveActivity.id, order: .forward),
+        ]
+    )
+    private var diveActivities: [DiveActivity]
+    @State private var path: [ExploreRoute] = []
     @State private var viewMode: ExploreViewMode = .map
+    @State private var siteSearchQuery = ""
+    @FocusState private var isSiteSearchFocused: Bool
     @State private var exploreTopChromeHeight: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
+
+    private var filteredDiveSites: [DiveSite] {
+        ExploreDiveSiteListSearch.filtering(diveSites, query: siteSearchQuery)
+    }
 
     private var plottableSites: [ExploreCatalogMapPresentation.PlottedSite] {
         ExploreCatalogMapPresentation.plottableSites(from: diveSites)
     }
 
     private var siteListRows: [ExploreDiveSiteRowDisplayData] {
-        ExploreDiveSiteListDisplay.rowData(for: diveSites)
+        ExploreDiveSiteListDisplay.rowData(for: filteredDiveSites)
     }
 
-    private var diveSiteListSignature: String {
-        diveSites.map(\.id.uuidString).joined(separator: "|")
+    private var isFilteringSites: Bool {
+        ExploreDiveSiteListSearch.isFiltering(query: siteSearchQuery)
+    }
+
+    private var showsSiteListSearch: Bool {
+        viewMode == .list && !diveSites.isEmpty
+    }
+
+    private var ownerDiveActivities: [DiveActivity] {
+        guard let ownerID = accountSession.currentProfile?.id else { return [] }
+        return diveActivities.filter { $0.ownerProfileID == ownerID }
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             AppHeaderlessPage {
                 GeometryReader { proxy in
                     let topInset = proxy.safeAreaInsets.top + exploreTopChromeHeight
@@ -31,7 +55,7 @@ struct ExploreView: View {
                             switch viewMode {
                             case .map:
                                 ExploreCatalogMapView(sites: plottableSites) { siteID in
-                                    selectedSite = diveSites.first(where: { $0.id == siteID })
+                                    path.append(.siteDetail(siteID))
                                 }
                                 .ignoresSafeArea()
                             case .list:
@@ -50,6 +74,9 @@ struct ExploreView: View {
 
                         ExploreTopChrome(
                             viewMode: $viewMode,
+                            siteSearchQuery: $siteSearchQuery,
+                            isSiteSearchFocused: $isSiteSearchFocused,
+                            showsSiteSearch: showsSiteListSearch,
                             statusBarSafeAreaTop: proxy.safeAreaInsets.top
                         )
                         .frame(maxWidth: .infinity, alignment: .top)
@@ -63,18 +90,58 @@ struct ExploreView: View {
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .sheet(item: $selectedSite) { site in
-                ExploreDiveSiteDetailSheet(site: site)
+            .navigationDestination(for: ExploreRoute.self) { route in
+                switch route {
+                case .siteDetail(let siteID):
+                    if let site = diveSites.first(where: { $0.id == siteID }) {
+                        ExploreDiveSiteDetailView(
+                            site: site,
+                            ownerProfileID: accountSession.currentProfile?.id
+                        )
+                    } else {
+                        Text("This dive site is no longer in the catalog.")
+                            .foregroundStyle(AppTheme.Colors.secondaryText)
+                            .padding()
+                    }
+                case .speciesDetail(let marineLifeUUID):
+                    if let species = marineLifeCatalog.first(where: { $0.uuid == marineLifeUUID }) {
+                        FieldGuideMarineLifeDetailView(
+                            species: species,
+                            ownerProfileID: accountSession.currentProfile?.id
+                        ) { activityID in
+                            path.append(.diveDetail(activityID))
+                        }
+                    } else {
+                        Text("This species is no longer in the catalog.")
+                            .foregroundStyle(AppTheme.Colors.secondaryText)
+                            .padding()
+                    }
+                case .diveDetail(let id):
+                    if let activity = ownerDiveActivities.first(where: { $0.id == id }) {
+                        ViewSingleActivity(activity: activity)
+                    } else {
+                        Text("This dive is no longer in your log.")
+                            .foregroundStyle(AppTheme.Colors.secondaryText)
+                            .padding()
+                    }
+                }
             }
         }
         .navigationInteractivePopGestureForHiddenNavBar()
-        .onChange(of: diveSiteListSignature) { _, _ in
-            guard let selectedSite else { return }
-            if !diveSites.contains(where: { $0.id == selectedSite.id }) {
-                self.selectedSite = nil
+        .onChange(of: viewMode) { _, mode in
+            if mode != .list {
+                dismissSiteSearchKeyboard()
             }
         }
+        .onChange(of: isSiteSearchFocused) { _, isFocused in
+            if !isFocused {
+                dismissSiteSearchKeyboard()
+            }
+        }
+    }
+
+    private func dismissSiteSearchKeyboard() {
+        isSiteSearchFocused = false
     }
 
     @ViewBuilder
@@ -83,6 +150,12 @@ struct ExploreView: View {
             exploreSiteListEmptyState
                 .padding(.top, topInset)
                 .padding(.horizontal, AppTheme.Spacing.lg)
+        } else if siteListRows.isEmpty && isFilteringSites {
+            CatalogSearchEmptyState(
+                title: "No matching dive sites",
+                message: "Try a different site name or place."
+            )
+            .padding(.top, topInset)
         } else {
             List {
                 Color.clear
@@ -94,7 +167,7 @@ struct ExploreView: View {
 
                 ForEach(siteListRows) { row in
                     Button {
-                        selectedSite = diveSites.first(where: { $0.id == row.id })
+                        path.append(.siteDetail(row.id))
                     } label: {
                         ExploreDiveSiteRow(data: row)
                             .equatable()
@@ -123,6 +196,7 @@ struct ExploreView: View {
             .listStyle(.plain)
             .listRowSpacing(AppTheme.Spacing.md)
             .scrollContentBackground(.hidden)
+            .scrollDismissesKeyboard(.interactively)
             .background(Color.clear)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .ignoresSafeArea(edges: [.top, .bottom])

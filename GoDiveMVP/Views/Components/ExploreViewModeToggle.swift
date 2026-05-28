@@ -21,7 +21,7 @@ enum ExploreViewMode: String, CaseIterable, Identifiable {
     }
 }
 
-/// Segmented map / list control for **Explore** (aligned with top-trailing chrome).
+/// Segmented map / list control for **Explore** (trailing chrome on map and list rows).
 struct ExploreViewModeToggle: View {
     @Binding var selection: ExploreViewMode
 

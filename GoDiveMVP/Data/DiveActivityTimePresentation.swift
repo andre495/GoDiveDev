@@ -3,19 +3,19 @@ import Foundation
 /// Formats dive **`Date`** values using a persisted fixed offset when set, else the device timezone.
 enum DiveActivityTimePresentation: Sendable {
 
-    static func resolvedTimeZone(forOffsetSeconds offsetSeconds: Int?) -> TimeZone {
+    nonisolated static func resolvedTimeZone(forOffsetSeconds offsetSeconds: Int?) -> TimeZone {
         guard let offsetSeconds else { return .current }
         return TimeZone(secondsFromGMT: offsetSeconds) ?? .current
     }
 
-    static func format(
+    nonisolated static func format(
         _ value: Date,
         timeZoneOffsetSeconds: Int?,
         dateStyle: Date.FormatStyle.DateStyle = .abbreviated,
         timeStyle: Date.FormatStyle.TimeStyle = .omitted
     ) -> String {
         let formatter = DateFormatter()
-        formatter.locale = Locale.current
+        formatter.locale = formattingLocale
         formatter.timeZone = resolvedTimeZone(forOffsetSeconds: timeZoneOffsetSeconds)
         let styles = dateFormatterStyles(dateStyle: dateStyle, timeStyle: timeStyle)
         formatter.dateStyle = styles.date
@@ -23,16 +23,16 @@ enum DiveActivityTimePresentation: Sendable {
         return formatter.string(from: value)
     }
 
-    static func formatDateTime(_ value: Date, timeZoneOffsetSeconds: Int?) -> String {
+    nonisolated static func formatDateTime(_ value: Date, timeZoneOffsetSeconds: Int?) -> String {
         format(value, timeZoneOffsetSeconds: timeZoneOffsetSeconds, dateStyle: .abbreviated, timeStyle: .shortened)
     }
 
-    static func formatDateOnly(_ value: Date, timeZoneOffsetSeconds: Int?) -> String {
+    nonisolated static func formatDateOnly(_ value: Date, timeZoneOffsetSeconds: Int?) -> String {
         format(value, timeZoneOffsetSeconds: timeZoneOffsetSeconds, dateStyle: .abbreviated, timeStyle: .omitted)
     }
 
     /// Stored instant as UTC (**`Z`**) for import/debug rows.
-    static func formatUTCDateTime(_ value: Date) -> String {
+    nonisolated static func formatUTCDateTime(_ value: Date) -> String {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
         formatter.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
@@ -40,7 +40,7 @@ enum DiveActivityTimePresentation: Sendable {
     }
 
     /// Human-readable fixed offset used for dive-local display (e.g. **UTC−04:00**).
-    static func formatTimeZoneOffsetLabel(offsetSeconds: Int?) -> String {
+    nonisolated static func formatTimeZoneOffsetLabel(offsetSeconds: Int?) -> String {
         guard let offsetSeconds else {
             return "Not set (device timezone)"
         }
@@ -51,7 +51,13 @@ enum DiveActivityTimePresentation: Sendable {
         return String(format: "UTC%@%d:%02d", sign, hours, minutes)
     }
 
-    private static func dateFormatterStyles(
+    /// App locale without **`Locale.current`** (main-actor isolated in Swift 6).
+    nonisolated private static var formattingLocale: Locale {
+        let identifier = Bundle.main.preferredLocalizations.first ?? "en_US"
+        return Locale(identifier: identifier)
+    }
+
+    nonisolated private static func dateFormatterStyles(
         dateStyle: Date.FormatStyle.DateStyle,
         timeStyle: Date.FormatStyle.TimeStyle
     ) -> (date: DateFormatter.Style, time: DateFormatter.Style) {

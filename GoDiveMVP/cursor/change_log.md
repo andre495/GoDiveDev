@@ -764,4 +764,43 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ---
 
-## 50 - Next batch
+## 50 - Marine life catalog, sightings, and tagged media **(pushed)**
+
+**Summary:** Field Guide marine-life catalog + per-sighting **`SightingInstance`** framework (tag UI next).
+
+**Marine life catalog (prior in this section):**
+
+- **`MarineLife`** (`@Model`): catalog fields — **`uuid`**, **`commonName`**, **`featureImageURL`**, **`scientificName`**, **`category`**, **`aboutText`**, **`minSizeMeters`**, **`maxSizeMeters`**, **`avgDepthMeters`** (canonical meters).
+- **`MarineLifeUserRecord`**: per-profile **`isSighted`**, **`activitiesSightedOn`**, **`sitesSightedOn`**, **`userTaggedMedia`** keyed by **`marineLifeUUID`**.
+- **`MarineLifeDTO`** / **`MarineLifeMapper`**, **`MarineLifeCatalogSeeder`**, **`marine_life_sample.json`**; launch seeds catalog when empty.
+- **`FieldGuideView`**: species list → pushed **`FieldGuideMarineLifeDetailView`** (**`AppPage`**, not sheet); **Activities sighted on** (dive name + date, links to **`ViewSingleActivity`**); no list checkmark; **`FieldGuidePresentation`**, **`FieldGuideMarineLifeRow`**.
+- **`ExploreView`**: map/list site tap → pushed **`ExploreDiveSiteDetailView`** (**`AppPage`**); **Marine life sighted here** section + species links; list mode **search dive sites** (logbook-style).
+- **Field Guide** + **Explore** list: **`CatalogSearchField`** / **`CatalogListSearchChrome`** — species and site substring filter; **No matching** empty states.
+- **Tests:** mapper, catalog seed idempotency, row sighted flag.
+
+**`SightingInstance` (child of `MarineLife`):**
+- **`SightingInstance`**: **`sightingUUID`**, **`marineLifeUUID`**, **`sightingDateTime`** (UTC), **`diveActivityID`**, **`diveSiteID`**, **`sightingDepthMeters`**, **`mediaPhotoID`** + relationships.
+- **`SightingInstanceDateTimeResolution`**: media **`capturedAt`** overrides dive **`startTime`**.
+- **`SightingInstanceLinking`**, **`SightingInstanceCreation`** (draft + insert stub for tag flow).
+- **`DiveActivity.marineLifeSightings`** cascade; dive delete batch-removes sightings.
+- **Tests:** datetime resolution, insert/link smoke test.
+
+**List search Cancel / trailing swap:**
+- **`CatalogListSearchChrome`**: shared logbook-style row; **Cancel** in a trailing **`ZStack`** (hides **+** / other actions while focused); **`LogbookTopChrome`** delegates here.
+- **Bug fix:** **`LogbookListSurface`** **`.equatable()`** now includes **`isSiteSearchFocused`** so focus changes refresh chrome (**+** ↔ **Cancel**); **`LogbookListSurfaceEquatableInputs`** + test.
+- **Field Guide** / **Explore** list: same **`CatalogListSearchChrome`**.
+- **Explore** top chrome: single logbook-height row — **map:** Trip Planner **leading**, toggle **trailing**; **list:** inline site search + toggle (**calendar** hidden).
+- **Field Guide** list: same **`ZStack`** / **`WaterBubbleBackground`** / in-scroll inset / **`listRowSpacing`** / chrome scrim stack as **Logbook**; **`FieldGuideTopChrome`** wrapper.
+- **Field Guide** species detail + **Explore** dive-site detail: **Your tagged photos** — large preview + **`DiveActivityMediaCarouselView`**; **`FieldGuideTaggedMediaPresentation`** + **`FieldGuideTaggedMediaGalleryView`**; dive-site detail uses **`ScrollView`** (no list row tile behind gallery).
+- **Tagged media:** **`DiveActivityMediaItemView`** + **`DiveActivityMediaCarouselView`** on species / site detail; **`DiveMediaPhotoImageLoader`** (ImageIO, no cache); photos resolved by **`mediaPhotoID`** via **`resolvedTaggedMediaPhotos`**; owner-scoped dive **`@Query`**.
+
+**Tag marine life from dive media:**
+- Removed **I've seen this species** toggle from **`FieldGuideMarineLifeDetailSheet`**.
+- **Camera** tab: fish control (palette icon, matches map info button) — hero **top leading** at **minimized**; sheet **top leading** at **medium**; carousel Y aligned across detents; removed **Media** / **Photo N of M** header at **medium**. (tagged species overview; toolbar **+** opens **`DiveMarineLifeTagPickerSheet`** — multi-tag with **Done**, **Cancel** dismisses) → **`MarineLifeSightingRecorder`** + **`MarineLifeMediaTagPresentation`**.
+- **`DiveActivityMediaPresentation.showsMarineLifeTagOnHero`**, **`MarineLifeSightingRecorder.sightings(for:)`**.
+- **Tests:** media sightings fetch, tagged-row presentation.
+
+---
+
+## 51 - Next batch
+

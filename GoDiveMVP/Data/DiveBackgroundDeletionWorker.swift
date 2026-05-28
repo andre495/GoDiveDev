@@ -123,6 +123,10 @@ actor DiveBackgroundDeletionWorker {
             where: #Predicate<DiveBuddyTag> { $0.diveActivityID == diveID }
         )
         try modelContext.delete(
+            model: SightingInstance.self,
+            where: #Predicate<SightingInstance> { $0.diveActivityID == diveID }
+        )
+        try modelContext.delete(
             model: DiveMediaPhoto.self,
             where: #Predicate<DiveMediaPhoto> { $0.diveActivityID == diveID }
         )

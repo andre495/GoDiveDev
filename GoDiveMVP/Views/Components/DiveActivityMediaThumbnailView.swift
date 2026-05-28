@@ -13,6 +13,10 @@ struct DiveActivityMediaThumbnailView: View {
     var cornerRadius: CGFloat = DiveActivityMediaPresentation.carouselThumbnailCornerRadius
     var showsPlayBadge: Bool = true
 
+    #if canImport(UIKit)
+    @State private var thumbnailImage: UIImage?
+    #endif
+
     var body: some View {
         ZStack {
             thumbnailContent
@@ -27,6 +31,13 @@ struct DiveActivityMediaThumbnailView: View {
                     .allowsHitTesting(false)
             }
         }
+        .task(id: loadTaskID) {
+            await loadThumbnailIfNeeded()
+        }
+    }
+
+    private var loadTaskID: String {
+        "\(media.id.uuidString)-\(Int(size))"
     }
 
     private var playBadgeFont: Font {
@@ -48,8 +59,8 @@ struct DiveActivityMediaThumbnailView: View {
     @ViewBuilder
     private var imageThumbnail: some View {
         #if canImport(UIKit)
-        if let image = UIImage(data: media.mediaData) {
-            Image(uiImage: image)
+        if let thumbnailImage {
+            Image(uiImage: thumbnailImage)
                 .resizable()
                 .scaledToFill()
         } else {
@@ -67,6 +78,21 @@ struct DiveActivityMediaThumbnailView: View {
                 .foregroundStyle(AppTheme.Colors.tabUnselected)
         }
     }
+
+    #if canImport(UIKit)
+    private func loadThumbnailIfNeeded() async {
+        guard media.resolvedMediaKind == .image, !media.mediaData.isEmpty else {
+            thumbnailImage = nil
+            return
+        }
+        thumbnailImage = await DiveMediaPhotoImageLoader.thumbnail(
+            from: media.mediaData,
+            maxPixelSize: size * 2
+        )
+    }
+    #else
+    private func loadThumbnailIfNeeded() async {}
+    #endif
 }
 
 // MARK: - Video frame
@@ -101,20 +127,12 @@ struct DiveActivityVideoThumbnailView: View {
         .task(id: fileURL?.absoluteString) {
             await loadThumbnail()
         }
-        .onAppear {
-            guard thumbnail == nil else { return }
-            Task { await loadThumbnail() }
-        }
     }
 
     #if canImport(UIKit) && canImport(AVFoundation)
     private func loadThumbnail() async {
         guard let fileURL else {
             thumbnail = nil
-            return
-        }
-        if let cached = DiveActivityVideoThumbnailCache.image(for: fileURL, maxPixelSize: maxPixelSize) {
-            thumbnail = cached
             return
         }
         let asset = AVURLAsset(url: fileURL)
@@ -124,9 +142,7 @@ struct DiveActivityVideoThumbnailView: View {
         let time = CMTime(seconds: 0.1, preferredTimescale: 600)
         do {
             let frame = try await generator.image(at: time)
-            let image = UIImage(cgImage: frame.image)
-            DiveActivityVideoThumbnailCache.store(image, for: fileURL, maxPixelSize: maxPixelSize)
-            thumbnail = image
+            thumbnail = UIImage(cgImage: frame.image)
         } catch {
             thumbnail = nil
         }
@@ -137,21 +153,3 @@ struct DiveActivityVideoThumbnailView: View {
     }
     #endif
 }
-
-#if canImport(UIKit)
-enum DiveActivityVideoThumbnailCache {
-    private static let cache = NSCache<NSString, UIImage>()
-
-    static func image(for fileURL: URL, maxPixelSize: CGFloat) -> UIImage? {
-        cache.object(forKey: cacheKey(fileURL: fileURL, maxPixelSize: maxPixelSize))
-    }
-
-    static func store(_ image: UIImage, for fileURL: URL, maxPixelSize: CGFloat) {
-        cache.setObject(image, forKey: cacheKey(fileURL: fileURL, maxPixelSize: maxPixelSize))
-    }
-
-    private static func cacheKey(fileURL: URL, maxPixelSize: CGFloat) -> NSString {
-        "\(fileURL.absoluteString)|\(Int(maxPixelSize))" as NSString
-    }
-}
-#endif

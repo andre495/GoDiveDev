@@ -1,0 +1,46 @@
+[
+  {
+    "uuid": "marine-life-green-sea-turtle",
+    "common_name": "Green Sea Turtle",
+    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Chelonia_mydas_%28Hawaiian_green_sea_turtle%29.jpg/320px-Chelonia_mydas_%28Hawaiian_green_sea_turtle%29.jpg",
+    "scientific_name": "Chelonia mydas",
+    "category": "Reptile",
+    "description": "Large herbivorous sea turtle often seen grazing on seagrass in calm bays and along reef slopes.",
+    "min_size": 0.6,
+    "max_size": 1.2,
+    "avg_depth": 8
+  },
+  {
+    "uuid": "marine-life-french-angelfish",
+    "common_name": "French Angelfish",
+    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Pomacanthus_paru.jpg/320px-Pomacanthus_paru.jpg",
+    "scientific_name": "Pomacanthus paru",
+    "category": "Fish",
+    "description": "Striking black and yellow angelfish common on Caribbean reefs, often seen in pairs near coral heads.",
+    "min_size": 0.25,
+    "max_size": 0.41,
+    "avg_depth": 12
+  },
+  {
+    "uuid": "marine-life-spotted-eagle-ray",
+    "common_name": "Spotted Eagle Ray",
+    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Spotted_eagle_ray_%28Aetobatus_narinari%29.jpg/320px-Spotted_eagle_ray_%28Aetobatus_narinari%29.jpg",
+    "scientific_name": "Aetobatus narinari",
+    "category": "Ray",
+    "description": "Graceful ray with white spots on a dark back, often gliding over sand flats and reef drop-offs.",
+    "min_size": 1.5,
+    "max_size": 3.0,
+    "avg_depth": 18
+  },
+  {
+    "uuid": "marine-life-caribbean-reef-squid",
+    "common_name": "Caribbean Reef Squid",
+    "feature_image": "",
+    "scientific_name": "Sepioteuthis sepioidea",
+    "category": "Cephalopod",
+    "description": "Curious schooling squid that flash color patterns while hovering over reefs, especially on night dives.",
+    "min_size": 0.08,
+    "max_size": 0.2,
+    "avg_depth": 6
+  }
+]

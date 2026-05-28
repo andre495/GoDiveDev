@@ -96,6 +96,10 @@ final class DiveActivity {
     @Relationship(deleteRule: .cascade)
     var mediaPhotos: [DiveMediaPhoto] = []
 
+    /// Field-guide sightings logged on this dive (**`SightingInstance`**).
+    @Relationship(deleteRule: .cascade)
+    var marineLifeSightings: [SightingInstance] = []
+
     /// Gear used on this dive (**`DiveEquipmentEntry`** rows). Created on first link / auto-add.
     @Relationship(deleteRule: .cascade)
     var equipmentList: DiveActivityEquipmentList?

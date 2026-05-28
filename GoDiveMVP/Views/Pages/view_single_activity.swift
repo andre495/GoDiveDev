@@ -46,6 +46,7 @@ struct ViewSingleActivity: View {
     @State private var equipmentLinkErrorMessage: String?
     @State private var diveMediaPickerItems: [PhotosPickerItem] = []
     @State private var selectedDiveMediaPhotoID: UUID?
+    @State private var marineLifeTagMediaID: UUID?
     @State private var mediaImportOverlay: DiveMediaImportOverlayState = .hidden
     @State private var derivedDiveData = DerivedDiveData()
     @State private var catalogSitesForMapResolution: [DiveSite] = []
@@ -183,6 +184,15 @@ struct ViewSingleActivity: View {
             }
             .sheet(isPresented: depthChartMediaPreviewPresented) {
                 depthChartMediaPreviewSheet
+            }
+            .sheet(isPresented: marineLifeTagSheetPresented) {
+                if let media = marineLifeTagTargetMedia {
+                    DiveMarineLifeMediaTagsSheet(
+                        media: media,
+                        dive: activity,
+                        captureContext: mediaCaptureContextsByID[media.id]
+                    )
+                }
             }
             .alert("Could not add equipment", isPresented: equipmentLinkErrorBinding) {
                 Button("OK", role: .cancel) {}
@@ -429,6 +439,12 @@ struct ViewSingleActivity: View {
                             mediaCaptureContextsByID: mediaCaptureContextsByID,
                             sheetDetent: overviewSheetDetent,
                             isMediaTabSelected: selectedActivityTab == .camera,
+                            onTagMarineLife: tagMarineLifeFromMedia,
+                            marineLifeTagTopPadding: DiveActivityOverviewPanelMetrics.marineLifeTagButtonTopPadding(
+                                topSafeInset: geometry.safeAreaInsets.top,
+                                chromeRowHeight: DiveActivityTabIcon.menuRowHeight,
+                                chromeTopPadding: AppTheme.Spacing.sm
+                            ),
                             bottomContentMargin: bottomObstruction
                         )
                         .ignoresSafeArea()
@@ -458,7 +474,7 @@ struct ViewSingleActivity: View {
                             case .tank:
                                 tankPanelContent
                             case .camera:
-                                photosOverviewPanelContent
+                                photosOverviewPanelContent(layoutHeight: layoutHeight)
                             }
                         },
                         collapsedSummaryExpandsOnTap: selectedActivityTab != .camera,
@@ -927,26 +943,45 @@ struct ViewSingleActivity: View {
         )
     }
 
-    private var photosOverviewPanelContent: some View {
-        DiveActivityPhotosPanelContent(
+    private func photosOverviewPanelContent(layoutHeight: CGFloat) -> some View {
+        let showsSheetDetails = DiveActivityMediaPresentation.showsMediaSheetDetails(
+            for: overviewSheetDetent
+        )
+        let showsMarineLifeTagInSheet = DiveActivityMediaPresentation.showsMarineLifeTagInSheet(
+            for: overviewSheetDetent
+        ) && !derivedDiveData.sortedMediaItems.isEmpty
+
+        return DiveActivityPhotosPanelContent(
             mediaItems: derivedDiveData.sortedMediaItems,
             selectedMediaID: $selectedDiveMediaPhotoID,
             timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds,
+            sheetDetent: overviewSheetDetent,
+            layoutHeight: layoutHeight,
             showsMediaCarousel: DiveActivityMediaPresentation.showsMediaCarouselInSheet(
                 for: overviewSheetDetent
             ),
-            showsSheetDetails: DiveActivityMediaPresentation.showsMediaSheetDetails(
-                for: overviewSheetDetent
-            ),
+            showsSheetDetails: showsSheetDetails,
+            showsMarineLifeTagInSheet: showsMarineLifeTagInSheet,
+            onTagMarineLife: showsMarineLifeTagInSheet
+                ? { tagMarineLifeFromSelectedMedia() }
+                : nil,
             mediaPickerItems: $diveMediaPickerItems,
             isImportInProgress: mediaImportOverlay.isBlocking
         )
         .animation(nil, value: overviewSheetDetent)
         .accessibilityIdentifier(
-            DiveActivityMediaPresentation.showsMediaSheetDetails(for: overviewSheetDetent)
+            showsSheetDetails
                 ? "DiveOverview.MediaPanel"
                 : "DiveOverview.MediaPanel.Minimized"
         )
+    }
+
+    private func tagMarineLifeFromSelectedMedia() {
+        guard let media = DiveActivityMediaPresentation.selectedMedia(
+            selectedID: selectedDiveMediaPhotoID,
+            in: derivedDiveData.sortedMediaItems
+        ) else { return }
+        tagMarineLifeFromMedia(media)
     }
 
     @MainActor
@@ -1125,6 +1160,26 @@ struct ViewSingleActivity: View {
 
     private var mediaCaptureContextsByID: [UUID: DiveMediaCaptureContext] {
         derivedDiveData.mediaCaptureContextsByID
+    }
+
+    private var marineLifeTagSheetPresented: Binding<Bool> {
+        Binding(
+            get: { marineLifeTagMediaID != nil },
+            set: { isPresented in
+                if !isPresented {
+                    marineLifeTagMediaID = nil
+                }
+            }
+        )
+    }
+
+    private var marineLifeTagTargetMedia: DiveMediaPhoto? {
+        guard let marineLifeTagMediaID else { return nil }
+        return derivedDiveData.mediaPhotosByID[marineLifeTagMediaID]
+    }
+
+    private func tagMarineLifeFromMedia(_ media: DiveMediaPhoto) {
+        marineLifeTagMediaID = media.id
     }
 
     private var depthChartPreviewCaptureContext: DiveMediaCaptureContext? {

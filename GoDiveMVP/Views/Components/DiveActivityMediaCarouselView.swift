@@ -14,7 +14,7 @@ struct DiveActivityMediaCarouselView: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: DiveActivityMediaPresentation.carouselThumbnailSpacing) {
+                LazyHStack(spacing: DiveActivityMediaPresentation.carouselThumbnailSpacing) {
                     ForEach(mediaItems, id: \.id) { item in
                         carouselButton(for: item)
                             .id(item.id)

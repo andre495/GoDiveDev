@@ -11,6 +11,15 @@ private enum DiveQuantityFormattingConstants: Sendable {
 enum DiveQuantityFormatting {
 
     nonisolated static func depth(meters: Double, system: DiveDisplayUnitSystem) -> String {
+        linearMeters(meters, system: system)
+    }
+
+    /// Animal size or other length from stored **m** (same conversion as **`depth`**).
+    nonisolated static func length(meters: Double, system: DiveDisplayUnitSystem) -> String {
+        linearMeters(meters, system: system)
+    }
+
+    private nonisolated static func linearMeters(_ meters: Double, system: DiveDisplayUnitSystem) -> String {
         switch system {
         case .metric:
             return String(format: "%.1f m", meters)

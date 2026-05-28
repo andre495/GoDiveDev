@@ -21,11 +21,20 @@ enum ExploreDiveSiteListDisplay {
         }
     }
 
-    static func placeSummary(for site: DiveSite) -> String {
-        let country = site.country.trimmingCharacters(in: .whitespacesAndNewlines)
-        let region = site.region.trimmingCharacters(in: .whitespacesAndNewlines)
-        let body = site.bodyOfWater.trimmingCharacters(in: .whitespacesAndNewlines)
+    /// Place hierarchy for search / list copy (safe from **`nonisolated`** callers).
+    nonisolated static func placeSummary(
+        country: String,
+        region: String,
+        bodyOfWater: String
+    ) -> String {
+        let country = country.trimmingCharacters(in: .whitespacesAndNewlines)
+        let region = region.trimmingCharacters(in: .whitespacesAndNewlines)
+        let body = bodyOfWater.trimmingCharacters(in: .whitespacesAndNewlines)
         return [country, region, body].filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+
+    static func placeSummary(for site: DiveSite) -> String {
+        placeSummary(country: site.country, region: site.region, bodyOfWater: site.bodyOfWater)
     }
 
     private static func trailingLabel(for site: DiveSite) -> String {

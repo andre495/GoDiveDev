@@ -67,11 +67,12 @@ struct LogbookView: View {
                         rows: logbookDisplayRows,
                         showsStoredDiveEmptyState: showsStoredDiveEmptyState,
                         isFilteringBySiteName: isFilteringBySiteName,
+                        isSiteSearchFocused: isSiteSearchFocused,
                         bubbleAnimationPaused: suppressStoreDrivenRefresh || isDiveDeleteInProgress,
                         headerClearance: logbookHeaderClearance,
                         scrollToTopNonce: listScrollToTopNonce,
                         siteSearchQuery: $siteSearchQuery,
-                        isSiteSearchFocused: $isSiteSearchFocused,
+                        isSiteSearchFocusedBinding: $isSiteSearchFocused,
                         onSwipeDelete: { rowID in
                             activityPendingDeletion = activities.first { $0.id == rowID }
                         },
@@ -417,21 +418,30 @@ private struct LogbookListSurface: View, Equatable {
     let rows: [DiveLogbookRowDisplayData]
     let showsStoredDiveEmptyState: Bool
     let isFilteringBySiteName: Bool
+    /// Included in **`Equatable`** so **`.equatable()`** still refreshes search chrome when focus changes.
+    let isSiteSearchFocused: Bool
     let bubbleAnimationPaused: Bool
     let headerClearance: CGFloat
     let scrollToTopNonce: Int
     @Binding var siteSearchQuery: String
-    @FocusState.Binding var isSiteSearchFocused: Bool
+    @FocusState.Binding var isSiteSearchFocusedBinding: Bool
     let onSwipeDelete: (UUID) -> Void
     let onHeaderClearanceChange: (CGFloat) -> Void
 
     static func == (lhs: LogbookListSurface, rhs: LogbookListSurface) -> Bool {
-        lhs.rows == rhs.rows
-            && lhs.showsStoredDiveEmptyState == rhs.showsStoredDiveEmptyState
-            && lhs.isFilteringBySiteName == rhs.isFilteringBySiteName
-            && lhs.bubbleAnimationPaused == rhs.bubbleAnimationPaused
-            && lhs.headerClearance == rhs.headerClearance
-            && lhs.scrollToTopNonce == rhs.scrollToTopNonce
+        lhs.equatableInputs == rhs.equatableInputs
+    }
+
+    private var equatableInputs: LogbookListSurfaceEquatableInputs {
+        LogbookListSurfaceEquatableInputs(
+            rows: rows,
+            showsStoredDiveEmptyState: showsStoredDiveEmptyState,
+            isFilteringBySiteName: isFilteringBySiteName,
+            isSiteSearchFocused: isSiteSearchFocused,
+            bubbleAnimationPaused: bubbleAnimationPaused,
+            headerClearance: headerClearance,
+            scrollToTopNonce: scrollToTopNonce
+        )
     }
 
     var body: some View {
@@ -512,7 +522,7 @@ private struct LogbookListSurface: View, Equatable {
 
                     LogbookTopChrome(
                         searchText: $siteSearchQuery,
-                        isSearchFocused: $isSiteSearchFocused
+                        isSearchFocused: $isSiteSearchFocusedBinding
                     ) {
                         NavigationLink(value: LogbookRoute.addActivity) {
                             Image(systemName: "plus")

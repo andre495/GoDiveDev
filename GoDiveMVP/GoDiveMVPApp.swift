@@ -41,9 +41,9 @@ struct GoDiveMVPApp: App {
         .modelContainer(AppModelContainer.production)
         .task {
             await MainActor.run {
-                try? DiveActivityDiveNumbering.backfillMissingDiveNumbers(
-                    modelContext: AppModelContainer.production.mainContext
-                )
+                let context = AppModelContainer.production.mainContext
+                try? DiveActivityDiveNumbering.backfillMissingDiveNumbers(modelContext: context)
+                try? MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
             }
             #if DEBUG
             if MockDataSeeding.isLaunchSeedingEnabled {

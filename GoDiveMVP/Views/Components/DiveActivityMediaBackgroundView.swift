@@ -14,7 +14,15 @@ struct DiveActivityMediaBackgroundView: View {
     var mediaCaptureContextsByID: [UUID: DiveMediaCaptureContext] = [:]
     var sheetDetent: DiveActivityOverviewDetent = .medium
     var isMediaTabSelected: Bool = true
+    var onTagMarineLife: ((DiveMediaPhoto) -> Void)?
+    /// Top padding so the marine-life fish control sits below the dive tab bar (see **`marineLifeTagButtonTopPadding`**).
+    var marineLifeTagTopPadding: CGFloat = 0
     let bottomContentMargin: CGFloat
+
+    private var showsMarineLifeTagButton: Bool {
+        onTagMarineLife != nil
+            && DiveActivityMediaPresentation.showsMarineLifeTagOnHero(for: sheetDetent)
+    }
 
     private var showsBackgroundMedia: Bool {
         DiveActivityMediaPresentation.showsBackgroundPhotos(for: sheetDetent)
@@ -70,6 +78,13 @@ struct DiveActivityMediaBackgroundView: View {
                             showsCaptureDateOverlay: DiveActivityMediaPresentation.showsCaptureDateOnHero(
                                 for: sheetDetent
                             ),
+                            showsMarineLifeTagButton: showsMarineLifeTagButton
+                                && selectedMediaID == item.id,
+                            marineLifeTagTopInset: marineLifeTagTopPadding,
+                            onTagMarineLife: showsMarineLifeTagButton
+                                && selectedMediaID == item.id
+                                ? { onTagMarineLife?(item) }
+                                : nil,
                             isVideoPlaybackActive: shouldPlayBackgroundVideo && selectedMediaID == item.id,
                             loopsVideoPlayback: shouldPlayBackgroundVideo
                         )

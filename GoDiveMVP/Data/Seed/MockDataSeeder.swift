@@ -13,6 +13,7 @@ enum MockDataSeeder {
             resourceName: "divesites_sample",
             resourceExtension: resourceExtension
         )
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
 
         let activityDTOs = try MockDiveDataLoader.loadActivities(
             resourceName: resourceName,

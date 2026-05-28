@@ -11,10 +11,17 @@ struct DiveActivityMediaItemView: View {
     var timeZoneOffsetSeconds: Int?
     var captureContext: DiveMediaCaptureContext?
     var showsCaptureDateOverlay = true
+    var showsMarineLifeTagButton = false
+    /// Top padding below the dive tab bar (**`DiveActivityOverviewPanelMetrics.marineLifeTagButtonTopPadding`**).
+    var marineLifeTagTopInset: CGFloat = 0
+    var onTagMarineLife: (() -> Void)?
     var isVideoPlaybackActive: Bool = false
     var loopsVideoPlayback: Bool = false
 
     @State private var isHoldingVideoPause = false
+    #if canImport(UIKit)
+    @State private var previewImage: UIImage?
+    #endif
 
     private var isVideo: Bool {
         media.resolvedMediaKind == .video
@@ -30,6 +37,45 @@ struct DiveActivityMediaItemView: View {
     }
 
     var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            mediaContent
+
+            if showsMarineLifeTagButton, let onTagMarineLife {
+                VStack(alignment: .leading, spacing: 0) {
+                    DiveActivityMediaMarineLifeTagButton(action: onTagMarineLife)
+                        .padding(.top, marineLifeTagTopInset)
+                        .padding(.leading, AppTheme.Spacing.md)
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
+        .modifier(
+            DiveActivityVideoHoldToPauseModifier(
+                isEnabled: isVideo,
+                isHoldingVideoPause: $isHoldingVideoPause
+            )
+        )
+        .onChange(of: isVideoPlaybackActive) { _, isActive in
+            if !isActive {
+                isHoldingVideoPause = false
+            }
+        }
+        .onDisappear {
+            isHoldingVideoPause = false
+        }
+        .task(id: imageLoadTaskID) {
+            await loadPreviewImageIfNeeded()
+        }
+    }
+
+    private var imageLoadTaskID: String {
+        "\(media.id.uuidString)-\(media.mediaData.count)-\(media.resolvedMediaKind.rawValue)"
+    }
+
+    private var mediaContent: some View {
         ZStack(alignment: .bottomLeading) {
             Group {
                 switch media.resolvedMediaKind {
@@ -50,30 +96,14 @@ struct DiveActivityMediaItemView: View {
                 captureOverlayBadge(dateTimeLine: overlay.dateTimeLine, divePositionLine: overlay.divePositionLine)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipped()
-        .modifier(
-            DiveActivityVideoHoldToPauseModifier(
-                isEnabled: isVideo,
-                isHoldingVideoPause: $isHoldingVideoPause
-            )
-        )
-        .onChange(of: isVideoPlaybackActive) { _, isActive in
-            if !isActive {
-                isHoldingVideoPause = false
-            }
-        }
-        .onDisappear {
-            isHoldingVideoPause = false
-        }
     }
 
     @ViewBuilder
     private var imagePage: some View {
         GeometryReader { geometry in
             #if canImport(UIKit)
-            if let image = UIImage(data: media.mediaData) {
-                Image(uiImage: image)
+            if let previewImage {
+                Image(uiImage: previewImage)
                     .resizable()
                     .scaledToFill()
                     .frame(width: geometry.size.width, height: geometry.size.height)
@@ -87,6 +117,21 @@ struct DiveActivityMediaItemView: View {
             #endif
         }
     }
+
+    #if canImport(UIKit)
+    private func loadPreviewImageIfNeeded() async {
+        guard media.resolvedMediaKind == .image, !media.mediaData.isEmpty else {
+            previewImage = nil
+            return
+        }
+        previewImage = await DiveMediaPhotoImageLoader.thumbnail(
+            from: media.mediaData,
+            maxPixelSize: 2_048
+        )
+    }
+    #else
+    private func loadPreviewImageIfNeeded() async {}
+    #endif
 
     private func captureOverlayBadge(dateTimeLine: String, divePositionLine: String?) -> some View {
         VStack(alignment: .leading, spacing: 2) {

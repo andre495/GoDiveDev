@@ -1,0 +1,269 @@
+import SwiftData
+import SwiftUI
+
+/// Pushed species detail from **Field Guide** (replaces sheet presentation).
+struct FieldGuideMarineLifeDetailView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
+    @Environment(AccountSession.self) private var accountSession
+
+    @Query private var userRecords: [MarineLifeUserRecord]
+    @Query private var ownerDiveActivities: [DiveActivity]
+    @Query private var taggedSightings: [SightingInstance]
+
+    let species: MarineLife
+    let onOpenDive: (UUID) -> Void
+
+    init(
+        species: MarineLife,
+        ownerProfileID: UUID?,
+        onOpenDive: @escaping (UUID) -> Void
+    ) {
+        self.species = species
+        self.onOpenDive = onOpenDive
+        let marineLifeUUID = species.uuid
+        let ownerFilterID = ownerProfileID ?? Self.noOwnerQueryToken
+        _ownerDiveActivities = Query(
+            filter: #Predicate<DiveActivity> { $0.ownerProfileID == ownerFilterID },
+            sort: [
+                SortDescriptor(\DiveActivity.startTime, order: .reverse),
+                SortDescriptor(\DiveActivity.id, order: .forward),
+            ]
+        )
+        _taggedSightings = Query(
+            filter: #Predicate<SightingInstance> { $0.marineLifeUUID == marineLifeUUID },
+            sort: [SortDescriptor(\.sightingDateTime, order: .reverse)]
+        )
+    }
+
+    private var ownerDiveActivityIDs: Set<UUID> {
+        Set(ownerDiveActivities.map(\.id))
+    }
+
+    private var taggedMediaItems: [DiveMediaPhoto] {
+        FieldGuideTaggedMediaPresentation.resolvedTaggedMediaPhotos(
+            sightings: taggedSightings,
+            ownerDiveActivityIDs: ownerDiveActivityIDs,
+            modelContext: modelContext
+        )
+    }
+
+    private var taggedMediaTimeZoneOffsetByID: [UUID: Int?] {
+        let offsetByActivityID = Dictionary(
+            uniqueKeysWithValues: ownerDiveActivities.map { ($0.id, $0.timeZoneOffsetSeconds) }
+        )
+        return FieldGuideTaggedMediaPresentation.timeZoneOffsetByMediaID(
+            sightings: taggedSightings,
+            ownerDiveActivityIDs: ownerDiveActivityIDs,
+            timeZoneOffsetByActivityID: offsetByActivityID
+        )
+    }
+
+    private var sightedActivityLinks: [FieldGuidePresentation.SightedActivityLinkData] {
+        guard let ownerID = accountSession.currentProfile?.id,
+              let record = MarineLifeUserRecordOwnership.userRecord(
+                  marineLifeUUID: species.uuid,
+                  ownerProfileID: ownerID,
+                  in: userRecords
+              ),
+              !record.activitiesSightedOn.isEmpty
+        else { return [] }
+
+        let snapshots = ownerDiveActivities.map {
+            DiveActivitySightingLinkSnapshot(
+                id: $0.id,
+                resolvedSiteName: $0.resolvedSiteName,
+                startTime: $0.startTime,
+                timeZoneOffsetSeconds: $0.timeZoneOffsetSeconds
+            )
+        }
+        return FieldGuidePresentation.sightedActivityLinks(
+            activityIDs: record.activitiesSightedOn,
+            activities: snapshots
+        )
+    }
+
+    var body: some View {
+        AppPage(
+            title: species.commonName,
+            showsBackButton: true,
+            trailingContent: { EmptyView() }
+        ) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+                    heroImage
+                    titleBlock
+                    statsBlock
+                    if !taggedMediaItems.isEmpty {
+                        FieldGuideTaggedMediaGalleryView(
+                            mediaItems: taggedMediaItems,
+                            timeZoneOffsetByMediaID: taggedMediaTimeZoneOffsetByID
+                        )
+                    }
+                    if !sightedActivityLinks.isEmpty {
+                        activitiesSightedOnSection
+                    }
+                    if !species.aboutText.isEmpty {
+                        aboutBlock
+                    }
+                }
+                .padding(AppTheme.Spacing.md)
+            }
+        }
+        .hidesBottomTabBarWhenPushed()
+        .accessibilityIdentifier("FieldGuide.SpeciesDetail.Root")
+    }
+
+    @ViewBuilder
+    private var heroImage: some View {
+        let height: CGFloat = 180
+        if let url = URL(string: species.featureImageURL), !species.featureImageURL.isEmpty {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                default:
+                    heroPlaceholder
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: height)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        } else {
+            heroPlaceholder
+                .frame(height: height)
+        }
+    }
+
+    private var heroPlaceholder: some View {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .fill(AppTheme.Colors.tabUnselected.opacity(0.12))
+            .overlay {
+                Image(systemName: "fish")
+                    .font(.largeTitle)
+                    .foregroundStyle(AppTheme.Colors.tabUnselected)
+            }
+    }
+
+    private var titleBlock: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            if !species.scientificName.isEmpty {
+                Text(species.scientificName)
+                    .font(.title3.italic())
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+            }
+            if !species.category.isEmpty {
+                Text(species.category)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.tabUnselected)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var statsBlock: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            detailRow(
+                title: "Typical size",
+                value: FieldGuidePresentation.sizeRangeLine(
+                    minMeters: species.minSizeMeters,
+                    maxMeters: species.maxSizeMeters,
+                    unitSystem: diveDisplayUnitSystem
+                )
+            )
+            detailRow(
+                title: "Avg depth",
+                value: FieldGuidePresentation.typicalDepthLine(
+                    meters: species.avgDepthMeters,
+                    unitSystem: diveDisplayUnitSystem
+                )
+            )
+        }
+    }
+
+    private var activitiesSightedOnSection: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            Text("Activities sighted on")
+                .font(.headline)
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+
+            VStack(spacing: AppTheme.Spacing.sm) {
+                ForEach(sightedActivityLinks) { link in
+                    Button {
+                        onOpenDive(link.id)
+                    } label: {
+                        sightedActivityRow(link)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("FieldGuide.SpeciesDetail.DiveLink.\(link.id.uuidString)")
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Activities sighted on")
+    }
+
+    private func sightedActivityRow(_ link: FieldGuidePresentation.SightedActivityLinkData) -> some View {
+        HStack(alignment: .center, spacing: AppTheme.Spacing.md) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(link.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+                    .multilineTextAlignment(.leading)
+
+                Text(link.dateText)
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+            }
+
+            Spacer(minLength: AppTheme.Spacing.sm)
+
+            Image(systemName: "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.tabUnselected)
+        }
+        .padding(AppTheme.Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(AppTheme.Colors.surfaceElevated)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(AppTheme.Colors.tabUnselected.opacity(0.12), lineWidth: 1)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(link.title), \(link.dateText)")
+        .accessibilityHint("Opens this dive")
+    }
+
+    private var aboutBlock: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            Text("About")
+                .font(.headline)
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+            Text(species.aboutText)
+                .font(.body)
+                .foregroundStyle(AppTheme.Colors.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func detailRow(title: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+            Spacer(minLength: AppTheme.Spacing.sm)
+            Text(value.isEmpty ? "—" : value)
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.Colors.secondaryText)
+                .multilineTextAlignment(.trailing)
+        }
+    }
+
+    /// Sentinel **`ownerProfileID`** so **`@Query`** returns no dives when signed out.
+    private static let noOwnerQueryToken = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+}

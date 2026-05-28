@@ -30,4 +30,18 @@ enum MockDiveDataLoader {
         let decoder = JSONDecoder()
         return try decoder.decode([DiveSiteDTO].self, from: data)
     }
+
+    /// Loads `[MarineLifeDTO]` from a JSON file in the app bundle (field-guide catalog).
+    static func loadMarineLife(
+        resourceName: String,
+        resourceExtension: String = "json",
+        bundle: Bundle = .main
+    ) throws -> [MarineLifeDTO] {
+        guard let fileURL = bundle.url(forResource: resourceName, withExtension: resourceExtension) else {
+            return []
+        }
+        let data = try Data(contentsOf: fileURL)
+        let decoder = JSONDecoder()
+        return try decoder.decode([MarineLifeDTO].self, from: data)
+    }
 }

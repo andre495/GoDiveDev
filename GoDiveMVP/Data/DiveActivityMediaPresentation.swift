@@ -53,12 +53,22 @@ enum DiveActivityMediaPresentation: Sendable {
         detent == .minimized
     }
 
+    /// **Tag marine life** control on the visible hero item at **minimized** only (**medium** uses the sheet).
+    nonisolated static func showsMarineLifeTagOnHero(for detent: DiveActivityOverviewDetent) -> Bool {
+        detent == .minimized
+    }
+
+    /// **Tag marine life** control in the **Media** sheet chrome at **medium** (top leading).
+    nonisolated static func showsMarineLifeTagInSheet(for detent: DiveActivityOverviewDetent) -> Bool {
+        detent == .medium
+    }
+
     /// Thumbnail strip in the **Media** sheet at **minimized** and **medium** detents.
     nonisolated static func showsMediaCarouselInSheet(for detent: DiveActivityOverviewDetent) -> Bool {
         detent == .minimized || detent == .medium
     }
 
-    /// Title, position label, capture date, and header **+** at **medium** only.
+    /// Capture date block and header **+** at **medium** only (no title / position row).
     nonisolated static func showsMediaSheetDetails(for detent: DiveActivityOverviewDetent) -> Bool {
         detent == .medium
     }
