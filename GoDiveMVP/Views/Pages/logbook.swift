@@ -211,11 +211,7 @@ struct LogbookView: View {
         path.removeAll()
         isSiteSearchFocused = false
         activeTagFilter = nil
-        Task { @MainActor in
-            await Task.yield()
-            try? await Task.sleep(for: .milliseconds(32))
-            listScrollToTopNonce += 1
-        }
+        RootTabListScrollSupport.scheduleScrollToTop { listScrollToTopNonce += 1 }
     }
 
     private func confirmDeleteDiveOverlay(activity: DiveActivity) -> some View {

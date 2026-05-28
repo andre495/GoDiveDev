@@ -9,9 +9,10 @@ struct FieldGuideTopChrome: View {
         CatalogListSearchChrome(
             searchText: $searchText,
             isSearchFocused: $isSearchFocused,
-            placeholder: "Search species",
+            placeholder: "Search Marine Life",
             searchFieldAccessibilityIdentifier: "fieldGuideSpeciesSearchField",
-            cancelAccessibilityIdentifier: "fieldGuideSearchCancel"
+            cancelAccessibilityIdentifier: "fieldGuideSearchCancel",
+            showsTrailingActions: false
         ) {
             EmptyView()
         }

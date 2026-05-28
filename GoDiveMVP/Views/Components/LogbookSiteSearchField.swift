@@ -9,7 +9,7 @@ struct LogbookSiteSearchField: View {
         CatalogSearchField(
             text: $text,
             isFocused: $isFocused,
-            placeholder: "Search by dive site",
+            placeholder: "Search Activities",
             accessibilityIdentifier: "logbookSiteSearchField"
         )
     }

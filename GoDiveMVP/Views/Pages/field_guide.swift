@@ -22,6 +22,7 @@ struct FieldGuideView: View {
     @State private var speciesSearchQuery = ""
     @FocusState private var isSpeciesSearchFocused: Bool
     @State private var fieldGuideHeaderClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
+    @State private var listScrollToTopNonce = 0
 
     private var filteredCatalogSnapshots: [MarineLifeCatalogSnapshot] {
         FieldGuideMarineLifeSearch.filtering(
@@ -113,11 +114,21 @@ struct FieldGuideView: View {
             }
         }
         .navigationInteractivePopGestureForHiddenNavBar()
+        .rootTabReselectObserver(notification: .fieldGuideTabReselected)
+        .onReceive(NotificationCenter.default.publisher(for: .fieldGuideTabReselected)) { _ in
+            handleFieldGuideTabReselect()
+        }
         .onChange(of: isSpeciesSearchFocused) { _, isFocused in
             if !isFocused {
                 dismissSpeciesSearchKeyboard()
             }
         }
+    }
+
+    private func handleFieldGuideTabReselect() {
+        path.removeAll()
+        isSpeciesSearchFocused = false
+        RootTabListScrollSupport.scheduleScrollToTop { listScrollToTopNonce += 1 }
     }
 
     private func dismissSpeciesSearchKeyboard() {
@@ -190,6 +201,7 @@ struct FieldGuideView: View {
             .animation(nil, value: listRows.count)
             .scrollDismissesKeyboard(.interactively)
             .ignoresSafeArea(edges: [.top, .bottom])
+            .listScrollToTopTrigger(nonce: listScrollToTopNonce)
         }
     }
 }

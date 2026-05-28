@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Compact list search field (logbook-style elevated capsule).
+/// Compact oval list search field (logbook, field guide, explore).
 struct CatalogSearchField: View {
     @Binding var text: String
     @FocusState.Binding var isFocused: Bool
@@ -11,7 +11,9 @@ struct CatalogSearchField: View {
         HStack(spacing: AppTheme.Spacing.sm) {
             Image(systemName: "magnifyingglass")
                 .font(.body.weight(.medium))
-                .foregroundStyle(AppTheme.Colors.tabUnselected)
+                .foregroundStyle(
+                    isFocused ? AppTheme.Colors.tabSelected : AppTheme.Colors.tabUnselected
+                )
 
             TextField(placeholder, text: $text)
                 .font(.body)
@@ -39,12 +41,19 @@ struct CatalogSearchField: View {
         .frame(maxWidth: .infinity)
         .frame(height: AppTheme.Layout.logbookSearchFieldHeight)
         .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            Capsule(style: .continuous)
                 .fill(AppTheme.Colors.surfaceElevated)
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(AppTheme.Colors.tabUnselected.opacity(0.12), lineWidth: 1)
+            Capsule(style: .continuous)
+                .strokeBorder(
+                    isFocused
+                        ? AppTheme.SearchField.outlineFocusedColor
+                        : AppTheme.SearchField.outlineColor,
+                    lineWidth: isFocused
+                        ? AppTheme.SearchField.outlineFocusedWidth
+                        : AppTheme.SearchField.outlineWidth
+                )
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(accessibilityIdentifier)

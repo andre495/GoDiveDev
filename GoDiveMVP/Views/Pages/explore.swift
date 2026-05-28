@@ -17,6 +17,7 @@ struct ExploreView: View {
     @State private var siteSearchQuery = ""
     @FocusState private var isSiteSearchFocused: Bool
     @State private var exploreTopChromeHeight: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
+    @State private var listScrollToTopNonce = 0
 
     private var filteredDiveSites: [DiveSite] {
         ExploreDiveSiteListSearch.filtering(diveSites, query: siteSearchQuery)
@@ -128,6 +129,10 @@ struct ExploreView: View {
             }
         }
         .navigationInteractivePopGestureForHiddenNavBar()
+        .rootTabReselectObserver(notification: .exploreTabReselected)
+        .onReceive(NotificationCenter.default.publisher(for: .exploreTabReselected)) { _ in
+            handleExploreTabReselect()
+        }
         .onChange(of: viewMode) { _, mode in
             if mode != .list {
                 dismissSiteSearchKeyboard()
@@ -142,6 +147,13 @@ struct ExploreView: View {
 
     private func dismissSiteSearchKeyboard() {
         isSiteSearchFocused = false
+    }
+
+    private func handleExploreTabReselect() {
+        path.removeAll()
+        isSiteSearchFocused = false
+        guard viewMode == .list else { return }
+        RootTabListScrollSupport.scheduleScrollToTop { listScrollToTopNonce += 1 }
     }
 
     @ViewBuilder
@@ -200,6 +212,7 @@ struct ExploreView: View {
             .background(Color.clear)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .ignoresSafeArea(edges: [.top, .bottom])
+            .listScrollToTopTrigger(nonce: listScrollToTopNonce)
         }
     }
 

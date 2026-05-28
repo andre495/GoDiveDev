@@ -15,7 +15,7 @@ struct LogbookTopChrome<TrailingActions: View>: View {
             CatalogListSearchChrome(
                 searchText: $searchText,
                 isSearchFocused: $isSearchFocused,
-                placeholder: "Search by dive site",
+                placeholder: "Search Activities",
                 searchFieldAccessibilityIdentifier: "logbookSiteSearchField",
                 cancelAccessibilityIdentifier: "logbookSearchCancel",
                 onCancel: {

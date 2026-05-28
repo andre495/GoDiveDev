@@ -816,4 +816,14 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ---
 
-## 52 - Next batch
+## 52 - Search chrome, placeholders, and tab scroll-to-top **(pushed)**
+
+- **Logbook:** search field placeholder **Search Activities** (was “Search by dive site”).
+- **Field Guide:** search placeholder **Search Marine Life**; species search row is full width (**`showsTrailingActions: false`** on **`CatalogListSearchChrome`**).
+- **Catalog search fields:** oval **`Capsule`** shape + light **`accent`** outline (**`AppTheme.SearchField`**) on logbook, field guide, and explore (**`CatalogSearchField`**).
+- **Explore list:** dive-site search no longer overlaps map/list toggle — trailing slot uses intrinsic width; full-width **`layoutPriority`** only when there are no trailing actions.
+- **Tab re-tap scroll-to-top:** **Field Guide** species list and **Explore** dive-site list use the same **`RootTabBarReselectForwarder`** + **`listScrollToTopTrigger`** fallback as **Logbook** (pops navigation + scrolls list); Explore scrolls only in **list** mode.
+
+---
+
+## 53 - Next batch

@@ -7,23 +7,43 @@ struct CatalogListSearchChrome<TrailingActions: View>: View {
     let placeholder: String
     let searchFieldAccessibilityIdentifier: String
     let cancelAccessibilityIdentifier: String
+    /// When **`false`**, the search field spans the row until focused (**Cancel** still appears while editing).
+    var showsTrailingActions: Bool = true
     var onCancel: (() -> Void)?
     @ViewBuilder let trailingActions: () -> TrailingActions
 
     var body: some View {
         HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
-            CatalogSearchField(
-                text: $searchText,
-                isFocused: $isSearchFocused,
-                placeholder: placeholder,
-                accessibilityIdentifier: searchFieldAccessibilityIdentifier
-            )
+            searchField
 
-            trailingSlot
+            if showsTrailingSlot {
+                trailingSlot
+            }
         }
         .animation(.easeInOut(duration: 0.2), value: isSearchFocused)
         .padding(.horizontal, AppTheme.Spacing.lg)
         .padding(.vertical, AppTheme.Spacing.md)
+    }
+
+    private var showsTrailingSlot: Bool {
+        showsTrailingActions || isSearchFocused
+    }
+
+    @ViewBuilder
+    private var searchField: some View {
+        let field = CatalogSearchField(
+            text: $searchText,
+            isFocused: $isSearchFocused,
+            placeholder: placeholder,
+            accessibilityIdentifier: searchFieldAccessibilityIdentifier
+        )
+        if showsTrailingActions {
+            field.frame(maxWidth: .infinity)
+        } else {
+            field
+                .frame(maxWidth: .infinity)
+                .layoutPriority(1)
+        }
     }
 
     private var trailingSlot: some View {
@@ -46,7 +66,8 @@ struct CatalogListSearchChrome<TrailingActions: View>: View {
             }
         }
         .foregroundStyle(AppTheme.Colors.iconPrimary)
-        .frame(minWidth: 44, minHeight: 44, alignment: .trailing)
+        .fixedSize(horizontal: true, vertical: false)
+        .frame(minHeight: 44, alignment: .trailing)
     }
 
     private func cancelSearch() {

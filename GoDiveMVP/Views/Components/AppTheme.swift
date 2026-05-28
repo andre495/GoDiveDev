@@ -111,8 +111,16 @@ enum AppTheme {
     enum Layout {
         /// Fallback before **`AppHeader`** publishes its measured height (see **`AppHeaderMetrics.HeightKey`**). Sized for **`.largeTitle`** brand + vertical **`Spacing.md`** padding.
         static let appHeaderClearanceFallback: CGFloat = 72
-        /// Inner height of **`LogbookSiteSearchField`** in **`LogbookTopChrome`** (same row as **+**).
+        /// Inner height of **`CatalogSearchField`** in list top chrome (logbook, field guide, explore).
         static let logbookSearchFieldHeight: CGFloat = 44
+    }
+
+    /// Shared oval search field chrome (**`CatalogSearchField`**).
+    enum SearchField {
+        static let outlineColor = Colors.accent.opacity(0.38)
+        static let outlineFocusedColor = Colors.accent.opacity(0.62)
+        static let outlineWidth: CGFloat = 1
+        static let outlineFocusedWidth: CGFloat = 1.5
     }
 
     /// Shared chrome for SwiftUI **`.sheet`** presentations (see **`appSheetPresentationChrome()`**).

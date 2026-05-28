@@ -4,45 +4,50 @@ import UIKit
 #endif
 
 extension Notification.Name {
-    /// Posted when the user taps the already-selected **Logbook** tab (from **`LogbookTabBarReselectForwarder`**).
+    /// Posted when the user taps the already-selected **Logbook** tab.
     static let logbookTabReselected = Notification.Name("GoDive.logbookTabReselected")
+    /// Posted when the user taps the already-selected **Field Guide** tab.
+    static let fieldGuideTabReselected = Notification.Name("GoDive.fieldGuideTabReselected")
+    /// Posted when the user taps the already-selected **Explore** tab.
+    static let exploreTabReselected = Notification.Name("GoDive.exploreTabReselected")
 }
 
 #if canImport(UIKit)
 
-/// Forwards **`UITabBarControllerDelegate`** so iOS 18+ built-in re-tap scroll/pop still runs, while posting **`logbookTabReselected`** for the logbook fallback scroll.
-private final class LogbookTabBarReselectForwarder: NSObject, UITabBarControllerDelegate {
-    static let shared = LogbookTabBarReselectForwarder()
+/// Forwards **`UITabBarControllerDelegate`** so iOS 18+ built-in re-tap scroll/pop still runs, while posting tab-specific notifications for custom list scroll fallbacks.
+private final class RootTabBarReselectForwarder: NSObject, UITabBarControllerDelegate {
+    static let shared = RootTabBarReselectForwarder()
 
     private weak var tabBarController: UITabBarController?
     private weak var forwardedDelegate: UITabBarControllerDelegate?
-    private var logbookTabIndex: Int?
+    private var tabIndexNotifications: [Int: Notification.Name] = [:]
 
-    func attachIfNeeded(from view: UIView) {
+    func registerReselectNotification(_ notification: Notification.Name, from view: UIView) {
         guard let viewController = view.nearestViewController,
               let tabBarController = viewController.tabBarController,
               let tabRoots = tabBarController.viewControllers
         else { return }
 
         guard let index = tabRoots.firstIndex(where: { isMember(viewController, ofTabRoot: $0) }) else { return }
-        guard self.tabBarController !== tabBarController else { return }
 
-        self.tabBarController = tabBarController
-        logbookTabIndex = index
-
-        if tabBarController.delegate !== self {
-            if let existing = tabBarController.delegate, existing !== self {
-                forwardedDelegate = existing
+        if self.tabBarController !== tabBarController {
+            self.tabBarController = tabBarController
+            if tabBarController.delegate !== self {
+                if let existing = tabBarController.delegate, existing !== self {
+                    forwardedDelegate = existing
+                }
+                tabBarController.delegate = self
             }
-            tabBarController.delegate = self
         }
+
+        tabIndexNotifications[index] = notification
     }
 
     func tabBarController(_ tabBarController: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
         if tabBarController.selectedViewController === viewController,
-           let logbookTabIndex,
-           tabBarController.viewControllers?[logbookTabIndex] === viewController {
-            NotificationCenter.default.post(name: .logbookTabReselected, object: nil)
+           let index = tabBarController.viewControllers?.firstIndex(of: viewController),
+           let notification = tabIndexNotifications[index] {
+            NotificationCenter.default.post(name: notification, object: nil)
         }
 
         if let forwardedDelegate,
@@ -75,26 +80,28 @@ private extension UIResponder {
     }
 }
 
-private struct LogbookTabBarReselectInstaller: UIViewRepresentable {
+private struct RootTabBarReselectInstaller: UIViewRepresentable {
+    let notification: Notification.Name
+
     func makeUIView(context: Context) -> UIView {
         let view = UIView(frame: .zero)
         view.isUserInteractionEnabled = false
         view.backgroundColor = .clear
         DispatchQueue.main.async {
-            LogbookTabBarReselectForwarder.shared.attachIfNeeded(from: view)
+            RootTabBarReselectForwarder.shared.registerReselectNotification(notification, from: view)
         }
         return view
     }
 
     func updateUIView(_ uiView: UIView, context: Context) {
         DispatchQueue.main.async {
-            LogbookTabBarReselectForwarder.shared.attachIfNeeded(from: uiView)
+            RootTabBarReselectForwarder.shared.registerReselectNotification(notification, from: uiView)
         }
     }
 }
 
 /// Scrolls the nearest SwiftUI **`List`** scroll view when **`nonce`** changes.
-struct LogbookListScrollToTopTrigger: UIViewRepresentable {
+struct ListScrollToTopTrigger: UIViewRepresentable {
     let nonce: Int
 
     func makeCoordinator() -> Coordinator {
@@ -166,14 +173,26 @@ struct LogbookListScrollToTopTrigger: UIViewRepresentable {
         return nil
     }
 }
+
+enum RootTabListScrollSupport {
+    /// Yields one run loop turn before **`bumpScrollToTopNonce`** so UIKit can attach the list scroll view.
+    @MainActor
+    static func scheduleScrollToTop(bumpScrollToTopNonce: @escaping @MainActor () -> Void) {
+        Task { @MainActor in
+            await Task.yield()
+            try? await Task.sleep(for: .milliseconds(32))
+            bumpScrollToTopNonce()
+        }
+    }
+}
 #endif
 
 extension View {
-    /// Observes re-taps on the active logbook tab without replacing the tab bar's scroll-to-top behavior.
-    func logbookTabReselectObserver() -> some View {
+    /// Observes re-taps on the active tab without replacing the tab bar's scroll-to-top behavior.
+    func rootTabReselectObserver(notification: Notification.Name) -> some View {
         #if canImport(UIKit)
         background {
-            LogbookTabBarReselectInstaller()
+            RootTabBarReselectInstaller(notification: notification)
                 .frame(width: 0, height: 0)
                 .accessibilityHidden(true)
         }
@@ -182,15 +201,24 @@ extension View {
         #endif
     }
 
-    func logbookListScrollToTopTrigger(nonce: Int) -> some View {
+    /// Scrolls the enclosing **`List`** to the top when **`nonce`** changes (tab re-tap fallback).
+    func listScrollToTopTrigger(nonce: Int) -> some View {
         #if canImport(UIKit)
         overlay(alignment: .top) {
-            LogbookListScrollToTopTrigger(nonce: nonce)
+            ListScrollToTopTrigger(nonce: nonce)
                 .frame(width: 0, height: 0)
                 .accessibilityHidden(true)
         }
         #else
         self
         #endif
+    }
+
+    func logbookTabReselectObserver() -> some View {
+        rootTabReselectObserver(notification: .logbookTabReselected)
+    }
+
+    func logbookListScrollToTopTrigger(nonce: Int) -> some View {
+        listScrollToTopTrigger(nonce: nonce)
     }
 }
