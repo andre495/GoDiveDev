@@ -15,5 +15,10 @@ struct FieldGuideTopChrome: View {
         ) {
             EmptyView()
         }
+        .background {
+            GeometryReader { proxy in
+                Color.clear.preference(key: AppHeaderMetrics.HeightKey.self, value: proxy.size.height)
+            }
+        }
     }
 }

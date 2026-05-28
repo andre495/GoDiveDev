@@ -9,6 +9,22 @@ enum DiveSiteMarineLifePresentation {
         let displayName: String
     }
 
+    /// Owner dive links for this site (newest first), for Explore site detail.
+    nonisolated static func siteActivityLinks(
+        diveSiteID: UUID,
+        ownerProfileID: UUID?,
+        activities: [DiveActivitySightingLinkSnapshot]
+    ) -> [FieldGuidePresentation.SightedActivityLinkData] {
+        guard ownerProfileID != nil else { return [] }
+        let matching = activities.filter { $0.diveSiteID == diveSiteID }
+        let activityIDs = matching.map(\.id)
+
+        return FieldGuidePresentation.sightedActivityLinks(
+            activityIDs: activityIDs,
+            activities: matching
+        )
+    }
+
     /// Unique species the signed-in user logged at **`diveSiteID`** (common name, A→Z).
     nonisolated static func sightedSpeciesLinks(
         diveSiteID: UUID,

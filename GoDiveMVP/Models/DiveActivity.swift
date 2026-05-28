@@ -92,6 +92,10 @@ final class DiveActivity {
     @Relationship(deleteRule: .cascade)
     var buddies: [DiveBuddyTag] = []
 
+    /// Reusable custom labels (**`ActivityTag`**) applied to this dive (unlinked on dive delete; tag rows persist).
+    @Relationship(deleteRule: .nullify)
+    var activityTags: [ActivityTag] = []
+
     /// Post-dive photos and videos (**`DiveMediaPhoto`**). Empty until the user adds media.
     @Relationship(deleteRule: .cascade)
     var mediaPhotos: [DiveMediaPhoto] = []

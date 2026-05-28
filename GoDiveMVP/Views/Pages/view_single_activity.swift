@@ -42,6 +42,7 @@ struct ViewSingleActivity: View {
     @State private var mapSitePromptUserDeclined = false
     @State private var editingField: DiveActivityEditableFieldID?
     @State private var showsBuddiesEditSheet = false
+    @State private var showsTagsEditSheet = false
     @State private var showsAddEquipmentSheet = false
     @State private var equipmentLinkErrorMessage: String?
     @State private var diveMediaPickerItems: [PhotosPickerItem] = []
@@ -175,6 +176,14 @@ struct ViewSingleActivity: View {
             }
             .sheet(isPresented: $showsBuddiesEditSheet) {
                 DiveActivityBuddiesEditSheet(activity: activity)
+            }
+            .sheet(isPresented: $showsTagsEditSheet) {
+                if let ownerProfileID = accountSession.currentProfile?.id {
+                    DiveActivityTagsEditSheet(
+                        activity: activity,
+                        ownerProfileID: ownerProfileID
+                    )
+                }
             }
             .sheet(isPresented: $showsAddEquipmentSheet) {
                 DiveActivityAddEquipmentSheet(
@@ -1142,6 +1151,12 @@ struct ViewSingleActivity: View {
                 onManageLinkedSite: { showsAddDiveSiteSheet = true },
                 onManageBuddies: { showsBuddiesEditSheet = true }
             )
+
+            DiveActivityTagsSectionView(
+                tags: ActivityTagStore.sortedTags(on: activity),
+                canAddTags: accountSession.currentProfile?.id != nil,
+                onAddTags: { showsTagsEditSheet = true }
+            )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -1212,6 +1227,7 @@ private func viewSingleActivityPreview() -> some View {
     let schema = Schema([
         DiveActivity.self,
         DiveBuddyTag.self,
+        ActivityTag.self,
         DiveProfilePoint.self,
         DiveSite.self,
     ])

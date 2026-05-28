@@ -12,6 +12,7 @@ struct LogbookView: View {
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = false
 
     @Query private var activities: [DiveActivity]
+    @Query private var ownerActivityTags: [ActivityTag]
 
     @State private var path: [LogbookRoute] = []
     @State private var activityPendingDeletion: DiveActivity?
@@ -19,6 +20,7 @@ struct LogbookView: View {
     @State private var optimisticallyRemovedActivityIDs: Set<UUID> = []
     @State private var logbookHeaderClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
     @State private var siteSearchQuery = ""
+    @State private var activeTagFilter: String?
     @FocusState private var isSiteSearchFocused: Bool
     @State private var logbookDisplayRows: [DiveLogbookRowDisplayData] = []
     @State private var duplicateActivityIds: Set<UUID> = []
@@ -44,14 +46,26 @@ struct LogbookView: View {
                 SortDescriptor(\DiveActivity.id, order: .forward),
             ]
         )
+        _ownerActivityTags = Query(
+            filter: #Predicate<ActivityTag> { $0.ownerProfileID == filterOwnerID },
+            sort: [SortDescriptor(\ActivityTag.name, order: .forward)]
+        )
     }
 
     private var visibleActivities: [DiveActivity] {
         activities.filter { !optimisticallyRemovedActivityIDs.contains($0.id) }
     }
 
-    private var isFilteringBySiteName: Bool {
-        DiveLogbookSiteSearch.isFiltering(query: siteSearchQuery)
+    private var isFilteringLogbook: Bool {
+        DiveLogbookSiteSearch.isFiltering(query: siteSearchQuery) || activeTagFilter != nil
+    }
+
+    private var tagSuggestions: [LogbookTagSearchSuggestion] {
+        LogbookTagSearchPresentation.suggestions(
+            catalogTagNames: ownerActivityTags.map(\.name),
+            query: siteSearchQuery,
+            activeTagFilter: activeTagFilter
+        )
     }
 
     /// No dives left in the store (accounting for optimistic hides before **`@Query`** catches up).
@@ -60,95 +74,143 @@ struct LogbookView: View {
     }
 
     var body: some View {
+        logbookNavigationStack
+            .navigationInteractivePopGestureForHiddenNavBar()
+            .logbookTabReselectObserver()
+            .onReceive(NotificationCenter.default.publisher(for: .logbookTabReselected)) { _ in
+                handleLogbookTabReselect()
+            }
+            .onAppear { scheduleLogbookCacheRefresh() }
+            .onChange(of: activities.count) { _, _ in
+                handleActivitiesCountChange()
+            }
+            .onChange(of: siteSearchQuery) { _, newQuery in
+                handleSiteSearchQueryChange(newQuery)
+            }
+            .onChange(of: activeTagFilter) { _, _ in
+                scheduleLogbookCacheRefresh()
+            }
+            .onChange(of: diveDisplayUnitSystem) { _, _ in
+                scheduleLogbookCacheRefresh()
+            }
+            .onChange(of: automaticallyRenumberDives) { _, _ in
+                scheduleLogbookCacheRefresh()
+            }
+    }
+
+    private var logbookNavigationStack: some View {
         NavigationStack(path: $path) {
             AppHeaderlessPage {
-                ZStack {
-                    LogbookListSurface(
-                        rows: logbookDisplayRows,
-                        showsStoredDiveEmptyState: showsStoredDiveEmptyState,
-                        isFilteringBySiteName: isFilteringBySiteName,
-                        isSiteSearchFocused: isSiteSearchFocused,
-                        bubbleAnimationPaused: suppressStoreDrivenRefresh || isDiveDeleteInProgress,
-                        headerClearance: logbookHeaderClearance,
-                        scrollToTopNonce: listScrollToTopNonce,
-                        siteSearchQuery: $siteSearchQuery,
-                        isSiteSearchFocusedBinding: $isSiteSearchFocused,
-                        onSwipeDelete: { rowID in
-                            activityPendingDeletion = activities.first { $0.id == rowID }
-                        },
-                        onHeaderClearanceChange: { height in
-                            if height > 0 { logbookHeaderClearance = height }
-                        }
-                    )
-                    .equatable()
+                logbookPageZStack
+            }
+            .navigationDestination(for: LogbookRoute.self, destination: logbookRouteDestination)
+        }
+    }
 
-                    if let activity = activityPendingDeletion {
-                        confirmDeleteDiveOverlay(activity: activity)
-                            .zIndex(2)
+    private var logbookPageZStack: some View {
+        ZStack {
+            logbookListSurfaceView
+
+            if let activity = activityPendingDeletion {
+                confirmDeleteDiveOverlay(activity: activity)
+                    .zIndex(2)
+            }
+
+            if isDiveDeleteInProgress {
+                LogbookDiveDeleteProgressOverlay(progress: diveDeleteProgress)
+                    .zIndex(3)
+                    .transition(.opacity)
+            }
+        }
+    }
+
+    private var logbookListSurfaceView: some View {
+        LogbookListSurface(
+            rows: logbookDisplayRows,
+            showsStoredDiveEmptyState: showsStoredDiveEmptyState,
+            isFilteringBySiteName: isFilteringLogbook,
+            isSiteSearchFocused: isSiteSearchFocused,
+            bubbleAnimationPaused: suppressStoreDrivenRefresh || isDiveDeleteInProgress,
+            headerClearance: logbookHeaderClearance,
+            scrollToTopNonce: listScrollToTopNonce,
+            siteSearchQuery: $siteSearchQuery,
+            isSiteSearchFocusedBinding: $isSiteSearchFocused,
+            tagSuggestions: tagSuggestions,
+            activeTagFilter: activeTagFilter,
+            onSelectTagSuggestion: selectTagSuggestion,
+            onClearTagFilter: clearTagFilter,
+            onSwipeDelete: requestDeleteForRow,
+            onHeaderClearanceChange: updateLogbookHeaderClearance
+        )
+        .equatable()
+    }
+
+    @ViewBuilder
+    private func logbookRouteDestination(route: LogbookRoute) -> some View {
+        switch route {
+        case .addActivity:
+            ActivityUploadView(
+                onSuccessfulImport: { diveId in
+                    if !path.isEmpty {
+                        path.removeLast()
                     }
-
-                    if isDiveDeleteInProgress {
-                        LogbookDiveDeleteProgressOverlay(progress: diveDeleteProgress)
-                            .zIndex(3)
-                            .transition(.opacity)
+                    path.append(.diveDetail(diveId))
+                },
+                onBulkImportComplete: {
+                    if !path.isEmpty {
+                        path.removeLast()
                     }
                 }
-            }
-            .navigationDestination(for: LogbookRoute.self) { route in
-                switch route {
-                case .addActivity:
-                    ActivityUploadView(
-                        onSuccessfulImport: { diveId in
-                            if !path.isEmpty {
-                                path.removeLast()
-                            }
-                            path.append(.diveDetail(diveId))
-                        },
-                        onBulkImportComplete: {
-                            if !path.isEmpty {
-                                path.removeLast()
-                            }
-                        }
-                    )
-                case .diveDetail(let id):
-                    if let activity = activities.first(where: { $0.id == id }) {
-                        ViewSingleActivity(activity: activity)
-                    } else {
-                        Text("This dive is no longer in your log.")
-                            .foregroundStyle(AppTheme.Colors.secondaryText)
-                            .padding()
-                    }
-                }
+            )
+        case .diveDetail(let id):
+            if let activity = activities.first(where: { $0.id == id }) {
+                ViewSingleActivity(activity: activity)
+            } else {
+                Text("This dive is no longer in your log.")
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+                    .padding()
             }
         }
-        .navigationInteractivePopGestureForHiddenNavBar()
-        .logbookTabReselectObserver()
-        .onReceive(NotificationCenter.default.publisher(for: .logbookTabReselected)) { _ in
-            handleLogbookTabReselect()
+    }
+
+    private func selectTagSuggestion(_ suggestion: LogbookTagSearchSuggestion) {
+        activeTagFilter = suggestion.tagName
+        siteSearchQuery = ""
+        isSiteSearchFocused = false
+    }
+
+    private func clearTagFilter() {
+        activeTagFilter = nil
+    }
+
+    private func requestDeleteForRow(_ rowID: UUID) {
+        activityPendingDeletion = activities.first { $0.id == rowID }
+    }
+
+    private func updateLogbookHeaderClearance(_ height: CGFloat) {
+        if height > 0 { logbookHeaderClearance = height }
+    }
+
+    private func handleActivitiesCountChange() {
+        if skipNextActivitiesCountRefresh {
+            skipNextActivitiesCountRefresh = false
+            return
         }
-        .onAppear { scheduleLogbookCacheRefresh() }
-        .onChange(of: activities.count) { _, _ in
-            if skipNextActivitiesCountRefresh {
-                skipNextActivitiesCountRefresh = false
-                return
-            }
-            guard !suppressStoreDrivenRefresh else { return }
-            scheduleLogbookCacheRefresh()
+        guard !suppressStoreDrivenRefresh else { return }
+        scheduleLogbookCacheRefresh()
+    }
+
+    private func handleSiteSearchQueryChange(_ newQuery: String) {
+        if activeTagFilter != nil, DiveLogbookSiteSearch.isFiltering(query: newQuery) {
+            activeTagFilter = nil
         }
-        .onChange(of: siteSearchQuery) { _, _ in
-            scheduleLogbookCacheRefresh()
-        }
-        .onChange(of: diveDisplayUnitSystem) { _, _ in
-            scheduleLogbookCacheRefresh()
-        }
-        .onChange(of: automaticallyRenumberDives) { _, _ in
-            scheduleLogbookCacheRefresh()
-        }
+        scheduleLogbookCacheRefresh()
     }
 
     private func handleLogbookTabReselect() {
         path.removeAll()
         isSiteSearchFocused = false
+        activeTagFilter = nil
         Task { @MainActor in
             await Task.yield()
             try? await Task.sleep(for: .milliseconds(32))
@@ -344,11 +406,13 @@ struct LogbookView: View {
         let unitSystem = diveDisplayUnitSystem
         let useChronologicalNumbers = automaticallyRenumberDives
         let query = siteSearchQuery
+        let tagFilter = activeTagFilter
 
         let result = await Task.detached(priority: priority) {
             LogbookDisplayCacheBuilder.build(
                 visibleSeeds: seeds,
                 siteSearchQuery: query,
+                confirmedTagName: tagFilter,
                 unitSystem: unitSystem,
                 useChronologicalNumbers: useChronologicalNumbers,
                 includeDuplicateScan: includeDuplicateScan
@@ -372,19 +436,21 @@ struct LogbookView: View {
             await LogbookCacheRefreshScheduler.shared.schedule(debounceNanoseconds: debounceNanoseconds) {
                 await Task.yield()
                 let inputs = await MainActor.run {
-                    () -> (DiveDisplayUnitSystem, Bool, String, [LogbookActivitySnapshotSeed], Int) in
+                    () -> (DiveDisplayUnitSystem, Bool, String, String?, [LogbookActivitySnapshotSeed], Int) in
                     (
                         diveDisplayUnitSystem,
                         automaticallyRenumberDives,
                         siteSearchQuery,
+                        activeTagFilter,
                         LogbookActivitySnapshotSeeding.seeds(from: visibleActivities),
                         generation
                     )
                 }
                 let result = await Task.detached(priority: priority) {
                     LogbookDisplayCacheBuilder.build(
-                        visibleSeeds: inputs.3,
+                        visibleSeeds: inputs.4,
                         siteSearchQuery: inputs.2,
+                        confirmedTagName: inputs.3,
                         unitSystem: inputs.0,
                         useChronologicalNumbers: inputs.1,
                         includeDuplicateScan: includeDuplicateScan
@@ -425,6 +491,10 @@ private struct LogbookListSurface: View, Equatable {
     let scrollToTopNonce: Int
     @Binding var siteSearchQuery: String
     @FocusState.Binding var isSiteSearchFocusedBinding: Bool
+    let tagSuggestions: [LogbookTagSearchSuggestion]
+    let activeTagFilter: String?
+    let onSelectTagSuggestion: (LogbookTagSearchSuggestion) -> Void
+    let onClearTagFilter: () -> Void
     let onSwipeDelete: (UUID) -> Void
     let onHeaderClearanceChange: (CGFloat) -> Void
 
@@ -437,6 +507,9 @@ private struct LogbookListSurface: View, Equatable {
             rows: rows,
             showsStoredDiveEmptyState: showsStoredDiveEmptyState,
             isFilteringBySiteName: isFilteringBySiteName,
+            siteSearchQuery: siteSearchQuery,
+            activeTagFilter: activeTagFilter,
+            tagSuggestionSignature: tagSuggestions.map(\.id).joined(separator: "|"),
             isSiteSearchFocused: isSiteSearchFocused,
             bubbleAnimationPaused: bubbleAnimationPaused,
             headerClearance: headerClearance,
@@ -446,101 +519,132 @@ private struct LogbookListSurface: View, Equatable {
 
     var body: some View {
         GeometryReader { proxy in
-            let logbookListTopInset = proxy.safeAreaInsets.top + headerClearance
-            let logbookListBottomInset = proxy.safeAreaInsets.bottom + AppTheme.Spacing.md
-            ZStack {
-                ZStack(alignment: .top) {
-                    if !GoDiveUITestConfiguration.isActive {
-                        WaterBubbleBackground(animationPaused: bubbleAnimationPaused)
-                    }
-
-                    Group {
-                        if showsStoredDiveEmptyState {
-                            LogbookStoredEmptyState()
-                                .padding(.top, logbookListTopInset)
-                        } else if rows.isEmpty && isFilteringBySiteName {
-                            LogbookSearchEmptyState()
-                                .padding(.top, logbookListTopInset)
-                        } else {
-                            List {
-                                Color.clear
-                                    .frame(height: logbookListTopInset)
-                                    .listRowInsets(EdgeInsets())
-                                    .listRowSeparator(.hidden)
-                                    .listRowBackground(Color.clear)
-                                    .accessibilityHidden(true)
-
-                                ForEach(rows) { row in
-                                    NavigationLink(value: LogbookRoute.diveDetail(row.id)) {
-                                        LogbookActivityRow(data: row)
-                                            .equatable()
-                                    }
-                                    .buttonStyle(.plain)
-                                    .navigationLinkIndicatorVisibility(.hidden)
-                                    .listRowInsets(
-                                        EdgeInsets(
-                                            top: 0,
-                                            leading: AppTheme.Spacing.lg,
-                                            bottom: 0,
-                                            trailing: AppTheme.Spacing.lg
-                                        )
-                                    )
-                                    .listRowSeparator(.hidden)
-                                    .listRowBackground(Color.clear)
-                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                        Button(role: .destructive) {
-                                            onSwipeDelete(row.id)
-                                        } label: {
-                                            Label("Delete", systemImage: "trash")
-                                        }
-                                    }
-                                }
-
-                                Color.clear
-                                    .frame(height: logbookListBottomInset)
-                                    .listRowInsets(EdgeInsets())
-                                    .listRowSeparator(.hidden)
-                                    .listRowBackground(Color.clear)
-                                    .accessibilityHidden(true)
-                            }
-                            .listStyle(.plain)
-                            .listRowSpacing(AppTheme.Spacing.md)
-                            .scrollContentBackground(.hidden)
-                            .background(Color.clear)
-                            .animation(nil, value: rows.count)
-                            .scrollDismissesKeyboard(.interactively)
-                            .ignoresSafeArea(edges: [.top, .bottom])
-                            .logbookListScrollToTopTrigger(nonce: scrollToTopNonce)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                    LogbookTopChromeScrim(topObstructionHeight: logbookListTopInset)
-                        .padding(.top, -proxy.safeAreaInsets.top)
-                        .ignoresSafeArea(edges: .top)
-                        .zIndex(0.5)
-
-                    LogbookTopChrome(
-                        searchText: $siteSearchQuery,
-                        isSearchFocused: $isSiteSearchFocusedBinding
-                    ) {
-                        NavigationLink(value: LogbookRoute.addActivity) {
-                            Image(systemName: "plus")
-                                .font(.title3.weight(.semibold))
-                                .frame(minWidth: 44, minHeight: 44)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Add activity")
-                    }
-                    .zIndex(1)
-                }
-
-            }
-            .frame(width: proxy.size.width, height: proxy.size.height)
-            .ignoresSafeArea(edges: .bottom)
+            logbookListGeometryContent(proxy: proxy)
         }
         .onPreferenceChange(AppHeaderMetrics.HeightKey.self, perform: onHeaderClearanceChange)
+    }
+
+    private func logbookListGeometryContent(proxy: GeometryProxy) -> some View {
+        let logbookListTopInset = proxy.safeAreaInsets.top + headerClearance
+        let logbookListBottomInset = proxy.safeAreaInsets.bottom + AppTheme.Spacing.md
+
+        return ZStack {
+            logbookListStack(
+                topInset: logbookListTopInset,
+                bottomInset: logbookListBottomInset,
+                safeAreaTop: proxy.safeAreaInsets.top
+            )
+        }
+        .frame(width: proxy.size.width, height: proxy.size.height)
+        .ignoresSafeArea(edges: .bottom)
+    }
+
+    private func logbookListStack(topInset: CGFloat, bottomInset: CGFloat, safeAreaTop: CGFloat) -> some View {
+        ZStack(alignment: .top) {
+            if !GoDiveUITestConfiguration.isActive {
+                WaterBubbleBackground(animationPaused: bubbleAnimationPaused)
+            }
+
+            logbookScrollSurface(topInset: topInset, bottomInset: bottomInset)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            LogbookTopChromeScrim(topObstructionHeight: topInset)
+                .padding(.top, -safeAreaTop)
+                .ignoresSafeArea(edges: .top)
+                .zIndex(0.5)
+
+            logbookTopChrome
+                .zIndex(1)
+        }
+    }
+
+    @ViewBuilder
+    private func logbookScrollSurface(topInset: CGFloat, bottomInset: CGFloat) -> some View {
+        if showsStoredDiveEmptyState {
+            LogbookStoredEmptyState()
+                .padding(.top, topInset)
+        } else if rows.isEmpty && isFilteringBySiteName {
+            LogbookSearchEmptyState()
+                .padding(.top, topInset)
+        } else {
+            logbookDiveList(topInset: topInset, bottomInset: bottomInset)
+        }
+    }
+
+    private func logbookDiveList(topInset: CGFloat, bottomInset: CGFloat) -> some View {
+        List {
+            Color.clear
+                .frame(height: topInset)
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .accessibilityHidden(true)
+
+            ForEach(rows) { row in
+                logbookDiveRow(row)
+            }
+
+            Color.clear
+                .frame(height: bottomInset)
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .accessibilityHidden(true)
+        }
+        .listStyle(.plain)
+        .listRowSpacing(AppTheme.Spacing.md)
+        .scrollContentBackground(.hidden)
+        .background(Color.clear)
+        .animation(nil, value: rows.count)
+        .scrollDismissesKeyboard(.interactively)
+        .ignoresSafeArea(edges: [.top, .bottom])
+        .logbookListScrollToTopTrigger(nonce: scrollToTopNonce)
+    }
+
+    private func logbookDiveRow(_ row: DiveLogbookRowDisplayData) -> some View {
+        NavigationLink(value: LogbookRoute.diveDetail(row.id)) {
+            LogbookActivityRow(data: row)
+                .equatable()
+        }
+        .buttonStyle(.plain)
+        .navigationLinkIndicatorVisibility(.hidden)
+        .listRowInsets(
+            EdgeInsets(
+                top: 0,
+                leading: AppTheme.Spacing.lg,
+                bottom: 0,
+                trailing: AppTheme.Spacing.lg
+            )
+        )
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button(role: .destructive) {
+                onSwipeDelete(row.id)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+    }
+
+    private var logbookTopChrome: some View {
+        LogbookTopChrome(
+            searchText: $siteSearchQuery,
+            isSearchFocused: $isSiteSearchFocusedBinding,
+            tagSuggestions: tagSuggestions,
+            activeTagFilter: activeTagFilter,
+            onSelectTagSuggestion: onSelectTagSuggestion,
+            onClearTagFilter: onClearTagFilter
+        ) {
+            NavigationLink(value: LogbookRoute.addActivity) {
+                Image(systemName: "plus")
+                    .font(.title3.weight(.semibold))
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Add activity")
+        }
     }
 }
 

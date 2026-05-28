@@ -13,6 +13,7 @@ struct LogbookActivitySnapshotSeed: Sendable, Equatable {
     let displayName: String
     let formattedStartDateOnly: String
     let resolvedSiteNameLowercased: String?
+    let activityTagNames: [String]
 
     nonisolated var duplicateSignature: DiveActivityDuplicateMatcher.Signature {
         DiveActivityDuplicateMatcher.Signature(
@@ -26,7 +27,7 @@ struct LogbookActivitySnapshotSeed: Sendable, Equatable {
     }
 
     nonisolated func matchesSiteSearch(query: String) -> Bool {
-        DiveLogbookSiteSearch.matches(
+        DiveLogbookSiteSearch.matchesSite(
             resolvedSiteName: resolvedSiteNameLowercased,
             query: query
         )
@@ -57,7 +58,11 @@ enum LogbookActivitySnapshotSeeding {
                 diveNumberExplicitlyNone: activity.diveNumberExplicitlyNone,
                 displayName: LogbookActivityRow.displayName(for: activity),
                 formattedStartDateOnly: activity.formattedStartDateOnly(),
-                resolvedSiteNameLowercased: activity.resolvedSiteName?.lowercased()
+                resolvedSiteNameLowercased: activity.resolvedSiteName?.lowercased(),
+                activityTagNames: activity.activityTags
+                    .map { $0.name.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+                    .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
             )
         }
     }

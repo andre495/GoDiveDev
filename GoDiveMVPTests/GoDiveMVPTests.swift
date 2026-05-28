@@ -2242,6 +2242,95 @@ struct GoDiveMVPTests {
         #expect(links[1].displayName == "Spotted Eagle Ray")
     }
 
+    @Test func diveSiteMarineLifePresentation_siteActivityLinks_filtersBySiteAndSortsNewestFirst() {
+        let siteID = UUID()
+        let otherSiteID = UUID()
+        let ownerID = UUID()
+        let olderID = UUID()
+        let newerID = UUID()
+
+        let links = DiveSiteMarineLifePresentation.siteActivityLinks(
+            diveSiteID: siteID,
+            ownerProfileID: ownerID,
+            activities: [
+                DiveActivitySightingLinkSnapshot(
+                    id: olderID,
+                    diveSiteID: siteID,
+                    resolvedSiteName: "Salt Pier",
+                    startTime: Date(timeIntervalSince1970: 1_000_000),
+                    timeZoneOffsetSeconds: nil
+                ),
+                DiveActivitySightingLinkSnapshot(
+                    id: newerID,
+                    diveSiteID: siteID,
+                    resolvedSiteName: "Salt Pier",
+                    startTime: Date(timeIntervalSince1970: 2_000_000),
+                    timeZoneOffsetSeconds: nil
+                ),
+                DiveActivitySightingLinkSnapshot(
+                    id: UUID(),
+                    diveSiteID: otherSiteID,
+                    resolvedSiteName: "Other Site",
+                    startTime: Date(timeIntervalSince1970: 3_000_000),
+                    timeZoneOffsetSeconds: nil
+                ),
+            ]
+        )
+
+        #expect(links.map(\.id) == [newerID, olderID])
+        #expect(links.allSatisfy { $0.title == "Salt Pier" })
+    }
+
+    @Test func activityTagStore_normalizedName_collapsesWhitespaceAndCase() {
+        #expect(ActivityTagStore.normalizedName(from: "  Night  Dive  ") == "night dive")
+        #expect(ActivityTagStore.displayName(from: "  Wreck  ") == "Wreck")
+    }
+
+    @Test @MainActor func activityTagStore_findOrCreate_dedupesPerOwner() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let ownerID = UUID()
+
+        let first = try ActivityTagStore.findOrCreateTag(
+            rawName: "Night Dive",
+            ownerProfileID: ownerID,
+            modelContext: context
+        )
+        let second = try ActivityTagStore.findOrCreateTag(
+            rawName: "night dive",
+            ownerProfileID: ownerID,
+            modelContext: context
+        )
+        #expect(first?.id == second?.id)
+
+        let allTags = try ActivityTagStore.fetchTags(ownerProfileID: ownerID, modelContext: context)
+        #expect(allTags.count == 1)
+        #expect(allTags[0].name == "Night Dive")
+    }
+
+    @Test @MainActor func activityTagStore_applyAndRemove_updatesDiveMembership() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let ownerID = UUID()
+        let dive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 1, maxDepthMeters: 1)
+        dive.ownerProfileID = ownerID
+        context.insert(dive)
+
+        let tag = try ActivityTagStore.findOrCreateTag(
+            rawName: "Training",
+            ownerProfileID: ownerID,
+            modelContext: context
+        )
+        #expect(tag != nil)
+
+        ActivityTagStore.applyTag(tag!, to: dive)
+        #expect(ActivityTagStore.sortedTags(on: dive).map(\.name) == ["Training"])
+        #expect(ActivityTagStore.summaryLine(for: dive) == "Training")
+
+        ActivityTagStore.removeTag(tag!, from: dive)
+        #expect(dive.activityTags.isEmpty)
+    }
+
     @Test func exploreDiveSiteListSearch_matchesNameAndPlace() {
         let site = DiveSite(siteName: "Salt Pier", country: "Bonaire", region: "Caribbean")
         #expect(ExploreDiveSiteListSearch.matches(site, query: "salt"))
@@ -2392,12 +2481,14 @@ struct GoDiveMVPTests {
             activities: [
                 DiveActivitySightingLinkSnapshot(
                     id: olderID,
+                    diveSiteID: nil,
                     resolvedSiteName: "Salt Pier",
                     startTime: Date(timeIntervalSince1970: 1_000_000),
                     timeZoneOffsetSeconds: nil
                 ),
                 DiveActivitySightingLinkSnapshot(
                     id: newerID,
+                    diveSiteID: nil,
                     resolvedSiteName: nil,
                     startTime: Date(timeIntervalSince1970: 2_000_000),
                     timeZoneOffsetSeconds: nil
@@ -4768,24 +4859,81 @@ struct GoDiveMVPTests {
     @Test func diveLogbookSiteSearch_emptyQuery_returnsAllSeeds() {
         let a = logbookSnapshotSeed(resolvedSiteNameLowercased: "salt pier")
         let b = logbookSnapshotSeed(resolvedSiteNameLowercased: nil)
-        let filtered = DiveLogbookSiteSearch.filtering([a, b], query: "   ")
+        let filtered = DiveLogbookSiteSearch.filtering([a, b], siteQuery: "   ")
         #expect(filtered.count == 2)
         #expect(DiveLogbookSiteSearch.isFiltering(query: "") == false)
     }
 
     @Test func diveLogbookSiteSearch_matchesResolvedSiteName_caseInsensitiveSubstring() {
-        #expect(DiveLogbookSiteSearch.matches(resolvedSiteName: "Salt Pier", query: "salt"))
-        #expect(DiveLogbookSiteSearch.matches(resolvedSiteName: "Salt Pier", query: "PIER"))
-        #expect(!DiveLogbookSiteSearch.matches(resolvedSiteName: "Salt Pier", query: "turtle"))
-        #expect(DiveLogbookSiteSearch.matches(resolvedSiteName: "Turtle Bay", query: "bay"))
-        #expect(!DiveLogbookSiteSearch.matches(resolvedSiteName: nil, query: "new"))
+        #expect(DiveLogbookSiteSearch.matchesSite(resolvedSiteName: "Salt Pier", query: "salt"))
+        #expect(DiveLogbookSiteSearch.matchesSite(resolvedSiteName: "Salt Pier", query: "PIER"))
+        #expect(!DiveLogbookSiteSearch.matchesSite(resolvedSiteName: "Salt Pier", query: "turtle"))
+        #expect(DiveLogbookSiteSearch.matchesSite(resolvedSiteName: "Turtle Bay", query: "bay"))
+        #expect(!DiveLogbookSiteSearch.matchesSite(resolvedSiteName: nil, query: "new"))
+        #expect(
+            DiveLogbookSiteSearch.matchesConfirmedTag(
+                activityTagNames: ["Night dive", "Training"],
+                confirmedTagName: "night dive"
+            )
+        )
+        #expect(
+            !DiveLogbookSiteSearch.matchesConfirmedTag(
+                activityTagNames: ["Training"],
+                confirmedTagName: "Night dive"
+            )
+        )
 
         let saltPier = logbookSnapshotSeed(resolvedSiteNameLowercased: "salt pier")
         let turtleBay = logbookSnapshotSeed(resolvedSiteNameLowercased: "turtle bay")
         let unnamed = logbookSnapshotSeed(resolvedSiteNameLowercased: nil)
         #expect(
-            DiveLogbookSiteSearch.filtering([saltPier, turtleBay, unnamed], query: "turtle").map(\.id)
+            DiveLogbookSiteSearch.filtering([saltPier, turtleBay, unnamed], siteQuery: "turtle").map(\.id)
                 == [turtleBay.id]
+        )
+
+        let tagged = logbookSnapshotSeed(
+            resolvedSiteNameLowercased: "reef point",
+            activityTagNames: ["Wreck", "Advanced"]
+        )
+        let untagged = logbookSnapshotSeed(resolvedSiteNameLowercased: "reef point")
+        #expect(
+            DiveLogbookSiteSearch.filtering(
+                [tagged, untagged],
+                siteQuery: "reef",
+                confirmedTagName: "Wreck"
+            ).map(\.id) == [tagged.id]
+        )
+        #expect(
+            DiveLogbookSiteSearch.filtering([tagged, untagged], siteQuery: "wreck").map(\.id) == []
+        )
+    }
+
+    @Test func logbookTagSearchPresentation_suggestions_onlyWhileTypingWithoutActiveTag() {
+        let catalog = ["Drift Dive", "Night Dive", "Training"]
+        #expect(
+            LogbookTagSearchPresentation.suggestions(
+                catalogTagNames: catalog,
+                query: "drift",
+                activeTagFilter: nil
+            ).map(\.tagName) == ["Drift Dive"]
+        )
+        #expect(
+            LogbookTagSearchPresentation.suggestions(
+                catalogTagNames: catalog,
+                query: "drift",
+                activeTagFilter: "Drift Dive"
+            ).isEmpty
+        )
+        #expect(
+            LogbookTagSearchPresentation.suggestions(
+                catalogTagNames: catalog,
+                query: "",
+                activeTagFilter: nil
+            ).isEmpty
+        )
+        #expect(
+            LogbookTagSearchPresentation.activeTagPromptLine(tagName: "Drift Dive")
+                == "tag: Drift Dive"
         )
     }
 
@@ -4798,6 +4946,9 @@ struct GoDiveMVPTests {
             rows: [],
             showsStoredDiveEmptyState: false,
             isFilteringBySiteName: false,
+            siteSearchQuery: "",
+            activeTagFilter: nil,
+            tagSuggestionSignature: "",
             isSiteSearchFocused: false,
             bubbleAnimationPaused: false,
             headerClearance: 0,
@@ -6232,7 +6383,8 @@ struct GoDiveMVPTests {
 
 private func logbookSnapshotSeed(
     id: UUID = UUID(),
-    resolvedSiteNameLowercased: String?
+    resolvedSiteNameLowercased: String?,
+    activityTagNames: [String] = []
 ) -> LogbookActivitySnapshotSeed {
     LogbookActivitySnapshotSeed(
         id: id,
@@ -6245,7 +6397,8 @@ private func logbookSnapshotSeed(
         diveNumberExplicitlyNone: false,
         displayName: resolvedSiteNameLowercased ?? "New Dive",
         formattedStartDateOnly: "Jan 1, 1970",
-        resolvedSiteNameLowercased: resolvedSiteNameLowercased
+        resolvedSiteNameLowercased: resolvedSiteNameLowercased,
+        activityTagNames: activityTagNames
     )
 }
 

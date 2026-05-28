@@ -72,6 +72,7 @@ struct FieldGuideMarineLifeDetailView: View {
         let snapshots = ownerDiveActivities.map {
             DiveActivitySightingLinkSnapshot(
                 id: $0.id,
+                diveSiteID: $0.diveSiteID,
                 resolvedSiteName: $0.resolvedSiteName,
                 startTime: $0.startTime,
                 timeZoneOffsetSeconds: $0.timeZoneOffsetSeconds

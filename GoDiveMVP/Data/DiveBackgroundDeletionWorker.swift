@@ -82,6 +82,11 @@ actor DiveBackgroundDeletionWorker {
         }
         activity.buddies.removeAll()
 
+        let linkedTags = activity.activityTags
+        for tag in linkedTags {
+            tag.dives.removeAll { $0.id == activity.id }
+        }
+
         for point in activity.profilePoints {
             point.dive = nil
         }

@@ -7,6 +7,15 @@ struct DiveLogbookRowDisplayData: Equatable, Identifiable, Sendable {
     let diveNumberLabel: String
     let detailLine: String
     let showsDuplicateHint: Bool
+
+    /// Explicit **`nonisolated`** equality for Swift 6 checks from nonisolated contexts.
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.id == rhs.id
+            && lhs.displayName == rhs.displayName
+            && lhs.diveNumberLabel == rhs.diveNumberLabel
+            && lhs.detailLine == rhs.detailLine
+            && lhs.showsDuplicateHint == rhs.showsDuplicateHint
+    }
 }
 
 /// Builds logbook row display values (including **#** labels).
@@ -67,6 +76,9 @@ struct LogbookListSurfaceEquatableInputs: Equatable, Sendable {
     var rows: [DiveLogbookRowDisplayData]
     var showsStoredDiveEmptyState: Bool
     var isFilteringBySiteName: Bool
+    var siteSearchQuery: String
+    var activeTagFilter: String?
+    var tagSuggestionSignature: String
     var isSiteSearchFocused: Bool
     var bubbleAnimationPaused: Bool
     var headerClearance: CGFloat
@@ -77,6 +89,9 @@ struct LogbookListSurfaceEquatableInputs: Equatable, Sendable {
         lhs.rows == rhs.rows
             && lhs.showsStoredDiveEmptyState == rhs.showsStoredDiveEmptyState
             && lhs.isFilteringBySiteName == rhs.isFilteringBySiteName
+            && lhs.siteSearchQuery == rhs.siteSearchQuery
+            && lhs.activeTagFilter == rhs.activeTagFilter
+            && lhs.tagSuggestionSignature == rhs.tagSuggestionSignature
             && lhs.isSiteSearchFocused == rhs.isSiteSearchFocused
             && lhs.bubbleAnimationPaused == rhs.bubbleAnimationPaused
             && lhs.headerClearance == rhs.headerClearance

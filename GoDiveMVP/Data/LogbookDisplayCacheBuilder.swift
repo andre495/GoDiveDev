@@ -11,11 +11,16 @@ enum LogbookDisplayCacheBuilder {
   nonisolated static func build(
     visibleSeeds: [LogbookActivitySnapshotSeed],
     siteSearchQuery: String,
+    confirmedTagName: String? = nil,
     unitSystem: DiveDisplayUnitSystem,
     useChronologicalNumbers: Bool,
     includeDuplicateScan: Bool = true
   ) -> Result {
-    let filtered = DiveLogbookSiteSearch.filtering(visibleSeeds, query: siteSearchQuery)
+    let filtered = DiveLogbookSiteSearch.filtering(
+      visibleSeeds,
+      siteQuery: siteSearchQuery,
+      confirmedTagName: confirmedTagName
+    )
     let duplicateIds: Set<UUID> = includeDuplicateScan
       ? DiveActivityDuplicateMatcher.idsWithDuplicates(
           in: visibleSeeds.map { $0.duplicateSignature }

@@ -802,5 +802,18 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ---
 
-## 51 - Next batch
+## 51 - Activity tags, logbook tag search, and explore site links **(pushed)**
 
+- **Logbook search:** site field filters **`resolvedSiteName`** only; **Tags** section under the bar with oval outline tag buttons (tap to confirm filter); active tag + **Clear**; **`DiveLogbookSiteSearch.filtering(siteQuery:confirmedTagName:)`**.
+- **Dive activity tags:** **`ActivityTag`** model (owner-scoped, reusable across dives) + **`DiveActivity.activityTags`** many-to-many; **`ActivityTagStore`** for normalize/dedupe, fetch, apply/remove.
+- **Map overview sheet:** **`DiveActivityTagsSectionView`** at bottom of map panel (oval chips + **+** opens tags sheet); **`DiveActivityTagsEditSheet`** opens at **large** detent; **On this dive** uses **`DiveActivityTagChipFlow`**; **Your tags** rows use checkmarks (tap to apply/remove), not toggles.
+- **Shared tag chrome:** **`ActivityTagOvalChipLabel`** + **`ActivityTagsOutlinedSection`** (tag icon header, bordered card, oval outline chips) used on logbook tag suggestions/active filter and dive map **Tags** section.
+- **Tests:** normalization/dedupe, apply/remove membership; schema includes **`ActivityTag`**; dive delete detaches tags (tags persist for reuse).
+
+- **Explore dive-site detail:** added **Activities at this site** links (newest first) with the same card/date pattern as Field Guide activity links; taps open **`ViewSingleActivity`** via **`ExploreRoute.diveDetail`**.
+- **`DiveSiteMarineLifePresentation.siteActivityLinks`**: filters owner activity snapshots by **`diveSiteID`**, then reuses **`FieldGuidePresentation.sightedActivityLinks`** for shared sorting/title/date formatting.
+- **Tests:** **`diveSiteMarineLifePresentation_siteActivityLinks_filtersBySiteAndSortsNewestFirst`** plus snapshot schema update (**`DiveActivitySightingLinkSnapshot.diveSiteID`**).
+
+---
+
+## 52 - Next batch

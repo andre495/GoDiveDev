@@ -7,6 +7,7 @@ struct CatalogListSearchChrome<TrailingActions: View>: View {
     let placeholder: String
     let searchFieldAccessibilityIdentifier: String
     let cancelAccessibilityIdentifier: String
+    var onCancel: (() -> Void)?
     @ViewBuilder let trailingActions: () -> TrailingActions
 
     var body: some View {
@@ -23,11 +24,6 @@ struct CatalogListSearchChrome<TrailingActions: View>: View {
         .animation(.easeInOut(duration: 0.2), value: isSearchFocused)
         .padding(.horizontal, AppTheme.Spacing.lg)
         .padding(.vertical, AppTheme.Spacing.md)
-        .background {
-            GeometryReader { proxy in
-                Color.clear.preference(key: AppHeaderMetrics.HeightKey.self, value: proxy.size.height)
-            }
-        }
     }
 
     private var trailingSlot: some View {
@@ -55,6 +51,10 @@ struct CatalogListSearchChrome<TrailingActions: View>: View {
 
     private func cancelSearch() {
         isSearchFocused = false
-        searchText = ""
+        if let onCancel {
+            onCancel()
+        } else {
+            searchText = ""
+        }
     }
 }

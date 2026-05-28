@@ -15,6 +15,7 @@ struct MarineLifeCatalogSnapshot: Sendable, Equatable {
 /// Dive row snapshot for Field Guide “Activities sighted on” links (Swift 6 / tests).
 struct DiveActivitySightingLinkSnapshot: Sendable, Equatable {
     let id: UUID
+    let diveSiteID: UUID?
     let resolvedSiteName: String?
     let startTime: Date
     let timeZoneOffsetSeconds: Int?
