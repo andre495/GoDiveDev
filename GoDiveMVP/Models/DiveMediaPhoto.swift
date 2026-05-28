@@ -17,6 +17,8 @@ final class DiveMediaPhoto {
     var mediaFileName: String = ""
     /// When the photo/video was captured (EXIF / file metadata preferred over Photos library date).
     var capturedAt: Date?
+    /// **`PHAsset.localIdentifier`** when imported from the Photos library (dedupes auto-upload).
+    var photosLocalIdentifier: String = ""
 
     /// Denormalized for batch **`delete(model:where:)`**.
     var diveActivityID: UUID?
@@ -31,6 +33,7 @@ final class DiveMediaPhoto {
         mediaData: Data = Data(),
         mediaFileName: String = "",
         capturedAt: Date? = nil,
+        photosLocalIdentifier: String = "",
         dive: DiveActivity? = nil
     ) {
         self.id = id
@@ -39,6 +42,7 @@ final class DiveMediaPhoto {
         self.mediaData = mediaData
         self.mediaFileName = mediaFileName
         self.capturedAt = capturedAt
+        self.photosLocalIdentifier = photosLocalIdentifier
         self.diveActivityID = dive?.id
         self.dive = dive
     }

@@ -26,11 +26,15 @@ enum DiveActivityMediaStorage {
     static func addMedia(
         _ payload: DiveMediaImportPayload,
         capturedAt: Date? = nil,
+        photosLocalIdentifier: String? = nil,
         to activity: DiveActivity,
         modelContext: ModelContext
     ) throws -> UUID {
         let mediaID = UUID()
         let sortOrder = nextSortOrder(on: activity)
+
+        let libraryID = photosLocalIdentifier?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
         let row: DiveMediaPhoto
         switch payload {
@@ -41,6 +45,7 @@ enum DiveActivityMediaStorage {
                 mediaKind: .image,
                 mediaData: preparedImageData(data),
                 capturedAt: capturedAt,
+                photosLocalIdentifier: libraryID,
                 dive: activity
             )
         case .video(let sourceURL):
@@ -52,6 +57,7 @@ enum DiveActivityMediaStorage {
                 mediaData: Data(),
                 mediaFileName: fileName,
                 capturedAt: capturedAt,
+                photosLocalIdentifier: libraryID,
                 dive: activity
             )
         }

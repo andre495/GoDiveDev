@@ -91,6 +91,11 @@ enum FitDiveFileImport {
             await DiveActivityTimeZoneResolution.resolveMissingOffset(for: activity)
             try modelContext.save()
             try DiveActivityDiveNumbering.applyAutomaticSequentialRenumberIfNeeded(modelContext: modelContext)
+            await DiveLibraryMediaAutoAttachScheduler.attachAfterDivePersisted(
+                activity,
+                ownerProfileID: owner.id,
+                modelContext: modelContext
+            )
             let msg = "\(importSuccessMessagePrefix) starting \(activity.formattedStartDateTime())."
             return DiveFileImportOutcome(userMessage: msg, primaryInsertedDiveId: activity.id)
         } catch {

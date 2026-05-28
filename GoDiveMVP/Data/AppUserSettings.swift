@@ -14,6 +14,9 @@ enum AppUserSettings: Sendable {
     /// Bulk **UDDF** import: insert catalog **`DiveSite`** rows for unmatched site names in the file.
     nonisolated static let bulkUddfCreateDiveSitesKey = "goDiveBulkUddfCreateDiveSites"
 
+    /// When **`true`**, attach Photos library items whose capture time falls within each dive window after dive import.
+    nonisolated static let autoUploadMediaToActivitiesKey = "goDiveAutoUploadMediaToActivities"
+
     static var automaticallyRenumberDives: Bool {
         UserDefaults.standard.bool(forKey: automaticallyRenumberDivesKey)
     }
@@ -25,5 +28,9 @@ enum AppUserSettings: Sendable {
     static var defaultTankSize: DefaultTankSize {
         let raw = UserDefaults.standard.string(forKey: defaultTankSizeKey)
         return raw.flatMap(DefaultTankSize.init(rawValue:)) ?? DiveActivityTankDefaults.defaultSize
+    }
+
+    static var autoUploadMediaToActivities: Bool {
+        UserDefaults.standard.bool(forKey: autoUploadMediaToActivitiesKey)
     }
 }

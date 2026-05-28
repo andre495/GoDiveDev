@@ -148,6 +148,11 @@ enum UddfDiveFileImport {
 
             try modelContext.save()
             try DiveActivityDiveNumbering.applyAutomaticSequentialRenumberIfNeeded(modelContext: modelContext)
+            await DiveLibraryMediaAutoAttachScheduler.attachAfterDivesPersisted(
+                inserted,
+                ownerProfileID: owner.id,
+                modelContext: modelContext
+            )
 
             let primaryId = primaryInsertedActivity(from: inserted)?.id
             if inserted.count == 1, let only = inserted.first {

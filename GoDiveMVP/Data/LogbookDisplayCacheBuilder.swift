@@ -42,7 +42,8 @@ enum LogbookDisplayCacheBuilder {
           useChronologicalNumbers: useChronologicalNumbers
         ),
         detailLine: detailLine(for: seed, unitSystem: unitSystem),
-        showsDuplicateHint: duplicateIds.contains(seed.id)
+        showsDuplicateHint: duplicateIds.contains(seed.id),
+        previewMediaPhotoID: seed.previewMediaPhotoID
       )
     }
     return Result(rows: rows, duplicateIds: duplicateIds)

@@ -7,6 +7,8 @@ struct DiveLogbookRowDisplayData: Equatable, Identifiable, Sendable {
     let diveNumberLabel: String
     let detailLine: String
     let showsDuplicateHint: Bool
+    /// Oldest gallery media (**`DiveActivityMediaPresentation`** order); **`nil`** when the dive has no media.
+    let previewMediaPhotoID: UUID?
 
     /// Explicit **`nonisolated`** equality for Swift 6 checks from nonisolated contexts.
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
@@ -15,6 +17,7 @@ struct DiveLogbookRowDisplayData: Equatable, Identifiable, Sendable {
             && lhs.diveNumberLabel == rhs.diveNumberLabel
             && lhs.detailLine == rhs.detailLine
             && lhs.showsDuplicateHint == rhs.showsDuplicateHint
+            && lhs.previewMediaPhotoID == rhs.previewMediaPhotoID
     }
 }
 
@@ -44,7 +47,8 @@ enum DiveLogbookDisplay {
                     useChronologicalNumbers: useChronologicalNumbers
                 ),
                 detailLine: detailLine(for: activity, unitSystem: unitSystem),
-                showsDuplicateHint: duplicateIds.contains(activity.id)
+                showsDuplicateHint: duplicateIds.contains(activity.id),
+                previewMediaPhotoID: DiveActivityMediaPresentation.oldestGalleryPhotoID(on: activity)
             )
         }
     }

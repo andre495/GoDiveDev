@@ -826,4 +826,15 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ---
 
-## 53 - Next batch
+## 53 - Auto-upload media and logbook row previews **(pushed)**
+
+- **Logbook row media preview:** **`DiveLogbookRowDisplayData.previewMediaPhotoID`** (oldest gallery item); trailing **`LogbookRowMediaPreviewView`** (spacer-pinned right, height matches text column); dive **#** as top-leading **`ActivityTagOvalChipLabel`**.
+- **Settings → Auto-upload media to activities:** toggles **`AppUserSettings.autoUploadMediaToActivities`**; scans Apple Photos (read access) for images/videos whose capture time falls within each dive’s **`startTime`** … end window (**`bottomTimeSeconds`**, else **`durationMinutes`**, else 90‑min fallback; ±2 min padding).
+- **`DiveLibraryMediaAutoAttach`** + **`DiveLibraryMediaAssetLoader`** (PhotoKit fetch + import via **`DiveActivityMediaStorage`**); **`photosLocalIdentifier`** on **`DiveMediaPhoto`** for dedupe; runs after FIT/UDDF/manual import when the setting is on; enabling the toggle runs a logbook backfill with **`DiveLibraryMediaBackfillProgressOverlay`** (cancel + summary).
+- **Performance:** per-dive **`PHFetch`** by capture-date window (not one union query across the whole logbook); progress is **Checking dive N of M** instead of iterating every library item in the date span.
+- **`NSPhotoLibraryUsageDescription`** updated for library scan + manual attach.
+- **Tests:** **`diveActivityMediaAttachWindow_*`**, settings key smoke test, **`diveActivityMediaPresentation_oldestGalleryPhotoID_*`**, **`diveLogbookDisplay_previewMediaPhotoID_*`**.
+
+---
+
+## 54 - Next batch

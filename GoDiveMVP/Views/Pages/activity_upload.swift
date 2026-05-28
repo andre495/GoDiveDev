@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ActivityUploadView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(AccountSession.self) private var accountSession
 
     /// Called after a successful single-dive import (or bulk import of exactly one new dive).
     var onSuccessfulImport: ((UUID) -> Void)?
@@ -387,6 +388,15 @@ struct ActivityUploadView: View {
         let activity = DiveActivityManualCreation.makeBlankActivity(from: input)
         let outcome = DiveActivityManualCreation.persist(activity, modelContext: modelContext)
         if let id = outcome.primaryInsertedDiveId {
+            if let ownerID = accountSession.currentProfile?.id {
+                Task { @MainActor in
+                    await DiveLibraryMediaAutoAttachScheduler.attachAfterDivePersisted(
+                        activity,
+                        ownerProfileID: ownerID,
+                        modelContext: modelContext
+                    )
+                }
+            }
             onSuccessfulImport?(id)
         } else {
             importOverlay = .failed(outcome.userMessage)

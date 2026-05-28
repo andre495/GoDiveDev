@@ -23,7 +23,20 @@ enum DiveActivityMediaPresentation: Sendable {
     }
 
     nonisolated static func sortedPhotos(on activity: DiveActivity) -> [DiveMediaPhoto] {
-        activity.mediaPhotos.sorted(by: isOrderedBeforeInGallery)
+        sortedPhotos(activity.mediaPhotos)
+    }
+
+    nonisolated static func sortedPhotos(_ photos: [DiveMediaPhoto]) -> [DiveMediaPhoto] {
+        photos.sorted(by: isOrderedBeforeInGallery)
+    }
+
+    /// First item in gallery order (oldest **`capturedAt`** when set).
+    nonisolated static func oldestGalleryPhotoID(in photos: [DiveMediaPhoto]) -> UUID? {
+        sortedPhotos(photos).first?.id
+    }
+
+    nonisolated static func oldestGalleryPhotoID(on activity: DiveActivity) -> UUID? {
+        oldestGalleryPhotoID(in: activity.mediaPhotos)
     }
 
     /// Gallery / carousel order: oldest **`capturedAt`** first (left); undated items last, then **`sortOrder`**, then **`id`**.
@@ -74,6 +87,10 @@ enum DiveActivityMediaPresentation: Sendable {
     }
 
     nonisolated static let carouselThumbnailSize: CGFloat = 72
+    /// Square preview on logbook activity rows (trailing).
+    /// Fallback square extent before the logbook row measures its text column.
+    nonisolated static let logbookRowMediaPreviewMinExtent: CGFloat = 56
+    nonisolated static let logbookRowMediaPreviewCornerRadius: CGFloat = 8
     nonisolated static let carouselThumbnailSpacing: CGFloat = 10
     nonisolated static let carouselThumbnailCornerRadius: CGFloat = 10
     /// Fixed row height so the carousel lays out inside the overview panel's vertical **`ScrollView`**.

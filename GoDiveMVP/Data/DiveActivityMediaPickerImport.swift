@@ -113,6 +113,7 @@ enum DiveActivityMediaBatchImport {
                 let addedID = try DiveActivityMediaStorage.addMedia(
                     loaded.payload,
                     capturedAt: loaded.capturedAt,
+                    photosLocalIdentifier: item.itemIdentifier,
                     to: activity,
                     modelContext: modelContext
                 )

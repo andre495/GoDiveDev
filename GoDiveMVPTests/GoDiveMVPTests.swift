@@ -3005,6 +3005,61 @@ struct GoDiveMVPTests {
         #expect(sorted.map(\.capturedAt) == [oldest, middle, newest])
     }
 
+    @Test func diveActivityMediaPresentation_oldestGalleryPhotoID_returnsFirstInGalleryOrder() {
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 0,
+            maxDepthMeters: 0
+        )
+        let oldest = DiveMediaPhoto(
+            sortOrder: 1,
+            mediaData: Data([1]),
+            capturedAt: Date(timeIntervalSince1970: 1_000),
+            dive: activity
+        )
+        let newest = DiveMediaPhoto(
+            sortOrder: 0,
+            mediaData: Data([2]),
+            capturedAt: Date(timeIntervalSince1970: 3_000),
+            dive: activity
+        )
+        activity.mediaPhotos = [newest, oldest]
+        #expect(DiveActivityMediaPresentation.oldestGalleryPhotoID(on: activity) == oldest.id)
+        #expect(DiveActivityMediaPresentation.oldestGalleryPhotoID(in: []) == nil)
+    }
+
+    @Test func diveLogbookDisplay_previewMediaPhotoID_usesOldestGalleryPhoto() {
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 12,
+            diveNumber: 3
+        )
+        let oldest = DiveMediaPhoto(
+            sortOrder: 1,
+            mediaData: Data([1]),
+            capturedAt: Date(timeIntervalSince1970: 500),
+            dive: activity
+        )
+        let newest = DiveMediaPhoto(
+            sortOrder: 0,
+            mediaData: Data([2]),
+            capturedAt: Date(timeIntervalSince1970: 1_500),
+            dive: activity
+        )
+        activity.mediaPhotos = [newest, oldest]
+
+        let rows = DiveLogbookDisplay.rowData(
+            activities: [activity],
+            unitSystem: .metric,
+            duplicateIds: [],
+            useChronologicalNumbers: false
+        )
+        #expect(rows.first?.previewMediaPhotoID == oldest.id)
+    }
+
     @Test func diveMediaImportProgressPresentation_progressFraction_clampsToUnitInterval() {
         #expect(DiveMediaImportProgressPresentation.progressFraction(completed: 2, total: 5) == 0.4)
         #expect(DiveMediaImportProgressPresentation.progressFraction(completed: 5, total: 5) == 1.0)
@@ -6378,6 +6433,97 @@ struct GoDiveMVPTests {
             )
         )
     }
+
+    @Test func diveActivityMediaAttachWindow_prefersBottomTimeOverSessionDuration() {
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        let activity = DiveActivity(
+            source: .garminMK3,
+            startTime: start,
+            durationMinutes: 60,
+            maxDepthMeters: 18,
+            bottomTimeSeconds: 2_400
+        )
+        let window = DiveActivityMediaAttachWindow.window(for: activity, paddingSeconds: 0)
+        #expect(window.inclusiveStart == start)
+        #expect(window.inclusiveEnd == start.addingTimeInterval(2_400))
+    }
+
+    @Test func diveActivityMediaAttachWindow_containsCaptureDateWithPadding() {
+        let start = Date(timeIntervalSince1970: 2_000_000)
+        let activity = DiveActivity(
+            source: .garminMK3,
+            startTime: start,
+            durationMinutes: 30,
+            maxDepthMeters: 12
+        )
+        let window = DiveActivityMediaAttachWindow.window(for: activity)
+        let duringDive = start.addingTimeInterval(600)
+        let justBefore = start.addingTimeInterval(-DiveActivityMediaAttachWindow.defaultPaddingSeconds + 1)
+        let tooEarly = start.addingTimeInterval(-DiveActivityMediaAttachWindow.defaultPaddingSeconds - 1)
+        #expect(window.contains(duringDive))
+        #expect(window.contains(justBefore))
+        #expect(!window.contains(tooEarly))
+    }
+
+    @Test func diveActivityMediaAttachWindow_bestMatchingActivity_prefersNarrowestWindow() {
+        let capture = Date(timeIntervalSince1970: 3_000_600)
+        let narrow = DiveActivity(
+            source: .garminMK3,
+            startTime: Date(timeIntervalSince1970: 3_000_000),
+            durationMinutes: 20,
+            maxDepthMeters: 10
+        )
+        let wide = DiveActivity(
+            source: .garminMK3,
+            startTime: Date(timeIntervalSince1970: 2_999_000),
+            durationMinutes: 120,
+            maxDepthMeters: 20
+        )
+        let match = DiveActivityMediaAttachWindow.bestMatchingActivity(for: capture, among: [wide, narrow])
+        #expect(match?.id == narrow.id)
+    }
+
+    @Test func diveActivityMediaAttachWindow_unknownDurationUsesFallback() {
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 4_000_000),
+            durationMinutes: 0,
+            maxDepthMeters: 0
+        )
+        #expect(
+            DiveActivityMediaAttachWindow.diveDurationSeconds(for: activity)
+                == DiveActivityMediaAttachWindow.defaultUnknownDiveDurationSeconds
+        )
+    }
+
+    @Test func appUserSettings_autoUploadMediaKey_isDefined() {
+        #expect(!AppUserSettings.autoUploadMediaToActivitiesKey.isEmpty)
+    }
+
+    @Test func diveLibraryMediaAutoAttachPresentation_finishedMessage_whenDenied() {
+        let outcome = DiveLibraryMediaAutoAttach.Outcome(
+            attachedCount: 0,
+            skippedAlreadyLinked: 0,
+            skippedNoCaptureDate: 0,
+            authorizationDenied: true
+        )
+        #expect(
+            DiveLibraryMediaAutoAttachPresentation.finishedMessage(for: outcome)
+                .contains("Photos access")
+        )
+    }
+
+    @Test func diveLibraryMediaAutoAttachPresentation_progressFraction_clamps() {
+        #expect(DiveLibraryMediaAutoAttachPresentation.progressFraction(completed: 2, total: 4) == 0.5)
+        #expect(DiveLibraryMediaAutoAttachPresentation.progressFraction(completed: 0, total: 0) == 0)
+    }
+
+    @Test func diveLibraryMediaAutoAttachPresentation_stageCheckingDive_formatsIndex() {
+        #expect(
+            DiveLibraryMediaAutoAttachPresentation.stageCheckingDive(diveIndex: 3, diveCount: 10)
+                == "Checking dive 3 of 10…"
+        )
+    }
     #endif
 }
 
@@ -6398,7 +6544,8 @@ private func logbookSnapshotSeed(
         displayName: resolvedSiteNameLowercased ?? "New Dive",
         formattedStartDateOnly: "Jan 1, 1970",
         resolvedSiteNameLowercased: resolvedSiteNameLowercased,
-        activityTagNames: activityTagNames
+        activityTagNames: activityTagNames,
+        previewMediaPhotoID: nil
     )
 }
 

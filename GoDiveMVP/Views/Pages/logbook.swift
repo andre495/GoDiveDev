@@ -385,7 +385,8 @@ struct LogbookView: View {
                 displayName: row.displayName,
                 diveNumberLabel: "#\(number)",
                 detailLine: row.detailLine,
-                showsDuplicateHint: row.showsDuplicateHint
+                showsDuplicateHint: row.showsDuplicateHint,
+                previewMediaPhotoID: row.previewMediaPhotoID
             )
         }
     }

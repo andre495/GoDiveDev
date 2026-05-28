@@ -1,37 +1,60 @@
 import SwiftUI
 
-/// Compact logbook row: name, dive **#**, date · depth · duration.
+/// Compact logbook row: oval dive **#** (top leading), name + stats, optional oldest-media preview (trailing).
 struct LogbookActivityRow: View, Equatable {
     let data: DiveLogbookRowDisplayData
 
+    @State private var textColumnHeight: CGFloat = 0
+
+    static func == (lhs: LogbookActivityRow, rhs: LogbookActivityRow) -> Bool {
+        lhs.data == rhs.data
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline, spacing: AppTheme.Spacing.sm) {
+        HStack(alignment: .top, spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                ActivityTagOvalChipLabel(title: data.diveNumberLabel)
+                    .accessibilityLabel("Dive number \(diveNumberForAccessibility)")
+
                 Text(data.displayName)
                     .font(.headline)
                     .foregroundStyle(AppTheme.Colors.textPrimary)
                     .lineLimit(1)
 
-                Spacer(minLength: AppTheme.Spacing.sm)
+                Text(data.detailLine)
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
 
-                Text(data.diveNumberLabel)
-                    .font(.subheadline.weight(.medium).monospacedDigit())
-                    .foregroundStyle(AppTheme.Colors.tabUnselected)
-                    .accessibilityLabel("Dive number \(diveNumberForAccessibility)")
+                if data.showsDuplicateHint {
+                    Text("Possible duplicate")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.Colors.mutedText)
+                        .accessibilityLabel("Possible duplicate dive in log")
+                }
             }
-
-            Text(data.detailLine)
-                .font(.footnote)
-                .foregroundStyle(AppTheme.Colors.secondaryText)
-                .lineLimit(2)
-                .minimumScaleFactor(0.85)
-
-            if data.showsDuplicateHint {
-                Text("Possible duplicate")
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.Colors.mutedText)
-                    .accessibilityLabel("Possible duplicate dive in log")
+            .background {
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: LogbookRowTextColumnHeightKey.self,
+                        value: proxy.size.height
+                    )
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if let previewMediaPhotoID = data.previewMediaPhotoID {
+                Spacer(minLength: AppTheme.Spacing.md)
+
+                LogbookRowMediaPreviewView(
+                    photoID: previewMediaPhotoID,
+                    extent: textColumnHeight
+                )
+            }
+        }
+        .onPreferenceChange(LogbookRowTextColumnHeightKey.self) { height in
+            textColumnHeight = height
         }
         .padding(AppTheme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -66,6 +89,14 @@ struct LogbookActivityRow: View, Equatable {
     }
 }
 
+private struct LogbookRowTextColumnHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 #Preview {
     let a = DiveActivity(
         source: .garminMK3,
@@ -80,7 +111,8 @@ struct LogbookActivityRow: View, Equatable {
         displayName: "Salt Pier",
         diveNumberLabel: "#12",
         detailLine: "May 17, 2026 · 74 ft · 34 min",
-        showsDuplicateHint: false
+        showsDuplicateHint: false,
+        previewMediaPhotoID: nil
     )
     return LogbookActivityRow(data: data)
         .padding()
