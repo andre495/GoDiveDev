@@ -883,5 +883,9 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Logbook delete crash fix:** no main-context fallback or **`processPendingChanges`** merge polling — reconciles optimistic hides with **`FetchDescriptor`** only (avoids **`EXC_BAD_ACCESS`** on invalidated **`@Query`** models). **`DiveDelete`** debug logging (**`DiveActivityDeletionDebug`**) off in Release.
 - **Launch SwiftData I/O:** **`AppModelContainer.loadProduction()`** async background container; launch gradient until ready.
 
-## 56 - Next batch
+## 56 - Test compile fixes **(pushed)**
 
+- **`diveActivityDeletionMarineLifeCleanup_removeDiveReferences_stripsActivityMediaAndSite`:** construct **`MarineLifeUserRecord`** with **`marineLife:`** catalog row (not removed **`marineLifeUUID:`** init label).
+- **`DiveMediaVideoLoadOutcome`:** explicit **nonisolated** **`Equatable`** — fixes Swift 6 warning when **`#expect`** compares outcomes in **`diveMediaVideoLoad_classify_*`**.
+
+## 57 - Next batch
