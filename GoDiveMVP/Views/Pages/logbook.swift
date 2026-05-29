@@ -1,15 +1,18 @@
+import Combine
 import SwiftData
 import SwiftUI
 
 private enum LogbookRoute: Hashable {
     case addActivity
     case diveDetail(UUID)
+    /// Opens the dive detail with the **Media** tab focused on a specific photo at the medium detent.
+    case diveMedia(UUID, mediaID: UUID)
 }
 
 struct LogbookView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
-    @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = false
+    @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
 
     @Query private var activities: [DiveActivity]
     @Query private var ownerActivityTags: [ActivityTag]
@@ -80,6 +83,13 @@ struct LogbookView: View {
             .onReceive(NotificationCenter.default.publisher(for: .logbookTabReselected)) { _ in
                 handleLogbookTabReselect()
             }
+            .onReceive(
+                NotificationCenter.default
+                    .publisher(for: .diveActivityMediaDidChange)
+                    .receive(on: RunLoop.main)
+            ) { _ in
+                handleMediaDidChange()
+            }
             .onAppear { scheduleLogbookCacheRefresh() }
             .onChange(of: activities.count) { _, _ in
                 handleActivitiesCountChange()
@@ -140,6 +150,7 @@ struct LogbookView: View {
             onSelectTagSuggestion: selectTagSuggestion,
             onClearTagFilter: clearTagFilter,
             onSwipeDelete: requestDeleteForRow,
+            onSelectMediaPreview: openDiveMediaPreview,
             onHeaderClearanceChange: updateLogbookHeaderClearance
         )
         .equatable()
@@ -166,11 +177,27 @@ struct LogbookView: View {
             if let activity = activities.first(where: { $0.id == id }) {
                 ViewSingleActivity(activity: activity)
             } else {
-                Text("This dive is no longer in your log.")
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-                    .padding()
+                diveNoLongerInLogText
+            }
+        case .diveMedia(let id, let mediaID):
+            if let activity = activities.first(where: { $0.id == id }) {
+                ViewSingleActivity(activity: activity, initialMediaFocusID: mediaID)
+            } else {
+                diveNoLongerInLogText
             }
         }
+    }
+
+    private var diveNoLongerInLogText: some View {
+        Text("This dive is no longer in your log.")
+            .foregroundStyle(AppTheme.Colors.secondaryText)
+            .padding()
+    }
+
+    /// Tapping a row's media thumbnail opens the dive's **Media** tab on that photo (medium detent).
+    private func openDiveMediaPreview(_ row: DiveLogbookRowDisplayData) {
+        guard let mediaID = row.previewMediaPhotoID else { return }
+        path.append(.diveMedia(row.id, mediaID: mediaID))
     }
 
     private func selectTagSuggestion(_ suggestion: LogbookTagSearchSuggestion) {
@@ -189,6 +216,14 @@ struct LogbookView: View {
 
     private func updateLogbookHeaderClearance(_ height: CGFloat) {
         if height > 0 { logbookHeaderClearance = height }
+    }
+
+    /// Media attached to a dive (manual upload or import auto-attach) does not change **`activities.count`**,
+    /// so rebuild the row cache here to surface the new preview thumbnail without waiting for another trigger.
+    /// Skips the duplicate scan because adding media never changes duplicate detection.
+    private func handleMediaDidChange() {
+        guard !suppressStoreDrivenRefresh else { return }
+        scheduleLogbookCacheRefresh(includeDuplicateScan: false)
     }
 
     private func handleActivitiesCountChange() {
@@ -290,8 +325,11 @@ struct LogbookView: View {
             suppressStoreDrivenRefresh = true
             applyOptimisticDeleteToLogbookRows(removedId: id)
             path.removeAll {
-                if case .diveDetail(let detailId) = $0 { return detailId == id }
-                return false
+                switch $0 {
+                case .diveDetail(let detailId): return detailId == id
+                case .diveMedia(let detailId, _): return detailId == id
+                case .addActivity: return false
+                }
             }
 
             Task(priority: .utility) {
@@ -493,6 +531,7 @@ private struct LogbookListSurface: View, Equatable {
     let onSelectTagSuggestion: (LogbookTagSearchSuggestion) -> Void
     let onClearTagFilter: () -> Void
     let onSwipeDelete: (UUID) -> Void
+    let onSelectMediaPreview: (DiveLogbookRowDisplayData) -> Void
     let onHeaderClearanceChange: (CGFloat) -> Void
 
     static func == (lhs: LogbookListSurface, rhs: LogbookListSurface) -> Bool {
@@ -600,8 +639,13 @@ private struct LogbookListSurface: View, Equatable {
 
     private func logbookDiveRow(_ row: DiveLogbookRowDisplayData) -> some View {
         NavigationLink(value: LogbookRoute.diveDetail(row.id)) {
-            LogbookActivityRow(data: row)
-                .equatable()
+            LogbookActivityRow(
+                data: row,
+                onTapMediaPreview: row.previewMediaPhotoID == nil
+                    ? nil
+                    : { onSelectMediaPreview(row) }
+            )
+            .equatable()
         }
         .buttonStyle(.plain)
         .navigationLinkIndicatorVisibility(.hidden)

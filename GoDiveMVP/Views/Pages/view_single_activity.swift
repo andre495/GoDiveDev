@@ -20,6 +20,8 @@ struct ViewSingleActivity: View {
     }
 
     @Bindable var activity: DiveActivity
+    /// When set (e.g. tapping a logbook row thumbnail), open on the **Media** tab focused on this photo at the medium detent.
+    var initialMediaFocusID: UUID? = nil
     @Environment(\.modelContext) private var modelContext
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @Environment(AccountSession.self) private var accountSession
@@ -51,6 +53,8 @@ struct ViewSingleActivity: View {
     @State private var mediaImportOverlay: DiveMediaImportOverlayState = .hidden
     @State private var derivedDiveData = DerivedDiveData()
     @State private var catalogSitesForMapResolution: [DiveSite] = []
+    /// Guards the one-time deep-link focus (Media tab + selected photo) so it only applies on first appear.
+    @State private var didApplyInitialMediaFocus = false
 
     /// **More** tab: profile samples sorted by time (read-only).
     private var moreTabSortedProfilePoints: [DiveProfilePoint] {
@@ -232,11 +236,25 @@ struct ViewSingleActivity: View {
     }
 
     private func handleSingleActivityAppear() {
+        applyInitialMediaFocusIfNeeded()
         overviewMapTeardownRequested = false
         catalogSitesForMapResolution = []
         reloadMapSitePromptDeclinedState()
         syncOverviewSheetPresentation(for: selectedActivityTab)
         presentMapSitePromptIfNeeded()
+    }
+
+    /// One-time deep link from the logbook row thumbnail: jump to the Media tab on a specific photo (medium detent).
+    private func applyInitialMediaFocusIfNeeded() {
+        guard !didApplyInitialMediaFocus else { return }
+        didApplyInitialMediaFocus = true
+        guard let focus = DiveActivityMediaFocusPresentation.focus(forMediaFocusID: initialMediaFocusID) else {
+            return
+        }
+        selectedActivityTab = focus.tab
+        selectedDiveMediaPhotoID = focus.mediaID
+        isOverviewPanelPresented = true
+        overviewSheetDetent = focus.detent
     }
 
     private func handleSelectedActivityTabChange(_ newTab: DiveActivityTab) {
@@ -974,6 +992,8 @@ struct ViewSingleActivity: View {
             onTagMarineLife: showsMarineLifeTagInSheet
                 ? { tagMarineLifeFromSelectedMedia() }
                 : nil,
+            featuredMediaID: DiveActivityMediaPresentation.featuredPhotoID(on: activity),
+            onToggleFeatured: { toggleFeaturedMedia($0) },
             mediaPickerItems: $diveMediaPickerItems,
             isImportInProgress: mediaImportOverlay.isBlocking
         )
@@ -982,6 +1002,18 @@ struct ViewSingleActivity: View {
             showsSheetDetails
                 ? "DiveOverview.MediaPanel"
                 : "DiveOverview.MediaPanel.Minimized"
+        )
+    }
+
+    /// Sets the tapped media as the featured logbook preview, or reverts to the default (oldest) when it is
+    /// already the explicitly featured item.
+    private func toggleFeaturedMedia(_ media: DiveMediaPhoto) {
+        let resolvedFeaturedID = DiveActivityMediaPresentation.featuredPhotoID(on: activity)
+        let newValue: UUID? = resolvedFeaturedID == media.id ? nil : media.id
+        try? DiveActivityMediaStorage.setFeaturedMedia(
+            newValue,
+            on: activity,
+            modelContext: modelContext
         )
     }
 

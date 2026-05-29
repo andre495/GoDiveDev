@@ -121,22 +121,30 @@ struct DiveSiteAddSheet: View {
         let lat = parsed?.latitude
         let lon = parsed?.longitude
 
-        do {
-            _ = try DiveActivitySiteAssociation.createSiteAndLink(
-                to: activity,
-                siteName: siteName,
-                country: DiveSiteFormValidation.sanitizedPlaceField(draft.country),
-                region: DiveSiteFormValidation.sanitizedPlaceField(draft.region),
-                bodyOfWater: DiveSiteFormValidation.sanitizedPlaceField(draft.bodyOfWater),
-                latCoords: lat,
-                longCoords: lon,
-                modelContext: modelContext
-            )
-            DiveActivityMapSitePromptStorage.setDeclined(activityID: activity.id, declined: false)
-            onSaved()
-            dismiss()
-        } catch {
-            saveErrorMessage = error.localizedDescription
+        Task { @MainActor in
+            do {
+                let site = try DiveActivitySiteAssociation.createSiteAndLink(
+                    to: activity,
+                    siteName: siteName,
+                    country: DiveSiteFormValidation.sanitizedPlaceField(draft.country),
+                    region: DiveSiteFormValidation.sanitizedPlaceField(draft.region),
+                    bodyOfWater: DiveSiteFormValidation.sanitizedPlaceField(draft.bodyOfWater),
+                    latCoords: lat,
+                    longCoords: lon,
+                    modelContext: modelContext
+                )
+                await DiveSiteTimeZoneResolution.ensureResolved(
+                    for: site,
+                    at: activity.startTime,
+                    resolver: MapKitGeocodingTimeZoneResolver.shared
+                )
+                try modelContext.save()
+                DiveActivityMapSitePromptStorage.setDeclined(activityID: activity.id, declined: false)
+                onSaved()
+                dismiss()
+            } catch {
+                saveErrorMessage = error.localizedDescription
+            }
         }
     }
 }

@@ -14,6 +14,7 @@ struct GoDiveMVPApp: App {
     @State private var accountSession = AccountSession.shared
 
     init() {
+        AppUserSettings.registerDefaultValues()
         guard GoDiveUITestConfiguration.isActive else { return }
         UIView.setAnimationsEnabled(false)
     }

@@ -42,8 +42,7 @@ actor DiveBackgroundDeletionWorker {
 
         syncDenormalizedChildIDs(on: activity)
 
-        // Collect before batch-deleting **`DiveMediaPhoto`** rows.
-        let videoFileNames = try videoFileNames(forDiveID: diveID)
+        // Media rows are Photos-library references (no app-side files to remove); just drop the DB rows.
         detachRelatedRecords(from: activity)
         try modelContext.save()
 
@@ -55,9 +54,6 @@ actor DiveBackgroundDeletionWorker {
         )
         try modelContext.save()
 
-        if !videoFileNames.isEmpty {
-            DiveMediaFileStore.deleteFiles(named: videoFileNames)
-        }
         return true
     }
 
@@ -135,16 +131,5 @@ actor DiveBackgroundDeletionWorker {
             model: DiveMediaPhoto.self,
             where: #Predicate<DiveMediaPhoto> { $0.diveActivityID == diveID }
         )
-    }
-
-    private func videoFileNames(forDiveID diveID: UUID) throws -> [String] {
-        let descriptor = FetchDescriptor<DiveMediaPhoto>(
-            predicate: #Predicate { $0.diveActivityID == diveID }
-        )
-        return try modelContext.fetch(descriptor).compactMap { item -> String? in
-            guard item.mediaKind == DiveMediaKind.video.rawValue else { return nil }
-            let name = item.mediaFileName.trimmingCharacters(in: .whitespacesAndNewlines)
-            return name.isEmpty ? nil : name
-        }
     }
 }

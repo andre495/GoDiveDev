@@ -10,33 +10,29 @@ enum DiveActivitySiteAssociation {
     /// Tries to set **`diveSite`** / **`diveSiteID`** when not already linked.
     static func applyBestMatch(to activity: DiveActivity, catalogSites: [DiveSite]) {
         guard activity.diveSite == nil else { return }
-        guard !catalogSites.isEmpty else { return }
+        guard let site = previewBestMatch(for: activity, catalogSites: catalogSites) else { return }
+        link(activity, to: site)
+    }
+
+    /// Same rules as **`applyBestMatch`**, without mutating **`diveSite`** (import datetime / timezone lookup).
+    static func previewBestMatch(for activity: DiveActivity, catalogSites: [DiveSite]) -> DiveSite? {
+        guard activity.diveSite == nil else { return activity.diveSite }
+        guard !catalogSites.isEmpty else { return nil }
 
         if let siteName = trimmedSiteName(activity.siteName) {
-            applyNameBasedMatch(to: activity, siteName: siteName, catalogSites: catalogSites)
-            return
+            let exactMatches = DiveMapCoordinateResolver.exactMatchingSites(forSiteName: siteName, in: catalogSites)
+            return disambiguateSiteMatches(exactMatches, entryCoordinate: activity.entryCoordinate)
         }
 
         if let entry = activity.entryCoordinate,
            DiveMapCoordinateResolver.isUsable(entry),
            let site = DiveSiteCoordinateMatcher.bestMatch(for: entry, in: catalogSites) {
-            link(activity, to: site)
+            return site
         }
+        return nil
     }
 
     /// Import **`siteName`** → exact catalog name match only (never a different nearby site). Duplicate names disambiguate by GPS within that name set.
-    private static func applyNameBasedMatch(
-        to activity: DiveActivity,
-        siteName: String,
-        catalogSites: [DiveSite]
-    ) {
-        let exactMatches = DiveMapCoordinateResolver.exactMatchingSites(forSiteName: siteName, in: catalogSites)
-        guard let site = disambiguateSiteMatches(exactMatches, entryCoordinate: activity.entryCoordinate) else {
-            return
-        }
-        link(activity, to: site)
-    }
-
     private static func disambiguateSiteMatches(
         _ matches: [DiveSite],
         entryCoordinate: DiveCoordinate?

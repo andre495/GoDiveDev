@@ -4,24 +4,28 @@ import UniformTypeIdentifiers
 /// Helpers for SwiftUI **`.fileImporter`** results and presentation timing.
 enum DiveFileImporterPresentation {
     /// Single **`.fileImporter`** per view — use this mode to choose allowed UTTypes (two modifiers break the first).
+    ///
+    /// **`.fit`** is the Garmin single-dive path; **`.uddf`** is the consolidated UDDF path (one or many dives).
     enum PickerMode {
-        case singleDive
-        case bulkUddf
+        case fit
+        case uddf
 
+        /// Restrict the document picker to the matching extension only (no broad **`.data`** / **`.xml`**, which
+        /// previously left every file selectable). **`UTType(filenameExtension:)`** matches files by extension.
         var allowedContentTypes: [UTType] {
             switch self {
-            case .singleDive:
-                [.goDiveFit, .goDiveUddf, .data, .xml]
-            case .bulkUddf:
-                [.goDiveUddf, .data, .xml]
+            case .fit:
+                [.goDiveFit]
+            case .uddf:
+                [.goDiveUddf]
             }
         }
 
-        var isBulkUddf: Bool { self == .bulkUddf }
+        var isUddf: Bool { self == .uddf }
     }
 
-    static let singleDiveAllowedTypes: [UTType] = PickerMode.singleDive.allowedContentTypes
-    static let bulkUddfAllowedTypes: [UTType] = PickerMode.bulkUddf.allowedContentTypes
+    static let fitAllowedTypes: [UTType] = PickerMode.fit.allowedContentTypes
+    static let uddfAllowedTypes: [UTType] = PickerMode.uddf.allowedContentTypes
 
     /// **`true`** when the user cancelled the system document picker (not a read/decode failure).
     static func isUserCancellation(_ error: Error) -> Bool {

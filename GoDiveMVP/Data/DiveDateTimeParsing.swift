@@ -10,11 +10,19 @@ enum DiveDateTimeParsing: Sendable {
         var timeZoneOffsetSeconds: Int?
     }
 
-    /// UDDF **`informationbeforedive/datetime`** with optional **`divesite/geography/timezone`** (hours from UTC).
+    /// UDDF **`informationbeforedive/datetime`** with optional linked-site **`geography/timezone`** (hours from UTC).
     ///
-    /// MacDive exports naive datetimes (no **`Z`**) as **UTC wall time**. Site **`timezone`** is display-only
-    /// (dive-local offset), not used to reinterpret the stored instant.
-    static func parseUddfDateTime(_ raw: String, siteTimeZoneHours: Double? = nil) -> Result? {
+    /// Per UDDF / ISO 8601: **`Z`** or a **`±HH:MM`** suffix on **`datetime`** define the instant. A naive
+    /// **`datetime`** (no zone) with a site **`timezone`** or inferable site coordinates is **dive-local wall time**.
+    /// Naive without any site offset falls back to **UTC** wall time (corrected after import when coordinates exist).
+    nonisolated static func parseUddfDateTime(
+        _ raw: String,
+        siteTimeZoneHours: Double? = nil,
+        siteLatitude: Double? = nil,
+        siteLongitude: Double? = nil,
+        siteLocationName: String? = nil,
+        macDiveNaiveSemantics: UddfMacDiveWatchDatetimeSemantics? = nil
+    ) -> Result? {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
@@ -27,21 +35,64 @@ enum DiveDateTimeParsing: Sendable {
             return Result(instant: instant, timeZoneOffsetSeconds: 0)
         }
 
-        if let instant = parseMacDiveNaiveUTCDateTime(trimmed) {
-            let displayOffset = siteTimeZoneHours.map { uddfTimeZoneHoursToOffsetSeconds($0) }
-            return Result(instant: instant, timeZoneOffsetSeconds: displayOffset)
+        if macDiveNaiveSemantics == .utcWallClock,
+           let instant = parseNaiveWallTimeAsUtcInstant(trimmed) {
+            return Result(instant: instant, timeZoneOffsetSeconds: nil)
+        }
+
+        if let effectiveHours = resolvedSiteTimeZoneHours(
+            xmlHours: siteTimeZoneHours,
+            siteLatitude: siteLatitude,
+            siteLongitude: siteLongitude,
+            siteLocationName: siteLocationName,
+            naiveRaw: trimmed
+        ),
+           let instant = parseNaiveWallTime(
+               trimmed,
+               timeZoneOffsetSeconds: uddfTimeZoneHoursToOffsetSeconds(effectiveHours)
+           ) {
+            let offsetSeconds = uddfTimeZoneHoursToOffsetSeconds(effectiveHours)
+            return Result(instant: instant, timeZoneOffsetSeconds: offsetSeconds)
+        }
+
+        if let instant = parseNaiveWallTime(trimmed, timeZoneOffsetSeconds: 0) {
+            return Result(instant: instant, timeZoneOffsetSeconds: nil)
         }
         return nil
     }
 
+    /// XML **`timezone`**, else offline inference from site coordinates / location (network re-parse runs in **`UddfImportedDiveNormalization`**).
+    nonisolated static func resolvedSiteTimeZoneHours(
+        xmlHours: Double?,
+        siteLatitude: Double?,
+        siteLongitude: Double?,
+        siteLocationName: String? = nil,
+        naiveRaw: String
+    ) -> Double? {
+        if let xmlHours { return xmlHours }
+        let provisionalInstant = parseNaiveWallTime(naiveRaw, timeZoneOffsetSeconds: 0) ?? Date()
+        if let siteLatitude, let siteLongitude,
+           let hours = DiveSiteGeographyTimeZoneInference.uddfHoursFromUTC(
+               latitude: siteLatitude,
+               longitude: siteLongitude,
+               at: provisionalInstant
+           ) {
+            return hours
+        }
+        return DiveSiteGeographyTimeZoneInference.uddfHoursFromLocationName(
+            siteLocationName,
+            at: provisionalInstant
+        )
+    }
+
     /// UDDF **`geography/timezone`** is a floating hours-from-UTC value.
-    static func uddfTimeZoneHoursToOffsetSeconds(_ hours: Double) -> Int {
+    nonisolated static func uddfTimeZoneHoursToOffsetSeconds(_ hours: Double) -> Int {
         Int((hours * 3600).rounded())
     }
 
     // MARK: - ISO
 
-    private static func parseISOInstant(_ raw: String) -> Date? {
+    private nonisolated static func parseISOInstant(_ raw: String) -> Date? {
         let isoFrac = ISO8601DateFormatter()
         isoFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds, .withTimeZone]
         if let d = isoFrac.date(from: raw) { return d }
@@ -53,7 +104,7 @@ enum DiveDateTimeParsing: Sendable {
     }
 
     /// **`Z`**, or **`+07:00`** / **`+0700`** after the **`T`** time on **`datetime`**.
-    private static func explicitOffsetSeconds(in raw: String) -> Int? {
+    private nonisolated static func explicitOffsetSeconds(in raw: String) -> Int? {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.hasSuffix("Z") || trimmed.hasSuffix("z") { return 0 }
 
@@ -88,12 +139,12 @@ enum DiveDateTimeParsing: Sendable {
         return sign * (hours * 3600 + minutes * 60)
     }
 
-    /// MacDive / UDDF naive **`datetime`** — clock components are **UTC** (no zone suffix in file).
-    private static func parseMacDiveNaiveUTCDateTime(_ raw: String) -> Date? {
+    /// Naive **`datetime`** interpreted as UTC wall clock (legacy fallback).
+    nonisolated static func parseNaiveWallTimeAsUtcInstant(_ raw: String) -> Date? {
         parseNaiveWallTime(raw, timeZoneOffsetSeconds: 0)
     }
 
-    private static func parseNaiveWallTime(_ raw: String, timeZoneOffsetSeconds: Int) -> Date? {
+    private nonisolated static func parseNaiveWallTime(_ raw: String, timeZoneOffsetSeconds: Int) -> Date? {
         let tz = TimeZone(secondsFromGMT: timeZoneOffsetSeconds) ?? .gmt
         let formats = ["yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd"]
         for format in formats {

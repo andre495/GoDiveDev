@@ -39,6 +39,28 @@ enum DiveActivityMediaPresentation: Sendable {
         oldestGalleryPhotoID(in: activity.mediaPhotos)
     }
 
+    /// Resolved **featured** media: the user-chosen **`explicitFeaturedID`** when it still exists in **`photos`**,
+    /// otherwise the default (oldest gallery item). Falls back gracefully if the featured asset was removed / pruned.
+    nonisolated static func featuredPhotoID(in photos: [DiveMediaPhoto], explicitFeaturedID: UUID?) -> UUID? {
+        if let explicitFeaturedID, photos.contains(where: { $0.id == explicitFeaturedID }) {
+            return explicitFeaturedID
+        }
+        return oldestGalleryPhotoID(in: photos)
+    }
+
+    nonisolated static func featuredPhotoID(on activity: DiveActivity) -> UUID? {
+        featuredPhotoID(in: activity.mediaPhotos, explicitFeaturedID: activity.featuredMediaPhotoID)
+    }
+
+    /// **`true`** when **`mediaID`** is the resolved featured item for **`photos`**.
+    nonisolated static func isFeatured(
+        mediaID: UUID,
+        in photos: [DiveMediaPhoto],
+        explicitFeaturedID: UUID?
+    ) -> Bool {
+        featuredPhotoID(in: photos, explicitFeaturedID: explicitFeaturedID) == mediaID
+    }
+
     /// Gallery / carousel order: oldest **`capturedAt`** first (left); undated items last, then **`sortOrder`**, then **`id`**.
     nonisolated static func isOrderedBeforeInGallery(_ lhs: DiveMediaPhoto, _ rhs: DiveMediaPhoto) -> Bool {
         switch (lhs.capturedAt, rhs.capturedAt) {

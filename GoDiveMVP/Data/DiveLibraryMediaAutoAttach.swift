@@ -33,12 +33,14 @@ enum DiveLibraryMediaAutoAttach: Sendable {
     static func attachMatchingLibraryMedia(
         for activity: DiveActivity,
         ownerProfileID: UUID,
-        modelContext: ModelContext
+        modelContext: ModelContext,
+        requiresAutoUploadSetting: Bool = true
     ) async -> Outcome {
         await attachMatchingLibraryMedia(
             activities: [activity],
             ownerProfileID: ownerProfileID,
-            modelContext: modelContext
+            modelContext: modelContext,
+            requiresAutoUploadSetting: requiresAutoUploadSetting
         )
     }
 
@@ -46,14 +48,18 @@ enum DiveLibraryMediaAutoAttach: Sendable {
     static func attachMatchingLibraryMedia(
         activities: [DiveActivity],
         ownerProfileID: UUID,
-        modelContext: ModelContext
+        modelContext: ModelContext,
+        onProgress: ProgressHandler? = nil,
+        requiresAutoUploadSetting: Bool = true
     ) async -> Outcome {
-        guard AppUserSettings.autoUploadMediaToActivities else { return emptyOutcome }
-        return await attachMatchingLibraryMedia(
+        if requiresAutoUploadSetting {
+            guard AppUserSettings.autoUploadMediaToActivities else { return emptyOutcome }
+        }
+        return await performAttachMatchingLibraryMedia(
             activities: activities,
             ownerProfileID: ownerProfileID,
             modelContext: modelContext,
-            onProgress: nil
+            onProgress: onProgress
         )
     }
 
@@ -66,13 +72,24 @@ enum DiveLibraryMediaAutoAttach: Sendable {
     ) async -> Outcome {
         guard AppUserSettings.autoUploadMediaToActivities else { return emptyOutcome }
 
+        // Always surface the Photos prompt when enabling auto-upload, even before any dives exist.
+        reportProgress(completed: 0, total: 1, stage: DiveLibraryMediaAutoAttachPresentation.stageRequestingAccess, onProgress: onProgress)
+        guard await requestPhotoLibraryReadAccess() else {
+            return Outcome(
+                attachedCount: 0,
+                skippedAlreadyLinked: 0,
+                skippedNoCaptureDate: 0,
+                authorizationDenied: true
+            )
+        }
+
         do {
             let dives = try DiveActivityOwnership.activities(forOwnerProfileID: ownerProfileID, modelContext: modelContext)
             guard !dives.isEmpty else {
                 reportProgress(completed: 1, total: 1, stage: DiveLibraryMediaAutoAttachPresentation.stageNoDives, onProgress: onProgress)
                 return emptyOutcome
             }
-            return await attachMatchingLibraryMedia(
+            return await performAttachMatchingLibraryMedia(
                 activities: dives,
                 ownerProfileID: ownerProfileID,
                 modelContext: modelContext,
@@ -85,7 +102,7 @@ enum DiveLibraryMediaAutoAttach: Sendable {
     }
 
     @MainActor
-    private static func attachMatchingLibraryMedia(
+    private static func performAttachMatchingLibraryMedia(
         activities: [DiveActivity],
         ownerProfileID: UUID,
         modelContext: ModelContext,
@@ -108,6 +125,8 @@ enum DiveLibraryMediaAutoAttach: Sendable {
 
         #if canImport(Photos)
         guard !Task.isCancelled else { return emptyOutcome }
+
+        await DiveActivityTimeZoneResolution.resolveMissingOffsets(for: activities)
 
         var linkedIdentifiers: Set<String>
         do {
@@ -140,8 +159,26 @@ enum DiveLibraryMediaAutoAttach: Sendable {
                 )
             }
 
-            let window = DiveActivityMediaAttachWindow.window(for: activity)
-            let assets = fetchAssets(in: window)
+            let preciseWindow = DiveActivityMediaAttachWindow.window(for: activity)
+            let fetchWindow = DiveActivityMediaAttachWindow.photoLibraryFetchWindow(for: activity)
+            let timeZone = DiveActivityMediaAttachWindow.resolvedTimeZone(for: activity)
+            // Recover camera media (e.g. GoPro) that stored local wall-clock time in a UTC field.
+            let diveLocalOffsetSeconds = timeZone.secondsFromGMT(for: activity.startTime)
+            let assets = fetchAssets(in: fetchWindow)
+
+            DiveLibraryMediaAttachDebug.diveStart(
+                index: diveIndex + 1,
+                total: diveCount,
+                diveStartTime: activity.startTime,
+                timeZone: timeZone,
+                window: preciseWindow,
+                fetchWindow: fetchWindow,
+                fetchedAssetCount: assets.count
+            )
+
+            var diveAttached = 0
+            var diveSkippedOutside = 0
+            var diveSkippedNoCreation = 0
 
             for (assetIndex, asset) in assets.enumerated() {
                 if Task.isCancelled { break }
@@ -159,31 +196,96 @@ enum DiveLibraryMediaAutoAttach: Sendable {
                 }
 
                 let identifier = asset.localIdentifier
+                let isVideo = asset.mediaType == .video
+                let mediaTypeLabel = isVideo ? "video" : "image"
+
                 if linkedIdentifiers.contains(identifier) {
                     skippedAlreadyLinked += 1
+                    DiveLibraryMediaAttachDebug.asset(
+                        localIdentifier: identifier,
+                        mediaTypeLabel: mediaTypeLabel,
+                        creationDate: asset.creationDate,
+                        capturedAt: nil,
+                        timeZone: timeZone,
+                        decision: .alreadyLinked
+                    )
                     continue
                 }
-                guard asset.creationDate != nil else {
+                guard let creationDate = asset.creationDate else {
                     skippedNoCaptureDate += 1
+                    diveSkippedNoCreation += 1
+                    DiveLibraryMediaAttachDebug.asset(
+                        localIdentifier: identifier,
+                        mediaTypeLabel: mediaTypeLabel,
+                        creationDate: nil,
+                        capturedAt: nil,
+                        timeZone: timeZone,
+                        decision: .missingCreationDate
+                    )
+                    continue
+                }
+
+                // Offset recovery only for video (QuickTime stores camera local time as UTC, e.g. GoPro);
+                // photo `creationDate` is generally correctly zoned, so keep the strict test to avoid
+                // attaching same-trip photos to a neighbouring dive.
+                guard preciseWindow.shouldAttachAsset(
+                    creationDate: creationDate,
+                    diveLocalOffsetSeconds: isVideo ? diveLocalOffsetSeconds : nil
+                ) else {
+                    diveSkippedOutside += 1
+                    DiveLibraryMediaAttachDebug.asset(
+                        localIdentifier: identifier,
+                        mediaTypeLabel: mediaTypeLabel,
+                        creationDate: creationDate,
+                        capturedAt: nil,
+                        timeZone: timeZone,
+                        decision: .outsideWindow
+                    )
                     continue
                 }
 
                 do {
-                    let loaded = try await DiveLibraryMediaAssetLoader.load(from: asset)
-                    if Task.isCancelled { break }
-                    _ = try DiveActivityMediaStorage.addMedia(
-                        loaded.payload,
-                        capturedAt: loaded.capturedAt,
-                        photosLocalIdentifier: identifier,
+                    // Store a pointer to the Photos asset (no exported file / inline bytes); pixels and frames
+                    // load on demand via `DiveMediaReferenceLoader`. This also sidesteps iCloud export failures.
+                    _ = try DiveActivityMediaStorage.addLibraryReference(
+                        localIdentifier: identifier,
+                        mediaKind: isVideo ? .video : .image,
+                        capturedAt: creationDate,
                         to: activity,
                         modelContext: modelContext
                     )
                     linkedIdentifiers.insert(identifier)
                     attachedCount += 1
+                    diveAttached += 1
+                    DiveLibraryMediaAttachDebug.asset(
+                        localIdentifier: identifier,
+                        mediaTypeLabel: mediaTypeLabel,
+                        creationDate: creationDate,
+                        capturedAt: creationDate,
+                        timeZone: timeZone,
+                        decision: .matched
+                    )
                 } catch {
+                    DiveLibraryMediaAttachDebug.asset(
+                        localIdentifier: identifier,
+                        mediaTypeLabel: mediaTypeLabel,
+                        creationDate: creationDate,
+                        capturedAt: nil,
+                        timeZone: timeZone,
+                        decision: .loadFailed,
+                        detail: String(describing: error)
+                    )
                     continue
                 }
             }
+
+            DiveLibraryMediaAttachDebug.diveSummary(
+                index: diveIndex + 1,
+                attached: diveAttached,
+                skippedAlreadyLinked: skippedAlreadyLinked,
+                skippedOutsideWindow: diveSkippedOutside,
+                skippedNoCreationDate: diveSkippedNoCreation
+            )
 
             if onProgress != nil {
                 await Task.yield()
@@ -237,6 +339,24 @@ enum DiveLibraryMediaAutoAttach: Sendable {
         #endif
     }
 
+    /// Whether to prompt for Photos access (e.g. on profile setup): only when auto-upload is on and the user has not chosen yet.
+    nonisolated static func shouldRequestPhotoAccessForAutoUpload(
+        autoUploadEnabled: Bool,
+        authorizationResolved: Bool
+    ) -> Bool {
+        autoUploadEnabled && !authorizationResolved
+    }
+
+    /// **`true`** when the user has already made a Photos access choice (granted or denied).
+    @MainActor
+    static var hasResolvedPhotoLibraryAuthorization: Bool {
+        #if canImport(Photos)
+        return PHPhotoLibrary.authorizationStatus(for: .readWrite) != .notDetermined
+        #else
+        return true
+        #endif
+    }
+
     #if canImport(Photos)
     @MainActor
     private static func fetchAssets(in window: DiveActivityMediaAttachWindow) -> [PHAsset] {
@@ -280,16 +400,23 @@ enum DiveLibraryMediaAutoAttach: Sendable {
 
 /// Runs library auto-attach after dives are saved (import / manual).
 enum DiveLibraryMediaAutoAttachScheduler: Sendable {
+    /// **`attachMediaFromPhotoLibrary`**: pass **`nil`** to honor the global **`autoUploadMediaToActivities`** setting
+    /// (manual entry, default FIT path), or an explicit **`Bool`** to override it for this import (e.g. the FIT
+    /// import options sheet) — **`true`** forces the attach regardless of the setting, **`false`** skips it.
     @MainActor
     static func attachAfterDivePersisted(
         _ activity: DiveActivity,
         ownerProfileID: UUID,
-        modelContext: ModelContext
+        modelContext: ModelContext,
+        attachMediaFromPhotoLibrary: Bool? = nil
     ) async {
+        let shouldAttach = attachMediaFromPhotoLibrary ?? AppUserSettings.autoUploadMediaToActivities
+        guard shouldAttach else { return }
         _ = await DiveLibraryMediaAutoAttach.attachMatchingLibraryMedia(
             for: activity,
             ownerProfileID: ownerProfileID,
-            modelContext: modelContext
+            modelContext: modelContext,
+            requiresAutoUploadSetting: attachMediaFromPhotoLibrary == nil
         )
     }
 
@@ -297,13 +424,17 @@ enum DiveLibraryMediaAutoAttachScheduler: Sendable {
     static func attachAfterDivesPersisted(
         _ activities: [DiveActivity],
         ownerProfileID: UUID,
-        modelContext: ModelContext
+        modelContext: ModelContext,
+        attachMediaFromPhotoLibrary: Bool,
+        onProgress: DiveLibraryMediaAutoAttach.ProgressHandler? = nil
     ) async {
-        guard !activities.isEmpty else { return }
+        guard attachMediaFromPhotoLibrary, !activities.isEmpty else { return }
         _ = await DiveLibraryMediaAutoAttach.attachMatchingLibraryMedia(
             activities: activities,
             ownerProfileID: ownerProfileID,
-            modelContext: modelContext
+            modelContext: modelContext,
+            onProgress: onProgress,
+            requiresAutoUploadSetting: false
         )
     }
 }

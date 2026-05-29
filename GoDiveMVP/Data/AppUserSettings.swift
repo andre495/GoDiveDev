@@ -33,4 +33,14 @@ enum AppUserSettings: Sendable {
     static var autoUploadMediaToActivities: Bool {
         UserDefaults.standard.bool(forKey: autoUploadMediaToActivitiesKey)
     }
+
+    /// Toggle defaults applied when the user has never changed them (call once at launch).
+    /// **`register(defaults:)`** only fills keys that are not already set, so it never overrides a saved choice.
+    nonisolated static func registerDefaultValues(in defaults: UserDefaults = .standard) {
+        defaults.register(defaults: [
+            automaticallyRenumberDivesKey: true,
+            useImperialDisplayUnitsKey: true,
+            autoUploadMediaToActivitiesKey: true,
+        ])
+    }
 }

@@ -100,6 +100,10 @@ final class DiveActivity {
     @Relationship(deleteRule: .cascade)
     var mediaPhotos: [DiveMediaPhoto] = []
 
+    /// User-chosen **featured** media (logbook row preview). **`nil`** = default to the oldest gallery item
+    /// (**`DiveActivityMediaPresentation.featuredPhotoID`** resolves / falls back when this id is missing).
+    var featuredMediaPhotoID: UUID?
+
     /// Field-guide sightings logged on this dive (**`SightingInstance`**).
     @Relationship(deleteRule: .cascade)
     var marineLifeSightings: [SightingInstance] = []
@@ -119,6 +123,10 @@ final class DiveActivity {
 
     // Metadata
     var rawImportVersion: String?
+    /// UDDF **`datetime`** from import file until **`UddfImportedDiveNormalization`** finishes (not persisted).
+    @Transient var uddfImportDatetimeRaw: String?
+    /// MacDive watch-source rule for naive **`datetime`** (Garmin UTC vs Suunto dive-local); cleared after normalization.
+    @Transient var uddfWatchNaiveDatetimeSemantics: UddfMacDiveWatchDatetimeSemantics?
 
     init(
         id: UUID = UUID(),

@@ -64,7 +64,7 @@ enum LogbookActivitySnapshotSeeding {
                     .map { $0.name.trimmingCharacters(in: .whitespacesAndNewlines) }
                     .filter { !$0.isEmpty }
                     .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending },
-                previewMediaPhotoID: DiveActivityMediaPresentation.oldestGalleryPhotoID(on: activity)
+                previewMediaPhotoID: DiveActivityMediaPresentation.featuredPhotoID(on: activity)
             )
         }
     }

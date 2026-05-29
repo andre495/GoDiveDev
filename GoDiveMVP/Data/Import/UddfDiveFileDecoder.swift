@@ -46,6 +46,7 @@ enum UddfDiveFileDecoder {
                 sites: sites,
                 buddies: buddies,
                 gasMixById: engine.gasMixO2ById,
+                equipmentCatalog: engine.equipmentById,
                 rawImportVersion: rawImportVersion
             )
             activities.append(activity)
@@ -91,6 +92,8 @@ enum UddfDiveFileDecoder {
         var tankMaterial: String?
         /// **`tankdata/link/@ref`** → **`gasdefinitions/mix/@id`**.
         var tankMixRef: String?
+        /// **`equipmentused/link/@ref`** from before/after dive sections.
+        var equipmentUsedRefs: [String] = []
     }
 
     private struct WaypointScratch {
@@ -106,6 +109,7 @@ enum UddfDiveFileDecoder {
         sites: [String: UddfSiteRecord],
         buddies: [String: UddfBuddyRecord],
         gasMixById: [String: Double],
+        equipmentCatalog: [String: UddfEquipmentCatalogItem],
         rawImportVersion: String
     ) throws -> DiveActivity {
         let diveId = scratch.diveId
@@ -116,7 +120,18 @@ enum UddfDiveFileDecoder {
         }
 
         let site = scratch.linkRefs.compactMap { sites[$0] }.first
-        guard let parsedStart = DiveDateTimeParsing.parseUddfDateTime(raw, siteTimeZoneHours: site?.timeZoneHours)
+        let watchSemantics = UddfMacDiveWatchDatetimeSemanticsResolver.classify(
+            equipmentUsedRefs: scratch.equipmentUsedRefs,
+            catalog: equipmentCatalog
+        )
+        guard let parsedStart = DiveDateTimeParsing.parseUddfDateTime(
+            raw,
+            siteTimeZoneHours: site?.timeZoneHours,
+            siteLatitude: site?.latitude,
+            siteLongitude: site?.longitude,
+            siteLocationName: site?.locationName ?? site?.name,
+            macDiveNaiveSemantics: watchSemantics
+        )
         else {
             throw UddfDecodeError.missingDiveDateTime
         }
@@ -204,6 +219,9 @@ enum UddfDiveFileDecoder {
             oxygenMix: gasResolved?.oxygenMix,
             rawImportVersion: rawImportVersion
         )
+
+        activity.uddfImportDatetimeRaw = raw
+        activity.uddfWatchNaiveDatetimeSemantics = watchSemantics
 
         for ref in buddyRefs {
             guard let b = buddies[ref] else { continue }
@@ -341,6 +359,19 @@ enum UddfDiveFileDecoder {
         /// Mix **`id`** → raw **`<o2>`** (fraction or percent).
         private(set) var gasMixO2ById: [String: Double] = [:]
         private(set) var diveScratches: [DiveScratch] = []
+        private(set) var equipmentById: [String: UddfEquipmentCatalogItem] = [:]
+
+        private static let equipmentCatalogElementNames: Set<String> = [
+            "buoyancycontroldevice", "boots", "camera", "compass", "compressor", "divecomputer",
+            "fins", "gloves", "knife", "lead", "light", "mask", "rebreather", "regulator",
+            "scooter", "suit", "tank", "variouspieces", "videocamera", "watch",
+        ]
+
+        private var currentEquipmentId: String?
+        private var currentEquipmentKind: String?
+        private var currentEquipmentName: String?
+        private var currentEquipmentModel: String?
+        private var currentEquipmentManufacturerName: String?
 
         private var mixId: String?
         private var mixO2Raw: Double?
@@ -395,6 +426,17 @@ enum UddfDiveFileDecoder {
 
             elementStack.append(name)
 
+            if Self.equipmentCatalogElementNames.contains(name),
+               elementStack.contains("equipment"),
+               let id = attributeDict["id"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !id.isEmpty {
+                currentEquipmentId = id
+                currentEquipmentKind = name
+                currentEquipmentName = nil
+                currentEquipmentModel = nil
+                currentEquipmentManufacturerName = nil
+            }
+
             switch name {
             case "uddf":
                 sawUddfRoot = true
@@ -424,6 +466,12 @@ enum UddfDiveFileDecoder {
                 } else if var d = diveScratch, pathEnds(with: ["informationbeforedive", "link"]),
                           let ref = attributeDict["ref"]?.trimmingCharacters(in: .whitespacesAndNewlines), !ref.isEmpty {
                     d.linkRefs.append(ref)
+                    diveScratch = d
+                } else if var d = diveScratch, elementStack.contains("equipmentused"),
+                          let ref = attributeDict["ref"]?.trimmingCharacters(in: .whitespacesAndNewlines), !ref.isEmpty {
+                    if !d.equipmentUsedRefs.contains(ref) {
+                        d.equipmentUsedRefs.append(ref)
+                    }
                     diveScratch = d
                 }
             case "waypoint":
@@ -461,6 +509,17 @@ enum UddfDiveFileDecoder {
                     siteName = trimmed.isEmpty ? nil : trimmed
                 } else if pathEnds(with: ["generator", "name"]) {
                     generatorName = trimmed.isEmpty ? nil : trimmed
+                } else if currentEquipmentId != nil, let kind = currentEquipmentKind,
+                          pathEnds(with: [kind, "name"]) {
+                    currentEquipmentName = trimmed.isEmpty ? nil : trimmed
+                } else if currentEquipmentId != nil, let kind = currentEquipmentKind,
+                          pathEnds(with: [kind, "manufacturer", "name"]) {
+                    currentEquipmentManufacturerName = trimmed.isEmpty ? nil : trimmed
+                }
+            case "model":
+                if currentEquipmentId != nil, let kind = currentEquipmentKind,
+                   pathEnds(with: [kind, "model"]) {
+                    currentEquipmentModel = trimmed.isEmpty ? nil : trimmed
                 }
             case "version":
                 if pathEnds(with: ["generator", "version"]) {
@@ -626,7 +685,22 @@ enum UddfDiveFileDecoder {
                 }
                 diveScratch = nil
             default:
-                break
+                if Self.equipmentCatalogElementNames.contains(name),
+                   let id = currentEquipmentId,
+                   currentEquipmentKind == name {
+                    equipmentById[id] = UddfEquipmentCatalogItem(
+                        id: id,
+                        kind: name,
+                        name: currentEquipmentName ?? "",
+                        model: currentEquipmentModel ?? "",
+                        manufacturerName: currentEquipmentManufacturerName ?? ""
+                    )
+                    currentEquipmentId = nil
+                    currentEquipmentKind = nil
+                    currentEquipmentName = nil
+                    currentEquipmentModel = nil
+                    currentEquipmentManufacturerName = nil
+                }
             }
         }
 

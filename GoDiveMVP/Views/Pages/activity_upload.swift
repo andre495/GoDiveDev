@@ -5,21 +5,24 @@ struct ActivityUploadView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AccountSession.self) private var accountSession
 
-    /// Called after a successful single-dive import (or bulk import of exactly one new dive).
+    /// Called after a successful FIT import (or UDDF import of exactly one new dive).
     var onSuccessfulImport: ((UUID) -> Void)?
-    /// Called after bulk UDDF import when more than one dive was inserted (returns to logbook without opening a dive).
+    /// Called after a UDDF import when more than one dive was inserted (returns to logbook without opening a dive).
     var onBulkImportComplete: (() -> Void)?
 
     @State private var isFileImporterPresented = false
-    @State private var fileImporterMode: DiveFileImporterPresentation.PickerMode = .singleDive
-    @State private var showBulkUddfOptionsSheet = false
+    @State private var fileImporterMode: DiveFileImporterPresentation.PickerMode = .fit
+    @State private var showImportOptionsSheet = false
+    /// Which file type the options sheet is configuring (drives copy + which picker opens after dismiss).
+    @State private var importOptionsMode: DiveFileImporterPresentation.PickerMode = .uddf
     @State private var showsManualEntrySheet = false
     @State private var importOverlay: DiveImportOverlayState = .hidden
-    @State private var bulkImportSummary: BulkUddfImportSummary?
-    @State private var showBulkImportCompleteAlert = false
-    @State private var presentBulkUddfImporterAfterOptionsSheet = false
+    @State private var uddfImportSummary: UddfImportSummary?
+    @State private var showUddfImportCompleteAlert = false
+    @State private var presentImporterAfterOptionsSheet = false
     @State private var activeImportTask: Task<Void, Never>?
-    @AppStorage(AppUserSettings.bulkUddfCreateDiveSitesKey) private var bulkCreateDiveSitesFromImport = true
+    @AppStorage(AppUserSettings.bulkUddfCreateDiveSitesKey) private var importCreateDiveSitesFromImport = true
+    @State private var importAttachMediaFromPhotoLibrary = false
 
     init(
         onSuccessfulImport: ((UUID) -> Void)? = nil,
@@ -32,37 +35,50 @@ struct ActivityUploadView: View {
     var body: some View {
         AppPage(title: "Add activity", showsBackButton: true) {
             ZStack {
-                VStack(spacing: AppTheme.Spacing.sm) {
-                    addActivitySourcePanel(
-                        title: "File upload",
-                        subtitle: ".uddf or .fit",
-                        systemImage: "doc.badge.arrow.up",
-                        accessibilityIdentifier: "ActivityUpload.FileUpload"
-                    ) {
-                        presentFileImporter(mode: .singleDive)
-                    }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+                        addActivityIntro
 
-                    addActivitySourcePanel(
-                        title: "Manual entry",
-                        systemImage: "square.and.pencil",
-                        accessibilityIdentifier: "ActivityUpload.ManualEntry"
-                    ) {
-                        showsManualEntrySheet = true
-                    }
+                        addActivitySection(title: "Import from a file") {
+                            addActivitySourceCard(
+                                title: "Garmin FIT",
+                                subtitle: "A single dive from your Garmin dive computer.",
+                                tag: ".fit",
+                                systemImage: "doc.badge.arrow.up",
+                                accessibilityIdentifier: "ActivityUpload.FileUpload"
+                            ) {
+                                importOptionsMode = .fit
+                                showImportOptionsSheet = true
+                            }
 
-                    addActivitySourceBulkPanel(
-                        title: "Bulk upload UDDF dives",
-                        subtitle: ".uddf with multiple dive records",
-                        systemImage: "doc.on.doc",
-                        accessibilityLabel: "Bulk upload UDDF dives. .uddf with multiple dive records",
-                        accessibilityIdentifier: "ActivityUpload.BulkUddf"
-                    ) {
-                        showBulkUddfOptionsSheet = true
+                            addActivitySourceCard(
+                                title: "UDDF",
+                                subtitle: "One or many dives, e.g. exported from MacDive.",
+                                tag: ".uddf",
+                                systemImage: "doc.on.doc",
+                                accessibilityIdentifier: "ActivityUpload.BulkUddf"
+                            ) {
+                                importOptionsMode = .uddf
+                                showImportOptionsSheet = true
+                            }
+                        }
+
+                        addActivitySection(title: "Add it yourself") {
+                            addActivitySourceCard(
+                                title: "Manual entry",
+                                subtitle: "Type in your dive details by hand.",
+                                tag: nil,
+                                systemImage: "square.and.pencil",
+                                accessibilityIdentifier: "ActivityUpload.ManualEntry"
+                            ) {
+                                showsManualEntrySheet = true
+                            }
+                        }
                     }
+                    .padding(.horizontal, AppTheme.Spacing.lg)
+                    .padding(.vertical, AppTheme.Spacing.md)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(.horizontal, AppTheme.Spacing.lg)
-                .padding(.vertical, AppTheme.Spacing.md)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 if importOverlay != .hidden {
                     diveImportProgressOverlay
@@ -75,7 +91,7 @@ struct ActivityUploadView: View {
             allowedContentTypes: fileImporterMode.allowedContentTypes,
             allowsMultipleSelection: false
         ) { result in
-            handleDiveFileImportResult(result, bulkUddf: fileImporterMode.isBulkUddf)
+            handleDiveFileImportResult(result)
         }
         .onDisappear {
             activeImportTask?.cancel()
@@ -90,131 +106,164 @@ struct ActivityUploadView: View {
                 confirmManualDive(input)
             }
         }
-        .sheet(isPresented: $showBulkUddfOptionsSheet, onDismiss: {
-            if presentBulkUddfImporterAfterOptionsSheet {
-                presentBulkUddfImporterAfterOptionsSheet = false
-                presentFileImporter(mode: .bulkUddf)
+        .sheet(isPresented: $showImportOptionsSheet, onDismiss: {
+            if presentImporterAfterOptionsSheet {
+                presentImporterAfterOptionsSheet = false
+                presentFileImporter(mode: importOptionsMode)
             }
         }) {
-            bulkUddfImportOptionsSheet
+            importOptionsSheet
         }
-        .alert("Import complete", isPresented: $showBulkImportCompleteAlert) {
+        .alert("Import complete", isPresented: $showUddfImportCompleteAlert) {
             Button("OK", role: .cancel) {
-                dismissBulkImportSummaryAndContinue()
+                dismissUddfImportSummaryAndContinue()
             }
         } message: {
-            if let bulkImportSummary {
-                Text(BulkUddfImportSummary.message(for: bulkImportSummary))
+            if let uddfImportSummary {
+                Text(UddfImportSummary.message(for: uddfImportSummary))
             }
         }
         .hidesBottomTabBarWhenPushed()
     }
 
-    @ViewBuilder
-    private func addActivitySourcePanel(
-        title: String,
-        subtitle: String? = nil,
-        systemImage: String,
-        accessibilityIdentifier: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            VStack(spacing: AppTheme.Spacing.sm) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 36, weight: .medium))
-                    .foregroundStyle(AppTheme.Colors.accent)
-
-                Text(title)
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.85)
-
-                if let subtitle {
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.Colors.secondaryText)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.85)
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(AppTheme.Spacing.md)
-            .background { activitySourceTileBackground }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .disabled(importOverlay.disablesSourceButtons)
-        .accessibilityLabel(subtitle.map { "\(title). \($0)" } ?? title)
-        .accessibilityIdentifier(accessibilityIdentifier)
+    private var addActivityIntro: some View {
+        Text("Import a dive from your computer, or add the details yourself.")
+            .font(.subheadline)
+            .foregroundStyle(AppTheme.Colors.secondaryText)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityAddTraits(.isHeader)
     }
 
     @ViewBuilder
-    private func addActivitySourceBulkPanel(
+    private func addActivitySection<Content: View>(
+        title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            Text(title.uppercased())
+                .font(.caption.weight(.semibold))
+                .tracking(0.6)
+                .foregroundStyle(AppTheme.Colors.mutedText)
+                .padding(.leading, 4)
+
+            VStack(spacing: AppTheme.Spacing.md) {
+                content()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func addActivitySourceCard(
         title: String,
         subtitle: String,
+        tag: String?,
         systemImage: String,
-        accessibilityLabel: String,
         accessibilityIdentifier: String,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             HStack(spacing: AppTheme.Spacing.md) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 28, weight: .medium))
-                    .foregroundStyle(AppTheme.Colors.accent)
-                    .frame(width: 44)
+                sourceIconBadge(systemImage: systemImage)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(AppTheme.Colors.textPrimary)
+                    HStack(spacing: AppTheme.Spacing.sm) {
+                        Text(title)
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(AppTheme.Colors.textPrimary)
+
+                        if let tag {
+                            sourceFileTypeTag(tag)
+                        }
+                    }
+
                     Text(subtitle)
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.Colors.secondaryText)
                         .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Spacer(minLength: 0)
+                Spacer(minLength: AppTheme.Spacing.sm)
 
                 Image(systemName: "chevron.right")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.Colors.tabUnselected)
             }
-            .padding(.horizontal, AppTheme.Spacing.lg)
-            .padding(.vertical, AppTheme.Spacing.md)
+            .padding(AppTheme.Spacing.md)
             .frame(maxWidth: .infinity)
             .background { activitySourceTileBackground }
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(AddActivityCardButtonStyle())
         .disabled(importOverlay.disablesSourceButtons)
-        .accessibilityLabel(accessibilityLabel)
+        .accessibilityLabel(tag.map { "\(title). \($0). \(subtitle)" } ?? "\(title). \(subtitle)")
         .accessibilityIdentifier(accessibilityIdentifier)
     }
 
-    private var activitySourceTileBackground: some View {
-        RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .fill(AppTheme.Colors.surfaceElevated)
+    private func sourceIconBadge(systemImage: String) -> some View {
+        Image(systemName: systemImage)
+            .font(.system(size: 22, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 52, height: 52)
+            .background {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                AppTheme.Colors.accent,
+                                AppTheme.Colors.accent.opacity(0.78),
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
+            .shadow(color: AppTheme.Colors.accent.opacity(0.28), radius: 6, y: 3)
+    }
+
+    private func sourceFileTypeTag(_ tag: String) -> some View {
+        Text(tag)
+            .font(.caption2.weight(.semibold))
+            .monospaced()
+            .foregroundStyle(AppTheme.Colors.accent)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background {
+                Capsule(style: .continuous)
+                    .fill(AppTheme.Colors.accent.opacity(0.12))
+            }
             .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(AppTheme.Colors.tabUnselected.opacity(0.2), lineWidth: 1)
+                Capsule(style: .continuous)
+                    .stroke(AppTheme.Colors.accent.opacity(0.25), lineWidth: 1)
             }
     }
 
-    private var bulkUddfImportOptionsSheet: some View {
-        NavigationStack {
+    private var activitySourceTileBackground: some View {
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .fill(AppTheme.Colors.surfaceElevated)
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(AppTheme.Colors.tabUnselected.opacity(0.16), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+    }
+
+    private var importOptionsSheet: some View {
+        let isUddf = importOptionsMode.isUddf
+        let idPrefix = isUddf ? "ActivityUpload.BulkUddf" : "ActivityUpload.FitImport"
+
+        return NavigationStack {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
                 Text(
-                    "You can import all of your UDDF dive records at once. If importing from MacDive, please first export the UDDF file to your phone's file system by selecting Settings > Export these dives to UDDF."
+                    isUddf
+                        ? "Import one or all of your UDDF dive records at once. If importing from MacDive, please first export the UDDF file to your phone's file system by selecting Settings > Export these dives to UDDF."
+                        : "Import a single dive from a Garmin .fit file exported from your dive computer."
                 )
                 .font(.body)
                 .foregroundStyle(AppTheme.Colors.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
 
-                Toggle(isOn: $bulkCreateDiveSitesFromImport) {
+                Toggle(isOn: $importCreateDiveSitesFromImport) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Create dive sites from import")
                             .font(.body.weight(.semibold))
@@ -226,13 +275,27 @@ struct ActivityUploadView: View {
                     }
                 }
                 .tint(AppTheme.Colors.accent)
-                .accessibilityIdentifier("ActivityUpload.BulkUddf.CreateSitesToggle")
+                .accessibilityIdentifier("\(idPrefix).CreateSitesToggle")
+
+                Toggle(isOn: $importAttachMediaFromPhotoLibrary) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(SettingsPresentation.BulkUddfImport.attachMediaTitle)
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(AppTheme.Colors.textPrimary)
+                        Text(SettingsPresentation.BulkUddfImport.attachMediaSubtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.Colors.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .tint(AppTheme.Colors.accent)
+                .accessibilityIdentifier("\(idPrefix).AttachMediaToggle")
 
                 Spacer(minLength: 0)
 
-                Button("Choose UDDF file") {
-                    presentBulkUddfImporterAfterOptionsSheet = true
-                    showBulkUddfOptionsSheet = false
+                Button(isUddf ? "Choose UDDF file" : "Choose FIT file") {
+                    presentImporterAfterOptionsSheet = true
+                    showImportOptionsSheet = false
                 }
                 .font(.body.weight(.semibold))
                 .frame(maxWidth: .infinity)
@@ -242,15 +305,15 @@ struct ActivityUploadView: View {
                         .fill(AppTheme.Colors.accent)
                 }
                 .foregroundStyle(.white)
-                .accessibilityIdentifier("ActivityUpload.BulkUddf.ChooseFile")
+                .accessibilityIdentifier("\(idPrefix).ChooseFile")
             }
             .padding(AppTheme.Spacing.lg)
-            .navigationTitle("Bulk UDDF import")
+            .navigationTitle(isUddf ? "UDDF import" : "Garmin FIT import")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
-                        showBulkUddfOptionsSheet = false
+                        showImportOptionsSheet = false
                     }
                 }
             }
@@ -258,6 +321,9 @@ struct ActivityUploadView: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .appSheetPresentationChrome()
+        .onAppear {
+            importAttachMediaFromPhotoLibrary = AppUserSettings.autoUploadMediaToActivities
+        }
     }
 
     private var diveImportProgressOverlay: some View {
@@ -271,40 +337,16 @@ struct ActivityUploadView: View {
                 switch importOverlay {
                 case .hidden:
                     EmptyView()
-                case .singleProgress(let progress, let stage):
-                    Text("Importing dive")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(AppTheme.Colors.textPrimary)
-                    ProgressView(value: progress, total: 1.0)
+                case .importing(let milestone, let fraction):
+                    ProgressView(value: fraction, total: 1.0)
                         .tint(AppTheme.Colors.accent)
-                    Text(stage)
+                        .animation(.easeInOut(duration: 0.2), value: fraction)
+                    Text(milestone.label)
                         .font(.body)
                         .foregroundStyle(AppTheme.Colors.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
-                case .bulkProgress(let imported, let duplicates, let processed, let total, let stage):
-                    Text("Bulk UDDF import")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(AppTheme.Colors.textPrimary)
-                    ProgressView(value: Double(processed), total: max(1, Double(total)))
-                        .tint(AppTheme.Colors.accent)
-                    Text("\(imported) of \(total) dives imported")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(AppTheme.Colors.textPrimary)
-                        .monospacedDigit()
-                        .contentTransition(.numericText())
-                        .animation(.linear(duration: 0.08), value: imported)
-                    if duplicates > 0 {
-                        Text("\(duplicates) duplicate dive\(duplicates == 1 ? "" : "s") found")
-                            .font(.body.weight(.medium))
-                            .foregroundStyle(AppTheme.Colors.secondaryText)
-                            .monospacedDigit()
-                    }
-                    if let stage {
-                        Text(stage)
-                            .font(.body)
-                            .foregroundStyle(AppTheme.Colors.secondaryText)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                        .contentTransition(.opacity)
+                        .animation(.easeInOut(duration: 0.2), value: milestone)
                 case .failed(let message):
                     Text("Import failed")
                         .font(.title3.weight(.semibold))
@@ -338,7 +380,7 @@ struct ActivityUploadView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    /// One **`.fileImporter`** per screen; set mode then present on the next run loop (matches bulk sheet timing).
+    /// One **`.fileImporter`** per screen; set mode then present on the next run loop (matches UDDF sheet timing).
     private func presentFileImporter(mode: DiveFileImporterPresentation.PickerMode) {
         fileImporterMode = mode
         isFileImporterPresented = false
@@ -347,31 +389,29 @@ struct ActivityUploadView: View {
         }
     }
 
-    private func handleDiveFileImportResult(_ result: Result<[URL], Error>, bulkUddf: Bool) {
+    private func handleDiveFileImportResult(_ result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
             guard let url = urls.first else { return }
-            beginImport(from: url, bulkUddf: bulkUddf)
+            beginImport(from: url)
         case .failure(let error):
             guard !DiveFileImporterPresentation.isUserCancellation(error) else { return }
             importOverlay = .failed(error.localizedDescription)
         }
     }
 
-    private func beginImport(from url: URL, bulkUddf: Bool) {
-        if bulkUddf {
-            importOverlay = .bulkProgress(imported: 0, duplicates: 0, processed: 0, total: 0, stage: "Reading file…")
-        } else {
-            importOverlay = .singleProgress(0.05, "Importing dive…")
-        }
+    /// UDDF (one or many dives) always uses the consolidated UDDF import; everything else is treated as Garmin FIT.
+    private func beginImport(from url: URL) {
+        let isUddf = url.pathExtension.lowercased() == "uddf"
+        importOverlay = .start(.readingFile)
         activeImportTask?.cancel()
         activeImportTask = Task(priority: .userInitiated) { @MainActor in
             await yieldForImportOverlayPaint()
             guard !Task.isCancelled else { return }
-            if bulkUddf {
-                await runBulkUddfImport(from: url)
+            if isUddf {
+                await runUddfImport(from: url)
             } else {
-                await runDiveFileImport(from: url)
+                await runFitImport(from: url)
             }
         }
     }
@@ -404,47 +444,50 @@ struct ActivityUploadView: View {
     }
 
     @MainActor
-    private func runDiveFileImport(from url: URL) async {
+    private func runFitImport(from url: URL) async {
         defer { activeImportTask = nil }
         guard !Task.isCancelled else { return }
         do {
-            let ext = url.pathExtension.lowercased()
-
             withAnimation(.easeInOut(duration: 0.15)) {
-                importOverlay = .singleProgress(0.12, "Reading file…")
+                importOverlay = .start(.readingFile)
             }
             await yieldForImportOverlayPaint()
 
             let data = try await Task.detached(priority: .userInitiated) {
-                if ext == "uddf" {
-                    return try UddfDiveFileImport.readUddfFileData(from: url)
-                }
-                return try FitDiveFileImport.readFitFileData(from: url)
+                try FitDiveFileImport.readFitFileData(from: url)
             }.value
 
             withAnimation(.easeInOut(duration: 0.2)) {
-                importOverlay = .singleProgress(0.38, "Processing dive…")
+                importOverlay = .start(.creatingDiveLogs)
             }
             await yieldForImportOverlayPaint()
 
-            let outcome: DiveFileImportOutcome
-            if ext == "uddf" {
-                await yieldForImportOverlayPaint()
-                let activities = try UddfDiveFileDecoder.buildDiveActivities(from: data)
-                await yieldForImportOverlayPaint()
-                outcome = await UddfDiveFileImport.persistImportedActivities(
-                    activities,
-                    modelContext: modelContext,
-                    createMissingDiveSites: true
-                )
-            } else {
-                await yieldForImportOverlayPaint()
-                let activity = try FitDiveFileDecoder.buildDiveActivity(from: data)
-                await yieldForImportOverlayPaint()
-                outcome = await FitDiveFileImport.persistImportedActivity(activity, modelContext: modelContext)
-            }
+            let activity = try FitDiveFileDecoder.buildDiveActivity(from: data)
+            await yieldForImportOverlayPaint()
+            let outcome = await FitDiveFileImport.persistImportedActivity(
+                activity,
+                modelContext: modelContext,
+                attachMedia: false,
+                createMissingDiveSites: importCreateDiveSitesFromImport
+            )
+
             guard !Task.isCancelled else { return }
-            await finishImport(outcome: outcome, isBulkUddf: false)
+
+            if outcome.didSucceed, importAttachMediaFromPhotoLibrary, let ownerID = accountSession.currentProfile?.id {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    importOverlay = .start(.addingMedia)
+                }
+                await yieldForImportOverlayPaint()
+                await DiveLibraryMediaAutoAttachScheduler.attachAfterDivePersisted(
+                    activity,
+                    ownerProfileID: ownerID,
+                    modelContext: modelContext,
+                    attachMediaFromPhotoLibrary: true
+                )
+            }
+
+            guard !Task.isCancelled else { return }
+            await finishImport(outcome: outcome, isUddf: false)
         } catch {
             guard !Task.isCancelled else { return }
             importOverlay = .failed(error.localizedDescription)
@@ -452,7 +495,7 @@ struct ActivityUploadView: View {
     }
 
     @MainActor
-    private func runBulkUddfImport(from url: URL) async {
+    private func runUddfImport(from url: URL) async {
         defer { activeImportTask = nil }
         guard !Task.isCancelled else { return }
         do {
@@ -462,17 +505,12 @@ struct ActivityUploadView: View {
             }
 
             withAnimation(.easeInOut(duration: 0.15)) {
-                importOverlay = .bulkProgress(imported: 0, duplicates: 0, processed: 0, total: 0, stage: "Reading file…")
+                importOverlay = .start(.readingFile)
             }
 
             let data = try await Task.detached(priority: .userInitiated) {
                 try UddfDiveFileImport.readUddfFileData(from: url)
             }.value
-
-            withAnimation(.easeInOut(duration: 0.15)) {
-                importOverlay = .bulkProgress(imported: 0, duplicates: 0, processed: 0, total: 0, stage: "Parsing dives…")
-            }
-            await yieldForImportOverlayPaint()
 
             await yieldForImportOverlayPaint()
             let activities = try UddfDiveFileDecoder.buildDiveActivities(from: data)
@@ -484,28 +522,32 @@ struct ActivityUploadView: View {
             }
 
             withAnimation(.easeInOut(duration: 0.15)) {
-                importOverlay = .bulkProgress(imported: 0, duplicates: 0, processed: 0, total: total, stage: "Importing dives…")
+                importOverlay = .start(.creatingDiveLogs)
             }
             await yieldForImportOverlayPaint()
 
             let outcome = await UddfDiveFileImport.persistImportedActivities(
                 activities,
                 modelContext: modelContext,
-                createMissingDiveSites: bulkCreateDiveSitesFromImport,
-                onProgress: { imported, duplicates, processed, _ in
-                    importOverlay = .bulkProgress(
-                        imported: imported,
-                        duplicates: duplicates,
-                        processed: processed,
-                        total: total,
-                        stage: "Importing dives…"
+                createMissingDiveSites: importCreateDiveSitesFromImport,
+                attachMediaFromPhotoLibrary: importAttachMediaFromPhotoLibrary,
+                onProgress: { _, _, processed, _ in
+                    importOverlay = .importing(
+                        milestone: .creatingDiveLogs,
+                        fraction: DiveImportMilestone.creatingDiveLogs.fraction(completed: processed, total: total)
+                    )
+                },
+                onMediaAttachProgress: { update in
+                    importOverlay = .importing(
+                        milestone: .addingMedia,
+                        fraction: DiveImportMilestone.addingMedia.fraction(completed: update.completed, total: update.total)
                     )
                 }
             )
             await yieldForImportOverlayPaint()
 
             guard !Task.isCancelled else { return }
-            await finishImport(outcome: outcome, isBulkUddf: true)
+            await finishImport(outcome: outcome, isUddf: true)
         } catch let uddf as UddfDecodeError {
             guard !Task.isCancelled else { return }
             importOverlay = .failed(uddf.localizedDescription)
@@ -516,23 +558,23 @@ struct ActivityUploadView: View {
     }
 
     @MainActor
-    private func finishImport(outcome: DiveFileImportOutcome, isBulkUddf: Bool) async {
+    private func finishImport(outcome: DiveFileImportOutcome, isUddf: Bool) async {
         guard !Task.isCancelled else { return }
-        if isBulkUddf, outcome.bulkImportFinishedWithCounts {
+        if isUddf, outcome.bulkImportFinishedWithCounts {
             importOverlay = .hidden
-            bulkImportSummary = BulkUddfImportSummary(
+            uddfImportSummary = UddfImportSummary(
                 imported: outcome.insertedCount ?? 0,
                 duplicates: outcome.skippedDuplicateCount ?? 0,
                 diveSitesCreated: outcome.createdDiveSiteCount ?? 0,
                 primaryInsertedDiveId: outcome.primaryInsertedDiveId
             )
-            showBulkImportCompleteAlert = true
+            showUddfImportCompleteAlert = true
             return
         }
 
         if outcome.didSucceed {
             withAnimation(.easeInOut(duration: 0.2)) {
-                importOverlay = .singleProgress(1.0, "Complete")
+                importOverlay = .importing(milestone: .addingMedia, fraction: 1.0)
             }
             try? await Task.sleep(for: DiveImportSuccessTiming.sleepAfterCompleteBeforeDismiss)
             importOverlay = .hidden
@@ -546,10 +588,10 @@ struct ActivityUploadView: View {
     }
 
     @MainActor
-    private func dismissBulkImportSummaryAndContinue() {
-        showBulkImportCompleteAlert = false
-        guard let summary = bulkImportSummary else { return }
-        bulkImportSummary = nil
+    private func dismissUddfImportSummaryAndContinue() {
+        showUddfImportCompleteAlert = false
+        guard let summary = uddfImportSummary else { return }
+        uddfImportSummary = nil
 
         if summary.imported > 1 {
             onBulkImportComplete?()
@@ -561,13 +603,13 @@ struct ActivityUploadView: View {
     }
 }
 
-struct BulkUddfImportSummary: Equatable {
+struct UddfImportSummary: Equatable {
     let imported: Int
     let duplicates: Int
     let diveSitesCreated: Int
     let primaryInsertedDiveId: UUID?
 
-    static func message(for summary: BulkUddfImportSummary) -> String {
+    static func message(for summary: UddfImportSummary) -> String {
         [
             "\(summary.imported) dive\(summary.imported == 1 ? "" : "s") imported",
             "\(summary.duplicates) duplicate dive\(summary.duplicates == 1 ? "" : "s") found",
@@ -576,18 +618,72 @@ struct BulkUddfImportSummary: Equatable {
     }
 }
 
+/// The three user-facing milestones shown in the simplified import dialog.
+enum DiveImportMilestone: Equatable {
+    case readingFile
+    case creatingDiveLogs
+    case addingMedia
+
+    var label: String {
+        switch self {
+        case .readingFile: return "Reading File"
+        case .creatingDiveLogs: return "Creating Dive Logs"
+        case .addingMedia: return "Adding Media"
+        }
+    }
+
+    /// Bar position when the milestone begins.
+    var startFraction: Double {
+        switch self {
+        case .readingFile: return 0.05
+        case .creatingDiveLogs: return 0.30
+        case .addingMedia: return 0.75
+        }
+    }
+
+    /// Bar position when the milestone finishes (where the next one begins).
+    var endFraction: Double {
+        switch self {
+        case .readingFile: return 0.30
+        case .creatingDiveLogs: return 0.75
+        case .addingMedia: return 1.0
+        }
+    }
+
+    /// Interpolated bar value for `completed` of `total` units of work inside the milestone.
+    func fraction(completed: Int, total: Int) -> Double {
+        guard total > 0 else { return startFraction }
+        let ratio = min(1, max(0, Double(completed) / Double(total)))
+        return startFraction + (endFraction - startFraction) * ratio
+    }
+}
+
 private enum DiveImportOverlayState: Equatable {
     case hidden
-    case singleProgress(Double, String)
-    case bulkProgress(imported: Int, duplicates: Int, processed: Int, total: Int, stage: String?)
+    case importing(milestone: DiveImportMilestone, fraction: Double)
     case failed(String)
+
+    /// Enters a milestone at its starting bar position.
+    static func start(_ milestone: DiveImportMilestone) -> DiveImportOverlayState {
+        .importing(milestone: milestone, fraction: milestone.startFraction)
+    }
 
     /// Disables Add-activity tiles only while an import is actively running (not on failure).
     var disablesSourceButtons: Bool {
         switch self {
         case .hidden, .failed: return false
-        case .singleProgress, .bulkProgress: return true
+        case .importing: return true
         }
+    }
+}
+
+/// Subtle press feedback for the Add-activity source cards (scale + dim on touch).
+private struct AddActivityCardButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .opacity(configuration.isPressed ? 0.9 : 1.0)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 

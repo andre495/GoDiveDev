@@ -4,72 +4,17 @@ import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
-enum DiveMediaImportError: Error, Sendable {
-    case unsupportedItem
-}
-
-enum DiveMediaImportPayload: Sendable {
-    case image(Data)
-    case video(URL)
-}
-
-struct LoadedDiveMedia: Sendable {
-    var payload: DiveMediaImportPayload
-    var capturedAt: Date?
-}
-
-/// **`PhotosPicker`** → image bytes or copied video file URL.
+/// **`PhotosPicker`** item classification (image vs video) for reference attachment.
 enum DiveActivityMediaPickerImport: Sendable {
-
-    struct PickedVideoFile: Transferable {
-        let url: URL
-
-        static var transferRepresentation: some TransferRepresentation {
-            FileRepresentation(contentType: .movie) { video in
-                SentTransferredFile(video.url)
-            } importing: { received in
-                let ext = received.file.pathExtension.isEmpty ? "mov" : received.file.pathExtension
-                let destination = FileManager.default.temporaryDirectory
-                    .appendingPathComponent(UUID().uuidString)
-                    .appendingPathExtension(ext)
-                if FileManager.default.fileExists(atPath: destination.path) {
-                    try FileManager.default.removeItem(at: destination)
-                }
-                try FileManager.default.copyItem(at: received.file, to: destination)
-                return PickedVideoFile(url: destination)
-            }
-        }
-    }
 
     nonisolated static func isVideoItem(_ item: PhotosPickerItem) -> Bool {
         item.supportedContentTypes.contains { type in
             type.conforms(to: .movie) || type.conforms(to: .video)
         }
     }
-
-    static func load(from item: PhotosPickerItem) async throws -> LoadedDiveMedia {
-        if isVideoItem(item) {
-            guard let picked = try await item.loadTransferable(type: PickedVideoFile.self) else {
-                throw DiveMediaImportError.unsupportedItem
-            }
-            let capturedAt = await DiveMediaCaptureDateExtraction.resolveVideoCaptureDate(
-                fileURL: picked.url,
-                photosLocalIdentifier: item.itemIdentifier
-            )
-            return LoadedDiveMedia(payload: .video(picked.url), capturedAt: capturedAt)
-        }
-        guard let data = try await item.loadTransferable(type: Data.self) else {
-            throw DiveMediaImportError.unsupportedItem
-        }
-        let capturedAt = await DiveMediaCaptureDateExtraction.resolveImageCaptureDate(
-            data: data,
-            photosLocalIdentifier: item.itemIdentifier
-        )
-        return LoadedDiveMedia(payload: .image(data), capturedAt: capturedAt)
-    }
 }
 
-/// Imports multiple **`PhotosPicker`** items onto a dive with progress callbacks.
+/// Imports multiple **`PhotosPicker`** items onto a dive as Photos-library references (no copied bytes).
 enum DiveActivityMediaBatchImport {
     struct Outcome: Sendable {
         let savedCount: Int
@@ -99,10 +44,10 @@ enum DiveActivityMediaBatchImport {
             onProgress?(savedCount, total, DiveMediaImportProgressPresentation.loadingStage(itemIndex: itemIndex, total: total))
             await Task.yield()
 
-            let loaded: LoadedDiveMedia
-            do {
-                loaded = try await DiveActivityMediaPickerImport.load(from: item)
-            } catch {
+            // Photos picker items carry a `PHAsset.localIdentifier` (picker uses `photoLibrary: .shared()`);
+            // store a pointer to the original instead of copying its bytes. Skip anything without an identifier.
+            guard DiveActivityMediaStorage.shouldReferenceLibraryAsset(localIdentifier: item.itemIdentifier),
+                  let identifier = item.itemIdentifier else {
                 continue
             }
 
@@ -110,10 +55,12 @@ enum DiveActivityMediaBatchImport {
             await Task.yield()
 
             do {
-                let addedID = try DiveActivityMediaStorage.addMedia(
-                    loaded.payload,
-                    capturedAt: loaded.capturedAt,
-                    photosLocalIdentifier: item.itemIdentifier,
+                let kind: DiveMediaKind = DiveActivityMediaPickerImport.isVideoItem(item) ? .video : .image
+                let capturedAt = await DiveMediaReferenceLoader.creationDate(localIdentifier: identifier)
+                let addedID = try DiveActivityMediaStorage.addLibraryReference(
+                    localIdentifier: identifier,
+                    mediaKind: kind,
+                    capturedAt: capturedAt,
                     to: activity,
                     modelContext: modelContext
                 )

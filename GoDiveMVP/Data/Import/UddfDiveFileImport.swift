@@ -57,7 +57,9 @@ enum UddfDiveFileImport {
         modelContext: ModelContext,
         owner: UserProfile? = nil,
         createMissingDiveSites: Bool = false,
-        onProgress: ProgressHandler? = nil
+        attachMediaFromPhotoLibrary: Bool? = nil,
+        onProgress: ProgressHandler? = nil,
+        onMediaAttachProgress: DiveLibraryMediaAutoAttach.ProgressHandler? = nil
     ) async -> DiveFileImportOutcome {
         do {
             guard let owner = owner ?? AccountSession.shared.currentProfile else {
@@ -67,6 +69,12 @@ enum UddfDiveFileImport {
                     totalInFile: activities.count
                 )
             }
+            var catalogSites = try DiveActivitySiteAssociation.fetchCatalogSites(modelContext: modelContext)
+            await UddfImportedDiveNormalization.normalizeBeforePersist(
+                activities,
+                catalogSites: catalogSites
+            )
+
             let ownedExisting = try DiveActivityOwnership.activities(forOwnerProfileID: owner.id, modelContext: modelContext)
             var duplicateBaseline = ownedExisting.map { DiveActivityDuplicateMatcher.signature(for: $0) }
             var numberingBaseline = ownedExisting
@@ -105,14 +113,16 @@ enum UddfDiveFileImport {
                 }
             }
 
-            var catalogSites = try DiveActivitySiteAssociation.fetchCatalogSites(modelContext: modelContext)
             let createdDiveSites = DiveActivitySiteAssociation.applySiteLinksForImportedActivities(
                 inserted,
                 catalogSites: &catalogSites,
                 createMissingSites: createMissingDiveSites,
                 modelContext: modelContext
             )
-
+            await DiveSiteTimeZoneResolution.ensureResolvedForLinkedActivities(
+                inserted,
+                resolver: MapKitGeocodingTimeZoneResolver.shared
+            )
             await DiveActivityTimeZoneResolution.resolveMissingOffsets(for: inserted)
 
             if inserted.isEmpty {
@@ -148,10 +158,15 @@ enum UddfDiveFileImport {
 
             try modelContext.save()
             try DiveActivityDiveNumbering.applyAutomaticSequentialRenumberIfNeeded(modelContext: modelContext)
+
+            let shouldAttachMedia = attachMediaFromPhotoLibrary
+                ?? AppUserSettings.autoUploadMediaToActivities
             await DiveLibraryMediaAutoAttachScheduler.attachAfterDivesPersisted(
                 inserted,
                 ownerProfileID: owner.id,
-                modelContext: modelContext
+                modelContext: modelContext,
+                attachMediaFromPhotoLibrary: shouldAttachMedia,
+                onProgress: onMediaAttachProgress
             )
 
             let primaryId = primaryInsertedActivity(from: inserted)?.id

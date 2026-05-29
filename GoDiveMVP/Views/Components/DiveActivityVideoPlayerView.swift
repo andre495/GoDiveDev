@@ -5,19 +5,36 @@ import UIKit
 #endif
 
 /// Full-bleed dive video (**`resizeAspectFill`**, same crop behavior as photos).
+///
+/// **`source`** is either a copied app file or a Photos-library pointer (**`DiveVideoSource`**); a library asset is
+/// resolved to an **`AVPlayerItem`** on demand via **`DiveMediaReferenceLoader`** (no exported file). A missing /
+/// offline / deleted asset shows the **`missingPlaceholder`**.
 struct DiveActivityVideoPlayerView: View {
-    let fileURL: URL?
+    let source: DiveVideoSource?
     var isPlaybackActive: Bool = true
     var loopsPlayback: Bool = false
     var isPausedByUserHold: Bool = false
+    /// Called when a referenced Photos asset can't be resolved (e.g. deleted) so the owner can prune the row.
+    var onAssetMissing: (() -> Void)?
+
+    #if canImport(UIKit)
+    @State private var playerItem: AVPlayerItem?
+    @State private var resolvedKey: String?
+    @State private var isResolving = false
+    /// Transient load failure / timeout (asset still present) — show an error with a retry button.
+    @State private var loadFailed = false
+    /// Bumped by **Retry** to re-run the load **`.task`** without the source changing.
+    @State private var reloadToken = 0
+    #endif
 
     var body: some View {
         Group {
             #if canImport(UIKit)
-            if let fileURL {
+            if let playerItem, let resolvedKey {
                 GeometryReader { geometry in
                     DiveActivityFillVideoPlayerRepresentable(
-                        fileURL: fileURL,
+                        playerItem: playerItem,
+                        identityKey: resolvedKey,
                         isPlaybackActive: isPlaybackActive,
                         loopsPlayback: loopsPlayback,
                         isPausedByUserHold: isPausedByUserHold
@@ -26,6 +43,10 @@ struct DiveActivityVideoPlayerView: View {
                     .clipped()
                 }
                 .accessibilityLabel("Dive video")
+            } else if source != nil, isResolving {
+                loadingPlaceholder
+            } else if loadFailed {
+                errorRetryPlaceholder
             } else {
                 missingPlaceholder
             }
@@ -33,7 +54,130 @@ struct DiveActivityVideoPlayerView: View {
             missingPlaceholder
             #endif
         }
+        #if canImport(UIKit)
+        .task(id: videoLoadTaskID) {
+            await resolveSourceIfNeeded()
+        }
+        #endif
     }
+
+    #if canImport(UIKit)
+    /// Re-runs the load **`.task`** when the source changes **or** the user taps **Retry**.
+    private var videoLoadTaskID: String {
+        "\(source?.identityKey ?? "nil")#\(reloadToken)"
+    }
+
+    private func resolveSourceIfNeeded() async {
+        guard let source else {
+            playerItem = nil
+            resolvedKey = nil
+            isResolving = false
+            loadFailed = false
+            return
+        }
+        if resolvedKey == source.identityKey, playerItem != nil { return }
+
+        isResolving = true
+        loadFailed = false
+        let resolved = await resolvedItem(for: source)
+        // Source may have changed while awaiting; only apply the latest.
+        guard source.identityKey == self.source?.identityKey else { return }
+        isResolving = false
+
+        if let resolved {
+            playerItem = resolved
+            resolvedKey = source.identityKey
+            loadFailed = false
+            return
+        }
+
+        playerItem = nil
+        resolvedKey = nil
+        switch DiveMediaVideoLoad.classify(
+            itemResolved: false,
+            isLibraryAsset: source.isLibraryAsset,
+            assetStillExists: assetStillExists(for: source)
+        ) {
+        case .loaded:
+            break
+        case .assetMissing:
+            loadFailed = false
+            onAssetMissing?()
+        case .retryable:
+            loadFailed = true
+        }
+    }
+
+    private func resolvedItem(for source: DiveVideoSource) async -> AVPlayerItem? {
+        switch source {
+        case .file(let url):
+            return AVPlayerItem(url: url)
+        case .libraryAsset(let identifier):
+            #if canImport(Photos)
+            return await DiveMediaReferenceLoader.playerItem(localIdentifier: identifier)
+            #else
+            return nil
+            #endif
+        }
+    }
+
+    /// **`true`** when a library asset is still reachable (distinguishes a deleted original from a transient timeout).
+    private func assetStillExists(for source: DiveVideoSource) -> Bool {
+        switch source {
+        case .file:
+            return true
+        case .libraryAsset(let identifier):
+            #if canImport(Photos)
+            return DiveMediaReferenceLoader.assetExists(localIdentifier: identifier)
+            #else
+            return false
+            #endif
+        }
+    }
+
+    private func retryLoading() {
+        loadFailed = false
+        isResolving = true
+        reloadToken += 1
+    }
+
+    private var loadingPlaceholder: some View {
+        ZStack {
+            AppTheme.Colors.surfaceMuted.opacity(0.5)
+            ProgressView()
+        }
+    }
+
+    private var errorRetryPlaceholder: some View {
+        ZStack {
+            AppTheme.Colors.surfaceMuted.opacity(0.5)
+            VStack(spacing: AppTheme.Spacing.sm) {
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.title)
+                    .foregroundStyle(AppTheme.Colors.tabUnselected)
+                Text("Couldn't load video")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+                Text("It may still be downloading from iCloud.")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+                    .multilineTextAlignment(.center)
+                Button(action: retryLoading) {
+                    Label("Retry", systemImage: "arrow.clockwise")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, AppTheme.Spacing.md)
+                        .padding(.vertical, AppTheme.Spacing.sm)
+                        .background { Capsule().fill(AppTheme.Colors.accent) }
+                        .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 2)
+                .accessibilityIdentifier("DiveActivity.Video.Retry")
+            }
+            .padding(AppTheme.Spacing.lg)
+        }
+    }
+    #endif
 
     private var missingPlaceholder: some View {
         ZStack {
@@ -48,7 +192,8 @@ struct DiveActivityVideoPlayerView: View {
 #if canImport(UIKit)
 /// **`AVPlayerLayer`** with **`videoGravity = .resizeAspectFill`** (no letterboxing).
 private struct DiveActivityFillVideoPlayerRepresentable: UIViewRepresentable {
-    let fileURL: URL
+    let playerItem: AVPlayerItem
+    let identityKey: String
     let isPlaybackActive: Bool
     let loopsPlayback: Bool
     let isPausedByUserHold: Bool
@@ -56,7 +201,8 @@ private struct DiveActivityFillVideoPlayerRepresentable: UIViewRepresentable {
     func makeUIView(context: Context) -> DiveActivityFillVideoPlayerUIView {
         let view = DiveActivityFillVideoPlayerUIView()
         view.configure(
-            url: fileURL,
+            playerItem: playerItem,
+            identityKey: identityKey,
             isPlaybackActive: isPlaybackActive,
             loopsPlayback: loopsPlayback,
             isPausedByUserHold: isPausedByUserHold
@@ -66,7 +212,8 @@ private struct DiveActivityFillVideoPlayerRepresentable: UIViewRepresentable {
 
     func updateUIView(_ uiView: DiveActivityFillVideoPlayerUIView, context: Context) {
         uiView.configure(
-            url: fileURL,
+            playerItem: playerItem,
+            identityKey: identityKey,
             isPlaybackActive: isPlaybackActive,
             loopsPlayback: loopsPlayback,
             isPausedByUserHold: isPausedByUserHold
@@ -83,7 +230,7 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
 
     private var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
     private var player: AVPlayer?
-    private var currentURL: URL?
+    private var currentKey: String?
     private var loopsPlayback = false
     private var isPlaybackActive = false
     private var isPausedByUserHold = false
@@ -106,23 +253,24 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
     }
 
     func configure(
-        url: URL,
+        playerItem: AVPlayerItem,
+        identityKey: String,
         isPlaybackActive: Bool,
         loopsPlayback: Bool,
         isPausedByUserHold: Bool
     ) {
-        let mediaURLChanged = currentURL != url
+        let mediaChanged = currentKey != identityKey
         let shouldRestart = DiveActivityVideoPlaybackPolicy.shouldRestartFromBeginning(
             wasPlaybackActive: lastAppliedPlaybackActive,
             isPlaybackActive: isPlaybackActive,
-            mediaURLChanged: mediaURLChanged
+            mediaURLChanged: mediaChanged
         )
 
         self.isPlaybackActive = isPlaybackActive
         self.isPausedByUserHold = isPausedByUserHold
 
-        if mediaURLChanged {
-            loadPlayer(url: url)
+        if mediaChanged {
+            loadPlayer(playerItem: playerItem, identityKey: identityKey)
         }
         setLooping(loopsPlayback)
 
@@ -140,19 +288,19 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
         player?.pause()
         player = nil
         playerLayer.player = nil
-        currentURL = nil
+        currentKey = nil
         loopsPlayback = false
         isPlaybackActive = false
         isPausedByUserHold = false
         lastAppliedPlaybackActive = false
     }
 
-    private func loadPlayer(url: URL) {
+    private func loadPlayer(playerItem: AVPlayerItem, identityKey: String) {
         removeEndObserver()
         player?.pause()
-        currentURL = url
+        currentKey = identityKey
         DiveMutedVideoAudioSession.activateForMutedPlayback()
-        let newPlayer = AVPlayer(url: url)
+        let newPlayer = AVPlayer(playerItem: playerItem)
         newPlayer.isMuted = true
         player = newPlayer
         playerLayer.player = newPlayer

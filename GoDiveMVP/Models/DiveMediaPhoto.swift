@@ -1,7 +1,11 @@
 import Foundation
 import SwiftData
 
-/// Photo or video attached to a dive (**`DiveActivity.mediaPhotos`**).
+/// Pointer to a Photos-library asset attached to a dive (**`DiveActivity.mediaPhotos`**).
+///
+/// GoDive stores **only** the **`PHAsset.localIdentifier`** plus lightweight metadata — pixels/frames load on demand
+/// via **`DiveMediaReferenceLoader`**, so nothing is duplicated on disk. If the user deletes the original from Photos,
+/// the row is pruned (**`DiveMediaReferencePruning`**).
 @Model
 final class DiveMediaPhoto {
 
@@ -10,14 +14,9 @@ final class DiveMediaPhoto {
     var sortOrder: Int
     /// **`DiveMediaKind`** raw value (**`image`** / **`video`**).
     var mediaKind: String = DiveMediaKind.image.rawValue
-    /// Image bytes when **`mediaKind`** is **`image`**; empty for video rows.
-    @Attribute(originalName: "imageData")
-    var mediaData: Data = Data()
-    /// File name under **`DiveMediaFileStore`** when **`mediaKind`** is **`video`**.
-    var mediaFileName: String = ""
-    /// When the photo/video was captured (EXIF / file metadata preferred over Photos library date).
+    /// When the photo/video was captured (**`PHAsset.creationDate`**).
     var capturedAt: Date?
-    /// **`PHAsset.localIdentifier`** when imported from the Photos library (dedupes auto-upload).
+    /// **`PHAsset.localIdentifier`** of the referenced Photos asset.
     var photosLocalIdentifier: String = ""
 
     /// Denormalized for batch **`delete(model:where:)`**.
@@ -30,8 +29,6 @@ final class DiveMediaPhoto {
         id: UUID = UUID(),
         sortOrder: Int = 0,
         mediaKind: DiveMediaKind = .image,
-        mediaData: Data = Data(),
-        mediaFileName: String = "",
         capturedAt: Date? = nil,
         photosLocalIdentifier: String = "",
         dive: DiveActivity? = nil
@@ -39,8 +36,6 @@ final class DiveMediaPhoto {
         self.id = id
         self.sortOrder = sortOrder
         self.mediaKind = mediaKind.rawValue
-        self.mediaData = mediaData
-        self.mediaFileName = mediaFileName
         self.capturedAt = capturedAt
         self.photosLocalIdentifier = photosLocalIdentifier
         self.diveActivityID = dive?.id

@@ -122,9 +122,21 @@ struct ProfileEditSheet: View {
 
         do {
             try modelContext.save()
+            requestPhotoLibraryAccessForAutoUploadIfNeeded()
             dismiss()
         } catch {
             validationMessage = "Could not save. Try again."
+        }
+    }
+
+    /// Profile setup is a natural moment to ask for Photos access when auto-upload is on (prompts only once).
+    private func requestPhotoLibraryAccessForAutoUploadIfNeeded() {
+        Task { @MainActor in
+            guard DiveLibraryMediaAutoAttach.shouldRequestPhotoAccessForAutoUpload(
+                autoUploadEnabled: AppUserSettings.autoUploadMediaToActivities,
+                authorizationResolved: DiveLibraryMediaAutoAttach.hasResolvedPhotoLibraryAuthorization
+            ) else { return }
+            _ = await DiveLibraryMediaAutoAttach.requestPhotoLibraryReadAccess()
         }
     }
 }

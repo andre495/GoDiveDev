@@ -1,18 +1,18 @@
+import SwiftData
 import SwiftUI
 #if canImport(UIKit)
 import UIKit
 #endif
-#if canImport(AVFoundation)
-import AVFoundation
-#endif
 
-/// Square image or video-frame thumbnail for carousel and depth-profile markers.
+/// Square image or video-frame thumbnail for carousel and depth-profile markers. Loads on demand from the
+/// referenced Photos asset (videos show their poster frame); prunes the row if the original was deleted.
 struct DiveActivityMediaThumbnailView: View {
     let media: DiveMediaPhoto
     var size: CGFloat = DiveActivityMediaPresentation.carouselThumbnailSize
     var cornerRadius: CGFloat = DiveActivityMediaPresentation.carouselThumbnailCornerRadius
     var showsPlayBadge: Bool = true
 
+    @Environment(\.modelContext) private var modelContext
     #if canImport(UIKit)
     @State private var thumbnailImage: UIImage?
     #endif
@@ -48,16 +48,6 @@ struct DiveActivityMediaThumbnailView: View {
 
     @ViewBuilder
     private var thumbnailContent: some View {
-        switch media.resolvedMediaKind {
-        case .image:
-            imageThumbnail
-        case .video:
-            DiveActivityVideoThumbnailView(fileURL: media.videoFileURL, maxPixelSize: size * 2)
-        }
-    }
-
-    @ViewBuilder
-    private var imageThumbnail: some View {
         #if canImport(UIKit)
         if let thumbnailImage {
             Image(uiImage: thumbnailImage)
@@ -74,82 +64,32 @@ struct DiveActivityMediaThumbnailView: View {
     private var missingThumbnail: some View {
         ZStack {
             AppTheme.Colors.surfaceMuted
-            Image(systemName: "photo")
+            Image(systemName: media.resolvedMediaKind == .video ? "video" : "photo")
                 .foregroundStyle(AppTheme.Colors.tabUnselected)
         }
     }
 
     #if canImport(UIKit)
     private func loadThumbnailIfNeeded() async {
-        guard media.resolvedMediaKind == .image, !media.mediaData.isEmpty else {
+        #if canImport(Photos)
+        guard let identifier = media.libraryAssetLocalIdentifier else {
             thumbnailImage = nil
             return
         }
-        thumbnailImage = await DiveMediaPhotoImageLoader.thumbnail(
-            from: media.mediaData,
-            maxPixelSize: size * 2
+        let edge = max(size * 2, 1)
+        let image = await DiveMediaReferenceLoader.image(
+            localIdentifier: identifier,
+            targetSize: CGSize(width: edge, height: edge)
         )
+        if image == nil {
+            DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
+        }
+        thumbnailImage = image
+        #else
+        thumbnailImage = nil
+        #endif
     }
     #else
     private func loadThumbnailIfNeeded() async {}
-    #endif
-}
-
-// MARK: - Video frame
-
-struct DiveActivityVideoThumbnailView: View {
-    let fileURL: URL?
-    var maxPixelSize: CGFloat = DiveActivityMediaPresentation.carouselThumbnailSize * 2
-
-    @State private var thumbnail: UIImage?
-
-    var body: some View {
-        Group {
-            #if canImport(UIKit)
-            if let thumbnail {
-                Image(uiImage: thumbnail)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                ZStack {
-                    AppTheme.Colors.surfaceMuted
-                    Image(systemName: "video")
-                        .foregroundStyle(AppTheme.Colors.tabUnselected)
-                }
-            }
-            #else
-            ZStack {
-                AppTheme.Colors.surfaceMuted
-                Image(systemName: "video")
-            }
-            #endif
-        }
-        .task(id: fileURL?.absoluteString) {
-            await loadThumbnail()
-        }
-    }
-
-    #if canImport(UIKit) && canImport(AVFoundation)
-    private func loadThumbnail() async {
-        guard let fileURL else {
-            thumbnail = nil
-            return
-        }
-        let asset = AVURLAsset(url: fileURL)
-        let generator = AVAssetImageGenerator(asset: asset)
-        generator.appliesPreferredTrackTransform = true
-        generator.maximumSize = CGSize(width: maxPixelSize, height: maxPixelSize)
-        let time = CMTime(seconds: 0.1, preferredTimescale: 600)
-        do {
-            let frame = try await generator.image(at: time)
-            thumbnail = UIImage(cgImage: frame.image)
-        } catch {
-            thumbnail = nil
-        }
-    }
-    #else
-    private func loadThumbnail() async {
-        thumbnail = nil
-    }
     #endif
 }

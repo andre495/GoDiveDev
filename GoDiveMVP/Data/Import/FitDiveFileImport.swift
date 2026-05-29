@@ -51,10 +51,17 @@ enum FitDiveFileImport {
 
     /// Duplicate check + SwiftData insert (call after decode so UI can show progress first).
     @MainActor
+    /// Set **`attachMedia: false`** when the caller drives the Photos auto-attach pass separately
+    /// (e.g. to surface an **"Adding Media"** milestone in the import dialog).
+    ///
+    /// **`createMissingDiveSites`** mirrors the UDDF import option: when **`false`**, the dive still links to an
+    /// existing catalog site by name match but no **new** **`DiveSite`** is created for an unmatched import name.
     static func persistImportedActivity(
         _ activity: DiveActivity,
         modelContext: ModelContext,
-        owner: UserProfile? = nil
+        owner: UserProfile? = nil,
+        attachMedia: Bool = true,
+        createMissingDiveSites: Bool = true
     ) async -> DiveFileImportOutcome {
         do {
             guard let owner = owner ?? AccountSession.shared.currentProfile else {
@@ -83,19 +90,27 @@ enum FitDiveFileImport {
             )
             var catalogSites = try DiveActivitySiteAssociation.fetchCatalogSites(modelContext: modelContext)
             DiveActivitySiteAssociation.applyBestMatch(to: activity, catalogSites: catalogSites)
-            _ = DiveActivitySiteAssociation.createSiteForImportNameIfNeeded(
-                to: activity,
-                catalogSites: &catalogSites,
-                modelContext: modelContext
+            if createMissingDiveSites {
+                _ = DiveActivitySiteAssociation.createSiteForImportNameIfNeeded(
+                    to: activity,
+                    catalogSites: &catalogSites,
+                    modelContext: modelContext
+                )
+            }
+            await DiveSiteTimeZoneResolution.ensureResolvedForLinkedActivities(
+                [activity],
+                resolver: MapKitGeocodingTimeZoneResolver.shared
             )
             await DiveActivityTimeZoneResolution.resolveMissingOffset(for: activity)
             try modelContext.save()
             try DiveActivityDiveNumbering.applyAutomaticSequentialRenumberIfNeeded(modelContext: modelContext)
-            await DiveLibraryMediaAutoAttachScheduler.attachAfterDivePersisted(
-                activity,
-                ownerProfileID: owner.id,
-                modelContext: modelContext
-            )
+            if attachMedia {
+                await DiveLibraryMediaAutoAttachScheduler.attachAfterDivePersisted(
+                    activity,
+                    ownerProfileID: owner.id,
+                    modelContext: modelContext
+                )
+            }
             let msg = "\(importSuccessMessagePrefix) starting \(activity.formattedStartDateTime())."
             return DiveFileImportOutcome(userMessage: msg, primaryInsertedDiveId: activity.id)
         } catch {

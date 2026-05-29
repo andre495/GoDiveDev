@@ -15,6 +15,10 @@ final class DiveSite {
     var bodyOfWater: String = ""
     var latCoords: Double?
     var longCoords: Double?
+    /// IANA timezone from reverse geocode (preferred for DST-aware offset at any dive instant).
+    var timeZoneIdentifier: String?
+    /// Seconds east of UTC at last timezone resolution (display fallback when **`timeZoneIdentifier`** unset).
+    var timeZoneOffsetSeconds: Int?
     var siteTags: [String]
     var siteRating: Int?
 
@@ -29,6 +33,8 @@ final class DiveSite {
         bodyOfWater: String = "",
         latCoords: Double? = nil,
         longCoords: Double? = nil,
+        timeZoneIdentifier: String? = nil,
+        timeZoneOffsetSeconds: Int? = nil,
         siteTags: [String] = [],
         siteRating: Int? = nil
     ) {
@@ -39,6 +45,8 @@ final class DiveSite {
         self.bodyOfWater = bodyOfWater
         self.latCoords = latCoords
         self.longCoords = longCoords
+        self.timeZoneIdentifier = timeZoneIdentifier
+        self.timeZoneOffsetSeconds = timeZoneOffsetSeconds
         self.siteTags = siteTags
         self.siteRating = siteRating
     }

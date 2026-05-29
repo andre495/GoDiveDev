@@ -12,11 +12,20 @@ struct DiveActivityPhotosPanelContent: View {
     var showsSheetDetails = false
     var showsMarineLifeTagInSheet = false
     var onTagMarineLife: (() -> Void)?
+    /// Resolved featured media id (user-chosen, else oldest); marks the carousel item and the toggle state.
+    var featuredMediaID: UUID?
+    /// Toggles the selected media as the featured logbook preview (tap a featured item to revert to default).
+    var onToggleFeatured: ((DiveMediaPhoto) -> Void)?
     @Binding var mediaPickerItems: [PhotosPickerItem]
     var isImportInProgress = false
 
     private var selectedMedia: DiveMediaPhoto? {
         DiveActivityMediaPresentation.selectedMedia(selectedID: selectedMediaID, in: mediaItems)
+    }
+
+    private var isSelectedMediaFeatured: Bool {
+        guard let selectedMedia, let featuredMediaID else { return false }
+        return selectedMedia.id == featuredMediaID
     }
 
     private var carouselTopInset: CGFloat {
@@ -69,6 +78,10 @@ struct DiveActivityPhotosPanelContent: View {
 
             Spacer(minLength: AppTheme.Spacing.sm)
 
+            if showsSheetDetails, onToggleFeatured != nil, selectedMedia != nil {
+                featuredButton
+            }
+
             if showsSheetDetails {
                 addMediaButton
             }
@@ -79,13 +92,36 @@ struct DiveActivityPhotosPanelContent: View {
         HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
             DiveActivityMediaCarouselView(
                 mediaItems: mediaItems,
-                selectedMediaID: $selectedMediaID
+                selectedMediaID: $selectedMediaID,
+                featuredMediaID: featuredMediaID
             )
 
             if !showsSheetDetails {
                 addMediaButton
             }
         }
+    }
+
+    private var featuredButton: some View {
+        Button {
+            guard let selectedMedia, let onToggleFeatured else { return }
+            onToggleFeatured(selectedMedia)
+        } label: {
+            Image(systemName: isSelectedMediaFeatured ? "star.fill" : "star")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.accent)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .disabled(isImportInProgress)
+        .opacity(isImportInProgress ? 0.45 : 1)
+        .accessibilityLabel(isSelectedMediaFeatured ? "Featured photo" : "Set as featured")
+        .accessibilityHint(
+            isSelectedMediaFeatured
+                ? "Removes this as the logbook preview, reverting to the default."
+                : "Uses this as the logbook preview for this dive."
+        )
+        .accessibilityIdentifier("DiveOverview.MediaFeatureToggle")
     }
 
     private func captureDetails(for media: DiveMediaPhoto) -> some View {

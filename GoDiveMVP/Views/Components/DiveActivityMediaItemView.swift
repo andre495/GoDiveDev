@@ -1,11 +1,14 @@
+import SwiftData
 import SwiftUI
 #if canImport(UIKit)
 import UIKit
 #endif
 
-/// One pager page — image or video for a **`DiveMediaPhoto`** row.
+/// One pager page — image or video for a **`DiveMediaPhoto`** row. Loads on demand from the referenced Photos
+/// asset; prunes the row if the original was deleted.
 struct DiveActivityMediaItemView: View {
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
+    @Environment(\.modelContext) private var modelContext
 
     let media: DiveMediaPhoto
     var timeZoneOffsetSeconds: Int?
@@ -72,7 +75,13 @@ struct DiveActivityMediaItemView: View {
     }
 
     private var imageLoadTaskID: String {
-        "\(media.id.uuidString)-\(media.mediaData.count)-\(media.resolvedMediaKind.rawValue)"
+        "\(media.id.uuidString)-\(media.resolvedMediaKind.rawValue)"
+    }
+
+    private func pruneIfAssetMissing() {
+        #if canImport(Photos)
+        DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
+        #endif
     }
 
     private var mediaContent: some View {
@@ -83,10 +92,11 @@ struct DiveActivityMediaItemView: View {
                     imagePage
                 case .video:
                     DiveActivityVideoPlayerView(
-                        fileURL: media.videoFileURL,
+                        source: media.videoPlaybackSource,
                         isPlaybackActive: isVideoPlaybackActive,
                         loopsPlayback: loopsVideoPlayback,
-                        isPausedByUserHold: isHoldingVideoPause
+                        isPausedByUserHold: isHoldingVideoPause,
+                        onAssetMissing: pruneIfAssetMissing
                     )
                 }
             }
@@ -118,16 +128,20 @@ struct DiveActivityMediaItemView: View {
         }
     }
 
-    #if canImport(UIKit)
+    #if canImport(UIKit) && canImport(Photos)
     private func loadPreviewImageIfNeeded() async {
-        guard media.resolvedMediaKind == .image, !media.mediaData.isEmpty else {
+        guard media.resolvedMediaKind == .image, let identifier = media.libraryAssetLocalIdentifier else {
             previewImage = nil
             return
         }
-        previewImage = await DiveMediaPhotoImageLoader.thumbnail(
-            from: media.mediaData,
-            maxPixelSize: 2_048
+        let image = await DiveMediaReferenceLoader.image(
+            localIdentifier: identifier,
+            targetSize: CGSize(width: 2_048, height: 2_048)
         )
+        if image == nil {
+            DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
+        }
+        previewImage = image
     }
     #else
     private func loadPreviewImageIfNeeded() async {}

@@ -27,6 +27,12 @@ enum SettingsPresentation: Sendable {
             "When on, GoDive reads your Apple Photos library (with your permission) and attaches photos and videos whose capture time falls within each dive’s start and end window. Turning this on scans dives already in your log; new imports are matched automatically. Media stays on your device in GoDive only — nothing is uploaded to a server. With Limited Photos access, only photos you allow are visible to the app."
     }
 
+    enum BulkUddfImport {
+        nonisolated static let attachMediaTitle = "Attach photos from library"
+        nonisolated static let attachMediaSubtitle =
+            "Matches Apple Photos and videos to each imported dive by capture time. This step can take a few minutes on a large logbook."
+    }
+
     nonisolated static func infoAccessibilityLabel(forSettingTitle title: String) -> String {
         "More information about \(title)"
     }

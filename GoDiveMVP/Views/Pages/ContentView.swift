@@ -9,7 +9,7 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(AccountSession.self) private var accountSession
-    @AppStorage(AppUserSettings.useImperialDisplayUnitsKey) private var useImperialDisplayUnits = false
+    @AppStorage(AppUserSettings.useImperialDisplayUnitsKey) private var useImperialDisplayUnits = true
 
     /// Selection binding is required for iOS 18+ tab re-tap scroll-to-top / pop-to-root (see Apple Developer Forums thread 773497).
     @State private var selectedTab: RootTab = .home

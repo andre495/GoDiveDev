@@ -3,9 +3,12 @@ import SwiftUI
 /// Compact logbook row: oval dive **#** (top leading), name + stats, optional oldest-media preview (trailing).
 struct LogbookActivityRow: View, Equatable {
     let data: DiveLogbookRowDisplayData
+    /// When set, tapping the trailing media thumbnail runs this (open dive Media tab) instead of the row link.
+    var onTapMediaPreview: (() -> Void)?
 
     @State private var textColumnHeight: CGFloat = 0
 
+    /// Closures are excluded from equality on purpose; row identity/content lives in **`data`**.
     static func == (lhs: LogbookActivityRow, rhs: LogbookActivityRow) -> Bool {
         lhs.data == rhs.data
     }
@@ -47,10 +50,7 @@ struct LogbookActivityRow: View, Equatable {
             if let previewMediaPhotoID = data.previewMediaPhotoID {
                 Spacer(minLength: AppTheme.Spacing.md)
 
-                LogbookRowMediaPreviewView(
-                    photoID: previewMediaPhotoID,
-                    extent: textColumnHeight
-                )
+                mediaPreview(photoID: previewMediaPhotoID)
             }
         }
         .onPreferenceChange(LogbookRowTextColumnHeightKey.self) { height in
@@ -65,6 +65,23 @@ struct LogbookActivityRow: View, Equatable {
         .overlay {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(AppTheme.Colors.tabUnselected.opacity(0.12), lineWidth: 1)
+        }
+    }
+
+    /// Trailing thumbnail. When **`onTapMediaPreview`** is set it becomes a borderless button so the tap
+    /// opens the dive's Media tab (and does not trigger the surrounding row **`NavigationLink`**).
+    @ViewBuilder
+    private func mediaPreview(photoID: UUID) -> some View {
+        let preview = LogbookRowMediaPreviewView(photoID: photoID, extent: textColumnHeight)
+        if let onTapMediaPreview {
+            Button(action: onTapMediaPreview) {
+                preview
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Open dive media")
+            .accessibilityHint("Opens this dive's media on the selected photo")
+        } else {
+            preview
         }
     }
 

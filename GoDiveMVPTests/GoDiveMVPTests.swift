@@ -9,6 +9,9 @@ import CoreGraphics
 import CoreLocation
 import Foundation
 import MapKit
+#if canImport(Photos)
+import Photos
+#endif
 import SwiftData
 import Testing
 #if canImport(PencilKit)
@@ -23,6 +26,37 @@ struct GoDiveMVPTests {
 
     @Test func example() async throws {
         // Write your test here and use APIs like `#expect(...)` to check expected conditions.
+    }
+
+    @Test @MainActor func diveActivityMediaStorage_postMediaDidChange_notifiesObservers() {
+        final class Counter: @unchecked Sendable { var value = 0 }
+        let counter = Counter()
+        // `queue: nil` delivers synchronously on the posting thread, so the count is set before `post` returns.
+        let token = NotificationCenter.default.addObserver(
+            forName: .diveActivityMediaDidChange,
+            object: nil,
+            queue: nil
+        ) { _ in counter.value += 1 }
+        defer { NotificationCenter.default.removeObserver(token) }
+
+        DiveActivityMediaStorage.postMediaDidChange()
+        #expect(counter.value >= 1)
+    }
+
+    @Test @MainActor func diveActivityMediaFocus_withID_targetsCameraTabMediumDetent() {
+        let mediaID = UUID()
+        let focus = DiveActivityMediaFocusPresentation.focus(forMediaFocusID: mediaID)
+        #expect(
+            focus == DiveActivityMediaFocusPresentation.Focus(
+                tab: .camera,
+                detent: .medium,
+                mediaID: mediaID
+            )
+        )
+    }
+
+    @Test func diveActivityMediaFocus_withoutID_isNil() {
+        #expect(DiveActivityMediaFocusPresentation.focus(forMediaFocusID: nil) == nil)
     }
 
     @Test func diveActivityDiveNumbering_partialRenumberNoop_whenDeletingNewest() {
@@ -1154,6 +1188,8 @@ struct GoDiveMVPTests {
             SettingsPresentation.infoAccessibilityLabel(forSettingTitle: "Imperial units")
                 == "More information about Imperial units"
         )
+        #expect(SettingsPresentation.BulkUddfImport.attachMediaTitle == "Attach photos from library")
+        #expect(SettingsPresentation.BulkUddfImport.attachMediaSubtitle.contains("few minutes"))
     }
 
     @Test func appScrollUnderHeaderListLayout_usesLogbookHorizontalInsets() {
@@ -2356,13 +2392,6 @@ struct GoDiveMVPTests {
         #expect(FieldGuidePresentation.listTrailingLabel(category: "  ") == "—")
     }
 
-    @Test func diveMediaPhotoImageLoader_emptyData_returnsNilThumbnail() async {
-        #if canImport(UIKit)
-        let image = await DiveMediaPhotoImageLoader.thumbnail(from: Data(), maxPixelSize: 144)
-        #expect(image == nil)
-        #endif
-    }
-
     @Test func fieldGuideTaggedMediaPresentation_galleryRefreshToken_changesWhenSightingsChange() {
         let dive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 1, maxDepthMeters: 1)
         let firstPhoto = DiveMediaPhoto(capturedAt: .now, dive: dive)
@@ -2979,8 +3008,8 @@ struct GoDiveMVPTests {
             durationMinutes: 0,
             maxDepthMeters: 0
         )
-        let second = DiveMediaPhoto(sortOrder: 1, mediaData: Data([2]), dive: activity)
-        let first = DiveMediaPhoto(sortOrder: 0, mediaData: Data([1]), dive: activity)
+        let second = DiveMediaPhoto(sortOrder: 1, dive: activity)
+        let first = DiveMediaPhoto(sortOrder: 0, dive: activity)
         activity.mediaPhotos = [second, first]
         let sorted = DiveActivityMediaPresentation.sortedPhotos(on: activity)
         #expect(sorted.map(\.sortOrder) == [0, 1])
@@ -2997,9 +3026,9 @@ struct GoDiveMVPTests {
         let middle = Date(timeIntervalSince1970: 2_000)
         let newest = Date(timeIntervalSince1970: 3_000)
         activity.mediaPhotos = [
-            DiveMediaPhoto(sortOrder: 2, mediaData: Data([3]), capturedAt: newest, dive: activity),
-            DiveMediaPhoto(sortOrder: 0, mediaData: Data([1]), capturedAt: oldest, dive: activity),
-            DiveMediaPhoto(sortOrder: 1, mediaData: Data([2]), capturedAt: middle, dive: activity),
+            DiveMediaPhoto(sortOrder: 2, capturedAt: newest, dive: activity),
+            DiveMediaPhoto(sortOrder: 0, capturedAt: oldest, dive: activity),
+            DiveMediaPhoto(sortOrder: 1, capturedAt: middle, dive: activity),
         ]
         let sorted = DiveActivityMediaPresentation.sortedPhotos(on: activity)
         #expect(sorted.map(\.capturedAt) == [oldest, middle, newest])
@@ -3014,13 +3043,11 @@ struct GoDiveMVPTests {
         )
         let oldest = DiveMediaPhoto(
             sortOrder: 1,
-            mediaData: Data([1]),
             capturedAt: Date(timeIntervalSince1970: 1_000),
             dive: activity
         )
         let newest = DiveMediaPhoto(
             sortOrder: 0,
-            mediaData: Data([2]),
             capturedAt: Date(timeIntervalSince1970: 3_000),
             dive: activity
         )
@@ -3039,13 +3066,11 @@ struct GoDiveMVPTests {
         )
         let oldest = DiveMediaPhoto(
             sortOrder: 1,
-            mediaData: Data([1]),
             capturedAt: Date(timeIntervalSince1970: 500),
             dive: activity
         )
         let newest = DiveMediaPhoto(
             sortOrder: 0,
-            mediaData: Data([2]),
             capturedAt: Date(timeIntervalSince1970: 1_500),
             dive: activity
         )
@@ -3060,10 +3085,129 @@ struct GoDiveMVPTests {
         #expect(rows.first?.previewMediaPhotoID == oldest.id)
     }
 
+    @Test func diveActivityMediaPresentation_featuredPhotoID_prefersExplicitThenFallsBackToOldest() {
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 0,
+            maxDepthMeters: 0
+        )
+        let oldest = DiveMediaPhoto(sortOrder: 1, capturedAt: Date(timeIntervalSince1970: 1_000), dive: activity)
+        let newest = DiveMediaPhoto(sortOrder: 0, capturedAt: Date(timeIntervalSince1970: 3_000), dive: activity)
+        activity.mediaPhotos = [newest, oldest]
+
+        // Default (no explicit choice) → oldest gallery item.
+        #expect(DiveActivityMediaPresentation.featuredPhotoID(on: activity) == oldest.id)
+
+        // Explicit valid choice wins.
+        activity.featuredMediaPhotoID = newest.id
+        #expect(DiveActivityMediaPresentation.featuredPhotoID(on: activity) == newest.id)
+        #expect(DiveActivityMediaPresentation.isFeatured(mediaID: newest.id, in: activity.mediaPhotos, explicitFeaturedID: newest.id))
+        #expect(!DiveActivityMediaPresentation.isFeatured(mediaID: oldest.id, in: activity.mediaPhotos, explicitFeaturedID: newest.id))
+
+        // Stale explicit id (asset removed / pruned) → falls back to oldest.
+        activity.featuredMediaPhotoID = UUID()
+        #expect(DiveActivityMediaPresentation.featuredPhotoID(on: activity) == oldest.id)
+
+        // No media → nil.
+        #expect(DiveActivityMediaPresentation.featuredPhotoID(in: [], explicitFeaturedID: UUID()) == nil)
+    }
+
+    @Test func diveLogbookDisplay_previewMediaPhotoID_usesExplicitFeaturedWhenSet() {
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 12,
+            diveNumber: 4
+        )
+        let oldest = DiveMediaPhoto(sortOrder: 1, capturedAt: Date(timeIntervalSince1970: 500), dive: activity)
+        let newest = DiveMediaPhoto(sortOrder: 0, capturedAt: Date(timeIntervalSince1970: 1_500), dive: activity)
+        activity.mediaPhotos = [newest, oldest]
+        activity.featuredMediaPhotoID = newest.id
+
+        let rows = DiveLogbookDisplay.rowData(
+            activities: [activity],
+            unitSystem: .metric,
+            duplicateIds: [],
+            useChronologicalNumbers: false
+        )
+        #expect(rows.first?.previewMediaPhotoID == newest.id)
+    }
+
+    @Test func diveActivityMediaStorage_setFeaturedMedia_persistsAndClears() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 0,
+            maxDepthMeters: 0
+        )
+        context.insert(activity)
+        try context.save()
+
+        let featured = UUID()
+        try DiveActivityMediaStorage.setFeaturedMedia(featured, on: activity, modelContext: context)
+        #expect(activity.featuredMediaPhotoID == featured)
+
+        try DiveActivityMediaStorage.setFeaturedMedia(nil, on: activity, modelContext: context)
+        #expect(activity.featuredMediaPhotoID == nil)
+    }
+
+    #if canImport(Photos)
+    @Test func diveMediaReferenceLoader_videoRequestOptions_useFullResolutionPlayback() {
+        let options = DiveMediaReferenceLoader.makeVideoRequestOptions()
+        // Highest-quality original (download from iCloud when needed) rather than a transcoded/automatic stream.
+        #expect(options.deliveryMode == .highQualityFormat)
+        #expect(options.isNetworkAccessAllowed)
+    }
+    #endif
+
+    @Test func diveMediaVideoLoad_classify_distinguishesMissingFromRetryable() {
+        // A produced player item is always "loaded", regardless of asset reachability.
+        #expect(DiveMediaVideoLoad.classify(itemResolved: true, isLibraryAsset: true, assetStillExists: false) == .loaded)
+        // Library asset that no longer exists -> prune the reference.
+        #expect(DiveMediaVideoLoad.classify(itemResolved: false, isLibraryAsset: true, assetStillExists: false) == .assetMissing)
+        // Library asset that still exists but didn't load (timeout/offline) -> offer retry.
+        #expect(DiveMediaVideoLoad.classify(itemResolved: false, isLibraryAsset: true, assetStillExists: true) == .retryable)
+        // Non-library (file) source that didn't load -> retry, never prune.
+        #expect(DiveMediaVideoLoad.classify(itemResolved: false, isLibraryAsset: false, assetStillExists: false) == .retryable)
+    }
+
+    @Test func diveMediaVideoLoad_timeout_isPositive() {
+        #expect(DiveMediaVideoLoad.timeoutSeconds > 0)
+    }
+
     @Test func diveMediaImportProgressPresentation_progressFraction_clampsToUnitInterval() {
         #expect(DiveMediaImportProgressPresentation.progressFraction(completed: 2, total: 5) == 0.4)
         #expect(DiveMediaImportProgressPresentation.progressFraction(completed: 5, total: 5) == 1.0)
         #expect(DiveMediaImportProgressPresentation.progressFraction(completed: 0, total: 0) == 0)
+    }
+
+    @Test func diveImportMilestone_labels_matchSimplifiedDialogCopy() {
+        #expect(DiveImportMilestone.readingFile.label == "Reading File")
+        #expect(DiveImportMilestone.creatingDiveLogs.label == "Creating Dive Logs")
+        #expect(DiveImportMilestone.addingMedia.label == "Adding Media")
+    }
+
+    @Test func diveImportMilestone_fractions_advanceMonotonicallyAcrossMilestones() {
+        // Each milestone's bar segment is contiguous and forward-moving.
+        #expect(DiveImportMilestone.readingFile.endFraction == DiveImportMilestone.creatingDiveLogs.startFraction)
+        #expect(DiveImportMilestone.creatingDiveLogs.endFraction == DiveImportMilestone.addingMedia.startFraction)
+        #expect(DiveImportMilestone.readingFile.startFraction < DiveImportMilestone.readingFile.endFraction)
+        #expect(DiveImportMilestone.addingMedia.endFraction == 1.0)
+    }
+
+    @Test func diveImportMilestone_fraction_interpolatesWithinSegmentAndClamps() {
+        let milestone = DiveImportMilestone.creatingDiveLogs
+        #expect(milestone.fraction(completed: 0, total: 4) == milestone.startFraction)
+        #expect(milestone.fraction(completed: 4, total: 4) == milestone.endFraction)
+        let midpoint = milestone.startFraction + (milestone.endFraction - milestone.startFraction) * 0.5
+        #expect(abs(milestone.fraction(completed: 2, total: 4) - midpoint) < 0.0001)
+        // Guards against divide-by-zero and out-of-range work counts.
+        #expect(milestone.fraction(completed: 1, total: 0) == milestone.startFraction)
+        #expect(milestone.fraction(completed: 9, total: 4) == milestone.endFraction)
     }
 
     @Test func diveMediaImportProgressPresentation_stageLabels_includeIndex() {
@@ -3097,8 +3241,8 @@ struct GoDiveMVPTests {
             maxDepthMeters: 0
         )
         activity.mediaPhotos = [
-            DiveMediaPhoto(sortOrder: 0, mediaData: Data([1])),
-            DiveMediaPhoto(sortOrder: 2, mediaData: Data([2])),
+            DiveMediaPhoto(sortOrder: 0),
+            DiveMediaPhoto(sortOrder: 2),
         ]
         #expect(DiveActivityMediaPresentation.nextSortOrder(on: activity) == 3)
     }
@@ -3227,8 +3371,8 @@ struct GoDiveMVPTests {
         let first = UUID()
         let second = UUID()
         let photos = [
-            DiveMediaPhoto(id: first, sortOrder: 0, mediaData: Data()),
-            DiveMediaPhoto(id: second, sortOrder: 1, mediaData: Data()),
+            DiveMediaPhoto(id: first, sortOrder: 0),
+            DiveMediaPhoto(id: second, sortOrder: 1),
         ]
         #expect(
             DiveActivityMediaPresentation.resolvedSelectedPhotoID(selectedID: second, in: photos) == second
@@ -3240,7 +3384,7 @@ struct GoDiveMVPTests {
     }
 
     @Test @MainActor
-    func diveActivityMediaStorage_addMedia_persistsOrderedImageRows() throws {
+    func diveActivityMediaStorage_addLibraryReference_persistsOrderedRows() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = ModelContext(container)
         let activity = DiveActivity(
@@ -3252,32 +3396,62 @@ struct GoDiveMVPTests {
         context.insert(activity)
         try context.save()
 
-        _ = try DiveActivityMediaStorage.addMedia(.image(Data([1])), to: activity, modelContext: context)
-        _ = try DiveActivityMediaStorage.addMedia(.image(Data([2])), to: activity, modelContext: context)
+        _ = try DiveActivityMediaStorage.addLibraryReference(localIdentifier: "A/1", mediaKind: .image, to: activity, modelContext: context)
+        _ = try DiveActivityMediaStorage.addLibraryReference(localIdentifier: "B/2", mediaKind: .video, to: activity, modelContext: context)
 
         let sorted = DiveActivityMediaPresentation.sortedPhotos(on: activity)
         #expect(sorted.count == 2)
         #expect(sorted.map(\.sortOrder) == [0, 1])
-        #expect(sorted.allSatisfy { $0.resolvedMediaKind == .image })
+        #expect(sorted.map(\.photosLocalIdentifier) == ["A/1", "B/2"])
     }
 
-    @Test func diveMediaFileStore_importVideo_writesFile() throws {
-        let temp = FileManager.default.temporaryDirectory
-            .appendingPathComponent("dive-media-test-\(UUID().uuidString).mov")
-        try Data([0x00, 0x01]).write(to: temp)
-        defer { try? FileManager.default.removeItem(at: temp) }
+    // MARK: - Photos library reference media (pointer, no duplicated bytes)
 
-        let mediaID = UUID()
-        let fileName = try DiveMediaFileStore.importVideo(from: temp, mediaID: mediaID)
-        defer { DiveMediaFileStore.deleteFileIfNeeded(fileName: fileName) }
-
-        #expect(fileName == "\(mediaID.uuidString).mov")
-        let url = try #require(DiveMediaFileStore.fileURL(fileName: fileName))
-        #expect(FileManager.default.fileExists(atPath: url.path))
+    @Test func diveMediaStorage_shouldReferenceLibraryAsset_requiresNonEmptyIdentifier() {
+        #expect(DiveActivityMediaStorage.shouldReferenceLibraryAsset(localIdentifier: "ABC/L0/001"))
+        #expect(!DiveActivityMediaStorage.shouldReferenceLibraryAsset(localIdentifier: "   "))
+        #expect(!DiveActivityMediaStorage.shouldReferenceLibraryAsset(localIdentifier: nil))
     }
 
-    @Test @MainActor
-    func diveActivityMediaStorage_addMedia_persistsVideoRow() throws {
+    @Test func diveMediaPhoto_libraryAssetLocalIdentifier_trimsAndNilsWhenBlank() {
+        let reference = DiveMediaPhoto(mediaKind: .image, photosLocalIdentifier: "  ABC/L0/001  ")
+        #expect(reference.libraryAssetLocalIdentifier == "ABC/L0/001")
+
+        let blank = DiveMediaPhoto(photosLocalIdentifier: "   ")
+        #expect(blank.libraryAssetLocalIdentifier == nil)
+    }
+
+    @Test @MainActor func diveMediaPhoto_videoPlaybackSource_isLibraryAssetForVideoOnly() {
+        let referenceVideo = DiveMediaPhoto(mediaKind: .video, photosLocalIdentifier: "VID/L0/009")
+        #expect(referenceVideo.videoPlaybackSource == .libraryAsset("VID/L0/009"))
+
+        let imageReference = DiveMediaPhoto(mediaKind: .image, photosLocalIdentifier: "IMG/L0/001")
+        #expect(imageReference.videoPlaybackSource == nil)
+
+        // Video with no identifier cannot resolve a source.
+        let identifierless = DiveMediaPhoto(mediaKind: .video, photosLocalIdentifier: "")
+        #expect(identifierless.videoPlaybackSource == nil)
+    }
+
+    @Test @MainActor func diveVideoSource_identityKey_distinguishesFileAndAsset() {
+        let fileURL = URL(fileURLWithPath: "/tmp/clip.mov")
+        #expect(DiveVideoSource.file(fileURL).identityKey == "file:\(fileURL.absoluteString)")
+        #expect(DiveVideoSource.libraryAsset("ABC").identityKey == "asset:ABC")
+        #expect(DiveVideoSource.file(fileURL) != DiveVideoSource.libraryAsset("ABC"))
+    }
+
+    @Test func diveMediaReferencePruning_shouldPrune_onlyWhenMissingUnderFullAuthorization() {
+        // Deleted original, full access → prune.
+        #expect(DiveMediaReferencePruning.shouldPrune(hasIdentifier: true, hasFullAuthorization: true, assetExists: false))
+        // Asset still exists (e.g. offline) → keep.
+        #expect(!DiveMediaReferencePruning.shouldPrune(hasIdentifier: true, hasFullAuthorization: true, assetExists: true))
+        // Limited access can't see unselected assets → never prune.
+        #expect(!DiveMediaReferencePruning.shouldPrune(hasIdentifier: true, hasFullAuthorization: false, assetExists: false))
+        // No identifier → nothing to prune.
+        #expect(!DiveMediaReferencePruning.shouldPrune(hasIdentifier: false, hasFullAuthorization: true, assetExists: false))
+    }
+
+    @Test @MainActor func diveMediaStorage_addLibraryReference_persistsPointerWithoutBytes() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = ModelContext(container)
         let activity = DiveActivity(
@@ -3289,17 +3463,18 @@ struct GoDiveMVPTests {
         context.insert(activity)
         try context.save()
 
-        let temp = FileManager.default.temporaryDirectory
-            .appendingPathComponent("dive-video-persist-\(UUID().uuidString).mov")
-        try Data([0xAB]).write(to: temp)
-        defer { try? FileManager.default.removeItem(at: temp) }
-
-        let addedID = try DiveActivityMediaStorage.addMedia(.video(temp), to: activity, modelContext: context)
+        let addedID = try DiveActivityMediaStorage.addLibraryReference(
+            localIdentifier: "ASSET/L0/123",
+            mediaKind: .video,
+            capturedAt: Date(timeIntervalSince1970: 1_000),
+            to: activity,
+            modelContext: context
+        )
         let row = try #require(activity.mediaPhotos.first { $0.id == addedID })
         #expect(row.resolvedMediaKind == .video)
-        #expect(!row.mediaFileName.isEmpty)
-        #expect(row.videoFileURL != nil)
-        DiveMediaFileStore.deleteFileIfNeeded(fileName: row.mediaFileName)
+        #expect(row.photosLocalIdentifier == "ASSET/L0/123")
+        #expect(row.libraryAssetLocalIdentifier == "ASSET/L0/123")
+        #expect(row.videoPlaybackSource == .libraryAsset("ASSET/L0/123"))
     }
 
     @Test func diveMediaCaptureDateExtraction_parseExifDateTime_respectsOffset() {
@@ -3336,7 +3511,7 @@ struct GoDiveMVPTests {
     }
 
     @Test @MainActor
-    func diveActivityMediaStorage_addMedia_persistsCapturedAt() throws {
+    func diveActivityMediaStorage_addLibraryReference_persistsCapturedAt() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = ModelContext(container)
         let activity = DiveActivity(
@@ -3349,8 +3524,9 @@ struct GoDiveMVPTests {
         try context.save()
 
         let capturedAt = Date(timeIntervalSince1970: 1_724_446_947)
-        _ = try DiveActivityMediaStorage.addMedia(
-            .image(Data([1])),
+        _ = try DiveActivityMediaStorage.addLibraryReference(
+            localIdentifier: "ASSET/L0/777",
+            mediaKind: .image,
             capturedAt: capturedAt,
             to: activity,
             modelContext: context
@@ -4555,23 +4731,493 @@ struct GoDiveMVPTests {
         #expect(cal.component(.hour, from: parsed!.instant) == 22)
     }
 
-    @Test func diveDateTimeParsing_naiveMacDiveDatetime_siteTimezone_isDisplayOnly() {
+    @Test func diveDateTimeParsing_naiveDatetime_withSiteTimezone_interpretsWallClockAsLocal() {
         let parsed = DiveDateTimeParsing.parseUddfDateTime("2024-08-23T22:22:27", siteTimeZoneHours: -4)
+        #expect(parsed?.timeZoneOffsetSeconds == -4 * 3600)
+        var localCal = Calendar(identifier: .gregorian)
+        localCal.timeZone = TimeZone(secondsFromGMT: -4 * 3600) ?? .gmt
+        #expect(localCal.component(.hour, from: parsed!.instant) == 22)
+        #expect(localCal.component(.minute, from: parsed!.instant) == 22)
+        var utcCal = Calendar(identifier: .gregorian)
+        utcCal.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        #expect(utcCal.component(.day, from: parsed!.instant) == 24)
+        #expect(utcCal.component(.hour, from: parsed!.instant) == 2)
+    }
+
+    @Test func diveDateTimeParsing_naiveWithSiteTimeZoneHours_convertsToUTCInstant() {
+        let parsed = DiveDateTimeParsing.parseUddfDateTime("2025-05-09T11:26:28", siteTimeZoneHours: -4)
         #expect(parsed?.timeZoneOffsetSeconds == -4 * 3600)
         var utcCal = Calendar(identifier: .gregorian)
         utcCal.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
-        #expect(utcCal.component(.hour, from: parsed!.instant) == 22)
-        var localCal = Calendar(identifier: .gregorian)
-        localCal.timeZone = TimeZone(secondsFromGMT: -4 * 3600) ?? .gmt
-        #expect(localCal.component(.hour, from: parsed!.instant) == 18)
+        #expect(utcCal.component(.hour, from: parsed!.instant) == 15)
+        #expect(utcCal.component(.minute, from: parsed!.instant) == 26)
     }
 
-    @Test func diveDateTimeParsing_naiveUsesSiteTimeZoneHours() {
-        let parsed = DiveDateTimeParsing.parseUddfDateTime("2025-05-09T11:26:28", siteTimeZoneHours: -4)
+    @Test func diveSiteTimeZoneResolution_uddfHoursIfPersisted_readsStoredSiteTimezone() throws {
+        let site = DiveSite(
+            siteName: "Cedar Pass",
+            timeZoneIdentifier: "America/Cancun",
+            timeZoneOffsetSeconds: -5 * 3600
+        )
+        let instant = try #require(DiveDateTimeParsing.parseNaiveWallTimeAsUtcInstant("2021-07-18T14:53:45"))
+        #expect(DiveSiteTimeZoneResolution.uddfHoursIfPersisted(from: site, at: instant) == -5.0)
+    }
+
+    @Test @MainActor
+    func diveGeographicTimeZoneLookup_uddfHoursFromSite_usesPersistedCatalogSiteWithoutNetwork() async throws {
+        let site = DiveSite(
+            siteName: "Cedar Pass",
+            latCoords: 20.37539,
+            longCoords: -87.0398,
+            timeZoneIdentifier: "America/Cancun",
+            timeZoneOffsetSeconds: -5 * 3600
+        )
+        let instant = try #require(DiveDateTimeParsing.parseNaiveWallTimeAsUtcInstant("2021-07-18T14:53:45"))
+        let resolver = FailingGeocodingTimeZoneResolver()
+        let hours = await DiveGeographicTimeZoneLookup.uddfHoursFromSite(
+            latitude: site.latCoords,
+            longitude: site.longCoords,
+            locationName: site.siteName,
+            catalogSite: site,
+            at: instant,
+            resolver: resolver
+        )
+        #expect(hours == -5.0)
+        #expect(resolver.coordinateLookupCount == 0)
+    }
+
+    @Test func diveActivitySiteAssociation_previewBestMatch_matchesExactNameWithoutLinking() throws {
+        let catalog = DiveSite(siteName: "Angel City", latCoords: 12.10325, longCoords: -68.28845)
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: Date(),
+            durationMinutes: 60,
+            maxDepthMeters: 10,
+            siteName: "Angel City"
+        )
+        let matched = DiveActivitySiteAssociation.previewBestMatch(for: activity, catalogSites: [catalog])
+        #expect(matched?.id == catalog.id)
+        #expect(activity.diveSite == nil)
+    }
+
+    @Test func diveActivityTimeZoneResolution_prefersPreviewCatalogSiteCoordinates() {
+        let catalog = DiveSite(siteName: "Cedar Pass", latCoords: 20.37539, longCoords: -87.0398)
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: Date(),
+            durationMinutes: 60,
+            maxDepthMeters: 10,
+            siteName: "Cedar Pass"
+        )
+        let coordinate = DiveActivityTimeZoneResolution.coordinateForLookup(
+            on: activity,
+            catalogSites: [catalog]
+        )
+        #expect(coordinate?.latitude == 20.37539)
+        #expect(coordinate?.longitude == -87.0398)
+    }
+
+    @Test func diveGeographicTimeZoneLookup_uddfHoursFromSite_prefersNetworkOverOffline() async throws {
+        let tz = try #require(TimeZone(identifier: "America/Cancun"))
+        let resolver = FixedGeocodingTimeZoneResolver(timeZone: tz)
+        let instant = try #require(DiveDateTimeParsing.parseNaiveWallTimeAsUtcInstant("2021-07-18T14:53:45"))
+        let hours = await DiveGeographicTimeZoneLookup.uddfHoursFromSite(
+            latitude: 39.59303,
+            longitude: -104.8778,
+            locationName: nil,
+            at: instant,
+            resolver: resolver
+        )
+        #expect(hours == Double(tz.secondsFromGMT(for: instant)) / 3600.0)
+    }
+
+    @Test @MainActor
+    func uddfMacDiveImportDatetimeNetworkNormalization_realignsLocalWallUsingNetworkTimezone() async throws {
+        let raw = "2021-07-18T14:53:45"
+        let offlineMisparse = try #require(DiveDateTimeParsing.parseNaiveWallTimeAsUtcInstant(raw))
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: offlineMisparse,
+            durationMinutes: 60,
+            maxDepthMeters: 10,
+            siteName: "Cedar Pass",
+            locationName: "Cozumel",
+            entryCoordinate: DiveCoordinate(latitude: 20.37539, longitude: -87.0398)
+        )
+        activity.uddfImportDatetimeRaw = raw
+        activity.uddfWatchNaiveDatetimeSemantics = .diveLocalWallTime
+
+        let tz = try #require(TimeZone(identifier: "America/Cancun"))
+        await UddfMacDiveImportDatetimeNetworkNormalization.apply(
+            [activity],
+            resolver: FixedGeocodingTimeZoneResolver(timeZone: tz)
+        )
+
+        var localCal = Calendar(identifier: .gregorian)
+        localCal.timeZone = tz
+        #expect(localCal.component(.hour, from: activity.startTime) == 14)
+        #expect(localCal.component(.minute, from: activity.startTime) == 53)
+        #expect(activity.timeZoneOffsetSeconds == tz.secondsFromGMT(for: activity.startTime))
+    }
+
+    @Test func diveDateTimeParsing_cozumelCoordinates_inferAmericaCancun() {
+        let parsed = DiveDateTimeParsing.parseUddfDateTime(
+            "2021-07-18T14:53:45",
+            siteLatitude: 20.37539,
+            siteLongitude: -87.0398
+        )
+        #expect(parsed?.timeZoneOffsetSeconds == -5 * 3600)
+        var localCal = Calendar(identifier: .gregorian)
+        localCal.timeZone = TimeZone(identifier: "America/Cancun") ?? .gmt
+        #expect(localCal.component(.hour, from: parsed!.instant) == 14)
+    }
+
+    @Test func diveDateTimeParsing_cozumelLocationName_withoutCoordinates_interpretsLocalWall() {
+        let parsed = DiveDateTimeParsing.parseUddfDateTime(
+            "2021-07-22T16:10:31",
+            siteLocationName: "Cozumel"
+        )
+        #expect(parsed?.timeZoneOffsetSeconds == -5 * 3600)
+        var localCal = Calendar(identifier: .gregorian)
+        localCal.timeZone = TimeZone(identifier: "America/Cancun") ?? .gmt
+        #expect(localCal.component(.hour, from: parsed!.instant) == 16)
+    }
+
+    @Test func diveDateTimeParsing_naiveWithBonaireSiteCoordinates_interpretsMacDiveWallAsLocal() {
+        let parsed = DiveDateTimeParsing.parseUddfDateTime(
+            "2024-04-27T15:55:55",
+            siteTimeZoneHours: nil,
+            siteLatitude: 12.10325,
+            siteLongitude: -68.28845
+        )
         #expect(parsed?.timeZoneOffsetSeconds == -4 * 3600)
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
-        #expect(cal.component(.hour, from: parsed!.instant) == 11)
+        var localCal = Calendar(identifier: .gregorian)
+        localCal.timeZone = TimeZone(secondsFromGMT: -4 * 3600) ?? .gmt
+        #expect(localCal.component(.hour, from: parsed!.instant) == 15)
+        #expect(localCal.component(.minute, from: parsed!.instant) == 55)
+    }
+
+    @Test func uddfNaiveDatetimeStartTimeCorrection_isUtcWallClockInstant_detectsUtcMisparse() throws {
+        let raw = "2024-04-27T15:55:55"
+        let utcMisparse = try #require(DiveDateTimeParsing.parseNaiveWallTimeAsUtcInstant(raw))
+        #expect(
+            UddfNaiveDatetimeStartTimeCorrection.isUtcWallClockInstant(
+                startTime: utcMisparse,
+                rawDatetime: raw
+            )
+        )
+        let localParsed = try #require(
+            DiveDateTimeParsing.parseUddfDateTime(
+                raw,
+                siteLatitude: 12.10325,
+                siteLongitude: -68.28845
+            )
+        )
+        #expect(
+            !UddfNaiveDatetimeStartTimeCorrection.isUtcWallClockInstant(
+                startTime: localParsed.instant,
+                rawDatetime: raw
+            )
+        )
+    }
+
+    @Test @MainActor
+    func uddfNaiveDatetimeStartTimeCorrection_realignsUtcMisparseUsingImportRaw() async throws {
+        let raw = "2024-04-27T15:55:55"
+        let utcMisparse = try #require(DiveDateTimeParsing.parseNaiveWallTimeAsUtcInstant(raw))
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: utcMisparse,
+            timeZoneOffsetSeconds: -4 * 3600,
+            durationMinutes: 72,
+            maxDepthMeters: 18,
+            bottomTimeSeconds: 4_351,
+            entryCoordinate: DiveCoordinate(latitude: 12.10325, longitude: -68.28845)
+        )
+        activity.uddfImportDatetimeRaw = raw
+        let profilePoint = DiveProfilePoint(
+            timestamp: utcMisparse,
+            depthMeters: 5,
+            dive: activity
+        )
+        activity.profilePoints = [profilePoint]
+
+        let tz = try #require(TimeZone(identifier: "America/Kralendijk"))
+        await UddfNaiveDatetimeStartTimeCorrection.reconcile(
+            [activity],
+            resolver: FixedGeocodingTimeZoneResolver(timeZone: tz)
+        )
+
+        var localCal = Calendar(identifier: .gregorian)
+        localCal.timeZone = tz
+        #expect(localCal.component(.hour, from: activity.startTime) == 15)
+        #expect(localCal.component(.minute, from: activity.startTime) == 55)
+        #expect(activity.startTime.timeIntervalSince(profilePoint.timestamp) == 0)
+    }
+
+    @Test func uddfMacDiveWatchDatetimeSemantics_classifiesGarminDescentAndSuuntoComputer() {
+        let garminDescent = UddfEquipmentCatalogItem(
+            id: "g1",
+            kind: "variouspieces",
+            name: "Garmin Descent Mk3i 43mm",
+            model: "Descent Mk3i 43mm",
+            manufacturerName: "Garmin"
+        )
+        let suuntoComputer = UddfEquipmentCatalogItem(
+            id: "s1",
+            kind: "divecomputer",
+            name: "Suunto D4i",
+            model: "D4i",
+            manufacturerName: "Suunto"
+        )
+        let suuntoTransmitter = UddfEquipmentCatalogItem(
+            id: "t1",
+            kind: "variouspieces",
+            name: "Suunto Tank Pressure Transmitter",
+            model: "Tank Pressure Transmitter",
+            manufacturerName: "Suunto"
+        )
+        let catalog = [garminDescent.id: garminDescent, suuntoComputer.id: suuntoComputer, suuntoTransmitter.id: suuntoTransmitter]
+
+        #expect(
+            UddfMacDiveWatchDatetimeSemanticsResolver.classify(
+                equipmentUsedRefs: [garminDescent.id],
+                catalog: catalog
+            ) == .utcWallClock
+        )
+        #expect(
+            UddfMacDiveWatchDatetimeSemanticsResolver.classify(
+                equipmentUsedRefs: [suuntoComputer.id],
+                catalog: catalog
+            ) == .diveLocalWallTime
+        )
+        #expect(
+            UddfMacDiveWatchDatetimeSemanticsResolver.classify(
+                equipmentUsedRefs: [suuntoTransmitter.id],
+                catalog: catalog
+            ) == nil
+        )
+    }
+
+    @Test func diveDateTimeParsing_macDiveGarminSemantics_parsesNaiveAsUtcInstant() {
+        let parsed = DiveDateTimeParsing.parseUddfDateTime(
+            "2026-05-02T00:43:02",
+            siteLatitude: 12.12201,
+            siteLongitude: -68.29028,
+            macDiveNaiveSemantics: .utcWallClock
+        )
+        #expect(parsed?.timeZoneOffsetSeconds == nil)
+        var utcCal = Calendar(identifier: .gregorian)
+        utcCal.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        #expect(utcCal.component(.hour, from: parsed!.instant) == 0)
+        #expect(utcCal.component(.minute, from: parsed!.instant) == 43)
+    }
+
+    @Test @MainActor
+    func uddfNaiveDatetimeStartTimeCorrection_garminUtcWallClock_doesNotShiftStartTime() async throws {
+        let raw = "2026-04-30T18:07:53"
+        let utcInstant = try #require(DiveDateTimeParsing.parseUddfDateTime(
+            raw,
+            macDiveNaiveSemantics: .utcWallClock
+        )?.instant)
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: utcInstant,
+            durationMinutes: 63,
+            maxDepthMeters: 15.88,
+            bottomTimeSeconds: 3_811,
+            locationName: "Bonaire",
+            entryCoordinate: DiveCoordinate(latitude: 12.03342, longitude: -68.26169)
+        )
+        activity.uddfImportDatetimeRaw = raw
+        activity.uddfWatchNaiveDatetimeSemantics = .utcWallClock
+
+        let tz = try #require(TimeZone(identifier: "America/Kralendijk"))
+        await UddfNaiveDatetimeStartTimeCorrection.reconcile(
+            [activity],
+            resolver: FixedGeocodingTimeZoneResolver(timeZone: tz)
+        )
+
+        #expect(abs(activity.startTime.timeIntervalSince(utcInstant)) < 1.0)
+        var utcCal = Calendar(identifier: .gregorian)
+        utcCal.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        #expect(utcCal.component(.hour, from: activity.startTime) == 18)
+        var localCal = Calendar(identifier: .gregorian)
+        localCal.timeZone = tz
+        #expect(localCal.component(.hour, from: activity.startTime) == 14)
+    }
+
+    @Test @MainActor
+    func uddfImportedDiveNormalization_garminBonaire_keepsUtcInstantAndLocalDisplay() async throws {
+        let xml = """
+        <?xml version="1.0" encoding="UTF-8" ?>
+        <uddf xmlns="http://www.streit.cc/uddf/3.2/" version="3.2.1">
+        <generator><name>MacDive</name><version>1.4.13</version></generator>
+        <diver><owner id="o1"><equipment>
+            <variouspieces id="dc-garmin">
+                <name>Garmin Descent Mk3i 43mm</name>
+                <manufacturer><name>Garmin</name></manufacturer>
+                <model>Descent Mk3i 43mm</model>
+            </variouspieces>
+        </equipment></owner></diver>
+        <divesite><site id="s1"><name>Sweet Dreams</name>
+            <geography><location>Bonaire</location>
+                <latitude>12.03342</latitude><longitude>-68.26169</longitude>
+            </geography>
+        </site></divesite>
+        <profiledata><repetitiongroup id="rg"><dive id="d1">
+            <informationbeforedive><link ref="s1"/><datetime>2026-04-30T18:07:53</datetime></informationbeforedive>
+            <informationafterdive>
+                <greatestdepth>15.88</greatestdepth><diveduration>3811.59</diveduration>
+                <equipmentused><link ref="dc-garmin"/></equipmentused>
+            </informationafterdive>
+            <samples><waypoint><depth>5</depth><divetime>0</divetime></waypoint></samples>
+        </dive></repetitiongroup></profiledata>
+        </uddf>
+        """
+        let activity = try #require(UddfDiveFileDecoder.buildDiveActivities(from: Data(xml.utf8)).first)
+        let tz = try #require(TimeZone(identifier: "America/Kralendijk"))
+        await UddfImportedDiveNormalization.normalizeBeforePersist(
+            [activity],
+            resolver: FixedGeocodingTimeZoneResolver(timeZone: tz)
+        )
+
+        var utcCal = Calendar(identifier: .gregorian)
+        utcCal.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        #expect(utcCal.component(.hour, from: activity.startTime) == 18)
+        #expect(utcCal.component(.minute, from: activity.startTime) == 7)
+
+        var localCal = Calendar(identifier: .gregorian)
+        localCal.timeZone = tz
+        #expect(localCal.component(.hour, from: activity.startTime) == 14)
+        #expect(localCal.component(.minute, from: activity.startTime) == 7)
+        #expect(activity.timeZoneOffsetSeconds == tz.secondsFromGMT(for: activity.startTime))
+    }
+
+    @Test func uddfDecoder_garminMacDiveExport_keepsNaiveDatetimeAsUtcInstant() throws {
+        let xml = """
+        <?xml version="1.0" encoding="UTF-8" ?>
+        <uddf xmlns="http://www.streit.cc/uddf/3.2/" version="3.2.1">
+        <generator><name>MacDive</name><version>1.4.13</version></generator>
+        <diver><owner id="o1"><equipment>
+            <variouspieces id="dc-garmin">
+                <name>Garmin Descent Mk3i 43mm</name>
+                <manufacturer><name>Garmin</name></manufacturer>
+                <model>Descent Mk3i 43mm</model>
+            </variouspieces>
+        </equipment></owner></diver>
+        <divesite><site id="s1"><name>Reef</name>
+            <geography><latitude>12.12201</latitude><longitude>-68.29028</longitude></geography>
+        </site></divesite>
+        <profiledata><repetitiongroup id="rg"><dive id="d1">
+            <informationbeforedive><link ref="s1"/><datetime>2026-05-02T00:43:02</datetime></informationbeforedive>
+            <informationafterdive>
+                <greatestdepth>10</greatestdepth><diveduration>60</diveduration>
+                <equipmentused><link ref="dc-garmin"/></equipmentused>
+            </informationafterdive>
+            <samples><waypoint><depth>5</depth><divetime>0</divetime></waypoint></samples>
+        </dive></repetitiongroup></profiledata>
+        </uddf>
+        """
+        let activity = try #require(UddfDiveFileDecoder.buildDiveActivities(from: Data(xml.utf8)).first)
+        #expect(activity.uddfWatchNaiveDatetimeSemantics == .utcWallClock)
+        var utcCal = Calendar(identifier: .gregorian)
+        utcCal.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        #expect(utcCal.component(.hour, from: activity.startTime) == 0)
+        #expect(utcCal.component(.minute, from: activity.startTime) == 43)
+    }
+
+    @Test func uddfDecoder_suuntoMacDiveExport_parsesNaiveDatetimeAsDiveLocal() throws {
+        let xml = """
+        <?xml version="1.0" encoding="UTF-8" ?>
+        <uddf xmlns="http://www.streit.cc/uddf/3.2/" version="3.2.1">
+        <generator><name>MacDive</name><version>1.4.13</version></generator>
+        <diver><owner id="o1"><equipment>
+            <divecomputer id="dc-suunto">
+                <name>Suunto D4i</name>
+                <manufacturer><name>Suunto</name></manufacturer>
+                <model>D4i</model>
+            </divecomputer>
+        </equipment></owner></diver>
+        <divesite><site id="s1"><name>Cedar Pass</name>
+            <geography><timezone>-4.0</timezone><latitude>20.37539</latitude><longitude>-71.0</longitude></geography>
+        </site></divesite>
+        <profiledata><repetitiongroup id="rg"><dive id="d1">
+            <informationbeforedive><link ref="s1"/><datetime>2021-07-18T14:53:45</datetime></informationbeforedive>
+            <informationafterdive>
+                <greatestdepth>10</greatestdepth><diveduration>60</diveduration>
+                <equipmentused><link ref="dc-suunto"/></equipmentused>
+            </informationafterdive>
+            <samples><waypoint><depth>5</depth><divetime>0</divetime></waypoint></samples>
+        </dive></repetitiongroup></profiledata>
+        </uddf>
+        """
+        let activity = try #require(UddfDiveFileDecoder.buildDiveActivities(from: Data(xml.utf8)).first)
+        #expect(activity.uddfWatchNaiveDatetimeSemantics == .diveLocalWallTime)
+        #expect(activity.timeZoneOffsetSeconds == -4 * 3600)
+        var localCal = Calendar(identifier: .gregorian)
+        localCal.timeZone = TimeZone(secondsFromGMT: -4 * 3600) ?? .gmt
+        #expect(localCal.component(.hour, from: activity.startTime) == 14)
+        #expect(localCal.component(.minute, from: activity.startTime) == 53)
+    }
+
+    @Test func uddfDecoder_angelCityMacDiveExport_parsesNaiveDatetimeAsBonaireLocal() throws {
+        let xml = """
+        <?xml version="1.0" encoding="UTF-8" ?>
+        <uddf xmlns="http://www.streit.cc/uddf/3.2/" version="3.2.1">
+        <generator><name>MacDive</name><version>1.4.13</version></generator>
+        <divesite>
+            <site id="s1">
+                <name>Angel City</name>
+                <geography>
+                    <location>Bonaire</location>
+                    <latitude>12.10325</latitude>
+                    <longitude>-68.28845</longitude>
+                </geography>
+            </site>
+        </divesite>
+        <profiledata><repetitiongroup id="rg">
+        <dive id="d1">
+            <informationbeforedive><link ref="s1"/><datetime>2024-04-27T15:55:55</datetime></informationbeforedive>
+            <informationafterdive><greatestdepth>10</greatestdepth><diveduration>60</diveduration></informationafterdive>
+            <samples><waypoint><depth>5</depth><divetime>0</divetime></waypoint></samples>
+        </dive>
+        </repetitiongroup></profiledata>
+        </uddf>
+        """
+        let activity = try #require(UddfDiveFileDecoder.buildDiveActivities(from: Data(xml.utf8)).first)
+        #expect(activity.timeZoneOffsetSeconds == -4 * 3600)
+        var localCal = Calendar(identifier: .gregorian)
+        localCal.timeZone = TimeZone(secondsFromGMT: -4 * 3600) ?? .gmt
+        #expect(localCal.component(.hour, from: activity.startTime) == 15)
+        #expect(localCal.component(.minute, from: activity.startTime) == 55)
+    }
+
+    @Test func uddfDecoder_naiveDatetimeWithSiteTimezone_storesLocalWallAsUTCInstant() throws {
+        let xml = """
+        <?xml version="1.0" encoding="UTF-8" ?>
+        <uddf xmlns="http://www.streit.cc/uddf/3.2/" version="3.2.1">
+        <generator><name>TestGen</name><version>1</version></generator>
+        <divesite>
+            <site id="s1">
+                <name>Reef</name>
+                <geography><timezone>-4.0</timezone></geography>
+            </site>
+        </divesite>
+        <profiledata><repetitiongroup id="rg">
+        <dive id="d1">
+            <informationbeforedive><link ref="s1"/><datetime>2024-08-23T22:22:27</datetime></informationbeforedive>
+            <informationafterdive><greatestdepth>10</greatestdepth><diveduration>60</diveduration></informationafterdive>
+            <samples><waypoint><depth>5</depth><divetime>0</divetime></waypoint></samples>
+        </dive>
+        </repetitiongroup></profiledata>
+        </uddf>
+        """
+        let activity = try #require(UddfDiveFileDecoder.buildDiveActivities(from: Data(xml.utf8)).first)
+        #expect(activity.timeZoneOffsetSeconds == -4 * 3600)
+        var localCal = Calendar(identifier: .gregorian)
+        localCal.timeZone = TimeZone(secondsFromGMT: -4 * 3600) ?? .gmt
+        #expect(localCal.component(.hour, from: activity.startTime) == 22)
     }
 
     @Test @MainActor
@@ -4708,11 +5354,48 @@ struct GoDiveMVPTests {
     }
 
     @Test func diveFileImporterPresentation_pickerMode_allowedTypes() {
-        #expect(DiveFileImporterPresentation.PickerMode.singleDive.allowedContentTypes.contains(.goDiveFit))
-        #expect(DiveFileImporterPresentation.PickerMode.singleDive.allowedContentTypes.contains(.goDiveUddf))
-        #expect(!DiveFileImporterPresentation.PickerMode.bulkUddf.allowedContentTypes.contains(.goDiveFit))
-        #expect(DiveFileImporterPresentation.PickerMode.bulkUddf.isBulkUddf)
-        #expect(!DiveFileImporterPresentation.PickerMode.singleDive.isBulkUddf)
+        // Each mode is restricted to exactly its extension type — no broad `.data` / `.xml` that would
+        // leave every document selectable in the picker.
+        #expect(DiveFileImporterPresentation.PickerMode.fit.allowedContentTypes == [.goDiveFit])
+        #expect(DiveFileImporterPresentation.PickerMode.uddf.allowedContentTypes == [.goDiveUddf])
+        #expect(!DiveFileImporterPresentation.PickerMode.fit.allowedContentTypes.contains(.data))
+        #expect(!DiveFileImporterPresentation.PickerMode.uddf.allowedContentTypes.contains(.data))
+        #expect(!DiveFileImporterPresentation.PickerMode.uddf.allowedContentTypes.contains(.xml))
+        #expect(DiveFileImporterPresentation.PickerMode.uddf.isUddf)
+        #expect(!DiveFileImporterPresentation.PickerMode.fit.isUddf)
+    }
+
+    @Test @MainActor
+    func fitDiveFileImport_persistImportedActivity_createMissingDiveSitesFalse_doesNotCreateSite() async throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "apple-fit-sites", displayName: "Owner")
+        context.insert(owner)
+        try context.save()
+
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            timeZoneOffsetSeconds: 0, // avoid network timezone resolution in the test
+            durationMinutes: 30,
+            maxDepthMeters: 18,
+            siteName: "Totally Unmatched Reef XYZ"
+        )
+
+        let outcome = await FitDiveFileImport.persistImportedActivity(
+            activity,
+            modelContext: context,
+            owner: owner,
+            attachMedia: false,
+            createMissingDiveSites: false
+        )
+
+        #expect(outcome.didSucceed)
+        // Unmatched import name + createMissingDiveSites false → no new catalog site, dive left unlinked.
+        let sites = try context.fetch(FetchDescriptor<DiveSite>())
+        #expect(sites.isEmpty)
+        #expect(activity.diveSite == nil)
+        #expect(activity.siteName == "Totally Unmatched Reef XYZ")
     }
 
     @Test func diveFileImporterPresentation_isUserCancellation_recognizesPickerCancel() {
@@ -4724,14 +5407,14 @@ struct GoDiveMVPTests {
         #expect(!DiveFileImporterPresentation.isUserCancellation(other))
     }
 
-    @Test func bulkUddfImportSummary_message_listsCounts() {
-        let summary = BulkUddfImportSummary(
+    @Test func uddfImportSummary_message_listsCounts() {
+        let summary = UddfImportSummary(
             imported: 143,
             duplicates: 5,
             diveSitesCreated: 12,
             primaryInsertedDiveId: nil
         )
-        let message = BulkUddfImportSummary.message(for: summary)
+        let message = UddfImportSummary.message(for: summary)
         #expect(message.contains("143 dives imported"))
         #expect(message.contains("5 duplicate dives found"))
         #expect(message.contains("12 dive sites created"))
@@ -6434,6 +7117,228 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func diveActivityMediaAttachWindow_shouldAttachAsset_usesCreationDateNotExifWallClock() throws {
+        let tz = try #require(TimeZone(identifier: "America/Kralendijk"))
+        var localCal = Calendar(identifier: .gregorian)
+        localCal.timeZone = tz
+        var startWall = DateComponents()
+        startWall.year = 2026
+        startWall.month = 4
+        startWall.day = 30
+        startWall.hour = 14
+        startWall.minute = 7
+        startWall.second = 53
+        let startTime = try #require(localCal.date(from: startWall))
+
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: startTime,
+            timeZoneOffsetSeconds: tz.secondsFromGMT(for: startTime),
+            durationMinutes: 63,
+            maxDepthMeters: 15.88,
+            bottomTimeSeconds: 3_811
+        )
+        let window = DiveActivityMediaAttachWindow.window(for: activity)
+
+        // GoPro photo taken 14:30 local Bonaire → correct absolute creationDate is in-window.
+        var captureWall = startWall
+        captureWall.minute = 30
+        let creationDate = try #require(localCal.date(from: captureWall))
+        #expect(window.shouldAttachAsset(creationDate: creationDate))
+
+        // The same EXIF wall clock mis-parsed as UTC (14:30Z) is 4h early and would be out of window —
+        // but it must not influence the decision.
+        var utcCal = Calendar(identifier: .gregorian)
+        utcCal.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let misZonedExif = try #require(utcCal.date(from: captureWall))
+        #expect(!window.contains(misZonedExif))
+        #expect(window.shouldAttachAsset(creationDate: creationDate))
+
+        #expect(!window.shouldAttachAsset(creationDate: nil))
+    }
+
+    @Test func diveActivityMediaAttachWindow_shouldAttachAsset_recoversGoProLocalAsUtc() throws {
+        // Bonaire (UTC-4) Garmin dive at 14:08:08 local (18:08:08 UTC), ~64 min.
+        let tz = try #require(TimeZone(identifier: "America/Kralendijk"))
+        var localCal = Calendar(identifier: .gregorian)
+        localCal.timeZone = tz
+        var startWall = DateComponents()
+        startWall.year = 2026
+        startWall.month = 5
+        startWall.day = 1
+        startWall.hour = 14
+        startWall.minute = 8
+        startWall.second = 8
+        let startTime = try #require(localCal.date(from: startWall))
+        let offset = tz.secondsFromGMT(for: startTime)
+
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: startTime,
+            timeZoneOffsetSeconds: offset,
+            durationMinutes: 64,
+            maxDepthMeters: 16.26,
+            bottomTimeSeconds: 3_861
+        )
+        let window = DiveActivityMediaAttachWindow.window(for: activity)
+
+        // GoPro wrote local wall clock (14:55:01) into a field read as UTC → creationDate is 14:55:01 UTC,
+        // four hours before the true-UTC dive window.
+        var utcCal = Calendar(identifier: .gregorian)
+        utcCal.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        var goProWall = DateComponents()
+        goProWall.year = 2026
+        goProWall.month = 5
+        goProWall.day = 1
+        goProWall.hour = 14
+        goProWall.minute = 55
+        goProWall.second = 1
+        let goProCreation = try #require(utcCal.date(from: goProWall))
+
+        // Direct absolute test fails; removing the dive-local offset recovers the real instant in-window.
+        #expect(!window.shouldAttachAsset(creationDate: goProCreation))
+        #expect(window.shouldAttachAsset(creationDate: goProCreation, diveLocalOffsetSeconds: offset))
+
+        // A correctly-zoned asset (18:55:01 UTC) still matches directly with the offset hint present.
+        let correctlyZoned = goProCreation.addingTimeInterval(TimeInterval(-offset))
+        #expect(window.shouldAttachAsset(creationDate: correctlyZoned, diveLocalOffsetSeconds: offset))
+    }
+
+    @Test func diveActivityMediaAttachWindow_resolvedTimeZone_infersFromEntryCoordinate() throws {
+        let tz = try #require(TimeZone(identifier: "America/Kralendijk"))
+        let instant = Date(timeIntervalSince1970: 1_800_000_000)
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: instant,
+            durationMinutes: 60,
+            maxDepthMeters: 12,
+            entryCoordinate: DiveCoordinate(latitude: 12.03342, longitude: -68.26169)
+        )
+        let resolved = DiveActivityMediaAttachWindow.resolvedTimeZone(for: activity, at: instant)
+        #expect(resolved.secondsFromGMT(for: instant) == tz.secondsFromGMT(for: instant))
+    }
+
+    @Test func diveActivityMediaAttachWindow_garminBonaire_matchesLocalCaptureNotUtcWallLocal() throws {
+        let tz = try #require(TimeZone(identifier: "America/Kralendijk"))
+        var localCal = Calendar(identifier: .gregorian)
+        localCal.timeZone = tz
+        var diveStartWall = DateComponents()
+        diveStartWall.year = 2026
+        diveStartWall.month = 4
+        diveStartWall.day = 30
+        diveStartWall.hour = 14
+        diveStartWall.minute = 7
+        diveStartWall.second = 53
+        let startTime = try #require(localCal.date(from: diveStartWall))
+
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: startTime,
+            timeZoneOffsetSeconds: tz.secondsFromGMT(for: startTime),
+            durationMinutes: 63,
+            maxDepthMeters: 15.88,
+            bottomTimeSeconds: 3_811,
+            locationName: "Bonaire",
+            entryCoordinate: DiveCoordinate(latitude: 12.03342, longitude: -68.26169)
+        )
+        let window = DiveActivityMediaAttachWindow.window(for: activity, paddingSeconds: 0)
+
+        var duringWall = diveStartWall
+        duringWall.minute = 30
+        let duringDiveLocal = try #require(localCal.date(from: duringWall))
+        #expect(window.contains(duringDiveLocal, for: activity))
+
+        var utcWallAsLocal = diveStartWall
+        utcWallAsLocal.hour = 18
+        utcWallAsLocal.minute = 30
+        let wrongLocalClock = try #require(localCal.date(from: utcWallAsLocal))
+        #expect(!window.contains(wrongLocalClock, for: activity))
+    }
+
+    @Test func diveActivityMediaAttachWindow_photoLibraryFetchWindow_spansLocalCalendarDay() throws {
+        let tz = try #require(TimeZone(identifier: "America/Kralendijk"))
+        var localCal = Calendar(identifier: .gregorian)
+        localCal.timeZone = tz
+        var wall = DateComponents()
+        wall.year = 2026
+        wall.month = 4
+        wall.day = 30
+        wall.hour = 23
+        wall.minute = 30
+        let startTime = try #require(localCal.date(from: wall))
+
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: startTime,
+            timeZoneOffsetSeconds: tz.secondsFromGMT(for: startTime),
+            durationMinutes: 45,
+            maxDepthMeters: 10
+        )
+        let precise = DiveActivityMediaAttachWindow.window(for: activity)
+        let fetch = DiveActivityMediaAttachWindow.photoLibraryFetchWindow(for: activity)
+        #expect(fetch.inclusiveStart <= precise.inclusiveStart)
+        #expect(fetch.inclusiveEnd >= precise.inclusiveEnd)
+        // Covers the dive-local calendar day, padded one day earlier so offset-recovery (camera
+        // local-as-UTC) assets near local midnight are still fetched.
+        let startOfDay = localCal.startOfDay(for: precise.inclusiveStart)
+        let expectedStart = try #require(localCal.date(byAdding: .day, value: -1, to: startOfDay))
+        #expect(fetch.inclusiveStart == expectedStart)
+    }
+
+    @Test func diveActivityMediaAttachWindow_usesDiveLocalCalendarWhenOffsetSet() throws {
+        let tz = try #require(TimeZone(identifier: "America/Cancun"))
+        let offset = tz.secondsFromGMT(for: Date(timeIntervalSince1970: 1_627_000_000))
+        var localCal = Calendar(identifier: .gregorian)
+        localCal.timeZone = tz
+        var wall = DateComponents()
+        wall.year = 2021
+        wall.month = 7
+        wall.day = 18
+        wall.hour = 14
+        wall.minute = 53
+        wall.second = 45
+        let start = try #require(localCal.date(from: wall))
+
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: start,
+            timeZoneOffsetSeconds: offset,
+            durationMinutes: 60,
+            maxDepthMeters: 12,
+            bottomTimeSeconds: 3_600
+        )
+        let window = DiveActivityMediaAttachWindow.window(for: activity, paddingSeconds: 0)
+
+        var duringWall = wall
+        duringWall.minute = 55
+        let duringDive = try #require(localCal.date(from: duringWall))
+        #expect(window.contains(duringDive))
+
+        var afterWall = wall
+        afterWall.hour = 16
+        afterWall.minute = 0
+        let afterDive = try #require(localCal.date(from: afterWall))
+        #expect(!window.contains(afterDive))
+    }
+
+    @Test func diveActivityMediaAttachWindow_resolvedTimeZone_prefersLinkedSiteIdentifier() throws {
+        let site = DiveSite(
+            siteName: "Reef",
+            timeZoneIdentifier: "America/Cancun",
+            timeZoneOffsetSeconds: -5 * 3600
+        )
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: Date(),
+            timeZoneOffsetSeconds: -4 * 3600,
+            durationMinutes: 60,
+            maxDepthMeters: 10
+        )
+        activity.diveSite = site
+        let tz = DiveActivityMediaAttachWindow.resolvedTimeZone(for: activity)
+        #expect(tz.identifier == "America/Cancun")
+    }
+
     @Test func diveActivityMediaAttachWindow_prefersBottomTimeOverSessionDuration() {
         let start = Date(timeIntervalSince1970: 1_000_000)
         let activity = DiveActivity(
@@ -6500,6 +7405,50 @@ struct GoDiveMVPTests {
         #expect(!AppUserSettings.autoUploadMediaToActivitiesKey.isEmpty)
     }
 
+    @Test func diveLibraryMediaAutoAttach_shouldRequestPhotoAccess_onlyWhenEnabledAndUnresolved() {
+        #expect(
+            DiveLibraryMediaAutoAttach.shouldRequestPhotoAccessForAutoUpload(
+                autoUploadEnabled: true,
+                authorizationResolved: false
+            )
+        )
+        #expect(
+            !DiveLibraryMediaAutoAttach.shouldRequestPhotoAccessForAutoUpload(
+                autoUploadEnabled: true,
+                authorizationResolved: true
+            )
+        )
+        #expect(
+            !DiveLibraryMediaAutoAttach.shouldRequestPhotoAccessForAutoUpload(
+                autoUploadEnabled: false,
+                authorizationResolved: false
+            )
+        )
+    }
+
+    @Test func appUserSettings_registerDefaultValues_defaultsTogglesOnWhenUnset() throws {
+        let suiteName = "GoDiveSettingsDefaults-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        AppUserSettings.registerDefaultValues(in: defaults)
+
+        #expect(defaults.bool(forKey: AppUserSettings.automaticallyRenumberDivesKey))
+        #expect(defaults.bool(forKey: AppUserSettings.useImperialDisplayUnitsKey))
+        #expect(defaults.bool(forKey: AppUserSettings.autoUploadMediaToActivitiesKey))
+    }
+
+    @Test func appUserSettings_registerDefaultValues_doesNotOverrideSavedOffChoice() throws {
+        let suiteName = "GoDiveSettingsDefaults-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set(false, forKey: AppUserSettings.useImperialDisplayUnitsKey)
+        AppUserSettings.registerDefaultValues(in: defaults)
+
+        #expect(!defaults.bool(forKey: AppUserSettings.useImperialDisplayUnitsKey))
+    }
+
     @Test func diveLibraryMediaAutoAttachPresentation_finishedMessage_whenDenied() {
         let outcome = DiveLibraryMediaAutoAttach.Outcome(
             attachedCount: 0,
@@ -6555,5 +7504,23 @@ private struct FixedGeocodingTimeZoneResolver: GeocodingTimeZoneResolving {
 
     func timeZone(for coordinate: DiveGeographicTimeZoneLookup.CoordinateInput) async -> TimeZone? {
         timeZone
+    }
+
+    func timeZone(forLocationQuery query: String) async -> TimeZone? {
+        timeZone
+    }
+}
+
+@MainActor
+private final class FailingGeocodingTimeZoneResolver: GeocodingTimeZoneResolving {
+    private(set) var coordinateLookupCount = 0
+
+    func timeZone(for coordinate: DiveGeographicTimeZoneLookup.CoordinateInput) async -> TimeZone? {
+        coordinateLookupCount += 1
+        return nil
+    }
+
+    func timeZone(forLocationQuery query: String) async -> TimeZone? {
+        return nil
     }
 }

@@ -10,6 +10,8 @@ struct DiveActivityMediaCarouselView: View {
 
     let mediaItems: [DiveMediaPhoto]
     @Binding var selectedMediaID: UUID?
+    /// Resolved featured media id — shows a star badge on that thumbnail.
+    var featuredMediaID: UUID?
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -76,6 +78,12 @@ struct DiveActivityMediaCarouselView: View {
                     lineWidth: isSelected ? 3 : 0
                 )
         }
+        .overlay(alignment: .topTrailing) {
+            if item.id == featuredMediaID {
+                featuredBadge
+                    .padding(5)
+            }
+        }
         .shadow(
             color: isSelected ? AppTheme.Colors.accent.opacity(0.35) : .clear,
             radius: isSelected ? 6 : 0,
@@ -83,12 +91,28 @@ struct DiveActivityMediaCarouselView: View {
         )
     }
 
+    private var featuredBadge: some View {
+        Image(systemName: "star.fill")
+            .font(.system(size: 11, weight: .bold))
+            .foregroundStyle(.white)
+            .padding(4)
+            .background {
+                Circle().fill(AppTheme.Colors.accent)
+            }
+            .overlay {
+                Circle().stroke(.white.opacity(0.9), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+            .accessibilityLabel("Featured")
+    }
+
     private func thumbnailAccessibilityLabel(for item: DiveMediaPhoto) -> String {
         let kind = item.resolvedMediaKind == .video ? "Video" : "Photo"
+        let featured = item.id == featuredMediaID ? "Featured " : ""
         if selectedMediaID == item.id {
-            return "Selected \(kind), show in viewer"
+            return "Selected \(featured)\(kind), show in viewer"
         }
-        return "\(kind), show in viewer"
+        return "\(featured)\(kind), show in viewer"
     }
 
     private func scrollToSelected(_ proxy: ScrollViewProxy, animated: Bool) {
