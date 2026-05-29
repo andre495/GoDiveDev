@@ -227,12 +227,33 @@ struct LogbookView: View {
     }
 
     private func handleActivitiesCountChange() {
+        guard !suppressStoreDrivenRefresh else { return }
+        reconcileOptimisticDeletesWithStore()
         if skipNextActivitiesCountRefresh {
             skipNextActivitiesCountRefresh = false
             return
         }
-        guard !suppressStoreDrivenRefresh else { return }
         scheduleLogbookCacheRefresh()
+    }
+
+    /// Drops optimistic hides once the store no longer has those dive ids (background delete merged).
+    private func reconcileOptimisticDeletesWithStore() {
+        guard !optimisticallyRemovedActivityIDs.isEmpty else { return }
+        let confirmedRemoved = optimisticallyRemovedActivityIDs.filter { removedID in
+            !logbookStoreContainsActivity(id: removedID)
+        }
+        guard !confirmedRemoved.isEmpty else { return }
+        optimisticallyRemovedActivityIDs.subtract(confirmedRemoved)
+    }
+
+    /// Predicate fetch — do not read **`@Query`** model properties during merge (can trap on invalidated rows).
+    private func logbookStoreContainsActivity(id: UUID) -> Bool {
+        var descriptor = FetchDescriptor<DiveActivity>(
+            predicate: #Predicate { $0.id == id }
+        )
+        descriptor.fetchLimit = 1
+        guard let fetched = try? modelContext.fetch(descriptor) else { return true }
+        return !fetched.isEmpty
     }
 
     private func handleSiteSearchQueryChange(_ newQuery: String) {
@@ -332,7 +353,7 @@ struct LogbookView: View {
                 }
             }
 
-            Task(priority: .utility) {
+            Task(priority: .userInitiated) {
                 do {
                     try await DiveActivityDeletion.delete(
                         DiveActivityDeletion.Request(
@@ -342,13 +363,19 @@ struct LogbookView: View {
                             renumberAfterDelete: renumberAfterDelete
                         ),
                         container: container,
-                        mainModelContext: modelContext,
+                        deferRenumber: renumberAfterDelete,
                         reportProgress: { progress in
                             diveDeleteProgress = progress
                         }
                     )
                     await completeSuccessfulDiveDelete(removedId: id, renumberAfterDelete: renumberAfterDelete)
                 } catch {
+                    DiveActivityDeletionDebug.failure(diveID: id, error: error, contextLabel: "logbook")
+                    DiveActivityDeletionDebug.snapshot(
+                        diveID: id,
+                        contextLabel: "main-on-failure",
+                        modelContext: modelContext
+                    )
                     await revertFailedDiveDelete(removedId: id)
                 }
                 await endDiveDeleteProgressUI()
@@ -358,10 +385,12 @@ struct LogbookView: View {
 
     @MainActor
     private func completeSuccessfulDiveDelete(removedId: UUID, renumberAfterDelete: Bool) async {
-        optimisticallyRemovedActivityIDs.remove(removedId)
+        // Keep the optimistic hide until a store fetch confirms the row is gone — never probe **`@Query`** models here.
+        if !logbookStoreContainsActivity(id: removedId) {
+            optimisticallyRemovedActivityIDs.remove(removedId)
+        }
         suppressStoreDrivenRefresh = false
         skipNextActivitiesCountRefresh = true
-        // Row removal and **#** labels were updated optimistically; skip O(n²) duplicate rescan here.
         _ = renumberAfterDelete
     }
 
@@ -386,7 +415,7 @@ struct LogbookView: View {
         await MainActor.run {
             diveDeleteProgress = 1
         }
-        let minVisibleSeconds: TimeInterval = 0.2
+        let minVisibleSeconds: TimeInterval = 0.08
         let elapsed = await MainActor.run {
             Date().timeIntervalSince(diveDeleteProgressStartedAt ?? Date())
         }

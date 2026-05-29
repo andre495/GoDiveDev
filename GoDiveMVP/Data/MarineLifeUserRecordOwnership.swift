@@ -14,12 +14,15 @@ enum MarineLifeUserRecordOwnership {
         }
     }
 
-    static func userRecords(
+    /// Callable from background **`ModelContext`** / **`@ModelActor`** (e.g. dive delete cleanup).
+    nonisolated static func userRecords(
         forOwnerProfileID ownerProfileID: UUID,
         modelContext: ModelContext
     ) throws -> [MarineLifeUserRecord] {
-        let all = try modelContext.fetch(FetchDescriptor<MarineLifeUserRecord>())
-        return all.filter { $0.ownerProfileID == ownerProfileID }
+        let descriptor = FetchDescriptor<MarineLifeUserRecord>(
+            predicate: #Predicate { $0.ownerProfileID == ownerProfileID }
+        )
+        return try modelContext.fetch(descriptor)
     }
 
     @discardableResult

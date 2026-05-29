@@ -8,7 +8,11 @@ enum DiveSiteCatalogMaintenance {
     ///
     /// Uses **`diveSiteID`** predicates (not **`diveActivities`**) so **`DiveBackgroundDeletionWorker`** (**`@ModelActor`**) can call this without crossing the main actor.
     /// After a single dive delete, only the site that was linked to that dive may become orphaned.
-    nonisolated static func deleteSiteIfOrphaned(siteID: UUID?, modelContext: ModelContext) throws {
+    nonisolated static func deleteSiteIfOrphaned(
+        siteID: UUID?,
+        modelContext: ModelContext,
+        saveChanges: Bool = true
+    ) throws {
         guard let siteID else { return }
         var activityDescriptor = FetchDescriptor<DiveActivity>(
             predicate: #Predicate<DiveActivity> { $0.diveSiteID == siteID }
@@ -22,7 +26,9 @@ enum DiveSiteCatalogMaintenance {
         siteDescriptor.fetchLimit = 1
         guard let site = try modelContext.fetch(siteDescriptor).first else { return }
         modelContext.delete(site)
-        try modelContext.save()
+        if saveChanges {
+            try modelContext.save()
+        }
     }
 
     nonisolated static func deleteSitesWithNoLinkedDives(modelContext: ModelContext) throws {

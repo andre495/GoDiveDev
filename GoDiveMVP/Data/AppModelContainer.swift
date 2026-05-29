@@ -1,12 +1,16 @@
 import SwiftData
 
-/// Lazily created SwiftData container for production builds (not loaded during UI tests).
+/// Production SwiftData container — created off the main thread (on-disk **`ModelContainer`** init performs I/O).
 enum AppModelContainer {
-    static let production: ModelContainer = {
+
+    /// Loads the on-disk container on a background thread; await from launch before attaching **`.modelContainer`**.
+    static func loadProduction() async -> ModelContainer {
         do {
-            return try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: false)
+            return try await Task.detached(priority: .userInitiated) {
+                try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: false)
+            }.value
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }
-    }()
+    }
 }

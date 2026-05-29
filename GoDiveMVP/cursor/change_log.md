@@ -876,5 +876,12 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ---
 
-## 55 - Next batch
+## 55 - Logbook dive delete reliability and launch I/O **(pushed)**
+
+- **Logbook dive delete fix:** shared **`DiveActivityPersistenceDeletion`** pipeline on background **`@ModelActor`** — **`DiveActivityRelationshipDetachment`** (tags / owner / site / equipment inverses), cascade delete for profile / buddies / media / sightings (no batch delete on mandatory inverses), **`DiveActivityDeletionMarineLifeCleanup`**, orphan site via **`DiveSiteCatalogMaintenance`**. Tests: large profile cascade, sightings/tags/site inverses, marine-life cleanup, relationship detachment.
+- **Logbook delete UX/perf:** optimistic row hide; **`deferRenumber`** via **`DivePostDeleteRenumberScheduler`**; delete runs only on background context (no UI **`ModelContext`** second pass).
+- **Logbook delete crash fix:** no main-context fallback or **`processPendingChanges`** merge polling — reconciles optimistic hides with **`FetchDescriptor`** only (avoids **`EXC_BAD_ACCESS`** on invalidated **`@Query`** models). **`DiveDelete`** debug logging (**`DiveActivityDeletionDebug`**) off in Release.
+- **Launch SwiftData I/O:** **`AppModelContainer.loadProduction()`** async background container; launch gradient until ready.
+
+## 56 - Next batch
 

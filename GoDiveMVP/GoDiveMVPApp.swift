@@ -12,6 +12,7 @@ import UIKit
 @main
 struct GoDiveMVPApp: App {
     @State private var accountSession = AccountSession.shared
+    @State private var productionContainer: ModelContainer?
 
     init() {
         AppUserSettings.registerDefaultValues()
@@ -23,13 +24,17 @@ struct GoDiveMVPApp: App {
         WindowGroup {
             if GoDiveUITestConfiguration.isActive {
                 GoDiveUITestRootView()
+            } else if let productionContainer {
+                productionRoot(container: productionContainer)
             } else {
-                productionRoot
+                AppTheme.Colors.screenBackgroundGradient
+                    .ignoresSafeArea()
+                    .task { productionContainer = await AppModelContainer.loadProduction() }
             }
         }
     }
 
-    private var productionRoot: some View {
+    private func productionRoot(container: ModelContainer) -> some View {
         ZStack {
             if MapKitWarmup.shouldWarmUp {
                 MapKitWarmupView()
@@ -39,21 +44,21 @@ struct GoDiveMVPApp: App {
             AppSessionRootView()
         }
         .environment(accountSession)
-        .modelContainer(AppModelContainer.production)
+        .modelContainer(container)
         .task {
             await MainActor.run {
-                let context = AppModelContainer.production.mainContext
+                let context = container.mainContext
                 try? DiveActivityDiveNumbering.backfillMissingDiveNumbers(modelContext: context)
                 try? MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
             }
             #if DEBUG
             if MockDataSeeding.isLaunchSeedingEnabled {
-                await seedMockDataIfNeeded()
+                await seedMockDataIfNeeded(container: container)
             }
             #endif
             await MainActor.run {
                 try? DiveActivityDiveNumbering.backfillMissingDiveNumbers(
-                    modelContext: AppModelContainer.production.mainContext
+                    modelContext: container.mainContext
                 )
             }
         }
@@ -62,8 +67,8 @@ struct GoDiveMVPApp: App {
     #if DEBUG
     /// Inserts or syncs dives from bundled JSON when **`MockDataSeeding.isLaunchSeedingEnabled`** is **`true`**.
     @MainActor
-    private func seedMockDataIfNeeded() async {
-        let context = AppModelContainer.production.mainContext
+    private func seedMockDataIfNeeded(container: ModelContainer) async {
+        let context = container.mainContext
         do {
             try MockDataSeeder.seedIfNeeded(
                 context: context,

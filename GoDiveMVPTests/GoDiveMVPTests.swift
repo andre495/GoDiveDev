@@ -6777,7 +6777,7 @@ struct GoDiveMVPTests {
         #expect(sites.first?.id == site.id)
     }
 
-    @Test func diveBackgroundDeletionWorker_batchDelete_removesProfilePointsByDiveActivityID() async throws {
+    @Test func diveBackgroundDeletionWorker_cascadeDelete_removesLargeProfileAndDive() async throws {
         let schema = Schema([
             DiveActivity.self,
             DiveBuddyTag.self,
@@ -6796,7 +6796,7 @@ struct GoDiveMVPTests {
                 maxDepthMeters: 30
             )
             context.insert(activity)
-            for i in 0 ..< 120 {
+            for i in 0 ..< 200 {
                 let point = DiveProfilePoint(
                     timestamp: Date(timeIntervalSince1970: TimeInterval(i)),
                     depthMeters: Double(i % 20),
@@ -6913,6 +6913,185 @@ struct GoDiveMVPTests {
         #expect(counts.0 == 0)
         #expect(counts.1 == 0)
         #expect(counts.2 == 0)
+    }
+
+    @Test func diveBackgroundDeletionWorker_deleteDive_withSightingsTagsAndMarineLifeRecord_removesAllReferences() async throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+
+        let diveID = try await MainActor.run { () throws -> UUID in
+            let context = ModelContext(container)
+            let owner = UserProfile(appleUserIdentifier: "delete-sightings", displayName: "Diver")
+            let site = DiveSite(siteName: "Reef", latCoords: 12, longCoords: -68)
+            let species = MarineLife(
+                uuid: "fish-001",
+                commonName: "Parrotfish",
+                scientificName: "Scarus",
+                category: "Fish"
+            )
+            let activity = DiveActivity(
+                source: .manual,
+                startTime: Date(),
+                durationMinutes: 40,
+                maxDepthMeters: 25,
+                diveSiteID: site.id,
+                diveSite: site
+            )
+            activity.owner = owner
+            activity.ownerProfileID = owner.id
+            site.diveActivities.append(activity)
+
+            let tag = ActivityTag(name: "Night", normalizedName: "night", ownerProfileID: owner.id)
+            activity.activityTags.append(tag)
+            tag.dives.append(activity)
+
+            let photo = DiveMediaPhoto(sortOrder: 0, mediaKind: .image, dive: activity)
+            activity.mediaPhotos.append(photo)
+
+            let sighting = SightingInstance(
+                marineLifeUUID: species.uuid,
+                sightingDateTime: activity.startTime,
+                marineLife: species,
+                diveActivity: activity,
+                diveSite: site,
+                mediaPhoto: photo
+            )
+            activity.marineLifeSightings.append(sighting)
+            species.sightingInstances.append(sighting)
+
+            let record = MarineLifeUserRecord(
+                owner: owner,
+                marineLife: species,
+                isSighted: true,
+                activitiesSightedOn: [activity.id],
+                sitesSightedOn: [site.id],
+                userTaggedMedia: [DiveActivityDeletionMarineLifeCleanup.userTaggedMediaLink(for: photo.id)]
+            )
+            record.link(to: species, owner: owner)
+
+            context.insert(owner)
+            context.insert(site)
+            context.insert(species)
+            context.insert(tag)
+            context.insert(activity)
+            context.insert(sighting)
+            context.insert(record)
+            try context.save()
+            return activity.id
+        }
+
+        try await DiveBackgroundDeletionWorker(modelContainer: container)
+            .deleteDive(id: diveID)
+
+        try await MainActor.run {
+            let context = ModelContext(container)
+            #expect(try context.fetch(FetchDescriptor<DiveActivity>()).isEmpty)
+            #expect(try context.fetch(FetchDescriptor<SightingInstance>()).isEmpty)
+            #expect(try context.fetch(FetchDescriptor<DiveMediaPhoto>()).isEmpty)
+
+            let tag = try #require(try context.fetch(FetchDescriptor<ActivityTag>()).first)
+            #expect(tag.dives.isEmpty)
+
+            let record = try #require(try context.fetch(FetchDescriptor<MarineLifeUserRecord>()).first)
+            #expect(record.activitiesSightedOn.isEmpty)
+            #expect(record.sitesSightedOn.isEmpty)
+            #expect(record.userTaggedMedia.isEmpty)
+        }
+    }
+
+    @Test func diveActivityDeletionDebugReport_countsRelatedRows() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let activity = DiveActivity(source: .manual, startTime: .now, durationMinutes: 10, maxDepthMeters: 12)
+        let photo = DiveMediaPhoto(sortOrder: 0, mediaKind: .image, dive: activity)
+        activity.mediaPhotos.append(photo)
+        context.insert(activity)
+        try context.save()
+
+        let report = try DiveActivityDeletionDebugReport.make(diveID: activity.id, modelContext: context)
+        #expect(report.activityPresent)
+        #expect(report.mediaCount == 1)
+        #expect(report.buddyCount == 0)
+    }
+
+    @Test func diveActivityDeletionMarineLifeCleanup_removeDiveReferences_stripsActivityMediaAndSite() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let ownerID = UUID()
+        let diveID = UUID()
+        let siteID = UUID()
+        let mediaID = UUID()
+        let record = MarineLifeUserRecord(
+            marineLifeUUID: "fish-002",
+            isSighted: true,
+            activitiesSightedOn: [diveID],
+            sitesSightedOn: [siteID],
+            userTaggedMedia: [DiveActivityDeletionMarineLifeCleanup.userTaggedMediaLink(for: mediaID)]
+        )
+        record.ownerProfileID = ownerID
+        context.insert(record)
+
+        let activity = DiveActivity(
+            id: diveID,
+            source: .manual,
+            startTime: .now,
+            durationMinutes: 10,
+            maxDepthMeters: 12
+        )
+        let photo = DiveMediaPhoto(id: mediaID, sortOrder: 0, mediaKind: .image, dive: activity)
+        activity.mediaPhotos.append(photo)
+        context.insert(activity)
+        try context.save()
+
+        try DiveActivityDeletionMarineLifeCleanup.removeDiveReferences(
+            diveID: diveID,
+            mediaPhotoIDs: [mediaID],
+            diveSiteID: siteID,
+            ownerProfileID: ownerID,
+            modelContext: context
+        )
+
+        #expect(record.activitiesSightedOn.isEmpty)
+        #expect(record.sitesSightedOn.isEmpty)
+        #expect(record.userTaggedMedia.isEmpty)
+    }
+
+    @Test func diveActivityRelationshipDetachment_clearsInverseArraysBeforeDelete() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let owner = UserProfile(appleUserIdentifier: "detach-owner", displayName: "Diver")
+        let site = DiveSite(siteName: "Reef", latCoords: 12, longCoords: -68)
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 25,
+            diveSiteID: site.id,
+            diveSite: site
+        )
+        activity.owner = owner
+        activity.ownerProfileID = owner.id
+        site.diveActivities.append(activity)
+        owner.diveActivities.append(activity)
+
+        let tag = ActivityTag(name: "Night", normalizedName: "night", ownerProfileID: owner.id)
+        activity.activityTags.append(tag)
+        tag.dives.append(activity)
+
+        context.insert(owner)
+        context.insert(site)
+        context.insert(tag)
+        context.insert(activity)
+        try context.save()
+
+        DiveActivityRelationshipDetachment.detachNonCascadeRelationships(from: activity)
+        try context.save()
+
+        #expect(tag.dives.isEmpty)
+        #expect(owner.diveActivities.isEmpty)
+        #expect(site.diveActivities.isEmpty)
+        #expect(activity.activityTags.isEmpty)
+        #expect(activity.diveSite == nil)
     }
 
     @Test @MainActor
