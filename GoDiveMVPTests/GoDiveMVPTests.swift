@@ -7020,14 +7020,21 @@ struct GoDiveMVPTests {
         let diveID = UUID()
         let siteID = UUID()
         let mediaID = UUID()
+        let species = MarineLife(
+            uuid: "fish-002",
+            commonName: "Test Fish",
+            scientificName: "Testus",
+            category: "Fish"
+        )
         let record = MarineLifeUserRecord(
-            marineLifeUUID: "fish-002",
+            marineLife: species,
             isSighted: true,
             activitiesSightedOn: [diveID],
             sitesSightedOn: [siteID],
             userTaggedMedia: [DiveActivityDeletionMarineLifeCleanup.userTaggedMediaLink(for: mediaID)]
         )
         record.ownerProfileID = ownerID
+        context.insert(species)
         context.insert(record)
 
         let activity = DiveActivity(

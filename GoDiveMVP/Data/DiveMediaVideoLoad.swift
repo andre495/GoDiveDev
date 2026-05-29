@@ -1,13 +1,27 @@
 import Foundation
 
 /// How a referenced video finished (or failed) loading for playback.
-enum DiveMediaVideoLoadOutcome: Equatable, Sendable {
+///
+/// Explicit **nonisolated** **`Equatable`** keeps Swift Testing **`#expect`** usable in Swift 6 (same pattern as
+/// **`UddfMacDiveWatchDatetimeSemantics`**).
+enum DiveMediaVideoLoadOutcome: Sendable {
     /// An **`AVPlayerItem`** was produced.
     case loaded
     /// The referenced Photos asset no longer exists — prune the row instead of offering retry.
     case assetMissing
     /// A transient failure / timeout (asset still present, or a local file) — show an error with a retry option.
     case retryable
+}
+
+extension DiveMediaVideoLoadOutcome: Equatable {
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        switch (lhs, rhs) {
+        case (.loaded, .loaded), (.assetMissing, .assetMissing), (.retryable, .retryable):
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 /// Pure rules for the dive video player's load + timeout behavior (testable without AVFoundation / PhotoKit).
