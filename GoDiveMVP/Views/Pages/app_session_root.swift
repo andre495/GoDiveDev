@@ -5,30 +5,81 @@ import SwiftUI
 struct AppSessionRootView: View {
     @Environment(AccountSession.self) private var accountSession
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
+
+    @State private var isHomeMediaWarmupComplete = false
+    @State private var hasCompletedInitialBootstrap = false
+
+    private var showsBootstrapOverlay: Bool {
+        AppSessionBootstrapPresentation.showsLaunchOverlay(
+            isRestoringSession: accountSession.isRestoringSession,
+            isSignedIn: accountSession.isSignedIn,
+            isHomeMediaWarmupComplete: isHomeMediaWarmupComplete
+        )
+    }
 
     var body: some View {
-        Group {
-            if accountSession.isRestoringSession {
-                sessionRestorePlaceholder
-            } else if accountSession.isSignedIn {
-                ContentView()
-            } else {
-                SignInView()
+        ZStack {
+            Group {
+                if accountSession.isSignedIn {
+                    ContentView()
+                } else if !accountSession.isRestoringSession {
+                    SignInView()
+                } else {
+                    Color.clear
+                }
+            }
+
+            if showsBootstrapOverlay {
+                AppLaunchOverlay(showsProgressIndicator: true)
+                    .transition(.opacity)
             }
         }
+        .animation(.easeInOut(duration: 0.2), value: showsBootstrapOverlay)
         .task {
-            await accountSession.restoreSession(modelContext: modelContext)
+            await runInitialSessionBootstrap()
+            hasCompletedInitialBootstrap = true
+        }
+        .onChange(of: accountSession.isSignedIn) { _, isSignedIn in
+            guard hasCompletedInitialBootstrap else { return }
+            if isSignedIn {
+                Task { await warmHomeMediaForSignedInUser() }
+            } else {
+                isHomeMediaWarmupComplete = true
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            guard accountSession.isSignedIn,
+                  let ownerProfileID = accountSession.currentProfile?.id else { return }
+            Task {
+                await HomeMediaHighlightWarmup.warmFromStore(
+                    modelContext: modelContext,
+                    ownerProfileID: ownerProfileID
+                )
+            }
         }
     }
 
-    private var sessionRestorePlaceholder: some View {
-        ZStack {
-            AppTheme.Colors.screenBackgroundGradient
-                .ignoresSafeArea()
-            ProgressView()
-                .tint(AppTheme.Colors.accent)
+    private func runInitialSessionBootstrap() async {
+        await accountSession.restoreSession(modelContext: modelContext)
+        await warmHomeMediaForSignedInUser()
+    }
+
+    /// Preloads today's featured carousel picks before revealing Home (signed-in bootstrap only).
+    private func warmHomeMediaForSignedInUser() async {
+        guard accountSession.isSignedIn,
+              let ownerProfileID = accountSession.currentProfile?.id else {
+            isHomeMediaWarmupComplete = true
+            return
         }
-        .accessibilityIdentifier("AppSession.Restoring")
+
+        isHomeMediaWarmupComplete = false
+        await HomeMediaHighlightWarmup.warmFromStore(
+            modelContext: modelContext,
+            ownerProfileID: ownerProfileID
+        )
+        isHomeMediaWarmupComplete = true
     }
 }
 

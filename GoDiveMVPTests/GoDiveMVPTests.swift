@@ -12,6 +12,9 @@ import MapKit
 #if canImport(Photos)
 import Photos
 #endif
+#if canImport(AVFoundation)
+import AVFoundation
+#endif
 import SwiftData
 import Testing
 #if canImport(PencilKit)
@@ -3177,6 +3180,272 @@ struct GoDiveMVPTests {
 
     @Test func diveMediaVideoLoad_timeout_isPositive() {
         #expect(DiveMediaVideoLoad.timeoutSeconds > 0)
+    }
+
+    @Test func homeLifetimeStatsPresentation_buildsAggregatesAndLinks() {
+        let siteA = UUID()
+        let siteB = UUID()
+        let deepDive = UUID()
+        let longDive = UUID()
+        let dives = [
+            HomeDiveStatsInput(id: deepDive, maxDepthMeters: 30, durationMinutes: 40, diveSiteID: siteA, diveNumberLabel: "#1", siteDisplayName: "Salt Pier"),
+            HomeDiveStatsInput(id: longDive, maxDepthMeters: 18, durationMinutes: 62, diveSiteID: siteA, diveNumberLabel: "#2", siteDisplayName: "Salt Pier"),
+            HomeDiveStatsInput(id: UUID(), maxDepthMeters: 12, durationMinutes: 35, diveSiteID: siteB, diveNumberLabel: "#3", siteDisplayName: "Turtle Bay"),
+        ]
+        let sightings = [
+            HomeLifetimeStatsPresentation.SightingCountInput(marineLifeUUID: "fish-a", commonName: "Parrotfish"),
+            HomeLifetimeStatsPresentation.SightingCountInput(marineLifeUUID: "fish-a", commonName: "Parrotfish"),
+            HomeLifetimeStatsPresentation.SightingCountInput(marineLifeUUID: "fish-b", commonName: "Ray"),
+        ]
+
+        let stats = HomeLifetimeStatsPresentation.build(dives: dives, sightings: sightings)
+
+        #expect(stats.diveCount == 3)
+        #expect(stats.averageMaxDepthMeters == 20)
+        #expect(abs((stats.averageDurationMinutes ?? 0) - (137.0 / 3.0)) < 0.001)
+        #expect(stats.deepestDive?.id == deepDive)
+        #expect(stats.deepestMaxDepthMeters == 30)
+        #expect(stats.longestDive?.id == longDive)
+        #expect(stats.longestDurationMinutes == 62)
+        #expect(stats.mostVisitedSite?.name == "Salt Pier")
+        #expect(stats.mostVisitedSite?.visitCount == 2)
+        #expect(stats.mostVisitedSite?.id == siteA)
+        #expect(stats.topSpecies?.marineLifeUUID == "fish-a")
+        #expect(stats.topSpecies?.sightingCount == 2)
+    }
+
+    @Test func homeMediaHighlightPresentation_dailySeedIsStableAndShuffleRespectsLimit() {
+        let ownerID = UUID(uuidString: "A1B2C3D4-E5F6-7890-ABCD-EF1234567890")!
+        let day = Date(timeIntervalSince1970: 1_700_000_000)
+        let seedA = HomeMediaHighlightPresentation.dailySeed(ownerProfileID: ownerID, referenceDate: day)
+        let seedB = HomeMediaHighlightPresentation.dailySeed(ownerProfileID: ownerID, referenceDate: day)
+        #expect(seedA == seedB)
+
+        let candidates = (0 ..< 20).map { index in
+            HomeMediaHighlight(
+                mediaID: UUID(uuidString: String(format: "00000000-0000-0000-0000-%012x", index))!,
+                diveActivityID: UUID(),
+                diveNumberLabel: "#\(index + 1)",
+                siteDisplayName: "Site \(index)",
+                diveSiteID: nil,
+                taggedSpeciesCount: 0
+            )
+        }
+        let picks = HomeMediaHighlightPresentation.randomizedHighlights(from: candidates, limit: 8, seed: seedA)
+        #expect(picks.count == 8)
+        #expect(Set(picks.map(\.mediaID)).count == 8)
+    }
+
+    @Test @MainActor func homeMediaHighlightSessionCache_evictsOldestBeyondCarouselLimit() {
+        #if canImport(AVFoundation)
+        HomeMediaHighlightSessionCache.shared.clear()
+        defer { HomeMediaHighlightSessionCache.shared.clear() }
+
+        let asset = AVURLAsset(url: URL(fileURLWithPath: "/dev/null"))
+        for index in 0 ..< 7 {
+            HomeMediaHighlightSessionCache.shared.storeVideoAsset(asset, localIdentifier: "warm-id-\(index)")
+        }
+
+        #expect(HomeMediaHighlightSessionCache.shared.videoAsset(for: "warm-id-0") == nil)
+        #expect(HomeMediaHighlightSessionCache.shared.videoAsset(for: "warm-id-6") != nil)
+        #expect(HomeMediaHighlightPresentation.carouselLimit == 5)
+        #endif
+    }
+
+    @Test func homeOverviewRefreshToken_changesWhenDiveMetricsChange() {
+        let diveID = UUID()
+        let siteID = UUID()
+        let base = [
+            HomeDiveStatsInput(id: diveID, maxDepthMeters: 20, durationMinutes: 40, diveSiteID: siteID, diveNumberLabel: "#12", siteDisplayName: "Reef"),
+        ]
+        let before = HomeOverviewRefreshToken.make(dives: base, sightingCount: 0, mediaCount: 1)
+        let afterDepth = HomeOverviewRefreshToken.make(
+            dives: [HomeDiveStatsInput(id: diveID, maxDepthMeters: 28, durationMinutes: 40, diveSiteID: siteID, diveNumberLabel: "#12", siteDisplayName: "Reef")],
+            sightingCount: 0,
+            mediaCount: 1
+        )
+        let afterCount = HomeOverviewRefreshToken.make(
+            dives: base + [HomeDiveStatsInput(id: UUID(), maxDepthMeters: 10, durationMinutes: 30, diveSiteID: nil, diveNumberLabel: "#13", siteDisplayName: "Quarry")],
+            sightingCount: 0,
+            mediaCount: 1
+        )
+        #expect(before != afterDepth)
+        #expect(before != afterCount)
+    }
+
+    @Test func homeLifetimeStatsPresentation_formattedAverageDiveSummary_joinsDepthAndDuration() {
+        let summary = HomeLifetimeStatsPresentation.formattedAverageDiveSummary(
+            depthMeters: 20,
+            durationMinutes: 45,
+            unitSystem: .metric
+        )
+        #expect(summary.contains("20.0 m"))
+        #expect(summary.contains("45 min"))
+        #expect(summary.contains("·"))
+    }
+
+    @Test func homeMediaHighlightPresentation_buildCandidates_mapsSiteAndSpecies() {
+        let diveID = UUID()
+        let mediaID = UUID()
+        let siteID = UUID()
+        let dives = [
+            HomeDiveStatsInput(
+                id: diveID,
+                maxDepthMeters: 18,
+                durationMinutes: 40,
+                diveSiteID: siteID,
+                diveNumberLabel: "#42",
+                siteDisplayName: "Reef"
+            ),
+        ]
+        let candidates = HomeMediaHighlightPresentation.buildCandidates(
+            mediaPhotos: [HomeMediaHighlightSource(mediaID: mediaID, diveActivityID: diveID)],
+            dives: dives,
+            taggedSpeciesCountByMediaID: [mediaID: 2]
+        )
+        #expect(candidates.count == 1)
+        #expect(candidates[0].siteDisplayName == "Reef")
+        #expect(candidates[0].diveActionLabel == "#42 Reef")
+        #expect(candidates[0].taggedSpeciesCount == 2)
+        #expect(candidates[0].hasTaggedSpecies)
+    }
+
+    @Test func homeMediaHighlightPresentation_taggedSpeciesCountByMediaID_countsMultipleTags() {
+        let diveID = UUID()
+        let mediaID = UUID()
+        let counts = HomeMediaHighlightPresentation.taggedSpeciesCountByMediaID(
+            sightings: [
+                HomeMediaHighlightSightingInput(mediaPhotoID: mediaID, diveActivityID: diveID),
+                HomeMediaHighlightSightingInput(mediaPhotoID: mediaID, diveActivityID: diveID),
+                HomeMediaHighlightSightingInput(mediaPhotoID: UUID(), diveActivityID: diveID),
+            ],
+            ownerDiveIDs: [diveID]
+        )
+        #expect(counts[mediaID] == 2)
+    }
+
+    @Test func homeMediaHighlightPresentation_diveActionLabel_joinsNumberAndSite() {
+        #expect(
+            HomeMediaHighlightPresentation.diveActionLabel(
+                diveNumberLabel: "#12",
+                siteDisplayName: "Salt Pier"
+            ) == "#12 Salt Pier"
+        )
+        #expect(
+            HomeMediaHighlightPresentation.diveActionLabel(
+                diveNumberLabel: "-",
+                siteDisplayName: "Quarry"
+            ) == "Quarry"
+        )
+    }
+
+    @Test func homeMediaHighlightWarmupPresentation_bootstrapQualityAndReadiness() {
+        #expect(HomeMediaHighlightWarmupPresentation.startupFullQualityCount == 2)
+        #expect(HomeMediaHighlightWarmupPresentation.bootstrapQuality(forCarouselIndex: 0) == .full)
+        #expect(HomeMediaHighlightWarmupPresentation.bootstrapQuality(forCarouselIndex: 1) == .full)
+        #expect(HomeMediaHighlightWarmupPresentation.bootstrapQuality(forCarouselIndex: 2) == .preview)
+
+        #expect(
+            HomeMediaHighlightWarmupPresentation.isBootstrapReady(
+                fullReadyCount: 2,
+                previewOrFullReadyCount: 5,
+                totalCount: 5
+            )
+        )
+        #expect(
+            !HomeMediaHighlightWarmupPresentation.isBootstrapReady(
+                fullReadyCount: 1,
+                previewOrFullReadyCount: 5,
+                totalCount: 5
+            )
+        )
+        #expect(HomeMediaHighlightWarmupPresentation.backgroundFullQualityIndices(totalCount: 5) == [2, 3, 4])
+    }
+
+    @Test func homeMediaHighlightWarmup_shouldStorePreviewAndHeroInSessionCache() {
+        #expect(HomeMediaHighlightWarmup.shouldStoreInSessionCache(edge: 480))
+        #expect(HomeMediaHighlightWarmup.shouldStoreInSessionCache(edge: 1_200))
+        #expect(!HomeMediaHighlightWarmup.shouldStoreInSessionCache(edge: 200))
+    }
+
+    @Test func homeMediaCarouselLayout_slideChromeBottomInset_sitsAboveStatsOverlap() {
+        #expect(HomeMediaCarouselLayout.slideChromeBottomInset > HomeLifetimeStatsLayout.panelOverlap)
+        #expect(HomeMediaCarouselLayout.playbackSettleMilliseconds >= 300)
+    }
+
+    @Test func homeMediaCarouselLayout_heroHeight_includesTopSafeAreaAndStatsOverlap() {
+        let bottomExtension = HomeLifetimeStatsLayout.heroBottomExtension
+        let height = HomeMediaCarouselLayout.heroHeight(
+            width: 390,
+            topSafeAreaInset: 59,
+            additionalBottomExtension: bottomExtension
+        )
+        #expect(height > 390 * 0.90)
+        #expect(height >= 390 * HomeMediaCarouselLayout.heroHeightToWidthRatio + 59 + bottomExtension - 0.001)
+
+        let gradientHeight = HomeMediaCarouselLayout.headerGradientHeight(
+            headerOverlayHeight: 112,
+            topSafeAreaInset: 59,
+            heroHeight: height
+        )
+        #expect(gradientHeight >= 112 + 96)
+        #expect(gradientHeight >= height * 0.52 - 0.001)
+    }
+
+    @Test func homeMediaCarouselPresentation_nextIndex_wrapsAndRequiresMultipleSlides() {
+        #expect(HomeMediaCarouselPresentation.nextIndex(after: 0, count: 3) == 1)
+        #expect(HomeMediaCarouselPresentation.nextIndex(after: 2, count: 3) == 0)
+        #expect(HomeMediaCarouselPresentation.nextIndex(after: 0, count: 0) == 0)
+        #expect(HomeMediaCarouselPresentation.shouldAutoAdvance(slideCount: 1) == false)
+        #expect(HomeMediaCarouselPresentation.shouldAutoAdvance(slideCount: 2) == true)
+        #expect(HomeMediaCarouselPresentation.photoDisplaySeconds == 10)
+    }
+
+    @Test func homeLifetimeStatsLayout_usesTwoColumnFlexibleGrid() {
+        #expect(HomeLifetimeStatsLayout.gridColumnCount == 2)
+        #expect(HomeLifetimeStatsLayout.rowCount(tileCount: 4) == 2)
+        #expect(HomeLifetimeStatsLayout.rowCount(tileCount: 3) == 2)
+        let tileHeight = HomeLifetimeStatsLayout.tileHeight(availableHeight: 300, tileCount: 4)
+        #expect(tileHeight >= HomeLifetimeStatsLayout.minimumTileHeight)
+        #expect(abs(tileHeight - (300 - HomeLifetimeStatsLayout.gridSpacing) / 2) < 0.001)
+        #expect(HomeLifetimeStatsLayout.panelTopCornerRadius == AppTheme.Sheet.cornerRadius)
+        #expect(HomeLifetimeStatsLayout.panelOverlap >= 150)
+        #expect(
+            HomeLifetimeStatsLayout.panelTopContentPaddingWhenOverlapping
+                < HomeLifetimeStatsLayout.panelTopContentPadding
+        )
+        #expect(HomeLifetimeStatsLayout.heroBottomExtension > HomeLifetimeStatsLayout.panelOverlap)
+    }
+
+    @Test func appSessionBootstrapPresentation_showsLaunchOverlayUntilHomeMediaWarmCompletes() {
+        #expect(
+            AppSessionBootstrapPresentation.showsLaunchOverlay(
+                isRestoringSession: true,
+                isSignedIn: false,
+                isHomeMediaWarmupComplete: false
+            )
+        )
+        #expect(
+            AppSessionBootstrapPresentation.showsLaunchOverlay(
+                isRestoringSession: false,
+                isSignedIn: true,
+                isHomeMediaWarmupComplete: false
+            )
+        )
+        #expect(
+            !AppSessionBootstrapPresentation.showsLaunchOverlay(
+                isRestoringSession: false,
+                isSignedIn: true,
+                isHomeMediaWarmupComplete: true
+            )
+        )
+        #expect(
+            !AppSessionBootstrapPresentation.showsLaunchOverlay(
+                isRestoringSession: false,
+                isSignedIn: false,
+                isHomeMediaWarmupComplete: false
+            )
+        )
     }
 
     @Test func diveMediaImportProgressPresentation_progressFraction_clampsToUnitInterval() {

@@ -14,6 +14,8 @@ struct DiveActivityVideoPlayerView: View {
     var isPlaybackActive: Bool = true
     var loopsPlayback: Bool = false
     var isPausedByUserHold: Bool = false
+    /// Called once when playback reaches the end and **`loopsPlayback`** is **`false`**.
+    var onPlaybackFinished: (() -> Void)?
     /// Called when a referenced Photos asset can't be resolved (e.g. deleted) so the owner can prune the row.
     var onAssetMissing: (() -> Void)?
 
@@ -37,7 +39,8 @@ struct DiveActivityVideoPlayerView: View {
                         identityKey: resolvedKey,
                         isPlaybackActive: isPlaybackActive,
                         loopsPlayback: loopsPlayback,
-                        isPausedByUserHold: isPausedByUserHold
+                        isPausedByUserHold: isPausedByUserHold,
+                        onPlaybackFinished: loopsPlayback ? nil : onPlaybackFinished
                     )
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .clipped()
@@ -197,6 +200,7 @@ private struct DiveActivityFillVideoPlayerRepresentable: UIViewRepresentable {
     let isPlaybackActive: Bool
     let loopsPlayback: Bool
     let isPausedByUserHold: Bool
+    let onPlaybackFinished: (() -> Void)?
 
     func makeUIView(context: Context) -> DiveActivityFillVideoPlayerUIView {
         let view = DiveActivityFillVideoPlayerUIView()
@@ -205,7 +209,8 @@ private struct DiveActivityFillVideoPlayerRepresentable: UIViewRepresentable {
             identityKey: identityKey,
             isPlaybackActive: isPlaybackActive,
             loopsPlayback: loopsPlayback,
-            isPausedByUserHold: isPausedByUserHold
+            isPausedByUserHold: isPausedByUserHold,
+            onPlaybackFinished: onPlaybackFinished
         )
         return view
     }
@@ -216,7 +221,8 @@ private struct DiveActivityFillVideoPlayerRepresentable: UIViewRepresentable {
             identityKey: identityKey,
             isPlaybackActive: isPlaybackActive,
             loopsPlayback: loopsPlayback,
-            isPausedByUserHold: isPausedByUserHold
+            isPausedByUserHold: isPausedByUserHold,
+            onPlaybackFinished: onPlaybackFinished
         )
     }
 
@@ -236,6 +242,7 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
     private var isPausedByUserHold = false
     private var lastAppliedPlaybackActive = false
     private var endObserver: NSObjectProtocol?
+    private var onPlaybackFinished: (() -> Void)?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -257,7 +264,8 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
         identityKey: String,
         isPlaybackActive: Bool,
         loopsPlayback: Bool,
-        isPausedByUserHold: Bool
+        isPausedByUserHold: Bool,
+        onPlaybackFinished: (() -> Void)?
     ) {
         let mediaChanged = currentKey != identityKey
         let shouldRestart = DiveActivityVideoPlaybackPolicy.shouldRestartFromBeginning(
@@ -268,11 +276,13 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
 
         self.isPlaybackActive = isPlaybackActive
         self.isPausedByUserHold = isPausedByUserHold
+        self.loopsPlayback = loopsPlayback
+        self.onPlaybackFinished = onPlaybackFinished
 
         if mediaChanged {
             loadPlayer(playerItem: playerItem, identityKey: identityKey)
         }
-        setLooping(loopsPlayback)
+        syncPlaybackEndObserver()
 
         if shouldRestart {
             restartFromBeginning()
@@ -298,31 +308,41 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
     private func loadPlayer(playerItem: AVPlayerItem, identityKey: String) {
         removeEndObserver()
         player?.pause()
+        player?.replaceCurrentItem(with: nil)
+        playerLayer.player = nil
+        player = nil
         currentKey = identityKey
         DiveMutedVideoAudioSession.activateForMutedPlayback()
-        let newPlayer = AVPlayer(playerItem: playerItem)
+        // Always attach a fresh item — a cached **`AVPlayerItem`** must not move between **`AVPlayer`**s.
+        let playbackItem = AVPlayerItem(asset: playerItem.asset)
+        let newPlayer = AVPlayer(playerItem: playbackItem)
         newPlayer.isMuted = true
         player = newPlayer
         playerLayer.player = newPlayer
+        syncPlaybackEndObserver()
     }
 
-    private func setLooping(_ enabled: Bool) {
-        guard loopsPlayback != enabled else { return }
-        loopsPlayback = enabled
+    private func syncPlaybackEndObserver() {
         removeEndObserver()
-        guard loopsPlayback, let item = player?.currentItem else { return }
+        guard loopsPlayback || onPlaybackFinished != nil,
+              let item = player?.currentItem else { return }
+
         endObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
             object: item,
             queue: .main
         ) { [weak self] _ in
-            guard let self, let player = self.player else { return }
-            player.seek(to: .zero) { [weak self] _ in
-                guard let self, DiveActivityVideoPlaybackPolicy.shouldPlay(
-                    isPlaybackActive: self.isPlaybackActive,
-                    isPausedByUserHold: self.isPausedByUserHold
-                ) else { return }
-                player.play()
+            guard let self else { return }
+            if self.loopsPlayback, let player = self.player {
+                player.seek(to: .zero) { [weak self] _ in
+                    guard let self, DiveActivityVideoPlaybackPolicy.shouldPlay(
+                        isPlaybackActive: self.isPlaybackActive,
+                        isPausedByUserHold: self.isPausedByUserHold
+                    ) else { return }
+                    player.play()
+                }
+            } else {
+                self.onPlaybackFinished?()
             }
         }
     }

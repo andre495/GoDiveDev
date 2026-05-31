@@ -17,7 +17,8 @@ struct ContentView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             Tab("Home", systemImage: "house", value: RootTab.home) {
-                LogOverviewView()
+                LogOverviewView(ownerProfileID: accountSession.currentProfile?.id)
+                    .id(accountSession.currentProfile?.id)
             }
 
             Tab("Logbook", systemImage: "book.closed", value: RootTab.logbook) {

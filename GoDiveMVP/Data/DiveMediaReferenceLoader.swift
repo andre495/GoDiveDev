@@ -53,13 +53,29 @@ enum DiveMediaReferenceLoader {
         guard targetSize.width > 0, targetSize.height > 0,
               let asset = asset(localIdentifier: localIdentifier) else { return nil }
 
+        let edge = max(targetSize.width, targetSize.height)
+        if let sessionImage = HomeMediaHighlightSessionCache.shared.image(
+            for: localIdentifier,
+            edge: edge
+        ) {
+            return sessionImage
+        }
+
+        let cacheKey = DiveMediaReferenceImageCache.shared.key(
+            localIdentifier: localIdentifier,
+            targetSize: targetSize
+        )
+        if let cached = DiveMediaReferenceImageCache.shared.image(for: cacheKey) {
+            return cached
+        }
+
         let options = PHImageRequestOptions()
         options.isNetworkAccessAllowed = true
         options.deliveryMode = .highQualityFormat
         options.resizeMode = .fast
         options.isSynchronous = false
 
-        return await withCheckedContinuation { continuation in
+        let image = await withCheckedContinuation { continuation in
             PHImageManager.default().requestImage(
                 for: asset,
                 targetSize: targetSize,
@@ -69,6 +85,43 @@ enum DiveMediaReferenceLoader {
                 continuation.resume(returning: image)
             }
         }
+        if let image {
+            DiveMediaReferenceImageCache.shared.store(image, for: cacheKey)
+            if HomeMediaHighlightWarmup.shouldStoreInSessionCache(edge: edge) {
+                HomeMediaHighlightSessionCache.shared.storeImage(
+                    image,
+                    localIdentifier: localIdentifier,
+                    edge: edge
+                )
+            }
+        }
+        return image
+    }
+
+    /// Tells PhotoKit to download/cache hero frames for Home carousel assets before individual requests.
+    @MainActor
+    static func startCachingImages(localIdentifiers: [String], targetSize: CGSize) {
+        stopCachingImages()
+        guard targetSize.width > 0, targetSize.height > 0 else { return }
+        let assets = localIdentifiers.compactMap { asset(localIdentifier: $0) }
+        guard !assets.isEmpty else { return }
+
+        let options = PHImageRequestOptions()
+        options.isNetworkAccessAllowed = true
+        options.deliveryMode = .highQualityFormat
+        options.resizeMode = .fast
+
+        HomePhotoKitPreheatManager.shared.startCaching(
+            assets: assets,
+            targetSize: targetSize,
+            contentMode: .aspectFill,
+            options: options
+        )
+    }
+
+    @MainActor
+    static func stopCachingImages() {
+        HomePhotoKitPreheatManager.shared.stopCaching()
     }
     #endif
 
@@ -83,17 +136,19 @@ enum DiveMediaReferenceLoader {
         return options
     }
 
-    /// Builds an **`AVPlayerItem`** that streams directly from the Photos library asset (no exported file).
+    /// Builds a fresh **`AVPlayerItem`** — never reuses a cached item (one item per **`AVPlayer`**).
     ///
-    /// Bounded by **`timeoutSeconds`**: **`PHImageManager.requestPlayerItem`** can stall for a long time (or never
-    /// call back) while pulling an iCloud original, so if it hasn't produced an item by the deadline this resolves to
-    /// **`nil`** and the caller can show a retry affordance. (The underlying request can't be cancelled; a late
-    /// result is simply ignored.)
+    /// When **`HomeMediaHighlightSessionCache`** holds a warmed **`AVAsset`**, a new item is created from that asset
+    /// for instant carousel playback. Otherwise falls back to **`requestPlayerItem`** (not cached).
     @MainActor
     static func playerItem(
         localIdentifier: String,
         timeoutSeconds: Double = DiveMediaVideoLoad.timeoutSeconds
     ) async -> AVPlayerItem? {
+        if let avAsset = HomeMediaHighlightSessionCache.shared.videoAsset(for: localIdentifier) {
+            return AVPlayerItem(asset: avAsset)
+        }
+
         guard let asset = asset(localIdentifier: localIdentifier) else { return nil }
 
         let options = makeVideoRequestOptions()
@@ -118,8 +173,122 @@ enum DiveMediaReferenceLoader {
             }
         }
     }
+
+    /// Loads an **`AVAsset`** from PhotoKit for session warm-cache (shareable across many **`AVPlayerItem`**s).
+    @MainActor
+    static func loadVideoAsset(
+        localIdentifier: String,
+        timeoutSeconds: Double = DiveMediaVideoLoad.timeoutSeconds
+    ) async -> AVAsset? {
+        guard let asset = asset(localIdentifier: localIdentifier) else { return nil }
+
+        let options = makeVideoRequestOptions()
+        let resumeGuard = SingleResumeGuard()
+
+        return await withCheckedContinuation { (continuation: CheckedContinuation<AVAsset?, Never>) in
+            PHImageManager.default().requestAVAsset(
+                forVideo: asset,
+                options: options
+            ) { avAsset, _, _ in
+                if resumeGuard.claim() {
+                    continuation.resume(returning: avAsset)
+                }
+            }
+
+            if timeoutSeconds > 0 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + timeoutSeconds) {
+                    if resumeGuard.claim() {
+                        continuation.resume(returning: nil)
+                    }
+                }
+            }
+        }
+    }
     #endif
+
+    /// Drops Home carousel warm caches and in-memory PhotoKit image frames (call when app backgrounds).
+    @MainActor
+    static func clearSessionMediaCaches() {
+        HomeMediaHighlightSessionCache.shared.clear()
+        #if canImport(UIKit)
+        DiveMediaReferenceImageCache.shared.removeAll()
+        #endif
+    }
 }
+
+#if canImport(UIKit)
+@MainActor
+private final class DiveMediaReferenceImageCache {
+    static let shared = DiveMediaReferenceImageCache()
+    private let storage = NSCache<NSString, UIImage>()
+
+    func key(localIdentifier: String, targetSize: CGSize) -> NSString {
+        "\(localIdentifier)|\(Int(targetSize.width))x\(Int(targetSize.height))" as NSString
+    }
+
+    func image(for key: NSString) -> UIImage? {
+        storage.object(forKey: key)
+    }
+
+    func store(_ image: UIImage, for key: NSString) {
+        storage.setObject(image, forKey: key)
+    }
+
+    func removeAll() {
+        storage.removeAllObjects()
+    }
+}
+#endif
+
+#if canImport(Photos) && canImport(UIKit)
+@MainActor
+private final class HomePhotoKitPreheatManager {
+    static let shared = HomePhotoKitPreheatManager()
+    private let cachingManager = PHCachingImageManager()
+    private var cachedAssets: [PHAsset] = []
+    private var cachedTargetSize: CGSize = .zero
+    private var cachedOptions: PHImageRequestOptions?
+
+    func startCaching(
+        assets: [PHAsset],
+        targetSize: CGSize,
+        contentMode: PHImageContentMode,
+        options: PHImageRequestOptions
+    ) {
+        stopCaching()
+        cachedAssets = assets
+        cachedTargetSize = targetSize
+        cachedOptions = options
+        cachingManager.startCachingImages(
+            for: assets,
+            targetSize: targetSize,
+            contentMode: contentMode,
+            options: options
+        )
+    }
+
+    func stopCaching() {
+        guard !cachedAssets.isEmpty,
+              let options = cachedOptions,
+              cachedTargetSize.width > 0,
+              cachedTargetSize.height > 0 else {
+            cachedAssets = []
+            cachedTargetSize = .zero
+            cachedOptions = nil
+            return
+        }
+        cachingManager.stopCachingImages(
+            for: cachedAssets,
+            targetSize: cachedTargetSize,
+            contentMode: .aspectFill,
+            options: options
+        )
+        cachedAssets = []
+        cachedTargetSize = .zero
+        cachedOptions = nil
+    }
+}
+#endif
 
 #if canImport(Photos) && canImport(AVFoundation)
 /// Thread-safe single-use latch so the player-item load and its timeout race to resume a continuation exactly once.

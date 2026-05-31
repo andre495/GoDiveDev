@@ -27,14 +27,24 @@ struct GoDiveMVPApp: App {
             } else if let productionContainer {
                 productionRoot(container: productionContainer)
             } else {
-                AppTheme.Colors.screenBackgroundGradient
-                    .ignoresSafeArea()
+                AppLaunchOverlay(showsProgressIndicator: true)
                     .task { productionContainer = await AppModelContainer.loadProduction() }
             }
         }
     }
 
     private func productionRoot(container: ModelContainer) -> some View {
+        ProductionAppRoot(container: container, accountSession: accountSession)
+    }
+}
+
+/// Production shell — scene lifecycle clears Home media warm caches when the app backgrounds.
+private struct ProductionAppRoot: View {
+    let container: ModelContainer
+    @Bindable var accountSession: AccountSession
+    @Environment(\.scenePhase) private var scenePhase
+
+    var body: some View {
         ZStack {
             if MapKitWarmup.shouldWarmUp {
                 MapKitWarmupView()
@@ -45,6 +55,13 @@ struct GoDiveMVPApp: App {
         }
         .environment(accountSession)
         .modelContainer(container)
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background {
+                Task { @MainActor in
+                    DiveMediaReferenceLoader.clearSessionMediaCaches()
+                }
+            }
+        }
         .task {
             await MainActor.run {
                 let context = container.mainContext
@@ -65,7 +82,6 @@ struct GoDiveMVPApp: App {
     }
 
     #if DEBUG
-    /// Inserts or syncs dives from bundled JSON when **`MockDataSeeding.isLaunchSeedingEnabled`** is **`true`**.
     @MainActor
     private func seedMockDataIfNeeded(container: ModelContainer) async {
         let context = container.mainContext
@@ -84,3 +100,4 @@ struct GoDiveMVPApp: App {
     }
     #endif
 }
+

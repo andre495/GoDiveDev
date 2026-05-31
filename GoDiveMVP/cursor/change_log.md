@@ -888,4 +888,17 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`diveActivityDeletionMarineLifeCleanup_removeDiveReferences_stripsActivityMediaAndSite`:** construct **`MarineLifeUserRecord`** with **`marineLife:`** catalog row (not removed **`marineLifeUUID:`** init label).
 - **`DiveMediaVideoLoadOutcome`:** explicit **nonisolated** **`Equatable`** — fixes Swift 6 warning when **`#expect`** compares outcomes in **`diveMediaVideoLoad_classify_*`**.
 
-## 57 - Next batch
+## 57 - Home highlights and lifetime stats **(pushed)**
+
+- **Summary:** Home tab replaces the coming-soon placeholder with a media highlight carousel and lifetime dive stats grid, with navigation into dives, sites, and field-guide species.
+- **`HomeMediaHighlightPresentation`** / **`HomeLifetimeStatsPresentation`** — pure aggregation + daily-seeded shuffle for carousel picks.
+- **`HomeOverviewSections`** — featured-media carousel with per-slide bottom chrome (fixed page size, **`slideChromeBottomInset`** above stats overlap; deferred **`playbackIndex`** avoids mid-swipe video/layout jumps); **`HomeLifetimeStatsPanel`** **2×2** highlight tiles (no per-tile background) sized to space between media and tab bar.
+- **`HomeMediaHighlightWarmup`** / **`HomeMediaHighlightWarmupPresentation`** — **5** daily carousel picks; bootstrap loads **2** at full hero quality + **3** at **480 pt** previews before **`AppLaunchOverlay`** dismisses; remaining **3** upgrade to full quality + video assets in a background task while the app runs. Foreground re-warm uses the same tiered path. **`AppSessionBootstrapPresentation`** gates the overlay; **`HomeMediaHighlightSessionCache.bestCachedImage`** serves preview or hero frames.
+- **`LogOverviewView`** — **`HomeRoute`** navigation to **`ViewSingleActivity`**, **`ExploreDiveSiteDetailView`**, **`FieldGuideMarineLifeDetailView`**. Owner-scoped **`@Query`** (same pattern as Logbook); **`lifetimeStats`** recomputes live from **`@Query`**; **`HomeOverviewRefreshToken`** + **`.id`** on stats grid when dive count/metrics/sightings/media change; carousel refresh on appear, token change, and **`scenePhase == .active`**.
+- Tests: **`homeLifetimeStatsPresentation_buildsAggregatesAndLinks`**, **`homeLifetimeStatsPresentation_formattedAverageDiveSummary_joinsDepthAndDuration`**, **`homeMediaHighlightPresentation_dailySeedIsStableAndShuffleRespectsLimit`**, **`homeMediaHighlightPresentation_buildCandidates_mapsSiteAndSpecies`**, **`homeMediaHighlightPresentation_taggedSpeciesCountByMediaID_countsMultipleTags`**, **`homeMediaHighlightWarmupPresentation_bootstrapQualityAndReadiness`**, **`homeMediaHighlightWarmup_shouldStorePreviewAndHeroInSessionCache`**, **`homeOverviewRefreshToken_changesWhenDiveMetricsChange`**, **`homeMediaCarouselPresentation_nextIndex_wrapsAndRequiresMultipleSlides`**, **`appSessionBootstrapPresentation_showsLaunchOverlayUntilHomeMediaWarmCompletes`**, **`homeLifetimeStatsLayout_usesTwoColumnFlexibleGrid`**.
+- **Stats ↔ media overlap:** **`panelOverlap`** **154 pt** (~20% higher than prior **128 pt**) + **`heroBottomExtension`** **168 pt** so the lifetime stats sheet rides higher on the hero; tighter **`panelTopContentPaddingWhenOverlapping`** when the panel overlaps media.
+- **Home carousel dive chip:** removed trailing chevron from **`HomeMediaCarouselDiveLinkButton`**.
+- **`HomeMediaHighlightWarmupPresentation.WarmupQuality`:** explicit **nonisolated** **`Equatable`** — fixes Swift 6 warning in **`homeMediaHighlightWarmupPresentation_bootstrapQualityAndReadiness`**.
+
+## 58 - Next batch
+

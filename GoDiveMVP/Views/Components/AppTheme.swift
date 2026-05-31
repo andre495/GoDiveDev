@@ -29,6 +29,8 @@ enum AppTheme {
             light: UIColor(red: 0.91, green: 0.95, blue: 0.98, alpha: 1.0),
             dark: UIColor(red: 0.02, green: 0.05, blue: 0.09, alpha: 1.0)
         )
+        /// Alias for **`AppLaunchOverlay`** — matches the storyboard solid fill.
+        static let launchScreenBackground = surfaceGradientBottom
 
         /// Full-bleed page chrome: **top → bottom**, lighter over deeper (both appearances).
         static var screenBackgroundGradient: LinearGradient {
