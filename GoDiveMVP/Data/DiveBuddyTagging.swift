@@ -10,7 +10,8 @@ enum DiveBuddyTagging {
         dive: DiveActivity,
         owner: UserProfile?,
         modelContext: ModelContext
-    ) -> DiveBuddyTag {
+    ) -> DiveBuddyTag? {
+        guard !DiveBuddyCatalog.shouldExcludeBuddyName(displayName, owner: owner) else { return nil }
         let buddy = DiveBuddyCatalog.findOrCreate(
             displayName: displayName,
             owner: owner,

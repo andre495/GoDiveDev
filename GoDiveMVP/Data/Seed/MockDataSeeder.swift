@@ -97,7 +97,7 @@ enum MockDataSeeder {
             guard activity.buddies.isEmpty else { continue }
             guard let buddyDTOs = dto.buddies, !buddyDTOs.isEmpty else { continue }
 
-            let tags = buddyDTOs.map { buddyDTO in
+            let tags = buddyDTOs.compactMap { buddyDTO in
                 DiveBuddyTagging.makeTag(
                     displayName: buddyDTO.displayName,
                     tagID: buddyDTO.id ?? UUID(),

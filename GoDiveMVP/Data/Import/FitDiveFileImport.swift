@@ -82,6 +82,13 @@ enum FitDiveFileImport {
             }
             try DiveActivityDiveNumbering.assignNextDiveNumberChainedAfterNewest(for: activity, modelContext: modelContext)
             DiveActivityOwnership.assignOwner(owner, to: activity)
+            var buddyRosterCache = DiveBuddyImportConsolidation.RosterCache()
+            DiveBuddyImportConsolidation.prepareForInsert(
+                activity,
+                owner: owner,
+                modelContext: modelContext,
+                rosterCache: &buddyRosterCache
+            )
             modelContext.insert(activity)
             try DiveActivityEquipmentAssociation.applyAutoAdd(
                 to: activity,

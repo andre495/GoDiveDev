@@ -132,29 +132,10 @@ struct DiveActivityBuddiesEditSheet: View {
 
     #if canImport(UIKit)
     private func presentContactPicker() {
-        let store = CNContactStore()
-        switch CNContactStore.authorizationStatus(for: .contacts) {
-        case .authorized, .limited:
-            showsContactPicker = true
-        case .notDetermined:
-            store.requestAccess(for: .contacts) { granted, error in
-                Task { @MainActor in
-                    if let error {
-                        contactsAccessError = error.localizedDescription
-                        return
-                    }
-                    if granted {
-                        showsContactPicker = true
-                    } else {
-                        contactsAccessError = "Allow Contacts access in Settings to pick a dive buddy."
-                    }
-                }
-            }
-        case .denied, .restricted:
-            contactsAccessError = "Allow Contacts access in Settings to pick a dive buddy."
-        @unknown default:
-            contactsAccessError = "Contacts are not available."
-        }
+        ContactsPickerAccess.presentIfAuthorized(
+            onAuthorized: { showsContactPicker = true },
+            onError: { contactsAccessError = $0 }
+        )
     }
 
     private func addBuddy(from contact: CNContact) {

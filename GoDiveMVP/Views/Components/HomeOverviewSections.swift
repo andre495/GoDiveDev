@@ -1050,22 +1050,12 @@ struct HomeBuddyLeaderboardTile: View {
 private struct HomeBuddyLeaderboardPodiumSlot: View {
     let entry: HomeBuddyLeaderboardEntry
 
-    private var avatarDiameter: CGFloat {
-        entry.rank == 1
-            ? HomeBuddyLeaderboardLayout.avatarDiameterFirst
-            : HomeBuddyLeaderboardLayout.avatarDiameterOther
-    }
-
-    private var avatarPlaceholderFont: Font {
-        entry.rank == 1 ? .title3 : .callout
-    }
-
     var body: some View {
         VStack(spacing: AppTheme.Spacing.sm) {
             ProfileAvatarView(
                 profilePhoto: entry.profilePhoto,
-                diameter: avatarDiameter,
-                iconFont: avatarPlaceholderFont
+                diameter: HomeBuddyLeaderboardLayout.avatarDiameter,
+                iconFont: .callout
             )
 
             Text(DiveBuddyPresentation.firstName(from: entry.displayName))

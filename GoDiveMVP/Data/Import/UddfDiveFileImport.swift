@@ -84,6 +84,10 @@ enum UddfDiveFileImport {
             )
             var inserted: [DiveActivity] = []
             var skippedDuplicates = 0
+            var buddyRosterCache = try DiveBuddyCatalog.rosterCacheForImport(
+                ownerProfileID: owner.id,
+                modelContext: modelContext
+            )
 
             for (index, activity) in activities.enumerated() {
                 let candidate = DiveActivityDuplicateMatcher.signature(for: activity)
@@ -101,7 +105,8 @@ enum UddfDiveFileImport {
                     DiveBuddyImportConsolidation.prepareForInsert(
                         activity,
                         owner: owner,
-                        modelContext: modelContext
+                        modelContext: modelContext,
+                        rosterCache: &buddyRosterCache
                     )
                     modelContext.insert(activity)
                     try DiveActivityEquipmentAssociation.applyAutoAdd(

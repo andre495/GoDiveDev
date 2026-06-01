@@ -18,6 +18,9 @@ struct LogOverviewView: View {
     @State private var path: [HomeRoute] = []
     @State private var carouselHighlights: [HomeMediaHighlight] = []
     @State private var isCarouselMediaReady = false
+    @State private var homeAggregate = HomeOverviewAggregate.empty
+    @State private var lastCarouselFingerprint = 0
+    @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
 
     private enum Layout {
         static let profileAvatarDiameter: CGFloat = 48
@@ -38,46 +41,10 @@ struct LogOverviewView: View {
         )
     }
 
-    private var diveStatsInputs: [HomeDiveStatsInput] {
-        let useChronologicalNumbers = AppUserSettings.automaticallyRenumberDives
-        let chronologicalNumbers = useChronologicalNumbers
-            ? DiveActivityDiveNumbering.numberedDiveSequentialIndicesById(for: ownerDiveActivities)
-            : [:]
-
-        return ownerDiveActivities.map { activity in
-            HomeDiveStatsInput(
-                id: activity.id,
-                maxDepthMeters: activity.maxDepthMeters,
-                durationMinutes: activity.durationMinutes,
-                diveSiteID: activity.diveSiteID,
-                diveNumberLabel: HomeMediaHighlightPresentation.diveNumberLabel(
-                    diveNumber: activity.diveNumber,
-                    diveNumberExplicitlyNone: activity.diveNumberExplicitlyNone,
-                    chronologicalIndex: chronologicalNumbers[activity.id],
-                    useChronologicalNumbers: useChronologicalNumbers
-                ),
-                siteDisplayName: LogbookActivityRow.displayName(for: activity)
-            )
-        }
-    }
-
-    /// Recomputed whenever SwiftData publishes dive / sighting / media changes (**`@Query`**).
-    private var lifetimeStats: HomeLifetimeStats {
-        HomeLifetimeStatsPresentation.build(
-            dives: diveStatsInputs,
-            sightings: ownerSightingInputs
-        )
-    }
-
-    private var buddyLeaderboard: [HomeBuddyLeaderboardEntry] {
-        let tags = HomeBuddyLeaderboardSeeding.tagInputs(from: ownerDiveActivities)
-        return HomeBuddyLeaderboardPresentation.topEntries(from: tags)
-    }
-
     private var showsHomeBuddyLeaderboard: Bool {
         HomeBuddyLeaderboardPresentation.shouldShow(
-            diveCount: ownerDiveActivities.count,
-            entries: buddyLeaderboard
+            diveCount: homeAggregate.diveStatsInputs.count,
+            entries: homeAggregate.buddyLeaderboard
         )
     }
 
@@ -90,48 +57,6 @@ struct LogOverviewView: View {
             screenWidth: proxy.size.width,
             topSafeAreaInset: proxy.safeAreaInsets.top,
             statsPanelContentHeight: statsContentHeight
-        )
-    }
-
-    private var buddyLeaderboardTagSignature: [HomeBuddyLeaderboardPresentation.TagInput] {
-        HomeBuddyLeaderboardSeeding.tagInputs(from: ownerDiveActivities)
-    }
-
-    private var ownerSightingInputs: [HomeLifetimeStatsPresentation.SightingCountInput] {
-        let ownerDiveIDs = Set(ownerDiveActivities.map(\.id))
-        let catalogByUUID = Dictionary(uniqueKeysWithValues: marineLifeCatalog.map { ($0.uuid, $0) })
-
-        return allSightings.compactMap { sighting in
-            guard let diveID = sighting.diveActivityID, ownerDiveIDs.contains(diveID) else { return nil }
-            let name = sighting.marineLife?.commonName
-                ?? catalogByUUID[sighting.marineLifeUUID]?.commonName
-                ?? sighting.marineLifeUUID
-            return HomeLifetimeStatsPresentation.SightingCountInput(
-                marineLifeUUID: sighting.marineLifeUUID,
-                commonName: name
-            )
-        }
-    }
-
-    private var ownerMediaPhotos: [DiveMediaPhoto] {
-        let ownerDiveIDs = Set(ownerDiveActivities.map(\.id))
-        return allMediaPhotos.filter { photo in
-            guard let diveID = photo.diveActivityID else { return false }
-            return ownerDiveIDs.contains(diveID)
-        }
-    }
-
-    private var mediaByID: [UUID: DiveMediaPhoto] {
-        Dictionary(uniqueKeysWithValues: ownerMediaPhotos.map { ($0.id, $0) })
-    }
-
-    /// Changes when dives are added/removed/edited or related sighting/media rows change.
-    private var homeOverviewRefreshToken: String {
-        HomeOverviewRefreshToken.make(
-            dives: diveStatsInputs,
-            buddyTags: buddyLeaderboardTagSignature,
-            sightingCount: ownerSightingInputs.count,
-            mediaCount: ownerMediaPhotos.count
         )
     }
 
@@ -191,13 +116,14 @@ struct LogOverviewView: View {
             .toolbarBackground(.hidden, for: .navigationBar)
             .navigationInteractivePopGestureForHiddenNavBar()
             .navigationDestination(for: HomeRoute.self, destination: homeDestination)
-            .onAppear { refreshCarouselHighlights() }
-            .onChange(of: homeOverviewRefreshToken) { _, _ in
-                refreshCarouselHighlights()
-            }
+            .onAppear { rebuildHomeOverview() }
+            .onChange(of: ownerDiveActivities.count) { _, _ in rebuildHomeOverview() }
+            .onChange(of: allMediaPhotos.count) { _, _ in rebuildHomeOverview() }
+            .onChange(of: allSightings.count) { _, _ in rebuildHomeOverview() }
+            .onChange(of: automaticallyRenumberDives) { _, _ in rebuildHomeOverview() }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
-                    refreshCarouselHighlights()
+                    rebuildHomeOverview()
                 }
             }
         }
@@ -240,8 +166,8 @@ struct LogOverviewView: View {
         if isCarouselMediaReady {
             HomeMediaCarouselSection(
                 highlights: carouselHighlights,
-                mediaByID: mediaByID,
-                divesByID: Dictionary(uniqueKeysWithValues: ownerDiveActivities.map { ($0.id, $0) }),
+                mediaByID: homeAggregate.mediaByID,
+                divesByID: homeAggregate.divesByID,
                 containerWidth: screenWidth,
                 topSafeAreaInset: topSafeAreaInset,
                 headerOverlayHeight: headerClearance,
@@ -273,14 +199,14 @@ struct LogOverviewView: View {
     private var homeStatsPanelContent: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
             HomeLifetimeStatsSection(
-                stats: lifetimeStats,
-                buddyLeaderboard: buddyLeaderboard,
+                stats: homeAggregate.lifetimeStats,
+                buddyLeaderboard: homeAggregate.buddyLeaderboard,
                 unitSystem: diveDisplayUnitSystem,
                 onOpenDive: { path.append(.diveDetail($0)) },
                 onOpenSite: { path.append(.diveSite($0)) },
                 onOpenSpecies: { path.append(.marineLife($0)) }
             )
-            .id(homeOverviewRefreshToken)
+            .id(homeAggregate.contentFingerprint)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -339,20 +265,41 @@ struct LogOverviewView: View {
             .padding()
     }
 
-    private func refreshCarouselHighlights() {
+    private func rebuildHomeOverview() {
+        let built = HomeOverviewAggregateBuilder.build(
+            activities: ownerDiveActivities,
+            allMediaPhotos: allMediaPhotos,
+            allSightings: allSightings,
+            marineLifeCatalog: marineLifeCatalog,
+            automaticallyRenumberDives: automaticallyRenumberDives,
+            ownerProfileID: ownerProfileID
+        )
+        homeAggregate = built
+        refreshCarouselHighlightsIfNeeded(using: built)
+    }
+
+    private func refreshCarouselHighlightsIfNeeded(using aggregate: HomeOverviewAggregate) {
         guard let ownerProfileID else {
             carouselHighlights = []
             isCarouselMediaReady = false
+            lastCarouselFingerprint = 0
             return
         }
 
+        if aggregate.carouselFingerprint == lastCarouselFingerprint,
+           !carouselHighlights.isEmpty {
+            isCarouselMediaReady = isFirstCarouselHighlightReady(aggregate: aggregate)
+            return
+        }
+        lastCarouselFingerprint = aggregate.carouselFingerprint
+
         let taggedSpeciesCountByMediaID = HomeMediaHighlightPresentation.taggedSpeciesCountByMediaID(
-            sightings: ownerMediaHighlightSightings,
-            ownerDiveIDs: Set(ownerDiveActivities.map(\.id))
+            sightings: aggregate.mediaHighlightSightings,
+            ownerDiveIDs: aggregate.ownerDiveIDs
         )
         let candidates = HomeMediaHighlightPresentation.buildCandidates(
-            mediaPhotos: HomeMediaHighlightWarmup.highlightSources(from: ownerMediaPhotos),
-            dives: diveStatsInputs,
+            mediaPhotos: HomeMediaHighlightWarmup.highlightSources(from: aggregate.ownerMediaPhotos),
+            dives: aggregate.diveStatsInputs,
             taggedSpeciesCountByMediaID: taggedSpeciesCountByMediaID
         )
 
@@ -360,37 +307,23 @@ struct LogOverviewView: View {
             ownerProfileID: ownerProfileID,
             candidates: candidates
         )
-        isCarouselMediaReady = isFirstCarouselHighlightReady()
+        isCarouselMediaReady = isFirstCarouselHighlightReady(aggregate: aggregate)
 
         Task {
             await HomeMediaHighlightWarmup.warmHighlights(
                 carouselHighlights,
-                mediaByID: mediaByID
+                mediaByID: aggregate.mediaByID
             )
             isCarouselMediaReady = true
         }
     }
 
-    private func isFirstCarouselHighlightReady() -> Bool {
+    private func isFirstCarouselHighlightReady(aggregate: HomeOverviewAggregate) -> Bool {
         guard let first = carouselHighlights.first,
-              let media = mediaByID[first.mediaID] else {
+              let media = aggregate.mediaByID[first.mediaID] else {
             return carouselHighlights.isEmpty
         }
         return HomeMediaHighlightWarmup.isHighlightDisplayable(first, media: media)
-    }
-
-    private var ownerMediaHighlightSightings: [HomeMediaHighlightSightingInput] {
-        let ownerDiveIDs = Set(ownerDiveActivities.map(\.id))
-        return allSightings.map {
-            HomeMediaHighlightSightingInput(
-                mediaPhotoID: $0.mediaPhotoID,
-                diveActivityID: $0.diveActivityID
-            )
-        }
-        .filter { sighting in
-            guard let diveID = sighting.diveActivityID else { return false }
-            return ownerDiveIDs.contains(diveID)
-        }
     }
 }
 

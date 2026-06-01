@@ -57,7 +57,7 @@ enum DiveActivityMapper {
             )
         }
 
-        activity.buddies = (dto.buddies ?? []).map { buddyDTO in
+        activity.buddies = (dto.buddies ?? []).compactMap { buddyDTO in
             DiveBuddyTagging.makeTag(
                 displayName: buddyDTO.displayName,
                 tagID: buddyDTO.id ?? UUID(),

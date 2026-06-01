@@ -30,12 +30,32 @@ enum DiveBuddyActivityAssociation {
         modelContext: ModelContext,
         tagID: UUID = UUID()
     ) -> DiveBuddyTag? {
+        guard !DiveBuddyCatalog.shouldExcludeBuddyName(displayName, owner: owner) else { return nil }
         let buddy = DiveBuddyCatalog.findOrCreate(
             displayName: displayName,
             contactsIdentifier: contactsIdentifier,
             profilePhoto: profilePhoto,
             owner: owner,
             modelContext: modelContext
+        )
+        return tagBuddy(buddy, on: activity, modelContext: modelContext, tagID: tagID)
+    }
+
+    @discardableResult
+    static func tagNewBuddy(
+        displayName: String,
+        owner: UserProfile?,
+        on activity: DiveActivity,
+        modelContext: ModelContext,
+        tagID: UUID,
+        rosterCache: inout DiveBuddyImportConsolidation.RosterCache
+    ) -> DiveBuddyTag? {
+        guard !DiveBuddyCatalog.shouldExcludeBuddyName(displayName, owner: owner) else { return nil }
+        let buddy = DiveBuddyCatalog.findOrCreate(
+            displayName: displayName,
+            owner: owner,
+            modelContext: modelContext,
+            rosterCache: &rosterCache
         )
         return tagBuddy(buddy, on: activity, modelContext: modelContext, tagID: tagID)
     }

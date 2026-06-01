@@ -3274,6 +3274,31 @@ struct GoDiveMVPTests {
         #endif
     }
 
+    @Test func homeOverviewRefreshToken_contentFingerprint_changesWhenDiveMetricsChange() {
+        let base = [
+            HomeDiveStatsInput(
+                id: UUID(uuidString: "00000000-0000-0000-0000-000000000101")!,
+                maxDepthMeters: 20,
+                durationMinutes: 40,
+                diveSiteID: nil,
+                diveNumberLabel: "#1",
+                siteDisplayName: "Wall"
+            ),
+        ]
+        let before = HomeOverviewRefreshToken.contentFingerprint(dives: base, sightingCount: 0, mediaCount: 1)
+        var deeper = base
+        deeper[0] = HomeDiveStatsInput(
+            id: base[0].id,
+            maxDepthMeters: 30,
+            durationMinutes: base[0].durationMinutes,
+            diveSiteID: base[0].diveSiteID,
+            diveNumberLabel: base[0].diveNumberLabel,
+            siteDisplayName: base[0].siteDisplayName
+        )
+        let afterDepth = HomeOverviewRefreshToken.contentFingerprint(dives: deeper, sightingCount: 0, mediaCount: 1)
+        #expect(before != afterDepth)
+    }
+
     @Test func homeOverviewRefreshToken_changesWhenDiveMetricsChange() {
         let diveID = UUID()
         let siteID = UUID()
@@ -6063,6 +6088,199 @@ struct GoDiveMVPTests {
         #expect(second.displayName == "Patricia Lee")
     }
 
+    @Test func diveBuddyNameMatching_isLikelyDiverSelf_matchesFuzzyProfileName() {
+        #expect(DiveBuddyNameMatching.isLikelyDiverSelf(buddyName: "Mike Dugas", diverDisplayName: "Mike Dugas"))
+        #expect(DiveBuddyNameMatching.isLikelyDiverSelf(buddyName: "Mike", diverDisplayName: "Mike Dugas"))
+        #expect(!DiveBuddyNameMatching.isLikelyDiverSelf(buddyName: "Pat Lee", diverDisplayName: "Mike Dugas"))
+        #expect(!DiveBuddyNameMatching.isLikelyDiverSelf(buddyName: "Mike Dugas", diverDisplayName: "Diver"))
+        #expect(!DiveBuddyNameMatching.isLikelyDiverSelf(buddyName: "Mike Dugas", diverDisplayName: ""))
+    }
+
+    @Test func diveBuddyActivityAssociation_skipsTagWhenNameMatchesOwner() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "self-buddy-owner", displayName: "Mike Dugas")
+        context.insert(owner)
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: .now,
+            durationMinutes: 30,
+            maxDepthMeters: 12
+        )
+        context.insert(activity)
+
+        let selfTag = DiveBuddyActivityAssociation.tagNewBuddy(
+            displayName: "Mike Dugas",
+            owner: owner,
+            on: activity,
+            modelContext: context
+        )
+        let buddyTag = DiveBuddyActivityAssociation.tagNewBuddy(
+            displayName: "Pat Lee",
+            owner: owner,
+            on: activity,
+            modelContext: context
+        )
+        #expect(selfTag == nil)
+        #expect(buddyTag != nil)
+        #expect(activity.buddies.count == 1)
+        #expect(activity.buddies[0].displayName == "Pat Lee")
+        let roster = try context.fetch(FetchDescriptor<DiveBuddy>())
+        #expect(roster.count == 1)
+    }
+
+    @Test func diveBuddyNameMatching_firstNameLinksToFullRosterName() {
+        #expect(DiveBuddyNameMatching.isLikelySamePerson(importedName: "Mike", rosterName: "Mike Dugas"))
+        #expect(DiveBuddyNameMatching.isLikelySamePerson(importedName: "Mike Dugas", rosterName: "Mike"))
+        #expect(DiveBuddyNameMatching.isLikelySamePerson(importedName: "Dugas Mike", rosterName: "Mike Dugas"))
+        #expect(!DiveBuddyNameMatching.isLikelySamePerson(importedName: "Mike Dugas", rosterName: "Mike Smith"))
+        #expect(!DiveBuddyNameMatching.isLikelySamePerson(importedName: "Ann Bee", rosterName: "Dan Bee"))
+    }
+
+    @Test func diveBuddyNameMatching_preferredDisplayNameKeepsFullName() {
+        #expect(
+            DiveBuddyNameMatching.preferredDisplayName(imported: "Mike", existing: "Mike Dugas") == "Mike Dugas"
+        )
+        #expect(
+            DiveBuddyNameMatching.preferredDisplayName(imported: "Mike Dugas", existing: "Mike") == "Mike Dugas"
+        )
+    }
+
+    @Test func diveBuddyCatalog_fuzzyMatchesImportToExistingRoster() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "fuzzy-buddy-owner", displayName: "Diver")
+        context.insert(owner)
+        let roster = DiveBuddy(displayName: "Mike Dugas", owner: owner)
+        context.insert(roster)
+
+        let linked = DiveBuddyCatalog.findOrCreate(
+            displayName: "Mike",
+            owner: owner,
+            modelContext: context
+        )
+        #expect(linked.id == roster.id)
+        #expect(linked.displayName == "Mike Dugas")
+    }
+
+    @Test func diveBuddyCatalog_fuzzyMatchSkipsAmbiguousFirstName() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "ambiguous-buddy-owner", displayName: "Diver")
+        context.insert(owner)
+        context.insert(DiveBuddy(displayName: "Mike Dugas", owner: owner))
+        context.insert(DiveBuddy(displayName: "Mike Smith", owner: owner))
+
+        let linked = DiveBuddyCatalog.findOrCreate(
+            displayName: "Mike",
+            owner: owner,
+            modelContext: context
+        )
+        #expect(linked.displayName == "Mike")
+        let rosterCount = try context.fetch(FetchDescriptor<DiveBuddy>()).count
+        #expect(rosterCount == 3)
+    }
+
+    @Test func diveBuddyImportConsolidation_reusesFuzzyRosterBuddy() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "import-buddy-owner", displayName: "Diver")
+        context.insert(owner)
+        let roster = DiveBuddy(displayName: "Ann Bee", owner: owner)
+        context.insert(roster)
+
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: .now,
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        DiveActivityOwnership.assignOwner(owner, to: activity)
+        activity.buddies = [DiveBuddyImportConsolidation.makePendingTag(displayName: "Ann")]
+        var rosterCache: DiveBuddyImportConsolidation.RosterCache = [
+            DiveBuddyCatalog.normalizedNameKey(roster.displayName): roster,
+        ]
+        DiveBuddyImportConsolidation.prepareForInsert(
+            activity,
+            owner: owner,
+            modelContext: context,
+            rosterCache: &rosterCache
+        )
+        context.insert(activity)
+
+        #expect(activity.buddies.count == 1)
+        #expect(activity.buddies[0].buddy?.id == roster.id)
+        #expect(activity.buddies[0].displayName == "Ann Bee")
+    }
+
+    @Test func diveBuddyImportConsolidation_multiDiveBatch_reusesOneRosterBuddy() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "batch-buddy-owner", displayName: "Diver")
+        context.insert(owner)
+
+        var rosterCache = DiveBuddyImportConsolidation.RosterCache()
+        let names = ["Mike Dugas", "Mike Dugas", "Mike"]
+
+        for name in names {
+            let activity = DiveActivity(
+                source: .macDive,
+                startTime: .now,
+                durationMinutes: 30,
+                maxDepthMeters: 15
+            )
+            DiveActivityOwnership.assignOwner(owner, to: activity)
+            activity.buddies = [DiveBuddyImportConsolidation.makePendingTag(displayName: name)]
+            DiveBuddyImportConsolidation.prepareForInsert(
+                activity,
+                owner: owner,
+                modelContext: context,
+                rosterCache: &rosterCache
+            )
+            context.insert(activity)
+        }
+
+        let roster = try context.fetch(FetchDescriptor<DiveBuddy>())
+        #expect(roster.count == 1)
+        #expect(roster[0].displayName == "Mike Dugas")
+        #expect(roster[0].diveParticipations.count == 3)
+    }
+
+    @Test func diveBuddyImportConsolidation_detachPendingTags_avoidsOrphanBuddyInsert() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "detach-buddy-owner", displayName: "Diver")
+        context.insert(owner)
+
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: .now,
+            durationMinutes: 20,
+            maxDepthMeters: 10
+        )
+        DiveActivityOwnership.assignOwner(owner, to: activity)
+
+        let pending = DiveBuddyImportConsolidation.makePendingTag(displayName: "Pat Lee")
+        pending.dive = activity
+        activity.buddies = [pending]
+
+        var rosterCache = DiveBuddyImportConsolidation.RosterCache()
+        DiveBuddyImportConsolidation.prepareForInsert(
+            activity,
+            owner: owner,
+            modelContext: context,
+            rosterCache: &rosterCache
+        )
+        context.insert(activity)
+        try context.save()
+
+        let roster = try context.fetch(FetchDescriptor<DiveBuddy>())
+        #expect(roster.count == 1)
+        #expect(roster[0].displayName == "Pat Lee")
+        #expect(activity.buddies.count == 1)
+        #expect(activity.buddies[0].buddy?.id == roster[0].id)
+    }
+
     @Test func diveBuddyActivityAssociation_doesNotDuplicateTagOnSameDive() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = ModelContext(container)
@@ -6088,6 +6306,56 @@ struct GoDiveMVPTests {
         contact.givenName = "Pat"
         contact.familyName = "Lee"
         #expect(DiveBuddyContactImport.displayName(from: contact) == "Pat Lee")
+    }
+
+    @Test func diveBuddyContactLinking_applyLinksContactToRosterBuddy() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "link-contact-owner", displayName: "Diver One")
+        context.insert(owner)
+        let buddy = DiveBuddy(displayName: "Old Name", owner: owner)
+        context.insert(buddy)
+
+        let contact = CNMutableContact()
+        contact.givenName = "Jamie"
+        contact.familyName = "Lee"
+
+        try DiveBuddyContactLinking.apply(
+            contact: contact,
+            to: buddy,
+            owner: owner,
+            modelContext: context
+        )
+
+        #expect(buddy.displayName == "Jamie Lee")
+        #expect(buddy.contactsIdentifier == contact.identifier)
+    }
+
+    @Test func diveBuddyContactLinking_rejectsContactAlreadyLinkedToAnotherBuddy() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "dup-contact-owner", displayName: "Diver")
+        context.insert(owner)
+
+        let contact = CNMutableContact()
+        contact.givenName = "Alex"
+        contact.familyName = "Kim"
+
+        let first = DiveBuddy(displayName: "Alex Kim", owner: owner)
+        first.contactsIdentifier = contact.identifier
+        context.insert(first)
+
+        let second = DiveBuddy(displayName: "Someone Else", owner: owner)
+        context.insert(second)
+
+        #expect(throws: DiveBuddyContactLinking.LinkError.self) {
+            try DiveBuddyContactLinking.apply(
+                contact: contact,
+                to: second,
+                owner: owner,
+                modelContext: context
+            )
+        }
     }
 
     @Test func diveBuddyLegacyMigration_linksOrphanTagsToPeople() throws {

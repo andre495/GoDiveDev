@@ -18,6 +18,7 @@ enum HomeMediaHighlightWarmup {
 
     private static var inflightWarmups: [String: Task<Void, Never>] = [:]
     private static var backgroundFullWarmupTask: Task<Void, Never>?
+    private static var cachedVideoDurationSeconds: [String: Double] = [:]
 
     /// Warms carousel picks — previews first, then upgrades all to full quality in the background.
     static func warmHighlights(
@@ -67,7 +68,7 @@ enum HomeMediaHighlightWarmup {
             let duration: Double? = {
                 #if canImport(Photos)
                 guard kind == .video, let identifier = photo.libraryAssetLocalIdentifier else { return nil }
-                return DiveMediaReferenceLoader.videoDurationSeconds(localIdentifier: identifier)
+                return cachedVideoDurationSeconds(localIdentifier: identifier)
                 #else
                 return nil
                 #endif
@@ -80,6 +81,19 @@ enum HomeMediaHighlightWarmup {
             )
         }
     }
+
+    #if canImport(Photos)
+    private static func cachedVideoDurationSeconds(localIdentifier: String) -> Double? {
+        if let cached = cachedVideoDurationSeconds[localIdentifier] {
+            return cached
+        }
+        let duration = DiveMediaReferenceLoader.videoDurationSeconds(localIdentifier: localIdentifier)
+        if let duration {
+            cachedVideoDurationSeconds[localIdentifier] = duration
+        }
+        return duration
+    }
+    #endif
 
     /// **`true`** when bootstrap tiers are satisfied for every carousel pick.
     static func isBootstrapReady(

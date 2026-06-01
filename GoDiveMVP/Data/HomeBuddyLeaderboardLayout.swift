@@ -5,6 +5,5 @@ import Foundation
 enum HomeBuddyLeaderboardLayout: Sendable {
     nonisolated static let estimatedTileHeight: CGFloat = HomeLifetimeStatsTilesLayout.buddyTileHeight
     nonisolated static let podiumRowHeight: CGFloat = 98
-    nonisolated static let avatarDiameterFirst: CGFloat = 56
-    nonisolated static let avatarDiameterOther: CGFloat = 48
+    nonisolated static let avatarDiameter: CGFloat = 52
 }

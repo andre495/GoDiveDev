@@ -940,5 +940,19 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Home stats (no scroll):** removed stats **`ScrollView`**; **`HomeLifetimeStatsTilesLayout`** sizes all **5** tiles to the fixed panel (**92 pt** stat cards, **152 pt** buddies, **368 pt** scroll content — taller stats sheet, larger **Top buddies** podium).
 - **Profile → Dive Buddies:** **`DiveBuddiesListView`** (logbook-style rows + avatar); **`ViewDiveBuddyDetails`** (pushed page: name, avatar, dives-together count, linked **`LogbookActivityRow`** dives); **`DiveBuddyEditSheetView`** + **`DiveBuddyAvatarEditor`** (name + cropped photo).
 
-## 60 - Next batch
+## 60 - Import buddy dedupe, Home perf, buddy Contacts **(pushed)**
+
+**Summary:** Import buddy names fuzzy-link to existing roster **`DiveBuddy`** rows when names align (UDDF/FIT consolidation path).
+
+- **`DiveBuddyNameMatching`**: token / first-name / first+last heuristics; **`preferredDisplayName`** keeps the fuller label.
+- **`DiveBuddyCatalog.findFuzzyMatch`**: used from **`findOrCreate`** after exact normalized match; skips ambiguous ties (e.g. two “Mike …” roster rows for import **Mike**).
+- **Home tab performance:** cache **`HomeOverviewAggregate`** (stats + buddy leaderboard + owned media) once per data change instead of recomputing on every SwiftUI body pass; cheap **`contentFingerprint`** / **`carouselFingerprint`**; skip carousel PhotoKit rebuild when picks unchanged; cache video durations.
+- **Home Top buddies:** uniform **52 pt** avatars for all three podium slots (no larger #1).
+- **Profile → Dive buddy detail — Connect to Contact:** **`ViewDiveBuddyDetails`** — **Connect to Contact** (system picker), **Refresh name and photo**, **Change contact**, **Disconnect contact** when linked; **`DiveBuddyContactLinking`**, shared **`ContactsPickerAccess`**.
+- **Self-name skip:** do not tag or create a dive buddy when the name fuzzy-matches the signed-in diver's profile display name (**`DiveBuddyCatalog.shouldExcludeBuddyName`** / **`DiveBuddyNameMatching.isLikelyDiverSelf`**); applies to import, manual tagging, and fixture mapping.
+- **Bug fix — import duplicates:** decode pending tags no longer link **`dive`** / transient **`DiveBuddy`** rows ( **`makePendingTag`** ); **`prepareForInsert`** detaches pending tags before roster link; per-file **`rosterCache`** (preloaded + in-batch) reuses one person across dives; **`dives together`** increments via shared **`DiveBuddyTag`** on the same roster row.
+- **`FitDiveFileImport`** now runs **`DiveBuddyImportConsolidation`** before insert.
+- Tests: **`diveBuddyNameMatching_*`**, **`diveBuddyCatalog_fuzzy*`**, **`diveBuddyImportConsolidation_*`** (fuzzy, batch, detach).
+
+## 61 - Next batch
 
