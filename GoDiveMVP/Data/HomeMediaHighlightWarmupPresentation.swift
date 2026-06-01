@@ -9,6 +9,9 @@ enum HomeMediaHighlightWarmupPresentation: Sendable {
     /// Low-res poster edge for carousel picks warmed during bootstrap after the first **`startupFullQualityCount`**.
     nonisolated static let previewImageEdge: CGFloat = 480
 
+    /// Max seconds the launch overlay waits for Home media before revealing the tab (warm continues on Home).
+    nonisolated static let bootstrapOverlayMaxWaitSeconds: Double = 5
+
     enum WarmupQuality: Sendable {
         case preview
         case full
@@ -34,6 +37,14 @@ enum HomeMediaHighlightWarmupPresentation: Sendable {
     nonisolated static func backgroundFullQualityIndices(totalCount: Int) -> [Int] {
         guard totalCount > startupFullQualityCount else { return [] }
         return Array(startupFullQualityCount ..< totalCount)
+    }
+
+    /// **`true`** when the launch overlay can dismiss — full bootstrap **or** first slide has a poster frame.
+    nonisolated static func isOverlayDismissReady(
+        isBootstrapReady: Bool,
+        firstSlideHasDisplayableImage: Bool
+    ) -> Bool {
+        isBootstrapReady || firstSlideHasDisplayableImage
     }
 }
 

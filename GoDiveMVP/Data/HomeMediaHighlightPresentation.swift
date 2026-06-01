@@ -24,7 +24,16 @@ struct HomeMediaHighlight: Identifiable, Equatable, Sendable {
 /// Picks a daily-shuffled subset of dive media for the Home carousel.
 enum HomeMediaHighlightPresentation {
 
-    nonisolated static let carouselLimit = 5
+    nonisolated static let carouselLimit = 3
+
+    /// Videos longer than this are excluded from the daily carousel shuffle (startup + playback cost).
+    nonisolated static let carouselVideoMaxDurationSeconds: Double = 30
+
+    nonisolated static func isEligibleCarouselSource(_ source: HomeMediaHighlightSource) -> Bool {
+        guard source.mediaKind == .video else { return true }
+        guard let duration = source.videoDurationSeconds, duration > 0 else { return true }
+        return duration <= carouselVideoMaxDurationSeconds
+    }
 
     nonisolated static func dailySeed(ownerProfileID: UUID, referenceDate: Date = .now) -> UInt64 {
         let calendar = Calendar(identifier: .gregorian)
@@ -54,7 +63,9 @@ enum HomeMediaHighlightPresentation {
         taggedSpeciesCountByMediaID: [UUID: Int] = [:]
     ) -> [HomeMediaHighlight] {
         let divesByID = Dictionary(uniqueKeysWithValues: dives.map { ($0.id, $0) })
-        return mediaPhotos.compactMap { photo -> HomeMediaHighlight? in
+        return mediaPhotos
+            .filter(isEligibleCarouselSource)
+            .compactMap { photo -> HomeMediaHighlight? in
             guard let diveID = photo.diveActivityID, let dive = divesByID[diveID] else { return nil }
             return HomeMediaHighlight(
                 mediaID: photo.mediaID,
@@ -122,6 +133,9 @@ enum HomeMediaHighlightPresentation {
 struct HomeMediaHighlightSource: Sendable, Equatable {
     let mediaID: UUID
     let diveActivityID: UUID?
+    var mediaKind: DiveMediaKind = .image
+    /// Photos **`PHAsset.duration`** when **`mediaKind == .video`**; **`nil`** for photos / unknown.
+    var videoDurationSeconds: Double? = nil
 }
 
 /// One sighting row for Home highlight species counts (no SwiftData models).

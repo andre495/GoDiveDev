@@ -5,7 +5,7 @@ import SwiftUI
 
 enum HomeMediaCarouselLayout {
     /// Hero height = width × ratio + top safe inset + extension into the stats sheet overlap zone.
-    static let heroHeightToWidthRatio: CGFloat = 0.96
+    static let heroHeightToWidthRatio: CGFloat = 0.77
 
     /// Bottom inset for slide chrome — just above the stats sheet overlap.
     static var slideChromeBottomInset: CGFloat {
@@ -54,6 +54,149 @@ struct HomeMediaCarouselLoadingPlaceholder: View {
         )
         .frame(maxWidth: .infinity)
         .accessibilityIdentifier("Home.MediaCarousel.Loading")
+    }
+}
+
+/// Animated hero stand-in when the owner has dives but no Photos media for the daily carousel yet.
+struct HomeMediaCarouselEmptyPlaceholder: View {
+    let containerWidth: CGFloat
+    let topSafeAreaInset: CGFloat
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var heroHeight: CGFloat {
+        HomeMediaCarouselLayout.heroHeight(
+            width: containerWidth,
+            topSafeAreaInset: topSafeAreaInset
+        )
+    }
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    AppTheme.Colors.surfaceGradientTop.opacity(0.92),
+                    AppTheme.Colors.accent.opacity(0.14),
+                    AppTheme.Colors.surfaceGradientBottom.opacity(0.96),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            ghostFrames
+                .padding(.bottom, HomeLifetimeStatsLayout.panelOverlap * 0.35)
+
+            VStack(spacing: AppTheme.Spacing.md) {
+                Image(systemName: "photo.on.rectangle.angled")
+                    .font(.system(size: 44, weight: .medium))
+                    .foregroundStyle(AppTheme.Colors.accent)
+                    .symbolEffect(.pulse.byLayer, options: .repeating, isActive: !reduceMotion)
+                    .accessibilityHidden(true)
+
+                VStack(spacing: AppTheme.Spacing.sm) {
+                    Text(HomeMediaCarouselEmptyPresentation.title)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(AppTheme.Colors.textPrimary)
+                        .multilineTextAlignment(.center)
+
+                    Text(HomeMediaCarouselEmptyPresentation.message)
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.Colors.secondaryText)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(2)
+                }
+                .padding(.horizontal, AppTheme.Spacing.lg)
+            }
+            .padding(.horizontal, AppTheme.Spacing.lg)
+            .padding(.bottom, HomeMediaCarouselLayout.slideChromeBottomInset)
+        }
+        .frame(width: containerWidth, height: heroHeight)
+        .frame(maxWidth: .infinity)
+        .clipped()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            "\(HomeMediaCarouselEmptyPresentation.title). \(HomeMediaCarouselEmptyPresentation.message)"
+        )
+        .accessibilityIdentifier("Home.MediaCarousel.Empty")
+    }
+
+    @ViewBuilder
+    private var ghostFrames: some View {
+        if reduceMotion {
+            staticGhostFrames
+        } else {
+            animatedGhostFrames
+        }
+    }
+
+    private var staticGhostFrames: some View {
+        ZStack {
+            ForEach(0 ..< HomeMediaCarouselEmptyPresentation.frameCount, id: \.self) { index in
+                ghostFrame(index: index, verticalOffset: 0)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var animatedGhostFrames: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+            let elapsed = timeline.date.timeIntervalSinceReferenceDate
+            ZStack {
+                ForEach(0 ..< HomeMediaCarouselEmptyPresentation.frameCount, id: \.self) { index in
+                    let phase = HomeMediaCarouselEmptyPresentation.framePhaseOffset(index: index)
+                    let cycle = HomeMediaCarouselEmptyPresentation.animationCycleSeconds
+                    let wave = sin((elapsed / cycle + phase) * 2 * .pi)
+                    ghostFrame(
+                        index: index,
+                        verticalOffset: HomeMediaCarouselEmptyPresentation.frameOffsetAmplitude(index: index) * wave
+                    )
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private func ghostFrame(index: Int, verticalOffset: CGFloat) -> some View {
+        let frameSize = ghostFrameSize(index: index)
+        return RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(AppTheme.Colors.surfaceElevated.opacity(0.55))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(AppTheme.Colors.accent.opacity(0.22), lineWidth: 1)
+            }
+            .overlay {
+                Image(systemName: index == 1 ? "video.fill" : "photo.fill")
+                    .font(.title2)
+                    .foregroundStyle(AppTheme.Colors.accent.opacity(0.45))
+            }
+            .frame(width: frameSize.width, height: frameSize.height)
+            .rotationEffect(.degrees(HomeMediaCarouselEmptyPresentation.frameRotationDegrees(index: index)))
+            .offset(x: ghostFrameHorizontalOffset(index: index), y: verticalOffset + ghostFrameVerticalOffset(index: index))
+            .shadow(color: .black.opacity(0.12), radius: 10, y: 6)
+    }
+
+    private func ghostFrameSize(index: Int) -> CGSize {
+        switch index {
+        case 0: CGSize(width: 108, height: 132)
+        case 1: CGSize(width: 118, height: 142)
+        default: CGSize(width: 104, height: 126)
+        }
+    }
+
+    private func ghostFrameHorizontalOffset(index: Int) -> CGFloat {
+        switch index {
+        case 0: -containerWidth * 0.22
+        case 1: 0
+        default: containerWidth * 0.22
+        }
+    }
+
+    private func ghostFrameVerticalOffset(index: Int) -> CGFloat {
+        switch index {
+        case 0: -12
+        case 1: -28
+        default: -8
+        }
     }
 }
 
@@ -530,16 +673,17 @@ private struct HomeMediaCarouselMediaView: View {
 enum HomeLifetimeStatsLayout {
     static let gridColumnCount = 2
     static let gridSpacing = AppTheme.Spacing.md
-    static let minimumTileHeight: CGFloat = 72
+    static let minimumTileHeight: CGFloat = 88
 
     /// Matches modal / embedded sheet corner radius — stats panel reads as a sheet over the hero.
     static let panelTopCornerRadius: CGFloat = AppTheme.Sheet.cornerRadius
     /// How far the stats panel rises over featured media (media shows through the top corner radii).
-    static let panelOverlap: CGFloat = 154
+    static let panelOverlap: CGFloat = 148
     /// Extra hero height below the base aspect ratio so media bleeds behind the stats sheet.
-    static let heroBottomExtension: CGFloat = 168
+    static let heroBottomExtension: CGFloat = 162
     static let panelTopContentPadding: CGFloat = AppTheme.Spacing.lg
-    static let panelTopContentPaddingWhenOverlapping: CGFloat = AppTheme.Spacing.md
+    /// Breathing room between carousel bottom and stat tiles when the sheet overlaps the hero.
+    static let panelTopContentPaddingWhenOverlapping: CGFloat = AppTheme.Spacing.lg + AppTheme.Spacing.sm
 
     static func rowCount(tileCount: Int) -> Int {
         guard tileCount > 0 else { return 0 }
@@ -551,6 +695,18 @@ enum HomeLifetimeStatsLayout {
         guard rows > 0, availableHeight > 0 else { return minimumTileHeight }
         let totalSpacing = gridSpacing * CGFloat(max(rows - 1, 0))
         return max((availableHeight - totalSpacing) / CGFloat(rows), minimumTileHeight)
+    }
+
+    static func tileContentSpacing(for tileHeight: CGFloat) -> CGFloat {
+        tileHeight >= 100 ? AppTheme.Spacing.md : AppTheme.Spacing.sm
+    }
+
+    static func valueFontSize(for tileHeight: CGFloat) -> CGFloat {
+        min(max(tileHeight * 0.24, 20), 32)
+    }
+
+    static func titleFontSize(for tileHeight: CGFloat) -> CGFloat {
+        min(max(tileHeight * 0.14, 13), 17)
     }
 }
 
@@ -641,7 +797,7 @@ struct HomeLifetimeStatsSection: View {
                     )
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityIdentifier("Home.LifetimeStats")
@@ -746,15 +902,15 @@ private struct HomeStatTile: View {
     }
 
     private var tileContent: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: HomeLifetimeStatsLayout.tileContentSpacing(for: tileHeight)) {
             HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
                 Image(systemName: systemImage)
-                    .font(.title3.weight(.semibold))
+                    .font(.system(size: HomeLifetimeStatsLayout.titleFontSize(for: tileHeight), weight: .semibold))
                     .foregroundStyle(AppTheme.Colors.accent)
                     .accessibilityHidden(true)
 
                 Text(title)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.system(size: HomeLifetimeStatsLayout.titleFontSize(for: tileHeight), weight: .semibold))
                     .foregroundStyle(AppTheme.Colors.secondaryText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
@@ -770,12 +926,12 @@ private struct HomeStatTile: View {
             }
 
             Text(value)
-                .font(.title3.weight(.bold))
+                .font(.system(size: HomeLifetimeStatsLayout.valueFontSize(for: tileHeight), weight: .bold))
                 .foregroundStyle(AppTheme.Colors.textPrimary)
                 .lineLimit(2)
                 .minimumScaleFactor(0.75)
                 .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
 
             if showsFootnote {
                 Text(footnote)
@@ -784,11 +940,9 @@ private struct HomeStatTile: View {
                     .lineLimit(2)
                     .minimumScaleFactor(0.85)
             }
-
-            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .frame(height: tileHeight, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .frame(height: tileHeight, alignment: .leading)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
     }

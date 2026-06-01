@@ -227,4 +227,9 @@ enum DiveActivityMediaPresentation: Sendable {
         }
         return photos.first?.id
     }
+
+    /// PhotoKit request edge for full-bleed pager photos — screen pixel width, clamped for memory.
+    nonisolated static func fullScreenImageTargetEdge(screenPixelWidth: CGFloat) -> CGFloat {
+        min(max(max(screenPixelWidth, 1), 800), 2_048)
+    }
 }

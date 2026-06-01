@@ -138,11 +138,15 @@ struct LogOverviewView: View {
                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                                 .padding(.bottom, proxy.safeAreaInsets.bottom)
                             } else {
-                                VStack(spacing: 0) {
-                                    Color.clear
-                                        .frame(height: headerClearance)
+                                VStack(spacing: -HomeLifetimeStatsLayout.panelOverlap) {
+                                    HomeMediaCarouselEmptyPlaceholder(
+                                        containerWidth: proxy.size.width,
+                                        topSafeAreaInset: proxy.safeAreaInsets.top
+                                    )
+                                    .padding(.top, -proxy.safeAreaInsets.top)
+                                    .ignoresSafeArea(edges: .top)
 
-                                    homeStatsPanel(overlapsMedia: false)
+                                    homeStatsPanel(overlapsMedia: true)
                                 }
                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                                 .padding(.bottom, proxy.safeAreaInsets.bottom)
@@ -241,14 +245,6 @@ struct LogOverviewView: View {
             )
             .id(homeOverviewRefreshToken)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            if carouselHighlights.isEmpty {
-                Text("Add photos on your dives to see a rotating highlight reel here.")
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-                    .lineLimit(2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
@@ -318,9 +314,7 @@ struct LogOverviewView: View {
             ownerDiveIDs: Set(ownerDiveActivities.map(\.id))
         )
         let candidates = HomeMediaHighlightPresentation.buildCandidates(
-            mediaPhotos: ownerMediaPhotos.map {
-                HomeMediaHighlightSource(mediaID: $0.id, diveActivityID: $0.diveActivityID)
-            },
+            mediaPhotos: HomeMediaHighlightWarmup.highlightSources(from: ownerMediaPhotos),
             dives: diveStatsInputs,
             taggedSpeciesCountByMediaID: taggedSpeciesCountByMediaID
         )
@@ -345,7 +339,7 @@ struct LogOverviewView: View {
               let media = mediaByID[first.mediaID] else {
             return carouselHighlights.isEmpty
         }
-        return HomeMediaHighlightWarmup.isHighlightReady(first, media: media)
+        return HomeMediaHighlightWarmup.isHighlightDisplayable(first, media: media)
     }
 
     private var ownerMediaHighlightSightings: [HomeMediaHighlightSightingInput] {

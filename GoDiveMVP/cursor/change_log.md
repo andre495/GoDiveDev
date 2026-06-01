@@ -900,5 +900,28 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Home carousel dive chip:** removed trailing chevron from **`HomeMediaCarouselDiveLinkButton`**.
 - **`HomeMediaHighlightWarmupPresentation.WarmupQuality`:** explicit **nonisolated** **`Equatable`** — fixes Swift 6 warning in **`homeMediaHighlightWarmupPresentation_bootstrapQualityAndReadiness`**.
 
-## 58 - Next batch
+## 58 - Home performance, layout, and empty hero **(pushed)**
+
+- **Summary:** Phase A media-loading performance — faster Home bootstrap, deduped PhotoKit image loads, opportunistic thumbnails/previews, single foreground re-warm owner.
+- **`HomeMediaHighlightWarmup`** — parallel bootstrap warms (full + preview tiers concurrently); **`warmFromStore`** returns when **`isBootstrapReady`** (remaining warm continues in background).
+- **`DiveMediaReferenceLoader.image`** — inflight dedupe via **`DiveMediaReferenceImageCache`**; optional **`deliveryMode`** (preview/thumbnail **`.opportunistic`**).
+- **`DiveActivityMediaThumbnailView`** — opportunistic thumbnail delivery.
+- **`AppSessionRootView`** — removed duplicate foreground **`warmFromStore`** (Home **`LogOverviewView`** owns re-warm on **`.active`**).
+- Tests: **`homeMediaHighlightWarmup_bootstrapTier_warmsFirstSlidesAtFullQuality`**.
+
+- **Summary:** Phase B media-loading performance — app-wide video asset cache, off-main PhotoKit image decode, screen-scale full-screen photos, bounded image NSCache.
+- **`DiveMediaVideoAssetSessionCache`** — session LRU (**24** entries) for shareable **`AVAsset`**; used by **`loadVideoAsset`** / **`playerItem`** app-wide.
+- **`DiveMediaReferenceLoader`** — PhotoKit image fetch in **`Task.detached`**; video loads via cached **`AVAsset`** or **`requestAVAsset`** (no separate **`requestPlayerItem`** path); **`clearSessionMediaCaches`** clears video cache.
+- **`DiveMediaReferenceImageCache`** — **`totalCostLimit`** 128 MB + pixel-byte **`cost`** per entry.
+- **`DiveActivityMediaPresentation.fullScreenImageTargetEdge`** — screen pixel width clamped **800…2048** for pager photos (**`DiveActivityMediaItemView`**).
+- **`HomeMediaHighlightSessionCache`** — hero images only (video delegates to shared cache).
+- Tests: **`diveMediaVideoAssetSessionCache_evictsOldestBeyondCapacity`**, **`homeMediaHighlightSessionCache_evictsOldestImageBeyondCarouselLimit`**, **`diveActivityMediaPresentation_fullScreenImageTargetEdge_clampsToScreenAndCap`**.
+- **`fetchImageFromPhotoKit`** — **`.opportunistic`** can invoke PhotoKit multiple times; skip degraded frames and resume once via **`SingleResumeGuard`** (fixes continuation misuse crash).
+- **Home carousel startup cap:** videos **> 30 s** excluded from daily shuffle (**`carouselVideoMaxDurationSeconds`**); launch overlay max **5 s** (**`bootstrapOverlayMaxWaitSeconds`**) then Home continues warm; bootstrap counts hero **posters** only (video **`AVAsset`** loads in background); overlay dismisses when first slide has a poster or timeout.
+- **Home stats layout:** **`panelOverlap`** **185 pt** + **`heroBottomExtension`** **202 pt** (~20% higher on hero); larger flexible tiles (**`minimumTileHeight`** **88**, height-scaled value/title fonts).
+- **Home carousel:** **`carouselLimit`** **3** daily featured picks (was **5**).
+- **Home hero:** **`heroHeightToWidthRatio`** **0.77** + overlap extension **162 pt** (~20% shorter media area vs prior **0.96** / **202 pt**).
+- **`HomeMediaCarouselEmptyPlaceholder`** — animated ghost photo frames + copy encouraging Logbook media / Settings auto-upload when dives exist but carousel has no picks.
+
+## 59 - Next batch
 

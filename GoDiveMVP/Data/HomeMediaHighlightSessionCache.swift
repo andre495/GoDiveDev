@@ -8,13 +8,12 @@ import AVFoundation
 
 /// Session-scoped PhotoKit warm cache for the Home highlights carousel (max **`carouselLimit`** entries).
 ///
-/// Stores shareable **`AVAsset`** values (each **`AVPlayer`** gets its own **`AVPlayerItem`**) plus hero-sized
-/// poster frames. Cleared when the app moves to the background so the next launch re-warms from Photos.
+/// Stores hero-sized poster frames. Shareable video **`AVAsset`** values live in
+/// **`DiveMediaVideoAssetSessionCache`**. Cleared when the app moves to the background.
 @MainActor
 final class HomeMediaHighlightSessionCache {
     static let shared = HomeMediaHighlightSessionCache()
 
-    private var videoAssets: [String: AVAsset] = [:]
     #if canImport(UIKit)
     private var images: [String: UIImage] = [:]
     #endif
@@ -23,7 +22,7 @@ final class HomeMediaHighlightSessionCache {
     private init() {}
 
     func containsVideoAsset(localIdentifier: String) -> Bool {
-        videoAssets[localIdentifier] != nil
+        DiveMediaVideoAssetSessionCache.shared.contains(localIdentifier: localIdentifier)
     }
 
     #if canImport(UIKit)
@@ -59,14 +58,11 @@ final class HomeMediaHighlightSessionCache {
     #endif
 
     func videoAsset(for localIdentifier: String) -> AVAsset? {
-        touchAccess(localIdentifier)
-        return videoAssets[localIdentifier]
+        DiveMediaVideoAssetSessionCache.shared.videoAsset(for: localIdentifier)
     }
 
     func storeVideoAsset(_ asset: AVAsset, localIdentifier: String) {
-        videoAssets[localIdentifier] = asset
-        touchAccess(localIdentifier)
-        trimToLimit()
+        DiveMediaVideoAssetSessionCache.shared.store(asset, localIdentifier: localIdentifier)
     }
 
     #if canImport(UIKit)
@@ -87,7 +83,6 @@ final class HomeMediaHighlightSessionCache {
     #endif
 
     func clear() {
-        videoAssets.removeAll()
         #if canImport(UIKit)
         images.removeAll()
         #endif
@@ -107,7 +102,6 @@ final class HomeMediaHighlightSessionCache {
     private func trimToLimit() {
         while accessOrder.count > HomeMediaHighlightPresentation.carouselLimit {
             let evicted = accessOrder.removeFirst()
-            videoAssets.removeValue(forKey: evicted)
             #if canImport(UIKit)
             images = images.filter { !$0.key.hasPrefix("\(evicted)|") }
             #endif

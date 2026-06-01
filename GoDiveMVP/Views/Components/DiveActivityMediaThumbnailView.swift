@@ -1,5 +1,8 @@
 import SwiftData
 import SwiftUI
+#if canImport(Photos)
+import Photos
+#endif
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -79,7 +82,8 @@ struct DiveActivityMediaThumbnailView: View {
         let edge = max(size * 2, 1)
         let image = await DiveMediaReferenceLoader.image(
             localIdentifier: identifier,
-            targetSize: CGSize(width: edge, height: edge)
+            targetSize: CGSize(width: edge, height: edge),
+            deliveryMode: .opportunistic
         )
         if image == nil {
             DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)

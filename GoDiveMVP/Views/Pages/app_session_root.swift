@@ -5,7 +5,6 @@ import SwiftUI
 struct AppSessionRootView: View {
     @Environment(AccountSession.self) private var accountSession
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.scenePhase) private var scenePhase
 
     @State private var isHomeMediaWarmupComplete = false
     @State private var hasCompletedInitialBootstrap = false
@@ -46,17 +45,6 @@ struct AppSessionRootView: View {
                 Task { await warmHomeMediaForSignedInUser() }
             } else {
                 isHomeMediaWarmupComplete = true
-            }
-        }
-        .onChange(of: scenePhase) { _, phase in
-            guard phase == .active else { return }
-            guard accountSession.isSignedIn,
-                  let ownerProfileID = accountSession.currentProfile?.id else { return }
-            Task {
-                await HomeMediaHighlightWarmup.warmFromStore(
-                    modelContext: modelContext,
-                    ownerProfileID: ownerProfileID
-                )
             }
         }
     }

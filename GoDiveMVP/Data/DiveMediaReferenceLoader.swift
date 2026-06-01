@@ -37,21 +37,31 @@ enum DiveMediaReferenceLoader {
     nonisolated static func assetExists(localIdentifier: String) -> Bool {
         asset(localIdentifier: localIdentifier) != nil
     }
+
+    /// **`PHAsset.duration`** for a library video, or **`nil`** when not a video / missing.
+    nonisolated static func videoDurationSeconds(localIdentifier: String) -> Double? {
+        guard let phAsset = asset(localIdentifier: localIdentifier),
+              phAsset.mediaType == .video else { return nil }
+        let duration = phAsset.duration
+        guard duration.isFinite, duration > 0 else { return nil }
+        return duration
+    }
     #endif
 
     #if canImport(Photos) && canImport(UIKit)
     /// Loads a (thumbnail or full-size) image for the asset. Works for both photo and video assets
     /// (videos return a poster frame). Returns **`nil`** when the original is unavailable.
     ///
-    /// **`.highQualityFormat`** delivers the handler exactly once, so the continuation resumes a single time.
+    /// PhotoKit work runs off the main actor; cache mutation stays on **`@MainActor`**.
     @MainActor
     static func image(
         localIdentifier: String,
         targetSize: CGSize,
-        contentMode: PHImageContentMode = .aspectFill
+        contentMode: PHImageContentMode = .aspectFill,
+        deliveryMode: PHImageRequestOptionsDeliveryMode = .highQualityFormat
     ) async -> UIImage? {
         guard targetSize.width > 0, targetSize.height > 0,
-              let asset = asset(localIdentifier: localIdentifier) else { return nil }
+              let phAsset = asset(localIdentifier: localIdentifier) else { return nil }
 
         let edge = max(targetSize.width, targetSize.height)
         if let sessionImage = HomeMediaHighlightSessionCache.shared.image(
@@ -69,22 +79,22 @@ enum DiveMediaReferenceLoader {
             return cached
         }
 
-        let options = PHImageRequestOptions()
-        options.isNetworkAccessAllowed = true
-        options.deliveryMode = .highQualityFormat
-        options.resizeMode = .fast
-        options.isSynchronous = false
+        let inflightKey = cacheKey as String
+        if let existing = DiveMediaReferenceImageCache.shared.inflightTask(for: inflightKey) {
+            return await existing.value
+        }
 
-        let image = await withCheckedContinuation { continuation in
-            PHImageManager.default().requestImage(
-                for: asset,
+        let task = Task.detached(priority: .userInitiated) {
+            await fetchImageFromPhotoKit(
+                asset: phAsset,
                 targetSize: targetSize,
                 contentMode: contentMode,
-                options: options
-            ) { image, _ in
-                continuation.resume(returning: image)
-            }
+                deliveryMode: deliveryMode
+            )
         }
+        DiveMediaReferenceImageCache.shared.storeInflightTask(task, for: inflightKey)
+        let image = await task.value
+        DiveMediaReferenceImageCache.shared.removeInflightTask(for: inflightKey)
         if let image {
             DiveMediaReferenceImageCache.shared.store(image, for: cacheKey)
             if HomeMediaHighlightWarmup.shouldStoreInSessionCache(edge: edge) {
@@ -96,6 +106,45 @@ enum DiveMediaReferenceLoader {
             }
         }
         return image
+    }
+
+    nonisolated private static func fetchImageFromPhotoKit(
+        asset: PHAsset,
+        targetSize: CGSize,
+        contentMode: PHImageContentMode,
+        deliveryMode: PHImageRequestOptionsDeliveryMode
+    ) async -> UIImage? {
+        let options = PHImageRequestOptions()
+        options.isNetworkAccessAllowed = true
+        options.deliveryMode = deliveryMode
+        options.resizeMode = .fast
+        options.isSynchronous = false
+
+        return await withCheckedContinuation { continuation in
+            let resumeGuard = SingleResumeGuard()
+            PHImageManager.default().requestImage(
+                for: asset,
+                targetSize: targetSize,
+                contentMode: contentMode,
+                options: options
+            ) { image, info in
+                if (info?[PHImageCancelledKey] as? Bool) == true {
+                    if resumeGuard.claim() {
+                        continuation.resume(returning: nil)
+                    }
+                    return
+                }
+
+                if deliveryMode == .opportunistic,
+                   (info?[PHImageResultIsDegradedKey] as? Bool) == true {
+                    return
+                }
+
+                if resumeGuard.claim() {
+                    continuation.resume(returning: image)
+                }
+            }
+        }
     }
 
     /// Tells PhotoKit to download/cache hero frames for Home carousel assets before individual requests.
@@ -138,40 +187,22 @@ enum DiveMediaReferenceLoader {
 
     /// Builds a fresh **`AVPlayerItem`** — never reuses a cached item (one item per **`AVPlayer`**).
     ///
-    /// When **`HomeMediaHighlightSessionCache`** holds a warmed **`AVAsset`**, a new item is created from that asset
-    /// for instant carousel playback. Otherwise falls back to **`requestPlayerItem`** (not cached).
+    /// Uses the session **`AVAsset`** cache when warmed; otherwise loads via **`loadVideoAsset`**.
     @MainActor
     static func playerItem(
         localIdentifier: String,
         timeoutSeconds: Double = DiveMediaVideoLoad.timeoutSeconds
     ) async -> AVPlayerItem? {
-        if let avAsset = HomeMediaHighlightSessionCache.shared.videoAsset(for: localIdentifier) {
+        if let avAsset = DiveMediaVideoAssetSessionCache.shared.videoAsset(for: localIdentifier) {
             return AVPlayerItem(asset: avAsset)
         }
-
-        guard let asset = asset(localIdentifier: localIdentifier) else { return nil }
-
-        let options = makeVideoRequestOptions()
-        let resumeGuard = SingleResumeGuard()
-
-        return await withCheckedContinuation { (continuation: CheckedContinuation<AVPlayerItem?, Never>) in
-            PHImageManager.default().requestPlayerItem(
-                forVideo: asset,
-                options: options
-            ) { item, _ in
-                if resumeGuard.claim() {
-                    continuation.resume(returning: item)
-                }
-            }
-
-            if timeoutSeconds > 0 {
-                DispatchQueue.main.asyncAfter(deadline: .now() + timeoutSeconds) {
-                    if resumeGuard.claim() {
-                        continuation.resume(returning: nil)
-                    }
-                }
-            }
+        guard let avAsset = await loadVideoAsset(
+            localIdentifier: localIdentifier,
+            timeoutSeconds: timeoutSeconds
+        ) else {
+            return nil
         }
+        return AVPlayerItem(asset: avAsset)
     }
 
     /// Loads an **`AVAsset`** from PhotoKit for session warm-cache (shareable across many **`AVPlayerItem`**s).
@@ -180,9 +211,28 @@ enum DiveMediaReferenceLoader {
         localIdentifier: String,
         timeoutSeconds: Double = DiveMediaVideoLoad.timeoutSeconds
     ) async -> AVAsset? {
-        guard let asset = asset(localIdentifier: localIdentifier) else { return nil }
+        if let cached = DiveMediaVideoAssetSessionCache.shared.videoAsset(for: localIdentifier) {
+            return cached
+        }
+        guard let phAsset = asset(localIdentifier: localIdentifier) else { return nil }
 
         let options = makeVideoRequestOptions()
+        let avAsset = await requestAVAssetFromPhotoKit(
+            asset: phAsset,
+            options: options,
+            timeoutSeconds: timeoutSeconds
+        )
+        if let avAsset {
+            DiveMediaVideoAssetSessionCache.shared.store(avAsset, localIdentifier: localIdentifier)
+        }
+        return avAsset
+    }
+
+    nonisolated private static func requestAVAssetFromPhotoKit(
+        asset: PHAsset,
+        options: PHVideoRequestOptions,
+        timeoutSeconds: Double
+    ) async -> AVAsset? {
         let resumeGuard = SingleResumeGuard()
 
         return await withCheckedContinuation { (continuation: CheckedContinuation<AVAsset?, Never>) in
@@ -196,7 +246,7 @@ enum DiveMediaReferenceLoader {
             }
 
             if timeoutSeconds > 0 {
-                DispatchQueue.main.asyncAfter(deadline: .now() + timeoutSeconds) {
+                DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + timeoutSeconds) {
                     if resumeGuard.claim() {
                         continuation.resume(returning: nil)
                     }
@@ -206,21 +256,47 @@ enum DiveMediaReferenceLoader {
     }
     #endif
 
-    /// Drops Home carousel warm caches and in-memory PhotoKit image frames (call when app backgrounds).
+    /// Drops session warm caches and in-memory PhotoKit image frames (call when app backgrounds).
     @MainActor
     static func clearSessionMediaCaches() {
         HomeMediaHighlightSessionCache.shared.clear()
+        DiveMediaVideoAssetSessionCache.shared.clear()
         #if canImport(UIKit)
         DiveMediaReferenceImageCache.shared.removeAll()
         #endif
     }
 }
 
+#if canImport(Photos)
+/// Thread-safe single-use latch so PhotoKit load handlers resume a continuation exactly once.
+private final class SingleResumeGuard: @unchecked Sendable {
+    private let lock = NSLock()
+    private nonisolated(unsafe) var claimed = false
+
+    nonisolated init() {}
+
+    /// Returns **`true`** for the first caller only; subsequent callers get **`false`**.
+    nonisolated func claim() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        if claimed { return false }
+        claimed = true
+        return true
+    }
+}
+#endif
+
 #if canImport(UIKit)
 @MainActor
 private final class DiveMediaReferenceImageCache {
     static let shared = DiveMediaReferenceImageCache()
     private let storage = NSCache<NSString, UIImage>()
+    private var inflightLoads: [String: Task<UIImage?, Never>] = [:]
+
+    private init() {
+        storage.totalCostLimit = 128 * 1_024 * 1_024
+        storage.countLimit = 200
+    }
 
     func key(localIdentifier: String, targetSize: CGSize) -> NSString {
         "\(localIdentifier)|\(Int(targetSize.width))x\(Int(targetSize.height))" as NSString
@@ -231,11 +307,29 @@ private final class DiveMediaReferenceImageCache {
     }
 
     func store(_ image: UIImage, for key: NSString) {
-        storage.setObject(image, forKey: key)
+        storage.setObject(image, forKey: key, cost: Self.storageCost(for: image))
+    }
+
+    func inflightTask(for key: String) -> Task<UIImage?, Never>? {
+        inflightLoads[key]
+    }
+
+    func storeInflightTask(_ task: Task<UIImage?, Never>, for key: String) {
+        inflightLoads[key] = task
+    }
+
+    func removeInflightTask(for key: String) {
+        inflightLoads.removeValue(forKey: key)
     }
 
     func removeAll() {
         storage.removeAllObjects()
+        inflightLoads.removeAll()
+    }
+
+    nonisolated static func storageCost(for image: UIImage) -> Int {
+        guard let cgImage = image.cgImage else { return 1 }
+        return max(cgImage.bytesPerRow * cgImage.height, 1)
     }
 }
 #endif
@@ -290,19 +384,3 @@ private final class HomePhotoKitPreheatManager {
 }
 #endif
 
-#if canImport(Photos) && canImport(AVFoundation)
-/// Thread-safe single-use latch so the player-item load and its timeout race to resume a continuation exactly once.
-private final class SingleResumeGuard: @unchecked Sendable {
-    private let lock = NSLock()
-    private var claimed = false
-
-    /// Returns **`true`** for the first caller only; subsequent callers (the loser of the load/timeout race) get **`false`**.
-    func claim() -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        if claimed { return false }
-        claimed = true
-        return true
-    }
-}
-#endif

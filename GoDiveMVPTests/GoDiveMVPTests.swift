@@ -3236,19 +3236,39 @@ struct GoDiveMVPTests {
         #expect(Set(picks.map(\.mediaID)).count == 8)
     }
 
-    @Test @MainActor func homeMediaHighlightSessionCache_evictsOldestBeyondCarouselLimit() {
+    @Test @MainActor func diveMediaVideoAssetSessionCache_evictsOldestBeyondCapacity() {
         #if canImport(AVFoundation)
+        DiveMediaVideoAssetSessionCache.shared.clear()
+        defer { DiveMediaVideoAssetSessionCache.shared.clear() }
+
+        let asset = AVURLAsset(url: URL(fileURLWithPath: "/dev/null"))
+        for index in 0 ... DiveMediaVideoAssetSessionCache.capacity {
+            DiveMediaVideoAssetSessionCache.shared.store(asset, localIdentifier: "warm-id-\(index)")
+        }
+
+        #expect(DiveMediaVideoAssetSessionCache.shared.videoAsset(for: "warm-id-0") == nil)
+        #expect(DiveMediaVideoAssetSessionCache.shared.videoAsset(for: "warm-id-\(DiveMediaVideoAssetSessionCache.capacity)") != nil)
+        #expect(DiveMediaVideoAssetSessionCache.capacity == 24)
+        #endif
+    }
+
+    @Test @MainActor func homeMediaHighlightSessionCache_evictsOldestImageBeyondCarouselLimit() {
+        #if canImport(UIKit)
         HomeMediaHighlightSessionCache.shared.clear()
         defer { HomeMediaHighlightSessionCache.shared.clear() }
 
-        let asset = AVURLAsset(url: URL(fileURLWithPath: "/dev/null"))
+        let image = UIImage()
         for index in 0 ..< 7 {
-            HomeMediaHighlightSessionCache.shared.storeVideoAsset(asset, localIdentifier: "warm-id-\(index)")
+            HomeMediaHighlightSessionCache.shared.storeImage(
+                image,
+                localIdentifier: "img-id-\(index)",
+                edge: 480
+            )
         }
 
-        #expect(HomeMediaHighlightSessionCache.shared.videoAsset(for: "warm-id-0") == nil)
-        #expect(HomeMediaHighlightSessionCache.shared.videoAsset(for: "warm-id-6") != nil)
-        #expect(HomeMediaHighlightPresentation.carouselLimit == 5)
+        #expect(HomeMediaHighlightSessionCache.shared.image(for: "img-id-0", edge: 480) == nil)
+        #expect(HomeMediaHighlightSessionCache.shared.image(for: "img-id-6", edge: 480) != nil)
+        #expect(HomeMediaHighlightPresentation.carouselLimit == 3)
         #endif
     }
 
@@ -3310,6 +3330,80 @@ struct GoDiveMVPTests {
         #expect(candidates[0].hasTaggedSpecies)
     }
 
+    @Test func homeMediaCarouselEmptyPresentation_definesEncouragingCopyAndFrameLayout() {
+        #expect(HomeMediaCarouselEmptyPresentation.frameCount == 3)
+        #expect(HomeMediaCarouselEmptyPresentation.animationCycleSeconds > 0)
+        #expect(HomeMediaCarouselEmptyPresentation.title.contains("highlight reel"))
+        #expect(HomeMediaCarouselEmptyPresentation.message.contains("Logbook"))
+        #expect(HomeMediaCarouselEmptyPresentation.frameOffsetAmplitude(index: 2) > HomeMediaCarouselEmptyPresentation.frameOffsetAmplitude(index: 0))
+    }
+
+    @Test func homeMediaHighlightPresentation_excludesLongVideosFromCarouselCandidates() {
+        let diveID = UUID()
+        let shortVideoID = UUID()
+        let longVideoID = UUID()
+        let photoID = UUID()
+        let dives = [
+            HomeDiveStatsInput(
+                id: diveID,
+                maxDepthMeters: 10,
+                durationMinutes: 30,
+                diveSiteID: nil,
+                diveNumberLabel: "#1",
+                siteDisplayName: "Site"
+            ),
+        ]
+        let sources = [
+            HomeMediaHighlightSource(
+                mediaID: photoID,
+                diveActivityID: diveID,
+                mediaKind: .image
+            ),
+            HomeMediaHighlightSource(
+                mediaID: shortVideoID,
+                diveActivityID: diveID,
+                mediaKind: .video,
+                videoDurationSeconds: 29
+            ),
+            HomeMediaHighlightSource(
+                mediaID: longVideoID,
+                diveActivityID: diveID,
+                mediaKind: .video,
+                videoDurationSeconds: 31
+            ),
+        ]
+        let candidates = HomeMediaHighlightPresentation.buildCandidates(
+            mediaPhotos: sources,
+            dives: dives
+        )
+        #expect(candidates.map(\.mediaID) == [photoID, shortVideoID])
+        #expect(HomeMediaHighlightPresentation.isEligibleCarouselSource(sources[1]))
+        #expect(!HomeMediaHighlightPresentation.isEligibleCarouselSource(sources[2]))
+        #expect(HomeMediaHighlightPresentation.carouselVideoMaxDurationSeconds == 30)
+    }
+
+    @Test func homeMediaHighlightWarmupPresentation_overlayDismissReady() {
+        #expect(HomeMediaHighlightWarmupPresentation.bootstrapOverlayMaxWaitSeconds == 5)
+        #expect(
+            HomeMediaHighlightWarmupPresentation.isOverlayDismissReady(
+                isBootstrapReady: true,
+                firstSlideHasDisplayableImage: false
+            )
+        )
+        #expect(
+            HomeMediaHighlightWarmupPresentation.isOverlayDismissReady(
+                isBootstrapReady: false,
+                firstSlideHasDisplayableImage: true
+            )
+        )
+        #expect(
+            !HomeMediaHighlightWarmupPresentation.isOverlayDismissReady(
+                isBootstrapReady: false,
+                firstSlideHasDisplayableImage: false
+            )
+        )
+    }
+
     @Test func homeMediaHighlightPresentation_taggedSpeciesCountByMediaID_countsMultipleTags() {
         let diveID = UUID()
         let mediaID = UUID()
@@ -3348,24 +3442,35 @@ struct GoDiveMVPTests {
         #expect(
             HomeMediaHighlightWarmupPresentation.isBootstrapReady(
                 fullReadyCount: 2,
-                previewOrFullReadyCount: 5,
-                totalCount: 5
+                previewOrFullReadyCount: 3,
+                totalCount: 3
             )
         )
         #expect(
             !HomeMediaHighlightWarmupPresentation.isBootstrapReady(
                 fullReadyCount: 1,
-                previewOrFullReadyCount: 5,
-                totalCount: 5
+                previewOrFullReadyCount: 3,
+                totalCount: 3
             )
         )
-        #expect(HomeMediaHighlightWarmupPresentation.backgroundFullQualityIndices(totalCount: 5) == [2, 3, 4])
+        #expect(HomeMediaHighlightWarmupPresentation.backgroundFullQualityIndices(totalCount: 3) == [2])
     }
 
     @Test func homeMediaHighlightWarmup_shouldStorePreviewAndHeroInSessionCache() {
         #expect(HomeMediaHighlightWarmup.shouldStoreInSessionCache(edge: 480))
         #expect(HomeMediaHighlightWarmup.shouldStoreInSessionCache(edge: 1_200))
         #expect(!HomeMediaHighlightWarmup.shouldStoreInSessionCache(edge: 200))
+    }
+
+    @Test func homeMediaHighlightWarmup_bootstrapTier_warmsFirstSlidesAtFullQuality() {
+        for index in 0 ..< HomeMediaHighlightPresentation.carouselLimit {
+            let quality = HomeMediaHighlightWarmupPresentation.bootstrapQuality(forCarouselIndex: index)
+            if index < HomeMediaHighlightWarmupPresentation.startupFullQualityCount {
+                #expect(quality == .full)
+            } else {
+                #expect(quality == .preview)
+            }
+        }
     }
 
     @Test func homeMediaCarouselLayout_slideChromeBottomInset_sitsAboveStatsOverlap() {
@@ -3380,7 +3485,7 @@ struct GoDiveMVPTests {
             topSafeAreaInset: 59,
             additionalBottomExtension: bottomExtension
         )
-        #expect(height > 390 * 0.90)
+        #expect(height > 390 * 0.70)
         #expect(height >= 390 * HomeMediaCarouselLayout.heroHeightToWidthRatio + 59 + bottomExtension - 0.001)
 
         let gradientHeight = HomeMediaCarouselLayout.headerGradientHeight(
@@ -3409,11 +3514,10 @@ struct GoDiveMVPTests {
         #expect(tileHeight >= HomeLifetimeStatsLayout.minimumTileHeight)
         #expect(abs(tileHeight - (300 - HomeLifetimeStatsLayout.gridSpacing) / 2) < 0.001)
         #expect(HomeLifetimeStatsLayout.panelTopCornerRadius == AppTheme.Sheet.cornerRadius)
-        #expect(HomeLifetimeStatsLayout.panelOverlap >= 150)
-        #expect(
-            HomeLifetimeStatsLayout.panelTopContentPaddingWhenOverlapping
-                < HomeLifetimeStatsLayout.panelTopContentPadding
-        )
+        #expect(HomeLifetimeStatsLayout.panelOverlap >= 140)
+        #expect(HomeLifetimeStatsLayout.minimumTileHeight >= 88)
+        #expect(HomeLifetimeStatsLayout.valueFontSize(for: 120) >= 24)
+        #expect(HomeLifetimeStatsLayout.panelTopContentPaddingWhenOverlapping > HomeLifetimeStatsLayout.panelTopContentPadding)
         #expect(HomeLifetimeStatsLayout.heroBottomExtension > HomeLifetimeStatsLayout.panelOverlap)
     }
 
@@ -3809,6 +3913,12 @@ struct GoDiveMVPTests {
         #expect(DiveActivityMediaPresentation.showsCaptureDateOnHero(for: .minimized))
         #expect(!DiveActivityMediaPresentation.showsCaptureDateOnHero(for: .medium))
         #expect(!DiveActivityMediaPresentation.showsCaptureDateOnHero(for: .large))
+    }
+
+    @Test func diveActivityMediaPresentation_fullScreenImageTargetEdge_clampsToScreenAndCap() {
+        #expect(DiveActivityMediaPresentation.fullScreenImageTargetEdge(screenPixelWidth: 100) == 800)
+        #expect(DiveActivityMediaPresentation.fullScreenImageTargetEdge(screenPixelWidth: 1_170) == 1_170)
+        #expect(DiveActivityMediaPresentation.fullScreenImageTargetEdge(screenPixelWidth: 3_000) == 2_048)
     }
 
     @Test func diveActivityMediaPresentation_showsMediaCarouselInSheet_atMinimizedAndMedium() {

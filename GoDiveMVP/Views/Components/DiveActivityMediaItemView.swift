@@ -8,6 +8,7 @@ import UIKit
 /// asset; prunes the row if the original was deleted.
 struct DiveActivityMediaItemView: View {
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
+    @Environment(\.displayScale) private var displayScale
     @Environment(\.modelContext) private var modelContext
 
     let media: DiveMediaPhoto
@@ -22,6 +23,7 @@ struct DiveActivityMediaItemView: View {
     var loopsVideoPlayback: Bool = false
 
     @State private var isHoldingVideoPause = false
+    @State private var layoutWidth: CGFloat = 0
     #if canImport(UIKit)
     @State private var previewImage: UIImage?
     #endif
@@ -55,6 +57,11 @@ struct DiveActivityMediaItemView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.width
+        } action: { newWidth in
+            layoutWidth = newWidth
+        }
         .modifier(
             DiveActivityVideoHoldToPauseModifier(
                 isEnabled: isVideo,
@@ -75,7 +82,7 @@ struct DiveActivityMediaItemView: View {
     }
 
     private var imageLoadTaskID: String {
-        "\(media.id.uuidString)-\(media.resolvedMediaKind.rawValue)"
+        "\(media.id.uuidString)-\(media.resolvedMediaKind.rawValue)-\(Int(layoutWidth * displayScale))"
     }
 
     private func pruneIfAssetMissing() {
@@ -134,9 +141,13 @@ struct DiveActivityMediaItemView: View {
             previewImage = nil
             return
         }
+        guard layoutWidth > 0 else { return }
+        let edge = DiveActivityMediaPresentation.fullScreenImageTargetEdge(
+            screenPixelWidth: layoutWidth * displayScale
+        )
         let image = await DiveMediaReferenceLoader.image(
             localIdentifier: identifier,
-            targetSize: CGSize(width: 2_048, height: 2_048)
+            targetSize: CGSize(width: edge, height: edge)
         )
         if image == nil {
             DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
