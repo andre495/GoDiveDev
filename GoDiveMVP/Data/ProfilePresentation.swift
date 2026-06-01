@@ -38,4 +38,8 @@ enum ProfilePresentation: Sendable {
             return "\(count) items"
         }
     }
+
+    static func diveBuddyRosterCountLabel(_ count: Int) -> String {
+        DiveBuddyRosterPresentation.rosterCountLabel(count)
+    }
 }

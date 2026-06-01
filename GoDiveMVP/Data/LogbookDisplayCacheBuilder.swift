@@ -12,6 +12,7 @@ enum LogbookDisplayCacheBuilder {
     visibleSeeds: [LogbookActivitySnapshotSeed],
     siteSearchQuery: String,
     confirmedTagName: String? = nil,
+    confirmedBuddyName: String? = nil,
     unitSystem: DiveDisplayUnitSystem,
     useChronologicalNumbers: Bool,
     includeDuplicateScan: Bool = true
@@ -19,7 +20,8 @@ enum LogbookDisplayCacheBuilder {
     let filtered = DiveLogbookSiteSearch.filtering(
       visibleSeeds,
       siteQuery: siteSearchQuery,
-      confirmedTagName: confirmedTagName
+      confirmedTagName: confirmedTagName,
+      confirmedBuddyName: confirmedBuddyName
     )
     let duplicateIds: Set<UUID> = includeDuplicateScan
       ? DiveActivityDuplicateMatcher.idsWithDuplicates(

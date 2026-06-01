@@ -25,9 +25,13 @@ enum LogbookTagSearchPresentation {
     nonisolated static func suggestions(
         catalogTagNames: [String],
         query: String,
-        activeTagFilter: String?
+        activeTagFilter: String?,
+        activeBuddyFilter: String? = nil
     ) -> [LogbookTagSearchSuggestion] {
-        guard activeTagFilter == nil, DiveLogbookSiteSearch.isFiltering(query: query) else { return [] }
+        guard activeTagFilter == nil,
+              activeBuddyFilter == nil,
+              DiveLogbookSiteSearch.isFiltering(query: query)
+        else { return [] }
 
         var seenNormalized = Set<String>()
         var suggestions: [LogbookTagSearchSuggestion] = []

@@ -410,6 +410,7 @@
 				DEVELOPMENT_TEAM = PV93U8CPLQ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSContactsUsageDescription = "GoDive uses contacts you choose to show dive buddy names and photos in your logbook.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "GoDive reads your Photos library to attach dive photos and videos by capture time when you add media or enable auto-upload in Settings.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -445,6 +446,7 @@
 				DEVELOPMENT_TEAM = PV93U8CPLQ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSContactsUsageDescription = "GoDive uses contacts you choose to show dive buddy names and photos in your logbook.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "GoDive reads your Photos library to attach dive photos and videos by capture time when you add media or enable auto-upload in Settings.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

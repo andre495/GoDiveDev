@@ -34,8 +34,15 @@ struct DiveActivityEditableSectionsView: View {
                 .foregroundStyle(AppTheme.Colors.tabUnselected)
 
             VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                ForEach(section.fieldIDs, id: \.self) { fieldID in
-                    row(for: fieldID)
+                if section.id == "buddies" {
+                    DiveActivityBuddiesOverviewSection(
+                        activity: activity,
+                        onManage: onManageBuddies
+                    )
+                } else {
+                    ForEach(section.fieldIDs, id: \.self) { fieldID in
+                        row(for: fieldID)
+                    }
                 }
             }
             .padding(AppTheme.Spacing.md)

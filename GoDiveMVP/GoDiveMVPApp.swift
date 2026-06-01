@@ -66,6 +66,7 @@ private struct ProductionAppRoot: View {
             await MainActor.run {
                 let context = container.mainContext
                 try? DiveActivityDiveNumbering.backfillMissingDiveNumbers(modelContext: context)
+                try? DiveBuddyLegacyMigration.migrateIfNeeded(modelContext: context)
                 try? MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
             }
             #if DEBUG
@@ -93,6 +94,7 @@ private struct ProductionAppRoot: View {
             )
             if let profile = accountSession.currentProfile {
                 try DiveActivityOwnership.claimUnownedDives(for: profile, modelContext: context)
+                try DiveBuddyOwnership.claimUnownedBuddies(for: profile, modelContext: context)
             }
         } catch {
             print("Mock data seeding failed: \(error)")

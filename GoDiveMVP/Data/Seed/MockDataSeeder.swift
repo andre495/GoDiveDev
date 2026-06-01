@@ -70,10 +70,10 @@ enum MockDataSeeder {
 
     /// Inserts the activity and each `DiveBuddyTag` (SwiftData requires related tags to be inserted explicitly).
     private static func insertActivityFromFixture(_ dto: DiveActivityDTO, context: ModelContext) {
-        let activity = DiveActivityMapper.map(dto)
+        let activity = DiveActivityMapper.map(dto, modelContext: context)
         context.insert(activity)
-        for buddy in activity.buddies {
-            context.insert(buddy)
+        for tag in activity.buddies {
+            context.insert(tag)
         }
         if let sites = try? context.fetch(FetchDescriptor<DiveSite>()) {
             DiveActivitySiteAssociation.applyBestMatch(to: activity, catalogSites: sites)
@@ -98,7 +98,13 @@ enum MockDataSeeder {
             guard let buddyDTOs = dto.buddies, !buddyDTOs.isEmpty else { continue }
 
             let tags = buddyDTOs.map { buddyDTO in
-                DiveBuddyTag(id: buddyDTO.id ?? UUID(), displayName: buddyDTO.displayName, dive: activity)
+                DiveBuddyTagging.makeTag(
+                    displayName: buddyDTO.displayName,
+                    tagID: buddyDTO.id ?? UUID(),
+                    dive: activity,
+                    owner: activity.owner,
+                    modelContext: context
+                )
             }
             activity.buddies = tags
             for tag in tags {

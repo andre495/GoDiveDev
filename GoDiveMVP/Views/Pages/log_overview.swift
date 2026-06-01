@@ -69,6 +69,34 @@ struct LogOverviewView: View {
         )
     }
 
+    private var buddyLeaderboard: [HomeBuddyLeaderboardEntry] {
+        let tags = HomeBuddyLeaderboardSeeding.tagInputs(from: ownerDiveActivities)
+        return HomeBuddyLeaderboardPresentation.topEntries(from: tags)
+    }
+
+    private var showsHomeBuddyLeaderboard: Bool {
+        HomeBuddyLeaderboardPresentation.shouldShow(
+            diveCount: ownerDiveActivities.count,
+            entries: buddyLeaderboard
+        )
+    }
+
+    private func homeOverviewLayoutMetrics(for proxy: GeometryProxy) -> HomeOverviewLayout.Metrics {
+        let statsContentHeight = HomeLifetimeStatsLayout.estimatedPanelContentHeight(
+            showsBuddyLeaderboard: showsHomeBuddyLeaderboard
+        )
+        return HomeOverviewLayout.metrics(
+            viewportHeight: proxy.size.height,
+            screenWidth: proxy.size.width,
+            topSafeAreaInset: proxy.safeAreaInsets.top,
+            statsPanelContentHeight: statsContentHeight
+        )
+    }
+
+    private var buddyLeaderboardTagSignature: [HomeBuddyLeaderboardPresentation.TagInput] {
+        HomeBuddyLeaderboardSeeding.tagInputs(from: ownerDiveActivities)
+    }
+
     private var ownerSightingInputs: [HomeLifetimeStatsPresentation.SightingCountInput] {
         let ownerDiveIDs = Set(ownerDiveActivities.map(\.id))
         let catalogByUUID = Dictionary(uniqueKeysWithValues: marineLifeCatalog.map { ($0.uuid, $0) })
@@ -101,6 +129,7 @@ struct LogOverviewView: View {
     private var homeOverviewRefreshToken: String {
         HomeOverviewRefreshToken.make(
             dives: diveStatsInputs,
+            buddyTags: buddyLeaderboardTagSignature,
             sightingCount: ownerSightingInputs.count,
             mediaCount: ownerMediaPhotos.count
         )
@@ -126,31 +155,7 @@ struct LogOverviewView: View {
 
                             Spacer(minLength: AppTheme.Spacing.lg)
                         } else {
-                            if !carouselHighlights.isEmpty {
-                                VStack(spacing: -HomeLifetimeStatsLayout.panelOverlap) {
-                                    homeCarouselBlock(
-                                        screenWidth: proxy.size.width,
-                                        topSafeAreaInset: proxy.safeAreaInsets.top
-                                    )
-
-                                    homeStatsPanel(overlapsMedia: true)
-                                }
-                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                                .padding(.bottom, proxy.safeAreaInsets.bottom)
-                            } else {
-                                VStack(spacing: -HomeLifetimeStatsLayout.panelOverlap) {
-                                    HomeMediaCarouselEmptyPlaceholder(
-                                        containerWidth: proxy.size.width,
-                                        topSafeAreaInset: proxy.safeAreaInsets.top
-                                    )
-                                    .padding(.top, -proxy.safeAreaInsets.top)
-                                    .ignoresSafeArea(edges: .top)
-
-                                    homeStatsPanel(overlapsMedia: true)
-                                }
-                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                                .padding(.bottom, proxy.safeAreaInsets.bottom)
-                            }
+                            homeDashboard(for: proxy, hasCarouselMedia: !carouselHighlights.isEmpty)
                         }
                     }
                     .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
@@ -203,6 +208,34 @@ struct LogOverviewView: View {
     }
 
     @ViewBuilder
+    private func homeDashboard(for proxy: GeometryProxy, hasCarouselMedia: Bool) -> some View {
+        let homeLayout = homeOverviewLayoutMetrics(for: proxy)
+        let bottomInset = proxy.safeAreaInsets.bottom
+
+        VStack(spacing: -HomeLifetimeStatsLayout.panelOverlap) {
+            if hasCarouselMedia {
+                homeCarouselBlock(
+                    screenWidth: proxy.size.width,
+                    topSafeAreaInset: proxy.safeAreaInsets.top
+                )
+                .frame(height: homeLayout.heroHeight)
+            } else {
+                HomeMediaCarouselEmptyPlaceholder(
+                    containerWidth: proxy.size.width,
+                    topSafeAreaInset: proxy.safeAreaInsets.top
+                )
+                .padding(.top, -proxy.safeAreaInsets.top)
+                .ignoresSafeArea(edges: .top)
+                .frame(height: homeLayout.heroHeight)
+            }
+
+            homeStatsPanel(overlapsMedia: true, bottomSafeAreaInset: bottomInset)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
+    }
+
+    @ViewBuilder
     private func homeCarouselBlock(screenWidth: CGFloat, topSafeAreaInset: CGFloat) -> some View {
         if isCarouselMediaReady {
             HomeMediaCarouselSection(
@@ -226,8 +259,11 @@ struct LogOverviewView: View {
     }
 
     @ViewBuilder
-    private func homeStatsPanel(overlapsMedia: Bool) -> some View {
-        HomeLifetimeStatsPanel(overlapsMedia: overlapsMedia) {
+    private func homeStatsPanel(overlapsMedia: Bool, bottomSafeAreaInset: CGFloat) -> some View {
+        HomeLifetimeStatsPanel(
+            overlapsMedia: overlapsMedia,
+            bottomSafeAreaInset: bottomSafeAreaInset
+        ) {
             homeStatsPanelContent
         }
         .zIndex(1)
@@ -238,6 +274,7 @@ struct LogOverviewView: View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
             HomeLifetimeStatsSection(
                 stats: lifetimeStats,
+                buddyLeaderboard: buddyLeaderboard,
                 unitSystem: diveDisplayUnitSystem,
                 onOpenDive: { path.append(.diveDetail($0)) },
                 onOpenSite: { path.append(.diveSite($0)) },

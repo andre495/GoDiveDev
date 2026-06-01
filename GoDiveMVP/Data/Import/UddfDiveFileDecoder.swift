@@ -227,7 +227,8 @@ enum UddfDiveFileDecoder {
             guard let b = buddies[ref] else { continue }
             let name = b.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !name.isEmpty else { continue }
-            let tag = DiveBuddyTag(displayName: name, dive: activity)
+            let buddy = DiveBuddy(displayName: name)
+            let tag = DiveBuddyTag(buddy: buddy, dive: activity)
             activity.buddies.append(tag)
         }
 

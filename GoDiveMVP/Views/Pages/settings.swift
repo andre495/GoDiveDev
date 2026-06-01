@@ -202,6 +202,7 @@ private struct SettingsMediaBackfillOverlayLayer: View {
         .modelContainer(
             for: [
                 DiveActivity.self,
+                DiveBuddy.self,
                 DiveBuddyTag.self,
                 DiveProfilePoint.self,
                 DiveSite.self,

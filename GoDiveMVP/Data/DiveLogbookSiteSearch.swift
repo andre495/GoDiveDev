@@ -28,16 +28,37 @@ enum DiveLogbookSiteSearch {
         }
     }
 
+    /// Whether a dive row tags the confirmed buddy (normalized display name equality).
+    nonisolated static func matchesConfirmedBuddy(
+        buddyDisplayNames: [String],
+        confirmedBuddyName: String
+    ) -> Bool {
+        let target = DiveBuddyCatalog.normalizedNameKey(confirmedBuddyName)
+        guard !target.isEmpty else { return false }
+        return buddyDisplayNames.contains {
+            DiveBuddyCatalog.normalizedNameKey($0) == target
+        }
+    }
+
     nonisolated static func filtering(
         _ seeds: [LogbookActivitySnapshotSeed],
         siteQuery: String,
-        confirmedTagName: String? = nil
+        confirmedTagName: String? = nil,
+        confirmedBuddyName: String? = nil
     ) -> [LogbookActivitySnapshotSeed] {
         if let confirmedTagName, !confirmedTagName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return seeds.filter {
                 matchesConfirmedTag(
                     activityTagNames: $0.activityTagNames,
                     confirmedTagName: confirmedTagName
+                )
+            }
+        }
+        if let confirmedBuddyName, !confirmedBuddyName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return seeds.filter {
+                matchesConfirmedBuddy(
+                    buddyDisplayNames: $0.buddyDisplayNames,
+                    confirmedBuddyName: confirmedBuddyName
                 )
             }
         }

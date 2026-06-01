@@ -1,13 +1,16 @@
 import SwiftUI
 
-/// Logbook top bar: site search, optional tag suggestions / active tag filter, trailing actions.
+/// Logbook top bar: site search, optional tag / buddy suggestions, trailing actions.
 struct LogbookTopChrome<TrailingActions: View>: View {
     @Binding var searchText: String
     @FocusState.Binding var isSearchFocused: Bool
     let tagSuggestions: [LogbookTagSearchSuggestion]
+    let buddySuggestions: [LogbookBuddySearchSuggestion]
     let activeTagFilter: String?
+    let activeBuddyFilter: String?
     let onSelectTagSuggestion: (LogbookTagSearchSuggestion) -> Void
-    let onClearTagFilter: () -> Void
+    let onSelectBuddySuggestion: (LogbookBuddySearchSuggestion) -> Void
+    let onClearConfirmedFilters: () -> Void
     @ViewBuilder let trailingActions: () -> TrailingActions
 
     var body: some View {
@@ -20,21 +23,34 @@ struct LogbookTopChrome<TrailingActions: View>: View {
                 cancelAccessibilityIdentifier: "logbookSearchCancel",
                 onCancel: {
                     searchText = ""
-                    onClearTagFilter()
+                    onClearConfirmedFilters()
                 },
                 trailingActions: trailingActions
             )
 
-            if let activeTagFilter {
+            if let activeBuddyFilter {
+                LogbookActiveBuddyFilterChip(
+                    buddyName: activeBuddyFilter,
+                    onClear: onClearConfirmedFilters
+                )
+            } else if let activeTagFilter {
                 LogbookActiveTagFilterChip(
                     tagName: activeTagFilter,
-                    onClear: onClearTagFilter
+                    onClear: onClearConfirmedFilters
                 )
-            } else if !tagSuggestions.isEmpty {
-                LogbookSearchTagSuggestionsView(
-                    suggestions: tagSuggestions,
-                    onSelect: onSelectTagSuggestion
-                )
+            } else {
+                if !buddySuggestions.isEmpty {
+                    LogbookSearchBuddySuggestionsView(
+                        suggestions: buddySuggestions,
+                        onSelect: onSelectBuddySuggestion
+                    )
+                }
+                if !tagSuggestions.isEmpty {
+                    LogbookSearchTagSuggestionsView(
+                        suggestions: tagSuggestions,
+                        onSelect: onSelectTagSuggestion
+                    )
+                }
             }
         }
         .background {

@@ -26,6 +26,11 @@ struct ProfileView: View {
 
     @Query private var allDiveActivities: [DiveActivity]
 
+    @Query(
+        sort: [SortDescriptor(\DiveBuddy.displayName, order: .forward)]
+    )
+    private var allDiveBuddies: [DiveBuddy]
+
     @State private var showsProfileEditSheet = false
 
     private var ownedCertifications: [Certification] {
@@ -44,6 +49,15 @@ struct ProfileView: View {
 
     private var equipmentItemCountLabel: String {
         ProfilePresentation.equipmentItemCountLabel(ownedEquipment.count)
+    }
+
+    private var ownedDiveBuddies: [DiveBuddy] {
+        guard let ownerID = accountSession.currentProfile?.id else { return [] }
+        return allDiveBuddies.filter { $0.ownerProfileID == ownerID }
+    }
+
+    private var diveBuddyCountLabel: String {
+        ProfilePresentation.diveBuddyRosterCountLabel(ownedDiveBuddies.count)
     }
 
     private var profileFeaturedCertification: CertificationPresentation.ProfileFeaturedCertificationDisplay {
@@ -213,23 +227,35 @@ struct ProfileView: View {
     }
 
     private var profileDestinationTiles: some View {
-        HStack(spacing: AppTheme.Spacing.md) {
-            profileDestinationTile(
-                title: "Certifications",
-                subtitle: certificationCountLabel,
-                systemImage: "checkmark.seal.fill",
-                accessibilityIdentifier: "Profile.CertificationsLink"
-            ) {
-                CertificationsListView()
+        VStack(spacing: AppTheme.Spacing.md) {
+            HStack(spacing: AppTheme.Spacing.md) {
+                profileDestinationTile(
+                    title: "Certifications",
+                    subtitle: certificationCountLabel,
+                    systemImage: "checkmark.seal.fill",
+                    accessibilityIdentifier: "Profile.CertificationsLink"
+                ) {
+                    CertificationsListView()
+                }
+
+                profileDestinationTile(
+                    title: "Equipment Locker",
+                    subtitle: equipmentItemCountLabel,
+                    systemImage: "archivebox.fill",
+                    accessibilityIdentifier: "Profile.EquipmentLockerLink"
+                ) {
+                    EquipmentLockerView()
+                }
             }
 
             profileDestinationTile(
-                title: "Equipment Locker",
-                subtitle: equipmentItemCountLabel,
-                systemImage: "archivebox.fill",
-                accessibilityIdentifier: "Profile.EquipmentLockerLink"
+                title: "Dive Buddies",
+                subtitle: diveBuddyCountLabel,
+                systemImage: "person.2.fill",
+                tileAspectRatio: 2.15,
+                accessibilityIdentifier: "Profile.DiveBuddiesLink"
             ) {
-                EquipmentLockerView()
+                DiveBuddiesListView()
             }
         }
     }
@@ -238,6 +264,7 @@ struct ProfileView: View {
         title: String,
         subtitle: String,
         systemImage: String,
+        tileAspectRatio: CGFloat = 1,
         accessibilityIdentifier: String,
         @ViewBuilder destination: () -> Destination
     ) -> some View {
@@ -267,7 +294,7 @@ struct ProfileView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(AppTheme.Spacing.md)
-            .aspectRatio(1, contentMode: .fit)
+            .aspectRatio(tileAspectRatio, contentMode: .fit)
             .background {
                 RoundedRectangle(cornerRadius: Layout.tileCornerRadius, style: .continuous)
                     .fill(AppTheme.Colors.surfaceElevated)

@@ -5,6 +5,7 @@
 //  Created by André Dugas on 4/1/26.
 //
 
+import Contacts
 import CoreGraphics
 import CoreLocation
 import Foundation
@@ -1301,6 +1302,7 @@ struct GoDiveMVPTests {
     func diveDepthProfileSeries_sortsUnsortedProfilePoints() throws {
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveProfilePoint.self,
             DiveSite.self,
@@ -3506,19 +3508,76 @@ struct GoDiveMVPTests {
         #expect(HomeMediaCarouselPresentation.photoDisplaySeconds == 10)
     }
 
-    @Test func homeLifetimeStatsLayout_usesTwoColumnFlexibleGrid() {
+    @Test func homeLifetimeStatsLayout_usesTwoColumnFixedHeightTiles() {
         #expect(HomeLifetimeStatsLayout.gridColumnCount == 2)
+        #expect(HomeLifetimeStatsLayout.highlightStatTileCount == 4)
         #expect(HomeLifetimeStatsLayout.rowCount(tileCount: 4) == 2)
         #expect(HomeLifetimeStatsLayout.rowCount(tileCount: 3) == 2)
-        let tileHeight = HomeLifetimeStatsLayout.tileHeight(availableHeight: 300, tileCount: 4)
-        #expect(tileHeight >= HomeLifetimeStatsLayout.minimumTileHeight)
-        #expect(abs(tileHeight - (300 - HomeLifetimeStatsLayout.gridSpacing) / 2) < 0.001)
+        #expect(HomeLifetimeStatsLayout.statTileHeight == 92)
+        let fourTileGrid = HomeLifetimeStatsLayout.gridHeight(tileCount: 4)
+        #expect(abs(fourTileGrid - (HomeLifetimeStatsLayout.statTileHeight * 2 + HomeLifetimeStatsLayout.gridSpacing)) < 0.001)
+        let threeTileGrid = HomeLifetimeStatsLayout.gridHeight(tileCount: 3)
+        #expect(abs(threeTileGrid - (HomeLifetimeStatsLayout.statTileHeight * 2 + HomeLifetimeStatsLayout.gridSpacing)) < 0.001)
         #expect(HomeLifetimeStatsLayout.panelTopCornerRadius == AppTheme.Sheet.cornerRadius)
         #expect(HomeLifetimeStatsLayout.panelOverlap >= 140)
-        #expect(HomeLifetimeStatsLayout.minimumTileHeight >= 88)
-        #expect(HomeLifetimeStatsLayout.valueFontSize(for: 120) >= 24)
+        #expect(HomeLifetimeStatsLayout.valueFontSize() >= 20)
         #expect(HomeLifetimeStatsLayout.panelTopContentPaddingWhenOverlapping > HomeLifetimeStatsLayout.panelTopContentPadding)
         #expect(HomeLifetimeStatsLayout.heroBottomExtension > HomeLifetimeStatsLayout.panelOverlap)
+        #expect(HomeLifetimeStatsPresentation.topSpeciesEmptyFootnote.contains("Tag marine life"))
+    }
+
+    @Test func homeBuddyLeaderboardLayout_fitsHomeStatsPanelEstimate() {
+        #expect(HomeBuddyLeaderboardLayout.estimatedTileHeight == 152)
+        #expect(HomeLifetimeStatsTilesLayout.buddyTileHeight == 152)
+        #expect(
+            HomeLifetimeStatsLayout.estimatedBuddyLeaderboardHeight
+                == HomeBuddyLeaderboardLayout.estimatedTileHeight
+        )
+        #expect(
+            HomeLifetimeStatsTilesLayout.scrollContentHeight(showsBuddyLeaderboard: true) == 368
+        )
+    }
+
+    @Test func homeLifetimeStatsPanelLayout_matchesVisualGridAndPadding() {
+        let fourTileGrid = HomeLifetimeStatsLayout.gridHeight(tileCount: 4)
+        #expect(
+            abs(
+                HomeLifetimeStatsPanelLayout.estimatedScrollContentHeight(showsBuddyLeaderboard: false)
+                    - fourTileGrid
+            ) < 0.001
+        )
+        #expect(
+            HomeLifetimeStatsPanelLayout.estimatedScrollContentHeight(showsBuddyLeaderboard: true)
+                > HomeLifetimeStatsPanelLayout.estimatedScrollContentHeight(showsBuddyLeaderboard: false)
+        )
+        #expect(
+            HomeLifetimeStatsPanelLayout.estimatedPanelContentHeight(showsBuddyLeaderboard: false)
+                == HomeLifetimeStatsPanelLayout.estimatedScrollContentHeight(showsBuddyLeaderboard: false) + 40
+        )
+    }
+
+    @Test func homeOverviewLayout_carouselLeavesMinimumStatsBand() {
+        let viewport: CGFloat = 769
+        let statsContent: CGFloat = 400
+        let minimumStats = statsContent + HomeOverviewLayout.tabBarScrollInset
+        let metrics = HomeOverviewLayout.metrics(
+            viewportHeight: viewport,
+            screenWidth: 390,
+            topSafeAreaInset: 59,
+            statsPanelContentHeight: statsContent
+        )
+        #expect(metrics.heroHeight + minimumStats - HomeOverviewLayout.panelOverlap <= viewport + 1)
+    }
+
+    @Test func homeOverviewLayout_shrinksCarouselWhenViewportIsShort() {
+        let viewport: CGFloat = 667
+        let metrics = HomeOverviewLayout.metrics(
+            viewportHeight: viewport,
+            screenWidth: 390,
+            topSafeAreaInset: 59,
+            statsPanelContentHeight: 400
+        )
+        #expect(metrics.heroHeight < HomeOverviewLayout.heroHeight(width: 390, topSafeAreaInset: 59))
     }
 
     @Test func appSessionBootstrapPresentation_showsLaunchOverlayUntilHomeMediaWarmCompletes() {
@@ -4678,6 +4737,7 @@ struct GoDiveMVPTests {
     func fitFileImport_emptyData_returnsOutcomeWithEmptyFileMessage() async throws {
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveProfilePoint.self,
             DiveSite.self,
@@ -5926,6 +5986,7 @@ struct GoDiveMVPTests {
     func diveActivityDeletion_removesActivityAndCascadedBuddy() async throws {
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveProfilePoint.self,
             DiveSite.self,
@@ -5940,18 +6001,23 @@ struct GoDiveMVPTests {
             durationMinutes: 12,
             maxDepthMeters: 18
         )
-        let buddy = DiveBuddyTag(displayName: "Pat")
-        buddy.link(to: activity)
-        activity.buddies.append(buddy)
+        let person = DiveBuddy(displayName: "Pat")
+        let tag = DiveBuddyTag(buddy: person, dive: activity)
+        tag.link(to: activity)
+        activity.buddies.append(tag)
+        context.insert(person)
         context.insert(activity)
+        context.insert(tag)
         try context.save()
 
         try await DiveActivityDeletion.deletePermanently(activity, modelContext: context)
 
         let dives = try context.fetch(FetchDescriptor<DiveActivity>())
-        let buddies = try context.fetch(FetchDescriptor<DiveBuddyTag>())
+        let tags = try context.fetch(FetchDescriptor<DiveBuddyTag>())
+        let people = try context.fetch(FetchDescriptor<DiveBuddy>())
         #expect(dives.isEmpty)
-        #expect(buddies.isEmpty)
+        #expect(tags.isEmpty)
+        #expect(people.count == 1)
     }
 
     @Test func logbookRow_displayName_usesTrimmedSiteElseNewDive() {
@@ -5967,10 +6033,100 @@ struct GoDiveMVPTests {
             durationMinutes: 10,
             maxDepthMeters: 5
         )
-        let buddy = DiveBuddyTag(displayName: "Pat")
-        #expect(buddy.diveActivityID == nil)
-        buddy.link(to: activity)
-        #expect(buddy.diveActivityID == activity.id)
+        let person = DiveBuddy(displayName: "Pat")
+        let tag = DiveBuddyTag(buddy: person)
+        #expect(tag.diveActivityID == nil)
+        tag.link(to: activity)
+        #expect(tag.diveActivityID == activity.id)
+        #expect(tag.buddyID == person.id)
+    }
+
+    @Test func diveBuddyCatalog_reusesContactsIdentifierForSameOwner() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "buddy-owner", displayName: "Diver")
+        context.insert(owner)
+
+        let first = DiveBuddyCatalog.findOrCreate(
+            displayName: "Pat Lee",
+            contactsIdentifier: "contact-abc",
+            owner: owner,
+            modelContext: context
+        )
+        let second = DiveBuddyCatalog.findOrCreate(
+            displayName: "Patricia Lee",
+            contactsIdentifier: "contact-abc",
+            owner: owner,
+            modelContext: context
+        )
+        #expect(first.id == second.id)
+        #expect(second.displayName == "Patricia Lee")
+    }
+
+    @Test func diveBuddyActivityAssociation_doesNotDuplicateTagOnSameDive() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: .now,
+            durationMinutes: 10,
+            maxDepthMeters: 12
+        )
+        context.insert(activity)
+        let person = DiveBuddy(displayName: "Jamie")
+        context.insert(person)
+
+        let first = DiveBuddyActivityAssociation.tagBuddy(person, on: activity, modelContext: context)
+        let second = DiveBuddyActivityAssociation.tagBuddy(person, on: activity, modelContext: context)
+        #expect(first != nil)
+        #expect(second == nil)
+        #expect(activity.buddies.count == 1)
+    }
+
+    @Test func diveBuddyContactImport_displayName_prefersFormatter() {
+        let contact = CNMutableContact()
+        contact.givenName = "Pat"
+        contact.familyName = "Lee"
+        #expect(DiveBuddyContactImport.displayName(from: contact) == "Pat Lee")
+    }
+
+    @Test func diveBuddyLegacyMigration_linksOrphanTagsToPeople() throws {
+        let schema = Schema([
+            DiveActivity.self,
+            DiveBuddy.self,
+            DiveBuddyTag.self,
+            UserProfile.self,
+        ])
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = ModelContext(container)
+
+        let owner = UserProfile(appleUserIdentifier: "legacy-owner", displayName: "Diver")
+        context.insert(owner)
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: .now,
+            durationMinutes: 10,
+            maxDepthMeters: 8
+        )
+        DiveActivityOwnership.assignOwner(owner, to: activity)
+        context.insert(activity)
+
+        let tag = DiveBuddyTag(buddy: DiveBuddy(displayName: "Should not use"), dive: activity)
+        tag.buddy = nil
+        tag.legacyDisplayName = "Legacy Pat"
+        context.insert(tag)
+        activity.buddies.append(tag)
+        try context.save()
+
+        UserDefaults.standard.set(false, forKey: "goDiveDiveBuddyPersonMigrationComplete")
+        try DiveBuddyLegacyMigration.migrateIfNeeded(modelContext: context)
+
+        #expect(tag.buddy != nil)
+        #expect(tag.displayName == "Legacy Pat")
+        #expect(tag.legacyDisplayName == nil)
+        #expect(tag.buddy?.ownerProfileID == owner.id)
+        UserDefaults.standard.set(true, forKey: "goDiveDiveBuddyPersonMigrationComplete")
     }
 
     @Test func diveLogbookSiteSearch_emptyQuery_returnsAllSeeds() {
@@ -6023,6 +6179,138 @@ struct GoDiveMVPTests {
         #expect(
             DiveLogbookSiteSearch.filtering([tagged, untagged], siteQuery: "wreck").map(\.id) == []
         )
+
+        #expect(
+            DiveLogbookSiteSearch.matchesConfirmedBuddy(
+                buddyDisplayNames: ["Pat Lee", "Jamie"],
+                confirmedBuddyName: "pat lee"
+            )
+        )
+        #expect(
+            !DiveLogbookSiteSearch.matchesConfirmedBuddy(
+                buddyDisplayNames: ["Jamie"],
+                confirmedBuddyName: "Pat"
+            )
+        )
+
+        let withPat = logbookSnapshotSeed(
+            resolvedSiteNameLowercased: "salt pier",
+            buddyDisplayNames: ["Pat Lee"]
+        )
+        let withoutPat = logbookSnapshotSeed(resolvedSiteNameLowercased: "salt pier")
+        #expect(
+            DiveLogbookSiteSearch.filtering(
+                [withPat, withoutPat],
+                siteQuery: "",
+                confirmedBuddyName: "Pat Lee"
+            ).map(\.id) == [withPat.id]
+        )
+        #expect(
+            DiveLogbookSiteSearch.filtering(
+                [withPat, withoutPat],
+                siteQuery: "pat",
+                confirmedBuddyName: "Pat Lee"
+            ).map(\.id) == [withPat.id]
+        )
+    }
+
+    @Test func diveBuddyRosterPresentation_labels() {
+        #expect(DiveBuddyRosterPresentation.rosterCountLabel(0) == "No buddies")
+        #expect(DiveBuddyRosterPresentation.rosterCountLabel(1) == "1 buddy")
+        #expect(DiveBuddyRosterPresentation.rosterCountLabel(4) == "4 buddies")
+        #expect(DiveBuddyRosterPresentation.sharedDiveCountLabel(0) == "No dives together")
+        #expect(DiveBuddyRosterPresentation.sharedDiveCountLabel(1) == "1 dive together")
+        #expect(DiveBuddyRosterPresentation.sharedDiveCountLabel(3) == "3 dives together")
+        #expect(DiveBuddyRosterPresentation.listSubtitle(sharedDiveCount: 2) == "2 dives together")
+        #expect(ProfilePresentation.diveBuddyRosterCountLabel(2) == "2 buddies")
+    }
+
+    @Test func homeBuddyLeaderboard_topEntries_countsUniqueDivesPerBuddy() {
+        let buddyA = UUID()
+        let buddyB = UUID()
+        let dive1 = UUID()
+        let dive2 = UUID()
+        let dive3 = UUID()
+        let tags: [HomeBuddyLeaderboardPresentation.TagInput] = [
+            .init(buddyID: buddyA, displayName: "Pat Lee", profilePhoto: nil, diveActivityID: dive1),
+            .init(buddyID: buddyA, displayName: "Pat Lee", profilePhoto: nil, diveActivityID: dive2),
+            .init(buddyID: buddyA, displayName: "Pat Lee", profilePhoto: nil, diveActivityID: dive3),
+            .init(buddyID: buddyB, displayName: "Jamie", profilePhoto: nil, diveActivityID: dive1),
+            .init(buddyID: buddyB, displayName: "Jamie", profilePhoto: nil, diveActivityID: dive2),
+            .init(buddyID: buddyA, displayName: "Pat Lee", profilePhoto: nil, diveActivityID: dive1),
+        ]
+        let top = HomeBuddyLeaderboardPresentation.topEntries(from: tags)
+        #expect(top.count == 2)
+        #expect(top[0].id == buddyA)
+        #expect(top[0].diveCount == 3)
+        #expect(top[0].rank == 1)
+        #expect(top[1].id == buddyB)
+        #expect(top[1].diveCount == 2)
+        #expect(top[1].rank == 2)
+    }
+
+    @Test func homeBuddyLeaderboard_topEntries_limitsToThree() {
+        let tags = (0..<5).map { index in
+            HomeBuddyLeaderboardPresentation.TagInput(
+                buddyID: UUID(),
+                displayName: "Buddy \(index)",
+                profilePhoto: nil,
+                diveActivityID: UUID()
+            )
+        }
+        #expect(HomeBuddyLeaderboardPresentation.topEntries(from: tags).count == 3)
+    }
+
+    @Test func homeBuddyLeaderboard_shouldShow_requiresDivesAndTaggedBuddies() {
+        let entry = HomeBuddyLeaderboardEntry(
+            id: UUID(),
+            displayName: "Pat",
+            profilePhoto: nil,
+            diveCount: 1,
+            rank: 1
+        )
+        #expect(HomeBuddyLeaderboardPresentation.shouldShow(diveCount: 1, entries: [entry]))
+        #expect(!HomeBuddyLeaderboardPresentation.shouldShow(diveCount: 0, entries: [entry]))
+        #expect(!HomeBuddyLeaderboardPresentation.shouldShow(diveCount: 3, entries: []))
+    }
+
+    @Test func diveBuddyPresentation_firstName_usesFirstToken() {
+        #expect(DiveBuddyPresentation.firstName(from: "Pat Lee") == "Pat")
+        #expect(DiveBuddyPresentation.firstName(from: "  Jamie  ") == "Jamie")
+        #expect(DiveBuddyPresentation.firstName(from: "Madonna") == "Madonna")
+        #expect(DiveBuddyPresentation.firstName(from: "   ") == "Buddy")
+    }
+
+    @Test func logbookBuddySearchPresentation_suggestions_onlyWhileTypingWithoutActiveFilter() {
+        let catalog = ["Pat Lee", "Jamie Smith", "Alex"]
+        #expect(
+            LogbookBuddySearchPresentation.suggestions(
+                catalogBuddyNames: catalog,
+                query: "pat",
+                activeBuddyFilter: nil,
+                activeTagFilter: nil
+            ).map(\.buddyName) == ["Pat Lee"]
+        )
+        #expect(
+            LogbookBuddySearchPresentation.suggestions(
+                catalogBuddyNames: catalog,
+                query: "pat",
+                activeBuddyFilter: "Pat Lee",
+                activeTagFilter: nil
+            ).isEmpty
+        )
+        #expect(
+            LogbookBuddySearchPresentation.suggestions(
+                catalogBuddyNames: catalog,
+                query: "pat",
+                activeBuddyFilter: nil,
+                activeTagFilter: "Training"
+            ).isEmpty
+        )
+        #expect(
+            LogbookBuddySearchPresentation.activeBuddyPromptLine(buddyName: "Pat Lee")
+                == "buddy: Pat Lee"
+        )
     }
 
     @Test func logbookTagSearchPresentation_suggestions_onlyWhileTypingWithoutActiveTag() {
@@ -6065,7 +6353,9 @@ struct GoDiveMVPTests {
             isFilteringBySiteName: false,
             siteSearchQuery: "",
             activeTagFilter: nil,
+            activeBuddyFilter: nil,
             tagSuggestionSignature: "",
+            buddySuggestionSignature: "",
             isSiteSearchFocused: false,
             bubbleAnimationPaused: false,
             headerClearance: 0,
@@ -6210,6 +6500,7 @@ struct GoDiveMVPTests {
     func diveActivityDiveNumbering_assignNextChained_firstDiveIsOne() throws {
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveProfilePoint.self,
             DiveSite.self,
@@ -6232,6 +6523,7 @@ struct GoDiveMVPTests {
     func diveActivityDiveNumbering_assignNextChained_ignoresPresetWhenStoreEmpty() throws {
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveProfilePoint.self,
             DiveSite.self,
@@ -6255,6 +6547,7 @@ struct GoDiveMVPTests {
     func diveActivityDiveNumbering_assignNextChained_oneMoreThanNewestByDate() throws {
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveProfilePoint.self,
             DiveSite.self,
@@ -6285,6 +6578,7 @@ struct GoDiveMVPTests {
     func diveActivityDiveNumbering_assignNextChained_whenNewestHasNilUsesMaxOthers() throws {
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveProfilePoint.self,
             DiveSite.self,
@@ -6515,7 +6809,8 @@ struct GoDiveMVPTests {
             avgRMV: 16,
             rawImportVersion: "MacDive UDDF"
         )
-        activity.buddies.append(DiveBuddyTag(displayName: "Jamie"))
+        let jamie = DiveBuddy(displayName: "Jamie")
+        activity.buddies.append(DiveBuddyTag(buddy: jamie, dive: activity))
         let titles = DiveActivityDetailsPresentation.sections(for: activity, displayUnits: .metric).map(\.title)
         #expect(titles.contains("Dive"))
         #expect(titles.contains("Location"))
@@ -6562,6 +6857,7 @@ struct GoDiveMVPTests {
     func diveActivityDiveNumbering_backfill_skipsExplicitNone() throws {
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveProfilePoint.self,
             DiveSite.self,
@@ -6604,6 +6900,7 @@ struct GoDiveMVPTests {
     func diveActivityDiveNumbering_renumberAllChronologically_skipsExplicitNone() throws {
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveProfilePoint.self,
             DiveSite.self,
@@ -6636,6 +6933,7 @@ struct GoDiveMVPTests {
     func diveActivityDiveNumbering_renumberAllChronologically_rewritesPersisted() throws {
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveProfilePoint.self,
             DiveSite.self,
@@ -6672,6 +6970,7 @@ struct GoDiveMVPTests {
 
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveProfilePoint.self,
             DiveSite.self,
@@ -6714,6 +7013,7 @@ struct GoDiveMVPTests {
 
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveProfilePoint.self,
             DiveSite.self,
@@ -6746,6 +7046,7 @@ struct GoDiveMVPTests {
     func diveActivityDeletion_withoutRenumber_leavesOtherDiveNumber() async throws {
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveProfilePoint.self,
             DiveSite.self,
@@ -6773,6 +7074,7 @@ struct GoDiveMVPTests {
     func diveActivityDeletion_reportProgress_finishesAtOne() async throws {
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveProfilePoint.self,
             DiveSite.self,
@@ -6811,6 +7113,7 @@ struct GoDiveMVPTests {
     func diveActivityDeletion_withRenumber_collapsesNumbers() async throws {
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveProfilePoint.self,
             DiveSite.self,
@@ -6843,6 +7146,7 @@ struct GoDiveMVPTests {
     func diveActivityDeletion_renumberAfterDelete_onlyRenumbersNewerDives() async throws {
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveProfilePoint.self,
             DiveSite.self,
@@ -6994,6 +7298,7 @@ struct GoDiveMVPTests {
     @Test func diveActivityPostDeleteRenumbering_partialRenumberOnBackgroundContext() async throws {
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveProfilePoint.self,
             DiveSite.self,
@@ -7058,6 +7363,7 @@ struct GoDiveMVPTests {
     @Test func diveBackgroundRenumberingWorker_partialRenumberOnlyTouchesTail() async throws {
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveProfilePoint.self,
             DiveSite.self,
@@ -7159,6 +7465,7 @@ struct GoDiveMVPTests {
     @Test func diveBackgroundDeletionWorker_cascadeDelete_removesLargeProfileAndDive() async throws {
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveProfilePoint.self,
             DiveSite.self,
@@ -7203,6 +7510,7 @@ struct GoDiveMVPTests {
     @Test func diveBackgroundDeletionWorker_deleteDive_withLinkedSite_removesDiveProfilePointsAndCatalogSite() async throws {
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveProfilePoint.self,
             DiveSite.self,
@@ -7253,6 +7561,7 @@ struct GoDiveMVPTests {
     @Test func diveBackgroundDeletionWorker_deleteDive_removesActivityBuddiesAndMedia() async throws {
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveMediaPhoto.self,
             DiveProfilePoint.self,
@@ -7269,12 +7578,15 @@ struct GoDiveMVPTests {
                 durationMinutes: 12,
                 maxDepthMeters: 18
             )
-            let buddy = DiveBuddyTag(displayName: "Pat")
-            buddy.link(to: activity)
-            activity.buddies.append(buddy)
+            let person = DiveBuddy(displayName: "Pat")
+            let tag = DiveBuddyTag(buddy: person, dive: activity)
+            tag.link(to: activity)
+            activity.buddies.append(tag)
             let photo = DiveMediaPhoto(sortOrder: 0, mediaKind: .image, dive: activity)
             activity.mediaPhotos.append(photo)
+            context.insert(person)
             context.insert(activity)
+            context.insert(tag)
             try context.save()
             return activity.id
         }
@@ -7282,16 +7594,18 @@ struct GoDiveMVPTests {
         try await DiveBackgroundDeletionWorker(modelContainer: container)
             .deleteDive(id: activityID)
 
-        let counts = try await MainActor.run { () throws -> (Int, Int, Int) in
+        let counts = try await MainActor.run { () throws -> (Int, Int, Int, Int) in
             let context = ModelContext(container)
             let dives = try context.fetch(FetchDescriptor<DiveActivity>())
-            let buddies = try context.fetch(FetchDescriptor<DiveBuddyTag>())
+            let tags = try context.fetch(FetchDescriptor<DiveBuddyTag>())
+            let people = try context.fetch(FetchDescriptor<DiveBuddy>())
             let media = try context.fetch(FetchDescriptor<DiveMediaPhoto>())
-            return (dives.count, buddies.count, media.count)
+            return (dives.count, tags.count, people.count, media.count)
         }
         #expect(counts.0 == 0)
         #expect(counts.1 == 0)
-        #expect(counts.2 == 0)
+        #expect(counts.2 == 1)
+        #expect(counts.3 == 0)
     }
 
     @Test func diveBackgroundDeletionWorker_deleteDive_withSightingsTagsAndMarineLifeRecord_removesAllReferences() async throws {
@@ -7484,6 +7798,7 @@ struct GoDiveMVPTests {
     func diveActivityDeletion_backgroundRenumber_collapsesTailNumbers() async throws {
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveProfilePoint.self,
             DiveSite.self,
@@ -7525,6 +7840,7 @@ struct GoDiveMVPTests {
     func diveActivityDiveNumbering_backfillFillsNilRows() throws {
         let schema = Schema([
             DiveActivity.self,
+            DiveBuddy.self,
             DiveBuddyTag.self,
             DiveProfilePoint.self,
             DiveSite.self,
@@ -8044,7 +8360,8 @@ struct GoDiveMVPTests {
 private func logbookSnapshotSeed(
     id: UUID = UUID(),
     resolvedSiteNameLowercased: String?,
-    activityTagNames: [String] = []
+    activityTagNames: [String] = [],
+    buddyDisplayNames: [String] = []
 ) -> LogbookActivitySnapshotSeed {
     LogbookActivitySnapshotSeed(
         id: id,
@@ -8059,6 +8376,7 @@ private func logbookSnapshotSeed(
         formattedStartDateOnly: "Jan 1, 1970",
         resolvedSiteNameLowercased: resolvedSiteNameLowercased,
         activityTagNames: activityTagNames,
+        buddyDisplayNames: buddyDisplayNames,
         previewMediaPhotoID: nil
     )
 }

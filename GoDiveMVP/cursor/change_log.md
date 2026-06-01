@@ -923,5 +923,22 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Home hero:** **`heroHeightToWidthRatio`** **0.77** + overlap extension **162 pt** (~20% shorter media area vs prior **0.96** / **202 pt**).
 - **`HomeMediaCarouselEmptyPlaceholder`** — animated ghost photo frames + copy encouraging Logbook media / Settings auto-upload when dives exist but carousel has no picks.
 
-## 59 - Next batch
+## 59 - Dive buddies roster, Home layout, Profile Dive Buddies **(pushed)**
+
+**Summary:** Universal **`DiveBuddy`** roster + **`DiveBuddyTag`** dive links; Contacts picker for name/photo; legacy tag migration; Home stats/dashboard layout; Profile **Dive Buddies** manager.
+
+- **`DiveBuddy`** — owner-scoped person (`displayName`, **`profilePhoto`**, optional **`contactsIdentifier`**); **`DiveBuddyTag`** join rows on **`DiveActivity`** (cascade on dive delete; person kept).
+- **`DiveBuddyCatalog`**, **`DiveBuddyActivityAssociation`**, **`DiveBuddyTagging`**, **`DiveBuddyImportConsolidation`**, **`DiveBuddyOwnership`**, **`DiveBuddyLegacyMigration`**, **`DiveBuddyContactImport`**.
+- **`ContactPickerView`** + **Buddies** sheet **Add from Contacts**; **`NSContactsUsageDescription`**; avatars on overview **Buddies** section.
+- Import / seed / UDDF / **`DiveActivityOwnership`** assign buddy owner with dives.
+- Tests: catalog dedupe, duplicate tag guard, contact name import, legacy migration, deletion keeps **`DiveBuddy`** row.
+- **Logbook buddy search:** type in search → **Buddies** suggestion chips from roster; tap to filter dives with that buddy tagged (same UX as **Tags**); **`buddyDisplayNames`** on **`LogbookActivitySnapshotSeed`**.
+- **Dive overview Buddies:** **`DiveActivityBuddyAvatarChip`** + **`DiveActivityBuddiesOverviewSection`** — avatar with first name below; horizontal strip on map overview; same chips on **Details** tab.
+- **Home top buddies:** **`HomeBuddyLeaderboardPresentation`** + **`HomeBuddyLeaderboardTile`** under lifetime stats when the log has dives and at least one buddy tag — top **3** by shared dive count (avatar, first name, dive count).
+- **Home stats tiles:** fixed-height bordered cards (**`homeHighlightTileChrome`**) in a **2×2** grid; buddy leaderboard in its own card below; panel scrolls when needed (no **`GeometryReader`** overlap).
+- **Home layout fit:** **`homeDashboard`** — media fixed height to the top edge; stats **`maxHeight: .infinity`** fill viewport down to the tab bar (**`HomeLifetimeStatsPanel.bottomSafeAreaInset`**); **Top species** tile always shown (**`—`** + “Tag marine life on your dives” when no sightings).
+- **Home stats (no scroll):** removed stats **`ScrollView`**; **`HomeLifetimeStatsTilesLayout`** sizes all **5** tiles to the fixed panel (**92 pt** stat cards, **152 pt** buddies, **368 pt** scroll content — taller stats sheet, larger **Top buddies** podium).
+- **Profile → Dive Buddies:** **`DiveBuddiesListView`** (logbook-style rows + avatar); **`ViewDiveBuddyDetails`** (pushed page: name, avatar, dives-together count, linked **`LogbookActivityRow`** dives); **`DiveBuddyEditSheetView`** + **`DiveBuddyAvatarEditor`** (name + cropped photo).
+
+## 60 - Next batch
 

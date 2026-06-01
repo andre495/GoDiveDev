@@ -695,6 +695,7 @@ private enum DiveImportSuccessTiming {
 #Preview {
     let schema = Schema([
         DiveActivity.self,
+        DiveBuddy.self,
         DiveBuddyTag.self,
         DiveProfilePoint.self,
         DiveSite.self,

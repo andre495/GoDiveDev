@@ -5,6 +5,7 @@ enum HomeOverviewRefreshToken {
 
     nonisolated static func make(
         dives: [HomeDiveStatsInput],
+        buddyTags: [HomeBuddyLeaderboardPresentation.TagInput] = [],
         sightingCount: Int,
         mediaCount: Int
     ) -> String {
@@ -20,6 +21,15 @@ enum HomeOverviewRefreshToken {
                 ].joined(separator: ":")
             }
             .joined(separator: "|")
-        return "d=\(divePart)#s=\(sightingCount)#m=\(mediaCount)"
+        let buddyPart = buddyTags
+            .sorted {
+                ($0.buddyID.uuidString, $0.diveActivityID.uuidString)
+                    < ($1.buddyID.uuidString, $1.diveActivityID.uuidString)
+            }
+            .map {
+                "\($0.buddyID.uuidString):\($0.diveActivityID.uuidString):\($0.displayName)"
+            }
+            .joined(separator: "|")
+        return "d=\(divePart)#b=\(buddyPart)#s=\(sightingCount)#m=\(mediaCount)"
     }
 }

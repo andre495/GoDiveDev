@@ -861,13 +861,16 @@ struct ViewSingleActivity: View {
                             .foregroundStyle(AppTheme.Colors.tabUnselected)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
-                        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                            ForEach(activity.buddies, id: \.id) { buddy in
-                                Text(buddy.displayName)
-                                    .font(.body)
-                                    .foregroundStyle(AppTheme.Colors.textPrimary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: AppTheme.Spacing.lg) {
+                                ForEach(activity.buddies, id: \.id) { tag in
+                                    DiveActivityBuddyAvatarChip(
+                                        displayName: tag.displayName,
+                                        profilePhoto: tag.buddy?.profilePhoto
+                                    )
+                                }
                             }
+                            .padding(.vertical, AppTheme.Spacing.sm)
                         }
                     }
                 }
@@ -1258,6 +1261,7 @@ struct ViewSingleActivity: View {
 private func viewSingleActivityPreview() -> some View {
     let schema = Schema([
         DiveActivity.self,
+        DiveBuddy.self,
         DiveBuddyTag.self,
         ActivityTag.self,
         DiveProfilePoint.self,

@@ -47,6 +47,7 @@ final class AccountSession {
             )
             currentProfile = profile
             try? DiveActivityOwnership.claimUnownedDives(for: profile, modelContext: modelContext)
+            try? DiveBuddyOwnership.claimUnownedBuddies(for: profile, modelContext: modelContext)
         default:
             clearPersistedSession()
             currentProfile = nil
@@ -77,6 +78,7 @@ final class AccountSession {
             modelContext: modelContext
         )
         try DiveActivityOwnership.claimUnownedDives(for: profile, modelContext: modelContext)
+        try DiveBuddyOwnership.claimUnownedBuddies(for: profile, modelContext: modelContext)
         persistSession(profile: profile)
         currentProfile = profile
     }

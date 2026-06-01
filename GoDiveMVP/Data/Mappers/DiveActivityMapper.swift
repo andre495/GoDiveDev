@@ -1,8 +1,13 @@
 import Foundation
+import SwiftData
 
 /// Maps seed / JSON DTOs into **`DiveActivity`** using **canonical** persisted units (m, °C, psi — see **`DiveActivity`**).
 enum DiveActivityMapper {
-    static func map(_ dto: DiveActivityDTO) -> DiveActivity {
+    static func map(
+        _ dto: DiveActivityDTO,
+        modelContext: ModelContext,
+        owner: UserProfile? = nil
+    ) -> DiveActivity {
         let defaultTank = DiveActivityTankDefaults.resolvedSpecification()
         let importedMaterial = dto.tankMaterial?
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -53,7 +58,13 @@ enum DiveActivityMapper {
         }
 
         activity.buddies = (dto.buddies ?? []).map { buddyDTO in
-            DiveBuddyTag(id: buddyDTO.id ?? UUID(), displayName: buddyDTO.displayName, dive: activity)
+            DiveBuddyTagging.makeTag(
+                displayName: buddyDTO.displayName,
+                tagID: buddyDTO.id ?? UUID(),
+                dive: activity,
+                owner: owner,
+                modelContext: modelContext
+            )
         }
 
         activity.applyImportedGasConsumptionMetrics(volumeUsedSurfaceLiters: nil)

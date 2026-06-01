@@ -67,6 +67,9 @@ private struct HomeSiteVisitKey: Sendable {
 /// Builds Home tab lifetime stats from owned dives and optional sighting rows.
 enum HomeLifetimeStatsPresentation {
 
+    nonisolated static let topSpeciesEmptyValue = "—"
+    nonisolated static let topSpeciesEmptyFootnote = "Tag marine life on your dives"
+
     struct SightingCountInput: Sendable, Equatable {
         let marineLifeUUID: String
         let commonName: String

@@ -98,6 +98,11 @@ enum UddfDiveFileImport {
                         )
                     }
                     DiveActivityOwnership.assignOwner(owner, to: activity)
+                    DiveBuddyImportConsolidation.prepareForInsert(
+                        activity,
+                        owner: owner,
+                        modelContext: modelContext
+                    )
                     modelContext.insert(activity)
                     try DiveActivityEquipmentAssociation.applyAutoAdd(
                         to: activity,

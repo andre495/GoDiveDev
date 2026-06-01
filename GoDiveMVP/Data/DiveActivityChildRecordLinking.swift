@@ -4,9 +4,9 @@ import Foundation
 /// SwiftData **`@Relationship`** setters do not reliably run custom **`didSet`** observers.
 enum DiveActivityChildRecordLinking {
 
-    static func link(_ buddy: DiveBuddyTag, to dive: DiveActivity) {
-        buddy.diveActivityID = dive.id
-        buddy.dive = dive
+    static func link(_ tag: DiveBuddyTag, to dive: DiveActivity) {
+        tag.diveActivityID = dive.id
+        tag.dive = dive
     }
 
     static func link(_ point: DiveProfilePoint, to dive: DiveActivity) {

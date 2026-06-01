@@ -6,6 +6,10 @@ enum DiveActivityOwnership {
     static func assignOwner(_ owner: UserProfile, to activity: DiveActivity) {
         activity.owner = owner
         activity.ownerProfileID = owner.id
+        for tag in activity.buddies {
+            guard let buddy = tag.buddy, buddy.ownerProfileID == nil else { continue }
+            DiveBuddyOwnership.assignOwner(owner, to: buddy)
+        }
     }
 
     static func activities(forOwnerProfileID ownerProfileID: UUID, modelContext: ModelContext) throws -> [DiveActivity] {

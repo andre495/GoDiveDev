@@ -82,7 +82,9 @@ struct LogbookListSurfaceEquatableInputs: Equatable, Sendable {
     var isFilteringBySiteName: Bool
     var siteSearchQuery: String
     var activeTagFilter: String?
+    var activeBuddyFilter: String?
     var tagSuggestionSignature: String
+    var buddySuggestionSignature: String
     var isSiteSearchFocused: Bool
     var bubbleAnimationPaused: Bool
     var headerClearance: CGFloat
@@ -95,7 +97,9 @@ struct LogbookListSurfaceEquatableInputs: Equatable, Sendable {
             && lhs.isFilteringBySiteName == rhs.isFilteringBySiteName
             && lhs.siteSearchQuery == rhs.siteSearchQuery
             && lhs.activeTagFilter == rhs.activeTagFilter
+            && lhs.activeBuddyFilter == rhs.activeBuddyFilter
             && lhs.tagSuggestionSignature == rhs.tagSuggestionSignature
+            && lhs.buddySuggestionSignature == rhs.buddySuggestionSignature
             && lhs.isSiteSearchFocused == rhs.isSiteSearchFocused
             && lhs.bubbleAnimationPaused == rhs.bubbleAnimationPaused
             && lhs.headerClearance == rhs.headerClearance

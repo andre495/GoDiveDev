@@ -5,7 +5,7 @@ import SwiftUI
 
 enum HomeMediaCarouselLayout {
     /// Hero height = width × ratio + top safe inset + extension into the stats sheet overlap zone.
-    static let heroHeightToWidthRatio: CGFloat = 0.77
+    static let heroHeightToWidthRatio: CGFloat = HomeOverviewLayout.heroHeightToWidthRatio
 
     /// Bottom inset for slide chrome — just above the stats sheet overlap.
     static var slideChromeBottomInset: CGFloat {
@@ -20,7 +20,11 @@ enum HomeMediaCarouselLayout {
         topSafeAreaInset: CGFloat,
         additionalBottomExtension: CGFloat = HomeLifetimeStatsLayout.heroBottomExtension
     ) -> CGFloat {
-        max(width * heroHeightToWidthRatio + topSafeAreaInset + additionalBottomExtension, 1)
+        HomeOverviewLayout.heroHeight(
+            width: width,
+            topSafeAreaInset: topSafeAreaInset,
+            additionalBottomExtension: additionalBottomExtension
+        )
     }
 
     /// Feather under the status bar + **`AppHeader`** for readable chrome over bright media.
@@ -671,16 +675,19 @@ private struct HomeMediaCarouselMediaView: View {
 // MARK: - Lifetime stats
 
 enum HomeLifetimeStatsLayout {
-    static let gridColumnCount = 2
+    static let gridColumnCount = HomeLifetimeStatsTilesLayout.gridColumnCount
     static let gridSpacing = AppTheme.Spacing.md
-    static let minimumTileHeight: CGFloat = 88
+    /// Fixed height per highlight stat card (intrinsic grid — no **`GeometryReader`** stretch).
+    static let statTileHeight: CGFloat = HomeLifetimeStatsTilesLayout.statTileHeight
+    static let statTileCornerRadius: CGFloat = 12
+    static let statTilePadding: CGFloat = HomeLifetimeStatsTilesLayout.statTilePadding
 
     /// Matches modal / embedded sheet corner radius — stats panel reads as a sheet over the hero.
     static let panelTopCornerRadius: CGFloat = AppTheme.Sheet.cornerRadius
     /// How far the stats panel rises over featured media (media shows through the top corner radii).
-    static let panelOverlap: CGFloat = 148
+    static let panelOverlap: CGFloat = HomeOverviewLayout.panelOverlap
     /// Extra hero height below the base aspect ratio so media bleeds behind the stats sheet.
-    static let heroBottomExtension: CGFloat = 162
+    static let heroBottomExtension: CGFloat = HomeOverviewLayout.heroBottomExtension
     static let panelTopContentPadding: CGFloat = AppTheme.Spacing.lg
     /// Breathing room between carousel bottom and stat tiles when the sheet overlaps the hero.
     static let panelTopContentPaddingWhenOverlapping: CGFloat = AppTheme.Spacing.lg + AppTheme.Spacing.sm
@@ -690,29 +697,34 @@ enum HomeLifetimeStatsLayout {
         return (tileCount + gridColumnCount - 1) / gridColumnCount
     }
 
-    static func tileHeight(availableHeight: CGFloat, tileCount: Int) -> CGFloat {
+    /// Highlight stat slots on Home (deepest, longest, top site, top species).
+    static let highlightStatTileCount = 4
+
+    static let estimatedBuddyLeaderboardHeight: CGFloat = HomeBuddyLeaderboardLayout.estimatedTileHeight
+
+    static func gridHeight(tileCount: Int) -> CGFloat {
         let rows = rowCount(tileCount: tileCount)
-        guard rows > 0, availableHeight > 0 else { return minimumTileHeight }
-        let totalSpacing = gridSpacing * CGFloat(max(rows - 1, 0))
-        return max((availableHeight - totalSpacing) / CGFloat(rows), minimumTileHeight)
+        guard rows > 0 else { return 0 }
+        return CGFloat(rows) * statTileHeight + gridSpacing * CGFloat(max(rows - 1, 0))
     }
 
-    static func tileContentSpacing(for tileHeight: CGFloat) -> CGFloat {
-        tileHeight >= 100 ? AppTheme.Spacing.md : AppTheme.Spacing.sm
+    nonisolated static func estimatedScrollContentHeight(showsBuddyLeaderboard: Bool) -> CGFloat {
+        HomeLifetimeStatsPanelLayout.estimatedScrollContentHeight(showsBuddyLeaderboard: showsBuddyLeaderboard)
     }
 
-    static func valueFontSize(for tileHeight: CGFloat) -> CGFloat {
-        min(max(tileHeight * 0.24, 20), 32)
+    nonisolated static func estimatedPanelContentHeight(showsBuddyLeaderboard: Bool) -> CGFloat {
+        HomeLifetimeStatsPanelLayout.estimatedPanelContentHeight(showsBuddyLeaderboard: showsBuddyLeaderboard)
     }
 
-    static func titleFontSize(for tileHeight: CGFloat) -> CGFloat {
-        min(max(tileHeight * 0.14, 13), 17)
-    }
+    static func valueFontSize() -> CGFloat { HomeLifetimeStatsTilesLayout.valueFontSize }
+    static func titleFontSize() -> CGFloat { HomeLifetimeStatsTilesLayout.titleFontSize }
 }
 
 /// Sheet-style chrome for Home lifetime stats — rounded top, opaque fill, optional hero overlap.
 struct HomeLifetimeStatsPanel<Content: View>: View {
     var overlapsMedia: Bool
+    /// Keeps tiles above the tab bar while the panel fill extends to the viewport bottom.
+    var bottomSafeAreaInset: CGFloat = 0
     @ViewBuilder var content: () -> Content
 
     var body: some View {
@@ -724,7 +736,7 @@ struct HomeLifetimeStatsPanel<Content: View>: View {
                     ? HomeLifetimeStatsLayout.panelTopContentPaddingWhenOverlapping
                     : HomeLifetimeStatsLayout.panelTopContentPadding
             )
-            .padding(.bottom, AppTheme.Spacing.sm)
+            .padding(.bottom, AppTheme.Spacing.sm + bottomSafeAreaInset)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background {
                 HomeLifetimeStatsPanelBackground()
@@ -766,19 +778,23 @@ private struct HomeLifetimeStatsPanelBackground: View {
 
 struct HomeLifetimeStatsSection: View {
     let stats: HomeLifetimeStats
+    let buddyLeaderboard: [HomeBuddyLeaderboardEntry]
     let unitSystem: DiveDisplayUnitSystem
     let onOpenDive: (UUID) -> Void
     let onOpenSite: (UUID) -> Void
     let onOpenSpecies: (String) -> Void
 
-    var body: some View {
-        GeometryReader { proxy in
-            let tiles = highlightTiles
-            let tileHeight = HomeLifetimeStatsLayout.tileHeight(
-                availableHeight: proxy.size.height,
-                tileCount: tiles.count
-            )
+    private var showsBuddyLeaderboard: Bool {
+        HomeBuddyLeaderboardPresentation.shouldShow(
+            diveCount: stats.diveCount,
+            entries: buddyLeaderboard
+        )
+    }
 
+    var body: some View {
+        let tiles = highlightTiles
+
+        VStack(alignment: .leading, spacing: HomeLifetimeStatsLayout.gridSpacing) {
             LazyVGrid(
                 columns: Array(
                     repeating: GridItem(.flexible(), spacing: HomeLifetimeStatsLayout.gridSpacing),
@@ -792,14 +808,19 @@ struct HomeLifetimeStatsSection: View {
                         value: tile.value,
                         footnote: tile.footnote,
                         systemImage: tile.systemImage,
-                        tileHeight: tileHeight,
                         action: tile.action
                     )
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .frame(height: HomeLifetimeStatsLayout.gridHeight(tileCount: tiles.count))
+
+            if showsBuddyLeaderboard {
+                HomeBuddyLeaderboardTile(entries: buddyLeaderboard)
+            }
+
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .accessibilityIdentifier("Home.LifetimeStats")
     }
 
@@ -856,6 +877,17 @@ struct HomeLifetimeStatsSection: View {
                     action: { onOpenSpecies(species.marineLifeUUID) }
                 )
             )
+        } else {
+            tiles.append(
+                HomeHighlightStatTile(
+                    id: "top-species",
+                    title: "Top species",
+                    value: HomeLifetimeStatsPresentation.topSpeciesEmptyValue,
+                    footnote: HomeLifetimeStatsPresentation.topSpeciesEmptyFootnote,
+                    systemImage: "fish.fill",
+                    action: nil
+                )
+            )
         }
 
         return tiles
@@ -881,7 +913,6 @@ private struct HomeStatTile: View {
     let value: String
     let footnote: String
     let systemImage: String
-    var tileHeight: CGFloat
     var action: (() -> Void)?
 
     private var showsFootnote: Bool {
@@ -902,15 +933,15 @@ private struct HomeStatTile: View {
     }
 
     private var tileContent: some View {
-        VStack(alignment: .leading, spacing: HomeLifetimeStatsLayout.tileContentSpacing(for: tileHeight)) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
                 Image(systemName: systemImage)
-                    .font(.system(size: HomeLifetimeStatsLayout.titleFontSize(for: tileHeight), weight: .semibold))
+                    .font(.system(size: HomeLifetimeStatsLayout.titleFontSize(), weight: .semibold))
                     .foregroundStyle(AppTheme.Colors.accent)
                     .accessibilityHidden(true)
 
                 Text(title)
-                    .font(.system(size: HomeLifetimeStatsLayout.titleFontSize(for: tileHeight), weight: .semibold))
+                    .font(.system(size: HomeLifetimeStatsLayout.titleFontSize(), weight: .semibold))
                     .foregroundStyle(AppTheme.Colors.secondaryText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
@@ -926,28 +957,133 @@ private struct HomeStatTile: View {
             }
 
             Text(value)
-                .font(.system(size: HomeLifetimeStatsLayout.valueFontSize(for: tileHeight), weight: .bold))
+                .font(.system(size: HomeLifetimeStatsLayout.valueFontSize(), weight: .bold))
                 .foregroundStyle(AppTheme.Colors.textPrimary)
-                .lineLimit(2)
-                .minimumScaleFactor(0.75)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             if showsFootnote {
                 Text(footnote)
                     .font(.caption)
                     .foregroundStyle(AppTheme.Colors.mutedText)
-                    .lineLimit(2)
+                    .lineLimit(1)
                     .minimumScaleFactor(0.85)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .frame(height: tileHeight, alignment: .leading)
+        .padding(HomeLifetimeStatsLayout.statTilePadding)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(height: HomeLifetimeStatsLayout.statTileHeight, alignment: .topLeading)
+        .homeHighlightTileChrome()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
     }
 
     private var accessibilityLabel: String {
         "\(title), \(value)\(showsFootnote ? ", \(footnote)" : "")"
+    }
+}
+
+private struct HomeHighlightTileChrome: View {
+    var body: some View {
+        RoundedRectangle(cornerRadius: HomeLifetimeStatsLayout.statTileCornerRadius, style: .continuous)
+            .fill(AppTheme.Colors.surfaceMuted.opacity(0.55))
+            .overlay {
+                RoundedRectangle(cornerRadius: HomeLifetimeStatsLayout.statTileCornerRadius, style: .continuous)
+                    .stroke(AppTheme.Colors.tabUnselected.opacity(0.14), lineWidth: 1)
+            }
+    }
+}
+
+private extension View {
+    func homeHighlightTileChrome() -> some View {
+        background {
+            HomeHighlightTileChrome()
+        }
+    }
+}
+
+// MARK: - Buddy leaderboard
+
+struct HomeBuddyLeaderboardTile: View {
+    let entries: [HomeBuddyLeaderboardEntry]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            HStack(spacing: AppTheme.Spacing.sm) {
+                Image(systemName: "person.2.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.accent)
+                    .accessibilityHidden(true)
+                Text("Top buddies")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+                Spacer(minLength: 0)
+            }
+
+            HStack(alignment: .center, spacing: AppTheme.Spacing.md) {
+                ForEach(entries) { entry in
+                    HomeBuddyLeaderboardPodiumSlot(entry: entry)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .frame(height: HomeBuddyLeaderboardLayout.podiumRowHeight)
+        }
+        .padding(HomeLifetimeStatsLayout.statTilePadding)
+        .frame(height: HomeBuddyLeaderboardLayout.estimatedTileHeight, alignment: .top)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .homeHighlightTileChrome()
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("Home.BuddyLeaderboard")
+        .accessibilityLabel(leaderboardAccessibilityLabel)
+    }
+
+    private var leaderboardAccessibilityLabel: String {
+        let summaries = entries.map { entry in
+            "\(DiveBuddyPresentation.firstName(from: entry.displayName)), \(HomeBuddyLeaderboardPresentation.diveCountLabel(count: entry.diveCount))"
+        }
+        return "Top buddies, " + summaries.joined(separator: "; ")
+    }
+}
+
+private struct HomeBuddyLeaderboardPodiumSlot: View {
+    let entry: HomeBuddyLeaderboardEntry
+
+    private var avatarDiameter: CGFloat {
+        entry.rank == 1
+            ? HomeBuddyLeaderboardLayout.avatarDiameterFirst
+            : HomeBuddyLeaderboardLayout.avatarDiameterOther
+    }
+
+    private var avatarPlaceholderFont: Font {
+        entry.rank == 1 ? .title3 : .callout
+    }
+
+    var body: some View {
+        VStack(spacing: AppTheme.Spacing.sm) {
+            ProfileAvatarView(
+                profilePhoto: entry.profilePhoto,
+                diameter: avatarDiameter,
+                iconFont: avatarPlaceholderFont
+            )
+
+            Text(DiveBuddyPresentation.firstName(from: entry.displayName))
+                .font(.caption.weight(.medium))
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
+            Text(HomeBuddyLeaderboardPresentation.diveCountLabel(count: entry.diveCount))
+                .font(.caption2)
+                .foregroundStyle(AppTheme.Colors.mutedText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            "\(DiveBuddyPresentation.firstName(from: entry.displayName)), rank \(entry.rank), \(HomeBuddyLeaderboardPresentation.diveCountLabel(count: entry.diveCount))"
+        )
     }
 }
