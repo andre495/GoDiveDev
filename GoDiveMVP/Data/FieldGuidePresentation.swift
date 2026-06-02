@@ -7,10 +7,53 @@ struct MarineLifeCatalogSnapshot: Sendable, Equatable {
     let scientificName: String
     let category: String
     let subcategory: String
+    let familyName: String
     let featureImageURL: String
     let minSizeMeters: Double
     let maxSizeMeters: Double
+    let minDepthMeters: Double
+    let maxDepthMeters: Double
     let avgDepthMeters: Double
+    let distinctiveFeatures: String
+    let abundance: String
+    let habitatBehavior: String
+    let diverReaction: String
+
+    init(
+        uuid: String,
+        commonName: String,
+        scientificName: String,
+        category: String,
+        subcategory: String,
+        featureImageURL: String,
+        minSizeMeters: Double,
+        maxSizeMeters: Double,
+        avgDepthMeters: Double,
+        familyName: String = "",
+        minDepthMeters: Double = 0,
+        maxDepthMeters: Double = 0,
+        distinctiveFeatures: String = "",
+        abundance: String = "",
+        habitatBehavior: String = "",
+        diverReaction: String = ""
+    ) {
+        self.uuid = uuid
+        self.commonName = commonName
+        self.scientificName = scientificName
+        self.category = category
+        self.subcategory = subcategory
+        self.familyName = familyName
+        self.featureImageURL = featureImageURL
+        self.minSizeMeters = minSizeMeters
+        self.maxSizeMeters = maxSizeMeters
+        self.minDepthMeters = minDepthMeters
+        self.maxDepthMeters = maxDepthMeters
+        self.avgDepthMeters = avgDepthMeters
+        self.distinctiveFeatures = distinctiveFeatures
+        self.abundance = abundance
+        self.habitatBehavior = habitatBehavior
+        self.diverReaction = diverReaction
+    }
 }
 
 /// Dive row snapshot for Field Guide “Activities sighted on” links (Swift 6 / tests).
@@ -121,7 +164,12 @@ enum FieldGuidePresentation {
             maxMeters: entry.maxSizeMeters,
             unitSystem: unitSystem
         )
-        let depthLine = typicalDepthLine(meters: entry.avgDepthMeters, unitSystem: unitSystem)
+        let depthLine = depthLine(
+            minMeters: entry.minDepthMeters,
+            maxMeters: entry.maxDepthMeters,
+            avgMeters: entry.avgDepthMeters,
+            unitSystem: unitSystem
+        )
         if sizeLine.isEmpty { return depthLine }
         if depthLine.isEmpty { return sizeLine }
         return "\(sizeLine) · \(depthLine)"
@@ -138,6 +186,18 @@ enum FieldGuidePresentation {
         }
         let value = maxMeters > 0 ? maxMeters : minMeters
         return "up to \(DiveQuantityFormatting.length(meters: value, system: unitSystem))"
+    }
+
+    nonisolated static func depthLine(
+        minMeters: Double,
+        maxMeters: Double,
+        avgMeters: Double,
+        unitSystem: DiveDisplayUnitSystem
+    ) -> String {
+        if minMeters > 0, maxMeters > 0, abs(minMeters - maxMeters) > 0.001 {
+            return "\(DiveQuantityFormatting.depth(meters: minMeters, system: unitSystem))–\(DiveQuantityFormatting.depth(meters: maxMeters, system: unitSystem))"
+        }
+        return typicalDepthLine(meters: avgMeters > 0 ? avgMeters : max(minMeters, maxMeters), unitSystem: unitSystem)
     }
 
     nonisolated static func typicalDepthLine(meters: Double, unitSystem: DiveDisplayUnitSystem) -> String {

@@ -24,7 +24,7 @@ enum MarineLifeCatalogSeeder {
     for dto in dtos {
       let mapped = MarineLifeMapper.map(dto)
       if let existingSpecies = existingByUUID[mapped.uuid] {
-        applyTaxonomy(from: mapped, to: existingSpecies)
+        applyCatalogFields(from: mapped, to: existingSpecies)
       } else {
         context.insert(mapped)
         existingByUUID[mapped.uuid] = mapped
@@ -36,15 +36,22 @@ enum MarineLifeCatalogSeeder {
     }
   }
 
-  private static func applyTaxonomy(from source: MarineLife, to destination: MarineLife) {
+  private static func applyCatalogFields(from source: MarineLife, to destination: MarineLife) {
     destination.commonName = source.commonName
     destination.featureImageURL = source.featureImageURL
     destination.scientificName = source.scientificName
     destination.category = source.category
     destination.subcategory = source.subcategory
+    destination.familyName = source.familyName
     destination.aboutText = source.aboutText
     destination.minSizeMeters = source.minSizeMeters
     destination.maxSizeMeters = source.maxSizeMeters
+    destination.minDepthMeters = source.minDepthMeters
+    destination.maxDepthMeters = source.maxDepthMeters
     destination.avgDepthMeters = source.avgDepthMeters
+    destination.distinctiveFeatures = source.distinctiveFeatures
+    destination.abundance = source.abundance
+    destination.habitatBehavior = source.habitatBehavior
+    destination.diverReaction = source.diverReaction
   }
 }

@@ -104,6 +104,7 @@ struct FieldGuideMarineLifeDetailView: View {
                     if !sightedActivityLinks.isEmpty {
                         activitiesSightedOnSection
                     }
+                    naturalHistorySections
                     if !species.aboutText.isEmpty {
                         aboutBlock
                     }
@@ -170,6 +171,11 @@ struct FieldGuideMarineLifeDetailView: View {
                     .foregroundStyle(AppTheme.Colors.secondaryText)
             }
             taxonomyLabel
+            if !species.familyName.isEmpty {
+                Text(species.familyName)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.tabUnselected)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -185,12 +191,46 @@ struct FieldGuideMarineLifeDetailView: View {
                 )
             )
             detailRow(
-                title: "Avg depth",
-                value: FieldGuidePresentation.typicalDepthLine(
-                    meters: species.avgDepthMeters,
+                title: depthRowTitle,
+                value: FieldGuidePresentation.depthLine(
+                    minMeters: species.minDepthMeters,
+                    maxMeters: species.maxDepthMeters,
+                    avgMeters: species.avgDepthMeters,
                     unitSystem: diveDisplayUnitSystem
                 )
             )
+        }
+    }
+
+    private var depthRowTitle: String {
+        species.minDepthMeters > 0 && species.maxDepthMeters > 0 ? "Depth range" : "Avg depth"
+    }
+
+    @ViewBuilder
+    private var naturalHistorySections: some View {
+        if !species.distinctiveFeatures.isEmpty {
+            textSection(title: "Distinctive features", body: species.distinctiveFeatures)
+        }
+        if !species.abundance.isEmpty {
+            textSection(title: "Abundance", body: species.abundance)
+        }
+        if !species.habitatBehavior.isEmpty {
+            textSection(title: "Habitat & behavior", body: species.habitatBehavior)
+        }
+        if !species.diverReaction.isEmpty {
+            textSection(title: "Diver reaction", body: species.diverReaction)
+        }
+    }
+
+    private func textSection(title: String, body: String) -> some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+            Text(body)
+                .font(.body)
+                .foregroundStyle(AppTheme.Colors.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

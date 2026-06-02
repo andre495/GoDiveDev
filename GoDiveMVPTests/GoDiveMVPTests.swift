@@ -1996,6 +1996,57 @@ struct GoDiveMVPTests {
         #expect(species.avgDepthMeters == 10)
     }
 
+    @Test func marineLifeMapper_mapsQueenAngelfishExtendedCatalogFields() {
+        let dto = MarineLifeDTO(
+            uuid: "marine-life-queen-angelfish",
+            commonName: "Queen Angelfish",
+            featureImage: nil,
+            scientificName: "Holacanthus ciliaris",
+            category: "Fish",
+            subcategory: "Disk and Large Oval",
+            familyName: "Angelfishes",
+            description: "Oval-bodied angelfish.",
+            minSize: 0.2,
+            maxSize: 0.36,
+            minDepth: 6,
+            maxDepth: 25,
+            avgDepth: nil,
+            distinctiveFeatures: "Blue with yellow rims on scales.",
+            abundance: "Common in Florida, Bahamas, Gulf of Mexico, Bermuda.",
+            habitatBehavior: "Swim slowly near corals.",
+            diverReaction: "Wary, tend to keep their distance."
+        )
+        let species = MarineLifeMapper.map(dto)
+        #expect(species.commonName == "Queen Angelfish")
+        #expect(species.category == "fish")
+        #expect(species.subcategory == "disk-and-large-oval")
+        #expect(species.familyName == "Angelfishes")
+        #expect(species.minDepthMeters == 6)
+        #expect(species.maxDepthMeters == 25)
+        #expect(species.avgDepthMeters == 15.5)
+        #expect(species.distinctiveFeatures == "Blue with yellow rims on scales.")
+        #expect(species.diverReaction == "Wary, tend to keep their distance.")
+    }
+
+    @Test func fieldGuidePresentation_depthLine_prefersMinMaxRange() {
+        let entry = MarineLifeCatalogSnapshot(
+            uuid: "queen",
+            commonName: "Queen Angelfish",
+            scientificName: "Holacanthus ciliaris",
+            category: "fish",
+            subcategory: "disk-and-large-oval",
+            featureImageURL: "",
+            minSizeMeters: 0.2,
+            maxSizeMeters: 0.36,
+            avgDepthMeters: 15.5,
+            minDepthMeters: 6,
+            maxDepthMeters: 25
+        )
+        let line = FieldGuidePresentation.sizeDepthLine(for: entry, unitSystem: .imperial)
+        #expect(line.contains("–"))
+        #expect(line.contains("ft"))
+    }
+
     @Test @MainActor func marineLifeCatalogSeeder_isIdempotentByUUID() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = container.mainContext
@@ -2004,6 +2055,17 @@ struct GoDiveMVPTests {
         #expect(firstCount > 0)
         try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
         #expect(try context.fetchCount(FetchDescriptor<MarineLife>()) == firstCount)
+    }
+
+    @Test @MainActor func marineLifeCatalogSeeder_seedsQueenAngelfish() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+        let queen = try context.fetch(FetchDescriptor<MarineLife>()).first { $0.uuid == "marine-life-queen-angelfish" }
+        #expect(queen?.commonName == "Queen Angelfish")
+        #expect(queen?.familyName == "Angelfishes")
+        #expect(queen?.minDepthMeters == 6)
+        #expect(queen?.maxDepthMeters == 25)
     }
 
     @Test @MainActor func marineLife_subcategoryDefaultsEmptyForSwiftDataMigration() throws {
@@ -2234,7 +2296,7 @@ struct GoDiveMVPTests {
     }
 
     @Test func fieldGuideSection_includesFieldGuideAndSightings() {
-        #expect(FieldGuideSection.allCases.map(\.accessibilityLabel) == ["Field Guide", "Sightings"])
+        #expect(FieldGuideSection.allCases.map(\.accessibilityLabel) == ["Field Guide", "My Sightings"])
     }
 
     @Test func fieldGuideSightingsHeat_groupsSightingsByRegion() {
@@ -2273,6 +2335,19 @@ struct GoDiveMVPTests {
         #expect(overview.topRegionCount == 2)
         #expect(overview.heatCells[0].sightingCount == 2)
         #expect(overview.heatCells[0].normalizedIntensity == 1)
+    }
+
+    @Test func fieldGuideSightingsOverviewLayout_sharesHomePanelOverlap() {
+        #expect(FieldGuideSightingsOverviewLayout.panelOverlap == HomeOverviewLayout.panelOverlap)
+        let emptyHeight = FieldGuideSightingsOverviewLayout.estimatedPanelContentHeight(
+            regionCount: 0,
+            showsEmptyState: true
+        )
+        let withRegions = FieldGuideSightingsOverviewLayout.estimatedPanelContentHeight(
+            regionCount: 4,
+            showsEmptyState: false
+        )
+        #expect(withRegions > emptyHeight)
     }
 
     @Test func fieldGuideSightingsHeat_ignoresNonOwnerSightings() {
@@ -6284,6 +6359,22 @@ struct GoDiveMVPTests {
         #expect(activity.buddies[0].displayName == "Pat Lee")
         let roster = try context.fetch(FetchDescriptor<DiveBuddy>())
         #expect(roster.count == 1)
+    }
+
+    @Test @MainActor func diveBuddyRosterCreation_addsBuddyWithoutDiveTag() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let owner = UserProfile(appleUserIdentifier: "roster-buddy-owner", displayName: "Mike Dugas")
+        context.insert(owner)
+
+        let buddy = DiveBuddyRosterCreation.addBuddy(
+            displayName: "Pat Lee",
+            owner: owner,
+            modelContext: context
+        )
+        #expect(buddy?.displayName == "Pat Lee")
+        #expect(try context.fetch(FetchDescriptor<DiveBuddyTag>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<DiveBuddy>()).count == 1)
     }
 
     @Test func diveBuddyNameMatching_firstNameLinksToFullRosterName() {

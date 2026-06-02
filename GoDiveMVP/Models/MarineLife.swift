@@ -18,12 +18,21 @@ final class MarineLife {
     /// Taxonomy slug or display label (e.g. `sharks-and-rays`, `Disk and Large Oval`).
     /// Default at declaration for SwiftData lightweight migration on existing stores.
     var subcategory: String = ""
+    /// Family group label (e.g. Angelfishes).
+    var familyName: String = ""
     var aboutText: String
 
     /// Observed size range and typical depth — stored in **meters**; UI uses **`DiveDisplayUnitSystem`**.
     var minSizeMeters: Double
     var maxSizeMeters: Double
+    var minDepthMeters: Double = 0
+    var maxDepthMeters: Double = 0
     var avgDepthMeters: Double
+
+    var distinctiveFeatures: String = ""
+    var abundance: String = ""
+    var habitatBehavior: String = ""
+    var diverReaction: String = ""
 
     @Relationship(deleteRule: .cascade, inverse: \MarineLifeUserRecord.marineLife)
     var userRecords: [MarineLifeUserRecord] = []
@@ -38,10 +47,17 @@ final class MarineLife {
         scientificName: String = "",
         category: String = "",
         subcategory: String = "",
+        familyName: String = "",
         aboutText: String = "",
         minSizeMeters: Double = 0,
         maxSizeMeters: Double = 0,
-        avgDepthMeters: Double = 0
+        minDepthMeters: Double = 0,
+        maxDepthMeters: Double = 0,
+        avgDepthMeters: Double = 0,
+        distinctiveFeatures: String = "",
+        abundance: String = "",
+        habitatBehavior: String = "",
+        diverReaction: String = ""
     ) {
         self.uuid = uuid
         self.commonName = commonName
@@ -49,10 +65,17 @@ final class MarineLife {
         self.scientificName = scientificName
         self.category = category
         self.subcategory = subcategory
+        self.familyName = familyName
         self.aboutText = aboutText
         self.minSizeMeters = minSizeMeters
         self.maxSizeMeters = maxSizeMeters
+        self.minDepthMeters = minDepthMeters
+        self.maxDepthMeters = maxDepthMeters
         self.avgDepthMeters = avgDepthMeters
+        self.distinctiveFeatures = distinctiveFeatures
+        self.abundance = abundance
+        self.habitatBehavior = habitatBehavior
+        self.diverReaction = diverReaction
     }
 }
 
@@ -67,7 +90,14 @@ extension MarineLife {
             featureImageURL: featureImageURL,
             minSizeMeters: minSizeMeters,
             maxSizeMeters: maxSizeMeters,
-            avgDepthMeters: avgDepthMeters
+            avgDepthMeters: avgDepthMeters,
+            familyName: familyName,
+            minDepthMeters: minDepthMeters,
+            maxDepthMeters: maxDepthMeters,
+            distinctiveFeatures: distinctiveFeatures,
+            abundance: abundance,
+            habitatBehavior: habitatBehavior,
+            diverReaction: diverReaction
         )
     }
 }

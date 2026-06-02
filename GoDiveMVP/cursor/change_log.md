@@ -981,5 +981,19 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`MarineLife.subcategory`**, **`MarineLifeDTO.subcategory`**, **`marine_life_sample.json`** taxonomy slugs; **`MarineLifeCatalogSeeder`** upserts bundled rows by UUID (refreshes taxonomy on relaunch). **`subcategory`** uses **`= ""` on the property** for SwiftData lightweight migration (fixes **`loadIssueModelContainer`** on existing stores).
 - Tests: **`fieldGuideTaxonomy_resolvesLegacyCategoryLabels`**, **`fieldGuideCatalogIndex_countsSpeciesPerCategoryAndSubcategory`**, **`fieldGuideSightingsHeat_groupsSightingsByRegion`**, **`fieldGuideSightingsHeat_ignoresNonOwnerSightings`**; search / presentation snapshots updated.
 
-## 63 - Next batch
+## 63 - Marine life catalog, buddies add, My Sightings panel **(pushed)**
 
+**Summary:** Expand **`MarineLife`** catalog fields from **`marine_life_source.csv`** and add bundled **Queen Angelfish** record.
+
+- **`MarineLife`** — **`familyName`**, **`minDepthMeters`**, **`maxDepthMeters`**, **`distinctiveFeatures`**, **`abundance`**, **`habitatBehavior`**, **`diverReaction`** (property defaults for SwiftData migration).
+- **`MarineLifeDTO`** / **`MarineLifeMapper`** — snake_case JSON mapping; normalizes display category/subcategory to taxonomy slugs; derives **`avgDepthMeters`** from min/max when omitted.
+- **`marine_life_sample.json`** — **Queen Angelfish** row from CSV; French Angelfish gains **`family_name`**.
+- **`MockData/marine_life_source.csv`** — attached source spreadsheet (placeholder angelfish rows for future fill-in).
+- **`FieldGuidePresentation`** — depth range line when min/max depth present; snapshot + search include new text fields.
+- **`FieldGuideMarineLifeDetailView`** — family, depth range, distinctive features / abundance / habitat / diver reaction sections.
+- Tests: **`marineLifeMapper_mapsQueenAngelfishExtendedCatalogFields`**, **`fieldGuidePresentation_depthLine_prefersMinMaxRange`**, **`marineLifeCatalogSeeder_seedsQueenAngelfish`**.
+- **`FieldGuideSectionToggle`** — sightings segment label **My Sightings** (was **Sightings**).
+- **`DiveBuddiesListView`** — trailing **+** opens **`DiveActivityAddBuddySheet`** (roster-only); **`DiveBuddyRosterCreation`** helper; empty state mentions **+**.
+- **My Sightings** — static **`HomeLifetimeStatsPanel`** over heat map (Home-style rounded sheet, no detents/grabber); **`FieldGuideSightingsOverviewLayout`**; scrollable stats body.
+
+## 64 - Next batch

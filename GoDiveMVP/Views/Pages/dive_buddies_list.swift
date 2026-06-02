@@ -10,6 +10,8 @@ struct DiveBuddiesListView: View {
     )
     private var allBuddies: [DiveBuddy]
 
+    @State private var showsAddBuddySheet = false
+
     private var ownerProfileID: UUID? {
         accountSession.currentProfile?.id
     }
@@ -24,7 +26,10 @@ struct DiveBuddiesListView: View {
             title: "Dive Buddies",
             showsBackButton: true,
             scrollContentUnderHeader: true,
-            showsWaterBubbleBackground: true
+            showsWaterBubbleBackground: true,
+            trailingContent: {
+                addBuddyToolbarButton
+            }
         ) {
             if ownedBuddies.isEmpty {
                 AppScrollUnderHeaderEmptyState {
@@ -35,7 +40,24 @@ struct DiveBuddiesListView: View {
             }
         }
         .hidesBottomTabBarWhenPushed()
+        .sheet(isPresented: $showsAddBuddySheet) {
+            DiveActivityAddBuddySheet()
+        }
         .accessibilityIdentifier("DiveBuddiesList.Root")
+    }
+
+    private var addBuddyToolbarButton: some View {
+        Button {
+            showsAddBuddySheet = true
+        } label: {
+            Image(systemName: "plus")
+                .font(.title3.weight(.semibold))
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Add buddy")
+        .accessibilityIdentifier("DiveBuddiesList.AddNewBuddy")
     }
 
     private var emptyState: some View {
@@ -48,7 +70,7 @@ struct DiveBuddiesListView: View {
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(AppTheme.Colors.textPrimary)
 
-            Text("Tag buddies on a dive from the dive overview to build your roster.")
+            Text("Tap + to add a buddy, or tag buddies on a dive from the dive overview.")
                 .font(.body)
                 .foregroundStyle(AppTheme.Colors.secondaryText)
                 .multilineTextAlignment(.center)

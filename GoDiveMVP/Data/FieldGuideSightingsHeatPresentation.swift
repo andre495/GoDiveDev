@@ -2,7 +2,7 @@ import CoreLocation
 import Foundation
 import MapKit
 
-/// Field Guide **Sightings** tab — aggregate owner sightings into regional heat cells for MapKit.
+/// Field Guide **My Sightings** tab — aggregate owner sightings into regional heat cells for MapKit.
 enum FieldGuideSightingsHeatPresentation: Sendable {
 
     struct SightingPlotInput: Sendable, Equatable {

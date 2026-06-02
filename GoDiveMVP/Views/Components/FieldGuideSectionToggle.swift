@@ -10,7 +10,7 @@ enum FieldGuideSection: String, CaseIterable, Identifiable {
     var accessibilityLabel: String {
         switch self {
         case .fieldGuide: "Field Guide"
-        case .sightings: "Sightings"
+        case .sightings: "My Sightings"
         }
     }
 
@@ -22,7 +22,7 @@ enum FieldGuideSection: String, CaseIterable, Identifiable {
     }
 }
 
-/// Full-width segmented **Field Guide** / **Sightings** control.
+/// Full-width segmented **Field Guide** / **My Sightings** control.
 struct FieldGuideSectionToggle: View {
     @Binding var selection: FieldGuideSection
 

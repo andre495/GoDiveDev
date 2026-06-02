@@ -1,7 +1,7 @@
 import MapKit
 import SwiftUI
 
-/// Sightings heat map — framed above the embedded overview panel (dive map tab pattern).
+/// Sightings heat map — hero above the static sheet-shaped stats panel.
 struct FieldGuideSightingsHeatMapView: View {
     let heatCells: [FieldGuideSightingsHeatPresentation.HeatRegionCell]
     let mapRegion: MKCoordinateRegion

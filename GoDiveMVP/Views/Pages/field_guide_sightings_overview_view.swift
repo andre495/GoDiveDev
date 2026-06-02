@@ -2,7 +2,7 @@ import MapKit
 import SwiftData
 import SwiftUI
 
-/// Field Guide **Sightings** tab — map hero with Strava-style embedded overview panel.
+/// Field Guide **My Sightings** tab — heat map hero with a static Home-style stats panel (no detents / grabber).
 struct FieldGuideSightingsOverviewView: View {
     @Environment(AccountSession.self) private var accountSession
     @Query(sort: \SightingInstance.sightingDateTime, order: .reverse) private var sightings: [SightingInstance]
@@ -16,8 +16,6 @@ struct FieldGuideSightingsOverviewView: View {
     private var diveActivities: [DiveActivity]
 
     let topChromeInset: CGFloat
-
-    @State private var overviewSheetDetent: DiveActivityOverviewDetent = .medium
 
     private var ownerActivityIDs: Set<UUID> {
         guard let ownerID = accountSession.currentProfile?.id else { return [] }
@@ -66,58 +64,64 @@ struct FieldGuideSightingsOverviewView: View {
         GeometryReader { geometry in
             let layoutHeight = max(geometry.size.height, 1)
             let bottomSafeInset = geometry.safeAreaInsets.bottom
-            let mapCameraDetent = overviewSheetDetent.mapCameraDetent
-            let mapBottomObstruction = DiveActivityOverviewDetent.bottomObstructionHeight(
-                layoutHeight: layoutHeight,
-                detent: mapCameraDetent,
-                bottomSafeInset: bottomSafeInset
+            let panelContentHeight = FieldGuideSightingsOverviewLayout.estimatedPanelContentHeight(
+                regionCount: overviewData.heatCells.count,
+                showsEmptyState: overviewData.plottableSightings == 0
             )
-            let isMapInteractive = overviewSheetDetent.allowsMapInteraction
+            let layoutMetrics = HomeOverviewLayout.metrics(
+                viewportHeight: layoutHeight,
+                screenWidth: geometry.size.width,
+                topSafeAreaInset: topChromeInset,
+                statsPanelContentHeight: panelContentHeight
+            )
+            let mapBottomObstruction = max(
+                layoutHeight - layoutMetrics.heroHeight + FieldGuideSightingsOverviewLayout.panelOverlap,
+                0
+            )
 
-            ZStack(alignment: .bottom) {
+            VStack(spacing: -FieldGuideSightingsOverviewLayout.panelOverlap) {
                 FieldGuideSightingsHeatMapView(
                     heatCells: overviewData.heatCells,
                     mapRegion: mapRegion,
                     bottomContentMargin: mapBottomObstruction,
                     topObstructionHeight: topChromeInset,
                     layoutHeight: layoutHeight,
-                    isUserInteractionEnabled: isMapInteractive
+                    isUserInteractionEnabled: true
                 )
-                .allowsHitTesting(isMapInteractive)
+                .frame(height: layoutMetrics.heroHeight)
                 .ignoresSafeArea()
 
-                DiveActivityOverviewEmbeddedPanel(
-                    selectedDetent: $overviewSheetDetent,
-                    layoutHeight: layoutHeight,
-                    bottomSafeInset: bottomSafeInset,
-                    collapsedSummary: {
-                        FieldGuideSightingsCollapsedSummary(
-                            totalSightings: overviewData.totalSightings,
-                            uniqueSpeciesCount: overviewData.uniqueSpeciesCount,
-                            regionCount: overviewData.regionCount,
-                            topRegionLabel: overviewData.topRegionLabel
-                        )
-                    },
-                    panelContent: {
-                        sightingsPanelContent
-                    }
-                )
-                .zIndex(1)
+                sightingsStatsPanel(bottomSafeAreaInset: bottomSafeInset)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .zIndex(1)
             }
             .overlay(alignment: .top) {
                 DiveOverviewMapTopScrim(topObstructionHeight: topChromeInset)
                     .ignoresSafeArea(edges: .top)
             }
-            .animation(.easeInOut(duration: 0.25), value: overviewSheetDetent)
         }
         .ignoresSafeArea()
         .accessibilityIdentifier("FieldGuide.Sightings.Overview")
     }
 
+    private func sightingsStatsPanel(bottomSafeAreaInset: CGFloat) -> some View {
+        HomeLifetimeStatsPanel(
+            overlapsMedia: true,
+            bottomSafeAreaInset: bottomSafeAreaInset
+        ) {
+            ScrollView {
+                sightingsPanelContent
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            .accessibilityIdentifier("FieldGuide.Sightings.StatsPanel.Scroll")
+        }
+        .accessibilityIdentifier("FieldGuide.Sightings.StatsPanel")
+    }
+
     private var sightingsPanelContent: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                Text("Sightings overview")
+                Text("My Sightings")
                     .font(.title2.weight(.bold))
                     .foregroundStyle(AppTheme.Colors.textPrimary)
 

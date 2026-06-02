@@ -2,18 +2,27 @@ import Contacts
 import SwiftData
 import SwiftUI
 
-/// Create a roster buddy and tag them on the current dive (from **`DiveActivityBuddiesEditSheet`** **+**).
+/// Create a roster buddy, optionally tagging them on a dive.
 struct DiveActivityAddBuddySheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(AccountSession.self) private var accountSession
 
-    @Bindable var activity: DiveActivity
+    private var activity: DiveActivity?
 
     @State private var newBuddyName = ""
     @State private var showsContactPicker = false
     @State private var contactsAccessError: String?
     @State private var addBuddyError: String?
+
+    init(activity: DiveActivity) {
+        self.activity = activity
+    }
+
+    /// Roster-only create from **Profile → Dive Buddies** **+**.
+    init() {
+        self.activity = nil
+    }
 
     var body: some View {
         NavigationStack {
@@ -101,16 +110,29 @@ struct DiveActivityAddBuddySheet: View {
         let trimmed = newBuddyName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
-        guard
-            DiveBuddyActivityAssociation.tagNewBuddy(
-                displayName: trimmed,
-                owner: accountSession.currentProfile,
-                on: activity,
-                modelContext: modelContext
-            ) != nil
-        else {
-            addBuddyError = "That name matches your profile and cannot be added as a dive buddy."
-            return
+        if let activity {
+            guard
+                DiveBuddyActivityAssociation.tagNewBuddy(
+                    displayName: trimmed,
+                    owner: accountSession.currentProfile,
+                    on: activity,
+                    modelContext: modelContext
+                ) != nil
+            else {
+                addBuddyError = "That name matches your profile and cannot be added as a dive buddy."
+                return
+            }
+        } else {
+            guard
+                DiveBuddyRosterCreation.addBuddy(
+                    displayName: trimmed,
+                    owner: accountSession.currentProfile,
+                    modelContext: modelContext
+                ) != nil
+            else {
+                addBuddyError = "That name matches your profile and cannot be added as a dive buddy."
+                return
+            }
         }
 
         try? modelContext.save()
@@ -144,28 +166,45 @@ struct DiveActivityAddBuddySheet: View {
                modelContext: modelContext
            )
         {
-            if DiveBuddyActivityAssociation.isBuddyTagged(buddyID: existing.id, on: activity) {
-                dismiss()
-                return
+            if let activity {
+                if DiveBuddyActivityAssociation.isBuddyTagged(buddyID: existing.id, on: activity) {
+                    dismiss()
+                    return
+                }
+                DiveBuddyActivityAssociation.tagBuddy(existing, on: activity, modelContext: modelContext)
             }
-            DiveBuddyActivityAssociation.tagBuddy(existing, on: activity, modelContext: modelContext)
             try? modelContext.save()
             dismiss()
             return
         }
 
-        guard
-            DiveBuddyActivityAssociation.tagNewBuddy(
-                displayName: name,
-                profilePhoto: photo,
-                contactsIdentifier: identifier,
-                owner: accountSession.currentProfile,
-                on: activity,
-                modelContext: modelContext
-            ) != nil
-        else {
-            addBuddyError = "Could not add that contact as a buddy."
-            return
+        if let activity {
+            guard
+                DiveBuddyActivityAssociation.tagNewBuddy(
+                    displayName: name,
+                    profilePhoto: photo,
+                    contactsIdentifier: identifier,
+                    owner: accountSession.currentProfile,
+                    on: activity,
+                    modelContext: modelContext
+                ) != nil
+            else {
+                addBuddyError = "Could not add that contact as a buddy."
+                return
+            }
+        } else {
+            guard
+                DiveBuddyRosterCreation.addBuddy(
+                    displayName: name,
+                    profilePhoto: photo,
+                    contactsIdentifier: identifier,
+                    owner: accountSession.currentProfile,
+                    modelContext: modelContext
+                ) != nil
+            else {
+                addBuddyError = "Could not add that contact as a buddy."
+                return
+            }
         }
 
         try? modelContext.save()

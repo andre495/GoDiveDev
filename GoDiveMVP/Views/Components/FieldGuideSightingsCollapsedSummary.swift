@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Compact summary when the Field Guide sightings panel is minimized.
+/// Compact sightings summary (legacy minimized-strip copy; retained for reuse).
 struct FieldGuideSightingsCollapsedSummary: View {
     let totalSightings: Int
     let uniqueSpeciesCount: Int
