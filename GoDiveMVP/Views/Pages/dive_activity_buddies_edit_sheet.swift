@@ -2,7 +2,7 @@ import Contacts
 import SwiftData
 import SwiftUI
 
-/// Add, rename, or remove buddy tags on a dive.
+/// Tag **`DiveBuddy`** roster rows on this dive — roster picker + **+** to create a new buddy.
 struct DiveActivityBuddiesEditSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -10,167 +10,162 @@ struct DiveActivityBuddiesEditSheet: View {
 
     @Bindable var activity: DiveActivity
 
-    @State private var newBuddyName = ""
-    @State private var showsContactPicker = false
-    @State private var contactsAccessError: String?
+    @Query(sort: [SortDescriptor(\DiveBuddy.displayName, order: .forward)])
+    private var allBuddies: [DiveBuddy]
+
+    @State private var showsAddBuddySheet = false
+
+    private var ownerProfileID: UUID? {
+        accountSession.currentProfile?.id
+    }
+
+    private var ownedBuddies: [DiveBuddy] {
+        guard let ownerProfileID else { return [] }
+        return allBuddies.filter { $0.ownerProfileID == ownerProfileID }
+    }
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    HStack {
-                        TextField("Buddy name", text: $newBuddyName)
-                            .textInputAutocapitalization(.words)
-                        Button("Add") {
-                            addManualBuddy()
-                        }
-                        .disabled(newBuddyName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    }
-                    #if canImport(UIKit)
-                    Button {
-                        presentContactPicker()
-                    } label: {
-                        Label("Add from Contacts", systemImage: "person.crop.circle.badge.plus")
-                    }
-                    .accessibilityIdentifier("DiveBuddiesEditSheet.AddFromContacts")
-                    #endif
-                } header: {
-                    Text("Add buddy")
-                }
-
-                Section("On this dive") {
-                    if activity.buddies.isEmpty {
-                        Text("No buddies yet.")
+            List {
+                if ownedBuddies.isEmpty {
+                    Section {
+                        Text("No buddies in your roster yet. Tap + to add someone and tag them on this dive.")
+                            .font(.body)
                             .foregroundStyle(AppTheme.Colors.tabUnselected)
-                    } else {
-                        ForEach(activity.buddies, id: \.id) { tag in
-                            buddyRow(tag)
+                            .accessibilityIdentifier("DiveBuddiesEditSheet.EmptyRoster")
+                    }
+                } else {
+                    Section {
+                        ForEach(ownedBuddies, id: \.id) { buddy in
+                            Button {
+                                toggleBuddyOnDive(buddy)
+                            } label: {
+                                DiveActivityBuddyRosterPickerRow(
+                                    buddy: buddy,
+                                    isTaggedOnDive: isBuddyTaggedOnDive(buddy)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .listRowInsets(EdgeInsets(
+                                top: 0,
+                                leading: AppTheme.Spacing.md,
+                                bottom: 0,
+                                trailing: AppTheme.Spacing.md
+                            ))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                            .accessibilityLabel(buddy.displayName)
+                            .accessibilityValue(
+                                isBuddyTaggedOnDive(buddy) ? "Tagged on this dive" : "Not on this dive"
+                            )
+                            .accessibilityIdentifier("DiveBuddiesEditSheet.RosterRow.\(buddy.id.uuidString)")
                         }
-                        .onDelete(perform: deleteBuddies)
+                    } header: {
+                        Text("Your buddies")
+                    } footer: {
+                        Text("Tap a buddy to tag or remove them on this dive.")
                     }
                 }
             }
+            .listStyle(.plain)
+            .listRowSpacing(DiveActivityBuddyRosterPickerRowLayout.listRowSpacing)
             .scrollContentBackground(.hidden)
             .navigationTitle("Buddies")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        showsAddBuddySheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.body.weight(.semibold))
+                    }
+                    .accessibilityLabel("Add buddy")
+                    .accessibilityIdentifier("DiveBuddiesEditSheet.AddBuddy")
+
                     Button("Done") {
                         try? modelContext.save()
                         dismiss()
                     }
                     .fontWeight(.semibold)
+                    .accessibilityIdentifier("DiveBuddiesEditSheet.Done")
                 }
             }
         }
-        .diveActivityFieldSheetPresentation()
+        .diveActivityTagsSheetPresentation()
+        .sheet(isPresented: $showsAddBuddySheet) {
+            DiveActivityAddBuddySheet(activity: activity)
+        }
         .accessibilityIdentifier("DiveBuddiesEditSheet.Root")
-        #if canImport(UIKit)
-        .sheet(isPresented: $showsContactPicker) {
-            ContactPickerView(
-                onPick: { contact in
-                    showsContactPicker = false
-                    addBuddy(from: contact)
-                },
-                onCancel: {
-                    showsContactPicker = false
-                }
-            )
-        }
-        #endif
-        .alert("Contacts", isPresented: contactsErrorBinding) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(contactsAccessError ?? "")
-        }
     }
 
-    @ViewBuilder
-    private func buddyRow(_ tag: DiveBuddyTag) -> some View {
-        HStack(spacing: AppTheme.Spacing.md) {
-            if let buddy = tag.buddy {
-                ProfileAvatarView(
-                    profilePhoto: buddy.profilePhoto,
-                    diameter: 40,
-                    iconFont: .body
-                )
-                TextField("Name", text: buddyNameBinding(buddy))
-                    .textInputAutocapitalization(.words)
-            } else {
-                TextField("Name", text: .constant(tag.displayName))
-                    .textInputAutocapitalization(.words)
-                    .disabled(true)
+    private func isBuddyTaggedOnDive(_ buddy: DiveBuddy) -> Bool {
+        DiveBuddyActivityAssociation.isBuddyTagged(buddyID: buddy.id, on: activity)
+    }
+
+    private func toggleBuddyOnDive(_ buddy: DiveBuddy) {
+        if isBuddyTaggedOnDive(buddy) {
+            guard let tag = activity.buddies.first(where: { $0.buddyID == buddy.id }) else { return }
+            DiveBuddyActivityAssociation.removeTag(tag, from: activity, modelContext: modelContext)
+        } else {
+            DiveBuddyActivityAssociation.tagBuddy(buddy, on: activity, modelContext: modelContext)
+        }
+    }
+}
+
+// MARK: - Roster row
+
+private enum DiveActivityBuddyRosterPickerRowLayout {
+    static let avatarDiameter: CGFloat = 36
+    static let rowPadding = EdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10)
+    static let listRowSpacing: CGFloat = 6
+    static let cornerRadius: CGFloat = 10
+}
+
+private struct DiveActivityBuddyRosterPickerRow: View {
+    let buddy: DiveBuddy
+    let isTaggedOnDive: Bool
+
+    var body: some View {
+        HStack(spacing: AppTheme.Spacing.sm) {
+            ProfileAvatarView(
+                profilePhoto: buddy.profilePhoto,
+                diameter: DiveActivityBuddyRosterPickerRowLayout.avatarDiameter,
+                iconFont: .callout
+            )
+
+            Text(buddy.displayName)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            if isTaggedOnDive {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.body)
+                    .foregroundStyle(AppTheme.Colors.tabSelected)
+                    .accessibilityHidden(true)
             }
         }
+        .padding(DiveActivityBuddyRosterPickerRowLayout.rowPadding)
+        .background(rowBackground)
+        .accessibilityElement(children: .combine)
     }
 
-    private var contactsErrorBinding: Binding<Bool> {
-        Binding(
-            get: { contactsAccessError != nil },
-            set: { if !$0 { contactsAccessError = nil } }
-        )
-    }
-
-    private func buddyNameBinding(_ buddy: DiveBuddy) -> Binding<String> {
-        Binding(
-            get: { buddy.displayName },
-            set: { buddy.displayName = String($0.prefix(DiveBuddyCatalog.maxDisplayNameLength)) }
-        )
-    }
-
-    private func addManualBuddy() {
-        let trimmed = newBuddyName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        _ = DiveBuddyActivityAssociation.tagNewBuddy(
-            displayName: trimmed,
-            owner: accountSession.currentProfile,
-            on: activity,
-            modelContext: modelContext
-        )
-        newBuddyName = ""
-    }
-
-    #if canImport(UIKit)
-    private func presentContactPicker() {
-        ContactsPickerAccess.presentIfAuthorized(
-            onAuthorized: { showsContactPicker = true },
-            onError: { contactsAccessError = $0 }
-        )
-    }
-
-    private func addBuddy(from contact: CNContact) {
-        let name = DiveBuddyContactImport.displayName(from: contact)
-        let photo = DiveBuddyContactImport.profilePhotoData(from: contact)
-        let identifier = DiveBuddyContactImport.contactsIdentifier(from: contact)
-
-        if let owner = accountSession.currentProfile,
-           let existing = try? DiveBuddyCatalog.findByContactsIdentifier(
-               identifier,
-               ownerProfileID: owner.id,
-               modelContext: modelContext
-           ),
-           DiveBuddyActivityAssociation.isBuddyTagged(buddyID: existing.id, on: activity)
-        {
-            return
-        }
-
-        _ = DiveBuddyActivityAssociation.tagNewBuddy(
-            displayName: name,
-            profilePhoto: photo,
-            contactsIdentifier: identifier,
-            owner: accountSession.currentProfile,
-            on: activity,
-            modelContext: modelContext
-        )
-    }
-    #endif
-
-    private func deleteBuddies(at offsets: IndexSet) {
-        let sorted = activity.buddies
-        for index in offsets {
-            let tag = sorted[index]
-            DiveBuddyActivityAssociation.removeTag(tag, from: activity, modelContext: modelContext)
-        }
-        activity.buddies.remove(atOffsets: offsets)
+    private var rowBackground: some View {
+        RoundedRectangle(cornerRadius: DiveActivityBuddyRosterPickerRowLayout.cornerRadius, style: .continuous)
+            .fill(
+                isTaggedOnDive
+                    ? AppTheme.Colors.tabSelected.opacity(0.14)
+                    : AppTheme.Colors.surfaceElevated
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: DiveActivityBuddyRosterPickerRowLayout.cornerRadius, style: .continuous)
+                    .stroke(
+                        isTaggedOnDive ? AppTheme.Colors.tabSelected.opacity(0.55) : Color.clear,
+                        lineWidth: 1.5
+                    )
+            }
     }
 }

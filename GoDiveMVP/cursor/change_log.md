@@ -954,5 +954,15 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`FitDiveFileImport`** now runs **`DiveBuddyImportConsolidation`** before insert.
 - Tests: **`diveBuddyNameMatching_*`**, **`diveBuddyCatalog_fuzzy*`**, **`diveBuddyImportConsolidation_*`** (fuzzy, batch, detach).
 
-## 61 - Next batch
+## 61 - Home buddies nav, buddy UX, onboarding permissions **(pushed)**
+
+**Summary:** Home Top buddies podium avatars push to the same buddy detail page as Profile → Dive Buddies.
+
+- **`HomeRoute.diveBuddy`**: **`log_overview`** resolves owner roster row and shows **`ViewDiveBuddyDetails`**.
+- **`HomeBuddyLeaderboardPodiumSlot`**: plain **`Button`** per slot; accessibility hint + **`Home.BuddyLeaderboard.Slot.{rank}`** identifiers.
+- **Home layout:** reverted stats-sheet transparency / carousel clip experiments — opaque **`HomeLifetimeStatsPanelBackground`** and original carousel framing restored (bubbles remain behind the tab via **`WaterBubbleBackground`** only).
+- **Bubbles on more lists:** **`AppPage.showsWaterBubbleBackground`** — **Profile → Dive Buddies**; **Explore** dive-site **list** mode (map unchanged; UI-test skip).
+- **Buddy detail contacts UX:** **`ViewDiveBuddyDetails`** — contact badge on avatar (bottom-trailing) opens **`ContactPickerView`** (link / change); removed separate refresh / change / disconnect buttons; **`.task`** refreshes name + photo from Contacts on load when linked.
+- **Dive buddies sheet:** compact roster rows; trailing **+** and **Done** toolbar buttons; **+** opens **`DiveActivityAddBuddySheet`** (name + **Connect to Contact**).
+- **New-account permissions:** first Sign in with Apple profile creation triggers **`AppOnboardingPermissions`** — Contacts then Photos (only while **`.notDetermined`**; skipped in UI tests); **`ContactsPickerAccess.requestAccessIfNeeded`** shared with buddy contact picker.
 

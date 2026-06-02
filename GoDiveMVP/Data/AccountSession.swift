@@ -66,6 +66,10 @@ final class AccountSession {
             appleProvided: appleProvidedName,
             appleUserIdentifier: credential.user
         )
+        let isNewAccount = try UserProfileStore.profile(
+            appleUserIdentifier: credential.user,
+            modelContext: modelContext
+        ) == nil
         let profile = try UserProfileStore.findOrCreateProfile(
             appleUserIdentifier: credential.user,
             displayName: resolvedName,
@@ -81,6 +85,10 @@ final class AccountSession {
         try DiveBuddyOwnership.claimUnownedBuddies(for: profile, modelContext: modelContext)
         persistSession(profile: profile)
         currentProfile = profile
+
+        if isNewAccount {
+            Task { await AppOnboardingPermissions.requestForNewAccount() }
+        }
     }
 
     func signOut() {

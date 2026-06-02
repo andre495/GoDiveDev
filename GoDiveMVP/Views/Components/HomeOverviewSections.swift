@@ -783,6 +783,7 @@ struct HomeLifetimeStatsSection: View {
     let onOpenDive: (UUID) -> Void
     let onOpenSite: (UUID) -> Void
     let onOpenSpecies: (String) -> Void
+    let onOpenBuddy: (UUID) -> Void
 
     private var showsBuddyLeaderboard: Bool {
         HomeBuddyLeaderboardPresentation.shouldShow(
@@ -815,7 +816,10 @@ struct HomeLifetimeStatsSection: View {
             .frame(height: HomeLifetimeStatsLayout.gridHeight(tileCount: tiles.count))
 
             if showsBuddyLeaderboard {
-                HomeBuddyLeaderboardTile(entries: buddyLeaderboard)
+                HomeBuddyLeaderboardTile(
+                    entries: buddyLeaderboard,
+                    onOpenBuddy: onOpenBuddy
+                )
             }
 
             Spacer(minLength: 0)
@@ -1008,6 +1012,7 @@ private extension View {
 
 struct HomeBuddyLeaderboardTile: View {
     let entries: [HomeBuddyLeaderboardEntry]
+    let onOpenBuddy: (UUID) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
@@ -1024,8 +1029,11 @@ struct HomeBuddyLeaderboardTile: View {
 
             HStack(alignment: .center, spacing: AppTheme.Spacing.md) {
                 ForEach(entries) { entry in
-                    HomeBuddyLeaderboardPodiumSlot(entry: entry)
-                        .frame(maxWidth: .infinity)
+                    HomeBuddyLeaderboardPodiumSlot(
+                        entry: entry,
+                        onOpen: { onOpenBuddy(entry.id) }
+                    )
+                    .frame(maxWidth: .infinity)
                 }
             }
             .frame(height: HomeBuddyLeaderboardLayout.podiumRowHeight)
@@ -1049,31 +1057,37 @@ struct HomeBuddyLeaderboardTile: View {
 
 private struct HomeBuddyLeaderboardPodiumSlot: View {
     let entry: HomeBuddyLeaderboardEntry
+    let onOpen: () -> Void
 
     var body: some View {
-        VStack(spacing: AppTheme.Spacing.sm) {
-            ProfileAvatarView(
-                profilePhoto: entry.profilePhoto,
-                diameter: HomeBuddyLeaderboardLayout.avatarDiameter,
-                iconFont: .callout
-            )
+        Button(action: onOpen) {
+            VStack(spacing: AppTheme.Spacing.sm) {
+                ProfileAvatarView(
+                    profilePhoto: entry.profilePhoto,
+                    diameter: HomeBuddyLeaderboardLayout.avatarDiameter,
+                    iconFont: .callout
+                )
 
-            Text(DiveBuddyPresentation.firstName(from: entry.displayName))
-                .font(.caption.weight(.medium))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                Text(DiveBuddyPresentation.firstName(from: entry.displayName))
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
 
-            Text(HomeBuddyLeaderboardPresentation.diveCountLabel(count: entry.diveCount))
-                .font(.caption2)
-                .foregroundStyle(AppTheme.Colors.mutedText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
+                Text(HomeBuddyLeaderboardPresentation.diveCountLabel(count: entry.diveCount))
+                    .font(.caption2)
+                    .foregroundStyle(AppTheme.Colors.mutedText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
             "\(DiveBuddyPresentation.firstName(from: entry.displayName)), rank \(entry.rank), \(HomeBuddyLeaderboardPresentation.diveCountLabel(count: entry.diveCount))"
         )
+        .accessibilityHint("Opens buddy details")
+        .accessibilityIdentifier("Home.BuddyLeaderboard.Slot.\(entry.rank)")
     }
 }

@@ -6,4 +6,5 @@ enum HomeRoute: Hashable {
     case diveMedia(diveID: UUID, mediaID: UUID)
     case diveSite(UUID)
     case marineLife(String)
+    case diveBuddy(UUID)
 }

@@ -24,6 +24,8 @@ struct AppPage<Content: View, TrailingContent: View>: View {
     let title: String
     let showsBackButton: Bool
     let scrollContentUnderHeader: Bool
+    /// Rising bubbles behind scroll-under list content (Logbook-style); requires **`scrollContentUnderHeader`**.
+    let showsWaterBubbleBackground: Bool
     let content: Content
     let trailingContent: TrailingContent
 
@@ -33,12 +35,14 @@ struct AppPage<Content: View, TrailingContent: View>: View {
         title: String,
         showsBackButton: Bool = false,
         scrollContentUnderHeader: Bool = false,
+        showsWaterBubbleBackground: Bool = false,
         @ViewBuilder trailingContent: () -> TrailingContent,
         @ViewBuilder content: () -> Content
     ) {
         self.title = title
         self.showsBackButton = showsBackButton
         self.scrollContentUnderHeader = scrollContentUnderHeader
+        self.showsWaterBubbleBackground = showsWaterBubbleBackground
         self.trailingContent = trailingContent()
         self.content = content()
     }
@@ -78,6 +82,10 @@ struct AppPage<Content: View, TrailingContent: View>: View {
             let bottomInset = AppScrollUnderHeaderListLayout.listBottomInset(safeAreaBottom: safeBottom)
 
             ZStack(alignment: .top) {
+                if showsWaterBubbleBackground, !GoDiveUITestConfiguration.isActive {
+                    WaterBubbleBackground()
+                }
+
                 content
                     .environment(
                         \.appScrollUnderHeaderInsets,
@@ -140,12 +148,14 @@ extension AppPage where TrailingContent == EmptyView {
         title: String,
         showsBackButton: Bool = false,
         scrollContentUnderHeader: Bool = false,
+        showsWaterBubbleBackground: Bool = false,
         @ViewBuilder content: () -> Content
     ) {
         self.init(
             title: title,
             showsBackButton: showsBackButton,
             scrollContentUnderHeader: scrollContentUnderHeader,
+            showsWaterBubbleBackground: showsWaterBubbleBackground,
             trailingContent: {
                 EmptyView()
             },

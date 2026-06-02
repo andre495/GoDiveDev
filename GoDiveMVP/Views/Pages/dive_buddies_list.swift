@@ -23,7 +23,8 @@ struct DiveBuddiesListView: View {
         AppPage(
             title: "Dive Buddies",
             showsBackButton: true,
-            scrollContentUnderHeader: true
+            scrollContentUnderHeader: true,
+            showsWaterBubbleBackground: true
         ) {
             if ownedBuddies.isEmpty {
                 AppScrollUnderHeaderEmptyState {

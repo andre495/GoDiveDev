@@ -64,7 +64,6 @@ struct ViewDiveBuddyDetails: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
                         headerSection
-                        contactsSection
                         divesTogetherSection
                     }
                     .padding(AppTheme.Spacing.md)
@@ -88,6 +87,9 @@ struct ViewDiveBuddyDetails: View {
                     showsContactPicker = false
                 }
             )
+        }
+        .task(id: buddy.id) {
+            refreshLinkedContactOnAppear()
         }
         #endif
         .alert("Contacts", isPresented: contactsAccessAlertBinding) {
@@ -117,18 +119,21 @@ struct ViewDiveBuddyDetails: View {
         )
     }
 
+    private enum Layout {
+        static let avatarDiameter: CGFloat = 120
+        static let contactBadgeDiameter: CGFloat = 34
+    }
+
     private var headerSection: some View {
         VStack(spacing: AppTheme.Spacing.md) {
-            ProfileAvatarView(
-                profilePhoto: buddy.profilePhoto,
-                diameter: 120,
-                iconFont: .system(size: 56)
-            )
+            buddyAvatarHeader
 
             Text(buddy.displayName)
                 .font(.title2.weight(.bold))
                 .foregroundStyle(AppTheme.Colors.textPrimary)
                 .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
                 .frame(maxWidth: .infinity)
 
             Text(DiveBuddyRosterPresentation.sharedDiveCountLabel(sharedDiveCount))
@@ -137,49 +142,57 @@ struct ViewDiveBuddyDetails: View {
                 .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("DiveBuddyDetails.Header")
     }
 
     @ViewBuilder
-    private var contactsSection: some View {
+    private var buddyAvatarHeader: some View {
         #if canImport(UIKit)
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            if buddy.contactsIdentifier != nil {
-                Label("Linked to Contacts", systemImage: "person.crop.circle.badge.checkmark")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
+        ZStack(alignment: .bottomTrailing) {
+            ProfileAvatarView(
+                profilePhoto: buddy.profilePhoto,
+                diameter: Layout.avatarDiameter,
+                iconFont: .system(size: 56)
+            )
 
-                Button("Refresh name and photo") {
-                    refreshLinkedContact()
-                }
-                .font(.body.weight(.medium))
-                .foregroundStyle(AppTheme.Colors.tabSelected)
-
-                Button("Change contact") {
-                    presentContactPicker()
-                }
-                .font(.body.weight(.medium))
-                .foregroundStyle(AppTheme.Colors.tabSelected)
-
-                Button("Disconnect contact", role: .destructive) {
-                    disconnectLinkedContact()
-                }
-                .font(.body)
-            } else {
-                Button {
-                    presentContactPicker()
-                } label: {
-                    Label("Connect to Contact", systemImage: "person.crop.circle.badge.plus")
-                        .font(.body.weight(.medium))
-                }
-                .foregroundStyle(AppTheme.Colors.tabSelected)
-            }
+            contactLinkBadge
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityIdentifier("DiveBuddyDetails.Contacts")
+        #else
+        ProfileAvatarView(
+            profilePhoto: buddy.profilePhoto,
+            diameter: Layout.avatarDiameter,
+            iconFont: .system(size: 56)
+        )
         #endif
     }
+
+    #if canImport(UIKit)
+    private var contactLinkBadge: some View {
+        Button {
+            presentContactPicker()
+        } label: {
+            Image(
+                systemName: buddy.contactsIdentifier != nil
+                    ? "person.fill"
+                    : "person.badge.plus"
+            )
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.white)
+            .frame(width: Layout.contactBadgeDiameter, height: Layout.contactBadgeDiameter)
+            .background(Circle().fill(AppTheme.Colors.tabSelected))
+            .overlay {
+                Circle()
+                    .strokeBorder(Color.white.opacity(0.35), lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(
+            buddy.contactsIdentifier != nil ? "Change linked contact" : "Link contact"
+        )
+        .accessibilityIdentifier("DiveBuddyDetails.ContactLink")
+    }
+    #endif
 
     #if canImport(UIKit)
     private func presentContactPicker() {
@@ -203,18 +216,15 @@ struct ViewDiveBuddyDetails: View {
         }
     }
 
-    private func refreshLinkedContact() {
+    /// Silent refresh when opening a buddy already linked to Contacts.
+    private func refreshLinkedContactOnAppear() {
+        guard buddy.contactsIdentifier != nil else { return }
         do {
             try DiveBuddyContactLinking.refreshFromContacts(buddy)
             try modelContext.save()
         } catch {
-            contactLinkError = error.localizedDescription
+            // Best-effort on load — user can still change contact via the picker.
         }
-    }
-
-    private func disconnectLinkedContact() {
-        DiveBuddyContactLinking.disconnect(buddy)
-        try? modelContext.save()
     }
     #endif
 

@@ -11,6 +11,7 @@ struct LogOverviewView: View {
     @Query(sort: \DiveSite.siteName) private var diveSites: [DiveSite]
     @Query(sort: \MarineLife.commonName) private var marineLifeCatalog: [MarineLife]
     @Query private var allSightings: [SightingInstance]
+    @Query private var ownerDiveBuddies: [DiveBuddy]
 
     private let ownerProfileID: UUID?
 
@@ -38,6 +39,10 @@ struct LogOverviewView: View {
                 SortDescriptor(\DiveActivity.startTime, order: .reverse),
                 SortDescriptor(\DiveActivity.id, order: .forward),
             ]
+        )
+        _ownerDiveBuddies = Query(
+            filter: #Predicate<DiveBuddy> { $0.ownerProfileID == filterOwnerID },
+            sort: [SortDescriptor(\DiveBuddy.displayName, order: .forward)]
         )
     }
 
@@ -204,7 +209,8 @@ struct LogOverviewView: View {
                 unitSystem: diveDisplayUnitSystem,
                 onOpenDive: { path.append(.diveDetail($0)) },
                 onOpenSite: { path.append(.diveSite($0)) },
-                onOpenSpecies: { path.append(.marineLife($0)) }
+                onOpenSpecies: { path.append(.marineLife($0)) },
+                onOpenBuddy: { path.append(.diveBuddy($0)) }
             )
             .id(homeAggregate.contentFingerprint)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -255,6 +261,12 @@ struct LogOverviewView: View {
                 }
             } else {
                 missingDestinationLabel("This species is no longer in the catalog.")
+            }
+        case .diveBuddy(let buddyID):
+            if let buddy = ownerDiveBuddies.first(where: { $0.id == buddyID }) {
+                ViewDiveBuddyDetails(buddy: buddy)
+            } else {
+                missingDestinationLabel("This buddy is no longer on your roster.")
             }
         }
     }

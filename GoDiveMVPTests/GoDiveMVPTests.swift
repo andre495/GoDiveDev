@@ -338,6 +338,21 @@ struct GoDiveMVPTests {
     }
 
     @Test @MainActor
+    func appOnboardingPermissions_newAccountDetectedBeforeProfileInsert() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let appleID = "onboarding-permissions-new-user"
+
+        #expect(try UserProfileStore.profile(appleUserIdentifier: appleID, modelContext: context) == nil)
+        _ = try UserProfileStore.findOrCreateProfile(
+            appleUserIdentifier: appleID,
+            displayName: "Sam",
+            modelContext: context
+        )
+        #expect(try UserProfileStore.profile(appleUserIdentifier: appleID, modelContext: context) != nil)
+    }
+
+    @Test @MainActor
     func userProfileStore_findOrCreateProfile_reusesAppleUser() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = ModelContext(container)
@@ -6540,6 +6555,16 @@ struct GoDiveMVPTests {
         #expect(HomeBuddyLeaderboardPresentation.shouldShow(diveCount: 1, entries: [entry]))
         #expect(!HomeBuddyLeaderboardPresentation.shouldShow(diveCount: 0, entries: [entry]))
         #expect(!HomeBuddyLeaderboardPresentation.shouldShow(diveCount: 3, entries: []))
+    }
+
+    @Test func homeRoute_diveBuddy_usesRosterBuddyIDForNavigation() {
+        let buddyID = UUID()
+        let route = HomeRoute.diveBuddy(buddyID)
+        if case .diveBuddy(let resolvedID) = route {
+            #expect(resolvedID == buddyID)
+        } else {
+            Issue.record("Expected diveBuddy route case")
+        }
     }
 
     @Test func diveBuddyPresentation_firstName_usesFirstToken() {

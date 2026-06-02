@@ -52,6 +52,10 @@ struct ExploreView: View {
                     let bottomInset = proxy.safeAreaInsets.bottom + AppTheme.Spacing.md
 
                     ZStack(alignment: .top) {
+                        if viewMode == .list, !GoDiveUITestConfiguration.isActive {
+                            WaterBubbleBackground()
+                        }
+
                         Group {
                             switch viewMode {
                             case .map:
