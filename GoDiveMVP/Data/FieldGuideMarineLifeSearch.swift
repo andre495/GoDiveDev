@@ -1,6 +1,6 @@
 import Foundation
 
-/// Filters Field Guide species by common name, scientific name, or category.
+/// Filters Field Guide species by common name, scientific name, category, or subcategory.
 enum FieldGuideMarineLifeSearch {
 
     nonisolated static func isFiltering(query: String) -> Bool {
@@ -9,7 +9,14 @@ enum FieldGuideMarineLifeSearch {
 
     nonisolated static func matches(_ entry: MarineLifeCatalogSnapshot, query: String) -> Bool {
         CatalogSubstringSearch.matchesAny(
-            in: [entry.commonName, entry.scientificName, entry.category],
+            in: [
+                entry.commonName,
+                entry.scientificName,
+                entry.category,
+                entry.subcategory,
+                FieldGuideTaxonomy.categoryTitle(for: entry),
+                FieldGuideTaxonomy.subcategoryTitle(for: entry),
+            ],
             query: query
         )
     }

@@ -7,6 +7,7 @@ struct MarineLifeDTO: Decodable {
   let featureImage: String?
   let scientificName: String?
   let category: String?
+  let subcategory: String?
   let description: String?
   let minSize: Double?
   let maxSize: Double?
@@ -18,6 +19,7 @@ struct MarineLifeDTO: Decodable {
     case featureImage = "feature_image"
     case scientificName = "scientific_name"
     case category
+    case subcategory
     case description
     case minSize = "min_size"
     case maxSize = "max_size"

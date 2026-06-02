@@ -19,17 +19,32 @@ enum MarineLifeCatalogSeeder {
     guard !dtos.isEmpty else { return }
 
     let existing = try context.fetch(FetchDescriptor<MarineLife>())
-    var existingUUIDs = Set(existing.map(\.uuid))
+    var existingByUUID = Dictionary(uniqueKeysWithValues: existing.map { ($0.uuid, $0) })
 
     for dto in dtos {
-      let species = MarineLifeMapper.map(dto)
-      guard !existingUUIDs.contains(species.uuid) else { continue }
-      context.insert(species)
-      existingUUIDs.insert(species.uuid)
+      let mapped = MarineLifeMapper.map(dto)
+      if let existingSpecies = existingByUUID[mapped.uuid] {
+        applyTaxonomy(from: mapped, to: existingSpecies)
+      } else {
+        context.insert(mapped)
+        existingByUUID[mapped.uuid] = mapped
+      }
     }
 
     if context.hasChanges {
       try context.save()
     }
+  }
+
+  private static func applyTaxonomy(from source: MarineLife, to destination: MarineLife) {
+    destination.commonName = source.commonName
+    destination.featureImageURL = source.featureImageURL
+    destination.scientificName = source.scientificName
+    destination.category = source.category
+    destination.subcategory = source.subcategory
+    destination.aboutText = source.aboutText
+    destination.minSizeMeters = source.minSizeMeters
+    destination.maxSizeMeters = source.maxSizeMeters
+    destination.avgDepthMeters = source.avgDepthMeters
   }
 }

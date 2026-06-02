@@ -8,6 +8,7 @@ enum MarineLifeMapper {
       featureImageURL: dto.featureImage ?? "",
       scientificName: dto.scientificName ?? "",
       category: dto.category ?? "",
+      subcategory: dto.subcategory ?? "",
       aboutText: dto.description ?? "",
       minSizeMeters: dto.minSize ?? 0,
       maxSizeMeters: dto.maxSize ?? 0,

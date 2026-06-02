@@ -148,6 +148,20 @@ struct FieldGuideMarineLifeDetailView: View {
             }
     }
 
+    private var taxonomyLabel: some View {
+        let snapshot = species.fieldGuideCatalogSnapshot
+        let category = FieldGuideTaxonomy.categoryTitle(for: snapshot)
+        let subcategory = FieldGuideTaxonomy.subcategoryTitle(for: snapshot)
+        let label = subcategory != "—" ? "\(category) · \(subcategory)" : category
+        return Group {
+            if label != "—" {
+                Text(label)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.tabUnselected)
+            }
+        }
+    }
+
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
             if !species.scientificName.isEmpty {
@@ -155,11 +169,7 @@ struct FieldGuideMarineLifeDetailView: View {
                     .font(.title3.italic())
                     .foregroundStyle(AppTheme.Colors.secondaryText)
             }
-            if !species.category.isEmpty {
-                Text(species.category)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.tabUnselected)
-            }
+            taxonomyLabel
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

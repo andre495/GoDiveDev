@@ -6,6 +6,7 @@ struct MarineLifeCatalogSnapshot: Sendable, Equatable {
     let commonName: String
     let scientificName: String
     let category: String
+    let subcategory: String
     let featureImageURL: String
     let minSizeMeters: Double
     let maxSizeMeters: Double
@@ -63,13 +64,19 @@ enum FieldGuidePresentation {
         MarineLifeRowDisplayData(
             marineLifeUUID: entry.uuid,
             displayName: entry.commonName,
-            trailingLabel: listTrailingLabel(category: entry.category),
+            trailingLabel: listTrailingLabel(for: entry),
             detailLine: listDetailLine(
                 scientificName: entry.scientificName,
                 sizeDepthLine: sizeDepthLine(for: entry, unitSystem: unitSystem)
             ),
             isSighted: isSighted
         )
+    }
+
+    nonisolated static func listTrailingLabel(for entry: MarineLifeCatalogSnapshot) -> String {
+        let sub = FieldGuideTaxonomy.subcategoryTitle(for: entry)
+        if sub != "—" { return sub }
+        return FieldGuideTaxonomy.categoryTitle(for: entry)
     }
 
     nonisolated static func listTrailingLabel(category: String) -> String {

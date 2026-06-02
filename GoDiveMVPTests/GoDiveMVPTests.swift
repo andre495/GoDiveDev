@@ -1978,7 +1978,8 @@ struct GoDiveMVPTests {
             commonName: "Green Sea Turtle",
             featureImage: "https://example.com/turtle.jpg",
             scientificName: "Chelonia mydas",
-            category: "Reptile",
+            category: "marine_reptiles",
+            subcategory: "turtles",
             description: "Herbivorous sea turtle.",
             minSize: 0.5,
             maxSize: 1.1,
@@ -1988,6 +1989,8 @@ struct GoDiveMVPTests {
         #expect(species.uuid == "marine-life-test-turtle")
         #expect(species.commonName == "Green Sea Turtle")
         #expect(species.featureImageURL == "https://example.com/turtle.jpg")
+        #expect(species.category == "marine_reptiles")
+        #expect(species.subcategory == "turtles")
         #expect(species.aboutText == "Herbivorous sea turtle.")
         #expect(species.minSizeMeters == 0.5)
         #expect(species.avgDepthMeters == 10)
@@ -2001,6 +2004,15 @@ struct GoDiveMVPTests {
         #expect(firstCount > 0)
         try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
         #expect(try context.fetchCount(FetchDescriptor<MarineLife>()) == firstCount)
+    }
+
+    @Test @MainActor func marineLife_subcategoryDefaultsEmptyForSwiftDataMigration() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let species = MarineLife(uuid: "marine-life-migration-test", commonName: "Test Species")
+        context.insert(species)
+        try context.save()
+        #expect(species.subcategory == "")
     }
 
     @Test func sightingInstanceDateTimeResolution_prefersMediaCapturedAt() {
@@ -2221,12 +2233,142 @@ struct GoDiveMVPTests {
         #expect(rows[0].commonName == "Zebra Angelfish")
     }
 
+    @Test func fieldGuideSection_includesFieldGuideAndSightings() {
+        #expect(FieldGuideSection.allCases.map(\.accessibilityLabel) == ["Field Guide", "Sightings"])
+    }
+
+    @Test func fieldGuideSightingsHeat_groupsSightingsByRegion() {
+        let siteA = UUID(uuidString: "00000000-0000-0000-0000-000000000101")!
+        let siteB = UUID(uuidString: "00000000-0000-0000-0000-000000000102")!
+        let diveA = UUID(uuidString: "00000000-0000-0000-0000-000000000201")!
+        let diveB = UUID(uuidString: "00000000-0000-0000-0000-000000000202")!
+
+        let sites: [UUID: FieldGuideSightingsHeatPresentation.DiveSiteLocationSnapshot] = [
+            siteA: .init(id: siteA, latitude: 12.1, longitude: -68.2, region: "Bonaire", country: "Caribbean Netherlands"),
+            siteB: .init(id: siteB, latitude: 18.4, longitude: -78.1, region: "Negril", country: "Jamaica"),
+        ]
+        let sightings = [
+            FieldGuideSightingsHeatPresentation.SightingPlotInput(
+                sightingUUID: "s1", marineLifeUUID: "fish-a", diveActivityID: diveA, diveSiteID: siteA
+            ),
+            FieldGuideSightingsHeatPresentation.SightingPlotInput(
+                sightingUUID: "s2", marineLifeUUID: "fish-b", diveActivityID: diveA, diveSiteID: siteA
+            ),
+            FieldGuideSightingsHeatPresentation.SightingPlotInput(
+                sightingUUID: "s3", marineLifeUUID: "fish-c", diveActivityID: diveB, diveSiteID: siteB
+            ),
+        ]
+
+        let overview = FieldGuideSightingsHeatPresentation.overviewData(
+            sightings: sightings,
+            diveSitesByID: sites,
+            ownerActivityIDs: [diveA, diveB]
+        )
+
+        #expect(overview.totalSightings == 3)
+        #expect(overview.plottableSightings == 3)
+        #expect(overview.regionCount == 2)
+        #expect(overview.heatCells.count == 2)
+        #expect(overview.topRegionLabel == "Bonaire, Caribbean Netherlands")
+        #expect(overview.topRegionCount == 2)
+        #expect(overview.heatCells[0].sightingCount == 2)
+        #expect(overview.heatCells[0].normalizedIntensity == 1)
+    }
+
+    @Test func fieldGuideSightingsHeat_ignoresNonOwnerSightings() {
+        let siteID = UUID(uuidString: "00000000-0000-0000-0000-000000000103")!
+        let ownerDive = UUID(uuidString: "00000000-0000-0000-0000-000000000203")!
+        let otherDive = UUID(uuidString: "00000000-0000-0000-0000-000000000204")!
+        let sites = [
+            siteID: FieldGuideSightingsHeatPresentation.DiveSiteLocationSnapshot(
+                id: siteID, latitude: 12.1, longitude: -68.2, region: "Bonaire", country: "Caribbean Netherlands"
+            ),
+        ]
+        let sightings = [
+            FieldGuideSightingsHeatPresentation.SightingPlotInput(
+                sightingUUID: "mine", marineLifeUUID: "fish-a", diveActivityID: ownerDive, diveSiteID: siteID
+            ),
+            FieldGuideSightingsHeatPresentation.SightingPlotInput(
+                sightingUUID: "theirs", marineLifeUUID: "fish-b", diveActivityID: otherDive, diveSiteID: siteID
+            ),
+        ]
+
+        let overview = FieldGuideSightingsHeatPresentation.overviewData(
+            sightings: sightings,
+            diveSitesByID: sites,
+            ownerActivityIDs: [ownerDive]
+        )
+
+        #expect(overview.totalSightings == 1)
+        #expect(overview.plottableSightings == 1)
+        #expect(overview.heatCells.count == 1)
+    }
+
+    @Test func fieldGuideTaxonomy_fishCategoryHasDetailHeaderCopy() {
+        let fish = FieldGuideTaxonomy.category(id: "fish")
+        #expect(fish?.title == "Fish")
+        #expect(fish?.description.contains("silhouette") == true)
+        #expect(fish?.heroImageName == nil)
+        #expect(fish?.subcategories.count == 12)
+    }
+
+    @Test func fieldGuideTaxonomy_resolvesLegacyCategoryLabels() {
+        let ray = MarineLifeCatalogSnapshot(
+            uuid: "ray",
+            commonName: "Spotted Eagle Ray",
+            scientificName: "Aetobatus narinari",
+            category: "Ray",
+            subcategory: "",
+            featureImageURL: "",
+            minSizeMeters: 0,
+            maxSizeMeters: 0,
+            avgDepthMeters: 0
+        )
+        #expect(FieldGuideTaxonomy.resolvedCategoryID(for: ray) == "fish")
+        #expect(FieldGuideTaxonomy.resolvedSubcategoryID(for: ray) == "sharks-and-rays")
+        #expect(FieldGuideTaxonomy.subcategoryTitle(for: ray) == "Sharks and Rays")
+    }
+
+    @Test func fieldGuideCatalogIndex_countsSpeciesPerCategoryAndSubcategory() {
+        let samples = [
+            MarineLifeCatalogSnapshot(
+                uuid: "a",
+                commonName: "French Angelfish",
+                scientificName: "",
+                category: "fish",
+                subcategory: "disk-and-large-oval",
+                featureImageURL: "",
+                minSizeMeters: 0,
+                maxSizeMeters: 0,
+                avgDepthMeters: 0
+            ),
+            MarineLifeCatalogSnapshot(
+                uuid: "b",
+                commonName: "Spotted Eagle Ray",
+                scientificName: "",
+                category: "fish",
+                subcategory: "sharks-and-rays",
+                featureImageURL: "",
+                minSizeMeters: 0,
+                maxSizeMeters: 0,
+                avgDepthMeters: 0
+            ),
+        ]
+        let summaries = FieldGuideCatalogIndex.summaries(for: samples)
+        let fish = summaries.first { $0.categoryID == "fish" }
+        #expect(fish?.speciesCount == 2)
+        #expect(fish?.subcategoryCounts["disk-and-large-oval"] == 1)
+        #expect(fish?.subcategoryCounts["sharks-and-rays"] == 1)
+        #expect(FieldGuideCatalogIndex.species(in: "fish", subcategoryID: "eels", catalog: samples).isEmpty)
+    }
+
     @Test func fieldGuideMarineLifeSearch_matchesCommonScientificOrCategory() {
         let angelfish = MarineLifeCatalogSnapshot(
             uuid: "marine-life-angelfish",
             commonName: "French Angelfish",
             scientificName: "Pomacanthus paru",
-            category: "Fish",
+            category: "fish",
+            subcategory: "disk-and-large-oval",
             featureImageURL: "",
             minSizeMeters: 0.2,
             maxSizeMeters: 0.35,

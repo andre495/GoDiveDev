@@ -15,6 +15,9 @@ final class MarineLife {
     var featureImageURL: String
     var scientificName: String
     var category: String
+    /// Taxonomy slug or display label (e.g. `sharks-and-rays`, `Disk and Large Oval`).
+    /// Default at declaration for SwiftData lightweight migration on existing stores.
+    var subcategory: String = ""
     var aboutText: String
 
     /// Observed size range and typical depth — stored in **meters**; UI uses **`DiveDisplayUnitSystem`**.
@@ -34,6 +37,7 @@ final class MarineLife {
         featureImageURL: String = "",
         scientificName: String = "",
         category: String = "",
+        subcategory: String = "",
         aboutText: String = "",
         minSizeMeters: Double = 0,
         maxSizeMeters: Double = 0,
@@ -44,6 +48,7 @@ final class MarineLife {
         self.featureImageURL = featureImageURL
         self.scientificName = scientificName
         self.category = category
+        self.subcategory = subcategory
         self.aboutText = aboutText
         self.minSizeMeters = minSizeMeters
         self.maxSizeMeters = maxSizeMeters
@@ -58,6 +63,7 @@ extension MarineLife {
             commonName: commonName,
             scientificName: scientificName,
             category: category,
+            subcategory: subcategory,
             featureImageURL: featureImageURL,
             minSizeMeters: minSizeMeters,
             maxSizeMeters: maxSizeMeters,
