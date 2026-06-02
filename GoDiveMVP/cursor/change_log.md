@@ -966,7 +966,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Dive buddies sheet:** compact roster rows; trailing **+** and **Done** toolbar buttons; **+** opens **`DiveActivityAddBuddySheet`** (name + **Connect to Contact**).
 - **New-account permissions:** first Sign in with Apple profile creation triggers **`AppOnboardingPermissions`** — Contacts then Photos (only while **`.notDetermined`**; skipped in UI tests); **`ContactsPickerAccess.requestAccessIfNeeded`** shared with buddy contact picker.
 
-## 62 - Next batch
+## 62 - Field Guide taxonomy browse and sightings heat map **(pushed)**
 
 **Summary:** Field Guide tab split + Caribbean taxonomy browse (category bento hub, trail index, species mosaic); catalog model gains **`subcategory`**.
 
@@ -980,4 +980,6 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`field_guide.swift`** — **`FieldGuideRoute`** `.category` / `.subcategory` / `.speciesDetail`; hub when search inactive.
 - **`MarineLife.subcategory`**, **`MarineLifeDTO.subcategory`**, **`marine_life_sample.json`** taxonomy slugs; **`MarineLifeCatalogSeeder`** upserts bundled rows by UUID (refreshes taxonomy on relaunch). **`subcategory`** uses **`= ""` on the property** for SwiftData lightweight migration (fixes **`loadIssueModelContainer`** on existing stores).
 - Tests: **`fieldGuideTaxonomy_resolvesLegacyCategoryLabels`**, **`fieldGuideCatalogIndex_countsSpeciesPerCategoryAndSubcategory`**, **`fieldGuideSightingsHeat_groupsSightingsByRegion`**, **`fieldGuideSightingsHeat_ignoresNonOwnerSightings`**; search / presentation snapshots updated.
+
+## 63 - Next batch
 
