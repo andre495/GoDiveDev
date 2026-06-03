@@ -16,7 +16,7 @@ struct DiveLocationMapRegionSpec: Equatable, Sendable {
             && lhs.longitudeDelta == rhs.longitudeDelta
     }
 
-    var mkCoordinateRegion: MKCoordinateRegion {
+    nonisolated var mkCoordinateRegion: MKCoordinateRegion {
         MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: centerLatitude, longitude: centerLongitude),
             span: MKCoordinateSpan(latitudeDelta: latitudeDelta, longitudeDelta: longitudeDelta)

@@ -16,13 +16,15 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView(frame: .zero)
-        mapView.preferredConfiguration = MKImageryMapConfiguration()
+        mapView.preferredConfiguration = MKHybridMapConfiguration()
         mapView.isRotateEnabled = false
         mapView.isPitchEnabled = false
         mapView.showsCompass = false
+        GoDiveMapPointOfInterestSuppression.applyToMapKit(mapView)
         mapView.delegate = context.coordinator
         context.coordinator.syncAnnotations(on: mapView, sites: sites)
         context.coordinator.applyRegion(on: mapView, sites: sites, animated: false)
+        context.coordinator.refreshLabelVisibility(on: mapView)
         return mapView
     }
 
@@ -31,13 +33,17 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
         let sitesChanged = context.coordinator.syncAnnotations(on: mapView, sites: sites)
         if sitesChanged {
             context.coordinator.applyRegion(on: mapView, sites: sites, animated: true)
+        } else {
+            context.coordinator.refreshLabelVisibility(on: mapView)
         }
     }
 
     final class Coordinator: NSObject, MKMapViewDelegate {
         var onSiteSelected: (UUID) -> Void
+        private var sites: [ExploreCatalogMapPresentation.PlottedSite] = []
         private var annotationsBySiteID: [UUID: ExploreDiveSiteMapAnnotation] = [:]
         private var lastSitesSignature: String?
+        private var labeledSiteIDs: Set<UUID> = []
 
         init(onSiteSelected: @escaping (UUID) -> Void) {
             self.onSiteSelected = onSiteSelected
@@ -45,9 +51,12 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
 
         @discardableResult
         func syncAnnotations(on mapView: MKMapView, sites: [ExploreCatalogMapPresentation.PlottedSite]) -> Bool {
+            self.sites = sites
             let signature = sites.map(\.id.uuidString).sorted().joined(separator: "|")
-            guard signature != lastSitesSignature else { return false }
+            let sitesChanged = signature != lastSitesSignature
+            guard sitesChanged else { return false }
             lastSitesSignature = signature
+            labeledSiteIDs = []
 
             mapView.removeAnnotations(Array(annotationsBySiteID.values))
             annotationsBySiteID.removeAll()
@@ -57,6 +66,7 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
                 annotationsBySiteID[site.id] = annotation
                 mapView.addAnnotation(annotation)
             }
+
             return true
         }
 
@@ -69,6 +79,30 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
             mapView.setRegion(region, animated: animated)
         }
 
+        func refreshLabelVisibility(on mapView: MKMapView) {
+            guard !sites.isEmpty else { return }
+
+            let span = mapView.region.span.latitudeDelta
+            let center = DiveCoordinate(
+                latitude: mapView.region.center.latitude,
+                longitude: mapView.region.center.longitude
+            )
+            let updatedLabeledSiteIDs = ExploreCatalogMapLabelVisibility.labeledSiteIDs(
+                sites: sites,
+                visibleLatitudeSpan: span,
+                mapCenter: center
+            )
+            guard updatedLabeledSiteIDs != labeledSiteIDs else { return }
+            labeledSiteIDs = updatedLabeledSiteIDs
+
+            for annotation in mapView.annotations {
+                guard let siteAnnotation = annotation as? ExploreDiveSiteMapAnnotation,
+                      let markerView = mapView.view(for: annotation) as? MKMarkerAnnotationView
+                else { continue }
+                markerView.titleVisibility = labeledSiteIDs.contains(siteAnnotation.siteID) ? .visible : .hidden
+            }
+        }
+
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
             guard let siteAnnotation = annotation as? ExploreDiveSiteMapAnnotation else { return nil }
 
@@ -78,9 +112,16 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
 
             markerView.annotation = annotation
             markerView.markerTintColor = .systemRed
+            markerView.titleVisibility = labeledSiteIDs.contains(siteAnnotation.siteID) ? .visible : .hidden
+            markerView.subtitleVisibility = .hidden
             markerView.canShowCallout = false
+            markerView.displayPriority = .defaultHigh
             markerView.accessibilityLabel = siteAnnotation.siteName
             return markerView
+        }
+
+        func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
+            refreshLabelVisibility(on: mapView)
         }
 
         private static let standardMarkerReuseIdentifier = "ExploreCatalog.StandardMarker"

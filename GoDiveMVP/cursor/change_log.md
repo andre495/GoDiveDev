@@ -1053,4 +1053,26 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Map overview header + stats box** — dive chip, site, region/date line, duration + surface interval + depth gauge on **medium** detent.
 - **Launch branding** — fixed **dark** system launch screen + matching **`AppLaunchOverlay`** (**`AppLaunchLayout`**).
 
-## 67 - Next batch
+## 67 - Google Maps experiment: Explore, dive overview, site picker **(pushed)**
+
+**Summary:** **`experiment/google-maps`** branch — Google Maps SDK SPM + Explore map spike behind **`GoDiveMapEngine`**.
+
+- Branch **`experiment/google-maps`** from **`main`**.
+- **SPM:** **`googlemaps/ios-maps-sdk`** (**`GoogleMaps`** product) on the app target.
+- **`GoDiveMapEngine`** — default **MapKit**; launch arg **`-GoDiveMapEngineGoogle`** opts into Google Maps.
+- **`GoogleMapsBootstrap`** + **`GoDiveGoogleMapsAppDelegate`** — **`GMSServices.provideAPIKey`** from gitignored **`Config/GoogleMapsSecrets.plist`** (see **`GoogleMapsSecrets.example.plist`**).
+- **`ExploreCatalogGoogleMapRepresentable`** — satellite **`GMSMapView`** with red markers; **`ExploreCatalogMapView`** switches when engine + API key are set.
+- **`ExploreCatalogMapPresentation.boundingRegion`** — vendor-neutral camera bounds shared with MapKit **`region(for:)`**.
+- Tests: **`goDiveMapEngine_*`**, **`exploreCatalogMapPresentation_boundingRegion_matchesMapKitRegion`**.
+- **`app_summary.md`** — **External dependencies** section (FIT, Google Maps SDK, Apple frameworks); **`todo.md`** — Google Cloud / OAuth consent evaluation item.
+- Swift 6: **`nonisolated`** on map-engine / region-spec helpers; **`GMSMapView()`** replaces deprecated frame initializer.
+- **Explore map (hybrid + labels):** **MapKit** **`MKHybridMapConfiguration`** + **`MKMarkerAnnotationView.titleVisibility = .visible`**; **Google** **`.hybrid`** + labeled pin assets (**`ExploreCatalogGoogleMapMarkerImageFactory`**).
+- **Explore zoom-aware labels:** **`ExploreCatalogMapLabelVisibility`** — per-site staggered reveal (nearest first); labels begin after tighter zoom (**`pinOnlyLatitudeSpan`** **7.5°**, **`firstLabelRevealProgress`** **0.32**).
+- **Third-party POI suppression:** **`GoDiveMapPointOfInterestSuppression`** — **MapKit** **`pointOfInterestFilter = .excludingAll`**; **Google** JSON **`mapStyle`** + optional Cloud **Map ID** in secrets.
+- **Dive overview Google map:** **`DiveLocationGoogleMapRepresentable`** — hybrid **`GMSMapView`**, entry **`mapMarkerCoordinateTitle`** label on pin, detent-aware camera via **`DiveLocationMapGoogleCameraPresentation`**; **`DiveLocationMapView`** switches with **`GoDiveMapEngine`**.
+- **Dive Google map framing:** **`GMSMapView.padding`** (top chrome + sheet) centers the pin in the visible band; camera targets the dive coordinate (MapKit still uses **`adjustedMapCenter`** latitude shift).
+- **Site coordinate picker Google map:** **`DiveSiteCoordinatePickerGoogleMapRepresentable`** — hybrid inlay, drag-to-set lat/lon under fixed center pin; **`DiveSiteCoordinatePickerMapView`** switches with **`GoDiveMapEngine`**.
+- Tests: **`diveLocationMapGoogleCameraPresentation_*`**, **`diveSiteCoordinatePickerPresentation_approximateZoomLevel_*`**, **`goDiveMapPointOfInterestSuppression_googleStyleJSON_parses`**.
+
+## 68 - Next batch
+

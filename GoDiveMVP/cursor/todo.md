@@ -275,9 +275,26 @@ Use this when extending **`DiveActivity`** vs **`DiveProfilePoint`**. **Dive** =
 
 ---
 
-## Deferred (Post-MVP)
+## Google Maps / Google Cloud (`experiment/google-maps`)
 
-These are explicitly out of scope until after MVP validation per rules.md:
+**Status:** **Explore** + **dive overview** on branch **`experiment/google-maps`**. Production **`main`** still uses **MapKit**.
+
+**Done on branch:**
+- [x] SPM **`googlemaps/ios-maps-sdk`** (**`GoogleMaps`**) on app target
+- [x] **`GoDiveMapEngine`** + **`GoogleMapsBootstrap`** + gitignored **`Config/GoogleMapsSecrets.plist`**
+- [x] **`ExploreCatalogGoogleMapRepresentable`** behind **`-GoDiveMapEngineGoogle`**
+- [x] **`DiveLocationGoogleMapRepresentable`** — entry coordinate label on hybrid dive map
+- [x] **`DiveSiteCoordinatePickerGoogleMapRepresentable`** — add-site coordinate picker inlay
+
+**Pending:**
+- [ ] **Google Cloud setup:** enable **Maps SDK for iOS**, create API key, restrict to iOS app + bundle ID (see **`app_summary.md`** → **External dependencies**)
+- [ ] Copy **`GoogleMapsSecrets.example.plist`** → **`GoogleMapsSecrets.plist`** locally; verify Explore map with launch arg **`-GoDiveMapEngineGoogle`**
+- [ ] **Optional — Google hybrid POI hide:** create a Cloud Console map style with POI off, map ID in **`GoogleMapsSecrets.plist`** (**`MapID`**) for full hybrid/satellite POI suppression (local JSON **`mapStyle`** only affects the normal layer)
+- [ ] **Evaluate Google OAuth consent screen + privacy policy** before adding Google APIs that access **user Google account data** or upload **user dive content** to Google (e.g. **Places** autocomplete, **Google Sign-In**, cloud routing). **Not required** for current **Maps SDK for iOS** tile display (API-key auth only — no end-user Google login). Revisit when scope expands; document outcome in **`app_summary.md`**.
+
+---
+
+## Deferred (Post-MVP)
 
 - Garmin import / parsing logic
 - CloudKit sync

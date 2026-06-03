@@ -9,6 +9,12 @@ struct ExploreCatalogMapView: View {
         Group {
             if GoDiveUITestConfiguration.isActive {
                 uiTestPlaceholder
+            } else if GoDiveMapEngine.active == .googleMaps, GoogleMapsBootstrap.loadAPIKey() != nil {
+                #if canImport(UIKit)
+                ExploreCatalogGoogleMapRepresentable(sites: sites, onSiteSelected: onSiteSelected)
+                #else
+                Color.clear
+                #endif
             } else {
                 #if canImport(UIKit)
                 ExploreCatalogMapRepresentable(sites: sites, onSiteSelected: onSiteSelected)

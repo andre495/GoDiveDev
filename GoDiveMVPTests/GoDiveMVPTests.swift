@@ -1905,6 +1905,17 @@ struct GoDiveMVPTests {
         #expect(formatted.longitude == "-68.28330")
     }
 
+    @Test func diveSiteCoordinatePickerPresentation_approximateZoomLevel_matchesPickerSpan() {
+        let center = DiveCoordinate(latitude: 12.083, longitude: -68.283)
+        let zoom = DiveSiteCoordinatePickerPresentation.approximateZoomLevel(for: center)
+        let reference = DiveLocationMapGoogleCameraPresentation.approximateZoomLevel(
+            atLatitude: center.latitude,
+            viewingDistanceMeters: DiveSiteCoordinatePickerPresentation.pickerRegionViewingDistanceMeters
+        )
+        #expect(zoom == reference)
+        #expect(zoom > 10)
+    }
+
     @Test func diveActivityMapSitePrompt_showsInfoButtonOnlyAfterDecline() {
         let activity = DiveActivity(
             source: .garminMK3,
@@ -3066,6 +3077,140 @@ struct GoDiveMVPTests {
         #expect(region!.span.longitudeDelta >= 0.04)
     }
 
+    @Test func exploreCatalogMapPresentation_boundingRegion_matchesMapKitRegion() {
+        let sites = [
+            ExploreCatalogMapPresentation.PlottedSite(
+                id: UUID(),
+                siteName: "South",
+                coordinate: DiveCoordinate(latitude: 10, longitude: -70)
+            ),
+            ExploreCatalogMapPresentation.PlottedSite(
+                id: UUID(),
+                siteName: "North",
+                coordinate: DiveCoordinate(latitude: 14, longitude: -66)
+            ),
+        ]
+
+        let bounding = ExploreCatalogMapPresentation.boundingRegion(for: sites)
+        let mapKitRegion = ExploreCatalogMapPresentation.region(for: sites)
+
+        #expect(bounding != nil)
+        #expect(mapKitRegion != nil)
+        #expect(abs(bounding!.centerLatitude - mapKitRegion!.center.latitude) < 0.000_001)
+        #expect(abs(bounding!.centerLongitude - mapKitRegion!.center.longitude) < 0.000_001)
+        #expect(abs(bounding!.latitudeDelta - mapKitRegion!.span.latitudeDelta) < 0.000_001)
+        #expect(abs(bounding!.longitudeDelta - mapKitRegion!.span.longitudeDelta) < 0.000_001)
+    }
+
+    @Test func goDiveMapEngine_defaultsToMapKit_withoutLaunchArgument() {
+        #expect(GoDiveMapEngine.resolved(activeLaunchArguments: []) == .mapKit)
+        #expect(GoDiveMapEngine.resolved(activeLaunchArguments: ["-GoDiveUITest"]) == .mapKit)
+    }
+
+    @Test func goDiveMapEngine_googleMapsLaunchArgument_selectsGoogleMaps() {
+        #expect(
+            GoDiveMapEngine.resolved(activeLaunchArguments: [GoDiveMapEngine.googleMapsLaunchArgument])
+                == .googleMaps
+        )
+    }
+
+    @Test func exploreCatalogMapMarkerPresentation_truncatesLongSiteNames() {
+        let short = ExploreCatalogMapMarkerPresentation.displayTitle(for: "Salt Pier")
+        #expect(short == "Salt Pier")
+
+        let longName = String(repeating: "A", count: 40)
+        let truncated = ExploreCatalogMapMarkerPresentation.displayTitle(for: longName)
+        #expect(truncated.count == ExploreCatalogMapMarkerPresentation.titleMaxCharacters)
+        #expect(truncated.hasSuffix("…"))
+    }
+
+    @Test func exploreCatalogMapLabelVisibility_fewerLabelsWhenZoomedOut() {
+        #expect(
+            ExploreCatalogMapLabelVisibility.maximumLabelCount(visibleLatitudeSpan: 20, siteCount: 10) == 0
+        )
+        #expect(
+            ExploreCatalogMapLabelVisibility.maximumLabelCount(
+                visibleLatitudeSpan: ExploreCatalogMapLabelVisibility.allLabelsLatitudeSpan,
+                siteCount: 10
+            ) == 10
+        )
+
+        let midZoom = ExploreCatalogMapLabelVisibility.maximumLabelCount(visibleLatitudeSpan: 2.0, siteCount: 10)
+        #expect(midZoom > 0)
+        #expect(midZoom < 10)
+    }
+
+    @Test func exploreCatalogMapLabelVisibility_staggerRevealsLabelsIncrementally() {
+        let sites = (0..<6).map { index in
+            ExploreCatalogMapPresentation.PlottedSite(
+                id: UUID(),
+                siteName: "Site \(index)",
+                coordinate: DiveCoordinate(latitude: Double(index) * 0.2, longitude: 0)
+            )
+        }
+        let center = DiveCoordinate(latitude: 0.5, longitude: 0)
+
+        let wider = ExploreCatalogMapLabelVisibility.labeledSiteIDs(
+            sites: sites,
+            visibleLatitudeSpan: 6.5,
+            mapCenter: center
+        )
+        let tighter = ExploreCatalogMapLabelVisibility.labeledSiteIDs(
+            sites: sites,
+            visibleLatitudeSpan: 2.5,
+            mapCenter: center
+        )
+        let tightest = ExploreCatalogMapLabelVisibility.labeledSiteIDs(
+            sites: sites,
+            visibleLatitudeSpan: ExploreCatalogMapLabelVisibility.allLabelsLatitudeSpan,
+            mapCenter: center
+        )
+
+        #expect(wider.count < tighter.count)
+        #expect(tighter.count < tightest.count)
+        #expect(tightest.count == sites.count)
+        #expect(wider.isEmpty)
+    }
+
+    @Test func exploreCatalogMapLabelVisibility_revealProgress_isStaggeredByRank() {
+        #expect(ExploreCatalogMapLabelVisibility.revealProgress(forRank: 0, siteCount: 5) == 0.32)
+        #expect(ExploreCatalogMapLabelVisibility.revealProgress(forRank: 4, siteCount: 5) == 1.0)
+        let mid = ExploreCatalogMapLabelVisibility.revealProgress(forRank: 2, siteCount: 5)
+        #expect(mid > 0.32)
+        #expect(mid < 1.0)
+    }
+
+    @Test func goDiveMapPointOfInterestSuppression_googleStyleJSON_parses() {
+        let data = Data(GoDiveMapPointOfInterestSuppression.googleMapsSuppressPOIStyleJSON.utf8)
+        let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        #expect(json != nil)
+        #expect(json?.contains { ($0["featureType"] as? String) == "poi.business" } == true)
+    }
+
+    @Test func exploreCatalogMapLabelVisibility_prefersSitesNearMapCenter() {
+        let sites = [
+            ExploreCatalogMapPresentation.PlottedSite(
+                id: UUID(),
+                siteName: "Near",
+                coordinate: DiveCoordinate(latitude: 12.0, longitude: -68.0)
+            ),
+            ExploreCatalogMapPresentation.PlottedSite(
+                id: UUID(),
+                siteName: "Far",
+                coordinate: DiveCoordinate(latitude: 14.0, longitude: -66.0)
+            ),
+        ]
+        let center = DiveCoordinate(latitude: 12.01, longitude: -68.01)
+        let labeled = ExploreCatalogMapLabelVisibility.labeledSiteIDs(
+            sites: sites,
+            visibleLatitudeSpan: 2.5,
+            mapCenter: center
+        )
+
+        #expect(labeled.count == 1)
+        #expect(labeled.contains(sites[0].id))
+    }
+
     @Test func mapAnnotationPinAnchor_pinOnly_usesZeroOffset() {
         #expect(MapAnnotationPinAnchor.pinOnlyCenterOffset == .zero)
     }
@@ -3224,6 +3369,49 @@ struct GoDiveMVPTests {
         )
         #expect(DiveLocationMapPresentation.cameraDistanceMeters(for: .medium) > DiveLocationMapPresentation.referenceCameraDistanceMeters)
         #expect(DiveLocationMapPresentation.cameraDistanceMeters(for: .large) == DiveLocationMapPresentation.cameraDistanceMeters(for: .medium))
+    }
+
+    @Test func diveLocationMapGoogleCameraPresentation_zoomLevel_tightensWhenDistanceShrinks() {
+        let wide = DiveLocationMapGoogleCameraPresentation.approximateZoomLevel(
+            atLatitude: 12.083,
+            viewingDistanceMeters: DiveLocationMapPresentation.mediumCameraDistanceMeters
+        )
+        let tight = DiveLocationMapGoogleCameraPresentation.approximateZoomLevel(
+            atLatitude: 12.083,
+            viewingDistanceMeters: DiveLocationMapPresentation.minimizedCameraDistanceMeters
+        )
+        #expect(tight > wide)
+    }
+
+    @Test func diveLocationMapGoogleCameraPresentation_cameraSpec_centersOnDiveCoordinate() {
+        let coordinate = DiveCoordinate(latitude: 12.083, longitude: -68.283)
+        let spec = DiveLocationMapGoogleCameraPresentation.cameraSpec(
+            coordinate: coordinate,
+            layoutHeight: 800,
+            topObstructionHeight: 100,
+            bottomContentMargin: 400,
+            cameraLayoutDetent: .medium
+        )
+        #expect(abs(spec.centerLatitude - coordinate.latitude) < 0.000_001)
+        #expect(abs(spec.centerLongitude - coordinate.longitude) < 0.000_001)
+        #expect(spec.zoomLevel > 1)
+    }
+
+    @Test func diveLocationMapGoogleCameraPresentation_paddedViewportCenter_matchesTargetPinY() {
+        let layoutHeight: CGFloat = 844
+        let topObstruction: CGFloat = 100
+        let bottomMargin = DiveActivityOverviewDetent.bottomObstructionHeight(
+            layoutHeight: layoutHeight,
+            detent: .medium,
+            bottomSafeInset: 34
+        )
+        let paddedCenterY = topObstruction + (layoutHeight - topObstruction - bottomMargin) / 2
+        let targetY = DiveLocationMapPresentation.targetPinScreenYFraction(
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstruction,
+            sheetHeightFraction: bottomMargin / layoutHeight
+        ) * layoutHeight
+        #expect(abs(paddedCenterY - targetY) < 0.5)
     }
 
     @Test func diveActivityOverviewTabSelection_allTabs_useMediumDetent() {
