@@ -33,7 +33,7 @@ enum FieldGuideTaxonomy {
             subtitle: "Shape & family groups for reef fish",
             description: "Identify Caribbean reef fish by silhouette and family group — the same organization used in popular underwater field guides. Pick the shape that best matches what you saw on the dive, then browse species within that group.",
             systemImage: "fish.fill",
-            heroImageName: nil,
+            heroImageName: "FieldGuideCategoryFish",
             subcategories: [
                 Subcategory(id: "sharks-and-rays", title: "Sharks and Rays", hint: "Elasmobranchs on sand and reef", systemImage: "figure.open.water.swim"),
                 Subcategory(id: "eels", title: "Eels", hint: "Morays, snake eels, garden eels", systemImage: "waveform.path"),
@@ -55,7 +55,7 @@ enum FieldGuideTaxonomy {
             subtitle: "Reef builders, gorgonians, and soft corals",
             description: "Hard and soft corals, gorgonians, and other colony-building animals that give Caribbean reefs their structure, shelter, and color.",
             systemImage: "leaf.fill",
-            heroImageName: nil,
+            heroImageName: "FieldGuideCategoryCoral",
             subcategories: [
                 Subcategory(id: "corals", title: "Corals", hint: "Stony, soft, and gorgonian corals", systemImage: "tree.fill"),
             ]
@@ -66,7 +66,7 @@ enum FieldGuideTaxonomy {
             subtitle: "Anemones, hydroids, and jellies",
             description: "Cnidarians beyond stony corals — including anemones, zoanthids, hydroids, and drifting jellies — often spotted on reef walls and in the water column.",
             systemImage: "aqi.medium",
-            heroImageName: nil,
+            heroImageName: "FieldGuideCategoryAnemone",
             subcategories: [
                 Subcategory(id: "cnidarians", title: "Cnidarians", hint: "Anemones, zoanthids, hydroids", systemImage: "hand.raised.fill"),
                 Subcategory(id: "jellies", title: "Jellies", hint: "Medusae drifting in the water column", systemImage: "drop.fill"),
@@ -78,7 +78,7 @@ enum FieldGuideTaxonomy {
             subtitle: "Filter feeders that shape Caribbean reefs",
             description: "Sponges filter vast amounts of water and add texture to Caribbean reefs — from vivid barrel sponges to encrusting forms on rock and coral.",
             systemImage: "bubbles.and.sparkles.fill",
-            heroImageName: nil,
+            heroImageName: "FieldGuideCategoryTubeSponge",
             subcategories: [
                 Subcategory(id: "sponges", title: "Sponges", hint: "Barrel, tube, encrusting forms", systemImage: "humidity.fill"),
             ]
@@ -89,7 +89,7 @@ enum FieldGuideTaxonomy {
             subtitle: "Snails, slugs, clams, and cephalopods",
             description: "A diverse phylum on Caribbean reefs — shelled gastropods, colorful sea slugs, bivalves in sand and rubble, and curious cephalopods that change color in an instant.",
             systemImage: "shell.fill",
-            heroImageName: nil,
+            heroImageName: "FieldGuideCategoryMollusk",
             subcategories: [
                 Subcategory(id: "gastropods", title: "Gastropods", hint: "Cowries, cones, shelled snails", systemImage: "spiral"),
                 Subcategory(id: "sea-slugs", title: "Sea Slugs", hint: "Nudibranchs and allies", systemImage: "leaf.arrow.circlepath"),
@@ -103,7 +103,7 @@ enum FieldGuideTaxonomy {
             subtitle: "Crabs, lobsters, shrimp, and mantis shrimp",
             description: "Crustaceans hide in crevices, walk the sand, and clean other reef residents. Look closely on night dives for shrimps, crabs, and lobsters.",
             systemImage: "crab.fill",
-            heroImageName: nil,
+            heroImageName: "FieldGuideCategoryCrab",
             subcategories: [
                 Subcategory(id: "crustaceans", title: "Crustaceans", hint: "Decapods and stomatopods", systemImage: "hand.point.up.left.fill"),
             ]
@@ -114,7 +114,7 @@ enum FieldGuideTaxonomy {
             subtitle: "Stars, urchins, cucumbers, and crinoids",
             description: "Sea stars, urchins, cucumbers, and feather stars share five-fold symmetry. Common on reef crests, walls, and sandy patches throughout the Caribbean.",
             systemImage: "staroflife.fill",
-            heroImageName: nil,
+            heroImageName: "FieldGuideCategorySeaStar",
             subcategories: [
                 Subcategory(id: "echinoderms", title: "Echinoderms", hint: "Five-fold symmetry on the reef", systemImage: "star.circle.fill"),
             ]
@@ -125,7 +125,7 @@ enum FieldGuideTaxonomy {
             subtitle: "Segmented, flat, and burrowing worms",
             description: "Polychaetes, flatworms, and other worm-like invertebrates — often overlooked until you slow down and scan the reef for movement and vivid patterns.",
             systemImage: "line.3.horizontal",
-            heroImageName: nil,
+            heroImageName: "FieldGuideCategoryChristmasTreeWorm",
             subcategories: [
                 Subcategory(id: "worms", title: "Worms", hint: "Polychaetes, flatworms, peanut worms", systemImage: "ellipsis.curlybraces"),
             ]
@@ -136,7 +136,7 @@ enum FieldGuideTaxonomy {
             subtitle: "Encrusting filter feeders",
             description: "Colonial animals such as tunicates and bryozoans form encrusting mats and delicate lace-like colonies on hard substrate across Caribbean reefs.",
             systemImage: "square.grid.3x3.fill",
-            heroImageName: nil,
+            heroImageName: "FieldGuideCategoryTunicateChain",
             subcategories: [
                 Subcategory(id: "tunicates-and-bryozoans", title: "Tunicates and Bryozoans", hint: "Sea squirts and lace corals", systemImage: "rectangle.grid.2x2.fill"),
             ]
@@ -147,7 +147,7 @@ enum FieldGuideTaxonomy {
             subtitle: "Sea turtles and allies",
             description: "Sea turtles are the most frequently encountered marine reptiles in the Caribbean — often seen grazing seagrass or resting under ledges on calm dives.",
             systemImage: "tortoise.fill",
-            heroImageName: nil,
+            heroImageName: "FieldGuideCategorySeaTurtle",
             subcategories: [
                 Subcategory(id: "turtles", title: "Turtles", hint: "Green, hawksbill, loggerhead", systemImage: "tortoise.fill"),
             ]
@@ -158,7 +158,7 @@ enum FieldGuideTaxonomy {
             subtitle: "Cetaceans visiting Caribbean waters",
             description: "Dolphins and whales pass through Caribbean waters — a lucky sight from the boat or, occasionally, on open-water dives.",
             systemImage: "wind",
-            heroImageName: nil,
+            heroImageName: "FieldGuideCategoryWhale",
             subcategories: [
                 Subcategory(id: "dolphins-and-whales", title: "Dolphins and Whales", hint: "Dolphins, whales, and porpoises", systemImage: "water.waves"),
             ]

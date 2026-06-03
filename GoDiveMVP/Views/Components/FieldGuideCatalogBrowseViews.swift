@@ -54,6 +54,32 @@ struct FieldGuideCatalogHubView: View {
     }
 }
 
+/// White line art on black (screen blend) over category gradients.
+private struct FieldGuideCategoryBackgroundArt: View {
+    let imageName: String
+    var opacity: Double = 0.38
+    var alignment: Alignment = .topTrailing
+    var padding: CGFloat = 8
+    /// ~30% smaller than full-bleed fit; anchored to the upper-trailing corner.
+    var scale: CGFloat = 0.7
+    /// Nudges silhouette toward the upper-right of hub tiles and category heroes.
+    var rotationDegrees: Double = 10
+
+    var body: some View {
+        Image(imageName)
+            .resizable()
+            .scaledToFit()
+            .scaleEffect(scale, anchor: .topTrailing)
+            .rotationEffect(.degrees(rotationDegrees), anchor: .topTrailing)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
+            .padding(padding)
+            .opacity(opacity)
+            .blendMode(.screen)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+
 private struct FieldGuideCategoryHubTile: View {
     let definition: FieldGuideTaxonomy.Category
     let speciesCount: Int
@@ -73,12 +99,20 @@ private struct FieldGuideCategoryHubTile: View {
                     )
                 )
 
-            Image(systemName: definition.systemImage)
-                .font(.system(size: isFeatured ? 72 : 48, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.22))
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                .padding(AppTheme.Spacing.md)
-                .offset(x: 8, y: -4)
+            if let heroImageName = definition.heroImageName, !heroImageName.isEmpty {
+                FieldGuideCategoryBackgroundArt(
+                    imageName: heroImageName,
+                    opacity: isFeatured ? 0.42 : 0.36,
+                    padding: AppTheme.Spacing.sm
+                )
+            } else {
+                Image(systemName: definition.systemImage)
+                    .font(.system(size: isFeatured ? 72 : 48, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.22))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .padding(AppTheme.Spacing.md)
+                    .offset(x: 8, y: -4)
+            }
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(definition.title)
@@ -212,13 +246,30 @@ struct FieldGuideCategoryHeroImage: View {
     private let heroHeight: CGFloat = 200
 
     var body: some View {
-        Group {
+        ZStack {
+            categoryGradient
+
             if let heroImageName, !heroImageName.isEmpty {
-                Image(heroImageName)
-                    .resizable()
-                    .scaledToFill()
+                FieldGuideCategoryBackgroundArt(
+                    imageName: heroImageName,
+                    opacity: 0.44,
+                    padding: AppTheme.Spacing.sm
+                )
             } else {
-                placeholder
+                Image(systemName: systemImage)
+                    .font(.system(size: 72, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.28))
+                    .offset(x: 48, y: -24)
+
+                VStack(spacing: AppTheme.Spacing.sm) {
+                    Image(systemName: systemImage)
+                        .font(.system(size: 40, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.92))
+
+                    Text("Photo coming soon")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.78))
+                }
             }
         }
         .frame(maxWidth: .infinity)
@@ -228,35 +279,20 @@ struct FieldGuideCategoryHeroImage: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(FieldGuideCategoryAccent.gradientTop(categoryID).opacity(0.2), lineWidth: 1)
         }
-        .accessibilityLabel("Category photo placeholder")
+        .accessibilityLabel(
+            heroImageName == nil ? "Category photo placeholder" : "Category illustration"
+        )
     }
 
-    private var placeholder: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    FieldGuideCategoryAccent.gradientTop(categoryID),
-                    FieldGuideCategoryAccent.gradientBottom(categoryID),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            Image(systemName: systemImage)
-                .font(.system(size: 72, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.28))
-                .offset(x: 48, y: -24)
-
-            VStack(spacing: AppTheme.Spacing.sm) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 40, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.92))
-
-                Text("Photo coming soon")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.78))
-            }
-        }
+    private var categoryGradient: some View {
+        LinearGradient(
+            colors: [
+                FieldGuideCategoryAccent.gradientTop(categoryID),
+                FieldGuideCategoryAccent.gradientBottom(categoryID),
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     }
 }
 

@@ -184,7 +184,7 @@ struct FieldGuideView: View {
                 )
             }
         case .sightings:
-            FieldGuideSightingsOverviewView(topChromeInset: topInset)
+            FieldGuideSightingsOverviewView()
         }
     }
 

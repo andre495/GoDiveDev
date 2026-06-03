@@ -1011,4 +1011,24 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Dive buddy auto-link** — after **FIT** / **UDDF** import, unlinked roster buddies fuzzy-match Apple Contacts when access is **authorized** or **limited** (**`DiveBuddyContactAutoLink`**); skips ambiguous matches and contacts already linked to another buddy.
 - **`DiveBuddyContactsAuthorization`**, **`DiveBuddyContactLinking.applyIdentifier`**; contact enumeration off main thread; tests **`diveBuddyContactAutoLink_*`**.
 
-## 65 - Next batch
+## 65 - Field Guide category art and My Sightings reset **(pushed)**
+
+**Summary:** Field Guide category background line art (fish, coral, anemone, tube sponge, mollusk) in **`Assets.xcassets`**; hub tiles + category hero use **`.screen`** blend over gradients.
+
+- **`FieldGuideCategoryFish`**, **`Coral`**, **`Anemone`**, **`TubeSponge`**, **`Mollusk`** imagesets; **`FieldGuideCategoryBackgroundArt`**; **`heroImageName`** on five taxonomy categories.
+- **`FieldGuideCategoryCrab`**, **`SeaStar`**, **`ChristmasTreeWorm`** (twin spiral crowns), **`SeaTurtle`**, **`Whale`** — remaining hub/hero categories.
+- **`FieldGuideCategoryTunicateChain`** — colonial invertebrates (chain tunicate double-row zooids).
+- **`Scripts/stylize_field_guide_category_art.py`** — batch pass on all **11** category PNGs (higher threshold, thicker **`MaxFilter`** strokes, pure black/white).
+- **`FieldGuideCategoryBackgroundArt`** — **0.7** scale, **10°** rotation anchored top-trailing, tighter corner padding on hub + hero.
+- **My Sightings heat map** — Gaussian KDE raster overlay (continuous teal→coral); aggregation per **dive site** (not region); stats panel **Sites** / **By dive site**.
+- **Heat map zoom** — raster rebuilds from **`visibleMapRect`** after **~140 ms** debounced pan/zoom; grid cell size ~**1800** map points; tighter **`heatmapSigmaCellFactor`** (**0.72**); **`OverviewData`** holds **`plottedSightings`** only (no pre-baked raster).
+- **Heat map initial render** — **`heatmapSamplingMapRect`** falls back to fit region / plot bounds when **`visibleMapRect`** is not ready; layout + **`mapViewDidFinishLoadingMap`** refresh; failed builds do not cache **`none`** (retry after map lays out).
+- **Heat map render (reliable)** — Restored per-site **`MKCircle`** + **`MKCircleRenderer`** (same pattern as initial shipped map); removed fragile KDE **`UIImage`** **`MKOverlay`** path.
+- **Heat map blend** — **5** concentric rings per site (soft alpha falloff, no stroke); peak radius **900 m–3.5 km** so neighboring sites merge.
+- **My Sightings panel** — stats sheet shows only **Sightings** count and **Most productive site** (name + count); removed species/sites row and per-site list.
+- **My Sightings reset** — **`FieldGuideSightingsOverviewView`** is a blank placeholder; removed heat map / layout / presentation / canvas / collapsed-summary components and related unit tests (rebuild from scratch later).
+- **Heat map plot resolution** — Backfill **`diveSiteID`** / GPS from owner **`DiveActivity`** entry when catalog site coords are missing; match catalog site by **`resolvedSiteName`** when needed.
+- **Heat map render fix** — transparent below density threshold; premultiplied RGBA; no full-rect teal wash from zero-alpha cells.
+- **Launch responsiveness** — **`AppLaunchMaintenance`** runs dive # backfill, buddy migration, and marine catalog seed off the main actor; MapKit warm-up deferred **400 ms** (no launch **`Map`** mount).
+
+## 66 - Next batch

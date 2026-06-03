@@ -45,40 +45,34 @@ private struct ProductionAppRoot: View {
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        ZStack {
-            if MapKitWarmup.shouldWarmUp {
-                MapKitWarmupView()
-                    .allowsHitTesting(false)
-            }
-
-            AppSessionRootView()
-        }
-        .environment(accountSession)
-        .modelContainer(container)
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .background {
-                Task { @MainActor in
-                    DiveMediaReferenceLoader.clearSessionMediaCaches()
+        AppSessionRootView()
+            .environment(accountSession)
+            .modelContainer(container)
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .background {
+                    Task { @MainActor in
+                        DiveMediaReferenceLoader.clearSessionMediaCaches()
+                    }
                 }
             }
-        }
-        .task {
-            await MainActor.run {
-                let context = container.mainContext
-                try? DiveActivityDiveNumbering.backfillMissingDiveNumbers(modelContext: context)
-                try? DiveBuddyLegacyMigration.migrateIfNeeded(modelContext: context)
-                try? MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+            .task {
+                AppLaunchMaintenance.runInBackground(container: container)
+                await scheduleDeferredMapKitWarmup()
             }
             #if DEBUG
-            if MockDataSeeding.isLaunchSeedingEnabled {
-                await seedMockDataIfNeeded(container: container)
+            .task {
+                if MockDataSeeding.isLaunchSeedingEnabled {
+                    await seedMockDataIfNeeded(container: container)
+                }
             }
             #endif
-            await MainActor.run {
-                try? DiveActivityDiveNumbering.backfillMissingDiveNumbers(
-                    modelContext: container.mainContext
-                )
-            }
+    }
+
+    private func scheduleDeferredMapKitWarmup() async {
+        guard MapKitWarmup.shouldWarmUp else { return }
+        try? await Task.sleep(for: .milliseconds(400))
+        await MainActor.run {
+            MapKitWarmup.warmUpIfNeeded()
         }
     }
 
