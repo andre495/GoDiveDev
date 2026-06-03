@@ -4,6 +4,7 @@ import SwiftUI
 struct DiveActivityEditableSectionsView: View {
     @Bindable var activity: DiveActivity
     let tab: DiveActivityEditablePanelTab
+    let panelDetent: DiveActivityOverviewDetent
     let displayUnits: DiveDisplayUnitSystem
     let profileGasStats: DiveActivityTankPanelSummary.ProfilePressureStats
     let onEditField: (DiveActivityEditableFieldID) -> Void
@@ -13,13 +14,7 @@ struct DiveActivityEditableSectionsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-            Text("Tap any value with a chevron to edit.")
-                .font(.footnote)
-                .foregroundStyle(AppTheme.Colors.tabUnselected)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityIdentifier("DiveOverview.EditableHint")
-
-            ForEach(DiveActivityEditableCatalog.sections(for: tab)) { section in
+            ForEach(DiveActivityEditableCatalog.sections(for: tab, detent: panelDetent)) { section in
                 sectionView(section)
             }
         }

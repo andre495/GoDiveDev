@@ -38,11 +38,20 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
             if keepsExpandedPanelMounted {
                 OverviewPanelScrollArea(
                     restingDetent: selectedDetent,
-                    onExpand: { selectedDetent = .large },
-                    onCollapseToMedium: { selectedDetent = .medium },
+                    onExpand: {
+                        withAnimation(.diveOverviewPanelDetent) {
+                            selectedDetent = .large
+                        }
+                    },
+                    onCollapseToMedium: {
+                        withAnimation(.diveOverviewPanelDetent) {
+                            selectedDetent = .medium
+                        }
+                    },
                     isScrollDisabled: showsMinimizedLayout && disablesPanelScrollWhenMinimized
                 ) {
                     panelContent()
+                        .environment(\.diveOverviewPanelHeightFraction, layoutHeightFraction)
                         .padding(.top, DiveActivityOverviewPanelMetrics.panelContentTopPadding)
                         .padding(.horizontal, AppTheme.Spacing.md)
                         .padding(.bottom, AppTheme.Spacing.lg)
@@ -57,7 +66,9 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
                 Group {
                     if collapsedSummaryExpandsOnTap {
                         Button {
-                            selectedDetent = .medium
+                            withAnimation(.diveOverviewPanelDetent) {
+                                selectedDetent = .medium
+                            }
                         } label: {
                             collapsedSummary()
                                 .frame(maxWidth: .infinity, alignment: .leading)

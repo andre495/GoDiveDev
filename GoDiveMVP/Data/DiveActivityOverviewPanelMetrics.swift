@@ -20,6 +20,88 @@ enum DiveActivityOverviewPanelMetrics: Sendable {
     /// Gap between the embedded grabber row and panel body (matches **`AppTheme.Sheet.contentTopSpacing`**).
     nonisolated static let panelContentTopPadding: CGFloat = 24
 
+    /// Matches **`DiveActivityOverviewEmbeddedPanel`** grabber row **`minHeight`**.
+    nonisolated static let embeddedGrabberRowHeight: CGFloat = 28
+
+    /// Progress **0…1** for map stats box reveal between **minimized** and **medium**.
+    nonisolated static func mapStatsRevealProgress(heightFraction: CGFloat) -> CGFloat {
+        clampedRevealProgress(
+            heightFraction: heightFraction,
+            startFraction: minimizedHeightFraction,
+            endFraction: mediumHeightFraction
+        )
+    }
+
+    /// Progress **0…1** for editable map details reveal between **medium** and **large**.
+    nonisolated static func mapDetailsRevealProgress(heightFraction: CGFloat) -> CGFloat {
+        clampedRevealProgress(
+            heightFraction: heightFraction,
+            startFraction: mediumHeightFraction,
+            endFraction: largeHeightFraction
+        )
+    }
+
+    /// Map stats box visibility — hidden at **minimized** unless the grabber is dragging upward.
+    nonisolated static func mapPanelShowsStatsBox(
+        restingDetent: DiveActivityOverviewDetent,
+        heightFraction: CGFloat
+    ) -> Bool {
+        restingDetent != .minimized || mapStatsRevealProgress(heightFraction: heightFraction) > 0
+    }
+
+    /// Editable map sections + tags — shown at **large** and while dragging **medium → large**.
+    nonisolated static func mapPanelShowsDetails(
+        restingDetent: DiveActivityOverviewDetent,
+        heightFraction: CGFloat
+    ) -> Bool {
+        restingDetent == .large || mapDetailsRevealProgress(heightFraction: heightFraction) > 0
+    }
+
+    /// Stats box layout height while progressively revealing from **minimized**.
+    nonisolated static func mapStatsBoxRevealHeight(
+        restingDetent: DiveActivityOverviewDetent,
+        heightFraction: CGFloat,
+        expandedHeight: CGFloat
+    ) -> CGFloat {
+        if restingDetent != .minimized {
+            return expandedHeight
+        }
+        return expandedHeight * mapStatsRevealProgress(heightFraction: heightFraction)
+    }
+
+    /// Opacity for map details while revealing **medium → large** (full at **large**).
+    nonisolated static func mapDetailsPresentationOpacity(
+        restingDetent: DiveActivityOverviewDetent,
+        heightFraction: CGFloat
+    ) -> CGFloat {
+        restingDetent == .large ? 1 : mapDetailsRevealProgress(heightFraction: heightFraction)
+    }
+
+    nonisolated static func clampedRevealProgress(
+        heightFraction: CGFloat,
+        startFraction: CGFloat,
+        endFraction: CGFloat
+    ) -> CGFloat {
+        guard endFraction > startFraction else { return heightFraction >= endFraction ? 1 : 0 }
+        if heightFraction <= startFraction + 0.015 { return 0 }
+        if heightFraction >= endFraction - 0.015 { return 1 }
+        return min(max((heightFraction - startFraction) / (endFraction - startFraction), 0), 1)
+    }
+
+    /// Scroll content **`minHeight`** so the map header + stats box fill the minimized panel body.
+    nonisolated static func mapMinimizedPanelScrollContentMinHeight(
+        layoutHeight: CGFloat,
+        bottomSafeInset: CGFloat
+    ) -> CGFloat {
+        let panelHeight = DiveActivityOverviewDetent.sheetHeight(
+            for: .minimized,
+            layoutHeight: layoutHeight,
+            bottomSafeInset: bottomSafeInset
+        )
+        let bodyHeight = panelHeight - embeddedGrabberRowHeight
+        return max(0, bodyHeight - panelContentTopPadding - 24)
+    }
+
     /// Scroll offset (pt) past which a **medium** sheet expands to **large** (one-shot, no per-frame resize).
     nonisolated static let scrollExpandTriggerOffset: CGFloat = 32
     nonisolated static let scrollCommitCollapseOffset: CGFloat = -28

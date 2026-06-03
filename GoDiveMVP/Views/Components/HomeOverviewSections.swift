@@ -679,10 +679,19 @@ private struct HomeMediaCarouselMediaView: View {
             targetSize: size,
             deliveryMode: .opportunistic
         )
-        if image == nil {
+        if let image {
+            if HomeMediaHighlightWarmup.shouldStoreInSessionCache(edge: edge) {
+                HomeMediaHighlightSessionCache.shared.storeImage(
+                    image,
+                    localIdentifier: identifier,
+                    edge: edge
+                )
+            }
+            loadedImage = image
+        } else {
             DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
+            loadedImage = nil
         }
-        loadedImage = image
     }
     #else
     private func loadHeroImageIfNeeded() async {}
@@ -762,7 +771,7 @@ struct HomeLifetimeStatsPanel<Content: View>: View {
             .padding(.bottom, AppTheme.Spacing.sm + bottomSafeAreaInset)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background {
-                HomeLifetimeStatsPanelBackground()
+                AppOverviewSheetPanelBackground()
             }
             .clipShape(panelShape)
             .shadow(
@@ -780,22 +789,6 @@ struct HomeLifetimeStatsPanel<Content: View>: View {
             bottomTrailingRadius: 0,
             topTrailingRadius: HomeLifetimeStatsLayout.panelTopCornerRadius
         )
-    }
-}
-
-private struct HomeLifetimeStatsPanelBackground: View {
-    var body: some View {
-        ZStack {
-            AppTheme.Colors.surfaceElevated
-            LinearGradient(
-                colors: [
-                    AppTheme.Colors.surfaceGradientTop.opacity(0.96),
-                    AppTheme.Colors.surfaceGradientBottom,
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        }
     }
 }
 

@@ -50,20 +50,25 @@ struct WaterBubbleBackground: View {
     ]
 
     var body: some View {
-        Group {
-            if reduceMotion {
-                Color.clear
-            } else {
-                TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: animationPaused)) { timeline in
-                    Canvas { context, size in
-                        Self.drawBubbles(
-                            in: &context,
-                            size: size,
-                            time: timeline.date.timeIntervalSinceReferenceDate
-                        )
+        ZStack {
+            AppTheme.Colors.waterBubbleBackdrop
+                .ignoresSafeArea()
+
+            Group {
+                if reduceMotion {
+                    Color.clear
+                } else {
+                    TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: animationPaused)) { timeline in
+                        Canvas { context, size in
+                            Self.drawBubbles(
+                                in: &context,
+                                size: size,
+                                time: timeline.date.timeIntervalSinceReferenceDate
+                            )
+                        }
                     }
+                    .allowsHitTesting(false)
                 }
-                .allowsHitTesting(false)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -21,6 +21,7 @@ struct LogOverviewView: View {
     @State private var isCarouselMediaReady = false
     @State private var homeAggregate = HomeOverviewAggregate.empty
     @State private var lastCarouselFingerprint = 0
+    @State private var hasCarouselSessionWarmCompleted = false
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
 
     private enum Layout {
@@ -295,16 +296,47 @@ struct LogOverviewView: View {
             carouselHighlights = []
             isCarouselMediaReady = false
             lastCarouselFingerprint = 0
+            hasCarouselSessionWarmCompleted = false
             return
         }
 
-        if aggregate.carouselFingerprint == lastCarouselFingerprint,
-           !carouselHighlights.isEmpty {
-            isCarouselMediaReady = isFirstCarouselHighlightReady(aggregate: aggregate)
+        let fingerprintChanged = aggregate.carouselFingerprint != lastCarouselFingerprint
+        if fingerprintChanged || carouselHighlights.isEmpty {
+            lastCarouselFingerprint = aggregate.carouselFingerprint
+            hasCarouselSessionWarmCompleted = false
+            carouselHighlights = buildCarouselHighlights(from: aggregate, ownerProfileID: ownerProfileID)
+        }
+
+        guard !carouselHighlights.isEmpty else {
+            isCarouselMediaReady = false
+            hasCarouselSessionWarmCompleted = false
             return
         }
-        lastCarouselFingerprint = aggregate.carouselFingerprint
 
+        let allDisplayable = HomeMediaHighlightWarmup.carouselHighlightsAreDisplayable(
+            carouselHighlights,
+            mediaByID: aggregate.mediaByID
+        )
+        isCarouselMediaReady = hasCarouselSessionWarmCompleted
+            || allDisplayable
+            || isFirstCarouselHighlightReady(aggregate: aggregate)
+
+        guard !allDisplayable || !hasCarouselSessionWarmCompleted else { return }
+
+        Task {
+            await HomeMediaHighlightWarmup.warmHighlights(
+                carouselHighlights,
+                mediaByID: aggregate.mediaByID
+            )
+            hasCarouselSessionWarmCompleted = true
+            isCarouselMediaReady = true
+        }
+    }
+
+    private func buildCarouselHighlights(
+        from aggregate: HomeOverviewAggregate,
+        ownerProfileID: UUID
+    ) -> [HomeMediaHighlight] {
         let taggedSpeciesCountByMediaID = HomeMediaHighlightPresentation.taggedSpeciesCountByMediaID(
             sightings: aggregate.mediaHighlightSightings,
             ownerDiveIDs: aggregate.ownerDiveIDs
@@ -314,20 +346,10 @@ struct LogOverviewView: View {
             dives: aggregate.diveStatsInputs,
             taggedSpeciesCountByMediaID: taggedSpeciesCountByMediaID
         )
-
-        carouselHighlights = HomeMediaHighlightPresentation.highlightsForOwner(
+        return HomeMediaHighlightPresentation.highlightsForOwner(
             ownerProfileID: ownerProfileID,
             candidates: candidates
         )
-        isCarouselMediaReady = isFirstCarouselHighlightReady(aggregate: aggregate)
-
-        Task {
-            await HomeMediaHighlightWarmup.warmHighlights(
-                carouselHighlights,
-                mediaByID: aggregate.mediaByID
-            )
-            isCarouselMediaReady = true
-        }
     }
 
     private func isFirstCarouselHighlightReady(aggregate: HomeOverviewAggregate) -> Bool {

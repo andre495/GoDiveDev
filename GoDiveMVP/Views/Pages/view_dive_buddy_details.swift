@@ -228,35 +228,32 @@ struct ViewDiveBuddyDetails: View {
     }
     #endif
 
-    @ViewBuilder
     private var divesTogetherSection: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-            Text("Dives together")
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-
-            if diveRows.isEmpty {
-                Text("No dives tagged with this buddy yet.")
-                    .font(.body)
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityIdentifier("DiveBuddyDetails.EmptyDives")
-            } else {
-                VStack(spacing: AppTheme.Spacing.md) {
-                    ForEach(diveRows) { row in
-                        if let activity = sharedDives.first(where: { $0.id == row.id }) {
-                            NavigationLink {
-                                ViewSingleActivity(activity: activity)
-                            } label: {
-                                LogbookActivityRow(data: row)
-                            }
-                            .buttonStyle(.plain)
-                            .navigationLinkIndicatorVisibility(.hidden)
+        ExpandableDetailSection(
+            title: "Dives together",
+            itemCount: diveRows.count,
+            accessibilityIdentifier: "DiveBuddyDetails.DivesTogether"
+        ) {
+            Text("No dives tagged with this buddy yet.")
+                .font(.body)
+                .foregroundStyle(AppTheme.Colors.secondaryText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("DiveBuddyDetails.EmptyDives")
+        } content: {
+            VStack(spacing: AppTheme.Spacing.md) {
+                ForEach(diveRows) { row in
+                    if let activity = sharedDives.first(where: { $0.id == row.id }) {
+                        NavigationLink {
+                            ViewSingleActivity(activity: activity)
+                        } label: {
+                            LogbookActivityRow(data: row)
                         }
+                        .buttonStyle(.plain)
+                        .navigationLinkIndicatorVisibility(.hidden)
                     }
                 }
-                .accessibilityIdentifier("DiveBuddyDetails.DiveList")
             }
+            .accessibilityIdentifier("DiveBuddyDetails.DiveList")
         }
     }
 }

@@ -5,7 +5,7 @@ enum AppTheme {
     enum Colors {
         /// Flat mid-tone (e.g. small panels); full-bleed tab and **`AppPage`** roots use **`screenBackgroundGradient`**.
         static let surface = adaptive(
-            light: UIColor(red: 0.98, green: 0.99, blue: 1.00, alpha: 1.0),
+            light: UIColor(red: 0.70, green: 0.84, blue: 0.92, alpha: 1.0),
             dark: UIColor(red: 0.02, green: 0.06, blue: 0.10, alpha: 1.0)
         )
         static let surfaceElevated = adaptive(
@@ -13,23 +13,23 @@ enum AppTheme {
             dark: UIColor(red: 0.05, green: 0.12, blue: 0.18, alpha: 1.0)
         )
         static let surfaceMuted = adaptive(
-            light: UIColor(red: 0.93, green: 0.97, blue: 0.99, alpha: 1.0),
+            light: UIColor(red: 0.76, green: 0.87, blue: 0.93, alpha: 1.0),
             dark: UIColor(red: 0.08, green: 0.16, blue: 0.23, alpha: 1.0)
         )
 
         /// Lighter **top** stop for full-screen backgrounds (ocean: shallower / brighter water above).
-        /// **`LaunchScreenGradientTop`** in **Assets** mirrors this **light** stop for reference. **`LaunchScreen.storyboard`** uses a **single** inline **light** fill matching **`surfaceGradientBottom`** (see below).
+        /// **`LaunchScreenGradientTop`** in **Assets** mirrors this **light** stop for reference. **`LaunchScreen.storyboard`** uses fixed **dark** fill from **`AppLaunchLayout`** (not appearance-adaptive).
         static let surfaceGradientTop = adaptive(
-            light: UIColor(red: 0.99, green: 0.995, blue: 1.00, alpha: 1.0),
+            light: UIColor(red: 0.74, green: 0.87, blue: 0.94, alpha: 1.0),
             dark: UIColor(red: 0.10, green: 0.17, blue: 0.26, alpha: 1.0)
         )
         /// Deeper **bottom** stop; dark mode reads as depth below the lighter band.
-        /// **`LaunchScreen.storyboard`** solid background uses this **light** stop inline; **`LaunchScreenGradientBottom`** in **Assets** mirrors for reference / dark documentation.
+        /// **`LaunchScreen.storyboard`** solid background uses fixed **dark** inline sRGB (see **`AppLaunchLayout`**); **`LaunchScreenGradientBottom`** in **Assets** mirrors the same stop.
         static let surfaceGradientBottom = adaptive(
-            light: UIColor(red: 0.91, green: 0.95, blue: 0.98, alpha: 1.0),
+            light: UIColor(red: 0.58, green: 0.74, blue: 0.88, alpha: 1.0),
             dark: UIColor(red: 0.02, green: 0.05, blue: 0.09, alpha: 1.0)
         )
-        /// Alias for **`AppLaunchOverlay`** — matches the storyboard solid fill.
+        /// Alias for in-app pages; **`LaunchScreen.storyboard`** + **`AppLaunchOverlay`** use fixed dark **`AppLaunchLayout`** colors instead.
         static let launchScreenBackground = surfaceGradientBottom
 
         /// Full-bleed page chrome: **top → bottom**, lighter over deeper (both appearances).
@@ -40,6 +40,44 @@ enum AppTheme {
                 endPoint: .bottom
             )
         }
+
+        /// Canvas fill behind **`WaterBubbleBackground`** rising bubbles.
+        static let waterBubbleBackdrop = adaptive(
+            light: UIColor(red: 0.68, green: 0.82, blue: 0.91, alpha: 1.0),
+            dark: UIColor(red: 0.08, green: 0.14, blue: 0.22, alpha: 1.0)
+        )
+
+        /// Dark top feather for status bar / **GoDive** header readability — same in light and dark mode.
+        static var statusBarEdgeScrimGradient: LinearGradient {
+            LinearGradient(
+                stops: [
+                    .init(color: Color.black.opacity(0.90), location: 0.0),
+                    .init(color: Color.black.opacity(0.58), location: 0.52),
+                    .init(color: Color.black.opacity(0.22), location: 0.82),
+                    .init(color: Color.clear, location: 1.0),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+
+        /// Tall dark fade over scrolling lists under logbook / field guide / explore chrome.
+        static var logbookTopChromeScrimGradient: LinearGradient {
+            LinearGradient(
+                stops: [
+                    .init(color: Color.black.opacity(0.90), location: 0.0),
+                    .init(color: Color.black.opacity(0.72), location: 0.24),
+                    .init(color: Color.black.opacity(0.48), location: 0.48),
+                    .init(color: Color.black.opacity(0.20), location: 0.72),
+                    .init(color: Color.clear, location: 1.0),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+
+        /// Solid band when **Reduce Transparency** is on (status bar region).
+        static let statusBarEdgeScrimSolid = Color.black.opacity(0.88)
 
         static let primaryText = adaptive(
             light: UIColor(red: 0.02, green: 0.12, blue: 0.20, alpha: 1.0),
@@ -132,7 +170,5 @@ enum AppTheme {
         static let contentTopSpacing: CGFloat = Spacing.lg
         /// Opacity on **`.thinMaterial`** in **`presentationBackground`** — lower values let more of the hero / page show through.
         static let backgroundMaterialOpacity: CGFloat = 0.64
-        /// Embedded dive overview panel (**map** / **tank**) — more opaque than modal sheets over the map hero.
-        static let embeddedOverviewMaterialOpacity: CGFloat = 0.82
     }
 }

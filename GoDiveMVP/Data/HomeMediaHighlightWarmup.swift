@@ -22,7 +22,7 @@ enum HomeMediaHighlightWarmup {
     private static var backgroundFullWarmupTask: Task<Void, Never>?
     private static var cachedVideoDurationSeconds: [String: Double] = [:]
 
-    /// Warms slide **0** immediately; defers posters for slides **1…n** and never preloads carousel video assets.
+    /// Warms slide **0** at hero quality and all other slides at preview immediately (no startup delay).
     static func warmHighlights(
         _ highlights: [HomeMediaHighlight],
         mediaByID: [UUID: DiveMediaPhoto]
@@ -31,8 +31,33 @@ enum HomeMediaHighlightWarmup {
         guard !limited.isEmpty else { return }
 
         let mediaRows = limited.compactMap { mediaByID[$0.mediaID] }
+        pinCarouselSessionCache(for: limited, mediaByID: mediaByID)
         await warmBootstrapTier(mediaRows)
-        scheduleDeferredCarouselWarmup(for: mediaRows)
+        await warmPreviewTier(for: Array(mediaRows.dropFirst()))
+        scheduleBackgroundFullQualityWarmup(for: mediaRows)
+    }
+
+    /// **`true`** when every carousel slide has a poster frame in the session cache.
+    static func carouselHighlightsAreDisplayable(
+        _ highlights: [HomeMediaHighlight],
+        mediaByID: [UUID: DiveMediaPhoto]
+    ) -> Bool {
+        let limited = Array(highlights.prefix(HomeMediaHighlightPresentation.carouselLimit))
+        guard !limited.isEmpty else { return true }
+        return limited.allSatisfy { highlight in
+            guard let media = mediaByID[highlight.mediaID] else { return false }
+            return isHighlightDisplayable(highlight, media: media)
+        }
+    }
+
+    private static func pinCarouselSessionCache(
+        for highlights: [HomeMediaHighlight],
+        mediaByID: [UUID: DiveMediaPhoto]
+    ) {
+        let identifiers = highlights.compactMap { highlight -> String? in
+            mediaByID[highlight.mediaID]?.libraryAssetLocalIdentifier
+        }
+        HomeMediaHighlightSessionCache.shared.setPinnedCarouselLocalIdentifiers(identifiers)
     }
 
     /// Warms carousel picks from SwiftData, returning once bootstrap tiers are satisfied; remaining warm work continues in the background.
@@ -177,6 +202,19 @@ enum HomeMediaHighlightWarmup {
         preheatPhotoKit(for: [first])
 
         await warmMediaRow(first, quality: .full)
+        #endif
+    }
+
+    private static func warmPreviewTier(for mediaRows: [DiveMediaPhoto]) async {
+        guard !mediaRows.isEmpty else { return }
+        #if canImport(Photos) && canImport(UIKit)
+        await withTaskGroup(of: Void.self) { group in
+            for media in mediaRows {
+                group.addTask {
+                    await warmMediaRow(media, quality: .preview)
+                }
+            }
+        }
         #endif
     }
 

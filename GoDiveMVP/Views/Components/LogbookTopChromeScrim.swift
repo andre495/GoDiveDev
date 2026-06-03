@@ -15,20 +15,10 @@ struct LogbookTopChromeScrim: View {
     var body: some View {
         Group {
             if reduceTransparency {
-                AppTheme.Colors.surfaceElevated
+                AppTheme.Colors.statusBarEdgeScrimSolid
                     .opacity(0.98)
             } else {
-                LinearGradient(
-                    stops: [
-                        .init(color: AppTheme.Colors.surfaceElevated.opacity(0.96), location: 0.0),
-                        .init(color: AppTheme.Colors.surfaceGradientTop.opacity(0.88), location: 0.28),
-                        .init(color: AppTheme.Colors.surfaceGradientTop.opacity(0.62), location: 0.55),
-                        .init(color: AppTheme.Colors.surfaceGradientTop.opacity(0.28), location: 0.78),
-                        .init(color: Color.clear, location: 1.0),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+                AppTheme.Colors.logbookTopChromeScrimGradient
             }
         }
         .frame(height: bandHeight, alignment: .top)

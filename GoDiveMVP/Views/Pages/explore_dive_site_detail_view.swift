@@ -172,21 +172,23 @@ struct ExploreDiveSiteDetailView: View {
     }
 
     private var activitiesAtSiteSection: some View {
-        detailSection(title: "Activities at this site") {
-            if siteActivityLinks.isEmpty {
-                Text("None logged yet")
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                VStack(spacing: AppTheme.Spacing.sm) {
-                    ForEach(siteActivityLinks) { link in
-                        NavigationLink(value: ExploreRoute.diveDetail(link.id)) {
-                            activityLinkRow(link)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("Explore.DiveSiteDetail.DiveLink.\(link.id.uuidString)")
+        ExpandableDetailSection(
+            title: "Activities at this site",
+            itemCount: siteActivityLinks.count,
+            accessibilityIdentifier: "Explore.DiveSiteDetail.ActivitiesAtSite"
+        ) {
+            Text("None logged yet")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.Colors.secondaryText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } content: {
+            VStack(spacing: AppTheme.Spacing.sm) {
+                ForEach(siteActivityLinks) { link in
+                    NavigationLink(value: ExploreRoute.diveDetail(link.id)) {
+                        activityLinkRow(link)
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("Explore.DiveSiteDetail.DiveLink.\(link.id.uuidString)")
                 }
             }
         }

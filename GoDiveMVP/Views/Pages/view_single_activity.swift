@@ -497,7 +497,7 @@ struct ViewSingleActivity: View {
                         panelContent: {
                             switch selectedActivityTab {
                             case .map:
-                                overviewBottomPanelContent
+                                overviewBottomPanelContent()
                             case .tank:
                                 tankPanelContent
                             case .camera:
@@ -505,8 +505,8 @@ struct ViewSingleActivity: View {
                             }
                         },
                         collapsedSummaryExpandsOnTap: selectedActivityTab != .camera,
-                        showsPanelContentWhenMinimized: selectedActivityTab == .camera,
-                        disablesPanelScrollWhenMinimized: selectedActivityTab == .camera
+                        showsPanelContentWhenMinimized: selectedActivityTab != .tank,
+                        disablesPanelScrollWhenMinimized: selectedActivityTab != .tank
                     )
                     .zIndex(1)
                 }
@@ -515,10 +515,7 @@ struct ViewSingleActivity: View {
                 DiveOverviewMapTopScrim(topObstructionHeight: topObstruction)
                     .ignoresSafeArea(edges: .top)
             }
-            .animation(
-                .easeInOut(duration: DiveTankOverviewHeroPresentation.heroDetentAnimationDuration),
-                value: overviewSheetDetent
-            )
+            .animation(.diveOverviewPanelDetent, value: overviewSheetDetent)
             .animation(nil, value: isLandscape)
         }
         .ignoresSafeArea()
@@ -1077,6 +1074,7 @@ struct ViewSingleActivity: View {
             DiveActivityEditableSectionsView(
                 activity: activity,
                 tab: .tank,
+                panelDetent: overviewSheetDetent,
                 displayUnits: diveDisplayUnitSystem,
                 profileGasStats: derivedDiveData.profileGasStats,
                 onEditField: { editingField = $0 },
@@ -1154,46 +1152,27 @@ struct ViewSingleActivity: View {
         )
     }
 
-    private var overviewBottomPanelContent: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                Text(overviewSiteHeaderTitle)
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
+    private var overviewMapHeaderRegionCountryLine: String? {
+        DiveActivityOverviewPresentation.mapHeaderRegionCountryLine(
+            diveSite: activity.diveSite,
+            locationName: activity.locationName
+        )
+    }
 
-                Text(activity.formattedStartDateOnly())
-                    .font(.headline)
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
-
-                Text("Dive \(activity.diveNumberPlainLabel) · \(activity.source.rawValue)")
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.Colors.tabUnselected)
-
-                if overviewMapCoordinate == nil {
-                    Text("No location coordinates recorded for this dive.")
-                        .font(.footnote)
-                        .foregroundStyle(AppTheme.Colors.tabUnselected)
-                }
-            }
-
-            DiveActivityEditableSectionsView(
-                activity: activity,
-                tab: .map,
-                displayUnits: diveDisplayUnitSystem,
-                profileGasStats: derivedDiveData.profileGasStats,
-                onEditField: { editingField = $0 },
-                onManageEquipment: { showsAddEquipmentSheet = true },
-                onManageLinkedSite: { showsAddDiveSiteSheet = true },
-                onManageBuddies: { showsBuddiesEditSheet = true }
-            )
-
-            DiveActivityTagsSectionView(
-                tags: ActivityTagStore.sortedTags(on: activity),
-                canAddTags: accountSession.currentProfile?.id != nil,
-                onAddTags: { showsTagsEditSheet = true }
-            )
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    private func overviewBottomPanelContent() -> some View {
+        DiveActivityMapOverviewPanelContent(
+            activity: activity,
+            overviewSheetDetent: $overviewSheetDetent,
+            profileGasStats: derivedDiveData.profileGasStats,
+            siteTitle: overviewSiteHeaderTitle,
+            regionCountryLine: overviewMapHeaderRegionCountryLine,
+            onEditField: { editingField = $0 },
+            onManageEquipment: { showsAddEquipmentSheet = true },
+            onManageLinkedSite: { showsAddDiveSiteSheet = true },
+            onManageBuddies: { showsBuddiesEditSheet = true },
+            onAddTags: { showsTagsEditSheet = true },
+            canAddTags: accountSession.currentProfile?.id != nil
+        )
     }
 
     private var depthChartMediaPreviewPresented: Binding<Bool> {

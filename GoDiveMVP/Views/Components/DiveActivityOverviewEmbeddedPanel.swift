@@ -41,6 +41,11 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
         )
     }
 
+    /// Height fraction passed to map panel content — continuous while dragging, resting detent otherwise.
+    private var contentHeightFraction: CGFloat {
+        isDragging ? displayHeightFraction : selectedDetent.heightFraction
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             panelGrabberRow
@@ -49,7 +54,7 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
 
             DiveActivityOverviewSheetContent(
                 selectedDetent: $selectedDetent,
-                liveHeightFraction: isDragging ? displayHeightFraction : nil,
+                liveHeightFraction: contentHeightFraction,
                 collapsedSummary: collapsedSummary,
                 panelContent: panelContent,
                 collapsedSummaryExpandsOnTap: collapsedSummaryExpandsOnTap,
@@ -60,6 +65,7 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
         .frame(height: panelHeight, alignment: .top)
         .frame(maxWidth: .infinity)
         .clipped()
+        .animation(isDragging ? nil : .diveOverviewPanelDetent, value: panelHeight)
         .diveActivityOverviewEmbeddedPanelChrome()
         .accessibilityIdentifier("DiveActivity.OverviewEmbeddedPanel")
     }
@@ -97,33 +103,10 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
                     verticalTranslation: value.translation.height
                 )
                 let nextDetent = DiveActivityOverviewDetent.nearest(toHeightFraction: snapped)
-                withAnimation(panelDetentAnimation) {
+                withAnimation(.diveOverviewPanelDetent) {
                     selectedDetent = nextDetent
                     grabberDragTranslation = 0
                 }
             }
-    }
-
-    private var panelDetentAnimation: Animation {
-        .interactiveSpring(response: 0.32, dampingFraction: 0.86, blendDuration: 0.12)
-    }
-}
-
-extension View {
-    /// Matches **`appSheetPresentationChrome()`** for the embedded dive overview panel.
-    func diveActivityOverviewEmbeddedPanelChrome() -> some View {
-        background {
-            Rectangle()
-                .fill(.thinMaterial)
-                .opacity(AppTheme.Sheet.embeddedOverviewMaterialOpacity)
-        }
-        .clipShape(
-            .rect(
-                topLeadingRadius: AppTheme.Sheet.cornerRadius,
-                topTrailingRadius: AppTheme.Sheet.cornerRadius,
-                style: .continuous
-            )
-        )
-        .ignoresSafeArea(edges: .bottom)
     }
 }

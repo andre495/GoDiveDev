@@ -31,6 +31,15 @@ enum DiveActivityTimePresentation: Sendable {
         format(value, timeZoneOffsetSeconds: timeZoneOffsetSeconds, dateStyle: .abbreviated, timeStyle: .omitted)
     }
 
+    /// Full month name — e.g. **January 5, 2026** (map overview header).
+    nonisolated static func formatLongDateOnly(_ value: Date, timeZoneOffsetSeconds: Int?) -> String {
+        format(value, timeZoneOffsetSeconds: timeZoneOffsetSeconds, dateStyle: .long, timeStyle: .omitted)
+    }
+
+    nonisolated static func formatTimeOnly(_ value: Date, timeZoneOffsetSeconds: Int?) -> String {
+        format(value, timeZoneOffsetSeconds: timeZoneOffsetSeconds, dateStyle: .omitted, timeStyle: .shortened)
+    }
+
     /// Stored instant as UTC (**`Z`**) for import/debug rows.
     nonisolated static func formatUTCDateTime(_ value: Date) -> String {
         let formatter = ISO8601DateFormatter()
@@ -61,9 +70,31 @@ enum DiveActivityTimePresentation: Sendable {
         dateStyle: Date.FormatStyle.DateStyle,
         timeStyle: Date.FormatStyle.TimeStyle
     ) -> (date: DateFormatter.Style, time: DateFormatter.Style) {
-        let dateFormatterStyle: DateFormatter.Style = dateStyle == .abbreviated ? .medium : .medium
-        let timeFormatterStyle: DateFormatter.Style = timeStyle == .omitted ? .none : .short
-        return (dateFormatterStyle, timeFormatterStyle)
+        (dateFormatterStyle(from: dateStyle), timeFormatterStyle(from: timeStyle))
+    }
+
+    nonisolated private static func dateFormatterStyle(from style: Date.FormatStyle.DateStyle) -> DateFormatter.Style {
+        switch style {
+        case .omitted:
+            return .none
+        case .long:
+            return .long
+        case .complete:
+            return .full
+        default:
+            return .medium
+        }
+    }
+
+    nonisolated private static func timeFormatterStyle(from style: Date.FormatStyle.TimeStyle) -> DateFormatter.Style {
+        switch style {
+        case .omitted:
+            return .none
+        case .complete:
+            return .full
+        default:
+            return .short
+        }
     }
 }
 

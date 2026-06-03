@@ -235,11 +235,11 @@ struct FieldGuideMarineLifeDetailView: View {
     }
 
     private var activitiesSightedOnSection: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            Text("Activities sighted on")
-                .font(.headline)
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-
+        ExpandableDetailSection(
+            title: "Activities sighted on",
+            itemCount: sightedActivityLinks.count,
+            accessibilityIdentifier: "FieldGuide.SpeciesDetail.ActivitiesSightedOn"
+        ) {
             VStack(spacing: AppTheme.Spacing.sm) {
                 ForEach(sightedActivityLinks) { link in
                     Button {
@@ -252,8 +252,6 @@ struct FieldGuideMarineLifeDetailView: View {
                 }
             }
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Activities sighted on")
     }
 
     private func sightedActivityRow(_ link: FieldGuidePresentation.SightedActivityLinkData) -> some View {

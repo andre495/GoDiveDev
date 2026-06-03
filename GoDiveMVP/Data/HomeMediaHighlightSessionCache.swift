@@ -18,8 +18,19 @@ final class HomeMediaHighlightSessionCache {
     private var images: [String: UIImage] = [:]
     #endif
     private var accessOrder: [String] = []
+    private var pinnedLocalIdentifiers: Set<String> = []
 
     private init() {}
+
+    /// Keeps the active Home carousel assets in the session cache (not evicted by LRU trim).
+    func setPinnedCarouselLocalIdentifiers(_ identifiers: [String]) {
+        pinnedLocalIdentifiers = Set(
+            identifiers.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        )
+        for identifier in pinnedLocalIdentifiers {
+            touchAccess(identifier)
+        }
+    }
 
     func containsVideoAsset(localIdentifier: String) -> Bool {
         DiveMediaVideoAssetSessionCache.shared.contains(localIdentifier: localIdentifier)
@@ -87,6 +98,7 @@ final class HomeMediaHighlightSessionCache {
         images.removeAll()
         #endif
         accessOrder.removeAll()
+        pinnedLocalIdentifiers.removeAll()
         DiveMediaReferenceLoader.stopCachingImages()
     }
 
@@ -100,8 +112,12 @@ final class HomeMediaHighlightSessionCache {
     }
 
     private func trimToLimit() {
-        while accessOrder.count > HomeMediaHighlightPresentation.carouselLimit {
-            let evicted = accessOrder.removeFirst()
+        let limit = HomeMediaHighlightPresentation.carouselLimit
+        while accessOrder.count > limit {
+            guard let evictIndex = accessOrder.firstIndex(where: { !pinnedLocalIdentifiers.contains($0) }) else {
+                break
+            }
+            let evicted = accessOrder.remove(at: evictIndex)
             #if canImport(UIKit)
             images = images.filter { !$0.key.hasPrefix("\(evicted)|") }
             #endif

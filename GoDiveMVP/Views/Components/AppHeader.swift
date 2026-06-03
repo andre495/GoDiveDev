@@ -12,7 +12,7 @@ enum AppHeaderMetrics {
 
 // MARK: - Status bar scrim (narrow band only)
 
-/// Short fade at the **very top** of the screen so status content reads on busy backgrounds; **does not** tint the main header / toolbar row (that row stays visually continuous with **`screenBackgroundGradient`**).
+/// Short fade at the **very top** of the screen so status content reads on busy backgrounds; uses a **dark** feather in both color schemes (not light **`surfaceElevated`**).
 struct AppStatusBarEdgeScrim: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
@@ -27,20 +27,11 @@ struct AppStatusBarEdgeScrim: View {
     var body: some View {
         Group {
             if reduceTransparency {
-                AppTheme.Colors.surfaceElevated
-                    .opacity(0.96)
+                AppTheme.Colors.statusBarEdgeScrimSolid
                     .frame(height: max(0, safeAreaTop) + 8)
             } else {
-                LinearGradient(
-                    stops: [
-                        .init(color: AppTheme.Colors.surfaceElevated.opacity(0.88), location: 0.0),
-                        .init(color: AppTheme.Colors.surfaceGradientTop.opacity(0.35), location: 0.62),
-                        .init(color: Color.clear, location: 1.0),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: bandHeight)
+                AppTheme.Colors.statusBarEdgeScrimGradient
+                    .frame(height: bandHeight)
             }
         }
         .frame(maxWidth: .infinity, alignment: .top)

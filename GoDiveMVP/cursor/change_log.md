@@ -1031,4 +1031,26 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Heat map render fix** — transparent below density threshold; premultiplied RGBA; no full-rect teal wash from zero-alpha cells.
 - **Launch responsiveness** — **`AppLaunchMaintenance`** runs dive # backfill, buddy migration, and marine catalog seed off the main actor; MapKit warm-up deferred **400 ms** (no launch **`Map`** mount).
 
-## 66 - Next batch
+## 66 - Map overview, Home cache, light mode, and launch parity **(pushed)**
+
+**Summary:** Home featured media re-warms from session cache when returning to the tab; carousel assets stay pinned in **`HomeMediaHighlightSessionCache`**.
+
+- **`LogOverviewView`** — re-warm when slides are not displayable (e.g. after background cache clear); keep carousel visible after first session warm.
+- **`HomeMediaHighlightWarmup`** — immediate preview warm for all carousel slides on Home (no 1.5s defer); **`carouselHighlightsAreDisplayable`** + pin active library ids in session cache.
+- **`HomeMediaHighlightSessionCache`** — pinned carousel identifiers skip LRU eviction; **`HomeMediaCarouselMediaView`** stores loaded hero frames into session cache.
+- Tests: **`homeMediaHighlightSessionCache_pinsCarouselIdentifiersDuringTrim`**.
+- **Expandable dive lists** — **`ExpandableDetailSection`** (collapsed by default) on buddy **Dives together**, Explore **Activities at this site**, Field Guide **Activities sighted on**; **`ExpandableDetailSectionPresentation`**.
+- Tests: **`expandableDetailSectionPresentation_collapsedByDefaultWithItems`**.
+- **Dive overview panel chrome** — map / tank / camera embedded sheet uses opaque **`AppOverviewSheetPanelBackground`** (same blue gradient as **`HomeLifetimeStatsPanel`**); removed frosted **`thinMaterial`** on **`diveActivityOverviewEmbeddedPanelChrome`** (top-edge fade reverted — panels stay fully opaque).
+- **Map tab panel detents** — **minimized**: header only; **medium**: header + stats box; **large**: editable sections, tags, coordinate note.
+- **Map detent transitions** — single mounted panel body with progressive stats/details reveal; **large** detent always mounts editable sections + tags under the stats box (**`mapPanelShowsDetails`**); shared **`.diveOverviewPanelDetent`** spring. **`DiveActivityMapOverviewPanelContent`** reads panel height fraction inside the sheet subtree.
+- **Editable section tab split** — **Location** removed from map; **Operator**, **Source & import**, and **Record** moved to **tank** tab (**large** detent only). Map **Water temperature** + **Conditions** merged into **Dive Conditions**.
+- Tests: **`diveActivityOverviewPanelMetrics_mapPanelVisibility_followsRestingDetent`**, **`diveActivityEditableCatalog_tankLargeDetentSections_filterAtMedium`**, updated **`diveActivityEditableCatalog_mapAndTankSectionsAreDistinct`**.
+- **Field Guide hub tiles** — category titles reserve a two-line block (**`FieldGuideHubTileLayout`**) so short names align with wrapped titles in the bento grid.
+- **Light mode readability** — dark header/list scrims; deeper ocean teal page + bubble backdrop.
+- **Map stats box** — surface interval **> 60 min** shows **`N Hr(s)`** / **`M Min(s)`** (**`formattedMapSurfaceIntervalParts`**).
+- Tests: **`appLaunchLayout_matchesStoryboardConstraints`**, **`fieldGuideHubTileLayout_titleReservesTwoLines`**, **`diveActivityOverviewPresentation_mapOverviewStatsLayout`**, panel metrics and editable-catalog tests.
+- **Map overview header + stats box** — dive chip, site, region/date line, duration + surface interval + depth gauge on **medium** detent.
+- **Launch branding** — fixed **dark** system launch screen + matching **`AppLaunchOverlay`** (**`AppLaunchLayout`**).
+
+## 67 - Next batch

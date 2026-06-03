@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 // MARK: - Category hub (bento grid)
 
@@ -115,10 +118,7 @@ private struct FieldGuideCategoryHubTile: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(definition.title)
-                    .font(isFeatured ? .title3.weight(.bold) : .headline.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.leading)
+                hubTileTitle(definition.title)
 
                 Text(definition.subtitle)
                     .font(.caption)
@@ -140,6 +140,19 @@ private struct FieldGuideCategoryHubTile: View {
         .accessibilityHint("Opens \(definition.title) groups")
     }
 
+    private func hubTileTitle(_ title: String) -> some View {
+        Text(title)
+            .font(isFeatured ? .title3.weight(.bold) : .headline.weight(.semibold))
+            .foregroundStyle(.white)
+            .multilineTextAlignment(.leading)
+            .lineLimit(2)
+            .frame(
+                maxWidth: .infinity,
+                minHeight: FieldGuideHubTileLayout.titleTwoLineMinHeight(isFeatured: isFeatured),
+                alignment: .topLeading
+            )
+    }
+
     @ViewBuilder
     private var speciesBadge: some View {
         Text(speciesCount == 0 ? "Explore" : "\(speciesCount) species")
@@ -151,6 +164,22 @@ private struct FieldGuideCategoryHubTile: View {
                 Capsule().fill(.white.opacity(0.92))
             }
             .padding(.top, 2)
+    }
+}
+
+/// Hub tile title block height — reserves two lines so short category names align in the bento grid.
+enum FieldGuideHubTileLayout: Sendable {
+    nonisolated static func titleTwoLineMinHeight(isFeatured: Bool) -> CGFloat {
+        #if canImport(UIKit)
+        let style: UIFont.TextStyle = isFeatured ? .title3 : .headline
+        let base = UIFont.preferredFont(forTextStyle: style)
+        let font = isFeatured
+            ? UIFont.boldSystemFont(ofSize: base.pointSize)
+            : UIFont.systemFont(ofSize: base.pointSize, weight: .semibold)
+        return ceil(font.lineHeight) * 2
+        #else
+        return isFeatured ? 50 : 44
+        #endif
     }
 }
 

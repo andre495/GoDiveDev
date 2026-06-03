@@ -5,31 +5,63 @@ struct AppLaunchOverlay: View {
     var showsProgressIndicator: Bool = false
 
     var body: some View {
-        ZStack {
-            AppTheme.Colors.launchScreenBackground
-                .ignoresSafeArea()
+        GeometryReader { geo in
+            let safeMidY = AppLaunchLayout.safeAreaMidY(
+                viewHeight: geo.size.height,
+                safeAreaTop: geo.safeAreaInsets.top,
+                safeAreaBottom: geo.safeAreaInsets.bottom
+            )
+            let logoCenterY = AppLaunchLayout.logoCenterY(safeAreaMidY: safeMidY)
+            let titleCenterY = AppLaunchLayout.titleCenterY(logoCenterY: logoCenterY)
+            let centerX = geo.size.width / 2
 
-            VStack(spacing: 24) {
+            ZStack {
+                launchScreenBackground
+                    .ignoresSafeArea()
+
                 Image("GoDiveLogoPin")
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 128, height: 128)
+                    .frame(
+                        width: AppLaunchLayout.logoSize,
+                        height: AppLaunchLayout.logoSize
+                    )
+                    .position(x: centerX, y: logoCenterY)
                     .accessibilityHidden(true)
 
                 Text("GoDive")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(AppTheme.Colors.accent)
+                    .font(.system(size: AppLaunchLayout.titleFontSize, weight: .bold))
+                    .foregroundStyle(launchTitleColor)
+                    .position(x: centerX, y: titleCenterY)
 
                 if showsProgressIndicator {
                     ProgressView()
-                        .tint(AppTheme.Colors.accent)
-                        .padding(.top, AppTheme.Spacing.sm)
+                        .tint(launchTitleColor)
+                        .position(
+                            x: centerX,
+                            y: AppLaunchLayout.progressCenterY(titleCenterY: titleCenterY)
+                        )
                         .accessibilityLabel("Loading")
                 }
             }
-            .offset(y: -48)
         }
         .accessibilityIdentifier("AppLaunch.Overlay")
+    }
+
+    private var launchScreenBackground: Color {
+        Color(
+            red: AppLaunchLayout.fixedBackgroundRed,
+            green: AppLaunchLayout.fixedBackgroundGreen,
+            blue: AppLaunchLayout.fixedBackgroundBlue
+        )
+    }
+
+    private var launchTitleColor: Color {
+        Color(
+            red: AppLaunchLayout.fixedTitleRed,
+            green: AppLaunchLayout.fixedTitleGreen,
+            blue: AppLaunchLayout.fixedTitleBlue
+        )
     }
 }
 

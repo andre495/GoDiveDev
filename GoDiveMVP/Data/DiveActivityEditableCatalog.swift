@@ -7,9 +7,20 @@ enum DiveActivityEditableCatalog: Sendable {
         let id: String
         let title: String
         let fieldIDs: [DiveActivityEditableFieldID]
+        /// When **`true`**, section appears only at the **large** overview detent (tank tab extras).
+        var requiresLargeDetent: Bool = false
     }
 
-    static func sections(for tab: DiveActivityEditablePanelTab) -> [Section] {
+    static func sections(
+        for tab: DiveActivityEditablePanelTab,
+        detent: DiveActivityOverviewDetent
+    ) -> [Section] {
+        let all = allSections(for: tab)
+        guard detent != .large else { return all }
+        return all.filter { !$0.requiresLargeDetent }
+    }
+
+    private static func allSections(for tab: DiveActivityEditablePanelTab) -> [Section] {
         switch tab {
         case .map:
             return [
@@ -19,24 +30,12 @@ enum DiveActivityEditableCatalog: Sendable {
                     .bottomTimeSeconds, .surfaceIntervalSeconds, .diveNumber,
                     .avgAscentRateMetersPerSecond, .profileSampleCount,
                 ]),
-                Section(id: "location", title: "Location", fieldIDs: [
-                    .siteName, .locationName, .entryCoordinate, .linkedCatalogSite,
-                ]),
-                Section(id: "environment", title: "Water temperature", fieldIDs: [
+                Section(id: "diveConditions", title: "Dive Conditions", fieldIDs: [
                     .waterTempAvgCelsius, .waterTempMaxCelsius, .waterTempMinCelsius,
-                ]),
-                Section(id: "conditions", title: "Conditions", fieldIDs: [
                     .diveCurrentStrength, .surfaceCondition, .entryType, .diveVisibility,
-                ]),
-                Section(id: "operator", title: "Operator", fieldIDs: [
-                    .diveOperatorName, .diveMasterName, .diveSignature,
                 ]),
                 Section(id: "buddies", title: "Buddies", fieldIDs: [.buddies]),
                 Section(id: "notes", title: "Notes", fieldIDs: [.notes]),
-                Section(id: "source", title: "Source & import", fieldIDs: [
-                    .source, .sourceDiveId, .rawImportVersion,
-                ]),
-                Section(id: "record", title: "Record", fieldIDs: [.recordID, .ownerName]),
             ]
         case .tank:
             return [
@@ -47,6 +46,24 @@ enum DiveActivityEditableCatalog: Sendable {
                 Section(id: "consumption", title: "Consumption rates", fieldIDs: [.avgSAC, .avgRMV]),
                 Section(id: "profileGas", title: "Profile samples (gas)", fieldIDs: [.profileGasSampleStats]),
                 Section(id: "equipment", title: "Equipment", fieldIDs: [.linkedEquipment]),
+                Section(
+                    id: "operator",
+                    title: "Operator",
+                    fieldIDs: [.diveOperatorName, .diveMasterName, .diveSignature],
+                    requiresLargeDetent: true
+                ),
+                Section(
+                    id: "source",
+                    title: "Source & import",
+                    fieldIDs: [.source, .sourceDiveId, .rawImportVersion],
+                    requiresLargeDetent: true
+                ),
+                Section(
+                    id: "record",
+                    title: "Record",
+                    fieldIDs: [.recordID, .ownerName],
+                    requiresLargeDetent: true
+                ),
             ]
         }
     }
