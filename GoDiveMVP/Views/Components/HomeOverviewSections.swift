@@ -1,5 +1,8 @@
 import SwiftData
 import SwiftUI
+#if canImport(Photos)
+import Photos
+#endif
 
 // MARK: - Media carousel
 
@@ -240,6 +243,10 @@ struct HomeMediaCarouselSection: View {
         isPlaybackAllowed && playbackIndex == index
     }
 
+    private func shouldLoadMedia(at index: Int) -> Bool {
+        index == selectedIndex || index == playbackIndex
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
             TabView(selection: $selectedIndex) {
@@ -250,6 +257,7 @@ struct HomeMediaCarouselSection: View {
                             media: media,
                             pageWidth: containerWidth,
                             pageHeight: heroHeight,
+                            shouldLoadMedia: shouldLoadMedia(at: index),
                             isVideoPlaybackActive: isSlideActive(index),
                             isAutoAdvanceActive: isAutoAdvanceEnabled && isSlideActive(index),
                             onSlideFinished: advanceToNextSlide,
@@ -374,6 +382,7 @@ private struct HomeMediaCarouselPage: View {
     let media: DiveMediaPhoto
     let pageWidth: CGFloat
     let pageHeight: CGFloat
+    var shouldLoadMedia: Bool = true
     var isVideoPlaybackActive: Bool
     var isAutoAdvanceActive: Bool
     let onSlideFinished: () -> Void
@@ -384,6 +393,8 @@ private struct HomeMediaCarouselPage: View {
     var body: some View {
         HomeMediaCarouselMediaView(
             media: media,
+            containerWidth: pageWidth,
+            shouldLoadMedia: shouldLoadMedia,
             isVideoPlaybackActive: isVideoPlaybackActive,
             isAutoAdvanceActive: isAutoAdvanceActive,
             onSlideFinished: onSlideFinished
@@ -553,6 +564,8 @@ private struct HomeMediaCarouselMediaView: View {
     @Environment(\.modelContext) private var modelContext
 
     let media: DiveMediaPhoto
+    var containerWidth: CGFloat = HomeMediaHighlightWarmupPresentation.defaultHeroContainerWidth
+    var shouldLoadMedia: Bool = true
     var isVideoPlaybackActive: Bool
     var isAutoAdvanceActive: Bool
     let onSlideFinished: () -> Void
@@ -571,11 +584,12 @@ private struct HomeMediaCarouselMediaView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .accessibilityHidden(isVideo && isVideoPlaybackActive)
 
-            if isVideo, isVideoPlaybackActive {
+            if isVideo, isVideoPlaybackActive, shouldLoadMedia {
                 DiveActivityVideoPlayerView(
                     source: media.videoPlaybackSource,
                     isPlaybackActive: true,
                     loopsPlayback: false,
+                    libraryVideoQuality: .homeCarousel,
                     onPlaybackFinished: isAutoAdvanceActive ? onSlideFinished : nil,
                     onAssetMissing: pruneIfAssetMissing
                 )
@@ -586,6 +600,14 @@ private struct HomeMediaCarouselMediaView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
         .task(id: loadTaskID) {
+            guard shouldLoadMedia else {
+                #if canImport(UIKit)
+                if !isVideoPlaybackActive {
+                    loadedImage = nil
+                }
+                #endif
+                return
+            }
             await loadHeroImageIfNeeded()
         }
         .task(id: photoAutoAdvanceTaskID) {
@@ -606,7 +628,7 @@ private struct HomeMediaCarouselMediaView: View {
     }
 
     private var loadTaskID: String {
-        "\(media.id.uuidString)-\(media.resolvedMediaKind.rawValue)"
+        "\(media.id.uuidString)-\(media.resolvedMediaKind.rawValue)-\(shouldLoadMedia)-\(Int(containerWidth))"
     }
 
     @ViewBuilder
@@ -650,11 +672,12 @@ private struct HomeMediaCarouselMediaView: View {
             loadedImage = nil
             return
         }
-        let edge = HomeMediaHighlightWarmup.preloadImageEdge
+        let edge = HomeMediaHighlightWarmupPresentation.heroImageEdge(containerWidth: containerWidth)
         let size = CGSize(width: edge, height: edge)
         let image = await DiveMediaReferenceLoader.image(
             localIdentifier: identifier,
-            targetSize: size
+            targetSize: size,
+            deliveryMode: .opportunistic
         )
         if image == nil {
             DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)

@@ -28,16 +28,47 @@ enum DiveBuddyContactLinking {
         owner: UserProfile?,
         modelContext: ModelContext
     ) throws {
+        try applyResolvedContact(
+            contactsIdentifier: DiveBuddyContactImport.contactsIdentifier(from: contact),
+            displayName: DiveBuddyContactImport.displayName(from: contact),
+            profilePhoto: DiveBuddyContactImport.profilePhotoData(from: contact),
+            to: buddy,
+            owner: owner,
+            modelContext: modelContext
+        )
+    }
+
+    static func applyIdentifier(
+        _ contactsIdentifier: String,
+        to buddy: DiveBuddy,
+        owner: UserProfile?,
+        modelContext: ModelContext,
+        contactStore: CNContactStore = CNContactStore()
+    ) throws {
+        #if canImport(Contacts)
+        guard let contact = try fetchContact(contactsIdentifier: contactsIdentifier, store: contactStore) else {
+            return
+        }
+        try apply(contact: contact, to: buddy, owner: owner, modelContext: modelContext)
+        #endif
+    }
+
+    private static func applyResolvedContact(
+        contactsIdentifier: String,
+        displayName: String,
+        profilePhoto: Data?,
+        to buddy: DiveBuddy,
+        owner: UserProfile?,
+        modelContext: ModelContext
+    ) throws {
         guard let owner else { throw LinkError.missingOwner }
 
-        let name = DiveBuddyContactImport.displayName(from: contact)
-        if DiveBuddyCatalog.shouldExcludeBuddyName(name, owner: owner) {
+        if DiveBuddyCatalog.shouldExcludeBuddyName(displayName, owner: owner) {
             throw LinkError.nameMatchesSignedInDiver
         }
 
-        let identifier = DiveBuddyContactImport.contactsIdentifier(from: contact)
         if let existing = try DiveBuddyCatalog.findByContactsIdentifier(
-            identifier,
+            contactsIdentifier,
             ownerProfileID: owner.id,
             modelContext: modelContext
         ),
@@ -45,12 +76,28 @@ enum DiveBuddyContactLinking {
             throw LinkError.contactsLinkedToOtherBuddy(displayName: existing.displayName)
         }
 
-        buddy.contactsIdentifier = identifier
-        buddy.displayName = name
-        if let photo = DiveBuddyContactImport.profilePhotoData(from: contact) {
+        buddy.contactsIdentifier = contactsIdentifier
+        buddy.displayName = displayName
+        if let photo = profilePhoto, !photo.isEmpty {
             buddy.profilePhoto = photo
         }
     }
+
+    #if canImport(Contacts)
+    private static func fetchContact(
+        contactsIdentifier: String,
+        store: CNContactStore
+    ) throws -> CNContact? {
+        let keys: [CNKeyDescriptor] = [
+            CNContactFormatter.descriptorForRequiredKeys(for: .fullName),
+            CNContactThumbnailImageDataKey as CNKeyDescriptor,
+            CNContactImageDataKey as CNKeyDescriptor,
+            CNContactGivenNameKey as CNKeyDescriptor,
+            CNContactFamilyNameKey as CNKeyDescriptor,
+        ]
+        return try store.unifiedContact(withIdentifier: contactsIdentifier, keysToFetch: keys)
+    }
+    #endif
 
     static func refreshFromContacts(_ buddy: DiveBuddy) throws {
         guard let identifier = buddy.contactsIdentifier else { return }

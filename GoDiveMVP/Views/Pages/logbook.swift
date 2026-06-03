@@ -700,7 +700,7 @@ private struct LogbookListSurface: View, Equatable {
                 .accessibilityHidden(true)
         }
         .listStyle(.plain)
-        .listRowSpacing(AppTheme.Spacing.md)
+        .listRowSpacing(AppTheme.Spacing.sm)
         .scrollContentBackground(.hidden)
         .background(Color.clear)
         .animation(nil, value: rows.count)

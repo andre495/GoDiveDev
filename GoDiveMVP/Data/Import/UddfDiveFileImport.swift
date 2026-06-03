@@ -88,6 +88,7 @@ enum UddfDiveFileImport {
                 ownerProfileID: owner.id,
                 modelContext: modelContext
             )
+            var importedBuddyIDs = Set<UUID>()
 
             for (index, activity) in activities.enumerated() {
                 let candidate = DiveActivityDuplicateMatcher.signature(for: activity)
@@ -108,6 +109,11 @@ enum UddfDiveFileImport {
                         modelContext: modelContext,
                         rosterCache: &buddyRosterCache
                     )
+                    for tag in activity.buddies {
+                        if let buddyID = tag.buddyID {
+                            importedBuddyIDs.insert(buddyID)
+                        }
+                    }
                     modelContext.insert(activity)
                     try DiveActivityEquipmentAssociation.applyAutoAdd(
                         to: activity,
@@ -134,6 +140,12 @@ enum UddfDiveFileImport {
                 resolver: MapKitGeocodingTimeZoneResolver.shared
             )
             await DiveActivityTimeZoneResolution.resolveMissingOffsets(for: inserted)
+
+            await DiveBuddyContactAutoLink.autoLinkUnlinkedBuddies(
+                owner: owner,
+                modelContext: modelContext,
+                buddyIDs: importedBuddyIDs
+            )
 
             if inserted.isEmpty {
                 if skippedDuplicates == 1,

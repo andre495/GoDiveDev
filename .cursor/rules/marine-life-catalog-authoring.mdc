@@ -1,0 +1,55 @@
+---
+description: Complete half-built marine life catalog rows with original GoDive diver-facing copy (CSV + JSON seed).
+globs: GoDiveMVP/MockData/marine_life*,GoDiveMVP/Data/**/MarineLife*,GoDiveMVP/Models/MarineLife.swift,GoDiveMVP/Data/FieldGuideTaxonomy.swift,GoDiveMVP/Data/Mappers/MarineLifeMapper.swift,GoDiveMVP/Data/Seed/MarineLifeCatalogSeeder.swift
+alwaysApply: false
+---
+
+# Marine life catalog authoring
+
+When the user passes **partial** marine life (CSV rows, JSON entries, or a species list), **complete the catalog object** with original, diver-focused content — do not paste paragraphs from field guides, Wikipedia, or other apps.
+
+## Agent role
+
+1. **Synthesize** from user bullets, scientific name, or well-known facts → **new prose** in GoDive voice.
+2. **Fill** all schema fields that belong in the bundle; leave `feature_image` empty unless the user supplied a vetted URL.
+3. **Sync** authoring source and ship payload: update **`GoDiveMVP/MockData/marine_life_source.csv`** and matching row(s) in **`marine_life_sample.json`** (same species, stable **`uuid`**).
+4. **Normalize** taxonomy: **`category`** / **`subcategory`** as slugs (e.g. `fish`, `disk-and-large-oval`) per **`FieldGuideTaxonomy`**; display labels in CSV are OK — mapper normalizes on import.
+5. **Flag** uncertain size/depth numbers for user verify; prefer conservative Caribbean reef ranges in **meters**.
+
+## GoDive voice (every species)
+
+| Field | Intent |
+|--------|--------|
+| `description` / `aboutText` | 2–4 sentences: shape, color underwater, behavior — **no** fin-ray counts unless essential for ID |
+| `distinctive_features` | One-line ID cheat sheet |
+| `habitat_behavior` | Where divers see it (reef zone, pairs, cleaning stations) |
+| `diver_reaction` | Approach tips (shy, bold, photographer-friendly) |
+| `abundance` | Regional framing (Caribbean / Florida / Bahamas), not global boilerplate |
+
+Rewrite encyclopedic or copied `aboutText` even when the user only asked to “fill the rest.”
+
+## IDs and files
+
+- **`uuid`**: `marine-life-{kebab-slug}` from common name (e.g. `marine-life-french-angelfish`); never change once shipped.
+- **CSV** (`marine_life_source.csv`): human authoring; columns match header (`subCategory`, `Abundance` capital A on abundance column).
+- **JSON** (`marine_life_sample.json`): snake_case keys (`common_name`, `family_name`, `distinctive_features`, …); **`MarineLifeCatalogSeeder`** upserts by **`uuid`**.
+- **`avg_depth`**: set explicitly or let mapper derive mid-point from `min_depth` / `max_depth` when both present.
+
+## Legal / quality
+
+- **Facts** (names, sizes, depths) are fine; **wording** must be original.
+- Do **not** scrape or closely paraphrase a single commercial field guide or dive app.
+- Do **not** assign random image URLs; Wikimedia only with user approval of license/attribution.
+- User does final accuracy pass; note “verify depth/size” when sources conflict.
+
+## Workflow when input is half-done
+
+1. Read existing CSV/JSON row — keep user-provided science name, taxonomy, numbers unless clearly wrong.
+2. Draft missing text fields; add JSON object if new species.
+3. If code/tests reference bundled species counts, add or adjust tests only when behavior changes.
+4. Content-only batch: skip **`change_log.md`** unless the user also changed app code; optional one-line note in **`MockData/README.md`** if workflow changed.
+
+## Example tone (Queen Angelfish)
+
+- **Avoid:** “The dorsal fin contains 14 spines and 19–21 soft rays…”
+- **Prefer:** “Adults show electric blue with yellow scale edges and a bright forehead spot; slow around coral and gorgonians, often in pairs.”

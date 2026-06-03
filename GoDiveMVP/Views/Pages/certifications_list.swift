@@ -227,13 +227,7 @@ private struct CertificationListRowView: View {
                 Text(CertificationPresentation.subtitle(for: certification))
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.Colors.secondaryText)
-
-                if !certification.instructor.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text(certification.instructor)
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.Colors.secondaryText)
-                        .lineLimit(1)
-                }
+                    .lineLimit(2)
             }
 
             Spacer(minLength: 0)

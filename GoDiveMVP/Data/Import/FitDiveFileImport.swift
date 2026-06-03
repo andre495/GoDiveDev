@@ -89,6 +89,12 @@ enum FitDiveFileImport {
                 modelContext: modelContext,
                 rosterCache: &buddyRosterCache
             )
+            let importedBuddyIDs = Set(activity.buddies.compactMap(\.buddyID))
+            await DiveBuddyContactAutoLink.autoLinkUnlinkedBuddies(
+                owner: owner,
+                modelContext: modelContext,
+                buddyIDs: importedBuddyIDs
+            )
             modelContext.insert(activity)
             try DiveActivityEquipmentAssociation.applyAutoAdd(
                 to: activity,

@@ -6,6 +6,9 @@ Minimum setup expects:
 
 - `dives_sample.json`
 - `marine_life_sample.json` (field-guide catalog; seeded on launch when missing)
+- `marine_life_source.csv` (authoring spreadsheet; sync rows into JSON before ship)
+
+**Marine life content:** Half-filled CSV/JSON → agent completes original diver-facing copy per **`.cursor/rules/marine-life-catalog-authoring.mdc`** (stable `marine-life-*` UUIDs, taxonomy slugs, meters).
 
 Expected JSON shape:
 

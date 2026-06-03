@@ -996,4 +996,19 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`DiveBuddiesListView`** — trailing **+** opens **`DiveActivityAddBuddySheet`** (roster-only); **`DiveBuddyRosterCreation`** helper; empty state mentions **+**.
 - **My Sightings** — static **`HomeLifetimeStatsPanel`** over heat map (Home-style rounded sheet, no detents/grabber); **`FieldGuideSightingsOverviewLayout`**; scrollable stats body.
 
-## 64 - Next batch
+## 64 - Home perf, logbook density, buddy Contacts auto-link **(pushed)**
+
+**Summary:** Home featured-media performance — decouple launch from PhotoKit warm, warm slide **0** only at startup, lighter carousel video, lazy slide loads.
+
+- **`AppSessionBootstrapPresentation`** / **`AppSessionRootView`** — launch overlay ends after session restore only; Home warms on **`LogOverviewView`**.
+- **`HomeMediaHighlightWarmup`** — bootstrap warms first slide only; deferred preview/full for slides **1…n**; no background **`AVAsset`** warm; **`PHCachingImageManager`** preheat for first asset only; opportunistic poster delivery.
+- **`HomeMediaHighlightWarmupPresentation`** — **`startupFullQualityCount = 1`**; display-sized hero edge (**2×**, cap **900**); **`deferredCarouselWarmDelaySeconds`**.
+- **`DiveMediaVideoRequestQuality`** — Home carousel **`.automatic`** (no session cache); dive detail **`.highQualityFormat`** unchanged.
+- **`HomeMediaCarouselMediaView`** — lazy load for selected/playback slide only; container-width hero requests.
+- Tests: **`homeMediaHighlightWarmupPresentation_bootstrapQualityAndReadiness`**, **`diveMediaVideoRequestQuality_homeCarouselDoesNotCacheInSession`**, **`appSessionBootstrapPresentation_showsLaunchOverlayOnlyWhileRestoringSession`**.
+- **Logbook** — denser **`LogbookActivityRow`** tiles (smaller type, **8 pt** card padding / list spacing, compact **#** chip, **48 pt** media preview min).
+- **Certifications list** — row tile shows title, type badge, and agency/number + date only (instructor removed from list; instructor & shop remain on detail / edit).
+- **Dive buddy auto-link** — after **FIT** / **UDDF** import, unlinked roster buddies fuzzy-match Apple Contacts when access is **authorized** or **limited** (**`DiveBuddyContactAutoLink`**); skips ambiguous matches and contacts already linked to another buddy.
+- **`DiveBuddyContactsAuthorization`**, **`DiveBuddyContactLinking.applyIdentifier`**; contact enumeration off main thread; tests **`diveBuddyContactAutoLink_*`**.
+
+## 65 - Next batch

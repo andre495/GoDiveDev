@@ -3693,31 +3693,44 @@ struct GoDiveMVPTests {
     }
 
     @Test func homeMediaHighlightWarmupPresentation_bootstrapQualityAndReadiness() {
-        #expect(HomeMediaHighlightWarmupPresentation.startupFullQualityCount == 2)
+        #expect(HomeMediaHighlightWarmupPresentation.startupFullQualityCount == 1)
         #expect(HomeMediaHighlightWarmupPresentation.bootstrapQuality(forCarouselIndex: 0) == .full)
-        #expect(HomeMediaHighlightWarmupPresentation.bootstrapQuality(forCarouselIndex: 1) == .full)
+        #expect(HomeMediaHighlightWarmupPresentation.bootstrapQuality(forCarouselIndex: 1) == .preview)
         #expect(HomeMediaHighlightWarmupPresentation.bootstrapQuality(forCarouselIndex: 2) == .preview)
+        #expect(HomeMediaHighlightWarmupPresentation.heroImageEdge(containerWidth: 390) == 780)
+        #expect(HomeMediaHighlightWarmupPresentation.heroImageEdge(containerWidth: 500) == 900)
 
         #expect(
             HomeMediaHighlightWarmupPresentation.isBootstrapReady(
-                fullReadyCount: 2,
-                previewOrFullReadyCount: 3,
+                fullReadyCount: 1,
+                previewOrFullReadyCount: 1,
                 totalCount: 3
             )
         )
         #expect(
             !HomeMediaHighlightWarmupPresentation.isBootstrapReady(
-                fullReadyCount: 1,
+                fullReadyCount: 0,
                 previewOrFullReadyCount: 3,
                 totalCount: 3
             )
         )
-        #expect(HomeMediaHighlightWarmupPresentation.backgroundFullQualityIndices(totalCount: 3) == [2])
+        #expect(HomeMediaHighlightWarmupPresentation.backgroundFullQualityIndices(totalCount: 3) == [1, 2])
+    }
+
+    @Test func logbookActivityRowLayout_usesCompactSpacingTokens() {
+        #expect(LogbookActivityRowLayout.contentSpacing == 4)
+        #expect(LogbookActivityRowLayout.cardPadding == AppTheme.Spacing.sm)
+        #expect(DiveActivityMediaPresentation.logbookRowMediaPreviewMinExtent == 48)
+    }
+
+    @Test func diveMediaVideoRequestQuality_homeCarouselDoesNotCacheInSession() {
+        #expect(DiveMediaVideoRequestQuality.fullQuality.cachesInSession)
+        #expect(!DiveMediaVideoRequestQuality.homeCarousel.cachesInSession)
     }
 
     @Test func homeMediaHighlightWarmup_shouldStorePreviewAndHeroInSessionCache() {
         #expect(HomeMediaHighlightWarmup.shouldStoreInSessionCache(edge: 480))
-        #expect(HomeMediaHighlightWarmup.shouldStoreInSessionCache(edge: 1_200))
+        #expect(HomeMediaHighlightWarmup.shouldStoreInSessionCache(edge: 780))
         #expect(!HomeMediaHighlightWarmup.shouldStoreInSessionCache(edge: 200))
     }
 
@@ -3837,33 +3850,15 @@ struct GoDiveMVPTests {
         #expect(metrics.heroHeight < HomeOverviewLayout.heroHeight(width: 390, topSafeAreaInset: 59))
     }
 
-    @Test func appSessionBootstrapPresentation_showsLaunchOverlayUntilHomeMediaWarmCompletes() {
+    @Test func appSessionBootstrapPresentation_showsLaunchOverlayOnlyWhileRestoringSession() {
         #expect(
             AppSessionBootstrapPresentation.showsLaunchOverlay(
-                isRestoringSession: true,
-                isSignedIn: false,
-                isHomeMediaWarmupComplete: false
-            )
-        )
-        #expect(
-            AppSessionBootstrapPresentation.showsLaunchOverlay(
-                isRestoringSession: false,
-                isSignedIn: true,
-                isHomeMediaWarmupComplete: false
+                isRestoringSession: true
             )
         )
         #expect(
             !AppSessionBootstrapPresentation.showsLaunchOverlay(
-                isRestoringSession: false,
-                isSignedIn: true,
-                isHomeMediaWarmupComplete: true
-            )
-        )
-        #expect(
-            !AppSessionBootstrapPresentation.showsLaunchOverlay(
-                isRestoringSession: false,
-                isSignedIn: false,
-                isHomeMediaWarmupComplete: false
+                isRestoringSession: false
             )
         )
     }
@@ -6604,6 +6599,59 @@ struct GoDiveMVPTests {
                 modelContext: context
             )
         }
+    }
+
+    @Test func diveBuddyContactAutoLink_resolvesUniqueFuzzyMatch() {
+        let candidates = [
+            DiveBuddyContactAutoLink.ContactMatchCandidate(
+                contactsIdentifier: "contact-pat",
+                displayName: "Pat Lee"
+            ),
+            DiveBuddyContactAutoLink.ContactMatchCandidate(
+                contactsIdentifier: "contact-other",
+                displayName: "Jordan Smith"
+            ),
+        ]
+        let resolved = DiveBuddyContactAutoLink.resolvedContactID(
+            buddyDisplayName: "Pat",
+            candidates: candidates,
+            reservedContactIDs: []
+        )
+        #expect(resolved == "contact-pat")
+    }
+
+    @Test func diveBuddyContactAutoLink_skipsAmbiguousContactMatches() {
+        let candidates = [
+            DiveBuddyContactAutoLink.ContactMatchCandidate(
+                contactsIdentifier: "contact-a",
+                displayName: "Mike Dugas"
+            ),
+            DiveBuddyContactAutoLink.ContactMatchCandidate(
+                contactsIdentifier: "contact-b",
+                displayName: "Mike Smith"
+            ),
+        ]
+        let resolved = DiveBuddyContactAutoLink.resolvedContactID(
+            buddyDisplayName: "Mike",
+            candidates: candidates,
+            reservedContactIDs: []
+        )
+        #expect(resolved == nil)
+    }
+
+    @Test func diveBuddyContactAutoLink_skipsContactsAlreadyLinkedToAnotherBuddy() {
+        let candidates = [
+            DiveBuddyContactAutoLink.ContactMatchCandidate(
+                contactsIdentifier: "contact-taken",
+                displayName: "Pat Lee"
+            ),
+        ]
+        let resolved = DiveBuddyContactAutoLink.resolvedContactID(
+            buddyDisplayName: "Pat Lee",
+            candidates: candidates,
+            reservedContactIDs: ["contact-taken"]
+        )
+        #expect(resolved == nil)
     }
 
     @Test func diveBuddyLegacyMigration_linksOrphanTagsToPeople() throws {

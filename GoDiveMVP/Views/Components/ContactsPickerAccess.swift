@@ -27,10 +27,9 @@ enum ContactsPickerAccess {
         case .notDetermined:
             Task { @MainActor in
                 await requestAccessIfNeeded()
-                switch CNContactStore.authorizationStatus(for: .contacts) {
-                case .authorized, .limited:
+                if DiveBuddyContactsAuthorization.allowsContactMatching {
                     onAuthorized()
-                default:
+                } else {
                     onError("Allow Contacts access in Settings to pick a contact.")
                 }
             }

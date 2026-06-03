@@ -1,5 +1,13 @@
 import SwiftUI
 
+/// Compact logbook row layout tokens (list tiles + trailing preview).
+enum LogbookActivityRowLayout {
+    static let contentSpacing: CGFloat = 4
+    static let cardPadding: CGFloat = AppTheme.Spacing.sm
+    static let previewGap: CGFloat = AppTheme.Spacing.sm
+    static let cardCornerRadius: CGFloat = 10
+}
+
 /// Compact logbook row: oval dive **#** (top leading), name + stats, optional oldest-media preview (trailing).
 struct LogbookActivityRow: View, Equatable {
     let data: DiveLogbookRowDisplayData
@@ -15,24 +23,24 @@ struct LogbookActivityRow: View, Equatable {
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
-            VStack(alignment: .leading, spacing: 6) {
-                ActivityTagOvalChipLabel(title: data.diveNumberLabel)
+            VStack(alignment: .leading, spacing: LogbookActivityRowLayout.contentSpacing) {
+                ActivityTagOvalChipLabel(title: data.diveNumberLabel, isCompact: true)
                     .accessibilityLabel("Dive number \(diveNumberForAccessibility)")
 
                 Text(data.displayName)
-                    .font(.headline)
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.Colors.textPrimary)
                     .lineLimit(1)
 
                 Text(data.detailLine)
-                    .font(.footnote)
+                    .font(.caption)
                     .foregroundStyle(AppTheme.Colors.secondaryText)
                     .lineLimit(2)
                     .minimumScaleFactor(0.85)
 
                 if data.showsDuplicateHint {
                     Text("Possible duplicate")
-                        .font(.caption)
+                        .font(.caption2)
                         .foregroundStyle(AppTheme.Colors.mutedText)
                         .accessibilityLabel("Possible duplicate dive in log")
                 }
@@ -48,7 +56,7 @@ struct LogbookActivityRow: View, Equatable {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             if let previewMediaPhotoID = data.previewMediaPhotoID {
-                Spacer(minLength: AppTheme.Spacing.md)
+                Spacer(minLength: LogbookActivityRowLayout.previewGap)
 
                 mediaPreview(photoID: previewMediaPhotoID)
             }
@@ -56,14 +64,14 @@ struct LogbookActivityRow: View, Equatable {
         .onPreferenceChange(LogbookRowTextColumnHeightKey.self) { height in
             textColumnHeight = height
         }
-        .padding(AppTheme.Spacing.md)
+        .padding(LogbookActivityRowLayout.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: LogbookActivityRowLayout.cardCornerRadius)
                 .fill(AppTheme.Colors.surfaceElevated)
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: LogbookActivityRowLayout.cardCornerRadius)
                 .stroke(AppTheme.Colors.tabUnselected.opacity(0.12), lineWidth: 1)
         }
     }

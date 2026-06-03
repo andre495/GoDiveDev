@@ -1,14 +1,10 @@
 import Foundation
 
-/// When the signed-in bootstrap overlay stays up through Home featured-media warm-cache.
+/// When the signed-in bootstrap overlay stays up through session restore only (Home media warms on Home).
 enum AppSessionBootstrapPresentation: Sendable {
 
-    /// **`true`** while session restore runs, or signed-in Home carousel media is still warming.
-    nonisolated static func showsLaunchOverlay(
-        isRestoringSession: Bool,
-        isSignedIn: Bool,
-        isHomeMediaWarmupComplete: Bool
-    ) -> Bool {
-        isRestoringSession || (isSignedIn && !isHomeMediaWarmupComplete)
+    /// **`true`** while the local session is restoring — not while Home carousel media warms.
+    nonisolated static func showsLaunchOverlay(isRestoringSession: Bool) -> Bool {
+        isRestoringSession
     }
 }

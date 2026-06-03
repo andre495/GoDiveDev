@@ -175,13 +175,13 @@ enum DiveMediaReferenceLoader {
     #endif
 
     #if canImport(Photos) && canImport(AVFoundation)
-    /// Request options for full-resolution playback. **`.highQualityFormat`** asks PhotoKit for the highest-quality
-    /// asset available (downloading the iCloud original when needed) instead of **`.automatic`**, which can hand back
-    /// a lower-resolution / transcoded stream to start playback faster.
-    nonisolated static func makeVideoRequestOptions() -> PHVideoRequestOptions {
+    /// Request options for playback. Dive detail uses **`.highQualityFormat`**; Home carousel uses **`.automatic`**.
+    nonisolated static func makeVideoRequestOptions(
+        quality: DiveMediaVideoRequestQuality = .fullQuality
+    ) -> PHVideoRequestOptions {
         let options = PHVideoRequestOptions()
         options.isNetworkAccessAllowed = true
-        options.deliveryMode = .highQualityFormat
+        options.deliveryMode = quality.photoKitDeliveryMode
         return options
     }
 
@@ -191,14 +191,17 @@ enum DiveMediaReferenceLoader {
     @MainActor
     static func playerItem(
         localIdentifier: String,
-        timeoutSeconds: Double = DiveMediaVideoLoad.timeoutSeconds
+        timeoutSeconds: Double = DiveMediaVideoLoad.timeoutSeconds,
+        quality: DiveMediaVideoRequestQuality = .fullQuality
     ) async -> AVPlayerItem? {
-        if let avAsset = DiveMediaVideoAssetSessionCache.shared.videoAsset(for: localIdentifier) {
+        if quality.cachesInSession,
+           let avAsset = DiveMediaVideoAssetSessionCache.shared.videoAsset(for: localIdentifier) {
             return AVPlayerItem(asset: avAsset)
         }
         guard let avAsset = await loadVideoAsset(
             localIdentifier: localIdentifier,
-            timeoutSeconds: timeoutSeconds
+            timeoutSeconds: timeoutSeconds,
+            quality: quality
         ) else {
             return nil
         }
@@ -209,20 +212,22 @@ enum DiveMediaReferenceLoader {
     @MainActor
     static func loadVideoAsset(
         localIdentifier: String,
-        timeoutSeconds: Double = DiveMediaVideoLoad.timeoutSeconds
+        timeoutSeconds: Double = DiveMediaVideoLoad.timeoutSeconds,
+        quality: DiveMediaVideoRequestQuality = .fullQuality
     ) async -> AVAsset? {
-        if let cached = DiveMediaVideoAssetSessionCache.shared.videoAsset(for: localIdentifier) {
+        if quality.cachesInSession,
+           let cached = DiveMediaVideoAssetSessionCache.shared.videoAsset(for: localIdentifier) {
             return cached
         }
         guard let phAsset = asset(localIdentifier: localIdentifier) else { return nil }
 
-        let options = makeVideoRequestOptions()
+        let options = makeVideoRequestOptions(quality: quality)
         let avAsset = await requestAVAssetFromPhotoKit(
             asset: phAsset,
             options: options,
             timeoutSeconds: timeoutSeconds
         )
-        if let avAsset {
+        if let avAsset, quality.cachesInSession {
             DiveMediaVideoAssetSessionCache.shared.store(avAsset, localIdentifier: localIdentifier)
         }
         return avAsset

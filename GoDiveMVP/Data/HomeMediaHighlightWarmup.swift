@@ -4,12 +4,14 @@ import SwiftData
 import Photos
 #endif
 
-/// Preloads PhotoKit hero frames and shareable video **`AVAsset`**s for the Home highlights carousel.
+/// Preloads PhotoKit hero frames for the Home highlights carousel (video loads on the active slide only).
 @MainActor
 enum HomeMediaHighlightWarmup {
 
-    /// Full-bleed Home hero — ~390 pt width at ~3× scale.
-    nonisolated static let preloadImageEdge: CGFloat = 1_200
+    /// Full-bleed Home hero — container width × **`heroScaleFactor`**, capped at **`maxHeroImageEdge`**.
+    nonisolated static var preloadImageEdge: CGFloat {
+        HomeMediaHighlightWarmupPresentation.heroImageEdge()
+    }
 
     nonisolated static func shouldStoreInSessionCache(edge: CGFloat) -> Bool {
         edge >= HomeMediaHighlightWarmupPresentation.previewImageEdge - 1
@@ -20,7 +22,7 @@ enum HomeMediaHighlightWarmup {
     private static var backgroundFullWarmupTask: Task<Void, Never>?
     private static var cachedVideoDurationSeconds: [String: Double] = [:]
 
-    /// Warms carousel picks — previews first, then upgrades all to full quality in the background.
+    /// Warms slide **0** immediately; defers posters for slides **1…n** and never preloads carousel video assets.
     static func warmHighlights(
         _ highlights: [HomeMediaHighlight],
         mediaByID: [UUID: DiveMediaPhoto]
@@ -30,8 +32,7 @@ enum HomeMediaHighlightWarmup {
 
         let mediaRows = limited.compactMap { mediaByID[$0.mediaID] }
         await warmBootstrapTier(mediaRows)
-        scheduleBackgroundFullQualityWarmup(for: mediaRows)
-        scheduleBackgroundVideoAssetWarmup(for: mediaRows)
+        scheduleDeferredCarouselWarmup(for: mediaRows)
     }
 
     /// Warms carousel picks from SwiftData, returning once bootstrap tiers are satisfied; remaining warm work continues in the background.
@@ -95,29 +96,19 @@ enum HomeMediaHighlightWarmup {
     }
     #endif
 
-    /// **`true`** when bootstrap tiers are satisfied for every carousel pick.
+    /// **`true`** when slide **0** has a full hero poster.
     static func isBootstrapReady(
         highlights: [HomeMediaHighlight],
         mediaByID: [UUID: DiveMediaPhoto]
     ) -> Bool {
         let limited = Array(highlights.prefix(HomeMediaHighlightPresentation.carouselLimit))
-        guard !limited.isEmpty else { return true }
-
-        var fullReadyCount = 0
-        var previewOrFullReadyCount = 0
-
-        for (index, highlight) in limited.enumerated() {
-            guard let media = mediaByID[highlight.mediaID] else { return false }
-            let hasPreview = HomeMediaHighlightSessionCache.shared.hasDisplayableImage(for: media)
-            guard hasPreview else { return false }
-            previewOrFullReadyCount += 1
-
-            if index < HomeMediaHighlightWarmupPresentation.startupFullQualityCount,
-               hasHeroPoster(for: media) {
-                fullReadyCount += 1
-            }
+        guard let first = limited.first,
+              let media = mediaByID[first.mediaID] else {
+            return limited.isEmpty
         }
 
+        let fullReadyCount = hasHeroPoster(for: media) ? 1 : 0
+        let previewOrFullReadyCount = HomeMediaHighlightSessionCache.shared.hasDisplayableImage(for: media) ? 1 : 0
         return HomeMediaHighlightWarmupPresentation.isBootstrapReady(
             fullReadyCount: fullReadyCount,
             previewOrFullReadyCount: previewOrFullReadyCount,
@@ -164,8 +155,7 @@ enum HomeMediaHighlightWarmup {
     private static func startBackgroundWarmup(mediaRows: [DiveMediaPhoto]) {
         Task {
             await warmBootstrapTier(mediaRows)
-            scheduleBackgroundFullQualityWarmup(for: mediaRows)
-            scheduleBackgroundVideoAssetWarmup(for: mediaRows)
+            scheduleDeferredCarouselWarmup(for: mediaRows)
         }
     }
 
@@ -181,38 +171,37 @@ enum HomeMediaHighlightWarmup {
     }
 
     private static func warmBootstrapTier(_ mediaRows: [DiveMediaPhoto]) async {
-        guard !mediaRows.isEmpty else { return }
+        guard let first = mediaRows.first else { return }
 
         #if canImport(Photos) && canImport(UIKit)
-        preheatPhotoKit(for: mediaRows)
+        preheatPhotoKit(for: [first])
 
-        let fullCount = HomeMediaHighlightWarmupPresentation.startupFullQualityCount
-        await withTaskGroup(of: Void.self) { group in
-            for (index, media) in mediaRows.enumerated() {
-                let quality: HomeMediaHighlightWarmupPresentation.WarmupQuality =
-                    index < fullCount ? .full : .preview
-                group.addTask {
-                    await warmMediaRow(media, quality: quality)
-                }
-            }
-        }
+        await warmMediaRow(first, quality: .full)
         #endif
     }
 
-    private static func scheduleBackgroundVideoAssetWarmup(for mediaRows: [DiveMediaPhoto]) {
-        #if canImport(Photos) && canImport(UIKit)
-        let videos = mediaRows.filter { $0.resolvedMediaKind == .video }
-        guard !videos.isEmpty else { return }
-        Task {
+    private static func scheduleDeferredCarouselWarmup(for mediaRows: [DiveMediaPhoto]) {
+        backgroundFullWarmupTask?.cancel()
+        let remainder = Array(mediaRows.dropFirst())
+        guard !remainder.isEmpty else { return }
+
+        backgroundFullWarmupTask = Task {
+            let delay = HomeMediaHighlightWarmupPresentation.deferredCarouselWarmDelaySeconds
+            if delay > 0 {
+                try? await Task.sleep(for: .seconds(delay))
+            }
+            guard !Task.isCancelled else { return }
+
             await withTaskGroup(of: Void.self) { group in
-                for media in videos {
+                for media in remainder {
                     group.addTask {
-                        await warmVideoAssetIfNeeded(for: media)
+                        await warmMediaRow(media, quality: .preview)
                     }
                 }
             }
+            guard !Task.isCancelled else { return }
+            scheduleBackgroundFullQualityWarmup(for: mediaRows)
         }
-        #endif
     }
 
     private static func scheduleBackgroundFullQualityWarmup(for mediaRows: [DiveMediaPhoto]) {
@@ -270,12 +259,10 @@ enum HomeMediaHighlightWarmup {
         let size = CGSize(width: imageEdge, height: imageEdge)
 
         if HomeMediaHighlightSessionCache.shared.image(for: identifier, edge: imageEdge) == nil {
-            let deliveryMode: PHImageRequestOptionsDeliveryMode =
-                quality == .preview ? .opportunistic : .highQualityFormat
             if let image = await DiveMediaReferenceLoader.image(
                 localIdentifier: identifier,
                 targetSize: size,
-                deliveryMode: deliveryMode
+                deliveryMode: .opportunistic
             ) {
                 HomeMediaHighlightSessionCache.shared.storeImage(
                     image,
@@ -284,21 +271,6 @@ enum HomeMediaHighlightWarmup {
                 )
             }
         }
-    }
-
-    private static func warmVideoAssetIfNeeded(for media: DiveMediaPhoto) async {
-        #if canImport(Photos) && canImport(UIKit)
-        guard media.resolvedMediaKind == .video,
-              let identifier = media.libraryAssetLocalIdentifier,
-              !HomeMediaHighlightSessionCache.shared.containsVideoAsset(localIdentifier: identifier),
-              let avAsset = await DiveMediaReferenceLoader.loadVideoAsset(localIdentifier: identifier) else {
-            return
-        }
-        HomeMediaHighlightSessionCache.shared.storeVideoAsset(
-            avAsset,
-            localIdentifier: identifier
-        )
-        #endif
     }
 
     private static func imageEdge(for quality: HomeMediaHighlightWarmupPresentation.WarmupQuality) -> CGFloat {
@@ -311,12 +283,12 @@ enum HomeMediaHighlightWarmup {
     }
 
     private static func preheatPhotoKit(for mediaRows: [DiveMediaPhoto]) {
-        let identifiers = mediaRows.compactMap(\.libraryAssetLocalIdentifier)
+        let identifiers = mediaRows.prefix(1).compactMap(\.libraryAssetLocalIdentifier)
         guard !identifiers.isEmpty else { return }
 
         let previewEdge = max(HomeMediaHighlightWarmupPresentation.previewImageEdge, 1)
         DiveMediaReferenceLoader.startCachingImages(
-            localIdentifiers: identifiers,
+            localIdentifiers: Array(identifiers),
             targetSize: CGSize(width: previewEdge, height: previewEdge)
         )
     }

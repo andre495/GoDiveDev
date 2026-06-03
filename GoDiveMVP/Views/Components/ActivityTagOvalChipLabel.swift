@@ -4,14 +4,15 @@ import SwiftUI
 struct ActivityTagOvalChipLabel: View {
     let title: String
     var isEmphasized: Bool = false
+    var isCompact: Bool = false
 
     var body: some View {
         Text(title)
-            .font(.caption.weight(.medium))
+            .font(isCompact ? .caption2.weight(.medium) : .caption.weight(.medium))
             .foregroundStyle(AppTheme.Colors.textPrimary)
             .lineLimit(1)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
+            .padding(.horizontal, isCompact ? 10 : 12)
+            .padding(.vertical, isCompact ? 4 : 7)
             .background {
                 Capsule(style: .continuous)
                     .strokeBorder(

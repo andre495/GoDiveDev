@@ -111,8 +111,8 @@ enum DiveActivityMediaPresentation: Sendable {
     nonisolated static let carouselThumbnailSize: CGFloat = 72
     /// Square preview on logbook activity rows (trailing).
     /// Fallback square extent before the logbook row measures its text column.
-    nonisolated static let logbookRowMediaPreviewMinExtent: CGFloat = 56
-    nonisolated static let logbookRowMediaPreviewCornerRadius: CGFloat = 8
+    nonisolated static let logbookRowMediaPreviewMinExtent: CGFloat = 48
+    nonisolated static let logbookRowMediaPreviewCornerRadius: CGFloat = 6
     nonisolated static let carouselThumbnailSpacing: CGFloat = 10
     nonisolated static let carouselThumbnailCornerRadius: CGFloat = 10
     /// Fixed row height so the carousel lays out inside the overview panel's vertical **`ScrollView`**.
