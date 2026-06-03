@@ -3066,6 +3066,43 @@ struct GoDiveMVPTests {
         #expect(region!.span.longitudeDelta >= 0.04)
     }
 
+    @Test func exploreCatalogMapPresentation_boundingRegion_matchesMapKitRegion() {
+        let sites = [
+            ExploreCatalogMapPresentation.PlottedSite(
+                id: UUID(),
+                siteName: "South",
+                coordinate: DiveCoordinate(latitude: 10, longitude: -70)
+            ),
+            ExploreCatalogMapPresentation.PlottedSite(
+                id: UUID(),
+                siteName: "North",
+                coordinate: DiveCoordinate(latitude: 14, longitude: -66)
+            ),
+        ]
+
+        let bounding = ExploreCatalogMapPresentation.boundingRegion(for: sites)
+        let mapKitRegion = ExploreCatalogMapPresentation.region(for: sites)
+
+        #expect(bounding != nil)
+        #expect(mapKitRegion != nil)
+        #expect(abs(bounding!.centerLatitude - mapKitRegion!.center.latitude) < 0.000_001)
+        #expect(abs(bounding!.centerLongitude - mapKitRegion!.center.longitude) < 0.000_001)
+        #expect(abs(bounding!.latitudeDelta - mapKitRegion!.span.latitudeDelta) < 0.000_001)
+        #expect(abs(bounding!.longitudeDelta - mapKitRegion!.span.longitudeDelta) < 0.000_001)
+    }
+
+    @Test func goDiveMapEngine_defaultsToMapKit_withoutLaunchArgument() {
+        #expect(GoDiveMapEngine.resolved(activeLaunchArguments: []) == .mapKit)
+        #expect(GoDiveMapEngine.resolved(activeLaunchArguments: ["-GoDiveUITest"]) == .mapKit)
+    }
+
+    @Test func goDiveMapEngine_googleMapsLaunchArgument_selectsGoogleMaps() {
+        #expect(
+            GoDiveMapEngine.resolved(activeLaunchArguments: [GoDiveMapEngine.googleMapsLaunchArgument])
+                == .googleMaps
+        )
+    }
+
     @Test func mapAnnotationPinAnchor_pinOnly_usesZeroOffset() {
         #expect(MapAnnotationPinAnchor.pinOnlyCenterOffset == .zero)
     }

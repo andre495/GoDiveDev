@@ -11,6 +11,10 @@ import UIKit
 
 @main
 struct GoDiveMVPApp: App {
+    #if canImport(UIKit)
+    @UIApplicationDelegateAdaptor(GoDiveGoogleMapsAppDelegate.self) private var googleMapsAppDelegate
+    #endif
+
     @State private var accountSession = AccountSession.shared
     @State private var productionContainer: ModelContainer?
 

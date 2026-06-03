@@ -1054,3 +1054,13 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Launch branding** — fixed **dark** system launch screen + matching **`AppLaunchOverlay`** (**`AppLaunchLayout`**).
 
 ## 67 - Next batch
+
+**Summary:** **`experiment/google-maps`** branch — Google Maps SDK SPM + Explore map spike behind **`GoDiveMapEngine`**.
+
+- Branch **`experiment/google-maps`** from **`main`**.
+- **SPM:** **`googlemaps/ios-maps-sdk`** (**`GoogleMaps`** product) on the app target.
+- **`GoDiveMapEngine`** — default **MapKit**; launch arg **`-GoDiveMapEngineGoogle`** opts into Google Maps.
+- **`GoogleMapsBootstrap`** + **`GoDiveGoogleMapsAppDelegate`** — **`GMSServices.provideAPIKey`** from gitignored **`Config/GoogleMapsSecrets.plist`** (see **`GoogleMapsSecrets.example.plist`**).
+- **`ExploreCatalogGoogleMapRepresentable`** — satellite **`GMSMapView`** with red markers; **`ExploreCatalogMapView`** switches when engine + API key are set.
+- **`ExploreCatalogMapPresentation.boundingRegion`** — vendor-neutral camera bounds shared with MapKit **`region(for:)`**.
+- Tests: **`goDiveMapEngine_*`**, **`exploreCatalogMapPresentation_boundingRegion_matchesMapKitRegion`**.

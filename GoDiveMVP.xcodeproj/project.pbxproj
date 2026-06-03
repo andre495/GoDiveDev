@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		AEFDAC522F7DD34800587D52 /* FITSwiftSDK in Frameworks */ = {isa = PBXBuildFile; productRef = AEFDAC512F7DD34800587D52 /* FITSwiftSDK */; };
+		B0FDAC622F8EE45900698E65 /* GoogleMaps in Frameworks */ = {isa = PBXBuildFile; productRef = B0FDAC612F8EE45900698E64 /* GoogleMaps */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,6 +58,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AEFDAC522F7DD34800587D52 /* FITSwiftSDK in Frameworks */,
+				B0FDAC622F8EE45900698E65 /* GoogleMaps in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -118,6 +120,7 @@
 			name = GoDiveMVP;
 			packageProductDependencies = (
 				AEFDAC512F7DD34800587D52 /* FITSwiftSDK */,
+				B0FDAC612F8EE45900698E64 /* GoogleMaps */,
 			);
 			productName = GoDiveMVP;
 			productReference = AEFDAC0C2F7DD34500587D52 /* GoDiveMVP.app */;
@@ -203,6 +206,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				AEFDAC502F7DD34800587D52 /* XCRemoteSwiftPackageReference "fit-swift-sdk" */,
+				B0FDAC602F8EE45900698E63 /* XCRemoteSwiftPackageReference "ios-maps-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AEFDAC0D2F7DD34500587D52 /* Products */;
@@ -605,6 +609,14 @@
 				minimumVersion = 21.202.0;
 			};
 		};
+		B0FDAC602F8EE45900698E63 /* XCRemoteSwiftPackageReference "ios-maps-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googlemaps/ios-maps-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 10.14.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -612,6 +624,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AEFDAC502F7DD34800587D52 /* XCRemoteSwiftPackageReference "fit-swift-sdk" */;
 			productName = FITSwiftSDK;
+		};
+		B0FDAC612F8EE45900698E64 /* GoogleMaps */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B0FDAC602F8EE45900698E63 /* XCRemoteSwiftPackageReference "ios-maps-sdk" */;
+			productName = GoogleMaps;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

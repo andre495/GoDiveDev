@@ -19,7 +19,7 @@ enum ExploreCatalogMapPresentation: Sendable {
     }
 
     /// Region that fits all plotted sites with padding; **`nil`** when empty (use default world view).
-    nonisolated static func region(for sites: [PlottedSite]) -> MKCoordinateRegion? {
+    nonisolated static func boundingRegion(for sites: [PlottedSite]) -> DiveLocationMapRegionSpec? {
         guard let first = sites.first else { return nil }
         guard sites.count == 1 else {
             var minLat = first.coordinate.latitude
@@ -32,26 +32,24 @@ enum ExploreCatalogMapPresentation: Sendable {
                 minLon = min(minLon, site.coordinate.longitude)
                 maxLon = max(maxLon, site.coordinate.longitude)
             }
-            let center = CLLocationCoordinate2D(
-                latitude: (minLat + maxLat) / 2,
-                longitude: (minLon + maxLon) / 2
-            )
             let latDelta = max((maxLat - minLat) * 1.35, 0.04)
             let lonDelta = max((maxLon - minLon) * 1.35, 0.04)
-            return MKCoordinateRegion(
-                center: center,
-                span: MKCoordinateSpan(latitudeDelta: latDelta, longitudeDelta: lonDelta)
+            return DiveLocationMapRegionSpec(
+                centerLatitude: (minLat + maxLat) / 2,
+                centerLongitude: (minLon + maxLon) / 2,
+                latitudeDelta: latDelta,
+                longitudeDelta: lonDelta
             )
         }
-        return MKCoordinateRegion(
-            center: CLLocationCoordinate2D(
-                latitude: first.coordinate.latitude,
-                longitude: first.coordinate.longitude
-            ),
-            span: MKCoordinateSpan(
-                latitudeDelta: DiveLocationMapPresentation.diveSiteLatitudeDelta,
-                longitudeDelta: DiveLocationMapPresentation.diveSiteLongitudeDelta
-            )
+        return DiveLocationMapRegionSpec(
+            centerLatitude: first.coordinate.latitude,
+            centerLongitude: first.coordinate.longitude,
+            latitudeDelta: DiveLocationMapPresentation.diveSiteLatitudeDelta,
+            longitudeDelta: DiveLocationMapPresentation.diveSiteLongitudeDelta
         )
+    }
+
+    nonisolated static func region(for sites: [PlottedSite]) -> MKCoordinateRegion? {
+        boundingRegion(for: sites)?.mkCoordinateRegion
     }
 }
