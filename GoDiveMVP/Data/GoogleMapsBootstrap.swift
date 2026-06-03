@@ -5,9 +5,11 @@ import GoogleMaps
 
 /// Configures the Google Maps SDK when **`GoDiveMapEngine.active`** is **`.googleMaps`**.
 enum GoogleMapsBootstrap {
-    private static let secretsPlistName = "GoogleMapsSecrets"
-    private static let secretsAPIKey = "APIKey"
-    private static let infoPlistAPIKey = "GoogleMapsAPIKey"
+    nonisolated private static let secretsPlistName = "GoogleMapsSecrets"
+    nonisolated private static let secretsAPIKey = "APIKey"
+    nonisolated private static let secretsMapIDKey = "MapID"
+    nonisolated private static let infoPlistAPIKey = "GoogleMapsAPIKey"
+    nonisolated private static let infoPlistMapIDKey = "GoogleMapsMapID"
 
     static var isConfigured = false
 
@@ -50,6 +52,28 @@ enum GoogleMapsBootstrap {
            !key.hasPrefix("YOUR_")
         {
             return key
+        }
+
+        return nil
+    }
+
+    /// Optional Cloud Console **map ID** for hybrid/satellite POI styling (see **`GoDiveMapPointOfInterestSuppression`**).
+    nonisolated static func loadMapID() -> String? {
+        if let url = Bundle.main.url(forResource: secretsPlistName, withExtension: "plist"),
+           let data = try? Data(contentsOf: url),
+           let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+           let mapID = plist[secretsMapIDKey] as? String,
+           !mapID.isEmpty,
+           !mapID.hasPrefix("YOUR_")
+        {
+            return mapID
+        }
+
+        if let mapID = Bundle.main.object(forInfoDictionaryKey: infoPlistMapIDKey) as? String,
+           !mapID.isEmpty,
+           !mapID.hasPrefix("YOUR_")
+        {
+            return mapID
         }
 
         return nil

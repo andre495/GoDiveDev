@@ -49,4 +49,17 @@ enum DiveSiteCoordinatePickerPresentation: Sendable {
             formattedLongitude(coordinate.longitude)
         )
     }
+
+    /// Approximate ground distance (m) visible across **`pickerLatitudeDelta`** — used for Google Maps zoom.
+    nonisolated static var pickerRegionViewingDistanceMeters: CLLocationDistance {
+        Double(pickerLatitudeDelta) * 111_320
+    }
+
+    /// Google Maps zoom level matching MapKit **`region(for:)`** span at **`center`** latitude.
+    nonisolated static func approximateZoomLevel(for center: DiveCoordinate) -> Float {
+        DiveLocationMapGoogleCameraPresentation.approximateZoomLevel(
+            atLatitude: center.latitude,
+            viewingDistanceMeters: pickerRegionViewingDistanceMeters
+        )
+    }
 }

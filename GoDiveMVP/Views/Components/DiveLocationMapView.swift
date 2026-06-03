@@ -1,7 +1,7 @@
 import MapKit
 import SwiftUI
 
-/// MapKit map for a single dive: pin at **`coordinate`** when present, otherwise a default world region.
+/// Map layer for a single dive: MapKit by default; Google Maps when **`GoDiveMapEngine`** + API key are set.
 struct DiveLocationMapView: View {
     let coordinate: DiveCoordinate?
     /// Height from the **bottom** of **`layoutHeight`** covered by the sheet + home indicator (**points**).
@@ -29,14 +29,25 @@ struct DiveLocationMapView: View {
     @ViewBuilder
     private var liveMap: some View {
         #if canImport(UIKit)
-        DiveLocationMapRepresentable(
-            coordinate: coordinate,
-            bottomContentMargin: bottomContentMargin,
-            topObstructionHeight: topObstructionHeight,
-            layoutHeight: layoutHeight,
-            cameraLayoutDetent: cameraLayoutDetent,
-            isUserInteractionEnabled: isUserInteractionEnabled
-        )
+        if GoDiveMapEngine.active == .googleMaps, GoogleMapsBootstrap.loadAPIKey() != nil {
+            DiveLocationGoogleMapRepresentable(
+                coordinate: coordinate,
+                bottomContentMargin: bottomContentMargin,
+                topObstructionHeight: topObstructionHeight,
+                layoutHeight: layoutHeight,
+                cameraLayoutDetent: cameraLayoutDetent,
+                isUserInteractionEnabled: isUserInteractionEnabled
+            )
+        } else {
+            DiveLocationMapRepresentable(
+                coordinate: coordinate,
+                bottomContentMargin: bottomContentMargin,
+                topObstructionHeight: topObstructionHeight,
+                layoutHeight: layoutHeight,
+                cameraLayoutDetent: cameraLayoutDetent,
+                isUserInteractionEnabled: isUserInteractionEnabled
+            )
+        }
         #else
         Color.clear
         #endif

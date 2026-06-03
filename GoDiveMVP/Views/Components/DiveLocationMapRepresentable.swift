@@ -24,6 +24,7 @@ struct DiveLocationMapRepresentable: UIViewRepresentable {
         mapView.isRotateEnabled = false
         mapView.isPitchEnabled = false
         mapView.showsCompass = false
+        GoDiveMapPointOfInterestSuppression.applyToMapKit(mapView)
         mapView.delegate = context.coordinator
         return mapView
     }

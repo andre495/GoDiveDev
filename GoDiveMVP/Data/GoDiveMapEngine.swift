@@ -5,7 +5,7 @@ enum GoDiveMapEngine: String, Equatable, Sendable {
     case mapKit
     case googleMaps
 
-    static let googleMapsLaunchArgument = "-GoDiveMapEngineGoogle"
+    nonisolated static let googleMapsLaunchArgument = "-GoDiveMapEngineGoogle"
 
     /// Launch argument **`-GoDiveMapEngineGoogle`** opts into Google Maps on this branch.
     static var active: GoDiveMapEngine {

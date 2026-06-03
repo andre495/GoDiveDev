@@ -64,10 +64,17 @@ struct DiveSiteCoordinatePickerMapView: View {
     private var livePicker: some View {
         ZStack {
             #if canImport(UIKit)
-            DiveSiteCoordinatePickerMapRepresentable(
-                centerCoordinate: mapCenter,
-                onCenterCoordinateChanged: applyCoordinateFromMap
-            )
+            if GoDiveMapEngine.active == .googleMaps, GoogleMapsBootstrap.loadAPIKey() != nil {
+                DiveSiteCoordinatePickerGoogleMapRepresentable(
+                    centerCoordinate: mapCenter,
+                    onCenterCoordinateChanged: applyCoordinateFromMap
+                )
+            } else {
+                DiveSiteCoordinatePickerMapRepresentable(
+                    centerCoordinate: mapCenter,
+                    onCenterCoordinateChanged: applyCoordinateFromMap
+                )
+            }
             #else
             Color.clear
             #endif
