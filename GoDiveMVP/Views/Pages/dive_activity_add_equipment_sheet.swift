@@ -66,11 +66,9 @@ private struct DiveActivityAddEquipmentSheetRow: View {
                     .foregroundStyle(AppTheme.Colors.textPrimary)
                     .lineLimit(2)
 
-                if !item.type.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text(item.type)
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.Colors.secondaryText)
-                }
+                Text(EquipmentItemPresentation.gearTypeLabel(for: item))
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
             }
 
             Spacer(minLength: 0)

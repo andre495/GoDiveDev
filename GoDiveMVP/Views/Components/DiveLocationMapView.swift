@@ -1,7 +1,7 @@
 import MapKit
 import SwiftUI
 
-/// Map layer for a single dive: MapKit by default; Google Maps when **`GoDiveMapEngine`** + API key are set.
+/// Map layer for a single dive: MapKit by default; Google Maps when **`GoogleMapsSecrets.plist`** (or launch arg) selects Google.
 struct DiveLocationMapView: View {
     let coordinate: DiveCoordinate?
     /// Height from the **bottom** of **`layoutHeight`** covered by the sheet + home indicator (**points**).

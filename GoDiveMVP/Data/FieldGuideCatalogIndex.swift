@@ -3,12 +3,22 @@ import Foundation
 /// Species counts and lookups for the field guide browse hierarchy.
 enum FieldGuideCatalogIndex {
 
-    struct CategorySummary: Sendable, Identifiable, Equatable {
+    struct CategorySummary: Sendable, Identifiable, Equatable, Hashable {
         var id: String { categoryID }
         let categoryID: String
         let speciesCount: Int
         let subcategoryCounts: [String: Int]
     }
+
+    /// Precomputed species rows for a subcategory mosaic — carried in navigation so push does not re-filter the catalog.
+    struct SubcategoryBrowsePayload: Sendable, Equatable, Hashable {
+        let categoryID: String
+        let subcategoryID: String
+        let title: String
+        let species: [MarineLifeCatalogSnapshot]
+    }
+
+    typealias SubcategorySpeciesIndex = [String: [String: [MarineLifeCatalogSnapshot]]]
 
     nonisolated static func summaries(for catalog: [MarineLifeCatalogSnapshot]) -> [CategorySummary] {
         var subCounts: [String: [String: Int]] = [:]
@@ -28,6 +38,51 @@ enum FieldGuideCatalogIndex {
                 subcategoryCounts: subCounts[definition.id, default: [:]]
             )
         }
+    }
+
+    nonisolated static func subcategorySpeciesIndex(
+        for catalog: [MarineLifeCatalogSnapshot]
+    ) -> SubcategorySpeciesIndex {
+        var buckets: SubcategorySpeciesIndex = [:]
+
+        for entry in catalog {
+            let categoryID = FieldGuideTaxonomy.resolvedCategoryID(for: entry)
+            let subcategoryID = FieldGuideTaxonomy.resolvedSubcategoryID(for: entry)
+            buckets[categoryID, default: [:]][subcategoryID, default: []].append(entry)
+        }
+
+        for categoryID in buckets.keys {
+            guard var subcategoryBuckets = buckets[categoryID] else { continue }
+            for subcategoryID in subcategoryBuckets.keys {
+                subcategoryBuckets[subcategoryID]?.sort {
+                    $0.commonName.localizedCaseInsensitiveCompare($1.commonName) == .orderedAscending
+                }
+            }
+            buckets[categoryID] = subcategoryBuckets
+        }
+
+        return buckets
+    }
+
+    nonisolated static func browsePayload(
+        categoryID: String,
+        subcategoryID: String,
+        speciesIndex: SubcategorySpeciesIndex
+    ) -> SubcategoryBrowsePayload {
+        let normalizedCategoryID = FieldGuideTaxonomy.normalizedCategoryID(categoryID)
+        let normalizedSubcategoryID = FieldGuideTaxonomy.normalizedSubcategoryID(subcategoryID)
+        let species = speciesIndex[normalizedCategoryID]?[normalizedSubcategoryID] ?? []
+        let title = FieldGuideTaxonomy.subcategory(
+            categoryID: categoryID,
+            subcategoryID: subcategoryID
+        )?.title ?? "Species"
+
+        return SubcategoryBrowsePayload(
+            categoryID: normalizedCategoryID,
+            subcategoryID: normalizedSubcategoryID,
+            title: title,
+            species: species
+        )
     }
 
     nonisolated static func species(

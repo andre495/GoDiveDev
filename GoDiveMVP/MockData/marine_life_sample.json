@@ -31,9 +31,27 @@
     "diver_reaction": "Wary, tend to keep their distance."
   },
   {
+    "uuid": "marine-life-gray-angelfish",
+    "common_name": "Gray Angelfish",
+    "scientific_name": "Pomacanthus arcuatus",
+    "category": "fish",
+    "subcategory": "disk-and-large-oval",
+    "family_name": "Angelfishes",
+    "description": "Large gray disk-shaped angelfish with a steep forehead and flowing dorsal and anal fins. Adults look mostly gray underwater with bright yellow pectoral fins and a yellow edge on the tail — easy to spot gliding along outer reef slopes.",
+    "min_size": 0.25,
+    "max_size": 0.55,
+    "min_depth": 3,
+    "max_depth": 30,
+    "avg_depth": 16,
+    "distinctive_features": "Gray body, yellow pectoral fins and tail margin; disk profile like French angelfish.",
+    "abundance": "Common on Caribbean and Florida reef slopes.",
+    "habitat_behavior": "Often seen alone or in pairs over sponge and coral on mid-depth reefs.",
+    "diver_reaction": "Usually keeps a polite distance; slow approaches work best for photos."
+  },
+  {
     "uuid": "marine-life-french-angelfish",
     "common_name": "French Angelfish",
-    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Pomacanthus_paru.jpg/320px-Pomacanthus_paru.jpg",
+    "feature_model": "FrenchAngelfish",
     "scientific_name": "Pomacanthus paru",
     "category": "fish",
     "subcategory": "disk-and-large-oval",

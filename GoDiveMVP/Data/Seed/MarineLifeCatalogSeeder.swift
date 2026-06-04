@@ -39,6 +39,7 @@ enum MarineLifeCatalogSeeder {
   private static func applyCatalogFields(from source: MarineLife, to destination: MarineLife) {
     destination.commonName = source.commonName
     destination.featureImageURL = source.featureImageURL
+    destination.featureModelResourceName = source.featureModelResourceName
     destination.scientificName = source.scientificName
     destination.category = source.category
     destination.subcategory = source.subcategory

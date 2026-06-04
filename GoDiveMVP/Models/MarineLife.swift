@@ -13,6 +13,8 @@ final class MarineLife {
     var commonName: String
     /// Remote or bundled image URL for list / detail hero.
     var featureImageURL: String
+    /// Bundled USDZ resource name (no extension) for RealityKit detail hero; empty uses photo / placeholder.
+    var featureModelResourceName: String = ""
     var scientificName: String
     var category: String
     /// Taxonomy slug or display label (e.g. `sharks-and-rays`, `Disk and Large Oval`).
@@ -44,6 +46,7 @@ final class MarineLife {
         uuid: String,
         commonName: String,
         featureImageURL: String = "",
+        featureModelResourceName: String = "",
         scientificName: String = "",
         category: String = "",
         subcategory: String = "",
@@ -62,6 +65,7 @@ final class MarineLife {
         self.uuid = uuid
         self.commonName = commonName
         self.featureImageURL = featureImageURL
+        self.featureModelResourceName = featureModelResourceName
         self.scientificName = scientificName
         self.category = category
         self.subcategory = subcategory
@@ -88,6 +92,7 @@ extension MarineLife {
             category: category,
             subcategory: subcategory,
             featureImageURL: featureImageURL,
+            featureModelResourceName: featureModelResourceName,
             minSizeMeters: minSizeMeters,
             maxSizeMeters: maxSizeMeters,
             avgDepthMeters: avgDepthMeters,

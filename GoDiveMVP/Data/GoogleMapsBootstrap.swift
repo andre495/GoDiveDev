@@ -13,6 +13,13 @@ enum GoogleMapsBootstrap {
 
     static var isConfigured = false
 
+    /// Whether a hidden **`GMSMapView`** warm-up should run after launch (Explore first paint).
+    nonisolated static var shouldWarmUpAtLaunch: Bool {
+        guard !GoDiveUITestConfiguration.isActive else { return false }
+        guard GoDiveMapEngine.active == .googleMaps else { return false }
+        return loadAPIKey() != nil
+    }
+
     static func configureIfNeeded() {
         guard GoDiveMapEngine.active == .googleMaps else { return }
         guard !isConfigured else { return }

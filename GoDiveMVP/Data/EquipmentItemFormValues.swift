@@ -4,7 +4,7 @@ import Foundation
 struct EquipmentItemFormValues: Equatable, Sendable {
     var manufacturer: String = ""
     var model: String = ""
-    var type: String = ""
+    var gearType: EquipmentGearType = .other
     var isRetired: Bool = false
     var autoAdd: Bool = false
 
@@ -46,7 +46,10 @@ struct EquipmentItemFormValues: Equatable, Sendable {
     init(from item: EquipmentItem) {
         manufacturer = item.manufacturer
         model = item.model
-        type = item.type
+        gearType = EquipmentGearType.resolved(
+            storedGearType: item.gearType,
+            legacyType: item.type
+        )
         isRetired = item.isRetired
         autoAdd = item.autoAdd
 
@@ -104,7 +107,8 @@ struct EquipmentItemFormValues: Equatable, Sendable {
 
         item.manufacturer = manufacturer.trimmingCharacters(in: .whitespacesAndNewlines)
         item.model = model.trimmingCharacters(in: .whitespacesAndNewlines)
-        item.type = type.trimmingCharacters(in: .whitespacesAndNewlines)
+        item.gearType = gearType.rawValue
+        item.type = gearType.displayName
         item.isRetired = isRetired
         item.autoAdd = autoAdd
         item.purchaseDate = includesPurchaseDate ? purchaseDate : nil
@@ -138,7 +142,8 @@ struct EquipmentItemFormValues: Equatable, Sendable {
         return EquipmentItem(
             manufacturer: manufacturer.trimmingCharacters(in: .whitespacesAndNewlines),
             model: model.trimmingCharacters(in: .whitespacesAndNewlines),
-            type: type.trimmingCharacters(in: .whitespacesAndNewlines),
+            type: gearType.displayName,
+            gearType: gearType.rawValue,
             isRetired: isRetired,
             autoAdd: autoAdd,
             purchaseDate: includesPurchaseDate ? purchaseDate : nil,

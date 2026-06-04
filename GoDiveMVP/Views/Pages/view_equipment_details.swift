@@ -62,7 +62,10 @@ struct ViewEquipmentDetails: View {
         detailSection(title: "Equipment") {
             detailRow(label: "Manufacturer", value: EquipmentItemPresentation.displayString(item.manufacturer))
             detailRow(label: "Model", value: EquipmentItemPresentation.displayString(item.model))
-            detailRow(label: "Type", value: EquipmentItemPresentation.displayString(item.type))
+            detailRow(
+                label: "Gear type",
+                value: EquipmentItemPresentation.gearTypeLabel(for: item)
+            )
         }
     }
 

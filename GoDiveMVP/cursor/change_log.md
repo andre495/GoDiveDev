@@ -1074,5 +1074,39 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Site coordinate picker Google map:** **`DiveSiteCoordinatePickerGoogleMapRepresentable`** — hybrid inlay, drag-to-set lat/lon under fixed center pin; **`DiveSiteCoordinatePickerMapView`** switches with **`GoDiveMapEngine`**.
 - Tests: **`diveLocationMapGoogleCameraPresentation_*`**, **`diveSiteCoordinatePickerPresentation_approximateZoomLevel_*`**, **`goDiveMapPointOfInterestSuppression_googleStyleJSON_parses`**.
 
-## 68 - Next batch
+## 68 - Welcome flow, Field Guide 3D hero, nav perf, equipment locker **(pushed)**
 
+**Summary:** First-login welcome screen before Contacts + Photos permission prompts.
+
+- **`NewAccountWelcomeView`** — **`AppPage`** with **GoDive** **`AppHeader`**, welcome copy, Contacts + Photos explainer, bottom **Continue**.
+- **`AppNewAccountWelcomePresentation`** — copy + **`shouldPresentWelcome(forNewAccount:)`** (skipped under UI tests).
+- **`AccountSession.showsNewAccountWelcome`** — set on brand-new Sign in with Apple; **`completeNewAccountWelcome()`** runs **`AppOnboardingPermissions`**.
+- **`AppSessionRootView`** — welcome gates **`ContentView`** until Continue.
+- **`NewAccountWelcomeView`** layout — Home-style **`GeometryReader`** + overlaid **`AppHeader`**; full-bleed gradient; permissions card fills space above Continue.
+- Tests: **`appNewAccountWelcomePresentation_*`**, **`accountSession_completeNewAccountWelcome_*`**.
+- **Equipment locker avatar hero:** replaced PNG with **simple line outline** (programmatic, transparent); no wireframe mesh fill.
+- **Equipment locker avatar hero (fix):** **`EquipmentLockerAvatarHero.png`** now uses the smooth continuous white outline (green keyed to alpha); removed prior angular stick-figure art. Layout constants no longer stretch the figure artificially.
+- **Equipment locker hero polish:** removed perspective/background grid overlay; thickened outline in **`EquipmentLockerAvatarHero.png`**; dropped **`EquipmentLockerAvatarHeroGridOverlay.swift`** (glow tuning lives in **`EquipmentLockerDiverAvatarPresentation`**).
+- **Equipment locker hero asset:** **`EquipmentLockerAvatarHero.png`** from user green-screen art (transparent bg + thickened stroke only); hero shows asset at 1× scale with no glow/shadow.
+- **Equipment locker hero asset:** thinned outline stroke (minimal dilation from source art).
+- **Equipment locker hero layout:** figure centered in the top hero band above the gear list (removed bottom alignment + downward offset).
+- **Equipment locker gear panel:** Strava-style **`DiveActivityOverviewEmbeddedPanel`** (default **medium**, drag to **minimized** / **large**); full-bleed hero behind panel; figure **zooms in** at **minimized** via **`EquipmentLockerDiverAvatarPresentation.heroScale`** + shared **`.diveOverviewPanelDetent`** spring.
+- **Equipment locker gear panel:** opens at **minimized** (**`EquipmentLockerGearPanelPresentation.defaultDetent`**); hero stays centered in the visible band at every detent (**`heroVerticalOffset = −margin × 0.5`**) with scale + position interpolated while dragging.
+- **Equipment locker large detent:** avatar hidden (**`heroOpacity`** fades **medium → large**); **+** add control moved from **`AppHeader`** to gear sheet toolbar / minimized summary.
+- **`EquipmentGearType`** + **`EquipmentItem.gearType`:** menu picker on add/edit (**BCD**, **Mask**, **Snorkel**, **Fins**, **Wetsuit**, **Camera**, **Regulator**, **Octopus**, **Other**); legacy **`type`** text mapped on load; tests **`equipmentGearType_*`**, **`equipmentItemPresentation_gearTypeLabel_*`**.
+- **Equipment locker BCD hero overlay:** when locker owns **BCD** gear, **`EquipmentLockerBCDOverlay`** line art layers on the figure chest (separate asset + **`showsBCDOverlay`**); tests **`equipmentLockerGearOverlayPresentation_ownsBCD_*`**.
+- **Equipment locker gear overlay fill:** BCD silhouette asset filled (template) and tinted with **`AppTheme.Colors.accent`** (**`gearOverlayFillOpacity`**).
+- **Equipment locker BCD overlay art:** front-facing white-filled BCD from user reference sketch (shoulder straps, chest strap, waist belt, inflator); overlaid on hero torso.
+- Tests: **`equipmentLockerDiverAvatarPresentation_heroHeight_*`**, **`equipmentLockerDiverAvatarPresentation_heroImageName_*`**, **`equipmentLockerDiverAvatarPresentation_heroFigureScale_*`**.
+- **`GoDiveMapEngine`:** uses **Google Maps** whenever **`GoogleMapsSecrets.plist`** loads a valid API key (launch arg **`-GoDiveMapEngineGoogle`** still supported); tests **`goDiveMapEngine_googleMapsSecretsFile_*`**.
+- **Field Guide 3D hero:** **French Angelfish** bundled **`FrenchAngelfish.usdz`** (Meshy export) on **`FieldGuideMarineLifeDetailView`** via **`FieldGuideMarineLifeRealityHeroView`** (**RealityKit**, virtual camera, **`SceneEvents.Update`** spin + drag overlay); catalog **`feature_model`** + **`featureModelResourceName`**; tests **`fieldGuideMarineLifeHeroPresentation_*`**, **`marineLifeCatalogSeeder_seedsFrenchAngelfishModel`**.
+- **Field Guide pushed chrome:** **`AppHeader`** shows page **`title`** (species common name, category, subcategory) instead of **GoDive** when **`showsBrandWordmark: false`** on **`FieldGuideMarineLifeDetailView`** and catalog browse pages.
+- **Equipment locker:** list-only **`EquipmentLockerView`** (Logbook-style scroll-under header, swipe delete); removed diver hero, BCD overlay, and embedded gear panel.
+- **`GoogleMapsWarmup`:** hidden **hybrid** **`GMSMapView`** warm-up ~400 ms after launch (with **`MapKitWarmup`**) when Google Maps is active; test **`googleMapsBootstrap_shouldWarmUpAtLaunch_*`**.
+- **Field Guide category navigation perf:** hub **`CategorySummary`** cached in **`@State`** (refresh on catalog change); route carries precomputed summary (no hub lookup on push); **`WaterBubbleBackground`** removed while catalog stack is pushed; hub grid **`.equatable()`**; category hero line art **`.drawingGroup()`**; test **`fieldGuideCatalogIndex_categorySummaryIsHashable`**.
+- **Field Guide species detail:** **`FieldGuideMarineLifeDetailView`** uses **`AppHeaderlessPage`** — full-bleed hero under the status bar, **`LogbookTopChromeScrim`** + floating back chevron (no pinned title bar); natural-history / about copy above tagged media and **Activities sighted on**.
+- **Field Guide 3D hero:** French Angelfish **`fitExtent`** **0.48** (was **0.58**) and **`modelVerticalOffset`** **−0.09** so the model reads smaller and sits lower in the hero band.
+- **Field Guide subcategory navigation perf:** cached **`subcategorySpeciesIndex`** + **`SubcategoryBrowsePayload`** in route (no catalog re-filter on push); **`FieldGuideCategoryDetailView`** / **`FieldGuideSubcategorySpeciesView`** **`.equatable()`**; mosaic cards **`.equatable()`**; test **`fieldGuideCatalogIndex_subcategorySpeciesIndex_lookup`**.
+- **Field Guide species detail chrome:** back chevron via shared **`AppHeader`** (same vertical alignment as other pushed pages); test **`fieldGuideTaxonomy_fishCategoryHasDetailHeaderCopy`** expects **`FieldGuideCategoryFish`** hero asset.
+
+## 69 - Next batch

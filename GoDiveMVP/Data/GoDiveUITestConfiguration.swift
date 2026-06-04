@@ -1,11 +1,12 @@
 import Foundation
 
 /// Launch flags for **`XCUIApplication.goDiveForUITesting()`** (see **`GoDiveMVPUITests`**).
-enum GoDiveUITestConfiguration {
-    static let launchArgument = "-GoDiveUITest"
-    static let launchEnvironmentKey = "GoDiveUITest"
+enum GoDiveUITestConfiguration: Sendable {
+    nonisolated static let launchArgument = "-GoDiveUITest"
+    nonisolated static let launchEnvironmentKey = "GoDiveUITest"
 
-    static var isActive: Bool {
+    /// Readable from **`nonisolated`** presentation helpers and data-layer gates.
+    nonisolated static var isActive: Bool {
         if ProcessInfo.processInfo.arguments.contains(launchArgument) {
             return true
         }

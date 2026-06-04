@@ -16,7 +16,16 @@ struct AppSessionRootView: View {
         ZStack {
             Group {
                 if accountSession.isSignedIn {
-                    ContentView()
+                    if accountSession.showsNewAccountWelcome {
+                        NewAccountWelcomeView(
+                            displayName: accountSession.currentProfile?.displayName,
+                            onContinue: {
+                                accountSession.completeNewAccountWelcome()
+                            }
+                        )
+                    } else {
+                        ContentView()
+                    }
                 } else if !accountSession.isRestoringSession {
                     SignInView()
                 } else {
@@ -30,6 +39,7 @@ struct AppSessionRootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: showsBootstrapOverlay)
+        .animation(.easeInOut(duration: 0.2), value: accountSession.showsNewAccountWelcome)
         .task {
             await accountSession.restoreSession(modelContext: modelContext)
         }

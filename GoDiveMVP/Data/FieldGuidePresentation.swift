@@ -1,7 +1,7 @@
 import Foundation
 
 /// Value snapshot of catalog species for list formatting off the **`@Model`** type (Swift 6).
-struct MarineLifeCatalogSnapshot: Sendable, Equatable {
+struct MarineLifeCatalogSnapshot: Sendable, Equatable, Hashable {
     let uuid: String
     let commonName: String
     let scientificName: String
@@ -9,6 +9,7 @@ struct MarineLifeCatalogSnapshot: Sendable, Equatable {
     let subcategory: String
     let familyName: String
     let featureImageURL: String
+    let featureModelResourceName: String
     let minSizeMeters: Double
     let maxSizeMeters: Double
     let minDepthMeters: Double
@@ -26,6 +27,7 @@ struct MarineLifeCatalogSnapshot: Sendable, Equatable {
         category: String,
         subcategory: String,
         featureImageURL: String,
+        featureModelResourceName: String = "",
         minSizeMeters: Double,
         maxSizeMeters: Double,
         avgDepthMeters: Double,
@@ -44,6 +46,7 @@ struct MarineLifeCatalogSnapshot: Sendable, Equatable {
         self.subcategory = subcategory
         self.familyName = familyName
         self.featureImageURL = featureImageURL
+        self.featureModelResourceName = featureModelResourceName
         self.minSizeMeters = minSizeMeters
         self.maxSizeMeters = maxSizeMeters
         self.minDepthMeters = minDepthMeters

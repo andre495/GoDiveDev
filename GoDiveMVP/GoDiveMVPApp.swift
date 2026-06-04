@@ -61,7 +61,7 @@ private struct ProductionAppRoot: View {
             }
             .task {
                 AppLaunchMaintenance.runInBackground(container: container)
-                await scheduleDeferredMapKitWarmup()
+                await scheduleDeferredMapWarmup()
             }
             #if DEBUG
             .task {
@@ -72,11 +72,13 @@ private struct ProductionAppRoot: View {
             #endif
     }
 
-    private func scheduleDeferredMapKitWarmup() async {
-        guard MapKitWarmup.shouldWarmUp else { return }
+    private func scheduleDeferredMapWarmup() async {
         try? await Task.sleep(for: .milliseconds(400))
         await MainActor.run {
             MapKitWarmup.warmUpIfNeeded()
+            #if canImport(GoogleMaps)
+            GoogleMapsWarmup.warmUpIfNeeded()
+            #endif
         }
     }
 

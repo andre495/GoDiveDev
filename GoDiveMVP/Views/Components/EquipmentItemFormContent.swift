@@ -89,9 +89,13 @@ struct EquipmentItemFormContent: View {
                 .textInputAutocapitalization(.words)
                 .accessibilityIdentifier("EquipmentForm.Model")
 
-            TextField("Type (e.g. Regulator, BCD)", text: $form.type)
-                .textInputAutocapitalization(.words)
-                .accessibilityIdentifier("EquipmentForm.Type")
+            Picker("Gear type", selection: $form.gearType) {
+                ForEach(EquipmentGearType.allCases) { gearType in
+                    Text(gearType.displayName).tag(gearType)
+                }
+            }
+            .pickerStyle(.menu)
+            .accessibilityIdentifier("EquipmentForm.GearType")
         }
     }
 

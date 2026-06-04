@@ -42,7 +42,7 @@ struct AppHeader<TrailingContent: View>: View {
     private let appName = "GoDive"
     let title: String
     let showsBackButton: Bool
-    /// When **`false`**, the **GoDive** wordmark is hidden (e.g. Logbook **+** row) but layout matches Home so the status scrim composites identically.
+    /// When **`false`**, the **GoDive** wordmark is hidden. A non-empty **`title`** is shown centered instead (Field Guide species, category, etc.).
     let showsBrandWordmark: Bool
     let trailingContent: TrailingContent
     /// Pass **`GeometryReader.safeAreaInsets.top`** from the tab / page root so the status scrim matches the device inset.
@@ -71,15 +71,27 @@ struct AppHeader<TrailingContent: View>: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            Text(appName)
-                .font(AppTheme.Typography.headerBrandTitle)
-                .fontWeight(.bold)
-                .foregroundStyle(AppTheme.Colors.headerTitleForegroundGradient)
-                .lineLimit(1)
-                .minimumScaleFactor(0.82)
-                .allowsTightening(true)
-                .opacity(showsBrandWordmark ? 1 : 0)
-                .accessibilityHidden(!showsBrandWordmark)
+            Group {
+                if showsBrandWordmark {
+                    Text(appName)
+                        .font(AppTheme.Typography.headerBrandTitle)
+                        .fontWeight(.bold)
+                        .foregroundStyle(AppTheme.Colors.headerTitleForegroundGradient)
+                } else if !title.isEmpty {
+                    Text(title)
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(AppTheme.Colors.textPrimary)
+                } else {
+                    Color.clear
+                }
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.82)
+            .allowsTightening(true)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .accessibilityLabel(showsBrandWordmark ? appName : title)
+            .accessibilityHidden(!showsBrandWordmark && title.isEmpty)
 
             HStack(spacing: AppTheme.Spacing.sm) {
                 trailingContent

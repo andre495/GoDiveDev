@@ -1,0 +1,113 @@
+import Foundation
+
+/// Bundled RealityKit hero configuration for a catalog species detail page.
+struct FieldGuideMarineLifeHeroSceneConfiguration: Equatable, Sendable {
+    /// USDZ resource name in the app bundle (no extension).
+    let modelResourceName: String
+    /// Longest axis of the model is scaled to this many scene units after load.
+    let fitExtent: Float
+    /// Nudge toward the virtual camera after centering (negative = closer).
+    let modelForwardOffset: Float
+    /// Nudge down (+Y up in scene space; negative lowers the model on screen).
+    let modelVerticalOffset: Float
+    /// Starting yaw (radians) applied before drag / auto-rotate.
+    let initialYawRadians: Float
+    /// Idle spin speed; **`0`** disables auto-rotation.
+    let autoRotateSpeedRadiansPerSecond: Float
+    /// Auto-spin stays off this long after the user finishes a drag.
+    let autoSpinPauseAfterDragSeconds: TimeInterval
+    /// When **`true`**, horizontal drag orbits the model on the Y axis.
+    let allowsDragRotation: Bool
+
+    nonisolated static let frenchAngelfish = FieldGuideMarineLifeHeroSceneConfiguration(
+        modelResourceName: "FrenchAngelfish",
+        fitExtent: 0.48,
+        modelForwardOffset: -0.08,
+        modelVerticalOffset: -0.09,
+        initialYawRadians: -.pi / 5,
+        autoRotateSpeedRadiansPerSecond: 0.225,
+        autoSpinPauseAfterDragSeconds: 15,
+        allowsDragRotation: true
+    )
+}
+
+/// Resolves species detail hero content (3D model, remote image, or placeholder).
+enum FieldGuideMarineLifeHeroPresentation {
+
+    enum HeroKind: Equatable, Sendable {
+        case model3D(FieldGuideMarineLifeHeroSceneConfiguration)
+        case remoteImage(URL)
+        case placeholder
+    }
+
+    nonisolated static func heroKind(
+        featureModelResourceName: String,
+        featureImageURL: String
+    ) -> HeroKind {
+        let modelName = featureModelResourceName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !modelName.isEmpty {
+            return .model3D(sceneConfiguration(forModelResourceName: modelName))
+        }
+
+        let imageURLString = featureImageURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let url = URL(string: imageURLString), !imageURLString.isEmpty {
+            return .remoteImage(url)
+        }
+
+        return .placeholder
+    }
+
+    nonisolated static func sceneConfiguration(
+        forModelResourceName resourceName: String
+    ) -> FieldGuideMarineLifeHeroSceneConfiguration {
+        switch resourceName {
+        case FieldGuideMarineLifeHeroSceneConfiguration.frenchAngelfish.modelResourceName:
+            return .frenchAngelfish
+        default:
+            return FieldGuideMarineLifeHeroSceneConfiguration(
+                modelResourceName: resourceName,
+                fitExtent: 0.48,
+                modelForwardOffset: -0.08,
+                modelVerticalOffset: -0.09,
+                initialYawRadians: 0,
+                autoRotateSpeedRadiansPerSecond: 0.225,
+                autoSpinPauseAfterDragSeconds: 15,
+                allowsDragRotation: true
+            )
+        }
+    }
+
+    /// Resolves a bundled USDZ under **`Resources/MarineLife3D/`** or the app bundle root.
+    nonisolated static func bundledModelURL(
+        resourceName: String,
+        bundle: Bundle = .main
+    ) -> URL? {
+        let subdirectories = [
+            "Resources/MarineLife3D",
+            "MarineLife3D",
+            nil as String?,
+        ]
+        for subdirectory in subdirectories {
+            if let url = bundle.url(
+                forResource: resourceName,
+                withExtension: "usdz",
+                subdirectory: subdirectory
+            ) {
+                return url
+            }
+        }
+        return nil
+    }
+
+    nonisolated static func shouldAdvanceAutoSpin(
+        autoRotateSpeedRadiansPerSecond: Float,
+        isDragging: Bool,
+        autoSpinPausedUntil: Date?,
+        now: Date
+    ) -> Bool {
+        guard autoRotateSpeedRadiansPerSecond != 0 else { return false }
+        if isDragging { return false }
+        if let autoSpinPausedUntil, now < autoSpinPausedUntil { return false }
+        return true
+    }
+}

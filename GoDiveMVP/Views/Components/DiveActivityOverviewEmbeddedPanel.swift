@@ -10,6 +10,8 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
     var collapsedSummaryExpandsOnTap: Bool = true
     var showsPanelContentWhenMinimized: Bool = false
     var disablesPanelScrollWhenMinimized: Bool = false
+    /// Optional sink for the panel’s live height fraction (resting detent or grabber drag).
+    var liveHeightFraction: Binding<CGFloat>? = nil
 
     @State private var grabberDragTranslation: CGFloat = 0
 
@@ -68,6 +70,17 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
         .animation(isDragging ? nil : .diveOverviewPanelDetent, value: panelHeight)
         .diveActivityOverviewEmbeddedPanelChrome()
         .accessibilityIdentifier("DiveActivity.OverviewEmbeddedPanel")
+        .onAppear(perform: publishLiveHeightFraction)
+        .onChange(of: selectedDetent) { _, _ in
+            publishLiveHeightFraction()
+        }
+        .onChange(of: grabberDragTranslation) { _, _ in
+            publishLiveHeightFraction()
+        }
+    }
+
+    private func publishLiveHeightFraction() {
+        liveHeightFraction?.wrappedValue = contentHeightFraction
     }
 
     private var panelGrabberRow: some View {

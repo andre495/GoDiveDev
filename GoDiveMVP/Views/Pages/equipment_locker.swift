@@ -35,18 +35,21 @@ struct EquipmentLockerView: View {
             AppPage(
                 title: "Equipment Locker",
                 showsBackButton: true,
+                showsBrandWordmark: false,
                 scrollContentUnderHeader: true,
                 trailingContent: {
-                addEquipmentToolbarButton
-            }, content: {
-                if ownedEquipment.isEmpty {
-                    AppScrollUnderHeaderEmptyState {
-                        emptyLockerState
+                    addEquipmentToolbarButton
+                },
+                content: {
+                    if ownedEquipment.isEmpty {
+                        AppScrollUnderHeaderEmptyState {
+                            emptyLockerState
+                        }
+                    } else {
+                        equipmentList
                     }
-                } else {
-                    equipmentList
                 }
-            })
+            )
 
             if equipmentPendingDeletion != nil {
                 deleteFlowOverlay
@@ -221,11 +224,9 @@ private struct EquipmentLockerRowView: View {
                     .foregroundStyle(AppTheme.Colors.textPrimary)
                     .lineLimit(2)
 
-                if !item.type.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text(item.type)
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.Colors.secondaryText)
-                }
+                Text(EquipmentItemPresentation.gearTypeLabel(for: item))
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
 
                 if item.isRetired {
                     Text("Retired")

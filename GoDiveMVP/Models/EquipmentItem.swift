@@ -11,8 +11,10 @@ final class EquipmentItem {
 
     var manufacturer: String
     var model: String
-    /// Category label (e.g. **Regulator**, **BCD**, **Computer**).
+    /// Category label (e.g. **Regulator**, **BCD**) — kept in sync with **`gearType`** on save.
     var type: String
+    /// Gear category (**`EquipmentGearType`** raw value).
+    var gearType: String
 
     var isRetired: Bool
     /// When **`true`**, linked automatically to new dives via **`DiveActivityEquipmentAssociation.applyAutoAdd`**.
@@ -48,6 +50,7 @@ final class EquipmentItem {
         manufacturer: String = "",
         model: String = "",
         type: String = "",
+        gearType: String = "",
         isRetired: Bool = false,
         autoAdd: Bool = false,
         purchaseDate: Date? = nil,
@@ -66,6 +69,7 @@ final class EquipmentItem {
         self.manufacturer = manufacturer
         self.model = model
         self.type = type
+        self.gearType = gearType
         self.isRetired = isRetired
         self.autoAdd = autoAdd
         self.purchaseDate = purchaseDate

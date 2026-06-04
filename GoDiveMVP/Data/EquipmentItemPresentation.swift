@@ -11,6 +11,13 @@ enum EquipmentItemPresentation: Sendable {
         return "\(manufacturer) \(model)"
     }
 
+    static func gearTypeLabel(for item: EquipmentItem) -> String {
+        EquipmentGearType.resolved(
+            storedGearType: item.gearType,
+            legacyType: item.type
+        ).displayName
+    }
+
     static func displayString(_ value: String?) -> String {
         guard let raw = value?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
             return "—"

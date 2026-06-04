@@ -16,6 +16,7 @@ enum MarineLifeMapper {
       uuid: dto.uuid,
       commonName: dto.commonName,
       featureImageURL: dto.featureImage ?? "",
+      featureModelResourceName: dto.featureModel ?? "",
       scientificName: dto.scientificName ?? "",
       category: categoryID,
       subcategory: subcategoryID,

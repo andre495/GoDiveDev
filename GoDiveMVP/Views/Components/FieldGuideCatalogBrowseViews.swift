@@ -5,9 +5,9 @@ import UIKit
 
 // MARK: - Category hub (bento grid)
 
-struct FieldGuideCatalogHubView: View {
+struct FieldGuideCatalogHubView: View, Equatable {
     let summaries: [FieldGuideCatalogIndex.CategorySummary]
-    let onSelectCategory: (String) -> Void
+    let onSelectCategory: (FieldGuideCatalogIndex.CategorySummary) -> Void
 
     private let columns = [
         GridItem(.flexible(), spacing: AppTheme.Spacing.md),
@@ -22,7 +22,7 @@ struct FieldGuideCatalogHubView: View {
                     ForEach(summaries) { summary in
                         if let definition = FieldGuideTaxonomy.category(id: summary.categoryID) {
                             Button {
-                                onSelectCategory(summary.categoryID)
+                                onSelectCategory(summary)
                             } label: {
                                 FieldGuideCategoryHubTile(
                                     definition: definition,
@@ -54,6 +54,10 @@ struct FieldGuideCatalogHubView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, AppTheme.Spacing.sm)
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.summaries == rhs.summaries
     }
 }
 
@@ -185,7 +189,7 @@ enum FieldGuideHubTileLayout: Sendable {
 
 // MARK: - Category detail (header + subcategory list)
 
-struct FieldGuideCategoryDetailView: View {
+struct FieldGuideCategoryDetailView: View, Equatable {
     let categoryID: String
     let summary: FieldGuideCatalogIndex.CategorySummary
     let onSelectSubcategory: (String) -> Void
@@ -198,6 +202,7 @@ struct FieldGuideCategoryDetailView: View {
         AppPage(
             title: definition?.title ?? "Category",
             showsBackButton: true,
+            showsBrandWordmark: false,
             trailingContent: { EmptyView() }
         ) {
             ScrollView {
@@ -221,6 +226,10 @@ struct FieldGuideCategoryDetailView: View {
             }
         }
         .hidesBottomTabBarWhenPushed()
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.categoryID == rhs.categoryID && lhs.summary == rhs.summary
     }
 }
 
@@ -284,6 +293,7 @@ struct FieldGuideCategoryHeroImage: View {
                     opacity: 0.44,
                     padding: AppTheme.Spacing.sm
                 )
+                .drawingGroup()
             } else {
                 Image(systemName: systemImage)
                     .font(.system(size: 72, weight: .semibold))
@@ -411,24 +421,10 @@ private struct FieldGuideSubcategoryRow: View {
 
 // MARK: - Subcategory species mosaic
 
-struct FieldGuideSubcategorySpeciesView: View {
-    let categoryID: String
-    let subcategoryID: String
-    let catalog: [MarineLifeCatalogSnapshot]
+struct FieldGuideSubcategorySpeciesView: View, Equatable {
+    let payload: FieldGuideCatalogIndex.SubcategoryBrowsePayload
     let unitSystem: DiveDisplayUnitSystem
     let onSelectSpecies: (String) -> Void
-
-    private var subcategory: FieldGuideTaxonomy.Subcategory? {
-        FieldGuideTaxonomy.subcategory(categoryID: categoryID, subcategoryID: subcategoryID)
-    }
-
-    private var species: [MarineLifeCatalogSnapshot] {
-        FieldGuideCatalogIndex.species(
-            in: categoryID,
-            subcategoryID: subcategoryID,
-            catalog: catalog
-        )
-    }
 
     private let columns = [
         GridItem(.flexible(), spacing: AppTheme.Spacing.md),
@@ -437,24 +433,26 @@ struct FieldGuideSubcategorySpeciesView: View {
 
     var body: some View {
         AppPage(
-            title: subcategory?.title ?? "Species",
+            title: payload.title,
             showsBackButton: true,
+            showsBrandWordmark: false,
             trailingContent: { EmptyView() }
         ) {
             ScrollView {
-                if species.isEmpty {
+                if payload.species.isEmpty {
                     emptyState
                 } else {
                     LazyVGrid(columns: columns, spacing: AppTheme.Spacing.md) {
-                        ForEach(species, id: \.uuid) { entry in
+                        ForEach(payload.species, id: \.uuid) { entry in
                             Button {
                                 onSelectSpecies(entry.uuid)
                             } label: {
                                 FieldGuideSpeciesMosaicCard(
                                     entry: entry,
                                     unitSystem: unitSystem,
-                                    accent: FieldGuideCategoryAccent.gradientTop(categoryID)
+                                    accent: FieldGuideCategoryAccent.gradientTop(payload.categoryID)
                                 )
+                                .equatable()
                             }
                             .buttonStyle(.plain)
                             .accessibilityIdentifier("FieldGuide.Species.\(entry.uuid)")
@@ -467,9 +465,18 @@ struct FieldGuideSubcategorySpeciesView: View {
         .hidesBottomTabBarWhenPushed()
     }
 
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.payload == rhs.payload && lhs.unitSystem == rhs.unitSystem
+    }
+
     private var emptyState: some View {
         VStack(spacing: AppTheme.Spacing.md) {
-            Image(systemName: subcategory?.systemImage ?? "leaf")
+            Image(
+                systemName: FieldGuideTaxonomy.subcategory(
+                    categoryID: payload.categoryID,
+                    subcategoryID: payload.subcategoryID
+                )?.systemImage ?? "leaf"
+            )
                 .font(.largeTitle)
                 .foregroundStyle(AppTheme.Colors.tabUnselected)
             Text("No species cataloged yet")
@@ -485,10 +492,14 @@ struct FieldGuideSubcategorySpeciesView: View {
     }
 }
 
-private struct FieldGuideSpeciesMosaicCard: View {
+private struct FieldGuideSpeciesMosaicCard: View, Equatable {
     let entry: MarineLifeCatalogSnapshot
     let unitSystem: DiveDisplayUnitSystem
     let accent: Color
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.entry == rhs.entry && lhs.unitSystem == rhs.unitSystem && lhs.accent == rhs.accent
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {

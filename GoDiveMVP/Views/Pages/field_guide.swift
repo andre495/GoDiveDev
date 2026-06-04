@@ -2,8 +2,8 @@ import SwiftData
 import SwiftUI
 
 private enum FieldGuideRoute: Hashable {
-    case category(String)
-    case subcategory(categoryID: String, subcategoryID: String)
+    case category(FieldGuideCatalogIndex.CategorySummary)
+    case subcategory(FieldGuideCatalogIndex.SubcategoryBrowsePayload)
     case speciesDetail(String)
     case diveDetail(UUID)
 }
@@ -26,17 +26,37 @@ struct FieldGuideView: View {
     @FocusState private var isSpeciesSearchFocused: Bool
     @State private var fieldGuideHeaderClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
     @State private var listScrollToTopNonce = 0
+    @State private var catalogSnapshots: [MarineLifeCatalogSnapshot] = []
+    @State private var categorySummaries: [FieldGuideCatalogIndex.CategorySummary] = []
+    @State private var subcategorySpeciesIndex: FieldGuideCatalogIndex.SubcategorySpeciesIndex = [:]
 
-    private var catalogSnapshots: [MarineLifeCatalogSnapshot] {
-        catalog.map(\.fieldGuideCatalogSnapshot)
+    private var isNavigatingCatalog: Bool {
+        !path.isEmpty
     }
 
-    private var categorySummaries: [FieldGuideCatalogIndex.CategorySummary] {
-        FieldGuideCatalogIndex.summaries(for: catalogSnapshots)
+    private var resolvedCatalogSnapshots: [MarineLifeCatalogSnapshot] {
+        if catalogSnapshots.isEmpty, !catalog.isEmpty {
+            return catalog.map(\.fieldGuideCatalogSnapshot)
+        }
+        return catalogSnapshots
+    }
+
+    private var resolvedCategorySummaries: [FieldGuideCatalogIndex.CategorySummary] {
+        if categorySummaries.isEmpty, !resolvedCatalogSnapshots.isEmpty {
+            return FieldGuideCatalogIndex.summaries(for: resolvedCatalogSnapshots)
+        }
+        return categorySummaries
+    }
+
+    private var resolvedSubcategorySpeciesIndex: FieldGuideCatalogIndex.SubcategorySpeciesIndex {
+        if subcategorySpeciesIndex.isEmpty, !resolvedCatalogSnapshots.isEmpty {
+            return FieldGuideCatalogIndex.subcategorySpeciesIndex(for: resolvedCatalogSnapshots)
+        }
+        return subcategorySpeciesIndex
     }
 
     private var filteredCatalogSnapshots: [MarineLifeCatalogSnapshot] {
-        FieldGuideMarineLifeSearch.filtering(catalogSnapshots, query: speciesSearchQuery)
+        FieldGuideMarineLifeSearch.filtering(resolvedCatalogSnapshots, query: speciesSearchQuery)
     }
 
     private var listRows: [FieldGuidePresentation.MarineLifeRowDisplayData] {
@@ -101,28 +121,29 @@ struct FieldGuideView: View {
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: FieldGuideRoute.self) { route in
                 switch route {
-                case .category(let categoryID):
-                    if let summary = categorySummaries.first(where: { $0.categoryID == categoryID }) {
-                        FieldGuideCategoryDetailView(
-                            categoryID: categoryID,
-                            summary: summary,
-                            onSelectSubcategory: { subcategoryID in
-                                path.append(.subcategory(categoryID: categoryID, subcategoryID: subcategoryID))
-                            }
-                        )
-                    } else {
-                        missingCategoryPlaceholder
-                    }
-                case .subcategory(let categoryID, let subcategoryID):
+                case .category(let summary):
+                    FieldGuideCategoryDetailView(
+                        categoryID: summary.categoryID,
+                        summary: summary,
+                        onSelectSubcategory: { subcategoryID in
+                            let payload = FieldGuideCatalogIndex.browsePayload(
+                                categoryID: summary.categoryID,
+                                subcategoryID: subcategoryID,
+                                speciesIndex: resolvedSubcategorySpeciesIndex
+                            )
+                            path.append(.subcategory(payload))
+                        }
+                    )
+                    .equatable()
+                case .subcategory(let payload):
                     FieldGuideSubcategorySpeciesView(
-                        categoryID: categoryID,
-                        subcategoryID: subcategoryID,
-                        catalog: catalogSnapshots,
+                        payload: payload,
                         unitSystem: diveDisplayUnitSystem,
                         onSelectSpecies: { uuid in
                             path.append(.speciesDetail(uuid))
                         }
                     )
+                    .equatable()
                 case .speciesDetail(let marineLifeUUID):
                     if let species = catalog.first(where: { $0.uuid == marineLifeUUID }) {
                         FieldGuideMarineLifeDetailView(
@@ -158,6 +179,20 @@ struct FieldGuideView: View {
                 dismissSpeciesSearchKeyboard()
             }
         }
+        .onAppear {
+            syncCatalogCache()
+        }
+        .onChange(of: catalog.count) { _, _ in
+            syncCatalogCache()
+        }
+    }
+
+    private func syncCatalogCache() {
+        let nextSnapshots = catalog.map(\.fieldGuideCatalogSnapshot)
+        guard nextSnapshots != catalogSnapshots else { return }
+        catalogSnapshots = nextSnapshots
+        categorySummaries = FieldGuideCatalogIndex.summaries(for: nextSnapshots)
+        subcategorySpeciesIndex = FieldGuideCatalogIndex.subcategorySpeciesIndex(for: nextSnapshots)
     }
 
     private var showsTopChromeScrim: Bool {
@@ -174,7 +209,7 @@ struct FieldGuideView: View {
         switch section {
         case .fieldGuide:
             ZStack(alignment: .top) {
-                if !GoDiveUITestConfiguration.isActive {
+                if !GoDiveUITestConfiguration.isActive, !isNavigatingCatalog {
                     WaterBubbleBackground()
                 }
 
@@ -199,12 +234,6 @@ struct FieldGuideView: View {
         isSpeciesSearchFocused = false
     }
 
-    private var missingCategoryPlaceholder: some View {
-        Text("This category is not available.")
-            .foregroundStyle(AppTheme.Colors.secondaryText)
-            .padding()
-    }
-
     private var missingSpeciesPlaceholder: some View {
         Text("This species is no longer in the catalog.")
             .foregroundStyle(AppTheme.Colors.secondaryText)
@@ -225,9 +254,10 @@ struct FieldGuideView: View {
         } else if isFilteringSpecies {
             fieldGuideSearchResultsList(topInset: topInset, bottomInset: bottomInset)
         } else {
-            FieldGuideCatalogHubView(summaries: categorySummaries) { categoryID in
-                path.append(.category(categoryID))
+            FieldGuideCatalogHubView(summaries: resolvedCategorySummaries) { summary in
+                path.append(.category(summary))
             }
+            .equatable()
             .safeAreaInset(edge: .top, spacing: 0) {
                 Color.clear.frame(height: topInset)
             }

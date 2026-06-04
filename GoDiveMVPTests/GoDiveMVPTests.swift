@@ -352,6 +352,35 @@ struct GoDiveMVPTests {
         #expect(try UserProfileStore.profile(appleUserIdentifier: appleID, modelContext: context) != nil)
     }
 
+    @Test func appNewAccountWelcomePresentation_shouldPresentWelcome_onlyForNewNonUITestAccounts() {
+        #expect(AppNewAccountWelcomePresentation.shouldPresentWelcome(forNewAccount: true))
+        #expect(!AppNewAccountWelcomePresentation.shouldPresentWelcome(forNewAccount: false))
+    }
+
+    @Test func appNewAccountWelcomePresentation_welcomeTitle_usesDisplayNameWhenSet() {
+        #expect(
+            AppNewAccountWelcomePresentation.welcomeTitle(displayName: "Casey")
+                == "Welcome, Casey"
+        )
+        #expect(
+            AppNewAccountWelcomePresentation.welcomeTitle(displayName: UserProfileStore.defaultDisplayName)
+                == "Welcome to GoDive"
+        )
+        #expect(
+            AppNewAccountWelcomePresentation.welcomeTitle(displayName: nil)
+                == "Welcome to GoDive"
+        )
+    }
+
+    @Test @MainActor
+    func accountSession_completeNewAccountWelcome_isNoOpWhenNotShowingWelcome() {
+        let session = AccountSession.shared
+        session.signOut()
+        #expect(!session.showsNewAccountWelcome)
+        session.completeNewAccountWelcome()
+        #expect(!session.showsNewAccountWelcome)
+    }
+
     @Test @MainActor
     func userProfileStore_findOrCreateProfile_reusesAppleUser() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
@@ -437,6 +466,7 @@ struct GoDiveMVPTests {
             manufacturer: "Apeks",
             model: "XTX50",
             type: "Regulator",
+            gearType: EquipmentGearType.regulator.rawValue,
             isRetired: false,
             autoAdd: true,
             purchaseDate: purchase,
@@ -459,6 +489,7 @@ struct GoDiveMVPTests {
         #expect(gear.manufacturer == "Apeks")
         #expect(gear.model == "XTX50")
         #expect(gear.type == "Regulator")
+        #expect(gear.gearType == "Regulator")
         #expect(gear.autoAdd == true)
         #expect(gear.isRetired == false)
         #expect(gear.purchasedShop == "Local Dive Shop")
@@ -487,7 +518,7 @@ struct GoDiveMVPTests {
         var form = EquipmentItemFormValues()
         form.manufacturer = "  Mares  "
         form.model = "Avanti"
-        form.type = "Fins"
+        form.gearType = .fins
         form.isRetired = true
         form.autoAdd = true
         form.includesPurchaseDate = true
@@ -505,6 +536,7 @@ struct GoDiveMVPTests {
         #expect(item.manufacturer == "Mares")
         #expect(item.model == "Avanti")
         #expect(item.type == "Fins")
+        #expect(item.gearType == "Fins")
         #expect(item.isRetired == true)
         #expect(item.autoAdd == true)
         #expect(item.purchaseDate == Date(timeIntervalSince1970: 1_000))
@@ -559,7 +591,7 @@ struct GoDiveMVPTests {
         var form = EquipmentItemFormValues()
         form.manufacturer = "Scubapro"
         form.model = "MK25"
-        form.type = "Regulator"
+        form.gearType = .regulator
         form.includesRecurringService = true
         form.nextServiceDate = Date(timeIntervalSince1970: 3_000_000)
         form.recurrenceIntervalCount = 2
@@ -568,6 +600,7 @@ struct GoDiveMVPTests {
         form.apply(to: item)
         #expect(item.manufacturer == "Scubapro")
         #expect(item.model == "MK25")
+        #expect(item.gearType == "Regulator")
         #expect(item.serviceRecurrenceDays == 14)
         #expect(item.notes == "Updated")
         #expect(item.nextServiceDate == Date(timeIntervalSince1970: 3_000_000))
@@ -584,6 +617,7 @@ struct GoDiveMVPTests {
         )
         let form = EquipmentItemFormValues(from: item)
         #expect(form.manufacturer == "Mares")
+        #expect(form.gearType == .fins)
         #expect(form.includesRecurringService == true)
         #expect(form.nextServiceDate == next)
         #expect(form.recurrenceIntervalCount == 2)
@@ -622,6 +656,25 @@ struct GoDiveMVPTests {
 
     @Test func equipmentItemPresentation_formattedRecurrence_describesInterval() {
         #expect(EquipmentItemPresentation.formattedRecurrence(days: 14) == "Every 2 weeks")
+    }
+
+    @Test func equipmentGearType_allCases_includesLockerCategories() {
+        #expect(EquipmentGearType.allCases.count == 9)
+        #expect(EquipmentGearType.regulator.displayName == "Regulator")
+        #expect(EquipmentGearType.resolved(storedGearType: nil, legacyType: "bcd") == .bcd)
+        #expect(EquipmentGearType.resolved(storedGearType: "Mask", legacyType: nil) == .mask)
+    }
+
+    @Test func equipmentItemPresentation_gearTypeLabel_usesStoredOrLegacyType() {
+        let item = EquipmentItem(
+            manufacturer: "Apeks",
+            model: "XTX",
+            type: "Octopus",
+            gearType: ""
+        )
+        #expect(EquipmentItemPresentation.gearTypeLabel(for: item) == "Octopus")
+        item.gearType = EquipmentGearType.fins.rawValue
+        #expect(EquipmentItemPresentation.gearTypeLabel(for: item) == "Fins")
     }
 
     @Test func equipmentItemPresentation_divesUsedOnLabel_pluralizes() {
@@ -2039,6 +2092,87 @@ struct GoDiveMVPTests {
         #expect(species.diverReaction == "Wary, tend to keep their distance.")
     }
 
+    @Test func marineLifeMapper_mapsFeatureModelResourceName() {
+        let dto = MarineLifeDTO(
+            uuid: "marine-life-french-angelfish",
+            commonName: "French Angelfish",
+            featureModel: "FrenchAngelfish",
+            scientificName: "Pomacanthus paru"
+        )
+        let species = MarineLifeMapper.map(dto)
+        #expect(species.featureModelResourceName == "FrenchAngelfish")
+    }
+
+    @Test func fieldGuideMarineLifeHeroPresentation_prefersModelOverRemoteImage() {
+        let kind = FieldGuideMarineLifeHeroPresentation.heroKind(
+            featureModelResourceName: "FrenchAngelfish",
+            featureImageURL: "https://example.com/fish.jpg"
+        )
+        #expect(kind == .model3D(.frenchAngelfish))
+    }
+
+    @Test func fieldGuideMarineLifeHeroPresentation_remoteImageWhenNoModel() {
+        let kind = FieldGuideMarineLifeHeroPresentation.heroKind(
+            featureModelResourceName: "",
+            featureImageURL: "https://example.com/fish.jpg"
+        )
+        guard case .remoteImage(let url) = kind else {
+            Issue.record("Expected remote image hero")
+            return
+        }
+        #expect(url.absoluteString == "https://example.com/fish.jpg")
+    }
+
+    @Test func fieldGuideMarineLifeHeroPresentation_placeholderWhenEmpty() {
+        let kind = FieldGuideMarineLifeHeroPresentation.heroKind(
+            featureModelResourceName: "",
+            featureImageURL: ""
+        )
+        #expect(kind == .placeholder)
+    }
+
+    @Test func fieldGuideMarineLifeHeroPresentation_autoSpinPausesWhileDraggingAndAfterDrag() {
+        let now = Date(timeIntervalSinceReferenceDate: 1_000)
+        let pausedUntil = now.addingTimeInterval(15)
+
+        #expect(
+            !FieldGuideMarineLifeHeroPresentation.shouldAdvanceAutoSpin(
+                autoRotateSpeedRadiansPerSecond: 0.225,
+                isDragging: true,
+                autoSpinPausedUntil: nil,
+                now: now
+            )
+        )
+        #expect(
+            !FieldGuideMarineLifeHeroPresentation.shouldAdvanceAutoSpin(
+                autoRotateSpeedRadiansPerSecond: 0.225,
+                isDragging: false,
+                autoSpinPausedUntil: pausedUntil,
+                now: now
+            )
+        )
+        #expect(
+            FieldGuideMarineLifeHeroPresentation.shouldAdvanceAutoSpin(
+                autoRotateSpeedRadiansPerSecond: 0.225,
+                isDragging: false,
+                autoSpinPausedUntil: pausedUntil,
+                now: pausedUntil
+            )
+        )
+    }
+
+    @Test @MainActor func marineLifeCatalogSeeder_seedsFrenchAngelfishModel() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+        let french = try context.fetch(FetchDescriptor<MarineLife>()).first {
+            $0.uuid == "marine-life-french-angelfish"
+        }
+        #expect(french?.commonName == "French Angelfish")
+        #expect(french?.featureModelResourceName == "FrenchAngelfish")
+        #expect(french?.scientificName == "Pomacanthus paru")
+    }
+
     @Test func fieldGuidePresentation_depthLine_prefersMinMaxRange() {
         let entry = MarineLifeCatalogSnapshot(
             uuid: "queen",
@@ -2333,7 +2467,7 @@ struct GoDiveMVPTests {
         let fish = FieldGuideTaxonomy.category(id: "fish")
         #expect(fish?.title == "Fish")
         #expect(fish?.description.contains("silhouette") == true)
-        #expect(fish?.heroImageName == nil)
+        #expect(fish?.heroImageName == "FieldGuideCategoryFish")
         #expect(fish?.subcategories.count == 12)
     }
 
@@ -2400,6 +2534,72 @@ struct GoDiveMVPTests {
         #expect(AppLaunchLayout.titleFontSize == 28)
         #expect(AppLaunchLayout.fixedBackgroundBlue == 0.09)
         #expect(AppLaunchLayout.fixedTitleBlue == 1.0)
+    }
+
+    @Test func fieldGuideCatalogIndex_categorySummaryIsHashable() {
+        let summary = FieldGuideCatalogIndex.CategorySummary(
+            categoryID: "fish",
+            speciesCount: 3,
+            subcategoryCounts: ["eels": 1, "sharks-and-rays": 2]
+        )
+        var seen: Set<FieldGuideCatalogIndex.CategorySummary> = []
+        seen.insert(summary)
+        #expect(seen.contains(summary))
+    }
+
+    @Test func fieldGuideCatalogIndex_subcategorySpeciesIndex_lookup() {
+        let samples = [
+            MarineLifeCatalogSnapshot(
+                uuid: "a",
+                commonName: "Zebra Fish",
+                scientificName: "",
+                category: "fish",
+                subcategory: "small-oval",
+                featureImageURL: "",
+                minSizeMeters: 0,
+                maxSizeMeters: 0,
+                avgDepthMeters: 0
+            ),
+            MarineLifeCatalogSnapshot(
+                uuid: "b",
+                commonName: "Angelfish",
+                scientificName: "",
+                category: "fish",
+                subcategory: "disk-and-large-oval",
+                featureImageURL: "",
+                minSizeMeters: 0,
+                maxSizeMeters: 0,
+                avgDepthMeters: 0
+            ),
+            MarineLifeCatalogSnapshot(
+                uuid: "c",
+                commonName: "Another Oval",
+                scientificName: "",
+                category: "fish",
+                subcategory: "disk-and-large-oval",
+                featureImageURL: "",
+                minSizeMeters: 0,
+                maxSizeMeters: 0,
+                avgDepthMeters: 0
+            ),
+        ]
+
+        let index = FieldGuideCatalogIndex.subcategorySpeciesIndex(for: samples)
+        let payload = FieldGuideCatalogIndex.browsePayload(
+            categoryID: "fish",
+            subcategoryID: "disk-and-large-oval",
+            speciesIndex: index
+        )
+
+        #expect(payload.title == "Disk and Large Oval")
+        #expect(payload.species.map(\.uuid) == ["b", "c"])
+        #expect(
+            FieldGuideCatalogIndex.browsePayload(
+                categoryID: "fish",
+                subcategoryID: "eels",
+                speciesIndex: index
+            ).species.isEmpty
+        )
     }
 
     @Test func fieldGuideHubTileLayout_titleReservesTwoLines() {
@@ -3102,15 +3302,28 @@ struct GoDiveMVPTests {
         #expect(abs(bounding!.longitudeDelta - mapKitRegion!.span.longitudeDelta) < 0.000_001)
     }
 
-    @Test func goDiveMapEngine_defaultsToMapKit_withoutLaunchArgument() {
-        #expect(GoDiveMapEngine.resolved(activeLaunchArguments: []) == .mapKit)
-        #expect(GoDiveMapEngine.resolved(activeLaunchArguments: ["-GoDiveUITest"]) == .mapKit)
+    @Test func goDiveMapEngine_defaultsToMapKit_withoutLaunchArgumentOrSecrets() {
+        #expect(
+            GoDiveMapEngine.resolved(activeLaunchArguments: [], hasGoogleMapsAPIKey: false) == .mapKit
+        )
+        #expect(
+            GoDiveMapEngine.resolved(activeLaunchArguments: ["-GoDiveUITest"], hasGoogleMapsAPIKey: false)
+                == .mapKit
+        )
+    }
+
+    @Test func goDiveMapEngine_googleMapsSecretsFile_selectsGoogleMaps() {
+        #expect(
+            GoDiveMapEngine.resolved(activeLaunchArguments: [], hasGoogleMapsAPIKey: true) == .googleMaps
+        )
     }
 
     @Test func goDiveMapEngine_googleMapsLaunchArgument_selectsGoogleMaps() {
         #expect(
-            GoDiveMapEngine.resolved(activeLaunchArguments: [GoDiveMapEngine.googleMapsLaunchArgument])
-                == .googleMaps
+            GoDiveMapEngine.resolved(
+                activeLaunchArguments: [GoDiveMapEngine.googleMapsLaunchArgument],
+                hasGoogleMapsAPIKey: false
+            ) == .googleMaps
         )
     }
 
@@ -4897,6 +5110,13 @@ struct GoDiveMVPTests {
 
     @Test @MainActor func mapKitWarmup_shouldWarmUp_matchesUITestLaunchFlag() {
         #expect(MapKitWarmup.shouldWarmUp == !GoDiveUITestConfiguration.isActive)
+    }
+
+    @Test func googleMapsBootstrap_shouldWarmUpAtLaunch_respectsEngineAndUITestFlag() {
+        #expect(
+            GoogleMapsBootstrap.shouldWarmUpAtLaunch
+                == (!GoDiveUITestConfiguration.isActive && GoDiveMapEngine.active == .googleMaps && GoogleMapsBootstrap.loadAPIKey() != nil)
+        )
     }
 
     @Test func diveActivityTab_iconSources() {

@@ -14,6 +14,8 @@ struct FieldGuideMarineLifeDetailView: View {
     let species: MarineLife
     let onOpenDive: (UUID) -> Void
 
+    @State private var headerClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
+
     init(
         species: MarineLife,
         ownerProfileID: UUID?,
@@ -85,31 +87,70 @@ struct FieldGuideMarineLifeDetailView: View {
     }
 
     var body: some View {
-        AppPage(
-            title: species.commonName,
-            showsBackButton: true,
-            trailingContent: { EmptyView() }
-        ) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-                    heroImage
-                    titleBlock
-                    statsBlock
-                    if !taggedMediaItems.isEmpty {
-                        FieldGuideTaggedMediaGalleryView(
-                            mediaItems: taggedMediaItems,
-                            timeZoneOffsetByMediaID: taggedMediaTimeZoneOffsetByID
-                        )
+        AppHeaderlessPage {
+            GeometryReader { proxy in
+                let safeTop = AppScrollUnderHeaderListLayout.resolvedSafeAreaTop(proxy.safeAreaInsets.top)
+                let topInset = AppScrollUnderHeaderListLayout.listTopInset(
+                    safeAreaTop: safeTop,
+                    headerClearance: headerClearance
+                )
+
+                ZStack(alignment: .top) {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 0) {
+                            heroImage(extraTopInset: safeTop)
+
+                            VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+                                titleBlock
+                                statsBlock
+                                naturalHistorySections
+                                if !species.aboutText.isEmpty {
+                                    aboutBlock
+                                }
+                                if !taggedMediaItems.isEmpty {
+                                    FieldGuideTaggedMediaGalleryView(
+                                        mediaItems: taggedMediaItems,
+                                        timeZoneOffsetByMediaID: taggedMediaTimeZoneOffsetByID
+                                    )
+                                }
+                                if !sightedActivityLinks.isEmpty {
+                                    activitiesSightedOnSection
+                                }
+                            }
+                            .padding(AppTheme.Spacing.md)
+                        }
                     }
-                    if !sightedActivityLinks.isEmpty {
-                        activitiesSightedOnSection
+                    .scrollDismissesKeyboard(.interactively)
+                    .ignoresSafeArea(edges: .top)
+
+                    LogbookTopChromeScrim(topObstructionHeight: topInset)
+                        .padding(.top, -safeTop)
+                        .ignoresSafeArea(edges: .top)
+                        .allowsHitTesting(false)
+                        .zIndex(0.5)
+
+                    Color.clear
+                        .frame(height: topInset)
+                        .frame(maxWidth: .infinity, alignment: .top)
+                        .contentShape(Rectangle())
+                        .accessibilityHidden(true)
+                        .zIndex(0.75)
+
+                    AppHeader(
+                        title: "",
+                        showsBackButton: true,
+                        showsBrandWordmark: false,
+                        statusBarSafeAreaTop: safeTop
+                    ) {
+                        EmptyView()
                     }
-                    naturalHistorySections
-                    if !species.aboutText.isEmpty {
-                        aboutBlock
-                    }
+                    .frame(maxWidth: .infinity, alignment: .top)
+                    .zIndex(1)
                 }
-                .padding(AppTheme.Spacing.md)
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .onPreferenceChange(AppHeaderMetrics.HeightKey.self) { height in
+                    if height > 0 { headerClearance = height }
+                }
             }
         }
         .hidesBottomTabBarWhenPushed()
@@ -117,9 +158,18 @@ struct FieldGuideMarineLifeDetailView: View {
     }
 
     @ViewBuilder
-    private var heroImage: some View {
-        let height: CGFloat = 180
-        if let url = URL(string: species.featureImageURL), !species.featureImageURL.isEmpty {
+    private func heroImage(extraTopInset: CGFloat) -> some View {
+        let height: CGFloat = 280 + extraTopInset
+        switch FieldGuideMarineLifeHeroPresentation.heroKind(
+            featureModelResourceName: species.featureModelResourceName,
+            featureImageURL: species.featureImageURL
+        ) {
+        case .model3D(let configuration):
+            FieldGuideMarineLifeRealityHeroView(
+                configuration: configuration,
+                height: height
+            )
+        case .remoteImage(let url):
             AsyncImage(url: url) { phase in
                 switch phase {
                 case .success(let image):
@@ -132,15 +182,15 @@ struct FieldGuideMarineLifeDetailView: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: height)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        } else {
+            .clipped()
+        case .placeholder:
             heroPlaceholder
                 .frame(height: height)
         }
     }
 
     private var heroPlaceholder: some View {
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
+        Rectangle()
             .fill(AppTheme.Colors.tabUnselected.opacity(0.12))
             .overlay {
                 Image(systemName: "fish")
@@ -165,6 +215,10 @@ struct FieldGuideMarineLifeDetailView: View {
 
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            Text(species.commonName)
+                .font(.title.weight(.bold))
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+
             if !species.scientificName.isEmpty {
                 Text(species.scientificName)
                     .font(.title3.italic())

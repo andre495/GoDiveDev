@@ -10,6 +10,8 @@ final class AccountSession {
 
     private(set) var currentProfile: UserProfile?
     private(set) var isRestoringSession = true
+    /// Brand-new account after Sign in with Apple — welcome screen before Contacts + Photos prompts.
+    private(set) var showsNewAccountWelcome = false
 
     var isSignedIn: Bool { currentProfile != nil }
 
@@ -86,14 +88,24 @@ final class AccountSession {
         persistSession(profile: profile)
         currentProfile = profile
 
-        if isNewAccount {
+        if AppNewAccountWelcomePresentation.shouldPresentWelcome(forNewAccount: isNewAccount) {
+            showsNewAccountWelcome = true
+        } else if isNewAccount {
             Task { await AppOnboardingPermissions.requestForNewAccount() }
         }
+    }
+
+    /// Dismisses the welcome screen and runs the deferred onboarding permission prompts.
+    func completeNewAccountWelcome() {
+        guard showsNewAccountWelcome else { return }
+        showsNewAccountWelcome = false
+        Task { await AppOnboardingPermissions.requestForNewAccount() }
     }
 
     func signOut() {
         clearPersistedSession()
         currentProfile = nil
+        showsNewAccountWelcome = false
     }
 
     func recordSignInFailure(_ error: Error) {
