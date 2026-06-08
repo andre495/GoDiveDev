@@ -12,6 +12,7 @@ struct DiveActivityTagsEditSheet: View {
     @State private var newTagName = ""
     @State private var ownerTags: [ActivityTag] = []
     @State private var loadErrorMessage: String?
+    @State private var showsCreateTagSheet = false
 
     var body: some View {
         NavigationStack {
@@ -21,21 +22,6 @@ struct DiveActivityTagsEditSheet: View {
                         Text(loadErrorMessage)
                             .foregroundStyle(AppTheme.Colors.secondaryText)
                     }
-                }
-
-                Section {
-                    HStack {
-                        TextField("New tag", text: $newTagName)
-                            .textInputAutocapitalization(.words)
-                        Button("Add") {
-                            createAndApplyTag()
-                        }
-                        .disabled(newTagName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    }
-                } header: {
-                    Text("Create tag")
-                } footer: {
-                    Text("Tags are saved to your account and can be reused on other dives.")
                 }
 
                 Section("On this dive") {
@@ -57,10 +43,11 @@ struct DiveActivityTagsEditSheet: View {
                     }
                 }
 
-                Section("Your tags") {
+                Section {
                     if ownerTags.isEmpty {
-                        Text("Create a tag above to get started.")
+                        Text("Tap + to create a tag, or add one from your roster below.")
                             .foregroundStyle(AppTheme.Colors.tabUnselected)
+                            .accessibilityIdentifier("DiveTagsEditSheet.EmptyRoster")
                     } else {
                         ForEach(ownerTags, id: \.id) { tag in
                             Button {
@@ -84,18 +71,39 @@ struct DiveActivityTagsEditSheet: View {
                             )
                         }
                     }
+                } header: {
+                    Text("Your tags")
+                } footer: {
+                    Text("Tags are saved to your account and can be reused on other dives.")
                 }
             }
             .scrollContentBackground(.hidden)
             .navigationTitle("Tags")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showsCreateTagSheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(AppTheme.Colors.tabSelected)
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Create tag")
+                    .accessibilityIdentifier("DiveTagsEditSheet.CreateTag")
+                }
+
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
                         try? modelContext.save()
                         dismiss()
                     }
                     .fontWeight(.semibold)
+                    .foregroundStyle(AppTheme.Colors.tabSelected)
+                    .accessibilityIdentifier("DiveTagsEditSheet.Done")
                 }
             }
             .task(id: ownerProfileID) {
@@ -103,6 +111,11 @@ struct DiveActivityTagsEditSheet: View {
             }
         }
         .diveActivityTagsSheetPresentation()
+        .sheet(isPresented: $showsCreateTagSheet) {
+            DiveActivityCreateTagSheet(tagName: $newTagName) {
+                createAndApplyTag()
+            }
+        }
         .accessibilityIdentifier("DiveTagsEditSheet.Root")
     }
 
@@ -125,6 +138,7 @@ struct DiveActivityTagsEditSheet: View {
             newTagName = ""
             try modelContext.save()
             try reloadOwnerTagsSync()
+            loadErrorMessage = nil
         } catch {
             loadErrorMessage = "Could not save that tag."
         }
@@ -146,5 +160,50 @@ struct DiveActivityTagsEditSheet: View {
             ownerProfileID: ownerProfileID,
             modelContext: modelContext
         )
+    }
+}
+
+// MARK: - Create tag
+
+private struct DiveActivityCreateTagSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    @Binding var tagName: String
+    var onCreate: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Tag name", text: $tagName)
+                        .textInputAutocapitalization(.words)
+                        .accessibilityIdentifier("DiveTagsCreateSheet.NameField")
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .navigationTitle("New tag")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        tagName = ""
+                        dismiss()
+                    }
+                    .accessibilityIdentifier("DiveTagsCreateSheet.Cancel")
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        onCreate()
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                    .foregroundStyle(AppTheme.Colors.tabSelected)
+                    .disabled(tagName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .accessibilityIdentifier("DiveTagsCreateSheet.Add")
+                }
+            }
+        }
+        .diveActivityFieldSheetPresentation()
+        .accessibilityIdentifier("DiveTagsCreateSheet.Root")
     }
 }

@@ -4,6 +4,7 @@ import SwiftUI
 
 /// Buddy roster detail — pushed (not a sheet) from **`DiveBuddiesListView`**.
 struct ViewDiveBuddyDetails: View {
+    @Environment(\.dismiss) private var dismiss
     @Environment(AccountSession.self) private var accountSession
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @Environment(\.modelContext) private var modelContext
@@ -72,9 +73,16 @@ struct ViewDiveBuddyDetails: View {
         )
         .hidesBottomTabBarWhenPushed()
         .sheet(isPresented: $showsEditSheet) {
-            DiveBuddyEditSheetView(buddy: buddy) {
-                showsEditSheet = false
-            }
+            DiveBuddyEditSheetView(
+                buddy: buddy,
+                onSaved: {
+                    showsEditSheet = false
+                },
+                onDeleted: {
+                    showsEditSheet = false
+                    dismiss()
+                }
+            )
         }
         #if canImport(UIKit)
         .sheet(isPresented: $showsContactPicker) {

@@ -32,25 +32,28 @@ struct DiveActivityFieldEditSheet: View {
             .navigationTitle(DiveActivityEditableCatalog.label(for: field))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
-                        DiveActivityFieldEditing.applyDraft(
-                            draft,
-                            for: field,
-                            to: activity,
-                            displayUnits: displayUnits
-                        )
-                        dismiss()
+                        saveAndDismiss()
                     }
                     .fontWeight(.semibold)
+                    .foregroundStyle(AppTheme.Colors.tabSelected)
+                    .accessibilityIdentifier("DiveFieldEditSheet.\(field.rawValue).Done")
                 }
             }
         }
         .diveActivityFieldSheetPresentation()
         .accessibilityIdentifier("DiveFieldEditSheet.\(field.rawValue)")
+    }
+
+    private func saveAndDismiss() {
+        DiveActivityFieldEditing.applyDraft(
+            draft,
+            for: field,
+            to: activity,
+            displayUnits: displayUnits
+        )
+        dismiss()
     }
 
     @ViewBuilder

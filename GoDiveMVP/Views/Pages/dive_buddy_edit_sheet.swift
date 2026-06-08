@@ -8,9 +8,12 @@ struct DiveBuddyEditSheetView: View {
 
     @Bindable var buddy: DiveBuddy
     var onSaved: () -> Void = {}
+    var onDeleted: () -> Void = {}
 
     @State private var nameText = ""
     @State private var saveErrorMessage: String?
+    @State private var deleteErrorMessage: String?
+    @State private var showsDeleteConfirmation = false
 
     var body: some View {
         NavigationStack {
@@ -34,6 +37,13 @@ struct DiveBuddyEditSheetView: View {
                     TextField("Buddy name", text: $nameText)
                         .textInputAutocapitalization(.words)
                         .accessibilityIdentifier("DiveBuddyEditSheet.NameField")
+                }
+
+                Section {
+                    Button("Delete buddy", role: .destructive) {
+                        showsDeleteConfirmation = true
+                    }
+                    .accessibilityIdentifier("DiveBuddyEditSheet.Delete")
                 }
             }
             .scrollContentBackground(.hidden)
@@ -60,6 +70,24 @@ struct DiveBuddyEditSheetView: View {
             } message: {
                 Text(saveErrorMessage ?? "Try again.")
             }
+            .alert("Could not delete buddy", isPresented: deleteErrorBinding) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(deleteErrorMessage ?? "Try again.")
+            }
+            .confirmationDialog(
+                "Delete buddy?",
+                isPresented: $showsDeleteConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Delete buddy", role: .destructive) {
+                    deleteBuddy()
+                }
+            } message: {
+                Text(
+                    "This removes \(buddy.displayName) from your roster and untags them on all dives. This cannot be undone."
+                )
+            }
         }
         .equipmentAddSheetPresentation()
         .onAppear {
@@ -79,6 +107,13 @@ struct DiveBuddyEditSheetView: View {
         )
     }
 
+    private var deleteErrorBinding: Binding<Bool> {
+        Binding(
+            get: { deleteErrorMessage != nil },
+            set: { if !$0 { deleteErrorMessage = nil } }
+        )
+    }
+
     private func saveChanges() {
         let resolved = String(trimmedName.prefix(DiveBuddyCatalog.maxDisplayNameLength))
         guard !resolved.isEmpty else { return }
@@ -89,6 +124,16 @@ struct DiveBuddyEditSheetView: View {
             dismiss()
         } catch {
             saveErrorMessage = error.localizedDescription
+        }
+    }
+
+    private func deleteBuddy() {
+        do {
+            try DiveBuddyDeletion.deletePermanently(buddy, modelContext: modelContext)
+            dismiss()
+            onDeleted()
+        } catch {
+            deleteErrorMessage = error.localizedDescription
         }
     }
 }

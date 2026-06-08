@@ -22,6 +22,7 @@ struct ViewSingleActivity: View {
     @Bindable var activity: DiveActivity
     /// When set (e.g. tapping a logbook row thumbnail), open on the **Media** tab focused on this photo at the medium detent.
     var initialMediaFocusID: UUID? = nil
+    @Query(sort: \MarineLife.commonName) private var marineLifeCatalog: [MarineLife]
     @Environment(\.modelContext) private var modelContext
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @Environment(AccountSession.self) private var accountSession
@@ -970,13 +971,26 @@ struct ViewSingleActivity: View {
         )
     }
 
+    private var selectedMediaTaggedSpecies: [MarineLife] {
+        guard let media = DiveActivityMediaPresentation.selectedMedia(
+            selectedID: selectedDiveMediaPhotoID,
+            in: derivedDiveData.sortedMediaItems
+        ) else { return [] }
+        return MarineLifeMediaTagPresentation.resolvedTaggedSpecies(
+            mediaPhotoID: media.id,
+            sightings: activity.marineLifeSightings,
+            catalog: marineLifeCatalog
+        )
+    }
+
     private func photosOverviewPanelContent(layoutHeight: CGFloat) -> some View {
+        let hasMedia = !derivedDiveData.sortedMediaItems.isEmpty
         let showsSheetDetails = DiveActivityMediaPresentation.showsMediaSheetDetails(
             for: overviewSheetDetent
         )
         let showsMarineLifeTagInSheet = DiveActivityMediaPresentation.showsMarineLifeTagInSheet(
             for: overviewSheetDetent
-        ) && !derivedDiveData.sortedMediaItems.isEmpty
+        ) && hasMedia
 
         return DiveActivityPhotosPanelContent(
             mediaItems: derivedDiveData.sortedMediaItems,
@@ -994,14 +1008,17 @@ struct ViewSingleActivity: View {
                 : nil,
             featuredMediaID: DiveActivityMediaPresentation.featuredPhotoID(on: activity),
             onToggleFeatured: { toggleFeaturedMedia($0) },
+            taggedSpecies: hasMedia ? selectedMediaTaggedSpecies : [],
             mediaPickerItems: $diveMediaPickerItems,
             isImportInProgress: mediaImportOverlay.isBlocking
         )
         .animation(nil, value: overviewSheetDetent)
         .accessibilityIdentifier(
-            showsSheetDetails
-                ? "DiveOverview.MediaPanel"
-                : "DiveOverview.MediaPanel.Minimized"
+            DiveActivityMediaPresentation.showsMarineLifeDetailInSheet(for: overviewSheetDetent)
+                ? "DiveOverview.MediaPanel.Large"
+                : showsSheetDetails
+                    ? "DiveOverview.MediaPanel"
+                    : "DiveOverview.MediaPanel.Minimized"
         )
     }
 

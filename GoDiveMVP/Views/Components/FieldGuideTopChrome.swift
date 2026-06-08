@@ -1,8 +1,7 @@
 import SwiftUI
 
-/// Field Guide top bar — full-width section toggle, species search below on **Field Guide**.
+/// Field Guide top bar — species search above the catalog hub.
 struct FieldGuideTopChrome: View {
-    @Binding var section: FieldGuideSection
     @Binding var searchText: String
     @FocusState.Binding var isSearchFocused: Bool
     let showsSpeciesSearch: Bool
@@ -10,10 +9,7 @@ struct FieldGuideTopChrome: View {
 
     var body: some View {
         VStack(spacing: AppTheme.Spacing.sm) {
-            sectionToggle
-                .frame(maxWidth: .infinity)
-
-            if section == .fieldGuide, showsSpeciesSearch {
+            if showsSpeciesSearch {
                 fieldGuideSearchRow
             }
         }
@@ -59,9 +55,5 @@ struct FieldGuideTopChrome: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: isSearchFocused)
-    }
-
-    private var sectionToggle: some View {
-        FieldGuideSectionToggle(selection: $section)
     }
 }

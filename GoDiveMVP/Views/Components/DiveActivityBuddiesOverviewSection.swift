@@ -11,9 +11,9 @@ struct DiveActivityBuddiesOverviewSection: View {
                 buddiesContent
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                Image(systemName: "chevron.right")
+                Image(systemName: "ellipsis")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.tabUnselected)
+                    .foregroundStyle(AppTheme.Colors.tabSelected)
             }
             .contentShape(Rectangle())
         }

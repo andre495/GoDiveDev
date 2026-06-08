@@ -21,7 +21,6 @@ struct FieldGuideView: View {
     private var diveActivities: [DiveActivity]
 
     @State private var path: [FieldGuideRoute] = []
-    @State private var section: FieldGuideSection = .fieldGuide
     @State private var speciesSearchQuery = ""
     @FocusState private var isSpeciesSearchFocused: Bool
     @State private var fieldGuideHeaderClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
@@ -72,7 +71,7 @@ struct FieldGuideView: View {
     }
 
     private var showsSpeciesSearch: Bool {
-        section == .fieldGuide && !catalog.isEmpty
+        !catalog.isEmpty
     }
 
     private var ownerDiveActivities: [DiveActivity] {
@@ -103,7 +102,6 @@ struct FieldGuideView: View {
                         }
 
                         FieldGuideTopChrome(
-                            section: $section,
                             searchText: $speciesSearchQuery,
                             isSearchFocused: $isSpeciesSearchFocused,
                             showsSpeciesSearch: showsSpeciesSearch,
@@ -169,11 +167,6 @@ struct FieldGuideView: View {
         .onReceive(NotificationCenter.default.publisher(for: .fieldGuideTabReselected)) { _ in
             handleFieldGuideTabReselect()
         }
-        .onChange(of: section) { _, newSection in
-            if newSection != .fieldGuide {
-                dismissSpeciesSearchKeyboard()
-            }
-        }
         .onChange(of: isSpeciesSearchFocused) { _, isFocused in
             if !isFocused {
                 dismissSpeciesSearchKeyboard()
@@ -196,37 +189,26 @@ struct FieldGuideView: View {
     }
 
     private var showsTopChromeScrim: Bool {
-        switch section {
-        case .fieldGuide:
-            return !catalog.isEmpty
-        case .sightings:
-            return true
-        }
+        !catalog.isEmpty
     }
 
     @ViewBuilder
     private func sectionContent(topInset: CGFloat, bottomInset: CGFloat) -> some View {
-        switch section {
-        case .fieldGuide:
-            ZStack(alignment: .top) {
-                if !GoDiveUITestConfiguration.isActive, !isNavigatingCatalog {
-                    WaterBubbleBackground()
-                }
-
-                fieldGuideCatalogListContent(
-                    topInset: topInset,
-                    bottomInset: bottomInset
-                )
+        ZStack(alignment: .top) {
+            if !GoDiveUITestConfiguration.isActive, !isNavigatingCatalog {
+                WaterBubbleBackground()
             }
-        case .sightings:
-            FieldGuideSightingsOverviewView()
+
+            fieldGuideCatalogListContent(
+                topInset: topInset,
+                bottomInset: bottomInset
+            )
         }
     }
 
     private func handleFieldGuideTabReselect() {
         path.removeAll()
         isSpeciesSearchFocused = false
-        guard section == .fieldGuide else { return }
         RootTabListScrollSupport.scheduleScrollToTop { listScrollToTopNonce += 1 }
     }
 

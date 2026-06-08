@@ -73,21 +73,28 @@ struct DiveActivityBuddiesEditSheet: View {
             .navigationTitle("Buddies")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
+                ToolbarItem(placement: .topBarLeading) {
                     Button {
                         showsAddBuddySheet = true
                     } label: {
                         Image(systemName: "plus")
-                            .font(.body.weight(.semibold))
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(AppTheme.Colors.tabSelected)
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                     .accessibilityLabel("Add buddy")
                     .accessibilityIdentifier("DiveBuddiesEditSheet.AddBuddy")
+                }
 
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
                         try? modelContext.save()
                         dismiss()
                     }
                     .fontWeight(.semibold)
+                    .foregroundStyle(AppTheme.Colors.tabSelected)
                     .accessibilityIdentifier("DiveBuddiesEditSheet.Done")
                 }
             }

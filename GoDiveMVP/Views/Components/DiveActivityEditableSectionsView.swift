@@ -59,6 +59,7 @@ struct DiveActivityEditableSectionsView: View {
                 displayUnits: displayUnits,
                 profileGasStats: profileGasStats
             ),
+            showsLabel: fieldID != .notes,
             signaturePreviewData: fieldID == .diveSignature ? activity.diveSignatureData : nil,
             isEditable: editable || usesSpecialAction(fieldID),
             action: { performAction(for: fieldID) }

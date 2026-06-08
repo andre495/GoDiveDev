@@ -93,10 +93,28 @@ enum DiveActivityMediaPresentation: Sendable {
         detent == .minimized
     }
 
-    /// **Tag marine life** control in the **Media** sheet chrome at **medium** (top leading).
-    nonisolated static func showsMarineLifeTagInSheet(for detent: DiveActivityOverviewDetent) -> Bool {
+    /// Oval-chip marine life summary in the **Media** sheet at **medium** only.
+    nonisolated static func showsMarineLifeTagSummaryInSheet(for detent: DiveActivityOverviewDetent) -> Bool {
         detent == .medium
     }
+
+    /// Species hero + natural-history detail in the **Media** sheet at **large** only.
+    nonisolated static func showsMarineLifeDetailInSheet(for detent: DiveActivityOverviewDetent) -> Bool {
+        detent == .large
+    }
+
+    /// **Tag marine life** control in the **Media** sheet chrome at **medium** and **large**.
+    nonisolated static func showsMarineLifeTagInSheet(for detent: DiveActivityOverviewDetent) -> Bool {
+        detent == .medium || detent == .large
+    }
+
+    /// Fish tag, featured toggle, and **+** add control in the **Media** sheet chrome.
+    nonisolated static func showsMediaSheetChromeActions(for detent: DiveActivityOverviewDetent) -> Bool {
+        detent == .medium || detent == .large
+    }
+
+    /// Hero band height for tagged-species detail at the **large** media detent.
+    nonisolated static let largeDetentSpeciesHeroHeight: CGFloat = 220
 
     /// Thumbnail strip in the **Media** sheet at **minimized** and **medium** detents.
     nonisolated static func showsMediaCarouselInSheet(for detent: DiveActivityOverviewDetent) -> Bool {

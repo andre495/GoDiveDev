@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// Tappable overview row — chevron indicates the field can be edited.
+/// Tappable overview row — ellipsis indicates the field can be edited.
 struct DiveActivityEditableRow: View {
     let label: String
     let value: String
+    var showsLabel: Bool = true
     var signaturePreviewData: Data?
     let isEditable: Bool
     let action: () -> Void
@@ -16,9 +17,11 @@ struct DiveActivityEditableRow: View {
         Button(action: action) {
             HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(label)
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.Colors.tabUnselected)
+                    if showsLabel {
+                        Text(label)
+                            .font(.caption)
+                            .foregroundStyle(AppTheme.Colors.tabUnselected)
+                    }
                     if showsSignaturePreview, let signaturePreviewData {
                         DiveSignaturePreview(data: signaturePreviewData)
                     } else {
@@ -31,9 +34,9 @@ struct DiveActivityEditableRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 if isEditable {
-                    Image(systemName: "chevron.right")
+                    Image(systemName: "ellipsis")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppTheme.Colors.tabUnselected)
+                        .foregroundStyle(AppTheme.Colors.tabSelected)
                 }
             }
             .contentShape(Rectangle())

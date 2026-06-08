@@ -1109,4 +1109,20 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Field Guide subcategory navigation perf:** cached **`subcategorySpeciesIndex`** + **`SubcategoryBrowsePayload`** in route (no catalog re-filter on push); **`FieldGuideCategoryDetailView`** / **`FieldGuideSubcategorySpeciesView`** **`.equatable()`**; mosaic cards **`.equatable()`**; test **`fieldGuideCatalogIndex_subcategorySpeciesIndex_lookup`**.
 - **Field Guide species detail chrome:** back chevron via shared **`AppHeader`** (same vertical alignment as other pushed pages); test **`fieldGuideTaxonomy_fishCategoryHasDetailHeaderCopy`** expects **`FieldGuideCategoryFish`** hero asset.
 
-## 69 - Next batch
+## 69 - Buddies delete, dive sheet UX, Field Guide, media marine life **(pushed)**
+
+**Summary:** Delete dive buddies from the edit sheet; roster row untags all dives.
+
+- **`DiveBuddyDeletion`** — removes roster row and **`DiveBuddyTag`** participations on owned dives.
+- **`DiveBuddyEditSheetView`** — red **Delete buddy** at bottom + confirmation; pops detail on success.
+- Test: **`diveBuddyDeletion_deletePermanently_removesBuddyAndUntagsDives`**.
+- **`DiveActivityBuddiesEditSheet`** — **+** (new buddy) **top-leading**, **Done** **top-trailing** (separate toolbar items); accent **`tabSelected`** on both.
+- **`DiveActivityTagsEditSheet`** — same toolbar chrome (**+** create tag sheet, **Done**); inline create section removed.
+- **`DiveActivityFieldEditSheet`** — **Done** only (top-trailing, accent) on every dive field editor; swipe-to-dismiss discards draft (no **Cancel**).
+- **`DiveActivityEditableRow`** / **`DiveActivityBuddiesOverviewSection`** — accent **`ellipsis`** (⋯) instead of chevron on editable overview fields.
+- **Dive overview notes row** — section title only; inline **Notes** caption hidden (no duplicate label above preview text).
+- **Field Guide** — removed **Field Guide** / **My Sightings** segmented toggle; deleted **`FieldGuideSectionToggle`**, **`FieldGuideSightingsOverviewView`**, and **`FieldGuideSection`**; **`FieldGuideTopChrome`** is species search only; tab reselect always scrolls catalog to top.
+- **Dive Media sheet (medium)** — **`DiveActivityPhotosPanelContent`** shows tagged species names as oval chips on the selected item, or a tappable **Tag marine life spotted in this photo.** prompt when none; marine life row sits **above** the thumbnail carousel; **`MarineLifeMediaTagPresentation`** copy + accessibility helpers.
+- **Dive Media sheet (large)** — tagged species at top: horizontal chip picker when multiple; **`DiveActivityMediaTaggedSpeciesDetailContent`** shows bundled **USDZ** hero (or photo / placeholder), common + scientific name, and natural-history sections; fish + **+** chrome actions; untagged prompt when empty.
+
+## 70 - AI fish identification

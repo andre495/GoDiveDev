@@ -701,6 +701,37 @@ struct GoDiveMVPTests {
     }
 
     @Test @MainActor
+    func diveBuddyDeletion_deletePermanently_removesBuddyAndUntagsDives() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let owner = UserProfile(appleUserIdentifier: "apple-buddy-del", displayName: "Diver")
+        context.insert(owner)
+
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: .now,
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        DiveActivityOwnership.assignOwner(owner, to: activity)
+        context.insert(activity)
+
+        let buddy = DiveBuddy(displayName: "Pat Lee", owner: owner)
+        context.insert(buddy)
+        _ = DiveBuddyActivityAssociation.tagBuddy(buddy, on: activity, modelContext: context)
+        try context.save()
+
+        try DiveBuddyDeletion.deletePermanently(buddy, modelContext: context)
+
+        #expect(try context.fetch(FetchDescriptor<DiveBuddy>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<DiveBuddyTag>()).isEmpty)
+        let dives = try context.fetch(FetchDescriptor<DiveActivity>())
+        #expect(dives.count == 1)
+        #expect(dives.first?.buddies.isEmpty == true)
+    }
+
+    @Test @MainActor
     func equipmentItemOwnership_filtersByOwnerProfileID() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = ModelContext(container)
@@ -2278,10 +2309,28 @@ struct GoDiveMVPTests {
         #expect(!DiveActivityMediaPresentation.showsMarineLifeTagOnHero(for: .large))
     }
 
-    @Test func diveActivityMediaPresentation_showsMarineLifeTagInSheet_onlyAtMedium() {
+    @Test func diveActivityMediaPresentation_showsMarineLifeTagInSheet_atMediumAndLarge() {
         #expect(!DiveActivityMediaPresentation.showsMarineLifeTagInSheet(for: .minimized))
         #expect(DiveActivityMediaPresentation.showsMarineLifeTagInSheet(for: .medium))
-        #expect(!DiveActivityMediaPresentation.showsMarineLifeTagInSheet(for: .large))
+        #expect(DiveActivityMediaPresentation.showsMarineLifeTagInSheet(for: .large))
+    }
+
+    @Test func diveActivityMediaPresentation_showsMarineLifeTagSummary_onlyAtMedium() {
+        #expect(!DiveActivityMediaPresentation.showsMarineLifeTagSummaryInSheet(for: .minimized))
+        #expect(DiveActivityMediaPresentation.showsMarineLifeTagSummaryInSheet(for: .medium))
+        #expect(!DiveActivityMediaPresentation.showsMarineLifeTagSummaryInSheet(for: .large))
+    }
+
+    @Test func diveActivityMediaPresentation_showsMarineLifeDetail_onlyAtLarge() {
+        #expect(!DiveActivityMediaPresentation.showsMarineLifeDetailInSheet(for: .minimized))
+        #expect(!DiveActivityMediaPresentation.showsMarineLifeDetailInSheet(for: .medium))
+        #expect(DiveActivityMediaPresentation.showsMarineLifeDetailInSheet(for: .large))
+    }
+
+    @Test func diveActivityMediaPresentation_showsMediaSheetChromeActions_atMediumAndLarge() {
+        #expect(!DiveActivityMediaPresentation.showsMediaSheetChromeActions(for: .minimized))
+        #expect(DiveActivityMediaPresentation.showsMediaSheetChromeActions(for: .medium))
+        #expect(DiveActivityMediaPresentation.showsMediaSheetChromeActions(for: .large))
     }
 
     @Test func diveActivityOverviewPanelMetrics_mediaCarouselScreenAlignmentTopInset_matchesDetentGap() {
@@ -2440,8 +2489,108 @@ struct GoDiveMVPTests {
         #expect(rows[0].commonName == "Zebra Angelfish")
     }
 
-    @Test func fieldGuideSection_includesFieldGuideAndSightings() {
-        #expect(FieldGuideSection.allCases.map(\.accessibilityLabel) == ["Field Guide", "My Sightings"])
+    @Test func marineLifeMediaTagPresentation_mediumDetentAccessibilityLabel_listsTaggedNames() {
+        #expect(
+            MarineLifeMediaTagPresentation.mediumDetentAccessibilityLabel(taggedNames: [])
+                == MarineLifeMediaTagPresentation.untaggedPrompt
+        )
+        #expect(
+            MarineLifeMediaTagPresentation.mediumDetentAccessibilityLabel(
+                taggedNames: ["French Angelfish", "Green Turtle"]
+            ) == "Marine life: French Angelfish, Green Turtle"
+        )
+    }
+
+    @Test func marineLifeMediaTagPresentation_descriptionSections_includesPopulatedFields() {
+        let species = MarineLife(
+            uuid: "marine-life-desc-test",
+            commonName: "French Angelfish",
+            distinctiveFeatures: "Yellow tail",
+            abundance: "Common",
+            habitatBehavior: "Reefs",
+            diverReaction: "Approachable",
+            aboutText: "A Caribbean classic."
+        )
+
+        let sections = MarineLifeMediaTagPresentation.descriptionSections(for: species)
+        #expect(sections.map(\.title) == [
+            "Distinctive features",
+            "Abundance",
+            "Habitat & behavior",
+            "Diver reaction",
+            "About",
+        ])
+    }
+
+    @Test @MainActor func marineLifeMediaTagPresentation_resolvedTaggedSpecies_listsUniqueSortedSpecies() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+
+        let taggedMedia = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 4_100_000))
+        let angelfish = MarineLife(uuid: "marine-life-resolve-angelfish", commonName: "French Angelfish")
+        let ray = MarineLife(uuid: "marine-life-resolve-ray", commonName: "Spotted Eagle Ray")
+        let turtle = MarineLife(uuid: "marine-life-resolve-turtle", commonName: "Green Turtle")
+
+        context.insert(taggedMedia)
+        context.insert(angelfish)
+        context.insert(ray)
+        context.insert(turtle)
+
+        let angelfishSighting = SightingInstance(
+            marineLifeUUID: angelfish.uuid,
+            sightingDateTime: Date(timeIntervalSince1970: 4_100_100),
+            marineLife: angelfish,
+            mediaPhoto: taggedMedia
+        )
+        let raySighting = SightingInstance(
+            marineLifeUUID: ray.uuid,
+            sightingDateTime: Date(timeIntervalSince1970: 4_100_200),
+            marineLife: ray,
+            mediaPhoto: taggedMedia
+        )
+        let turtleSighting = SightingInstance(
+            marineLifeUUID: turtle.uuid,
+            sightingDateTime: Date(timeIntervalSince1970: 4_100_300),
+            marineLife: turtle,
+            mediaPhoto: DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 4_100_400))
+        )
+        context.insert(angelfishSighting)
+        context.insert(raySighting)
+        context.insert(turtleSighting)
+
+        let resolved = MarineLifeMediaTagPresentation.resolvedTaggedSpecies(
+            mediaPhotoID: taggedMedia.id,
+            sightings: [angelfishSighting, raySighting, turtleSighting],
+            catalog: [angelfish, ray, turtle]
+        )
+
+        #expect(resolved.count == 2)
+        #expect(resolved.map(\.commonName) == ["French Angelfish", "Spotted Eagle Ray"])
+    }
+
+    @Test func marineLifeMediaTagPresentation_taggedCommonNames_mapsRowCommonNames() {
+        let rows = [
+            MarineLifeMediaTagPresentation.TaggedSpeciesRow(
+                marineLifeUUID: "a",
+                commonName: "French Angelfish",
+                scientificName: "Pomacanthus paru",
+                category: "fish",
+                featureImageURL: "",
+                detailLine: ""
+            ),
+            MarineLifeMediaTagPresentation.TaggedSpeciesRow(
+                marineLifeUUID: "b",
+                commonName: "Green Turtle",
+                scientificName: "Chelonia mydas",
+                category: "reptiles",
+                featureImageURL: "",
+                detailLine: ""
+            ),
+        ]
+        #expect(MarineLifeMediaTagPresentation.taggedCommonNames(from: rows) == [
+            "French Angelfish",
+            "Green Turtle",
+        ])
     }
 
     @Test func expandableDetailSectionPresentation_collapsedByDefaultWithItems() {
