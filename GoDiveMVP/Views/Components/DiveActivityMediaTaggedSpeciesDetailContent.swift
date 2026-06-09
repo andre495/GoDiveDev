@@ -43,20 +43,11 @@ struct DiveActivityMediaTaggedSpeciesDetailContent: View {
                 height: heroHeight
             )
             .clipShape(RoundedRectangle(cornerRadius: AppTheme.Spacing.md, style: .continuous))
-        case .remoteImage(let url):
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                default:
-                    speciesHeroPlaceholder
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: heroHeight)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Spacing.md, style: .continuous))
+        case .remoteImage:
+            FieldGuideMarineLifeCatalogImage(
+                imageURLString: species.featureImageURL,
+                placement: .mediaSheetHero(height: heroHeight)
+            )
         case .placeholder:
             speciesHeroPlaceholder
                 .frame(height: heroHeight)

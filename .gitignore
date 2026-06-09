@@ -19,6 +19,12 @@ Package.resolved
 # Cursor / IDE (optional local settings)
 .vscode/
 
+# FishBase extract tooling (local venv)
+.venv-fishbase/
+GoDiveMVP/Scripts/.venv/
+__pycache__/
+*.pyc
+
 # Secrets
 .env
 *.pem

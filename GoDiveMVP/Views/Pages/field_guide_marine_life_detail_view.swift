@@ -159,44 +159,37 @@ struct FieldGuideMarineLifeDetailView: View {
 
     @ViewBuilder
     private func heroImage(extraTopInset: CGFloat) -> some View {
-        let height: CGFloat = 280 + extraTopInset
-        switch FieldGuideMarineLifeHeroPresentation.heroKind(
-            featureModelResourceName: species.featureModelResourceName,
-            featureImageURL: species.featureImageURL
-        ) {
-        case .model3D(let configuration):
-            FieldGuideMarineLifeRealityHeroView(
-                configuration: configuration,
-                height: height
-            )
-        case .remoteImage(let url):
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                default:
-                    heroPlaceholder
-                }
+        let height = FieldGuideMarineLifeImageLayout.detailHeroBaseHeight + extraTopInset
+        Group {
+            switch FieldGuideMarineLifeHeroPresentation.heroKind(
+                featureModelResourceName: species.featureModelResourceName,
+                featureImageURL: species.featureImageURL
+            ) {
+            case .model3D(let configuration):
+                FieldGuideMarineLifeRealityHeroView(
+                    configuration: configuration,
+                    height: height
+                )
+            case .remoteImage:
+                FieldGuideMarineLifeCatalogImage(
+                    imageURLString: species.featureImageURL,
+                    placement: .detailHero(totalHeight: height)
+                )
+            case .placeholder:
+                heroPlaceholder
+                    .frame(height: height)
+                    .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: height)
-            .clipped()
-        case .placeholder:
-            heroPlaceholder
-                .frame(height: height)
         }
+        .frame(height: height)
+        .frame(maxWidth: .infinity)
     }
 
     private var heroPlaceholder: some View {
-        Rectangle()
-            .fill(AppTheme.Colors.tabUnselected.opacity(0.12))
-            .overlay {
-                Image(systemName: "fish")
-                    .font(.largeTitle)
-                    .foregroundStyle(AppTheme.Colors.tabUnselected)
-            }
+        FieldGuideMarineLifeCatalogImage(
+            imageURLString: "",
+            placement: .detailHero(totalHeight: FieldGuideMarineLifeImageLayout.detailHeroBaseHeight)
+        )
     }
 
     private var taxonomyLabel: some View {

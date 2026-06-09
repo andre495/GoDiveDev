@@ -20,10 +20,33 @@ enum DiveMediaFishialIdentificationStorage {
         DiveActivityMediaStorage.postMediaDidChange()
         return trimmed
     }
+
+    @discardableResult
+    static func saveConfirmedCatalogMatch(
+        _ option: FishialCatalogReviewOption,
+        marineLife: MarineLife,
+        media: DiveMediaPhoto,
+        dive: DiveActivity,
+        captureContext: DiveMediaCaptureContext?,
+        owner: UserProfile,
+        modelContext: ModelContext
+    ) throws -> String {
+        _ = try MarineLifeSightingRecorder.tagSpecies(
+            marineLife,
+            on: media,
+            dive: dive,
+            captureContext: captureContext,
+            owner: owner,
+            modelContext: modelContext
+        )
+        _ = try saveConfirmedSpecies(option.catalogScientificName, on: media, modelContext: modelContext)
+        return marineLife.commonName
+    }
 }
 
 enum DiveMediaFishialIdentificationStorageError: Error, Equatable, Sendable {
     case emptySpeciesName
+    case missingSignedInProfile
 }
 
 extension DiveMediaFishialIdentificationStorageError: LocalizedError {
@@ -31,6 +54,8 @@ extension DiveMediaFishialIdentificationStorageError: LocalizedError {
         switch self {
         case .emptySpeciesName:
             return "Choose a species name before saving."
+        case .missingSignedInProfile:
+            return "Sign in to tag marine life."
         }
     }
 }

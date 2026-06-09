@@ -34,9 +34,25 @@
 		AEFDAC252F7DD34800587D52 /* GoDiveMVPUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GoDiveMVPUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		B1FDAC702F9EE45900698E70 /* Exceptions for "GoDiveMVP" folder in "GoDiveMVP" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Scripts,
+			);
+			target = AEFDAC0B2F7DD34500587D52 /* GoDiveMVP */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		AEFDAC0E2F7DD34500587D52 /* GoDiveMVP */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B1FDAC702F9EE45900698E70 /* Exceptions for "GoDiveMVP" folder in "GoDiveMVP" target */,
+			);
+			explicitFolders = (
+				Scripts,
+			);
 			path = GoDiveMVP;
 			sourceTree = "<group>";
 		};

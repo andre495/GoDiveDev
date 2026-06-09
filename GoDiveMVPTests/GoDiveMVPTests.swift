@@ -2162,6 +2162,12 @@ struct GoDiveMVPTests {
         #expect(kind == .placeholder)
     }
 
+    @Test func fieldGuideMarineLifeImageLayout_usesFixedMosaicAndHeroBounds() {
+        #expect(FieldGuideMarineLifeImageLayout.mosaicAspectRatio == 4 / 3)
+        #expect(FieldGuideMarineLifeImageLayout.mosaicLabelBlockHeight == 88)
+        #expect(FieldGuideMarineLifeImageLayout.detailHeroBaseHeight == 280)
+    }
+
     @Test func fieldGuideMarineLifeHeroPresentation_autoSpinPausesWhileDraggingAndAfterDrag() {
         let now = Date(timeIntervalSinceReferenceDate: 1_000)
         let pausedUntil = now.addingTimeInterval(15)
@@ -3668,24 +3674,93 @@ struct GoDiveMVPTests {
     }
 
     @Test func fishialIdentificationReviewPresentation_reviewMode_branchesByResultCount() {
-        let speciesA = FishialRecognitionPresentation.RankedSpecies(
-            scientificName: "Holacanthus ciliaris",
-            accuracy: 0.91
+        let optionA = FishialCatalogReviewOption(
+            marineLifeUUID: "queen-angelfish",
+            catalogCommonName: "Queen Angelfish",
+            catalogScientificName: "Holacanthus ciliaris",
+            featureImageURL: "https://example.com/queen.jpg",
+            fishialScientificName: "Holacanthus ciliaris",
+            fishialAccuracy: 0.91,
+            nameMatchScore: 1.0
         )
-        let speciesB = FishialRecognitionPresentation.RankedSpecies(
-            scientificName: "Pomacanthus arcuatus",
-            accuracy: 0.72
+        let optionB = FishialCatalogReviewOption(
+            marineLifeUUID: "gray-angelfish",
+            catalogCommonName: "Gray Angelfish",
+            catalogScientificName: "Pomacanthus arcuatus",
+            featureImageURL: "https://example.com/gray.jpg",
+            fishialScientificName: "Pomacanthus arcuatus",
+            fishialAccuracy: 0.72,
+            nameMatchScore: 1.0
         )
 
         #expect(FishialIdentificationReviewPresentation.reviewMode(for: []) == .noMatches)
         #expect(
-            FishialIdentificationReviewPresentation.reviewMode(for: [speciesA])
-                == .confirmSingle(speciesA)
+            FishialIdentificationReviewPresentation.reviewMode(for: [optionA])
+                == .confirmSingle(optionA)
         )
         #expect(
-            FishialIdentificationReviewPresentation.reviewMode(for: [speciesA, speciesB])
-                == .selectFromMultiple([speciesA, speciesB])
+            FishialIdentificationReviewPresentation.reviewMode(for: [optionA, optionB])
+                == .selectFromMultiple([optionA, optionB])
         )
+    }
+
+    @Test func fishialMarineLifeCatalogMatching_scientificNameSimilarity_handlesExactAndFuzzyNames() {
+        #expect(
+            FishialMarineLifeCatalogMatching.scientificNameSimilarity(
+                fishial: "Holacanthus ciliaris",
+                catalog: "Holacanthus ciliaris"
+            ) == 1.0
+        )
+        #expect(
+            FishialMarineLifeCatalogMatching.scientificNameSimilarity(
+                fishial: "Holacanthus ciliaris.",
+                catalog: "holacanthus  ciliaris"
+            ) == 1.0
+        )
+        #expect(
+            FishialMarineLifeCatalogMatching.scientificNameSimilarity(
+                fishial: "Holacanthus ciliarus",
+                catalog: "Holacanthus ciliaris"
+            ) >= FishialMarineLifeCatalogMatching.defaultMinimumSimilarity
+        )
+        #expect(
+            FishialMarineLifeCatalogMatching.scientificNameSimilarity(
+                fishial: "Acanthurus coeruleus",
+                catalog: "Holacanthus ciliaris"
+            ) < FishialMarineLifeCatalogMatching.defaultMinimumSimilarity
+        )
+    }
+
+    @Test func fishialMarineLifeCatalogMatching_catalogReviewOptions_mapsFishialResultsToCatalogRows() {
+        let catalog = [
+            FishialMarineLifeCatalogSnapshot(
+                uuid: "queen-angelfish",
+                scientificName: "Holacanthus ciliaris",
+                commonName: "Queen Angelfish",
+                featureImageURL: "https://example.com/queen.jpg"
+            ),
+            FishialMarineLifeCatalogSnapshot(
+                uuid: "blue-tang",
+                scientificName: "Acanthurus coeruleus",
+                commonName: "Blue Tang",
+                featureImageURL: "https://example.com/tang.jpg"
+            ),
+        ]
+        let ranked = [
+            FishialRankedSpecies(scientificName: "Holacanthus ciliaris", accuracy: 0.91),
+            FishialRankedSpecies(scientificName: "Acanthurus coeruleus", accuracy: 0.74),
+            FishialRankedSpecies(scientificName: "Completely unknownicus", accuracy: 0.99),
+        ]
+
+        let options = FishialMarineLifeCatalogMatching.catalogReviewOptions(
+            from: ranked,
+            catalog: catalog
+        )
+        #expect(options.count == 2)
+        #expect(options[0].marineLifeUUID == "queen-angelfish")
+        #expect(options[0].catalogCommonName == "Queen Angelfish")
+        #expect(options[0].featureImageURL == "https://example.com/queen.jpg")
+        #expect(options[1].marineLifeUUID == "blue-tang")
     }
 
     @Test func diveMediaPhoto_resolvedFishialConfirmedSpeciesName_trimsBlankValues() {
@@ -3724,6 +3799,63 @@ struct GoDiveMVPTests {
         #expect(saved == "Holacanthus ciliaris")
         #expect(media.fishialConfirmedSpeciesName == "Holacanthus ciliaris")
         #expect(media.resolvedFishialConfirmedSpeciesName == "Holacanthus ciliaris")
+    }
+
+    @Test @MainActor func diveMediaFishialIdentificationStorage_saveConfirmedCatalogMatch_tagsSpeciesAndPersistsFishID() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+
+        let owner = UserProfile(appleUserIdentifier: "fishial-tag", displayName: "Diver")
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 3_200_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        dive.owner = owner
+        dive.ownerProfileID = owner.id
+        let media = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 3_200_100))
+        media.link(to: dive)
+        let species = MarineLife(
+            uuid: "fishial-catalog-queen",
+            commonName: "Queen Angelfish",
+            scientificName: "Holacanthus ciliaris"
+        )
+
+        context.insert(owner)
+        context.insert(dive)
+        context.insert(media)
+        context.insert(species)
+
+        let option = FishialCatalogReviewOption(
+            marineLifeUUID: species.uuid,
+            catalogCommonName: species.commonName,
+            catalogScientificName: species.scientificName,
+            featureImageURL: "https://example.com/queen.jpg",
+            fishialScientificName: "Holacanthus ciliaris",
+            fishialAccuracy: 0.91,
+            nameMatchScore: 1.0
+        )
+
+        let saved = try DiveMediaFishialIdentificationStorage.saveConfirmedCatalogMatch(
+            option,
+            marineLife: species,
+            media: media,
+            dive: dive,
+            captureContext: DiveMediaCaptureContext(elapsedSeconds: 120, depthMeters: 12),
+            owner: owner,
+            modelContext: context
+        )
+        #expect(saved == "Queen Angelfish")
+        #expect(media.fishialConfirmedSpeciesName == "Holacanthus ciliaris")
+
+        let sightings = try MarineLifeSightingRecorder.sightings(
+            forMediaPhotoID: media.id,
+            modelContext: context
+        )
+        #expect(sightings.count == 1)
+        #expect(sightings[0].marineLifeUUID == species.uuid)
+        #expect(sightings[0].sightingDepthMeters == 12)
     }
 
     @Test func fishialSecretsBootstrap_validatedCredentials_rejectsPlaceholders() {

@@ -214,7 +214,8 @@ struct ViewSingleActivity: View {
                     DiveMediaFishialIdentifySheet(
                         media: media,
                         dive: activity,
-                        catalogSites: catalogSitesForMapResolution
+                        catalogSites: catalogSitesForMapResolution,
+                        captureContext: mediaCaptureContextsByID[media.id]
                     )
                 }
             }

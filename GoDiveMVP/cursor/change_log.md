@@ -1149,8 +1149,19 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 - **`.cursor/rules/xcode-run-test.mdc`** — **`xcodebuild clean`** for the target destination, then **`clean build`** / **`clean build-for-testing`** on every run/test request.
 
-## 73 - Next batch
+## 73 - Caribbean catalog, Field Guide images, Fishial catalog match **(pushed)**
 
-**Summary:** xcode run/test rule — Dre's Phone destination by device id.
+**Summary:** Caribbean FishBase facts pipeline — staging CSV + extract/sync scripts.
 
-- **`.cursor/rules/xcode-run-test.mdc`** — Dre's Phone uses **`platform=iOS,id=00008130-001241C118A1401C`** (curly apostrophe in Xcode device name breaks `name=` matching).
+- **`Scripts/extract_fishbase_caribbean.py`** — FishBase v24.07 parquet (Caribbean saltwater fish) → **`MockData/marine_life_caribbean_staging.csv`** (1,677 species); fills names, science name, family, depth, max size, subcategory where mapped; leaves user prose + images empty.
+- **`Scripts/sync_marine_life_staging_to_json.py`** — merges rows with **`aboutText`** into **`marine_life_sample.json`** (preserves existing UUID prose).
+- **`Scripts/fishbase_caribbean_config.json`**, **`fishbase_catalog_utils.py`**, **`MARINE_LIFE_CARIBBEAN_WORKFLOW.md`**, Python **`unittest`** helpers.
+- **Diver visibility filter** — staging extract keeps reef/demersal/neritic habitats + `ecology.CoralReefs` (FishBase **-1** flag) and `maxDepth <= 130 m`; drops bathypelagic / deep-demersal obscurities (~601 species vs 1,677).
+- **FishBase placeholder descriptions** — `include_fishbase_descriptions` fills `aboutText` from `species.Comments` (+ ecology `AddRems` fallback) and `distinctiveFeatures` from `BodyShapeI`; sync to **`marine_life_sample.json`** for in-app Field Guide testing (replace with original GoDive prose later).
+- **Marine life hero images** — **`fetch_marine_life_images.py`** + **`marine_life_image_utils.py`**: Wikimedia Commons + Openverse, CC0-first then CC BY, scientific-name scoring, `imageNeedsReview` flags, JSON cache; unittest coverage.
+- **Underwater image pass** — search suffixes (`underwater`, `diver`, `scuba`), undesirable-artifact penalties (maps/sketches/fishing), **`--refetch-gaps`** for misses + review rows, cache v2.
+- **Field Guide catalog image layout** — **`FieldGuideMarineLifeCatalogImage`**: fixed 4:3 mosaic crops + uniform label block; capped detail/media heroes so remote photos cannot resize pages or clip body text.
+- **Field Guide image crop fix** — reserve bounds with `Color.clear` + `GeometryReader` fill so `AsyncImage` cannot expand mosaic/detail layouts past the clipped frame.
+- **Fishial → catalog fuzzy match + tag** — **`FishialMarineLifeCatalogMatching`** maps Fishial scientific names onto Field Guide **`MarineLife`** rows (normalize + token/Levenshtein similarity); review UI shows catalog thumbnails via **`FieldGuideMarineLifeCatalogImage`**; confirming a match calls **`MarineLifeSightingRecorder.tagSpecies`** + persists **`fishialConfirmedSpeciesName`** via **`DiveMediaFishialIdentificationStorage.saveConfirmedCatalogMatch`**. Tests: **`fishialMarineLifeCatalogMatching_*`**, **`diveMediaFishialIdentificationStorage_saveConfirmedCatalogMatch_*`**.
+
+## 74 - Next batch

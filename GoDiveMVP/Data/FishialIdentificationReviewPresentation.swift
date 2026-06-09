@@ -3,8 +3,8 @@ import Foundation
 /// Post-recognition review branching for Fishial identify — top-level for **nonisolated** **`Equatable`** (Swift 6).
 enum FishialIdentificationReviewMode: Equatable, Sendable {
     case noMatches
-    case confirmSingle(FishialRankedSpecies)
-    case selectFromMultiple([FishialRankedSpecies])
+    case confirmSingle(FishialCatalogReviewOption)
+    case selectFromMultiple([FishialCatalogReviewOption])
 
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         switch (lhs, rhs) {
@@ -26,28 +26,32 @@ enum FishialIdentificationReviewPresentation: Sendable {
     typealias ReviewMode = FishialIdentificationReviewMode
 
     nonisolated static let mediumDetentSectionTitle = "Fish ID"
-    nonisolated static let noMatchesMessage = "Fishial did not suggest any species for this still."
+    nonisolated static let noMatchesMessage =
+        "Fishial did not match any species in our marine life catalog for this still."
     nonisolated static let confirmSinglePrompt = "Does this look like the fish in your photo?"
-    nonisolated static let selectMultiplePrompt = "Which species match do you think is correct?"
-    nonisolated static let savedConfirmationPrefix = "Saved fish ID:"
+    nonisolated static let selectMultiplePrompt = "Which catalog species match do you think is correct?"
+    nonisolated static let savedConfirmationPrefix = "Tagged marine life:"
+    nonisolated static let savedFishIDNote =
+        "This species is tagged on the photo and shown in the Fish ID row at medium height."
 
     nonisolated static func reviewMode(
-        for rankedSpecies: [FishialRecognitionPresentation.RankedSpecies]
+        for catalogOptions: [FishialCatalogReviewOption]
     ) -> ReviewMode {
-        switch rankedSpecies.count {
+        switch catalogOptions.count {
         case 0:
             return .noMatches
         case 1:
-            return .confirmSingle(rankedSpecies[0])
+            return .confirmSingle(catalogOptions[0])
         default:
-            return .selectFromMultiple(rankedSpecies)
+            return .selectFromMultiple(catalogOptions)
         }
     }
 
     nonisolated static func formattedSpeciesLine(
-        _ species: FishialRecognitionPresentation.RankedSpecies
+        _ option: FishialCatalogReviewOption
     ) -> String {
-        "\(species.scientificName) — \(FishialIdentificationResultPresentation.formattedAccuracy(species.accuracy))"
+        "\(option.catalogCommonName) (\(option.catalogScientificName)) — "
+            + FishialIdentificationResultPresentation.formattedAccuracy(option.fishialAccuracy)
     }
 
     nonisolated static func mediumDetentAccessibilityLabel(speciesName: String) -> String {

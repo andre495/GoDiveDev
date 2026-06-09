@@ -523,6 +523,10 @@ private struct FieldGuideSpeciesMosaicCard: View, Equatable {
                     .foregroundStyle(AppTheme.Colors.tabUnselected)
                     .lineLimit(2)
             }
+            .frame(
+                height: FieldGuideMarineLifeImageLayout.mosaicLabelBlockHeight,
+                alignment: .topLeading
+            )
             .padding(AppTheme.Spacing.sm)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -537,34 +541,12 @@ private struct FieldGuideSpeciesMosaicCard: View, Equatable {
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    @ViewBuilder
     private var thumbnail: some View {
-        let height: CGFloat = 108
-        if let url = URL(string: entry.featureImageURL), !entry.featureImageURL.isEmpty {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().scaledToFill()
-                default:
-                    thumbnailPlaceholder
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: height)
-            .clipped()
-        } else {
-            thumbnailPlaceholder
-                .frame(height: height)
-        }
-    }
-
-    private var thumbnailPlaceholder: some View {
-        Rectangle()
-            .fill(accent.opacity(0.12))
-            .overlay {
-                Image(systemName: "fish")
-                    .font(.title2)
-                    .foregroundStyle(accent.opacity(0.55))
-            }
+        FieldGuideMarineLifeCatalogImage(
+            imageURLString: entry.featureImageURL,
+            placement: .mosaicTile(accent: accent)
+        )
+        .frame(maxWidth: .infinity)
+        .clipped()
     }
 }
