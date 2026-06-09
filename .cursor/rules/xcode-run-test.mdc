@@ -18,6 +18,22 @@ SCHEME="GoDiveMVP"
 
 If `xcodebuild` is missing, say so and ask the user to run from Xcode locally.
 
+## Clean first (always)
+
+Before every **run** or **test** build, **clean the build folder** so the log reflects a full compile (not a stale incremental artifact).
+
+1. Run **`clean`** for the same **`-destination`** you will build against:
+
+```bash
+$XCBUILD -project "$PROJECT" -scheme "$SCHEME" \
+  -destination '<parsed-destination>' \
+  clean 2>&1 | tee /tmp/godive-clean.log
+```
+
+2. Then run **`clean build`** or **`clean build-for-testing`** (below). Using both **`clean`** and **`clean build`** is intentional — **`clean`** clears DerivedData for the scheme; **`clean build`** ensures the compile pass is fresh.
+
+If **`clean`** fails (e.g. destination mismatch), fix the destination before building.
+
 ## Parse the user's target
 
 | User says (examples) | `xcodebuild -destination` |
@@ -33,13 +49,13 @@ If the destination fails, run **`$XCBUILD -showdestinations -project "$PROJECT" 
 
 User phrases: *"run the app"*, *"launch on Dre's phone"*, *"build for simulator"*.
 
-1. **`clean build`** when the tree changed a lot or the last build had errors; otherwise incremental **`build`** is fine.
+1. **`clean`** (see above), then **`clean build`** — always, not only after large diffs.
 2. Command shape:
 
 ```bash
 $XCBUILD -project "$PROJECT" -scheme "$SCHEME" \
   -destination '<parsed-destination>' \
-  build 2>&1 | tee /tmp/godive-run.log
+  clean build 2>&1 | tee /tmp/godive-run.log
 ```
 
 3. Grep the log for **`error:`** and **`warning:`** (exclude third-party noise like `appintentsmetadataprocessor` unless it blocks the build).
@@ -51,12 +67,12 @@ $XCBUILD -project "$PROJECT" -scheme "$SCHEME" \
 
 User phrases: *"test the app"*, *"run tests"*, *"⌘U"*, *"target iPhone 17 simulator"*.
 
-1. **`build-for-testing`** first (catches compile issues in **GoDiveMVPTests** / **GoDiveMVPUITests**):
+1. **`clean`** (see above), then **`clean build-for-testing`** (catches compile issues in **GoDiveMVPTests** / **GoDiveMVPUITests**):
 
 ```bash
 $XCBUILD -project "$PROJECT" -scheme "$SCHEME" \
   -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
-  build-for-testing 2>&1 | tee /tmp/godive-test-build.log
+  clean build-for-testing 2>&1 | tee /tmp/godive-test-build.log
 ```
 
 2. Report **all errors and warnings** from that log (same grep rules as run).
@@ -68,11 +84,12 @@ $XCBUILD -project "$PROJECT" -scheme "$SCHEME" \
 ## Required behavior
 
 - **Never** answer "you can run it in Xcode" without running **`xcodebuild`** yourself when tools are available.
+- **Always** **`clean`** then **`clean build`** / **`clean build-for-testing`** before reporting success.
 - **Always** surface compiler **errors** and **project warnings** (especially Swift 6 actor-isolation warnings in **GoDiveMVP** / **GoDiveMVPTests**).
 - After fixes, **rebuild** to confirm a clean log before handing off.
 - Keep responses scannable: build result, destination used, warning/error list, what was fixed (if anything).
 
 ## Example user requests
 
-- *"Run the app, target Dre's phone"* → device **`build`**, full error/warning report.
-- *"Test the app, target iPhone 17 simulator"* → sim **`build-for-testing`**, then **`test`** if requested; full error/warning report.
+- *"Run the app, target Dre's phone"* → **`clean`**, then device **`clean build`**, full error/warning report.
+- *"Test the app, target iPhone 17 simulator"* → **`clean`**, then sim **`clean build-for-testing`**, then **`test`** if requested; full error/warning report.

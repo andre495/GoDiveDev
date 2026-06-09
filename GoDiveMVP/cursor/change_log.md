@@ -1144,3 +1144,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Cursor rule** — **`.cursor/rules/xcode-run-test.mdc`**: on *run* / *test* requests, agent runs **`xcodebuild`** (Dre's Phone or iPhone 17 sim), reports errors/warnings, rebuilds after fixes.
 
 ## 72 - Next batch
+
+**Summary:** xcode run/test rule always cleans before build.
+
+- **`.cursor/rules/xcode-run-test.mdc`** — **`xcodebuild clean`** for the target destination, then **`clean build`** / **`clean build-for-testing`** on every run/test request.
