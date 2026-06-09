@@ -2309,10 +2309,10 @@ struct GoDiveMVPTests {
         #expect(!DiveActivityMediaPresentation.showsMarineLifeTagOnHero(for: .large))
     }
 
-    @Test func diveActivityMediaPresentation_showsMarineLifeTagInSheet_atMediumAndLarge() {
+    @Test func diveActivityMediaPresentation_showsMarineLifeTagInSheet_onlyAtMedium() {
         #expect(!DiveActivityMediaPresentation.showsMarineLifeTagInSheet(for: .minimized))
         #expect(DiveActivityMediaPresentation.showsMarineLifeTagInSheet(for: .medium))
-        #expect(DiveActivityMediaPresentation.showsMarineLifeTagInSheet(for: .large))
+        #expect(!DiveActivityMediaPresentation.showsMarineLifeTagInSheet(for: .large))
     }
 
     @Test func diveActivityMediaPresentation_showsMarineLifeTagSummary_onlyAtMedium() {
@@ -2327,18 +2327,25 @@ struct GoDiveMVPTests {
         #expect(DiveActivityMediaPresentation.showsMarineLifeDetailInSheet(for: .large))
     }
 
-    @Test func diveActivityMediaPresentation_showsMediaSheetChromeActions_atMediumAndLarge() {
+    @Test func diveActivityMediaPresentation_showsMediaSheetChromeActions_onlyAtMedium() {
         #expect(!DiveActivityMediaPresentation.showsMediaSheetChromeActions(for: .minimized))
         #expect(DiveActivityMediaPresentation.showsMediaSheetChromeActions(for: .medium))
-        #expect(DiveActivityMediaPresentation.showsMediaSheetChromeActions(for: .large))
+        #expect(!DiveActivityMediaPresentation.showsMediaSheetChromeActions(for: .large))
     }
 
     @Test func diveActivityOverviewPanelMetrics_mediaCarouselScreenAlignmentTopInset_matchesDetentGap() {
         let layoutHeight: CGFloat = 800
-        let inset = DiveActivityOverviewPanelMetrics.mediaCarouselScreenAlignmentTopInset(
-            layoutHeight: layoutHeight
+        #expect(
+            DiveActivityOverviewPanelMetrics.mediaCarouselScreenAlignmentTopInset(
+                layoutHeight: layoutHeight,
+                detent: .medium
+            ) == layoutHeight * (0.50 - 0.20)
         )
-        #expect(inset == layoutHeight * (0.50 - 0.20))
+        #expect(
+            DiveActivityOverviewPanelMetrics.mediaCarouselExpandedRegionHeight(
+                layoutHeight: layoutHeight
+            ) == layoutHeight * (0.50 - 0.20)
+        )
     }
 
     @Test @MainActor func marineLifeSightingRecorder_tagsMediaAndUpdatesUserRecord() throws {
@@ -3458,6 +3465,279 @@ struct GoDiveMVPTests {
         #expect(
             GoDiveMapEngine.resolved(activeLaunchArguments: ["-GoDiveUITest"], hasGoogleMapsAPIKey: false)
                 == .mapKit
+        )
+    }
+
+    @Test func fishialImageBlobMetadata_base64MD5_matchesOpenSSLStyleDigest() {
+        let data = Data("fishial".utf8)
+        #expect(FishialImageBlobMetadata.base64MD5Checksum(for: data) == "peUq2S6hdJKbT/NXPmFd2w==")
+        let metadata = FishialImageBlobMetadata.fromJPEGData(data, filename: "frames/fish.jpg")
+        #expect(metadata.filename == "fish.jpg")
+        #expect(metadata.contentType == "image/jpeg")
+        #expect(metadata.byteSize == data.count)
+    }
+
+    @Test func fishialVideoScrubPresentation_clampsFractionAndFormatsTimestamps() {
+        #expect(FishialVideoScrubPresentation.clampedFraction(-0.2) == 0)
+        #expect(FishialVideoScrubPresentation.clampedFraction(1.5) == 1)
+        #expect(FishialVideoScrubPresentation.timeSeconds(durationSeconds: 120, fraction: 0.5) == 60)
+
+        #expect(
+            FishialVideoScrubPresentation.formattedTimestamp(durationSeconds: 125, fraction: 0.5)
+                == "1:02"
+        )
+        #expect(FishialVideoScrubPresentation.formattedDuration(durationSeconds: 125) == "2:05")
+    }
+
+    @Test func fishialVideoScrubPresentation_usesPrecisePlaybackSeekWhenNotScrubbing() {
+        #expect(FishialVideoScrubPresentation.usesPrecisePlaybackSeek(isScrubbing: true) == false)
+        #expect(FishialVideoScrubPresentation.usesPrecisePlaybackSeek(isScrubbing: false) == true)
+    }
+
+    @Test func diveMediaFishialFrameExport_filenames_usePhotoAndScrubbedStillNames() {
+        let mediaID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        #expect(
+            DiveMediaFishialFrameExport.photoFilename(mediaID: mediaID)
+                == "dive-media-11111111-1111-1111-1111-111111111111.jpg"
+        )
+        #expect(
+            DiveMediaFishialFrameExport.scrubFrameFilename(mediaID: mediaID, timeSeconds: 12.345)
+                == "dive-media-11111111-1111-1111-1111-111111111111-t12345.jpg"
+        )
+        #expect(DiveMediaFishialFrameExport.defaultVideoScrubFraction == 0.5)
+    }
+
+    @Test func fishialRecognitionPresentation_rankedSpecies_mergesBestAccuracyAcrossFrames() {
+        let speciesID = "11111111-1111-1111-1111-111111111111"
+        let otherSpeciesID = "22222222-2222-2222-2222-222222222222"
+        let definitions = [
+            speciesID: FishialSpeciesDefinition(
+                commonName: "Queen Angelfish",
+                scientificName: "Holacanthus ciliaris",
+                imageURL: nil
+            ),
+            otherSpeciesID: FishialSpeciesDefinition(
+                commonName: "Gray Angelfish",
+                scientificName: "Pomacanthus paru",
+                imageURL: nil
+            ),
+        ]
+        let frameA = FishialRecognitionResponse(
+            ok: true,
+            objects: [
+                FishialDetectedFish(species: [
+                    FishialSpeciesCandidate(id: speciesID, certainty: 0.62),
+                    FishialSpeciesCandidate(id: otherSpeciesID, certainty: 0.20),
+                ]),
+            ],
+            definitions: definitions
+        )
+        let frameB = FishialRecognitionResponse(
+            ok: true,
+            objects: [
+                FishialDetectedFish(species: [
+                    FishialSpeciesCandidate(id: speciesID, certainty: 0.88),
+                ]),
+            ],
+            definitions: definitions
+        )
+
+        let merged = FishialRecognitionPresentation.rankedSpecies(merging: [frameA, frameB])
+        #expect(merged.count == 2)
+        #expect(merged[0].scientificName == "Holacanthus ciliaris")
+        #expect(merged[0].accuracy == 0.88)
+        #expect(merged[1].scientificName == "Pomacanthus paru")
+    }
+
+    @Test func fishialObservationLocation_formatsLocationHeaderAndResolvesDiveCoordinate() {
+        let coordinate = DiveCoordinate(latitude: -55.2604, longitude: -67.8862)
+        #expect(
+            FishialObservationLocation.locationHeaderValue(for: coordinate)
+                == "-55.260, -67.886"
+        )
+
+        let site = DiveSite(
+            siteName: "Test Reef",
+            latCoords: 12.10325,
+            longCoords: -68.28845
+        )
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 0),
+            durationMinutes: 45,
+            maxDepthMeters: 18,
+            siteName: "Imported Site",
+            entryCoordinate: DiveCoordinate(latitude: 1, longitude: 2)
+        )
+        activity.diveSite = site
+
+        #expect(
+            FishialObservationLocation.resolvedCoordinate(for: activity, catalogSites: [])?.latitude
+                == 12.10325
+        )
+    }
+
+    @Test func fishialAPIClient_recognizeJPEG_runsV2AuthAndRecognitionFlow() async throws {
+        let jpegData = Data("fake-jpeg-bytes".utf8)
+        let credentials = FishialSecretsBootstrap.Credentials(
+            clientID: "test-client-id",
+            clientSecret: "test-client-secret"
+        )
+        let speciesID = "33333333-3333-3333-3333-333333333333"
+        let coordinate = DiveCoordinate(latitude: -55.2604, longitude: -67.8862)
+
+        let session = MockFishialURLSession(handlers: [
+            { request in
+                #expect(request.url?.absoluteString == "https://api-recognition.fishial.ai/v2/auth")
+                #expect(request.httpMethod == "POST")
+                return MockFishialURLSession.jsonResponse(
+                    statusCode: 200,
+                    body: #"{"access_token":"token-123"}"#,
+                    url: request.url!
+                )
+            },
+            { request in
+                #expect(request.url?.absoluteString == "https://api-recognition.fishial.ai/v2/recognize")
+                #expect(request.httpMethod == "POST")
+                #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer token-123")
+                #expect(request.value(forHTTPHeaderField: "Content-Type") == "image/jpeg")
+                #expect(
+                    request.value(forHTTPHeaderField: "Fishial-Location-Lat-Lon")
+                        == FishialObservationLocation.locationHeaderValue(for: coordinate)
+                )
+                #expect(request.httpBody == jpegData)
+                return MockFishialURLSession.jsonResponse(
+                    statusCode: 200,
+                    body: """
+                    {
+                      "ok": true,
+                      "queryToken": "query-token",
+                      "objects": [
+                        {
+                          "species": [
+                            { "id": "\(speciesID)", "certainty": 0.91 }
+                          ]
+                        }
+                      ],
+                      "definitions": {
+                        "\(speciesID)": {
+                          "commonName": "Queen Angelfish",
+                          "scientificName": "Holacanthus ciliaris"
+                        }
+                      }
+                    }
+                    """,
+                    url: request.url!
+                )
+            },
+        ])
+
+        let client = FishialAPIClient(
+            configuration: FishialAPIClient.Configuration(credentials: credentials),
+            session: session
+        )
+        let response = try await client.recognizeJPEG(jpegData, observationCoordinate: coordinate)
+        let ranked = FishialRecognitionPresentation.rankedSpecies(from: response)
+        #expect(ranked.count == 1)
+        #expect(ranked[0].scientificName == "Holacanthus ciliaris")
+        #expect(ranked[0].accuracy == 0.91)
+    }
+
+    @Test func fishialIdentificationResultPresentation_resultLines_formatsSelectedFrameOutput() {
+        let outcome = DiveMediaFishialIdentification.Outcome(
+            selectedFilename: "dive-media-frame-3.jpg",
+            observationCoordinate: DiveCoordinate(latitude: 12.103, longitude: -68.288),
+            rankedSpecies: [
+                FishialRecognitionPresentation.RankedSpecies(
+                    scientificName: "Holacanthus ciliaris",
+                    accuracy: 0.885
+                ),
+            ],
+            detectedFishCount: 1,
+            species: [FishialSpeciesMatch(name: "Holacanthus ciliaris", accuracy: 0.91)]
+        )
+
+        let body = FishialIdentificationResultPresentation.resultLines(from: outcome).joined(separator: "\n")
+        #expect(body.contains("Selected still: dive-media-frame-3.jpg"))
+        #expect(body.contains("Dive location sent: 12.103, -68.288"))
+        #expect(body.contains("Fish shapes detected: 1"))
+        #expect(body.contains("Holacanthus ciliaris — 89%"))
+    }
+
+    @Test func fishialIdentificationReviewPresentation_reviewMode_branchesByResultCount() {
+        let speciesA = FishialRecognitionPresentation.RankedSpecies(
+            scientificName: "Holacanthus ciliaris",
+            accuracy: 0.91
+        )
+        let speciesB = FishialRecognitionPresentation.RankedSpecies(
+            scientificName: "Pomacanthus arcuatus",
+            accuracy: 0.72
+        )
+
+        #expect(FishialIdentificationReviewPresentation.reviewMode(for: []) == .noMatches)
+        #expect(
+            FishialIdentificationReviewPresentation.reviewMode(for: [speciesA])
+                == .confirmSingle(speciesA)
+        )
+        #expect(
+            FishialIdentificationReviewPresentation.reviewMode(for: [speciesA, speciesB])
+                == .selectFromMultiple([speciesA, speciesB])
+        )
+    }
+
+    @Test func diveMediaPhoto_resolvedFishialConfirmedSpeciesName_trimsBlankValues() {
+        let unset = DiveMediaPhoto(fishialConfirmedSpeciesName: "   ")
+        #expect(unset.resolvedFishialConfirmedSpeciesName == nil)
+
+        let confirmed = DiveMediaPhoto(fishialConfirmedSpeciesName: "  Holacanthus ciliaris  ")
+        #expect(confirmed.resolvedFishialConfirmedSpeciesName == "Holacanthus ciliaris")
+    }
+
+    @Test @MainActor func diveMediaFishialIdentificationStorage_saveConfirmedSpecies_persistsOnMedia() throws {
+        let schema = Schema([
+            DiveActivity.self,
+            DiveMediaPhoto.self,
+        ])
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = ModelContext(container)
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: .now,
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        context.insert(dive)
+
+        let media = DiveMediaPhoto(sortOrder: 0, mediaKind: .image, dive: dive)
+        context.insert(media)
+        try context.save()
+
+        let saved = try DiveMediaFishialIdentificationStorage.saveConfirmedSpecies(
+            "Holacanthus ciliaris",
+            on: media,
+            modelContext: context
+        )
+        #expect(saved == "Holacanthus ciliaris")
+        #expect(media.fishialConfirmedSpeciesName == "Holacanthus ciliaris")
+        #expect(media.resolvedFishialConfirmedSpeciesName == "Holacanthus ciliaris")
+    }
+
+    @Test func fishialSecretsBootstrap_validatedCredentials_rejectsPlaceholders() {
+        #expect(
+            FishialSecretsBootstrap.validatedCredentials(
+                clientID: "YOUR_FISHIAL_CLIENT_ID",
+                clientSecret: "abc123"
+            ) == nil
+        )
+        #expect(
+            FishialSecretsBootstrap.validatedCredentials(
+                clientID: "c0fae174f24c0950352c2bbd",
+                clientSecret: "5edac99f92bf7acb66425c47fb153c5f"
+            ) == FishialSecretsBootstrap.Credentials(
+                clientID: "c0fae174f24c0950352c2bbd",
+                clientSecret: "5edac99f92bf7acb66425c47fb153c5f"
+            )
         )
     }
 
@@ -4799,10 +5079,41 @@ struct GoDiveMVPTests {
         #expect(DiveActivityMediaPresentation.fullScreenImageTargetEdge(screenPixelWidth: 3_000) == 2_048)
     }
 
-    @Test func diveActivityMediaPresentation_showsMediaCarouselInSheet_atMinimizedAndMedium() {
+    @Test func diveActivityMediaPresentation_sheetBodyHeightAboveMediaCarousel_reservesChromeRow() {
+        let layoutHeight: CGFloat = 800
+        let mediumInset = DiveActivityOverviewPanelMetrics.mediaCarouselScreenAlignmentTopInset(
+            layoutHeight: layoutHeight,
+            detent: .medium
+        )
+        #expect(
+            DiveActivityMediaPresentation.sheetBodyHeightAboveMediaCarousel(
+                layoutHeight: layoutHeight,
+                detent: .medium
+            ) == mediumInset - DiveActivityMediaPresentation.sheetChromeRowHeight
+        )
+        let largeInset = DiveActivityOverviewPanelMetrics.mediaCarouselScreenAlignmentTopInset(
+            layoutHeight: layoutHeight,
+            detent: .large
+        )
+        #expect(
+            DiveActivityMediaPresentation.sheetBodyHeightAboveMediaCarousel(
+                layoutHeight: layoutHeight,
+                detent: .large
+            ) == largeInset
+        )
+    }
+
+    @Test func marineLifeMediaTagPresentation_largeDetentUntaggedPrompt_directsUserToMediumSheet() {
+        #expect(
+            MarineLifeMediaTagPresentation.largeDetentUntaggedPrompt
+                .contains("medium height")
+        )
+    }
+
+    @Test func diveActivityMediaPresentation_showsMediaCarouselInSheet_atAllDetents() {
         #expect(DiveActivityMediaPresentation.showsMediaCarouselInSheet(for: .minimized))
         #expect(DiveActivityMediaPresentation.showsMediaCarouselInSheet(for: .medium))
-        #expect(!DiveActivityMediaPresentation.showsMediaCarouselInSheet(for: .large))
+        #expect(DiveActivityMediaPresentation.showsMediaCarouselInSheet(for: .large))
     }
 
     @Test func diveActivityMediaPresentation_carouselRowHeight_fitsNestedScrollView() {
@@ -4818,12 +5129,6 @@ struct GoDiveMVPTests {
         #expect(RootTabIndex.logbook == 1)
         #expect(RootTabIndex.fieldGuide == 2)
         #expect(RootTabIndex.explore == 3)
-    }
-
-    @Test func diveActivityMediaPresentation_showsMediaSheetDetails_onlyAtMedium() {
-        #expect(!DiveActivityMediaPresentation.showsMediaSheetDetails(for: .minimized))
-        #expect(DiveActivityMediaPresentation.showsMediaSheetDetails(for: .medium))
-        #expect(!DiveActivityMediaPresentation.showsMediaSheetDetails(for: .large))
     }
 
     @Test func diveDepthProfileMediaPlotting_depthMeters_interpolatesBetweenSamples() {

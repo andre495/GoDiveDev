@@ -83,7 +83,7 @@ enum DiveActivityMediaPresentation: Sendable {
         !sortedPhotos(on: activity).isEmpty
     }
 
-    /// Date/time + dive-position subtitle on the **Media** hero at **minimized** only (details row at **medium**).
+    /// Date/time + dive-position subtitle on the **Media** hero at **minimized** only.
     nonisolated static func showsCaptureDateOnHero(for detent: DiveActivityOverviewDetent) -> Bool {
         detent == .minimized
     }
@@ -103,27 +103,38 @@ enum DiveActivityMediaPresentation: Sendable {
         detent == .large
     }
 
-    /// **Tag marine life** control in the **Media** sheet chrome at **medium** and **large**.
+    /// **Tag marine life** control in the **Media** sheet chrome at **medium** only.
     nonisolated static func showsMarineLifeTagInSheet(for detent: DiveActivityOverviewDetent) -> Bool {
-        detent == .medium || detent == .large
+        detent == .medium
     }
 
-    /// Fish tag, featured toggle, and **+** add control in the **Media** sheet chrome.
+    /// Fish tag, Fishial identify, featured toggle, and **+** add control in the **Media** sheet chrome at **medium** only.
     nonisolated static func showsMediaSheetChromeActions(for detent: DiveActivityOverviewDetent) -> Bool {
-        detent == .medium || detent == .large
+        detent == .medium
     }
 
     /// Hero band height for tagged-species detail at the **large** media detent.
     nonisolated static let largeDetentSpeciesHeroHeight: CGFloat = 220
 
-    /// Thumbnail strip in the **Media** sheet at **minimized** and **medium** detents.
+    /// Thumbnail strip in the **Media** sheet — pinned to the minimized carousel slot at every detent.
     nonisolated static func showsMediaCarouselInSheet(for detent: DiveActivityOverviewDetent) -> Bool {
-        detent == .minimized || detent == .medium
+        detent == .minimized || detent == .medium || detent == .large
     }
 
-    /// Capture date block and header **+** at **medium** only (no title / position row).
-    nonisolated static func showsMediaSheetDetails(for detent: DiveActivityOverviewDetent) -> Bool {
-        detent == .medium
+    /// Top chrome action row height at **medium** / **large** — matches **44 pt** action targets.
+    nonisolated static let sheetChromeRowHeight: CGFloat = 44
+
+    /// Vertical space for sheet body copy between top chrome and the pinned carousel.
+    nonisolated static func sheetBodyHeightAboveMediaCarousel(
+        layoutHeight: CGFloat,
+        detent: DiveActivityOverviewDetent
+    ) -> CGFloat {
+        let inset = DiveActivityOverviewPanelMetrics.mediaCarouselScreenAlignmentTopInset(
+            layoutHeight: layoutHeight,
+            detent: detent
+        )
+        let chromeReserve = showsMediaSheetChromeActions(for: detent) ? sheetChromeRowHeight : 0
+        return max(0, inset - chromeReserve)
     }
 
     nonisolated static let carouselThumbnailSize: CGFloat = 72

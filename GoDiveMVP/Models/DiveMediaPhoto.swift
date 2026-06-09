@@ -18,6 +18,8 @@ final class DiveMediaPhoto {
     var capturedAt: Date?
     /// **`PHAsset.localIdentifier`** of the referenced Photos asset.
     var photosLocalIdentifier: String = ""
+    /// User-confirmed Fishial scientific name for this media item (empty when unset).
+    var fishialConfirmedSpeciesName: String = ""
 
     /// Denormalized for batch **`delete(model:where:)`**.
     var diveActivityID: UUID?
@@ -31,6 +33,7 @@ final class DiveMediaPhoto {
         mediaKind: DiveMediaKind = .image,
         capturedAt: Date? = nil,
         photosLocalIdentifier: String = "",
+        fishialConfirmedSpeciesName: String = "",
         dive: DiveActivity? = nil
     ) {
         self.id = id
@@ -38,6 +41,7 @@ final class DiveMediaPhoto {
         self.mediaKind = mediaKind.rawValue
         self.capturedAt = capturedAt
         self.photosLocalIdentifier = photosLocalIdentifier
+        self.fishialConfirmedSpeciesName = fishialConfirmedSpeciesName
         self.diveActivityID = dive?.id
         self.dive = dive
     }

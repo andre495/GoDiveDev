@@ -51,6 +51,7 @@ struct ViewSingleActivity: View {
     @State private var diveMediaPickerItems: [PhotosPickerItem] = []
     @State private var selectedDiveMediaPhotoID: UUID?
     @State private var marineLifeTagMediaID: UUID?
+    @State private var fishialIdentifyMediaID: UUID?
     @State private var mediaImportOverlay: DiveMediaImportOverlayState = .hidden
     @State private var derivedDiveData = DerivedDiveData()
     @State private var catalogSitesForMapResolution: [DiveSite] = []
@@ -205,6 +206,15 @@ struct ViewSingleActivity: View {
                         media: media,
                         dive: activity,
                         captureContext: mediaCaptureContextsByID[media.id]
+                    )
+                }
+            }
+            .sheet(isPresented: fishialIdentifySheetPresented) {
+                if let media = fishialIdentifyTargetMedia {
+                    DiveMediaFishialIdentifySheet(
+                        media: media,
+                        dive: activity,
+                        catalogSites: catalogSitesForMapResolution
                     )
                 }
             }
@@ -985,12 +995,10 @@ struct ViewSingleActivity: View {
 
     private func photosOverviewPanelContent(layoutHeight: CGFloat) -> some View {
         let hasMedia = !derivedDiveData.sortedMediaItems.isEmpty
-        let showsSheetDetails = DiveActivityMediaPresentation.showsMediaSheetDetails(
-            for: overviewSheetDetent
-        )
         let showsMarineLifeTagInSheet = DiveActivityMediaPresentation.showsMarineLifeTagInSheet(
             for: overviewSheetDetent
         ) && hasMedia
+        let showsFishialIdentify = showsFishialIdentifyAction && hasMedia
 
         return DiveActivityPhotosPanelContent(
             mediaItems: derivedDiveData.sortedMediaItems,
@@ -1001,10 +1009,13 @@ struct ViewSingleActivity: View {
             showsMediaCarousel: DiveActivityMediaPresentation.showsMediaCarouselInSheet(
                 for: overviewSheetDetent
             ),
-            showsSheetDetails: showsSheetDetails,
             showsMarineLifeTagInSheet: showsMarineLifeTagInSheet,
             onTagMarineLife: showsMarineLifeTagInSheet
                 ? { tagMarineLifeFromSelectedMedia() }
+                : nil,
+            showsFishialIdentify: showsFishialIdentify,
+            onIdentifyFishial: showsFishialIdentify
+                ? { identifyFishialFromSelectedMedia() }
                 : nil,
             featuredMediaID: DiveActivityMediaPresentation.featuredPhotoID(on: activity),
             onToggleFeatured: { toggleFeaturedMedia($0) },
@@ -1013,13 +1024,18 @@ struct ViewSingleActivity: View {
             isImportInProgress: mediaImportOverlay.isBlocking
         )
         .animation(nil, value: overviewSheetDetent)
-        .accessibilityIdentifier(
-            DiveActivityMediaPresentation.showsMarineLifeDetailInSheet(for: overviewSheetDetent)
-                ? "DiveOverview.MediaPanel.Large"
-                : showsSheetDetails
-                    ? "DiveOverview.MediaPanel"
-                    : "DiveOverview.MediaPanel.Minimized"
-        )
+        .accessibilityIdentifier(mediaPanelAccessibilityIdentifier)
+    }
+
+    private var mediaPanelAccessibilityIdentifier: String {
+        switch overviewSheetDetent {
+        case .large:
+            "DiveOverview.MediaPanel.Large"
+        case .medium:
+            "DiveOverview.MediaPanel"
+        case .minimized:
+            "DiveOverview.MediaPanel.Minimized"
+        }
     }
 
     /// Sets the tapped media as the featured logbook preview, or reverts to the default (oldest) when it is
@@ -1040,6 +1056,18 @@ struct ViewSingleActivity: View {
             in: derivedDiveData.sortedMediaItems
         ) else { return }
         tagMarineLifeFromMedia(media)
+    }
+
+    private var showsFishialIdentifyAction: Bool {
+        FishialSecretsBootstrap.isConfigured
+    }
+
+    private func identifyFishialFromSelectedMedia() {
+        guard let media = DiveActivityMediaPresentation.selectedMedia(
+            selectedID: selectedDiveMediaPhotoID,
+            in: derivedDiveData.sortedMediaItems
+        ) else { return }
+        fishialIdentifyMediaID = media.id
     }
 
     @MainActor
@@ -1226,6 +1254,22 @@ struct ViewSingleActivity: View {
 
     private func tagMarineLifeFromMedia(_ media: DiveMediaPhoto) {
         marineLifeTagMediaID = media.id
+    }
+
+    private var fishialIdentifySheetPresented: Binding<Bool> {
+        Binding(
+            get: { fishialIdentifyMediaID != nil },
+            set: { isPresented in
+                if !isPresented {
+                    fishialIdentifyMediaID = nil
+                }
+            }
+        )
+    }
+
+    private var fishialIdentifyTargetMedia: DiveMediaPhoto? {
+        guard let fishialIdentifyMediaID else { return nil }
+        return derivedDiveData.mediaPhotosByID[fishialIdentifyMediaID]
     }
 
     private var depthChartPreviewCaptureContext: DiveMediaCaptureContext? {

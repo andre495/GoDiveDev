@@ -222,10 +222,18 @@ enum DiveActivityOverviewPanelMetrics: Sendable {
         ) + mapSitePromptInfoGapBelowChrome
     }
 
-    /// Extra top inset before the media carousel at **medium** so it sits at the same on-screen Y as **minimized**.
-    nonisolated static func mediaCarouselScreenAlignmentTopInset(layoutHeight: CGFloat) -> CGFloat {
+    /// Height of the sheet band above the minimized carousel slot for a resting detent.
+    nonisolated static func mediaCarouselScreenAlignmentTopInset(
+        layoutHeight: CGFloat,
+        detent: DiveActivityOverviewDetent
+    ) -> CGFloat {
         guard layoutHeight > 0 else { return 0 }
-        return layoutHeight * (mediumHeightFraction - minimizedHeightFraction)
+        return layoutHeight * (detent.heightFraction - minimizedHeightFraction)
+    }
+
+    /// Back-compat alias for **medium** alignment math in tests.
+    nonisolated static func mediaCarouselExpandedRegionHeight(layoutHeight: CGFloat) -> CGFloat {
+        mediaCarouselScreenAlignmentTopInset(layoutHeight: layoutHeight, detent: .medium)
     }
 
     /// Top padding for **Tag marine life** on the media hero — same clearance as the map info control.

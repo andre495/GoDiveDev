@@ -5,6 +5,8 @@ enum MarineLifeMediaTagPresentation {
 
     nonisolated static let sectionTitle = "Marine life"
     nonisolated static let untaggedPrompt = "Tag marine life spotted in this photo."
+    nonisolated static let largeDetentUntaggedPrompt =
+        "No fish tagged on this photo yet. Pull the sheet to medium height and tap the fish button to tag what you spotted."
 
     struct DescriptionSection: Identifiable, Equatable, Sendable {
         var id: String { title }

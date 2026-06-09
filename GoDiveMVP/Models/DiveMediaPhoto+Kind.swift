@@ -40,4 +40,10 @@ extension DiveMediaPhoto {
         guard resolvedMediaKind == .video, let identifier = libraryAssetLocalIdentifier else { return nil }
         return .libraryAsset(identifier)
     }
+
+    /// Trimmed user-confirmed Fishial species name, or **`nil`** when unset.
+    var resolvedFishialConfirmedSpeciesName: String? {
+        let trimmed = fishialConfirmedSpeciesName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
 }

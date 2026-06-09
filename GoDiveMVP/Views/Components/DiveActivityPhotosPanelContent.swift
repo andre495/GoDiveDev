@@ -1,7 +1,7 @@
 import PhotosUI
 import SwiftUI
 
-/// **Media** overview sheet — carousel at **minimized** / **medium**; species detail at **large**.
+/// **Media** overview sheet — carousel pinned at **minimized** / **medium** / **large**; species detail at **large**.
 struct DiveActivityPhotosPanelContent: View {
     let mediaItems: [DiveMediaPhoto]
     @Binding var selectedMediaID: UUID?
@@ -9,9 +9,10 @@ struct DiveActivityPhotosPanelContent: View {
     var sheetDetent: DiveActivityOverviewDetent = .medium
     var layoutHeight: CGFloat = 0
     var showsMediaCarousel = false
-    var showsSheetDetails = false
     var showsMarineLifeTagInSheet = false
     var onTagMarineLife: (() -> Void)?
+    var showsFishialIdentify = false
+    var onIdentifyFishial: (() -> Void)?
     /// Resolved featured media id (user-chosen, else oldest); marks the carousel item and the toggle state.
     var featuredMediaID: UUID?
     /// Toggles the selected media as the featured logbook preview (tap a featured item to revert to default).
@@ -32,6 +33,14 @@ struct DiveActivityPhotosPanelContent: View {
         return selectedMedia.id == featuredMediaID
     }
 
+    private var selectedMediaFishialSpeciesName: String? {
+        selectedMedia?.resolvedFishialConfirmedSpeciesName
+    }
+
+    private var showsFishialIdentificationSummary: Bool {
+        selectedMediaFishialSpeciesName != nil
+    }
+
     private var taggedSpeciesNames: [String] {
         taggedSpecies.map(\.commonName)
     }
@@ -48,6 +57,21 @@ struct DiveActivityPhotosPanelContent: View {
         DiveActivityMediaPresentation.showsMediaSheetChromeActions(for: sheetDetent)
     }
 
+    private var usesCarouselPinnedLayout: Bool {
+        showsMediaCarousel && sheetDetent != .minimized && layoutHeight > 0
+    }
+
+    private var sheetChromeClearance: CGFloat {
+        showsSheetChromeActions ? DiveActivityMediaPresentation.sheetChromeRowHeight : 0
+    }
+
+    private var sheetBodyHeight: CGFloat {
+        DiveActivityMediaPresentation.sheetBodyHeightAboveMediaCarousel(
+            layoutHeight: layoutHeight,
+            detent: sheetDetent
+        )
+    }
+
     private var resolvedSelectedTaggedSpecies: MarineLife? {
         guard !taggedSpecies.isEmpty else { return nil }
         if let selectedTaggedSpeciesUUID,
@@ -57,23 +81,22 @@ struct DiveActivityPhotosPanelContent: View {
         return taggedSpecies.first
     }
 
-    private var carouselTopInset: CGFloat {
-        guard showsMediaCarousel,
-              sheetDetent == .medium,
-              layoutHeight > 0
-        else { return 0 }
-        return DiveActivityOverviewPanelMetrics.mediaCarouselScreenAlignmentTopInset(
-            layoutHeight: layoutHeight
-        )
-    }
-
     var body: some View {
         ZStack(alignment: .topLeading) {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
                 if showsMarineLifeDetail {
-                    largeDetentContent
+                    carouselPinnedSheetContent {
+                        ScrollView {
+                            largeDetentBody
+                        }
+                        .scrollIndicators(.hidden)
+                    }
+                } else if usesCarouselPinnedLayout {
+                    carouselPinnedSheetContent {
+                        mediumDetentBody
+                    }
                 } else {
-                    compactDetentContent
+                    minimizedDetentContent
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -95,40 +118,60 @@ struct DiveActivityPhotosPanelContent: View {
     }
 
     @ViewBuilder
-    private var compactDetentContent: some View {
-        if carouselTopInset > 0 {
-            Color.clear
-                .frame(height: carouselTopInset)
-                .accessibilityHidden(true)
-        }
-
+    private func carouselPinnedSheetContent<Body: View>(
+        @ViewBuilder body: () -> Body
+    ) -> some View {
         if mediaItems.isEmpty {
-            Text(DiveActivityMediaPresentation.emptyStateMessage)
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.Colors.tabUnselected)
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                Text(DiveActivityMediaPresentation.emptyStateMessage)
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.Colors.tabUnselected)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: sheetBodyHeight + sheetChromeClearance, alignment: .top)
         } else {
-            if showsMarineLifeTagSummary {
-                marineLifeTagsSection
-            }
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                Color.clear
+                    .frame(height: sheetChromeClearance)
+                    .accessibilityHidden(true)
 
-            if showsMediaCarousel {
-                carouselRow
-            }
+                body()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: sheetBodyHeight, alignment: .top)
+                    .clipped()
 
-            if showsSheetDetails, let selectedMedia {
-                captureDetails(for: selectedMedia)
+                if showsMediaCarousel {
+                    carouselRow
+                }
             }
         }
     }
 
     @ViewBuilder
-    private var largeDetentContent: some View {
+    private var minimizedDetentContent: some View {
         if mediaItems.isEmpty {
             Text(DiveActivityMediaPresentation.emptyStateMessage)
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.Colors.tabUnselected)
-        } else if taggedSpecies.isEmpty {
+        } else if showsMediaCarousel {
+            carouselRow
+        }
+    }
+
+    @ViewBuilder
+    private var mediumDetentBody: some View {
+        if showsMarineLifeTagSummary {
             marineLifeTagsSection
+        }
+        if showsFishialIdentificationSummary, let fishialName = selectedMediaFishialSpeciesName {
+            fishialIdentificationSection(name: fishialName)
+        }
+    }
+
+    @ViewBuilder
+    private var largeDetentBody: some View {
+        if taggedSpecies.isEmpty {
+            largeDetentUntaggedPrompt
         } else {
             if taggedSpecies.count > 1 {
                 DiveActivityMediaTaggedSpeciesSelector(
@@ -151,15 +194,39 @@ struct DiveActivityPhotosPanelContent: View {
         }
     }
 
+    private var largeDetentUntaggedPrompt: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            Image(systemName: "fish")
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.accent)
+                .accessibilityHidden(true)
+
+            Text(MarineLifeMediaTagPresentation.largeDetentUntaggedPrompt)
+                .font(.body)
+                .foregroundStyle(AppTheme.Colors.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(MarineLifeMediaTagPresentation.largeDetentUntaggedPrompt)
+        .accessibilityIdentifier("DiveOverview.MediaLargeUntaggedPrompt")
+    }
+
     private var sheetTopChromeRow: some View {
         HStack(alignment: .top, spacing: AppTheme.Spacing.sm) {
             if showsMarineLifeTagInSheet, let onTagMarineLife {
                 DiveActivityMediaMarineLifeTagButton(action: onTagMarineLife)
             }
 
+            if showsFishialIdentify, let onIdentifyFishial {
+                DiveActivityMediaFishialIdentifyButton(action: onIdentifyFishial)
+                    .disabled(isImportInProgress)
+                    .opacity(isImportInProgress ? 0.45 : 1)
+            }
+
             Spacer(minLength: AppTheme.Spacing.sm)
 
-            if showsSheetDetails, onToggleFeatured != nil, selectedMedia != nil {
+            if onToggleFeatured != nil, selectedMedia != nil {
                 featuredButton
             }
 
@@ -175,7 +242,13 @@ struct DiveActivityPhotosPanelContent: View {
                 featuredMediaID: featuredMediaID
             )
 
-            if !showsSheetDetails {
+            if !showsSheetChromeActions {
+                if showsFishialIdentify, let onIdentifyFishial {
+                    DiveActivityMediaFishialIdentifyButton(action: onIdentifyFishial)
+                        .disabled(isImportInProgress)
+                        .opacity(isImportInProgress ? 0.45 : 1)
+                }
+
                 addMediaButton
             }
         }
@@ -242,26 +315,31 @@ struct DiveActivityPhotosPanelContent: View {
         .accessibilityIdentifier("DiveOverview.MediaMarineLifeTags")
     }
 
-    private func captureDetails(for media: DiveMediaPhoto) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Captured")
+    private func fishialIdentificationSection(name: String) -> some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            Text(FishialIdentificationReviewPresentation.mediumDetentSectionTitle)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(AppTheme.Colors.tabUnselected)
                 .textCase(.uppercase)
 
-            Text(
-                DiveActivityMediaPresentation.captureDatePanelText(
-                    for: media,
-                    timeZoneOffsetSeconds: timeZoneOffsetSeconds
-                )
-            )
-            .font(.title3.weight(.semibold))
-            .foregroundStyle(AppTheme.Colors.textPrimary)
+            HStack(alignment: .top, spacing: AppTheme.Spacing.sm) {
+                Image(systemName: "sparkles")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.accent)
+                    .accessibilityHidden(true)
+
+                Text(name)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
-            "Captured \(DiveActivityMediaPresentation.captureDatePanelText(for: media, timeZoneOffsetSeconds: timeZoneOffsetSeconds))"
+            FishialIdentificationReviewPresentation.mediumDetentAccessibilityLabel(speciesName: name)
         )
+        .accessibilityIdentifier("DiveOverview.MediaFishialIdentification")
     }
 
     private var addMediaButton: some View {
