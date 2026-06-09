@@ -1136,9 +1136,11 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Media tab medium/large detent** — **`DiveActivityPhotosPanelContent`** pins the thumbnail carousel to the same on-screen slot at every detent; **medium** shows marine-life chips + top chrome (fish / Fishial / featured / **+**); **large** is chrome-free — tagged-species detail (scrollable) + carousel, or **`largeDetentUntaggedPrompt`** when empty.
 - **Fishial confirm + persist** — after **`/v2/recognize`**, one match prompts **Yes / Not accurate**; multiple matches show a picker + **Save**; confirmed scientific name stored on **`DiveMediaPhoto.fishialConfirmedSpeciesName`** via **`DiveMediaFishialIdentificationStorage`**; **medium** detent shows a **Fish ID** row (**`FishialIdentificationReviewPresentation`**). Tests: **`fishialIdentificationReviewPresentation_reviewMode_branchesByResultCount`**, **`diveMediaPhoto_resolvedFishialConfirmedSpeciesName_trimsBlankValues`**, **`diveMediaFishialIdentificationStorage_saveConfirmedSpecies_persistsOnMedia`**.
 
-## 71 - Next batch
+## 71 - Next batch **(pushed)**
 
 **Summary:** Swift 6 test/build hygiene — nonisolated conformances, hoisted value types, and an agent rule to xcodebuild on run/test requests.
 
 - **Swift 6 actor isolation** — top-level **`FieldGuideCategorySummary`**, **`FishialRankedSpecies`**, **`FishialIdentificationReviewMode`**, **`FishialAPICredentials`**, **`DiveActivityMapOverviewStatIcon`** with explicit **nonisolated** **`Equatable`** / **`Hashable`**; **`FishialAPIClient`** **nonisolated** inits; **`FieldGuideMarineLifeHeroPresentation.HeroKind`** **nonisolated** **`==`**; test fixes (**`MarineLife`** init order, **`@MainActor`** Hashable test, whole-value Fishial rank asserts).
 - **Cursor rule** — **`.cursor/rules/xcode-run-test.mdc`**: on *run* / *test* requests, agent runs **`xcodebuild`** (Dre's Phone or iPhone 17 sim), reports errors/warnings, rebuilds after fixes.
+
+## 72 - Next batch
