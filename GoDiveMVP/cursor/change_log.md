@@ -1143,7 +1143,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Swift 6 actor isolation** — top-level **`FieldGuideCategorySummary`**, **`FishialRankedSpecies`**, **`FishialIdentificationReviewMode`**, **`FishialAPICredentials`**, **`DiveActivityMapOverviewStatIcon`** with explicit **nonisolated** **`Equatable`** / **`Hashable`**; **`FishialAPIClient`** **nonisolated** inits; **`FieldGuideMarineLifeHeroPresentation.HeroKind`** **nonisolated** **`==`**; test fixes (**`MarineLife`** init order, **`@MainActor`** Hashable test, whole-value Fishial rank asserts).
 - **Cursor rule** — **`.cursor/rules/xcode-run-test.mdc`**: on *run* / *test* requests, agent runs **`xcodebuild`** (Dre's Phone or iPhone 17 sim), reports errors/warnings, rebuilds after fixes.
 
-## 72 - Next batch
+## 72 - Next batch **(pushed)**
 
 **Summary:** xcode run/test rule always cleans before build.
 
