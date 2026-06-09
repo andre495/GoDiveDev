@@ -38,7 +38,7 @@ If **`clean`** fails (e.g. destination mismatch), fix the destination before bui
 
 | User says (examples) | `xcodebuild -destination` |
 |----------------------|-----------------------------|
-| **Dre's phone** / **Dre's Phone** / **device** / **my phone** | `platform=iOS,name=Dre's Phone` |
+| **Dre's phone** / **Dre's Phone** / **device** / **my phone** | `platform=iOS,id=00008130-001241C118A1401C` (name in Xcode is **Dre's Phone** with a curly apostrophe — prefer **id**) |
 | **iPhone 17 simulator** / **simulator** / **iPhone 17** | `platform=iOS Simulator,name=iPhone 17,OS=latest` |
 
 If the destination fails, run **`$XCBUILD -showdestinations -project "$PROJECT" -scheme "$SCHEME"`**, pick the closest match, and tell the user which destination was used.

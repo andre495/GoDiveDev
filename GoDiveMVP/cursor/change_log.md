@@ -1148,3 +1148,9 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 **Summary:** xcode run/test rule always cleans before build.
 
 - **`.cursor/rules/xcode-run-test.mdc`** — **`xcodebuild clean`** for the target destination, then **`clean build`** / **`clean build-for-testing`** on every run/test request.
+
+## 73 - Next batch
+
+**Summary:** xcode run/test rule — Dre's Phone destination by device id.
+
+- **`.cursor/rules/xcode-run-test.mdc`** — Dre's Phone uses **`platform=iOS,id=00008130-001241C118A1401C`** (curly apostrophe in Xcode device name breaks `name=` matching).
