@@ -1,13 +1,29 @@
 import Foundation
 
+/// Post-recognition review branching for Fishial identify — top-level for **nonisolated** **`Equatable`** (Swift 6).
+enum FishialIdentificationReviewMode: Equatable, Sendable {
+    case noMatches
+    case confirmSingle(FishialRankedSpecies)
+    case selectFromMultiple([FishialRankedSpecies])
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        switch (lhs, rhs) {
+        case (.noMatches, .noMatches):
+            return true
+        case (.confirmSingle(let left), .confirmSingle(let right)):
+            return left == right
+        case (.selectFromMultiple(let left), .selectFromMultiple(let right)):
+            return left == right
+        default:
+            return false
+        }
+    }
+}
+
 /// Post-recognition review copy and branching for Fishial identify.
 enum FishialIdentificationReviewPresentation: Sendable {
 
-    enum ReviewMode: Equatable, Sendable {
-        case noMatches
-        case confirmSingle(FishialRecognitionPresentation.RankedSpecies)
-        case selectFromMultiple([FishialRecognitionPresentation.RankedSpecies])
-    }
+    typealias ReviewMode = FishialIdentificationReviewMode
 
     nonisolated static let mediumDetentSectionTitle = "Fish ID"
     nonisolated static let noMatchesMessage = "Fishial did not suggest any species for this still."

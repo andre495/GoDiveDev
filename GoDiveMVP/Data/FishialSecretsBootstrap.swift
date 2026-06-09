@@ -4,12 +4,18 @@ import Foundation
 ///
 /// Obtain keys at [portal.fishial.ai](https://portal.fishial.ai) → About → for developers.
 /// Add **`Config/FishialSecrets.plist`** with **`ClientID`** and **`ClientSecret`** (gitignored).
+struct FishialAPICredentials: Equatable, Sendable {
+    let clientID: String
+    let clientSecret: String
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.clientID == rhs.clientID && lhs.clientSecret == rhs.clientSecret
+    }
+}
+
 enum FishialSecretsBootstrap {
 
-    struct Credentials: Equatable, Sendable {
-        let clientID: String
-        let clientSecret: String
-    }
+    typealias Credentials = FishialAPICredentials
 
     nonisolated private static let secretsPlistName = "FishialSecrets"
     nonisolated private static let clientIDKey = "ClientID"

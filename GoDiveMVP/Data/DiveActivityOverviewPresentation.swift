@@ -1,5 +1,20 @@
 import Foundation
 
+/// Map overview stat icons — top-level for **nonisolated** **`Equatable`** (Swift 6).
+enum DiveActivityMapOverviewStatIcon: Sendable, Equatable {
+    case clock
+    case palmTree
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        switch (lhs, rhs) {
+        case (.clock, .clock), (.palmTree, .palmTree):
+            return true
+        default:
+            return false
+        }
+    }
+}
+
 /// Copy and labels for the dive overview embedded panel (map / tank sheet).
 enum DiveActivityOverviewPresentation: Sendable {
     /// Primary sheet header — trimmed **`siteName`**, otherwise import-source fallback.
@@ -88,10 +103,7 @@ enum DiveActivityOverviewPresentation: Sendable {
         let depthGauge: DepthGauge
     }
 
-    enum MapOverviewStatIcon: Sendable, Equatable {
-        case clock
-        case palmTree
-    }
+    typealias MapOverviewStatIcon = DiveActivityMapOverviewStatIcon
 
     /// Normalizes depth against a recreational reference span for the shared depth gauge.
     nonisolated static func depthGaugeFillFraction(

@@ -1,0 +1,78 @@
+---
+description: When the user asks to run or test the app, build with Xcode CLI and report/fix errors and warnings.
+alwaysApply: true
+---
+
+# Run / test the app — always check Xcode build first
+
+When the user asks to **run**, **launch**, **build**, or **test** the app (with or without a named target), **do not skip the compiler**. Use **full Xcode** (not Command Line Tools only) and **report every error and project warning** before claiming success.
+
+## Xcode CLI setup
+
+```bash
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+XCBUILD="$DEVELOPER_DIR/usr/bin/xcodebuild"
+PROJECT="/Users/andrdugas/Desktop/GoDiveMVP/GoDiveMVP.xcodeproj"
+SCHEME="GoDiveMVP"
+```
+
+If `xcodebuild` is missing, say so and ask the user to run from Xcode locally.
+
+## Parse the user's target
+
+| User says (examples) | `xcodebuild -destination` |
+|----------------------|-----------------------------|
+| **Dre's phone** / **Dre's Phone** / **device** / **my phone** | `platform=iOS,name=Dre's Phone` |
+| **iPhone 17 simulator** / **simulator** / **iPhone 17** | `platform=iOS Simulator,name=iPhone 17,OS=latest` |
+
+If the destination fails, run **`$XCBUILD -showdestinations -project "$PROJECT" -scheme "$SCHEME"`**, pick the closest match, and tell the user which destination was used.
+
+## Run vs test
+
+### Run (build for device or simulator)
+
+User phrases: *"run the app"*, *"launch on Dre's phone"*, *"build for simulator"*.
+
+1. **`clean build`** when the tree changed a lot or the last build had errors; otherwise incremental **`build`** is fine.
+2. Command shape:
+
+```bash
+$XCBUILD -project "$PROJECT" -scheme "$SCHEME" \
+  -destination '<parsed-destination>' \
+  build 2>&1 | tee /tmp/godive-run.log
+```
+
+3. Grep the log for **`error:`** and **`warning:`** (exclude third-party noise like `appintentsmetadataprocessor` unless it blocks the build).
+4. Summarize: **BUILD SUCCEEDED** or **FAILED**, error count, warning count, and the **top actionable** lines with file paths.
+5. **Fix** compile errors and Swift 6 / project warnings in the same turn when the user asked you to run/test (unless they only wanted a report).
+6. Installing/launching on a physical device may require Xcode GUI or `devicectl`; after a successful device **build**, tell the user to tap **Run** in Xcode if CLI install is unavailable.
+
+### Test (unit + UI test bundles)
+
+User phrases: *"test the app"*, *"run tests"*, *"⌘U"*, *"target iPhone 17 simulator"*.
+
+1. **`build-for-testing`** first (catches compile issues in **GoDiveMVPTests** / **GoDiveMVPUITests**):
+
+```bash
+$XCBUILD -project "$PROJECT" -scheme "$SCHEME" \
+  -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
+  build-for-testing 2>&1 | tee /tmp/godive-test-build.log
+```
+
+2. Report **all errors and warnings** from that log (same grep rules as run).
+3. If the build is clean and the user asked for tests to execute, run **`test`** on the same simulator destination.
+4. Report failing tests by name; fix regressions you introduced.
+
+**Default test destination:** iPhone 17 simulator (simulator is required for the standard test workflow unless the user names another sim).
+
+## Required behavior
+
+- **Never** answer "you can run it in Xcode" without running **`xcodebuild`** yourself when tools are available.
+- **Always** surface compiler **errors** and **project warnings** (especially Swift 6 actor-isolation warnings in **GoDiveMVP** / **GoDiveMVPTests**).
+- After fixes, **rebuild** to confirm a clean log before handing off.
+- Keep responses scannable: build result, destination used, warning/error list, what was fixed (if anything).
+
+## Example user requests
+
+- *"Run the app, target Dre's phone"* → device **`build`**, full error/warning report.
+- *"Test the app, target iPhone 17 simulator"* → sim **`build-for-testing`**, then **`test`** if requested; full error/warning report.

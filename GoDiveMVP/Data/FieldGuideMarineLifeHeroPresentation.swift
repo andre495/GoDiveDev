@@ -19,6 +19,18 @@ struct FieldGuideMarineLifeHeroSceneConfiguration: Equatable, Sendable {
     /// When **`true`**, horizontal drag orbits the model on the Y axis.
     let allowsDragRotation: Bool
 
+    /// Explicit **nonisolated** equality for Swift 6 checks from nonisolated contexts.
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.modelResourceName == rhs.modelResourceName
+            && lhs.fitExtent == rhs.fitExtent
+            && lhs.modelForwardOffset == rhs.modelForwardOffset
+            && lhs.modelVerticalOffset == rhs.modelVerticalOffset
+            && lhs.initialYawRadians == rhs.initialYawRadians
+            && lhs.autoRotateSpeedRadiansPerSecond == rhs.autoRotateSpeedRadiansPerSecond
+            && lhs.autoSpinPauseAfterDragSeconds == rhs.autoSpinPauseAfterDragSeconds
+            && lhs.allowsDragRotation == rhs.allowsDragRotation
+    }
+
     nonisolated static let frenchAngelfish = FieldGuideMarineLifeHeroSceneConfiguration(
         modelResourceName: "FrenchAngelfish",
         fitExtent: 0.48,
@@ -38,6 +50,20 @@ enum FieldGuideMarineLifeHeroPresentation {
         case model3D(FieldGuideMarineLifeHeroSceneConfiguration)
         case remoteImage(URL)
         case placeholder
+
+        /// Explicit **nonisolated** equality for Swift Testing **`#expect`** (Swift 6).
+        nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+            switch (lhs, rhs) {
+            case (.placeholder, .placeholder):
+                return true
+            case (.remoteImage(let left), .remoteImage(let right)):
+                return left == right
+            case (.model3D(let left), .model3D(let right)):
+                return left == right
+            default:
+                return false
+            }
+        }
     }
 
     nonisolated static func heroKind(

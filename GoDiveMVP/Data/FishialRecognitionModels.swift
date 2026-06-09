@@ -110,13 +110,23 @@ struct FishialRecognitionResponse: Equatable, Sendable, Decodable {
     }
 }
 
+/// De-duplicated Fishial species candidate — top-level so properties stay **nonisolated** (Swift 6).
+struct FishialRankedSpecies: Sendable {
+    let scientificName: String
+    let accuracy: Double
+}
+
+extension FishialRankedSpecies: Equatable {
+    /// Explicit **nonisolated** equality for Swift Testing **`#expect`** (Swift 6).
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.scientificName == rhs.scientificName && lhs.accuracy == rhs.accuracy
+    }
+}
+
 /// Flattened, de-duplicated species candidates sorted by best accuracy (descending).
 enum FishialRecognitionPresentation: Sendable {
 
-    struct RankedSpecies: Equatable, Sendable {
-        let scientificName: String
-        let accuracy: Double
-    }
+    typealias RankedSpecies = FishialRankedSpecies
 
     nonisolated static func displayName(
         for candidate: FishialSpeciesCandidate,

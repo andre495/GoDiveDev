@@ -2512,15 +2512,15 @@ struct GoDiveMVPTests {
         let species = MarineLife(
             uuid: "marine-life-desc-test",
             commonName: "French Angelfish",
+            aboutText: "A Caribbean classic.",
             distinctiveFeatures: "Yellow tail",
             abundance: "Common",
             habitatBehavior: "Reefs",
-            diverReaction: "Approachable",
-            aboutText: "A Caribbean classic."
+            diverReaction: "Approachable"
         )
 
         let sections = MarineLifeMediaTagPresentation.descriptionSections(for: species)
-        #expect(sections.map(\.title) == [
+        #expect(sections.map { $0.title } == [
             "Distinctive features",
             "Abundance",
             "Habitat & behavior",
@@ -2692,7 +2692,7 @@ struct GoDiveMVPTests {
         #expect(AppLaunchLayout.fixedTitleBlue == 1.0)
     }
 
-    @Test func fieldGuideCatalogIndex_categorySummaryIsHashable() {
+    @Test @MainActor func fieldGuideCatalogIndex_categorySummaryIsHashable() {
         let summary = FieldGuideCatalogIndex.CategorySummary(
             categoryID: "fish",
             speciesCount: 3,
@@ -3639,8 +3639,11 @@ struct GoDiveMVPTests {
         let response = try await client.recognizeJPEG(jpegData, observationCoordinate: coordinate)
         let ranked = FishialRecognitionPresentation.rankedSpecies(from: response)
         #expect(ranked.count == 1)
-        #expect(ranked[0].scientificName == "Holacanthus ciliaris")
-        #expect(ranked[0].accuracy == 0.91)
+        #expect(
+            ranked == [
+                FishialRankedSpecies(scientificName: "Holacanthus ciliaris", accuracy: 0.91),
+            ]
+        )
     }
 
     @Test func fishialIdentificationResultPresentation_resultLines_formatsSelectedFrameOutput() {

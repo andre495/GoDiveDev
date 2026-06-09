@@ -19,7 +19,7 @@ final class FishialAPIClient: @unchecked Sendable {
     private var cachedAccessToken: String?
     private var cachedAccessTokenFetchedAt: Date?
 
-    init(
+    nonisolated init(
         configuration: Configuration,
         session: any FishialURLSessioning = URLSession.shared
     ) {
@@ -27,7 +27,7 @@ final class FishialAPIClient: @unchecked Sendable {
         self.session = session
     }
 
-    convenience init?(
+    nonisolated convenience init?(
         session: any FishialURLSessioning = URLSession.shared
     ) {
         guard let credentials = FishialSecretsBootstrap.loadCredentials() else { return nil }

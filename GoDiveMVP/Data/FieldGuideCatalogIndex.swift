@@ -1,14 +1,34 @@
 import Foundation
 
+/// Field guide hub row payload — top-level so **Hashable** stays **nonisolated** (Swift 6).
+struct FieldGuideCategorySummary: Sendable, Identifiable {
+    var id: String { categoryID }
+    let categoryID: String
+    let speciesCount: Int
+    let subcategoryCounts: [String: Int]
+}
+
+extension FieldGuideCategorySummary: Equatable {
+    /// Explicit **nonisolated** equality for Swift Testing **`#expect`** (Swift 6).
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.categoryID == rhs.categoryID
+            && lhs.speciesCount == rhs.speciesCount
+            && lhs.subcategoryCounts == rhs.subcategoryCounts
+    }
+}
+
+extension FieldGuideCategorySummary: Hashable {
+    nonisolated func hash(into hasher: inout Hasher) {
+        hasher.combine(categoryID)
+        hasher.combine(speciesCount)
+        hasher.combine(subcategoryCounts)
+    }
+}
+
 /// Species counts and lookups for the field guide browse hierarchy.
 enum FieldGuideCatalogIndex {
 
-    struct CategorySummary: Sendable, Identifiable, Equatable, Hashable {
-        var id: String { categoryID }
-        let categoryID: String
-        let speciesCount: Int
-        let subcategoryCounts: [String: Int]
-    }
+    typealias CategorySummary = FieldGuideCategorySummary
 
     /// Precomputed species rows for a subcategory mosaic — carried in navigation so push does not re-filter the catalog.
     struct SubcategoryBrowsePayload: Sendable, Equatable, Hashable {
