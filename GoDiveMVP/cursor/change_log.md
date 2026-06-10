@@ -1209,7 +1209,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Tests: **`diveMediaProgressivePresentation_posterAndUpgradePolicy`**, **`diveMediaVideoRequestQuality_sessionCacheKeySuffix_isDistinct`**.
 - **Media pager playback freeze** — mount **`DiveActivityVideoPlayerView`** only when the page is active (Home carousel pattern); poster stays on **`DiveActivityMediaItemView`**; fix progressive cache hit leaving **`isPlayerDisplayReady`** false; quality upgrade keyed off **`|preview` → `|full`**; clear cancelled full-upgrade tasks.
 
-## 76 - Next batch
+## 76 - Next batch **(pushed)**
 
 **Summary:** Snappier Home return + Field Guide category detail hero chrome.
 
@@ -1224,3 +1224,5 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Tab stack pop performance** — **`restoresRootTabBarWhenStackIsEmpty`** + **`animation(nil, value: path.count)`** on Field Guide, Logbook, and Explore (same as Home). **`RootStackReturnNavigationPresentation`**; Logbook skips redundant cache rebuild on root return when rows are cached; Field Guide keeps **`WaterBubbleBackground`** mounted (paused while browsing catalog); Explore Trip Planner uses **`ExploreRoute.tripPlanner`** + stack path (not **`NavigationLink`**). Test: **`rootStackReturnNavigationPresentation_tabBarRestoreAndLogbookSkip`**.
 - **Offline media policy** — **`AppNetworkConnectivityMonitor`** (**`NWPathMonitor`** at launch) + **`AppNetworkConnectivitySnapshot`** for PhotoKit; offline uses local previews only (**`isNetworkAccessAllowed = false`**), skips full-res Home warm + video upgrade; **`OfflineMediaUnavailableIndicator`** (**`wifi.slash`**) instead of dive video retry error when offline. Tests: **`appNetworkConnectivityPresentation_offlineSkipsCloudMedia`**, **`diveMediaVideoLoad_classify_*`**.
 - **Home featured media deep link** — tapping the carousel opens **`HomeRoute.diveMedia`** with the highlight’s **`mediaID`**; **`DiveActivityMediaPresentation.resolvedSelectedPhotoID`** preserves a pending selection while derived media is still loading so **`DiveActivityMediaCarouselView`** scrolls to the same item (not the first photo). Test: **`diveActivityMediaPresentation_resolvedSelectedPhotoID`** (empty-list pending ID).
+
+## 77 - Next batch
