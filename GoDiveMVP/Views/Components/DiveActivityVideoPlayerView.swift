@@ -1,5 +1,8 @@
 import AVFoundation
 import SwiftUI
+#if canImport(Photos)
+import Photos
+#endif
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -9,12 +12,19 @@ import UIKit
 /// **`source`** is either a copied app file or a Photos-library pointer (**`DiveVideoSource`**); a library asset is
 /// resolved to an **`AVPlayerItem`** on demand via **`DiveMediaReferenceLoader`** (no exported file). A missing /
 /// offline / deleted asset shows the **`missingPlaceholder`**.
+///
+/// With **`usesProgressiveFidelity`**, library videos show a poster frame, then preview playback, then silently
+/// upgrade to full quality while preserving playback time.
 struct DiveActivityVideoPlayerView: View {
     let source: DiveVideoSource?
     var isPlaybackActive: Bool = true
     var loopsPlayback: Bool = false
     /// PhotoKit delivery tier for **`.libraryAsset`** sources (overview heroes use **`.homeCarousel`**; default **`.fullQuality`** for specialized flows).
     var libraryVideoQuality: DiveMediaVideoRequestQuality = .fullQuality
+    /// Poster → preview → full stream for dive overview library videos.
+    var usesProgressiveFidelity: Bool = false
+    /// Screen pixel width for poster sizing when **`usesProgressiveFidelity`** is **`true`**.
+    var screenPixelWidth: CGFloat = 0
     var isPausedByUserHold: Bool = false
     /// Called once when playback reaches the end and **`loopsPlayback`** is **`false`**.
     var onPlaybackFinished: (() -> Void)?
@@ -24,36 +34,58 @@ struct DiveActivityVideoPlayerView: View {
     #if canImport(UIKit)
     @State private var playerItem: AVPlayerItem?
     @State private var resolvedKey: String?
+    @State private var posterImage: UIImage?
+    @State private var videoFidelity: DiveMediaVideoFidelity = .none
     @State private var isResolving = false
-    /// Transient load failure / timeout (asset still present) — show an error with a retry button.
+    @State private var isPlayerDisplayReady = false
     @State private var loadFailed = false
-    /// Bumped by **Retry** to re-run the load **`.task`** without the source changing.
     @State private var reloadToken = 0
+    @State private var fullUpgradeTask: Task<Void, Never>?
     #endif
 
     var body: some View {
         Group {
             #if canImport(UIKit)
-            if let playerItem, let resolvedKey {
-                GeometryReader { geometry in
-                    DiveActivityFillVideoPlayerRepresentable(
-                        playerItem: playerItem,
-                        identityKey: resolvedKey,
-                        isPlaybackActive: isPlaybackActive,
-                        loopsPlayback: loopsPlayback,
-                        isPausedByUserHold: isPausedByUserHold,
-                        onPlaybackFinished: loopsPlayback ? nil : onPlaybackFinished
-                    )
-                    .frame(width: geometry.size.width, height: geometry.size.height)
-                    .clipped()
+            ZStack {
+                if let posterImage {
+                    GeometryReader { geometry in
+                        Image(uiImage: posterImage)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: geometry.size.width, height: geometry.size.height)
+                            .clipped()
+                    }
+                } else if source != nil, isResolving, !usesProgressiveFidelity {
+                    loadingPlaceholder
+                } else if source != nil, isResolving, usesProgressiveFidelity {
+                    subtleLoadingPlaceholder
                 }
-                .accessibilityLabel("Dive video")
-            } else if source != nil, isResolving {
-                loadingPlaceholder
-            } else if loadFailed {
-                errorRetryPlaceholder
-            } else {
-                missingPlaceholder
+
+                if let playerItem, let resolvedKey {
+                    GeometryReader { geometry in
+                        DiveActivityFillVideoPlayerRepresentable(
+                            playerItem: playerItem,
+                            identityKey: resolvedKey,
+                            isPlaybackActive: isPlaybackActive,
+                            loopsPlayback: loopsPlayback,
+                            isPausedByUserHold: isPausedByUserHold,
+                            onPlaybackFinished: loopsPlayback ? nil : onPlaybackFinished,
+                            onDisplayReady: {
+                                isPlayerDisplayReady = true
+                            }
+                        )
+                        .opacity(isPlayerDisplayReady ? 1 : 0)
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .clipped()
+                    }
+                    .accessibilityLabel("Dive video")
+                } else if loadFailed {
+                    errorRetryPlaceholder
+                } else if posterImage == nil, !isResolving, source == nil {
+                    missingPlaceholder
+                } else if posterImage == nil, !isResolving, playerItem == nil, !loadFailed {
+                    missingPlaceholder
+                }
             }
             #else
             missingPlaceholder
@@ -63,29 +95,55 @@ struct DiveActivityVideoPlayerView: View {
         .task(id: videoLoadTaskID) {
             await resolveSourceIfNeeded()
         }
+        .onChange(of: isPlaybackActive) { _, isActive in
+            if isActive {
+                if playerItem != nil {
+                    isPlayerDisplayReady = true
+                }
+                scheduleFullQualityUpgradeIfNeeded()
+            } else {
+                cancelFullQualityUpgrade()
+            }
+        }
+        .onChange(of: isPausedByUserHold) { _, _ in
+            scheduleFullQualityUpgradeIfNeeded()
+        }
+        .onDisappear {
+            cancelFullQualityUpgrade()
+        }
         #endif
     }
 
     #if canImport(UIKit)
-    /// Re-runs the load **`.task`** when the source changes **or** the user taps **Retry**.
     private var videoLoadTaskID: String {
-        "\(source?.identityKey ?? "nil")#\(reloadToken)"
+        "\(source?.identityKey ?? "nil")#\(reloadToken)#\(usesProgressiveFidelity)"
     }
 
     private func resolveSourceIfNeeded() async {
+        cancelFullQualityUpgrade()
+
         guard let source else {
-            playerItem = nil
-            resolvedKey = nil
-            isResolving = false
-            loadFailed = false
+            resetPlaybackState()
             return
         }
-        if resolvedKey == source.identityKey, playerItem != nil { return }
+
+        if usesProgressiveFidelity, case .libraryAsset = source {
+            await resolveProgressiveLibraryVideo(source: source)
+            return
+        }
+
+        if resolvedKey == source.identityKey, playerItem != nil {
+            isPlayerDisplayReady = true
+            return
+        }
+
+        isPlayerDisplayReady = false
 
         isResolving = true
         loadFailed = false
-        let resolved = await resolvedItem(for: source)
-        // Source may have changed while awaiting; only apply the latest.
+        posterImage = nil
+        videoFidelity = .none
+        let resolved = await resolvedItem(for: source, quality: libraryVideoQuality)
         guard source.identityKey == self.source?.identityKey else { return }
         isResolving = false
 
@@ -98,6 +156,121 @@ struct DiveActivityVideoPlayerView: View {
 
         playerItem = nil
         resolvedKey = nil
+        classifyLoadFailure(for: source)
+    }
+
+    private func resolveProgressiveLibraryVideo(source: DiveVideoSource) async {
+        guard case .libraryAsset(let identifier) = source else { return }
+        if resolvedKey?.hasPrefix(source.identityKey) == true, playerItem != nil {
+            isPlayerDisplayReady = true
+            scheduleFullQualityUpgradeIfNeeded()
+            return
+        }
+
+        isResolving = true
+        loadFailed = false
+        posterImage = nil
+        videoFidelity = .none
+        isPlayerDisplayReady = false
+
+        let posterSize = DiveMediaProgressivePresentation.posterTargetSize(
+            screenPixelWidth: max(screenPixelWidth, 1)
+        )
+
+        async let posterTask: UIImage? = {
+            #if canImport(Photos)
+            return await DiveMediaReferenceLoader.image(
+                localIdentifier: identifier,
+                targetSize: posterSize,
+                deliveryMode: .opportunistic
+            )
+            #else
+            return nil
+            #endif
+        }()
+
+        let previewItem = await resolvedItem(
+            for: source,
+            quality: DiveActivityMediaPresentation.overviewLibraryVideoQuality
+        )
+
+        guard source.identityKey == self.source?.identityKey else { return }
+
+        posterImage = await posterTask
+        isResolving = false
+
+        if let previewItem {
+            playerItem = previewItem
+            resolvedKey = "\(source.identityKey)|preview"
+            videoFidelity = .preview
+            loadFailed = false
+            scheduleFullQualityUpgradeIfNeeded()
+            return
+        }
+
+        playerItem = nil
+        resolvedKey = nil
+        classifyLoadFailure(for: source)
+    }
+
+    private func scheduleFullQualityUpgradeIfNeeded() {
+        guard usesProgressiveFidelity,
+              case .libraryAsset(let identifier) = source,
+              let baseKey = source?.identityKey,
+              DiveMediaProgressivePresentation.shouldUpgradeToFullVideo(
+                  isPlaybackActive: isPlaybackActive,
+                  isPausedByUserHold: isPausedByUserHold,
+                  currentFidelity: videoFidelity
+              ) else {
+            return
+        }
+        guard fullUpgradeTask == nil else { return }
+
+        fullUpgradeTask = Task {
+            defer {
+                Task { @MainActor in
+                    fullUpgradeTask = nil
+                }
+            }
+            let fullItem = await DiveMediaReferenceLoader.playerItem(
+                localIdentifier: identifier,
+                quality: .fullQuality
+            )
+            guard !Task.isCancelled,
+                  baseKey == self.source?.identityKey,
+                  let fullItem else { return }
+
+            playerItem = fullItem
+            resolvedKey = "\(baseKey)|full"
+            videoFidelity = .full
+        }
+    }
+
+    private func cancelFullQualityUpgrade() {
+        fullUpgradeTask?.cancel()
+        fullUpgradeTask = nil
+    }
+
+    private func resolvedItem(
+        for source: DiveVideoSource,
+        quality: DiveMediaVideoRequestQuality
+    ) async -> AVPlayerItem? {
+        switch source {
+        case .file(let url):
+            return AVPlayerItem(url: url)
+        case .libraryAsset(let identifier):
+            #if canImport(Photos)
+            return await DiveMediaReferenceLoader.playerItem(
+                localIdentifier: identifier,
+                quality: quality
+            )
+            #else
+            return nil
+            #endif
+        }
+    }
+
+    private func classifyLoadFailure(for source: DiveVideoSource) {
         switch DiveMediaVideoLoad.classify(
             itemResolved: false,
             isLibraryAsset: source.isLibraryAsset,
@@ -113,23 +286,16 @@ struct DiveActivityVideoPlayerView: View {
         }
     }
 
-    private func resolvedItem(for source: DiveVideoSource) async -> AVPlayerItem? {
-        switch source {
-        case .file(let url):
-            return AVPlayerItem(url: url)
-        case .libraryAsset(let identifier):
-            #if canImport(Photos)
-            return await DiveMediaReferenceLoader.playerItem(
-                localIdentifier: identifier,
-                quality: libraryVideoQuality
-            )
-            #else
-            return nil
-            #endif
-        }
+    private func resetPlaybackState() {
+        playerItem = nil
+        resolvedKey = nil
+        posterImage = nil
+        videoFidelity = .none
+        isResolving = false
+        loadFailed = false
+        isPlayerDisplayReady = false
     }
 
-    /// **`true`** when a library asset is still reachable (distinguishes a deleted original from a transient timeout).
     private func assetStillExists(for source: DiveVideoSource) -> Bool {
         switch source {
         case .file:
@@ -154,6 +320,10 @@ struct DiveActivityVideoPlayerView: View {
             AppTheme.Colors.surfaceMuted.opacity(0.5)
             ProgressView()
         }
+    }
+
+    private var subtleLoadingPlaceholder: some View {
+        Color.clear
     }
 
     private var errorRetryPlaceholder: some View {
@@ -206,9 +376,11 @@ private struct DiveActivityFillVideoPlayerRepresentable: UIViewRepresentable {
     let loopsPlayback: Bool
     let isPausedByUserHold: Bool
     let onPlaybackFinished: (() -> Void)?
+    let onDisplayReady: (() -> Void)?
 
     func makeUIView(context: Context) -> DiveActivityFillVideoPlayerUIView {
         let view = DiveActivityFillVideoPlayerUIView()
+        view.onDisplayReady = onDisplayReady
         view.configure(
             playerItem: playerItem,
             identityKey: identityKey,
@@ -221,6 +393,7 @@ private struct DiveActivityFillVideoPlayerRepresentable: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: DiveActivityFillVideoPlayerUIView, context: Context) {
+        uiView.onDisplayReady = onDisplayReady
         uiView.configure(
             playerItem: playerItem,
             identityKey: identityKey,
@@ -248,6 +421,8 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
     private var lastAppliedPlaybackActive = false
     private var endObserver: NSObjectProtocol?
     private var onPlaybackFinished: (() -> Void)?
+    var onDisplayReady: (() -> Void)?
+    private var displayReadyObservation: NSKeyValueObservation?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -262,6 +437,7 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
 
     deinit {
         removeEndObserver()
+        displayReadyObservation?.invalidate()
     }
 
     func configure(
@@ -272,17 +448,25 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
         isPausedByUserHold: Bool,
         onPlaybackFinished: (() -> Void)?
     ) {
+        self.isPlaybackActive = isPlaybackActive
+        self.isPausedByUserHold = isPausedByUserHold
+        self.loopsPlayback = loopsPlayback
+        self.onPlaybackFinished = onPlaybackFinished
+
+        let isQualityUpgrade = currentKey?.hasSuffix("|preview") == true
+            && identityKey.hasSuffix("|full")
+        if isQualityUpgrade, player != nil {
+            upgradePlayerItem(playerItem, identityKey: identityKey)
+            lastAppliedPlaybackActive = isPlaybackActive
+            return
+        }
+
         let mediaChanged = currentKey != identityKey
         let shouldRestart = DiveActivityVideoPlaybackPolicy.shouldRestartFromBeginning(
             wasPlaybackActive: lastAppliedPlaybackActive,
             isPlaybackActive: isPlaybackActive,
             mediaURLChanged: mediaChanged
         )
-
-        self.isPlaybackActive = isPlaybackActive
-        self.isPausedByUserHold = isPausedByUserHold
-        self.loopsPlayback = loopsPlayback
-        self.onPlaybackFinished = onPlaybackFinished
 
         if mediaChanged {
             loadPlayer(playerItem: playerItem, identityKey: identityKey)
@@ -300,6 +484,8 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
 
     func stop() {
         removeEndObserver()
+        displayReadyObservation?.invalidate()
+        displayReadyObservation = nil
         player?.pause()
         player = nil
         playerLayer.player = nil
@@ -312,19 +498,56 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
 
     private func loadPlayer(playerItem: AVPlayerItem, identityKey: String) {
         removeEndObserver()
+        displayReadyObservation?.invalidate()
         player?.pause()
         player?.replaceCurrentItem(with: nil)
         playerLayer.player = nil
         player = nil
         currentKey = identityKey
         DiveMutedVideoAudioSession.activateForMutedPlayback()
-        // Always attach a fresh item — a cached **`AVPlayerItem`** must not move between **`AVPlayer`**s.
         let playbackItem = AVPlayerItem(asset: playerItem.asset)
         let newPlayer = AVPlayer(playerItem: playbackItem)
         newPlayer.isMuted = true
         player = newPlayer
         playerLayer.player = newPlayer
+        observeDisplayReady()
         syncPlaybackEndObserver()
+    }
+
+    private func upgradePlayerItem(_ playerItem: AVPlayerItem, identityKey: String) {
+        guard let player else { return }
+        let preservedTime = player.currentTime()
+        let shouldResume = DiveActivityVideoPlaybackPolicy.shouldPlay(
+            isPlaybackActive: isPlaybackActive,
+            isPausedByUserHold: isPausedByUserHold
+        )
+        removeEndObserver()
+        let playbackItem = AVPlayerItem(asset: playerItem.asset)
+        player.replaceCurrentItem(with: playbackItem)
+        currentKey = identityKey
+        observeDisplayReady()
+        syncPlaybackEndObserver()
+        player.seek(to: preservedTime, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
+            guard let self else { return }
+            if shouldResume {
+                self.player?.play()
+            } else {
+                self.player?.pause()
+            }
+        }
+    }
+
+    private func observeDisplayReady() {
+        displayReadyObservation?.invalidate()
+        if playerLayer.isReadyForDisplay {
+            onDisplayReady?()
+        }
+        displayReadyObservation = playerLayer.observe(\.isReadyForDisplay, options: [.new]) { [weak self] layer, _ in
+            guard layer.isReadyForDisplay else { return }
+            DispatchQueue.main.async {
+                self?.onDisplayReady?()
+            }
+        }
     }
 
     private func syncPlaybackEndObserver() {

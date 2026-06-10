@@ -108,6 +108,98 @@ enum DiveMediaReferenceLoader {
         return image
     }
 
+    /// Delivers opportunistic frames (degraded, then final) for in-place sharpening in dive heroes.
+    @MainActor
+    static func loadImageProgressive(
+        localIdentifier: String,
+        targetSize: CGSize,
+        contentMode: PHImageContentMode = .aspectFill,
+        deliveryMode: PHImageRequestOptionsDeliveryMode = .opportunistic,
+        onFrame: @escaping @MainActor (_ image: UIImage, _ isFinal: Bool) -> Void
+    ) async {
+        guard targetSize.width > 0, targetSize.height > 0,
+              let phAsset = asset(localIdentifier: localIdentifier) else { return }
+
+        let edge = max(targetSize.width, targetSize.height)
+        if let sessionImage = HomeMediaHighlightSessionCache.shared.image(
+            for: localIdentifier,
+            edge: edge
+        ) {
+            onFrame(sessionImage, true)
+            return
+        }
+
+        let cacheKey = DiveMediaReferenceImageCache.shared.key(
+            localIdentifier: localIdentifier,
+            targetSize: targetSize
+        )
+        if let cached = DiveMediaReferenceImageCache.shared.image(for: cacheKey) {
+            onFrame(cached, true)
+            return
+        }
+
+        await fetchImageProgressiveFromPhotoKit(
+            asset: phAsset,
+            targetSize: targetSize,
+            contentMode: contentMode,
+            deliveryMode: deliveryMode,
+            onFrame: { image, isFinal in
+                guard let image else { return }
+                onFrame(image, isFinal)
+                if isFinal {
+                    DiveMediaReferenceImageCache.shared.store(image, for: cacheKey)
+                    if HomeMediaHighlightWarmup.shouldStoreInSessionCache(edge: edge) {
+                        HomeMediaHighlightSessionCache.shared.storeImage(
+                            image,
+                            localIdentifier: localIdentifier,
+                            edge: edge
+                        )
+                    }
+                }
+            }
+        )
+    }
+
+    nonisolated private static func fetchImageProgressiveFromPhotoKit(
+        asset: PHAsset,
+        targetSize: CGSize,
+        contentMode: PHImageContentMode,
+        deliveryMode: PHImageRequestOptionsDeliveryMode,
+        onFrame: @escaping @MainActor (_ image: UIImage?, _ isFinal: Bool) -> Void
+    ) async {
+        let options = PHImageRequestOptions()
+        options.isNetworkAccessAllowed = true
+        options.deliveryMode = deliveryMode
+        options.resizeMode = .fast
+        options.isSynchronous = false
+
+        await withCheckedContinuation { continuation in
+            let resumeGuard = SingleResumeGuard()
+            PHImageManager.default().requestImage(
+                for: asset,
+                targetSize: targetSize,
+                contentMode: contentMode,
+                options: options
+            ) { image, info in
+                if (info?[PHImageCancelledKey] as? Bool) == true {
+                    if resumeGuard.claim() {
+                        continuation.resume()
+                    }
+                    return
+                }
+
+                let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) == true
+                Task { @MainActor in
+                    onFrame(image, !isDegraded)
+                }
+
+                if !isDegraded, resumeGuard.claim() {
+                    continuation.resume()
+                }
+            }
+        }
+    }
+
     nonisolated private static func fetchImageFromPhotoKit(
         asset: PHAsset,
         targetSize: CGSize,
@@ -195,7 +287,10 @@ enum DiveMediaReferenceLoader {
         quality: DiveMediaVideoRequestQuality = .fullQuality
     ) async -> AVPlayerItem? {
         if quality.cachesInSession,
-           let avAsset = DiveMediaVideoAssetSessionCache.shared.videoAsset(for: localIdentifier) {
+           let avAsset = DiveMediaVideoAssetSessionCache.shared.videoAsset(
+               for: localIdentifier,
+               quality: quality
+           ) {
             return AVPlayerItem(asset: avAsset)
         }
         guard let avAsset = await loadVideoAsset(
@@ -216,7 +311,10 @@ enum DiveMediaReferenceLoader {
         quality: DiveMediaVideoRequestQuality = .fullQuality
     ) async -> AVAsset? {
         if quality.cachesInSession,
-           let cached = DiveMediaVideoAssetSessionCache.shared.videoAsset(for: localIdentifier) {
+           let cached = DiveMediaVideoAssetSessionCache.shared.videoAsset(
+               for: localIdentifier,
+               quality: quality
+           ) {
             return cached
         }
         guard let phAsset = asset(localIdentifier: localIdentifier) else { return nil }
@@ -228,7 +326,11 @@ enum DiveMediaReferenceLoader {
             timeoutSeconds: timeoutSeconds
         )
         if let avAsset, quality.cachesInSession {
-            DiveMediaVideoAssetSessionCache.shared.store(avAsset, localIdentifier: localIdentifier)
+            DiveMediaVideoAssetSessionCache.shared.store(
+                avAsset,
+                localIdentifier: localIdentifier,
+                quality: quality
+            )
         }
         return avAsset
     }

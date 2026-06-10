@@ -1,5 +1,8 @@
 import SwiftData
 import SwiftUI
+#if canImport(Photos)
+import Photos
+#endif
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -28,6 +31,7 @@ struct DiveActivityMediaItemView: View {
     @State private var layoutWidth: CGFloat = 0
     #if canImport(UIKit)
     @State private var previewImage: UIImage?
+    @State private var videoPosterImage: UIImage?
     #endif
 
     private var isVideo: Bool {
@@ -81,12 +85,17 @@ struct DiveActivityMediaItemView: View {
         .onDisappear {
             isHoldingVideoPause = false
         }
-        .task(id: imageLoadTaskID) {
-            await loadPreviewImageIfNeeded()
+        .task(id: mediaLoadTaskID) {
+            switch media.resolvedMediaKind {
+            case .image:
+                await loadPreviewImageIfNeeded()
+            case .video:
+                await loadVideoPosterIfNeeded()
+            }
         }
     }
 
-    private var imageLoadTaskID: String {
+    private var mediaLoadTaskID: String {
         "\(media.id.uuidString)-\(media.resolvedMediaKind.rawValue)-\(Int(layoutWidth * displayScale))"
     }
 
@@ -103,14 +112,7 @@ struct DiveActivityMediaItemView: View {
                 case .image:
                     imagePage
                 case .video:
-                    DiveActivityVideoPlayerView(
-                        source: media.videoPlaybackSource,
-                        isPlaybackActive: isVideoPlaybackActive,
-                        loopsPlayback: loopsVideoPlayback,
-                        libraryVideoQuality: DiveActivityMediaPresentation.overviewLibraryVideoQuality,
-                        isPausedByUserHold: isHoldingVideoPause,
-                        onAssetMissing: pruneIfAssetMissing
-                    )
+                    videoPage
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -119,6 +121,47 @@ struct DiveActivityMediaItemView: View {
                 captureOverlayBadge(dateTimeLine: overlay.dateTimeLine, divePositionLine: overlay.divePositionLine)
                     .padding(.bottom, captureOverlayBottomInset)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var videoPage: some View {
+        ZStack {
+            videoPosterPage
+
+            if isVideoPlaybackActive {
+                DiveActivityVideoPlayerView(
+                    source: media.videoPlaybackSource,
+                    isPlaybackActive: true,
+                    loopsPlayback: loopsVideoPlayback,
+                    libraryVideoQuality: DiveActivityMediaPresentation.overviewLibraryVideoQuality,
+                    usesProgressiveFidelity: true,
+                    screenPixelWidth: layoutWidth * displayScale,
+                    isPausedByUserHold: isHoldingVideoPause,
+                    onAssetMissing: pruneIfAssetMissing
+                )
+                .id(media.id)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var videoPosterPage: some View {
+        GeometryReader { geometry in
+            #if canImport(UIKit)
+            if let videoPosterImage {
+                Image(uiImage: videoPosterImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .clipped()
+                    .accessibilityLabel("Dive video poster")
+            } else {
+                missingImage(in: geometry.size, systemImage: "video")
+            }
+            #else
+            missingImage(in: geometry.size, systemImage: "video")
+            #endif
         }
     }
 
@@ -134,15 +177,36 @@ struct DiveActivityMediaItemView: View {
                     .clipped()
                     .accessibilityLabel("Dive photo")
             } else {
-                missingImage(in: geometry.size)
+                missingImage(in: geometry.size, systemImage: "photo")
             }
             #else
-            missingImage(in: geometry.size)
+            missingImage(in: geometry.size, systemImage: "photo")
             #endif
         }
     }
 
     #if canImport(UIKit) && canImport(Photos)
+    private func loadVideoPosterIfNeeded() async {
+        guard media.resolvedMediaKind == .video,
+              let identifier = media.libraryAssetLocalIdentifier else {
+            videoPosterImage = nil
+            return
+        }
+        guard layoutWidth > 0 else { return }
+        let posterSize = DiveMediaProgressivePresentation.posterTargetSize(
+            screenPixelWidth: layoutWidth * displayScale
+        )
+        let image = await DiveMediaReferenceLoader.image(
+            localIdentifier: identifier,
+            targetSize: posterSize,
+            deliveryMode: .opportunistic
+        )
+        if image == nil {
+            DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
+        }
+        videoPosterImage = image
+    }
+
     private func loadPreviewImageIfNeeded() async {
         guard media.resolvedMediaKind == .image, let identifier = media.libraryAssetLocalIdentifier else {
             previewImage = nil
@@ -152,14 +216,18 @@ struct DiveActivityMediaItemView: View {
         let edge = DiveActivityMediaPresentation.fullScreenImageTargetEdge(
             screenPixelWidth: layoutWidth * displayScale
         )
-        let image = await DiveMediaReferenceLoader.image(
+        var receivedFrame = false
+        await DiveMediaReferenceLoader.loadImageProgressive(
             localIdentifier: identifier,
-            targetSize: CGSize(width: edge, height: edge)
-        )
-        if image == nil {
+            targetSize: CGSize(width: edge, height: edge),
+            deliveryMode: .opportunistic
+        ) { image, _ in
+            previewImage = image
+            receivedFrame = true
+        }
+        if !receivedFrame {
             DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
         }
-        previewImage = image
     }
     #else
     private func loadPreviewImageIfNeeded() async {}
@@ -188,10 +256,10 @@ struct DiveActivityMediaItemView: View {
         )
     }
 
-    private func missingImage(in size: CGSize) -> some View {
+    private func missingImage(in size: CGSize, systemImage: String = "photo") -> some View {
         ZStack {
             AppTheme.Colors.surfaceMuted.opacity(0.5)
-            Image(systemName: "photo")
+            Image(systemName: systemImage)
                 .font(.largeTitle)
                 .foregroundStyle(AppTheme.Colors.tabUnselected)
         }

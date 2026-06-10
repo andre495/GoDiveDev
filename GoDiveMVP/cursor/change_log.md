@@ -1197,4 +1197,16 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Dive activity landscape** — map / tank / media tabs hide the embedded sheet at every detent; map full-screen + interactive; tank full-screen depth profile (all detents); media full-bleed. **`DiveActivityOverviewLandscapePresentation`**. Tests: **`hidesSheetAndUnlocksMapAtEveryDetent`**, **`landscapeProfileChart_atEveryDetent`**.
 - **Portrait lock on catalog / list tabs** — Home, Logbook list, Field Guide (all browse + species detail), and Explore dive-site **list** root stay portrait-only via **`AppPortraitOrientationLock`** + **`AppPortraitOrientationLockPolicy`**; dive activity, Explore map, and pushed site/dive destinations still rotate. **`GoDiveGoogleMapsAppDelegate`** consults **`AppPortraitOrientationLockController`**. Test: **`appPortraitOrientationLockPolicy_listScreensStayPortrait`**.
 
-## 75 - Next batch
+## 75 - Progressive dive media + pager playback fix **(pushed)**
+
+**Summary:** Progressive dive media fidelity — poster, preview video, silent full upgrade.
+
+- **`DiveMediaProgressivePresentation`** + **`DiveMediaProgressivePrefetch`** — poster edge, full-upgrade policy, neighbor warm for pager.
+- **`DiveMediaReferenceLoader.loadImageProgressive`** — opportunistic degraded → final frames for dive photos.
+- **`DiveMediaVideoAssetSessionCache`** — quality-keyed session entries (**`full`** / **`preview`**).
+- **`DiveActivityVideoPlayerView`** — poster under player, preview stream, seamless **`replaceCurrentItem`** full upgrade with time preservation.
+- **`DiveActivityMediaItemView`** — progressive photos + **`usesProgressiveFidelity`** overview videos.
+- Tests: **`diveMediaProgressivePresentation_posterAndUpgradePolicy`**, **`diveMediaVideoRequestQuality_sessionCacheKeySuffix_isDistinct`**.
+- **Media pager playback freeze** — mount **`DiveActivityVideoPlayerView`** only when the page is active (Home carousel pattern); poster stays on **`DiveActivityMediaItemView`**; fix progressive cache hit leaving **`isPlayerDisplayReady`** false; quality upgrade keyed off **`|preview` → `|full`**; clear cancelled full-upgrade tasks.
+
+## 76 - Next batch

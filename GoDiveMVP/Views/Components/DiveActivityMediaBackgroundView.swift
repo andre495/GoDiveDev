@@ -8,6 +8,8 @@ struct DiveActivityMediaBackgroundView: View {
         var lastID: UUID?
     }
 
+    @Environment(\.displayScale) private var displayScale
+
     let mediaItems: [DiveMediaPhoto]
     @Binding var selectedMediaID: UUID?
     var timeZoneOffsetSeconds: Int?
@@ -106,6 +108,12 @@ struct DiveActivityMediaBackgroundView: View {
             .scrollPosition(id: $selectedMediaID)
             .frame(width: geometry.size.width, height: geometry.size.height)
             .ignoresSafeArea()
+            .onAppear {
+                prefetchProgressiveNeighbors(screenPixelWidth: geometry.size.width * displayScale)
+            }
+            .onChange(of: selectedMediaID) { _, _ in
+                prefetchProgressiveNeighbors(screenPixelWidth: geometry.size.width * displayScale)
+            }
         }
         .ignoresSafeArea()
         .padding(.bottom, bottomContentMargin)
@@ -135,6 +143,15 @@ struct DiveActivityMediaBackgroundView: View {
         selectedMediaID = DiveActivityMediaPresentation.resolvedSelectedPhotoID(
             selectedID: selectedMediaID,
             in: mediaItems
+        )
+    }
+
+    private func prefetchProgressiveNeighbors(screenPixelWidth: CGFloat) {
+        DiveMediaProgressivePrefetch.warmNeighbors(
+            mediaItems: mediaItems,
+            selectedMediaID: selectedMediaID,
+            screenPixelWidth: screenPixelWidth,
+            isMediaTabSelected: isMediaTabSelected
         )
     }
 }

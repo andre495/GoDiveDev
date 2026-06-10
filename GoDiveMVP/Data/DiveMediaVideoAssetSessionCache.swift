@@ -20,25 +20,44 @@ final class DiveMediaVideoAssetSessionCache {
 
     private init() {}
 
-    func contains(localIdentifier: String) -> Bool {
+    nonisolated static func storageKey(
+        localIdentifier: String,
+        quality: DiveMediaVideoRequestQuality = .fullQuality
+    ) -> String {
+        "\(localIdentifier)|\(quality.sessionCacheKeySuffix)"
+    }
+
+    func contains(
+        localIdentifier: String,
+        quality: DiveMediaVideoRequestQuality = .fullQuality
+    ) -> Bool {
         #if canImport(AVFoundation)
-        assets[localIdentifier] != nil
+        assets[Self.storageKey(localIdentifier: localIdentifier, quality: quality)] != nil
         #else
         false
         #endif
     }
 
     #if canImport(AVFoundation)
-    func videoAsset(for localIdentifier: String) -> AVAsset? {
-        if assets[localIdentifier] != nil {
-            touchAccess(localIdentifier)
+    func videoAsset(
+        for localIdentifier: String,
+        quality: DiveMediaVideoRequestQuality = .fullQuality
+    ) -> AVAsset? {
+        let key = Self.storageKey(localIdentifier: localIdentifier, quality: quality)
+        if assets[key] != nil {
+            touchAccess(key)
         }
-        return assets[localIdentifier]
+        return assets[key]
     }
 
-    func store(_ asset: AVAsset, localIdentifier: String) {
-        assets[localIdentifier] = asset
-        touchAccess(localIdentifier)
+    func store(
+        _ asset: AVAsset,
+        localIdentifier: String,
+        quality: DiveMediaVideoRequestQuality = .fullQuality
+    ) {
+        let key = Self.storageKey(localIdentifier: localIdentifier, quality: quality)
+        assets[key] = asset
+        touchAccess(key)
         trimToLimit()
     }
     #endif
@@ -50,9 +69,9 @@ final class DiveMediaVideoAssetSessionCache {
         accessOrder.removeAll()
     }
 
-    private func touchAccess(_ localIdentifier: String) {
-        accessOrder.removeAll { $0 == localIdentifier }
-        accessOrder.append(localIdentifier)
+    private func touchAccess(_ key: String) {
+        accessOrder.removeAll { $0 == key }
+        accessOrder.append(key)
     }
 
     private func trimToLimit() {

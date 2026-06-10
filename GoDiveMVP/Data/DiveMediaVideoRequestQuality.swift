@@ -14,6 +14,15 @@ enum DiveMediaVideoRequestQuality: Sendable, Equatable {
             return false
         }
     }
+
+    nonisolated var sessionCacheKeySuffix: String {
+        switch self {
+        case .fullQuality:
+            return "full"
+        case .homeCarousel:
+            return "preview"
+        }
+    }
 }
 
 #if canImport(Photos)

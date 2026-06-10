@@ -5008,6 +5008,51 @@ struct GoDiveMVPTests {
         #expect(DiveActivityMediaPresentation.overviewLibraryVideoQuality == .homeCarousel)
     }
 
+    @Test func diveMediaProgressivePresentation_posterAndUpgradePolicy() {
+        let poster = DiveMediaProgressivePresentation.posterTargetSize(screenPixelWidth: 1_200)
+        #expect(poster.width == DiveMediaProgressivePresentation.posterImageEdge)
+        #expect(
+            DiveMediaProgressivePresentation.shouldUpgradeToFullVideo(
+                isPlaybackActive: true,
+                isPausedByUserHold: false,
+                currentFidelity: .preview
+            )
+        )
+        #expect(
+            !DiveMediaProgressivePresentation.shouldUpgradeToFullVideo(
+                isPlaybackActive: false,
+                isPausedByUserHold: false,
+                currentFidelity: .preview
+            )
+        )
+        #expect(
+            !DiveMediaProgressivePresentation.shouldUpgradeToFullVideo(
+                isPlaybackActive: true,
+                isPausedByUserHold: true,
+                currentFidelity: .preview
+            )
+        )
+        #expect(DiveMediaProgressivePresentation.prefetchNeighborIndices(selectedIndex: 2, itemCount: 5) == [2, 1, 3])
+        #expect(DiveMediaProgressivePresentation.prefetchNeighborIndices(selectedIndex: 0, itemCount: 3) == [0, 1])
+    }
+
+    @Test func diveMediaVideoRequestQuality_sessionCacheKeySuffix_isDistinct() {
+        #expect(DiveMediaVideoRequestQuality.fullQuality.sessionCacheKeySuffix == "full")
+        #expect(DiveMediaVideoRequestQuality.homeCarousel.sessionCacheKeySuffix == "preview")
+        #expect(
+            DiveMediaVideoAssetSessionCache.storageKey(
+                localIdentifier: "abc",
+                quality: .fullQuality
+            ) == "abc|full"
+        )
+        #expect(
+            DiveMediaVideoAssetSessionCache.storageKey(
+                localIdentifier: "abc",
+                quality: .homeCarousel
+            ) == "abc|preview"
+        )
+    }
+
     @Test func diveActivityMediaPresentation_mediaControlActiveState_reflectsTagsAndFishialConfirm() {
         #expect(!DiveActivityMediaPresentation.marineLifeTagControlIsActive(taggedSpeciesCount: 0))
         #expect(DiveActivityMediaPresentation.marineLifeTagControlIsActive(taggedSpeciesCount: 1))
