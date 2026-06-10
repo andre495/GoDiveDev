@@ -5,9 +5,13 @@ enum DiveActivityMediaPresentation: Sendable {
 
     nonisolated static let emptyStateMessage = "No media added"
 
-    /// Background gallery is hidden when the overview sheet is **large** (sheet-only chrome).
+    /// PhotoKit tier for dive overview / tagged-media hero video — matches Home carousel preview playback.
+    nonisolated static let overviewLibraryVideoQuality: DiveMediaVideoRequestQuality = .homeCarousel
+
+    /// Background gallery stays visible at every detent so dive media remains full-bleed behind the sheet.
     nonisolated static func showsBackgroundPhotos(for detent: DiveActivityOverviewDetent) -> Bool {
-        detent != .large
+        _ = detent
+        return true
     }
 
     /// Muted, looping background video plays on the **Media** tab at **minimized** or **medium** detent.
@@ -88,9 +92,71 @@ enum DiveActivityMediaPresentation: Sendable {
         detent == .minimized
     }
 
-    /// **Tag marine life** control on the visible hero item at **minimized** only (**medium** uses the sheet).
+    /// Breathing room between the capture oval and the top edge of the overview sheet.
+    nonisolated static let captureOverlayClearanceAboveSheet: CGFloat = 10
+
+    /// Bottom inset for the capture oval so it sits above the resting overview panel (full-bleed hero).
+    nonisolated static func captureOverlayBottomInset(
+        layoutHeight: CGFloat,
+        detent: DiveActivityOverviewDetent,
+        bottomSafeInset: CGFloat
+    ) -> CGFloat {
+        guard showsCaptureDateOnHero(for: detent), layoutHeight > 0 else { return 0 }
+        return DiveActivityOverviewDetent.bottomObstructionHeight(
+            layoutHeight: layoutHeight,
+            detent: detent,
+            bottomSafeInset: bottomSafeInset
+        ) + captureOverlayClearanceAboveSheet
+    }
+
+    /// Hero overlay fish control — retired; tagging lives in sheet / carousel chrome.
     nonisolated static func showsMarineLifeTagOnHero(for detent: DiveActivityOverviewDetent) -> Bool {
+        _ = detent
+        return false
+    }
+
+    /// Fish tag beside the carousel at **minimized** (leading **+** add media).
+    nonisolated static func showsMarineLifeTagInCarousel(for detent: DiveActivityOverviewDetent) -> Bool {
         detent == .minimized
+    }
+
+    /// Full-bleed hero under translucent **Media** overview panels at every detent.
+    nonisolated static func usesFullBleedMediaHero(for detent: DiveActivityOverviewDetent) -> Bool {
+        detent == .minimized || detent == .medium || detent == .large
+    }
+
+    /// Frosted **Media** overview panel so the hero remains visible underneath.
+    nonisolated static func usesTranslucentOverviewPanel(for detent: DiveActivityOverviewDetent) -> Bool {
+        detent == .minimized || detent == .medium || detent == .large
+    }
+
+    /// Tagged-species oval chips at **medium** expand the sheet to **large** species detail.
+    nonisolated static func opensMarineLifeDetailOnTaggedChipTap(
+        detent: DiveActivityOverviewDetent,
+        taggedSpeciesCount: Int
+    ) -> Bool {
+        detent == .medium && taggedSpeciesCount > 0
+    }
+
+    /// Feathered top mask on scroll content in the **Media** sheet at **large** only.
+    nonisolated static func panelTopScrollFadeHeight(
+        detent: DiveActivityOverviewDetent,
+        isMediaTabSelected: Bool
+    ) -> CGFloat {
+        guard isMediaTabSelected, detent == .large else { return 0 }
+        return DiveActivityOverviewPanelMetrics.mediaLargeDetentTopScrollFadeHeight
+    }
+
+    /// Selected chip at **medium** should open that species at **large** when still tagged.
+    nonisolated static func resolvedTaggedSpeciesUUID(
+        selectedUUID: String?,
+        taggedSpeciesUUIDs: [String]
+    ) -> String? {
+        guard !taggedSpeciesUUIDs.isEmpty else { return nil }
+        if let selectedUUID, taggedSpeciesUUIDs.contains(selectedUUID) {
+            return selectedUUID
+        }
+        return taggedSpeciesUUIDs.first
     }
 
     /// Oval-chip marine life summary in the **Media** sheet at **medium** only.
@@ -108,7 +174,18 @@ enum DiveActivityMediaPresentation: Sendable {
         detent == .medium
     }
 
-    /// Fish tag, Fishial identify, featured toggle, and **+** add control in the **Media** sheet chrome at **medium** only.
+    /// Marine-life fish control uses accent when at least one species is tagged on the media item.
+    nonisolated static func marineLifeTagControlIsActive(taggedSpeciesCount: Int) -> Bool {
+        taggedSpeciesCount > 0
+    }
+
+    /// Fishial sparkles control uses accent after the user confirms and applies a catalog match.
+    nonisolated static func fishialIdentifyControlIsActive(confirmedSpeciesName: String?) -> Bool {
+        guard let confirmedSpeciesName else { return false }
+        return !confirmedSpeciesName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// Fish tag, featured toggle, and **+** add control in the **Media** sheet chrome at **medium** only.
     nonisolated static func showsMediaSheetChromeActions(for detent: DiveActivityOverviewDetent) -> Bool {
         detent == .medium
     }
@@ -116,9 +193,9 @@ enum DiveActivityMediaPresentation: Sendable {
     /// Hero band height for tagged-species detail at the **large** media detent.
     nonisolated static let largeDetentSpeciesHeroHeight: CGFloat = 220
 
-    /// Thumbnail strip in the **Media** sheet — pinned to the minimized carousel slot at every detent.
+    /// Thumbnail strip in the **Media** sheet — **minimized** / **medium** only (not **large** species detail).
     nonisolated static func showsMediaCarouselInSheet(for detent: DiveActivityOverviewDetent) -> Bool {
-        detent == .minimized || detent == .medium || detent == .large
+        detent == .minimized || detent == .medium
     }
 
     /// Top chrome action row height at **medium** / **large** — matches **44 pt** action targets.
@@ -137,7 +214,35 @@ enum DiveActivityMediaPresentation: Sendable {
         return max(0, inset - chromeReserve)
     }
 
+    /// Fixed stack height so the **medium** carousel lands on the minimized on-screen slot.
+    nonisolated static func mediaCarouselPinnedStackHeight(
+        layoutHeight: CGFloat,
+        detent: DiveActivityOverviewDetent
+    ) -> CGFloat {
+        let inset = DiveActivityOverviewPanelMetrics.mediaCarouselScreenAlignmentTopInset(
+            layoutHeight: layoutHeight,
+            detent: detent
+        )
+        return inset + carouselRowHeight
+    }
+
+    /// **Media** panel scroll is only needed at **large** (tagged-species detail).
+    nonisolated static func disablesPanelScroll(
+        isMediaTabSelected: Bool,
+        detent: DiveActivityOverviewDetent
+    ) -> Bool {
+        isMediaTabSelected && detent != .large
+    }
+
     nonisolated static let carouselThumbnailSize: CGFloat = 72
+    nonisolated static let carouselSelectedThumbnailScale: CGFloat = 1.4
+
+    nonisolated static func carouselThumbnailExtent(isSelected: Bool) -> CGFloat {
+        isSelected
+            ? carouselThumbnailSize * carouselSelectedThumbnailScale
+            : carouselThumbnailSize
+    }
+
     /// Square preview on logbook activity rows (trailing).
     /// Fallback square extent before the logbook row measures its text column.
     nonisolated static let logbookRowMediaPreviewMinExtent: CGFloat = 48
@@ -145,7 +250,9 @@ enum DiveActivityMediaPresentation: Sendable {
     nonisolated static let carouselThumbnailSpacing: CGFloat = 10
     nonisolated static let carouselThumbnailCornerRadius: CGFloat = 10
     /// Fixed row height so the carousel lays out inside the overview panel's vertical **`ScrollView`**.
-    nonisolated static var carouselRowHeight: CGFloat { carouselThumbnailSize + 4 }
+    nonisolated static var carouselRowHeight: CGFloat {
+        carouselThumbnailExtent(isSelected: true) + 4
+    }
 
     nonisolated static let captureDateUnknownMessage = "Capture date unavailable"
 

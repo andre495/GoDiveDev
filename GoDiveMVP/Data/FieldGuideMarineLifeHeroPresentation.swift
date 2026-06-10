@@ -48,6 +48,7 @@ enum FieldGuideMarineLifeHeroPresentation {
 
     enum HeroKind: Equatable, Sendable {
         case model3D(FieldGuideMarineLifeHeroSceneConfiguration)
+        case bundledPhoto(URL)
         case remoteImage(URL)
         case placeholder
 
@@ -56,6 +57,8 @@ enum FieldGuideMarineLifeHeroPresentation {
             switch (lhs, rhs) {
             case (.placeholder, .placeholder):
                 return true
+            case (.bundledPhoto(let left), .bundledPhoto(let right)):
+                return left == right
             case (.remoteImage(let left), .remoteImage(let right)):
                 return left == right
             case (.model3D(let left), .model3D(let right)):
@@ -68,11 +71,20 @@ enum FieldGuideMarineLifeHeroPresentation {
 
     nonisolated static func heroKind(
         featureModelResourceName: String,
+        featureImageResourceName: String,
         featureImageURL: String
     ) -> HeroKind {
         let modelName = featureModelResourceName.trimmingCharacters(in: .whitespacesAndNewlines)
         if !modelName.isEmpty {
             return .model3D(sceneConfiguration(forModelResourceName: modelName))
+        }
+
+        let resourceName = featureImageResourceName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !resourceName.isEmpty,
+           let bundledURL = FieldGuideMarineLifeBundledImagePresentation.bundledPhotoURL(
+               resourceName: resourceName
+           ) {
+            return .bundledPhoto(bundledURL)
         }
 
         let imageURLString = featureImageURL.trimmingCharacters(in: .whitespacesAndNewlines)

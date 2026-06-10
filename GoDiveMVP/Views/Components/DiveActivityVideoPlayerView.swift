@@ -13,7 +13,7 @@ struct DiveActivityVideoPlayerView: View {
     let source: DiveVideoSource?
     var isPlaybackActive: Bool = true
     var loopsPlayback: Bool = false
-    /// PhotoKit delivery tier for **`.libraryAsset`** sources (Home carousel uses **`.homeCarousel`**).
+    /// PhotoKit delivery tier for **`.libraryAsset`** sources (overview heroes use **`.homeCarousel`**; default **`.fullQuality`** for specialized flows).
     var libraryVideoQuality: DiveMediaVideoRequestQuality = .fullQuality
     var isPausedByUserHold: Bool = false
     /// Called once when playback reaches the end and **`loopsPlayback`** is **`false`**.

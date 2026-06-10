@@ -13,6 +13,10 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
     var showsPanelContentWhenMinimized: Bool = false
     /// Disables vertical scroll in the compact minimized band (avoids scroll geometry churn).
     var disablesPanelScrollWhenMinimized: Bool = false
+    /// Forces scroll off regardless of detent (e.g. **Media** **minimized** / **medium** carousel pin).
+    var isPanelScrollDisabled: Bool = false
+    /// Soft top fade on panel scroll content (e.g. **Media** **large** tagged-species detail).
+    var topScrollFadeHeight: CGFloat = 0
 
     /// Keeps the heavy scroll body mounted after first expand so detent changes do not rebuild the chart.
     @State private var keepsExpandedPanelMounted = true
@@ -48,7 +52,9 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
                             selectedDetent = .medium
                         }
                     },
-                    isScrollDisabled: showsMinimizedLayout && disablesPanelScrollWhenMinimized
+                    isScrollDisabled: isPanelScrollDisabled
+                        || (showsMinimizedLayout && disablesPanelScrollWhenMinimized),
+                    topScrollFadeHeight: topScrollFadeHeight
                 ) {
                     panelContent()
                         .environment(\.diveOverviewPanelHeightFraction, layoutHeightFraction)
@@ -182,6 +188,7 @@ struct OverviewPanelScrollArea<Content: View>: View {
     let onExpand: () -> Void
     let onCollapseToMedium: () -> Void
     var isScrollDisabled = false
+    var topScrollFadeHeight: CGFloat = 0
     @ViewBuilder var content: () -> Content
 
     @State private var lastScrollOffsetY: CGFloat = 0
@@ -192,6 +199,7 @@ struct OverviewPanelScrollArea<Content: View>: View {
         ScrollView {
             content()
         }
+        .overviewPanelTopScrollFade(height: topScrollFadeHeight)
         .scrollDisabled(isScrollDisabled)
         .scrollIndicators(.hidden)
         .onScrollGeometryChange(for: CGFloat.self) { geometry in
@@ -241,5 +249,42 @@ struct OverviewPanelScrollArea<Content: View>: View {
             guard !Task.isCancelled else { return }
             action()
         }
+    }
+}
+
+// MARK: - Top scroll fade
+
+private struct OverviewPanelTopScrollFadeModifier: ViewModifier {
+    let height: CGFloat
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    func body(content: Content) -> some View {
+        if height > 0, !reduceTransparency {
+            content.mask {
+                VStack(spacing: 0) {
+                    LinearGradient(
+                        stops: [
+                            .init(color: .clear, location: 0),
+                            .init(color: .black.opacity(0.28), location: 0.42),
+                            .init(color: .black.opacity(0.72), location: 0.78),
+                            .init(color: .black, location: 1),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: height)
+                    Rectangle().fill(Color.black)
+                }
+            }
+        } else {
+            content
+        }
+    }
+}
+
+extension View {
+    /// Soft top edge on overview panel scroll content instead of a hard clip.
+    func overviewPanelTopScrollFade(height: CGFloat) -> some View {
+        modifier(OverviewPanelTopScrollFadeModifier(height: height))
     }
 }

@@ -22,6 +22,7 @@ private struct FishialIdentifySheetTopSpacing: ViewModifier {
 /// Progress, still picker, Fishial recognition, and user confirmation for one dive media item.
 struct DiveMediaFishialIdentifySheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.displayScale) private var displayScale
     @Environment(\.modelContext) private var modelContext
     @Environment(AccountSession.self) private var accountSession
 
@@ -34,11 +35,18 @@ struct DiveMediaFishialIdentifySheet: View {
 
     @State private var phase: Phase = .loading(.loadingMedia())
     @State private var videoScrubFraction = DiveMediaFishialFrameExport.defaultVideoScrubFraction
+    #if canImport(UIKit)
+    @State private var cropGestureScale: CGFloat = 1
+    @State private var cropLastGestureScale: CGFloat = 1
+    @State private var cropOffset: CGSize = .zero
+    @State private var cropLastOffset: CGSize = .zero
+    @State private var cropViewportSize: CGSize = .zero
+    #endif
 
     private enum Phase {
         case loading(FishialIdentifyProgress)
         #if canImport(UIKit)
-        case selectingPhoto(FishialIdentifyCandidateFrame)
+        case croppingStill(FishialStillCropContext)
         #endif
         #if canImport(UIKit) && canImport(AVFoundation)
         case selectingVideo(FishialVideoScrubContext)
@@ -59,13 +67,18 @@ struct DiveMediaFishialIdentifySheet: View {
         case failed(String)
     }
 
-    private var isVideoSelectionPhase: Bool {
+    private var usesLargeFishialLayout: Bool {
+        #if canImport(UIKit)
+        if case .croppingStill = phase { return true }
+        #endif
+        #if canImport(UIKit) && canImport(AVFoundation)
         if case .selectingVideo = phase { return true }
+        #endif
         return false
     }
 
     private var identifyPresentationDetents: Set<PresentationDetent> {
-        isVideoSelectionPhase ? [.large] : [.medium, .large]
+        usesLargeFishialLayout ? [.large] : [.medium, .large]
     }
 
     var body: some View {
@@ -75,8 +88,8 @@ struct DiveMediaFishialIdentifySheet: View {
                 case .loading(let progress):
                     loadingContent(progress: progress)
                 #if canImport(UIKit)
-                case .selectingPhoto(let frame):
-                    photoSelectionContent(frame: frame)
+                case .croppingStill(let context):
+                    croppingStillContent(context: context)
                 #endif
                 #if canImport(UIKit) && canImport(AVFoundation)
                 case .selectingVideo(let context):
@@ -105,13 +118,18 @@ struct DiveMediaFishialIdentifySheet: View {
             .frame(
                 maxWidth: .infinity,
                 maxHeight: .infinity,
-                alignment: isVideoSelectionPhase ? .center : .topLeading
+                alignment: usesLargeFishialLayout ? .center : .topLeading
             )
-            .modifier(FishialIdentifySheetTopSpacing(isEnabled: !isVideoSelectionPhase))
+            .modifier(FishialIdentifySheetTopSpacing(isEnabled: !usesLargeFishialLayout))
             .navigationTitle("Identify fish")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
             .toolbar {
+                #if canImport(UIKit) && canImport(AVFoundation)
+                ToolbarItem(placement: .cancellationAction) {
+                    cropBackToolbarContent
+                }
+                #endif
                 ToolbarItem(placement: .confirmationAction) {
                     toolbarTrailingContent
                 }
@@ -128,14 +146,40 @@ struct DiveMediaFishialIdentifySheet: View {
     }
 
     @ViewBuilder
+    private var cropBackToolbarContent: some View {
+        #if canImport(UIKit) && canImport(AVFoundation)
+        if case .croppingStill(let context) = phase, context.videoScrubContext != nil {
+            Button("Back") {
+                guard let videoScrubContext = context.videoScrubContext else { return }
+                resetCropGestures()
+                phase = .selectingVideo(videoScrubContext)
+            }
+            .accessibilityIdentifier("DiveMediaFishialIdentify.BackToScrub")
+        } else {
+            EmptyView()
+        }
+        #else
+        EmptyView()
+        #endif
+    }
+
+    @ViewBuilder
     private var toolbarTrailingContent: some View {
         switch phase {
         case .loading, .recognizing:
             EmptyView()
+        #if canImport(UIKit) && canImport(AVFoundation)
+        case .selectingVideo:
+            Button("Continue") {
+                Task { await continueFromVideoScrub() }
+            }
+            .fontWeight(.semibold)
+            .accessibilityIdentifier("DiveMediaFishialIdentify.Continue")
+        #endif
         #if canImport(UIKit)
-        case .selectingPhoto, .selectingVideo:
+        case .croppingStill:
             Button("Identify") {
-                Task { await identifySelectedStill() }
+                Task { await identifyCroppedStill() }
             }
             .fontWeight(.semibold)
             .accessibilityIdentifier("DiveMediaFishialIdentify.Identify")
@@ -189,25 +233,26 @@ struct DiveMediaFishialIdentifySheet: View {
 
     #if canImport(UIKit)
     @ViewBuilder
-    private func photoSelectionContent(frame: FishialIdentifyCandidateFrame) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-                Text("Confirm this still, then tap Identify to send one request to Fishial.")
-                    .font(.body)
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
+    private func croppingStillContent(context: FishialStillCropContext) -> some View {
+        FishialImageCropEditorView(
+            sourceImage: context.sourceImage,
+            instruction: cropInstruction(for: context),
+            gestureScale: $cropGestureScale,
+            lastGestureScale: $cropLastGestureScale,
+            offset: $cropOffset,
+            lastOffset: $cropLastOffset,
+            viewportSize: $cropViewportSize
+        )
+        .accessibilityIdentifier("DiveMediaFishialIdentify.Crop")
+    }
 
-                Image(uiImage: frame.previewImage)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: .infinity)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .accessibilityIdentifier("DiveMediaFishialIdentify.PhotoPreview")
-            }
-            .padding(.horizontal, AppTheme.Spacing.lg)
-            .padding(.bottom, AppTheme.Spacing.lg)
+    private func cropInstruction(for context: FishialStillCropContext) -> String {
+        #if canImport(AVFoundation)
+        if context.videoScrubContext != nil {
+            return FishialImageCropPresentation.exportedStillInstruction
         }
-        .accessibilityIdentifier("DiveMediaFishialIdentify.Selection")
+        #endif
+        return FishialImageCropPresentation.photoInstruction
     }
     #endif
 
@@ -424,6 +469,7 @@ struct DiveMediaFishialIdentifySheet: View {
         HStack(alignment: .center, spacing: AppTheme.Spacing.md) {
             FieldGuideMarineLifeCatalogImage(
                 imageURLString: option.featureImageURL,
+                bundleResourceName: option.featureImageResourceName,
                 placement: .mediaSheetHero(height: 72, cornerRadius: 8)
             )
             .frame(width: 96, height: 72)
@@ -483,8 +529,9 @@ struct DiveMediaFishialIdentifySheet: View {
         #if canImport(UIKit)
         do {
             switch try await DiveMediaFishialIdentification.prepareSelection(for: media) {
-            case .photo(let frame):
-                phase = .selectingPhoto(frame)
+            case .photoCrop(let context):
+                resetCropGestures()
+                phase = .croppingStill(context)
             #if canImport(AVFoundation)
             case .video(let context):
                 videoScrubFraction = DiveMediaFishialFrameExport.defaultVideoScrubFraction
@@ -548,48 +595,87 @@ struct DiveMediaFishialIdentifySheet: View {
 
     #if canImport(UIKit)
     @MainActor
-    private func identifySelectedStill() async {
-        switch phase {
-        case .selectingPhoto(let frame):
+    private func resetCropGestures() {
+        cropGestureScale = 1
+        cropLastGestureScale = 1
+        cropOffset = .zero
+        cropLastOffset = .zero
+        cropViewportSize = .zero
+    }
+
+    #if canImport(AVFoundation)
+    @MainActor
+    private func continueFromVideoScrub() async {
+        guard case .selectingVideo(let context) = phase else { return }
+        phase = .loading(.exportingSelectedStill())
+        do {
+            let frame = try await DiveMediaFishialIdentification.exportSelectedVideoFrame(
+                context: context,
+                atFraction: videoScrubFraction
+            ) { progress in
+                phase = .loading(progress)
+            }
+            resetCropGestures()
+            phase = .croppingStill(
+                FishialStillCropContext(
+                    exportedFrame: frame,
+                    videoScrubContext: context
+                )
+            )
+        } catch {
+            phase = .failed(error.localizedDescription)
+        }
+    }
+    #endif
+
+    @MainActor
+    private func identifyCroppedStill() async {
+        guard case .croppingStill(let context) = phase else { return }
+        guard cropViewportSize.width > 0, cropViewportSize.height > 0 else {
+            phase = .failed("Could not prepare the crop.")
+            return
+        }
+        do {
+            let resolvedOffset = FishialImageCropRenderer.clampedOffset(
+                cropOffset,
+                drawSize: FishialImageCropRenderer.scaledDrawSize(
+                    imageSize: context.sourceImage.size,
+                    cropSize: cropViewportSize,
+                    gestureScale: cropGestureScale
+                ),
+                cropSize: cropViewportSize
+            )
+            let frame: FishialIdentifyCandidateFrame
+            if context.isPhotoSelection, let diveMedia = context.diveMedia {
+                phase = .loading(.exportingSelectedStill())
+                frame = try await DiveMediaFishialFrameExport.exportCroppedPhotoFrame(
+                    diveMedia: diveMedia,
+                    cropViewportSize: cropViewportSize,
+                    gestureScale: cropGestureScale,
+                    offset: resolvedOffset,
+                    displayScale: displayScale
+                )
+            } else {
+                frame = try DiveMediaFishialFrameExport.croppedCandidateFrame(
+                    sourceImage: context.sourceImage,
+                    cropViewportSize: cropViewportSize,
+                    gestureScale: cropGestureScale,
+                    offset: resolvedOffset,
+                    filename: context.filename,
+                    displayScale: displayScale
+                )
+            }
             phase = .recognizing(.recognizingSelectedFrame())
-            do {
-                let outcome = try await DiveMediaFishialIdentification.recognizeSelectedFrame(
-                    frame,
-                    dive: dive,
-                    catalogSites: catalogSites
-                ) { progress in
-                    phase = .recognizing(progress)
-                }
-                transitionToReview(outcome)
-            } catch {
-                phase = .failed(error.localizedDescription)
+            let outcome = try await DiveMediaFishialIdentification.recognizeSelectedFrame(
+                frame,
+                dive: dive,
+                catalogSites: catalogSites
+            ) { progress in
+                phase = .recognizing(progress)
             }
-
-        #if canImport(AVFoundation)
-        case .selectingVideo(let context):
-            phase = .recognizing(.exportingSelectedStill())
-            do {
-                let frame = try await DiveMediaFishialIdentification.exportSelectedVideoFrame(
-                    context: context,
-                    atFraction: videoScrubFraction
-                ) { progress in
-                    phase = .recognizing(progress)
-                }
-                let outcome = try await DiveMediaFishialIdentification.recognizeSelectedFrame(
-                    frame,
-                    dive: dive,
-                    catalogSites: catalogSites
-                ) { progress in
-                    phase = .recognizing(progress)
-                }
-                transitionToReview(outcome)
-            } catch {
-                phase = .failed(error.localizedDescription)
-            }
-        #endif
-
-        default:
-            break
+            transitionToReview(outcome)
+        } catch {
+            phase = .failed(error.localizedDescription)
         }
     }
     #endif

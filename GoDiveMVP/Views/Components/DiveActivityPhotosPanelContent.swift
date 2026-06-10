@@ -1,7 +1,7 @@
 import PhotosUI
 import SwiftUI
 
-/// **Media** overview sheet — carousel pinned at **minimized** / **medium** / **large**; species detail at **large**.
+/// **Media** overview sheet — carousel at **minimized** / **medium**; scrollable tagged-species detail at **large**.
 struct DiveActivityPhotosPanelContent: View {
     let mediaItems: [DiveMediaPhoto]
     @Binding var selectedMediaID: UUID?
@@ -11,8 +11,8 @@ struct DiveActivityPhotosPanelContent: View {
     var showsMediaCarousel = false
     var showsMarineLifeTagInSheet = false
     var onTagMarineLife: (() -> Void)?
-    var showsFishialIdentify = false
-    var onIdentifyFishial: (() -> Void)?
+    /// Expands the overview sheet to **large** tagged-species detail (medium oval chips).
+    var onExpandMarineLifeDetail: (() -> Void)?
     /// Resolved featured media id (user-chosen, else oldest); marks the carousel item and the toggle state.
     var featuredMediaID: UUID?
     /// Toggles the selected media as the featured logbook preview (tap a featured item to revert to default).
@@ -37,12 +37,24 @@ struct DiveActivityPhotosPanelContent: View {
         selectedMedia?.resolvedFishialConfirmedSpeciesName
     }
 
+    private var isMarineLifeTagControlActive: Bool {
+        DiveActivityMediaPresentation.marineLifeTagControlIsActive(
+            taggedSpeciesCount: taggedSpecies.count
+        )
+    }
+
     private var showsFishialIdentificationSummary: Bool {
-        selectedMediaFishialSpeciesName != nil
+        DiveActivityMediaPresentation.fishialIdentifyControlIsActive(
+            confirmedSpeciesName: selectedMediaFishialSpeciesName
+        )
     }
 
     private var taggedSpeciesNames: [String] {
         taggedSpecies.map(\.commonName)
+    }
+
+    private var taggedSpeciesChipTitles: [String] {
+        taggedSpecies.map { MarineLifeMediaTagPresentation.chipDisplayTitle(for: $0.commonName) }
     }
 
     private var showsMarineLifeTagSummary: Bool {
@@ -55,6 +67,11 @@ struct DiveActivityPhotosPanelContent: View {
 
     private var showsSheetChromeActions: Bool {
         DiveActivityMediaPresentation.showsMediaSheetChromeActions(for: sheetDetent)
+    }
+
+    private var showsMarineLifeTagInCarousel: Bool {
+        DiveActivityMediaPresentation.showsMarineLifeTagInCarousel(for: sheetDetent)
+            && onTagMarineLife != nil
     }
 
     private var usesCarouselPinnedLayout: Bool {
@@ -72,25 +89,26 @@ struct DiveActivityPhotosPanelContent: View {
         )
     }
 
+    private var carouselPinnedStackHeight: CGFloat {
+        DiveActivityMediaPresentation.mediaCarouselPinnedStackHeight(
+            layoutHeight: layoutHeight,
+            detent: sheetDetent
+        )
+    }
+
     private var resolvedSelectedTaggedSpecies: MarineLife? {
-        guard !taggedSpecies.isEmpty else { return nil }
-        if let selectedTaggedSpeciesUUID,
-           let match = taggedSpecies.first(where: { $0.uuid == selectedTaggedSpeciesUUID }) {
-            return match
-        }
-        return taggedSpecies.first
+        guard let resolvedUUID = DiveActivityMediaPresentation.resolvedTaggedSpeciesUUID(
+            selectedUUID: selectedTaggedSpeciesUUID,
+            taggedSpeciesUUIDs: taggedSpecies.map(\.uuid)
+        ) else { return nil }
+        return taggedSpecies.first(where: { $0.uuid == resolvedUUID })
     }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
                 if showsMarineLifeDetail {
-                    carouselPinnedSheetContent {
-                        ScrollView {
-                            largeDetentBody
-                        }
-                        .scrollIndicators(.hidden)
-                    }
+                    largeDetentContent
                 } else if usesCarouselPinnedLayout {
                     carouselPinnedSheetContent {
                         mediumDetentBody
@@ -130,7 +148,7 @@ struct DiveActivityPhotosPanelContent: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: sheetBodyHeight + sheetChromeClearance, alignment: .top)
         } else {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            VStack(alignment: .leading, spacing: 0) {
                 Color.clear
                     .frame(height: sheetChromeClearance)
                     .accessibilityHidden(true)
@@ -144,6 +162,18 @@ struct DiveActivityPhotosPanelContent: View {
                     carouselRow
                 }
             }
+            .frame(height: carouselPinnedStackHeight, alignment: .top)
+        }
+    }
+
+    @ViewBuilder
+    private var largeDetentContent: some View {
+        if mediaItems.isEmpty {
+            Text(DiveActivityMediaPresentation.emptyStateMessage)
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.Colors.tabUnselected)
+        } else {
+            largeDetentBody
         }
     }
 
@@ -179,16 +209,12 @@ struct DiveActivityPhotosPanelContent: View {
                     selectedUUID: $selectedTaggedSpeciesUUID
                 )
             } else {
-                Text(MarineLifeMediaTagPresentation.sectionTitle)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.tabUnselected)
-                    .textCase(.uppercase)
+                DiveActivityTagChipFlow(tagNames: taggedSpeciesChipTitles)
             }
 
             if let resolvedSelectedTaggedSpecies {
                 DiveActivityMediaTaggedSpeciesDetailContent(
-                    species: resolvedSelectedTaggedSpecies,
-                    heroHeight: DiveActivityMediaPresentation.largeDetentSpeciesHeroHeight
+                    species: resolvedSelectedTaggedSpecies
                 )
             }
         }
@@ -215,13 +241,10 @@ struct DiveActivityPhotosPanelContent: View {
     private var sheetTopChromeRow: some View {
         HStack(alignment: .top, spacing: AppTheme.Spacing.sm) {
             if showsMarineLifeTagInSheet, let onTagMarineLife {
-                DiveActivityMediaMarineLifeTagButton(action: onTagMarineLife)
-            }
-
-            if showsFishialIdentify, let onIdentifyFishial {
-                DiveActivityMediaFishialIdentifyButton(action: onIdentifyFishial)
-                    .disabled(isImportInProgress)
-                    .opacity(isImportInProgress ? 0.45 : 1)
+                DiveActivityMediaMarineLifeTagButton(
+                    isActive: isMarineLifeTagControlActive,
+                    action: onTagMarineLife
+                )
             }
 
             Spacer(minLength: AppTheme.Spacing.sm)
@@ -243,10 +266,13 @@ struct DiveActivityPhotosPanelContent: View {
             )
 
             if !showsSheetChromeActions {
-                if showsFishialIdentify, let onIdentifyFishial {
-                    DiveActivityMediaFishialIdentifyButton(action: onIdentifyFishial)
-                        .disabled(isImportInProgress)
-                        .opacity(isImportInProgress ? 0.45 : 1)
+                if showsMarineLifeTagInCarousel, let onTagMarineLife {
+                    DiveActivityMediaMarineLifeTagButton(
+                        isActive: isMarineLifeTagControlActive,
+                        action: onTagMarineLife
+                    )
+                    .disabled(isImportInProgress)
+                    .opacity(isImportInProgress ? 0.45 : 1)
                 }
 
                 addMediaButton
@@ -261,7 +287,11 @@ struct DiveActivityPhotosPanelContent: View {
         } label: {
             Image(systemName: isSelectedMediaFeatured ? "star.fill" : "star")
                 .font(.title3.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.accent)
+                .foregroundStyle(
+                    isSelectedMediaFeatured
+                        ? AppTheme.Colors.accent
+                        : AppTheme.Colors.tabUnselected
+                )
                 .frame(minWidth: 44, minHeight: 44)
                 .contentShape(Rectangle())
         }
@@ -305,14 +335,42 @@ struct DiveActivityPhotosPanelContent: View {
                 .buttonStyle(.plain)
                 .disabled(onTagMarineLife == nil)
             } else if showsMarineLifeTagSummary {
-                DiveActivityTagChipFlow(tagNames: taggedSpeciesNames)
+                mediumDetentMarineLifeTagChips
             }
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: onExpandMarineLifeDetail != nil ? .contain : .combine)
         .accessibilityLabel(
             MarineLifeMediaTagPresentation.mediumDetentAccessibilityLabel(taggedNames: taggedSpeciesNames)
         )
         .accessibilityIdentifier("DiveOverview.MediaMarineLifeTags")
+    }
+
+    private var mediumDetentMarineLifeTagChips: some View {
+        let columns = [GridItem(.adaptive(minimum: 88), spacing: AppTheme.Spacing.sm)]
+
+        return LazyVGrid(columns: columns, alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            ForEach(taggedSpecies, id: \.uuid) { species in
+                if let onExpandMarineLifeDetail {
+                    Button {
+                        selectedTaggedSpeciesUUID = species.uuid
+                        onExpandMarineLifeDetail()
+                    } label: {
+                        ActivityTagOvalChipLabel(
+                            title: MarineLifeMediaTagPresentation.chipDisplayTitle(for: species.commonName)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(species.commonName)
+                    .accessibilityHint("Shows \(species.commonName) details")
+                    .accessibilityIdentifier("DiveOverview.MediaMarineLifeTag.\(species.uuid)")
+                } else {
+                    ActivityTagOvalChipLabel(
+                        title: MarineLifeMediaTagPresentation.chipDisplayTitle(for: species.commonName)
+                    )
+                    .accessibilityLabel(species.commonName)
+                }
+            }
+        }
     }
 
     private func fishialIdentificationSection(name: String) -> some View {
@@ -351,7 +409,7 @@ struct DiveActivityPhotosPanelContent: View {
         ) {
             Image(systemName: "photo.badge.plus")
                 .font(.title3.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.accent)
+                .foregroundStyle(AppTheme.Colors.tabUnselected)
                 .frame(minWidth: 44, minHeight: 44)
                 .contentShape(Rectangle())
         }

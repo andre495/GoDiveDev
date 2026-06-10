@@ -544,6 +544,7 @@ private struct FieldGuideSpeciesMosaicCard: View, Equatable {
     private var thumbnail: some View {
         FieldGuideMarineLifeCatalogImage(
             imageURLString: entry.featureImageURL,
+            bundleResourceName: entry.featureImageResourceName,
             placement: .mosaicTile(accent: accent)
         )
         .frame(maxWidth: .infinity)

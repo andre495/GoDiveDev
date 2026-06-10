@@ -19,6 +19,7 @@ STAGING_FIELDNAMES = [
     "fishbase_spec_code",
     "commonName",
     "featureImageURL",
+    "featureImageResourceName",
     "scientificName",
     "category",
     "subCategory",
@@ -35,11 +36,30 @@ STAGING_FIELDNAMES = [
     "needs_subcategory",
 ]
 
+# Optional columns on marine_life_caribbean_staging.csv (image review workflow).
+IMAGE_WORKFLOW_FIELDNAMES = [
+    "imageLicense",
+    "imageAttribution",
+    "imageSource",
+    "imageNeedsReview",
+    "markForDeletion",
+]
+
+STAGING_WITH_IMAGE_FIELDS = STAGING_FIELDNAMES + [
+    field for field in IMAGE_WORKFLOW_FIELDNAMES if field not in STAGING_FIELDNAMES
+]
+
+
+def staging_row_marked_for_deletion(row: dict[str, str]) -> bool:
+    return (row.get("markForDeletion") or "").strip().lower() == "yes"
+
+
 # GoDive JSON keys (MarineLifeDTO).
 JSON_KEY_BY_STAGING = {
     "uuid": "uuid",
     "commonName": "common_name",
     "featureImageURL": "feature_image",
+    "featureImageResourceName": "feature_image_resource",
     "scientificName": "scientific_name",
     "category": "category",
     "subCategory": "subcategory",

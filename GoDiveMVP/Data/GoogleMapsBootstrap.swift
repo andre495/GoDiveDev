@@ -99,5 +99,12 @@ final class GoDiveGoogleMapsAppDelegate: NSObject, UIApplicationDelegate {
         GoogleMapsBootstrap.configureIfNeeded()
         return true
     }
+
+    func application(
+        _ application: UIApplication,
+        supportedInterfaceOrientationsFor window: UIWindow?
+    ) -> UIInterfaceOrientationMask {
+        AppPortraitOrientationLockController.shared.supportedMask
+    }
 }
 #endif

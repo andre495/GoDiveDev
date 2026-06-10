@@ -3,11 +3,14 @@ import SwiftUI
 /// Species hero + natural-history copy for the dive **Media** sheet at **large** detent.
 struct DiveActivityMediaTaggedSpeciesDetailContent: View {
     let species: MarineLife
-    let heroHeight: CGFloat
+    var showsSpeciesHero: Bool = true
+    var heroHeight: CGFloat = DiveActivityMediaPresentation.largeDetentSpeciesHeroHeight
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-            speciesHero
+            if showsSpeciesHero {
+                speciesHero
+            }
 
             VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
                 Text(species.commonName)
@@ -35,6 +38,7 @@ struct DiveActivityMediaTaggedSpeciesDetailContent: View {
     private var speciesHero: some View {
         switch FieldGuideMarineLifeHeroPresentation.heroKind(
             featureModelResourceName: species.featureModelResourceName,
+            featureImageResourceName: species.featureImageResourceName,
             featureImageURL: species.featureImageURL
         ) {
         case .model3D(let configuration):
@@ -43,9 +47,10 @@ struct DiveActivityMediaTaggedSpeciesDetailContent: View {
                 height: heroHeight
             )
             .clipShape(RoundedRectangle(cornerRadius: AppTheme.Spacing.md, style: .continuous))
-        case .remoteImage:
+        case .bundledPhoto, .remoteImage:
             FieldGuideMarineLifeCatalogImage(
                 imageURLString: species.featureImageURL,
+                bundleResourceName: species.featureImageResourceName,
                 placement: .mediaSheetHero(height: heroHeight)
             )
         case .placeholder:
@@ -93,11 +98,6 @@ struct DiveActivityMediaTaggedSpeciesSelector: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            Text(MarineLifeMediaTagPresentation.sectionTitle)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.tabUnselected)
-                .textCase(.uppercase)
-
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: AppTheme.Spacing.sm) {
                     ForEach(species, id: \.uuid) { item in
@@ -105,9 +105,10 @@ struct DiveActivityMediaTaggedSpeciesSelector: View {
                             selectedUUID = item.uuid
                         } label: {
                             ActivityTagOvalChipLabel(
-                                title: item.commonName,
+                                title: MarineLifeMediaTagPresentation.chipDisplayTitle(for: item.commonName),
                                 isEmphasized: item.uuid == resolvedSelectedUUID
                             )
+                            .accessibilityLabel(item.commonName)
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("DiveOverview.MediaTaggedSpeciesChip.\(item.uuid)")

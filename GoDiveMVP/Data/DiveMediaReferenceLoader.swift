@@ -175,7 +175,7 @@ enum DiveMediaReferenceLoader {
     #endif
 
     #if canImport(Photos) && canImport(AVFoundation)
-    /// Request options for playback. Dive detail uses **`.highQualityFormat`**; Home carousel uses **`.automatic`**.
+    /// Request options for playback. Overview heroes use **`.automatic`**; Fishial / export use **`.highQualityFormat`**.
     nonisolated static func makeVideoRequestOptions(
         quality: DiveMediaVideoRequestQuality = .fullQuality
     ) -> PHVideoRequestOptions {

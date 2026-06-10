@@ -15,9 +15,12 @@ struct DiveActivityMediaBackgroundView: View {
     var sheetDetent: DiveActivityOverviewDetent = .medium
     var isMediaTabSelected: Bool = true
     var onTagMarineLife: ((DiveMediaPhoto) -> Void)?
+    var marineLifeSightings: [SightingInstance] = []
     /// Top padding so the marine-life fish control sits below the dive tab bar (see **`marineLifeTagButtonTopPadding`**).
     var marineLifeTagTopPadding: CGFloat = 0
     let bottomContentMargin: CGFloat
+    /// Lifts the capture-date oval above the overview sheet when the hero is full-bleed.
+    var captureOverlayBottomInset: CGFloat = 0
 
     private var showsMarineLifeTagButton: Bool {
         onTagMarineLife != nil
@@ -78,8 +81,13 @@ struct DiveActivityMediaBackgroundView: View {
                             showsCaptureDateOverlay: DiveActivityMediaPresentation.showsCaptureDateOnHero(
                                 for: sheetDetent
                             ),
+                            captureOverlayBottomInset: captureOverlayBottomInset,
                             showsMarineLifeTagButton: showsMarineLifeTagButton
                                 && selectedMediaID == item.id,
+                            marineLifeTagIsActive: MarineLifeMediaTagPresentation.hasTaggedSpeciesOnMedia(
+                                mediaPhotoID: item.id,
+                                sightings: marineLifeSightings
+                            ),
                             marineLifeTagTopInset: marineLifeTagTopPadding,
                             onTagMarineLife: showsMarineLifeTagButton
                                 && selectedMediaID == item.id

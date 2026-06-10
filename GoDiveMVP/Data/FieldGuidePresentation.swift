@@ -9,6 +9,7 @@ struct MarineLifeCatalogSnapshot: Sendable, Equatable, Hashable {
     let subcategory: String
     let familyName: String
     let featureImageURL: String
+    let featureImageResourceName: String
     let featureModelResourceName: String
     let minSizeMeters: Double
     let maxSizeMeters: Double
@@ -27,6 +28,7 @@ struct MarineLifeCatalogSnapshot: Sendable, Equatable, Hashable {
         category: String,
         subcategory: String,
         featureImageURL: String,
+        featureImageResourceName: String = "",
         featureModelResourceName: String = "",
         minSizeMeters: Double,
         maxSizeMeters: Double,
@@ -46,6 +48,7 @@ struct MarineLifeCatalogSnapshot: Sendable, Equatable, Hashable {
         self.subcategory = subcategory
         self.familyName = familyName
         self.featureImageURL = featureImageURL
+        self.featureImageResourceName = featureImageResourceName
         self.featureModelResourceName = featureModelResourceName
         self.minSizeMeters = minSizeMeters
         self.maxSizeMeters = maxSizeMeters

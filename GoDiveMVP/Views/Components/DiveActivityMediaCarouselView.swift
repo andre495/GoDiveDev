@@ -62,15 +62,16 @@ struct DiveActivityMediaCarouselView: View {
     }
 
     private func carouselThumbnail(for item: DiveMediaPhoto) -> some View {
-        let size = DiveActivityMediaPresentation.carouselThumbnailSize
-        let cornerRadius = DiveActivityMediaPresentation.carouselThumbnailCornerRadius
         let isSelected = selectedMediaID == item.id
+        let size = DiveActivityMediaPresentation.carouselThumbnailExtent(isSelected: isSelected)
+        let cornerRadius = DiveActivityMediaPresentation.carouselThumbnailCornerRadius
 
         return DiveActivityMediaThumbnailView(
             media: item,
             size: size,
             cornerRadius: cornerRadius
         )
+        .animation(.easeInOut(duration: 0.22), value: isSelected)
         .overlay {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .strokeBorder(

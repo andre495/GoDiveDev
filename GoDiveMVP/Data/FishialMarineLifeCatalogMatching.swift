@@ -6,17 +6,20 @@ struct FishialMarineLifeCatalogSnapshot: Equatable, Sendable {
     let scientificName: String
     let commonName: String
     let featureImageURL: String
+    let featureImageResourceName: String
 
     init(
         uuid: String,
         scientificName: String,
         commonName: String,
-        featureImageURL: String
+        featureImageURL: String,
+        featureImageResourceName: String = ""
     ) {
         self.uuid = uuid
         self.scientificName = scientificName
         self.commonName = commonName
         self.featureImageURL = featureImageURL
+        self.featureImageResourceName = featureImageResourceName
     }
 
     init(marineLife: MarineLife) {
@@ -24,6 +27,7 @@ struct FishialMarineLifeCatalogSnapshot: Equatable, Sendable {
         scientificName = marineLife.scientificName
         commonName = marineLife.commonName
         featureImageURL = marineLife.featureImageURL
+        featureImageResourceName = marineLife.featureImageResourceName
     }
 }
 
@@ -33,9 +37,30 @@ struct FishialCatalogReviewOption: Sendable {
     let catalogCommonName: String
     let catalogScientificName: String
     let featureImageURL: String
+    let featureImageResourceName: String
     let fishialScientificName: String
     let fishialAccuracy: Double
     let nameMatchScore: Double
+
+    init(
+        marineLifeUUID: String,
+        catalogCommonName: String,
+        catalogScientificName: String,
+        featureImageURL: String,
+        featureImageResourceName: String = "",
+        fishialScientificName: String,
+        fishialAccuracy: Double,
+        nameMatchScore: Double
+    ) {
+        self.marineLifeUUID = marineLifeUUID
+        self.catalogCommonName = catalogCommonName
+        self.catalogScientificName = catalogScientificName
+        self.featureImageURL = featureImageURL
+        self.featureImageResourceName = featureImageResourceName
+        self.fishialScientificName = fishialScientificName
+        self.fishialAccuracy = fishialAccuracy
+        self.nameMatchScore = nameMatchScore
+    }
 
     nonisolated var combinedScore: Double {
         fishialAccuracy * nameMatchScore
@@ -48,6 +73,7 @@ extension FishialCatalogReviewOption: Equatable {
             && lhs.catalogCommonName == rhs.catalogCommonName
             && lhs.catalogScientificName == rhs.catalogScientificName
             && lhs.featureImageURL == rhs.featureImageURL
+            && lhs.featureImageResourceName == rhs.featureImageResourceName
             && lhs.fishialScientificName == rhs.fishialScientificName
             && lhs.fishialAccuracy == rhs.fishialAccuracy
             && lhs.nameMatchScore == rhs.nameMatchScore
@@ -121,6 +147,7 @@ enum FishialMarineLifeCatalogMatching: Sendable {
                     catalogCommonName: match.snapshot.commonName,
                     catalogScientificName: match.snapshot.scientificName,
                     featureImageURL: match.snapshot.featureImageURL,
+                    featureImageResourceName: match.snapshot.featureImageResourceName,
                     fishialScientificName: ranked.scientificName,
                     fishialAccuracy: ranked.accuracy,
                     nameMatchScore: match.similarity

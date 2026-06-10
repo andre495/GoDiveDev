@@ -1,6 +1,11 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
-/// Fixed-size, center-cropped remote catalog photos for Field Guide surfaces.
+/// Fixed-size, center-cropped catalog photos for Field Guide surfaces.
+///
+/// Prefers bundled JPEGs under **`Resources/MarineLifePhotos/`** (offline), then remote URLs.
 enum FieldGuideMarineLifeImageLayout {
     /// Shared 4:3 crop for species mosaic tiles.
     static let mosaicAspectRatio: CGFloat = 4 / 3
@@ -18,6 +23,7 @@ struct FieldGuideMarineLifeCatalogImage: View {
     }
 
     let imageURLString: String
+    var bundleResourceName: String = ""
     let placement: Placement
 
     var body: some View {
@@ -67,12 +73,48 @@ struct FieldGuideMarineLifeCatalogImage: View {
                 placeholder(accent: accent)
             }
             .overlay {
-                if let url = resolvedURL {
-                    remoteFillImage(url: url, accent: accent)
-                }
+                catalogImageFill(accent: accent)
             }
             .clipShape(shape)
             .contentShape(shape)
+    }
+
+    @ViewBuilder
+    private func catalogImageFill(accent: Color) -> some View {
+        switch resolvedImageSource {
+        case .bundledFile(let url):
+            bundledFillImage(url: url, accent: accent)
+        case .remote(let url):
+            remoteFillImage(url: url, accent: accent)
+        case .none:
+            EmptyView()
+        }
+    }
+
+    private var resolvedImageSource: FieldGuideMarineLifeBundledImagePresentation.ImageSource {
+        FieldGuideMarineLifeBundledImagePresentation.imageSource(
+            featureImageResourceName: bundleResourceName,
+            featureImageURL: imageURLString
+        )
+    }
+
+    @ViewBuilder
+    private func bundledFillImage(url: URL, accent: Color) -> some View {
+        #if canImport(UIKit)
+        if let uiImage = UIImage(contentsOfFile: url.path) {
+            GeometryReader { proxy in
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .clipped()
+            }
+        } else {
+            placeholder(accent: accent)
+        }
+        #else
+        placeholder(accent: accent)
+        #endif
     }
 
     @ViewBuilder
@@ -99,12 +141,6 @@ struct FieldGuideMarineLifeCatalogImage: View {
                 placeholder(accent: accent)
             }
         }
-    }
-
-    private var resolvedURL: URL? {
-        let trimmed = imageURLString.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let url = URL(string: trimmed) else { return nil }
-        return url
     }
 
     private func placeholder(accent: Color) -> some View {

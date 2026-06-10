@@ -33,6 +33,15 @@ struct FieldGuideView: View {
         !path.isEmpty
     }
 
+    private var locksPortraitOrientation: Bool {
+        AppPortraitOrientationLockPolicy.locksFieldGuide(
+            isShowingDiveDetail: {
+                if case .diveDetail = path.last { return true }
+                return false
+            }()
+        )
+    }
+
     private var resolvedCatalogSnapshots: [MarineLifeCatalogSnapshot] {
         if catalogSnapshots.isEmpty, !catalog.isEmpty {
             return catalog.map(\.fieldGuideCatalogSnapshot)
@@ -175,6 +184,7 @@ struct FieldGuideView: View {
         .onAppear {
             syncCatalogCache()
         }
+        .portraitOrientationLock(when: locksPortraitOrientation)
         .onChange(of: catalog.count) { _, _ in
             syncCatalogCache()
         }

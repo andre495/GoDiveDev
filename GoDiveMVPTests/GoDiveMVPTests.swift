@@ -1584,37 +1584,75 @@ struct GoDiveMVPTests {
         #expect(
             !DiveTankOverviewHeroPresentation.showsMinimizedCylinder(for: .minimized, isLandscape: true)
         )
-        #expect(
-            DiveTankOverviewHeroPresentation.showsMediaMarkersOnMinimizedProfile(
-                for: .minimized,
-                isLandscape: true
-            )
-        )
-        #expect(
-            !DiveTankOverviewHeroPresentation.showsMediaMarkersOnMinimizedProfile(
-                for: .minimized,
-                isLandscape: false
-            )
-        )
+        #expect(DiveTankOverviewHeroPresentation.showsMediaMarkersOnLandscapeProfile(isLandscape: true))
+        #expect(!DiveTankOverviewHeroPresentation.showsMediaMarkersOnLandscapeProfile(isLandscape: false))
     }
 
     @Test func diveTankOverviewHeroPresentation_landscapeChartChromeCommitDelay_isPositive() {
         #expect(DiveTankOverviewHeroPresentation.landscapeChartChromeCommitDelay > .zero)
     }
 
-    @Test func diveTankOverviewHeroPresentation_landscapeMinimized_hidesSheetAndShowsRotateHintInPortrait() {
+    @Test func diveActivityOverviewLandscapePresentation_hidesSheetAndUnlocksMapAtEveryDetent() {
+        #expect(DiveActivityOverviewLandscapePresentation.hidesOverviewPanel(isLandscape: true))
+        #expect(!DiveActivityOverviewLandscapePresentation.hidesOverviewPanel(isLandscape: false))
         #expect(
-            DiveTankOverviewHeroPresentation.hidesOverviewPanelInLandscapeTankMinimized(
-                detent: .minimized,
-                isLandscape: true
+            DiveActivityOverviewLandscapePresentation.allowsMapInteraction(
+                isLandscape: true,
+                detentAllowsInteraction: false
             )
         )
         #expect(
-            !DiveTankOverviewHeroPresentation.hidesOverviewPanelInLandscapeTankMinimized(
-                detent: .minimized,
+            !DiveActivityOverviewLandscapePresentation.allowsMapInteraction(
+                isLandscape: false,
+                detentAllowsInteraction: false
+            )
+        )
+        #expect(
+            DiveActivityOverviewLandscapePresentation.allowsMapInteraction(
+                isLandscape: false,
+                detentAllowsInteraction: true
+            )
+        )
+    }
+
+    @Test func appPortraitOrientationLockPolicy_listScreensStayPortrait() {
+        #expect(AppPortraitOrientationLockPolicy.locksHome(pathIsEmpty: true))
+        #expect(!AppPortraitOrientationLockPolicy.locksHome(pathIsEmpty: false))
+        #expect(AppPortraitOrientationLockPolicy.locksLogbook(pathIsEmpty: true))
+        #expect(!AppPortraitOrientationLockPolicy.locksLogbook(pathIsEmpty: false))
+        #expect(AppPortraitOrientationLockPolicy.locksFieldGuide(isShowingDiveDetail: false))
+        #expect(!AppPortraitOrientationLockPolicy.locksFieldGuide(isShowingDiveDetail: true))
+        #expect(AppPortraitOrientationLockPolicy.locksExploreList(pathIsEmpty: true, viewModeIsList: true))
+        #expect(!AppPortraitOrientationLockPolicy.locksExploreList(pathIsEmpty: true, viewModeIsList: false))
+        #expect(!AppPortraitOrientationLockPolicy.locksExploreList(pathIsEmpty: false, viewModeIsList: true))
+    }
+
+    @Test func diveTankOverviewHeroPresentation_landscapeProfileChart_atEveryDetent() {
+        for detent in [DiveActivityOverviewDetent.minimized, .medium, .large] {
+            #expect(
+                DiveTankOverviewHeroPresentation.showsProfileChart(
+                    for: detent,
+                    depthSampleCount: 4,
+                    isLandscape: true
+                )
+            )
+            #expect(
+                !DiveTankOverviewHeroPresentation.showsTankCylinderHero(
+                    for: detent,
+                    isLandscape: true
+                )
+            )
+        }
+        #expect(
+            DiveTankOverviewHeroPresentation.showsProfileChart(
+                for: .medium,
+                depthSampleCount: 4,
                 isLandscape: false
-            )
+            ) == false
         )
+    }
+
+    @Test func diveTankOverviewHeroPresentation_landscapeMinimized_hidesSheetAndShowsRotateHintInPortrait() {
         #expect(
             DiveTankOverviewHeroPresentation.showsRotatePhoneHint(
                 for: .minimized,
@@ -2137,6 +2175,7 @@ struct GoDiveMVPTests {
     @Test func fieldGuideMarineLifeHeroPresentation_prefersModelOverRemoteImage() {
         let kind = FieldGuideMarineLifeHeroPresentation.heroKind(
             featureModelResourceName: "FrenchAngelfish",
+            featureImageResourceName: "marine-life-french-angelfish",
             featureImageURL: "https://example.com/fish.jpg"
         )
         #expect(kind == .model3D(.frenchAngelfish))
@@ -2145,6 +2184,7 @@ struct GoDiveMVPTests {
     @Test func fieldGuideMarineLifeHeroPresentation_remoteImageWhenNoModel() {
         let kind = FieldGuideMarineLifeHeroPresentation.heroKind(
             featureModelResourceName: "",
+            featureImageResourceName: "",
             featureImageURL: "https://example.com/fish.jpg"
         )
         guard case .remoteImage(let url) = kind else {
@@ -2157,9 +2197,30 @@ struct GoDiveMVPTests {
     @Test func fieldGuideMarineLifeHeroPresentation_placeholderWhenEmpty() {
         let kind = FieldGuideMarineLifeHeroPresentation.heroKind(
             featureModelResourceName: "",
+            featureImageResourceName: "",
             featureImageURL: ""
         )
         #expect(kind == .placeholder)
+    }
+
+    @Test func fieldGuideMarineLifeBundledImagePresentation_prefersBundledResourceOverRemoteURL() {
+        let source = FieldGuideMarineLifeBundledImagePresentation.imageSource(
+            featureImageResourceName: "missing-resource",
+            featureImageURL: "https://example.com/fish.jpg"
+        )
+        guard case .remote(let url) = source else {
+            Issue.record("Expected remote fallback when bundled file is absent")
+            return
+        }
+        #expect(url.absoluteString == "https://example.com/fish.jpg")
+    }
+
+    @Test func fieldGuideMarineLifeBundledImagePresentation_noneWhenEmpty() {
+        let source = FieldGuideMarineLifeBundledImagePresentation.imageSource(
+            featureImageResourceName: "",
+            featureImageURL: ""
+        )
+        #expect(source == .none)
     }
 
     @Test func fieldGuideMarineLifeImageLayout_usesFixedMosaicAndHeroBounds() {
@@ -2239,6 +2300,27 @@ struct GoDiveMVPTests {
         #expect(try context.fetchCount(FetchDescriptor<MarineLife>()) == firstCount)
     }
 
+    @Test @MainActor func marineLifeCatalogSeeder_prunesSpeciesRemovedFromBundledJSON() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        context.insert(
+            MarineLife(
+                uuid: "marine-life-orphan-catalog-row",
+                commonName: "Orphan Species",
+                scientificName: "Orphanus testus"
+            )
+        )
+        try context.save()
+
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+
+        let orphan = try context.fetch(FetchDescriptor<MarineLife>()).first {
+            $0.uuid == "marine-life-orphan-catalog-row"
+        }
+        #expect(orphan == nil)
+        #expect(try context.fetchCount(FetchDescriptor<MarineLife>()) > 0)
+    }
+
     @Test @MainActor func marineLifeCatalogSeeder_seedsQueenAngelfish() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = container.mainContext
@@ -2309,10 +2391,102 @@ struct GoDiveMVPTests {
         #expect(sighting.mediaPhotoID == nil)
     }
 
-    @Test func diveActivityMediaPresentation_showsMarineLifeTagOnHero_onlyAtMinimized() {
-        #expect(DiveActivityMediaPresentation.showsMarineLifeTagOnHero(for: .minimized))
+    @Test func diveActivityMediaPresentation_showsMarineLifeTagOnHero_isDisabled() {
+        #expect(!DiveActivityMediaPresentation.showsMarineLifeTagOnHero(for: .minimized))
         #expect(!DiveActivityMediaPresentation.showsMarineLifeTagOnHero(for: .medium))
         #expect(!DiveActivityMediaPresentation.showsMarineLifeTagOnHero(for: .large))
+    }
+
+    @Test func diveActivityMediaPresentation_showsMarineLifeTagInCarousel_onlyAtMinimized() {
+        #expect(DiveActivityMediaPresentation.showsMarineLifeTagInCarousel(for: .minimized))
+        #expect(!DiveActivityMediaPresentation.showsMarineLifeTagInCarousel(for: .medium))
+        #expect(!DiveActivityMediaPresentation.showsMarineLifeTagInCarousel(for: .large))
+    }
+
+    @Test func diveActivityMediaPresentation_carouselThumbnailExtent_scalesSelectedItem() {
+        let base = DiveActivityMediaPresentation.carouselThumbnailSize
+        #expect(DiveActivityMediaPresentation.carouselThumbnailExtent(isSelected: false) == base)
+        #expect(
+            DiveActivityMediaPresentation.carouselThumbnailExtent(isSelected: true)
+                == base * DiveActivityMediaPresentation.carouselSelectedThumbnailScale
+        )
+    }
+
+    @Test func diveActivityMediaPresentation_mediaTab_usesFullBleedHeroAndTranslucentPanelAtAllDetents() {
+        for detent in [DiveActivityOverviewDetent.minimized, .medium, .large] {
+            #expect(DiveActivityMediaPresentation.usesFullBleedMediaHero(for: detent))
+            #expect(DiveActivityMediaPresentation.usesTranslucentOverviewPanel(for: detent))
+        }
+    }
+
+    @Test func diveActivityMediaPresentation_panelTopScrollFadeHeight_onlyAtLargeOnMediaTab() {
+        #expect(
+            DiveActivityMediaPresentation.panelTopScrollFadeHeight(
+                detent: .large,
+                isMediaTabSelected: true
+            ) == DiveActivityOverviewPanelMetrics.mediaLargeDetentTopScrollFadeHeight
+        )
+        #expect(
+            DiveActivityMediaPresentation.panelTopScrollFadeHeight(
+                detent: .medium,
+                isMediaTabSelected: true
+            ) == 0
+        )
+        #expect(
+            DiveActivityMediaPresentation.panelTopScrollFadeHeight(
+                detent: .large,
+                isMediaTabSelected: false
+            ) == 0
+        )
+    }
+
+    @Test func diveActivityMediaPresentation_resolvedTaggedSpeciesUUID_prefersChipSelection() {
+        let uuids = ["fish-a", "fish-b", "fish-c"]
+        #expect(
+            DiveActivityMediaPresentation.resolvedTaggedSpeciesUUID(
+                selectedUUID: "fish-b",
+                taggedSpeciesUUIDs: uuids
+            ) == "fish-b"
+        )
+        #expect(
+            DiveActivityMediaPresentation.resolvedTaggedSpeciesUUID(
+                selectedUUID: "removed-fish",
+                taggedSpeciesUUIDs: uuids
+            ) == "fish-a"
+        )
+        #expect(
+            DiveActivityMediaPresentation.resolvedTaggedSpeciesUUID(
+                selectedUUID: nil,
+                taggedSpeciesUUIDs: uuids
+            ) == "fish-a"
+        )
+        #expect(
+            DiveActivityMediaPresentation.resolvedTaggedSpeciesUUID(
+                selectedUUID: "fish-b",
+                taggedSpeciesUUIDs: []
+            ) == nil
+        )
+    }
+
+    @Test func diveActivityMediaPresentation_opensMarineLifeDetailOnTaggedChipTap_onlyAtMediumWithTags() {
+        #expect(
+            DiveActivityMediaPresentation.opensMarineLifeDetailOnTaggedChipTap(
+                detent: .medium,
+                taggedSpeciesCount: 2
+            )
+        )
+        #expect(
+            !DiveActivityMediaPresentation.opensMarineLifeDetailOnTaggedChipTap(
+                detent: .medium,
+                taggedSpeciesCount: 0
+            )
+        )
+        #expect(
+            !DiveActivityMediaPresentation.opensMarineLifeDetailOnTaggedChipTap(
+                detent: .large,
+                taggedSpeciesCount: 2
+            )
+        )
     }
 
     @Test func diveActivityMediaPresentation_showsMarineLifeTagInSheet_onlyAtMedium() {
@@ -2500,6 +2674,7 @@ struct GoDiveMVPTests {
         #expect(rows.count == 1)
         #expect(rows[0].marineLifeUUID == angelfish.uuid)
         #expect(rows[0].commonName == "Zebra Angelfish")
+        #expect(rows[0].featureImageResourceName == angelfish.featureImageResourceName)
     }
 
     @Test func marineLifeMediaTagPresentation_mediumDetentAccessibilityLabel_listsTaggedNames() {
@@ -2589,6 +2764,7 @@ struct GoDiveMVPTests {
                 scientificName: "Pomacanthus paru",
                 category: "fish",
                 featureImageURL: "",
+                featureImageResourceName: "",
                 detailLine: ""
             ),
             MarineLifeMediaTagPresentation.TaggedSpeciesRow(
@@ -2597,6 +2773,7 @@ struct GoDiveMVPTests {
                 scientificName: "Chelonia mydas",
                 category: "reptiles",
                 featureImageURL: "",
+                featureImageResourceName: "",
                 detailLine: ""
             ),
         ]
@@ -2770,6 +2947,42 @@ struct GoDiveMVPTests {
             FieldGuideHubTileLayout.titleTwoLineMinHeight(isFeatured: true)
                 > FieldGuideHubTileLayout.titleTwoLineMinHeight(isFeatured: false)
         )
+    }
+
+    @Test func diveMarineLifeTagSheetPresentation_fishialIdentifyIsActive_whenSpeciesNameConfirmed() {
+        #expect(
+            !DiveMarineLifeTagSheetPresentation.fishialIdentifyIsActive(
+                confirmedSpeciesName: nil
+            )
+        )
+        #expect(
+            DiveMarineLifeTagSheetPresentation.fishialIdentifyIsActive(
+                confirmedSpeciesName: "Holacanthus ciliaris"
+            )
+        )
+    }
+
+    @Test func diveMarineLifeTagPickerPresentation_filtersByCommonNameOrSubcategory() {
+        let angelfish = MarineLife(
+            uuid: "marine-life-french-angelfish",
+            commonName: "French Angelfish",
+            scientificName: "Pomacanthus paru",
+            category: "fish",
+            subcategory: "disk-and-large-oval"
+        )
+        let grouper = MarineLife(
+            uuid: "marine-life-grouper",
+            commonName: "Black Grouper",
+            scientificName: "Mycteroperca bonaci",
+            category: "fish",
+            subcategory: "groupers-and-bass"
+        )
+        let catalog = [angelfish, grouper]
+
+        #expect(DiveMarineLifeTagPickerPresentation.filtering(catalog, query: "french").count == 1)
+        #expect(DiveMarineLifeTagPickerPresentation.filtering(catalog, query: "disk").count == 1)
+        #expect(DiveMarineLifeTagPickerPresentation.filtering(catalog, query: "groupers and bass").count == 1)
+        #expect(DiveMarineLifeTagPickerPresentation.filtering(catalog, query: "").count == 2)
     }
 
     @Test func fieldGuideMarineLifeSearch_matchesCommonScientificOrCategory() {
@@ -3498,6 +3711,87 @@ struct GoDiveMVPTests {
     @Test func fishialVideoScrubPresentation_usesPrecisePlaybackSeekWhenNotScrubbing() {
         #expect(FishialVideoScrubPresentation.usesPrecisePlaybackSeek(isScrubbing: true) == false)
         #expect(FishialVideoScrubPresentation.usesPrecisePlaybackSeek(isScrubbing: false) == true)
+    }
+
+    @Test func fishialImageCropPresentation_squareCropViewportSize_fitsContainer() {
+        let size = FishialImageCropPresentation.squareCropViewportSize(
+            in: CGSize(width: 360, height: 500),
+            horizontalPadding: 16,
+            verticalPadding: 8
+        )
+        #expect(size.width == 328)
+        #expect(size.height == 328)
+    }
+
+    @Test func fishialImageCropRenderer_baseFillScale_coversViewport() {
+        let imageSize = CGSize(width: 1_600, height: 900)
+        let cropSize = CGSize(width: 320, height: 320)
+        let scale = FishialImageCropRenderer.baseFillScale(
+            imageSize: imageSize,
+            cropSize: cropSize
+        )
+        #expect(scale == CGFloat(320) / CGFloat(900))
+    }
+
+    @Test func fishialImageCropRenderer_clampedOffset_keepsCropInsideImage() {
+        let drawSize = CGSize(width: 420, height: 420)
+        let cropSize = CGSize(width: 300, height: 300)
+        let clamped = FishialImageCropRenderer.clampedOffset(
+            CGSize(width: 500, height: -500),
+            drawSize: drawSize,
+            cropSize: cropSize
+        )
+        #expect(clamped.width == 60)
+        #expect(clamped.height == -60)
+    }
+
+    @Test func fishialImageCropRenderer_croppedJPEGData_returnsBytes() {
+        #if canImport(UIKit)
+        let size = CGSize(width: 240, height: 360)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        let image = renderer.image { context in
+            UIColor.systemTeal.setFill()
+            context.fill(CGRect(origin: .zero, size: size))
+        }
+        let cropSize = CGSize(width: 200, height: 200)
+        let data = FishialImageCropRenderer.croppedJPEGData(
+            from: image,
+            cropSize: cropSize,
+            gestureScale: 1.2,
+            offset: .zero,
+            displayScale: 2
+        )
+        #expect(data != nil)
+        #expect(data?.isEmpty == false)
+        #else
+        #expect(Bool(true))
+        #endif
+    }
+
+    @Test func fishialMediaSelectionPresentation_usesPreviewForSelectionAndFullQualityForExport() {
+        #expect(FishialMediaSelectionPresentation.photoPreviewMaxEdge == 1_024)
+        #expect(
+            FishialMediaSelectionPresentation.photoExportMaxEdge
+                == DiveMediaFishialFrameExport.maxJPEGEdge
+        )
+        #expect(FishialMediaSelectionPresentation.videoScrubRequestQuality == .homeCarousel)
+        #expect(FishialMediaSelectionPresentation.videoExportRequestQuality == .fullQuality)
+    }
+
+    @Test func fishialStillCropContext_isPhotoSelection_whenNoVideoScrubContext() {
+        #if canImport(UIKit)
+        let media = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 4_300_000))
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 40, height: 40))
+        let preview = renderer.image { context in
+            UIColor.systemBlue.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 40, height: 40))
+        }
+        let cropContext = FishialStillCropContext(diveMedia: media, previewImage: preview)
+        #expect(cropContext.isPhotoSelection)
+        #expect(cropContext.diveMedia?.id == media.id)
+        #else
+        #expect(Bool(true))
+        #endif
     }
 
     @Test func diveMediaFishialFrameExport_filenames_usePhotoAndScrubbedStillNames() {
@@ -4710,6 +5004,58 @@ struct GoDiveMVPTests {
         #expect(!DiveMediaVideoRequestQuality.homeCarousel.cachesInSession)
     }
 
+    @Test func diveActivityMediaPresentation_overviewUsesPreviewVideoQuality() {
+        #expect(DiveActivityMediaPresentation.overviewLibraryVideoQuality == .homeCarousel)
+    }
+
+    @Test func diveActivityMediaPresentation_mediaControlActiveState_reflectsTagsAndFishialConfirm() {
+        #expect(!DiveActivityMediaPresentation.marineLifeTagControlIsActive(taggedSpeciesCount: 0))
+        #expect(DiveActivityMediaPresentation.marineLifeTagControlIsActive(taggedSpeciesCount: 1))
+
+        #expect(!DiveActivityMediaPresentation.fishialIdentifyControlIsActive(confirmedSpeciesName: nil))
+        #expect(!DiveActivityMediaPresentation.fishialIdentifyControlIsActive(confirmedSpeciesName: "  "))
+        #expect(
+            DiveActivityMediaPresentation.fishialIdentifyControlIsActive(
+                confirmedSpeciesName: "Holacanthus ciliaris"
+            )
+        )
+    }
+
+    @Test func marineLifeMediaTagPresentation_hasTaggedSpeciesOnMedia_countsUniqueSpecies() {
+        let taggedMedia = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 4_100_000))
+        let otherMedia = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 4_100_100))
+        let sightings = [
+            SightingInstance(
+                marineLifeUUID: "fish-a",
+                sightingDateTime: Date(timeIntervalSince1970: 4_100_000),
+                mediaPhoto: taggedMedia
+            ),
+            SightingInstance(
+                marineLifeUUID: "fish-a",
+                sightingDateTime: Date(timeIntervalSince1970: 4_100_050),
+                mediaPhoto: taggedMedia
+            ),
+            SightingInstance(
+                marineLifeUUID: "fish-b",
+                sightingDateTime: Date(timeIntervalSince1970: 4_100_100),
+                mediaPhoto: otherMedia
+            ),
+        ]
+
+        #expect(
+            MarineLifeMediaTagPresentation.hasTaggedSpeciesOnMedia(
+                mediaPhotoID: taggedMedia.id,
+                sightings: sightings
+            )
+        )
+        #expect(
+            !MarineLifeMediaTagPresentation.hasTaggedSpeciesOnMedia(
+                mediaPhotoID: UUID(),
+                sightings: sightings
+            )
+        )
+    }
+
     @Test func homeMediaHighlightWarmup_shouldStorePreviewAndHeroInSessionCache() {
         #expect(HomeMediaHighlightWarmup.shouldStoreInSessionCache(edge: 480))
         #expect(HomeMediaHighlightWarmup.shouldStoreInSessionCache(edge: 780))
@@ -4913,10 +5259,10 @@ struct GoDiveMVPTests {
         #expect(DiveActivityMediaPresentation.nextSortOrder(on: activity) == 3)
     }
 
-    @Test func diveActivityMediaPresentation_showsBackgroundPhotos_onlyWhenNotLarge() {
-        #expect(DiveActivityMediaPresentation.showsBackgroundPhotos(for: .minimized))
-        #expect(DiveActivityMediaPresentation.showsBackgroundPhotos(for: .medium))
-        #expect(!DiveActivityMediaPresentation.showsBackgroundPhotos(for: .large))
+    @Test func diveActivityMediaPresentation_showsBackgroundPhotos_atAllDetents() {
+        for detent in [DiveActivityOverviewDetent.minimized, .medium, .large] {
+            #expect(DiveActivityMediaPresentation.showsBackgroundPhotos(for: detent))
+        }
     }
 
     @Test func diveActivityVideoPlaybackPolicy_shouldRestartFromBeginning_whenPageBecomesActive() {
@@ -5006,25 +5352,15 @@ struct GoDiveMVPTests {
         #expect(!DiveActivityMapCoordinateResolution.needsCatalogSiteLookup(for: activity))
     }
 
-    @Test func diveActivityMediaPresentation_shouldPlayBackgroundVideo_mediaTabAndSmallDetents() {
-        #expect(
-            DiveActivityMediaPresentation.shouldPlayBackgroundVideo(
-                isMediaTabSelected: true,
-                detent: .minimized
+    @Test func diveActivityMediaPresentation_shouldPlayBackgroundVideo_mediaTabAtEveryDetent() {
+        for detent in [DiveActivityOverviewDetent.minimized, .medium, .large] {
+            #expect(
+                DiveActivityMediaPresentation.shouldPlayBackgroundVideo(
+                    isMediaTabSelected: true,
+                    detent: detent
+                )
             )
-        )
-        #expect(
-            DiveActivityMediaPresentation.shouldPlayBackgroundVideo(
-                isMediaTabSelected: true,
-                detent: .medium
-            )
-        )
-        #expect(
-            !DiveActivityMediaPresentation.shouldPlayBackgroundVideo(
-                isMediaTabSelected: true,
-                detent: .large
-            )
-        )
+        }
         #expect(
             !DiveActivityMediaPresentation.shouldPlayBackgroundVideo(
                 isMediaTabSelected: false,
@@ -5208,10 +5544,75 @@ struct GoDiveMVPTests {
         #expect(!DiveActivityMediaPresentation.showsCaptureDateOnHero(for: .large))
     }
 
+    @Test func diveActivityMediaPresentation_captureOverlayBottomInset_sitsAboveSheetAtMinimized() {
+        let layoutHeight: CGFloat = 800
+        let bottomSafeInset: CGFloat = 34
+        let sheetHeight = DiveActivityOverviewDetent.sheetHeight(
+            for: .minimized,
+            layoutHeight: layoutHeight,
+            bottomSafeInset: bottomSafeInset
+        )
+        #expect(
+            DiveActivityMediaPresentation.captureOverlayBottomInset(
+                layoutHeight: layoutHeight,
+                detent: .minimized,
+                bottomSafeInset: bottomSafeInset
+            ) == sheetHeight + DiveActivityMediaPresentation.captureOverlayClearanceAboveSheet
+        )
+        #expect(
+            DiveActivityMediaPresentation.captureOverlayBottomInset(
+                layoutHeight: layoutHeight,
+                detent: .medium,
+                bottomSafeInset: bottomSafeInset
+            ) == 0
+        )
+    }
+
     @Test func diveActivityMediaPresentation_fullScreenImageTargetEdge_clampsToScreenAndCap() {
         #expect(DiveActivityMediaPresentation.fullScreenImageTargetEdge(screenPixelWidth: 100) == 800)
         #expect(DiveActivityMediaPresentation.fullScreenImageTargetEdge(screenPixelWidth: 1_170) == 1_170)
         #expect(DiveActivityMediaPresentation.fullScreenImageTargetEdge(screenPixelWidth: 3_000) == 2_048)
+    }
+
+    @Test func diveActivityMediaPresentation_mediaCarouselPinnedStackHeight_alignsCarouselSlot() {
+        let layoutHeight: CGFloat = 800
+        let inset = DiveActivityOverviewPanelMetrics.mediaCarouselScreenAlignmentTopInset(
+            layoutHeight: layoutHeight,
+            detent: .medium
+        )
+        #expect(
+            DiveActivityMediaPresentation.mediaCarouselPinnedStackHeight(
+                layoutHeight: layoutHeight,
+                detent: .medium
+            ) == inset + DiveActivityMediaPresentation.carouselRowHeight
+        )
+    }
+
+    @Test func diveActivityMediaPresentation_disablesPanelScroll_mediaTabUntilLarge() {
+        #expect(
+            DiveActivityMediaPresentation.disablesPanelScroll(
+                isMediaTabSelected: true,
+                detent: .minimized
+            )
+        )
+        #expect(
+            DiveActivityMediaPresentation.disablesPanelScroll(
+                isMediaTabSelected: true,
+                detent: .medium
+            )
+        )
+        #expect(
+            !DiveActivityMediaPresentation.disablesPanelScroll(
+                isMediaTabSelected: true,
+                detent: .large
+            )
+        )
+        #expect(
+            !DiveActivityMediaPresentation.disablesPanelScroll(
+                isMediaTabSelected: false,
+                detent: .medium
+            )
+        )
     }
 
     @Test func diveActivityMediaPresentation_sheetBodyHeightAboveMediaCarousel_reservesChromeRow() {
@@ -5238,6 +5639,22 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func marineLifeMediaTagPresentation_chipDisplayTitle_truncatesAtMaxLength() {
+        #expect(
+            MarineLifeMediaTagPresentation.chipDisplayTitle(for: "French Angelfish")
+                == "French Angelfish"
+        )
+        let longName = String(repeating: "A", count: 30)
+        #expect(
+            MarineLifeMediaTagPresentation.chipDisplayTitle(for: longName)
+                == String(repeating: "A", count: 25) + "…"
+        )
+        #expect(
+            MarineLifeMediaTagPresentation.chipDisplayTitle(for: "  Spotted Eagle Ray  ")
+                == "Spotted Eagle Ray"
+        )
+    }
+
     @Test func marineLifeMediaTagPresentation_largeDetentUntaggedPrompt_directsUserToMediumSheet() {
         #expect(
             MarineLifeMediaTagPresentation.largeDetentUntaggedPrompt
@@ -5245,10 +5662,10 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func diveActivityMediaPresentation_showsMediaCarouselInSheet_atAllDetents() {
+    @Test func diveActivityMediaPresentation_showsMediaCarouselInSheet_atMinimizedAndMediumOnly() {
         #expect(DiveActivityMediaPresentation.showsMediaCarouselInSheet(for: .minimized))
         #expect(DiveActivityMediaPresentation.showsMediaCarouselInSheet(for: .medium))
-        #expect(DiveActivityMediaPresentation.showsMediaCarouselInSheet(for: .large))
+        #expect(!DiveActivityMediaPresentation.showsMediaCarouselInSheet(for: .large))
     }
 
     @Test func diveActivityMediaPresentation_carouselRowHeight_fitsNestedScrollView() {
@@ -5256,7 +5673,10 @@ struct GoDiveMVPTests {
             DiveActivityMediaPresentation.carouselRowHeight
                 > DiveActivityMediaPresentation.carouselThumbnailSize
         )
-        #expect(DiveActivityMediaPresentation.carouselRowHeight == 76)
+        #expect(
+            DiveActivityMediaPresentation.carouselRowHeight
+                == DiveActivityMediaPresentation.carouselThumbnailExtent(isSelected: true) + 4
+        )
     }
 
     @Test func rootTab_logbook_matchesContentViewTabOrder() {

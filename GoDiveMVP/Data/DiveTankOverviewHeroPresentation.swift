@@ -82,20 +82,45 @@ enum DiveTankOverviewHeroPresentation: Sendable {
             && DiveTankMinimizedGasSummary.psiConsumedPSI(startPSI: startPSI, endPSI: endPSI) != nil
     }
 
-    /// Media thumbnails on the minimized profile — **landscape** only (tank tab, low detent).
-    nonisolated static func showsMediaMarkersOnMinimizedProfile(
+    /// Media thumbnails on the landscape full-screen profile (every detent).
+    nonisolated static func showsMediaMarkersOnLandscapeProfile(isLandscape: Bool) -> Bool {
+        isLandscape
+    }
+
+    /// Depth / pressure profile chart on the tank tab.
+    nonisolated static func showsProfileChart(
+        for detent: DiveActivityOverviewDetent,
+        depthSampleCount: Int,
+        isLandscape: Bool
+    ) -> Bool {
+        if isLandscape {
+            return depthSampleCount >= 2
+        }
+        return showsMinimizedProfileChart(for: detent, depthSampleCount: depthSampleCount)
+    }
+
+    /// Cylinder + gas label (portrait only; hidden for landscape full-screen profile).
+    nonisolated static func showsTankCylinderHero(
         for detent: DiveActivityOverviewDetent,
         isLandscape: Bool
     ) -> Bool {
-        detent == .minimized && isLandscape
+        guard !isLandscape else { return false }
+        if detent == .minimized {
+            return showsMinimizedCylinder(for: detent, isLandscape: false)
+        }
+        return detent == .medium
     }
 
-    /// Embedded overview sheet is hidden so the landscape profile can use the full screen.
-    nonisolated static func hidesOverviewPanelInLandscapeTankMinimized(
-        detent: DiveActivityOverviewDetent,
+    /// Tank hero layer visible — landscape profile or portrait detent rules.
+    nonisolated static func showsTankHeroVisuals(
+        for detent: DiveActivityOverviewDetent,
+        depthSampleCount: Int,
         isLandscape: Bool
     ) -> Bool {
-        detent == .minimized && isLandscape
+        if isLandscape {
+            return depthSampleCount >= 2
+        }
+        return showsTankHero(for: detent)
     }
 
     /// Portrait **minimized** cue above the sheet grabber band.
@@ -113,7 +138,7 @@ enum DiveTankOverviewHeroPresentation: Sendable {
         bottomSafeInset: CGFloat,
         isLandscape: Bool
     ) -> CGFloat {
-        if hidesOverviewPanelInLandscapeTankMinimized(detent: detent, isLandscape: isLandscape) {
+        if isLandscape {
             return bottomSafeInset + minimizedLandscapeChartVerticalPadding
         }
         return DiveActivityOverviewDetent.bottomObstructionHeight(

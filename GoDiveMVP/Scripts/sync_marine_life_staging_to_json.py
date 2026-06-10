@@ -3,8 +3,9 @@
 Merge marine_life_caribbean_staging.csv into marine_life_sample.json.
 
 Default: only rows with non-empty aboutText ship to the app bundle (your
-description workflow). Existing JSON entries are preserved; matching uuid rows
-get FishBase facts refreshed but keep your prose unless you changed the CSV.
+description workflow). Output is **staging-only** — legacy JSON rows whose UUIDs
+are not in the CSV are dropped. Matching uuid rows get FishBase facts refreshed
+but keep your prose unless you changed the CSV.
 
 Usage:
   # After filling aboutText for some rows:
@@ -28,6 +29,7 @@ from pathlib import Path
 from fishbase_catalog_utils import (
     PROJECT_DIR,
     STAGING_FIELDNAMES,
+    staging_row_marked_for_deletion,
     staging_row_to_json,
 )
 
@@ -42,6 +44,7 @@ PROSE_FIELDS_STAGING = [
     "habitatBehavior",
     "diverReaction",
     "featureImageURL",
+    "featureImageResourceName",
 ]
 
 
@@ -84,6 +87,7 @@ def merge_prose(
         "habitat_behavior": ("habitatBehavior", "habitat_behavior"),
         "diver_reaction": ("diverReaction", "diver_reaction"),
         "feature_image": ("featureImageURL", "feature_image"),
+        "feature_image_resource": ("featureImageResourceName", "feature_image_resource"),
     }
     for json_key, (csv_key, existing_key) in mapping.items():
         csv_val = (csv_row or {}).get(csv_key, "")
@@ -113,16 +117,31 @@ def main() -> int:
     existing_json = load_json_catalog(args.json_path)
     existing_by_uuid = {row["uuid"]: row for row in existing_json if "uuid" in row}
 
-    ready_rows = [row for row in staging_rows if row_is_ready(row, args.all)]
+    deletion_uuids = {
+        row["uuid"].strip()
+        for row in staging_rows
+        if staging_row_marked_for_deletion(row) and (row.get("uuid") or "").strip()
+    }
+    ready_rows = [
+        row
+        for row in staging_rows
+        if row_is_ready(row, args.all) and not staging_row_marked_for_deletion(row)
+    ]
     print(f"Staging rows: {len(staging_rows)}; shipping: {len(ready_rows)}")
+    if deletion_uuids:
+        print(f"Marked for deletion (excluded): {len(deletion_uuids)}")
 
-    merged_by_uuid = dict(existing_by_uuid)
+    merged_by_uuid: dict[str, dict] = {}
 
     for row in ready_rows:
         uuid = row["uuid"].strip()
         json_row = staging_row_to_json(row)
         json_row = merge_prose(json_row, row, existing_by_uuid.get(uuid))
         merged_by_uuid[uuid] = json_row
+
+    legacy_removed = set(existing_by_uuid) - set(merged_by_uuid)
+    if legacy_removed:
+        print(f"Dropped {len(legacy_removed)} legacy JSON entr(y/ies) not in staging.")
 
     merged = sorted(
         merged_by_uuid.values(),

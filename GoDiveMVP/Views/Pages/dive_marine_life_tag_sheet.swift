@@ -12,9 +12,21 @@ struct DiveMarineLifeMediaTagsSheet: View {
     let media: DiveMediaPhoto
     let dive: DiveActivity
     let captureContext: DiveMediaCaptureContext?
+    var catalogSites: [DiveSite] = []
 
     @State private var taggedRows: [MarineLifeMediaTagPresentation.TaggedSpeciesRow] = []
     @State private var showsTagPicker = false
+    @State private var showsFishialIdentifySheet = false
+
+    private var showsFishialIdentifyAction: Bool {
+        DiveMarineLifeTagSheetPresentation.showsFishialIdentifyAction
+    }
+
+    private var fishialIdentifyIsActive: Bool {
+        DiveMarineLifeTagSheetPresentation.fishialIdentifyIsActive(
+            confirmedSpeciesName: media.resolvedFishialConfirmedSpeciesName
+        )
+    }
 
     var body: some View {
         NavigationStack {
@@ -33,16 +45,54 @@ struct DiveMarineLifeMediaTagsSheet: View {
             .navigationTitle("Marine life")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Tag marine life", systemImage: "plus") {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
                         showsTagPicker = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(AppTheme.Colors.tabSelected)
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
                     }
-                    .labelStyle(.iconOnly)
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Tag marine life")
                     .accessibilityIdentifier("DiveMarineLifeMediaTags.AddTag")
                 }
+
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if showsFishialIdentifyAction {
+                        Button {
+                            showsFishialIdentifySheet = true
+                        } label: {
+                            Image(systemName: "sparkles")
+                                .font(.title3.weight(.semibold))
+                                .foregroundStyle(
+                                    fishialIdentifyIsActive
+                                        ? AppTheme.Colors.accent
+                                        : AppTheme.Colors.tabUnselected
+                                )
+                                .frame(minWidth: 44, minHeight: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Identify fish")
+                        .accessibilityIdentifier("DiveMarineLifeMediaTags.IdentifyFish")
+                    }
+
+                    Button("Done") { dismiss() }
+                        .fontWeight(.semibold)
+                        .foregroundStyle(AppTheme.Colors.tabSelected)
+                        .accessibilityIdentifier("DiveMarineLifeMediaTags.Done")
+                }
+            }
+            .sheet(isPresented: $showsFishialIdentifySheet, onDismiss: reloadTaggedRows) {
+                DiveMediaFishialIdentifySheet(
+                    media: media,
+                    dive: dive,
+                    catalogSites: catalogSites,
+                    captureContext: captureContext
+                )
             }
             .sheet(isPresented: $showsTagPicker) {
                 DiveMarineLifeTagPickerSheet(
@@ -60,17 +110,15 @@ struct DiveMarineLifeMediaTagsSheet: View {
     private var taggedSpeciesList: some View {
         List {
             ForEach(taggedRows) { row in
-                FieldGuideMarineLifeRow(
-                    data: FieldGuidePresentation.MarineLifeRowDisplayData(
-                        marineLifeUUID: row.marineLifeUUID,
-                        displayName: row.commonName,
-                        trailingLabel: FieldGuidePresentation.listTrailingLabel(category: row.category),
-                        detailLine: FieldGuidePresentation.listDetailLine(
-                            scientificName: row.scientificName,
-                            sizeDepthLine: row.detailLine
-                        ),
-                        isSighted: true
-                    )
+                DiveMarineLifeTagSpeciesRow(
+                    commonName: row.commonName,
+                    trailingLabel: FieldGuidePresentation.listTrailingLabel(category: row.category),
+                    detailLine: FieldGuidePresentation.listDetailLine(
+                        scientificName: row.scientificName,
+                        sizeDepthLine: row.detailLine
+                    ),
+                    featureImageURL: row.featureImageURL,
+                    featureImageResourceName: row.featureImageResourceName
                 )
                 .equatable()
                 .listRowInsets(EdgeInsets(
@@ -117,30 +165,27 @@ struct DiveMarineLifeTagPickerSheet: View {
 
     @State private var taggedMarineLifeUUIDs: Set<String> = []
     @State private var tagErrorMessage: String?
+    @State private var speciesSearchQuery = ""
+    @FocusState private var isSpeciesSearchFocused: Bool
+
+    private var filteredCatalog: [MarineLife] {
+        DiveMarineLifeTagPickerPresentation.filtering(catalog, query: speciesSearchQuery)
+    }
 
     var body: some View {
         NavigationStack {
-            Group {
-                if catalog.isEmpty {
-                    ContentUnavailableView(
-                        "No species in catalog",
-                        systemImage: "fish",
-                        description: Text("Field guide species will appear here when available.")
-                    )
-                } else {
-                    speciesList
-                }
+            VStack(spacing: 0) {
+                speciesSearchChrome
+                pickerContent
             }
             .appSheetContentTopSpacing()
             .navigationTitle("Tag marine life")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
                         .fontWeight(.semibold)
+                        .foregroundStyle(AppTheme.Colors.tabSelected)
                         .accessibilityIdentifier("DiveMarineLifeTagPicker.Done")
                 }
             }
@@ -154,18 +199,56 @@ struct DiveMarineLifeTagPickerSheet: View {
         }
     }
 
+    private var speciesSearchChrome: some View {
+        CatalogListSearchChrome(
+            searchText: $speciesSearchQuery,
+            isSearchFocused: $isSpeciesSearchFocused,
+            placeholder: DiveMarineLifeTagPickerPresentation.searchPlaceholder,
+            searchFieldAccessibilityIdentifier: "DiveMarineLifeTagPicker.SearchField",
+            cancelAccessibilityIdentifier: "DiveMarineLifeTagPicker.SearchCancel",
+            showsTrailingActions: false,
+            trailingActions: { EmptyView() }
+        )
+    }
+
+    @ViewBuilder
+    private var pickerContent: some View {
+        if catalog.isEmpty {
+            ContentUnavailableView(
+                "No species in catalog",
+                systemImage: "fish",
+                description: Text("Field guide species will appear here when available.")
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if filteredCatalog.isEmpty,
+                  DiveMarineLifeTagPickerPresentation.isFiltering(query: speciesSearchQuery) {
+            ContentUnavailableView.search(text: speciesSearchQuery)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            speciesList
+        }
+    }
+
     private var speciesList: some View {
         List {
-            ForEach(catalog, id: \.uuid) { species in
+            ForEach(filteredCatalog, id: \.uuid) { species in
                 Button {
                     saveTag(species)
                 } label: {
-                    FieldGuideMarineLifeRow(
-                        data: FieldGuidePresentation.marineLifeRowDisplayData(
-                            for: species.fieldGuideCatalogSnapshot,
-                            unitSystem: diveDisplayUnitSystem,
-                            isSighted: taggedMarineLifeUUIDs.contains(species.uuid)
-                        )
+                    let snapshot = species.fieldGuideCatalogSnapshot
+                    DiveMarineLifeTagSpeciesRow(
+                        commonName: snapshot.commonName,
+                        trailingLabel: FieldGuidePresentation.listTrailingLabel(category: snapshot.category),
+                        detailLine: FieldGuidePresentation.listDetailLine(
+                            scientificName: snapshot.scientificName,
+                            sizeDepthLine: FieldGuidePresentation.sizeDepthLine(
+                                for: snapshot,
+                                unitSystem: diveDisplayUnitSystem
+                            )
+                        ),
+                        featureImageURL: snapshot.featureImageURL,
+                        featureImageResourceName: snapshot.featureImageResourceName,
+                        showsTaggedCheckmark: taggedMarineLifeUUIDs.contains(species.uuid)
                     )
                     .equatable()
                 }

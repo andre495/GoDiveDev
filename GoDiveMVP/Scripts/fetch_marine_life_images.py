@@ -25,7 +25,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from fishbase_catalog_utils import DEFAULT_CONFIG_PATH, PROJECT_DIR, STAGING_FIELDNAMES, load_config
+from fishbase_catalog_utils import (
+    DEFAULT_CONFIG_PATH,
+    PROJECT_DIR,
+    STAGING_WITH_IMAGE_FIELDS,
+    load_config,
+    staging_row_marked_for_deletion,
+)
 from marine_life_image_utils import (
     CACHE_VERSION,
     ImageCandidate,
@@ -33,17 +39,6 @@ from marine_life_image_utils import (
     license_is_cc0,
 )
 
-
-IMAGE_WORKFLOW_FIELDNAMES = [
-    "imageLicense",
-    "imageAttribution",
-    "imageSource",
-    "imageNeedsReview",
-]
-
-STAGING_WITH_IMAGE_FIELDS = STAGING_FIELDNAMES + [
-    field for field in IMAGE_WORKFLOW_FIELDNAMES if field not in STAGING_FIELDNAMES
-]
 
 DEFAULT_STAGING = PROJECT_DIR / "MockData/marine_life_caribbean_staging.csv"
 DEFAULT_JSON = PROJECT_DIR / "MockData/marine_life_sample.json"
@@ -173,6 +168,8 @@ def should_skip_row(
     respect_bundled_images: bool,
     bundled_images: dict[str, str],
 ) -> bool:
+    if staging_row_marked_for_deletion(row):
+        return True
     if overwrite:
         return False
     if improve_reviewed:

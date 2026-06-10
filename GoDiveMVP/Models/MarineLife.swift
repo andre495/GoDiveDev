@@ -11,8 +11,10 @@ final class MarineLife {
     @Attribute(.unique) var uuid: String
 
     var commonName: String
-    /// Remote or bundled image URL for list / detail hero.
+    /// Remote image URL (legacy fallback / provenance); prefer **`featureImageResourceName`** offline.
     var featureImageURL: String
+    /// Bundled JPEG resource name (no extension) under **`Resources/MarineLifePhotos/`**.
+    var featureImageResourceName: String = ""
     /// Bundled USDZ resource name (no extension) for RealityKit detail hero; empty uses photo / placeholder.
     var featureModelResourceName: String = ""
     var scientificName: String
@@ -46,6 +48,7 @@ final class MarineLife {
         uuid: String,
         commonName: String,
         featureImageURL: String = "",
+        featureImageResourceName: String = "",
         featureModelResourceName: String = "",
         scientificName: String = "",
         category: String = "",
@@ -65,6 +68,7 @@ final class MarineLife {
         self.uuid = uuid
         self.commonName = commonName
         self.featureImageURL = featureImageURL
+        self.featureImageResourceName = featureImageResourceName
         self.featureModelResourceName = featureModelResourceName
         self.scientificName = scientificName
         self.category = category
@@ -92,6 +96,7 @@ extension MarineLife {
             category: category,
             subcategory: subcategory,
             featureImageURL: featureImageURL,
+            featureImageResourceName: featureImageResourceName,
             featureModelResourceName: featureModelResourceName,
             minSizeMeters: minSizeMeters,
             maxSizeMeters: maxSizeMeters,

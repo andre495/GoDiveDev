@@ -1,9 +1,15 @@
+import CoreGraphics
 import Foundation
 
 /// Rows for marine-life already tagged on a dive media item.
 enum MarineLifeMediaTagPresentation {
 
     nonisolated static let sectionTitle = "Marine life"
+    nonisolated static let speciesRowThumbnailWidth: CGFloat = 96
+    nonisolated static let speciesRowThumbnailHeight: CGFloat = 72
+    /// Max visible characters on oval marine-life chips before an ellipsis suffix.
+    nonisolated static let chipTitleMaxLength = 25
+
     nonisolated static let untaggedPrompt = "Tag marine life spotted in this photo."
     nonisolated static let largeDetentUntaggedPrompt =
         "No fish tagged on this photo yet. Pull the sheet to medium height and tap the fish button to tag what you spotted."
@@ -21,6 +27,7 @@ enum MarineLifeMediaTagPresentation {
         let scientificName: String
         let category: String
         let featureImageURL: String
+        let featureImageResourceName: String
         let detailLine: String
     }
 
@@ -49,6 +56,7 @@ enum MarineLifeMediaTagPresentation {
                     scientificName: species.scientificName,
                     category: species.category,
                     featureImageURL: species.featureImageURL,
+                    featureImageResourceName: species.featureImageResourceName,
                     detailLine: FieldGuidePresentation.sizeDepthLine(
                         for: snapshot,
                         unitSystem: unitSystem
@@ -64,9 +72,28 @@ enum MarineLifeMediaTagPresentation {
         rows.map(\.commonName)
     }
 
+    nonisolated static func chipDisplayTitle(for commonName: String) -> String {
+        let trimmed = commonName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > chipTitleMaxLength else { return trimmed }
+        return String(trimmed.prefix(chipTitleMaxLength)) + "…"
+    }
+
     nonisolated static func mediumDetentAccessibilityLabel(taggedNames: [String]) -> String {
         guard !taggedNames.isEmpty else { return untaggedPrompt }
         return "Marine life: \(taggedNames.joined(separator: ", "))"
+    }
+
+    nonisolated static func hasTaggedSpeciesOnMedia(
+        mediaPhotoID: UUID,
+        sightings: [SightingInstance]
+    ) -> Bool {
+        var seenSpeciesUUIDs = Set<String>()
+        for sighting in sightings where sighting.mediaPhotoID == mediaPhotoID {
+            guard !seenSpeciesUUIDs.contains(sighting.marineLifeUUID) else { continue }
+            seenSpeciesUUIDs.insert(sighting.marineLifeUUID)
+            return true
+        }
+        return false
     }
 
     nonisolated static func resolvedTaggedSpecies(

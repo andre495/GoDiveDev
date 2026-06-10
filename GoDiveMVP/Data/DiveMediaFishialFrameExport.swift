@@ -40,21 +40,43 @@ enum DiveMediaFishialFrameExport {
     }
 
     #if canImport(UIKit)
+    /// Fast preview still for pinch/drag crop — does not wait for the full iCloud original.
     @MainActor
-    static func exportPhotoCandidate(for media: DiveMediaPhoto) async throws -> FishialIdentifyCandidateFrame {
+    static func makePhotoCropContext(for media: DiveMediaPhoto) async throws -> FishialStillCropContext {
         guard let localIdentifier = media.libraryAssetLocalIdentifier else {
             throw DiveMediaFishialFrameExportError.missingLibraryIdentifier
         }
-        guard let data = try await exportPhotoJPEG(localIdentifier: localIdentifier) else {
+        guard let previewImage = await loadPhotoPreviewImage(localIdentifier: localIdentifier) else {
             throw DiveMediaFishialFrameExportError.assetUnavailable
         }
-        guard let previewImage = UIImage(data: data) else {
-            throw DiveMediaFishialFrameExportError.imageEncodingFailed
-        }
-        return FishialIdentifyCandidateFrame(
-            data: data,
-            filename: photoFilename(mediaID: media.id),
+        return FishialStillCropContext(
+            diveMedia: media,
             previewImage: previewImage
+        )
+    }
+
+    /// Exports a cropped full-quality JPEG for Fishial after the user frames the fish.
+    @MainActor
+    static func exportCroppedPhotoFrame(
+        diveMedia: DiveMediaPhoto,
+        cropViewportSize: CGSize,
+        gestureScale: CGFloat,
+        offset: CGSize,
+        displayScale: CGFloat
+    ) async throws -> FishialIdentifyCandidateFrame {
+        guard let localIdentifier = diveMedia.libraryAssetLocalIdentifier else {
+            throw DiveMediaFishialFrameExportError.missingLibraryIdentifier
+        }
+        guard let sourceImage = await loadPhotoExportImage(localIdentifier: localIdentifier) else {
+            throw DiveMediaFishialFrameExportError.assetUnavailable
+        }
+        return try croppedCandidateFrame(
+            sourceImage: sourceImage,
+            cropViewportSize: cropViewportSize,
+            gestureScale: gestureScale,
+            offset: offset,
+            filename: photoFilename(mediaID: diveMedia.id),
+            displayScale: displayScale
         )
     }
 
@@ -64,39 +86,54 @@ enum DiveMediaFishialFrameExport {
         guard let localIdentifier = media.libraryAssetLocalIdentifier else {
             throw DiveMediaFishialFrameExportError.missingLibraryIdentifier
         }
-        guard let avAsset = await DiveMediaReferenceLoader.loadVideoAsset(localIdentifier: localIdentifier) else {
-            throw DiveMediaFishialFrameExportError.assetUnavailable
-        }
-
-        let duration = try await avAsset.load(.duration)
-        let durationSeconds = duration.seconds
-        guard durationSeconds.isFinite, durationSeconds > 0 else {
+        guard let durationSeconds = DiveMediaReferenceLoader.videoDurationSeconds(
+            localIdentifier: localIdentifier
+        ) else {
             throw DiveMediaFishialFrameExportError.videoDurationUnavailable
+        }
+        guard let previewAsset = await DiveMediaReferenceLoader.loadVideoAsset(
+            localIdentifier: localIdentifier,
+            quality: FishialMediaSelectionPresentation.videoScrubRequestQuality
+        ) else {
+            throw DiveMediaFishialFrameExportError.assetUnavailable
         }
 
         return FishialVideoScrubContext(
             mediaID: media.id,
+            localIdentifier: localIdentifier,
             durationSeconds: durationSeconds,
-            avAsset: avAsset
+            previewAsset: previewAsset
         )
     }
     #endif
 
     @MainActor
-    private static func exportPhotoJPEG(localIdentifier: String) async throws -> Data? {
+    private static func loadPhotoPreviewImage(localIdentifier: String) async -> UIImage? {
+        #if canImport(Photos)
+        let edge = FishialMediaSelectionPresentation.photoPreviewMaxEdge
+        return await DiveMediaReferenceLoader.image(
+            localIdentifier: localIdentifier,
+            targetSize: CGSize(width: edge, height: edge),
+            contentMode: .aspectFit,
+            deliveryMode: .fastFormat
+        )
+        #else
+        return nil
+        #endif
+    }
+
+    @MainActor
+    private static func loadPhotoExportImage(localIdentifier: String) async -> UIImage? {
         #if canImport(Photos)
         let pixelSize = await fullPixelSize(localIdentifier: localIdentifier)
-        let targetEdge = min(max(max(pixelSize.width, pixelSize.height), 1), maxJPEGEdge)
-        let targetSize = CGSize(width: targetEdge, height: targetEdge)
-        guard let image = await DiveMediaReferenceLoader.image(
+        let maxEdge = FishialMediaSelectionPresentation.photoExportMaxEdge
+        let targetEdge = min(max(max(pixelSize.width, pixelSize.height), 1), maxEdge)
+        return await DiveMediaReferenceLoader.image(
             localIdentifier: localIdentifier,
-            targetSize: targetSize,
+            targetSize: CGSize(width: targetEdge, height: targetEdge),
             contentMode: .aspectFit,
             deliveryMode: .highQualityFormat
-        ) else {
-            return nil
-        }
-        return jpegData(from: image)
+        )
         #else
         return nil
         #endif
@@ -149,6 +186,36 @@ enum DiveMediaFishialFrameExport {
     private static func jpegData(from image: UIImage) -> Data? {
         image.jpegData(compressionQuality: jpegCompressionQuality)
     }
+
+    @MainActor
+    static func croppedCandidateFrame(
+        sourceImage: UIImage,
+        cropViewportSize: CGSize,
+        gestureScale: CGFloat,
+        offset: CGSize,
+        filename: String,
+        displayScale: CGFloat
+    ) throws -> FishialIdentifyCandidateFrame {
+        guard let data = FishialImageCropRenderer.croppedJPEGData(
+            from: sourceImage,
+            cropSize: cropViewportSize,
+            gestureScale: gestureScale,
+            offset: offset,
+            displayScale: displayScale,
+            maxEdge: maxJPEGEdge,
+            compressionQuality: jpegCompressionQuality
+        ) else {
+            throw DiveMediaFishialFrameExportError.imageEncodingFailed
+        }
+        guard let previewImage = UIImage(data: data) else {
+            throw DiveMediaFishialFrameExportError.imageEncodingFailed
+        }
+        return FishialIdentifyCandidateFrame(
+            data: data,
+            filename: filename,
+            previewImage: previewImage
+        )
+    }
     #endif
 }
 
@@ -157,22 +224,37 @@ enum DiveMediaFishialFrameExport {
 @MainActor
 final class FishialVideoScrubContext {
     let mediaID: UUID
+    let localIdentifier: String
     let durationSeconds: Double
-    let avAsset: AVAsset
+    /// Lighter PhotoKit stream for immediate scrub preview.
+    let previewAsset: AVAsset
 
-    private let exportGenerator: AVAssetImageGenerator
+    /// Alias for the scrub player — preview quality only.
+    var avAsset: AVAsset { previewAsset }
 
-    init(mediaID: UUID, durationSeconds: Double, avAsset: AVAsset) {
+    init(
+        mediaID: UUID,
+        localIdentifier: String,
+        durationSeconds: Double,
+        previewAsset: AVAsset
+    ) {
         self.mediaID = mediaID
+        self.localIdentifier = localIdentifier
         self.durationSeconds = durationSeconds
-        self.avAsset = avAsset
-        exportGenerator = DiveMediaFishialFrameExport.makeImageGenerator(
-            for: avAsset,
-            maxEdge: DiveMediaFishialFrameExport.maxJPEGEdge
-        )
+        self.previewAsset = previewAsset
     }
 
     func exportCandidateFrame(atFraction fraction: Double) async throws -> FishialIdentifyCandidateFrame {
+        guard let exportAsset = await DiveMediaReferenceLoader.loadVideoAsset(
+            localIdentifier: localIdentifier,
+            quality: FishialMediaSelectionPresentation.videoExportRequestQuality
+        ) else {
+            throw DiveMediaFishialFrameExportError.assetUnavailable
+        }
+        let exportGenerator = DiveMediaFishialFrameExport.makeImageGenerator(
+            for: exportAsset,
+            maxEdge: DiveMediaFishialFrameExport.maxJPEGEdge
+        )
         let clampedFraction = FishialVideoScrubPresentation.clampedFraction(fraction)
         let time = DiveMediaFishialFrameExport.cmTime(
             durationSeconds: durationSeconds,

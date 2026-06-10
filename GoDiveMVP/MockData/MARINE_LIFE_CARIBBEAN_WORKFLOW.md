@@ -57,6 +57,38 @@ GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/fetch_marine_life_images.py
 
 **Sources:** Wikimedia Commons (primary), Openverse (fallback). Search queries append **`underwater`**, **`diver`**, and **`scuba`** to the scientific name; scoring boosts in-situ reef photos and penalizes maps, sketches, fishing shots, and diagrams. Use **`--refetch-gaps`** to retry misses and `imageNeedsReview=yes` rows. Writes `featureImageURL` plus workflow columns `imageLicense`, `imageAttribution`, `imageSource`, `imageNeedsReview`. Re-run **`sync_marine_life_staging_to_json.py --all`** to push images into the app bundle.
 
+## Offline bundled photos (Field Guide)
+
+After URLs are approved in staging, materialize JPEGs for offline use:
+
+```bash
+GoDiveMVP/Scripts/.venv/bin/pip install Pillow
+GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/download_marine_life_images.py --dry-run --limit 5
+GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/download_marine_life_images.py
+GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/sync_marine_life_staging_to_json.py --all
+```
+
+Writes **`Resources/MarineLifePhotos/{uuid}.jpg`** (960×720, center-cropped 4:3 — same aspect as the mosaic UI). Sets **`featureImageResourceName`** on the staging CSV and ships **`feature_image_resource`** in JSON. The app loads bundled photos first; remote **`feature_image`** URLs remain as fallback/provenance only.
+
+To replace one image manually: paste a new URL in **`featureImageURL`**, re-run **`download_marine_life_images.py --overwrite --limit 1`** (or edit the CSV row uuid only and download), then sync JSON.
+
+Manifest: **`MockData/marine_life_bundle_photos_manifest.json`** (source URL + SHA256 per bundled file).
+
+## Manual image review (local HTML UI)
+
+```bash
+GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/serve_marine_life_image_review.py
+open http://127.0.0.1:8765
+```
+
+- Browse all species in a **4:3 mosaic grid** (bundled JPEG when present, otherwise remote URL).
+- Filter by **needs review**, **no image**, or **missing bundle**.
+- Click a card → paste a new **CC0 / CC BY** URL, edit license/attribution, then:
+  - **Save URL only** → updates **`marine_life_caribbean_staging.csv`**
+  - **Save + download bundle** → also re-crops and writes **`Resources/MarineLifePhotos/{uuid}.jpg`**
+- **Mark for removal** → sets **`markForDeletion=yes`** on the staging row (red **Remove** badge). Apply deletions with **`apply_marine_life_staging_deletions.py --sync-json --all`** to remove rows from CSV, bundled photos, manifest, and **`marine_life_sample.json`**.
+- After batch edits, run **`sync_marine_life_staging_to_json.py --all`** before rebuilding the app.
+
 ## Your authoring loop
 
 1. Open **`marine_life_caribbean_staging.csv`** (Numbers, Excel, or Cursor).
@@ -70,9 +102,9 @@ GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/fetch_marine_life_images.py
 GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/sync_marine_life_staging_to_json.py
 ```
 
-Default: rows with **non-empty `aboutText`** merge into `marine_life_sample.json`. With FishBase descriptions enabled (~569/601 filled), that ships nearly the full staging set. Use `--all` to include the few facts-only rows still missing text. Use `--dry-run` to preview counts.
+Default: rows with **non-empty `aboutText`** merge into `marine_life_sample.json`. With FishBase descriptions enabled (~569/601 filled), that ships nearly the full staging set. Use `--all` to include the few facts-only rows still missing text. Output is **staging-only** (legacy JSON uuids not in the CSV are dropped). Use `--dry-run` to preview counts.
 
-5. Run the app — `MarineLifeCatalogSeeder` upserts by `uuid`.
+5. Run the app — `MarineLifeCatalogSeeder` upserts by `uuid` and **removes** catalog rows no longer in bundled JSON.
 
 ## What FishBase fills (staging)
 

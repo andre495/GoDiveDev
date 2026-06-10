@@ -54,6 +54,10 @@ struct LogOverviewView: View {
         )
     }
 
+    private var locksPortraitOrientation: Bool {
+        AppPortraitOrientationLockPolicy.locksHome(pathIsEmpty: path.isEmpty)
+    }
+
     private func homeOverviewLayoutMetrics(for proxy: GeometryProxy) -> HomeOverviewLayout.Metrics {
         let statsContentHeight = HomeLifetimeStatsLayout.estimatedPanelContentHeight(
             showsBuddyLeaderboard: showsHomeBuddyLeaderboard
@@ -133,6 +137,7 @@ struct LogOverviewView: View {
                 }
             }
         }
+        .portraitOrientationLock(when: locksPortraitOrientation)
     }
 
     private var profilePhotoForHeader: Data? {

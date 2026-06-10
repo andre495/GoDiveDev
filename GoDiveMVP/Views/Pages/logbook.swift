@@ -94,6 +94,10 @@ struct LogbookView: View {
         activities.count <= optimisticallyRemovedActivityIDs.count
     }
 
+    private var locksPortraitOrientation: Bool {
+        AppPortraitOrientationLockPolicy.locksLogbook(pathIsEmpty: path.isEmpty)
+    }
+
     var body: some View {
         logbookNavigationStack
             .navigationInteractivePopGestureForHiddenNavBar()
@@ -127,6 +131,7 @@ struct LogbookView: View {
             .onChange(of: automaticallyRenumberDives) { _, _ in
                 scheduleLogbookCacheRefresh()
             }
+            .portraitOrientationLock(when: locksPortraitOrientation)
     }
 
     private var logbookNavigationStack: some View {

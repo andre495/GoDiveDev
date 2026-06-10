@@ -122,6 +122,41 @@ def license_allowed(license_text: str, *, allow_cc_by: bool) -> bool:
     return allow_cc_by and license_is_cc_by(license_text)
 
 
+def commons_wiki_file_page_title(url: str) -> str | None:
+    """Return `File:…` title when `url` is a Wikimedia Commons file page."""
+    parsed = urllib.parse.urlparse(url.strip())
+    if parsed.netloc.lower() != "commons.wikimedia.org":
+        return None
+    path = urllib.parse.unquote(parsed.path or "")
+    if not path.startswith("/wiki/File:"):
+        return None
+    return path.removeprefix("/wiki/")
+
+
+def resolve_commons_file_page_url(page_url: str) -> str | None:
+    """Resolve a Commons `…/wiki/File:…` page to a direct `upload.wikimedia.org` URL."""
+    title = commons_wiki_file_page_title(page_url)
+    if not title:
+        return None
+    params = urllib.parse.urlencode(
+        {
+            "action": "query",
+            "format": "json",
+            "titles": title,
+            "prop": "imageinfo",
+            "iiprop": "url",
+        }
+    )
+    payload = http_get_json(f"{COMMONS_API}?{params}")
+    pages = payload.get("query", {}).get("pages", {})
+    for page in pages.values():
+        imageinfo = (page.get("imageinfo") or [{}])[0]
+        direct_url = str(imageinfo.get("url") or "").strip()
+        if direct_url:
+            return direct_url
+    return None
+
+
 def wikimedia_thumbnail_url(url: str, width: int = 640) -> str:
     if "/thumb/" in url:
         return url

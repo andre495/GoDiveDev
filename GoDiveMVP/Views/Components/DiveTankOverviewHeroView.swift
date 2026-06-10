@@ -39,8 +39,27 @@ struct DiveTankOverviewHeroView: View {
         DiveTankOverviewHeroPresentation.isLandscapeLayout(layoutSize: layoutSize)
     }
 
-    private var showsTankHero: Bool {
-        DiveTankOverviewHeroPresentation.showsTankHero(for: sheetDetent)
+    private var showsTankHeroVisuals: Bool {
+        DiveTankOverviewHeroPresentation.showsTankHeroVisuals(
+            for: sheetDetent,
+            depthSampleCount: depthSamples.count,
+            isLandscape: isLandscape
+        )
+    }
+
+    private var showsProfileChart: Bool {
+        DiveTankOverviewHeroPresentation.showsProfileChart(
+            for: sheetDetent,
+            depthSampleCount: depthSamples.count,
+            isLandscape: isLandscape
+        )
+    }
+
+    private var showsTankCylinderHero: Bool {
+        DiveTankOverviewHeroPresentation.showsTankCylinderHero(
+            for: sheetDetent,
+            isLandscape: isLandscape
+        )
     }
 
     private var displayFillFraction: CGFloat {
@@ -54,12 +73,6 @@ struct DiveTankOverviewHeroView: View {
         DiveTankOverviewHeroPresentation.showsGasMixLabel(for: sheetDetent)
     }
 
-    private var showsMinimizedProfileChart: Bool {
-        DiveTankOverviewHeroPresentation.showsMinimizedProfileChart(
-            for: sheetDetent,
-            depthSampleCount: depthSamples.count
-        )
-    }
 
     private var showsMinimizedTankGasSummary: Bool {
         DiveTankOverviewHeroPresentation.showsMinimizedTankGasSummary(
@@ -78,10 +91,8 @@ struct DiveTankOverviewHeroView: View {
     }
 
     private var showsLandscapeChartChrome: Bool {
-        DiveTankOverviewHeroPresentation.showsMediaMarkersOnMinimizedProfile(
-            for: sheetDetent,
-            isLandscape: isLandscape
-        ) && landscapeChartChromeReady
+        DiveTankOverviewHeroPresentation.showsMediaMarkersOnLandscapeProfile(isLandscape: isLandscape)
+            && landscapeChartChromeReady
     }
 
     private var chartMediaMarkers: [DiveDepthProfileMediaMarker] {
@@ -114,7 +125,7 @@ struct DiveTankOverviewHeroView: View {
                 .ignoresSafeArea()
 
             Group {
-                if showsMinimizedProfileChart {
+                if showsProfileChart {
                     let chartFrame = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
                         layoutSize: layoutSize,
                         layoutHeight: layoutHeight,
@@ -151,7 +162,7 @@ struct DiveTankOverviewHeroView: View {
                     .accessibilityIdentifier("DiveTank.Hero.ProfileChart")
                 }
 
-                if sheetDetent == .medium || showsMinimizedCylinder {
+                if showsTankCylinderHero {
                     DiveTankCylinderVisual(
                         height: cylinderHeight,
                         pressureRemainingFraction: displayFillFraction,
@@ -180,12 +191,12 @@ struct DiveTankOverviewHeroView: View {
                     .font(.headline.weight(.semibold))
                     .foregroundStyle(AppTheme.Colors.textPrimary)
                     .multilineTextAlignment(.center)
-                    .opacity(showsGasMixLabel ? 1 : 0)
+                    .opacity(showsGasMixLabel && !isLandscape ? 1 : 0)
                     .position(x: metrics.cylinderCenterX, y: metrics.gasLabelCenterY)
                     .accessibilityHidden(!showsGasMixLabel)
             }
-            .opacity(showsTankHero ? 1 : 0)
-            .accessibilityHidden(!showsTankHero)
+            .opacity(showsTankHeroVisuals ? 1 : 0)
+            .accessibilityHidden(!showsTankHeroVisuals)
         }
         .animation(
             .easeInOut(duration: DiveTankOverviewHeroPresentation.heroDetentAnimationDuration),
@@ -286,7 +297,10 @@ struct DiveTankOverviewHeroView: View {
     }
 
     private var accessibilityLabelText: String {
-        guard showsTankHero else { return "" }
+        guard showsTankHeroVisuals else { return "" }
+        if isLandscape {
+            return "Depth profile with gas overlay"
+        }
         if showsGasMixLabel {
             return "Cylinder overview, \(gasMixLabel), full"
         }

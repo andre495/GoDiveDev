@@ -10,6 +10,11 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
     var collapsedSummaryExpandsOnTap: Bool = true
     var showsPanelContentWhenMinimized: Bool = false
     var disablesPanelScrollWhenMinimized: Bool = false
+    var isPanelScrollDisabled: Bool = false
+    /// Frosted panel fill (e.g. minimized **Media** tab) so the hero remains visible underneath.
+    var usesTranslucentChrome: Bool = false
+    /// Feathered top mask on scroll content inside the panel body.
+    var topScrollFadeHeight: CGFloat = 0
     /// Optional sink for the panel’s live height fraction (resting detent or grabber drag).
     var liveHeightFraction: Binding<CGFloat>? = nil
 
@@ -61,14 +66,16 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
                 panelContent: panelContent,
                 collapsedSummaryExpandsOnTap: collapsedSummaryExpandsOnTap,
                 showsPanelContentWhenMinimized: showsPanelContentWhenMinimized,
-                disablesPanelScrollWhenMinimized: disablesPanelScrollWhenMinimized
+                disablesPanelScrollWhenMinimized: disablesPanelScrollWhenMinimized,
+                isPanelScrollDisabled: isPanelScrollDisabled,
+                topScrollFadeHeight: topScrollFadeHeight
             )
         }
         .frame(height: panelHeight, alignment: .top)
         .frame(maxWidth: .infinity)
         .clipped()
         .animation(isDragging ? nil : .diveOverviewPanelDetent, value: panelHeight)
-        .diveActivityOverviewEmbeddedPanelChrome()
+        .diveActivityOverviewEmbeddedPanelChrome(translucent: usesTranslucentChrome)
         .accessibilityIdentifier("DiveActivity.OverviewEmbeddedPanel")
         .onAppear(perform: publishLiveHeightFraction)
         .onChange(of: selectedDetent) { _, _ in

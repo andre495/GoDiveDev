@@ -51,7 +51,6 @@ struct ViewSingleActivity: View {
     @State private var diveMediaPickerItems: [PhotosPickerItem] = []
     @State private var selectedDiveMediaPhotoID: UUID?
     @State private var marineLifeTagMediaID: UUID?
-    @State private var fishialIdentifyMediaID: UUID?
     @State private var mediaImportOverlay: DiveMediaImportOverlayState = .hidden
     @State private var derivedDiveData = DerivedDiveData()
     @State private var catalogSitesForMapResolution: [DiveSite] = []
@@ -72,10 +71,6 @@ struct ViewSingleActivity: View {
         DiveActivityOverviewMapTeardown.showsLiveMap(teardownRequested: overviewMapTeardownRequested)
     }
 
-    /// Pan/zoom on the map tab only when the overview sheet is at the low (**minimized**) detent.
-    private var isOverviewMapInteractive: Bool {
-        selectedActivityTab == .map && overviewSheetDetent.allowsMapInteraction
-    }
 
     private var showsMapSitePromptInfoButton: Bool {
         selectedActivityTab == .map
@@ -205,17 +200,8 @@ struct ViewSingleActivity: View {
                     DiveMarineLifeMediaTagsSheet(
                         media: media,
                         dive: activity,
-                        captureContext: mediaCaptureContextsByID[media.id]
-                    )
-                }
-            }
-            .sheet(isPresented: fishialIdentifySheetPresented) {
-                if let media = fishialIdentifyTargetMedia {
-                    DiveMediaFishialIdentifySheet(
-                        media: media,
-                        dive: activity,
-                        catalogSites: catalogSitesForMapResolution,
-                        captureContext: mediaCaptureContextsByID[media.id]
+                        captureContext: mediaCaptureContextsByID[media.id],
+                        catalogSites: catalogSitesForMapResolution
                     )
                 }
             }
@@ -386,23 +372,34 @@ struct ViewSingleActivity: View {
                 detent: overviewSheetDetent,
                 bottomSafeInset: bottomSafeInset
             )
-            let mapBottomObstruction = DiveActivityOverviewDetent.bottomObstructionHeight(
-                layoutHeight: layoutHeight,
-                detent: mapCameraDetent,
-                bottomSafeInset: bottomSafeInset
-            )
             let topObstruction = DiveActivityOverviewPanelMetrics.mapTopObstructionHeight(
                 topSafeInset: geometry.safeAreaInsets.top,
                 chromeRowHeight: DiveActivityTabIcon.menuRowHeight,
                 chromeTopPadding: AppTheme.Spacing.sm
             )
-            let isLandscape = DiveTankOverviewHeroPresentation.isLandscapeLayout(layoutSize: geometry.size)
-            let hidesOverviewPanelForTankLandscape =
-                selectedActivityTab == .tank
-                && DiveTankOverviewHeroPresentation.hidesOverviewPanelInLandscapeTankMinimized(
-                    detent: overviewSheetDetent,
-                    isLandscape: isLandscape
+            let isLandscape = DiveActivityOverviewLandscapePresentation.isLandscapeLayout(
+                layoutSize: geometry.size
+            )
+            let hidesOverviewPanelInLandscape = DiveActivityOverviewLandscapePresentation.hidesOverviewPanel(
+                isLandscape: isLandscape
+            )
+            let isMapInteractive = selectedActivityTab == .map
+                && DiveActivityOverviewLandscapePresentation.allowsMapInteraction(
+                    isLandscape: isLandscape,
+                    detentAllowsInteraction: overviewSheetDetent.allowsMapInteraction
                 )
+            let mapBottomMargin = DiveActivityOverviewLandscapePresentation.mapBottomContentMargin(
+                layoutHeight: layoutHeight,
+                detent: mapCameraDetent,
+                bottomSafeInset: bottomSafeInset,
+                isLandscape: isLandscape
+            )
+            let mediaUsesFullBleedHero = DiveActivityOverviewLandscapePresentation.mediaUsesFullBleedHero(
+                isLandscape: isLandscape,
+                detentUsesFullBleed: DiveActivityMediaPresentation.usesFullBleedMediaHero(
+                    for: overviewSheetDetent
+                )
+            )
             let tankHeroBottomMargin = DiveTankOverviewHeroPresentation.tankHeroBottomContentMargin(
                 layoutHeight: layoutHeight,
                 detent: overviewSheetDetent,
@@ -418,13 +415,13 @@ struct ViewSingleActivity: View {
                             if showsLiveOverviewMap {
                                 DiveLocationMapView(
                                     coordinate: overviewMapCoordinate,
-                                    bottomContentMargin: mapBottomObstruction,
+                                    bottomContentMargin: mapBottomMargin,
                                     topObstructionHeight: topObstruction,
                                     layoutHeight: layoutHeight,
                                     cameraLayoutDetent: mapCameraDetent,
-                                    isUserInteractionEnabled: isOverviewMapInteractive
+                                    isUserInteractionEnabled: isMapInteractive
                                 )
-                                .allowsHitTesting(isOverviewMapInteractive)
+                                .allowsHitTesting(isMapInteractive)
                                 .id(overviewMapViewIdentity)
                             } else {
                                 DiveOverviewMapTeardownPlaceholder()
@@ -478,20 +475,21 @@ struct ViewSingleActivity: View {
                             mediaCaptureContextsByID: mediaCaptureContextsByID,
                             sheetDetent: overviewSheetDetent,
                             isMediaTabSelected: selectedActivityTab == .camera,
-                            onTagMarineLife: tagMarineLifeFromMedia,
-                            marineLifeTagTopPadding: DiveActivityOverviewPanelMetrics.marineLifeTagButtonTopPadding(
-                                topSafeInset: geometry.safeAreaInsets.top,
-                                chromeRowHeight: DiveActivityTabIcon.menuRowHeight,
-                                chromeTopPadding: AppTheme.Spacing.sm
-                            ),
-                            bottomContentMargin: bottomObstruction
+                            bottomContentMargin: mediaUsesFullBleedHero ? 0 : bottomObstruction,
+                            captureOverlayBottomInset: isLandscape
+                                ? 0
+                                : DiveActivityMediaPresentation.captureOverlayBottomInset(
+                                    layoutHeight: layoutHeight,
+                                    detent: overviewSheetDetent,
+                                    bottomSafeInset: bottomSafeInset
+                                )
                         )
                         .ignoresSafeArea()
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                if isOverviewPanelPresented, !hidesOverviewPanelForTankLandscape {
+                if isOverviewPanelPresented, !hidesOverviewPanelInLandscape {
                     DiveActivityOverviewEmbeddedPanel(
                         selectedDetent: $overviewSheetDetent,
                         layoutHeight: layoutHeight,
@@ -518,7 +516,19 @@ struct ViewSingleActivity: View {
                         },
                         collapsedSummaryExpandsOnTap: selectedActivityTab != .camera,
                         showsPanelContentWhenMinimized: selectedActivityTab != .tank,
-                        disablesPanelScrollWhenMinimized: selectedActivityTab != .tank
+                        disablesPanelScrollWhenMinimized: selectedActivityTab != .tank,
+                        isPanelScrollDisabled: DiveActivityMediaPresentation.disablesPanelScroll(
+                            isMediaTabSelected: selectedActivityTab == .camera,
+                            detent: overviewSheetDetent
+                        ),
+                        usesTranslucentChrome: selectedActivityTab == .camera
+                            && DiveActivityMediaPresentation.usesTranslucentOverviewPanel(
+                                for: overviewSheetDetent
+                            ),
+                        topScrollFadeHeight: DiveActivityMediaPresentation.panelTopScrollFadeHeight(
+                            detent: overviewSheetDetent,
+                            isMediaTabSelected: selectedActivityTab == .camera
+                        )
                     )
                     .zIndex(1)
                 }
@@ -999,8 +1009,11 @@ struct ViewSingleActivity: View {
         let showsMarineLifeTagInSheet = DiveActivityMediaPresentation.showsMarineLifeTagInSheet(
             for: overviewSheetDetent
         ) && hasMedia
-        let showsFishialIdentify = showsFishialIdentifyAction && hasMedia
-
+        let taggedSpecies = hasMedia ? selectedMediaTaggedSpecies : []
+        let expandsMarineLifeDetail = DiveActivityMediaPresentation.opensMarineLifeDetailOnTaggedChipTap(
+            detent: overviewSheetDetent,
+            taggedSpeciesCount: taggedSpecies.count
+        )
         return DiveActivityPhotosPanelContent(
             mediaItems: derivedDiveData.sortedMediaItems,
             selectedMediaID: $selectedDiveMediaPhotoID,
@@ -1014,13 +1027,16 @@ struct ViewSingleActivity: View {
             onTagMarineLife: showsMarineLifeTagInSheet
                 ? { tagMarineLifeFromSelectedMedia() }
                 : nil,
-            showsFishialIdentify: showsFishialIdentify,
-            onIdentifyFishial: showsFishialIdentify
-                ? { identifyFishialFromSelectedMedia() }
+            onExpandMarineLifeDetail: expandsMarineLifeDetail
+                ? {
+                    withAnimation(.diveOverviewPanelDetent) {
+                        overviewSheetDetent = .large
+                    }
+                }
                 : nil,
             featuredMediaID: DiveActivityMediaPresentation.featuredPhotoID(on: activity),
             onToggleFeatured: { toggleFeaturedMedia($0) },
-            taggedSpecies: hasMedia ? selectedMediaTaggedSpecies : [],
+            taggedSpecies: taggedSpecies,
             mediaPickerItems: $diveMediaPickerItems,
             isImportInProgress: mediaImportOverlay.isBlocking
         )
@@ -1057,18 +1073,6 @@ struct ViewSingleActivity: View {
             in: derivedDiveData.sortedMediaItems
         ) else { return }
         tagMarineLifeFromMedia(media)
-    }
-
-    private var showsFishialIdentifyAction: Bool {
-        FishialSecretsBootstrap.isConfigured
-    }
-
-    private func identifyFishialFromSelectedMedia() {
-        guard let media = DiveActivityMediaPresentation.selectedMedia(
-            selectedID: selectedDiveMediaPhotoID,
-            in: derivedDiveData.sortedMediaItems
-        ) else { return }
-        fishialIdentifyMediaID = media.id
     }
 
     @MainActor
@@ -1255,22 +1259,6 @@ struct ViewSingleActivity: View {
 
     private func tagMarineLifeFromMedia(_ media: DiveMediaPhoto) {
         marineLifeTagMediaID = media.id
-    }
-
-    private var fishialIdentifySheetPresented: Binding<Bool> {
-        Binding(
-            get: { fishialIdentifyMediaID != nil },
-            set: { isPresented in
-                if !isPresented {
-                    fishialIdentifyMediaID = nil
-                }
-            }
-        )
-    }
-
-    private var fishialIdentifyTargetMedia: DiveMediaPhoto? {
-        guard let fishialIdentifyMediaID else { return nil }
-        return derivedDiveData.mediaPhotosByID[fishialIdentifyMediaID]
     }
 
     private var depthChartPreviewCaptureContext: DiveMediaCaptureContext? {

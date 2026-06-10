@@ -21,6 +21,12 @@
     "commons_request_delay_seconds": 0.2,
     "openverse_request_delay_seconds": 1.0
   },
+  "marine_life_bundle_photos": {
+    "output_width": 960,
+    "output_height": 720,
+    "jpeg_quality": 82,
+    "download_sleep_seconds": 1.0
+  },
   "attribution": "Species facts sourced from FishBase (CC BY-NC). https://www.fishbase.se",
   "family_to_subcategory": {
     "Acanthuridae": "disk-and-large-oval",

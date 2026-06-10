@@ -24,10 +24,18 @@ extension View {
     }
 
     /// Rounded top corners + opaque blue panel fill (matches **`HomeLifetimeStatsPanel`**).
-    func diveActivityOverviewEmbeddedPanelChrome() -> some View {
+    func diveActivityOverviewEmbeddedPanelChrome(translucent: Bool = false) -> some View {
         background {
-            AppOverviewSheetPanelBackground()
-                .ignoresSafeArea(edges: .bottom)
+            Group {
+                if translucent {
+                    Rectangle()
+                        .fill(.thinMaterial)
+                        .opacity(AppTheme.Sheet.embeddedOverviewTranslucentOpacity)
+                } else {
+                    AppOverviewSheetPanelBackground()
+                }
+            }
+            .ignoresSafeArea(edges: .bottom)
         }
         .clipShape(
             .rect(

@@ -163,6 +163,7 @@ struct FieldGuideMarineLifeDetailView: View {
         Group {
             switch FieldGuideMarineLifeHeroPresentation.heroKind(
                 featureModelResourceName: species.featureModelResourceName,
+                featureImageResourceName: species.featureImageResourceName,
                 featureImageURL: species.featureImageURL
             ) {
             case .model3D(let configuration):
@@ -170,9 +171,10 @@ struct FieldGuideMarineLifeDetailView: View {
                     configuration: configuration,
                     height: height
                 )
-            case .remoteImage:
+            case .bundledPhoto, .remoteImage:
                 FieldGuideMarineLifeCatalogImage(
                     imageURLString: species.featureImageURL,
+                    bundleResourceName: species.featureImageResourceName,
                     placement: .detailHero(totalHeight: height)
                 )
             case .placeholder:

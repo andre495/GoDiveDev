@@ -30,7 +30,7 @@ struct FishialVideoStillScrubPickerView: View {
 
     private var scrubControls: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-            Text("Scrub to the clearest view of the fish, then tap Identify.")
+            Text(FishialImageCropPresentation.videoScrubInstruction)
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.Colors.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)

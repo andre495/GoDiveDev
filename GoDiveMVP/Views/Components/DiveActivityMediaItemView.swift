@@ -15,7 +15,9 @@ struct DiveActivityMediaItemView: View {
     var timeZoneOffsetSeconds: Int?
     var captureContext: DiveMediaCaptureContext?
     var showsCaptureDateOverlay = true
+    var captureOverlayBottomInset: CGFloat = 0
     var showsMarineLifeTagButton = false
+    var marineLifeTagIsActive = false
     /// Top padding below the dive tab bar (**`DiveActivityOverviewPanelMetrics.marineLifeTagButtonTopPadding`**).
     var marineLifeTagTopInset: CGFloat = 0
     var onTagMarineLife: (() -> Void)?
@@ -47,7 +49,10 @@ struct DiveActivityMediaItemView: View {
 
             if showsMarineLifeTagButton, let onTagMarineLife {
                 VStack(alignment: .leading, spacing: 0) {
-                    DiveActivityMediaMarineLifeTagButton(action: onTagMarineLife)
+                    DiveActivityMediaMarineLifeTagButton(
+                        isActive: marineLifeTagIsActive,
+                        action: onTagMarineLife
+                    )
                         .padding(.top, marineLifeTagTopInset)
                         .padding(.leading, AppTheme.Spacing.md)
                     Spacer(minLength: 0)
@@ -102,6 +107,7 @@ struct DiveActivityMediaItemView: View {
                         source: media.videoPlaybackSource,
                         isPlaybackActive: isVideoPlaybackActive,
                         loopsPlayback: loopsVideoPlayback,
+                        libraryVideoQuality: DiveActivityMediaPresentation.overviewLibraryVideoQuality,
                         isPausedByUserHold: isHoldingVideoPause,
                         onAssetMissing: pruneIfAssetMissing
                     )
@@ -111,6 +117,7 @@ struct DiveActivityMediaItemView: View {
 
             if showsCaptureDateOverlay, let overlay = captureOverlay {
                 captureOverlayBadge(dateTimeLine: overlay.dateTimeLine, divePositionLine: overlay.divePositionLine)
+                    .padding(.bottom, captureOverlayBottomInset)
             }
         }
     }

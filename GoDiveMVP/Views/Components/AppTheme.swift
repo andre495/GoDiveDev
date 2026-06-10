@@ -170,5 +170,7 @@ enum AppTheme {
         static let contentTopSpacing: CGFloat = Spacing.lg
         /// Opacity on **`.thinMaterial`** in **`presentationBackground`** — lower values let more of the hero / page show through.
         static let backgroundMaterialOpacity: CGFloat = 0.64
+        /// **Media** embedded panel at every detent — hero shows through the frosted sheet.
+        static let embeddedOverviewTranslucentOpacity: CGFloat = 0.62
     }
 }

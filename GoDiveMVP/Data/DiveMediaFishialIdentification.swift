@@ -37,6 +37,46 @@ struct FishialIdentifyCandidateFrame: Equatable {
         lhs.data == rhs.data && lhs.filename == rhs.filename
     }
 }
+
+/// Source still and optional video scrub context for the Fishial crop step.
+struct FishialStillCropContext {
+    let sourceImage: UIImage
+    let filename: String
+    /// Set for photos so Identify can re-export a full-quality crop.
+    let diveMedia: DiveMediaPhoto?
+    #if canImport(AVFoundation)
+    let videoScrubContext: FishialVideoScrubContext?
+    #endif
+
+    init(diveMedia: DiveMediaPhoto, previewImage: UIImage) {
+        sourceImage = previewImage
+        filename = DiveMediaFishialFrameExport.photoFilename(mediaID: diveMedia.id)
+        self.diveMedia = diveMedia
+        #if canImport(AVFoundation)
+        videoScrubContext = nil
+        #endif
+    }
+
+    #if canImport(AVFoundation)
+    init(
+        exportedFrame: FishialIdentifyCandidateFrame,
+        videoScrubContext: FishialVideoScrubContext
+    ) {
+        sourceImage = exportedFrame.previewImage
+        filename = exportedFrame.filename
+        diveMedia = nil
+        self.videoScrubContext = videoScrubContext
+    }
+    #endif
+
+    var isPhotoSelection: Bool {
+        #if canImport(AVFoundation)
+        return videoScrubContext == nil
+        #else
+        return true
+        #endif
+    }
+}
 #endif
 
 /// Prepares still selection and runs Fishial on the user-chosen frame only.
@@ -55,7 +95,7 @@ enum DiveMediaFishialIdentification {
         case video(FishialVideoScrubContext)
         #endif
         #if canImport(UIKit)
-        case photo(FishialIdentifyCandidateFrame)
+        case photoCrop(FishialStillCropContext)
         #endif
     }
 
@@ -64,8 +104,8 @@ enum DiveMediaFishialIdentification {
     static func prepareSelection(for media: DiveMediaPhoto) async throws -> SelectionContext {
         switch media.resolvedMediaKind {
         case .image:
-            let frame = try await DiveMediaFishialFrameExport.exportPhotoCandidate(for: media)
-            return .photo(frame)
+            let context = try await DiveMediaFishialFrameExport.makePhotoCropContext(for: media)
+            return .photoCrop(context)
         case .video:
             #if canImport(AVFoundation)
             let context = try await DiveMediaFishialFrameExport.makeVideoScrubContext(for: media)

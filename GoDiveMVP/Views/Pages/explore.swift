@@ -39,6 +39,13 @@ struct ExploreView: View {
         viewMode == .list && !diveSites.isEmpty
     }
 
+    private var locksPortraitOrientation: Bool {
+        AppPortraitOrientationLockPolicy.locksExploreList(
+            pathIsEmpty: path.isEmpty,
+            viewModeIsList: viewMode == .list
+        )
+    }
+
     private var ownerDiveActivities: [DiveActivity] {
         guard let ownerID = accountSession.currentProfile?.id else { return [] }
         return diveActivities.filter { $0.ownerProfileID == ownerID }
@@ -147,6 +154,7 @@ struct ExploreView: View {
                 dismissSiteSearchKeyboard()
             }
         }
+        .portraitOrientationLock(when: locksPortraitOrientation)
     }
 
     private func dismissSiteSearchKeyboard() {

@@ -21,6 +21,8 @@ enum MarineLifeCatalogSeeder {
     let existing = try context.fetch(FetchDescriptor<MarineLife>())
     var existingByUUID = Dictionary(uniqueKeysWithValues: existing.map { ($0.uuid, $0) })
 
+    let bundledUUIDs = Set(dtos.map(\.uuid))
+
     for dto in dtos {
       let mapped = MarineLifeMapper.map(dto)
       if let existingSpecies = existingByUUID[mapped.uuid] {
@@ -31,6 +33,13 @@ enum MarineLifeCatalogSeeder {
       }
     }
 
+    for species in existing where !bundledUUIDs.contains(species.uuid) {
+      for sighting in species.sightingInstances {
+        sighting.marineLife = nil
+      }
+      context.delete(species)
+    }
+
     if context.hasChanges {
       try context.save()
     }
@@ -39,6 +48,7 @@ enum MarineLifeCatalogSeeder {
   private static func applyCatalogFields(from source: MarineLife, to destination: MarineLife) {
     destination.commonName = source.commonName
     destination.featureImageURL = source.featureImageURL
+    destination.featureImageResourceName = source.featureImageResourceName
     destination.featureModelResourceName = source.featureModelResourceName
     destination.scientificName = source.scientificName
     destination.category = source.category
