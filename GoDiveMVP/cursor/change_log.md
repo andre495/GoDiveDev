@@ -1196,3 +1196,5 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Marine life oval chip titles** — **`MarineLifeMediaTagPresentation.chipDisplayTitle`** caps visible text at **25** characters with **…**; full names kept for accessibility. Test: **`chipDisplayTitle_truncatesAtMaxLength`**.
 - **Dive activity landscape** — map / tank / media tabs hide the embedded sheet at every detent; map full-screen + interactive; tank full-screen depth profile (all detents); media full-bleed. **`DiveActivityOverviewLandscapePresentation`**. Tests: **`hidesSheetAndUnlocksMapAtEveryDetent`**, **`landscapeProfileChart_atEveryDetent`**.
 - **Portrait lock on catalog / list tabs** — Home, Logbook list, Field Guide (all browse + species detail), and Explore dive-site **list** root stay portrait-only via **`AppPortraitOrientationLock`** + **`AppPortraitOrientationLockPolicy`**; dive activity, Explore map, and pushed site/dive destinations still rotate. **`GoDiveGoogleMapsAppDelegate`** consults **`AppPortraitOrientationLockController`**. Test: **`appPortraitOrientationLockPolicy_listScreensStayPortrait`**.
+
+## 75 - Next batch
