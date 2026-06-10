@@ -26,6 +26,8 @@ struct FieldGuideMarineLifeCatalogImage: View {
     var bundleResourceName: String = ""
     let placement: Placement
 
+    @Environment(AppNetworkConnectivityMonitor.self) private var networkConnectivity
+
     var body: some View {
         switch placement {
         case .mosaicTile(let accent):
@@ -85,7 +87,11 @@ struct FieldGuideMarineLifeCatalogImage: View {
         case .bundledFile(let url):
             bundledFillImage(url: url, accent: accent)
         case .remote(let url):
-            remoteFillImage(url: url, accent: accent)
+            if networkConnectivity.isConnected {
+                remoteFillImage(url: url, accent: accent)
+            } else {
+                offlineRemotePlaceholder(accent: accent)
+            }
         case .none:
             EmptyView()
         }
@@ -141,6 +147,13 @@ struct FieldGuideMarineLifeCatalogImage: View {
                 placeholder(accent: accent)
             }
         }
+    }
+
+    private func offlineRemotePlaceholder(accent: Color) -> some View {
+        placeholder(accent: accent)
+            .overlay {
+                OfflineMediaUnavailableIndicator(font: .caption)
+            }
     }
 
     private func placeholder(accent: Color) -> some View {

@@ -13,6 +13,7 @@ struct DiveActivityMediaItemView: View {
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @Environment(\.displayScale) private var displayScale
     @Environment(\.modelContext) private var modelContext
+    @Environment(AppNetworkConnectivityMonitor.self) private var networkConnectivity
 
     let media: DiveMediaPhoto
     var timeZoneOffsetSeconds: Int?
@@ -157,7 +158,7 @@ struct DiveActivityMediaItemView: View {
                     .clipped()
                     .accessibilityLabel("Dive video poster")
             } else {
-                missingImage(in: geometry.size, systemImage: "video")
+                missingImage(in: geometry.size, systemImage: "video", showsOfflineIndicator: !networkConnectivity.isConnected)
             }
             #else
             missingImage(in: geometry.size, systemImage: "video")
@@ -177,7 +178,7 @@ struct DiveActivityMediaItemView: View {
                     .clipped()
                     .accessibilityLabel("Dive photo")
             } else {
-                missingImage(in: geometry.size, systemImage: "photo")
+                missingImage(in: geometry.size, systemImage: "photo", showsOfflineIndicator: !networkConnectivity.isConnected)
             }
             #else
             missingImage(in: geometry.size, systemImage: "photo")
@@ -201,7 +202,7 @@ struct DiveActivityMediaItemView: View {
             targetSize: posterSize,
             deliveryMode: .opportunistic
         )
-        if image == nil {
+        if image == nil, networkConnectivity.isConnected {
             DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
         }
         videoPosterImage = image
@@ -213,19 +214,28 @@ struct DiveActivityMediaItemView: View {
             return
         }
         guard layoutWidth > 0 else { return }
-        let edge = DiveActivityMediaPresentation.fullScreenImageTargetEdge(
-            screenPixelWidth: layoutWidth * displayScale
-        )
+        let screenPixelWidth = layoutWidth * displayScale
+        let targetSize: CGSize
+        if networkConnectivity.isConnected {
+            let edge = DiveActivityMediaPresentation.fullScreenImageTargetEdge(
+                screenPixelWidth: screenPixelWidth
+            )
+            targetSize = CGSize(width: edge, height: edge)
+        } else {
+            targetSize = DiveMediaProgressivePresentation.posterTargetSize(
+                screenPixelWidth: screenPixelWidth
+            )
+        }
         var receivedFrame = false
         await DiveMediaReferenceLoader.loadImageProgressive(
             localIdentifier: identifier,
-            targetSize: CGSize(width: edge, height: edge),
+            targetSize: targetSize,
             deliveryMode: .opportunistic
         ) { image, _ in
             previewImage = image
             receivedFrame = true
         }
-        if !receivedFrame {
+        if !receivedFrame, networkConnectivity.isConnected {
             DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
         }
     }
@@ -256,12 +266,20 @@ struct DiveActivityMediaItemView: View {
         )
     }
 
-    private func missingImage(in size: CGSize, systemImage: String = "photo") -> some View {
+    private func missingImage(
+        in size: CGSize,
+        systemImage: String = "photo",
+        showsOfflineIndicator: Bool = false
+    ) -> some View {
         ZStack {
             AppTheme.Colors.surfaceMuted.opacity(0.5)
-            Image(systemName: systemImage)
-                .font(.largeTitle)
-                .foregroundStyle(AppTheme.Colors.tabUnselected)
+            if showsOfflineIndicator {
+                OfflineMediaUnavailableIndicator()
+            } else {
+                Image(systemName: systemImage)
+                    .font(.largeTitle)
+                    .foregroundStyle(AppTheme.Colors.tabUnselected)
+            }
         }
         .frame(width: size.width, height: size.height)
     }

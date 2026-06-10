@@ -353,11 +353,12 @@ enum DiveActivityMediaPresentation: Sendable {
     }
 
     /// Keeps pager selection valid when the photo list changes.
+    /// Preserves a pending **`selectedID`** while **`photos`** is still empty (e.g. Home featured-media deep link before derived media loads).
     nonisolated static func resolvedSelectedPhotoID(
         selectedID: UUID?,
         in photos: [DiveMediaPhoto]
     ) -> UUID? {
-        guard !photos.isEmpty else { return nil }
+        guard !photos.isEmpty else { return selectedID }
         if let selectedID, photos.contains(where: { $0.id == selectedID }) {
             return selectedID
         }

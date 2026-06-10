@@ -33,6 +33,10 @@ struct FieldGuideView: View {
         !path.isEmpty
     }
 
+    private var isFieldGuideNavigationStackAtRoot: Bool {
+        RootStackReturnNavigationPresentation.isStackAtRoot(pathCount: path.count)
+    }
+
     private var locksPortraitOrientation: Bool {
         AppPortraitOrientationLockPolicy.locksFieldGuide(
             isShowingDiveDetail: {
@@ -126,6 +130,8 @@ struct FieldGuideView: View {
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
+            .restoresRootTabBarWhenStackIsEmpty(isFieldGuideNavigationStackAtRoot)
+            .animation(nil, value: path.count)
             .navigationDestination(for: FieldGuideRoute.self) { route in
                 switch route {
                 case .category(let summary):
@@ -205,8 +211,8 @@ struct FieldGuideView: View {
     @ViewBuilder
     private func sectionContent(topInset: CGFloat, bottomInset: CGFloat) -> some View {
         ZStack(alignment: .top) {
-            if !GoDiveUITestConfiguration.isActive, !isNavigatingCatalog {
-                WaterBubbleBackground()
+            if !GoDiveUITestConfiguration.isActive {
+                WaterBubbleBackground(animationPaused: isNavigatingCatalog)
             }
 
             fieldGuideCatalogListContent(

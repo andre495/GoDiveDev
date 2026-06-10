@@ -3,6 +3,8 @@ import SwiftData
 
 /// Profile roster list + buddy detail copy and shared-dive resolution.
 enum DiveBuddyRosterPresentation {
+    /// Buddy detail is a fixed **`AppPage`** (no outer scroll); **Dives together** expands in place.
+    static let buddyDetailUsesScrollContainer = false
 
     nonisolated static func rosterCountLabel(_ count: Int) -> String {
         switch count {

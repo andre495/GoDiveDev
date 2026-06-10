@@ -19,6 +19,10 @@ struct ExploreView: View {
     @State private var exploreTopChromeHeight: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
     @State private var listScrollToTopNonce = 0
 
+    private var isExploreNavigationStackAtRoot: Bool {
+        RootStackReturnNavigationPresentation.isStackAtRoot(pathCount: path.count)
+    }
+
     private var filteredDiveSites: [DiveSite] {
         ExploreDiveSiteListSearch.filtering(diveSites, query: siteSearchQuery)
     }
@@ -89,7 +93,8 @@ struct ExploreView: View {
                             siteSearchQuery: $siteSearchQuery,
                             isSiteSearchFocused: $isSiteSearchFocused,
                             showsSiteSearch: showsSiteListSearch,
-                            statusBarSafeAreaTop: proxy.safeAreaInsets.top
+                            statusBarSafeAreaTop: proxy.safeAreaInsets.top,
+                            onOpenTripPlanner: { path.append(.tripPlanner) }
                         )
                         .frame(maxWidth: .infinity, alignment: .top)
                         .zIndex(1)
@@ -102,8 +107,12 @@ struct ExploreView: View {
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
+            .restoresRootTabBarWhenStackIsEmpty(isExploreNavigationStackAtRoot)
+            .animation(nil, value: path.count)
             .navigationDestination(for: ExploreRoute.self) { route in
                 switch route {
+                case .tripPlanner:
+                    TripPlannerView()
                 case .siteDetail(let siteID):
                     if let site = diveSites.first(where: { $0.id == siteID }) {
                         ExploreDiveSiteDetailView(

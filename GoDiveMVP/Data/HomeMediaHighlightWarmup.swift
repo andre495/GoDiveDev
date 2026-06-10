@@ -244,6 +244,7 @@ enum HomeMediaHighlightWarmup {
 
     private static func scheduleBackgroundFullQualityWarmup(for mediaRows: [DiveMediaPhoto]) {
         backgroundFullWarmupTask?.cancel()
+        guard AppNetworkConnectivitySnapshot.shared.allowsCloudMediaFetch else { return }
         let remainder = Array(mediaRows.dropFirst(HomeMediaHighlightWarmupPresentation.startupFullQualityCount))
         guard !remainder.isEmpty else { return }
 
@@ -293,6 +294,9 @@ enum HomeMediaHighlightWarmup {
         identifier: String,
         quality: HomeMediaHighlightWarmupPresentation.WarmupQuality
     ) async {
+        if quality == .full, !AppNetworkConnectivitySnapshot.shared.allowsCloudMediaFetch {
+            return
+        }
         let imageEdge = imageEdge(for: quality)
         let size = CGSize(width: imageEdge, height: imageEdge)
 

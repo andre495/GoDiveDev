@@ -22,7 +22,12 @@ struct LogOverviewView: View {
     @State private var homeAggregate = HomeOverviewAggregate.empty
     @State private var lastCarouselFingerprint = 0
     @State private var hasCarouselSessionWarmCompleted = false
+    @State private var hasPerformedInitialHomeBuild = false
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
+
+    private var isHomeNavigationStackAtRoot: Bool {
+        path.isEmpty
+    }
 
     private enum Layout {
         static let profileAvatarDiameter: CGFloat = 48
@@ -96,8 +101,8 @@ struct LogOverviewView: View {
                     .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
 
                     AppHeader(title: "Home", showsBackButton: false, statusBarSafeAreaTop: proxy.safeAreaInsets.top) {
-                        NavigationLink {
-                            ProfileView()
+                        Button {
+                            path.append(.profile)
                         } label: {
                             ProfileAvatarView(
                                 profilePhoto: profilePhotoForHeader,
@@ -126,7 +131,14 @@ struct LogOverviewView: View {
             .toolbarBackground(.hidden, for: .navigationBar)
             .navigationInteractivePopGestureForHiddenNavBar()
             .navigationDestination(for: HomeRoute.self, destination: homeDestination)
-            .onAppear { rebuildHomeOverview() }
+            .restoresRootTabBarWhenStackIsEmpty(isHomeNavigationStackAtRoot)
+            .animation(nil, value: path.count)
+            .onAppear { handleHomeRootAppear() }
+            .onChange(of: path.count) { oldCount, newCount in
+                if newCount == 0, oldCount > 0 {
+                    handleReturnToHomeRoot()
+                }
+            }
             .onChange(of: ownerDiveActivities.count) { _, _ in rebuildHomeOverview() }
             .onChange(of: allMediaPhotos.count) { _, _ in rebuildHomeOverview() }
             .onChange(of: allSightings.count) { _, _ in rebuildHomeOverview() }
@@ -236,6 +248,8 @@ struct LogOverviewView: View {
     @ViewBuilder
     private func homeDestination(for route: HomeRoute) -> some View {
         switch route {
+        case .profile:
+            ProfileView()
         case .diveDetail(let id):
             if let activity = ownerDiveActivities.first(where: { $0.id == id }) {
                 ViewSingleActivity(activity: activity)
@@ -281,6 +295,50 @@ struct LogOverviewView: View {
         Text(message)
             .foregroundStyle(AppTheme.Colors.secondaryText)
             .padding()
+    }
+
+    private func handleHomeRootAppear() {
+        if !hasPerformedInitialHomeBuild {
+            hasPerformedInitialHomeBuild = true
+            rebuildHomeOverview()
+            return
+        }
+        handleReturnToHomeRoot()
+    }
+
+    private func handleReturnToHomeRoot() {
+        if HomeReturnNavigationPresentation.shouldSkipFullRebuildOnReturn(
+            hasPerformedInitialBuild: hasPerformedInitialHomeBuild,
+            isCarouselMediaReady: isCarouselMediaReady,
+            hasCarouselHighlights: !carouselHighlights.isEmpty
+        ) {
+            ensureCarouselReadyAfterReturn()
+            return
+        }
+        rebuildHomeOverview()
+    }
+
+    private func ensureCarouselReadyAfterReturn() {
+        guard !carouselHighlights.isEmpty else {
+            isCarouselMediaReady = false
+            return
+        }
+        let allDisplayable = HomeMediaHighlightWarmup.carouselHighlightsAreDisplayable(
+            carouselHighlights,
+            mediaByID: homeAggregate.mediaByID
+        )
+        isCarouselMediaReady = hasCarouselSessionWarmCompleted
+            || allDisplayable
+            || isFirstCarouselHighlightReady(aggregate: homeAggregate)
+        guard !allDisplayable || !hasCarouselSessionWarmCompleted else { return }
+        Task {
+            await HomeMediaHighlightWarmup.warmHighlights(
+                carouselHighlights,
+                mediaByID: homeAggregate.mediaByID
+            )
+            hasCarouselSessionWarmCompleted = true
+            isCarouselMediaReady = true
+        }
     }
 
     private func rebuildHomeOverview() {

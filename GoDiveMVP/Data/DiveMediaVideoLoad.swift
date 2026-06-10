@@ -11,12 +11,17 @@ enum DiveMediaVideoLoadOutcome: Sendable {
     case assetMissing
     /// A transient failure / timeout (asset still present, or a local file) — show an error with a retry option.
     case retryable
+    /// No network and no local preview/stream — show offline icon only (no retry sheet).
+    case offlineUnavailable
 }
 
 extension DiveMediaVideoLoadOutcome: Equatable {
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         switch (lhs, rhs) {
-        case (.loaded, .loaded), (.assetMissing, .assetMissing), (.retryable, .retryable):
+        case (.loaded, .loaded),
+             (.assetMissing, .assetMissing),
+             (.retryable, .retryable),
+             (.offlineUnavailable, .offlineUnavailable):
             return true
         default:
             return false
@@ -37,10 +42,12 @@ enum DiveMediaVideoLoad {
     nonisolated static func classify(
         itemResolved: Bool,
         isLibraryAsset: Bool,
-        assetStillExists: Bool
+        assetStillExists: Bool,
+        isNetworkAvailable: Bool = true
     ) -> DiveMediaVideoLoadOutcome {
         if itemResolved { return .loaded }
         if isLibraryAsset, !assetStillExists { return .assetMissing }
+        if !isNetworkAvailable { return .offlineUnavailable }
         return .retryable
     }
 }

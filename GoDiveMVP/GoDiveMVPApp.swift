@@ -39,6 +39,7 @@ struct GoDiveMVPApp: App {
 
     private func productionRoot(container: ModelContainer) -> some View {
         ProductionAppRoot(container: container, accountSession: accountSession)
+            .environment(AppNetworkConnectivityMonitor.shared)
     }
 }
 

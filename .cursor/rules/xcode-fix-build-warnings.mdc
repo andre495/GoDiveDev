@@ -1,0 +1,42 @@
+---
+description: When building or testing, fix every project warning before handing off.
+alwaysApply: true
+---
+
+# Fix build / test warnings
+
+Whenever you run **`xcodebuild`** (per **`.cursor/rules/xcode-test-only-when-asked.mdc`**), treat **warnings in project code** as **must-fix** — same priority as compile errors for handoff.
+
+## When this applies
+
+- Explicit **run**, **build**, or **test** requests (**`xcode-run-test.mdc`**, **`xcode-run-dres-phone.mdc`**).
+- **Commit / push** preflight builds (**`clean build-for-testing`**).
+
+## Required workflow
+
+1. Grep the build log for **`warning:`** (and **`error:`**).
+2. **Fix every warning** in **`GoDiveMVP/`**, **`GoDiveMVPTests/`**, and **`GoDiveMVPUITests/`** before reporting success.
+3. **Rebuild** (same destination / target as the original request) and repeat until **project warning count is 0**.
+4. Summarize what you fixed (file + warning type), not only “BUILD SUCCEEDED”.
+
+## Fix, don't ignore
+
+Especially address:
+
+- Swift 6 **actor-isolation** / **Sendable** / **main actor** warnings
+- Deprecated API usage in app or test targets
+- Unused variables, unreachable code, implicit coercion
+- Test macro / **`#expect`** isolation warnings in **`GoDiveMVPTests`**
+
+Prefer the smallest correct fix (annotation, isolation, type change, test helper on **`@MainActor`**) — do not blanket **`@preconcurrency`** or **`#warning`** suppressions unless there is no safe fix.
+
+## Exclusions (report only, do not chase)
+
+- **`appintentsmetadataprocessor`** “Metadata extraction skipped”
+- Warnings inside **Swift Package** dependencies (**FITSwiftSDK**, **GoogleMaps**, etc.) you cannot change in this repo
+
+If a warning is in an **unchanged third-party** file, note it in the summary and still require **0 warnings** from **your** targets.
+
+## Handoff bar
+
+Do **not** say the build/test pass is complete while **GoDiveMVP** or **GoDiveMVPTests** / **GoDiveMVPUITests** logs still show fixable **`warning:`** lines.

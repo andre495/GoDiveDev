@@ -29,9 +29,11 @@ enum DiveMediaProgressivePresentation: Sendable {
     nonisolated static func shouldUpgradeToFullVideo(
         isPlaybackActive: Bool,
         isPausedByUserHold: Bool,
-        currentFidelity: DiveMediaVideoFidelity
+        currentFidelity: DiveMediaVideoFidelity,
+        isNetworkAvailable: Bool = true
     ) -> Bool {
-        isPlaybackActive
+        isNetworkAvailable
+            && isPlaybackActive
             && !isPausedByUserHold
             && currentFidelity == .preview
     }

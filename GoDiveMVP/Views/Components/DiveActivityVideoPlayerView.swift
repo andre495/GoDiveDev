@@ -39,6 +39,7 @@ struct DiveActivityVideoPlayerView: View {
     @State private var isResolving = false
     @State private var isPlayerDisplayReady = false
     @State private var loadFailed = false
+    @State private var showsOfflineUnavailable = false
     @State private var reloadToken = 0
     @State private var fullUpgradeTask: Task<Void, Never>?
     #endif
@@ -79,6 +80,8 @@ struct DiveActivityVideoPlayerView: View {
                         .clipped()
                     }
                     .accessibilityLabel("Dive video")
+                } else if showsOfflineUnavailable {
+                    offlineUnavailablePlaceholder
                 } else if loadFailed {
                     errorRetryPlaceholder
                 } else if posterImage == nil, !isResolving, source == nil {
@@ -141,6 +144,7 @@ struct DiveActivityVideoPlayerView: View {
 
         isResolving = true
         loadFailed = false
+        showsOfflineUnavailable = false
         posterImage = nil
         videoFidelity = .none
         let resolved = await resolvedItem(for: source, quality: libraryVideoQuality)
@@ -169,6 +173,7 @@ struct DiveActivityVideoPlayerView: View {
 
         isResolving = true
         loadFailed = false
+        showsOfflineUnavailable = false
         posterImage = nil
         videoFidelity = .none
         isPlayerDisplayReady = false
@@ -220,7 +225,8 @@ struct DiveActivityVideoPlayerView: View {
               DiveMediaProgressivePresentation.shouldUpgradeToFullVideo(
                   isPlaybackActive: isPlaybackActive,
                   isPausedByUserHold: isPausedByUserHold,
-                  currentFidelity: videoFidelity
+                  currentFidelity: videoFidelity,
+                  isNetworkAvailable: AppNetworkConnectivitySnapshot.shared.allowsCloudMediaFetch
               ) else {
             return
         }
@@ -274,15 +280,21 @@ struct DiveActivityVideoPlayerView: View {
         switch DiveMediaVideoLoad.classify(
             itemResolved: false,
             isLibraryAsset: source.isLibraryAsset,
-            assetStillExists: assetStillExists(for: source)
+            assetStillExists: assetStillExists(for: source),
+            isNetworkAvailable: AppNetworkConnectivitySnapshot.shared.allowsCloudMediaFetch
         ) {
         case .loaded:
             break
         case .assetMissing:
             loadFailed = false
+            showsOfflineUnavailable = false
             onAssetMissing?()
         case .retryable:
+            showsOfflineUnavailable = false
             loadFailed = true
+        case .offlineUnavailable:
+            loadFailed = false
+            showsOfflineUnavailable = posterImage == nil
         }
     }
 
@@ -293,6 +305,7 @@ struct DiveActivityVideoPlayerView: View {
         videoFidelity = .none
         isResolving = false
         loadFailed = false
+        showsOfflineUnavailable = false
         isPlayerDisplayReady = false
     }
 
@@ -324,6 +337,13 @@ struct DiveActivityVideoPlayerView: View {
 
     private var subtleLoadingPlaceholder: some View {
         Color.clear
+    }
+
+    private var offlineUnavailablePlaceholder: some View {
+        ZStack {
+            AppTheme.Colors.surfaceMuted.opacity(0.5)
+            OfflineMediaUnavailableIndicator()
+        }
     }
 
     private var errorRetryPlaceholder: some View {

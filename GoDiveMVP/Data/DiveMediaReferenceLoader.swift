@@ -13,9 +13,15 @@ import AVFoundation
 /// from the user's Photos library by **`PHAsset.localIdentifier`** (**`DiveMediaPhoto.libraryAssetLocalIdentifier`**),
 /// so the app stores only a pointer instead of duplicating bytes on disk.
 ///
-/// All loads allow iCloud network access; a missing/offline/deleted asset resolves to **`nil`** so callers
-/// fall back to a placeholder.
+/// PhotoKit loads use **`AppNetworkConnectivitySnapshot`** — when offline, only local previews are requested
+/// (**`isNetworkAccessAllowed = false`**). A missing/deleted asset still resolves to **`nil`**.
 enum DiveMediaReferenceLoader {
+
+    nonisolated private static var photoKitAllowsNetworkAccess: Bool {
+        AppNetworkConnectivityPresentation.photoKitAllowsNetworkAccess(
+            isConnected: AppNetworkConnectivitySnapshot.shared.allowsCloudMediaFetch
+        )
+    }
 
     #if canImport(Photos)
     /// Fetches the **`PHAsset`** for a local identifier, or **`nil`** if it no longer exists / access is denied.
@@ -168,7 +174,7 @@ enum DiveMediaReferenceLoader {
         onFrame: @escaping @MainActor (_ image: UIImage?, _ isFinal: Bool) -> Void
     ) async {
         let options = PHImageRequestOptions()
-        options.isNetworkAccessAllowed = true
+        options.isNetworkAccessAllowed = photoKitAllowsNetworkAccess
         options.deliveryMode = deliveryMode
         options.resizeMode = .fast
         options.isSynchronous = false
@@ -207,7 +213,7 @@ enum DiveMediaReferenceLoader {
         deliveryMode: PHImageRequestOptionsDeliveryMode
     ) async -> UIImage? {
         let options = PHImageRequestOptions()
-        options.isNetworkAccessAllowed = true
+        options.isNetworkAccessAllowed = photoKitAllowsNetworkAccess
         options.deliveryMode = deliveryMode
         options.resizeMode = .fast
         options.isSynchronous = false
@@ -248,7 +254,7 @@ enum DiveMediaReferenceLoader {
         guard !assets.isEmpty else { return }
 
         let options = PHImageRequestOptions()
-        options.isNetworkAccessAllowed = true
+        options.isNetworkAccessAllowed = photoKitAllowsNetworkAccess
         options.deliveryMode = .highQualityFormat
         options.resizeMode = .fast
 
@@ -272,7 +278,7 @@ enum DiveMediaReferenceLoader {
         quality: DiveMediaVideoRequestQuality = .fullQuality
     ) -> PHVideoRequestOptions {
         let options = PHVideoRequestOptions()
-        options.isNetworkAccessAllowed = true
+        options.isNetworkAccessAllowed = photoKitAllowsNetworkAccess
         options.deliveryMode = quality.photoKitDeliveryMode
         return options
     }

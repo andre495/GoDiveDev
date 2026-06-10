@@ -1,7 +1,7 @@
 import Foundation
 
-/// Deep-link target when a dive is opened from a logbook row's media thumbnail:
-/// the **Media** tab, at the **medium** detent, focused on the tapped photo.
+/// Deep-link target when a dive is opened from a logbook row thumbnail or Home featured media:
+/// the **Media** tab, at the **medium** detent, focused on the tapped photo in the carousel.
 enum DiveActivityMediaFocusPresentation {
     struct Focus: Equatable, Sendable {
         let tab: DiveActivityTab

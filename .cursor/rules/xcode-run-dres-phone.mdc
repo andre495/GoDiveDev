@@ -1,0 +1,72 @@
+---
+description: Dre's Phone runs — always clean, rebuild, then install and launch on device.
+alwaysApply: true
+---
+
+# Run on Dre's Phone — clean, rebuild, launch
+
+When the user asks to **run on Dre's phone** (or **Dre's Phone**, **my phone**, **device** in a run context), follow this **full** pipeline — do not stop after a successful build.
+
+**Gate:** Only when the user explicitly asks to run/launch (see **`.cursor/rules/xcode-test-only-when-asked.mdc`**). This rule defines *how* to run on device, not *when*.
+
+## Device
+
+| Field | Value |
+|-------|--------|
+| **Name** | Dre's Phone (curly apostrophe in Xcode) |
+| **Destination** | `platform=iOS,id=00008130-001241C118A1401C` |
+| **Bundle ID** | `PrimoSoftware.GoDiveMVP` |
+
+Prefer the **device id** over the display name in **`-destination`**.
+
+## Required steps (in order)
+
+### 1. Clean the build folder
+
+```bash
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+XCBUILD="$DEVELOPER_DIR/usr/bin/xcodebuild"
+PROJECT="/Users/andrdugas/Desktop/GoDiveMVP/GoDiveMVP.xcodeproj"
+SCHEME="GoDiveMVP"
+DEST='platform=iOS,id=00008130-001241C118A1401C'
+
+$XCBUILD -project "$PROJECT" -scheme "$SCHEME" \
+  -destination "$DEST" \
+  clean 2>&1 | tee /tmp/godive-dres-clean.log
+```
+
+### 2. Rebuild for device
+
+```bash
+$XCBUILD -project "$PROJECT" -scheme "$SCHEME" \
+  -destination "$DEST" \
+  -allowProvisioningUpdates \
+  clean build 2>&1 | tee /tmp/godive-dres-build.log
+```
+
+- Grep for **`error:`** and **`warning:`** (same rules as **`xcode-run-test.mdc`**).
+- **Fix all project warnings** before launch (**`xcode-fix-build-warnings.mdc`**); rebuild until warning count is **0** in app/test targets.
+- **Do not launch** if the build failed — fix errors first, then repeat **clean → rebuild**.
+
+### 3. Install and run on Dre's Phone
+
+After **BUILD SUCCEEDED**, install the **Debug-iphoneos** `.app` and launch it — do not hand off with “tap Run in Xcode” unless **`devicectl`** / install truly fails.
+
+Resolve the built app path (e.g. from **`BUILT_PRODUCTS_DIR`** in build settings or the **`GoDiveMVP.app`** under **Debug-iphoneos** in DerivedData), then:
+
+```bash
+APP_PATH="<path-to>/GoDiveMVP.app"
+DEVICE_ID="00008130-001241C118A1401C"
+BUNDLE_ID="PrimoSoftware.GoDiveMVP"
+
+xcrun devicectl device install app --device "$DEVICE_ID" "$APP_PATH"
+xcrun devicectl device process launch --device "$DEVICE_ID" "$BUNDLE_ID"
+```
+
+If **`devicectl`** is unavailable or the device is locked/offline, say so explicitly and report the successful build path — only then ask the user to tap **Run** in Xcode as a fallback.
+
+## Do not
+
+- Skip **`clean`** before a Dre's Phone run.
+- Report success after **build** only when the user asked to **run** on Dre's phone.
+- Use the simulator destination for a Dre's Phone run request.

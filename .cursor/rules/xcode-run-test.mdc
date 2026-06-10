@@ -5,7 +5,9 @@ alwaysApply: true
 
 # Run / test the app — always check Xcode build first
 
-When the user asks to **run**, **launch**, **build**, or **test** the app (with or without a named target), **do not skip the compiler**. Use **full Xcode** (not Command Line Tools only) and **report every error and project warning** before claiming success.
+**Gate:** Run this workflow only per **`.cursor/rules/xcode-test-only-when-asked.mdc`** — explicit run/test/build request, or **before commit/push** when the user asked to ship.
+
+When invoked, **do not skip the compiler**. Use **full Xcode** (not Command Line Tools only) and **report every error and project warning** before claiming success. **Fix all project warnings** per **`.cursor/rules/xcode-fix-build-warnings.mdc`** — rebuild until warning count is **0** in app/test targets.
 
 ## Xcode CLI setup
 
@@ -60,8 +62,8 @@ $XCBUILD -project "$PROJECT" -scheme "$SCHEME" \
 
 3. Grep the log for **`error:`** and **`warning:`** (exclude third-party noise like `appintentsmetadataprocessor` unless it blocks the build).
 4. Summarize: **BUILD SUCCEEDED** or **FAILED**, error count, warning count, and the **top actionable** lines with file paths.
-5. **Fix** compile errors and Swift 6 / project warnings in the same turn when the user asked you to run/test (unless they only wanted a report).
-6. Installing/launching on a physical device may require Xcode GUI or `devicectl`; after a successful device **build**, tell the user to tap **Run** in Xcode if CLI install is unavailable.
+5. **Fix** compile errors and **all** project warnings in the same turn (**`xcode-fix-build-warnings.mdc`**) — unless the user asked for a report only.
+6. **Dre's Phone / device run requests:** follow **`.cursor/rules/xcode-run-dres-phone.mdc`** — **`clean`**, **`clean build`**, then **`devicectl` install + launch**. Do not stop at build-only when the user asked to **run** on device.
 
 ### Test (unit + UI test bundles)
 
@@ -86,10 +88,10 @@ $XCBUILD -project "$PROJECT" -scheme "$SCHEME" \
 - **Never** answer "you can run it in Xcode" without running **`xcodebuild`** yourself when tools are available.
 - **Always** **`clean`** then **`clean build`** / **`clean build-for-testing`** before reporting success.
 - **Always** surface compiler **errors** and **project warnings** (especially Swift 6 actor-isolation warnings in **GoDiveMVP** / **GoDiveMVPTests**).
-- After fixes, **rebuild** to confirm a clean log before handing off.
+- After fixes, **rebuild** to confirm **0 project warnings** and no errors before handing off (**`xcode-fix-build-warnings.mdc`**).
 - Keep responses scannable: build result, destination used, warning/error list, what was fixed (if anything).
 
 ## Example user requests
 
-- *"Run the app, target Dre's phone"* → **`clean`**, then device **`clean build`**, full error/warning report.
+- *"Run the app, target Dre's phone"* → **`xcode-run-dres-phone.mdc`**: **`clean`**, device **`clean build`**, **`devicectl` install + launch**, full error/warning report.
 - *"Test the app, target iPhone 17 simulator"* → **`clean`**, then sim **`clean build-for-testing`**, then **`test`** if requested; full error/warning report.

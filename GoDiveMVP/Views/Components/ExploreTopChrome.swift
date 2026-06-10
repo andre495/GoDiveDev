@@ -9,6 +9,7 @@ struct ExploreTopChrome: View {
     @FocusState.Binding var isSiteSearchFocused: Bool
     let showsSiteSearch: Bool
     let statusBarSafeAreaTop: CGFloat
+    let onOpenTripPlanner: () -> Void
 
     var body: some View {
         Group {
@@ -69,9 +70,7 @@ struct ExploreTopChrome: View {
     }
 
     private var tripPlannerLink: some View {
-        NavigationLink {
-            TripPlannerView()
-        } label: {
+        Button(action: onOpenTripPlanner) {
             Image(systemName: "calendar")
                 .font(.title3.weight(.semibold))
                 .frame(minWidth: 44, minHeight: 44)

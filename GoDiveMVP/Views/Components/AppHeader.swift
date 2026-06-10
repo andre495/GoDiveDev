@@ -38,12 +38,19 @@ struct AppStatusBarEdgeScrim: View {
     }
 }
 
+enum AppHeaderTitlePlacement: Sendable {
+    case centered
+    /// Title sits in the leading cluster immediately after the back chevron (Field Guide subcategory).
+    case leadingAfterBack
+}
+
 struct AppHeader<TrailingContent: View>: View {
     private let appName = "GoDive"
     let title: String
     let showsBackButton: Bool
-    /// When **`false`**, the **GoDive** wordmark is hidden. A non-empty **`title`** is shown centered instead (Field Guide species, category, etc.).
+    /// When **`false`**, the **GoDive** wordmark is hidden. A non-empty **`title`** is shown per **`titlePlacement`**.
     let showsBrandWordmark: Bool
+    let titlePlacement: AppHeaderTitlePlacement
     let trailingContent: TrailingContent
     /// Pass **`GeometryReader.safeAreaInsets.top`** from the tab / page root so the status scrim matches the device inset.
     let statusBarSafeAreaTop: CGFloat
@@ -52,46 +59,25 @@ struct AppHeader<TrailingContent: View>: View {
         title: String,
         showsBackButton: Bool = false,
         showsBrandWordmark: Bool = true,
+        titlePlacement: AppHeaderTitlePlacement = .centered,
         statusBarSafeAreaTop: CGFloat = 0,
         @ViewBuilder trailingContent: () -> TrailingContent
     ) {
         self.title = title
         self.showsBackButton = showsBackButton
         self.showsBrandWordmark = showsBrandWordmark
+        self.titlePlacement = titlePlacement
         self.statusBarSafeAreaTop = statusBarSafeAreaTop
         self.trailingContent = trailingContent()
     }
 
     var body: some View {
         HStack(alignment: .center, spacing: AppTheme.Spacing.md) {
-            HStack(spacing: AppTheme.Spacing.sm) {
-                if showsBackButton {
-                    SecondaryDestinationBackButton()
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            leadingCluster
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            Group {
-                if showsBrandWordmark {
-                    Text(appName)
-                        .font(AppTheme.Typography.headerBrandTitle)
-                        .fontWeight(.bold)
-                        .foregroundStyle(AppTheme.Colors.headerTitleForegroundGradient)
-                } else if !title.isEmpty {
-                    Text(title)
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(AppTheme.Colors.textPrimary)
-                } else {
-                    Color.clear
-                }
-            }
-            .lineLimit(1)
-            .minimumScaleFactor(0.82)
-            .allowsTightening(true)
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity)
-            .accessibilityLabel(showsBrandWordmark ? appName : title)
-            .accessibilityHidden(!showsBrandWordmark && title.isEmpty)
+            centerCluster
+                .frame(maxWidth: .infinity)
 
             HStack(spacing: AppTheme.Spacing.sm) {
                 trailingContent
@@ -115,6 +101,57 @@ struct AppHeader<TrailingContent: View>: View {
             }
         }
     }
+
+    @ViewBuilder
+    private var leadingCluster: some View {
+        HStack(spacing: AppTheme.Spacing.sm) {
+            if showsBackButton {
+                SecondaryDestinationBackButton()
+            }
+
+            if usesLeadingTitlePlacement, !title.isEmpty {
+                headerTitleText
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var centerCluster: some View {
+        Group {
+            if showsBrandWordmark {
+                Text(appName)
+                    .font(AppTheme.Typography.headerBrandTitle)
+                    .fontWeight(.bold)
+                    .foregroundStyle(AppTheme.Colors.headerTitleForegroundGradient)
+            } else if usesCenteredTitlePlacement, !title.isEmpty {
+                headerTitleText
+                    .multilineTextAlignment(.center)
+            } else {
+                Color.clear
+            }
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.82)
+        .allowsTightening(true)
+        .accessibilityLabel(showsBrandWordmark ? appName : title)
+        .accessibilityHidden(!showsBrandWordmark && (title.isEmpty || usesLeadingTitlePlacement))
+    }
+
+    private var headerTitleText: some View {
+        Text(title)
+            .font(.headline.weight(.semibold))
+            .foregroundStyle(AppTheme.Colors.textPrimary)
+    }
+
+    private var usesLeadingTitlePlacement: Bool {
+        !showsBrandWordmark && titlePlacement == .leadingAfterBack
+    }
+
+    private var usesCenteredTitlePlacement: Bool {
+        !showsBrandWordmark && titlePlacement == .centered
+    }
 }
 
 extension AppHeader where TrailingContent == EmptyView {
@@ -122,12 +159,14 @@ extension AppHeader where TrailingContent == EmptyView {
         title: String,
         showsBackButton: Bool = false,
         showsBrandWordmark: Bool = true,
+        titlePlacement: AppHeaderTitlePlacement = .centered,
         statusBarSafeAreaTop: CGFloat = 0
     ) {
         self.init(
             title: title,
             showsBackButton: showsBackButton,
             showsBrandWordmark: showsBrandWordmark,
+            titlePlacement: titlePlacement,
             statusBarSafeAreaTop: statusBarSafeAreaTop
         ) {
             EmptyView()

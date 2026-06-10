@@ -562,6 +562,7 @@ private struct HomeMediaCarouselTaggedSpeciesButton: View {
 /// Home carousel media — reads session-cached hero frames synchronously; videos use warmed **`AVAsset`**s.
 private struct HomeMediaCarouselMediaView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(AppNetworkConnectivityMonitor.self) private var networkConnectivity
 
     let media: DiveMediaPhoto
     var containerWidth: CGFloat = HomeMediaHighlightWarmupPresentation.defaultHeroContainerWidth
@@ -657,8 +658,12 @@ private struct HomeMediaCarouselMediaView: View {
     private var heroPlaceholder: some View {
         ZStack {
             AppTheme.Colors.surfaceMuted.opacity(0.5)
-            ProgressView()
-                .tint(AppTheme.Colors.accent)
+            if networkConnectivity.isConnected {
+                ProgressView()
+                    .tint(AppTheme.Colors.accent)
+            } else {
+                OfflineMediaUnavailableIndicator()
+            }
         }
     }
 
@@ -672,7 +677,9 @@ private struct HomeMediaCarouselMediaView: View {
             loadedImage = nil
             return
         }
-        let edge = HomeMediaHighlightWarmupPresentation.heroImageEdge(containerWidth: containerWidth)
+        let edge = networkConnectivity.isConnected
+            ? HomeMediaHighlightWarmupPresentation.heroImageEdge(containerWidth: containerWidth)
+            : HomeMediaHighlightWarmupPresentation.previewImageEdge
         let size = CGSize(width: edge, height: edge)
         let image = await DiveMediaReferenceLoader.image(
             localIdentifier: identifier,
@@ -689,7 +696,9 @@ private struct HomeMediaCarouselMediaView: View {
             }
             loadedImage = image
         } else {
-            DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
+            if networkConnectivity.isConnected {
+                DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
+            }
             loadedImage = nil
         }
     }

@@ -62,13 +62,12 @@ struct ViewDiveBuddyDetails: View {
                 .accessibilityIdentifier("DiveBuddyDetails.Edit")
             },
             content: {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-                        headerSection
-                        divesTogetherSection
-                    }
-                    .padding(AppTheme.Spacing.md)
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+                    headerSection
+                    divesTogetherSection
                 }
+                .padding(AppTheme.Spacing.md)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         )
         .hidesBottomTabBarWhenPushed()

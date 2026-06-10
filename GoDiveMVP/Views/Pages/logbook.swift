@@ -38,8 +38,13 @@ struct LogbookView: View {
     @State private var diveDeleteProgress: Double = 0
     @State private var diveDeleteProgressStartedAt: Date?
     @State private var listScrollToTopNonce = 0
+    @State private var hasPerformedInitialLogbookCacheBuild = false
 
     private let ownerProfileID: UUID?
+
+    private var isLogbookNavigationStackAtRoot: Bool {
+        RootStackReturnNavigationPresentation.isStackAtRoot(pathCount: path.count)
+    }
 
     init(ownerProfileID: UUID?) {
         self.ownerProfileID = ownerProfileID
@@ -112,7 +117,7 @@ struct LogbookView: View {
             ) { _ in
                 handleMediaDidChange()
             }
-            .onAppear { scheduleLogbookCacheRefresh() }
+            .onAppear(perform: handleLogbookRootAppear)
             .onChange(of: activities.count) { _, _ in
                 handleActivitiesCountChange()
             }
@@ -140,7 +145,20 @@ struct LogbookView: View {
                 logbookPageZStack
             }
             .navigationDestination(for: LogbookRoute.self, destination: logbookRouteDestination)
+            .restoresRootTabBarWhenStackIsEmpty(isLogbookNavigationStackAtRoot)
+            .animation(nil, value: path.count)
         }
+    }
+
+    private func handleLogbookRootAppear() {
+        if RootStackReturnNavigationPresentation.shouldSkipLogbookCacheRefreshOnReturn(
+            hasPerformedInitialCacheBuild: hasPerformedInitialLogbookCacheBuild,
+            hasDisplayRows: !logbookDisplayRows.isEmpty
+        ) {
+            return
+        }
+        hasPerformedInitialLogbookCacheBuild = true
+        scheduleLogbookCacheRefresh()
     }
 
     private var logbookPageZStack: some View {

@@ -2229,6 +2229,37 @@ struct GoDiveMVPTests {
         #expect(FieldGuideMarineLifeImageLayout.detailHeroBaseHeight == 280)
     }
 
+    @Test func fieldGuideCategoryPresentation_detailHeroHeight_includesSafeAreaInset() {
+        let inset: CGFloat = 59
+        #expect(
+            FieldGuideCategoryPresentation.detailHeroHeight(extraTopInset: inset)
+                == FieldGuideCategoryImageLayout.detailHeroBaseHeight + inset
+        )
+        #expect(FieldGuideCategoryImageLayout.detailHeroBaseHeight == 280)
+    }
+
+    @Test func fieldGuideSubcategoryPresentation_fixedSummaryTopInset_accountsForHeaderChrome() {
+        let safeTop: CGFloat = 59
+        let headerClearance: CGFloat = 52
+        #expect(
+            FieldGuideSubcategoryPresentation.fixedSummaryTopInset(
+                safeAreaTop: safeTop,
+                headerClearance: headerClearance
+            ) == safeTop + headerClearance
+        )
+    }
+
+    @Test func fieldGuideCatalogIndex_browsePayload_usesTaxonomySubcategoryTitle() {
+        let payload = FieldGuideCatalogIndex.browsePayload(
+            categoryID: "fish",
+            subcategoryID: "disk-and-large-oval",
+            speciesIndex: [:]
+        )
+        #expect(payload.title == "Disk and Large Oval")
+        #expect(payload.categoryID == "fish")
+        #expect(payload.subcategoryID == "disk-and-large-oval")
+    }
+
     @Test func fieldGuideMarineLifeHeroPresentation_autoSpinPausesWhileDraggingAndAfterDrag() {
         let now = Date(timeIntervalSinceReferenceDate: 1_000)
         let pausedUntil = now.addingTimeInterval(15)
@@ -4661,8 +4692,32 @@ struct GoDiveMVPTests {
         #expect(DiveMediaVideoLoad.classify(itemResolved: false, isLibraryAsset: true, assetStillExists: false) == .assetMissing)
         // Library asset that still exists but didn't load (timeout/offline) -> offer retry.
         #expect(DiveMediaVideoLoad.classify(itemResolved: false, isLibraryAsset: true, assetStillExists: true) == .retryable)
+        // No network — offline icon only, not retry chrome.
+        #expect(
+            DiveMediaVideoLoad.classify(
+                itemResolved: false,
+                isLibraryAsset: true,
+                assetStillExists: true,
+                isNetworkAvailable: false
+            ) == .offlineUnavailable
+        )
         // Non-library (file) source that didn't load -> retry, never prune.
         #expect(DiveMediaVideoLoad.classify(itemResolved: false, isLibraryAsset: false, assetStillExists: false) == .retryable)
+    }
+
+    @Test func appNetworkConnectivityPresentation_offlineSkipsCloudMedia() {
+        #expect(AppNetworkConnectivityPresentation.allowsCloudMediaFetch(isConnected: true))
+        #expect(!AppNetworkConnectivityPresentation.allowsCloudMediaFetch(isConnected: false))
+        #expect(AppNetworkConnectivityPresentation.photoKitAllowsNetworkAccess(isConnected: true))
+        #expect(!AppNetworkConnectivityPresentation.photoKitAllowsNetworkAccess(isConnected: false))
+        #expect(
+            DiveMediaProgressivePresentation.shouldUpgradeToFullVideo(
+                isPlaybackActive: true,
+                isPausedByUserHold: false,
+                currentFidelity: .preview,
+                isNetworkAvailable: false
+            ) == false
+        )
     }
 
     @Test func diveMediaVideoLoad_timeout_isPositive() {
@@ -5006,6 +5061,53 @@ struct GoDiveMVPTests {
 
     @Test func diveActivityMediaPresentation_overviewUsesPreviewVideoQuality() {
         #expect(DiveActivityMediaPresentation.overviewLibraryVideoQuality == .homeCarousel)
+    }
+
+    @Test func rootStackReturnNavigationPresentation_tabBarRestoreAndLogbookSkip() {
+        #expect(RootStackReturnNavigationPresentation.isStackAtRoot(pathCount: 0))
+        #expect(!RootStackReturnNavigationPresentation.isStackAtRoot(pathCount: 1))
+        #expect(
+            RootStackReturnNavigationPresentation.shouldSkipLogbookCacheRefreshOnReturn(
+                hasPerformedInitialCacheBuild: true,
+                hasDisplayRows: true
+            )
+        )
+        #expect(
+            !RootStackReturnNavigationPresentation.shouldSkipLogbookCacheRefreshOnReturn(
+                hasPerformedInitialCacheBuild: false,
+                hasDisplayRows: true
+            )
+        )
+        #expect(
+            !RootStackReturnNavigationPresentation.shouldSkipLogbookCacheRefreshOnReturn(
+                hasPerformedInitialCacheBuild: true,
+                hasDisplayRows: false
+            )
+        )
+    }
+
+    @Test func homeReturnNavigationPresentation_skipsRedundantRebuildWhenCarouselReady() {
+        #expect(
+            HomeReturnNavigationPresentation.shouldSkipFullRebuildOnReturn(
+                hasPerformedInitialBuild: true,
+                isCarouselMediaReady: true,
+                hasCarouselHighlights: true
+            )
+        )
+        #expect(
+            !HomeReturnNavigationPresentation.shouldSkipFullRebuildOnReturn(
+                hasPerformedInitialBuild: false,
+                isCarouselMediaReady: true,
+                hasCarouselHighlights: true
+            )
+        )
+        #expect(
+            !HomeReturnNavigationPresentation.shouldSkipFullRebuildOnReturn(
+                hasPerformedInitialBuild: true,
+                isCarouselMediaReady: false,
+                hasCarouselHighlights: true
+            )
+        )
     }
 
     @Test func diveMediaProgressivePresentation_posterAndUpgradePolicy() {
@@ -5427,7 +5529,10 @@ struct GoDiveMVPTests {
         #expect(
             DiveActivityMediaPresentation.resolvedSelectedPhotoID(selectedID: UUID(), in: photos) == first
         )
-        #expect(DiveActivityMediaPresentation.resolvedSelectedPhotoID(selectedID: first, in: []) == nil)
+        #expect(
+            DiveActivityMediaPresentation.resolvedSelectedPhotoID(selectedID: first, in: []) == first
+        )
+        #expect(DiveActivityMediaPresentation.resolvedSelectedPhotoID(selectedID: nil, in: []) == nil)
     }
 
     @Test @MainActor
@@ -8440,6 +8545,7 @@ struct GoDiveMVPTests {
         #expect(DiveBuddyRosterPresentation.sharedDiveCountLabel(3) == "3 dives together")
         #expect(DiveBuddyRosterPresentation.listSubtitle(sharedDiveCount: 2) == "2 dives together")
         #expect(ProfilePresentation.diveBuddyRosterCountLabel(2) == "2 buddies")
+        #expect(DiveBuddyRosterPresentation.buddyDetailUsesScrollContainer == false)
     }
 
     @Test func homeBuddyLeaderboard_topEntries_countsUniqueDivesPerBuddy() {
