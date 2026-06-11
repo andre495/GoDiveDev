@@ -5,22 +5,38 @@ struct ActivityTagOvalChipLabel: View {
     let title: String
     var isEmphasized: Bool = false
     var isCompact: Bool = false
+    /// Sparkles inside the oval when the species was confirmed via Fishial identify.
+    var showsFishialBadge: Bool = false
 
     var body: some View {
-        Text(title)
-            .font(isCompact ? .caption2.weight(.medium) : .caption.weight(.medium))
-            .foregroundStyle(AppTheme.Colors.textPrimary)
-            .lineLimit(1)
-            .padding(.horizontal, isCompact ? 10 : 12)
-            .padding(.vertical, isCompact ? 4 : 7)
-            .background {
-                Capsule(style: .continuous)
-                    .strokeBorder(
-                        isEmphasized
-                            ? AppTheme.Colors.accent.opacity(0.65)
-                            : AppTheme.Colors.tabUnselected.opacity(0.35),
-                        lineWidth: isEmphasized ? 1.5 : 1
-                    )
+        HStack(spacing: 4) {
+            if showsFishialBadge {
+                Image(systemName: "sparkles")
+                    .font(isCompact ? .caption2.weight(.semibold) : .caption2.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.accent)
+                    .accessibilityHidden(true)
             }
+
+            Text(title)
+                .font(isCompact ? .caption2.weight(.medium) : .caption.weight(.medium))
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, isCompact ? 10 : 12)
+        .padding(.vertical, isCompact ? 4 : 7)
+        .background {
+            Capsule(style: .continuous)
+                .strokeBorder(
+                    isEmphasized
+                        ? AppTheme.Colors.accent.opacity(0.65)
+                        : AppTheme.Colors.tabUnselected.opacity(0.35),
+                    lineWidth: isEmphasized ? 1.5 : 1
+                )
+        }
+        .accessibilityLabel(
+            showsFishialBadge
+                ? "\(title), identified with Fishial AI"
+                : title
+        )
     }
 }

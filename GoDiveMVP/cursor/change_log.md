@@ -1239,4 +1239,19 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Removed **`uddfImport_createMissingDiveSites_linksNewAndExisting`** — full **`UddfDiveFileImport.importUddfData`** path blocked on live **`MapKitGeocodingTimeZoneResolver`** network calls in simulator; site-link behavior remains covered by decoder/unit tests elsewhere.
 - **Test fixes** — **`fieldGuideMarineLifeImageLayout_*`** uses **`4.0 / 3.0`** (not integer **`4/3`**); French/Queen angelfish seeder expectations match bundled **`marine_life_sample.json`**.
 
-## 78 - Next batch
+## 78 - Next batch **(pushed)**
+
+**Summary:** Buddy detail scrolls shared dives inside **Dives together** section only.
+
+- **Buddy detail dive list scroll** — **`ViewDiveBuddyDetails`**: avatar header pinned; **`ExpandableDetailSection`** **`scrollsExpandedContent`** wraps expanded logbook rows in a **`ScrollView`** filling remaining **`AppPage`** height (**`ExpandableDetailSectionPresentation.buddyDetailScrollsExpandedDiveList`**). Test: **`diveBuddyRosterPresentation_labels`**.
+- **Buddy detail expand snappiness** — pre-cached logbook rows (**`DiveBuddyRosterPresentation.sharedDiveRowDisplayData`**), **`NavigationLink(value:)`** + **`BuddySharedDiveListRows`**, pre-warm/mount expanded list (**`buddyDetailKeepsExpandedContentMounted`**), snappy chevron-only animation (**`expandCollapseAnimationDuration`**). Tests: **`diveBuddyRosterPresentation_sharedDiveRowDisplayData_ordersNewestFirst`**, **`diveBuddyRosterPresentation_labels`**.
+- **Profile destination tiles** — Certifications, Equipment Locker, and Dive Buddies use compact landscape cards (icon leading, copy trailing, fixed **`tileHeight`**); stacked in one column instead of 2+1 grid. Test: **`profileDestinationTilePresentation_usesUniformTileHeight`**.
+- **Profile destination tile uniformity** — shared label builder, fixed **`tileHeight`**, full-width **`NavigationLink`** frames; titles truncate instead of scaling so font size matches across all three.
+- **Field Guide category hero** — **`FieldGuideCategoryImageLayout.detailHeroBaseHeight`** **280 → 200** (Fish, Coral, etc.); species detail unchanged at **280**.
+- **Field Guide subcategory header** — **`FieldGuideSubcategorySpeciesView`** matches category detail: full-bleed parent-category hero (**`FieldGuideCategoryHeroImage`**, **200** pt + safe area), floating back-only **`AppHeader`**, **`LogbookTopChromeScrim`**, title + hint + species count in scroll (**`FieldGuideSubcategoryDetailCopy`**). Test: **`fieldGuideSubcategoryPresentation_matchesCategoryDetailHeroChrome`**.
+- **Dive overview section edit** — per-section **ellipsis** on **Dive**, **Dive Conditions**, tank groups, etc. opens **`DiveActivitySectionEditSheet`** with all editable fields in that section; field rows are read-only. **Buddies** + **Tags** use header **+** (add) instead of ellipsis. **`DiveActivityFieldEditorRows`** shared by section and legacy single-field sheet. Tests: **`diveActivityEditableCatalog_sectionHeaderActions`**, **`diveActivitySectionEditContext_resolvesSectionFromTabAndDetent`**.
+- **Media tab Fishial + sheet chrome** — Fishial-confirmed species show **sparkles** inside the marine-life oval chip (not a separate **Fish ID** row at **medium**); thumbnail carousel regains pinned slot. **Large** detent keeps frosted translucent panel (no opaque scroll fade fill). Tests: **`diveActivityMediaPresentation_panelTopScrollKeepsTranslucentChromeAtLargeMediaTab`**, **`diveActivityMediaPresentation_speciesWasFishialIdentified_matchesScientificName`**.
+- **Media tab video poster** — dive hero videos use **`loadImageProgressive`** for the poster (degraded frame first, no camera icon flash); poster loads before layout width is known; **`DiveActivityVideoPlayerView`** accepts **`initialPosterImage`** from the parent. Test: **`diveMediaProgressivePresentation_posterTargetSize_beforeLayoutUsesFastEdge`**.
+- **Media tab species ovals** — **medium** detent uses the same horizontal chip row as **large** (natural width + **`chipTitleMaxLength`** truncation), not a wrapping **88 pt** grid.
+
+## 79 - Next batch

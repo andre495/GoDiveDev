@@ -20,6 +20,7 @@ struct ViewDiveBuddyDetails: View {
     @State private var showsContactPicker = false
     @State private var contactsAccessError: String?
     @State private var contactLinkError: String?
+    @State private var cachedDiveRows: [DiveLogbookRowDisplayData] = []
 
     private var ownerProfileID: UUID? {
         accountSession.currentProfile?.id
@@ -34,19 +35,19 @@ struct ViewDiveBuddyDetails: View {
         sharedDives.count
     }
 
-    private var diveRows: [DiveLogbookRowDisplayData] {
-        DiveLogbookDisplay.rowData(
-            activities: sharedDives,
-            unitSystem: diveDisplayUnitSystem,
-            duplicateIds: [],
-            useChronologicalNumbers: automaticallyRenumberDives,
-            numberingActivities: ownedDiveActivitiesForNumbering
-        )
-    }
-
     private var ownedDiveActivitiesForNumbering: [DiveActivity] {
         guard let ownerProfileID else { return [] }
         return allDiveActivities.filter { $0.ownerProfileID == ownerProfileID }
+    }
+
+    private var sharedDiveListRefreshToken: DiveBuddyRosterPresentation.SharedDiveListRefreshToken {
+        DiveBuddyRosterPresentation.sharedDiveListRefreshToken(
+            buddyID: buddy.id,
+            sharedDives: sharedDives,
+            unitSystem: diveDisplayUnitSystem,
+            useChronologicalNumbers: automaticallyRenumberDives,
+            numberingActivities: ownedDiveActivitiesForNumbering
+        )
     }
 
     var body: some View {
@@ -64,12 +65,22 @@ struct ViewDiveBuddyDetails: View {
             content: {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
                     headerSection
+
                     divesTogetherSection
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 }
                 .padding(AppTheme.Spacing.md)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         )
+        .navigationDestination(for: UUID.self) { diveID in
+            if let activity = sharedDives.first(where: { $0.id == diveID }) {
+                ViewSingleActivity(activity: activity)
+            }
+        }
+        .task(id: sharedDiveListRefreshToken) {
+            refreshCachedDiveRows()
+        }
         .hidesBottomTabBarWhenPushed()
         .sheet(isPresented: $showsEditSheet) {
             DiveBuddyEditSheetView(
@@ -110,6 +121,15 @@ struct ViewDiveBuddyDetails: View {
             Text(contactLinkError ?? "")
         }
         .accessibilityIdentifier("DiveBuddyDetails.Root")
+    }
+
+    private func refreshCachedDiveRows() {
+        cachedDiveRows = DiveBuddyRosterPresentation.sharedDiveRowDisplayData(
+            sharedDives: sharedDives,
+            unitSystem: diveDisplayUnitSystem,
+            useChronologicalNumbers: automaticallyRenumberDives,
+            numberingActivities: ownedDiveActivitiesForNumbering
+        )
     }
 
     private var contactsAccessAlertBinding: Binding<Bool> {
@@ -238,7 +258,10 @@ struct ViewDiveBuddyDetails: View {
     private var divesTogetherSection: some View {
         ExpandableDetailSection(
             title: "Dives together",
-            itemCount: diveRows.count,
+            itemCount: sharedDiveCount,
+            scrollsExpandedContent: ExpandableDetailSectionPresentation.buddyDetailScrollsExpandedDiveList,
+            keepsExpandedContentMountedAfterFirstReveal:
+                ExpandableDetailSectionPresentation.buddyDetailKeepsExpandedContentMounted,
             accessibilityIdentifier: "DiveBuddyDetails.DivesTogether"
         ) {
             Text("No dives tagged with this buddy yet.")
@@ -247,20 +270,26 @@ struct ViewDiveBuddyDetails: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityIdentifier("DiveBuddyDetails.EmptyDives")
         } content: {
-            VStack(spacing: AppTheme.Spacing.md) {
-                ForEach(diveRows) { row in
-                    if let activity = sharedDives.first(where: { $0.id == row.id }) {
-                        NavigationLink {
-                            ViewSingleActivity(activity: activity)
-                        } label: {
-                            LogbookActivityRow(data: row)
-                        }
-                        .buttonStyle(.plain)
-                        .navigationLinkIndicatorVisibility(.hidden)
-                    }
-                }
-            }
-            .accessibilityIdentifier("DiveBuddyDetails.DiveList")
+            BuddySharedDiveListRows(rows: cachedDiveRows)
         }
+    }
+}
+
+/// Logbook rows for buddy **Dives together** — equatable so expand does not rebuild row chrome.
+private struct BuddySharedDiveListRows: View, Equatable {
+    let rows: [DiveLogbookRowDisplayData]
+
+    var body: some View {
+        VStack(spacing: AppTheme.Spacing.md) {
+            ForEach(rows) { row in
+                NavigationLink(value: row.id) {
+                    LogbookActivityRow(data: row)
+                        .equatable()
+                }
+                .buttonStyle(.plain)
+                .navigationLinkIndicatorVisibility(.hidden)
+            }
+        }
+        .accessibilityIdentifier("DiveBuddyDetails.DiveList")
     }
 }

@@ -9,6 +9,8 @@ enum MarineLifeMediaTagPresentation {
     nonisolated static let speciesRowThumbnailHeight: CGFloat = 72
     /// Max visible characters on oval marine-life chips before an ellipsis suffix.
     nonisolated static let chipTitleMaxLength = 25
+    /// Horizontal gap between species ovals (**medium** + **large** media detents).
+    nonisolated static let chipRowSpacing: CGFloat = AppTheme.Spacing.sm
 
     nonisolated static let untaggedPrompt = "Tag marine life spotted in this photo."
     nonisolated static let largeDetentUntaggedPrompt =

@@ -9,15 +9,11 @@ struct DiveActivityTagsSectionView: View {
     var body: some View {
         ActivityTagsOutlinedSection(appliesLogbookOuterMargins: false) {
             if canAddTags {
-                Button(action: onAddTags) {
-                    Image(systemName: "plus")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.Colors.tabSelected)
-                        .frame(width: 32, height: 32)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Add tags")
+                DiveActivitySectionHeaderActionButton(
+                    systemImage: "plus",
+                    accessibilityLabel: "Add tags",
+                    action: onAddTags
+                )
                 .accessibilityIdentifier("DiveOverview.Tags.Add")
             }
         } content: {

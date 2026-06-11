@@ -32,7 +32,7 @@ enum FishialIdentificationReviewPresentation: Sendable {
     nonisolated static let selectMultiplePrompt = "Which catalog species match do you think is correct?"
     nonisolated static let savedConfirmationPrefix = "Tagged marine life:"
     nonisolated static let savedFishIDNote =
-        "This species is tagged on the photo and shown in the Fish ID row at medium height."
+        "This species is tagged on the photo. A sparkles badge on the species chip marks Fishial AI identification."
 
     nonisolated static func reviewMode(
         for catalogOptions: [FishialCatalogReviewOption]

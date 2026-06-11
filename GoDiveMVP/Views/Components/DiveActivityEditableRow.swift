@@ -1,52 +1,35 @@
 import SwiftUI
 
-/// Tappable overview row — ellipsis indicates the field can be edited.
+/// Read-only overview field row (section-level edit lives in the header).
 struct DiveActivityEditableRow: View {
     let label: String
     let value: String
     var showsLabel: Bool = true
     var signaturePreviewData: Data?
-    let isEditable: Bool
-    let action: () -> Void
 
     private var showsSignaturePreview: Bool {
         DiveSignatureDataFormatting.hasDisplayableContent(signaturePreviewData)
     }
 
     var body: some View {
-        Button(action: action) {
-            HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
-                VStack(alignment: .leading, spacing: 2) {
-                    if showsLabel {
-                        Text(label)
-                            .font(.caption)
-                            .foregroundStyle(AppTheme.Colors.tabUnselected)
-                    }
-                    if showsSignaturePreview, let signaturePreviewData {
-                        DiveSignaturePreview(data: signaturePreviewData)
-                    } else {
-                        Text(value)
-                            .font(.body)
-                            .foregroundStyle(AppTheme.Colors.textPrimary)
-                            .multilineTextAlignment(.leading)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                if isEditable {
-                    Image(systemName: "ellipsis")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppTheme.Colors.tabSelected)
-                }
+        VStack(alignment: .leading, spacing: 2) {
+            if showsLabel {
+                Text(label)
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.Colors.tabUnselected)
             }
-            .contentShape(Rectangle())
+            if showsSignaturePreview, let signaturePreviewData {
+                DiveSignaturePreview(data: signaturePreviewData)
+            } else {
+                Text(value)
+                    .font(.body)
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+                    .multilineTextAlignment(.leading)
+            }
         }
-        .buttonStyle(.plain)
-        .disabled(!isEditable)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(isEditable ? .isButton : [])
         .accessibilityLabel(accessibilityLabelText)
-        .accessibilityHint(isEditable ? "Edit" : "")
     }
 
     private var accessibilityLabelText: String {
@@ -58,5 +41,24 @@ struct DiveActivityEditableRow: View {
             return label
         }
         return "\(label), \(trimmed)"
+    }
+}
+
+/// Plus / ellipsis affordance aligned with section titles in dive overview panels.
+struct DiveActivitySectionHeaderActionButton: View {
+    let systemImage: String
+    let accessibilityLabel: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.tabSelected)
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
     }
 }

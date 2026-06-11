@@ -33,6 +33,7 @@ struct DiveActivityMediaItemView: View {
     #if canImport(UIKit)
     @State private var previewImage: UIImage?
     @State private var videoPosterImage: UIImage?
+    @State private var videoPosterLoadFinished = false
     #endif
 
     private var isVideo: Bool {
@@ -138,6 +139,7 @@ struct DiveActivityMediaItemView: View {
                     libraryVideoQuality: DiveActivityMediaPresentation.overviewLibraryVideoQuality,
                     usesProgressiveFidelity: true,
                     screenPixelWidth: layoutWidth * displayScale,
+                    initialPosterImage: videoPosterImage,
                     isPausedByUserHold: isHoldingVideoPause,
                     onAssetMissing: pruneIfAssetMissing
                 )
@@ -157,8 +159,11 @@ struct DiveActivityMediaItemView: View {
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .clipped()
                     .accessibilityLabel("Dive video poster")
-            } else {
+            } else if videoPosterLoadFinished {
                 missingImage(in: geometry.size, systemImage: "video", showsOfflineIndicator: !networkConnectivity.isConnected)
+            } else {
+                Color.clear
+                    .frame(width: geometry.size.width, height: geometry.size.height)
             }
             #else
             missingImage(in: geometry.size, systemImage: "video")
@@ -191,21 +196,32 @@ struct DiveActivityMediaItemView: View {
         guard media.resolvedMediaKind == .video,
               let identifier = media.libraryAssetLocalIdentifier else {
             videoPosterImage = nil
+            videoPosterLoadFinished = true
             return
         }
-        guard layoutWidth > 0 else { return }
+
+        if videoPosterImage == nil {
+            videoPosterLoadFinished = false
+        }
+        let screenPixelWidth = layoutWidth > 0
+            ? layoutWidth * displayScale
+            : DiveMediaProgressivePresentation.posterImageEdge
         let posterSize = DiveMediaProgressivePresentation.posterTargetSize(
-            screenPixelWidth: layoutWidth * displayScale
+            screenPixelWidth: screenPixelWidth
         )
-        let image = await DiveMediaReferenceLoader.image(
+        var receivedFrame = false
+        await DiveMediaReferenceLoader.loadImageProgressive(
             localIdentifier: identifier,
             targetSize: posterSize,
             deliveryMode: .opportunistic
-        )
-        if image == nil, networkConnectivity.isConnected {
+        ) { image, _ in
+            videoPosterImage = image
+            receivedFrame = true
+        }
+        if !receivedFrame, networkConnectivity.isConnected {
             DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
         }
-        videoPosterImage = image
+        videoPosterLoadFinished = true
     }
 
     private func loadPreviewImageIfNeeded() async {

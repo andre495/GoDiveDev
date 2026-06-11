@@ -3,6 +3,15 @@ import Foundation
 /// Copy and accessibility helpers for collapsible detail sections (buddy, site, species).
 enum ExpandableDetailSectionPresentation: Sendable {
 
+    /// Buddy detail **Dives together** — expanded logbook rows scroll inside the section; avatar header stays fixed.
+    nonisolated static let buddyDetailScrollsExpandedDiveList = true
+
+    /// Keep buddy dive rows mounted after first reveal so collapse/expand does not rebuild the list.
+    nonisolated static let buddyDetailKeepsExpandedContentMounted = true
+
+    /// Chevron only — list reveal uses no layout animation.
+    nonisolated static let expandCollapseAnimationDuration: TimeInterval = 0.12
+
     nonisolated static func showsExpandControl(itemCount: Int) -> Bool {
         itemCount > 0
     }

@@ -495,6 +495,10 @@ struct FieldGuideSubcategorySpeciesView: View, Equatable {
         GridItem(.flexible(), spacing: AppTheme.Spacing.md),
     ]
 
+    private var categoryDefinition: FieldGuideTaxonomy.Category? {
+        FieldGuideTaxonomy.category(id: payload.categoryID)
+    }
+
     private var subcategoryDefinition: FieldGuideTaxonomy.Subcategory? {
         FieldGuideTaxonomy.subcategory(
             categoryID: payload.categoryID,
@@ -514,47 +518,57 @@ struct FieldGuideSubcategorySpeciesView: View, Equatable {
                 ZStack(alignment: .top) {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
-                            Color.clear
-                                .frame(height: topInset)
-                                .accessibilityHidden(true)
+                            if let categoryDefinition {
+                                FieldGuideCategoryHeroImage(
+                                    categoryID: payload.categoryID,
+                                    systemImage: subcategoryDefinition?.systemImage
+                                        ?? categoryDefinition.systemImage,
+                                    heroImageName: categoryDefinition.heroImageName,
+                                    totalHeight: FieldGuideCategoryPresentation.detailHeroHeight(
+                                        extraTopInset: safeTop
+                                    ),
+                                    fullBleed: true
+                                )
 
-                            FieldGuideSubcategoryDetailCopy(
-                                title: payload.title,
-                                hint: subcategoryDefinition?.hint ?? "",
-                                speciesCount: payload.species.count,
-                                categoryID: payload.categoryID,
-                                showsTitle: false
-                            )
-                            .padding(.horizontal, AppTheme.Spacing.md)
-                            .padding(.bottom, AppTheme.Spacing.md)
+                                VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+                                    FieldGuideSubcategoryDetailCopy(
+                                        title: payload.title,
+                                        hint: subcategoryDefinition?.hint ?? "",
+                                        speciesCount: payload.species.count,
+                                        categoryID: payload.categoryID
+                                    )
 
-                            Group {
-                                if payload.species.isEmpty {
-                                    emptyState
-                                } else {
-                                    LazyVGrid(columns: columns, spacing: AppTheme.Spacing.md) {
-                                        ForEach(payload.species, id: \.uuid) { entry in
-                                            Button {
-                                                onSelectSpecies(entry.uuid)
-                                            } label: {
-                                                FieldGuideSpeciesMosaicCard(
-                                                    entry: entry,
-                                                    unitSystem: unitSystem,
-                                                    accent: FieldGuideCategoryAccent.gradientTop(payload.categoryID)
-                                                )
-                                                .equatable()
+                                    Group {
+                                        if payload.species.isEmpty {
+                                            emptyState
+                                        } else {
+                                            LazyVGrid(columns: columns, spacing: AppTheme.Spacing.md) {
+                                                ForEach(payload.species, id: \.uuid) { entry in
+                                                    Button {
+                                                        onSelectSpecies(entry.uuid)
+                                                    } label: {
+                                                        FieldGuideSpeciesMosaicCard(
+                                                            entry: entry,
+                                                            unitSystem: unitSystem,
+                                                            accent: FieldGuideCategoryAccent.gradientTop(
+                                                                payload.categoryID
+                                                            )
+                                                        )
+                                                        .equatable()
+                                                    }
+                                                    .buttonStyle(.plain)
+                                                    .accessibilityIdentifier("FieldGuide.Species.\(entry.uuid)")
+                                                }
                                             }
-                                            .buttonStyle(.plain)
-                                            .accessibilityIdentifier("FieldGuide.Species.\(entry.uuid)")
                                         }
                                     }
                                 }
+                                .padding(AppTheme.Spacing.md)
                             }
-                            .padding(.horizontal, AppTheme.Spacing.md)
-                            .padding(.bottom, AppTheme.Spacing.md)
                         }
                     }
                     .scrollDismissesKeyboard(.interactively)
+                    .ignoresSafeArea(edges: .top)
 
                     LogbookTopChromeScrim(topObstructionHeight: topInset)
                         .padding(.top, -safeTop)
@@ -570,10 +584,9 @@ struct FieldGuideSubcategorySpeciesView: View, Equatable {
                         .zIndex(0.75)
 
                     AppHeader(
-                        title: payload.title,
+                        title: "",
                         showsBackButton: true,
                         showsBrandWordmark: false,
-                        titlePlacement: .leadingAfterBack,
                         statusBarSafeAreaTop: safeTop
                     ) {
                         EmptyView()
@@ -618,22 +631,18 @@ struct FieldGuideSubcategorySpeciesView: View, Equatable {
     }
 }
 
-/// Hint and species count on subcategory mosaic; title lives in **`AppHeader`** when **`showsTitle`** is **`false`**.
+/// Title, hint, and species count below the subcategory hero (same copy stack as category detail).
 struct FieldGuideSubcategoryDetailCopy: View {
     let title: String
     let hint: String
     let speciesCount: Int
     let categoryID: String
-    /// When **`false`**, the subcategory title lives in **`AppHeader`** (leading after back).
-    var showsTitle: Bool = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            if showsTitle {
-                Text(title)
-                    .font(.title.weight(.bold))
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
-            }
+            Text(title)
+                .font(.title.weight(.bold))
+                .foregroundStyle(AppTheme.Colors.textPrimary)
 
             if !hint.isEmpty {
                 Text(hint)

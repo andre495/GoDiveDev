@@ -86,6 +86,7 @@ struct DiveActivityMediaTaggedSpeciesDetailContent: View {
 /// Horizontal chip picker when multiple species are tagged on one media item.
 struct DiveActivityMediaTaggedSpeciesSelector: View {
     let species: [MarineLife]
+    var media: DiveMediaPhoto?
     @Binding var selectedUUID: String?
 
     private var resolvedSelectedUUID: String? {
@@ -99,16 +100,17 @@ struct DiveActivityMediaTaggedSpeciesSelector: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: AppTheme.Spacing.sm) {
+                HStack(spacing: MarineLifeMediaTagPresentation.chipRowSpacing) {
                     ForEach(species, id: \.uuid) { item in
                         Button {
                             selectedUUID = item.uuid
                         } label: {
                             ActivityTagOvalChipLabel(
                                 title: MarineLifeMediaTagPresentation.chipDisplayTitle(for: item.commonName),
-                                isEmphasized: item.uuid == resolvedSelectedUUID
+                                isEmphasized: item.uuid == resolvedSelectedUUID,
+                                showsFishialBadge: fishialBadge(for: item)
                             )
-                            .accessibilityLabel(item.commonName)
+                            .fixedSize(horizontal: true, vertical: false)
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("DiveOverview.MediaTaggedSpeciesChip.\(item.uuid)")
@@ -117,5 +119,10 @@ struct DiveActivityMediaTaggedSpeciesSelector: View {
             }
         }
         .accessibilityIdentifier("DiveOverview.MediaTaggedSpeciesSelector")
+    }
+
+    private func fishialBadge(for species: MarineLife) -> Bool {
+        guard let media else { return false }
+        return DiveActivityMediaPresentation.speciesWasFishialIdentified(species: species, on: media)
     }
 }

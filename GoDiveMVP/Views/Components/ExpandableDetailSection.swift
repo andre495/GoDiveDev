@@ -5,22 +5,31 @@ struct ExpandableDetailSection<Content: View>: View {
     let title: String
     let itemCount: Int
     var isExpandedByDefault: Bool = false
+    /// When **`true`**, expanded rows live in a **`ScrollView`** filling space below the section header (buddy **Dives together**).
+    var scrollsExpandedContent: Bool = false
+    /// After the first reveal, keep expanded content in the hierarchy (hidden when collapsed) for snappy re-expand.
+    var keepsExpandedContentMountedAfterFirstReveal: Bool = false
     var accessibilityIdentifier: String?
     @ViewBuilder var content: () -> Content
     var emptyContent: (() -> AnyView)?
 
     @State private var isExpanded: Bool
+    @State private var keepsExpandedContentMounted = false
 
     init(
         title: String,
         itemCount: Int,
         isExpandedByDefault: Bool = false,
+        scrollsExpandedContent: Bool = false,
+        keepsExpandedContentMountedAfterFirstReveal: Bool = false,
         accessibilityIdentifier: String? = nil,
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.title = title
         self.itemCount = itemCount
         self.isExpandedByDefault = isExpandedByDefault
+        self.scrollsExpandedContent = scrollsExpandedContent
+        self.keepsExpandedContentMountedAfterFirstReveal = keepsExpandedContentMountedAfterFirstReveal
         self.accessibilityIdentifier = accessibilityIdentifier
         self.content = content
         self.emptyContent = nil
@@ -31,6 +40,8 @@ struct ExpandableDetailSection<Content: View>: View {
         title: String,
         itemCount: Int,
         isExpandedByDefault: Bool = false,
+        scrollsExpandedContent: Bool = false,
+        keepsExpandedContentMountedAfterFirstReveal: Bool = false,
         accessibilityIdentifier: String? = nil,
         @ViewBuilder emptyContent: @escaping () -> Empty,
         @ViewBuilder content: @escaping () -> Content
@@ -38,10 +49,17 @@ struct ExpandableDetailSection<Content: View>: View {
         self.title = title
         self.itemCount = itemCount
         self.isExpandedByDefault = isExpandedByDefault
+        self.scrollsExpandedContent = scrollsExpandedContent
+        self.keepsExpandedContentMountedAfterFirstReveal = keepsExpandedContentMountedAfterFirstReveal
         self.accessibilityIdentifier = accessibilityIdentifier
         self.content = content
         self.emptyContent = { AnyView(emptyContent()) }
         _isExpanded = State(initialValue: isExpandedByDefault && itemCount > 0)
+    }
+
+    private var shouldMountExpandedContent: Bool {
+        itemCount > 0
+            && (isExpanded || (keepsExpandedContentMountedAfterFirstReveal && keepsExpandedContentMounted))
     }
 
     var body: some View {
@@ -52,20 +70,53 @@ struct ExpandableDetailSection<Content: View>: View {
                 if let emptyContent {
                     emptyContent()
                 }
-            } else if isExpanded {
-                content()
+            } else if shouldMountExpandedContent {
+                expandedContent
+                    .frame(maxHeight: isExpanded ? .infinity : 0, alignment: .top)
+                    .clipped()
+                    .opacity(isExpanded ? 1 : 0)
+                    .allowsHitTesting(isExpanded)
+                    .accessibilityHidden(!isExpanded)
+                    .animation(nil, value: isExpanded)
             }
         }
+        .frame(maxHeight: scrollsExpandedContent ? .infinity : nil, alignment: .top)
         .accessibilityElement(children: .contain)
         .modifier(ExpandableDetailSectionAccessibilityID(identifier: accessibilityIdentifier))
+        .onAppear(perform: prewarmExpandedContentIfNeeded)
+        .onChange(of: itemCount) { _, newCount in
+            if newCount == 0 {
+                keepsExpandedContentMounted = false
+            } else {
+                prewarmExpandedContentIfNeeded()
+            }
+        }
+    }
+
+    private func prewarmExpandedContentIfNeeded() {
+        guard keepsExpandedContentMountedAfterFirstReveal, itemCount > 0 else { return }
+        keepsExpandedContentMounted = true
+    }
+
+    @ViewBuilder
+    private var expandedContent: some View {
+        if scrollsExpandedContent {
+            ScrollView {
+                content()
+            }
+            .frame(maxHeight: .infinity, alignment: .top)
+        } else {
+            content()
+        }
     }
 
     private var sectionHeader: some View {
         Button {
             guard ExpandableDetailSectionPresentation.showsExpandControl(itemCount: itemCount) else { return }
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isExpanded.toggle()
+            if keepsExpandedContentMountedAfterFirstReveal, !keepsExpandedContentMounted {
+                keepsExpandedContentMounted = true
             }
+            isExpanded.toggle()
         } label: {
             HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
                 Text(title)
@@ -84,6 +135,12 @@ struct ExpandableDetailSection<Content: View>: View {
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(AppTheme.Colors.tabUnselected)
                         .rotationEffect(.degrees(isExpanded ? 0 : -90))
+                        .animation(
+                            .snappy(
+                                duration: ExpandableDetailSectionPresentation.expandCollapseAnimationDuration
+                            ),
+                            value: isExpanded
+                        )
                         .accessibilityHidden(true)
                 }
             }

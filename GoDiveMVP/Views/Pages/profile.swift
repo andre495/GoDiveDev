@@ -5,7 +5,6 @@ struct ProfileView: View {
     private enum Layout {
         /// Dark veil between **`WaterBubbleBackground`** and profile content.
         static let bubbleScrimOpacity: CGFloat = 0.48
-        static let tileCornerRadius: CGFloat = 16
         static let headerSpacing: CGFloat = 16
         static let profileAvatarDiameter: CGFloat = 168
     }
@@ -227,87 +226,119 @@ struct ProfileView: View {
     }
 
     private var profileDestinationTiles: some View {
-        VStack(spacing: AppTheme.Spacing.md) {
-            HStack(spacing: AppTheme.Spacing.md) {
-                profileDestinationTile(
-                    title: "Certifications",
-                    subtitle: certificationCountLabel,
-                    systemImage: "checkmark.seal.fill",
-                    accessibilityIdentifier: "Profile.CertificationsLink"
-                ) {
-                    CertificationsListView()
-                }
+        VStack(spacing: AppTheme.Spacing.sm) {
+            profileDestinationTile(
+                title: "Certifications",
+                subtitle: certificationCountLabel,
+                systemImage: "checkmark.seal.fill",
+                accessibilityIdentifier: "Profile.CertificationsLink"
+            ) {
+                CertificationsListView()
+            }
 
-                profileDestinationTile(
-                    title: "Equipment Locker",
-                    subtitle: equipmentItemCountLabel,
-                    systemImage: "archivebox.fill",
-                    accessibilityIdentifier: "Profile.EquipmentLockerLink"
-                ) {
-                    EquipmentLockerView()
-                }
+            profileDestinationTile(
+                title: "Equipment Locker",
+                subtitle: equipmentItemCountLabel,
+                systemImage: "archivebox.fill",
+                accessibilityIdentifier: "Profile.EquipmentLockerLink"
+            ) {
+                EquipmentLockerView()
             }
 
             profileDestinationTile(
                 title: "Dive Buddies",
                 subtitle: diveBuddyCountLabel,
                 systemImage: "person.2.fill",
-                tileAspectRatio: 2.15,
                 accessibilityIdentifier: "Profile.DiveBuddiesLink"
             ) {
                 DiveBuddiesListView()
             }
         }
+        .frame(maxWidth: .infinity)
     }
 
     private func profileDestinationTile<Destination: View>(
         title: String,
         subtitle: String,
         systemImage: String,
-        tileAspectRatio: CGFloat = 1,
         accessibilityIdentifier: String,
         @ViewBuilder destination: () -> Destination
     ) -> some View {
         NavigationLink {
             destination()
         } label: {
-            VStack(spacing: AppTheme.Spacing.sm) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 34))
-                    .foregroundStyle(AppTheme.Colors.accent)
-                    .accessibilityHidden(true)
+            profileDestinationTileLabel(
+                title: title,
+                subtitle: subtitle,
+                systemImage: systemImage
+            )
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+        .accessibilityLabel("\(title), \(subtitle)")
+        .accessibilityIdentifier(accessibilityIdentifier)
+    }
 
+    private func profileDestinationTileLabel(
+        title: String,
+        subtitle: String,
+        systemImage: String
+    ) -> some View {
+        HStack(alignment: .center, spacing: AppTheme.Spacing.md) {
+            Image(systemName: systemImage)
+                .font(
+                    .system(
+                        size: ProfileDestinationTilePresentation.iconPointSize,
+                        weight: .semibold
+                    )
+                )
+                .foregroundStyle(AppTheme.Colors.accent)
+                .frame(
+                    width: ProfileDestinationTilePresentation.iconSlotWidth,
+                    height: ProfileDestinationTilePresentation.iconSlotWidth
+                )
+                .accessibilityHidden(true)
+
+            VStack(
+                alignment: .leading,
+                spacing: ProfileDestinationTilePresentation.textStackSpacing
+            ) {
                 Text(title)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.Colors.textPrimary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.85)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
 
                 Text(subtitle)
                     .font(.caption.weight(.medium))
                     .foregroundStyle(AppTheme.Colors.secondaryText)
-                    .multilineTextAlignment(.center)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.85)
+                    .truncationMode(.tail)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(AppTheme.Spacing.md)
-            .aspectRatio(tileAspectRatio, contentMode: .fit)
-            .background {
-                RoundedRectangle(cornerRadius: Layout.tileCornerRadius, style: .continuous)
-                    .fill(AppTheme.Colors.surfaceElevated)
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: Layout.tileCornerRadius, style: .continuous)
-                    .strokeBorder(AppTheme.Colors.accentDeep.opacity(0.12), lineWidth: 1)
-            }
-            .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(title), \(subtitle)")
-        .accessibilityIdentifier(accessibilityIdentifier)
+        .padding(.horizontal, ProfileDestinationTilePresentation.horizontalPadding)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: ProfileDestinationTilePresentation.tileHeight,
+            maxHeight: ProfileDestinationTilePresentation.tileHeight,
+            alignment: .leading
+        )
+        .background {
+            RoundedRectangle(
+                cornerRadius: ProfileDestinationTilePresentation.cornerRadius,
+                style: .continuous
+            )
+            .fill(AppTheme.Colors.surfaceElevated)
+        }
+        .overlay {
+            RoundedRectangle(
+                cornerRadius: ProfileDestinationTilePresentation.cornerRadius,
+                style: .continuous
+            )
+            .strokeBorder(AppTheme.Colors.accentDeep.opacity(0.12), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.1), radius: 6, y: 3)
     }
 
     private var signOutButton: some View {

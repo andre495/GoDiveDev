@@ -57,7 +57,7 @@ enum DiveActivityEditableFieldID: String, Identifiable, Sendable, CaseIterable, 
     var id: String { rawValue }
 }
 
-enum DiveActivityEditablePanelTab: Sendable {
+enum DiveActivityEditablePanelTab: Sendable, Equatable {
     case map
     case tank
 }

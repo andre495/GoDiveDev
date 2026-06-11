@@ -1,15 +1,14 @@
 import SwiftUI
 
-/// Grouped tap-to-edit field rows for the map or tank overview panel.
+/// Grouped read-only field rows for the map or tank overview panel; edit per section via header actions.
 struct DiveActivityEditableSectionsView: View {
     @Bindable var activity: DiveActivity
     let tab: DiveActivityEditablePanelTab
     let panelDetent: DiveActivityOverviewDetent
     let displayUnits: DiveDisplayUnitSystem
     let profileGasStats: DiveActivityTankPanelSummary.ProfilePressureStats
-    let onEditField: (DiveActivityEditableFieldID) -> Void
+    let onEditSection: (DiveActivityEditableCatalog.Section) -> Void
     let onManageEquipment: () -> Void
-    let onManageLinkedSite: () -> Void
     let onManageBuddies: () -> Void
 
     var body: some View {
@@ -24,16 +23,11 @@ struct DiveActivityEditableSectionsView: View {
     @ViewBuilder
     private func sectionView(_ section: DiveActivityEditableCatalog.Section) -> some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            Text(section.title)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.tabUnselected)
+            sectionHeader(section)
 
             VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
                 if section.id == "buddies" {
-                    DiveActivityBuddiesOverviewSection(
-                        activity: activity,
-                        onManage: onManageBuddies
-                    )
+                    DiveActivityBuddiesOverviewSection(activity: activity)
                 } else {
                     ForEach(section.fieldIDs, id: \.self) { fieldID in
                         row(for: fieldID)
@@ -49,9 +43,47 @@ struct DiveActivityEditableSectionsView: View {
         }
     }
 
+    private func sectionHeader(_ section: DiveActivityEditableCatalog.Section) -> some View {
+        HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
+            Text(section.title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.tabUnselected)
+
+            Spacer(minLength: AppTheme.Spacing.sm)
+
+            switch DiveActivityEditableCatalog.headerAction(for: section) {
+            case .none:
+                EmptyView()
+            case .add:
+                DiveActivitySectionHeaderActionButton(
+                    systemImage: "plus",
+                    accessibilityLabel: "Add buddies"
+                ) {
+                    onManageBuddies()
+                }
+                .accessibilityIdentifier("DiveOverview.Section.\(section.id).Add")
+            case .editForm:
+                DiveActivitySectionHeaderActionButton(
+                    systemImage: "ellipsis",
+                    accessibilityLabel: "Edit \(section.title)"
+                ) {
+                    onEditSection(section)
+                }
+                .accessibilityIdentifier("DiveOverview.Section.\(section.id).Edit")
+            case .manageEquipment:
+                DiveActivitySectionHeaderActionButton(
+                    systemImage: "ellipsis",
+                    accessibilityLabel: "Edit equipment"
+                ) {
+                    onManageEquipment()
+                }
+                .accessibilityIdentifier("DiveOverview.Section.\(section.id).Edit")
+            }
+        }
+    }
+
     private func row(for fieldID: DiveActivityEditableFieldID) -> some View {
-        let editable = DiveActivityEditableCatalog.isEditable(fieldID)
-        return DiveActivityEditableRow(
+        DiveActivityEditableRow(
             label: DiveActivityEditableCatalog.label(for: fieldID),
             value: DiveActivityFieldEditing.displayValue(
                 for: fieldID,
@@ -60,34 +92,8 @@ struct DiveActivityEditableSectionsView: View {
                 profileGasStats: profileGasStats
             ),
             showsLabel: fieldID != .notes,
-            signaturePreviewData: fieldID == .diveSignature ? activity.diveSignatureData : nil,
-            isEditable: editable || usesSpecialAction(fieldID),
-            action: { performAction(for: fieldID) }
+            signaturePreviewData: fieldID == .diveSignature ? activity.diveSignatureData : nil
         )
         .accessibilityIdentifier("DiveOverview.Field.\(fieldID.rawValue)")
-    }
-
-    private func usesSpecialAction(_ fieldID: DiveActivityEditableFieldID) -> Bool {
-        switch fieldID {
-        case .linkedEquipment, .linkedCatalogSite, .buddies:
-            return true
-        default:
-            return false
-        }
-    }
-
-    private func performAction(for fieldID: DiveActivityEditableFieldID) {
-        switch fieldID {
-        case .linkedEquipment:
-            onManageEquipment()
-        case .linkedCatalogSite:
-            onManageLinkedSite()
-        case .buddies:
-            onManageBuddies()
-        default:
-            if DiveActivityEditableCatalog.isEditable(fieldID) {
-                onEditField(fieldID)
-            }
-        }
     }
 }

@@ -33,19 +33,9 @@ struct DiveActivityPhotosPanelContent: View {
         return selectedMedia.id == featuredMediaID
     }
 
-    private var selectedMediaFishialSpeciesName: String? {
-        selectedMedia?.resolvedFishialConfirmedSpeciesName
-    }
-
     private var isMarineLifeTagControlActive: Bool {
         DiveActivityMediaPresentation.marineLifeTagControlIsActive(
             taggedSpeciesCount: taggedSpecies.count
-        )
-    }
-
-    private var showsFishialIdentificationSummary: Bool {
-        DiveActivityMediaPresentation.fishialIdentifyControlIsActive(
-            confirmedSpeciesName: selectedMediaFishialSpeciesName
         )
     }
 
@@ -193,9 +183,6 @@ struct DiveActivityPhotosPanelContent: View {
         if showsMarineLifeTagSummary {
             marineLifeTagsSection
         }
-        if showsFishialIdentificationSummary, let fishialName = selectedMediaFishialSpeciesName {
-            fishialIdentificationSection(name: fishialName)
-        }
     }
 
     @ViewBuilder
@@ -206,10 +193,12 @@ struct DiveActivityPhotosPanelContent: View {
             if taggedSpecies.count > 1 {
                 DiveActivityMediaTaggedSpeciesSelector(
                     species: taggedSpecies,
+                    media: selectedMedia,
                     selectedUUID: $selectedTaggedSpeciesUUID
                 )
-            } else {
-                DiveActivityTagChipFlow(tagNames: taggedSpeciesChipTitles)
+            } else if let species = taggedSpecies.first {
+                marineLifeSpeciesChip(for: species)
+                    .accessibilityIdentifier("DiveOverview.MediaMarineLifeTag.\(species.uuid)")
             }
 
             if let resolvedSelectedTaggedSpecies {
@@ -346,58 +335,38 @@ struct DiveActivityPhotosPanelContent: View {
     }
 
     private var mediumDetentMarineLifeTagChips: some View {
-        let columns = [GridItem(.adaptive(minimum: 88), spacing: AppTheme.Spacing.sm)]
-
-        return LazyVGrid(columns: columns, alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            ForEach(taggedSpecies, id: \.uuid) { species in
-                if let onExpandMarineLifeDetail {
-                    Button {
-                        selectedTaggedSpeciesUUID = species.uuid
-                        onExpandMarineLifeDetail()
-                    } label: {
-                        ActivityTagOvalChipLabel(
-                            title: MarineLifeMediaTagPresentation.chipDisplayTitle(for: species.commonName)
-                        )
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: MarineLifeMediaTagPresentation.chipRowSpacing) {
+                ForEach(taggedSpecies, id: \.uuid) { species in
+                    if let onExpandMarineLifeDetail {
+                        Button {
+                            selectedTaggedSpeciesUUID = species.uuid
+                            onExpandMarineLifeDetail()
+                        } label: {
+                            marineLifeSpeciesChip(for: species)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Shows \(species.commonName) details")
+                        .accessibilityIdentifier("DiveOverview.MediaMarineLifeTag.\(species.uuid)")
+                    } else {
+                        marineLifeSpeciesChip(for: species)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(species.commonName)
-                    .accessibilityHint("Shows \(species.commonName) details")
-                    .accessibilityIdentifier("DiveOverview.MediaMarineLifeTag.\(species.uuid)")
-                } else {
-                    ActivityTagOvalChipLabel(
-                        title: MarineLifeMediaTagPresentation.chipDisplayTitle(for: species.commonName)
-                    )
-                    .accessibilityLabel(species.commonName)
                 }
             }
         }
     }
 
-    private func fishialIdentificationSection(name: String) -> some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            Text(FishialIdentificationReviewPresentation.mediumDetentSectionTitle)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.tabUnselected)
-                .textCase(.uppercase)
-
-            HStack(alignment: .top, spacing: AppTheme.Spacing.sm) {
-                Image(systemName: "sparkles")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.accent)
-                    .accessibilityHidden(true)
-
-                Text(name)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            FishialIdentificationReviewPresentation.mediumDetentAccessibilityLabel(speciesName: name)
+    private func marineLifeSpeciesChip(for species: MarineLife) -> some View {
+        ActivityTagOvalChipLabel(
+            title: MarineLifeMediaTagPresentation.chipDisplayTitle(for: species.commonName),
+            showsFishialBadge: showsFishialBadge(for: species)
         )
-        .accessibilityIdentifier("DiveOverview.MediaFishialIdentification")
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private func showsFishialBadge(for species: MarineLife) -> Bool {
+        guard let selectedMedia else { return false }
+        return DiveActivityMediaPresentation.speciesWasFishialIdentified(species: species, on: selectedMedia)
     }
 
     private var addMediaButton: some View {

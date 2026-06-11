@@ -1,5 +1,25 @@
 import Foundation
 
+/// Trailing control on a section header in the dive overview panels.
+enum DiveActivityEditableSectionHeaderAction: Sendable, Equatable {
+    case none
+    /// Opens the buddies picker (add more).
+    case add
+    /// Opens a multi-field form sheet for editable rows in the section.
+    case editForm
+    /// Opens the equipment linker (tank tab).
+    case manageEquipment
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        switch (lhs, rhs) {
+        case (.none, .none), (.add, .add), (.editForm, .editForm), (.manageEquipment, .manageEquipment):
+            return true
+        default:
+            return false
+        }
+    }
+}
+
 /// Tab-specific editable field groupings for the dive overview panels.
 enum DiveActivityEditableCatalog: Sendable {
 
@@ -123,6 +143,21 @@ enum DiveActivityEditableCatalog: Sendable {
             return false
         default:
             return true
+        }
+    }
+
+    static func editableFields(in section: Section) -> [DiveActivityEditableFieldID] {
+        section.fieldIDs.filter { isEditable($0) }
+    }
+
+    static func headerAction(for section: Section) -> DiveActivityEditableSectionHeaderAction {
+        switch section.id {
+        case "buddies":
+            return .add
+        case "equipment":
+            return .manageEquipment
+        default:
+            return editableFields(in: section).isEmpty ? .none : .editForm
         }
     }
 

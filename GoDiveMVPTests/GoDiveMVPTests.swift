@@ -237,6 +237,12 @@ struct GoDiveMVPTests {
         #expect(ProfilePresentation.equipmentItemCountLabel(5) == "5 items")
     }
 
+    @Test func profileDestinationTilePresentation_usesUniformTileHeight() {
+        #expect(ProfileDestinationTilePresentation.tileHeight == 54)
+        #expect(ProfileDestinationTilePresentation.iconPointSize == 22)
+        #expect(ProfileDestinationTilePresentation.iconSlotWidth == 28)
+    }
+
     @Test func profilePhotoCropRenderer_baseFillScale_coversViewport() {
         let imageSize = CGSize(width: 800, height: 600)
         let cropDiameter: CGFloat = 280
@@ -2235,19 +2241,23 @@ struct GoDiveMVPTests {
             FieldGuideCategoryPresentation.detailHeroHeight(extraTopInset: inset)
                 == FieldGuideCategoryImageLayout.detailHeroBaseHeight + inset
         )
-        #expect(FieldGuideCategoryImageLayout.detailHeroBaseHeight == 280)
+        #expect(FieldGuideCategoryImageLayout.detailHeroBaseHeight == 200)
     }
 
-    @Test func fieldGuideSubcategoryPresentation_scrollContentTopInset_accountsForHeaderChrome() {
+    @Test func fieldGuideSubcategoryPresentation_matchesCategoryDetailHeroChrome() {
+        let inset: CGFloat = 59
+        #expect(
+            FieldGuideSubcategoryPresentation.detailHeroHeight(extraTopInset: inset)
+                == FieldGuideCategoryPresentation.detailHeroHeight(extraTopInset: inset)
+        )
         let safeTop: CGFloat = 59
         let headerClearance: CGFloat = 52
         #expect(
-            FieldGuideSubcategoryPresentation.scrollContentTopInset(
+            FieldGuideSubcategoryPresentation.chromeTopInset(
                 safeAreaTop: safeTop,
                 headerClearance: headerClearance
             ) == safeTop + headerClearance
         )
-        #expect(FieldGuideSubcategoryPresentation.headerTitleLineLimit == 2)
     }
 
     @Test func fieldGuideCatalogIndex_browsePayload_usesTaxonomySubcategoryTitle() {
@@ -2478,19 +2488,35 @@ struct GoDiveMVPTests {
         #expect(DiveActivityMediaPresentation.showsHeroTopChromeScrim(isMediaTabSelected: false))
     }
 
-    @Test func diveActivityMediaPresentation_panelTopScrollUsesOpaqueFadeBackground_onlyAtLargeOnMediaTab() {
+    @Test func diveActivityMediaPresentation_panelTopScrollKeepsTranslucentChromeAtLargeMediaTab() {
         #expect(
-            DiveActivityMediaPresentation.panelTopScrollUsesOpaqueFadeBackground(
+            !DiveActivityMediaPresentation.panelTopScrollUsesOpaqueFadeBackground(
                 detent: .large,
                 isMediaTabSelected: true
             )
         )
         #expect(
-            !DiveActivityMediaPresentation.panelTopScrollUsesOpaqueFadeBackground(
-                detent: .medium,
+            DiveActivityMediaPresentation.panelTopScrollFadeHeight(
+                detent: .large,
                 isMediaTabSelected: true
-            )
+            ) > 0
         )
+    }
+
+    @Test func diveActivityMediaPresentation_speciesWasFishialIdentified_matchesScientificName() {
+        let media = DiveMediaPhoto(fishialConfirmedSpeciesName: "Holacanthus ciliaris")
+        let species = MarineLife(
+            uuid: "marine-life-queen-angelfish",
+            commonName: "Queen Angelfish",
+            scientificName: "Holacanthus ciliaris"
+        )
+        let other = MarineLife(
+            uuid: "marine-life-french-angelfish",
+            commonName: "French Angelfish",
+            scientificName: "Holacanthus paru"
+        )
+        #expect(DiveActivityMediaPresentation.speciesWasFishialIdentified(species: species, on: media))
+        #expect(!DiveActivityMediaPresentation.speciesWasFishialIdentified(species: other, on: media))
     }
 
     @Test func diveActivityMediaPresentation_resolvedTaggedSpeciesUUID_prefersChipSelection() {
@@ -3429,6 +3455,35 @@ struct GoDiveMVPTests {
 
     @Test func diveActivityEditableCatalog_sourceDiveIdIsNotEditable() {
         #expect(!DiveActivityEditableCatalog.isEditable(.sourceDiveId))
+    }
+
+    @Test func diveActivityEditableCatalog_sectionHeaderActions() {
+        let mapSections = DiveActivityEditableCatalog.sections(for: .map, detent: .large)
+        let dive = mapSections.first { $0.id == "dive" }!
+        let buddies = mapSections.first { $0.id == "buddies" }!
+        let record = DiveActivityEditableCatalog.sections(for: .tank, detent: .large)
+            .first { $0.id == "record" }!
+        let equipment = DiveActivityEditableCatalog.sections(for: .tank, detent: .medium)
+            .first { $0.id == "equipment" }!
+
+        #expect(DiveActivityEditableCatalog.headerAction(for: dive) == .editForm)
+        #expect(DiveActivityEditableCatalog.headerAction(for: buddies) == .add)
+        #expect(DiveActivityEditableCatalog.headerAction(for: record) == .none)
+        #expect(DiveActivityEditableCatalog.headerAction(for: equipment) == .manageEquipment)
+        #expect(DiveActivityEditableCatalog.editableFields(in: dive).contains(.durationMinutes))
+        #expect(!DiveActivityEditableCatalog.editableFields(in: dive).contains(.profileSampleCount))
+    }
+
+    @Test func diveActivitySectionEditContext_resolvesSectionFromTabAndDetent() {
+        let context = DiveActivitySectionEditContext(
+            sectionID: "diveConditions",
+            tab: .map,
+            panelDetent: .large
+        )
+        #expect(context.id == "map-diveConditions")
+        let section = context.resolvedSection()
+        #expect(section?.title == "Dive Conditions")
+        #expect(section?.fieldIDs.contains(.diveVisibility) == true)
     }
 
     @Test func diveActivityDTO_decodesSourceAndLegacyDeviceSourceKey() throws {
@@ -5131,6 +5186,11 @@ struct GoDiveMVPTests {
                 hasCarouselHighlights: true
             )
         )
+    }
+
+    @Test func diveMediaProgressivePresentation_posterTargetSize_beforeLayoutUsesFastEdge() {
+        let poster = DiveMediaProgressivePresentation.posterTargetSize(screenPixelWidth: 0)
+        #expect(poster.width == DiveMediaProgressivePresentation.posterImageEdge)
     }
 
     @Test func diveMediaProgressivePresentation_posterAndUpgradePolicy() {
@@ -8517,6 +8577,35 @@ struct GoDiveMVPTests {
         #expect(DiveBuddyRosterPresentation.listSubtitle(sharedDiveCount: 2) == "2 dives together")
         #expect(ProfilePresentation.diveBuddyRosterCountLabel(2) == "2 buddies")
         #expect(DiveBuddyRosterPresentation.buddyDetailUsesScrollContainer == false)
+        #expect(ExpandableDetailSectionPresentation.buddyDetailScrollsExpandedDiveList)
+        #expect(ExpandableDetailSectionPresentation.buddyDetailKeepsExpandedContentMounted)
+        #expect(ExpandableDetailSectionPresentation.expandCollapseAnimationDuration == 0.12)
+    }
+
+    @Test func diveBuddyRosterPresentation_sharedDiveRowDisplayData_ordersNewestFirst() {
+        let ownerID = UUID()
+        let older = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 1_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        older.ownerProfileID = ownerID
+        let newer = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 2_000),
+            durationMinutes: 50,
+            maxDepthMeters: 24
+        )
+        newer.ownerProfileID = ownerID
+
+        let rows = DiveBuddyRosterPresentation.sharedDiveRowDisplayData(
+            sharedDives: [newer, older],
+            unitSystem: .metric,
+            useChronologicalNumbers: false,
+            numberingActivities: [newer, older]
+        )
+        #expect(rows.map(\.id) == [newer.id, older.id])
     }
 
     @Test func homeBuddyLeaderboard_topEntries_countsUniqueDivesPerBuddy() {

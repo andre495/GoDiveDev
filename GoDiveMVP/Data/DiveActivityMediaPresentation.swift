@@ -152,12 +152,23 @@ enum DiveActivityMediaPresentation: Sendable {
         return DiveActivityOverviewPanelMetrics.mediaLargeDetentTopScrollFadeHeight
     }
 
-    /// Opaque panel surface behind scroll content when the top feather mask is active.
+    /// **`false`** — **Media** large detent keeps frosted panel chrome; scroll feather fades over the hero.
     nonisolated static func panelTopScrollUsesOpaqueFadeBackground(
         detent: DiveActivityOverviewDetent,
         isMediaTabSelected: Bool
     ) -> Bool {
-        panelTopScrollFadeHeight(detent: detent, isMediaTabSelected: isMediaTabSelected) > 0
+        _ = detent
+        _ = isMediaTabSelected
+        return false
+    }
+
+    /// **`true`** when the user confirmed this catalog species via Fishial on the media item.
+    nonisolated static func speciesWasFishialIdentified(
+        species: MarineLife,
+        on media: DiveMediaPhoto
+    ) -> Bool {
+        guard let fishialName = media.resolvedFishialConfirmedSpeciesName else { return false }
+        return species.scientificName.caseInsensitiveCompare(fishialName) == .orderedSame
     }
 
     /// Selected chip at **medium** should open that species at **large** when still tagged.

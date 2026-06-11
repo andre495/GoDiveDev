@@ -43,7 +43,7 @@ struct ViewSingleActivity: View {
     @State private var showsMapSitePromptDialog = false
     @State private var showsAddDiveSiteSheet = false
     @State private var mapSitePromptUserDeclined = false
-    @State private var editingField: DiveActivityEditableFieldID?
+    @State private var editingSectionContext: DiveActivitySectionEditContext?
     @State private var showsBuddiesEditSheet = false
     @State private var showsTagsEditSheet = false
     @State private var showsAddEquipmentSheet = false
@@ -168,12 +168,14 @@ struct ViewSingleActivity: View {
                     }
                 )
             }
-            .sheet(item: $editingField) { field in
-                DiveActivityFieldEditSheet(
-                    activity: activity,
-                    field: field,
-                    displayUnits: diveDisplayUnitSystem
-                )
+            .sheet(item: $editingSectionContext) { context in
+                if let section = context.resolvedSection() {
+                    DiveActivitySectionEditSheet(
+                        activity: activity,
+                        section: section,
+                        displayUnits: diveDisplayUnitSystem
+                    )
+                }
             }
             .sheet(isPresented: $showsBuddiesEditSheet) {
                 DiveActivityBuddiesEditSheet(activity: activity)
@@ -1136,9 +1138,14 @@ struct ViewSingleActivity: View {
                 panelDetent: overviewSheetDetent,
                 displayUnits: diveDisplayUnitSystem,
                 profileGasStats: derivedDiveData.profileGasStats,
-                onEditField: { editingField = $0 },
+                onEditSection: { section in
+                    editingSectionContext = DiveActivitySectionEditContext(
+                        sectionID: section.id,
+                        tab: .tank,
+                        panelDetent: overviewSheetDetent
+                    )
+                },
                 onManageEquipment: { showsAddEquipmentSheet = true },
-                onManageLinkedSite: { showsAddDiveSiteSheet = true },
                 onManageBuddies: { showsBuddiesEditSheet = true }
             )
         }
@@ -1225,9 +1232,14 @@ struct ViewSingleActivity: View {
             profileGasStats: derivedDiveData.profileGasStats,
             siteTitle: overviewSiteHeaderTitle,
             regionCountryLine: overviewMapHeaderRegionCountryLine,
-            onEditField: { editingField = $0 },
+            onEditSection: { section in
+                editingSectionContext = DiveActivitySectionEditContext(
+                    sectionID: section.id,
+                    tab: .map,
+                    panelDetent: overviewSheetDetent
+                )
+            },
             onManageEquipment: { showsAddEquipmentSheet = true },
-            onManageLinkedSite: { showsAddDiveSiteSheet = true },
             onManageBuddies: { showsBuddiesEditSheet = true },
             onAddTags: { showsTagsEditSheet = true },
             canAddTags: accountSession.currentProfile?.id != nil

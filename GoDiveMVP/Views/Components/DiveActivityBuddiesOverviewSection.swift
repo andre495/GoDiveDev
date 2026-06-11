@@ -1,28 +1,15 @@
 import SwiftUI
 
-/// **Buddies** overview card — horizontal avatars + tap to manage.
+/// **Buddies** overview card — horizontal avatars (add via section header **+**).
 struct DiveActivityBuddiesOverviewSection: View {
     @Bindable var activity: DiveActivity
-    let onManage: () -> Void
 
     var body: some View {
-        Button(action: onManage) {
-            HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
-                buddiesContent
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                Image(systemName: "ellipsis")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.tabSelected)
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint("Edit buddies")
-        .accessibilityIdentifier("DiveOverview.BuddiesSection")
+        buddiesContent
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(accessibilityLabel)
+            .accessibilityIdentifier("DiveOverview.BuddiesSection")
     }
 
     @ViewBuilder

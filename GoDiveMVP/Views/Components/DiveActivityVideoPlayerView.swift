@@ -25,6 +25,8 @@ struct DiveActivityVideoPlayerView: View {
     var usesProgressiveFidelity: Bool = false
     /// Screen pixel width for poster sizing when **`usesProgressiveFidelity`** is **`true`**.
     var screenPixelWidth: CGFloat = 0
+    /// Parent-supplied poster (e.g. dive hero) shown immediately while preview video resolves.
+    var initialPosterImage: UIImage? = nil
     var isPausedByUserHold: Bool = false
     /// Called once when playback reaches the end and **`loopsPlayback`** is **`false`**.
     var onPlaybackFinished: (() -> Void)?
@@ -48,9 +50,9 @@ struct DiveActivityVideoPlayerView: View {
         Group {
             #if canImport(UIKit)
             ZStack {
-                if let posterImage {
+                if let displayedPoster {
                     GeometryReader { geometry in
-                        Image(uiImage: posterImage)
+                        Image(uiImage: displayedPoster)
                             .resizable()
                             .scaledToFill()
                             .frame(width: geometry.size.width, height: geometry.size.height)
@@ -84,9 +86,9 @@ struct DiveActivityVideoPlayerView: View {
                     offlineUnavailablePlaceholder
                 } else if loadFailed {
                     errorRetryPlaceholder
-                } else if posterImage == nil, !isResolving, source == nil {
+                } else if displayedPoster == nil, !isResolving, source == nil {
                     missingPlaceholder
-                } else if posterImage == nil, !isResolving, playerItem == nil, !loadFailed {
+                } else if displayedPoster == nil, !isResolving, playerItem == nil, !loadFailed {
                     missingPlaceholder
                 }
             }
@@ -120,6 +122,10 @@ struct DiveActivityVideoPlayerView: View {
     #if canImport(UIKit)
     private var videoLoadTaskID: String {
         "\(source?.identityKey ?? "nil")#\(reloadToken)#\(usesProgressiveFidelity)"
+    }
+
+    private var displayedPoster: UIImage? {
+        posterImage ?? initialPosterImage
     }
 
     private func resolveSourceIfNeeded() async {
@@ -174,7 +180,7 @@ struct DiveActivityVideoPlayerView: View {
         isResolving = true
         loadFailed = false
         showsOfflineUnavailable = false
-        posterImage = nil
+        posterImage = initialPosterImage
         videoFidelity = .none
         isPlayerDisplayReady = false
 
@@ -201,7 +207,9 @@ struct DiveActivityVideoPlayerView: View {
 
         guard source.identityKey == self.source?.identityKey else { return }
 
-        posterImage = await posterTask
+        if let loadedPoster = await posterTask {
+            posterImage = loadedPoster
+        }
         isResolving = false
 
         if let previewItem {
@@ -294,7 +302,7 @@ struct DiveActivityVideoPlayerView: View {
             loadFailed = true
         case .offlineUnavailable:
             loadFailed = false
-            showsOfflineUnavailable = posterImage == nil
+            showsOfflineUnavailable = displayedPoster == nil
         }
     }
 

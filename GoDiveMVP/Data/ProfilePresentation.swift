@@ -43,3 +43,15 @@ enum ProfilePresentation: Sendable {
         DiveBuddyRosterPresentation.rosterCountLabel(count)
     }
 }
+
+/// Layout for **Profile** destination tiles (Certifications, Equipment Locker, Dive Buddies).
+enum ProfileDestinationTilePresentation: Sendable {
+    nonisolated static let iconPointSize: CGFloat = 22
+    nonisolated static let iconSlotWidth: CGFloat = 28
+    nonisolated static let cornerRadius: CGFloat = 14
+    nonisolated static let verticalPadding: CGFloat = 10
+    nonisolated static let horizontalPadding: CGFloat = 14
+    nonisolated static let textStackSpacing: CGFloat = 2
+    /// Fixed height so every tile matches regardless of title length.
+    nonisolated static let tileHeight: CGFloat = 54
+}

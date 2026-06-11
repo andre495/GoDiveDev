@@ -1,0 +1,99 @@
+import SwiftUI
+
+/// Sheet editor for all editable fields in one dive overview section.
+struct DiveActivitySectionEditSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    @Bindable var activity: DiveActivity
+    let section: DiveActivityEditableCatalog.Section
+    let displayUnits: DiveDisplayUnitSystem
+
+    @State private var drafts: [DiveActivityEditableFieldID: DiveActivityFieldEditDraft]
+
+    private var editableFields: [DiveActivityEditableFieldID] {
+        DiveActivityEditableCatalog.editableFields(in: section)
+    }
+
+    init(
+        activity: DiveActivity,
+        section: DiveActivityEditableCatalog.Section,
+        displayUnits: DiveDisplayUnitSystem
+    ) {
+        self.activity = activity
+        self.section = section
+        self.displayUnits = displayUnits
+        var loaded: [DiveActivityEditableFieldID: DiveActivityFieldEditDraft] = [:]
+        for field in DiveActivityEditableCatalog.editableFields(in: section) {
+            loaded[field] = DiveActivityFieldEditing.loadDraft(
+                for: field,
+                activity: activity,
+                displayUnits: displayUnits
+            )
+        }
+        _drafts = State(initialValue: loaded)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                ForEach(editableFields, id: \.self) { field in
+                    Section {
+                        DiveActivityFieldEditorRows(
+                            activity: activity,
+                            field: field,
+                            draft: draftBinding(for: field),
+                            displayUnits: displayUnits
+                        )
+                    } header: {
+                        if showsFieldHeader(for: field) {
+                            Text(DiveActivityEditableCatalog.label(for: field))
+                        }
+                    } footer: {
+                        if field == .diveSignature {
+                            Text("Changes save when you tap Done.")
+                        }
+                    }
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .navigationTitle(section.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        saveAndDismiss()
+                    }
+                    .fontWeight(.semibold)
+                    .foregroundStyle(AppTheme.Colors.tabSelected)
+                    .accessibilityIdentifier("DiveSectionEditSheet.\(section.id).Done")
+                }
+            }
+        }
+        .diveActivityFieldSheetPresentation()
+        .accessibilityIdentifier("DiveSectionEditSheet.\(section.id)")
+    }
+
+    private func showsFieldHeader(for field: DiveActivityEditableFieldID) -> Bool {
+        field != .notes
+    }
+
+    private func draftBinding(for field: DiveActivityEditableFieldID) -> Binding<DiveActivityFieldEditDraft> {
+        Binding(
+            get: { drafts[field] ?? DiveActivityFieldEditDraft() },
+            set: { drafts[field] = $0 }
+        )
+    }
+
+    private func saveAndDismiss() {
+        for field in editableFields {
+            guard let draft = drafts[field] else { continue }
+            DiveActivityFieldEditing.applyDraft(
+                draft,
+                for: field,
+                to: activity,
+                displayUnits: displayUnits
+            )
+        }
+        dismiss()
+    }
+}

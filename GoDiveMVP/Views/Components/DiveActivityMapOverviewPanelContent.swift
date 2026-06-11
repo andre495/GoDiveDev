@@ -8,9 +8,8 @@ struct DiveActivityMapOverviewPanelContent: View {
     let profileGasStats: DiveActivityTankPanelSummary.ProfilePressureStats
     let siteTitle: String
     let regionCountryLine: String?
-    let onEditField: (DiveActivityEditableFieldID) -> Void
+    let onEditSection: (DiveActivityEditableCatalog.Section) -> Void
     let onManageEquipment: () -> Void
-    let onManageLinkedSite: () -> Void
     let onManageBuddies: () -> Void
     let onAddTags: () -> Void
     let canAddTags: Bool
@@ -100,9 +99,8 @@ struct DiveActivityMapOverviewPanelContent: View {
                 panelDetent: overviewSheetDetent,
                 displayUnits: diveDisplayUnitSystem,
                 profileGasStats: profileGasStats,
-                onEditField: onEditField,
+                onEditSection: onEditSection,
                 onManageEquipment: onManageEquipment,
-                onManageLinkedSite: onManageLinkedSite,
                 onManageBuddies: onManageBuddies
             )
 
