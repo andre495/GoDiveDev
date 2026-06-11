@@ -12,10 +12,10 @@ alwaysApply: true
 Run the Xcode workflow (**`.cursor/rules/xcode-run-test.mdc`**) only when:
 
 1. **Explicit test / build request** — the user asks to **run**, **launch**, **build**, **test**, **⌘U**, verify compile, or similar. **Run on Dre's phone** uses **`.cursor/rules/xcode-run-dres-phone.mdc`** (clean → rebuild → install + launch).
-2. **Commit and/or push** — the user asks to **`git commit`**, **`git push`**, or ship / commit-and-push. **Before** committing:
-   - Run **`clean build-for-testing`** on the iPhone 17 simulator (default from **`xcode-run-test.mdc`**).
-   - Fix compile errors, regressions you introduced, and **all project build warnings** (**`xcode-fix-build-warnings.mdc`**).
-   - Run **`test`** only if the user also asked to run tests (or said “test” as part of the commit/push request).
+2. **Commit and/or push** — the user asks to **`git commit`**, **`git push`**, or ship / commit-and-push. **Before** staging or committing:
+   - On **iPhone 17 simulator** (`platform=iOS Simulator,name=iPhone 17,OS=latest` per **`xcode-run-test.mdc`**): **`clean`** → **`clean build-for-testing`** → **`test`**.
+   - Fix compile errors, **failing tests**, regressions you introduced, and **all project build warnings** (**`xcode-fix-build-warnings.mdc`**); repeat until green.
+   - **Do not commit or push** until **BUILD SUCCEEDED**, **all tests pass**, and **project warning count is 0**.
 
 ## When not to run
 

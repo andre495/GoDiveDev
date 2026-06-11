@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Change log — mark (pushed) + open next section after commit + push
 
-When you **`git commit`** and **`git push`** successfully in the same task (because the user asked you to commit/push, or to ship the current batch):
+When you **`git commit`** and **`git push`** successfully in the same task (because the user asked you to commit/push, or to ship the current batch) — only after iPhone 17 simulator preflight passes (**`.cursor/rules/xcode-test-only-when-asked.mdc`**):
 
 1. Open **`GoDiveMVP/cursor/change_log.md`**.
 2. Find the **highest-numbered** `## NN - …` section that is **not** already marked **`(pushed)`**.

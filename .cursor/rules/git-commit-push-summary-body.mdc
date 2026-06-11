@@ -35,13 +35,15 @@ One or two sentences on why this batch ships.
 
 ## Workflow with changelog
 
-1. Ensure **`change_log.md`** / **`app_summary.md`** reflect the work (**`.cursor/rules/changelog-app-summary-sync.mdc`**).
-2. **`git commit`** with subject + body via HEREDOC (see user commit rules).
-3. **`git push`** when requested.
-4. Mark shipped section(s) **`(pushed)`** per **`.cursor/rules/changelog-mark-pushed-on-git-push.mdc`** — include that edit in the commit when possible; otherwise a tiny follow-up commit after push.
+1. **Preflight (required)** — Per **`xcode-test-only-when-asked.mdc`**: iPhone 17 sim **`clean`** → **`clean build-for-testing`** → **`test`**; fix errors, failures, and warnings (**`xcode-fix-build-warnings.mdc`**). **Do not commit or push** until green.
+2. Ensure **`change_log.md`** / **`app_summary.md`** reflect the work (**`.cursor/rules/changelog-app-summary-sync.mdc`**).
+3. **`git commit`** with subject + body via HEREDOC (see user commit rules).
+4. **`git push`** when requested.
+5. Mark shipped section(s) **`(pushed)`** per **`.cursor/rules/changelog-mark-pushed-on-git-push.mdc`** — include that edit in the commit when possible; otherwise a tiny follow-up commit after push.
 
 ## Do not
 
+- **Commit or push** without a green iPhone 17 simulator preflight (**`build-for-testing`** + **`test`**, 0 project warnings).
 - Push with **only** a one-line subject when the batch includes multiple features or bug fixes.
 - Paste the entire change log; synthesize scannable bullets.
 - Skip the body because the user will “read it in chat” — the body is for **`git log`** and reviewers.

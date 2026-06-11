@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Run / test the app — always check Xcode build first
 
-**Gate:** Run this workflow only per **`.cursor/rules/xcode-test-only-when-asked.mdc`** — explicit run/test/build request, or **before commit/push** when the user asked to ship.
+**Gate:** Run this workflow only per **`.cursor/rules/xcode-test-only-when-asked.mdc`** — explicit run/test/build request, or **before commit/push** (iPhone 17 sim: **`clean build-for-testing`** + **`test`**, 0 project warnings).
 
 When invoked, **do not skip the compiler**. Use **full Xcode** (not Command Line Tools only) and **report every error and project warning** before claiming success. **Fix all project warnings** per **`.cursor/rules/xcode-fix-build-warnings.mdc`** — rebuild until warning count is **0** in app/test targets.
 
