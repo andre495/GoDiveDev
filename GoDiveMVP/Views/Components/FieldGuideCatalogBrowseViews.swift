@@ -510,25 +510,24 @@ struct FieldGuideSubcategorySpeciesView: View, Equatable {
                     safeAreaTop: safeTop,
                     headerClearance: headerClearance
                 )
-                let summaryTopInset = FieldGuideSubcategoryPresentation.fixedSummaryTopInset(
-                    safeAreaTop: safeTop,
-                    headerClearance: headerClearance
-                )
 
                 ZStack(alignment: .top) {
-                    VStack(spacing: 0) {
-                        FieldGuideSubcategoryDetailCopy(
-                            title: payload.title,
-                            hint: subcategoryDefinition?.hint ?? "",
-                            speciesCount: payload.species.count,
-                            categoryID: payload.categoryID,
-                            showsTitle: false
-                        )
-                        .padding(.top, summaryTopInset)
-                        .padding(.horizontal, AppTheme.Spacing.md)
-                        .padding(.bottom, AppTheme.Spacing.md)
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 0) {
+                            Color.clear
+                                .frame(height: topInset)
+                                .accessibilityHidden(true)
 
-                        ScrollView {
+                            FieldGuideSubcategoryDetailCopy(
+                                title: payload.title,
+                                hint: subcategoryDefinition?.hint ?? "",
+                                speciesCount: payload.species.count,
+                                categoryID: payload.categoryID,
+                                showsTitle: false
+                            )
+                            .padding(.horizontal, AppTheme.Spacing.md)
+                            .padding(.bottom, AppTheme.Spacing.md)
+
                             Group {
                                 if payload.species.isEmpty {
                                     emptyState
@@ -555,6 +554,7 @@ struct FieldGuideSubcategorySpeciesView: View, Equatable {
                             .padding(.bottom, AppTheme.Spacing.md)
                         }
                     }
+                    .scrollDismissesKeyboard(.interactively)
 
                     LogbookTopChromeScrim(topObstructionHeight: topInset)
                         .padding(.top, -safeTop)
@@ -618,7 +618,7 @@ struct FieldGuideSubcategorySpeciesView: View, Equatable {
     }
 }
 
-/// Hint and species count pinned below the nav title on subcategory mosaic (no hero image).
+/// Hint and species count on subcategory mosaic; title lives in **`AppHeader`** when **`showsTitle`** is **`false`**.
 struct FieldGuideSubcategoryDetailCopy: View {
     let title: String
     let hint: String

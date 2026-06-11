@@ -35,50 +35,50 @@ struct ActivityUploadView: View {
     var body: some View {
         AppPage(title: "Add activity", showsBackButton: true) {
             ZStack {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-                        addActivityIntro
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+                    addActivityIntro
 
-                        addActivitySection(title: "Import from a file") {
-                            addActivitySourceCard(
-                                title: "Garmin FIT",
-                                subtitle: "A single dive from your Garmin dive computer.",
-                                tag: ".fit",
-                                systemImage: "doc.badge.arrow.up",
-                                accessibilityIdentifier: "ActivityUpload.FileUpload"
-                            ) {
-                                importOptionsMode = .fit
-                                showImportOptionsSheet = true
-                            }
-
-                            addActivitySourceCard(
-                                title: "UDDF",
-                                subtitle: "One or many dives, e.g. exported from MacDive.",
-                                tag: ".uddf",
-                                systemImage: "doc.on.doc",
-                                accessibilityIdentifier: "ActivityUpload.BulkUddf"
-                            ) {
-                                importOptionsMode = .uddf
-                                showImportOptionsSheet = true
-                            }
+                    addActivitySection(title: "Import from a file") {
+                        addActivitySourceCard(
+                            title: "Garmin FIT",
+                            subtitle: "A single dive from your Garmin dive computer.",
+                            tag: ".fit",
+                            systemImage: "doc.badge.arrow.up",
+                            accessibilityIdentifier: "ActivityUpload.FileUpload"
+                        ) {
+                            importOptionsMode = .fit
+                            showImportOptionsSheet = true
                         }
 
-                        addActivitySection(title: "Add it yourself") {
-                            addActivitySourceCard(
-                                title: "Manual entry",
-                                subtitle: "Type in your dive details by hand.",
-                                tag: nil,
-                                systemImage: "square.and.pencil",
-                                accessibilityIdentifier: "ActivityUpload.ManualEntry"
-                            ) {
-                                showsManualEntrySheet = true
-                            }
+                        addActivitySourceCard(
+                            title: "UDDF",
+                            subtitle: "One or many dives, e.g. exported from MacDive.",
+                            tag: ".uddf",
+                            systemImage: "doc.on.doc",
+                            accessibilityIdentifier: "ActivityUpload.BulkUddf"
+                        ) {
+                            importOptionsMode = .uddf
+                            showImportOptionsSheet = true
                         }
                     }
-                    .padding(.horizontal, AppTheme.Spacing.lg)
-                    .padding(.vertical, AppTheme.Spacing.md)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    addActivitySection(title: "Add it yourself") {
+                        addActivitySourceCard(
+                            title: "Manual entry",
+                            subtitle: "Type in your dive details by hand.",
+                            tag: nil,
+                            systemImage: "square.and.pencil",
+                            accessibilityIdentifier: "ActivityUpload.ManualEntry"
+                        ) {
+                            showsManualEntrySheet = true
+                        }
+                    }
+
+                    Spacer(minLength: 0)
                 }
+                .padding(.horizontal, AppTheme.Spacing.lg)
+                .padding(.vertical, AppTheme.Spacing.md)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
                 if importOverlay != .hidden {
                     diveImportProgressOverlay

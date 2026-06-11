@@ -42,7 +42,7 @@ struct FishialCatalogReviewOption: Sendable {
     let fishialAccuracy: Double
     let nameMatchScore: Double
 
-    init(
+    nonisolated init(
         marineLifeUUID: String,
         catalogCommonName: String,
         catalogScientificName: String,

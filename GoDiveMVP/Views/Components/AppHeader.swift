@@ -72,18 +72,12 @@ struct AppHeader<TrailingContent: View>: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: AppTheme.Spacing.md) {
-            leadingCluster
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            centerCluster
-                .frame(maxWidth: .infinity)
-
-            HStack(spacing: AppTheme.Spacing.sm) {
-                trailingContent
-                    .foregroundStyle(AppTheme.Colors.iconPrimary)
+        Group {
+            if usesLeadingTitlePlacement {
+                leadingTitleHeaderRow
+            } else {
+                standardHeaderRow
             }
-            .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(.horizontal, AppTheme.Spacing.lg)
         .padding(.vertical, AppTheme.Spacing.md)
@@ -102,17 +96,47 @@ struct AppHeader<TrailingContent: View>: View {
         }
     }
 
+    /// Back chevron + full-width title + trailing actions (Field Guide subcategory).
+    private var leadingTitleHeaderRow: some View {
+        HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
+            if showsBackButton {
+                SecondaryDestinationBackButton()
+            }
+
+            if !title.isEmpty {
+                leadingHeaderTitleText
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityLabel(title)
+            }
+
+            HStack(spacing: AppTheme.Spacing.sm) {
+                trailingContent
+            }
+            .foregroundStyle(AppTheme.Colors.iconPrimary)
+        }
+    }
+
+    private var standardHeaderRow: some View {
+        HStack(alignment: .center, spacing: AppTheme.Spacing.md) {
+            leadingCluster
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            centerCluster
+                .frame(maxWidth: .infinity)
+
+            HStack(spacing: AppTheme.Spacing.sm) {
+                trailingContent
+                    .foregroundStyle(AppTheme.Colors.iconPrimary)
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+    }
+
     @ViewBuilder
     private var leadingCluster: some View {
         HStack(spacing: AppTheme.Spacing.sm) {
             if showsBackButton {
                 SecondaryDestinationBackButton()
-            }
-
-            if usesLeadingTitlePlacement, !title.isEmpty {
-                headerTitleText
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
@@ -143,6 +167,15 @@ struct AppHeader<TrailingContent: View>: View {
         Text(title)
             .font(.headline.weight(.semibold))
             .foregroundStyle(AppTheme.Colors.textPrimary)
+    }
+
+    private var leadingHeaderTitleText: some View {
+        Text(title)
+            .font(.title3.weight(.bold))
+            .foregroundStyle(AppTheme.Colors.textPrimary)
+            .multilineTextAlignment(.leading)
+            .lineLimit(2)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private var usesLeadingTitlePlacement: Bool {

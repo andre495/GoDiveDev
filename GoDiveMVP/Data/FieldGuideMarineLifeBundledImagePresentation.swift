@@ -55,3 +55,18 @@ enum FieldGuideMarineLifeBundledImagePresentation: Sendable {
         return nil
     }
 }
+
+extension FieldGuideMarineLifeBundledImagePresentation.ImageSource {
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        switch (lhs, rhs) {
+        case (.none, .none):
+            return true
+        case let (.bundledFile(left), .bundledFile(right)):
+            return left == right
+        case let (.remote(left), .remote(right)):
+            return left == right
+        default:
+            return false
+        }
+    }
+}

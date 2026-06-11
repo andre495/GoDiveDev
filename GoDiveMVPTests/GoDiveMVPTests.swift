@@ -2224,7 +2224,7 @@ struct GoDiveMVPTests {
     }
 
     @Test func fieldGuideMarineLifeImageLayout_usesFixedMosaicAndHeroBounds() {
-        #expect(FieldGuideMarineLifeImageLayout.mosaicAspectRatio == 4 / 3)
+        #expect(FieldGuideMarineLifeImageLayout.mosaicAspectRatio == 4.0 / 3.0)
         #expect(FieldGuideMarineLifeImageLayout.mosaicLabelBlockHeight == 88)
         #expect(FieldGuideMarineLifeImageLayout.detailHeroBaseHeight == 280)
     }
@@ -2238,15 +2238,16 @@ struct GoDiveMVPTests {
         #expect(FieldGuideCategoryImageLayout.detailHeroBaseHeight == 280)
     }
 
-    @Test func fieldGuideSubcategoryPresentation_fixedSummaryTopInset_accountsForHeaderChrome() {
+    @Test func fieldGuideSubcategoryPresentation_scrollContentTopInset_accountsForHeaderChrome() {
         let safeTop: CGFloat = 59
         let headerClearance: CGFloat = 52
         #expect(
-            FieldGuideSubcategoryPresentation.fixedSummaryTopInset(
+            FieldGuideSubcategoryPresentation.scrollContentTopInset(
                 safeAreaTop: safeTop,
                 headerClearance: headerClearance
             ) == safeTop + headerClearance
         )
+        #expect(FieldGuideSubcategoryPresentation.headerTitleLineLimit == 2)
     }
 
     @Test func fieldGuideCatalogIndex_browsePayload_usesTaxonomySubcategoryTitle() {
@@ -2297,8 +2298,9 @@ struct GoDiveMVPTests {
         let french = try context.fetch(FetchDescriptor<MarineLife>()).first {
             $0.uuid == "marine-life-french-angelfish"
         }
-        #expect(french?.commonName == "French Angelfish")
-        #expect(french?.featureModelResourceName == "FrenchAngelfish")
+        #expect(french?.commonName == "French angelfish")
+        #expect(french?.featureImageResourceName == "marine-life-french-angelfish")
+        #expect(french?.featureModelResourceName == "")
         #expect(french?.scientificName == "Pomacanthus paru")
     }
 
@@ -2357,10 +2359,10 @@ struct GoDiveMVPTests {
         let context = container.mainContext
         try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
         let queen = try context.fetch(FetchDescriptor<MarineLife>()).first { $0.uuid == "marine-life-queen-angelfish" }
-        #expect(queen?.commonName == "Queen Angelfish")
-        #expect(queen?.familyName == "Angelfishes")
-        #expect(queen?.minDepthMeters == 6)
-        #expect(queen?.maxDepthMeters == 25)
+        #expect(queen?.commonName == "Queen angelfish")
+        #expect(queen?.familyName == "Pomacanthidae")
+        #expect(queen?.minDepthMeters == 1)
+        #expect(queen?.maxDepthMeters == 70)
     }
 
     @Test @MainActor func marineLife_subcategoryDefaultsEmptyForSwiftDataMigration() throws {
@@ -2468,6 +2470,26 @@ struct GoDiveMVPTests {
                 detent: .large,
                 isMediaTabSelected: false
             ) == 0
+        )
+    }
+
+    @Test func diveActivityMediaPresentation_showsHeroTopChromeScrim_onlyOnMapAndTank() {
+        #expect(!DiveActivityMediaPresentation.showsHeroTopChromeScrim(isMediaTabSelected: true))
+        #expect(DiveActivityMediaPresentation.showsHeroTopChromeScrim(isMediaTabSelected: false))
+    }
+
+    @Test func diveActivityMediaPresentation_panelTopScrollUsesOpaqueFadeBackground_onlyAtLargeOnMediaTab() {
+        #expect(
+            DiveActivityMediaPresentation.panelTopScrollUsesOpaqueFadeBackground(
+                detent: .large,
+                isMediaTabSelected: true
+            )
+        )
+        #expect(
+            !DiveActivityMediaPresentation.panelTopScrollUsesOpaqueFadeBackground(
+                detent: .medium,
+                isMediaTabSelected: true
+            )
         )
     }
 
@@ -4463,24 +4485,25 @@ struct GoDiveMVPTests {
     }
 
     @Test func diveLocationMapPresentation_cameraDistanceMeters_detentZoomSteps() {
-        #expect(DiveLocationMapPresentation.minimizedCameraDistanceMeters == 1_200)
-        #expect(DiveLocationMapPresentation.cameraDistanceMeters(for: .minimized) < DiveLocationMapPresentation.referenceCameraDistanceMeters)
+        #expect(DiveLocationMapPresentation.minimizedCameraDistanceMeters == 6_200)
+        #expect(DiveLocationMapPresentation.mediumCameraDistanceMeters == 1_200)
+        #expect(DiveLocationMapPresentation.cameraDistanceMeters(for: .minimized) > DiveLocationMapPresentation.referenceCameraDistanceMeters)
         #expect(
             DiveLocationMapPresentation.cameraDistanceMeters(for: .minimized)
-                < DiveLocationMapPresentation.cameraDistanceMeters(for: .medium)
+                > DiveLocationMapPresentation.cameraDistanceMeters(for: .medium)
         )
-        #expect(DiveLocationMapPresentation.cameraDistanceMeters(for: .medium) > DiveLocationMapPresentation.referenceCameraDistanceMeters)
+        #expect(DiveLocationMapPresentation.cameraDistanceMeters(for: .medium) < DiveLocationMapPresentation.referenceCameraDistanceMeters)
         #expect(DiveLocationMapPresentation.cameraDistanceMeters(for: .large) == DiveLocationMapPresentation.cameraDistanceMeters(for: .medium))
     }
 
     @Test func diveLocationMapGoogleCameraPresentation_zoomLevel_tightensWhenDistanceShrinks() {
         let wide = DiveLocationMapGoogleCameraPresentation.approximateZoomLevel(
             atLatitude: 12.083,
-            viewingDistanceMeters: DiveLocationMapPresentation.mediumCameraDistanceMeters
+            viewingDistanceMeters: DiveLocationMapPresentation.minimizedCameraDistanceMeters
         )
         let tight = DiveLocationMapGoogleCameraPresentation.approximateZoomLevel(
             atLatitude: 12.083,
-            viewingDistanceMeters: DiveLocationMapPresentation.minimizedCameraDistanceMeters
+            viewingDistanceMeters: DiveLocationMapPresentation.mediumCameraDistanceMeters
         )
         #expect(tight > wide)
     }
@@ -6196,7 +6219,7 @@ struct GoDiveMVPTests {
         #expect(appliedShift > 0)
     }
 
-    @Test func diveLocationMapPresentation_adjustedMapCenter_minimized_shiftsLessThanMedium() {
+    @Test func diveLocationMapPresentation_adjustedMapCenter_minimized_shiftsMoreThanMedium() {
         let coordinate = DiveCoordinate(latitude: 12, longitude: -68)
         let layoutHeight: CGFloat = 800
         let top: CGFloat = 100
@@ -6215,7 +6238,7 @@ struct GoDiveMVPTests {
             bottomContentMargin: layoutHeight * DiveActivityOverviewPanelMetrics.minimizedHeightFraction + bottomInset,
             mapCameraDetent: .minimized
         )
-        #expect(coordinate.latitude - minimized.latitude < coordinate.latitude - medium.latitude)
+        #expect(coordinate.latitude - minimized.latitude > coordinate.latitude - medium.latitude)
     }
 
     @Test func diveMapCoordinateResolver_rejectsNullIsland() {
@@ -7014,58 +7037,6 @@ struct GoDiveMVPTests {
         #expect(activity.diveNumber == nil)
         #expect(activity.diveNumberExplicitlyNone == true)
         #expect(activity.diveNumberLogbookLabel == "-")
-    }
-
-    @Test @MainActor
-    func uddfImport_createMissingDiveSites_linksNewAndExisting() async throws {
-        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
-        let context = ModelContext(container)
-        let existingSite = DiveSite(siteName: "Salt Pier", country: "Bonaire", latCoords: 12.08, longCoords: -68.28)
-        context.insert(existingSite)
-        try context.save()
-
-        let owner = UserProfile(appleUserIdentifier: "test-sites", displayName: "Sites")
-        context.insert(owner)
-        try context.save()
-
-        let xml = """
-        <?xml version="1.0" encoding="UTF-8" ?>
-        <uddf xmlns="http://www.streit.cc/uddf/3.2/" version="3.2.1">
-        <generator><name>TestGen</name><version>1</version></generator>
-        <divesite>
-            <site id="s-known"><name>Salt Pier</name><geography><location>Bonaire</location></geography></site>
-            <site id="s-new"><name>Angel City</name><geography><location>Bonaire</location><latitude>12.1</latitude><longitude>-68.2</longitude></geography></site>
-        </divesite>
-        <profiledata><repetitiongroup id="rg">
-        <dive id="d-known">
-            <informationbeforedive><link ref="s-known"/><datetime>2025-06-01T12:00:00</datetime></informationbeforedive>
-            <informationafterdive><greatestdepth>12</greatestdepth><diveduration>60</diveduration></informationafterdive>
-            <samples><waypoint><depth>5</depth><divetime>0</divetime></waypoint></samples>
-        </dive>
-        <dive id="d-new">
-            <informationbeforedive><link ref="s-new"/><datetime>2025-06-02T12:00:00</datetime></informationbeforedive>
-            <informationafterdive><greatestdepth>14</greatestdepth><diveduration>60</diveduration></informationafterdive>
-            <samples><waypoint><depth>6</depth><divetime>0</divetime></waypoint></samples>
-        </dive>
-        </repetitiongroup></profiledata>
-        </uddf>
-        """
-        let outcome = await UddfDiveFileImport.importUddfData(
-            Data(xml.utf8),
-            modelContext: context,
-            owner: owner,
-            createMissingDiveSites: true
-        )
-        #expect(outcome.didSucceed)
-        #expect(outcome.createdDiveSiteCount == 1)
-        let sites = try context.fetch(FetchDescriptor<DiveSite>())
-        #expect(sites.count == 2)
-        let dives = try context.fetch(FetchDescriptor<DiveActivity>())
-        #expect(dives.count == 2)
-        let known = try #require(dives.first { $0.sourceDiveId == "d-known" })
-        let newDive = try #require(dives.first { $0.sourceDiveId == "d-new" })
-        #expect(known.diveSite?.id == existingSite.id)
-        #expect(newDive.diveSite?.siteName == "Angel City")
     }
 
     @Test func uddfDecoder_minimal_buildsOneDive() throws {

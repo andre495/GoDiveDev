@@ -25,6 +25,17 @@ enum DiveMediaVideoRequestQuality: Sendable, Equatable {
     }
 }
 
+extension DiveMediaVideoRequestQuality {
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        switch (lhs, rhs) {
+        case (.fullQuality, .fullQuality), (.homeCarousel, .homeCarousel):
+            return true
+        default:
+            return false
+        }
+    }
+}
+
 #if canImport(Photos)
 import Photos
 

@@ -15,6 +15,8 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
     var usesTranslucentChrome: Bool = false
     /// Feathered top mask on scroll content inside the panel body.
     var topScrollFadeHeight: CGFloat = 0
+    /// Opaque panel surface behind scroll content when the top feather mask is active.
+    var usesOpaquePanelScrollFadeBackground: Bool = false
     /// Optional sink for the panel’s live height fraction (resting detent or grabber drag).
     var liveHeightFraction: Binding<CGFloat>? = nil
 
@@ -68,7 +70,8 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
                 showsPanelContentWhenMinimized: showsPanelContentWhenMinimized,
                 disablesPanelScrollWhenMinimized: disablesPanelScrollWhenMinimized,
                 isPanelScrollDisabled: isPanelScrollDisabled,
-                topScrollFadeHeight: topScrollFadeHeight
+                topScrollFadeHeight: topScrollFadeHeight,
+                usesOpaquePanelScrollFadeBackground: usesOpaquePanelScrollFadeBackground
             )
         }
         .frame(height: panelHeight, alignment: .top)

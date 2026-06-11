@@ -528,14 +528,23 @@ struct ViewSingleActivity: View {
                         topScrollFadeHeight: DiveActivityMediaPresentation.panelTopScrollFadeHeight(
                             detent: overviewSheetDetent,
                             isMediaTabSelected: selectedActivityTab == .camera
-                        )
+                        ),
+                        usesOpaquePanelScrollFadeBackground:
+                            DiveActivityMediaPresentation.panelTopScrollUsesOpaqueFadeBackground(
+                                detent: overviewSheetDetent,
+                                isMediaTabSelected: selectedActivityTab == .camera
+                            )
                     )
                     .zIndex(1)
                 }
             }
             .overlay(alignment: .top) {
-                DiveOverviewMapTopScrim(topObstructionHeight: topObstruction)
-                    .ignoresSafeArea(edges: .top)
+                if DiveActivityMediaPresentation.showsHeroTopChromeScrim(
+                    isMediaTabSelected: selectedActivityTab == .camera
+                ) {
+                    DiveOverviewMapTopScrim(topObstructionHeight: topObstruction)
+                        .ignoresSafeArea(edges: .top)
+                }
             }
             .animation(.diveOverviewPanelDetent, value: overviewSheetDetent)
             .animation(nil, value: isLandscape)

@@ -12,10 +12,16 @@ enum FieldGuideCategoryPresentation {
     }
 }
 
-/// Layout policy for Field Guide subcategory detail (nav title + fixed summary — mosaic scrolls alone).
+/// Layout policy for Field Guide subcategory detail (pinned nav title — summary + mosaic scroll underneath).
 enum FieldGuideSubcategoryPresentation {
-    /// Top inset for the pinned hint + species-count block below **`AppHeader`**.
-    static func fixedSummaryTopInset(safeAreaTop: CGFloat, headerClearance: CGFloat) -> CGFloat {
-        safeAreaTop + headerClearance
+    /// **`AppHeaderTitlePlacement.leadingAfterBack`** — title spans the row after back (not the 1/3 leading column).
+    static let headerTitleLineLimit = 2
+
+    /// Top spacer so hint, species count, and mosaic scroll under **`AppHeader`** + scrim.
+    static func scrollContentTopInset(safeAreaTop: CGFloat, headerClearance: CGFloat) -> CGFloat {
+        AppScrollUnderHeaderListLayout.listTopInset(
+            safeAreaTop: safeAreaTop,
+            headerClearance: headerClearance
+        )
     }
 }

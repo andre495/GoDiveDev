@@ -4,12 +4,12 @@ import Observation
 
 /// Thread-safe connectivity flag for PhotoKit / AVFoundation work off the main actor.
 final class AppNetworkConnectivitySnapshot: @unchecked Sendable {
-    static let shared = AppNetworkConnectivitySnapshot()
+    nonisolated static let shared = AppNetworkConnectivitySnapshot()
 
     private let lock = NSLock()
-    private var isConnected = true
+    private nonisolated(unsafe) var isConnected = true
 
-    private init() {}
+    nonisolated private init() {}
 
     nonisolated var allowsCloudMediaFetch: Bool {
         lock.lock()
@@ -17,7 +17,7 @@ final class AppNetworkConnectivitySnapshot: @unchecked Sendable {
         return isConnected
     }
 
-    func update(isConnected: Bool) {
+    nonisolated func update(isConnected: Bool) {
         lock.lock()
         self.isConnected = isConnected
         lock.unlock()

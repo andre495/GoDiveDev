@@ -138,6 +138,11 @@ enum DiveActivityMediaPresentation: Sendable {
         detent == .medium && taggedSpeciesCount > 0
     }
 
+    /// **`DiveOverviewMapTopScrim`** (hero black fade) — map and tank only; **Media** keeps the hero unobscured.
+    nonisolated static func showsHeroTopChromeScrim(isMediaTabSelected: Bool) -> Bool {
+        !isMediaTabSelected
+    }
+
     /// Feathered top mask on scroll content in the **Media** sheet at **large** only.
     nonisolated static func panelTopScrollFadeHeight(
         detent: DiveActivityOverviewDetent,
@@ -145,6 +150,14 @@ enum DiveActivityMediaPresentation: Sendable {
     ) -> CGFloat {
         guard isMediaTabSelected, detent == .large else { return 0 }
         return DiveActivityOverviewPanelMetrics.mediaLargeDetentTopScrollFadeHeight
+    }
+
+    /// Opaque panel surface behind scroll content when the top feather mask is active.
+    nonisolated static func panelTopScrollUsesOpaqueFadeBackground(
+        detent: DiveActivityOverviewDetent,
+        isMediaTabSelected: Bool
+    ) -> Bool {
+        panelTopScrollFadeHeight(detent: detent, isMediaTabSelected: isMediaTabSelected) > 0
     }
 
     /// Selected chip at **medium** should open that species at **large** when still tagged.

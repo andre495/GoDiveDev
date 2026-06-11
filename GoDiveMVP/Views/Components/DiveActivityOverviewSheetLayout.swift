@@ -17,6 +17,8 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
     var isPanelScrollDisabled: Bool = false
     /// Soft top fade on panel scroll content (e.g. **Media** **large** tagged-species detail).
     var topScrollFadeHeight: CGFloat = 0
+    /// Solid panel fill behind scroll content so the feather mask fades into opaque chrome, not the hero.
+    var usesOpaquePanelScrollFadeBackground: Bool = false
 
     /// Keeps the heavy scroll body mounted after first expand so detent changes do not rebuild the chart.
     @State private var keepsExpandedPanelMounted = true
@@ -54,7 +56,8 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
                     },
                     isScrollDisabled: isPanelScrollDisabled
                         || (showsMinimizedLayout && disablesPanelScrollWhenMinimized),
-                    topScrollFadeHeight: topScrollFadeHeight
+                    topScrollFadeHeight: topScrollFadeHeight,
+                    usesOpaquePanelScrollFadeBackground: usesOpaquePanelScrollFadeBackground
                 ) {
                     panelContent()
                         .environment(\.diveOverviewPanelHeightFraction, layoutHeightFraction)
@@ -189,6 +192,7 @@ struct OverviewPanelScrollArea<Content: View>: View {
     let onCollapseToMedium: () -> Void
     var isScrollDisabled = false
     var topScrollFadeHeight: CGFloat = 0
+    var usesOpaquePanelScrollFadeBackground = false
     @ViewBuilder var content: () -> Content
 
     @State private var lastScrollOffsetY: CGFloat = 0
@@ -198,6 +202,11 @@ struct OverviewPanelScrollArea<Content: View>: View {
     var body: some View {
         ScrollView {
             content()
+        }
+        .background {
+            if usesOpaquePanelScrollFadeBackground, topScrollFadeHeight > 0 {
+                AppOverviewSheetPanelBackground()
+            }
         }
         .overviewPanelTopScrollFade(height: topScrollFadeHeight)
         .scrollDisabled(isScrollDisabled)

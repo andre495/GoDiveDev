@@ -23,10 +23,10 @@ enum DiveLocationMapPresentation: Sendable {
     /// Reference altitude for **`diveSiteLatitudeDelta`** scaling.
     nonisolated static let referenceCameraDistanceMeters: CLLocationDistance = 4_500
 
-    /// **Minimized** sheet — tight zoom above the summary strip.
-    nonisolated static let minimizedCameraDistanceMeters: CLLocationDistance = 1_200
-    /// **Medium** (~half screen sheet) — slightly wider than legacy default. Also used for **large** (map hidden by sheet).
-    nonisolated static let mediumCameraDistanceMeters: CLLocationDistance = 6_200
+    /// **Minimized** sheet — wider context above the summary strip (pan/zoom enabled).
+    nonisolated static let minimizedCameraDistanceMeters: CLLocationDistance = 6_200
+    /// **Medium** (~half screen sheet) — tighter site framing. Also used for **large** (map hidden by sheet).
+    nonisolated static let mediumCameraDistanceMeters: CLLocationDistance = 1_200
 
     nonisolated static func cameraDistanceMeters(for detent: DiveActivityOverviewDetent) -> CLLocationDistance {
         switch detent.mapCameraDetent {
@@ -106,8 +106,8 @@ enum DiveLocationMapPresentation: Sendable {
     /// Empirical tuning — **`MapCamera`** altitude does not match region **`latitudeDelta`** linearly.
     nonisolated static func latitudeShiftTuning(for detent: DiveActivityOverviewDetent) -> CGFloat {
         switch detent.mapCameraDetent {
-        case .minimized: 0.38
-        case .medium, .large: 0.52
+        case .minimized: 0.52
+        case .medium, .large: 0.38
         }
     }
 
