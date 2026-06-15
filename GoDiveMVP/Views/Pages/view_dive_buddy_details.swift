@@ -16,6 +16,14 @@ struct ViewDiveBuddyDetails: View {
     @Query(sort: [SortDescriptor(\DiveActivity.startTime, order: .reverse)])
     private var allDiveActivities: [DiveActivity]
 
+    @Query(
+        sort: [
+            SortDescriptor(\DiveTrip.startDate, order: .reverse),
+            SortDescriptor(\DiveTrip.createdAt, order: .reverse),
+        ]
+    )
+    private var allTrips: [DiveTrip]
+
     @State private var showsEditSheet = false
     @State private var showsContactPicker = false
     @State private var contactsAccessError: String?
@@ -33,6 +41,19 @@ struct ViewDiveBuddyDetails: View {
 
     private var sharedDiveCount: Int {
         sharedDives.count
+    }
+
+    private var associatedTripRows: [DiveBuddyTripRowDisplayData] {
+        guard let ownerProfileID else { return [] }
+        let trips = DiveBuddyTripPresentation.sortedAssociatedTrips(
+            DiveBuddyTripPresentation.associatedTrips(
+                buddyID: buddy.id,
+                ownerProfileID: ownerProfileID,
+                trips: allTrips,
+                sharedDiveIDs: Set(sharedDives.map(\.id))
+            )
+        )
+        return trips.map { DiveBuddyTripPresentation.rowDisplayData(for: $0) }
     }
 
     private var ownedDiveActivitiesForNumbering: [DiveActivity] {
@@ -65,6 +86,10 @@ struct ViewDiveBuddyDetails: View {
             content: {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
                     headerSection
+
+                    if !associatedTripRows.isEmpty {
+                        tripsTogetherSection
+                    }
 
                     divesTogetherSection
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -255,6 +280,21 @@ struct ViewDiveBuddyDetails: View {
     }
     #endif
 
+    private var tripsTogetherSection: some View {
+        ExpandableDetailSection(
+            title: DiveBuddyTripPresentation.sectionTitle,
+            itemCount: associatedTripRows.count,
+            accessibilityIdentifier: "DiveBuddyDetails.TripsTogether"
+        ) {
+            EmptyView()
+        } content: {
+            DiveBuddyTripListRows(
+                rows: associatedTripRows,
+                listAccessibilityIdentifier: "DiveBuddyDetails.TripList"
+            )
+        }
+    }
+
     private var divesTogetherSection: some View {
         ExpandableDetailSection(
             title: "Dives together",
@@ -270,26 +310,10 @@ struct ViewDiveBuddyDetails: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityIdentifier("DiveBuddyDetails.EmptyDives")
         } content: {
-            BuddySharedDiveListRows(rows: cachedDiveRows)
+            LinkedDiveLogbookListRows(
+                rows: cachedDiveRows,
+                listAccessibilityIdentifier: "DiveBuddyDetails.DiveList"
+            )
         }
-    }
-}
-
-/// Logbook rows for buddy **Dives together** — equatable so expand does not rebuild row chrome.
-private struct BuddySharedDiveListRows: View, Equatable {
-    let rows: [DiveLogbookRowDisplayData]
-
-    var body: some View {
-        VStack(spacing: AppTheme.Spacing.md) {
-            ForEach(rows) { row in
-                NavigationLink(value: row.id) {
-                    LogbookActivityRow(data: row)
-                        .equatable()
-                }
-                .buttonStyle(.plain)
-                .navigationLinkIndicatorVisibility(.hidden)
-            }
-        }
-        .accessibilityIdentifier("DiveBuddyDetails.DiveList")
     }
 }

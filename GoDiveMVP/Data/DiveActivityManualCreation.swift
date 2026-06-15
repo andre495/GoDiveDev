@@ -75,6 +75,10 @@ enum DiveActivityManualCreation {
             )
             try modelContext.save()
             try DiveActivityDiveNumbering.applyAutomaticSequentialRenumberIfNeeded(modelContext: modelContext)
+            try DiveTripActivityLinking.applyAutoLinkForOwner(
+                ownerProfileID: owner.id,
+                modelContext: modelContext
+            )
             return DiveFileImportOutcome(
                 userMessage: "\(successMessagePrefix).",
                 primaryInsertedDiveId: activity.id

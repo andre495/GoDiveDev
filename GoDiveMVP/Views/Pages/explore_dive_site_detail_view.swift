@@ -302,6 +302,8 @@ struct ExploreDiveSiteDetailView: View {
 /// Explore stack routes (shared with **`ExploreView`**).
 enum ExploreRoute: Hashable {
     case tripPlanner
+    case tripDetail(UUID)
+    case tripDetailMedia(tripID: UUID, mediaID: UUID)
     case siteDetail(UUID)
     case speciesDetail(String)
     case diveDetail(UUID)

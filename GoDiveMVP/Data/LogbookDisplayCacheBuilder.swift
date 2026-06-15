@@ -4,15 +4,21 @@ import Foundation
 enum LogbookDisplayCacheBuilder {
 
   struct Result: Sendable {
-    let rows: [DiveLogbookRowDisplayData]
+    let items: [LogbookListDisplayItem]
     let duplicateIds: Set<UUID>
+
+    var rows: [DiveLogbookRowDisplayData] {
+      items.flatMap(\.standaloneRows)
+    }
   }
 
   nonisolated static func build(
     visibleSeeds: [LogbookActivitySnapshotSeed],
+    tripSeeds: [LogbookTripSnapshotSeed],
     siteSearchQuery: String,
     confirmedTagName: String? = nil,
     confirmedBuddyName: String? = nil,
+    confirmedTripID: UUID? = nil,
     unitSystem: DiveDisplayUnitSystem,
     useChronologicalNumbers: Bool,
     includeDuplicateScan: Bool = true
@@ -21,7 +27,8 @@ enum LogbookDisplayCacheBuilder {
       visibleSeeds,
       siteQuery: siteSearchQuery,
       confirmedTagName: confirmedTagName,
-      confirmedBuddyName: confirmedBuddyName
+      confirmedBuddyName: confirmedBuddyName,
+      confirmedTripID: confirmedTripID
     )
     let duplicateIds: Set<UUID> = includeDuplicateScan
       ? DiveActivityDuplicateMatcher.idsWithDuplicates(
@@ -45,10 +52,16 @@ enum LogbookDisplayCacheBuilder {
         ),
         detailLine: detailLine(for: seed, unitSystem: unitSystem),
         showsDuplicateHint: duplicateIds.contains(seed.id),
-        previewMediaPhotoID: seed.previewMediaPhotoID
+        previewMediaPhotoID: seed.previewMediaPhotoID,
+        startTime: seed.startTime
       )
     }
-    return Result(rows: rows, duplicateIds: duplicateIds)
+    let items = LogbookTripGrouping.buildListItems(
+      rows: rows,
+      seeds: filtered,
+      tripSeeds: tripSeeds
+    )
+    return Result(items: items, duplicateIds: duplicateIds)
   }
 
   nonisolated private static func logbookDiveNumberLabel(

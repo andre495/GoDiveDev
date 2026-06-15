@@ -21,6 +21,11 @@ enum AppPortraitOrientationLockPolicy: Sendable {
     nonisolated static func locksExploreList(pathIsEmpty: Bool, viewModeIsList: Bool) -> Bool {
         pathIsEmpty && viewModeIsList
     }
+
+    /// **`TripDetailView`** and pushed trip sub-pages (planned sites); unlock for linked **`ViewSingleActivity`**.
+    nonisolated static func locksTripDetail(showingLinkedDiveDetail: Bool) -> Bool {
+        !showingLinkedDiveDetail
+    }
 }
 
 /// Global portrait lock consulted by **`GoDiveGoogleMapsAppDelegate`** and rotation requests.

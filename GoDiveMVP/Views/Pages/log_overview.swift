@@ -149,6 +149,23 @@ struct LogOverviewView: View {
                 }
             }
         }
+        .environment(\.openCatalogDiveSiteDetail) { siteID in
+            path.append(.diveSite(siteID))
+            TripDetailMapNavigationDebug.parentStackAppendedRoute(
+                stack: .home,
+                siteID: siteID,
+                pathCountAfterAppend: path.count
+            )
+        }
+        .environment(\.openTripPlanner) {
+            path.append(.tripPlanner)
+        }
+        .environment(\.openTripDetail) { tripID in
+            path.append(.tripDetail(tripID))
+        }
+        .environment(\.openTripDetailMedia) { launch in
+            path.append(.tripDetailMedia(tripID: launch.tripID, mediaID: launch.mediaID))
+        }
         .portraitOrientationLock(when: locksPortraitOrientation)
     }
 
@@ -250,6 +267,16 @@ struct LogOverviewView: View {
         switch route {
         case .profile:
             ProfileView()
+        case .tripPlanner:
+            TripPlannerView()
+        case .tripDetail(let tripID):
+            TripDetailStackNavigationPresentation.tripDetailDestination(tripID: tripID)
+        case .tripDetailMedia(let tripID, let mediaID):
+            TripDetailStackNavigationPresentation.tripDetailDestination(
+                tripID: tripID,
+                initialContentPage: .media,
+                initialSelectedMediaID: mediaID
+            )
         case .diveDetail(let id):
             if let activity = ownerDiveActivities.first(where: { $0.id == id }) {
                 ViewSingleActivity(activity: activity)

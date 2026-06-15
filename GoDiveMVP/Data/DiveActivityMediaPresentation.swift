@@ -389,6 +389,22 @@ enum DiveActivityMediaPresentation: Sendable {
         return photos.first?.id
     }
 
+    /// Index offset from the resolved selection (**`+1`** = next item in gallery order).
+    nonisolated static func adjacentPhotoID(
+        selectedID: UUID?,
+        in photos: [DiveMediaPhoto],
+        offset: Int
+    ) -> UUID? {
+        guard offset != 0,
+              let resolvedID = resolvedSelectedPhotoID(selectedID: selectedID, in: photos),
+              let index = photos.firstIndex(where: { $0.id == resolvedID })
+        else { return nil }
+
+        let nextIndex = index + offset
+        guard photos.indices.contains(nextIndex) else { return nil }
+        return photos[nextIndex].id
+    }
+
     /// PhotoKit request edge for full-bleed pager photos — screen pixel width, clamped for memory.
     nonisolated static func fullScreenImageTargetEdge(screenPixelWidth: CGFloat) -> CGFloat {
         min(max(max(screenPixelWidth, 1), 800), 2_048)

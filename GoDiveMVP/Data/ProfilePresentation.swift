@@ -42,9 +42,20 @@ enum ProfilePresentation: Sendable {
     static func diveBuddyRosterCountLabel(_ count: Int) -> String {
         DiveBuddyRosterPresentation.rosterCountLabel(count)
     }
+
+    static func tripCountLabel(_ count: Int) -> String {
+        switch count {
+        case 0:
+            return "No trips"
+        case 1:
+            return "1 trip"
+        default:
+            return "\(count) trips"
+        }
+    }
 }
 
-/// Layout for **Profile** destination tiles (Certifications, Equipment Locker, Dive Buddies).
+/// Layout for **Profile** destination tiles (Certifications, Equipment Locker, Dive Buddies, Trips).
 enum ProfileDestinationTilePresentation: Sendable {
     nonisolated static let iconPointSize: CGFloat = 22
     nonisolated static let iconSlotWidth: CGFloat = 28

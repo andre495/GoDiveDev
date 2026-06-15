@@ -6,10 +6,13 @@ struct LogbookTopChrome<TrailingActions: View>: View {
     @FocusState.Binding var isSearchFocused: Bool
     let tagSuggestions: [LogbookTagSearchSuggestion]
     let buddySuggestions: [LogbookBuddySearchSuggestion]
+    let tripSuggestions: [LogbookTripSearchSuggestion]
     let activeTagFilter: String?
     let activeBuddyFilter: String?
+    let activeTripFilter: LogbookTripSearchSuggestion?
     let onSelectTagSuggestion: (LogbookTagSearchSuggestion) -> Void
     let onSelectBuddySuggestion: (LogbookBuddySearchSuggestion) -> Void
+    let onSelectTripSuggestion: (LogbookTripSearchSuggestion) -> Void
     let onClearConfirmedFilters: () -> Void
     @ViewBuilder let trailingActions: () -> TrailingActions
 
@@ -38,7 +41,18 @@ struct LogbookTopChrome<TrailingActions: View>: View {
                     tagName: activeTagFilter,
                     onClear: onClearConfirmedFilters
                 )
+            } else if let activeTripFilter {
+                LogbookActiveTripFilterChip(
+                    displayTitle: activeTripFilter.displayTitle,
+                    onClear: onClearConfirmedFilters
+                )
             } else {
+                if !tripSuggestions.isEmpty {
+                    LogbookSearchTripSuggestionsView(
+                        suggestions: tripSuggestions,
+                        onSelect: onSelectTripSuggestion
+                    )
+                }
                 if !buddySuggestions.isEmpty {
                     LogbookSearchBuddySuggestionsView(
                         suggestions: buddySuggestions,

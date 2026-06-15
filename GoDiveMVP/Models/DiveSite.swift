@@ -25,6 +25,9 @@ final class DiveSite {
     @Relationship(inverse: \DiveActivity.diveSite)
     var diveActivities: [DiveActivity] = []
 
+    @Relationship(inverse: \DiveTrip.plannedSites)
+    var plannedTrips: [DiveTrip] = []
+
     init(
         id: UUID = UUID(),
         siteName: String,

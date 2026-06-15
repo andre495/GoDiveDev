@@ -26,10 +26,12 @@ enum LogbookTagSearchPresentation {
         catalogTagNames: [String],
         query: String,
         activeTagFilter: String?,
-        activeBuddyFilter: String? = nil
+        activeBuddyFilter: String? = nil,
+        activeTripFilter: LogbookTripSearchSuggestion? = nil
     ) -> [LogbookTagSearchSuggestion] {
         guard activeTagFilter == nil,
               activeBuddyFilter == nil,
+              activeTripFilter == nil,
               DiveLogbookSiteSearch.isFiltering(query: query)
         else { return [] }
 

@@ -10,22 +10,23 @@ enum ExploreCatalogGoogleMapMarkerImageFactory {
         let groundAnchor: CGPoint
     }
 
-    static func makePinOnlyAsset() -> PinAsset {
-        let image = GMSMarker.markerImage(with: .systemRed)
+    static func makePinOnlyAsset(tint: UIColor = .systemRed) -> PinAsset {
+        let image = GMSMarker.markerImage(with: tint)
         return PinAsset(image: image, groundAnchor: CGPoint(x: 0.5, y: 1.0))
     }
 
-    static func makeLabeledPinAsset(siteName: String, scale: CGFloat) -> PinAsset {
+    static func makeLabeledPinAsset(siteName: String, tint: UIColor = .systemRed, scale: CGFloat) -> PinAsset {
         makeLabeledPinAsset(
             labelText: ExploreCatalogMapMarkerPresentation.displayTitle(for: siteName),
+            tint: tint,
             scale: scale,
             maxLabelWidth: ExploreCatalogMapMarkerPresentation.labelMaxWidth
         )
     }
 
-    static func makeLabeledPinAsset(labelText: String, scale: CGFloat, maxLabelWidth: CGFloat) -> PinAsset {
+    static func makeLabeledPinAsset(labelText: String, tint: UIColor, scale: CGFloat, maxLabelWidth: CGFloat) -> PinAsset {
         let title = labelText
-        let pinImage = GMSMarker.markerImage(with: .systemRed)
+        let pinImage = GMSMarker.markerImage(with: tint)
         let pinSize = pinImage.size
 
         let labelFont = UIFont.systemFont(

@@ -27,6 +27,9 @@ final class UserProfile {
     @Relationship(deleteRule: .cascade, inverse: \DiveBuddy.owner)
     var diveBuddies: [DiveBuddy] = []
 
+    @Relationship(deleteRule: .cascade, inverse: \DiveTrip.owner)
+    var diveTrips: [DiveTrip] = []
+
     init(
         id: UUID = UUID(),
         appleUserIdentifier: String,

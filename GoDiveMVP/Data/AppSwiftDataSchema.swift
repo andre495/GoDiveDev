@@ -18,6 +18,9 @@ enum AppSwiftDataSchema {
         SightingInstance.self,
         EquipmentItem.self,
         Certification.self,
+        DiveTrip.self,
+        DiveTripActivityLink.self,
+        DiveTripBuddyLink.self,
     ]
 
     /// Builds a **`ModelContainer`**. On-disk stores perform file I/O — use **`AppModelContainer.loadProduction()`**
