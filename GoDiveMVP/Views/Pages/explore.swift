@@ -113,6 +113,14 @@ struct ExploreView: View {
                 switch route {
                 case .tripPlanner:
                     TripPlannerView()
+                case .tripDetail(let tripID):
+                    TripDetailStackNavigationPresentation.tripDetailDestination(tripID: tripID)
+                case .tripDetailMedia(let tripID, let mediaID):
+                    TripDetailStackNavigationPresentation.tripDetailDestination(
+                        tripID: tripID,
+                        initialContentPage: .media,
+                        initialSelectedMediaID: mediaID
+                    )
                 case .siteDetail(let siteID):
                     if let site = diveSites.first(where: { $0.id == siteID }) {
                         ExploreDiveSiteDetailView(
@@ -147,6 +155,20 @@ struct ExploreView: View {
                     }
                 }
             }
+        }
+        .environment(\.openCatalogDiveSiteDetail) { siteID in
+            path.append(.siteDetail(siteID))
+            TripDetailMapNavigationDebug.parentStackAppendedRoute(
+                stack: .explore,
+                siteID: siteID,
+                pathCountAfterAppend: path.count
+            )
+        }
+        .environment(\.openTripDetail) { tripID in
+            path.append(.tripDetail(tripID))
+        }
+        .environment(\.openTripDetailMedia) { launch in
+            path.append(.tripDetailMedia(tripID: launch.tripID, mediaID: launch.mediaID))
         }
         .navigationInteractivePopGestureForHiddenNavBar()
         .rootTabReselectObserver(notification: .exploreTabReselected)

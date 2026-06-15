@@ -137,7 +137,8 @@ private struct LogbookRowTextColumnHeightKey: PreferenceKey {
         diveNumberLabel: "#12",
         detailLine: "May 17, 2026 · 74 ft · 34 min",
         showsDuplicateHint: false,
-        previewMediaPhotoID: nil
+        previewMediaPhotoID: nil,
+        startTime: a.startTime
     )
     return LogbookActivityRow(data: data)
         .padding()

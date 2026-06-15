@@ -108,6 +108,10 @@ final class DiveActivity {
     @Relationship(deleteRule: .cascade)
     var marineLifeSightings: [SightingInstance] = []
 
+    /// Trips this dive is linked to (usually one **`DiveTripActivityLink`**).
+    @Relationship
+    var tripActivityLinks: [DiveTripActivityLink] = []
+
     /// Gear used on this dive (**`DiveEquipmentEntry`** rows). Created on first link / auto-add.
     @Relationship(deleteRule: .cascade)
     var equipmentList: DiveActivityEquipmentList?

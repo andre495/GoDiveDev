@@ -107,6 +107,7 @@ struct DiveLocationGoogleMapRepresentable: UIViewRepresentable {
             let label = DiveLocationMapPresentation.mapMarkerCoordinateTitle(for: coordinate)
             let labeledPin = ExploreCatalogGoogleMapMarkerImageFactory.makeLabeledPinAsset(
                 labelText: label,
+                tint: .systemRed,
                 scale: mapView.traitCollection.displayScale,
                 maxLabelWidth: 168
             )

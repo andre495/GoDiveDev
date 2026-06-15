@@ -180,6 +180,10 @@ enum UddfDiveFileImport {
 
             try modelContext.save()
             try DiveActivityDiveNumbering.applyAutomaticSequentialRenumberIfNeeded(modelContext: modelContext)
+            try DiveTripActivityLinking.applyAutoLinkForOwner(
+                ownerProfileID: owner.id,
+                modelContext: modelContext
+            )
 
             let shouldAttachMedia = attachMediaFromPhotoLibrary
                 ?? AppUserSettings.autoUploadMediaToActivities

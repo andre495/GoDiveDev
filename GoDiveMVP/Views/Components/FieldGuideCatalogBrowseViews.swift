@@ -675,13 +675,19 @@ struct FieldGuideSubcategoryDetailCopy: View {
     }
 }
 
-private struct FieldGuideSpeciesMosaicCard: View, Equatable {
+/// Field Guide subcategory mosaic tile — reused on trip marine-life pager.
+struct FieldGuideSpeciesMosaicCard: View, Equatable {
     let entry: MarineLifeCatalogSnapshot
     let unitSystem: DiveDisplayUnitSystem
     let accent: Color
+    /// Optional extra line (e.g. trip sighting count).
+    var supplementaryLine: String?
 
     static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.entry == rhs.entry && lhs.unitSystem == rhs.unitSystem && lhs.accent == rhs.accent
+        lhs.entry == rhs.entry
+            && lhs.unitSystem == rhs.unitSystem
+            && lhs.accent == rhs.accent
+            && lhs.supplementaryLine == rhs.supplementaryLine
     }
 
     var body: some View {
@@ -704,7 +710,14 @@ private struct FieldGuideSpeciesMosaicCard: View, Equatable {
                 Text(FieldGuidePresentation.sizeDepthLine(for: entry, unitSystem: unitSystem))
                     .font(.caption2)
                     .foregroundStyle(AppTheme.Colors.tabUnselected)
-                    .lineLimit(2)
+                    .lineLimit(supplementaryLine == nil ? 2 : 1)
+
+                if let supplementaryLine, !supplementaryLine.isEmpty {
+                    Text(supplementaryLine)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(AppTheme.Colors.secondaryText)
+                        .lineLimit(1)
+                }
             }
             .frame(
                 height: FieldGuideMarineLifeImageLayout.mosaicLabelBlockHeight,

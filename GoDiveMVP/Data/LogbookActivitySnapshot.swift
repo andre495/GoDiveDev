@@ -16,6 +16,7 @@ struct LogbookActivitySnapshotSeed: Sendable, Equatable {
     let activityTagNames: [String]
     let buddyDisplayNames: [String]
     let previewMediaPhotoID: UUID?
+    let linkedTripID: UUID?
 
     nonisolated var duplicateSignature: DiveActivityDuplicateMatcher.Signature {
         DiveActivityDuplicateMatcher.Signature(
@@ -70,7 +71,8 @@ enum LogbookActivitySnapshotSeeding {
                     .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                     .filter { !$0.isEmpty }
                     .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending },
-                previewMediaPhotoID: DiveActivityMediaPresentation.featuredPhotoID(on: activity)
+                previewMediaPhotoID: DiveActivityMediaPresentation.featuredPhotoID(on: activity),
+                linkedTripID: LogbookTripSnapshotSeeding.primaryLinkedTripID(for: activity)
             )
         }
     }

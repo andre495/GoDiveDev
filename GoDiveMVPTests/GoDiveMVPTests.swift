@@ -32,6 +32,41 @@ struct GoDiveMVPTests {
         // Write your test here and use APIs like `#expect(...)` to check expected conditions.
     }
 
+    @Test @MainActor func diveTripLogbookSync_notifyGroupingDidChange_notifiesObservers() async {
+        final class Counter: @unchecked Sendable { var value = 0 }
+        let counter = Counter()
+        let token = NotificationCenter.default.addObserver(
+            forName: .diveTripLogbookGroupingDidChange,
+            object: nil,
+            queue: nil
+        ) { _ in counter.value += 1 }
+        defer { NotificationCenter.default.removeObserver(token) }
+
+        DiveTripLogbookSync.notifyGroupingDidChange()
+        await Task.yield()
+        #expect(counter.value >= 1)
+    }
+
+    @Test @MainActor func logbookTripGroupingSync_syncToken_changesWhenTripLinkCountChanges() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let profile = UserProfile(appleUserIdentifier: "sync-token-test", displayName: "Diver")
+        context.insert(profile)
+
+        let trip = DiveTrip(startDate: .now, endDate: .now, countries: ["Bonaire"], owner: profile)
+        let activity = DiveActivity(source: .manual, startTime: .now, durationMinutes: 45, maxDepthMeters: 20)
+        activity.owner = profile
+        activity.ownerProfileID = profile.id
+        context.insert(trip)
+        context.insert(activity)
+        try context.save()
+
+        let before = LogbookTripGroupingSync.syncToken(ownerTrips: [trip], activities: [activity])
+        _ = DiveTripActivityLinking.link(activity, to: trip, modelContext: context)
+        let after = LogbookTripGroupingSync.syncToken(ownerTrips: [trip], activities: [activity])
+        #expect(before != after)
+    }
+
     @Test @MainActor func diveActivityMediaStorage_postMediaDidChange_notifiesObservers() {
         final class Counter: @unchecked Sendable { var value = 0 }
         let counter = Counter()
@@ -235,6 +270,9 @@ struct GoDiveMVPTests {
         #expect(ProfilePresentation.equipmentItemCountLabel(0) == "No gear")
         #expect(ProfilePresentation.equipmentItemCountLabel(1) == "1 item")
         #expect(ProfilePresentation.equipmentItemCountLabel(5) == "5 items")
+        #expect(ProfilePresentation.tripCountLabel(0) == "No trips")
+        #expect(ProfilePresentation.tripCountLabel(1) == "1 trip")
+        #expect(ProfilePresentation.tripCountLabel(4) == "4 trips")
     }
 
     @Test func profileDestinationTilePresentation_usesUniformTileHeight() {
@@ -1631,6 +1669,8 @@ struct GoDiveMVPTests {
         #expect(AppPortraitOrientationLockPolicy.locksExploreList(pathIsEmpty: true, viewModeIsList: true))
         #expect(!AppPortraitOrientationLockPolicy.locksExploreList(pathIsEmpty: true, viewModeIsList: false))
         #expect(!AppPortraitOrientationLockPolicy.locksExploreList(pathIsEmpty: false, viewModeIsList: true))
+        #expect(AppPortraitOrientationLockPolicy.locksTripDetail(showingLinkedDiveDetail: false))
+        #expect(!AppPortraitOrientationLockPolicy.locksTripDetail(showingLinkedDiveDetail: true))
     }
 
     @Test func diveTankOverviewHeroPresentation_landscapeProfileChart_atEveryDetent() {
@@ -3231,6 +3271,1478 @@ struct GoDiveMVPTests {
         #expect(dive.activityTags.isEmpty)
     }
 
+    @Test func tripPlannerPresentation_pageTitleAndExploreIcon() {
+        #expect(TripPlannerPresentation.pageTitle == "Trips")
+        #expect(TripPlannerPresentation.exploreChromeAccessibilityLabel == "Plan a trip")
+        #expect(TripPlannerPresentation.exploreChromeSystemImage == "airplane")
+        #expect(TripPlannerPresentation.newTripSheetTitle == "Plan a trip")
+    }
+
+    @Test func tripPlannerPresentation_sortsTripsByStartDateNewestFirst() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let olderStart = calendar.date(from: DateComponents(year: 2026, month: 3, day: 1))!
+        let newerStart = calendar.date(from: DateComponents(year: 2026, month: 6, day: 1))!
+        let older = DiveTrip(startDate: olderStart, endDate: olderStart, title: "Older")
+        let newer = DiveTrip(startDate: newerStart, endDate: newerStart, title: "Newer")
+        let sorted = TripPlannerPresentation.sortedForList([older, newer])
+        #expect(sorted.map(\.displayTitle) == ["Newer", "Older"])
+    }
+
+    @Test func tripPlannerPresentation_listRowSubtitle_includesDatesAndCountries() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let start = calendar.date(from: DateComponents(year: 2026, month: 6, day: 10))!
+        let end = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15))!
+        let trip = DiveTrip(
+            startDate: start,
+            endDate: end,
+            countries: ["Bonaire"],
+            title: "Reef week"
+        )
+        let subtitle = TripPlannerPresentation.listRowSubtitle(for: trip)
+        #expect(subtitle.contains("Bonaire"))
+        #expect(subtitle.contains("·"))
+    }
+
+    @Test func tripPlannerPresentation_listRowDisplayData_splitsTitleDatesCountriesAndDiveCount() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let start = calendar.date(from: DateComponents(year: 2026, month: 6, day: 1))!
+        let end = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15))!
+        let trip = DiveTrip(
+            startDate: start,
+            endDate: end,
+            countries: ["Bonaire", "Curaçao"],
+            title: "Reef week"
+        )
+        let dateRange = DiveTripPresentation.formattedDateRange(start: start, end: end)
+
+        let upcoming = TripPlannerPresentation.listRowDisplayData(for: trip, phase: .upcoming)
+        #expect(upcoming.title == "Reef week")
+        #expect(
+            upcoming.secondaryDetailLine
+                == TripPlannerPresentation.listRowSecondaryDetail(
+                    dateRange: dateRange,
+                    countriesLine: "Bonaire, Curaçao"
+                )
+        )
+        #expect(upcoming.linkedDiveCountLabel == nil)
+
+        let active = TripPlannerPresentation.listRowDisplayData(for: trip, phase: .active)
+        #expect(active.secondaryDetailLine.contains(dateRange))
+        #expect(active.secondaryDetailLine.contains("Bonaire, Curaçao"))
+        #expect(active.linkedDiveCountLabel == "0 dives")
+        #expect(active.previewMediaPhotoID == nil)
+        #expect(
+            TripPlannerPresentation.listRowAccessibilityLabel(for: active)
+                == "Reef week, 0 dives, \(active.secondaryDetailLine)"
+        )
+    }
+
+    @Test @MainActor func tripPlannerPresentation_listRowPreviewMediaPhotoID_usesFirstLinkedTripMedia() {
+        let dive = DiveActivity(
+            source: .manual,
+            sourceDiveId: "trip-list-dive",
+            startTime: Date(timeIntervalSince1970: 1_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        let firstPhoto = DiveMediaPhoto(sortOrder: 0)
+        let secondPhoto = DiveMediaPhoto(sortOrder: 1)
+        dive.mediaPhotos = [secondPhoto, firstPhoto]
+
+        let previewID = TripPlannerPresentation.listRowPreviewMediaPhotoID(
+            phase: .active,
+            linkedActivities: [dive]
+        )
+        #expect(previewID == firstPhoto.id)
+    }
+
+    @Test @MainActor func tripDetailContentPager_resolvedInitialPage_opensMediaWhenStarted() {
+        #expect(
+            TripDetailContentPagerPresentation.resolvedInitialPage(
+                hasStarted: true,
+                requested: .media
+            ) == .media
+        )
+        #expect(
+            TripDetailContentPagerPresentation.resolvedInitialPage(
+                hasStarted: false,
+                requested: .media
+            ) == .plannedSites
+        )
+    }
+
+    @Test func tripPlannerPresentation_linkedDiveCountLabel_pluralizes() {
+        #expect(TripPlannerPresentation.linkedDiveCountLabel(count: 1) == "1 dive")
+        #expect(TripPlannerPresentation.linkedDiveCountLabel(count: 4) == "4 dives")
+    }
+
+    @Test func tripPlannerPresentation_listRowSecondaryDetail_joinsDatesAndCountries() {
+        #expect(
+            TripPlannerPresentation.listRowSecondaryDetail(
+                dateRange: "Jun 1 – Jun 15, 2026",
+                countriesLine: "Bonaire"
+            ) == "Jun 1 – Jun 15, 2026 · Bonaire"
+        )
+        #expect(
+            TripPlannerPresentation.listRowSecondaryDetail(
+                dateRange: "Jun 1 – Jun 15, 2026",
+                countriesLine: nil
+            ) == "Jun 1 – Jun 15, 2026"
+        )
+    }
+
+    @Test func tripPlannerPresentation_lifecyclePhase_classifiesUpcomingActiveAndPast() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let reference = calendar.date(from: DateComponents(year: 2026, month: 6, day: 11))!
+
+        let upcoming = DiveTrip(
+            startDate: calendar.date(from: DateComponents(year: 2026, month: 7, day: 1))!,
+            endDate: calendar.date(from: DateComponents(year: 2026, month: 7, day: 8))!,
+            title: "Future"
+        )
+        let active = DiveTrip(
+            startDate: calendar.date(from: DateComponents(year: 2026, month: 6, day: 1))!,
+            endDate: calendar.date(from: DateComponents(year: 2026, month: 6, day: 15))!,
+            title: "In progress"
+        )
+        let past = DiveTrip(
+            startDate: calendar.date(from: DateComponents(year: 2026, month: 5, day: 1))!,
+            endDate: calendar.date(from: DateComponents(year: 2026, month: 5, day: 8))!,
+            title: "Done"
+        )
+
+        #expect(
+            TripPlannerPresentation.lifecyclePhase(
+                for: upcoming,
+                referenceDate: reference,
+                calendar: calendar
+            ) == .upcoming
+        )
+        #expect(
+            TripPlannerPresentation.lifecyclePhase(
+                for: active,
+                referenceDate: reference,
+                calendar: calendar
+            ) == .active
+        )
+        #expect(
+            TripPlannerPresentation.lifecyclePhase(
+                for: past,
+                referenceDate: reference,
+                calendar: calendar
+            ) == .past
+        )
+    }
+
+    @Test func tripPlannerPresentation_listSections_ordersUpcomingActivePastAndSortsWithinSection() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let reference = calendar.date(from: DateComponents(year: 2026, month: 6, day: 11))!
+
+        let soonerUpcoming = DiveTrip(
+            startDate: calendar.date(from: DateComponents(year: 2026, month: 6, day: 20))!,
+            endDate: calendar.date(from: DateComponents(year: 2026, month: 6, day: 22))!,
+            title: "Soon"
+        )
+        let laterUpcoming = DiveTrip(
+            startDate: calendar.date(from: DateComponents(year: 2026, month: 7, day: 1))!,
+            endDate: calendar.date(from: DateComponents(year: 2026, month: 7, day: 5))!,
+            title: "Later"
+        )
+        let activeEndingSoon = DiveTrip(
+            startDate: calendar.date(from: DateComponents(year: 2026, month: 6, day: 1))!,
+            endDate: calendar.date(from: DateComponents(year: 2026, month: 6, day: 12))!,
+            title: "Ending soon"
+        )
+        let activeEndingLater = DiveTrip(
+            startDate: calendar.date(from: DateComponents(year: 2026, month: 6, day: 1))!,
+            endDate: calendar.date(from: DateComponents(year: 2026, month: 6, day: 20))!,
+            title: "Ending later"
+        )
+        let recentPast = DiveTrip(
+            startDate: calendar.date(from: DateComponents(year: 2026, month: 5, day: 20))!,
+            endDate: calendar.date(from: DateComponents(year: 2026, month: 5, day: 25))!,
+            title: "Recent past"
+        )
+        let olderPast = DiveTrip(
+            startDate: calendar.date(from: DateComponents(year: 2026, month: 4, day: 1))!,
+            endDate: calendar.date(from: DateComponents(year: 2026, month: 4, day: 8))!,
+            title: "Older past"
+        )
+
+        let sections = TripPlannerPresentation.listSections(
+            from: [
+                olderPast,
+                laterUpcoming,
+                activeEndingLater,
+                recentPast,
+                soonerUpcoming,
+                activeEndingSoon,
+            ],
+            referenceDate: reference,
+            calendar: calendar
+        )
+
+        #expect(sections.map(\.phase) == [.upcoming, .active, .past])
+        #expect(sections[0].trips.map(\.displayTitle) == ["Soon", "Later"])
+        #expect(sections[1].trips.map(\.displayTitle) == ["Ending soon", "Ending later"])
+        #expect(sections[2].trips.map(\.displayTitle) == ["Recent past", "Older past"])
+    }
+
+    @Test func tripPlannerPresentation_listSections_omitsEmptySections() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let reference = calendar.date(from: DateComponents(year: 2026, month: 6, day: 11))!
+        let upcoming = DiveTrip(
+            startDate: calendar.date(from: DateComponents(year: 2026, month: 7, day: 1))!,
+            endDate: calendar.date(from: DateComponents(year: 2026, month: 7, day: 5))!,
+            title: "Only upcoming"
+        )
+
+        let sections = TripPlannerPresentation.listSections(
+            from: [upcoming],
+            referenceDate: reference,
+            calendar: calendar
+        )
+
+        #expect(sections.count == 1)
+        #expect(sections[0].phase == .upcoming)
+    }
+
+    @Test func diveTripFormValues_parsesCountriesAndValidatesSave() {
+        var form = DiveTripFormValues()
+        #expect(!form.canSave)
+
+        form.countriesText = " Bonaire , Curaçao "
+        #expect(form.parsedCountries == ["Bonaire", "Curaçao"])
+        #expect(form.canSave)
+
+        form = DiveTripFormValues()
+        form.title = "  Reef week  "
+        #expect(form.trimmedTitle == "Reef week")
+        #expect(form.canSave)
+        #expect(form.parsedCountries.isEmpty)
+    }
+
+    @Test @MainActor func diveTripFormValues_initFromTripAndApply() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let profile = UserProfile(appleUserIdentifier: "trip-form-apply", displayName: "Diver")
+        context.insert(profile)
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let start = calendar.date(from: DateComponents(year: 2026, month: 8, day: 1))!
+        let end = calendar.date(from: DateComponents(year: 2026, month: 8, day: 7))!
+
+        let trip = DiveTrip(
+            startDate: start,
+            endDate: end,
+            countries: ["Bonaire"],
+            title: "Old title",
+            owner: profile
+        )
+        context.insert(trip)
+
+        var form = DiveTripFormValues(from: trip)
+        form.title = "Bonaire 2026"
+        form.countriesText = "Curaçao"
+        form.apply(to: trip, plannedSites: [])
+
+        #expect(trip.displayTitle == "Bonaire 2026")
+        #expect(trip.countries == ["Curaçao"])
+    }
+
+    @Test @MainActor func diveTripDeletion_deletePermanentlyRemovesTrip() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let profile = UserProfile(appleUserIdentifier: "trip-delete", displayName: "Diver")
+        context.insert(profile)
+
+        let trip = DiveTrip(
+            startDate: .now,
+            endDate: .now,
+            countries: ["Bonaire"],
+            title: "Delete me",
+            owner: profile
+        )
+        context.insert(trip)
+        try context.save()
+
+        try DiveTripDeletion.deletePermanently(trip, modelContext: context)
+
+        let remaining = try context.fetch(FetchDescriptor<DiveTrip>())
+        #expect(remaining.isEmpty)
+    }
+
+    @Test func diveTripDateRange_rejectsEndBeforeStart() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let start = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15))!
+        let end = calendar.date(from: DateComponents(year: 2026, month: 6, day: 10))!
+        #expect(!DiveTripDateRange.isValidOrderedRange(start: start, end: end, calendar: calendar))
+
+        var form = DiveTripFormValues()
+        form.title = "Reef week"
+        form.startDate = start
+        form.endDate = end
+        #expect(!form.hasValidDateRange)
+        #expect(!form.canSave)
+    }
+
+    @Test func diveTripDateRange_allowsSameDayTrip() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let day = calendar.date(from: DateComponents(year: 2026, month: 6, day: 10, hour: 9))!
+        let later = calendar.date(from: DateComponents(year: 2026, month: 6, day: 10, hour: 18))!
+        #expect(DiveTripDateRange.isValidOrderedRange(start: day, end: later, calendar: calendar))
+
+        var form = DiveTripFormValues()
+        form.title = "Day trip"
+        form.startDate = day
+        form.endDate = later
+        #expect(form.hasValidDateRange)
+        #expect(form.canSave)
+    }
+
+    @Test func diveTripPresentation_formatsDateRange() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let day = calendar.date(from: DateComponents(year: 2026, month: 6, day: 10))!
+        let single = DiveTripPresentation.formattedDateRange(start: day, end: day)
+        #expect(!single.isEmpty)
+
+        let start = calendar.date(from: DateComponents(year: 2026, month: 6, day: 10))!
+        let end = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15))!
+        let range = DiveTripPresentation.formattedDateRange(start: start, end: end)
+        #expect(range.contains("–"))
+    }
+
+    @Test func diveTripDateRange_containsInstantOnInclusiveCalendarDays() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let start = calendar.date(from: DateComponents(year: 2026, month: 4, day: 10))!
+        let end = calendar.date(from: DateComponents(year: 2026, month: 4, day: 15))!
+        let inside = calendar.date(from: DateComponents(year: 2026, month: 4, day: 12, hour: 18))!
+        let outside = calendar.date(from: DateComponents(year: 2026, month: 4, day: 20))!
+        #expect(DiveTripDateRange.contains(inside, start: start, end: end, calendar: calendar))
+        #expect(!DiveTripDateRange.contains(outside, start: start, end: end, calendar: calendar))
+    }
+
+    @Test func diveTripAggregateBuilder_totalsLongestDeepestBuddiesAndMarineLife() {
+        let diveA = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+        let diveB = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+        let buddyID = UUID(uuidString: "00000000-0000-0000-0000-0000000000AA")!
+        let dives = [
+            DiveTripDiveSnapshot(
+                id: diveA,
+                startTime: Date(timeIntervalSince1970: 1_000),
+                durationMinutes: 48,
+                maxDepthMeters: 24,
+                siteDisplayName: "Salt Pier",
+                diveSiteID: nil,
+                buddyIDs: [buddyID],
+                buddyDisplayNames: ["Alex"]
+            ),
+            DiveTripDiveSnapshot(
+                id: diveB,
+                startTime: Date(timeIntervalSince1970: 2_000),
+                durationMinutes: 62,
+                maxDepthMeters: 30,
+                siteDisplayName: "Hilma Hooker",
+                diveSiteID: nil,
+                buddyIDs: [buddyID],
+                buddyDisplayNames: ["Alex"]
+            ),
+        ]
+        let sightings = [
+            DiveTripSightingSnapshot(marineLifeUUID: "fish-a", commonName: "Queen Angelfish", diveActivityID: diveA),
+            DiveTripSightingSnapshot(marineLifeUUID: "fish-a", commonName: "Queen Angelfish", diveActivityID: diveB),
+            DiveTripSightingSnapshot(marineLifeUUID: "fish-b", commonName: "French Angelfish", diveActivityID: diveB),
+        ]
+        let aggregate = DiveTripAggregateBuilder.build(
+            linkedDives: dives,
+            sightings: sightings,
+            plannedSiteNames: ["Something Else"],
+            countries: ["Bonaire"]
+        )
+        #expect(aggregate.diveCount == 2)
+        #expect(aggregate.totalDurationMinutes == 110)
+        #expect(aggregate.longestDive?.diveID == diveB)
+        #expect(aggregate.longestDive?.durationMinutes == 62)
+        #expect(aggregate.deepestDive?.diveID == diveB)
+        #expect(aggregate.deepestDive?.maxDepthMeters == 30)
+        #expect(aggregate.buddies.count == 1)
+        #expect(aggregate.buddies[0].diveCount == 2)
+        #expect(aggregate.marineLife.count == 2)
+        #expect(aggregate.marineLife[0].marineLifeUUID == "fish-a")
+        #expect(aggregate.marineLife[0].sightingCount == 2)
+        #expect(aggregate.visitedSiteNames == ["Hilma Hooker", "Salt Pier"])
+        #expect(aggregate.plannedSiteNames == ["Something Else"])
+        #expect(aggregate.countries == ["Bonaire"])
+    }
+
+    @Test func diveTripStatsPresentation_showsStatsWhenTripHasStarted() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let reference = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15))!
+        let futureStart = calendar.date(from: DateComponents(year: 2026, month: 7, day: 1))!
+        let startedToday = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15))!
+        let pastStart = calendar.date(from: DateComponents(year: 2026, month: 6, day: 1))!
+
+        #expect(
+            !DiveTripStatsPresentation.shouldShowStats(
+                tripStartDate: futureStart,
+                referenceDate: reference,
+                calendar: calendar
+            )
+        )
+        #expect(
+            DiveTripStatsPresentation.shouldShowStats(
+                tripStartDate: startedToday,
+                referenceDate: reference,
+                calendar: calendar
+            )
+        )
+        #expect(
+            DiveTripStatsPresentation.shouldShowStats(
+                tripStartDate: pastStart,
+                referenceDate: reference,
+                calendar: calendar
+            )
+        )
+    }
+
+    @Test func diveTripStatsPresentation_buildsHighlightTilesFromAggregate() {
+        let diveA = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+        let diveB = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+        let aggregate = DiveTripAggregateBuilder.build(
+            linkedDives: [
+                DiveTripDiveSnapshot(
+                    id: diveA,
+                    startTime: Date(timeIntervalSince1970: 1_000),
+                    durationMinutes: 48,
+                    maxDepthMeters: 24,
+                    siteDisplayName: "Salt Pier",
+                    diveSiteID: nil,
+                    buddyIDs: [],
+                    buddyDisplayNames: []
+                ),
+                DiveTripDiveSnapshot(
+                    id: diveB,
+                    startTime: Date(timeIntervalSince1970: 2_000),
+                    durationMinutes: 62,
+                    maxDepthMeters: 30,
+                    siteDisplayName: "Hilma Hooker",
+                    diveSiteID: nil,
+                    buddyIDs: [],
+                    buddyDisplayNames: []
+                ),
+            ],
+            sightings: [],
+            plannedSiteNames: [],
+            countries: []
+        )
+
+        let tiles = DiveTripStatsPresentation.highlightTiles(from: aggregate, unitSystem: .metric)
+        #expect(tiles.count == DiveTripStatsPresentation.highlightTileCount)
+        #expect(tiles[0].id == "dives")
+        #expect(tiles[0].value == "2")
+        #expect(tiles[0].footnote == DiveTripStatsPresentation.diveCountFootnotePlural)
+        #expect(tiles[1].id == "underwater-time")
+        #expect(tiles[1].value == "1 hr 50 min")
+        #expect(tiles[1].footnote == DiveTripStatsPresentation.totalBottomTimeFootnote)
+        #expect(tiles[2].id == "deepest")
+        #expect(tiles[2].value == "30.0 m")
+        #expect(tiles[2].footnote == DiveTripStatsPresentation.maxDepthFootnote)
+        #expect(tiles[2].linkedDiveID == diveB)
+        #expect(tiles[3].id == "longest")
+        #expect(tiles[3].value == "1 hr 2 min")
+        #expect(tiles[3].footnote == DiveTripStatsPresentation.bottomTimeFootnote)
+        #expect(tiles[0].linkedDiveID == nil)
+        #expect(tiles[1].linkedDiveID == nil)
+    }
+
+    @Test func diveTripStatsPresentation_omitsLinkedDiveWhenStatEmpty() {
+        let aggregate = DiveTripAggregateBuilder.build(
+            linkedDives: [
+                DiveTripDiveSnapshot(
+                    id: UUID(),
+                    startTime: Date(timeIntervalSince1970: 1_000),
+                    durationMinutes: 0,
+                    maxDepthMeters: 0,
+                    siteDisplayName: "Salt Pier",
+                    diveSiteID: nil,
+                    buddyIDs: [],
+                    buddyDisplayNames: []
+                ),
+            ],
+            sightings: [],
+            plannedSiteNames: [],
+            countries: []
+        )
+
+        let tiles = DiveTripStatsPresentation.highlightTiles(from: aggregate, unitSystem: .metric)
+        #expect(tiles[2].linkedDiveID == nil)
+        #expect(tiles[3].linkedDiveID == nil)
+    }
+
+    @Test @MainActor func tripDetailContentPager_activeTripPages() {
+        #expect(TripDetailContentPagerPresentation.pageCount(hasStarted: true) == 5)
+        #expect(
+            TripDetailContentPagerPresentation.pages(hasStarted: true) == [
+                .stats, .marineLife, .activities, .buddies, .media,
+            ]
+        )
+        #expect(TripDetailContentPagerPresentation.defaultPage(hasStarted: true) == .stats)
+        #expect(TripDetailContentPagerPresentation.accessibilityIdentifier(for: .stats) == "TripDetail.ContentPager.Stats")
+        #expect(TripDetailContentPagerPresentation.accessibilityIdentifier(for: .media) == "TripDetail.ContentPager.Media")
+    }
+
+    @Test @MainActor func tripDetailContentPager_usesStaticLayoutForStatsAndMedia() {
+        #expect(TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .stats))
+        #expect(TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .media))
+        #expect(!TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .marineLife))
+        #expect(!TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .activities))
+        #expect(!TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .plannedSites))
+        #expect(!TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .buddies))
+    }
+
+    @Test @MainActor func tripDetailContentPager_plannedTripPages() {
+        #expect(TripDetailContentPagerPresentation.pageCount(hasStarted: false) == 2)
+        #expect(
+            TripDetailContentPagerPresentation.pages(hasStarted: false) == [
+                .plannedSites, .buddies,
+            ]
+        )
+        #expect(TripDetailContentPagerPresentation.defaultPage(hasStarted: false) == .plannedSites)
+        #expect(
+            TripDetailContentPagerPresentation.accessibilityIdentifier(for: .plannedSites)
+                == "TripDetail.ContentPager.PlannedSites"
+        )
+        #expect(TripDetailContentPagerPresentation.accessibilityIdentifier(for: .buddies) == "TripDetail.ContentPager.Buddies")
+    }
+
+    @Test func diveTripPresentation_tripBuddyTaggedDiveCountLabel() {
+        #expect(DiveTripPresentation.tripBuddyTaggedDiveCountLabel(count: 0) == "Not tagged on any dives")
+        #expect(DiveTripPresentation.tripBuddyTaggedDiveCountLabel(count: 1) == "1 dive")
+        #expect(DiveTripPresentation.tripBuddyTaggedDiveCountLabel(count: 4) == "4 dives")
+    }
+
+    @Test func tripDetailBuddiesPresentation_usesThreeColumnGrid() {
+        #expect(TripDetailBuddiesPresentation.gridColumnCount == 3)
+        #expect(TripDetailBuddiesPresentation.avatarDiameter == 64)
+    }
+
+    @Test @MainActor func diveTripPlannedBuddyLinking_addsAndRemovesBuddies() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+
+        let owner = UserProfile(appleUserIdentifier: "owner-planned-buddies", displayName: "Alex")
+        let buddy = DiveBuddy(displayName: "Jordan", owner: owner)
+        let trip = DiveTrip(
+            startDate: Date(timeIntervalSince1970: 2_000_000),
+            endDate: Date(timeIntervalSince1970: 2_086_400),
+            owner: owner
+        )
+        context.insert(owner)
+        context.insert(buddy)
+        context.insert(trip)
+
+        #expect(DiveTripPlannedBuddyLinking.plannedBuddies(for: trip).isEmpty)
+        #expect(!DiveTripPlannedBuddyLinking.isBuddyOnTrip(buddyID: buddy.id, trip: trip))
+
+        DiveTripPlannedBuddyLinking.addBuddy(buddy, to: trip, modelContext: context)
+        #expect(DiveTripPlannedBuddyLinking.plannedBuddies(for: trip).map(\.id) == [buddy.id])
+        #expect(DiveTripPlannedBuddyLinking.isBuddyOnTrip(buddyID: buddy.id, trip: trip))
+
+        DiveTripPlannedBuddyLinking.toggleBuddy(buddy, on: trip, modelContext: context)
+        #expect(DiveTripPlannedBuddyLinking.plannedBuddies(for: trip).isEmpty)
+    }
+
+    @Test @MainActor func diveBuddyTripPresentation_associatedTrips_includesPlannedAndTaggedLinkedDives() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+
+        let owner = UserProfile(appleUserIdentifier: "owner-buddy-trips", displayName: "Alex")
+        let buddy = DiveBuddy(displayName: "Jordan", owner: owner)
+        let otherBuddy = DiveBuddy(displayName: "Sam", owner: owner)
+
+        let upcomingTrip = DiveTrip(
+            startDate: Date(timeIntervalSince1970: 3_000_000),
+            endDate: Date(timeIntervalSince1970: 3_086_400),
+            title: "Bonaire",
+            owner: owner
+        )
+        let pastTrip = DiveTrip(
+            startDate: Date(timeIntervalSince1970: 1_000_000),
+            endDate: Date(timeIntervalSince1970: 1_086_400),
+            title: "Curacao",
+            owner: owner
+        )
+        let unrelatedTrip = DiveTrip(
+            startDate: Date(timeIntervalSince1970: 1_500_000),
+            endDate: Date(timeIntervalSince1970: 1_586_400),
+            title: "Aruba",
+            owner: owner
+        )
+
+        let taggedDive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 1_050_000),
+            durationMinutes: 45,
+            maxDepthMeters: 20
+        )
+        taggedDive.ownerProfileID = owner.id
+        let link = DiveTripActivityLink(trip: pastTrip, diveActivity: taggedDive)
+        let tag = DiveBuddyTag(buddy: buddy, dive: taggedDive)
+
+        context.insert(owner)
+        context.insert(buddy)
+        context.insert(otherBuddy)
+        context.insert(upcomingTrip)
+        context.insert(pastTrip)
+        context.insert(unrelatedTrip)
+        context.insert(taggedDive)
+        context.insert(link)
+        context.insert(tag)
+
+        DiveTripPlannedBuddyLinking.addBuddy(buddy, to: upcomingTrip, modelContext: context)
+        DiveTripPlannedBuddyLinking.addBuddy(otherBuddy, to: unrelatedTrip, modelContext: context)
+
+        let trips = [upcomingTrip, pastTrip, unrelatedTrip]
+        let associated = DiveBuddyTripPresentation.associatedTrips(
+            buddyID: buddy.id,
+            ownerProfileID: owner.id,
+            trips: trips,
+            sharedDiveIDs: [taggedDive.id]
+        )
+
+        #expect(associated.map(\.id).sorted() == [upcomingTrip.id, pastTrip.id].sorted())
+        #expect(!DiveBuddyTripPresentation.isBuddyAssociated(
+            buddyID: buddy.id,
+            trip: unrelatedTrip,
+            sharedDiveIDs: [taggedDive.id]
+        ))
+
+        let sorted = DiveBuddyTripPresentation.sortedAssociatedTrips(
+            associated,
+            referenceDate: Date(timeIntervalSince1970: 2_000_000)
+        )
+        #expect(sorted.map(\.id) == [upcomingTrip.id, pastTrip.id])
+
+        let row = DiveBuddyTripPresentation.rowDisplayData(
+            for: upcomingTrip,
+            referenceDate: Date(timeIntervalSince1970: 2_000_000)
+        )
+        #expect(row.title == "Bonaire")
+        #expect(row.phaseLabel == TripPlannerPresentation.upcomingSectionTitle)
+    }
+
+    @Test func tripDetailPlannedBuddyPresentation_ordersOwnerFirst() {
+        let ownerID = UUID(uuidString: "00000000-0000-0000-0000-000000000020")!
+        let buddyID = UUID(uuidString: "00000000-0000-0000-0000-000000000021")!
+        let owner = UserProfile(
+            id: ownerID,
+            appleUserIdentifier: "owner-share",
+            displayName: "Alex Diver"
+        )
+        let buddy = DiveBuddy(id: buddyID, displayName: "Jordan", owner: owner)
+
+        let members = TripDetailPlannedBuddyPresentation.shareMembers(
+            owner: owner,
+            plannedBuddies: [buddy]
+        )
+
+        #expect(members.count == 2)
+        #expect(members[0].id == ownerID)
+        #expect(members[0].isOwner)
+        #expect(members[1].id == buddyID)
+        #expect(TripDetailPlannedBuddyPresentation.subtitle(for: members[0]) == "You")
+        #expect(TripDetailPlannedBuddyPresentation.subtitle(for: members[1]) == "On this trip")
+    }
+
+    @Test func tripShareCardPresentation_buildsTemporaryPNGFileName() {
+        let url = TripShareCardPresentation.temporaryPNGURL(tripTitle: "Bonaire 2026")
+        #expect(url.pathExtension == "png")
+        #expect(url.lastPathComponent.contains("GoDive-Trip-Bonaire 2026"))
+    }
+
+    @Test func tripShareMapSnapshotPresentation_mapSnapshotSize_fitsCardContentWidth() {
+        let size = TripShareMapSnapshotPresentation.mapSnapshotSize(
+            cardWidth: TripShareCardPresentation.cardWidth
+        )
+        let expectedWidth = TripShareCardPresentation.cardWidth
+            - TripShareCardPresentation.contentPadding * 2
+        #expect(size.width == expectedWidth)
+        #expect(abs(size.height - expectedWidth / TripShareMapSnapshotPresentation.mapAspectRatio) < 0.001)
+    }
+
+    @Test func tripShareMapSnapshotPresentation_accessibilityLabel_matchesTripDetailMap() {
+        let pins = [
+            TripDetailMapPin(
+                id: "planned-a",
+                title: "Salt Pier",
+                coordinate: DiveCoordinate(latitude: 12.1, longitude: -68.2),
+                kind: .planned,
+                siteID: nil
+            ),
+            TripDetailMapPin(
+                id: "completed-b",
+                title: "Hilma Hooker",
+                coordinate: DiveCoordinate(latitude: 12.2, longitude: -68.3),
+                kind: .completed,
+                siteID: nil
+            ),
+        ]
+        #expect(
+            TripShareMapSnapshotPresentation.accessibilityLabel(for: pins)
+                == TripDetailMapPresentation.accessibilityLabel(for: pins)
+        )
+    }
+
+    @Test func tripShareGoogleStaticMapPresentation_buildsHybridStaticMapURL() {
+        let pins = [
+            TripDetailMapPin(
+                id: "planned-a",
+                title: "Salt Pier",
+                coordinate: DiveCoordinate(latitude: 12.123456, longitude: -68.234567),
+                kind: .planned,
+                siteID: nil
+            ),
+            TripDetailMapPin(
+                id: "completed-b",
+                title: "Hilma Hooker",
+                coordinate: DiveCoordinate(latitude: 12.223456, longitude: -68.334567),
+                kind: .completed,
+                siteID: nil
+            ),
+        ]
+
+        let url = TripShareGoogleStaticMapPresentation.staticMapURL(
+            pins: pins,
+            size: CGSize(width: 400, height: 300),
+            scale: 2,
+            apiKey: "test-key"
+        )
+
+        #expect(url != nil)
+        let absolute = url!.absoluteString
+        #expect(absolute.contains("maps.googleapis.com/maps/api/staticmap"))
+        #expect(absolute.contains("maptype=hybrid"))
+        #expect(absolute.contains("400x300"))
+        #expect(absolute.contains("scale=2"))
+        #expect(absolute.contains("color%3Ablue") || absolute.contains("color:blue"))
+        #expect(absolute.contains("color%3Ared") || absolute.contains("color:red"))
+        #expect(absolute.contains("test-key"))
+    }
+
+    @Test func tripShareGoogleStaticMapPresentation_clampedScale_capsAtTwo() {
+        #expect(TripShareGoogleStaticMapPresentation.clampedScale(for: 3) == 2)
+        #expect(TripShareGoogleStaticMapPresentation.clampedScale(for: 1) == 1)
+    }
+
+    @Test func tripShareCardPresentation_includesLogoAssetName() {
+        #expect(TripShareCardPresentation.logoImageName == "GoDiveLogoPin")
+        #expect(TripShareCardPresentation.logoHeight == 72)
+    }
+
+    @Test func tripShareCardPresentation_members_usesPlannedBuddiesBeforeTripStarts() {
+        let ownerID = UUID(uuidString: "00000000-0000-0000-0000-000000000030")!
+        let buddyID = UUID(uuidString: "00000000-0000-0000-0000-000000000031")!
+        let owner = UserProfile(
+            id: ownerID,
+            appleUserIdentifier: "owner-share-planned",
+            displayName: "Alex Diver"
+        )
+        let buddy = DiveBuddy(id: buddyID, displayName: "Jordan", owner: owner)
+
+        let members = TripShareCardPresentation.members(
+            hasStarted: false,
+            owner: owner,
+            ownerLinkedDiveCount: 0,
+            plannedBuddies: [buddy],
+            taggedBuddies: [
+                DiveTripBuddySummary(buddyID: buddyID, displayName: "Jordan", diveCount: 3)
+            ],
+            rosterBuddiesByID: [buddyID: buddy]
+        )
+
+        #expect(members.count == 2)
+        #expect(members[0].id == ownerID)
+        #expect(members[0].subtitle == "You")
+        #expect(!members[0].usesAccentSubtitle)
+        #expect(members[1].subtitle == "On this trip")
+        #expect(!members[1].usesAccentSubtitle)
+    }
+
+    @Test func tripShareCardPresentation_members_usesTaggedBuddiesWithDiveCountsAfterStart() {
+        let buddyID = UUID(uuidString: "00000000-0000-0000-0000-000000000032")!
+        let ownerID = UUID(uuidString: "00000000-0000-0000-0000-000000000033")!
+        let owner = UserProfile(
+            id: ownerID,
+            appleUserIdentifier: "owner-share-active",
+            displayName: "Alex Diver"
+        )
+        let buddy = DiveBuddy(id: buddyID, displayName: "Sam", owner: owner)
+
+        let members = TripShareCardPresentation.members(
+            hasStarted: true,
+            owner: owner,
+            ownerLinkedDiveCount: 3,
+            plannedBuddies: [buddy],
+            taggedBuddies: [
+                DiveTripBuddySummary(buddyID: buddyID, displayName: "Sam", diveCount: 2)
+            ],
+            rosterBuddiesByID: [buddyID: buddy]
+        )
+
+        #expect(members.count == 2)
+        #expect(members[0].id == ownerID)
+        #expect(members[0].displayName == "Alex Diver")
+        #expect(members[0].subtitle == "3 dives")
+        #expect(members[0].usesAccentSubtitle)
+        #expect(members[1].displayName == "Sam")
+        #expect(members[1].subtitle == "2 dives")
+        #expect(members[1].usesAccentSubtitle)
+        #expect(members[1].profilePhoto == buddy.profilePhoto)
+    }
+
+    @Test func tripShareCardPresentation_marineLifeCalloutLabel_formatsUniqueSpeciesCount() {
+        #expect(TripShareCardPresentation.marineLifeCalloutLabel(uniqueSpeciesCount: 0) == nil)
+        #expect(TripShareCardPresentation.marineLifeCalloutLabel(uniqueSpeciesCount: 1) == "1 species spotted")
+        #expect(TripShareCardPresentation.marineLifeCalloutLabel(uniqueSpeciesCount: 12) == "12 species spotted")
+    }
+
+    @Test func tripShareCardPresentation_ownerShareSubtitle_usesDiveCountWhenTripStarted() {
+        let subtitle = TripShareCardPresentation.ownerShareSubtitle(
+            hasStarted: true,
+            ownerLinkedDiveCount: 1
+        )
+        #expect(subtitle.subtitle == "1 dive")
+        #expect(subtitle.usesAccentSubtitle)
+    }
+
+    @Test func diveTripAggregateBuilder_buddySummariesCountDistinctLinkedDives() {
+        let buddyA = UUID(uuidString: "00000000-0000-0000-0000-000000000010")!
+        let buddyB = UUID(uuidString: "00000000-0000-0000-0000-000000000011")!
+        let diveA = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+        let diveB = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+        let diveC = UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
+
+        let aggregate = DiveTripAggregateBuilder.build(
+            linkedDives: [
+                DiveTripDiveSnapshot(
+                    id: diveA,
+                    startTime: Date(timeIntervalSince1970: 1_000),
+                    durationMinutes: 40,
+                    maxDepthMeters: 18,
+                    siteDisplayName: "Salt Pier",
+                    diveSiteID: nil,
+                    buddyIDs: [buddyA, buddyB],
+                    buddyDisplayNames: ["Alex", "Jordan"]
+                ),
+                DiveTripDiveSnapshot(
+                    id: diveB,
+                    startTime: Date(timeIntervalSince1970: 2_000),
+                    durationMinutes: 50,
+                    maxDepthMeters: 24,
+                    siteDisplayName: "Hilma Hooker",
+                    diveSiteID: nil,
+                    buddyIDs: [buddyA],
+                    buddyDisplayNames: ["Alex"]
+                ),
+                DiveTripDiveSnapshot(
+                    id: diveC,
+                    startTime: Date(timeIntervalSince1970: 3_000),
+                    durationMinutes: 35,
+                    maxDepthMeters: 20,
+                    siteDisplayName: "Something Special",
+                    diveSiteID: nil,
+                    buddyIDs: [buddyB],
+                    buddyDisplayNames: ["Jordan"]
+                ),
+            ],
+            sightings: [],
+            plannedSiteNames: [],
+            countries: []
+        )
+
+        #expect(aggregate.buddies.count == 2)
+        #expect(aggregate.buddies[0].buddyID == buddyA)
+        #expect(aggregate.buddies[0].diveCount == 2)
+        #expect(aggregate.buddies[1].buddyID == buddyB)
+        #expect(aggregate.buddies[1].diveCount == 2)
+    }
+
+    @Test @MainActor func tripDetailMapPresentation_plannedBlueAndCompletedRedPins() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+
+        let plannedOnly = DiveSite(siteName: "Salt Pier", latCoords: 12.123, longCoords: -68.456)
+        let plannedAndDone = DiveSite(siteName: "Hilma Hooker", latCoords: 12.234, longCoords: -68.567)
+        let unplannedDoneSite = DiveSite(siteName: "Something Special", latCoords: 12.345, longCoords: -68.678)
+        context.insert(plannedOnly)
+        context.insert(plannedAndDone)
+        context.insert(unplannedDoneSite)
+
+        let completedAtPlanned = DiveActivity(
+            source: .manual,
+            startTime: .now,
+            durationMinutes: 45,
+            maxDepthMeters: 20
+        )
+        completedAtPlanned.diveSite = plannedAndDone
+        completedAtPlanned.diveSiteID = plannedAndDone.id
+
+        let completedUnplanned = DiveActivity(
+            source: .manual,
+            startTime: .now,
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            entryCoordinate: DiveCoordinate(latitude: 12.111, longitude: -68.222)
+        )
+
+        let pins = TripDetailMapPresentation.pins(
+            plannedSites: [plannedOnly, plannedAndDone],
+            linkedActivities: [completedAtPlanned, completedUnplanned],
+            catalogSites: [plannedOnly, plannedAndDone, unplannedDoneSite]
+        )
+
+        #expect(pins.count == 3)
+        #expect(pins.filter { $0.kind == .planned }.map(\.title) == ["Salt Pier"])
+        #expect(pins.filter { $0.kind == .completed }.map(\.title) == ["Hilma Hooker", "Dive"])
+        #expect(pins.first(where: { $0.title == "Salt Pier" })?.siteID == plannedOnly.id)
+        #expect(pins.first(where: { $0.title == "Hilma Hooker" })?.siteID == plannedAndDone.id)
+        #expect(pins.first(where: { $0.title == "Dive" })?.siteID == nil)
+        #expect(TripDetailMapPresentation.boundingRegion(for: pins) != nil)
+    }
+
+    @Test func tripDetailMapPresentation_boundingRegion_zoomsOutToFitSpreadPins() {
+        let pins = [
+            TripDetailMapPin(
+                id: "planned-a",
+                title: "North",
+                coordinate: DiveCoordinate(latitude: 12.0, longitude: -68.0),
+                kind: .planned,
+                siteID: nil
+            ),
+            TripDetailMapPin(
+                id: "completed-b",
+                title: "South",
+                coordinate: DiveCoordinate(latitude: 12.2, longitude: -68.35),
+                kind: .completed,
+                siteID: nil
+            ),
+        ]
+
+        let region = TripDetailMapPresentation.boundingRegion(for: pins)
+        #expect(region != nil)
+        let expectedLatDelta = max(0.2 * TripDetailMapPresentation.boundingRegionPaddingMultiplier, TripDetailMapPresentation.boundingRegionMinimumSpanDegrees)
+        let expectedLonDelta = max(0.35 * TripDetailMapPresentation.boundingRegionPaddingMultiplier, TripDetailMapPresentation.boundingRegionMinimumSpanDegrees)
+        #expect(abs((region?.latitudeDelta ?? 0) - expectedLatDelta) < 1e-9)
+        #expect(abs((region?.longitudeDelta ?? 0) - expectedLonDelta) < 1e-9)
+        #expect(region?.latitudeDelta ?? 0 > 0.35)
+    }
+
+    @Test func tripDetailMapPresentation_singlePinRegion_isWiderThanDiveSiteDefault() {
+        let pin = TripDetailMapPin(
+            id: "planned-only",
+            title: "Salt Pier",
+            coordinate: DiveCoordinate(latitude: 12.1, longitude: -68.2),
+            kind: .planned,
+            siteID: nil
+        )
+
+        let region = TripDetailMapPresentation.boundingRegion(for: [pin])
+        #expect(region?.latitudeDelta == TripDetailMapPresentation.singlePinRegionSpanDegrees)
+        #expect(region?.longitudeDelta == TripDetailMapPresentation.singlePinRegionSpanDegrees)
+        #expect(TripDetailMapPresentation.singlePinRegionSpanDegrees > DiveLocationMapPresentation.diveSiteLatitudeDelta)
+    }
+
+    @Test func tripDetailMapPresentation_mapFitEdgeInsets_centerPinsInVisibleHeroBand() {
+        let layout = TripDetailMapFitLayout(
+            mapHeight: 480,
+            topObstructionHeight: 128,
+            panelOverlap: HomeOverviewLayout.panelOverlap
+        )
+        let insets = TripDetailMapPresentation.mapFitEdgeInsetValues(for: layout)
+        #expect(insets.top == layout.topObstructionHeight)
+        #expect(insets.bottom == HomeOverviewLayout.panelOverlap + TripDetailMapPresentation.mapMarkerGroundClearance)
+        let targetY = TripDetailMapPresentation.targetPinScreenYFraction(for: layout)
+        #expect(abs(targetY - 0.5) < 0.06)
+    }
+
+    @Test func tripDetailDiveSiteNavigation_resolvedSite_prefersPlannedTripSites() {
+        let plannedID = UUID()
+        let catalogID = UUID()
+        let planned = DiveSite(
+            id: plannedID,
+            siteName: "Salt Pier",
+            latCoords: 12.1,
+            longCoords: -68.2
+        )
+        let catalogOnly = DiveSite(
+            id: catalogID,
+            siteName: "Other",
+            latCoords: 12.2,
+            longCoords: -68.3
+        )
+
+        let resolvedPlanned = TripDetailDiveSiteNavigation.resolvedSite(
+            siteID: plannedID,
+            plannedSites: [planned],
+            catalogSites: [planned, catalogOnly]
+        )
+        #expect(resolvedPlanned?.id == plannedID)
+
+        let resolvedCatalog = TripDetailDiveSiteNavigation.resolvedSite(
+            siteID: catalogID,
+            plannedSites: [planned],
+            catalogSites: [planned, catalogOnly]
+        )
+        #expect(resolvedCatalog?.id == catalogID)
+    }
+
+    @Test @MainActor func logbookRoute_includesCatalogSiteDetail() {
+        let siteID = UUID()
+        #expect(LogbookRoute.diveSite(siteID) == LogbookRoute.diveSite(siteID))
+        #expect(LogbookRoute.diveSite(siteID) != LogbookRoute.tripDetail(siteID))
+    }
+
+    @Test @MainActor func tripStackNavigationRoutes_tripDetailPrecedesSiteOnStack() {
+        let tripID = UUID()
+        let siteID = UUID()
+        let mediaID = UUID()
+
+        let exploreStack: [ExploreRoute] = [
+            .tripPlanner,
+            .tripDetail(tripID),
+            .siteDetail(siteID),
+        ]
+        #expect(exploreStack.count == 3)
+        #expect(exploreStack[1] == .tripDetail(tripID))
+
+        let homeStack: [HomeRoute] = [
+            .profile,
+            .tripPlanner,
+            .tripDetail(tripID),
+            .diveSite(siteID),
+        ]
+        #expect(homeStack[2] == .tripDetail(tripID))
+
+        let logbookStack: [LogbookRoute] = [
+            .tripDetail(tripID),
+            .diveSite(siteID),
+        ]
+        #expect(logbookStack[0] == .tripDetail(tripID))
+
+        #expect(ExploreRoute.tripDetailMedia(tripID: tripID, mediaID: mediaID)
+            == ExploreRoute.tripDetailMedia(tripID: tripID, mediaID: mediaID))
+    }
+
+    @Test @MainActor func tripDetailMediaPresentation_collectsMediaFromLinkedDivesNewestFirst() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+
+        let newerDive = DiveActivity(source: .manual, startTime: Date(timeIntervalSince1970: 2_000), durationMinutes: 40, maxDepthMeters: 18)
+        let olderDive = DiveActivity(source: .manual, startTime: Date(timeIntervalSince1970: 1_000), durationMinutes: 45, maxDepthMeters: 20)
+        context.insert(newerDive)
+        context.insert(olderDive)
+
+        let newerPhoto = DiveMediaPhoto(sortOrder: 0, capturedAt: Date(timeIntervalSince1970: 2_100), dive: newerDive)
+        newerDive.mediaPhotos = [newerPhoto]
+
+        let olderPhotoA = DiveMediaPhoto(sortOrder: 0, capturedAt: Date(timeIntervalSince1970: 1_100), dive: olderDive)
+        let olderPhotoB = DiveMediaPhoto(sortOrder: 1, capturedAt: Date(timeIntervalSince1970: 1_200), dive: olderDive)
+        olderDive.mediaPhotos = [olderPhotoA, olderPhotoB]
+        context.insert(newerPhoto)
+        context.insert(olderPhotoA)
+        context.insert(olderPhotoB)
+
+        let items = TripDetailMediaPresentation.linkedMediaItems(from: [olderDive, newerDive])
+        #expect(items.map(\.id) == [newerPhoto.id, olderPhotoA.id, olderPhotoB.id])
+        #expect(
+            TripDetailMediaPresentation.diveActivityID(for: newerPhoto.id, in: items) == newerDive.id
+        )
+    }
+
+    @Test func tripDetailMediaGalleryPresentation_browseAccessibilityLabel_mentionsSwipeWhenMultipleItems() {
+        #expect(
+            TripDetailMediaGalleryPresentation.browseAccessibilityLabel(
+                itemCount: 0,
+                positionLabel: nil
+            ) == DiveTripPresentation.tripMediaEmptyMessage
+        )
+        #expect(
+            TripDetailMediaGalleryPresentation.browseAccessibilityLabel(
+                itemCount: 1,
+                positionLabel: "1 of 1"
+            ) == "Trip media, 1 of 1, View on dive opens the linked dive"
+        )
+        #expect(
+            TripDetailMediaGalleryPresentation.browseAccessibilityLabel(
+                itemCount: 3,
+                positionLabel: "2 of 3"
+            ) == "Trip media, 2 of 3, swipe up for next, swipe down for previous, View on dive opens the linked dive"
+        )
+        #expect(
+            TripDetailMediaGalleryPresentation.browseAccessibilityLabel(
+                itemCount: 2,
+                positionLabel: "1 of 2",
+                hasTaggedMarineLife: true
+            ) == "Trip media, 1 of 2, marine life tagged, swipe up for next, swipe down for previous, tap fish icon for marine life overview, View on dive opens the linked dive"
+        )
+    }
+
+    @Test func tripDetailMediaGalleryPresentation_mediaPositionLabel_usesNumericOnlyFormat() {
+        let first = DiveMediaPhoto(sortOrder: 0)
+        let second = DiveMediaPhoto(sortOrder: 1, mediaKind: .video)
+        let photos = [first, second]
+        #expect(
+            TripDetailMediaGalleryPresentation.mediaPositionLabel(selectedID: second.id, in: photos) == "2 of 2"
+        )
+        #expect(
+            TripDetailMediaGalleryPresentation.mediaPositionLabel(selectedID: first.id, in: photos) == "1 of 2"
+        )
+    }
+
+    @Test func tripDetailMediaGalleryPresentation_showsMarineLifeTagIndicator_whenSpeciesTagged() {
+        let mediaID = UUID()
+        let media = DiveMediaPhoto(id: mediaID, sortOrder: 0)
+        let sighting = SightingInstance(
+            marineLifeUUID: "fish-a",
+            sightingDateTime: Date(),
+            sightingDepthMeters: 10,
+            mediaPhoto: media
+        )
+        #expect(
+            TripDetailMediaGalleryPresentation.showsMarineLifeTagIndicator(
+                mediaID: mediaID,
+                sightings: [sighting]
+            )
+        )
+        #expect(
+            !TripDetailMediaGalleryPresentation.showsMarineLifeTagIndicator(
+                mediaID: UUID(),
+                sightings: [sighting]
+            )
+        )
+    }
+
+    @Test func tripDetailMediaGalleryPresentation_browseOffset_mapsVerticalSwipeToGalleryStep() {
+        let threshold = TripDetailMediaGalleryPresentation.swipeAdvanceThreshold
+        #expect(
+            TripDetailMediaGalleryPresentation.browseOffset(forVerticalTranslation: -(threshold + 1)) == 1
+        )
+        #expect(
+            TripDetailMediaGalleryPresentation.browseOffset(forVerticalTranslation: threshold + 1) == -1
+        )
+        #expect(TripDetailMediaGalleryPresentation.browseOffset(forVerticalTranslation: 0) == nil)
+        #expect(TripDetailMediaGalleryPresentation.swipeAdvanceThreshold == 36)
+        #expect(TripDetailMediaGalleryPresentation.browseAnimationDuration == 0.32)
+    }
+
+    @Test func tripDetailMediaGalleryPresentation_interactiveBrowse_followsVerticalDrag() {
+        let height: CGFloat = 400
+        let halfway: CGFloat = -200
+
+        #expect(
+            TripDetailMediaGalleryPresentation.interactiveBrowseProgress(
+                verticalTranslation: halfway,
+                previewHeight: height
+            ) == 0.5
+        )
+        #expect(
+            TripDetailMediaGalleryPresentation.adjacentItemOffset(
+                verticalTranslation: halfway,
+                previewHeight: height
+            ) == 200
+        )
+        #expect(
+            abs(TripDetailMediaGalleryPresentation.interactiveCurrentScale(progress: 0.5) - 0.93) < 1e-9
+        )
+        #expect(
+            TripDetailMediaGalleryPresentation.interactiveCommitTranslation(step: 1, previewHeight: height) == -400
+        )
+        #expect(
+            TripDetailMediaGalleryPresentation.rubberBandedBrowseTranslation(
+                -120,
+                canBrowseForward: false,
+                canBrowseBackward: true
+            ) == -33.6
+        )
+        #expect(DiveTripPresentation.tripMediaOpenOnDiveButtonTitle == "View on dive")
+    }
+
+    @Test func tripDetailMediaGalleryPresentation_taggedSpecies_resolvesFromSightings() {
+        let mediaID = UUID()
+        let media = DiveMediaPhoto(id: mediaID, sortOrder: 0)
+        let queen = MarineLife(
+            uuid: "fish-queen",
+            commonName: "Queen Angelfish",
+            scientificName: "Holacanthus ciliaris",
+            category: "fish"
+        )
+        let sighting = SightingInstance(
+            marineLifeUUID: queen.uuid,
+            sightingDateTime: Date(),
+            sightingDepthMeters: 12,
+            mediaPhoto: media
+        )
+
+        let species = TripDetailMediaGalleryPresentation.taggedSpecies(
+            mediaID: mediaID,
+            sightings: [sighting],
+            catalog: [queen]
+        )
+        #expect(species.map(\.uuid) == [queen.uuid])
+        #expect(TripDetailMediaGalleryPresentation.marineLifeOverlayFeatureImageHeight == 148)
+        #expect(TripDetailMediaGalleryPresentation.marineLifeOverlayFeatureImageMaxWidth == 220)
+    }
+
+    @Test func tripDetailMarineLifePresentation_carouselItems_useFieldGuideMosaicFormat() {
+        let french = MarineLifeCatalogSnapshot(
+            uuid: "fish-b",
+            commonName: "French Angelfish",
+            scientificName: "Pomacanthus paru",
+            category: "fish",
+            subcategory: "angelfishes",
+            featureImageURL: "",
+            minSizeMeters: 0.25,
+            maxSizeMeters: 0.45,
+            avgDepthMeters: 14
+        )
+        let items = TripDetailMarineLifePresentation.carouselItems(
+            from: [
+                DiveTripMarineLifeSummary(marineLifeUUID: "fish-a", commonName: "Queen Angelfish", sightingCount: 3),
+                DiveTripMarineLifeSummary(marineLifeUUID: "fish-b", commonName: "French Angelfish", sightingCount: 1),
+            ],
+            catalogByUUID: ["fish-b": french]
+        )
+        #expect(items.count == 2)
+        #expect(items[0].catalogSnapshot.commonName == "Queen Angelfish")
+        #expect(items[0].sightingCountLabel == "3 sightings")
+        #expect(items[0].hasCatalogEntry == false)
+        #expect(items[0].categoryID == "fish")
+        #expect(items[1].catalogSnapshot.commonName == "French Angelfish")
+        #expect(items[1].catalogSnapshot.scientificName == "Pomacanthus paru")
+        #expect(items[1].categoryID == "fish")
+        #expect(items[1].sightingCountLabel == "1 sighting")
+        #expect(items[1].hasCatalogEntry)
+    }
+
+    @Test func tripDetailMarineLifePresentation_sightingCountLabel_formatsCounts() {
+        #expect(TripDetailMarineLifePresentation.sightingCountLabel(count: 0) == "No sightings")
+        #expect(TripDetailMarineLifePresentation.sightingCountLabel(count: 1) == "1 sighting")
+        #expect(TripDetailMarineLifePresentation.sightingCountLabel(count: 4) == "4 sightings")
+    }
+
+    @Test func tripDetailMapPresentation_mapHeroHeight_matchesHomeOverviewLayout() {
+        let viewportHeight: CGFloat = 852
+        let screenWidth: CGFloat = 393
+        let topSafeAreaInset: CGFloat = 59
+        let panelContentHeight: CGFloat = TripDetailMapPresentation.minimumPanelContentHeight
+
+        let tripHero = TripDetailMapPresentation.mapHeroHeight(
+            viewportHeight: viewportHeight,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset,
+            minimumPanelContentHeight: panelContentHeight
+        )
+        let homeHero = HomeOverviewLayout.metrics(
+            viewportHeight: viewportHeight,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset,
+            statsPanelContentHeight: panelContentHeight
+        ).heroHeight
+
+        #expect(tripHero == homeHero)
+        #expect(tripHero > viewportHeight * 0.4)
+    }
+
+    @Test func diveTripPresentation_plannedSitesOverviewSummary_formatsSiteCount() {
+        #expect(DiveTripPresentation.plannedSitesOverviewSummary(siteCount: 0) == "None planned")
+        #expect(DiveTripPresentation.plannedSitesOverviewSummary(siteCount: 1) == "1 site")
+        #expect(DiveTripPresentation.plannedSitesOverviewSummary(siteCount: 3) == "3 sites")
+    }
+
+    @Test func diveTripPresentation_plannedSitesPageSubtitle_formatsSiteCount() {
+        #expect(
+            DiveTripPresentation.plannedSitesPageSubtitle(siteCount: 0)
+                == DiveTripPresentation.tripPlannedSitesEmptyMessage
+        )
+        #expect(
+            DiveTripPresentation.plannedSitesPageSubtitle(siteCount: 1)
+                == DiveTripPresentation.plannedSitesPageSavedSitesSubtitle
+        )
+        #expect(
+            DiveTripPresentation.plannedSitesPageSubtitle(siteCount: 3)
+                == "Saved Dive Sites"
+        )
+    }
+
+    @Test @MainActor func diveTripActivityLinking_linksDiveAndSuggestsDateMatches() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let profile = UserProfile(appleUserIdentifier: "trip-test", displayName: "Diver")
+        context.insert(profile)
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let start = calendar.date(from: DateComponents(year: 2026, month: 5, day: 1))!
+        let end = calendar.date(from: DateComponents(year: 2026, month: 5, day: 7))!
+        let trip = DiveTrip(startDate: start, endDate: end, countries: ["Bonaire"], owner: profile)
+        context.insert(trip)
+
+        let inTrip = DiveActivity(
+            source: .manual,
+            startTime: calendar.date(from: DateComponents(year: 2026, month: 5, day: 3, hour: 10))!,
+            durationMinutes: 50,
+            maxDepthMeters: 18
+        )
+        inTrip.owner = profile
+        inTrip.ownerProfileID = profile.id
+        let outOfTrip = DiveActivity(
+            source: .manual,
+            startTime: calendar.date(from: DateComponents(year: 2026, month: 6, day: 3, hour: 10))!,
+            durationMinutes: 40,
+            maxDepthMeters: 15
+        )
+        outOfTrip.owner = profile
+        outOfTrip.ownerProfileID = profile.id
+        context.insert(inTrip)
+        context.insert(outOfTrip)
+        try context.save()
+
+        let link = DiveTripActivityLinking.link(inTrip, to: trip, modelContext: context)
+        #expect(link.tripID == trip.id)
+        #expect(link.diveActivityID == inTrip.id)
+        let duplicate = DiveTripActivityLinking.link(inTrip, to: trip, modelContext: context)
+        #expect(duplicate.id == link.id)
+
+        let candidates = DiveTripActivityLinking.candidateActivities(for: trip, activities: [inTrip, outOfTrip], calendar: calendar)
+        #expect(candidates.map(\.id) == [inTrip.id])
+    }
+
+    @Test @MainActor func diveTripActivityLinking_autoLinksStartedTripsOnly() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let profile = UserProfile(appleUserIdentifier: "trip-auto-link", displayName: "Diver")
+        context.insert(profile)
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let reference = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15))!
+        let pastStart = calendar.date(from: DateComponents(year: 2026, month: 6, day: 1))!
+        let pastEnd = calendar.date(from: DateComponents(year: 2026, month: 6, day: 7))!
+        let futureStart = calendar.date(from: DateComponents(year: 2026, month: 7, day: 1))!
+        let futureEnd = calendar.date(from: DateComponents(year: 2026, month: 7, day: 7))!
+
+        let pastTrip = DiveTrip(startDate: pastStart, endDate: pastEnd, countries: ["Bonaire"], owner: profile)
+        let futureTrip = DiveTrip(startDate: futureStart, endDate: futureEnd, countries: ["Curaçao"], owner: profile)
+        context.insert(pastTrip)
+        context.insert(futureTrip)
+
+        let inRange = DiveActivity(
+            source: .manual,
+            startTime: calendar.date(from: DateComponents(year: 2026, month: 6, day: 3, hour: 10))!,
+            durationMinutes: 50,
+            maxDepthMeters: 18
+        )
+        inRange.owner = profile
+        inRange.ownerProfileID = profile.id
+        context.insert(inRange)
+        try context.save()
+
+        #expect(!DiveTripActivityLinking.hasStarted(trip: futureTrip, referenceDate: reference, calendar: calendar))
+        #expect(DiveTripActivityLinking.hasStarted(trip: pastTrip, referenceDate: reference, calendar: calendar))
+
+        let linked = DiveTripActivityLinking.applyAutoLink(
+            to: pastTrip,
+            activities: [inRange],
+            modelContext: context,
+            referenceDate: reference,
+            calendar: calendar
+        )
+        #expect(linked == 1)
+        #expect(pastTrip.activityLinks.count == 1)
+        #expect(pastTrip.activityLinks.first?.diveActivityID == inRange.id)
+
+        let futureLinked = DiveTripActivityLinking.applyAutoLink(
+            to: futureTrip,
+            activities: [inRange],
+            modelContext: context,
+            referenceDate: reference,
+            calendar: calendar
+        )
+        #expect(futureLinked == 0)
+        #expect(futureTrip.activityLinks.isEmpty)
+
+        let duplicateLinked = DiveTripActivityLinking.applyAutoLink(
+            to: pastTrip,
+            activities: [inRange],
+            modelContext: context,
+            referenceDate: reference,
+            calendar: calendar
+        )
+        #expect(duplicateLinked == 0)
+        #expect(pastTrip.activityLinks.count == 1)
+    }
+
+    @Test func diveTripPresentation_linkedDivesSummary_formatsDuration() {
+        #expect(DiveTripPresentation.linkedDivesSummary(totalDurationMinutes: 95) == "95 total minutes underwater")
+    }
+
+    @Test @MainActor func diveTripPresentation_linkedDiveRowDisplayData_ordersNewestFirst() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let profile = UserProfile(appleUserIdentifier: "trip-rows", displayName: "Diver")
+        context.insert(profile)
+
+        let older = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 100_000),
+            durationMinutes: 40,
+            maxDepthMeters: 15
+        )
+        older.owner = profile
+        older.ownerProfileID = profile.id
+        let newer = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 200_000),
+            durationMinutes: 50,
+            maxDepthMeters: 18
+        )
+        newer.owner = profile
+        newer.ownerProfileID = profile.id
+        context.insert(older)
+        context.insert(newer)
+
+        let trip = DiveTrip(
+            startDate: Date(timeIntervalSince1970: 90_000),
+            endDate: Date(timeIntervalSince1970: 210_000),
+            countries: ["Bonaire"],
+            owner: profile
+        )
+        context.insert(trip)
+        _ = DiveTripActivityLinking.link(older, to: trip, modelContext: context)
+        _ = DiveTripActivityLinking.link(newer, to: trip, modelContext: context)
+        try context.save()
+
+        let rows = DiveTripPresentation.linkedDiveRowDisplayData(
+            trip: trip,
+            unitSystem: .metric,
+            useChronologicalNumbers: false,
+            numberingActivities: [older, newer]
+        )
+        #expect(rows.map(\.id) == [newer.id, older.id])
+    }
+
     @Test func exploreDiveSiteListSearch_matchesNameAndPlace() {
         let site = DiveSite(siteName: "Salt Pier", country: "Bonaire", region: "Caribbean")
         #expect(ExploreDiveSiteListSearch.matches(site, query: "salt"))
@@ -4357,6 +5869,40 @@ struct GoDiveMVPTests {
         let mid = ExploreCatalogMapLabelVisibility.revealProgress(forRank: 2, siteCount: 5)
         #expect(mid > 0.32)
         #expect(mid < 1.0)
+    }
+
+    @Test func exploreCatalogMapLabelVisibility_labeledTripPinIDs_matchExploreRules() {
+        let pins = [
+            TripDetailMapPin(
+                id: "planned-north",
+                title: "Salt Pier",
+                coordinate: DiveCoordinate(latitude: 12.0, longitude: -68.0),
+                kind: .planned,
+                siteID: nil
+            ),
+            TripDetailMapPin(
+                id: "completed-south",
+                title: "Hilma Hooker",
+                coordinate: DiveCoordinate(latitude: 12.2, longitude: -68.2),
+                kind: .completed,
+                siteID: nil
+            ),
+        ]
+        let center = DiveCoordinate(latitude: 12.1, longitude: -68.1)
+
+        let wider = ExploreCatalogMapLabelVisibility.labeledTripPinIDs(
+            pins: pins,
+            visibleLatitudeSpan: 6.5,
+            mapCenter: center
+        )
+        let tightest = ExploreCatalogMapLabelVisibility.labeledTripPinIDs(
+            pins: pins,
+            visibleLatitudeSpan: ExploreCatalogMapLabelVisibility.allLabelsLatitudeSpan,
+            mapCenter: center
+        )
+
+        #expect(wider.isEmpty)
+        #expect(tightest.count == pins.count)
     }
 
     @Test func goDiveMapPointOfInterestSuppression_googleStyleJSON_parses() {
@@ -5616,6 +7162,33 @@ struct GoDiveMVPTests {
             DiveActivityMediaPresentation.resolvedSelectedPhotoID(selectedID: first, in: []) == first
         )
         #expect(DiveActivityMediaPresentation.resolvedSelectedPhotoID(selectedID: nil, in: []) == nil)
+    }
+
+    @Test func diveActivityMediaPresentation_adjacentPhotoID_stepsThroughGalleryOrder() {
+        let first = UUID()
+        let second = UUID()
+        let third = UUID()
+        let photos = [
+            DiveMediaPhoto(id: first, sortOrder: 0),
+            DiveMediaPhoto(id: second, sortOrder: 1),
+            DiveMediaPhoto(id: third, sortOrder: 2),
+        ]
+
+        #expect(
+            DiveActivityMediaPresentation.adjacentPhotoID(selectedID: first, in: photos, offset: 1) == second
+        )
+        #expect(
+            DiveActivityMediaPresentation.adjacentPhotoID(selectedID: second, in: photos, offset: -1) == first
+        )
+        #expect(
+            DiveActivityMediaPresentation.adjacentPhotoID(selectedID: third, in: photos, offset: 1) == nil
+        )
+        #expect(
+            DiveActivityMediaPresentation.adjacentPhotoID(selectedID: first, in: photos, offset: -1) == nil
+        )
+        #expect(
+            DiveActivityMediaPresentation.adjacentPhotoID(selectedID: UUID(), in: photos, offset: 1) == second
+        )
     }
 
     @Test @MainActor
@@ -8565,6 +10138,29 @@ struct GoDiveMVPTests {
                 confirmedBuddyName: "Pat Lee"
             ).map(\.id) == [withPat.id]
         )
+
+        let tripID = UUID(uuidString: "00000000-0000-0000-0000-0000000000CC")!
+        let linked = logbookSnapshotSeed(resolvedSiteNameLowercased: "salt pier", linkedTripID: tripID)
+        let unlinked = logbookSnapshotSeed(resolvedSiteNameLowercased: "salt pier")
+        #expect(
+            DiveLogbookSiteSearch.matchesConfirmedTrip(
+                linkedTripID: tripID,
+                confirmedTripID: tripID
+            )
+        )
+        #expect(
+            !DiveLogbookSiteSearch.matchesConfirmedTrip(
+                linkedTripID: nil,
+                confirmedTripID: tripID
+            )
+        )
+        #expect(
+            DiveLogbookSiteSearch.filtering(
+                [linked, unlinked],
+                siteQuery: "",
+                confirmedTripID: tripID
+            ).map(\.id) == [linked.id]
+        )
     }
 
     @Test func diveBuddyRosterPresentation_labels() {
@@ -8735,20 +10331,112 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func logbookTripSearchPresentation_suggestions_onlyWhileTypingWithoutActiveFilter() {
+        let catalog = [
+            LogbookTripSearchCatalogEntry(tripID: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, displayTitle: "Bonaire 2026"),
+            LogbookTripSearchCatalogEntry(tripID: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!, displayTitle: "Curaçao Week"),
+        ]
+        #expect(
+            LogbookTripSearchPresentation.suggestions(
+                catalogTrips: catalog,
+                query: "bon",
+                activeTripFilter: nil,
+                activeTagFilter: nil,
+                activeBuddyFilter: nil
+            ).map(\.displayTitle) == ["Bonaire 2026"]
+        )
+        #expect(
+            LogbookTripSearchPresentation.suggestions(
+                catalogTrips: catalog,
+                query: "bon",
+                activeTripFilter: LogbookTripSearchSuggestion(
+                    id: catalog[0].tripID.uuidString,
+                    tripID: catalog[0].tripID,
+                    displayTitle: "Bonaire 2026"
+                ),
+                activeTagFilter: nil,
+                activeBuddyFilter: nil
+            ).isEmpty
+        )
+        #expect(
+            LogbookTripSearchPresentation.activeTripPromptLine(displayTitle: "Bonaire 2026")
+                == "trip: Bonaire 2026"
+        )
+    }
+
+    @Test func logbookUpcomingTripPresentation_nearestUpcomingBanner_picksSoonestStart() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let reference = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15))!
+
+        let laterID = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+        let soonerID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+        let pastID = UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
+
+        let sooner = DiveTrip(
+            id: soonerID,
+            startDate: calendar.date(from: DateComponents(year: 2026, month: 7, day: 1))!,
+            endDate: calendar.date(from: DateComponents(year: 2026, month: 7, day: 7))!,
+            countries: ["Bonaire"],
+            title: "Sooner Trip"
+        )
+        let later = DiveTrip(
+            id: laterID,
+            startDate: calendar.date(from: DateComponents(year: 2026, month: 8, day: 1))!,
+            endDate: calendar.date(from: DateComponents(year: 2026, month: 8, day: 7))!,
+            countries: ["Curaçao"],
+            title: "Later Trip"
+        )
+        let past = DiveTrip(
+            id: pastID,
+            startDate: calendar.date(from: DateComponents(year: 2026, month: 5, day: 1))!,
+            endDate: calendar.date(from: DateComponents(year: 2026, month: 5, day: 7))!,
+            countries: ["Aruba"],
+            title: "Past Trip"
+        )
+
+        #expect(
+            LogbookUpcomingTripPresentation.isUpcoming(
+                trip: sooner,
+                referenceDate: reference,
+                calendar: calendar
+            )
+        )
+        #expect(
+            !LogbookUpcomingTripPresentation.isUpcoming(
+                trip: past,
+                referenceDate: reference,
+                calendar: calendar
+            )
+        )
+
+        let banner = LogbookUpcomingTripPresentation.nearestUpcomingBanner(
+            from: [later, sooner, past],
+            referenceDate: reference,
+            calendar: calendar
+        )
+        #expect(banner?.tripID == soonerID)
+        #expect(banner?.displayTitle == "Sooner Trip")
+        #expect(banner?.eyebrow == "Trip on the horizon")
+    }
+
     @Test func appTheme_logbookSearchFieldHeight_matchesInlineChromeRow() {
         #expect(AppTheme.Layout.logbookSearchFieldHeight == 44)
     }
 
     @Test func logbookListSurfaceEquatableInputs_searchFocusChangeIsNotEqual() {
         let base = LogbookListSurfaceEquatableInputs(
-            rows: [],
+            items: [],
+            upcomingTripBanner: nil,
             showsStoredDiveEmptyState: false,
             isFilteringBySiteName: false,
             siteSearchQuery: "",
             activeTagFilter: nil,
             activeBuddyFilter: nil,
+            activeTripFilter: nil,
             tagSuggestionSignature: "",
             buddySuggestionSignature: "",
+            tripSuggestionSignature: "",
             isSiteSearchFocused: false,
             bubbleAnimationPaused: false,
             headerClearance: 0,
@@ -9671,21 +11359,131 @@ struct GoDiveMVPTests {
             )
             let built = LogbookDisplayCacheBuilder.build(
                 visibleSeeds: seeds,
+                tripSeeds: [],
                 siteSearchQuery: "",
                 unitSystem: .imperial,
                 useChronologicalNumbers: useChronological
             )
-            #expect(built.rows == legacy)
+            #expect(
+                logbookRowsSortedForDisplay(built.rows)
+                == logbookRowsSortedForDisplay(legacy)
+            )
             #expect(built.duplicateIds == duplicateIds)
         }
 
         let filteredBuilt = LogbookDisplayCacheBuilder.build(
             visibleSeeds: seeds,
+            tripSeeds: [],
             siteSearchQuery: "zzz-no-match",
             unitSystem: .metric,
             useChronologicalNumbers: true
         )
         #expect(filteredBuilt.rows.isEmpty)
+    }
+
+    @Test func logbookTripGrouping_groupsTwoLinkedDivesUnderTripTitle() {
+        let tripID = UUID(uuidString: "00000000-0000-0000-0000-0000000000AA")!
+        let diveA = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+        let diveB = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+        let newer = Date(timeIntervalSince1970: 200_000)
+        let older = Date(timeIntervalSince1970: 100_000)
+
+        var seeds = [
+            logbookSnapshotSeed(id: diveA, resolvedSiteNameLowercased: "salt pier", linkedTripID: tripID, startTime: newer),
+            logbookSnapshotSeed(id: diveB, resolvedSiteNameLowercased: "hilma hooker", linkedTripID: tripID, startTime: older),
+        ]
+        let tripSeeds = [
+            LogbookTripSnapshotSeed(
+                tripID: tripID,
+                displayTitle: "Bonaire 2026",
+                startDate: older,
+                endDate: newer
+            )
+        ]
+
+        let rows = seeds.map { seed in
+            DiveLogbookRowDisplayData(
+                id: seed.id,
+                displayName: seed.displayName,
+                diveNumberLabel: "#1",
+                detailLine: "detail",
+                showsDuplicateHint: false,
+                previewMediaPhotoID: nil,
+                startTime: seed.startTime
+            )
+        }
+        let items = LogbookTripGrouping.buildListItems(rows: rows, seeds: seeds, tripSeeds: tripSeeds)
+        #expect(items.count == 1)
+        guard case .tripGroup(let group) = items.first else {
+            Issue.record("Expected trip group")
+            return
+        }
+        #expect(group.title == "Bonaire 2026")
+        #expect(
+            LogbookTripGrouping.formattedGroupHeaderTitle(displayTitle: group.title, diveCount: group.dives.count)
+                == "Bonaire 2026 · 2 dives"
+        )
+        #expect(group.dives.map(\.id) == [diveA, diveB])
+
+        seeds[1] = logbookSnapshotSeed(id: diveB, resolvedSiteNameLowercased: "hilma hooker", linkedTripID: nil, startTime: older)
+        let ungrouped = LogbookTripGrouping.buildListItems(rows: rows, seeds: seeds, tripSeeds: tripSeeds)
+        #expect(ungrouped.count == 2)
+        #expect(ungrouped.allSatisfy { if case .standalone = $0 { true } else { false } })
+    }
+
+    @Test func logbookTripGrouping_assignsDistinctAccentColorsToNeighboringTripGroups() {
+        let tripA = UUID(uuidString: "00000000-0000-0000-0000-0000000000AA")!
+        let tripB = UUID(uuidString: "00000000-0000-0000-0000-0000000000BB")!
+        let tripC = UUID(uuidString: "00000000-0000-0000-0000-0000000000CC")!
+        let diveA1 = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+        let diveA2 = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+        let diveB1 = UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
+        let diveB2 = UUID(uuidString: "00000000-0000-0000-0000-000000000004")!
+        let diveC1 = UUID(uuidString: "00000000-0000-0000-0000-000000000005")!
+        let diveC2 = UUID(uuidString: "00000000-0000-0000-0000-000000000006")!
+        let standalone = UUID(uuidString: "00000000-0000-0000-0000-000000000099")!
+
+        let tA = Date(timeIntervalSince1970: 300_000)
+        let tB = Date(timeIntervalSince1970: 200_000)
+        let tC = Date(timeIntervalSince1970: 100_000)
+        let tStandalone = Date(timeIntervalSince1970: 150_000)
+
+        let seeds = [
+            logbookSnapshotSeed(id: diveA1, resolvedSiteNameLowercased: "a1", linkedTripID: tripA, startTime: tA),
+            logbookSnapshotSeed(id: diveA2, resolvedSiteNameLowercased: "a2", linkedTripID: tripA, startTime: tA.addingTimeInterval(-3600)),
+            logbookSnapshotSeed(id: diveB1, resolvedSiteNameLowercased: "b1", linkedTripID: tripB, startTime: tB),
+            logbookSnapshotSeed(id: diveB2, resolvedSiteNameLowercased: "b2", linkedTripID: tripB, startTime: tB.addingTimeInterval(-3600)),
+            logbookSnapshotSeed(id: diveC1, resolvedSiteNameLowercased: "c1", linkedTripID: tripC, startTime: tC),
+            logbookSnapshotSeed(id: diveC2, resolvedSiteNameLowercased: "c2", linkedTripID: tripC, startTime: tC.addingTimeInterval(-3600)),
+            logbookSnapshotSeed(id: standalone, resolvedSiteNameLowercased: "solo", linkedTripID: nil, startTime: tStandalone),
+        ]
+        let tripSeeds = [
+            LogbookTripSnapshotSeed(tripID: tripA, displayTitle: "Trip A", startDate: tC, endDate: tA),
+            LogbookTripSnapshotSeed(tripID: tripB, displayTitle: "Trip B", startDate: tC, endDate: tB),
+            LogbookTripSnapshotSeed(tripID: tripC, displayTitle: "Trip C", startDate: tC, endDate: tC),
+        ]
+        let rows = seeds.map { seed in
+            DiveLogbookRowDisplayData(
+                id: seed.id,
+                displayName: seed.displayName,
+                diveNumberLabel: "#1",
+                detailLine: "detail",
+                showsDuplicateHint: false,
+                previewMediaPhotoID: nil,
+                startTime: seed.startTime
+            )
+        }
+
+        let items = LogbookTripGrouping.buildListItems(rows: rows, seeds: seeds, tripSeeds: tripSeeds)
+        let tripGroups = items.compactMap { item -> LogbookTripGroupDisplayData? in
+            if case .tripGroup(let group) = item { return group }
+            return nil
+        }
+        #expect(tripGroups.count == 3)
+        #expect(tripGroups[0].accentColorIndex != tripGroups[1].accentColorIndex)
+        #expect(tripGroups[1].accentColorIndex != tripGroups[2].accentColorIndex)
+        #expect(LogbookTripGroupAccentPalette.nextIndex(after: 0) == 1)
+        #expect(LogbookTripGroupAccentPalette.nextIndex(after: LogbookTripGroupAccentPalette.palette.count - 1) == 0)
     }
 
     @Test func diveActivityPostDeleteRenumbering_partialRenumberOnBackgroundContext() async throws {
@@ -10750,16 +12548,25 @@ struct GoDiveMVPTests {
     #endif
 }
 
+private func logbookRowsSortedForDisplay(_ rows: [DiveLogbookRowDisplayData]) -> [DiveLogbookRowDisplayData] {
+    rows.sorted {
+        if $0.startTime != $1.startTime { return $0.startTime > $1.startTime }
+        return $0.id.uuidString < $1.id.uuidString
+    }
+}
+
 private func logbookSnapshotSeed(
     id: UUID = UUID(),
     resolvedSiteNameLowercased: String?,
     activityTagNames: [String] = [],
-    buddyDisplayNames: [String] = []
+    buddyDisplayNames: [String] = [],
+    linkedTripID: UUID? = nil,
+    startTime: Date = Date(timeIntervalSince1970: 0)
 ) -> LogbookActivitySnapshotSeed {
     LogbookActivitySnapshotSeed(
         id: id,
         sourceDiveId: nil,
-        startTime: Date(timeIntervalSince1970: 0),
+        startTime: startTime,
         maxDepthMeters: 10,
         durationMinutes: 30,
         bottomTimeSeconds: nil,
@@ -10770,7 +12577,8 @@ private func logbookSnapshotSeed(
         resolvedSiteNameLowercased: resolvedSiteNameLowercased,
         activityTagNames: activityTagNames,
         buddyDisplayNames: buddyDisplayNames,
-        previewMediaPhotoID: nil
+        previewMediaPhotoID: nil,
+        linkedTripID: linkedTripID
     )
 }
 

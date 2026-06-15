@@ -45,18 +45,43 @@ enum ExploreCatalogMapLabelVisibility: Sendable {
         visibleLatitudeSpan: Double,
         mapCenter: DiveCoordinate
     ) -> Set<UUID> {
-        let progress = zoomProgress(visibleLatitudeSpan: visibleLatitudeSpan)
-        guard progress > 0, !sites.isEmpty else { return [] }
+        labeledIDs(
+            items: sites.map { (id: $0.id, coordinate: $0.coordinate) },
+            visibleLatitudeSpan: visibleLatitudeSpan,
+            mapCenter: mapCenter
+        )
+    }
 
-        let ranked = sites.sorted {
+    /// Trip overview pins use the same zoom-aware label rules as Explore.
+    nonisolated static func labeledTripPinIDs(
+        pins: [TripDetailMapPin],
+        visibleLatitudeSpan: Double,
+        mapCenter: DiveCoordinate
+    ) -> Set<String> {
+        labeledIDs(
+            items: pins.map { (id: $0.id, coordinate: $0.coordinate) },
+            visibleLatitudeSpan: visibleLatitudeSpan,
+            mapCenter: mapCenter
+        )
+    }
+
+    nonisolated static func labeledIDs<ID: Hashable>(
+        items: [(id: ID, coordinate: DiveCoordinate)],
+        visibleLatitudeSpan: Double,
+        mapCenter: DiveCoordinate
+    ) -> Set<ID> {
+        let progress = zoomProgress(visibleLatitudeSpan: visibleLatitudeSpan)
+        guard progress > 0, !items.isEmpty else { return [] }
+
+        let ranked = items.sorted {
             squaredPlanarDistance(from: $0.coordinate, to: mapCenter)
                 < squaredPlanarDistance(from: $1.coordinate, to: mapCenter)
         }
 
-        var labeled = Set<UUID>()
-        for (rank, site) in ranked.enumerated() {
-            if progress >= revealProgress(forRank: rank, siteCount: sites.count) {
-                labeled.insert(site.id)
+        var labeled = Set<ID>()
+        for (rank, item) in ranked.enumerated() {
+            if progress >= revealProgress(forRank: rank, siteCount: items.count) {
+                labeled.insert(item.id)
             }
         }
         return labeled

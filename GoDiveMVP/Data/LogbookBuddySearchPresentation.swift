@@ -17,10 +17,12 @@ enum LogbookBuddySearchPresentation {
         catalogBuddyNames: [String],
         query: String,
         activeBuddyFilter: String?,
-        activeTagFilter: String?
+        activeTagFilter: String?,
+        activeTripFilter: LogbookTripSearchSuggestion? = nil
     ) -> [LogbookBuddySearchSuggestion] {
         guard activeBuddyFilter == nil,
               activeTagFilter == nil,
+              activeTripFilter == nil,
               DiveLogbookSiteSearch.isFiltering(query: query)
         else { return [] }
 

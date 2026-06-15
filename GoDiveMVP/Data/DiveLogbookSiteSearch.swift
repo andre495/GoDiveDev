@@ -40,11 +40,20 @@ enum DiveLogbookSiteSearch {
         }
     }
 
+    /// Whether a dive row is linked to the confirmed trip.
+    nonisolated static func matchesConfirmedTrip(
+        linkedTripID: UUID?,
+        confirmedTripID: UUID
+    ) -> Bool {
+        linkedTripID == confirmedTripID
+    }
+
     nonisolated static func filtering(
         _ seeds: [LogbookActivitySnapshotSeed],
         siteQuery: String,
         confirmedTagName: String? = nil,
-        confirmedBuddyName: String? = nil
+        confirmedBuddyName: String? = nil,
+        confirmedTripID: UUID? = nil
     ) -> [LogbookActivitySnapshotSeed] {
         if let confirmedTagName, !confirmedTagName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return seeds.filter {
@@ -59,6 +68,14 @@ enum DiveLogbookSiteSearch {
                 matchesConfirmedBuddy(
                     buddyDisplayNames: $0.buddyDisplayNames,
                     confirmedBuddyName: confirmedBuddyName
+                )
+            }
+        }
+        if let confirmedTripID {
+            return seeds.filter {
+                matchesConfirmedTrip(
+                    linkedTripID: $0.linkedTripID,
+                    confirmedTripID: confirmedTripID
                 )
             }
         }

@@ -57,6 +57,10 @@ struct ExpandableDetailSection<Content: View>: View {
         _isExpanded = State(initialValue: isExpandedByDefault && itemCount > 0)
     }
 
+    private var usesScrollFillExpandLayout: Bool {
+        scrollsExpandedContent || keepsExpandedContentMountedAfterFirstReveal
+    }
+
     private var shouldMountExpandedContent: Bool {
         itemCount > 0
             && (isExpanded || (keepsExpandedContentMountedAfterFirstReveal && keepsExpandedContentMounted))
@@ -70,14 +74,12 @@ struct ExpandableDetailSection<Content: View>: View {
                 if let emptyContent {
                     emptyContent()
                 }
-            } else if shouldMountExpandedContent {
-                expandedContent
-                    .frame(maxHeight: isExpanded ? .infinity : 0, alignment: .top)
-                    .clipped()
-                    .opacity(isExpanded ? 1 : 0)
-                    .allowsHitTesting(isExpanded)
-                    .accessibilityHidden(!isExpanded)
-                    .animation(nil, value: isExpanded)
+            } else if usesScrollFillExpandLayout {
+                if shouldMountExpandedContent {
+                    scrollFillExpandedContent
+                }
+            } else if isExpanded {
+                content()
             }
         }
         .frame(maxHeight: scrollsExpandedContent ? .infinity : nil, alignment: .top)
@@ -91,6 +93,24 @@ struct ExpandableDetailSection<Content: View>: View {
                 prewarmExpandedContentIfNeeded()
             }
         }
+    }
+
+    @ViewBuilder
+    private var scrollFillExpandedContent: some View {
+        Group {
+            if scrollsExpandedContent {
+                expandedContent
+                    .frame(maxHeight: isExpanded ? .infinity : 0, alignment: .top)
+            } else {
+                expandedContent
+                    .frame(maxHeight: isExpanded ? nil : 0, alignment: .top)
+            }
+        }
+        .clipped()
+        .opacity(isExpanded ? 1 : 0)
+        .allowsHitTesting(isExpanded)
+        .accessibilityHidden(!isExpanded)
+        .animation(nil, value: isExpanded)
     }
 
     private func prewarmExpandedContentIfNeeded() {

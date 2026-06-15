@@ -21,7 +21,7 @@ struct MarineLifeCatalogSnapshot: Sendable, Equatable, Hashable {
     let habitatBehavior: String
     let diverReaction: String
 
-    init(
+    nonisolated init(
         uuid: String,
         commonName: String,
         scientificName: String,

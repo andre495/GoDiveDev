@@ -117,6 +117,10 @@ enum FitDiveFileImport {
             await DiveActivityTimeZoneResolution.resolveMissingOffset(for: activity)
             try modelContext.save()
             try DiveActivityDiveNumbering.applyAutomaticSequentialRenumberIfNeeded(modelContext: modelContext)
+            try DiveTripActivityLinking.applyAutoLinkForOwner(
+                ownerProfileID: owner.id,
+                modelContext: modelContext
+            )
             if attachMedia {
                 await DiveLibraryMediaAutoAttachScheduler.attachAfterDivePersisted(
                     activity,

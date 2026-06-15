@@ -9,6 +9,7 @@ struct ProfileView: View {
         static let profileAvatarDiameter: CGFloat = 168
     }
 
+    @Environment(\.openTripPlanner) private var openTripPlanner
     @Environment(AccountSession.self) private var accountSession
     @Environment(\.dismiss) private var dismiss
 
@@ -29,6 +30,14 @@ struct ProfileView: View {
         sort: [SortDescriptor(\DiveBuddy.displayName, order: .forward)]
     )
     private var allDiveBuddies: [DiveBuddy]
+
+    @Query(
+        sort: [
+            SortDescriptor(\DiveTrip.startDate, order: .reverse),
+            SortDescriptor(\DiveTrip.createdAt, order: .reverse),
+        ]
+    )
+    private var allTrips: [DiveTrip]
 
     @State private var showsProfileEditSheet = false
 
@@ -57,6 +66,15 @@ struct ProfileView: View {
 
     private var diveBuddyCountLabel: String {
         ProfilePresentation.diveBuddyRosterCountLabel(ownedDiveBuddies.count)
+    }
+
+    private var ownedTrips: [DiveTrip] {
+        guard let ownerID = accountSession.currentProfile?.id else { return [] }
+        return allTrips.filter { $0.ownerProfileID == ownerID }
+    }
+
+    private var tripCountLabel: String {
+        ProfilePresentation.tripCountLabel(ownedTrips.count)
     }
 
     private var profileFeaturedCertification: CertificationPresentation.ProfileFeaturedCertificationDisplay {
@@ -253,6 +271,16 @@ struct ProfileView: View {
             ) {
                 DiveBuddiesListView()
             }
+
+            profileDestinationTile(
+                title: "Trips",
+                subtitle: tripCountLabel,
+                systemImage: TripPlannerPresentation.exploreChromeSystemImage,
+                accessibilityIdentifier: "Profile.TripsLink",
+                onTap: openTripPlanner
+            ) {
+                TripPlannerView()
+            }
         }
         .frame(maxWidth: .infinity)
     }
@@ -262,16 +290,29 @@ struct ProfileView: View {
         subtitle: String,
         systemImage: String,
         accessibilityIdentifier: String,
+        onTap: (() -> Void)? = nil,
         @ViewBuilder destination: () -> Destination
     ) -> some View {
-        NavigationLink {
-            destination()
-        } label: {
-            profileDestinationTileLabel(
-                title: title,
-                subtitle: subtitle,
-                systemImage: systemImage
-            )
+        Group {
+            if let onTap {
+                Button(action: onTap) {
+                    profileDestinationTileLabel(
+                        title: title,
+                        subtitle: subtitle,
+                        systemImage: systemImage
+                    )
+                }
+            } else {
+                NavigationLink {
+                    destination()
+                } label: {
+                    profileDestinationTileLabel(
+                        title: title,
+                        subtitle: subtitle,
+                        systemImage: systemImage
+                    )
+                }
+            }
         }
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity)

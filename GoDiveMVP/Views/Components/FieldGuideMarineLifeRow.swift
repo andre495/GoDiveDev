@@ -3,6 +3,8 @@ import SwiftUI
 /// Field Guide catalog row — same card chrome as **`LogbookActivityRow`** / **`ExploreDiveSiteRow`**.
 struct FieldGuideMarineLifeRow: View, Equatable {
     let data: FieldGuidePresentation.MarineLifeRowDisplayData
+    /// Optional third line (e.g. trip sighting count on **`TripDetailMarineLifeSection`** cards).
+    var footerLine: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -26,6 +28,13 @@ struct FieldGuideMarineLifeRow: View, Equatable {
                 .foregroundStyle(AppTheme.Colors.secondaryText)
                 .lineLimit(2)
                 .minimumScaleFactor(0.85)
+
+            if let footerLine, !footerLine.isEmpty {
+                Text(footerLine)
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+                    .lineLimit(1)
+            }
         }
         .padding(AppTheme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -37,6 +46,10 @@ struct FieldGuideMarineLifeRow: View, Equatable {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(AppTheme.Colors.tabUnselected.opacity(0.12), lineWidth: 1)
         }
+    }
+
+    static func == (lhs: FieldGuideMarineLifeRow, rhs: FieldGuideMarineLifeRow) -> Bool {
+        lhs.data == rhs.data && lhs.footerLine == rhs.footerLine
     }
 }
 
