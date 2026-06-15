@@ -81,7 +81,11 @@ struct LogbookView: View {
     }
 
     private var logbookUpcomingTripBanner: LogbookUpcomingTripBannerData? {
-        guard !isFilteringLogbook else { return nil }
+        guard LogbookUpcomingTripPresentation.shouldShowInLogbookList(
+            isFilteringLogbook: isFilteringLogbook,
+            showsStoredDiveEmptyState: showsStoredDiveEmptyState,
+            hasDisplayItems: !logbookDisplayItems.isEmpty
+        ) else { return nil }
         return LogbookUpcomingTripPresentation.nearestUpcomingBanner(from: ownerTrips)
     }
 
@@ -217,7 +221,9 @@ struct LogbookView: View {
             return
         }
         hasPerformedInitialLogbookCacheBuild = true
-        scheduleLogbookCacheRefresh()
+        Task {
+            await refreshLogbookCacheNow(includeDuplicateScan: true)
+        }
     }
 
     private var logbookPageZStack: some View {

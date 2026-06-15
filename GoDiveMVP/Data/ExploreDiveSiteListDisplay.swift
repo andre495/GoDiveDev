@@ -4,18 +4,28 @@ import Foundation
 struct ExploreDiveSiteRowDisplayData: Equatable, Identifiable, Sendable {
     let id: UUID
     let displayName: String
-    let trailingLabel: String
+    let trailingLabel: String?
     let detailLine: String
+}
+
+enum ExploreDiveSiteRowTrailingStyle: Sendable {
+    /// Explore catalog — rating, dive count, or em dash.
+    case catalogDefault
+    /// Planned trip saved sites — rating only; omit dive counts.
+    case plannedTrip
 }
 
 /// Builds Explore dive-site list rows sorted by **`siteName`** (caller supplies sorted sites).
 enum ExploreDiveSiteListDisplay {
-    static func rowData(for sites: [DiveSite]) -> [ExploreDiveSiteRowDisplayData] {
+    static func rowData(
+        for sites: [DiveSite],
+        trailingStyle: ExploreDiveSiteRowTrailingStyle = .catalogDefault
+    ) -> [ExploreDiveSiteRowDisplayData] {
         sites.map { site in
             ExploreDiveSiteRowDisplayData(
                 id: site.id,
                 displayName: site.siteName,
-                trailingLabel: trailingLabel(for: site),
+                trailingLabel: trailingLabel(for: site, style: trailingStyle),
                 detailLine: detailLine(for: site)
             )
         }
@@ -37,15 +47,23 @@ enum ExploreDiveSiteListDisplay {
         placeSummary(country: site.country, region: site.region, bodyOfWater: site.bodyOfWater)
     }
 
-    private static func trailingLabel(for site: DiveSite) -> String {
-        let diveCount = site.diveActivities.count
+    private static func trailingLabel(
+        for site: DiveSite,
+        style: ExploreDiveSiteRowTrailingStyle
+    ) -> String? {
         if let rating = site.siteRating {
             return "★ \(rating)"
         }
-        if diveCount > 0 {
-            return "\(diveCount) dive\(diveCount == 1 ? "" : "s")"
+        switch style {
+        case .catalogDefault:
+            let diveCount = site.diveActivities.count
+            if diveCount > 0 {
+                return "\(diveCount) dive\(diveCount == 1 ? "" : "s")"
+            }
+            return "—"
+        case .plannedTrip:
+            return nil
         }
-        return "—"
     }
 
     private static func detailLine(for site: DiveSite) -> String {

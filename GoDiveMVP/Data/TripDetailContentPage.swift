@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// Horizontal pager pages on **`TripDetailView`** (below the static title block).
 enum TripDetailContentPage: Hashable, Sendable, Identifiable {
@@ -60,6 +61,18 @@ enum TripDetailContentPagerPresentation: Sendable {
             true
         case .plannedSites, .buddies, .marineLife, .activities:
             false
+        }
+    }
+
+    /// Vertical placement of static pager content within the area above **`bottomScrollInset`**.
+    nonisolated static func staticPagerContentAlignment(for page: TripDetailContentPage) -> Alignment {
+        switch page {
+        case .stats:
+            return .center
+        case .media:
+            return .top
+        case .plannedSites, .buddies, .marineLife, .activities:
+            return .top
         }
     }
 }

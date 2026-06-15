@@ -6,8 +6,8 @@ import os
 /// Filter in **Console.app** or Xcode: subsystem **`GoDiveMVP`** (bundle id), category **`TripMapNavigation`**.
 enum TripDetailMapNavigationDebug: Sendable {
 
-    /// Flip to **`false`** to silence once navigation is verified.
-    nonisolated(unsafe) static var isEnabled = true
+    /// Flip to **`true`** when tracing map pin → site navigation in Console.
+    nonisolated(unsafe) static var isEnabled = false
 
     private static let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "GoDiveMVP",

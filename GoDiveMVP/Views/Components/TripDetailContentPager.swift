@@ -104,7 +104,7 @@ struct TripDetailContentPager: View {
         switch page {
         case .plannedSites:
             TripDetailPlannedSitesSection(
-                plannedSites: trip.plannedSites,
+                trip: trip,
                 ownerProfileID: ownerProfileID
             )
         case .buddies:
@@ -155,9 +155,10 @@ struct TripDetailContentPager: View {
         @ViewBuilder content: () -> Content
     ) -> some View {
         if TripDetailContentPagerPresentation.usesStaticPagerLayout(for: page) {
+            let contentAlignment = TripDetailContentPagerPresentation.staticPagerContentAlignment(for: page)
             VStack(spacing: 0) {
                 content()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: contentAlignment)
 
                 Color.clear
                     .frame(height: bottomScrollInset)

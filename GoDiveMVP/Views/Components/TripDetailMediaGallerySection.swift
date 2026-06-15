@@ -187,57 +187,48 @@ struct TripDetailMediaGallerySection: View {
 
     @ViewBuilder
     private func mediaOverlayChrome(previewSize: CGSize, cornerRadius: CGFloat) -> some View {
-        ZStack(alignment: .top) {
-            VStack(spacing: 0) {
-                HStack(alignment: .top, spacing: AppTheme.Spacing.sm) {
-                    Color.clear
-                        .frame(width: 0, height: 0)
-                        .accessibilityHidden(true)
+        VStack(spacing: 0) {
+            HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
+                openOnDiveButton
 
-                    Spacer(minLength: 0)
+                Spacer(minLength: 0)
 
-                    if let positionLabel = TripDetailMediaGalleryPresentation.mediaPositionLabel(
-                        selectedID: selectedMediaID,
-                        in: mediaItems
-                    ) {
+                if let positionLabel = TripDetailMediaGalleryPresentation.mediaPositionLabel(
+                    selectedID: selectedMediaID,
+                    in: mediaItems
+                ) {
+                    mediaOverlayChip {
                         Text(positionLabel)
                             .font(.footnote.weight(.semibold))
-                            .foregroundStyle(AppTheme.Colors.textPrimary)
-                            .padding(.horizontal, AppTheme.Spacing.sm)
-                            .padding(.vertical, 6)
-                            .background(.ultraThinMaterial, in: Capsule())
-                            .accessibilityHidden(true)
+                            .foregroundStyle(.white)
                     }
-                }
-
-                Spacer(minLength: 0)
-            }
-            .allowsHitTesting(false)
-
-            VStack(spacing: 0) {
-                HStack(alignment: .top, spacing: AppTheme.Spacing.sm) {
-                    openOnDiveButton
-
-                    Spacer(minLength: 0)
-                        .allowsHitTesting(false)
-                }
-
-                Spacer(minLength: 0)
-                    .allowsHitTesting(false)
-
-                HStack {
-                    Spacer(minLength: 0)
-                        .allowsHitTesting(false)
-
-                    if showsMarineLifeTagIndicator {
-                        marineLifeTagButton
-                    }
+                    .accessibilityHidden(true)
                 }
             }
-            .padding(AppTheme.Spacing.md)
+
+            Spacer(minLength: 0)
+
+            HStack {
+                Spacer(minLength: 0)
+
+                if showsMarineLifeTagIndicator {
+                    marineLifeTagButton
+                }
+            }
         }
+        .padding(AppTheme.Spacing.md)
         .frame(width: previewSize.width, height: previewSize.height, alignment: .top)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+
+    private func mediaOverlayChip<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(.horizontal, TripDetailMediaGalleryPresentation.overlayChipHorizontalPadding)
+            .padding(.vertical, TripDetailMediaGalleryPresentation.overlayChipVerticalPadding)
+            .background(
+                .black.opacity(TripDetailMediaGalleryPresentation.overlayChipBackgroundOpacity),
+                in: Capsule()
+            )
     }
 
     private var marineLifeTagButton: some View {
@@ -273,12 +264,11 @@ struct TripDetailMediaGallerySection: View {
 
     private var openOnDiveButton: some View {
         Button(action: openSelectedMediaInDive) {
-            Label(DiveTripPresentation.tripMediaOpenOnDiveButtonTitle, systemImage: "arrow.up.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-                .padding(.horizontal, AppTheme.Spacing.sm)
-                .padding(.vertical, 6)
-                .background(.ultraThinMaterial, in: Capsule())
+            mediaOverlayChip {
+                Label(DiveTripPresentation.tripMediaOpenOnDiveButtonTitle, systemImage: "arrow.up.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.accent)
+            }
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("TripDetail.Media.OpenOnDive")

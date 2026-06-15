@@ -121,21 +121,20 @@ enum DiveActivityFieldEditing {
         case .durationMinutes, .bottomTimeSeconds, .surfaceIntervalSeconds, .oxygenMix: .integer
         case .maxDepthMeters, .averageDepthMeters, .avgAscentRateMetersPerSecond,
              .waterTempAvgCelsius, .waterTempMaxCelsius, .waterTempMinCelsius,
-             .tankPressureStartPSI, .tankPressureEndPSI, .avgSAC, .avgRMV: .decimal
+             .tankPressureStartPSI, .tankPressureEndPSI: .decimal
         case .diveNumber: .diveNumber
         case .entryCoordinate: .coordinate
         case .diveCurrentStrength: .currentStrength
         case .diveVisibility: .visibility
-        case .source: .source
         case .diveSignature: .signature
         case .notes: .multilineText
         case .buddies: .buddies
         case .linkedEquipment: .equipment
         case .linkedCatalogSite: .linkedSite
+        case .avgSAC, .avgRMV: .readOnly
         case .surfaceCondition, .entryType, .diveOperatorName, .diveMasterName,
-             .siteName, .locationName, .gasType, .tankMaterial, .tankVolumeDescription,
-             .rawImportVersion: .shortText
-        case .sourceDiveId, .profileSampleCount, .profileGasSampleStats,
+             .siteName, .locationName, .gasType, .tankMaterial, .tankVolumeDescription: .shortText
+        case .source, .sourceDiveId, .rawImportVersion, .profileSampleCount, .profileGasSampleStats,
              .startTimeUTC, .timeZoneOffset,
              .recordID, .ownerName: .readOnly
         }
@@ -176,8 +175,6 @@ enum DiveActivityFieldEditing {
             draft.currentStrength = activity.resolvedDiveCurrentStrength
         case .diveVisibility:
             draft.visibility = activity.diveVisibility
-        case .source:
-            draft.source = activity.source
         case .notes:
             draft.text = activity.notes ?? ""
         case .oxygenMix:
@@ -186,10 +183,6 @@ enum DiveActivityFieldEditing {
             draft.text = formatPressureInput(activity.tankPressureStartPSI, displayUnits: displayUnits)
         case .tankPressureEndPSI:
             draft.text = formatPressureInput(activity.tankPressureEndPSI, displayUnits: displayUnits)
-        case .avgSAC:
-            draft.text = formatSACInput(activity.avgSAC, displayUnits: displayUnits)
-        case .avgRMV:
-            draft.text = formatRMVInput(activity.avgRMV, displayUnits: displayUnits)
         case .waterTempAvgCelsius:
             draft.text = formatTempInput(activity.waterTempAvgCelsius, displayUnits: displayUnits)
         case .waterTempMaxCelsius:
@@ -198,7 +191,7 @@ enum DiveActivityFieldEditing {
             draft.text = formatTempInput(activity.waterTempMinCelsius, displayUnits: displayUnits)
         case .siteName, .locationName, .surfaceCondition, .entryType,
              .diveOperatorName, .diveMasterName, .gasType, .tankMaterial,
-             .tankVolumeDescription, .rawImportVersion:
+             .tankVolumeDescription:
             draft.text = stringFieldValue(field, activity: activity)
         default:
             break
@@ -212,6 +205,7 @@ enum DiveActivityFieldEditing {
         to activity: DiveActivity,
         displayUnits: DiveDisplayUnitSystem
     ) {
+        guard DiveActivityEditableCatalog.isEditable(field, for: activity) else { return }
         switch field {
         case .startTime:
             if let date = draft.dateValue { activity.startTime = date }
@@ -286,17 +280,11 @@ enum DiveActivityFieldEditing {
             activity.tankPressureStartPSI = DiveActivityFieldValueParsing.parsePressurePSI(draft.text, displayUnits: displayUnits)
         case .tankPressureEndPSI:
             activity.tankPressureEndPSI = DiveActivityFieldValueParsing.parsePressurePSI(draft.text, displayUnits: displayUnits)
-        case .avgSAC:
-            activity.avgSAC = DiveActivityFieldValueParsing.parseSACPSIPerMinute(draft.text, displayUnits: displayUnits)
-        case .avgRMV:
-            activity.avgRMV = DiveActivityFieldValueParsing.parseRMVLitersPerMinute(draft.text, displayUnits: displayUnits)
-        case .source:
-            activity.source = draft.source
-        case .rawImportVersion:
-            activity.rawImportVersion = trimmedOptional(draft.text)
-        case .diveSignature, .buddies, .linkedEquipment, .linkedCatalogSite, .sourceDiveId,
+        case .diveSignature, .buddies, .linkedEquipment, .linkedCatalogSite,
+             .source, .sourceDiveId, .rawImportVersion,
              .startTimeUTC, .timeZoneOffset,
-             .profileSampleCount, .profileGasSampleStats, .recordID, .ownerName:
+             .profileSampleCount, .profileGasSampleStats, .recordID, .ownerName,
+             .avgSAC, .avgRMV:
             break
         }
     }
@@ -368,22 +356,6 @@ enum DiveActivityFieldEditing {
         }
     }
 
-    private static func formatSACInput(_ sac: Double?, displayUnits: DiveDisplayUnitSystem) -> String {
-        guard let sac else { return "" }
-        switch displayUnits {
-        case .metric: return String(format: "%.1f", sac / 14.5037738007)
-        case .imperial: return String(format: "%.1f", sac)
-        }
-    }
-
-    private static func formatRMVInput(_ rmv: Double?, displayUnits: DiveDisplayUnitSystem) -> String {
-        guard let rmv else { return "" }
-        switch displayUnits {
-        case .metric: return String(format: "%.1f", rmv)
-        case .imperial: return String(format: "%.2f", rmv * 0.0353146667214888)
-        }
-    }
-
     private static func stringFieldValue(_ field: DiveActivityEditableFieldID, activity: DiveActivity) -> String {
         switch field {
         case .siteName: return activity.siteName ?? ""
@@ -395,8 +367,6 @@ enum DiveActivityFieldEditing {
         case .gasType: return activity.gasType ?? ""
         case .tankMaterial: return activity.tankMaterial ?? ""
         case .tankVolumeDescription: return activity.tankVolumeDescription ?? ""
-        case .sourceDiveId: return activity.sourceDiveId ?? ""
-        case .rawImportVersion: return activity.rawImportVersion ?? ""
         default: return ""
         }
     }
@@ -412,7 +382,6 @@ enum DiveActivityFieldEditorKind: Sendable {
     case diveNumber
     case currentStrength
     case visibility
-    case source
     case signature
     case buddies
     case equipment

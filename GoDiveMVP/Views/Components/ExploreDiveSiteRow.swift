@@ -14,11 +14,13 @@ struct ExploreDiveSiteRow: View, Equatable {
 
                 Spacer(minLength: AppTheme.Spacing.sm)
 
-                Text(data.trailingLabel)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(AppTheme.Colors.tabUnselected)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
+                if let trailingLabel = data.trailingLabel {
+                    Text(trailingLabel)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(AppTheme.Colors.tabUnselected)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                }
             }
 
             Text(data.detailLine)

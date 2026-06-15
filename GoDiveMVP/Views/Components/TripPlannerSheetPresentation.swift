@@ -1,9 +1,9 @@
 import SwiftUI
 
 extension View {
-    /// Native sheet chrome for the Trip Planner add-trip form.
+    /// Native sheet chrome for Trip Planner add / edit forms (**medium** only).
     func tripPlannerAddSheetPresentation() -> some View {
-        presentationDetents([.large])
+        presentationDetents([.medium])
             .presentationDragIndicator(.visible)
             .appSheetPresentationChrome()
             .presentationContentInteraction(.scrolls)

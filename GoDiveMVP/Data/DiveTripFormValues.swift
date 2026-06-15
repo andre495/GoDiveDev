@@ -7,7 +7,6 @@ struct DiveTripFormValues: Equatable, Sendable {
     var endDate: Date = .now
     /// Comma-separated destination countries (same vocabulary as **`DiveSite.country`**).
     var countriesText: String = ""
-    var plannedSiteIDs: Set<UUID> = []
 
     var trimmedTitle: String {
         title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -50,7 +49,6 @@ struct DiveTripFormValues: Equatable, Sendable {
         startDate = trip.startDate
         endDate = trip.endDate
         countriesText = trip.countries.joined(separator: ", ")
-        plannedSiteIDs = Set(trip.plannedSites.map(\.id))
     }
 
     mutating func apply(to trip: DiveTrip, plannedSites: [DiveSite]) {

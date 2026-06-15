@@ -135,29 +135,58 @@ enum DiveActivityEditableCatalog: Sendable {
         }
     }
 
+    /// Dive metrics populated by file import — editable only on manually created dives.
+    static let manualEntryOnlyFieldIDs: Set<DiveActivityEditableFieldID> = [
+        .durationMinutes,
+        .maxDepthMeters,
+        .averageDepthMeters,
+        .bottomTimeSeconds,
+        .surfaceIntervalSeconds,
+        .avgAscentRateMetersPerSecond,
+    ]
+
+    static func isManualEntryOnly(_ field: DiveActivityEditableFieldID) -> Bool {
+        manualEntryOnlyFieldIDs.contains(field)
+    }
+
+    /// Whether the field can ever be edited in the app (ignores dive source).
     static func isEditable(_ field: DiveActivityEditableFieldID) -> Bool {
         switch field {
-        case .profileSampleCount, .linkedCatalogSite, .profileGasSampleStats, .sourceDiveId,
+        case .profileSampleCount, .linkedCatalogSite, .profileGasSampleStats,
+             .source, .sourceDiveId, .rawImportVersion,
              .startTimeUTC, .timeZoneOffset,
-             .recordID, .ownerName:
+             .recordID, .ownerName,
+             .avgSAC, .avgRMV:
             return false
         default:
             return true
         }
     }
 
-    static func editableFields(in section: Section) -> [DiveActivityEditableFieldID] {
-        section.fieldIDs.filter { isEditable($0) }
+    /// Whether the field can be edited for this dive (includes manual-only import restrictions).
+    static func isEditable(_ field: DiveActivityEditableFieldID, for activity: DiveActivity) -> Bool {
+        guard isEditable(field) else { return false }
+        if isManualEntryOnly(field), activity.source != .manual {
+            return false
+        }
+        return true
     }
 
-    static func headerAction(for section: Section) -> DiveActivityEditableSectionHeaderAction {
+    static func editableFields(in section: Section, for activity: DiveActivity) -> [DiveActivityEditableFieldID] {
+        section.fieldIDs.filter { isEditable($0, for: activity) }
+    }
+
+    static func headerAction(
+        for section: Section,
+        activity: DiveActivity
+    ) -> DiveActivityEditableSectionHeaderAction {
         switch section.id {
         case "buddies":
             return .add
         case "equipment":
             return .manageEquipment
         default:
-            return editableFields(in: section).isEmpty ? .none : .editForm
+            return editableFields(in: section, for: activity).isEmpty ? .none : .editForm
         }
     }
 

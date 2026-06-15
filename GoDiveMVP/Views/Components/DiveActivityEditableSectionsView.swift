@@ -51,7 +51,7 @@ struct DiveActivityEditableSectionsView: View {
 
             Spacer(minLength: AppTheme.Spacing.sm)
 
-            switch DiveActivityEditableCatalog.headerAction(for: section) {
+            switch DiveActivityEditableCatalog.headerAction(for: section, activity: activity) {
             case .none:
                 EmptyView()
             case .add:

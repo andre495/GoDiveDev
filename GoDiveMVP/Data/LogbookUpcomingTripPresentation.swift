@@ -32,6 +32,17 @@ enum LogbookUpcomingTripPresentation: Sendable {
         )
     }
 
+    /// Upcoming banner sits above async-built logbook rows — defer until rows (or stored empty state) are ready.
+    nonisolated static func shouldShowInLogbookList(
+        isFilteringLogbook: Bool,
+        showsStoredDiveEmptyState: Bool,
+        hasDisplayItems: Bool
+    ) -> Bool {
+        guard !isFilteringLogbook else { return false }
+        if showsStoredDiveEmptyState { return true }
+        return hasDisplayItems
+    }
+
     nonisolated static func nearestUpcomingBanner(
         from trips: [DiveTrip],
         referenceDate: Date = .now,

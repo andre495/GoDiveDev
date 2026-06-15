@@ -11,7 +11,7 @@ struct DiveActivitySectionEditSheet: View {
     @State private var drafts: [DiveActivityEditableFieldID: DiveActivityFieldEditDraft]
 
     private var editableFields: [DiveActivityEditableFieldID] {
-        DiveActivityEditableCatalog.editableFields(in: section)
+        DiveActivityEditableCatalog.editableFields(in: section, for: activity)
     }
 
     init(
@@ -23,7 +23,7 @@ struct DiveActivitySectionEditSheet: View {
         self.section = section
         self.displayUnits = displayUnits
         var loaded: [DiveActivityEditableFieldID: DiveActivityFieldEditDraft] = [:]
-        for field in DiveActivityEditableCatalog.editableFields(in: section) {
+        for field in DiveActivityEditableCatalog.editableFields(in: section, for: activity) {
             loaded[field] = DiveActivityFieldEditing.loadDraft(
                 for: field,
                 activity: activity,

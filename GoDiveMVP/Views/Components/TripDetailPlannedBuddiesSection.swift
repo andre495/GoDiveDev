@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// Planned-trip buddies — owner, invited roster buddies, and add action.
+/// Planned-trip buddies — same 3-column avatar grid as active trips, plus **Add buddy**.
 struct TripDetailPlannedBuddiesSection: View {
     @Environment(\.modelContext) private var modelContext
 
@@ -21,6 +21,13 @@ struct TripDetailPlannedBuddiesSection: View {
         )
     }
 
+    private var columns: [GridItem] {
+        Array(
+            repeating: GridItem(.flexible(), spacing: TripDetailBuddiesPresentation.gridSpacing),
+            count: TripDetailBuddiesPresentation.gridColumnCount
+        )
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
             Button {
@@ -36,44 +43,65 @@ struct TripDetailPlannedBuddiesSection: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(AppTheme.Colors.accent)
+            .padding(.horizontal, AppTheme.Spacing.md)
             .accessibilityIdentifier("TripDetail.PlannedBuddies.Add")
 
-            VStack(spacing: AppTheme.Spacing.sm) {
-                ForEach(listMembers) { member in
-                    if member.isOwner {
-                        TripDetailPlannedBuddyMemberRow(member: member)
-                            .accessibilityIdentifier("TripDetail.PlannedBuddies.Owner")
-                    } else if let buddy = plannedBuddies.first(where: { $0.id == member.id }) {
-                        TripDetailPlannedBuddyMemberRow(member: member)
-                            .accessibilityIdentifier("TripDetail.PlannedBuddies.\(member.id.uuidString)")
-                            .contextMenu {
-                                Button(role: .destructive) {
-                                    removeBuddy(buddy)
-                                } label: {
-                                    Label("Remove from trip", systemImage: "person.fill.xmark")
-                                }
-                            }
-                    }
-                }
-            }
-            .accessibilityIdentifier("TripDetail.PlannedBuddies.List")
-
-            if plannedBuddies.isEmpty {
+            if listMembers.isEmpty {
                 Text(DiveTripPresentation.tripBuddiesPlannedEmptyMessage)
-                    .font(.footnote)
+                    .font(.body)
                     .foregroundStyle(AppTheme.Colors.secondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, AppTheme.Spacing.md)
+                    .accessibilityIdentifier("TripDetail.PlannedBuddies.Empty")
+            } else {
+                LazyVGrid(columns: columns, spacing: TripDetailBuddiesPresentation.gridSpacing) {
+                    ForEach(listMembers) { member in
+                        plannedBuddyCell(for: member)
+                    }
+                }
+                .padding(.horizontal, AppTheme.Spacing.md)
+                .accessibilityIdentifier("TripDetail.PlannedBuddies.List")
+
+                if plannedBuddies.isEmpty {
+                    Text(DiveTripPresentation.tripBuddiesPlannedEmptyMessage)
+                        .font(.footnote)
+                        .foregroundStyle(AppTheme.Colors.secondaryText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, AppTheme.Spacing.md)
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(AppTheme.Spacing.md)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(AppTheme.Colors.surfaceElevated)
-        )
         .accessibilityIdentifier("TripDetail.PlannedBuddiesSection")
         .sheet(isPresented: $showsAddBuddySheet) {
             TripPlannedBuddyPickerSheet(trip: trip)
+        }
+    }
+
+    @ViewBuilder
+    private func plannedBuddyCell(for member: TripPlannedBuddyMember) -> some View {
+        let cell = TripDetailPlannedBuddyGridCell(member: member)
+
+        if member.isOwner {
+            cell
+                .accessibilityIdentifier("TripDetail.PlannedBuddies.Owner")
+        } else if let buddy = plannedBuddies.first(where: { $0.id == member.id }) {
+            NavigationLink {
+                ViewDiveBuddyDetails(buddy: buddy)
+                    .hidesBottomTabBarWhenPushed()
+            } label: {
+                cell
+            }
+            .buttonStyle(.plain)
+            .navigationLinkIndicatorVisibility(.hidden)
+            .accessibilityIdentifier("TripDetail.PlannedBuddies.\(member.id.uuidString)")
+            .contextMenu {
+                Button(role: .destructive) {
+                    removeBuddy(buddy)
+                } label: {
+                    Label("Remove from trip", systemImage: "person.fill.xmark")
+                }
+            }
         }
     }
 
@@ -83,39 +111,34 @@ struct TripDetailPlannedBuddiesSection: View {
     }
 }
 
-private struct TripDetailPlannedBuddyMemberRow: View {
+private struct TripDetailPlannedBuddyGridCell: View {
     let member: TripPlannedBuddyMember
 
     var body: some View {
-        HStack(spacing: AppTheme.Spacing.md) {
+        VStack(spacing: AppTheme.Spacing.sm) {
             ProfileAvatarView(
                 profilePhoto: member.profilePhoto,
-                diameter: 48,
-                iconFont: .title3
+                diameter: TripDetailBuddiesPresentation.avatarDiameter,
+                iconFont: .title2
             )
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(member.displayName)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
-                    .lineLimit(2)
+            Text(member.displayName)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+                .frame(maxWidth: .infinity)
 
-                Text(TripDetailPlannedBuddyPresentation.subtitle(for: member))
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-            }
-
-            Spacer(minLength: 0)
+            Text(TripDetailPlannedBuddyPresentation.subtitle(for: member))
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.accent)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+                .frame(maxWidth: .infinity)
         }
-        .padding(AppTheme.Spacing.md)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(AppTheme.Colors.surfaceMuted.opacity(0.55))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(AppTheme.Colors.tabUnselected.opacity(0.14), lineWidth: 1)
-                }
-        )
+        .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
             "\(member.displayName), \(TripDetailPlannedBuddyPresentation.subtitle(for: member))"

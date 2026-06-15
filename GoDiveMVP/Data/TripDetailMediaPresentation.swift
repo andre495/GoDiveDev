@@ -82,6 +82,10 @@ enum TripDetailMediaGalleryPresentation: Sendable {
     nonisolated static let browseEdgeResistance: CGFloat = 0.28
     nonisolated static let marineLifeOverlayFeatureImageHeight: CGFloat = 148
     nonisolated static let marineLifeOverlayFeatureImageMaxWidth: CGFloat = 220
+    /// Matches dive-media capture timestamp capsule (**`DiveActivityMediaItemView`**).
+    nonisolated static let overlayChipHorizontalPadding: CGFloat = 10
+    nonisolated static let overlayChipVerticalPadding: CGFloat = 6
+    nonisolated static let overlayChipBackgroundOpacity: Double = 0.55
 
     nonisolated static func previewSize(in container: CGSize) -> CGSize {
         let width = max(container.width - previewHorizontalInset * 2, 1)

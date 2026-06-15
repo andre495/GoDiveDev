@@ -13,7 +13,7 @@ enum DiveTripPresentation: Sendable {
     nonisolated static let tripMediaSectionTitle = "Trip media"
     nonisolated static let tripMediaEmptyMessage =
         "Photos and videos from linked dives will appear here."
-    nonisolated static let tripMediaOpenOnDiveButtonTitle = "View on dive"
+    nonisolated static let tripMediaOpenOnDiveButtonTitle = "View Dive"
     nonisolated static let tripMarineLifeSectionTitle = "Marine life"
     nonisolated static let tripMarineLifeEmptyMessage =
         "Species tagged on linked dives will appear here."
@@ -26,6 +26,7 @@ enum DiveTripPresentation: Sendable {
         "Add dive sites when editing this trip."
     nonisolated static let addPlannedBuddyButtonTitle = "Add buddy"
     nonisolated static let addPlannedBuddyAccessibilityLabel = "Add buddy to trip"
+    nonisolated static let addPlannedSiteAccessibilityLabel = "Add or remove saved dive sites"
     nonisolated static let shareTripButtonTitle = "Share"
     nonisolated static let tripPlannedBuddyPickerTitle = "Trip buddies"
     nonisolated static let tripPlannedBuddyPickerFooter = "Tap a buddy to add or remove them from this trip."

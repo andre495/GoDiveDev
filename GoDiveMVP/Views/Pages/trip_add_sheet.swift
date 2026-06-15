@@ -7,21 +7,15 @@ struct TripAddSheetView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AccountSession.self) private var accountSession
 
-    @Query(sort: \DiveSite.siteName) private var diveSites: [DiveSite]
-
     var onSaved: () -> Void = {}
 
     @State private var form = DiveTripFormValues()
-    @State private var showsPlannedSitePicker = false
     @State private var saveErrorMessage: String?
 
     var body: some View {
         NavigationStack {
             Form {
-                TripPlannerFormContent(
-                    form: $form,
-                    showsPlannedSitePicker: $showsPlannedSitePicker
-                )
+                TripPlannerFormContent(form: $form)
             }
             .scrollContentBackground(.hidden)
             .navigationTitle(TripPlannerPresentation.newTripSheetTitle)
@@ -48,12 +42,6 @@ struct TripAddSheetView: View {
                 Text(saveErrorMessage ?? "Try again.")
             }
         }
-        .sheet(isPresented: $showsPlannedSitePicker) {
-            TripPlannedSitePickerSheet(
-                selectedSiteIDs: $form.plannedSiteIDs,
-                sites: diveSites
-            )
-        }
         .tripPlannerAddSheetPresentation()
         .accessibilityIdentifier("TripAddSheet.Root")
     }
@@ -72,8 +60,7 @@ struct TripAddSheetView: View {
             return
         }
 
-        let plannedSites = diveSites.filter { form.plannedSiteIDs.contains($0.id) }
-        let trip = form.makeDiveTrip(plannedSites: plannedSites)
+        let trip = form.makeDiveTrip(plannedSites: [])
         DiveTripOwnership.assignOwner(profile, to: trip)
         modelContext.insert(trip)
 
@@ -101,7 +88,6 @@ struct TripAddSheetView: View {
 
 struct TripPlannerFormContent: View {
     @Binding var form: DiveTripFormValues
-    @Binding var showsPlannedSitePicker: Bool
 
     var body: some View {
         Section {
@@ -142,24 +128,6 @@ struct TripPlannerFormContent: View {
             .accessibilityIdentifier("TripPlanner.Countries")
         } footer: {
             Text("Separate multiple countries with commas.")
-        }
-
-        Section {
-            Button {
-                showsPlannedSitePicker = true
-            } label: {
-                HStack {
-                    Text(DiveTripPresentation.plannedSitesSectionTitle)
-                        .foregroundStyle(AppTheme.Colors.textPrimary)
-                    Spacer(minLength: 0)
-                    Text(DiveTripPresentation.plannedSitesSummary(selectedCount: form.plannedSiteIDs.count))
-                        .foregroundStyle(AppTheme.Colors.secondaryText)
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppTheme.Colors.secondaryText)
-                }
-            }
-            .accessibilityIdentifier("TripPlanner.PlannedSites")
         }
     }
 }

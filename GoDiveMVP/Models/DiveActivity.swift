@@ -322,14 +322,34 @@ extension DiveActivity {
         DiveQuantityFormatting.cylinderPressure(fromPSI: tankPressureEndPSI, system: displayUnits)
     }
 
-    /// Minimized tank hero / SAC row from **`avgSAC`** (**psi/min** or **bar/min**).
+    /// Minimized tank hero / consumption section SAC row — computed from cylinder pressures, not stored **`avgSAC`**.
     func tankHeroSACRateLine(displayUnits: DiveDisplayUnitSystem) -> String? {
-        DiveQuantityFormatting.surfaceAirConsumption(sacPSIPerMinute: avgSAC, system: displayUnits)
+        guard tankPressureStartPSI != nil, tankPressureEndPSI != nil else { return nil }
+        guard let sac = DiveSACRMVCalculation.sacPSIPerMinute(from: sacRMVCalculationInput()) else { return nil }
+        return DiveQuantityFormatting.surfaceAirConsumption(sacPSIPerMinute: sac, system: displayUnits)
     }
 
-    /// Minimized tank hero / RMV row from **`avgRMV`** (**L/min** or **cu ft/min**).
+    /// Minimized tank hero / consumption section RMV row — computed from pressures + default tank, not stored **`avgRMV`**.
     func tankHeroRMVRateLine(displayUnits: DiveDisplayUnitSystem) -> String? {
-        DiveQuantityFormatting.respiratoryMinuteVolume(litersPerMinute: avgRMV, system: displayUnits)
+        guard tankPressureStartPSI != nil, tankPressureEndPSI != nil else { return nil }
+        let input = sacRMVCalculationInput()
+        guard let sac = DiveSACRMVCalculation.sacPSIPerMinute(from: input),
+              let rmv = DiveSACRMVCalculation.rmvLitersPerMinute(from: input, sacPSIPerMinute: sac)
+        else { return nil }
+        return DiveQuantityFormatting.respiratoryMinuteVolume(litersPerMinute: rmv, system: displayUnits)
+    }
+
+    private func sacRMVCalculationInput(volumeUsedSurfaceLiters: Double? = nil) -> DiveSACRMVCalculation.Input {
+        DiveSACRMVCalculation.Input(
+            tankPressureStartPSI: tankPressureStartPSI,
+            tankPressureEndPSI: tankPressureEndPSI,
+            bottomTimeSeconds: bottomTimeSeconds,
+            durationMinutes: durationMinutes,
+            averageDepthMeters: averageDepthMeters,
+            maxDepthMeters: maxDepthMeters,
+            tankVolumeDescription: tankVolumeDescription,
+            volumeUsedSurfaceLiters: volumeUsedSurfaceLiters
+        )
     }
 
     private static func gasDetailsTrimmedTextOrDash(_ value: String?) -> String {

@@ -10,6 +10,7 @@ import CoreGraphics
 import CoreLocation
 import Foundation
 import MapKit
+import SwiftUI
 #if canImport(Photos)
 import Photos
 #endif
@@ -3810,6 +3811,8 @@ struct GoDiveMVPTests {
         #expect(!TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .activities))
         #expect(!TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .plannedSites))
         #expect(!TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .buddies))
+        #expect(TripDetailContentPagerPresentation.staticPagerContentAlignment(for: .stats) == .center)
+        #expect(TripDetailContentPagerPresentation.staticPagerContentAlignment(for: .media) == .top)
     }
 
     @Test @MainActor func tripDetailContentPager_plannedTripPages() {
@@ -3964,6 +3967,13 @@ struct GoDiveMVPTests {
         #expect(members[1].id == buddyID)
         #expect(TripDetailPlannedBuddyPresentation.subtitle(for: members[0]) == "You")
         #expect(TripDetailPlannedBuddyPresentation.subtitle(for: members[1]) == "On this trip")
+    }
+
+    @Test func tripDetailPlannedBuddyPresentation_usesActiveTripBuddyGridMetrics() {
+        #expect(TripDetailBuddiesPresentation.gridColumnCount == 3)
+        #expect(TripDetailBuddiesPresentation.avatarDiameter == 64)
+        #expect(TripDetailPlannedBuddyPresentation.ownerSubtitle == "You")
+        #expect(TripDetailPlannedBuddyPresentation.buddySubtitle == "On this trip")
     }
 
     @Test func tripShareCardPresentation_buildsTemporaryPNGFileName() {
@@ -4382,20 +4392,20 @@ struct GoDiveMVPTests {
             TripDetailMediaGalleryPresentation.browseAccessibilityLabel(
                 itemCount: 1,
                 positionLabel: "1 of 1"
-            ) == "Trip media, 1 of 1, View on dive opens the linked dive"
+            ) == "Trip media, 1 of 1, View Dive opens the linked dive"
         )
         #expect(
             TripDetailMediaGalleryPresentation.browseAccessibilityLabel(
                 itemCount: 3,
                 positionLabel: "2 of 3"
-            ) == "Trip media, 2 of 3, swipe up for next, swipe down for previous, View on dive opens the linked dive"
+            ) == "Trip media, 2 of 3, swipe up for next, swipe down for previous, View Dive opens the linked dive"
         )
         #expect(
             TripDetailMediaGalleryPresentation.browseAccessibilityLabel(
                 itemCount: 2,
                 positionLabel: "1 of 2",
                 hasTaggedMarineLife: true
-            ) == "Trip media, 1 of 2, marine life tagged, swipe up for next, swipe down for previous, tap fish icon for marine life overview, View on dive opens the linked dive"
+            ) == "Trip media, 1 of 2, marine life tagged, swipe up for next, swipe down for previous, tap fish icon for marine life overview, View Dive opens the linked dive"
         )
     }
 
@@ -4409,6 +4419,12 @@ struct GoDiveMVPTests {
         #expect(
             TripDetailMediaGalleryPresentation.mediaPositionLabel(selectedID: first.id, in: photos) == "1 of 2"
         )
+    }
+
+    @Test func tripDetailMediaGalleryPresentation_overlayChip_matchesCaptureTimestampCapsule() {
+        #expect(TripDetailMediaGalleryPresentation.overlayChipHorizontalPadding == 10)
+        #expect(TripDetailMediaGalleryPresentation.overlayChipVerticalPadding == 6)
+        #expect(TripDetailMediaGalleryPresentation.overlayChipBackgroundOpacity == 0.55)
     }
 
     @Test func tripDetailMediaGalleryPresentation_showsMarineLifeTagIndicator_whenSpeciesTagged() {
@@ -4476,7 +4492,7 @@ struct GoDiveMVPTests {
                 canBrowseBackward: true
             ) == -33.6
         )
-        #expect(DiveTripPresentation.tripMediaOpenOnDiveButtonTitle == "View on dive")
+        #expect(DiveTripPresentation.tripMediaOpenOnDiveButtonTitle == "View Dive")
     }
 
     @Test func tripDetailMediaGalleryPresentation_taggedSpecies_resolvesFromSightings() {
@@ -4965,11 +4981,99 @@ struct GoDiveMVPTests {
         #expect(DiveActivityOverviewPanelMetrics.panelContentTopPadding == AppTheme.Sheet.contentTopSpacing)
     }
 
-    @Test func diveActivityEditableCatalog_sourceDiveIdIsNotEditable() {
+    @Test func diveActivityEditableCatalog_sourceAndImportFieldsAreNotEditable() {
+        #expect(!DiveActivityEditableCatalog.isEditable(.source))
         #expect(!DiveActivityEditableCatalog.isEditable(.sourceDiveId))
+        #expect(!DiveActivityEditableCatalog.isEditable(.rawImportVersion))
+        let activity = DiveActivity(
+            source: .garminMK3,
+            sourceDiveId: "fit-123",
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            rawImportVersion: "FIT 1.0"
+        )
+        let sourceSection = DiveActivityEditableCatalog.sections(for: .tank, detent: .large)
+            .first { $0.id == "source" }!
+        #expect(DiveActivityEditableCatalog.editableFields(in: sourceSection, for: activity).isEmpty)
+        #expect(DiveActivityEditableCatalog.headerAction(for: sourceSection, activity: activity) == .none)
+    }
+
+    @Test func diveActivityFieldEditing_applyDraft_doesNotChangeSourceOrImportVersion() {
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            rawImportVersion: "UDDF 3.2"
+        )
+        var draft = DiveActivityFieldEditDraft()
+        draft.source = .manual
+        draft.text = "Edited"
+        DiveActivityFieldEditing.applyDraft(draft, for: .source, to: activity, displayUnits: .metric)
+        DiveActivityFieldEditing.applyDraft(draft, for: .rawImportVersion, to: activity, displayUnits: .metric)
+        #expect(activity.source == .macDive)
+        #expect(activity.rawImportVersion == "UDDF 3.2")
+    }
+
+    @Test func diveActivityEditableCatalog_sacAndRmvAreNotEditable() {
+        #expect(!DiveActivityEditableCatalog.isEditable(.avgSAC))
+        #expect(!DiveActivityEditableCatalog.isEditable(.avgRMV))
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            avgSAC: 20,
+            avgRMV: 16
+        )
+        let consumption = DiveActivityEditableCatalog.sections(for: .tank, detent: .medium)
+            .first { $0.id == "consumption" }!
+        #expect(DiveActivityEditableCatalog.editableFields(in: consumption, for: activity).isEmpty)
+        #expect(DiveActivityEditableCatalog.headerAction(for: consumption, activity: activity) == .none)
+    }
+
+    @Test func diveActivity_tankHeroConsumptionLines_requireCylinderPressures() {
+        let withoutPressures = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 45,
+            maxDepthMeters: 18,
+            averageDepthMeters: 12,
+            avgSAC: 22,
+            avgRMV: 18
+        )
+        #expect(withoutPressures.tankHeroSACRateLine(displayUnits: .imperial) == nil)
+        #expect(withoutPressures.tankHeroRMVRateLine(displayUnits: .imperial) == nil)
+        let sacDisplay = DiveActivityFieldEditing.displayValue(
+            for: .avgSAC,
+            activity: withoutPressures,
+            displayUnits: .imperial,
+            profileGasStats: .init(sampleCount: 0, minPSI: 0, maxPSI: 0)
+        )
+        #expect(sacDisplay == "—")
+
+        withoutPressures.tankPressureStartPSI = 3000
+        withoutPressures.tankPressureEndPSI = 2000
+        let sacLine = withoutPressures.tankHeroSACRateLine(displayUnits: .imperial)
+        #expect(sacLine != nil)
+        let rmvLine = withoutPressures.tankHeroRMVRateLine(displayUnits: .imperial)
+        #expect(rmvLine != nil)
     }
 
     @Test func diveActivityEditableCatalog_sectionHeaderActions() {
+        let manualDive = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        let importedDive = DiveActivity(
+            source: .garminMK3,
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
         let mapSections = DiveActivityEditableCatalog.sections(for: .map, detent: .large)
         let dive = mapSections.first { $0.id == "dive" }!
         let buddies = mapSections.first { $0.id == "buddies" }!
@@ -4978,12 +5082,60 @@ struct GoDiveMVPTests {
         let equipment = DiveActivityEditableCatalog.sections(for: .tank, detent: .medium)
             .first { $0.id == "equipment" }!
 
-        #expect(DiveActivityEditableCatalog.headerAction(for: dive) == .editForm)
-        #expect(DiveActivityEditableCatalog.headerAction(for: buddies) == .add)
-        #expect(DiveActivityEditableCatalog.headerAction(for: record) == .none)
-        #expect(DiveActivityEditableCatalog.headerAction(for: equipment) == .manageEquipment)
-        #expect(DiveActivityEditableCatalog.editableFields(in: dive).contains(.durationMinutes))
-        #expect(!DiveActivityEditableCatalog.editableFields(in: dive).contains(.profileSampleCount))
+        #expect(DiveActivityEditableCatalog.headerAction(for: dive, activity: manualDive) == .editForm)
+        #expect(DiveActivityEditableCatalog.headerAction(for: dive, activity: importedDive) == .editForm)
+        #expect(DiveActivityEditableCatalog.headerAction(for: buddies, activity: manualDive) == .add)
+        #expect(DiveActivityEditableCatalog.headerAction(for: record, activity: manualDive) == .none)
+        #expect(DiveActivityEditableCatalog.headerAction(for: equipment, activity: manualDive) == .manageEquipment)
+
+        let manualEditable = DiveActivityEditableCatalog.editableFields(in: dive, for: manualDive)
+        #expect(manualEditable.contains(.durationMinutes))
+        #expect(manualEditable.contains(.maxDepthMeters))
+        #expect(!manualEditable.contains(.profileSampleCount))
+
+        let importedEditable = DiveActivityEditableCatalog.editableFields(in: dive, for: importedDive)
+        #expect(!importedEditable.contains(.durationMinutes))
+        #expect(!importedEditable.contains(.maxDepthMeters))
+        #expect(!importedEditable.contains(.averageDepthMeters))
+        #expect(!importedEditable.contains(.bottomTimeSeconds))
+        #expect(!importedEditable.contains(.surfaceIntervalSeconds))
+        #expect(!importedEditable.contains(.avgAscentRateMetersPerSecond))
+        #expect(importedEditable.contains(.startTime))
+        #expect(importedEditable.contains(.diveNumber))
+    }
+
+    @Test func diveActivityEditableCatalog_manualEntryOnlyFields_blockedForImports() {
+        let imported = DiveActivity(
+            source: .macDive,
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        for field in DiveActivityEditableCatalog.manualEntryOnlyFieldIDs {
+            #expect(!DiveActivityEditableCatalog.isEditable(field, for: imported))
+        }
+        let manual = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        for field in DiveActivityEditableCatalog.manualEntryOnlyFieldIDs {
+            #expect(DiveActivityEditableCatalog.isEditable(field, for: manual))
+        }
+    }
+
+    @Test func diveActivityFieldEditing_applyDraft_skipsManualEntryOnlyFieldsOnImports() {
+        let activity = DiveActivity(
+            source: .garminMK3,
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        var draft = DiveActivityFieldEditDraft()
+        draft.text = "52"
+        DiveActivityFieldEditing.applyDraft(draft, for: .durationMinutes, to: activity, displayUnits: .metric)
+        #expect(activity.durationMinutes == 40)
     }
 
     @Test func diveActivitySectionEditContext_resolvesSectionFromTabAndDetent() {
@@ -5975,6 +6127,23 @@ struct GoDiveMVPTests {
         #expect(rows[0].detailLine.contains("Caribbean"))
         #expect(rows[1].trailingLabel == "1 dive")
         #expect(rows[1].detailLine.contains("No map pin"))
+    }
+
+    @Test func exploreDiveSiteListDisplay_plannedTripRow_omitsDiveCount() {
+        let rated = DiveSite(
+            siteName: "Salt Pier",
+            country: "Bonaire",
+            siteRating: 4
+        )
+        let unrated = DiveSite(siteName: "Mystery Reef", country: "Belize")
+        unrated.diveActivities = [
+            DiveActivity(source: .macDive, sourceDiveId: "a", startTime: .now, durationMinutes: 40, maxDepthMeters: 18),
+        ]
+
+        let rows = ExploreDiveSiteListDisplay.rowData(for: [rated, unrated], trailingStyle: .plannedTrip)
+
+        #expect(rows[0].trailingLabel == "★ 4")
+        #expect(rows[1].trailingLabel == nil)
     }
 
     @Test func exploreDiveSiteListDisplay_placeSummary_omitsEmptyFields() {
@@ -10361,6 +10530,37 @@ struct GoDiveMVPTests {
         #expect(
             LogbookTripSearchPresentation.activeTripPromptLine(displayTitle: "Bonaire 2026")
                 == "trip: Bonaire 2026"
+        )
+    }
+
+    @Test func logbookUpcomingTripPresentation_shouldShowInLogbookList_waitsForDisplayItems() {
+        #expect(
+            !LogbookUpcomingTripPresentation.shouldShowInLogbookList(
+                isFilteringLogbook: false,
+                showsStoredDiveEmptyState: false,
+                hasDisplayItems: false
+            )
+        )
+        #expect(
+            LogbookUpcomingTripPresentation.shouldShowInLogbookList(
+                isFilteringLogbook: false,
+                showsStoredDiveEmptyState: false,
+                hasDisplayItems: true
+            )
+        )
+        #expect(
+            LogbookUpcomingTripPresentation.shouldShowInLogbookList(
+                isFilteringLogbook: false,
+                showsStoredDiveEmptyState: true,
+                hasDisplayItems: false
+            )
+        )
+        #expect(
+            !LogbookUpcomingTripPresentation.shouldShowInLogbookList(
+                isFilteringLogbook: true,
+                showsStoredDiveEmptyState: false,
+                hasDisplayItems: true
+            )
         )
     }
 

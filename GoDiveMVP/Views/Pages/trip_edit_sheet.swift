@@ -9,13 +9,10 @@ struct TripEditSheetView: View {
 
     @Bindable var trip: DiveTrip
 
-    @Query(sort: \DiveSite.siteName) private var diveSites: [DiveSite]
-
     var onSaved: () -> Void = {}
     var onDeleted: () -> Void = {}
 
     @State private var form: DiveTripFormValues
-    @State private var showsPlannedSitePicker = false
     @State private var saveErrorMessage: String?
     @State private var deleteErrorMessage: String?
     @State private var showsDeleteConfirmation = false
@@ -30,10 +27,7 @@ struct TripEditSheetView: View {
     var body: some View {
         NavigationStack {
             Form {
-                TripPlannerFormContent(
-                    form: $form,
-                    showsPlannedSitePicker: $showsPlannedSitePicker
-                )
+                TripPlannerFormContent(form: $form)
 
                 Section {
                     Button("Delete trip", role: .destructive) {
@@ -83,12 +77,6 @@ struct TripEditSheetView: View {
                 Text(TripPlannerPresentation.deleteTripConfirmationMessage(displayTitle: trip.displayTitle))
             }
         }
-        .sheet(isPresented: $showsPlannedSitePicker) {
-            TripPlannedSitePickerSheet(
-                selectedSiteIDs: $form.plannedSiteIDs,
-                sites: diveSites
-            )
-        }
         .tripPlannerAddSheetPresentation()
         .accessibilityIdentifier("TripEditSheet.Root")
     }
@@ -110,8 +98,7 @@ struct TripEditSheetView: View {
     private func saveChanges() {
         guard form.canSave else { return }
 
-        let plannedSites = diveSites.filter { form.plannedSiteIDs.contains($0.id) }
-        form.apply(to: trip, plannedSites: plannedSites)
+        form.apply(to: trip, plannedSites: trip.plannedSites)
 
         do {
             if let ownerID = accountSession.currentProfile?.id ?? trip.ownerProfileID {

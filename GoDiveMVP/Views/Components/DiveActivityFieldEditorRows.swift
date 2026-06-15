@@ -54,12 +54,6 @@ struct DiveActivityFieldEditorRows: View {
                 }
             }
             .pickerStyle(.segmented)
-        case .source:
-            Picker("Source", selection: $draft.source) {
-                ForEach(DiveSource.allCases, id: \.self) { source in
-                    Text(source.rawValue).tag(source)
-                }
-            }
         case .signature:
             DiveSignaturePadView(signatureData: $activity.diveSignatureData)
         case .readOnly:
@@ -78,14 +72,12 @@ struct DiveActivityFieldEditorRows: View {
         switch field {
         case .maxDepthMeters, .averageDepthMeters:
             return displayUnits == .metric ? "Meters" : "Feet"
-        case .tankPressureStartPSI, .tankPressureEndPSI, .avgSAC:
+        case .tankPressureStartPSI, .tankPressureEndPSI:
             return displayUnits == .metric ? "Bar" : "PSI"
         case .waterTempAvgCelsius, .waterTempMaxCelsius, .waterTempMinCelsius:
             return displayUnits == .metric ? "°C" : "°F"
         case .avgAscentRateMetersPerSecond:
             return displayUnits == .metric ? "m/s" : "ft/min"
-        case .avgRMV:
-            return displayUnits == .metric ? "L/min" : "cu ft/min"
         case .oxygenMix:
             return "Percent O₂"
         default:
