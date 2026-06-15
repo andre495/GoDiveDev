@@ -1254,7 +1254,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Media tab video poster** — dive hero videos use **`loadImageProgressive`** for the poster (degraded frame first, no camera icon flash); poster loads before layout width is known; **`DiveActivityVideoPlayerView`** accepts **`initialPosterImage`** from the parent. Test: **`diveMediaProgressivePresentation_posterTargetSize_beforeLayoutUsesFastEdge`**.
 - **Media tab species ovals** — **medium** detent uses the same horizontal chip row as **large** (natural width + **`chipTitleMaxLength`** truncation), not a wrapping **88 pt** grid.
 
-## 79 - Next batch
+## 79 - Next batch **(pushed)**
 
 **Summary:** Trip Planner from Explore — trip list, add-trip sheet, and detail.
 
@@ -1295,3 +1295,5 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Trip media interactive browse** — **`TripDetailMediaGallerySection`** tracks vertical drag in real time: current frame follows the finger, adjacent item reveals underneath with shared scale/opacity (**`TripDetailMediaGalleryPresentation.interactiveBrowse*`**); commit/snap-back spring (**`0.32s`**). Test: **`tripDetailMediaGalleryPresentation_interactiveBrowse_followsVerticalDrag`**.
 - **Trip share buddy grid** — **`TripShareCardPresentation.members`** picks **planned roster** (owner + **You** / **On this trip**) before the trip starts, then **owner + linked dive count** plus **tagged buddies + dive counts** once started; **`TripShareCardView`** shows subtitle under each avatar, **species spotted** fish callout when tagged, **`GoDiveLogoPin`** pinned to the card footer. Tests: **`tripShareCardPresentation_members_usesPlannedBuddiesBeforeTripStarts`**, **`tripShareCardPresentation_members_usesTaggedBuddiesWithDiveCountsAfterStart`**, **`tripShareCardPresentation_marineLifeCalloutLabel_formatsUniqueSpeciesCount`**, **`tripShareCardPresentation_ownerShareSubtitle_usesDiveCountWhenTripStarted`**.
 - **Planned buddy removal** — **`DiveTripPlannedBuddyLinking.removeBuddy`** clears deleted links from **`trip.buddyLinks`** so toggle/remove updates the roster immediately.
+
+## 80 - Next batch
