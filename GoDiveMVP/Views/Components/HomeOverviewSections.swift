@@ -210,7 +210,9 @@ struct HomeMediaCarouselEmptyPlaceholder: View {
 struct HomeMediaCarouselSection: View {
     let highlights: [HomeMediaHighlight]
     let mediaByID: [UUID: DiveMediaPhoto]
-    let divesByID: [UUID: DiveActivity]
+    let sightings: [SightingInstance]
+    let marineLifeCatalog: [MarineLife]
+    let ownerProfileID: UUID?
     let containerWidth: CGFloat
     let topSafeAreaInset: CGFloat
     let headerOverlayHeight: CGFloat
@@ -222,7 +224,8 @@ struct HomeMediaCarouselSection: View {
     @State private var playbackIndex = 0
     @State private var playbackSettleTask: Task<Void, Never>?
     @State private var isCarouselVisible = false
-    @State private var marineLifeTagsMediaID: UUID?
+    @State private var marineLifeOverlayMediaID: UUID?
+    @State private var selectedTaggedSpeciesUUID: String?
 
     private var heroHeight: CGFloat {
         HomeMediaCarouselLayout.heroHeight(
@@ -231,8 +234,20 @@ struct HomeMediaCarouselSection: View {
         )
     }
 
+    private var marineLifeOverlaySize: CGSize {
+        HomeMediaCarouselPresentation.marineLifeOverlaySize(
+            width: containerWidth,
+            height: heroHeight
+        )
+    }
+
+    private var showsMarineLifeOverlay: Bool {
+        guard let mediaID = marineLifeOverlayMediaID else { return false }
+        return !taggedSpecies(for: mediaID).isEmpty
+    }
+
     private var isPlaybackAllowed: Bool {
-        isCarouselVisible && scenePhase == .active
+        isCarouselVisible && scenePhase == .active && !showsMarineLifeOverlay
     }
 
     private var isAutoAdvanceEnabled: Bool {
@@ -260,10 +275,11 @@ struct HomeMediaCarouselSection: View {
                             shouldLoadMedia: shouldLoadMedia(at: index),
                             isVideoPlaybackActive: isSlideActive(index),
                             isAutoAdvanceActive: isAutoAdvanceEnabled && isSlideActive(index),
+                            showsBottomChrome: !showsMarineLifeOverlay,
                             onSlideFinished: advanceToNextSlide,
                             onOpenMedia: { onOpenMedia(highlight.diveActivityID, highlight.mediaID) },
                             onOpenDive: { onOpenDive(highlight.diveActivityID) },
-                            onShowTaggedSpecies: { marineLifeTagsMediaID = highlight.mediaID }
+                            onShowTaggedSpecies: { openMarineLifeOverlay(for: highlight.mediaID) }
                         )
                         .tag(index)
                     }
@@ -273,21 +289,46 @@ struct HomeMediaCarouselSection: View {
             .frame(width: containerWidth, height: heroHeight)
             .clipped()
             .onChange(of: selectedIndex) { _, newIndex in
+                closeMarineLifeOverlay()
                 schedulePlaybackIndex(for: newIndex)
             }
 
-            HomeMediaCarouselHeaderGradient(
-                height: HomeMediaCarouselLayout.headerGradientHeight(
-                    headerOverlayHeight: headerOverlayHeight,
-                    topSafeAreaInset: topSafeAreaInset,
-                    heroHeight: heroHeight
+            if !showsMarineLifeOverlay {
+                HomeMediaCarouselHeaderGradient(
+                    height: HomeMediaCarouselLayout.headerGradientHeight(
+                        headerOverlayHeight: headerOverlayHeight,
+                        topSafeAreaInset: topSafeAreaInset,
+                        heroHeight: heroHeight
+                    )
                 )
-            )
-            .allowsHitTesting(false)
+                .allowsHitTesting(false)
+            }
+
+            if showsMarineLifeOverlay, let mediaID = marineLifeOverlayMediaID {
+                TripDetailMediaMarineLifeOverlay(
+                    taggedSpecies: taggedSpecies(for: mediaID),
+                    previewSize: marineLifeOverlaySize,
+                    cornerRadius: HomeMediaCarouselPresentation.marineLifeOverlayCornerRadius,
+                    ownerProfileID: ownerProfileID,
+                    featureImageHeight: HomeMediaCarouselPresentation.marineLifeOverlayFeatureImageHeight(
+                        previewHeight: marineLifeOverlaySize.height
+                    ),
+                    featureImageMaxWidth: HomeMediaCarouselPresentation.marineLifeOverlayFeatureImageMaxWidth(
+                        previewWidth: marineLifeOverlaySize.width
+                    ),
+                    selectedSpeciesUUID: $selectedTaggedSpeciesUUID,
+                    onOpenDive: onOpenDive,
+                    onClose: closeMarineLifeOverlay
+                )
+                .frame(width: marineLifeOverlaySize.width, height: marineLifeOverlaySize.height)
+                .transition(marineLifeOverlayTransition)
+                .accessibilityIdentifier("Home.MediaCarousel.MarineLifeOverlay")
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.top, -topSafeAreaInset)
         .ignoresSafeArea(edges: .top)
+        .animation(marineLifeOverlayAnimation, value: showsMarineLifeOverlay)
         .accessibilityIdentifier("Home.MediaCarousel")
         .onAppear {
             isCarouselVisible = true
@@ -297,41 +338,38 @@ struct HomeMediaCarouselSection: View {
             isCarouselVisible = false
             playbackSettleTask?.cancel()
         }
-        .sheet(isPresented: marineLifeTagsSheetPresented) {
-            if let context = marineLifeTagsSheetContext {
-                DiveMarineLifeMediaTagsSheet(
-                    media: context.media,
-                    dive: context.dive,
-                    captureContext: nil
-                )
-            }
-        }
     }
 
-    private var marineLifeTagsSheetPresented: Binding<Bool> {
-        Binding(
-            get: { marineLifeTagsMediaID != nil },
-            set: { isPresented in
-                if !isPresented {
-                    marineLifeTagsMediaID = nil
-                }
-            }
+    private var marineLifeOverlayAnimation: Animation {
+        .spring(response: 0.34, dampingFraction: 0.86)
+    }
+
+    private var marineLifeOverlayTransition: AnyTransition {
+        .opacity.combined(with: .scale(scale: 0.98))
+    }
+
+    private func taggedSpecies(for mediaID: UUID) -> [MarineLife] {
+        HomeMediaCarouselPresentation.taggedSpecies(
+            mediaID: mediaID,
+            sightings: sightings,
+            catalog: marineLifeCatalog
         )
     }
 
-    private var marineLifeTagsSheetContext: (media: DiveMediaPhoto, dive: DiveActivity)? {
-        guard let mediaID = marineLifeTagsMediaID,
-              let media = mediaByID[mediaID],
-              let diveID = highlightDiveID(for: mediaID),
-              let dive = divesByID[diveID] else {
-            return nil
+    private func openMarineLifeOverlay(for mediaID: UUID) {
+        guard !taggedSpecies(for: mediaID).isEmpty else { return }
+        selectedTaggedSpeciesUUID = taggedSpecies(for: mediaID).first?.uuid
+        withAnimation(marineLifeOverlayAnimation) {
+            marineLifeOverlayMediaID = mediaID
         }
-        return (media, dive)
     }
 
-    private func highlightDiveID(for mediaID: UUID) -> UUID? {
-        highlights.first(where: { $0.mediaID == mediaID })?.diveActivityID
-            ?? mediaByID[mediaID]?.diveActivityID
+    private func closeMarineLifeOverlay() {
+        guard marineLifeOverlayMediaID != nil else { return }
+        withAnimation(marineLifeOverlayAnimation) {
+            marineLifeOverlayMediaID = nil
+            selectedTaggedSpeciesUUID = nil
+        }
     }
 
     private func advanceToNextSlide() {
@@ -385,6 +423,7 @@ private struct HomeMediaCarouselPage: View {
     var shouldLoadMedia: Bool = true
     var isVideoPlaybackActive: Bool
     var isAutoAdvanceActive: Bool
+    var showsBottomChrome: Bool = true
     let onSlideFinished: () -> Void
     let onOpenMedia: () -> Void
     let onOpenDive: () -> Void
@@ -404,12 +443,14 @@ private struct HomeMediaCarouselPage: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: onOpenMedia)
         .overlay(alignment: .bottom) {
-            HomeMediaCarouselSlideBottomChrome(
-                highlight: highlight,
-                onOpenDive: onOpenDive,
-                onShowTaggedSpecies: onShowTaggedSpecies
-            )
-            .frame(width: pageWidth)
+            if showsBottomChrome {
+                HomeMediaCarouselSlideBottomChrome(
+                    highlight: highlight,
+                    onOpenDive: onOpenDive,
+                    onShowTaggedSpecies: onShowTaggedSpecies
+                )
+                .frame(width: pageWidth)
+            }
         }
         .frame(width: pageWidth, height: pageHeight)
         .accessibilityLabel("Dive media at \(highlight.siteDisplayName)")

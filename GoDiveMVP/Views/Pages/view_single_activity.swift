@@ -25,6 +25,7 @@ struct ViewSingleActivity: View {
     @Query(sort: \MarineLife.commonName) private var marineLifeCatalog: [MarineLife]
     @Environment(\.modelContext) private var modelContext
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
+    @Environment(\.openCatalogDiveSiteDetail) private var openCatalogDiveSiteDetail
     @Environment(AccountSession.self) private var accountSession
 
     private enum DetailNotes {
@@ -109,6 +110,7 @@ struct ViewSingleActivity: View {
 
     private var singleActivityWithLifecycleModifiers: some View {
         singleActivityMainPage
+            .diveActivityLandscapeOrientation()
             .hidesBottomTabBarWhenPushed()
             .task(id: activity.id) {
                 let previousOffset = activity.timeZoneOffsetSeconds
@@ -1208,10 +1210,21 @@ struct ViewSingleActivity: View {
         )
     }
 
+    private var linkedCatalogSiteID: UUID? {
+        activity.diveSite?.id
+    }
+
+    private func openLinkedDiveSiteOverview() {
+        guard let siteID = linkedCatalogSiteID else { return }
+        openCatalogDiveSiteDetail?(siteID)
+    }
+
     private var overviewCollapsedSummary: some View {
         DiveActivityOverviewCollapsedSummary(
             dateText: activity.formattedStartDateOnly(),
             titleText: overviewSiteHeaderTitle,
+            linkedCatalogSiteID: linkedCatalogSiteID,
+            onOpenLinkedSite: openLinkedDiveSiteOverview,
             diveNumberText: activity.diveNumberPlainLabel,
             maxDepthText: formatDepth(activity.maxDepthMeters),
             durationText: "\(activity.durationMinutes) min"
@@ -1231,6 +1244,8 @@ struct ViewSingleActivity: View {
             overviewSheetDetent: $overviewSheetDetent,
             profileGasStats: derivedDiveData.profileGasStats,
             siteTitle: overviewSiteHeaderTitle,
+            linkedCatalogSiteID: linkedCatalogSiteID,
+            onOpenLinkedSite: openLinkedDiveSiteOverview,
             regionCountryLine: overviewMapHeaderRegionCountryLine,
             onEditSection: { section in
                 editingSectionContext = DiveActivitySectionEditContext(

@@ -96,6 +96,8 @@ enum AppTheme {
             light: UIColor(red: 0.00, green: 0.48, blue: 0.72, alpha: 1.0),
             dark: UIColor(red: 0.30, green: 0.76, blue: 1.00, alpha: 1.0)
         )
+        /// Linked catalog site name on dive overview — flat mid ocean blue (not brand gradient / adaptive cyan).
+        static let linkedSiteTitleAccent = Color(red: 0.00, green: 0.48, blue: 0.72)
         static let accentDeep = adaptive(
             light: UIColor(red: 0.00, green: 0.18, blue: 0.36, alpha: 1.0),
             dark: UIColor(red: 0.64, green: 0.90, blue: 1.00, alpha: 1.0)

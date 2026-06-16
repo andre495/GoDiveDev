@@ -4,16 +4,20 @@ import SwiftUI
 struct DiveActivityOverviewCollapsedSummary: View {
     let dateText: String
     let titleText: String
+    let linkedCatalogSiteID: UUID?
+    var onOpenLinkedSite: (() -> Void)?
     let diveNumberText: String
     let maxDepthText: String
     let durationText: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(titleText)
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-                .lineLimit(2)
+            DiveActivityLinkedSiteTitle(
+                title: titleText,
+                linkedCatalogSiteID: linkedCatalogSiteID,
+                font: .headline.weight(.semibold),
+                onOpenLinkedSite: onOpenLinkedSite
+            )
 
             Text(dateText)
                 .font(.subheadline)

@@ -4,22 +4,22 @@ import SwiftUI
 struct DiveActivityMapOverviewHeader: View {
     let diveNumberChip: String?
     let siteTitle: String
+    let linkedCatalogSiteID: UUID?
+    var onOpenLinkedSite: (() -> Void)?
     let regionCountryLine: String?
     let dateDashTimeLine: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            HStack(alignment: .top, spacing: AppTheme.Spacing.sm) {
-                if let diveNumberChip {
-                    diveNumberChipLabel(diveNumberChip)
-                }
-
-                Text(siteTitle)
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            if let diveNumberChip {
+                diveNumberChipLabel(diveNumberChip)
             }
+
+            DiveActivityLinkedSiteTitle(
+                title: siteTitle,
+                linkedCatalogSiteID: linkedCatalogSiteID,
+                onOpenLinkedSite: onOpenLinkedSite
+            )
 
             if let regionCountryLine, !regionCountryLine.isEmpty {
                 Text(regionCountryLine)

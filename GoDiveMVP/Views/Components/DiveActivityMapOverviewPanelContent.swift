@@ -7,6 +7,8 @@ struct DiveActivityMapOverviewPanelContent: View {
     @Binding var overviewSheetDetent: DiveActivityOverviewDetent
     let profileGasStats: DiveActivityTankPanelSummary.ProfilePressureStats
     let siteTitle: String
+    let linkedCatalogSiteID: UUID?
+    let onOpenLinkedSite: () -> Void
     let regionCountryLine: String?
     let onEditSection: (DiveActivityEditableCatalog.Section) -> Void
     let onManageEquipment: () -> Void
@@ -120,6 +122,8 @@ struct DiveActivityMapOverviewPanelContent: View {
                 diveNumberExplicitlyNone: activity.diveNumberExplicitlyNone
             ),
             siteTitle: siteTitle,
+            linkedCatalogSiteID: linkedCatalogSiteID,
+            onOpenLinkedSite: onOpenLinkedSite,
             regionCountryLine: regionCountryLine,
             dateDashTimeLine: DiveActivityOverviewPresentation.startDateDashTimeLine(
                 startTime: activity.startTime,

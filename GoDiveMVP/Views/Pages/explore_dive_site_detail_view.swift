@@ -89,6 +89,8 @@ struct ExploreDiveSiteDetailView: View {
         AppPage(
             title: site.siteName,
             showsBackButton: true,
+            showsBrandWordmark: false,
+            titleUsesBrandForeground: true,
             trailingContent: { EmptyView() }
         ) {
             ScrollView {

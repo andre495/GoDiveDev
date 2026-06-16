@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 /// Auto-advance rules for the Home featured-media carousel.
 enum HomeMediaCarouselPresentation: Sendable {
@@ -14,5 +15,32 @@ enum HomeMediaCarouselPresentation: Sendable {
 
     nonisolated static func shouldAutoAdvance(slideCount: Int) -> Bool {
         slideCount > 1
+    }
+
+    nonisolated static let marineLifeOverlayCornerRadius: CGFloat = 0
+
+    nonisolated static func marineLifeOverlaySize(width: CGFloat, height: CGFloat) -> CGSize {
+        CGSize(width: max(width, 1), height: max(height, 1))
+    }
+
+    /// Scales the feature image for taller Home heroes while staying compact.
+    nonisolated static func marineLifeOverlayFeatureImageHeight(previewHeight: CGFloat) -> CGFloat {
+        min(168, max(112, previewHeight * 0.24))
+    }
+
+    nonisolated static func marineLifeOverlayFeatureImageMaxWidth(previewWidth: CGFloat) -> CGFloat {
+        min(240, max(180, previewWidth * 0.58))
+    }
+
+    nonisolated static func taggedSpecies(
+        mediaID: UUID,
+        sightings: [SightingInstance],
+        catalog: [MarineLife]
+    ) -> [MarineLife] {
+        TripDetailMediaGalleryPresentation.taggedSpecies(
+            mediaID: mediaID,
+            sightings: sightings,
+            catalog: catalog
+        )
     }
 }

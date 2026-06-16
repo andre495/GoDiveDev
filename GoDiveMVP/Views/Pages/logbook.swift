@@ -130,10 +130,6 @@ struct LogbookView: View {
         activities.count <= optimisticallyRemovedActivityIDs.count
     }
 
-    private var locksPortraitOrientation: Bool {
-        AppPortraitOrientationLockPolicy.locksLogbook(pathIsEmpty: path.isEmpty)
-    }
-
     /// Trip rows / dive ↔ trip links can change without **`activities.count`** changing.
     private var logbookTripGroupingSyncToken: String {
         LogbookTripGroupingSync.syncToken(ownerTrips: ownerTrips, activities: visibleActivities)
@@ -185,7 +181,6 @@ struct LogbookView: View {
             .onChange(of: automaticallyRenumberDives) { _, _ in
                 scheduleLogbookCacheRefresh()
             }
-            .portraitOrientationLock(when: locksPortraitOrientation)
     }
 
     private var logbookNavigationStack: some View {

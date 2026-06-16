@@ -6,6 +6,8 @@ struct TripDetailMediaMarineLifeOverlay: View {
     let previewSize: CGSize
     let cornerRadius: CGFloat
     let ownerProfileID: UUID?
+    var featureImageHeight: CGFloat = TripDetailMediaGalleryPresentation.marineLifeOverlayFeatureImageHeight
+    var featureImageMaxWidth: CGFloat = TripDetailMediaGalleryPresentation.marineLifeOverlayFeatureImageMaxWidth
     @Binding var selectedSpeciesUUID: String?
     var onOpenDive: (UUID) -> Void
     var onClose: () -> Void
@@ -116,11 +118,9 @@ struct TripDetailMediaMarineLifeOverlay: View {
         FieldGuideMarineLifeCatalogImage(
             imageURLString: species.featureImageURL,
             bundleResourceName: species.featureImageResourceName,
-            placement: .mediaSheetHero(
-                height: TripDetailMediaGalleryPresentation.marineLifeOverlayFeatureImageHeight
-            )
+            placement: .mediaSheetHero(height: featureImageHeight)
         )
-        .frame(maxWidth: TripDetailMediaGalleryPresentation.marineLifeOverlayFeatureImageMaxWidth)
+        .frame(maxWidth: featureImageMaxWidth)
         .frame(maxWidth: .infinity)
     }
 

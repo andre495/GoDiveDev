@@ -6,12 +6,14 @@ private enum FieldGuideRoute: Hashable {
     case subcategory(FieldGuideCatalogIndex.SubcategoryBrowsePayload)
     case speciesDetail(String)
     case diveDetail(UUID)
+    case diveSite(UUID)
 }
 
 struct FieldGuideView: View {
     @Environment(AccountSession.self) private var accountSession
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @Query(sort: \MarineLife.commonName) private var catalog: [MarineLife]
+    @Query(sort: \DiveSite.siteName) private var diveSites: [DiveSite]
     @Query(
         sort: [
             SortDescriptor(\DiveActivity.startTime, order: .reverse),
@@ -35,15 +37,6 @@ struct FieldGuideView: View {
 
     private var isFieldGuideNavigationStackAtRoot: Bool {
         RootStackReturnNavigationPresentation.isStackAtRoot(pathCount: path.count)
-    }
-
-    private var locksPortraitOrientation: Bool {
-        AppPortraitOrientationLockPolicy.locksFieldGuide(
-            isShowingDiveDetail: {
-                if case .diveDetail = path.last { return true }
-                return false
-            }()
-        )
     }
 
     private var resolvedCatalogSnapshots: [MarineLifeCatalogSnapshot] {
@@ -174,8 +167,20 @@ struct FieldGuideView: View {
                     } else {
                         missingDivePlaceholder
                     }
+                case .diveSite(let siteID):
+                    if let site = diveSites.first(where: { $0.id == siteID }) {
+                        ExploreDiveSiteDetailView(
+                            site: site,
+                            ownerProfileID: accountSession.currentProfile?.id
+                        )
+                    } else {
+                        missingDiveSitePlaceholder
+                    }
                 }
             }
+        }
+        .environment(\.openCatalogDiveSiteDetail) { siteID in
+            path.append(.diveSite(siteID))
         }
         .navigationInteractivePopGestureForHiddenNavBar()
         .rootTabReselectObserver(notification: .fieldGuideTabReselected)
@@ -190,7 +195,6 @@ struct FieldGuideView: View {
         .onAppear {
             syncCatalogCache()
         }
-        .portraitOrientationLock(when: locksPortraitOrientation)
         .onChange(of: catalog.count) { _, _ in
             syncCatalogCache()
         }
@@ -240,6 +244,12 @@ struct FieldGuideView: View {
 
     private var missingDivePlaceholder: some View {
         Text("This dive is no longer in your log.")
+            .foregroundStyle(AppTheme.Colors.secondaryText)
+            .padding()
+    }
+
+    private var missingDiveSitePlaceholder: some View {
+        Text("This dive site is no longer in the catalog.")
             .foregroundStyle(AppTheme.Colors.secondaryText)
             .padding()
     }

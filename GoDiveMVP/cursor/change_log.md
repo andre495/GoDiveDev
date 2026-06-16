@@ -1312,4 +1312,13 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Source & import read-only** — **`source`**, **`sourceDiveId`**, and **`rawImportVersion`** are never editable (set at dive creation / import only). **Source & import** section has no edit control. Tests: **`diveActivityEditableCatalog_sourceAndImportFieldsAreNotEditable`**, **`diveActivityFieldEditing_applyDraft_doesNotChangeSourceOrImportVersion`**.
 - **Build** — **`TripDetailContentPage`** imports **SwiftUI** for **`Alignment`** in stats pager layout helper.
 
-## 81 - Next batch
+## 81 - Home overlay, linked site title, portrait lock **(pushed)**
+
+**Summary:** Home carousel fish icon opens an in-hero marine-life overlay (trip-style condensed card).
+
+- **Home media marine-life overlay** — **`HomeMediaCarouselSection`** replaces **`DiveMarineLifeMediaTagsSheet`** with **`TripDetailMediaMarineLifeOverlay`** sized to the hero (**`HomeMediaCarouselPresentation.marineLifeOverlaySize`**); species chips + Field Guide link; closes on swipe or **×**; pauses carousel playback while open. **`TripDetailMediaMarineLifeOverlay`** accepts configurable feature-image dimensions. Test: **`homeMediaCarouselPresentation_marineLifeOverlaySizing_fitsHeroArea`**.
+- **Dive site overview title** — **`ExploreDiveSiteDetailView`** shows **`site.siteName`** in **`AppHeader`** (no **GoDive** wordmark) via **`titleUsesBrandForeground`** — **`.title.bold`** + blue **`headerTitleForegroundGradient`**.
+- **Linked dive site title on dive overview** — When **`DiveActivity.diveSite`** is set, the map header + minimized collapsed summary use **`DiveActivityLinkedSiteTitle`** (flat **`linkedSiteTitleAccent`**, tappable, up to three lines, full header width below the **#** chip) → **`openCatalogDiveSiteDetail`** (**`ExploreDiveSiteDetailView`** on Home, Logbook, Explore, Field Guide stacks). Import-only site names without a catalog link stay plain text. Test: **`diveActivityOverviewPresentation_siteTitleLinksToCatalogOverview_requiresLinkedSiteID`**.
+- **Portrait lock expansion** — **`AppPortraitOrientationLockPolicy`** documents portrait destinations; runtime defaults to portrait-only with **`diveActivityLandscapeOrientation()`** on **`ViewSingleActivity`** only (fixes per-screen **`onDisappear`** unlocking landscape). Tests: **`appPortraitOrientationLockPolicy_listScreensStayPortrait`**, **`supportedInterfaceOrientations`** mask cases.
+
+## 82 - Next batch

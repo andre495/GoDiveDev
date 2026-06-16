@@ -122,10 +122,6 @@ struct TripDetailView: View {
         )
     }
 
-    private var showsPushedSubDestination: Bool {
-        navigationTarget != nil
-    }
-
     private var autoLinkSyncToken: String {
         guard let trip else { return tripID.uuidString }
         let divePart = ownedDiveActivities.map(\.id.uuidString).joined(separator: ",")
@@ -145,11 +141,6 @@ struct TripDetailView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .hidesBottomTabBarWhenPushed()
-        .portraitOrientationLock(
-            when: AppPortraitOrientationLockPolicy.locksTripDetail(
-                showingLinkedDiveDetail: showsPushedSubDestination
-            )
-        )
         .task(id: autoLinkSyncToken) {
             syncTripActivityLinks()
         }

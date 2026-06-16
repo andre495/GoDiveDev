@@ -1,49 +1,92 @@
 import Foundation
 import UIKit
 
-/// Screens that should stay portrait-only while visible (lists / catalog browse).
+/// Declarative rules for which navigation destinations stay portrait (tests / docs).
 enum AppPortraitOrientationLockPolicy: Sendable {
 
-    nonisolated static func locksHome(pathIsEmpty: Bool) -> Bool {
-        pathIsEmpty
+    /// Portrait everywhere except **`ViewSingleActivity`** (landscape tank profile).
+    nonisolated static func locksUnlessShowingDiveActivity(_ isShowingDiveActivity: Bool) -> Bool {
+        !isShowingDiveActivity
     }
 
-    nonisolated static func locksLogbook(pathIsEmpty: Bool) -> Bool {
-        pathIsEmpty
+    nonisolated static func homeRouteIsDiveActivity(_ route: HomeRoute) -> Bool {
+        switch route {
+        case .diveDetail, .diveMedia:
+            return true
+        case .profile, .tripPlanner, .tripDetail, .tripDetailMedia, .diveSite, .marineLife, .diveBuddy:
+            return false
+        }
     }
 
-    /// **Field Guide** root, category, subcategory, and species detail — not dive activity.
+    nonisolated static func logbookRouteIsDiveActivity(_ route: LogbookRoute) -> Bool {
+        switch route {
+        case .diveDetail, .diveMedia:
+            return true
+        case .addActivity, .tripDetail, .tripDetailMedia, .diveSite:
+            return false
+        }
+    }
+
+    nonisolated static func exploreRouteIsDiveActivity(_ route: ExploreRoute) -> Bool {
+        if case .diveDetail = route { return true }
+        return false
+    }
+
+    nonisolated static func locksHome(path: [HomeRoute]) -> Bool {
+        guard let top = path.last else { return true }
+        return !homeRouteIsDiveActivity(top)
+    }
+
+    nonisolated static func locksLogbook(path: [LogbookRoute]) -> Bool {
+        guard let top = path.last else { return true }
+        return !logbookRouteIsDiveActivity(top)
+    }
+
     nonisolated static func locksFieldGuide(isShowingDiveDetail: Bool) -> Bool {
         !isShowingDiveDetail
     }
 
-    /// **Explore** dive-site list root only (not map mode or pushed destinations).
-    nonisolated static func locksExploreList(pathIsEmpty: Bool, viewModeIsList: Bool) -> Bool {
-        pathIsEmpty && viewModeIsList
+    nonisolated static func locksExplore(path: [ExploreRoute]) -> Bool {
+        guard let top = path.last else { return true }
+        return !exploreRouteIsDiveActivity(top)
     }
 
-    /// **`TripDetailView`** and pushed trip sub-pages (planned sites); unlock for linked **`ViewSingleActivity`**.
     nonisolated static func locksTripDetail(showingLinkedDiveDetail: Bool) -> Bool {
         !showingLinkedDiveDetail
     }
+
+    /// Runtime mask from active **`ViewSingleActivity`** landscape unlock depth.
+    nonisolated static func supportedInterfaceOrientations(landscapeUnlockCount: Int) -> UIInterfaceOrientationMask {
+        landscapeUnlockCount > 0
+            ? [.portrait, .landscapeLeft, .landscapeRight]
+            : .portrait
+    }
 }
 
-/// Global portrait lock consulted by **`GoDiveGoogleMapsAppDelegate`** and rotation requests.
+/// Global orientation policy consulted by **`GoDiveGoogleMapsAppDelegate`**.
+///
+/// **Default:** portrait only. **`ViewSingleActivity`** calls **`acquireLandscapeUnlock()`** while visible.
 @MainActor
 final class AppPortraitOrientationLockController {
     static let shared = AppPortraitOrientationLockController()
 
-    private(set) var isPortraitLocked = false
+    private(set) var landscapeUnlockCount = 0
 
     var supportedMask: UIInterfaceOrientationMask {
-        isPortraitLocked ? .portrait : [.portrait, .landscapeLeft, .landscapeRight]
+        AppPortraitOrientationLockPolicy.supportedInterfaceOrientations(
+            landscapeUnlockCount: landscapeUnlockCount
+        )
     }
 
     private init() {}
 
-    func updatePortraitLock(_ locked: Bool) {
-        guard isPortraitLocked != locked else { return }
-        isPortraitLocked = locked
+    func acquireLandscapeUnlock() {
+        landscapeUnlockCount += 1
+        applyRotationPolicy()
+    }
+
+    func releaseLandscapeUnlock() {
+        landscapeUnlockCount = max(0, landscapeUnlockCount - 1)
         applyRotationPolicy()
     }
 
@@ -55,8 +98,12 @@ final class AppPortraitOrientationLockController {
             activeScene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { _ in }
         }
         for scene in scenes {
-            scene.windows.forEach { root in
-                root.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+            scene.windows.forEach { window in
+                var controller = window.rootViewController
+                while let current = controller {
+                    current.setNeedsUpdateOfSupportedInterfaceOrientations()
+                    controller = current.presentedViewController
+                }
             }
         }
     }
@@ -66,50 +113,21 @@ final class AppPortraitOrientationLockController {
 import SwiftUI
 
 extension View {
-    /// Keeps the app in portrait while **`isLocked`** is **`true`** (releases on disappear).
-    func portraitOrientationLock(when isLocked: Bool) -> some View {
-        modifier(PortraitOrientationLockWhenModifier(isLocked: isLocked))
+    /// Landscape allowed only while **`ViewSingleActivity`** (map / tank / media tabs) is visible.
+    func diveActivityLandscapeOrientation() -> some View {
+        modifier(DiveActivityLandscapeOrientationModifier())
     }
 }
 
-private struct PortraitOrientationLockWhenModifier: ViewModifier {
-    let isLocked: Bool
-
+private struct DiveActivityLandscapeOrientationModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .background {
-                PortraitOrientationLockHost()
-            }
             .onAppear {
-                AppPortraitOrientationLockController.shared.updatePortraitLock(isLocked)
-            }
-            .onChange(of: isLocked) { _, locked in
-                AppPortraitOrientationLockController.shared.updatePortraitLock(locked)
+                AppPortraitOrientationLockController.shared.acquireLandscapeUnlock()
             }
             .onDisappear {
-                AppPortraitOrientationLockController.shared.updatePortraitLock(false)
+                AppPortraitOrientationLockController.shared.releaseLandscapeUnlock()
             }
-    }
-}
-
-/// Ensures the hosting controller participates in orientation updates.
-private struct PortraitOrientationLockHost: UIViewControllerRepresentable {
-    func makeUIViewController(context: Context) -> PortraitOrientationLockViewController {
-        PortraitOrientationLockViewController()
-    }
-
-    func updateUIViewController(_ uiViewController: PortraitOrientationLockViewController, context: Context) {}
-}
-
-private final class PortraitOrientationLockViewController: UIViewController {
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        view.isUserInteractionEnabled = false
-        view.backgroundColor = .clear
-    }
-
-    override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
-        AppPortraitOrientationLockController.shared.supportedMask
     }
 }
 #endif

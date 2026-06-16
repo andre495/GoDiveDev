@@ -59,10 +59,6 @@ struct LogOverviewView: View {
         )
     }
 
-    private var locksPortraitOrientation: Bool {
-        AppPortraitOrientationLockPolicy.locksHome(pathIsEmpty: path.isEmpty)
-    }
-
     private func homeOverviewLayoutMetrics(for proxy: GeometryProxy) -> HomeOverviewLayout.Metrics {
         let statsContentHeight = HomeLifetimeStatsLayout.estimatedPanelContentHeight(
             showsBuddyLeaderboard: showsHomeBuddyLeaderboard
@@ -166,7 +162,6 @@ struct LogOverviewView: View {
         .environment(\.openTripDetailMedia) { launch in
             path.append(.tripDetailMedia(tripID: launch.tripID, mediaID: launch.mediaID))
         }
-        .portraitOrientationLock(when: locksPortraitOrientation)
     }
 
     private var profilePhotoForHeader: Data? {
@@ -207,7 +202,9 @@ struct LogOverviewView: View {
             HomeMediaCarouselSection(
                 highlights: carouselHighlights,
                 mediaByID: homeAggregate.mediaByID,
-                divesByID: homeAggregate.divesByID,
+                sightings: allSightings,
+                marineLifeCatalog: marineLifeCatalog,
+                ownerProfileID: ownerProfileID,
                 containerWidth: screenWidth,
                 topSafeAreaInset: topSafeAreaInset,
                 headerOverlayHeight: headerClearance,

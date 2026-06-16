@@ -23,6 +23,11 @@ enum DiveActivityOverviewPresentation: Sendable {
         return trimmed.isEmpty ? fallback : trimmed
     }
 
+    /// **`true`** when the overview title should open **`ExploreDiveSiteDetailView`** (linked catalog site only).
+    nonisolated static func siteTitleLinksToCatalogOverview(linkedCatalogSiteID: UUID?) -> Bool {
+        linkedCatalogSiteID != nil
+    }
+
     /// Logbook-style **`#n`** for the map header chip; **`nil`** when dive number is hidden or unset.
     nonisolated static func diveNumberChipLabel(
         diveNumber: Int?,

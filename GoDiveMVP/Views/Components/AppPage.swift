@@ -24,6 +24,7 @@ struct AppPage<Content: View, TrailingContent: View>: View {
     let title: String
     let showsBackButton: Bool
     let showsBrandWordmark: Bool
+    let titleUsesBrandForeground: Bool
     let scrollContentUnderHeader: Bool
     /// Rising bubbles behind scroll-under list content (Logbook-style); requires **`scrollContentUnderHeader`**.
     let showsWaterBubbleBackground: Bool
@@ -36,6 +37,7 @@ struct AppPage<Content: View, TrailingContent: View>: View {
         title: String,
         showsBackButton: Bool = false,
         showsBrandWordmark: Bool = true,
+        titleUsesBrandForeground: Bool = false,
         scrollContentUnderHeader: Bool = false,
         showsWaterBubbleBackground: Bool = false,
         @ViewBuilder trailingContent: () -> TrailingContent,
@@ -44,6 +46,7 @@ struct AppPage<Content: View, TrailingContent: View>: View {
         self.title = title
         self.showsBackButton = showsBackButton
         self.showsBrandWordmark = showsBrandWordmark
+        self.titleUsesBrandForeground = titleUsesBrandForeground
         self.scrollContentUnderHeader = scrollContentUnderHeader
         self.showsWaterBubbleBackground = showsWaterBubbleBackground
         self.trailingContent = trailingContent()
@@ -114,6 +117,7 @@ struct AppPage<Content: View, TrailingContent: View>: View {
                     title: title,
                     showsBackButton: showsBackButton,
                     showsBrandWordmark: showsBrandWordmark,
+                    titleUsesBrandForeground: titleUsesBrandForeground,
                     statusBarSafeAreaTop: safeTop
                 ) {
                     trailingContent
@@ -137,6 +141,7 @@ struct AppPage<Content: View, TrailingContent: View>: View {
                     title: title,
                     showsBackButton: showsBackButton,
                     showsBrandWordmark: showsBrandWordmark,
+                    titleUsesBrandForeground: titleUsesBrandForeground,
                     statusBarSafeAreaTop: proxy.safeAreaInsets.top
                 ) {
                     trailingContent
@@ -153,6 +158,7 @@ extension AppPage where TrailingContent == EmptyView {
         title: String,
         showsBackButton: Bool = false,
         showsBrandWordmark: Bool = true,
+        titleUsesBrandForeground: Bool = false,
         scrollContentUnderHeader: Bool = false,
         showsWaterBubbleBackground: Bool = false,
         @ViewBuilder content: () -> Content
@@ -161,6 +167,7 @@ extension AppPage where TrailingContent == EmptyView {
             title: title,
             showsBackButton: showsBackButton,
             showsBrandWordmark: showsBrandWordmark,
+            titleUsesBrandForeground: titleUsesBrandForeground,
             scrollContentUnderHeader: scrollContentUnderHeader,
             showsWaterBubbleBackground: showsWaterBubbleBackground,
             trailingContent: {

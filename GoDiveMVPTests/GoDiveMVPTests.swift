@@ -1661,17 +1661,44 @@ struct GoDiveMVPTests {
     }
 
     @Test func appPortraitOrientationLockPolicy_listScreensStayPortrait() {
-        #expect(AppPortraitOrientationLockPolicy.locksHome(pathIsEmpty: true))
-        #expect(!AppPortraitOrientationLockPolicy.locksHome(pathIsEmpty: false))
-        #expect(AppPortraitOrientationLockPolicy.locksLogbook(pathIsEmpty: true))
-        #expect(!AppPortraitOrientationLockPolicy.locksLogbook(pathIsEmpty: false))
+        let sampleID = UUID(uuidString: "A1B2C3D4-E5F6-7890-ABCD-EF1234567890")!
+        let mediaID = UUID(uuidString: "B2C3D4E5-F6A7-8901-BCDE-F12345678901")!
+
+        #expect(AppPortraitOrientationLockPolicy.locksHome(path: []))
+        #expect(AppPortraitOrientationLockPolicy.locksHome(path: [.profile]))
+        #expect(AppPortraitOrientationLockPolicy.locksHome(path: [.tripPlanner]))
+        #expect(AppPortraitOrientationLockPolicy.locksHome(path: [.tripDetail(sampleID)]))
+        #expect(AppPortraitOrientationLockPolicy.locksHome(path: [.diveSite(sampleID)]))
+        #expect(AppPortraitOrientationLockPolicy.locksHome(path: [.marineLife("species-uuid")]))
+        #expect(AppPortraitOrientationLockPolicy.locksHome(path: [.diveBuddy(sampleID)]))
+        #expect(!AppPortraitOrientationLockPolicy.locksHome(path: [.diveDetail(sampleID)]))
+        #expect(!AppPortraitOrientationLockPolicy.locksHome(path: [.diveMedia(diveID: sampleID, mediaID: mediaID)]))
+
+        #expect(AppPortraitOrientationLockPolicy.locksLogbook(path: []))
+        #expect(AppPortraitOrientationLockPolicy.locksLogbook(path: [.tripDetail(sampleID)]))
+        #expect(AppPortraitOrientationLockPolicy.locksLogbook(path: [.diveSite(sampleID)]))
+        #expect(!AppPortraitOrientationLockPolicy.locksLogbook(path: [.diveDetail(sampleID)]))
+        #expect(!AppPortraitOrientationLockPolicy.locksLogbook(path: [.diveMedia(sampleID, mediaID: mediaID)]))
+
         #expect(AppPortraitOrientationLockPolicy.locksFieldGuide(isShowingDiveDetail: false))
         #expect(!AppPortraitOrientationLockPolicy.locksFieldGuide(isShowingDiveDetail: true))
-        #expect(AppPortraitOrientationLockPolicy.locksExploreList(pathIsEmpty: true, viewModeIsList: true))
-        #expect(!AppPortraitOrientationLockPolicy.locksExploreList(pathIsEmpty: true, viewModeIsList: false))
-        #expect(!AppPortraitOrientationLockPolicy.locksExploreList(pathIsEmpty: false, viewModeIsList: true))
+
+        #expect(AppPortraitOrientationLockPolicy.locksExplore(path: []))
+        #expect(AppPortraitOrientationLockPolicy.locksExplore(path: [.siteDetail(sampleID)]))
+        #expect(AppPortraitOrientationLockPolicy.locksExplore(path: [.speciesDetail("species-uuid")]))
+        #expect(AppPortraitOrientationLockPolicy.locksExplore(path: [.tripPlanner]))
+        #expect(!AppPortraitOrientationLockPolicy.locksExplore(path: [.diveDetail(sampleID)]))
+
         #expect(AppPortraitOrientationLockPolicy.locksTripDetail(showingLinkedDiveDetail: false))
         #expect(!AppPortraitOrientationLockPolicy.locksTripDetail(showingLinkedDiveDetail: true))
+
+        #expect(
+            AppPortraitOrientationLockPolicy.supportedInterfaceOrientations(landscapeUnlockCount: 0) == .portrait
+        )
+        #expect(
+            AppPortraitOrientationLockPolicy.supportedInterfaceOrientations(landscapeUnlockCount: 1)
+                == [.portrait, .landscapeLeft, .landscapeRight]
+        )
     }
 
     @Test func diveTankOverviewHeroPresentation_landscapeProfileChart_atEveryDetent() {
@@ -7051,6 +7078,19 @@ struct GoDiveMVPTests {
         #expect(HomeMediaCarouselPresentation.photoDisplaySeconds == 10)
     }
 
+    @Test func homeMediaCarouselPresentation_marineLifeOverlaySizing_fitsHeroArea() {
+        let size = HomeMediaCarouselPresentation.marineLifeOverlaySize(width: 390, height: 420)
+        #expect(size.width == 390)
+        #expect(size.height == 420)
+        #expect(HomeMediaCarouselPresentation.marineLifeOverlayCornerRadius == 0)
+        let imageHeight = HomeMediaCarouselPresentation.marineLifeOverlayFeatureImageHeight(previewHeight: 420)
+        #expect(imageHeight >= 112)
+        #expect(imageHeight <= 168)
+        let imageWidth = HomeMediaCarouselPresentation.marineLifeOverlayFeatureImageMaxWidth(previewWidth: 390)
+        #expect(imageWidth >= 180)
+        #expect(imageWidth <= 240)
+    }
+
     @Test func homeLifetimeStatsLayout_usesTwoColumnFixedHeightTiles() {
         #expect(HomeLifetimeStatsLayout.gridColumnCount == 2)
         #expect(HomeLifetimeStatsLayout.highlightStatTileCount == 4)
@@ -8401,6 +8441,16 @@ struct GoDiveMVPTests {
         )
         #expect(
             DiveActivityOverviewPresentation.siteHeaderTitle(siteName: nil, fallback: "Dive") == "Dive"
+        )
+    }
+
+    @Test func diveActivityOverviewPresentation_siteTitleLinksToCatalogOverview_requiresLinkedSiteID() {
+        let siteID = UUID()
+        #expect(
+            DiveActivityOverviewPresentation.siteTitleLinksToCatalogOverview(linkedCatalogSiteID: siteID)
+        )
+        #expect(
+            !DiveActivityOverviewPresentation.siteTitleLinksToCatalogOverview(linkedCatalogSiteID: nil)
         )
     }
 
