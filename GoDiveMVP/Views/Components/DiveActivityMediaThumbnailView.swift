@@ -18,6 +18,7 @@ struct DiveActivityMediaThumbnailView: View {
     @Environment(\.modelContext) private var modelContext
     #if canImport(UIKit)
     @State private var thumbnailImage: UIImage?
+    @State private var thumbnailLoadFinished = false
     #endif
 
     var body: some View {
@@ -37,6 +38,9 @@ struct DiveActivityMediaThumbnailView: View {
         .task(id: loadTaskID) {
             await loadThumbnailIfNeeded()
         }
+        .onAppear {
+            DiveMediaPreviewStorage.seedSessionCacheIfNeeded(for: media)
+        }
     }
 
     private var loadTaskID: String {
@@ -52,16 +56,35 @@ struct DiveActivityMediaThumbnailView: View {
     @ViewBuilder
     private var thumbnailContent: some View {
         #if canImport(UIKit)
-        if let thumbnailImage {
-            Image(uiImage: thumbnailImage)
+        if let displayedThumbnailImage {
+            Image(uiImage: displayedThumbnailImage)
                 .resizable()
                 .scaledToFill()
-        } else {
+        } else if DiveMediaPreviewPersistence.showsMissingMediaPlaceholder(
+            hasDisplayedImage: displayedThumbnailImage != nil,
+            loadFinished: thumbnailLoadFinished
+        ) {
             missingThumbnail
+        } else {
+            loadingThumbnail
         }
         #else
         missingThumbnail
         #endif
+    }
+
+    #if canImport(UIKit)
+    private var storedThumbnailImage: UIImage? {
+        DiveMediaPreviewStorage.storedPreviewImage(for: media)
+    }
+
+    private var displayedThumbnailImage: UIImage? {
+        thumbnailImage ?? storedThumbnailImage
+    }
+    #endif
+
+    private var loadingThumbnail: some View {
+        AppTheme.Colors.surfaceMuted.opacity(0.35)
     }
 
     private var missingThumbnail: some View {
@@ -75,9 +98,14 @@ struct DiveActivityMediaThumbnailView: View {
     #if canImport(UIKit)
     private func loadThumbnailIfNeeded() async {
         #if canImport(Photos)
+        DiveMediaPreviewStorage.seedSessionCacheIfNeeded(for: media)
         guard let identifier = media.libraryAssetLocalIdentifier else {
             thumbnailImage = nil
+            thumbnailLoadFinished = true
             return
+        }
+        if storedThumbnailImage == nil {
+            thumbnailLoadFinished = false
         }
         let edge = max(size * 2, 1)
         let image = await DiveMediaReferenceLoader.image(
@@ -85,12 +113,16 @@ struct DiveActivityMediaThumbnailView: View {
             targetSize: CGSize(width: edge, height: edge),
             deliveryMode: .opportunistic
         )
-        if image == nil {
+        if let image {
+            thumbnailImage = image
+            DiveMediaPreviewStorage.persistPreview(from: image, on: media, modelContext: modelContext)
+        } else if thumbnailImage == nil, storedThumbnailImage == nil {
             DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
         }
-        thumbnailImage = image
+        thumbnailLoadFinished = true
         #else
         thumbnailImage = nil
+        thumbnailLoadFinished = true
         #endif
     }
     #else

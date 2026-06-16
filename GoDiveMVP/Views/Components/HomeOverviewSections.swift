@@ -614,6 +614,7 @@ private struct HomeMediaCarouselMediaView: View {
 
     #if canImport(UIKit)
     @State private var loadedImage: UIImage?
+    @State private var heroImageLoadFinished = false
     #endif
 
     private var isVideo: Bool {
@@ -632,6 +633,7 @@ private struct HomeMediaCarouselMediaView: View {
                     isPlaybackActive: true,
                     loopsPlayback: false,
                     libraryVideoQuality: .homeCarousel,
+                    initialPosterImage: storedPreviewImage,
                     onPlaybackFinished: isAutoAdvanceActive ? onSlideFinished : nil,
                     onAssetMissing: pruneIfAssetMissing
                 )
@@ -641,6 +643,9 @@ private struct HomeMediaCarouselMediaView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
+        .onAppear {
+            DiveMediaPreviewStorage.seedSessionCacheIfNeeded(for: media)
+        }
         .task(id: loadTaskID) {
             guard shouldLoadMedia else {
                 #if canImport(UIKit)
@@ -676,18 +681,33 @@ private struct HomeMediaCarouselMediaView: View {
     @ViewBuilder
     private var photoContent: some View {
         #if canImport(UIKit)
-        if let displayImage = sessionCachedImage ?? loadedImage {
+        if let displayImage = resolvedHeroDisplayImage {
             Image(uiImage: displayImage)
                 .resizable()
                 .scaledToFill()
                 .accessibilityLabel("Dive photo")
-        } else {
+        } else if DiveMediaPreviewPersistence.showsMissingMediaPlaceholder(
+            hasDisplayedImage: resolvedHeroDisplayImage != nil,
+            loadFinished: heroImageLoadFinished
+        ) {
             heroPlaceholder
+        } else {
+            heroLoadingPlaceholder
         }
         #else
         heroPlaceholder
         #endif
     }
+
+    #if canImport(UIKit)
+    private var resolvedHeroDisplayImage: UIImage? {
+        sessionCachedImage ?? loadedImage ?? storedPreviewImage
+    }
+
+    private var storedPreviewImage: UIImage? {
+        DiveMediaPreviewStorage.storedPreviewImage(for: media)
+    }
+    #endif
 
     #if canImport(UIKit)
     private var sessionCachedImage: UIImage? {
@@ -699,24 +719,35 @@ private struct HomeMediaCarouselMediaView: View {
     private var heroPlaceholder: some View {
         ZStack {
             AppTheme.Colors.surfaceMuted.opacity(0.5)
-            if networkConnectivity.isConnected {
-                ProgressView()
-                    .tint(AppTheme.Colors.accent)
-            } else {
+            if !networkConnectivity.isConnected {
                 OfflineMediaUnavailableIndicator()
             }
         }
     }
 
+    private var heroLoadingPlaceholder: some View {
+        AppTheme.Colors.surfaceMuted.opacity(0.35)
+    }
+
     #if canImport(UIKit)
     private func loadHeroImageIfNeeded() async {
-        if sessionCachedImage != nil {
+        DiveMediaPreviewStorage.seedSessionCacheIfNeeded(for: media)
+
+        if let sessionCachedImage {
             loadedImage = sessionCachedImage
+            heroImageLoadFinished = true
             return
         }
+        if let storedPreviewImage {
+            loadedImage = storedPreviewImage
+        }
         guard let identifier = media.libraryAssetLocalIdentifier else {
-            loadedImage = nil
+            loadedImage = storedPreviewImage
+            heroImageLoadFinished = true
             return
+        }
+        if storedPreviewImage == nil {
+            heroImageLoadFinished = false
         }
         let edge = networkConnectivity.isConnected
             ? HomeMediaHighlightWarmupPresentation.heroImageEdge(containerWidth: containerWidth)
@@ -736,12 +767,16 @@ private struct HomeMediaCarouselMediaView: View {
                 )
             }
             loadedImage = image
+            DiveMediaPreviewStorage.persistPreview(from: image, on: media, modelContext: modelContext)
         } else {
-            if networkConnectivity.isConnected {
+            if networkConnectivity.isConnected, storedPreviewImage == nil {
                 DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
             }
-            loadedImage = nil
+            if loadedImage == nil {
+                loadedImage = nil
+            }
         }
+        heroImageLoadFinished = true
     }
     #else
     private func loadHeroImageIfNeeded() async {}

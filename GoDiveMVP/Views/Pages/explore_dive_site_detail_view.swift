@@ -90,7 +90,7 @@ struct ExploreDiveSiteDetailView: View {
             title: site.siteName,
             showsBackButton: true,
             showsBrandWordmark: false,
-            titleUsesBrandForeground: true,
+            titlePlacement: AppHeaderStackedTitleChrome.titlePlacement,
             trailingContent: { EmptyView() }
         ) {
             ScrollView {

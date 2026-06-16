@@ -18,7 +18,7 @@ struct TripPlannedSitesListView: View {
     }
 
     private var siteListRows: [ExploreDiveSiteRowDisplayData] {
-        ExploreDiveSiteListDisplay.rowData(for: filteredSites)
+        ExploreDiveSiteListDisplay.rowData(for: filteredSites, trailingStyle: .plannedTrip)
     }
 
     private var isFilteringSites: Bool {

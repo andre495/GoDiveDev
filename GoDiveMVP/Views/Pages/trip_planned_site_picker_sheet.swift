@@ -14,6 +14,10 @@ struct TripPlannedSitePickerSheet: View {
         ExploreDiveSiteListSearch.filtering(sites, query: searchQuery)
     }
 
+    private var filteredSiteRows: [ExploreDiveSiteRowDisplayData] {
+        ExploreDiveSiteListDisplay.rowData(for: filteredSites, trailingStyle: .plannedTrip)
+    }
+
     var body: some View {
         NavigationStack {
             Group {
@@ -25,24 +29,15 @@ struct TripPlannedSitePickerSheet: View {
                     )
                 } else {
                     List {
-                        ForEach(filteredSites, id: \.id) { site in
+                        ForEach(filteredSiteRows) { row in
                             Button {
-                                toggleSelection(for: site.id)
+                                toggleSelection(for: row.id)
                             } label: {
-                                HStack(spacing: AppTheme.Spacing.md) {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(site.siteName)
-                                            .font(.body.weight(.semibold))
-                                            .foregroundStyle(AppTheme.Colors.textPrimary)
-                                        let country = site.country.trimmingCharacters(in: .whitespacesAndNewlines)
-                                        if !country.isEmpty {
-                                            Text(country)
-                                                .font(.subheadline)
-                                                .foregroundStyle(AppTheme.Colors.secondaryText)
-                                        }
-                                    }
-                                    Spacer(minLength: 0)
-                                    if selectedSiteIDs.contains(site.id) {
+                                HStack(alignment: .center, spacing: AppTheme.Spacing.md) {
+                                    ExploreDiveSiteRow(data: row)
+                                        .equatable()
+
+                                    if selectedSiteIDs.contains(row.id) {
                                         Image(systemName: "checkmark.circle.fill")
                                             .foregroundStyle(AppTheme.Colors.tabSelected)
                                     } else {
@@ -52,7 +47,10 @@ struct TripPlannedSitePickerSheet: View {
                                 }
                             }
                             .buttonStyle(.plain)
-                            .accessibilityIdentifier("TripPlannedSitePicker.Row.\(site.id.uuidString)")
+                            .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                            .accessibilityIdentifier("TripPlannedSitePicker.Row.\(row.id.uuidString)")
                         }
                     }
                     .listStyle(.insetGrouped)

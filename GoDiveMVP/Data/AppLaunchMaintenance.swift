@@ -17,6 +17,9 @@ enum AppLaunchMaintenance: Sendable {
             try DiveActivityDiveNumbering.backfillMissingDiveNumbers(modelContext: context)
             try DiveBuddyLegacyMigration.migrateIfNeeded(modelContext: context)
             try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+            #if canImport(UIKit)
+            await DiveMediaPreviewStorage.backfillMissingPreviews(modelContext: context)
+            #endif
         } catch {
             #if DEBUG
             print("AppLaunchMaintenance failed: \(error)")

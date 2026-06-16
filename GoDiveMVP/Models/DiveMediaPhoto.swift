@@ -3,9 +3,10 @@ import SwiftData
 
 /// Pointer to a Photos-library asset attached to a dive (**`DiveActivity.mediaPhotos`**).
 ///
-/// GoDive stores **only** the **`PHAsset.localIdentifier`** plus lightweight metadata — pixels/frames load on demand
-/// via **`DiveMediaReferenceLoader`**, so nothing is duplicated on disk. If the user deletes the original from Photos,
-/// the row is pruned (**`DiveMediaReferencePruning`**).
+/// GoDive stores the **`PHAsset.localIdentifier`**, lightweight metadata, and a **low-res JPEG preview**
+/// (**`previewJPEGData`**) for instant logbook / carousel / dive-hero placeholders. Full frames still load on demand
+/// via **`DiveMediaReferenceLoader`**. If the user deletes the original from Photos, the row is pruned
+/// (**`DiveMediaReferencePruning`**).
 @Model
 final class DiveMediaPhoto {
 
@@ -20,6 +21,8 @@ final class DiveMediaPhoto {
     var photosLocalIdentifier: String = ""
     /// User-confirmed Fishial scientific name for this media item (empty when unset).
     var fishialConfirmedSpeciesName: String = ""
+    /// Low-res JPEG poster for instant UI (**`DiveMediaPreviewPersistence`**); full asset still loads from Photos.
+    var previewJPEGData: Data?
 
     /// Denormalized for batch **`delete(model:where:)`**.
     var diveActivityID: UUID?
@@ -34,6 +37,7 @@ final class DiveMediaPhoto {
         capturedAt: Date? = nil,
         photosLocalIdentifier: String = "",
         fishialConfirmedSpeciesName: String = "",
+        previewJPEGData: Data? = nil,
         dive: DiveActivity? = nil
     ) {
         self.id = id
@@ -42,6 +46,7 @@ final class DiveMediaPhoto {
         self.capturedAt = capturedAt
         self.photosLocalIdentifier = photosLocalIdentifier
         self.fishialConfirmedSpeciesName = fishialConfirmedSpeciesName
+        self.previewJPEGData = previewJPEGData
         self.diveActivityID = dive?.id
         self.dive = dive
     }

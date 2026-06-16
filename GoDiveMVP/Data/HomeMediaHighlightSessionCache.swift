@@ -54,8 +54,15 @@ final class HomeMediaHighlightSessionCache {
 
     /// Preview or hero poster frame — enough to show a carousel slide before full warm completes.
     func hasDisplayableImage(for media: DiveMediaPhoto) -> Bool {
+        #if canImport(UIKit)
+        if DiveMediaPreviewStorage.hasStoredPreview(for: media) {
+            return true
+        }
         guard let identifier = media.libraryAssetLocalIdentifier else { return false }
         return bestCachedImage(localIdentifier: identifier) != nil
+        #else
+        return false
+        #endif
     }
 
     func bestCachedImage(localIdentifier: String) -> UIImage? {

@@ -21,6 +21,7 @@ struct DiveActivityLinkedSiteTitle: View {
                     titleLabel
                 }
                 .buttonStyle(.plain)
+                .tint(AppTheme.Colors.linkedSiteTitleAccent)
                 .accessibilityHint("Opens dive site overview")
                 .accessibilityIdentifier("DiveOverview.LinkedSiteTitle")
             } else {

@@ -42,6 +42,14 @@ enum AppHeaderTitlePlacement: Sendable {
     case centered
     /// Title sits in the leading cluster immediately after the back chevron (Field Guide subcategory).
     case leadingAfterBack
+    /// Full-width title on its own row under the back chevron (catalog dive site overview).
+    case belowBackRow
+}
+
+/// Full-width **`.title.bold`** under the back row, centered, **`textPrimary`**.
+enum AppHeaderStackedTitleChrome: Sendable {
+    static let titlePlacement = AppHeaderTitlePlacement.belowBackRow
+    static let titleMultilineAlignment = TextAlignment.center
 }
 
 struct AppHeader<TrailingContent: View>: View {
@@ -50,8 +58,10 @@ struct AppHeader<TrailingContent: View>: View {
     let showsBackButton: Bool
     /// When **`false`**, the **GoDive** wordmark is hidden. A non-empty **`title`** is shown per **`titlePlacement`**.
     let showsBrandWordmark: Bool
-    /// Page title uses the blue **GoDive** gradient + **`.title`** weight (dive site overview).
+    /// Page title uses the blue **GoDive** gradient + **`.title`** weight.
     let titleUsesBrandForeground: Bool
+    /// Flat **`linkedSiteTitleAccent`** title (catalog dive site overview — not brand gradient).
+    let titleUsesLinkedSiteAccent: Bool
     let titlePlacement: AppHeaderTitlePlacement
     let trailingContent: TrailingContent
     /// Pass **`GeometryReader.safeAreaInsets.top`** from the tab / page root so the status scrim matches the device inset.
@@ -62,6 +72,7 @@ struct AppHeader<TrailingContent: View>: View {
         showsBackButton: Bool = false,
         showsBrandWordmark: Bool = true,
         titleUsesBrandForeground: Bool = false,
+        titleUsesLinkedSiteAccent: Bool = false,
         titlePlacement: AppHeaderTitlePlacement = .centered,
         statusBarSafeAreaTop: CGFloat = 0,
         @ViewBuilder trailingContent: () -> TrailingContent
@@ -70,6 +81,7 @@ struct AppHeader<TrailingContent: View>: View {
         self.showsBackButton = showsBackButton
         self.showsBrandWordmark = showsBrandWordmark
         self.titleUsesBrandForeground = titleUsesBrandForeground
+        self.titleUsesLinkedSiteAccent = titleUsesLinkedSiteAccent
         self.titlePlacement = titlePlacement
         self.statusBarSafeAreaTop = statusBarSafeAreaTop
         self.trailingContent = trailingContent()
@@ -77,7 +89,9 @@ struct AppHeader<TrailingContent: View>: View {
 
     var body: some View {
         Group {
-            if usesLeadingTitlePlacement {
+            if usesBelowBackRowPlacement {
+                belowBackRowHeader
+            } else if usesLeadingTitlePlacement {
                 leadingTitleHeaderRow
             } else {
                 standardHeaderRow
@@ -96,6 +110,30 @@ struct AppHeader<TrailingContent: View>: View {
         .background {
             GeometryReader { proxy in
                 Color.clear.preference(key: AppHeaderMetrics.HeightKey.self, value: proxy.size.height)
+            }
+        }
+    }
+
+    /// Back chevron + trailing actions on the first row; full-width title underneath.
+    private var belowBackRowHeader: some View {
+        VStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
+            HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
+                if showsBackButton {
+                    SecondaryDestinationBackButton()
+                }
+
+                Spacer(minLength: 0)
+
+                HStack(spacing: AppTheme.Spacing.sm) {
+                    trailingContent
+                }
+                .foregroundStyle(AppTheme.Colors.iconPrimary)
+            }
+
+            if !title.isEmpty {
+                belowBackRowTitleText
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .accessibilityLabel(title)
             }
         }
     }
@@ -164,7 +202,7 @@ struct AppHeader<TrailingContent: View>: View {
         .minimumScaleFactor(0.82)
         .allowsTightening(true)
         .accessibilityLabel(showsBrandWordmark ? appName : title)
-        .accessibilityHidden(!showsBrandWordmark && (title.isEmpty || usesLeadingTitlePlacement))
+        .accessibilityHidden(!showsBrandWordmark && (title.isEmpty || usesLeadingTitlePlacement || usesBelowBackRowPlacement))
     }
 
     private var headerTitleText: some View {
@@ -181,19 +219,63 @@ struct AppHeader<TrailingContent: View>: View {
 
     @ViewBuilder
     private var pageTitleText: some View {
-        if titleUsesBrandForeground {
-            Text(title)
-                .font(AppTheme.Typography.headerTitle.weight(.bold))
-                .foregroundStyle(AppTheme.Colors.headerTitleForegroundGradient)
+        styledHeaderTitle(
+            font: pageTitleFont,
+            multilineAlignment: usesLeadingTitlePlacement ? .leading : .center,
+            lineLimit: usesLeadingTitlePlacement ? 2 : 1
+        )
+    }
+
+    private var belowBackRowTitleText: some View {
+        styledHeaderTitle(
+            font: AppTheme.Typography.headerTitle.weight(.bold),
+            multilineAlignment: AppHeaderStackedTitleChrome.titleMultilineAlignment,
+            lineLimit: nil
+        )
+    }
+
+    private var pageTitleFont: Font {
+        if titleUsesBrandForeground || titleUsesLinkedSiteAccent {
+            AppTheme.Typography.headerTitle.weight(.bold)
         } else if usesLeadingTitlePlacement {
-            Text(title)
-                .font(.title3.weight(.bold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
+            .title3.weight(.bold)
         } else {
-            Text(title)
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
+            .headline.weight(.semibold)
         }
+    }
+
+    @ViewBuilder
+    private func styledHeaderTitle(
+        font: Font,
+        multilineAlignment: TextAlignment,
+        lineLimit: Int?
+    ) -> some View {
+        if let lineLimit {
+            styledHeaderTitleText(font: font, multilineAlignment: multilineAlignment)
+                .lineLimit(lineLimit)
+        } else {
+            styledHeaderTitleText(font: font, multilineAlignment: multilineAlignment)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    @ViewBuilder
+    private func styledHeaderTitleText(font: Font, multilineAlignment: TextAlignment) -> some View {
+        let text = Text(title)
+            .font(font)
+            .multilineTextAlignment(multilineAlignment)
+
+        if titleUsesLinkedSiteAccent {
+            text.foregroundStyle(AppTheme.Colors.linkedSiteTitleAccent)
+        } else if titleUsesBrandForeground {
+            text.foregroundStyle(AppTheme.Colors.headerTitleForegroundGradient)
+        } else {
+            text.foregroundStyle(AppTheme.Colors.textPrimary)
+        }
+    }
+
+    private var usesBelowBackRowPlacement: Bool {
+        !showsBrandWordmark && titlePlacement == .belowBackRow
     }
 
     private var usesLeadingTitlePlacement: Bool {
@@ -211,6 +293,7 @@ extension AppHeader where TrailingContent == EmptyView {
         showsBackButton: Bool = false,
         showsBrandWordmark: Bool = true,
         titleUsesBrandForeground: Bool = false,
+        titleUsesLinkedSiteAccent: Bool = false,
         titlePlacement: AppHeaderTitlePlacement = .centered,
         statusBarSafeAreaTop: CGFloat = 0
     ) {
@@ -219,6 +302,7 @@ extension AppHeader where TrailingContent == EmptyView {
             showsBackButton: showsBackButton,
             showsBrandWordmark: showsBrandWordmark,
             titleUsesBrandForeground: titleUsesBrandForeground,
+            titleUsesLinkedSiteAccent: titleUsesLinkedSiteAccent,
             titlePlacement: titlePlacement,
             statusBarSafeAreaTop: statusBarSafeAreaTop
         ) {

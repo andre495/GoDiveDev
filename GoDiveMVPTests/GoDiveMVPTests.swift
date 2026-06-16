@@ -6133,7 +6133,7 @@ struct GoDiveMVPTests {
         #expect(MapPushPinMetrics.tipYInAnnotationView == MapPushPinMetrics.renderedHeight)
     }
 
-    @Test func exploreDiveSiteListDisplay_rowData_placeRatingAndDiveCount() {
+    @Test func exploreDiveSiteListDisplay_rowData_coordinatesPlaceAndDiveCount() {
         let rated = DiveSite(
             siteName: "Salt Pier",
             country: "Bonaire",
@@ -6149,17 +6149,19 @@ struct GoDiveMVPTests {
 
         #expect(rows.count == 2)
         #expect(rows[0].displayName == "Salt Pier")
-        #expect(rows[0].trailingLabel == "★ 4")
-        #expect(rows[0].detailLine.contains("Bonaire"))
-        #expect(rows[0].detailLine.contains("Caribbean"))
-        #expect(rows[1].trailingLabel == "1 dive")
-        #expect(rows[1].detailLine.contains("No map pin"))
+        #expect(rows[0].diveCountLabel == nil)
+        #expect(rows[0].coordinateLine.contains("12.083"))
+        #expect(rows[0].placeLine == "Caribbean, Bonaire")
+        #expect(rows[1].diveCountLabel == "1 dive")
+        #expect(rows[1].coordinateLine == "No map pin")
+        #expect(rows[1].placeLine == "Belize")
     }
 
     @Test func exploreDiveSiteListDisplay_plannedTripRow_omitsDiveCount() {
         let rated = DiveSite(
             siteName: "Salt Pier",
             country: "Bonaire",
+            region: "Caribbean",
             siteRating: 4
         )
         let unrated = DiveSite(siteName: "Mystery Reef", country: "Belize")
@@ -6169,8 +6171,18 @@ struct GoDiveMVPTests {
 
         let rows = ExploreDiveSiteListDisplay.rowData(for: [rated, unrated], trailingStyle: .plannedTrip)
 
-        #expect(rows[0].trailingLabel == "★ 4")
-        #expect(rows[1].trailingLabel == nil)
+        #expect(rows[0].diveCountLabel == nil)
+        #expect(rows[1].diveCountLabel == nil)
+        #expect(rows[0].placeLine == "Caribbean, Bonaire")
+    }
+
+    @Test func exploreDiveSiteListDisplay_cityCountryLine_formatsRegionAndCountry() {
+        #expect(
+            ExploreDiveSiteListDisplay.cityCountryLine(country: "Bonaire", region: "Caribbean")
+                == "Caribbean, Bonaire"
+        )
+        #expect(ExploreDiveSiteListDisplay.cityCountryLine(country: "Belize", region: "") == "Belize")
+        #expect(ExploreDiveSiteListDisplay.cityCountryLine(country: "", region: "Pacific") == "Pacific")
     }
 
     @Test func exploreDiveSiteListDisplay_placeSummary_omitsEmptyFields() {
@@ -6502,6 +6514,68 @@ struct GoDiveMVPTests {
         // Highest-quality original (download from iCloud when needed) rather than a transcoded/automatic stream.
         #expect(options.deliveryMode == .highQualityFormat)
         #expect(options.isNetworkAccessAllowed)
+    }
+    #endif
+
+    #if canImport(UIKit)
+    @Test func diveMediaPreviewPersistence_encodeDecode_roundTrip() {
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 400, height: 200))
+        let image = renderer.image { context in
+            UIColor.systemTeal.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 400, height: 200))
+        }
+        let data = DiveMediaPreviewPersistence.encodePreviewJPEG(image)
+        #expect(data != nil)
+        let decoded = DiveMediaPreviewPersistence.decodePreviewJPEG(data)
+        #expect(decoded != nil)
+        #expect(decoded?.size.width == DiveMediaPreviewPersistence.storedPreviewEdge)
+    }
+
+    @Test func diveMediaPreviewPersistence_shouldPersistPreview_onlyWhenMissing() {
+        #expect(DiveMediaPreviewPersistence.shouldPersistPreview(existingData: nil))
+        #expect(DiveMediaPreviewPersistence.shouldPersistPreview(existingData: Data()))
+        #expect(!DiveMediaPreviewPersistence.shouldPersistPreview(existingData: Data([0xFF, 0xD8])))
+    }
+
+    @Test func diveMediaPreviewPersistence_showsMissingPlaceholder_onlyAfterLoadFinishes() {
+        #expect(
+            !DiveMediaPreviewPersistence.showsMissingMediaPlaceholder(
+                hasDisplayedImage: true,
+                loadFinished: false
+            )
+        )
+        #expect(
+            !DiveMediaPreviewPersistence.showsMissingMediaPlaceholder(
+                hasDisplayedImage: false,
+                loadFinished: false
+            )
+        )
+        #expect(
+            DiveMediaPreviewPersistence.showsMissingMediaPlaceholder(
+                hasDisplayedImage: false,
+                loadFinished: true
+            )
+        )
+    }
+
+    @Test @MainActor func diveMediaPreviewStorage_hasStoredPreview_reflectsJPEGData() {
+        let media = DiveMediaPhoto(
+            sortOrder: 0,
+            photosLocalIdentifier: "preview-test"
+        )
+        #expect(!DiveMediaPreviewStorage.hasStoredPreview(for: media))
+        media.previewJPEGData = Data([0xFF, 0xD8, 0xFF])
+        #expect(DiveMediaPreviewStorage.hasStoredPreview(for: media))
+    }
+
+    @Test @MainActor func homeMediaHighlightSessionCache_hasDisplayableImage_usesStoredPreview() {
+        HomeMediaHighlightSessionCache.shared.clear()
+        let media = DiveMediaPhoto(
+            sortOrder: 0,
+            photosLocalIdentifier: "stored-preview-id"
+        )
+        media.previewJPEGData = Data([0xFF, 0xD8, 0xFF])
+        #expect(HomeMediaHighlightSessionCache.shared.hasDisplayableImage(for: media))
     }
     #endif
 
@@ -8452,6 +8526,11 @@ struct GoDiveMVPTests {
         #expect(
             !DiveActivityOverviewPresentation.siteTitleLinksToCatalogOverview(linkedCatalogSiteID: nil)
         )
+    }
+
+    @Test @MainActor func appHeaderStackedTitleChrome_usesCenteredPrimaryTextBelowBackRow() {
+        #expect(AppHeaderStackedTitleChrome.titlePlacement == .belowBackRow)
+        #expect(AppHeaderStackedTitleChrome.titleMultilineAlignment == .center)
     }
 
     @Test func diveActivityOverviewPresentation_mapHeaderCopy() {

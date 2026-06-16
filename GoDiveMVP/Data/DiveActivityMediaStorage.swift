@@ -48,6 +48,11 @@ enum DiveActivityMediaStorage {
         modelContext.insert(row)
         try modelContext.save()
         postMediaDidChange()
+        #if canImport(UIKit)
+        Task { @MainActor in
+            await DiveMediaPreviewStorage.captureAndPersistPreview(for: row, modelContext: modelContext)
+        }
+        #endif
         return mediaID
     }
 

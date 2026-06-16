@@ -16,6 +16,10 @@ enum ExploreDiveSiteListSearch {
                     region: site.region,
                     bodyOfWater: site.bodyOfWater
                 ),
+                ExploreDiveSiteListDisplay.cityCountryLine(
+                    country: site.country,
+                    region: site.region
+                ),
                 site.country,
                 site.region,
                 site.bodyOfWater,

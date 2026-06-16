@@ -4,14 +4,16 @@ import Foundation
 struct ExploreDiveSiteRowDisplayData: Equatable, Identifiable, Sendable {
     let id: UUID
     let displayName: String
-    let trailingLabel: String?
-    let detailLine: String
+    /// Trailing dive count (catalog list only) — e.g. **"12 dives"**.
+    let diveCountLabel: String?
+    let coordinateLine: String
+    let placeLine: String?
 }
 
 enum ExploreDiveSiteRowTrailingStyle: Sendable {
-    /// Explore catalog — rating, dive count, or em dash.
+    /// Explore catalog — dive count on the trailing edge when **> 0**.
     case catalogDefault
-    /// Planned trip saved sites — rating only; omit dive counts.
+    /// Planned trip saved sites — omit dive counts.
     case plannedTrip
 }
 
@@ -25,13 +27,14 @@ enum ExploreDiveSiteListDisplay {
             ExploreDiveSiteRowDisplayData(
                 id: site.id,
                 displayName: site.siteName,
-                trailingLabel: trailingLabel(for: site, style: trailingStyle),
-                detailLine: detailLine(for: site)
+                diveCountLabel: diveCountLabel(for: site, style: trailingStyle),
+                coordinateLine: coordinateLine(for: site),
+                placeLine: cityCountryLine(country: site.country, region: site.region).nilIfEmpty
             )
         }
     }
 
-    /// Place hierarchy for search / list copy (safe from **`nonisolated`** callers).
+    /// Place hierarchy for search (safe from **`nonisolated`** callers).
     nonisolated static func placeSummary(
         country: String,
         region: String,
@@ -47,37 +50,41 @@ enum ExploreDiveSiteListDisplay {
         placeSummary(country: site.country, region: site.region, bodyOfWater: site.bodyOfWater)
     }
 
-    private static func trailingLabel(
+    /// Locality + country for list cards — **"Region, Country"** when both are set.
+    nonisolated static func cityCountryLine(country: String, region: String) -> String {
+        let country = country.trimmingCharacters(in: .whitespacesAndNewlines)
+        let region = region.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !region.isEmpty, !country.isEmpty {
+            return "\(region), \(country)"
+        }
+        if !region.isEmpty { return region }
+        if !country.isEmpty { return country }
+        return ""
+    }
+
+    private static func diveCountLabel(
         for site: DiveSite,
         style: ExploreDiveSiteRowTrailingStyle
     ) -> String? {
-        if let rating = site.siteRating {
-            return "★ \(rating)"
-        }
-        switch style {
-        case .catalogDefault:
-            let diveCount = site.diveActivities.count
-            if diveCount > 0 {
-                return "\(diveCount) dive\(diveCount == 1 ? "" : "s")"
-            }
-            return "—"
-        case .plannedTrip:
-            return nil
-        }
+        guard style == .catalogDefault else { return nil }
+        let diveCount = site.diveActivities.count
+        guard diveCount > 0 else { return nil }
+        return diveCount == 1 ? "1 dive" : "\(diveCount) dives"
     }
 
-    private static func detailLine(for site: DiveSite) -> String {
-        var parts: [String] = []
-        let place = placeSummary(for: site)
-        if !place.isEmpty {
-            parts.append(place)
-        }
+    private static func coordinateLine(for site: DiveSite) -> String {
         if let coordinate = DiveMapCoordinateResolver.coordinate(from: site),
            DiveMapCoordinateResolver.isUsable(coordinate) {
-            parts.append(DiveLocationMapPresentation.coordinateLabel(for: coordinate))
-        } else {
-            parts.append("No map pin")
+            return DiveLocationMapPresentation.coordinateLabel(for: coordinate)
         }
-        return parts.joined(separator: " · ")
+        return missingCoordinateLabel
+    }
+
+    private static let missingCoordinateLabel = "No map pin"
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
     }
 }

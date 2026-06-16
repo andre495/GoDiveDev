@@ -5,29 +5,40 @@ struct ExploreDiveSiteRow: View, Equatable {
     let data: ExploreDiveSiteRowDisplayData
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: AppTheme.Spacing.sm) {
                 Text(data.displayName)
                     .font(.headline)
                     .foregroundStyle(AppTheme.Colors.textPrimary)
-                    .lineLimit(1)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                Spacer(minLength: AppTheme.Spacing.sm)
-
-                if let trailingLabel = data.trailingLabel {
-                    Text(trailingLabel)
+                if let diveCountLabel = data.diveCountLabel {
+                    Text(diveCountLabel)
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(AppTheme.Colors.tabUnselected)
+                        .foregroundStyle(AppTheme.Colors.accent)
+                        .multilineTextAlignment(.trailing)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.85)
                 }
             }
 
-            Text(data.detailLine)
+            Text(data.coordinateLine)
                 .font(.footnote)
                 .foregroundStyle(AppTheme.Colors.secondaryText)
-                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .lineLimit(1)
                 .minimumScaleFactor(0.85)
+
+            if let placeLine = data.placeLine {
+                Text(placeLine)
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+            }
         }
         .padding(AppTheme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -39,6 +50,19 @@ struct ExploreDiveSiteRow: View, Equatable {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(AppTheme.Colors.tabUnselected.opacity(0.12), lineWidth: 1)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var accessibilityLabel: String {
+        var parts = [data.displayName, data.coordinateLine]
+        if let diveCountLabel = data.diveCountLabel {
+            parts.append(diveCountLabel)
+        }
+        if let placeLine = data.placeLine {
+            parts.append(placeLine)
+        }
+        return parts.joined(separator: ", ")
     }
 }
 
@@ -46,8 +70,9 @@ struct ExploreDiveSiteRow: View, Equatable {
     let data = ExploreDiveSiteRowDisplayData(
         id: UUID(),
         displayName: "Salt Pier",
-        trailingLabel: "★ 4",
-        detailLine: "Bonaire · Caribbean · 12.0835, -68.2835"
+        diveCountLabel: "12 dives",
+        coordinateLine: "12.084°, -68.283°",
+        placeLine: "Caribbean, Bonaire"
     )
     return ExploreDiveSiteRow(data: data)
         .padding()

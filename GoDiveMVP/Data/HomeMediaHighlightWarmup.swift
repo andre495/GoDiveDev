@@ -58,6 +58,10 @@ enum HomeMediaHighlightWarmup {
             mediaByID[highlight.mediaID]?.libraryAssetLocalIdentifier
         }
         HomeMediaHighlightSessionCache.shared.setPinnedCarouselLocalIdentifiers(identifiers)
+        #if canImport(UIKit)
+        let mediaRows = highlights.compactMap { mediaByID[$0.mediaID] }
+        DiveMediaPreviewStorage.seedSessionCache(for: mediaRows)
+        #endif
     }
 
     /// Warms carousel picks from SwiftData, returning once bootstrap tiers are satisfied; remaining warm work continues in the background.

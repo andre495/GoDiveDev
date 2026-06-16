@@ -34,6 +34,7 @@ struct DiveActivityMediaItemView: View {
     @State private var previewImage: UIImage?
     @State private var videoPosterImage: UIImage?
     @State private var videoPosterLoadFinished = false
+    @State private var imageLoadFinished = false
     #endif
 
     private var isVideo: Bool {
@@ -87,6 +88,9 @@ struct DiveActivityMediaItemView: View {
         .onDisappear {
             isHoldingVideoPause = false
         }
+        .onAppear {
+            DiveMediaPreviewStorage.seedSessionCacheIfNeeded(for: media)
+        }
         .task(id: mediaLoadTaskID) {
             switch media.resolvedMediaKind {
             case .image:
@@ -100,6 +104,20 @@ struct DiveActivityMediaItemView: View {
     private var mediaLoadTaskID: String {
         "\(media.id.uuidString)-\(media.resolvedMediaKind.rawValue)-\(Int(layoutWidth * displayScale))"
     }
+
+    #if canImport(UIKit)
+    private var storedPreviewImage: UIImage? {
+        DiveMediaPreviewStorage.storedPreviewImage(for: media)
+    }
+
+    private var displayedPreviewImage: UIImage? {
+        previewImage ?? storedPreviewImage
+    }
+
+    private var displayedVideoPosterImage: UIImage? {
+        videoPosterImage ?? storedPreviewImage
+    }
+    #endif
 
     private func pruneIfAssetMissing() {
         #if canImport(Photos)
@@ -139,7 +157,7 @@ struct DiveActivityMediaItemView: View {
                     libraryVideoQuality: DiveActivityMediaPresentation.overviewLibraryVideoQuality,
                     usesProgressiveFidelity: true,
                     screenPixelWidth: layoutWidth * displayScale,
-                    initialPosterImage: videoPosterImage,
+                    initialPosterImage: displayedVideoPosterImage,
                     isPausedByUserHold: isHoldingVideoPause,
                     onAssetMissing: pruneIfAssetMissing
                 )
@@ -152,18 +170,20 @@ struct DiveActivityMediaItemView: View {
     private var videoPosterPage: some View {
         GeometryReader { geometry in
             #if canImport(UIKit)
-            if let videoPosterImage {
-                Image(uiImage: videoPosterImage)
+            if let displayedVideoPosterImage {
+                Image(uiImage: displayedVideoPosterImage)
                     .resizable()
                     .scaledToFill()
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .clipped()
                     .accessibilityLabel("Dive video poster")
-            } else if videoPosterLoadFinished {
+            } else if DiveMediaPreviewPersistence.showsMissingMediaPlaceholder(
+                hasDisplayedImage: displayedVideoPosterImage != nil,
+                loadFinished: videoPosterLoadFinished
+            ) {
                 missingImage(in: geometry.size, systemImage: "video", showsOfflineIndicator: !networkConnectivity.isConnected)
             } else {
-                Color.clear
-                    .frame(width: geometry.size.width, height: geometry.size.height)
+                loadingMediaPlaceholder(in: geometry.size)
             }
             #else
             missingImage(in: geometry.size, systemImage: "video")
@@ -175,15 +195,20 @@ struct DiveActivityMediaItemView: View {
     private var imagePage: some View {
         GeometryReader { geometry in
             #if canImport(UIKit)
-            if let previewImage {
-                Image(uiImage: previewImage)
+            if let displayedPreviewImage {
+                Image(uiImage: displayedPreviewImage)
                     .resizable()
                     .scaledToFill()
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .clipped()
                     .accessibilityLabel("Dive photo")
-            } else {
+            } else if DiveMediaPreviewPersistence.showsMissingMediaPlaceholder(
+                hasDisplayedImage: displayedPreviewImage != nil,
+                loadFinished: imageLoadFinished
+            ) {
                 missingImage(in: geometry.size, systemImage: "photo", showsOfflineIndicator: !networkConnectivity.isConnected)
+            } else {
+                loadingMediaPlaceholder(in: geometry.size)
             }
             #else
             missingImage(in: geometry.size, systemImage: "photo")
@@ -200,7 +225,7 @@ struct DiveActivityMediaItemView: View {
             return
         }
 
-        if videoPosterImage == nil {
+        if videoPosterImage == nil, storedPreviewImage == nil {
             videoPosterLoadFinished = false
         }
         let screenPixelWidth = layoutWidth > 0
@@ -217,6 +242,7 @@ struct DiveActivityMediaItemView: View {
         ) { image, _ in
             videoPosterImage = image
             receivedFrame = true
+            DiveMediaPreviewStorage.persistPreview(from: image, on: media, modelContext: modelContext)
         }
         if !receivedFrame, networkConnectivity.isConnected {
             DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
@@ -227,12 +253,17 @@ struct DiveActivityMediaItemView: View {
     private func loadPreviewImageIfNeeded() async {
         guard media.resolvedMediaKind == .image, let identifier = media.libraryAssetLocalIdentifier else {
             previewImage = nil
+            imageLoadFinished = true
             return
         }
-        guard layoutWidth > 0 else { return }
-        let screenPixelWidth = layoutWidth * displayScale
+        if storedPreviewImage == nil {
+            imageLoadFinished = false
+        }
+        let screenPixelWidth = layoutWidth > 0
+            ? layoutWidth * displayScale
+            : DiveMediaPreviewPersistence.storedPreviewEdge
         let targetSize: CGSize
-        if networkConnectivity.isConnected {
+        if networkConnectivity.isConnected, layoutWidth > 0 {
             let edge = DiveActivityMediaPresentation.fullScreenImageTargetEdge(
                 screenPixelWidth: screenPixelWidth
             )
@@ -250,10 +281,12 @@ struct DiveActivityMediaItemView: View {
         ) { image, _ in
             previewImage = image
             receivedFrame = true
+            DiveMediaPreviewStorage.persistPreview(from: image, on: media, modelContext: modelContext)
         }
         if !receivedFrame, networkConnectivity.isConnected {
             DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
         }
+        imageLoadFinished = true
     }
     #else
     private func loadPreviewImageIfNeeded() async {}
@@ -298,6 +331,11 @@ struct DiveActivityMediaItemView: View {
             }
         }
         .frame(width: size.width, height: size.height)
+    }
+
+    private func loadingMediaPlaceholder(in size: CGSize) -> some View {
+        AppTheme.Colors.surfaceMuted.opacity(0.35)
+            .frame(width: size.width, height: size.height)
     }
 }
 
