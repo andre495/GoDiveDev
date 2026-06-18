@@ -58,7 +58,8 @@ enum DiveActivityMapSitePrompt {
             region: region,
             bodyOfWater: bodyOfWater,
             latitudeText: latitude,
-            longitudeText: longitude
+            longitudeText: longitude,
+            waterType: catalogSite?.resolvedWaterType ?? .saltwater
         )
     }
 
@@ -99,6 +100,7 @@ struct DiveSiteFormDraft: Equatable, Sendable {
     var bodyOfWater: String
     var latitudeText: String
     var longitudeText: String
+    var waterType: DiveWaterType = .saltwater
 }
 
 enum DiveSiteFormValidation {

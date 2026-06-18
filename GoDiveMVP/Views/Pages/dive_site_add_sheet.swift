@@ -27,53 +27,10 @@ struct DiveSiteAddSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    TextField("Site name", text: $draft.siteName)
-                        .textInputAutocapitalization(.words)
-                        .accessibilityIdentifier("DiveSiteAddSheet.SiteName")
-                } header: {
-                    Text("Dive site")
-                }
-
-                Section {
-                    TextField("Country", text: $draft.country)
-                        .textInputAutocapitalization(.words)
-                        .accessibilityIdentifier("DiveSiteAddSheet.Country")
-
-                    TextField("Region", text: $draft.region)
-                        .textInputAutocapitalization(.words)
-                        .accessibilityIdentifier("DiveSiteAddSheet.Region")
-
-                    TextField("Body of water", text: $draft.bodyOfWater)
-                        .textInputAutocapitalization(.words)
-                        .accessibilityIdentifier("DiveSiteAddSheet.BodyOfWater")
-                } header: {
-                    Text("Place")
-                } footer: {
-                    Text("Optional. Country is the broadest level; region is a state, province, or survey area; body of water is the sea, reef, or bay.")
-                }
-
-                Section {
-                    DiveSiteCoordinatePickerMapView(
-                        latitudeText: $draft.latitudeText,
-                        longitudeText: $draft.longitudeText,
-                        fallbackCoordinate: activity.entryCoordinate
-                    )
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
-
-                    TextField("Latitude", text: $draft.latitudeText)
-                        .keyboardType(.decimalPad)
-                        .accessibilityIdentifier("DiveSiteAddSheet.Latitude")
-
-                    TextField("Longitude", text: $draft.longitudeText)
-                        .keyboardType(.decimalPad)
-                        .accessibilityIdentifier("DiveSiteAddSheet.Longitude")
-                } header: {
-                    Text("Location")
-                } footer: {
-                    Text("Drag the map to place the pin, or edit the coordinates directly. Location helps match future dives to this site.")
-                }
+                DiveSiteFormContent(
+                    draft: $draft,
+                    fallbackCoordinate: activity.entryCoordinate
+                )
             }
             .scrollContentBackground(.hidden)
             .navigationTitle("New dive site")
@@ -131,6 +88,7 @@ struct DiveSiteAddSheet: View {
                     bodyOfWater: DiveSiteFormValidation.sanitizedPlaceField(draft.bodyOfWater),
                     latCoords: lat,
                     longCoords: lon,
+                    waterType: draft.waterType,
                     modelContext: modelContext
                 )
                 await DiveSiteTimeZoneResolution.ensureResolved(

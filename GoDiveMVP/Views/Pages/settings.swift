@@ -98,6 +98,10 @@ private struct SettingsPageContent: View {
     @Binding var defaultTankSizeRaw: String
     @Binding var autoUploadMediaToActivities: Bool
 
+    @State private var saltWaterWeightText = ""
+    @State private var freshWaterWeightText = ""
+    @FocusState private var focusedWeightField: SettingsWeightFieldFocus?
+
     let mediaBackfillOverlay: DiveLibraryMediaBackfillOverlayState
     let onRenumberWhenEnabled: () -> Void
     let onAutoUploadEnabled: () -> Void
@@ -131,6 +135,8 @@ private struct SettingsPageContent: View {
                 options: DefaultTankSize.allCases.map { (tag: $0, label: $0.settingsPickerTitle) }
             )
 
+            defaultDiverWeightsSection
+
             SettingsToggleRow(
                 title: SettingsPresentation.AutomaticallyRenumberDives.title,
                 infoMessage: SettingsPresentation.AutomaticallyRenumberDives.infoMessage,
@@ -156,6 +162,75 @@ private struct SettingsPageContent: View {
         .padding(.horizontal, AppTheme.Spacing.lg)
         .padding(.top, AppTheme.Spacing.md)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onAppear(perform: reloadDefaultWeightFields)
+        .onChange(of: useImperialDisplayUnits) { _, _ in
+            reloadDefaultWeightFields()
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    focusedWeightField = nil
+                }
+                .font(.body.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.tabSelected)
+            }
+        }
+    }
+
+    private var defaultDiverWeightsSection: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            SettingsSectionHeader(
+                title: SettingsPresentation.DefaultDiverWeights.sectionTitle,
+                infoMessage: SettingsPresentation.DefaultDiverWeights.infoMessage
+            )
+
+            SettingsWeightFieldRow(
+                title: SettingsPresentation.DefaultDiverWeights.saltWaterTitle,
+                unitLabel: SettingsPresentation.diverWeightUnitLabel(useImperial: useImperialDisplayUnits),
+                text: $saltWaterWeightText,
+                focused: $focusedWeightField,
+                focusCase: .saltWater
+            )
+            .onChange(of: saltWaterWeightText) { _, newValue in
+                persistDefaultWeightText(newValue) { kilograms in
+                    AppUserSettings.setDefaultSaltwaterWeightKilograms(kilograms)
+                }
+            }
+
+            SettingsWeightFieldRow(
+                title: SettingsPresentation.DefaultDiverWeights.freshWaterTitle,
+                unitLabel: SettingsPresentation.diverWeightUnitLabel(useImperial: useImperialDisplayUnits),
+                text: $freshWaterWeightText,
+                focused: $focusedWeightField,
+                focusCase: .freshWater
+            )
+            .onChange(of: freshWaterWeightText) { _, newValue in
+                persistDefaultWeightText(newValue) { kilograms in
+                    AppUserSettings.setDefaultFreshwaterWeightKilograms(kilograms)
+                }
+            }
+        }
+    }
+
+    private func reloadDefaultWeightFields() {
+        let system: DiveDisplayUnitSystem = useImperialDisplayUnits ? .imperial : .metric
+        saltWaterWeightText = DiveActivityFieldValueParsing.formatDiverWeightInput(
+            kilograms: AppUserSettings.defaultSaltwaterWeightKilograms(),
+            displayUnits: system
+        )
+        freshWaterWeightText = DiveActivityFieldValueParsing.formatDiverWeightInput(
+            kilograms: AppUserSettings.defaultFreshwaterWeightKilograms(),
+            displayUnits: system
+        )
+    }
+
+    private func persistDefaultWeightText(
+        _ text: String,
+        setter: (Double?) -> Void
+    ) {
+        let system: DiveDisplayUnitSystem = useImperialDisplayUnits ? .imperial : .metric
+        setter(DiveActivityFieldValueParsing.parseDiverWeightKilograms(text, displayUnits: system))
     }
 
     private var defaultTankSelection: Binding<DefaultTankSize> {

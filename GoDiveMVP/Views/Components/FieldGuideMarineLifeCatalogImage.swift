@@ -8,7 +8,7 @@ import UIKit
 /// Prefers bundled JPEGs under **`Resources/MarineLifePhotos/`** (offline), then remote URLs.
 enum FieldGuideMarineLifeImageLayout {
     /// Shared 4:3 crop for species mosaic tiles.
-    static let mosaicAspectRatio: CGFloat = 4 / 3
+    static let mosaicAspectRatio: CGFloat = 4.0 / 3.0
     /// Keeps mosaic cards the same height below the photo.
     static let mosaicLabelBlockHeight: CGFloat = 88
     /// Detail hero height before safe-area extension.

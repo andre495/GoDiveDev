@@ -6,13 +6,21 @@ enum SettingsPresentation: Sendable {
     enum ImperialUnits {
         nonisolated static let title = "Imperial units"
         nonisolated static let infoMessage =
-            "When on, depths show in feet, water temperature in °F, cylinder pressure in psi, and tank volume in cubic feet. Off uses metric (meters, °C, bar, liters). Imported values are always stored the same way; this only changes how numbers appear."
+            "When on, depths show in feet, water temperature in °F, cylinder pressure in psi, tank volume in cubic feet, and diver weight in pounds. Off uses metric (meters, °C, bar, liters, kilograms). Imported values are always stored the same way; this only changes how numbers appear."
     }
 
     enum DefaultTank {
         nonisolated static let title = "Default tank"
         nonisolated static let infoMessage =
             "Used for new imports and gas details when a dive file does not specify cylinder size or material. Existing dives keep their stored values until re-imported."
+    }
+
+    enum DefaultDiverWeights {
+        nonisolated static let sectionTitle = "Default Diver Weights"
+        nonisolated static let infoMessage =
+            "Pre-fills the Weights section on newly imported dives. Clear a field to stop auto-filling that water type. You can still change weight on each dive."
+        nonisolated static let saltWaterTitle = "Salt water"
+        nonisolated static let freshWaterTitle = "Fresh water"
     }
 
     enum AutomaticallyRenumberDives {
@@ -35,5 +43,9 @@ enum SettingsPresentation: Sendable {
 
     nonisolated static func infoAccessibilityLabel(forSettingTitle title: String) -> String {
         "More information about \(title)"
+    }
+
+    nonisolated static func diverWeightUnitLabel(useImperial: Bool) -> String {
+        useImperial ? "lb" : "kg"
     }
 }

@@ -5,6 +5,7 @@ private enum DiveQuantityFormattingConstants: Sendable {
     /// Same scale as **`FitTankFieldImport`** (**bar → psi**).
     nonisolated static let psiPerBar = 14.5037738007
     nonisolated static let cubicFeetPerLiter = 0.0353146667214888
+    nonisolated static let poundsPerKilogram = 2.2046226218
 }
 
 /// Formats canonical **`DiveActivity`** / profile values for UI according to **`DiveDisplayUnitSystem`**.
@@ -38,6 +39,18 @@ enum DiveQuantityFormatting {
         case .imperial:
             let fahrenheit = celsius * 9.0 / 5.0 + 32.0
             return String(format: "%.1f °F", fahrenheit)
+        }
+    }
+
+    /// Diver ballast from stored **kg**; **`nil`** → **—**.
+    static func diverWeight(kilograms: Double?, system: DiveDisplayUnitSystem) -> String {
+        guard let kilograms, kilograms > 0 else { return "—" }
+        switch system {
+        case .metric:
+            return String(format: "%.1f kg", kilograms)
+        case .imperial:
+            let pounds = kilograms * DiveQuantityFormattingConstants.poundsPerKilogram
+            return String(format: "%.1f lb", pounds)
         }
     }
 

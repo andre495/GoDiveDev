@@ -110,6 +110,7 @@ enum FitDiveFileImport {
                     modelContext: modelContext
                 )
             }
+            DiveActivityDiverWeightDefaults.applyInheritedDefaults(to: activity)
             await DiveSiteTimeZoneResolution.ensureResolvedForLinkedActivities(
                 [activity],
                 resolver: MapKitGeocodingTimeZoneResolver.shared

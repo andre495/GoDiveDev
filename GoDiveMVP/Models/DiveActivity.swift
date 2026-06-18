@@ -69,6 +69,11 @@ final class DiveActivity {
     /// **`PKDrawing`** archive from **`DiveSignaturePadView`**; **`nil`** when empty.
     var diveSignatureData: Data?
 
+    /// Salt vs fresh water for ballast context (**`nil`** → salt water on import).
+    var diveWaterType: DiveWaterType?
+    /// Diver ballast weight in **kilograms** (canonical storage).
+    var diverWeightKilograms: Double?
+
     // Tank / cylinder (import: **UDDF** when present; **FIT** has no standard tank SPG fields in decoded messages → **`nil`**)
     /// Material label when known (e.g. **steel**, **aluminum**). **`nil`** if not in file.
     var tankMaterial: String?
@@ -162,6 +167,8 @@ final class DiveActivity {
         diveOperatorName: String? = nil,
         diveMasterName: String? = nil,
         diveSignatureData: Data? = nil,
+        diveWaterType: DiveWaterType? = nil,
+        diverWeightKilograms: Double? = nil,
         tankMaterial: String? = nil,
         tankVolumeDescription: String? = nil,
         tankPressureStartPSI: Double? = nil,
@@ -201,6 +208,8 @@ final class DiveActivity {
         self.diveOperatorName = diveOperatorName
         self.diveMasterName = diveMasterName
         self.diveSignatureData = diveSignatureData
+        self.diveWaterType = diveWaterType
+        self.diverWeightKilograms = diverWeightKilograms
         self.tankMaterial = tankMaterial
         self.tankVolumeDescription = tankVolumeDescription
         self.tankPressureStartPSI = tankPressureStartPSI
@@ -246,6 +255,12 @@ extension DiveActivity {
     var resolvedDiveCurrentStrength: DiveCurrentStrength {
         get { diveCurrentStrength ?? .none }
         set { diveCurrentStrength = newValue == .none ? nil : newValue }
+    }
+
+    /// UI default when **`diveWaterType`** is **`nil`** (legacy rows and import default).
+    var resolvedDiveWaterType: DiveWaterType {
+        get { diveWaterType ?? .saltwater }
+        set { diveWaterType = newValue }
     }
 
     /// **`EquipmentItem.id`** values on this dive's equipment list.
@@ -340,7 +355,8 @@ extension DiveActivity {
     }
 
     private func sacRMVCalculationInput(volumeUsedSurfaceLiters: Double? = nil) -> DiveSACRMVCalculation.Input {
-        DiveSACRMVCalculation.Input(
+        let waterColumn: DiveSACRMVCalculation.WaterColumn = resolvedDiveWaterType == .freshwater ? .freshwater : .saltwater
+        var input = DiveSACRMVCalculation.Input(
             tankPressureStartPSI: tankPressureStartPSI,
             tankPressureEndPSI: tankPressureEndPSI,
             bottomTimeSeconds: bottomTimeSeconds,
@@ -350,6 +366,8 @@ extension DiveActivity {
             tankVolumeDescription: tankVolumeDescription,
             volumeUsedSurfaceLiters: volumeUsedSurfaceLiters
         )
+        input.waterColumn = waterColumn
+        return input
     }
 
     private static func gasDetailsTrimmedTextOrDash(_ value: String?) -> String {

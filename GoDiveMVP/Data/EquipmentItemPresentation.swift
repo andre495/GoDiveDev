@@ -1,7 +1,11 @@
+import CoreGraphics
 import Foundation
 
 /// Read-only labels for **Equipment Locker** detail UI.
 enum EquipmentItemPresentation: Sendable {
+
+    /// Detail hero height before safe-area extension (matches Field Guide species detail).
+    nonisolated static let detailHeroBaseHeight: CGFloat = 280
 
     static func title(for item: EquipmentItem) -> String {
         let manufacturer = item.manufacturer.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -54,6 +54,13 @@ struct DiveActivityFieldEditorRows: View {
                 }
             }
             .pickerStyle(.segmented)
+        case .waterType:
+            Picker("Water type", selection: $draft.waterType) {
+                ForEach(DiveWaterType.allCases) { type in
+                    Text(type.displayTitle).tag(type)
+                }
+            }
+            .pickerStyle(.segmented)
         case .signature:
             DiveSignaturePadView(signatureData: $activity.diveSignatureData)
         case .readOnly:
@@ -78,6 +85,8 @@ struct DiveActivityFieldEditorRows: View {
             return displayUnits == .metric ? "°C" : "°F"
         case .avgAscentRateMetersPerSecond:
             return displayUnits == .metric ? "m/s" : "ft/min"
+        case .diverWeightKilograms:
+            return displayUnits == .metric ? "kg" : "lb"
         case .oxygenMix:
             return "Percent O₂"
         default:

@@ -47,6 +47,9 @@ enum DiveActivityEditableFieldID: String, Identifiable, Sendable, CaseIterable, 
 
     case linkedEquipment
 
+    case diveWaterType
+    case diverWeightKilograms
+
     case source
     case sourceDiveId
     case rawImportVersion

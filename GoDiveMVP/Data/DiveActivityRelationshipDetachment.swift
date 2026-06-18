@@ -8,7 +8,10 @@ import SwiftData
 /// **`modelContext.delete(activity)`** + **`deleteRule: .cascade`** on the parent.
 enum DiveActivityRelationshipDetachment {
 
-    nonisolated static func detachNonCascadeRelationships(from activity: DiveActivity) {
+    nonisolated static func detachNonCascadeRelationships(
+        from activity: DiveActivity,
+        modelContext: ModelContext
+    ) {
         let activityID = activity.id
 
         let linkedTags = activity.activityTags
@@ -19,10 +22,16 @@ enum DiveActivityRelationshipDetachment {
 
         if let equipmentList = activity.equipmentList {
             for entry in equipmentList.entries {
+                if let equipment = entry.equipment {
+                    equipment.diveEquipmentEntries.removeAll { $0.id == entry.id }
+                }
+                entry.equipment = nil
                 entry.equipmentList = nil
+                modelContext.delete(entry)
             }
             equipmentList.entries.removeAll()
             equipmentList.dive = nil
+            modelContext.delete(equipmentList)
         }
         activity.equipmentList = nil
 
@@ -36,5 +45,16 @@ enum DiveActivityRelationshipDetachment {
         }
         activity.diveSite = nil
         activity.diveSiteID = nil
+
+        let tripLinks = activity.tripActivityLinks
+        for link in tripLinks {
+            if let trip = link.trip {
+                trip.activityLinks.removeAll { $0.id == link.id }
+            }
+            link.trip = nil
+            link.diveActivity = nil
+            modelContext.delete(link)
+        }
+        activity.tripActivityLinks.removeAll()
     }
 }

@@ -2,7 +2,7 @@ import Foundation
 import os
 import SwiftData
 
-/// Structured logging for logbook dive delete. Filter **Console.app** by subsystem + category **`DiveDelete`**.
+/// Dive delete diagnostics. Filter Console / Xcode device log by category **`DiveDelete`**.
 enum DiveActivityDeletionDebug: Sendable {
 
     #if DEBUG
@@ -11,55 +11,51 @@ enum DiveActivityDeletionDebug: Sendable {
     nonisolated(unsafe) static var isEnabled = false
     #endif
 
-    private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "GoDiveMVP",
+    nonisolated private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "PrimoSoftware.GoDiveMVP",
         category: "DiveDelete"
     )
 
-    enum Phase: String, Sendable {
-        case begin
-        case afterBackgroundWorker
-        case afterMainContextDelete
-        case afterRenumber
-        case waitForMainContext
-        case succeeded
-        case failed
+    nonisolated static func began(diveID: UUID) {
+        guard isEnabled else { return }
+        logger.info("begin dive=\(diveID.uuidString, privacy: .public)")
     }
 
-    static func phase(_ phase: Phase, diveID: UUID, detail: String = "") {
+    nonisolated static func succeeded(diveID: UUID) {
         guard isEnabled else { return }
-        if detail.isEmpty {
-            logger.info("[\(phase.rawValue, privacy: .public)] dive=\(diveID.uuidString, privacy: .public)")
-        } else {
-            logger.info("[\(phase.rawValue, privacy: .public)] dive=\(diveID.uuidString, privacy: .public) \(detail, privacy: .public)")
-        }
+        logger.info("succeeded dive=\(diveID.uuidString, privacy: .public)")
     }
 
-    static func failure(diveID: UUID, error: Error, contextLabel: String) {
+    nonisolated static func failure(diveID: UUID, error: Error, contextLabel: String) {
         guard isEnabled else { return }
-        logger.error("[failed] dive=\(diveID.uuidString, privacy: .public) context=\(contextLabel, privacy: .public) error=\(String(describing: error), privacy: .public)")
+        let nsError = error as NSError
+        logger.error("""
+        failed dive=\(diveID.uuidString, privacy: .public) context=\(contextLabel, privacy: .public) \
+        domain=\(nsError.domain, privacy: .public) code=\(nsError.code, privacy: .public) \
+        \(String(describing: error), privacy: .public)
+        """)
     }
 
-    /// Row counts for the dive id in a **`ModelContext`** (diagnose hollow-parent / merge issues).
-    static func snapshot(diveID: UUID, contextLabel: String, modelContext: ModelContext) {
+    /// Row counts when delete fails (diagnose constraint / merge issues).
+    nonisolated static func snapshot(diveID: UUID, contextLabel: String, modelContext: ModelContext? = nil) {
         guard isEnabled else { return }
+        guard let modelContext else { return }
         do {
             let report = try DiveActivityDeletionDebugReport.make(diveID: diveID, modelContext: modelContext)
-            logger.info("""
-            [snapshot] context=\(contextLabel, privacy: .public) dive=\(diveID.uuidString, privacy: .public) \
+            logger.error("""
+            snapshot context=\(contextLabel, privacy: .public) dive=\(diveID.uuidString, privacy: .public) \
             activity=\(report.activityPresent ? "yes" : "no", privacy: .public) \
-            buddies=\(report.buddyCount, privacy: .public) media=\(report.mediaCount, privacy: .public) \
-            sightings=\(report.sightingCount, privacy: .public) profile=\(report.profilePointCount, privacy: .public) \
-            equipmentEntries=\(report.equipmentEntryCount, privacy: .public)
+            tripLinks=\(report.tripLinkCount, privacy: .public) equipment=\(report.equipmentEntryCount, privacy: .public)
             """)
         } catch {
-            logger.error("[snapshot-error] context=\(contextLabel, privacy: .public) \(String(describing: error), privacy: .public)")
+            logger.error("snapshot-error context=\(contextLabel, privacy: .public) \(String(describing: error), privacy: .public)")
         }
     }
 }
 
 struct DiveActivityDeletionDebugReport: Sendable {
     let activityPresent: Bool
+    let tripLinkCount: Int
     let buddyCount: Int
     let mediaCount: Int
     let sightingCount: Int
@@ -73,6 +69,9 @@ struct DiveActivityDeletionDebugReport: Sendable {
         activityDescriptor.fetchLimit = 1
         let activityPresent = try !modelContext.fetch(activityDescriptor).isEmpty
 
+        let tripLinkCount = try modelContext.fetchCount(
+            FetchDescriptor<DiveTripActivityLink>(predicate: #Predicate { $0.diveActivityID == diveID })
+        )
         let buddyCount = try modelContext.fetchCount(
             FetchDescriptor<DiveBuddyTag>(predicate: #Predicate { $0.diveActivityID == diveID })
         )
@@ -91,6 +90,7 @@ struct DiveActivityDeletionDebugReport: Sendable {
 
         return DiveActivityDeletionDebugReport(
             activityPresent: activityPresent,
+            tripLinkCount: tripLinkCount,
             buddyCount: buddyCount,
             mediaCount: mediaCount,
             sightingCount: sightingCount,

@@ -4,6 +4,7 @@ import Foundation
 enum DiveActivityFieldValueParsing: Sendable {
     private static let feetPerMeter = 3.280839895013123
     private static let psiPerBar = 14.5037738007
+    private static let poundsPerKilogram = 2.2046226218
 
     static func parseDouble(_ text: String) -> Double? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -48,6 +49,24 @@ enum DiveActivityFieldValueParsing: Sendable {
         switch displayUnits {
         case .metric: return raw
         case .imperial: return raw / (feetPerMeter * 60.0)
+        }
+    }
+
+    static func parseDiverWeightKilograms(_ text: String, displayUnits: DiveDisplayUnitSystem) -> Double? {
+        guard let raw = parseDouble(text), raw > 0 else { return nil }
+        switch displayUnits {
+        case .metric: return raw
+        case .imperial: return raw / poundsPerKilogram
+        }
+    }
+
+    static func formatDiverWeightInput(kilograms: Double?, displayUnits: DiveDisplayUnitSystem) -> String {
+        guard let kilograms, kilograms > 0 else { return "" }
+        switch displayUnits {
+        case .metric:
+            return String(format: "%.1f", kilograms)
+        case .imperial:
+            return String(format: "%.1f", kilograms * poundsPerKilogram)
         }
     }
 

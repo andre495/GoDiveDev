@@ -1,17 +1,16 @@
 import Foundation
-import SwiftUI
 
 /// Caribbean-oriented field guide hierarchy (Humann-style fish groups + phylum-level inverts).
 enum FieldGuideTaxonomy {
 
-    struct Subcategory: Sendable, Identifiable, Equatable {
+    struct Subcategory: Sendable, Identifiable {
         let id: String
         let title: String
         let hint: String
         let systemImage: String
     }
 
-    struct Category: Sendable, Identifiable, Equatable {
+    struct Category: Sendable, Identifiable {
         let id: String
         let title: String
         /// Short tagline for hub tiles.
@@ -247,27 +246,25 @@ enum FieldGuideTaxonomy {
     ]
 }
 
-// MARK: - Presentation accents
-
-enum FieldGuideCategoryAccent {
-    static func gradientTop(_ categoryID: String) -> Color {
-        switch categoryID {
-        case "fish": AppTheme.Colors.accent
-        case "corals": Color(red: 0.95, green: 0.45, blue: 0.55)
-        case "other_cnidarians": Color(red: 0.55, green: 0.75, blue: 0.98)
-        case "sponges": Color(red: 0.72, green: 0.55, blue: 0.88)
-        case "mollusks": Color(red: 0.45, green: 0.72, blue: 0.68)
-        case "crustaceans": Color(red: 0.92, green: 0.55, blue: 0.28)
-        case "echinoderms": Color(red: 0.85, green: 0.38, blue: 0.42)
-        case "worms": Color(red: 0.62, green: 0.48, blue: 0.36)
-        case "colonial_invertebrates": Color(red: 0.48, green: 0.62, blue: 0.82)
-        case "marine_reptiles": Color(red: 0.34, green: 0.68, blue: 0.48)
-        case "marine_mammals": Color(red: 0.28, green: 0.52, blue: 0.78)
-        default: AppTheme.Colors.accent
-        }
+extension FieldGuideTaxonomy.Subcategory: Equatable {
+    /// Explicit **nonisolated** equality for **`nonisolated`** taxonomy helpers (Swift 6).
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.id == rhs.id
+            && lhs.title == rhs.title
+            && lhs.hint == rhs.hint
+            && lhs.systemImage == rhs.systemImage
     }
+}
 
-    static func gradientBottom(_ categoryID: String) -> Color {
-        gradientTop(categoryID).opacity(0.18)
+extension FieldGuideTaxonomy.Category: Equatable {
+    /// Explicit **nonisolated** equality for **`nonisolated`** taxonomy helpers (Swift 6).
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.id == rhs.id
+            && lhs.title == rhs.title
+            && lhs.subtitle == rhs.subtitle
+            && lhs.description == rhs.description
+            && lhs.systemImage == rhs.systemImage
+            && lhs.heroImageName == rhs.heroImageName
+            && lhs.subcategories == rhs.subcategories
     }
 }

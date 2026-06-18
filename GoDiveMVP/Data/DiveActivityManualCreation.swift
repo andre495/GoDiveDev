@@ -1,11 +1,17 @@
 import Foundation
 import SwiftData
 
+/// How **Add activity → Manual entry** should attach a catalog dive site when the dive is created.
+enum ManualDiveEntrySiteSelection: Equatable, Sendable {
+    case none
+    case existingSite(id: UUID)
+    case newSite(DiveSiteFormDraft)
+}
+
 /// User-confirmed values from **Add activity → Manual entry** before a dive row is inserted.
 struct ManualDiveEntryInput: Equatable, Sendable {
     var startTime: Date
-    /// Optional dive site label (stored on **`siteName`**).
-    var siteNameText: String
+    var siteSelection: ManualDiveEntrySiteSelection = .none
 }
 
 /// Creates and persists a blank **Manual** **`DiveActivity`** from **Add activity → Manual entry**.
@@ -13,19 +19,14 @@ enum DiveActivityManualCreation {
 
     static let successMessagePrefix = "Manual dive created"
 
-    /// Trims **`siteNameText`**; **`nil`** when empty.
-    nonisolated static func sanitizedSiteName(_ raw: String) -> String? {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
-    }
-
     /// Blank dive for in-app editing — **Manual** source, no profile, no **`sourceDiveId`**.
     nonisolated static func makeBlankActivity(
         startTime: Date = Date(),
         siteName: String? = nil,
-        defaultTank: DefaultTankSpecification = DiveActivityTankDefaults.resolvedSpecification()
+        defaultTank: DefaultTankSpecification = DiveActivityTankDefaults.resolvedSpecification(),
+        userDefaults: UserDefaults = .standard
     ) -> DiveActivity {
-        DiveActivity(
+        let activity = DiveActivity(
             source: .manual,
             sourceDiveId: nil,
             startTime: startTime,
@@ -36,18 +37,18 @@ enum DiveActivityManualCreation {
             tankMaterial: defaultTank.materialLabel,
             tankVolumeDescription: defaultTank.storedDescription
         )
+        DiveActivityDiverWeightDefaults.applyImportDefaults(to: activity, userDefaults: userDefaults)
+        return activity
     }
 
     nonisolated static func makeBlankActivity(from input: ManualDiveEntryInput) -> DiveActivity {
-        makeBlankActivity(
-            startTime: input.startTime,
-            siteName: sanitizedSiteName(input.siteNameText)
-        )
+        makeBlankActivity(startTime: input.startTime)
     }
 
     /// Inserts the dive for the signed-in profile (dive **#**, auto-add gear, save).
     static func persist(
         _ activity: DiveActivity,
+        siteSelection: ManualDiveEntrySiteSelection = .none,
         modelContext: ModelContext,
         owner: UserProfile? = nil
     ) -> DiveFileImportOutcome {
@@ -68,6 +69,7 @@ enum DiveActivityManualCreation {
             try DiveActivityDiveNumbering.assignNextDiveNumberChainedAfterNewest(for: activity, modelContext: modelContext)
             DiveActivityOwnership.assignOwner(owner, to: activity)
             modelContext.insert(activity)
+            try applySiteSelection(siteSelection, to: activity, modelContext: modelContext)
             try DiveActivityEquipmentAssociation.applyAutoAdd(
                 to: activity,
                 ownerProfileID: owner.id,
@@ -85,6 +87,42 @@ enum DiveActivityManualCreation {
             )
         } catch {
             return DiveFileImportOutcome(userMessage: error.localizedDescription, primaryInsertedDiveId: nil)
+        }
+    }
+
+    private static func applySiteSelection(
+        _ selection: ManualDiveEntrySiteSelection,
+        to activity: DiveActivity,
+        modelContext: ModelContext
+    ) throws {
+        switch selection {
+        case .none:
+            return
+        case .existingSite(let siteID):
+            var descriptor = FetchDescriptor<DiveSite>(
+                predicate: #Predicate<DiveSite> { $0.id == siteID }
+            )
+            descriptor.fetchLimit = 1
+            guard let site = try modelContext.fetch(descriptor).first else { return }
+            DiveActivitySiteAssociation.link(activity, to: site)
+        case .newSite(let draft):
+            guard let siteName = DiveSiteFormValidation.sanitizedSiteName(draft.siteName) else { return }
+            let parsed = DiveSiteFormValidation.parsedCoordinate(
+                latitudeText: draft.latitudeText,
+                longitudeText: draft.longitudeText
+            )
+            _ = try DiveActivitySiteAssociation.createSiteAndLink(
+                to: activity,
+                siteName: siteName,
+                country: DiveSiteFormValidation.sanitizedPlaceField(draft.country),
+                region: DiveSiteFormValidation.sanitizedPlaceField(draft.region),
+                bodyOfWater: DiveSiteFormValidation.sanitizedPlaceField(draft.bodyOfWater),
+                latCoords: parsed?.latitude,
+                longCoords: parsed?.longitude,
+                waterType: draft.waterType,
+                modelContext: modelContext,
+                persistImmediately: false
+            )
         }
     }
 }

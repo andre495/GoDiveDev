@@ -29,14 +29,36 @@ enum DiveActivityDeletion {
         mainModelContext: ModelContext? = nil,
         reportProgress: (@MainActor @Sendable (Double) -> Void)? = nil
     ) async throws {
-        DiveActivityDeletionDebug.phase(.begin, diveID: request.activityID)
+        DiveActivityDeletionDebug.began(diveID: request.activityID)
 
         await emitDeleteProgress(0.12, handler: reportProgress)
 
         let worker = DiveBackgroundDeletionWorker(modelContainer: container)
         try await worker.deleteDive(id: request.activityID)
         await emitDeleteProgress(0.72, handler: reportProgress)
-        DiveActivityDeletionDebug.phase(.afterBackgroundWorker, diveID: request.activityID)
+
+        do {
+            try await DiveActivityStoreSync.awaitDiveAbsent(
+                diveID: request.activityID,
+                container: container
+            )
+        } catch {
+            DiveActivityDeletionDebug.failure(diveID: request.activityID, error: error, contextLabel: "store-sync")
+            if let mainModelContext {
+                DiveActivityDeletionDebug.snapshot(
+                    diveID: request.activityID,
+                    contextLabel: "store-sync",
+                    modelContext: mainModelContext
+                )
+            }
+            throw error
+        }
+
+        if let mainModelContext {
+            await MainActor.run {
+                mainModelContext.processPendingChanges()
+            }
+        }
 
         if request.renumberAfterDelete {
             if awaitRenumberOnMainContext {
@@ -62,10 +84,9 @@ enum DiveActivityDeletion {
                 )
             }
             await emitDeleteProgress(0.88, handler: reportProgress)
-            DiveActivityDeletionDebug.phase(.afterRenumber, diveID: request.activityID)
         }
 
-        DiveActivityDeletionDebug.phase(.succeeded, diveID: request.activityID)
+        DiveActivityDeletionDebug.succeeded(diveID: request.activityID)
         await emitDeleteProgress(1.0, handler: reportProgress)
     }
 
@@ -99,7 +120,7 @@ enum DiveActivityDeletion {
             container: modelContext.container,
             awaitRenumberOnMainContext: awaitPostDeleteRenumber,
             deferRenumber: deferRenumber,
-            mainModelContext: awaitPostDeleteRenumber ? modelContext : nil
+            mainModelContext: modelContext
         )
     }
 
@@ -122,7 +143,7 @@ enum DiveActivityDeletion {
             ),
             container: container,
             awaitRenumberOnMainContext: awaitPostDeleteRenumber,
-            mainModelContext: awaitPostDeleteRenumber ? mainModelContext : nil
+            mainModelContext: mainModelContext
         )
     }
 }

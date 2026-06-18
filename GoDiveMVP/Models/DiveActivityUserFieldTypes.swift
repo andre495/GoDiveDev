@@ -19,6 +19,21 @@ enum DiveCurrentStrength: String, Codable, CaseIterable, Sendable, Identifiable 
     }
 }
 
+/// Salt vs fresh water for diver ballast and SAC depth calculations.
+enum DiveWaterType: String, Codable, CaseIterable, Sendable, Identifiable {
+    case saltwater
+    case freshwater
+
+    var id: String { rawValue }
+
+    nonisolated var displayTitle: String {
+        switch self {
+        case .saltwater: "Salt water"
+        case .freshwater: "Fresh water"
+        }
+    }
+}
+
 /// Manual **visibility** rating (user-entered).
 enum DiveVisibilityRating: String, Codable, CaseIterable, Sendable, Identifiable {
     case poor

@@ -9,32 +9,70 @@ struct ViewEquipmentDetails: View {
     @Bindable var item: EquipmentItem
 
     @State private var showsEditSheet = false
+    @State private var headerClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
 
     private var pageTitle: String {
         EquipmentItemPresentation.title(for: item)
     }
 
     var body: some View {
-        AppPage(title: pageTitle, showsBackButton: true, trailingContent: {
-            Button("Edit") {
-                showsEditSheet = true
-            }
-            .font(.body.weight(.semibold))
-            .foregroundStyle(AppTheme.Colors.tabSelected)
-            .accessibilityIdentifier("EquipmentDetails.Edit")
-        }, content: {
-            ScrollView {
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-                    photoHero
-                    equipmentSection
-                    flagsSection
-                    purchaseSection
-                    serviceSection
-                    notesSection
+        AppHeaderlessPage {
+            GeometryReader { proxy in
+                let safeTop = AppScrollUnderHeaderListLayout.resolvedSafeAreaTop(proxy.safeAreaInsets.top)
+                let topInset = AppScrollUnderHeaderListLayout.listTopInset(
+                    safeAreaTop: safeTop,
+                    headerClearance: headerClearance
+                )
+
+                ZStack(alignment: .top) {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 0) {
+                            heroImage(extraTopInset: safeTop)
+
+                            VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+                                titleBlock
+                                equipmentSection
+                                flagsSection
+                                purchaseSection
+                                serviceSection
+                                notesSection
+                            }
+                            .padding(AppTheme.Spacing.md)
+                        }
+                    }
+                    .scrollDismissesKeyboard(.interactively)
+                    .ignoresSafeArea(edges: .top)
+
+                    LogbookTopChromeScrim(topObstructionHeight: topInset)
+                        .padding(.top, -safeTop)
+                        .ignoresSafeArea(edges: .top)
+                        .allowsHitTesting(false)
+                        .zIndex(0.5)
+
+                    Color.clear
+                        .frame(height: topInset)
+                        .frame(maxWidth: .infinity, alignment: .top)
+                        .contentShape(Rectangle())
+                        .accessibilityHidden(true)
+                        .zIndex(0.75)
+
+                    AppHeader(
+                        title: "",
+                        showsBackButton: true,
+                        showsBrandWordmark: false,
+                        statusBarSafeAreaTop: safeTop
+                    ) {
+                        editToolbarButton
+                    }
+                    .frame(maxWidth: .infinity, alignment: .top)
+                    .zIndex(1)
                 }
-                .padding(AppTheme.Spacing.md)
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .onPreferenceChange(AppHeaderMetrics.HeightKey.self) { height in
+                    if height > 0 { headerClearance = height }
+                }
             }
-        })
+        }
         .hidesBottomTabBarWhenPushed()
         .sheet(isPresented: $showsEditSheet) {
             EquipmentEditSheetView(item: item) {
@@ -44,18 +82,70 @@ struct ViewEquipmentDetails: View {
         .accessibilityIdentifier("EquipmentDetails.Root")
     }
 
-    @ViewBuilder
-    private var photoHero: some View {
-        #if canImport(UIKit)
-        if let data = item.equipmentPhoto, let image = UIImage(data: data) {
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFill()
-                .frame(maxWidth: .infinity)
-                .frame(height: 220)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    private var editToolbarButton: some View {
+        Button("Edit") {
+            showsEditSheet = true
         }
-        #endif
+        .font(.body.weight(.semibold))
+        .foregroundStyle(AppTheme.Colors.tabSelected)
+        .accessibilityIdentifier("EquipmentDetails.Edit")
+    }
+
+    @ViewBuilder
+    private func heroImage(extraTopInset: CGFloat) -> some View {
+        let height = EquipmentItemPresentation.detailHeroBaseHeight + extraTopInset
+        Group {
+            #if canImport(UIKit)
+            if let data = item.equipmentPhoto, let image = UIImage(data: data) {
+                GeometryReader { proxy in
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .clipped()
+                }
+            } else {
+                heroPlaceholder
+            }
+            #else
+            heroPlaceholder
+            #endif
+        }
+        .frame(height: height)
+        .frame(maxWidth: .infinity)
+        .clipped()
+        .accessibilityLabel(
+            item.equipmentPhoto == nil ? "Equipment photo placeholder" : "Equipment photo"
+        )
+    }
+
+    private var heroPlaceholder: some View {
+        Rectangle()
+            .fill(AppTheme.Colors.tabUnselected.opacity(0.12))
+            .overlay {
+                Image(systemName: "archivebox.fill")
+                    .font(.largeTitle)
+                    .foregroundStyle(AppTheme.Colors.tabUnselected.opacity(0.55))
+            }
+    }
+
+    private var titleBlock: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            Text(pageTitle)
+                .font(.title.weight(.bold))
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+
+            Text(EquipmentItemPresentation.gearTypeLabel(for: item))
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.secondaryText)
+
+            if item.isRetired {
+                Text("Retired")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.tabUnselected)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var equipmentSection: some View {

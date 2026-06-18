@@ -495,6 +495,7 @@ struct LogbookView: View {
 
         dismissDeleteOverlayImmediately()
         showDiveDeleteProgressUIImmediately()
+        DiveActivityDeletionDebug.began(diveID: id)
 
         Task { @MainActor in
             // Paint the progress dialog before list/navigation updates block the main thread.
@@ -522,6 +523,7 @@ struct LogbookView: View {
                         ),
                         container: container,
                         deferRenumber: renumberAfterDelete,
+                        mainModelContext: modelContext,
                         reportProgress: { progress in
                             diveDeleteProgress = progress
                         }
@@ -531,7 +533,7 @@ struct LogbookView: View {
                     DiveActivityDeletionDebug.failure(diveID: id, error: error, contextLabel: "logbook")
                     DiveActivityDeletionDebug.snapshot(
                         diveID: id,
-                        contextLabel: "main-on-failure",
+                        contextLabel: "logbook-on-failure",
                         modelContext: modelContext
                     )
                     await revertFailedDiveDelete(removedId: id)
@@ -543,13 +545,32 @@ struct LogbookView: View {
 
     @MainActor
     private func completeSuccessfulDiveDelete(removedId: UUID, renumberAfterDelete: Bool) async {
-        // Keep the optimistic hide until a store fetch confirms the row is gone — never probe **`@Query`** models here.
-        if !logbookStoreContainsActivity(id: removedId) {
+        if renumberAfterDelete {
+            await DivePostDeleteRenumberScheduler.shared.waitForPending()
+        }
+
+        let uiSynced = await waitForActivityRemovedFromUIQuery(id: removedId)
+        if uiSynced {
             optimisticallyRemovedActivityIDs.remove(removedId)
         }
         suppressStoreDrivenRefresh = false
         skipNextActivitiesCountRefresh = true
-        _ = renumberAfterDelete
+        await refreshLogbookCacheNow(includeDuplicateScan: false)
+    }
+
+    /// Waits for SwiftData **`@Query`** / main-context fetch to reflect a background delete merge.
+    @MainActor
+    @discardableResult
+    private func waitForActivityRemovedFromUIQuery(id: UUID, timeoutSeconds: TimeInterval = 5) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeoutSeconds)
+        while Date() < deadline {
+            modelContext.processPendingChanges()
+            if !activities.contains(where: { $0.id == id }) { return true }
+            if !logbookStoreContainsActivity(id: id) { return true }
+            await Task.yield()
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+        return false
     }
 
     @MainActor

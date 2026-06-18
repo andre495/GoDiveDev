@@ -66,6 +66,7 @@ enum DiveActivityEditableCatalog: Sendable {
                 Section(id: "consumption", title: "Consumption rates", fieldIDs: [.avgSAC, .avgRMV]),
                 Section(id: "profileGas", title: "Profile samples (gas)", fieldIDs: [.profileGasSampleStats]),
                 Section(id: "equipment", title: "Equipment", fieldIDs: [.linkedEquipment]),
+                Section(id: "weights", title: "Weights", fieldIDs: [.diveWaterType, .diverWeightKilograms]),
                 Section(
                     id: "operator",
                     title: "Operator",
@@ -127,6 +128,8 @@ enum DiveActivityEditableCatalog: Sendable {
         case .avgRMV: "RMV"
         case .profileGasSampleStats: "Cylinder pressure on profile"
         case .linkedEquipment: "Equipment"
+        case .diveWaterType: "Water type"
+        case .diverWeightKilograms: "Diver weight"
         case .source: "Source"
         case .sourceDiveId: "Source dive ID"
         case .rawImportVersion: "Import / format"

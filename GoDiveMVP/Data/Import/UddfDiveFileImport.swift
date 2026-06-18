@@ -135,6 +135,9 @@ enum UddfDiveFileImport {
                 createMissingSites: createMissingDiveSites,
                 modelContext: modelContext
             )
+            for activity in inserted {
+                DiveActivityDiverWeightDefaults.applyInheritedDefaults(to: activity)
+            }
             await DiveSiteTimeZoneResolution.ensureResolvedForLinkedActivities(
                 inserted,
                 resolver: MapKitGeocodingTimeZoneResolver.shared

@@ -70,6 +70,13 @@ enum DiveActivityFieldEditing {
             return trimmed(activity.diveMasterName) ?? "—"
         case .diveSignature:
             return DiveSignatureDataFormatting.hasDisplayableContent(activity.diveSignatureData) ? "" : "—"
+        case .diveWaterType:
+            return activity.resolvedDiveWaterType.displayTitle
+        case .diverWeightKilograms:
+            return DiveQuantityFormatting.diverWeight(
+                kilograms: activity.diverWeightKilograms,
+                system: displayUnits
+            )
         case .notes:
             return trimmed(activity.notes) ?? "—"
         case .buddies:
@@ -121,12 +128,13 @@ enum DiveActivityFieldEditing {
         case .durationMinutes, .bottomTimeSeconds, .surfaceIntervalSeconds, .oxygenMix: .integer
         case .maxDepthMeters, .averageDepthMeters, .avgAscentRateMetersPerSecond,
              .waterTempAvgCelsius, .waterTempMaxCelsius, .waterTempMinCelsius,
-             .tankPressureStartPSI, .tankPressureEndPSI: .decimal
+             .tankPressureStartPSI, .tankPressureEndPSI, .diverWeightKilograms: .decimal
         case .diveNumber: .diveNumber
         case .entryCoordinate: .coordinate
         case .diveCurrentStrength: .currentStrength
         case .diveVisibility: .visibility
         case .diveSignature: .signature
+        case .diveWaterType: .waterType
         case .notes: .multilineText
         case .buddies: .buddies
         case .linkedEquipment: .equipment
@@ -175,6 +183,13 @@ enum DiveActivityFieldEditing {
             draft.currentStrength = activity.resolvedDiveCurrentStrength
         case .diveVisibility:
             draft.visibility = activity.diveVisibility
+        case .diveWaterType:
+            draft.waterType = activity.resolvedDiveWaterType
+        case .diverWeightKilograms:
+            draft.text = DiveActivityFieldValueParsing.formatDiverWeightInput(
+                kilograms: activity.diverWeightKilograms,
+                displayUnits: displayUnits
+            )
         case .notes:
             draft.text = activity.notes ?? ""
         case .oxygenMix:
@@ -258,6 +273,13 @@ enum DiveActivityFieldEditing {
             activity.entryType = trimmedOptional(draft.text)
         case .diveVisibility:
             activity.diveVisibility = draft.visibility
+        case .diveWaterType:
+            activity.resolvedDiveWaterType = draft.waterType
+        case .diverWeightKilograms:
+            activity.diverWeightKilograms = DiveActivityFieldValueParsing.parseDiverWeightKilograms(
+                draft.text,
+                displayUnits: displayUnits
+            )
         case .diveOperatorName:
             activity.diveOperatorName = trimmedOptional(draft.text)
         case .diveMasterName:
@@ -382,6 +404,7 @@ enum DiveActivityFieldEditorKind: Sendable {
     case diveNumber
     case currentStrength
     case visibility
+    case waterType
     case signature
     case buddies
     case equipment
@@ -397,5 +420,6 @@ struct DiveActivityFieldEditDraft: Sendable {
     var hideDiveNumber: Bool = false
     var currentStrength: DiveCurrentStrength = .none
     var visibility: DiveVisibilityRating?
+    var waterType: DiveWaterType = .saltwater
     var source: DiveSource = .manual
 }

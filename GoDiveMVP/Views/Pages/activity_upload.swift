@@ -426,8 +426,22 @@ struct ActivityUploadView: View {
     @MainActor
     private func confirmManualDive(_ input: ManualDiveEntryInput) {
         let activity = DiveActivityManualCreation.makeBlankActivity(from: input)
-        let outcome = DiveActivityManualCreation.persist(activity, modelContext: modelContext)
+        let outcome = DiveActivityManualCreation.persist(
+            activity,
+            siteSelection: input.siteSelection,
+            modelContext: modelContext
+        )
         if let id = outcome.primaryInsertedDiveId {
+            if case .newSite = input.siteSelection, let site = activity.diveSite {
+                Task { @MainActor in
+                    await DiveSiteTimeZoneResolution.ensureResolved(
+                        for: site,
+                        at: activity.startTime,
+                        resolver: MapKitGeocodingTimeZoneResolver.shared
+                    )
+                    try? modelContext.save()
+                }
+            }
             if let ownerID = accountSession.currentProfile?.id {
                 Task { @MainActor in
                     await DiveLibraryMediaAutoAttachScheduler.attachAfterDivePersisted(

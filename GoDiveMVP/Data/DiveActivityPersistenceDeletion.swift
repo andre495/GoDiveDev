@@ -42,28 +42,24 @@ enum DiveActivityPersistenceDeletion {
             )
         }
 
-        DiveActivityRelationshipDetachment.detachNonCascadeRelationships(from: activity)
-        try batchDeleteEquipmentRecords(diveID: diveID, modelContext: modelContext)
+        DiveActivityRelationshipDetachment.detachNonCascadeRelationships(
+            from: activity,
+            modelContext: modelContext
+        )
 
         modelContext.delete(activity)
-        try modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            DiveActivityDeletionDebug.failure(diveID: diveID, error: error, contextLabel: "background-save")
+            DiveActivityDeletionDebug.snapshot(diveID: diveID, contextLabel: "background-save", modelContext: modelContext)
+            throw error
+        }
 
         try DiveSiteCatalogMaintenance.deleteSiteIfOrphaned(
             siteID: linkedSiteID,
             modelContext: modelContext
         )
         return Result(linkedSiteID: linkedSiteID)
-    }
-
-    /// Equipment rows only — cascade children must not be batch-deleted (Core Data inverse constraint).
-    nonisolated static func batchDeleteEquipmentRecords(diveID: UUID, modelContext: ModelContext) throws {
-        try modelContext.delete(
-            model: DiveEquipmentEntry.self,
-            where: #Predicate<DiveEquipmentEntry> { $0.diveActivityID == diveID }
-        )
-        try modelContext.delete(
-            model: DiveActivityEquipmentList.self,
-            where: #Predicate<DiveActivityEquipmentList> { $0.diveActivityID == diveID }
-        )
     }
 }

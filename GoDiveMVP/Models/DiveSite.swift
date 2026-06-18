@@ -21,6 +21,8 @@ final class DiveSite {
     var timeZoneOffsetSeconds: Int?
     var siteTags: [String]
     var siteRating: Int?
+    /// Salt vs fresh water for diver ballast defaults on linked dives (**`nil`** → salt water).
+    var waterType: DiveWaterType?
 
     @Relationship(inverse: \DiveActivity.diveSite)
     var diveActivities: [DiveActivity] = []
@@ -39,7 +41,8 @@ final class DiveSite {
         timeZoneIdentifier: String? = nil,
         timeZoneOffsetSeconds: Int? = nil,
         siteTags: [String] = [],
-        siteRating: Int? = nil
+        siteRating: Int? = nil,
+        waterType: DiveWaterType? = nil
     ) {
         self.id = id
         self.siteName = siteName
@@ -52,5 +55,13 @@ final class DiveSite {
         self.timeZoneOffsetSeconds = timeZoneOffsetSeconds
         self.siteTags = siteTags
         self.siteRating = siteRating
+        self.waterType = waterType
+    }
+}
+
+extension DiveSite {
+    /// Catalog default when **`waterType`** is unset (most dive sites are salt water).
+    var resolvedWaterType: DiveWaterType {
+        waterType ?? .saltwater
     }
 }

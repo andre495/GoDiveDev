@@ -2298,7 +2298,7 @@ struct GoDiveMVPTests {
     }
 
     @Test func fieldGuideMarineLifeImageLayout_usesFixedMosaicAndHeroBounds() {
-        #expect(FieldGuideMarineLifeImageLayout.mosaicAspectRatio == 4.0 / 3.0)
+        #expect(FieldGuideMarineLifeImageLayout.mosaicAspectRatio == CGFloat(4.0 / 3.0))
         #expect(FieldGuideMarineLifeImageLayout.mosaicLabelBlockHeight == 88)
         #expect(FieldGuideMarineLifeImageLayout.detailHeroBaseHeight == 280)
     }
@@ -4979,9 +4979,58 @@ struct GoDiveMVPTests {
         #expect(dive.siteName == "Salt Pier")
     }
 
-    @Test func diveActivityManualCreation_sanitizedSiteName_trimsAndEmptyIsNil() {
-        #expect(DiveActivityManualCreation.sanitizedSiteName("  Salt Pier  ") == "Salt Pier")
-        #expect(DiveActivityManualCreation.sanitizedSiteName("   ") == nil)
+    @Test @MainActor
+    func diveActivityManualCreation_persist_linksExistingCatalogSite() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let profile = UserProfile(appleUserIdentifier: "manual-existing-site", displayName: "Diver")
+        context.insert(profile)
+
+        let catalogSite = DiveSite(siteName: "Salt Pier", country: "Bonaire", waterType: .saltwater)
+        context.insert(catalogSite)
+        try context.save()
+
+        let dive = DiveActivityManualCreation.makeBlankActivity()
+        let outcome = DiveActivityManualCreation.persist(
+            dive,
+            siteSelection: .existingSite(id: catalogSite.id),
+            modelContext: context,
+            owner: profile
+        )
+        #expect(outcome.primaryInsertedDiveId == dive.id)
+        #expect(dive.diveSite?.id == catalogSite.id)
+        #expect(dive.diveSiteID == catalogSite.id)
+        #expect(dive.resolvedDiveWaterType == .saltwater)
+    }
+
+    @Test @MainActor
+    func diveActivityManualCreation_persist_createsAndLinksNewCatalogSite() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let profile = UserProfile(appleUserIdentifier: "manual-new-site", displayName: "Diver")
+        context.insert(profile)
+        try context.save()
+
+        let draft = DiveSiteFormDraft(
+            siteName: "Cenote Dos Ojos",
+            country: "Mexico",
+            region: "Quintana Roo",
+            bodyOfWater: "",
+            latitudeText: "20.32480",
+            longitudeText: "-87.39320",
+            waterType: .freshwater
+        )
+        let dive = DiveActivityManualCreation.makeBlankActivity()
+        let outcome = DiveActivityManualCreation.persist(
+            dive,
+            siteSelection: .newSite(draft),
+            modelContext: context,
+            owner: profile
+        )
+        #expect(outcome.primaryInsertedDiveId == dive.id)
+        #expect(dive.diveSite?.siteName == "Cenote Dos Ojos")
+        #expect(dive.diveSite?.resolvedWaterType == .freshwater)
+        #expect(try context.fetchCount(FetchDescriptor<DiveSite>()) == 1)
     }
 
     @Test @MainActor
@@ -11242,6 +11291,87 @@ struct GoDiveMVPTests {
         #expect(spec.size == .al80)
     }
 
+    @Test func appUserSettings_defaultDiverWeights_storeAndReadKilograms() {
+        let defaults = UserDefaults(suiteName: "GoDiveMVPTests.DefaultDiverWeights")!
+        defaults.removePersistentDomain(forName: "GoDiveMVPTests.DefaultDiverWeights")
+        #expect(AppUserSettings.defaultSaltwaterWeightKilograms(userDefaults: defaults) == nil)
+        AppUserSettings.setDefaultSaltwaterWeightKilograms(5.0, userDefaults: defaults)
+        AppUserSettings.setDefaultFreshwaterWeightKilograms(4.5, userDefaults: defaults)
+        #expect(AppUserSettings.defaultSaltwaterWeightKilograms(userDefaults: defaults) == 5.0)
+        #expect(AppUserSettings.defaultFreshwaterWeightKilograms(userDefaults: defaults) == 4.5)
+        AppUserSettings.setDefaultSaltwaterWeightKilograms(nil, userDefaults: defaults)
+        #expect(AppUserSettings.defaultSaltwaterWeightKilograms(userDefaults: defaults) == nil)
+    }
+
+    @Test func diveActivityFieldValueParsing_diverWeight_roundTripImperialAndMetric() {
+        #expect(
+            DiveActivityFieldValueParsing.parseDiverWeightKilograms("12.0", displayUnits: .imperial)
+                == 12.0 / 2.2046226218
+        )
+        #expect(
+            DiveActivityFieldValueParsing.formatDiverWeightInput(kilograms: 5.0, displayUnits: .metric) == "5.0"
+        )
+        #expect(
+            DiveQuantityFormatting.diverWeight(kilograms: 5.0, system: .metric) == "5.0 kg"
+        )
+        #expect(
+            DiveQuantityFormatting.diverWeight(kilograms: nil, system: .imperial) == "—"
+        )
+    }
+
+    @Test func diveActivityDiverWeightDefaults_applyImportDefaults_usesWaterTypeDefault() {
+        let defaults = UserDefaults(suiteName: "GoDiveMVPTests.DiverWeightImport")!
+        defaults.removePersistentDomain(forName: "GoDiveMVPTests.DiverWeightImport")
+        AppUserSettings.setDefaultSaltwaterWeightKilograms(6.0, userDefaults: defaults)
+        AppUserSettings.setDefaultFreshwaterWeightKilograms(4.0, userDefaults: defaults)
+
+        let salt = DiveActivity(source: .garminMK3, startTime: .now, durationMinutes: 30, maxDepthMeters: 18)
+        DiveActivityDiverWeightDefaults.applyInheritedDefaults(to: salt, userDefaults: defaults)
+        #expect(salt.diveWaterType == .saltwater)
+        #expect(salt.diverWeightKilograms == 6.0)
+
+        let fresh = DiveActivity(source: .garminMK3, startTime: .now, durationMinutes: 30, maxDepthMeters: 18)
+        fresh.diveWaterType = .freshwater
+        DiveActivityDiverWeightDefaults.applyInheritedDefaults(to: fresh, userDefaults: defaults)
+        #expect(fresh.diverWeightKilograms == 4.0)
+
+        let existing = DiveActivity(source: .garminMK3, startTime: .now, durationMinutes: 30, maxDepthMeters: 18)
+        existing.diverWeightKilograms = 3.0
+        DiveActivityDiverWeightDefaults.applyInheritedDefaults(to: existing, userDefaults: defaults)
+        #expect(existing.diverWeightKilograms == 3.0)
+    }
+
+    @Test func diveSite_resolvedWaterType_defaultsToSaltwaterWhenUnset() {
+        let site = DiveSite(siteName: "Reef")
+        #expect(site.waterType == nil)
+        #expect(site.resolvedWaterType == .saltwater)
+        site.waterType = .freshwater
+        #expect(site.resolvedWaterType == .freshwater)
+    }
+
+    @Test func diveActivityDiverWeightDefaults_inheritsFromLinkedCatalogSite() {
+        let defaults = UserDefaults(suiteName: "GoDiveMVPTests.DiverWeightSiteInherit")!
+        defaults.removePersistentDomain(forName: "GoDiveMVPTests.DiverWeightSiteInherit")
+        AppUserSettings.setDefaultSaltwaterWeightKilograms(6.0, userDefaults: defaults)
+        AppUserSettings.setDefaultFreshwaterWeightKilograms(4.0, userDefaults: defaults)
+
+        let cenote = DiveSite(siteName: "Cenote Azul", waterType: .freshwater)
+        let activity = DiveActivity(source: .garminMK3, startTime: .now, durationMinutes: 30, maxDepthMeters: 18)
+        activity.diveSite = cenote
+        activity.diveSiteID = cenote.id
+
+        DiveActivityDiverWeightDefaults.applyInheritedDefaults(to: activity, userDefaults: defaults)
+        #expect(activity.diveWaterType == .freshwater)
+        #expect(activity.diverWeightKilograms == 4.0)
+    }
+
+    @Test func diveActivityEditableCatalog_includesWeightsSectionOnTankTab() {
+        let sections = DiveActivityEditableCatalog.sections(for: .tank, detent: .large)
+        #expect(sections.contains { $0.id == "weights" })
+        let weights = sections.first { $0.id == "weights" }
+        #expect(weights?.fieldIDs == [.diveWaterType, .diverWeightKilograms])
+    }
+
     @Test func diveActivityDiveNumbering_nextChained_skipsExplicitNoneMidSequence() {
         let t0 = Date(timeIntervalSince1970: 10_000)
         let t1 = t0.addingTimeInterval(1_000)
@@ -12128,6 +12258,114 @@ struct GoDiveMVPTests {
         #expect(counts.3 == 0)
     }
 
+    @Test func diveBackgroundDeletionWorker_deleteDive_withAutoAddedEquipment_removesDiveAndGearRows() async throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+
+        let diveID = try await MainActor.run { () throws -> UUID in
+            let context = ModelContext(container)
+            let owner = UserProfile(appleUserIdentifier: "delete-equipment", displayName: "Diver")
+            let gear = EquipmentItem(
+                manufacturer: "Apeks",
+                model: "XTX",
+                type: "Regulator",
+                autoAdd: true
+            )
+            EquipmentItemOwnership.assignOwner(owner, to: gear)
+            let activity = DiveActivity(
+                source: .manual,
+                startTime: .now,
+                durationMinutes: 40,
+                maxDepthMeters: 20
+            )
+            activity.owner = owner
+            activity.ownerProfileID = owner.id
+            context.insert(owner)
+            context.insert(gear)
+            context.insert(activity)
+            try DiveActivityEquipmentAssociation.applyAutoAdd(
+                to: activity,
+                ownerProfileID: owner.id,
+                modelContext: context
+            )
+            try context.save()
+            return activity.id
+        }
+
+        try await DiveBackgroundDeletionWorker(modelContainer: container)
+            .deleteDive(id: diveID)
+
+        try await MainActor.run { () throws in
+            let context = ModelContext(container)
+            #expect(try context.fetch(FetchDescriptor<DiveActivity>()).isEmpty)
+            #expect(try context.fetch(FetchDescriptor<DiveActivityEquipmentList>()).isEmpty)
+            #expect(try context.fetch(FetchDescriptor<DiveEquipmentEntry>()).isEmpty)
+            #expect(try context.fetch(FetchDescriptor<EquipmentItem>()).count == 1)
+        }
+    }
+
+    @Test func diveBackgroundDeletionWorker_deleteDive_withTripActivityLink_removesDiveAndJoinRow() async throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+
+        let diveID = try await MainActor.run { () throws -> UUID in
+            let context = ModelContext(container)
+            let owner = UserProfile(appleUserIdentifier: "delete-trip-link", displayName: "Diver")
+            let trip = DiveTrip(
+                startDate: Date(timeIntervalSince1970: 0),
+                endDate: Date(timeIntervalSince1970: 604_800),
+                title: "Bonaire Week",
+                ownerProfileID: owner.id
+            )
+            trip.owner = owner
+            let activity = DiveActivity(
+                source: .manual,
+                startTime: Date(timeIntervalSince1970: 86_400),
+                durationMinutes: 45,
+                maxDepthMeters: 20
+            )
+            activity.owner = owner
+            activity.ownerProfileID = owner.id
+            context.insert(owner)
+            context.insert(trip)
+            context.insert(activity)
+            _ = DiveTripActivityLinking.link(activity, to: trip, modelContext: context)
+            try context.save()
+            return activity.id
+        }
+
+        try await DiveBackgroundDeletionWorker(modelContainer: container)
+            .deleteDive(id: diveID)
+
+        try await MainActor.run { () throws in
+            let context = ModelContext(container)
+            #expect(try context.fetch(FetchDescriptor<DiveActivity>()).isEmpty)
+            #expect(try context.fetch(FetchDescriptor<DiveTripActivityLink>()).isEmpty)
+            #expect(try context.fetch(FetchDescriptor<DiveTrip>()).count == 1)
+        }
+        #expect(DiveActivityStoreSync.isDiveAbsent(diveID: diveID, container: container))
+    }
+
+    @Test func diveActivityStoreSync_awaitDiveAbsent_succeedsAfterBackgroundDelete() async throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let diveID = try await MainActor.run { () throws -> UUID in
+            let context = ModelContext(container)
+            let activity = DiveActivity(
+                source: .manual,
+                startTime: .now,
+                durationMinutes: 30,
+                maxDepthMeters: 18
+            )
+            context.insert(activity)
+            try context.save()
+            return activity.id
+        }
+
+        try await DiveBackgroundDeletionWorker(modelContainer: container)
+            .deleteDive(id: diveID)
+
+        try await DiveActivityStoreSync.awaitDiveAbsent(diveID: diveID, container: container)
+        #expect(DiveActivityStoreSync.isDiveAbsent(diveID: diveID, container: container))
+    }
+
     @Test func diveBackgroundDeletionWorker_deleteDive_withSightingsTagsAndMarineLifeRecord_removesAllReferences() async throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
 
@@ -12304,7 +12542,10 @@ struct GoDiveMVPTests {
         context.insert(activity)
         try context.save()
 
-        DiveActivityRelationshipDetachment.detachNonCascadeRelationships(from: activity)
+        DiveActivityRelationshipDetachment.detachNonCascadeRelationships(
+            from: activity,
+            modelContext: context
+        )
         try context.save()
 
         #expect(tag.dives.isEmpty)

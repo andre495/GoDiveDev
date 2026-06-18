@@ -55,6 +55,7 @@ enum DiveActivitySiteAssociation {
     static func link(_ activity: DiveActivity, to site: DiveSite) {
         activity.diveSite = site
         activity.diveSiteID = site.id
+        DiveActivityDiverWeightDefaults.applyInheritedDefaults(to: activity)
     }
 
     static func unlink(_ activity: DiveActivity) {
@@ -109,7 +110,8 @@ enum DiveActivitySiteAssociation {
             country: DiveSiteFormValidation.sanitizedPlaceField(places.country),
             region: DiveSiteFormValidation.sanitizedPlaceField(places.region),
             latCoords: lat,
-            longCoords: lon
+            longCoords: lon,
+            waterType: .saltwater
         )
         modelContext.insert(site)
         catalogSites.append(site)
@@ -134,7 +136,9 @@ enum DiveActivitySiteAssociation {
         bodyOfWater: String = "",
         latCoords: Double?,
         longCoords: Double?,
-        modelContext: ModelContext
+        waterType: DiveWaterType = .saltwater,
+        modelContext: ModelContext,
+        persistImmediately: Bool = true
     ) throws -> DiveSite {
         let site = DiveSite(
             siteName: siteName,
@@ -142,11 +146,14 @@ enum DiveActivitySiteAssociation {
             region: DiveSiteFormValidation.sanitizedPlaceField(region),
             bodyOfWater: DiveSiteFormValidation.sanitizedPlaceField(bodyOfWater),
             latCoords: latCoords,
-            longCoords: longCoords
+            longCoords: longCoords,
+            waterType: waterType
         )
         modelContext.insert(site)
         link(activity, to: site)
-        try modelContext.save()
+        if persistImmediately {
+            try modelContext.save()
+        }
         return site
     }
 }

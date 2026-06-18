@@ -25,6 +25,8 @@ struct DiveBuddiesListView: View {
         AppPage(
             title: "Dive Buddies",
             showsBackButton: true,
+            showsBrandWordmark: false,
+            titlePlacement: AppHeaderStackedTitleChrome.titlePlacement,
             scrollContentUnderHeader: true,
             showsWaterBubbleBackground: true,
             trailingContent: {

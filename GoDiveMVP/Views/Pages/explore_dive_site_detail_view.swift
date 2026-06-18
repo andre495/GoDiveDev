@@ -10,7 +10,7 @@ struct ExploreDiveSiteDetailView: View {
     @Query private var ownerDiveActivities: [DiveActivity]
     @Query private var siteSightings: [SightingInstance]
 
-    let site: DiveSite
+    @Bindable var site: DiveSite
 
     init(site: DiveSite, ownerProfileID: UUID?) {
         self.site = site
@@ -113,6 +113,24 @@ struct ExploreDiveSiteDetailView: View {
                     }
 
                     detailSection(title: "Details") {
+                        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                            Text("Water type")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.Colors.textPrimary)
+
+                            Picker("Water type", selection: Binding(
+                                get: { site.resolvedWaterType },
+                                set: { site.waterType = $0 }
+                            )) {
+                                ForEach(DiveWaterType.allCases) { type in
+                                    Text(type.displayTitle).tag(type)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+                            .accessibilityIdentifier("Explore.DiveSiteDetail.WaterType")
+                        }
+
                         if let rating = site.siteRating {
                             detailRow(title: "Rating", value: "\(rating) / 5")
                         } else {
@@ -147,6 +165,9 @@ struct ExploreDiveSiteDetailView: View {
             }
         }
         .hidesBottomTabBarWhenPushed()
+        .onChange(of: site.waterType) { _, _ in
+            try? modelContext.save()
+        }
         .accessibilityIdentifier("Explore.DiveSiteDetail.Root")
     }
 
