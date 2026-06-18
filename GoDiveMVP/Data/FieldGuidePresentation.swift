@@ -201,13 +201,17 @@ enum FieldGuidePresentation {
         unitSystem: DiveDisplayUnitSystem
     ) -> String {
         if minMeters > 0, maxMeters > 0, abs(minMeters - maxMeters) > 0.001 {
-            return "\(DiveQuantityFormatting.depth(meters: minMeters, system: unitSystem))–\(DiveQuantityFormatting.depth(meters: maxMeters, system: unitSystem))"
+            return DiveQuantityFormatting.fieldGuideDepthRange(
+                minMeters: minMeters,
+                maxMeters: maxMeters,
+                system: unitSystem
+            )
         }
         return typicalDepthLine(meters: avgMeters > 0 ? avgMeters : max(minMeters, maxMeters), unitSystem: unitSystem)
     }
 
     nonisolated static func typicalDepthLine(meters: Double, unitSystem: DiveDisplayUnitSystem) -> String {
         guard meters > 0 else { return "" }
-        return "avg \(DiveQuantityFormatting.depth(meters: meters, system: unitSystem))"
+        return "avg \(DiveQuantityFormatting.fieldGuideDepth(meters: meters, system: unitSystem))"
     }
 }

@@ -1,0 +1,99 @@
+{
+  "sealifebase_version": "24.07",
+  "parquet_base_url": "https://data.source.coop/cboettig/fishbase/slb/v24.07/parquet",
+  "caribbean_region_filter": "Caribbean",
+  "include_sealifebase_descriptions": true,
+  "diver_visibility_filter": {
+    "enabled": true,
+    "demers_pelag_include": [],
+    "exclude_demers_pelag": [
+      "pelagic-oceanic",
+      "bathypelagic",
+      "bathydemersal",
+      "abyssopelagic",
+      "hadal"
+    ],
+    "include_ecology_coral_reefs": false,
+    "ecology_coral_reefs_flag_value": 1,
+    "max_depth_meters": 130
+  },
+  "output_staging_csv": "MockData/marine_life_caribbean_staging.csv",
+  "exclude_classes": [
+    "Actinopterygii",
+    "Chondrichthyes",
+    "Sarcopterygii",
+    "Copepoda",
+    "Aves",
+    "Not assigned",
+    "Thaliacea",
+    "Leptocardii"
+  ],
+  "include_phyla": [
+    "Porifera",
+    "Cnidaria",
+    "Mollusca",
+    "Arthropoda",
+    "Echinodermata",
+    "Annelida",
+    "Bryozoa",
+    "Sipuncula",
+    "Nemertea"
+  ],
+  "chordata_include_classes": [
+    "Ascidiacea",
+    "Mammalia"
+  ],
+  "include_orders": [
+    "Testudines"
+  ],
+  "bypass_diver_visibility_classes": [
+    "Mammalia"
+  ],
+  "bypass_diver_visibility_orders": [
+    "Testudines"
+  ],
+  "attribution": "Species facts sourced from SeaLifeBase (CC BY-NC). https://www.sealifebase.se",
+  "class_to_taxonomy": {
+    "Anthozoa": { "category": "corals", "subCategory": "corals" },
+    "Demospongiae": { "category": "sponges", "subCategory": "sponges" },
+    "Calcarea": { "category": "sponges", "subCategory": "sponges" },
+    "Hydrozoa": { "category": "other_cnidarians", "subCategory": "cnidarians" },
+    "Scyphozoa": { "category": "other_cnidarians", "subCategory": "jellies" },
+    "Cubozoa": { "category": "other_cnidarians", "subCategory": "jellies" },
+    "Gastropoda": { "category": "mollusks", "subCategory": "gastropods" },
+    "Bivalvia": { "category": "mollusks", "subCategory": "bivalves-and-chitons" },
+    "Polyplacophora": { "category": "mollusks", "subCategory": "bivalves-and-chitons" },
+    "Scaphopoda": { "category": "mollusks", "subCategory": "gastropods" },
+    "Cephalopoda": { "category": "mollusks", "subCategory": "cephalopods" },
+    "Malacostraca": { "category": "crustaceans", "subCategory": "crustaceans" },
+    "Pycnogonida": { "category": "crustaceans", "subCategory": "crustaceans" },
+    "Thecostraca": { "category": "crustaceans", "subCategory": "crustaceans" },
+    "Maxillopoda": { "category": "crustaceans", "subCategory": "crustaceans" },
+    "Ostracoda": { "category": "crustaceans", "subCategory": "crustaceans" },
+    "Holothuroidea": { "category": "echinoderms", "subCategory": "echinoderms" },
+    "Echinoidea": { "category": "echinoderms", "subCategory": "echinoderms" },
+    "Ophiuroidea": { "category": "echinoderms", "subCategory": "echinoderms" },
+    "Asteroidea": { "category": "echinoderms", "subCategory": "echinoderms" },
+    "Polychaeta": { "category": "worms", "subCategory": "worms" },
+    "Phascolosomatidea": { "category": "worms", "subCategory": "worms" },
+    "Sipunculidea": { "category": "worms", "subCategory": "worms" },
+    "Clitellata": { "category": "worms", "subCategory": "worms" },
+    "Nemertea": { "category": "worms", "subCategory": "worms" },
+    "Ascidiacea": { "category": "colonial_invertebrates", "subCategory": "tunicates-and-bryozoans" },
+    "Gymnolaemata": { "category": "colonial_invertebrates", "subCategory": "tunicates-and-bryozoans" },
+    "Mammalia": { "category": "marine_mammals", "subCategory": "dolphins-and-whales" }
+  },
+  "gastropod_order_to_subcategory": {
+    "Nudibranchia": "sea-slugs",
+    "Cephalaspidea": "sea-slugs",
+    "Aplysiida": "sea-slugs",
+    "Pleurobranchida": "sea-slugs",
+    "Anaspidea": "sea-slugs",
+    "Sacoglossa": "sea-slugs",
+    "Runcinida": "sea-slugs"
+  },
+  "order_to_taxonomy": {
+    "Testudines": { "category": "marine_reptiles", "subCategory": "turtles" }
+  },
+  "family_to_taxonomy": {}
+}

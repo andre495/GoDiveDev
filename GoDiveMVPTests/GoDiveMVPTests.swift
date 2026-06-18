@@ -2330,13 +2330,13 @@ struct GoDiveMVPTests {
 
     @Test func fieldGuideCatalogIndex_browsePayload_usesTaxonomySubcategoryTitle() {
         let payload = FieldGuideCatalogIndex.browsePayload(
-            categoryID: "fish",
-            subcategoryID: "disk-and-large-oval",
+            categoryID: "fishes",
+            subcategoryID: "angelfishes",
             speciesIndex: [:]
         )
-        #expect(payload.title == "Disk and Large Oval")
-        #expect(payload.categoryID == "fish")
-        #expect(payload.subcategoryID == "disk-and-large-oval")
+        #expect(payload.title == "Angelfishes")
+        #expect(payload.categoryID == "fishes")
+        #expect(payload.subcategoryID == "angelfishes")
     }
 
     @Test func fieldGuideMarineLifeHeroPresentation_autoSpinPausesWhileDraggingAndAfterDrag() {
@@ -2397,8 +2397,14 @@ struct GoDiveMVPTests {
             maxDepthMeters: 25
         )
         let line = FieldGuidePresentation.sizeDepthLine(for: entry, unitSystem: .imperial)
-        #expect(line.contains("–"))
-        #expect(line.contains("ft"))
+        #expect(line.contains("20 ft–80 ft"))
+        let metricLine = FieldGuidePresentation.depthLine(
+            minMeters: 6,
+            maxMeters: 25,
+            avgMeters: 15.5,
+            unitSystem: .metric
+        )
+        #expect(metricLine == "6 m–25 m")
     }
 
     @Test @MainActor func marineLifeCatalogSeeder_isIdempotentByUUID() throws {
@@ -2437,7 +2443,7 @@ struct GoDiveMVPTests {
         let context = container.mainContext
         try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
         let queen = try context.fetch(FetchDescriptor<MarineLife>()).first { $0.uuid == "marine-life-queen-angelfish" }
-        #expect(queen?.commonName == "Queen angelfish")
+        #expect(queen?.commonName == "queen angelfish")
         #expect(queen?.familyName == "Pomacanthidae")
         #expect(queen?.minDepthMeters == 1)
         #expect(queen?.maxDepthMeters == 70)
@@ -2949,12 +2955,12 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func fieldGuideTaxonomy_fishCategoryHasDetailHeaderCopy() {
-        let fish = FieldGuideTaxonomy.category(id: "fish")
-        #expect(fish?.title == "Fish")
-        #expect(fish?.description.contains("silhouette") == true)
+    @Test func fieldGuideTaxonomy_fishesCategoryHasDetailHeaderCopy() {
+        let fish = FieldGuideTaxonomy.category(id: "fishes")
+        #expect(fish?.title == "Fishes")
+        #expect(fish?.description.contains("Caribbean Reef Life") == true)
         #expect(fish?.heroImageName == "FieldGuideCategoryFish")
-        #expect(fish?.subcategories.count == 12)
+        #expect(fish?.subcategories.count == 48)
     }
 
     @Test func fieldGuideTaxonomy_resolvesLegacyCategoryLabels() {
@@ -2969,9 +2975,9 @@ struct GoDiveMVPTests {
             maxSizeMeters: 0,
             avgDepthMeters: 0
         )
-        #expect(FieldGuideTaxonomy.resolvedCategoryID(for: ray) == "fish")
-        #expect(FieldGuideTaxonomy.resolvedSubcategoryID(for: ray) == "sharks-and-rays")
-        #expect(FieldGuideTaxonomy.subcategoryTitle(for: ray) == "Sharks and Rays")
+        #expect(FieldGuideTaxonomy.resolvedCategoryID(for: ray) == "fishes")
+        #expect(FieldGuideTaxonomy.resolvedSubcategoryID(for: ray) == "rays")
+        #expect(FieldGuideTaxonomy.subcategoryTitle(for: ray) == "Rays")
     }
 
     @Test func fieldGuideCatalogIndex_countsSpeciesPerCategoryAndSubcategory() {
@@ -2980,8 +2986,8 @@ struct GoDiveMVPTests {
                 uuid: "a",
                 commonName: "French Angelfish",
                 scientificName: "",
-                category: "fish",
-                subcategory: "disk-and-large-oval",
+                category: "fishes",
+                subcategory: "angelfishes",
                 featureImageURL: "",
                 minSizeMeters: 0,
                 maxSizeMeters: 0,
@@ -2991,8 +2997,8 @@ struct GoDiveMVPTests {
                 uuid: "b",
                 commonName: "Spotted Eagle Ray",
                 scientificName: "",
-                category: "fish",
-                subcategory: "sharks-and-rays",
+                category: "fishes",
+                subcategory: "rays",
                 featureImageURL: "",
                 minSizeMeters: 0,
                 maxSizeMeters: 0,
@@ -3000,11 +3006,11 @@ struct GoDiveMVPTests {
             ),
         ]
         let summaries = FieldGuideCatalogIndex.summaries(for: samples)
-        let fish = summaries.first { $0.categoryID == "fish" }
+        let fish = summaries.first { $0.categoryID == "fishes" }
         #expect(fish?.speciesCount == 2)
-        #expect(fish?.subcategoryCounts["disk-and-large-oval"] == 1)
-        #expect(fish?.subcategoryCounts["sharks-and-rays"] == 1)
-        #expect(FieldGuideCatalogIndex.species(in: "fish", subcategoryID: "eels", catalog: samples).isEmpty)
+        #expect(fish?.subcategoryCounts["angelfishes"] == 1)
+        #expect(fish?.subcategoryCounts["rays"] == 1)
+        #expect(FieldGuideCatalogIndex.species(in: "fishes", subcategoryID: "eels", catalog: samples).isEmpty)
     }
 
     @Test func appLaunchLayout_matchesStoryboardConstraints() {
@@ -3024,9 +3030,9 @@ struct GoDiveMVPTests {
 
     @Test @MainActor func fieldGuideCatalogIndex_categorySummaryIsHashable() {
         let summary = FieldGuideCatalogIndex.CategorySummary(
-            categoryID: "fish",
+            categoryID: "fishes",
             speciesCount: 3,
-            subcategoryCounts: ["eels": 1, "sharks-and-rays": 2]
+            subcategoryCounts: ["eels": 1, "rays": 2]
         )
         var seen: Set<FieldGuideCatalogIndex.CategorySummary> = []
         seen.insert(summary)
@@ -3039,8 +3045,8 @@ struct GoDiveMVPTests {
                 uuid: "a",
                 commonName: "Zebra Fish",
                 scientificName: "",
-                category: "fish",
-                subcategory: "small-oval",
+                category: "fishes",
+                subcategory: "gobies",
                 featureImageURL: "",
                 minSizeMeters: 0,
                 maxSizeMeters: 0,
@@ -3050,8 +3056,8 @@ struct GoDiveMVPTests {
                 uuid: "b",
                 commonName: "Angelfish",
                 scientificName: "",
-                category: "fish",
-                subcategory: "disk-and-large-oval",
+                category: "fishes",
+                subcategory: "angelfishes",
                 featureImageURL: "",
                 minSizeMeters: 0,
                 maxSizeMeters: 0,
@@ -3061,8 +3067,8 @@ struct GoDiveMVPTests {
                 uuid: "c",
                 commonName: "Another Oval",
                 scientificName: "",
-                category: "fish",
-                subcategory: "disk-and-large-oval",
+                category: "fishes",
+                subcategory: "angelfishes",
                 featureImageURL: "",
                 minSizeMeters: 0,
                 maxSizeMeters: 0,
@@ -3072,16 +3078,16 @@ struct GoDiveMVPTests {
 
         let index = FieldGuideCatalogIndex.subcategorySpeciesIndex(for: samples)
         let payload = FieldGuideCatalogIndex.browsePayload(
-            categoryID: "fish",
-            subcategoryID: "disk-and-large-oval",
+            categoryID: "fishes",
+            subcategoryID: "angelfishes",
             speciesIndex: index
         )
 
-        #expect(payload.title == "Disk and Large Oval")
+        #expect(payload.title == "Angelfishes")
         #expect(payload.species.map(\.uuid) == ["b", "c"])
         #expect(
             FieldGuideCatalogIndex.browsePayload(
-                categoryID: "fish",
+                categoryID: "fishes",
                 subcategoryID: "eels",
                 speciesIndex: index
             ).species.isEmpty
@@ -3114,21 +3120,21 @@ struct GoDiveMVPTests {
             uuid: "marine-life-french-angelfish",
             commonName: "French Angelfish",
             scientificName: "Pomacanthus paru",
-            category: "fish",
-            subcategory: "disk-and-large-oval"
+            category: "fishes",
+            subcategory: "angelfishes"
         )
         let grouper = MarineLife(
             uuid: "marine-life-grouper",
             commonName: "Black Grouper",
             scientificName: "Mycteroperca bonaci",
-            category: "fish",
-            subcategory: "groupers-and-bass"
+            category: "fishes",
+            subcategory: "groupers"
         )
         let catalog = [angelfish, grouper]
 
         #expect(DiveMarineLifeTagPickerPresentation.filtering(catalog, query: "french").count == 1)
-        #expect(DiveMarineLifeTagPickerPresentation.filtering(catalog, query: "disk").count == 1)
-        #expect(DiveMarineLifeTagPickerPresentation.filtering(catalog, query: "groupers and bass").count == 1)
+        #expect(DiveMarineLifeTagPickerPresentation.filtering(catalog, query: "angel").count == 1)
+        #expect(DiveMarineLifeTagPickerPresentation.filtering(catalog, query: "groupers").count == 1)
         #expect(DiveMarineLifeTagPickerPresentation.filtering(catalog, query: "").count == 2)
     }
 
@@ -4553,7 +4559,7 @@ struct GoDiveMVPTests {
             uuid: "fish-b",
             commonName: "French Angelfish",
             scientificName: "Pomacanthus paru",
-            category: "fish",
+            category: "fishes",
             subcategory: "angelfishes",
             featureImageURL: "",
             minSizeMeters: 0.25,
@@ -4571,10 +4577,10 @@ struct GoDiveMVPTests {
         #expect(items[0].catalogSnapshot.commonName == "Queen Angelfish")
         #expect(items[0].sightingCountLabel == "3 sightings")
         #expect(items[0].hasCatalogEntry == false)
-        #expect(items[0].categoryID == "fish")
+        #expect(items[0].categoryID == "fishes")
         #expect(items[1].catalogSnapshot.commonName == "French Angelfish")
         #expect(items[1].catalogSnapshot.scientificName == "Pomacanthus paru")
-        #expect(items[1].categoryID == "fish")
+        #expect(items[1].categoryID == "fishes")
         #expect(items[1].sightingCountLabel == "1 sighting")
         #expect(items[1].hasCatalogEntry)
     }
@@ -11156,6 +11162,17 @@ struct GoDiveMVPTests {
     @Test func diveQuantityFormatting_depth_temperature_tankVolume() {
         #expect(DiveQuantityFormatting.depth(meters: 10, system: .metric) == "10.0 m")
         #expect(DiveQuantityFormatting.depth(meters: 1, system: .imperial) == "3.3 ft")
+
+        #expect(DiveQuantityFormatting.fieldGuideDepth(meters: 15.5, system: .metric) == "16 m")
+        #expect(DiveQuantityFormatting.fieldGuideDepth(meters: 6, system: .imperial) == "20 ft")
+        #expect(
+            DiveQuantityFormatting.fieldGuideDepthRange(minMeters: 6, maxMeters: 25, system: .imperial)
+                == "20 ft–80 ft"
+        )
+        #expect(
+            DiveQuantityFormatting.fieldGuideDepthRange(minMeters: 6, maxMeters: 25, system: .metric)
+                == "6 m–25 m"
+        )
 
         #expect(DiveQuantityFormatting.waterTemperature(celsius: 0, system: .metric) == "0.0 °C")
         #expect(DiveQuantityFormatting.waterTemperature(celsius: 100, system: .imperial) == "212.0 °F")

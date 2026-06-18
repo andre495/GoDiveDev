@@ -1,0 +1,160 @@
+{
+  "fish_only": false,
+  "crl_reference_names": 1468,
+  "staging_rows": 2772,
+  "matched": 604,
+  "not_in_book": 2168,
+  "matched_by_category": {
+    "fish": 288,
+    "mollusks": 127,
+    "crustaceans": 35,
+    "corals": 47,
+    "sponges": 52,
+    "worms": 7,
+    "echinoderms": 15,
+    "colonial_invertebrates": 15,
+    "other_cnidarians": 8,
+    "marine_mammals": 7,
+    "marine_reptiles": 3
+  },
+  "not_in_book_by_category": {
+    "fish": 313,
+    "mollusks": 1140,
+    "crustaceans": 156,
+    "worms": 302,
+    "sponges": 106,
+    "colonial_invertebrates": 49,
+    "marine_mammals": 25,
+    "other_cnidarians": 47,
+    "corals": 22,
+    "echinoderms": 5,
+    "marine_reptiles": 3
+  },
+  "sample_not_in_book": [
+    {
+      "commonName": "Academy eel",
+      "scientificName": "Apterichtus ansp",
+      "category": "fish"
+    },
+    {
+      "commonName": "Alionematichthys minyomma",
+      "scientificName": "Alionematichthys minyomma",
+      "category": "fish"
+    },
+    {
+      "commonName": "American coastal pellona",
+      "scientificName": "Pellona harroweri",
+      "category": "fish"
+    },
+    {
+      "commonName": "Atlantic bumper",
+      "scientificName": "Chloroscombrus chrysurus",
+      "category": "fish"
+    },
+    {
+      "commonName": "Atlantic croaker",
+      "scientificName": "Micropogonias undulatus",
+      "category": "fish"
+    },
+    {
+      "commonName": "Atlantic flyingfish",
+      "scientificName": "Cheilopogon melanurus",
+      "category": "fish"
+    },
+    {
+      "commonName": "Atlantic midshipman",
+      "scientificName": "Porichthys plectrodon",
+      "category": "fish"
+    },
+    {
+      "commonName": "Atlantic moonfish",
+      "scientificName": "Selene setapinnis",
+      "category": "fish"
+    },
+    {
+      "commonName": "Atlantic piquitinga",
+      "scientificName": "Lile piquitinga",
+      "category": "fish"
+    },
+    {
+      "commonName": "Atlantic Spanish mackerel",
+      "scientificName": "Scomberomorus maculatus",
+      "category": "fish"
+    },
+    {
+      "commonName": "Atlantic threadfin",
+      "scientificName": "Polydactylus octonemus",
+      "category": "fish"
+    },
+    {
+      "commonName": "Balao halfbeak",
+      "scientificName": "Hemiramphus balao",
+      "category": "fish"
+    },
+    {
+      "commonName": "Band cusk-eel",
+      "scientificName": "Ophidion holbrookii",
+      "category": "fish"
+    },
+    {
+      "commonName": "Banded croaker",
+      "scientificName": "Paralonchurus brasiliensis",
+      "category": "fish"
+    },
+    {
+      "commonName": "Bank bass",
+      "scientificName": "Parasphyraenops atrimanus",
+      "category": "fish"
+    },
+    {
+      "commonName": "Bank sea bass",
+      "scientificName": "Centropristis ocyurus",
+      "category": "fish"
+    },
+    {
+      "commonName": "Banner blenny",
+      "scientificName": "Emblemaria atlantica",
+      "category": "fish"
+    },
+    {
+      "commonName": "Barbel drum",
+      "scientificName": "Ctenosciaena gracilicirrhus",
+      "category": "fish"
+    },
+    {
+      "commonName": "Barbfish",
+      "scientificName": "Scorpaena brasiliensis",
+      "category": "fish"
+    },
+    {
+      "commonName": "Barbu",
+      "scientificName": "Polydactylus virginicus",
+      "category": "fish"
+    },
+    {
+      "commonName": "Barfin blenny",
+      "scientificName": "Malacoctenus versicolor",
+      "category": "fish"
+    },
+    {
+      "commonName": "Barred grunt",
+      "scientificName": "Conodon nobilis",
+      "category": "fish"
+    },
+    {
+      "commonName": "Bearded goby",
+      "scientificName": "Barbulifer ceuthoecus",
+      "category": "fish"
+    },
+    {
+      "commonName": "Bellator ribeiroi",
+      "scientificName": "Bellator ribeiroi",
+      "category": "fish"
+    },
+    {
+      "commonName": "Bermuda anchovy",
+      "scientificName": "Anchoa choerostoma",
+      "category": "fish"
+    }
+  ]
+}

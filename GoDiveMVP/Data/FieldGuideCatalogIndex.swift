@@ -91,11 +91,26 @@ enum FieldGuideCatalogIndex {
     ) -> SubcategoryBrowsePayload {
         let normalizedCategoryID = FieldGuideTaxonomy.normalizedCategoryID(categoryID)
         let normalizedSubcategoryID = FieldGuideTaxonomy.normalizedSubcategoryID(subcategoryID)
-        let species = speciesIndex[normalizedCategoryID]?[normalizedSubcategoryID] ?? []
-        let title = FieldGuideTaxonomy.subcategory(
-            categoryID: categoryID,
-            subcategoryID: subcategoryID
-        )?.title ?? "Species"
+        let species: [MarineLifeCatalogSnapshot]
+        if normalizedSubcategoryID.isEmpty {
+            species = (speciesIndex[normalizedCategoryID] ?? [:])
+                .values
+                .flatMap { $0 }
+                .sorted {
+                    $0.commonName.localizedCaseInsensitiveCompare($1.commonName) == .orderedAscending
+                }
+        } else {
+            species = speciesIndex[normalizedCategoryID]?[normalizedSubcategoryID] ?? []
+        }
+        let title: String
+        if normalizedSubcategoryID.isEmpty {
+            title = FieldGuideTaxonomy.category(id: categoryID)?.title ?? "Species"
+        } else {
+            title = FieldGuideTaxonomy.subcategory(
+                categoryID: categoryID,
+                subcategoryID: subcategoryID
+            )?.title ?? "Species"
+        }
 
         return SubcategoryBrowsePayload(
             categoryID: normalizedCategoryID,

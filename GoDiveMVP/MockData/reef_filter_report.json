@@ -1,0 +1,22 @@
+{
+  "fish_only": true,
+  "reef_match_keys": 963,
+  "kept": 2559,
+  "removed": 153,
+  "kept_by_category": {
+    "fish": 385,
+    "mollusks": 1270,
+    "crustaceans": 191,
+    "worms": 309,
+    "sponges": 158,
+    "colonial_invertebrates": 64,
+    "corals": 69,
+    "marine_mammals": 32,
+    "other_cnidarians": 55,
+    "echinoderms": 20,
+    "marine_reptiles": 6
+  },
+  "removed_by_category": {
+    "fish": 153
+  }
+}

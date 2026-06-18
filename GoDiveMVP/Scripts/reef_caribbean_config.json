@@ -1,0 +1,11 @@
+{
+  "reef_regions": [
+    "TWA"
+  ],
+  "fish_only": true,
+  "reef_export_url_template": "https://www.reef.org/db/reports/species/export?region_code={region}",
+  "reference_cache_csv": "MockData/reef_species_reference.csv",
+  "output_staging_csv": "MockData/marine_life_caribbean_staging.csv",
+  "output_json": "MockData/marine_life_sample.json",
+  "attribution": "REEF Tropical Western Atlantic species reference list. https://www.reef.org/db/reports/species?region_code=TWA"
+}

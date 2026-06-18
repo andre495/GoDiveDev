@@ -27,11 +27,11 @@ struct FieldGuideCatalogHubView: View, Equatable {
                                 FieldGuideCategoryHubTile(
                                     definition: definition,
                                     speciesCount: summary.speciesCount,
-                                    isFeatured: summary.categoryID == "fish"
+                                    isFeatured: summary.categoryID == "fishes"
                                 )
                             }
                             .buttonStyle(.plain)
-                            .gridCellColumns(summary.categoryID == "fish" ? 2 : 1)
+                            .gridCellColumns(summary.categoryID == "fishes" ? 2 : 1)
                             .accessibilityIdentifier("FieldGuide.Hub.Category.\(summary.categoryID)")
                         }
                     }
@@ -47,7 +47,7 @@ struct FieldGuideCatalogHubView: View, Equatable {
             Text("Reef life atlas")
                 .font(.title2.weight(.bold))
                 .foregroundStyle(AppTheme.Colors.textPrimary)
-            Text("Browse Caribbean species by shape, phylum, and family — the way underwater field guides are organized.")
+            Text("Browse Caribbean species by the groups in Caribbean Reef Life — plants, sponges, corals, invertebrates, fishes, and more.")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.Colors.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
@@ -234,6 +234,7 @@ struct FieldGuideCategoryDetailView: View, Equatable {
                                         subcategories: definition.subcategories,
                                         counts: summary.subcategoryCounts,
                                         categoryID: categoryID,
+                                        speciesCount: summary.speciesCount,
                                         onSelect: onSelectSubcategory
                                     )
                                 }
@@ -401,6 +402,7 @@ struct FieldGuideSubcategoryListSection: View {
     let subcategories: [FieldGuideTaxonomy.Subcategory]
     let counts: [String: Int]
     let categoryID: String
+    let speciesCount: Int
     let onSelect: (String) -> Void
 
     var body: some View {
@@ -410,6 +412,21 @@ struct FieldGuideSubcategoryListSection: View {
                 .foregroundStyle(AppTheme.Colors.textPrimary)
 
             VStack(spacing: AppTheme.Spacing.sm) {
+                if subcategories.isEmpty, speciesCount > 0 {
+                    Button {
+                        onSelect("")
+                    } label: {
+                        FieldGuideSubcategoryFallbackRow(
+                            title: "All species",
+                            hint: "Browse every species in this category",
+                            speciesCount: speciesCount,
+                            categoryID: categoryID
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("FieldGuide.Category.\(categoryID).Subcategory.all")
+                }
+
                 ForEach(subcategories) { subcategory in
                     Button {
                         onSelect(subcategory.id)
@@ -424,6 +441,56 @@ struct FieldGuideSubcategoryListSection: View {
                     .accessibilityIdentifier("FieldGuide.Category.\(categoryID).Subcategory.\(subcategory.id)")
                 }
             }
+        }
+    }
+}
+
+private struct FieldGuideSubcategoryFallbackRow: View {
+    let title: String
+    let hint: String
+    let speciesCount: Int
+    let categoryID: String
+
+    var body: some View {
+        HStack(alignment: .center, spacing: AppTheme.Spacing.md) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(FieldGuideCategoryAccent.gradientTop(categoryID).opacity(0.14))
+                    .frame(width: 44, height: 44)
+                Image(systemName: "list.bullet")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(FieldGuideCategoryAccent.gradientTop(categoryID))
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+                    .multilineTextAlignment(.leading)
+
+                Text(hint)
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: AppTheme.Spacing.sm)
+
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("\(speciesCount)")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(FieldGuideCategoryAccent.gradientTop(categoryID))
+                Image(systemName: "chevron.right")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(AppTheme.Colors.tabUnselected)
+            }
+        }
+        .padding(AppTheme.Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(AppTheme.Colors.surfaceElevated)
         }
     }
 }

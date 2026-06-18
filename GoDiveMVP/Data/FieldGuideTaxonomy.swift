@@ -1,6 +1,7 @@
 import Foundation
 
-/// Caribbean-oriented field guide hierarchy (Humann-style fish groups + phylum-level inverts).
+/// Caribbean Reef Life (Mickey Charteris) field guide hierarchy — generated from EPUB TOC.
+/// Regenerate: python3 GoDiveMVP/Scripts/generate_field_guide_taxonomy_swift.py
 enum FieldGuideTaxonomy {
 
     struct Subcategory: Sendable, Identifiable {
@@ -27,139 +28,649 @@ enum FieldGuideTaxonomy {
 
     nonisolated static let categories: [Category] = [
         Category(
-            id: "fish",
-            title: "Fish",
-            subtitle: "Shape & family groups for reef fish",
-            description: "Identify Caribbean reef fish by silhouette and family group — the same organization used in popular underwater field guides. Pick the shape that best matches what you saw on the dive, then browse species within that group.",
-            systemImage: "fish.fill",
-            heroImageName: "FieldGuideCategoryFish",
-            subcategories: [
-                Subcategory(id: "sharks-and-rays", title: "Sharks and Rays", hint: "Elasmobranchs on sand and reef", systemImage: "figure.open.water.swim"),
-                Subcategory(id: "eels", title: "Eels", hint: "Morays, snake eels, garden eels", systemImage: "waveform.path"),
-                Subcategory(id: "disk-and-large-oval", title: "Disk and Large Oval", hint: "Angels, butterflies, batfish", systemImage: "circle.circle"),
-                Subcategory(id: "small-oval", title: "Small Oval", hint: "Damselfish, chromis, anthias", systemImage: "circle.fill"),
-                Subcategory(id: "silvery", title: "Silvery", hint: "Jacks, herrings, mackerels", systemImage: "sparkles"),
-                Subcategory(id: "groupers-and-bass", title: "Groupers and Bass", hint: "Serranids and seabasses", systemImage: "square.stack.3d.up.fill"),
-                Subcategory(id: "grunts-and-snappers", title: "Grunts and Snappers", hint: "Haemulids and lutjanids", systemImage: "music.note.list"),
-                Subcategory(id: "parrotfish-wrasse-razorfish", title: "Parrotfish, Wrasse and Razorfish", hint: "Labrids, scarids, centriscids", systemImage: "paintbrush.fill"),
-                Subcategory(id: "cardinalfish-and-reds", title: "Cardinalfish and Reds", hint: "Apogonids and reddish reef fish", systemImage: "heart.fill"),
-                Subcategory(id: "gobies-and-blennies", title: "Gobies and Blennies", hint: "Cryptic reef perchers", systemImage: "eye.fill"),
-                Subcategory(id: "bottom-dwellers", title: "Bottom Dwellers", hint: "Flatfish, scorpionfish, sitters", systemImage: "arrow.down.to.line"),
-                Subcategory(id: "odd-shaped", title: "Odd Shaped", hint: "Seahorses, frogfish, filefish", systemImage: "star.fill"),
-            ]
-        ),
-        Category(
-            id: "corals",
-            title: "Corals",
-            subtitle: "Reef builders, gorgonians, and soft corals",
-            description: "Hard and soft corals, gorgonians, and other colony-building animals that give Caribbean reefs their structure, shelter, and color.",
+            id: "marine_plants",
+            title: "Marine Plants",
+            subtitle: "Algae, seagrasses, and mangroves",
+            description: "Marine plants and algae from Caribbean Reef Life.",
             systemImage: "leaf.fill",
-            heroImageName: "FieldGuideCategoryCoral",
+            heroImageName: nil,
             subcategories: [
-                Subcategory(id: "corals", title: "Corals", hint: "Stony, soft, and gorgonian corals", systemImage: "tree.fill"),
-            ]
-        ),
-        Category(
-            id: "other_cnidarians",
-            title: "Other Cnidarians",
-            subtitle: "Anemones, hydroids, and jellies",
-            description: "Cnidarians beyond stony corals — including anemones, zoanthids, hydroids, and drifting jellies — often spotted on reef walls and in the water column.",
-            systemImage: "aqi.medium",
-            heroImageName: "FieldGuideCategoryAnemone",
-            subcategories: [
-                Subcategory(id: "cnidarians", title: "Cnidarians", hint: "Anemones, zoanthids, hydroids", systemImage: "hand.raised.fill"),
-                Subcategory(id: "jellies", title: "Jellies", hint: "Medusae drifting in the water column", systemImage: "drop.fill"),
+                Subcategory(
+                    id: "mangroves",
+                    title: "Mangroves",
+                    hint: "Species from Caribbean Reef Life — Mangroves",
+                    systemImage: "circle.fill"
+                ),
+                Subcategory(
+                    id: "seagrasses",
+                    title: "Seagrasses",
+                    hint: "Species from Caribbean Reef Life — Seagrasses",
+                    systemImage: "circle.fill"
+                ),
+                Subcategory(
+                    id: "green-algae",
+                    title: "Green Algae",
+                    hint: "Species from Caribbean Reef Life — Green Algae",
+                    systemImage: "circle.fill"
+                ),
+                Subcategory(
+                    id: "brown-algae",
+                    title: "Brown Algae",
+                    hint: "Species from Caribbean Reef Life — Brown Algae",
+                    systemImage: "circle.fill"
+                ),
+                Subcategory(
+                    id: "red-algae",
+                    title: "Red Algae",
+                    hint: "Species from Caribbean Reef Life — Red Algae",
+                    systemImage: "circle.fill"
+                ),
             ]
         ),
         Category(
             id: "sponges",
             title: "Sponges",
             subtitle: "Filter feeders that shape Caribbean reefs",
-            description: "Sponges filter vast amounts of water and add texture to Caribbean reefs — from vivid barrel sponges to encrusting forms on rock and coral.",
+            description: "Sponge groups from Caribbean Reef Life — barrel, tube, rope, and encrusting forms.",
             systemImage: "bubbles.and.sparkles.fill",
             heroImageName: "FieldGuideCategoryTubeSponge",
             subcategories: [
-                Subcategory(id: "sponges", title: "Sponges", hint: "Barrel, tube, encrusting forms", systemImage: "humidity.fill"),
+                Subcategory(
+                    id: "encrusting-sponges",
+                    title: "Encrusting Sponges",
+                    hint: "Species from Caribbean Reef Life — Encrusting Sponges",
+                    systemImage: "circle.fill"
+                ),
+                Subcategory(
+                    id: "rope-sponges",
+                    title: "Rope Sponges",
+                    hint: "Species from Caribbean Reef Life — Rope Sponges",
+                    systemImage: "circle.fill"
+                ),
+                Subcategory(
+                    id: "ball-sponges",
+                    title: "Ball Sponges",
+                    hint: "Species from Caribbean Reef Life — Ball Sponges",
+                    systemImage: "circle.fill"
+                ),
+                Subcategory(
+                    id: "vase-sponges",
+                    title: "Vase Sponges",
+                    hint: "Species from Caribbean Reef Life — Vase Sponges",
+                    systemImage: "circle.fill"
+                ),
+                Subcategory(
+                    id: "tube-sponges",
+                    title: "Tube Sponges",
+                    hint: "Species from Caribbean Reef Life — Tube Sponges",
+                    systemImage: "circle.fill"
+                ),
+                Subcategory(
+                    id: "barrel-sponges",
+                    title: "Barrel Sponges",
+                    hint: "Species from Caribbean Reef Life — Barrel Sponges",
+                    systemImage: "circle.fill"
+                ),
             ]
         ),
         Category(
-            id: "mollusks",
-            title: "Mollusks",
-            subtitle: "Snails, slugs, clams, and cephalopods",
-            description: "A diverse phylum on Caribbean reefs — shelled gastropods, colorful sea slugs, bivalves in sand and rubble, and curious cephalopods that change color in an instant.",
-            systemImage: "shell.fill",
-            heroImageName: "FieldGuideCategoryMollusk",
+            id: "corals",
+            title: "Corals",
+            subtitle: "Reef builders, gorgonians, and soft corals",
+            description: "Hard and soft coral groups from Caribbean Reef Life.",
+            systemImage: "leaf.fill",
+            heroImageName: "FieldGuideCategoryCoral",
             subcategories: [
-                Subcategory(id: "gastropods", title: "Gastropods", hint: "Cowries, cones, shelled snails", systemImage: "spiral"),
-                Subcategory(id: "sea-slugs", title: "Sea Slugs", hint: "Nudibranchs and allies", systemImage: "leaf.arrow.circlepath"),
-                Subcategory(id: "bivalves-and-chitons", title: "Bivalves and Chitons", hint: "Clams, oysters, chitons", systemImage: "capsule.fill"),
-                Subcategory(id: "cephalopods", title: "Cephalopods", hint: "Octopus, squid, cuttlefish", systemImage: "circle.grid.cross.fill"),
+                Subcategory(
+                    id: "branching-corals",
+                    title: "Branching Corals",
+                    hint: "Species from Caribbean Reef Life — Branching Corals",
+                    systemImage: "circle.fill"
+                ),
+                Subcategory(
+                    id: "lettuce-corals",
+                    title: "Lettuce Corals",
+                    hint: "Species from Caribbean Reef Life — Lettuce Corals",
+                    systemImage: "circle.fill"
+                ),
+                Subcategory(
+                    id: "brain-corals",
+                    title: "Brain Corals",
+                    hint: "Species from Caribbean Reef Life — Brain Corals",
+                    systemImage: "circle.fill"
+                ),
+                Subcategory(
+                    id: "cactus-corals",
+                    title: "Cactus Corals",
+                    hint: "Species from Caribbean Reef Life — Cactus Corals",
+                    systemImage: "circle.fill"
+                ),
+                Subcategory(
+                    id: "star-corals",
+                    title: "Star Corals",
+                    hint: "Species from Caribbean Reef Life — Star Corals",
+                    systemImage: "circle.fill"
+                ),
+                Subcategory(
+                    id: "plate-corals",
+                    title: "Plate Corals",
+                    hint: "Species from Caribbean Reef Life — Plate Corals",
+                    systemImage: "circle.fill"
+                ),
+                Subcategory(
+                    id: "cup-corals",
+                    title: "Cup Corals",
+                    hint: "Species from Caribbean Reef Life — Cup Corals",
+                    systemImage: "circle.fill"
+                ),
+                Subcategory(
+                    id: "black-corals",
+                    title: "Black Corals",
+                    hint: "Species from Caribbean Reef Life — Black Corals",
+                    systemImage: "circle.fill"
+                ),
+                Subcategory(
+                    id: "octocorals",
+                    title: "Octocorals",
+                    hint: "Species from Caribbean Reef Life — Octocorals",
+                    systemImage: "circle.fill"
+                ),
             ]
         ),
         Category(
-            id: "crustaceans",
-            title: "Crustaceans",
-            subtitle: "Crabs, lobsters, shrimp, and mantis shrimp",
-            description: "Crustaceans hide in crevices, walk the sand, and clean other reef residents. Look closely on night dives for shrimps, crabs, and lobsters.",
-            systemImage: "crab.fill",
-            heroImageName: "FieldGuideCategoryCrab",
+            id: "invertebrates",
+            title: "Invertebrates",
+            subtitle: "Anemones, worms, mollusks, crustaceans, and more",
+            description: "Invertebrate groups from Caribbean Reef Life.",
+            systemImage: "ant.fill",
+            heroImageName: "FieldGuideCategoryAnemone",
             subcategories: [
-                Subcategory(id: "crustaceans", title: "Crustaceans", hint: "Decapods and stomatopods", systemImage: "hand.point.up.left.fill"),
+                Subcategory(
+                    id: "jellies",
+                    title: "Jellies",
+                    hint: "Species from Caribbean Reef Life — Jellies",
+                    systemImage: "drop.fill"
+                ),
+                Subcategory(
+                    id: "anemones",
+                    title: "Anemones",
+                    hint: "Species from Caribbean Reef Life — Anemones",
+                    systemImage: "hand.raised.fill"
+                ),
+                Subcategory(
+                    id: "corallimorphs",
+                    title: "Corallimorphs",
+                    hint: "Species from Caribbean Reef Life — Corallimorphs",
+                    systemImage: "circle.fill"
+                ),
+                Subcategory(
+                    id: "zoanthids",
+                    title: "Zoanthids",
+                    hint: "Species from Caribbean Reef Life — Zoanthids",
+                    systemImage: "circle.grid.2x2.fill"
+                ),
+                Subcategory(
+                    id: "tunicates",
+                    title: "Tunicates",
+                    hint: "Species from Caribbean Reef Life — Tunicates",
+                    systemImage: "rectangle.grid.2x2.fill"
+                ),
+                Subcategory(
+                    id: "hydroids",
+                    title: "Hydroids",
+                    hint: "Species from Caribbean Reef Life — Hydroids",
+                    systemImage: "circle.fill"
+                ),
+                Subcategory(
+                    id: "bryozoans",
+                    title: "Bryozoans",
+                    hint: "Species from Caribbean Reef Life — Bryozoans",
+                    systemImage: "rectangle.grid.2x2.fill"
+                ),
+                Subcategory(
+                    id: "sea-stars",
+                    title: "Sea Stars",
+                    hint: "Species from Caribbean Reef Life — Sea Stars",
+                    systemImage: "star.circle.fill"
+                ),
+                Subcategory(
+                    id: "brittle-stars",
+                    title: "Brittle Stars",
+                    hint: "Species from Caribbean Reef Life — Brittle Stars",
+                    systemImage: "star.circle.fill"
+                ),
+                Subcategory(
+                    id: "crinoids",
+                    title: "Crinoids",
+                    hint: "Species from Caribbean Reef Life — Crinoids",
+                    systemImage: "star.circle.fill"
+                ),
+                Subcategory(
+                    id: "sea-urchins",
+                    title: "Sea Urchins",
+                    hint: "Species from Caribbean Reef Life — Sea Urchins",
+                    systemImage: "star.circle.fill"
+                ),
+                Subcategory(
+                    id: "sea-cucumbers",
+                    title: "Sea Cucumbers",
+                    hint: "Species from Caribbean Reef Life — Sea Cucumbers",
+                    systemImage: "star.circle.fill"
+                ),
+                Subcategory(
+                    id: "worms",
+                    title: "Worms",
+                    hint: "Species from Caribbean Reef Life — Worms",
+                    systemImage: "ellipsis.curlybraces"
+                ),
+                Subcategory(
+                    id: "feather-dusters",
+                    title: "Feather Dusters",
+                    hint: "Species from Caribbean Reef Life — Feather Dusters",
+                    systemImage: "ellipsis.curlybraces"
+                ),
+                Subcategory(
+                    id: "flatworms",
+                    title: "Flatworms",
+                    hint: "Species from Caribbean Reef Life — Flatworms",
+                    systemImage: "ellipsis.curlybraces"
+                ),
+                Subcategory(
+                    id: "sea-slugs",
+                    title: "Sea Slugs",
+                    hint: "Species from Caribbean Reef Life — Sea Slugs",
+                    systemImage: "leaf.arrow.circlepath"
+                ),
+                Subcategory(
+                    id: "nudibranchs",
+                    title: "Nudibranchs",
+                    hint: "Species from Caribbean Reef Life — Nudibranchs",
+                    systemImage: "leaf.arrow.circlepath"
+                ),
+                Subcategory(
+                    id: "clams",
+                    title: "Clams",
+                    hint: "Species from Caribbean Reef Life — Clams",
+                    systemImage: "capsule.fill"
+                ),
+                Subcategory(
+                    id: "oysters",
+                    title: "Oysters",
+                    hint: "Species from Caribbean Reef Life — Oysters",
+                    systemImage: "capsule.fill"
+                ),
+                Subcategory(
+                    id: "chitons",
+                    title: "Chitons",
+                    hint: "Species from Caribbean Reef Life — Chitons",
+                    systemImage: "circle.fill"
+                ),
+                Subcategory(
+                    id: "limpets",
+                    title: "Limpets",
+                    hint: "Species from Caribbean Reef Life — Limpets",
+                    systemImage: "circle.fill"
+                ),
+                Subcategory(
+                    id: "snails",
+                    title: "Snails",
+                    hint: "Species from Caribbean Reef Life — Snails",
+                    systemImage: "spiral"
+                ),
+                Subcategory(
+                    id: "conchs",
+                    title: "Conchs",
+                    hint: "Species from Caribbean Reef Life — Conchs",
+                    systemImage: "circle.fill"
+                ),
+                Subcategory(
+                    id: "octopuses",
+                    title: "Octopuses",
+                    hint: "Species from Caribbean Reef Life — Octopuses",
+                    systemImage: "circle.grid.cross.fill"
+                ),
+                Subcategory(
+                    id: "squids",
+                    title: "Squids",
+                    hint: "Species from Caribbean Reef Life — Squids",
+                    systemImage: "circle.grid.cross.fill"
+                ),
+                Subcategory(
+                    id: "shrimps",
+                    title: "Shrimps",
+                    hint: "Species from Caribbean Reef Life — Shrimps",
+                    systemImage: "hand.point.up.left.fill"
+                ),
+                Subcategory(
+                    id: "crabs",
+                    title: "Crabs",
+                    hint: "Species from Caribbean Reef Life — Crabs",
+                    systemImage: "crab.fill"
+                ),
+                Subcategory(
+                    id: "lobsters",
+                    title: "Lobsters",
+                    hint: "Species from Caribbean Reef Life — Lobsters",
+                    systemImage: "crab.fill"
+                ),
             ]
         ),
         Category(
-            id: "echinoderms",
-            title: "Echinoderms",
-            subtitle: "Stars, urchins, cucumbers, and crinoids",
-            description: "Sea stars, urchins, cucumbers, and feather stars share five-fold symmetry. Common on reef crests, walls, and sandy patches throughout the Caribbean.",
-            systemImage: "staroflife.fill",
-            heroImageName: "FieldGuideCategorySeaStar",
+            id: "fishes",
+            title: "Fishes",
+            subtitle: "Family groups for Caribbean reef fish",
+            description: "Fish families from Caribbean Reef Life — browse by the group that best matches what you saw.",
+            systemImage: "fish.fill",
+            heroImageName: "FieldGuideCategoryFish",
             subcategories: [
-                Subcategory(id: "echinoderms", title: "Echinoderms", hint: "Five-fold symmetry on the reef", systemImage: "star.circle.fill"),
+                Subcategory(
+                    id: "gobies",
+                    title: "Gobies",
+                    hint: "Species from Caribbean Reef Life — Gobies",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "blennies",
+                    title: "Blennies",
+                    hint: "Species from Caribbean Reef Life — Blennies",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "cardinalfishes",
+                    title: "Cardinalfishes",
+                    hint: "Species from Caribbean Reef Life — Cardinalfishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "squirrelfishes",
+                    title: "Squirrelfishes",
+                    hint: "Species from Caribbean Reef Life — Squirrelfishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "flounders",
+                    title: "Flounders",
+                    hint: "Species from Caribbean Reef Life — Flounders",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "scorpionfishes",
+                    title: "Scorpionfishes",
+                    hint: "Species from Caribbean Reef Life — Scorpionfishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "frogfishes",
+                    title: "Frogfishes",
+                    hint: "Species from Caribbean Reef Life — Frogfishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "searobins",
+                    title: "Searobins",
+                    hint: "Species from Caribbean Reef Life — Searobins",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "batfishes",
+                    title: "Batfishes",
+                    hint: "Species from Caribbean Reef Life — Batfishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "lizardfishes",
+                    title: "Lizardfishes",
+                    hint: "Species from Caribbean Reef Life — Lizardfishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "jawfishes",
+                    title: "Jawfishes",
+                    hint: "Species from Caribbean Reef Life — Jawfishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "toadfishes",
+                    title: "Toadfishes",
+                    hint: "Species from Caribbean Reef Life — Toadfishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "clingfishes",
+                    title: "Clingfishes",
+                    hint: "Species from Caribbean Reef Life — Clingfishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "lionfish",
+                    title: "Lionfish",
+                    hint: "Species from Caribbean Reef Life — Lionfish",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "brotulas",
+                    title: "Brotulas",
+                    hint: "Species from Caribbean Reef Life — Brotulas",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "seahorses",
+                    title: "Seahorses",
+                    hint: "Species from Caribbean Reef Life — Seahorses",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "pipefishes",
+                    title: "Pipefishes",
+                    hint: "Species from Caribbean Reef Life — Pipefishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "drums",
+                    title: "Drums",
+                    hint: "Species from Caribbean Reef Life — Drums",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "damselfishes",
+                    title: "Damselfishes",
+                    hint: "Species from Caribbean Reef Life — Damselfishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "surgeonfishes",
+                    title: "Surgeonfishes",
+                    hint: "Species from Caribbean Reef Life — Surgeonfishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "butterflyfishes",
+                    title: "Butterflyfishes",
+                    hint: "Species from Caribbean Reef Life — Butterflyfishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "angelfishes",
+                    title: "Angelfishes",
+                    hint: "Species from Caribbean Reef Life — Angelfishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "triggerfishes",
+                    title: "Triggerfishes",
+                    hint: "Species from Caribbean Reef Life — Triggerfishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "filefishes",
+                    title: "Filefishes",
+                    hint: "Species from Caribbean Reef Life — Filefishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "puffers",
+                    title: "Puffers",
+                    hint: "Species from Caribbean Reef Life — Puffers",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "trunkfishes",
+                    title: "Trunkfishes",
+                    hint: "Species from Caribbean Reef Life — Trunkfishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "cowfishes",
+                    title: "Cowfishes",
+                    hint: "Species from Caribbean Reef Life — Cowfishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "grunts",
+                    title: "Grunts",
+                    hint: "Species from Caribbean Reef Life — Grunts",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "parrotfishes",
+                    title: "Parrotfishes",
+                    hint: "Species from Caribbean Reef Life — Parrotfishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "hogfishes",
+                    title: "Hogfishes",
+                    hint: "Species from Caribbean Reef Life — Hogfishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "razorfishes",
+                    title: "Razorfishes",
+                    hint: "Species from Caribbean Reef Life — Razorfishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "wrasses",
+                    title: "Wrasses",
+                    hint: "Species from Caribbean Reef Life — Wrasses",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "basslets",
+                    title: "Basslets",
+                    hint: "Species from Caribbean Reef Life — Basslets",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "basses",
+                    title: "Basses",
+                    hint: "Species from Caribbean Reef Life — Basses",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "hamlets",
+                    title: "Hamlets",
+                    hint: "Species from Caribbean Reef Life — Hamlets",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "groupers",
+                    title: "Groupers",
+                    hint: "Species from Caribbean Reef Life — Groupers",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "snappers",
+                    title: "Snappers",
+                    hint: "Species from Caribbean Reef Life — Snappers",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "jacks",
+                    title: "Jacks",
+                    hint: "Species from Caribbean Reef Life — Jacks",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "barracudas",
+                    title: "Barracudas",
+                    hint: "Species from Caribbean Reef Life — Barracudas",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "trumpetfish",
+                    title: "Trumpetfish",
+                    hint: "Species from Caribbean Reef Life — Trumpetfish",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "needlefishes",
+                    title: "Needlefishes",
+                    hint: "Species from Caribbean Reef Life — Needlefishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "silversides",
+                    title: "Silversides",
+                    hint: "Species from Caribbean Reef Life — Silversides",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "silvery-fishes",
+                    title: "Silvery Fishes",
+                    hint: "Species from Caribbean Reef Life — Silvery Fishes",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "porgies",
+                    title: "Porgies",
+                    hint: "Species from Caribbean Reef Life — Porgies",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "sharksuckers",
+                    title: "Sharksuckers",
+                    hint: "Species from Caribbean Reef Life — Sharksuckers",
+                    systemImage: "fish.fill"
+                ),
+                Subcategory(
+                    id: "eels",
+                    title: "Eels",
+                    hint: "Species from Caribbean Reef Life — Eels",
+                    systemImage: "waveform.path"
+                ),
+                Subcategory(
+                    id: "rays",
+                    title: "Rays",
+                    hint: "Species from Caribbean Reef Life — Rays",
+                    systemImage: "figure.open.water.swim"
+                ),
+                Subcategory(
+                    id: "sharks",
+                    title: "Sharks",
+                    hint: "Species from Caribbean Reef Life — Sharks",
+                    systemImage: "figure.open.water.swim"
+                ),
             ]
         ),
         Category(
-            id: "worms",
-            title: "Worms & Kin",
-            subtitle: "Segmented, flat, and burrowing worms",
-            description: "Polychaetes, flatworms, and other worm-like invertebrates — often overlooked until you slow down and scan the reef for movement and vivid patterns.",
-            systemImage: "line.3.horizontal",
-            heroImageName: "FieldGuideCategoryChristmasTreeWorm",
-            subcategories: [
-                Subcategory(id: "worms", title: "Worms", hint: "Polychaetes, flatworms, peanut worms", systemImage: "ellipsis.curlybraces"),
-            ]
-        ),
-        Category(
-            id: "colonial_invertebrates",
-            title: "Colonial Invertebrates",
-            subtitle: "Encrusting filter feeders",
-            description: "Colonial animals such as tunicates and bryozoans form encrusting mats and delicate lace-like colonies on hard substrate across Caribbean reefs.",
-            systemImage: "square.grid.3x3.fill",
-            heroImageName: "FieldGuideCategoryTunicateChain",
-            subcategories: [
-                Subcategory(id: "tunicates-and-bryozoans", title: "Tunicates and Bryozoans", hint: "Sea squirts and lace corals", systemImage: "rectangle.grid.2x2.fill"),
-            ]
-        ),
-        Category(
-            id: "marine_reptiles",
-            title: "Marine Reptiles",
-            subtitle: "Sea turtles and allies",
-            description: "Sea turtles are the most frequently encountered marine reptiles in the Caribbean — often seen grazing seagrass or resting under ledges on calm dives.",
+            id: "sea_turtles",
+            title: "Sea Turtles",
+            subtitle: "Sea turtles of the Caribbean",
+            description: "Sea turtle species from Caribbean Reef Life.",
             systemImage: "tortoise.fill",
             heroImageName: "FieldGuideCategorySeaTurtle",
             subcategories: [
-                Subcategory(id: "turtles", title: "Turtles", hint: "Green, hawksbill, loggerhead", systemImage: "tortoise.fill"),
             ]
         ),
         Category(
             id: "marine_mammals",
             title: "Marine Mammals",
             subtitle: "Cetaceans visiting Caribbean waters",
-            description: "Dolphins and whales pass through Caribbean waters — a lucky sight from the boat or, occasionally, on open-water dives.",
+            description: "Marine mammals from Caribbean Reef Life.",
             systemImage: "wind",
             heroImageName: "FieldGuideCategoryWhale",
             subcategories: [
-                Subcategory(id: "dolphins-and-whales", title: "Dolphins and Whales", hint: "Dolphins, whales, and porpoises", systemImage: "water.waves"),
             ]
         ),
     ]
@@ -236,13 +747,20 @@ enum FieldGuideTaxonomy {
     }
 
     private nonisolated static let legacyCategoryMapping: [String: LegacyMapping] = [
-        "fish": LegacyMapping(categoryID: "fish", subcategoryID: "odd-shaped"),
-        "ray": LegacyMapping(categoryID: "fish", subcategoryID: "sharks-and-rays"),
-        "reptile": LegacyMapping(categoryID: "marine_reptiles", subcategoryID: "turtles"),
-        "cephalopod": LegacyMapping(categoryID: "mollusks", subcategoryID: "cephalopods"),
-        "cnidarian": LegacyMapping(categoryID: "other_cnidarians", subcategoryID: "cnidarians"),
-        "mollusk": LegacyMapping(categoryID: "mollusks", subcategoryID: "gastropods"),
-        "crustacean": LegacyMapping(categoryID: "crustaceans", subcategoryID: "crustaceans"),
+        "fish": LegacyMapping(categoryID: "fishes", subcategoryID: "gobies"),
+        "ray": LegacyMapping(categoryID: "fishes", subcategoryID: "rays"),
+        "reptile": LegacyMapping(categoryID: "sea_turtles", subcategoryID: "sea-turtles"),
+        "cephalopod": LegacyMapping(categoryID: "invertebrates", subcategoryID: "octopuses"),
+        "cnidarian": LegacyMapping(categoryID: "invertebrates", subcategoryID: "anemones"),
+        "mollusk": LegacyMapping(categoryID: "invertebrates", subcategoryID: "snails"),
+        "crustacean": LegacyMapping(categoryID: "invertebrates", subcategoryID: "crabs"),
+        "corals": LegacyMapping(categoryID: "corals", subcategoryID: "brain-corals"),
+        "sponges": LegacyMapping(categoryID: "sponges", subcategoryID: "barrel-sponges"),
+        "worms": LegacyMapping(categoryID: "invertebrates", subcategoryID: "worms"),
+        "echinoderms": LegacyMapping(categoryID: "invertebrates", subcategoryID: "sea-stars"),
+        "colonial_invertebrates": LegacyMapping(categoryID: "invertebrates", subcategoryID: "tunicates"),
+        "other_cnidarians": LegacyMapping(categoryID: "invertebrates", subcategoryID: "jellies"),
+        "marine_reptiles": LegacyMapping(categoryID: "sea_turtles", subcategoryID: "sea-turtles"),
     ]
 }
 

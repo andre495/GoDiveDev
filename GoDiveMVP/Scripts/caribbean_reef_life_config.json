@@ -1,0 +1,9 @@
+{
+  "default_pdf_path": "MockData/CaribbeanReefLife.pdf",
+  "default_epub_path": "/Users/andrdugas/Desktop/Caribbean Reef Life 4.epub",
+  "reference_cache_csv": "MockData/caribbean_reef_life_species_reference.csv",
+  "output_staging_csv": "MockData/marine_life_caribbean_staging.csv",
+  "output_json": "MockData/marine_life_sample.json",
+  "fish_only": true,
+  "attribution": "Species reference from Caribbean Reef Life (Mickey Charteris, 4th ed.). https://www.caribbeanreeflife.com"
+}

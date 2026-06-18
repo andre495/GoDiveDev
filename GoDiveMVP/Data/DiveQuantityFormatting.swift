@@ -15,6 +15,72 @@ enum DiveQuantityFormatting {
         linearMeters(meters, system: system)
     }
 
+    /// Field guide depth — nearest whole meter (metric) or nearest 5 ft (imperial).
+    nonisolated static func fieldGuideDepth(meters: Double, system: DiveDisplayUnitSystem) -> String {
+        guard meters > 0 else { return "" }
+        switch system {
+        case .metric:
+            return "\(Int(normalizedFieldGuideDepthValue(meters: meters, system: .metric).rounded())) m"
+        case .imperial:
+            return "\(Int(normalizedFieldGuideDepthValue(meters: meters, system: .imperial))) ft"
+        }
+    }
+
+    /// Normalized min/max depth endpoints for field guide range display.
+    nonisolated static func fieldGuideDepthRange(
+        minMeters: Double,
+        maxMeters: Double,
+        system: DiveDisplayUnitSystem
+    ) -> String {
+        let endpoints = normalizedFieldGuideDepthRange(minMeters: minMeters, maxMeters: maxMeters, system: system)
+        guard let low = endpoints.low, let high = endpoints.high else { return "" }
+        return "\(fieldGuideDepthDisplayValue(low, system: system))–\(fieldGuideDepthDisplayValue(high, system: system))"
+    }
+
+    nonisolated static func normalizedFieldGuideDepthRange(
+        minMeters: Double,
+        maxMeters: Double,
+        system: DiveDisplayUnitSystem
+    ) -> (low: Double?, high: Double?) {
+        guard minMeters > 0 || maxMeters > 0 else { return (nil, nil) }
+
+        let rawLow = minMeters > 0 ? minMeters : maxMeters
+        let rawHigh = maxMeters > 0 ? maxMeters : minMeters
+        let normalizedLow = normalizedFieldGuideDepthValue(meters: rawLow, system: system)
+        let normalizedHigh = normalizedFieldGuideDepthValue(meters: rawHigh, system: system)
+        return (
+            min(normalizedLow, normalizedHigh),
+            max(normalizedLow, normalizedHigh)
+        )
+    }
+
+    private nonisolated static func normalizedFieldGuideDepthValue(
+        meters: Double,
+        system: DiveDisplayUnitSystem
+    ) -> Double {
+        guard meters > 0 else { return 0 }
+        switch system {
+        case .metric:
+            return max(1, meters.rounded())
+        case .imperial:
+            let feet = meters * DiveQuantityFormattingConstants.feetPerMeter
+            let roundedFeet = (feet / 5.0).rounded() * 5.0
+            return max(5, roundedFeet)
+        }
+    }
+
+    private nonisolated static func fieldGuideDepthDisplayValue(
+        _ value: Double,
+        system: DiveDisplayUnitSystem
+    ) -> String {
+        switch system {
+        case .metric:
+            return "\(Int(value)) m"
+        case .imperial:
+            return "\(Int(value)) ft"
+        }
+    }
+
     /// Animal size or other length from stored **m** (same conversion as **`depth`**).
     nonisolated static func length(meters: Double, system: DiveDisplayUnitSystem) -> String {
         linearMeters(meters, system: system)

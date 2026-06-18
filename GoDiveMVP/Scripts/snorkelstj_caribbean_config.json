@@ -1,0 +1,21 @@
+{
+  "base_url": "https://www.snorkelstj.com",
+  "seed_pages": [
+    "list-species.html",
+    "coral_gallery.html",
+    "stony-corals_gallery.html",
+    "soft-coral_gallery.html",
+    "tube-and-cup-coral_gallery.html",
+    "hydrocorals_gallery.html",
+    "fish_gallery.html",
+    "creatures_gallery.html",
+    "plants-algae_gallery.html",
+    "turtles.html"
+  ],
+  "request_delay_seconds": 0.05,
+  "reference_cache_csv": "MockData/snorkelstj_species_reference.csv",
+  "output_staging_csv": "MockData/marine_life_caribbean_staging.csv",
+  "output_json": "MockData/marine_life_sample.json",
+  "fuzzy_match_threshold": 0.88,
+  "attribution": "Species reference from snorkelstj.com (St. John USVI Caribbean ID gallery). https://www.snorkelstj.com/list-species.html"
+}

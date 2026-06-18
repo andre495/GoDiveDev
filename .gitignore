@@ -25,6 +25,9 @@ GoDiveMVP/Scripts/.venv/
 __pycache__/
 *.pyc
 
+# Purchased field guide PDFs (extract locally; do not commit)
+GoDiveMVP/MockData/CaribbeanReefLife.pdf
+
 # Secrets
 .env
 *.pem

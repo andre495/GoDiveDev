@@ -41,7 +41,7 @@ enum TripDetailMarineLifePresentation: Sendable {
             return TripDetailMarineLifeCarouselItem(
                 marineLifeUUID: summary.marineLifeUUID,
                 catalogSnapshot: fallbackSnapshot,
-                categoryID: "fish",
+                categoryID: "fishes",
                 sightingCountLabel: sightingCountLabel(count: summary.sightingCount),
                 hasCatalogEntry: false
             )

@@ -1,0 +1,520 @@
+{
+  "reference_species": 471,
+  "threshold": 0.88,
+  "staging_rows": 2559,
+  "matched": 276,
+  "unmatched": 2283,
+  "matched_by_category": {
+    "fish": 135,
+    "mollusks": 20,
+    "corals": 31,
+    "crustaceans": 39,
+    "worms": 6,
+    "colonial_invertebrates": 8,
+    "sponges": 22,
+    "other_cnidarians": 4,
+    "echinoderms": 11
+  },
+  "unmatched_by_category": {
+    "fish": 250,
+    "mollusks": 1250,
+    "crustaceans": 152,
+    "worms": 303,
+    "sponges": 136,
+    "colonial_invertebrates": 56,
+    "corals": 38,
+    "marine_mammals": 32,
+    "other_cnidarians": 51,
+    "echinoderms": 9,
+    "marine_reptiles": 6
+  },
+  "match_methods": {
+    "exact_scientific": 208,
+    "exact_common": 38,
+    "fuzzy_common": 30
+  },
+  "sample_matches": [
+    {
+      "commonName": "American whitespotted filefish",
+      "scientificName": "Cantherhines macrocerus",
+      "category": "fish",
+      "snorkelstj_commonName": "Whitespotted Filefish",
+      "snorkelstj_scientificName": "Cantherhines macrocerus",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/whitespotted-filefish.html"
+    },
+    {
+      "commonName": "Atlantic spadefish",
+      "scientificName": "Chaetodipterus faber",
+      "category": "fish",
+      "snorkelstj_commonName": "Atlantic Spadefish (Juvenile)",
+      "snorkelstj_scientificName": "",
+      "score": "1.000",
+      "method": "exact_common",
+      "url": "https://www.snorkelstj.com/spadefish-atlantic-juvenile.html"
+    },
+    {
+      "commonName": "Ballyhoo halfbeak",
+      "scientificName": "Hemiramphus brasiliensis",
+      "category": "fish",
+      "snorkelstj_commonName": "Ballyhoo-",
+      "snorkelstj_scientificName": "Hemiramphus brasiliensis",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/ballyhoo.html"
+    },
+    {
+      "commonName": "Banded butterflyfish",
+      "scientificName": "Chaetodon striatus",
+      "category": "fish",
+      "snorkelstj_commonName": "Banded Butterflyfish",
+      "snorkelstj_scientificName": "Chaetodon striatus",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/banded-butterflyfish.html"
+    },
+    {
+      "commonName": "Banded jawfish",
+      "scientificName": "Opistognathus macrognathus",
+      "category": "fish",
+      "snorkelstj_commonName": "Banded Jawfish",
+      "snorkelstj_scientificName": "Opistognathus macrognathus",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/banded-jawfish.html"
+    },
+    {
+      "commonName": "Banded pipefish",
+      "scientificName": "Micrognathus crinitus",
+      "category": "fish",
+      "snorkelstj_commonName": "Harlequin Pipefish",
+      "snorkelstj_scientificName": "Micrognathus crinitus",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/harlequin-pipefish.html"
+    },
+    {
+      "commonName": "Bandtail puffer",
+      "scientificName": "Sphoeroides spengleri",
+      "category": "fish",
+      "snorkelstj_commonName": "Bandtail Pufferfish",
+      "snorkelstj_scientificName": "Sphoeroides spengleri",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/bandtail-pufferfish.html"
+    },
+    {
+      "commonName": "Bar jack",
+      "scientificName": "Caranx ruber",
+      "category": "fish",
+      "snorkelstj_commonName": "Bar Jack",
+      "snorkelstj_scientificName": "Caranx ruber",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/bar-jack.html"
+    },
+    {
+      "commonName": "Barfin blenny",
+      "scientificName": "Malacoctenus versicolor",
+      "category": "fish",
+      "snorkelstj_commonName": "Barfin Blenny",
+      "snorkelstj_scientificName": "Malacoctenus versicolor",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/barfin-blenny.html"
+    },
+    {
+      "commonName": "Barred hamlet",
+      "scientificName": "Hypoplectrus puella",
+      "category": "fish",
+      "snorkelstj_commonName": "Barred Hamlet",
+      "snorkelstj_scientificName": "Hypoplectrus puella",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/barred-hamlet.html"
+    },
+    {
+      "commonName": "Beaugregory",
+      "scientificName": "Stegastes leucostictus",
+      "category": "fish",
+      "snorkelstj_commonName": "Beaugregory Damselfish",
+      "snorkelstj_scientificName": "Stegastes leucostictus",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/beaugregory.html"
+    },
+    {
+      "commonName": "Belted cardinalfish",
+      "scientificName": "Apogon townsendi",
+      "category": "fish",
+      "snorkelstj_commonName": "Belted Cardinalfish -",
+      "snorkelstj_scientificName": "Apogon townsedni",
+      "score": "1.000",
+      "method": "exact_common",
+      "url": "https://www.snorkelstj.com/belted-cardinalfish.html"
+    },
+    {
+      "commonName": "Bermuda sea chub",
+      "scientificName": "Kyphosus sectatrix",
+      "category": "fish",
+      "snorkelstj_commonName": "Chub",
+      "snorkelstj_scientificName": "Kyphosus sectatrix",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/chub.html"
+    },
+    {
+      "commonName": "Bicolor damselfish",
+      "scientificName": "Stegastes partitus",
+      "category": "fish",
+      "snorkelstj_commonName": "Bi-Colored Damselfish",
+      "snorkelstj_scientificName": "Stegastes partitus",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/bi-colored-damselfish.html"
+    },
+    {
+      "commonName": "Black margate",
+      "scientificName": "Anisotremus surinamensis",
+      "category": "fish",
+      "snorkelstj_commonName": "Black Margate",
+      "snorkelstj_scientificName": "Anisotremus surinamensis",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/black-margate.html"
+    },
+    {
+      "commonName": "Blackear wrasse",
+      "scientificName": "Halichoeres poeyi",
+      "category": "fish",
+      "snorkelstj_commonName": "Blackear Wrasse",
+      "snorkelstj_scientificName": "Halichoeres poeyi",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/blackear-wrasse.html"
+    },
+    {
+      "commonName": "Blackfin cardinalfish",
+      "scientificName": "Astrapogon puncticulatus",
+      "category": "fish",
+      "snorkelstj_commonName": "Blackfin Cardinalfish",
+      "snorkelstj_scientificName": "Astrapogon puncticulatus",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/blackfin-cardinalfish.html"
+    },
+    {
+      "commonName": "Blue runner",
+      "scientificName": "Caranx crysos",
+      "category": "fish",
+      "snorkelstj_commonName": "Blue Runner-Jack",
+      "snorkelstj_scientificName": "Caranx crysos",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/blue-runner-jack.html"
+    },
+    {
+      "commonName": "Blue tang surgeonfish",
+      "scientificName": "Acanthurus coeruleus",
+      "category": "fish",
+      "snorkelstj_commonName": "Blue Tang",
+      "snorkelstj_scientificName": "Acanthurus coeruleus",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/blue-tang.html"
+    },
+    {
+      "commonName": "Bluehead",
+      "scientificName": "Thalassoma bifasciatum",
+      "category": "fish",
+      "snorkelstj_commonName": "Bluehead Wrasse",
+      "snorkelstj_scientificName": "Thalassoma bifasciatum",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/bluehead-wrasse.html"
+    },
+    {
+      "commonName": "Bluestriped grunt",
+      "scientificName": "Haemulon sciurus",
+      "category": "fish",
+      "snorkelstj_commonName": "Bluestriped Grunt",
+      "snorkelstj_scientificName": "Haemulon sciurus",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/bluestriped-grunt.html"
+    },
+    {
+      "commonName": "Bonefish",
+      "scientificName": "Albula vulpes",
+      "category": "fish",
+      "snorkelstj_commonName": "Bonefish",
+      "snorkelstj_scientificName": "Albula vulpes",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/bonefish.html"
+    },
+    {
+      "commonName": "Bridled burrfish",
+      "scientificName": "Chilomycterus antennatus",
+      "category": "fish",
+      "snorkelstj_commonName": "Bridled Burrfish",
+      "snorkelstj_scientificName": "Chilomycterus antennatus",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/bridled-burrfish.html"
+    },
+    {
+      "commonName": "Brown garden eel",
+      "scientificName": "Heteroconger longissimus",
+      "category": "fish",
+      "snorkelstj_commonName": "Brown Garden Eel",
+      "snorkelstj_scientificName": "Heteroconger longissimus",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/brown-garden-eel.html"
+    },
+    {
+      "commonName": "Bucktooth parrotfish",
+      "scientificName": "Sparisoma radians",
+      "category": "fish",
+      "snorkelstj_commonName": "Bucktooth Parrotfish",
+      "snorkelstj_scientificName": "Sparisoma radians",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/bucktooth-parrotfish.html"
+    },
+    {
+      "commonName": "Buffalo trunkfish",
+      "scientificName": "Lactophrys trigonus",
+      "category": "fish",
+      "snorkelstj_commonName": "Trunkfish (Buffalofish)",
+      "snorkelstj_scientificName": "Lactophrys trigonus",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/buffalo-trunkfish.html"
+    },
+    {
+      "commonName": "Caesar grunt",
+      "scientificName": "Haemulon carbonarium",
+      "category": "fish",
+      "snorkelstj_commonName": "Ceasar Grunt",
+      "snorkelstj_scientificName": "Haemulon carbonarium",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/caesar-grunt.html"
+    },
+    {
+      "commonName": "Caribbean sharpnose-puffer",
+      "scientificName": "Canthigaster rostrata",
+      "category": "fish",
+      "snorkelstj_commonName": "Sharpnose Pufferfish",
+      "snorkelstj_scientificName": "Canthigaster rostrata",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/sharpnose-pufferfish.html"
+    },
+    {
+      "commonName": "Cero",
+      "scientificName": "Scomberomorus regalis",
+      "category": "fish",
+      "snorkelstj_commonName": "Cero Mackeral",
+      "snorkelstj_scientificName": "Scomberomorus regalis",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/cero-mackerel.html"
+    },
+    {
+      "commonName": "Chain moray",
+      "scientificName": "Echidna catenata",
+      "category": "fish",
+      "snorkelstj_commonName": "Chain Moray Eel",
+      "snorkelstj_scientificName": "Echidna catenata",
+      "score": "1.000",
+      "method": "exact_scientific",
+      "url": "https://www.snorkelstj.com/chain-moray-eel.html"
+    }
+  ],
+  "sample_unmatched": [
+    {
+      "commonName": "African pompano",
+      "scientificName": "Alectis ciliaris",
+      "category": "fish",
+      "best_score": "0.529"
+    },
+    {
+      "commonName": "Arrow blenny",
+      "scientificName": "Lucayablennius zingaro",
+      "category": "fish",
+      "best_score": "0.783"
+    },
+    {
+      "commonName": "Atlantic bumper",
+      "scientificName": "Chloroscombrus chrysurus",
+      "category": "fish",
+      "best_score": "0.667"
+    },
+    {
+      "commonName": "Atlantic goliath grouper",
+      "scientificName": "Epinephelus itajara",
+      "category": "fish",
+      "best_score": "0.652"
+    },
+    {
+      "commonName": "Atlantic Spanish mackerel",
+      "scientificName": "Scomberomorus maculatus",
+      "category": "fish",
+      "best_score": "0.698"
+    },
+    {
+      "commonName": "Atlantic thread herring",
+      "scientificName": "Opisthonema oglinum",
+      "category": "fish",
+      "best_score": "0.684"
+    },
+    {
+      "commonName": "Balao halfbeak",
+      "scientificName": "Hemiramphus balao",
+      "category": "fish",
+      "best_score": "0.560"
+    },
+    {
+      "commonName": "Bald blenny",
+      "scientificName": "Paraclinus infrons",
+      "category": "fish",
+      "best_score": "0.800"
+    },
+    {
+      "commonName": "Banded blenny",
+      "scientificName": "Paraclinus fasciatus",
+      "category": "fish",
+      "best_score": "0.815"
+    },
+    {
+      "commonName": "Bank sea bass",
+      "scientificName": "Centropristis ocyurus",
+      "category": "fish",
+      "best_score": "0.643"
+    },
+    {
+      "commonName": "Banner blenny",
+      "scientificName": "Emblemaria atlantica",
+      "category": "fish",
+      "best_score": "0.769"
+    },
+    {
+      "commonName": "Banner goby",
+      "scientificName": "Microgobius microlepis",
+      "category": "fish",
+      "best_score": "0.667"
+    },
+    {
+      "commonName": "Barbfish",
+      "scientificName": "Scorpaena brasiliensis",
+      "category": "fish",
+      "best_score": "0.667"
+    },
+    {
+      "commonName": "Barbu",
+      "scientificName": "Polydactylus virginicus",
+      "category": "fish",
+      "best_score": "0.462"
+    },
+    {
+      "commonName": "Barred cardinalfish",
+      "scientificName": "Apogon binotatus",
+      "category": "fish",
+      "best_score": "0.842"
+    },
+    {
+      "commonName": "Bartail goby",
+      "scientificName": "Coryphopterus thrix",
+      "category": "fish",
+      "best_score": "0.640"
+    },
+    {
+      "commonName": "Bearded goby",
+      "scientificName": "Barbulifer ceuthoecus",
+      "category": "fish",
+      "best_score": "0.714"
+    },
+    {
+      "commonName": "Belted sandfish",
+      "scientificName": "Serranus subligarius",
+      "category": "fish",
+      "best_score": "0.765"
+    },
+    {
+      "commonName": "Bermuda anchovy",
+      "scientificName": "Anchoa choerostoma",
+      "category": "fish",
+      "best_score": "0.500"
+    },
+    {
+      "commonName": "Big-eye anchovy",
+      "scientificName": "Anchoa lamprotaenia",
+      "category": "fish",
+      "best_score": "0.615"
+    },
+    {
+      "commonName": "Bigeye mojarra",
+      "scientificName": "Eucinostomus havana",
+      "category": "fish",
+      "best_score": "0.645"
+    },
+    {
+      "commonName": "Black grunt",
+      "scientificName": "Haemulon bonariense",
+      "category": "fish",
+      "best_score": "0.750"
+    },
+    {
+      "commonName": "Black hamlet",
+      "scientificName": "Hypoplectrus nigricans",
+      "category": "fish",
+      "best_score": "0.774"
+    },
+    {
+      "commonName": "Black triggerfish",
+      "scientificName": "Melichthys niger",
+      "category": "fish",
+      "best_score": "0.706"
+    },
+    {
+      "commonName": "Blackbar blenny",
+      "scientificName": "Starksia fasciata",
+      "category": "fish",
+      "best_score": "0.714"
+    },
+    {
+      "commonName": "Blackcheek blenny",
+      "scientificName": "Starksia lepicoelia",
+      "category": "fish",
+      "best_score": "0.727"
+    },
+    {
+      "commonName": "Blackedge triplefin",
+      "scientificName": "Enneanectes atrorus",
+      "category": "fish",
+      "best_score": "0.714"
+    },
+    {
+      "commonName": "Blackfin blenny",
+      "scientificName": "Paraclinus nigripinnis",
+      "category": "fish",
+      "best_score": "0.857"
+    },
+    {
+      "commonName": "Blackfin glass blenny",
+      "scientificName": "Emblemariopsis leptocirris",
+      "category": "fish",
+      "best_score": "0.706"
+    },
+    {
+      "commonName": "Blackhead blenny",
+      "scientificName": "Emblemariopsis bahamensis",
+      "category": "fish",
+      "best_score": "0.688"
+    }
+  ]
+}

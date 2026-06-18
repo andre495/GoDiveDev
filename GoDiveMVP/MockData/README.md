@@ -7,11 +7,11 @@ Minimum setup expects:
 - `dives_sample.json`
 - `marine_life_sample.json` (field-guide catalog; seeded on launch when missing)
 - `marine_life_source.csv` (legacy angelfish authoring scratch pad)
-- `marine_life_caribbean_staging.csv` (FishBase Caribbean fish facts — see workflow below)
+- `marine_life_caribbean_staging.csv` (FishBase + SeaLifeBase Caribbean facts — see workflow below)
 
 **Marine life content:** Half-filled CSV/JSON → agent completes original diver-facing copy per **`.cursor/rules/marine-life-catalog-authoring.mdc`** (stable `marine-life-*` UUIDs, taxonomy slugs, meters).
 
-**Caribbean FishBase import:** See **`MARINE_LIFE_CARIBBEAN_WORKFLOW.md`** — extract facts with **`Scripts/extract_fishbase_caribbean.py`**, write descriptions in **`marine_life_caribbean_staging.csv`**, sync with **`Scripts/sync_marine_life_staging_to_json.py`**.
+**Caribbean marine life import:** See **`MARINE_LIFE_CARIBBEAN_WORKFLOW.md`** — extract fish with **`Scripts/extract_fishbase_caribbean.py`**, append invertebrates with **`Scripts/extract_sealifebase_caribbean.py`**, write descriptions in **`marine_life_caribbean_staging.csv`**, sync with **`Scripts/sync_marine_life_staging_to_json.py`**.
 
 Expected JSON shape:
 
