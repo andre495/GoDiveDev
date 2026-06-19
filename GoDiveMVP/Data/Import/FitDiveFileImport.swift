@@ -54,8 +54,8 @@ enum FitDiveFileImport {
     /// Set **`attachMedia: false`** when the caller drives the Photos auto-attach pass separately
     /// (e.g. to surface an **"Adding Media"** milestone in the import dialog).
     ///
-    /// **`createMissingDiveSites`** mirrors the UDDF import option: when **`false`**, the dive still links to an
-    /// existing catalog site by name match but no **new** **`DiveSite`** is created for an unmatched import name.
+    /// **`createMissingDiveSites`**: when **`false`**, skips creating a **local-only** site for unmatched import names.
+    /// OpenDiveMap reference matching still runs and can link or create an enriched catalog site.
     static func persistImportedActivity(
         _ activity: DiveActivity,
         modelContext: ModelContext,
@@ -103,7 +103,15 @@ enum FitDiveFileImport {
             )
             var catalogSites = try DiveActivitySiteAssociation.fetchCatalogSites(modelContext: modelContext)
             DiveActivitySiteAssociation.applyBestMatch(to: activity, catalogSites: catalogSites)
-            if createMissingDiveSites {
+            let reference = DiveSiteReferenceCatalog.bundledReference()
+            _ = DiveActivitySiteAssociation.applyOpenDiveMapSiteLinkIfNeeded(
+                to: activity,
+                catalogSites: &catalogSites,
+                modelContext: modelContext,
+                reference: reference,
+                createSiteWhenMissing: true
+            )
+            if createMissingDiveSites, activity.diveSite == nil {
                 _ = DiveActivitySiteAssociation.createSiteForImportNameIfNeeded(
                     to: activity,
                     catalogSites: &catalogSites,

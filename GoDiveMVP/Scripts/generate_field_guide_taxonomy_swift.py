@@ -8,7 +8,10 @@ import json
 import sys
 from pathlib import Path
 
-from caribbean_reef_life_catalog_utils import extract_crl_taxonomy_from_epub
+from caribbean_reef_life_catalog_utils import (
+    CRL_CATEGORY_DISPLAY_TITLES,
+    extract_crl_taxonomy_from_epub,
+)
 from fishbase_catalog_utils import PROJECT_DIR, load_config
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -17,11 +20,11 @@ SWIFT_PATH = PROJECT_DIR / "Data" / "FieldGuideTaxonomy.swift"
 TAXONOMY_JSON_PATH = PROJECT_DIR / "MockData" / "caribbean_reef_life_taxonomy.json"
 
 CATEGORY_META: dict[str, tuple[str, str | None, str, str]] = {
-    "marine_plants": (
+    "plants": (
         "leaf.fill",
         None,
         "Algae, seagrasses, and mangroves",
-        "Marine plants and algae from Caribbean Reef Life.",
+        "Plants and algae from Caribbean Reef Life.",
     ),
     "sponges": (
         "bubbles.and.sparkles.fill",
@@ -47,13 +50,13 @@ CATEGORY_META: dict[str, tuple[str, str | None, str, str]] = {
         "Family groups for Caribbean reef fish",
         "Fish families from Caribbean Reef Life — browse by the group that best matches what you saw.",
     ),
-    "sea_turtles": (
+    "reptiles": (
         "tortoise.fill",
         "FieldGuideCategorySeaTurtle",
         "Sea turtles of the Caribbean",
-        "Sea turtle species from Caribbean Reef Life.",
+        "Reptiles from Caribbean Reef Life.",
     ),
-    "marine_mammals": (
+    "mammals": (
         "wind",
         "FieldGuideCategoryWhale",
         "Cetaceans visiting Caribbean waters",
@@ -110,10 +113,11 @@ def render_categories_block(taxonomy: dict) -> str:
             category_id,
             ("circle.fill", None, category["title"], f"{category['title']} from Caribbean Reef Life."),
         )
+        display_title = CRL_CATEGORY_DISPLAY_TITLES.get(category_id, category["title"])
         hero_expr = f'"{swift_string(hero)}"' if hero else "nil"
         lines.append("        Category(")
         lines.append(f'            id: "{swift_string(category_id)}",')
-        lines.append(f'            title: "{swift_string(category["title"])}",')
+        lines.append(f'            title: "{swift_string(display_title)}",')
         lines.append(f'            subtitle: "{swift_string(subtitle)}",')
         lines.append(f'            description: "{swift_string(description)}",')
         lines.append(f'            systemImage: "{swift_string(icon)}",')
@@ -240,7 +244,7 @@ enum FieldGuideTaxonomy {{
     private nonisolated static let legacyCategoryMapping: [String: LegacyMapping] = [
         "fish": LegacyMapping(categoryID: "fishes", subcategoryID: "gobies"),
         "ray": LegacyMapping(categoryID: "fishes", subcategoryID: "rays"),
-        "reptile": LegacyMapping(categoryID: "sea_turtles", subcategoryID: "sea-turtles"),
+        "reptile": LegacyMapping(categoryID: "reptiles", subcategoryID: ""),
         "cephalopod": LegacyMapping(categoryID: "invertebrates", subcategoryID: "octopuses"),
         "cnidarian": LegacyMapping(categoryID: "invertebrates", subcategoryID: "anemones"),
         "mollusk": LegacyMapping(categoryID: "invertebrates", subcategoryID: "snails"),
@@ -251,7 +255,10 @@ enum FieldGuideTaxonomy {{
         "echinoderms": LegacyMapping(categoryID: "invertebrates", subcategoryID: "sea-stars"),
         "colonial_invertebrates": LegacyMapping(categoryID: "invertebrates", subcategoryID: "tunicates"),
         "other_cnidarians": LegacyMapping(categoryID: "invertebrates", subcategoryID: "jellies"),
-        "marine_reptiles": LegacyMapping(categoryID: "sea_turtles", subcategoryID: "sea-turtles"),
+        "marine_plants": LegacyMapping(categoryID: "plants", subcategoryID: "green-algae"),
+        "marine_reptiles": LegacyMapping(categoryID: "reptiles", subcategoryID: ""),
+        "sea_turtles": LegacyMapping(categoryID: "reptiles", subcategoryID: ""),
+        "marine_mammals": LegacyMapping(categoryID: "mammals", subcategoryID: ""),
     ]
 }}
 

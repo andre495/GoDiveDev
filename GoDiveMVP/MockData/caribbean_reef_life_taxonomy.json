@@ -1,8 +1,8 @@
 {
   "categories": [
     {
-      "id": "marine_plants",
-      "title": "Marine Plants",
+      "id": "plants",
+      "title": "Plants",
       "subcategories": [
         {
           "id": "mangroves",
@@ -415,13 +415,13 @@
       ]
     },
     {
-      "id": "sea_turtles",
-      "title": "Sea Turtles",
+      "id": "reptiles",
+      "title": "Reptiles",
       "subcategories": []
     },
     {
-      "id": "marine_mammals",
-      "title": "Marine Mammals",
+      "id": "mammals",
+      "title": "Mammals",
       "subcategories": []
     }
   ],
@@ -429,41 +429,41 @@
     {
       "startPage": 8,
       "tocOrder": 4,
-      "category": "marine_plants",
+      "category": "plants",
       "subCategory": "mangroves",
-      "categoryTitle": "Marine Plants",
+      "categoryTitle": "Plants",
       "subcategoryTitle": "Mangroves"
     },
     {
       "startPage": 10,
       "tocOrder": 6,
-      "category": "marine_plants",
+      "category": "plants",
       "subCategory": "seagrasses",
-      "categoryTitle": "Marine Plants",
+      "categoryTitle": "Plants",
       "subcategoryTitle": "Seagrasses"
     },
     {
       "startPage": 12,
       "tocOrder": 3,
-      "category": "marine_plants",
+      "category": "plants",
       "subCategory": "green-algae",
-      "categoryTitle": "Marine Plants",
+      "categoryTitle": "Plants",
       "subcategoryTitle": "Green Algae"
     },
     {
       "startPage": 24,
       "tocOrder": 2,
-      "category": "marine_plants",
+      "category": "plants",
       "subCategory": "brown-algae",
-      "categoryTitle": "Marine Plants",
+      "categoryTitle": "Plants",
       "subcategoryTitle": "Brown Algae"
     },
     {
       "startPage": 30,
       "tocOrder": 5,
-      "category": "marine_plants",
+      "category": "plants",
       "subCategory": "red-algae",
-      "categoryTitle": "Marine Plants",
+      "categoryTitle": "Plants",
       "subcategoryTitle": "Red Algae"
     },
     {
@@ -1197,17 +1197,17 @@
     {
       "startPage": 446,
       "tocOrder": 102,
-      "category": "sea_turtles",
+      "category": "reptiles",
       "subCategory": "",
-      "categoryTitle": "Sea Turtles",
+      "categoryTitle": "Reptiles",
       "subcategoryTitle": "Sea Turtles"
     },
     {
       "startPage": 448,
       "tocOrder": 103,
-      "category": "marine_mammals",
+      "category": "mammals",
       "subCategory": "",
-      "categoryTitle": "Marine Mammals",
+      "categoryTitle": "Mammals",
       "subcategoryTitle": "Marine Mammals"
     }
   ]

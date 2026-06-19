@@ -17,6 +17,7 @@ enum AppLaunchMaintenance: Sendable {
             try DiveActivityDiveNumbering.backfillMissingDiveNumbers(modelContext: context)
             try DiveBuddyLegacyMigration.migrateIfNeeded(modelContext: context)
             try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+            try DiveActivityOpenDiveMapSiteBackfill.backfillIfNeeded(modelContext: context)
             #if canImport(UIKit)
             await DiveMediaPreviewStorage.backfillMissingPreviews(modelContext: context)
             #endif

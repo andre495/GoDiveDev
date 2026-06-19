@@ -268,7 +268,7 @@ struct ActivityUploadView: View {
                         Text("Create dive sites from import")
                             .font(.body.weight(.semibold))
                             .foregroundStyle(AppTheme.Colors.textPrimary)
-                        Text("Adds new catalog sites for unmatched names and links dives to existing sites when they already match.")
+                        Text("Adds local-only catalog sites for unmatched import names. OpenDiveMap reference matching always runs when a dive has a site name or GPS.")
                             .font(.subheadline)
                             .foregroundStyle(AppTheme.Colors.secondaryText)
                             .fixedSize(horizontal: false, vertical: true)

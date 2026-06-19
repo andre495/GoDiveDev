@@ -2043,6 +2043,174 @@ struct GoDiveMVPTests {
         #expect(try context.fetchCount(FetchDescriptor<DiveSite>()) == 2)
     }
 
+    @Test func diveSiteCatalogMatcher_nameAndCoordinateMatch() {
+        let reference = DiveSiteReferenceSnapshot(
+            id: "salt01",
+            name: "Salt Pier",
+            country: "Caribbean Netherlands",
+            countryCode: "BQ",
+            latitude: 12.0835,
+            longitude: -68.283,
+            maxDepthMeters: 30,
+            entry: "shore",
+            environment: "ocean",
+            topologies: ["reef"],
+            seaName: "Caribbean Sea"
+        )
+        let match = DiveSiteCatalogMatcher.bestReferenceMatch(
+            importName: "Salt Pier",
+            importCoordinate: DiveCoordinate(latitude: 12.08316, longitude: -68.2833),
+            reference: [reference]
+        )
+        #expect(match?.snapshot.id == "salt01")
+        #expect((match?.score ?? 0) >= DiveSiteCatalogMatcher.autoLinkThreshold)
+    }
+
+    @Test func diveSiteCatalogMatcher_linksExistingTaggedCatalogSite() {
+        let reference = DiveSiteReferenceSnapshot(
+            id: "salt01",
+            name: "Salt Pier",
+            country: "Caribbean Netherlands",
+            countryCode: "BQ",
+            latitude: 12.0835,
+            longitude: -68.283,
+            maxDepthMeters: 30,
+            entry: "shore",
+            environment: "ocean",
+            topologies: [],
+            seaName: ""
+        )
+        let taggedSite = DiveSite(
+            siteName: "Salt Pier (OpenDiveMap)",
+            latCoords: 12.0835,
+            longCoords: -68.283,
+            siteTags: [DiveSiteCatalogMatcher.openDiveMapSiteTag(referenceID: "salt01")]
+        )
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 10,
+            siteName: "Salt Pier",
+            entryCoordinate: DiveCoordinate(latitude: 12.08316, longitude: -68.2833)
+        )
+        let linked = DiveActivitySiteAssociation.applyOpenDiveMapReferenceLinkIfNeeded(
+            to: activity,
+            catalogSites: [taggedSite],
+            reference: [reference]
+        )
+        #expect(linked)
+        #expect(activity.diveSite?.id == taggedSite.id)
+    }
+
+    @Test @MainActor
+    func diveActivitySiteAssociation_createSiteFromOpenDiveMapReferenceIfNeeded_enrichesImport() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let reference = DiveSiteReferenceSnapshot(
+            id: "salt01",
+            name: "Salt Pier",
+            country: "Caribbean Netherlands",
+            countryCode: "BQ",
+            latitude: 12.0835,
+            longitude: -68.283,
+            maxDepthMeters: 30,
+            entry: "shore",
+            environment: "ocean",
+            topologies: ["reef"],
+            seaName: "Caribbean Sea"
+        )
+
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 10,
+            siteName: "Salt Pier",
+            entryCoordinate: DiveCoordinate(latitude: 12.08316, longitude: -68.2833)
+        )
+        context.insert(activity)
+        var catalog: [DiveSite] = []
+
+        let created = DiveActivitySiteAssociation.createSiteFromOpenDiveMapReferenceIfNeeded(
+            to: activity,
+            catalogSites: &catalog,
+            modelContext: context,
+            reference: [reference]
+        )
+
+        #expect(created)
+        #expect(activity.diveSite?.siteName == "Salt Pier")
+        #expect(activity.diveSite?.country == "Caribbean Netherlands")
+        #expect(activity.diveSite?.latCoords == 12.0835)
+        #expect(activity.diveSite?.siteTags.contains(DiveSiteCatalogMatcher.openDiveMapSiteTag(referenceID: "salt01")) == true)
+    }
+
+    @Test @MainActor
+    func diveActivitySiteAssociation_backfillOpenDiveMapSiteLinks_linksUnlinkedDives() throws {
+        DiveActivityOpenDiveMapSiteBackfill.resetCompletionFlagForTesting()
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let localOnlySite = DiveSite(
+            siteName: "Salt Pier",
+            latCoords: 12.0835,
+            longCoords: -68.283
+        )
+        context.insert(localOnlySite)
+
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 10,
+            siteName: "Salt Pier",
+            entryCoordinate: DiveCoordinate(latitude: 12.08316, longitude: -68.2833)
+        )
+        context.insert(activity)
+        try context.save()
+
+        let result = try DiveActivitySiteAssociation.backfillOpenDiveMapSiteLinks(modelContext: context)
+
+        #expect(result.linkedActivityCount == 1)
+        #expect(result.createdSiteCount == 0)
+        #expect(activity.diveSite?.id == localOnlySite.id)
+        #expect(localOnlySite.siteTags.contains(where: { $0.hasPrefix(DiveSiteCatalogMatcher.openDiveMapTagPrefix) }))
+        #expect(result.enrichedSiteCount == 1)
+    }
+
+    @Test @MainActor
+    func fitDiveFileImport_persistImportedActivity_createMissingDiveSitesFalse_stillLinksOpenDiveMapMatch() async throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "apple-fit-opendive", displayName: "Owner")
+        context.insert(owner)
+        try context.save()
+
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            timeZoneOffsetSeconds: 0,
+            durationMinutes: 30,
+            maxDepthMeters: 18,
+            siteName: "Salt Pier",
+            entryCoordinate: DiveCoordinate(latitude: 12.08316, longitude: -68.2833)
+        )
+
+        let outcome = await FitDiveFileImport.persistImportedActivity(
+            activity,
+            modelContext: context,
+            owner: owner,
+            attachMedia: false,
+            createMissingDiveSites: false
+        )
+
+        #expect(outcome.didSucceed)
+        #expect(activity.diveSite != nil)
+        #expect(activity.diveSite?.siteTags.contains(where: { $0.hasPrefix(DiveSiteCatalogMatcher.openDiveMapTagPrefix) }) == true)
+    }
+
     @Test func diveActivityMapSitePrompt_isEligibleWhenUnlinkedWithEntryOrName() {
         let withGPS = DiveActivity(
             source: .garminMK3,
@@ -3094,12 +3262,9 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func fieldGuideHubTileLayout_titleReservesTwoLines() {
+    @Test func fieldGuideHubTileLayout_usesFullWidthBannerHeight() {
+        #expect(FieldGuideHubTileLayout.tileHeight == 92)
         #expect(FieldGuideHubTileLayout.titleTwoLineMinHeight(isFeatured: false) > 0)
-        #expect(
-            FieldGuideHubTileLayout.titleTwoLineMinHeight(isFeatured: true)
-                > FieldGuideHubTileLayout.titleTwoLineMinHeight(isFeatured: false)
-        )
     }
 
     @Test func diveMarineLifeTagSheetPresentation_fishialIdentifyIsActive_whenSpeciesNameConfirmed() {
@@ -6049,6 +6214,264 @@ struct GoDiveMVPTests {
         #expect(truncated.hasSuffix("…"))
     }
 
+    @Test func exploreCatalogMapPinDensity_fewerPinsWhenZoomedOut() {
+        let sites = (0..<40).map { index in
+            ExploreCatalogMapPresentation.PlottedSite(
+                id: UUID(),
+                siteName: "Site \(index)",
+                coordinate: DiveCoordinate(latitude: Double(index) * 0.05, longitude: 0)
+            )
+        }
+        let viewport = ExploreCatalogMapViewport(
+            center: DiveCoordinate(latitude: 1.0, longitude: 0),
+            latitudeSpan: 80,
+            longitudeSpan: 120
+        )
+
+        let sparse = ExploreCatalogMapPinDensity.visibleSiteIDs(sites: sites, viewport: viewport)
+        #expect(sparse.count <= ExploreCatalogMapPinDensity.minimumVisiblePinCount)
+
+        let denseViewport = ExploreCatalogMapViewport(
+            center: DiveCoordinate(latitude: 1.0, longitude: 0),
+            latitudeSpan: ExploreCatalogMapPinDensity.fullPinRevealLatitudeSpan,
+            longitudeSpan: 0.2
+        )
+        let dense = ExploreCatalogMapPinDensity.visibleSiteIDs(sites: sites, viewport: denseViewport)
+        let denseCandidates = ExploreCatalogMapPinDensity.sitesInViewport(sites, viewport: denseViewport)
+        #expect(dense.count == denseCandidates.count)
+    }
+
+    @Test func exploreCatalogMapPinDensity_alwaysShowsVisitedPinsWhenZoomedOut() {
+        let visited = ExploreCatalogMapPresentation.PlottedSite(
+            id: UUID(),
+            siteName: "My Reef",
+            coordinate: DiveCoordinate(latitude: 45, longitude: 10),
+            isVisited: true
+        )
+        let unvisited = (0..<80).map { index in
+            ExploreCatalogMapPresentation.PlottedSite(
+                id: UUID(),
+                siteName: "Site \(index)",
+                coordinate: DiveCoordinate(latitude: Double(index) * 0.4, longitude: Double(index) * 0.2)
+            )
+        }
+        let viewport = ExploreCatalogMapViewport(
+            center: DiveCoordinate(latitude: 20, longitude: 8),
+            latitudeSpan: 100,
+            longitudeSpan: 120
+        )
+
+        let visible = ExploreCatalogMapPinDensity.visibleSiteIDs(
+            sites: [visited] + unvisited,
+            viewport: viewport
+        )
+
+        #expect(visible.contains(visited.id))
+        #expect(visible.count > 1)
+        #expect(visible.count < unvisited.count + 1)
+    }
+
+    @Test func exploreCatalogMapPinDensity_spreadsUnvisitedPinsAcrossViewport() {
+        let quadrants: [(baseLatitude: Double, baseLongitude: Double)] = [
+            (-20, -70),
+            (-20, 70),
+            (20, -70),
+            (20, 70),
+        ]
+        let sites = quadrants.flatMap { quadrant in
+            (0..<15).map { index in
+                ExploreCatalogMapPresentation.PlottedSite(
+                    id: UUID(),
+                    siteName: "Site \(quadrant.baseLatitude)-\(index)",
+                    coordinate: DiveCoordinate(
+                        latitude: quadrant.baseLatitude + Double(index) * 0.01,
+                        longitude: quadrant.baseLongitude + Double(index) * 0.01
+                    )
+                )
+            }
+        }
+        let viewport = ExploreCatalogMapViewport(
+            center: DiveCoordinate(latitude: 0, longitude: 0),
+            latitudeSpan: 60,
+            longitudeSpan: 180
+        )
+
+        let visibleIDs = ExploreCatalogMapPinDensity.visibleSiteIDs(
+            sites: sites,
+            viewport: viewport
+        )
+        let visibleSites = sites.filter { visibleIDs.contains($0.id) }
+        let longitudes = visibleSites.map(\.coordinate.longitude)
+
+        #expect(visibleSites.count >= 4)
+        #expect((longitudes.max() ?? 0) - (longitudes.min() ?? 0) > 40)
+    }
+
+    @Test func exploreCatalogMapStickyPinVisibility_keepsRevealedPinsWhilePanning() {
+        let sites = (0..<80).map { index in
+            ExploreCatalogMapPresentation.PlottedSite(
+                id: UUID(),
+                siteName: "Site \(index)",
+                coordinate: DiveCoordinate(
+                    latitude: Double(index % 10) * 2,
+                    longitude: Double(index / 10) * 15
+                )
+            )
+        }
+        var state = ExploreCatalogMapStickyPinVisibility.State()
+
+        let viewportA = ExploreCatalogMapViewport(
+            center: DiveCoordinate(latitude: 9, longitude: 52.5),
+            latitudeSpan: 22,
+            longitudeSpan: 80
+        )
+        let freshA = ExploreCatalogMapPinDensity.visibleSiteIDs(sites: sites, viewport: viewportA)
+        let visibleA = ExploreCatalogMapStickyPinVisibility.visibleSiteIDs(
+            sites: sites,
+            viewport: viewportA,
+            freshEligible: freshA,
+            state: &state
+        )
+
+        let viewportB = ExploreCatalogMapViewport(
+            center: DiveCoordinate(latitude: 9, longitude: 67.5),
+            latitudeSpan: 22,
+            longitudeSpan: 80
+        )
+        let freshB = ExploreCatalogMapPinDensity.visibleSiteIDs(sites: sites, viewport: viewportB)
+        let visibleB = ExploreCatalogMapStickyPinVisibility.visibleSiteIDs(
+            sites: sites,
+            viewport: viewportB,
+            freshEligible: freshB,
+            state: &state
+        )
+
+        let overlap = visibleA.intersection(
+            Set(ExploreCatalogMapPinDensity.sitesInViewport(sites, viewport: viewportB).map(\.id))
+        )
+        #expect(visibleB.isSuperset(of: overlap))
+        #expect(visibleB.count >= visibleA.count)
+    }
+
+    @Test func exploreCatalogMapStickyPinVisibility_cullsWhenZoomingOut() {
+        let sites = (0..<80).map { index in
+            ExploreCatalogMapPresentation.PlottedSite(
+                id: UUID(),
+                siteName: "Site \(index)",
+                coordinate: DiveCoordinate(
+                    latitude: Double(index % 10) * 2,
+                    longitude: Double(index / 10) * 15
+                )
+            )
+        }
+        var state = ExploreCatalogMapStickyPinVisibility.State()
+        let viewportZoomedIn = ExploreCatalogMapViewport(
+            center: DiveCoordinate(latitude: 9, longitude: 52.5),
+            latitudeSpan: 30,
+            longitudeSpan: 80
+        )
+        let freshZoomedIn = ExploreCatalogMapPinDensity.visibleSiteIDs(
+            sites: sites,
+            viewport: viewportZoomedIn
+        )
+        _ = ExploreCatalogMapStickyPinVisibility.visibleSiteIDs(
+            sites: sites,
+            viewport: viewportZoomedIn,
+            freshEligible: freshZoomedIn,
+            state: &state
+        )
+
+        let viewportZoomedOut = ExploreCatalogMapViewport(
+            center: DiveCoordinate(latitude: 9, longitude: 52.5),
+            latitudeSpan: 120,
+            longitudeSpan: 160
+        )
+        let freshZoomedOut = ExploreCatalogMapPinDensity.visibleSiteIDs(
+            sites: sites,
+            viewport: viewportZoomedOut
+        )
+        let visibleZoomedOut = ExploreCatalogMapStickyPinVisibility.visibleSiteIDs(
+            sites: sites,
+            viewport: viewportZoomedOut,
+            freshEligible: freshZoomedOut,
+            state: &state
+        )
+
+        #expect(visibleZoomedOut.count <= freshZoomedIn.count)
+        #expect(visibleZoomedOut == freshZoomedOut)
+    }
+
+    @Test func exploreCatalogMapPinDensity_revealsMorePinsWhileZoomingIn() {
+        let sites = (0..<200).map { index in
+            ExploreCatalogMapPresentation.PlottedSite(
+                id: UUID(),
+                siteName: "Site \(index)",
+                coordinate: DiveCoordinate(
+                    latitude: Double(index % 20) * 0.15,
+                    longitude: Double(index / 20) * 0.15 - 1.5
+                )
+            )
+        }
+        let center = DiveCoordinate(latitude: 1.42, longitude: -0.07)
+
+        let wider = ExploreCatalogMapPinDensity.visibleSiteIDs(
+            sites: sites,
+            viewport: ExploreCatalogMapViewport(center: center, latitudeSpan: 100, longitudeSpan: 120)
+        )
+        let mid = ExploreCatalogMapPinDensity.visibleSiteIDs(
+            sites: sites,
+            viewport: ExploreCatalogMapViewport(center: center, latitudeSpan: 40, longitudeSpan: 50)
+        )
+        let tighter = ExploreCatalogMapPinDensity.visibleSiteIDs(
+            sites: sites,
+            viewport: ExploreCatalogMapViewport(center: center, latitudeSpan: 12, longitudeSpan: 14)
+        )
+
+        #expect(wider.count <= ExploreCatalogMapPinDensity.minimumVisiblePinCount)
+        #expect(mid.count > wider.count)
+        #expect(tighter.count > mid.count)
+    }
+
+    @Test func exploreCatalogMapPinLabelPolicy_allSites_neverLabelsPins() {
+        let sites = [
+            ExploreCatalogMapPresentation.PlottedSite(
+                id: UUID(),
+                siteName: "Salt Pier",
+                coordinate: DiveCoordinate(latitude: 12.083, longitude: -68.283)
+            ),
+        ]
+        let labeled = ExploreCatalogMapPinLabelPolicy.pinOnlyAlways.labeledSiteIDs(
+            sites: sites,
+            visibleLatitudeSpan: 0.01,
+            mapCenter: DiveCoordinate(latitude: 12.083, longitude: -68.283)
+        )
+        #expect(labeled.isEmpty)
+        #expect(ExploreCatalogMapPinLabelPolicy.usesPinCallout(for: .allSites))
+        #expect(ExploreCatalogMapPinLabelPolicy.usesPinCallout(for: .logbook))
+
+        let manySites = (0..<20).map { index in
+            ExploreCatalogMapPresentation.PlottedSite(
+                id: UUID(),
+                siteName: "Site \(index)",
+                coordinate: DiveCoordinate(latitude: Double(index) * 0.1, longitude: 0)
+            )
+        }
+        let viewport = ExploreCatalogMapViewport(
+            center: DiveCoordinate(latitude: 1.0, longitude: 0),
+            latitudeSpan: 60,
+            longitudeSpan: 80
+        )
+        let visible = ExploreCatalogMapPinLabelPolicy.pinOnlyAlways.visibleSiteIDs(
+            sites: manySites,
+            viewport: viewport
+        )
+        #expect(visible.count < manySites.count)
+        #expect(ExploreCatalogMapPinLabelPolicy.progressiveZoomReveal.visibleSiteIDs(
+            sites: manySites,
+            viewport: viewport
+        ).count == manySites.count)
+    }
+
     @Test func exploreCatalogMapLabelVisibility_fewerLabelsWhenZoomedOut() {
         #expect(
             ExploreCatalogMapLabelVisibility.maximumLabelCount(visibleLatitudeSpan: 20, siteCount: 10) == 0
@@ -6229,6 +6652,233 @@ struct GoDiveMVPTests {
         #expect(rows[0].diveCountLabel == nil)
         #expect(rows[1].diveCountLabel == nil)
         #expect(rows[0].placeLine == "Caribbean, Bonaire")
+    }
+
+    @Test func exploreSiteScopePresentation_logbookSites_filtersLinkedCatalogRows() {
+        let siteID = UUID()
+        let linkedSite = DiveSite(id: siteID, siteName: "Salt Pier", latCoords: 12.08, longCoords: -68.28)
+        let unlinkedSite = DiveSite(siteName: "Never Dived")
+        let ownerID = UUID()
+        let linkedActivity = DiveActivity(
+            source: .macDive,
+            startTime: .now,
+            durationMinutes: 30,
+            maxDepthMeters: 12
+        )
+        linkedActivity.ownerProfileID = ownerID
+        linkedActivity.diveSiteID = siteID
+
+        let logbookIDs = ExploreSiteScopePresentation.logbookSiteIDs(
+            ownerActivities: [linkedActivity],
+            ownerProfileID: ownerID
+        )
+        let logbookSites = ExploreSiteScopePresentation.logbookCatalogSites(
+            catalog: [linkedSite, unlinkedSite],
+            logbookSiteIDs: logbookIDs
+        )
+
+        #expect(logbookSites.count == 1)
+        #expect(logbookSites[0].id == siteID)
+    }
+
+    @Test func exploreReferenceSiteListSearch_matchesNameAndCountry() {
+        let snapshot = DiveSiteReferenceSnapshot(
+            id: "salt01",
+            name: "Salt Pier",
+            country: "Caribbean Netherlands",
+            countryCode: "BQ",
+            latitude: 12.0835,
+            longitude: -68.283,
+            maxDepthMeters: 30,
+            entry: "shore",
+            environment: "ocean",
+            topologies: [],
+            seaName: "Caribbean Sea"
+        )
+        #expect(ExploreReferenceSiteListSearch.matches(snapshot, query: "salt pier"))
+        #expect(!ExploreReferenceSiteListSearch.matches(snapshot, query: "madagascar"))
+    }
+
+    @Test func exploreSiteScopePresentation_plottableReferenceSite_prefersCatalogMatch() {
+        let reference = DiveSiteReferenceSnapshot(
+            id: "salt01",
+            name: "Salt Pier",
+            country: "Caribbean Netherlands",
+            countryCode: "BQ",
+            latitude: 12.0835,
+            longitude: -68.283,
+            maxDepthMeters: 30,
+            entry: "shore",
+            environment: "ocean",
+            topologies: [],
+            seaName: ""
+        )
+        let catalogSite = DiveSite(
+            siteName: "Salt Pier (mine)",
+            latCoords: 12.0835,
+            longCoords: -68.283,
+            siteTags: [DiveSiteCatalogMatcher.openDiveMapSiteTag(referenceID: "salt01")]
+        )
+        let plotted = ExploreSiteScopePresentation.plottableSites(
+            scope: .allSites,
+            catalog: [catalogSite],
+            logbookSiteIDs: [],
+            reference: [reference]
+        )
+        #expect(plotted.count == 1)
+        #expect(plotted[0].selection == .catalog(catalogSite.id))
+        #expect(!plotted[0].isVisited)
+    }
+
+    @Test func exploreSiteScopePresentation_plottableReferenceSite_marksVisitedLogbookSites() {
+        let reference = DiveSiteReferenceSnapshot(
+            id: "salt01",
+            name: "Salt Pier",
+            country: "Caribbean Netherlands",
+            countryCode: "BQ",
+            latitude: 12.0835,
+            longitude: -68.283,
+            maxDepthMeters: 30,
+            entry: "shore",
+            environment: "ocean",
+            topologies: [],
+            seaName: ""
+        )
+        let unvisitedReference = DiveSiteReferenceSnapshot(
+            id: "reef02",
+            name: "Blue Reef",
+            country: "Belize",
+            countryCode: "BZ",
+            latitude: 17.3,
+            longitude: -87.7,
+            maxDepthMeters: 20,
+            entry: "boat",
+            environment: "ocean",
+            topologies: [],
+            seaName: ""
+        )
+        let visitedSite = DiveSite(
+            siteName: "Salt Pier (mine)",
+            latCoords: 12.0835,
+            longCoords: -68.283,
+            siteTags: [DiveSiteCatalogMatcher.openDiveMapSiteTag(referenceID: "salt01")]
+        )
+
+        let plotted = ExploreSiteScopePresentation.plottableSites(
+            scope: .allSites,
+            catalog: [visitedSite],
+            logbookSiteIDs: [visitedSite.id],
+            reference: [reference, unvisitedReference]
+        )
+
+        #expect(plotted.count == 2)
+        #expect(plotted.first(where: { $0.siteName.contains("Salt") })?.isVisited == true)
+        #expect(plotted.first(where: { $0.siteName == "Blue Reef" })?.isVisited == false)
+    }
+
+    @Test func exploreSiteScopePresentation_allSites_includesUnmatchedLogbookSites() {
+        let reference = DiveSiteReferenceSnapshot(
+            id: "salt01",
+            name: "Salt Pier",
+            country: "Caribbean Netherlands",
+            countryCode: "BQ",
+            latitude: 12.0835,
+            longitude: -68.283,
+            maxDepthMeters: 30,
+            entry: "shore",
+            environment: "ocean",
+            topologies: [],
+            seaName: ""
+        )
+        let localOnlySite = DiveSite(
+            id: UUID(),
+            siteName: "Secret Local Reef",
+            country: "Puerto Rico",
+            latCoords: 18.4,
+            longCoords: -65.1
+        )
+        let logbookIDs: Set<UUID> = [localOnlySite.id]
+
+        let plotted = ExploreSiteScopePresentation.plottableSites(
+            scope: .allSites,
+            catalog: [localOnlySite],
+            logbookSiteIDs: logbookIDs,
+            reference: [reference]
+        )
+        let rows = ExploreSiteScopePresentation.catalogListRows(
+            scope: .allSites,
+            catalog: [localOnlySite],
+            logbookSiteIDs: logbookIDs,
+            reference: [reference],
+            query: ""
+        )
+
+        #expect(plotted.count == 2)
+        let localPin = plotted.first(where: { $0.siteName == "Secret Local Reef" })
+        #expect(localPin?.isVisited == true)
+        #expect(rows.count == 2)
+        let localRow = rows.first(where: { $0.displayName == "Secret Local Reef" })
+        #expect(localRow?.referenceID == nil)
+    }
+
+    @Test func exploreDiveSiteSearchPresentation_buildsMapSuggestionsFromScopedRows() {
+        let siteID = UUID()
+        let linkedSite = DiveSite(id: siteID, siteName: "Salt Pier", latCoords: 12.08, longCoords: -68.28)
+        let ownerID = UUID()
+        let linkedActivity = DiveActivity(
+            source: .macDive,
+            startTime: .now,
+            durationMinutes: 30,
+            maxDepthMeters: 12
+        )
+        linkedActivity.ownerProfileID = ownerID
+        linkedActivity.diveSiteID = siteID
+        let logbookIDs = ExploreSiteScopePresentation.logbookSiteIDs(
+            ownerActivities: [linkedActivity],
+            ownerProfileID: ownerID
+        )
+        let plottable = ExploreSiteScopePresentation.plottableSites(
+            scope: .logbook,
+            catalog: [linkedSite],
+            logbookSiteIDs: logbookIDs,
+            reference: []
+        )
+
+        #expect(
+            ExploreDiveSiteSearchPresentation.showsSuggestions(
+                viewMode: .map,
+                query: "salt",
+                mapFocusedSelection: nil
+            )
+        )
+        #expect(
+            !ExploreDiveSiteSearchPresentation.showsSuggestions(
+                viewMode: .list,
+                query: "salt",
+                mapFocusedSelection: nil
+            )
+        )
+        #expect(
+            !ExploreDiveSiteSearchPresentation.showsSuggestions(
+                viewMode: .map,
+                query: "salt",
+                mapFocusedSelection: .catalog(siteID)
+            )
+        )
+
+        let suggestions = ExploreDiveSiteSearchPresentation.suggestions(
+            scope: .logbook,
+            catalog: [linkedSite],
+            logbookSiteIDs: logbookIDs,
+            reference: [],
+            plottableSites: plottable,
+            query: "salt"
+        )
+        #expect(suggestions.count == 1)
+        #expect(suggestions[0].siteName == "Salt Pier")
+        #expect(suggestions[0].selection == .catalog(siteID))
+        #expect(suggestions[0].coordinate.latitude == 12.08)
+        #expect(suggestions[0].rowDisplayData.displayName == "Salt Pier")
     }
 
     @Test func exploreDiveSiteListDisplay_cityCountryLine_formatsRegionAndCountry() {

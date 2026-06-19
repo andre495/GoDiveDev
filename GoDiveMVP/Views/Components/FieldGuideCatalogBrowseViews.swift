@@ -3,43 +3,55 @@ import SwiftUI
 import UIKit
 #endif
 
-// MARK: - Category hub (bento grid)
+// MARK: - Category hub (full-width rows)
 
 struct FieldGuideCatalogHubView: View, Equatable {
     let summaries: [FieldGuideCatalogIndex.CategorySummary]
     let onSelectCategory: (FieldGuideCatalogIndex.CategorySummary) -> Void
 
-    private let columns = [
-        GridItem(.flexible(), spacing: AppTheme.Spacing.md),
-        GridItem(.flexible(), spacing: AppTheme.Spacing.md),
-    ]
-
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-                hubIntro
-                LazyVGrid(columns: columns, spacing: AppTheme.Spacing.md) {
-                    ForEach(summaries) { summary in
-                        if let definition = FieldGuideTaxonomy.category(id: summary.categoryID) {
-                            Button {
-                                onSelectCategory(summary)
-                            } label: {
-                                FieldGuideCategoryHubTile(
-                                    definition: definition,
-                                    speciesCount: summary.speciesCount,
-                                    isFeatured: summary.categoryID == "fishes"
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .gridCellColumns(summary.categoryID == "fishes" ? 2 : 1)
-                            .accessibilityIdentifier("FieldGuide.Hub.Category.\(summary.categoryID)")
-                        }
+        List {
+            hubIntro
+                .listRowInsets(
+                    EdgeInsets(
+                        top: AppTheme.Spacing.sm,
+                        leading: AppTheme.Spacing.lg,
+                        bottom: AppTheme.Spacing.sm,
+                        trailing: AppTheme.Spacing.lg
+                    )
+                )
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+
+            ForEach(summaries) { summary in
+                if let definition = FieldGuideTaxonomy.category(id: summary.categoryID) {
+                    Button {
+                        onSelectCategory(summary)
+                    } label: {
+                        FieldGuideCategoryHubTile(
+                            definition: definition,
+                            speciesCount: summary.speciesCount
+                        )
                     }
+                    .buttonStyle(.plain)
+                    .listRowInsets(
+                        EdgeInsets(
+                            top: 0,
+                            leading: AppTheme.Spacing.lg,
+                            bottom: 0,
+                            trailing: AppTheme.Spacing.lg
+                        )
+                    )
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .accessibilityIdentifier("FieldGuide.Hub.Category.\(summary.categoryID)")
                 }
             }
-            .padding(.horizontal, AppTheme.Spacing.lg)
-            .padding(.bottom, AppTheme.Spacing.lg)
         }
+        .listStyle(.plain)
+        .listRowSpacing(AppTheme.Spacing.md)
+        .scrollContentBackground(.hidden)
+        .background(Color.clear)
     }
 
     private var hubIntro: some View {
@@ -53,7 +65,6 @@ struct FieldGuideCatalogHubView: View, Equatable {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, AppTheme.Spacing.sm)
     }
 
     static func == (lhs: Self, rhs: Self) -> Bool {
@@ -90,10 +101,9 @@ private struct FieldGuideCategoryBackgroundArt: View {
 private struct FieldGuideCategoryHubTile: View {
     let definition: FieldGuideTaxonomy.Category
     let speciesCount: Int
-    let isFeatured: Bool
 
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
+        ZStack(alignment: .leading) {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(
                     LinearGradient(
@@ -109,32 +119,41 @@ private struct FieldGuideCategoryHubTile: View {
             if let heroImageName = definition.heroImageName, !heroImageName.isEmpty {
                 FieldGuideCategoryBackgroundArt(
                     imageName: heroImageName,
-                    opacity: isFeatured ? 0.42 : 0.36,
+                    opacity: 0.36,
                     padding: AppTheme.Spacing.sm
                 )
             } else {
                 Image(systemName: definition.systemImage)
-                    .font(.system(size: isFeatured ? 72 : 48, weight: .semibold))
+                    .font(.system(size: 44, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.22))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .padding(AppTheme.Spacing.md)
                     .offset(x: 8, y: -4)
             }
 
-            VStack(alignment: .leading, spacing: 6) {
-                hubTileTitle(definition.title)
+            HStack(alignment: .center, spacing: AppTheme.Spacing.md) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(definition.title)
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(1)
 
-                Text(definition.subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.88))
-                    .lineLimit(isFeatured ? 2 : 2)
-                    .multilineTextAlignment(.leading)
+                    Text(definition.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.88))
+                        .lineLimit(1)
+                        .multilineTextAlignment(.leading)
 
-                speciesBadge
+                    speciesBadge
+                }
+
+                Spacer(minLength: 88)
             }
             .padding(AppTheme.Spacing.md)
         }
-        .frame(minHeight: isFeatured ? 148 : 118)
+        .frame(maxWidth: .infinity)
+        .frame(height: FieldGuideHubTileLayout.tileHeight)
         .overlay {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(.white.opacity(0.18), lineWidth: 1)
@@ -142,19 +161,6 @@ private struct FieldGuideCategoryHubTile: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(definition.title), \(speciesCount) catalog species")
         .accessibilityHint("Opens \(definition.title) groups")
-    }
-
-    private func hubTileTitle(_ title: String) -> some View {
-        Text(title)
-            .font(isFeatured ? .title3.weight(.bold) : .headline.weight(.semibold))
-            .foregroundStyle(.white)
-            .multilineTextAlignment(.leading)
-            .lineLimit(2)
-            .frame(
-                maxWidth: .infinity,
-                minHeight: FieldGuideHubTileLayout.titleTwoLineMinHeight(isFeatured: isFeatured),
-                alignment: .topLeading
-            )
     }
 
     @ViewBuilder
@@ -171,8 +177,10 @@ private struct FieldGuideCategoryHubTile: View {
     }
 }
 
-/// Hub tile title block height — reserves two lines so short category names align in the bento grid.
+/// Hub tile layout — full-width banner rows in the category hub.
 enum FieldGuideHubTileLayout: Sendable {
+    nonisolated static let tileHeight: CGFloat = 92
+
     nonisolated static func titleTwoLineMinHeight(isFeatured: Bool) -> CGFloat {
         #if canImport(UIKit)
         let style: UIFont.TextStyle = isFeatured ? .title3 : .headline

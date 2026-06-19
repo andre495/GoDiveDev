@@ -113,8 +113,9 @@ class CaribbeanReefLifeCatalogUtilsTests(unittest.TestCase):
         fishes = next(item for item in taxonomy["categories"] if item["id"] == "fishes")
         self.assertNotIn("fishes", {sub["id"] for sub in fishes["subcategories"]})
 
-        sea_turtles = next(item for item in taxonomy["categories"] if item["id"] == "sea_turtles")
+        sea_turtles = next(item for item in taxonomy["categories"] if item["id"] == "reptiles")
         self.assertEqual(sea_turtles["subcategories"], [])
+        self.assertEqual(sea_turtles["title"], "Reptiles")
 
     def test_extract_crl_reference_from_pdf(self) -> None:
         try:

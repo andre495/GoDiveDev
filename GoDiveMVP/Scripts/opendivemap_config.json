@@ -1,0 +1,7 @@
+{
+  "api_base": "https://api.opendivemap.com/v1",
+  "reference_json": "GoDiveMVP/MockData/opendivemap_dive_sites_reference.json",
+  "staging_csv": "GoDiveMVP/MockData/opendivemap_dive_sites_staging.csv",
+  "auto_link_threshold": 0.85,
+  "suggest_threshold": 0.7
+}

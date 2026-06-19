@@ -21,43 +21,26 @@ enum ExploreViewMode: String, CaseIterable, Identifiable {
     }
 }
 
-/// Segmented map / list control for **Explore** (trailing chrome on map and list rows).
-struct ExploreViewModeToggle: View {
-    @Binding var selection: ExploreViewMode
+/// Single icon that switches **Explore** between map and list (shows the destination mode).
+struct ExploreViewModeFlipButton: View {
+    @Binding var viewMode: ExploreViewMode
+
+    private var destinationMode: ExploreViewMode {
+        viewMode == .map ? .list : .map
+    }
 
     var body: some View {
-        HStack(spacing: 4) {
-            ForEach(ExploreViewMode.allCases) { mode in
-                Button {
-                    selection = mode
-                } label: {
-                    Image(systemName: mode.systemImage)
-                        .font(.body.weight(.semibold))
-                        .frame(width: 40, height: 36)
-                        .foregroundStyle(
-                            selection == mode
-                                ? AppTheme.Colors.textPrimary
-                                : AppTheme.Colors.tabUnselected
-                        )
-                        .background {
-                            if selection == mode {
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(AppTheme.Colors.surfaceElevated)
-                            }
-                        }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(mode.accessibilityLabel)
-                .accessibilityAddTraits(selection == mode ? .isSelected : [])
-                .accessibilityIdentifier("Explore.ViewMode.\(mode.rawValue.capitalized)")
-            }
+        Button {
+            viewMode = destinationMode
+        } label: {
+            Image(systemName: destinationMode.systemImage)
+                .font(.body.weight(.semibold))
+                .frame(width: 44, height: 36)
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+                .contentShape(Rectangle())
         }
-        .padding(4)
-        .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(AppTheme.Colors.tabUnselected.opacity(0.12))
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Explore view")
+        .buttonStyle(.plain)
+        .accessibilityLabel("Show \(destinationMode.accessibilityLabel)")
+        .accessibilityIdentifier("Explore.ViewMode.FlipTo\(destinationMode.rawValue.capitalized)")
     }
 }

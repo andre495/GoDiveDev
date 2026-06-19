@@ -28,10 +28,10 @@ enum FieldGuideTaxonomy {
 
     nonisolated static let categories: [Category] = [
         Category(
-            id: "marine_plants",
-            title: "Marine Plants",
+            id: "plants",
+            title: "Plants",
             subtitle: "Algae, seagrasses, and mangroves",
-            description: "Marine plants and algae from Caribbean Reef Life.",
+            description: "Plants and algae from Caribbean Reef Life.",
             systemImage: "leaf.fill",
             heroImageName: nil,
             subcategories: [
@@ -654,18 +654,18 @@ enum FieldGuideTaxonomy {
             ]
         ),
         Category(
-            id: "sea_turtles",
-            title: "Sea Turtles",
+            id: "reptiles",
+            title: "Reptiles",
             subtitle: "Sea turtles of the Caribbean",
-            description: "Sea turtle species from Caribbean Reef Life.",
+            description: "Reptiles from Caribbean Reef Life.",
             systemImage: "tortoise.fill",
             heroImageName: "FieldGuideCategorySeaTurtle",
             subcategories: [
             ]
         ),
         Category(
-            id: "marine_mammals",
-            title: "Marine Mammals",
+            id: "mammals",
+            title: "Mammals",
             subtitle: "Cetaceans visiting Caribbean waters",
             description: "Marine mammals from Caribbean Reef Life.",
             systemImage: "wind",
@@ -749,7 +749,7 @@ enum FieldGuideTaxonomy {
     private nonisolated static let legacyCategoryMapping: [String: LegacyMapping] = [
         "fish": LegacyMapping(categoryID: "fishes", subcategoryID: "gobies"),
         "ray": LegacyMapping(categoryID: "fishes", subcategoryID: "rays"),
-        "reptile": LegacyMapping(categoryID: "sea_turtles", subcategoryID: "sea-turtles"),
+        "reptile": LegacyMapping(categoryID: "reptiles", subcategoryID: ""),
         "cephalopod": LegacyMapping(categoryID: "invertebrates", subcategoryID: "octopuses"),
         "cnidarian": LegacyMapping(categoryID: "invertebrates", subcategoryID: "anemones"),
         "mollusk": LegacyMapping(categoryID: "invertebrates", subcategoryID: "snails"),
@@ -760,7 +760,10 @@ enum FieldGuideTaxonomy {
         "echinoderms": LegacyMapping(categoryID: "invertebrates", subcategoryID: "sea-stars"),
         "colonial_invertebrates": LegacyMapping(categoryID: "invertebrates", subcategoryID: "tunicates"),
         "other_cnidarians": LegacyMapping(categoryID: "invertebrates", subcategoryID: "jellies"),
-        "marine_reptiles": LegacyMapping(categoryID: "sea_turtles", subcategoryID: "sea-turtles"),
+        "marine_plants": LegacyMapping(categoryID: "plants", subcategoryID: "green-algae"),
+        "marine_reptiles": LegacyMapping(categoryID: "reptiles", subcategoryID: ""),
+        "sea_turtles": LegacyMapping(categoryID: "reptiles", subcategoryID: ""),
+        "marine_mammals": LegacyMapping(categoryID: "mammals", subcategoryID: ""),
     ]
 }
 

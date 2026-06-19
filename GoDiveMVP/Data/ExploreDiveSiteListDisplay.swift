@@ -3,23 +3,59 @@ import Foundation
 /// Stable, **`Equatable`** Explore list row payload (logbook-style rows).
 struct ExploreDiveSiteRowDisplayData: Equatable, Identifiable, Sendable {
     let id: UUID
+    /// OpenDiveMap reference id when the row represents a bundled reference site.
+    let referenceID: String?
     let displayName: String
     /// Trailing dive count (catalog list only) — e.g. **"12 dives"**.
     let diveCountLabel: String?
     let coordinateLine: String
     let placeLine: String?
+
+    nonisolated init(
+        id: UUID,
+        referenceID: String? = nil,
+        displayName: String,
+        diveCountLabel: String?,
+        coordinateLine: String,
+        placeLine: String?
+    ) {
+        self.id = id
+        self.referenceID = referenceID
+        self.displayName = displayName
+        self.diveCountLabel = diveCountLabel
+        self.coordinateLine = coordinateLine
+        self.placeLine = placeLine
+    }
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.id == rhs.id
+            && lhs.referenceID == rhs.referenceID
+            && lhs.displayName == rhs.displayName
+            && lhs.diveCountLabel == rhs.diveCountLabel
+            && lhs.coordinateLine == rhs.coordinateLine
+            && lhs.placeLine == rhs.placeLine
+    }
 }
 
-enum ExploreDiveSiteRowTrailingStyle: Sendable {
+enum ExploreDiveSiteRowTrailingStyle: Equatable, Sendable {
     /// Explore catalog — dive count on the trailing edge when **> 0**.
     case catalogDefault
     /// Planned trip saved sites — omit dive counts.
     case plannedTrip
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        switch (lhs, rhs) {
+        case (.catalogDefault, .catalogDefault), (.plannedTrip, .plannedTrip):
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 /// Builds Explore dive-site list rows sorted by **`siteName`** (caller supplies sorted sites).
 enum ExploreDiveSiteListDisplay {
-    static func rowData(
+    nonisolated static func rowData(
         for sites: [DiveSite],
         trailingStyle: ExploreDiveSiteRowTrailingStyle = .catalogDefault
     ) -> [ExploreDiveSiteRowDisplayData] {
@@ -62,7 +98,7 @@ enum ExploreDiveSiteListDisplay {
         return ""
     }
 
-    private static func diveCountLabel(
+    nonisolated private static func diveCountLabel(
         for site: DiveSite,
         style: ExploreDiveSiteRowTrailingStyle
     ) -> String? {
@@ -72,7 +108,7 @@ enum ExploreDiveSiteListDisplay {
         return diveCount == 1 ? "1 dive" : "\(diveCount) dives"
     }
 
-    private static func coordinateLine(for site: DiveSite) -> String {
+    nonisolated private static func coordinateLine(for site: DiveSite) -> String {
         if let coordinate = DiveMapCoordinateResolver.coordinate(from: site),
            DiveMapCoordinateResolver.isUsable(coordinate) {
             return DiveLocationMapPresentation.coordinateLabel(for: coordinate)
@@ -80,11 +116,11 @@ enum ExploreDiveSiteListDisplay {
         return missingCoordinateLabel
     }
 
-    private static let missingCoordinateLabel = "No map pin"
+    nonisolated private static let missingCoordinateLabel = "No map pin"
 }
 
 private extension String {
-    var nilIfEmpty: String? {
+    nonisolated var nilIfEmpty: String? {
         isEmpty ? nil : self
     }
 }

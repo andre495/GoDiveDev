@@ -3,7 +3,17 @@ import SwiftUI
 /// Full-bleed **Explore** map with catalog dive-site pins.
 struct ExploreCatalogMapView: View {
     let sites: [ExploreCatalogMapPresentation.PlottedSite]
-    var onSiteSelected: (UUID) -> Void
+    let siteScope: ExploreSiteScope
+    var focusRequest: ExploreCatalogMapFocusRequest?
+    var onSiteSelected: (ExploreMapSiteSelection) -> Void
+
+    private var pinLabelPolicy: ExploreCatalogMapPinLabelPolicy {
+        ExploreCatalogMapPinLabelPolicy.policy(for: siteScope)
+    }
+
+    private var usesPinCallout: Bool {
+        ExploreCatalogMapPinLabelPolicy.usesPinCallout(for: siteScope)
+    }
 
     var body: some View {
         Group {
@@ -11,20 +21,32 @@ struct ExploreCatalogMapView: View {
                 uiTestPlaceholder
             } else if GoDiveMapEngine.active == .googleMaps, GoogleMapsBootstrap.loadAPIKey() != nil {
                 #if canImport(UIKit)
-                ExploreCatalogGoogleMapRepresentable(sites: sites, onSiteSelected: onSiteSelected)
+                ExploreCatalogGoogleMapRepresentable(
+                    sites: sites,
+                    pinLabelPolicy: pinLabelPolicy,
+                    usesPinCallout: usesPinCallout,
+                    focusRequest: focusRequest,
+                    onSiteSelected: onSiteSelected
+                )
                 #else
                 Color.clear
                 #endif
             } else {
                 #if canImport(UIKit)
-                ExploreCatalogMapRepresentable(sites: sites, onSiteSelected: onSiteSelected)
+                ExploreCatalogMapRepresentable(
+                    sites: sites,
+                    pinLabelPolicy: pinLabelPolicy,
+                    usesPinCallout: usesPinCallout,
+                    focusRequest: focusRequest,
+                    onSiteSelected: onSiteSelected
+                )
                 #else
                 Color.clear
                 #endif
             }
         }
         .accessibilityLabel("Explore dive sites map")
-        .accessibilityHint("Tap a site marker to view dive site details")
+        .accessibilityHint("Tap a site marker to preview its name, then open details from the callout")
         .accessibilityIdentifier("Explore.CatalogMap")
     }
 

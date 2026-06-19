@@ -155,6 +155,16 @@ enum AppTheme {
         static let appHeaderClearanceFallback: CGFloat = 72
         /// Inner height of **`CatalogSearchField`** in list top chrome (logbook, field guide, explore).
         static let logbookSearchFieldHeight: CGFloat = 44
+        /// Fixed height for one **`ExploreDiveSiteRow`** tile in the Explore map search dropdown.
+        static let exploreMapSearchSuggestionRowHeight: CGFloat = 88
+        /// Number of suggestion tiles visible before scrolling.
+        static let exploreMapSearchSuggestionVisibleRows: Int = 4
+
+        static var exploreMapSearchSuggestionPanelHeight: CGFloat {
+            let rows = CGFloat(exploreMapSearchSuggestionVisibleRows)
+            let spacing = AppTheme.Spacing.md
+            return rows * exploreMapSearchSuggestionRowHeight + max(0, rows - 1) * spacing
+        }
     }
 
     /// Shared oval search field chrome (**`CatalogSearchField`**).

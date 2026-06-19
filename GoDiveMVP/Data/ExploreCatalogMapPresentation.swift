@@ -7,6 +7,31 @@ enum ExploreCatalogMapPresentation: Sendable {
         let id: UUID
         let siteName: String
         let coordinate: DiveCoordinate
+        let selection: ExploreMapSiteSelection
+        /// **`true`** when the signed-in diver has logged a dive linked to this site.
+        let isVisited: Bool
+
+        nonisolated init(
+            id: UUID,
+            siteName: String,
+            coordinate: DiveCoordinate,
+            selection: ExploreMapSiteSelection? = nil,
+            isVisited: Bool = false
+        ) {
+            self.id = id
+            self.siteName = siteName
+            self.coordinate = coordinate
+            self.selection = selection ?? .catalog(id)
+            self.isVisited = isVisited
+        }
+
+        nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+            lhs.id == rhs.id
+                && lhs.siteName == rhs.siteName
+                && lhs.coordinate == rhs.coordinate
+                && lhs.selection == rhs.selection
+                && lhs.isVisited == rhs.isVisited
+        }
     }
 
     nonisolated static func plottableSites(from catalog: [DiveSite]) -> [PlottedSite] {
@@ -14,7 +39,13 @@ enum ExploreCatalogMapPresentation: Sendable {
             guard let lat = site.latCoords, let lon = site.longCoords else { return nil }
             let coordinate = DiveCoordinate(latitude: lat, longitude: lon)
             guard DiveMapCoordinateResolver.isUsable(coordinate) else { return nil }
-            return PlottedSite(id: site.id, siteName: site.siteName, coordinate: coordinate)
+            return PlottedSite(
+                id: site.id,
+                siteName: site.siteName,
+                coordinate: coordinate,
+                selection: .catalog(site.id),
+                isVisited: true
+            )
         }
     }
 

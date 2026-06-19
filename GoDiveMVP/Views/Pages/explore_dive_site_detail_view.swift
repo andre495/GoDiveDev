@@ -328,6 +328,7 @@ enum ExploreRoute: Hashable {
     case tripDetail(UUID)
     case tripDetailMedia(tripID: UUID, mediaID: UUID)
     case siteDetail(UUID)
+    case referenceSiteDetail(String)
     case speciesDetail(String)
     case diveDetail(UUID)
 }

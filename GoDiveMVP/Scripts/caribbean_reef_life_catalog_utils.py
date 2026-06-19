@@ -56,6 +56,35 @@ TOC_LINK = re.compile(r'href="REEF_LIFE_4_Ebook_copy_3-(\d+)\.xhtml">([^<]+)</a>
 SCIENTIFIC_INDEX_FIRST_PAGE = 450
 COMMON_NAME_INDEX_FIRST_PAGE = 464
 
+# Book TOC slugs → short Field Guide category IDs.
+CRL_TOC_CATEGORY_TO_ID: dict[str, str] = {
+    "marine_plants": "plants",
+    "sponges": "sponges",
+    "corals": "corals",
+    "invertebrates": "invertebrates",
+    "fishes": "fishes",
+    "sea_turtles": "reptiles",
+    "marine_mammals": "mammals",
+}
+
+CRL_CATEGORY_DISPLAY_TITLES: dict[str, str] = {
+    "plants": "Plants",
+    "sponges": "Sponges",
+    "corals": "Corals",
+    "invertebrates": "Invertebrates",
+    "fishes": "Fishes",
+    "reptiles": "Reptiles",
+    "mammals": "Mammals",
+}
+
+
+def normalize_crl_category_id(category_id: str) -> str:
+    return CRL_TOC_CATEGORY_TO_ID.get(category_id, category_id)
+
+
+def crl_category_display_title(category_id: str, fallback: str = "") -> str:
+    return CRL_CATEGORY_DISPLAY_TITLES.get(category_id, fallback or category_id.replace("_", " ").title())
+
 
 def slugify_category_id(title: str) -> str:
     normalized = title.strip().lower().replace("&", "and")
@@ -74,6 +103,17 @@ def subcategory_slug_matches_category(category_id: str, subcategory_id: str) -> 
     category_slug = category_id.replace("_", "-")
     subcategory_slug = subcategory_id.replace("_", "-")
     return category_slug == subcategory_slug
+
+
+def is_redundant_crl_subcategory(category_id: str, subcategory_id: str) -> bool:
+    if subcategory_slug_matches_category(category_id, subcategory_id):
+        return True
+    redundant_by_category: dict[str, set[str]] = {
+        "plants": {"marine-plants", "plants"},
+        "reptiles": {"sea-turtles", "reptiles"},
+        "mammals": {"marine-mammals", "mammals"},
+    }
+    return subcategory_id in redundant_by_category.get(category_id, set())
 
 
 def _line_has_following_nested_ol(lines: list[str], line_index: int) -> bool:
@@ -160,7 +200,8 @@ def build_crl_taxonomy_from_toc(toc_html: str) -> dict[str, Any]:
 
     page_sections: list[dict[str, str | int]] = []
     for section in sections:
-        category_id = slugify_category_id(str(section["categoryTitle"]))
+        toc_category_id = slugify_category_id(str(section["categoryTitle"]))
+        category_id = normalize_crl_category_id(toc_category_id)
         subcategory_id = slugify_subcategory_id(str(section["subcategoryTitle"]))
         page_sections.append(
             {
@@ -168,7 +209,7 @@ def build_crl_taxonomy_from_toc(toc_html: str) -> dict[str, Any]:
                 "tocOrder": int(section["tocOrder"]),
                 "category": category_id,
                 "subCategory": subcategory_id,
-                "categoryTitle": str(section["categoryTitle"]),
+                "categoryTitle": crl_category_display_title(category_id, str(section["categoryTitle"])),
                 "subcategoryTitle": str(section["subcategoryTitle"]),
             }
         )
@@ -179,7 +220,7 @@ def build_crl_taxonomy_from_toc(toc_html: str) -> dict[str, Any]:
     for section in page_sections:
         category_id = str(section["category"])
         subcategory_id = str(section["subCategory"])
-        if subcategory_slug_matches_category(category_id, subcategory_id):
+        if is_redundant_crl_subcategory(category_id, subcategory_id):
             continue
         subcategory_ids_by_category.setdefault(category_id, set()).add(subcategory_id)
 
@@ -193,13 +234,19 @@ def build_crl_taxonomy_from_toc(toc_html: str) -> dict[str, Any]:
         category_titles.setdefault(category_id, str(section["categoryTitle"]))
         if category_id not in seen_categories:
             seen_categories.add(category_id)
-            categories.append({"id": category_id, "title": str(section["categoryTitle"]), "subcategories": []})
+            categories.append(
+                {
+                    "id": category_id,
+                    "title": crl_category_display_title(category_id, str(section["categoryTitle"])),
+                    "subcategories": [],
+                }
+            )
             subcategories_by_category[category_id] = []
 
     for section in page_sections:
         category_id = str(section["category"])
         subcategory_id = str(section["subCategory"])
-        if subcategory_slug_matches_category(category_id, subcategory_id):
+        if is_redundant_crl_subcategory(category_id, subcategory_id):
             continue
 
         subs = subcategories_by_category[category_id]
@@ -214,7 +261,7 @@ def build_crl_taxonomy_from_toc(toc_html: str) -> dict[str, Any]:
     for section in page_sections:
         category_id = str(section["category"])
         subcategory_id = str(section["subCategory"])
-        if subcategory_slug_matches_category(category_id, subcategory_id):
+        if is_redundant_crl_subcategory(category_id, subcategory_id):
             if subcategory_ids_by_category.get(category_id):
                 continue
             section = dict(section)
