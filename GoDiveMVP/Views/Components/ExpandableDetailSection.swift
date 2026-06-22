@@ -115,7 +115,11 @@ struct ExpandableDetailSection<Content: View>: View {
 
     private func prewarmExpandedContentIfNeeded() {
         guard keepsExpandedContentMountedAfterFirstReveal, itemCount > 0 else { return }
-        keepsExpandedContentMounted = true
+        guard !keepsExpandedContentMounted else { return }
+        Task { @MainActor in
+            await Task.yield()
+            keepsExpandedContentMounted = true
+        }
     }
 
     @ViewBuilder

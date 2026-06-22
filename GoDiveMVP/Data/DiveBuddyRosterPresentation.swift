@@ -34,7 +34,12 @@ enum DiveBuddyRosterPresentation {
 
     /// Owned dives this buddy is tagged on, newest **`startTime`** first.
     static func sharedDiveActivities(for buddy: DiveBuddy, ownerProfileID: UUID) -> [DiveActivity] {
-        let dives = buddy.diveParticipations.compactMap(\.dive).filter { dive in
+        sharedDiveActivities(from: buddy.diveParticipations, ownerProfileID: ownerProfileID)
+    }
+
+    /// Same as **`sharedDiveActivities(for:ownerProfileID:)`** using pre-fetched buddy tags.
+    static func sharedDiveActivities(from tags: [DiveBuddyTag], ownerProfileID: UUID) -> [DiveActivity] {
+        let dives = tags.compactMap(\.dive).filter { dive in
             dive.ownerProfileID == ownerProfileID
         }
         return dives.sorted { lhs, rhs in

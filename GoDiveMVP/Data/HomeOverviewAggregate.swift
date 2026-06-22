@@ -45,10 +45,21 @@ enum HomeOverviewAggregateBuilder {
         marineLifeCatalog: [MarineLife],
         automaticallyRenumberDives: Bool,
         ownerProfileID: UUID?,
+        ownerProfile: UserProfile? = nil,
+        modelContext: ModelContext? = nil,
         referenceDate: Date = .now
     ) -> HomeOverviewAggregate {
         let ownerDiveIDs = Set(activities.map(\.id))
         let buddyTags = HomeBuddyLeaderboardSeeding.tagInputs(from: activities)
+        let selfBuddyID: UUID?
+        if let ownerProfile, let modelContext {
+            selfBuddyID = DiveBuddySelfRepresentation.resolveSelfBuddyID(
+                owner: ownerProfile,
+                modelContext: modelContext
+            )
+        } else {
+            selfBuddyID = nil
+        }
 
         let chronologicalNumbers = automaticallyRenumberDives
             ? DiveActivityDiveNumbering.numberedDiveSequentialIndicesById(for: activities)
@@ -84,7 +95,10 @@ enum HomeOverviewAggregateBuilder {
             dives: diveStatsInputs,
             sightings: sightingInputs
         )
-        let buddyLeaderboard = HomeBuddyLeaderboardPresentation.topEntries(from: buddyTags)
+        let buddyLeaderboard = HomeBuddyLeaderboardPresentation.topEntries(
+            from: buddyTags,
+            excludingBuddyID: selfBuddyID
+        )
 
         let mediaHighlightSightings = allSightings.map {
             HomeMediaHighlightSightingInput(

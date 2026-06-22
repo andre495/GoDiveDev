@@ -32,6 +32,8 @@ struct DiveActivityVideoPlayerView: View {
     var onPlaybackFinished: (() -> Void)?
     /// Called when a referenced Photos asset can't be resolved (e.g. deleted) so the owner can prune the row.
     var onAssetMissing: (() -> Void)?
+    /// Dive overview sharing PhotoKit streams with Home carousel — drop cached players on pop so Home can restart cleanly.
+    var clearsSharedSessionPlaybackOnDisappear: Bool = false
 
     #if canImport(UIKit)
     @State private var playerItem: AVPlayerItem?
@@ -44,6 +46,7 @@ struct DiveActivityVideoPlayerView: View {
     @State private var showsOfflineUnavailable = false
     @State private var reloadToken = 0
     @State private var fullUpgradeTask: Task<Void, Never>?
+    @State private var playbackActivationGeneration = 0
     #endif
 
     var body: some View {
@@ -77,6 +80,7 @@ struct DiveActivityVideoPlayerView: View {
                                 isPlayerDisplayReady = true
                             }
                         )
+                        .id("\(resolvedKey)-activate-\(playbackActivationGeneration)")
                         .opacity(isPlayerDisplayReady ? 1 : 0)
                         .frame(width: geometry.size.width, height: geometry.size.height)
                         .clipped()
@@ -100,15 +104,18 @@ struct DiveActivityVideoPlayerView: View {
         .task(id: videoLoadTaskID) {
             await resolveSourceIfNeeded()
         }
-        .onChange(of: isPlaybackActive) { _, isActive in
+        .onChange(of: isPlaybackActive) { wasActive, isActive in
             if isActive {
+                if !wasActive {
+                    playbackActivationGeneration += 1
+                }
                 if playerItem != nil {
                     isPlayerDisplayReady = true
                 } else if source != nil, loadFailed {
                     reloadToken += 1
                 }
                 scheduleFullQualityUpgradeIfNeeded()
-            } else if libraryVideoQuality != .homeCarousel {
+            } else {
                 cancelFullQualityUpgrade()
             }
         }
@@ -117,7 +124,17 @@ struct DiveActivityVideoPlayerView: View {
         }
         .onDisappear {
             cancelFullQualityUpgrade()
-            storePlaybackSnapshotIfNeeded()
+            if clearsSharedSessionPlaybackOnDisappear, let source {
+                let sourceKey = source.identityKey
+                Task { @MainActor in
+                    await Task.yield()
+                    DiveMediaVideoPlaybackSessionCache.shared.invalidateLibraryPlayback(
+                        sourceIdentityKey: sourceKey
+                    )
+                }
+            } else {
+                storePlaybackSnapshotIfNeeded()
+            }
         }
         #endif
     }
@@ -169,6 +186,9 @@ struct DiveActivityVideoPlayerView: View {
             loadFailed = false
             showsOfflineUnavailable = false
             isResolving = false
+            if isPlaybackActive {
+                playbackActivationGeneration += 1
+            }
             scheduleFullQualityUpgradeIfNeeded()
             if logsHomeCarousel {
                 HomeMediaCarouselDebug.videoResolve(
@@ -566,41 +586,51 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
         isPausedByUserHold: Bool,
         onPlaybackFinished: (() -> Void)?
     ) {
+        let wasPlaybackActive = lastAppliedPlaybackActive
         self.isPlaybackActive = isPlaybackActive
         self.isPausedByUserHold = isPausedByUserHold
+        let wasLooping = self.loopsPlayback
         self.loopsPlayback = loopsPlayback
         self.onPlaybackFinished = onPlaybackFinished
 
-        if isPlaybackActive && !lastAppliedPlaybackActive && isPlayerAtEnd() {
-            syncPlaybackEndObserver()
-            restartFromBeginning()
-            lastAppliedPlaybackActive = isPlaybackActive
-            return
+        if !isPlaybackActive && wasPlaybackActive {
+            resetPlayerToBeginningForReuse()
         }
 
         let isQualityUpgrade = currentKey?.hasSuffix("|preview") == true
             && identityKey.hasSuffix("|full")
         if isQualityUpgrade, player != nil {
             upgradePlayerItem(playerItem, identityKey: identityKey)
+            if !isPlaybackActive {
+                syncPlaybackState()
+            }
             lastAppliedPlaybackActive = isPlaybackActive
             return
         }
 
         let mediaChanged = currentKey != identityKey
-        let reusingCachedPlayer = mediaChanged
-            && DiveMediaVideoPlaybackSessionCache.shared.player(forResolvedKey: identityKey) != nil
         let shouldRestart = DiveActivityVideoPlaybackPolicy.shouldRestartFromBeginning(
-            wasPlaybackActive: lastAppliedPlaybackActive,
+            wasPlaybackActive: wasPlaybackActive,
             isPlaybackActive: isPlaybackActive,
             mediaURLChanged: mediaChanged,
-            reusingCachedPlayer: reusingCachedPlayer,
-            hasExistingPlaybackPosition: hasExistingPlaybackPosition()
+            isAtEnd: isPlayerAtEnd()
         )
 
         if mediaChanged {
             loadPlayer(playerItem: playerItem, identityKey: identityKey)
         }
         syncPlaybackEndObserver()
+
+        if isPlaybackActive, wasLooping, !loopsPlayback {
+            if isPlayerAtEnd(), onPlaybackFinished != nil {
+                onPlaybackFinished?()
+                lastAppliedPlaybackActive = isPlaybackActive
+                return
+            }
+            syncPlaybackState()
+            lastAppliedPlaybackActive = isPlaybackActive
+            return
+        }
 
         if shouldRestart {
             restartFromBeginning()
@@ -635,7 +665,6 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
         displayReadyObservation?.invalidate()
         displayReadyObservation = nil
         if let player, let currentKey {
-            player.pause()
             DiveMediaVideoPlaybackSessionCache.shared.store(player: player, resolvedKey: currentKey)
         }
         player = nil
@@ -653,6 +682,8 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
             DiveMutedVideoAudioSession.activateForMutedPlayback()
             player = cachedPlayer
             playerLayer.player = cachedPlayer
+            cachedPlayer.pause()
+            cachedPlayer.seek(to: .zero)
             observeDisplayReady()
             syncPlaybackEndObserver()
             return
@@ -678,7 +709,7 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
 
     private func upgradePlayerItem(_ playerItem: AVPlayerItem, identityKey: String) {
         guard let player else { return }
-        let preservedTime = player.currentTime()
+        let preservedTime = isPlayerAtEnd() ? CMTime.zero : player.currentTime()
         let shouldResume = DiveActivityVideoPlaybackPolicy.shouldPlay(
             isPlaybackActive: isPlaybackActive,
             isPausedByUserHold: isPausedByUserHold
@@ -747,12 +778,10 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
         }
     }
 
-    private func hasExistingPlaybackPosition(thresholdSeconds: Double = 0.25) -> Bool {
-        guard let player else { return false }
-        let current = player.currentTime()
-        guard current.isValid else { return false }
-        let seconds = CMTimeGetSeconds(current)
-        return seconds.isFinite && seconds > thresholdSeconds
+    private func resetPlayerToBeginningForReuse() {
+        guard let player else { return }
+        player.pause()
+        player.seek(to: .zero)
     }
 
     private func isPlayerAtEnd(toleranceSeconds: Double = 0.15) -> Bool {
@@ -766,10 +795,15 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
 
     private func syncPlaybackState() {
         guard player != nil else { return }
-        if DiveActivityVideoPlaybackPolicy.shouldPlay(
+        let shouldPlay = DiveActivityVideoPlaybackPolicy.shouldPlay(
             isPlaybackActive: isPlaybackActive,
             isPausedByUserHold: isPausedByUserHold
-        ) {
+        )
+        if shouldPlay {
+            if loopsPlayback && isPlayerAtEnd() {
+                restartFromBeginning()
+                return
+            }
             player?.play()
         } else {
             player?.pause()

@@ -427,4 +427,16 @@ enum DiveActivityMediaPresentation: Sendable {
     nonisolated static func fullScreenImageTargetEdge(screenPixelWidth: CGFloat) -> CGFloat {
         min(max(max(screenPixelWidth, 1), 800), 2_048)
     }
+
+    /// Second reaffirm after viewport resize — **`ScrollView`** paging can settle one frame late on rotation.
+    nonisolated static let pagerLayoutReaffirmSettleDelay: Duration = .milliseconds(120)
+
+    /// Whether the media hero pager should realign its scroll target after a layout change.
+    nonisolated static func shouldReaffirmPagerAfterViewportChange(
+        previousSize: CGSize?,
+        newSize: CGSize
+    ) -> Bool {
+        guard let previousSize else { return false }
+        return previousSize != newSize
+    }
 }

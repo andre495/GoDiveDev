@@ -18,7 +18,11 @@ struct DiveBuddiesListView: View {
 
     private var ownedBuddies: [DiveBuddy] {
         guard let ownerProfileID else { return [] }
-        return allBuddies.filter { $0.ownerProfileID == ownerProfileID }
+        let buddies = allBuddies.filter { $0.ownerProfileID == ownerProfileID }
+        return DiveBuddySelfRepresentation.rosterBuddiesExcludingSelf(
+            buddies,
+            owner: accountSession.currentProfile
+        )
     }
 
     var body: some View {

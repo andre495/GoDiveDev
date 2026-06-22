@@ -77,7 +77,7 @@ struct ExploreTopChrome: View {
             viewModeFlipButton
         }
         .padding(.horizontal, AppTheme.Spacing.lg)
-        .padding(.vertical, AppTheme.Spacing.md)
+        .appTopChromeVerticalPadding()
     }
 
     private var mapModeSearchRow: some View {
@@ -116,7 +116,7 @@ struct ExploreTopChrome: View {
         }
         .animation(.easeInOut(duration: 0.2), value: isSiteSearchFocused)
         .padding(.horizontal, AppTheme.Spacing.lg)
-        .padding(.vertical, AppTheme.Spacing.md)
+        .appTopChromeVerticalPadding()
     }
 
     @ViewBuilder
@@ -137,7 +137,7 @@ struct ExploreTopChrome: View {
                 viewModeFlipButton
             }
             .padding(.horizontal, AppTheme.Spacing.lg)
-            .padding(.vertical, AppTheme.Spacing.md)
+            .appTopChromeVerticalPadding()
         }
     }
 

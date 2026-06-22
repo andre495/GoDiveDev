@@ -10,22 +10,20 @@ enum DiveActivityVideoPlaybackPolicy: Sendable {
     /// Total finger movement beyond this fails the long-press so the pager swipe wins.
     nonisolated static let holdPauseMaximumMovementPoints: CGFloat = 5
 
-    /// Restart from the beginning when a pager item becomes active or its file changes.
+    /// Restart from the beginning when a pager item becomes active, its file changes, or playback is stuck at the end.
     ///
-    /// When playback was briefly deactivated (e.g. sheet detent relayout) but the same stream already
-    /// has a position, callers should resume instead of restarting.
+    /// Pager / carousel navigation always starts from **0** — cached **`AVPlayer`** instances must not resume mid-clip.
     nonisolated static func shouldRestartFromBeginning(
         wasPlaybackActive: Bool,
         isPlaybackActive: Bool,
         mediaURLChanged: Bool,
-        reusingCachedPlayer: Bool = false,
-        hasExistingPlaybackPosition: Bool = false
+        isAtEnd: Bool = false
     ) -> Bool {
-        guard !reusingCachedPlayer else { return false }
         guard isPlaybackActive else { return false }
         if mediaURLChanged { return true }
-        if !wasPlaybackActive, hasExistingPlaybackPosition { return false }
-        return !wasPlaybackActive
+        if !wasPlaybackActive { return true }
+        if isAtEnd { return true }
+        return false
     }
 
     /// **`true`** when playback should run (not held, and the page/tab allows play).

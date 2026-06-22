@@ -156,6 +156,30 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func diveActivityMediaPresentation_shouldReaffirmPagerAfterViewportChange() {
+        let portrait = CGSize(width: 390, height: 844)
+        let landscape = CGSize(width: 844, height: 390)
+        #expect(
+            !DiveActivityMediaPresentation.shouldReaffirmPagerAfterViewportChange(
+                previousSize: nil,
+                newSize: portrait
+            )
+        )
+        #expect(
+            DiveActivityMediaPresentation.shouldReaffirmPagerAfterViewportChange(
+                previousSize: portrait,
+                newSize: landscape
+            )
+        )
+        #expect(
+            !DiveActivityMediaPresentation.shouldReaffirmPagerAfterViewportChange(
+                previousSize: portrait,
+                newSize: portrait
+            )
+        )
+        #expect(DiveActivityMediaPresentation.pagerLayoutReaffirmSettleDelay > .zero)
+    }
+
     @Test func diveActivityDiveNumbering_partialRenumberNoop_whenDeletingNewest() {
         let t0 = Date(timeIntervalSince1970: 0)
         let t1 = Date(timeIntervalSince1970: 86_400)
@@ -331,6 +355,42 @@ struct GoDiveMVPTests {
         #expect(ProfilePresentation.tripCountLabel(0) == "No trips")
         #expect(ProfilePresentation.tripCountLabel(1) == "1 trip")
         #expect(ProfilePresentation.tripCountLabel(4) == "4 trips")
+    }
+
+    @Test func profileTaggedMediaPresentation_mediaCountLabel() {
+        #expect(ProfileTaggedMediaPresentation.mediaCountLabel(0) == "No tagged media")
+        #expect(ProfileTaggedMediaPresentation.mediaCountLabel(1) == "1 photo or video")
+        #expect(ProfileTaggedMediaPresentation.mediaCountLabel(4) == "4 photos and videos")
+    }
+
+    @Test func profileTaggedMediaPresentation_uniqueTaggedMediaCount_dedupesByPhoto() {
+        let buddy = DiveBuddy(displayName: "You")
+        let buddyID = buddy.id
+        let diveID = UUID()
+        let mediaA = UUID()
+        let mediaB = UUID()
+        let otherDiveID = UUID()
+
+        func makeTag(mediaID: UUID, diveID: UUID) -> DiveMediaBuddyTag {
+            let tag = DiveMediaBuddyTag(buddy: buddy)
+            tag.mediaPhotoID = mediaID
+            tag.diveActivityID = diveID
+            return tag
+        }
+
+        let tags = [
+            makeTag(mediaID: mediaA, diveID: diveID),
+            makeTag(mediaID: mediaA, diveID: diveID),
+            makeTag(mediaID: mediaB, diveID: diveID),
+            makeTag(mediaID: UUID(), diveID: otherDiveID),
+        ]
+        let count = ProfileTaggedMediaPresentation.uniqueTaggedMediaCount(
+            tags: tags,
+            buddyID: buddyID,
+            ownerDiveActivityIDs: [diveID]
+        )
+        #expect(count == 2)
+    }
     }
 
     @Test func profileDestinationTilePresentation_usesUniformTileHeight() {
@@ -8675,10 +8735,87 @@ struct GoDiveMVPTests {
     @Test func homeMediaCarouselPresentation_nextIndex_wrapsAndRequiresMultipleSlides() {
         #expect(HomeMediaCarouselPresentation.nextIndex(after: 0, count: 3) == 1)
         #expect(HomeMediaCarouselPresentation.nextIndex(after: 2, count: 3) == 0)
+        #expect(HomeMediaCarouselPresentation.loopingPagerSlideCount(slideCount: 3) == 4)
+        #expect(HomeMediaCarouselPresentation.loopingPagerSlideCount(slideCount: 1) == 1)
+        #expect(HomeMediaCarouselPresentation.logicalSlideIndex(pagerIndex: 3, slideCount: 3) == 0)
+        #expect(HomeMediaCarouselPresentation.nextLoopingPagerIndex(after: 2, slideCount: 3) == 3)
+        #expect(HomeMediaCarouselPresentation.nextLoopingPagerIndex(after: 0, slideCount: 3) == 1)
+        #expect(HomeMediaCarouselPresentation.shouldResetLoopingPagerIndex(pagerIndex: 3, slideCount: 3))
+        #expect(!HomeMediaCarouselPresentation.shouldResetLoopingPagerIndex(pagerIndex: 2, slideCount: 3))
         #expect(HomeMediaCarouselPresentation.nextIndex(after: 0, count: 0) == 0)
         #expect(HomeMediaCarouselPresentation.shouldAutoAdvance(slideCount: 1) == false)
         #expect(HomeMediaCarouselPresentation.shouldAutoAdvance(slideCount: 2) == true)
+        #expect(HomeMediaCarouselPresentation.shouldRestartClipAfterPlaybackFinished(slideCount: 0) == true)
+        #expect(HomeMediaCarouselPresentation.shouldRestartClipAfterPlaybackFinished(slideCount: 1) == true)
+        #expect(HomeMediaCarouselPresentation.shouldRestartClipAfterPlaybackFinished(slideCount: 3) == false)
         #expect(HomeMediaCarouselPresentation.photoDisplaySeconds == 10)
+    }
+
+    @Test func homeMediaCarouselPresentation_shouldBumpPlaybackResumeWhenAllowed() {
+        #expect(
+            HomeMediaCarouselPresentation.shouldBumpPlaybackResumeWhenAllowed(
+                wasPlaybackAllowed: false,
+                isPlaybackAllowed: true
+            )
+        )
+        #expect(
+            !HomeMediaCarouselPresentation.shouldBumpPlaybackResumeWhenAllowed(
+                wasPlaybackAllowed: true,
+                isPlaybackAllowed: true
+            )
+        )
+        #expect(
+            !HomeMediaCarouselPresentation.shouldBumpPlaybackResumeWhenAllowed(
+                wasPlaybackAllowed: false,
+                isPlaybackAllowed: false
+            )
+        )
+        #expect(
+            !HomeMediaCarouselPresentation.shouldBumpPlaybackResumeWhenAllowed(
+                wasPlaybackAllowed: true,
+                isPlaybackAllowed: false
+            )
+        )
+        #expect(!HomeMediaCarouselPresentation.bumpsPlaybackResumeWhenInteractionHoldEnds)
+    }
+
+    @Test @MainActor func homeMediaCarouselPresentation_carouselVideoSourceIdentityKeys_collectsVideoSlides() {
+        let videoID = UUID()
+        let photoID = UUID()
+        let video = DiveMediaPhoto(
+            sortOrder: 0,
+            mediaKind: .video,
+            libraryAssetLocalIdentifier: "video-asset-id"
+        )
+        video.id = videoID
+        let photo = DiveMediaPhoto(sortOrder: 1, mediaKind: .image)
+        photo.id = photoID
+        let highlights = [
+            HomeMediaHighlight(
+                id: UUID(),
+                mediaID: videoID,
+                diveActivityID: UUID(),
+                taggedSpeciesCount: 0,
+                taggedBuddyCount: 0,
+                hasTaggedSpecies: false,
+                hasTaggedBuddies: false
+            ),
+            HomeMediaHighlight(
+                id: UUID(),
+                mediaID: photoID,
+                diveActivityID: UUID(),
+                taggedSpeciesCount: 0,
+                taggedBuddyCount: 0,
+                hasTaggedSpecies: false,
+                hasTaggedBuddies: false
+            ),
+        ]
+        let keys = HomeMediaCarouselPresentation.carouselVideoSourceIdentityKeys(
+            highlights: highlights,
+            mediaByID: [videoID: video, photoID: photo]
+        )
+        #expect(keys.count == 1)
+        #expect(keys.first == video.videoPlaybackSource?.identityKey)
     }
 
     @Test func homeMediaCarouselPresentation_shouldAdvanceFromSlide_onlyWhenVisible() {
@@ -8703,21 +8840,58 @@ struct GoDiveMVPTests {
                 isPlaybackAllowed: false
             )
         )
+        #expect(
+            !HomeMediaCarouselPresentation.shouldAdvanceFromSlide(
+                selectedIndex: 0,
+                finishingSlideIndex: 0,
+                isPlaybackAllowed: true,
+                holdsSlideForInteraction: true
+            )
+        )
     }
 
-    @Test func homeMediaCarouselPresentation_marineLifeOverlaySizing_fitsHeroArea() {
+    @Test func homeMediaCarouselPresentation_holdsSlideForInteraction_whenOverlayOrBuddyListOpen() {
+        #expect(
+            HomeMediaCarouselPresentation.holdsSlideForInteraction(
+                showsMarineLifeOverlay: true,
+                hasExpandedBuddyList: false
+            )
+        )
+        #expect(
+            HomeMediaCarouselPresentation.holdsSlideForInteraction(
+                showsMarineLifeOverlay: false,
+                hasExpandedBuddyList: true
+            )
+        )
+        #expect(
+            !HomeMediaCarouselPresentation.holdsSlideForInteraction(
+                showsMarineLifeOverlay: false,
+                hasExpandedBuddyList: false
+            )
+        )
+    }
+
+    @Test func homeMediaCarouselPresentation_marineLifeCarouselOverlaySizing_isCompact() {
         let size = HomeMediaCarouselPresentation.marineLifeOverlaySize(width: 390, height: 420)
         #expect(size.width == 390)
         #expect(size.height == 420)
         #expect(HomeMediaCarouselPresentation.marineLifeOverlayCornerRadius == 0)
-        #expect(TripDetailMediaGalleryPresentation.marineLifeOverlayMediaScrimOpacity > 0)
-        #expect(TripDetailMediaGalleryPresentation.marineLifeOverlayTranslucentPanelOpacity > 0)
-        let imageHeight = HomeMediaCarouselPresentation.marineLifeOverlayFeatureImageHeight(previewHeight: 420)
-        #expect(imageHeight >= 112)
-        #expect(imageHeight <= 168)
-        let imageWidth = HomeMediaCarouselPresentation.marineLifeOverlayFeatureImageMaxWidth(previewWidth: 390)
-        #expect(imageWidth >= 180)
-        #expect(imageWidth <= 240)
+        let imageHeight = HomeMediaCarouselPresentation.marineLifeCarouselOverlayImageHeight(previewHeight: 420)
+        #expect(imageHeight >= 72)
+        #expect(imageHeight <= 104)
+        let imageWidth = HomeMediaCarouselPresentation.marineLifeCarouselOverlayImageMaxWidth(previewWidth: 390)
+        #expect(imageWidth >= 96)
+        #expect(imageWidth <= 136)
+        let singlePageHeight = HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageHeight(
+            previewHeight: 420,
+            speciesCount: 1
+        )
+        let multiPageHeight = HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageHeight(
+            previewHeight: 420,
+            speciesCount: 3
+        )
+        #expect(multiPageHeight > singlePageHeight)
+        #expect(singlePageHeight > imageHeight)
     }
 
     @Test func homeMediaCarouselPresentation_slideChromeControlHeight_matchesTwoLineDiveChip() {
@@ -8731,10 +8905,10 @@ struct GoDiveMVPTests {
         let inset = HomeMediaCarouselPresentation.marineLifeOverlayCloseTopInset(
             previewHeight: 420,
             topSafeAreaInset: 59,
-            headerOverlayHeight: 56
+            headerOverlayHeight: 112
         )
-        #expect(inset >= 420 * 0.30 - 0.001)
-        #expect(inset >= 59 + 56)
+        #expect(inset >= 112 + 16 - 0.001)
+        #expect(inset < 420 * 0.30)
     }
 
     @Test func homeLifetimeStatsLayout_usesTwoColumnFixedHeightTiles() {
@@ -9041,19 +9215,18 @@ struct GoDiveMVPTests {
             )
         )
         #expect(
-            !DiveActivityVideoPlaybackPolicy.shouldRestartFromBeginning(
+            DiveActivityVideoPlaybackPolicy.shouldRestartFromBeginning(
                 wasPlaybackActive: false,
                 isPlaybackActive: true,
-                mediaURLChanged: true,
-                reusingCachedPlayer: true
+                mediaURLChanged: true
             )
         )
         #expect(
-            !DiveActivityVideoPlaybackPolicy.shouldRestartFromBeginning(
-                wasPlaybackActive: false,
+            DiveActivityVideoPlaybackPolicy.shouldRestartFromBeginning(
+                wasPlaybackActive: true,
                 isPlaybackActive: true,
                 mediaURLChanged: false,
-                hasExistingPlaybackPosition: true
+                isAtEnd: true
             )
         )
     }
@@ -12277,6 +12450,88 @@ struct GoDiveMVPTests {
             numberingActivities: [newer, older]
         )
         #expect(rows.map(\.id) == [newer.id, older.id])
+    }
+
+    @Test func diveBuddyRosterPresentation_sharedDiveActivitiesFromTags_ordersNewestFirst() {
+        let ownerID = UUID()
+        let otherOwnerID = UUID()
+        let buddy = DiveBuddy(displayName: "Alex")
+        let older = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 1_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        older.ownerProfileID = ownerID
+        let newer = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 2_000),
+            durationMinutes: 50,
+            maxDepthMeters: 24
+        )
+        newer.ownerProfileID = ownerID
+        let otherOwnerDive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 3_000),
+            durationMinutes: 30,
+            maxDepthMeters: 12
+        )
+        otherOwnerDive.ownerProfileID = otherOwnerID
+
+        let tags = [
+            DiveBuddyTag(buddy: buddy, dive: older),
+            DiveBuddyTag(buddy: buddy, dive: newer),
+            DiveBuddyTag(buddy: buddy, dive: otherOwnerDive),
+        ]
+
+        let shared = DiveBuddyRosterPresentation.sharedDiveActivities(
+            from: tags,
+            ownerProfileID: ownerID
+        )
+        #expect(shared.map(\.id) == [newer.id, older.id])
+    }
+
+    @Test func profileAvatarImageCachePresentation_cacheKey_isStableForSameData() {
+        let data = Data([0x01, 0x02, 0x03, 0x04])
+        let keyA = ProfileAvatarImageCachePresentation.cacheKey(for: data)
+        let keyB = ProfileAvatarImageCachePresentation.cacheKey(for: data)
+        #expect(keyA == keyB)
+        #expect(keyA != ProfileAvatarImageCachePresentation.cacheKey(for: Data([0x05])))
+    }
+
+    @Test func homeBuddyLeaderboard_topEntries_excludesSelfBuddyID() {
+        let selfBuddyID = UUID()
+        let otherBuddyID = UUID()
+        let diveID = UUID()
+        let tags: [HomeBuddyLeaderboardPresentation.TagInput] = [
+            .init(buddyID: selfBuddyID, displayName: "You", profilePhoto: nil, diveActivityID: diveID),
+            .init(buddyID: otherBuddyID, displayName: "Pat Lee", profilePhoto: nil, diveActivityID: diveID),
+        ]
+        let top = HomeBuddyLeaderboardPresentation.topEntries(
+            from: tags,
+            excludingBuddyID: selfBuddyID
+        )
+        #expect(top.count == 1)
+        #expect(top[0].id == otherBuddyID)
+    }
+
+    @Test func diveBuddySelfRepresentation_rosterBuddiesExcludingSelf_filtersSelfRow() {
+        let owner = UserProfile(appleUserIdentifier: "owner", displayName: "Mike Dugas")
+        let selfBuddy = DiveBuddy(displayName: "Mike Dugas", owner: owner)
+        let otherBuddy = DiveBuddy(displayName: "Pat Lee", owner: owner)
+        let filtered = DiveBuddySelfRepresentation.rosterBuddiesExcludingSelf(
+            [selfBuddy, otherBuddy],
+            owner: owner
+        )
+        #expect(filtered.count == 1)
+        #expect(filtered[0].displayName == "Pat Lee")
+    }
+
+    @Test func diveBuddySelfRepresentation_isSelfBuddyID_matchesResolvedID() {
+        let selfBuddyID = UUID()
+        #expect(DiveBuddySelfRepresentation.isSelfBuddyID(selfBuddyID, selfBuddyID: selfBuddyID))
+        #expect(!DiveBuddySelfRepresentation.isSelfBuddyID(UUID(), selfBuddyID: selfBuddyID))
+        #expect(!DiveBuddySelfRepresentation.isSelfBuddyID(selfBuddyID, selfBuddyID: nil))
     }
 
     @Test func homeBuddyLeaderboard_topEntries_countsUniqueDivesPerBuddy() {

@@ -27,6 +27,8 @@ struct DiveActivityMediaItemView: View {
     var onTagMarineLife: (() -> Void)?
     var isVideoPlaybackActive: Bool = false
     var loopsVideoPlayback: Bool = false
+    /// Bumped when dive media becomes active (deep link, tab switch, async hydrate) to remount the player.
+    var videoPlaybackEpoch: Int = 0
 
     @State private var isHoldingVideoPause = false
     @State private var layoutWidth: CGFloat = 0
@@ -167,9 +169,10 @@ struct DiveActivityMediaItemView: View {
                 screenPixelWidth: layoutWidth * displayScale,
                 initialPosterImage: displayedVideoPosterImage,
                 isPausedByUserHold: isHoldingVideoPause,
-                onAssetMissing: pruneIfAssetMissing
+                onAssetMissing: pruneIfAssetMissing,
+                clearsSharedSessionPlaybackOnDisappear: true
             )
-            .id(media.id)
+            .id("\(media.id)-epoch-\(videoPlaybackEpoch)")
         }
     }
 

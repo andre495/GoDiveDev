@@ -28,6 +28,7 @@ struct DiveActivityMediaBackgroundView: View {
     var captureOverlayBottomInset: CGFloat = 0
 
     @State private var pagerScrollReaffirmToken = 0
+    @State private var pagerLayoutReaffirmTask: Task<Void, Never>?
 
     private var showsMarineLifeTagButton: Bool {
         onTagMarineLife != nil
@@ -74,11 +75,22 @@ struct DiveActivityMediaBackgroundView: View {
         .onChange(of: presentationEpoch) { _, _ in
             reaffirmPagerSelectionIfNeeded(forceScrollReaffirm: true)
         }
+        .onChange(of: shouldPlayBackgroundVideo) { wasPlaying, isPlaying in
+            guard !wasPlaying, isPlaying else { return }
+            reaffirmPagerSelectionIfNeeded(forceScrollReaffirm: true)
+        }
         .onChange(of: mediaIDsSignature) { oldSignature, newSignature in
             guard isMediaTabSelected else { return }
             guard oldSignature.count == 0, newSignature.count > 0 else { return }
             syncSelectionToMedia()
             reaffirmPagerSelectionIfNeeded(forceScrollReaffirm: true)
+        }
+        .onChange(of: bottomContentMargin) { _, _ in
+            schedulePagerLayoutReaffirm()
+        }
+        .onDisappear {
+            pagerLayoutReaffirmTask?.cancel()
+            pagerLayoutReaffirmTask = nil
         }
     }
 
@@ -92,6 +104,7 @@ struct DiveActivityMediaBackgroundView: View {
 
     private var mediaPager: some View {
         GeometryReader { geometry in
+            let viewportSize = geometry.size
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 0) {
@@ -116,9 +129,12 @@ struct DiveActivityMediaBackgroundView: View {
                                     ? { onTagMarineLife?(item) }
                                     : nil,
                             isVideoPlaybackActive: shouldPlayBackgroundVideo && selectedMediaID == item.id,
-                            loopsVideoPlayback: shouldPlayBackgroundVideo
+                            loopsVideoPlayback: shouldPlayBackgroundVideo,
+                            videoPlaybackEpoch: presentationEpoch
                         )
-                            .frame(width: geometry.size.width, height: geometry.size.height)
+                            .containerRelativeFrame(.horizontal, count: 1, span: 1, spacing: 0)
+                            .frame(height: viewportSize.height)
+                            .background(Color.black)
                             .id(item.id)
                         }
                     }
@@ -126,17 +142,25 @@ struct DiveActivityMediaBackgroundView: View {
                 }
                 .scrollTargetBehavior(.paging)
                 .scrollPosition(id: $selectedMediaID)
-                .frame(width: geometry.size.width, height: geometry.size.height)
+                .frame(width: viewportSize.width, height: viewportSize.height)
+                .clipped()
                 .ignoresSafeArea()
                 .onAppear {
-                    prefetchProgressiveNeighbors(screenPixelWidth: geometry.size.width * displayScale)
+                    prefetchProgressiveNeighbors(screenPixelWidth: viewportSize.width * displayScale)
                 }
                 .onChange(of: selectedMediaID) { _, _ in
-                    prefetchProgressiveNeighbors(screenPixelWidth: geometry.size.width * displayScale)
+                    prefetchProgressiveNeighbors(screenPixelWidth: viewportSize.width * displayScale)
                 }
                 .onChange(of: pagerScrollReaffirmToken) { _, _ in
                     guard let selectedMediaID else { return }
                     proxy.scrollTo(selectedMediaID, anchor: .center)
+                }
+                .onChange(of: viewportSize) { oldSize, newSize in
+                    guard DiveActivityMediaPresentation.shouldReaffirmPagerAfterViewportChange(
+                        previousSize: oldSize,
+                        newSize: newSize
+                    ) else { return }
+                    schedulePagerLayoutReaffirm()
                 }
             }
         }
@@ -187,6 +211,22 @@ struct DiveActivityMediaBackgroundView: View {
             pagerScrollReaffirmToken &+= 1
         } else if selectedMediaID != target {
             selectedMediaID = target
+        }
+    }
+
+    private func schedulePagerLayoutReaffirm() {
+        guard DiveActivityMediaActivation.shouldReaffirmPagerSelection(
+            isMediaContextActive: isMediaTabSelected,
+            mediaCount: mediaItems.count
+        ) else { return }
+
+        reaffirmPagerSelectionIfNeeded(forceScrollReaffirm: true)
+
+        pagerLayoutReaffirmTask?.cancel()
+        pagerLayoutReaffirmTask = Task { @MainActor in
+            try? await Task.sleep(for: DiveActivityMediaPresentation.pagerLayoutReaffirmSettleDelay)
+            guard !Task.isCancelled else { return }
+            reaffirmPagerSelectionIfNeeded(forceScrollReaffirm: true)
         }
     }
 

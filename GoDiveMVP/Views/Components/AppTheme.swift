@@ -151,8 +151,12 @@ enum AppTheme {
     }
 
     enum Layout {
-        /// Fallback before **`AppHeader`** publishes its measured height (see **`AppHeaderMetrics.HeightKey`**). Sized for **`.largeTitle`** brand + vertical **`Spacing.md`** padding.
-        static let appHeaderClearanceFallback: CGFloat = 72
+        /// Top inset below the status safe area for **`AppHeader`** (wordmark / profile / back row).
+        static let appHeaderTopPadding: CGFloat = Spacing.sm
+        /// Bottom inset below the **`AppHeader`** row.
+        static let appHeaderBottomPadding: CGFloat = Spacing.md
+        /// Fallback before top chrome publishes its measured height (see **`AppHeaderMetrics.HeightKey`**). Sized for **`.largeTitle`** **`AppHeader`**; search-only rows measure shorter at runtime.
+        static let appHeaderClearanceFallback: CGFloat = 64
         /// Inner height of **`CatalogSearchField`** in list top chrome (logbook, field guide, explore).
         static let logbookSearchFieldHeight: CGFloat = 44
         /// Fixed height for one **`ExploreDiveSiteRow`** tile in the Explore map search dropdown.
@@ -184,5 +188,13 @@ enum AppTheme {
         static let backgroundMaterialOpacity: CGFloat = 0.64
         /// **Media** embedded panel at every detent — hero shows through the frosted sheet.
         static let embeddedOverviewTranslucentOpacity: CGFloat = 0.62
+    }
+}
+
+extension View {
+    /// Vertical padding shared by **`AppHeader`** and tab top chrome (search rows / icon actions).
+    func appTopChromeVerticalPadding() -> some View {
+        padding(.top, AppTheme.Layout.appHeaderTopPadding)
+            .padding(.bottom, AppTheme.Layout.appHeaderBottomPadding)
     }
 }

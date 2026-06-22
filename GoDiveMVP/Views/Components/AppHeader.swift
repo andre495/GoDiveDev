@@ -98,7 +98,7 @@ struct AppHeader<TrailingContent: View>: View {
             }
         }
         .padding(.horizontal, AppTheme.Spacing.lg)
-        .padding(.vertical, AppTheme.Spacing.md)
+        .appTopChromeVerticalPadding()
         .fixedSize(horizontal: false, vertical: true)
         .contentShape(Rectangle())
         .background(alignment: .top) {

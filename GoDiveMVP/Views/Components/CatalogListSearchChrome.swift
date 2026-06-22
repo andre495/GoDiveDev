@@ -22,7 +22,7 @@ struct CatalogListSearchChrome<TrailingActions: View>: View {
         }
         .animation(.easeInOut(duration: 0.2), value: isSearchFocused)
         .padding(.horizontal, AppTheme.Spacing.lg)
-        .padding(.vertical, AppTheme.Spacing.md)
+        .appTopChromeVerticalPadding()
     }
 
     private var showsTrailingSlot: Bool {

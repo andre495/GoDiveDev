@@ -18,6 +18,28 @@ enum DiveBuddySelfRepresentation {
         )
     }
 
+    nonisolated static func isSelfBuddyID(_ buddyID: UUID, selfBuddyID: UUID?) -> Bool {
+        guard let selfBuddyID else { return false }
+        return buddyID == selfBuddyID
+    }
+
+    nonisolated static func rosterBuddiesExcludingSelf(
+        _ buddies: [DiveBuddy],
+        owner: UserProfile?
+    ) -> [DiveBuddy] {
+        buddies.filter { !isSelfBuddy($0, owner: owner) }
+    }
+
+    /// Existing roster row id for the signed-in diver, if any.
+    @MainActor
+    static func resolveSelfBuddyID(
+        owner: UserProfile?,
+        modelContext: ModelContext
+    ) -> UUID? {
+        guard let owner else { return nil }
+        return try? existingSelfBuddy(owner: owner, modelContext: modelContext)?.id
+    }
+
     /// Existing roster row for the signed-in diver, if any.
     static func existingSelfBuddy(
         owner: UserProfile,

@@ -27,7 +27,8 @@ enum HomeBuddyLeaderboardPresentation {
 
     nonisolated static func topEntries(
         from tags: [TagInput],
-        limit: Int = displayLimit
+        limit: Int = displayLimit,
+        excludingBuddyID: UUID? = nil
     ) -> [HomeBuddyLeaderboardEntry] {
         guard !tags.isEmpty else { return [] }
 
@@ -39,6 +40,7 @@ enum HomeBuddyLeaderboardPresentation {
 
         var byBuddyID: [UUID: Accumulator] = [:]
         for tag in tags {
+            guard tag.buddyID != excludingBuddyID else { continue }
             var bucket = byBuddyID[tag.buddyID] ?? Accumulator(
                 displayName: tag.displayName,
                 profilePhoto: tag.profilePhoto

@@ -12,6 +12,7 @@ struct ProfileView: View {
     @Environment(\.openTripPlanner) private var openTripPlanner
     @Environment(AccountSession.self) private var accountSession
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
 
     @Query(sort: [SortDescriptor(\Certification.dateAttained, order: .reverse)])
     private var allCertifications: [Certification]
@@ -39,7 +40,11 @@ struct ProfileView: View {
     )
     private var allTrips: [DiveTrip]
 
+    @Query(sort: [SortDescriptor(\DiveMediaBuddyTag.id, order: .forward)])
+    private var buddyMediaTags: [DiveMediaBuddyTag]
+
     @State private var showsProfileEditSheet = false
+    @State private var selfBuddyID: UUID?
 
     private var ownedCertifications: [Certification] {
         guard let ownerID = accountSession.currentProfile?.id else { return [] }
@@ -61,7 +66,11 @@ struct ProfileView: View {
 
     private var ownedDiveBuddies: [DiveBuddy] {
         guard let ownerID = accountSession.currentProfile?.id else { return [] }
-        return allDiveBuddies.filter { $0.ownerProfileID == ownerID }
+        let buddies = allDiveBuddies.filter { $0.ownerProfileID == ownerID }
+        return DiveBuddySelfRepresentation.rosterBuddiesExcludingSelf(
+            buddies,
+            owner: accountSession.currentProfile
+        )
     }
 
     private var diveBuddyCountLabel: String {
@@ -92,6 +101,28 @@ struct ProfileView: View {
 
     private var diveCountLabel: String {
         ProfilePresentation.diveActivityCountLabel(ownedDiveActivityCount)
+    }
+
+    private var ownerDiveActivityIDs: Set<UUID> {
+        guard let ownerID = accountSession.currentProfile?.id else { return [] }
+        return Set(
+            allDiveActivities
+                .filter { $0.ownerProfileID == ownerID }
+                .map(\.id)
+        )
+    }
+
+    private var taggedMediaCount: Int {
+        guard let selfBuddyID else { return 0 }
+        return ProfileTaggedMediaPresentation.uniqueTaggedMediaCount(
+            tags: buddyMediaTags,
+            buddyID: selfBuddyID,
+            ownerDiveActivityIDs: ownerDiveActivityIDs
+        )
+    }
+
+    private var taggedMediaCountLabel: String {
+        ProfileTaggedMediaPresentation.mediaCountLabel(taggedMediaCount)
     }
 
     var body: some View {
@@ -161,6 +192,12 @@ struct ProfileView: View {
             if let profile = accountSession.currentProfile {
                 ProfileEditSheet(profile: profile)
             }
+        }
+        .task(id: accountSession.currentProfile?.id) {
+            selfBuddyID = DiveBuddySelfRepresentation.resolveSelfBuddyID(
+                owner: accountSession.currentProfile,
+                modelContext: modelContext
+            )
         }
         .hidesBottomTabBarWhenPushed()
     }
@@ -270,6 +307,15 @@ struct ProfileView: View {
                 accessibilityIdentifier: "Profile.DiveBuddiesLink"
             ) {
                 DiveBuddiesListView()
+            }
+
+            profileDestinationTile(
+                title: ProfileTaggedMediaPresentation.destinationTileTitle,
+                subtitle: taggedMediaCountLabel,
+                systemImage: "photo.on.rectangle.angled",
+                accessibilityIdentifier: "Profile.TaggedMediaLink"
+            ) {
+                ProfileTaggedMediaView()
             }
 
             profileDestinationTile(

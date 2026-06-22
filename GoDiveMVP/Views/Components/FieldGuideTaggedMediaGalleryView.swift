@@ -5,6 +5,7 @@ struct FieldGuideTaggedMediaGalleryView: View {
     let mediaItems: [DiveMediaPhoto]
     let timeZoneOffsetByMediaID: [UUID: Int?]
     var showsTitle = true
+    var sectionTitle = "Your tagged photos"
     var previewAccessibilityIdentifier = "FieldGuide.SpeciesDetail.TaggedMediaPreview"
     var carouselAccessibilityIdentifier = "FieldGuide.SpeciesDetail.TaggedMediaCarousel"
 
@@ -32,7 +33,7 @@ struct FieldGuideTaggedMediaGalleryView: View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
             if showsTitle {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                    Text("Your tagged photos")
+                    Text(sectionTitle)
                         .font(.headline)
                         .foregroundStyle(AppTheme.Colors.textPrimary)
 
@@ -62,7 +63,7 @@ struct FieldGuideTaggedMediaGalleryView: View {
             .accessibilityIdentifier(carouselAccessibilityIdentifier)
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Your tagged photos")
+        .accessibilityLabel(sectionTitle)
         .onAppear {
             syncSelectionToMedia()
         }

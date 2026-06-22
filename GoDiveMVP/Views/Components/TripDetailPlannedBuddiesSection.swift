@@ -85,7 +85,8 @@ struct TripDetailPlannedBuddiesSection: View {
         if member.isOwner {
             cell
                 .accessibilityIdentifier("TripDetail.PlannedBuddies.Owner")
-        } else if let buddy = plannedBuddies.first(where: { $0.id == member.id }) {
+        } else if let buddy = plannedBuddies.first(where: { $0.id == member.id }),
+                  !DiveBuddySelfRepresentation.isSelfBuddy(buddy, owner: ownerProfile) {
             NavigationLink {
                 ViewDiveBuddyDetails(buddy: buddy)
                     .hidesBottomTabBarWhenPushed()
@@ -102,6 +103,9 @@ struct TripDetailPlannedBuddiesSection: View {
                     Label("Remove from trip", systemImage: "person.fill.xmark")
                 }
             }
+        } else {
+            cell
+                .accessibilityIdentifier("TripDetail.PlannedBuddies.\(member.id.uuidString)")
         }
     }
 

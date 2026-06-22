@@ -14,7 +14,7 @@ struct FieldGuideTopChrome: View {
             }
         }
         .padding(.horizontal, AppTheme.Spacing.lg)
-        .padding(.vertical, AppTheme.Spacing.md)
+        .appTopChromeVerticalPadding()
         .fixedSize(horizontal: false, vertical: true)
         .background(alignment: .top) {
             if statusBarSafeAreaTop > 0.5 {

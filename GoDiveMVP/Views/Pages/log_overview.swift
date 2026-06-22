@@ -25,6 +25,8 @@ struct LogOverviewView: View {
     @State private var lastCarouselTagFingerprint = 0
     @State private var hasCarouselSessionWarmCompleted = false
     @State private var hasPerformedInitialHomeBuild = false
+    @State private var selfBuddyID: UUID?
+    @State private var homeHeroInteractionOverlayActive = false
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
 
     private var isHomeNavigationStackAtRoot: Bool {
@@ -113,6 +115,7 @@ struct LogOverviewView: View {
                         .accessibilityLabel("Profile")
                         .accessibilityIdentifier("Home.ProfileLink")
                     }
+                    .allowsHitTesting(!homeHeroInteractionOverlayActive)
                     .zIndex(1)
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height)
@@ -125,6 +128,7 @@ struct LogOverviewView: View {
             .onPreferenceChange(AppHeaderMetrics.HeightKey.self) { height in
                 if height > 0 { headerClearance = height }
             }
+            .onPreferenceChange(HomeHeroInteractionOverlayKey.self) { homeHeroInteractionOverlayActive = $0 }
             .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(.hidden, for: .navigationBar)
             .navigationInteractivePopGestureForHiddenNavBar()
@@ -220,10 +224,20 @@ struct LogOverviewView: View {
             containerWidth: screenWidth,
             topSafeAreaInset: topSafeAreaInset,
             headerOverlayHeight: headerClearance,
+            selfBuddyID: selfBuddyID,
+            isHeroPlaybackActive: isHomeNavigationStackAtRoot,
             onOpenDive: { path.append(.diveDetail($0)) },
             onOpenMedia: { diveID, mediaID in path.append(.diveMedia(diveID: diveID, mediaID: mediaID)) },
-            onOpenBuddy: { path.append(.diveBuddy($0)) }
+            onOpenBuddy: openBuddyOrProfile
         )
+    }
+
+    private func openBuddyOrProfile(buddyID: UUID) {
+        if DiveBuddySelfRepresentation.isSelfBuddyID(buddyID, selfBuddyID: selfBuddyID) {
+            path.append(.profile)
+        } else {
+            path.append(.diveBuddy(buddyID))
+        }
     }
 
     @ViewBuilder
@@ -247,7 +261,7 @@ struct LogOverviewView: View {
                 onOpenDive: { path.append(.diveDetail($0)) },
                 onOpenSite: { path.append(.diveSite($0)) },
                 onOpenSpecies: { path.append(.marineLife($0)) },
-                onOpenBuddy: { path.append(.diveBuddy($0)) }
+                onOpenBuddy: openBuddyOrProfile
             )
             .id(homeAggregate.contentFingerprint)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -312,7 +326,9 @@ struct LogOverviewView: View {
                 missingDestinationLabel("This species is no longer in the catalog.")
             }
         case .diveBuddy(let buddyID):
-            if let buddy = ownerDiveBuddies.first(where: { $0.id == buddyID }) {
+            if DiveBuddySelfRepresentation.isSelfBuddyID(buddyID, selfBuddyID: selfBuddyID) {
+                ProfileView()
+            } else if let buddy = ownerDiveBuddies.first(where: { $0.id == buddyID }) {
                 ViewDiveBuddyDetails(buddy: buddy)
             } else {
                 missingDestinationLabel("This buddy is no longer on your roster.")
@@ -348,13 +364,20 @@ struct LogOverviewView: View {
     }
 
     private func rebuildHomeOverview() {
+        let ownerProfile = accountSession.currentProfile
+        selfBuddyID = DiveBuddySelfRepresentation.resolveSelfBuddyID(
+            owner: ownerProfile,
+            modelContext: modelContext
+        )
         let built = HomeOverviewAggregateBuilder.build(
             activities: ownerDiveActivities,
             allMediaPhotos: allMediaPhotos,
             allSightings: allSightings,
             marineLifeCatalog: marineLifeCatalog,
             automaticallyRenumberDives: automaticallyRenumberDives,
-            ownerProfileID: ownerProfileID
+            ownerProfileID: ownerProfileID,
+            ownerProfile: ownerProfile,
+            modelContext: modelContext
         )
         homeAggregate = built
         refreshCarouselHighlightsIfNeeded(using: built)

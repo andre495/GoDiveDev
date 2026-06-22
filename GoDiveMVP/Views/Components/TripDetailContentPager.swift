@@ -111,7 +111,8 @@ struct TripDetailContentPager: View {
             if hasStarted {
                 TripDetailBuddiesSection(
                     buddies: aggregate.buddies,
-                    rosterBuddiesByID: rosterBuddiesByID
+                    rosterBuddiesByID: rosterBuddiesByID,
+                    ownerProfile: ownerProfile
                 )
             } else {
                 TripDetailPlannedBuddiesSection(

@@ -676,6 +676,7 @@ struct ViewSingleActivity: View {
     private func selectActivityTab(_ tab: DiveActivityTab) {
         if tab == .camera, tab == selectedActivityTab {
             syncOverviewSheetPresentation(for: tab)
+            bumpMediaPresentationEpoch()
             return
         }
         guard tab != selectedActivityTab else { return }
@@ -693,6 +694,9 @@ struct ViewSingleActivity: View {
                 isOverviewPanelPresented = false
             }
             selectedActivityTab = tab
+            if tab == .camera {
+                bumpMediaPresentationEpoch()
+            }
         }
     }
 

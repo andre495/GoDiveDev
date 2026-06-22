@@ -13,28 +13,29 @@ struct ViewDiveBuddyDetails: View {
 
     @Bindable var buddy: DiveBuddy
 
-    @Query(sort: [SortDescriptor(\DiveActivity.startTime, order: .reverse)])
-    private var allDiveActivities: [DiveActivity]
+    @Query private var buddyDiveTags: [DiveBuddyTag]
 
     @Query private var buddyMediaTags: [DiveMediaBuddyTag]
-
-    @Query(
-        sort: [
-            SortDescriptor(\DiveTrip.startDate, order: .reverse),
-            SortDescriptor(\DiveTrip.createdAt, order: .reverse),
-        ]
-    )
-    private var allTrips: [DiveTrip]
 
     @State private var showsEditSheet = false
     @State private var showsContactPicker = false
     @State private var contactsAccessError: String?
     @State private var contactLinkError: String?
+    @State private var showsSecondarySections = false
+    @State private var cachedSharedDives: [DiveActivity] = []
+    @State private var cachedSharedDiveCount = 0
     @State private var cachedDiveRows: [DiveLogbookRowDisplayData] = []
+    @State private var cachedAssociatedTripRows: [DiveBuddyTripRowDisplayData] = []
+    @State private var cachedTaggedMediaItems: [DiveMediaPhoto] = []
+    @State private var cachedTaggedMediaTimeZoneOffsetByID: [UUID: Int?] = [:]
 
     init(buddy: DiveBuddy) {
         self.buddy = buddy
         let buddyID = buddy.id
+        _buddyDiveTags = Query(
+            filter: #Predicate<DiveBuddyTag> { $0.buddyID == buddyID },
+            sort: [SortDescriptor(\.id, order: .forward)]
+        )
         _buddyMediaTags = Query(
             filter: #Predicate<DiveMediaBuddyTag> { $0.buddyID == buddyID },
             sort: [SortDescriptor(\.id, order: .forward)]
@@ -45,74 +46,38 @@ struct ViewDiveBuddyDetails: View {
         accountSession.currentProfile?.id
     }
 
-    private var sharedDives: [DiveActivity] {
-        guard let ownerProfileID else { return [] }
-        return DiveBuddyRosterPresentation.sharedDiveActivities(for: buddy, ownerProfileID: ownerProfileID)
+    private var headerSharedDiveCount: Int {
+        max(cachedSharedDiveCount, buddyDiveTags.count)
     }
 
-    private var sharedDiveCount: Int {
-        sharedDives.count
+    private var buddyDetailLoadToken: String {
+        [
+            buddy.id.uuidString,
+            "\(buddyDiveTags.count)",
+            "\(buddyMediaTags.count)",
+            diveDisplayUnitSystem.rawValue,
+            automaticallyRenumberDives ? "1" : "0",
+        ].joined(separator: "|")
     }
 
-    private var associatedTripRows: [DiveBuddyTripRowDisplayData] {
-        guard let ownerProfileID else { return [] }
-        let trips = DiveBuddyTripPresentation.sortedAssociatedTrips(
-            DiveBuddyTripPresentation.associatedTrips(
-                buddyID: buddy.id,
-                ownerProfileID: ownerProfileID,
-                trips: allTrips,
-                sharedDiveIDs: Set(sharedDives.map(\.id))
-            )
-        )
-        return trips.map { DiveBuddyTripPresentation.rowDisplayData(for: $0) }
+    private var taggedMediaSectionItemCount: Int {
+        max(cachedTaggedMediaItems.count, taggedMediaTagCount)
     }
 
-    private var ownedDiveActivitiesForNumbering: [DiveActivity] {
-        guard let ownerProfileID else { return [] }
-        return allDiveActivities.filter { $0.ownerProfileID == ownerProfileID }
-    }
-
-    private var sharedDiveListRefreshToken: DiveBuddyRosterPresentation.SharedDiveListRefreshToken {
-        DiveBuddyRosterPresentation.sharedDiveListRefreshToken(
-            buddyID: buddy.id,
-            sharedDives: sharedDives,
-            unitSystem: diveDisplayUnitSystem,
-            useChronologicalNumbers: automaticallyRenumberDives,
-            numberingActivities: ownedDiveActivitiesForNumbering
-        )
-    }
-
-    private var ownerDiveActivityIDs: Set<UUID> {
-        guard let ownerProfileID else { return [] }
-        return Set(
-            allDiveActivities
-                .filter { $0.ownerProfileID == ownerProfileID }
-                .map(\.id)
-        )
-    }
-
-    private var taggedMediaItems: [DiveMediaPhoto] {
-        DiveBuddyTaggedMediaPresentation.resolvedTaggedMediaPhotos(
-            tags: buddyMediaTags,
-            ownerDiveActivityIDs: ownerDiveActivityIDs,
-            modelContext: modelContext
-        )
-    }
-
-    private var taggedMediaTimeZoneOffsetByID: [UUID: Int?] {
-        let offsetByActivityID = Dictionary(
-            uniqueKeysWithValues: allDiveActivities
-                .filter { ownerDiveActivityIDs.contains($0.id) }
-                .map { ($0.id, $0.timeZoneOffsetSeconds) }
-        )
-        return DiveBuddyTaggedMediaPresentation.timeZoneOffsetByMediaID(
-            tags: buddyMediaTags,
-            ownerDiveActivityIDs: ownerDiveActivityIDs,
-            timeZoneOffsetByActivityID: offsetByActivityID
-        )
+    private var taggedMediaTagCount: Int {
+        guard showsSecondarySections else { return buddyMediaTags.count }
+        return cachedTaggedMediaItems.count
     }
 
     var body: some View {
+        if DiveBuddySelfRepresentation.isSelfBuddy(buddy, owner: accountSession.currentProfile) {
+            ProfileView()
+        } else {
+            buddyDetailsPage
+        }
+    }
+
+    private var buddyDetailsPage: some View {
         AppPage(
             title: buddy.displayName,
             showsBackButton: true,
@@ -128,28 +93,34 @@ struct ViewDiveBuddyDetails: View {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
                     headerSection
 
-                    if !taggedMediaItems.isEmpty {
-                        taggedMediaSection
-                    }
+                    if showsSecondarySections {
+                        if taggedMediaSectionItemCount > 0 {
+                            taggedMediaSection
+                        }
 
-                    if !associatedTripRows.isEmpty {
-                        tripsTogetherSection
-                    }
+                        if !cachedAssociatedTripRows.isEmpty {
+                            tripsTogetherSection
+                        }
 
-                    divesTogetherSection
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                        divesTogetherSection
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    } else {
+                        Spacer(minLength: 0)
+                    }
                 }
                 .padding(AppTheme.Spacing.md)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         )
         .navigationDestination(for: UUID.self) { diveID in
-            if let activity = sharedDives.first(where: { $0.id == diveID }) {
+            if let activity = cachedSharedDives.first(where: { $0.id == diveID }) {
                 ViewSingleActivity(activity: activity)
             }
         }
-        .task(id: sharedDiveListRefreshToken) {
-            refreshCachedDiveRows()
+        .task(id: buddyDetailLoadToken) {
+            await Task.yield()
+            loadSecondarySections()
+            showsSecondarySections = true
         }
         .hidesBottomTabBarWhenPushed()
         .onAppear {
@@ -183,6 +154,9 @@ struct ViewDiveBuddyDetails: View {
             )
         }
         .task(id: buddy.id) {
+            guard buddy.contactsIdentifier != nil else { return }
+            await Task.yield()
+            try? await Task.sleep(for: .milliseconds(350))
             refreshLinkedContactOnAppear()
         }
         #endif
@@ -199,13 +173,70 @@ struct ViewDiveBuddyDetails: View {
         .accessibilityIdentifier("DiveBuddyDetails.Root")
     }
 
-    private func refreshCachedDiveRows() {
+    private func loadSecondarySections() {
+        guard let ownerProfileID else { return }
+
+        let sharedDives = DiveBuddyRosterPresentation.sharedDiveActivities(
+            from: buddyDiveTags,
+            ownerProfileID: ownerProfileID
+        )
+        cachedSharedDives = sharedDives
+        cachedSharedDiveCount = sharedDives.count
+
+        let ownerDiveActivities = fetchOwnerDiveActivities(ownerProfileID: ownerProfileID)
         cachedDiveRows = DiveBuddyRosterPresentation.sharedDiveRowDisplayData(
             sharedDives: sharedDives,
             unitSystem: diveDisplayUnitSystem,
             useChronologicalNumbers: automaticallyRenumberDives,
-            numberingActivities: ownedDiveActivitiesForNumbering
+            numberingActivities: ownerDiveActivities
         )
+
+        let ownerTrips = fetchOwnerTrips(ownerProfileID: ownerProfileID)
+        cachedAssociatedTripRows = DiveBuddyTripPresentation.sortedAssociatedTrips(
+            DiveBuddyTripPresentation.associatedTrips(
+                buddyID: buddy.id,
+                ownerProfileID: ownerProfileID,
+                trips: ownerTrips,
+                sharedDiveIDs: Set(sharedDives.map(\.id))
+            )
+        ).map { DiveBuddyTripPresentation.rowDisplayData(for: $0) }
+
+        let ownerDiveActivityIDs = Set(ownerDiveActivities.map(\.id))
+        let offsetByActivityID = Dictionary(
+            uniqueKeysWithValues: ownerDiveActivities.map { ($0.id, $0.timeZoneOffsetSeconds) }
+        )
+        cachedTaggedMediaItems = DiveBuddyTaggedMediaPresentation.resolvedTaggedMediaPhotos(
+            tags: buddyMediaTags,
+            ownerDiveActivityIDs: ownerDiveActivityIDs,
+            modelContext: modelContext
+        )
+        cachedTaggedMediaTimeZoneOffsetByID = DiveBuddyTaggedMediaPresentation.timeZoneOffsetByMediaID(
+            tags: buddyMediaTags,
+            ownerDiveActivityIDs: ownerDiveActivityIDs,
+            timeZoneOffsetByActivityID: offsetByActivityID
+        )
+    }
+
+    private func fetchOwnerDiveActivities(ownerProfileID: UUID) -> [DiveActivity] {
+        let descriptor = FetchDescriptor<DiveActivity>(
+            predicate: #Predicate { $0.ownerProfileID == ownerProfileID },
+            sortBy: [
+                SortDescriptor(\.startTime, order: .reverse),
+                SortDescriptor(\.id, order: .forward),
+            ]
+        )
+        return (try? modelContext.fetch(descriptor)) ?? []
+    }
+
+    private func fetchOwnerTrips(ownerProfileID: UUID) -> [DiveTrip] {
+        let descriptor = FetchDescriptor<DiveTrip>(
+            predicate: #Predicate { $0.ownerProfileID == ownerProfileID },
+            sortBy: [
+                SortDescriptor(\.startDate, order: .reverse),
+                SortDescriptor(\.createdAt, order: .reverse),
+            ]
+        )
+        return (try? modelContext.fetch(descriptor)) ?? []
     }
 
     private var contactsAccessAlertBinding: Binding<Bool> {
@@ -239,7 +270,7 @@ struct ViewDiveBuddyDetails: View {
                 .minimumScaleFactor(0.85)
                 .frame(maxWidth: .infinity)
 
-            Text(DiveBuddyRosterPresentation.sharedDiveCountLabel(sharedDiveCount))
+            Text(DiveBuddyRosterPresentation.sharedDiveCountLabel(headerSharedDiveCount))
                 .font(.body.weight(.medium))
                 .foregroundStyle(AppTheme.Colors.secondaryText)
                 .frame(maxWidth: .infinity)
@@ -334,13 +365,12 @@ struct ViewDiveBuddyDetails: View {
     private var taggedMediaSection: some View {
         ExpandableDetailSection(
             title: DiveBuddyTaggedMediaPresentation.sectionTitle,
-            itemCount: taggedMediaItems.count,
-            isExpandedByDefault: true,
+            itemCount: taggedMediaSectionItemCount,
             accessibilityIdentifier: "DiveBuddyDetails.TaggedMedia"
         ) {
             FieldGuideTaggedMediaGalleryView(
-                mediaItems: taggedMediaItems,
-                timeZoneOffsetByMediaID: taggedMediaTimeZoneOffsetByID,
+                mediaItems: cachedTaggedMediaItems,
+                timeZoneOffsetByMediaID: cachedTaggedMediaTimeZoneOffsetByID,
                 showsTitle: false,
                 previewAccessibilityIdentifier: "DiveBuddyDetails.TaggedMediaPreview",
                 carouselAccessibilityIdentifier: "DiveBuddyDetails.TaggedMediaCarousel"
@@ -351,13 +381,13 @@ struct ViewDiveBuddyDetails: View {
     private var tripsTogetherSection: some View {
         ExpandableDetailSection(
             title: DiveBuddyTripPresentation.sectionTitle,
-            itemCount: associatedTripRows.count,
+            itemCount: cachedAssociatedTripRows.count,
             accessibilityIdentifier: "DiveBuddyDetails.TripsTogether"
         ) {
             EmptyView()
         } content: {
             DiveBuddyTripListRows(
-                rows: associatedTripRows,
+                rows: cachedAssociatedTripRows,
                 listAccessibilityIdentifier: "DiveBuddyDetails.TripList"
             )
         }
@@ -366,10 +396,8 @@ struct ViewDiveBuddyDetails: View {
     private var divesTogetherSection: some View {
         ExpandableDetailSection(
             title: "Dives together",
-            itemCount: sharedDiveCount,
+            itemCount: cachedSharedDiveCount,
             scrollsExpandedContent: ExpandableDetailSectionPresentation.buddyDetailScrollsExpandedDiveList,
-            keepsExpandedContentMountedAfterFirstReveal:
-                ExpandableDetailSectionPresentation.buddyDetailKeepsExpandedContentMounted,
             accessibilityIdentifier: "DiveBuddyDetails.DivesTogether"
         ) {
             Text("No dives tagged with this buddy yet.")

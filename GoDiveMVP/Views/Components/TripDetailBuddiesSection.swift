@@ -4,6 +4,7 @@ import SwiftUI
 struct TripDetailBuddiesSection: View {
     let buddies: [DiveTripBuddySummary]
     let rosterBuddiesByID: [UUID: DiveBuddy]
+    var ownerProfile: UserProfile?
 
     private var columns: [GridItem] {
         Array(
@@ -12,9 +13,16 @@ struct TripDetailBuddiesSection: View {
         )
     }
 
+    private var visibleBuddies: [DiveTripBuddySummary] {
+        buddies.filter { summary in
+            guard let rosterBuddy = rosterBuddiesByID[summary.buddyID] else { return true }
+            return !DiveBuddySelfRepresentation.isSelfBuddy(rosterBuddy, owner: ownerProfile)
+        }
+    }
+
     var body: some View {
         Group {
-            if buddies.isEmpty {
+            if visibleBuddies.isEmpty {
                 Text(DiveTripPresentation.tripBuddiesEmptyMessage)
                     .font(.body)
                     .foregroundStyle(AppTheme.Colors.secondaryText)
@@ -23,7 +31,7 @@ struct TripDetailBuddiesSection: View {
                     .accessibilityIdentifier("TripDetail.Buddies.Empty")
             } else {
                 LazyVGrid(columns: columns, spacing: TripDetailBuddiesPresentation.gridSpacing) {
-                    ForEach(buddies) { buddy in
+                    ForEach(visibleBuddies) { buddy in
                         buddyCell(for: buddy)
                     }
                 }
@@ -42,7 +50,11 @@ struct TripDetailBuddiesSection: View {
             rosterBuddy: rosterBuddiesByID[summary.buddyID]
         )
 
-        if let rosterBuddy = rosterBuddiesByID[summary.buddyID] {
+        if let rosterBuddy = rosterBuddiesByID[summary.buddyID],
+           DiveBuddySelfRepresentation.isSelfBuddy(rosterBuddy, owner: ownerProfile) {
+            cell
+                .accessibilityIdentifier("TripDetail.Buddies.\(summary.buddyID.uuidString)")
+        } else if let rosterBuddy = rosterBuddiesByID[summary.buddyID] {
             NavigationLink {
                 ViewDiveBuddyDetails(buddy: rosterBuddy)
                     .hidesBottomTabBarWhenPushed()

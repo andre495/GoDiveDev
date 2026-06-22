@@ -187,6 +187,15 @@ struct HomeMediaCarouselEmptyPlaceholder: View {
     }
 }
 
+/// When **`true`**, Home hero interaction chrome (fish overlay, buddy list) should sit above **`AppHeader`** hit testing.
+enum HomeHeroInteractionOverlayKey: PreferenceKey {
+    static var defaultValue: Bool = false
+
+    static func reduce(value: inout Bool, nextValue: () -> Bool) {
+        value = value || nextValue()
+    }
+}
+
 struct HomeMediaCarouselSection: View {
     let highlights: [HomeMediaHighlight]
     let mediaByID: [UUID: DiveMediaPhoto]
@@ -197,16 +206,20 @@ struct HomeMediaCarouselSection: View {
     let containerWidth: CGFloat
     let topSafeAreaInset: CGFloat
     let headerOverlayHeight: CGFloat
+    let selfBuddyID: UUID?
+    /// False while a pushed Home **`NavigationStack`** destination covers the hero.
+    var isHeroPlaybackActive: Bool = true
     let onOpenDive: (UUID) -> Void
     let onOpenMedia: (UUID, UUID) -> Void
     let onOpenBuddy: (UUID) -> Void
 
     @Environment(\.scenePhase) private var scenePhase
-    @State private var selectedIndex = 0
+    @State private var pagerSelectedIndex = 0
     @State private var isCarouselVisible = false
     @State private var marineLifeOverlayMediaID: UUID?
     @State private var selectedTaggedSpeciesUUID: String?
     @State private var expandedBuddyListMediaID: UUID?
+    @State private var playbackResumeToken = 0
 
     private var heroHeight: CGFloat {
         HomeMediaCarouselLayout.heroHeight(
@@ -227,58 +240,113 @@ struct HomeMediaCarouselSection: View {
         return !taggedSpecies(for: mediaID).isEmpty
     }
 
+    private var isCarouselInteractionHold: Bool {
+        HomeMediaCarouselPresentation.holdsSlideForInteraction(
+            showsMarineLifeOverlay: showsMarineLifeOverlay,
+            hasExpandedBuddyList: expandedBuddyListMediaID != nil
+        )
+    }
+
     private var isPlaybackAllowed: Bool {
-        isCarouselVisible && scenePhase == .active
+        isCarouselVisible && isHeroPlaybackActive && scenePhase == .active
     }
 
     private var isAutoAdvanceEnabled: Bool {
-        isPlaybackAllowed && HomeMediaCarouselPresentation.shouldAutoAdvance(slideCount: highlights.count)
+        isPlaybackAllowed
+            && HomeMediaCarouselPresentation.shouldAutoAdvance(slideCount: highlights.count)
+            && !isCarouselInteractionHold
     }
 
     private var keepsAllSlidesLoaded: Bool {
         HomeMediaCarouselPresentation.keepsAllSlidesLoaded(slideCount: highlights.count)
     }
 
-    private func isSlideActive(_ index: Int) -> Bool {
-        isPlaybackAllowed && selectedIndex == index
+    private var pagerSlideCount: Int {
+        HomeMediaCarouselPresentation.loopingPagerSlideCount(slideCount: highlights.count)
+    }
+
+    private var activeLogicalSlideIndex: Int {
+        HomeMediaCarouselPresentation.logicalSlideIndex(
+            pagerIndex: pagerSelectedIndex,
+            slideCount: highlights.count
+        )
+    }
+
+    private func isSlideActive(_ logicalIndex: Int) -> Bool {
+        isPlaybackAllowed && activeLogicalSlideIndex == logicalIndex
     }
 
     var body: some View {
         ZStack(alignment: .top) {
-            TabView(selection: $selectedIndex) {
-                ForEach(Array(highlights.enumerated()), id: \.element.id) { index, highlight in
+            TabView(selection: $pagerSelectedIndex) {
+                ForEach(0..<pagerSlideCount, id: \.self) { pagerIndex in
+                    let logicalIndex = HomeMediaCarouselPresentation.logicalSlideIndex(
+                        pagerIndex: pagerIndex,
+                        slideCount: highlights.count
+                    )
+                    let highlight = highlights[logicalIndex]
                     if let media = mediaByID[highlight.mediaID] {
                         HomeMediaCarouselPage(
                             highlight: highlight,
                             media: media,
-                            slideIndex: index,
+                            slideIndex: logicalIndex,
                             slideCount: highlights.count,
                             pageWidth: containerWidth,
                             pageHeight: heroHeight,
-                            isVideoPlaybackActive: isSlideActive(index),
-                            isAutoAdvanceActive: isAutoAdvanceEnabled && isSlideActive(index),
+                            isVideoPlaybackActive: isSlideActive(logicalIndex),
+                            isAutoAdvanceActive: isAutoAdvanceEnabled && isSlideActive(logicalIndex),
+                            loopsSlidePlayback: isCarouselInteractionHold && isSlideActive(logicalIndex),
+                            playbackResumeToken: isSlideActive(logicalIndex) ? playbackResumeToken : 0,
                             playbackAllowed: isPlaybackAllowed,
                             showsBottomChrome: !showsMarineLifeOverlay,
-                            onSlideFinished: { finishSlide(at: index) },
+                            onSlideFinished: { finishSlide(at: logicalIndex) },
                             onOpenMedia: { onOpenMedia(highlight.diveActivityID, highlight.mediaID) },
                             onOpenDive: { onOpenDive(highlight.diveActivityID) },
                             onShowTaggedSpecies: { openMarineLifeOverlay(for: highlight.mediaID) },
                             taggedBuddies: taggedBuddyRowsByMediaID[highlight.mediaID] ?? [],
                             isBuddyListExpanded: expandedBuddyListMediaID == highlight.mediaID,
                             onToggleBuddyList: { toggleBuddyList(for: highlight.mediaID) },
+                            selfBuddyID: selfBuddyID,
                             onOpenBuddy: onOpenBuddy
                         )
-                        .tag(index)
+                        .tag(pagerIndex)
                     }
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(width: containerWidth, height: heroHeight)
             .clipped()
-            .onChange(of: selectedIndex) { oldIndex, newIndex in
+            .onChange(of: pagerSelectedIndex) { oldIndex, newIndex in
                 closeMarineLifeOverlay()
                 closeBuddyList()
-                logSlideSelection(from: oldIndex, to: newIndex)
+                if HomeMediaCarouselPresentation.shouldResetLoopingPagerIndex(
+                    pagerIndex: newIndex,
+                    slideCount: highlights.count
+                ) {
+                    var transaction = Transaction()
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) {
+                        pagerSelectedIndex = 0
+                    }
+                    logSlideSelection(
+                        from: HomeMediaCarouselPresentation.logicalSlideIndex(
+                            pagerIndex: oldIndex,
+                            slideCount: highlights.count
+                        ),
+                        to: 0
+                    )
+                    return
+                }
+                logSlideSelection(
+                    from: HomeMediaCarouselPresentation.logicalSlideIndex(
+                        pagerIndex: oldIndex,
+                        slideCount: highlights.count
+                    ),
+                    to: HomeMediaCarouselPresentation.logicalSlideIndex(
+                        pagerIndex: newIndex,
+                        slideCount: highlights.count
+                    )
+                )
             }
 
             if !showsMarineLifeOverlay {
@@ -293,25 +361,16 @@ struct HomeMediaCarouselSection: View {
             }
 
             if showsMarineLifeOverlay, let mediaID = marineLifeOverlayMediaID {
-                TripDetailMediaMarineLifeOverlay(
+                HomeMediaCarouselMarineLifeOverlay(
                     taggedSpecies: taggedSpecies(for: mediaID),
                     previewSize: marineLifeOverlaySize,
                     cornerRadius: HomeMediaCarouselPresentation.marineLifeOverlayCornerRadius,
                     ownerProfileID: ownerProfileID,
-                    featureImageHeight: HomeMediaCarouselPresentation.marineLifeOverlayFeatureImageHeight(
-                        previewHeight: marineLifeOverlaySize.height
-                    ),
-                    featureImageMaxWidth: HomeMediaCarouselPresentation.marineLifeOverlayFeatureImageMaxWidth(
-                        previewWidth: marineLifeOverlaySize.width
-                    ),
-                    backgroundStyle: .overMediaDimming,
-                    closePlacement: .leading,
                     closeTopInset: HomeMediaCarouselPresentation.marineLifeOverlayCloseTopInset(
                         previewHeight: marineLifeOverlaySize.height,
                         topSafeAreaInset: topSafeAreaInset,
                         headerOverlayHeight: headerOverlayHeight
                     ),
-                    accessibilityRoot: "Home.MediaCarousel.MarineLifeOverlay",
                     selectedSpeciesUUID: $selectedTaggedSpeciesUUID,
                     onOpenDive: onOpenDive,
                     onClose: closeMarineLifeOverlay
@@ -327,6 +386,12 @@ struct HomeMediaCarouselSection: View {
         .padding(.top, -topSafeAreaInset)
         .ignoresSafeArea(edges: .top)
         .animation(marineLifeOverlayAnimation, value: showsMarineLifeOverlay)
+        .background {
+            Color.clear.preference(
+                key: HomeHeroInteractionOverlayKey.self,
+                value: isCarouselInteractionHold
+            )
+        }
         .accessibilityIdentifier("Home.MediaCarousel")
         .onAppear {
             isCarouselVisible = true
@@ -335,7 +400,7 @@ struct HomeMediaCarouselSection: View {
                 mediaIDs: highlights.map(\.mediaID),
                 keepsAllSlidesLoaded: keepsAllSlidesLoaded
             )
-            logSlideSelection(from: selectedIndex, to: selectedIndex)
+            logSlideSelection(from: activeLogicalSlideIndex, to: activeLogicalSlideIndex)
         }
         .onDisappear {
             isCarouselVisible = false
@@ -343,6 +408,24 @@ struct HomeMediaCarouselSection: View {
         }
         .onChange(of: scenePhase) { _, phase in
             HomeMediaCarouselDebug.scenePhase(isActive: phase == .active)
+        }
+        .onChange(of: isPlaybackAllowed) { wasAllowed, isAllowed in
+            if HomeMediaCarouselPresentation.shouldBumpPlaybackResumeWhenAllowed(
+                wasPlaybackAllowed: wasAllowed,
+                isPlaybackAllowed: isAllowed
+            ) {
+                invalidateCarouselVideoPlaybackHandoff()
+                playbackResumeToken += 1
+            }
+        }
+        .onChange(of: isHeroPlaybackActive) { wasActive, isActive in
+            if wasActive, !isActive {
+                closeMarineLifeOverlay()
+                closeBuddyList()
+            } else if !wasActive, isActive {
+                closeMarineLifeOverlay()
+                closeBuddyList()
+            }
         }
     }
 
@@ -388,6 +471,8 @@ struct HomeMediaCarouselSection: View {
             if expandedBuddyListMediaID == mediaID {
                 expandedBuddyListMediaID = nil
             } else {
+                marineLifeOverlayMediaID = nil
+                selectedTaggedSpeciesUUID = nil
                 expandedBuddyListMediaID = mediaID
             }
         }
@@ -402,23 +487,39 @@ struct HomeMediaCarouselSection: View {
 
     private func advanceToNextSlide() {
         guard HomeMediaCarouselPresentation.shouldAutoAdvance(slideCount: highlights.count) else { return }
-        let next = HomeMediaCarouselPresentation.nextIndex(
-            after: selectedIndex,
-            count: highlights.count
+        let next = HomeMediaCarouselPresentation.nextLoopingPagerIndex(
+            after: pagerSelectedIndex,
+            slideCount: highlights.count
         )
         withAnimation(.easeInOut(duration: 0.35)) {
-            selectedIndex = next
+            pagerSelectedIndex = next
+        }
+    }
+
+    private func invalidateCarouselVideoPlaybackHandoff() {
+        for sourceKey in HomeMediaCarouselPresentation.carouselVideoSourceIdentityKeys(
+            highlights: highlights,
+            mediaByID: mediaByID
+        ) {
+            DiveMediaVideoPlaybackSessionCache.shared.invalidateLibraryPlayback(
+                sourceIdentityKey: sourceKey
+            )
         }
     }
 
     /// Only the currently visible slide may advance the carousel (guards stale video end callbacks).
     private func finishSlide(at index: Int) {
         guard HomeMediaCarouselPresentation.shouldAdvanceFromSlide(
-            selectedIndex: selectedIndex,
+            selectedIndex: activeLogicalSlideIndex,
             finishingSlideIndex: index,
-            isPlaybackAllowed: isPlaybackAllowed
+            isPlaybackAllowed: isPlaybackAllowed,
+            holdsSlideForInteraction: isCarouselInteractionHold
         ) else { return }
-        advanceToNextSlide()
+        if HomeMediaCarouselPresentation.shouldRestartClipAfterPlaybackFinished(slideCount: highlights.count) {
+            playbackResumeToken += 1
+        } else {
+            advanceToNextSlide()
+        }
     }
 
     private func logSlideSelection(from oldIndex: Int, to newIndex: Int) {
@@ -484,6 +585,8 @@ private struct HomeMediaCarouselPage: View {
     let pageHeight: CGFloat
     var isVideoPlaybackActive: Bool
     var isAutoAdvanceActive: Bool
+    var loopsSlidePlayback: Bool = false
+    var playbackResumeToken: Int = 0
     var playbackAllowed: Bool = true
     var showsBottomChrome: Bool = true
     let onSlideFinished: () -> Void
@@ -493,6 +596,7 @@ private struct HomeMediaCarouselPage: View {
     let taggedBuddies: [DiveMediaBuddyTagPresentation.TaggedBuddyRow]
     let isBuddyListExpanded: Bool
     let onToggleBuddyList: () -> Void
+    let selfBuddyID: UUID?
     let onOpenBuddy: (UUID) -> Void
 
     var body: some View {
@@ -503,6 +607,8 @@ private struct HomeMediaCarouselPage: View {
             containerWidth: pageWidth,
             isVideoPlaybackActive: isVideoPlaybackActive,
             isAutoAdvanceActive: isAutoAdvanceActive,
+            loopsSlidePlayback: loopsSlidePlayback,
+            playbackResumeToken: playbackResumeToken,
             playbackAllowed: playbackAllowed,
             onSlideFinished: onSlideFinished
         )
@@ -519,6 +625,7 @@ private struct HomeMediaCarouselPage: View {
                     taggedBuddies: taggedBuddies,
                     isBuddyListExpanded: isBuddyListExpanded,
                     onToggleBuddyList: onToggleBuddyList,
+                    selfBuddyID: selfBuddyID,
                     onOpenBuddy: onOpenBuddy
                 )
                 .frame(width: pageWidth)
@@ -536,6 +643,7 @@ private struct HomeMediaCarouselSlideBottomChrome: View {
     let taggedBuddies: [DiveMediaBuddyTagPresentation.TaggedBuddyRow]
     let isBuddyListExpanded: Bool
     let onToggleBuddyList: () -> Void
+    let selfBuddyID: UUID?
     let onOpenBuddy: (UUID) -> Void
 
     private enum Layout {
@@ -543,7 +651,7 @@ private struct HomeMediaCarouselSlideBottomChrome: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: AppTheme.Spacing.md) {
+        HStack(alignment: .bottom, spacing: AppTheme.Spacing.md) {
             HomeMediaCarouselDiveLinkButton(
                 siteDisplayName: highlight.siteDisplayName,
                 diveNumberLabel: highlight.diveNumberLabel,
@@ -564,6 +672,7 @@ private struct HomeMediaCarouselSlideBottomChrome: View {
                     taggedBuddies: taggedBuddies,
                     taggedCount: highlight.taggedBuddyCount,
                     isExpanded: isBuddyListExpanded,
+                    selfBuddyID: selfBuddyID,
                     onToggle: onToggleBuddyList,
                     onOpenBuddy: onOpenBuddy
                 )
@@ -695,6 +804,7 @@ private struct HomeMediaCarouselTaggedBuddiesButton: View {
     let taggedBuddies: [DiveMediaBuddyTagPresentation.TaggedBuddyRow]
     let taggedCount: Int
     let isExpanded: Bool
+    let selfBuddyID: UUID?
     let onToggle: () -> Void
     let onOpenBuddy: (UUID) -> Void
 
@@ -702,7 +812,23 @@ private struct HomeMediaCarouselTaggedBuddiesButton: View {
         static var iconDiameter: CGFloat { HomeMediaCarouselLayout.slideChromeControlHeight }
         static var avatarDiameter: CGFloat { max(iconDiameter - 4, 32) }
         static let avatarSpacing: CGFloat = 8
-        static let riseDistance: CGFloat = 16
+        /// How far each avatar travels upward from the buddy icon when expanding.
+        static let iconAnchorRise: CGFloat = 12
+        static let staggerDelayStep: TimeInterval = 0.055
+    }
+
+    private var buddyExpandAnimation: Animation {
+        .spring(response: 0.4, dampingFraction: 0.76)
+    }
+
+    private func collapsedBuddyOffset(index: Int, total: Int) -> CGFloat {
+        let avatarsBelow = (total - 1) - index
+        let stackBelowHeight = CGFloat(avatarsBelow) * (Layout.avatarDiameter + Layout.avatarSpacing)
+        return stackBelowHeight + Layout.iconDiameter + Layout.iconAnchorRise
+    }
+
+    private func buddyRevealDelay(index: Int, total: Int) -> TimeInterval {
+        Double(total - 1 - index) * Layout.staggerDelayStep
     }
 
     private var iconColor: Color {
@@ -710,40 +836,55 @@ private struct HomeMediaCarouselTaggedBuddiesButton: View {
     }
 
     var body: some View {
-        VStack(spacing: Layout.avatarSpacing) {
-            ForEach(Array(taggedBuddies.enumerated()), id: \.element.id) { index, buddy in
-                Button {
-                    onOpenBuddy(buddy.buddyID)
-                } label: {
-                    ProfileAvatarView(
-                        profilePhoto: buddy.profilePhoto,
-                        diameter: Layout.avatarDiameter,
-                        iconFont: .callout
-                    )
-                    .background {
-                        Circle()
-                            .fill(.black.opacity(0.42))
-                            .background {
-                                Circle()
-                                    .fill(.ultraThinMaterial)
-                            }
-                            .clipShape(Circle())
+        ZStack(alignment: .bottom) {
+            VStack(spacing: Layout.avatarSpacing) {
+                ForEach(Array(taggedBuddies.enumerated()), id: \.element.id) { index, buddy in
+                    Button {
+                        onOpenBuddy(buddy.buddyID)
+                    } label: {
+                        ProfileAvatarView(
+                            profilePhoto: buddy.profilePhoto,
+                            diameter: Layout.avatarDiameter,
+                            iconFont: .callout
+                        )
+                        .background {
+                            Circle()
+                                .fill(.black.opacity(0.42))
+                                .background {
+                                    Circle()
+                                        .fill(.ultraThinMaterial)
+                                }
+                                .clipShape(Circle())
+                        }
                     }
+                    .buttonStyle(.plain)
+                    .offset(
+                        y: isExpanded
+                            ? 0
+                            : collapsedBuddyOffset(index: index, total: taggedBuddies.count)
+                    )
+                    .opacity(isExpanded ? 1 : 0)
+                    .animation(
+                        buddyExpandAnimation.delay(
+                            buddyRevealDelay(index: index, total: taggedBuddies.count)
+                        ),
+                        value: isExpanded
+                    )
+                    .accessibilityLabel(buddy.displayName)
+                    .accessibilityHint(
+                        DiveBuddySelfRepresentation.isSelfBuddyID(
+                            buddy.buddyID,
+                            selfBuddyID: selfBuddyID
+                        )
+                            ? "Opens your profile"
+                            : "Opens buddy overview"
+                    )
+                    .accessibilityIdentifier("Home.MediaCarousel.TaggedBuddy.\(buddy.buddyID.uuidString)")
                 }
-                .buttonStyle(.plain)
-                .offset(y: isExpanded ? 0 : Layout.riseDistance)
-                .opacity(isExpanded ? 1 : 0)
-                .scaleEffect(isExpanded ? 1 : 0.55, anchor: .bottom)
-                .allowsHitTesting(isExpanded)
-                .animation(
-                    .spring(response: 0.34, dampingFraction: 0.82)
-                        .delay(Double(taggedBuddies.count - 1 - index) * 0.04),
-                    value: isExpanded
-                )
-                .accessibilityLabel(buddy.displayName)
-                .accessibilityHint("Opens buddy overview")
-                .accessibilityIdentifier("Home.MediaCarousel.TaggedBuddy.\(buddy.buddyID.uuidString)")
             }
+            .padding(.bottom, Layout.iconDiameter + Layout.avatarSpacing)
+            .allowsHitTesting(isExpanded)
+            .accessibilityHidden(!isExpanded)
 
             Button(action: onToggle) {
                 ZStack(alignment: .topTrailing) {
@@ -773,6 +914,7 @@ private struct HomeMediaCarouselTaggedBuddiesButton: View {
                 }
             }
             .buttonStyle(.plain)
+            .animation(buddyExpandAnimation, value: isExpanded)
             .accessibilityLabel(
                 isExpanded
                     ? "Hide tagged buddies"
@@ -781,7 +923,7 @@ private struct HomeMediaCarouselTaggedBuddiesButton: View {
             .accessibilityHint(isExpanded ? "Collapses the buddy list" : "Shows buddies tagged on this photo")
             .accessibilityIdentifier("Home.MediaCarousel.TaggedBuddies")
         }
-        .animation(.spring(response: 0.34, dampingFraction: 0.82), value: isExpanded)
+        .frame(minHeight: Layout.iconDiameter, alignment: .bottom)
     }
 }
 
@@ -797,6 +939,8 @@ private struct HomeMediaCarouselMediaView: View {
     var containerWidth: CGFloat = HomeMediaHighlightWarmupPresentation.defaultHeroContainerWidth
     var isVideoPlaybackActive: Bool
     var isAutoAdvanceActive: Bool
+    var loopsSlidePlayback: Bool = false
+    var playbackResumeToken: Int = 0
     var playbackAllowed: Bool = true
     let onSlideFinished: () -> Void
 
@@ -815,20 +959,20 @@ private struct HomeMediaCarouselMediaView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .accessibilityHidden(isVideo && isVideoPlaybackActive)
 
-            if isVideo {
+            if isVideo && isVideoPlaybackActive {
                 DiveActivityVideoPlayerView(
                     source: media.videoPlaybackSource,
                     isPlaybackActive: isVideoPlaybackActive,
-                    loopsPlayback: false,
+                    loopsPlayback: loopsSlidePlayback,
                     libraryVideoQuality: .homeCarousel,
                     usesProgressiveFidelity: true,
                     screenPixelWidth: containerWidth * displayScale,
                     initialPosterImage: sessionCachedImage ?? storedPreviewImage,
-                    onPlaybackFinished: onSlideFinished,
+                    onPlaybackFinished: loopsSlidePlayback ? nil : onSlideFinished,
                     onAssetMissing: pruneIfAssetMissing
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .id(media.id)
+                .id("\(media.id)-resume-\(playbackResumeToken)")
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -863,7 +1007,7 @@ private struct HomeMediaCarouselMediaView: View {
     }
 
     private var photoAutoAdvanceTaskID: String {
-        "\(media.id.uuidString)-photo-auto-\(isAutoAdvanceActive)"
+        "\(media.id.uuidString)-photo-auto-\(isAutoAdvanceActive)-\(playbackResumeToken)"
     }
 
     private func runPhotoAutoAdvanceIfNeeded() async {

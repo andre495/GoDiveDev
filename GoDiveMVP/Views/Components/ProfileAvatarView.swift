@@ -9,11 +9,20 @@ struct ProfileAvatarView: View {
     var diameter: CGFloat
     var iconFont: Font = .title3
 
+    #if canImport(UIKit)
+    @State private var decodedImage: UIImage?
+    #endif
+
+    private var profilePhotoCacheKey: String {
+        guard let profilePhoto else { return "nil" }
+        return ProfileAvatarImageCachePresentation.cacheKey(for: profilePhoto)
+    }
+
     var body: some View {
         Group {
             #if canImport(UIKit)
-            if let profilePhoto, let image = UIImage(data: profilePhoto) {
-                Image(uiImage: image)
+            if let decodedImage {
+                Image(uiImage: decodedImage)
                     .resizable()
                     .scaledToFill()
             } else {
@@ -29,6 +38,11 @@ struct ProfileAvatarView: View {
             Circle()
                 .strokeBorder(AppTheme.Colors.accentDeep, lineWidth: ringLineWidth)
         }
+        #if canImport(UIKit)
+        .task(id: profilePhotoCacheKey) {
+            decodedImage = await ProfileAvatarImageCache.shared.image(for: profilePhoto)
+        }
+        #endif
     }
 
     private var ringLineWidth: CGFloat {
