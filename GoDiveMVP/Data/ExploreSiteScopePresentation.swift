@@ -205,9 +205,10 @@ enum ExploreSiteScopePresentation: Sendable {
         guard DiveMapCoordinateResolver.isUsable(coordinate) else { return nil }
 
         if let catalogSite = catalogByReferenceID[snapshot.id] {
+            let siteName = DiveSiteCatalogMatcher.resolvedCatalogSiteName(for: catalogSite) ?? catalogSite.siteName
             return ExploreCatalogMapPresentation.PlottedSite(
                 id: catalogSite.id,
-                siteName: catalogSite.siteName,
+                siteName: siteName,
                 coordinate: coordinate,
                 selection: .catalog(catalogSite.id),
                 isVisited: logbookSiteIDs.contains(catalogSite.id)
@@ -216,7 +217,7 @@ enum ExploreSiteScopePresentation: Sendable {
 
         return ExploreCatalogMapPresentation.PlottedSite(
             id: stableMapPinID(forReferenceID: snapshot.id),
-            siteName: snapshot.name,
+            siteName: DiveSiteCatalogMatcher.sanitizedReferenceDisplayName(snapshot.name) ?? snapshot.name,
             coordinate: coordinate,
             selection: .reference(snapshot.id),
             isVisited: false
@@ -231,7 +232,7 @@ enum ExploreReferenceSiteListDisplay {
             ExploreDiveSiteRowDisplayData(
                 id: ExploreSiteScopePresentation.stableMapPinID(forReferenceID: snapshot.id),
                 referenceID: snapshot.id,
-                displayName: snapshot.name,
+                displayName: DiveSiteCatalogMatcher.sanitizedReferenceDisplayName(snapshot.name) ?? snapshot.name,
                 diveCountLabel: nil,
                 coordinateLine: coordinateLine(for: snapshot),
                 placeLine: ExploreDiveSiteListDisplay.cityCountryLine(

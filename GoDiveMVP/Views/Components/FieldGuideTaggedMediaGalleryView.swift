@@ -4,6 +4,7 @@ import SwiftUI
 struct FieldGuideTaggedMediaGalleryView: View {
     let mediaItems: [DiveMediaPhoto]
     let timeZoneOffsetByMediaID: [UUID: Int?]
+    var showsTitle = true
     var previewAccessibilityIdentifier = "FieldGuide.SpeciesDetail.TaggedMediaPreview"
     var carouselAccessibilityIdentifier = "FieldGuide.SpeciesDetail.TaggedMediaCarousel"
 
@@ -29,19 +30,28 @@ struct FieldGuideTaggedMediaGalleryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                Text("Your tagged photos")
-                    .font(.headline)
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
+            if showsTitle {
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                    Text("Your tagged photos")
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.Colors.textPrimary)
 
-                if let positionLabel = DiveActivityMediaPresentation.mediaPositionLabel(
-                    selectedID: selectedMediaID,
-                    in: mediaItems
-                ) {
-                    Text(positionLabel)
-                        .font(.footnote)
-                        .foregroundStyle(AppTheme.Colors.secondaryText)
+                    if let positionLabel = DiveActivityMediaPresentation.mediaPositionLabel(
+                        selectedID: selectedMediaID,
+                        in: mediaItems
+                    ) {
+                        Text(positionLabel)
+                            .font(.footnote)
+                            .foregroundStyle(AppTheme.Colors.secondaryText)
+                    }
                 }
+            } else if let positionLabel = DiveActivityMediaPresentation.mediaPositionLabel(
+                selectedID: selectedMediaID,
+                in: mediaItems
+            ) {
+                Text(positionLabel)
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
             }
 
             largePreview
@@ -53,7 +63,9 @@ struct FieldGuideTaggedMediaGalleryView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Your tagged photos")
-        .onAppear(perform: syncSelectionToMedia)
+        .onAppear {
+            syncSelectionToMedia()
+        }
         .onChange(of: mediaIDsSignature) { _, _ in
             syncSelectionToMedia()
         }

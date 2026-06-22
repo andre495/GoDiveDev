@@ -113,6 +113,10 @@ final class DiveActivity {
     @Relationship(deleteRule: .cascade)
     var marineLifeSightings: [SightingInstance] = []
 
+    /// Buddies tagged on individual media items for this dive (**`DiveMediaBuddyTag`**).
+    @Relationship(deleteRule: .cascade)
+    var mediaBuddyTags: [DiveMediaBuddyTag] = []
+
     /// Trips this dive is linked to (usually one **`DiveTripActivityLink`**).
     @Relationship
     var tripActivityLinks: [DiveTripActivityLink] = []
@@ -245,8 +249,9 @@ extension DiveActivity {
 
     /// Primary site title: linked catalog name, else import **`siteName`**.
     var resolvedSiteName: String? {
-        let linked = diveSite?.siteName.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !linked.isEmpty { return linked }
+        if let diveSite, let linked = DiveSiteCatalogMatcher.resolvedCatalogSiteName(for: diveSite) {
+            return linked
+        }
         let imported = siteName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return imported.isEmpty ? nil : imported
     }

@@ -41,7 +41,7 @@ enum ExploreCatalogMapPresentation: Sendable {
             guard DiveMapCoordinateResolver.isUsable(coordinate) else { return nil }
             return PlottedSite(
                 id: site.id,
-                siteName: site.siteName,
+                siteName: DiveSiteCatalogMatcher.resolvedCatalogSiteName(for: site) ?? site.siteName,
                 coordinate: coordinate,
                 selection: .catalog(site.id),
                 isVisited: true
@@ -82,5 +82,16 @@ enum ExploreCatalogMapPresentation: Sendable {
 
     nonisolated static func region(for sites: [PlottedSite]) -> MKCoordinateRegion? {
         boundingRegion(for: sites)?.mkCoordinateRegion
+    }
+
+    /// Cheap fingerprint for map pin sync — avoids sorting thousands of site ids on every map update.
+    nonisolated static func sitesChangeSignature(for sites: [PlottedSite]) -> String {
+        var hasher = Hasher()
+        hasher.combine(sites.count)
+        for site in sites {
+            hasher.combine(site.id)
+            hasher.combine(site.isVisited)
+        }
+        return "\(sites.count)-\(hasher.finalize())"
     }
 }

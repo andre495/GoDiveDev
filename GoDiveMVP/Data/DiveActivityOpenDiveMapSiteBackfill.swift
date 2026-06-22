@@ -6,9 +6,11 @@ enum DiveActivityOpenDiveMapSiteBackfill {
     private static let completedKey = "goDiveOpenDiveMapSiteLinkBackfillComplete"
 
     static func backfillIfNeeded(modelContext: ModelContext) throws {
-        guard !UserDefaults.standard.bool(forKey: completedKey) else { return }
-        _ = try DiveActivitySiteAssociation.backfillOpenDiveMapSiteLinks(modelContext: modelContext)
-        UserDefaults.standard.set(true, forKey: completedKey)
+        if !UserDefaults.standard.bool(forKey: completedKey) {
+            _ = try DiveActivitySiteAssociation.backfillOpenDiveMapSiteLinks(modelContext: modelContext)
+            UserDefaults.standard.set(true, forKey: completedKey)
+        }
+        try DiveActivitySiteAssociation.normalizeOpenDiveMapCatalogSiteNames(modelContext: modelContext)
     }
 
     #if DEBUG

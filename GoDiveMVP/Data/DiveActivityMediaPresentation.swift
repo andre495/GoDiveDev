@@ -167,8 +167,11 @@ enum DiveActivityMediaPresentation: Sendable {
         species: MarineLife,
         on media: DiveMediaPhoto
     ) -> Bool {
-        guard let fishialName = media.resolvedFishialConfirmedSpeciesName else { return false }
-        return species.scientificName.caseInsensitiveCompare(fishialName) == .orderedSame
+        let confirmedNames = media.resolvedFishialConfirmedSpeciesNames
+        guard !confirmedNames.isEmpty else { return false }
+        return confirmedNames.contains {
+            species.scientificName.caseInsensitiveCompare($0) == .orderedSame
+        }
     }
 
     /// Selected chip at **medium** should open that species at **large** when still tagged.
@@ -198,9 +201,19 @@ enum DiveActivityMediaPresentation: Sendable {
         detent == .medium
     }
 
+    /// **Tag buddies** control in the **Media** sheet chrome at **medium** only.
+    nonisolated static func showsBuddyTagInSheet(for detent: DiveActivityOverviewDetent) -> Bool {
+        detent == .medium
+    }
+
     /// Marine-life fish control uses accent when at least one species is tagged on the media item.
     nonisolated static func marineLifeTagControlIsActive(taggedSpeciesCount: Int) -> Bool {
         taggedSpeciesCount > 0
+    }
+
+    /// Buddy control uses accent when at least one buddy is tagged on the media item.
+    nonisolated static func buddyTagControlIsActive(taggedBuddyCount: Int) -> Bool {
+        taggedBuddyCount > 0
     }
 
     /// Fishial sparkles control uses accent after the user confirms and applies a catalog match.
@@ -378,11 +391,16 @@ enum DiveActivityMediaPresentation: Sendable {
 
     /// Keeps pager selection valid when the photo list changes.
     /// Preserves a pending **`selectedID`** while **`photos`** is still empty (e.g. Home featured-media deep link before derived media loads).
+    /// When **`preferredID`** is present in **`photos`**, it wins (Home / logbook deep link).
     nonisolated static func resolvedSelectedPhotoID(
         selectedID: UUID?,
-        in photos: [DiveMediaPhoto]
+        in photos: [DiveMediaPhoto],
+        preferredID: UUID? = nil
     ) -> UUID? {
-        guard !photos.isEmpty else { return selectedID }
+        guard !photos.isEmpty else { return preferredID ?? selectedID }
+        if let preferredID, photos.contains(where: { $0.id == preferredID }) {
+            return preferredID
+        }
         if let selectedID, photos.contains(where: { $0.id == selectedID }) {
             return selectedID
         }

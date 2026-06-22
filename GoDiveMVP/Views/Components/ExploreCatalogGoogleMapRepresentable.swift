@@ -8,6 +8,7 @@ import UIKit
 /// **Explore** map backed by **`GMSMapView`** — first Google Maps spike on the experiment branch.
 struct ExploreCatalogGoogleMapRepresentable: UIViewRepresentable {
     let sites: [ExploreCatalogMapPresentation.PlottedSite]
+    let sitesChangeSignature: String
     let pinLabelPolicy: ExploreCatalogMapPinLabelPolicy
     let usesPinCallout: Bool
     var focusRequest: ExploreCatalogMapFocusRequest?
@@ -31,7 +32,11 @@ struct ExploreCatalogGoogleMapRepresentable: UIViewRepresentable {
         mapView.settings.tiltGestures = false
         mapView.settings.compassButton = false
         mapView.delegate = context.coordinator
-        context.coordinator.syncMarkers(on: mapView, sites: sites)
+        context.coordinator.syncMarkers(
+            on: mapView,
+            sites: sites,
+            sitesChangeSignature: sitesChangeSignature
+        )
         context.coordinator.applyRegion(on: mapView, sites: sites, animated: false)
         context.coordinator.refreshMapPresentation(on: mapView, force: true)
         return mapView
@@ -43,7 +48,11 @@ struct ExploreCatalogGoogleMapRepresentable: UIViewRepresentable {
             pinLabelPolicy: pinLabelPolicy,
             usesPinCallout: usesPinCallout
         )
-        let sitesChanged = context.coordinator.syncMarkers(on: mapView, sites: sites)
+        let sitesChanged = context.coordinator.syncMarkers(
+            on: mapView,
+            sites: sites,
+            sitesChangeSignature: sitesChangeSignature
+        )
         let focusPending = context.coordinator.isFocusRequestPending(focusRequest)
         if sitesChanged, !focusPending {
             context.coordinator.applyRegion(on: mapView, sites: sites, animated: true)
@@ -64,6 +73,7 @@ struct ExploreCatalogGoogleMapRepresentable: UIViewRepresentable {
         private var pinLabelPolicy: ExploreCatalogMapPinLabelPolicy
         private var usesPinCallout: Bool
         private var sites: [ExploreCatalogMapPresentation.PlottedSite] = []
+        private var sitesByID: [UUID: ExploreCatalogMapPresentation.PlottedSite] = [:]
         private var markersBySiteID: [UUID: GMSMarker] = [:]
         private var lastSitesSignature: String?
         private var visibleSiteIDs: Set<UUID> = []
@@ -102,15 +112,16 @@ struct ExploreCatalogGoogleMapRepresentable: UIViewRepresentable {
         }
 
         @discardableResult
-        func syncMarkers(on mapView: GMSMapView, sites: [ExploreCatalogMapPresentation.PlottedSite]) -> Bool {
+        func syncMarkers(
+            on mapView: GMSMapView,
+            sites: [ExploreCatalogMapPresentation.PlottedSite],
+            sitesChangeSignature: String
+        ) -> Bool {
             self.sites = sites
-            let signature = sites
-                .map { "\($0.id.uuidString):\($0.isVisited)" }
-                .sorted()
-                .joined(separator: "|")
-            let sitesChanged = signature != lastSitesSignature
+            sitesByID = Dictionary(uniqueKeysWithValues: sites.map { ($0.id, $0) })
+            let sitesChanged = sitesChangeSignature != lastSitesSignature
             guard sitesChanged else { return false }
-            lastSitesSignature = signature
+            lastSitesSignature = sitesChangeSignature
             visibleSiteIDs = []
             labeledSiteIDs = []
             selectedSiteID = nil
@@ -121,32 +132,47 @@ struct ExploreCatalogGoogleMapRepresentable: UIViewRepresentable {
             }
             markersBySiteID.removeAll()
 
-            for site in sites {
-                let pinOnly = ExploreCatalogGoogleMapMarkerImageFactory.makePinOnlyAsset(
-                    tint: ExploreCatalogMapPinAppearance.pinTintColor(isVisited: site.isVisited)
-                )
-                let marker = GMSMarker(
-                    position: CLLocationCoordinate2D(
-                        latitude: site.coordinate.latitude,
-                        longitude: site.coordinate.longitude
-                    )
-                )
-                marker.title = site.siteName
-                marker.icon = pinOnly.image
-                marker.groundAnchor = pinOnly.groundAnchor
-                marker.userData = site.id
-                marker.accessibilityLabel = ExploreCatalogMapPinAppearance.accessibilityLabel(
-                    siteName: site.siteName,
-                    isVisited: site.isVisited
-                )
-                marker.tracksInfoWindowChanges = usesPinCallout
-                markersBySiteID[site.id] = marker
-                if !pinLabelPolicy.usesDynamicPinDensity {
+            if !pinLabelPolicy.usesDynamicPinDensity {
+                for site in sites {
+                    let marker = makeMarker(for: site)
+                    markersBySiteID[site.id] = marker
                     marker.map = mapView
                 }
             }
 
             return true
+        }
+
+        private func makeMarker(for site: ExploreCatalogMapPresentation.PlottedSite) -> GMSMarker {
+            let pinOnly = ExploreCatalogGoogleMapMarkerImageFactory.makePinOnlyAsset(
+                tint: ExploreCatalogMapPinAppearance.pinTintColor(isVisited: site.isVisited)
+            )
+            let marker = GMSMarker(
+                position: CLLocationCoordinate2D(
+                    latitude: site.coordinate.latitude,
+                    longitude: site.coordinate.longitude
+                )
+            )
+            marker.title = site.siteName
+            marker.icon = pinOnly.image
+            marker.groundAnchor = pinOnly.groundAnchor
+            marker.userData = site.id
+            marker.accessibilityLabel = ExploreCatalogMapPinAppearance.accessibilityLabel(
+                siteName: site.siteName,
+                isVisited: site.isVisited
+            )
+            marker.tracksInfoWindowChanges = usesPinCallout
+            return marker
+        }
+
+        private func marker(for siteID: UUID) -> GMSMarker? {
+            if let cached = markersBySiteID[siteID] {
+                return cached
+            }
+            guard let site = sitesByID[siteID] else { return nil }
+            let created = makeMarker(for: site)
+            markersBySiteID[siteID] = created
+            return created
         }
 
         func applyRegion(
@@ -174,7 +200,7 @@ struct ExploreCatalogGoogleMapRepresentable: UIViewRepresentable {
             guard let focusRequest else { return }
             guard focusRequest.requestID != lastAppliedFocusRequestID else { return }
             guard let site = sites.first(where: { $0.selection == focusRequest.selection }) else { return }
-            guard let marker = markersBySiteID[site.id] else { return }
+            guard let marker = markersBySiteID[site.id] ?? marker(for: site.id) else { return }
 
             lastAppliedFocusRequestID = focusRequest.requestID
 
@@ -255,18 +281,20 @@ struct ExploreCatalogGoogleMapRepresentable: UIViewRepresentable {
         private func syncVisibleMarkers(on mapView: GMSMapView) {
             guard pinLabelPolicy.usesDynamicPinDensity else { return }
 
+            for siteID in visibleSiteIDs.union(selectedSiteID.map { Set([$0]) } ?? []) {
+                guard let marker = marker(for: siteID) else { continue }
+                if marker.map == nil {
+                    marker.map = mapView
+                }
+            }
+
             for (siteID, marker) in markersBySiteID {
                 let shouldShow = visibleSiteIDs.contains(siteID) || siteID == selectedSiteID
-                if shouldShow {
-                    if marker.map == nil {
-                        marker.map = mapView
-                    }
-                } else {
-                    if mapView.selectedMarker === marker {
-                        mapView.selectedMarker = nil
-                    }
-                    marker.map = nil
+                guard !shouldShow else { continue }
+                if mapView.selectedMarker === marker {
+                    mapView.selectedMarker = nil
                 }
+                marker.map = nil
             }
         }
 
@@ -297,7 +325,7 @@ struct ExploreCatalogGoogleMapRepresentable: UIViewRepresentable {
             for siteID in visibleSiteIDs {
                 guard let marker = markersBySiteID[siteID],
                       marker.map != nil,
-                      let site = sites.first(where: { $0.id == siteID }) else { continue }
+                      let site = sitesByID[siteID] else { continue }
                 let pinOnly = ExploreCatalogGoogleMapMarkerImageFactory.makePinOnlyAsset(
                     tint: ExploreCatalogMapPinAppearance.pinTintColor(isVisited: site.isVisited)
                 )

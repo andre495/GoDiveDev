@@ -2,6 +2,12 @@ import SwiftUI
 
 /// Trip overview media — rounded preview; drag up/down to browse with the frame following the finger.
 struct TripDetailMediaGallerySection: View {
+    private enum PreloadedMediaRole {
+        case previous
+        case selected
+        case next
+    }
+
     let mediaItems: [DiveMediaPhoto]
     let timeZoneOffsetByMediaID: [UUID: Int?]
     let linkedMediaItems: [TripDetailLinkedMediaItem]
@@ -12,11 +18,14 @@ struct TripDetailMediaGallerySection: View {
     var onOpenDive: (UUID) -> Void
     var onOpenInDive: (UUID, UUID) -> Void
 
+    @Environment(\.displayScale) private var displayScale
+
     @State private var selectedMediaID: UUID?
     @State private var browseDragTranslation: CGFloat = 0
     @State private var showsMarineLifeOverlay = false
     @State private var selectedTaggedSpeciesUUID: String?
     @State private var didApplyInitialMediaSelection = false
+    @State private var lastKnownPreviewPixelWidth: CGFloat = 0
 
     private var selectedMedia: DiveMediaPhoto? {
         DiveActivityMediaPresentation.selectedMedia(selectedID: selectedMediaID, in: mediaItems)
@@ -81,9 +90,11 @@ struct TripDetailMediaGallerySection: View {
         .onAppear(perform: syncSelectionToMedia)
         .onChange(of: mediaIDsSignature) { _, _ in
             syncSelectionToMedia()
+            prefetchProgressiveNeighbors()
         }
         .onChange(of: selectedMediaID) { _, _ in
             closeMarineLifeOverlay()
+            prefetchProgressiveNeighbors()
         }
     }
 
@@ -121,6 +132,13 @@ struct TripDetailMediaGallerySection: View {
         }
         .frame(width: containerSize.width, height: containerSize.height, alignment: .top)
         .animation(overlayAnimation, value: showsMarineLifeOverlay)
+        .onAppear {
+            lastKnownPreviewPixelWidth = previewSize.width * displayScale
+            prefetchProgressiveNeighbors()
+        }
+        .onChange(of: previewSize.width) { _, newWidth in
+            lastKnownPreviewPixelWidth = newWidth * displayScale
+        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("TripDetail.Media.Preview")
     }
@@ -134,26 +152,35 @@ struct TripDetailMediaGallerySection: View {
         let browseStep = TripDetailMediaGalleryPresentation.interactiveBrowseStep(
             forVerticalTranslation: browseDragTranslation
         )
-        let adjacentMedia = adjacentMedia(forBrowseStep: browseStep)
-
         ZStack {
-            if let adjacentMedia, browseDragTranslation != 0 {
-                mediaItemView(for: adjacentMedia)
-                    .offset(
-                        y: TripDetailMediaGalleryPresentation.adjacentItemOffset(
-                            verticalTranslation: browseDragTranslation,
-                            previewHeight: previewSize.height
-                        )
-                    )
-                    .scaleEffect(TripDetailMediaGalleryPresentation.interactiveAdjacentScale(progress: progress))
-                    .opacity(TripDetailMediaGalleryPresentation.interactiveAdjacentOpacity(progress: progress))
+            if let previousMedia = adjacentMedia(forBrowseStep: -1) {
+                mountedMediaLayer(
+                    for: previousMedia,
+                    previewSize: previewSize,
+                    role: .previous,
+                    progress: progress,
+                    browseStep: browseStep
+                )
+            }
+
+            if let nextMedia = adjacentMedia(forBrowseStep: 1) {
+                mountedMediaLayer(
+                    for: nextMedia,
+                    previewSize: previewSize,
+                    role: .next,
+                    progress: progress,
+                    browseStep: browseStep
+                )
             }
 
             if let selectedMedia {
-                mediaItemView(for: selectedMedia)
-                    .offset(y: browseDragTranslation)
-                    .scaleEffect(TripDetailMediaGalleryPresentation.interactiveCurrentScale(progress: progress))
-                    .opacity(TripDetailMediaGalleryPresentation.interactiveCurrentOpacity(progress: progress))
+                mountedMediaLayer(
+                    for: selectedMedia,
+                    previewSize: previewSize,
+                    role: .selected,
+                    progress: progress,
+                    browseStep: browseStep
+                )
             } else {
                 AppTheme.Colors.tabUnselected.opacity(0.12)
             }
@@ -174,15 +201,124 @@ struct TripDetailMediaGallerySection: View {
     }
 
     @ViewBuilder
-    private func mediaItemView(for media: DiveMediaPhoto) -> some View {
+    private func mountedMediaLayer(
+        for media: DiveMediaPhoto,
+        previewSize: CGSize,
+        role: PreloadedMediaRole,
+        progress: CGFloat,
+        browseStep: Int?
+    ) -> some View {
+        let isInteractiveBrowse = browseDragTranslation != 0
+        let showsAdjacentDuringBrowse = isInteractiveBrowse
+            && ((role == .next && browseStep == 1) || (role == .previous && browseStep == -1))
+
+        mediaItemView(
+            for: media,
+            isVideoPlaybackActive: isVideoPlaybackActive(for: media)
+        )
+        .offset(
+            y: mountedMediaOffsetY(
+                role: role,
+                previewHeight: previewSize.height,
+                showsAdjacentDuringBrowse: showsAdjacentDuringBrowse
+            )
+        )
+        .scaleEffect(
+            mountedMediaScale(
+                role: role,
+                progress: progress,
+                isInteractiveBrowse: isInteractiveBrowse,
+                showsAdjacentDuringBrowse: showsAdjacentDuringBrowse
+            )
+        )
+        .opacity(
+            mountedMediaOpacity(
+                role: role,
+                progress: progress,
+                isInteractiveBrowse: isInteractiveBrowse,
+                showsAdjacentDuringBrowse: showsAdjacentDuringBrowse
+            )
+        )
+        .allowsHitTesting(role == .selected && !isInteractiveBrowse)
+        .zIndex(role == .selected ? 1 : 0)
+    }
+
+    @ViewBuilder
+    private func mediaItemView(for media: DiveMediaPhoto, isVideoPlaybackActive: Bool) -> some View {
         DiveActivityMediaItemView(
             media: media,
             timeZoneOffsetSeconds: timeZoneOffsetByMediaID[media.id] ?? nil,
             showsCaptureDateOverlay: !showsMarineLifeOverlay,
-            isVideoPlaybackActive: media.resolvedMediaKind == .video && !showsMarineLifeOverlay,
+            isVideoPlaybackActive: isVideoPlaybackActive,
             loopsVideoPlayback: true
         )
         .id(media.id)
+    }
+
+    private func isVideoPlaybackActive(for media: DiveMediaPhoto) -> Bool {
+        media.resolvedMediaKind == .video
+            && !showsMarineLifeOverlay
+            && media.id == selectedMediaID
+            && browseDragTranslation == 0
+    }
+
+    private func mountedMediaOpacity(
+        role: PreloadedMediaRole,
+        progress: CGFloat,
+        isInteractiveBrowse: Bool,
+        showsAdjacentDuringBrowse: Bool
+    ) -> Double {
+        switch role {
+        case .selected:
+            if isInteractiveBrowse {
+                return TripDetailMediaGalleryPresentation.interactiveCurrentOpacity(progress: progress)
+            }
+            return 1
+        case .previous, .next:
+            if showsAdjacentDuringBrowse {
+                return TripDetailMediaGalleryPresentation.interactiveAdjacentOpacity(progress: progress)
+            }
+            return 0
+        }
+    }
+
+    private func mountedMediaScale(
+        role: PreloadedMediaRole,
+        progress: CGFloat,
+        isInteractiveBrowse: Bool,
+        showsAdjacentDuringBrowse: Bool
+    ) -> CGFloat {
+        switch role {
+        case .selected:
+            if isInteractiveBrowse {
+                return TripDetailMediaGalleryPresentation.interactiveCurrentScale(progress: progress)
+            }
+            return 1
+        case .previous, .next:
+            if showsAdjacentDuringBrowse {
+                return TripDetailMediaGalleryPresentation.interactiveAdjacentScale(progress: progress)
+            }
+            return 1
+        }
+    }
+
+    private func mountedMediaOffsetY(
+        role: PreloadedMediaRole,
+        previewHeight: CGFloat,
+        showsAdjacentDuringBrowse: Bool
+    ) -> CGFloat {
+        switch role {
+        case .selected:
+            return browseDragTranslation
+        case .previous, .next:
+            if showsAdjacentDuringBrowse {
+                return TripDetailMediaGalleryPresentation.adjacentItemOffset(
+                    verticalTranslation: browseDragTranslation,
+                    previewHeight: previewHeight
+                )
+            }
+            return 0
+        }
     }
 
     @ViewBuilder
@@ -419,6 +555,16 @@ struct TripDetailMediaGallerySection: View {
             showsMarineLifeOverlay = false
             selectedTaggedSpeciesUUID = nil
         }
+    }
+
+    private func prefetchProgressiveNeighbors() {
+        guard lastKnownPreviewPixelWidth > 0 else { return }
+        DiveMediaProgressivePrefetch.warmNeighbors(
+            mediaItems: mediaItems,
+            selectedMediaID: selectedMediaID,
+            screenPixelWidth: lastKnownPreviewPixelWidth,
+            isMediaTabSelected: true
+        )
     }
 }
 

@@ -53,6 +53,25 @@ enum ExploreDiveSiteSearchPresentation: Sendable {
     }
 
     nonisolated static func suggestions(
+        rows: [ExploreDiveSiteRowDisplayData],
+        plottableSites: [ExploreCatalogMapPresentation.PlottedSite],
+        query: String
+    ) -> [ExploreDiveSiteSearchSuggestion] {
+        guard !rows.isEmpty else { return [] }
+
+        return rows.prefix(maxSuggestionCount).compactMap { row in
+            let selection = ExploreSiteScopePresentation.rowSelection(for: row)
+            guard let coordinate = plottableSites.first(where: { $0.selection == selection })?.coordinate
+            else { return nil }
+            return ExploreDiveSiteSearchSuggestion(
+                rowDisplayData: row,
+                selection: selection,
+                coordinate: coordinate
+            )
+        }
+    }
+
+    nonisolated static func suggestions(
         scope: ExploreSiteScope,
         catalog: [DiveSite],
         logbookSiteIDs: Set<UUID>,
@@ -67,17 +86,6 @@ enum ExploreDiveSiteSearchPresentation: Sendable {
             reference: reference,
             query: query
         )
-        guard !rows.isEmpty else { return [] }
-
-        return rows.prefix(maxSuggestionCount).compactMap { row in
-            let selection = ExploreSiteScopePresentation.rowSelection(for: row)
-            guard let coordinate = plottableSites.first(where: { $0.selection == selection })?.coordinate
-            else { return nil }
-            return ExploreDiveSiteSearchSuggestion(
-                rowDisplayData: row,
-                selection: selection,
-                coordinate: coordinate
-            )
-        }
+        return suggestions(rows: rows, plottableSites: plottableSites, query: query)
     }
 }

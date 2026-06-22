@@ -11,6 +11,7 @@ enum AppSwiftDataSchema {
         DiveBuddyTag.self,
         ActivityTag.self,
         DiveMediaPhoto.self,
+        DiveMediaBuddyTag.self,
         DiveProfilePoint.self,
         DiveSite.self,
         MarineLife.self,

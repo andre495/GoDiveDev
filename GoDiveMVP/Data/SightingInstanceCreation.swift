@@ -42,7 +42,8 @@ enum SightingInstanceCreation {
         dive: DiveActivity,
         diveSite: DiveSite? = nil,
         mediaPhoto: DiveMediaPhoto? = nil,
-        modelContext: ModelContext
+        modelContext: ModelContext,
+        persistImmediately: Bool = true
     ) throws -> SightingInstance {
         let sighting = SightingInstance(
             sightingUUID: draft.sightingUUID,
@@ -59,7 +60,9 @@ enum SightingInstanceCreation {
             mediaPhoto: mediaPhoto
         )
         modelContext.insert(sighting)
-        try modelContext.save()
+        if persistImmediately {
+            try modelContext.save()
+        }
         return sighting
     }
 }

@@ -1,28 +1,30 @@
 ---
-description: Run xcodebuild/tests only when the user asks to test, or before commit/push.
+description: Do not run xcodebuild/tests proactively — only on explicit request or before commit/push.
 alwaysApply: true
 ---
 
 # Xcode build / test — only when asked
 
-**Do not** run **`xcodebuild`** (`clean`, `build`, `build-for-testing`, or `test`) proactively after code changes, feature work, or bug fixes — even when you added or updated tests.
+**Do not run `xcodebuild`** (`clean`, `build`, `build-for-testing`, or `test`) proactively after code changes, feature work, bug fixes, or test authoring — even when you added or updated tests.
+
+The user prefers **not** to wait on frequent test runs. **Author tests in code; do not execute them** unless one of the triggers below applies.
 
 ## When to run
 
-Run the Xcode workflow (**`.cursor/rules/xcode-run-test.mdc`**) only when:
+Run the Xcode workflow (**`.cursor/rules/xcode-run-test.mdc`**) **only** when:
 
-1. **Explicit test / build request** — the user asks to **run**, **launch**, **build**, **test**, **⌘U**, verify compile, or similar. **Run on Dre's phone** uses **`.cursor/rules/xcode-run-dres-phone.mdc`** (clean → rebuild → install + launch).
-2. **Commit and/or push** — the user asks to **`git commit`**, **`git push`**, or ship / commit-and-push. **Before** staging or committing:
-   - On **iPhone 17 simulator** (`platform=iOS Simulator,name=iPhone 17,OS=latest` per **`xcode-run-test.mdc`**): **`clean`** → **`clean build-for-testing`** → **`test`**.
-   - Fix compile errors, **failing tests**, regressions you introduced, and **all project build warnings** (**`xcode-fix-build-warnings.mdc`**); repeat until green.
+1. **Explicit test / build / run request** — the user asks to **run**, **launch**, **build**, **test**, **⌘U**, verify compile, rebuild on Dre's phone, or similar. Device runs use **`.cursor/rules/xcode-run-dres-phone.mdc`**.
+2. **Commit and/or push** — the user asks to **`git commit`**, **`git push`**, or ship / commit-and-push. **Before** staging or committing, run the pre-check on **iPhone 17 simulator** (`platform=iOS Simulator,name=iPhone 17,OS=latest` per **`xcode-run-test.mdc`**): **`clean`** → **`clean build-for-testing`** → **`test`**.
+   - Fix compile errors, failing tests, regressions you introduced, and **all project build warnings** (**`xcode-fix-build-warnings.mdc`**); repeat until green.
    - **Do not commit or push** until **BUILD SUCCEEDED**, **all tests pass**, and **project warning count is 0**.
 
 ## When not to run
 
-- After implementing or fixing something, unless one of the triggers above applies.
-- To “verify” or “confirm” your own work at handoff — tell the user the change is ready; they can ask to test.
-- Because **`code-changes-require-tests.mdc`** asked you to **author** tests — writing tests does **not** require executing **`xcodebuild`**.
+- After implementing or fixing something — **never** “just to verify” or “to confirm” your work.
+- At handoff when the user did not ask to test, build, commit, or push.
+- Because **`code-changes-require-tests.mdc`** asked you to **write** tests — writing tests does **not** require executing **`xcodebuild`**.
+- Multiple times in the same session unless the user asks again or a new commit/push request requires a fresh pre-check.
 
 ## Handoff without a build
 
-When finishing work without a test request, skip build logs and do not claim **BUILD SUCCEEDED** / **FAILED**.
+When finishing work without a test/build/commit request, skip build logs and do not claim **BUILD SUCCEEDED** / **FAILED**. Tell the user what changed; they can ask to test or commit when ready.

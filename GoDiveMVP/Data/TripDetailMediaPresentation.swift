@@ -82,6 +82,9 @@ enum TripDetailMediaGalleryPresentation: Sendable {
     nonisolated static let browseEdgeResistance: CGFloat = 0.28
     nonisolated static let marineLifeOverlayFeatureImageHeight: CGFloat = 148
     nonisolated static let marineLifeOverlayFeatureImageMaxWidth: CGFloat = 220
+    /// Dimming scrim when the overlay sits on top of playing media (Home carousel / full-bleed heroes).
+    nonisolated static let marineLifeOverlayMediaScrimOpacity: Double = 0.42
+    nonisolated static let marineLifeOverlayTranslucentPanelOpacity: Double = 0.9
     /// Matches dive-media capture timestamp capsule (**`DiveActivityMediaItemView`**).
     nonisolated static let overlayChipHorizontalPadding: CGFloat = 10
     nonisolated static let overlayChipVerticalPadding: CGFloat = 6

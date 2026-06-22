@@ -99,6 +99,63 @@ struct GoDiveMVPTests {
         #expect(DiveActivityMediaFocusPresentation.focus(forMediaFocusID: nil) == nil)
     }
 
+    @Test func diveActivityMediaActivation_resolvedPendingFocus_waitsForMediaRows() {
+        let pending = UUID()
+        let photo = DiveMediaPhoto(id: pending)
+        #expect(
+            DiveActivityMediaActivation.resolvedPendingFocus(
+                pendingMediaID: pending,
+                in: []
+            ) == nil
+        )
+        #expect(
+            DiveActivityMediaActivation.resolvedPendingFocus(
+                pendingMediaID: pending,
+                in: [photo]
+            ) == pending
+        )
+        #expect(
+            DiveActivityMediaActivation.resolvedPendingFocus(
+                pendingMediaID: UUID(),
+                in: [photo]
+            ) == nil
+        )
+    }
+
+    @Test func diveActivityMediaPresentation_resolvedSelectedPhotoID_prefersDeepLinkTarget() {
+        let first = UUID()
+        let second = UUID()
+        let photos = [DiveMediaPhoto(id: first), DiveMediaPhoto(id: second)]
+        #expect(
+            DiveActivityMediaPresentation.resolvedSelectedPhotoID(
+                selectedID: first,
+                in: photos,
+                preferredID: second
+            ) == second
+        )
+    }
+
+    @Test func diveActivityMediaActivation_shouldReaffirmPagerSelection_requiresActiveContext() {
+        #expect(
+            DiveActivityMediaActivation.shouldReaffirmPagerSelection(
+                isMediaContextActive: true,
+                mediaCount: 2
+            )
+        )
+        #expect(
+            !DiveActivityMediaActivation.shouldReaffirmPagerSelection(
+                isMediaContextActive: false,
+                mediaCount: 2
+            )
+        )
+        #expect(
+            !DiveActivityMediaActivation.shouldReaffirmPagerSelection(
+                isMediaContextActive: true,
+                mediaCount: 0
+            )
+        )
+    }
+
     @Test func diveActivityDiveNumbering_partialRenumberNoop_whenDeletingNewest() {
         let t0 = Date(timeIntervalSince1970: 0)
         let t1 = Date(timeIntervalSince1970: 86_400)
@@ -2180,6 +2237,82 @@ struct GoDiveMVPTests {
         #expect(result.enrichedSiteCount == 1)
     }
 
+    @Test func diveSiteCatalogMatcher_makeDiveSite_trimsReferenceName() {
+        let reference = DiveSiteReferenceSnapshot(
+            id: "waikato",
+            name: "\nGet Wet Waikato",
+            country: "New Zealand",
+            countryCode: "NZ",
+            latitude: -37.7623,
+            longitude: 175.2498,
+            maxDepthMeters: 8,
+            entry: "boat",
+            environment: "ocean",
+            topologies: [],
+            seaName: ""
+        )
+        let site = DiveSiteCatalogMatcher.makeDiveSite(from: reference)
+        #expect(site.siteName == "Get Wet Waikato")
+    }
+
+    @Test func diveSiteCatalogMatcher_resolvedCatalogSiteName_fallsBackToReferenceName() {
+        let reference = DiveSiteReferenceSnapshot(
+            id: "salt01",
+            name: "Salt Pier",
+            country: "Caribbean Netherlands",
+            countryCode: "BQ",
+            latitude: 12.0835,
+            longitude: -68.283,
+            maxDepthMeters: 30,
+            entry: "shore",
+            environment: "ocean",
+            topologies: [],
+            seaName: ""
+        )
+        let site = DiveSite(
+            siteName: "   ",
+            siteTags: [DiveSiteCatalogMatcher.openDiveMapSiteTag(referenceID: "salt01")]
+        )
+        #expect(
+            DiveSiteCatalogMatcher.resolvedCatalogSiteName(for: site, reference: [reference]) == "Salt Pier"
+        )
+    }
+
+    @Test @MainActor
+    func diveSiteCatalogMatcher_normalizeCatalogSiteNameIfNeeded_trimsStoredTitle() throws {
+        let site = DiveSite(
+            siteName: "  Salt Pier  ",
+            siteTags: [DiveSiteCatalogMatcher.openDiveMapSiteTag(referenceID: "salt01")]
+        )
+        let changed = DiveSiteCatalogMatcher.normalizeCatalogSiteNameIfNeeded(site, reference: [])
+        #expect(changed)
+        #expect(site.siteName == "Salt Pier")
+    }
+
+    @Test @MainActor
+    func diveSiteCatalogMatcher_normalizeCatalogSiteNameIfNeeded_backfillsFromReference() {
+        let reference = DiveSiteReferenceSnapshot(
+            id: "salt01",
+            name: "Salt Pier",
+            country: "Caribbean Netherlands",
+            countryCode: "BQ",
+            latitude: 12.0835,
+            longitude: -68.283,
+            maxDepthMeters: 30,
+            entry: "shore",
+            environment: "ocean",
+            topologies: [],
+            seaName: ""
+        )
+        let site = DiveSite(
+            siteName: "",
+            siteTags: [DiveSiteCatalogMatcher.openDiveMapSiteTag(referenceID: "salt01")]
+        )
+        let changed = DiveSiteCatalogMatcher.normalizeCatalogSiteNameIfNeeded(site, reference: [reference])
+        #expect(changed)
+        #expect(site.siteName == "Salt Pier")
+    }
+
     @Test @MainActor
     func fitDiveFileImport_persistImportedActivity_createMissingDiveSitesFalse_stillLinksOpenDiveMapMatch() async throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
@@ -2544,7 +2677,7 @@ struct GoDiveMVPTests {
         let french = try context.fetch(FetchDescriptor<MarineLife>()).first {
             $0.uuid == "marine-life-french-angelfish"
         }
-        #expect(french?.commonName == "French angelfish")
+        #expect(french?.commonName == "French Angelfish")
         #expect(french?.featureImageResourceName == "marine-life-french-angelfish")
         #expect(french?.featureModelResourceName == "")
         #expect(french?.scientificName == "Pomacanthus paru")
@@ -2611,10 +2744,40 @@ struct GoDiveMVPTests {
         let context = container.mainContext
         try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
         let queen = try context.fetch(FetchDescriptor<MarineLife>()).first { $0.uuid == "marine-life-queen-angelfish" }
-        #expect(queen?.commonName == "queen angelfish")
+        #expect(queen?.commonName == "Queen Angelfish")
         #expect(queen?.familyName == "Pomacanthidae")
         #expect(queen?.minDepthMeters == 1)
         #expect(queen?.maxDepthMeters == 70)
+    }
+
+    @Test func marineLifeCommonNameFormatting_titleCasesEachWord() {
+        #expect(MarineLifeCommonNameFormatting.normalized("French angelfish") == "French Angelfish")
+        #expect(MarineLifeCommonNameFormatting.normalized("  GREEN SEA TURTLE  ") == "Green Sea Turtle")
+        #expect(MarineLifeCommonNameFormatting.normalized("spotted eagle ray") == "Spotted Eagle Ray")
+    }
+
+    @Test func marineLifeCommonNameFormatting_handlesHyphensAndApostrophes() {
+        #expect(MarineLifeCommonNameFormatting.normalized("king angelfish") == "King Angelfish")
+        #expect(MarineLifeCommonNameFormatting.normalized("two-spot demoiselle") == "Two-Spot Demoiselle")
+    }
+
+    @Test @MainActor func marineLife_initNormalizesCommonName() throws {
+        let species = MarineLife(uuid: "marine-life-title-case-test", commonName: "queen angelfish")
+        #expect(species.commonName == "Queen Angelfish")
+    }
+
+    @Test @MainActor func marineLifeCommonNameNormalization_updatesStoredRows() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let species = MarineLife(uuid: "marine-life-legacy-case", commonName: "legacy species")
+        context.insert(species)
+        try context.save()
+
+        species.commonName = "french angelfish"
+        try context.save()
+
+        try MarineLifeCommonNameNormalization.normalizeStoredCatalogIfNeeded(modelContext: context)
+        #expect(species.commonName == "French Angelfish")
     }
 
     @Test @MainActor func marineLife_subcategoryDefaultsEmptyForSwiftDataMigration() throws {
@@ -2761,6 +2924,30 @@ struct GoDiveMVPTests {
         #expect(!DiveActivityMediaPresentation.speciesWasFishialIdentified(species: other, on: media))
     }
 
+    @Test func diveActivityMediaPresentation_speciesWasFishialIdentified_matchesAnyConfirmedName() {
+        let media = DiveMediaPhoto(
+            fishialConfirmedSpeciesName: "Holacanthus ciliaris|Paracanthurus hepatus"
+        )
+        let queen = MarineLife(
+            uuid: "marine-life-queen-angelfish",
+            commonName: "Queen Angelfish",
+            scientificName: "Holacanthus ciliaris"
+        )
+        let blueTang = MarineLife(
+            uuid: "marine-life-blue-tang",
+            commonName: "Blue Tang",
+            scientificName: "Paracanthurus hepatus"
+        )
+        let other = MarineLife(
+            uuid: "marine-life-french-angelfish",
+            commonName: "French Angelfish",
+            scientificName: "Holacanthus paru"
+        )
+        #expect(DiveActivityMediaPresentation.speciesWasFishialIdentified(species: queen, on: media))
+        #expect(DiveActivityMediaPresentation.speciesWasFishialIdentified(species: blueTang, on: media))
+        #expect(!DiveActivityMediaPresentation.speciesWasFishialIdentified(species: other, on: media))
+    }
+
     @Test func diveActivityMediaPresentation_resolvedTaggedSpeciesUUID_prefersChipSelection() {
         let uuids = ["fish-a", "fish-b", "fish-c"]
         #expect(
@@ -2814,6 +3001,17 @@ struct GoDiveMVPTests {
         #expect(!DiveActivityMediaPresentation.showsMarineLifeTagInSheet(for: .minimized))
         #expect(DiveActivityMediaPresentation.showsMarineLifeTagInSheet(for: .medium))
         #expect(!DiveActivityMediaPresentation.showsMarineLifeTagInSheet(for: .large))
+    }
+
+    @Test func diveActivityMediaPresentation_showsBuddyTagInSheet_onlyAtMedium() {
+        #expect(!DiveActivityMediaPresentation.showsBuddyTagInSheet(for: .minimized))
+        #expect(DiveActivityMediaPresentation.showsBuddyTagInSheet(for: .medium))
+        #expect(!DiveActivityMediaPresentation.showsBuddyTagInSheet(for: .large))
+    }
+
+    @Test func diveActivityMediaPresentation_buddyTagControlIsActive_whenTagged() {
+        #expect(!DiveActivityMediaPresentation.buddyTagControlIsActive(taggedBuddyCount: 0))
+        #expect(DiveActivityMediaPresentation.buddyTagControlIsActive(taggedBuddyCount: 1))
     }
 
     @Test func diveActivityMediaPresentation_showsMarineLifeTagSummary_onlyAtMedium() {
@@ -2958,6 +3156,56 @@ struct GoDiveMVPTests {
         )
         #expect(taggedSightings.count == 2)
         #expect(Set(taggedSightings.map(\.marineLifeUUID)) == Set([angelfish.uuid, ray.uuid]))
+    }
+
+    @Test @MainActor func marineLifeSightingRecorder_tagPendingSpecies_persistsBatchWithSingleSave() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+
+        let owner = UserProfile(appleUserIdentifier: "test-batch-tag", displayName: "Diver")
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 3_200_000),
+            durationMinutes: 40,
+            maxDepthMeters: 20
+        )
+        dive.owner = owner
+        dive.ownerProfileID = owner.id
+        let media = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 3_200_100))
+        media.link(to: dive)
+        let angelfish = MarineLife(uuid: "marine-life-batch-angelfish", commonName: "French Angelfish")
+        let ray = MarineLife(uuid: "marine-life-batch-ray", commonName: "Spotted Eagle Ray")
+
+        context.insert(owner)
+        context.insert(dive)
+        context.insert(media)
+        context.insert(angelfish)
+        context.insert(ray)
+
+        try MarineLifeSightingRecorder.tagPendingSpecies(
+            [angelfish, ray],
+            on: media,
+            dive: dive,
+            captureContext: DiveMediaCaptureContext(elapsedSeconds: 600, depthMeters: 12),
+            owner: owner,
+            modelContext: context
+        )
+
+        let sightings = try MarineLifeSightingRecorder.sightings(
+            forMediaPhotoID: media.id,
+            modelContext: context
+        )
+        #expect(sightings.count == 2)
+        #expect(Set(sightings.map(\.marineLifeUUID)) == Set([angelfish.uuid, ray.uuid]))
+
+        let records = try MarineLifeUserRecordOwnership.userRecords(
+            forOwnerProfileID: owner.id,
+            modelContext: context
+        )
+        #expect(records.count == 2)
+        #expect(try records.allSatisfy { try $0.isSighted })
+        #expect(try records.allSatisfy { try $0.activitiesSightedOn.contains(dive.id) })
+        #expect(try records.allSatisfy { try $0.userTaggedMedia.contains("media:\(media.id.uuidString)") })
     }
 
     @Test func marineLifeMediaTagPresentation_taggedRows_listsUniqueSpeciesOnMedia() {
@@ -3301,6 +3549,75 @@ struct GoDiveMVPTests {
         #expect(DiveMarineLifeTagPickerPresentation.filtering(catalog, query: "angel").count == 1)
         #expect(DiveMarineLifeTagPickerPresentation.filtering(catalog, query: "groupers").count == 1)
         #expect(DiveMarineLifeTagPickerPresentation.filtering(catalog, query: "").count == 2)
+    }
+
+    @Test func diveMarineLifeTagPickerPresentation_filteredPickerRows_useIndexedSearch() {
+        let cache = DiveMarineLifeTagPickerPresentation.CatalogCache.make(from: [
+            MarineLife(
+                uuid: "marine-life-french-angelfish",
+                commonName: "French Angelfish",
+                scientificName: "Pomacanthus paru",
+                category: "fishes",
+                subcategory: "angelfishes"
+            ),
+            MarineLife(
+                uuid: "marine-life-grouper",
+                commonName: "Black Grouper",
+                scientificName: "Mycteroperca bonaci",
+                category: "fishes",
+                subcategory: "groupers"
+            ),
+        ])
+        let allRows = DiveMarineLifeTagPickerPresentation.makePickerRows(
+            snapshots: cache.snapshots,
+            taggedUUIDs: [],
+            unitSystem: .metric
+        )
+        let filtered = DiveMarineLifeTagPickerPresentation.filteredPickerRows(
+            allRows: allRows,
+            snapshots: cache.snapshots,
+            searchableTextByUUID: cache.searchableTextByUUID,
+            query: "grouper"
+        )
+        #expect(filtered.count == 1)
+        #expect(filtered[0].marineLifeUUID == "marine-life-grouper")
+    }
+
+    @Test func diveMarineLifeTagPickerPresentation_rowMarkedTagged_updatesTaggedState() {
+        let row = DiveMarineLifeTagPickerPresentation.RowDisplayData(
+            marineLifeUUID: "marine-life-angelfish",
+            commonName: "French Angelfish",
+            trailingLabel: "Angelfishes",
+            detailLine: "Pomacanthus paru",
+            featureImageURL: "",
+            featureImageResourceName: "",
+            isTagged: false
+        )
+        let tagged = DiveMarineLifeTagPickerPresentation.rowMarkedTagged(row, isTagged: true)
+        #expect(tagged.isTagged)
+        #expect(tagged.marineLifeUUID == row.marineLifeUUID)
+        #expect(tagged.commonName == row.commonName)
+    }
+
+    @Test func fieldGuideMarineLifeSearch_precomputedSearchText_matchesLegacyMatcher() {
+        let angelfish = MarineLifeCatalogSnapshot(
+            uuid: "marine-life-angelfish",
+            commonName: "French Angelfish",
+            scientificName: "Pomacanthus paru",
+            category: "fish",
+            subcategory: "disk-and-large-oval",
+            featureImageURL: "",
+            minSizeMeters: 0.2,
+            maxSizeMeters: 0.4,
+            avgDepthMeters: 12
+        )
+        let haystack = FieldGuideMarineLifeSearch.precomputedSearchText(for: angelfish)
+        #expect(haystack.contains("french angelfish"))
+        #expect(FieldGuideMarineLifeSearch.matches(angelfish, query: "french"))
+        #expect(haystack.contains("pomacanthus"))
+        #expect(FieldGuideMarineLifeSearch.matches(angelfish, query: "paru"))
+        #expect(!haystack.contains("turtle"))
+        #expect(!FieldGuideMarineLifeSearch.matches(angelfish, query: "turtle"))
     }
 
     @Test func fieldGuideMarineLifeSearch_matchesCommonScientificOrCategory() {
@@ -4590,20 +4907,20 @@ struct GoDiveMVPTests {
             TripDetailMediaGalleryPresentation.browseAccessibilityLabel(
                 itemCount: 1,
                 positionLabel: "1 of 1"
-            ) == "Trip media, 1 of 1, View Dive opens the linked dive"
+            ) == "Trip media, 1 of 1, View opens the linked dive"
         )
         #expect(
             TripDetailMediaGalleryPresentation.browseAccessibilityLabel(
                 itemCount: 3,
                 positionLabel: "2 of 3"
-            ) == "Trip media, 2 of 3, swipe up for next, swipe down for previous, View Dive opens the linked dive"
+            ) == "Trip media, 2 of 3, swipe up for next, swipe down for previous, View opens the linked dive"
         )
         #expect(
             TripDetailMediaGalleryPresentation.browseAccessibilityLabel(
                 itemCount: 2,
                 positionLabel: "1 of 2",
                 hasTaggedMarineLife: true
-            ) == "Trip media, 1 of 2, marine life tagged, swipe up for next, swipe down for previous, tap fish icon for marine life overview, View Dive opens the linked dive"
+            ) == "Trip media, 1 of 2, marine life tagged, swipe up for next, swipe down for previous, tap fish icon for marine life overview, View opens the linked dive"
         )
     }
 
@@ -4690,7 +5007,7 @@ struct GoDiveMVPTests {
                 canBrowseBackward: true
             ) == -33.6
         )
-        #expect(DiveTripPresentation.tripMediaOpenOnDiveButtonTitle == "View Dive")
+        #expect(DiveTripPresentation.tripMediaOpenOnDiveButtonTitle == "View")
     }
 
     @Test func tripDetailMediaGalleryPresentation_taggedSpecies_resolvesFromSightings() {
@@ -6006,15 +6323,34 @@ struct GoDiveMVPTests {
             nameMatchScore: 1.0
         )
 
-        #expect(FishialIdentificationReviewPresentation.reviewMode(for: []) == .noMatches)
         #expect(
-            FishialIdentificationReviewPresentation.reviewMode(for: [optionA])
+            FishialIdentificationReviewPresentation.reviewMode(for: [], rankedSpecies: [])
+                == .noFishDetected
+        )
+        #expect(
+            FishialIdentificationReviewPresentation.reviewMode(
+                for: [],
+                rankedSpecies: [
+                    FishialRankedSpecies(scientificName: "Completely unknownicus", accuracy: 0.99),
+                ]
+            ) == .unmatchedFishialSuggestion("Completely unknownicus")
+        )
+        #expect(
+            FishialIdentificationReviewPresentation.reviewMode(for: [optionA], rankedSpecies: [])
                 == .confirmSingle(optionA)
         )
         #expect(
-            FishialIdentificationReviewPresentation.reviewMode(for: [optionA, optionB])
+            FishialIdentificationReviewPresentation.reviewMode(for: [optionA, optionB], rankedSpecies: [])
                 == .selectFromMultiple([optionA, optionB])
         )
+    }
+
+    @Test func fishialIdentificationReviewPresentation_unmatchedFieldGuideMessage_usesSpeciesName() {
+        let message = FishialIdentificationReviewPresentation.unmatchedFieldGuideMessage(
+            speciesName: "Holacanthus ciliaris"
+        )
+        #expect(message.contains("Holacanthus ciliaris"))
+        #expect(message.contains("GoDive has no such record in its field guide"))
     }
 
     @Test func fishialMarineLifeCatalogMatching_scientificNameSimilarity_handlesExactAndFuzzyNames() {
@@ -6079,9 +6415,33 @@ struct GoDiveMVPTests {
     @Test func diveMediaPhoto_resolvedFishialConfirmedSpeciesName_trimsBlankValues() {
         let unset = DiveMediaPhoto(fishialConfirmedSpeciesName: "   ")
         #expect(unset.resolvedFishialConfirmedSpeciesName == nil)
+        #expect(unset.resolvedFishialConfirmedSpeciesNames.isEmpty)
 
         let confirmed = DiveMediaPhoto(fishialConfirmedSpeciesName: "  Holacanthus ciliaris  ")
         #expect(confirmed.resolvedFishialConfirmedSpeciesName == "Holacanthus ciliaris")
+        #expect(confirmed.resolvedFishialConfirmedSpeciesNames == ["Holacanthus ciliaris"])
+
+        let multiple = DiveMediaPhoto(
+            fishialConfirmedSpeciesName: "Holacanthus ciliaris|Paracanthurus hepatus"
+        )
+        #expect(
+            multiple.resolvedFishialConfirmedSpeciesNames == [
+                "Holacanthus ciliaris",
+                "Paracanthurus hepatus",
+            ]
+        )
+    }
+
+    @Test func fishialConfirmedSpeciesPresentation_mergesWithoutDuplicates() {
+        let merged = FishialConfirmedSpeciesPresentation.mergedScientificNames(
+            existingStoredValue: "Holacanthus ciliaris",
+            adding: ["Holacanthus ciliaris", " Paracanthurus hepatus ", "holacanthus ciliaris"]
+        )
+        #expect(merged == ["Holacanthus ciliaris", "Paracanthurus hepatus"])
+        #expect(
+            FishialConfirmedSpeciesPresentation.storageValue(for: merged)
+                == "Holacanthus ciliaris|Paracanthurus hepatus"
+        )
     }
 
     @Test @MainActor func diveMediaFishialIdentificationStorage_saveConfirmedSpecies_persistsOnMedia() throws {
@@ -6169,6 +6529,220 @@ struct GoDiveMVPTests {
         #expect(sightings.count == 1)
         #expect(sightings[0].marineLifeUUID == species.uuid)
         #expect(sightings[0].sightingDepthMeters == 12)
+    }
+
+    @Test @MainActor func diveMediaFishialIdentificationStorage_saveConfirmedCatalogMatches_tagsMultipleSpecies() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+
+        let owner = UserProfile(appleUserIdentifier: "fishial-multi-tag", displayName: "Diver")
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 3_300_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        dive.owner = owner
+        dive.ownerProfileID = owner.id
+        let media = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 3_300_100))
+        media.link(to: dive)
+        let queen = MarineLife(
+            uuid: "fishial-multi-queen",
+            commonName: "Queen Angelfish",
+            scientificName: "Holacanthus ciliaris"
+        )
+        let blueTang = MarineLife(
+            uuid: "fishial-multi-blue-tang",
+            commonName: "Blue Tang",
+            scientificName: "Paracanthurus hepatus"
+        )
+
+        context.insert(owner)
+        context.insert(dive)
+        context.insert(media)
+        context.insert(queen)
+        context.insert(blueTang)
+
+        let options = [
+            FishialCatalogReviewOption(
+                marineLifeUUID: queen.uuid,
+                catalogCommonName: queen.commonName,
+                catalogScientificName: queen.scientificName,
+                featureImageURL: "https://example.com/queen.jpg",
+                fishialScientificName: queen.scientificName,
+                fishialAccuracy: 0.91,
+                nameMatchScore: 1.0
+            ),
+            FishialCatalogReviewOption(
+                marineLifeUUID: blueTang.uuid,
+                catalogCommonName: blueTang.commonName,
+                catalogScientificName: blueTang.scientificName,
+                featureImageURL: "https://example.com/blue-tang.jpg",
+                fishialScientificName: blueTang.scientificName,
+                fishialAccuracy: 0.84,
+                nameMatchScore: 1.0
+            ),
+        ]
+
+        let saved = try DiveMediaFishialIdentificationStorage.saveConfirmedCatalogMatches(
+            options,
+            marineLifeByUUID: [queen.uuid: queen, blueTang.uuid: blueTang],
+            media: media,
+            dive: dive,
+            captureContext: DiveMediaCaptureContext(elapsedSeconds: 120, depthMeters: 12),
+            owner: owner,
+            modelContext: context
+        )
+        #expect(saved == ["Queen Angelfish", "Blue Tang"])
+        #expect(
+            media.fishialConfirmedSpeciesName
+                == "Holacanthus ciliaris|Paracanthurus hepatus"
+        )
+
+        let sightings = try MarineLifeSightingRecorder.sightings(
+            forMediaPhotoID: media.id,
+            modelContext: context
+        )
+        #expect(sightings.count == 2)
+        #expect(Set(sightings.map(\.marineLifeUUID)) == Set([queen.uuid, blueTang.uuid]))
+    }
+
+    @Test @MainActor func diveMediaBuddyAssociation_tagBuddy_tagsMediaAndDiveWhenMissing() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+
+        let owner = UserProfile(appleUserIdentifier: "media-buddy-tag", displayName: "Diver")
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 3_400_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        dive.owner = owner
+        dive.ownerProfileID = owner.id
+        let media = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 3_400_100))
+        media.link(to: dive)
+        let buddy = DiveBuddy(displayName: "Jamie", owner: owner)
+
+        context.insert(owner)
+        context.insert(dive)
+        context.insert(media)
+        context.insert(buddy)
+
+        #expect(dive.buddies.isEmpty)
+
+        let tag = try DiveMediaBuddyAssociation.tagBuddy(
+            buddy,
+            on: media,
+            dive: dive,
+            modelContext: context
+        )
+        #expect(tag.buddyID == buddy.id)
+        #expect(tag.mediaPhotoID == media.id)
+        #expect(dive.buddies.count == 1)
+        #expect(dive.buddies[0].buddyID == buddy.id)
+
+        let mediaTags = try DiveMediaBuddyAssociation.tags(
+            forMediaPhotoID: media.id,
+            modelContext: context
+        )
+        #expect(mediaTags.count == 1)
+    }
+
+    @Test @MainActor func diveMediaBuddyAssociation_tagSelf_tagsMediaAndDive() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let owner = UserProfile(appleUserIdentifier: "media-self-tag", displayName: "Mike Dugas")
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 3_420_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        dive.owner = owner
+        dive.ownerProfileID = owner.id
+        let media = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 3_420_100))
+        media.link(to: dive)
+
+        context.insert(owner)
+        context.insert(dive)
+        context.insert(media)
+
+        let tag = try DiveMediaBuddyAssociation.tagSelf(
+            owner: owner,
+            on: media,
+            dive: dive,
+            modelContext: context
+        )
+
+        #expect(tag.buddyID != nil)
+        #expect(dive.buddies.count == 1)
+        #expect(DiveBuddySelfRepresentation.isSelfBuddy(dive.buddies[0].buddy!, owner: owner))
+
+        let mediaTags = try DiveMediaBuddyAssociation.tags(
+            forMediaPhotoID: media.id,
+            modelContext: context
+        )
+        #expect(mediaTags.count == 1)
+    }
+
+    @Test @MainActor func diveBuddySelfRepresentation_findOrCreateSelfBuddy_reusesExistingMatch() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let owner = UserProfile(appleUserIdentifier: "self-buddy", displayName: "Pat Lee")
+        let existing = DiveBuddy(displayName: "Pat", owner: owner)
+        context.insert(owner)
+        context.insert(existing)
+
+        let resolved = try DiveBuddySelfRepresentation.findOrCreateSelfBuddy(
+            owner: owner,
+            modelContext: context
+        )
+
+        #expect(resolved.id == existing.id)
+        #expect(try context.fetchCount(FetchDescriptor<DiveBuddy>()) == 1)
+    }
+
+    @Test @MainActor func diveMediaBuddyAssociation_tagBuddy_doesNotDuplicateDiveTag() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+
+        let owner = UserProfile(appleUserIdentifier: "media-buddy-dup", displayName: "Diver")
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 3_410_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        dive.owner = owner
+        dive.ownerProfileID = owner.id
+        let media = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 3_410_100))
+        media.link(to: dive)
+        let buddy = DiveBuddy(displayName: "Alex", owner: owner)
+
+        context.insert(owner)
+        context.insert(dive)
+        context.insert(media)
+        context.insert(buddy)
+
+        _ = DiveBuddyActivityAssociation.tagBuddy(buddy, on: dive, modelContext: context)
+        #expect(dive.buddies.count == 1)
+
+        _ = try DiveMediaBuddyAssociation.tagBuddy(
+            buddy,
+            on: media,
+            dive: dive,
+            modelContext: context
+        )
+        #expect(dive.buddies.count == 1)
+
+        let mediaTags = try DiveMediaBuddyAssociation.tags(
+            forMediaPhotoID: media.id,
+            modelContext: context
+        )
+        #expect(mediaTags.count == 1)
     }
 
     @Test func fishialSecretsBootstrap_validatedCredentials_rejectsPlaceholders() {
@@ -6881,6 +7455,77 @@ struct GoDiveMVPTests {
         #expect(suggestions[0].rowDisplayData.displayName == "Salt Pier")
     }
 
+    @Test func exploreCatalogMapPresentation_sitesChangeSignature_detectsVisitedChanges() {
+        let siteID = UUID()
+        let visited = ExploreCatalogMapPresentation.PlottedSite(
+            id: siteID,
+            siteName: "Salt Pier",
+            coordinate: DiveCoordinate(latitude: 12.08, longitude: -68.28),
+            isVisited: true
+        )
+        let unvisited = ExploreCatalogMapPresentation.PlottedSite(
+            id: siteID,
+            siteName: "Salt Pier",
+            coordinate: DiveCoordinate(latitude: 12.08, longitude: -68.28),
+            isVisited: false
+        )
+        let visitedSignature = ExploreCatalogMapPresentation.sitesChangeSignature(for: [visited])
+        let unvisitedSignature = ExploreCatalogMapPresentation.sitesChangeSignature(for: [unvisited])
+        #expect(visitedSignature != unvisitedSignature)
+        #expect(
+            ExploreCatalogMapPresentation.sitesChangeSignature(for: [visited])
+                == visitedSignature
+        )
+    }
+
+    @Test func exploreSiteScopeCache_precomputesBothScopes() {
+        let siteID = UUID()
+        let linkedSite = DiveSite(id: siteID, siteName: "Salt Pier", latCoords: 12.08, longCoords: -68.28)
+        let ownerID = UUID()
+        let linkedActivity = DiveActivity(
+            source: .macDive,
+            startTime: .now,
+            durationMinutes: 30,
+            maxDepthMeters: 12
+        )
+        linkedActivity.ownerProfileID = ownerID
+        linkedActivity.diveSiteID = siteID
+
+        let snapshot = ExploreSiteScopeCache.make(
+            ownerProfileID: ownerID,
+            catalog: [linkedSite],
+            ownerActivities: [linkedActivity]
+        )
+
+        #expect(snapshot.hasLogbookSites)
+        #expect(snapshot.logbookPlottableSites.count == 1)
+        #expect(snapshot.allSitesPlottableSites.count >= 1)
+        #expect(snapshot.logbookListRows.map(\.displayName) == ["Salt Pier"])
+        #expect(snapshot.plottableSignature(for: .logbook) != snapshot.plottableSignature(for: .allSites))
+    }
+
+    @Test func exploreSiteScopeCache_filteringListRows_matchesDisplayFields() {
+        let rows = [
+            ExploreDiveSiteRowDisplayData(
+                id: UUID(),
+                displayName: "Salt Pier",
+                diveCountLabel: nil,
+                coordinateLine: "12.0800° N",
+                placeLine: "Caribbean, Bonaire"
+            ),
+            ExploreDiveSiteRowDisplayData(
+                id: UUID(),
+                displayName: "Blue Hole",
+                diveCountLabel: nil,
+                coordinateLine: "17.0000° N",
+                placeLine: "Belize"
+            ),
+        ]
+        #expect(
+            ExploreSiteScopeCache.filteringListRows(rows, scope: .allSites, query: "belize").count == 1
+        )
+    }
+
     @Test func exploreDiveSiteListDisplay_cityCountryLine_formatsRegionAndCountry() {
         #expect(
             ExploreDiveSiteListDisplay.cityCountryLine(country: "Bonaire", region: "Caribbean")
@@ -7369,7 +8014,8 @@ struct GoDiveMVPTests {
                 diveNumberLabel: "#\(index + 1)",
                 siteDisplayName: "Site \(index)",
                 diveSiteID: nil,
-                taggedSpeciesCount: 0
+                taggedSpeciesCount: 0,
+                taggedBuddyCount: 0
             )
         }
         let picks = HomeMediaHighlightPresentation.randomizedHighlights(from: candidates, limit: 8, seed: seedA)
@@ -7519,6 +8165,122 @@ struct GoDiveMVPTests {
         #expect(candidates[0].hasTaggedSpecies)
     }
 
+    @Test func homeMediaHighlightPresentation_highlightsByRefreshingTagCounts_preservesSlideOrder() {
+        let mediaA = UUID()
+        let mediaB = UUID()
+        let diveID = UUID()
+        let highlights = [
+            HomeMediaHighlight(
+                mediaID: mediaA,
+                diveActivityID: diveID,
+                diveNumberLabel: "#1",
+                siteDisplayName: "Reef",
+                diveSiteID: nil,
+                taggedSpeciesCount: 0,
+                taggedBuddyCount: 0
+            ),
+            HomeMediaHighlight(
+                mediaID: mediaB,
+                diveActivityID: diveID,
+                diveNumberLabel: "#1",
+                siteDisplayName: "Reef",
+                diveSiteID: nil,
+                taggedSpeciesCount: 1,
+                taggedBuddyCount: 0
+            ),
+        ]
+
+        let refreshed = HomeMediaHighlightPresentation.highlightsByRefreshingTagCounts(
+            highlights,
+            taggedSpeciesCountByMediaID: [mediaA: 2, mediaB: 1],
+            taggedBuddyCountByMediaID: [mediaA: 1]
+        )
+
+        #expect(refreshed.map(\.mediaID) == [mediaA, mediaB])
+        #expect(refreshed[0].taggedSpeciesCount == 2)
+        #expect(refreshed[0].taggedBuddyCount == 1)
+        #expect(refreshed[0].hasTaggedBuddies)
+        #expect(refreshed[1].taggedSpeciesCount == 1)
+        #expect(refreshed[1].taggedBuddyCount == 0)
+    }
+
+    @Test func homeMediaHighlightPresentation_taggedBuddyCountByMediaID_countsMultipleTags() {
+        let diveID = UUID()
+        let mediaID = UUID()
+        let ownerDiveIDs: Set<UUID> = [diveID]
+        let counts = HomeMediaHighlightPresentation.taggedBuddyCountByMediaID(
+            buddyTags: [
+                HomeMediaHighlightBuddyTagInput(mediaPhotoID: mediaID, diveActivityID: diveID),
+                HomeMediaHighlightBuddyTagInput(mediaPhotoID: mediaID, diveActivityID: diveID),
+                HomeMediaHighlightBuddyTagInput(mediaPhotoID: UUID(), diveActivityID: diveID),
+            ],
+            ownerDiveIDs: ownerDiveIDs
+        )
+        #expect(counts[mediaID] == 2)
+    }
+
+    @Test func homeMediaHighlightPresentation_taggedBuddyRowsByMediaID_dedupesAndSorts() {
+        let diveID = UUID()
+        let mediaID = UUID()
+        let buddyA = UUID()
+        let buddyB = UUID()
+        let ownerDiveIDs: Set<UUID> = [diveID]
+        let rows = HomeMediaHighlightPresentation.taggedBuddyRowsByMediaID(
+            buddyTags: [
+                HomeMediaHighlightBuddyTagInput(
+                    mediaPhotoID: mediaID,
+                    diveActivityID: diveID,
+                    buddyID: buddyB,
+                    displayName: "Zoe"
+                ),
+                HomeMediaHighlightBuddyTagInput(
+                    mediaPhotoID: mediaID,
+                    diveActivityID: diveID,
+                    buddyID: buddyA,
+                    displayName: "Alex"
+                ),
+                HomeMediaHighlightBuddyTagInput(
+                    mediaPhotoID: mediaID,
+                    diveActivityID: diveID,
+                    buddyID: buddyA,
+                    displayName: "Alex"
+                ),
+            ],
+            ownerDiveIDs: ownerDiveIDs
+        )
+        #expect(rows[mediaID]?.map(\.buddyID) == [buddyA, buddyB])
+        #expect(rows[mediaID]?.map(\.displayName) == ["Alex", "Zoe"])
+    }
+
+    @Test func homeOverviewRefreshToken_carouselTagFingerprint_changesWhenMediaTagsChange() {
+        let diveID = UUID()
+        let mediaID = UUID()
+        let ownerDiveIDs: Set<UUID> = [diveID]
+        let before = HomeOverviewRefreshToken.carouselTagFingerprint(
+            sightings: [],
+            buddyTags: [],
+            ownerDiveIDs: ownerDiveIDs
+        )
+        let afterSpecies = HomeOverviewRefreshToken.carouselTagFingerprint(
+            sightings: [HomeMediaHighlightSightingInput(mediaPhotoID: mediaID, diveActivityID: diveID)],
+            buddyTags: [],
+            ownerDiveIDs: ownerDiveIDs
+        )
+        let afterBuddy = HomeOverviewRefreshToken.carouselTagFingerprint(
+            sightings: [HomeMediaHighlightSightingInput(mediaPhotoID: mediaID, diveActivityID: diveID)],
+            buddyTags: [
+                HomeMediaHighlightBuddyTagInput(
+                    mediaPhotoID: mediaID,
+                    diveActivityID: diveID,
+                    buddyID: UUID()
+                ),
+            ],
+            ownerDiveIDs: ownerDiveIDs
+        )
+        #expect(before != afterSpecies)
+        #expect(afterSpecies != afterBuddy)
+    }
+
     @Test func homeMediaCarouselEmptyPresentation_definesEncouragingCopyAndFrameLayout() {
         #expect(HomeMediaCarouselEmptyPresentation.frameCount == 3)
         #expect(HomeMediaCarouselEmptyPresentation.animationCycleSeconds > 0)
@@ -7653,9 +8415,9 @@ struct GoDiveMVPTests {
         #expect(DiveActivityMediaPresentation.logbookRowMediaPreviewMinExtent == 48)
     }
 
-    @Test func diveMediaVideoRequestQuality_homeCarouselDoesNotCacheInSession() {
+    @Test func diveMediaVideoRequestQuality_cachesInSession() {
         #expect(DiveMediaVideoRequestQuality.fullQuality.cachesInSession)
-        #expect(!DiveMediaVideoRequestQuality.homeCarousel.cachesInSession)
+        #expect(DiveMediaVideoRequestQuality.homeCarousel.cachesInSession)
     }
 
     @Test func diveActivityMediaPresentation_overviewUsesPreviewVideoQuality() {
@@ -7689,24 +8451,70 @@ struct GoDiveMVPTests {
         #expect(
             HomeReturnNavigationPresentation.shouldSkipFullRebuildOnReturn(
                 hasPerformedInitialBuild: true,
-                isCarouselMediaReady: true,
+                carouselSlidesAreDisplayable: true,
                 hasCarouselHighlights: true
             )
         )
         #expect(
             !HomeReturnNavigationPresentation.shouldSkipFullRebuildOnReturn(
                 hasPerformedInitialBuild: false,
-                isCarouselMediaReady: true,
+                carouselSlidesAreDisplayable: true,
                 hasCarouselHighlights: true
             )
         )
         #expect(
             !HomeReturnNavigationPresentation.shouldSkipFullRebuildOnReturn(
                 hasPerformedInitialBuild: true,
-                isCarouselMediaReady: false,
+                carouselSlidesAreDisplayable: false,
                 hasCarouselHighlights: true
             )
         )
+    }
+
+    @Test @MainActor func homeMediaHighlightWarmup_repinCarouselSessionCache_restoresPinnedIdentifiersAfterClear() {
+        #if canImport(UIKit)
+        HomeMediaHighlightSessionCache.shared.clear()
+        defer { HomeMediaHighlightSessionCache.shared.clear() }
+
+        let mediaID = UUID()
+        let media = DiveMediaPhoto(
+            id: mediaID,
+            photosLocalIdentifier: "carousel-repin-test"
+        )
+        let highlight = HomeMediaHighlight(
+            mediaID: mediaID,
+            diveActivityID: UUID(),
+            diveNumberLabel: "#1",
+            siteDisplayName: "Reef",
+            diveSiteID: nil,
+            taggedSpeciesCount: 0,
+            taggedBuddyCount: 0
+        )
+        let image = UIImage(systemName: "photo")!
+        HomeMediaHighlightWarmup.repinCarouselSessionCache(
+            highlights: [highlight],
+            mediaByID: [mediaID: media]
+        )
+        HomeMediaHighlightSessionCache.shared.storeImage(
+            image,
+            localIdentifier: "carousel-repin-test",
+            edge: HomeMediaHighlightWarmupPresentation.previewImageEdge
+        )
+
+        HomeMediaHighlightSessionCache.shared.clear()
+        #expect(!HomeMediaHighlightWarmup.isHighlightDisplayable(highlight, media: media))
+
+        HomeMediaHighlightWarmup.repinCarouselSessionCache(
+            highlights: [highlight],
+            mediaByID: [mediaID: media]
+        )
+        HomeMediaHighlightSessionCache.shared.storeImage(
+            image,
+            localIdentifier: "carousel-repin-test",
+            edge: HomeMediaHighlightWarmupPresentation.previewImageEdge
+        )
+        #expect(HomeMediaHighlightWarmup.isHighlightDisplayable(highlight, media: media))
+        #endif
     }
 
     @Test func diveMediaProgressivePresentation_posterTargetSize_beforeLayoutUsesFastEdge() {
@@ -7729,6 +8537,14 @@ struct GoDiveMVPTests {
                 isPlaybackActive: false,
                 isPausedByUserHold: false,
                 currentFidelity: .preview
+            )
+        )
+        #expect(
+            DiveMediaProgressivePresentation.shouldUpgradeToFullVideo(
+                isPlaybackActive: false,
+                isPausedByUserHold: false,
+                currentFidelity: .preview,
+                allowsBackgroundUpgrade: true
             )
         )
         #expect(
@@ -7807,6 +8623,11 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func homeMediaHighlightWarmupPresentation_shouldLoadHeroImage_whenPreviewOnlyCached() {
+        #expect(HomeMediaHighlightWarmupPresentation.shouldLoadHeroImage(hasCachedImageAtTargetEdge: false))
+        #expect(!HomeMediaHighlightWarmupPresentation.shouldLoadHeroImage(hasCachedImageAtTargetEdge: true))
+    }
+
     @Test func homeMediaHighlightWarmup_shouldStorePreviewAndHeroInSessionCache() {
         #expect(HomeMediaHighlightWarmup.shouldStoreInSessionCache(edge: 480))
         #expect(HomeMediaHighlightWarmup.shouldStoreInSessionCache(edge: 780))
@@ -7826,7 +8647,10 @@ struct GoDiveMVPTests {
 
     @Test func homeMediaCarouselLayout_slideChromeBottomInset_sitsAboveStatsOverlap() {
         #expect(HomeMediaCarouselLayout.slideChromeBottomInset > HomeLifetimeStatsLayout.panelOverlap)
-        #expect(HomeMediaCarouselLayout.playbackSettleMilliseconds >= 300)
+        #expect(HomeMediaCarouselPresentation.keepsAllSlidesLoaded(slideCount: 3))
+        #expect(HomeMediaCarouselPresentation.keepsAllSlidesLoaded(slideCount: 1))
+        #expect(!HomeMediaCarouselPresentation.keepsAllSlidesLoaded(slideCount: 0))
+        #expect(!HomeMediaCarouselPresentation.keepsAllSlidesLoaded(slideCount: 4))
     }
 
     @Test func homeMediaCarouselLayout_heroHeight_includesTopSafeAreaAndStatsOverlap() {
@@ -7857,17 +8681,60 @@ struct GoDiveMVPTests {
         #expect(HomeMediaCarouselPresentation.photoDisplaySeconds == 10)
     }
 
+    @Test func homeMediaCarouselPresentation_shouldAdvanceFromSlide_onlyWhenVisible() {
+        #expect(
+            HomeMediaCarouselPresentation.shouldAdvanceFromSlide(
+                selectedIndex: 0,
+                finishingSlideIndex: 0,
+                isPlaybackAllowed: true
+            )
+        )
+        #expect(
+            !HomeMediaCarouselPresentation.shouldAdvanceFromSlide(
+                selectedIndex: 1,
+                finishingSlideIndex: 0,
+                isPlaybackAllowed: true
+            )
+        )
+        #expect(
+            !HomeMediaCarouselPresentation.shouldAdvanceFromSlide(
+                selectedIndex: 0,
+                finishingSlideIndex: 0,
+                isPlaybackAllowed: false
+            )
+        )
+    }
+
     @Test func homeMediaCarouselPresentation_marineLifeOverlaySizing_fitsHeroArea() {
         let size = HomeMediaCarouselPresentation.marineLifeOverlaySize(width: 390, height: 420)
         #expect(size.width == 390)
         #expect(size.height == 420)
         #expect(HomeMediaCarouselPresentation.marineLifeOverlayCornerRadius == 0)
+        #expect(TripDetailMediaGalleryPresentation.marineLifeOverlayMediaScrimOpacity > 0)
+        #expect(TripDetailMediaGalleryPresentation.marineLifeOverlayTranslucentPanelOpacity > 0)
         let imageHeight = HomeMediaCarouselPresentation.marineLifeOverlayFeatureImageHeight(previewHeight: 420)
         #expect(imageHeight >= 112)
         #expect(imageHeight <= 168)
         let imageWidth = HomeMediaCarouselPresentation.marineLifeOverlayFeatureImageMaxWidth(previewWidth: 390)
         #expect(imageWidth >= 180)
         #expect(imageWidth <= 240)
+    }
+
+    @Test func homeMediaCarouselPresentation_slideChromeControlHeight_matchesTwoLineDiveChip() {
+        let height = HomeMediaCarouselPresentation.slideChromeControlHeight
+        #expect(height >= 40)
+        #expect(height <= 56)
+        #expect(height > 44)
+    }
+
+    @Test func homeMediaCarouselPresentation_marineLifeOverlayCloseTopInset_clearsHomeHeader() {
+        let inset = HomeMediaCarouselPresentation.marineLifeOverlayCloseTopInset(
+            previewHeight: 420,
+            topSafeAreaInset: 59,
+            headerOverlayHeight: 56
+        )
+        #expect(inset >= 420 * 0.30 - 0.001)
+        #expect(inset >= 59 + 56)
     }
 
     @Test func homeLifetimeStatsLayout_usesTwoColumnFixedHeightTiles() {
@@ -8029,6 +8896,128 @@ struct GoDiveMVPTests {
         }
     }
 
+    @Test func diveMediaScopeCachePresentation_mergedTier_prefersFull() {
+        #expect(
+            DiveMediaScopeCachePresentation.mergedTier(existing: nil, incoming: .preview) == .preview
+        )
+        #expect(
+            DiveMediaScopeCachePresentation.mergedTier(existing: .preview, incoming: .full) == .full
+        )
+        #expect(
+            DiveMediaScopeCachePresentation.mergedTier(existing: .full, incoming: .preview) == .full
+        )
+    }
+
+    @Test func diveMediaScopeCachePresentation_libraryAssetSourceIdentityKey() {
+        #expect(
+            DiveMediaScopeCachePresentation.libraryAssetSourceIdentityKey(
+                localIdentifier: "ABC"
+            ) == "asset:ABC"
+        )
+    }
+
+    @Test func diveMediaRetentionScope_fieldGuideContexts() {
+        let siteID = UUID()
+        #expect(DiveMediaRetentionScope.marineLifeSpecies("fish-1") == .marineLifeSpecies("fish-1"))
+        #expect(DiveMediaRetentionScope.diveSite(siteID) == .diveSite(siteID))
+        #expect(DiveMediaRetentionScope.buddyDetail(siteID) == .buddyDetail(siteID))
+    }
+
+    @Test func diveBuddyTaggedMediaPresentation_galleryRefreshToken_changesWhenTagsChange() {
+        let dive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 1, maxDepthMeters: 1)
+        let buddy = DiveBuddy(displayName: "Alex")
+        let firstPhoto = DiveMediaPhoto(capturedAt: .now, dive: dive)
+        let secondPhoto = DiveMediaPhoto(capturedAt: .now, dive: dive)
+        let first = DiveMediaBuddyTag(buddy: buddy, mediaPhoto: firstPhoto, diveActivity: dive)
+        let second = DiveMediaBuddyTag(buddy: buddy, mediaPhoto: secondPhoto, diveActivity: dive)
+        let diveID = dive.id
+        let tokenA = DiveBuddyTaggedMediaPresentation.galleryRefreshToken(
+            tags: [first],
+            ownerDiveActivityIDs: [diveID]
+        )
+        let tokenB = DiveBuddyTaggedMediaPresentation.galleryRefreshToken(
+            tags: [first, second],
+            ownerDiveActivityIDs: [diveID]
+        )
+        #expect(tokenA != tokenB)
+    }
+
+    @Test @MainActor func diveBuddyTaggedMediaPresentation_resolvedTaggedMediaPhotos_fetchesByMediaPhotoID() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let dive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 1, maxDepthMeters: 1)
+        context.insert(dive)
+        let buddy = DiveBuddy(displayName: "Alex")
+        context.insert(buddy)
+        let media = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 5_000), dive: dive)
+        context.insert(media)
+
+        let tag = DiveMediaBuddyTag(buddy: buddy, diveActivity: dive)
+        tag.mediaPhoto = nil
+        tag.mediaPhotoID = media.id
+        context.insert(tag)
+        try context.save()
+
+        let photos = DiveBuddyTaggedMediaPresentation.resolvedTaggedMediaPhotos(
+            tags: [tag],
+            ownerDiveActivityIDs: [dive.id],
+            modelContext: context
+        )
+        #expect(photos.count == 1)
+        #expect(photos[0].id == media.id)
+    }
+
+    @Test func diveBuddyTaggedMediaPresentation_collectsUniqueOwnerPhotos_oldestCaptureFirst() {
+        let dive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 1, maxDepthMeters: 1)
+        let otherDive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 1, maxDepthMeters: 1)
+        let buddy = DiveBuddy(displayName: "Alex")
+        let older = DiveMediaPhoto(
+            capturedAt: Date(timeIntervalSince1970: 1_000),
+            dive: dive
+        )
+        let newer = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 2_000), dive: dive)
+        let otherDivePhoto = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 3_000), dive: otherDive)
+
+        let tags = [
+            DiveMediaBuddyTag(
+                buddy: buddy,
+                mediaPhoto: newer,
+                diveActivity: dive
+            ),
+            DiveMediaBuddyTag(
+                buddy: buddy,
+                mediaPhoto: older,
+                diveActivity: dive
+            ),
+            DiveMediaBuddyTag(
+                buddy: buddy,
+                mediaPhoto: older,
+                diveActivity: dive
+            ),
+            DiveMediaBuddyTag(
+                buddy: buddy,
+                mediaPhoto: otherDivePhoto,
+                diveActivity: otherDive
+            ),
+        ]
+
+        let photos = DiveBuddyTaggedMediaPresentation.taggedMediaPhotos(
+            tags: tags,
+            ownerDiveActivityIDs: [dive.id]
+        )
+        #expect(photos.map(\.id) == [older.id, newer.id])
+
+        let offsets = DiveBuddyTaggedMediaPresentation.timeZoneOffsetByMediaID(
+            tags: tags,
+            ownerDiveActivityIDs: [dive.id],
+            timeZoneOffsetByActivityID: [dive.id: -14_400]
+        )
+        #expect(offsets[older.id] == -14_400)
+        #expect(offsets[newer.id] == -14_400)
+        #expect(offsets[otherDivePhoto.id] == nil)
+    }
+
     @Test func diveActivityVideoPlaybackPolicy_shouldRestartFromBeginning_whenPageBecomesActive() {
         #expect(
             DiveActivityVideoPlaybackPolicy.shouldRestartFromBeginning(
@@ -8051,6 +9040,89 @@ struct GoDiveMVPTests {
                 mediaURLChanged: true
             )
         )
+        #expect(
+            !DiveActivityVideoPlaybackPolicy.shouldRestartFromBeginning(
+                wasPlaybackActive: false,
+                isPlaybackActive: true,
+                mediaURLChanged: true,
+                reusingCachedPlayer: true
+            )
+        )
+        #expect(
+            !DiveActivityVideoPlaybackPolicy.shouldRestartFromBeginning(
+                wasPlaybackActive: false,
+                isPlaybackActive: true,
+                mediaURLChanged: false,
+                hasExistingPlaybackPosition: true
+            )
+        )
+    }
+
+    @Test func diveActivityMediaPresentation_shouldPlayBackgroundVideo_inLandscapeLayout() {
+        for detent in [DiveActivityOverviewDetent.minimized, .medium, .large] {
+            #expect(
+                DiveActivityMediaPresentation.shouldPlayBackgroundVideo(
+                    isMediaTabSelected: true,
+                    detent: detent
+                )
+            )
+        }
+        #expect(
+            !DiveActivityMediaPresentation.shouldPlayBackgroundVideo(
+                isMediaTabSelected: false,
+                detent: .medium
+            )
+        )
+    }
+
+    @Test @MainActor
+    func diveMediaVideoPlaybackSessionCache_reusesSnapshotAcrossStore() {
+        DiveMediaVideoPlaybackSessionCache.shared.clear()
+        defer { DiveMediaVideoPlaybackSessionCache.shared.clear() }
+
+        let asset = AVURLAsset(url: URL(fileURLWithPath: "/tmp/test-video.mov"))
+        let item = AVPlayerItem(asset: asset)
+        let snapshot = DiveMediaVideoPlaybackSessionCache.SwiftUISnapshot(
+            playerItem: item,
+            resolvedKey: "asset:test-id|preview",
+            videoFidelity: .preview,
+            isDisplayReady: true,
+            posterImage: nil
+        )
+        DiveMediaVideoPlaybackSessionCache.shared.storeSwiftUISnapshot(snapshot, sourceIdentityKey: "asset:test-id")
+
+        let restored = DiveMediaVideoPlaybackSessionCache.shared.swiftUISnapshot(forSourceIdentityKey: "asset:test-id")
+        #expect(restored?.resolvedKey == "asset:test-id|preview")
+        #expect(restored?.isDisplayReady == true)
+        #expect(restored?.videoFidelity == .preview)
+    }
+
+    @Test @MainActor func diveMediaVideoPlaybackSessionCache_invalidateLibraryPlayback_clearsSnapshotsAndPlayers() {
+        #if canImport(AVFoundation)
+        DiveMediaVideoPlaybackSessionCache.shared.clear()
+        defer { DiveMediaVideoPlaybackSessionCache.shared.clear() }
+
+        let sourceKey = "asset:carousel-video"
+        let asset = AVURLAsset(url: URL(fileURLWithPath: "/tmp/carousel-video.mov"))
+        let item = AVPlayerItem(asset: asset)
+        let player = AVPlayer(playerItem: AVPlayerItem(asset: asset))
+        DiveMediaVideoPlaybackSessionCache.shared.storeSwiftUISnapshot(
+            DiveMediaVideoPlaybackSessionCache.SwiftUISnapshot(
+                playerItem: item,
+                resolvedKey: "\(sourceKey)|preview",
+                videoFidelity: .preview,
+                isDisplayReady: true,
+                posterImage: nil
+            ),
+            sourceIdentityKey: sourceKey
+        )
+        DiveMediaVideoPlaybackSessionCache.shared.store(player: player, resolvedKey: "\(sourceKey)|preview")
+
+        DiveMediaVideoPlaybackSessionCache.shared.invalidateLibraryPlayback(sourceIdentityKey: sourceKey)
+
+        #expect(DiveMediaVideoPlaybackSessionCache.shared.swiftUISnapshot(forSourceIdentityKey: sourceKey) == nil)
+        #expect(DiveMediaVideoPlaybackSessionCache.shared.player(forResolvedKey: "\(sourceKey)|preview") == nil)
+        #endif
     }
 
     @Test func diveActivityVideoPlaybackPolicy_shouldPlay_respectsHoldPause() {

@@ -63,6 +63,11 @@ enum HomeMediaHighlightWarmupPresentation: Sendable {
     ) -> Bool {
         isBootstrapReady || firstSlideHasDisplayableImage
     }
+
+    /// Home carousel slides should upgrade to hero size even when a preview frame is already cached.
+    nonisolated static func shouldLoadHeroImage(hasCachedImageAtTargetEdge: Bool) -> Bool {
+        !hasCachedImageAtTargetEdge
+    }
 }
 
 extension HomeMediaHighlightWarmupPresentation.WarmupQuality: Equatable {

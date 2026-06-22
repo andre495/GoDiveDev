@@ -5,9 +5,9 @@ enum HomeReturnNavigationPresentation: Sendable {
 
     nonisolated static func shouldSkipFullRebuildOnReturn(
         hasPerformedInitialBuild: Bool,
-        isCarouselMediaReady: Bool,
+        carouselSlidesAreDisplayable: Bool,
         hasCarouselHighlights: Bool
     ) -> Bool {
-        hasPerformedInitialBuild && isCarouselMediaReady && hasCarouselHighlights
+        hasPerformedInitialBuild && carouselSlidesAreDisplayable && hasCarouselHighlights
     }
 }

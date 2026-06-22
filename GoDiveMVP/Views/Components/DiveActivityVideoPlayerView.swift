@@ -104,9 +104,11 @@ struct DiveActivityVideoPlayerView: View {
             if isActive {
                 if playerItem != nil {
                     isPlayerDisplayReady = true
+                } else if source != nil, loadFailed {
+                    reloadToken += 1
                 }
                 scheduleFullQualityUpgradeIfNeeded()
-            } else {
+            } else if libraryVideoQuality != .homeCarousel {
                 cancelFullQualityUpgrade()
             }
         }
@@ -115,8 +117,23 @@ struct DiveActivityVideoPlayerView: View {
         }
         .onDisappear {
             cancelFullQualityUpgrade()
+            storePlaybackSnapshotIfNeeded()
         }
         #endif
+    }
+
+    private func storePlaybackSnapshotIfNeeded() {
+        guard let source, let playerItem, let resolvedKey else { return }
+        DiveMediaVideoPlaybackSessionCache.shared.storeSwiftUISnapshot(
+            DiveMediaVideoPlaybackSessionCache.SwiftUISnapshot(
+                playerItem: playerItem,
+                resolvedKey: resolvedKey,
+                videoFidelity: videoFidelity,
+                isDisplayReady: isPlayerDisplayReady,
+                posterImage: posterImage
+            ),
+            sourceIdentityKey: source.identityKey
+        )
     }
 
     #if canImport(UIKit)
@@ -133,6 +150,33 @@ struct DiveActivityVideoPlayerView: View {
 
         guard let source else {
             resetPlaybackState()
+            return
+        }
+
+        let logsHomeCarousel = libraryVideoQuality == .homeCarousel
+        if logsHomeCarousel {
+            HomeMediaCarouselDebug.videoResolve(sourceKey: source.identityKey, outcome: .began)
+        }
+
+        if let cached = DiveMediaVideoPlaybackSessionCache.shared.swiftUISnapshot(
+            forSourceIdentityKey: source.identityKey
+        ), cached.resolvedKey.hasPrefix(source.identityKey) {
+            playerItem = cached.playerItem
+            resolvedKey = cached.resolvedKey
+            videoFidelity = cached.videoFidelity
+            posterImage = cached.posterImage
+            isPlayerDisplayReady = cached.isDisplayReady || isPlaybackActive
+            loadFailed = false
+            showsOfflineUnavailable = false
+            isResolving = false
+            scheduleFullQualityUpgradeIfNeeded()
+            if logsHomeCarousel {
+                HomeMediaCarouselDebug.videoResolve(
+                    sourceKey: source.identityKey,
+                    outcome: .restoredSnapshot,
+                    detail: cached.resolvedKey
+                )
+            }
             return
         }
 
@@ -154,22 +198,34 @@ struct DiveActivityVideoPlayerView: View {
         posterImage = nil
         videoFidelity = .none
         let resolved = await resolvedItem(for: source, quality: libraryVideoQuality)
-        guard source.identityKey == self.source?.identityKey else { return }
+        guard source.identityKey == self.source?.identityKey else {
+            if logsHomeCarousel {
+                HomeMediaCarouselDebug.videoResolve(sourceKey: source.identityKey, outcome: .cancelled)
+            }
+            return
+        }
         isResolving = false
 
         if let resolved {
             playerItem = resolved
             resolvedKey = source.identityKey
             loadFailed = false
+            if logsHomeCarousel {
+                HomeMediaCarouselDebug.videoResolve(sourceKey: source.identityKey, outcome: .fullReady)
+            }
             return
         }
 
         playerItem = nil
         resolvedKey = nil
         classifyLoadFailure(for: source)
+        if logsHomeCarousel {
+            HomeMediaCarouselDebug.videoResolve(sourceKey: source.identityKey, outcome: .failed)
+        }
     }
 
     private func resolveProgressiveLibraryVideo(source: DiveVideoSource) async {
+        let logsHomeCarousel = libraryVideoQuality == .homeCarousel
         guard case .libraryAsset(let identifier) = source else { return }
         if resolvedKey?.hasPrefix(source.identityKey) == true, playerItem != nil {
             isPlayerDisplayReady = true
@@ -205,7 +261,12 @@ struct DiveActivityVideoPlayerView: View {
             quality: DiveActivityMediaPresentation.overviewLibraryVideoQuality
         )
 
-        guard source.identityKey == self.source?.identityKey else { return }
+        guard source.identityKey == self.source?.identityKey else {
+            if logsHomeCarousel {
+                HomeMediaCarouselDebug.videoResolve(sourceKey: source.identityKey, outcome: .cancelled)
+            }
+            return
+        }
 
         if let loadedPoster = await posterTask {
             posterImage = loadedPoster
@@ -218,12 +279,26 @@ struct DiveActivityVideoPlayerView: View {
             videoFidelity = .preview
             loadFailed = false
             scheduleFullQualityUpgradeIfNeeded()
+            if logsHomeCarousel {
+                HomeMediaCarouselDebug.videoResolve(
+                    sourceKey: source.identityKey,
+                    outcome: .previewReady,
+                    detail: identifier
+                )
+            }
+            DiveMediaScopeCache.shared.noteMediaLoaded(
+                libraryIdentifier: identifier,
+                tier: .preview
+            )
             return
         }
 
         playerItem = nil
         resolvedKey = nil
         classifyLoadFailure(for: source)
+        if logsHomeCarousel {
+            HomeMediaCarouselDebug.videoResolve(sourceKey: source.identityKey, outcome: .failed)
+        }
     }
 
     private func scheduleFullQualityUpgradeIfNeeded() {
@@ -234,7 +309,8 @@ struct DiveActivityVideoPlayerView: View {
                   isPlaybackActive: isPlaybackActive,
                   isPausedByUserHold: isPausedByUserHold,
                   currentFidelity: videoFidelity,
-                  isNetworkAvailable: AppNetworkConnectivitySnapshot.shared.allowsCloudMediaFetch
+                  isNetworkAvailable: AppNetworkConnectivitySnapshot.shared.allowsCloudMediaFetch,
+                  allowsBackgroundUpgrade: libraryVideoQuality == .homeCarousel
               ) else {
             return
         }
@@ -257,6 +333,20 @@ struct DiveActivityVideoPlayerView: View {
             playerItem = fullItem
             resolvedKey = "\(baseKey)|full"
             videoFidelity = .full
+            if case .libraryAsset(let identifier) = source {
+                DiveMediaScopeCache.shared.noteMediaLoaded(
+                    libraryIdentifier: identifier,
+                    tier: .full
+                )
+            }
+            if libraryVideoQuality == .homeCarousel {
+                HomeMediaCarouselDebug.videoResolve(
+                    sourceKey: baseKey,
+                    outcome: .fullReady,
+                    detail: "upgraded"
+                )
+            }
+            storePlaybackSnapshotIfNeeded()
         }
     }
 
@@ -433,7 +523,7 @@ private struct DiveActivityFillVideoPlayerRepresentable: UIViewRepresentable {
     }
 
     static func dismantleUIView(_ uiView: DiveActivityFillVideoPlayerUIView, coordinator: ()) {
-        uiView.stop()
+        uiView.detachForReuse()
     }
 }
 
@@ -481,6 +571,13 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
         self.loopsPlayback = loopsPlayback
         self.onPlaybackFinished = onPlaybackFinished
 
+        if isPlaybackActive && !lastAppliedPlaybackActive && isPlayerAtEnd() {
+            syncPlaybackEndObserver()
+            restartFromBeginning()
+            lastAppliedPlaybackActive = isPlaybackActive
+            return
+        }
+
         let isQualityUpgrade = currentKey?.hasSuffix("|preview") == true
             && identityKey.hasSuffix("|full")
         if isQualityUpgrade, player != nil {
@@ -490,10 +587,14 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
         }
 
         let mediaChanged = currentKey != identityKey
+        let reusingCachedPlayer = mediaChanged
+            && DiveMediaVideoPlaybackSessionCache.shared.player(forResolvedKey: identityKey) != nil
         let shouldRestart = DiveActivityVideoPlaybackPolicy.shouldRestartFromBeginning(
             wasPlaybackActive: lastAppliedPlaybackActive,
             isPlaybackActive: isPlaybackActive,
-            mediaURLChanged: mediaChanged
+            mediaURLChanged: mediaChanged,
+            reusingCachedPlayer: reusingCachedPlayer,
+            hasExistingPlaybackPosition: hasExistingPlaybackPosition()
         )
 
         if mediaChanged {
@@ -514,7 +615,11 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
         removeEndObserver()
         displayReadyObservation?.invalidate()
         displayReadyObservation = nil
+        if let currentKey {
+            DiveMediaVideoPlaybackSessionCache.shared.removePlayer(forResolvedKey: currentKey)
+        }
         player?.pause()
+        player?.replaceCurrentItem(with: nil)
         player = nil
         playerLayer.player = nil
         currentKey = nil
@@ -524,7 +629,35 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
         lastAppliedPlaybackActive = false
     }
 
+    /// Pauses and caches the player for SwiftUI relayout (rotation) without tearing down the stream.
+    func detachForReuse() {
+        removeEndObserver()
+        displayReadyObservation?.invalidate()
+        displayReadyObservation = nil
+        if let player, let currentKey {
+            player.pause()
+            DiveMediaVideoPlaybackSessionCache.shared.store(player: player, resolvedKey: currentKey)
+        }
+        player = nil
+        playerLayer.player = nil
+        self.currentKey = nil
+        loopsPlayback = false
+        isPlaybackActive = false
+        isPausedByUserHold = false
+        lastAppliedPlaybackActive = false
+    }
+
     private func loadPlayer(playerItem: AVPlayerItem, identityKey: String) {
+        if let cachedPlayer = DiveMediaVideoPlaybackSessionCache.shared.player(forResolvedKey: identityKey) {
+            currentKey = identityKey
+            DiveMutedVideoAudioSession.activateForMutedPlayback()
+            player = cachedPlayer
+            playerLayer.player = cachedPlayer
+            observeDisplayReady()
+            syncPlaybackEndObserver()
+            return
+        }
+
         removeEndObserver()
         displayReadyObservation?.invalidate()
         player?.pause()
@@ -538,6 +671,7 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
         newPlayer.isMuted = true
         player = newPlayer
         playerLayer.player = newPlayer
+        DiveMediaVideoPlaybackSessionCache.shared.store(player: newPlayer, resolvedKey: identityKey)
         observeDisplayReady()
         syncPlaybackEndObserver()
     }
@@ -553,6 +687,7 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
         let playbackItem = AVPlayerItem(asset: playerItem.asset)
         player.replaceCurrentItem(with: playbackItem)
         currentKey = identityKey
+        DiveMediaVideoPlaybackSessionCache.shared.store(player: player, resolvedKey: identityKey)
         observeDisplayReady()
         syncPlaybackEndObserver()
         player.seek(to: preservedTime, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
@@ -606,8 +741,27 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
     private func restartFromBeginning() {
         guard player != nil else { return }
         player?.seek(to: .zero) { [weak self] _ in
-            self?.syncPlaybackState()
+            guard let self else { return }
+            self.syncPlaybackEndObserver()
+            self.syncPlaybackState()
         }
+    }
+
+    private func hasExistingPlaybackPosition(thresholdSeconds: Double = 0.25) -> Bool {
+        guard let player else { return false }
+        let current = player.currentTime()
+        guard current.isValid else { return false }
+        let seconds = CMTimeGetSeconds(current)
+        return seconds.isFinite && seconds > thresholdSeconds
+    }
+
+    private func isPlayerAtEnd(toleranceSeconds: Double = 0.15) -> Bool {
+        guard let player, let item = player.currentItem else { return false }
+        let duration = item.duration
+        guard duration.isValid, !duration.isIndefinite else { return false }
+        let current = player.currentTime()
+        guard current.isValid else { return false }
+        return CMTimeGetSeconds(current) >= CMTimeGetSeconds(duration) - toleranceSeconds
     }
 
     private func syncPlaybackState() {

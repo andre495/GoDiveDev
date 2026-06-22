@@ -18,4 +18,4 @@ For **non-trivial** updates to **`GoDiveMVP/`** (new behavior, bug fixes, data r
 - **Prefer unit tests** when the behavior does not require `XCUIApplication`; keep UI tests **small and stable** (deterministic launch, avoid flaky timing).
 - **Exceptions (rare):** Purely cosmetic one-line tweaks, comment-only edits, or changes the user **explicitly** asks to ship without tests — state the exception briefly when you skip tests.
 
-If Xcode is unavailable in the environment, still **author** the tests; the user runs **⌘U** locally.
+If Xcode is unavailable in the environment, still **author** the tests; **do not run `xcodebuild`** unless the user asks to test or commit/push (see **`.cursor/rules/xcode-test-only-when-asked.mdc`**).

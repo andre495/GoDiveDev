@@ -16,6 +16,9 @@ struct DiveActivityMediaBackgroundView: View {
     var mediaCaptureContextsByID: [UUID: DiveMediaCaptureContext] = [:]
     var sheetDetent: DiveActivityOverviewDetent = .medium
     var isMediaTabSelected: Bool = true
+    var presentationEpoch: Int = 0
+    /// Deep-link target (Home / logbook) — keeps the tapped photo selected while the pager hydrates.
+    var deepLinkMediaID: UUID? = nil
     var onTagMarineLife: ((DiveMediaPhoto) -> Void)?
     var marineLifeSightings: [SightingInstance] = []
     /// Top padding so the marine-life fish control sits below the dive tab bar (see **`marineLifeTagButtonTopPadding`**).
@@ -23,6 +26,8 @@ struct DiveActivityMediaBackgroundView: View {
     let bottomContentMargin: CGFloat
     /// Lifts the capture-date oval above the overview sheet when the hero is full-bleed.
     var captureOverlayBottomInset: CGFloat = 0
+
+    @State private var pagerScrollReaffirmToken = 0
 
     private var showsMarineLifeTagButton: Bool {
         onTagMarineLife != nil
@@ -61,6 +66,20 @@ struct DiveActivityMediaBackgroundView: View {
         .onChange(of: mediaIDsSignature) { _, _ in
             syncSelectionToMedia()
         }
+        .onChange(of: isMediaTabSelected) { _, isSelected in
+            guard isSelected else { return }
+            syncSelectionToMedia()
+            reaffirmPagerSelectionIfNeeded(forceScrollReaffirm: true)
+        }
+        .onChange(of: presentationEpoch) { _, _ in
+            reaffirmPagerSelectionIfNeeded(forceScrollReaffirm: true)
+        }
+        .onChange(of: mediaIDsSignature) { oldSignature, newSignature in
+            guard isMediaTabSelected else { return }
+            guard oldSignature.count == 0, newSignature.count > 0 else { return }
+            syncSelectionToMedia()
+            reaffirmPagerSelectionIfNeeded(forceScrollReaffirm: true)
+        }
     }
 
     private var mediaIDsSignature: MediaSelectionSignature {
@@ -73,46 +92,52 @@ struct DiveActivityMediaBackgroundView: View {
 
     private var mediaPager: some View {
         GeometryReader { geometry in
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 0) {
-                    ForEach(mediaItems, id: \.id) { item in
-                        DiveActivityMediaItemView(
-                            media: item,
-                            timeZoneOffsetSeconds: timeZoneOffsetSeconds,
-                            captureContext: mediaCaptureContextsByID[item.id],
-                            showsCaptureDateOverlay: DiveActivityMediaPresentation.showsCaptureDateOnHero(
-                                for: sheetDetent
-                            ),
-                            captureOverlayBottomInset: captureOverlayBottomInset,
-                            showsMarineLifeTagButton: showsMarineLifeTagButton
-                                && selectedMediaID == item.id,
-                            marineLifeTagIsActive: MarineLifeMediaTagPresentation.hasTaggedSpeciesOnMedia(
-                                mediaPhotoID: item.id,
-                                sightings: marineLifeSightings
-                            ),
-                            marineLifeTagTopInset: marineLifeTagTopPadding,
-                            onTagMarineLife: showsMarineLifeTagButton
-                                && selectedMediaID == item.id
-                                ? { onTagMarineLife?(item) }
-                                : nil,
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 0) {
+                        ForEach(mediaItems, id: \.id) { item in
+                            DiveActivityMediaItemView(
+                                media: item,
+                                timeZoneOffsetSeconds: timeZoneOffsetSeconds,
+                                captureContext: mediaCaptureContextsByID[item.id],
+                                showsCaptureDateOverlay: DiveActivityMediaPresentation.showsCaptureDateOnHero(
+                                    for: sheetDetent
+                                ),
+                                captureOverlayBottomInset: captureOverlayBottomInset,
+                                showsMarineLifeTagButton: showsMarineLifeTagButton
+                                    && selectedMediaID == item.id,
+                                marineLifeTagIsActive: MarineLifeMediaTagPresentation.hasTaggedSpeciesOnMedia(
+                                    mediaPhotoID: item.id,
+                                    sightings: marineLifeSightings
+                                ),
+                                marineLifeTagTopInset: marineLifeTagTopPadding,
+                                onTagMarineLife: showsMarineLifeTagButton
+                                    && selectedMediaID == item.id
+                                    ? { onTagMarineLife?(item) }
+                                    : nil,
                             isVideoPlaybackActive: shouldPlayBackgroundVideo && selectedMediaID == item.id,
                             loopsVideoPlayback: shouldPlayBackgroundVideo
                         )
-                        .frame(width: geometry.size.width, height: geometry.size.height)
-                        .id(item.id)
+                            .frame(width: geometry.size.width, height: geometry.size.height)
+                            .id(item.id)
+                        }
                     }
+                    .scrollTargetLayout()
                 }
-                .scrollTargetLayout()
-            }
-            .scrollTargetBehavior(.paging)
-            .scrollPosition(id: $selectedMediaID)
-            .frame(width: geometry.size.width, height: geometry.size.height)
-            .ignoresSafeArea()
-            .onAppear {
-                prefetchProgressiveNeighbors(screenPixelWidth: geometry.size.width * displayScale)
-            }
-            .onChange(of: selectedMediaID) { _, _ in
-                prefetchProgressiveNeighbors(screenPixelWidth: geometry.size.width * displayScale)
+                .scrollTargetBehavior(.paging)
+                .scrollPosition(id: $selectedMediaID)
+                .frame(width: geometry.size.width, height: geometry.size.height)
+                .ignoresSafeArea()
+                .onAppear {
+                    prefetchProgressiveNeighbors(screenPixelWidth: geometry.size.width * displayScale)
+                }
+                .onChange(of: selectedMediaID) { _, _ in
+                    prefetchProgressiveNeighbors(screenPixelWidth: geometry.size.width * displayScale)
+                }
+                .onChange(of: pagerScrollReaffirmToken) { _, _ in
+                    guard let selectedMediaID else { return }
+                    proxy.scrollTo(selectedMediaID, anchor: .center)
+                }
             }
         }
         .ignoresSafeArea()
@@ -142,8 +167,27 @@ struct DiveActivityMediaBackgroundView: View {
     private func syncSelectionToMedia() {
         selectedMediaID = DiveActivityMediaPresentation.resolvedSelectedPhotoID(
             selectedID: selectedMediaID,
-            in: mediaItems
+            in: mediaItems,
+            preferredID: deepLinkMediaID
         )
+    }
+
+    private func reaffirmPagerSelectionIfNeeded(forceScrollReaffirm: Bool = false) {
+        guard DiveActivityMediaActivation.shouldReaffirmPagerSelection(
+            isMediaContextActive: isMediaTabSelected,
+            mediaCount: mediaItems.count
+        ) else { return }
+        guard let target = DiveActivityMediaPresentation.resolvedSelectedPhotoID(
+            selectedID: selectedMediaID,
+            in: mediaItems,
+            preferredID: deepLinkMediaID
+        ) else { return }
+
+        if forceScrollReaffirm, selectedMediaID == target {
+            pagerScrollReaffirmToken &+= 1
+        } else if selectedMediaID != target {
+            selectedMediaID = target
+        }
     }
 
     private func prefetchProgressiveNeighbors(screenPixelWidth: CGFloat) {

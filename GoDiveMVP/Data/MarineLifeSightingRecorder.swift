@@ -46,7 +46,8 @@ enum MarineLifeSightingRecorder {
         dive: DiveActivity,
         captureContext: DiveMediaCaptureContext?,
         owner: UserProfile,
-        modelContext: ModelContext
+        modelContext: ModelContext,
+        persistImmediately: Bool = true
     ) throws -> SightingInstance {
         if let existing = try existingSighting(
             marineLifeUUID: marineLife.uuid,
@@ -58,8 +59,12 @@ enum MarineLifeSightingRecorder {
                 dive: dive,
                 media: media,
                 owner: owner,
-                modelContext: modelContext
+                modelContext: modelContext,
+                persistImmediately: persistImmediately
             )
+            if persistImmediately {
+                DiveActivityMediaStorage.postMediaDidChange()
+            }
             return existing
         }
 
@@ -75,16 +80,50 @@ enum MarineLifeSightingRecorder {
             dive: dive,
             diveSite: dive.diveSite,
             mediaPhoto: media,
-            modelContext: modelContext
+            modelContext: modelContext,
+            persistImmediately: persistImmediately
         )
         try syncUserRecord(
             marineLife: marineLife,
             dive: dive,
             media: media,
             owner: owner,
-            modelContext: modelContext
+            modelContext: modelContext,
+            persistImmediately: persistImmediately
         )
+        if persistImmediately {
+            DiveActivityMediaStorage.postMediaDidChange()
+        }
         return sighting
+    }
+
+    /// Persists multiple pending media tags with a single save at the end.
+    static func tagPendingSpecies(
+        _ marineLife: [MarineLife],
+        on media: DiveMediaPhoto,
+        dive: DiveActivity,
+        captureContext: DiveMediaCaptureContext?,
+        owner: UserProfile,
+        modelContext: ModelContext
+    ) throws {
+        guard !marineLife.isEmpty else { return }
+
+        for species in marineLife {
+            _ = try tagSpecies(
+                species,
+                on: media,
+                dive: dive,
+                captureContext: captureContext,
+                owner: owner,
+                modelContext: modelContext,
+                persistImmediately: false
+            )
+        }
+
+        if modelContext.hasChanges {
+            try modelContext.save()
+        }
+        DiveActivityMediaStorage.postMediaDidChange()
     }
 
     private static func syncUserRecord(
@@ -92,7 +131,8 @@ enum MarineLifeSightingRecorder {
         dive: DiveActivity,
         media: DiveMediaPhoto,
         owner: UserProfile,
-        modelContext: ModelContext
+        modelContext: ModelContext,
+        persistImmediately: Bool
     ) throws {
         let record = try MarineLifeUserRecordOwnership.getOrCreate(
             for: marineLife,
@@ -113,7 +153,9 @@ enum MarineLifeSightingRecorder {
             record.userTaggedMedia.append(mediaLink)
         }
 
-        try modelContext.save()
+        if persistImmediately {
+            try modelContext.save()
+        }
     }
 
     private static func userTaggedMediaLink(for media: DiveMediaPhoto) -> String {

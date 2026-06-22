@@ -4,7 +4,7 @@ enum DiveSiteMapper {
     static func map(_ dto: DiveSiteDTO) -> DiveSite {
         DiveSite(
             id: dto.id ?? UUID(),
-            siteName: dto.siteName,
+            siteName: DiveSiteFormValidation.sanitizedSiteName(dto.siteName) ?? dto.siteName.trimmingCharacters(in: .whitespacesAndNewlines),
             country: dto.country ?? "",
             region: dto.region ?? "",
             bodyOfWater: dto.bodyOfWater ?? "",

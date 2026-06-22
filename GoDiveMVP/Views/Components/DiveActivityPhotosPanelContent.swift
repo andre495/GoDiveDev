@@ -11,6 +11,8 @@ struct DiveActivityPhotosPanelContent: View {
     var showsMediaCarousel = false
     var showsMarineLifeTagInSheet = false
     var onTagMarineLife: (() -> Void)?
+    var showsBuddyTagInSheet = false
+    var onTagBuddies: (() -> Void)?
     /// Expands the overview sheet to **large** tagged-species detail (medium oval chips).
     var onExpandMarineLifeDetail: (() -> Void)?
     /// Resolved featured media id (user-chosen, else oldest); marks the carousel item and the toggle state.
@@ -19,6 +21,8 @@ struct DiveActivityPhotosPanelContent: View {
     var onToggleFeatured: ((DiveMediaPhoto) -> Void)?
     /// Catalog species tagged on the selected media item.
     var taggedSpecies: [MarineLife] = []
+    /// Buddies tagged on the selected media item.
+    var taggedBuddies: [DiveBuddy] = []
     @Binding var mediaPickerItems: [PhotosPickerItem]
     var isImportInProgress = false
 
@@ -36,6 +40,12 @@ struct DiveActivityPhotosPanelContent: View {
     private var isMarineLifeTagControlActive: Bool {
         DiveActivityMediaPresentation.marineLifeTagControlIsActive(
             taggedSpeciesCount: taggedSpecies.count
+        )
+    }
+
+    private var isBuddyTagControlActive: Bool {
+        DiveActivityMediaPresentation.buddyTagControlIsActive(
+            taggedBuddyCount: taggedBuddies.count
         )
     }
 
@@ -229,11 +239,20 @@ struct DiveActivityPhotosPanelContent: View {
 
     private var sheetTopChromeRow: some View {
         HStack(alignment: .top, spacing: AppTheme.Spacing.sm) {
-            if showsMarineLifeTagInSheet, let onTagMarineLife {
-                DiveActivityMediaMarineLifeTagButton(
-                    isActive: isMarineLifeTagControlActive,
-                    action: onTagMarineLife
-                )
+            HStack(spacing: AppTheme.Spacing.sm) {
+                if showsMarineLifeTagInSheet, let onTagMarineLife {
+                    DiveActivityMediaMarineLifeTagButton(
+                        isActive: isMarineLifeTagControlActive,
+                        action: onTagMarineLife
+                    )
+                }
+
+                if showsBuddyTagInSheet, let onTagBuddies {
+                    DiveActivityMediaBuddyTagButton(
+                        isActive: isBuddyTagControlActive,
+                        action: onTagBuddies
+                    )
+                }
             }
 
             Spacer(minLength: AppTheme.Spacing.sm)

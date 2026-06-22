@@ -8,7 +8,11 @@ struct ExploreSiteScopeToggle: View {
         HStack(spacing: 4) {
             ForEach(ExploreSiteScope.allCases) { scope in
                 Button {
-                    selection = scope
+                    var transaction = Transaction()
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) {
+                        selection = scope
+                    }
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: scope.systemImage)

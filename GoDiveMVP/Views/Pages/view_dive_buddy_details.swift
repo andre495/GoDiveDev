@@ -16,6 +16,8 @@ struct ViewDiveBuddyDetails: View {
     @Query(sort: [SortDescriptor(\DiveActivity.startTime, order: .reverse)])
     private var allDiveActivities: [DiveActivity]
 
+    @Query private var buddyMediaTags: [DiveMediaBuddyTag]
+
     @Query(
         sort: [
             SortDescriptor(\DiveTrip.startDate, order: .reverse),
@@ -29,6 +31,15 @@ struct ViewDiveBuddyDetails: View {
     @State private var contactsAccessError: String?
     @State private var contactLinkError: String?
     @State private var cachedDiveRows: [DiveLogbookRowDisplayData] = []
+
+    init(buddy: DiveBuddy) {
+        self.buddy = buddy
+        let buddyID = buddy.id
+        _buddyMediaTags = Query(
+            filter: #Predicate<DiveMediaBuddyTag> { $0.buddyID == buddyID },
+            sort: [SortDescriptor(\.id, order: .forward)]
+        )
+    }
 
     private var ownerProfileID: UUID? {
         accountSession.currentProfile?.id
@@ -71,6 +82,36 @@ struct ViewDiveBuddyDetails: View {
         )
     }
 
+    private var ownerDiveActivityIDs: Set<UUID> {
+        guard let ownerProfileID else { return [] }
+        return Set(
+            allDiveActivities
+                .filter { $0.ownerProfileID == ownerProfileID }
+                .map(\.id)
+        )
+    }
+
+    private var taggedMediaItems: [DiveMediaPhoto] {
+        DiveBuddyTaggedMediaPresentation.resolvedTaggedMediaPhotos(
+            tags: buddyMediaTags,
+            ownerDiveActivityIDs: ownerDiveActivityIDs,
+            modelContext: modelContext
+        )
+    }
+
+    private var taggedMediaTimeZoneOffsetByID: [UUID: Int?] {
+        let offsetByActivityID = Dictionary(
+            uniqueKeysWithValues: allDiveActivities
+                .filter { ownerDiveActivityIDs.contains($0.id) }
+                .map { ($0.id, $0.timeZoneOffsetSeconds) }
+        )
+        return DiveBuddyTaggedMediaPresentation.timeZoneOffsetByMediaID(
+            tags: buddyMediaTags,
+            ownerDiveActivityIDs: ownerDiveActivityIDs,
+            timeZoneOffsetByActivityID: offsetByActivityID
+        )
+    }
+
     var body: some View {
         AppPage(
             title: buddy.displayName,
@@ -86,6 +127,10 @@ struct ViewDiveBuddyDetails: View {
             content: {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
                     headerSection
+
+                    if !taggedMediaItems.isEmpty {
+                        taggedMediaSection
+                    }
 
                     if !associatedTripRows.isEmpty {
                         tripsTogetherSection
@@ -107,6 +152,12 @@ struct ViewDiveBuddyDetails: View {
             refreshCachedDiveRows()
         }
         .hidesBottomTabBarWhenPushed()
+        .onAppear {
+            DiveMediaScopeCache.shared.activateScope(.buddyDetail(buddy.id))
+        }
+        .onDisappear {
+            DiveMediaScopeCache.shared.deactivateScope(.buddyDetail(buddy.id))
+        }
         .sheet(isPresented: $showsEditSheet) {
             DiveBuddyEditSheetView(
                 buddy: buddy,
@@ -279,6 +330,23 @@ struct ViewDiveBuddyDetails: View {
         }
     }
     #endif
+
+    private var taggedMediaSection: some View {
+        ExpandableDetailSection(
+            title: DiveBuddyTaggedMediaPresentation.sectionTitle,
+            itemCount: taggedMediaItems.count,
+            isExpandedByDefault: true,
+            accessibilityIdentifier: "DiveBuddyDetails.TaggedMedia"
+        ) {
+            FieldGuideTaggedMediaGalleryView(
+                mediaItems: taggedMediaItems,
+                timeZoneOffsetByMediaID: taggedMediaTimeZoneOffsetByID,
+                showsTitle: false,
+                previewAccessibilityIdentifier: "DiveBuddyDetails.TaggedMediaPreview",
+                carouselAccessibilityIdentifier: "DiveBuddyDetails.TaggedMediaCarousel"
+            )
+        }
+    }
 
     private var tripsTogetherSection: some View {
         ExpandableDetailSection(

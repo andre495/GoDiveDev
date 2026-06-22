@@ -87,7 +87,7 @@ struct ExploreDiveSiteDetailView: View {
 
     var body: some View {
         AppPage(
-            title: site.siteName,
+            title: DiveSiteCatalogMatcher.resolvedCatalogSiteName(for: site) ?? "Dive site",
             showsBackButton: true,
             showsBrandWordmark: false,
             titlePlacement: AppHeaderStackedTitleChrome.titlePlacement,
@@ -165,6 +165,12 @@ struct ExploreDiveSiteDetailView: View {
             }
         }
         .hidesBottomTabBarWhenPushed()
+        .onAppear {
+            DiveMediaScopeCache.shared.activateScope(.diveSite(site.id))
+        }
+        .onDisappear {
+            DiveMediaScopeCache.shared.deactivateScope(.diveSite(site.id))
+        }
         .onChange(of: site.waterType) { _, _ in
             try? modelContext.save()
         }

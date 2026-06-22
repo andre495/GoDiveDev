@@ -66,7 +66,7 @@ final class MarineLife {
         diverReaction: String = ""
     ) {
         self.uuid = uuid
-        self.commonName = commonName
+        self.commonName = MarineLifeCommonNameFormatting.normalized(commonName)
         self.featureImageURL = featureImageURL
         self.featureImageResourceName = featureImageResourceName
         self.featureModelResourceName = featureModelResourceName

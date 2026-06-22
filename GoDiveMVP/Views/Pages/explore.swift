@@ -22,6 +22,11 @@ struct ExploreView: View {
     @State private var mapFocusRequest: ExploreCatalogMapFocusRequest?
     @State private var exploreTopChromeHeight: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
     @State private var listScrollToTopNonce = 0
+    @State private var scopeCache = ExploreSiteScopeCache.Snapshot.empty
+    @State private var displayedPlottableSites: [ExploreCatalogMapPresentation.PlottedSite] = []
+    @State private var displayedPlottableSignature = ""
+    @State private var displayedListRows: [ExploreDiveSiteRowDisplayData] = []
+    @State private var scopeCacheRebuildTask: Task<Void, Never>?
 
     private var referenceCatalog: [DiveSiteReferenceSnapshot] {
         DiveSiteReferenceCatalog.bundledReference()
@@ -36,51 +41,30 @@ struct ExploreView: View {
         return diveActivities.filter { $0.ownerProfileID == ownerID }
     }
 
-    private var logbookSiteIDs: Set<UUID> {
-        ExploreSiteScopePresentation.logbookSiteIDs(
-            ownerActivities: ownerDiveActivities,
-            ownerProfileID: accountSession.currentProfile?.id
-        )
-    }
-
-    private var scopedCatalogSites: [DiveSite] {
-        ExploreSiteScopePresentation.logbookCatalogSites(
-            catalog: diveSites,
-            logbookSiteIDs: logbookSiteIDs
-        )
-    }
-
-    private var siteListRows: [ExploreDiveSiteRowDisplayData] {
-        ExploreSiteScopePresentation.catalogListRows(
-            scope: siteScope,
-            catalog: diveSites,
-            logbookSiteIDs: logbookSiteIDs,
-            reference: referenceCatalog,
-            query: siteSearchQuery
-        )
-    }
-
-    private var plottableSites: [ExploreCatalogMapPresentation.PlottedSite] {
-        ExploreSiteScopePresentation.plottableSites(
-            scope: siteScope,
-            catalog: diveSites,
-            logbookSiteIDs: logbookSiteIDs,
-            reference: referenceCatalog
+    private var scopeCacheSyncToken: String {
+        ExploreSiteScopeCache.syncToken(
+            ownerProfileID: accountSession.currentProfile?.id,
+            catalogSiteCount: diveSites.count,
+            ownerActivitySiteLinkSignature: ExploreSiteScopeCache.ownerActivitySiteLinkSignature(
+                ownerDiveActivities
+            )
         )
     }
 
     private var mapPlottableSites: [ExploreCatalogMapPresentation.PlottedSite] {
-        guard viewMode == .map, let mapFocusedSelection else { return plottableSites }
-        return plottableSites.filter { $0.selection == mapFocusedSelection }
+        guard viewMode == .map, let mapFocusedSelection else { return displayedPlottableSites }
+        return displayedPlottableSites.filter { $0.selection == mapFocusedSelection }
+    }
+
+    private var mapPlottableSignature: String {
+        guard viewMode == .map, mapFocusedSelection != nil else { return displayedPlottableSignature }
+        return ExploreCatalogMapPresentation.sitesChangeSignature(for: mapPlottableSites)
     }
 
     private var siteSearchSuggestions: [ExploreDiveSiteSearchSuggestion] {
         ExploreDiveSiteSearchPresentation.suggestions(
-            scope: siteScope,
-            catalog: diveSites,
-            logbookSiteIDs: logbookSiteIDs,
-            reference: referenceCatalog,
-            plottableSites: plottableSites,
+            rows: displayedListRows,
+            plottableSites: displayedPlottableSites,
             query: siteSearchQuery
         )
     }
@@ -107,16 +91,11 @@ struct ExploreView: View {
     }
 
     private var showsSiteScopeToggle: Bool {
-        !referenceCatalog.isEmpty
+        scopeCache.showsSiteScopeToggle
     }
 
     private var showsScopedSiteContent: Bool {
-        switch siteScope {
-        case .logbook:
-            !scopedCatalogSites.isEmpty
-        case .allSites:
-            !referenceCatalog.isEmpty
-        }
+        scopeCache.hasScopedContent(for: siteScope)
     }
 
     var body: some View {
@@ -160,16 +139,28 @@ struct ExploreView: View {
             siteSearchQuery = ""
             clearMapSiteSearch()
             dismissSiteSearchKeyboard()
+            applyScopePresentation()
             if viewMode == .list {
                 RootTabListScrollSupport.scheduleScrollToTop { listScrollToTopNonce += 1 }
             }
         }
         .onChange(of: siteSearchQuery) { _, newQuery in
+            refreshDisplayedListRows()
             guard mapFocusedSelection != nil else { return }
             let trimmedQuery = newQuery.trimmingCharacters(in: .whitespacesAndNewlines)
             let trimmedFocusedName = mapFocusedSiteName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             guard trimmedQuery != trimmedFocusedName else { return }
             clearMapSiteSearch(keepingQuery: true)
+        }
+        .onChange(of: scopeCacheSyncToken) { _, _ in
+            scheduleScopeCacheRebuild()
+        }
+        .onAppear {
+            scheduleScopeCacheRebuild()
+        }
+        .onDisappear {
+            scopeCacheRebuildTask?.cancel()
+            scopeCacheRebuildTask = nil
         }
         .onChange(of: isSiteSearchFocused) { _, isFocused in
             if !isFocused {
@@ -193,6 +184,7 @@ struct ExploreView: View {
                     case .map:
                         ExploreCatalogMapView(
                             sites: mapPlottableSites,
+                            sitesChangeSignature: mapPlottableSignature,
                             siteScope: siteScope,
                             focusRequest: mapFocusRequest
                         ) { selection in
@@ -345,7 +337,7 @@ struct ExploreView: View {
             exploreSiteListEmptyState
                 .padding(.top, topInset)
                 .padding(.horizontal, AppTheme.Spacing.lg)
-        } else if siteListRows.isEmpty && isFilteringSites {
+        } else if displayedListRows.isEmpty && isFilteringSites {
             CatalogSearchEmptyState(
                 title: "No matching dive sites",
                 message: "Try a different site name or place."
@@ -360,7 +352,7 @@ struct ExploreView: View {
                     .listRowBackground(Color.clear)
                     .accessibilityHidden(true)
 
-                ForEach(siteListRows) { row in
+                ForEach(displayedListRows) { row in
                     Button {
                         openExploreSiteRow(row)
                     } label: {
@@ -397,6 +389,48 @@ struct ExploreView: View {
             .ignoresSafeArea(edges: [.top, .bottom])
             .listScrollToTopTrigger(nonce: listScrollToTopNonce)
         }
+    }
+
+    private func scheduleScopeCacheRebuild() {
+        let profileID = accountSession.currentProfile?.id
+        let catalog = diveSites
+        let activities = ownerDiveActivities
+        scopeCacheRebuildTask?.cancel()
+
+        if scopeCache == .empty {
+            scopeCache = ExploreSiteScopeCache.make(
+                ownerProfileID: profileID,
+                catalog: catalog,
+                ownerActivities: activities
+            )
+            applyScopePresentation()
+            return
+        }
+
+        scopeCacheRebuildTask = Task(priority: .userInitiated) {
+            let snapshot = ExploreSiteScopeCache.make(
+                ownerProfileID: profileID,
+                catalog: catalog,
+                ownerActivities: activities
+            )
+            guard !Task.isCancelled else { return }
+            scopeCache = snapshot
+            applyScopePresentation()
+        }
+    }
+
+    private func applyScopePresentation() {
+        displayedPlottableSites = scopeCache.plottableSites(for: siteScope)
+        displayedPlottableSignature = scopeCache.plottableSignature(for: siteScope)
+        refreshDisplayedListRows()
+    }
+
+    private func refreshDisplayedListRows() {
+        displayedListRows = ExploreSiteScopeCache.filteringListRows(
+            scopeCache.listRows(for: siteScope),
+            scope: siteScope,
+            query: siteSearchQuery
+        )
     }
 
     private func exploreSiteRowAccessibilityIdentifier(for row: ExploreDiveSiteRowDisplayData) -> String {

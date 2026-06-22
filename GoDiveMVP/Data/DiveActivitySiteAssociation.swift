@@ -344,4 +344,22 @@ extension DiveActivitySiteAssociation {
             enrichedSiteCount: enrichedSiteCount
         )
     }
+
+    /// Trims or backfills **`siteName`** on OpenDiveMap-tagged catalog rows (idempotent).
+    @MainActor
+    static func normalizeOpenDiveMapCatalogSiteNames(modelContext: ModelContext) throws {
+        let reference = DiveSiteReferenceCatalog.bundledReference()
+        guard !reference.isEmpty else { return }
+
+        let catalogSites = try fetchCatalogSites(modelContext: modelContext)
+        var changed = false
+        for site in catalogSites where DiveSiteCatalogMatcher.referenceID(from: site.siteTags) != nil {
+            if DiveSiteCatalogMatcher.normalizeCatalogSiteNameIfNeeded(site, reference: reference) {
+                changed = true
+            }
+        }
+        if changed {
+            try modelContext.save()
+        }
+    }
 }

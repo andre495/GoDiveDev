@@ -60,9 +60,10 @@ enum ExploreDiveSiteListDisplay {
         trailingStyle: ExploreDiveSiteRowTrailingStyle = .catalogDefault
     ) -> [ExploreDiveSiteRowDisplayData] {
         sites.map { site in
-            ExploreDiveSiteRowDisplayData(
+            let displayName = DiveSiteCatalogMatcher.resolvedCatalogSiteName(for: site) ?? site.siteName
+            return ExploreDiveSiteRowDisplayData(
                 id: site.id,
-                displayName: site.siteName,
+                displayName: displayName,
                 diveCountLabel: diveCountLabel(for: site, style: trailingStyle),
                 coordinateLine: coordinateLine(for: site),
                 placeLine: cityCountryLine(country: site.country, region: site.region).nilIfEmpty

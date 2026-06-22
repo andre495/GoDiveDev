@@ -2,14 +2,17 @@ import Foundation
 
 /// Post-recognition review branching for Fishial identify — top-level for **nonisolated** **`Equatable`** (Swift 6).
 enum FishialIdentificationReviewMode: Equatable, Sendable {
-    case noMatches
+    case noFishDetected
+    case unmatchedFishialSuggestion(String)
     case confirmSingle(FishialCatalogReviewOption)
     case selectFromMultiple([FishialCatalogReviewOption])
 
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         switch (lhs, rhs) {
-        case (.noMatches, .noMatches):
+        case (.noFishDetected, .noFishDetected):
             return true
+        case (.unmatchedFishialSuggestion(let left), .unmatchedFishialSuggestion(let right)):
+            return left == right
         case (.confirmSingle(let left), .confirmSingle(let right)):
             return left == right
         case (.selectFromMultiple(let left), .selectFromMultiple(let right)):
@@ -26,25 +29,43 @@ enum FishialIdentificationReviewPresentation: Sendable {
     typealias ReviewMode = FishialIdentificationReviewMode
 
     nonisolated static let mediumDetentSectionTitle = "Fish ID"
-    nonisolated static let noMatchesMessage =
-        "Fishial did not match any species in our marine life catalog for this still."
+    nonisolated static let noFishDetectedMessage =
+        "Fishial did not detect a fish in this still."
     nonisolated static let confirmSinglePrompt = "Does this look like the fish in your photo?"
-    nonisolated static let selectMultiplePrompt = "Which catalog species match do you think is correct?"
+    nonisolated static let selectMultiplePrompt =
+        "Select all catalog species you think are correct. You can choose more than one."
+    nonisolated static let fieldGuideEntryLinkTitle = "View field guide entry"
     nonisolated static let savedConfirmationPrefix = "Tagged marine life:"
     nonisolated static let savedFishIDNote =
-        "This species is tagged on the photo. A sparkles badge on the species chip marks Fishial AI identification."
+        FishialConfirmedSpeciesPresentation.savedFishIDNote(speciesCount: 1)
+
+    nonisolated static func unmatchedFieldGuideMessage(speciesName: String) -> String {
+        "Fishial thinks this is a \(speciesName), but GoDive has no such record in its field guide."
+    }
 
     nonisolated static func reviewMode(
-        for catalogOptions: [FishialCatalogReviewOption]
+        for catalogOptions: [FishialCatalogReviewOption],
+        rankedSpecies: [FishialRankedSpecies]
     ) -> ReviewMode {
         switch catalogOptions.count {
         case 0:
-            return .noMatches
+            if let topSpecies = rankedSpecies.first?.scientificName.trimmingCharacters(in: .whitespacesAndNewlines),
+               !topSpecies.isEmpty {
+                return .unmatchedFishialSuggestion(topSpecies)
+            }
+            return .noFishDetected
         case 1:
             return .confirmSingle(catalogOptions[0])
         default:
             return .selectFromMultiple(catalogOptions)
         }
+    }
+
+    /// Backward-compatible helper when Fishial ranked species are unavailable.
+    nonisolated static func reviewMode(
+        for catalogOptions: [FishialCatalogReviewOption]
+    ) -> ReviewMode {
+        reviewMode(for: catalogOptions, rankedSpecies: [])
     }
 
     nonisolated static func formattedSpeciesLine(

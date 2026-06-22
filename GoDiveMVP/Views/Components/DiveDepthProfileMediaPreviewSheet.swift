@@ -17,6 +17,7 @@ struct DiveDepthProfileMediaPreviewSheet: View {
                 isVideoPlaybackActive: true,
                 loopsVideoPlayback: true
             )
+            .id(media.id)
 
             Button {
                 dismiss()
@@ -28,7 +29,7 @@ struct DiveDepthProfileMediaPreviewSheet: View {
             }
             .buttonStyle(.plain)
             .padding(AppTheme.Spacing.md)
-            .accessibilityLabel("Close preview")
+            .accessibilityIdentifier("DiveDepthProfileMediaPreview.Close")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black)

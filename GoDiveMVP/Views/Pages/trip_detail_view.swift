@@ -141,6 +141,12 @@ struct TripDetailView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .hidesBottomTabBarWhenPushed()
+        .onAppear {
+            DiveMediaScopeCache.shared.activateScope(.tripDetail(tripID))
+        }
+        .onDisappear {
+            DiveMediaScopeCache.shared.deactivateScope(.tripDetail(tripID))
+        }
         .task(id: autoLinkSyncToken) {
             syncTripActivityLinks()
         }

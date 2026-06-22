@@ -52,7 +52,11 @@ struct DiveMediaFishialIdentifySheet: View {
         case selectingVideo(FishialVideoScrubContext)
         #endif
         case recognizing(FishialIdentifyProgress)
-        case reviewNoMatches(DiveMediaFishialIdentification.Outcome)
+        case reviewNoFishDetected(DiveMediaFishialIdentification.Outcome)
+        case reviewUnmatchedFishial(
+            DiveMediaFishialIdentification.Outcome,
+            primarySpeciesName: String
+        )
         case confirmSingle(
             DiveMediaFishialIdentification.Outcome,
             FishialCatalogReviewOption
@@ -60,9 +64,9 @@ struct DiveMediaFishialIdentifySheet: View {
         case selectSpecies(
             DiveMediaFishialIdentification.Outcome,
             options: [FishialCatalogReviewOption],
-            selectedMarineLifeUUID: String?
+            selectedMarineLifeUUIDs: Set<String>
         )
-        case saved(speciesName: String)
+        case saved(speciesNames: [String])
         case declinedSingle(DiveMediaFishialIdentification.Outcome)
         case failed(String)
     }
@@ -97,18 +101,23 @@ struct DiveMediaFishialIdentifySheet: View {
                 #endif
                 case .recognizing(let progress):
                     recognizingContent(progress: progress)
-                case .reviewNoMatches(let outcome):
-                    reviewNoMatchesContent(outcome: outcome)
+                case .reviewNoFishDetected(let outcome):
+                    reviewNoFishDetectedContent(outcome: outcome)
+                case .reviewUnmatchedFishial(let outcome, let primarySpeciesName):
+                    reviewUnmatchedFishialContent(
+                        outcome: outcome,
+                        primarySpeciesName: primarySpeciesName
+                    )
                 case .confirmSingle(let outcome, let option):
                     confirmSingleContent(outcome: outcome, option: option)
-                case .selectSpecies(let outcome, let options, let selectedMarineLifeUUID):
+                case .selectSpecies(let outcome, let options, let selectedMarineLifeUUIDs):
                     selectSpeciesContent(
                         outcome: outcome,
                         options: options,
-                        selectedMarineLifeUUID: selectedMarineLifeUUID
+                        selectedMarineLifeUUIDs: selectedMarineLifeUUIDs
                     )
-                case .saved(let speciesName):
-                    savedContent(speciesName: speciesName)
+                case .saved(let speciesNames):
+                    savedContent(speciesNames: speciesNames)
                 case .declinedSingle(let outcome):
                     declinedSingleContent(outcome: outcome)
                 case .failed(let message):
@@ -184,17 +193,18 @@ struct DiveMediaFishialIdentifySheet: View {
             .fontWeight(.semibold)
             .accessibilityIdentifier("DiveMediaFishialIdentify.Identify")
         #endif
-        case .selectSpecies(_, let options, let selectedMarineLifeUUID):
+        case .selectSpecies(_, let options, let selectedMarineLifeUUIDs):
             Button("Save") {
-                guard let selectedMarineLifeUUID,
-                      let option = options.first(where: { $0.marineLifeUUID == selectedMarineLifeUUID })
-                else { return }
-                saveConfirmedCatalogMatch(option)
+                let selectedOptions = options.filter {
+                    selectedMarineLifeUUIDs.contains($0.marineLifeUUID)
+                }
+                guard !selectedOptions.isEmpty else { return }
+                saveConfirmedCatalogMatches(selectedOptions)
             }
             .fontWeight(.semibold)
-            .disabled(selectedMarineLifeUUID == nil)
+            .disabled(selectedMarineLifeUUIDs.isEmpty)
             .accessibilityIdentifier("DiveMediaFishialIdentify.Save")
-        case .reviewNoMatches, .declinedSingle, .saved, .failed:
+        case .reviewNoFishDetected, .reviewUnmatchedFishial, .declinedSingle, .saved, .failed:
             Button("Done") { dismiss() }
                 .fontWeight(.semibold)
                 .accessibilityIdentifier("DiveMediaFishialIdentify.Done")
@@ -287,14 +297,14 @@ struct DiveMediaFishialIdentifySheet: View {
     }
 
     @ViewBuilder
-    private func reviewNoMatchesContent(outcome: DiveMediaFishialIdentification.Outcome) -> some View {
+    private func reviewNoFishDetectedContent(outcome: DiveMediaFishialIdentification.Outcome) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-                Text("No matches")
+                Text("No fish detected")
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(AppTheme.Colors.textPrimary)
 
-                Text(FishialIdentificationReviewPresentation.noMatchesMessage)
+                Text(FishialIdentificationReviewPresentation.noFishDetectedMessage)
                     .font(.body)
                     .foregroundStyle(AppTheme.Colors.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -308,7 +318,45 @@ struct DiveMediaFishialIdentifySheet: View {
             .padding(.horizontal, AppTheme.Spacing.lg)
             .padding(.bottom, AppTheme.Spacing.lg)
         }
-        .accessibilityIdentifier("DiveMediaFishialIdentify.NoMatches")
+        .accessibilityIdentifier("DiveMediaFishialIdentify.NoFishDetected")
+    }
+
+    @ViewBuilder
+    private func reviewUnmatchedFishialContent(
+        outcome: DiveMediaFishialIdentification.Outcome,
+        primarySpeciesName: String
+    ) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                Text("No field guide match")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+
+                Text(FishialIdentificationReviewPresentation.unmatchedFieldGuideMessage(
+                    speciesName: primarySpeciesName
+                ))
+                    .font(.body)
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button("Dismiss") {
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AppTheme.Colors.accent)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("DiveMediaFishialIdentify.UnmatchedDismiss")
+
+                Text(resultBody(from: outcome))
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.Colors.tabUnselected)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+            .padding(.horizontal, AppTheme.Spacing.lg)
+            .padding(.bottom, AppTheme.Spacing.lg)
+        }
+        .accessibilityIdentifier("DiveMediaFishialIdentify.UnmatchedFieldGuide")
     }
 
     @ViewBuilder
@@ -324,6 +372,8 @@ struct DiveMediaFishialIdentifySheet: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 catalogMatchCard(option, isSelected: true)
+
+                fieldGuideEntryLink(for: option)
 
                 HStack(spacing: AppTheme.Spacing.md) {
                     Button {
@@ -356,7 +406,7 @@ struct DiveMediaFishialIdentifySheet: View {
     private func selectSpeciesContent(
         outcome: DiveMediaFishialIdentification.Outcome,
         options: [FishialCatalogReviewOption],
-        selectedMarineLifeUUID: String?
+        selectedMarineLifeUUIDs: Set<String>
     ) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
@@ -367,22 +417,32 @@ struct DiveMediaFishialIdentifySheet: View {
 
                 VStack(spacing: AppTheme.Spacing.sm) {
                     ForEach(options, id: \.marineLifeUUID) { option in
-                        Button {
-                            phase = .selectSpecies(
-                                outcome,
-                                options: options,
-                                selectedMarineLifeUUID: option.marineLifeUUID
+                        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                            Button {
+                                var updated = selectedMarineLifeUUIDs
+                                if updated.contains(option.marineLifeUUID) {
+                                    updated.remove(option.marineLifeUUID)
+                                } else {
+                                    updated.insert(option.marineLifeUUID)
+                                }
+                                phase = .selectSpecies(
+                                    outcome,
+                                    options: options,
+                                    selectedMarineLifeUUIDs: updated
+                                )
+                            } label: {
+                                catalogMatchCard(
+                                    option,
+                                    isSelected: selectedMarineLifeUUIDs.contains(option.marineLifeUUID)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier(
+                                "DiveMediaFishialIdentify.Option.\(option.marineLifeUUID)"
                             )
-                        } label: {
-                            catalogMatchCard(
-                                option,
-                                isSelected: option.marineLifeUUID == selectedMarineLifeUUID
-                            )
+
+                            fieldGuideEntryLink(for: option)
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier(
-                            "DiveMediaFishialIdentify.Option.\(option.marineLifeUUID)"
-                        )
                     }
                 }
             }
@@ -393,25 +453,29 @@ struct DiveMediaFishialIdentifySheet: View {
     }
 
     @ViewBuilder
-    private func savedContent(speciesName: String) -> some View {
+    private func savedContent(speciesNames: [String]) -> some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
             Text("Fish ID saved")
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(AppTheme.Colors.textPrimary)
 
-            HStack(alignment: .top, spacing: AppTheme.Spacing.sm) {
-                Image(systemName: "sparkles")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.accent)
-                    .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                ForEach(speciesNames, id: \.self) { speciesName in
+                    HStack(alignment: .top, spacing: AppTheme.Spacing.sm) {
+                        Image(systemName: "sparkles")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(AppTheme.Colors.accent)
+                            .accessibilityHidden(true)
 
-                Text(speciesName)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
+                        Text(speciesName)
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(AppTheme.Colors.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
             }
 
-            Text(FishialIdentificationReviewPresentation.savedFishIDNote)
+            Text(FishialConfirmedSpeciesPresentation.savedFishIDNote(speciesCount: speciesNames.count))
                 .font(.body)
                 .foregroundStyle(AppTheme.Colors.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
@@ -519,6 +583,28 @@ struct DiveMediaFishialIdentifySheet: View {
         )
     }
 
+    @ViewBuilder
+    private func fieldGuideEntryLink(for option: FishialCatalogReviewOption) -> some View {
+        if let species = catalog.first(where: { $0.uuid == option.marineLifeUUID }) {
+            NavigationLink {
+                FieldGuideMarineLifeDetailView(
+                    species: species,
+                    ownerProfileID: accountSession.currentProfile?.id,
+                    onOpenDive: { _ in dismiss() }
+                )
+                .hidesBottomTabBarWhenPushed()
+            } label: {
+                Label(
+                    FishialIdentificationReviewPresentation.fieldGuideEntryLinkTitle,
+                    systemImage: "book.closed.fill"
+                )
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.accent)
+            }
+            .accessibilityIdentifier("DiveMediaFishialIdentify.FieldGuide.\(option.marineLifeUUID)")
+        }
+    }
+
     private func resultBody(from outcome: DiveMediaFishialIdentification.Outcome) -> String {
         FishialIdentificationResultPresentation.resultLines(from: outcome).joined(separator: "\n")
     }
@@ -553,16 +639,21 @@ struct DiveMediaFishialIdentifySheet: View {
             from: outcome.rankedSpecies,
             catalog: catalogSnapshots
         )
-        switch FishialIdentificationReviewPresentation.reviewMode(for: catalogOptions) {
-        case .noMatches:
-            phase = .reviewNoMatches(outcome)
+        switch FishialIdentificationReviewPresentation.reviewMode(
+            for: catalogOptions,
+            rankedSpecies: outcome.rankedSpecies
+        ) {
+        case .noFishDetected:
+            phase = .reviewNoFishDetected(outcome)
+        case .unmatchedFishialSuggestion(let primarySpeciesName):
+            phase = .reviewUnmatchedFishial(outcome, primarySpeciesName: primarySpeciesName)
         case .confirmSingle(let option):
             phase = .confirmSingle(outcome, option)
         case .selectFromMultiple(let options):
             phase = .selectSpecies(
                 outcome,
                 options: options,
-                selectedMarineLifeUUID: options.first?.marineLifeUUID
+                selectedMarineLifeUUIDs: []
             )
         }
     }
@@ -587,7 +678,34 @@ struct DiveMediaFishialIdentifySheet: View {
                 owner: owner,
                 modelContext: modelContext
             )
-            phase = .saved(speciesName: saved)
+            phase = .saved(speciesNames: [saved])
+        } catch {
+            phase = .failed(error.localizedDescription)
+        }
+    }
+
+    @MainActor
+    private func saveConfirmedCatalogMatches(_ options: [FishialCatalogReviewOption]) {
+        guard let owner = accountSession.currentProfile else {
+            phase = .failed(DiveMediaFishialIdentificationStorageError.missingSignedInProfile.localizedDescription)
+            return
+        }
+        let marineLifeByUUID = Dictionary(uniqueKeysWithValues: catalog.map { ($0.uuid, $0) })
+        guard options.allSatisfy({ marineLifeByUUID[$0.marineLifeUUID] != nil }) else {
+            phase = .failed(DiveMediaFishialIdentificationStorageError.missingCatalogSpecies.localizedDescription)
+            return
+        }
+        do {
+            let saved = try DiveMediaFishialIdentificationStorage.saveConfirmedCatalogMatches(
+                options,
+                marineLifeByUUID: marineLifeByUUID,
+                media: media,
+                dive: dive,
+                captureContext: captureContext,
+                owner: owner,
+                modelContext: modelContext
+            )
+            phase = .saved(speciesNames: saved)
         } catch {
             phase = .failed(error.localizedDescription)
         }

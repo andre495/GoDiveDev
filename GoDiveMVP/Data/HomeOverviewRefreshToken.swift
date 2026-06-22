@@ -60,4 +60,35 @@ enum HomeOverviewRefreshToken {
             .joined(separator: "|")
         return "d=\(divePart)#b=\(buddyPart)#s=\(sightingCount)#m=\(mediaCount)"
     }
+
+    /// Fingerprint for media-tag overlays on the Home carousel (species + buddy counts per photo).
+    nonisolated static func carouselTagFingerprint(
+        sightings: [HomeMediaHighlightSightingInput],
+        buddyTags: [HomeMediaHighlightBuddyTagInput],
+        ownerDiveIDs: Set<UUID>
+    ) -> Int {
+        let speciesCounts = HomeMediaHighlightPresentation.taggedSpeciesCountByMediaID(
+            sightings: sightings,
+            ownerDiveIDs: ownerDiveIDs
+        )
+        var hasher = Hasher()
+        for (mediaID, count) in speciesCounts.sorted(by: { $0.key.uuidString < $1.key.uuidString }) {
+            hasher.combine(mediaID)
+            hasher.combine(count)
+        }
+        for tag in buddyTags.sorted(by: {
+            let left = ($0.mediaPhotoID?.uuidString ?? "", $0.buddyID?.uuidString ?? "")
+            let right = ($1.mediaPhotoID?.uuidString ?? "", $1.buddyID?.uuidString ?? "")
+            return left < right
+        }) {
+            guard let mediaID = tag.mediaPhotoID,
+                  let diveID = tag.diveActivityID,
+                  ownerDiveIDs.contains(diveID) else { continue }
+            hasher.combine("buddy")
+            hasher.combine(mediaID)
+            hasher.combine(tag.buddyID)
+            hasher.combine(tag.displayName)
+        }
+        return hasher.finalize()
+    }
 }

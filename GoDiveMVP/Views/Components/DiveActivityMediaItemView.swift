@@ -91,6 +91,10 @@ struct DiveActivityMediaItemView: View {
         .onAppear {
             DiveMediaPreviewStorage.seedSessionCacheIfNeeded(for: media)
         }
+        .onChange(of: isVideoPlaybackActive) { _, isActive in
+            guard isActive else { return }
+            reloadActiveMediaIfNeeded()
+        }
         .task(id: mediaLoadTaskID) {
             switch media.resolvedMediaKind {
             case .image:
@@ -102,7 +106,12 @@ struct DiveActivityMediaItemView: View {
     }
 
     private var mediaLoadTaskID: String {
-        "\(media.id.uuidString)-\(media.resolvedMediaKind.rawValue)-\(Int(layoutWidth * displayScale))"
+        switch media.resolvedMediaKind {
+        case .video:
+            return "\(media.id.uuidString)-video"
+        case .image:
+            return "\(media.id.uuidString)-image-\(Int(layoutWidth * displayScale))"
+        }
     }
 
     #if canImport(UIKit)
@@ -149,20 +158,18 @@ struct DiveActivityMediaItemView: View {
         ZStack {
             videoPosterPage
 
-            if isVideoPlaybackActive {
-                DiveActivityVideoPlayerView(
-                    source: media.videoPlaybackSource,
-                    isPlaybackActive: true,
-                    loopsPlayback: loopsVideoPlayback,
-                    libraryVideoQuality: DiveActivityMediaPresentation.overviewLibraryVideoQuality,
-                    usesProgressiveFidelity: true,
-                    screenPixelWidth: layoutWidth * displayScale,
-                    initialPosterImage: displayedVideoPosterImage,
-                    isPausedByUserHold: isHoldingVideoPause,
-                    onAssetMissing: pruneIfAssetMissing
-                )
-                .id(media.id)
-            }
+            DiveActivityVideoPlayerView(
+                source: media.videoPlaybackSource,
+                isPlaybackActive: isVideoPlaybackActive,
+                loopsPlayback: loopsVideoPlayback,
+                libraryVideoQuality: DiveActivityMediaPresentation.overviewLibraryVideoQuality,
+                usesProgressiveFidelity: true,
+                screenPixelWidth: layoutWidth * displayScale,
+                initialPosterImage: displayedVideoPosterImage,
+                isPausedByUserHold: isHoldingVideoPause,
+                onAssetMissing: pruneIfAssetMissing
+            )
+            .id(media.id)
         }
     }
 
@@ -217,6 +224,15 @@ struct DiveActivityMediaItemView: View {
     }
 
     #if canImport(UIKit) && canImport(Photos)
+    private func reloadActiveMediaIfNeeded() {
+        switch media.resolvedMediaKind {
+        case .image:
+            imageLoadFinished = false
+        case .video:
+            videoPosterLoadFinished = false
+        }
+    }
+
     private func loadVideoPosterIfNeeded() async {
         guard media.resolvedMediaKind == .video,
               let identifier = media.libraryAssetLocalIdentifier else {
@@ -248,6 +264,12 @@ struct DiveActivityMediaItemView: View {
             DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
         }
         videoPosterLoadFinished = true
+        if receivedFrame {
+            DiveMediaScopeCache.shared.noteMediaLoaded(
+                libraryIdentifier: identifier,
+                tier: .preview
+            )
+        }
     }
 
     private func loadPreviewImageIfNeeded() async {
@@ -274,19 +296,30 @@ struct DiveActivityMediaItemView: View {
             )
         }
         var receivedFrame = false
+        var receivedFinal = false
         await DiveMediaReferenceLoader.loadImageProgressive(
             localIdentifier: identifier,
             targetSize: targetSize,
             deliveryMode: .opportunistic
-        ) { image, _ in
+        ) { image, isFinal in
             previewImage = image
             receivedFrame = true
+            if isFinal {
+                receivedFinal = true
+            }
             DiveMediaPreviewStorage.persistPreview(from: image, on: media, modelContext: modelContext)
         }
         if !receivedFrame, networkConnectivity.isConnected {
             DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
         }
         imageLoadFinished = true
+        if receivedFrame {
+            let tier: DiveMediaRetainedTier = receivedFinal ? .full : .preview
+            DiveMediaScopeCache.shared.noteMediaLoaded(
+                libraryIdentifier: identifier,
+                tier: tier
+            )
+        }
     }
     #else
     private func loadPreviewImageIfNeeded() async {}

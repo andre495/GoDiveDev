@@ -5,7 +5,7 @@ struct ExploreReferenceSiteDetailView: View {
     let snapshot: DiveSiteReferenceSnapshot
 
     var body: some View {
-        AppPage(title: snapshot.name, titleUsesBrandForeground: true) {
+        AppPage(title: DiveSiteCatalogMatcher.sanitizedReferenceDisplayName(snapshot.name) ?? snapshot.name, titleUsesBrandForeground: true) {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
                 if let coordinateLine {
                     detailSection(title: "Coordinates") {

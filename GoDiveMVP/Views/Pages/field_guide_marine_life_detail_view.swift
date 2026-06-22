@@ -154,6 +154,12 @@ struct FieldGuideMarineLifeDetailView: View {
             }
         }
         .hidesBottomTabBarWhenPushed()
+        .onAppear {
+            DiveMediaScopeCache.shared.activateScope(.marineLifeSpecies(species.uuid))
+        }
+        .onDisappear {
+            DiveMediaScopeCache.shared.deactivateScope(.marineLifeSpecies(species.uuid))
+        }
         .accessibilityIdentifier("FieldGuide.SpeciesDetail.Root")
     }
 

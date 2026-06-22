@@ -163,13 +163,26 @@ struct DiveMarineLifeTagPickerSheet: View {
     let captureContext: DiveMediaCaptureContext?
     let onTagged: () -> Void
 
-    @State private var taggedMarineLifeUUIDs: Set<String> = []
+    @State private var catalogCache = DiveMarineLifeTagPickerPresentation.CatalogCache(
+        snapshots: [],
+        searchableTextByUUID: [:]
+    )
+    @State private var catalogByUUID: [String: MarineLife] = [:]
+    @State private var allPickerRows: [DiveMarineLifeTagPickerPresentation.RowDisplayData] = []
+    @State private var displayedRows: [DiveMarineLifeTagPickerPresentation.RowDisplayData] = []
+    @State private var persistedMarineLifeUUIDs: Set<String> = []
+    @State private var pendingMarineLifeUUIDs: Set<String> = []
     @State private var tagErrorMessage: String?
     @State private var speciesSearchQuery = ""
     @FocusState private var isSpeciesSearchFocused: Bool
+    @State private var rowsRefreshTask: Task<Void, Never>?
 
-    private var filteredCatalog: [MarineLife] {
-        DiveMarineLifeTagPickerPresentation.filtering(catalog, query: speciesSearchQuery)
+    private var isFilteringSpecies: Bool {
+        DiveMarineLifeTagPickerPresentation.isFiltering(query: speciesSearchQuery)
+    }
+
+    private var effectiveTaggedUUIDs: Set<String> {
+        persistedMarineLifeUUIDs.union(pendingMarineLifeUUIDs)
     }
 
     var body: some View {
@@ -183,7 +196,11 @@ struct DiveMarineLifeTagPickerSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
+                    Button("Done") {
+                        if commitPendingTags() {
+                            dismiss()
+                        }
+                    }
                         .fontWeight(.semibold)
                         .foregroundStyle(AppTheme.Colors.tabSelected)
                         .accessibilityIdentifier("DiveMarineLifeTagPicker.Done")
@@ -191,7 +208,22 @@ struct DiveMarineLifeTagPickerSheet: View {
             }
         }
         .appSheetPresentationChrome()
-        .onAppear(perform: reloadTaggedMarineLifeUUIDs)
+        .onAppear {
+            reloadTaggedMarineLifeUUIDs()
+            syncCatalogCache()
+            refreshDisplayedRows(immediate: true)
+        }
+        .onChange(of: catalog.count) { _, _ in
+            syncCatalogCache()
+            refreshDisplayedRows(immediate: true)
+        }
+        .onChange(of: speciesSearchQuery) { _, _ in
+            refreshDisplayedRows()
+        }
+        .onDisappear {
+            rowsRefreshTask?.cancel()
+            rowsRefreshTask = nil
+        }
         .alert("Could not save tag", isPresented: tagErrorPresented) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -220,8 +252,7 @@ struct DiveMarineLifeTagPickerSheet: View {
                 description: Text("Field guide species will appear here when available.")
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if filteredCatalog.isEmpty,
-                  DiveMarineLifeTagPickerPresentation.isFiltering(query: speciesSearchQuery) {
+        } else if displayedRows.isEmpty, isFilteringSpecies {
             ContentUnavailableView.search(text: speciesSearchQuery)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
@@ -231,29 +262,22 @@ struct DiveMarineLifeTagPickerSheet: View {
 
     private var speciesList: some View {
         List {
-            ForEach(filteredCatalog, id: \.uuid) { species in
+            ForEach(displayedRows) { row in
                 Button {
-                    saveTag(species)
+                    stageTag(for: row)
                 } label: {
-                    let snapshot = species.fieldGuideCatalogSnapshot
                     DiveMarineLifeTagSpeciesRow(
-                        commonName: snapshot.commonName,
-                        trailingLabel: FieldGuidePresentation.listTrailingLabel(category: snapshot.category),
-                        detailLine: FieldGuidePresentation.listDetailLine(
-                            scientificName: snapshot.scientificName,
-                            sizeDepthLine: FieldGuidePresentation.sizeDepthLine(
-                                for: snapshot,
-                                unitSystem: diveDisplayUnitSystem
-                            )
-                        ),
-                        featureImageURL: snapshot.featureImageURL,
-                        featureImageResourceName: snapshot.featureImageResourceName,
-                        showsTaggedCheckmark: taggedMarineLifeUUIDs.contains(species.uuid)
+                        commonName: row.commonName,
+                        trailingLabel: row.trailingLabel,
+                        detailLine: row.detailLine,
+                        featureImageURL: row.featureImageURL,
+                        featureImageResourceName: row.featureImageResourceName,
+                        showsTaggedCheckmark: row.isTagged
                     )
                     .equatable()
                 }
                 .buttonStyle(.plain)
-                .disabled(taggedMarineLifeUUIDs.contains(species.uuid))
+                .disabled(row.isTagged)
                 .listRowInsets(EdgeInsets(
                     top: AppTheme.Spacing.sm,
                     leading: AppTheme.Spacing.lg,
@@ -266,6 +290,7 @@ struct DiveMarineLifeTagPickerSheet: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .animation(nil, value: displayedRows.count)
     }
 
     private var tagErrorPresented: Binding<Bool> {
@@ -275,34 +300,113 @@ struct DiveMarineLifeTagPickerSheet: View {
         )
     }
 
+    private func syncCatalogCache() {
+        let nextCache = DiveMarineLifeTagPickerPresentation.CatalogCache.make(from: catalog)
+        guard nextCache != catalogCache else { return }
+        catalogCache = nextCache
+        catalogByUUID = Dictionary(uniqueKeysWithValues: catalog.map { ($0.uuid, $0) })
+        rebuildAllPickerRows()
+    }
+
+    private func rebuildAllPickerRows() {
+        allPickerRows = DiveMarineLifeTagPickerPresentation.makePickerRows(
+            snapshots: catalogCache.snapshots,
+            taggedUUIDs: effectiveTaggedUUIDs,
+            unitSystem: diveDisplayUnitSystem
+        )
+    }
+
+    private func refreshDisplayedRows(immediate: Bool = false) {
+        rowsRefreshTask?.cancel()
+        let query = speciesSearchQuery
+        let rows = allPickerRows
+        let snapshots = catalogCache.snapshots
+        let searchableTextByUUID = catalogCache.searchableTextByUUID
+        let debounceNanoseconds = immediate
+            ? UInt64(0)
+            : DiveMarineLifeTagPickerPresentation.searchDebounceNanoseconds
+
+        rowsRefreshTask = Task {
+            if debounceNanoseconds > 0 {
+                try? await Task.sleep(nanoseconds: debounceNanoseconds)
+            }
+            guard !Task.isCancelled else { return }
+
+            let filteredRows = await Task.detached {
+                DiveMarineLifeTagPickerPresentation.filteredPickerRows(
+                    allRows: rows,
+                    snapshots: snapshots,
+                    searchableTextByUUID: searchableTextByUUID,
+                    query: query
+                )
+            }.value
+
+            guard !Task.isCancelled else { return }
+            displayedRows = filteredRows
+        }
+    }
+
     private func reloadTaggedMarineLifeUUIDs() {
         let sightings: [SightingInstance] = (try? MarineLifeSightingRecorder.sightings(
             forMediaPhotoID: media.id,
             modelContext: modelContext
         )) ?? []
-        taggedMarineLifeUUIDs = Set(sightings.map(\.marineLifeUUID))
+        persistedMarineLifeUUIDs = Set(sightings.map(\.marineLifeUUID))
+        pendingMarineLifeUUIDs.removeAll()
     }
 
-    private func saveTag(_ species: MarineLife) {
-        guard !taggedMarineLifeUUIDs.contains(species.uuid) else { return }
+    private func stageTag(for row: DiveMarineLifeTagPickerPresentation.RowDisplayData) {
+        guard !effectiveTaggedUUIDs.contains(row.marineLifeUUID) else { return }
+        pendingMarineLifeUUIDs.insert(row.marineLifeUUID)
+        markRowTagged(marineLifeUUID: row.marineLifeUUID, isTagged: true)
+    }
+
+    private func markRowTagged(marineLifeUUID: String, isTagged: Bool) {
+        if let index = allPickerRows.firstIndex(where: { $0.marineLifeUUID == marineLifeUUID }) {
+            allPickerRows[index] = DiveMarineLifeTagPickerPresentation.rowMarkedTagged(
+                allPickerRows[index],
+                isTagged: isTagged
+            )
+        }
+        if let index = displayedRows.firstIndex(where: { $0.marineLifeUUID == marineLifeUUID }) {
+            displayedRows[index] = DiveMarineLifeTagPickerPresentation.rowMarkedTagged(
+                displayedRows[index],
+                isTagged: isTagged
+            )
+        }
+    }
+
+    @discardableResult
+    private func commitPendingTags() -> Bool {
+        guard !pendingMarineLifeUUIDs.isEmpty else { return true }
+
+        let speciesToPersist = pendingMarineLifeUUIDs.compactMap { catalogByUUID[$0] }
+        guard speciesToPersist.count == pendingMarineLifeUUIDs.count else {
+            tagErrorMessage = "Could not find one or more species in the catalog."
+            return false
+        }
 
         guard let owner = accountSession.currentProfile else {
             tagErrorMessage = "Sign in to tag marine life."
-            return
+            return false
         }
+
         do {
-            _ = try MarineLifeSightingRecorder.tagSpecies(
-                species,
+            try MarineLifeSightingRecorder.tagPendingSpecies(
+                speciesToPersist,
                 on: media,
                 dive: dive,
                 captureContext: captureContext,
                 owner: owner,
                 modelContext: modelContext
             )
-            taggedMarineLifeUUIDs.insert(species.uuid)
+            persistedMarineLifeUUIDs.formUnion(pendingMarineLifeUUIDs)
+            pendingMarineLifeUUIDs.removeAll()
             onTagged()
+            return true
         } catch {
             tagErrorMessage = error.localizedDescription
+            return false
         }
     }
 }

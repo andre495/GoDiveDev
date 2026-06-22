@@ -1,5 +1,19 @@
 import SwiftUI
 
+/// Background treatment for **`TripDetailMediaMarineLifeOverlay`**.
+enum MarineLifeMediaOverlayBackgroundStyle: Sendable {
+    /// Opaque elevated card over the trip media preview (default on **Trips**).
+    case tripPreviewCard
+    /// Semi-transparent dimming panel so underlying photo/video remains visible.
+    case overMediaDimming
+}
+
+/// Close control placement for **`TripDetailMediaMarineLifeOverlay`**.
+enum MarineLifeMediaOverlayClosePlacement: Sendable {
+    case leading
+    case trailing
+}
+
 /// Full-bleed marine-life card over trip media — feature image, name, link to Field Guide overview.
 struct TripDetailMediaMarineLifeOverlay: View {
     let taggedSpecies: [MarineLife]
@@ -8,6 +22,11 @@ struct TripDetailMediaMarineLifeOverlay: View {
     let ownerProfileID: UUID?
     var featureImageHeight: CGFloat = TripDetailMediaGalleryPresentation.marineLifeOverlayFeatureImageHeight
     var featureImageMaxWidth: CGFloat = TripDetailMediaGalleryPresentation.marineLifeOverlayFeatureImageMaxWidth
+    var backgroundStyle: MarineLifeMediaOverlayBackgroundStyle = .tripPreviewCard
+    var closePlacement: MarineLifeMediaOverlayClosePlacement = .trailing
+    /// Extra top inset for the close control (Home carousel — clears **`AppHeader`**).
+    var closeTopInset: CGFloat?
+    var accessibilityRoot: String = "TripDetail.Media.MarineLifeOverlay"
     @Binding var selectedSpeciesUUID: String?
     var onOpenDive: (UUID) -> Void
     var onClose: () -> Void
@@ -20,19 +39,26 @@ struct TripDetailMediaMarineLifeOverlay: View {
         return taggedSpecies.first(where: { $0.uuid == resolvedUUID })
     }
 
+    private var closeButtonAlignment: Alignment {
+        switch closePlacement {
+        case .leading: .topLeading
+        case .trailing: .topTrailing
+        }
+    }
+
+    private var resolvedCloseTopInset: CGFloat {
+        closeTopInset ?? AppTheme.Spacing.md
+    }
+
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(AppTheme.Colors.surfaceElevated)
-                .overlay {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .stroke(AppTheme.Colors.tabUnselected.opacity(0.12), lineWidth: 1)
-                }
+        ZStack(alignment: closeButtonAlignment) {
+            overlayBackground
 
             VStack(spacing: AppTheme.Spacing.lg) {
                 if taggedSpecies.count > 1 {
                     speciesSelector
                         .padding(.top, AppTheme.Spacing.lg + AppTheme.Spacing.md)
+                        .padding(.leading, closePlacement == .leading ? 36 : 0)
                 } else {
                     Spacer(minLength: AppTheme.Spacing.lg)
                 }
@@ -47,12 +73,29 @@ struct TripDetailMediaMarineLifeOverlay: View {
             .frame(width: previewSize.width, height: previewSize.height, alignment: .top)
 
             closeButton
-                .padding(AppTheme.Spacing.md)
+                .padding(.horizontal, AppTheme.Spacing.md)
+                .padding(.top, resolvedCloseTopInset)
         }
         .frame(width: previewSize.width, height: previewSize.height)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("TripDetail.Media.MarineLifeOverlay")
+        .accessibilityIdentifier(accessibilityRoot)
+    }
+
+    @ViewBuilder
+    private var overlayBackground: some View {
+        switch backgroundStyle {
+        case .tripPreviewCard:
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(AppTheme.Colors.surfaceElevated)
+                .overlay {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(AppTheme.Colors.tabUnselected.opacity(0.12), lineWidth: 1)
+                }
+        case .overMediaDimming:
+            Color.black.opacity(TripDetailMediaGalleryPresentation.marineLifeOverlayMediaScrimOpacity)
+                .ignoresSafeArea()
+        }
     }
 
     private var speciesSelector: some View {
@@ -69,7 +112,7 @@ struct TripDetailMediaMarineLifeOverlay: View {
                         .fixedSize(horizontal: true, vertical: false)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityIdentifier("TripDetail.Media.MarineLifeOverlay.Species.\(species.uuid)")
+                    .accessibilityIdentifier("\(accessibilityRoot).Species.\(species.uuid)")
                 }
             }
         }
@@ -92,7 +135,7 @@ struct TripDetailMediaMarineLifeOverlay: View {
                 HStack(spacing: AppTheme.Spacing.sm) {
                     Text(species.commonName)
                         .font(.title3.weight(.bold))
-                        .foregroundStyle(AppTheme.Colors.accent)
+                        .foregroundStyle(speciesNameColor)
                         .multilineTextAlignment(.leading)
                         .lineLimit(3)
                         .minimumScaleFactor(0.85)
@@ -101,16 +144,25 @@ struct TripDetailMediaMarineLifeOverlay: View {
 
                     Image(systemName: "chevron.right")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.Colors.accent)
+                        .foregroundStyle(speciesNameColor)
                 }
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(.plain)
             .navigationLinkIndicatorVisibility(.hidden)
-            .accessibilityIdentifier("TripDetail.Media.MarineLifeOverlay.ViewOverview")
+            .accessibilityIdentifier("\(accessibilityRoot).ViewOverview")
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .contain)
+    }
+
+    private var speciesNameColor: Color {
+        switch backgroundStyle {
+        case .tripPreviewCard:
+            AppTheme.Colors.accent
+        case .overMediaDimming:
+            .white
+        }
     }
 
     @ViewBuilder
@@ -126,15 +178,35 @@ struct TripDetailMediaMarineLifeOverlay: View {
 
     private var closeButton: some View {
         Button(action: onClose) {
-            Image(systemName: "xmark.circle.fill")
-                .font(.title2)
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(AppTheme.Colors.tabUnselected)
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(Rectangle())
+            Group {
+                switch backgroundStyle {
+                case .tripPreviewCard:
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title2)
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(AppTheme.Colors.tabUnselected)
+                case .overMediaDimming:
+                    Image(systemName: "xmark")
+                        .font(.body.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 36, height: 36)
+                        .background {
+                            Circle()
+                                .fill(.black.opacity(0.48))
+                                .background {
+                                    Circle()
+                                        .fill(.ultraThinMaterial)
+                                }
+                                .clipShape(Circle())
+                        }
+                }
+            }
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Close marine life overview")
-        .accessibilityIdentifier("TripDetail.Media.MarineLifeOverlay.Close")
+        .accessibilityIdentifier("\(accessibilityRoot).Close")
+        .zIndex(10)
     }
 }

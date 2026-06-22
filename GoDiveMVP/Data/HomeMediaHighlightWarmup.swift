@@ -1,10 +1,9 @@
 import Foundation
-import SwiftData
 #if canImport(Photos)
 import Photos
 #endif
 
-/// Preloads PhotoKit hero frames for the Home highlights carousel (video loads on the active slide only).
+/// Preloads PhotoKit hero frames and video assets for the Home highlights carousel (session-pinned).
 @MainActor
 enum HomeMediaHighlightWarmup {
 
@@ -19,10 +18,9 @@ enum HomeMediaHighlightWarmup {
     }
 
     private static var inflightWarmups: [String: Task<Void, Never>] = [:]
-    private static var backgroundFullWarmupTask: Task<Void, Never>?
     private static var cachedVideoDurationSeconds: [String: Double] = [:]
 
-    /// Warms slide **0** at hero quality and all other slides at preview immediately (no startup delay).
+    /// Warms all carousel slides at hero quality plus video assets and playback snapshots.
     static func warmHighlights(
         _ highlights: [HomeMediaHighlight],
         mediaByID: [UUID: DiveMediaPhoto]
@@ -33,8 +31,18 @@ enum HomeMediaHighlightWarmup {
         let mediaRows = limited.compactMap { mediaByID[$0.mediaID] }
         pinCarouselSessionCache(for: limited, mediaByID: mediaByID)
         await warmBootstrapTier(mediaRows)
-        await warmPreviewTier(for: Array(mediaRows.dropFirst()))
-        scheduleBackgroundFullQualityWarmup(for: mediaRows)
+        await warmCarouselVideoAssets(for: mediaRows)
+        await warmCarouselVideoPlaybackSnapshots(for: mediaRows)
+        registerHomeCarouselSession(for: mediaRows)
+    }
+
+    /// Ensures a carousel video has a warmed **`AVAsset`** and SwiftUI playback snapshot (idempotent).
+    static func ensureCarouselVideoReady(for media: DiveMediaPhoto) async {
+        #if canImport(Photos) && canImport(AVFoundation)
+        guard media.resolvedMediaKind == .video else { return }
+        await warmCarouselVideoAsset(for: media)
+        await warmCarouselVideoPlaybackSnapshot(for: media)
+        #endif
     }
 
     /// **`true`** when every carousel slide has a poster frame in the session cache.
@@ -50,6 +58,14 @@ enum HomeMediaHighlightWarmup {
         }
     }
 
+    /// Re-seeds stored previews and re-pins carousel library ids after session cache clears.
+    static func repinCarouselSessionCache(
+        highlights: [HomeMediaHighlight],
+        mediaByID: [UUID: DiveMediaPhoto]
+    ) {
+        pinCarouselSessionCache(for: highlights, mediaByID: mediaByID)
+    }
+
     private static func pinCarouselSessionCache(
         for highlights: [HomeMediaHighlight],
         mediaByID: [UUID: DiveMediaPhoto]
@@ -58,32 +74,15 @@ enum HomeMediaHighlightWarmup {
             mediaByID[highlight.mediaID]?.libraryAssetLocalIdentifier
         }
         HomeMediaHighlightSessionCache.shared.setPinnedCarouselLocalIdentifiers(identifiers)
+        DiveMediaVideoAssetSessionCache.shared.setPinnedCarouselLocalIdentifiers(identifiers)
+        HomeMediaCarouselDebug.warmupRepinned(
+            libraryIdentifiers: identifiers,
+            mediaIDs: highlights.map(\.mediaID)
+        )
         #if canImport(UIKit)
         let mediaRows = highlights.compactMap { mediaByID[$0.mediaID] }
         DiveMediaPreviewStorage.seedSessionCache(for: mediaRows)
         #endif
-    }
-
-    /// Warms carousel picks from SwiftData, returning once bootstrap tiers are satisfied; remaining warm work continues in the background.
-    static func warmFromStore(modelContext: ModelContext, ownerProfileID: UUID) async {
-        let bundle = highlightsFromStore(
-            modelContext: modelContext,
-            ownerProfileID: ownerProfileID
-        )
-        guard !bundle.highlights.isEmpty else { return }
-
-        let limited = Array(bundle.highlights.prefix(HomeMediaHighlightPresentation.carouselLimit))
-        let mediaRows = limited.compactMap { bundle.mediaByID[$0.mediaID] }
-        startBackgroundWarmup(mediaRows: mediaRows)
-        await waitForOverlayDismiss(
-            highlights: limited,
-            mediaByID: bundle.mediaByID
-        )
-    }
-
-    /// **`true`** when the first carousel item is fully warmed (hero + video asset when applicable).
-    static func isHighlightReady(_ highlight: HomeMediaHighlight, media: DiveMediaPhoto) -> Bool {
-        HomeMediaHighlightSessionCache.shared.isMediaReady(for: media)
     }
 
     /// **`true`** when the slide can show a poster (video asset may still be loading).
@@ -125,143 +124,127 @@ enum HomeMediaHighlightWarmup {
     }
     #endif
 
-    /// **`true`** when slide **0** has a full hero poster.
-    static func isBootstrapReady(
-        highlights: [HomeMediaHighlight],
-        mediaByID: [UUID: DiveMediaPhoto]
-    ) -> Bool {
-        let limited = Array(highlights.prefix(HomeMediaHighlightPresentation.carouselLimit))
-        guard let first = limited.first,
-              let media = mediaByID[first.mediaID] else {
-            return limited.isEmpty
-        }
-
-        let fullReadyCount = hasHeroPoster(for: media) ? 1 : 0
-        let previewOrFullReadyCount = HomeMediaHighlightSessionCache.shared.hasDisplayableImage(for: media) ? 1 : 0
-        return HomeMediaHighlightWarmupPresentation.isBootstrapReady(
-            fullReadyCount: fullReadyCount,
-            previewOrFullReadyCount: previewOrFullReadyCount,
-            totalCount: limited.count
-        )
-    }
-
-    /// **`true`** when the launch overlay can dismiss (bootstrap complete, first poster ready, or timeout in **`waitForOverlayDismiss`**).
-    static func isOverlayDismissReady(
-        highlights: [HomeMediaHighlight],
-        mediaByID: [UUID: DiveMediaPhoto]
-    ) -> Bool {
-        let limited = Array(highlights.prefix(HomeMediaHighlightPresentation.carouselLimit))
-        guard !limited.isEmpty else { return true }
-
-        let bootstrapReady = isBootstrapReady(highlights: limited, mediaByID: mediaByID)
-        let firstDisplayable: Bool = {
-            guard let first = limited.first,
-                  let media = mediaByID[first.mediaID] else { return false }
-            return isHighlightDisplayable(first, media: media)
-        }()
-        return HomeMediaHighlightWarmupPresentation.isOverlayDismissReady(
-            isBootstrapReady: bootstrapReady,
-            firstSlideHasDisplayableImage: firstDisplayable
-        )
-    }
-
-    private static func hasHeroPoster(for media: DiveMediaPhoto) -> Bool {
-        guard let identifier = media.libraryAssetLocalIdentifier else { return false }
-        return HomeMediaHighlightSessionCache.shared.containsImage(
-            localIdentifier: identifier,
-            edge: preloadImageEdge
-        )
-    }
-
-    // MARK: - Bootstrap + background tiers
-
-    private static let overlayDismissPollIntervalNanoseconds: UInt64 = 50_000_000
-
-    private static var overlayDismissMaxWaitNanoseconds: UInt64 {
-        UInt64(HomeMediaHighlightWarmupPresentation.bootstrapOverlayMaxWaitSeconds * 1_000_000_000)
-    }
-
-    private static func startBackgroundWarmup(mediaRows: [DiveMediaPhoto]) {
-        Task {
-            await warmBootstrapTier(mediaRows)
-            scheduleDeferredCarouselWarmup(for: mediaRows)
-        }
-    }
-
-    private static func waitForOverlayDismiss(
-        highlights: [HomeMediaHighlight],
-        mediaByID: [UUID: DiveMediaPhoto]
-    ) async {
-        let deadline = DispatchTime.now().uptimeNanoseconds + overlayDismissMaxWaitNanoseconds
-        while !isOverlayDismissReady(highlights: highlights, mediaByID: mediaByID) {
-            if DispatchTime.now().uptimeNanoseconds >= deadline { break }
-            try? await Task.sleep(nanoseconds: overlayDismissPollIntervalNanoseconds)
-        }
-    }
+    // MARK: - Bootstrap warm tiers
 
     private static func warmBootstrapTier(_ mediaRows: [DiveMediaPhoto]) async {
-        guard let first = mediaRows.first else { return }
-
-        #if canImport(Photos) && canImport(UIKit)
-        preheatPhotoKit(for: [first])
-
-        await warmMediaRow(first, quality: .full)
-        #endif
-    }
-
-    private static func warmPreviewTier(for mediaRows: [DiveMediaPhoto]) async {
         guard !mediaRows.isEmpty else { return }
+
         #if canImport(Photos) && canImport(UIKit)
+        preheatPhotoKit(for: mediaRows)
+
         await withTaskGroup(of: Void.self) { group in
             for media in mediaRows {
                 group.addTask {
-                    await warmMediaRow(media, quality: .preview)
+                    await warmMediaRow(media, quality: .full)
                 }
             }
         }
         #endif
     }
 
-    private static func scheduleDeferredCarouselWarmup(for mediaRows: [DiveMediaPhoto]) {
-        backgroundFullWarmupTask?.cancel()
-        let remainder = Array(mediaRows.dropFirst())
-        guard !remainder.isEmpty else { return }
-
-        backgroundFullWarmupTask = Task {
-            let delay = HomeMediaHighlightWarmupPresentation.deferredCarouselWarmDelaySeconds
-            if delay > 0 {
-                try? await Task.sleep(for: .seconds(delay))
-            }
-            guard !Task.isCancelled else { return }
-
-            await withTaskGroup(of: Void.self) { group in
-                for media in remainder {
-                    group.addTask {
-                        await warmMediaRow(media, quality: .preview)
-                    }
-                }
-            }
-            guard !Task.isCancelled else { return }
-            scheduleBackgroundFullQualityWarmup(for: mediaRows)
-        }
-    }
-
-    private static func scheduleBackgroundFullQualityWarmup(for mediaRows: [DiveMediaPhoto]) {
-        backgroundFullWarmupTask?.cancel()
-        guard AppNetworkConnectivitySnapshot.shared.allowsCloudMediaFetch else { return }
-        let remainder = Array(mediaRows.dropFirst(HomeMediaHighlightWarmupPresentation.startupFullQualityCount))
-        guard !remainder.isEmpty else { return }
-
-        backgroundFullWarmupTask = Task {
-            await withTaskGroup(of: Void.self) { group in
-                for media in remainder {
-                    group.addTask {
-                        await warmMediaRow(media, quality: .full)
-                    }
+    private static func warmCarouselVideoAssets(for mediaRows: [DiveMediaPhoto]) async {
+        #if canImport(Photos) && canImport(AVFoundation)
+        await withTaskGroup(of: Void.self) { group in
+            for media in mediaRows where media.resolvedMediaKind == .video {
+                group.addTask {
+                    await warmCarouselVideoAsset(for: media)
                 }
             }
         }
+        #endif
     }
+
+    #if canImport(Photos) && canImport(AVFoundation)
+    private static func warmCarouselVideoAsset(for media: DiveMediaPhoto) async {
+        guard let identifier = media.libraryAssetLocalIdentifier else { return }
+        let quality = DiveMediaVideoRequestQuality.homeCarousel
+        if DiveMediaVideoAssetSessionCache.shared.contains(
+            localIdentifier: identifier,
+            quality: quality
+        ) {
+            HomeMediaCarouselDebug.warmVideo(
+                mediaID: media.id,
+                cacheHit: true,
+                stored: DiveMediaPreviewStorage.hasStoredPreview(for: media)
+            )
+            return
+        }
+        guard let asset = await DiveMediaReferenceLoader.loadVideoAsset(
+            localIdentifier: identifier,
+            quality: quality
+        ) else {
+            HomeMediaCarouselDebug.warmVideo(
+                mediaID: media.id,
+                cacheHit: false,
+                stored: DiveMediaPreviewStorage.hasStoredPreview(for: media)
+            )
+            return
+        }
+        DiveMediaVideoAssetSessionCache.shared.store(
+            asset,
+            localIdentifier: identifier,
+            quality: quality
+        )
+        HomeMediaCarouselDebug.warmVideo(
+            mediaID: media.id,
+            cacheHit: false,
+            stored: DiveMediaPreviewStorage.hasStoredPreview(for: media)
+        )
+    }
+
+    private static func warmCarouselVideoPlaybackSnapshots(for mediaRows: [DiveMediaPhoto]) async {
+        await withTaskGroup(of: Void.self) { group in
+            for media in mediaRows where media.resolvedMediaKind == .video {
+                group.addTask {
+                    await warmCarouselVideoPlaybackSnapshot(for: media)
+                }
+            }
+        }
+    }
+
+    private static func warmCarouselVideoPlaybackSnapshot(for media: DiveMediaPhoto) async {
+        guard let source = media.videoPlaybackSource,
+              case .libraryAsset(let identifier) = source else { return }
+
+        if DiveMediaVideoPlaybackSessionCache.shared.swiftUISnapshot(
+            forSourceIdentityKey: source.identityKey
+        ) != nil {
+            return
+        }
+
+        guard let playerItem = await DiveMediaReferenceLoader.playerItem(
+            localIdentifier: identifier,
+            quality: .homeCarousel
+        ) else { return }
+
+        let poster = HomeMediaHighlightSessionCache.shared.bestCachedImage(localIdentifier: identifier)
+        DiveMediaVideoPlaybackSessionCache.shared.storeSwiftUISnapshot(
+            DiveMediaVideoPlaybackSessionCache.SwiftUISnapshot(
+                playerItem: playerItem,
+                resolvedKey: "\(source.identityKey)|preview",
+                videoFidelity: .preview,
+                isDisplayReady: false,
+                posterImage: poster
+            ),
+            sourceIdentityKey: source.identityKey
+        )
+    }
+
+    private static func registerHomeCarouselSession(for mediaRows: [DiveMediaPhoto]) {
+        let libraryIdentifiers = mediaRows.compactMap(\.libraryAssetLocalIdentifier)
+        let sourceKeys = mediaRows.compactMap { media -> String? in
+            guard media.resolvedMediaKind == .video,
+                  let identifier = media.libraryAssetLocalIdentifier else { return nil }
+            return DiveMediaScopeCachePresentation.libraryAssetSourceIdentityKey(
+                localIdentifier: identifier
+            )
+        }
+        DiveMediaScopeCache.shared.activateHomeCarouselSession(
+            libraryIdentifiers: libraryIdentifiers,
+            sourceIdentityKeys: sourceKeys
+        )
+    }
+    #endif
 
     private static func warmMediaRow(
         _ media: DiveMediaPhoto,
@@ -271,9 +254,21 @@ enum HomeMediaHighlightWarmup {
         guard let identifier = media.libraryAssetLocalIdentifier else { return }
 
         if quality == .full, HomeMediaHighlightSessionCache.shared.isMediaReady(for: media) {
+            HomeMediaCarouselDebug.warmImage(
+                mediaID: media.id,
+                quality: warmupQualityLabel(quality),
+                cacheHit: true,
+                stored: DiveMediaPreviewStorage.hasStoredPreview(for: media)
+            )
             return
         }
         if quality == .preview, HomeMediaHighlightSessionCache.shared.hasDisplayableImage(for: media) {
+            HomeMediaCarouselDebug.warmImage(
+                mediaID: media.id,
+                quality: warmupQualityLabel(quality),
+                cacheHit: true,
+                stored: DiveMediaPreviewStorage.hasStoredPreview(for: media)
+            )
             return
         }
 
@@ -289,7 +284,24 @@ enum HomeMediaHighlightWarmup {
         inflightWarmups[inflightKey] = task
         await task.value
         inflightWarmups.removeValue(forKey: inflightKey)
+        if media.resolvedMediaKind == .image {
+            HomeMediaCarouselDebug.warmImage(
+                mediaID: media.id,
+                quality: warmupQualityLabel(quality),
+                cacheHit: HomeMediaHighlightSessionCache.shared.hasDisplayableImage(for: media),
+                stored: DiveMediaPreviewStorage.hasStoredPreview(for: media)
+            )
+        }
         #endif
+    }
+
+    private static func warmupQualityLabel(
+        _ quality: HomeMediaHighlightWarmupPresentation.WarmupQuality
+    ) -> String {
+        switch quality {
+        case .preview: "preview"
+        case .full: "full"
+        }
     }
 
     #if canImport(Photos) && canImport(UIKit)
@@ -329,7 +341,9 @@ enum HomeMediaHighlightWarmup {
     }
 
     private static func preheatPhotoKit(for mediaRows: [DiveMediaPhoto]) {
-        let identifiers = mediaRows.prefix(1).compactMap(\.libraryAssetLocalIdentifier)
+        let identifiers = mediaRows
+            .prefix(HomeMediaHighlightPresentation.carouselLimit)
+            .compactMap(\.libraryAssetLocalIdentifier)
         guard !identifiers.isEmpty else { return }
 
         let previewEdge = max(HomeMediaHighlightWarmupPresentation.previewImageEdge, 1)
@@ -339,108 +353,4 @@ enum HomeMediaHighlightWarmup {
         )
     }
     #endif
-
-    private struct StoreHighlights {
-        let highlights: [HomeMediaHighlight]
-        let mediaByID: [UUID: DiveMediaPhoto]
-    }
-
-    private static func highlightsFromStore(
-        modelContext: ModelContext,
-        ownerProfileID: UUID
-    ) -> StoreHighlights {
-        let dives = fetchOwnerDives(modelContext: modelContext, ownerProfileID: ownerProfileID)
-        guard !dives.isEmpty else {
-            return StoreHighlights(highlights: [], mediaByID: [:])
-        }
-
-        let ownerDiveIDs = Set(dives.map(\.id))
-        let mediaPhotos = fetchOwnerMedia(modelContext: modelContext, ownerDiveIDs: ownerDiveIDs)
-        guard !mediaPhotos.isEmpty else {
-            return StoreHighlights(highlights: [], mediaByID: [:])
-        }
-
-        let diveInputs = dives.map { activity in
-            let useChronologicalNumbers = AppUserSettings.automaticallyRenumberDives
-            let chronologicalNumbers = useChronologicalNumbers
-                ? DiveActivityDiveNumbering.numberedDiveSequentialIndicesById(for: dives)
-                : [:]
-            return HomeDiveStatsInput(
-                id: activity.id,
-                maxDepthMeters: activity.maxDepthMeters,
-                durationMinutes: activity.durationMinutes,
-                diveSiteID: activity.diveSiteID,
-                diveNumberLabel: HomeMediaHighlightPresentation.diveNumberLabel(
-                    diveNumber: activity.diveNumber,
-                    diveNumberExplicitlyNone: activity.diveNumberExplicitlyNone,
-                    chronologicalIndex: chronologicalNumbers[activity.id],
-                    useChronologicalNumbers: useChronologicalNumbers
-                ),
-                siteDisplayName: LogbookActivityRow.displayName(for: activity)
-            )
-        }
-        let mediaSources = highlightSources(from: mediaPhotos)
-        let sightingInputs = highlightSightingInputs(
-            modelContext: modelContext,
-            ownerDiveIDs: ownerDiveIDs
-        )
-        let taggedSpeciesCountByMediaID = HomeMediaHighlightPresentation.taggedSpeciesCountByMediaID(
-            sightings: sightingInputs,
-            ownerDiveIDs: ownerDiveIDs
-        )
-        let candidates = HomeMediaHighlightPresentation.buildCandidates(
-            mediaPhotos: mediaSources,
-            dives: diveInputs,
-            taggedSpeciesCountByMediaID: taggedSpeciesCountByMediaID
-        )
-        let highlights = HomeMediaHighlightPresentation.highlightsForOwner(
-            ownerProfileID: ownerProfileID,
-            candidates: candidates
-        )
-        let mediaByID = Dictionary(uniqueKeysWithValues: mediaPhotos.map { ($0.id, $0) })
-        return StoreHighlights(highlights: highlights, mediaByID: mediaByID)
-    }
-
-    private static func fetchOwnerDives(
-        modelContext: ModelContext,
-        ownerProfileID: UUID
-    ) -> [DiveActivity] {
-        let descriptor = FetchDescriptor<DiveActivity>(
-            predicate: #Predicate { $0.ownerProfileID == ownerProfileID },
-            sortBy: [
-                SortDescriptor(\.startTime, order: .reverse),
-                SortDescriptor(\.id, order: .forward),
-            ]
-        )
-        return (try? modelContext.fetch(descriptor)) ?? []
-    }
-
-    private static func fetchOwnerMedia(
-        modelContext: ModelContext,
-        ownerDiveIDs: Set<UUID>
-    ) -> [DiveMediaPhoto] {
-        guard !ownerDiveIDs.isEmpty else { return [] }
-        let descriptor = FetchDescriptor<DiveMediaPhoto>(
-            sortBy: [SortDescriptor(\.sortOrder, order: .forward)]
-        )
-        let all = (try? modelContext.fetch(descriptor)) ?? []
-        return all.filter { photo in
-            guard let diveID = photo.diveActivityID else { return false }
-            return ownerDiveIDs.contains(diveID)
-        }
-    }
-
-    private static func highlightSightingInputs(
-        modelContext: ModelContext,
-        ownerDiveIDs: Set<UUID>
-    ) -> [HomeMediaHighlightSightingInput] {
-        let sightingDescriptor = FetchDescriptor<SightingInstance>()
-        let sightings = (try? modelContext.fetch(sightingDescriptor)) ?? []
-        return sightings.map {
-            HomeMediaHighlightSightingInput(
-                mediaPhotoID: $0.mediaPhotoID,
-                diveActivityID: $0.diveActivityID
-            )
-        }
-    }
 }

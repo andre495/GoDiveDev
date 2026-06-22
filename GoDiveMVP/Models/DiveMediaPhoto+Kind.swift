@@ -41,9 +41,15 @@ extension DiveMediaPhoto {
         return .libraryAsset(identifier)
     }
 
-    /// Trimmed user-confirmed Fishial species name, or **`nil`** when unset.
+    /// Trimmed stored Fishial confirmation value, or **`nil`** when unset.
     var resolvedFishialConfirmedSpeciesName: String? {
         let trimmed = fishialConfirmedSpeciesName.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    /// Parsed user-confirmed Fishial scientific names (supports multiple per media item).
+    var resolvedFishialConfirmedSpeciesNames: [String] {
+        guard let stored = resolvedFishialConfirmedSpeciesName else { return [] }
+        return FishialConfirmedSpeciesPresentation.parsedScientificNames(from: stored)
     }
 }

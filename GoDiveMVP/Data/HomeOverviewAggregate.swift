@@ -6,6 +6,7 @@ struct HomeOverviewAggregate: Sendable {
     static let empty = HomeOverviewAggregate(
         contentFingerprint: 0,
         carouselFingerprint: 0,
+        carouselTagFingerprint: 0,
         diveStatsInputs: [],
         lifetimeStats: HomeLifetimeStatsPresentation.build(dives: [], sightings: []),
         buddyLeaderboard: [],
@@ -13,11 +14,14 @@ struct HomeOverviewAggregate: Sendable {
         mediaByID: [:],
         divesByID: [:],
         ownerDiveIDs: [],
-        mediaHighlightSightings: []
+        mediaHighlightSightings: [],
+        mediaHighlightBuddyTags: [],
+        taggedBuddyRowsByMediaID: [:]
     )
 
     let contentFingerprint: Int
     let carouselFingerprint: Int
+    let carouselTagFingerprint: Int
     let diveStatsInputs: [HomeDiveStatsInput]
     let lifetimeStats: HomeLifetimeStats
     let buddyLeaderboard: [HomeBuddyLeaderboardEntry]
@@ -26,6 +30,8 @@ struct HomeOverviewAggregate: Sendable {
     let divesByID: [UUID: DiveActivity]
     let ownerDiveIDs: Set<UUID>
     let mediaHighlightSightings: [HomeMediaHighlightSightingInput]
+    let mediaHighlightBuddyTags: [HomeMediaHighlightBuddyTagInput]
+    let taggedBuddyRowsByMediaID: [UUID: [DiveMediaBuddyTagPresentation.TaggedBuddyRow]]
 }
 
 /// Builds **`HomeOverviewAggregate`** from SwiftData models (main actor — touches relationships once).
@@ -91,6 +97,27 @@ enum HomeOverviewAggregateBuilder {
             return ownerDiveIDs.contains(diveID)
         }
 
+        let mediaHighlightBuddyTags = activities.flatMap { activity in
+            activity.mediaBuddyTags.map { tag in
+                HomeMediaHighlightBuddyTagInput(
+                    mediaPhotoID: tag.mediaPhotoID,
+                    diveActivityID: tag.diveActivityID ?? activity.id,
+                    buddyID: tag.buddyID,
+                    displayName: tag.buddy?.displayName ?? "Buddy",
+                    profilePhoto: tag.buddy?.profilePhoto
+                )
+            }
+        }
+        .filter { tag in
+            guard let diveID = tag.diveActivityID else { return false }
+            return ownerDiveIDs.contains(diveID)
+        }
+
+        let taggedBuddyRowsByMediaID = HomeMediaHighlightPresentation.taggedBuddyRowsByMediaID(
+            buddyTags: mediaHighlightBuddyTags,
+            ownerDiveIDs: ownerDiveIDs
+        )
+
         let contentFingerprint = HomeOverviewRefreshToken.contentFingerprint(
             dives: diveStatsInputs,
             buddyTags: buddyTags,
@@ -105,9 +132,16 @@ enum HomeOverviewAggregateBuilder {
             referenceDate: referenceDate
         )
 
+        let carouselTagFingerprint = HomeOverviewRefreshToken.carouselTagFingerprint(
+            sightings: mediaHighlightSightings,
+            buddyTags: mediaHighlightBuddyTags,
+            ownerDiveIDs: ownerDiveIDs
+        )
+
         return HomeOverviewAggregate(
             contentFingerprint: contentFingerprint,
             carouselFingerprint: carouselFingerprint,
+            carouselTagFingerprint: carouselTagFingerprint,
             diveStatsInputs: diveStatsInputs,
             lifetimeStats: lifetimeStats,
             buddyLeaderboard: buddyLeaderboard,
@@ -115,7 +149,9 @@ enum HomeOverviewAggregateBuilder {
             mediaByID: mediaByID,
             divesByID: divesByID,
             ownerDiveIDs: ownerDiveIDs,
-            mediaHighlightSightings: mediaHighlightSightings
+            mediaHighlightSightings: mediaHighlightSightings,
+            mediaHighlightBuddyTags: mediaHighlightBuddyTags,
+            taggedBuddyRowsByMediaID: taggedBuddyRowsByMediaID
         )
     }
 

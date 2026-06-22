@@ -22,6 +22,19 @@ struct ViewSingleActivity: View {
     @Bindable var activity: DiveActivity
     /// When set (e.g. tapping a logbook row thumbnail), open on the **Media** tab focused on this photo at the medium detent.
     var initialMediaFocusID: UUID? = nil
+
+    init(activity: DiveActivity, initialMediaFocusID: UUID? = nil) {
+        self._activity = Bindable(wrappedValue: activity)
+        self.initialMediaFocusID = initialMediaFocusID
+        _pendingInitialMediaFocusID = State(initialValue: initialMediaFocusID)
+        if initialMediaFocusID != nil {
+            _selectedActivityTab = State(initialValue: .camera)
+            _overviewSheetDetent = State(initialValue: .medium)
+            _selectedDiveMediaPhotoID = State(initialValue: initialMediaFocusID)
+            _isOverviewPanelPresented = State(initialValue: true)
+        }
+    }
+
     @Query(sort: \MarineLife.commonName) private var marineLifeCatalog: [MarineLife]
     @Environment(\.modelContext) private var modelContext
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
@@ -52,10 +65,13 @@ struct ViewSingleActivity: View {
     @State private var diveMediaPickerItems: [PhotosPickerItem] = []
     @State private var selectedDiveMediaPhotoID: UUID?
     @State private var marineLifeTagMediaID: UUID?
+    @State private var buddyTagMediaID: UUID?
+    @State private var mediaPresentationEpoch = 0
+    @State private var pendingInitialMediaFocusID: UUID?
     @State private var mediaImportOverlay: DiveMediaImportOverlayState = .hidden
     @State private var derivedDiveData = DerivedDiveData()
     @State private var catalogSitesForMapResolution: [DiveSite] = []
-    /// Guards the one-time deep-link focus (Media tab + selected photo) so it only applies on first appear.
+    /// Guards redundant focus application within a single appear cycle when media is already loaded.
     @State private var didApplyInitialMediaFocus = false
 
     /// **More** tab: profile samples sorted by time (read-only).
@@ -120,6 +136,13 @@ struct ViewSingleActivity: View {
                 }
             }
             .onAppear(perform: handleSingleActivityAppear)
+            .onDisappear {
+                DiveMediaScopeCache.shared.deactivateScope(.diveOverview(activity.id))
+            }
+            .onChange(of: initialMediaFocusID) { _, _ in
+                didApplyInitialMediaFocus = false
+                applyInitialMediaFocusIfNeeded()
+            }
             .onChange(of: selectedActivityTab) { _, newTab in
                 handleSelectedActivityTabChange(newTab)
             }
@@ -128,7 +151,11 @@ struct ViewSingleActivity: View {
                     showsMapSitePromptDialog = false
                 }
             }
-            .onChange(of: activity.id) { _, _ in
+            .onChange(of: activity.id) { oldID, newID in
+                if oldID != newID {
+                    DiveMediaScopeCache.shared.deactivateScope(.diveOverview(oldID))
+                    DiveMediaScopeCache.shared.activateScope(.diveOverview(newID))
+                }
                 handleActivityIdentityChange()
             }
             .task(id: derivedDiveDataRefreshToken) {
@@ -209,6 +236,14 @@ struct ViewSingleActivity: View {
                     )
                 }
             }
+            .sheet(isPresented: buddyTagSheetPresented) {
+                if let media = buddyTagTargetMedia {
+                    DiveMediaBuddyTagsSheet(
+                        media: media,
+                        dive: activity
+                    )
+                }
+            }
             .alert("Could not add equipment", isPresented: equipmentLinkErrorBinding) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -238,6 +273,7 @@ struct ViewSingleActivity: View {
     }
 
     private func handleSingleActivityAppear() {
+        DiveMediaScopeCache.shared.activateScope(.diveOverview(activity.id))
         applyInitialMediaFocusIfNeeded()
         overviewMapTeardownRequested = false
         catalogSitesForMapResolution = []
@@ -246,17 +282,28 @@ struct ViewSingleActivity: View {
         presentMapSitePromptIfNeeded()
     }
 
-    /// One-time deep link from the logbook row thumbnail: jump to the Media tab on a specific photo (medium detent).
+    /// Deep link from logbook / Home / trip media: jump to the **Media** tab on a specific photo (medium detent).
     private func applyInitialMediaFocusIfNeeded() {
         guard !didApplyInitialMediaFocus else { return }
-        didApplyInitialMediaFocus = true
         guard let focus = DiveActivityMediaFocusPresentation.focus(forMediaFocusID: initialMediaFocusID) else {
+            pendingInitialMediaFocusID = nil
             return
         }
+
+        pendingInitialMediaFocusID = focus.mediaID
+        if DiveActivityMediaActivation.resolvedPendingFocus(
+            pendingMediaID: focus.mediaID,
+            in: derivedDiveData.sortedMediaItems
+        ) != nil {
+            didApplyInitialMediaFocus = true
+            pendingInitialMediaFocusID = nil
+        }
+
         selectedActivityTab = focus.tab
         selectedDiveMediaPhotoID = focus.mediaID
         isOverviewPanelPresented = true
         overviewSheetDetent = focus.detent
+        bumpMediaPresentationEpoch()
     }
 
     private func handleSelectedActivityTabChange(_ newTab: DiveActivityTab) {
@@ -272,7 +319,10 @@ struct ViewSingleActivity: View {
         overviewMapTeardownRequested = false
         catalogSitesForMapResolution = []
         selectedDiveMediaPhotoID = nil
+        pendingInitialMediaFocusID = initialMediaFocusID
+        didApplyInitialMediaFocus = false
         reloadMapSitePromptDeclinedState()
+        applyInitialMediaFocusIfNeeded()
         presentMapSitePromptIfNeeded()
     }
 
@@ -328,6 +378,43 @@ struct ViewSingleActivity: View {
             mediaPhotosByID: Dictionary(uniqueKeysWithValues: sortedMediaItems.map { ($0.id, $0) }),
             profileGasStats: built.profileGasStats
         )
+        syncMediaPresentationAfterContentAvailable()
+    }
+
+    private func bumpMediaPresentationEpoch() {
+        mediaPresentationEpoch &+= 1
+    }
+
+    private func syncMediaPresentationAfterContentAvailable() {
+        if let resolvedPending = DiveActivityMediaActivation.resolvedPendingFocus(
+            pendingMediaID: pendingInitialMediaFocusID,
+            in: derivedDiveData.sortedMediaItems
+        ) {
+            selectedActivityTab = .camera
+            selectedDiveMediaPhotoID = resolvedPending
+            isOverviewPanelPresented = true
+            overviewSheetDetent = .medium
+            pendingInitialMediaFocusID = nil
+            didApplyInitialMediaFocus = true
+            bumpMediaPresentationEpoch()
+            return
+        }
+
+        if pendingInitialMediaFocusID != nil, derivedDiveData.sortedMediaItems.isEmpty {
+            return
+        }
+
+        guard selectedActivityTab == .camera else { return }
+        let preferredID = pendingInitialMediaFocusID ?? initialMediaFocusID
+        let resolved = DiveActivityMediaPresentation.resolvedSelectedPhotoID(
+            selectedID: selectedDiveMediaPhotoID,
+            in: derivedDiveData.sortedMediaItems,
+            preferredID: preferredID
+        )
+        if resolved != selectedDiveMediaPhotoID {
+            selectedDiveMediaPhotoID = resolved
+            bumpMediaPresentationEpoch()
+        }
     }
 
     private var activityTopChrome: some View {
@@ -479,6 +566,8 @@ struct ViewSingleActivity: View {
                             mediaCaptureContextsByID: mediaCaptureContextsByID,
                             sheetDetent: overviewSheetDetent,
                             isMediaTabSelected: selectedActivityTab == .camera,
+                            presentationEpoch: mediaPresentationEpoch,
+                            deepLinkMediaID: pendingInitialMediaFocusID ?? initialMediaFocusID,
                             bottomContentMargin: mediaUsesFullBleedHero ? 0 : bottomObstruction,
                             captureOverlayBottomInset: isLandscape
                                 ? 0
@@ -585,6 +674,10 @@ struct ViewSingleActivity: View {
     }
 
     private func selectActivityTab(_ tab: DiveActivityTab) {
+        if tab == .camera, tab == selectedActivityTab {
+            syncOverviewSheetPresentation(for: tab)
+            return
+        }
         guard tab != selectedActivityTab else { return }
 
         var transaction = Transaction()
@@ -1017,12 +1110,27 @@ struct ViewSingleActivity: View {
         )
     }
 
+    private var selectedMediaTaggedBuddies: [DiveBuddy] {
+        guard let media = DiveActivityMediaPresentation.selectedMedia(
+            selectedID: selectedDiveMediaPhotoID,
+            in: derivedDiveData.sortedMediaItems
+        ) else { return [] }
+        return DiveMediaBuddyTagPresentation.resolvedTaggedBuddies(
+            mediaPhotoID: media.id,
+            tags: activity.mediaBuddyTags
+        )
+    }
+
     private func photosOverviewPanelContent(layoutHeight: CGFloat) -> some View {
         let hasMedia = !derivedDiveData.sortedMediaItems.isEmpty
         let showsMarineLifeTagInSheet = DiveActivityMediaPresentation.showsMarineLifeTagInSheet(
             for: overviewSheetDetent
         ) && hasMedia
+        let showsBuddyTagInSheet = DiveActivityMediaPresentation.showsBuddyTagInSheet(
+            for: overviewSheetDetent
+        ) && hasMedia
         let taggedSpecies = hasMedia ? selectedMediaTaggedSpecies : []
+        let taggedBuddies = hasMedia ? selectedMediaTaggedBuddies : []
         let expandsMarineLifeDetail = DiveActivityMediaPresentation.opensMarineLifeDetailOnTaggedChipTap(
             detent: overviewSheetDetent,
             taggedSpeciesCount: taggedSpecies.count
@@ -1040,6 +1148,10 @@ struct ViewSingleActivity: View {
             onTagMarineLife: showsMarineLifeTagInSheet
                 ? { tagMarineLifeFromSelectedMedia() }
                 : nil,
+            showsBuddyTagInSheet: showsBuddyTagInSheet,
+            onTagBuddies: showsBuddyTagInSheet
+                ? { tagBuddiesFromSelectedMedia() }
+                : nil,
             onExpandMarineLifeDetail: expandsMarineLifeDetail
                 ? {
                     withAnimation(.diveOverviewPanelDetent) {
@@ -1050,6 +1162,7 @@ struct ViewSingleActivity: View {
             featuredMediaID: DiveActivityMediaPresentation.featuredPhotoID(on: activity),
             onToggleFeatured: { toggleFeaturedMedia($0) },
             taggedSpecies: taggedSpecies,
+            taggedBuddies: taggedBuddies,
             mediaPickerItems: $diveMediaPickerItems,
             isImportInProgress: mediaImportOverlay.isBlocking
         )
@@ -1086,6 +1199,14 @@ struct ViewSingleActivity: View {
             in: derivedDiveData.sortedMediaItems
         ) else { return }
         tagMarineLifeFromMedia(media)
+    }
+
+    private func tagBuddiesFromSelectedMedia() {
+        guard let media = DiveActivityMediaPresentation.selectedMedia(
+            selectedID: selectedDiveMediaPhotoID,
+            in: derivedDiveData.sortedMediaItems
+        ) else { return }
+        tagBuddiesFromMedia(media)
     }
 
     @MainActor
@@ -1295,6 +1416,26 @@ struct ViewSingleActivity: View {
 
     private func tagMarineLifeFromMedia(_ media: DiveMediaPhoto) {
         marineLifeTagMediaID = media.id
+    }
+
+    private var buddyTagSheetPresented: Binding<Bool> {
+        Binding(
+            get: { buddyTagMediaID != nil },
+            set: { isPresented in
+                if !isPresented {
+                    buddyTagMediaID = nil
+                }
+            }
+        )
+    }
+
+    private var buddyTagTargetMedia: DiveMediaPhoto? {
+        guard let buddyTagMediaID else { return nil }
+        return derivedDiveData.mediaPhotosByID[buddyTagMediaID]
+    }
+
+    private func tagBuddiesFromMedia(_ media: DiveMediaPhoto) {
+        buddyTagMediaID = media.id
     }
 
     private var depthChartPreviewCaptureContext: DiveMediaCaptureContext? {

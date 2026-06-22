@@ -8,10 +8,13 @@ struct HomeMediaHighlight: Identifiable, Equatable, Sendable {
     let siteDisplayName: String
     let diveSiteID: UUID?
     let taggedSpeciesCount: Int
+    let taggedBuddyCount: Int
 
     var id: UUID { mediaID }
 
     var hasTaggedSpecies: Bool { taggedSpeciesCount > 0 }
+
+    var hasTaggedBuddies: Bool { taggedBuddyCount > 0 }
 
     var diveActionLabel: String {
         HomeMediaHighlightPresentation.diveActionLabel(
@@ -60,7 +63,8 @@ enum HomeMediaHighlightPresentation {
     nonisolated static func buildCandidates(
         mediaPhotos: [HomeMediaHighlightSource],
         dives: [HomeDiveStatsInput],
-        taggedSpeciesCountByMediaID: [UUID: Int] = [:]
+        taggedSpeciesCountByMediaID: [UUID: Int] = [:],
+        taggedBuddyCountByMediaID: [UUID: Int] = [:]
     ) -> [HomeMediaHighlight] {
         let divesByID = Dictionary(uniqueKeysWithValues: dives.map { ($0.id, $0) })
         return mediaPhotos
@@ -73,7 +77,27 @@ enum HomeMediaHighlightPresentation {
                 diveNumberLabel: dive.diveNumberLabel,
                 siteDisplayName: dive.siteDisplayName,
                 diveSiteID: dive.diveSiteID,
-                taggedSpeciesCount: taggedSpeciesCountByMediaID[photo.mediaID] ?? 0
+                taggedSpeciesCount: taggedSpeciesCountByMediaID[photo.mediaID] ?? 0,
+                taggedBuddyCount: taggedBuddyCountByMediaID[photo.mediaID] ?? 0
+            )
+        }
+    }
+
+    /// Refreshes tag counts on an existing carousel pick without reshuffling slides.
+    nonisolated static func highlightsByRefreshingTagCounts(
+        _ highlights: [HomeMediaHighlight],
+        taggedSpeciesCountByMediaID: [UUID: Int],
+        taggedBuddyCountByMediaID: [UUID: Int]
+    ) -> [HomeMediaHighlight] {
+        highlights.map { highlight in
+            HomeMediaHighlight(
+                mediaID: highlight.mediaID,
+                diveActivityID: highlight.diveActivityID,
+                diveNumberLabel: highlight.diveNumberLabel,
+                siteDisplayName: highlight.siteDisplayName,
+                diveSiteID: highlight.diveSiteID,
+                taggedSpeciesCount: taggedSpeciesCountByMediaID[highlight.mediaID] ?? 0,
+                taggedBuddyCount: taggedBuddyCountByMediaID[highlight.mediaID] ?? 0
             )
         }
     }
@@ -91,6 +115,52 @@ enum HomeMediaHighlightPresentation {
             counts[mediaID, default: 0] += 1
         }
         return counts
+    }
+
+    /// Counts media buddy-tag rows per photo for owned dives.
+    nonisolated static func taggedBuddyCountByMediaID(
+        buddyTags: [HomeMediaHighlightBuddyTagInput],
+        ownerDiveIDs: Set<UUID>
+    ) -> [UUID: Int] {
+        var counts: [UUID: Int] = [:]
+        for tag in buddyTags {
+            guard let mediaID = tag.mediaPhotoID,
+                  let diveID = tag.diveActivityID,
+                  ownerDiveIDs.contains(diveID) else { continue }
+            counts[mediaID, default: 0] += 1
+        }
+        return counts
+    }
+
+    /// Unique tagged buddies per carousel photo (sorted by display name).
+    nonisolated static func taggedBuddyRowsByMediaID(
+        buddyTags: [HomeMediaHighlightBuddyTagInput],
+        ownerDiveIDs: Set<UUID>
+    ) -> [UUID: [DiveMediaBuddyTagPresentation.TaggedBuddyRow]] {
+        var rowsByMediaID: [UUID: [DiveMediaBuddyTagPresentation.TaggedBuddyRow]] = [:]
+        var seenBuddyIDsByMediaID: [UUID: Set<UUID>] = [:]
+
+        for tag in buddyTags {
+            guard let mediaID = tag.mediaPhotoID,
+                  let diveID = tag.diveActivityID,
+                  ownerDiveIDs.contains(diveID),
+                  let buddyID = tag.buddyID else { continue }
+            guard seenBuddyIDsByMediaID[mediaID, default: []].insert(buddyID).inserted else { continue }
+            rowsByMediaID[mediaID, default: []].append(
+                DiveMediaBuddyTagPresentation.TaggedBuddyRow(
+                    buddyID: buddyID,
+                    displayName: tag.displayName,
+                    profilePhoto: tag.profilePhoto
+                )
+            )
+        }
+
+        for mediaID in rowsByMediaID.keys {
+            rowsByMediaID[mediaID]?.sort {
+                $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
+            }
+        }
+        return rowsByMediaID
     }
 
     /// Logbook-style **#** label for carousel chips (matches **`DiveLogbookDisplay`** rules).
@@ -142,6 +212,15 @@ struct HomeMediaHighlightSource: Sendable, Equatable {
 struct HomeMediaHighlightSightingInput: Sendable, Equatable {
     let mediaPhotoID: UUID?
     let diveActivityID: UUID?
+}
+
+/// One media buddy-tag row for Home highlight buddy counts (no SwiftData models).
+struct HomeMediaHighlightBuddyTagInput: Sendable, Equatable {
+    let mediaPhotoID: UUID?
+    let diveActivityID: UUID?
+    var buddyID: UUID? = nil
+    var displayName: String = "Buddy"
+    var profilePhoto: Data? = nil
 }
 
 /// Deterministic shuffle for carousel picks (stable for a given seed / day).

@@ -23,6 +23,9 @@ final class DiveBuddy {
     @Relationship(deleteRule: .cascade)
     var tripBuddyLinks: [DiveTripBuddyLink] = []
 
+    @Relationship(deleteRule: .cascade)
+    var mediaBuddyTags: [DiveMediaBuddyTag] = []
+
     init(
         id: UUID = UUID(),
         displayName: String,

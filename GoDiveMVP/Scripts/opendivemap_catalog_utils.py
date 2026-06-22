@@ -119,7 +119,7 @@ def feature_to_reference_row(feature: dict[str, Any]) -> dict[str, Any]:
     topologies = properties.get("topologies") or []
     return {
         "id": properties.get("id") or "",
-        "name": properties.get("name") or "",
+        "name": (properties.get("name") or "").strip(),
         "country": properties.get("country_name") or "",
         "countryCode": properties.get("country_code") or "",
         "latitude": lat,

@@ -18,4 +18,17 @@ enum DiveActivityChildRecordLinking {
         photo.diveActivityID = dive.id
         photo.dive = dive
     }
+
+    static func link(_ tag: DiveMediaBuddyTag, to media: DiveMediaPhoto) {
+        tag.mediaPhotoID = media.id
+        tag.mediaPhoto = media
+        if tag.diveActivityID == nil {
+            tag.diveActivityID = media.diveActivityID
+        }
+    }
+
+    static func link(_ tag: DiveMediaBuddyTag, to dive: DiveActivity) {
+        tag.diveActivityID = dive.id
+        tag.diveActivity = dive
+    }
 }

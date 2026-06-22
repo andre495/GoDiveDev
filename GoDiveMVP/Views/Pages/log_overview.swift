@@ -1,3 +1,4 @@
+import Combine
 import SwiftData
 import SwiftUI
 
@@ -19,9 +20,9 @@ struct LogOverviewView: View {
     @State private var headerClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
     @State private var path: [HomeRoute] = []
     @State private var carouselHighlights: [HomeMediaHighlight] = []
-    @State private var isCarouselMediaReady = false
     @State private var homeAggregate = HomeOverviewAggregate.empty
     @State private var lastCarouselFingerprint = 0
+    @State private var lastCarouselTagFingerprint = 0
     @State private var hasCarouselSessionWarmCompleted = false
     @State private var hasPerformedInitialHomeBuild = false
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
@@ -140,9 +141,19 @@ struct LogOverviewView: View {
             .onChange(of: allMediaPhotos.count) { _, _ in rebuildHomeOverview() }
             .onChange(of: allSightings.count) { _, _ in rebuildHomeOverview() }
             .onChange(of: automaticallyRenumberDives) { _, _ in rebuildHomeOverview() }
+            .onReceive(
+                NotificationCenter.default
+                    .publisher(for: .diveActivityMediaDidChange)
+                    .receive(on: RunLoop.main)
+            ) { _ in
+                rebuildHomeOverview()
+            }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .active {
+                switch phase {
+                case .active:
                     rebuildHomeOverview()
+                default:
+                    break
                 }
             }
         }
@@ -204,12 +215,14 @@ struct LogOverviewView: View {
             mediaByID: homeAggregate.mediaByID,
             sightings: allSightings,
             marineLifeCatalog: marineLifeCatalog,
+            taggedBuddyRowsByMediaID: homeAggregate.taggedBuddyRowsByMediaID,
             ownerProfileID: ownerProfileID,
             containerWidth: screenWidth,
             topSafeAreaInset: topSafeAreaInset,
             headerOverlayHeight: headerClearance,
             onOpenDive: { path.append(.diveDetail($0)) },
-            onOpenMedia: { diveID, mediaID in path.append(.diveMedia(diveID: diveID, mediaID: mediaID)) }
+            onOpenMedia: { diveID, mediaID in path.append(.diveMedia(diveID: diveID, mediaID: mediaID)) },
+            onOpenBuddy: { path.append(.diveBuddy($0)) }
         )
     }
 
@@ -325,47 +338,13 @@ struct LogOverviewView: View {
     private func handleReturnToHomeRoot() {
         if HomeReturnNavigationPresentation.shouldSkipFullRebuildOnReturn(
             hasPerformedInitialBuild: hasPerformedInitialHomeBuild,
-            isCarouselMediaReady: isCarouselMediaReady,
+            carouselSlidesAreDisplayable: carouselSlidesAreDisplayable(using: homeAggregate),
             hasCarouselHighlights: !carouselHighlights.isEmpty
         ) {
-            ensureCarouselReadyAfterReturn()
+            scheduleCarouselWarmupIfNeeded(using: homeAggregate)
             return
         }
         rebuildHomeOverview()
-    }
-
-    private func ensureCarouselReadyAfterReturn() {
-        guard !carouselHighlights.isEmpty else {
-            isCarouselMediaReady = false
-            return
-        }
-        #if canImport(UIKit)
-        seedCarouselStoredPreviews(using: homeAggregate)
-        #endif
-        let allDisplayable = HomeMediaHighlightWarmup.carouselHighlightsAreDisplayable(
-            carouselHighlights,
-            mediaByID: homeAggregate.mediaByID
-        )
-        isCarouselMediaReady = hasCarouselSessionWarmCompleted
-            || allDisplayable
-            || isFirstCarouselHighlightReady(aggregate: homeAggregate)
-        guard !hasCarouselSessionWarmCompleted else { return }
-        Task {
-            #if canImport(UIKit)
-            let limited = Array(carouselHighlights.prefix(HomeMediaHighlightPresentation.carouselLimit))
-            let mediaRows = limited.compactMap { homeAggregate.mediaByID[$0.mediaID] }
-            await DiveMediaPreviewStorage.ensureStoredPreviews(
-                for: mediaRows,
-                modelContext: modelContext
-            )
-            #endif
-            await HomeMediaHighlightWarmup.warmHighlights(
-                carouselHighlights,
-                mediaByID: homeAggregate.mediaByID
-            )
-            hasCarouselSessionWarmCompleted = true
-            isCarouselMediaReady = true
-        }
     }
 
     private func rebuildHomeOverview() {
@@ -384,43 +363,73 @@ struct LogOverviewView: View {
     private func refreshCarouselHighlightsIfNeeded(using aggregate: HomeOverviewAggregate) {
         guard let ownerProfileID else {
             carouselHighlights = []
-            isCarouselMediaReady = false
             lastCarouselFingerprint = 0
+            lastCarouselTagFingerprint = 0
             hasCarouselSessionWarmCompleted = false
             return
         }
 
         let fingerprintChanged = aggregate.carouselFingerprint != lastCarouselFingerprint
+        let tagFingerprintChanged = aggregate.carouselTagFingerprint != lastCarouselTagFingerprint
+
         if fingerprintChanged || carouselHighlights.isEmpty {
             lastCarouselFingerprint = aggregate.carouselFingerprint
+            lastCarouselTagFingerprint = aggregate.carouselTagFingerprint
             hasCarouselSessionWarmCompleted = false
             carouselHighlights = buildCarouselHighlights(from: aggregate, ownerProfileID: ownerProfileID)
+        } else if tagFingerprintChanged {
+            lastCarouselTagFingerprint = aggregate.carouselTagFingerprint
+            carouselHighlights = refreshCarouselHighlightTagCounts(
+                carouselHighlights,
+                using: aggregate
+            )
         }
 
         guard !carouselHighlights.isEmpty else {
-            isCarouselMediaReady = false
+            hasCarouselSessionWarmCompleted = false
+            return
+        }
+
+        scheduleCarouselWarmupIfNeeded(using: aggregate)
+    }
+
+    private func carouselSlidesAreDisplayable(using aggregate: HomeOverviewAggregate) -> Bool {
+        guard !carouselHighlights.isEmpty else { return false }
+        return HomeMediaHighlightWarmup.carouselHighlightsAreDisplayable(
+            carouselHighlights,
+            mediaByID: aggregate.mediaByID
+        )
+    }
+
+    private func scheduleCarouselWarmupIfNeeded(using aggregate: HomeOverviewAggregate) {
+        guard !carouselHighlights.isEmpty else {
             hasCarouselSessionWarmCompleted = false
             return
         }
 
         #if canImport(UIKit)
-        seedCarouselStoredPreviews(using: aggregate)
+        seedCarouselSessionCache(using: aggregate)
         #endif
 
-        let allDisplayable = HomeMediaHighlightWarmup.carouselHighlightsAreDisplayable(
-            carouselHighlights,
-            mediaByID: aggregate.mediaByID
+        let allDisplayable = carouselSlidesAreDisplayable(using: aggregate)
+        if !allDisplayable {
+            hasCarouselSessionWarmCompleted = false
+        }
+
+        HomeMediaCarouselDebug.warmupScheduled(
+            alreadyWarmed: hasCarouselSessionWarmCompleted,
+            displayableBeforeWarm: allDisplayable
         )
-        isCarouselMediaReady = hasCarouselSessionWarmCompleted
-            || allDisplayable
-            || isFirstCarouselHighlightReady(aggregate: aggregate)
 
         guard !hasCarouselSessionWarmCompleted else { return }
 
+        let limitedHighlights = Array(
+            carouselHighlights.prefix(HomeMediaHighlightPresentation.carouselLimit)
+        )
+
         Task {
             #if canImport(UIKit)
-            let limited = Array(carouselHighlights.prefix(HomeMediaHighlightPresentation.carouselLimit))
-            let mediaRows = limited.compactMap { aggregate.mediaByID[$0.mediaID] }
+            let mediaRows = limitedHighlights.compactMap { aggregate.mediaByID[$0.mediaID] }
             await DiveMediaPreviewStorage.ensureStoredPreviews(
                 for: mediaRows,
                 modelContext: modelContext
@@ -431,15 +440,31 @@ struct LogOverviewView: View {
                 mediaByID: aggregate.mediaByID
             )
             hasCarouselSessionWarmCompleted = true
-            isCarouselMediaReady = true
+            let displayable = Dictionary(
+                uniqueKeysWithValues: limitedHighlights.map { highlight in
+                    let media = aggregate.mediaByID[highlight.mediaID]
+                    let ready = media.map {
+                        HomeMediaHighlightWarmup.isHighlightDisplayable(highlight, media: $0)
+                    } ?? false
+                    return (highlight.mediaID, ready)
+                }
+            )
+            HomeMediaCarouselDebug.warmupFinished(
+                mediaIDs: limitedHighlights.map(\.mediaID),
+                displayableByMediaID: displayable
+            )
         }
     }
 
     #if canImport(UIKit)
-    private func seedCarouselStoredPreviews(using aggregate: HomeOverviewAggregate) {
+    private func seedCarouselSessionCache(using aggregate: HomeOverviewAggregate) {
         let limited = Array(carouselHighlights.prefix(HomeMediaHighlightPresentation.carouselLimit))
         let mediaRows = limited.compactMap { aggregate.mediaByID[$0.mediaID] }
         DiveMediaPreviewStorage.seedSessionCache(for: mediaRows)
+        HomeMediaHighlightWarmup.repinCarouselSessionCache(
+            highlights: carouselHighlights,
+            mediaByID: aggregate.mediaByID
+        )
     }
     #endif
 
@@ -451,10 +476,15 @@ struct LogOverviewView: View {
             sightings: aggregate.mediaHighlightSightings,
             ownerDiveIDs: aggregate.ownerDiveIDs
         )
+        let taggedBuddyCountByMediaID = HomeMediaHighlightPresentation.taggedBuddyCountByMediaID(
+            buddyTags: aggregate.mediaHighlightBuddyTags,
+            ownerDiveIDs: aggregate.ownerDiveIDs
+        )
         let candidates = HomeMediaHighlightPresentation.buildCandidates(
             mediaPhotos: HomeMediaHighlightWarmup.highlightSources(from: aggregate.ownerMediaPhotos),
             dives: aggregate.diveStatsInputs,
-            taggedSpeciesCountByMediaID: taggedSpeciesCountByMediaID
+            taggedSpeciesCountByMediaID: taggedSpeciesCountByMediaID,
+            taggedBuddyCountByMediaID: taggedBuddyCountByMediaID
         )
         return HomeMediaHighlightPresentation.highlightsForOwner(
             ownerProfileID: ownerProfileID,
@@ -462,12 +492,23 @@ struct LogOverviewView: View {
         )
     }
 
-    private func isFirstCarouselHighlightReady(aggregate: HomeOverviewAggregate) -> Bool {
-        guard let first = carouselHighlights.first,
-              let media = aggregate.mediaByID[first.mediaID] else {
-            return carouselHighlights.isEmpty
-        }
-        return HomeMediaHighlightWarmup.isHighlightDisplayable(first, media: media)
+    private func refreshCarouselHighlightTagCounts(
+        _ highlights: [HomeMediaHighlight],
+        using aggregate: HomeOverviewAggregate
+    ) -> [HomeMediaHighlight] {
+        let taggedSpeciesCountByMediaID = HomeMediaHighlightPresentation.taggedSpeciesCountByMediaID(
+            sightings: aggregate.mediaHighlightSightings,
+            ownerDiveIDs: aggregate.ownerDiveIDs
+        )
+        let taggedBuddyCountByMediaID = HomeMediaHighlightPresentation.taggedBuddyCountByMediaID(
+            buddyTags: aggregate.mediaHighlightBuddyTags,
+            ownerDiveIDs: aggregate.ownerDiveIDs
+        )
+        return HomeMediaHighlightPresentation.highlightsByRefreshingTagCounts(
+            highlights,
+            taggedSpeciesCountByMediaID: taggedSpeciesCountByMediaID,
+            taggedBuddyCountByMediaID: taggedBuddyCountByMediaID
+        )
     }
 }
 

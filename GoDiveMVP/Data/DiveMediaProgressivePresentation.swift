@@ -30,12 +30,13 @@ enum DiveMediaProgressivePresentation: Sendable {
         isPlaybackActive: Bool,
         isPausedByUserHold: Bool,
         currentFidelity: DiveMediaVideoFidelity,
-        isNetworkAvailable: Bool = true
+        isNetworkAvailable: Bool = true,
+        allowsBackgroundUpgrade: Bool = false
     ) -> Bool {
         isNetworkAvailable
-            && isPlaybackActive
             && !isPausedByUserHold
             && currentFidelity == .preview
+            && (isPlaybackActive || allowsBackgroundUpgrade)
     }
 
     nonisolated static func shouldPrefetchAdjacentMedia(isMediaTabSelected: Bool) -> Bool {

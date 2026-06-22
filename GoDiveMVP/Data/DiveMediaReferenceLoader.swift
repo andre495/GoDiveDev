@@ -292,11 +292,10 @@ enum DiveMediaReferenceLoader {
         timeoutSeconds: Double = DiveMediaVideoLoad.timeoutSeconds,
         quality: DiveMediaVideoRequestQuality = .fullQuality
     ) async -> AVPlayerItem? {
-        if quality.cachesInSession,
-           let avAsset = DiveMediaVideoAssetSessionCache.shared.videoAsset(
-               for: localIdentifier,
-               quality: quality
-           ) {
+        if let avAsset = DiveMediaVideoAssetSessionCache.shared.videoAsset(
+            for: localIdentifier,
+            quality: quality
+        ) {
             return AVPlayerItem(asset: avAsset)
         }
         guard let avAsset = await loadVideoAsset(
@@ -316,11 +315,10 @@ enum DiveMediaReferenceLoader {
         timeoutSeconds: Double = DiveMediaVideoLoad.timeoutSeconds,
         quality: DiveMediaVideoRequestQuality = .fullQuality
     ) async -> AVAsset? {
-        if quality.cachesInSession,
-           let cached = DiveMediaVideoAssetSessionCache.shared.videoAsset(
-               for: localIdentifier,
-               quality: quality
-           ) {
+        if let cached = DiveMediaVideoAssetSessionCache.shared.videoAsset(
+            for: localIdentifier,
+            quality: quality
+        ) {
             return cached
         }
         guard let phAsset = asset(localIdentifier: localIdentifier) else { return nil }
@@ -372,12 +370,21 @@ enum DiveMediaReferenceLoader {
     /// Drops session warm caches and in-memory PhotoKit image frames (call when app backgrounds).
     @MainActor
     static func clearSessionMediaCaches() {
-        HomeMediaHighlightSessionCache.shared.clear()
-        DiveMediaVideoAssetSessionCache.shared.clear()
-        #if canImport(UIKit)
-        DiveMediaReferenceImageCache.shared.removeAll()
-        #endif
+        DiveMediaScopeCache.shared.clearSessionCachesOnBackground()
     }
+
+    #if canImport(UIKit)
+    /// Clears inflight image loads for a library asset when a page scope releases high fidelity.
+    @MainActor
+    static func releaseCachedImages(forLocalIdentifier localIdentifier: String) {
+        DiveMediaReferenceImageCache.shared.removeInflightLoads(matchingPrefix: "\(localIdentifier)|")
+    }
+
+    @MainActor
+    static func clearInflightImageLoads() {
+        DiveMediaReferenceImageCache.shared.removeAll()
+    }
+    #endif
 }
 
 #if canImport(Photos)
@@ -433,6 +440,10 @@ private final class DiveMediaReferenceImageCache {
 
     func removeInflightTask(for key: String) {
         inflightLoads.removeValue(forKey: key)
+    }
+
+    func removeInflightLoads(matchingPrefix prefix: String) {
+        inflightLoads = inflightLoads.filter { !$0.key.hasPrefix(prefix) }
     }
 
     func removeAll() {

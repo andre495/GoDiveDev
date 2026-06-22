@@ -8,6 +8,7 @@ import UIKit
 /// **Explore** map: all catalog dive sites as standard red markers; tap opens site details.
 struct ExploreCatalogMapRepresentable: UIViewRepresentable {
     let sites: [ExploreCatalogMapPresentation.PlottedSite]
+    let sitesChangeSignature: String
     let pinLabelPolicy: ExploreCatalogMapPinLabelPolicy
     let usesPinCallout: Bool
     var focusRequest: ExploreCatalogMapFocusRequest?
@@ -29,7 +30,11 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
         mapView.showsCompass = false
         GoDiveMapPointOfInterestSuppression.applyToMapKit(mapView)
         mapView.delegate = context.coordinator
-        context.coordinator.syncAnnotations(on: mapView, sites: sites)
+        context.coordinator.syncAnnotations(
+            on: mapView,
+            sites: sites,
+            sitesChangeSignature: sitesChangeSignature
+        )
         context.coordinator.applyRegion(on: mapView, sites: sites, animated: false)
         context.coordinator.refreshMapPresentation(on: mapView, force: true)
         return mapView
@@ -41,7 +46,11 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
             pinLabelPolicy: pinLabelPolicy,
             usesPinCallout: usesPinCallout
         )
-        let sitesChanged = context.coordinator.syncAnnotations(on: mapView, sites: sites)
+        let sitesChanged = context.coordinator.syncAnnotations(
+            on: mapView,
+            sites: sites,
+            sitesChangeSignature: sitesChangeSignature
+        )
         let focusPending = context.coordinator.isFocusRequestPending(focusRequest)
         if sitesChanged, !focusPending {
             context.coordinator.applyRegion(on: mapView, sites: sites, animated: true)
@@ -62,6 +71,7 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
         private var pinLabelPolicy: ExploreCatalogMapPinLabelPolicy
         private var usesPinCallout: Bool
         private var sites: [ExploreCatalogMapPresentation.PlottedSite] = []
+        private var sitesByID: [UUID: ExploreCatalogMapPresentation.PlottedSite] = [:]
         private var annotationsBySiteID: [UUID: ExploreDiveSiteMapAnnotation] = [:]
         private var lastSitesSignature: String?
         private var visibleSiteIDs: Set<UUID> = []
@@ -100,15 +110,16 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
         }
 
         @discardableResult
-        func syncAnnotations(on mapView: MKMapView, sites: [ExploreCatalogMapPresentation.PlottedSite]) -> Bool {
+        func syncAnnotations(
+            on mapView: MKMapView,
+            sites: [ExploreCatalogMapPresentation.PlottedSite],
+            sitesChangeSignature: String
+        ) -> Bool {
             self.sites = sites
-            let signature = sites
-                .map { "\($0.id.uuidString):\($0.isVisited)" }
-                .sorted()
-                .joined(separator: "|")
-            let sitesChanged = signature != lastSitesSignature
+            sitesByID = Dictionary(uniqueKeysWithValues: sites.map { ($0.id, $0) })
+            let sitesChanged = sitesChangeSignature != lastSitesSignature
             guard sitesChanged else { return false }
-            lastSitesSignature = signature
+            lastSitesSignature = sitesChangeSignature
             visibleSiteIDs = []
             labeledSiteIDs = []
             selectedSiteID = nil
@@ -117,15 +128,24 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
             mapView.removeAnnotations(Array(annotationsBySiteID.values))
             annotationsBySiteID.removeAll()
 
-            for site in sites {
-                annotationsBySiteID[site.id] = ExploreDiveSiteMapAnnotation(site: site)
-            }
-
             if !pinLabelPolicy.usesDynamicPinDensity {
+                for site in sites {
+                    annotationsBySiteID[site.id] = ExploreDiveSiteMapAnnotation(site: site)
+                }
                 mapView.addAnnotations(Array(annotationsBySiteID.values))
             }
 
             return true
+        }
+
+        private func annotation(for siteID: UUID) -> ExploreDiveSiteMapAnnotation? {
+            if let cached = annotationsBySiteID[siteID] {
+                return cached
+            }
+            guard let site = sitesByID[siteID] else { return nil }
+            let created = ExploreDiveSiteMapAnnotation(site: site)
+            annotationsBySiteID[siteID] = created
+            return created
         }
 
         func applyRegion(
@@ -156,7 +176,7 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
             )
             mapView.setRegion(region.mkCoordinateRegion, animated: true)
 
-            guard let annotation = annotationsBySiteID[site.id] else { return }
+            guard let annotation = annotationsBySiteID[site.id] ?? annotation(for: site.id) else { return }
             if !mapView.annotations.contains(where: { ($0 as? ExploreDiveSiteMapAnnotation)?.siteID == site.id }) {
                 mapView.addAnnotation(annotation)
             }
@@ -235,7 +255,7 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
             )
 
             for siteID in visibleSiteIDs where !onMap.contains(siteID) {
-                guard let annotation = annotationsBySiteID[siteID] else { continue }
+                guard let annotation = annotation(for: siteID) else { continue }
                 mapView.addAnnotation(annotation)
             }
 

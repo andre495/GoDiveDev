@@ -6,6 +6,7 @@ import AVFoundation
 /// Session-scoped LRU cache of shareable PhotoKit **`AVAsset`** values for dive video playback app-wide.
 ///
 /// Each **`AVPlayer`** still gets its own **`AVPlayerItem`**. Cleared when the app backgrounds.
+/// Home carousel library ids are pinned for the session (see **`setPinnedCarouselLocalIdentifiers`**).
 @MainActor
 final class DiveMediaVideoAssetSessionCache {
     static let shared = DiveMediaVideoAssetSessionCache()
@@ -17,8 +18,28 @@ final class DiveMediaVideoAssetSessionCache {
     private var assets: [String: AVAsset] = [:]
     #endif
     private var accessOrder: [String] = []
+    private var pinnedStorageKeys: Set<String> = []
+    private var scopedFullQualityKeys: [String: Set<DiveMediaRetentionScope>] = [:]
 
     private init() {}
+
+    /// Keeps preview **`AVAsset`**s for the active Home carousel picks (not evicted by LRU trim).
+    func setPinnedCarouselLocalIdentifiers(_ identifiers: [String]) {
+        pinnedStorageKeys = Set(
+            identifiers
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .map {
+                    Self.storageKey(
+                        localIdentifier: $0,
+                        quality: .homeCarousel
+                    )
+                }
+        )
+        for key in pinnedStorageKeys {
+            touchAccess(key)
+        }
+    }
 
     nonisolated static func storageKey(
         localIdentifier: String,
@@ -67,6 +88,53 @@ final class DiveMediaVideoAssetSessionCache {
         assets.removeAll()
         #endif
         accessOrder.removeAll()
+        pinnedStorageKeys.removeAll()
+        scopedFullQualityKeys.removeAll()
+    }
+
+    /// Removes assets that are neither carousel-pinned nor page-scope retained.
+    func clearUnpinned() {
+        #if canImport(AVFoundation)
+        let keysToRemove = accessOrder.filter { key in
+            !pinnedStorageKeys.contains(key) && isScopedFullQualityKey(key) == false
+        }
+        for key in keysToRemove {
+            assets.removeValue(forKey: key)
+        }
+        accessOrder = accessOrder.filter { key in
+            pinnedStorageKeys.contains(key) || isScopedFullQualityKey(key)
+        }
+        #endif
+    }
+
+    func retainFullQuality(localIdentifier: String, scope: DiveMediaRetentionScope) {
+        let key = Self.storageKey(localIdentifier: localIdentifier, quality: .fullQuality)
+        scopedFullQualityKeys[key, default: []].insert(scope)
+        touchAccess(key)
+    }
+
+    func releaseFullQuality(localIdentifier: String, scope: DiveMediaRetentionScope) {
+        let key = Self.storageKey(localIdentifier: localIdentifier, quality: .fullQuality)
+        scopedFullQualityKeys[key]?.remove(scope)
+        if scopedFullQualityKeys[key]?.isEmpty ?? true {
+            scopedFullQualityKeys.removeValue(forKey: key)
+            if !pinnedStorageKeys.contains(key) {
+                #if canImport(AVFoundation)
+                assets.removeValue(forKey: key)
+                #endif
+                accessOrder.removeAll { $0 == key }
+            }
+        }
+    }
+
+    func releasePreviewQuality(localIdentifier: String) {
+        let key = Self.storageKey(localIdentifier: localIdentifier, quality: .homeCarousel)
+        guard !pinnedStorageKeys.contains(key) else { return }
+        scopedFullQualityKeys.removeValue(forKey: key)
+        #if canImport(AVFoundation)
+        assets.removeValue(forKey: key)
+        #endif
+        accessOrder.removeAll { $0 == key }
     }
 
     private func touchAccess(_ key: String) {
@@ -76,10 +144,20 @@ final class DiveMediaVideoAssetSessionCache {
 
     private func trimToLimit() {
         while accessOrder.count > Self.capacity {
-            let evicted = accessOrder.removeFirst()
+            guard let evictIndex = accessOrder.firstIndex(where: { key in
+                !pinnedStorageKeys.contains(key) && !isScopedFullQualityKey(key)
+            }) else {
+                break
+            }
+            let evicted = accessOrder.remove(at: evictIndex)
             #if canImport(AVFoundation)
             assets.removeValue(forKey: evicted)
             #endif
         }
+    }
+
+    private func isScopedFullQualityKey(_ key: String) -> Bool {
+        guard let scopes = scopedFullQualityKeys[key] else { return false }
+        return !scopes.isEmpty
     }
 }

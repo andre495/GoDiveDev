@@ -3,16 +3,11 @@ import Foundation
 /// PhotoKit video delivery tier — preview playback uses a lighter stream; Fishial / export keep full quality.
 enum DiveMediaVideoRequestQuality: Sendable, Equatable {
     case fullQuality
-    /// Lighter **`.automatic`** stream for Home carousel and dive overview heroes (no session **`AVAsset`** cache).
+    /// Lighter **`.automatic`** stream for Home carousel and dive overview heroes.
     case homeCarousel
 
     nonisolated var cachesInSession: Bool {
-        switch self {
-        case .fullQuality:
-            return true
-        case .homeCarousel:
-            return false
-        }
+        true
     }
 
     nonisolated var sessionCacheKeySuffix: String {

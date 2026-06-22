@@ -189,13 +189,48 @@ enum DiveSiteCatalogMatcher: Sendable {
         return catalogSites.first { $0.siteTags.contains(tag) }
     }
 
+    /// Trimmed catalog title — stored **`siteName`**, then bundled OpenDiveMap reference **`name`** when tagged.
+    nonisolated static func resolvedCatalogSiteName(
+        for site: DiveSite,
+        reference: [DiveSiteReferenceSnapshot] = DiveSiteReferenceCatalog.bundledReference()
+    ) -> String? {
+        if let sanitized = DiveSiteFormValidation.sanitizedSiteName(site.siteName) {
+            return sanitized
+        }
+        guard let referenceID = referenceID(from: site.siteTags) else { return nil }
+        guard let snapshot = reference.first(where: { $0.id == referenceID }) else { return nil }
+        return sanitizedReferenceDisplayName(snapshot.name)
+    }
+
+    /// Persists trimmed or reference-backed **`siteName`** when the stored value is blank or untrimmed.
+    @discardableResult
+    nonisolated static func normalizeCatalogSiteNameIfNeeded(
+        _ site: DiveSite,
+        reference: [DiveSiteReferenceSnapshot] = DiveSiteReferenceCatalog.bundledReference()
+    ) -> Bool {
+        if let sanitized = DiveSiteFormValidation.sanitizedSiteName(site.siteName) {
+            guard sanitized != site.siteName else { return false }
+            site.siteName = sanitized
+            return true
+        }
+        guard let resolved = resolvedCatalogSiteName(for: site, reference: reference) else { return false }
+        site.siteName = resolved
+        return true
+    }
+
+    nonisolated static func sanitizedReferenceDisplayName(_ raw: String) -> String? {
+        DiveSiteFormValidation.sanitizedSiteName(raw)
+    }
+
     nonisolated static func makeDiveSite(from reference: DiveSiteReferenceSnapshot) -> DiveSite {
         var tags = [openDiveMapSiteTag(referenceID: reference.id)]
         if !reference.entry.isEmpty { tags.append(reference.entry) }
         tags.append(contentsOf: reference.topologies)
 
+        let siteName = sanitizedReferenceDisplayName(reference.name) ?? reference.id
+
         return DiveSite(
-            siteName: reference.name,
+            siteName: siteName,
             country: reference.country,
             region: "",
             bodyOfWater: reference.seaName,
@@ -243,6 +278,7 @@ enum DiveSiteCatalogMatcher: Sendable {
         if site.longCoords == nil {
             site.longCoords = match.snapshot.longitude
         }
+        _ = normalizeCatalogSiteNameIfNeeded(site, reference: reference)
         return true
     }
 

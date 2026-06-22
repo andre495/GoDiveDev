@@ -15,8 +15,10 @@ enum HomeMediaCarouselLayout {
         HomeLifetimeStatsLayout.panelOverlap + AppTheme.Spacing.sm
     }
 
-    /// Delay before mounting video playback after the pager selection changes (avoids mid-swipe swaps).
-    static let playbackSettleMilliseconds: UInt64 = 320
+    /// Dive-site capsule + fish / buddy icon chips share this height.
+    static var slideChromeControlHeight: CGFloat {
+        HomeMediaCarouselPresentation.slideChromeControlHeight
+    }
 
     static func heroHeight(
         width: CGFloat,
@@ -39,28 +41,6 @@ enum HomeMediaCarouselLayout {
         let minimum = max(headerOverlayHeight, topSafeAreaInset + 56) + 96
         let extended = heroHeight * 0.52
         return max(minimum, extended)
-    }
-}
-
-struct HomeMediaCarouselLoadingPlaceholder: View {
-    let containerWidth: CGFloat
-    let topSafeAreaInset: CGFloat
-
-    var body: some View {
-        ZStack {
-            AppTheme.Colors.surfaceElevated
-            ProgressView()
-                .tint(AppTheme.Colors.accent)
-        }
-        .frame(
-            width: containerWidth,
-            height: HomeMediaCarouselLayout.heroHeight(
-                width: containerWidth,
-                topSafeAreaInset: topSafeAreaInset
-            )
-        )
-        .frame(maxWidth: .infinity)
-        .accessibilityIdentifier("Home.MediaCarousel.Loading")
     }
 }
 
@@ -212,20 +192,21 @@ struct HomeMediaCarouselSection: View {
     let mediaByID: [UUID: DiveMediaPhoto]
     let sightings: [SightingInstance]
     let marineLifeCatalog: [MarineLife]
+    let taggedBuddyRowsByMediaID: [UUID: [DiveMediaBuddyTagPresentation.TaggedBuddyRow]]
     let ownerProfileID: UUID?
     let containerWidth: CGFloat
     let topSafeAreaInset: CGFloat
     let headerOverlayHeight: CGFloat
     let onOpenDive: (UUID) -> Void
     let onOpenMedia: (UUID, UUID) -> Void
+    let onOpenBuddy: (UUID) -> Void
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedIndex = 0
-    @State private var playbackIndex = 0
-    @State private var playbackSettleTask: Task<Void, Never>?
     @State private var isCarouselVisible = false
     @State private var marineLifeOverlayMediaID: UUID?
     @State private var selectedTaggedSpeciesUUID: String?
+    @State private var expandedBuddyListMediaID: UUID?
 
     private var heroHeight: CGFloat {
         HomeMediaCarouselLayout.heroHeight(
@@ -247,19 +228,19 @@ struct HomeMediaCarouselSection: View {
     }
 
     private var isPlaybackAllowed: Bool {
-        isCarouselVisible && scenePhase == .active && !showsMarineLifeOverlay
+        isCarouselVisible && scenePhase == .active
     }
 
     private var isAutoAdvanceEnabled: Bool {
         isPlaybackAllowed && HomeMediaCarouselPresentation.shouldAutoAdvance(slideCount: highlights.count)
     }
 
-    private func isSlideActive(_ index: Int) -> Bool {
-        isPlaybackAllowed && playbackIndex == index
+    private var keepsAllSlidesLoaded: Bool {
+        HomeMediaCarouselPresentation.keepsAllSlidesLoaded(slideCount: highlights.count)
     }
 
-    private func shouldLoadMedia(at index: Int) -> Bool {
-        index == selectedIndex || index == playbackIndex
+    private func isSlideActive(_ index: Int) -> Bool {
+        isPlaybackAllowed && selectedIndex == index
     }
 
     var body: some View {
@@ -270,16 +251,22 @@ struct HomeMediaCarouselSection: View {
                         HomeMediaCarouselPage(
                             highlight: highlight,
                             media: media,
+                            slideIndex: index,
+                            slideCount: highlights.count,
                             pageWidth: containerWidth,
                             pageHeight: heroHeight,
-                            shouldLoadMedia: shouldLoadMedia(at: index),
                             isVideoPlaybackActive: isSlideActive(index),
                             isAutoAdvanceActive: isAutoAdvanceEnabled && isSlideActive(index),
+                            playbackAllowed: isPlaybackAllowed,
                             showsBottomChrome: !showsMarineLifeOverlay,
-                            onSlideFinished: advanceToNextSlide,
+                            onSlideFinished: { finishSlide(at: index) },
                             onOpenMedia: { onOpenMedia(highlight.diveActivityID, highlight.mediaID) },
                             onOpenDive: { onOpenDive(highlight.diveActivityID) },
-                            onShowTaggedSpecies: { openMarineLifeOverlay(for: highlight.mediaID) }
+                            onShowTaggedSpecies: { openMarineLifeOverlay(for: highlight.mediaID) },
+                            taggedBuddies: taggedBuddyRowsByMediaID[highlight.mediaID] ?? [],
+                            isBuddyListExpanded: expandedBuddyListMediaID == highlight.mediaID,
+                            onToggleBuddyList: { toggleBuddyList(for: highlight.mediaID) },
+                            onOpenBuddy: onOpenBuddy
                         )
                         .tag(index)
                     }
@@ -288,9 +275,10 @@ struct HomeMediaCarouselSection: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(width: containerWidth, height: heroHeight)
             .clipped()
-            .onChange(of: selectedIndex) { _, newIndex in
+            .onChange(of: selectedIndex) { oldIndex, newIndex in
                 closeMarineLifeOverlay()
-                schedulePlaybackIndex(for: newIndex)
+                closeBuddyList()
+                logSlideSelection(from: oldIndex, to: newIndex)
             }
 
             if !showsMarineLifeOverlay {
@@ -316,13 +304,23 @@ struct HomeMediaCarouselSection: View {
                     featureImageMaxWidth: HomeMediaCarouselPresentation.marineLifeOverlayFeatureImageMaxWidth(
                         previewWidth: marineLifeOverlaySize.width
                     ),
+                    backgroundStyle: .overMediaDimming,
+                    closePlacement: .leading,
+                    closeTopInset: HomeMediaCarouselPresentation.marineLifeOverlayCloseTopInset(
+                        previewHeight: marineLifeOverlaySize.height,
+                        topSafeAreaInset: topSafeAreaInset,
+                        headerOverlayHeight: headerOverlayHeight
+                    ),
+                    accessibilityRoot: "Home.MediaCarousel.MarineLifeOverlay",
                     selectedSpeciesUUID: $selectedTaggedSpeciesUUID,
                     onOpenDive: onOpenDive,
                     onClose: closeMarineLifeOverlay
                 )
                 .frame(width: marineLifeOverlaySize.width, height: marineLifeOverlaySize.height)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .allowsHitTesting(true)
                 .transition(marineLifeOverlayTransition)
-                .accessibilityIdentifier("Home.MediaCarousel.MarineLifeOverlay")
+                .zIndex(3)
             }
         }
         .frame(maxWidth: .infinity)
@@ -332,11 +330,19 @@ struct HomeMediaCarouselSection: View {
         .accessibilityIdentifier("Home.MediaCarousel")
         .onAppear {
             isCarouselVisible = true
-            playbackIndex = selectedIndex
+            HomeMediaCarouselDebug.carouselVisibility(visible: true, slideCount: highlights.count)
+            HomeMediaCarouselDebug.highlightsUpdated(
+                mediaIDs: highlights.map(\.mediaID),
+                keepsAllSlidesLoaded: keepsAllSlidesLoaded
+            )
+            logSlideSelection(from: selectedIndex, to: selectedIndex)
         }
         .onDisappear {
             isCarouselVisible = false
-            playbackSettleTask?.cancel()
+            HomeMediaCarouselDebug.carouselVisibility(visible: false, slideCount: highlights.count)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            HomeMediaCarouselDebug.scenePhase(isActive: phase == .active)
         }
     }
 
@@ -344,8 +350,12 @@ struct HomeMediaCarouselSection: View {
         .spring(response: 0.34, dampingFraction: 0.86)
     }
 
+    private var buddyListAnimation: Animation {
+        .spring(response: 0.34, dampingFraction: 0.82)
+    }
+
     private var marineLifeOverlayTransition: AnyTransition {
-        .opacity.combined(with: .scale(scale: 0.98))
+        .opacity
     }
 
     private func taggedSpecies(for mediaID: UUID) -> [MarineLife] {
@@ -358,6 +368,7 @@ struct HomeMediaCarouselSection: View {
 
     private func openMarineLifeOverlay(for mediaID: UUID) {
         guard !taggedSpecies(for: mediaID).isEmpty else { return }
+        closeBuddyList()
         selectedTaggedSpeciesUUID = taggedSpecies(for: mediaID).first?.uuid
         withAnimation(marineLifeOverlayAnimation) {
             marineLifeOverlayMediaID = mediaID
@@ -372,25 +383,74 @@ struct HomeMediaCarouselSection: View {
         }
     }
 
-    private func advanceToNextSlide() {
-        guard HomeMediaCarouselPresentation.shouldAutoAdvance(slideCount: highlights.count) else { return }
-        withAnimation(.easeInOut(duration: 0.35)) {
-            selectedIndex = HomeMediaCarouselPresentation.nextIndex(
-                after: selectedIndex,
-                count: highlights.count
-            )
+    private func toggleBuddyList(for mediaID: UUID) {
+        withAnimation(buddyListAnimation) {
+            if expandedBuddyListMediaID == mediaID {
+                expandedBuddyListMediaID = nil
+            } else {
+                expandedBuddyListMediaID = mediaID
+            }
         }
     }
 
-    private func schedulePlaybackIndex(for index: Int) {
-        playbackSettleTask?.cancel()
-        playbackSettleTask = Task {
-            let delay = HomeMediaCarouselLayout.playbackSettleMilliseconds
-            if delay > 0 {
-                try? await Task.sleep(for: .milliseconds(delay))
-            }
-            guard !Task.isCancelled else { return }
-            playbackIndex = index
+    private func closeBuddyList() {
+        guard expandedBuddyListMediaID != nil else { return }
+        withAnimation(buddyListAnimation) {
+            expandedBuddyListMediaID = nil
+        }
+    }
+
+    private func advanceToNextSlide() {
+        guard HomeMediaCarouselPresentation.shouldAutoAdvance(slideCount: highlights.count) else { return }
+        let next = HomeMediaCarouselPresentation.nextIndex(
+            after: selectedIndex,
+            count: highlights.count
+        )
+        withAnimation(.easeInOut(duration: 0.35)) {
+            selectedIndex = next
+        }
+    }
+
+    /// Only the currently visible slide may advance the carousel (guards stale video end callbacks).
+    private func finishSlide(at index: Int) {
+        guard HomeMediaCarouselPresentation.shouldAdvanceFromSlide(
+            selectedIndex: selectedIndex,
+            finishingSlideIndex: index,
+            isPlaybackAllowed: isPlaybackAllowed
+        ) else { return }
+        advanceToNextSlide()
+    }
+
+    private func logSlideSelection(from oldIndex: Int, to newIndex: Int) {
+        guard highlights.indices.contains(newIndex) else { return }
+        let highlight = highlights[newIndex]
+        let kind = mediaByID[highlight.mediaID]?.resolvedMediaKind.rawValue ?? "unknown"
+        if oldIndex != newIndex {
+            HomeMediaCarouselDebug.slideSelected(
+                index: newIndex,
+                slideCount: highlights.count,
+                mediaID: highlight.mediaID,
+                mediaKind: kind
+            )
+        }
+        if highlights.indices.contains(oldIndex), oldIndex != newIndex,
+           let oldMedia = mediaByID[highlights[oldIndex].mediaID] {
+            HomeMediaCarouselDebug.slidePlayback(
+                index: oldIndex,
+                mediaID: oldMedia.id,
+                isActive: false,
+                playbackAllowed: isPlaybackAllowed,
+                shouldLoad: keepsAllSlidesLoaded
+            )
+        }
+        if let media = mediaByID[highlight.mediaID] {
+            HomeMediaCarouselDebug.slidePlayback(
+                index: newIndex,
+                mediaID: media.id,
+                isActive: isSlideActive(newIndex),
+                playbackAllowed: isPlaybackAllowed,
+                shouldLoad: keepsAllSlidesLoaded
+            )
         }
     }
 }
@@ -418,24 +478,32 @@ private struct HomeMediaCarouselHeaderGradient: View {
 private struct HomeMediaCarouselPage: View {
     let highlight: HomeMediaHighlight
     let media: DiveMediaPhoto
+    let slideIndex: Int
+    let slideCount: Int
     let pageWidth: CGFloat
     let pageHeight: CGFloat
-    var shouldLoadMedia: Bool = true
     var isVideoPlaybackActive: Bool
     var isAutoAdvanceActive: Bool
+    var playbackAllowed: Bool = true
     var showsBottomChrome: Bool = true
     let onSlideFinished: () -> Void
     let onOpenMedia: () -> Void
     let onOpenDive: () -> Void
     let onShowTaggedSpecies: () -> Void
+    let taggedBuddies: [DiveMediaBuddyTagPresentation.TaggedBuddyRow]
+    let isBuddyListExpanded: Bool
+    let onToggleBuddyList: () -> Void
+    let onOpenBuddy: (UUID) -> Void
 
     var body: some View {
         HomeMediaCarouselMediaView(
             media: media,
+            slideIndex: slideIndex,
+            slideCount: slideCount,
             containerWidth: pageWidth,
-            shouldLoadMedia: shouldLoadMedia,
             isVideoPlaybackActive: isVideoPlaybackActive,
             isAutoAdvanceActive: isAutoAdvanceActive,
+            playbackAllowed: playbackAllowed,
             onSlideFinished: onSlideFinished
         )
         .frame(width: pageWidth, height: pageHeight)
@@ -447,7 +515,11 @@ private struct HomeMediaCarouselPage: View {
                 HomeMediaCarouselSlideBottomChrome(
                     highlight: highlight,
                     onOpenDive: onOpenDive,
-                    onShowTaggedSpecies: onShowTaggedSpecies
+                    onShowTaggedSpecies: onShowTaggedSpecies,
+                    taggedBuddies: taggedBuddies,
+                    isBuddyListExpanded: isBuddyListExpanded,
+                    onToggleBuddyList: onToggleBuddyList,
+                    onOpenBuddy: onOpenBuddy
                 )
                 .frame(width: pageWidth)
             }
@@ -461,13 +533,17 @@ private struct HomeMediaCarouselSlideBottomChrome: View {
     let highlight: HomeMediaHighlight
     let onOpenDive: () -> Void
     let onShowTaggedSpecies: () -> Void
+    let taggedBuddies: [DiveMediaBuddyTagPresentation.TaggedBuddyRow]
+    let isBuddyListExpanded: Bool
+    let onToggleBuddyList: () -> Void
+    let onOpenBuddy: (UUID) -> Void
 
     private enum Layout {
         static let gradientHeight: CGFloat = 112
     }
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: AppTheme.Spacing.md) {
+        HStack(alignment: .center, spacing: AppTheme.Spacing.md) {
             HomeMediaCarouselDiveLinkButton(
                 siteDisplayName: highlight.siteDisplayName,
                 diveNumberLabel: highlight.diveNumberLabel,
@@ -481,6 +557,17 @@ private struct HomeMediaCarouselSlideBottomChrome: View {
                     taggedCount: highlight.taggedSpeciesCount,
                     action: onShowTaggedSpecies
                 )
+            }
+
+            if highlight.hasTaggedBuddies {
+                HomeMediaCarouselTaggedBuddiesButton(
+                    taggedBuddies: taggedBuddies,
+                    taggedCount: highlight.taggedBuddyCount,
+                    isExpanded: isBuddyListExpanded,
+                    onToggle: onToggleBuddyList,
+                    onOpenBuddy: onOpenBuddy
+                )
+                .zIndex(isBuddyListExpanded ? 2 : 0)
             }
         }
         .padding(.horizontal, AppTheme.Spacing.lg)
@@ -544,7 +631,7 @@ private struct HomeMediaCarouselDiveLinkButton: View {
             }
             .foregroundStyle(.white)
             .padding(.horizontal, AppTheme.Spacing.md)
-            .padding(.vertical, AppTheme.Spacing.sm)
+            .frame(height: HomeMediaCarouselLayout.slideChromeControlHeight)
             .background {
                 Capsule()
                     .fill(.black.opacity(0.42))
@@ -565,13 +652,17 @@ private struct HomeMediaCarouselTaggedSpeciesButton: View {
     let taggedCount: Int
     let action: () -> Void
 
+    private var controlHeight: CGFloat {
+        HomeMediaCarouselLayout.slideChromeControlHeight
+    }
+
     var body: some View {
         Button(action: action) {
             ZStack(alignment: .topTrailing) {
                 Image(systemName: "fish.fill")
-                    .font(.title3.weight(.semibold))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.Colors.accent)
-                    .frame(width: 44, height: 44)
+                    .frame(width: controlHeight, height: controlHeight)
                     .background {
                         Circle()
                             .fill(.black.opacity(0.42))
@@ -600,16 +691,113 @@ private struct HomeMediaCarouselTaggedSpeciesButton: View {
     }
 }
 
+private struct HomeMediaCarouselTaggedBuddiesButton: View {
+    let taggedBuddies: [DiveMediaBuddyTagPresentation.TaggedBuddyRow]
+    let taggedCount: Int
+    let isExpanded: Bool
+    let onToggle: () -> Void
+    let onOpenBuddy: (UUID) -> Void
+
+    private enum Layout {
+        static var iconDiameter: CGFloat { HomeMediaCarouselLayout.slideChromeControlHeight }
+        static var avatarDiameter: CGFloat { max(iconDiameter - 4, 32) }
+        static let avatarSpacing: CGFloat = 8
+        static let riseDistance: CGFloat = 16
+    }
+
+    private var iconColor: Color {
+        isExpanded ? AppTheme.Colors.tabUnselected : AppTheme.Colors.accent
+    }
+
+    var body: some View {
+        VStack(spacing: Layout.avatarSpacing) {
+            ForEach(Array(taggedBuddies.enumerated()), id: \.element.id) { index, buddy in
+                Button {
+                    onOpenBuddy(buddy.buddyID)
+                } label: {
+                    ProfileAvatarView(
+                        profilePhoto: buddy.profilePhoto,
+                        diameter: Layout.avatarDiameter,
+                        iconFont: .callout
+                    )
+                    .background {
+                        Circle()
+                            .fill(.black.opacity(0.42))
+                            .background {
+                                Circle()
+                                    .fill(.ultraThinMaterial)
+                            }
+                            .clipShape(Circle())
+                    }
+                }
+                .buttonStyle(.plain)
+                .offset(y: isExpanded ? 0 : Layout.riseDistance)
+                .opacity(isExpanded ? 1 : 0)
+                .scaleEffect(isExpanded ? 1 : 0.55, anchor: .bottom)
+                .allowsHitTesting(isExpanded)
+                .animation(
+                    .spring(response: 0.34, dampingFraction: 0.82)
+                        .delay(Double(taggedBuddies.count - 1 - index) * 0.04),
+                    value: isExpanded
+                )
+                .accessibilityLabel(buddy.displayName)
+                .accessibilityHint("Opens buddy overview")
+                .accessibilityIdentifier("Home.MediaCarousel.TaggedBuddy.\(buddy.buddyID.uuidString)")
+            }
+
+            Button(action: onToggle) {
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: "person.2.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(iconColor)
+                        .frame(width: Layout.iconDiameter, height: Layout.iconDiameter)
+                        .background {
+                            Circle()
+                                .fill(.black.opacity(0.42))
+                                .background {
+                                    Circle()
+                                        .fill(.ultraThinMaterial)
+                                }
+                                .clipShape(Circle())
+                        }
+
+                    if taggedCount > 1, !isExpanded {
+                        Text("\(taggedCount)")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(AppTheme.Colors.accentDeep))
+                            .offset(x: 4, y: -4)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(
+                isExpanded
+                    ? "Hide tagged buddies"
+                    : (taggedCount > 1 ? "\(taggedCount) tagged buddies" : "Tagged buddies")
+            )
+            .accessibilityHint(isExpanded ? "Collapses the buddy list" : "Shows buddies tagged on this photo")
+            .accessibilityIdentifier("Home.MediaCarousel.TaggedBuddies")
+        }
+        .animation(.spring(response: 0.34, dampingFraction: 0.82), value: isExpanded)
+    }
+}
+
 /// Home carousel media — reads session-cached hero frames synchronously; videos use warmed **`AVAsset`**s.
 private struct HomeMediaCarouselMediaView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.displayScale) private var displayScale
     @Environment(AppNetworkConnectivityMonitor.self) private var networkConnectivity
 
     let media: DiveMediaPhoto
+    var slideIndex: Int = 0
+    var slideCount: Int = 1
     var containerWidth: CGFloat = HomeMediaHighlightWarmupPresentation.defaultHeroContainerWidth
-    var shouldLoadMedia: Bool = true
     var isVideoPlaybackActive: Bool
     var isAutoAdvanceActive: Bool
+    var playbackAllowed: Bool = true
     let onSlideFinished: () -> Void
 
     #if canImport(UIKit)
@@ -627,14 +815,16 @@ private struct HomeMediaCarouselMediaView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .accessibilityHidden(isVideo && isVideoPlaybackActive)
 
-            if isVideo, isVideoPlaybackActive, shouldLoadMedia {
+            if isVideo {
                 DiveActivityVideoPlayerView(
                     source: media.videoPlaybackSource,
-                    isPlaybackActive: true,
+                    isPlaybackActive: isVideoPlaybackActive,
                     loopsPlayback: false,
                     libraryVideoQuality: .homeCarousel,
-                    initialPosterImage: storedPreviewImage,
-                    onPlaybackFinished: isAutoAdvanceActive ? onSlideFinished : nil,
+                    usesProgressiveFidelity: true,
+                    screenPixelWidth: containerWidth * displayScale,
+                    initialPosterImage: sessionCachedImage ?? storedPreviewImage,
+                    onPlaybackFinished: onSlideFinished,
                     onAssetMissing: pruneIfAssetMissing
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -645,17 +835,27 @@ private struct HomeMediaCarouselMediaView: View {
         .clipped()
         .onAppear {
             DiveMediaPreviewStorage.seedSessionCacheIfNeeded(for: media)
+            logVideoLayer(mounted: isVideo)
+        }
+        .onDisappear {
+            logVideoLayer(mounted: false)
+        }
+        .onChange(of: isVideoPlaybackActive) { _, isActive in
+            HomeMediaCarouselDebug.slidePlayback(
+                index: slideIndex,
+                mediaID: media.id,
+                isActive: isActive,
+                playbackAllowed: playbackAllowed,
+                shouldLoad: true
+            )
+            logVideoLayer(mounted: isVideo && isActive)
         }
         .task(id: loadTaskID) {
-            guard shouldLoadMedia else {
-                #if canImport(UIKit)
-                if !isVideoPlaybackActive {
-                    loadedImage = nil
-                }
-                #endif
-                return
-            }
             await loadHeroImageIfNeeded()
+        }
+        .task(id: media.id) {
+            guard isVideo else { return }
+            await HomeMediaHighlightWarmup.ensureCarouselVideoReady(for: media)
         }
         .task(id: photoAutoAdvanceTaskID) {
             await runPhotoAutoAdvanceIfNeeded()
@@ -675,7 +875,7 @@ private struct HomeMediaCarouselMediaView: View {
     }
 
     private var loadTaskID: String {
-        "\(media.id.uuidString)-\(media.resolvedMediaKind.rawValue)-\(shouldLoadMedia)-\(Int(containerWidth))"
+        "\(media.id.uuidString)-\(media.resolvedMediaKind.rawValue)-\(Int(containerWidth))"
     }
 
     @ViewBuilder
@@ -731,52 +931,149 @@ private struct HomeMediaCarouselMediaView: View {
 
     #if canImport(UIKit)
     private func loadHeroImageIfNeeded() async {
+        let libraryIdentifier = media.libraryAssetLocalIdentifier
+        let hadSessionHero = libraryIdentifier.map {
+            HomeMediaHighlightSessionCache.shared.containsImage(
+                localIdentifier: $0,
+                edge: HomeMediaHighlightWarmup.preloadImageEdge
+            )
+        } ?? false
+        let hadSessionPreview = libraryIdentifier.map {
+            HomeMediaHighlightSessionCache.shared.bestCachedImage(localIdentifier: $0) != nil
+        } ?? false
+        let hadStoredPreview = DiveMediaPreviewStorage.hasStoredPreview(for: media)
+
+        HomeMediaCarouselDebug.loadTaskBegan(
+            index: slideIndex,
+            mediaID: media.id,
+            mediaKind: media.resolvedMediaKind.rawValue,
+            libraryIdentifier: libraryIdentifier,
+            hadSessionHero: hadSessionHero,
+            hadSessionPreview: hadSessionPreview,
+            hadStoredPreview: hadStoredPreview,
+            containerWidth: containerWidth
+        )
+
         DiveMediaPreviewStorage.seedSessionCacheIfNeeded(for: media)
 
-        if let sessionCachedImage {
-            loadedImage = sessionCachedImage
+        if loadedImage == nil {
+            loadedImage = sessionCachedImage ?? storedPreviewImage
+        }
+
+        guard let identifier = libraryIdentifier else {
             heroImageLoadFinished = true
+            HomeMediaCarouselDebug.loadTaskEnded(
+                index: slideIndex,
+                mediaID: media.id,
+                outcome: .missingLibraryIdentifier,
+                hadDisplayedImage: resolvedHeroDisplayImage != nil
+            )
             return
         }
-        if let storedPreviewImage {
-            loadedImage = storedPreviewImage
-        }
-        guard let identifier = media.libraryAssetLocalIdentifier else {
-            loadedImage = storedPreviewImage
-            heroImageLoadFinished = true
-            return
-        }
-        if storedPreviewImage == nil {
-            heroImageLoadFinished = false
-        }
-        let edge = networkConnectivity.isConnected
+
+        let targetEdge = networkConnectivity.isConnected
             ? HomeMediaHighlightWarmupPresentation.heroImageEdge(containerWidth: containerWidth)
             : HomeMediaHighlightWarmupPresentation.previewImageEdge
-        let size = CGSize(width: edge, height: edge)
-        let image = await DiveMediaReferenceLoader.image(
+        let targetSize = CGSize(width: targetEdge, height: targetEdge)
+        let hasCachedImageAtTargetEdge = HomeMediaHighlightSessionCache.shared.containsImage(
             localIdentifier: identifier,
-            targetSize: size,
-            deliveryMode: .opportunistic
+            edge: targetEdge
         )
-        if let image {
-            if HomeMediaHighlightWarmup.shouldStoreInSessionCache(edge: edge) {
-                HomeMediaHighlightSessionCache.shared.storeImage(
-                    image,
-                    localIdentifier: identifier,
-                    edge: edge
-                )
-            }
+
+        if hasCachedImageAtTargetEdge, let cachedHero = HomeMediaHighlightSessionCache.shared.image(
+            for: identifier,
+            edge: targetEdge
+        ) {
+            loadedImage = cachedHero
+            heroImageLoadFinished = true
+            HomeMediaCarouselDebug.loadTaskEnded(
+                index: slideIndex,
+                mediaID: media.id,
+                outcome: .sessionHeroHit,
+                hadDisplayedImage: true
+            )
+            return
+        }
+
+        if loadedImage == nil {
+            loadedImage = sessionCachedImage ?? storedPreviewImage
+        }
+
+        guard HomeMediaHighlightWarmupPresentation.shouldLoadHeroImage(
+            hasCachedImageAtTargetEdge: hasCachedImageAtTargetEdge
+        ) else {
+            heroImageLoadFinished = loadedImage != nil
+            HomeMediaCarouselDebug.loadTaskEnded(
+                index: slideIndex,
+                mediaID: media.id,
+                outcome: loadedImage != nil ? .sessionPreviewHit : .loadFailed,
+                hadDisplayedImage: resolvedHeroDisplayImage != nil
+            )
+            return
+        }
+
+        if loadedImage == nil {
+            heroImageLoadFinished = false
+        }
+
+        var receivedFinal = false
+        await DiveMediaReferenceLoader.loadImageProgressive(
+            localIdentifier: identifier,
+            targetSize: targetSize,
+            deliveryMode: .opportunistic
+        ) { image, isFinal in
             loadedImage = image
-            DiveMediaPreviewStorage.persistPreview(from: image, on: media, modelContext: modelContext)
-        } else {
-            if networkConnectivity.isConnected, storedPreviewImage == nil {
-                DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
-            }
-            if loadedImage == nil {
-                loadedImage = nil
+            if isFinal {
+                receivedFinal = true
+                DiveMediaPreviewStorage.persistPreview(from: image, on: media, modelContext: modelContext)
+                heroImageLoadFinished = true
             }
         }
-        heroImageLoadFinished = true
+
+        if Task.isCancelled {
+            HomeMediaCarouselDebug.loadTaskEnded(
+                index: slideIndex,
+                mediaID: media.id,
+                outcome: .loadTaskCancelled,
+                hadDisplayedImage: resolvedHeroDisplayImage != nil
+            )
+            return
+        }
+
+        if loadedImage != nil {
+            heroImageLoadFinished = true
+            HomeMediaCarouselDebug.loadTaskEnded(
+                index: slideIndex,
+                mediaID: media.id,
+                outcome: receivedFinal ? .progressiveFinal : .progressivePartial,
+                hadDisplayedImage: true
+            )
+        } else if networkConnectivity.isConnected {
+            DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
+            HomeMediaCarouselDebug.loadTaskEnded(
+                index: slideIndex,
+                mediaID: media.id,
+                outcome: .loadFailed,
+                hadDisplayedImage: false
+            )
+        } else {
+            HomeMediaCarouselDebug.loadTaskEnded(
+                index: slideIndex,
+                mediaID: media.id,
+                outcome: .loadFailed,
+                hadDisplayedImage: false
+            )
+        }
+    }
+
+    private func logVideoLayer(mounted: Bool) {
+        guard isVideo else { return }
+        HomeMediaCarouselDebug.videoLayer(
+            index: slideIndex,
+            mediaID: media.id,
+            mounted: mounted,
+            isPlaybackActive: isVideoPlaybackActive
+        )
     }
     #else
     private func loadHeroImageIfNeeded() async {}

@@ -109,6 +109,30 @@ final class HomeMediaHighlightSessionCache {
         DiveMediaReferenceLoader.stopCachingImages()
     }
 
+    /// Removes non-carousel images; pinned carousel posters stay warm for the session.
+    func clearUnpinned() {
+        #if canImport(UIKit)
+        images = images.filter { key, _ in
+            guard let identifier = key.split(separator: "|", maxSplits: 1).first.map(String.init) else {
+                return false
+            }
+            return pinnedLocalIdentifiers.contains(identifier)
+        }
+        #endif
+        accessOrder = accessOrder.filter { pinnedLocalIdentifiers.contains($0) }
+    }
+
+    /// Removes all session poster frames for an asset unless it is carousel-pinned.
+    func releaseImages(localIdentifier: String) {
+        guard !pinnedLocalIdentifiers.contains(localIdentifier) else { return }
+        #if canImport(UIKit)
+        images = images.filter { key, _ in
+            !key.hasPrefix("\(localIdentifier)|")
+        }
+        #endif
+        accessOrder.removeAll { $0 == localIdentifier }
+    }
+
     private func imageKey(localIdentifier: String, edge: CGFloat) -> String {
         "\(localIdentifier)|\(Int(edge))"
     }

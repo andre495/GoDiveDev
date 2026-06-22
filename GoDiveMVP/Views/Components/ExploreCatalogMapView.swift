@@ -3,6 +3,7 @@ import SwiftUI
 /// Full-bleed **Explore** map with catalog dive-site pins.
 struct ExploreCatalogMapView: View {
     let sites: [ExploreCatalogMapPresentation.PlottedSite]
+    let sitesChangeSignature: String
     let siteScope: ExploreSiteScope
     var focusRequest: ExploreCatalogMapFocusRequest?
     var onSiteSelected: (ExploreMapSiteSelection) -> Void
@@ -23,6 +24,7 @@ struct ExploreCatalogMapView: View {
                 #if canImport(UIKit)
                 ExploreCatalogGoogleMapRepresentable(
                     sites: sites,
+                    sitesChangeSignature: sitesChangeSignature,
                     pinLabelPolicy: pinLabelPolicy,
                     usesPinCallout: usesPinCallout,
                     focusRequest: focusRequest,
@@ -35,6 +37,7 @@ struct ExploreCatalogMapView: View {
                 #if canImport(UIKit)
                 ExploreCatalogMapRepresentable(
                     sites: sites,
+                    sitesChangeSignature: sitesChangeSignature,
                     pinLabelPolicy: pinLabelPolicy,
                     usesPinCallout: usesPinCallout,
                     focusRequest: focusRequest,
