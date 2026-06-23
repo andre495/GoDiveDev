@@ -8,6 +8,7 @@ struct SettingsView: View {
     @AppStorage(AppUserSettings.useImperialDisplayUnitsKey) private var useImperialDisplayUnits = true
     @AppStorage(AppUserSettings.defaultTankSizeKey) private var defaultTankSizeRaw = DefaultTankSize.al80.rawValue
     @AppStorage(AppUserSettings.autoUploadMediaToActivitiesKey) private var autoUploadMediaToActivities = true
+    @AppStorage(AppUserSettings.showPageLayoutGeometryOverlayKey) private var showPageLayoutGeometryOverlay = false
 
     @State private var mediaBackfillOverlay: DiveLibraryMediaBackfillOverlayState = .hidden
     @State private var mediaBackfillTask: Task<Void, Never>?
@@ -25,6 +26,7 @@ struct SettingsView: View {
                 useImperialDisplayUnits: $useImperialDisplayUnits,
                 defaultTankSizeRaw: $defaultTankSizeRaw,
                 autoUploadMediaToActivities: $autoUploadMediaToActivities,
+                showPageLayoutGeometryOverlay: $showPageLayoutGeometryOverlay,
                 mediaBackfillOverlay: mediaBackfillOverlay,
                 onRenumberWhenEnabled: renumberAllDivesWhenEnabled,
                 onAutoUploadEnabled: startMediaBackfillForExistingDives,
@@ -97,6 +99,7 @@ private struct SettingsPageContent: View {
     @Binding var useImperialDisplayUnits: Bool
     @Binding var defaultTankSizeRaw: String
     @Binding var autoUploadMediaToActivities: Bool
+    @Binding var showPageLayoutGeometryOverlay: Bool
 
     @State private var saltWaterWeightText = ""
     @State private var freshWaterWeightText = ""
@@ -156,6 +159,22 @@ private struct SettingsPageContent: View {
                 guard isOn, !wasOn else { return }
                 onAutoUploadEnabled()
             }
+
+            #if DEBUG
+            SettingsNavigationLinkRow(
+                title: SettingsPresentation.PageLayoutGeometryReference.linkTitle,
+                infoMessage: SettingsPresentation.PageLayoutGeometryReference.infoMessage
+            ) {
+                PageLayoutGeometryReferenceView()
+            }
+            .accessibilityIdentifier("Settings.PageLayoutGeometryReference")
+
+            SettingsToggleRow(
+                title: SettingsPresentation.PageLayoutGeometryOverlay.title,
+                infoMessage: SettingsPresentation.PageLayoutGeometryOverlay.infoMessage,
+                isOn: $showPageLayoutGeometryOverlay
+            )
+            #endif
 
             Spacer()
         }

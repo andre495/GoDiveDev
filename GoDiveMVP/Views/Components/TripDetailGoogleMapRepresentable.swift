@@ -31,7 +31,6 @@ struct TripDetailGoogleMapRepresentable: UIViewRepresentable {
             fitLayout: fitLayout,
             animated: false
         )
-        context.coordinator.refreshLabelVisibility(on: mapView, force: true)
         return mapView
     }
 
@@ -39,14 +38,12 @@ struct TripDetailGoogleMapRepresentable: UIViewRepresentable {
         context.coordinator.onSiteSelected = onSiteSelected
         let pinsChanged = context.coordinator.syncMarkers(on: mapView, pins: pins)
         let layoutChanged = context.coordinator.syncFitLayout(fitLayout)
-        if pinsChanged || layoutChanged {
-            context.coordinator.scheduleRegionApplyIfNeeded(
-                on: mapView,
-                pins: pins,
-                fitLayout: fitLayout,
-                animated: pinsChanged
-            )
-        }
+        context.coordinator.scheduleRegionApplyIfNeeded(
+            on: mapView,
+            pins: pins,
+            fitLayout: fitLayout,
+            animated: pinsChanged || layoutChanged
+        )
     }
 
     final class Coordinator: NSObject, GMSMapViewDelegate {
@@ -56,9 +53,8 @@ struct TripDetailGoogleMapRepresentable: UIViewRepresentable {
         private var lastPinsSignature: String?
         private var lastFitLayoutSignature: String?
         private var lastAppliedRegionSignature: String?
-        private var lastLabeledPinIDs: Set<String> = []
-        private var lastLabelRefreshTimestamp: CFAbsoluteTime = 0
-        private let labelRefreshMinimumInterval: CFAbsoluteTime = 0.1
+        private var currentFitLayout: TripDetailMapFitLayout?
+        private var selectedPinID: String?
         private var isApplyingRegion = false
 
         init(onSiteSelected: @escaping (UUID) -> Void) {
@@ -72,7 +68,8 @@ struct TripDetailGoogleMapRepresentable: UIViewRepresentable {
             let pinsChanged = signature != lastPinsSignature
             guard pinsChanged else { return false }
             lastPinsSignature = signature
-            lastLabeledPinIDs = []
+            selectedPinID = nil
+            mapView.selectedMarker = nil
 
             for marker in markersByPinID.values {
                 marker.map = nil
@@ -93,6 +90,7 @@ struct TripDetailGoogleMapRepresentable: UIViewRepresentable {
                 marker.groundAnchor = pinOnly.groundAnchor
                 marker.userData = pin.siteID
                 marker.accessibilityLabel = marker.title
+                marker.tracksInfoWindowChanges = true
                 marker.map = mapView
                 markersByPinID[pin.id] = marker
             }
@@ -115,19 +113,31 @@ struct TripDetailGoogleMapRepresentable: UIViewRepresentable {
             animated: Bool
         ) {
             guard !pins.isEmpty else { return }
-            guard mapView.bounds.width > 1, mapView.bounds.height > 1 else { return }
+            currentFitLayout = fitLayout
 
-            let signature = "\(pins.map(\.id).sorted().joined(separator: "|"))|\(fitLayout.layoutSignature)"
+            let layoutHeight = TripDetailMapPresentation.effectiveMapHeight(
+                measuredBoundsHeight: mapView.bounds.height,
+                fitLayout: fitLayout
+            )
+            guard layoutHeight > 1 else { return }
+
+            let hasMeasuredBounds = TripDetailMapPresentation.hasMeasuredMapBounds(
+                width: mapView.bounds.width,
+                height: mapView.bounds.height
+            )
+            let boundsSignature = hasMeasuredBounds
+                ? String(format: "%.0f|%.0f", mapView.bounds.width, mapView.bounds.height)
+                : "provisional"
+            let signature = "\(pins.map(\.id).sorted().joined(separator: "|"))|\(fitLayout.layoutSignature)|\(boundsSignature)"
             guard signature != lastAppliedRegionSignature else { return }
             lastAppliedRegionSignature = signature
 
             let applyLayout = TripDetailMapFitLayout(
-                mapHeight: mapView.bounds.height,
+                mapHeight: layoutHeight,
                 topObstructionHeight: fitLayout.topObstructionHeight,
                 panelOverlap: fitLayout.panelOverlap
             )
             applyRegion(on: mapView, pins: pins, fitLayout: applyLayout, animated: animated)
-            refreshLabelVisibility(on: mapView, force: true)
         }
 
         func applyRegion(
@@ -150,56 +160,26 @@ struct TripDetailGoogleMapRepresentable: UIViewRepresentable {
             isApplyingRegion = false
         }
 
-        func refreshLabelVisibility(on mapView: GMSMapView, force: Bool = false) {
-            guard !pins.isEmpty else { return }
-
-            let now = CFAbsoluteTimeGetCurrent()
-            if !force, now - lastLabelRefreshTimestamp < labelRefreshMinimumInterval {
-                return
-            }
-            lastLabelRefreshTimestamp = now
-
-            let span = Self.visibleLatitudeSpan(on: mapView)
-            let center = DiveCoordinate(
-                latitude: mapView.camera.target.latitude,
-                longitude: mapView.camera.target.longitude
-            )
-            let labeledPinIDs = ExploreCatalogMapLabelVisibility.labeledTripPinIDs(
-                pins: pins,
-                visibleLatitudeSpan: span,
-                mapCenter: center
-            )
-            guard labeledPinIDs != lastLabeledPinIDs else { return }
-            lastLabeledPinIDs = labeledPinIDs
-
-            let scale = mapView.traitCollection.displayScale
-            for pin in pins {
-                guard let marker = markersByPinID[pin.id] else { continue }
-                let tint = Self.markerTint(for: pin.kind)
-                if labeledPinIDs.contains(pin.id) {
-                    let labeledPin = ExploreCatalogGoogleMapMarkerImageFactory.makeLabeledPinAsset(
-                        siteName: pin.title,
-                        tint: tint,
-                        scale: scale
-                    )
-                    marker.icon = labeledPin.image
-                    marker.groundAnchor = labeledPin.groundAnchor
-                } else {
-                    let pinOnly = ExploreCatalogGoogleMapMarkerImageFactory.makePinOnlyAsset(tint: tint)
-                    marker.icon = pinOnly.image
-                    marker.groundAnchor = pinOnly.groundAnchor
-                }
-            }
-        }
-
         func mapView(_ mapView: GMSMapView, didChange position: GMSCameraPosition) {
-            guard !isApplyingRegion else { return }
-            refreshLabelVisibility(on: mapView)
+            if let fitLayout = currentFitLayout, !pins.isEmpty {
+                scheduleRegionApplyIfNeeded(
+                    on: mapView,
+                    pins: pins,
+                    fitLayout: fitLayout,
+                    animated: false
+                )
+            }
         }
 
         func mapView(_ mapView: GMSMapView, idleAt position: GMSCameraPosition) {
-            guard !isApplyingRegion else { return }
-            refreshLabelVisibility(on: mapView, force: true)
+            if let fitLayout = currentFitLayout, !pins.isEmpty {
+                scheduleRegionApplyIfNeeded(
+                    on: mapView,
+                    pins: pins,
+                    fitLayout: fitLayout,
+                    animated: false
+                )
+            }
         }
 
         func mapView(_ mapView: GMSMapView, didTap marker: GMSMarker) -> Bool {
@@ -216,7 +196,7 @@ struct TripDetailGoogleMapRepresentable: UIViewRepresentable {
                 title: title
             )
 
-            guard let siteID else {
+            guard siteID != nil else {
                 TripDetailMapNavigationDebug.pinIgnoredMissingSiteID(
                     engine: .googleMaps,
                     pinID: pinID,
@@ -225,31 +205,43 @@ struct TripDetailGoogleMapRepresentable: UIViewRepresentable {
                 return false
             }
 
-            onSiteSelected(siteID)
+            mapView.selectedMarker = marker
+            selectedPinID = pinID
             return true
+        }
+
+        func mapView(_ mapView: GMSMapView, markerInfoWindow marker: GMSMarker) -> UIView? {
+            ExploreCatalogMapSiteCallout.makeGoogleInfoWindow(siteName: marker.title ?? "") { [weak self, weak mapView] in
+                guard let self, let mapView else { return }
+                guard let siteID = marker.userData as? UUID else { return }
+                onSiteSelected(siteID)
+                mapView.selectedMarker = nil
+                selectedPinID = nil
+            }
+        }
+
+        func mapView(_ mapView: GMSMapView, didTapInfoWindowOf marker: GMSMarker) {
+            guard let siteID = marker.userData as? UUID else { return }
+
+            onSiteSelected(siteID)
+            mapView.selectedMarker = nil
+            selectedPinID = nil
+        }
+
+        func mapView(_ mapView: GMSMapView, didTapAt coordinate: CLLocationCoordinate2D) {
+            mapView.selectedMarker = nil
+            selectedPinID = nil
         }
 
         private static func markerTint(for kind: TripDetailMapPinKind) -> UIColor {
             kind == .planned ? .systemBlue : .systemRed
-        }
-
-        private static func visibleLatitudeSpan(on mapView: GMSMapView) -> Double {
-            let region = mapView.projection.visibleRegion()
-            let latitudes = [
-                region.farLeft.latitude,
-                region.farRight.latitude,
-                region.nearLeft.latitude,
-                region.nearRight.latitude,
-            ]
-            guard let maxLatitude = latitudes.max(), let minLatitude = latitudes.min() else { return .greatestFiniteMagnitude }
-            return max(0, maxLatitude - minLatitude)
         }
     }
 }
 
 extension TripDetailMapPresentation {
     static func gmsCoordinateBounds(for pins: [TripDetailMapPin]) -> GMSCoordinateBounds? {
-        guard let region = boundingRegion(for: pins) else { return nil }
+        guard let region = fittingRegion(for: pins) else { return nil }
         let halfLatitude = region.latitudeDelta / 2
         let halfLongitude = region.longitudeDelta / 2
         let northEast = CLLocationCoordinate2D(

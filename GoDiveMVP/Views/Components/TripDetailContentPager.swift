@@ -17,11 +17,13 @@ struct TripDetailContentPager: View {
     let mediaTimeZoneOffsets: [UUID: Int?]
     let linkedMediaItems: [TripDetailLinkedMediaItem]
     let mediaSightings: [SightingInstance]
+    let featuredTripMediaPhotoID: UUID?
+    @Binding var gallerySelectedMediaID: UUID?
+    let onToggleFeaturedTripMedia: (() -> Void)?
     let bottomScrollInset: CGFloat
     var initialContentPage: TripDetailContentPage?
     var initialSelectedMediaID: UUID?
     var onOpenDive: (UUID) -> Void
-    var onOpenInDive: (UUID, UUID) -> Void
 
     @State private var selectedPage: TripDetailContentPage
 
@@ -45,11 +47,13 @@ struct TripDetailContentPager: View {
         mediaTimeZoneOffsets: [UUID: Int?],
         linkedMediaItems: [TripDetailLinkedMediaItem],
         mediaSightings: [SightingInstance],
+        featuredTripMediaPhotoID: UUID?,
+        gallerySelectedMediaID: Binding<UUID?>,
+        onToggleFeaturedTripMedia: (() -> Void)?,
         bottomScrollInset: CGFloat,
         initialContentPage: TripDetailContentPage? = nil,
         initialSelectedMediaID: UUID? = nil,
-        onOpenDive: @escaping (UUID) -> Void,
-        onOpenInDive: @escaping (UUID, UUID) -> Void
+        onOpenDive: @escaping (UUID) -> Void
     ) {
         self.trip = trip
         self.hasStarted = hasStarted
@@ -66,30 +70,34 @@ struct TripDetailContentPager: View {
         self.mediaTimeZoneOffsets = mediaTimeZoneOffsets
         self.linkedMediaItems = linkedMediaItems
         self.mediaSightings = mediaSightings
+        self.featuredTripMediaPhotoID = featuredTripMediaPhotoID
+        _gallerySelectedMediaID = gallerySelectedMediaID
+        self.onToggleFeaturedTripMedia = onToggleFeaturedTripMedia
         self.bottomScrollInset = bottomScrollInset
         self.initialContentPage = initialContentPage
         self.initialSelectedMediaID = initialSelectedMediaID
         self.onOpenDive = onOpenDive
-        self.onOpenInDive = onOpenInDive
-        _selectedPage = State(
-            initialValue: TripDetailContentPagerPresentation.resolvedInitialPage(
-                hasStarted: hasStarted,
-                requested: initialContentPage
-            )
+        let initialPage = TripDetailContentPagerPresentation.resolvedInitialPage(
+            hasStarted: hasStarted,
+            requested: initialContentPage
         )
+        _selectedPage = State(initialValue: initialPage)
     }
 
     var body: some View {
         TabView(selection: $selectedPage) {
             ForEach(pages) { page in
-                pagerScrollPage(page) {
-                    pageContent(for: page)
+                PushedDetailContentPagerLayout.tabPage {
+                    pagerScrollPage(page) {
+                        pageContent(for: page)
+                    }
                 }
                 .tag(page)
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .automatic))
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .ignoresSafeArea(edges: .bottom)
         .accessibilityIdentifier("TripDetail.ContentPager")
         .onChange(of: hasStarted) { _, started in
             let nextPages = TripDetailContentPagerPresentation.pages(hasStarted: started)
@@ -143,9 +151,11 @@ struct TripDetailContentPager: View {
                 sightings: mediaSightings,
                 marineLifeCatalog: marineLifeCatalog,
                 ownerProfileID: ownerProfileID,
+                featuredMediaPhotoID: featuredTripMediaPhotoID,
+                selectedMediaID: $gallerySelectedMediaID,
                 initialSelectedMediaID: initialSelectedMediaID,
-                onOpenDive: onOpenDive,
-                onOpenInDive: onOpenInDive
+                onToggleFeaturedTripMedia: onToggleFeaturedTripMedia,
+                onOpenDive: onOpenDive
             )
         }
     }
@@ -166,6 +176,7 @@ struct TripDetailContentPager: View {
                     .accessibilityHidden(true)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .homeSheetPanelBottomScrollFade()
             .accessibilityIdentifier(TripDetailContentPagerPresentation.accessibilityIdentifier(for: page))
         } else {
             ScrollView {
@@ -179,7 +190,10 @@ struct TripDetailContentPager: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .scrollClipDisabled(false)
             .scrollDismissesKeyboard(.interactively)
+            .ignoresSafeArea(edges: .bottom)
+            .homeSheetPanelBottomScrollFade()
             .accessibilityIdentifier(TripDetailContentPagerPresentation.accessibilityIdentifier(for: page))
         }
     }

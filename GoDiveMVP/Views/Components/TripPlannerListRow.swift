@@ -29,11 +29,7 @@ struct TripPlannerListRow: View, Equatable {
                         .minimumScaleFactor(0.85)
                 }
 
-                Text(data.secondaryDetailLine)
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.85)
+                secondaryDetailLine
             }
             .background {
                 GeometryReader { proxy in
@@ -66,6 +62,21 @@ struct TripPlannerListRow: View, Equatable {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(TripPlannerPresentation.listRowAccessibilityLabel(for: data))
+    }
+
+    private var secondaryDetailLine: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            Text(data.dateRangeLine)
+                .foregroundStyle(AppTheme.Colors.accent)
+            if let countriesLine = data.countriesLine, !countriesLine.isEmpty {
+                Text(" · \(countriesLine)")
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+            }
+        }
+        .font(.caption)
+        .lineLimit(2)
+        .minimumScaleFactor(0.85)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder

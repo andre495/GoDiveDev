@@ -92,6 +92,14 @@ struct DiveActivityMediaItemView: View {
         }
         .onAppear {
             DiveMediaPreviewStorage.seedSessionCacheIfNeeded(for: media)
+            #if canImport(UIKit)
+            if previewImage == nil {
+                previewImage = sessionCachedImage ?? storedPreviewImage
+            }
+            if videoPosterImage == nil {
+                videoPosterImage = sessionCachedImage ?? storedPreviewImage
+            }
+            #endif
         }
         .onChange(of: isVideoPlaybackActive) { _, isActive in
             guard isActive else { return }
@@ -117,16 +125,21 @@ struct DiveActivityMediaItemView: View {
     }
 
     #if canImport(UIKit)
+    private var sessionCachedImage: UIImage? {
+        guard let identifier = media.libraryAssetLocalIdentifier else { return nil }
+        return HomeMediaHighlightSessionCache.shared.bestCachedImage(localIdentifier: identifier)
+    }
+
     private var storedPreviewImage: UIImage? {
         DiveMediaPreviewStorage.storedPreviewImage(for: media)
     }
 
     private var displayedPreviewImage: UIImage? {
-        previewImage ?? storedPreviewImage
+        sessionCachedImage ?? previewImage ?? storedPreviewImage
     }
 
     private var displayedVideoPosterImage: UIImage? {
-        videoPosterImage ?? storedPreviewImage
+        sessionCachedImage ?? videoPosterImage ?? storedPreviewImage
     }
     #endif
 
@@ -244,7 +257,7 @@ struct DiveActivityMediaItemView: View {
             return
         }
 
-        if videoPosterImage == nil, storedPreviewImage == nil {
+        if storedPreviewImage == nil, sessionCachedImage == nil {
             videoPosterLoadFinished = false
         }
         let screenPixelWidth = layoutWidth > 0
@@ -281,7 +294,7 @@ struct DiveActivityMediaItemView: View {
             imageLoadFinished = true
             return
         }
-        if storedPreviewImage == nil {
+        if storedPreviewImage == nil, sessionCachedImage == nil {
             imageLoadFinished = false
         }
         let screenPixelWidth = layoutWidth > 0

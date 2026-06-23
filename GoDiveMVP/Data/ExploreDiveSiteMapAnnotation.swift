@@ -21,5 +21,5 @@ final class ExploreDiveSiteMapAnnotation: NSObject, MKAnnotation {
         super.init()
     }
 
-    var title: String? { siteName }
+    var title: String? { nil }
 }

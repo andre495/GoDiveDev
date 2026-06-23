@@ -18,7 +18,7 @@ enum TripDetailContentPagerPresentation: Sendable {
     /// **`false`** before the trip start day — planned sites + buddies only.
     nonisolated static func pages(hasStarted: Bool) -> [TripDetailContentPage] {
         if hasStarted {
-            [.stats, .marineLife, .activities, .buddies, .media]
+            [.stats, .activities, .marineLife, .buddies, .media]
         } else {
             [.plannedSites, .buddies]
         }
@@ -57,9 +57,9 @@ enum TripDetailContentPagerPresentation: Sendable {
     /// Pages that fit without a vertical **`ScrollView`** wrapper (fixed-height or full-bleed content).
     nonisolated static func usesStaticPagerLayout(for page: TripDetailContentPage) -> Bool {
         switch page {
-        case .stats, .media:
+        case .stats:
             true
-        case .plannedSites, .buddies, .marineLife, .activities:
+        case .plannedSites, .buddies, .marineLife, .activities, .media:
             false
         }
     }
@@ -69,9 +69,7 @@ enum TripDetailContentPagerPresentation: Sendable {
         switch page {
         case .stats:
             return .center
-        case .media:
-            return .top
-        case .plannedSites, .buddies, .marineLife, .activities:
+        case .media, .plannedSites, .buddies, .marineLife, .activities:
             return .top
         }
     }

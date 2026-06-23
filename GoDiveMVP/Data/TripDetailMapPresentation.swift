@@ -45,26 +45,39 @@ struct TripDetailMapPin: Identifiable, Equatable, Sendable {
 /// Planned (blue) and completed (red) pins for **`TripDetailView`**.
 enum TripDetailMapPresentation: Sendable {
 
-    /// Minimum trip sheet band preserved when sizing the map hero — same cap model as Home lifetime stats.
-    nonisolated static let minimumPanelContentHeight: CGFloat = 280
+    /// Hero/sheet seam — same default band as **`HomeOverviewLayout.heroLayoutStatsPanelContentHeight`**.
+    nonisolated static let heroLayoutStatsPanelContentHeight: CGFloat =
+        HomeOverviewLayout.heroLayoutStatsPanelContentHeight
 
-    /// Map hero height aligned with Home featured media (**`HomeOverviewLayout.metrics`**).
+    /// Deprecated alias — use **`heroLayoutStatsPanelContentHeight`**.
+    nonisolated static let minimumPanelContentHeight: CGFloat = heroLayoutStatsPanelContentHeight
+
+    /// Pin-only markers; site name appears in a callout on pin tap (Explore all-sites pattern).
+    nonisolated static let usesPinCalloutLabeling = true
+
+    /// Map hero height aligned with Home featured media (**`HomeOverviewLayout.pushedHeroLayoutMetrics`**).
     nonisolated static func mapHeroHeight(
         viewportHeight: CGFloat,
         screenWidth: CGFloat,
         topSafeAreaInset: CGFloat,
-        minimumPanelContentHeight: CGFloat = minimumPanelContentHeight
+        statsPanelContentHeight: CGFloat = heroLayoutStatsPanelContentHeight,
+        showsBuddyLeaderboard: Bool = false,
+        transitionViewportFloor: CGFloat = 0
     ) -> CGFloat {
-        HomeOverviewLayout.metrics(
-            viewportHeight: viewportHeight,
+        HomeOverviewLayout.pushedHeroLayoutMetrics(
+            geometryHeight: viewportHeight,
             screenWidth: screenWidth,
             topSafeAreaInset: topSafeAreaInset,
-            statsPanelContentHeight: minimumPanelContentHeight
+            statsPanelContentHeight: statsPanelContentHeight,
+            showsBuddyLeaderboard: showsBuddyLeaderboard,
+            transitionViewportFloor: transitionViewportFloor
         ).heroHeight
     }
 
     /// Wider than Explore catalog maps so every planned + completed pin stays visible.
     nonisolated static let boundingRegionPaddingMultiplier: Double = 2.25
+    /// Modest padding around pin bounds before hero edge insets — used for MapKit / Google camera fit.
+    nonisolated static let fittingRegionPaddingMultiplier: Double = 1.15
     nonisolated static let boundingRegionMinimumSpanDegrees: Double = 0.08
     nonisolated static let singlePinRegionSpanDegrees: Double = 0.12
 
@@ -106,6 +119,18 @@ enum TripDetailMapPresentation: Sendable {
             top: mapFitEdgeInsetTop(for: layout),
             bottom: mapFitEdgeInsetBottom(for: layout)
         )
+    }
+
+    /// **`MKMapView`** / **`GMSMapView`** bounds are often zero on first **`makeUIView`**; use the SwiftUI hero height until UIKit lays out.
+    nonisolated static func effectiveMapHeight(
+        measuredBoundsHeight: CGFloat,
+        fitLayout: TripDetailMapFitLayout
+    ) -> CGFloat {
+        measuredBoundsHeight > 1 ? measuredBoundsHeight : fitLayout.mapHeight
+    }
+
+    nonisolated static func hasMeasuredMapBounds(width: CGFloat, height: CGFloat) -> Bool {
+        width > 1 && height > 1
     }
 
     @MainActor
@@ -167,8 +192,31 @@ enum TripDetailMapPresentation: Sendable {
     }
 
     nonisolated static func boundingRegion(for pins: [TripDetailMapPin]) -> DiveLocationMapRegionSpec? {
+        regionSpec(
+            for: pins,
+            paddingMultiplier: boundingRegionPaddingMultiplier
+        )
+    }
+
+    /// Tight geographic bounds for hero map camera fit — edge insets frame pins in the visible band.
+    nonisolated static func fittingRegion(for pins: [TripDetailMapPin]) -> DiveLocationMapRegionSpec? {
+        regionSpec(
+            for: pins,
+            paddingMultiplier: fittingRegionPaddingMultiplier
+        )
+    }
+
+    nonisolated static func mkMapRect(for pins: [TripDetailMapPin]) -> MKMapRect? {
+        fittingRegion(for: pins)?.mkMapRect
+    }
+
+    private nonisolated static func regionSpec(
+        for pins: [TripDetailMapPin],
+        paddingMultiplier: Double
+    ) -> DiveLocationMapRegionSpec? {
         guard let bounds = coordinateBounds(for: pins) else { return nil }
-        if pins.count == 1 {
+        if pins.count == 1
+            || (bounds.latitudeSpan < 1e-9 && bounds.longitudeSpan < 1e-9) {
             return DiveLocationMapRegionSpec(
                 centerLatitude: bounds.centerLatitude,
                 centerLongitude: bounds.centerLongitude,
@@ -179,8 +227,8 @@ enum TripDetailMapPresentation: Sendable {
 
         let latSpan = bounds.latitudeSpan
         let lonSpan = bounds.longitudeSpan
-        let latDelta = max(latSpan * boundingRegionPaddingMultiplier, boundingRegionMinimumSpanDegrees)
-        let lonDelta = max(lonSpan * boundingRegionPaddingMultiplier, boundingRegionMinimumSpanDegrees)
+        let latDelta = max(latSpan * paddingMultiplier, boundingRegionMinimumSpanDegrees)
+        let lonDelta = max(lonSpan * paddingMultiplier, boundingRegionMinimumSpanDegrees)
         return DiveLocationMapRegionSpec(
             centerLatitude: bounds.centerLatitude,
             centerLongitude: bounds.centerLongitude,

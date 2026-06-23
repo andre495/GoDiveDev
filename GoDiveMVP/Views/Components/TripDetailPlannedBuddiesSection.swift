@@ -54,7 +54,7 @@ struct TripDetailPlannedBuddiesSection: View {
                     .padding(.horizontal, AppTheme.Spacing.md)
                     .accessibilityIdentifier("TripDetail.PlannedBuddies.Empty")
             } else {
-                LazyVGrid(columns: columns, spacing: TripDetailBuddiesPresentation.gridSpacing) {
+                LazyVGrid(columns: columns, alignment: .center, spacing: TripDetailBuddiesPresentation.gridSpacing) {
                     ForEach(listMembers) { member in
                         plannedBuddyCell(for: member)
                     }
@@ -119,30 +119,11 @@ private struct TripDetailPlannedBuddyGridCell: View {
     let member: TripPlannedBuddyMember
 
     var body: some View {
-        VStack(spacing: AppTheme.Spacing.sm) {
-            ProfileAvatarView(
-                profilePhoto: member.profilePhoto,
-                diameter: TripDetailBuddiesPresentation.avatarDiameter,
-                iconFont: .title2
-            )
-
-            Text(member.displayName)
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.85)
-                .frame(maxWidth: .infinity)
-
-            Text(TripDetailPlannedBuddyPresentation.subtitle(for: member))
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.accent)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.85)
-                .frame(maxWidth: .infinity)
-        }
-        .frame(maxWidth: .infinity)
+        TripDetailBuddyAvatarGridCell(
+            profilePhoto: member.profilePhoto,
+            displayName: member.displayName,
+            subtitle: TripDetailPlannedBuddyPresentation.subtitle(for: member)
+        )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
             "\(member.displayName), \(TripDetailPlannedBuddyPresentation.subtitle(for: member))"

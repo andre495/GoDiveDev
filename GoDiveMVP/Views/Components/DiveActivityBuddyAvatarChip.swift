@@ -15,7 +15,8 @@ struct DiveActivityBuddyAvatarChip: View {
             ProfileAvatarView(
                 profilePhoto: profilePhoto,
                 diameter: avatarDiameter,
-                iconFont: .title3
+                iconFont: .title3,
+                placeholderInitials: DiveBuddyPresentation.initials(from: displayName)
             )
             Text(firstName)
                 .font(.caption.weight(.medium))

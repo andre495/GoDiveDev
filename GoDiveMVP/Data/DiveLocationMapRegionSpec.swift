@@ -22,4 +22,19 @@ struct DiveLocationMapRegionSpec: Equatable, Sendable {
             span: MKCoordinateSpan(latitudeDelta: latitudeDelta, longitudeDelta: longitudeDelta)
         )
     }
+
+    nonisolated var mkMapRect: MKMapRect {
+        let north = centerLatitude + latitudeDelta / 2
+        let south = centerLatitude - latitudeDelta / 2
+        let east = centerLongitude + longitudeDelta / 2
+        let west = centerLongitude - longitudeDelta / 2
+        let southWest = MKMapPoint(CLLocationCoordinate2D(latitude: south, longitude: west))
+        let northEast = MKMapPoint(CLLocationCoordinate2D(latitude: north, longitude: east))
+        return MKMapRect(
+            x: min(southWest.x, northEast.x),
+            y: min(southWest.y, northEast.y),
+            width: abs(northEast.x - southWest.x),
+            height: abs(northEast.y - southWest.y)
+        )
+    }
 }

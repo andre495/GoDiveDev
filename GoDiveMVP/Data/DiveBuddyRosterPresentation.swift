@@ -3,7 +3,7 @@ import SwiftData
 
 /// Profile roster list + buddy detail copy and shared-dive resolution.
 enum DiveBuddyRosterPresentation {
-    /// Buddy detail is a fixed **`AppPage`** (no outer scroll); **Dives together** scrolls inside **`ExpandableDetailSection`** when expanded.
+    /// Buddy detail uses **`AppHeaderlessPage`** with a tagged-media hero and a horizontal content pager.
     static let buddyDetailUsesScrollContainer = false
 
     nonisolated static func rosterCountLabel(_ count: Int) -> String {
@@ -81,14 +81,16 @@ enum DiveBuddyRosterPresentation {
         sharedDives: [DiveActivity],
         unitSystem: DiveDisplayUnitSystem,
         useChronologicalNumbers: Bool,
-        numberingActivities: [DiveActivity]
+        numberingActivities: [DiveActivity] = [],
+        numberingRows: [DiveActivityDiveNumbering.NumberingRow] = []
     ) -> [DiveLogbookRowDisplayData] {
         DiveLogbookDisplay.rowData(
             activities: sharedDives,
             unitSystem: unitSystem,
             duplicateIds: [],
             useChronologicalNumbers: useChronologicalNumbers,
-            numberingActivities: numberingActivities
+            numberingActivities: numberingActivities.isEmpty ? nil : numberingActivities,
+            numberingRows: numberingRows.isEmpty ? nil : numberingRows
         )
     }
 }

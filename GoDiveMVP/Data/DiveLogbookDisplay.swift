@@ -32,11 +32,17 @@ enum DiveLogbookDisplay {
         unitSystem: DiveDisplayUnitSystem,
         duplicateIds: Set<UUID>,
         useChronologicalNumbers: Bool,
-        numberingActivities: [DiveActivity]? = nil
+        numberingActivities: [DiveActivity]? = nil,
+        numberingRows: [DiveActivityDiveNumbering.NumberingRow]? = nil
     ) -> [DiveLogbookRowDisplayData] {
-        let numberingSource = numberingActivities ?? activities
         let chronologicalNumbers: [UUID: Int] = useChronologicalNumbers
-            ? DiveActivityDiveNumbering.numberedDiveSequentialIndicesById(for: numberingSource)
+            ? {
+                if let numberingRows {
+                    return DiveActivityDiveNumbering.numberedDiveSequentialIndicesById(for: numberingRows)
+                }
+                let numberingSource = numberingActivities ?? activities
+                return DiveActivityDiveNumbering.numberedDiveSequentialIndicesById(for: numberingSource)
+            }()
             : [:]
 
         return activities.map { activity in

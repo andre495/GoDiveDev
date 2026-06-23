@@ -66,6 +66,28 @@ enum TripDetailMediaPresentation: Sendable {
     ) -> UUID? {
         items.first(where: { $0.id == mediaID })?.diveActivityID
     }
+
+    nonisolated static func resolvedHeroMediaPhotoID(
+        in photos: [DiveMediaPhoto],
+        explicitFeaturedID: UUID?,
+        sessionRandomID: UUID?
+    ) -> UUID? {
+        DetailHeroMediaPresentation.resolvedHeroMediaPhotoID(
+            in: photos,
+            explicitFeaturedID: explicitFeaturedID,
+            sessionRandomID: sessionRandomID
+        )
+    }
+
+    nonisolated static func toggledFeaturedMediaPhotoID(
+        mediaID: UUID,
+        explicitFeaturedID: UUID?
+    ) -> UUID? {
+        DetailHeroMediaPresentation.toggledFeaturedMediaPhotoID(
+            mediaID: mediaID,
+            explicitFeaturedID: explicitFeaturedID
+        )
+    }
 }
 
 /// Trip media gallery chrome on **`TripDetailView`**.

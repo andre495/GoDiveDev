@@ -67,8 +67,12 @@ struct LogOverviewView: View {
         let statsContentHeight = HomeLifetimeStatsLayout.estimatedPanelContentHeight(
             showsBuddyLeaderboard: showsHomeBuddyLeaderboard
         )
+        let viewportHeight = HomeOverviewLayout.homeRootViewportHeight(
+            geometryHeight: proxy.size.height,
+            isNavigationStackAtRoot: isHomeNavigationStackAtRoot
+        )
         return HomeOverviewLayout.metrics(
-            viewportHeight: proxy.size.height,
+            viewportHeight: viewportHeight,
             screenWidth: proxy.size.width,
             topSafeAreaInset: proxy.safeAreaInsets.top,
             statsPanelContentHeight: statsContentHeight
@@ -186,8 +190,24 @@ struct LogOverviewView: View {
 
     @ViewBuilder
     private func homeDashboard(for proxy: GeometryProxy, hasCarouselMedia: Bool) -> some View {
+        let statsContentHeight = HomeLifetimeStatsLayout.estimatedPanelContentHeight(
+            showsBuddyLeaderboard: showsHomeBuddyLeaderboard
+        )
         let homeLayout = homeOverviewLayoutMetrics(for: proxy)
+        let viewportHeight = HomeOverviewLayout.homeRootViewportHeight(
+            geometryHeight: proxy.size.height,
+            isNavigationStackAtRoot: isHomeNavigationStackAtRoot
+        )
         let bottomInset = proxy.safeAreaInsets.bottom
+        let layoutSnapshot = PageLayoutGeometryProbe.home(
+            screenWidth: proxy.size.width,
+            geometryHeight: proxy.size.height,
+            safeAreaTop: proxy.safeAreaInsets.top,
+            safeAreaBottom: bottomInset,
+            layoutStackHeight: viewportHeight,
+            heroHeight: homeLayout.heroHeight,
+            statsPanelContentHeight: statsContentHeight
+        )
 
         VStack(spacing: -HomeLifetimeStatsLayout.panelOverlap) {
             if hasCarouselMedia {
@@ -209,7 +229,20 @@ struct LogOverviewView: View {
             homeStatsPanel(overlapsMedia: true, bottomSafeAreaInset: bottomInset)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
+        .frame(width: proxy.size.width, height: viewportHeight, alignment: .top)
+        .pageLayoutGeometryOverlay(layoutSnapshot)
+        .onAppear {
+            HomeOverviewLayoutAnchor.publish(
+                HomeOverviewLayoutAnchor.RootSnapshot(
+                    heroHeight: homeLayout.heroHeight,
+                    screenWidth: proxy.size.width,
+                    topSafeAreaInset: proxy.safeAreaInsets.top,
+                    statsPanelContentHeight: statsContentHeight,
+                    showsBuddyLeaderboard: showsHomeBuddyLeaderboard,
+                    homeTabViewportHeight: viewportHeight
+                )
+            )
+        }
     }
 
     @ViewBuilder

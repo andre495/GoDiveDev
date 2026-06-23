@@ -67,7 +67,8 @@ struct TripShareCardView: View {
                         ProfileAvatarView(
                             profilePhoto: member.profilePhoto,
                             diameter: TripShareCardPresentation.avatarDiameter,
-                            iconFont: .title
+                            iconFont: .title,
+                            placeholderInitials: DiveBuddyPresentation.initials(from: member.displayName)
                         )
 
                         Text(member.displayName)

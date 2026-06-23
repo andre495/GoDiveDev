@@ -4,7 +4,9 @@ import SwiftUI
 struct FieldGuideTaggedMediaGalleryView: View {
     let mediaItems: [DiveMediaPhoto]
     let timeZoneOffsetByMediaID: [UUID: Int?]
+    var selectedMediaID: Binding<UUID?>?
     var showsTitle = true
+    var showsLargePreview = true
     var sectionTitle = "Your tagged photos"
     var previewAccessibilityIdentifier = "FieldGuide.SpeciesDetail.TaggedMediaPreview"
     var carouselAccessibilityIdentifier = "FieldGuide.SpeciesDetail.TaggedMediaCarousel"
@@ -15,10 +17,17 @@ struct FieldGuideTaggedMediaGalleryView: View {
         var lastID: UUID?
     }
 
-    @State private var selectedMediaID: UUID?
+    @State private var internalSelectedMediaID: UUID?
+
+    private var selectedMediaIDBinding: Binding<UUID?> {
+        selectedMediaID ?? $internalSelectedMediaID
+    }
 
     private var selectedMedia: DiveMediaPhoto? {
-        DiveActivityMediaPresentation.selectedMedia(selectedID: selectedMediaID, in: mediaItems)
+        DiveActivityMediaPresentation.selectedMedia(
+            selectedID: selectedMediaIDBinding.wrappedValue,
+            in: mediaItems
+        )
     }
 
     private var mediaIDsSignature: MediaSelectionSignature {
@@ -38,7 +47,7 @@ struct FieldGuideTaggedMediaGalleryView: View {
                         .foregroundStyle(AppTheme.Colors.textPrimary)
 
                     if let positionLabel = DiveActivityMediaPresentation.mediaPositionLabel(
-                        selectedID: selectedMediaID,
+                        selectedID: selectedMediaIDBinding.wrappedValue,
                         in: mediaItems
                     ) {
                         Text(positionLabel)
@@ -47,7 +56,7 @@ struct FieldGuideTaggedMediaGalleryView: View {
                     }
                 }
             } else if let positionLabel = DiveActivityMediaPresentation.mediaPositionLabel(
-                selectedID: selectedMediaID,
+                selectedID: selectedMediaIDBinding.wrappedValue,
                 in: mediaItems
             ) {
                 Text(positionLabel)
@@ -55,10 +64,12 @@ struct FieldGuideTaggedMediaGalleryView: View {
                     .foregroundStyle(AppTheme.Colors.secondaryText)
             }
 
-            largePreview
+            if showsLargePreview {
+                largePreview
+            }
             DiveActivityMediaCarouselView(
                 mediaItems: mediaItems,
-                selectedMediaID: $selectedMediaID
+                selectedMediaID: selectedMediaIDBinding
             )
             .accessibilityIdentifier(carouselAccessibilityIdentifier)
         }
@@ -100,8 +111,8 @@ struct FieldGuideTaggedMediaGalleryView: View {
     }
 
     private func syncSelectionToMedia() {
-        selectedMediaID = DiveActivityMediaPresentation.resolvedSelectedPhotoID(
-            selectedID: selectedMediaID,
+        selectedMediaIDBinding.wrappedValue = DiveActivityMediaPresentation.resolvedSelectedPhotoID(
+            selectedID: selectedMediaIDBinding.wrappedValue,
             in: mediaItems
         )
     }

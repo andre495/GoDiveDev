@@ -39,6 +39,41 @@ enum DiveMediaProgressivePresentation: Sendable {
             && (isPlaybackActive || allowsBackgroundUpgrade)
     }
 
+    nonisolated static func resolvedKey(
+        sourceIdentityKey: String,
+        fidelity: DiveMediaVideoFidelity
+    ) -> String {
+        switch fidelity {
+        case .none:
+            return sourceIdentityKey
+        case .preview:
+            return "\(sourceIdentityKey)|preview"
+        case .full:
+            return "\(sourceIdentityKey)|full"
+        }
+    }
+
+    /// Preview → full stream swap for the same library asset (not a new clip).
+    nonisolated static func isVideoQualityFidelityUpgrade(
+        from previousResolvedKey: String?,
+        to nextResolvedKey: String
+    ) -> Bool {
+        previousResolvedKey?.hasSuffix("|preview") == true && nextResolvedKey.hasSuffix("|full")
+    }
+
+    nonisolated static func previewResolvedKey(forFullResolvedKey fullKey: String) -> String? {
+        guard fullKey.hasSuffix("|full") else { return nil }
+        return String(fullKey.dropLast("|full".count)) + "|preview"
+    }
+
+    /// Stable SwiftUI identity — must not change when fidelity suffix moves from **`|preview`** to **`|full`**.
+    nonisolated static func playerRepresentableIdentity(
+        sourceIdentityKey: String,
+        playbackActivationGeneration: Int
+    ) -> String {
+        "\(sourceIdentityKey)-activate-\(playbackActivationGeneration)"
+    }
+
     nonisolated static func shouldPrefetchAdjacentMedia(isMediaTabSelected: Bool) -> Bool {
         isMediaTabSelected
     }

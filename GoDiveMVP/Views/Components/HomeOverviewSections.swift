@@ -845,7 +845,8 @@ private struct HomeMediaCarouselTaggedBuddiesButton: View {
                         ProfileAvatarView(
                             profilePhoto: buddy.profilePhoto,
                             diameter: Layout.avatarDiameter,
-                            iconFont: .callout
+                            iconFont: .callout,
+                            placeholderInitials: DiveBuddyPresentation.initials(from: buddy.displayName)
                         )
                         .background {
                             Circle()
@@ -1298,6 +1299,7 @@ struct HomeLifetimeStatsPanel<Content: View>: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background {
                 AppOverviewSheetPanelBackground()
+                    .ignoresSafeArea(edges: .bottom)
             }
             .clipShape(panelShape)
             .shadow(
@@ -1607,7 +1609,8 @@ private struct HomeBuddyLeaderboardPodiumSlot: View {
                 ProfileAvatarView(
                     profilePhoto: entry.profilePhoto,
                     diameter: HomeBuddyLeaderboardLayout.avatarDiameter,
-                    iconFont: .callout
+                    iconFont: .callout,
+                    placeholderInitials: DiveBuddyPresentation.initials(from: entry.displayName)
                 )
 
                 Text(DiveBuddyPresentation.firstName(from: entry.displayName))

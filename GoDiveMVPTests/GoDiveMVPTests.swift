@@ -135,6 +135,194 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func diveBuddyDetailPresentation_layoutAndHeroSelection() {
+        #expect(
+            DiveBuddyDetailPresentation.heroLayoutStatsPanelContentHeight
+                == HomeOverviewLayout.heroLayoutStatsPanelContentHeight
+        )
+        #expect(
+            DiveBuddyDetailPresentation.heroLayoutStatsPanelContentHeight
+                == HomeLifetimeStatsPanelLayout.estimatedPanelContentHeight(showsBuddyLeaderboard: false)
+        )
+        #expect(
+            DiveBuddyDetailPresentation.minimumPanelContentHeight
+                == DiveBuddyDetailPresentation.heroLayoutStatsPanelContentHeight
+        )
+        #expect(DiveBuddyDetailPresentation.profileAvatarDiameter == 120)
+        #expect(DiveBuddyDetailPresentation.avatarOverlapOffset() == 60)
+        #expect(DiveBuddyDetailPresentation.avatarLeadingInset == AppTheme.Spacing.lg)
+        #expect(DiveBuddyDetailPresentation.identityTextLift == 12)
+        #expect(
+            DiveBuddyDetailPresentation.heroModeToggleBottomPadding
+                > HomeLifetimeStatsLayout.panelOverlap
+        )
+        #expect(DiveBuddyDetailHeroHeaderView.Mode.media.shortTitle == "Media")
+        #expect(DiveBuddyDetailHeroHeaderView.Mode.map.shortTitle == "Map")
+        #expect(DiveBuddyDetailHeroHeaderView.Mode.allCases.count == 2)
+        let pushedGeometryHeight: CGFloat = 852
+        let homeTabViewportHeight = HomeOverviewLayout.viewportHeightMatchingHomeTab(
+            from: pushedGeometryHeight
+        )
+        let screenWidth: CGFloat = 393
+        let topSafeAreaInset: CGFloat = 59
+        let statsBand = DiveBuddyDetailPresentation.heroLayoutStatsPanelContentHeight
+        let buddyHero = DiveBuddyDetailPresentation.heroHeight(
+            viewportHeight: pushedGeometryHeight,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset
+        )
+        let homeHero = HomeOverviewLayout.metrics(
+            viewportHeight: homeTabViewportHeight,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset,
+            statsPanelContentHeight: statsBand
+        ).heroHeight
+        let pushedHero = HomeOverviewLayout.pushedHeroLayoutMetrics(
+            geometryHeight: pushedGeometryHeight,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset,
+            statsPanelContentHeight: statsBand
+        ).heroHeight
+        #expect(buddyHero == homeHero)
+        #expect(pushedHero == homeHero)
+        let buddyHeroWithZeroGeometryTop = DiveBuddyDetailPresentation.heroHeight(
+            viewportHeight: pushedGeometryHeight,
+            screenWidth: screenWidth,
+            topSafeAreaInset: 0
+        )
+        let homeHeroWithZeroGeometryTop = HomeOverviewLayout.metrics(
+            viewportHeight: homeTabViewportHeight,
+            screenWidth: screenWidth,
+            topSafeAreaInset: 0,
+            statsPanelContentHeight: statsBand
+        ).heroHeight
+        #expect(buddyHeroWithZeroGeometryTop == homeHeroWithZeroGeometryTop)
+
+        #expect(
+            DiveBuddyTaggedMediaPresentation.isExplicitlyFeatured(
+                mediaID: UUID(),
+                explicitFeaturedID: nil
+            ) == false
+        )
+        let featuredID = UUID()
+        let otherID = UUID()
+        #expect(
+            DiveBuddyTaggedMediaPresentation.toggledFeaturedMediaPhotoID(
+                mediaID: featuredID,
+                explicitFeaturedID: nil
+            ) == featuredID
+        )
+        #expect(
+            DiveBuddyTaggedMediaPresentation.toggledFeaturedMediaPhotoID(
+                mediaID: featuredID,
+                explicitFeaturedID: featuredID
+            ) == nil
+        )
+        #expect(
+            DiveBuddyTaggedMediaPresentation.toggledFeaturedMediaPhotoID(
+                mediaID: otherID,
+                explicitFeaturedID: featuredID
+            ) == otherID
+        )
+
+        let first = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 100))
+        let second = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 200))
+        let picked = DiveBuddyDetailPresentation.randomHeroTaggedMedia(from: [first, second])
+        #expect(picked?.id == first.id || picked?.id == second.id)
+
+        #expect(!DiveBuddyDetailPresentation.shouldAutoPlaySelectedVideo(for: first))
+        let video = DiveMediaPhoto(sortOrder: 0, mediaKind: .video)
+        #expect(DiveBuddyDetailPresentation.shouldAutoPlaySelectedVideo(for: video))
+        #expect(!DiveBuddyDetailPresentation.shouldAutoPlaySelectedVideo(for: nil))
+    }
+
+    @Test @MainActor func diveBuddyDetailPresentation_initialPushedLayoutFloors_defaultWhenHomeAnchorUnset() {
+        #expect(
+            DiveBuddyDetailPresentation.initialPushedLayoutSafeAreaTopFloor()
+                == AppScrollUnderHeaderListLayout.resolvedSafeAreaTop(0)
+        )
+        #expect(DiveBuddyDetailPresentation.initialPushedLayoutViewportFloor() == 0)
+    }
+
+    @Test func diveBuddyDetailPresentation_effectiveTagMerging_prefersQueryRows() {
+        #expect(
+            DiveBuddyDetailPresentation.effectiveDiveTags(queried: [], relationship: []).isEmpty
+        )
+        #expect(
+            DiveBuddyDetailPresentation.effectiveMediaTags(queried: [], relationship: []).isEmpty
+        )
+    }
+
+    @Test @MainActor func diveBuddyDetailPresentation_initialSharedDiveContent_seedsRelationshipRows() {
+        let owner = UserProfile(appleUserIdentifier: "buddy-seed-owner", displayName: "Owner")
+        let buddy = DiveBuddy(displayName: "Pat Lee", owner: owner)
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        dive.ownerProfileID = owner.id
+        let tag = DiveBuddyTag(buddy: buddy, dive: dive)
+        buddy.diveParticipations.append(tag)
+
+        let seeded = DiveBuddyDetailPresentation.initialSharedDiveContent(for: buddy)
+        #expect(seeded.sharedDives.count == 1)
+        #expect(seeded.rows.count == 1)
+        #expect(seeded.rows[0].displayName == LogbookActivityRow.displayName(for: dive))
+    }
+
+    @Test @MainActor func homeOverviewPushedLayoutPresentation_pushedPageSeamInputs_usesDefaultBandWithoutStoreScan() {
+        let inputs = HomeOverviewPushedLayoutPresentation.pushedPageSeamInputs()
+        #expect(
+            inputs.statsPanelContentHeight == HomeOverviewLayout.heroLayoutStatsPanelContentHeight
+        )
+        #expect(inputs.showsBuddyLeaderboard == false)
+    }
+
+    @Test func diveBuddyDetailContentPager_pages() {
+        #expect(DiveBuddyDetailContentPagerPresentation.pageCount == 3)
+        #expect(
+            DiveBuddyDetailContentPagerPresentation.pages == [
+                .divesTogether,
+                .tripsTogether,
+                .taggedMedia,
+            ]
+        )
+        #expect(DiveBuddyDetailContentPagerPresentation.defaultPage == .divesTogether)
+        #expect(
+            DiveBuddyDetailContentPagerPresentation.pageTitle(for: .divesTogether) == "Dives together"
+        )
+        #expect(
+            DiveBuddyDetailContentPagerPresentation.pageTitle(for: .tripsTogether)
+                == DiveBuddyTripPresentation.sectionTitle
+        )
+        #expect(
+            DiveBuddyDetailContentPagerPresentation.pageTitle(for: .taggedMedia)
+                == DiveBuddyTaggedMediaPresentation.sectionTitle
+        )
+        #expect(
+            DiveBuddyDetailContentPagerPresentation.accessibilityIdentifier(for: .divesTogether)
+                == "DiveBuddyDetails.ContentPager.DivesTogether"
+        )
+        #expect(
+            DiveBuddyDetailContentPagerPresentation.accessibilityIdentifier(for: .taggedMedia)
+                == "DiveBuddyDetails.ContentPager.TaggedMedia"
+        )
+        #expect(!DiveBuddyDetailContentPagerPresentation.usesStaticPagerLayout(for: .taggedMedia))
+        #expect(!DiveBuddyDetailContentPagerPresentation.usesStaticPagerLayout(for: .divesTogether))
+        #expect(!DiveBuddyDetailContentPagerPresentation.usesStaticPagerLayout(for: .tripsTogether))
+        #expect(
+            DiveBuddyDetailContentPagerPresentation.emptyStateMessage(for: .divesTogether)
+                == "No dives tagged with this buddy yet."
+        )
+        #expect(DiveBuddyDetailContentPagerPresentation.pageIndicatorClearance == 28)
+        #expect(
+            DiveBuddyDetailContentPagerPresentation.pinnedPageHeaderBottomSpacing == AppTheme.Spacing.md
+        )
+        #expect(!DiveBuddyDetailContentPagerPresentation.showsPinnedPageHeaders)
+    }
+
     @Test func diveActivityMediaActivation_shouldReaffirmPagerSelection_requiresActiveContext() {
         #expect(
             DiveActivityMediaActivation.shouldReaffirmPagerSelection(
@@ -390,7 +578,6 @@ struct GoDiveMVPTests {
             ownerDiveActivityIDs: [diveID]
         )
         #expect(count == 2)
-    }
     }
 
     @Test func profileDestinationTilePresentation_usesUniformTileHeight() {
@@ -3896,6 +4083,8 @@ struct GoDiveMVPTests {
 
         let upcoming = TripPlannerPresentation.listRowDisplayData(for: trip, phase: .upcoming)
         #expect(upcoming.title == "Reef week")
+        #expect(upcoming.dateRangeLine == dateRange)
+        #expect(upcoming.countriesLine == "Bonaire, Curaçao")
         #expect(
             upcoming.secondaryDetailLine
                 == TripPlannerPresentation.listRowSecondaryDetail(
@@ -3906,6 +4095,8 @@ struct GoDiveMVPTests {
         #expect(upcoming.linkedDiveCountLabel == nil)
 
         let active = TripPlannerPresentation.listRowDisplayData(for: trip, phase: .active)
+        #expect(active.dateRangeLine == dateRange)
+        #expect(active.countriesLine == "Bonaire, Curaçao")
         #expect(active.secondaryDetailLine.contains(dateRange))
         #expect(active.secondaryDetailLine.contains("Bonaire, Curaçao"))
         #expect(active.linkedDiveCountLabel == "0 dives")
@@ -4371,7 +4562,7 @@ struct GoDiveMVPTests {
         #expect(TripDetailContentPagerPresentation.pageCount(hasStarted: true) == 5)
         #expect(
             TripDetailContentPagerPresentation.pages(hasStarted: true) == [
-                .stats, .marineLife, .activities, .buddies, .media,
+                .stats, .activities, .marineLife, .buddies, .media,
             ]
         )
         #expect(TripDetailContentPagerPresentation.defaultPage(hasStarted: true) == .stats)
@@ -4381,7 +4572,7 @@ struct GoDiveMVPTests {
 
     @Test @MainActor func tripDetailContentPager_usesStaticLayoutForStatsAndMedia() {
         #expect(TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .stats))
-        #expect(TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .media))
+        #expect(!TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .media))
         #expect(!TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .marineLife))
         #expect(!TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .activities))
         #expect(!TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .plannedSites))
@@ -4414,6 +4605,7 @@ struct GoDiveMVPTests {
     @Test func tripDetailBuddiesPresentation_usesThreeColumnGrid() {
         #expect(TripDetailBuddiesPresentation.gridColumnCount == 3)
         #expect(TripDetailBuddiesPresentation.avatarDiameter == 64)
+        #expect(TripDetailBuddiesPresentation.gridCaptionMinHeight > 0)
     }
 
     @Test @MainActor func diveTripPlannedBuddyLinking_addsAndRemovesBuddies() throws {
@@ -4849,6 +5041,25 @@ struct GoDiveMVPTests {
         #expect(TripDetailMapPresentation.singlePinRegionSpanDegrees > DiveLocationMapPresentation.diveSiteLatitudeDelta)
     }
 
+    @Test func tripDetailMapPresentation_usesPinCalloutLabeling() {
+        #expect(TripDetailMapPresentation.usesPinCalloutLabeling)
+    }
+
+    @Test func tripDetailMapAnnotation_suppressesDefaultCalloutTitle() {
+        let siteID = UUID(uuidString: "A1B2C3D4-E5F6-7890-ABCD-EF1234567890")!
+        let pin = TripDetailMapPin(
+            id: "completed-1",
+            title: "Blue Hole",
+            coordinate: DiveCoordinate(latitude: 17.3, longitude: -87.5),
+            kind: .completed,
+            siteID: siteID
+        )
+        let annotation = TripDetailMapAnnotation(pin: pin)
+        #expect(annotation.title == nil)
+        #expect(annotation.siteDisplayName == "Blue Hole")
+        #expect(annotation.siteID == siteID)
+    }
+
     @Test func tripDetailMapPresentation_mapFitEdgeInsets_centerPinsInVisibleHeroBand() {
         let layout = TripDetailMapFitLayout(
             mapHeight: 480,
@@ -4860,6 +5071,121 @@ struct GoDiveMVPTests {
         #expect(insets.bottom == HomeOverviewLayout.panelOverlap + TripDetailMapPresentation.mapMarkerGroundClearance)
         let targetY = TripDetailMapPresentation.targetPinScreenYFraction(for: layout)
         #expect(abs(targetY - 0.5) < 0.06)
+    }
+
+    @Test func tripDetailMapPresentation_effectiveMapHeight_usesHeroHeightBeforeUIKitLayout() {
+        let layout = TripDetailMapFitLayout(mapHeight: 412, topObstructionHeight: 96)
+        #expect(TripDetailMapPresentation.effectiveMapHeight(measuredBoundsHeight: 0, fitLayout: layout) == 412)
+        #expect(TripDetailMapPresentation.effectiveMapHeight(measuredBoundsHeight: 1, fitLayout: layout) == 412)
+        #expect(TripDetailMapPresentation.effectiveMapHeight(measuredBoundsHeight: 400, fitLayout: layout) == 400)
+        #expect(!TripDetailMapPresentation.hasMeasuredMapBounds(width: 0, height: 412))
+        #expect(TripDetailMapPresentation.hasMeasuredMapBounds(width: 390, height: 412))
+    }
+
+    @Test func tripDetailMapPresentation_fittingRegion_isTighterThanBoundingRegionForSpreadPins() {
+        let pins = [
+            TripDetailMapPin(
+                id: "planned-a",
+                title: "North",
+                coordinate: DiveCoordinate(latitude: 12.0, longitude: -68.0),
+                kind: .planned,
+                siteID: nil
+            ),
+            TripDetailMapPin(
+                id: "completed-b",
+                title: "South",
+                coordinate: DiveCoordinate(latitude: 12.2, longitude: -68.35),
+                kind: .completed,
+                siteID: nil
+            ),
+        ]
+
+        let bounding = TripDetailMapPresentation.boundingRegion(for: pins)
+        let fitting = TripDetailMapPresentation.fittingRegion(for: pins)
+        #expect(bounding != nil)
+        #expect(fitting != nil)
+        #expect((fitting?.latitudeDelta ?? 0) < (bounding?.latitudeDelta ?? 0))
+        #expect((fitting?.longitudeDelta ?? 0) < (bounding?.longitudeDelta ?? 0))
+        let expectedLatDelta = max(0.2 * TripDetailMapPresentation.fittingRegionPaddingMultiplier, TripDetailMapPresentation.boundingRegionMinimumSpanDegrees)
+        #expect(abs((fitting?.latitudeDelta ?? 0) - expectedLatDelta) < 1e-9)
+    }
+
+    @Test func tripDetailMapPresentation_fittingRegion_singlePin_usesMinimumSpan() {
+        let pin = TripDetailMapPin(
+            id: "buddy-only",
+            title: "Salt Pier",
+            coordinate: DiveCoordinate(latitude: 12.1, longitude: -68.2),
+            kind: .completed,
+            siteID: nil
+        )
+
+        let fitting = TripDetailMapPresentation.fittingRegion(for: [pin])
+        #expect(fitting?.latitudeDelta == TripDetailMapPresentation.singlePinRegionSpanDegrees)
+        #expect(fitting?.longitudeDelta == TripDetailMapPresentation.singlePinRegionSpanDegrees)
+        let mapRect = TripDetailMapPresentation.mkMapRect(for: [pin])
+        #expect(mapRect != nil)
+        #expect((mapRect?.width ?? 0) > 0)
+        #expect((mapRect?.height ?? 0) > 0)
+    }
+
+    @Test func tripDetailMediaPresentation_resolvedHeroMediaPhotoID_prefersFeaturedThenSessionRandom() {
+        let featured = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 100))
+        let sessionRandom = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 200))
+        let photos = [featured, sessionRandom]
+
+        #expect(
+            TripDetailMediaPresentation.resolvedHeroMediaPhotoID(
+                in: photos,
+                explicitFeaturedID: featured.id,
+                sessionRandomID: sessionRandom.id
+            ) == featured.id
+        )
+        #expect(
+            TripDetailMediaPresentation.resolvedHeroMediaPhotoID(
+                in: photos,
+                explicitFeaturedID: nil,
+                sessionRandomID: sessionRandom.id
+            ) == sessionRandom.id
+        )
+    }
+
+    @Test func tripDetailMediaPresentation_toggledFeaturedMediaPhotoID_clearsWhenAlreadyFeatured() {
+        let mediaID = UUID()
+        #expect(
+            TripDetailMediaPresentation.toggledFeaturedMediaPhotoID(
+                mediaID: mediaID,
+                explicitFeaturedID: mediaID
+            ) == nil
+        )
+        #expect(
+            TripDetailMediaPresentation.toggledFeaturedMediaPhotoID(
+                mediaID: mediaID,
+                explicitFeaturedID: nil
+            ) == mediaID
+        )
+    }
+
+    @MainActor
+    @Test func tripHeroMediaSession_reusesRandomPickForTrip() {
+        TripHeroMediaSession.resetForTesting()
+        let tripID = UUID()
+        let first = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 100))
+        let second = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 200))
+        let photos = [first, second]
+
+        let initial = TripHeroMediaSession.resolvedRandomHeroMediaID(
+            tripID: tripID,
+            in: photos
+        )
+        #expect(initial == first.id || initial == second.id)
+
+        let again = TripHeroMediaSession.resolvedRandomHeroMediaID(
+            tripID: tripID,
+            in: photos
+        )
+        #expect(again == initial)
+
+        TripHeroMediaSession.resetForTesting()
     }
 
     @Test func tripDetailDiveSiteNavigation_resolvedSite_prefersPlannedTripSites() {
@@ -5133,27 +5459,37 @@ struct GoDiveMVPTests {
         #expect(TripDetailMarineLifePresentation.sightingCountLabel(count: 4) == "4 sightings")
     }
 
-    @Test func tripDetailMapPresentation_mapHeroHeight_matchesHomeOverviewLayout() {
-        let viewportHeight: CGFloat = 852
+    @Test func tripDetailMapPresentation_mapHeroHeight_matchesHomeAndBuddySeam() {
+        let pushedGeometryHeight: CGFloat = 852
+        let homeTabViewportHeight = HomeOverviewLayout.viewportHeightMatchingHomeTab(
+            from: pushedGeometryHeight
+        )
         let screenWidth: CGFloat = 393
         let topSafeAreaInset: CGFloat = 59
-        let panelContentHeight: CGFloat = TripDetailMapPresentation.minimumPanelContentHeight
+        let statsBand = TripDetailMapPresentation.heroLayoutStatsPanelContentHeight
+        #expect(
+            statsBand == DiveBuddyDetailPresentation.heroLayoutStatsPanelContentHeight
+        )
 
         let tripHero = TripDetailMapPresentation.mapHeroHeight(
-            viewportHeight: viewportHeight,
+            viewportHeight: pushedGeometryHeight,
             screenWidth: screenWidth,
-            topSafeAreaInset: topSafeAreaInset,
-            minimumPanelContentHeight: panelContentHeight
+            topSafeAreaInset: topSafeAreaInset
         )
         let homeHero = HomeOverviewLayout.metrics(
-            viewportHeight: viewportHeight,
+            viewportHeight: homeTabViewportHeight,
             screenWidth: screenWidth,
             topSafeAreaInset: topSafeAreaInset,
-            statsPanelContentHeight: panelContentHeight
+            statsPanelContentHeight: statsBand
         ).heroHeight
+        let buddyHero = DiveBuddyDetailPresentation.heroHeight(
+            viewportHeight: pushedGeometryHeight,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset
+        )
 
         #expect(tripHero == homeHero)
-        #expect(tripHero > viewportHeight * 0.4)
+        #expect(tripHero == buddyHero)
     }
 
     @Test func diveTripPresentation_plannedSitesOverviewSummary_formatsSiteCount() {
@@ -6589,6 +6925,71 @@ struct GoDiveMVPTests {
         #expect(sightings.count == 1)
         #expect(sightings[0].marineLifeUUID == species.uuid)
         #expect(sightings[0].sightingDepthMeters == 12)
+    }
+
+    @Test @MainActor func marineLifeSightingRecorder_batchFetch_scopesByDiveAndMediaIDs() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+
+        let owner = UserProfile(appleUserIdentifier: "batch-sightings", displayName: "Diver")
+        let linkedDive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 4_000_000),
+            durationMinutes: 45,
+            maxDepthMeters: 20
+        )
+        linkedDive.owner = owner
+        linkedDive.ownerProfileID = owner.id
+
+        let otherDive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 4_100_000),
+            durationMinutes: 30,
+            maxDepthMeters: 12
+        )
+        otherDive.owner = owner
+        otherDive.ownerProfileID = owner.id
+
+        let taggedMedia = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 4_000_100))
+        taggedMedia.link(to: linkedDive)
+        let otherMedia = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 4_100_100))
+        otherMedia.link(to: otherDive)
+
+        let species = MarineLife(uuid: "batch-species", commonName: "Parrotfish", scientificName: "Sparisoma")
+        context.insert(species)
+        context.insert(linkedDive)
+        context.insert(otherDive)
+
+        _ = try MarineLifeSightingRecorder.tagSpecies(
+            species,
+            on: taggedMedia,
+            dive: linkedDive,
+            captureContext: nil,
+            owner: owner,
+            modelContext: context
+        )
+        _ = try MarineLifeSightingRecorder.tagSpecies(
+            species,
+            on: otherMedia,
+            dive: otherDive,
+            captureContext: nil,
+            owner: owner,
+            modelContext: context
+        )
+
+        let diveScoped = try MarineLifeSightingRecorder.sightings(
+            forDiveActivityIDs: [linkedDive.id],
+            modelContext: context
+        )
+        #expect(diveScoped.count == 1)
+        #expect(diveScoped[0].diveActivityID == linkedDive.id)
+
+        let mediaScoped = try MarineLifeSightingRecorder.sightings(
+            forMediaPhotoIDs: [taggedMedia.id],
+            modelContext: context
+        )
+        #expect(mediaScoped.count == 1)
+        #expect(mediaScoped[0].mediaPhotoID == taggedMedia.id)
     }
 
     @Test @MainActor func diveMediaFishialIdentificationStorage_saveConfirmedCatalogMatches_tagsMultipleSpecies() throws {
@@ -8616,6 +9017,40 @@ struct GoDiveMVPTests {
         )
         #expect(DiveMediaProgressivePresentation.prefetchNeighborIndices(selectedIndex: 2, itemCount: 5) == [2, 1, 3])
         #expect(DiveMediaProgressivePresentation.prefetchNeighborIndices(selectedIndex: 0, itemCount: 3) == [0, 1])
+
+        let sourceKey = "asset:ABC"
+        #expect(
+            DiveMediaProgressivePresentation.resolvedKey(
+                sourceIdentityKey: sourceKey,
+                fidelity: .preview
+            ) == "asset:ABC|preview"
+        )
+        #expect(
+            DiveMediaProgressivePresentation.isVideoQualityFidelityUpgrade(
+                from: "asset:ABC|preview",
+                to: "asset:ABC|full"
+            )
+        )
+        #expect(
+            !DiveMediaProgressivePresentation.isVideoQualityFidelityUpgrade(
+                from: "asset:ABC|full",
+                to: "asset:XYZ|full"
+            )
+        )
+        #expect(
+            DiveMediaProgressivePresentation.previewResolvedKey(forFullResolvedKey: "asset:ABC|full")
+                == "asset:ABC|preview"
+        )
+        let previewIdentity = DiveMediaProgressivePresentation.playerRepresentableIdentity(
+            sourceIdentityKey: sourceKey,
+            playbackActivationGeneration: 2
+        )
+        let fullIdentity = DiveMediaProgressivePresentation.playerRepresentableIdentity(
+            sourceIdentityKey: sourceKey,
+            playbackActivationGeneration: 2
+        )
+        #expect(previewIdentity == fullIdentity)
+        #expect(previewIdentity == "asset:ABC-activate-2")
     }
 
     @Test func diveMediaVideoRequestQuality_sessionCacheKeySuffix_isDistinct() {
@@ -8785,29 +9220,29 @@ struct GoDiveMVPTests {
         let video = DiveMediaPhoto(
             sortOrder: 0,
             mediaKind: .video,
-            libraryAssetLocalIdentifier: "video-asset-id"
+            photosLocalIdentifier: "video-asset-id"
         )
         video.id = videoID
         let photo = DiveMediaPhoto(sortOrder: 1, mediaKind: .image)
         photo.id = photoID
         let highlights = [
             HomeMediaHighlight(
-                id: UUID(),
                 mediaID: videoID,
                 diveActivityID: UUID(),
+                diveNumberLabel: "#1",
+                siteDisplayName: "Reef",
+                diveSiteID: nil,
                 taggedSpeciesCount: 0,
-                taggedBuddyCount: 0,
-                hasTaggedSpecies: false,
-                hasTaggedBuddies: false
+                taggedBuddyCount: 0
             ),
             HomeMediaHighlight(
-                id: UUID(),
                 mediaID: photoID,
                 diveActivityID: UUID(),
+                diveNumberLabel: "#2",
+                siteDisplayName: "Wall",
+                diveSiteID: nil,
                 taggedSpeciesCount: 0,
-                taggedBuddyCount: 0,
-                hasTaggedSpecies: false,
-                hasTaggedBuddies: false
+                taggedBuddyCount: 0
             ),
         ]
         let keys = HomeMediaCarouselPresentation.carouselVideoSourceIdentityKeys(
@@ -8907,8 +9342,7 @@ struct GoDiveMVPTests {
             topSafeAreaInset: 59,
             headerOverlayHeight: 112
         )
-        #expect(inset >= 112 + 16 - 0.001)
-        #expect(inset < 420 * 0.30)
+        #expect(inset == 139)
     }
 
     @Test func homeLifetimeStatsLayout_usesTwoColumnFixedHeightTiles() {
@@ -8981,6 +9415,447 @@ struct GoDiveMVPTests {
             statsPanelContentHeight: 400
         )
         #expect(metrics.heroHeight < HomeOverviewLayout.heroHeight(width: 390, topSafeAreaInset: 59))
+    }
+
+    @Test func homeOverviewLayout_homeRootViewportHeight_matchesSettledRootDuringPush() {
+        let pushedGeometryHeight: CGFloat = 852
+        let settledRootHeight = HomeOverviewLayout.homeRootViewportHeight(
+            geometryHeight: pushedGeometryHeight,
+            isNavigationStackAtRoot: false
+        )
+        #expect(settledRootHeight == pushedGeometryHeight - HomeOverviewLayout.rootTabBarLayoutHeight)
+        #expect(
+            HomeOverviewLayout.homeRootViewportHeight(
+                geometryHeight: settledRootHeight,
+                isNavigationStackAtRoot: true
+            ) == settledRootHeight
+        )
+    }
+
+    @Test func homeOverviewLayout_pushedPageLayoutHeight_fillsFullScreenGeometry() {
+        let pushedGeometryHeight: CGFloat = 852
+        let transitionFloor = HomeOverviewLayout.pushedHeroLayoutTransitionViewportCandidate(from: 803)
+        #expect(HomeOverviewLayout.pushedPageLayoutHeight(from: pushedGeometryHeight) == 852)
+        #expect(
+            HomeOverviewLayout.pushedPageLayoutHeight(
+                from: pushedGeometryHeight,
+                transitionViewportFloor: transitionFloor
+            ) == 852
+        )
+        #expect(
+            HomeOverviewLayout.pushedHeroLayoutViewportHeight(
+                from: 803,
+                transitionViewportFloor: transitionFloor
+            ) == HomeOverviewLayout.viewportHeightMatchingHomeTab(from: 803)
+        )
+        #expect(
+            HomeOverviewLayout.pushedHeroLayoutViewportHeight(from: pushedGeometryHeight) == 803
+        )
+        #expect(
+            HomeOverviewLayout.pushedPageScrollBottomInset(safeAreaBottom: 34)
+                == 34 + HomeOverviewLayout.pageIndicatorClearance
+        )
+        #expect(
+            HomeOverviewLayout.pushedPanelBottomScrollFadeHeight(safeAreaBottom: 34)
+                == HomeOverviewLayout.rootTabBarLayoutHeight + 34
+        )
+    }
+
+    @Test func homeOverviewLayout_pushedHeroLayoutTransitionViewportCandidate_onlyLatchesTabContentGeometry() {
+        let tabContentGeometry: CGFloat = 803
+        let fullScreenGeometry: CGFloat = 852
+        let subtracted = HomeOverviewLayout.viewportHeightMatchingHomeTab(from: tabContentGeometry)
+        let tabCandidate = HomeOverviewLayout.pushedHeroLayoutTransitionViewportCandidate(
+            from: tabContentGeometry
+        )
+        let fullCandidate = HomeOverviewLayout.pushedHeroLayoutTransitionViewportCandidate(
+            from: fullScreenGeometry
+        )
+        #expect(tabCandidate == 803)
+        #expect(fullCandidate == 852)
+        #expect(subtracted < tabCandidate)
+        #expect(
+            HomeOverviewLayout.viewportHeightMatchingHomeTab(from: fullScreenGeometry)
+                < fullCandidate
+        )
+    }
+
+    @Test func homeOverviewLayout_pushedHeroLayoutMetrics_firstFrameTabContentHeight_matchesSettledHeroOnWidePhone() {
+        let screenWidth: CGFloat = 517
+        let topSafeAreaInset: CGFloat = 59
+        let transitionFloor = HomeOverviewLayout.pushedHeroLayoutTransitionViewportCandidate(from: 803)
+        let firstFrameHero = HomeOverviewLayout.pushedHeroLayoutMetrics(
+            geometryHeight: 803,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset,
+            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeightWithLeaderboard,
+            showsBuddyLeaderboard: true,
+            transitionViewportFloor: transitionFloor
+        ).heroHeight
+        let settledHero = HomeOverviewLayout.pushedHeroLayoutMetrics(
+            geometryHeight: 852,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset,
+            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeightWithLeaderboard,
+            showsBuddyLeaderboard: true,
+            transitionViewportFloor: transitionFloor
+        ).heroHeight
+        let firstFrameViewport = HomeOverviewLayout.pushedHeroLayoutViewportHeight(
+            from: 803,
+            transitionViewportFloor: transitionFloor
+        )
+        let settledViewport = HomeOverviewLayout.pushedHeroLayoutViewportHeight(
+            from: 852,
+            transitionViewportFloor: transitionFloor
+        )
+        #expect(firstFrameViewport == HomeOverviewLayout.viewportHeightMatchingHomeTab(from: 803))
+        #expect(settledViewport == 803)
+        #expect(firstFrameHero < settledHero)
+    }
+
+    @Test func homeOverviewLayout_pushedHeroLayoutMetrics_stableHeroOnFirstAndSettledGeometry() {
+        let screenWidth: CGFloat = 517
+        let topSafeAreaInset: CGFloat = 59
+        let transitionFloor = HomeOverviewLayout.pushedHeroLayoutTransitionViewportCandidate(from: 803)
+        let firstFrameHero = HomeOverviewLayout.pushedHeroLayoutMetrics(
+            geometryHeight: 803,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset,
+            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeightWithLeaderboard,
+            showsBuddyLeaderboard: true,
+            transitionViewportFloor: transitionFloor
+        ).heroHeight
+        let settledHero = HomeOverviewLayout.pushedHeroLayoutMetrics(
+            geometryHeight: 852,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset,
+            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeightWithLeaderboard,
+            showsBuddyLeaderboard: true,
+            transitionViewportFloor: transitionFloor
+        ).heroHeight
+        let firstFrameViewport = HomeOverviewLayout.pushedHeroLayoutViewportHeight(
+            from: 803,
+            transitionViewportFloor: transitionFloor
+        )
+        let settledViewport = HomeOverviewLayout.pushedHeroLayoutViewportHeight(
+            from: 852,
+            transitionViewportFloor: transitionFloor
+        )
+        #expect(firstFrameViewport < settledViewport)
+        #expect(firstFrameHero < settledHero)
+    }
+
+    @Test func homeOverviewLayout_pushedHeroLayoutMetrics_stableHeroWhenGeometryTopInsetUnsettled() {
+        let screenWidth: CGFloat = 517
+        let settledTopSafeAreaInset: CGFloat = 59
+        let transitionFloor = HomeOverviewLayout.pushedHeroLayoutTransitionViewportCandidate(from: 803)
+        let unsettledHero = HomeOverviewLayout.pushedHeroLayoutMetrics(
+            geometryHeight: 852,
+            screenWidth: screenWidth,
+            topSafeAreaInset: 0
+        ).heroHeight
+        let settledHero = HomeOverviewLayout.pushedHeroLayoutMetrics(
+            geometryHeight: 852,
+            screenWidth: screenWidth,
+            topSafeAreaInset: settledTopSafeAreaInset,
+            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeightWithLeaderboard,
+            showsBuddyLeaderboard: true,
+            transitionViewportFloor: transitionFloor
+        ).heroHeight
+        #expect(unsettledHero != settledHero)
+        #expect(
+            HomeOverviewLayout.pushedHeroLayoutMetrics(
+                geometryHeight: 852,
+                screenWidth: screenWidth,
+                topSafeAreaInset: settledTopSafeAreaInset,
+                statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeightWithLeaderboard,
+                showsBuddyLeaderboard: true,
+                transitionViewportFloor: transitionFloor
+            ).heroHeight == settledHero
+        )
+    }
+
+    @Test @MainActor func homeOverviewPushedLayoutPresentation_statsPanelContentHeightMatchingHome_usesLeaderboardBandWhenVisible() {
+        HomeOverviewLayoutAnchor.resetForTesting()
+        let buddy = DiveBuddy(displayName: "Alex")
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 100),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        let tag = DiveBuddyTag(buddy: buddy, dive: activity)
+        activity.buddies = [tag]
+
+        let withLeaderboard = HomeOverviewPushedLayoutPresentation.statsPanelContentHeightMatchingHome(
+            activities: [activity],
+            diveBuddyTags: [tag]
+        )
+        #expect(
+            withLeaderboard
+                == HomeLifetimeStatsLayout.estimatedPanelContentHeight(showsBuddyLeaderboard: true)
+        )
+        #expect(
+            HomeOverviewPushedLayoutPresentation.statsPanelContentHeightMatchingHome(activities: [])
+                == HomeLifetimeStatsLayout.estimatedPanelContentHeight(showsBuddyLeaderboard: false)
+        )
+    }
+
+    @Test @MainActor func homeOverviewPushedLayoutPresentation_statsPanelContentHeightMatchingHome_usesDiveBuddyTagsWhenRelationshipsUnset() {
+        HomeOverviewLayoutAnchor.resetForTesting()
+        let buddy = DiveBuddy(displayName: "Alex")
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 100),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        let tag = DiveBuddyTag(buddy: buddy, dive: activity)
+
+        let viaTags = HomeOverviewPushedLayoutPresentation.statsPanelContentHeightMatchingHome(
+            activities: [activity],
+            diveBuddyTags: [tag]
+        )
+        #expect(
+            viaTags
+                == HomeLifetimeStatsLayout.estimatedPanelContentHeight(showsBuddyLeaderboard: true)
+        )
+
+        let viaActivitiesOnly = HomeOverviewPushedLayoutPresentation.statsPanelContentHeightMatchingHome(
+            activities: [
+                DiveActivity(
+                    source: .manual,
+                    startTime: Date(timeIntervalSince1970: 200),
+                    durationMinutes: 40,
+                    maxDepthMeters: 18
+                ),
+            ]
+        )
+        #expect(
+            viaActivitiesOnly
+                == HomeLifetimeStatsLayout.estimatedPanelContentHeight(showsBuddyLeaderboard: false)
+        )
+    }
+
+    @Test func homeOverviewLayout_pushedHeroLayoutMetrics_widePhoneLeaderboardSeam_matchesHomeScreenBot() {
+        let screenWidth: CGFloat = 517
+        let topSafeAreaInset: CGFloat = 59
+        let homeTabViewport: CGFloat = 803
+        let pushedGeometryHeight: CGFloat = 852
+        let homeHero = HomeOverviewLayout.metrics(
+            viewportHeight: homeTabViewport,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset,
+            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeightWithLeaderboard
+        ).heroHeight
+        let pushedHero = HomeOverviewLayout.pushedHeroLayoutMetrics(
+            geometryHeight: pushedGeometryHeight,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset,
+            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeightWithLeaderboard,
+            showsBuddyLeaderboard: true
+        ).heroHeight
+        #expect(pushedHero == homeHero)
+        let homeScreenBot = HomeOverviewLayout.sheetSeamYFromScreenBottom(
+            pageKind: .home,
+            geometryHeight: homeTabViewport,
+            heroHeight: homeHero
+        )
+        let pushedScreenBot = HomeOverviewLayout.sheetSeamYFromScreenBottom(
+            pageKind: .buddyDetail,
+            geometryHeight: pushedGeometryHeight,
+            heroHeight: pushedHero
+        )
+        #expect(homeScreenBot == pushedScreenBot)
+        #expect(abs(homeScreenBot - 473) < 1.5)
+    }
+
+    @Test func homeOverviewLayout_heroLayoutStatsBand_matchesHomeTwoByTwoGrid() {
+        #expect(
+            HomeOverviewLayout.heroLayoutStatsPanelContentHeight
+                == HomeLifetimeStatsPanelLayout.estimatedPanelContentHeight(showsBuddyLeaderboard: false)
+        )
+    }
+
+    @Test func homeOverviewLayout_pushedHeroLayoutMetrics_matchesSettledHomeTabSeam() {
+        let pushedGeometryHeight: CGFloat = 852
+        let homeTabViewportHeight = HomeOverviewLayout.viewportHeightMatchingHomeTab(
+            from: pushedGeometryHeight
+        )
+        let screenWidth: CGFloat = 393
+        let topSafeAreaInset: CGFloat = 59
+        let statsBand = HomeOverviewLayout.heroLayoutStatsPanelContentHeight
+        let homeHero = HomeOverviewLayout.metrics(
+            viewportHeight: homeTabViewportHeight,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset,
+            statsPanelContentHeight: statsBand
+        ).heroHeight
+        let pushedHero = HomeOverviewLayout.pushedHeroLayoutMetrics(
+            geometryHeight: pushedGeometryHeight,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset,
+            statsPanelContentHeight: statsBand
+        ).heroHeight
+        #expect(pushedHero == homeHero)
+    }
+
+    @Test func homeOverviewLayout_pushedHeroTopSafeAreaInset_usesRawGeometryWithOptionalFloor() {
+        #expect(HomeOverviewLayout.pushedHeroTopSafeAreaInset(rawGeometrySafeTop: 59) == 59)
+        #expect(
+            HomeOverviewLayout.pushedHeroTopSafeAreaInset(
+                rawGeometrySafeTop: 0,
+                transitionSafeTopFloor: 59
+            ) == 59
+        )
+    }
+
+    @Test func homeOverviewLayout_sheetSeamYFromScreenBottom_matchesHomeTabBarReserve() {
+        let heroHeight: CGFloat = 461
+        let seamY = heroHeight - HomeOverviewLayout.panelOverlap
+        let homeScreenBottom = HomeOverviewLayout.sheetSeamYFromScreenBottom(
+            pageKind: .home,
+            geometryHeight: 803,
+            heroHeight: heroHeight
+        )
+        let pushedScreenBottom = HomeOverviewLayout.sheetSeamYFromScreenBottom(
+            pageKind: .buddyDetail,
+            geometryHeight: 852,
+            heroHeight: heroHeight
+        )
+        #expect(homeScreenBottom == pushedScreenBottom)
+        #expect(homeScreenBottom == 803 + HomeOverviewLayout.rootTabBarLayoutHeight - seamY)
+        #expect(pushedScreenBottom == 852 - seamY)
+    }
+
+    @Test func homeOverviewLayout_pushedHeroLayoutMetrics_capsToHomeLeaderboardSeamOnWidePhones() {
+        let pushedGeometryHeight: CGFloat = 852
+        let homeTabViewportHeight = HomeOverviewLayout.viewportHeightMatchingHomeTab(
+            from: pushedGeometryHeight
+        )
+        let screenWidth: CGFloat = 517
+        let topSafeAreaInset: CGFloat = 59
+        let homeHeroWithLeaderboard = HomeOverviewLayout.metrics(
+            viewportHeight: homeTabViewportHeight,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset,
+            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeightWithLeaderboard
+        ).heroHeight
+        let homeHeroTwoByTwo = HomeOverviewLayout.metrics(
+            viewportHeight: homeTabViewportHeight,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset,
+            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeight
+        ).heroHeight
+        let pushedHero = HomeOverviewLayout.pushedHeroLayoutMetrics(
+            geometryHeight: pushedGeometryHeight,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset,
+            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeightWithLeaderboard,
+            showsBuddyLeaderboard: true
+        ).heroHeight
+
+        #expect(homeHeroTwoByTwo > homeHeroWithLeaderboard)
+        #expect(pushedHero == homeHeroWithLeaderboard)
+
+        let seamY = pushedHero - HomeOverviewLayout.panelOverlap
+        let homeScreenBottomSeam = homeTabViewportHeight
+            + HomeOverviewLayout.rootTabBarLayoutHeight
+            - seamY
+        let pushedScreenBottomSeam = pushedGeometryHeight - seamY
+        #expect(homeScreenBottomSeam == pushedScreenBottomSeam)
+    }
+
+    @Test func pageLayoutGeometryProbe_pushedScreenBottomSeam_matchesHomeWithLeaderboard() {
+        let screenWidth: CGFloat = 517
+        let topSafeAreaInset: CGFloat = 59
+        let homeGeometryHeight: CGFloat = 803
+        let pushedGeometryHeight: CGFloat = 852
+        let layoutStackHeight = HomeOverviewLayout.pushedPageLayoutHeight(from: pushedGeometryHeight)
+        let heroHeight = HomeOverviewLayout.pushedHeroLayoutMetrics(
+            geometryHeight: pushedGeometryHeight,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset,
+            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeightWithLeaderboard,
+            showsBuddyLeaderboard: true
+        ).heroHeight
+        let homeSnapshot = PageLayoutGeometryProbe.home(
+            screenWidth: screenWidth,
+            geometryHeight: homeGeometryHeight,
+            safeAreaTop: topSafeAreaInset,
+            safeAreaBottom: 34,
+            layoutStackHeight: homeGeometryHeight,
+            heroHeight: heroHeight,
+            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeightWithLeaderboard
+        )
+        let buddySnapshot = PageLayoutGeometryProbe.pushed(
+            pageKind: .buddyDetail,
+            screenWidth: screenWidth,
+            geometryHeight: pushedGeometryHeight,
+            safeAreaTop: topSafeAreaInset,
+            safeAreaBottom: 34,
+            layoutStackHeight: layoutStackHeight,
+            heroHeight: heroHeight,
+            scrollBottomInset: 62
+        )
+
+        #expect(homeSnapshot.sheetSeamYFromScreenBottom == buddySnapshot.sheetSeamYFromScreenBottom)
+    }
+
+    @Test func pageLayoutGeometryProbe_homeAndPushedTabBarReserve() {
+        let statsBand = HomeOverviewLayout.heroLayoutStatsPanelContentHeight
+        let homeSnapshot = PageLayoutGeometryProbe.home(
+            screenWidth: 393,
+            geometryHeight: 803,
+            safeAreaTop: 59,
+            safeAreaBottom: 34,
+            layoutStackHeight: 803,
+            heroHeight: 461,
+            statsPanelContentHeight: statsBand
+        )
+        #expect(homeSnapshot.pageKind == .home)
+        #expect(homeSnapshot.tabBarReserveBelowStack == 0)
+        #expect(homeSnapshot.sheetSeamY == 461 - HomeOverviewLayout.panelOverlap)
+        #expect(homeSnapshot.sheetSeamYFromStackBottom == 803 - homeSnapshot.sheetSeamY)
+        #expect(homeSnapshot.sheetSeamYFromGeometryBottom == 803 - homeSnapshot.sheetSeamY)
+        #expect(
+            homeSnapshot.sheetSeamYFromScreenBottom
+                == 803 + HomeOverviewLayout.rootTabBarLayoutHeight - homeSnapshot.sheetSeamY
+        )
+        #expect(homeSnapshot.sheetBodyHeight == 803 - homeSnapshot.sheetSeamY)
+        #expect(homeSnapshot.minimumStatsBand == statsBand + HomeOverviewLayout.tabBarScrollInset)
+        #expect(homeSnapshot.layoutReport().contains("sheet.seamYFromStackTop="))
+        #expect(homeSnapshot.layoutReport().contains("sheet.seamYFromScreenBottom="))
+
+        let buddySnapshot = PageLayoutGeometryProbe.pushed(
+            pageKind: .buddyDetail,
+            screenWidth: 393,
+            geometryHeight: 852,
+            safeAreaTop: 59,
+            safeAreaBottom: 34,
+            layoutStackHeight: 852,
+            heroHeight: 461,
+            scrollBottomInset: 62
+        )
+        #expect(buddySnapshot.tabBarReserveBelowStack == 0)
+        #expect(buddySnapshot.sheetSeamYFromGeometryBottom == 852 - buddySnapshot.sheetSeamY)
+        #expect(buddySnapshot.sheetSeamYFromScreenBottom == buddySnapshot.sheetSeamYFromGeometryBottom)
+        #expect(buddySnapshot.sheetBodyHeight == 852 - buddySnapshot.sheetSeamY)
+        #expect(
+            homeSnapshot.sheetSeamYFromScreenBottom == buddySnapshot.sheetSeamYFromScreenBottom
+        )
+        #expect(buddySnapshot.scrollBottomInset == 62)
+        #expect(buddySnapshot.value(for: .hero) == 461)
+    }
+
+    @Test func pageLayoutGeometryReferencePresentation_exampleSnapshots_alignSeamFromScreenBottom() {
+        let home = PageLayoutGeometryReferencePresentation.exampleHomeSnapshot
+        let pushed = PageLayoutGeometryReferencePresentation.examplePushedSnapshot
+        #expect(home.sheetSeamY == pushed.sheetSeamY)
+        #expect(home.sheetSeamYFromScreenBottom == pushed.sheetSeamYFromScreenBottom)
+        #expect(home.tabBarReserveBelowStack == 0)
+        #expect(pushed.tabBarReserveBelowStack == 0)
+        #expect(PageLayoutGeometryReferencePresentation.glossary.isEmpty == false)
     }
 
     @Test func appSessionBootstrapPresentation_showsLaunchOverlayOnlyWhileRestoringSession() {
@@ -9192,6 +10067,321 @@ struct GoDiveMVPTests {
         #expect(offsets[otherDivePhoto.id] == nil)
     }
 
+    @Test func diveBuddyTaggedMediaPresentation_linkedMediaItems_mapsPhotosToParentDives() {
+        let dive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 1, maxDepthMeters: 1)
+        let buddy = DiveBuddy(displayName: "Alex")
+        let photo = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 1_000), dive: dive)
+        let tags = [
+            DiveMediaBuddyTag(buddy: buddy, mediaPhoto: photo, diveActivity: dive),
+        ]
+
+        let linked = DiveBuddyTaggedMediaPresentation.linkedMediaItems(
+            tags: tags,
+            ownerDiveActivityIDs: [dive.id],
+            mediaItems: [photo]
+        )
+        #expect(linked.count == 1)
+        #expect(linked[0].id == photo.id)
+        #expect(linked[0].diveActivityID == dive.id)
+    }
+
+    @Test func diveBuddyTaggedMediaPresentation_sightingsForTaggedMedia_filtersByPhotoID() {
+        let mediaID = UUID()
+        let otherMediaID = UUID()
+        let taggedMedia = DiveMediaPhoto(id: mediaID, sortOrder: 0)
+        let otherMedia = DiveMediaPhoto(id: otherMediaID, sortOrder: 1)
+        let tagged = SightingInstance(
+            marineLifeUUID: "species-1",
+            sightingDateTime: Date(timeIntervalSince1970: 1_000),
+            mediaPhoto: taggedMedia
+        )
+        let untagged = SightingInstance(
+            marineLifeUUID: "species-2",
+            sightingDateTime: Date(timeIntervalSince1970: 2_000),
+            mediaPhoto: otherMedia
+        )
+
+        let filtered = DiveBuddyTaggedMediaPresentation.sightingsForTaggedMedia(
+            allSightings: [tagged, untagged],
+            taggedMediaItemIDs: [mediaID]
+        )
+        #expect(filtered.map(\.id) == [tagged.id])
+    }
+
+    @Test func diveBuddyTaggedMediaGridPresentation_cellSideLength_fitsThreeColumns() {
+        let width: CGFloat = 300
+        let side = DiveBuddyTaggedMediaGridPresentation.cellSideLength(containerWidth: width)
+        let total = side * 3 + DiveBuddyTaggedMediaGridPresentation.spacing * 2
+        #expect(abs(total - width) < 0.001)
+        #expect(DiveBuddyTaggedMediaGridPresentation.columnCount == 3)
+        #expect(
+            LinkedMediaGridPresentation.cellSideLength(containerWidth: width) == side
+        )
+    }
+
+    @Test func linkedMediaGridPresentation_matchesBuddyGridMetrics() {
+        #expect(LinkedMediaGridPresentation.columnCount == 3)
+        #expect(LinkedMediaGridPresentation.spacing == AppTheme.Spacing.sm)
+        #expect(
+            LinkedMediaGridPresentation.cornerRadius
+                == DiveActivityMediaPresentation.carouselThumbnailCornerRadius
+        )
+    }
+
+    @Test func diveBuddyTaggedMediaFullscreenPresentation_lockedDragAxis_prefersDominantTranslation() {
+        #expect(
+            DiveBuddyTaggedMediaFullscreenPresentation.lockedDragAxis(
+                translation: CGSize(width: 20, height: 5)
+            ) == .horizontal
+        )
+        #expect(
+            DiveBuddyTaggedMediaFullscreenPresentation.lockedDragAxis(
+                translation: CGSize(width: 5, height: 20)
+            ) == .vertical
+        )
+        #expect(
+            DiveBuddyTaggedMediaFullscreenPresentation.lockedDragAxis(
+                translation: CGSize(width: 5, height: 5)
+            ) == nil
+        )
+    }
+
+    @Test func diveBuddyTaggedMediaFullscreenPresentation_browseOffset_mapsHorizontalSwipe() {
+        #expect(
+            DiveBuddyTaggedMediaFullscreenPresentation.browseOffset(
+                forHorizontalTranslation: -40
+            ) == 1
+        )
+        #expect(
+            DiveBuddyTaggedMediaFullscreenPresentation.browseOffset(
+                forHorizontalTranslation: 40
+            ) == -1
+        )
+        #expect(
+            DiveBuddyTaggedMediaFullscreenPresentation.browseOffset(
+                forHorizontalTranslation: 10
+            ) == nil
+        )
+    }
+
+    @Test func diveBuddyTaggedMediaFullscreenPresentation_shouldDismiss_whenDraggedFarEnough() {
+        let height: CGFloat = 800
+        #expect(
+            DiveBuddyTaggedMediaFullscreenPresentation.shouldDismiss(
+                verticalTranslation: 300,
+                predictedEndTranslation: 300,
+                containerHeight: height
+            )
+        )
+        #expect(
+            !DiveBuddyTaggedMediaFullscreenPresentation.shouldDismiss(
+                verticalTranslation: 20,
+                predictedEndTranslation: 20,
+                containerHeight: height
+            )
+        )
+        #expect(
+            DiveBuddyTaggedMediaFullscreenPresentation.shouldDismiss(
+                verticalTranslation: 10,
+                predictedEndTranslation: 250,
+                containerHeight: height
+            )
+        )
+    }
+
+    @Test func diveBuddyTaggedMediaFullscreenPresentation_dismissProgress_scalesAndFades() {
+        let progress = DiveBuddyTaggedMediaFullscreenPresentation.dismissProgress(
+            verticalTranslation: 120,
+            containerHeight: 800
+        )
+        #expect(progress > 0)
+        #expect(
+            DiveBuddyTaggedMediaFullscreenPresentation.dismissScale(progress: progress)
+            < 1
+        )
+        #expect(
+            DiveBuddyTaggedMediaFullscreenPresentation.dismissBackgroundOpacity(progress: progress)
+            < 1
+        )
+    }
+
+    @Test func homeSheetPanelBottomScrim_screenBottomAnchoredBandCenterY_pinsBandBottomToPhysicalScreen() {
+        let layoutHeight: CGFloat = 818
+        let safeBottom: CGFloat = 34
+        let bandHeight = HomeOverviewLayout.pushedPanelBottomScrollFadeHeight(safeAreaBottom: safeBottom)
+        let centerY = HomeSheetPanelBottomScrimPresentation.screenBottomAnchoredBandCenterY(
+            layoutHeight: layoutHeight,
+            safeAreaBottom: safeBottom,
+            bandHeight: bandHeight
+        )
+        #expect(centerY + bandHeight / 2 == layoutHeight + safeBottom)
+    }
+
+    @Test func linkedMediaFullscreenPresentation_linkedDiveCoverIdentity_isStablePerDiveAndMedia() {
+        let diveID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let mediaID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        #expect(
+            LinkedMediaFullscreenPresentation.linkedDiveCoverIdentity(
+                diveID: diveID,
+                mediaID: mediaID
+            ) == "\(diveID.uuidString)-\(mediaID.uuidString)"
+        )
+    }
+
+    @Test func linkedMediaFullscreenPresentation_topChromeInset_addsPortraitBumpOnly() {
+        let safeTop: CGFloat = 59
+        let portrait = CGSize(width: 390, height: 844)
+        let landscape = CGSize(width: 844, height: 390)
+        #expect(
+            LinkedMediaFullscreenPresentation.topChromeInset(
+                safeAreaTop: safeTop,
+                containerSize: portrait
+            ) == safeTop + LinkedMediaFullscreenPresentation.portraitTopChromeExtraInset
+        )
+        #expect(
+            LinkedMediaFullscreenPresentation.topChromeInset(
+                safeAreaTop: safeTop,
+                containerSize: landscape
+            ) == safeTop
+        )
+        #expect(
+            LinkedMediaFullscreenPresentation.topChromeRowOffset(
+                safeAreaTop: safeTop,
+                containerSize: portrait
+            ) == safeTop
+                + LinkedMediaFullscreenPresentation.portraitTopChromeExtraInset
+                + LinkedMediaFullscreenPresentation.topChromeRowPadding
+        )
+        #expect(
+            LinkedMediaFullscreenPresentation.topChromeRowOffset(
+                safeAreaTop: safeTop,
+                containerSize: landscape
+            ) == safeTop + LinkedMediaFullscreenPresentation.topChromeRowPadding
+        )
+    }
+
+    @Test func linkedMediaFullscreenPresentation_gestureDismiss_isSnappierThanBrowse() {
+        #expect(
+            LinkedMediaFullscreenPresentation.gestureDismissAnimationDuration
+                < LinkedMediaFullscreenPresentation.browseAnimationDuration
+        )
+        #expect(
+            LinkedMediaFullscreenPresentation.gestureDismissSpringResponse
+                < LinkedMediaFullscreenPresentation.browseAnimationDuration
+        )
+    }
+
+    @Test func diveBuddyTaggedMediaPresentation_photosAvailableFromTagRelationships_collectsUniqueSortedPhotos() {
+        let dive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 1, maxDepthMeters: 1)
+        let buddy = DiveBuddy(displayName: "Alex")
+        let older = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 1_000), dive: dive)
+        let newer = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 2_000), dive: dive)
+        let tags = [
+            DiveMediaBuddyTag(buddy: buddy, mediaPhoto: newer, diveActivity: dive),
+            DiveMediaBuddyTag(buddy: buddy, mediaPhoto: older, diveActivity: dive),
+            DiveMediaBuddyTag(buddy: buddy, mediaPhoto: newer, diveActivity: dive),
+        ]
+
+        let photos = DiveBuddyTaggedMediaPresentation.photosAvailableFromTagRelationships(tags)
+
+        #expect(photos.map(\.id) == [older.id, newer.id])
+    }
+
+    @Test func diveBuddyTaggedMediaPresentation_resolvedHeroMediaPhotoID_prefersFeaturedThenSessionRandom() {
+        let featured = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 100))
+        let sessionRandom = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 200))
+        let photos = [featured, sessionRandom]
+
+        #expect(
+            DiveBuddyTaggedMediaPresentation.resolvedHeroMediaPhotoID(
+                in: photos,
+                explicitFeaturedID: featured.id,
+                sessionRandomID: sessionRandom.id
+            ) == featured.id
+        )
+        #expect(
+            DiveBuddyTaggedMediaPresentation.resolvedHeroMediaPhotoID(
+                in: photos,
+                explicitFeaturedID: nil,
+                sessionRandomID: sessionRandom.id
+            ) == sessionRandom.id
+        )
+    }
+
+    @MainActor
+    @Test func diveBuddyHeroMediaSession_reusesRandomPickForBuddy() {
+        DiveBuddyHeroMediaSession.resetForTesting()
+        let buddyID = UUID()
+        let first = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 100))
+        let second = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 200))
+        let photos = [first, second]
+
+        let initial = DiveBuddyHeroMediaSession.resolvedRandomHeroMediaID(
+            buddyID: buddyID,
+            in: photos
+        )
+        #expect(initial == first.id || initial == second.id)
+
+        let again = DiveBuddyHeroMediaSession.resolvedRandomHeroMediaID(
+            buddyID: buddyID,
+            in: photos
+        )
+        #expect(again == initial)
+
+        let replacement = DiveBuddyHeroMediaSession.pickNewRandomHeroMediaID(
+            buddyID: buddyID,
+            in: photos
+        )
+        #expect(replacement == first.id || replacement == second.id)
+        DiveBuddyHeroMediaSession.resetForTesting()
+    }
+
+    @Test func diveBuddyDetailMapPresentation_pinsUniqueCoordinatesFromSharedDives() {
+        let site = DiveSite(
+            siteName: "Salt Pier",
+            latCoords: 12.0835,
+            longCoords: -68.283
+        )
+        let sharedA = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 100),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            siteName: "Salt Pier",
+            entryCoordinate: DiveCoordinate(latitude: 12.084, longitude: -68.284)
+        )
+        sharedA.diveSiteID = site.id
+        let sharedB = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 200),
+            durationMinutes: 35,
+            maxDepthMeters: 16,
+            siteName: "Salt Pier",
+            entryCoordinate: DiveCoordinate(latitude: 12.084, longitude: -68.284)
+        )
+        sharedB.diveSiteID = site.id
+        let sharedC = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 300),
+            durationMinutes: 50,
+            maxDepthMeters: 22,
+            siteName: "Something Else",
+            entryCoordinate: DiveCoordinate(latitude: 13.1, longitude: -69.1)
+        )
+
+        let pins = DiveBuddyDetailMapPresentation.pins(
+            from: [sharedA, sharedB, sharedC],
+            catalogSites: [site]
+        )
+        #expect(pins.count == 2)
+        #expect(pins.allSatisfy { $0.kind == .completed })
+        #expect(pins.contains(where: { $0.siteID == site.id }))
+        #expect(
+            DiveBuddyDetailMapPresentation.accessibilityLabel(for: pins)
+                == "Buddy dive sites map, 2 sites"
+        )
+    }
+
     @Test func diveActivityVideoPlaybackPolicy_shouldRestartFromBeginning_whenPageBecomesActive() {
         #expect(
             DiveActivityVideoPlaybackPolicy.shouldRestartFromBeginning(
@@ -9227,6 +10417,31 @@ struct GoDiveMVPTests {
                 isPlaybackActive: true,
                 mediaURLChanged: false,
                 isAtEnd: true
+            )
+        )
+    }
+
+    @Test func diveActivityVideoPlaybackPolicy_mediaIdentityChanged_ignoresPreviewToFullUpgrade() {
+        #expect(
+            !DiveActivityVideoPlaybackPolicy.mediaIdentityChanged(
+                previousKey: "asset:ABC|preview",
+                nextKey: "asset:ABC|full"
+            )
+        )
+        #expect(
+            DiveActivityVideoPlaybackPolicy.mediaIdentityChanged(
+                previousKey: "asset:ABC|preview",
+                nextKey: "asset:XYZ|preview"
+            )
+        )
+        #expect(
+            !DiveActivityVideoPlaybackPolicy.shouldRestartFromBeginning(
+                wasPlaybackActive: true,
+                isPlaybackActive: true,
+                mediaURLChanged: DiveActivityVideoPlaybackPolicy.mediaIdentityChanged(
+                    previousKey: "asset:ABC|preview",
+                    nextKey: "asset:ABC|full"
+                )
             )
         )
     }
@@ -12421,6 +13636,7 @@ struct GoDiveMVPTests {
         #expect(DiveBuddyRosterPresentation.listSubtitle(sharedDiveCount: 2) == "2 dives together")
         #expect(ProfilePresentation.diveBuddyRosterCountLabel(2) == "2 buddies")
         #expect(DiveBuddyRosterPresentation.buddyDetailUsesScrollContainer == false)
+        #expect(DiveBuddyDetailContentPagerPresentation.pageCount == 3)
         #expect(ExpandableDetailSectionPresentation.buddyDetailScrollsExpandedDiveList)
         #expect(ExpandableDetailSectionPresentation.buddyDetailKeepsExpandedContentMounted)
         #expect(ExpandableDetailSectionPresentation.expandCollapseAnimationDuration == 0.12)
@@ -12598,6 +13814,14 @@ struct GoDiveMVPTests {
         #expect(DiveBuddyPresentation.firstName(from: "  Jamie  ") == "Jamie")
         #expect(DiveBuddyPresentation.firstName(from: "Madonna") == "Madonna")
         #expect(DiveBuddyPresentation.firstName(from: "   ") == "Buddy")
+    }
+
+    @Test func diveBuddyPresentation_initials_usesFirstAndLastToken() {
+        #expect(DiveBuddyPresentation.initials(from: "Judy Belair") == "JB")
+        #expect(DiveBuddyPresentation.initials(from: "Pat Lee") == "PL")
+        #expect(DiveBuddyPresentation.initials(from: "Madonna") == "M")
+        #expect(DiveBuddyPresentation.initials(from: "  jamie kay  ") == "JK")
+        #expect(DiveBuddyPresentation.initials(from: "   ") == "B")
     }
 
     @Test func logbookBuddySearchPresentation_suggestions_onlyWhileTypingWithoutActiveFilter() {

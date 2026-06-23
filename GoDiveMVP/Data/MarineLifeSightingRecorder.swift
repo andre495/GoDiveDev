@@ -26,6 +26,51 @@ enum MarineLifeSightingRecorder {
         return try modelContext.fetch(descriptor)
     }
 
+    static func sightings(
+        forDiveActivityID diveActivityID: UUID,
+        modelContext: ModelContext
+    ) throws -> [SightingInstance] {
+        let descriptor = FetchDescriptor<SightingInstance>(
+            predicate: #Predicate<SightingInstance> { $0.diveActivityID == diveActivityID },
+            sortBy: [SortDescriptor(\.sightingDateTime, order: .reverse)]
+        )
+        return try modelContext.fetch(descriptor)
+    }
+
+    /// Fetches sightings for the given dives — avoids loading the full sighting table on trip detail.
+    static func sightings(
+        forDiveActivityIDs diveActivityIDs: Set<UUID>,
+        modelContext: ModelContext
+    ) throws -> [SightingInstance] {
+        guard !diveActivityIDs.isEmpty else { return [] }
+        var merged: [SightingInstance] = []
+        var seen = Set<String>()
+        for diveID in diveActivityIDs {
+            let rows = try sightings(forDiveActivityID: diveID, modelContext: modelContext)
+            for row in rows where seen.insert(row.sightingUUID).inserted {
+                merged.append(row)
+            }
+        }
+        return merged
+    }
+
+    /// Fetches sightings for buddy-tagged media — avoids loading the full sighting table on buddy detail.
+    static func sightings(
+        forMediaPhotoIDs mediaPhotoIDs: Set<UUID>,
+        modelContext: ModelContext
+    ) throws -> [SightingInstance] {
+        guard !mediaPhotoIDs.isEmpty else { return [] }
+        var merged: [SightingInstance] = []
+        var seen = Set<String>()
+        for mediaID in mediaPhotoIDs {
+            let rows = try sightings(forMediaPhotoID: mediaID, modelContext: modelContext)
+            for row in rows where seen.insert(row.sightingUUID).inserted {
+                merged.append(row)
+            }
+        }
+        return merged
+    }
+
     static func existingSighting(
         marineLifeUUID: String,
         mediaPhotoID: UUID,

@@ -23,12 +23,19 @@ enum AppUserSettings: Sendable {
     /// When **`true`**, attach Photos library items whose capture time falls within each dive window after dive import.
     nonisolated static let autoUploadMediaToActivitiesKey = "goDiveAutoUploadMediaToActivities"
 
+    /// When **`true`**, Home / buddy / trip pages show layout region guides and a copyable geometry report.
+    nonisolated static let showPageLayoutGeometryOverlayKey = "goDiveShowPageLayoutGeometryOverlay"
+
     static var automaticallyRenumberDives: Bool {
         UserDefaults.standard.bool(forKey: automaticallyRenumberDivesKey)
     }
 
     static var useImperialDisplayUnits: Bool {
         UserDefaults.standard.bool(forKey: useImperialDisplayUnitsKey)
+    }
+
+    nonisolated static func diveDisplayUnitSystem(userDefaults: UserDefaults = .standard) -> DiveDisplayUnitSystem {
+        userDefaults.bool(forKey: useImperialDisplayUnitsKey) ? .imperial : .metric
     }
 
     static var defaultTankSize: DefaultTankSize {

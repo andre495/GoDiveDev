@@ -8,6 +8,7 @@ struct ViewDiveBuddyDetails: View {
     @Environment(AccountSession.self) private var accountSession
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.openCatalogDiveSiteDetail) private var openCatalogDiveSiteDetail
 
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
 
@@ -17,17 +18,36 @@ struct ViewDiveBuddyDetails: View {
 
     @Query private var buddyMediaTags: [DiveMediaBuddyTag]
 
+    @State private var cachedMarineLifeCatalog: [MarineLife] = []
     @State private var showsEditSheet = false
     @State private var showsContactPicker = false
     @State private var contactsAccessError: String?
     @State private var contactLinkError: String?
-    @State private var showsSecondarySections = false
-    @State private var cachedSharedDives: [DiveActivity] = []
     @State private var cachedSharedDiveCount = 0
     @State private var cachedDiveRows: [DiveLogbookRowDisplayData] = []
-    @State private var cachedAssociatedTripRows: [DiveBuddyTripRowDisplayData] = []
+    @State private var cachedSharedDiveActivities: [DiveActivity] = []
+    @State private var ownerNumberingRows: [DiveActivityDiveNumbering.NumberingRow] = []
+    @State private var ownerActivityTimeZoneOffsets: [UUID: Int?] = [:]
+    @State private var showsDeferredBuddyChrome = false
+    @State private var cachedTripRows: [DiveBuddyTripRowDisplayData] = []
     @State private var cachedTaggedMediaItems: [DiveMediaPhoto] = []
     @State private var cachedTaggedMediaTimeZoneOffsetByID: [UUID: Int?] = [:]
+    @State private var cachedLinkedMediaItems: [TripDetailLinkedMediaItem] = []
+    @State private var cachedMapPins: [TripDetailMapPin] = []
+    @State private var cachedCatalogSites: [DiveSite] = []
+    @State private var cachedTaggedMediaSightings: [SightingInstance] = []
+    @State private var heroTaggedMediaID: UUID?
+    @State private var gallerySelectedMediaID: UUID?
+    @State private var buddyDiveNavigationID: BuddyDiveNavigationID?
+    @State private var buddySiteNavigationID: UUID?
+    @State private var buddyHeroMode: DiveBuddyDetailHeroHeaderView.Mode = .media
+    @State private var headerClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
+    @State private var layoutSafeAreaTopFloor = DiveBuddyDetailPresentation.initialPushedLayoutSafeAreaTopFloor()
+    @State private var layoutViewportHeightFloor = DiveBuddyDetailPresentation.initialPushedLayoutViewportFloor()
+
+    private struct BuddyDiveNavigationID: Identifiable, Hashable {
+        let id: UUID
+    }
 
     init(buddy: DiveBuddy) {
         self.buddy = buddy
@@ -40,33 +60,100 @@ struct ViewDiveBuddyDetails: View {
             filter: #Predicate<DiveMediaBuddyTag> { $0.buddyID == buddyID },
             sort: [SortDescriptor(\.id, order: .forward)]
         )
+        _heroTaggedMediaID = State(
+            initialValue: DiveBuddyDetailPresentation.initialHeroTaggedMediaPhotoID(for: buddy)
+        )
+
+        let initialMediaTags = Array(buddy.mediaBuddyTags)
+        let initialTaggedPhotos = DiveBuddyTaggedMediaPresentation.photosAvailableFromTagRelationships(
+            initialMediaTags
+        )
+        _cachedTaggedMediaItems = State(initialValue: initialTaggedPhotos)
+
+        let initialSharedDiveContent = DiveBuddyDetailPresentation.initialSharedDiveContent(for: buddy)
+        _cachedDiveRows = State(initialValue: initialSharedDiveContent.rows)
+        _cachedSharedDiveActivities = State(initialValue: initialSharedDiveContent.sharedDives)
+        _cachedSharedDiveCount = State(initialValue: initialSharedDiveContent.sharedDives.count)
     }
 
     private var ownerProfileID: UUID? {
         accountSession.currentProfile?.id
     }
 
-    private var headerSharedDiveCount: Int {
-        max(cachedSharedDiveCount, buddyDiveTags.count)
+    private var ownerDiveActivitiesForLayout: [DiveActivity] {
+        cachedSharedDiveActivities
     }
 
-    private var buddyDetailLoadToken: String {
+    private var ownerDiveIDsForLayout: Set<UUID> {
+        if !ownerNumberingRows.isEmpty {
+            return Set(ownerNumberingRows.map(\.id))
+        }
+        return Set(cachedSharedDiveActivities.map(\.id))
+    }
+
+    private var homeLayoutSeamInputs: HomeOverviewPushedLayoutPresentation.SeamInputs {
+        HomeOverviewPushedLayoutPresentation.pushedPageSeamInputs()
+    }
+
+    private var homeAlignedStatsPanelContentHeight: CGFloat {
+        homeLayoutSeamInputs.statsPanelContentHeight
+    }
+
+    private var effectiveBuddyDiveTags: [DiveBuddyTag] {
+        DiveBuddyDetailPresentation.effectiveDiveTags(
+            queried: buddyDiveTags,
+            relationship: Array(buddy.diveParticipations)
+        )
+    }
+
+    private var effectiveBuddyMediaTags: [DiveMediaBuddyTag] {
+        DiveBuddyDetailPresentation.effectiveMediaTags(
+            queried: buddyMediaTags,
+            relationship: Array(buddy.mediaBuddyTags)
+        )
+    }
+
+    private var headerSharedDiveCount: Int {
+        max(cachedSharedDiveCount, effectiveBuddyDiveTags.count)
+    }
+
+    private var heroTaggedMedia: DiveMediaPhoto? {
+        DiveActivityMediaPresentation.selectedMedia(
+            selectedID: heroTaggedMediaID,
+            in: cachedTaggedMediaItems
+        )
+    }
+
+    private var buddyHeaderTaggedMediaItems: [DiveMediaPhoto] {
+        if !cachedTaggedMediaItems.isEmpty { return cachedTaggedMediaItems }
+        return DiveBuddyTaggedMediaPresentation.photosAvailableFromTagRelationships(
+            effectiveBuddyMediaTags
+        )
+    }
+
+    private var displayHeroTaggedMedia: DiveMediaPhoto? {
+        let photos = buddyHeaderTaggedMediaItems
+        guard !photos.isEmpty else { return heroTaggedMedia }
+        let selectedID = heroTaggedMediaID ?? resolvedHeroMediaPhotoID(from: photos)
+        return DiveActivityMediaPresentation.selectedMedia(
+            selectedID: selectedID,
+            in: photos
+        ) ?? heroTaggedMedia
+    }
+
+    private var expectsBuddyHeroTaggedMedia: Bool {
+        !effectiveBuddyMediaTags.isEmpty
+    }
+
+    private var buddyDetailContentToken: String {
         [
             buddy.id.uuidString,
-            "\(buddyDiveTags.count)",
-            "\(buddyMediaTags.count)",
+            "\(effectiveBuddyDiveTags.count)",
+            "\(effectiveBuddyMediaTags.count)",
+            "\(ownerNumberingRows.count)",
             diveDisplayUnitSystem.rawValue,
             automaticallyRenumberDives ? "1" : "0",
         ].joined(separator: "|")
-    }
-
-    private var taggedMediaSectionItemCount: Int {
-        max(cachedTaggedMediaItems.count, taggedMediaTagCount)
-    }
-
-    private var taggedMediaTagCount: Int {
-        guard showsSecondarySections else { return buddyMediaTags.count }
-        return cachedTaggedMediaItems.count
     }
 
     var body: some View {
@@ -78,49 +165,177 @@ struct ViewDiveBuddyDetails: View {
     }
 
     private var buddyDetailsPage: some View {
-        AppPage(
-            title: buddy.displayName,
-            showsBackButton: true,
-            trailingContent: {
-                Button("Edit") {
-                    showsEditSheet = true
-                }
-                .font(.body.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.tabSelected)
-                .accessibilityIdentifier("DiveBuddyDetails.Edit")
-            },
-            content: {
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-                    headerSection
+        AppHeaderlessPage {
+            GeometryReader { proxy in
+                let rawSafeTop = AppScrollUnderHeaderListLayout.resolvedSafeAreaTop(proxy.safeAreaInsets.top)
+                let safeTop = max(rawSafeTop, layoutSafeAreaTopFloor)
+                let topInset = AppScrollUnderHeaderListLayout.listTopInset(
+                    safeAreaTop: safeTop,
+                    headerClearance: headerClearance
+                )
+                let geometryHeight = max(proxy.size.height, 1)
+                let bottomScrollInset = HomeOverviewLayout.pushedPageScrollBottomInset(
+                    safeAreaBottom: proxy.safeAreaInsets.bottom
+                )
+                let layoutHeight = HomeOverviewLayout.pushedPageLayoutHeight(
+                    from: geometryHeight,
+                    transitionViewportFloor: layoutViewportHeightFloor
+                )
+                let heroTopSafeAreaInset = HomeOverviewLayout.pushedHeroTopSafeAreaInset(
+                    rawGeometrySafeTop: proxy.safeAreaInsets.top,
+                    transitionSafeTopFloor: layoutSafeAreaTopFloor
+                )
+                let heroHeight = DiveBuddyDetailPresentation.heroHeight(
+                    viewportHeight: geometryHeight,
+                    screenWidth: proxy.size.width,
+                    topSafeAreaInset: heroTopSafeAreaInset,
+                    statsPanelContentHeight: homeAlignedStatsPanelContentHeight,
+                    showsBuddyLeaderboard: homeLayoutSeamInputs.showsBuddyLeaderboard,
+                    transitionViewportFloor: layoutViewportHeightFloor
+                )
+                let layoutSnapshot = PageLayoutGeometryProbe.pushed(
+                    pageKind: .buddyDetail,
+                    screenWidth: proxy.size.width,
+                    geometryHeight: geometryHeight,
+                    safeAreaTop: safeTop,
+                    safeAreaBottom: proxy.safeAreaInsets.bottom,
+                    layoutStackHeight: layoutHeight,
+                    heroHeight: heroHeight,
+                    statsPanelContentHeight: homeAlignedStatsPanelContentHeight,
+                    scrollBottomInset: bottomScrollInset
+                )
 
-                    if showsSecondarySections {
-                        if taggedMediaSectionItemCount > 0 {
-                            taggedMediaSection
+                ZStack(alignment: .top) {
+                    VStack(spacing: -HomeLifetimeStatsLayout.panelOverlap) {
+                        PushedHeroBand(
+                            height: heroHeight,
+                            topSafeAreaInset: heroTopSafeAreaInset
+                        ) {
+                            DiveBuddyDetailHeroHeaderView(
+                                media: showsDeferredBuddyChrome ? displayHeroTaggedMedia : heroBootstrapMedia,
+                                mapPins: showsDeferredBuddyChrome ? cachedMapPins : [],
+                                mapFitLayout: TripDetailMapFitLayout(
+                                    mapHeight: heroHeight,
+                                    topObstructionHeight: topInset
+                                ),
+                                height: heroHeight,
+                                expectsTaggedMedia: expectsBuddyHeroTaggedMedia,
+                                isMapContentReady: showsDeferredBuddyChrome,
+                                shouldAutoPlaySelectedVideo: showsDeferredBuddyChrome
+                                    && DiveBuddyDetailPresentation.shouldAutoPlaySelectedVideo(
+                                        for: displayHeroTaggedMedia
+                                    ),
+                                onSiteSelected: openDiveSiteFromMap,
+                                selectedMode: $buddyHeroMode
+                            )
                         }
 
-                        if !cachedAssociatedTripRows.isEmpty {
-                            tripsTogetherSection
-                        }
+                        HomeLifetimeStatsPanel(
+                            overlapsMedia: true,
+                            bottomSafeAreaInset: 0
+                        ) {
+                            VStack(alignment: .leading, spacing: 0) {
+                                buddyIdentityRow
 
-                        divesTogetherSection
+                                buddyContentPager(
+                                    bottomScrollInset: bottomScrollInset
+                                )
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                            }
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    } else {
-                        Spacer(minLength: 0)
+                        }
+                        .overlay(alignment: .topLeading) {
+                            buddyAvatarHeader
+                                .padding(.leading, DiveBuddyDetailPresentation.avatarLeadingInset)
+                                .offset(y: -Layout.avatarOverlapOffset)
+                                .accessibilityIdentifier("DiveBuddyDetails.AvatarOverlay")
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .accessibilityIdentifier("DiveBuddyDetails.ContentPanel")
+                        .zIndex(1)
+                        .ignoresSafeArea(edges: .bottom)
+                    }
+                    .overlay(alignment: .top) {
+                        if showsDeferredBuddyChrome, !cachedMapPins.isEmpty {
+                            DiveBuddyDetailHeroModeToggle(selectedMode: $buddyHeroMode)
+                                .padding(.trailing, AppTheme.Spacing.md)
+                                .padding(.bottom, DiveBuddyDetailPresentation.heroModeToggleBottomPadding)
+                                .frame(width: proxy.size.width, height: heroHeight, alignment: .bottomTrailing)
+                        }
+                    }
+                    .frame(width: proxy.size.width, height: layoutHeight, alignment: .top)
+                    .ignoresSafeArea(edges: .bottom)
+                    .pageLayoutGeometryOverlay(layoutSnapshot)
+                    .animation(nil, value: heroHeight)
+
+                    buddyDetailBackChrome(safeTop: safeTop, topInset: topInset)
+                }
+                .onPreferenceChange(AppHeaderMetrics.HeightKey.self) { height in
+                    guard height > 0, height != headerClearance else { return }
+                    var transaction = Transaction()
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) {
+                        headerClearance = height
                     }
                 }
-                .padding(AppTheme.Spacing.md)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .onChange(of: rawSafeTop, initial: true) { _, resolvedTop in
+                    guard resolvedTop > layoutSafeAreaTopFloor else { return }
+                    layoutSafeAreaTopFloor = resolvedTop
+                }
+                .onChange(of: geometryHeight, initial: true) { _, height in
+                    let subtractedViewport = HomeOverviewLayout.viewportHeightMatchingHomeTab(from: height)
+                    let transitionViewport = HomeOverviewLayout.pushedHeroLayoutTransitionViewportCandidate(
+                        from: height
+                    )
+                    guard subtractedViewport < transitionViewport else { return }
+                    guard transitionViewport > layoutViewportHeightFloor else { return }
+                    layoutViewportHeightFloor = transitionViewport
+                }
             }
-        )
+        }
+        .ignoresSafeArea(edges: [.horizontal])
         .navigationDestination(for: UUID.self) { diveID in
-            if let activity = cachedSharedDives.first(where: { $0.id == diveID }) {
+            if let activity = ownerDiveActivitiesForLayout.first(where: { $0.id == diveID }) {
                 ViewSingleActivity(activity: activity)
             }
         }
-        .task(id: buddyDetailLoadToken) {
+        .navigationDestination(item: $buddyDiveNavigationID) { target in
+            if let activity = ownerDiveActivitiesForLayout.first(where: { $0.id == target.id }) {
+                ViewSingleActivity(activity: activity)
+            }
+        }
+        .navigationDestination(item: $buddySiteNavigationID) { siteID in
+            if let site = TripDetailDiveSiteNavigation.resolvedSite(
+                siteID: siteID,
+                plannedSites: [],
+                catalogSites: cachedCatalogSites
+            ) {
+                ExploreDiveSiteDetailView(
+                    site: site,
+                    ownerProfileID: ownerProfileID
+                )
+            }
+        }
+        .task(id: buddy.id) {
             await Task.yield()
-            loadSecondarySections()
-            showsSecondarySections = true
+            showsDeferredBuddyChrome = true
+        }
+        .task(id: buddyDetailContentToken, priority: .utility) {
+            await Task.yield()
+            if ownerNumberingRows.isEmpty, let ownerProfileID {
+                let ownerDiveIndex = DiveBuddyDetailPresentation.fetchOwnerDiveIndex(
+                    ownerProfileID: ownerProfileID,
+                    modelContext: modelContext
+                )
+                ownerNumberingRows = ownerDiveIndex.numberingRows
+                ownerActivityTimeZoneOffsets = ownerDiveIndex.timeZoneOffsetByActivityID
+            }
+            rebuildBuddyDetailContent(includeSecondarySections: false, includeMarineLifeEnrichment: false)
+            await Task.yield()
+            rebuildBuddyDetailContent(includeSecondarySections: true, includeMarineLifeEnrichment: false)
+            await Task.yield()
+            rebuildBuddyDetailContent(includeSecondarySections: true, includeMarineLifeEnrichment: true)
+            await warmBuddyHeroHeaderMediaPreviewIfNeeded()
         }
         .hidesBottomTabBarWhenPushed()
         .onAppear {
@@ -155,8 +370,7 @@ struct ViewDiveBuddyDetails: View {
         }
         .task(id: buddy.id) {
             guard buddy.contactsIdentifier != nil else { return }
-            await Task.yield()
-            try? await Task.sleep(for: .milliseconds(350))
+            try? await Task.sleep(for: .seconds(2))
             refreshLinkedContactOnAppear()
         }
         #endif
@@ -173,70 +387,212 @@ struct ViewDiveBuddyDetails: View {
         .accessibilityIdentifier("DiveBuddyDetails.Root")
     }
 
-    private func loadSecondarySections() {
+    private var heroBootstrapMedia: DiveMediaPhoto? {
+        guard let media = displayHeroTaggedMedia,
+              media.resolvedMediaKind != .video else { return nil }
+        return media
+    }
+
+    private func catalogSitesFromSharedDives(_ sharedDives: [DiveActivity]) -> [DiveSite] {
+        var byID: [UUID: DiveSite] = [:]
+        for dive in sharedDives {
+            if let site = dive.diveSite {
+                byID[site.id] = site
+            }
+        }
+        return Array(byID.values)
+    }
+
+    private func resolvedHeroMediaPhotoID(from photos: [DiveMediaPhoto]) -> UUID? {
+        DiveBuddyTaggedMediaPresentation.resolvedHeroMediaPhotoID(
+            in: photos,
+            explicitFeaturedID: buddy.featuredTaggedMediaPhotoID,
+            sessionRandomID: DiveBuddyHeroMediaSession.resolvedRandomHeroMediaID(
+                buddyID: buddy.id,
+                in: photos
+            )
+        )
+    }
+
+    private func rebuildBuddyDetailContent(
+        includeSecondarySections: Bool,
+        includeMarineLifeEnrichment: Bool
+    ) {
         guard let ownerProfileID else { return }
 
+        let diveTags = effectiveBuddyDiveTags
+        let mediaTags = effectiveBuddyMediaTags
+        let ownerDiveActivityIDs = ownerDiveIDsForLayout
+
         let sharedDives = DiveBuddyRosterPresentation.sharedDiveActivities(
-            from: buddyDiveTags,
+            from: diveTags,
             ownerProfileID: ownerProfileID
         )
-        cachedSharedDives = sharedDives
+        cachedSharedDiveActivities = sharedDives
         cachedSharedDiveCount = sharedDives.count
 
-        let ownerDiveActivities = fetchOwnerDiveActivities(ownerProfileID: ownerProfileID)
         cachedDiveRows = DiveBuddyRosterPresentation.sharedDiveRowDisplayData(
             sharedDives: sharedDives,
             unitSystem: diveDisplayUnitSystem,
             useChronologicalNumbers: automaticallyRenumberDives,
-            numberingActivities: ownerDiveActivities
+            numberingRows: ownerNumberingRows
         )
 
-        let ownerTrips = fetchOwnerTrips(ownerProfileID: ownerProfileID)
-        cachedAssociatedTripRows = DiveBuddyTripPresentation.sortedAssociatedTrips(
-            DiveBuddyTripPresentation.associatedTrips(
-                buddyID: buddy.id,
-                ownerProfileID: ownerProfileID,
-                trips: ownerTrips,
-                sharedDiveIDs: Set(sharedDives.map(\.id))
+        let taggedMedia = DiveBuddyTaggedMediaPresentation.taggedMediaPhotos(
+            tags: mediaTags,
+            ownerDiveActivityIDs: ownerDiveActivityIDs
+        )
+        cachedTaggedMediaItems = taggedMedia
+
+        if includeSecondarySections {
+            let catalogSites = catalogSitesFromSharedDives(sharedDives)
+            cachedCatalogSites = catalogSites
+            cachedMapPins = DiveBuddyDetailMapPresentation.pins(
+                from: sharedDives,
+                catalogSites: catalogSites
             )
-        ).map { DiveBuddyTripPresentation.rowDisplayData(for: $0) }
+            if cachedMapPins.isEmpty, buddyHeroMode == .map {
+                buddyHeroMode = .media
+            }
 
-        let ownerDiveActivityIDs = Set(ownerDiveActivities.map(\.id))
-        let offsetByActivityID = Dictionary(
-            uniqueKeysWithValues: ownerDiveActivities.map { ($0.id, $0.timeZoneOffsetSeconds) }
+            cachedTripRows = DiveBuddyTripPresentation.sortedAssociatedTrips(
+                DiveBuddyTripPresentation.associatedTrips(
+                    buddyID: buddy.id,
+                    ownerProfileID: ownerProfileID,
+                    trips: DiveBuddyDetailPresentation.fetchOwnerTrips(
+                        ownerProfileID: ownerProfileID,
+                        modelContext: modelContext
+                    ),
+                    sharedDiveIDs: Set(sharedDives.map(\.id))
+                )
+            ).map { DiveBuddyTripPresentation.rowDisplayData(for: $0) }
+
+            let offsetByActivityID = ownerActivityTimeZoneOffsets.isEmpty
+                ? Dictionary(uniqueKeysWithValues: sharedDives.map { ($0.id, $0.timeZoneOffsetSeconds) })
+                : ownerActivityTimeZoneOffsets
+            cachedTaggedMediaTimeZoneOffsetByID = DiveBuddyTaggedMediaPresentation.timeZoneOffsetByMediaID(
+                tags: mediaTags,
+                ownerDiveActivityIDs: ownerDiveActivityIDs,
+                timeZoneOffsetByActivityID: offsetByActivityID
+            )
+            cachedLinkedMediaItems = DiveBuddyTaggedMediaPresentation.linkedMediaItems(
+                tags: mediaTags,
+                ownerDiveActivityIDs: ownerDiveActivityIDs,
+                mediaItems: taggedMedia
+            )
+        }
+
+        if includeMarineLifeEnrichment, !taggedMedia.isEmpty {
+            if cachedMarineLifeCatalog.isEmpty {
+                cachedMarineLifeCatalog = (try? modelContext.fetch(
+                    FetchDescriptor<MarineLife>(sortBy: [SortDescriptor(\.commonName)])
+                )) ?? []
+            }
+            let taggedMediaIDs = Set(taggedMedia.map(\.id))
+            let sightings = (try? MarineLifeSightingRecorder.sightings(
+                forMediaPhotoIDs: taggedMediaIDs,
+                modelContext: modelContext
+            )) ?? []
+            cachedTaggedMediaSightings = DiveBuddyTaggedMediaPresentation.sightingsForTaggedMedia(
+                allSightings: sightings,
+                taggedMediaItemIDs: taggedMediaIDs
+            )
+        } else if !includeMarineLifeEnrichment {
+            cachedTaggedMediaSightings = []
+        }
+
+        if heroTaggedMediaID == nil {
+            heroTaggedMediaID = resolvedHeroMediaPhotoID(
+                from: taggedMedia.isEmpty
+                    ? DiveBuddyTaggedMediaPresentation.photosAvailableFromTagRelationships(mediaTags)
+                    : taggedMedia
+            )
+        }
+
+        gallerySelectedMediaID = DiveActivityMediaPresentation.resolvedSelectedPhotoID(
+            selectedID: gallerySelectedMediaID,
+            in: taggedMedia
         )
-        cachedTaggedMediaItems = DiveBuddyTaggedMediaPresentation.resolvedTaggedMediaPhotos(
-            tags: buddyMediaTags,
-            ownerDiveActivityIDs: ownerDiveActivityIDs,
+
+        if let heroID = heroTaggedMediaID,
+           let hero = buddyHeaderTaggedMediaItems.first(where: { $0.id == heroID }) {
+            DiveMediaPreviewStorage.seedSessionCacheIfNeeded(for: hero)
+        }
+    }
+
+    private func warmBuddyHeroHeaderMediaPreviewIfNeeded() async {
+        guard let heroID = heroTaggedMediaID ?? resolvedHeroMediaPhotoID(from: buddyHeaderTaggedMediaItems),
+              let hero = buddyHeaderTaggedMediaItems.first(where: { $0.id == heroID })
+        else { return }
+        await DiveMediaPreviewStorage.ensureStoredPreviews(for: [hero], modelContext: modelContext)
+    }
+
+    @ViewBuilder
+    private func buddyDetailBackChrome(
+        safeTop: CGFloat,
+        topInset: CGFloat
+    ) -> some View {
+        LogbookTopChromeScrim(topObstructionHeight: topInset)
+            .padding(.top, -safeTop)
+            .ignoresSafeArea(edges: .top)
+            .allowsHitTesting(false)
+            .zIndex(0.5)
+
+        Color.clear
+            .frame(height: topInset)
+            .frame(maxWidth: .infinity, alignment: .top)
+            .contentShape(Rectangle())
+            .accessibilityHidden(true)
+            .zIndex(0.75)
+
+        AppHeader(
+            title: "",
+            showsBackButton: true,
+            showsBrandWordmark: false,
+            statusBarSafeAreaTop: safeTop
+        ) {
+            Button("Edit") {
+                showsEditSheet = true
+            }
+            .font(.body.weight(.semibold))
+            .foregroundStyle(AppTheme.Colors.tabSelected)
+            .accessibilityIdentifier("DiveBuddyDetails.Edit")
+        }
+        .frame(maxWidth: .infinity, alignment: .top)
+        .zIndex(1)
+    }
+
+    private func openDiveSiteFromMap(_ siteID: UUID) {
+        if let openCatalogDiveSiteDetail {
+            openCatalogDiveSiteDetail(siteID)
+        } else {
+            buddySiteNavigationID = siteID
+        }
+    }
+
+    private func toggleFeaturedTaggedMedia() {
+        guard let selectedID = gallerySelectedMediaID,
+              let selectedMedia = cachedTaggedMediaItems.first(where: { $0.id == selectedID })
+        else { return }
+
+        let nextFeaturedID = DiveBuddyTaggedMediaPresentation.toggledFeaturedMediaPhotoID(
+            mediaID: selectedMedia.id,
+            explicitFeaturedID: buddy.featuredTaggedMediaPhotoID
+        )
+        try? DiveBuddyFeaturedMediaStorage.setFeaturedTaggedMedia(
+            nextFeaturedID,
+            on: buddy,
             modelContext: modelContext
         )
-        cachedTaggedMediaTimeZoneOffsetByID = DiveBuddyTaggedMediaPresentation.timeZoneOffsetByMediaID(
-            tags: buddyMediaTags,
-            ownerDiveActivityIDs: ownerDiveActivityIDs,
-            timeZoneOffsetByActivityID: offsetByActivityID
-        )
-    }
 
-    private func fetchOwnerDiveActivities(ownerProfileID: UUID) -> [DiveActivity] {
-        let descriptor = FetchDescriptor<DiveActivity>(
-            predicate: #Predicate { $0.ownerProfileID == ownerProfileID },
-            sortBy: [
-                SortDescriptor(\.startTime, order: .reverse),
-                SortDescriptor(\.id, order: .forward),
-            ]
-        )
-        return (try? modelContext.fetch(descriptor)) ?? []
-    }
-
-    private func fetchOwnerTrips(ownerProfileID: UUID) -> [DiveTrip] {
-        let descriptor = FetchDescriptor<DiveTrip>(
-            predicate: #Predicate { $0.ownerProfileID == ownerProfileID },
-            sortBy: [
-                SortDescriptor(\.startDate, order: .reverse),
-                SortDescriptor(\.createdAt, order: .reverse),
-            ]
-        )
-        return (try? modelContext.fetch(descriptor)) ?? []
+        if let nextFeaturedID {
+            heroTaggedMediaID = nextFeaturedID
+        } else {
+            heroTaggedMediaID = DiveBuddyHeroMediaSession.pickNewRandomHeroMediaID(
+                buddyID: buddy.id,
+                in: cachedTaggedMediaItems
+            )
+        }
     }
 
     private var contactsAccessAlertBinding: Binding<Bool> {
@@ -254,30 +610,86 @@ struct ViewDiveBuddyDetails: View {
     }
 
     private enum Layout {
-        static let avatarDiameter: CGFloat = 120
-        static let contactBadgeDiameter: CGFloat = 34
+        static let avatarDiameter = DiveBuddyDetailPresentation.profileAvatarDiameter
+        static let contactBadgeDiameter = DiveBuddyDetailPresentation.contactBadgeDiameter
+        static let avatarOverlapOffset = DiveBuddyDetailPresentation.avatarOverlapOffset()
     }
 
-    private var headerSection: some View {
-        VStack(spacing: AppTheme.Spacing.md) {
-            buddyAvatarHeader
+    private var buddyIdentityRow: some View {
+        HStack(alignment: .top, spacing: AppTheme.Spacing.md) {
+            Color.clear
+                .frame(
+                    width: Layout.avatarDiameter,
+                    height: Layout.avatarOverlapOffset
+                )
+                .accessibilityHidden(true)
 
-            Text(buddy.displayName)
-                .font(.title2.weight(.bold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.85)
-                .frame(maxWidth: .infinity)
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                Text(buddy.displayName)
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
 
-            Text(DiveBuddyRosterPresentation.sharedDiveCountLabel(headerSharedDiveCount))
-                .font(.body.weight(.medium))
-                .foregroundStyle(AppTheme.Colors.secondaryText)
-                .frame(maxWidth: .infinity)
+                Text(DiveBuddyRosterPresentation.sharedDiveCountLabel(headerSharedDiveCount))
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.accent)
+            }
+            .offset(y: -DiveBuddyDetailPresentation.identityTextLift)
+
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity)
+        .padding(.bottom, AppTheme.Spacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("DiveBuddyDetails.Header")
+    }
+
+    @ViewBuilder
+    private func buddyContentPager(
+        bottomScrollInset: CGFloat
+    ) -> some View {
+        if showsDeferredBuddyChrome {
+            DiveBuddyDetailContentPager(
+                diveRows: cachedDiveRows,
+                tripRows: cachedTripRows,
+                taggedMediaItems: cachedTaggedMediaItems,
+                taggedMediaTimeZoneOffsetByID: cachedTaggedMediaTimeZoneOffsetByID,
+                linkedMediaItems: cachedLinkedMediaItems,
+                mediaSightings: cachedTaggedMediaSightings,
+                marineLifeCatalog: cachedMarineLifeCatalog,
+                ownerProfileID: ownerProfileID,
+                featuredTaggedMediaPhotoID: buddy.featuredTaggedMediaPhotoID,
+                gallerySelectedMediaID: $gallerySelectedMediaID,
+                bottomScrollInset: bottomScrollInset,
+                onToggleFeaturedTaggedMedia: toggleFeaturedTaggedMedia
+            )
+        } else if !cachedDiveRows.isEmpty {
+            ScrollView {
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+                    LinkedDiveLogbookListRows(
+                        rows: cachedDiveRows,
+                        listAccessibilityIdentifier: "DiveBuddyDetails.DiveList"
+                    )
+                    .accessibilityIdentifier("DiveBuddyDetails.DivesTogether")
+
+                    Color.clear
+                        .frame(height: bottomScrollInset)
+                        .accessibilityHidden(true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .scrollClipDisabled(false)
+            .scrollDismissesKeyboard(.interactively)
+            .ignoresSafeArea(edges: .bottom)
+            .homeSheetPanelBottomScrollFade()
+            .accessibilityIdentifier("DiveBuddyDetails.ContentPager.Bootstrap")
+        } else {
+            Color.clear
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityIdentifier("DiveBuddyDetails.ContentPager.Bootstrap")
+        }
     }
 
     @ViewBuilder
@@ -287,7 +699,8 @@ struct ViewDiveBuddyDetails: View {
             ProfileAvatarView(
                 profilePhoto: buddy.profilePhoto,
                 diameter: Layout.avatarDiameter,
-                iconFont: .system(size: 56)
+                iconFont: .system(size: 56),
+                placeholderInitials: DiveBuddyPresentation.initials(from: buddy.displayName)
             )
 
             contactLinkBadge
@@ -296,7 +709,8 @@ struct ViewDiveBuddyDetails: View {
         ProfileAvatarView(
             profilePhoto: buddy.profilePhoto,
             diameter: Layout.avatarDiameter,
-            iconFont: .system(size: 56)
+            iconFont: .system(size: 56),
+            placeholderInitials: DiveBuddyPresentation.initials(from: buddy.displayName)
         )
         #endif
     }
@@ -361,55 +775,4 @@ struct ViewDiveBuddyDetails: View {
         }
     }
     #endif
-
-    private var taggedMediaSection: some View {
-        ExpandableDetailSection(
-            title: DiveBuddyTaggedMediaPresentation.sectionTitle,
-            itemCount: taggedMediaSectionItemCount,
-            accessibilityIdentifier: "DiveBuddyDetails.TaggedMedia"
-        ) {
-            FieldGuideTaggedMediaGalleryView(
-                mediaItems: cachedTaggedMediaItems,
-                timeZoneOffsetByMediaID: cachedTaggedMediaTimeZoneOffsetByID,
-                showsTitle: false,
-                previewAccessibilityIdentifier: "DiveBuddyDetails.TaggedMediaPreview",
-                carouselAccessibilityIdentifier: "DiveBuddyDetails.TaggedMediaCarousel"
-            )
-        }
-    }
-
-    private var tripsTogetherSection: some View {
-        ExpandableDetailSection(
-            title: DiveBuddyTripPresentation.sectionTitle,
-            itemCount: cachedAssociatedTripRows.count,
-            accessibilityIdentifier: "DiveBuddyDetails.TripsTogether"
-        ) {
-            EmptyView()
-        } content: {
-            DiveBuddyTripListRows(
-                rows: cachedAssociatedTripRows,
-                listAccessibilityIdentifier: "DiveBuddyDetails.TripList"
-            )
-        }
-    }
-
-    private var divesTogetherSection: some View {
-        ExpandableDetailSection(
-            title: "Dives together",
-            itemCount: cachedSharedDiveCount,
-            scrollsExpandedContent: ExpandableDetailSectionPresentation.buddyDetailScrollsExpandedDiveList,
-            accessibilityIdentifier: "DiveBuddyDetails.DivesTogether"
-        ) {
-            Text("No dives tagged with this buddy yet.")
-                .font(.body)
-                .foregroundStyle(AppTheme.Colors.secondaryText)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityIdentifier("DiveBuddyDetails.EmptyDives")
-        } content: {
-            LinkedDiveLogbookListRows(
-                rows: cachedDiveRows,
-                listAccessibilityIdentifier: "DiveBuddyDetails.DiveList"
-            )
-        }
-    }
 }

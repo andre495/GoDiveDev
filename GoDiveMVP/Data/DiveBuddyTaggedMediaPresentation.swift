@@ -4,7 +4,42 @@ import SwiftData
 /// Tagged dive media for **`ViewDiveBuddyDetails`** (photos/videos where the buddy is tagged).
 enum DiveBuddyTaggedMediaPresentation {
 
-    static let sectionTitle = "Your tagged photos"
+    nonisolated static let sectionTitle = "Your tagged photos"
+
+    /// Resolved header hero: featured star when still tagged, else session random fallback.
+    nonisolated static func resolvedHeroMediaPhotoID(
+        in photos: [DiveMediaPhoto],
+        explicitFeaturedID: UUID?,
+        sessionRandomID: UUID?
+    ) -> UUID? {
+        DetailHeroMediaPresentation.resolvedHeroMediaPhotoID(
+            in: photos,
+            explicitFeaturedID: explicitFeaturedID,
+            sessionRandomID: sessionRandomID
+        )
+    }
+
+    /// **`true`** when **`mediaID`** is the user-starred hero pick (not the random fallback).
+    nonisolated static func isExplicitlyFeatured(
+        mediaID: UUID,
+        explicitFeaturedID: UUID?
+    ) -> Bool {
+        DetailHeroMediaPresentation.isExplicitlyFeatured(
+            mediaID: mediaID,
+            explicitFeaturedID: explicitFeaturedID
+        )
+    }
+
+    /// Next starred id when toggling: clear when already starred, otherwise feature **`mediaID`** exclusively.
+    nonisolated static func toggledFeaturedMediaPhotoID(
+        mediaID: UUID,
+        explicitFeaturedID: UUID?
+    ) -> UUID? {
+        DetailHeroMediaPresentation.toggledFeaturedMediaPhotoID(
+            mediaID: mediaID,
+            explicitFeaturedID: explicitFeaturedID
+        )
+    }
 
     struct GalleryPayload: Equatable, Sendable {
         let mediaItemIDs: [UUID]
@@ -37,6 +72,19 @@ enum DiveBuddyTaggedMediaPresentation {
                 timeZoneOffsetByActivityID: timeZoneOffsetByActivityID
             )
         )
+    }
+
+    /// Walks loaded tag relationships for instant hero picks before owner-scoped gallery hydration finishes.
+    nonisolated static func photosAvailableFromTagRelationships(_ tags: [DiveMediaBuddyTag]) -> [DiveMediaPhoto] {
+        var seenPhotoIDs = Set<UUID>()
+        var photos: [DiveMediaPhoto] = []
+
+        for tag in tags {
+            guard let photo = tag.mediaPhoto, seenPhotoIDs.insert(photo.id).inserted else { continue }
+            photos.append(photo)
+        }
+
+        return photos.sorted(by: DiveActivityMediaPresentation.isOrderedBeforeInGallery)
     }
 
     /// Unique **`DiveMediaPhoto`** rows for the signed-in user's dives, gallery order (oldest capture first).
@@ -154,5 +202,56 @@ enum DiveBuddyTaggedMediaPresentation {
             offsets[mediaID] = timeZoneOffsetByActivityID[activityID] ?? nil
         }
         return offsets
+    }
+
+    /// Maps each tagged photo to its parent dive for trip-style media chrome (**View on dive**).
+    nonisolated static func linkedMediaItems(
+        tags: [DiveMediaBuddyTag],
+        ownerDiveActivityIDs: Set<UUID>,
+        mediaItems: [DiveMediaPhoto]
+    ) -> [TripDetailLinkedMediaItem] {
+        let diveIDByMediaID = diveActivityIDByMediaID(
+            tags: tags,
+            ownerDiveActivityIDs: ownerDiveActivityIDs
+        )
+        return mediaItems.compactMap { photo in
+            guard let diveActivityID = diveIDByMediaID[photo.id] else { return nil }
+            return TripDetailLinkedMediaItem(
+                id: photo.id,
+                diveActivityID: diveActivityID,
+                capturedAt: photo.capturedAt,
+                sortOrder: photo.sortOrder
+            )
+        }
+    }
+
+    nonisolated static func diveActivityIDByMediaID(
+        tags: [DiveMediaBuddyTag],
+        ownerDiveActivityIDs: Set<UUID>
+    ) -> [UUID: UUID] {
+        guard !ownerDiveActivityIDs.isEmpty else { return [:] }
+
+        var diveIDByMediaID: [UUID: UUID] = [:]
+        for tag in tags {
+            guard let activityID = tag.diveActivityID,
+                  ownerDiveActivityIDs.contains(activityID),
+                  let mediaID = tag.mediaPhotoID,
+                  diveIDByMediaID[mediaID] == nil
+            else { continue }
+            diveIDByMediaID[mediaID] = activityID
+        }
+        return diveIDByMediaID
+    }
+
+    /// Sightings on buddy-tagged media rows — powers marine-life overlay chips.
+    nonisolated static func sightingsForTaggedMedia(
+        allSightings: [SightingInstance],
+        taggedMediaItemIDs: Set<UUID>
+    ) -> [SightingInstance] {
+        guard !taggedMediaItemIDs.isEmpty else { return [] }
+        return allSightings.filter { sighting in
+            guard let mediaPhotoID = sighting.mediaPhotoID else { return false }
+            return taggedMediaItemIDs.contains(mediaPhotoID)
+        }
     }
 }

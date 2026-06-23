@@ -46,6 +46,12 @@ struct DiveBuddiesListView: View {
             }
         }
         .hidesBottomTabBarWhenPushed()
+        .navigationDestination(for: UUID.self) { buddyID in
+            if let buddy = ownedBuddies.first(where: { $0.id == buddyID }) {
+                ViewDiveBuddyDetails(buddy: buddy)
+                    .hidesBottomTabBarWhenPushed()
+            }
+        }
         .sheet(isPresented: $showsAddBuddySheet) {
             DiveActivityAddBuddySheet()
         }
@@ -89,9 +95,7 @@ struct DiveBuddiesListView: View {
     private var buddyList: some View {
         AppScrollUnderHeaderList(listAccessibilityIdentifier: "DiveBuddiesList.List") {
             ForEach(ownedBuddies, id: \.id) { buddy in
-                NavigationLink {
-                    ViewDiveBuddyDetails(buddy: buddy)
-                } label: {
+                NavigationLink(value: buddy.id) {
                     DiveBuddyListRowView(
                         buddy: buddy,
                         sharedDiveCount: sharedDiveCount(for: buddy)
@@ -123,7 +127,8 @@ private struct DiveBuddyListRowView: View {
             ProfileAvatarView(
                 profilePhoto: buddy.profilePhoto,
                 diameter: 48,
-                iconFont: .title3
+                iconFont: .title3,
+                placeholderInitials: DiveBuddyPresentation.initials(from: buddy.displayName)
             )
 
             VStack(alignment: .leading, spacing: 4) {

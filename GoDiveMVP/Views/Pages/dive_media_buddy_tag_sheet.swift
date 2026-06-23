@@ -391,7 +391,8 @@ private struct DiveMediaBuddyTagPickerRow: View {
             ProfileAvatarView(
                 profilePhoto: buddy.profilePhoto,
                 diameter: DiveMediaBuddyTagPickerRowLayout.avatarDiameter,
-                iconFont: .callout
+                iconFont: .callout,
+                placeholderInitials: DiveBuddyPresentation.initials(from: buddy.displayName)
             )
 
             Text(buddy.displayName)
@@ -439,7 +440,8 @@ private struct DiveMediaBuddyTaggedRow: View {
             ProfileAvatarView(
                 profilePhoto: profilePhoto,
                 diameter: DiveMediaBuddyTagPickerRowLayout.avatarDiameter,
-                iconFont: .callout
+                iconFont: .callout,
+                placeholderInitials: DiveBuddyPresentation.initials(from: displayName)
             )
 
             Text(displayName)

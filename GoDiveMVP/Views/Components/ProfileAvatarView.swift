@@ -3,11 +3,13 @@ import SwiftUI
 import UIKit
 #endif
 
-/// Circular profile image or default **person** icon (shared on Profile and Home).
+/// Circular profile image, optional initials placeholder, or default **person** icon.
 struct ProfileAvatarView: View {
     let profilePhoto: Data?
     var diameter: CGFloat
     var iconFont: Font = .title3
+    /// When **`profilePhoto`** is nil, show these initials instead of the person icon (buddy avatars).
+    var placeholderInitials: String? = nil
 
     #if canImport(UIKit)
     @State private var decodedImage: UIImage?
@@ -49,11 +51,31 @@ struct ProfileAvatarView: View {
         max(2, diameter / 24)
     }
 
+    @ViewBuilder
     private var placeholder: some View {
+        if profilePhoto == nil, let placeholderInitials, !placeholderInitials.isEmpty {
+            initialsPlaceholder(placeholderInitials)
+        } else {
+            personIconPlaceholder
+        }
+    }
+
+    private var personIconPlaceholder: some View {
         Image(systemName: "person.circle.fill")
             .font(iconFont)
             .foregroundStyle(AppTheme.Colors.accent)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(AppTheme.Colors.surfaceElevated)
+    }
+
+    private func initialsPlaceholder(_ initials: String) -> some View {
+        Text(initials)
+            .font(.system(size: diameter * 0.36, weight: .semibold, design: .rounded))
+            .foregroundStyle(AppTheme.Colors.accent)
+            .minimumScaleFactor(0.5)
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(AppTheme.Colors.surfaceElevated)
+            .accessibilityHidden(true)
     }
 }

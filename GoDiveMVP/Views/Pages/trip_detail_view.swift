@@ -12,8 +12,6 @@ struct TripDetailView: View {
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
 
     @Query private var trips: [DiveTrip]
-    @Query(sort: \MarineLife.commonName) private var marineLifeCatalog: [MarineLife]
-    @Query private var allSightings: [SightingInstance]
     @Query(
         sort: [
             SortDescriptor(\DiveActivity.startTime, order: .reverse),
@@ -21,11 +19,17 @@ struct TripDetailView: View {
         ]
     )
     private var diveActivities: [DiveActivity]
-    @Query(sort: \DiveSite.siteName) private var diveSiteCatalog: [DiveSite]
     @Query(sort: \DiveBuddy.displayName) private var rosterBuddies: [DiveBuddy]
 
     @State private var navigationTarget: TripDetailNavigationTarget?
     @State private var headerClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
+    @State private var layoutSafeAreaTopFloor = DiveBuddyDetailPresentation.initialPushedLayoutSafeAreaTopFloor()
+    @State private var layoutViewportHeightFloor = DiveBuddyDetailPresentation.initialPushedLayoutViewportFloor()
+    @State private var contentSnapshot = TripDetailContentSnapshot.empty
+    @State private var showsDeferredMap = false
+    @State private var tripHeroMode: PushedDetailHeroHeaderView.Mode = .media
+    @State private var heroTripMediaID: UUID?
+    @State private var gallerySelectedMediaID: UUID?
     @State private var showsEditSheet = false
     @State private var showsShareSheet = false
     @State private var shareImageURL: URL?
@@ -34,6 +38,8 @@ struct TripDetailView: View {
     let tripID: UUID
     var initialContentPage: TripDetailContentPage?
     var initialSelectedMediaID: UUID?
+
+    private static let noOwnerQueryToken = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
 
     init(
         tripID: UUID,
@@ -44,24 +50,35 @@ struct TripDetailView: View {
         self.initialContentPage = initialContentPage
         self.initialSelectedMediaID = initialSelectedMediaID
         _trips = Query(filter: #Predicate<DiveTrip> { $0.id == tripID })
+        let ownerID = AccountSession.shared.currentProfile?.id ?? Self.noOwnerQueryToken
+        _diveActivities = Query(
+            filter: #Predicate<DiveActivity> { $0.ownerProfileID == ownerID },
+            sort: [
+                SortDescriptor(\.startTime, order: .reverse),
+                SortDescriptor(\.id, order: .forward),
+            ]
+        )
+        _rosterBuddies = Query(
+            filter: #Predicate<DiveBuddy> { $0.ownerProfileID == ownerID },
+            sort: [SortDescriptor(\.displayName)]
+        )
     }
 
     private var trip: DiveTrip? {
         trips.first
     }
 
-    private var aggregate: DiveTripAggregate {
-        guard let trip else { return .empty }
-        return DiveTripAggregateBuilder.build(
-            trip: trip,
-            marineLifeCatalog: marineLifeCatalog,
-            allSightings: allSightings
-        )
+    private var ownedDiveActivities: [DiveActivity] {
+        guard accountSession.currentProfile != nil else { return [] }
+        return diveActivities
     }
 
-    private var ownedDiveActivities: [DiveActivity] {
-        guard let ownerID = accountSession.currentProfile?.id else { return [] }
-        return diveActivities.filter { $0.ownerProfileID == ownerID }
+    private var homeLayoutSeamInputs: HomeOverviewPushedLayoutPresentation.SeamInputs {
+        HomeOverviewPushedLayoutPresentation.pushedPageSeamInputs()
+    }
+
+    private var homeAlignedStatsPanelContentHeight: CGFloat {
+        homeLayoutSeamInputs.statsPanelContentHeight
     }
 
     private var linkedDiveActivities: [DiveActivity] {
@@ -69,63 +86,20 @@ struct TripDetailView: View {
         return DiveTripPresentation.linkedDiveActivities(for: trip)
     }
 
-    private var linkedDiveRows: [DiveLogbookRowDisplayData] {
-        guard let trip else { return [] }
-        return DiveTripPresentation.linkedDiveRowDisplayData(
-            trip: trip,
-            unitSystem: diveDisplayUnitSystem,
-            useChronologicalNumbers: automaticallyRenumberDives,
-            numberingActivities: ownedDiveActivities
-        )
-    }
-
-    private var tripLinkedMediaItems: [TripDetailLinkedMediaItem] {
-        TripDetailMediaPresentation.linkedMediaItems(from: linkedDiveActivities)
-    }
-
-    private var tripMediaPhotos: [DiveMediaPhoto] {
-        TripDetailMediaPresentation.mediaPhotos(
-            from: linkedDiveActivities,
-            itemIDs: tripLinkedMediaItems
-        )
-    }
-
-    private var tripMediaTimeZoneOffsets: [UUID: Int?] {
-        TripDetailMediaPresentation.timeZoneOffsetByMediaID(
-            from: linkedDiveActivities,
-            itemIDs: tripLinkedMediaItems
-        )
-    }
-
-    private var tripMediaSightings: [SightingInstance] {
-        let linkedDiveIDs = Set(linkedDiveActivities.map(\.id))
-        return allSightings.filter { sighting in
-            guard let diveID = sighting.diveActivityID else { return false }
-            return linkedDiveIDs.contains(diveID)
-        }
-    }
-
-    private var tripMarineLifeCarouselItems: [TripDetailMarineLifeCarouselItem] {
-        TripDetailMarineLifePresentation.carouselItems(
-            from: aggregate.marineLife,
-            catalog: marineLifeCatalog,
-            unitSystem: diveDisplayUnitSystem
-        )
-    }
-
-    private var rosterBuddiesByID: [UUID: DiveBuddy] {
-        guard let ownerProfileID = accountSession.currentProfile?.id else { return [:] }
-        return Dictionary(
-            uniqueKeysWithValues: rosterBuddies
-                .filter { $0.ownerProfileID == ownerProfileID }
-                .map { ($0.id, $0) }
-        )
+    private var tripDetailContentToken: String {
+        guard let trip else { return tripID.uuidString }
+        return [
+            trip.id.uuidString,
+            "\(trip.activityLinks.count)",
+            "\(ownedDiveActivities.count)",
+            trip.featuredTripMediaPhotoID?.uuidString ?? "",
+            diveDisplayUnitSystem.rawValue,
+            automaticallyRenumberDives ? "1" : "0",
+        ].joined(separator: "|")
     }
 
     private var autoLinkSyncToken: String {
-        guard let trip else { return tripID.uuidString }
-        let divePart = ownedDiveActivities.map(\.id.uuidString).joined(separator: ",")
-        return "\(trip.id.uuidString)-\(trip.activityLinks.count)|\(divePart)"
+        tripDetailContentToken
     }
 
     var body: some View {
@@ -141,6 +115,13 @@ struct TripDetailView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .hidesBottomTabBarWhenPushed()
+        .task(id: tripDetailContentToken) {
+            rebuildTripDetailContent()
+            await Task.yield()
+            showsDeferredMap = true
+            await enrichTripDetailMarineLife()
+            await warmTripHeroHeaderMediaPreviewIfNeeded()
+        }
         .onAppear {
             DiveMediaScopeCache.shared.activateScope(.tripDetail(tripID))
         }
@@ -148,6 +129,8 @@ struct TripDetailView: View {
             DiveMediaScopeCache.shared.deactivateScope(.tripDetail(tripID))
         }
         .task(id: autoLinkSyncToken) {
+            await Task.yield()
+            try? await Task.sleep(for: .milliseconds(300))
             syncTripActivityLinks()
         }
         .sheet(isPresented: $showsEditSheet) {
@@ -204,9 +187,85 @@ struct TripDetailView: View {
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
             .onPreferenceChange(AppHeaderMetrics.HeightKey.self) { height in
-                if height > 0 { headerClearance = height }
+                guard height > 0, height != headerClearance else { return }
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    headerClearance = height
+                }
             }
         }
+    }
+
+    private func rebuildTripDetailContent() {
+        guard let trip else {
+            contentSnapshot = .empty
+            heroTripMediaID = nil
+            return
+        }
+        contentSnapshot = TripDetailContentSnapshotBuilder.buildLight(
+            trip: trip,
+            ownedDiveActivities: ownedDiveActivities,
+            rosterBuddies: rosterBuddies,
+            unitSystem: diveDisplayUnitSystem,
+            useChronologicalNumbers: automaticallyRenumberDives
+        )
+        heroTripMediaID = TripDetailPresentation.initialHeroMediaPhotoID(
+            for: trip,
+            photos: contentSnapshot.mediaPhotos
+        )
+        if contentSnapshot.mediaPhotos.isEmpty, !contentSnapshot.mapPins.isEmpty {
+            tripHeroMode = .map
+        }
+    }
+
+    private var displayHeroTripMedia: DiveMediaPhoto? {
+        guard let heroTripMediaID,
+              let media = contentSnapshot.mediaPhotos.first(where: { $0.id == heroTripMediaID })
+        else { return nil }
+        return media
+    }
+
+    private func toggleFeaturedTripMedia() {
+        guard let trip,
+              let selectedID = gallerySelectedMediaID,
+              let selectedMedia = contentSnapshot.mediaPhotos.first(where: { $0.id == selectedID })
+        else { return }
+
+        let nextFeaturedID = TripDetailMediaPresentation.toggledFeaturedMediaPhotoID(
+            mediaID: selectedMedia.id,
+            explicitFeaturedID: trip.featuredTripMediaPhotoID
+        )
+        try? DiveTripFeaturedMediaStorage.setFeaturedTripMedia(
+            nextFeaturedID,
+            on: trip,
+            modelContext: modelContext
+        )
+
+        if let nextFeaturedID {
+            heroTripMediaID = nextFeaturedID
+        } else {
+            heroTripMediaID = TripHeroMediaSession.pickNewRandomHeroMediaID(
+                tripID: trip.id,
+                in: contentSnapshot.mediaPhotos
+            )
+        }
+    }
+
+    private func warmTripHeroHeaderMediaPreviewIfNeeded() async {
+        guard let hero = displayHeroTripMedia else { return }
+        await DiveMediaPreviewStorage.ensureStoredPreviews(for: [hero], modelContext: modelContext)
+    }
+
+    private func enrichTripDetailMarineLife() async {
+        guard let trip else { return }
+        let enriched = TripDetailContentSnapshotBuilder.enrichMarineLife(
+            snapshot: contentSnapshot,
+            trip: trip,
+            unitSystem: diveDisplayUnitSystem,
+            modelContext: modelContext
+        )
+        contentSnapshot = enriched
     }
 
     private func syncTripActivityLinks() {
@@ -225,85 +284,191 @@ struct TripDetailView: View {
     @ViewBuilder
     private func tripDetailContent(trip: DiveTrip) -> some View {
         let showsTripStats = DiveTripActivityLinking.hasStarted(trip: trip)
-        let mapPins = TripDetailMapPresentation.pins(
-            plannedSites: trip.plannedSites,
-            linkedActivities: linkedDiveActivities,
-            catalogSites: diveSiteCatalog
-        )
+        let mapPins = contentSnapshot.mapPins
+        let mediaPhotos = contentSnapshot.mediaPhotos
+        let showsHero = !mapPins.isEmpty || !mediaPhotos.isEmpty
+        let showsHeroModeToggle = !mapPins.isEmpty
 
         GeometryReader { proxy in
-            let safeTop = AppScrollUnderHeaderListLayout.resolvedSafeAreaTop(proxy.safeAreaInsets.top)
-            let layoutHeight = max(proxy.size.height, 1)
+            let rawSafeTop = AppScrollUnderHeaderListLayout.resolvedSafeAreaTop(proxy.safeAreaInsets.top)
+            let safeTop = max(rawSafeTop, layoutSafeAreaTopFloor)
+            let geometryHeight = max(proxy.size.height, 1)
+            let layoutHeight = HomeOverviewLayout.pushedPageLayoutHeight(
+                from: geometryHeight,
+                transitionViewportFloor: layoutViewportHeightFloor
+            )
             let topInset = AppScrollUnderHeaderListLayout.listTopInset(
                 safeAreaTop: safeTop,
                 headerClearance: headerClearance
             )
-            let mapHeroHeight = TripDetailMapPresentation.mapHeroHeight(
-                viewportHeight: layoutHeight,
-                screenWidth: proxy.size.width,
-                topSafeAreaInset: safeTop
+            let heroTopSafeAreaInset = HomeOverviewLayout.pushedHeroTopSafeAreaInset(
+                rawGeometrySafeTop: proxy.safeAreaInsets.top,
+                transitionSafeTopFloor: layoutSafeAreaTopFloor
             )
-            let showsMap = !mapPins.isEmpty
-            let bottomInset = proxy.safeAreaInsets.bottom
+            let mapHeroHeight = TripDetailMapPresentation.mapHeroHeight(
+                viewportHeight: geometryHeight,
+                screenWidth: proxy.size.width,
+                topSafeAreaInset: heroTopSafeAreaInset,
+                statsPanelContentHeight: homeAlignedStatsPanelContentHeight,
+                showsBuddyLeaderboard: homeLayoutSeamInputs.showsBuddyLeaderboard,
+                transitionViewportFloor: layoutViewportHeightFloor
+            )
+            let heroFitLayout = TripDetailMapFitLayout(
+                mapHeight: mapHeroHeight,
+                topObstructionHeight: topInset
+            )
+            let bottomScrollInset = HomeOverviewLayout.pushedPageScrollBottomInset(
+                safeAreaBottom: proxy.safeAreaInsets.bottom
+            )
             let headerScrollClearance = max(
                 0,
                 topInset - HomeLifetimeStatsLayout.panelTopContentPadding
             )
+            let layoutSnapshot = PageLayoutGeometryProbe.pushed(
+                pageKind: .tripDetail,
+                screenWidth: proxy.size.width,
+                geometryHeight: geometryHeight,
+                safeAreaTop: safeTop,
+                safeAreaBottom: proxy.safeAreaInsets.bottom,
+                layoutStackHeight: layoutHeight,
+                heroHeight: mapHeroHeight,
+                statsPanelContentHeight: homeAlignedStatsPanelContentHeight,
+                scrollBottomInset: bottomScrollInset,
+                showsHeroOverlap: showsHero
+            )
 
             ZStack(alignment: .top) {
-                VStack(spacing: showsMap ? -HomeLifetimeStatsLayout.panelOverlap : 0) {
-                    if showsMap {
-                        TripDetailMapView(
-                            pins: mapPins,
-                            fitLayout: TripDetailMapFitLayout(
-                                mapHeight: mapHeroHeight,
-                                topObstructionHeight: topInset
-                            )
-                        ) { siteID in
-                            openDiveSiteFromMap(siteID)
-                        }
-                            .onAppear {
-                                TripDetailMapNavigationDebug.tripMapAppeared(
-                                    pinCount: mapPins.count,
-                                    openablePinCount: mapPins.filter { $0.siteID != nil }.count,
-                                    hasOpenCatalogDiveSiteDetail: openCatalogDiveSiteDetail != nil,
-                                    tripID: trip.id
+                VStack(spacing: showsHero ? -HomeLifetimeStatsLayout.panelOverlap : 0) {
+                    if showsHero {
+                        PushedHeroBand(
+                            height: mapHeroHeight,
+                            topSafeAreaInset: heroTopSafeAreaInset
+                        ) {
+                            if mapPins.isEmpty {
+                                PushedDetailHeroHeaderView(
+                                    media: displayHeroTripMedia,
+                                    mapPins: [],
+                                    mapFitLayout: heroFitLayout,
+                                    height: mapHeroHeight,
+                                    shouldAutoPlaySelectedVideo: TripDetailPresentation.shouldAutoPlaySelectedVideo(
+                                        for: displayHeroTripMedia
+                                    ),
+                                    style: .trip,
+                                    onSiteSelected: openDiveSiteFromMap,
+                                    selectedMode: .constant(.media)
                                 )
+                            } else if mediaPhotos.isEmpty {
+                                Group {
+                                    if showsDeferredMap {
+                                        TripDetailMapView(
+                                            pins: mapPins,
+                                            fitLayout: heroFitLayout
+                                        ) { siteID in
+                                            openDiveSiteFromMap(siteID)
+                                        }
+                                        .onAppear {
+                                            TripDetailMapNavigationDebug.tripMapAppeared(
+                                                pinCount: mapPins.count,
+                                                openablePinCount: mapPins.filter { $0.siteID != nil }.count,
+                                                hasOpenCatalogDiveSiteDetail: openCatalogDiveSiteDetail != nil,
+                                                tripID: trip.id
+                                            )
+                                        }
+                                    } else {
+                                        AppTheme.Colors.surfaceMuted.opacity(0.35)
+                                    }
+                                }
+                                .accessibilityIdentifier("TripDetail.MapBand")
+                            } else {
+                                PushedDetailHeroHeaderView(
+                                    media: displayHeroTripMedia,
+                                    mapPins: mapPins,
+                                    mapFitLayout: heroFitLayout,
+                                    height: mapHeroHeight,
+                                    isMapContentReady: showsDeferredMap,
+                                    shouldAutoPlaySelectedVideo: TripDetailPresentation.shouldAutoPlaySelectedVideo(
+                                        for: displayHeroTripMedia
+                                    ),
+                                    style: .trip,
+                                    onSiteSelected: openDiveSiteFromMap,
+                                    selectedMode: $tripHeroMode
+                                )
+                                .onAppear {
+                                    if showsDeferredMap {
+                                        TripDetailMapNavigationDebug.tripMapAppeared(
+                                            pinCount: mapPins.count,
+                                            openablePinCount: mapPins.filter { $0.siteID != nil }.count,
+                                            hasOpenCatalogDiveSiteDetail: openCatalogDiveSiteDetail != nil,
+                                            tripID: trip.id
+                                        )
+                                    }
+                                }
                             }
-                            .frame(maxWidth: .infinity)
-                            .frame(height: mapHeroHeight)
-                            .padding(.top, -safeTop)
-                            .ignoresSafeArea(edges: [.top, .horizontal])
-                            .accessibilityIdentifier("TripDetail.MapBand")
+                        }
+                        .accessibilityIdentifier(
+                            mediaPhotos.isEmpty ? "TripDetail.MapBand" : "TripDetail.HeroBand"
+                        )
                     }
 
                     HomeLifetimeStatsPanel(
-                        overlapsMedia: showsMap,
+                        overlapsMedia: showsHero,
                         bottomSafeAreaInset: 0
                     ) {
                         tripDetailPanelContent(
                             trip: trip,
                             showsTripStats: showsTripStats,
                             mapPins: mapPins,
-                            headerScrollClearance: showsMap ? 0 : headerScrollClearance,
-                            bottomScrollInset: bottomInset
+                            headerScrollClearance: showsHero ? 0 : headerScrollClearance,
+                            bottomScrollInset: bottomScrollInset
                         )
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .ignoresSafeArea(edges: .bottom)
                     .accessibilityIdentifier("TripDetail.ContentPanel")
                     .zIndex(1)
+                    .ignoresSafeArea(edges: .bottom)
+                }
+                .overlay(alignment: .top) {
+                    if showsHeroModeToggle {
+                        PushedDetailHeroModeToggle(
+                            selectedMode: $tripHeroMode,
+                            accessibilityIdentifierPrefix: "TripDetail.Hero.ModeToggle"
+                        )
+                        .padding(.trailing, AppTheme.Spacing.md)
+                        .padding(.bottom, TripDetailPresentation.heroModeToggleBottomPadding)
+                        .frame(width: proxy.size.width, height: mapHeroHeight, alignment: .bottomTrailing)
+                    }
                 }
 
                 tripDetailBackChrome(
                     safeTop: safeTop,
                     topInset: topInset,
-                    showsMapScrim: showsMap
+                    showsMapScrim: showsHero
                 )
             }
-            .frame(width: proxy.size.width, height: proxy.size.height)
+            .frame(width: proxy.size.width, height: layoutHeight)
+            .ignoresSafeArea(edges: .bottom)
+            .pageLayoutGeometryOverlay(layoutSnapshot)
+            .animation(nil, value: mapHeroHeight)
             .onPreferenceChange(AppHeaderMetrics.HeightKey.self) { height in
-                if height > 0 { headerClearance = height }
+                guard height > 0, height != headerClearance else { return }
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    headerClearance = height
+                }
+            }
+            .onChange(of: rawSafeTop, initial: true) { _, resolvedTop in
+                guard resolvedTop > layoutSafeAreaTopFloor else { return }
+                layoutSafeAreaTopFloor = resolvedTop
+            }
+            .onChange(of: geometryHeight, initial: true) { _, height in
+                let subtractedViewport = HomeOverviewLayout.viewportHeightMatchingHomeTab(from: height)
+                let transitionViewport = HomeOverviewLayout.pushedHeroLayoutTransitionViewportCandidate(
+                    from: height
+                )
+                guard subtractedViewport < transitionViewport else { return }
+                guard transitionViewport > layoutViewportHeightFloor else { return }
+                layoutViewportHeightFloor = transitionViewport
             }
         }
         .ignoresSafeArea(edges: [.horizontal])
@@ -326,32 +491,36 @@ struct TripDetailView: View {
 
             tripTitleBlock(trip: trip, mapPins: mapPins)
 
+            let featuredToggleAction: (() -> Void)? = contentSnapshot.mediaPhotos.isEmpty
+                ? nil
+                : { toggleFeaturedTripMedia() }
+
             TripDetailContentPager(
                 trip: trip,
                 hasStarted: showsTripStats,
                 statTiles: DiveTripStatsPresentation.highlightTiles(
-                    from: aggregate,
+                    from: contentSnapshot.aggregate,
                     unitSystem: diveDisplayUnitSystem
                 ),
-                aggregate: aggregate,
-                linkedDiveRows: linkedDiveRows,
-                marineLifeItems: tripMarineLifeCarouselItems,
-                marineLifeCatalog: marineLifeCatalog,
+                aggregate: contentSnapshot.aggregate,
+                linkedDiveRows: contentSnapshot.linkedDiveRows,
+                marineLifeItems: contentSnapshot.marineLifeItems,
+                marineLifeCatalog: contentSnapshot.marineLifeCatalog,
                 unitSystem: diveDisplayUnitSystem,
                 ownerProfileID: accountSession.currentProfile?.id,
                 ownerProfile: accountSession.currentProfile,
-                rosterBuddiesByID: rosterBuddiesByID,
-                mediaItems: tripMediaPhotos,
-                mediaTimeZoneOffsets: tripMediaTimeZoneOffsets,
-                linkedMediaItems: tripLinkedMediaItems,
-                mediaSightings: tripMediaSightings,
+                rosterBuddiesByID: contentSnapshot.rosterBuddiesByID,
+                mediaItems: contentSnapshot.mediaPhotos,
+                mediaTimeZoneOffsets: contentSnapshot.mediaTimeZoneOffsets,
+                linkedMediaItems: contentSnapshot.linkedMediaItems,
+                mediaSightings: contentSnapshot.mediaSightings,
+                featuredTripMediaPhotoID: trip.featuredTripMediaPhotoID,
+                gallerySelectedMediaID: $gallerySelectedMediaID,
+                onToggleFeaturedTripMedia: featuredToggleAction,
                 bottomScrollInset: bottomScrollInset,
                 initialContentPage: initialContentPage,
                 initialSelectedMediaID: initialSelectedMediaID,
-                onOpenDive: { pushTripNavigation(.linkedDive($0)) },
-                onOpenInDive: { diveID, mediaID in
-                    pushTripNavigation(.diveMedia(diveID: diveID, mediaID: mediaID))
-                }
+                onOpenDive: { pushTripNavigation(.linkedDive($0)) }
             )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -409,12 +578,12 @@ struct TripDetailView: View {
         let members = TripShareCardPresentation.members(
             hasStarted: hasStarted,
             owner: accountSession.currentProfile,
-            ownerLinkedDiveCount: aggregate.diveCount,
+            ownerLinkedDiveCount: contentSnapshot.aggregate.diveCount,
             plannedBuddies: DiveTripPlannedBuddyLinking.plannedBuddies(for: trip),
-            taggedBuddies: aggregate.buddies,
-            rosterBuddiesByID: rosterBuddiesByID
+            taggedBuddies: contentSnapshot.aggregate.buddies,
+            rosterBuddiesByID: contentSnapshot.rosterBuddiesByID
         )
-        let uniqueMarineLifeCount = aggregate.marineLife.count
+        let uniqueMarineLifeCount = contentSnapshot.aggregate.marineLife.count
         let title = trip.displayTitle
         let dateRange = DiveTripPresentation.formattedDateRange(
             start: trip.startDate,
@@ -483,16 +652,15 @@ struct TripDetailView: View {
     private func openDiveSiteFromMap(_ siteID: UUID) {
         TripDetailMapNavigationDebug.openDiveSiteFromMapCalled(siteID: siteID, tripID: trip?.id)
 
-        guard let site = TripDetailDiveSiteNavigation.resolvedSite(
+        if let site = TripDetailDiveSiteNavigation.resolvedSite(
             siteID: siteID,
             plannedSites: trip?.plannedSites ?? [],
-            catalogSites: diveSiteCatalog
-        ) else {
+            catalogSites: catalogSitesForNavigation()
+        ) {
+            TripDetailMapNavigationDebug.siteResolutionSucceeded(siteID: siteID, siteName: site.siteName)
+        } else {
             TripDetailMapNavigationDebug.siteResolutionFailed(siteID: siteID)
-            return
         }
-
-        TripDetailMapNavigationDebug.siteResolutionSucceeded(siteID: siteID, siteName: site.siteName)
 
         guard let openCatalogDiveSiteDetail else {
             TripDetailMapNavigationDebug.openCatalogDiveSiteDetailMissing(siteID: siteID)
@@ -535,5 +703,13 @@ struct TripDetailView: View {
                 .padding(AppTheme.Spacing.lg)
         }
         .hidesBottomTabBarWhenPushed()
+    }
+
+    private func catalogSitesForNavigation() -> [DiveSite] {
+        guard let trip else { return [] }
+        return TripDetailContentSnapshotBuilder.catalogSitesForNavigation(
+            trip: trip,
+            linkedActivities: linkedDiveActivities
+        )
     }
 }

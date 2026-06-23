@@ -37,14 +37,12 @@ struct TripDetailMapRepresentable: UIViewRepresentable {
         context.coordinator.onSiteSelected = onSiteSelected
         let pinsChanged = context.coordinator.syncAnnotations(on: mapView, pins: pins)
         let layoutChanged = context.coordinator.syncFitLayout(fitLayout)
-        if pinsChanged || layoutChanged {
-            context.coordinator.scheduleRegionApplyIfNeeded(
-                on: mapView,
-                pins: pins,
-                fitLayout: fitLayout,
-                animated: pinsChanged
-            )
-        }
+        context.coordinator.scheduleRegionApplyIfNeeded(
+            on: mapView,
+            pins: pins,
+            fitLayout: fitLayout,
+            animated: pinsChanged || layoutChanged
+        )
     }
 
     final class Coordinator: NSObject, MKMapViewDelegate {
@@ -53,7 +51,8 @@ struct TripDetailMapRepresentable: UIViewRepresentable {
         private var lastPinsSignature: String?
         private var lastFitLayoutSignature: String?
         private var lastAppliedRegionSignature: String?
-        private var labeledPinIDs: Set<String> = []
+        private var currentFitLayout: TripDetailMapFitLayout?
+        private var selectedPinID: String?
         private var isApplyingRegion = false
 
         init(onSiteSelected: @escaping (UUID) -> Void) {
@@ -67,7 +66,7 @@ struct TripDetailMapRepresentable: UIViewRepresentable {
             let pinsChanged = signature != lastPinsSignature
             guard pinsChanged else { return false }
             lastPinsSignature = signature
-            labeledPinIDs = []
+            selectedPinID = nil
 
             mapView.removeAnnotations(mapView.annotations)
             mapView.addAnnotations(pins.map(TripDetailMapAnnotation.init(pin:)))
@@ -89,88 +88,78 @@ struct TripDetailMapRepresentable: UIViewRepresentable {
             animated: Bool
         ) {
             guard !pins.isEmpty else { return }
-            guard mapView.bounds.width > 1, mapView.bounds.height > 1 else { return }
+            currentFitLayout = fitLayout
 
-            let signature = "\(pins.map(\.id).sorted().joined(separator: "|"))|\(fitLayout.layoutSignature)"
+            let layoutHeight = TripDetailMapPresentation.effectiveMapHeight(
+                measuredBoundsHeight: mapView.bounds.height,
+                fitLayout: fitLayout
+            )
+            guard layoutHeight > 1 else { return }
+
+            let hasMeasuredBounds = TripDetailMapPresentation.hasMeasuredMapBounds(
+                width: mapView.bounds.width,
+                height: mapView.bounds.height
+            )
+            let boundsSignature = hasMeasuredBounds
+                ? String(format: "%.0f|%.0f", mapView.bounds.width, mapView.bounds.height)
+                : "provisional"
+            let signature = "\(pins.map(\.id).sorted().joined(separator: "|"))|\(fitLayout.layoutSignature)|\(boundsSignature)"
             guard signature != lastAppliedRegionSignature else { return }
             lastAppliedRegionSignature = signature
 
             let applyLayout = TripDetailMapFitLayout(
-                mapHeight: mapView.bounds.height,
+                mapHeight: layoutHeight,
                 topObstructionHeight: fitLayout.topObstructionHeight,
                 panelOverlap: fitLayout.panelOverlap
             )
-            applyRegion(on: mapView, pins: pins, fitLayout: applyLayout, animated: animated)
-            refreshLabelVisibility(on: mapView)
+            applyRegion(
+                on: mapView,
+                pins: pins,
+                fitLayout: applyLayout,
+                hasMeasuredBounds: hasMeasuredBounds,
+                animated: animated
+            )
         }
 
         func applyRegion(
             on mapView: MKMapView,
             pins: [TripDetailMapPin],
             fitLayout: TripDetailMapFitLayout,
+            hasMeasuredBounds: Bool,
             animated: Bool
         ) {
-            let annotations = mapView.annotations.compactMap { $0 as? TripDetailMapAnnotation }
-            guard !annotations.isEmpty else { return }
-
-            var zoomRect = MKMapRect.null
-            for annotation in annotations {
-                let point = MKMapPoint(annotation.coordinate)
-                let pointRect = MKMapRect(x: point.x, y: point.y, width: 0, height: 0)
-                zoomRect = zoomRect.union(pointRect)
-            }
-
             isApplyingRegion = true
-            let padding = TripDetailMapPresentation.uiMapFitEdgeInsets(for: fitLayout)
-            let visibleRect = mapView.mapRectThatFits(zoomRect, edgePadding: padding)
-            mapView.setVisibleMapRect(visibleRect, animated: animated)
-            isApplyingRegion = false
-        }
+            defer { isApplyingRegion = false }
 
-        func refreshLabelVisibility(on mapView: MKMapView) {
-            guard !pins.isEmpty else { return }
-
-            let span = mapView.region.span.latitudeDelta
-            let center = DiveCoordinate(
-                latitude: mapView.region.center.latitude,
-                longitude: mapView.region.center.longitude
-            )
-            let updatedLabeledPinIDs = ExploreCatalogMapLabelVisibility.labeledTripPinIDs(
-                pins: pins,
-                visibleLatitudeSpan: span,
-                mapCenter: center
-            )
-            guard updatedLabeledPinIDs != labeledPinIDs else { return }
-            labeledPinIDs = updatedLabeledPinIDs
-
-            for annotation in mapView.annotations {
-                guard let tripAnnotation = annotation as? TripDetailMapAnnotation,
-                      let markerView = mapView.view(for: annotation) as? MKMarkerAnnotationView
-                else { continue }
-                markerView.titleVisibility = labeledPinIDs.contains(tripAnnotation.pinID) ? .visible : .hidden
+            if hasMeasuredBounds, let zoomRect = TripDetailMapPresentation.mkMapRect(for: pins) {
+                let padding = TripDetailMapPresentation.uiMapFitEdgeInsets(for: fitLayout)
+                let visibleRect = mapView.mapRectThatFits(zoomRect, edgePadding: padding)
+                mapView.setVisibleMapRect(visibleRect, animated: animated)
+            } else if let region = TripDetailMapPresentation.fittingRegion(for: pins) {
+                mapView.setRegion(region.mkCoordinateRegion, animated: animated)
             }
         }
 
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
             guard let tripAnnotation = annotation as? TripDetailMapAnnotation else { return nil }
 
-            let identifier = Self.markerReuseIdentifier
-            let markerView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
-                ?? MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
-
-            markerView.annotation = annotation
-            markerView.markerTintColor = tripAnnotation.kind == .planned ? .systemBlue : .systemRed
-            markerView.titleVisibility = labeledPinIDs.contains(tripAnnotation.pinID) ? .visible : .hidden
-            markerView.subtitleVisibility = .hidden
-            markerView.canShowCallout = false
-            markerView.displayPriority = .defaultHigh
-            markerView.accessibilityLabel = tripAnnotation.title
-            return markerView
+            let identifier = Self.calloutPinReuseIdentifier
+            let pinView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier)
+                ?? MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            pinView.annotation = annotation
+            applyCalloutPinPresentation(to: pinView, tripAnnotation: tripAnnotation)
+            return pinView
         }
 
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
-            guard !isApplyingRegion else { return }
-            refreshLabelVisibility(on: mapView)
+            if let fitLayout = currentFitLayout, !pins.isEmpty {
+                scheduleRegionApplyIfNeeded(
+                    on: mapView,
+                    pins: pins,
+                    fitLayout: fitLayout,
+                    animated: false
+                )
+            }
         }
 
         func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
@@ -181,10 +170,10 @@ struct TripDetailMapRepresentable: UIViewRepresentable {
                 pinID: tripAnnotation.pinID,
                 kind: tripAnnotation.kind,
                 siteID: tripAnnotation.siteID,
-                title: tripAnnotation.title ?? tripAnnotation.pinID
+                title: tripAnnotation.siteDisplayName ?? tripAnnotation.pinID
             )
 
-            guard let siteID = tripAnnotation.siteID else {
+            guard tripAnnotation.siteID != nil else {
                 TripDetailMapNavigationDebug.pinIgnoredMissingSiteID(
                     engine: .mapKit,
                     pinID: tripAnnotation.pinID,
@@ -194,11 +183,45 @@ struct TripDetailMapRepresentable: UIViewRepresentable {
                 return
             }
 
-            onSiteSelected(siteID)
-            mapView.deselectAnnotation(view.annotation, animated: false)
+            selectedPinID = tripAnnotation.pinID
         }
 
-        private static let markerReuseIdentifier = "TripDetail.StandardMarker"
+        func mapView(_ mapView: MKMapView, didDeselect view: MKAnnotationView) {
+            guard let tripAnnotation = view.annotation as? TripDetailMapAnnotation else { return }
+            if selectedPinID == tripAnnotation.pinID {
+                selectedPinID = nil
+            }
+        }
+
+        func mapView(
+            _ mapView: MKMapView,
+            annotationView view: MKAnnotationView,
+            calloutAccessoryControlTapped control: UIControl
+        ) {
+            guard let tripAnnotation = view.annotation as? TripDetailMapAnnotation,
+                  let siteID = tripAnnotation.siteID else { return }
+
+            onSiteSelected(siteID)
+            mapView.deselectAnnotation(view.annotation, animated: true)
+            selectedPinID = nil
+        }
+
+        private func applyCalloutPinPresentation(
+            to pinView: MKAnnotationView,
+            tripAnnotation: TripDetailMapAnnotation
+        ) {
+            pinView.image = ExploreCatalogMapSiteCallout.makeTripMapPinImage(kind: tripAnnotation.kind)
+            let imageHeight = pinView.image?.size.height ?? 32
+            pinView.centerOffset = CGPoint(x: 0, y: -imageHeight / 2)
+            pinView.canShowCallout = true
+            pinView.rightCalloutAccessoryView = nil
+            pinView.detailCalloutAccessoryView = ExploreCatalogMapSiteCallout.makeMapKitCalloutAccessory(
+                siteName: tripAnnotation.siteDisplayName ?? ""
+            )
+            pinView.accessibilityLabel = tripAnnotation.siteDisplayName
+        }
+
+        private static let calloutPinReuseIdentifier = "TripDetail.CalloutPin"
     }
 }
 #endif

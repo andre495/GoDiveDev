@@ -13,6 +13,9 @@ final class AccountSession {
     /// Brand-new account after Sign in with Apple — welcome screen before Contacts + Photos prompts.
     private(set) var showsNewAccountWelcome = false
 
+    private var cachedSelfBuddyID: UUID?
+    private var cachedSelfBuddyProfileID: UUID?
+
     var isSignedIn: Bool { currentProfile != nil }
 
     private let currentProfileIDKey = "goDiveCurrentProfileID"
@@ -87,6 +90,8 @@ final class AccountSession {
         try DiveBuddyOwnership.claimUnownedBuddies(for: profile, modelContext: modelContext)
         persistSession(profile: profile)
         currentProfile = profile
+        cachedSelfBuddyID = nil
+        cachedSelfBuddyProfileID = nil
 
         if AppNewAccountWelcomePresentation.shouldPresentWelcome(forNewAccount: isNewAccount) {
             showsNewAccountWelcome = true
@@ -106,6 +111,27 @@ final class AccountSession {
         clearPersistedSession()
         currentProfile = nil
         showsNewAccountWelcome = false
+        cachedSelfBuddyID = nil
+        cachedSelfBuddyProfileID = nil
+    }
+
+    /// Owner roster row for the signed-in diver — resolved once per profile per session.
+    func resolvedSelfBuddyID(modelContext: ModelContext) -> UUID? {
+        guard let profile = currentProfile else {
+            cachedSelfBuddyID = nil
+            cachedSelfBuddyProfileID = nil
+            return nil
+        }
+        if cachedSelfBuddyProfileID == profile.id {
+            return cachedSelfBuddyID
+        }
+        let resolved = DiveBuddySelfRepresentation.resolveSelfBuddyID(
+            owner: profile,
+            modelContext: modelContext
+        )
+        cachedSelfBuddyID = resolved
+        cachedSelfBuddyProfileID = profile.id
+        return resolved
     }
 
     func recordSignInFailure(_ error: Error) {

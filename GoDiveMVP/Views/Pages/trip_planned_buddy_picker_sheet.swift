@@ -127,7 +127,8 @@ private struct TripPlannedBuddyPickerRow: View {
             ProfileAvatarView(
                 profilePhoto: buddy.profilePhoto,
                 diameter: TripPlannedBuddyPickerRowLayout.avatarDiameter,
-                iconFont: .callout
+                iconFont: .callout,
+                placeholderInitials: DiveBuddyPresentation.initials(from: buddy.displayName)
             )
 
             Text(buddy.displayName)

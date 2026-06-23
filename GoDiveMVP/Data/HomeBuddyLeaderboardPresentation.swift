@@ -83,15 +83,51 @@ enum HomeBuddyLeaderboardSeeding {
     static func tagInputs(from activities: [DiveActivity]) -> [HomeBuddyLeaderboardPresentation.TagInput] {
         activities.flatMap { activity in
             activity.buddies.compactMap { tag -> HomeBuddyLeaderboardPresentation.TagInput? in
-                let buddyID = tag.buddyID ?? tag.buddy?.id
-                guard let buddyID else { return nil }
-                return HomeBuddyLeaderboardPresentation.TagInput(
-                    buddyID: buddyID,
-                    displayName: tag.displayName,
-                    profilePhoto: tag.buddy?.profilePhoto,
-                    diveActivityID: activity.id
-                )
+                tagInput(from: tag, diveActivityID: activity.id)
             }
         }
+    }
+
+    /// Tag inputs from denormalized **`DiveBuddyTag`** rows — does not require **`DiveActivity.buddies`** to be faulted in (pushed buddy/trip pages).
+    @MainActor
+    static func tagInputs(
+        from diveBuddyTags: [DiveBuddyTag],
+        ownerDiveIDs: Set<UUID>
+    ) -> [HomeBuddyLeaderboardPresentation.TagInput] {
+        diveBuddyTags.compactMap { tag in
+            guard let diveActivityID = tag.diveActivityID ?? tag.dive?.id,
+                  ownerDiveIDs.contains(diveActivityID) else { return nil }
+            return tagInput(from: tag, diveActivityID: diveActivityID)
+        }
+    }
+
+    @MainActor
+    private static func tagInput(
+        from tag: DiveBuddyTag,
+        diveActivityID: UUID
+    ) -> HomeBuddyLeaderboardPresentation.TagInput? {
+        guard let buddyID = tag.buddyID ?? tag.buddy?.id else { return nil }
+        return HomeBuddyLeaderboardPresentation.TagInput(
+            buddyID: buddyID,
+            displayName: tag.displayName,
+            profilePhoto: tag.buddy?.profilePhoto,
+            diveActivityID: diveActivityID
+        )
+    }
+
+    @MainActor
+    static func mergedTagInputs(
+        _ sources: [HomeBuddyLeaderboardPresentation.TagInput]...
+    ) -> [HomeBuddyLeaderboardPresentation.TagInput] {
+        var seen: Set<String> = []
+        var merged: [HomeBuddyLeaderboardPresentation.TagInput] = []
+        for source in sources {
+            for tag in source {
+                let key = "\(tag.buddyID.uuidString)|\(tag.diveActivityID.uuidString)"
+                guard seen.insert(key).inserted else { continue }
+                merged.append(tag)
+            }
+        }
+        return merged
     }
 }

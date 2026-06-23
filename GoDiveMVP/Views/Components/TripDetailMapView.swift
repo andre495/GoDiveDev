@@ -35,7 +35,7 @@ struct TripDetailMapView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
         .accessibilityLabel(TripDetailMapPresentation.accessibilityLabel(for: pins))
-        .accessibilityHint("Tap a site marker to view dive site details")
+        .accessibilityHint("Tap a site marker to preview its name, then open details from the callout")
         .accessibilityIdentifier("TripDetail.Map")
     }
 

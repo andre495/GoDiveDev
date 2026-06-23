@@ -138,7 +138,8 @@ private struct DiveActivityBuddyRosterPickerRow: View {
             ProfileAvatarView(
                 profilePhoto: buddy.profilePhoto,
                 diameter: DiveActivityBuddyRosterPickerRowLayout.avatarDiameter,
-                iconFont: .callout
+                iconFont: .callout,
+                placeholderInitials: DiveBuddyPresentation.initials(from: buddy.displayName)
             )
 
             Text(buddy.displayName)

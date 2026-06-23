@@ -19,9 +19,17 @@ struct TripPlannerListSection: Identifiable {
 /// One row on **`TripPlannerView`** — compact title + secondary detail (logbook-style).
 struct TripPlannerListRowDisplayData: Equatable, Sendable {
     let title: String
-    let secondaryDetailLine: String
+    let dateRangeLine: String
+    let countriesLine: String?
     let linkedDiveCountLabel: String?
     let previewMediaPhotoID: UUID?
+
+    var secondaryDetailLine: String {
+        TripPlannerPresentation.listRowSecondaryDetail(
+            dateRange: dateRangeLine,
+            countriesLine: countriesLine
+        )
+    }
 }
 
 /// Copy and chrome for the Explore → Trip Planner flow.
@@ -195,10 +203,8 @@ enum TripPlannerPresentation: Sendable {
         let dateRange = DiveTripPresentation.formattedDateRange(start: trip.startDate, end: trip.endDate)
         return TripPlannerListRowDisplayData(
             title: trip.displayTitle,
-            secondaryDetailLine: listRowSecondaryDetail(
-                dateRange: dateRange,
-                countriesLine: formattedCountries(from: trip.countries)
-            ),
+            dateRangeLine: dateRange,
+            countriesLine: formattedCountries(from: trip.countries),
             linkedDiveCountLabel: showsLinkedDiveCount(for: phase)
                 ? linkedDiveCountLabel(count: trip.activityLinks.count)
                 : nil,
@@ -220,7 +226,12 @@ enum TripPlannerPresentation: Sendable {
         if let linkedDiveCountLabel = row.linkedDiveCountLabel {
             parts.append(linkedDiveCountLabel)
         }
-        parts.append(row.secondaryDetailLine)
+        parts.append(
+            listRowSecondaryDetail(
+                dateRange: row.dateRangeLine,
+                countriesLine: row.countriesLine
+            )
+        )
         if row.previewMediaPhotoID != nil {
             parts.append("Trip media preview available")
         }

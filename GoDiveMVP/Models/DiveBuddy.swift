@@ -11,6 +11,8 @@ final class DiveBuddy {
     var profilePhoto: Data?
     /// **`CNContact.identifier`** when linked from Contacts; used to refresh name/photo.
     var contactsIdentifier: String?
+    /// User-chosen tagged media for the buddy detail hero; **`nil`** uses a random tagged item.
+    var featuredTaggedMediaPhotoID: UUID?
 
     /// Denormalized for **`#Predicate`**; kept in sync with **`owner`**.
     var ownerProfileID: UUID?

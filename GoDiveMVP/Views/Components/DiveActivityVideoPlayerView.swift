@@ -80,7 +80,12 @@ struct DiveActivityVideoPlayerView: View {
                                 isPlayerDisplayReady = true
                             }
                         )
-                        .id("\(resolvedKey)-activate-\(playbackActivationGeneration)")
+                        .id(
+                            DiveMediaProgressivePresentation.playerRepresentableIdentity(
+                                sourceIdentityKey: source?.identityKey ?? resolvedKey,
+                                playbackActivationGeneration: playbackActivationGeneration
+                            )
+                        )
                         .opacity(isPlayerDisplayReady ? 1 : 0)
                         .frame(width: geometry.size.width, height: geometry.size.height)
                         .clipped()
@@ -597,18 +602,32 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
             resetPlayerToBeginningForReuse()
         }
 
-        let isQualityUpgrade = currentKey?.hasSuffix("|preview") == true
-            && identityKey.hasSuffix("|full")
-        if isQualityUpgrade, player != nil {
-            upgradePlayerItem(playerItem, identityKey: identityKey)
-            if !isPlaybackActive {
-                syncPlaybackState()
+        let isQualityUpgradeTransition = DiveMediaProgressivePresentation.isVideoQualityFidelityUpgrade(
+            from: currentKey,
+            to: identityKey
+        )
+        if isQualityUpgradeTransition {
+            if player == nil,
+               let previewKey = DiveMediaProgressivePresentation.previewResolvedKey(forFullResolvedKey: identityKey),
+               let cachedPreviewPlayer = DiveMediaVideoPlaybackSessionCache.shared.player(forResolvedKey: previewKey) {
+                player = cachedPreviewPlayer
+                playerLayer.player = cachedPreviewPlayer
+                currentKey = previewKey
             }
-            lastAppliedPlaybackActive = isPlaybackActive
-            return
+            if player != nil {
+                upgradePlayerItem(playerItem, identityKey: identityKey)
+                if !isPlaybackActive {
+                    syncPlaybackState()
+                }
+                lastAppliedPlaybackActive = isPlaybackActive
+                return
+            }
         }
 
-        let mediaChanged = currentKey != identityKey
+        let mediaChanged = DiveActivityVideoPlaybackPolicy.mediaIdentityChanged(
+            previousKey: currentKey,
+            nextKey: identityKey
+        )
         let shouldRestart = DiveActivityVideoPlaybackPolicy.shouldRestartFromBeginning(
             wasPlaybackActive: wasPlaybackActive,
             isPlaybackActive: isPlaybackActive,
@@ -682,8 +701,6 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
             DiveMutedVideoAudioSession.activateForMutedPlayback()
             player = cachedPlayer
             playerLayer.player = cachedPlayer
-            cachedPlayer.pause()
-            cachedPlayer.seek(to: .zero)
             observeDisplayReady()
             syncPlaybackEndObserver()
             return

@@ -6,8 +6,10 @@ final class TripDetailMapAnnotation: NSObject, MKAnnotation {
     let pinID: String
     let kind: TripDetailMapPinKind
     let siteID: UUID?
+    let siteDisplayName: String?
     dynamic var coordinate: CLLocationCoordinate2D
-    var title: String?
+    /// Pin-only callouts use **`detailCalloutAccessoryView`**; suppress the default title row.
+    var title: String? { nil }
 
     nonisolated init(pin: TripDetailMapPin) {
         pinID = pin.id
@@ -17,6 +19,6 @@ final class TripDetailMapAnnotation: NSObject, MKAnnotation {
             latitude: pin.coordinate.latitude,
             longitude: pin.coordinate.longitude
         )
-        title = ExploreCatalogMapMarkerPresentation.displayTitle(for: pin.title)
+        siteDisplayName = ExploreCatalogMapMarkerPresentation.displayTitle(for: pin.title)
     }
 }

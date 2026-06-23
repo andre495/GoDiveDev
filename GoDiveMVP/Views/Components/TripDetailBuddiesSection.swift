@@ -30,7 +30,7 @@ struct TripDetailBuddiesSection: View {
                     .padding(.horizontal, AppTheme.Spacing.md)
                     .accessibilityIdentifier("TripDetail.Buddies.Empty")
             } else {
-                LazyVGrid(columns: columns, spacing: TripDetailBuddiesPresentation.gridSpacing) {
+                LazyVGrid(columns: columns, alignment: .center, spacing: TripDetailBuddiesPresentation.gridSpacing) {
                     ForEach(visibleBuddies) { buddy in
                         buddyCell(for: buddy)
                     }
@@ -76,30 +76,11 @@ private struct TripDetailBuddyGridCell: View {
     let rosterBuddy: DiveBuddy?
 
     var body: some View {
-        VStack(spacing: AppTheme.Spacing.sm) {
-            ProfileAvatarView(
-                profilePhoto: rosterBuddy?.profilePhoto,
-                diameter: TripDetailBuddiesPresentation.avatarDiameter,
-                iconFont: .title2
-            )
-
-            Text(summary.displayName)
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.85)
-                .frame(maxWidth: .infinity)
-
-            Text(DiveTripPresentation.tripBuddyTaggedDiveCountLabel(count: summary.diveCount))
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.accent)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.85)
-                .frame(maxWidth: .infinity)
-        }
-        .frame(maxWidth: .infinity)
+        TripDetailBuddyAvatarGridCell(
+            profilePhoto: rosterBuddy?.profilePhoto,
+            displayName: summary.displayName,
+            subtitle: DiveTripPresentation.tripBuddyTaggedDiveCountLabel(count: summary.diveCount)
+        )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
     }

@@ -24,7 +24,8 @@ struct DiveBuddyAvatarEditor: View {
                 ProfileAvatarView(
                     profilePhoto: buddy.profilePhoto,
                     diameter: diameter,
-                    iconFont: .system(size: diameter * 0.47)
+                    iconFont: .system(size: diameter * 0.47),
+                    placeholderInitials: DiveBuddyPresentation.initials(from: buddy.displayName)
                 )
                 .shadow(color: .black.opacity(0.2), radius: 10, y: 4)
 

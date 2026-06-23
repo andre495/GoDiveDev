@@ -342,7 +342,10 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
             let imageHeight = pinView.image?.size.height ?? 32
             pinView.centerOffset = CGPoint(x: 0, y: -imageHeight / 2)
             pinView.canShowCallout = true
-            pinView.rightCalloutAccessoryView = ExploreCatalogMapSiteCallout.makeChevronAccessory()
+            pinView.rightCalloutAccessoryView = nil
+            pinView.detailCalloutAccessoryView = ExploreCatalogMapSiteCallout.makeMapKitCalloutAccessory(
+                siteName: siteAnnotation.siteName
+            )
             pinView.accessibilityLabel = ExploreCatalogMapPinAppearance.accessibilityLabel(
                 siteName: siteAnnotation.siteName,
                 isVisited: siteAnnotation.isVisited

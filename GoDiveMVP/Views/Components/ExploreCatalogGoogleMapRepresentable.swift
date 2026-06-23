@@ -356,7 +356,14 @@ struct ExploreCatalogGoogleMapRepresentable: UIViewRepresentable {
 
         func mapView(_ mapView: GMSMapView, markerInfoWindow marker: GMSMarker) -> UIView? {
             guard usesPinCallout else { return nil }
-            return ExploreCatalogMapSiteCallout.makeGoogleInfoWindow(siteName: marker.title ?? "")
+            return ExploreCatalogMapSiteCallout.makeGoogleInfoWindow(siteName: marker.title ?? "") { [weak self, weak mapView] in
+                guard let self, let mapView else { return }
+                guard let siteID = marker.userData as? UUID,
+                      let site = sites.first(where: { $0.id == siteID }) else { return }
+                onSiteSelected(site.selection)
+                mapView.selectedMarker = nil
+                selectedSiteID = nil
+            }
         }
 
         func mapView(_ mapView: GMSMapView, didTapInfoWindowOf marker: GMSMarker) {

@@ -18,6 +18,9 @@ final class DiveTrip {
     /// Optional user label (e.g. **Bonaire 2026**).
     var title: String?
 
+    /// Starred linked dive media shown in the trip detail hero (**`TripDetailView`**).
+    var featuredTripMediaPhotoID: UUID?
+
     /// Catalog sites the diver plans to visit (**optional** planning metadata).
     @Relationship(deleteRule: .nullify)
     var plannedSites: [DiveSite] = []
