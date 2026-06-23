@@ -324,18 +324,6 @@ struct TripDetailView: View {
                 0,
                 topInset - HomeLifetimeStatsLayout.panelTopContentPadding
             )
-            let layoutSnapshot = PageLayoutGeometryProbe.pushed(
-                pageKind: .tripDetail,
-                screenWidth: proxy.size.width,
-                geometryHeight: geometryHeight,
-                safeAreaTop: safeTop,
-                safeAreaBottom: proxy.safeAreaInsets.bottom,
-                layoutStackHeight: layoutHeight,
-                heroHeight: mapHeroHeight,
-                statsPanelContentHeight: homeAlignedStatsPanelContentHeight,
-                scrollBottomInset: bottomScrollInset,
-                showsHeroOverlap: showsHero
-            )
 
             ZStack(alignment: .top) {
                 VStack(spacing: showsHero ? -HomeLifetimeStatsLayout.panelOverlap : 0) {
@@ -447,7 +435,6 @@ struct TripDetailView: View {
             }
             .frame(width: proxy.size.width, height: layoutHeight)
             .ignoresSafeArea(edges: .bottom)
-            .pageLayoutGeometryOverlay(layoutSnapshot)
             .animation(nil, value: mapHeroHeight)
             .onPreferenceChange(AppHeaderMetrics.HeightKey.self) { height in
                 guard height > 0, height != headerClearance else { return }
@@ -565,7 +552,7 @@ struct TripDetailView: View {
 
             Text(DiveTripPresentation.formattedDateRange(start: trip.startDate, end: trip.endDate))
                 .font(.subheadline)
-                .foregroundStyle(AppTheme.Colors.secondaryText)
+                .foregroundStyle(AppTheme.Colors.accent)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

@@ -15,6 +15,7 @@ struct DiveBuddyDetailContentPager: View {
     @Binding var gallerySelectedMediaID: UUID?
     let bottomScrollInset: CGFloat
     let onToggleFeaturedTaggedMedia: (() -> Void)?
+    let onOpenDive: (UUID) -> Void
 
     @State private var selectedPage: DiveBuddyDetailContentPage = DiveBuddyDetailContentPagerPresentation.defaultPage
     @State private var mountedPages: Set<DiveBuddyDetailContentPage> = [
@@ -76,7 +77,8 @@ struct DiveBuddyDetailContentPager: View {
         } else {
             LinkedDiveLogbookListRows(
                 rows: diveRows,
-                listAccessibilityIdentifier: "DiveBuddyDetails.DiveList"
+                listAccessibilityIdentifier: "DiveBuddyDetails.DiveList",
+                onOpenDive: onOpenDive
             )
             .accessibilityIdentifier("DiveBuddyDetails.DivesTogether")
         }

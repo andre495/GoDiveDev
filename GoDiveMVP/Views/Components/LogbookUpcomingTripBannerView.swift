@@ -3,6 +3,7 @@ import SwiftUI
 /// Compact logbook shout-out for the next upcoming trip.
 struct LogbookUpcomingTripBannerView: View {
     let data: LogbookUpcomingTripBannerData
+    var accessibilityIdentifier: String = "Logbook.UpcomingTripBanner"
 
     var body: some View {
         HStack(alignment: .top, spacing: AppTheme.Spacing.md) {
@@ -48,6 +49,6 @@ struct LogbookUpcomingTripBannerView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(data.eyebrow), \(data.displayTitle), \(data.dateLine)")
-        .accessibilityIdentifier("Logbook.UpcomingTripBanner")
+        .accessibilityIdentifier(accessibilityIdentifier)
     }
 }

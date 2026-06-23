@@ -1,0 +1,40 @@
+---
+description: Blue sheet header pages — media/map hero, overlapping blue sheet, scrollable body
+globs: GoDiveMVP/Views/Pages/**/*.swift,GoDiveMVP/Views/Components/BlueSheet*.swift,GoDiveMVP/Views/Components/Pushed*.swift,GoDiveMVP/Views/Components/*Detail*.swift
+alwaysApply: false
+---
+
+# Blue sheet header pages
+
+Use this layout for full-screen **pushed** detail pages with a media/map header and scrollable blue panel (trip detail, buddy detail, and similar).
+
+## Required building blocks
+
+1. **`AppHeaderlessPage`** root — not `AppPage`.
+2. **`BlueSheetHeaderPageLayout`** + **`BlueSheetHeaderPageLayoutBuilder.make`** — do not duplicate `GeometryReader` seam math from `TripDetailView`.
+3. **Hero height** — `BlueSheetHeaderPageLayoutBuilder.heroHeight` with `HomeOverviewPushedLayoutPresentation.seamInputs` / `pushedPageSeamInputs`.
+4. **Sheet** — `HomeLifetimeStatsPanel(overlapsMedia:showsHero, bottomSafeAreaInset: 0)`.
+5. **Scroll body** — `BlueSheetHeaderScrollPageLayout.scrollPage` or `.staticPage` with `context.bottomScrollInset`.
+6. **Push transition** — seed `layoutSafeAreaTopFloor` / `layoutViewportHeightFloor` from `DiveBuddyDetailPresentation.initialPushedLayout*`; apply `.blueSheetHeaderPageLayoutState`.
+7. **Tab bar** — `.hidesBottomTabBarWhenPushed()`.
+
+## Hero band
+
+- Wrap media/map in **`PushedHeroBand`** (via `BlueSheetHeaderPageLayout`).
+- Optional toggle: **`PushedDetailHeroModeToggle`** in `heroOverlay`.
+- Reuse **`PushedDetailHeroHeaderView`** when the page has linked dive media + site pins.
+
+## Pager inside the sheet
+
+- **`PushedDetailContentPagerLayout.tabPage`** per `TabView` page.
+- **`.homeSheetPanelBottomScrollFade()`** on each page — not on the outer `TabView`.
+
+## Full reference
+
+Read **`GoDiveMVP/cursor/blue_sheet_header_page.md`** before implementing a new page.
+
+## Canonical examples
+
+- `trip_detail_view.swift`
+- `view_dive_buddy_details.swift`
+- `BlueSheetHeaderPageLayout.swift`

@@ -193,17 +193,6 @@ struct ViewDiveBuddyDetails: View {
                     showsBuddyLeaderboard: homeLayoutSeamInputs.showsBuddyLeaderboard,
                     transitionViewportFloor: layoutViewportHeightFloor
                 )
-                let layoutSnapshot = PageLayoutGeometryProbe.pushed(
-                    pageKind: .buddyDetail,
-                    screenWidth: proxy.size.width,
-                    geometryHeight: geometryHeight,
-                    safeAreaTop: safeTop,
-                    safeAreaBottom: proxy.safeAreaInsets.bottom,
-                    layoutStackHeight: layoutHeight,
-                    heroHeight: heroHeight,
-                    statsPanelContentHeight: homeAlignedStatsPanelContentHeight,
-                    scrollBottomInset: bottomScrollInset
-                )
 
                 ZStack(alignment: .top) {
                     VStack(spacing: -HomeLifetimeStatsLayout.panelOverlap) {
@@ -265,7 +254,6 @@ struct ViewDiveBuddyDetails: View {
                     }
                     .frame(width: proxy.size.width, height: layoutHeight, alignment: .top)
                     .ignoresSafeArea(edges: .bottom)
-                    .pageLayoutGeometryOverlay(layoutSnapshot)
                     .animation(nil, value: heroHeight)
 
                     buddyDetailBackChrome(safeTop: safeTop, topInset: topInset)
@@ -294,11 +282,6 @@ struct ViewDiveBuddyDetails: View {
             }
         }
         .ignoresSafeArea(edges: [.horizontal])
-        .navigationDestination(for: UUID.self) { diveID in
-            if let activity = ownerDiveActivitiesForLayout.first(where: { $0.id == diveID }) {
-                ViewSingleActivity(activity: activity)
-            }
-        }
         .navigationDestination(item: $buddyDiveNavigationID) { target in
             if let activity = ownerDiveActivitiesForLayout.first(where: { $0.id == target.id }) {
                 ViewSingleActivity(activity: activity)
@@ -562,6 +545,10 @@ struct ViewDiveBuddyDetails: View {
         .zIndex(1)
     }
 
+    private func openSharedDive(_ diveID: UUID) {
+        buddyDiveNavigationID = BuddyDiveNavigationID(id: diveID)
+    }
+
     private func openDiveSiteFromMap(_ siteID: UUID) {
         if let openCatalogDiveSiteDetail {
             openCatalogDiveSiteDetail(siteID)
@@ -663,14 +650,16 @@ struct ViewDiveBuddyDetails: View {
                 featuredTaggedMediaPhotoID: buddy.featuredTaggedMediaPhotoID,
                 gallerySelectedMediaID: $gallerySelectedMediaID,
                 bottomScrollInset: bottomScrollInset,
-                onToggleFeaturedTaggedMedia: toggleFeaturedTaggedMedia
+                onToggleFeaturedTaggedMedia: toggleFeaturedTaggedMedia,
+                onOpenDive: openSharedDive
             )
         } else if !cachedDiveRows.isEmpty {
             ScrollView {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
                     LinkedDiveLogbookListRows(
                         rows: cachedDiveRows,
-                        listAccessibilityIdentifier: "DiveBuddyDetails.DiveList"
+                        listAccessibilityIdentifier: "DiveBuddyDetails.DiveList",
+                        onOpenDive: openSharedDive
                     )
                     .accessibilityIdentifier("DiveBuddyDetails.DivesTogether")
 

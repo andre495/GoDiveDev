@@ -149,7 +149,12 @@ struct ExploreTopChrome: View {
     private var tripPlannerLink: some View {
         Button(action: onOpenTripPlanner) {
             Image(systemName: TripPlannerPresentation.exploreChromeSystemImage)
+                .font(.body.weight(.semibold))
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .foregroundStyle(.white)
         .accessibilityLabel(TripPlannerPresentation.exploreChromeAccessibilityLabel)
         .accessibilityIdentifier("Explore.TripPlanner")
     }

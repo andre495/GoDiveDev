@@ -137,17 +137,22 @@ struct TripPlannerView: View {
             ForEach(tripListSections) { section in
                 Section {
                     ForEach(section.trips, id: \.id) { trip in
-                        let linkedActivities = linkedActivities(for: trip)
-                        let previewMediaPhotoID = TripPlannerPresentation.listRowPreviewMediaPhotoID(
-                            phase: section.phase,
-                            linkedActivities: linkedActivities
-                        )
-                        let rowData = TripPlannerPresentation.listRowDisplayData(
-                            for: trip,
-                            phase: section.phase,
-                            previewMediaPhotoID: previewMediaPhotoID
-                        )
-                        tripListRow(trip: trip, rowData: rowData)
+                        switch section.phase {
+                        case .upcoming:
+                            upcomingTripBannerRow(trip: trip)
+                        case .active, .past:
+                            let linkedActivities = linkedActivities(for: trip)
+                            let previewMediaPhotoID = TripPlannerPresentation.listRowPreviewMediaPhotoID(
+                                phase: section.phase,
+                                linkedActivities: linkedActivities
+                            )
+                            let rowData = TripPlannerPresentation.listRowDisplayData(
+                                for: trip,
+                                phase: section.phase,
+                                previewMediaPhotoID: previewMediaPhotoID
+                            )
+                            tripListRow(trip: trip, rowData: rowData)
+                        }
                     }
                 } header: {
                     TripPlannerListSectionHeader(
@@ -157,6 +162,48 @@ struct TripPlannerView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func upcomingTripBannerRow(trip: DiveTrip) -> some View {
+        let banner = LogbookUpcomingTripPresentation.bannerData(for: trip)
+        let bannerView = LogbookUpcomingTripBannerView(
+            data: banner,
+            accessibilityIdentifier: "TripPlanner.UpcomingTrip.\(trip.id.uuidString)"
+        )
+
+        if let openTripDetail {
+            Button {
+                openTripDetail(trip.id)
+            } label: {
+                bannerView
+            }
+            .buttonStyle(.plain)
+            .navigationLinkIndicatorVisibility(.hidden)
+            .listRowInsets(upcomingTripBannerRowInsets)
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+        } else {
+            NavigationLink {
+                TripDetailView(tripID: trip.id)
+            } label: {
+                bannerView
+            }
+            .buttonStyle(.plain)
+            .navigationLinkIndicatorVisibility(.hidden)
+            .listRowInsets(upcomingTripBannerRowInsets)
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+        }
+    }
+
+    private var upcomingTripBannerRowInsets: EdgeInsets {
+        EdgeInsets(
+            top: 0,
+            leading: AppScrollUnderHeaderListLayout.horizontalListRowInset,
+            bottom: AppTheme.Spacing.sm,
+            trailing: AppScrollUnderHeaderListLayout.horizontalListRowInset
+        )
     }
 
     @ViewBuilder

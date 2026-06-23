@@ -1,14 +1,24 @@
 import SwiftUI
 
-/// Field Guide top bar — species search above the catalog hub.
+/// Field Guide top bar — hub title + species search above the catalog hub.
 struct FieldGuideTopChrome: View {
     @Binding var searchText: String
     @FocusState.Binding var isSearchFocused: Bool
     let showsSpeciesSearch: Bool
+    var showsHubTitle = false
     let statusBarSafeAreaTop: CGFloat
 
     var body: some View {
         VStack(spacing: AppTheme.Spacing.sm) {
+            if showsHubTitle {
+                Text("Reef Life Field Guide")
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityAddTraits(.isHeader)
+                    .accessibilityIdentifier("FieldGuide.Hub.Title")
+            }
+
             if showsSpeciesSearch {
                 fieldGuideSearchRow
             }

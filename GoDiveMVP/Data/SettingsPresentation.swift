@@ -35,18 +35,6 @@ enum SettingsPresentation: Sendable {
             "When on, GoDive reads your Apple Photos library (with your permission) and attaches photos and videos whose capture time falls within each dive’s start and end window. Turning this on scans dives already in your log; new imports are matched automatically. Media stays on your device in GoDive only — nothing is uploaded to a server. With Limited Photos access, only photos you allow are visible to the app."
     }
 
-    enum PageLayoutGeometryOverlay {
-        nonisolated static let title = "Show page layout geometry"
-        nonisolated static let infoMessage =
-            "Overlays region guides on Home, buddy detail, and trip detail. Copy layout report and compare sheet.seamYFromStackTop, sheet.seamYFromStackBottom, and sheet.seamYFromScreenBottom across pages to align the blue sheet seam."
-    }
-
-    enum PageLayoutGeometryReference {
-        nonisolated static let linkTitle = "Layout geometry guide"
-        nonisolated static let infoMessage =
-            "Opens a blank page with live region guides and a copyable layout report — same overlay as Home / buddy / trip when Show page layout geometry is on."
-    }
-
     enum BulkUddfImport {
         nonisolated static let attachMediaTitle = "Attach photos from library"
         nonisolated static let attachMediaSubtitle =

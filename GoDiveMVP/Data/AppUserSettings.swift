@@ -23,9 +23,6 @@ enum AppUserSettings: Sendable {
     /// When **`true`**, attach Photos library items whose capture time falls within each dive window after dive import.
     nonisolated static let autoUploadMediaToActivitiesKey = "goDiveAutoUploadMediaToActivities"
 
-    /// When **`true`**, Home / buddy / trip pages show layout region guides and a copyable geometry report.
-    nonisolated static let showPageLayoutGeometryOverlayKey = "goDiveShowPageLayoutGeometryOverlay"
-
     static var automaticallyRenumberDives: Bool {
         UserDefaults.standard.bool(forKey: automaticallyRenumberDivesKey)
     }

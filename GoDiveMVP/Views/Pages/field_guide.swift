@@ -95,11 +95,12 @@ struct FieldGuideView: View {
                     ZStack(alignment: .top) {
                         sectionContent(
                             topInset: listTopInset,
-                            bottomInset: listBottomInset
+                            bottomInset: listBottomInset,
+                            safeAreaTop: proxy.safeAreaInsets.top
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                        if showsTopChromeScrim {
+                        if showsLogbookStyleTopChromeScrim {
                             LogbookTopChromeScrim(topObstructionHeight: listTopInset)
                                 .padding(.top, -proxy.safeAreaInsets.top)
                                 .ignoresSafeArea(edges: .top)
@@ -111,6 +112,7 @@ struct FieldGuideView: View {
                             searchText: $speciesSearchQuery,
                             isSearchFocused: $isSpeciesSearchFocused,
                             showsSpeciesSearch: showsSpeciesSearch,
+                            showsHubTitle: showsSpeciesSearch && !isFilteringSpecies,
                             statusBarSafeAreaTop: proxy.safeAreaInsets.top
                         )
                         .zIndex(1)
@@ -212,8 +214,13 @@ struct FieldGuideView: View {
         !catalog.isEmpty
     }
 
+    /// Hub browse uses a page-tinted scrim through the title; species search keeps the logbook scrim.
+    private var showsLogbookStyleTopChromeScrim: Bool {
+        showsTopChromeScrim && isFilteringSpecies
+    }
+
     @ViewBuilder
-    private func sectionContent(topInset: CGFloat, bottomInset: CGFloat) -> some View {
+    private func sectionContent(topInset: CGFloat, bottomInset: CGFloat, safeAreaTop: CGFloat) -> some View {
         ZStack(alignment: .top) {
             if !GoDiveUITestConfiguration.isActive {
                 WaterBubbleBackground(animationPaused: isNavigatingCatalog)
@@ -221,7 +228,8 @@ struct FieldGuideView: View {
 
             fieldGuideCatalogListContent(
                 topInset: topInset,
-                bottomInset: bottomInset
+                bottomInset: bottomInset,
+                safeAreaTop: safeAreaTop
             )
         }
     }
@@ -255,14 +263,22 @@ struct FieldGuideView: View {
     }
 
     @ViewBuilder
-    private func fieldGuideCatalogListContent(topInset: CGFloat, bottomInset: CGFloat) -> some View {
+    private func fieldGuideCatalogListContent(
+        topInset: CGFloat,
+        bottomInset: CGFloat,
+        safeAreaTop: CGFloat
+    ) -> some View {
         if catalog.isEmpty {
             FieldGuideCatalogEmptyState()
                 .padding(.top, topInset)
         } else if isFilteringSpecies {
             fieldGuideSearchResultsList(topInset: topInset, bottomInset: bottomInset)
         } else {
-            FieldGuideCatalogHubView(summaries: resolvedCategorySummaries) { summary in
+            FieldGuideCatalogHubView(
+                summaries: resolvedCategorySummaries,
+                topChromeInset: topInset,
+                statusBarSafeAreaTop: safeAreaTop
+            ) { summary in
                 path.append(.category(summary))
             }
             .equatable()

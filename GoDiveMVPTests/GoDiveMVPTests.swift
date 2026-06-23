@@ -280,7 +280,7 @@ struct GoDiveMVPTests {
         #expect(inputs.showsBuddyLeaderboard == false)
     }
 
-    @Test func diveBuddyDetailContentPager_pages() {
+    @Test @MainActor func diveBuddyDetailContentPager_pages() {
         #expect(DiveBuddyDetailContentPagerPresentation.pageCount == 3)
         #expect(
             DiveBuddyDetailContentPagerPresentation.pages == [
@@ -2851,6 +2851,183 @@ struct GoDiveMVPTests {
         #expect(FieldGuideMarineLifeImageLayout.detailHeroBaseHeight == 280)
     }
 
+    @Test func fieldGuideSubcategorySearchPresentation_filtersByTitleOrHint() {
+        let angelfishes = FieldGuideTaxonomy.Subcategory(
+            id: "angelfishes",
+            title: "Angelfishes",
+            hint: "Species from Caribbean Reef Life — Angelfishes",
+            systemImage: "fish"
+        )
+        let gobies = FieldGuideTaxonomy.Subcategory(
+            id: "gobies",
+            title: "Gobies",
+            hint: "Species from Caribbean Reef Life — Gobies",
+            systemImage: "fish"
+        )
+
+        #expect(
+            FieldGuideSubcategorySearchPresentation.filtering([angelfishes, gobies], query: "angel")
+                == [angelfishes]
+        )
+        #expect(
+            FieldGuideSubcategorySearchPresentation.filtering([angelfishes, gobies], query: "Caribbean Gobies")
+                == [gobies]
+        )
+        #expect(
+            FieldGuideSubcategorySearchPresentation.showsAllSpeciesFallback(
+                subcategories: [],
+                speciesCount: 12,
+                query: ""
+            )
+        )
+        #expect(
+            !FieldGuideSubcategorySearchPresentation.showsAllSpeciesFallback(
+                subcategories: [],
+                speciesCount: 12,
+                query: "octopus"
+            )
+        )
+    }
+
+    @Test @MainActor func fieldGuideMarineLifeDetailView_heroHeight_usesPushedLayoutMetrics() {
+        let geometryHeight: CGFloat = 852
+        let screenWidth: CGFloat = 390
+        let topSafeAreaInset: CGFloat = 59
+        let seamInputs = HomeOverviewPushedLayoutPresentation.pushedPageSeamInputs()
+        let transitionFloor = HomeOverviewLayout.pushedHeroLayoutTransitionViewportCandidate(from: 803)
+
+        let heroHeight = BlueSheetHeaderPageLayoutBuilder.heroHeight(
+            geometryHeight: geometryHeight,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset,
+            statsPanelContentHeight: seamInputs.statsPanelContentHeight,
+            showsBuddyLeaderboard: seamInputs.showsBuddyLeaderboard,
+            transitionViewportFloor: transitionFloor
+        )
+        #expect(heroHeight > FieldGuideMarineLifeImageLayout.detailHeroBaseHeight)
+    }
+
+    @Test @MainActor func fieldGuideSpeciesDetailContentPager_pages() {
+        #expect(FieldGuideSpeciesDetailContentPagerPresentation.pageCount == 4)
+        #expect(
+            FieldGuideSpeciesDetailContentPagerPresentation.pages == [
+                .about,
+                .stats,
+                .taggedDives,
+                .taggedMedia,
+            ]
+        )
+        #expect(FieldGuideSpeciesDetailContentPagerPresentation.defaultPage == .about)
+        #expect(
+            FieldGuideSpeciesDetailContentPagerPresentation.pageTitle(for: .taggedDives) == "Tagged dives"
+        )
+        #expect(
+            FieldGuideSpeciesDetailContentPagerPresentation.accessibilityIdentifier(for: .taggedMedia)
+                == "FieldGuide.SpeciesDetail.ContentPager.TaggedMedia"
+        )
+        #expect(!FieldGuideSpeciesDetailContentPagerPresentation.usesStaticPagerLayout(for: .about))
+        #expect(
+            FieldGuideSpeciesDetailContentPagerPresentation.emptyStateMessage(for: .taggedDives)
+                == "No dives tagged with this species yet."
+        )
+    }
+
+    @Test func fieldGuidePresentation_sightedDiveRowDisplayData_ordersNewestFirst() {
+        let older = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 1_000_000),
+            durationMinutes: 1,
+            maxDepthMeters: 1
+        )
+        let newer = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 2_000_000),
+            durationMinutes: 1,
+            maxDepthMeters: 1
+        )
+        let rows = FieldGuidePresentation.sightedDiveRowDisplayData(
+            activityIDs: [older.id, newer.id],
+            activities: [older, newer],
+            unitSystem: .metric
+        )
+        #expect(rows.count == 2)
+        #expect(rows[0].id == newer.id)
+        #expect(rows[1].id == older.id)
+    }
+
+    @Test func fieldGuideSpeciesDetailMapPresentation_pinsUniqueCoordinatesFromTaggedDives() {
+        let site = DiveSite(
+            siteName: "Salt Pier",
+            latCoords: 12.0835,
+            longCoords: -68.283
+        )
+        let taggedA = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 100),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            siteName: "Salt Pier",
+            entryCoordinate: DiveCoordinate(latitude: 12.084, longitude: -68.284)
+        )
+        taggedA.diveSiteID = site.id
+        let taggedB = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 200),
+            durationMinutes: 35,
+            maxDepthMeters: 16,
+            siteName: "Salt Pier",
+            entryCoordinate: DiveCoordinate(latitude: 12.084, longitude: -68.284)
+        )
+        taggedB.diveSiteID = site.id
+        let taggedC = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 300),
+            durationMinutes: 50,
+            maxDepthMeters: 22,
+            siteName: "Something Else",
+            entryCoordinate: DiveCoordinate(latitude: 13.1, longitude: -69.1)
+        )
+
+        let pins = FieldGuideSpeciesDetailMapPresentation.pins(
+            from: [taggedA, taggedB, taggedC],
+            catalogSites: [site]
+        )
+        #expect(pins.count == 2)
+        #expect(pins.allSatisfy { $0.kind == .completed })
+        #expect(pins.contains(where: { $0.siteID == site.id }))
+        #expect(
+            FieldGuideSpeciesDetailMapPresentation.accessibilityLabel(for: pins)
+                == "Species sighting sites map, 2 sites"
+        )
+    }
+
+    @Test @MainActor func fieldGuideCategoryBlueSheetPage_heroHeight_matchesPushedLayoutMetrics() {
+        let geometryHeight: CGFloat = 852
+        let screenWidth: CGFloat = 390
+        let topSafeAreaInset: CGFloat = 59
+        let seamInputs = HomeOverviewPushedLayoutPresentation.pushedPageSeamInputs()
+        let transitionFloor = HomeOverviewLayout.pushedHeroLayoutTransitionViewportCandidate(from: 803)
+
+        let heroHeight = BlueSheetHeaderPageLayoutBuilder.heroHeight(
+            geometryHeight: geometryHeight,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset,
+            statsPanelContentHeight: seamInputs.statsPanelContentHeight,
+            showsBuddyLeaderboard: seamInputs.showsBuddyLeaderboard,
+            transitionViewportFloor: transitionFloor
+        )
+        let direct = HomeOverviewLayout.pushedHeroLayoutMetrics(
+            geometryHeight: geometryHeight,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset,
+            statsPanelContentHeight: seamInputs.statsPanelContentHeight,
+            showsBuddyLeaderboard: seamInputs.showsBuddyLeaderboard,
+            transitionViewportFloor: transitionFloor
+        ).heroHeight
+        #expect(heroHeight == direct)
+        #expect(heroHeight > FieldGuideCategoryImageLayout.detailHeroBaseHeight)
+    }
+
     @Test func fieldGuideCategoryPresentation_detailHeroHeight_includesSafeAreaInset() {
         let inset: CGFloat = 59
         #expect(
@@ -3450,9 +3627,9 @@ struct GoDiveMVPTests {
             modelContext: context
         )
         #expect(records.count == 2)
-        #expect(try records.allSatisfy { try $0.isSighted })
-        #expect(try records.allSatisfy { try $0.activitiesSightedOn.contains(dive.id) })
-        #expect(try records.allSatisfy { try $0.userTaggedMedia.contains("media:\(media.id.uuidString)") })
+        #expect(records.allSatisfy { $0.isSighted })
+        #expect(records.allSatisfy { $0.activitiesSightedOn.contains(dive.id) })
+        #expect(records.allSatisfy { $0.userTaggedMedia.contains("media:\(media.id.uuidString)") })
     }
 
     @Test func marineLifeMediaTagPresentation_taggedRows_listsUniqueSpeciesOnMedia() {
@@ -3757,8 +3934,13 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func fieldGuideHubTileLayout_usesFullWidthBannerHeight() {
-        #expect(FieldGuideHubTileLayout.tileHeight == 92)
+    @Test func fieldGuideHubTileLayout_matchesLogbookActivityRowSpacing() {
+        #expect(FieldGuideHubTileLayout.listRowSpacing == AppTheme.Spacing.sm)
+        #expect(FieldGuideHubTileLayout.tilePadding == LogbookActivityRowLayout.cardPadding)
+        #expect(FieldGuideHubTileLayout.tileCornerRadius == LogbookActivityRowLayout.cardCornerRadius)
+        #expect(FieldGuideHubTileLayout.tileHeight == HomeLifetimeStatsTilesLayout.statTileHeight)
+        #expect(FieldGuideHubTileLayout.hubTitleScrollFeather == 44)
+        #expect(FieldGuideHubTileLayout.hubScrollScrimHeight(topChromeInset: 111) == 155)
         #expect(FieldGuideHubTileLayout.titleTwoLineMinHeight(isFeatured: false) > 0)
     }
 
@@ -5834,6 +6016,27 @@ struct GoDiveMVPTests {
         #expect(links[1].id == olderID)
         #expect(links[1].title == "Salt Pier")
         #expect(!links[0].dateText.isEmpty)
+    }
+
+    @Test func fieldGuideTaggedMediaPresentation_linkedMediaItems_mapsPhotosToParentDives() {
+        let dive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 1, maxDepthMeters: 1)
+        let photo = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 1_000), dive: dive)
+        let sighting = SightingInstance(
+            marineLifeUUID: "species-linked-media",
+            sightingDateTime: Date(timeIntervalSince1970: 1_000),
+            diveActivity: dive,
+            mediaPhoto: photo
+        )
+        sighting.mediaPhotoID = photo.id
+
+        let linked = FieldGuideTaggedMediaPresentation.linkedMediaItems(
+            sightings: [sighting],
+            ownerDiveActivityIDs: [dive.id],
+            mediaItems: [photo]
+        )
+        #expect(linked.count == 1)
+        #expect(linked[0].id == photo.id)
+        #expect(linked[0].diveActivityID == dive.id)
     }
 
     @Test func diveSiteFormValidation_sanitizedPlaceField_trimsWhitespace() {
@@ -9637,6 +9840,32 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func blueSheetHeaderPageLayoutBuilder_heroHeight_matchesPushedHeroLayoutMetrics() {
+        let geometryHeight: CGFloat = 852
+        let screenWidth: CGFloat = 390
+        let topSafeAreaInset: CGFloat = 59
+        let statsBand = HomeOverviewLayout.heroLayoutStatsPanelContentHeight
+        let transitionFloor = HomeOverviewLayout.pushedHeroLayoutTransitionViewportCandidate(from: 803)
+
+        let viaBuilder = BlueSheetHeaderPageLayoutBuilder.heroHeight(
+            geometryHeight: geometryHeight,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset,
+            statsPanelContentHeight: statsBand,
+            showsBuddyLeaderboard: false,
+            transitionViewportFloor: transitionFloor
+        )
+        let direct = HomeOverviewLayout.pushedHeroLayoutMetrics(
+            geometryHeight: geometryHeight,
+            screenWidth: screenWidth,
+            topSafeAreaInset: topSafeAreaInset,
+            statsPanelContentHeight: statsBand,
+            showsBuddyLeaderboard: false,
+            transitionViewportFloor: transitionFloor
+        ).heroHeight
+        #expect(viaBuilder == direct)
+    }
+
     @Test func homeOverviewLayout_pushedHeroLayoutMetrics_widePhoneLeaderboardSeam_matchesHomeScreenBot() {
         let screenWidth: CGFloat = 517
         let topSafeAreaInset: CGFloat = 59
@@ -9766,98 +9995,6 @@ struct GoDiveMVPTests {
         #expect(homeScreenBottomSeam == pushedScreenBottomSeam)
     }
 
-    @Test func pageLayoutGeometryProbe_pushedScreenBottomSeam_matchesHomeWithLeaderboard() {
-        let screenWidth: CGFloat = 517
-        let topSafeAreaInset: CGFloat = 59
-        let homeGeometryHeight: CGFloat = 803
-        let pushedGeometryHeight: CGFloat = 852
-        let layoutStackHeight = HomeOverviewLayout.pushedPageLayoutHeight(from: pushedGeometryHeight)
-        let heroHeight = HomeOverviewLayout.pushedHeroLayoutMetrics(
-            geometryHeight: pushedGeometryHeight,
-            screenWidth: screenWidth,
-            topSafeAreaInset: topSafeAreaInset,
-            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeightWithLeaderboard,
-            showsBuddyLeaderboard: true
-        ).heroHeight
-        let homeSnapshot = PageLayoutGeometryProbe.home(
-            screenWidth: screenWidth,
-            geometryHeight: homeGeometryHeight,
-            safeAreaTop: topSafeAreaInset,
-            safeAreaBottom: 34,
-            layoutStackHeight: homeGeometryHeight,
-            heroHeight: heroHeight,
-            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeightWithLeaderboard
-        )
-        let buddySnapshot = PageLayoutGeometryProbe.pushed(
-            pageKind: .buddyDetail,
-            screenWidth: screenWidth,
-            geometryHeight: pushedGeometryHeight,
-            safeAreaTop: topSafeAreaInset,
-            safeAreaBottom: 34,
-            layoutStackHeight: layoutStackHeight,
-            heroHeight: heroHeight,
-            scrollBottomInset: 62
-        )
-
-        #expect(homeSnapshot.sheetSeamYFromScreenBottom == buddySnapshot.sheetSeamYFromScreenBottom)
-    }
-
-    @Test func pageLayoutGeometryProbe_homeAndPushedTabBarReserve() {
-        let statsBand = HomeOverviewLayout.heroLayoutStatsPanelContentHeight
-        let homeSnapshot = PageLayoutGeometryProbe.home(
-            screenWidth: 393,
-            geometryHeight: 803,
-            safeAreaTop: 59,
-            safeAreaBottom: 34,
-            layoutStackHeight: 803,
-            heroHeight: 461,
-            statsPanelContentHeight: statsBand
-        )
-        #expect(homeSnapshot.pageKind == .home)
-        #expect(homeSnapshot.tabBarReserveBelowStack == 0)
-        #expect(homeSnapshot.sheetSeamY == 461 - HomeOverviewLayout.panelOverlap)
-        #expect(homeSnapshot.sheetSeamYFromStackBottom == 803 - homeSnapshot.sheetSeamY)
-        #expect(homeSnapshot.sheetSeamYFromGeometryBottom == 803 - homeSnapshot.sheetSeamY)
-        #expect(
-            homeSnapshot.sheetSeamYFromScreenBottom
-                == 803 + HomeOverviewLayout.rootTabBarLayoutHeight - homeSnapshot.sheetSeamY
-        )
-        #expect(homeSnapshot.sheetBodyHeight == 803 - homeSnapshot.sheetSeamY)
-        #expect(homeSnapshot.minimumStatsBand == statsBand + HomeOverviewLayout.tabBarScrollInset)
-        #expect(homeSnapshot.layoutReport().contains("sheet.seamYFromStackTop="))
-        #expect(homeSnapshot.layoutReport().contains("sheet.seamYFromScreenBottom="))
-
-        let buddySnapshot = PageLayoutGeometryProbe.pushed(
-            pageKind: .buddyDetail,
-            screenWidth: 393,
-            geometryHeight: 852,
-            safeAreaTop: 59,
-            safeAreaBottom: 34,
-            layoutStackHeight: 852,
-            heroHeight: 461,
-            scrollBottomInset: 62
-        )
-        #expect(buddySnapshot.tabBarReserveBelowStack == 0)
-        #expect(buddySnapshot.sheetSeamYFromGeometryBottom == 852 - buddySnapshot.sheetSeamY)
-        #expect(buddySnapshot.sheetSeamYFromScreenBottom == buddySnapshot.sheetSeamYFromGeometryBottom)
-        #expect(buddySnapshot.sheetBodyHeight == 852 - buddySnapshot.sheetSeamY)
-        #expect(
-            homeSnapshot.sheetSeamYFromScreenBottom == buddySnapshot.sheetSeamYFromScreenBottom
-        )
-        #expect(buddySnapshot.scrollBottomInset == 62)
-        #expect(buddySnapshot.value(for: .hero) == 461)
-    }
-
-    @Test func pageLayoutGeometryReferencePresentation_exampleSnapshots_alignSeamFromScreenBottom() {
-        let home = PageLayoutGeometryReferencePresentation.exampleHomeSnapshot
-        let pushed = PageLayoutGeometryReferencePresentation.examplePushedSnapshot
-        #expect(home.sheetSeamY == pushed.sheetSeamY)
-        #expect(home.sheetSeamYFromScreenBottom == pushed.sheetSeamYFromScreenBottom)
-        #expect(home.tabBarReserveBelowStack == 0)
-        #expect(pushed.tabBarReserveBelowStack == 0)
-        #expect(PageLayoutGeometryReferencePresentation.glossary.isEmpty == false)
-    }
-
     @Test func appSessionBootstrapPresentation_showsLaunchOverlayOnlyWhileRestoringSession() {
         #expect(
             AppSessionBootstrapPresentation.showsLaunchOverlay(
@@ -9945,7 +10082,7 @@ struct GoDiveMVPTests {
         }
     }
 
-    @Test func diveMediaScopeCachePresentation_mergedTier_prefersFull() {
+    @Test @MainActor func diveMediaScopeCachePresentation_mergedTier_prefersFull() {
         #expect(
             DiveMediaScopeCachePresentation.mergedTier(existing: nil, incoming: .preview) == .preview
         )
@@ -9965,7 +10102,7 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func diveMediaRetentionScope_fieldGuideContexts() {
+    @Test @MainActor func diveMediaRetentionScope_fieldGuideContexts() {
         let siteID = UUID()
         #expect(DiveMediaRetentionScope.marineLifeSpecies("fish-1") == .marineLifeSpecies("fish-1"))
         #expect(DiveMediaRetentionScope.diveSite(siteID) == .diveSite(siteID))
@@ -10128,7 +10265,7 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func diveBuddyTaggedMediaFullscreenPresentation_lockedDragAxis_prefersDominantTranslation() {
+    @Test @MainActor func diveBuddyTaggedMediaFullscreenPresentation_lockedDragAxis_prefersDominantTranslation() {
         #expect(
             DiveBuddyTaggedMediaFullscreenPresentation.lockedDragAxis(
                 translation: CGSize(width: 20, height: 5)
@@ -14003,6 +14140,25 @@ struct GoDiveMVPTests {
         #expect(banner?.tripID == soonerID)
         #expect(banner?.displayTitle == "Sooner Trip")
         #expect(banner?.eyebrow == "Trip on the horizon")
+    }
+
+    @Test func logbookUpcomingTripPresentation_bannerData_mapsTripPlannerHorizonRow() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let start = calendar.date(from: DateComponents(year: 2026, month: 7, day: 1))!
+        let end = calendar.date(from: DateComponents(year: 2026, month: 7, day: 7))!
+        let trip = DiveTrip(
+            startDate: start,
+            endDate: end,
+            countries: ["Bonaire"],
+            title: "Reef week"
+        )
+
+        let banner = LogbookUpcomingTripPresentation.bannerData(for: trip)
+        #expect(banner.tripID == trip.id)
+        #expect(banner.eyebrow == "Trip on the horizon")
+        #expect(banner.displayTitle == "Reef week")
+        #expect(banner.dateLine == TripPlannerPresentation.listRowSubtitle(for: trip))
     }
 
     @Test func appTheme_logbookSearchFieldHeight_matchesInlineChromeRow() {

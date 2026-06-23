@@ -3,72 +3,95 @@ import SwiftUI
 import UIKit
 #endif
 
-// MARK: - Category hub (full-width rows)
+// MARK: - Category hub (full-width rows — logbook dive tile spacing)
 
 struct FieldGuideCatalogHubView: View, Equatable {
     let summaries: [FieldGuideCatalogIndex.CategorySummary]
+    let topChromeInset: CGFloat
+    let statusBarSafeAreaTop: CGFloat
     let onSelectCategory: (FieldGuideCatalogIndex.CategorySummary) -> Void
 
     var body: some View {
-        List {
-            hubIntro
-                .listRowInsets(
-                    EdgeInsets(
-                        top: AppTheme.Spacing.sm,
-                        leading: AppTheme.Spacing.lg,
-                        bottom: AppTheme.Spacing.sm,
-                        trailing: AppTheme.Spacing.lg
-                    )
-                )
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-
-            ForEach(summaries) { summary in
-                if let definition = FieldGuideTaxonomy.category(id: summary.categoryID) {
-                    Button {
-                        onSelectCategory(summary)
-                    } label: {
-                        FieldGuideCategoryHubTile(
-                            definition: definition,
-                            speciesCount: summary.speciesCount
+        ZStack(alignment: .top) {
+            List {
+                ForEach(summaries) { summary in
+                    if let definition = FieldGuideTaxonomy.category(id: summary.categoryID) {
+                        Button {
+                            onSelectCategory(summary)
+                        } label: {
+                            FieldGuideCategoryHubTile(
+                                definition: definition,
+                                speciesCount: summary.speciesCount
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .listRowInsets(
+                            EdgeInsets(
+                                top: 0,
+                                leading: AppTheme.Spacing.lg,
+                                bottom: 0,
+                                trailing: AppTheme.Spacing.lg
+                            )
                         )
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                        .accessibilityIdentifier("FieldGuide.Hub.Category.\(summary.categoryID)")
                     }
-                    .buttonStyle(.plain)
-                    .listRowInsets(
-                        EdgeInsets(
-                            top: 0,
-                            leading: AppTheme.Spacing.lg,
-                            bottom: 0,
-                            trailing: AppTheme.Spacing.lg
-                        )
-                    )
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .accessibilityIdentifier("FieldGuide.Hub.Category.\(summary.categoryID)")
                 }
             }
-        }
-        .listStyle(.plain)
-        .listRowSpacing(AppTheme.Spacing.md)
-        .scrollContentBackground(.hidden)
-        .background(Color.clear)
-    }
+            .listStyle(.plain)
+            .listRowSpacing(FieldGuideHubTileLayout.listRowSpacing)
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
 
-    private var hubIntro: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            Text("Reef life atlas")
-                .font(.title2.weight(.bold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-            Text("Browse Caribbean species by the groups in Caribbean Reef Life — plants, sponges, corals, invertebrates, fishes, and more.")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.Colors.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
+            FieldGuideHubTitleScrollScrim(
+                topChromeInset: topChromeInset,
+                statusBarSafeAreaTop: statusBarSafeAreaTop
+            )
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+            .zIndex(0.5)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.summaries == rhs.summaries
+            && lhs.topChromeInset == rhs.topChromeInset
+            && lhs.statusBarSafeAreaTop == rhs.statusBarSafeAreaTop
+    }
+}
+
+/// Page-tinted fade from the status bar through hub chrome into scrolling tiles.
+private struct FieldGuideHubTitleScrollScrim: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    let topChromeInset: CGFloat
+    let statusBarSafeAreaTop: CGFloat
+
+    private var bandHeight: CGFloat {
+        FieldGuideHubTileLayout.hubScrollScrimHeight(topChromeInset: topChromeInset)
+    }
+
+    var body: some View {
+        Group {
+            if reduceTransparency {
+                AppTheme.Colors.surfaceGradientTop.opacity(0.98)
+            } else {
+                LinearGradient(
+                    stops: [
+                        .init(color: AppTheme.Colors.surfaceGradientTop, location: 0.0),
+                        .init(color: AppTheme.Colors.surfaceGradientTop.opacity(0.92), location: 0.62),
+                        .init(color: AppTheme.Colors.surfaceGradientTop.opacity(0), location: 1.0),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+        }
+        .frame(height: bandHeight, alignment: .top)
+        .frame(maxWidth: .infinity, alignment: .top)
+        .padding(.top, -statusBarSafeAreaTop)
+        .ignoresSafeArea(edges: .top)
     }
 }
 
@@ -104,17 +127,8 @@ private struct FieldGuideCategoryHubTile: View {
 
     var body: some View {
         ZStack(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            FieldGuideCategoryAccent.gradientTop(definition.id),
-                            FieldGuideCategoryAccent.gradientBottom(definition.id),
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+            RoundedRectangle(cornerRadius: FieldGuideHubTileLayout.tileCornerRadius, style: .continuous)
+                .fill(categoryGradient)
 
             if let heroImageName = definition.heroImageName, !heroImageName.isEmpty {
                 FieldGuideCategoryBackgroundArt(
@@ -127,7 +141,7 @@ private struct FieldGuideCategoryHubTile: View {
                     .font(.system(size: 44, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.22))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                    .padding(AppTheme.Spacing.md)
+                    .padding(FieldGuideHubTileLayout.tilePadding)
                     .offset(x: 8, y: -4)
             }
 
@@ -150,17 +164,31 @@ private struct FieldGuideCategoryHubTile: View {
 
                 Spacer(minLength: 88)
             }
-            .padding(AppTheme.Spacing.md)
+            .padding(FieldGuideHubTileLayout.tilePadding)
         }
         .frame(maxWidth: .infinity)
         .frame(height: FieldGuideHubTileLayout.tileHeight)
+        .clipShape(
+            RoundedRectangle(cornerRadius: FieldGuideHubTileLayout.tileCornerRadius, style: .continuous)
+        )
         .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: FieldGuideHubTileLayout.tileCornerRadius, style: .continuous)
                 .stroke(.white.opacity(0.18), lineWidth: 1)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(definition.title), \(speciesCount) catalog species")
         .accessibilityHint("Opens \(definition.title) groups")
+    }
+
+    private var categoryGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                FieldGuideCategoryAccent.gradientTop(definition.id),
+                FieldGuideCategoryAccent.gradientBottom(definition.id),
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     }
 
     @ViewBuilder
@@ -171,15 +199,23 @@ private struct FieldGuideCategoryHubTile: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background {
-                Capsule().fill(.white.opacity(0.92))
+                Capsule().fill(.white)
             }
             .padding(.top, 2)
     }
 }
 
-/// Hub tile layout — full-width banner rows in the category hub.
+/// Hub tile layout — full-width list rows aligned with **`LogbookActivityRowLayout`** spacing.
 enum FieldGuideHubTileLayout: Sendable {
-    nonisolated static let tileHeight: CGFloat = 92
+    nonisolated static let listRowSpacing: CGFloat = AppTheme.Spacing.sm
+    nonisolated static let tileHeight: CGFloat = HomeLifetimeStatsTilesLayout.statTileHeight
+    nonisolated static let tilePadding: CGFloat = LogbookActivityRowLayout.cardPadding
+    nonisolated static let tileCornerRadius: CGFloat = LogbookActivityRowLayout.cardCornerRadius
+    nonisolated static let hubTitleScrollFeather: CGFloat = 44
+
+    nonisolated static func hubScrollScrimHeight(topChromeInset: CGFloat) -> CGFloat {
+        topChromeInset + hubTitleScrollFeather
+    }
 
     nonisolated static func titleTwoLineMinHeight(isFeatured: Bool) -> CGFloat {
         #if canImport(UIKit)
@@ -202,89 +238,70 @@ struct FieldGuideCategoryDetailView: View, Equatable {
     let summary: FieldGuideCatalogIndex.CategorySummary
     let onSelectSubcategory: (String) -> Void
 
-    @State private var headerClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
+    @State private var searchQuery = ""
+    @FocusState private var isSearchFocused: Bool
 
     private var definition: FieldGuideTaxonomy.Category? {
         FieldGuideTaxonomy.category(id: categoryID)
     }
 
     var body: some View {
-        AppHeaderlessPage {
-            GeometryReader { proxy in
-                let safeTop = AppScrollUnderHeaderListLayout.resolvedSafeAreaTop(proxy.safeAreaInsets.top)
-                let topInset = AppScrollUnderHeaderListLayout.listTopInset(
-                    safeAreaTop: safeTop,
-                    headerClearance: headerClearance
+        FieldGuideCategoryBlueSheetPage(
+            categoryID: categoryID,
+            systemImage: definition?.systemImage ?? "leaf",
+            heroImageName: definition?.heroImageName,
+            accessibilityRootIdentifier: "FieldGuide.CategoryDetail.Root",
+            scrollAccessibilityIdentifier: "FieldGuide.CategoryDetail.Scroll",
+            searchText: $searchQuery,
+            isSearchFocused: $isSearchFocused,
+            searchPlaceholder: "Search groups",
+            searchFieldAccessibilityIdentifier: "FieldGuide.CategoryDetail.Search",
+            cancelAccessibilityIdentifier: "FieldGuide.CategoryDetail.SearchCancel"
+        ) {
+            if let definition {
+                FieldGuideCategoryDetailCopy(
+                    definition: definition,
+                    categoryID: categoryID,
+                    speciesCount: summary.speciesCount
                 )
-
-                ZStack(alignment: .top) {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 0) {
-                            if let definition {
-                                FieldGuideCategoryHeroImage(
-                                    categoryID: categoryID,
-                                    systemImage: definition.systemImage,
-                                    heroImageName: definition.heroImageName,
-                                    totalHeight: FieldGuideCategoryPresentation.detailHeroHeight(
-                                        extraTopInset: safeTop
-                                    ),
-                                    fullBleed: true
-                                )
-
-                                VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-                                    FieldGuideCategoryDetailCopy(
-                                        definition: definition,
-                                        categoryID: categoryID,
-                                        speciesCount: summary.speciesCount
-                                    )
-
-                                    FieldGuideSubcategoryListSection(
-                                        subcategories: definition.subcategories,
-                                        counts: summary.subcategoryCounts,
-                                        categoryID: categoryID,
-                                        speciesCount: summary.speciesCount,
-                                        onSelect: onSelectSubcategory
-                                    )
-                                }
-                                .padding(AppTheme.Spacing.md)
-                            }
-                        }
-                    }
-                    .scrollDismissesKeyboard(.interactively)
-                    .ignoresSafeArea(edges: .top)
-
-                    LogbookTopChromeScrim(topObstructionHeight: topInset)
-                        .padding(.top, -safeTop)
-                        .ignoresSafeArea(edges: .top)
-                        .allowsHitTesting(false)
-                        .zIndex(0.5)
-
-                    Color.clear
-                        .frame(height: topInset)
-                        .frame(maxWidth: .infinity, alignment: .top)
-                        .contentShape(Rectangle())
-                        .accessibilityHidden(true)
-                        .zIndex(0.75)
-
-                    AppHeader(
-                        title: "",
-                        showsBackButton: true,
-                        showsBrandWordmark: false,
-                        statusBarSafeAreaTop: safeTop
-                    ) {
-                        EmptyView()
-                    }
-                    .frame(maxWidth: .infinity, alignment: .top)
-                    .zIndex(1)
-                }
-                .frame(width: proxy.size.width, height: proxy.size.height)
-                .onPreferenceChange(AppHeaderMetrics.HeightKey.self) { height in
-                    if height > 0 { headerClearance = height }
-                }
+            }
+        } scrollContent: {
+            if let definition {
+                categoryScrollContent(definition: definition)
             }
         }
-        .hidesBottomTabBarWhenPushed()
-        .accessibilityIdentifier("FieldGuide.CategoryDetail.Root")
+    }
+
+    @ViewBuilder
+    private func categoryScrollContent(definition: FieldGuideTaxonomy.Category) -> some View {
+        let filteredSubcategories = FieldGuideSubcategorySearchPresentation.filtering(
+            definition.subcategories,
+            query: searchQuery
+        )
+        let showsAllSpeciesFallback = FieldGuideSubcategorySearchPresentation.showsAllSpeciesFallback(
+            subcategories: definition.subcategories,
+            speciesCount: summary.speciesCount,
+            query: searchQuery
+        )
+
+        if filteredSubcategories.isEmpty,
+           !showsAllSpeciesFallback,
+           FieldGuideSubcategorySearchPresentation.isFiltering(query: searchQuery) {
+            CatalogSearchEmptyState(
+                title: "No matching groups",
+                message: "Try a group name or hint like “angelfish” or “barrel sponge”."
+            )
+            .padding(.vertical, AppTheme.Spacing.lg)
+        } else {
+            FieldGuideSubcategoryListSection(
+                subcategories: filteredSubcategories,
+                counts: summary.subcategoryCounts,
+                categoryID: categoryID,
+                speciesCount: summary.speciesCount,
+                showsAllSpeciesFallback: showsAllSpeciesFallback,
+                onSelect: onSelectSubcategory
+            )
+        }
     }
 
     static func == (lhs: Self, rhs: Self) -> Bool {
@@ -411,43 +428,38 @@ struct FieldGuideSubcategoryListSection: View {
     let counts: [String: Int]
     let categoryID: String
     let speciesCount: Int
+    var showsAllSpeciesFallback: Bool = false
     let onSelect: (String) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-            Text("Groups")
-                .font(.headline)
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-
-            VStack(spacing: AppTheme.Spacing.sm) {
-                if subcategories.isEmpty, speciesCount > 0 {
-                    Button {
-                        onSelect("")
-                    } label: {
-                        FieldGuideSubcategoryFallbackRow(
-                            title: "All species",
-                            hint: "Browse every species in this category",
-                            speciesCount: speciesCount,
-                            categoryID: categoryID
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("FieldGuide.Category.\(categoryID).Subcategory.all")
+        VStack(spacing: AppTheme.Spacing.sm) {
+            if showsAllSpeciesFallback {
+                Button {
+                    onSelect("")
+                } label: {
+                    FieldGuideSubcategoryFallbackRow(
+                        title: "All species",
+                        hint: "Browse every species in this category",
+                        speciesCount: speciesCount,
+                        categoryID: categoryID
+                    )
                 }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("FieldGuide.Category.\(categoryID).Subcategory.all")
+            }
 
-                ForEach(subcategories) { subcategory in
-                    Button {
-                        onSelect(subcategory.id)
-                    } label: {
-                        FieldGuideSubcategoryRow(
-                            subcategory: subcategory,
-                            speciesCount: counts[subcategory.id, default: 0],
-                            categoryID: categoryID
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("FieldGuide.Category.\(categoryID).Subcategory.\(subcategory.id)")
+            ForEach(subcategories) { subcategory in
+                Button {
+                    onSelect(subcategory.id)
+                } label: {
+                    FieldGuideSubcategoryRow(
+                        subcategory: subcategory,
+                        speciesCount: counts[subcategory.id, default: 0],
+                        categoryID: categoryID
+                    )
                 }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("FieldGuide.Category.\(categoryID).Subcategory.\(subcategory.id)")
             }
         }
     }
@@ -563,7 +575,8 @@ struct FieldGuideSubcategorySpeciesView: View, Equatable {
     let unitSystem: DiveDisplayUnitSystem
     let onSelectSpecies: (String) -> Void
 
-    @State private var headerClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
+    @State private var searchQuery = ""
+    @FocusState private var isSearchFocused: Bool
 
     private let columns = [
         GridItem(.flexible(), spacing: AppTheme.Spacing.md),
@@ -581,102 +594,66 @@ struct FieldGuideSubcategorySpeciesView: View, Equatable {
         )
     }
 
+    private var filteredSpecies: [MarineLifeCatalogSnapshot] {
+        FieldGuideMarineLifeSearch.filtering(payload.species, query: searchQuery)
+    }
+
     var body: some View {
-        AppHeaderlessPage {
-            GeometryReader { proxy in
-                let safeTop = AppScrollUnderHeaderListLayout.resolvedSafeAreaTop(proxy.safeAreaInsets.top)
-                let topInset = AppScrollUnderHeaderListLayout.listTopInset(
-                    safeAreaTop: safeTop,
-                    headerClearance: headerClearance
+        FieldGuideCategoryBlueSheetPage(
+            categoryID: payload.categoryID,
+            systemImage: subcategoryDefinition?.systemImage
+                ?? categoryDefinition?.systemImage
+                ?? "leaf",
+            heroImageName: categoryDefinition?.heroImageName,
+            accessibilityRootIdentifier: "FieldGuide.SubcategoryDetail.Root",
+            scrollAccessibilityIdentifier: "FieldGuide.SubcategoryDetail.Scroll",
+            searchText: $searchQuery,
+            isSearchFocused: $isSearchFocused,
+            searchPlaceholder: "Search species",
+            searchFieldAccessibilityIdentifier: "FieldGuide.SubcategoryDetail.Search",
+            cancelAccessibilityIdentifier: "FieldGuide.SubcategoryDetail.SearchCancel"
+        ) {
+            FieldGuideSubcategoryDetailCopy(
+                title: payload.title,
+                hint: subcategoryDefinition?.hint ?? "",
+                speciesCount: payload.species.count,
+                categoryID: payload.categoryID
+            )
+        } scrollContent: {
+            subcategoryScrollContent
+        }
+    }
+
+    @ViewBuilder
+    private var subcategoryScrollContent: some View {
+        if filteredSpecies.isEmpty {
+            if FieldGuideMarineLifeSearch.isFiltering(query: searchQuery) {
+                CatalogSearchEmptyState(
+                    title: "No matching species",
+                    message: "Try a common name, scientific name, or family like “ray” or “angelfish”."
                 )
-
-                ZStack(alignment: .top) {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 0) {
-                            if let categoryDefinition {
-                                FieldGuideCategoryHeroImage(
-                                    categoryID: payload.categoryID,
-                                    systemImage: subcategoryDefinition?.systemImage
-                                        ?? categoryDefinition.systemImage,
-                                    heroImageName: categoryDefinition.heroImageName,
-                                    totalHeight: FieldGuideCategoryPresentation.detailHeroHeight(
-                                        extraTopInset: safeTop
-                                    ),
-                                    fullBleed: true
-                                )
-
-                                VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-                                    FieldGuideSubcategoryDetailCopy(
-                                        title: payload.title,
-                                        hint: subcategoryDefinition?.hint ?? "",
-                                        speciesCount: payload.species.count,
-                                        categoryID: payload.categoryID
-                                    )
-
-                                    Group {
-                                        if payload.species.isEmpty {
-                                            emptyState
-                                        } else {
-                                            LazyVGrid(columns: columns, spacing: AppTheme.Spacing.md) {
-                                                ForEach(payload.species, id: \.uuid) { entry in
-                                                    Button {
-                                                        onSelectSpecies(entry.uuid)
-                                                    } label: {
-                                                        FieldGuideSpeciesMosaicCard(
-                                                            entry: entry,
-                                                            unitSystem: unitSystem,
-                                                            accent: FieldGuideCategoryAccent.gradientTop(
-                                                                payload.categoryID
-                                                            )
-                                                        )
-                                                        .equatable()
-                                                    }
-                                                    .buttonStyle(.plain)
-                                                    .accessibilityIdentifier("FieldGuide.Species.\(entry.uuid)")
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                .padding(AppTheme.Spacing.md)
-                            }
-                        }
+                .padding(.vertical, AppTheme.Spacing.lg)
+            } else {
+                emptyState
+            }
+        } else {
+            LazyVGrid(columns: columns, spacing: AppTheme.Spacing.md) {
+                ForEach(filteredSpecies, id: \.uuid) { entry in
+                    Button {
+                        onSelectSpecies(entry.uuid)
+                    } label: {
+                        FieldGuideSpeciesMosaicCard(
+                            entry: entry,
+                            unitSystem: unitSystem,
+                            accent: FieldGuideCategoryAccent.gradientTop(payload.categoryID)
+                        )
+                        .equatable()
                     }
-                    .scrollDismissesKeyboard(.interactively)
-                    .ignoresSafeArea(edges: .top)
-
-                    LogbookTopChromeScrim(topObstructionHeight: topInset)
-                        .padding(.top, -safeTop)
-                        .ignoresSafeArea(edges: .top)
-                        .allowsHitTesting(false)
-                        .zIndex(0.5)
-
-                    Color.clear
-                        .frame(height: topInset)
-                        .frame(maxWidth: .infinity, alignment: .top)
-                        .contentShape(Rectangle())
-                        .accessibilityHidden(true)
-                        .zIndex(0.75)
-
-                    AppHeader(
-                        title: "",
-                        showsBackButton: true,
-                        showsBrandWordmark: false,
-                        statusBarSafeAreaTop: safeTop
-                    ) {
-                        EmptyView()
-                    }
-                    .frame(maxWidth: .infinity, alignment: .top)
-                    .zIndex(1)
-                }
-                .frame(width: proxy.size.width, height: proxy.size.height)
-                .onPreferenceChange(AppHeaderMetrics.HeightKey.self) { height in
-                    if height > 0 { headerClearance = height }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("FieldGuide.Species.\(entry.uuid)")
                 }
             }
         }
-        .hidesBottomTabBarWhenPushed()
-        .accessibilityIdentifier("FieldGuide.SubcategoryDetail.Root")
     }
 
     static func == (lhs: Self, rhs: Self) -> Bool {

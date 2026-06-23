@@ -65,18 +65,12 @@ struct TripPlannerListRow: View, Equatable {
     }
 
     private var secondaryDetailLine: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 0) {
-            Text(data.dateRangeLine)
-                .foregroundStyle(AppTheme.Colors.accent)
-            if let countriesLine = data.countriesLine, !countriesLine.isEmpty {
-                Text(" · \(countriesLine)")
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-            }
-        }
-        .font(.caption)
-        .lineLimit(2)
-        .minimumScaleFactor(0.85)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        Text(data.dateRangeLine)
+            .font(.caption)
+            .foregroundStyle(AppTheme.Colors.secondaryText)
+            .lineLimit(1)
+            .minimumScaleFactor(0.85)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder

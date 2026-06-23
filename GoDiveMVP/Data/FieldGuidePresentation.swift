@@ -141,6 +141,30 @@ enum FieldGuidePresentation {
         return "\(scientific) · \(sizeDepth)"
     }
 
+    /// Logbook rows for species **Tagged dives** pager (newest dive first).
+    static func sightedDiveRowDisplayData(
+        activityIDs: [UUID],
+        activities: [DiveActivity],
+        unitSystem: DiveDisplayUnitSystem,
+        useChronologicalNumbers: Bool = false,
+        numberingActivities: [DiveActivity]? = nil
+    ) -> [DiveLogbookRowDisplayData] {
+        guard !activityIDs.isEmpty else { return [] }
+
+        let idSet = Set(activityIDs)
+        let sightedActivities = activities
+            .filter { idSet.contains($0.id) }
+            .sorted { $0.startTime > $1.startTime }
+
+        return DiveLogbookDisplay.rowData(
+            activities: sightedActivities,
+            unitSystem: unitSystem,
+            duplicateIds: [],
+            useChronologicalNumbers: useChronologicalNumbers,
+            numberingActivities: numberingActivities
+        )
+    }
+
     /// Resolves tagged dive activities for the species detail sheet (newest dive first).
     nonisolated static func sightedActivityLinks(
         activityIDs: [UUID],

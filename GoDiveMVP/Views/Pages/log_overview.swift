@@ -199,15 +199,6 @@ struct LogOverviewView: View {
             isNavigationStackAtRoot: isHomeNavigationStackAtRoot
         )
         let bottomInset = proxy.safeAreaInsets.bottom
-        let layoutSnapshot = PageLayoutGeometryProbe.home(
-            screenWidth: proxy.size.width,
-            geometryHeight: proxy.size.height,
-            safeAreaTop: proxy.safeAreaInsets.top,
-            safeAreaBottom: bottomInset,
-            layoutStackHeight: viewportHeight,
-            heroHeight: homeLayout.heroHeight,
-            statsPanelContentHeight: statsContentHeight
-        )
 
         VStack(spacing: -HomeLifetimeStatsLayout.panelOverlap) {
             if hasCarouselMedia {
@@ -230,7 +221,6 @@ struct LogOverviewView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(width: proxy.size.width, height: viewportHeight, alignment: .top)
-        .pageLayoutGeometryOverlay(layoutSnapshot)
         .onAppear {
             HomeOverviewLayoutAnchor.publish(
                 HomeOverviewLayoutAnchor.RootSnapshot(

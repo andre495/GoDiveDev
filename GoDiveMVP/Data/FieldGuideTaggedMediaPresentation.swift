@@ -136,6 +136,45 @@ enum FieldGuideTaggedMediaPresentation {
         return try? modelContext.fetch(descriptor).first
     }
 
+    /// Maps each tagged photo to its parent dive for trip-style media chrome (**View on dive**).
+    nonisolated static func linkedMediaItems(
+        sightings: [SightingInstance],
+        ownerDiveActivityIDs: Set<UUID>,
+        mediaItems: [DiveMediaPhoto]
+    ) -> [TripDetailLinkedMediaItem] {
+        let diveIDByMediaID = diveActivityIDByMediaID(
+            sightings: sightings,
+            ownerDiveActivityIDs: ownerDiveActivityIDs
+        )
+        return mediaItems.compactMap { photo in
+            guard let diveActivityID = diveIDByMediaID[photo.id] else { return nil }
+            return TripDetailLinkedMediaItem(
+                id: photo.id,
+                diveActivityID: diveActivityID,
+                capturedAt: photo.capturedAt,
+                sortOrder: photo.sortOrder
+            )
+        }
+    }
+
+    nonisolated static func diveActivityIDByMediaID(
+        sightings: [SightingInstance],
+        ownerDiveActivityIDs: Set<UUID>
+    ) -> [UUID: UUID] {
+        guard !ownerDiveActivityIDs.isEmpty else { return [:] }
+
+        var diveIDByMediaID: [UUID: UUID] = [:]
+        for sighting in sightings {
+            guard let activityID = sighting.diveActivityID,
+                  ownerDiveActivityIDs.contains(activityID),
+                  let mediaID = sighting.mediaPhotoID,
+                  diveIDByMediaID[mediaID] == nil
+            else { continue }
+            diveIDByMediaID[mediaID] = activityID
+        }
+        return diveIDByMediaID
+    }
+
     nonisolated static func timeZoneOffsetByMediaID(
         sightings: [SightingInstance],
         ownerDiveActivityIDs: Set<UUID>,

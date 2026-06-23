@@ -5,16 +5,18 @@ import SwiftUI
 struct FieldGuideMarineLifeDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
+    @Environment(\.openCatalogDiveSiteDetail) private var openCatalogDiveSiteDetail
     @Environment(AccountSession.self) private var accountSession
 
     @Query private var userRecords: [MarineLifeUserRecord]
     @Query private var ownerDiveActivities: [DiveActivity]
     @Query private var taggedSightings: [SightingInstance]
+    @Query(sort: \DiveSite.siteName) private var diveSites: [DiveSite]
 
     let species: MarineLife
     let onOpenDive: (UUID) -> Void
 
-    @State private var headerClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
+    @State private var speciesHeroMode: PushedDetailHeroHeaderView.Mode = .media
 
     init(
         species: MarineLife,
@@ -61,111 +63,141 @@ struct FieldGuideMarineLifeDetailView: View {
         )
     }
 
-    private var sightedActivityLinks: [FieldGuidePresentation.SightedActivityLinkData] {
+    private var linkedMediaItems: [TripDetailLinkedMediaItem] {
+        FieldGuideTaggedMediaPresentation.linkedMediaItems(
+            sightings: taggedSightings,
+            ownerDiveActivityIDs: ownerDiveActivityIDs,
+            mediaItems: taggedMediaItems
+        )
+    }
+
+    private var sightedActivityIDs: [UUID] {
         guard let ownerID = accountSession.currentProfile?.id,
               let record = MarineLifeUserRecordOwnership.userRecord(
                   marineLifeUUID: species.uuid,
                   ownerProfileID: ownerID,
                   in: userRecords
-              ),
-              !record.activitiesSightedOn.isEmpty
+              )
         else { return [] }
+        return record.activitiesSightedOn
+    }
 
-        let snapshots = ownerDiveActivities.map {
-            DiveActivitySightingLinkSnapshot(
-                id: $0.id,
-                diveSiteID: $0.diveSiteID,
-                resolvedSiteName: $0.resolvedSiteName,
-                startTime: $0.startTime,
-                timeZoneOffsetSeconds: $0.timeZoneOffsetSeconds
-            )
-        }
-        return FieldGuidePresentation.sightedActivityLinks(
-            activityIDs: record.activitiesSightedOn,
-            activities: snapshots
+    private var sightedDives: [DiveActivity] {
+        let idSet = Set(sightedActivityIDs)
+        return ownerDiveActivities.filter { idSet.contains($0.id) }
+    }
+
+    private var mapPins: [TripDetailMapPin] {
+        FieldGuideSpeciesDetailMapPresentation.pins(
+            from: sightedDives,
+            catalogSites: diveSites
+        )
+    }
+
+    private var showsHeroModeToggle: Bool {
+        !mapPins.isEmpty
+    }
+
+    private var taggedDiveRows: [DiveLogbookRowDisplayData] {
+        FieldGuidePresentation.sightedDiveRowDisplayData(
+            activityIDs: sightedActivityIDs,
+            activities: ownerDiveActivities,
+            unitSystem: diveDisplayUnitSystem
+        )
+    }
+
+    private var categoryAccentColor: Color {
+        FieldGuideCategoryAccent.gradientTop(
+            FieldGuideTaxonomy.resolvedCategoryID(for: species.fieldGuideCatalogSnapshot)
         )
     }
 
     var body: some View {
-        AppHeaderlessPage {
-            GeometryReader { proxy in
-                let safeTop = AppScrollUnderHeaderListLayout.resolvedSafeAreaTop(proxy.safeAreaInsets.top)
-                let topInset = AppScrollUnderHeaderListLayout.listTopInset(
-                    safeAreaTop: safeTop,
-                    headerClearance: headerClearance
+        FieldGuideBlueSheetPage(
+            accessibilityRootIdentifier: "FieldGuide.SpeciesDetail.Root",
+            scrollAccessibilityIdentifier: nil,
+            hero: { context in
+                speciesHeroContent(context: context)
+            },
+            pinnedContent: {
+                titleBlock
+            },
+            panelContent: { bottomScrollInset in
+                FieldGuideSpeciesDetailContentPager(
+                    aboutText: species.aboutText,
+                    typicalSizeLine: FieldGuidePresentation.sizeRangeLine(
+                        minMeters: species.minSizeMeters,
+                        maxMeters: species.maxSizeMeters,
+                        unitSystem: diveDisplayUnitSystem
+                    ),
+                    depthLine: FieldGuidePresentation.depthLine(
+                        minMeters: species.minDepthMeters,
+                        maxMeters: species.maxDepthMeters,
+                        avgMeters: species.avgDepthMeters,
+                        unitSystem: diveDisplayUnitSystem
+                    ),
+                    depthRowTitle: depthRowTitle,
+                    distinctiveFeatures: species.distinctiveFeatures,
+                    taggedDiveRows: taggedDiveRows,
+                    taggedMediaItems: taggedMediaItems,
+                    taggedMediaTimeZoneOffsetByID: taggedMediaTimeZoneOffsetByID,
+                    linkedMediaItems: linkedMediaItems,
+                    mediaSightings: taggedSightings,
+                    marineLifeCatalog: [species],
+                    ownerProfileID: accountSession.currentProfile?.id,
+                    bottomScrollInset: bottomScrollInset,
+                    onOpenDive: onOpenDive
                 )
-
-                ZStack(alignment: .top) {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 0) {
-                            heroImage(extraTopInset: safeTop)
-
-                            VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-                                titleBlock
-                                statsBlock
-                                naturalHistorySections
-                                if !species.aboutText.isEmpty {
-                                    aboutBlock
-                                }
-                                if !taggedMediaItems.isEmpty {
-                                    FieldGuideTaggedMediaGalleryView(
-                                        mediaItems: taggedMediaItems,
-                                        timeZoneOffsetByMediaID: taggedMediaTimeZoneOffsetByID
-                                    )
-                                }
-                                if !sightedActivityLinks.isEmpty {
-                                    activitiesSightedOnSection
-                                }
-                            }
-                            .padding(AppTheme.Spacing.md)
-                        }
-                    }
-                    .scrollDismissesKeyboard(.interactively)
-                    .ignoresSafeArea(edges: .top)
-
-                    LogbookTopChromeScrim(topObstructionHeight: topInset)
-                        .padding(.top, -safeTop)
-                        .ignoresSafeArea(edges: .top)
-                        .allowsHitTesting(false)
-                        .zIndex(0.5)
-
-                    Color.clear
-                        .frame(height: topInset)
-                        .frame(maxWidth: .infinity, alignment: .top)
-                        .contentShape(Rectangle())
-                        .accessibilityHidden(true)
-                        .zIndex(0.75)
-
-                    AppHeader(
-                        title: "",
-                        showsBackButton: true,
-                        showsBrandWordmark: false,
-                        statusBarSafeAreaTop: safeTop
-                    ) {
-                        EmptyView()
-                    }
-                    .frame(maxWidth: .infinity, alignment: .top)
-                    .zIndex(1)
-                }
-                .frame(width: proxy.size.width, height: proxy.size.height)
-                .onPreferenceChange(AppHeaderMetrics.HeightKey.self) { height in
-                    if height > 0 { headerClearance = height }
+                .padding(.horizontal, AppTheme.Spacing.md)
+            },
+            heroOverlay: { _ in
+                if showsHeroModeToggle {
+                    PushedDetailHeroModeToggle(
+                        selectedMode: $speciesHeroMode,
+                        accessibilityIdentifierPrefix: "FieldGuide.SpeciesDetail.Hero.ModeToggle"
+                    )
+                    .padding(.trailing, AppTheme.Spacing.md)
+                    .padding(.bottom, DiveBuddyDetailPresentation.heroModeToggleBottomPadding)
                 }
             }
-        }
-        .hidesBottomTabBarWhenPushed()
+        )
         .onAppear {
             DiveMediaScopeCache.shared.activateScope(.marineLifeSpecies(species.uuid))
         }
         .onDisappear {
             DiveMediaScopeCache.shared.deactivateScope(.marineLifeSpecies(species.uuid))
         }
-        .accessibilityIdentifier("FieldGuide.SpeciesDetail.Root")
+        .onChange(of: mapPins.count) { _, count in
+            if count == 0, speciesHeroMode == .map {
+                speciesHeroMode = .media
+            }
+        }
     }
 
     @ViewBuilder
-    private func heroImage(extraTopInset: CGFloat) -> some View {
-        let height = FieldGuideMarineLifeImageLayout.detailHeroBaseHeight + extraTopInset
+    private func speciesHeroContent(context: BlueSheetHeaderPageLayoutContext) -> some View {
+        Group {
+            switch speciesHeroMode {
+            case .media:
+                speciesCatalogHero(height: context.heroHeight)
+            case .map:
+                TripDetailMapView(
+                    pins: mapPins,
+                    fitLayout: context.mapFitLayout(),
+                    onSiteSelected: openDiveSiteFromMap
+                )
+                .accessibilityIdentifier("FieldGuide.SpeciesDetail.Hero.Map")
+            }
+        }
+        .frame(height: context.heroHeight)
+        .frame(maxWidth: .infinity)
+        .clipped()
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("FieldGuide.SpeciesDetail.Hero")
+    }
+
+    @ViewBuilder
+    private func speciesCatalogHero(height: CGFloat) -> some View {
         Group {
             switch FieldGuideMarineLifeHeroPresentation.heroKind(
                 featureModelResourceName: species.featureModelResourceName,
@@ -184,38 +216,39 @@ struct FieldGuideMarineLifeDetailView: View {
                     placement: .detailHero(totalHeight: height)
                 )
             case .placeholder:
-                heroPlaceholder
-                    .frame(height: height)
-                    .frame(maxWidth: .infinity)
+                FieldGuideMarineLifeCatalogImage(
+                    imageURLString: "",
+                    placement: .detailHero(totalHeight: height)
+                )
             }
         }
-        .frame(height: height)
-        .frame(maxWidth: .infinity)
+        .accessibilityIdentifier("FieldGuide.SpeciesDetail.Hero.Catalog")
     }
 
-    private var heroPlaceholder: some View {
-        FieldGuideMarineLifeCatalogImage(
-            imageURLString: "",
-            placement: .detailHero(totalHeight: FieldGuideMarineLifeImageLayout.detailHeroBaseHeight)
-        )
+    private func openDiveSiteFromMap(_ siteID: UUID) {
+        if let openCatalogDiveSiteDetail {
+            openCatalogDiveSiteDetail(siteID)
+        }
     }
 
-    private var taxonomyLabel: some View {
+    private var taxonomyLabel: String {
         let snapshot = species.fieldGuideCatalogSnapshot
         let category = FieldGuideTaxonomy.categoryTitle(for: snapshot)
         let subcategory = FieldGuideTaxonomy.subcategoryTitle(for: snapshot)
-        let label = subcategory != "—" ? "\(category) · \(subcategory)" : category
-        return Group {
-            if label != "—" {
-                Text(label)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.tabUnselected)
-            }
+        if subcategory != "—" {
+            return "\(category) · \(subcategory)"
         }
+        return category == "—" ? "" : category
     }
 
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            if !taxonomyLabel.isEmpty {
+                Text(taxonomyLabel)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(categoryAccentColor)
+            }
+
             Text(species.commonName)
                 .font(.title.weight(.bold))
                 .foregroundStyle(AppTheme.Colors.textPrimary)
@@ -225,147 +258,12 @@ struct FieldGuideMarineLifeDetailView: View {
                     .font(.title3.italic())
                     .foregroundStyle(AppTheme.Colors.secondaryText)
             }
-            taxonomyLabel
-            if !species.familyName.isEmpty {
-                Text(species.familyName)
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.tabUnselected)
-            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var statsBlock: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            detailRow(
-                title: "Typical size",
-                value: FieldGuidePresentation.sizeRangeLine(
-                    minMeters: species.minSizeMeters,
-                    maxMeters: species.maxSizeMeters,
-                    unitSystem: diveDisplayUnitSystem
-                )
-            )
-            detailRow(
-                title: depthRowTitle,
-                value: FieldGuidePresentation.depthLine(
-                    minMeters: species.minDepthMeters,
-                    maxMeters: species.maxDepthMeters,
-                    avgMeters: species.avgDepthMeters,
-                    unitSystem: diveDisplayUnitSystem
-                )
-            )
-        }
     }
 
     private var depthRowTitle: String {
         species.minDepthMeters > 0 && species.maxDepthMeters > 0 ? "Depth range" : "Avg depth"
-    }
-
-    @ViewBuilder
-    private var naturalHistorySections: some View {
-        if !species.distinctiveFeatures.isEmpty {
-            textSection(title: "Distinctive features", body: species.distinctiveFeatures)
-        }
-        if !species.abundance.isEmpty {
-            textSection(title: "Abundance", body: species.abundance)
-        }
-        if !species.habitatBehavior.isEmpty {
-            textSection(title: "Habitat & behavior", body: species.habitatBehavior)
-        }
-        if !species.diverReaction.isEmpty {
-            textSection(title: "Diver reaction", body: species.diverReaction)
-        }
-    }
-
-    private func textSection(title: String, body: String) -> some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            Text(title)
-                .font(.headline)
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-            Text(body)
-                .font(.body)
-                .foregroundStyle(AppTheme.Colors.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private var activitiesSightedOnSection: some View {
-        ExpandableDetailSection(
-            title: "Activities sighted on",
-            itemCount: sightedActivityLinks.count,
-            accessibilityIdentifier: "FieldGuide.SpeciesDetail.ActivitiesSightedOn"
-        ) {
-            VStack(spacing: AppTheme.Spacing.sm) {
-                ForEach(sightedActivityLinks) { link in
-                    Button {
-                        onOpenDive(link.id)
-                    } label: {
-                        sightedActivityRow(link)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("FieldGuide.SpeciesDetail.DiveLink.\(link.id.uuidString)")
-                }
-            }
-        }
-    }
-
-    private func sightedActivityRow(_ link: FieldGuidePresentation.SightedActivityLinkData) -> some View {
-        HStack(alignment: .center, spacing: AppTheme.Spacing.md) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(link.title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
-                    .multilineTextAlignment(.leading)
-
-                Text(link.dateText)
-                    .font(.footnote)
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-            }
-
-            Spacer(minLength: AppTheme.Spacing.sm)
-
-            Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.tabUnselected)
-        }
-        .padding(AppTheme.Spacing.md)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(AppTheme.Colors.surfaceElevated)
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(AppTheme.Colors.tabUnselected.opacity(0.12), lineWidth: 1)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(link.title), \(link.dateText)")
-        .accessibilityHint("Opens this dive")
-    }
-
-    private var aboutBlock: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            Text("About")
-                .font(.headline)
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-            Text(species.aboutText)
-                .font(.body)
-                .foregroundStyle(AppTheme.Colors.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private func detailRow(title: String, value: String) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-            Spacer(minLength: AppTheme.Spacing.sm)
-            Text(value.isEmpty ? "—" : value)
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.Colors.secondaryText)
-                .multilineTextAlignment(.trailing)
-        }
     }
 
     /// Sentinel **`ownerProfileID`** so **`@Query`** returns no dives when signed out.
