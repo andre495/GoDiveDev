@@ -13,7 +13,8 @@ enum AppPortraitOrientationLockPolicy: Sendable {
         switch route {
         case .diveDetail, .diveMedia:
             return true
-        case .profile, .tripPlanner, .tripDetail, .tripDetailMedia, .diveSite, .marineLife, .diveBuddy:
+        case .profile, .tripPlanner, .tripDetail, .tripDetailMedia, .diveSite, .marineLife, .diveBuddy,
+             .lifetimeStatsLeaderboard:
             return false
         }
     }
@@ -22,7 +23,7 @@ enum AppPortraitOrientationLockPolicy: Sendable {
         switch route {
         case .diveDetail, .diveMedia:
             return true
-        case .addActivity, .tripDetail, .tripDetailMedia, .diveSite:
+        case .addActivity, .tripPlanner, .tripDetail, .tripDetailMedia, .diveSite:
             return false
         }
     }

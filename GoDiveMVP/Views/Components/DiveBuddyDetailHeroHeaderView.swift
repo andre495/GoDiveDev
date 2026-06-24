@@ -18,6 +18,12 @@ struct PushedDetailHeroHeaderView: View {
             emptyPlaceholderAccessibilityLabel: "Trip header",
             accessibilityPrefix: "TripDetail.Hero"
         )
+
+        nonisolated static let diveSite = Style(
+            emptyPlaceholderSystemImage: "mappin.and.ellipse",
+            emptyPlaceholderAccessibilityLabel: "Dive site header",
+            accessibilityPrefix: "Explore.DiveSiteDetail.Hero"
+        )
     }
 
     enum Mode: String, CaseIterable, Hashable, Identifiable {
@@ -180,7 +186,7 @@ struct PushedDetailHeroModeToggle: View {
                         .frame(width: 36, height: 36)
                         .foregroundStyle(
                             selectedMode == mode
-                                ? AppTheme.Colors.textPrimary
+                                ? AppTheme.Colors.accent
                                 : AppTheme.Colors.tabUnselected
                         )
                         .background {

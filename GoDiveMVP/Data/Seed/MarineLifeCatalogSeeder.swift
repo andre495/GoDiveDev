@@ -33,7 +33,7 @@ enum MarineLifeCatalogSeeder {
       }
     }
 
-    for species in existing where !bundledUUIDs.contains(species.uuid) {
+    for species in existing where shouldPrune(species, bundledUUIDs: bundledUUIDs) {
       for sighting in species.sightingInstances {
         sighting.marineLife = nil
       }
@@ -64,5 +64,10 @@ enum MarineLifeCatalogSeeder {
     destination.abundance = source.abundance
     destination.habitatBehavior = source.habitatBehavior
     destination.diverReaction = source.diverReaction
+  }
+
+  private static func shouldPrune(_ species: MarineLife, bundledUUIDs: Set<String>) -> Bool {
+    guard !bundledUUIDs.contains(species.uuid) else { return false }
+    return !FieldGuideMarineLifeAddPresentation.shouldPreserveOnCatalogReseed(uuid: species.uuid)
   }
 }

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Segmented logbook / all-sites control for **Explore**.
+/// Segmented My Sites / All Sites control for **Explore**.
 struct ExploreSiteScopeToggle: View {
     @Binding var selection: ExploreSiteScope
 
@@ -25,7 +25,7 @@ struct ExploreSiteScopeToggle: View {
                     .frame(height: 36)
                     .foregroundStyle(
                         selection == scope
-                            ? AppTheme.Colors.textPrimary
+                            ? AppTheme.Colors.accent
                             : AppTheme.Colors.tabUnselected
                     )
                     .background {

@@ -30,6 +30,7 @@ struct FieldGuideView: View {
     @State private var catalogSnapshots: [MarineLifeCatalogSnapshot] = []
     @State private var categorySummaries: [FieldGuideCatalogIndex.CategorySummary] = []
     @State private var subcategorySpeciesIndex: FieldGuideCatalogIndex.SubcategorySpeciesIndex = [:]
+    @State private var showsAddSpeciesSheet = false
 
     private var isNavigatingCatalog: Bool {
         !path.isEmpty
@@ -76,8 +77,12 @@ struct FieldGuideView: View {
         FieldGuideMarineLifeSearch.isFiltering(query: speciesSearchQuery)
     }
 
-    private var showsSpeciesSearch: Bool {
-        !catalog.isEmpty
+    private var showsFieldGuideHubChrome: Bool {
+        path.isEmpty
+    }
+
+    private var showsTopChromeScrim: Bool {
+        showsFieldGuideHubChrome
     }
 
     private var ownerDiveActivities: [DiveActivity] {
@@ -100,7 +105,7 @@ struct FieldGuideView: View {
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                        if showsLogbookStyleTopChromeScrim {
+                        if showsTopChromeScrim {
                             LogbookTopChromeScrim(topObstructionHeight: listTopInset)
                                 .padding(.top, -proxy.safeAreaInsets.top)
                                 .ignoresSafeArea(edges: .top)
@@ -108,16 +113,18 @@ struct FieldGuideView: View {
                                 .zIndex(0.5)
                         }
 
-                        FieldGuideTopChrome(
-                            searchText: $speciesSearchQuery,
-                            isSearchFocused: $isSpeciesSearchFocused,
-                            showsSpeciesSearch: showsSpeciesSearch,
-                            showsHubTitle: showsSpeciesSearch && !isFilteringSpecies,
-                            statusBarSafeAreaTop: proxy.safeAreaInsets.top
-                        )
-                        .zIndex(1)
+                        if showsFieldGuideHubChrome {
+                            FieldGuideTopChrome(
+                                searchText: $speciesSearchQuery,
+                                isSearchFocused: $isSpeciesSearchFocused,
+                                statusBarSafeAreaTop: proxy.safeAreaInsets.top,
+                                onAddSpecies: { showsAddSpeciesSheet = true }
+                            )
+                            .zIndex(1)
+                        }
                     }
                     .frame(width: proxy.size.width, height: proxy.size.height)
+                    .ignoresSafeArea(.keyboard, edges: .bottom)
                     .ignoresSafeArea(edges: .bottom)
                 }
                 .onPreferenceChange(AppHeaderMetrics.HeightKey.self) { height in
@@ -133,6 +140,10 @@ struct FieldGuideView: View {
                     FieldGuideCategoryDetailView(
                         categoryID: summary.categoryID,
                         summary: summary,
+                        speciesSearchQuery: $speciesSearchQuery,
+                        speciesSearchFocused: $isSpeciesSearchFocused,
+                        catalogSnapshots: resolvedCatalogSnapshots,
+                        unitSystem: diveDisplayUnitSystem,
                         onSelectSubcategory: { subcategoryID in
                             let payload = FieldGuideCatalogIndex.browsePayload(
                                 categoryID: summary.categoryID,
@@ -140,18 +151,24 @@ struct FieldGuideView: View {
                                 speciesIndex: resolvedSubcategorySpeciesIndex
                             )
                             path.append(.subcategory(payload))
-                        }
+                        },
+                        onSelectSpecies: { uuid in
+                            path.append(.speciesDetail(uuid))
+                        },
+                        onAddSpecies: { showsAddSpeciesSheet = true }
                     )
-                    .equatable()
                 case .subcategory(let payload):
                     FieldGuideSubcategorySpeciesView(
                         payload: payload,
                         unitSystem: diveDisplayUnitSystem,
+                        speciesSearchQuery: $speciesSearchQuery,
+                        speciesSearchFocused: $isSpeciesSearchFocused,
+                        catalogSnapshots: resolvedCatalogSnapshots,
                         onSelectSpecies: { uuid in
                             path.append(.speciesDetail(uuid))
-                        }
+                        },
+                        onAddSpecies: { showsAddSpeciesSheet = true }
                     )
-                    .equatable()
                 case .speciesDetail(let marineLifeUUID):
                     if let species = catalog.first(where: { $0.uuid == marineLifeUUID }) {
                         FieldGuideMarineLifeDetailView(
@@ -173,7 +190,8 @@ struct FieldGuideView: View {
                     if let site = diveSites.first(where: { $0.id == siteID }) {
                         ExploreDiveSiteDetailView(
                             site: site,
-                            ownerProfileID: accountSession.currentProfile?.id
+                            ownerProfileID: accountSession.currentProfile?.id,
+                            onOpenDive: { path.append(.diveDetail($0)) }
                         )
                     } else {
                         missingDiveSitePlaceholder
@@ -189,17 +207,22 @@ struct FieldGuideView: View {
         .onReceive(NotificationCenter.default.publisher(for: .fieldGuideTabReselected)) { _ in
             handleFieldGuideTabReselect()
         }
-        .onChange(of: isSpeciesSearchFocused) { _, isFocused in
-            if !isFocused {
-                dismissSpeciesSearchKeyboard()
-            }
-        }
         .onAppear {
             syncCatalogCache()
         }
         .onChange(of: catalog.count) { _, _ in
             syncCatalogCache()
         }
+        .sheet(isPresented: $showsAddSpeciesSheet) {
+            FieldGuideMarineLifeAddSheet { marineLifeUUID in
+                handleAddedSpecies(marineLifeUUID)
+            }
+        }
+    }
+
+    private func handleAddedSpecies(_ marineLifeUUID: String) {
+        syncCatalogCache()
+        path.append(.speciesDetail(marineLifeUUID))
     }
 
     private func syncCatalogCache() {
@@ -208,15 +231,6 @@ struct FieldGuideView: View {
         catalogSnapshots = nextSnapshots
         categorySummaries = FieldGuideCatalogIndex.summaries(for: nextSnapshots)
         subcategorySpeciesIndex = FieldGuideCatalogIndex.subcategorySpeciesIndex(for: nextSnapshots)
-    }
-
-    private var showsTopChromeScrim: Bool {
-        !catalog.isEmpty
-    }
-
-    /// Hub browse uses a page-tinted scrim through the title; species search keeps the logbook scrim.
-    private var showsLogbookStyleTopChromeScrim: Bool {
-        showsTopChromeScrim && isFilteringSpecies
     }
 
     @ViewBuilder
@@ -237,11 +251,8 @@ struct FieldGuideView: View {
     private func handleFieldGuideTabReselect() {
         path.removeAll()
         isSpeciesSearchFocused = false
+        speciesSearchQuery = ""
         RootTabListScrollSupport.scheduleScrollToTop { listScrollToTopNonce += 1 }
-    }
-
-    private func dismissSpeciesSearchKeyboard() {
-        isSpeciesSearchFocused = false
     }
 
     private var missingSpeciesPlaceholder: some View {
@@ -277,19 +288,12 @@ struct FieldGuideView: View {
             FieldGuideCatalogHubView(
                 summaries: resolvedCategorySummaries,
                 topChromeInset: topInset,
+                bottomChromeInset: bottomInset,
                 statusBarSafeAreaTop: safeAreaTop
             ) { summary in
                 path.append(.category(summary))
             }
             .equatable()
-            .safeAreaInset(edge: .top, spacing: 0) {
-                Color.clear.frame(height: topInset)
-            }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                Color.clear.frame(height: bottomInset)
-            }
-            .scrollDismissesKeyboard(.interactively)
-            .ignoresSafeArea(edges: [.top, .bottom])
         }
     }
 
@@ -310,25 +314,14 @@ struct FieldGuideView: View {
                     .listRowBackground(Color.clear)
                     .accessibilityHidden(true)
 
-                ForEach(listRows) { row in
-                    Button {
-                        path.append(.speciesDetail(row.marineLifeUUID))
-                    } label: {
-                        FieldGuideMarineLifeRow(data: row)
-                            .equatable()
+                FieldGuideSpeciesSearchResultsRows(
+                    catalogSnapshots: resolvedCatalogSnapshots,
+                    query: speciesSearchQuery,
+                    unitSystem: diveDisplayUnitSystem,
+                    onSelectSpecies: { uuid in
+                        path.append(.speciesDetail(uuid))
                     }
-                    .buttonStyle(.plain)
-                    .listRowInsets(
-                        EdgeInsets(
-                            top: 0,
-                            leading: AppTheme.Spacing.lg,
-                            bottom: 0,
-                            trailing: AppTheme.Spacing.lg
-                        )
-                    )
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                }
+                )
 
                 Color.clear
                     .frame(height: bottomInset)

@@ -249,10 +249,9 @@ enum DiveActivitySiteAssociation {
         )
     }
 
-    /// Inserts a catalog **`DiveSite`** and links **`activity`** to it.
+    /// Inserts a catalog **`DiveSite`** without linking a dive.
     @discardableResult
-    static func createSiteAndLink(
-        to activity: DiveActivity,
+    static func createCatalogSite(
         siteName: String,
         country: String = "",
         region: String = "",
@@ -273,6 +272,37 @@ enum DiveActivitySiteAssociation {
             waterType: waterType
         )
         modelContext.insert(site)
+        if persistImmediately {
+            try modelContext.save()
+        }
+        return site
+    }
+
+    /// Inserts a catalog **`DiveSite`** and links **`activity`** to it.
+    @discardableResult
+    static func createSiteAndLink(
+        to activity: DiveActivity,
+        siteName: String,
+        country: String = "",
+        region: String = "",
+        bodyOfWater: String = "",
+        latCoords: Double?,
+        longCoords: Double?,
+        waterType: DiveWaterType = .saltwater,
+        modelContext: ModelContext,
+        persistImmediately: Bool = true
+    ) throws -> DiveSite {
+        let site = try createCatalogSite(
+            siteName: siteName,
+            country: country,
+            region: region,
+            bodyOfWater: bodyOfWater,
+            latCoords: latCoords,
+            longCoords: longCoords,
+            waterType: waterType,
+            modelContext: modelContext,
+            persistImmediately: false
+        )
         link(activity, to: site)
         if persistImmediately {
             try modelContext.save()
@@ -357,6 +387,22 @@ extension DiveActivitySiteAssociation {
             if DiveSiteCatalogMatcher.normalizeCatalogSiteNameIfNeeded(site, reference: reference) {
                 changed = true
             }
+            if DiveSiteCatalogMatcher.enrichCatalogSiteMetadataFromReferenceIfNeeded(site, reference: reference) {
+                changed = true
+            }
+        }
+        if changed {
+            try modelContext.save()
+        }
+    }
+
+    /// Canonicalizes known country aliases on all catalog **`DiveSite`** rows (idempotent).
+    @MainActor
+    static func normalizeCatalogSiteCountries(modelContext: ModelContext) throws {
+        let catalogSites = try fetchCatalogSites(modelContext: modelContext)
+        var changed = false
+        for site in catalogSites where DiveSiteCatalogMatcher.normalizeCatalogSiteCountryIfNeeded(site) {
+            changed = true
         }
         if changed {
             try modelContext.save()

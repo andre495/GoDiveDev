@@ -8,12 +8,20 @@ import UIKit
 struct FieldGuideCatalogHubView: View, Equatable {
     let summaries: [FieldGuideCatalogIndex.CategorySummary]
     let topChromeInset: CGFloat
+    let bottomChromeInset: CGFloat
     let statusBarSafeAreaTop: CGFloat
     let onSelectCategory: (FieldGuideCatalogIndex.CategorySummary) -> Void
 
     var body: some View {
         ZStack(alignment: .top) {
             List {
+                Color.clear
+                    .frame(height: topChromeInset)
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .accessibilityHidden(true)
+
                 ForEach(summaries) { summary in
                     if let definition = FieldGuideTaxonomy.category(id: summary.categoryID) {
                         Button {
@@ -38,11 +46,20 @@ struct FieldGuideCatalogHubView: View, Equatable {
                         .accessibilityIdentifier("FieldGuide.Hub.Category.\(summary.categoryID)")
                     }
                 }
+
+                Color.clear
+                    .frame(height: bottomChromeInset)
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .accessibilityHidden(true)
             }
             .listStyle(.plain)
             .listRowSpacing(FieldGuideHubTileLayout.listRowSpacing)
             .scrollContentBackground(.hidden)
             .background(Color.clear)
+            .scrollDismissesKeyboard(.interactively)
+            .ignoresSafeArea(edges: [.top, .bottom])
 
             FieldGuideHubTitleScrollScrim(
                 topChromeInset: topChromeInset,
@@ -57,6 +74,7 @@ struct FieldGuideCatalogHubView: View, Equatable {
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.summaries == rhs.summaries
             && lhs.topChromeInset == rhs.topChromeInset
+            && lhs.bottomChromeInset == rhs.bottomChromeInset
             && lhs.statusBarSafeAreaTop == rhs.statusBarSafeAreaTop
     }
 }
@@ -233,30 +251,31 @@ enum FieldGuideHubTileLayout: Sendable {
 
 // MARK: - Category detail (header + subcategory list)
 
-struct FieldGuideCategoryDetailView: View, Equatable {
+struct FieldGuideCategoryDetailView: View {
     let categoryID: String
     let summary: FieldGuideCatalogIndex.CategorySummary
+    @Binding var speciesSearchQuery: String
+    var speciesSearchFocused: FocusState<Bool>.Binding
+    let catalogSnapshots: [MarineLifeCatalogSnapshot]
+    let unitSystem: DiveDisplayUnitSystem
     let onSelectSubcategory: (String) -> Void
-
-    @State private var searchQuery = ""
-    @FocusState private var isSearchFocused: Bool
+    let onSelectSpecies: (String) -> Void
+    let onAddSpecies: () -> Void
 
     private var definition: FieldGuideTaxonomy.Category? {
         FieldGuideTaxonomy.category(id: categoryID)
     }
 
     var body: some View {
-        FieldGuideCategoryBlueSheetPage(
-            categoryID: categoryID,
-            systemImage: definition?.systemImage ?? "leaf",
-            heroImageName: definition?.heroImageName,
+        FieldGuideCatalogBrowseListPage(
             accessibilityRootIdentifier: "FieldGuide.CategoryDetail.Root",
-            scrollAccessibilityIdentifier: "FieldGuide.CategoryDetail.Scroll",
-            searchText: $searchQuery,
-            isSearchFocused: $isSearchFocused,
-            searchPlaceholder: "Search groups",
-            searchFieldAccessibilityIdentifier: "FieldGuide.CategoryDetail.Search",
-            cancelAccessibilityIdentifier: "FieldGuide.CategoryDetail.SearchCancel"
+            listAccessibilityIdentifier: "FieldGuide.CategoryDetail.List",
+            searchText: $speciesSearchQuery,
+            isSearchFocused: speciesSearchFocused,
+            catalogSnapshots: catalogSnapshots,
+            unitSystem: unitSystem,
+            onSelectSpecies: onSelectSpecies,
+            onAddSpecies: onAddSpecies
         ) {
             if let definition {
                 FieldGuideCategoryDetailCopy(
@@ -265,51 +284,33 @@ struct FieldGuideCategoryDetailView: View, Equatable {
                     speciesCount: summary.speciesCount
                 )
             }
-        } scrollContent: {
+        } listRows: {
             if let definition {
-                categoryScrollContent(definition: definition)
+                categoryListRows(definition: definition)
             }
         }
     }
 
     @ViewBuilder
-    private func categoryScrollContent(definition: FieldGuideTaxonomy.Category) -> some View {
-        let filteredSubcategories = FieldGuideSubcategorySearchPresentation.filtering(
-            definition.subcategories,
-            query: searchQuery
-        )
+    private func categoryListRows(definition: FieldGuideTaxonomy.Category) -> some View {
         let showsAllSpeciesFallback = FieldGuideSubcategorySearchPresentation.showsAllSpeciesFallback(
             subcategories: definition.subcategories,
             speciesCount: summary.speciesCount,
-            query: searchQuery
+            query: ""
         )
 
-        if filteredSubcategories.isEmpty,
-           !showsAllSpeciesFallback,
-           FieldGuideSubcategorySearchPresentation.isFiltering(query: searchQuery) {
-            CatalogSearchEmptyState(
-                title: "No matching groups",
-                message: "Try a group name or hint like “angelfish” or “barrel sponge”."
-            )
-            .padding(.vertical, AppTheme.Spacing.lg)
-        } else {
-            FieldGuideSubcategoryListSection(
-                subcategories: filteredSubcategories,
-                counts: summary.subcategoryCounts,
-                categoryID: categoryID,
-                speciesCount: summary.speciesCount,
-                showsAllSpeciesFallback: showsAllSpeciesFallback,
-                onSelect: onSelectSubcategory
-            )
-        }
-    }
-
-    static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.categoryID == rhs.categoryID && lhs.summary == rhs.summary
+        FieldGuideSubcategoryListSection(
+            subcategories: definition.subcategories,
+            counts: summary.subcategoryCounts,
+            categoryID: categoryID,
+            speciesCount: summary.speciesCount,
+            showsAllSpeciesFallback: showsAllSpeciesFallback,
+            onSelect: onSelectSubcategory
+        )
     }
 }
 
-/// Title, description, and species count below the category hero.
+/// Title, description, and species count for category browse list header.
 struct FieldGuideCategoryDetailCopy: View {
     let definition: FieldGuideTaxonomy.Category
     let categoryID: String
@@ -432,35 +433,39 @@ struct FieldGuideSubcategoryListSection: View {
     let onSelect: (String) -> Void
 
     var body: some View {
-        VStack(spacing: AppTheme.Spacing.sm) {
-            if showsAllSpeciesFallback {
-                Button {
-                    onSelect("")
-                } label: {
-                    FieldGuideSubcategoryFallbackRow(
-                        title: "All species",
-                        hint: "Browse every species in this category",
-                        speciesCount: speciesCount,
-                        categoryID: categoryID
-                    )
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("FieldGuide.Category.\(categoryID).Subcategory.all")
+        if showsAllSpeciesFallback {
+            Button {
+                onSelect("")
+            } label: {
+                FieldGuideSubcategoryFallbackRow(
+                    title: "All species",
+                    hint: "Browse every species in this category",
+                    speciesCount: speciesCount,
+                    categoryID: categoryID
+                )
             }
+            .buttonStyle(.plain)
+            .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+            .accessibilityIdentifier("FieldGuide.Category.\(categoryID).Subcategory.all")
+        }
 
-            ForEach(subcategories) { subcategory in
-                Button {
-                    onSelect(subcategory.id)
-                } label: {
-                    FieldGuideSubcategoryRow(
-                        subcategory: subcategory,
-                        speciesCount: counts[subcategory.id, default: 0],
-                        categoryID: categoryID
-                    )
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("FieldGuide.Category.\(categoryID).Subcategory.\(subcategory.id)")
+        ForEach(subcategories) { subcategory in
+            Button {
+                onSelect(subcategory.id)
+            } label: {
+                FieldGuideSubcategoryRow(
+                    subcategory: subcategory,
+                    speciesCount: counts[subcategory.id, default: 0],
+                    categoryID: categoryID
+                )
             }
+            .buttonStyle(.plain)
+            .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+            .accessibilityIdentifier("FieldGuide.Category.\(categoryID).Subcategory.\(subcategory.id)")
         }
     }
 }
@@ -506,10 +511,10 @@ private struct FieldGuideSubcategoryFallbackRow: View {
                     .foregroundStyle(AppTheme.Colors.tabUnselected)
             }
         }
-        .padding(AppTheme.Spacing.md)
+        .padding(LogbookActivityRowLayout.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: LogbookActivityRowLayout.cardCornerRadius, style: .continuous)
                 .fill(AppTheme.Colors.surfaceElevated)
         }
     }
@@ -555,14 +560,14 @@ private struct FieldGuideSubcategoryRow: View {
                     .foregroundStyle(AppTheme.Colors.tabUnselected)
             }
         }
-        .padding(AppTheme.Spacing.md)
+        .padding(LogbookActivityRowLayout.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: LogbookActivityRowLayout.cardCornerRadius, style: .continuous)
                 .fill(AppTheme.Colors.surfaceElevated)
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: LogbookActivityRowLayout.cardCornerRadius, style: .continuous)
                 .stroke(FieldGuideCategoryAccent.gradientTop(categoryID).opacity(0.18), lineWidth: 1)
         }
     }
@@ -570,22 +575,19 @@ private struct FieldGuideSubcategoryRow: View {
 
 // MARK: - Subcategory species mosaic
 
-struct FieldGuideSubcategorySpeciesView: View, Equatable {
+struct FieldGuideSubcategorySpeciesView: View {
     let payload: FieldGuideCatalogIndex.SubcategoryBrowsePayload
     let unitSystem: DiveDisplayUnitSystem
+    @Binding var speciesSearchQuery: String
+    var speciesSearchFocused: FocusState<Bool>.Binding
+    let catalogSnapshots: [MarineLifeCatalogSnapshot]
     let onSelectSpecies: (String) -> Void
-
-    @State private var searchQuery = ""
-    @FocusState private var isSearchFocused: Bool
+    let onAddSpecies: () -> Void
 
     private let columns = [
         GridItem(.flexible(), spacing: AppTheme.Spacing.md),
         GridItem(.flexible(), spacing: AppTheme.Spacing.md),
     ]
-
-    private var categoryDefinition: FieldGuideTaxonomy.Category? {
-        FieldGuideTaxonomy.category(id: payload.categoryID)
-    }
 
     private var subcategoryDefinition: FieldGuideTaxonomy.Subcategory? {
         FieldGuideTaxonomy.subcategory(
@@ -594,24 +596,16 @@ struct FieldGuideSubcategorySpeciesView: View, Equatable {
         )
     }
 
-    private var filteredSpecies: [MarineLifeCatalogSnapshot] {
-        FieldGuideMarineLifeSearch.filtering(payload.species, query: searchQuery)
-    }
-
     var body: some View {
-        FieldGuideCategoryBlueSheetPage(
-            categoryID: payload.categoryID,
-            systemImage: subcategoryDefinition?.systemImage
-                ?? categoryDefinition?.systemImage
-                ?? "leaf",
-            heroImageName: categoryDefinition?.heroImageName,
+        FieldGuideCatalogBrowseListPage(
             accessibilityRootIdentifier: "FieldGuide.SubcategoryDetail.Root",
-            scrollAccessibilityIdentifier: "FieldGuide.SubcategoryDetail.Scroll",
-            searchText: $searchQuery,
-            isSearchFocused: $isSearchFocused,
-            searchPlaceholder: "Search species",
-            searchFieldAccessibilityIdentifier: "FieldGuide.SubcategoryDetail.Search",
-            cancelAccessibilityIdentifier: "FieldGuide.SubcategoryDetail.SearchCancel"
+            listAccessibilityIdentifier: "FieldGuide.SubcategoryDetail.List",
+            searchText: $speciesSearchQuery,
+            isSearchFocused: speciesSearchFocused,
+            catalogSnapshots: catalogSnapshots,
+            unitSystem: unitSystem,
+            onSelectSpecies: onSelectSpecies,
+            onAddSpecies: onAddSpecies
         ) {
             FieldGuideSubcategoryDetailCopy(
                 title: payload.title,
@@ -619,26 +613,21 @@ struct FieldGuideSubcategorySpeciesView: View, Equatable {
                 speciesCount: payload.species.count,
                 categoryID: payload.categoryID
             )
-        } scrollContent: {
-            subcategoryScrollContent
+        } listRows: {
+            subcategoryListRows
         }
     }
 
     @ViewBuilder
-    private var subcategoryScrollContent: some View {
-        if filteredSpecies.isEmpty {
-            if FieldGuideMarineLifeSearch.isFiltering(query: searchQuery) {
-                CatalogSearchEmptyState(
-                    title: "No matching species",
-                    message: "Try a common name, scientific name, or family like “ray” or “angelfish”."
-                )
-                .padding(.vertical, AppTheme.Spacing.lg)
-            } else {
-                emptyState
-            }
+    private var subcategoryListRows: some View {
+        if payload.species.isEmpty {
+            emptyState
+                .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
         } else {
             LazyVGrid(columns: columns, spacing: AppTheme.Spacing.md) {
-                ForEach(filteredSpecies, id: \.uuid) { entry in
+                ForEach(payload.species, id: \.uuid) { entry in
                     Button {
                         onSelectSpecies(entry.uuid)
                     } label: {
@@ -653,11 +642,10 @@ struct FieldGuideSubcategorySpeciesView: View, Equatable {
                     .accessibilityIdentifier("FieldGuide.Species.\(entry.uuid)")
                 }
             }
+            .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
         }
-    }
-
-    static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.payload == rhs.payload && lhs.unitSystem == rhs.unitSystem
     }
 
     private var emptyState: some View {
@@ -683,7 +671,7 @@ struct FieldGuideSubcategorySpeciesView: View, Equatable {
     }
 }
 
-/// Title, hint, and species count below the subcategory hero (same copy stack as category detail).
+/// Title, hint, and species count for subcategory browse list header.
 struct FieldGuideSubcategoryDetailCopy: View {
     let title: String
     let hint: String

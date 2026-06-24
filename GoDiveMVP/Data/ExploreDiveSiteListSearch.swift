@@ -7,25 +7,27 @@ enum ExploreDiveSiteListSearch {
         CatalogSubstringSearch.isFiltering(query: query)
     }
 
+    nonisolated static func searchHaystacks(for site: DiveSite) -> [String] {
+        let displayName = DiveSiteCatalogMatcher.resolvedCatalogSiteName(for: site) ?? site.siteName
+        let canonicalCountry = DiveSiteCountryPresentation.canonicalDisplayName(for: site.country)
+        return [
+            displayName,
+            site.siteName,
+            ExploreDiveSiteListDisplay.placeSummary(
+                country: canonicalCountry,
+                region: site.region,
+                bodyOfWater: site.bodyOfWater
+            ),
+            ExploreDiveSiteListDisplay.cityCountryLine(
+                country: canonicalCountry,
+                region: site.region
+            ),
+        ] + DiveSiteCountryPresentation.searchTerms(for: site.country)
+            + [site.region, site.bodyOfWater]
+    }
+
     nonisolated static func matches(_ site: DiveSite, query: String) -> Bool {
-        CatalogSubstringSearch.matchesAny(
-            in: [
-                site.siteName,
-                ExploreDiveSiteListDisplay.placeSummary(
-                    country: site.country,
-                    region: site.region,
-                    bodyOfWater: site.bodyOfWater
-                ),
-                ExploreDiveSiteListDisplay.cityCountryLine(
-                    country: site.country,
-                    region: site.region
-                ),
-                site.country,
-                site.region,
-                site.bodyOfWater,
-            ],
-            query: query
-        )
+        CatalogSubstringSearch.matchesAny(in: searchHaystacks(for: site), query: query)
     }
 
     nonisolated static func filtering(_ sites: [DiveSite], query: String) -> [DiveSite] {

@@ -21,6 +21,12 @@ final class DiveSite {
     var timeZoneOffsetSeconds: Int?
     var siteTags: [String]
     var siteRating: Int?
+    /// Shore / boat / etc. (from OpenDiveMap **`entry`** when linked).
+    var entry: String = ""
+    /// Ocean / lake / etc. (from OpenDiveMap **`environment`** when linked).
+    var environment: String = ""
+    /// Catalog max depth in meters when known (OpenDiveMap **`maxDepthMeters`**).
+    var maxDepthMeters: Int?
     /// Salt vs fresh water for diver ballast defaults on linked dives (**`nil`** → salt water).
     var waterType: DiveWaterType?
 
@@ -42,6 +48,9 @@ final class DiveSite {
         timeZoneOffsetSeconds: Int? = nil,
         siteTags: [String] = [],
         siteRating: Int? = nil,
+        entry: String = "",
+        environment: String = "",
+        maxDepthMeters: Int? = nil,
         waterType: DiveWaterType? = nil
     ) {
         self.id = id
@@ -55,6 +64,9 @@ final class DiveSite {
         self.timeZoneOffsetSeconds = timeZoneOffsetSeconds
         self.siteTags = siteTags
         self.siteRating = siteRating
+        self.entry = entry
+        self.environment = environment
+        self.maxDepthMeters = maxDepthMeters
         self.waterType = waterType
     }
 }

@@ -11,6 +11,7 @@ enum DiveActivityOpenDiveMapSiteBackfill {
             UserDefaults.standard.set(true, forKey: completedKey)
         }
         try DiveActivitySiteAssociation.normalizeOpenDiveMapCatalogSiteNames(modelContext: modelContext)
+        try DiveActivitySiteAssociation.normalizeCatalogSiteCountries(modelContext: modelContext)
     }
 
     #if DEBUG

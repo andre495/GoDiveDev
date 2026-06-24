@@ -5,7 +5,7 @@ enum DiveSiteMapper {
         DiveSite(
             id: dto.id ?? UUID(),
             siteName: DiveSiteFormValidation.sanitizedSiteName(dto.siteName) ?? dto.siteName.trimmingCharacters(in: .whitespacesAndNewlines),
-            country: dto.country ?? "",
+            country: DiveSiteCountryPresentation.canonicalDisplayName(for: dto.country ?? ""),
             region: dto.region ?? "",
             bodyOfWater: dto.bodyOfWater ?? "",
             latCoords: dto.latCoords,

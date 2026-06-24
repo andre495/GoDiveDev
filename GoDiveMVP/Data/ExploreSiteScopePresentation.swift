@@ -42,15 +42,15 @@ enum ExploreSiteScope: String, CaseIterable, Identifiable, Sendable {
 
     var accessibilityLabel: String {
         switch self {
-        case .logbook: "Logbook sites"
-        case .allSites: "All dive sites"
+        case .logbook: "My sites"
+        case .allSites: "All sites"
         }
     }
 
     var shortTitle: String {
         switch self {
-        case .logbook: "Logbook"
-        case .allSites: "All sites"
+        case .logbook: "My Sites"
+        case .allSites: "All Sites"
         }
     }
 
@@ -228,28 +228,7 @@ enum ExploreSiteScopePresentation: Sendable {
 /// Reference catalog list rows for **Explore** when scope is **All sites**.
 enum ExploreReferenceSiteListDisplay {
     nonisolated static func rowData(for reference: [DiveSiteReferenceSnapshot]) -> [ExploreDiveSiteRowDisplayData] {
-        reference.map { snapshot in
-            ExploreDiveSiteRowDisplayData(
-                id: ExploreSiteScopePresentation.stableMapPinID(forReferenceID: snapshot.id),
-                referenceID: snapshot.id,
-                displayName: DiveSiteCatalogMatcher.sanitizedReferenceDisplayName(snapshot.name) ?? snapshot.name,
-                diveCountLabel: nil,
-                coordinateLine: coordinateLine(for: snapshot),
-                placeLine: ExploreDiveSiteListDisplay.cityCountryLine(
-                    country: snapshot.country,
-                    region: snapshot.seaName
-                ).nilIfEmpty
-            )
-        }
-    }
-
-    private nonisolated static func coordinateLine(for snapshot: DiveSiteReferenceSnapshot) -> String {
-        guard let lat = snapshot.latitude, let lon = snapshot.longitude else {
-            return "No map pin"
-        }
-        let coordinate = DiveCoordinate(latitude: lat, longitude: lon)
-        guard DiveMapCoordinateResolver.isUsable(coordinate) else { return "No map pin" }
-        return DiveLocationMapPresentation.coordinateLabel(for: coordinate)
+        DiveSitePresentation.listRecords(for: reference)
     }
 }
 
@@ -259,20 +238,21 @@ enum ExploreReferenceSiteListSearch {
         CatalogSubstringSearch.isFiltering(query: query)
     }
 
+    nonisolated static func searchHaystacks(for snapshot: DiveSiteReferenceSnapshot) -> [String] {
+        let canonicalCountry = DiveSiteCountryPresentation.canonicalDisplayName(for: snapshot.country)
+        return [
+            snapshot.name,
+            snapshot.countryCode,
+            ExploreDiveSiteListDisplay.cityCountryLine(
+                country: canonicalCountry,
+                region: snapshot.seaName
+            ),
+            snapshot.seaName,
+        ] + DiveSiteCountryPresentation.searchTerms(for: snapshot.country)
+    }
+
     nonisolated static func matches(_ snapshot: DiveSiteReferenceSnapshot, query: String) -> Bool {
-        CatalogSubstringSearch.matchesAny(
-            in: [
-                snapshot.name,
-                snapshot.country,
-                snapshot.seaName,
-                snapshot.countryCode,
-                ExploreDiveSiteListDisplay.cityCountryLine(
-                    country: snapshot.country,
-                    region: snapshot.seaName
-                ),
-            ],
-            query: query
-        )
+        CatalogSubstringSearch.matchesAny(in: searchHaystacks(for: snapshot), query: query)
     }
 
     nonisolated static func filtering(

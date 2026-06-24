@@ -295,7 +295,8 @@ struct ViewDiveBuddyDetails: View {
             ) {
                 ExploreDiveSiteDetailView(
                     site: site,
-                    ownerProfileID: ownerProfileID
+                    ownerProfileID: ownerProfileID,
+                    onOpenDive: openSharedDive
                 )
             }
         }

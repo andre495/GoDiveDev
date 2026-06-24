@@ -1324,9 +1324,7 @@ struct HomeLifetimeStatsSection: View {
     let stats: HomeLifetimeStats
     let buddyLeaderboard: [HomeBuddyLeaderboardEntry]
     let unitSystem: DiveDisplayUnitSystem
-    let onOpenDive: (UUID) -> Void
-    let onOpenSite: (UUID) -> Void
-    let onOpenSpecies: (String) -> Void
+    let onOpenLeaderboard: (HomeLifetimeStatsLeaderboardKind) -> Void
     let onOpenBuddy: (UUID) -> Void
 
     private var showsBuddyLeaderboard: Bool {
@@ -1383,7 +1381,7 @@ struct HomeLifetimeStatsSection: View {
                     value: formattedDepth(depth),
                     footnote: deepest.siteDisplayName,
                     systemImage: "arrow.down.circle.fill",
-                    action: { onOpenDive(deepest.id) }
+                    action: { onOpenLeaderboard(.deepestDives) }
                 )
             )
         }
@@ -1396,7 +1394,7 @@ struct HomeLifetimeStatsSection: View {
                     value: HomeLifetimeStatsPresentation.formattedDuration(minutes: minutes),
                     footnote: longest.siteDisplayName,
                     systemImage: "clock.fill",
-                    action: { onOpenDive(longest.id) }
+                    action: { onOpenLeaderboard(.longestDives) }
                 )
             )
         }
@@ -1409,7 +1407,7 @@ struct HomeLifetimeStatsSection: View {
                     value: site.name,
                     footnote: HomeLifetimeStatsPresentation.siteVisitLabel(count: site.visitCount),
                     systemImage: "mappin.circle.fill",
-                    action: site.id.map { siteID in { onOpenSite(siteID) } }
+                    action: { onOpenLeaderboard(.topSites) }
                 )
             )
         }
@@ -1422,7 +1420,7 @@ struct HomeLifetimeStatsSection: View {
                     value: species.commonName,
                     footnote: HomeLifetimeStatsPresentation.sightingCountLabel(count: species.sightingCount),
                     systemImage: "fish.fill",
-                    action: { onOpenSpecies(species.marineLifeUUID) }
+                    action: { onOpenLeaderboard(.topSpecies) }
                 )
             )
         } else {

@@ -1,9 +1,10 @@
 import SwiftData
 import SwiftUI
 
-/// Pushed catalog dive-site detail from **Explore** (replaces sheet presentation).
+/// Pushed catalog dive-site detail from **Explore** (blue sheet + media/map hero).
 struct ExploreDiveSiteDetailView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @Environment(AccountSession.self) private var accountSession
 
     @Query(sort: \MarineLife.commonName) private var marineLifeCatalog: [MarineLife]
@@ -11,9 +12,21 @@ struct ExploreDiveSiteDetailView: View {
     @Query private var siteSightings: [SightingInstance]
 
     @Bindable var site: DiveSite
+    let onOpenDive: (UUID) -> Void
 
-    init(site: DiveSite, ownerProfileID: UUID?) {
+    @State private var siteHeroMode: PushedDetailHeroHeaderView.Mode = .media
+    @State private var heroTaggedMediaID: UUID?
+    @State private var ownerDiveQueryReady = false
+    @State private var lastResolvedHadTaggedMedia = false
+    @State private var hasCompletedInitialHeroSync = false
+
+    init(
+        site: DiveSite,
+        ownerProfileID: UUID?,
+        onOpenDive: @escaping (UUID) -> Void = { _ in }
+    ) {
         self.site = site
+        self.onOpenDive = onOpenDive
         let diveSiteID = site.id
         let ownerFilterID = ownerProfileID ?? Self.noOwnerQueryToken
         _ownerDiveActivities = Query(
@@ -39,22 +52,29 @@ struct ExploreDiveSiteDetailView: View {
         Set(ownerDiveActivities.map(\.id))
     }
 
+    private var siteDiveActivities: [DiveActivity] {
+        ExploreDiveSiteMediaPresentation.siteDiveActivities(
+            diveSiteID: site.id,
+            ownerProfileID: accountSession.currentProfile?.id,
+            activities: ownerDiveActivities
+        )
+    }
+
+    private var siteLinkedMediaItems: [TripDetailLinkedMediaItem] {
+        ExploreDiveSiteMediaPresentation.linkedMediaItems(from: siteDiveActivities)
+    }
+
     private var taggedMediaItems: [DiveMediaPhoto] {
-        FieldGuideTaggedMediaPresentation.resolvedTaggedMediaPhotos(
-            sightings: siteSightings,
-            ownerDiveActivityIDs: ownerDiveActivityIDs,
-            modelContext: modelContext
+        ExploreDiveSiteMediaPresentation.mediaPhotos(
+            siteActivities: siteDiveActivities,
+            linkedItems: siteLinkedMediaItems
         )
     }
 
     private var taggedMediaTimeZoneOffsetByID: [UUID: Int?] {
-        let offsetByActivityID = Dictionary(
-            uniqueKeysWithValues: ownerDiveActivities.map { ($0.id, $0.timeZoneOffsetSeconds) }
-        )
-        return FieldGuideTaggedMediaPresentation.timeZoneOffsetByMediaID(
-            sightings: siteSightings,
-            ownerDiveActivityIDs: ownerDiveActivityIDs,
-            timeZoneOffsetByActivityID: offsetByActivityID
+        ExploreDiveSiteMediaPresentation.timeZoneOffsetByMediaID(
+            siteActivities: siteDiveActivities,
+            linkedItems: siteLinkedMediaItems
         )
     }
 
@@ -85,243 +105,219 @@ struct ExploreDiveSiteDetailView: View {
         )
     }
 
+    private var siteDiveRows: [DiveLogbookRowDisplayData] {
+        FieldGuidePresentation.sightedDiveRowDisplayData(
+            activityIDs: siteActivityLinks.map(\.id),
+            activities: ownerDiveActivities,
+            unitSystem: diveDisplayUnitSystem
+        )
+    }
+
+    private var ownerHasVisitedSite: Bool {
+        accountSession.currentProfile != nil && !siteDiveActivities.isEmpty
+    }
+
+    private var isStarRatingEditable: Bool {
+        DiveSitePresentation.isStarRatingEditable(
+            ownerHasVisited: ownerHasVisitedSite,
+            isReferenceOnly: false
+        )
+    }
+
+    private var displayStarRating: Int {
+        DiveSitePresentation.displayPinnedStarRating(from: site.siteRating)
+    }
+
+    private var displayRecord: DiveSiteDisplayRecord {
+        DiveSitePresentation.listRecord(for: site)
+    }
+
+    private var mapPins: [TripDetailMapPin] {
+        ExploreDiveSiteDetailPresentation.mapPins(for: site)
+    }
+
+    private var showsHeroModeToggle: Bool {
+        ExploreDiveSiteDetailPresentation.showsHeroModeToggle(
+            hasTaggedMedia: !taggedMediaItems.isEmpty,
+            hasMapPin: !mapPins.isEmpty
+        )
+    }
+
+    private var expectsHeroTaggedMedia: Bool {
+        if !taggedMediaItems.isEmpty { return true }
+        guard accountSession.currentProfile != nil else { return false }
+        return ExploreDiveSiteMediaPresentation.expectsHeroMedia(siteActivities: siteDiveActivities)
+    }
+
+    private var heroTaggedMedia: DiveMediaPhoto? {
+        DiveActivityMediaPresentation.selectedMedia(
+            selectedID: heroTaggedMediaID,
+            in: taggedMediaItems
+        )
+    }
+
+    private var linkedMediaItems: [TripDetailLinkedMediaItem] {
+        siteLinkedMediaItems
+    }
+
+    private var taggedMediaRefreshToken: String {
+        ExploreDiveSiteMediaPresentation.galleryRefreshToken(
+            diveSiteID: site.id,
+            ownerProfileID: accountSession.currentProfile?.id,
+            activities: ownerDiveActivities
+        )
+    }
+
     var body: some View {
-        AppPage(
-            title: DiveSiteCatalogMatcher.resolvedCatalogSiteName(for: site) ?? "Dive site",
-            showsBackButton: true,
-            showsBrandWordmark: false,
-            titlePlacement: AppHeaderStackedTitleChrome.titlePlacement,
-            trailingContent: { EmptyView() }
-        ) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-                    if let coordinate = siteCoordinate {
-                        detailSection(title: "Location") {
-                            detailRow(
-                                title: "Coordinates",
-                                value: DiveLocationMapPresentation.coordinateLabel(for: coordinate)
-                            )
-                        }
-                    }
-
-                    if !placeRows.isEmpty {
-                        detailSection(title: "Place") {
-                            ForEach(placeRows, id: \.label) { row in
-                                detailRow(title: row.label, value: row.value)
-                            }
-                        }
-                    }
-
-                    detailSection(title: "Details") {
-                        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                            Text("Water type")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(AppTheme.Colors.textPrimary)
-
-                            Picker("Water type", selection: Binding(
-                                get: { site.resolvedWaterType },
-                                set: { site.waterType = $0 }
-                            )) {
-                                ForEach(DiveWaterType.allCases) { type in
-                                    Text(type.displayTitle).tag(type)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                            .labelsHidden()
-                            .accessibilityIdentifier("Explore.DiveSiteDetail.WaterType")
-                        }
-
-                        if let rating = site.siteRating {
-                            detailRow(title: "Rating", value: "\(rating) / 5")
-                        } else {
-                            detailRow(title: "Rating", value: "Not rated")
-                        }
-
-                        if site.siteTags.isEmpty {
-                            detailRow(title: "Tags", value: "None")
-                        } else {
-                            detailRow(title: "Tags", value: site.siteTags.joined(separator: ", "))
-                        }
-
-                        detailRow(
-                            title: "Dives logged here",
-                            value: "\(site.diveActivities.count)"
-                        )
-                    }
-
-                    if !taggedMediaItems.isEmpty {
-                        FieldGuideTaggedMediaGalleryView(
-                            mediaItems: taggedMediaItems,
-                            timeZoneOffsetByMediaID: taggedMediaTimeZoneOffsetByID,
-                            previewAccessibilityIdentifier: "Explore.DiveSiteDetail.TaggedMediaPreview",
-                            carouselAccessibilityIdentifier: "Explore.DiveSiteDetail.TaggedMediaCarousel"
-                        )
-                    }
-
-                    activitiesAtSiteSection
-                    marineLifeSightedSection
+        FieldGuideBlueSheetPage(
+            accessibilityRootIdentifier: "Explore.DiveSiteDetail.Root",
+            scrollAccessibilityIdentifier: "Explore.DiveSiteDetail.Scroll",
+            hero: { context in
+                PushedDetailHeroHeaderView(
+                    media: heroTaggedMedia,
+                    mapPins: mapPins,
+                    mapFitLayout: context.mapFitLayout(),
+                    height: context.heroHeight,
+                    expectsTaggedMedia: expectsHeroTaggedMedia,
+                    isMapContentReady: true,
+                    shouldAutoPlaySelectedVideo: DiveBuddyDetailPresentation.shouldAutoPlaySelectedVideo(
+                        for: heroTaggedMedia
+                    ),
+                    style: .diveSite,
+                    onSiteSelected: { _ in },
+                    selectedMode: $siteHeroMode
+                )
+            },
+            pinnedContent: {
+                ExploreDiveSiteDetailPinnedTitleView(
+                    record: displayRecord,
+                    starRating: displayStarRating,
+                    isStarRatingEditable: isStarRatingEditable,
+                    onStarRatingSelected: updateSiteRating,
+                    accessibilityIdentifier: "Explore.DiveSiteDetail.TitleBlock"
+                )
+            },
+            panelContent: { bottomScrollInset in
+                ExploreDiveSiteDetailContentPager(
+                    displayRecord: displayRecord,
+                    siteDiveRows: siteDiveRows,
+                    sightedSpeciesLinks: sightedSpeciesLinks,
+                    taggedMediaItems: taggedMediaItems,
+                    taggedMediaTimeZoneOffsetByID: taggedMediaTimeZoneOffsetByID,
+                    linkedMediaItems: linkedMediaItems,
+                    mediaSightings: siteSightings,
+                    marineLifeCatalog: marineLifeCatalog,
+                    ownerProfileID: accountSession.currentProfile?.id,
+                    gallerySelectedMediaID: $heroTaggedMediaID,
+                    bottomScrollInset: bottomScrollInset,
+                    onOpenDive: onOpenDive
+                )
+                .padding(.horizontal, AppTheme.Spacing.md)
+            },
+            heroOverlay: { _ in
+                if showsHeroModeToggle {
+                    PushedDetailHeroModeToggle(
+                        selectedMode: $siteHeroMode,
+                        accessibilityIdentifierPrefix: "Explore.DiveSiteDetail.Hero.ModeToggle"
+                    )
+                    .padding(.trailing, AppTheme.Spacing.md)
+                    .padding(.bottom, DiveBuddyDetailPresentation.heroModeToggleBottomPadding)
                 }
-                .padding(AppTheme.Spacing.md)
             }
-        }
-        .hidesBottomTabBarWhenPushed()
+        )
         .onAppear {
             DiveMediaScopeCache.shared.activateScope(.diveSite(site.id))
+            if accountSession.currentProfile == nil {
+                ownerDiveQueryReady = true
+            }
+            syncHeroPresentation()
         }
         .onDisappear {
             DiveMediaScopeCache.shared.deactivateScope(.diveSite(site.id))
         }
-        .onChange(of: site.waterType) { _, _ in
-            try? modelContext.save()
+        .onChange(of: ownerDiveActivities.count, initial: true) { _, _ in
+            ownerDiveQueryReady = true
+            syncHeroPresentation()
         }
-        .accessibilityIdentifier("Explore.DiveSiteDetail.Root")
+        .onChange(of: taggedMediaRefreshToken) { _, _ in
+            syncHeroPresentation()
+        }
+        .onChange(of: mapPins.count) { _, count in
+            if count == 0, siteHeroMode == .map {
+                siteHeroMode = .media
+            }
+        }
     }
 
-    private var marineLifeSightedSection: some View {
-        detailSection(title: "Marine life sighted here") {
-            if sightedSpeciesLinks.isEmpty {
-                Text("None logged yet")
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+    private func updateSiteRating(_ rating: Int) {
+        guard isStarRatingEditable else { return }
+        site.siteRating = DiveSitePresentation.storageSiteRating(for: rating)
+        try? modelContext.save()
+    }
+
+    private func syncHeroPresentation() {
+        syncHeroTaggedMediaSelection()
+
+        let hasMedia = !taggedMediaItems.isEmpty
+        let hasMap = !mapPins.isEmpty
+        let canDefault = ExploreDiveSiteDetailPresentation.canDefaultHeroMode(
+            hasOwnerProfile: accountSession.currentProfile != nil,
+            ownerDiveQueryReady: ownerDiveQueryReady
+        )
+
+        if hasMedia && !lastResolvedHadTaggedMedia {
+            siteHeroMode = .media
+            hasCompletedInitialHeroSync = true
+        } else if canDefault, !hasCompletedInitialHeroSync {
+            if hasMedia {
+                siteHeroMode = .media
+            } else if ExploreDiveSiteDetailPresentation.prefersMapHero(
+                hasTaggedMedia: false,
+                hasMapPin: hasMap
+            ) {
+                siteHeroMode = .map
             } else {
-                VStack(spacing: AppTheme.Spacing.sm) {
-                    ForEach(sightedSpeciesLinks) { link in
-                        NavigationLink(value: ExploreRoute.speciesDetail(link.marineLifeUUID)) {
-                            marineLifeLinkRow(link)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier(
-                            "Explore.DiveSiteDetail.MarineLife.\(link.marineLifeUUID)"
-                        )
-                    }
-                }
+                siteHeroMode = .media
             }
+            hasCompletedInitialHeroSync = true
+        }
+
+        enforceSingleModeHeroWhenToggleHidden()
+
+        if !hasMap, siteHeroMode == .map {
+            siteHeroMode = .media
+        }
+
+        lastResolvedHadTaggedMedia = hasMedia
+    }
+
+    private func enforceSingleModeHeroWhenToggleHidden() {
+        let hasMedia = !taggedMediaItems.isEmpty
+        let hasMap = !mapPins.isEmpty
+        guard !ExploreDiveSiteDetailPresentation.showsHeroModeToggle(
+            hasTaggedMedia: hasMedia,
+            hasMapPin: hasMap
+        ) else { return }
+
+        if hasMedia {
+            siteHeroMode = .media
+        } else if hasMap {
+            siteHeroMode = .map
         }
     }
 
-    private var activitiesAtSiteSection: some View {
-        ExpandableDetailSection(
-            title: "Activities at this site",
-            itemCount: siteActivityLinks.count,
-            accessibilityIdentifier: "Explore.DiveSiteDetail.ActivitiesAtSite"
-        ) {
-            Text("None logged yet")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.Colors.secondaryText)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        } content: {
-            VStack(spacing: AppTheme.Spacing.sm) {
-                ForEach(siteActivityLinks) { link in
-                    NavigationLink(value: ExploreRoute.diveDetail(link.id)) {
-                        activityLinkRow(link)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("Explore.DiveSiteDetail.DiveLink.\(link.id.uuidString)")
-                }
-            }
+    private func syncHeroTaggedMediaSelection() {
+        guard !taggedMediaItems.isEmpty else {
+            heroTaggedMediaID = nil
+            return
         }
-    }
-
-    private func marineLifeLinkRow(
-        _ link: DiveSiteMarineLifePresentation.SightedSpeciesLinkData
-    ) -> some View {
-        HStack(alignment: .center, spacing: AppTheme.Spacing.md) {
-            Text(link.displayName)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-                .multilineTextAlignment(.leading)
-
-            Spacer(minLength: AppTheme.Spacing.sm)
-
-            Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.tabUnselected)
+        if let heroTaggedMediaID,
+           taggedMediaItems.contains(where: { $0.id == heroTaggedMediaID }) {
+            return
         }
-        .padding(AppTheme.Spacing.md)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(AppTheme.Colors.surfaceElevated)
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(AppTheme.Colors.tabUnselected.opacity(0.12), lineWidth: 1)
-        }
-    }
-
-    private func activityLinkRow(_ link: FieldGuidePresentation.SightedActivityLinkData) -> some View {
-        HStack(alignment: .center, spacing: AppTheme.Spacing.md) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(link.title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
-                    .multilineTextAlignment(.leading)
-
-                Text(link.dateText)
-                    .font(.footnote)
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-            }
-
-            Spacer(minLength: AppTheme.Spacing.sm)
-
-            Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.tabUnselected)
-        }
-        .padding(AppTheme.Spacing.md)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(AppTheme.Colors.surfaceElevated)
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(AppTheme.Colors.tabUnselected.opacity(0.12), lineWidth: 1)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(link.title), \(link.dateText)")
-        .accessibilityHint("Opens this dive")
-    }
-
-    private func detailSection<Content: View>(
-        title: String,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            Text(title)
-                .font(.headline)
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-            content()
-        }
-    }
-
-    private func detailRow(title: String, value: String) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-            Spacer(minLength: AppTheme.Spacing.sm)
-            Text(value)
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.Colors.secondaryText)
-                .multilineTextAlignment(.trailing)
-        }
-    }
-
-    private var siteCoordinate: DiveCoordinate? {
-        DiveMapCoordinateResolver.coordinate(from: site)
-    }
-
-    private var placeRows: [(label: String, value: String)] {
-        var rows: [(label: String, value: String)] = []
-        let country = site.country.trimmingCharacters(in: .whitespacesAndNewlines)
-        let region = site.region.trimmingCharacters(in: .whitespacesAndNewlines)
-        let body = site.bodyOfWater.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !country.isEmpty { rows.append((label: "Country", value: country)) }
-        if !region.isEmpty { rows.append((label: "Region", value: region)) }
-        if !body.isEmpty { rows.append((label: "Body of water", value: body)) }
-        return rows
+        heroTaggedMediaID = ExploreDiveSiteDetailPresentation.initialHeroTaggedMediaPhotoID(
+            from: taggedMediaItems
+        )
     }
 
     /// Sentinel **`ownerProfileID`** so **`@Query`** returns no dives when signed out.

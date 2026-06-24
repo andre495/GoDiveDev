@@ -1980,6 +1980,7 @@ struct GoDiveMVPTests {
 
         #expect(AppPortraitOrientationLockPolicy.locksLogbook(path: []))
         #expect(AppPortraitOrientationLockPolicy.locksLogbook(path: [.tripDetail(sampleID)]))
+        #expect(AppPortraitOrientationLockPolicy.locksLogbook(path: [.tripPlanner]))
         #expect(AppPortraitOrientationLockPolicy.locksLogbook(path: [.diveSite(sampleID)]))
         #expect(!AppPortraitOrientationLockPolicy.locksLogbook(path: [.diveDetail(sampleID)]))
         #expect(!AppPortraitOrientationLockPolicy.locksLogbook(path: [.diveMedia(sampleID, mediaID: mediaID)]))
@@ -2889,6 +2890,137 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func fieldGuideSpeciesHeroPresentation_prefersTaggedVideoAndTogglesSource() {
+        let photo = DiveMediaPhoto(sortOrder: 0, mediaKind: .image)
+        let video = DiveMediaPhoto(sortOrder: 1, mediaKind: .video)
+        #expect(
+            FieldGuideSpeciesHeroPresentation.initialTaggedMediaPhotoID(from: [photo, video])
+                == video.id
+        )
+        #expect(
+            FieldGuideSpeciesHeroPresentation.initialTaggedMediaPhotoID(from: [photo])
+                == photo.id
+        )
+        #expect(FieldGuideSpeciesHeroPresentation.initialTaggedMediaPhotoID(from: []) == nil)
+
+        #expect(
+            FieldGuideSpeciesHeroPresentation.resolvedTaggedMedia(
+                selectedID: photo.id,
+                in: [photo, video]
+            )?.id == photo.id
+        )
+        #expect(
+            FieldGuideSpeciesHeroPresentation.resolvedTaggedMedia(
+                selectedID: nil,
+                in: [photo, video]
+            )?.id == video.id
+        )
+
+        #expect(FieldGuideSpeciesHeroPresentation.showsSourceToggle(hasTaggedMedia: true))
+        #expect(!FieldGuideSpeciesHeroPresentation.showsSourceToggle(hasTaggedMedia: false))
+        #expect(
+            FieldGuideSpeciesHeroPresentation.defaultMediaSource(hasTaggedMedia: true)
+                == .taggedUserMedia
+        )
+        #expect(
+            FieldGuideSpeciesHeroPresentation.defaultMediaSource(hasTaggedMedia: false)
+                == .catalogReference
+        )
+        #expect(
+            FieldGuideSpeciesHeroPresentation.toggledSource(.taggedUserMedia)
+                == .catalogReference
+        )
+        #expect(
+            FieldGuideSpeciesHeroPresentation.toggledSource(.catalogReference)
+                == .taggedUserMedia
+        )
+        #expect(
+            FieldGuideSpeciesHeroPresentation.sourceToggleDiameter
+                == DiveBuddyDetailPresentation.profileAvatarDiameter / 2
+        )
+        #expect(FieldGuideSpeciesHeroPresentation.sourceToggleDiameter == 60)
+
+        let compact = FieldGuideSpeciesHeroPresentation.compactSceneConfiguration(
+            for: .frenchAngelfish
+        )
+        #expect(!compact.allowsDragRotation)
+        #expect(compact.modelResourceName == "FrenchAngelfish")
+    }
+
+    @Test func fieldGuideSpeciesHeroPresentation_catalogHeroDisplay_defaultsToImageAndToggles() {
+        let both = FieldGuideSpeciesHeroPresentation.catalogHeroAvailability(
+            featureModelResourceName: "FrenchAngelfish",
+            featureImageResourceName: "marine-life-french-angelfish",
+            featureImageURL: "https://example.com/fish.jpg"
+        )
+        #expect(both.hasModel3D)
+        #expect(both.hasImage)
+        #expect(both.supportsHeaderToggle)
+        #expect(
+            FieldGuideSpeciesHeroPresentation.defaultCatalogHeroDisplay(availability: both)
+                == .image
+        )
+        #expect(
+            FieldGuideSpeciesHeroPresentation.resolvedCatalogHeroDisplay(
+                selection: .model3D,
+                availability: both
+            ) == .model3D
+        )
+        #expect(
+            FieldGuideSpeciesHeroPresentation.toggledCatalogHeroDisplay(.image) == .model3D
+        )
+        #expect(
+            FieldGuideSpeciesHeroPresentation.toggledCatalogHeroDisplay(.model3D) == .image
+        )
+
+        let modelOnly = FieldGuideSpeciesHeroPresentation.catalogHeroAvailability(
+            featureModelResourceName: "FrenchAngelfish",
+            featureImageResourceName: "",
+            featureImageURL: ""
+        )
+        #expect(modelOnly.hasModel3D)
+        #expect(!modelOnly.hasImage)
+        #expect(!modelOnly.supportsHeaderToggle)
+        #expect(
+            FieldGuideSpeciesHeroPresentation.resolvedCatalogHeroDisplay(
+                selection: .image,
+                availability: modelOnly
+            ) == .model3D
+        )
+
+        let imageOnly = FieldGuideSpeciesHeroPresentation.catalogHeroAvailability(
+            featureModelResourceName: "",
+            featureImageResourceName: "",
+            featureImageURL: "https://example.com/fish.jpg"
+        )
+        #expect(!imageOnly.hasModel3D)
+        #expect(imageOnly.hasImage)
+        #expect(!imageOnly.supportsHeaderToggle)
+        #expect(
+            FieldGuideSpeciesHeroPresentation.resolvedCatalogHeroDisplay(
+                selection: .model3D,
+                availability: imageOnly
+            ) == .image
+        )
+    }
+
+    @Test func fieldGuideMarineLifeHeroPresentation_catalogImageKind_ignoresModelName() {
+        let kind = FieldGuideMarineLifeHeroPresentation.catalogImageKind(
+            featureImageResourceName: "",
+            featureImageURL: "https://example.com/fish.jpg"
+        )
+        guard case .remoteImage(let url) = kind else {
+            Issue.record("Expected remote catalog image")
+            return
+        }
+        #expect(url.absoluteString == "https://example.com/fish.jpg")
+        #expect(
+            FieldGuideMarineLifeHeroPresentation.hasCatalogModel(
+                featureModelResourceName: "FrenchAngelfish"
+            )
+        )
+    }
+
     @Test @MainActor func fieldGuideMarineLifeDetailView_heroHeight_usesPushedLayoutMetrics() {
         let geometryHeight: CGFloat = 852
         let screenWidth: CGFloat = 390
@@ -3001,31 +3133,63 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test @MainActor func fieldGuideCategoryBlueSheetPage_heroHeight_matchesPushedLayoutMetrics() {
-        let geometryHeight: CGFloat = 852
-        let screenWidth: CGFloat = 390
-        let topSafeAreaInset: CGFloat = 59
-        let seamInputs = HomeOverviewPushedLayoutPresentation.pushedPageSeamInputs()
-        let transitionFloor = HomeOverviewLayout.pushedHeroLayoutTransitionViewportCandidate(from: 803)
-
-        let heroHeight = BlueSheetHeaderPageLayoutBuilder.heroHeight(
-            geometryHeight: geometryHeight,
-            screenWidth: screenWidth,
-            topSafeAreaInset: topSafeAreaInset,
-            statsPanelContentHeight: seamInputs.statsPanelContentHeight,
-            showsBuddyLeaderboard: seamInputs.showsBuddyLeaderboard,
-            transitionViewportFloor: transitionFloor
+    @Test func fieldGuideCatalogBrowseListPresentation_matchesHubListSpacing() {
+        #expect(
+            FieldGuideCatalogBrowseListPresentation.listRowSpacing
+                == FieldGuideHubTileLayout.listRowSpacing
         )
-        let direct = HomeOverviewLayout.pushedHeroLayoutMetrics(
-            geometryHeight: geometryHeight,
-            screenWidth: screenWidth,
-            topSafeAreaInset: topSafeAreaInset,
-            statsPanelContentHeight: seamInputs.statsPanelContentHeight,
-            showsBuddyLeaderboard: seamInputs.showsBuddyLeaderboard,
-            transitionViewportFloor: transitionFloor
-        ).heroHeight
-        #expect(heroHeight == direct)
-        #expect(heroHeight > FieldGuideCategoryImageLayout.detailHeroBaseHeight)
+        #expect(FieldGuideCatalogBrowseListPresentation.listRowSpacing == AppTheme.Spacing.sm)
+        let safeTop: CGFloat = 59
+        let headerClearance: CGFloat = 52
+        #expect(
+            FieldGuideCatalogBrowseListPresentation.listTopInset(
+                safeAreaTop: safeTop,
+                headerClearance: headerClearance
+            ) == safeTop + headerClearance
+        )
+        #expect(
+            FieldGuideCatalogBrowseListPresentation.listBottomInset(safeAreaBottom: 34)
+                == AppScrollUnderHeaderListLayout.listBottomInset(safeAreaBottom: 34)
+        )
+    }
+
+    @Test func fieldGuideSpeciesSearchResultsPresentation_searchesFullCatalog() {
+        let angelfish = MarineLifeCatalogSnapshot(
+            uuid: "marine-life-french-angelfish",
+            commonName: "French Angelfish",
+            scientificName: "Pomacanthus paru",
+            category: "fish",
+            subcategory: "angelfishes",
+            featureImageURL: "",
+            minSizeMeters: 0.2,
+            maxSizeMeters: 0.4,
+            avgDepthMeters: 12
+        )
+        let turtle = MarineLifeCatalogSnapshot(
+            uuid: "marine-life-green-turtle",
+            commonName: "Green Turtle",
+            scientificName: "Chelonia mydas",
+            category: "reptiles",
+            subcategory: "sea-turtles",
+            featureImageURL: "",
+            minSizeMeters: 0.8,
+            maxSizeMeters: 1.5,
+            avgDepthMeters: 8
+        )
+        let fishOnlyPayload = [angelfish]
+        let fullCatalog = [angelfish, turtle]
+
+        let scoped = FieldGuideMarineLifeSearch.filtering(fishOnlyPayload, query: "turtle")
+        #expect(scoped.isEmpty)
+
+        let globalRows = FieldGuideSpeciesSearchResultsPresentation.rowData(
+            catalogSnapshots: fullCatalog,
+            query: "turtle",
+            unitSystem: .metric
+        )
+        #expect(globalRows.count == 1)
+        #expect(globalRows[0].marineLifeUUID == turtle.uuid)
+        #expect(FieldGuideSpeciesSearchEnvironment.searchPlaceholder == "Search Marine Life")
     }
 
     @Test func fieldGuideCategoryPresentation_detailHeroHeight_includesSafeAreaInset() {
@@ -3103,7 +3267,7 @@ struct GoDiveMVPTests {
         }
         #expect(french?.commonName == "French Angelfish")
         #expect(french?.featureImageResourceName == "marine-life-french-angelfish")
-        #expect(french?.featureModelResourceName == "")
+        #expect(french?.featureModelResourceName == "FrenchAngelfish")
         #expect(french?.scientificName == "Pomacanthus paru")
     }
 
@@ -3161,6 +3325,54 @@ struct GoDiveMVPTests {
         }
         #expect(orphan == nil)
         #expect(try context.fetchCount(FetchDescriptor<MarineLife>()) > 0)
+    }
+
+    @Test @MainActor func marineLifeCatalogSeeder_preservesUserCreatedSpeciesOnReseed() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let userSpecies = FieldGuideMarineLifeAddPresentation.makeMarineLife(
+            from: FieldGuideMarineLifeAddPresentation.FormValues(
+                commonName: "My Custom Goby",
+                scientificName: "Gobius customus",
+                categoryID: "fishes",
+                subcategoryID: "gobies"
+            )
+        )
+        context.insert(userSpecies)
+        try context.save()
+
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+
+        let preserved = try context.fetch(FetchDescriptor<MarineLife>()).first {
+            $0.uuid == userSpecies.uuid
+        }
+        #expect(preserved?.commonName == "My Custom Goby")
+        #expect(FieldGuideMarineLifeAddPresentation.isUserCreated(uuid: userSpecies.uuid))
+    }
+
+    @Test func fieldGuideMarineLifeAddPresentation_validatesAndBuildsSpecies() {
+        var form = FieldGuideMarineLifeAddPresentation.FormValues(
+            commonName: "  Blue Tang  ",
+            scientificName: "Acanthurus coeruleus",
+            categoryID: "fishes",
+            subcategoryID: "surgeonfishes",
+            familyName: "Acanthuridae",
+            aboutText: "Herbivorous reef fish."
+        )
+        #expect(FieldGuideMarineLifeAddPresentation.canSave(form))
+        let species = FieldGuideMarineLifeAddPresentation.makeMarineLife(from: form)
+        #expect(species.commonName == "Blue Tang")
+        #expect(species.category == "fishes")
+        #expect(species.subcategory == "surgeonfishes")
+        #expect(FieldGuideMarineLifeAddPresentation.isUserCreated(uuid: species.uuid))
+
+        form.commonName = "   "
+        #expect(!FieldGuideMarineLifeAddPresentation.canSave(form))
+        #expect(FieldGuideMarineLifeAddPresentation.sheetTitle == "New species")
+        #expect(
+            FieldGuideMarineLifeAddPresentation.chromeAccessibilityIdentifier
+                == "FieldGuide.AddSpecies"
+        )
     }
 
     @Test @MainActor func marineLifeCatalogSeeder_seedsQueenAngelfish() throws {
@@ -4164,6 +4376,79 @@ struct GoDiveMVPTests {
 
         #expect(links.map(\.id) == [newerID, olderID])
         #expect(links.allSatisfy { $0.title == "Salt Pier" })
+    }
+
+    @Test @MainActor func exploreDiveSiteMediaPresentation_includesAllDiveMediaAtSite_notOnlySightingLinked() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let ownerID = UUID()
+        let siteID = UUID()
+        let otherSiteID = UUID()
+
+        let diveAtSite = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 2_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        diveAtSite.ownerProfileID = ownerID
+        diveAtSite.diveSiteID = siteID
+        context.insert(diveAtSite)
+
+        let diveElsewhere = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 3_000),
+            durationMinutes: 35,
+            maxDepthMeters: 15
+        )
+        diveElsewhere.ownerProfileID = ownerID
+        diveElsewhere.diveSiteID = otherSiteID
+        context.insert(diveElsewhere)
+
+        let sightingLinkedPhoto = DiveMediaPhoto(
+            sortOrder: 0,
+            capturedAt: Date(timeIntervalSince1970: 2_100),
+            dive: diveAtSite
+        )
+        let unattachedDivePhoto = DiveMediaPhoto(
+            sortOrder: 1,
+            capturedAt: Date(timeIntervalSince1970: 2_200),
+            dive: diveAtSite
+        )
+        let otherSitePhoto = DiveMediaPhoto(
+            sortOrder: 0,
+            capturedAt: Date(timeIntervalSince1970: 3_100),
+            dive: diveElsewhere
+        )
+        diveAtSite.mediaPhotos = [sightingLinkedPhoto, unattachedDivePhoto]
+        diveElsewhere.mediaPhotos = [otherSitePhoto]
+        context.insert(sightingLinkedPhoto)
+        context.insert(unattachedDivePhoto)
+        context.insert(otherSitePhoto)
+
+        let sighting = SightingInstance(
+            marineLifeUUID: "species-site-media",
+            sightingDateTime: Date(timeIntervalSince1970: 2_100),
+            diveActivity: diveAtSite,
+            mediaPhoto: sightingLinkedPhoto
+        )
+        context.insert(sighting)
+        try context.save()
+
+        let siteActivities = ExploreDiveSiteMediaPresentation.siteDiveActivities(
+            diveSiteID: siteID,
+            ownerProfileID: ownerID,
+            activities: [diveAtSite, diveElsewhere]
+        )
+        #expect(siteActivities.map(\.id) == [diveAtSite.id])
+
+        let linked = ExploreDiveSiteMediaPresentation.linkedMediaItems(from: siteActivities)
+        let photos = ExploreDiveSiteMediaPresentation.mediaPhotos(
+            siteActivities: siteActivities,
+            linkedItems: linked
+        )
+        #expect(photos.map(\.id) == [sightingLinkedPhoto.id, unattachedDivePhoto.id])
+        #expect(!photos.contains(where: { $0.id == otherSitePhoto.id }))
     }
 
     @Test func activityTagStore_normalizedName_collapsesWhitespaceAndCase() {
@@ -5405,6 +5690,7 @@ struct GoDiveMVPTests {
         let siteID = UUID()
         #expect(LogbookRoute.diveSite(siteID) == LogbookRoute.diveSite(siteID))
         #expect(LogbookRoute.diveSite(siteID) != LogbookRoute.tripDetail(siteID))
+        #expect(LogbookRoute.tripPlanner != LogbookRoute.addActivity)
     }
 
     @Test @MainActor func tripStackNavigationRoutes_tripDetailPrecedesSiteOnStack() {
@@ -5856,6 +6142,7 @@ struct GoDiveMVPTests {
         let site = DiveSite(siteName: "Salt Pier", country: "Bonaire", region: "Caribbean")
         #expect(ExploreDiveSiteListSearch.matches(site, query: "salt"))
         #expect(ExploreDiveSiteListSearch.matches(site, query: "bonaire"))
+        #expect(ExploreDiveSiteListSearch.matches(site, query: "caribbean"))
         #expect(!ExploreDiveSiteListSearch.matches(site, query: "aruba"))
         #expect(ExploreDiveSiteListSearch.filtering([site], query: "pier").count == 1)
     }
@@ -7867,9 +8154,9 @@ struct GoDiveMVPTests {
         #expect(rows[0].displayName == "Salt Pier")
         #expect(rows[0].diveCountLabel == nil)
         #expect(rows[0].coordinateLine.contains("12.083"))
-        #expect(rows[0].placeLine == "Caribbean, Bonaire")
+        #expect(rows[0].placeLine == "Bonaire · Caribbean")
         #expect(rows[1].diveCountLabel == "1 dive")
-        #expect(rows[1].coordinateLine == "No map pin")
+        #expect(rows[1].coordinateLine == DiveSitePresentation.missingValue)
         #expect(rows[1].placeLine == "Belize")
     }
 
@@ -7889,7 +8176,7 @@ struct GoDiveMVPTests {
 
         #expect(rows[0].diveCountLabel == nil)
         #expect(rows[1].diveCountLabel == nil)
-        #expect(rows[0].placeLine == "Caribbean, Bonaire")
+        #expect(rows[0].placeLine == "Bonaire · Caribbean")
     }
 
     @Test func exploreSiteScopePresentation_logbookSites_filtersLinkedCatalogRows() {
@@ -7934,6 +8221,8 @@ struct GoDiveMVPTests {
             seaName: "Caribbean Sea"
         )
         #expect(ExploreReferenceSiteListSearch.matches(snapshot, query: "salt pier"))
+        #expect(ExploreReferenceSiteListSearch.matches(snapshot, query: "caribbean sea"))
+        #expect(ExploreReferenceSiteListSearch.matches(snapshot, query: "netherlands"))
         #expect(!ExploreReferenceSiteListSearch.matches(snapshot, query: "madagascar"))
     }
 
@@ -8170,33 +8459,382 @@ struct GoDiveMVPTests {
 
     @Test func exploreSiteScopeCache_filteringListRows_matchesDisplayFields() {
         let rows = [
-            ExploreDiveSiteRowDisplayData(
-                id: UUID(),
-                displayName: "Salt Pier",
-                diveCountLabel: nil,
-                coordinateLine: "12.0800° N",
-                placeLine: "Caribbean, Bonaire"
+            DiveSitePresentation.listRecord(
+                for: DiveSite(siteName: "Salt Pier", country: "Bonaire", region: "Caribbean")
             ),
-            ExploreDiveSiteRowDisplayData(
-                id: UUID(),
-                displayName: "Blue Hole",
-                diveCountLabel: nil,
-                coordinateLine: "17.0000° N",
-                placeLine: "Belize"
+            DiveSitePresentation.listRecord(
+                for: DiveSite(siteName: "Blue Hole", country: "Belize", region: "")
             ),
         ]
         #expect(
             ExploreSiteScopeCache.filteringListRows(rows, scope: .allSites, query: "belize").count == 1
         )
+        #expect(
+            ExploreSiteScopeCache.filteringListRows(rows, scope: .logbook, query: "caribbean").count == 1
+        )
+    }
+
+    @Test func exploreDiveSiteListPresentation_sections_groupsByCountryAndSortsTitles() {
+        let bonaireRow = DiveSitePresentation.listRecord(
+            for: DiveSite(
+                siteName: "Salt Pier",
+                country: "Bonaire",
+                region: "Caribbean",
+                latCoords: 12.08,
+                longCoords: -68.28
+            )
+        )
+        let belizeRow = DiveSitePresentation.listRecord(
+            for: DiveSite(siteName: "Blue Hole", country: "Belize")
+        )
+        let unknownRow = DiveSitePresentation.listRecord(for: DiveSite(siteName: "Mystery Reef"))
+
+        let sections = ExploreDiveSiteListPresentation.sections(
+            from: [bonaireRow, belizeRow, unknownRow, bonaireRow]
+        )
+        #expect(sections.map(\.title) == ["Belize", "Bonaire", ExploreDiveSiteListPresentation.unknownCountrySectionTitle])
+        #expect(sections[1].rows.map(\.displayName) == ["Salt Pier"])
+    }
+
+    @Test func exploreDiveSiteListPresentation_referencePlaceLine_usesUnifiedPlaceFields() {
+        let snapshot = DiveSiteReferenceSnapshot(
+            id: "salt01",
+            name: "Salt Pier",
+            country: "Caribbean Netherlands",
+            countryCode: "BQ",
+            latitude: 12.0835,
+            longitude: -68.283,
+            maxDepthMeters: 30,
+            entry: "shore",
+            environment: "ocean",
+            topologies: [],
+            seaName: "Caribbean Sea"
+        )
+        #expect(
+            ExploreDiveSiteListPresentation.referencePlaceLine(for: snapshot)
+                == "Caribbean Netherlands · Caribbean Sea"
+        )
+        #expect(ExploreDiveSiteListPresentation.listCountry(from: snapshot) == "Caribbean Netherlands")
+    }
+
+    @Test func diveSiteCountryPresentation_canonicalDisplayName_mergesDutchCaribbean() {
+        #expect(
+            DiveSiteCountryPresentation.canonicalDisplayName(for: "Dutch Caribbean")
+                == DiveSiteCountryPresentation.caribbeanNetherlands
+        )
+        #expect(
+            DiveSiteCountryPresentation.canonicalDisplayName(for: "Caribbean Netherlands")
+                == DiveSiteCountryPresentation.caribbeanNetherlands
+        )
+    }
+
+    @Test func diveSiteCountryPresentation_searchTerms_includesAliases() {
+        let terms = DiveSiteCountryPresentation.searchTerms(for: "Caribbean Netherlands")
+        #expect(terms.contains("Caribbean Netherlands"))
+        #expect(terms.contains(where: { $0.caseInsensitiveCompare("Dutch Caribbean") == .orderedSame }))
+    }
+
+    @Test func exploreDiveSiteListPresentation_sections_mergesDutchCaribbeanWithCaribbeanNetherlands() {
+        let dutchRow = DiveSitePresentation.listRecord(
+            for: DiveSite(siteName: "Karpata", country: "Dutch Caribbean", latCoords: 12.08, longCoords: -68.28)
+        )
+        let netherlandsRow = DiveSitePresentation.listRecord(
+            for: DiveSite(
+                siteName: "Salt Pier",
+                country: "Caribbean Netherlands",
+                latCoords: 12.09,
+                longCoords: -68.29
+            )
+        )
+
+        let sections = ExploreDiveSiteListPresentation.sections(from: [dutchRow, netherlandsRow])
+        #expect(sections.count == 1)
+        #expect(sections[0].title == DiveSiteCountryPresentation.caribbeanNetherlands)
+        #expect(sections[0].rows.count == 2)
+    }
+
+    @Test func exploreDiveSiteListSearch_matchesDutchCaribbeanAlias() {
+        let site = DiveSite(siteName: "Karpata", country: "Dutch Caribbean", region: "Bonaire")
+        #expect(ExploreDiveSiteListSearch.matches(site, query: "dutch"))
+        #expect(ExploreDiveSiteListSearch.matches(site, query: "caribbean netherlands"))
     }
 
     @Test func exploreDiveSiteListDisplay_cityCountryLine_formatsRegionAndCountry() {
         #expect(
             ExploreDiveSiteListDisplay.cityCountryLine(country: "Bonaire", region: "Caribbean")
-                == "Caribbean, Bonaire"
+                == "Bonaire · Caribbean"
         )
         #expect(ExploreDiveSiteListDisplay.cityCountryLine(country: "Belize", region: "") == "Belize")
         #expect(ExploreDiveSiteListDisplay.cityCountryLine(country: "", region: "Pacific") == "Pacific")
+    }
+
+    @Test func diveSitePresentation_listRecord_usesDashForMissingValues() {
+        let catalog = DiveSitePresentation.listRecord(for: DiveSite(siteName: "Mystery Reef"))
+        let reference = DiveSitePresentation.listRecord(
+            for: DiveSiteReferenceSnapshot(
+                id: "reef01",
+                name: "Open Reef",
+                country: "Belize",
+                countryCode: "BZ",
+                latitude: nil,
+                longitude: nil,
+                maxDepthMeters: nil,
+                entry: "",
+                environment: "",
+                topologies: [],
+                seaName: ""
+            )
+        )
+
+        #expect(catalog.region == DiveSitePresentation.missingValue)
+        #expect(catalog.coordinateLine == DiveSitePresentation.missingValue)
+        #expect(reference.region == DiveSitePresentation.missingValue)
+        #expect(reference.rating == DiveSitePresentation.missingValue)
+        #expect(catalog.placeDetailRows.count == 3)
+        #expect(catalog.detailRows.count == 7)
+        #expect(reference.placeDetailRows.count == 3)
+        #expect(reference.detailRows.count == 7)
+    }
+
+    @Test func diveSitePresentation_pinnedHeader_formatsLocationAndDiveCount() {
+        let bonaire = DiveSitePresentation.listRecord(
+            for: DiveSite(
+                siteName: "Salt Pier",
+                country: "Caribbean Netherlands",
+                region: "Bonaire",
+                bodyOfWater: "Caribbean Sea"
+            )
+        )
+        #expect(bonaire.pinnedLocationLine == "Bonaire, Caribbean Netherlands")
+        #expect(bonaire.pinnedDiveCountLabel == "0 dives")
+
+        let belizeOnly = DiveSitePresentation.listRecord(
+            for: DiveSite(siteName: "Blue Hole", country: "Belize")
+        )
+        #expect(belizeOnly.pinnedLocationLine == "Belize")
+        #expect(DiveSitePresentation.pinnedDiveCountLabel(count: 1) == "1 dive")
+        #expect(DiveSitePresentation.pinnedDiveCountLabel(count: 3) == "3 dives")
+
+        let unknown = DiveSitePresentation.listRecord(for: DiveSite(siteName: "Mystery Reef"))
+        #expect(unknown.pinnedLocationLine == nil)
+    }
+
+    @Test func diveSitePresentation_displayPinnedStarRating_defaultsToZero() {
+        #expect(DiveSitePresentation.displayPinnedStarRating(from: 4) == 4)
+        #expect(DiveSitePresentation.displayPinnedStarRating(from: 1) == 1)
+        #expect(DiveSitePresentation.displayPinnedStarRating(from: 5) == 5)
+        #expect(DiveSitePresentation.displayPinnedStarRating(from: nil) == 0)
+        #expect(DiveSitePresentation.displayPinnedStarRating(from: 0) == 0)
+        #expect(DiveSitePresentation.displayPinnedStarRating(from: 6) == 0)
+
+        let rated = DiveSitePresentation.listRecord(
+            for: DiveSite(siteName: "Salt Pier", country: "Bonaire", siteRating: 3)
+        )
+        #expect(rated.pinnedStarRating == 3)
+        #expect(
+            DiveSitePresentation.pinnedStarRatingAccessibilityLabel(rating: 3, isEditable: true)
+                == "Rating 3 out of 5 stars. Tap a star to rate this site."
+        )
+
+        let unrated = DiveSitePresentation.listRecord(for: DiveSite(siteName: "Mystery Reef"))
+        #expect(unrated.pinnedStarRating == 0)
+        #expect(
+            DiveSitePresentation.pinnedStarRatingAccessibilityLabel(rating: 0, isEditable: false)
+                == "Unrated, 0 out of 5 stars"
+        )
+    }
+
+    @Test func diveSitePresentation_starRatingEditing_requiresVisitAndTogglesOff() {
+        #expect(
+            DiveSitePresentation.isStarRatingEditable(ownerHasVisited: true, isReferenceOnly: false)
+        )
+        #expect(
+            !DiveSitePresentation.isStarRatingEditable(ownerHasVisited: false, isReferenceOnly: false)
+        )
+        #expect(
+            !DiveSitePresentation.isStarRatingEditable(ownerHasVisited: true, isReferenceOnly: true)
+        )
+        #expect(DiveSitePresentation.storageSiteRating(for: 0) == nil)
+        #expect(DiveSitePresentation.storageSiteRating(for: 4) == 4)
+        #expect(DiveSitePresentation.toggledStarRating(current: 3, selectedStar: 3) == 0)
+        #expect(DiveSitePresentation.toggledStarRating(current: 2, selectedStar: 4) == 4)
+    }
+
+    @Test func exploreDiveSiteDetailPresentation_catalogMapPin_usesSiteCoordinates() {
+        let site = DiveSite(
+            siteName: "Salt Pier",
+            country: "Bonaire",
+            latCoords: 12.083,
+            longCoords: -68.283
+        )
+        let pins = ExploreDiveSiteDetailPresentation.mapPins(for: site)
+        #expect(pins.count == 1)
+        #expect(pins[0].siteID == site.id)
+        #expect(pins[0].kind == .completed)
+        #expect(pins[0].title == "Salt Pier")
+        #expect(pins[0].coordinate.latitude == 12.083)
+    }
+
+    @Test func exploreDiveSiteDetailPresentation_referenceMapPin_omitsWithoutCoordinates() {
+        let snapshot = DiveSiteReferenceSnapshot(
+            id: "reef01",
+            name: "Open Reef",
+            country: "Belize",
+            countryCode: "BZ",
+            latitude: nil,
+            longitude: nil,
+            maxDepthMeters: nil,
+            entry: "",
+            environment: "",
+            topologies: [],
+            seaName: ""
+        )
+        #expect(ExploreDiveSiteDetailPresentation.mapPins(for: snapshot).isEmpty)
+
+        let located = DiveSiteReferenceSnapshot(
+            id: "salt01",
+            name: "Salt Pier",
+            country: "Caribbean Netherlands",
+            countryCode: "BQ",
+            latitude: 12.0835,
+            longitude: -68.283,
+            maxDepthMeters: 30,
+            entry: "shore",
+            environment: "ocean",
+            topologies: [],
+            seaName: "Caribbean Sea"
+        )
+        let pins = ExploreDiveSiteDetailPresentation.mapPins(for: located)
+        #expect(pins.count == 1)
+        #expect(pins[0].kind == .planned)
+        #expect(pins[0].siteID == nil)
+    }
+
+    @Test func exploreDiveSiteDetailPresentation_showsHeroModeToggleWhenMediaAndMapExist() {
+        #expect(
+            ExploreDiveSiteDetailPresentation.showsHeroModeToggle(
+                hasTaggedMedia: true,
+                hasMapPin: true
+            )
+        )
+        #expect(
+            !ExploreDiveSiteDetailPresentation.showsHeroModeToggle(
+                hasTaggedMedia: false,
+                hasMapPin: true
+            )
+        )
+        #expect(
+            !ExploreDiveSiteDetailPresentation.showsHeroModeToggle(
+                hasTaggedMedia: true,
+                hasMapPin: false
+            )
+        )
+    }
+
+    @Test func exploreDiveSiteDetailPresentation_canDefaultHeroMode_waitsForOwnerRoster() {
+        #expect(
+            ExploreDiveSiteDetailPresentation.canDefaultHeroMode(
+                hasOwnerProfile: false,
+                ownerDiveQueryReady: false
+            )
+        )
+        #expect(
+            !ExploreDiveSiteDetailPresentation.canDefaultHeroMode(
+                hasOwnerProfile: true,
+                ownerDiveQueryReady: false
+            )
+        )
+        #expect(
+            ExploreDiveSiteDetailPresentation.canDefaultHeroMode(
+                hasOwnerProfile: true,
+                ownerDiveQueryReady: true
+            )
+        )
+    }
+
+    @Test @MainActor
+    func diveActivitySiteAssociation_createCatalogSite_persistsWithoutDiveLink() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let site = try DiveActivitySiteAssociation.createCatalogSite(
+            siteName: "Manual Reef",
+            country: "Belize",
+            region: "Lighthouse",
+            bodyOfWater: "Caribbean Sea",
+            latCoords: 17.2,
+            longCoords: -87.5,
+            modelContext: context
+        )
+
+        #expect(site.siteName == "Manual Reef")
+        #expect(site.country == "Belize")
+        #expect(site.region == "Lighthouse")
+        #expect(site.bodyOfWater == "Caribbean Sea")
+        #expect(try context.fetchCount(FetchDescriptor<DiveSite>()) == 1)
+        #expect(try context.fetchCount(FetchDescriptor<DiveActivity>()) == 0)
+    }
+
+    @Test func exploreDiveSiteAddPresentation_chromeCopy() {
+        #expect(ExploreDiveSiteAddPresentation.sheetTitle == "New dive site")
+        #expect(ExploreDiveSiteAddPresentation.chromeAccessibilityLabel == "Add dive site")
+        #expect(ExploreDiveSiteAddPresentation.chromeSystemImage == "plus")
+        #expect(ExploreDiveSiteAddPresentation.chromeAccessibilityIdentifier == "Explore.AddDiveSite")
+    }
+
+    @Test func exploreDiveSiteDetailContentPager_pages() {
+        #expect(ExploreDiveSiteDetailContentPagerPresentation.pageCount == 4)
+        #expect(
+            ExploreDiveSiteDetailContentPagerPresentation.pages == [
+                .diveDetails,
+                .divesHere,
+                .marineLifeHere,
+                .taggedMedia,
+            ]
+        )
+        #expect(ExploreDiveSiteDetailContentPagerPresentation.defaultPage == .diveDetails)
+        #expect(
+            ExploreDiveSiteDetailContentPagerPresentation.pageTitle(for: .divesHere)
+                == ExploreDiveSiteDetailContentPagerPresentation.divesHereSectionTitle
+        )
+        #expect(
+            ExploreDiveSiteDetailContentPagerPresentation.pageTitle(for: .marineLifeHere)
+                == ExploreDiveSiteDetailContentPagerPresentation.marineLifeHereSectionTitle
+        )
+        #expect(
+            ExploreDiveSiteDetailContentPagerPresentation.pageTitle(for: .taggedMedia)
+                == ExploreDiveSiteDetailContentPagerPresentation.taggedMediaSectionTitle
+        )
+        #expect(
+            ExploreDiveSiteDetailContentPagerPresentation.emptyStateMessage(for: .divesHere)
+                == "No dives logged at this site yet."
+        )
+        #expect(
+            ExploreDiveSiteDetailContentPagerPresentation.accessibilityIdentifier(for: .marineLifeHere)
+                == "Explore.DiveSiteDetail.ContentPager.MarineLifeHere"
+        )
+        #expect(!ExploreDiveSiteDetailContentPagerPresentation.usesStaticPagerLayout(for: .taggedMedia))
+    }
+
+    @Test func exploreDiveSiteDetailPresentation_prefersMapHeroWithoutTaggedMedia() {
+        #expect(
+            ExploreDiveSiteDetailPresentation.prefersMapHero(
+                hasTaggedMedia: false,
+                hasMapPin: true
+            )
+        )
+        #expect(
+            !ExploreDiveSiteDetailPresentation.prefersMapHero(
+                hasTaggedMedia: true,
+                hasMapPin: true
+            )
+        )
+        #expect(
+            !ExploreDiveSiteDetailPresentation.prefersMapHero(
+                hasTaggedMedia: false,
+                hasMapPin: false
+            )
+        )
     }
 
     @Test func exploreDiveSiteListDisplay_placeSummary_omitsEmptyFields() {
@@ -13934,6 +14572,98 @@ struct GoDiveMVPTests {
         #expect(HomeBuddyLeaderboardPresentation.shouldShow(diveCount: 1, entries: [entry]))
         #expect(!HomeBuddyLeaderboardPresentation.shouldShow(diveCount: 0, entries: [entry]))
         #expect(!HomeBuddyLeaderboardPresentation.shouldShow(diveCount: 3, entries: []))
+    }
+
+    @Test func homeLifetimeStatsLeaderboardPresentation_rankedDiveIDs_limitsToFiveAndSorts() {
+        let dives = (1...7).map { index in
+            HomeDiveStatsInput(
+                id: UUID(uuidString: String(format: "00000000-0000-0000-0000-%012d", index))!,
+                maxDepthMeters: Double(index),
+                durationMinutes: index * 10,
+                diveSiteID: nil,
+                diveNumberLabel: "#\(index)",
+                siteDisplayName: "Site \(index)"
+            )
+        }
+
+        let deepest = HomeLifetimeStatsLeaderboardPresentation.rankedDiveIDs(
+            dives: dives,
+            kind: .deepestDives
+        )
+        #expect(deepest.count == 5)
+        #expect(deepest.first == dives[6].id)
+
+        let longest = HomeLifetimeStatsLeaderboardPresentation.rankedDiveIDs(
+            dives: dives,
+            kind: .longestDives
+        )
+        #expect(longest.count == 5)
+        #expect(longest.first == dives[6].id)
+    }
+
+    @Test func homeLifetimeStatsLeaderboardPresentation_topSites_countsVisitsAndLimitsToFive() {
+        let sharedSiteID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let dives = [
+            HomeDiveStatsInput(
+                id: UUID(),
+                maxDepthMeters: 10,
+                durationMinutes: 40,
+                diveSiteID: sharedSiteID,
+                diveNumberLabel: "#1",
+                siteDisplayName: "Cathedral"
+            ),
+            HomeDiveStatsInput(
+                id: UUID(),
+                maxDepthMeters: 12,
+                durationMinutes: 42,
+                diveSiteID: sharedSiteID,
+                diveNumberLabel: "#2",
+                siteDisplayName: "Cathedral"
+            ),
+            HomeDiveStatsInput(
+                id: UUID(),
+                maxDepthMeters: 8,
+                durationMinutes: 35,
+                diveSiteID: nil,
+                diveNumberLabel: "#3",
+                siteDisplayName: "Blue Hole"
+            ),
+        ]
+
+        let topSites = HomeLifetimeStatsLeaderboardPresentation.topSites(dives: dives)
+        #expect(topSites.count == 2)
+        #expect(topSites[0].name == "Cathedral")
+        #expect(topSites[0].visitCount == 2)
+        #expect(topSites[0].siteID == sharedSiteID)
+        #expect(topSites[1].name == "Blue Hole")
+        #expect(topSites[1].visitCount == 1)
+        #expect(topSites[1].siteID == nil)
+    }
+
+    @Test func homeLifetimeStatsLeaderboardPresentation_topSpecies_limitsToFive() {
+        let sightings = [
+            HomeLifetimeStatsPresentation.SightingCountInput(
+                marineLifeUUID: "fish-a",
+                commonName: "French Angelfish"
+            ),
+            HomeLifetimeStatsPresentation.SightingCountInput(
+                marineLifeUUID: "fish-a",
+                commonName: "French Angelfish"
+            ),
+            HomeLifetimeStatsPresentation.SightingCountInput(
+                marineLifeUUID: "fish-b",
+                commonName: "Green Turtle"
+            ),
+        ]
+
+        let topSpecies = HomeLifetimeStatsLeaderboardPresentation.topSpecies(sightings: sightings)
+        #expect(topSpecies.count == 2)
+        #expect(topSpecies[0].marineLifeUUID == "fish-a")
+        #expect(topSpecies[0].sightingCount == 2)
+        #expect(
+            HomeLifetimeStatsLeaderboardPresentation.pageTitle(for: .deepestDives)
+                == "Top 5 deepest dives"
+        )
     }
 
     @Test func homeRoute_diveBuddy_usesRosterBuddyIDForNavigation() {

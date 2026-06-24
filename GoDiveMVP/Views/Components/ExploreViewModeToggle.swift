@@ -36,7 +36,6 @@ struct ExploreViewModeFlipButton: View {
             Image(systemName: destinationMode.systemImage)
                 .font(.body.weight(.semibold))
                 .frame(width: 44, height: 36)
-                .foregroundStyle(AppTheme.Colors.textPrimary)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

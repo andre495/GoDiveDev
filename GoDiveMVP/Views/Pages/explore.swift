@@ -26,7 +26,12 @@ struct ExploreView: View {
     @State private var displayedPlottableSites: [ExploreCatalogMapPresentation.PlottedSite] = []
     @State private var displayedPlottableSignature = ""
     @State private var displayedListRows: [ExploreDiveSiteRowDisplayData] = []
+
+    private var displayedListSections: [ExploreDiveSiteListSection] {
+        ExploreDiveSiteListPresentation.sections(from: displayedListRows)
+    }
     @State private var scopeCacheRebuildTask: Task<Void, Never>?
+    @State private var showsAddDiveSiteSheet = false
 
     private var referenceCatalog: [DiveSiteReferenceSnapshot] {
         DiveSiteReferenceCatalog.bundledReference()
@@ -167,6 +172,12 @@ struct ExploreView: View {
                 dismissSiteSearchKeyboard()
             }
         }
+        .sheet(isPresented: $showsAddDiveSiteSheet) {
+            ExploreCatalogDiveSiteAddSheet { siteID in
+                siteScope = .allSites
+                path.append(.siteDetail(siteID))
+            }
+        }
     }
 
     private var explorePageContent: some View {
@@ -215,7 +226,7 @@ struct ExploreView: View {
                     siteSearchSuggestions: siteSearchSuggestions,
                     showsMapSearchSuggestions: showsMapSearchSuggestions,
                     statusBarSafeAreaTop: proxy.safeAreaInsets.top,
-                    onOpenTripPlanner: { path.append(.tripPlanner) },
+                    onAddDiveSite: { showsAddDiveSiteSheet = true },
                     onSelectSiteSearchSuggestion: selectMapSiteSearchSuggestion,
                     onClearMapSiteSearch: { clearMapSiteSearch() }
                 )
@@ -247,7 +258,8 @@ struct ExploreView: View {
             if let site = diveSites.first(where: { $0.id == siteID }) {
                 ExploreDiveSiteDetailView(
                     site: site,
-                    ownerProfileID: accountSession.currentProfile?.id
+                    ownerProfileID: accountSession.currentProfile?.id,
+                    onOpenDive: { path.append(.diveDetail($0)) }
                 )
             } else {
                 Text("This dive site is no longer in the catalog.")
@@ -352,25 +364,32 @@ struct ExploreView: View {
                     .listRowBackground(Color.clear)
                     .accessibilityHidden(true)
 
-                ForEach(displayedListRows) { row in
-                    Button {
-                        openExploreSiteRow(row)
-                    } label: {
-                        ExploreDiveSiteRow(data: row)
-                            .equatable()
+                ForEach(displayedListSections) { section in
+                    Section {
+                        ForEach(section.rows) { row in
+                            Button {
+                                openExploreSiteRow(row)
+                            } label: {
+                                ExploreDiveSiteRow(data: row)
+                                    .equatable()
+                            }
+                            .buttonStyle(.plain)
+                            .listRowInsets(
+                                EdgeInsets(
+                                    top: 0,
+                                    leading: AppTheme.Spacing.lg,
+                                    bottom: 0,
+                                    trailing: AppTheme.Spacing.lg
+                                )
+                            )
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                            .accessibilityIdentifier(exploreSiteRowAccessibilityIdentifier(for: row))
+                        }
+                    } header: {
+                        ExploreDiveSiteListSectionHeader(title: section.title)
+                            .accessibilityIdentifier("Explore.SiteSection.\(section.title)")
                     }
-                    .buttonStyle(.plain)
-                    .listRowInsets(
-                        EdgeInsets(
-                            top: 0,
-                            leading: AppTheme.Spacing.lg,
-                            bottom: 0,
-                            trailing: AppTheme.Spacing.lg
-                        )
-                    )
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .accessibilityIdentifier(exploreSiteRowAccessibilityIdentifier(for: row))
                 }
 
                 Color.clear
@@ -448,14 +467,14 @@ struct ExploreView: View {
                 .font(.system(size: 48))
                 .foregroundStyle(AppTheme.Colors.accent.opacity(0.85))
 
-            Text(siteScope == .logbook ? "No logbook sites yet" : "No dive sites available")
+            Text(siteScope == .logbook ? "No sites yet" : "No dive sites available")
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(AppTheme.Colors.textPrimary)
                 .multilineTextAlignment(.center)
 
             Text(
                 siteScope == .logbook
-                    ? "Sites appear here after you log or import dives linked to a dive site. Switch to All sites to browse the full catalog."
+                    ? "Sites appear here after you log or import dives linked to a dive site. Switch to All Sites to browse the full catalog."
                     : "The bundled dive site catalog could not be loaded."
             )
             .font(.body)
@@ -465,6 +484,20 @@ struct ExploreView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+}
+
+private struct ExploreDiveSiteListSectionHeader: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(AppTheme.Colors.tabUnselected)
+            .textCase(.uppercase)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, AppTheme.Spacing.sm)
+            .accessibilityAddTraits(.isHeader)
     }
 }
 

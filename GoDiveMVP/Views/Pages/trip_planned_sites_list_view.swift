@@ -4,8 +4,19 @@ import SwiftUI
 struct TripPlannedSitesListView: View {
     let plannedSites: [DiveSite]
     let ownerProfileID: UUID?
+    let onOpenDive: (UUID) -> Void
 
     @State private var searchQuery = ""
+
+    init(
+        plannedSites: [DiveSite],
+        ownerProfileID: UUID?,
+        onOpenDive: @escaping (UUID) -> Void = { _ in }
+    ) {
+        self.plannedSites = plannedSites
+        self.ownerProfileID = ownerProfileID
+        self.onOpenDive = onOpenDive
+    }
 
     private var sortedSites: [DiveSite] {
         plannedSites.sorted {
@@ -64,7 +75,8 @@ struct TripPlannedSitesListView: View {
                         NavigationLink {
                             ExploreDiveSiteDetailView(
                                 site: site,
-                                ownerProfileID: ownerProfileID
+                                ownerProfileID: ownerProfileID,
+                                onOpenDive: onOpenDive
                             )
                         } label: {
                             ExploreDiveSiteRow(data: row)

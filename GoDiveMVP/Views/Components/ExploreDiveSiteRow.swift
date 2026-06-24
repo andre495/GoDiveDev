@@ -30,15 +30,13 @@ struct ExploreDiveSiteRow: View, Equatable {
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
 
-            if let placeLine = data.placeLine {
-                Text(placeLine)
-                    .font(.footnote)
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.85)
-            }
+            Text(data.placeLine)
+                .font(.footnote)
+                .foregroundStyle(AppTheme.Colors.secondaryText)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
         }
         .padding(AppTheme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -55,24 +53,27 @@ struct ExploreDiveSiteRow: View, Equatable {
     }
 
     private var accessibilityLabel: String {
-        var parts = [data.displayName, data.coordinateLine]
+        var parts = [data.displayName, data.coordinateLine, data.placeLine]
         if let diveCountLabel = data.diveCountLabel {
             parts.append(diveCountLabel)
-        }
-        if let placeLine = data.placeLine {
-            parts.append(placeLine)
         }
         return parts.joined(separator: ", ")
     }
 }
 
 #Preview {
-    let data = ExploreDiveSiteRowDisplayData(
-        id: UUID(),
-        displayName: "Salt Pier",
-        diveCountLabel: "12 dives",
-        coordinateLine: "12.084°, -68.283°",
-        placeLine: "Caribbean, Bonaire"
+    let data = DiveSitePresentation.listRecord(
+        for: DiveSite(
+            siteName: "Salt Pier",
+            country: "Caribbean Netherlands",
+            region: "Bonaire",
+            bodyOfWater: "Caribbean Sea",
+            latCoords: 12.084,
+            longCoords: -68.283,
+            siteTags: ["shore"],
+            siteRating: 5,
+            entry: "boat"
+        )
     )
     return ExploreDiveSiteRow(data: data)
         .padding()

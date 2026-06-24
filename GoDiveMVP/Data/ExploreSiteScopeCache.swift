@@ -155,13 +155,9 @@ enum ExploreSiteScopeCache: Sendable {
         _ row: ExploreDiveSiteRowDisplayData,
         query: String
     ) -> Bool {
-        CatalogSubstringSearch.matchesAny(
-            in: [
-                row.displayName,
-                row.placeLine ?? "",
-                row.coordinateLine,
-            ],
-            query: query
-        )
+        var haystacks = row.searchHaystacks
+        haystacks.append(row.coordinateLine)
+        haystacks.append(row.placeLine)
+        return CatalogSubstringSearch.matchesAny(in: haystacks, query: query)
     }
 }

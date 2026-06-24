@@ -21,7 +21,7 @@ struct FieldGuideBlueSheetBackChrome: View {
     }
 }
 
-/// Back chevron + catalog search on one row (category / subcategory blue-sheet pages).
+/// Back chevron + catalog search on one row (category / subcategory browse list pages).
 struct FieldGuideBlueSheetSearchBackChrome: View {
     @Binding var searchText: String
     @FocusState.Binding var isSearchFocused: Bool
@@ -81,6 +81,49 @@ struct FieldGuideBlueSheetSearchBackChrome: View {
     }
 }
 
+/// Back chevron + global species search on category / subcategory browse list pages.
+struct FieldGuideBrowseSearchChrome: View {
+    @Binding var searchText: String
+    @FocusState.Binding var isSearchFocused: Bool
+    let safeTop: CGFloat
+    let topInset: CGFloat
+    let onAddSpecies: () -> Void
+
+    var body: some View {
+        FieldGuideBlueSheetTopChromeLayer(safeTop: safeTop, topInset: topInset) {
+            CatalogListSearchChrome(
+                searchText: $searchText,
+                isSearchFocused: $isSearchFocused,
+                placeholder: FieldGuideSpeciesSearchEnvironment.searchPlaceholder,
+                searchFieldAccessibilityIdentifier: FieldGuideSpeciesSearchEnvironment.searchFieldAccessibilityIdentifier,
+                cancelAccessibilityIdentifier: FieldGuideSpeciesSearchEnvironment.cancelAccessibilityIdentifier,
+                showsTrailingActions: true,
+                reservesCancelSlotWhenUnfocused: true,
+                leadingActions: {
+                    SecondaryDestinationBackButton()
+                },
+                trailingActions: {
+                    FieldGuideMarineLifeAddToolbarButton(action: onAddSpecies)
+                }
+            )
+            .fixedSize(horizontal: false, vertical: true)
+            .background(alignment: .top) {
+                if safeTop > 0.5 {
+                    AppStatusBarEdgeScrim(safeAreaTop: safeTop)
+                        .ignoresSafeArea(edges: .top)
+                }
+            }
+            .background {
+                GeometryReader { proxy in
+                    Color.clear.preference(key: AppHeaderMetrics.HeightKey.self, value: proxy.size.height)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .top)
+            .zIndex(1)
+        }
+    }
+}
+
 private struct FieldGuideBlueSheetTopChromeLayer<Content: View>: View {
     let safeTop: CGFloat
     let topInset: CGFloat
@@ -93,13 +136,6 @@ private struct FieldGuideBlueSheetTopChromeLayer<Content: View>: View {
                 .ignoresSafeArea(edges: .top)
                 .allowsHitTesting(false)
                 .zIndex(0.5)
-
-            Color.clear
-                .frame(height: topInset)
-                .frame(maxWidth: .infinity, alignment: .top)
-                .contentShape(Rectangle())
-                .accessibilityHidden(true)
-                .zIndex(0.75)
 
             content()
         }
@@ -218,50 +254,163 @@ struct FieldGuideBlueSheetPage<Hero: View, HeroOverlay: View, PinnedContent: Vie
     }
 }
 
-/// Category / subcategory detail — category gradient hero in the header band.
-struct FieldGuideCategoryBlueSheetPage<PinnedContent: View, ScrollContent: View>: View {
-    let categoryID: String
-    let systemImage: String
-    let heroImageName: String?
-    let accessibilityRootIdentifier: String
-    let scrollAccessibilityIdentifier: String?
-    @Binding var searchText: String
-    @FocusState.Binding var isSearchFocused: Bool
-    let searchPlaceholder: String
-    let searchFieldAccessibilityIdentifier: String
-    let cancelAccessibilityIdentifier: String
-    @ViewBuilder let pinnedContent: () -> PinnedContent
-    @ViewBuilder let scrollContent: () -> ScrollContent
+/// List-page chrome for Field Guide category / subcategory browse (logbook-style scroll under back + search).
+enum FieldGuideCatalogBrowseListPresentation {
+    nonisolated static let listRowSpacing: CGFloat = FieldGuideHubTileLayout.listRowSpacing
+    nonisolated static let listBottomPadding: CGFloat = 16
+
+    nonisolated static func listTopInset(safeAreaTop: CGFloat, headerClearance: CGFloat) -> CGFloat {
+        safeAreaTop + headerClearance
+    }
+
+    nonisolated static func listBottomInset(safeAreaBottom: CGFloat) -> CGFloat {
+        safeAreaBottom + listBottomPadding
+    }
+}
+
+/// Catalog species search result rows — shared by hub + category + subcategory browse.
+struct FieldGuideSpeciesSearchResultsRows: View {
+    let catalogSnapshots: [MarineLifeCatalogSnapshot]
+    let query: String
+    let unitSystem: DiveDisplayUnitSystem
+    let onSelectSpecies: (String) -> Void
+
+    private var rows: [FieldGuidePresentation.MarineLifeRowDisplayData] {
+        FieldGuideSpeciesSearchResultsPresentation.rowData(
+            catalogSnapshots: catalogSnapshots,
+            query: query,
+            unitSystem: unitSystem
+        )
+    }
 
     var body: some View {
-        FieldGuideBlueSheetPage(
-            accessibilityRootIdentifier: accessibilityRootIdentifier,
-            scrollAccessibilityIdentifier: scrollAccessibilityIdentifier,
-            searchText: $searchText,
-            isSearchFocused: $isSearchFocused,
-            searchPlaceholder: searchPlaceholder,
-            searchFieldAccessibilityIdentifier: searchFieldAccessibilityIdentifier,
-            cancelAccessibilityIdentifier: cancelAccessibilityIdentifier,
-            hero: { context in
-                FieldGuideCategoryHeroImage(
-                    categoryID: categoryID,
-                    systemImage: systemImage,
-                    heroImageName: heroImageName,
-                    totalHeight: context.heroHeight,
-                    fullBleed: true
-                )
-            },
-            pinnedContent: pinnedContent,
-            panelContent: { bottomScrollInset in
-                BlueSheetHeaderScrollPageLayout.scrollPage(
-                    bottomScrollInset: bottomScrollInset,
-                    accessibilityIdentifier: scrollAccessibilityIdentifier
-                ) {
-                    scrollContent()
-                        .padding(.horizontal, AppTheme.Spacing.md)
+        if rows.isEmpty {
+            CatalogSearchEmptyState(
+                title: "No matching species",
+                message: "Try a common name, scientific name, or group like “ray” or “cephalopod”."
+            )
+            .padding(.vertical, AppTheme.Spacing.lg)
+            .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+        } else {
+            ForEach(rows) { row in
+                Button {
+                    onSelectSpecies(row.marineLifeUUID)
+                } label: {
+                    FieldGuideMarineLifeRow(data: row)
+                        .equatable()
                 }
-            },
-            heroOverlay: { _ in EmptyView() }
+                .buttonStyle(.plain)
+                .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+            }
+        }
+    }
+}
+
+/// Field Guide category / subcategory browse — logbook-style list under back + search chrome.
+struct FieldGuideCatalogBrowseListPage<Summary: View, ListRows: View>: View {
+    let accessibilityRootIdentifier: String
+    let listAccessibilityIdentifier: String?
+    @Binding var searchText: String
+    @FocusState.Binding var isSearchFocused: Bool
+    let catalogSnapshots: [MarineLifeCatalogSnapshot]
+    let unitSystem: DiveDisplayUnitSystem
+    let onSelectSpecies: (String) -> Void
+    let onAddSpecies: () -> Void
+    @ViewBuilder let summary: () -> Summary
+    @ViewBuilder let listRows: () -> ListRows
+
+    @State private var headerClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
+
+    private var isFilteringSpecies: Bool {
+        FieldGuideSpeciesSearchResultsPresentation.isFiltering(query: searchText)
+    }
+
+    var body: some View {
+        AppHeaderlessPage {
+            GeometryReader { proxy in
+                let listTopInset = AppScrollUnderHeaderListLayout.listTopInset(
+                    safeAreaTop: proxy.safeAreaInsets.top,
+                    headerClearance: headerClearance
+                )
+                let listBottomInset = AppScrollUnderHeaderListLayout.listBottomInset(
+                    safeAreaBottom: proxy.safeAreaInsets.bottom
+                )
+
+                ZStack(alignment: .top) {
+                    if !GoDiveUITestConfiguration.isActive {
+                        WaterBubbleBackground()
+                    }
+
+                    List {
+                        Color.clear
+                            .frame(height: listTopInset)
+                            .listRowInsets(EdgeInsets())
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                            .accessibilityHidden(true)
+
+                        if isFilteringSpecies {
+                            FieldGuideSpeciesSearchResultsRows(
+                                catalogSnapshots: catalogSnapshots,
+                                query: searchText,
+                                unitSystem: unitSystem,
+                                onSelectSpecies: onSelectSpecies
+                            )
+                        } else {
+                            summary()
+                                .listRowInsets(summaryRowInsets)
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+
+                            listRows()
+                        }
+
+                        Color.clear
+                            .frame(height: listBottomInset)
+                            .listRowInsets(EdgeInsets())
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                            .accessibilityHidden(true)
+                    }
+                    .listStyle(.plain)
+                    .listRowSpacing(FieldGuideCatalogBrowseListPresentation.listRowSpacing)
+                    .scrollContentBackground(.hidden)
+                    .background(Color.clear)
+                    .scrollDismissesKeyboard(.interactively)
+                    .ignoresSafeArea(edges: [.top, .bottom])
+                    .accessibilityIdentifier(listAccessibilityIdentifier ?? accessibilityRootIdentifier)
+
+                    FieldGuideBrowseSearchChrome(
+                        searchText: $searchText,
+                        isSearchFocused: $isSearchFocused,
+                        safeTop: proxy.safeAreaInsets.top,
+                        topInset: listTopInset,
+                        onAddSpecies: onAddSpecies
+                    )
+                }
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .ignoresSafeArea(.keyboard, edges: .bottom)
+                .ignoresSafeArea(edges: .bottom)
+            }
+            .onPreferenceChange(AppHeaderMetrics.HeightKey.self) { height in
+                if height > 0 { headerClearance = height }
+            }
+        }
+        .toolbar(.hidden, for: .navigationBar)
+        .hidesBottomTabBarWhenPushed()
+        .accessibilityIdentifier(accessibilityRootIdentifier)
+    }
+
+    private var summaryRowInsets: EdgeInsets {
+        EdgeInsets(
+            top: 0,
+            leading: AppTheme.Spacing.lg,
+            bottom: AppTheme.Spacing.sm,
+            trailing: AppTheme.Spacing.lg
         )
     }
 }

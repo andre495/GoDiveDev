@@ -218,6 +218,15 @@ enum DiveSiteCatalogMatcher: Sendable {
         return true
     }
 
+    /// Maps known country aliases (e.g. **Dutch Caribbean**) to a canonical label.
+    @discardableResult
+    nonisolated static func normalizeCatalogSiteCountryIfNeeded(_ site: DiveSite) -> Bool {
+        let canonical = DiveSiteCountryPresentation.canonicalDisplayName(for: site.country)
+        guard !canonical.isEmpty, canonical != site.country else { return false }
+        site.country = canonical
+        return true
+    }
+
     nonisolated static func sanitizedReferenceDisplayName(_ raw: String) -> String? {
         DiveSiteFormValidation.sanitizedSiteName(raw)
     }
@@ -231,14 +240,49 @@ enum DiveSiteCatalogMatcher: Sendable {
 
         return DiveSite(
             siteName: siteName,
-            country: reference.country,
+            country: DiveSiteCountryPresentation.canonicalDisplayName(for: reference.country),
             region: "",
             bodyOfWater: reference.seaName,
             latCoords: reference.latitude,
             longCoords: reference.longitude,
             siteTags: tags,
+            entry: reference.entry,
+            environment: reference.environment,
+            maxDepthMeters: reference.maxDepthMeters,
             waterType: .saltwater
         )
+    }
+
+    @discardableResult
+    nonisolated static func enrichCatalogSiteMetadataFromReferenceIfNeeded(
+        _ site: DiveSite,
+        reference: [DiveSiteReferenceSnapshot] = DiveSiteReferenceCatalog.bundledReference()
+    ) -> Bool {
+        guard let referenceID = referenceID(from: site.siteTags),
+              let snapshot = reference.first(where: { $0.id == referenceID })
+        else { return false }
+
+        var changed = false
+        if site.entry.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           !snapshot.entry.isEmpty {
+            site.entry = snapshot.entry
+            changed = true
+        }
+        if site.environment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           !snapshot.environment.isEmpty {
+            site.environment = snapshot.environment
+            changed = true
+        }
+        if site.maxDepthMeters == nil, let maxDepthMeters = snapshot.maxDepthMeters {
+            site.maxDepthMeters = maxDepthMeters
+            changed = true
+        }
+        if site.bodyOfWater.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           !snapshot.seaName.isEmpty {
+            site.bodyOfWater = snapshot.seaName
+            changed = true
+        }
+        return changed
     }
 
     /// Adds an OpenDiveMap tag and reference metadata to a local-only catalog site when it strongly matches reference.
@@ -266,11 +310,22 @@ enum DiveSiteCatalogMatcher: Sendable {
         }
         if site.country.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
            !match.snapshot.country.isEmpty {
-            site.country = match.snapshot.country
+            site.country = DiveSiteCountryPresentation.canonicalDisplayName(for: match.snapshot.country)
         }
         if site.bodyOfWater.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
            !match.snapshot.seaName.isEmpty {
             site.bodyOfWater = match.snapshot.seaName
+        }
+        if site.entry.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           !match.snapshot.entry.isEmpty {
+            site.entry = match.snapshot.entry
+        }
+        if site.environment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           !match.snapshot.environment.isEmpty {
+            site.environment = match.snapshot.environment
+        }
+        if site.maxDepthMeters == nil {
+            site.maxDepthMeters = match.snapshot.maxDepthMeters
         }
         if site.latCoords == nil {
             site.latCoords = match.snapshot.latitude

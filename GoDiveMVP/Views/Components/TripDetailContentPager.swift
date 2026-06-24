@@ -113,7 +113,8 @@ struct TripDetailContentPager: View {
         case .plannedSites:
             TripDetailPlannedSitesSection(
                 trip: trip,
-                ownerProfileID: ownerProfileID
+                ownerProfileID: ownerProfileID,
+                onOpenDive: onOpenDive
             )
         case .buddies:
             if hasStarted {

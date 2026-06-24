@@ -17,6 +17,9 @@ struct FieldGuideMarineLifeDetailView: View {
     let onOpenDive: (UUID) -> Void
 
     @State private var speciesHeroMode: PushedDetailHeroHeaderView.Mode = .media
+    @State private var speciesHeroMediaSource: FieldGuideSpeciesHeroMediaSource = .taggedUserMedia
+    @State private var catalogHeroDisplay: FieldGuideSpeciesCatalogHeroDisplay = .image
+    @State private var heroTaggedMediaID: UUID?
 
     init(
         species: MarineLife,
@@ -94,6 +97,32 @@ struct FieldGuideMarineLifeDetailView: View {
         )
     }
 
+    private var heroTaggedMedia: DiveMediaPhoto? {
+        FieldGuideSpeciesHeroPresentation.resolvedTaggedMedia(
+            selectedID: heroTaggedMediaID,
+            in: taggedMediaItems
+        )
+    }
+
+    private var showsHeroSourceToggle: Bool {
+        FieldGuideSpeciesHeroPresentation.showsSourceToggle(hasTaggedMedia: !taggedMediaItems.isEmpty)
+    }
+
+    private var catalogHeroAvailability: FieldGuideSpeciesCatalogHeroAvailability {
+        FieldGuideSpeciesHeroPresentation.catalogHeroAvailability(
+            featureModelResourceName: species.featureModelResourceName,
+            featureImageResourceName: species.featureImageResourceName,
+            featureImageURL: species.featureImageURL
+        )
+    }
+
+    private var resolvedCatalogHeroDisplay: FieldGuideSpeciesCatalogHeroDisplay {
+        FieldGuideSpeciesHeroPresentation.resolvedCatalogHeroDisplay(
+            selection: catalogHeroDisplay,
+            availability: catalogHeroAvailability
+        )
+    }
+
     private var showsHeroModeToggle: Bool {
         !mapPins.isEmpty
     }
@@ -151,18 +180,12 @@ struct FieldGuideMarineLifeDetailView: View {
                 .padding(.horizontal, AppTheme.Spacing.md)
             },
             heroOverlay: { _ in
-                if showsHeroModeToggle {
-                    PushedDetailHeroModeToggle(
-                        selectedMode: $speciesHeroMode,
-                        accessibilityIdentifierPrefix: "FieldGuide.SpeciesDetail.Hero.ModeToggle"
-                    )
-                    .padding(.trailing, AppTheme.Spacing.md)
-                    .padding(.bottom, DiveBuddyDetailPresentation.heroModeToggleBottomPadding)
-                }
+                speciesHeroChromeOverlay
             }
         )
         .onAppear {
             DiveMediaScopeCache.shared.activateScope(.marineLifeSpecies(species.uuid))
+            syncSpeciesHeroPresentation(applyDefaultSource: true)
         }
         .onDisappear {
             DiveMediaScopeCache.shared.deactivateScope(.marineLifeSpecies(species.uuid))
@@ -172,6 +195,117 @@ struct FieldGuideMarineLifeDetailView: View {
                 speciesHeroMode = .media
             }
         }
+        .onChange(of: taggedMediaItems.map(\.id)) { _, _ in
+            syncSpeciesHeroPresentation(applyDefaultSource: false)
+        }
+    }
+
+    private var showsHeroSourceToggleInChrome: Bool {
+        showsHeroSourceToggle && speciesHeroMode == .media
+    }
+
+    private var speciesHeroChromeOverlay: some View {
+        HStack(alignment: .bottom, spacing: 0) {
+            if showsHeroSourceToggleInChrome, let previewContent = heroSourceTogglePreviewContent {
+                FieldGuideSpeciesHeroSourceToggle(
+                    diameter: FieldGuideSpeciesHeroPresentation.sourceToggleDiameter,
+                    previewContent: previewContent,
+                    accessibilityLabel: FieldGuideSpeciesHeroPresentation.sourceToggleAccessibilityLabel(
+                        currentSource: speciesHeroMediaSource,
+                        commonName: species.commonName
+                    ),
+                    accessibilityIdentifier: "FieldGuide.SpeciesDetail.Hero.SourceToggle"
+                ) {
+                    let nextSource = FieldGuideSpeciesHeroPresentation.toggledSource(
+                        speciesHeroMediaSource
+                    )
+                    speciesHeroMediaSource = nextSource
+                    if nextSource == .catalogReference {
+                        resetCatalogHeroDisplay()
+                    }
+                }
+                .padding(.leading, DiveBuddyDetailPresentation.avatarLeadingInset)
+            }
+
+            Spacer(minLength: 0)
+
+            if showsHeroModeToggle {
+                PushedDetailHeroModeToggle(
+                    selectedMode: $speciesHeroMode,
+                    accessibilityIdentifierPrefix: "FieldGuide.SpeciesDetail.Hero.ModeToggle"
+                )
+                .padding(.trailing, AppTheme.Spacing.md)
+            }
+        }
+        .padding(.bottom, DiveBuddyDetailPresentation.heroModeToggleBottomPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+    }
+
+    private var heroSourceTogglePreviewContent: FieldGuideSpeciesHeroSourceToggle.PreviewContent? {
+        switch speciesHeroMediaSource {
+        case .taggedUserMedia:
+            return .catalogReference(
+                featureModelResourceName: species.featureModelResourceName,
+                featureImageResourceName: species.featureImageResourceName,
+                featureImageURL: species.featureImageURL
+            )
+        case .catalogReference:
+            guard let heroTaggedMedia else { return nil }
+            return .taggedUserMedia(heroTaggedMedia)
+        }
+    }
+
+    private func syncSpeciesHeroPresentation(applyDefaultSource: Bool) {
+        guard !taggedMediaItems.isEmpty else {
+            heroTaggedMediaID = nil
+            speciesHeroMediaSource = .catalogReference
+            resetCatalogHeroDisplay()
+            return
+        }
+
+        let hadTaggedMediaSelected = heroTaggedMediaID != nil
+        syncHeroTaggedMediaSelection()
+
+        if applyDefaultSource || !hadTaggedMediaSelected {
+            speciesHeroMediaSource = FieldGuideSpeciesHeroPresentation.defaultMediaSource(
+                hasTaggedMedia: true
+            )
+        }
+
+        if speciesHeroMediaSource == .catalogReference {
+            resetCatalogHeroDisplay()
+        }
+    }
+
+    private func resetCatalogHeroDisplay() {
+        catalogHeroDisplay = FieldGuideSpeciesHeroPresentation.defaultCatalogHeroDisplay(
+            availability: catalogHeroAvailability
+        )
+    }
+
+    private func toggleCatalogHeroDisplayIfNeeded() {
+        guard speciesHeroMediaSource == .catalogReference,
+              speciesHeroMode == .media,
+              catalogHeroAvailability.supportsHeaderToggle
+        else { return }
+
+        catalogHeroDisplay = FieldGuideSpeciesHeroPresentation.toggledCatalogHeroDisplay(
+            catalogHeroDisplay
+        )
+    }
+
+    private func syncHeroTaggedMediaSelection() {
+        guard !taggedMediaItems.isEmpty else {
+            heroTaggedMediaID = nil
+            return
+        }
+        if let heroTaggedMediaID,
+           taggedMediaItems.contains(where: { $0.id == heroTaggedMediaID }) {
+            return
+        }
+        heroTaggedMediaID = FieldGuideSpeciesHeroPresentation.initialTaggedMediaPhotoID(
+            from: taggedMediaItems
+        )
     }
 
     @ViewBuilder
@@ -179,7 +313,7 @@ struct FieldGuideMarineLifeDetailView: View {
         Group {
             switch speciesHeroMode {
             case .media:
-                speciesCatalogHero(height: context.heroHeight)
+                speciesMediaHeroContent(height: context.heroHeight)
             case .map:
                 TripDetailMapView(
                     pins: mapPins,
@@ -197,31 +331,71 @@ struct FieldGuideMarineLifeDetailView: View {
     }
 
     @ViewBuilder
-    private func speciesCatalogHero(height: CGFloat) -> some View {
+    private func speciesMediaHeroContent(height: CGFloat) -> some View {
+        switch speciesHeroMediaSource {
+        case .taggedUserMedia:
+            taggedUserMediaHero(height: height)
+        case .catalogReference:
+            speciesCatalogHero(height: height)
+        }
+    }
+
+    @ViewBuilder
+    private func taggedUserMediaHero(height: CGFloat) -> some View {
         Group {
-            switch FieldGuideMarineLifeHeroPresentation.heroKind(
-                featureModelResourceName: species.featureModelResourceName,
-                featureImageResourceName: species.featureImageResourceName,
-                featureImageURL: species.featureImageURL
-            ) {
-            case .model3D(let configuration):
+            if let media = heroTaggedMedia {
+                DiveActivityMediaItemView(
+                    media: media,
+                    showsCaptureDateOverlay: false,
+                    isVideoPlaybackActive: speciesHeroMode == .media
+                        && DiveBuddyDetailPresentation.shouldAutoPlaySelectedVideo(for: media),
+                    loopsVideoPlayback: true
+                )
+                .id(media.id)
+            } else if !taggedMediaItems.isEmpty {
+                AppTheme.Colors.surfaceMuted.opacity(0.35)
+                    .accessibilityLabel("Loading tagged media")
+            } else {
+                speciesCatalogHero(height: height)
+            }
+        }
+        .accessibilityIdentifier("FieldGuide.SpeciesDetail.Hero.TaggedMedia")
+    }
+
+    @ViewBuilder
+    private func speciesCatalogHero(height: CGFloat) -> some View {
+        let availability = catalogHeroAvailability
+        let display = resolvedCatalogHeroDisplay
+
+        Group {
+            switch display {
+            case .model3D:
                 FieldGuideMarineLifeRealityHeroView(
-                    configuration: configuration,
+                    configuration: FieldGuideMarineLifeHeroPresentation.sceneConfiguration(
+                        forModelResourceName: species.featureModelResourceName
+                    ),
                     height: height
                 )
-            case .bundledPhoto, .remoteImage:
+            case .image:
                 FieldGuideMarineLifeCatalogImage(
                     imageURLString: species.featureImageURL,
                     bundleResourceName: species.featureImageResourceName,
                     placement: .detailHero(totalHeight: height)
                 )
-            case .placeholder:
-                FieldGuideMarineLifeCatalogImage(
-                    imageURLString: "",
-                    placement: .detailHero(totalHeight: height)
-                )
             }
         }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            toggleCatalogHeroDisplayIfNeeded()
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            FieldGuideSpeciesHeroPresentation.catalogHeroHeaderAccessibilityLabel(
+                display: display,
+                supportsToggle: availability.supportsHeaderToggle
+            )
+        )
+        .accessibilityAddTraits(availability.supportsHeaderToggle ? .isButton : [])
         .accessibilityIdentifier("FieldGuide.SpeciesDetail.Hero.Catalog")
     }
 

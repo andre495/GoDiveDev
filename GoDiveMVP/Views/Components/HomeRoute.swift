@@ -11,4 +11,5 @@ enum HomeRoute: Hashable {
     case diveSite(UUID)
     case marineLife(String)
     case diveBuddy(UUID)
+    case lifetimeStatsLeaderboard(HomeLifetimeStatsLeaderboardKind)
 }

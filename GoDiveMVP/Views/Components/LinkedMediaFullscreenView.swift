@@ -37,6 +37,18 @@ struct LinkedMediaFullscreenView: View {
             showsMarineLifeTagButton: true,
             openOnDivePlacement: .trailing
         )
+
+        static let diveSite = Configuration(
+            rootAccessibilityIdentifier: "Explore.DiveSiteDetail.TaggedMedia.Fullscreen",
+            closeAccessibilityIdentifier: "Explore.DiveSiteDetail.TaggedMedia.Fullscreen.Close",
+            openOnDiveAccessibilityIdentifier: "Explore.DiveSiteDetail.TaggedMedia.OpenOnDive",
+            featureToggleAccessibilityIdentifier: "Explore.DiveSiteDetail.TaggedMedia.FeatureToggle",
+            marineLifeAccessibilityIdentifier: "Explore.DiveSiteDetail.TaggedMedia.MarineLifeTag",
+            openOnDiveTitle: DiveTripPresentation.tripMediaOpenOnDiveButtonTitle,
+            accessibilityContextLabel: "Dive site tagged",
+            showsMarineLifeTagButton: true,
+            openOnDivePlacement: .trailing
+        )
     }
 
     private enum PreloadedMediaRole {

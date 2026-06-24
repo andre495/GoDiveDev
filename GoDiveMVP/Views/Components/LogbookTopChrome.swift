@@ -28,6 +28,18 @@ struct LogbookTopChrome<TrailingActions: View>: View {
                     searchText = ""
                     onClearConfirmedFilters()
                 },
+                leadingActions: {
+                    NavigationLink(value: LogbookRoute.tripPlanner) {
+                        Image(systemName: TripPlannerPresentation.exploreChromeSystemImage)
+                            .font(.body.weight(.semibold))
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(AppTheme.Colors.iconPrimary)
+                    .accessibilityLabel(TripPlannerPresentation.exploreChromeAccessibilityLabel)
+                    .accessibilityIdentifier("Logbook.TripPlanner")
+                },
                 trailingActions: trailingActions
             )
 

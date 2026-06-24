@@ -5687,7 +5687,8 @@
     "max_depth": 100.0,
     "distinctive_features": "Body shape: short and / or deep",
     "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Pomacanthus_paru_345258291.jpg/960px-Pomacanthus_paru_345258291.jpg",
-    "feature_image_resource": "marine-life-french-angelfish"
+    "feature_image_resource": "marine-life-french-angelfish",
+    "feature_model": "FrenchAngelfish"
   },
   {
     "uuid": "marine-life-french-grunt",

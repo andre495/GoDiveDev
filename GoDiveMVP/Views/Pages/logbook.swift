@@ -286,6 +286,8 @@ struct LogbookView: View {
                     }
                 }
             )
+        case .tripPlanner:
+            TripPlannerView()
         case .diveDetail(let id):
             if let activity = activities.first(where: { $0.id == id }) {
                 ViewSingleActivity(activity: activity)
@@ -310,7 +312,8 @@ struct LogbookView: View {
             if let site = diveSiteCatalog.first(where: { $0.id == siteID }) {
                 ExploreDiveSiteDetailView(
                     site: site,
-                    ownerProfileID: ownerProfileID
+                    ownerProfileID: ownerProfileID,
+                    onOpenDive: { path.append(.diveDetail($0)) }
                 )
             } else {
                 diveNoLongerInLogText
@@ -508,7 +511,7 @@ struct LogbookView: View {
                 switch $0 {
                 case .diveDetail(let detailId): return detailId == id
                 case .diveMedia(let detailId, _): return detailId == id
-                case .addActivity, .tripDetail, .tripDetailMedia, .diveSite: return false
+                case .addActivity, .tripPlanner, .tripDetail, .tripDetailMedia, .diveSite: return false
                 }
             }
 

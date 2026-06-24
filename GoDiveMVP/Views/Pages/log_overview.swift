@@ -281,9 +281,7 @@ struct LogOverviewView: View {
                 stats: homeAggregate.lifetimeStats,
                 buddyLeaderboard: homeAggregate.buddyLeaderboard,
                 unitSystem: diveDisplayUnitSystem,
-                onOpenDive: { path.append(.diveDetail($0)) },
-                onOpenSite: { path.append(.diveSite($0)) },
-                onOpenSpecies: { path.append(.marineLife($0)) },
+                onOpenLeaderboard: { path.append(.lifetimeStatsLeaderboard($0)) },
                 onOpenBuddy: openBuddyOrProfile
             )
             .id(homeAggregate.contentFingerprint)
@@ -332,7 +330,8 @@ struct LogOverviewView: View {
             if let site = diveSites.first(where: { $0.id == siteID }) {
                 ExploreDiveSiteDetailView(
                     site: site,
-                    ownerProfileID: ownerProfileID
+                    ownerProfileID: ownerProfileID,
+                    onOpenDive: { path.append(.diveDetail($0)) }
                 )
             } else {
                 missingDestinationLabel("This dive site is no longer in the catalog.")
@@ -356,6 +355,33 @@ struct LogOverviewView: View {
             } else {
                 missingDestinationLabel("This buddy is no longer on your roster.")
             }
+        case .lifetimeStatsLeaderboard(let kind):
+            HomeLifetimeStatsLeaderboardView(
+                kind: kind,
+                diveStatsInputs: homeAggregate.diveStatsInputs,
+                activities: ownerDiveActivities,
+                unitSystem: diveDisplayUnitSystem,
+                automaticallyRenumberDives: automaticallyRenumberDives,
+                sightings: homeSightingCountInputs,
+                onOpenDive: { path.append(.diveDetail($0)) },
+                onOpenSite: { path.append(.diveSite($0)) },
+                onOpenSpecies: { path.append(.marineLife($0)) }
+            )
+        }
+    }
+
+    private var homeSightingCountInputs: [HomeLifetimeStatsPresentation.SightingCountInput] {
+        let catalogByUUID = Dictionary(uniqueKeysWithValues: marineLifeCatalog.map { ($0.uuid, $0) })
+        let ownerDiveIDs = homeAggregate.ownerDiveIDs
+        return allSightings.compactMap { sighting in
+            guard let diveID = sighting.diveActivityID, ownerDiveIDs.contains(diveID) else { return nil }
+            let name = sighting.marineLife?.commonName
+                ?? catalogByUUID[sighting.marineLifeUUID]?.commonName
+                ?? sighting.marineLifeUUID
+            return HomeLifetimeStatsPresentation.SightingCountInput(
+                marineLifeUUID: sighting.marineLifeUUID,
+                commonName: name
+            )
         }
     }
 

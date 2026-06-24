@@ -7,6 +7,7 @@ struct TripDetailPlannedSitesSection: View {
 
     @Bindable var trip: DiveTrip
     let ownerProfileID: UUID?
+    let onOpenDive: (UUID) -> Void
 
     @Query(sort: \DiveSite.siteName) private var diveSiteCatalog: [DiveSite]
 
@@ -63,7 +64,8 @@ struct TripDetailPlannedSitesSection: View {
                             NavigationLink {
                                 ExploreDiveSiteDetailView(
                                     site: site,
-                                    ownerProfileID: ownerProfileID
+                                    ownerProfileID: ownerProfileID,
+                                    onOpenDive: onOpenDive
                                 )
                                 .hidesBottomTabBarWhenPushed()
                             } label: {

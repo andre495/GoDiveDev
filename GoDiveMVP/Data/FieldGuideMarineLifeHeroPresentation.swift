@@ -95,6 +95,31 @@ enum FieldGuideMarineLifeHeroPresentation {
         return .placeholder
     }
 
+    nonisolated static func hasCatalogModel(featureModelResourceName: String) -> Bool {
+        !featureModelResourceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// Dataset image only — ignores the bundled 3D model name.
+    nonisolated static func catalogImageKind(
+        featureImageResourceName: String,
+        featureImageURL: String
+    ) -> HeroKind? {
+        let resourceName = featureImageResourceName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !resourceName.isEmpty,
+           let bundledURL = FieldGuideMarineLifeBundledImagePresentation.bundledPhotoURL(
+               resourceName: resourceName
+           ) {
+            return .bundledPhoto(bundledURL)
+        }
+
+        let imageURLString = featureImageURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let url = URL(string: imageURLString), !imageURLString.isEmpty {
+            return .remoteImage(url)
+        }
+
+        return nil
+    }
+
     nonisolated static func sceneConfiguration(
         forModelResourceName resourceName: String
     ) -> FieldGuideMarineLifeHeroSceneConfiguration {
