@@ -27,6 +27,7 @@ enum HomeOverviewRefreshToken {
             hasher.combine(tag.buddyID)
             hasher.combine(tag.diveActivityID)
             hasher.combine(tag.displayName)
+            hasher.combine(ProfileAvatarImageCachePresentation.cacheKey(for: tag.profilePhoto ?? Data()))
         }
         return hasher.finalize()
     }
@@ -55,7 +56,12 @@ enum HomeOverviewRefreshToken {
                     < ($1.buddyID.uuidString, $1.diveActivityID.uuidString)
             }
             .map {
-                "\($0.buddyID.uuidString):\($0.diveActivityID.uuidString):\($0.displayName)"
+                [
+                    $0.buddyID.uuidString,
+                    $0.diveActivityID.uuidString,
+                    $0.displayName,
+                    ProfileAvatarImageCachePresentation.cacheKey(for: $0.profilePhoto ?? Data()),
+                ].joined(separator: ":")
             }
             .joined(separator: "|")
         return "d=\(divePart)#b=\(buddyPart)#s=\(sightingCount)#m=\(mediaCount)"
@@ -88,6 +94,7 @@ enum HomeOverviewRefreshToken {
             hasher.combine(mediaID)
             hasher.combine(tag.buddyID)
             hasher.combine(tag.displayName)
+            hasher.combine(ProfileAvatarImageCachePresentation.cacheKey(for: tag.profilePhoto ?? Data()))
         }
         return hasher.finalize()
     }

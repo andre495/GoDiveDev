@@ -29,6 +29,18 @@ struct LogOverviewView: View {
     @State private var homeHeroInteractionOverlayActive = false
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
 
+    private var buddyRosterFingerprint: Int {
+        HomeBuddyRosterRefreshToken.fingerprint(
+            buddies: ownerDiveBuddies.map {
+                HomeBuddyRosterRefreshToken.BuddyRow(
+                    id: $0.id,
+                    displayName: $0.displayName,
+                    profilePhoto: $0.profilePhoto
+                )
+            }
+        )
+    }
+
     private var isHomeNavigationStackAtRoot: Bool {
         path.isEmpty
     }
@@ -149,6 +161,14 @@ struct LogOverviewView: View {
             .onChange(of: allMediaPhotos.count) { _, _ in rebuildHomeOverview() }
             .onChange(of: allSightings.count) { _, _ in rebuildHomeOverview() }
             .onChange(of: automaticallyRenumberDives) { _, _ in rebuildHomeOverview() }
+            .onChange(of: buddyRosterFingerprint) { _, _ in rebuildHomeOverview() }
+            .onReceive(
+                NotificationCenter.default
+                    .publisher(for: .diveBuddyRosterDidChange)
+                    .receive(on: RunLoop.main)
+            ) { _ in
+                rebuildHomeOverview()
+            }
             .onReceive(
                 NotificationCenter.default
                     .publisher(for: .diveActivityMediaDidChange)

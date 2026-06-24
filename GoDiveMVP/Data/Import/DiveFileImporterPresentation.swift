@@ -41,4 +41,12 @@ enum DiveFileImporterPresentation {
         }
         return false
     }
+
+    /// Yields past an in-flight sheet dismiss or navigation pop before **`.fileImporter`** is shown.
+    @MainActor
+    static func awaitPresentationSurfaceReady() async {
+        await Task.yield()
+        await Task.yield()
+        try? await Task.sleep(for: .milliseconds(320))
+    }
 }

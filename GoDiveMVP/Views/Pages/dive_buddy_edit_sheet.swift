@@ -29,6 +29,12 @@ struct DiveBuddyEditSheetView: View {
                     if buddy.profilePhoto != nil {
                         Button("Remove photo", role: .destructive) {
                             buddy.profilePhoto = nil
+                            do {
+                                try modelContext.save()
+                                DiveBuddyRosterChangeNotification.post()
+                            } catch {
+                                saveErrorMessage = error.localizedDescription
+                            }
                         }
                     }
                 }
@@ -120,6 +126,7 @@ struct DiveBuddyEditSheetView: View {
         buddy.displayName = resolved
         do {
             try modelContext.save()
+            DiveBuddyRosterChangeNotification.post()
             onSaved()
             dismiss()
         } catch {
@@ -130,6 +137,7 @@ struct DiveBuddyEditSheetView: View {
     private func deleteBuddy() {
         do {
             try DiveBuddyDeletion.deletePermanently(buddy, modelContext: modelContext)
+            DiveBuddyRosterChangeNotification.post()
             dismiss()
             onDeleted()
         } catch {

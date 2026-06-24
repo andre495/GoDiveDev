@@ -47,13 +47,13 @@ enum AppTheme {
             dark: UIColor(red: 0.08, green: 0.14, blue: 0.22, alpha: 1.0)
         )
 
-        /// Dark top feather for status bar / **GoDive** header readability — same in light and dark mode.
+        /// Top feather for status bar / **GoDive** header readability — feathers through **`surfaceGradientBottom`** (deep ocean), not black.
         static var statusBarEdgeScrimGradient: LinearGradient {
             LinearGradient(
                 stops: [
-                    .init(color: Color.black.opacity(0.90), location: 0.0),
-                    .init(color: Color.black.opacity(0.58), location: 0.52),
-                    .init(color: Color.black.opacity(0.22), location: 0.82),
+                    .init(color: surfaceGradientBottom.opacity(0.95), location: 0.0),
+                    .init(color: surfaceGradientBottom.opacity(0.62), location: 0.52),
+                    .init(color: surfaceGradientBottom.opacity(0.24), location: 0.82),
                     .init(color: Color.clear, location: 1.0),
                 ],
                 startPoint: .top,
@@ -61,14 +61,14 @@ enum AppTheme {
             )
         }
 
-        /// Tall dark fade over scrolling lists under logbook / field guide / explore chrome.
+        /// Tall ocean fade over scrolling lists under logbook / field guide / explore chrome.
         static var logbookTopChromeScrimGradient: LinearGradient {
             LinearGradient(
                 stops: [
-                    .init(color: Color.black.opacity(0.90), location: 0.0),
-                    .init(color: Color.black.opacity(0.72), location: 0.24),
-                    .init(color: Color.black.opacity(0.48), location: 0.48),
-                    .init(color: Color.black.opacity(0.20), location: 0.72),
+                    .init(color: surfaceGradientBottom.opacity(0.95), location: 0.0),
+                    .init(color: surfaceGradientBottom.opacity(0.76), location: 0.24),
+                    .init(color: surfaceGradientBottom.opacity(0.52), location: 0.48),
+                    .init(color: surfaceGradientBottom.opacity(0.22), location: 0.72),
                     .init(color: Color.clear, location: 1.0),
                 ],
                 startPoint: .top,
@@ -77,7 +77,9 @@ enum AppTheme {
         }
 
         /// Solid band when **Reduce Transparency** is on (status bar region).
-        static let statusBarEdgeScrimSolid = Color.black.opacity(0.88)
+        static var statusBarEdgeScrimSolid: Color {
+            surfaceGradientBottom.opacity(0.92)
+        }
 
         static let primaryText = adaptive(
             light: UIColor(red: 0.02, green: 0.12, blue: 0.20, alpha: 1.0),

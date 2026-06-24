@@ -1,6 +1,7 @@
 # Xcode / Swift
 build/
 DerivedData/
+.derivedData/
 *.xcuserstate
 *.xccheckout
 *.xcscmblueprint

@@ -12,14 +12,17 @@ struct ActivityUploadView: View {
 
     @State private var isFileImporterPresented = false
     @State private var fileImporterMode: DiveFileImporterPresentation.PickerMode = .fit
-    @State private var showImportOptionsSheet = false
-    /// Which file type the options sheet is configuring (drives copy + which picker opens after dismiss).
     @State private var importOptionsMode: DiveFileImporterPresentation.PickerMode = .uddf
     @State private var showsManualEntrySheet = false
     @State private var importOverlay: DiveImportOverlayState = .hidden
     @State private var uddfImportSummary: UddfImportSummary?
     @State private var showUddfImportCompleteAlert = false
-    @State private var presentImporterAfterOptionsSheet = false
+    @State private var showsFitImportOptions = false
+    @State private var showsUddfImportOptions = false
+    @State private var pendingFileImporterAfterOptionsPop = false
+    @State private var pendingFileImporterAfterGuidePop = false
+    @State private var showsMacDiveImportGuide = false
+    @State private var fileImporterPresentationTask: Task<Void, Never>?
     @State private var activeImportTask: Task<Void, Never>?
     @AppStorage(AppUserSettings.bulkUddfCreateDiveSitesKey) private var importCreateDiveSitesFromImport = true
     @State private var importAttachMediaFromPhotoLibrary = false
@@ -33,6 +36,89 @@ struct ActivityUploadView: View {
     }
 
     var body: some View {
+        addActivityRoot
+            .navigationDestination(isPresented: $showsFitImportOptions) {
+                fitImportOptionsDestination
+            }
+            .navigationDestination(isPresented: $showsUddfImportOptions) {
+                uddfImportOptionsDestination
+            }
+            .onDisappear {
+                fileImporterPresentationTask?.cancel()
+                fileImporterPresentationTask = nil
+                activeImportTask?.cancel()
+                activeImportTask = nil
+                // Do not reset `isFileImporterPresented` here — that cancels the picker mid-presentation.
+                if importOverlay.disablesSourceButtons {
+                    importOverlay = .hidden
+                }
+            }
+            .onChange(of: showsFitImportOptions) { _, isShowing in
+                guard !isShowing, pendingFileImporterAfterOptionsPop, importOptionsMode == .fit else { return }
+                pendingFileImporterAfterOptionsPop = false
+                requestFileImporter(mode: .fit)
+            }
+            .onChange(of: showsUddfImportOptions) { _, isShowing in
+                guard !isShowing, pendingFileImporterAfterOptionsPop, importOptionsMode == .uddf else { return }
+                pendingFileImporterAfterOptionsPop = false
+                requestFileImporter(mode: .uddf)
+            }
+            .onChange(of: showsMacDiveImportGuide) { _, isShowing in
+                guard !isShowing, pendingFileImporterAfterGuidePop else { return }
+                pendingFileImporterAfterGuidePop = false
+                requestFileImporter(mode: .uddf)
+            }
+            .sheet(isPresented: $showsManualEntrySheet) {
+                ManualDiveEntrySheet { input in
+                    confirmManualDive(input)
+                }
+            }
+            .alert("Import complete", isPresented: $showUddfImportCompleteAlert) {
+                Button("OK", role: .cancel) {
+                    dismissUddfImportSummaryAndContinue()
+                }
+            } message: {
+                if let uddfImportSummary {
+                    Text(UddfImportSummary.message(for: uddfImportSummary))
+                }
+            }
+            .hidesBottomTabBarWhenPushed()
+    }
+
+    private var fitImportOptionsDestination: some View {
+        DiveFileImportOptionsView(
+            mode: .fit,
+            createDiveSitesFromImport: $importCreateDiveSitesFromImport,
+            attachMediaFromPhotoLibrary: $importAttachMediaFromPhotoLibrary,
+            onChooseFile: { chooseFileFromImportOptions(mode: .fit) }
+        )
+    }
+
+    private var uddfImportOptionsDestination: some View {
+        DiveFileImportOptionsView(
+            mode: .uddf,
+            createDiveSitesFromImport: $importCreateDiveSitesFromImport,
+            attachMediaFromPhotoLibrary: $importAttachMediaFromPhotoLibrary,
+            onChooseFile: { chooseFileFromImportOptions(mode: .uddf) },
+            onOpenMacDiveGuide: { showsMacDiveImportGuide = true }
+        )
+        .navigationDestination(isPresented: $showsMacDiveImportGuide) {
+            MacDiveUddfImportGuideView(onChooseFile: openMacDiveUddfFilePicker)
+        }
+    }
+
+    private func chooseFileFromImportOptions(mode: DiveFileImporterPresentation.PickerMode) {
+        importOptionsMode = mode
+        pendingFileImporterAfterOptionsPop = true
+        switch mode {
+        case .fit:
+            showsFitImportOptions = false
+        case .uddf:
+            showsUddfImportOptions = false
+        }
+    }
+
+    private var addActivityRoot: some View {
         AppPage(title: "Add activity", showsBackButton: true) {
             ZStack {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
@@ -47,7 +133,7 @@ struct ActivityUploadView: View {
                             accessibilityIdentifier: "ActivityUpload.FileUpload"
                         ) {
                             importOptionsMode = .fit
-                            showImportOptionsSheet = true
+                            showsFitImportOptions = true
                         }
 
                         addActivitySourceCard(
@@ -58,7 +144,7 @@ struct ActivityUploadView: View {
                             accessibilityIdentifier: "ActivityUpload.BulkUddf"
                         ) {
                             importOptionsMode = .uddf
-                            showImportOptionsSheet = true
+                            showsUddfImportOptions = true
                         }
                     }
 
@@ -93,37 +179,16 @@ struct ActivityUploadView: View {
         ) { result in
             handleDiveFileImportResult(result)
         }
-        .onDisappear {
-            activeImportTask?.cancel()
-            activeImportTask = nil
-            // Do not reset `isFileImporterPresented` here — that cancels the picker mid-presentation.
-            if importOverlay.disablesSourceButtons {
-                importOverlay = .hidden
-            }
+    }
+
+    private func openMacDiveUddfFilePicker() {
+        importOptionsMode = .uddf
+        guard showsMacDiveImportGuide else {
+            requestFileImporter(mode: .uddf)
+            return
         }
-        .sheet(isPresented: $showsManualEntrySheet) {
-            ManualDiveEntrySheet { input in
-                confirmManualDive(input)
-            }
-        }
-        .sheet(isPresented: $showImportOptionsSheet, onDismiss: {
-            if presentImporterAfterOptionsSheet {
-                presentImporterAfterOptionsSheet = false
-                presentFileImporter(mode: importOptionsMode)
-            }
-        }) {
-            importOptionsSheet
-        }
-        .alert("Import complete", isPresented: $showUddfImportCompleteAlert) {
-            Button("OK", role: .cancel) {
-                dismissUddfImportSummaryAndContinue()
-            }
-        } message: {
-            if let uddfImportSummary {
-                Text(UddfImportSummary.message(for: uddfImportSummary))
-            }
-        }
-        .hidesBottomTabBarWhenPushed()
+        pendingFileImporterAfterGuidePop = true
+        showsMacDiveImportGuide = false
     }
 
     private var addActivityIntro: some View {
@@ -248,84 +313,6 @@ struct ActivityUploadView: View {
             .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
     }
 
-    private var importOptionsSheet: some View {
-        let isUddf = importOptionsMode.isUddf
-        let idPrefix = isUddf ? "ActivityUpload.BulkUddf" : "ActivityUpload.FitImport"
-
-        return NavigationStack {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-                Text(
-                    isUddf
-                        ? "Import one or all of your UDDF dive records at once. If importing from MacDive, please first export the UDDF file to your phone's file system by selecting Settings > Export these dives to UDDF."
-                        : "Import a single dive from a Garmin .fit file exported from your dive computer."
-                )
-                .font(.body)
-                .foregroundStyle(AppTheme.Colors.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
-
-                Toggle(isOn: $importCreateDiveSitesFromImport) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Create dive sites from import")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(AppTheme.Colors.textPrimary)
-                        Text("Adds local-only catalog sites for unmatched import names. OpenDiveMap reference matching always runs when a dive has a site name or GPS.")
-                            .font(.subheadline)
-                            .foregroundStyle(AppTheme.Colors.secondaryText)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                .tint(AppTheme.Colors.accent)
-                .accessibilityIdentifier("\(idPrefix).CreateSitesToggle")
-
-                Toggle(isOn: $importAttachMediaFromPhotoLibrary) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(SettingsPresentation.BulkUddfImport.attachMediaTitle)
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(AppTheme.Colors.textPrimary)
-                        Text(SettingsPresentation.BulkUddfImport.attachMediaSubtitle)
-                            .font(.subheadline)
-                            .foregroundStyle(AppTheme.Colors.secondaryText)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                .tint(AppTheme.Colors.accent)
-                .accessibilityIdentifier("\(idPrefix).AttachMediaToggle")
-
-                Spacer(minLength: 0)
-
-                Button(isUddf ? "Choose UDDF file" : "Choose FIT file") {
-                    presentImporterAfterOptionsSheet = true
-                    showImportOptionsSheet = false
-                }
-                .font(.body.weight(.semibold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, AppTheme.Spacing.md)
-                .background {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(AppTheme.Colors.accent)
-                }
-                .foregroundStyle(.white)
-                .accessibilityIdentifier("\(idPrefix).ChooseFile")
-            }
-            .padding(AppTheme.Spacing.lg)
-            .navigationTitle(isUddf ? "UDDF import" : "Garmin FIT import")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        showImportOptionsSheet = false
-                    }
-                }
-            }
-        }
-        .presentationDetents([.large])
-        .presentationDragIndicator(.visible)
-        .appSheetPresentationChrome()
-        .onAppear {
-            importAttachMediaFromPhotoLibrary = AppUserSettings.autoUploadMediaToActivities
-        }
-    }
-
     private var diveImportProgressOverlay: some View {
         ZStack {
             Color.black.opacity(0.45)
@@ -380,12 +367,18 @@ struct ActivityUploadView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    /// One **`.fileImporter`** per screen; set mode then present on the next run loop (matches UDDF sheet timing).
-    private func presentFileImporter(mode: DiveFileImporterPresentation.PickerMode) {
+    /// Presents **`.fileImporter`** after any sheet dismiss or navigation pop has finished.
+    /// Presenting during those transitions is dropped by SwiftUI (symptom: first tap does nothing).
+    private func requestFileImporter(mode: DiveFileImporterPresentation.PickerMode) {
+        fileImporterPresentationTask?.cancel()
         fileImporterMode = mode
         isFileImporterPresented = false
-        DispatchQueue.main.async {
+        fileImporterPresentationTask = Task { @MainActor in
+            await DiveFileImporterPresentation.awaitPresentationSurfaceReady()
+            guard !Task.isCancelled else { return }
+            fileImporterMode = mode
             isFileImporterPresented = true
+            fileImporterPresentationTask = nil
         }
     }
 
@@ -688,16 +681,6 @@ private enum DiveImportOverlayState: Equatable {
         case .hidden, .failed: return false
         case .importing: return true
         }
-    }
-}
-
-/// Subtle press feedback for the Add-activity source cards (scale + dim on touch).
-private struct AddActivityCardButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
-            .opacity(configuration.isPressed ? 0.9 : 1.0)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 

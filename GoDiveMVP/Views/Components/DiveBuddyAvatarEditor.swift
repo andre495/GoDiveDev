@@ -101,6 +101,7 @@ struct DiveBuddyAvatarEditor: View {
         buddy.profilePhoto = data
         do {
             try modelContext.save()
+            DiveBuddyRosterChangeNotification.post()
         } catch {
             saveErrorMessage = error.localizedDescription
         }

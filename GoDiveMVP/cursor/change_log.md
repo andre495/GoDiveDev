@@ -1438,5 +1438,12 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **French Angelfish 3D catalog link** — **`marine_life_sample.json`** sets **`feature_model`: `FrenchAngelfish`** for **`marine-life-french-angelfish`** (bundled **`Resources/MarineLife3D/FrenchAngelfish.usdz`**); seeder test expects **`featureModelResourceName`**. Existing installs upsert on next catalog seed.
 - **Explore list dedupe** — **`ExploreDiveSiteListPresentation.sections`** drops duplicate rows within a country section (by **`referenceID`** or **`id`**) so catalog/OpenDiveMap merges do not repeat the same site.
 
-## 86 - Next batch
+## 86 - Next batch **(pushed)**
 
+**Summary:** MacDive UDDF import walkthrough before file picker; Home buddy avatars refresh when roster photos change.
+
+- **MacDive import guide** — UDDF sheet **MacDive Import** pushes **`MacDiveUddfImportGuideView`** on the logbook **`NavigationStack`** (**`AppPage`**, not in-sheet; no nested stack). Swipeable steps use **600pt** screenshots (no swipe hint copy); step 6 **Import MacDive Data** opens the UDDF picker. Assets **`MacDiveImportStep01`–`05`**. **FIT / UDDF import options** — **`DiveFileImportOptionsView`** pushed pages (replaces options sheet). **File picker fix** — **`requestFileImporter`** waits for sheet/nav dismiss before **`.fileImporter`** (no double-tap). Tests: **`macDiveUddfImportPresentation_steps_endOnImportButtonPage`**, **`diveFileImportOptionsPresentation_copyForFitAndUddf`**.
+- **Home buddy avatars refresh** — **`DiveBuddyRosterChangeNotification`** posts after buddy photo/name/contact save or delete; **`LogOverviewView`** rebuilds **`HomeOverviewAggregate`** on that signal and when roster **`profilePhoto`** changes (**`HomeBuddyRosterRefreshToken`**). **`HomeOverviewRefreshToken`** fingerprints include buddy photos so Top buddies + carousel overlays update without restarting. Tests: **`homeBuddyRosterRefreshToken_fingerprint_changesWhenProfilePhotoChanges`**, **`homeOverviewRefreshToken_contentFingerprint_changesWhenBuddyProfilePhotoChanges`**.
+- **Header scrim color** — **`statusBarEdgeScrimGradient`**, **`logbookTopChromeScrimGradient`**, and **`statusBarEdgeScrimSolid`** feather through **`surfaceGradientBottom`** (deep ocean blue) instead of black so **`AppHeader`** / list chrome blends with the page background.
+
+## 87 - Next batch

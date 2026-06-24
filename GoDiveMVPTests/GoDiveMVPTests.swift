@@ -1644,6 +1644,39 @@ struct GoDiveMVPTests {
         #expect(SettingsPresentation.BulkUddfImport.attachMediaSubtitle.contains("few minutes"))
     }
 
+    @Test func macDiveUddfImportPresentation_steps_endOnImportButtonPage() {
+        #expect(MacDiveUddfImportPresentation.stepCount == 6)
+        #expect(MacDiveUddfImportPresentation.importButtonTitle == "Import MacDive Data")
+        #expect(MacDiveUddfImportPresentation.importButtonStepIndex() == 5)
+        #expect(MacDiveUddfImportPresentation.step(at: 5)?.showsImportButton == true)
+        #expect(MacDiveUddfImportPresentation.step(at: 0)?.showsImportButton == false)
+        #expect(MacDiveUddfImportPresentation.isLastStep(index: 5))
+        #expect(!MacDiveUddfImportPresentation.isLastStep(index: 0))
+        #expect(MacDiveUddfImportPresentation.clampedStepIndex(99) == 5)
+        #expect(MacDiveUddfImportPresentation.step(at: 0)?.screenshotAssetName == "MacDiveImportStep01")
+        #expect(MacDiveUddfImportPresentation.step(at: 0)?.title == "Select your dive group")
+        #expect(MacDiveUddfImportPresentation.step(at: 1)?.title == "Open dive list settings")
+        #expect(MacDiveUddfImportPresentation.step(at: 2)?.title == "Export to UDDF")
+        #expect(MacDiveUddfImportPresentation.step(at: 3)?.title == "Save to iCloud")
+        #expect(MacDiveUddfImportPresentation.step(at: 4)?.title == "Save on your iPhone")
+        #expect(
+            MacDiveUddfImportPresentation.step(at: 5)?.detail
+                == "Tap Import MacDive Data below and choose the UDDF file you just created and saved."
+        )
+        #expect(MacDiveUddfImportPresentation.Layout.screenshotMaxHeight == 600)
+        #expect(ActivityUploadRoute.fitImportOptions != ActivityUploadRoute.uddfImportOptions)
+        #expect(ActivityUploadRoute.macDiveImportGuide == ActivityUploadRoute.macDiveImportGuide)
+    }
+
+    @Test func diveFileImportOptionsPresentation_copyForFitAndUddf() {
+        #expect(DiveFileImportOptionsPresentation.pageTitle(for: .fit) == "Garmin FIT import")
+        #expect(DiveFileImportOptionsPresentation.pageTitle(for: .uddf) == "UDDF import")
+        #expect(DiveFileImportOptionsPresentation.chooseFileTitle(for: .fit) == "Choose FIT file")
+        #expect(DiveFileImportOptionsPresentation.chooseFileTitle(for: .uddf) == "Choose UDDF file")
+        #expect(DiveFileImportOptionsPresentation.accessibilityPrefix(for: .fit) == "ActivityUpload.FitImport")
+        #expect(DiveFileImportOptionsPresentation.accessibilityPrefix(for: .uddf) == "ActivityUpload.BulkUddf")
+    }
+
     @Test func appScrollUnderHeaderListLayout_usesLogbookHorizontalInsets() {
         #expect(AppScrollUnderHeaderListLayout.horizontalListRowInset == AppTheme.Spacing.lg)
         #expect(AppScrollUnderHeaderListLayout.listRowSpacing == AppTheme.Spacing.md)
@@ -9407,6 +9440,62 @@ struct GoDiveMVPTests {
         )
         let afterDepth = HomeOverviewRefreshToken.contentFingerprint(dives: deeper, sightingCount: 0, mediaCount: 1)
         #expect(before != afterDepth)
+    }
+
+    @Test func homeBuddyRosterRefreshToken_fingerprint_changesWhenProfilePhotoChanges() {
+        let buddyID = UUID(uuidString: "00000000-0000-0000-0000-000000000201")!
+        let before = HomeBuddyRosterRefreshToken.fingerprint(
+            buddies: [
+                HomeBuddyRosterRefreshToken.BuddyRow(
+                    id: buddyID,
+                    displayName: "Alex",
+                    profilePhoto: Data([0x01])
+                ),
+            ]
+        )
+        let after = HomeBuddyRosterRefreshToken.fingerprint(
+            buddies: [
+                HomeBuddyRosterRefreshToken.BuddyRow(
+                    id: buddyID,
+                    displayName: "Alex",
+                    profilePhoto: Data([0x02])
+                ),
+            ]
+        )
+        #expect(before != after)
+    }
+
+    @Test func homeOverviewRefreshToken_contentFingerprint_changesWhenBuddyProfilePhotoChanges() {
+        let diveID = UUID()
+        let buddyID = UUID()
+        let tags = [
+            HomeBuddyLeaderboardPresentation.TagInput(
+                buddyID: buddyID,
+                displayName: "Alex",
+                profilePhoto: Data([0x01]),
+                diveActivityID: diveID
+            ),
+        ]
+        let before = HomeOverviewRefreshToken.contentFingerprint(
+            dives: [],
+            buddyTags: tags,
+            sightingCount: 0,
+            mediaCount: 0
+        )
+        let after = HomeOverviewRefreshToken.contentFingerprint(
+            dives: [],
+            buddyTags: [
+                HomeBuddyLeaderboardPresentation.TagInput(
+                    buddyID: buddyID,
+                    displayName: "Alex",
+                    profilePhoto: Data([0x02]),
+                    diveActivityID: diveID
+                ),
+            ],
+            sightingCount: 0,
+            mediaCount: 0
+        )
+        #expect(before != after)
     }
 
     @Test func homeOverviewRefreshToken_changesWhenDiveMetricsChange() {

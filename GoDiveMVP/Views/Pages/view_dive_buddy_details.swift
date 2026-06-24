@@ -749,6 +749,7 @@ struct ViewDiveBuddyDetails: View {
                 modelContext: modelContext
             )
             try modelContext.save()
+            DiveBuddyRosterChangeNotification.post()
         } catch {
             contactLinkError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
@@ -758,8 +759,14 @@ struct ViewDiveBuddyDetails: View {
     private func refreshLinkedContactOnAppear() {
         guard buddy.contactsIdentifier != nil else { return }
         do {
+            let priorDisplayName = buddy.displayName
+            let priorPhotoKey = ProfileAvatarImageCachePresentation.cacheKey(for: buddy.profilePhoto ?? Data())
             try DiveBuddyContactLinking.refreshFromContacts(buddy)
             try modelContext.save()
+            let nextPhotoKey = ProfileAvatarImageCachePresentation.cacheKey(for: buddy.profilePhoto ?? Data())
+            if priorPhotoKey != nextPhotoKey || priorDisplayName != buddy.displayName {
+                DiveBuddyRosterChangeNotification.post()
+            }
         } catch {
             // Best-effort on load — user can still change contact via the picker.
         }

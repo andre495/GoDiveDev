@@ -12,7 +12,7 @@ enum AppHeaderMetrics {
 
 // MARK: - Status bar scrim (narrow band only)
 
-/// Short fade at the **very top** of the screen so status content reads on busy backgrounds; uses a **dark** feather in both color schemes (not light **`surfaceElevated`**).
+/// Short fade at the **very top** of the screen so status content reads on busy backgrounds; feathers through **`surfaceGradientBottom`** (deep ocean).
 struct AppStatusBarEdgeScrim: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
