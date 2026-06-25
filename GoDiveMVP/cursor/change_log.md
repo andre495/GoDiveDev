@@ -1499,7 +1499,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Explore map top fade (light mode)** — **`ExploreMapTopChromeScrim`** + **`AppStatusBarEdgeScrim`** **`usesExploreMapChrome`** feather through **`mapChromeScrimBase`** (**`surfaceGradientBottom`** deep ocean); list mode keeps pale ocean scrim.
 - **Explore search + site scope** — toggling **My Sites** / **All Sites** during search keeps query + keyboard open and refreshes results; scope toggle sits in **`safeAreaInset`** above the keyboard (**`ExploreSiteScopeKeyboardChrome`**); map suggestions show up to **3** visible rows (panel height fits **1–2** results; scroll when more). Tests: **`exploreSiteScopeChromePresentation_showsBottomToggle`**, suggestion panel height by row count.
 
-## 90 - Next batch
+## 90 - User guide & GitHub Pages **(pushed)**
 
 **Summary:** User-facing GitHub Pages guide (MkDocs Material) — overview, getting started, feature pages, import, settings, privacy; deploy workflow on push to `main`.
 
@@ -1508,3 +1508,9 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`.github/workflows/deploy-docs.yml`** — `mkdocs gh-deploy` on `docs/**` / `mkdocs.yml` changes.
 - **`README.md`** — repo pointer to published guide URL and local `mkdocs serve` instructions.
 - **`.cursor/rules/github-pages-user-guide-sync.mdc`** — pre-push sync of **`docs/`** with user-facing functionality (not a changelog); wired into **`git-commit-push-summary-body.mdc`** workflow before Xcode preflight.
+
+## 91 - Next batch
+
+**Summary:** GitHub Pages deploy workflow — bump Actions to Node 24; mark §90 pushed.
+
+- **`.github/workflows/deploy-docs.yml`** — `actions/checkout@v6`, `actions/setup-python@v6` (Node 24; clears runner deprecation warning).
