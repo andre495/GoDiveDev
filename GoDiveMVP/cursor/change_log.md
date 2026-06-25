@@ -1446,7 +1446,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Home buddy avatars refresh** — **`DiveBuddyRosterChangeNotification`** posts after buddy photo/name/contact save or delete; **`LogOverviewView`** rebuilds **`HomeOverviewAggregate`** on that signal and when roster **`profilePhoto`** changes (**`HomeBuddyRosterRefreshToken`**). **`HomeOverviewRefreshToken`** fingerprints include buddy photos so Top buddies + carousel overlays update without restarting. Tests: **`homeBuddyRosterRefreshToken_fingerprint_changesWhenProfilePhotoChanges`**, **`homeOverviewRefreshToken_contentFingerprint_changesWhenBuddyProfilePhotoChanges`**.
 - **Header scrim color** — **`statusBarEdgeScrimGradient`**, **`logbookTopChromeScrimGradient`**, and **`statusBarEdgeScrimSolid`** feather through **`surfaceGradientBottom`** (deep ocean blue) instead of black so **`AppHeader`** / list chrome blends with the page background.
 
-## 87 - Next batch
+## 87 - Next batch **(pushed)**
 
 **Summary:** Light-mode color tuning — surfaces, GoDive wordmark, header scrim, Explore chrome.
 
@@ -1472,3 +1472,5 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Home stats tile taps** — **`HomeStatTile`** fills each **2×2** grid cell (**`contentShape(Rectangle())`**, **`minHeight: statTileHeight`**) so the whole card opens the top-five leaderboard (not just the text).
 - **Catalog search performance** — in-memory substring search (not SwiftData SQL indexes): precomputed lowercase haystacks + **80 ms** debounce + off-main filtering. **Field Guide** — **`FieldGuideSpeciesSearchResultsPresentation.searchableTextByUUID`** + **`filteringIndexed`** in **`FieldGuideSpeciesSearchResultsRows`** (hub + category browse). **Explore** — **`DiveSiteDisplayRecord.searchHaystackLowercased`** at row build; debounced **`scheduleDisplayedListRowsRefresh`** filters off main actor. **Logbook** — site search refresh skips duplicate-ID scan (**`includeDuplicateScan: false`**). **`CatalogSubstringSearch.matchesPrelowercased`**, **`CatalogSearchPresentation`**. Tests: **`fieldGuideSpeciesSearchResultsPresentation_indexedRowData_matchesUnindexedFilter`**, **`catalogSubstringSearch_matchesPrelowercasedHaystack`**, **`exploreSiteScopeCache_filteringListRows_usesPrecomputedHaystack`**.
 - **Home featured-media overlays** — tagged-buddy popup caps at **two** full avatars + scroll-aware circle fade on the third (**`buddyRowFadeMask`**, **`scrollClipDisabled`**, **`taggedBuddyThirdProfilePeekHeight` 28 pt**). Marine-life **full-bleed** frosted scrim (**`0.38`**) + Liquid Glass **×** close. Tests: **`homeMediaCarouselPresentation_taggedBuddyExpandedListHeight_capsAtTwoFullProfiles`**, **`homeMediaCarouselPresentation_buddyRowFadeMask_peekAndScrollZones`**.
+
+## 88 - Next batch
