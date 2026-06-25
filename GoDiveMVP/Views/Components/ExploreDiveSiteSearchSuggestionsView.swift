@@ -6,7 +6,7 @@ struct ExploreDiveSiteSearchSuggestionsView: View {
     let onSelect: (ExploreDiveSiteSearchSuggestion) -> Void
 
     private var panelHeight: CGFloat {
-        AppTheme.Layout.exploreMapSearchSuggestionPanelHeight
+        AppTheme.Layout.exploreMapSearchSuggestionPanelHeight(rowCount: suggestions.count)
     }
 
     var body: some View {
@@ -27,6 +27,7 @@ struct ExploreDiveSiteSearchSuggestionsView: View {
             }
             .padding(AppTheme.Spacing.sm)
         }
+        .scrollDisabled(suggestions.count <= AppTheme.Layout.exploreMapSearchSuggestionVisibleRows)
         .frame(height: panelHeight)
         .background {
             RoundedRectangle(cornerRadius: 12, style: .continuous)

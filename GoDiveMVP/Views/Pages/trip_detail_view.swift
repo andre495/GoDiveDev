@@ -12,6 +12,7 @@ struct TripDetailView: View {
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
 
     @Query private var trips: [DiveTrip]
+    @Query private var ownerTrips: [DiveTrip]
     @Query(
         sort: [
             SortDescriptor(\DiveActivity.startTime, order: .reverse),
@@ -51,6 +52,13 @@ struct TripDetailView: View {
         self.initialSelectedMediaID = initialSelectedMediaID
         _trips = Query(filter: #Predicate<DiveTrip> { $0.id == tripID })
         let ownerID = AccountSession.shared.currentProfile?.id ?? Self.noOwnerQueryToken
+        _ownerTrips = Query(
+            filter: #Predicate<DiveTrip> { $0.ownerProfileID == ownerID },
+            sort: [
+                SortDescriptor(\DiveTrip.startDate, order: .reverse),
+                SortDescriptor(\DiveTrip.id, order: .forward),
+            ]
+        )
         _diveActivities = Query(
             filter: #Predicate<DiveActivity> { $0.ownerProfileID == ownerID },
             sort: [
@@ -84,6 +92,21 @@ struct TripDetailView: View {
     private var linkedDiveActivities: [DiveActivity] {
         guard let trip else { return [] }
         return DiveTripPresentation.linkedDiveActivities(for: trip)
+    }
+
+    private var ownedTrips: [DiveTrip] {
+        guard accountSession.currentProfile != nil else { return [] }
+        return ownerTrips
+    }
+
+    private func tripLogbookAccentColor(for trip: DiveTrip) -> Color {
+        LogbookTripGroupAccentPresentation.accentColor(
+            for: trip.id,
+            ownerActivities: ownedDiveActivities,
+            ownerTrips: ownedTrips,
+            unitSystem: diveDisplayUnitSystem,
+            useChronologicalNumbers: automaticallyRenumberDives
+        )
     }
 
     private var tripDetailContentToken: String {
@@ -515,7 +538,7 @@ struct TripDetailView: View {
 
     private func tripTitleBlock(trip: DiveTrip, mapPins: [TripDetailMapPin]) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .center, spacing: 0) {
+            HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
                 Text(trip.displayTitle)
                     .font(.title.weight(.bold))
                     .foregroundStyle(AppTheme.Colors.textPrimary)
@@ -524,29 +547,28 @@ struct TripDetailView: View {
                     .accessibilityAddTraits(.isHeader)
                     .accessibilityIdentifier("TripDetail.Title")
 
-                AppEditToolbarButton(
-                    action: { showsEditSheet = true },
-                    accessibilityIdentifier: "TripDetail.Edit",
-                    accessibilityLabel: TripPlannerPresentation.editTripToolbarAccessibilityLabel
-                )
+                HStack(spacing: AppTheme.Spacing.sm) {
+                    AppEditToolbarButton(
+                        action: { showsEditSheet = true },
+                        accessibilityIdentifier: "TripDetail.Edit",
+                        accessibilityLabel: TripPlannerPresentation.editTripToolbarAccessibilityLabel
+                    )
 
-                Button {
-                    prepareTripShare(trip: trip, mapPins: mapPins)
-                } label: {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.title3.weight(.semibold))
-                        .frame(minWidth: 44, minHeight: 44)
-                        .contentShape(Rectangle())
+                    AppToolbarIconButton(
+                        systemImage: "square.and.arrow.up",
+                        action: { prepareTripShare(trip: trip, mapPins: mapPins) },
+                        accessibilityIdentifier: "TripDetail.Share",
+                        accessibilityLabel: DiveTripPresentation.shareTripButtonTitle,
+                        isEnabled: !isPreparingShare
+                    )
                 }
-                .foregroundStyle(AppTheme.Colors.iconPrimary)
-                .disabled(isPreparingShare)
-                .accessibilityLabel(DiveTripPresentation.shareTripButtonTitle)
-                .accessibilityIdentifier("TripDetail.Share")
+                .appGlassChromeControlRowHeight()
+                .appLiquidGlassChromeContainer()
             }
 
             Text(DiveTripPresentation.formattedDateRange(start: trip.startDate, end: trip.endDate))
                 .font(.subheadline)
-                .foregroundStyle(AppTheme.Colors.accent)
+                .foregroundStyle(tripLogbookAccentColor(for: trip))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

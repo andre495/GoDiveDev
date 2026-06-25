@@ -59,13 +59,16 @@ enum AppTheme {
             dark: UIColor(red: 0.02, green: 0.05, blue: 0.09, alpha: 1.0)
         )
 
-        /// Top feather for status bar / **GoDive** header readability.
+        /// Top feather for status bar / **GoDive** header readability — tall, mostly transparent; peaks at **`AppStatusBarEdgeScrimMetrics.brandHeaderMaxScrimOpacity`**.
         static var statusBarEdgeScrimGradient: LinearGradient {
-            LinearGradient(
+            let peak = AppStatusBarEdgeScrimMetrics.brandHeaderMaxScrimOpacity
+            return LinearGradient(
                 stops: [
-                    .init(color: headerScrimBase.opacity(0.96), location: 0.0),
-                    .init(color: headerScrimBase.opacity(0.72), location: 0.45),
-                    .init(color: headerScrimBase.opacity(0.34), location: 0.78),
+                    .init(color: headerScrimBase.opacity(peak), location: 0.0),
+                    .init(color: headerScrimBase.opacity(peak * 0.38), location: 0.12),
+                    .init(color: headerScrimBase.opacity(peak * 0.30), location: 0.42),
+                    .init(color: headerScrimBase.opacity(peak * 0.18), location: 0.72),
+                    .init(color: headerScrimBase.opacity(peak * 0.08), location: 0.90),
                     .init(color: Color.clear, location: 1.0),
                 ],
                 startPoint: .top,
@@ -116,7 +119,48 @@ enum AppTheme {
 
         /// Solid band when **Reduce Transparency** is on (status bar region).
         static var statusBarEdgeScrimSolid: Color {
-            headerScrimBase.opacity(0.94)
+            headerScrimBase.opacity(AppStatusBarEdgeScrimMetrics.brandHeaderMaxScrimOpacity)
+        }
+
+        /// Deep ocean fade over map imagery (**Explore** map in light mode) — **`surfaceGradientBottom`**.
+        static let mapChromeScrimBase = surfaceGradientBottom
+
+        /// Status-bar feather on **Explore** map (light mode).
+        static var exploreMapStatusBarEdgeScrimGradient: LinearGradient {
+            LinearGradient(
+                stops: [
+                    .init(color: mapChromeScrimBase.opacity(0.96), location: 0.0),
+                    .init(color: mapChromeScrimBase.opacity(0.72), location: 0.45),
+                    .init(color: mapChromeScrimBase.opacity(0.34), location: 0.78),
+                    .init(color: Color.clear, location: 1.0),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+
+        /// Tall fade under **Explore** map chrome (light mode).
+        static var exploreMapTopChromeScrimGradient: LinearGradient {
+            LinearGradient(
+                stops: [
+                    .init(color: mapChromeScrimBase.opacity(0.95), location: 0.0),
+                    .init(color: mapChromeScrimBase.opacity(0.76), location: 0.24),
+                    .init(color: mapChromeScrimBase.opacity(0.52), location: 0.48),
+                    .init(color: mapChromeScrimBase.opacity(0.22), location: 0.72),
+                    .init(color: Color.clear, location: 1.0),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+
+        /// Solid **Explore** map chrome when **Reduce Transparency** is on (light mode).
+        static var exploreMapTopChromeScrimSolid: Color {
+            mapChromeScrimBase.opacity(0.98)
+        }
+
+        static var exploreMapStatusBarEdgeScrimSolid: Color {
+            mapChromeScrimBase.opacity(0.94)
         }
 
         static let primaryText = adaptive(
@@ -228,12 +272,18 @@ enum AppTheme {
         /// Fixed height for one **`ExploreDiveSiteRow`** tile in the Explore map search dropdown.
         static let exploreMapSearchSuggestionRowHeight: CGFloat = 88
         /// Number of suggestion tiles visible before scrolling.
-        static let exploreMapSearchSuggestionVisibleRows: Int = 4
+        static let exploreMapSearchSuggestionVisibleRows: Int = 3
 
-        static var exploreMapSearchSuggestionPanelHeight: CGFloat {
-            let rows = CGFloat(exploreMapSearchSuggestionVisibleRows)
+        static func exploreMapSearchSuggestionPanelHeight(rowCount: Int) -> CGFloat {
+            let cappedRows = min(max(rowCount, 0), exploreMapSearchSuggestionVisibleRows)
+            guard cappedRows > 0 else { return 0 }
+            let rows = CGFloat(cappedRows)
             let spacing = AppTheme.Spacing.md
             return rows * exploreMapSearchSuggestionRowHeight + max(0, rows - 1) * spacing
+        }
+
+        static var exploreMapSearchSuggestionPanelHeight: CGFloat {
+            exploreMapSearchSuggestionPanelHeight(rowCount: exploreMapSearchSuggestionVisibleRows)
         }
     }
 

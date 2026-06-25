@@ -1,5 +1,6 @@
 import Foundation
 import CoreGraphics
+import SwiftUI
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -280,4 +281,10 @@ enum HomeMediaCarouselPresentation: Sendable {
             catalog: catalog
         )
     }
+}
+
+/// Featured carousel dive-site capsule — dark slate on glass in light mode, white in dark.
+enum HomeMediaCarouselDiveLinkChromePresentation {
+    static var siteTitleForeground: Color { AppTheme.Colors.backButtonForeground }
+    static var diveNumberForeground: Color { AppTheme.Colors.secondaryText }
 }

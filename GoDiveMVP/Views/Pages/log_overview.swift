@@ -386,6 +386,8 @@ struct LogOverviewView: View {
                 kind: kind,
                 diveStatsInputs: homeAggregate.diveStatsInputs,
                 activities: ownerDiveActivities,
+                diveSites: diveSites,
+                marineLifeCatalog: marineLifeCatalog,
                 unitSystem: diveDisplayUnitSystem,
                 automaticallyRenumberDives: automaticallyRenumberDives,
                 sightings: homeSightingCountInputs,

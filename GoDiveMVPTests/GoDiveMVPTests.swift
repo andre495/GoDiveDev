@@ -8841,6 +8841,41 @@ struct GoDiveMVPTests {
     @Test func exploreSiteScopeChromePresentation_bottomLayoutReservesTabBarAndToggle() {
         #expect(ExploreSiteScopeChromePresentation.toggleChromeHeight == 40)
         #expect(ExploreSiteScopeChromePresentation.paddingAboveTabBar(safeAreaBottom: 34) == 4)
+        #expect(ExploreSiteScopeChromePresentation.showsBottomToggle(isSearchFocused: true) == false)
+        #expect(ExploreSiteScopeChromePresentation.showsBottomToggle(isSearchFocused: false))
+        #expect(
+            ExploreSiteScopeChromePresentation.showsKeyboardAdjacentToggle(
+                isSearchFocused: true,
+                showsSiteScopeToggle: true,
+                isNavigationStackAtRoot: true
+            )
+        )
+        #expect(
+            !ExploreSiteScopeChromePresentation.showsKeyboardAdjacentToggle(
+                isSearchFocused: false,
+                showsSiteScopeToggle: true,
+                isNavigationStackAtRoot: true
+            )
+        )
+        #expect(AppTheme.Layout.exploreMapSearchSuggestionVisibleRows == 3)
+        let rowHeight = AppTheme.Layout.exploreMapSearchSuggestionRowHeight
+        let rowSpacing = AppTheme.Spacing.md
+        #expect(
+            AppTheme.Layout.exploreMapSearchSuggestionPanelHeight(rowCount: 1)
+                == rowHeight
+        )
+        #expect(
+            AppTheme.Layout.exploreMapSearchSuggestionPanelHeight(rowCount: 2)
+                == rowHeight * 2 + rowSpacing
+        )
+        #expect(
+            AppTheme.Layout.exploreMapSearchSuggestionPanelHeight(rowCount: 3)
+                == rowHeight * 3 + rowSpacing * 2
+        )
+        #expect(
+            AppTheme.Layout.exploreMapSearchSuggestionPanelHeight(rowCount: 8)
+                == AppTheme.Layout.exploreMapSearchSuggestionPanelHeight
+        )
         #expect(
             ExploreSiteScopeChromePresentation.listExtraBottomInset
                 == ExploreSiteScopeChromePresentation.toggleChromeHeight + ExploreSiteScopeChromePresentation.spacingAboveTabBar
@@ -10757,6 +10792,18 @@ struct GoDiveMVPTests {
         #expect(height >= 40)
         #expect(height <= 56)
         #expect(height > 44)
+    }
+
+    @Test @MainActor
+    func homeMediaCarouselDiveLinkChrome_usesAdaptiveSlateForeground() {
+        #expect(
+            HomeMediaCarouselDiveLinkChromePresentation.siteTitleForeground
+                == AppTheme.Colors.backButtonForeground
+        )
+        #expect(
+            HomeMediaCarouselDiveLinkChromePresentation.diveNumberForeground
+                == AppTheme.Colors.secondaryText
+        )
     }
 
     @Test func homeMediaCarouselPresentation_marineLifeOverlayCloseTopInset_clearsHomeHeader() {
@@ -15288,6 +15335,69 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func homeLifetimeStatsLeaderboardPresentation_siteRowDisplayData_usesOwnerVisitCount() {
+        let site = DiveSite(
+            siteName: "Salt Pier",
+            country: "Caribbean Netherlands",
+            region: "Bonaire",
+            bodyOfWater: "Caribbean Sea",
+            latCoords: 12.084,
+            longCoords: -68.283
+        )
+        let entry = HomeLifetimeStatsLeaderboardPresentation.SiteEntry(
+            id: site.id.uuidString,
+            rank: 1,
+            siteID: site.id,
+            name: "Salt Pier",
+            visitCount: 4
+        )
+
+        let row = HomeLifetimeStatsLeaderboardPresentation.siteRowDisplayData(entry: entry, site: site)
+        #expect(row.displayName == "Salt Pier")
+        #expect(row.diveCountLabel == HomeLifetimeStatsPresentation.siteVisitLabel(count: 4))
+        #expect(row.coordinateLine.contains("12"))
+    }
+
+    @Test func homeLifetimeStatsLeaderboardPresentation_siteRowDisplayData_importNameBuildsExploreTile() {
+        let entry = HomeLifetimeStatsLeaderboardPresentation.SiteEntry(
+            id: "name:blue hole",
+            rank: 1,
+            siteID: nil,
+            name: "Blue Hole",
+            visitCount: 2
+        )
+
+        let row = HomeLifetimeStatsLeaderboardPresentation.siteRowDisplayData(entry: entry, site: nil)
+        #expect(row.displayName == "Blue Hole")
+        #expect(row.diveCountLabel == HomeLifetimeStatsPresentation.siteVisitLabel(count: 2))
+        #expect(row.catalogSiteID == nil)
+    }
+
+    @Test func homeLifetimeStatsLeaderboardPresentation_speciesRowDisplayData_showsPreviewWhenImageExists() {
+        let entry = HomeLifetimeStatsLeaderboardPresentation.SpeciesEntry(
+            id: "fish-a",
+            rank: 1,
+            marineLifeUUID: "fish-a",
+            commonName: "French Angelfish",
+            sightingCount: 3
+        )
+
+        let withoutImage = HomeLifetimeStatsLeaderboardPresentation.speciesRowDisplayData(
+            entry: entry,
+            featureImageURL: "",
+            featureImageResourceName: ""
+        )
+        #expect(!withoutImage.showsPreviewImage)
+
+        let withRemote = HomeLifetimeStatsLeaderboardPresentation.speciesRowDisplayData(
+            entry: entry,
+            featureImageURL: "https://example.com/fish.jpg",
+            featureImageResourceName: ""
+        )
+        #expect(withRemote.showsPreviewImage)
+        #expect(withRemote.sightingCountLabel == HomeLifetimeStatsPresentation.sightingCountLabel(count: 3))
+    }
+
     @Test func homeRoute_diveBuddy_usesRosterBuddyIDForNavigation() {
         let buddyID = UUID()
         let route = HomeRoute.diveBuddy(buddyID)
@@ -16672,6 +16782,55 @@ struct GoDiveMVPTests {
         #expect(LogbookTripGroupAccentPalette.nextIndex(after: LogbookTripGroupAccentPalette.palette.count - 1) == 0)
     }
 
+    @Test func logbookTripGroupAccentPalette_avoidsLightPastelHues() {
+        for rgb in LogbookTripGroupAccentPalette.palette {
+            let maxChannel = max(rgb.red, rgb.green, rgb.blue)
+            #expect(maxChannel <= 0.90)
+            let isLightBlue = rgb.blue >= 0.62 && rgb.blue >= rgb.red && rgb.blue >= rgb.green
+            #expect(!isLightBlue)
+        }
+    }
+
+    @Test func logbookTripGroupAccentPresentation_matchesLogbookRailIndexForTrip() {
+        let tripA = UUID()
+        let tripB = UUID()
+        let tA = Date(timeIntervalSince1970: 3_000)
+        let tB = Date(timeIntervalSince1970: 2_000)
+        let diveA1 = UUID()
+        let diveA2 = UUID()
+        let diveB1 = UUID()
+        let diveB2 = UUID()
+        let seeds = [
+            logbookSnapshotSeed(id: diveA1, resolvedSiteNameLowercased: "a1", linkedTripID: tripA, startTime: tA),
+            logbookSnapshotSeed(id: diveA2, resolvedSiteNameLowercased: "a2", linkedTripID: tripA, startTime: tA.addingTimeInterval(-3600)),
+            logbookSnapshotSeed(id: diveB1, resolvedSiteNameLowercased: "b1", linkedTripID: tripB, startTime: tB),
+            logbookSnapshotSeed(id: diveB2, resolvedSiteNameLowercased: "b2", linkedTripID: tripB, startTime: tB.addingTimeInterval(-3600)),
+        ]
+        let tripSeeds = [
+            LogbookTripSnapshotSeed(tripID: tripA, displayTitle: "Trip A", startDate: tA, endDate: tA),
+            LogbookTripSnapshotSeed(tripID: tripB, displayTitle: "Trip B", startDate: tB, endDate: tB),
+        ]
+        let rows = seeds.map { seed in
+            DiveLogbookRowDisplayData(
+                id: seed.id,
+                displayName: seed.displayName,
+                diveNumberLabel: "#1",
+                detailLine: "detail",
+                showsDuplicateHint: false,
+                previewMediaPhotoID: nil,
+                startTime: seed.startTime
+            )
+        }
+        let items = LogbookTripGrouping.buildListItems(rows: rows, seeds: seeds, tripSeeds: tripSeeds)
+        let tripBIndex = LogbookTripGroupAccentPresentation.accentColorIndex(for: tripB, in: items)
+        #expect(tripBIndex != nil)
+        let tripGroupB = items.compactMap { item -> LogbookTripGroupDisplayData? in
+            if case .tripGroup(let group) = item, group.tripID == tripB { return group }
+            return nil
+        }.first
+        #expect(tripGroupB?.accentColorIndex == tripBIndex)
+    }
+
     @Test func diveActivityPostDeleteRenumbering_partialRenumberOnBackgroundContext() async throws {
         let schema = Schema([
             DiveActivity.self,
@@ -17417,6 +17576,20 @@ struct GoDiveMVPTests {
         #expect(value == 5)
         AppHeaderMetrics.HeightKey.reduce(value: &value) { 3 }
         #expect(value == 5)
+    }
+
+    @Test func appStatusBarEdgeScrim_brandHeaderFeatherIsTallerThanListChrome() {
+        let brand = AppStatusBarEdgeScrimMetrics.brandHeaderFeatherHeight
+        let list = AppStatusBarEdgeScrimMetrics.listChromeFeatherHeight
+        #expect(brand == 40)
+        #expect(list == 22)
+        #expect(brand > list)
+        #expect(brand / list > 1.3)
+        #expect(AppStatusBarEdgeScrimMetrics.brandHeaderMaxScrimOpacity == 0.60)
+    }
+
+    @Test func exploreMapChromeScrim_usesDeepOceanBaseInLightMode() {
+        #expect(AppTheme.Colors.mapChromeScrimBase == AppTheme.Colors.surfaceGradientBottom)
     }
 
     #if os(iOS)

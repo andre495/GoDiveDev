@@ -12,35 +12,74 @@ enum AppHeaderMetrics {
 
 // MARK: - Status bar scrim (narrow band only)
 
+enum AppStatusBarEdgeScrimMetrics {
+    /// Feather below the safe area on **GoDive** / **`AppHeader`** (taller than list chrome).
+    static let brandHeaderFeatherHeight: CGFloat = 40
+    /// Peak scrim opacity at the screen top — never fully opaque.
+    static let brandHeaderMaxScrimOpacity: Double = 0.60
+    /// Shorter feather for list-style top chrome (**certifications**, **buddies**, etc.).
+    static let listChromeFeatherHeight: CGFloat = 22
+}
+
 /// Short fade at the **very top** of the screen so status content reads on busy backgrounds.
 struct AppStatusBarEdgeScrim: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var colorScheme
 
     /// **Window** safe-area top (from an outer **`GeometryReader`**, e.g. Logbook root).
     let safeAreaTop: CGFloat
     /// When **`true`**, uses **`listStatusBarEdgeScrimGradient`** (same pale ocean base as wordmark header).
     var usesListChromeFeather: Bool = false
+    /// **Explore** map — deep **`surfaceGradientBottom`** fade in light mode.
+    var usesExploreMapChrome: Bool = false
+
+    private var usesLightExploreMapChrome: Bool {
+        usesExploreMapChrome && colorScheme == .light
+    }
 
     /// Feather **below** the safe top into the page gradient.
-    private var feather: CGFloat { 22 }
+    private var feather: CGFloat {
+        if usesExploreMapChrome || usesListChromeFeather {
+            return AppStatusBarEdgeScrimMetrics.listChromeFeatherHeight
+        }
+        return AppStatusBarEdgeScrimMetrics.brandHeaderFeatherHeight
+    }
 
     private var bandHeight: CGFloat { max(0, safeAreaTop) + feather }
 
     var body: some View {
         Group {
             if reduceTransparency {
-                (usesListChromeFeather
-                    ? AppTheme.Colors.listStatusBarEdgeScrimSolid
-                    : AppTheme.Colors.statusBarEdgeScrimSolid)
+                solidScrim
                     .frame(height: max(0, safeAreaTop) + 8)
             } else {
-                (usesListChromeFeather
-                    ? AppTheme.Colors.listStatusBarEdgeScrimGradient
-                    : AppTheme.Colors.statusBarEdgeScrimGradient)
+                gradientScrim
                     .frame(height: bandHeight)
             }
         }
         .frame(maxWidth: .infinity, alignment: .top)
+    }
+
+    @ViewBuilder
+    private var solidScrim: some View {
+        if usesLightExploreMapChrome {
+            AppTheme.Colors.exploreMapStatusBarEdgeScrimSolid
+        } else if usesListChromeFeather {
+            AppTheme.Colors.listStatusBarEdgeScrimSolid
+        } else {
+            AppTheme.Colors.statusBarEdgeScrimSolid
+        }
+    }
+
+    @ViewBuilder
+    private var gradientScrim: some View {
+        if usesLightExploreMapChrome {
+            AppTheme.Colors.exploreMapStatusBarEdgeScrimGradient
+        } else if usesListChromeFeather {
+            AppTheme.Colors.listStatusBarEdgeScrimGradient
+        } else {
+            AppTheme.Colors.statusBarEdgeScrimGradient
+        }
     }
 }
 

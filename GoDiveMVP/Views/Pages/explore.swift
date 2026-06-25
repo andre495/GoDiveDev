@@ -108,6 +108,15 @@ struct ExploreView: View {
         NavigationStack(path: $path) {
             AppHeaderlessPage {
                 explorePageContent
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        if ExploreSiteScopeChromePresentation.showsKeyboardAdjacentToggle(
+                            isSearchFocused: isSiteSearchFocused,
+                            showsSiteScopeToggle: showsSiteScopeToggle,
+                            isNavigationStackAtRoot: isExploreNavigationStackAtRoot
+                        ) {
+                            ExploreSiteScopeKeyboardChrome(selection: $siteScope)
+                        }
+                    }
             }
             .toolbar(.hidden, for: .navigationBar)
             .restoresRootTabBarWhenStackIsEmpty(isExploreNavigationStackAtRoot)
@@ -142,11 +151,11 @@ struct ExploreView: View {
             }
         }
         .onChange(of: siteScope) { _, _ in
-            siteSearchQuery = ""
-            clearMapSiteSearch()
-            dismissSiteSearchKeyboard()
+            if mapFocusedSelection != nil {
+                clearMapSiteSearch(keepingQuery: true)
+            }
             applyScopePresentation()
-            if viewMode == .list {
+            if viewMode == .list, !isSiteSearchFocused {
                 RootTabListScrollSupport.scheduleScrollToTop { listScrollToTopNonce += 1 }
             }
         }
@@ -186,7 +195,9 @@ struct ExploreView: View {
     private var explorePageContent: some View {
         GeometryReader { proxy in
             let topInset = proxy.safeAreaInsets.top + exploreTopChromeHeight
-            let showsBottomSiteScopeToggle = showsSiteScopeToggle && isExploreNavigationStackAtRoot
+            let showsBottomSiteScopeToggle = showsSiteScopeToggle
+                && isExploreNavigationStackAtRoot
+                && ExploreSiteScopeChromePresentation.showsBottomToggle(isSearchFocused: isSiteSearchFocused)
             let bottomInset = proxy.safeAreaInsets.bottom
                 + AppTheme.Spacing.md
                 + (showsBottomSiteScopeToggle ? ExploreSiteScopeChromePresentation.listExtraBottomInset : 0)
@@ -222,6 +233,14 @@ struct ExploreView: View {
                         .zIndex(0.5)
                 }
 
+                if viewMode == .map {
+                    ExploreMapTopChromeScrim(topObstructionHeight: topInset)
+                        .padding(.top, -proxy.safeAreaInsets.top)
+                        .ignoresSafeArea(edges: .top)
+                        .allowsHitTesting(false)
+                        .zIndex(0.5)
+                }
+
                 ExploreTopChrome(
                     viewMode: $viewMode,
                     siteSearchQuery: $siteSearchQuery,
@@ -235,6 +254,7 @@ struct ExploreView: View {
                     onClearMapSiteSearch: { clearMapSiteSearch() }
                 )
                 .frame(maxWidth: .infinity, alignment: .top)
+                .ignoresSafeArea(.keyboard, edges: .bottom)
                 .zIndex(1)
 
                 if showsBottomSiteScopeToggle {

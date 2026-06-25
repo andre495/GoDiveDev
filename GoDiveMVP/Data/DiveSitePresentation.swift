@@ -239,7 +239,8 @@ enum DiveSitePresentation: Sendable {
 
     nonisolated static func listRecord(
         for site: DiveSite,
-        trailingStyle: ExploreDiveSiteRowTrailingStyle = .catalogDefault
+        trailingStyle: ExploreDiveSiteRowTrailingStyle = .catalogDefault,
+        overrideDiveCountLabel: String? = nil
     ) -> DiveSiteDisplayRecord {
         let displayName = DiveSiteCatalogMatcher.resolvedCatalogSiteName(for: site) ?? site.siteName
         let country = DiveSiteCountryPresentation.canonicalDisplayName(for: site.country)
@@ -272,7 +273,8 @@ enum DiveSitePresentation: Sendable {
             siteRating: site.siteRating,
             waterType: waterTypeLabel(for: site),
             divesLogged: "\(diveCount)",
-            diveCountLabel: diveCountLabel(for: site, style: trailingStyle),
+            diveCountLabel: overrideDiveCountLabel
+                ?? diveCountLabel(for: site, style: trailingStyle),
             listCountry: ExploreDiveSiteListPresentation.listCountry(from: site),
             searchHaystacks: searchHaystacks,
             searchHaystackLowercased: listSearchHaystackLowercased(

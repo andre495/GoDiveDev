@@ -28,7 +28,10 @@ struct ExploreTopChrome: View {
         .fixedSize(horizontal: false, vertical: true)
         .background(alignment: .top) {
             if statusBarSafeAreaTop > 0.5 {
-                AppStatusBarEdgeScrim(safeAreaTop: statusBarSafeAreaTop)
+                AppStatusBarEdgeScrim(
+                    safeAreaTop: statusBarSafeAreaTop,
+                    usesExploreMapChrome: viewMode == .map
+                )
                     .ignoresSafeArea(edges: .top)
             }
         }

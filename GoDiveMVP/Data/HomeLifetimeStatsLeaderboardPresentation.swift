@@ -28,6 +28,16 @@ enum HomeLifetimeStatsLeaderboardPresentation {
         let sightingCount: Int
     }
 
+    struct SpeciesRowDisplayData: Sendable, Equatable, Identifiable {
+        let id: String
+        let marineLifeUUID: String
+        let commonName: String
+        let sightingCountLabel: String
+        let featureImageURL: String
+        let featureImageResourceName: String
+        let showsPreviewImage: Bool
+    }
+
     nonisolated static func pageTitle(for kind: HomeLifetimeStatsLeaderboardKind) -> String {
         switch kind {
         case .deepestDives:
@@ -116,6 +126,94 @@ enum HomeLifetimeStatsLeaderboardPresentation {
                 sightingCount: count
             )
         }
+    }
+
+    nonisolated static func siteRowDisplayData(
+        entry: SiteEntry,
+        site: DiveSite?
+    ) -> DiveSiteDisplayRecord {
+        let visitLabel = HomeLifetimeStatsPresentation.siteVisitLabel(count: entry.visitCount)
+        if let site {
+            return DiveSitePresentation.listRecord(
+                for: site,
+                overrideDiveCountLabel: visitLabel
+            )
+        }
+        return importNameSiteRow(name: entry.name, visitCountLabel: visitLabel, entryID: entry.id)
+    }
+
+    nonisolated static func speciesRowDisplayData(
+        entry: SpeciesEntry,
+        featureImageURL: String,
+        featureImageResourceName: String
+    ) -> SpeciesRowDisplayData {
+        return SpeciesRowDisplayData(
+            id: entry.id,
+            marineLifeUUID: entry.marineLifeUUID,
+            commonName: entry.commonName,
+            sightingCountLabel: HomeLifetimeStatsPresentation.sightingCountLabel(count: entry.sightingCount),
+            featureImageURL: featureImageURL,
+            featureImageResourceName: featureImageResourceName,
+            showsPreviewImage: hasCatalogPreviewImage(
+                featureImageURL: featureImageURL,
+                featureImageResourceName: featureImageResourceName
+            )
+        )
+    }
+
+    nonisolated static func hasCatalogPreviewImage(
+        featureImageURL: String,
+        featureImageResourceName: String
+    ) -> Bool {
+        FieldGuideMarineLifeBundledImagePresentation.imageSource(
+            featureImageResourceName: featureImageResourceName,
+            featureImageURL: featureImageURL
+        ) != .none
+    }
+
+    private nonisolated static func importNameSiteRow(
+        name: String,
+        visitCountLabel: String,
+        entryID: String
+    ) -> DiveSiteDisplayRecord {
+        DiveSiteDisplayRecord(
+            id: deterministicRowID(seed: entryID),
+            referenceID: nil,
+            catalogSiteID: nil,
+            displayName: name,
+            country: DiveSitePresentation.missingValue,
+            region: DiveSitePresentation.missingValue,
+            bodyOfWater: DiveSitePresentation.missingValue,
+            coordinateLine: DiveSitePresentation.missingValue,
+            entry: DiveSitePresentation.missingValue,
+            environment: DiveSitePresentation.missingValue,
+            siteType: DiveSitePresentation.missingValue,
+            maxDepth: DiveSitePresentation.missingValue,
+            rating: DiveSitePresentation.missingValue,
+            siteRating: nil,
+            waterType: DiveSitePresentation.missingValue,
+            divesLogged: visitCountLabel,
+            diveCountLabel: visitCountLabel,
+            listCountry: DiveSitePresentation.missingValue,
+            searchHaystacks: [name],
+            searchHaystackLowercased: name.lowercased(),
+            isReferenceOnly: false
+        )
+    }
+
+    private nonisolated static func deterministicRowID(seed: String) -> UUID {
+        var bytes = [UInt8](repeating: 0, count: 16)
+        for (index, byte) in seed.utf8.enumerated() {
+            bytes[index % 16] ^= byte
+        }
+        bytes[6] = (bytes[6] & 0x0F) | 0x40
+        bytes[8] = (bytes[8] & 0x3F) | 0x80
+        return UUID(uuid: (
+            bytes[0], bytes[1], bytes[2], bytes[3],
+            bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11],
+            bytes[12], bytes[13], bytes[14], bytes[15]
+        ))
     }
 
     nonisolated static func metricCaption(for kind: HomeLifetimeStatsLeaderboardKind, count: Int) -> String {

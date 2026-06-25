@@ -138,25 +138,29 @@ struct ProfileView: View {
 
                         Spacer()
 
-                        if accountSession.currentProfile != nil {
-                            AppEditToolbarButton(
-                                action: { showsProfileEditSheet = true },
-                                accessibilityIdentifier: "Profile.EditButton",
-                                accessibilityLabel: "Edit profile"
-                            )
-                        }
+                        GlassEffectContainer {
+                            HStack(spacing: AppTheme.Spacing.sm) {
+                                if accountSession.currentProfile != nil {
+                                    AppEditToolbarButton(
+                                        action: { showsProfileEditSheet = true },
+                                        accessibilityIdentifier: "Profile.EditButton",
+                                        accessibilityLabel: "Edit profile"
+                                    )
+                                }
 
-                        NavigationLink {
-                            SettingsView()
-                        } label: {
-                            Image(systemName: "gearshape")
-                                .font(.title3)
-                                .frame(minWidth: 44, minHeight: 44)
-                                .contentShape(Rectangle())
+                                NavigationLink {
+                                    SettingsView()
+                                } label: {
+                                    Image(systemName: "gearshape")
+                                        .appToolbarIconButtonLabel()
+                                }
+                                .appStandaloneIconButtonStyle()
+                                .foregroundStyle(AppTheme.Colors.iconPrimary)
+                                .accessibilityLabel("Settings")
+                                .accessibilityIdentifier("Profile.SettingsButton")
+                            }
+                            .appGlassChromeControlRowHeight()
                         }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(AppTheme.Colors.iconPrimary)
-                        .accessibilityLabel("Settings")
                     }
                     .padding(.horizontal, AppTheme.Spacing.lg)
                     .padding(.top, AppTheme.Spacing.sm)

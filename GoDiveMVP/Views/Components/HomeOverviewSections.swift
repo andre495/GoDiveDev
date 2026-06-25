@@ -726,13 +726,13 @@ private struct HomeMediaCarouselDiveLinkButton: View {
                     if diveNumberLabel != "-" {
                         Text(diveNumberLabel)
                             .font(.caption2.weight(.medium))
-                            .foregroundStyle(.white.opacity(0.82))
+                            .foregroundStyle(HomeMediaCarouselDiveLinkChromePresentation.diveNumberForeground)
                             .lineLimit(1)
                     }
                 }
 
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(HomeMediaCarouselDiveLinkChromePresentation.siteTitleForeground)
             .padding(.horizontal, AppTheme.Spacing.md)
             .frame(height: HomeMediaCarouselLayout.slideChromeControlHeight)
             .appLiquidGlassSearchFieldChrome()

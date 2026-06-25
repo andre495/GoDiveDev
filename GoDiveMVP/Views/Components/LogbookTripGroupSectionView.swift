@@ -1,11 +1,5 @@
 import SwiftUI
 
-private extension LogbookTripGroupAccentPalette.RGB {
-    var color: Color {
-        Color(red: red, green: green, blue: blue)
-    }
-}
-
 enum LogbookTripGroupChrome {
     static let railWidth: CGFloat = 10
     static let railLineWidth: CGFloat = 2.5
@@ -13,7 +7,7 @@ enum LogbookTripGroupChrome {
     static let titleNodeTopInset: CGFloat = 5
 
     static func accentColor(for group: LogbookTripGroupDisplayData) -> Color {
-        LogbookTripGroupAccentPalette.rgb(at: group.accentColorIndex).color
+        LogbookTripGroupAccentPalette.color(at: group.accentColorIndex)
     }
 }
 

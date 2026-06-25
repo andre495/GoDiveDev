@@ -272,6 +272,20 @@ enum ExploreSiteScopeChromePresentation {
     /// Hairline gap between the toggle and the tab bar top (tab content geometry already ends there).
     nonisolated static let spacingAboveTabBar: CGFloat = 4
 
+    /// Bottom toggle hides while search is focused — scope control uses **`ExploreSiteScopeKeyboardChrome`** above the keyboard.
+    nonisolated static func showsBottomToggle(isSearchFocused: Bool) -> Bool {
+        !isSearchFocused
+    }
+
+    /// Scope toggle above the software keyboard during active site search.
+    nonisolated static func showsKeyboardAdjacentToggle(
+        isSearchFocused: Bool,
+        showsSiteScopeToggle: Bool,
+        isNavigationStackAtRoot: Bool
+    ) -> Bool {
+        isSearchFocused && showsSiteScopeToggle && isNavigationStackAtRoot
+    }
+
     nonisolated static func paddingAboveTabBar(safeAreaBottom _: CGFloat = 0) -> CGFloat {
         spacingAboveTabBar
     }

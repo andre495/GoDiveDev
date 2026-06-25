@@ -6,6 +6,8 @@ struct HomeLifetimeStatsLeaderboardView: View {
     let kind: HomeLifetimeStatsLeaderboardKind
     let diveStatsInputs: [HomeDiveStatsInput]
     let activities: [DiveActivity]
+    let diveSites: [DiveSite]
+    let marineLifeCatalog: [MarineLife]
     let unitSystem: DiveDisplayUnitSystem
     let automaticallyRenumberDives: Bool
     let sightings: [HomeLifetimeStatsPresentation.SightingCountInput]
@@ -35,6 +37,14 @@ struct HomeLifetimeStatsLeaderboardView: View {
 
     private var speciesEntries: [HomeLifetimeStatsLeaderboardPresentation.SpeciesEntry] {
         HomeLifetimeStatsLeaderboardPresentation.topSpecies(sightings: sightings)
+    }
+
+    private var sitesByID: [UUID: DiveSite] {
+        Dictionary(uniqueKeysWithValues: diveSites.map { ($0.id, $0) })
+    }
+
+    private var marineLifeByUUID: [String: MarineLife] {
+        Dictionary(uniqueKeysWithValues: marineLifeCatalog.map { ($0.uuid, $0) })
     }
 
     private var showsEmptyState: Bool {
@@ -79,38 +89,69 @@ struct HomeLifetimeStatsLeaderboardView: View {
     private var listRows: some View {
         switch kind {
         case .deepestDives, .longestDives:
-            HomeLifetimeStatsLeaderboardDiveRows(
-                rows: diveRows,
-                onOpenDive: onOpenDive
-            )
+            ForEach(diveRows) { row in
+                Button {
+                    onOpenDive(row.id)
+                } label: {
+                    LogbookActivityRow(data: row)
+                        .equatable()
+                }
+                .buttonStyle(.plain)
+                .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .accessibilityIdentifier("\(accessibilityRootIdentifier).Row.\(row.id.uuidString)")
+            }
         case .topSites:
             ForEach(siteEntries) { entry in
-                HomeLifetimeStatsLeaderboardMetricRow(
-                    rank: entry.rank,
-                    title: entry.name,
-                    caption: HomeLifetimeStatsLeaderboardPresentation.metricCaption(
-                        for: kind,
-                        count: entry.visitCount
-                    ),
-                    systemImage: "mappin.circle.fill",
-                    action: entry.siteID.map { siteID in { onOpenSite(siteID) } }
+                let rowData = HomeLifetimeStatsLeaderboardPresentation.siteRowDisplayData(
+                    entry: entry,
+                    site: entry.siteID.flatMap { sitesByID[$0] }
                 )
+                Group {
+                    if let siteID = entry.siteID {
+                        Button {
+                            onOpenSite(siteID)
+                        } label: {
+                            ExploreDiveSiteRow(data: rowData)
+                                .equatable()
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        ExploreDiveSiteRow(data: rowData)
+                            .equatable()
+                    }
+                }
+                .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
                 .accessibilityIdentifier("\(accessibilityRootIdentifier).Row.\(entry.rank)")
             }
         case .topSpecies:
-            ForEach(speciesEntries) { entry in
-                HomeLifetimeStatsLeaderboardMetricRow(
-                    rank: entry.rank,
-                    title: entry.commonName,
-                    caption: HomeLifetimeStatsLeaderboardPresentation.metricCaption(
-                        for: kind,
-                        count: entry.sightingCount
-                    ),
-                    systemImage: "fish.fill",
-                    action: { onOpenSpecies(entry.marineLifeUUID) }
-                )
-                .accessibilityIdentifier("\(accessibilityRootIdentifier).Row.\(entry.rank)")
+            ForEach(speciesRowData) { row in
+                Button {
+                    onOpenSpecies(row.marineLifeUUID)
+                } label: {
+                    HomeLifetimeStatsLeaderboardSpeciesRow(data: row)
+                        .equatable()
+                }
+                .buttonStyle(.plain)
+                .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .accessibilityIdentifier("\(accessibilityRootIdentifier).Row.\(row.id)")
             }
+        }
+    }
+
+    private var speciesRowData: [HomeLifetimeStatsLeaderboardPresentation.SpeciesRowDisplayData] {
+        speciesEntries.map { entry in
+            let catalogSpecies = marineLifeByUUID[entry.marineLifeUUID]
+            return HomeLifetimeStatsLeaderboardPresentation.speciesRowDisplayData(
+                entry: entry,
+                featureImageURL: catalogSpecies?.featureImageURL ?? "",
+                featureImageResourceName: catalogSpecies?.featureImageResourceName ?? ""
+            )
         }
     }
 
@@ -162,124 +203,56 @@ struct HomeLifetimeStatsLeaderboardView: View {
     }
 }
 
-private struct HomeLifetimeStatsLeaderboardDiveRows: View {
-    let rows: [DiveLogbookRowDisplayData]
-    let onOpenDive: (UUID) -> Void
+private struct HomeLifetimeStatsLeaderboardSpeciesRow: View, Equatable {
+    let data: HomeLifetimeStatsLeaderboardPresentation.SpeciesRowDisplayData
 
     var body: some View {
-        ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
-            Button {
-                onOpenDive(row.id)
-            } label: {
-                HStack(alignment: .top, spacing: AppTheme.Spacing.sm) {
-                    HomeLifetimeStatsLeaderboardRankBadge(rank: index + 1)
-
-                    LogbookActivityRow(data: row)
-                        .equatable()
-                }
-            }
-            .buttonStyle(.plain)
-            .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
-        }
-    }
-}
-
-private struct HomeLifetimeStatsLeaderboardMetricRow: View {
-    let rank: Int
-    let title: String
-    let caption: String
-    let systemImage: String
-    let action: (() -> Void)?
-
-    var body: some View {
-        Group {
-            if let action {
-                Button(action: action) {
-                    rowContent
-                }
-                .buttonStyle(.plain)
-            } else {
-                rowContent
-            }
-        }
-        .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
-        .listRowSeparator(.hidden)
-        .listRowBackground(Color.clear)
-    }
-
-    private var rowContent: some View {
         HStack(alignment: .center, spacing: AppTheme.Spacing.md) {
-            HomeLifetimeStatsLeaderboardRankBadge(rank: rank)
-
-            ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(AppTheme.Colors.accent.opacity(0.14))
-                    .frame(width: 44, height: 44)
-                Image(systemName: systemImage)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.accent)
+            if data.showsPreviewImage {
+                FieldGuideMarineLifeCatalogImage(
+                    imageURLString: data.featureImageURL,
+                    bundleResourceName: data.featureImageResourceName,
+                    placement: .mediaSheetHero(
+                        height: MarineLifeMediaTagPresentation.speciesRowThumbnailHeight,
+                        cornerRadius: 8
+                    )
+                )
+                .frame(
+                    width: MarineLifeMediaTagPresentation.speciesRowThumbnailWidth,
+                    height: MarineLifeMediaTagPresentation.speciesRowThumbnailHeight
+                )
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
-                    .multilineTextAlignment(.leading)
-                    .lineLimit(2)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: AppTheme.Spacing.sm) {
+                    Text(data.commonName)
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.Colors.textPrimary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
 
-                if !caption.isEmpty {
-                    Text(caption)
-                        .font(.footnote)
-                        .foregroundStyle(AppTheme.Colors.secondaryText)
+                    Spacer(minLength: AppTheme.Spacing.sm)
+
+                    Text(data.sightingCountLabel)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(AppTheme.Colors.accent)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.85)
                 }
             }
-
-            Spacer(minLength: AppTheme.Spacing.sm)
-
-            if action != nil {
-                Image(systemName: "chevron.right")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(AppTheme.Colors.tabUnselected)
-                    .accessibilityHidden(true)
-            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(LogbookActivityRowLayout.cardPadding)
+        .padding(AppTheme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
-            RoundedRectangle(cornerRadius: LogbookActivityRowLayout.cardCornerRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(AppTheme.Colors.surfaceElevated)
         }
         .overlay {
-            RoundedRectangle(cornerRadius: LogbookActivityRowLayout.cardCornerRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(AppTheme.Colors.tabUnselected.opacity(0.12), lineWidth: 1)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(accessibilityLabel)
-    }
-
-    private var accessibilityLabel: String {
-        if caption.isEmpty {
-            return "Rank \(rank), \(title)"
-        }
-        return "Rank \(rank), \(title), \(caption)"
-    }
-}
-
-private struct HomeLifetimeStatsLeaderboardRankBadge: View {
-    let rank: Int
-
-    var body: some View {
-        Text("\(rank)")
-            .font(.caption.weight(.bold))
-            .foregroundStyle(AppTheme.Colors.accent)
-            .frame(width: 28, height: 28)
-            .background {
-                Circle()
-                    .fill(AppTheme.Colors.accent.opacity(0.14))
-            }
-            .accessibilityHidden(true)
+        .accessibilityLabel("\(data.commonName), \(data.sightingCountLabel)")
     }
 }

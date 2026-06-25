@@ -119,3 +119,25 @@ struct AppEditToolbarButton: View {
         .accessibilityIdentifier(accessibilityIdentifier)
     }
 }
+
+/// Liquid Glass circular toolbar icon (**share**, **settings**, **+**, etc.).
+struct AppToolbarIconButton: View {
+    let systemImage: String
+    let action: () -> Void
+    let accessibilityIdentifier: String
+    let accessibilityLabel: String
+    var isEnabled: Bool = true
+    var foregroundStyle: Color = AppTheme.Colors.iconPrimary
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .appToolbarIconButtonLabel()
+        }
+        .appStandaloneIconButtonStyle()
+        .foregroundStyle(foregroundStyle)
+        .disabled(!isEnabled)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityIdentifier(accessibilityIdentifier)
+    }
+}

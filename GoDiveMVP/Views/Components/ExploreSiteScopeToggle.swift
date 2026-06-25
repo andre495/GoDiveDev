@@ -68,3 +68,14 @@ struct ExploreSiteScopeBottomChrome: View {
         .padding(.horizontal, AppTheme.Spacing.lg)
     }
 }
+
+/// **My Sites / All Sites** pinned just above the keyboard during Explore site search.
+struct ExploreSiteScopeKeyboardChrome: View {
+    @Binding var selection: ExploreSiteScope
+
+    var body: some View {
+        ExploreSiteScopeBottomChrome(selection: $selection)
+            .padding(.top, AppTheme.Spacing.sm)
+            .padding(.bottom, AppTheme.Spacing.sm)
+    }
+}

@@ -1486,4 +1486,17 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Buddy tagging draft-until-Done** — **`DiveActivityBuddiesEditSheet`** + **`DiveMediaBuddyTagPickerSheet`** keep selections in memory; **`DiveBuddyActivityTagDraftPresentation`** / **`DiveMediaBuddyTagDraftPresentation`** apply tag diffs + one **`save()`** on **Done** (no per-tap SwiftData writes or **`postMediaDidChange`**); **`DiveActivityAddBuddySheet`** supports **`deferActivityTagging`** + **`onBuddyCreated`** for roster-only add during draft flows; removing the last media tag for a buddy on a dive drops dive participation when they have no other media tags on that dive. Tests: **`diveBuddyActivityTagDraftPresentation_apply_writesOnlyOnDoneDiff`**, **`diveMediaBuddyTagDraftPresentation_apply_batchesMediaTagWrites`**.
 - **Marine life tag sheet Fishial toolbar** — Fishial **sparkles** sits in the leading cluster beside **+** (not beside **Done**); pink→purple **`fishialIdentifyIconGradient`** marks the AI affordance. Test: **`diveMarineLifeTagSheetPresentation_fishialIdentifyIconGradient_usesPinkPurpleStops`**.
 
-## 89 - Next batch
+## 89 - Next batch **(pushed)**
+
+**Summary:** Trip accent palette readability + trip detail date subtitle matches logbook rail color; Liquid Glass toolbar icons; subtler taller GoDive header scrim; Home top-five leaderboard tiles match logbook / Explore / species chrome.
+
+- **Trip accent palette** — **`LogbookTripGroupAccentPalette`** swaps light cyan/sky/yellow/pastel greens for deeper teal, emerald, amber, indigo, etc. (readable in light mode). Test: **`logbookTripGroupAccentPalette_avoidsLightPastelHues`**.
+- **Trip detail date accent** — **`TripDetailView`** date subtitle uses **`LogbookTripGroupAccentPresentation`** (same index as logbook trip rail; stable hash fallback when the trip is not grouped). Test: **`logbookTripGroupAccentPresentation_matchesLogbookRailIndexForTrip`**.
+- **Liquid Glass toolbar icons** — **`AppToolbarIconButton`** (circular **`.glass`** icon chip); **Trip detail** share + **Profile** settings use the same chrome as Field Guide **+** / logbook airplane; Edit + share/settings grouped in **`GlassEffectContainer`**.
+- **GoDive header scrim** — **`AppStatusBarEdgeScrim`** brand feather **40pt**; **`statusBarEdgeScrimGradient`** peaks at **60%** opacity (never fully opaque), mostly transparent through the band.
+- **Home carousel dive chip** — site name + **#** use dark slate (**`backButtonForeground`** / **`secondaryText`**) in light mode on the Liquid Glass capsule (**`HomeMediaCarouselDiveLinkChromePresentation`**).
+- **Home lifetime stat leaderboards** — **Top 5 dive sites** use **`ExploreDiveSiteRow`**; **Top 5 species** show catalog preview images when bundled/URL exists; **deepest** / **longest** use **`LogbookActivityRow`** tiles (no rank badges). Tests: **`homeLifetimeStatsLeaderboardPresentation_siteRowDisplayData_*`**, **`homeLifetimeStatsLeaderboardPresentation_speciesRowDisplayData_showsPreviewWhenImageExists`**.
+- **Explore map top fade (light mode)** — **`ExploreMapTopChromeScrim`** + **`AppStatusBarEdgeScrim`** **`usesExploreMapChrome`** feather through **`mapChromeScrimBase`** (**`surfaceGradientBottom`** deep ocean); list mode keeps pale ocean scrim.
+- **Explore search + site scope** — toggling **My Sites** / **All Sites** during search keeps query + keyboard open and refreshes results; scope toggle sits in **`safeAreaInset`** above the keyboard (**`ExploreSiteScopeKeyboardChrome`**); map suggestions show up to **3** visible rows (panel height fits **1–2** results; scroll when more). Tests: **`exploreSiteScopeChromePresentation_showsBottomToggle`**, suggestion panel height by row count.
+
+## 90 - Next batch
