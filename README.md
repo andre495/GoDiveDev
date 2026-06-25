@@ -20,3 +20,5 @@ Open http://127.0.0.1:8000 to preview. Pushes to `main` that touch `docs/` or `m
 ### Enable GitHub Pages (one-time)
 
 In the repo on GitHub: **Settings → Pages → Build and deployment → Source → GitHub Actions**.
+
+The workflow uses [custom GitHub Pages workflows](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages) (`mkdocs build` → upload artifact → `deploy-pages`), not the legacy `gh-pages` branch.

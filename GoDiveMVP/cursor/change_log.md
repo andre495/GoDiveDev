@@ -1509,8 +1509,14 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`README.md`** — repo pointer to published guide URL and local `mkdocs serve` instructions.
 - **`.cursor/rules/github-pages-user-guide-sync.mdc`** — pre-push sync of **`docs/`** with user-facing functionality (not a changelog); wired into **`git-commit-push-summary-body.mdc`** workflow before Xcode preflight.
 
-## 91 - Next batch
+## 91 - GitHub Pages deploy Node 24 **(pushed)**
 
 **Summary:** GitHub Pages deploy workflow — bump Actions to Node 24; mark §90 pushed.
 
 - **`.github/workflows/deploy-docs.yml`** — `actions/checkout@v6`, `actions/setup-python@v6` (Node 24; clears runner deprecation warning).
+
+## 92 - Next batch
+
+**Summary:** Fix GitHub Pages deploy — use official Actions artifact + deploy-pages workflow (repo was on workflow publishing, not gh-pages branch).
+
+- **`.github/workflows/deploy-docs.yml`** — split **build** (`mkdocs build` + `upload-pages-artifact@v4`) and **deploy** (`deploy-pages@v4`, `github-pages` environment); drop `mkdocs gh-deploy` (pushed to ignored `gh-pages` branch).
