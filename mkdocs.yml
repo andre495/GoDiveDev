@@ -1,0 +1,65 @@
+site_name: GoDive Guide
+site_description: User guide for the GoDive dive log app on iPhone
+site_url: https://andre495.github.io/GoDiveDev/
+repo_url: https://github.com/andre495/GoDiveDev
+repo_name: GoDiveDev
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: cyan
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: cyan
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.action.edit
+
+nav:
+  - Overview: index.md
+  - Getting started: getting-started.md
+  - Features:
+      - Home: home.md
+      - Logbook: logbook.md
+      - Dive detail: dive-detail.md
+      - Field Guide: field-guide.md
+      - Explore: explore.md
+      - Trips & buddies: trips-and-buddies.md
+  - Import dives: import.md
+  - Settings: settings.md
+  - Privacy & data: privacy-and-data.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/andre495/GoDiveDev

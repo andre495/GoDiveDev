@@ -1,0 +1,55 @@
+---
+description: Before commit/push, sync docs/ user guide with latest app functionality (not a changelog).
+alwaysApply: true
+---
+
+# GitHub Pages user guide — sync before push
+
+When the user asks to **`git commit`**, **`git push`**, or ship to the repo, refresh the public user guide **`docs/`** (MkDocs) **before** staging — same gate as Xcode preflight and changelog sync. Updated guide pages ship in **the same commit** as app changes.
+
+## Source of truth
+
+Compare **`docs/`** against:
+
+1. **`GoDiveMVP/cursor/app_summary.md`** — user-visible behavior and flows  
+2. The **latest open** section of **`GoDiveMVP/cursor/change_log.md`** — what is shipping in this batch  
+3. Code when summary/changelog are stale
+
+**Do not** mirror the change log on Pages. Pages describe **how the app works now**, in plain language for divers.
+
+## Update when
+
+- New or removed **screens, tabs, or navigation** paths  
+- Changed **user workflows** (import, search, tagging, trips, settings toggles)  
+- New/changed **data rules** users see (units, renumber, duplicates, permissions)  
+- New **features** or **behavior fixes** that change what users can do or expect  
+- Renamed labels or settings that appear in the guide  
+
+## Skip (usually no doc edit)
+
+- Visual polish (colors, glass, scrims, spacing, animations)  
+- Performance, caching, or launch-time optimizations  
+- Internal refactors with **no** user-visible behavior change  
+- Agent/cursor rules, test-only changes, developer architecture notes  
+- Screenshot updates (user adds those separately unless a flow moved)
+
+When unsure: if a new user would misunderstand the app without an edit, update **`docs/`**; if not, skip.
+
+## How to edit
+
+- **`docs/*.md`** — user-facing pages only; no file paths or Swift identifiers unless essential  
+- **`mkdocs.yml`** — nav when adding/removing/renaming pages  
+- Tone: short sections, tables/lists where helpful; match existing guide style  
+- Do **not** add release-note sections or “what changed in §NN” prose  
+
+## Push workflow order
+
+1. Finish app + **`change_log.md`** / **`app_summary.md`** work  
+2. **Sync `docs/`** per this rule (this step)  
+3. iPhone 17 sim preflight (**`xcode-test-only-when-asked.mdc`**)  
+4. **`git commit`** — include **`docs/`** / **`mkdocs.yml`** when touched  
+5. **`git push`** when requested  
+
+## Handoff
+
+Do **not** push while user-facing behavior in the batch is **missing or wrong** in **`docs/`**. If nothing functional changed, say so briefly — no filler edits.

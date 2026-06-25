@@ -1500,3 +1500,11 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Explore search + site scope** — toggling **My Sites** / **All Sites** during search keeps query + keyboard open and refreshes results; scope toggle sits in **`safeAreaInset`** above the keyboard (**`ExploreSiteScopeKeyboardChrome`**); map suggestions show up to **3** visible rows (panel height fits **1–2** results; scroll when more). Tests: **`exploreSiteScopeChromePresentation_showsBottomToggle`**, suggestion panel height by row count.
 
 ## 90 - Next batch
+
+**Summary:** User-facing GitHub Pages guide (MkDocs Material) — overview, getting started, feature pages, import, settings, privacy; deploy workflow on push to `main`.
+
+- **`docs/`** — MkDocs site: index, getting-started, home, logbook, dive-detail, field-guide, explore, trips-and-buddies, import, settings, privacy-and-data (plain-language rewrite from **`app_summary.md`**).
+- **`mkdocs.yml`** — Material theme, nav, search.
+- **`.github/workflows/deploy-docs.yml`** — `mkdocs gh-deploy` on `docs/**` / `mkdocs.yml` changes.
+- **`README.md`** — repo pointer to published guide URL and local `mkdocs serve` instructions.
+- **`.cursor/rules/github-pages-user-guide-sync.mdc`** — pre-push sync of **`docs/`** with user-facing functionality (not a changelog); wired into **`git-commit-push-summary-body.mdc`** workflow before Xcode preflight.

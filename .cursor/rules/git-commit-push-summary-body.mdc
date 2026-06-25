@@ -35,11 +35,12 @@ One or two sentences on why this batch ships.
 
 ## Workflow with changelog
 
-1. **Preflight (required)** — Per **`xcode-test-only-when-asked.mdc`**: iPhone 17 sim **`clean`** → **`clean build-for-testing`** → **`test`**; fix errors, failures, and warnings (**`xcode-fix-build-warnings.mdc`**). **Do not commit or push** until green.
-2. Ensure **`change_log.md`** / **`app_summary.md`** reflect the work (**`.cursor/rules/changelog-app-summary-sync.mdc`**).
-3. **`git commit`** with subject + body via HEREDOC (see user commit rules).
-4. **`git push`** when requested.
-5. Mark shipped section(s) **`(pushed)`** per **`.cursor/rules/changelog-mark-pushed-on-git-push.mdc`** — include that edit in the commit when possible; otherwise a tiny follow-up commit after push.
+1. Ensure **`change_log.md`** / **`app_summary.md`** reflect the work (**`.cursor/rules/changelog-app-summary-sync.mdc`**).
+2. **User guide (required)** — Sync **`docs/`** with latest user-facing functionality (**`.cursor/rules/github-pages-user-guide-sync.mdc`**). Include any guide edits in this commit; skip when the batch has no functional doc impact.
+3. **Preflight (required)** — Per **`xcode-test-only-when-asked.mdc`**: iPhone 17 sim **`clean`** → **`clean build-for-testing`** → **`test`**; fix errors, failures, and warnings (**`xcode-fix-build-warnings.mdc`**). **Do not commit or push** until green.
+4. **`git commit`** with subject + body via HEREDOC (see user commit rules).
+5. **`git push`** when requested.
+6. Mark shipped section(s) **`(pushed)`** per **`.cursor/rules/changelog-mark-pushed-on-git-push.mdc`** — include that edit in the commit when possible; otherwise a tiny follow-up commit after push.
 
 ## Do not
 

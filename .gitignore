@@ -1,3 +1,6 @@
+# MkDocs local build output
+site/
+
 # Xcode / Swift
 build/
 DerivedData/
