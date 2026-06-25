@@ -14,6 +14,16 @@ struct DiveActivityBuddiesEditSheet: View {
     private var allBuddies: [DiveBuddy]
 
     @State private var showsAddBuddySheet = false
+    @State private var draftTaggedBuddyIDs: Set<UUID> = []
+    @State private var draftRosterOverrides: [UUID: DiveBuddy] = [:]
+
+    private var rosterByID: [UUID: DiveBuddy] {
+        var map = Dictionary(uniqueKeysWithValues: ownedBuddies.map { ($0.id, $0) })
+        for (id, buddy) in draftRosterOverrides {
+            map[id] = buddy
+        }
+        return map
+    }
 
     private var ownerProfileID: UUID? {
         accountSession.currentProfile?.id
@@ -63,7 +73,7 @@ struct DiveActivityBuddiesEditSheet: View {
                     } header: {
                         Text("Your buddies")
                     } footer: {
-                        Text("Tap a buddy to tag or remove them on this dive.")
+                        Text("Tap buddies to tag or remove them. Changes save when you tap Done.")
                     }
                 }
             }
@@ -90,7 +100,7 @@ struct DiveActivityBuddiesEditSheet: View {
 
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
-                        try? modelContext.save()
+                        commitDraftTaggedBuddies()
                         dismiss()
                     }
                     .fontWeight(.semibold)
@@ -100,23 +110,44 @@ struct DiveActivityBuddiesEditSheet: View {
             }
         }
         .diveActivityTagsSheetPresentation()
+        .onAppear(perform: reloadDraftTaggedBuddyIDs)
         .sheet(isPresented: $showsAddBuddySheet) {
-            DiveActivityAddBuddySheet(activity: activity)
+            DiveActivityAddBuddySheet(
+                activity: activity,
+                deferActivityTagging: true,
+                onBuddyCreated: { buddy in
+                    draftTaggedBuddyIDs.insert(buddy.id)
+                    draftRosterOverrides[buddy.id] = buddy
+                }
+            )
         }
         .accessibilityIdentifier("DiveBuddiesEditSheet.Root")
     }
 
+    private func reloadDraftTaggedBuddyIDs() {
+        draftTaggedBuddyIDs = DiveBuddyActivityTagDraftPresentation.taggedBuddyIDs(on: activity)
+    }
+
     private func isBuddyTaggedOnDive(_ buddy: DiveBuddy) -> Bool {
-        DiveBuddyActivityAssociation.isBuddyTagged(buddyID: buddy.id, on: activity)
+        draftTaggedBuddyIDs.contains(buddy.id)
     }
 
     private func toggleBuddyOnDive(_ buddy: DiveBuddy) {
-        if isBuddyTaggedOnDive(buddy) {
-            guard let tag = activity.buddies.first(where: { $0.buddyID == buddy.id }) else { return }
-            DiveBuddyActivityAssociation.removeTag(tag, from: activity, modelContext: modelContext)
+        if draftTaggedBuddyIDs.contains(buddy.id) {
+            draftTaggedBuddyIDs.remove(buddy.id)
         } else {
-            DiveBuddyActivityAssociation.tagBuddy(buddy, on: activity, modelContext: modelContext)
+            draftTaggedBuddyIDs.insert(buddy.id)
         }
+    }
+
+    private func commitDraftTaggedBuddies() {
+        DiveBuddyActivityTagDraftPresentation.apply(
+            draftTaggedBuddyIDs: draftTaggedBuddyIDs,
+            to: activity,
+            rosterByID: rosterByID,
+            modelContext: modelContext
+        )
+        try? modelContext.save()
     }
 }
 

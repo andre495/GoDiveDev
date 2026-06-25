@@ -455,6 +455,12 @@ struct LogOverviewView: View {
             modelContext: modelContext
         )
         homeAggregate = built
+        if let ownerProfileID {
+            OwnerDiveIndexSessionCache.publish(
+                activities: ownerDiveActivities,
+                ownerProfileID: ownerProfileID
+            )
+        }
         refreshCarouselHighlightsIfNeeded(using: built)
     }
 

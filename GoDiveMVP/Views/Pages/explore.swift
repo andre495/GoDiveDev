@@ -439,6 +439,12 @@ struct ExploreView: View {
                 catalog: catalog,
                 ownerActivities: activities
             )
+            if let profileID {
+                OwnerDiveIndexSessionCache.publish(
+                    activities: activities,
+                    ownerProfileID: profileID
+                )
+            }
             applyScopePresentation()
             return
         }
@@ -451,6 +457,12 @@ struct ExploreView: View {
             )
             guard !Task.isCancelled else { return }
             scopeCache = snapshot
+            if let profileID {
+                OwnerDiveIndexSessionCache.publish(
+                    activities: activities,
+                    ownerProfileID: profileID
+                )
+            }
             applyScopePresentation()
         }
     }

@@ -16,6 +16,7 @@ struct DiveBuddyDetailContentPager: View {
     let bottomScrollInset: CGFloat
     let onToggleFeaturedTaggedMedia: (() -> Void)?
     let onOpenDive: (UUID) -> Void
+    var onPageFirstMounted: ((DiveBuddyDetailContentPage) -> Void)? = nil
 
     @State private var selectedPage: DiveBuddyDetailContentPage = DiveBuddyDetailContentPagerPresentation.defaultPage
     @State private var mountedPages: Set<DiveBuddyDetailContentPage> = [
@@ -40,11 +41,17 @@ struct DiveBuddyDetailContentPager: View {
         .ignoresSafeArea(edges: .bottom)
         .accessibilityIdentifier("DiveBuddyDetails.ContentPager")
         .onAppear {
-            mountedPages.insert(selectedPage)
+            notePageFirstMounted(selectedPage)
         }
         .onChange(of: selectedPage) { _, page in
-            mountedPages.insert(page)
+            notePageFirstMounted(page)
         }
+    }
+
+    private func notePageFirstMounted(_ page: DiveBuddyDetailContentPage) {
+        let inserted = mountedPages.insert(page).inserted
+        guard inserted else { return }
+        onPageFirstMounted?(page)
     }
 
     @ViewBuilder

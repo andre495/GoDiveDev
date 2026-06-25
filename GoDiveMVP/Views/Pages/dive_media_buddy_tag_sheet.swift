@@ -110,9 +110,26 @@ struct DiveMediaBuddyTagPickerSheet: View {
     let onTagged: () -> Void
 
     @State private var taggedBuddyIDs: Set<UUID> = []
+    @State private var draftIncludesSelfWithoutBuddyID = false
+    @State private var draftRosterOverrides: [UUID: DiveBuddy] = [:]
     @State private var selfBuddyID: UUID?
     @State private var tagErrorMessage: String?
     @State private var showsAddBuddySheet = false
+
+    private var draftState: DiveMediaBuddyTagDraftPresentation.DraftState {
+        DiveMediaBuddyTagDraftPresentation.DraftState(
+            taggedBuddyIDs: taggedBuddyIDs,
+            includesSelfWithoutBuddyID: draftIncludesSelfWithoutBuddyID
+        )
+    }
+
+    private var rosterByID: [UUID: DiveBuddy] {
+        var map = Dictionary(uniqueKeysWithValues: ownedBuddies.map { ($0.id, $0) })
+        for (id, buddy) in draftRosterOverrides {
+            map[id] = buddy
+        }
+        return map
+    }
 
     private var ownerProfileID: UUID? {
         accountSession.currentProfile?.id
@@ -129,8 +146,7 @@ struct DiveMediaBuddyTagPickerSheet: View {
     }
 
     private var isSelfTaggedOnMedia: Bool {
-        guard let selfBuddyID else { return false }
-        return taggedBuddyIDs.contains(selfBuddyID)
+        draftState.isSelfTagged(selfBuddyID: selfBuddyID)
     }
 
     var body: some View {
@@ -139,7 +155,7 @@ struct DiveMediaBuddyTagPickerSheet: View {
                 if let owner = accountSession.currentProfile {
                     Section {
                         Button {
-                            saveSelfTag(owner: owner)
+                            toggleSelfTag(owner: owner)
                         } label: {
                             DiveMediaBuddySelfTagPickerRow(
                                 owner: owner,
@@ -147,7 +163,6 @@ struct DiveMediaBuddyTagPickerSheet: View {
                             )
                         }
                         .buttonStyle(.plain)
-                        .disabled(isSelfTaggedOnMedia)
                         .listRowInsets(EdgeInsets(
                             top: 0,
                             leading: AppTheme.Spacing.md,
@@ -179,7 +194,7 @@ struct DiveMediaBuddyTagPickerSheet: View {
                     Section {
                         ForEach(rosterBuddiesExcludingSelf, id: \.id) { buddy in
                             Button {
-                                saveTag(buddy)
+                                toggleTag(buddy)
                             } label: {
                                 DiveMediaBuddyTagPickerRow(
                                     buddy: buddy,
@@ -187,7 +202,6 @@ struct DiveMediaBuddyTagPickerSheet: View {
                                 )
                             }
                             .buttonStyle(.plain)
-                            .disabled(taggedBuddyIDs.contains(buddy.id))
                             .listRowInsets(EdgeInsets(
                                 top: 0,
                                 leading: AppTheme.Spacing.md,
@@ -230,14 +244,19 @@ struct DiveMediaBuddyTagPickerSheet: View {
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
+                    Button("Done") {
+                        commitDraftTags()
+                    }
                         .fontWeight(.semibold)
                         .foregroundStyle(AppTheme.Colors.tabSelected)
                         .accessibilityIdentifier("DiveMediaBuddyTagPicker.Done")
                 }
             }
-            .sheet(isPresented: $showsAddBuddySheet, onDismiss: reloadTaggedBuddyIDs) {
-                DiveActivityAddBuddySheet(activity: dive)
+            .sheet(isPresented: $showsAddBuddySheet) {
+                DiveActivityAddBuddySheet { buddy in
+                    taggedBuddyIDs.insert(buddy.id)
+                    draftRosterOverrides[buddy.id] = buddy
+                }
             }
         }
         .diveActivityTagsSheetPresentation()
@@ -257,55 +276,49 @@ struct DiveMediaBuddyTagPickerSheet: View {
     }
 
     private func reloadTaggedBuddyIDs() {
-        taggedBuddyIDs = DiveMediaBuddyTagPresentation.taggedBuddyIDs(
+        let tags = (try? DiveMediaBuddyAssociation.tags(
+            forMediaPhotoID: media.id,
+            modelContext: modelContext
+        )) ?? []
+        let draft = DiveMediaBuddyTagDraftPresentation.DraftState(
             mediaPhotoID: media.id,
-            tags: (try? DiveMediaBuddyAssociation.tags(
-                forMediaPhotoID: media.id,
-                modelContext: modelContext
-            )) ?? []
+            tags: tags
         )
-        if let owner = accountSession.currentProfile {
-            selfBuddyID = try? DiveBuddySelfRepresentation.existingSelfBuddy(
-                owner: owner,
-                modelContext: modelContext
-            )?.id
+        taggedBuddyIDs = draft.taggedBuddyIDs
+        draftIncludesSelfWithoutBuddyID = draft.includesSelfWithoutBuddyID
+        selfBuddyID = DiveBuddySelfRepresentation.resolveSelfBuddyID(
+            owner: accountSession.currentProfile,
+            modelContext: modelContext
+        )
+    }
+
+    private func toggleSelfTag(owner: UserProfile) {
+        var draft = draftState
+        draft.toggleSelf(selfBuddyID: selfBuddyID)
+        taggedBuddyIDs = draft.taggedBuddyIDs
+        draftIncludesSelfWithoutBuddyID = draft.includesSelfWithoutBuddyID
+    }
+
+    private func toggleTag(_ buddy: DiveBuddy) {
+        if taggedBuddyIDs.contains(buddy.id) {
+            taggedBuddyIDs.remove(buddy.id)
         } else {
-            selfBuddyID = nil
-        }
-    }
-
-    private func saveSelfTag(owner: UserProfile) {
-        guard !isSelfTaggedOnMedia else { return }
-
-        do {
-            let tag = try DiveMediaBuddyAssociation.tagSelf(
-                owner: owner,
-                on: media,
-                dive: dive,
-                modelContext: modelContext
-            )
-            if let buddyID = tag.buddyID {
-                selfBuddyID = buddyID
-                taggedBuddyIDs.insert(buddyID)
-            }
-            onTagged()
-        } catch {
-            tagErrorMessage = error.localizedDescription
-        }
-    }
-
-    private func saveTag(_ buddy: DiveBuddy) {
-        guard !taggedBuddyIDs.contains(buddy.id) else { return }
-
-        do {
-            _ = try DiveMediaBuddyAssociation.tagBuddy(
-                buddy,
-                on: media,
-                dive: dive,
-                modelContext: modelContext
-            )
             taggedBuddyIDs.insert(buddy.id)
+        }
+    }
+
+    private func commitDraftTags() {
+        do {
+            try DiveMediaBuddyTagDraftPresentation.apply(
+                draft: draftState,
+                media: media,
+                dive: dive,
+                owner: accountSession.currentProfile,
+                rosterByID: rosterByID,
+                modelContext: modelContext
+            )
             onTagged()
+            dismiss()
         } catch {
             tagErrorMessage = error.localizedDescription
         }

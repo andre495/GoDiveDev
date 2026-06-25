@@ -7,18 +7,15 @@ struct ExploreDiveSiteDetailView: View {
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @Environment(AccountSession.self) private var accountSession
 
-    @Query(sort: \MarineLife.commonName) private var marineLifeCatalog: [MarineLife]
-    @Query private var ownerDiveActivities: [DiveActivity]
-    @Query private var siteSightings: [SightingInstance]
-
     @Bindable var site: DiveSite
+    let ownerProfileID: UUID?
     let onOpenDive: (UUID) -> Void
 
-    @State private var siteHeroMode: PushedDetailHeroHeaderView.Mode = .media
+    @State private var contentSnapshot = ExploreDiveSiteDetailContentSnapshot.empty
+    @State private var siteHeroMode: PushedDetailHeroHeaderView.Mode
     @State private var heroTaggedMediaID: UUID?
-    @State private var ownerDiveQueryReady = false
-    @State private var lastResolvedHadTaggedMedia = false
-    @State private var hasCompletedInitialHeroSync = false
+    @State private var showsDeferredHeroMap = false
+    @State private var hasLoadedMarineLifeEnrichment = false
 
     init(
         site: DiveSite,
@@ -26,95 +23,64 @@ struct ExploreDiveSiteDetailView: View {
         onOpenDive: @escaping (UUID) -> Void = { _ in }
     ) {
         self.site = site
+        self.ownerProfileID = ownerProfileID
         self.onOpenDive = onOpenDive
-        let diveSiteID = site.id
-        let ownerFilterID = ownerProfileID ?? Self.noOwnerQueryToken
-        _ownerDiveActivities = Query(
-            filter: #Predicate<DiveActivity> { $0.ownerProfileID == ownerFilterID },
-            sort: [
-                SortDescriptor(\DiveActivity.startTime, order: .reverse),
-                SortDescriptor(\DiveActivity.id, order: .forward),
-            ]
+
+        let relationshipActivities = ExploreDiveSiteDetailContentSnapshotBuilder.siteActivitiesFromRelationships(
+            site: site,
+            ownerProfileID: ownerProfileID
         )
-        _siteSightings = Query(
-            filter: #Predicate<SightingInstance> { $0.diveSiteID == diveSiteID },
-            sort: [SortDescriptor(\.sightingDateTime, order: .reverse)]
+        let initialSnapshot = ExploreDiveSiteDetailContentSnapshotBuilder.buildLight(
+            site: site,
+            siteActivities: relationshipActivities,
+            ownerProfileID: ownerProfileID,
+            unitSystem: AppUserSettings.diveDisplayUnitSystem()
         )
-    }
-
-    private var catalogByUUID: [String: MarineLifeCatalogSnapshot] {
-        Dictionary(uniqueKeysWithValues: marineLifeCatalog.map {
-            ($0.uuid, $0.fieldGuideCatalogSnapshot)
-        })
-    }
-
-    private var ownerDiveActivityIDs: Set<UUID> {
-        Set(ownerDiveActivities.map(\.id))
-    }
-
-    private var siteDiveActivities: [DiveActivity] {
-        ExploreDiveSiteMediaPresentation.siteDiveActivities(
-            diveSiteID: site.id,
-            ownerProfileID: accountSession.currentProfile?.id,
-            activities: ownerDiveActivities
-        )
-    }
-
-    private var siteLinkedMediaItems: [TripDetailLinkedMediaItem] {
-        ExploreDiveSiteMediaPresentation.linkedMediaItems(from: siteDiveActivities)
-    }
-
-    private var taggedMediaItems: [DiveMediaPhoto] {
-        ExploreDiveSiteMediaPresentation.mediaPhotos(
-            siteActivities: siteDiveActivities,
-            linkedItems: siteLinkedMediaItems
-        )
-    }
-
-    private var taggedMediaTimeZoneOffsetByID: [UUID: Int?] {
-        ExploreDiveSiteMediaPresentation.timeZoneOffsetByMediaID(
-            siteActivities: siteDiveActivities,
-            linkedItems: siteLinkedMediaItems
-        )
-    }
-
-    private var sightedSpeciesLinks: [DiveSiteMarineLifePresentation.SightedSpeciesLinkData] {
-        DiveSiteMarineLifePresentation.sightedSpeciesLinks(
-            diveSiteID: site.id,
-            ownerProfileID: accountSession.currentProfile?.id,
-            sightings: siteSightings,
-            ownerDiveActivityIDs: ownerDiveActivityIDs,
-            catalogByUUID: catalogByUUID
-        )
-    }
-
-    private var siteActivityLinks: [FieldGuidePresentation.SightedActivityLinkData] {
-        let snapshots = ownerDiveActivities.map {
-            DiveActivitySightingLinkSnapshot(
-                id: $0.id,
-                diveSiteID: $0.diveSiteID,
-                resolvedSiteName: $0.resolvedSiteName,
-                startTime: $0.startTime,
-                timeZoneOffsetSeconds: $0.timeZoneOffsetSeconds
+        _contentSnapshot = State(initialValue: initialSnapshot)
+        _heroTaggedMediaID = State(
+            initialValue: ExploreDiveSiteDetailPresentation.initialHeroTaggedMediaPhotoID(
+                from: initialSnapshot.taggedMediaItems
             )
-        }
-        return DiveSiteMarineLifePresentation.siteActivityLinks(
-            diveSiteID: site.id,
-            ownerProfileID: accountSession.currentProfile?.id,
-            activities: snapshots
+        )
+
+        let mapPins = ExploreDiveSiteDetailPresentation.mapPins(for: site)
+        _siteHeroMode = State(
+            initialValue: mapPins.isEmpty ? .media : .map
         )
     }
 
-    private var siteDiveRows: [DiveLogbookRowDisplayData] {
-        FieldGuidePresentation.sightedDiveRowDisplayData(
-            activityIDs: siteActivityLinks.map(\.id),
-            activities: ownerDiveActivities,
-            unitSystem: diveDisplayUnitSystem
+    private var displayRecord: DiveSiteDisplayRecord {
+        DiveSitePresentation.listRecord(for: site)
+    }
+
+    private var mapPins: [TripDetailMapPin] {
+        ExploreDiveSiteDetailPresentation.mapPins(for: site)
+    }
+
+    private var showsHeroModeToggle: Bool {
+        ExploreDiveSiteDetailPresentation.showsHeroModeToggle(
+            hasTaggedMedia: !contentSnapshot.taggedMediaItems.isEmpty,
+            hasMapPin: !mapPins.isEmpty
+        )
+    }
+
+    private var expectsHeroTaggedMedia: Bool {
+        if !contentSnapshot.taggedMediaItems.isEmpty { return true }
+        guard accountSession.currentProfile != nil else { return false }
+        return ExploreDiveSiteMediaPresentation.expectsHeroMedia(
+            siteActivities: contentSnapshot.siteDiveActivities
+        )
+    }
+
+    private var heroTaggedMedia: DiveMediaPhoto? {
+        DiveActivityMediaPresentation.selectedMedia(
+            selectedID: heroTaggedMediaID,
+            in: contentSnapshot.taggedMediaItems
         )
     }
 
     private var ownerHasVisitedSite: Bool {
-        accountSession.currentProfile != nil && !siteDiveActivities.isEmpty
+        accountSession.currentProfile != nil && !contentSnapshot.siteDiveActivities.isEmpty
     }
 
     private var isStarRatingEditable: Bool {
@@ -128,44 +94,17 @@ struct ExploreDiveSiteDetailView: View {
         DiveSitePresentation.displayPinnedStarRating(from: site.siteRating)
     }
 
-    private var displayRecord: DiveSiteDisplayRecord {
-        DiveSitePresentation.listRecord(for: site)
-    }
-
-    private var mapPins: [TripDetailMapPin] {
-        ExploreDiveSiteDetailPresentation.mapPins(for: site)
-    }
-
-    private var showsHeroModeToggle: Bool {
-        ExploreDiveSiteDetailPresentation.showsHeroModeToggle(
-            hasTaggedMedia: !taggedMediaItems.isEmpty,
-            hasMapPin: !mapPins.isEmpty
-        )
-    }
-
-    private var expectsHeroTaggedMedia: Bool {
-        if !taggedMediaItems.isEmpty { return true }
-        guard accountSession.currentProfile != nil else { return false }
-        return ExploreDiveSiteMediaPresentation.expectsHeroMedia(siteActivities: siteDiveActivities)
-    }
-
-    private var heroTaggedMedia: DiveMediaPhoto? {
-        DiveActivityMediaPresentation.selectedMedia(
-            selectedID: heroTaggedMediaID,
-            in: taggedMediaItems
-        )
-    }
-
-    private var linkedMediaItems: [TripDetailLinkedMediaItem] {
-        siteLinkedMediaItems
-    }
-
-    private var taggedMediaRefreshToken: String {
-        ExploreDiveSiteMediaPresentation.galleryRefreshToken(
-            diveSiteID: site.id,
-            ownerProfileID: accountSession.currentProfile?.id,
-            activities: ownerDiveActivities
-        )
+    private var siteDetailContentToken: String {
+        [
+            site.id.uuidString,
+            accountSession.currentProfile?.id.uuidString ?? "nil",
+            diveDisplayUnitSystem.rawValue,
+            ExploreDiveSiteMediaPresentation.galleryRefreshToken(
+                diveSiteID: site.id,
+                ownerProfileID: accountSession.currentProfile?.id,
+                activities: contentSnapshot.siteDiveActivities
+            ),
+        ].joined(separator: "|")
     }
 
     var body: some View {
@@ -175,11 +114,11 @@ struct ExploreDiveSiteDetailView: View {
             hero: { context in
                 PushedDetailHeroHeaderView(
                     media: heroTaggedMedia,
-                    mapPins: mapPins,
+                    mapPins: showsDeferredHeroMap ? mapPins : [],
                     mapFitLayout: context.mapFitLayout(),
                     height: context.heroHeight,
                     expectsTaggedMedia: expectsHeroTaggedMedia,
-                    isMapContentReady: true,
+                    isMapContentReady: showsDeferredHeroMap,
                     shouldAutoPlaySelectedVideo: DiveBuddyDetailPresentation.shouldAutoPlaySelectedVideo(
                         for: heroTaggedMedia
                     ),
@@ -200,17 +139,18 @@ struct ExploreDiveSiteDetailView: View {
             panelContent: { bottomScrollInset in
                 ExploreDiveSiteDetailContentPager(
                     displayRecord: displayRecord,
-                    siteDiveRows: siteDiveRows,
-                    sightedSpeciesLinks: sightedSpeciesLinks,
-                    taggedMediaItems: taggedMediaItems,
-                    taggedMediaTimeZoneOffsetByID: taggedMediaTimeZoneOffsetByID,
-                    linkedMediaItems: linkedMediaItems,
-                    mediaSightings: siteSightings,
-                    marineLifeCatalog: marineLifeCatalog,
+                    siteDiveRows: contentSnapshot.siteDiveRows,
+                    sightedSpeciesLinks: contentSnapshot.sightedSpeciesLinks,
+                    taggedMediaItems: contentSnapshot.taggedMediaItems,
+                    taggedMediaTimeZoneOffsetByID: contentSnapshot.taggedMediaTimeZoneOffsetByID,
+                    linkedMediaItems: contentSnapshot.linkedMediaItems,
+                    mediaSightings: contentSnapshot.siteSightings,
+                    marineLifeCatalog: contentSnapshot.marineLifeCatalog,
                     ownerProfileID: accountSession.currentProfile?.id,
                     gallerySelectedMediaID: $heroTaggedMediaID,
                     bottomScrollInset: bottomScrollInset,
-                    onOpenDive: onOpenDive
+                    onOpenDive: onOpenDive,
+                    onPageFirstMounted: handleSitePagerPageFirstMounted
                 )
                 .padding(.horizontal, AppTheme.Spacing.md)
             },
@@ -225,27 +165,71 @@ struct ExploreDiveSiteDetailView: View {
                 }
             }
         )
-        .onAppear {
-            DiveMediaScopeCache.shared.activateScope(.diveSite(site.id))
-            if accountSession.currentProfile == nil {
-                ownerDiveQueryReady = true
-            }
+        .task(id: siteDetailContentToken, priority: .userInitiated) {
+            await Task.yield()
+
+            try? await Task.sleep(for: PushedNavigationDeferralPresentation.afterPushMapDeferral)
+            guard !Task.isCancelled else { return }
+            showsDeferredHeroMap = true
             syncHeroPresentation()
+
+            rebuildSiteDetailContent(includeMarineLifeEnrichment: hasLoadedMarineLifeEnrichment)
+        }
+        .onAppear {
+            DiveMediaPreviewStorage.seedSessionCache(for: contentSnapshot.taggedMediaItems)
+            DiveMediaScopeCache.shared.activateScope(.diveSite(site.id))
         }
         .onDisappear {
             DiveMediaScopeCache.shared.deactivateScope(.diveSite(site.id))
-        }
-        .onChange(of: ownerDiveActivities.count, initial: true) { _, _ in
-            ownerDiveQueryReady = true
-            syncHeroPresentation()
-        }
-        .onChange(of: taggedMediaRefreshToken) { _, _ in
-            syncHeroPresentation()
         }
         .onChange(of: mapPins.count) { _, count in
             if count == 0, siteHeroMode == .map {
                 siteHeroMode = .media
             }
+        }
+    }
+
+    private func rebuildSiteDetailContent(includeMarineLifeEnrichment: Bool) {
+        let siteActivities: [DiveActivity]
+        if let ownerProfileID {
+            siteActivities = ExploreDiveSiteDetailContentSnapshotBuilder.fetchSiteDiveActivities(
+                diveSiteID: site.id,
+                ownerProfileID: ownerProfileID,
+                modelContext: modelContext
+            )
+        } else {
+            siteActivities = []
+        }
+
+        var snapshot = ExploreDiveSiteDetailContentSnapshotBuilder.buildLight(
+            site: site,
+            siteActivities: siteActivities,
+            ownerProfileID: ownerProfileID ?? accountSession.currentProfile?.id,
+            unitSystem: diveDisplayUnitSystem
+        )
+
+        if includeMarineLifeEnrichment {
+            snapshot = ExploreDiveSiteDetailContentSnapshotBuilder.enrichMarineLife(
+                snapshot: snapshot,
+                site: site,
+                ownerProfileID: ownerProfileID ?? accountSession.currentProfile?.id,
+                modelContext: modelContext
+            )
+            hasLoadedMarineLifeEnrichment = true
+        }
+
+        contentSnapshot = snapshot
+        syncHeroPresentation()
+    }
+
+    private func handleSitePagerPageFirstMounted(_ page: ExploreDiveSiteDetailContentPage) {
+        guard !hasLoadedMarineLifeEnrichment else { return }
+        switch page {
+        case .marineLifeHere, .taggedMedia:
+            hasLoadedMarineLifeEnrichment = true
+            rebuildSiteDetailContent(includeMarineLifeEnrichment: true)
+        case .diveDetails, .divesHere:
+            break
         }
     }
 
@@ -258,28 +242,13 @@ struct ExploreDiveSiteDetailView: View {
     private func syncHeroPresentation() {
         syncHeroTaggedMediaSelection()
 
-        let hasMedia = !taggedMediaItems.isEmpty
+        let hasMedia = !contentSnapshot.taggedMediaItems.isEmpty
         let hasMap = !mapPins.isEmpty
-        let canDefault = ExploreDiveSiteDetailPresentation.canDefaultHeroMode(
-            hasOwnerProfile: accountSession.currentProfile != nil,
-            ownerDiveQueryReady: ownerDiveQueryReady
-        )
 
-        if hasMedia && !lastResolvedHadTaggedMedia {
+        if hasMedia {
             siteHeroMode = .media
-            hasCompletedInitialHeroSync = true
-        } else if canDefault, !hasCompletedInitialHeroSync {
-            if hasMedia {
-                siteHeroMode = .media
-            } else if ExploreDiveSiteDetailPresentation.prefersMapHero(
-                hasTaggedMedia: false,
-                hasMapPin: hasMap
-            ) {
-                siteHeroMode = .map
-            } else {
-                siteHeroMode = .media
-            }
-            hasCompletedInitialHeroSync = true
+        } else if hasMap {
+            siteHeroMode = .map
         }
 
         enforceSingleModeHeroWhenToggleHidden()
@@ -287,12 +256,10 @@ struct ExploreDiveSiteDetailView: View {
         if !hasMap, siteHeroMode == .map {
             siteHeroMode = .media
         }
-
-        lastResolvedHadTaggedMedia = hasMedia
     }
 
     private func enforceSingleModeHeroWhenToggleHidden() {
-        let hasMedia = !taggedMediaItems.isEmpty
+        let hasMedia = !contentSnapshot.taggedMediaItems.isEmpty
         let hasMap = !mapPins.isEmpty
         guard !ExploreDiveSiteDetailPresentation.showsHeroModeToggle(
             hasTaggedMedia: hasMedia,
@@ -307,21 +274,18 @@ struct ExploreDiveSiteDetailView: View {
     }
 
     private func syncHeroTaggedMediaSelection() {
-        guard !taggedMediaItems.isEmpty else {
+        guard !contentSnapshot.taggedMediaItems.isEmpty else {
             heroTaggedMediaID = nil
             return
         }
         if let heroTaggedMediaID,
-           taggedMediaItems.contains(where: { $0.id == heroTaggedMediaID }) {
+           contentSnapshot.taggedMediaItems.contains(where: { $0.id == heroTaggedMediaID }) {
             return
         }
         heroTaggedMediaID = ExploreDiveSiteDetailPresentation.initialHeroTaggedMediaPhotoID(
-            from: taggedMediaItems
+            from: contentSnapshot.taggedMediaItems
         )
     }
-
-    /// Sentinel **`ownerProfileID`** so **`@Query`** returns no dives when signed out.
-    private static let noOwnerQueryToken = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
 }
 
 /// Explore stack routes (shared with **`ExploreView`**).

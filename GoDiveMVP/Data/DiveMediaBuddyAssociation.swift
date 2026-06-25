@@ -42,7 +42,8 @@ enum DiveMediaBuddyAssociation {
         on media: DiveMediaPhoto,
         dive: DiveActivity,
         modelContext: ModelContext,
-        tagID: UUID = UUID()
+        tagID: UUID = UUID(),
+        persistImmediately: Bool = true
     ) throws -> DiveMediaBuddyTag {
         if let existing = try existingTag(
             buddyID: buddy.id,
@@ -62,9 +63,34 @@ enum DiveMediaBuddyAssociation {
         DiveActivityChildRecordLinking.link(tag, to: dive)
         dive.mediaBuddyTags.append(tag)
         buddy.mediaBuddyTags.append(tag)
-        try modelContext.save()
-        DiveActivityMediaStorage.postMediaDidChange()
+        if persistImmediately {
+            try modelContext.save()
+            DiveActivityMediaStorage.postMediaDidChange()
+        }
         return tag
+    }
+
+    static func removeBuddyTag(
+        buddyID: UUID,
+        from media: DiveMediaPhoto,
+        dive: DiveActivity,
+        modelContext: ModelContext
+    ) throws {
+        guard let tag = try existingTag(
+            buddyID: buddyID,
+            mediaPhotoID: media.id,
+            modelContext: modelContext
+        ) else { return }
+
+        dive.mediaBuddyTags.removeAll { $0.id == tag.id }
+        tag.buddy?.mediaBuddyTags.removeAll { $0.id == tag.id }
+        modelContext.delete(tag)
+
+        let stillTaggedOnDiveMedia = dive.mediaBuddyTags.contains { $0.buddyID == buddyID }
+        if !stillTaggedOnDiveMedia,
+           let diveTag = dive.buddies.first(where: { $0.buddyID == buddyID }) {
+            DiveBuddyActivityAssociation.removeTag(diveTag, from: dive, modelContext: modelContext)
+        }
     }
 
     @discardableResult

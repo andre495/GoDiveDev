@@ -1,10 +1,35 @@
 import Foundation
+import SwiftUI
 
 /// Toolbar and Fishial affordances on **`DiveMarineLifeMediaTagsSheet`**.
 enum DiveMarineLifeTagSheetPresentation {
     nonisolated static var showsFishialIdentifyAction: Bool {
         FishialSecretsBootstrap.isConfigured
     }
+
+    /// Spacing between manual **+** and Fishial **sparkles** on the leading toolbar cluster.
+    nonisolated static let leadingToolbarSpacing: CGFloat = 4
+
+    /// Pink → purple gradient for the Fishial AI affordance (always visible when configured).
+    nonisolated static var fishialIdentifyIconGradient: LinearGradient {
+        LinearGradient(
+            colors: [fishialIdentifyGradientLeading, fishialIdentifyGradientTrailing],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    nonisolated static let fishialIdentifyGradientLeading = Color(
+        red: 0.96,
+        green: 0.42,
+        blue: 0.74
+    )
+
+    nonisolated static let fishialIdentifyGradientTrailing = Color(
+        red: 0.58,
+        green: 0.34,
+        blue: 0.96
+    )
 
     nonisolated static func fishialIdentifyIsActive(confirmedSpeciesName: String?) -> Bool {
         DiveActivityMediaPresentation.fishialIdentifyControlIsActive(

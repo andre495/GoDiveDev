@@ -125,6 +125,37 @@ extension DiveBuddyDetailPresentation {
         )
     }
 
+    /// Dive ids for tagged-media resolution — shared dives + tagged dives only (not the full owner logbook).
+    nonisolated static func mediaScopeDiveActivityIDs(
+        sharedDiveActivities: [DiveActivity],
+        mediaTags: [DiveMediaBuddyTag]
+    ) -> Set<UUID> {
+        var ids = Set(sharedDiveActivities.map(\.id))
+        for tag in mediaTags {
+            if let activityID = tag.diveActivityID {
+                ids.insert(activityID)
+            }
+        }
+        return ids
+    }
+
+    nonisolated static func catalogSitesFromSharedDives(_ sharedDives: [DiveActivity]) -> [DiveSite] {
+        var byID: [UUID: DiveSite] = [:]
+        for dive in sharedDives {
+            if let site = dive.diveSite {
+                byID[site.id] = site
+            }
+        }
+        return Array(byID.values)
+    }
+
+    nonisolated static func initialMapPins(from sharedDives: [DiveActivity]) -> [TripDetailMapPin] {
+        DiveBuddyDetailMapPresentation.pins(
+            from: sharedDives,
+            catalogSites: catalogSitesFromSharedDives(sharedDives)
+        )
+    }
+
     /// Fast first-frame dive list from pushed **`DiveBuddy`** relationships (logbook **#** refresh follows).
     @MainActor
     static func initialSharedDiveContent(
@@ -155,18 +186,7 @@ extension DiveBuddyDetailPresentation {
         let timeZoneOffsetByActivityID: [UUID: Int?]
     }
 
-    nonisolated static func fetchOwnerDiveIndex(
-        ownerProfileID: UUID,
-        modelContext: ModelContext
-    ) -> OwnerDiveIndex {
-        let descriptor = FetchDescriptor<DiveActivity>(
-            predicate: #Predicate { $0.ownerProfileID == ownerProfileID },
-            sortBy: [
-                SortDescriptor(\.startTime, order: .reverse),
-                SortDescriptor(\.id, order: .forward),
-            ]
-        )
-        let activities = (try? modelContext.fetch(descriptor)) ?? []
+    nonisolated static func ownerDiveIndex(from activities: [DiveActivity]) -> OwnerDiveIndex {
         let numberingRows = activities.map {
             DiveActivityDiveNumbering.NumberingRow(
                 id: $0.id,
@@ -181,6 +201,21 @@ extension DiveBuddyDetailPresentation {
             numberingRows: numberingRows,
             timeZoneOffsetByActivityID: timeZoneOffsetByActivityID
         )
+    }
+
+    nonisolated static func fetchOwnerDiveIndex(
+        ownerProfileID: UUID,
+        modelContext: ModelContext
+    ) -> OwnerDiveIndex {
+        let descriptor = FetchDescriptor<DiveActivity>(
+            predicate: #Predicate { $0.ownerProfileID == ownerProfileID },
+            sortBy: [
+                SortDescriptor(\.startTime, order: .reverse),
+                SortDescriptor(\.id, order: .forward),
+            ]
+        )
+        let activities = (try? modelContext.fetch(descriptor)) ?? []
+        return ownerDiveIndex(from: activities)
     }
 
     nonisolated static func fetchOwnerTrips(

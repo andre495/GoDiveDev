@@ -46,40 +46,15 @@ struct DiveMarineLifeMediaTagsSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        showsTagPicker = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(AppTheme.Colors.tabSelected)
-                            .frame(minWidth: 44, minHeight: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Tag marine life")
-                    .accessibilityIdentifier("DiveMarineLifeMediaTags.AddTag")
+                    DiveMarineLifeTagSheetLeadingToolbar(
+                        showsFishialIdentifyAction: showsFishialIdentifyAction,
+                        fishialIdentifyIsActive: fishialIdentifyIsActive,
+                        onAddTag: { showsTagPicker = true },
+                        onIdentifyFish: { showsFishialIdentifySheet = true }
+                    )
                 }
 
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    if showsFishialIdentifyAction {
-                        Button {
-                            showsFishialIdentifySheet = true
-                        } label: {
-                            Image(systemName: "sparkles")
-                                .font(.title3.weight(.semibold))
-                                .foregroundStyle(
-                                    fishialIdentifyIsActive
-                                        ? AppTheme.Colors.accent
-                                        : AppTheme.Colors.tabUnselected
-                                )
-                                .frame(minWidth: 44, minHeight: 44)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Identify fish")
-                        .accessibilityIdentifier("DiveMarineLifeMediaTags.IdentifyFish")
-                    }
-
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
                         .fontWeight(.semibold)
                         .foregroundStyle(AppTheme.Colors.tabSelected)
@@ -146,6 +121,44 @@ struct DiveMarineLifeMediaTagsSheet: View {
             catalog: catalog,
             unitSystem: diveDisplayUnitSystem
         )
+    }
+}
+
+// MARK: - Leading toolbar (+ tag + Fishial AI)
+
+private struct DiveMarineLifeTagSheetLeadingToolbar: View {
+    let showsFishialIdentifyAction: Bool
+    let fishialIdentifyIsActive: Bool
+    let onAddTag: () -> Void
+    let onIdentifyFish: () -> Void
+
+    var body: some View {
+        HStack(spacing: DiveMarineLifeTagSheetPresentation.leadingToolbarSpacing) {
+            Button(action: onAddTag) {
+                Image(systemName: "plus")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.tabSelected)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Tag marine life")
+            .accessibilityIdentifier("DiveMarineLifeMediaTags.AddTag")
+
+            if showsFishialIdentifyAction {
+                Button(action: onIdentifyFish) {
+                    Image(systemName: "sparkles")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(DiveMarineLifeTagSheetPresentation.fishialIdentifyIconGradient)
+                        .opacity(fishialIdentifyIsActive ? 1 : 0.92)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Identify fish with AI")
+                .accessibilityIdentifier("DiveMarineLifeMediaTags.IdentifyFish")
+            }
+        }
     }
 }
 

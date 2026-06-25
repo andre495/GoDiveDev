@@ -272,6 +272,173 @@ struct GoDiveMVPTests {
         #expect(seeded.rows[0].displayName == LogbookActivityRow.displayName(for: dive))
     }
 
+    @Test @MainActor func ownerDiveIndexSessionCache_reusesPublishedOwnerIndex() {
+        OwnerDiveIndexSessionCache.resetForTesting()
+        defer { OwnerDiveIndexSessionCache.resetForTesting() }
+
+        let ownerID = UUID()
+        let older = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        older.ownerProfileID = ownerID
+        older.timeZoneOffsetSeconds = -18_000
+        let newer = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 1_800_000_000),
+            durationMinutes: 50,
+            maxDepthMeters: 24
+        )
+        newer.ownerProfileID = ownerID
+
+        OwnerDiveIndexSessionCache.publish(activities: [newer, older], ownerProfileID: ownerID)
+        let cached = OwnerDiveIndexSessionCache.resolve(ownerProfileID: ownerID)
+
+        #expect(cached?.numberingRows.count == 2)
+        #expect(cached?.numberingRows[0].id == newer.id)
+        #expect(cached?.timeZoneOffsetByActivityID[older.id] == -18_000)
+    }
+
+    @Test func diveBuddyDetailPresentation_ownerDiveIndex_buildsNumberingRowsFromActivities() {
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        dive.ownerProfileID = UUID()
+        dive.diveNumberExplicitlyNone = true
+
+        let index = DiveBuddyDetailPresentation.ownerDiveIndex(from: [dive])
+        #expect(index.numberingRows.count == 1)
+        #expect(index.numberingRows[0].id == dive.id)
+        #expect(index.numberingRows[0].diveNumberExplicitlyNone == true)
+        #expect(index.timeZoneOffsetByActivityID[dive.id] == dive.timeZoneOffsetSeconds)
+    }
+
+    @Test func pushedNavigationDeferralPresentation_afterPushDelay_matchesTripAutoLinkDeferral() {
+        #expect(PushedNavigationDeferralPresentation.afterPushDelay == .milliseconds(300))
+    }
+
+    @Test func diveBuddyDetailPresentation_mediaScopeDiveActivityIDs_usesSharedDivesNotFullOwnerLogbook() {
+        let sharedDiveID = UUID()
+        let taggedOnlyDiveID = UUID()
+        let buddy = DiveBuddy(displayName: "Pat")
+        let sharedDive = DiveActivity(
+            source: .manual,
+            startTime: .now,
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        sharedDive.id = sharedDiveID
+
+        let taggedDive = DiveActivity(
+            source: .manual,
+            startTime: .now.addingTimeInterval(-86_400),
+            durationMinutes: 35,
+            maxDepthMeters: 15
+        )
+        taggedDive.id = taggedOnlyDiveID
+        let tag = DiveMediaBuddyTag(buddy: buddy, diveActivity: taggedDive)
+
+        let scoped = DiveBuddyDetailPresentation.mediaScopeDiveActivityIDs(
+            sharedDiveActivities: [sharedDive],
+            mediaTags: [tag]
+        )
+        #expect(scoped == [sharedDiveID, taggedOnlyDiveID])
+        #expect(scoped.count == 2)
+    }
+
+    @Test @MainActor func diveBuddyDetailPresentation_numberedRows_seedFromOwnerIndexCache() {
+        OwnerDiveIndexSessionCache.resetForTesting()
+        defer { OwnerDiveIndexSessionCache.resetForTesting() }
+
+        let owner = UserProfile(appleUserIdentifier: "buddy-number-cache", displayName: "Owner")
+        let buddy = DiveBuddy(displayName: "Pat", owner: owner)
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        dive.ownerProfileID = owner.id
+        let tag = DiveBuddyTag(buddy: buddy, dive: dive)
+        buddy.diveParticipations.append(tag)
+
+        OwnerDiveIndexSessionCache.publish(activities: [dive], ownerProfileID: owner.id)
+        let seeded = DiveBuddyDetailPresentation.initialSharedDiveContent(for: buddy)
+        guard let index = OwnerDiveIndexSessionCache.resolve(ownerProfileID: owner.id) else {
+            Issue.record("Expected cached owner dive index")
+            return
+        }
+
+        let rows = DiveBuddyRosterPresentation.sharedDiveRowDisplayData(
+            sharedDives: seeded.sharedDives,
+            unitSystem: .metric,
+            useChronologicalNumbers: true,
+            numberingRows: index.numberingRows
+        )
+        #expect(rows.count == 1)
+    }
+
+    @Test func diveBuddyDetailPresentation_initialMapPins_buildsFromSharedDives() {
+        let site = DiveSite(siteName: "Reef", latCoords: 18.0, longCoords: -66.0)
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: .now,
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        dive.diveSite = site
+        dive.diveSiteID = site.id
+
+        let pins = DiveBuddyDetailPresentation.initialMapPins(from: [dive])
+        #expect(pins.count == 1)
+        #expect(pins[0].siteID == site.id)
+    }
+
+    @Test func exploreDiveSiteDetailContentSnapshotBuilder_siteActivitiesFromRelationships_filtersOwner() {
+        let ownerID = UUID()
+        let otherOwnerID = UUID()
+        let site = DiveSite(siteName: "Reef")
+
+        let ownerDive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 2_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        ownerDive.ownerProfileID = ownerID
+        ownerDive.diveSite = site
+
+        let otherDive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 3_000),
+            durationMinutes: 35,
+            maxDepthMeters: 15
+        )
+        otherDive.ownerProfileID = otherOwnerID
+        otherDive.diveSite = site
+
+        site.diveActivities = [ownerDive, otherDive]
+
+        let filtered = ExploreDiveSiteDetailContentSnapshotBuilder.siteActivitiesFromRelationships(
+            site: site,
+            ownerProfileID: ownerID
+        )
+        #expect(filtered.count == 1)
+        #expect(filtered[0].id == ownerDive.id)
+    }
+
+    @Test func pushedNavigationDeferralPresentation_afterPushMapDeferral_matchesAfterPushDelay() {
+        #expect(
+            PushedNavigationDeferralPresentation.afterPushMapDeferral
+                == PushedNavigationDeferralPresentation.afterPushDelay
+        )
+    }
+
     @Test @MainActor func homeOverviewPushedLayoutPresentation_pushedPageSeamInputs_usesDefaultBandWithoutStoreScan() {
         let inputs = HomeOverviewPushedLayoutPresentation.pushedPageSeamInputs()
         #expect(
@@ -4250,6 +4417,20 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func diveMarineLifeTagSheetPresentation_fishialIdentifyIconGradient_usesPinkPurpleStops() {
+        #expect(DiveMarineLifeTagSheetPresentation.fishialIdentifyGradientLeading == Color(
+            red: 0.96,
+            green: 0.42,
+            blue: 0.74
+        ))
+        #expect(DiveMarineLifeTagSheetPresentation.fishialIdentifyGradientTrailing == Color(
+            red: 0.58,
+            green: 0.34,
+            blue: 0.96
+        ))
+        #expect(DiveMarineLifeTagSheetPresentation.leadingToolbarSpacing == 4)
+    }
+
     @Test func diveMarineLifeTagPickerPresentation_filtersByCommonNameOrSubcategory() {
         let angelfish = MarineLife(
             uuid: "marine-life-french-angelfish",
@@ -7777,6 +7958,88 @@ struct GoDiveMVPTests {
         #expect(mediaTags.count == 1)
     }
 
+    @Test @MainActor func diveBuddyActivityTagDraftPresentation_apply_writesOnlyOnDoneDiff() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+
+        let owner = UserProfile(appleUserIdentifier: "buddy-draft-dive", displayName: "Diver")
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 3_430_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        dive.ownerProfileID = owner.id
+        let jamie = DiveBuddy(displayName: "Jamie", owner: owner)
+        let alex = DiveBuddy(displayName: "Alex", owner: owner)
+        context.insert(owner)
+        context.insert(dive)
+        context.insert(jamie)
+        context.insert(alex)
+
+        _ = DiveBuddyActivityAssociation.tagBuddy(jamie, on: dive, modelContext: context)
+        try context.save()
+        #expect(dive.buddies.count == 1)
+
+        let roster = [jamie.id: jamie, alex.id: alex]
+        DiveBuddyActivityTagDraftPresentation.apply(
+            draftTaggedBuddyIDs: [alex.id],
+            to: dive,
+            rosterByID: roster,
+            modelContext: context
+        )
+        try context.save()
+
+        #expect(Set(dive.buddies.compactMap(\.buddyID)) == [alex.id])
+    }
+
+    @Test @MainActor func diveMediaBuddyTagDraftPresentation_apply_batchesMediaTagWrites() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+
+        let owner = UserProfile(appleUserIdentifier: "buddy-draft-media", displayName: "Diver")
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 3_440_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        dive.ownerProfileID = owner.id
+        let media = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 3_440_100))
+        media.link(to: dive)
+        let jamie = DiveBuddy(displayName: "Jamie", owner: owner)
+        let alex = DiveBuddy(displayName: "Alex", owner: owner)
+        context.insert(owner)
+        context.insert(dive)
+        context.insert(media)
+        context.insert(jamie)
+        context.insert(alex)
+
+        _ = try DiveMediaBuddyAssociation.tagBuddy(
+            jamie,
+            on: media,
+            dive: dive,
+            modelContext: context
+        )
+        #expect(try DiveMediaBuddyAssociation.tags(forMediaPhotoID: media.id, modelContext: context).count == 1)
+
+        let draft = DiveMediaBuddyTagDraftPresentation.DraftState(taggedBuddyIDs: [alex.id])
+        try DiveMediaBuddyTagDraftPresentation.apply(
+            draft: draft,
+            media: media,
+            dive: dive,
+            owner: owner,
+            rosterByID: [jamie.id: jamie, alex.id: alex],
+            modelContext: context
+        )
+
+        let tags = try DiveMediaBuddyAssociation.tags(forMediaPhotoID: media.id, modelContext: context)
+        #expect(tags.count == 1)
+        #expect(tags[0].buddyID == alex.id)
+        #expect(dive.buddies.count == 1)
+        #expect(dive.buddies[0].buddyID == alex.id)
+    }
+
     @Test func fishialSecretsBootstrap_validatedCredentials_rejectsPlaceholders() {
         #expect(
             FishialSecretsBootstrap.validatedCredentials(
@@ -8945,6 +9208,55 @@ struct GoDiveMVPTests {
                 hasMapPin: false
             )
         )
+    }
+
+    @Test @MainActor func exploreDiveSiteDetailContentSnapshotBuilder_fetchSiteDiveActivities_filtersOwnerSiteLinks() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let ownerID = UUID()
+        let otherSiteID = UUID()
+
+        let diveAtSite = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 2_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        diveAtSite.ownerProfileID = ownerID
+        let site = DiveSite(siteName: "Reef")
+        context.insert(site)
+        diveAtSite.diveSiteID = site.id
+        context.insert(diveAtSite)
+
+        let diveElsewhere = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 3_000),
+            durationMinutes: 35,
+            maxDepthMeters: 15
+        )
+        diveElsewhere.ownerProfileID = ownerID
+        diveElsewhere.diveSiteID = otherSiteID
+        context.insert(diveElsewhere)
+
+        try context.save()
+
+        let fetched = ExploreDiveSiteDetailContentSnapshotBuilder.fetchSiteDiveActivities(
+            diveSiteID: site.id,
+            ownerProfileID: ownerID,
+            modelContext: context
+        )
+        #expect(fetched.count == 1)
+        #expect(fetched[0].id == diveAtSite.id)
+
+        let snapshot = ExploreDiveSiteDetailContentSnapshotBuilder.buildLight(
+            site: site,
+            siteActivities: fetched,
+            ownerProfileID: ownerID,
+            unitSystem: .metric
+        )
+        #expect(snapshot.siteDiveRows.count == 1)
+        #expect(snapshot.sightedSpeciesLinks.isEmpty)
+        #expect(snapshot.marineLifeCatalog.isEmpty)
     }
 
     @Test func exploreDiveSiteListDisplay_placeSummary_omitsEmptyFields() {

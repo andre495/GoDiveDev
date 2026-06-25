@@ -15,6 +15,7 @@ struct ExploreDiveSiteDetailContentPager: View {
     @Binding var gallerySelectedMediaID: UUID?
     let bottomScrollInset: CGFloat
     let onOpenDive: (UUID) -> Void
+    var onPageFirstMounted: ((ExploreDiveSiteDetailContentPage) -> Void)? = nil
 
     @State private var selectedPage: ExploreDiveSiteDetailContentPage =
         ExploreDiveSiteDetailContentPagerPresentation.defaultPage
@@ -40,11 +41,17 @@ struct ExploreDiveSiteDetailContentPager: View {
         .ignoresSafeArea(edges: .bottom)
         .accessibilityIdentifier("Explore.DiveSiteDetail.ContentPager")
         .onAppear {
-            mountedPages.insert(selectedPage)
+            notePageFirstMounted(selectedPage)
         }
         .onChange(of: selectedPage) { _, page in
-            mountedPages.insert(page)
+            notePageFirstMounted(page)
         }
+    }
+
+    private func notePageFirstMounted(_ page: ExploreDiveSiteDetailContentPage) {
+        let inserted = mountedPages.insert(page).inserted
+        guard inserted else { return }
+        onPageFirstMounted?(page)
     }
 
     @ViewBuilder
