@@ -21,6 +21,7 @@ struct DiveSiteDisplayRecord: Equatable, Identifiable, Sendable {
     let diveCountLabel: String?
     let listCountry: String
     let searchHaystacks: [String]
+    let searchHaystackLowercased: String
     let isReferenceOnly: Bool
 
     nonisolated var placeLine: String {
@@ -89,6 +90,7 @@ struct DiveSiteDisplayRecord: Equatable, Identifiable, Sendable {
             && lhs.diveCountLabel == rhs.diveCountLabel
             && lhs.listCountry == rhs.listCountry
             && lhs.searchHaystacks == rhs.searchHaystacks
+            && lhs.searchHaystackLowercased == rhs.searchHaystackLowercased
             && lhs.isReferenceOnly == rhs.isReferenceOnly
     }
 }
@@ -224,6 +226,17 @@ enum DiveSitePresentation: Sendable {
         return trimmed.capitalized
     }
 
+    nonisolated static func listSearchHaystackLowercased(
+        haystacks: [String],
+        coordinateLine: String,
+        placeLine: String
+    ) -> String {
+        var allHaystacks = haystacks
+        allHaystacks.append(coordinateLine)
+        allHaystacks.append(placeLine)
+        return CatalogSearchPresentation.joinedLowercasedHaystacks(allHaystacks)
+    }
+
     nonisolated static func listRecord(
         for site: DiveSite,
         trailingStyle: ExploreDiveSiteRowTrailingStyle = .catalogDefault
@@ -231,16 +244,26 @@ enum DiveSitePresentation: Sendable {
         let displayName = DiveSiteCatalogMatcher.resolvedCatalogSiteName(for: site) ?? site.siteName
         let country = DiveSiteCountryPresentation.canonicalDisplayName(for: site.country)
         let diveCount = site.diveActivities.count
+        let displayCountry = displayValue(country)
+        let displayRegion = displayValue(site.region)
+        let displayBodyOfWater = displayValue(site.bodyOfWater)
+        let coordinateLine = listCoordinateLine(for: site)
+        let searchHaystacks = ExploreDiveSiteListSearch.searchHaystacks(for: site)
+        let placeLine = listPlaceLine(
+            country: country,
+            region: site.region,
+            bodyOfWater: site.bodyOfWater
+        )
 
         return DiveSiteDisplayRecord(
             id: site.id,
             referenceID: DiveSiteCatalogMatcher.referenceID(from: site.siteTags),
             catalogSiteID: site.id,
             displayName: displayName,
-            country: displayValue(country),
-            region: displayValue(site.region),
-            bodyOfWater: displayValue(site.bodyOfWater),
-            coordinateLine: listCoordinateLine(for: site),
+            country: displayCountry,
+            region: displayRegion,
+            bodyOfWater: displayBodyOfWater,
+            coordinateLine: coordinateLine,
             entry: displayValue(site.entry),
             environment: displayValue(site.environment),
             siteType: formattedSiteType(from: site.siteTags, entry: site.entry),
@@ -251,7 +274,12 @@ enum DiveSitePresentation: Sendable {
             divesLogged: "\(diveCount)",
             diveCountLabel: diveCountLabel(for: site, style: trailingStyle),
             listCountry: ExploreDiveSiteListPresentation.listCountry(from: site),
-            searchHaystacks: ExploreDiveSiteListSearch.searchHaystacks(for: site),
+            searchHaystacks: searchHaystacks,
+            searchHaystackLowercased: listSearchHaystackLowercased(
+                haystacks: searchHaystacks,
+                coordinateLine: coordinateLine,
+                placeLine: placeLine
+            ),
             isReferenceOnly: false
         )
     }
@@ -259,16 +287,22 @@ enum DiveSitePresentation: Sendable {
     nonisolated static func listRecord(for reference: DiveSiteReferenceSnapshot) -> DiveSiteDisplayRecord {
         let displayName = DiveSiteCatalogMatcher.sanitizedReferenceDisplayName(reference.name) ?? reference.name
         let country = DiveSiteCountryPresentation.canonicalDisplayName(for: reference.country)
+        let displayCountry = displayValue(country)
+        let displayRegion = displayValue("")
+        let displayBodyOfWater = displayValue(reference.seaName)
+        let coordinateLine = listCoordinateLine(latitude: reference.latitude, longitude: reference.longitude)
+        let searchHaystacks = ExploreReferenceSiteListSearch.searchHaystacks(for: reference)
+        let placeLine = listPlaceLine(country: country, region: "", bodyOfWater: reference.seaName)
 
         return DiveSiteDisplayRecord(
             id: ExploreSiteScopePresentation.stableMapPinID(forReferenceID: reference.id),
             referenceID: reference.id,
             catalogSiteID: nil,
             displayName: displayName,
-            country: displayValue(country),
-            region: displayValue(""),
-            bodyOfWater: displayValue(reference.seaName),
-            coordinateLine: listCoordinateLine(latitude: reference.latitude, longitude: reference.longitude),
+            country: displayCountry,
+            region: displayRegion,
+            bodyOfWater: displayBodyOfWater,
+            coordinateLine: coordinateLine,
             entry: displayValue(reference.entry),
             environment: displayValue(reference.environment),
             siteType: formattedReferenceSiteType(reference.topologies),
@@ -279,7 +313,12 @@ enum DiveSitePresentation: Sendable {
             divesLogged: "0",
             diveCountLabel: nil,
             listCountry: ExploreDiveSiteListPresentation.listCountry(from: reference),
-            searchHaystacks: ExploreReferenceSiteListSearch.searchHaystacks(for: reference),
+            searchHaystacks: searchHaystacks,
+            searchHaystackLowercased: listSearchHaystackLowercased(
+                haystacks: searchHaystacks,
+                coordinateLine: coordinateLine,
+                placeLine: placeLine
+            ),
             isReferenceOnly: true
         )
     }

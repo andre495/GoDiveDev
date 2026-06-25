@@ -421,7 +421,7 @@ struct LogbookView: View {
             if activeBuddyFilter != nil { activeBuddyFilter = nil }
             if activeTripFilter != nil { activeTripFilter = nil }
         }
-        scheduleLogbookCacheRefresh()
+        scheduleLogbookCacheRefresh(includeDuplicateScan: false)
     }
 
     private func handleLogbookTabReselect() {
@@ -1004,11 +1004,9 @@ private struct LogbookListSurface: View, Equatable {
         ) {
             NavigationLink(value: LogbookRoute.addActivity) {
                 Image(systemName: "plus")
-                    .font(.title3.weight(.semibold))
-                    .frame(minWidth: 44, minHeight: 44)
-                    .contentShape(Rectangle())
+                    .appToolbarIconButtonLabel()
             }
-            .buttonStyle(.plain)
+            .appStandaloneIconButtonStyle()
             .accessibilityLabel("Add activity")
         }
     }

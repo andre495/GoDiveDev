@@ -69,11 +69,9 @@ struct EquipmentLockerView: View {
             showsAddEquipmentSheet = true
         } label: {
             Image(systemName: "plus")
-                .font(.title3.weight(.semibold))
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(Rectangle())
+                .appToolbarIconButtonLabel()
         }
-        .buttonStyle(.plain)
+        .appStandaloneIconButtonStyle()
         .accessibilityLabel("Add equipment")
         .accessibilityIdentifier("EquipmentLocker.AddNewEquipment")
     }

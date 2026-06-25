@@ -1,0 +1,35 @@
+---
+description: Default SwiftUI toolbar buttons, search fields, and segmented controls to Liquid Glass
+alwaysApply: true
+---
+
+# SwiftUI controls: Liquid Glass by default
+
+When adding or updating **toolbar buttons**, **search fields**, **segmented pickers** (tab-like sliders), or **adjacent chrome rows** in **GoDiveMVP**, use Apple's native Liquid Glass — per [Adopting Liquid Glass](https://developer.apple.com/documentation/TechnologyOverviews/adopting-liquid-glass).
+
+**Do not** hand-roll bordered fills, `.ultraThinMaterial` overlays, custom capsule strokes, or one-off `AppTheme` control fills unless the user **explicitly** asks for a custom component or look.
+
+## Shared helpers (`AppButtonChrome.swift`)
+
+| Control | Use |
+|--------|-----|
+| Standalone icon buttons (back, +, trip, etc.) | **`appToolbarIconButtonLabel()`** + **`appStandaloneIconButtonStyle()`** → **`.glass`** + **`.buttonBorderShape(.circle)`** (**44×44** pt) |
+| Inline search (`CatalogSearchField`) | **`appLiquidGlassSearchFieldChrome()`** → **`glassEffect(.regular.interactive(), in: .capsule)`** |
+| Multi-option rows (dive tabs, scope toggles) | **`Picker` + `appSegmentedControlStyle()`** → **`.segmented`** |
+| Neighboring glass controls | **`appLiquidGlassChromeContainer()`** → **`GlassEffectContainer`** |
+
+## Rules
+
+1. **Search** — Reuse **`CatalogSearchField`** / **`CatalogListSearchChrome`**. No custom background fills on the field; clear button stays **`.borderless`** (avoid glass-on-glass).
+2. **Buttons** — Toolbar and header SF Symbol actions use **`appToolbarIconButtonLabel()`** + **`appStandaloneIconButtonStyle()`**, not **`.bordered`**, **`.plain`**, or filled circles.
+3. **Segmented “sliders”** — Use **`Picker`** with **`appSegmentedControlStyle(showsTextLabels:)`**; icon-only segments use **`showsTextLabels: false`** (labels hidden).
+4. **Grouped chrome** — Wrap back + segmented control, search + action row, etc. in **`GlassEffectContainer`** so morphing and sampling work correctly.
+5. **Tab bar** — Do not add custom material overlays on **`TabView`**; let the system tab bar use native glass.
+6. **Sheets / stat tiles** — Sheet chrome follows **`swiftui-sheet-standard.mdc`**. Stat tiles use **`AppHighlightTileChrome`** (**`surfaceElevated`** fill in light mode, outlined in dark).
+
+## Exceptions
+
+- User **explicitly** requests a custom control, bespoke styling, or a non-glass material.
+- Document intentional breaks in the change log when shipping a one-off exception.
+
+Reference: **`AppButtonChrome.swift`**, **`CatalogSearchField.swift`**, **`CatalogListSearchChrome.swift`**, **`ExploreTopChrome.swift`**.

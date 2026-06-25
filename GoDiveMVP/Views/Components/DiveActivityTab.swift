@@ -30,4 +30,12 @@ enum DiveActivityTab: CaseIterable, Hashable {
         case .camera: "Media"
         }
     }
+
+    var accessibilityIdentifierSuffix: String {
+        switch self {
+        case .map: "map"
+        case .tank: "tank"
+        case .camera: "camera"
+        }
+    }
 }

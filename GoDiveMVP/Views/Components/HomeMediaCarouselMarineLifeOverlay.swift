@@ -42,20 +42,31 @@ struct HomeMediaCarouselMarineLifeOverlay: View {
     }
 
     var body: some View {
-        speciesPager
-            .frame(width: previewSize.width, height: previewSize.height)
+        ZStack(alignment: .topLeading) {
+            fullMediaScrim
+
+            speciesPager
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            closeButton
+                .padding(.horizontal, AppTheme.Spacing.md)
+                .padding(.top, closeTopInset)
+        }
+        .frame(width: previewSize.width, height: previewSize.height)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("Home.MediaCarousel.MarineLifeOverlay")
+    }
+
+    private var fullMediaScrim: some View {
+        Rectangle()
+            .fill(.black.opacity(HomeMediaCarouselPresentation.marineLifeCarouselOverlayMediaScrimOpacity))
             .background {
-                Color.black.opacity(TripDetailMediaGalleryPresentation.marineLifeOverlayMediaScrimOpacity)
-                    .ignoresSafeArea()
+                Rectangle()
+                    .fill(.thinMaterial)
             }
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay(alignment: .topLeading) {
-                closeButton
-                    .padding(.horizontal, AppTheme.Spacing.md)
-                    .padding(.top, closeTopInset)
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("Home.MediaCarousel.MarineLifeOverlay")
+            .frame(width: previewSize.width, height: previewSize.height)
+            .ignoresSafeArea()
     }
 
     private var speciesPager: some View {
@@ -69,7 +80,6 @@ struct HomeMediaCarouselMarineLifeOverlay: View {
             .page(indexDisplayMode: taggedSpecies.count > 1 ? .automatic : .never)
         )
         .frame(height: pagerHeight)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     @ViewBuilder
@@ -114,23 +124,10 @@ struct HomeMediaCarouselMarineLifeOverlay: View {
     private var closeButton: some View {
         Button(action: onClose) {
             Image(systemName: "xmark")
-                .font(.body.weight(.bold))
-                .foregroundStyle(.white)
-                .frame(width: 36, height: 36)
-                .background {
-                    Circle()
-                        .fill(.black.opacity(0.48))
-                        .background {
-                            Circle()
-                                .fill(.ultraThinMaterial)
-                        }
-                        .clipShape(Circle())
-                }
-                .padding(AppTheme.Spacing.sm)
-                .frame(minWidth: 48, minHeight: 48)
-                .contentShape(Rectangle())
+                .appToolbarIconButtonLabel()
         }
-        .buttonStyle(.plain)
+        .appStandaloneIconButtonStyle()
+        .foregroundStyle(.white)
         .accessibilityLabel("Close marine life overview")
         .accessibilityIdentifier("Home.MediaCarousel.MarineLifeOverlay.Close")
     }

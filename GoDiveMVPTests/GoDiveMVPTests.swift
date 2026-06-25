@@ -3225,6 +3225,54 @@ struct GoDiveMVPTests {
         #expect(FieldGuideSpeciesSearchEnvironment.searchPlaceholder == "Search Marine Life")
     }
 
+    @Test func fieldGuideSpeciesSearchResultsPresentation_indexedRowData_matchesUnindexedFilter() {
+        let angelfish = MarineLifeCatalogSnapshot(
+            uuid: "marine-life-french-angelfish",
+            commonName: "French Angelfish",
+            scientificName: "Pomacanthus paru",
+            category: "fish",
+            subcategory: "angelfishes",
+            featureImageURL: "",
+            minSizeMeters: 0.2,
+            maxSizeMeters: 0.4,
+            avgDepthMeters: 12
+        )
+        let turtle = MarineLifeCatalogSnapshot(
+            uuid: "marine-life-green-turtle",
+            commonName: "Green Turtle",
+            scientificName: "Chelonia mydas",
+            category: "reptiles",
+            subcategory: "sea-turtles",
+            featureImageURL: "",
+            minSizeMeters: 0.8,
+            maxSizeMeters: 1.5,
+            avgDepthMeters: 8
+        )
+        let catalog = [angelfish, turtle]
+        let index = FieldGuideSpeciesSearchResultsPresentation.searchableTextByUUID(for: catalog)
+
+        let indexedRows = FieldGuideSpeciesSearchResultsPresentation.rowData(
+            catalogSnapshots: catalog,
+            searchableTextByUUID: index,
+            query: "chelonia",
+            unitSystem: .metric
+        )
+        let unindexedRows = FieldGuideSpeciesSearchResultsPresentation.rowData(
+            catalogSnapshots: catalog,
+            query: "chelonia",
+            unitSystem: .metric
+        )
+        #expect(indexedRows.map(\.marineLifeUUID) == unindexedRows.map(\.marineLifeUUID))
+        #expect(indexedRows.count == 1)
+        #expect(indexedRows[0].marineLifeUUID == turtle.uuid)
+    }
+
+    @Test func catalogSubstringSearch_matchesPrelowercasedHaystack() {
+        let haystack = "salt pier bonaire caribbean"
+        #expect(CatalogSubstringSearch.matchesPrelowercased(haystack, query: "bonaire"))
+        #expect(!CatalogSubstringSearch.matchesPrelowercased(haystack, query: "belize"))
+    }
+
     @Test func fieldGuideCategoryPresentation_detailHeroHeight_includesSafeAreaInset() {
         let inset: CGFloat = 59
         #expect(
@@ -8507,6 +8555,35 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func exploreSiteScopeCache_filteringListRows_usesPrecomputedHaystack() {
+        let row = DiveSitePresentation.listRecord(
+            for: DiveSite(siteName: "Salt Pier", country: "Bonaire", region: "Caribbean")
+        )
+        #expect(!row.searchHaystackLowercased.isEmpty)
+        #expect(
+            ExploreSiteScopeCache.filteringListRows([row], scope: .logbook, query: "bonaire").count == 1
+        )
+        #expect(
+            ExploreSiteScopeCache.filteringListRows([row], scope: .logbook, query: "xyz-nope").isEmpty
+        )
+    }
+
+    @Test func exploreSiteScope_segmentLabelsIncludeIconsAndTitles() {
+        #expect(ExploreSiteScope.logbook.shortTitle == "My Sites")
+        #expect(ExploreSiteScope.allSites.shortTitle == "All Sites")
+        #expect(ExploreSiteScope.logbook.systemImage == "book.closed.fill")
+        #expect(ExploreSiteScope.allSites.systemImage == "globe.americas.fill")
+    }
+
+    @Test func exploreSiteScopeChromePresentation_bottomLayoutReservesTabBarAndToggle() {
+        #expect(ExploreSiteScopeChromePresentation.toggleChromeHeight == 40)
+        #expect(ExploreSiteScopeChromePresentation.paddingAboveTabBar(safeAreaBottom: 34) == 4)
+        #expect(
+            ExploreSiteScopeChromePresentation.listExtraBottomInset
+                == ExploreSiteScopeChromePresentation.toggleChromeHeight + ExploreSiteScopeChromePresentation.spacingAboveTabBar
+        )
+    }
+
     @Test func exploreDiveSiteListPresentation_sections_groupsByCountryAndSortsTitles() {
         let bonaireRow = DiveSitePresentation.listRecord(
             for: DiveSite(
@@ -9678,6 +9755,7 @@ struct GoDiveMVPTests {
         #expect(HomeMediaCarouselEmptyPresentation.title.contains("highlight reel"))
         #expect(HomeMediaCarouselEmptyPresentation.message.contains("Logbook"))
         #expect(HomeMediaCarouselEmptyPresentation.frameOffsetAmplitude(index: 2) > HomeMediaCarouselEmptyPresentation.frameOffsetAmplitude(index: 0))
+        #expect(HomeMediaCarouselEmptyPresentation.contentDownshift == 80)
     }
 
     @Test func homeMediaHighlightPresentation_excludesLongVideosFromCarouselCandidates() {
@@ -9804,6 +9882,11 @@ struct GoDiveMVPTests {
         #expect(LogbookActivityRowLayout.contentSpacing == 4)
         #expect(LogbookActivityRowLayout.cardPadding == AppTheme.Spacing.sm)
         #expect(DiveActivityMediaPresentation.logbookRowMediaPreviewMinExtent == 48)
+    }
+
+    @Test func appListTileCardChrome_matchesLogbookActivityRowFillAndStroke() {
+        #expect(AppListTileCardChrome.fill == AppTheme.Colors.surfaceElevated)
+        #expect(AppListTileCardChrome.strokeWidth == 1)
     }
 
     @Test func diveMediaVideoRequestQuality_cachesInSession() {
@@ -10257,6 +10340,104 @@ struct GoDiveMVPTests {
         )
         #expect(multiPageHeight > singlePageHeight)
         #expect(singlePageHeight > imageHeight)
+        #expect(
+            HomeMediaCarouselPresentation.marineLifeCarouselOverlayMediaScrimOpacity
+                < TripDetailMediaGalleryPresentation.marineLifeOverlayMediaScrimOpacity
+        )
+        #expect(HomeMediaCarouselPresentation.marineLifeCarouselOverlayMediaScrimOpacity > 0.3)
+    }
+
+    @Test func homeMediaCarouselPresentation_taggedBuddyExpandedListHeight_capsAtTwoFullProfiles() {
+        let avatarDiameter: CGFloat = 40
+        let avatarSpacing: CGFloat = 8
+        let twoBuddyHeight = HomeMediaCarouselPresentation.taggedBuddyExpandedListHeight(
+            buddyCount: 2,
+            avatarDiameter: avatarDiameter,
+            avatarSpacing: avatarSpacing
+        )
+        #expect(twoBuddyHeight == 88)
+        let threeBuddyHeight = HomeMediaCarouselPresentation.taggedBuddyExpandedListHeight(
+            buddyCount: 3,
+            avatarDiameter: avatarDiameter,
+            avatarSpacing: avatarSpacing
+        )
+        #expect(
+            threeBuddyHeight
+                == twoBuddyHeight + HomeMediaCarouselPresentation.taggedBuddyThirdProfilePeekHeight
+        )
+        #expect(HomeMediaCarouselPresentation.taggedBuddyListShowsScrollFade(buddyCount: 2) == false)
+        #expect(HomeMediaCarouselPresentation.taggedBuddyListShowsScrollFade(buddyCount: 3))
+        #expect(HomeMediaCarouselPresentation.taggedBuddyPeekProfileIndex(buddyCount: 3) == 0)
+        #expect(HomeMediaCarouselPresentation.taggedBuddyPeekProfileIndex(buddyCount: 4) == 1)
+    }
+
+    @Test func homeMediaCarouselPresentation_buddyRowFadeMask_peekAndScrollZones() {
+        let avatarDiameter: CGFloat = 40
+        let avatarSpacing: CGFloat = 8
+        let viewportHeight = HomeMediaCarouselPresentation.taggedBuddyExpandedListHeight(
+            buddyCount: 4,
+            avatarDiameter: avatarDiameter,
+            avatarSpacing: avatarSpacing
+        )
+        let fullZoneTop = viewportHeight - HomeMediaCarouselPresentation.taggedBuddyFullZoneHeight(
+            avatarDiameter: avatarDiameter,
+            avatarSpacing: avatarSpacing
+        )
+
+        let hiddenAbove = HomeMediaCarouselPresentation.buddyRowFadeMask(
+            rowMinYInViewport: -40,
+            rowMaxYInViewport: -2,
+            viewportHeight: viewportHeight,
+            avatarDiameter: avatarDiameter,
+            avatarSpacing: avatarSpacing,
+            buddyCount: 4
+        )
+        #expect(hiddenAbove.isHidden)
+
+        let fullOpacity = HomeMediaCarouselPresentation.buddyRowFadeMask(
+            rowMinYInViewport: fullZoneTop,
+            rowMaxYInViewport: fullZoneTop + avatarDiameter,
+            viewportHeight: viewportHeight,
+            avatarDiameter: avatarDiameter,
+            avatarSpacing: avatarSpacing,
+            buddyCount: 4
+        )
+        #expect(!fullOpacity.isHidden)
+        #expect(fullOpacity.fadeHeight == 0)
+        #expect(fullOpacity.transparentTopHeight == 0)
+        #expect(fullOpacity.opaqueBottomHeight == avatarDiameter)
+
+        let peeking = HomeMediaCarouselPresentation.buddyRowFadeMask(
+            rowMinYInViewport: -30,
+            rowMaxYInViewport: 10,
+            viewportHeight: viewportHeight,
+            avatarDiameter: avatarDiameter,
+            avatarSpacing: avatarSpacing,
+            buddyCount: 4
+        )
+        #expect(!peeking.isHidden)
+        #expect(peeking.opaqueBottomHeight == 0)
+        #expect(peeking.transparentTopHeight == 30)
+        #expect(peeking.fadeHeight == 10)
+        #expect(peeking.transparentTopHeight + peeking.fadeHeight + peeking.opaqueBottomHeight == avatarDiameter)
+
+        let transitioning = HomeMediaCarouselPresentation.buddyRowFadeMask(
+            rowMinYInViewport: 5,
+            rowMaxYInViewport: 45,
+            viewportHeight: viewportHeight,
+            avatarDiameter: avatarDiameter,
+            avatarSpacing: avatarSpacing,
+            buddyCount: 4
+        )
+        #expect(!transitioning.isHidden)
+        #expect(transitioning.transparentTopHeight == 0)
+        #expect(transitioning.opaqueBottomHeight > 0)
+        #expect(transitioning.fadeHeight > 0)
+        #expect(
+            transitioning.transparentTopHeight
+                + transitioning.fadeHeight
+                + transitioning.opaqueBottomHeight == avatarDiameter
+        )
     }
 
     @Test func homeMediaCarouselPresentation_slideChromeControlHeight_matchesTwoLineDiveChip() {
@@ -10360,6 +10541,23 @@ struct GoDiveMVPTests {
                 isNavigationStackAtRoot: true
             ) == settledRootHeight
         )
+    }
+
+    @Test func homeRootViewportPresentation_frozenHeightWhilePushed() {
+        let resolution = HomeRootViewportPresentation.resolvedViewportHeight(
+            geometryHeight: 852,
+            isNavigationStackAtRoot: false,
+            frozenRootViewportHeight: 803
+        )
+        #expect(resolution.height == 803)
+        #expect(resolution.frozenRootViewportHeight == 803)
+        let latched = HomeRootViewportPresentation.resolvedViewportHeight(
+            geometryHeight: 852,
+            isNavigationStackAtRoot: true,
+            frozenRootViewportHeight: 803
+        )
+        #expect(latched.height == 852)
+        #expect(latched.frozenRootViewportHeight == 852)
     }
 
     @Test func homeOverviewLayout_pushedPageLayoutHeight_fillsFullScreenGeometry() {
@@ -12227,12 +12425,35 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func diveActivityTabBarPresentation_usesCompactGlassSegments() {
+        #expect(DiveActivityTabBarPresentation.segmentSize == 44)
+        #expect(DiveActivityTabBarPresentation.chromeWidth == 148)
+        #expect(DiveActivityTab.allCases.count == 3)
+    }
+
     @Test func diveActivityTabIcon_matchesGlyphHeight() {
         #expect(DiveActivityTabIcon.tabGlyphPointSize == 22)
+        #expect(DiveActivityTabIcon.scubaTankTabGlyphHeight == 16)
         let tankSize = DiveActivityTabIcon.templateAssetSize(for: "ScubaTankTab")
-        #expect(tankSize.height == 22)
-        #expect(tankSize.width < tankSize.height)
+        #expect(tankSize.height == 16)
+        #expect(tankSize.width == 16 * DiveActivityTabIcon.scubaTankTabAspectWidthOverHeight)
         #expect(abs(tankSize.width / tankSize.height - DiveActivityTabIcon.scubaTankTabAspectWidthOverHeight) < 0.001)
+        let scaledFromPixels = DiveActivityTabIcon.scaledAssetSize(
+            assetPixelSize: DiveActivityTabIcon.scubaTankTabAssetPixelSize,
+            targetHeight: 16
+        )
+        #expect(scaledFromPixels == tankSize)
+    }
+
+    @Test func pushedDetailHeroModeTogglePresentation_compactChromeWidth() {
+        #expect(PushedDetailHeroModeTogglePresentation.segmentSize == 44)
+        #expect(PushedDetailHeroModeTogglePresentation.chromeWidth == 100)
+    }
+
+    @Test func appButtonChrome_standaloneIconMinTapDimension_matchesBackButton() {
+        #expect(AppButtonChrome.standaloneIconMinTapDimension == SecondaryDestinationChromeMetrics.backButtonMinimumTapDimension)
+        #expect(AppButtonChrome.standaloneIconMinTapDimension == AppToolbarIconButtonMetrics.tapDimension)
+        #expect(AppToolbarIconButtonMetrics.tapDimension == AppTheme.Layout.glassChromeControlHeight)
     }
 
     @Test @MainActor func mapKitWarmup_shouldWarmUp_matchesUITestLaunchFlag() {
@@ -14981,7 +15202,8 @@ struct GoDiveMVPTests {
     }
 
     @Test func appTheme_logbookSearchFieldHeight_matchesInlineChromeRow() {
-        #expect(AppTheme.Layout.logbookSearchFieldHeight == 44)
+        #expect(AppTheme.Layout.logbookSearchFieldHeight == AppTheme.Layout.glassChromeControlHeight)
+        #expect(AppTheme.Layout.glassChromeControlHeight == 44)
     }
 
     @Test func logbookListSurfaceEquatableInputs_searchFocusChangeIsNotEqual() {

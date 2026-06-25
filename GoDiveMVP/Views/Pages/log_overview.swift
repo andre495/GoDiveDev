@@ -27,6 +27,7 @@ struct LogOverviewView: View {
     @State private var hasPerformedInitialHomeBuild = false
     @State private var selfBuddyID: UUID?
     @State private var homeHeroInteractionOverlayActive = false
+    @State private var frozenHomeRootViewportHeight: CGFloat?
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
 
     private var buddyRosterFingerprint: Int {
@@ -75,13 +76,12 @@ struct LogOverviewView: View {
         )
     }
 
-    private func homeOverviewLayoutMetrics(for proxy: GeometryProxy) -> HomeOverviewLayout.Metrics {
+    private func homeOverviewLayoutMetrics(
+        for proxy: GeometryProxy,
+        viewportHeight: CGFloat
+    ) -> HomeOverviewLayout.Metrics {
         let statsContentHeight = HomeLifetimeStatsLayout.estimatedPanelContentHeight(
             showsBuddyLeaderboard: showsHomeBuddyLeaderboard
-        )
-        let viewportHeight = HomeOverviewLayout.homeRootViewportHeight(
-            geometryHeight: proxy.size.height,
-            isNavigationStackAtRoot: isHomeNavigationStackAtRoot
         )
         return HomeOverviewLayout.metrics(
             viewportHeight: viewportHeight,
@@ -91,14 +91,18 @@ struct LogOverviewView: View {
         )
     }
 
+    private func resolvedHomeViewportHeight(geometryHeight: CGFloat) -> CGFloat {
+        HomeRootViewportPresentation.resolvedViewportHeight(
+            geometryHeight: geometryHeight,
+            isNavigationStackAtRoot: isHomeNavigationStackAtRoot,
+            frozenRootViewportHeight: frozenHomeRootViewportHeight
+        ).height
+    }
+
     var body: some View {
         NavigationStack(path: $path) {
             GeometryReader { proxy in
                 ZStack(alignment: .top) {
-                    if !GoDiveUITestConfiguration.isActive {
-                        WaterBubbleBackground()
-                    }
-
                     VStack(alignment: .leading, spacing: 0) {
                         if ownerDiveActivities.isEmpty {
                             Color.clear
@@ -127,7 +131,7 @@ struct LogOverviewView: View {
                             .frame(minWidth: Layout.profileAvatarDiameter, minHeight: Layout.profileAvatarDiameter)
                             .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.borderless)
                         .accessibilityLabel("Profile")
                         .accessibilityIdentifier("Home.ProfileLink")
                     }
@@ -213,11 +217,8 @@ struct LogOverviewView: View {
         let statsContentHeight = HomeLifetimeStatsLayout.estimatedPanelContentHeight(
             showsBuddyLeaderboard: showsHomeBuddyLeaderboard
         )
-        let homeLayout = homeOverviewLayoutMetrics(for: proxy)
-        let viewportHeight = HomeOverviewLayout.homeRootViewportHeight(
-            geometryHeight: proxy.size.height,
-            isNavigationStackAtRoot: isHomeNavigationStackAtRoot
-        )
+        let viewportHeight = resolvedHomeViewportHeight(geometryHeight: proxy.size.height)
+        let homeLayout = homeOverviewLayoutMetrics(for: proxy, viewportHeight: viewportHeight)
         let bottomInset = proxy.safeAreaInsets.bottom
 
         VStack(spacing: -HomeLifetimeStatsLayout.panelOverlap) {
@@ -241,6 +242,10 @@ struct LogOverviewView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(width: proxy.size.width, height: viewportHeight, alignment: .top)
+        .onChange(of: proxy.size.height, initial: true) { _, height in
+            guard isHomeNavigationStackAtRoot, height > 0 else { return }
+            frozenHomeRootViewportHeight = height
+        }
         .onAppear {
             HomeOverviewLayoutAnchor.publish(
                 HomeOverviewLayoutAnchor.RootSnapshot(
@@ -372,6 +377,7 @@ struct LogOverviewView: View {
                 ProfileView()
             } else if let buddy = ownerDiveBuddies.first(where: { $0.id == buddyID }) {
                 ViewDiveBuddyDetails(buddy: buddy)
+                    .hidesBottomTabBarWhenPushed()
             } else {
                 missingDestinationLabel("This buddy is no longer on your roster.")
             }

@@ -94,14 +94,7 @@ private struct TripDetailStatTile: View {
         .padding(HomeLifetimeStatsTilesLayout.statTilePadding)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .frame(height: HomeLifetimeStatsTilesLayout.statTileHeight, alignment: .topLeading)
-        .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(AppTheme.Colors.surfaceMuted.opacity(0.55))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(AppTheme.Colors.tabUnselected.opacity(0.14), lineWidth: 1)
-                }
-        }
+        .appHighlightTileChrome()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityAddTraits(isTappable ? .isButton : [])

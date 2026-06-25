@@ -11,6 +11,18 @@ enum ExploreDiveSiteDetailContentPage: Hashable, Sendable, Identifiable {
     var id: Self { self }
 }
 
+extension ExploreDiveSiteDetailContentPage: Equatable {
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        switch (lhs, rhs) {
+        case (.diveDetails, .diveDetails): true
+        case (.divesHere, .divesHere): true
+        case (.marineLifeHere, .marineLifeHere): true
+        case (.taggedMedia, .taggedMedia): true
+        default: false
+        }
+    }
+}
+
 enum ExploreDiveSiteDetailContentPagerPresentation: Sendable {
 
     nonisolated static let pages: [ExploreDiveSiteDetailContentPage] = [

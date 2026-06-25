@@ -524,17 +524,11 @@ struct TripDetailView: View {
                     .accessibilityAddTraits(.isHeader)
                     .accessibilityIdentifier("TripDetail.Title")
 
-                Button {
-                    showsEditSheet = true
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.title3.weight(.semibold))
-                        .frame(minWidth: 44, minHeight: 44)
-                        .contentShape(Rectangle())
-                }
-                .foregroundStyle(AppTheme.Colors.iconPrimary)
-                .accessibilityLabel(TripPlannerPresentation.editTripToolbarAccessibilityLabel)
-                .accessibilityIdentifier("TripDetail.Edit")
+                AppEditToolbarButton(
+                    action: { showsEditSheet = true },
+                    accessibilityIdentifier: "TripDetail.Edit",
+                    accessibilityLabel: TripPlannerPresentation.editTripToolbarAccessibilityLabel
+                )
 
                 Button {
                     prepareTripShare(trip: trip, mapPins: mapPins)

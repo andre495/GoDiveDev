@@ -13,7 +13,13 @@ enum DiveLogbookSiteSearch {
 
     /// Case-insensitive substring match on site title only.
     nonisolated static func matchesSite(resolvedSiteName: String?, query: String) -> Bool {
-        CatalogSubstringSearch.matches(in: resolvedSiteName ?? "", query: query)
+        guard let resolvedSiteName else {
+            return !isFiltering(query: query)
+        }
+        if resolvedSiteName == resolvedSiteName.lowercased() {
+            return CatalogSubstringSearch.matchesPrelowercased(resolvedSiteName, query: query)
+        }
+        return CatalogSubstringSearch.matches(in: resolvedSiteName, query: query)
     }
 
     /// Whether a dive row has the confirmed tag (normalized name equality).

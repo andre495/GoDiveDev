@@ -68,11 +68,11 @@ struct LogbookActivityRow: View, Equatable {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: LogbookActivityRowLayout.cardCornerRadius)
-                .fill(AppTheme.Colors.surfaceElevated)
+                .fill(AppListTileCardChrome.fill)
         }
         .overlay {
             RoundedRectangle(cornerRadius: LogbookActivityRowLayout.cardCornerRadius)
-                .stroke(AppTheme.Colors.tabUnselected.opacity(0.12), lineWidth: 1)
+                .stroke(AppListTileCardChrome.stroke, lineWidth: AppListTileCardChrome.strokeWidth)
         }
     }
 

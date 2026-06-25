@@ -9,11 +9,11 @@ enum AppTheme {
             dark: UIColor(red: 0.02, green: 0.06, blue: 0.10, alpha: 1.0)
         )
         static let surfaceElevated = adaptive(
-            light: UIColor(red: 1.00, green: 1.00, blue: 1.00, alpha: 1.0),
+            light: UIColor(red: 0.84, green: 0.89, blue: 0.94, alpha: 1.0),
             dark: UIColor(red: 0.05, green: 0.12, blue: 0.18, alpha: 1.0)
         )
         static let surfaceMuted = adaptive(
-            light: UIColor(red: 0.76, green: 0.87, blue: 0.93, alpha: 1.0),
+            light: UIColor(red: 0.20, green: 0.34, blue: 0.48, alpha: 1.0),
             dark: UIColor(red: 0.08, green: 0.16, blue: 0.23, alpha: 1.0)
         )
 
@@ -47,13 +47,25 @@ enum AppTheme {
             dark: UIColor(red: 0.08, green: 0.14, blue: 0.22, alpha: 1.0)
         )
 
-        /// Top feather for status bar / **GoDive** header readability — feathers through **`surfaceGradientBottom`** (deep ocean), not black.
+        /// Semitransparent veil over **`WaterBubbleBackground`** on **`ProfileView`**.
+        static let profileBubbleScrim = adaptive(
+            light: UIColor(red: 0.62, green: 0.76, blue: 0.88, alpha: 0.64),
+            dark: UIColor(red: 0.00, green: 0.00, blue: 0.00, alpha: 0.48)
+        )
+
+        /// Pale ocean status-bar feather in light mode; deep ocean in dark (**`AppStatusBarEdgeScrim`** on Home / Logbook **`AppHeader`**).
+        static let headerScrimBase = adaptive(
+            light: UIColor(red: 0.74, green: 0.87, blue: 0.94, alpha: 1.0),
+            dark: UIColor(red: 0.02, green: 0.05, blue: 0.09, alpha: 1.0)
+        )
+
+        /// Top feather for status bar / **GoDive** header readability.
         static var statusBarEdgeScrimGradient: LinearGradient {
             LinearGradient(
                 stops: [
-                    .init(color: surfaceGradientBottom.opacity(0.95), location: 0.0),
-                    .init(color: surfaceGradientBottom.opacity(0.62), location: 0.52),
-                    .init(color: surfaceGradientBottom.opacity(0.24), location: 0.82),
+                    .init(color: headerScrimBase.opacity(0.96), location: 0.0),
+                    .init(color: headerScrimBase.opacity(0.72), location: 0.45),
+                    .init(color: headerScrimBase.opacity(0.34), location: 0.78),
                     .init(color: Color.clear, location: 1.0),
                 ],
                 startPoint: .top,
@@ -61,24 +73,50 @@ enum AppTheme {
             )
         }
 
-        /// Tall ocean fade over scrolling lists under logbook / field guide / explore chrome.
+        /// Tall ocean fade over scrolling lists under logbook / field guide / explore chrome (matches **`headerScrimBase`**).
+        static let listTopChromeScrimBase = headerScrimBase
+
         static var logbookTopChromeScrimGradient: LinearGradient {
             LinearGradient(
                 stops: [
-                    .init(color: surfaceGradientBottom.opacity(0.95), location: 0.0),
-                    .init(color: surfaceGradientBottom.opacity(0.76), location: 0.24),
-                    .init(color: surfaceGradientBottom.opacity(0.52), location: 0.48),
-                    .init(color: surfaceGradientBottom.opacity(0.22), location: 0.72),
+                    .init(color: listTopChromeScrimBase.opacity(0.95), location: 0.0),
+                    .init(color: listTopChromeScrimBase.opacity(0.76), location: 0.24),
+                    .init(color: listTopChromeScrimBase.opacity(0.52), location: 0.48),
+                    .init(color: listTopChromeScrimBase.opacity(0.22), location: 0.72),
                     .init(color: Color.clear, location: 1.0),
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
+        }
+
+        /// Solid list chrome when **Reduce Transparency** is on (**`LogbookTopChromeScrim`**).
+        static var listTopChromeScrimSolid: Color {
+            listTopChromeScrimBase.opacity(0.98)
+        }
+
+        /// Short status-bar feather for scroll-under list pages (certifications, buddies, equipment locker).
+        static var listStatusBarEdgeScrimGradient: LinearGradient {
+            LinearGradient(
+                stops: [
+                    .init(color: listTopChromeScrimBase.opacity(0.96), location: 0.0),
+                    .init(color: listTopChromeScrimBase.opacity(0.72), location: 0.45),
+                    .init(color: listTopChromeScrimBase.opacity(0.34), location: 0.78),
+                    .init(color: Color.clear, location: 1.0),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+
+        /// Solid status bar on list pages when **Reduce Transparency** is on.
+        static var listStatusBarEdgeScrimSolid: Color {
+            listTopChromeScrimBase.opacity(0.94)
         }
 
         /// Solid band when **Reduce Transparency** is on (status bar region).
         static var statusBarEdgeScrimSolid: Color {
-            surfaceGradientBottom.opacity(0.92)
+            headerScrimBase.opacity(0.94)
         }
 
         static let primaryText = adaptive(
@@ -105,12 +143,25 @@ enum AppTheme {
             dark: UIColor(red: 0.64, green: 0.90, blue: 1.00, alpha: 1.0)
         )
         static let accentLight = adaptive(
-            light: UIColor(red: 0.65, green: 0.88, blue: 1.00, alpha: 1.0),
+            light: UIColor(red: 0.42, green: 0.68, blue: 0.90, alpha: 1.0),
             dark: UIColor(red: 0.10, green: 0.34, blue: 0.48, alpha: 1.0)
         )
 
+        /// Semitransparent slate fill for Explore search + **My sites / All** toggle (light mode).
+        static let exploreChromeControlFill = adaptive(
+            light: UIColor(red: 0.27, green: 0.38, blue: 0.48, alpha: 0.38),
+            dark: UIColor(red: 0.05, green: 0.12, blue: 0.18, alpha: 0.78)
+        )
+        /// Deprecated — prefer **`appLiquidGlassSearchFieldChrome()`** on **`CatalogSearchField`**.
+
         /// Tank gas chart line, cylinder O₂ band, and minimized **PSI / SAC / RMV** values.
         static let tankGasAccent = Color(red: 0.92, green: 0.78, blue: 0.12)
+
+        /// Transparent stat / highlight tiles — legacy outline token (prefer **`AppListTileCardChrome`** stroke).
+        static let highlightTileOutline = adaptive(
+            light: UIColor(red: 0.12, green: 0.26, blue: 0.40, alpha: 0.88),
+            dark: UIColor(red: 0.38, green: 0.54, blue: 0.68, alpha: 0.72)
+        )
 
         static let headerGradientStart = accent
         static let headerGradientEnd = accentDeep
@@ -118,6 +169,11 @@ enum AppTheme {
         static let iconPrimary = accentDeep
         static let tabSelected = accent
         static let tabUnselected = secondaryText
+        /// Liquid Glass back chevron — dark slate in light mode, white in dark mode.
+        static let backButtonForeground = adaptive(
+            light: UIColor(red: 0.12, green: 0.26, blue: 0.40, alpha: 1.0),
+            dark: UIColor(white: 1.0, alpha: 0.96)
+        )
         static let textPrimary = primaryText
 
         /// **GoDive** wordmark on **`AppHeader`**: shallow → mid → deep ocean (leading → trailing), inspired by legacy oceanBlue → deepBlue treatment.
@@ -140,6 +196,12 @@ enum AppTheme {
         }
     }
 
+    /// Shared outline for highlight tiles (corner radius only — fill/stroke live in **`AppListTileCardChrome`**).
+    enum HighlightTile {
+        static let cornerRadius: CGFloat = 12
+        static let outlineWidth: CGFloat = 1.25
+    }
+
     enum Spacing {
         static let sm: CGFloat = 8
         static let md: CGFloat = 16
@@ -159,8 +221,10 @@ enum AppTheme {
         static let appHeaderBottomPadding: CGFloat = Spacing.md
         /// Fallback before top chrome publishes its measured height (see **`AppHeaderMetrics.HeightKey`**). Sized for **`.largeTitle`** **`AppHeader`**; search-only rows measure shorter at runtime.
         static let appHeaderClearanceFallback: CGFloat = 64
+        /// Shared height for Liquid Glass search capsules and toolbar icon / text buttons in top chrome.
+        static let glassChromeControlHeight: CGFloat = 44
         /// Inner height of **`CatalogSearchField`** in list top chrome (logbook, field guide, explore).
-        static let logbookSearchFieldHeight: CGFloat = 44
+        static let logbookSearchFieldHeight: CGFloat = glassChromeControlHeight
         /// Fixed height for one **`ExploreDiveSiteRow`** tile in the Explore map search dropdown.
         static let exploreMapSearchSuggestionRowHeight: CGFloat = 88
         /// Number of suggestion tiles visible before scrolling.
@@ -173,7 +237,7 @@ enum AppTheme {
         }
     }
 
-    /// Shared oval search field chrome (**`CatalogSearchField`**).
+    /// Legacy oval outline tokens — **`CatalogSearchField`** uses Liquid Glass instead.
     enum SearchField {
         static let outlineColor = Colors.accent.opacity(0.38)
         static let outlineFocusedColor = Colors.accent.opacity(0.62)

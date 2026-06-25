@@ -7,11 +7,9 @@ struct FieldGuideMarineLifeAddToolbarButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: FieldGuideMarineLifeAddPresentation.chromeSystemImage)
-                .font(.title3.weight(.semibold))
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(Rectangle())
+                .appToolbarIconButtonLabel()
         }
-        .buttonStyle(.plain)
+        .appStandaloneIconButtonStyle()
         .accessibilityLabel(FieldGuideMarineLifeAddPresentation.chromeAccessibilityLabel)
         .accessibilityIdentifier(FieldGuideMarineLifeAddPresentation.chromeAccessibilityIdentifier)
     }

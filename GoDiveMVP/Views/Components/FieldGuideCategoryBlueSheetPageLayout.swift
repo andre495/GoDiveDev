@@ -45,18 +45,14 @@ struct FieldGuideBlueSheetSearchBackChrome: View {
                 .frame(maxWidth: .infinity)
 
                 if isSearchFocused {
-                    Button {
-                        isSearchFocused = false
-                        searchText = ""
-                    } label: {
-                        Text("Cancel")
-                            .font(.body.weight(.semibold))
-                            .frame(minWidth: 44, minHeight: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(AppTheme.Colors.tabSelected)
-                    .accessibilityIdentifier(cancelAccessibilityIdentifier)
+                    CatalogSearchDismissButton(
+                        action: {
+                            isSearchFocused = false
+                            searchText = ""
+                        },
+                        accessibilityIdentifier: cancelAccessibilityIdentifier,
+                        usesGlassButtonStyle: false
+                    )
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: isSearchFocused)
@@ -275,37 +271,89 @@ struct FieldGuideSpeciesSearchResultsRows: View {
     let unitSystem: DiveDisplayUnitSystem
     let onSelectSpecies: (String) -> Void
 
-    private var rows: [FieldGuidePresentation.MarineLifeRowDisplayData] {
-        FieldGuideSpeciesSearchResultsPresentation.rowData(
-            catalogSnapshots: catalogSnapshots,
-            query: query,
-            unitSystem: unitSystem
-        )
-    }
+    @State private var searchableTextByUUID: [String: String] = [:]
+    @State private var displayedRows: [FieldGuidePresentation.MarineLifeRowDisplayData] = []
+    @State private var rowsRefreshTask: Task<Void, Never>?
 
     var body: some View {
-        if rows.isEmpty {
-            CatalogSearchEmptyState(
-                title: "No matching species",
-                message: "Try a common name, scientific name, or group like “ray” or “cephalopod”."
-            )
-            .padding(.vertical, AppTheme.Spacing.lg)
-            .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
-        } else {
-            ForEach(rows) { row in
-                Button {
-                    onSelectSpecies(row.marineLifeUUID)
-                } label: {
-                    FieldGuideMarineLifeRow(data: row)
-                        .equatable()
-                }
-                .buttonStyle(.plain)
+        Group {
+            if displayedRows.isEmpty {
+                CatalogSearchEmptyState(
+                    title: "No matching species",
+                    message: "Try a common name, scientific name, or group like “ray” or “cephalopod”."
+                )
+                .padding(.vertical, AppTheme.Spacing.lg)
                 .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
+            } else {
+                ForEach(displayedRows) { row in
+                    Button {
+                        onSelectSpecies(row.marineLifeUUID)
+                    } label: {
+                        FieldGuideMarineLifeRow(data: row)
+                            .equatable()
+                    }
+                    .buttonStyle(.plain)
+                    .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                }
             }
+        }
+        .onAppear {
+            syncSearchIndex()
+            scheduleDisplayedRowsRefresh(immediate: true)
+        }
+        .onChange(of: catalogSnapshots) { _, _ in
+            syncSearchIndex()
+            scheduleDisplayedRowsRefresh(immediate: true)
+        }
+        .onChange(of: query) { _, _ in
+            scheduleDisplayedRowsRefresh()
+        }
+        .onChange(of: unitSystem) { _, _ in
+            scheduleDisplayedRowsRefresh(immediate: true)
+        }
+        .onDisappear {
+            rowsRefreshTask?.cancel()
+            rowsRefreshTask = nil
+        }
+    }
+
+    private func syncSearchIndex() {
+        searchableTextByUUID = FieldGuideSpeciesSearchResultsPresentation.searchableTextByUUID(
+            for: catalogSnapshots
+        )
+    }
+
+    private func scheduleDisplayedRowsRefresh(immediate: Bool = false) {
+        rowsRefreshTask?.cancel()
+        let query = query
+        let snapshots = catalogSnapshots
+        let searchableTextByUUID = searchableTextByUUID
+        let unitSystem = unitSystem
+        let debounceNanoseconds = immediate
+            ? UInt64(0)
+            : CatalogSearchPresentation.debounceNanoseconds
+
+        rowsRefreshTask = Task {
+            if debounceNanoseconds > 0 {
+                try? await Task.sleep(nanoseconds: debounceNanoseconds)
+            }
+            guard !Task.isCancelled else { return }
+
+            let rows = await Task.detached {
+                FieldGuideSpeciesSearchResultsPresentation.rowData(
+                    catalogSnapshots: snapshots,
+                    searchableTextByUUID: searchableTextByUUID,
+                    query: query,
+                    unitSystem: unitSystem
+                )
+            }.value
+
+            guard !Task.isCancelled else { return }
+            displayedRows = rows
         }
     }
 }

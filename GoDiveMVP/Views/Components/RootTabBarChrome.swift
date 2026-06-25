@@ -1,9 +1,8 @@
 import SwiftUI
 
+/// Frosted tab bar — system Liquid Glass (no custom material overlay).
 extension View {
-    /// Frosted tab bar so scroll content (e.g. **Logbook**) can show through underneath.
     func goDiveRootTabBarChrome() -> some View {
-        toolbarBackground(.ultraThinMaterial, for: .tabBar)
-            .toolbarBackground(.visible, for: .tabBar)
+        self
     }
 }

@@ -31,11 +31,9 @@ struct LogbookTopChrome<TrailingActions: View>: View {
                 leadingActions: {
                     NavigationLink(value: LogbookRoute.tripPlanner) {
                         Image(systemName: TripPlannerPresentation.exploreChromeSystemImage)
-                            .font(.body.weight(.semibold))
-                            .frame(minWidth: 44, minHeight: 44)
-                            .contentShape(Rectangle())
+                            .appToolbarIconButtonLabel()
                     }
-                    .buttonStyle(.plain)
+                    .appStandaloneIconButtonStyle()
                     .foregroundStyle(AppTheme.Colors.iconPrimary)
                     .accessibilityLabel(TripPlannerPresentation.exploreChromeAccessibilityLabel)
                     .accessibilityIdentifier("Logbook.TripPlanner")

@@ -15,8 +15,7 @@ struct LogbookTopChromeScrim: View {
     var body: some View {
         Group {
             if reduceTransparency {
-                AppTheme.Colors.statusBarEdgeScrimSolid
-                    .opacity(0.98)
+                AppTheme.Colors.listTopChromeScrimSolid
             } else {
                 AppTheme.Colors.logbookTopChromeScrimGradient
             }

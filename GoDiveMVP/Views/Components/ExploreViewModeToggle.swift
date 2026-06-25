@@ -34,11 +34,9 @@ struct ExploreViewModeFlipButton: View {
             viewMode = destinationMode
         } label: {
             Image(systemName: destinationMode.systemImage)
-                .font(.body.weight(.semibold))
-                .frame(width: 44, height: 36)
-                .contentShape(Rectangle())
+                .appToolbarIconButtonLabel()
         }
-        .buttonStyle(.plain)
+        .appStandaloneIconButtonStyle()
         .accessibilityLabel("Show \(destinationMode.accessibilityLabel)")
         .accessibilityIdentifier("Explore.ViewMode.FlipTo\(destinationMode.rawValue.capitalized)")
     }

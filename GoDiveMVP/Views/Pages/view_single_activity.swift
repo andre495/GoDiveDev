@@ -103,14 +103,15 @@ struct ViewSingleActivity: View {
 
     private var singleActivityMainPage: some View {
         AppHeaderlessPage(leadingEdgePopOnWillDismiss: requestOverviewMapTeardown) {
-            diveOverviewHeroLayer
-                .overlay(alignment: .top) {
-                    activityTopChrome
-                        .zIndex(1_000)
-                }
-                .overlay {
-                    mediaImportOverlayIfNeeded
-                }
+            ZStack(alignment: .top) {
+                diveOverviewHeroLayer
+
+                activityTopChrome
+                    .zIndex(1_000)
+            }
+            .overlay {
+                mediaImportOverlayIfNeeded
+            }
         }
     }
 
@@ -307,7 +308,6 @@ struct ViewSingleActivity: View {
     }
 
     private func handleSelectedActivityTabChange(_ newTab: DiveActivityTab) {
-        syncOverviewSheetPresentation(for: newTab)
         if newTab == .map {
             overviewMapTeardownRequested = false
             presentMapSitePromptIfNeeded()
@@ -418,39 +418,28 @@ struct ViewSingleActivity: View {
     }
 
     private var activityTopChrome: some View {
-        HStack(alignment: .center, spacing: 0) {
-            SecondaryDestinationBackButton(
-                minTapDimension: DiveActivityTabIcon.menuRowHeight,
-                onWillDismiss: requestOverviewMapTeardown
-            )
-            .frame(width: DiveActivityTabIcon.menuRowHeight, height: DiveActivityTabIcon.menuRowHeight)
+        GlassEffectContainer {
+            ZStack {
+                HStack {
+                    SecondaryDestinationBackButton(onWillDismiss: requestOverviewMapTeardown)
+                    Spacer(minLength: 0)
+                }
 
-            activityIconTabBar
-                .frame(maxWidth: .infinity)
+                activityIconTabBar
+            }
+            .frame(maxWidth: .infinity)
         }
         .padding(.horizontal, AppTheme.Spacing.md)
         .padding(.top, AppTheme.Spacing.sm)
+        .animation(nil, value: overviewSheetDetent)
         .allowsHitTesting(true)
     }
 
     private var activityIconTabBar: some View {
-        HStack(spacing: 0) {
-            ForEach(DiveActivityTab.allCases, id: \.self) { tab in
-                Button {
-                    selectActivityTab(tab)
-                } label: {
-                    tab.tabIconImage(isSelected: selectedActivityTab == tab)
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: DiveActivityTabIcon.menuRowHeight)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(tab.accessibilityLabel)
-                .accessibilityAddTraits(selectedActivityTab == tab ? .isSelected : [])
-            }
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("DiveActivity.IconTabs")
+        DiveActivityIconTabBar(
+            selection: $selectedActivityTab,
+            onSelect: selectActivityTab
+        )
     }
 
     private var diveOverviewHeroLayer: some View {

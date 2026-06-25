@@ -12,12 +12,14 @@ enum AppHeaderMetrics {
 
 // MARK: - Status bar scrim (narrow band only)
 
-/// Short fade at the **very top** of the screen so status content reads on busy backgrounds; feathers through **`surfaceGradientBottom`** (deep ocean).
+/// Short fade at the **very top** of the screen so status content reads on busy backgrounds.
 struct AppStatusBarEdgeScrim: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     /// **Window** safe-area top (from an outer **`GeometryReader`**, e.g. Logbook root).
     let safeAreaTop: CGFloat
+    /// When **`true`**, uses **`listStatusBarEdgeScrimGradient`** (same pale ocean base as wordmark header).
+    var usesListChromeFeather: Bool = false
 
     /// Feather **below** the safe top into the page gradient.
     private var feather: CGFloat { 22 }
@@ -27,10 +29,14 @@ struct AppStatusBarEdgeScrim: View {
     var body: some View {
         Group {
             if reduceTransparency {
-                AppTheme.Colors.statusBarEdgeScrimSolid
+                (usesListChromeFeather
+                    ? AppTheme.Colors.listStatusBarEdgeScrimSolid
+                    : AppTheme.Colors.statusBarEdgeScrimSolid)
                     .frame(height: max(0, safeAreaTop) + 8)
             } else {
-                AppTheme.Colors.statusBarEdgeScrimGradient
+                (usesListChromeFeather
+                    ? AppTheme.Colors.listStatusBarEdgeScrimGradient
+                    : AppTheme.Colors.statusBarEdgeScrimGradient)
                     .frame(height: bandHeight)
             }
         }
@@ -66,6 +72,8 @@ struct AppHeader<TrailingContent: View>: View {
     let trailingContent: TrailingContent
     /// Pass **`GeometryReader.safeAreaInsets.top`** from the tab / page root so the status scrim matches the device inset.
     let statusBarSafeAreaTop: CGFloat
+    /// Pale list chrome feather in light mode (certifications, buddies, equipment locker).
+    let statusBarUsesListChromeFeather: Bool
 
     init(
         title: String,
@@ -75,6 +83,7 @@ struct AppHeader<TrailingContent: View>: View {
         titleUsesLinkedSiteAccent: Bool = false,
         titlePlacement: AppHeaderTitlePlacement = .centered,
         statusBarSafeAreaTop: CGFloat = 0,
+        statusBarUsesListChromeFeather: Bool = false,
         @ViewBuilder trailingContent: () -> TrailingContent
     ) {
         self.title = title
@@ -84,6 +93,7 @@ struct AppHeader<TrailingContent: View>: View {
         self.titleUsesLinkedSiteAccent = titleUsesLinkedSiteAccent
         self.titlePlacement = titlePlacement
         self.statusBarSafeAreaTop = statusBarSafeAreaTop
+        self.statusBarUsesListChromeFeather = statusBarUsesListChromeFeather
         self.trailingContent = trailingContent()
     }
 
@@ -103,7 +113,10 @@ struct AppHeader<TrailingContent: View>: View {
         .contentShape(Rectangle())
         .background(alignment: .top) {
             if statusBarSafeAreaTop > 0.5 {
-                AppStatusBarEdgeScrim(safeAreaTop: statusBarSafeAreaTop)
+                AppStatusBarEdgeScrim(
+                    safeAreaTop: statusBarSafeAreaTop,
+                    usesListChromeFeather: statusBarUsesListChromeFeather
+                )
                     .ignoresSafeArea(edges: .top)
             }
         }
@@ -295,7 +308,8 @@ extension AppHeader where TrailingContent == EmptyView {
         titleUsesBrandForeground: Bool = false,
         titleUsesLinkedSiteAccent: Bool = false,
         titlePlacement: AppHeaderTitlePlacement = .centered,
-        statusBarSafeAreaTop: CGFloat = 0
+        statusBarSafeAreaTop: CGFloat = 0,
+        statusBarUsesListChromeFeather: Bool = false
     ) {
         self.init(
             title: title,
@@ -304,7 +318,8 @@ extension AppHeader where TrailingContent == EmptyView {
             titleUsesBrandForeground: titleUsesBrandForeground,
             titleUsesLinkedSiteAccent: titleUsesLinkedSiteAccent,
             titlePlacement: titlePlacement,
-            statusBarSafeAreaTop: statusBarSafeAreaTop
+            statusBarSafeAreaTop: statusBarSafeAreaTop,
+            statusBarUsesListChromeFeather: statusBarUsesListChromeFeather
         ) {
             EmptyView()
         }

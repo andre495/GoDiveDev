@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Compact oval list search field (logbook, field guide, explore).
+/// Compact oval list search field (logbook, field guide, explore) — Liquid Glass capsule.
 struct CatalogSearchField: View {
     @Binding var text: String
     @FocusState.Binding var isFocused: Bool
@@ -33,28 +33,14 @@ struct CatalogSearchField: View {
                         .frame(minWidth: 44, minHeight: 44)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
                 .accessibilityLabel("Clear search text")
             }
         }
         .padding(.horizontal, AppTheme.Spacing.md)
         .frame(maxWidth: .infinity)
-        .frame(height: AppTheme.Layout.logbookSearchFieldHeight)
-        .background {
-            Capsule(style: .continuous)
-                .fill(AppTheme.Colors.surfaceElevated)
-        }
-        .overlay {
-            Capsule(style: .continuous)
-                .strokeBorder(
-                    isFocused
-                        ? AppTheme.SearchField.outlineFocusedColor
-                        : AppTheme.SearchField.outlineColor,
-                    lineWidth: isFocused
-                        ? AppTheme.SearchField.outlineFocusedWidth
-                        : AppTheme.SearchField.outlineWidth
-                )
-        }
+        .frame(height: AppTheme.Layout.glassChromeControlHeight)
+        .appLiquidGlassSearchFieldChrome()
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(accessibilityIdentifier)
     }

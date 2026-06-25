@@ -61,18 +61,6 @@ struct FieldGuideView: View {
         return subcategorySpeciesIndex
     }
 
-    private var filteredCatalogSnapshots: [MarineLifeCatalogSnapshot] {
-        FieldGuideMarineLifeSearch.filtering(resolvedCatalogSnapshots, query: speciesSearchQuery)
-    }
-
-    private var listRows: [FieldGuidePresentation.MarineLifeRowDisplayData] {
-        FieldGuidePresentation.rowData(
-            for: filteredCatalogSnapshots,
-            sightedMarineLifeUUIDs: [],
-            unitSystem: diveDisplayUnitSystem
-        )
-    }
-
     private var isFilteringSpecies: Bool {
         FieldGuideMarineLifeSearch.isFiltering(query: speciesSearchQuery)
     }
@@ -299,46 +287,37 @@ struct FieldGuideView: View {
 
     @ViewBuilder
     private func fieldGuideSearchResultsList(topInset: CGFloat, bottomInset: CGFloat) -> some View {
-        if listRows.isEmpty {
-            CatalogSearchEmptyState(
-                title: "No matching species",
-                message: "Try a common name, scientific name, or group like “ray” or “cephalopod”."
+        List {
+            Color.clear
+                .frame(height: topInset)
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .accessibilityHidden(true)
+
+            FieldGuideSpeciesSearchResultsRows(
+                catalogSnapshots: resolvedCatalogSnapshots,
+                query: speciesSearchQuery,
+                unitSystem: diveDisplayUnitSystem,
+                onSelectSpecies: { uuid in
+                    path.append(.speciesDetail(uuid))
+                }
             )
-            .padding(.top, topInset)
-        } else {
-            List {
-                Color.clear
-                    .frame(height: topInset)
-                    .listRowInsets(EdgeInsets())
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .accessibilityHidden(true)
 
-                FieldGuideSpeciesSearchResultsRows(
-                    catalogSnapshots: resolvedCatalogSnapshots,
-                    query: speciesSearchQuery,
-                    unitSystem: diveDisplayUnitSystem,
-                    onSelectSpecies: { uuid in
-                        path.append(.speciesDetail(uuid))
-                    }
-                )
-
-                Color.clear
-                    .frame(height: bottomInset)
-                    .listRowInsets(EdgeInsets())
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .accessibilityHidden(true)
-            }
-            .listStyle(.plain)
-            .listRowSpacing(AppTheme.Spacing.md)
-            .scrollContentBackground(.hidden)
-            .background(Color.clear)
-            .animation(nil, value: listRows.count)
-            .scrollDismissesKeyboard(.interactively)
-            .ignoresSafeArea(edges: [.top, .bottom])
-            .listScrollToTopTrigger(nonce: listScrollToTopNonce)
+            Color.clear
+                .frame(height: bottomInset)
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .accessibilityHidden(true)
         }
+        .listStyle(.plain)
+        .listRowSpacing(AppTheme.Spacing.md)
+        .scrollContentBackground(.hidden)
+        .background(Color.clear)
+        .scrollDismissesKeyboard(.interactively)
+        .ignoresSafeArea(edges: [.top, .bottom])
+        .listScrollToTopTrigger(nonce: listScrollToTopNonce)
     }
 }
 

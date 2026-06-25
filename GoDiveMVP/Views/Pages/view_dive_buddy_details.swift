@@ -28,7 +28,7 @@ struct ViewDiveBuddyDetails: View {
     @State private var cachedSharedDiveActivities: [DiveActivity] = []
     @State private var ownerNumberingRows: [DiveActivityDiveNumbering.NumberingRow] = []
     @State private var ownerActivityTimeZoneOffsets: [UUID: Int?] = [:]
-    @State private var showsDeferredBuddyChrome = false
+    @State private var showsDeferredHeroMap = false
     @State private var cachedTripRows: [DiveBuddyTripRowDisplayData] = []
     @State private var cachedTaggedMediaItems: [DiveMediaPhoto] = []
     @State private var cachedTaggedMediaTimeZoneOffsetByID: [UUID: Int?] = [:]
@@ -201,19 +201,18 @@ struct ViewDiveBuddyDetails: View {
                             topSafeAreaInset: heroTopSafeAreaInset
                         ) {
                             DiveBuddyDetailHeroHeaderView(
-                                media: showsDeferredBuddyChrome ? displayHeroTaggedMedia : heroBootstrapMedia,
-                                mapPins: showsDeferredBuddyChrome ? cachedMapPins : [],
+                                media: displayHeroTaggedMedia,
+                                mapPins: showsDeferredHeroMap ? cachedMapPins : [],
                                 mapFitLayout: TripDetailMapFitLayout(
                                     mapHeight: heroHeight,
                                     topObstructionHeight: topInset
                                 ),
                                 height: heroHeight,
                                 expectsTaggedMedia: expectsBuddyHeroTaggedMedia,
-                                isMapContentReady: showsDeferredBuddyChrome,
-                                shouldAutoPlaySelectedVideo: showsDeferredBuddyChrome
-                                    && DiveBuddyDetailPresentation.shouldAutoPlaySelectedVideo(
-                                        for: displayHeroTaggedMedia
-                                    ),
+                                isMapContentReady: showsDeferredHeroMap,
+                                shouldAutoPlaySelectedVideo: DiveBuddyDetailPresentation.shouldAutoPlaySelectedVideo(
+                                    for: displayHeroTaggedMedia
+                                ),
                                 onSiteSelected: openDiveSiteFromMap,
                                 selectedMode: $buddyHeroMode
                             )
@@ -245,7 +244,7 @@ struct ViewDiveBuddyDetails: View {
                         .ignoresSafeArea(edges: .bottom)
                     }
                     .overlay(alignment: .top) {
-                        if showsDeferredBuddyChrome, !cachedMapPins.isEmpty {
+                        if showsDeferredHeroMap, !cachedMapPins.isEmpty {
                             DiveBuddyDetailHeroModeToggle(selectedMode: $buddyHeroMode)
                                 .padding(.trailing, AppTheme.Spacing.md)
                                 .padding(.bottom, DiveBuddyDetailPresentation.heroModeToggleBottomPadding)
@@ -300,11 +299,8 @@ struct ViewDiveBuddyDetails: View {
                 )
             }
         }
-        .task(id: buddy.id) {
-            await Task.yield()
-            showsDeferredBuddyChrome = true
-        }
         .task(id: buddyDetailContentToken, priority: .utility) {
+            rebuildBuddyDetailContent(includeSecondarySections: false, includeMarineLifeEnrichment: false)
             await Task.yield()
             if ownerNumberingRows.isEmpty, let ownerProfileID {
                 let ownerDiveIndex = DiveBuddyDetailPresentation.fetchOwnerDiveIndex(
@@ -313,10 +309,11 @@ struct ViewDiveBuddyDetails: View {
                 )
                 ownerNumberingRows = ownerDiveIndex.numberingRows
                 ownerActivityTimeZoneOffsets = ownerDiveIndex.timeZoneOffsetByActivityID
+                rebuildBuddyDetailContent(includeSecondarySections: false, includeMarineLifeEnrichment: false)
             }
-            rebuildBuddyDetailContent(includeSecondarySections: false, includeMarineLifeEnrichment: false)
             await Task.yield()
             rebuildBuddyDetailContent(includeSecondarySections: true, includeMarineLifeEnrichment: false)
+            showsDeferredHeroMap = true
             await Task.yield()
             rebuildBuddyDetailContent(includeSecondarySections: true, includeMarineLifeEnrichment: true)
             await warmBuddyHeroHeaderMediaPreviewIfNeeded()
@@ -369,12 +366,6 @@ struct ViewDiveBuddyDetails: View {
             Text(contactLinkError ?? "")
         }
         .accessibilityIdentifier("DiveBuddyDetails.Root")
-    }
-
-    private var heroBootstrapMedia: DiveMediaPhoto? {
-        guard let media = displayHeroTaggedMedia,
-              media.resolvedMediaKind != .video else { return nil }
-        return media
     }
 
     private func catalogSitesFromSharedDives(_ sharedDives: [DiveActivity]) -> [DiveSite] {
@@ -535,12 +526,10 @@ struct ViewDiveBuddyDetails: View {
             showsBrandWordmark: false,
             statusBarSafeAreaTop: safeTop
         ) {
-            Button("Edit") {
-                showsEditSheet = true
-            }
-            .font(.body.weight(.semibold))
-            .foregroundStyle(AppTheme.Colors.tabSelected)
-            .accessibilityIdentifier("DiveBuddyDetails.Edit")
+            AppEditToolbarButton(
+                action: { showsEditSheet = true },
+                accessibilityIdentifier: "DiveBuddyDetails.Edit"
+            )
         }
         .frame(maxWidth: .infinity, alignment: .top)
         .zIndex(1)
@@ -638,48 +627,21 @@ struct ViewDiveBuddyDetails: View {
     private func buddyContentPager(
         bottomScrollInset: CGFloat
     ) -> some View {
-        if showsDeferredBuddyChrome {
-            DiveBuddyDetailContentPager(
-                diveRows: cachedDiveRows,
-                tripRows: cachedTripRows,
-                taggedMediaItems: cachedTaggedMediaItems,
-                taggedMediaTimeZoneOffsetByID: cachedTaggedMediaTimeZoneOffsetByID,
-                linkedMediaItems: cachedLinkedMediaItems,
-                mediaSightings: cachedTaggedMediaSightings,
-                marineLifeCatalog: cachedMarineLifeCatalog,
-                ownerProfileID: ownerProfileID,
-                featuredTaggedMediaPhotoID: buddy.featuredTaggedMediaPhotoID,
-                gallerySelectedMediaID: $gallerySelectedMediaID,
-                bottomScrollInset: bottomScrollInset,
-                onToggleFeaturedTaggedMedia: toggleFeaturedTaggedMedia,
-                onOpenDive: openSharedDive
-            )
-        } else if !cachedDiveRows.isEmpty {
-            ScrollView {
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-                    LinkedDiveLogbookListRows(
-                        rows: cachedDiveRows,
-                        listAccessibilityIdentifier: "DiveBuddyDetails.DiveList",
-                        onOpenDive: openSharedDive
-                    )
-                    .accessibilityIdentifier("DiveBuddyDetails.DivesTogether")
-
-                    Color.clear
-                        .frame(height: bottomScrollInset)
-                        .accessibilityHidden(true)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .scrollClipDisabled(false)
-            .scrollDismissesKeyboard(.interactively)
-            .ignoresSafeArea(edges: .bottom)
-            .homeSheetPanelBottomScrollFade()
-            .accessibilityIdentifier("DiveBuddyDetails.ContentPager.Bootstrap")
-        } else {
-            Color.clear
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .accessibilityIdentifier("DiveBuddyDetails.ContentPager.Bootstrap")
-        }
+        DiveBuddyDetailContentPager(
+            diveRows: cachedDiveRows,
+            tripRows: cachedTripRows,
+            taggedMediaItems: cachedTaggedMediaItems,
+            taggedMediaTimeZoneOffsetByID: cachedTaggedMediaTimeZoneOffsetByID,
+            linkedMediaItems: cachedLinkedMediaItems,
+            mediaSightings: cachedTaggedMediaSightings,
+            marineLifeCatalog: cachedMarineLifeCatalog,
+            ownerProfileID: ownerProfileID,
+            featuredTaggedMediaPhotoID: buddy.featuredTaggedMediaPhotoID,
+            gallerySelectedMediaID: $gallerySelectedMediaID,
+            bottomScrollInset: bottomScrollInset,
+            onToggleFeaturedTaggedMedia: toggleFeaturedTaggedMedia,
+            onOpenDive: openSharedDive
+        )
     }
 
     @ViewBuilder

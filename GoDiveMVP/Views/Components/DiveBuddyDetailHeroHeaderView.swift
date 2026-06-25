@@ -166,50 +166,60 @@ struct PushedDetailHeroHeaderView: View {
 
 typealias DiveBuddyDetailHeroHeaderView = PushedDetailHeroHeaderView
 
-/// Media / map segmented control — matches **`ExploreSiteScopeToggle`** chrome on pushed detail heroes.
+/// Compact media / map toggle on pushed detail heroes (buddy, trip, species, dive site).
 struct PushedDetailHeroModeToggle: View {
     @Binding var selectedMode: PushedDetailHeroHeaderView.Mode
     var accessibilityIdentifierPrefix: String = "DiveBuddyDetails.Hero.ModeToggle"
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: PushedDetailHeroModeTogglePresentation.segmentSpacing) {
             ForEach(PushedDetailHeroHeaderView.Mode.allCases) { mode in
-                Button {
-                    var transaction = Transaction()
-                    transaction.disablesAnimations = true
-                    withTransaction(transaction) {
-                        selectedMode = mode
-                    }
-                } label: {
-                    Image(systemName: mode.systemImage)
-                        .font(.caption.weight(.semibold))
-                        .frame(width: 36, height: 36)
-                        .foregroundStyle(
-                            selectedMode == mode
-                                ? AppTheme.Colors.accent
-                                : AppTheme.Colors.tabUnselected
-                        )
-                        .background {
-                            if selectedMode == mode {
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(AppTheme.Colors.surfaceElevated)
-                            }
-                        }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(mode.accessibilityLabel)
-                .accessibilityAddTraits(selectedMode == mode ? .isSelected : [])
-                .accessibilityIdentifier("\(accessibilityIdentifierPrefix).\(mode.rawValue)")
+                segmentButton(for: mode)
             }
         }
-        .padding(4)
-        .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(AppTheme.Colors.tabUnselected.opacity(0.12))
-        }
+        .padding(PushedDetailHeroModeTogglePresentation.shellPadding)
+        .glassEffect(
+            .regular.interactive(),
+            in: .rect(cornerRadius: PushedDetailHeroModeTogglePresentation.shellCornerRadius)
+        )
+        .fixedSize(horizontal: true, vertical: false)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Hero view")
         .accessibilityIdentifier(accessibilityIdentifierPrefix)
+    }
+
+    private func segmentButton(for mode: PushedDetailHeroHeaderView.Mode) -> some View {
+        let isSelected = selectedMode == mode
+
+        return Button {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                selectedMode = mode
+            }
+        } label: {
+            Image(systemName: mode.systemImage)
+                .font(.body.weight(.semibold))
+                .frame(
+                    width: PushedDetailHeroModeTogglePresentation.segmentSize,
+                    height: PushedDetailHeroModeTogglePresentation.segmentSize
+                )
+                .contentShape(Rectangle())
+                .foregroundStyle(isSelected ? AppTheme.Colors.tabSelected : AppTheme.Colors.tabUnselected)
+                .background {
+                    if isSelected {
+                        RoundedRectangle(
+                            cornerRadius: PushedDetailHeroModeTogglePresentation.segmentCornerRadius,
+                            style: .continuous
+                        )
+                        .fill(AppTheme.Colors.surfaceElevated.opacity(0.92))
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .accessibilityLabel(mode.accessibilityLabel)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityIdentifier("\(accessibilityIdentifierPrefix).\(mode.rawValue)")
     }
 }
 

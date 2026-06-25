@@ -264,6 +264,24 @@ enum ExploreReferenceSiteListSearch {
     }
 }
 
+/// Bottom placement for **Explore** **My Sites / All Sites** toggle — pinned just above the root tab bar.
+enum ExploreSiteScopeChromePresentation {
+    /// Segment row (**32 pt**) + shell padding (**4 pt** × 2).
+    nonisolated static let toggleChromeHeight: CGFloat = 40
+
+    /// Hairline gap between the toggle and the tab bar top (tab content geometry already ends there).
+    nonisolated static let spacingAboveTabBar: CGFloat = 4
+
+    nonisolated static func paddingAboveTabBar(safeAreaBottom _: CGFloat = 0) -> CGFloat {
+        spacingAboveTabBar
+    }
+
+    /// Extra list scroll inset when the scope toggle is visible above the tab bar.
+    nonisolated static var listExtraBottomInset: CGFloat {
+        toggleChromeHeight + spacingAboveTabBar
+    }
+}
+
 private extension String {
     nonisolated var nilIfEmpty: String? {
         isEmpty ? nil : self

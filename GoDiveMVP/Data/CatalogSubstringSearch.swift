@@ -26,4 +26,11 @@ enum CatalogSubstringSearch {
         guard isFiltering(query: query) else { return true }
         return haystacks.contains { matches(in: $0, query: query) }
     }
+
+    /// Fast path when haystack text was pre-lowercased at index build time.
+    nonisolated static func matchesPrelowercased(_ haystack: String, query: String) -> Bool {
+        guard let needle = normalizedQuery(query) else { return true }
+        guard !haystack.isEmpty else { return false }
+        return haystack.contains(needle)
+    }
 }

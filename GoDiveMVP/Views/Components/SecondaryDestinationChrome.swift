@@ -10,7 +10,7 @@ extension View {
     func restoresRootTabBarWhenStackIsEmpty(_ isStackEmpty: Bool) -> some View {
         #if canImport(UIKit)
         self
-            .toolbar(isStackEmpty ? .visible : .automatic, for: .tabBar)
+            .toolbar(isStackEmpty ? .visible : .hidden, for: .tabBar)
             .background {
                 if isStackEmpty {
                     RootTabBarVisibilityInstaller()
@@ -60,8 +60,10 @@ private extension UIResponder {
 #endif
 
 enum SecondaryDestinationChromeMetrics {
-    /// Minimum tappable width/height for **`SecondaryDestinationBackButton`** (matches Logbook **+**).
-    static let backButtonMinimumTapDimension: CGFloat = 44
+    /// Matches **`AppToolbarIconButtonMetrics.tapDimension`** (Field Guide **+**).
+    static var backButtonMinimumTapDimension: CGFloat {
+        AppToolbarIconButtonMetrics.tapDimension
+    }
 }
 
 struct SecondaryDestinationBackButton: View {
@@ -78,13 +80,10 @@ struct SecondaryDestinationBackButton: View {
             dismiss()
         } label: {
             Image(systemName: "chevron.left")
-                .font(.title3)
-                .fontWeight(.semibold)
-                .frame(minWidth: minTapDimension, minHeight: minTapDimension)
-                .contentShape(Rectangle())
+                .appToolbarIconButtonLabel()
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(AppTheme.Colors.iconPrimary)
+        .appStandaloneIconButtonStyle(tapDimension: minTapDimension)
+        .foregroundStyle(AppTheme.Colors.backButtonForeground)
         .accessibilityLabel("Back")
     }
 }

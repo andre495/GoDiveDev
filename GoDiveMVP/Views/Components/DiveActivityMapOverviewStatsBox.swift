@@ -38,12 +38,7 @@ struct DiveActivityMapOverviewStatsBox: View {
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .frame(maxHeight: fillsAvailableHeight ? .infinity : nil, alignment: .topLeading)
         .background {
-            RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous)
-                .fill(AppTheme.Colors.surfaceMuted.opacity(0.55))
-                .overlay {
-                    RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous)
-                        .stroke(AppTheme.Colors.tabUnselected.opacity(0.14), lineWidth: 1)
-                }
+            AppHighlightTileChrome(cornerRadius: Metrics.cornerRadius)
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("DiveOverview.MapStatsBox")

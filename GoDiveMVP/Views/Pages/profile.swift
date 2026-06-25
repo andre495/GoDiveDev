@@ -3,8 +3,6 @@ import SwiftUI
 
 struct ProfileView: View {
     private enum Layout {
-        /// Dark veil between **`WaterBubbleBackground`** and profile content.
-        static let bubbleScrimOpacity: CGFloat = 0.48
         static let headerSpacing: CGFloat = 16
         static let profileAvatarDiameter: CGFloat = 168
     }
@@ -130,8 +128,7 @@ struct ProfileView: View {
             ZStack {
                 if !GoDiveUITestConfiguration.isActive {
                     WaterBubbleBackground()
-                    Color.black
-                        .opacity(Layout.bubbleScrimOpacity)
+                    AppTheme.Colors.profileBubbleScrim
                         .ignoresSafeArea()
                 }
 
@@ -142,19 +139,11 @@ struct ProfileView: View {
                         Spacer()
 
                         if accountSession.currentProfile != nil {
-                            Button {
-                                showsProfileEditSheet = true
-                            } label: {
-                                Image(systemName: "ellipsis")
-                                    .font(.title3.weight(.semibold))
-                                    .rotationEffect(.degrees(90))
-                                    .frame(minWidth: 44, minHeight: 44)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(AppTheme.Colors.iconPrimary)
-                            .accessibilityLabel("Edit profile")
-                            .accessibilityIdentifier("Profile.EditButton")
+                            AppEditToolbarButton(
+                                action: { showsProfileEditSheet = true },
+                                accessibilityIdentifier: "Profile.EditButton",
+                                accessibilityLabel: "Edit profile"
+                            )
                         }
 
                         NavigationLink {

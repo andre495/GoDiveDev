@@ -12,12 +12,10 @@ struct ViewCertificationDetails: View {
 
     var body: some View {
         AppPage(title: "Certification", showsBackButton: true, trailingContent: {
-            Button("Edit") {
-                showsEditSheet = true
-            }
-            .font(.body.weight(.semibold))
-            .foregroundStyle(AppTheme.Colors.tabSelected)
-            .accessibilityIdentifier("CertificationDetails.Edit")
+            AppEditToolbarButton(
+                action: { showsEditSheet = true },
+                accessibilityIdentifier: "CertificationDetails.Edit"
+            )
         }, content: {
             ScrollView {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {

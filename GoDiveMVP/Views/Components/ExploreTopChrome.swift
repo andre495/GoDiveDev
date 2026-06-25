@@ -1,14 +1,12 @@
 import SwiftUI
 
-/// Explore top bar — action row, optional map search suggestions, then centered site scope toggle.
+/// Explore top bar — action row and optional map search suggestions.
 /// **Map / list:** map-list flip (**leading**) + add dive site (**trailing**); search row uses the same leading/trailing slots.
 struct ExploreTopChrome: View {
     @Binding var viewMode: ExploreViewMode
-    @Binding var siteScope: ExploreSiteScope
     @Binding var siteSearchQuery: String
     @FocusState.Binding var isSiteSearchFocused: Bool
     let showsSiteSearch: Bool
-    let showsSiteScopeToggle: Bool
     let siteSearchSuggestions: [ExploreDiveSiteSearchSuggestion]
     let showsMapSearchSuggestions: Bool
     let statusBarSafeAreaTop: CGFloat
@@ -25,16 +23,6 @@ struct ExploreTopChrome: View {
                 case .list:
                     listModeRow
                 }
-            }
-
-            if showsSiteScopeToggle {
-                HStack {
-                    Spacer(minLength: 0)
-                    ExploreSiteScopeToggle(selection: $siteScope)
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, AppTheme.Spacing.lg)
-                .padding(.bottom, AppTheme.Spacing.sm)
             }
         }
         .fixedSize(horizontal: false, vertical: true)
@@ -79,47 +67,45 @@ struct ExploreTopChrome: View {
     }
 
     private var chromeActionsRow: some View {
-        HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
-            viewModeFlipButton
-            Spacer(minLength: 0)
-            addDiveSiteButton
+        GlassEffectContainer {
+            HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
+                viewModeFlipButton
+                Spacer(minLength: 0)
+                addDiveSiteButton
+            }
+            .appGlassChromeControlRowHeight()
         }
         .padding(.horizontal, AppTheme.Spacing.lg)
         .appTopChromeVerticalPadding()
     }
 
     private var siteSearchRow: some View {
-        HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
-            viewModeFlipButton
+        GlassEffectContainer {
+            HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
+                viewModeFlipButton
 
-            CatalogSearchField(
-                text: $siteSearchQuery,
-                isFocused: $isSiteSearchFocused,
-                placeholder: "Search dive sites",
-                accessibilityIdentifier: "exploreSiteSearchField"
-            )
-            .frame(maxWidth: .infinity)
+                CatalogSearchField(
+                    text: $siteSearchQuery,
+                    isFocused: $isSiteSearchFocused,
+                    placeholder: "Search dive sites",
+                    accessibilityIdentifier: "exploreSiteSearchField"
+                )
+                .frame(maxWidth: .infinity)
 
-            ZStack(alignment: .trailing) {
-                addDiveSiteButton
-                    .opacity(isSiteSearchFocused ? 0 : 1)
-                    .allowsHitTesting(!isSiteSearchFocused)
-                    .accessibilityHidden(isSiteSearchFocused)
-
-                if isSiteSearchFocused {
-                    Button(action: cancelMapSearch) {
-                        Text("Cancel")
-                            .font(.body.weight(.semibold))
-                            .frame(minWidth: 44, minHeight: 44)
-                            .contentShape(Rectangle())
+                Group {
+                    if isSiteSearchFocused {
+                        CatalogSearchDismissButton(
+                            action: cancelMapSearch,
+                            accessibilityIdentifier: "exploreSearchCancel"
+                        )
+                    } else {
+                        addDiveSiteButton
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(AppTheme.Colors.tabSelected)
-                    .accessibilityIdentifier("exploreSearchCancel")
                 }
+                .fixedSize(horizontal: true, vertical: false)
+                .appGlassChromeControlRowHeight()
             }
-            .fixedSize(horizontal: true, vertical: false)
-            .frame(minHeight: 44, alignment: .trailing)
+            .appGlassChromeControlRowHeight()
         }
         .animation(.easeInOut(duration: 0.2), value: isSiteSearchFocused)
         .padding(.horizontal, AppTheme.Spacing.lg)
@@ -128,18 +114,16 @@ struct ExploreTopChrome: View {
 
     private var viewModeFlipButton: some View {
         ExploreViewModeFlipButton(viewMode: $viewMode)
-            .foregroundStyle(chromeActionForeground)
+            .tint(chromeActionForeground)
     }
 
     private var addDiveSiteButton: some View {
         Button(action: onAddDiveSite) {
             Image(systemName: ExploreDiveSiteAddPresentation.chromeSystemImage)
-                .font(.title3.weight(.semibold))
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(Rectangle())
+                .appToolbarIconButtonLabel()
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(chromeActionForeground)
+        .appStandaloneIconButtonStyle()
+        .tint(chromeActionForeground)
         .accessibilityLabel(ExploreDiveSiteAddPresentation.chromeAccessibilityLabel)
         .accessibilityIdentifier(ExploreDiveSiteAddPresentation.chromeAccessibilityIdentifier)
     }

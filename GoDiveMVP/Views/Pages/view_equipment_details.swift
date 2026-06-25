@@ -83,12 +83,10 @@ struct ViewEquipmentDetails: View {
     }
 
     private var editToolbarButton: some View {
-        Button("Edit") {
-            showsEditSheet = true
-        }
-        .font(.body.weight(.semibold))
-        .foregroundStyle(AppTheme.Colors.tabSelected)
-        .accessibilityIdentifier("EquipmentDetails.Edit")
+        AppEditToolbarButton(
+            action: { showsEditSheet = true },
+            accessibilityIdentifier: "EquipmentDetails.Edit"
+        )
     }
 
     @ViewBuilder

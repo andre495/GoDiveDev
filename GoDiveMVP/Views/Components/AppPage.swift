@@ -126,7 +126,8 @@ struct AppPage<Content: View, TrailingContent: View>: View {
                     titleUsesBrandForeground: titleUsesBrandForeground,
                     titleUsesLinkedSiteAccent: titleUsesLinkedSiteAccent,
                     titlePlacement: titlePlacement,
-                    statusBarSafeAreaTop: safeTop
+                    statusBarSafeAreaTop: safeTop,
+                    statusBarUsesListChromeFeather: true
                 ) {
                     trailingContent
                 }

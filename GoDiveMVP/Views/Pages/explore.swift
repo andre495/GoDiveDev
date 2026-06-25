@@ -31,6 +31,7 @@ struct ExploreView: View {
         ExploreDiveSiteListPresentation.sections(from: displayedListRows)
     }
     @State private var scopeCacheRebuildTask: Task<Void, Never>?
+    @State private var listRowsRefreshTask: Task<Void, Never>?
     @State private var showsAddDiveSiteSheet = false
 
     private var referenceCatalog: [DiveSiteReferenceSnapshot] {
@@ -149,10 +150,10 @@ struct ExploreView: View {
                 RootTabListScrollSupport.scheduleScrollToTop { listScrollToTopNonce += 1 }
             }
         }
-        .onChange(of: siteSearchQuery) { _, newQuery in
-            refreshDisplayedListRows()
+        .onChange(of: siteSearchQuery) { _, _ in
+            scheduleDisplayedListRowsRefresh()
             guard mapFocusedSelection != nil else { return }
-            let trimmedQuery = newQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedQuery = siteSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
             let trimmedFocusedName = mapFocusedSiteName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             guard trimmedQuery != trimmedFocusedName else { return }
             clearMapSiteSearch(keepingQuery: true)
@@ -166,6 +167,8 @@ struct ExploreView: View {
         .onDisappear {
             scopeCacheRebuildTask?.cancel()
             scopeCacheRebuildTask = nil
+            listRowsRefreshTask?.cancel()
+            listRowsRefreshTask = nil
         }
         .onChange(of: isSiteSearchFocused) { _, isFocused in
             if !isFocused {
@@ -183,7 +186,10 @@ struct ExploreView: View {
     private var explorePageContent: some View {
         GeometryReader { proxy in
             let topInset = proxy.safeAreaInsets.top + exploreTopChromeHeight
-            let bottomInset = proxy.safeAreaInsets.bottom + AppTheme.Spacing.md
+            let showsBottomSiteScopeToggle = showsSiteScopeToggle && isExploreNavigationStackAtRoot
+            let bottomInset = proxy.safeAreaInsets.bottom
+                + AppTheme.Spacing.md
+                + (showsBottomSiteScopeToggle ? ExploreSiteScopeChromePresentation.listExtraBottomInset : 0)
 
             ZStack(alignment: .top) {
                 if viewMode == .list, !GoDiveUITestConfiguration.isActive {
@@ -218,11 +224,9 @@ struct ExploreView: View {
 
                 ExploreTopChrome(
                     viewMode: $viewMode,
-                    siteScope: $siteScope,
                     siteSearchQuery: $siteSearchQuery,
                     isSiteSearchFocused: $isSiteSearchFocused,
                     showsSiteSearch: showsSiteSearch,
-                    showsSiteScopeToggle: showsSiteScopeToggle,
                     siteSearchSuggestions: siteSearchSuggestions,
                     showsMapSearchSuggestions: showsMapSearchSuggestions,
                     statusBarSafeAreaTop: proxy.safeAreaInsets.top,
@@ -232,6 +236,19 @@ struct ExploreView: View {
                 )
                 .frame(maxWidth: .infinity, alignment: .top)
                 .zIndex(1)
+
+                if showsBottomSiteScopeToggle {
+                    VStack(spacing: 0) {
+                        Spacer(minLength: 0)
+                        ExploreSiteScopeBottomChrome(selection: $siteScope)
+                            .padding(
+                                .bottom,
+                                ExploreSiteScopeChromePresentation.paddingAboveTabBar()
+                            )
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .zIndex(2)
+                }
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
             .ignoresSafeArea(edges: .bottom)
@@ -441,15 +458,31 @@ struct ExploreView: View {
     private func applyScopePresentation() {
         displayedPlottableSites = scopeCache.plottableSites(for: siteScope)
         displayedPlottableSignature = scopeCache.plottableSignature(for: siteScope)
-        refreshDisplayedListRows()
+        scheduleDisplayedListRowsRefresh(immediate: true)
     }
 
-    private func refreshDisplayedListRows() {
-        displayedListRows = ExploreSiteScopeCache.filteringListRows(
-            scopeCache.listRows(for: siteScope),
-            scope: siteScope,
-            query: siteSearchQuery
-        )
+    private func scheduleDisplayedListRowsRefresh(immediate: Bool = false) {
+        listRowsRefreshTask?.cancel()
+        let query = siteSearchQuery
+        let scope = siteScope
+        let rows = scopeCache.listRows(for: scope)
+        let debounceNanoseconds = immediate
+            ? UInt64(0)
+            : CatalogSearchPresentation.debounceNanoseconds
+
+        listRowsRefreshTask = Task {
+            if debounceNanoseconds > 0 {
+                try? await Task.sleep(nanoseconds: debounceNanoseconds)
+            }
+            guard !Task.isCancelled else { return }
+
+            let filteredRows = await Task.detached {
+                ExploreSiteScopeCache.filteringListRows(rows, scope: scope, query: query)
+            }.value
+
+            guard !Task.isCancelled else { return }
+            displayedListRows = filteredRows
+        }
     }
 
     private func exploreSiteRowAccessibilityIdentifier(for row: ExploreDiveSiteRowDisplayData) -> String {

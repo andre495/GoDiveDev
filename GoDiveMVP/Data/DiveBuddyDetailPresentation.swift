@@ -48,6 +48,25 @@ enum DiveBuddyDetailPresentation: Sendable {
     /// Bottom padding for hero media/map toggle — clears **`HomeLifetimeStatsPanel`** overlap.
     nonisolated static let heroModeToggleBottomPadding: CGFloat =
         HomeLifetimeStatsLayout.panelOverlap + AppTheme.Spacing.md
+}
+
+/// Compact media / map toggle on blue-sheet pushed heroes (buddy, trip, species, dive site).
+enum PushedDetailHeroModeTogglePresentation: Sendable {
+    nonisolated static let segmentSize: CGFloat = AppToolbarIconButtonMetrics.tapDimension
+    nonisolated static let segmentSpacing: CGFloat = 4
+    nonisolated static let shellPadding: CGFloat = 4
+    nonisolated static let shellCornerRadius: CGFloat = 12
+    nonisolated static let segmentCornerRadius: CGFloat = 10
+
+    /// Intrinsic width — icon-only segments, not full-bleed **`UISegmentedControl`**.
+    nonisolated static var chromeWidth: CGFloat {
+        shellPadding * 2
+            + segmentSize * 2
+            + segmentSpacing
+    }
+}
+
+extension DiveBuddyDetailPresentation {
 
     /// Picks one tagged photo/video for the hero banner (**`nil`** when the buddy has no tagged media).
     nonisolated static func randomHeroTaggedMedia(from photos: [DiveMediaPhoto]) -> DiveMediaPhoto? {

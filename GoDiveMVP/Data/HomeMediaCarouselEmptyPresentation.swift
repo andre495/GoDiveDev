@@ -10,6 +10,9 @@ enum HomeMediaCarouselEmptyPresentation: Sendable {
     static let frameCount = 3
     static let animationCycleSeconds: Double = 4.8
 
+    /// Nudge copy and ghost frames below geometric center so they sit under the header comfortably.
+    static let contentDownshift: CGFloat = 80
+
     nonisolated static func frameRotationDegrees(index: Int) -> Double {
         switch index {
         case 0: -10

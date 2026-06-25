@@ -1,15 +1,45 @@
 import SwiftUI
 
-/// Top search row with optional leading / trailing actions and **Cancel** while focused (logbook pattern).
+/// Trailing **×** control to end search and clear focus (Logbook / Explore / Field Guide pattern).
+struct CatalogSearchDismissButton: View {
+    let action: () -> Void
+    let accessibilityIdentifier: String
+    var usesGlassButtonStyle: Bool = true
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "xmark")
+                .appToolbarIconButtonLabel()
+        }
+        .modifier(CatalogSearchDismissButtonStyleModifier(usesGlass: usesGlassButtonStyle))
+        .foregroundStyle(AppTheme.Colors.tabSelected)
+        .accessibilityLabel("Cancel search")
+        .accessibilityIdentifier(accessibilityIdentifier)
+    }
+}
+
+private struct CatalogSearchDismissButtonStyleModifier: ViewModifier {
+    let usesGlass: Bool
+
+    func body(content: Content) -> some View {
+        if usesGlass {
+            content.appStandaloneIconButtonStyle()
+        } else {
+            content.buttonStyle(.plain)
+        }
+    }
+}
+
+/// Top search row with optional leading / trailing actions and dismiss (**×**) while focused (logbook pattern).
 struct CatalogListSearchChrome<LeadingActions: View, TrailingActions: View>: View {
     @Binding var searchText: String
     @FocusState.Binding var isSearchFocused: Bool
     let placeholder: String
     let searchFieldAccessibilityIdentifier: String
     let cancelAccessibilityIdentifier: String
-    /// When **`false`**, the search field spans the row until focused (**Cancel** still appears while editing).
+    /// When **`false`**, the search field spans the row until focused (dismiss control still appears while editing).
     var showsTrailingActions: Bool = true
-    /// Keeps a fixed **Cancel** slot width while unfocused (Field Guide species search with no trailing actions).
+    /// Keeps a fixed dismiss slot width while unfocused (Field Guide species search with no trailing actions).
     var reservesCancelSlotWhenUnfocused: Bool = false
     var onCancel: (() -> Void)?
     @ViewBuilder let leadingActions: () -> LeadingActions
@@ -40,13 +70,16 @@ struct CatalogListSearchChrome<LeadingActions: View, TrailingActions: View>: Vie
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
-            leadingActions()
-            searchField
+        GlassEffectContainer {
+            HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
+                leadingActions()
+                searchField
 
-            if showsTrailingSlot {
-                trailingSlot
+                if showsTrailingSlot {
+                    trailingSlot
+                }
             }
+            .appGlassChromeControlRowHeight()
         }
         .animation(reservesCancelSlotWhenUnfocused ? nil : .easeInOut(duration: 0.2), value: isSearchFocused)
         .padding(.horizontal, AppTheme.Spacing.lg)
@@ -68,35 +101,25 @@ struct CatalogListSearchChrome<LeadingActions: View, TrailingActions: View>: Vie
         .frame(maxWidth: .infinity)
     }
 
+    @ViewBuilder
     private var trailingSlot: some View {
-        ZStack(alignment: .trailing) {
-            if showsTrailingActions {
+        Group {
+            if isSearchFocused {
+                CatalogSearchDismissButton(
+                    action: cancelSearch,
+                    accessibilityIdentifier: cancelAccessibilityIdentifier
+                )
+            } else if showsTrailingActions {
                 trailingActions()
-                    .opacity(isSearchFocused ? 0 : 1)
-                    .allowsHitTesting(!isSearchFocused)
-                    .accessibilityHidden(isSearchFocused)
+            } else if reservesCancelSlotWhenUnfocused {
+                Color.clear
+                    .appGlassChromeControlRowHeight()
+                    .accessibilityHidden(true)
             }
-
-            cancelButton
-                .opacity(isSearchFocused ? 1 : 0)
-                .allowsHitTesting(isSearchFocused)
-                .accessibilityHidden(!isSearchFocused)
         }
         .foregroundStyle(AppTheme.Colors.iconPrimary)
         .fixedSize(horizontal: true, vertical: false)
-        .frame(minWidth: 44, minHeight: 44, alignment: .trailing)
-    }
-
-    private var cancelButton: some View {
-        Button(action: cancelSearch) {
-            Text("Cancel")
-                .font(.body.weight(.semibold))
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(AppTheme.Colors.tabSelected)
-        .accessibilityIdentifier(cancelAccessibilityIdentifier)
+        .appGlassChromeControlRowHeight()
     }
 
     private func cancelSearch() {
