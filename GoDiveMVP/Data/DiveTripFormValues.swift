@@ -20,8 +20,37 @@ struct DiveTripFormValues: Equatable, Sendable {
         DiveTripDateRange.isValidOrderedRange(start: startDate, end: endDate)
     }
 
+    func overlappingTrip(
+        among ownerTrips: [DiveTrip],
+        excludingTripID: UUID? = nil,
+        calendar: Calendar = .current
+    ) -> DiveTrip? {
+        DiveTripOverlapValidation.firstOverlappingTrip(
+            start: startDate,
+            end: endDate,
+            among: ownerTrips,
+            excludingTripID: excludingTripID,
+            calendar: calendar
+        )
+    }
+
+    func canSave(
+        existingOwnerTrips: [DiveTrip] = [],
+        excludingTripID: UUID? = nil,
+        calendar: Calendar = .current
+    ) -> Bool {
+        hasValidDateRange
+            && (!parsedCountries.isEmpty || !trimmedTitle.isEmpty)
+            && overlappingTrip(
+                among: existingOwnerTrips,
+                excludingTripID: excludingTripID,
+                calendar: calendar
+            ) == nil
+    }
+
+    /// Backward-compatible save gate when overlap context is unavailable (tests only).
     var canSave: Bool {
-        hasValidDateRange && (!parsedCountries.isEmpty || !trimmedTitle.isEmpty)
+        canSave(existingOwnerTrips: [])
     }
 
     nonisolated static func parseCountries(from text: String) -> [String] {

@@ -40,16 +40,37 @@ enum DiveActivityEditableCatalog: Sendable {
         return all.filter { !$0.requiresLargeDetent }
     }
 
+    /// Map stats box edit target — not listed in **`sections(for: .map)`** but editable via the stats tile.
+    static let mapDiveSummarySection = Section(
+        id: "dive",
+        title: "Dive",
+        fieldIDs: [
+            .startTime, .startTimeUTC, .timeZoneOffset,
+            .durationMinutes, .maxDepthMeters, .averageDepthMeters,
+            .bottomTimeSeconds, .surfaceIntervalSeconds, .diveNumber,
+            .avgAscentRateMetersPerSecond, .profileSampleCount,
+        ]
+    )
+
+    static func section(
+        id: String,
+        tab: DiveActivityEditablePanelTab,
+        detent: DiveActivityOverviewDetent
+    ) -> Section? {
+        if tab == .map, id == mapDiveSummarySection.id {
+            return mapDiveSummarySection
+        }
+        return sections(for: tab, detent: detent).first { $0.id == id }
+    }
+
+    static func mapStatsBoxShowsEditButton(for activity: DiveActivity) -> Bool {
+        headerAction(for: mapDiveSummarySection, activity: activity) == .editForm
+    }
+
     private static func allSections(for tab: DiveActivityEditablePanelTab) -> [Section] {
         switch tab {
         case .map:
             return [
-                Section(id: "dive", title: "Dive", fieldIDs: [
-                    .startTime, .startTimeUTC, .timeZoneOffset,
-                    .durationMinutes, .maxDepthMeters, .averageDepthMeters,
-                    .bottomTimeSeconds, .surfaceIntervalSeconds, .diveNumber,
-                    .avgAscentRateMetersPerSecond, .profileSampleCount,
-                ]),
                 Section(id: "diveConditions", title: "Dive Conditions", fieldIDs: [
                     .waterTempAvgCelsius, .waterTempMaxCelsius, .waterTempMinCelsius,
                     .diveCurrentStrength, .surfaceCondition, .entryType, .diveVisibility,
@@ -64,7 +85,6 @@ enum DiveActivityEditableCatalog: Sendable {
                     .tankPressureStartPSI, .tankPressureEndPSI,
                 ]),
                 Section(id: "consumption", title: "Consumption rates", fieldIDs: [.avgSAC, .avgRMV]),
-                Section(id: "profileGas", title: "Profile samples (gas)", fieldIDs: [.profileGasSampleStats]),
                 Section(id: "equipment", title: "Equipment", fieldIDs: [.linkedEquipment]),
                 Section(id: "weights", title: "Weights", fieldIDs: [.diveWaterType, .diverWeightKilograms]),
                 Section(
@@ -77,12 +97,6 @@ enum DiveActivityEditableCatalog: Sendable {
                     id: "source",
                     title: "Source & import",
                     fieldIDs: [.source, .sourceDiveId, .rawImportVersion],
-                    requiresLargeDetent: true
-                ),
-                Section(
-                    id: "record",
-                    title: "Record",
-                    fieldIDs: [.recordID, .ownerName],
                     requiresLargeDetent: true
                 ),
             ]

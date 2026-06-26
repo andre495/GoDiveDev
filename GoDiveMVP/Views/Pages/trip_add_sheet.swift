@@ -7,15 +7,35 @@ struct TripAddSheetView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AccountSession.self) private var accountSession
 
+    @Query(
+        sort: [
+            SortDescriptor(\DiveTrip.startDate, order: .reverse),
+            SortDescriptor(\DiveTrip.createdAt, order: .reverse),
+        ]
+    )
+    private var allTrips: [DiveTrip]
+
     var onSaved: () -> Void = {}
 
     @State private var form = DiveTripFormValues()
     @State private var saveErrorMessage: String?
 
+    private var ownerTrips: [DiveTrip] {
+        guard let ownerID = accountSession.currentProfile?.id else { return [] }
+        return allTrips.filter { $0.ownerProfileID == ownerID }
+    }
+
+    private var canSaveTrip: Bool {
+        form.canSave(existingOwnerTrips: ownerTrips)
+    }
+
     var body: some View {
         NavigationStack {
             Form {
-                TripPlannerFormContent(form: $form)
+                TripPlannerFormContent(
+                    form: $form,
+                    existingOwnerTrips: ownerTrips
+                )
             }
             .scrollContentBackground(.hidden)
             .navigationTitle(TripPlannerPresentation.newTripSheetTitle)
@@ -32,7 +52,7 @@ struct TripAddSheetView: View {
                         saveTrip()
                     }
                     .fontWeight(.semibold)
-                    .disabled(!form.canSave)
+                    .disabled(!canSaveTrip)
                     .accessibilityIdentifier("TripAddSheet.Save")
                 }
             }
@@ -54,9 +74,14 @@ struct TripAddSheetView: View {
     }
 
     private func saveTrip() {
-        guard form.canSave else { return }
+        guard canSaveTrip else { return }
         guard let profile = accountSession.currentProfile else {
             saveErrorMessage = "Sign in to save a trip."
+            return
+        }
+
+        if let conflict = form.overlappingTrip(among: ownerTrips) {
+            saveErrorMessage = DiveTripPresentation.overlappingTripMessage(displayTitle: conflict.displayTitle)
             return
         }
 
@@ -88,6 +113,12 @@ struct TripAddSheetView: View {
 
 struct TripPlannerFormContent: View {
     @Binding var form: DiveTripFormValues
+    var existingOwnerTrips: [DiveTrip] = []
+    var editingTripID: UUID? = nil
+
+    private var overlappingTrip: DiveTrip? {
+        form.overlappingTrip(among: existingOwnerTrips, excludingTripID: editingTripID)
+    }
 
     var body: some View {
         Section {
@@ -112,6 +143,9 @@ struct TripPlannerFormContent: View {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
                 if !form.hasValidDateRange {
                     Text(DiveTripPresentation.invalidDateRangeMessage)
+                        .foregroundStyle(Color.red)
+                } else if let overlappingTrip {
+                    Text(DiveTripPresentation.overlappingTripMessage(displayTitle: overlappingTrip.displayTitle))
                         .foregroundStyle(Color.red)
                 }
                 Text("Give your trip a name, a destination, or both.")

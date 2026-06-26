@@ -9,7 +9,6 @@ struct DiveActivitySectionEditContext: Identifiable, Equatable, Sendable {
     var id: String { "\(tab)-\(sectionID)" }
 
     func resolvedSection() -> DiveActivityEditableCatalog.Section? {
-        DiveActivityEditableCatalog.sections(for: tab, detent: panelDetent)
-            .first { $0.id == sectionID }
+        DiveActivityEditableCatalog.section(id: sectionID, tab: tab, detent: panelDetent)
     }
 }

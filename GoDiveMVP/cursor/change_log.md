@@ -1515,8 +1515,18 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 - **`.github/workflows/deploy-docs.yml`** — `actions/checkout@v6`, `actions/setup-python@v6` (Node 24; clears runner deprecation warning).
 
-## 92 - Next batch
+## 92 - Next batch **(pushed)**
 
-**Summary:** Fix GitHub Pages deploy — use official Actions artifact + deploy-pages workflow (repo was on workflow publishing, not gh-pages branch).
+**Summary:** GitHub Pages deploy fix + dive overview panel trim + trip overlap validation + dive media empty hero prompt.
 
 - **`.github/workflows/deploy-docs.yml`** — split **build** (`mkdocs build` + `upload-pages-artifact@v4`) and **deploy** (`deploy-pages@v4`, `github-pages` environment); drop `mkdocs gh-deploy` (pushed to ignored `gh-pages` branch).
+- **`DiveActivityEditableCatalog`** — map tab drops **Dive** section (header + stats box only); tank tab drops **Profile samples (gas)** and **Record**. Test: **`diveActivityEditableCatalog_overviewPanelHidesDiveSummaryAndTankDiagnostics`**.
+- **Map stats box edit** — **`ellipsis`** top-trailing on **`DiveActivityMapOverviewStatsBox`** (matches section header edit affordance) opens hidden **`mapDiveSummarySection`** edit sheet. Test: **`diveActivityEditableCatalog_mapStatsBoxEdit_resolvesHiddenDiveSection`**.
+- **Home carousel trip chip** — linked dives show trip title beside **#** on the dive capsule in **`LogbookTripGroupAccentPalette`** color. Tests: **`homeMediaHighlightPresentation_buildCandidates_mapsLinkedTripTitleAndAccent`**, **`LogbookTripGroupAccentPresentation.accentColorIndexByTripID`**.
+- **`docs/dive-detail.md`** — user guide aligned.
+- **Trip overlap + exclusive dive membership** — **`DiveTripDateRange.rangesOverlap`**, **`DiveTripOverlapValidation`**, **`DiveTripFormValues.canSave(existingOwnerTrips:)`** blocks add/edit when calendar days overlap another owner trip; **`TripPlannerFormContent`** footer error; **`DiveTripActivityLinking.link`** unlinks other trips first; **`applyAutoLink`** skips dives already linked elsewhere. Tests: **`diveTripDateRange_detectsOverlappingInclusiveRanges`**, **`diveTripFormValues_rejectsOverlappingOwnerTrips`**, **`diveTripFormValues_allowsEditingTripWithoutSelfOverlap`**, **`diveTripActivityLinking_linkMovesDiveFromPreviousTrip`**, **`diveTripActivityLinking_autoLinkSkipsDivesLinkedToAnotherTrip`**.
+- **`docs/trips-and-buddies.md`** — overlap rule + one trip per dive.
+- **Dive media empty hero** — **`AnimatedMediaUploadEmptyPrompt`** split into **`MediaUploadEmptyGhostFramesAnimation`** (hero) + **`MediaUploadEmptyPromptTextBlock`** (sheet); ghost frames only in hero (**minimized** / **medium**); copy in sheet at **medium** / **large**; no hero animation at **large**. Tests: **`diveActivityMediaEmptyHeroPresentation_centersGhostFramesInVisibleHeroBand`**, **`diveActivityMediaEmptyHeroPresentation_hidesHeroAnimationAtLargeDetent`**, **`diveActivityMediaEmptyHeroPresentation_showsUploadTextInMediumAndLargeSheet`**, **`diveActivityMediaEmptyHeroPresentation_reusesHomeHighlightTitle`**.
+
+## 93 - Next batch
+

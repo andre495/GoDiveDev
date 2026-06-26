@@ -24,6 +24,8 @@ Tap **+** to add:
 - Start and end dates  
 - Destination countries  
 
+Trips cannot share any calendar days — if your dates overlap an existing trip, the form shows an error and **Save** stays disabled until you adjust the range.
+
 Add **planned dive sites** and **buddies** on the trip detail page after saving.
 
 ### Trip detail
@@ -51,7 +53,7 @@ Use **Edit** (⋯ menu) to change dates, title, or countries. **Share** exports 
 
 ### Linking dives to trips
 
-When a trip has **started**, dives whose dates fall inside the trip window can **auto-link**. You can also link manually from trip detail. Linked dives appear under the trip header in Logbook.
+When a trip has **started**, dives whose dates fall inside the trip window can **auto-link** (each dive belongs to at most one trip). You can also link manually from trip detail. Linked dives appear under the trip header in Logbook.
 
 ## Dive buddies
 

@@ -7,6 +7,12 @@ enum DiveTripPresentation: Sendable {
     nonisolated static let countriesSectionTitle = "Countries"
     nonisolated static let datesSectionTitle = "Dates"
     nonisolated static let invalidDateRangeMessage = "Start date must be on or before the end date."
+    nonisolated static let overlappingTripDateRangeMessage =
+        "These dates overlap another trip. Adjust the range so trips do not share any days."
+
+    nonisolated static func overlappingTripMessage(displayTitle: String) -> String {
+        "These dates overlap \"\(displayTitle)\". Trips cannot share any calendar days."
+    }
     nonisolated static let linkedDivesSectionTitle = "View Activities"
     nonisolated static let linkedDivesEmptyMessage =
         "Link logbook dives after your trip to see them here."

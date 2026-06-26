@@ -44,6 +44,7 @@ enum HomeOverviewAggregateBuilder {
         allSightings: [SightingInstance],
         marineLifeCatalog: [MarineLife],
         automaticallyRenumberDives: Bool,
+        displayUnits: DiveDisplayUnitSystem = .metric,
         ownerProfileID: UUID?,
         ownerProfile: UserProfile? = nil,
         modelContext: ModelContext? = nil,
@@ -65,8 +66,19 @@ enum HomeOverviewAggregateBuilder {
             ? DiveActivityDiveNumbering.numberedDiveSequentialIndicesById(for: activities)
             : [:]
 
+        let logbookSeeds = LogbookActivitySnapshotSeeding.seeds(from: activities)
+        let tripSeeds = LogbookTripSnapshotSeeding.tripSeeds(from: activities)
+        let tripTitleByID = Dictionary(uniqueKeysWithValues: tripSeeds.map { ($0.tripID, $0.displayTitle) })
+        let tripAccentIndexByID = LogbookTripGroupAccentPresentation.accentColorIndexByTripID(
+            seeds: logbookSeeds,
+            tripSeeds: tripSeeds,
+            unitSystem: displayUnits,
+            useChronologicalNumbers: automaticallyRenumberDives
+        )
+
         let diveStatsInputs = activities.map { activity in
-            HomeDiveStatsInput(
+            let linkedTripID = LogbookTripSnapshotSeeding.primaryLinkedTripID(for: activity)
+            return HomeDiveStatsInput(
                 id: activity.id,
                 maxDepthMeters: activity.maxDepthMeters,
                 durationMinutes: activity.durationMinutes,
@@ -77,7 +89,10 @@ enum HomeOverviewAggregateBuilder {
                     chronologicalIndex: chronologicalNumbers[activity.id],
                     useChronologicalNumbers: automaticallyRenumberDives
                 ),
-                siteDisplayName: LogbookActivityRow.displayName(for: activity)
+                siteDisplayName: LogbookActivityRow.displayName(for: activity),
+                linkedTripID: linkedTripID,
+                linkedTripTitle: linkedTripID.flatMap { tripTitleByID[$0] },
+                linkedTripAccentColorIndex: linkedTripID.flatMap { tripAccentIndexByID[$0] }
             )
         }
 
@@ -213,6 +228,9 @@ enum HomeOverviewAggregateBuilder {
             hasher.combine(dive.id)
             hasher.combine(dive.diveNumberLabel)
             hasher.combine(dive.siteDisplayName)
+            hasher.combine(dive.linkedTripID)
+            hasher.combine(dive.linkedTripTitle)
+            hasher.combine(dive.linkedTripAccentColorIndex)
         }
         for photo in ownerMedia.sorted(by: { $0.id.uuidString < $1.id.uuidString }) {
             hasher.combine(photo.id)

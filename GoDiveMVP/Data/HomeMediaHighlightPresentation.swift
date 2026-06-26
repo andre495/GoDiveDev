@@ -7,6 +7,8 @@ struct HomeMediaHighlight: Identifiable, Equatable, Sendable {
     let diveNumberLabel: String
     let siteDisplayName: String
     let diveSiteID: UUID?
+    let linkedTripTitle: String?
+    let linkedTripAccentColorIndex: Int?
     let taggedSpeciesCount: Int
     let taggedBuddyCount: Int
 
@@ -16,11 +18,38 @@ struct HomeMediaHighlight: Identifiable, Equatable, Sendable {
 
     var hasTaggedBuddies: Bool { taggedBuddyCount > 0 }
 
+    var showsLinkedTrip: Bool {
+        guard let linkedTripTitle else { return false }
+        return !linkedTripTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var diveActionLabel: String {
         HomeMediaHighlightPresentation.diveActionLabel(
             diveNumberLabel: diveNumberLabel,
             siteDisplayName: siteDisplayName
         )
+    }
+
+    init(
+        mediaID: UUID,
+        diveActivityID: UUID,
+        diveNumberLabel: String,
+        siteDisplayName: String,
+        diveSiteID: UUID?,
+        linkedTripTitle: String? = nil,
+        linkedTripAccentColorIndex: Int? = nil,
+        taggedSpeciesCount: Int,
+        taggedBuddyCount: Int
+    ) {
+        self.mediaID = mediaID
+        self.diveActivityID = diveActivityID
+        self.diveNumberLabel = diveNumberLabel
+        self.siteDisplayName = siteDisplayName
+        self.diveSiteID = diveSiteID
+        self.linkedTripTitle = linkedTripTitle
+        self.linkedTripAccentColorIndex = linkedTripAccentColorIndex
+        self.taggedSpeciesCount = taggedSpeciesCount
+        self.taggedBuddyCount = taggedBuddyCount
     }
 }
 
@@ -77,6 +106,8 @@ enum HomeMediaHighlightPresentation {
                 diveNumberLabel: dive.diveNumberLabel,
                 siteDisplayName: dive.siteDisplayName,
                 diveSiteID: dive.diveSiteID,
+                linkedTripTitle: dive.linkedTripTitle,
+                linkedTripAccentColorIndex: dive.linkedTripAccentColorIndex,
                 taggedSpeciesCount: taggedSpeciesCountByMediaID[photo.mediaID] ?? 0,
                 taggedBuddyCount: taggedBuddyCountByMediaID[photo.mediaID] ?? 0
             )
@@ -96,6 +127,8 @@ enum HomeMediaHighlightPresentation {
                 diveNumberLabel: highlight.diveNumberLabel,
                 siteDisplayName: highlight.siteDisplayName,
                 diveSiteID: highlight.diveSiteID,
+                linkedTripTitle: highlight.linkedTripTitle,
+                linkedTripAccentColorIndex: highlight.linkedTripAccentColorIndex,
                 taggedSpeciesCount: taggedSpeciesCountByMediaID[highlight.mediaID] ?? 0,
                 taggedBuddyCount: taggedBuddyCountByMediaID[highlight.mediaID] ?? 0
             )

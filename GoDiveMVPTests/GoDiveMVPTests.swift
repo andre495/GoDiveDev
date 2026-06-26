@@ -5129,6 +5129,71 @@ struct GoDiveMVPTests {
         #expect(!DiveTripDateRange.contains(outside, start: start, end: end, calendar: calendar))
     }
 
+    @Test func diveTripDateRange_detectsOverlappingInclusiveRanges() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let tripAStart = calendar.date(from: DateComponents(year: 2026, month: 6, day: 10))!
+        let tripAEnd = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15))!
+        let tripBStart = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15))!
+        let tripBEnd = calendar.date(from: DateComponents(year: 2026, month: 6, day: 20))!
+        let tripCStart = calendar.date(from: DateComponents(year: 2026, month: 6, day: 21))!
+        let tripCEnd = calendar.date(from: DateComponents(year: 2026, month: 6, day: 25))!
+
+        #expect(
+            DiveTripDateRange.rangesOverlap(
+                start: tripAStart,
+                end: tripAEnd,
+                otherStart: tripBStart,
+                otherEnd: tripBEnd,
+                calendar: calendar
+            )
+        )
+        #expect(
+            !DiveTripDateRange.rangesOverlap(
+                start: tripAStart,
+                end: tripAEnd,
+                otherStart: tripCStart,
+                otherEnd: tripCEnd,
+                calendar: calendar
+            )
+        )
+    }
+
+    @Test func diveTripFormValues_rejectsOverlappingOwnerTrips() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let existingStart = calendar.date(from: DateComponents(year: 2026, month: 6, day: 10))!
+        let existingEnd = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15))!
+        let existing = DiveTrip(
+            startDate: existingStart,
+            endDate: existingEnd,
+            countries: ["Bonaire"],
+            title: "Reef week"
+        )
+
+        var form = DiveTripFormValues()
+        form.title = "Overlap attempt"
+        form.startDate = calendar.date(from: DateComponents(year: 2026, month: 6, day: 14))!
+        form.endDate = calendar.date(from: DateComponents(year: 2026, month: 6, day: 18))!
+
+        #expect(form.overlappingTrip(among: [existing], calendar: calendar)?.id == existing.id)
+        #expect(!form.canSave(existingOwnerTrips: [existing], calendar: calendar))
+    }
+
+    @Test func diveTripFormValues_allowsEditingTripWithoutSelfOverlap() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let start = calendar.date(from: DateComponents(year: 2026, month: 6, day: 10))!
+        let end = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15))!
+        let trip = DiveTrip(startDate: start, endDate: end, countries: ["Bonaire"], title: "Reef week")
+
+        var form = DiveTripFormValues(from: trip)
+        form.title = "Reef week extended"
+        form.endDate = calendar.date(from: DateComponents(year: 2026, month: 6, day: 16))!
+
+        #expect(form.canSave(existingOwnerTrips: [trip], excludingTripID: trip.id, calendar: calendar))
+    }
+
     @Test func diveTripAggregateBuilder_totalsLongestDeepestBuddiesAndMarineLife() {
         let diveA = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
         let diveB = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
@@ -6351,6 +6416,92 @@ struct GoDiveMVPTests {
         #expect(pastTrip.activityLinks.count == 1)
     }
 
+    @Test @MainActor func diveTripActivityLinking_linkMovesDiveFromPreviousTrip() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let profile = UserProfile(appleUserIdentifier: "trip-move-link", displayName: "Diver")
+        context.insert(profile)
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let tripAStart = calendar.date(from: DateComponents(year: 2026, month: 5, day: 1))!
+        let tripAEnd = calendar.date(from: DateComponents(year: 2026, month: 5, day: 7))!
+        let tripBStart = calendar.date(from: DateComponents(year: 2026, month: 5, day: 8))!
+        let tripBEnd = calendar.date(from: DateComponents(year: 2026, month: 5, day: 14))!
+        let tripA = DiveTrip(startDate: tripAStart, endDate: tripAEnd, countries: ["Bonaire"], owner: profile)
+        let tripB = DiveTrip(startDate: tripBStart, endDate: tripBEnd, countries: ["Curaçao"], owner: profile)
+        context.insert(tripA)
+        context.insert(tripB)
+
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: calendar.date(from: DateComponents(year: 2026, month: 5, day: 3, hour: 10))!,
+            durationMinutes: 50,
+            maxDepthMeters: 18
+        )
+        dive.owner = profile
+        dive.ownerProfileID = profile.id
+        context.insert(dive)
+        try context.save()
+
+        _ = DiveTripActivityLinking.link(dive, to: tripA, modelContext: context)
+        #expect(tripA.activityLinks.count == 1)
+        #expect(dive.tripActivityLinks.count == 1)
+
+        _ = DiveTripActivityLinking.link(dive, to: tripB, modelContext: context)
+        try context.save()
+
+        #expect(tripA.activityLinks.isEmpty)
+        #expect(tripB.activityLinks.count == 1)
+        #expect(dive.tripActivityLinks.count == 1)
+        #expect(dive.tripActivityLinks.first?.tripID == tripB.id)
+    }
+
+    @Test @MainActor func diveTripActivityLinking_autoLinkSkipsDivesLinkedToAnotherTrip() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let profile = UserProfile(appleUserIdentifier: "trip-exclusive-auto", displayName: "Diver")
+        context.insert(profile)
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let reference = calendar.date(from: DateComponents(year: 2026, month: 6, day: 20))!
+        let tripAStart = calendar.date(from: DateComponents(year: 2026, month: 6, day: 1))!
+        let tripAEnd = calendar.date(from: DateComponents(year: 2026, month: 6, day: 7))!
+        let tripBStart = calendar.date(from: DateComponents(year: 2026, month: 6, day: 8))!
+        let tripBEnd = calendar.date(from: DateComponents(year: 2026, month: 6, day: 14))!
+        let tripA = DiveTrip(startDate: tripAStart, endDate: tripAEnd, countries: ["Bonaire"], owner: profile)
+        let tripB = DiveTrip(startDate: tripBStart, endDate: tripBEnd, countries: ["Curaçao"], owner: profile)
+        context.insert(tripA)
+        context.insert(tripB)
+
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: calendar.date(from: DateComponents(year: 2026, month: 6, day: 3, hour: 10))!,
+            durationMinutes: 50,
+            maxDepthMeters: 18
+        )
+        dive.owner = profile
+        dive.ownerProfileID = profile.id
+        context.insert(dive)
+        try context.save()
+
+        _ = DiveTripActivityLinking.link(dive, to: tripA, modelContext: context)
+        try context.save()
+
+        let linkedToB = DiveTripActivityLinking.applyAutoLink(
+            to: tripB,
+            activities: [dive],
+            modelContext: context,
+            referenceDate: reference,
+            calendar: calendar
+        )
+        #expect(linkedToB == 0)
+        #expect(tripB.activityLinks.isEmpty)
+        #expect(tripA.activityLinks.count == 1)
+        #expect(dive.tripActivityLinks.count == 1)
+    }
+
     @Test func diveTripPresentation_linkedDivesSummary_formatsDuration() {
         #expect(DiveTripPresentation.linkedDivesSummary(totalDurationMinutes: 95) == "95 total minutes underwater")
     }
@@ -6780,40 +6931,59 @@ struct GoDiveMVPTests {
             durationMinutes: 40,
             maxDepthMeters: 18
         )
-        let importedDive = DiveActivity(
+        let mapSections = DiveActivityEditableCatalog.sections(for: .map, detent: .large)
+        let diveConditions = mapSections.first { $0.id == "diveConditions" }!
+        let buddies = mapSections.first { $0.id == "buddies" }!
+        let equipment = DiveActivityEditableCatalog.sections(for: .tank, detent: .medium)
+            .first { $0.id == "equipment" }!
+
+        #expect(DiveActivityEditableCatalog.headerAction(for: diveConditions, activity: manualDive) == .editForm)
+        #expect(DiveActivityEditableCatalog.headerAction(for: buddies, activity: manualDive) == .add)
+        #expect(DiveActivityEditableCatalog.headerAction(for: equipment, activity: manualDive) == .manageEquipment)
+
+        #expect(DiveActivityEditableCatalog.isEditable(.durationMinutes, for: manualDive))
+        #expect(!DiveActivityEditableCatalog.isEditable(.durationMinutes, for: DiveActivity(
             source: .garminMK3,
             startTime: Date(),
             durationMinutes: 40,
             maxDepthMeters: 18
-        )
+        )))
+        #expect(DiveActivityEditableCatalog.isEditable(.startTime, for: manualDive))
+        #expect(DiveActivityEditableCatalog.isEditable(.diveNumber, for: manualDive))
+    }
+
+    @Test func diveActivityEditableCatalog_overviewPanelHidesDiveSummaryAndTankDiagnostics() {
         let mapSections = DiveActivityEditableCatalog.sections(for: .map, detent: .large)
-        let dive = mapSections.first { $0.id == "dive" }!
-        let buddies = mapSections.first { $0.id == "buddies" }!
-        let record = DiveActivityEditableCatalog.sections(for: .tank, detent: .large)
-            .first { $0.id == "record" }!
-        let equipment = DiveActivityEditableCatalog.sections(for: .tank, detent: .medium)
-            .first { $0.id == "equipment" }!
+        #expect(!mapSections.contains { $0.id == "dive" })
 
-        #expect(DiveActivityEditableCatalog.headerAction(for: dive, activity: manualDive) == .editForm)
-        #expect(DiveActivityEditableCatalog.headerAction(for: dive, activity: importedDive) == .editForm)
-        #expect(DiveActivityEditableCatalog.headerAction(for: buddies, activity: manualDive) == .add)
-        #expect(DiveActivityEditableCatalog.headerAction(for: record, activity: manualDive) == .none)
-        #expect(DiveActivityEditableCatalog.headerAction(for: equipment, activity: manualDive) == .manageEquipment)
+        let tankMedium = DiveActivityEditableCatalog.sections(for: .tank, detent: .medium)
+        let tankLarge = DiveActivityEditableCatalog.sections(for: .tank, detent: .large)
+        #expect(!tankMedium.contains { $0.id == "profileGas" })
+        #expect(!tankLarge.contains { $0.id == "profileGas" })
+        #expect(!tankLarge.contains { $0.id == "record" })
+    }
 
-        let manualEditable = DiveActivityEditableCatalog.editableFields(in: dive, for: manualDive)
-        #expect(manualEditable.contains(.durationMinutes))
-        #expect(manualEditable.contains(.maxDepthMeters))
-        #expect(!manualEditable.contains(.profileSampleCount))
+    @Test func diveActivityEditableCatalog_mapStatsBoxEdit_resolvesHiddenDiveSection() {
+        let manual = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        #expect(DiveActivityEditableCatalog.mapStatsBoxShowsEditButton(for: manual))
 
-        let importedEditable = DiveActivityEditableCatalog.editableFields(in: dive, for: importedDive)
-        #expect(!importedEditable.contains(.durationMinutes))
-        #expect(!importedEditable.contains(.maxDepthMeters))
-        #expect(!importedEditable.contains(.averageDepthMeters))
-        #expect(!importedEditable.contains(.bottomTimeSeconds))
-        #expect(!importedEditable.contains(.surfaceIntervalSeconds))
-        #expect(!importedEditable.contains(.avgAscentRateMetersPerSecond))
-        #expect(importedEditable.contains(.startTime))
-        #expect(importedEditable.contains(.diveNumber))
+        let context = DiveActivitySectionEditContext(
+            sectionID: DiveActivityEditableCatalog.mapDiveSummarySection.id,
+            tab: .map,
+            panelDetent: .medium
+        )
+        let section = context.resolvedSection()
+        #expect(section?.id == "dive")
+        #expect(section?.fieldIDs.contains(.maxDepthMeters) == true)
+        #expect(
+            DiveActivityEditableCatalog.editableFields(in: DiveActivityEditableCatalog.mapDiveSummarySection, for: manual)
+                .contains(.durationMinutes)
+        )
     }
 
     @Test func diveActivityEditableCatalog_manualEntryOnlyFields_blockedForImports() {
@@ -6970,7 +7140,7 @@ struct GoDiveMVPTests {
         #expect(!mapIDs.contains(.tankPressureStartPSI))
         #expect(tankIDs.contains(.tankPressureStartPSI))
         #expect(tankIDs.contains(.source))
-        #expect(tankIDs.contains(.recordID))
+        #expect(!tankIDs.contains(.recordID))
         #expect(tankIDs.contains(.diveOperatorName))
         #expect(!tankIDs.contains(.startTime))
     }
@@ -6980,10 +7150,8 @@ struct GoDiveMVPTests {
         let large = DiveActivityEditableCatalog.sections(for: .tank, detent: .large)
         #expect(!medium.contains { $0.id == "operator" })
         #expect(!medium.contains { $0.id == "source" })
-        #expect(!medium.contains { $0.id == "record" })
         #expect(large.contains { $0.id == "operator" })
         #expect(large.contains { $0.id == "source" })
-        #expect(large.contains { $0.id == "record" })
     }
 
     @Test func diveActivityFieldValueParsing_depthAndPressureRespectDisplayUnits() {
@@ -9978,6 +10146,34 @@ struct GoDiveMVPTests {
         #expect(candidates[0].diveActionLabel == "#42 Reef")
         #expect(candidates[0].taggedSpeciesCount == 2)
         #expect(candidates[0].hasTaggedSpecies)
+        #expect(candidates[0].linkedTripTitle == nil)
+    }
+
+    @Test func homeMediaHighlightPresentation_buildCandidates_mapsLinkedTripTitleAndAccent() {
+        let diveID = UUID()
+        let mediaID = UUID()
+        let tripID = UUID()
+        let dives = [
+            HomeDiveStatsInput(
+                id: diveID,
+                maxDepthMeters: 18,
+                durationMinutes: 40,
+                diveSiteID: nil,
+                diveNumberLabel: "#3",
+                siteDisplayName: "Salt Pier",
+                linkedTripID: tripID,
+                linkedTripTitle: "Bonaire 2026",
+                linkedTripAccentColorIndex: 2
+            ),
+        ]
+        let candidates = HomeMediaHighlightPresentation.buildCandidates(
+            mediaPhotos: [HomeMediaHighlightSource(mediaID: mediaID, diveActivityID: diveID)],
+            dives: dives
+        )
+        #expect(candidates.count == 1)
+        #expect(candidates[0].linkedTripTitle == "Bonaire 2026")
+        #expect(candidates[0].linkedTripAccentColorIndex == 2)
+        #expect(candidates[0].showsLinkedTrip)
     }
 
     @Test func homeMediaHighlightPresentation_highlightsByRefreshingTagCounts_preservesSlideOrder() {
@@ -11338,6 +11534,53 @@ struct GoDiveMVPTests {
             DiveMediaImportProgressPresentation.failureMessageWhenNoneSaved(attempted: 3)
                 .contains("selected items")
         )
+    }
+
+    @Test func diveActivityMediaEmptyHeroPresentation_centersGhostFramesInVisibleHeroBand() {
+        let layoutHeight: CGFloat = 844
+        let bottomSafeInset: CGFloat = 34
+        let topObstruction: CGFloat = 100
+
+        let mediumY = DiveActivityMediaEmptyHeroPresentation.ghostFramesCenterY(
+            layoutHeight: layoutHeight,
+            sheetHeightFraction: DiveActivityOverviewPanelMetrics.mediumHeightFraction,
+            bottomSafeInset: bottomSafeInset,
+            topObstructionHeight: topObstruction
+        )
+        let minimizedY = DiveActivityMediaEmptyHeroPresentation.ghostFramesCenterY(
+            layoutHeight: layoutHeight,
+            sheetHeightFraction: DiveActivityOverviewPanelMetrics.minimizedHeightFraction,
+            bottomSafeInset: bottomSafeInset,
+            topObstructionHeight: topObstruction
+        )
+
+        let screenCenter = layoutHeight / 2
+        #expect(abs(minimizedY - screenCenter) < abs(mediumY - screenCenter))
+        #expect(mediumY < minimizedY)
+    }
+
+    @Test func diveActivityMediaEmptyHeroPresentation_hidesHeroAnimationAtLargeDetent() {
+        #expect(
+            !DiveActivityMediaEmptyHeroPresentation.showsHeroGhostFrames(
+                forHeightFraction: DiveActivityOverviewPanelMetrics.largeHeightFraction
+            )
+        )
+        #expect(
+            DiveActivityMediaEmptyHeroPresentation.showsHeroGhostFrames(
+                forHeightFraction: DiveActivityOverviewPanelMetrics.mediumHeightFraction
+            )
+        )
+    }
+
+    @Test func diveActivityMediaEmptyHeroPresentation_showsUploadTextInMediumAndLargeSheet() {
+        #expect(DiveActivityMediaEmptyHeroPresentation.showsUploadPromptTextInSheet(for: .medium))
+        #expect(DiveActivityMediaEmptyHeroPresentation.showsUploadPromptTextInSheet(for: .large))
+        #expect(!DiveActivityMediaEmptyHeroPresentation.showsUploadPromptTextInSheet(for: .minimized))
+    }
+
+    @Test func diveActivityMediaEmptyHeroPresentation_reusesHomeHighlightTitle() {
+        #expect(DiveActivityMediaEmptyHeroPresentation.title == HomeMediaCarouselEmptyPresentation.title)
+        #expect(DiveActivityMediaEmptyHeroPresentation.message.contains("Tap +"))
     }
 
     @Test func diveActivityMediaPresentation_emptyStateMessage() {

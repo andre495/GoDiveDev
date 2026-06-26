@@ -73,7 +73,11 @@ struct DiveActivityMapOverviewPanelContent: View {
             if showsStatsBox {
                 DiveActivityMapOverviewStatsBox(
                     layout: mapStatsLayout,
-                    fillsAvailableHeight: false
+                    fillsAvailableHeight: false,
+                    showsEditButton: DiveActivityEditableCatalog.mapStatsBoxShowsEditButton(for: activity),
+                    onEdit: {
+                        onEditSection(DiveActivityEditableCatalog.mapDiveSummarySection)
+                    }
                 )
                 .frame(height: statsBoxHeight, alignment: .top)
                 .clipped()

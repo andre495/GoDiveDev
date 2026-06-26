@@ -4,6 +4,8 @@ import SwiftUI
 struct DiveActivityMapOverviewStatsBox: View {
     let layout: DiveActivityOverviewPresentation.MapOverviewStatsLayout
     var fillsAvailableHeight: Bool = false
+    var showsEditButton: Bool = false
+    var onEdit: (() -> Void)?
 
     /// Fixed layout height for progressive detent reveal (padding + depth gauge column).
     static let estimatedExpandedHeight: CGFloat = 204
@@ -11,6 +13,7 @@ struct DiveActivityMapOverviewStatsBox: View {
     private enum Metrics {
         /// Sized for medium detent — larger presence without clipping (see stat text `frame(maxWidth: .infinity)`).
         static let contentPadding: CGFloat = 18
+        static let editButtonInset: CGFloat = 10
         static let columnSpacing: CGFloat = 12
         static let statSpacing: CGFloat = 16
         static let iconSize: CGFloat = 38
@@ -27,6 +30,26 @@ struct DiveActivityMapOverviewStatsBox: View {
     }
 
     var body: some View {
+        ZStack(alignment: .topTrailing) {
+            statsContent
+
+            if showsEditButton, let onEdit {
+                DiveActivitySectionHeaderActionButton(
+                    systemImage: "ellipsis",
+                    accessibilityLabel: "Edit dive stats"
+                ) {
+                    onEdit()
+                }
+                .padding(.top, Metrics.editButtonInset)
+                .padding(.trailing, Metrics.editButtonInset)
+                .accessibilityIdentifier("DiveOverview.MapStatsBox.Edit")
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("DiveOverview.MapStatsBox")
+    }
+
+    private var statsContent: some View {
         HStack(alignment: .top, spacing: Metrics.columnSpacing) {
             leadingColumn
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -40,8 +63,6 @@ struct DiveActivityMapOverviewStatsBox: View {
         .background {
             AppHighlightTileChrome(cornerRadius: Metrics.cornerRadius)
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("DiveOverview.MapStatsBox")
     }
 
     private var leadingColumn: some View {

@@ -7,7 +7,7 @@ The **Home** tab is your dashboard. It surfaces highlights from your logbook wit
 When you have dives with library photos or videos, Home shows a rotating carousel of up to three daily picks from your collection.
 
 - **Tap the hero** to open that dive on the **Media** tab with the same item selected.
-- **Tap the dive link capsule** at the bottom of the hero (site name and dive number) to open the dive normally.
+- **Tap the dive link capsule** at the bottom of the hero (site name and dive number) to open the dive normally. When the dive is linked to a trip, the **trip name** appears beside the dive number in the same accent color used in Logbook.
 - **Fish and buddy chips** on the hero show tagged species and buddies from that highlight; tap a fish chip to jump into the Field Guide.
 
 If you have dives but no qualifying library media, Home shows a placeholder encouraging you to add photos from Logbook or turn on auto-upload in Settings.

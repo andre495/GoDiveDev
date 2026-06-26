@@ -8,6 +8,31 @@ struct HomeDiveStatsInput: Sendable, Equatable {
     let diveSiteID: UUID?
     let diveNumberLabel: String
     let siteDisplayName: String
+    let linkedTripID: UUID?
+    let linkedTripTitle: String?
+    let linkedTripAccentColorIndex: Int?
+
+    init(
+        id: UUID,
+        maxDepthMeters: Double,
+        durationMinutes: Int,
+        diveSiteID: UUID?,
+        diveNumberLabel: String,
+        siteDisplayName: String,
+        linkedTripID: UUID? = nil,
+        linkedTripTitle: String? = nil,
+        linkedTripAccentColorIndex: Int? = nil
+    ) {
+        self.id = id
+        self.maxDepthMeters = maxDepthMeters
+        self.durationMinutes = durationMinutes
+        self.diveSiteID = diveSiteID
+        self.diveNumberLabel = diveNumberLabel
+        self.siteDisplayName = siteDisplayName
+        self.linkedTripID = linkedTripID
+        self.linkedTripTitle = linkedTripTitle
+        self.linkedTripAccentColorIndex = linkedTripAccentColorIndex
+    }
 }
 
 /// Aggregated lifetime stats across the signed-in diver's logbook.

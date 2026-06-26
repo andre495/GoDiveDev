@@ -15,6 +15,11 @@ struct DiveActivityMediaBackgroundView: View {
     var timeZoneOffsetSeconds: Int?
     var mediaCaptureContextsByID: [UUID: DiveMediaCaptureContext] = [:]
     var sheetDetent: DiveActivityOverviewDetent = .medium
+    /// Continuous panel height fraction while dragging the grabber (resting detent fraction when idle).
+    var sheetHeightFraction: CGFloat = DiveActivityOverviewPanelMetrics.mediumHeightFraction
+    var layoutHeight: CGFloat = 0
+    var topObstructionHeight: CGFloat = 0
+    var bottomSafeInset: CGFloat = 0
     var isMediaTabSelected: Bool = true
     var presentationEpoch: Int = 0
     /// Deep-link target (Home / logbook) — keeps the tapped photo selected while the pager hydrates.
@@ -170,20 +175,44 @@ struct DiveActivityMediaBackgroundView: View {
     }
 
     private var emptyState: some View {
-        Text(DiveActivityMediaPresentation.emptyStateMessage)
-            .font(.title3.weight(.semibold))
-            .foregroundStyle(AppTheme.Colors.tabUnselected)
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, AppTheme.Spacing.lg)
-            .padding(.bottom, bottomContentMargin)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .accessibilityIdentifier("DiveActivity.MediaBackground.Empty")
+        Group {
+            if DiveActivityMediaEmptyHeroPresentation.showsHeroGhostFrames(
+                forHeightFraction: sheetHeightFraction
+            ) {
+                GeometryReader { geometry in
+                    let resolvedLayoutHeight = layoutHeight > 0 ? layoutHeight : geometry.size.height
+                    let centerY = DiveActivityMediaEmptyHeroPresentation.ghostFramesCenterY(
+                        layoutHeight: resolvedLayoutHeight,
+                        sheetHeightFraction: sheetHeightFraction,
+                        bottomSafeInset: bottomSafeInset,
+                        topObstructionHeight: topObstructionHeight
+                    )
+                    MediaUploadEmptyGhostFramesAnimation(
+                        containerWidth: geometry.size.width,
+                        verticalOffset: DiveActivityMediaEmptyHeroPresentation.ghostFramesVerticalOffset(
+                            forHeightFraction: sheetHeightFraction
+                        ),
+                        contentScale: DiveActivityMediaEmptyHeroPresentation.ghostFramesScale(
+                            forHeightFraction: sheetHeightFraction
+                        )
+                    )
+                    .frame(width: geometry.size.width)
+                    .position(x: geometry.size.width / 2, y: centerY)
+                }
+                .accessibilityIdentifier("DiveActivity.MediaBackground.EmptyAnimation")
+            }
+        }
+        .accessibilityIdentifier("DiveActivity.MediaBackground.Empty")
+    }
+
+    private var emptyStateAccessibilityLabel: String {
+        "\(DiveActivityMediaEmptyHeroPresentation.title). \(DiveActivityMediaEmptyHeroPresentation.message)"
     }
 
     private var backgroundAccessibilityLabel: String {
         guard showsBackgroundMedia else { return "Media sheet expanded" }
         if mediaItems.isEmpty {
-            return DiveActivityMediaPresentation.emptyStateMessage
+            return emptyStateAccessibilityLabel
         }
         return "Dive media, \(mediaItems.count) items, swipe to change"
     }

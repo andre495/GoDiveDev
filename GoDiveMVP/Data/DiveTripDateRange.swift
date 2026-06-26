@@ -41,4 +41,17 @@ enum DiveTripDateRange: Sendable {
         }
         return (endDay, startDay)
     }
+
+    /// Inclusive calendar-day ranges overlap when they share at least one day.
+    nonisolated static func rangesOverlap(
+        start: Date,
+        end: Date,
+        otherStart: Date,
+        otherEnd: Date,
+        calendar: Calendar = .current
+    ) -> Bool {
+        let lhs = normalizedRange(start: start, end: end, calendar: calendar)
+        let rhs = normalizedRange(start: otherStart, end: otherEnd, calendar: calendar)
+        return lhs.start <= rhs.end && rhs.start <= lhs.end
+    }
 }

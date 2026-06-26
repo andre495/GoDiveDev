@@ -7,6 +7,14 @@ struct TripEditSheetView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AccountSession.self) private var accountSession
 
+    @Query(
+        sort: [
+            SortDescriptor(\DiveTrip.startDate, order: .reverse),
+            SortDescriptor(\DiveTrip.createdAt, order: .reverse),
+        ]
+    )
+    private var allTrips: [DiveTrip]
+
     @Bindable var trip: DiveTrip
 
     var onSaved: () -> Void = {}
@@ -24,10 +32,23 @@ struct TripEditSheetView: View {
         _form = State(initialValue: DiveTripFormValues(from: trip))
     }
 
+    private var ownerTrips: [DiveTrip] {
+        guard let ownerID = accountSession.currentProfile?.id ?? trip.ownerProfileID else { return [] }
+        return allTrips.filter { $0.ownerProfileID == ownerID }
+    }
+
+    private var canSaveTrip: Bool {
+        form.canSave(existingOwnerTrips: ownerTrips, excludingTripID: trip.id)
+    }
+
     var body: some View {
         NavigationStack {
             Form {
-                TripPlannerFormContent(form: $form)
+                TripPlannerFormContent(
+                    form: $form,
+                    existingOwnerTrips: ownerTrips,
+                    editingTripID: trip.id
+                )
 
                 Section {
                     Button("Delete trip", role: .destructive) {
@@ -51,7 +72,7 @@ struct TripEditSheetView: View {
                         saveChanges()
                     }
                     .fontWeight(.semibold)
-                    .disabled(!form.canSave)
+                    .disabled(!canSaveTrip)
                     .accessibilityIdentifier("TripEditSheet.Save")
                 }
             }
@@ -96,7 +117,12 @@ struct TripEditSheetView: View {
     }
 
     private func saveChanges() {
-        guard form.canSave else { return }
+        guard canSaveTrip else { return }
+
+        if let conflict = form.overlappingTrip(among: ownerTrips, excludingTripID: trip.id) {
+            saveErrorMessage = DiveTripPresentation.overlappingTripMessage(displayTitle: conflict.displayTitle)
+            return
+        }
 
         form.apply(to: trip, plannedSites: trip.plannedSites)
 

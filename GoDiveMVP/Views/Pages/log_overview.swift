@@ -452,6 +452,7 @@ struct LogOverviewView: View {
             allSightings: allSightings,
             marineLifeCatalog: marineLifeCatalog,
             automaticallyRenumberDives: automaticallyRenumberDives,
+            displayUnits: diveDisplayUnitSystem,
             ownerProfileID: ownerProfileID,
             ownerProfile: ownerProfile,
             modelContext: modelContext

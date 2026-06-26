@@ -109,4 +109,33 @@ enum LogbookTripGroupAccentPresentation {
             )
         )
     }
+
+    /// Same accent indices as logbook trip rails — including stable fallback for single-dive links.
+    nonisolated static func accentColorIndexByTripID(
+        seeds: [LogbookActivitySnapshotSeed],
+        tripSeeds: [LogbookTripSnapshotSeed],
+        unitSystem: DiveDisplayUnitSystem,
+        useChronologicalNumbers: Bool
+    ) -> [UUID: Int] {
+        let items = LogbookDisplayCacheBuilder.build(
+            visibleSeeds: seeds,
+            tripSeeds: tripSeeds,
+            siteSearchQuery: "",
+            unitSystem: unitSystem,
+            useChronologicalNumbers: useChronologicalNumbers,
+            includeDuplicateScan: false
+        ).items
+
+        var map: [UUID: Int] = [:]
+        for item in items {
+            guard case .tripGroup(let group) = item else { continue }
+            map[group.tripID] = group.accentColorIndex
+        }
+        for trip in tripSeeds {
+            if map[trip.tripID] == nil {
+                map[trip.tripID] = LogbookTripGroupAccentPalette.stableFallbackIndex(for: trip.tripID)
+            }
+        }
+        return map
+    }
 }

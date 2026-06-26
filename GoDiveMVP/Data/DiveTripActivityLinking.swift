@@ -10,6 +10,8 @@ enum DiveTripActivityLinking {
         to trip: DiveTrip,
         modelContext: ModelContext
     ) -> DiveTripActivityLink {
+        unlinkFromOtherTrips(activity, except: trip.id, modelContext: modelContext)
+
         if let existing = trip.activityLinks.first(where: { $0.diveActivityID == activity.id }) {
             return existing
         }
@@ -17,6 +19,30 @@ enum DiveTripActivityLinking {
         modelContext.insert(link)
         trip.updatedAt = .now
         return link
+    }
+
+    /// Removes trip links on **`activity`** except the optional **`keepingTripID`** row.
+    static func unlinkFromOtherTrips(
+        _ activity: DiveActivity,
+        except keepingTripID: UUID,
+        modelContext: ModelContext
+    ) {
+        let foreignLinks = activity.tripActivityLinks.filter { $0.tripID != keepingTripID }
+        guard !foreignLinks.isEmpty else { return }
+
+        for link in foreignLinks {
+            if let linkedTrip = link.trip {
+                linkedTrip.updatedAt = .now
+            }
+            modelContext.delete(link)
+        }
+    }
+
+    static func isLinkedToAnotherTrip(_ activity: DiveActivity, excludingTripID: UUID) -> Bool {
+        activity.tripActivityLinks.contains { link in
+            guard let tripID = link.tripID else { return false }
+            return tripID != excludingTripID
+        }
     }
 
     static func unlink(_ activity: DiveActivity, from trip: DiveTrip, modelContext: ModelContext) {
@@ -71,7 +97,10 @@ enum DiveTripActivityLinking {
 
         let existingIDs = Set(trip.activityLinks.compactMap(\.diveActivityID))
         let toLink = candidateActivities(for: trip, activities: activities, calendar: calendar)
-            .filter { !existingIDs.contains($0.id) }
+            .filter { activity in
+                !existingIDs.contains(activity.id)
+                    && !isLinkedToAnotherTrip(activity, excludingTripID: trip.id)
+            }
 
         for activity in toLink {
             link(activity, to: trip, modelContext: modelContext)
@@ -90,7 +119,13 @@ enum DiveTripActivityLinking {
         calendar: Calendar = .current
     ) throws -> Int {
         var linkedCount = 0
-        for trip in trips where trip.ownerProfileID == ownerProfileID {
+        let sortedTrips = trips
+            .filter { $0.ownerProfileID == ownerProfileID }
+            .sorted {
+                if $0.startDate != $1.startDate { return $0.startDate < $1.startDate }
+                return $0.createdAt < $1.createdAt
+            }
+        for trip in sortedTrips {
             linkedCount += applyAutoLink(
                 to: trip,
                 activities: activities,

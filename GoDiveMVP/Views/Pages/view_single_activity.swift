@@ -47,6 +47,7 @@ struct ViewSingleActivity: View {
 
     @State private var selectedActivityTab: DiveActivityTab = .map
     @State private var overviewSheetDetent = DiveActivityOverviewDetent.defaultSelection
+    @State private var overviewPanelLiveHeightFraction = DiveActivityOverviewDetent.defaultSelection.heightFraction
     @State private var isOverviewPanelPresented = true
     /// Tank hero gas column (**1** = full); animates toward **`ending/beginning`** PSI when the sheet snaps to a shorter detent.
     @State private var tankHeroPressureFillFraction: CGFloat = 1
@@ -554,6 +555,10 @@ struct ViewSingleActivity: View {
                             timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds,
                             mediaCaptureContextsByID: mediaCaptureContextsByID,
                             sheetDetent: overviewSheetDetent,
+                            sheetHeightFraction: overviewPanelLiveHeightFraction,
+                            layoutHeight: layoutHeight,
+                            topObstructionHeight: topObstruction,
+                            bottomSafeInset: bottomSafeInset,
                             isMediaTabSelected: selectedActivityTab == .camera,
                             presentationEpoch: mediaPresentationEpoch,
                             deepLinkMediaID: pendingInitialMediaFocusID ?? initialMediaFocusID,
@@ -615,7 +620,10 @@ struct ViewSingleActivity: View {
                             DiveActivityMediaPresentation.panelTopScrollUsesOpaqueFadeBackground(
                                 detent: overviewSheetDetent,
                                 isMediaTabSelected: selectedActivityTab == .camera
-                            )
+                            ),
+                        liveHeightFraction: selectedActivityTab == .camera
+                            ? $overviewPanelLiveHeightFraction
+                            : nil
                     )
                     .zIndex(1)
                 }

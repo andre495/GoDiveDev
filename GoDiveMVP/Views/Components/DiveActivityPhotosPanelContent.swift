@@ -107,7 +107,9 @@ struct DiveActivityPhotosPanelContent: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-                if showsMarineLifeDetail {
+                if mediaItems.isEmpty {
+                    emptyMediaPanelContent
+                } else if showsMarineLifeDetail {
                     largeDetentContent
                 } else if usesCarouselPinnedLayout {
                     carouselPinnedSheetContent {
@@ -119,7 +121,7 @@ struct DiveActivityPhotosPanelContent: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            if showsSheetChromeActions {
+            if showsSheetChromeActions || (mediaItems.isEmpty && sheetDetent == .large) {
                 sheetTopChromeRow
             }
         }
@@ -139,51 +141,71 @@ struct DiveActivityPhotosPanelContent: View {
     private func carouselPinnedSheetContent<Body: View>(
         @ViewBuilder body: () -> Body
     ) -> some View {
-        if mediaItems.isEmpty {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-                Text(DiveActivityMediaPresentation.emptyStateMessage)
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.Colors.tabUnselected)
+        VStack(alignment: .leading, spacing: 0) {
+            Color.clear
+                .frame(height: sheetChromeClearance)
+                .accessibilityHidden(true)
+
+            body()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: sheetBodyHeight, alignment: .top)
+                .clipped()
+
+            if showsMediaCarousel {
+                carouselRow
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: sheetBodyHeight + sheetChromeClearance, alignment: .top)
-        } else {
+        }
+        .frame(height: carouselPinnedStackHeight, alignment: .top)
+    }
+
+    @ViewBuilder
+    private var emptyMediaPanelContent: some View {
+        switch sheetDetent {
+        case .minimized:
+            HStack {
+                Spacer(minLength: 0)
+                addMediaButton
+            }
+        case .medium:
             VStack(alignment: .leading, spacing: 0) {
                 Color.clear
                     .frame(height: sheetChromeClearance)
                     .accessibilityHidden(true)
 
-                body()
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                emptyUploadPromptTextBlock
+                    .frame(maxWidth: .infinity, alignment: .top)
                     .frame(height: sheetBodyHeight, alignment: .top)
-                    .clipped()
-
-                if showsMediaCarousel {
-                    carouselRow
-                }
             }
             .frame(height: carouselPinnedStackHeight, alignment: .top)
+        case .large:
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                Color.clear
+                    .frame(height: DiveActivityMediaPresentation.sheetChromeRowHeight)
+                    .accessibilityHidden(true)
+
+                emptyUploadPromptTextBlock
+            }
+            .frame(maxWidth: .infinity, alignment: .top)
         }
+    }
+
+    private var emptyUploadPromptTextBlock: some View {
+        MediaUploadEmptyPromptTextBlock(
+            title: DiveActivityMediaEmptyHeroPresentation.title,
+            message: DiveActivityMediaEmptyHeroPresentation.message,
+            horizontalAlignment: .leading
+        )
+        .accessibilityIdentifier("DiveOverview.MediaEmptyUploadPrompt")
     }
 
     @ViewBuilder
     private var largeDetentContent: some View {
-        if mediaItems.isEmpty {
-            Text(DiveActivityMediaPresentation.emptyStateMessage)
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.Colors.tabUnselected)
-        } else {
-            largeDetentBody
-        }
+        largeDetentBody
     }
 
     @ViewBuilder
     private var minimizedDetentContent: some View {
-        if mediaItems.isEmpty {
-            Text(DiveActivityMediaPresentation.emptyStateMessage)
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.Colors.tabUnselected)
-        } else if showsMediaCarousel {
+        if showsMediaCarousel {
             carouselRow
         }
     }

@@ -49,8 +49,6 @@ struct HomeMediaCarouselEmptyPlaceholder: View {
     let containerWidth: CGFloat
     let topSafeAreaInset: CGFloat
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     private var heroHeight: CGFloat {
         HomeMediaCarouselLayout.heroHeight(
             width: containerWidth,
@@ -70,114 +68,19 @@ struct HomeMediaCarouselEmptyPlaceholder: View {
                 endPoint: .bottomTrailing
             )
 
-            Group {
-                ghostFrames
-                    .padding(.bottom, HomeLifetimeStatsLayout.panelOverlap * 0.35)
-
-                VStack(spacing: AppTheme.Spacing.sm) {
-                    Text(HomeMediaCarouselEmptyPresentation.title)
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(AppTheme.Colors.textPrimary)
-                        .multilineTextAlignment(.center)
-
-                    Text(HomeMediaCarouselEmptyPresentation.message)
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.Colors.secondaryText)
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(2)
-                }
-                .padding(.horizontal, AppTheme.Spacing.lg)
-                .padding(.bottom, HomeMediaCarouselLayout.slideChromeBottomInset)
-            }
-            .offset(y: HomeMediaCarouselEmptyPresentation.contentDownshift)
+            AnimatedMediaUploadEmptyPrompt(
+                containerWidth: containerWidth,
+                title: HomeMediaCarouselEmptyPresentation.title,
+                message: HomeMediaCarouselEmptyPresentation.message,
+                ghostFramesBottomPadding: HomeLifetimeStatsLayout.panelOverlap * 0.35,
+                verticalOffset: HomeMediaCarouselEmptyPresentation.contentDownshift
+            )
+            .padding(.bottom, HomeMediaCarouselLayout.slideChromeBottomInset)
         }
         .frame(width: containerWidth, height: heroHeight)
         .frame(maxWidth: .infinity)
         .clipped()
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            "\(HomeMediaCarouselEmptyPresentation.title). \(HomeMediaCarouselEmptyPresentation.message)"
-        )
         .accessibilityIdentifier("Home.MediaCarousel.Empty")
-    }
-
-    @ViewBuilder
-    private var ghostFrames: some View {
-        if reduceMotion {
-            staticGhostFrames
-        } else {
-            animatedGhostFrames
-        }
-    }
-
-    private var staticGhostFrames: some View {
-        ZStack {
-            ForEach(0 ..< HomeMediaCarouselEmptyPresentation.frameCount, id: \.self) { index in
-                ghostFrame(index: index, verticalOffset: 0)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var animatedGhostFrames: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
-            let elapsed = timeline.date.timeIntervalSinceReferenceDate
-            ZStack {
-                ForEach(0 ..< HomeMediaCarouselEmptyPresentation.frameCount, id: \.self) { index in
-                    let phase = HomeMediaCarouselEmptyPresentation.framePhaseOffset(index: index)
-                    let cycle = HomeMediaCarouselEmptyPresentation.animationCycleSeconds
-                    let wave = sin((elapsed / cycle + phase) * 2 * .pi)
-                    ghostFrame(
-                        index: index,
-                        verticalOffset: HomeMediaCarouselEmptyPresentation.frameOffsetAmplitude(index: index) * wave
-                    )
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-    }
-
-    private func ghostFrame(index: Int, verticalOffset: CGFloat) -> some View {
-        let frameSize = ghostFrameSize(index: index)
-        return RoundedRectangle(cornerRadius: 14, style: .continuous)
-            .fill(AppTheme.Colors.surfaceElevated.opacity(0.55))
-            .overlay {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(AppTheme.Colors.accent.opacity(0.22), lineWidth: 1)
-            }
-            .overlay {
-                Image(systemName: index == 1 ? "video.fill" : "photo.fill")
-                    .font(.title2)
-                    .foregroundStyle(AppTheme.Colors.accent.opacity(0.45))
-            }
-            .frame(width: frameSize.width, height: frameSize.height)
-            .rotationEffect(.degrees(HomeMediaCarouselEmptyPresentation.frameRotationDegrees(index: index)))
-            .offset(x: ghostFrameHorizontalOffset(index: index), y: verticalOffset + ghostFrameVerticalOffset(index: index))
-            .shadow(color: .black.opacity(0.12), radius: 10, y: 6)
-    }
-
-    private func ghostFrameSize(index: Int) -> CGSize {
-        switch index {
-        case 0: CGSize(width: 108, height: 132)
-        case 1: CGSize(width: 118, height: 142)
-        default: CGSize(width: 104, height: 126)
-        }
-    }
-
-    private func ghostFrameHorizontalOffset(index: Int) -> CGFloat {
-        switch index {
-        case 0: -containerWidth * 0.22
-        case 1: 0
-        default: containerWidth * 0.22
-        }
-    }
-
-    private func ghostFrameVerticalOffset(index: Int) -> CGFloat {
-        switch index {
-        case 0: -12
-        case 1: -28
-        default: -8
-        }
     }
 }
 
@@ -649,6 +552,8 @@ private struct HomeMediaCarouselSlideBottomChrome: View {
             HomeMediaCarouselDiveLinkButton(
                 siteDisplayName: highlight.siteDisplayName,
                 diveNumberLabel: highlight.diveNumberLabel,
+                linkedTripTitle: highlight.linkedTripTitle,
+                linkedTripAccentColorIndex: highlight.linkedTripAccentColorIndex,
                 action: onOpenDive
             )
 
@@ -705,11 +610,28 @@ private struct HomeMediaCarouselFooterGradient: View {
 private struct HomeMediaCarouselDiveLinkButton: View {
     let siteDisplayName: String
     let diveNumberLabel: String
+    let linkedTripTitle: String?
+    let linkedTripAccentColorIndex: Int?
     let action: () -> Void
 
     private var title: String {
         let site = siteDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
         return site.isEmpty ? "New Dive" : site
+    }
+
+    private var trimmedTripTitle: String? {
+        guard let linkedTripTitle else { return nil }
+        let trimmed = linkedTripTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private var tripAccentColor: Color? {
+        guard let linkedTripAccentColorIndex else { return nil }
+        return LogbookTripGroupAccentPalette.color(at: linkedTripAccentColorIndex)
+    }
+
+    private var showsSubtitleRow: Bool {
+        diveNumberLabel != "-" || trimmedTripTitle != nil
     }
 
     var body: some View {
@@ -723,11 +645,21 @@ private struct HomeMediaCarouselDiveLinkButton: View {
                     Text(title)
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(1)
-                    if diveNumberLabel != "-" {
-                        Text(diveNumberLabel)
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(HomeMediaCarouselDiveLinkChromePresentation.diveNumberForeground)
-                            .lineLimit(1)
+                    if showsSubtitleRow {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            if diveNumberLabel != "-" {
+                                Text(diveNumberLabel)
+                                    .font(.caption2.weight(.medium))
+                                    .foregroundStyle(HomeMediaCarouselDiveLinkChromePresentation.diveNumberForeground)
+                                    .lineLimit(1)
+                            }
+                            if let tripTitle = trimmedTripTitle {
+                                Text(tripTitle)
+                                    .font(.caption2.weight(.medium))
+                                    .foregroundStyle(tripAccentColor ?? HomeMediaCarouselDiveLinkChromePresentation.diveNumberForeground)
+                                    .lineLimit(1)
+                            }
+                        }
                     }
                 }
 
@@ -738,8 +670,19 @@ private struct HomeMediaCarouselDiveLinkButton: View {
             .appLiquidGlassSearchFieldChrome()
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Open dive at \(title)")
+        .accessibilityLabel(accessibilityLabel)
         .accessibilityIdentifier("Home.MediaCarousel.OpenDive")
+    }
+
+    private var accessibilityLabel: String {
+        var parts = ["Open dive at \(title)"]
+        if diveNumberLabel != "-" {
+            parts.append(diveNumberLabel)
+        }
+        if let tripTitle = trimmedTripTitle {
+            parts.append(tripTitle)
+        }
+        return parts.joined(separator: ", ")
     }
 }
 

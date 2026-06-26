@@ -26,7 +26,7 @@ Drag the grabber or sheet edge to change size. Switching tabs resets the sheet t
 
 - Shows a map pin at the dive location when coordinates exist.
 - If the dive is linked to a catalog **dive site**, the site name appears under the dive number; tap it to open that site in Explore.
-- **Medium** and **large** detents show dive stats, **Dive Conditions**, buddies, notes, and **Tags**.
+- **Medium** and **large** detents show the stats box (max depth, average depth, surface interval, dive time), **Dive Conditions**, buddies, notes, and **Tags**. Tap **⋯** (top trailing on the stats box) to change dive metrics when editable.
 - If the dive has a location hint but no linked site, GoDive may prompt you to add or match a dive site.
 
 ## Tank tab
@@ -42,6 +42,7 @@ Tap a section **⋯** menu to edit all fields in that section in one sheet.
 ## Media tab
 
 - Full-bleed **hero pager** swipes between photos and videos.
+- When a dive has **no media yet**, the hero shows bouncing photo/video frames at **minimized** and **medium** (hidden at **large**). The **Your highlight reel lives here** copy sits in the overview sheet at **medium** and **large**; **+** adds library items.
 - **Carousel** at minimized and medium detents jumps between items; oldest capture time on the left.
 - **+** opens the photo picker to attach library items (up to 20 per add).
 - **Star** marks the featured item used as the Logbook row thumbnail.
@@ -81,4 +82,4 @@ Portrait returns the sheet layout.
 
 - **Manual dives** — most summary fields editable via section edit sheets.
 - **Imported dives** — source, import format, and source dive ID are read-only; many metrics from the file stay read-only.
-- **Operator**, **source & import**, and **record** details appear at **large** detent on the tank tab.
+- **Operator** and **source & import** details appear at **large** detent on the tank tab.

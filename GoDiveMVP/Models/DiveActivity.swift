@@ -117,7 +117,7 @@ final class DiveActivity {
     @Relationship(deleteRule: .cascade)
     var mediaBuddyTags: [DiveMediaBuddyTag] = []
 
-    /// Trips this dive is linked to (usually one **`DiveTripActivityLink`**).
+    /// Trips this dive is linked to (at most one **`DiveTripActivityLink`**).
     @Relationship
     var tripActivityLinks: [DiveTripActivityLink] = []
 
