@@ -139,8 +139,10 @@ struct TripDetailView: View {
         .toolbar(.hidden, for: .navigationBar)
         .hidesBottomTabBarWhenPushed()
         .task(id: tripDetailContentToken) {
-            rebuildTripDetailContent()
             await Task.yield()
+            let signpostID = AppPerformanceSignpost.begin(.tripDetailContentRebuild)
+            rebuildTripDetailContent()
+            AppPerformanceSignpost.end(.tripDetailContentRebuild, signpostID: signpostID)
             showsDeferredMap = true
             await enrichTripDetailMarineLife()
             await warmTripHeroHeaderMediaPreviewIfNeeded()

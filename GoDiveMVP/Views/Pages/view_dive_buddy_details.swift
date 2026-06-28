@@ -420,6 +420,9 @@ struct ViewDiveBuddyDetails: View {
         includeTripRows: Bool = false,
         includeMarineLifeEnrichment: Bool
     ) {
+        let signpostID = AppPerformanceSignpost.begin(.buddyDetailContentRebuild)
+        defer { AppPerformanceSignpost.end(.buddyDetailContentRebuild, signpostID: signpostID) }
+
         guard let ownerProfileID else { return }
 
         let diveTags = effectiveBuddyDiveTags

@@ -553,7 +553,6 @@ private struct HomeMediaCarouselSlideBottomChrome: View {
                 siteDisplayName: highlight.siteDisplayName,
                 diveNumberLabel: highlight.diveNumberLabel,
                 linkedTripTitle: highlight.linkedTripTitle,
-                linkedTripAccentColorIndex: highlight.linkedTripAccentColorIndex,
                 action: onOpenDive
             )
 
@@ -611,7 +610,6 @@ private struct HomeMediaCarouselDiveLinkButton: View {
     let siteDisplayName: String
     let diveNumberLabel: String
     let linkedTripTitle: String?
-    let linkedTripAccentColorIndex: Int?
     let action: () -> Void
 
     private var title: String {
@@ -619,19 +617,11 @@ private struct HomeMediaCarouselDiveLinkButton: View {
         return site.isEmpty ? "New Dive" : site
     }
 
-    private var trimmedTripTitle: String? {
-        guard let linkedTripTitle else { return nil }
-        let trimmed = linkedTripTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
-    }
-
-    private var tripAccentColor: Color? {
-        guard let linkedTripAccentColorIndex else { return nil }
-        return LogbookTripGroupAccentPalette.color(at: linkedTripAccentColorIndex)
-    }
-
-    private var showsSubtitleRow: Bool {
-        diveNumberLabel != "-" || trimmedTripTitle != nil
+    private var subtitleLine: String? {
+        HomeMediaCarouselDiveLinkChromePresentation.diveLinkSubtitle(
+            diveNumberLabel: diveNumberLabel,
+            linkedTripTitle: linkedTripTitle
+        )
     }
 
     var body: some View {
@@ -645,21 +635,11 @@ private struct HomeMediaCarouselDiveLinkButton: View {
                     Text(title)
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(1)
-                    if showsSubtitleRow {
-                        HStack(alignment: .firstTextBaseline, spacing: 6) {
-                            if diveNumberLabel != "-" {
-                                Text(diveNumberLabel)
-                                    .font(.caption2.weight(.medium))
-                                    .foregroundStyle(HomeMediaCarouselDiveLinkChromePresentation.diveNumberForeground)
-                                    .lineLimit(1)
-                            }
-                            if let tripTitle = trimmedTripTitle {
-                                Text(tripTitle)
-                                    .font(.caption2.weight(.medium))
-                                    .foregroundStyle(tripAccentColor ?? HomeMediaCarouselDiveLinkChromePresentation.diveNumberForeground)
-                                    .lineLimit(1)
-                            }
-                        }
+                    if let subtitleLine {
+                        Text(subtitleLine)
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(HomeMediaCarouselDiveLinkChromePresentation.diveNumberForeground)
+                            .lineLimit(1)
                     }
                 }
 
@@ -676,11 +656,8 @@ private struct HomeMediaCarouselDiveLinkButton: View {
 
     private var accessibilityLabel: String {
         var parts = ["Open dive at \(title)"]
-        if diveNumberLabel != "-" {
-            parts.append(diveNumberLabel)
-        }
-        if let tripTitle = trimmedTripTitle {
-            parts.append(tripTitle)
+        if let subtitleLine {
+            parts.append(subtitleLine)
         }
         return parts.joined(separator: ", ")
     }

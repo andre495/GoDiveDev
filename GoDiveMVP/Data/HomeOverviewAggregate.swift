@@ -8,12 +8,14 @@ struct HomeOverviewAggregate: Sendable {
         carouselFingerprint: 0,
         carouselTagFingerprint: 0,
         diveStatsInputs: [],
+        sightingCountInputs: [],
         lifetimeStats: HomeLifetimeStatsPresentation.build(dives: [], sightings: []),
         buddyLeaderboard: [],
         ownerMediaPhotos: [],
         mediaByID: [:],
         divesByID: [:],
         ownerDiveIDs: [],
+        ownerSightings: [],
         mediaHighlightSightings: [],
         mediaHighlightBuddyTags: [],
         taggedBuddyRowsByMediaID: [:]
@@ -23,25 +25,59 @@ struct HomeOverviewAggregate: Sendable {
     let carouselFingerprint: Int
     let carouselTagFingerprint: Int
     let diveStatsInputs: [HomeDiveStatsInput]
+    let sightingCountInputs: [HomeLifetimeStatsPresentation.SightingCountInput]
     let lifetimeStats: HomeLifetimeStats
     let buddyLeaderboard: [HomeBuddyLeaderboardEntry]
     let ownerMediaPhotos: [DiveMediaPhoto]
     let mediaByID: [UUID: DiveMediaPhoto]
     let divesByID: [UUID: DiveActivity]
     let ownerDiveIDs: Set<UUID>
+    let ownerSightings: [SightingInstance]
     let mediaHighlightSightings: [HomeMediaHighlightSightingInput]
     let mediaHighlightBuddyTags: [HomeMediaHighlightBuddyTagInput]
     let taggedBuddyRowsByMediaID: [UUID: [DiveMediaBuddyTagPresentation.TaggedBuddyRow]]
 }
 
-/// Builds **`HomeOverviewAggregate`** from SwiftData models (main actor — touches relationships once).
+/// Builds **`HomeOverviewAggregate`** from SwiftData models.
 @MainActor
 enum HomeOverviewAggregateBuilder {
 
+    static func buildAsync(
+        activities: [DiveActivity],
+        marineLifeCatalog: [MarineLife],
+        automaticallyRenumberDives: Bool,
+        displayUnits: DiveDisplayUnitSystem = .metric,
+        ownerProfileID: UUID?,
+        ownerProfile: UserProfile? = nil,
+        modelContext: ModelContext? = nil,
+        referenceDate: Date = .now
+    ) async -> HomeOverviewAggregate {
+        let rebuildSignpost = AppPerformanceSignpost.begin(.homeOverviewRebuild)
+        defer { AppPerformanceSignpost.end(.homeOverviewRebuild, signpostID: rebuildSignpost) }
+
+        let input = HomeOverviewSnapshotSeeding.capture(
+            activities: activities,
+            marineLifeCatalog: marineLifeCatalog,
+            automaticallyRenumberDives: automaticallyRenumberDives,
+            displayUnits: displayUnits,
+            ownerProfileID: ownerProfileID,
+            ownerProfile: ownerProfile,
+            modelContext: modelContext,
+            referenceDate: referenceDate
+        )
+
+        let computed = await Task.detached(priority: .userInitiated) {
+            let computeSignpost = AppPerformanceSignpost.begin(.homeOverviewCompute)
+            defer { AppPerformanceSignpost.end(.homeOverviewCompute, signpostID: computeSignpost) }
+            return HomeOverviewAggregateComputer.build(from: input)
+        }.value
+
+        return assemble(computed: computed, activities: activities)
+    }
+
+    /// Synchronous build — tests and previews only; prefer **`buildAsync`** on device.
     static func build(
         activities: [DiveActivity],
-        allMediaPhotos: [DiveMediaPhoto],
-        allSightings: [SightingInstance],
         marineLifeCatalog: [MarineLife],
         automaticallyRenumberDives: Bool,
         displayUnits: DiveDisplayUnitSystem = .metric,
@@ -50,194 +86,52 @@ enum HomeOverviewAggregateBuilder {
         modelContext: ModelContext? = nil,
         referenceDate: Date = .now
     ) -> HomeOverviewAggregate {
-        let ownerDiveIDs = Set(activities.map(\.id))
-        let buddyTags = HomeBuddyLeaderboardSeeding.tagInputs(from: activities)
-        let selfBuddyID: UUID?
-        if let ownerProfile, let modelContext {
-            selfBuddyID = DiveBuddySelfRepresentation.resolveSelfBuddyID(
-                owner: ownerProfile,
-                modelContext: modelContext
-            )
-        } else {
-            selfBuddyID = nil
-        }
-
-        let chronologicalNumbers = automaticallyRenumberDives
-            ? DiveActivityDiveNumbering.numberedDiveSequentialIndicesById(for: activities)
-            : [:]
-
-        let logbookSeeds = LogbookActivitySnapshotSeeding.seeds(from: activities)
-        let tripSeeds = LogbookTripSnapshotSeeding.tripSeeds(from: activities)
-        let tripTitleByID = Dictionary(uniqueKeysWithValues: tripSeeds.map { ($0.tripID, $0.displayTitle) })
-        let tripAccentIndexByID = LogbookTripGroupAccentPresentation.accentColorIndexByTripID(
-            seeds: logbookSeeds,
-            tripSeeds: tripSeeds,
-            unitSystem: displayUnits,
-            useChronologicalNumbers: automaticallyRenumberDives
-        )
-
-        let diveStatsInputs = activities.map { activity in
-            let linkedTripID = LogbookTripSnapshotSeeding.primaryLinkedTripID(for: activity)
-            return HomeDiveStatsInput(
-                id: activity.id,
-                maxDepthMeters: activity.maxDepthMeters,
-                durationMinutes: activity.durationMinutes,
-                diveSiteID: activity.diveSiteID,
-                diveNumberLabel: HomeMediaHighlightPresentation.diveNumberLabel(
-                    diveNumber: activity.diveNumber,
-                    diveNumberExplicitlyNone: activity.diveNumberExplicitlyNone,
-                    chronologicalIndex: chronologicalNumbers[activity.id],
-                    useChronologicalNumbers: automaticallyRenumberDives
-                ),
-                siteDisplayName: LogbookActivityRow.displayName(for: activity),
-                linkedTripID: linkedTripID,
-                linkedTripTitle: linkedTripID.flatMap { tripTitleByID[$0] },
-                linkedTripAccentColorIndex: linkedTripID.flatMap { tripAccentIndexByID[$0] }
-            )
-        }
-
-        let sightingInputs = sightingCountInputs(
-            allSightings: allSightings,
-            ownerDiveIDs: ownerDiveIDs,
-            marineLifeCatalog: marineLifeCatalog
-        )
-
-        let ownerMedia = ownerMediaPhotos(allMediaPhotos: allMediaPhotos, ownerDiveIDs: ownerDiveIDs)
-        let mediaByID = Dictionary(uniqueKeysWithValues: ownerMedia.map { ($0.id, $0) })
-        let divesByID = Dictionary(uniqueKeysWithValues: activities.map { ($0.id, $0) })
-
-        let lifetimeStats = HomeLifetimeStatsPresentation.build(
-            dives: diveStatsInputs,
-            sightings: sightingInputs
-        )
-        let buddyLeaderboard = HomeBuddyLeaderboardPresentation.topEntries(
-            from: buddyTags,
-            excludingBuddyID: selfBuddyID
-        )
-
-        let mediaHighlightSightings = allSightings.map {
-            HomeMediaHighlightSightingInput(
-                mediaPhotoID: $0.mediaPhotoID,
-                diveActivityID: $0.diveActivityID
-            )
-        }
-        .filter { sighting in
-            guard let diveID = sighting.diveActivityID else { return false }
-            return ownerDiveIDs.contains(diveID)
-        }
-
-        let mediaHighlightBuddyTags = activities.flatMap { activity in
-            activity.mediaBuddyTags.map { tag in
-                HomeMediaHighlightBuddyTagInput(
-                    mediaPhotoID: tag.mediaPhotoID,
-                    diveActivityID: tag.diveActivityID ?? activity.id,
-                    buddyID: tag.buddyID,
-                    displayName: tag.buddy?.displayName ?? "Buddy",
-                    profilePhoto: tag.buddy?.profilePhoto
-                )
-            }
-        }
-        .filter { tag in
-            guard let diveID = tag.diveActivityID else { return false }
-            return ownerDiveIDs.contains(diveID)
-        }
-
-        let taggedBuddyRowsByMediaID = HomeMediaHighlightPresentation.taggedBuddyRowsByMediaID(
-            buddyTags: mediaHighlightBuddyTags,
-            ownerDiveIDs: ownerDiveIDs
-        )
-
-        let contentFingerprint = HomeOverviewRefreshToken.contentFingerprint(
-            dives: diveStatsInputs,
-            buddyTags: buddyTags,
-            sightingCount: sightingInputs.count,
-            mediaCount: ownerMedia.count
-        )
-
-        let carouselFingerprint = carouselContentFingerprint(
+        let input = HomeOverviewSnapshotSeeding.capture(
+            activities: activities,
+            marineLifeCatalog: marineLifeCatalog,
+            automaticallyRenumberDives: automaticallyRenumberDives,
+            displayUnits: displayUnits,
             ownerProfileID: ownerProfileID,
-            diveStatsInputs: diveStatsInputs,
-            ownerMedia: ownerMedia,
+            ownerProfile: ownerProfile,
+            modelContext: modelContext,
             referenceDate: referenceDate
         )
+        let computed = HomeOverviewAggregateComputer.build(from: input)
+        return assemble(computed: computed, activities: activities)
+    }
 
-        let carouselTagFingerprint = HomeOverviewRefreshToken.carouselTagFingerprint(
-            sightings: mediaHighlightSightings,
-            buddyTags: mediaHighlightBuddyTags,
-            ownerDiveIDs: ownerDiveIDs
-        )
+    private static func assemble(
+        computed: HomeOverviewComputedResult,
+        activities: [DiveActivity]
+    ) -> HomeOverviewAggregate {
+        var mediaByID: [UUID: DiveMediaPhoto] = [:]
+        var ownerSightings: [SightingInstance] = []
+        for activity in activities {
+            for photo in activity.mediaPhotos {
+                mediaByID[photo.id] = photo
+            }
+            ownerSightings.append(contentsOf: activity.marineLifeSightings)
+        }
+
+        let ownerMedia = computed.ownerMediaPhotoIDs.compactMap { mediaByID[$0] }
+        let divesByID = Dictionary(uniqueKeysWithValues: activities.map { ($0.id, $0) })
 
         return HomeOverviewAggregate(
-            contentFingerprint: contentFingerprint,
-            carouselFingerprint: carouselFingerprint,
-            carouselTagFingerprint: carouselTagFingerprint,
-            diveStatsInputs: diveStatsInputs,
-            lifetimeStats: lifetimeStats,
-            buddyLeaderboard: buddyLeaderboard,
+            contentFingerprint: computed.contentFingerprint,
+            carouselFingerprint: computed.carouselFingerprint,
+            carouselTagFingerprint: computed.carouselTagFingerprint,
+            diveStatsInputs: computed.diveStatsInputs,
+            sightingCountInputs: computed.sightingCountInputs,
+            lifetimeStats: computed.lifetimeStats,
+            buddyLeaderboard: computed.buddyLeaderboard,
             ownerMediaPhotos: ownerMedia,
             mediaByID: mediaByID,
             divesByID: divesByID,
-            ownerDiveIDs: ownerDiveIDs,
-            mediaHighlightSightings: mediaHighlightSightings,
-            mediaHighlightBuddyTags: mediaHighlightBuddyTags,
-            taggedBuddyRowsByMediaID: taggedBuddyRowsByMediaID
+            ownerDiveIDs: computed.ownerDiveIDs,
+            ownerSightings: ownerSightings,
+            mediaHighlightSightings: computed.mediaHighlightSightings,
+            mediaHighlightBuddyTags: computed.mediaHighlightBuddyTags,
+            taggedBuddyRowsByMediaID: computed.taggedBuddyRowsByMediaID
         )
-    }
-
-    private static func ownerMediaPhotos(
-        allMediaPhotos: [DiveMediaPhoto],
-        ownerDiveIDs: Set<UUID>
-    ) -> [DiveMediaPhoto] {
-        allMediaPhotos.filter { photo in
-            guard let diveID = photo.diveActivityID else { return false }
-            return ownerDiveIDs.contains(diveID)
-        }
-    }
-
-    private static func sightingCountInputs(
-        allSightings: [SightingInstance],
-        ownerDiveIDs: Set<UUID>,
-        marineLifeCatalog: [MarineLife]
-    ) -> [HomeLifetimeStatsPresentation.SightingCountInput] {
-        let catalogByUUID = Dictionary(uniqueKeysWithValues: marineLifeCatalog.map { ($0.uuid, $0) })
-        return allSightings.compactMap { sighting in
-            guard let diveID = sighting.diveActivityID, ownerDiveIDs.contains(diveID) else { return nil }
-            let name = sighting.marineLife?.commonName
-                ?? catalogByUUID[sighting.marineLifeUUID]?.commonName
-                ?? sighting.marineLifeUUID
-            return HomeLifetimeStatsPresentation.SightingCountInput(
-                marineLifeUUID: sighting.marineLifeUUID,
-                commonName: name
-            )
-        }
-    }
-
-    private static func carouselContentFingerprint(
-        ownerProfileID: UUID?,
-        diveStatsInputs: [HomeDiveStatsInput],
-        ownerMedia: [DiveMediaPhoto],
-        referenceDate: Date
-    ) -> Int {
-        var hasher = Hasher()
-        hasher.combine(ownerProfileID)
-        hasher.combine(HomeMediaHighlightPresentation.dailySeed(
-            ownerProfileID: ownerProfileID ?? UUID(),
-            referenceDate: referenceDate
-        ))
-        for dive in diveStatsInputs.sorted(by: { $0.id.uuidString < $1.id.uuidString }) {
-            hasher.combine(dive.id)
-            hasher.combine(dive.diveNumberLabel)
-            hasher.combine(dive.siteDisplayName)
-            hasher.combine(dive.linkedTripID)
-            hasher.combine(dive.linkedTripTitle)
-            hasher.combine(dive.linkedTripAccentColorIndex)
-        }
-        for photo in ownerMedia.sorted(by: { $0.id.uuidString < $1.id.uuidString }) {
-            hasher.combine(photo.id)
-            hasher.combine(photo.diveActivityID)
-            hasher.combine(photo.mediaKind)
-            hasher.combine(photo.photosLocalIdentifier)
-        }
-        return hasher.finalize()
     }
 }

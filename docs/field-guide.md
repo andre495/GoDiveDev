@@ -46,3 +46,5 @@ Tap **+** on Field Guide chrome to add a **user-owned** catalog entry (custom sp
 ## Offline catalog
 
 Species text and bundled photos load offline. Remote image URLs may require network on first view. The catalog is seeded from bundled data at first launch and updates when the app ships new catalog JSON.
+
+See [Acknowledgments](acknowledgments.md) for FishBase, SeaLifeBase, _Caribbean Reef Life_, Wikimedia Commons, Meshy AI, and other catalog sources.

@@ -29,6 +29,8 @@ Your dive log, photos references, buddies, equipment, and certifications are sto
 
 Some optional features (fish identification, map tiles) may use the network — see [Privacy & data](privacy-and-data.md).
 
+Bundled catalogs, 3D models, and import libraries are credited on [Acknowledgments & external resources](acknowledgments.md).
+
 ## Getting help in this guide
 
 Use the search box at the top of any page, or follow the sidebar:

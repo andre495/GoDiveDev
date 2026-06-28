@@ -266,6 +266,12 @@ Non-trivial edits under **`GoDiveMVP/`** should include new or updated tests in 
 
 ---
 
+## Snappy navigation & performance
+
+Follow **`.cursor/rules/swiftui-snappy-navigation.mdc`** for tab switches, pushes, sheets, and SwiftData-heavy screens. Prefer off-main snapshots (**`LogbookDisplayCacheBuilder`**, **`DiveDerivedDataBuilder`**), fingerprint skips, debounced rebuilds (**`HomeOverviewRebuildScheduler`**, **`LogbookCacheRefreshScheduler`**), and scoped **`@Query`**.
+
+---
+
 ## Guiding Principle
 
 Prioritize:

@@ -6,6 +6,7 @@
 //
 
 import Contacts
+import AuthenticationServices
 import CoreGraphics
 import CoreLocation
 import Foundation
@@ -10488,6 +10489,166 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func homeReturnNavigationPresentation_skipsForegroundRebuildWhenCarouselReady() {
+        #expect(
+            HomeReturnNavigationPresentation.shouldSkipFullRebuildOnForegroundActivation(
+                hasPerformedInitialBuild: true,
+                carouselSlidesAreDisplayable: true,
+                hasCarouselHighlights: true
+            )
+        )
+        #expect(
+            !HomeReturnNavigationPresentation.shouldSkipFullRebuildOnForegroundActivation(
+                hasPerformedInitialBuild: true,
+                carouselSlidesAreDisplayable: true,
+                hasCarouselHighlights: false
+            )
+        )
+    }
+
+    @Test func homeOverviewAggregateComputer_aggregatesOwnerMediaAndSightings() {
+        let diveID = UUID()
+        let mediaID = UUID()
+        let siteID = UUID()
+        let activitySeed = LogbookActivitySnapshotSeed(
+            id: diveID,
+            sourceDiveId: nil,
+            startTime: Date(timeIntervalSinceReferenceDate: 0),
+            maxDepthMeters: 18,
+            durationMinutes: 42,
+            bottomTimeSeconds: nil,
+            diveNumber: 1,
+            diveNumberExplicitlyNone: false,
+            displayName: "Blue Hole",
+            formattedStartDateOnly: "Jan 1",
+            resolvedSiteNameLowercased: "blue hole",
+            activityTagNames: [],
+            buddyDisplayNames: [],
+            previewMediaPhotoID: mediaID,
+            linkedTripID: nil
+        )
+        let input = HomeOverviewBuildInput(
+            activitySeeds: [activitySeed],
+            tripSeeds: [],
+            diveSiteIDByActivityID: [diveID: siteID],
+            buddyTagSeeds: [],
+            mediaPhotoSeeds: [
+                HomeOverviewMediaPhotoSeed(
+                    id: mediaID,
+                    diveActivityID: diveID,
+                    sortOrder: 0,
+                    mediaKind: DiveMediaKind.image.rawValue,
+                    photosLocalIdentifier: "test-photo"
+                ),
+            ],
+            sightingSeeds: [
+                HomeOverviewSightingSeed(
+                    mediaPhotoID: mediaID,
+                    diveActivityID: diveID,
+                    marineLifeUUID: "turtle-uuid",
+                    commonName: "Green sea turtle"
+                ),
+            ],
+            mediaBuddyTagSeeds: [],
+            automaticallyRenumberDives: true,
+            displayUnits: .metric,
+            ownerProfileID: UUID(),
+            selfBuddyID: nil,
+            referenceDate: Date(timeIntervalSinceReferenceDate: 0)
+        )
+
+        let result = HomeOverviewAggregateComputer.build(from: input)
+        #expect(result.diveStatsInputs.count == 1)
+        #expect(result.diveStatsInputs[0].diveSiteID == siteID)
+        #expect(result.ownerMediaPhotoIDs == [mediaID])
+        #expect(result.sightingCountInputs.count == 1)
+        #expect(result.lifetimeStats.diveCount == 1)
+        #expect(result.mediaHighlightSightings.count == 1)
+        #expect(result.contentFingerprint != 0)
+    }
+
+    @Test func homeOverviewAggregateComputer_ignoresSightingsOutsideOwnerDives() {
+        let ownerDiveID = UUID()
+        let otherDiveID = UUID()
+        let activitySeed = LogbookActivitySnapshotSeed(
+            id: ownerDiveID,
+            sourceDiveId: nil,
+            startTime: Date(timeIntervalSinceReferenceDate: 0),
+            maxDepthMeters: 12,
+            durationMinutes: 30,
+            bottomTimeSeconds: nil,
+            diveNumber: 1,
+            diveNumberExplicitlyNone: false,
+            displayName: "Reef",
+            formattedStartDateOnly: "Jan 2",
+            resolvedSiteNameLowercased: "reef",
+            activityTagNames: [],
+            buddyDisplayNames: [],
+            previewMediaPhotoID: nil,
+            linkedTripID: nil
+        )
+        let input = HomeOverviewBuildInput(
+            activitySeeds: [activitySeed],
+            tripSeeds: [],
+            diveSiteIDByActivityID: [ownerDiveID: nil],
+            buddyTagSeeds: [],
+            mediaPhotoSeeds: [],
+            sightingSeeds: [
+                HomeOverviewSightingSeed(
+                    mediaPhotoID: UUID(),
+                    diveActivityID: otherDiveID,
+                    marineLifeUUID: "fish-uuid",
+                    commonName: "Fish"
+                ),
+            ],
+            mediaBuddyTagSeeds: [],
+            automaticallyRenumberDives: false,
+            displayUnits: .metric,
+            ownerProfileID: UUID(),
+            selfBuddyID: nil,
+            referenceDate: Date(timeIntervalSinceReferenceDate: 0)
+        )
+
+        let result = HomeOverviewAggregateComputer.build(from: input)
+        #expect(result.sightingCountInputs.isEmpty)
+        #expect(result.mediaHighlightSightings.isEmpty)
+    }
+
+    @Test func appPerformanceSignpost_intervalNamesAreStable() {
+        #expect(AppPerformanceSignpost.Interval.launchContainerLoad.rawValue == "LaunchContainerLoad")
+        #expect(AppPerformanceSignpost.Interval.launchSessionValidation.rawValue == "LaunchSessionValidation")
+        #expect(AppPerformanceSignpost.Interval.homeOverviewRebuild.rawValue == "HomeOverviewRebuild")
+        #expect(AppPerformanceSignpost.Interval.tripDetailContentRebuild.rawValue == "TripDetailContentRebuild")
+    }
+
+    @Test func appLaunchSessionRestorePresentation_persistedProfileID_parsesStoredUUID() {
+        let id = UUID()
+        #expect(
+            AppLaunchSessionRestorePresentation.persistedProfileID(storedUUIDString: id.uuidString) == id
+        )
+        #expect(AppLaunchSessionRestorePresentation.persistedProfileID(storedUUIDString: nil) == nil)
+        #expect(AppLaunchSessionRestorePresentation.persistedProfileID(storedUUIDString: "not-a-uuid") == nil)
+    }
+
+    @Test func appLaunchSessionValidationPolicy_offlineFirstKeepsSessionWhenCredentialCheckFails() {
+        #expect(!AppLaunchSessionValidationPolicy.shouldSignOut(credentialState: nil, checkFailed: true))
+    }
+
+    @Test func appLaunchSessionValidationPolicy_signsOutWhenCredentialRevoked() {
+        #expect(
+            AppLaunchSessionValidationPolicy.shouldSignOut(
+                credentialState: .revoked,
+                checkFailed: false
+            )
+        )
+        #expect(
+            !AppLaunchSessionValidationPolicy.shouldSignOut(
+                credentialState: .authorized,
+                checkFailed: false
+            )
+        )
+    }
+
     @Test @MainActor func homeMediaHighlightWarmup_repinCarouselSessionCache_restoresPinnedIdentifiersAfterClear() {
         #if canImport(UIKit)
         HomeMediaHighlightSessionCache.shared.clear()
@@ -10999,6 +11160,27 @@ struct GoDiveMVPTests {
         #expect(
             HomeMediaCarouselDiveLinkChromePresentation.diveNumberForeground
                 == AppTheme.Colors.secondaryText
+        )
+    }
+
+    @Test func homeMediaCarouselDiveLinkChrome_subtitle_joinsDiveNumberAndTripWithMiddleDot() {
+        #expect(
+            HomeMediaCarouselDiveLinkChromePresentation.diveLinkSubtitle(
+                diveNumberLabel: "#12",
+                linkedTripTitle: "Bonaire 2026"
+            ) == "#12 · Bonaire 2026"
+        )
+        #expect(
+            HomeMediaCarouselDiveLinkChromePresentation.diveLinkSubtitle(
+                diveNumberLabel: "-",
+                linkedTripTitle: "Bonaire 2026"
+            ) == "Bonaire 2026"
+        )
+        #expect(
+            HomeMediaCarouselDiveLinkChromePresentation.diveLinkSubtitle(
+                diveNumberLabel: "#3",
+                linkedTripTitle: nil
+            ) == "#3"
         )
     }
 

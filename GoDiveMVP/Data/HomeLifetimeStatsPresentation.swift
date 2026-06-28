@@ -12,7 +12,7 @@ struct HomeDiveStatsInput: Sendable, Equatable {
     let linkedTripTitle: String?
     let linkedTripAccentColorIndex: Int?
 
-    init(
+    nonisolated init(
         id: UUID,
         maxDepthMeters: Double,
         durationMinutes: Int,

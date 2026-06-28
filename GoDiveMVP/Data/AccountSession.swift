@@ -18,44 +18,34 @@ final class AccountSession {
 
     var isSignedIn: Bool { currentProfile != nil }
 
-    private let currentProfileIDKey = "goDiveCurrentProfileID"
-
     private init() {}
 
     func restoreSession(modelContext: ModelContext) async {
         defer { isRestoringSession = false }
 
+        let profileID = AppLaunchSessionRestorePresentation.persistedProfileID(
+            storedUUIDString: UserDefaults.standard.string(
+                forKey: AppLaunchSessionRestorePresentation.currentProfileIDUserDefaultsKey
+            )
+        )
         guard
-            let idString = UserDefaults.standard.string(forKey: currentProfileIDKey),
-            let profileID = UUID(uuidString: idString),
+            let profileID,
             let profile = try? UserProfileStore.profile(id: profileID, modelContext: modelContext)
         else {
             currentProfile = nil
             return
         }
 
-        let state: ASAuthorizationAppleIDProvider.CredentialState
-        do {
-            state = try await ASAuthorizationAppleIDProvider().credentialState(forUserID: profile.appleUserIdentifier)
-        } catch {
-            clearPersistedSession()
-            currentProfile = nil
-            return
-        }
-        switch state {
-        case .authorized:
-            try? UserProfileStore.applyDisplayNameFromApple(
-                to: profile,
-                appleProvided: nil,
-                appleUserIdentifier: profile.appleUserIdentifier,
-                modelContext: modelContext
+        currentProfile = profile
+
+        let container = modelContext.container
+        let appleUserIdentifier = profile.appleUserIdentifier
+        Task(priority: .utility) {
+            await AppLaunchSessionValidation.validatePersistedSessionIfNeeded(
+                profileID: profileID,
+                appleUserIdentifier: appleUserIdentifier,
+                container: container
             )
-            currentProfile = profile
-            try? DiveActivityOwnership.claimUnownedDives(for: profile, modelContext: modelContext)
-            try? DiveBuddyOwnership.claimUnownedBuddies(for: profile, modelContext: modelContext)
-        default:
-            clearPersistedSession()
-            currentProfile = nil
         }
     }
 
@@ -139,10 +129,15 @@ final class AccountSession {
     }
 
     private func persistSession(profile: UserProfile) {
-        UserDefaults.standard.set(profile.id.uuidString, forKey: currentProfileIDKey)
+        UserDefaults.standard.set(
+            profile.id.uuidString,
+            forKey: AppLaunchSessionRestorePresentation.currentProfileIDUserDefaultsKey
+        )
     }
 
     private func clearPersistedSession() {
-        UserDefaults.standard.removeObject(forKey: currentProfileIDKey)
+        UserDefaults.standard.removeObject(
+            forKey: AppLaunchSessionRestorePresentation.currentProfileIDUserDefaultsKey
+        )
     }
 }

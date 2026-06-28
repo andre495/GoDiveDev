@@ -1528,5 +1528,19 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`docs/trips-and-buddies.md`** — overlap rule + one trip per dive.
 - **Dive media empty hero** — **`AnimatedMediaUploadEmptyPrompt`** split into **`MediaUploadEmptyGhostFramesAnimation`** (hero) + **`MediaUploadEmptyPromptTextBlock`** (sheet); ghost frames only in hero (**minimized** / **medium**); copy in sheet at **medium** / **large**; no hero animation at **large**. Tests: **`diveActivityMediaEmptyHeroPresentation_centersGhostFramesInVisibleHeroBand`**, **`diveActivityMediaEmptyHeroPresentation_hidesHeroAnimationAtLargeDetent`**, **`diveActivityMediaEmptyHeroPresentation_showsUploadTextInMediumAndLargeSheet`**, **`diveActivityMediaEmptyHeroPresentation_reusesHomeHighlightTitle`**.
 
-## 93 - Next batch
+## 93 - Next batch **(pushed)**
+
+**Summary:** Snappy navigation rules + Home/trip/buddy perf pass (off-main aggregates, scoped queries, signposts).
+
+- **`.cursor/rules/swiftui-snappy-navigation.mdc`** — global perf checklist (main-thread UI only, off-main aggregates, fingerprint skips, scoped **`@Query`**, debounced rebuilds, deferred maps); **`AppPerformanceSignpost`** reference.
+- **Home foreground perf** — **`scenePhase == .active`** skips full **`HomeOverviewAggregate`** rebuild when carousel is already warm; **`HomeOverviewRebuildScheduler`** debounces query/notification-driven rebuilds (~80 ms). Tests: **`homeReturnNavigationPresentation_skipsForegroundRebuildWhenCarouselReady`**.
+- **Home off-main aggregate** — **`HomeOverviewSnapshotSeeding`** + **`HomeOverviewAggregateComputer`**; **`HomeOverviewAggregateBuilder.buildAsync`** snapshots on main, computes in **`Task.detached`**, reattaches **`DiveMediaPhoto`** / sightings from owner **`DiveActivity`** relationships. Tests: **`homeOverviewAggregateComputer_aggregatesOwnerMediaAndSightings`**, **`homeOverviewAggregateComputer_ignoresSightingsOutsideOwnerDives`**.
+- **Home scoped queries** — drop global **`@Query`** for all **`DiveMediaPhoto`** / **`SightingInstance`**; media + sightings derive from owner activities; carousel + leaderboard read cached aggregate fields.
+- **Dive detail lazy catalog** — **`ViewSingleActivity`** loads **`MarineLife`** in **`.task`** when the Media tab or overview sheet needs tagged-species UI (not on first paint).
+- **Trip / buddy push deferral** — **`TripDetailView`** yields before **`rebuildTripDetailContent`**; buddy/trip rebuilds wrapped in **`AppPerformanceSignpost`**. Test: **`appPerformanceSignpost_intervalNamesAreStable`**.
+- **Home carousel trip subtitle** — linked trip title uses the same secondary foreground as **#** with a middle dot separator (**`#12 · Bonaire 2026`**). Test: **`homeMediaCarouselDiveLinkChrome_subtitle_joinsDiveNumberAndTripWithMiddleDot`**.
+- **Launch speed** — **`AppModelContainer.beginLoadingProductionIfNeeded()`** starts SwiftData I/O in **`GoDiveMVPApp.init`**; **`AccountSession.restoreSession`** restores the local profile immediately and defers Sign in with Apple credential checks + ownership claims to **`AppLaunchSessionValidation`** (offline-first on network failure). **`GoogleMapsBootstrap`** no longer runs in **`didFinishLaunching`** (lazy configure on first **`GMSMapView`** / deferred warm-up). Tests: **`appLaunchSessionRestorePresentation_persistedProfileID_parsesStoredUUID`**, **`appLaunchSessionValidationPolicy_*`**.
+- **GitHub Pages acknowledgments** — **`docs/acknowledgments.md`** credits Meshy AI (3D), _Caribbean Reef Life_, OpenDiveMap dive sites, Garmin FIT SDK, FishBase / SeaLifeBase / REEF / Wikimedia / snorkelstj catalog sources, MapKit / Google Maps, Fishial.AI, and UDDF; linked from **`index.md`**, **`field-guide.md`**, **`explore.md`**, **`privacy-and-data.md`**.
+
+## 94 - Next batch
 

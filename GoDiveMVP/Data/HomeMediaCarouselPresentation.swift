@@ -287,4 +287,25 @@ enum HomeMediaCarouselPresentation: Sendable {
 enum HomeMediaCarouselDiveLinkChromePresentation {
     static var siteTitleForeground: Color { AppTheme.Colors.backButtonForeground }
     static var diveNumberForeground: Color { AppTheme.Colors.secondaryText }
+
+    /// Subtitle under the site name — **`#12 · Trip title`** when both are present.
+    nonisolated static func diveLinkSubtitle(
+        diveNumberLabel: String,
+        linkedTripTitle: String?
+    ) -> String? {
+        let trimmedTrip = linkedTripTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let showsNumber = diveNumberLabel != "-"
+        let showsTrip = !trimmedTrip.isEmpty
+
+        switch (showsNumber, showsTrip) {
+        case (true, true):
+            return "\(diveNumberLabel) · \(trimmedTrip)"
+        case (true, false):
+            return diveNumberLabel
+        case (false, true):
+            return trimmedTrip
+        case (false, false):
+            return nil
+        }
+    }
 }

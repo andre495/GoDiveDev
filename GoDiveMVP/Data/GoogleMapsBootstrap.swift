@@ -96,8 +96,7 @@ final class GoDiveGoogleMapsAppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
-        GoogleMapsBootstrap.configureIfNeeded()
-        return true
+        true
     }
 
     func application(

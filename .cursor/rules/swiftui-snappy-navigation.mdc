@@ -1,0 +1,49 @@
+---
+description: Keep navigation, sheets, and tab switches instant — local SwiftData must not block the main thread.
+alwaysApply: true
+---
+
+# Snappy navigation & local data
+
+Strava-feeling speed comes from **never blocking the main actor on navigation frames**. All dive data is on-device; lag is almost always **when** and **where** we work, not network.
+
+## Golden rules
+
+1. **First frame wins** — Opening a tab, pushing a page, or presenting a sheet must show chrome immediately. Heavy work runs **after** the transition (`.task`, deferred `Task`, or post-push delay), not in `init`, `onAppear` sync bodies, or `@Query`-driven full rebuilds on every `@Query` tick.
+
+2. **Main actor = UI only** — Sorting thousands of profile points, building logbook row caches, Home lifetime stats, trip grouping, duplicate scans, and chart derivations belong in **`Task.detached`** (or a **`@ModelActor`**) on **Sendable snapshots**. Pattern: snapshot on `@MainActor` → compute off-main → apply one `@State` update on return. See **`LogbookDisplayCacheBuilder`**, **`DiveDerivedDataBuilder`**, **`DiveBackgroundDeletionWorker`**.
+
+3. **Fingerprint before rebuild** — Never recompute large caches when inputs are unchanged. Use **`HomeOverviewRefreshToken`**, **`LogbookTripGroupingSync.syncToken`**, carousel/content fingerprints, and **`shouldSkipFullRebuildOnReturn`**. On foreground (**`scenePhase == .active`**), prefer **light refresh** (warm caches) over full aggregate rebuild.
+
+4. **Debounce coalescing writes** — SwiftData saves and notifications can fire in bursts. Schedule expensive rebuilds through a shared scheduler (**`LogbookCacheRefreshScheduler`**, **`HomeOverviewRebuildScheduler`**) with ~**80 ms** debounce unless the user is waiting on the result (delete progress, import overlay).
+
+5. **Scope `@Query`** — Prefer **`#Predicate`** filtered to **`ownerProfileID`** (or dive/site id). Avoid unscoped **`@Query`** over all media, all sightings, or full **`MarineLife`** catalog on screens that do not need them on first paint; lazy-fetch in `.task` when a tab/sheet opens (dive map site lookup, marine-life tag sheet).
+
+6. **Pass IDs, not models, across actors** — Use **`PersistentIdentifier`** / UUID between **`@ModelActor`** and UI. Do not capture **`@Model`** instances in **`Task.detached`**.
+
+7. **Defer heavy subsystems** — MapKit / Google Maps warm-up stays deferred after launch (**~400 ms**). Do not mount **`MKMapView`** / **`GMSMapView`** until the map tab is visible; tear down when popping dive detail if already implemented.
+
+8. **Stable view identity** — Avoid tearing down heroes/carousels on detent changes when one mounted subtree can adapt (Media tab). Use **`Equatable`** row/display caches so **`List`** / **`ForEach`** do not diff huge graphs every frame.
+
+9. **Profile before guessing** — Use Instruments **Time Profiler** + **SwiftUI** template; grep build logs for main-actor warnings. Fix the longest **main-thread** stacks first.
+
+## Code review checklist
+
+- [ ] Does this `onAppear` / `onChange` / notification handler run O(n) work synchronously on `@MainActor`?
+- [ ] Can inputs be snapshotted and moved to **`Task.detached`**?
+- [ ] Is there a fingerprint/token to skip no-op rebuilds?
+- [ ] Should this use debounced scheduling instead of immediate rebuild?
+- [ ] Is **`@Query`** scoped to the minimum rows this screen needs on open?
+- [ ] Does navigation wait on PhotoKit, geocode, or map camera fit before showing the page?
+
+## References in this repo
+
+| Pattern | Where |
+|--------|--------|
+| Off-main logbook rows | **`LogbookDisplayCacheBuilder`**, **`LogbookCacheRefreshScheduler`** |
+| Off-main dive charts | **`DiveDerivedDataBuilder`**, **`ViewSingleActivity.refreshDerivedDiveDataAsync`** |
+| Home aggregate cache | **`HomeOverviewAggregate`**, **`HomeOverviewRebuildScheduler`**, **`HomeOverviewAggregateComputer`** |
+| Profiling signposts | **`AppPerformanceSignpost`** (Instruments **Points of Interest** — **`LaunchContainerLoad`**, **`LaunchSessionValidation`**, Home/trip rebuilds) |
+| Skip rebuild on pop | **`HomeReturnNavigationPresentation`** |
+| Background SwiftData | **`AppLaunchMaintenance`**, **`AppModelContainer.loadProduction`** |
+| Map defer / teardown | **`MapKitWarmup`**, **`DiveOverviewMapTeardown`**, **`PushedNavigationDeferralPresentation`** |

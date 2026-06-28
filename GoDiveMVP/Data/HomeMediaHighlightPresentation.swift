@@ -30,7 +30,7 @@ struct HomeMediaHighlight: Identifiable, Equatable, Sendable {
         )
     }
 
-    init(
+    nonisolated init(
         mediaID: UUID,
         diveActivityID: UUID,
         diveNumberLabel: String,

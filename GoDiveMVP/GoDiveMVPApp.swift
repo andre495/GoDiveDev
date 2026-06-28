@@ -20,7 +20,10 @@ struct GoDiveMVPApp: App {
 
     init() {
         AppUserSettings.registerDefaultValues()
-        guard GoDiveUITestConfiguration.isActive else { return }
+        guard GoDiveUITestConfiguration.isActive else {
+            AppModelContainer.beginLoadingProductionIfNeeded()
+            return
+        }
         UIView.setAnimationsEnabled(false)
     }
 

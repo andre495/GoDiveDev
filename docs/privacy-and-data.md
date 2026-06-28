@@ -80,3 +80,5 @@ You can revoke Photos or Contacts in **Settings → Privacy** on iPhone; GoDive 
 ## Questions
 
 For app-specific privacy practices before a public release, review Apple’s App Store disclosure requirements alongside this guide. Feature availability (Fishial, Google Maps) depends on how the app was built and configured on your device.
+
+Third-party data sources and SDKs are listed on [Acknowledgments & external resources](acknowledgments.md).

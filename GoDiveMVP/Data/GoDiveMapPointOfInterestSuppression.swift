@@ -48,6 +48,7 @@ import GoogleMaps
 extension GoDiveMapPointOfInterestSuppression {
     /// Creates a **`GMSMapView`**, using an optional Cloud **map ID** when configured in secrets.
     static func makeGoogleMapView() -> GMSMapView {
+        GoogleMapsBootstrap.configureIfNeeded()
         let options = GMSMapViewOptions()
         options.frame = .zero
         options.camera = GMSCameraPosition(latitude: 0, longitude: 0, zoom: 2)

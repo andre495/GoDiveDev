@@ -35,7 +35,7 @@ struct ViewSingleActivity: View {
         }
     }
 
-    @Query(sort: \MarineLife.commonName) private var marineLifeCatalog: [MarineLife]
+    @State private var marineLifeCatalog: [MarineLife] = []
     @Environment(\.modelContext) private var modelContext
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @Environment(\.openCatalogDiveSiteDetail) private var openCatalogDiveSiteDetail
@@ -165,6 +165,9 @@ struct ViewSingleActivity: View {
             }
             .task(id: catalogSiteMapLookupToken) {
                 await loadCatalogSitesForMapResolutionIfNeeded()
+            }
+            .task(id: marineLifeCatalogLoadToken) {
+                await loadMarineLifeCatalogIfNeeded()
             }
             .onChange(of: overviewSheetDetent) { oldDetent, newDetent in
                 guard oldDetent != newDetent else { return }
@@ -336,6 +339,20 @@ struct ViewSingleActivity: View {
         let siteName = activity.siteName ?? ""
         let entry = activity.entryCoordinate.map { "\($0.latitude),\($0.longitude)" } ?? "none"
         return "\(activity.id.uuidString)|\(linkedSiteID)|\(siteName)|\(entry)"
+    }
+
+    private var marineLifeCatalogLoadToken: String {
+        "\(activity.id.uuidString)|\(selectedActivityTab)|\(isOverviewPanelPresented)"
+    }
+
+    @MainActor
+    private func loadMarineLifeCatalogIfNeeded() async {
+        guard selectedActivityTab == .camera || isOverviewPanelPresented else { return }
+        guard marineLifeCatalog.isEmpty else { return }
+        await Task.yield()
+        marineLifeCatalog = (try? modelContext.fetch(
+            FetchDescriptor<MarineLife>(sortBy: [SortDescriptor(\.commonName)])
+        )) ?? []
     }
 
     @MainActor

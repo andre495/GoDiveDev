@@ -9,10 +9,8 @@ struct LogOverviewView: View {
     @Environment(\.modelContext) private var modelContext
 
     @Query private var ownerDiveActivities: [DiveActivity]
-    @Query(sort: \DiveMediaPhoto.sortOrder) private var allMediaPhotos: [DiveMediaPhoto]
     @Query(sort: \DiveSite.siteName) private var diveSites: [DiveSite]
     @Query(sort: \MarineLife.commonName) private var marineLifeCatalog: [MarineLife]
-    @Query private var allSightings: [SightingInstance]
     @Query private var ownerDiveBuddies: [DiveBuddy]
 
     private let ownerProfileID: UUID?
@@ -25,6 +23,7 @@ struct LogOverviewView: View {
     @State private var lastCarouselTagFingerprint = 0
     @State private var hasCarouselSessionWarmCompleted = false
     @State private var hasPerformedInitialHomeBuild = false
+    @State private var homeOverviewRebuildGeneration = 0
     @State private var selfBuddyID: UUID?
     @State private var homeHeroInteractionOverlayActive = false
     @State private var frozenHomeRootViewportHeight: CGFloat?
@@ -161,29 +160,27 @@ struct LogOverviewView: View {
                     handleReturnToHomeRoot()
                 }
             }
-            .onChange(of: ownerDiveActivities.count) { _, _ in rebuildHomeOverview() }
-            .onChange(of: allMediaPhotos.count) { _, _ in rebuildHomeOverview() }
-            .onChange(of: allSightings.count) { _, _ in rebuildHomeOverview() }
-            .onChange(of: automaticallyRenumberDives) { _, _ in rebuildHomeOverview() }
-            .onChange(of: buddyRosterFingerprint) { _, _ in rebuildHomeOverview() }
+            .onChange(of: ownerDiveActivities.count) { _, _ in scheduleHomeOverviewRebuild() }
+            .onChange(of: automaticallyRenumberDives) { _, _ in scheduleHomeOverviewRebuild() }
+            .onChange(of: buddyRosterFingerprint) { _, _ in scheduleHomeOverviewRebuild() }
             .onReceive(
                 NotificationCenter.default
                     .publisher(for: .diveBuddyRosterDidChange)
                     .receive(on: RunLoop.main)
             ) { _ in
-                rebuildHomeOverview()
+                scheduleHomeOverviewRebuild()
             }
             .onReceive(
                 NotificationCenter.default
                     .publisher(for: .diveActivityMediaDidChange)
                     .receive(on: RunLoop.main)
             ) { _ in
-                rebuildHomeOverview()
+                scheduleHomeOverviewRebuild()
             }
             .onChange(of: scenePhase) { _, phase in
                 switch phase {
                 case .active:
-                    rebuildHomeOverview()
+                    handleHomeForegroundActivation()
                 default:
                     break
                 }
@@ -265,7 +262,7 @@ struct LogOverviewView: View {
         HomeMediaCarouselSection(
             highlights: carouselHighlights,
             mediaByID: homeAggregate.mediaByID,
-            sightings: allSightings,
+            sightings: homeAggregate.ownerSightings,
             marineLifeCatalog: marineLifeCatalog,
             taggedBuddyRowsByMediaID: homeAggregate.taggedBuddyRowsByMediaID,
             ownerProfileID: ownerProfileID,
@@ -390,7 +387,7 @@ struct LogOverviewView: View {
                 marineLifeCatalog: marineLifeCatalog,
                 unitSystem: diveDisplayUnitSystem,
                 automaticallyRenumberDives: automaticallyRenumberDives,
-                sightings: homeSightingCountInputs,
+                sightings: homeAggregate.sightingCountInputs,
                 onOpenDive: { path.append(.diveDetail($0)) },
                 onOpenSite: { path.append(.diveSite($0)) },
                 onOpenSpecies: { path.append(.marineLife($0)) }
@@ -398,20 +395,6 @@ struct LogOverviewView: View {
         }
     }
 
-    private var homeSightingCountInputs: [HomeLifetimeStatsPresentation.SightingCountInput] {
-        let catalogByUUID = Dictionary(uniqueKeysWithValues: marineLifeCatalog.map { ($0.uuid, $0) })
-        let ownerDiveIDs = homeAggregate.ownerDiveIDs
-        return allSightings.compactMap { sighting in
-            guard let diveID = sighting.diveActivityID, ownerDiveIDs.contains(diveID) else { return nil }
-            let name = sighting.marineLife?.commonName
-                ?? catalogByUUID[sighting.marineLifeUUID]?.commonName
-                ?? sighting.marineLifeUUID
-            return HomeLifetimeStatsPresentation.SightingCountInput(
-                marineLifeUUID: sighting.marineLifeUUID,
-                commonName: name
-            )
-        }
-    }
 
     private func missingDestinationLabel(_ message: String) -> some View {
         Text(message)
@@ -422,7 +405,7 @@ struct LogOverviewView: View {
     private func handleHomeRootAppear() {
         if !hasPerformedInitialHomeBuild {
             hasPerformedInitialHomeBuild = true
-            rebuildHomeOverview()
+            scheduleHomeOverviewRebuild(immediate: true)
             return
         }
         handleReturnToHomeRoot()
@@ -437,19 +420,62 @@ struct LogOverviewView: View {
             scheduleCarouselWarmupIfNeeded(using: homeAggregate)
             return
         }
-        rebuildHomeOverview()
+        scheduleHomeOverviewRebuild(immediate: true)
     }
 
-    private func rebuildHomeOverview() {
+    private func handleHomeForegroundActivation() {
+        guard hasPerformedInitialHomeBuild else {
+            scheduleHomeOverviewRebuild(immediate: true)
+            return
+        }
+        if HomeReturnNavigationPresentation.shouldSkipFullRebuildOnForegroundActivation(
+            hasPerformedInitialBuild: hasPerformedInitialHomeBuild,
+            carouselSlidesAreDisplayable: carouselSlidesAreDisplayable(using: homeAggregate),
+            hasCarouselHighlights: !carouselHighlights.isEmpty
+        ) {
+            scheduleCarouselWarmupIfNeeded(using: homeAggregate)
+            return
+        }
+        scheduleHomeOverviewRebuild()
+    }
+
+    private func scheduleHomeOverviewRebuild(
+        debounceNanoseconds: UInt64 = 80_000_000,
+        immediate: Bool = false
+    ) {
+        homeOverviewRebuildGeneration += 1
+        let generation = homeOverviewRebuildGeneration
+
+        Task {
+            if immediate {
+                await HomeOverviewRebuildScheduler.shared.runImmediately {
+                    await performHomeOverviewRebuild(generation: generation)
+                }
+            } else {
+                await HomeOverviewRebuildScheduler.shared.schedule(
+                    debounceNanoseconds: debounceNanoseconds
+                ) {
+                    await performHomeOverviewRebuild(generation: generation)
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func performHomeOverviewRebuild(generation: Int) async {
+        guard generation == homeOverviewRebuildGeneration else { return }
+        await rebuildHomeOverviewAsync()
+    }
+
+    @MainActor
+    private func rebuildHomeOverviewAsync() async {
         let ownerProfile = accountSession.currentProfile
         selfBuddyID = DiveBuddySelfRepresentation.resolveSelfBuddyID(
             owner: ownerProfile,
             modelContext: modelContext
         )
-        let built = HomeOverviewAggregateBuilder.build(
+        let built = await HomeOverviewAggregateBuilder.buildAsync(
             activities: ownerDiveActivities,
-            allMediaPhotos: allMediaPhotos,
-            allSightings: allSightings,
             marineLifeCatalog: marineLifeCatalog,
             automaticallyRenumberDives: automaticallyRenumberDives,
             displayUnits: diveDisplayUnitSystem,

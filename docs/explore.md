@@ -67,3 +67,5 @@ When you import or edit a dive, GoDive tries to link it to a catalog site by **e
 ## Trip planner connection
 
 Saved **planned sites** on a trip appear in Trip detail and on trip maps. Explore rows opened from a trip omit personal dive counts when showing plan-only sites.
+
+Reference sites in **All Sites** come from the bundled [OpenDiveMap](https://opendivemap.com/) catalog — see [Acknowledgments](acknowledgments.md).
