@@ -1542,5 +1542,16 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Launch speed** — **`AppModelContainer.beginLoadingProductionIfNeeded()`** starts SwiftData I/O in **`GoDiveMVPApp.init`**; **`AccountSession.restoreSession`** restores the local profile immediately and defers Sign in with Apple credential checks + ownership claims to **`AppLaunchSessionValidation`** (offline-first on network failure). **`GoogleMapsBootstrap`** no longer runs in **`didFinishLaunching`** (lazy configure on first **`GMSMapView`** / deferred warm-up). Tests: **`appLaunchSessionRestorePresentation_persistedProfileID_parsesStoredUUID`**, **`appLaunchSessionValidationPolicy_*`**.
 - **GitHub Pages acknowledgments** — **`docs/acknowledgments.md`** credits Meshy AI (3D), _Caribbean Reef Life_, OpenDiveMap dive sites, Garmin FIT SDK, FishBase / SeaLifeBase / REEF / Wikimedia / snorkelstj catalog sources, MapKit / Google Maps, Fishial.AI, and UDDF; linked from **`index.md`**, **`field-guide.md`**, **`explore.md`**, **`privacy-and-data.md`**.
 
-## 94 - Next batch
+## 94 - Marine life catalog + 3D heroes **(pushed)**
 
+**Summary:** Added **Caribbean reef squid** (*Sepioteuthis sepioidea*) to the bundled Field Guide catalog from _Caribbean Reef Life_ (p. 245).
+
+- **`caribbean_reef_life_species_reference.csv`** — epub profile row (INVERTEBRATES / squids).
+- **`marine_life_caribbean_staging.csv`** — staging row (`marine-life-caribbean-reef-squid`, SeaLifeBase spec 57414, Loliginidae, 0–20 m, 30 cm max from book).
+- **`marine_life_sample.json`** — synced via **`sync_marine_life_staging_to_json.py`** (1305 species); **`feature_model`: `CaribbeanReefSquid`** for the squid row (restored **`FrenchAngelfish`** link on re-sync).
+- **`Resources/MarineLife3D/CaribbeanReefSquid.usdz`** — Meshy AI export (crimson squid) for Field Guide 3D hero.
+- **`sync_marine_life_staging_to_json.py`** — preserves JSON-only **`feature_model`** on catalog merge.
+- **`GoDiveMVPTests`** — **`marineLifeCatalogSeeder_seedsCaribbeanReefSquid`**, **`fieldGuideMarineLifeHeroPresentation_caribbeanReefSquidUsesBundledModel`**.
+- **Green sea turtle** + **spotted eagle ray** 3D heroes — **`GreenSeaTurtle.usdz`**, **`SpottedEagleRay.usdz`** (Meshy AI) under **`Resources/MarineLife3D/`**; **`feature_model`** on **`marine-life-green-sea-turtle`** and **`marine-life-whitespotted-eagle-ray`**; seeder + hero presentation tests.
+
+## 95 - Next batch

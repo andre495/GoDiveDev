@@ -88,6 +88,7 @@ def merge_prose(
         "diver_reaction": ("diverReaction", "diver_reaction"),
         "feature_image": ("featureImageURL", "feature_image"),
         "feature_image_resource": ("featureImageResourceName", "feature_image_resource"),
+        "feature_model": ("featureModelResourceName", "feature_model"),
     }
     for json_key, (csv_key, existing_key) in mapping.items():
         csv_val = (csv_row or {}).get(csv_key, "")

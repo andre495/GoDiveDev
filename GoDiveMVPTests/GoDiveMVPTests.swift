@@ -3005,6 +3005,45 @@ struct GoDiveMVPTests {
         #expect(kind == .model3D(.frenchAngelfish))
     }
 
+    @Test func fieldGuideMarineLifeHeroPresentation_caribbeanReefSquidUsesBundledModel() {
+        let kind = FieldGuideMarineLifeHeroPresentation.heroKind(
+            featureModelResourceName: "CaribbeanReefSquid",
+            featureImageResourceName: "",
+            featureImageURL: ""
+        )
+        guard case .model3D(let config) = kind else {
+            Issue.record("Expected 3D model hero")
+            return
+        }
+        #expect(config.modelResourceName == "CaribbeanReefSquid")
+    }
+
+    @Test func fieldGuideMarineLifeHeroPresentation_greenSeaTurtleUsesBundledModel() {
+        let kind = FieldGuideMarineLifeHeroPresentation.heroKind(
+            featureModelResourceName: "GreenSeaTurtle",
+            featureImageResourceName: "",
+            featureImageURL: ""
+        )
+        guard case .model3D(let config) = kind else {
+            Issue.record("Expected 3D model hero")
+            return
+        }
+        #expect(config.modelResourceName == "GreenSeaTurtle")
+    }
+
+    @Test func fieldGuideMarineLifeHeroPresentation_spottedEagleRayUsesBundledModel() {
+        let kind = FieldGuideMarineLifeHeroPresentation.heroKind(
+            featureModelResourceName: "SpottedEagleRay",
+            featureImageResourceName: "",
+            featureImageURL: ""
+        )
+        guard case .model3D(let config) = kind else {
+            Issue.record("Expected 3D model hero")
+            return
+        }
+        #expect(config.modelResourceName == "SpottedEagleRay")
+    }
+
     @Test func fieldGuideMarineLifeHeroPresentation_remoteImageWhenNoModel() {
         let kind = FieldGuideMarineLifeHeroPresentation.heroKind(
             featureModelResourceName: "",
@@ -3518,6 +3557,44 @@ struct GoDiveMVPTests {
         #expect(french?.featureImageResourceName == "marine-life-french-angelfish")
         #expect(french?.featureModelResourceName == "FrenchAngelfish")
         #expect(french?.scientificName == "Pomacanthus paru")
+    }
+
+    @Test @MainActor func marineLifeCatalogSeeder_seedsCaribbeanReefSquid() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+        let squid = try context.fetch(FetchDescriptor<MarineLife>()).first {
+            $0.uuid == "marine-life-caribbean-reef-squid"
+        }
+        #expect(squid?.commonName == "Caribbean Reef Squid")
+        #expect(squid?.scientificName == "Sepioteuthis sepioidea")
+        #expect(squid?.category == "invertebrates")
+        #expect(squid?.subcategory == "squids")
+        #expect(squid?.featureModelResourceName == "CaribbeanReefSquid")
+    }
+
+    @Test @MainActor func marineLifeCatalogSeeder_seedsGreenSeaTurtleModel() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+        let turtle = try context.fetch(FetchDescriptor<MarineLife>()).first {
+            $0.uuid == "marine-life-green-sea-turtle"
+        }
+        #expect(turtle?.commonName == "Green Sea Turtle")
+        #expect(turtle?.scientificName == "Chelonia mydas")
+        #expect(turtle?.featureModelResourceName == "GreenSeaTurtle")
+    }
+
+    @Test @MainActor func marineLifeCatalogSeeder_seedsSpottedEagleRayModel() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+        let ray = try context.fetch(FetchDescriptor<MarineLife>()).first {
+            $0.uuid == "marine-life-whitespotted-eagle-ray"
+        }
+        #expect(ray?.commonName == "Spotted Eagle Ray")
+        #expect(ray?.scientificName == "Aetobatus narinari")
+        #expect(ray?.featureModelResourceName == "SpottedEagleRay")
     }
 
     @Test func fieldGuidePresentation_depthLine_prefersMinMaxRange() {

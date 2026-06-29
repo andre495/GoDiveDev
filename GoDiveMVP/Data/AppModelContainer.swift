@@ -1,38 +1,43 @@
 import Foundation
+import os
 import SwiftData
 
 /// Production SwiftData container — created off the main thread (on-disk **`ModelContainer`** init performs I/O).
 enum AppModelContainer {
     private final class LoadState: @unchecked Sendable {
-        let lock = NSLock()
-        var task: Task<ModelContainer, Never>?
+        private let state = OSAllocatedUnfairLock(initialState: Optional<Task<ModelContainer, Never>>.none)
+
+        func beginLoadingIfNeeded() {
+            state.withLock { stored in
+                guard stored == nil else { return }
+                stored = Task.detached(priority: .userInitiated) {
+                    let signpostID = AppPerformanceSignpost.begin(.launchContainerLoad)
+                    defer { AppPerformanceSignpost.end(.launchContainerLoad, signpostID: signpostID) }
+                    do {
+                        return try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: false)
+                    } catch {
+                        fatalError("Could not create ModelContainer: \(error)")
+                    }
+                }
+            }
+        }
+
+        func loadingTask() -> Task<ModelContainer, Never>? {
+            state.withLock { $0 }
+        }
     }
 
     private static let loadState = LoadState()
 
     /// Starts on-disk container creation as early as possible ( **`GoDiveMVPApp.init`** ).
     static func beginLoadingProductionIfNeeded() {
-        loadState.lock.lock()
-        defer { loadState.lock.unlock() }
-        guard loadState.task == nil else { return }
-        loadState.task = Task.detached(priority: .userInitiated) {
-            let signpostID = AppPerformanceSignpost.begin(.launchContainerLoad)
-            defer { AppPerformanceSignpost.end(.launchContainerLoad, signpostID: signpostID) }
-            do {
-                return try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: false)
-            } catch {
-                fatalError("Could not create ModelContainer: \(error)")
-            }
-        }
+        loadState.beginLoadingIfNeeded()
     }
 
     /// Loads the on-disk container on a background thread; await from launch before attaching **`.modelContainer`**.
     static func loadProduction() async -> ModelContainer {
         beginLoadingProductionIfNeeded()
-        loadState.lock.lock()
-        let task = loadState.task
-        loadState.lock.unlock()
-        guard let task else {
+        guard let task = loadState.loadingTask() else {
             fatalError("Production ModelContainer load task missing")
         }
         return await task.value

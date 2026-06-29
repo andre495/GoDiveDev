@@ -3,7 +3,7 @@ import SwiftData
 
 /// Associates **`DiveActivity`** rows with the signed-in **`UserProfile`**.
 enum DiveActivityOwnership {
-    static func assignOwner(_ owner: UserProfile, to activity: DiveActivity) {
+    nonisolated static func assignOwner(_ owner: UserProfile, to activity: DiveActivity) {
         activity.owner = owner
         activity.ownerProfileID = owner.id
         for tag in activity.buddies {
@@ -18,7 +18,7 @@ enum DiveActivityOwnership {
     }
 
     /// Claims dives imported before accounts existed for this profile.
-    static func claimUnownedDives(for owner: UserProfile, modelContext: ModelContext) throws {
+    nonisolated static func claimUnownedDives(for owner: UserProfile, modelContext: ModelContext) throws {
         let descriptor = FetchDescriptor<DiveActivity>()
         let all = try modelContext.fetch(descriptor)
         var changed = false

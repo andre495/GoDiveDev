@@ -57,7 +57,7 @@ enum UserProfileStore {
         return cachedDisplayName(forAppleUserIdentifier: appleUserIdentifier)
     }
 
-    static func profile(
+    nonisolated static func profile(
         id: UUID,
         modelContext: ModelContext
     ) throws -> UserProfile? {
@@ -103,7 +103,7 @@ enum UserProfileStore {
     }
 
     /// Applies Sign in with Apple name to **`displayName`**: fresh **`fullName`** wins; else cached name upgrades placeholder **Diver**.
-    static func applyDisplayNameFromApple(
+    nonisolated static func applyDisplayNameFromApple(
         to profile: UserProfile,
         appleProvided: String?,
         appleUserIdentifier: String,
@@ -118,7 +118,7 @@ enum UserProfileStore {
     }
 
     /// Applies a cached Apple name when the stored profile still has the placeholder.
-    static func applyCachedDisplayNameIfNeeded(
+    nonisolated static func applyCachedDisplayNameIfNeeded(
         to profile: UserProfile,
         modelContext: ModelContext
     ) throws {

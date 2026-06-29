@@ -13,54 +13,6 @@
     "distinctive_features": "Body shape: short and / or deep"
   },
   {
-    "uuid": "marine-life-agelas-cerebrum",
-    "common_name": "Agelas cerebrum",
-    "scientific_name": "Agelas cerebrum",
-    "category": "sponges",
-    "subcategory": "ball-sponges",
-    "family_name": "Agelasidae"
-  },
-  {
-    "uuid": "marine-life-agelas-cervicornis",
-    "common_name": "Agelas cervicornis",
-    "scientific_name": "Agelas cervicornis",
-    "category": "sponges",
-    "subcategory": "encrusting-sponges",
-    "family_name": "Agelasidae"
-  },
-  {
-    "uuid": "marine-life-agelas-citrina",
-    "common_name": "Agelas citrina",
-    "scientific_name": "Agelas citrina",
-    "category": "sponges",
-    "subcategory": "tube-sponges",
-    "family_name": "Agelasidae"
-  },
-  {
-    "uuid": "marine-life-agelas-sceptrum",
-    "common_name": "Agelas sceptrum",
-    "scientific_name": "Agelas sceptrum",
-    "category": "sponges",
-    "subcategory": "encrusting-sponges",
-    "family_name": "Agelasidae"
-  },
-  {
-    "uuid": "marine-life-agelas-sventres",
-    "common_name": "Agelas sventres",
-    "scientific_name": "Agelas sventres",
-    "category": "plants",
-    "subcategory": "red-algae",
-    "family_name": "Agelasidae"
-  },
-  {
-    "uuid": "marine-life-agelas-tubulata",
-    "common_name": "Agelas tubulata",
-    "scientific_name": "Agelas tubulata",
-    "category": "sponges",
-    "subcategory": "ball-sponges",
-    "family_name": "Agelasidae"
-  },
-  {
     "uuid": "marine-life-agua-viva-jelly",
     "common_name": "agua viva jelly",
     "scientific_name": "Olindias sambaquiensis",
@@ -329,29 +281,6 @@
     "max_size": 0.12
   },
   {
-    "uuid": "marine-life-antillogorgia-americana",
-    "common_name": "Antillogorgia americana",
-    "scientific_name": "Antillogorgia americana",
-    "category": "corals",
-    "subcategory": "octocorals"
-  },
-  {
-    "uuid": "marine-life-antipathes-umbratica",
-    "common_name": "Antipathes umbratica",
-    "scientific_name": "Antipathes umbratica",
-    "category": "corals",
-    "subcategory": "black-corals",
-    "family_name": "Antipathidae"
-  },
-  {
-    "uuid": "marine-life-aplysina-bathyphila",
-    "common_name": "Aplysina bathyphila",
-    "scientific_name": "Aplysina bathyphila",
-    "category": "sponges",
-    "subcategory": "tube-sponges",
-    "family_name": "Aplysinidae"
-  },
-  {
     "uuid": "marine-life-apple-murex",
     "common_name": "Apple Murex",
     "scientific_name": "Phyllonotus pomum",
@@ -372,13 +301,6 @@
     "min_depth": 1.0,
     "max_depth": 50.0,
     "distinctive_features": "Body shape: 50"
-  },
-  {
-    "uuid": "marine-life-aquarickettsia-rohweri",
-    "common_name": "Aquarickettsia rohweri",
-    "scientific_name": "Aquarickettsia rohweri",
-    "category": "corals",
-    "subcategory": "octocorals"
   },
   {
     "uuid": "marine-life-arianes-dondice",
@@ -428,13 +350,6 @@
     "distinctive_features": "Body shape: 80"
   },
   {
-    "uuid": "marine-life-arturia-canariensis",
-    "common_name": "Arturia canariensis",
-    "scientific_name": "Arturia canariensis",
-    "category": "sponges",
-    "subcategory": "encrusting-sponges"
-  },
-  {
     "uuid": "marine-life-asian-brown-mussel",
     "common_name": "Asian Green mussel",
     "scientific_name": "Perna viridis",
@@ -459,14 +374,6 @@
     "min_depth": 0.0,
     "max_depth": 22.0,
     "distinctive_features": "Body shape: 22"
-  },
-  {
-    "uuid": "marine-life-asteropus-niger",
-    "common_name": "Asteropus niger",
-    "scientific_name": "Asteropus niger",
-    "category": "sponges",
-    "subcategory": "rope-sponges",
-    "family_name": "Ancorinidae"
   },
   {
     "uuid": "marine-life-atlantic-bird-squid",
@@ -877,17 +784,6 @@
     "feature_image_resource": "marine-life-banded-pipefish"
   },
   {
-    "uuid": "marine-life-banded-porcelain-crab",
-    "common_name": "Banded porcelain crab",
-    "scientific_name": "Petrolisthes galathinus",
-    "category": "invertebrates",
-    "subcategory": "shrimps",
-    "family_name": "Porcellanidae",
-    "min_depth": 0.0,
-    "max_depth": 55.0,
-    "distinctive_features": "Body shape: 55"
-  },
-  {
     "uuid": "marine-life-banded-snapping-shrimp",
     "common_name": "Banded snapping shrimp",
     "scientific_name": "Alpheus armillatus",
@@ -1294,27 +1190,6 @@
     "max_size": 0.025
   },
   {
-    "uuid": "marine-life-berghia-catenularis",
-    "common_name": "Berghia catenularis",
-    "scientific_name": "Berghia catenularis",
-    "category": "invertebrates",
-    "subcategory": "zoanthids"
-  },
-  {
-    "uuid": "marine-life-berghia-cutressi",
-    "common_name": "Berghia cutressi",
-    "scientific_name": "Berghia cutressi",
-    "category": "invertebrates",
-    "subcategory": "zoanthids"
-  },
-  {
-    "uuid": "marine-life-berghia-puertoricense",
-    "common_name": "Berghia puertoricense",
-    "scientific_name": "Berghia puertoricense",
-    "category": "invertebrates",
-    "subcategory": "zoanthids"
-  },
-  {
     "uuid": "marine-life-bermuda-sea-chub",
     "common_name": "bermuda chub",
     "scientific_name": "Kyphosus sectatrix",
@@ -1472,14 +1347,6 @@
     "min_depth": 0.0,
     "max_depth": 5.0,
     "distinctive_features": "Body shape: 5"
-  },
-  {
-    "uuid": "marine-life-black-coral",
-    "common_name": "Black coral",
-    "scientific_name": "Cupressopathes gracilis",
-    "category": "corals",
-    "subcategory": "black-corals",
-    "family_name": "Myriopathidae"
   },
   {
     "uuid": "marine-life-black-coral-barnacle",
@@ -2114,18 +1981,6 @@
     "distinctive_features": "Body shape: 60"
   },
   {
-    "uuid": "marine-life-bluegold-glass-blenny",
-    "common_name": "Bluegold glass blenny",
-    "scientific_name": "Emblemariopsis ruetzleri",
-    "category": "fishes",
-    "subcategory": "blennies",
-    "family_name": "Chaenopsidae",
-    "max_size": 0.02,
-    "min_depth": 1.0,
-    "max_depth": 8.0,
-    "distinctive_features": "Body shape: elongated"
-  },
-  {
     "uuid": "marine-life-bluegold-goby",
     "common_name": "Bluegold goby",
     "scientific_name": "Lythrypnus spilus",
@@ -2600,14 +2455,6 @@
     "max_size": 0.025
   },
   {
-    "uuid": "marine-life-brown-bowl-sponge",
-    "common_name": "Brown bowl sponge",
-    "scientific_name": "Cribrochalina vasculum",
-    "category": "sponges",
-    "subcategory": "barrel-sponges",
-    "family_name": "Niphatidae"
-  },
-  {
     "uuid": "marine-life-brown-chromis",
     "common_name": "brown chromis",
     "scientific_name": "Chromis multilineata",
@@ -2961,13 +2808,6 @@
     "feature_image_resource": "marine-life-caesar-grunt"
   },
   {
-    "uuid": "marine-life-calliostoma-macropus",
-    "common_name": "Calliostoma macropus",
-    "scientific_name": "Calliostoma macropus",
-    "category": "invertebrates",
-    "subcategory": "octopuses"
-  },
-  {
     "uuid": "marine-life-cancellate-fleshy-limpet",
     "common_name": "Cancellate Fleshy Limpet",
     "scientific_name": "Lucapina suffusa",
@@ -3112,6 +2952,19 @@
     "min_depth": 0.0,
     "max_depth": 20.0,
     "distinctive_features": "Body shape: 20"
+  },
+  {
+    "uuid": "marine-life-caribbean-reef-squid",
+    "common_name": "Caribbean reef squid",
+    "scientific_name": "Sepioteuthis sepioidea",
+    "category": "invertebrates",
+    "subcategory": "squids",
+    "family_name": "Loliginidae",
+    "description": "The most common squid. Thin unbroken fin runs along the entire length of the body. Color is highly changeable.",
+    "max_size": 0.3,
+    "min_depth": 0.0,
+    "max_depth": 20.0,
+    "feature_model": "CaribbeanReefSquid"
   },
   {
     "uuid": "marine-life-caribbean-sharpnose-shark",
@@ -3528,14 +3381,6 @@
     "distinctive_features": "Body shape: 18"
   },
   {
-    "uuid": "marine-life-clathria-faviformis",
-    "common_name": "Clathria faviformis",
-    "scientific_name": "Clathria faviformis",
-    "category": "sponges",
-    "subcategory": "rope-sponges",
-    "family_name": "Microcionidae"
-  },
-  {
     "uuid": "marine-life-clathria-virgultosa",
     "common_name": "Clathria virgultosa",
     "scientific_name": "Clathria virgultosa",
@@ -3555,13 +3400,6 @@
     "subcategory": "nudibranchs",
     "description": "Red areas on dorsum do not extend to mantle edge. Patterns for this species are more varied than F. binza.",
     "max_size": 0.035
-  },
-  {
-    "uuid": "marine-life-cliothosa-delitrix",
-    "common_name": "Cliothosa delitrix",
-    "scientific_name": "Cliothosa delitrix",
-    "category": "sponges",
-    "subcategory": "encrusting-sponges"
   },
   {
     "uuid": "marine-life-clown-goby",
@@ -3707,14 +3545,6 @@
     "min_depth": 30.0,
     "max_depth": 183.0,
     "distinctive_features": "Body shape: 183"
-  },
-  {
-    "uuid": "marine-life-colpophyllia-amaranthus",
-    "common_name": "Colpophyllia amaranthus",
-    "scientific_name": "Colpophyllia amaranthus",
-    "category": "corals",
-    "subcategory": "brain-corals",
-    "family_name": "Faviidae"
   },
   {
     "uuid": "marine-life-common-atlantic-marginella",
@@ -4314,13 +4144,6 @@
     "max_size": 0.1
   },
   {
-    "uuid": "marine-life-cymbovula-bahamensis",
-    "common_name": "Cymbovula bahamensis",
-    "scientific_name": "Cymbovula bahamensis",
-    "category": "invertebrates",
-    "subcategory": "snails"
-  },
-  {
     "uuid": "marine-life-mantis-shrimp-93001",
     "common_name": "dark mantis",
     "scientific_name": "Neogonodactylus curacaoensis",
@@ -4526,13 +4349,6 @@
     "distinctive_features": "Body shape: 306"
   },
   {
-    "uuid": "marine-life-dichocoenia-stokesi",
-    "common_name": "Dichocoenia stokesi",
-    "scientific_name": "Dichocoenia stokesi",
-    "category": "corals",
-    "subcategory": "star-corals"
-  },
-  {
     "uuid": "marine-life-dichotomous-medusa",
     "common_name": "Dichotomous Medusa",
     "scientific_name": "Dichotomia cannoides",
@@ -4625,13 +4441,6 @@
     "distinctive_features": "Body shape: elongated"
   },
   {
-    "uuid": "marine-life-dondice-freddiemercuryi",
-    "common_name": "Dondice freddiemercuryi",
-    "scientific_name": "Dondice freddiemercuryi",
-    "category": "invertebrates",
-    "subcategory": "nudibranchs"
-  },
-  {
     "uuid": "marine-life-donkey-dung-sea-cucumber",
     "common_name": "donkey dung sea cucumber",
     "scientific_name": "Holothuria mexicana",
@@ -4643,26 +4452,6 @@
     "min_depth": 0.0,
     "max_depth": 20.0,
     "distinctive_features": "Body shape: 20"
-  },
-  {
-    "uuid": "marine-life-doriopsilla-nigrolineata",
-    "common_name": "Doriopsilla nigrolineata",
-    "scientific_name": "Doriopsilla nigrolineata",
-    "category": "invertebrates",
-    "subcategory": "nudibranchs",
-    "family_name": "Dendrodorididae",
-    "max_size": 0.03,
-    "min_depth": 3.0,
-    "max_depth": 12.0,
-    "description": "3",
-    "distinctive_features": "Body shape: 12"
-  },
-  {
-    "uuid": "marine-life-doriopsilla-uva",
-    "common_name": "Doriopsilla uva",
-    "scientific_name": "Doriopsilla uva",
-    "category": "invertebrates",
-    "subcategory": "nudibranchs"
   },
   {
     "uuid": "marine-life-doubtful-lizardfish",
@@ -4697,13 +4486,6 @@
     "description": "Reddish head, usually with irregular patches of orange. Dark bars extend onto very spotted dorsal and anal fins.",
     "max_size": 0.08,
     "distinctive_features": "Body shape: elongated"
-  },
-  {
-    "uuid": "marine-life-dragmacidon-lunaecharta",
-    "common_name": "Dragmacidon lunaecharta",
-    "scientific_name": "Dragmacidon lunaecharta",
-    "category": "sponges",
-    "subcategory": "rope-sponges"
   },
   {
     "uuid": "marine-life-nudibranch-148324",
@@ -5115,22 +4897,6 @@
     "min_depth": 1.0,
     "max_depth": 17.0,
     "distinctive_features": "Body shape: 17"
-  },
-  {
-    "uuid": "marine-life-eunicea-flexuosa",
-    "common_name": "Eunicea flexuosa",
-    "scientific_name": "Eunicea flexuosa",
-    "category": "corals",
-    "subcategory": "octocorals",
-    "family_name": "Plexauridae"
-  },
-  {
-    "uuid": "marine-life-eunicea-laxispica",
-    "common_name": "Eunicea laxispica",
-    "scientific_name": "Eunicea laxispica",
-    "category": "corals",
-    "subcategory": "octocorals",
-    "family_name": "Plexauridae"
   },
   {
     "uuid": "marine-life-eyed-flounder",
@@ -5901,13 +5667,6 @@
     "distinctive_features": "Body shape: 35"
   },
   {
-    "uuid": "marine-life-geodia-neptuni",
-    "common_name": "Geodia neptuni",
-    "scientific_name": "Geodia neptuni",
-    "category": "sponges",
-    "subcategory": "barrel-sponges"
-  },
-  {
     "uuid": "marine-life-geographic-sea-hare",
     "common_name": "Geographic seahare",
     "scientific_name": "Syphonota geographica",
@@ -6653,7 +6412,8 @@
     "max_size": 1.05,
     "min_depth": 0.0,
     "max_depth": 200.0,
-    "distinctive_features": "Body shape: 200"
+    "distinctive_features": "Body shape: 200",
+    "feature_model": "GreenSeaTurtle"
   },
   {
     "uuid": "marine-life-yellow-green-sea-squirt",
@@ -6691,18 +6451,6 @@
     "min_depth": 20.0,
     "max_depth": 55.0,
     "distinctive_features": "Body shape: fusiform / normal"
-  },
-  {
-    "uuid": "marine-life-grey-sea-fan-black-coral",
-    "common_name": "Grey sea fan black coral",
-    "scientific_name": "Antipathes atlantica",
-    "category": "corals",
-    "subcategory": "black-corals",
-    "family_name": "Antipathidae",
-    "min_depth": 30.0,
-    "max_depth": 115.0,
-    "description": "30",
-    "distinctive_features": "Body shape: 115"
   },
   {
     "uuid": "marine-life-grooved-blade-sea-whip",
@@ -6753,14 +6501,6 @@
     "distinctive_features": "Body shape: 329"
   },
   {
-    "uuid": "marine-life-hair-net-black-coral",
-    "common_name": "Hair net black coral",
-    "scientific_name": "Antipathes lenta",
-    "category": "corals",
-    "subcategory": "black-corals",
-    "family_name": "Antipathidae"
-  },
-  {
     "uuid": "marine-life-hairy-blenny",
     "common_name": "hairy blenny",
     "scientific_name": "Labrisomus nuchipinnis",
@@ -6806,13 +6546,6 @@
     "family_name": "Inachidae",
     "description": "Short broadly rounded rostrum. Tubercles between eyes. Decorates with algae, commonly Halimeda. Reef areas.",
     "max_size": 0.075
-  },
-  {
-    "uuid": "marine-life-halophila-elongata",
-    "common_name": "Halophila elongata",
-    "scientific_name": "Halophila elongata",
-    "category": "plants",
-    "subcategory": "red-algae"
   },
   {
     "uuid": "marine-life-hamners-tritonia",
@@ -6895,14 +6628,6 @@
     "distinctive_features": "Body shape: 2"
   },
   {
-    "uuid": "marine-life-hat-coral",
-    "common_name": "Hat coral",
-    "scientific_name": "Helioseris cucullata",
-    "category": "corals",
-    "subcategory": "lettuce-corals",
-    "family_name": "Agariciidae"
-  },
-  {
     "uuid": "marine-life-havana-mantis",
     "common_name": "havana mantis",
     "scientific_name": "Odontodactylus havanensis",
@@ -6957,13 +6682,6 @@
     "subcategory": "nudibranchs",
     "description": "Elongate brownish-red body with white speckles. Dark edges on parapodia and rhinophore and tentacle tips.",
     "max_size": 0.025
-  },
-  {
-    "uuid": "marine-life-heterogorgia-uatumani",
-    "common_name": "Heterogorgia uatumani",
-    "scientific_name": "Heterogorgia uatumani",
-    "category": "corals",
-    "subcategory": "octocorals"
   },
   {
     "uuid": "marine-life-hidden-anemone",
@@ -7074,14 +6792,6 @@
     "description": "Deep orange to yellow with small black spots. Horns not present in smallest individuals and develop as they grow."
   },
   {
-    "uuid": "marine-life-honeycomb-plate-coral",
-    "common_name": "Honeycomb plate coral",
-    "scientific_name": "Porites colonensis",
-    "category": "corals",
-    "subcategory": "plate-corals",
-    "family_name": "Poritidae"
-  },
-  {
     "uuid": "marine-life-honeycomb-worm",
     "common_name": "Honeycomb worm",
     "scientific_name": "Lygdamis wirtzi",
@@ -7162,18 +6872,6 @@
     "min_depth": 3.0,
     "max_depth": 60.0,
     "distinctive_features": "Body shape: elongated"
-  },
-  {
-    "uuid": "marine-life-hyattella-cavernosa",
-    "common_name": "Hyattella cavernosa",
-    "scientific_name": "Hyattella cavernosa",
-    "category": "sponges",
-    "subcategory": "tube-sponges",
-    "family_name": "Spongiidae",
-    "min_depth": 2.0,
-    "max_depth": 73.0,
-    "description": "2",
-    "distinctive_features": "Body shape: 73"
   },
   {
     "uuid": "marine-life-hydroid-zoanthid",
@@ -7259,13 +6957,6 @@
     "min_depth": 0.0,
     "max_depth": 200.0,
     "distinctive_features": "Body shape: elongated"
-  },
-  {
-    "uuid": "marine-life-isarachnanthus-tuberculatus",
-    "common_name": "Isarachnanthus tuberculatus",
-    "scientific_name": "Isarachnanthus tuberculatus",
-    "category": "invertebrates",
-    "subcategory": "zoanthids"
   },
   {
     "uuid": "marine-life-island-frillfin-goby",
@@ -7536,13 +7227,6 @@
     "distinctive_features": "Body shape: fusiform / normal"
   },
   {
-    "uuid": "marine-life-labyrinthulomycote-protozoan",
-    "common_name": "Labyrinthulomycote protozoan",
-    "scientific_name": "Labyrinthulomycote protozoan",
-    "category": "corals",
-    "subcategory": "octocorals"
-  },
-  {
     "uuid": "marine-life-lace-coral-brittle-star",
     "common_name": "lace coral brittle star",
     "scientific_name": "Sigsbeia conifera",
@@ -7554,20 +7238,6 @@
     "min_depth": 4.0,
     "max_depth": 24.0,
     "distinctive_features": "Body shape: 24"
-  },
-  {
-    "uuid": "marine-life-lactophrys-rigonus",
-    "common_name": "Lactophrys rigonus",
-    "scientific_name": "Lactophrys rigonus",
-    "category": "fishes",
-    "subcategory": "trunkfishes"
-  },
-  {
-    "uuid": "marine-life-laguncularia-racemosa",
-    "common_name": "Laguncularia racemosa",
-    "scientific_name": "Laguncularia racemosa",
-    "category": "plants",
-    "subcategory": "mangroves"
   },
   {
     "uuid": "marine-life-lamarck-s-sheet-coral",
@@ -7790,17 +7460,6 @@
     "distinctive_features": "Body shape: elongated"
   },
   {
-    "uuid": "marine-life-lesser-speckled-cup-coral",
-    "common_name": "Lesser speckled cup coral",
-    "scientific_name": "Colangia immersa",
-    "category": "corals",
-    "subcategory": "cup-corals",
-    "family_name": "Caryophylliidae",
-    "min_depth": 0.0,
-    "max_depth": 347.0,
-    "distinctive_features": "Body shape: 347"
-  },
-  {
     "uuid": "marine-life-lesser-starlet-coral",
     "common_name": "Lesser starlet coral",
     "scientific_name": "Siderastrea radians",
@@ -7837,16 +7496,6 @@
     "min_depth": 0.0,
     "max_depth": 100.0,
     "distinctive_features": "Body shape: 100"
-  },
-  {
-    "uuid": "marine-life-leucandra-barbata",
-    "common_name": "Leucandra barbata",
-    "scientific_name": "Leucandra barbata",
-    "category": "sponges",
-    "subcategory": "ball-sponges",
-    "family_name": "Grantiidae",
-    "max_depth": 17.0,
-    "distinctive_features": "Body shape: 17"
   },
   {
     "uuid": "marine-life-leucetta-floridana",
@@ -8185,18 +7834,6 @@
     "distinctive_features": "Body shape: 20"
   },
   {
-    "uuid": "marine-life-longspine-sea-fan",
-    "common_name": "Longspine sea fan",
-    "scientific_name": "Muricea pinnata",
-    "category": "corals",
-    "subcategory": "octocorals",
-    "family_name": "Plexauridae",
-    "min_depth": 16.0,
-    "max_depth": 27.0,
-    "description": "16",
-    "distinctive_features": "Body shape: 27"
-  },
-  {
     "uuid": "marine-life-longspine-squirrelfish",
     "common_name": "longspine squirrelfish",
     "scientific_name": "Holocentrus rufus",
@@ -8243,13 +7880,6 @@
     "min_depth": 1.0,
     "max_depth": 53.0,
     "distinctive_features": "Body shape: fusiform / normal"
-  },
-  {
-    "uuid": "marine-life-lottia-suffusa",
-    "common_name": "Lottia suffusa",
-    "scientific_name": "Lottia suffusa",
-    "category": "invertebrates",
-    "subcategory": "limpets"
   },
   {
     "uuid": "marine-life-low-life-lettuce-coral",
@@ -8324,14 +7954,6 @@
     "distinctive_features": "Body shape: short and / or deep"
   },
   {
-    "uuid": "marine-life-madracis-carmabi",
-    "common_name": "Madracis carmabi",
-    "scientific_name": "Madracis carmabi",
-    "category": "corals",
-    "subcategory": "branching-corals",
-    "family_name": "Pocilloporidae"
-  },
-  {
     "uuid": "marine-life-magnificent-feather-duster",
     "common_name": "magnificent feather duster",
     "scientific_name": "Sabellastarte magnifica",
@@ -8379,13 +8001,6 @@
     "min_depth": 0.0,
     "max_depth": 7.0,
     "distinctive_features": "Body shape: 7"
-  },
-  {
-    "uuid": "marine-life-maguimithrax-variegata",
-    "common_name": "Maguimithrax variegata",
-    "scientific_name": "Maguimithrax variegata",
-    "category": "invertebrates",
-    "subcategory": "worms"
   },
   {
     "uuid": "marine-life-mahogany-goby",
@@ -8453,18 +8068,6 @@
     "min_depth": 0.0,
     "max_depth": 10.0,
     "distinctive_features": "Body shape: 10"
-  },
-  {
-    "uuid": "marine-life-manning-hingebeak",
-    "common_name": "Manning hingebeak",
-    "scientific_name": "Cinetorhynchus manningi",
-    "category": "invertebrates",
-    "subcategory": "shrimps",
-    "family_name": "Rhynchocinetidae",
-    "min_depth": 4.0,
-    "max_depth": 55.0,
-    "description": "4",
-    "distinctive_features": "Body shape: 55"
   },
   {
     "uuid": "marine-life-manning-grass-shrimp",
@@ -8682,21 +8285,6 @@
     "distinctive_features": "Body shape: 75"
   },
   {
-    "uuid": "marine-life-meandrina-danae",
-    "common_name": "Meandrina danae",
-    "scientific_name": "Meandrina danae",
-    "category": "corals",
-    "subcategory": "cactus-corals"
-  },
-  {
-    "uuid": "marine-life-meandrina-jacksoni",
-    "common_name": "Meandrina jacksoni",
-    "scientific_name": "Meandrina jacksoni",
-    "category": "corals",
-    "subcategory": "cactus-corals",
-    "family_name": "Meandrinidae"
-  },
-  {
     "uuid": "marine-life-measled-cowrie",
     "common_name": "measled cowrie",
     "scientific_name": "Macrocypraea zebra",
@@ -8765,13 +8353,6 @@
     "distinctive_features": "Body shape: fusiform / normal"
   },
   {
-    "uuid": "marine-life-microspathodon-tarapacana",
-    "common_name": "Microspathodon tarapacana",
-    "scientific_name": "Microspathodon tarapacana",
-    "category": "fishes",
-    "subcategory": "rays"
-  },
-  {
     "uuid": "marine-life-midnight-parrotfish",
     "common_name": "midnight parrotfish (terminal)",
     "scientific_name": "Scarus coelestinus",
@@ -8809,14 +8390,6 @@
     "min_depth": 2.0,
     "max_depth": 55.0,
     "distinctive_features": "Body shape: 55"
-  },
-  {
-    "uuid": "marine-life-millepora-squarrosa",
-    "common_name": "Millepora squarrosa",
-    "scientific_name": "Millepora squarrosa",
-    "category": "corals",
-    "subcategory": "branching-corals",
-    "family_name": "Milleporidae"
   },
   {
     "uuid": "marine-life-mimic-blenny",
@@ -9194,21 +8767,6 @@
     "feature_image_resource": "marine-life-mutton-snapper"
   },
   {
-    "uuid": "marine-life-mycetophyllia-danaana",
-    "common_name": "Mycetophyllia danaana",
-    "scientific_name": "Mycetophyllia danaana",
-    "category": "corals",
-    "subcategory": "cactus-corals",
-    "family_name": "Faviidae"
-  },
-  {
-    "uuid": "marine-life-myrichthys-jacobus",
-    "common_name": "Myrichthys jacobus",
-    "scientific_name": "Myrichthys jacobus",
-    "category": "fishes",
-    "subcategory": "squirrelfishes"
-  },
-  {
     "uuid": "marine-life-narrow-blade-alga",
     "common_name": "narrow blade alga",
     "scientific_name": "Dictyota pulchella",
@@ -9295,16 +8853,6 @@
     "max_size": 0.15
   },
   {
-    "uuid": "marine-life-netted-barrel-sponge",
-    "common_name": "Netted barrel sponge",
-    "scientific_name": "Verongula gigantea",
-    "category": "sponges",
-    "subcategory": "barrel-sponges",
-    "family_name": "Aplysinidae",
-    "max_depth": 12.0,
-    "distinctive_features": "Body shape: 12"
-  },
-  {
     "uuid": "marine-life-netted-olive",
     "common_name": "netted olive",
     "scientific_name": "Oliva sayana",
@@ -9374,13 +8922,6 @@
     "description": "Black body with nine narrow bright blue bars. Red to pale brown head and red Iris. Found in clear shallow waters.",
     "max_size": 0.025,
     "distinctive_features": "Body shape: fusiform / normal"
-  },
-  {
-    "uuid": "marine-life-niphates-amorpha",
-    "common_name": "Niphates amorpha",
-    "scientific_name": "Niphates amorpha",
-    "category": "sponges",
-    "subcategory": "encrusting-sponges"
   },
   {
     "uuid": "marine-life-palisa-papillata",
@@ -9532,21 +9073,6 @@
     "distinctive_features": "Body shape: short and / or deep"
   },
   {
-    "uuid": "marine-life-oceanapia-bartschi",
-    "common_name": "Oceanapia bartschi",
-    "scientific_name": "Oceanapia bartschi",
-    "category": "sponges",
-    "subcategory": "barrel-sponges",
-    "family_name": "Phloeodictyidae"
-  },
-  {
-    "uuid": "marine-life-oceanapia-stalagmitica",
-    "common_name": "Oceanapia stalagmitica",
-    "scientific_name": "Oceanapia stalagmitica",
-    "category": "sponges",
-    "subcategory": "rope-sponges"
-  },
-  {
     "uuid": "marine-life-oceanic-whitetip-shark",
     "common_name": "oceanic whitetip shark",
     "scientific_name": "Carcharhinus longimanus",
@@ -9608,13 +9134,6 @@
     "distinctive_features": "Body shape: short and / or deep"
   },
   {
-    "uuid": "marine-life-okeania-pavonica",
-    "common_name": "Okeania pavonica",
-    "scientific_name": "Okeania pavonica",
-    "category": "plants",
-    "subcategory": "brown-algae"
-  },
-  {
     "uuid": "marine-life-onetooth-simnia",
     "common_name": "onetooth simnia",
     "scientific_name": "Simnialena uniplicata",
@@ -9626,13 +9145,6 @@
     "min_depth": 1.0,
     "max_depth": 116.0,
     "distinctive_features": "Body shape: 116"
-  },
-  {
-    "uuid": "marine-life-ophioderma-brevicaudum",
-    "common_name": "Ophioderma brevicaudum",
-    "scientific_name": "Ophioderma brevicaudum",
-    "category": "invertebrates",
-    "subcategory": "brittle-stars"
   },
   {
     "uuid": "marine-life-orange-ball-corallimorph",
@@ -9670,14 +9182,6 @@
     "min_depth": 1.0,
     "max_depth": 37.0,
     "distinctive_features": "Body shape: 37"
-  },
-  {
-    "uuid": "marine-life-orange-deep-water-fan",
-    "common_name": "Orange deep water fan",
-    "scientific_name": "Nicella goreaui",
-    "category": "corals",
-    "subcategory": "octocorals",
-    "family_name": "Ellisellidae"
   },
   {
     "uuid": "marine-life-orange-elephant-ear-sponge",
@@ -9743,18 +9247,6 @@
     "min_depth": 0.0,
     "max_depth": 40.0,
     "distinctive_features": "Body shape: 40"
-  },
-  {
-    "uuid": "marine-life-orange-spiny-sea-rod",
-    "common_name": "Orange spiny sea rod",
-    "scientific_name": "Muricea elongata",
-    "category": "corals",
-    "subcategory": "octocorals",
-    "family_name": "Plexauridae",
-    "min_depth": 3.0,
-    "max_depth": 33.0,
-    "description": "3",
-    "distinctive_features": "Body shape: 33"
   },
   {
     "uuid": "marine-life-orange-spotted-marginella",
@@ -10283,27 +9775,6 @@
     "distinctive_features": "Body shape: 35"
   },
   {
-    "uuid": "marine-life-penicillus-conchicola",
-    "common_name": "Penicillus conchicola",
-    "scientific_name": "Penicillus conchicola",
-    "category": "plants",
-    "subcategory": "red-algae"
-  },
-  {
-    "uuid": "marine-life-penicillus-inamoena",
-    "common_name": "Penicillus inamoena",
-    "scientific_name": "Penicillus inamoena",
-    "category": "plants",
-    "subcategory": "red-algae"
-  },
-  {
-    "uuid": "marine-life-penicillus-stoechas",
-    "common_name": "Penicillus stoechas",
-    "scientific_name": "Penicillus stoechas",
-    "category": "plants",
-    "subcategory": "red-algae"
-  },
-  {
     "uuid": "marine-life-peppermint-bass",
     "common_name": "peppermint basslet",
     "scientific_name": "Liopropoma rubre",
@@ -10492,13 +9963,6 @@
     "distinctive_features": "Body shape: 60"
   },
   {
-    "uuid": "marine-life-placospherastra-micraster",
-    "common_name": "Placospherastra micraster",
-    "scientific_name": "Placospherastra micraster",
-    "category": "sponges",
-    "subcategory": "encrusting-sponges"
-  },
-  {
     "uuid": "marine-life-plakinastrella-onkodes",
     "common_name": "Plakinastrella onkodes",
     "scientific_name": "Plakinastrella onkodes",
@@ -10509,13 +9973,6 @@
     "min_depth": 9.0,
     "max_depth": 11.0,
     "distinctive_features": "Body shape: 11"
-  },
-  {
-    "uuid": "marine-life-plakortis-walpersi",
-    "common_name": "Plakortis walpersi",
-    "scientific_name": "Plakortis walpersi",
-    "category": "sponges",
-    "subcategory": "rope-sponges"
   },
   {
     "uuid": "marine-life-planktonic-nudibranch",
@@ -10536,13 +9993,6 @@
     "family_name": "Salpidae",
     "description": "Transparent body, often with blue markings. Faint muscles and reddish digestive tracts can usually be seen. Pelagic.",
     "max_size": 0.05
-  },
-  {
-    "uuid": "marine-life-plexaura-nutans",
-    "common_name": "Plexaura nutans",
-    "scientific_name": "Plexaura nutans",
-    "category": "corals",
-    "subcategory": "octocorals"
   },
   {
     "uuid": "marine-life-polkadotted-hermit",
@@ -10584,13 +10034,6 @@
     "distinctive_features": "Body shape: short and / or deep",
     "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Diodon_hystrix_430512641.jpg/640px-Diodon_hystrix_430512641.jpg",
     "feature_image_resource": "marine-life-spot-fin-porcupinefish"
-  },
-  {
-    "uuid": "marine-life-porites-urcata",
-    "common_name": "Porites urcata",
-    "scientific_name": "Porites urcata",
-    "category": "corals",
-    "subcategory": "branching-corals"
   },
   {
     "uuid": "marine-life-porkfish",
@@ -10644,34 +10087,6 @@
     "distinctive_features": "Body shape: fusiform / normal",
     "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/85/Scarus_taeniopterus_359920055.jpg/960px-Scarus_taeniopterus_359920055.jpg",
     "feature_image_resource": "marine-life-princess-parrotfish"
-  },
-  {
-    "uuid": "marine-life-pseudobiceros-bicolor",
-    "common_name": "Pseudobiceros bicolor",
-    "scientific_name": "Pseudobiceros bicolor",
-    "category": "invertebrates",
-    "subcategory": "flatworms"
-  },
-  {
-    "uuid": "marine-life-pseudobiceros-bolool",
-    "common_name": "Pseudobiceros bolool",
-    "scientific_name": "Pseudobiceros bolool",
-    "category": "invertebrates",
-    "subcategory": "flatworms"
-  },
-  {
-    "uuid": "marine-life-pseudobiceros-rawlinsonae",
-    "common_name": "Pseudobiceros rawlinsonae",
-    "scientific_name": "Pseudobiceros rawlinsonae",
-    "category": "invertebrates",
-    "subcategory": "flatworms"
-  },
-  {
-    "uuid": "marine-life-pseudogramma-maculatus",
-    "common_name": "Pseudogramma maculatus",
-    "scientific_name": "Pseudogramma maculatus",
-    "category": "fishes",
-    "subcategory": "toadfishes"
   },
   {
     "uuid": "marine-life-puddingwife-wrasse",
@@ -11619,20 +11034,6 @@
     "description": "Translucent brown body. Bristled claws have reddish lines in a reticulated pattern. Found in sandy areas."
   },
   {
-    "uuid": "marine-life-rhizophora-mangle",
-    "common_name": "Rhizophora mangle",
-    "scientific_name": "Rhizophora mangle",
-    "category": "plants",
-    "subcategory": "mangroves"
-  },
-  {
-    "uuid": "marine-life-rhizopsammia-maculata",
-    "common_name": "Rhizopsammia maculata",
-    "scientific_name": "Rhizopsammia maculata",
-    "category": "corals",
-    "subcategory": "cup-corals"
-  },
-  {
     "uuid": "marine-life-ribbed-barnacle",
     "common_name": "Ribbed barnacle",
     "scientific_name": "Tetraclita stalactifera",
@@ -11793,13 +11194,6 @@
     "max_size": 0.45
   },
   {
-    "uuid": "marine-life-roseofilum-reptotaenium",
-    "common_name": "Roseofilum reptotaenium",
-    "scientific_name": "Roseofilum reptotaenium",
-    "category": "corals",
-    "subcategory": "octocorals"
-  },
-  {
     "uuid": "marine-life-rosy-blenny",
     "common_name": "rosy blenny (female)",
     "scientific_name": "Malacoctenus macropus",
@@ -11881,18 +11275,6 @@
     "category": "invertebrates",
     "subcategory": "worms",
     "description": "Creamy light brown scales with a distinctively rough texture of pointed tubercles. Thick tapering cirri on sides."
-  },
-  {
-    "uuid": "marine-life-rough-sea-plume",
-    "common_name": "Rough sea plume",
-    "scientific_name": "Muriceopsis flavida",
-    "category": "corals",
-    "subcategory": "octocorals",
-    "family_name": "Plexauridae",
-    "min_depth": 3.0,
-    "max_depth": 15.0,
-    "description": "3",
-    "distinctive_features": "Body shape: 15"
   },
   {
     "uuid": "marine-life-rough-star-coral",
@@ -12528,13 +11910,6 @@
     "feature_image_resource": "marine-life-schoolmaster-snapper"
   },
   {
-    "uuid": "marine-life-scorpaena-caribbaeus",
-    "common_name": "Scorpaena caribbaeus",
-    "scientific_name": "Scorpaena caribbaeus",
-    "category": "fishes",
-    "subcategory": "scorpionfishes"
-  },
-  {
     "uuid": "marine-life-scrawled-cowfish",
     "common_name": "scrawled cowfish (variation)",
     "scientific_name": "Acanthostracion quadricornis",
@@ -13086,13 +12461,6 @@
     "distinctive_features": "Body shape: short and / or deep"
   },
   {
-    "uuid": "marine-life-siderastrea-bournoni",
-    "common_name": "Siderastrea bournoni",
-    "scientific_name": "Siderastrea bournoni",
-    "category": "corals",
-    "subcategory": "star-corals"
-  },
-  {
     "uuid": "marine-life-silky-shark",
     "common_name": "silky shark",
     "scientific_name": "Carcharhinus falciformis",
@@ -13159,13 +12527,6 @@
     "min_depth": 0.0,
     "max_depth": 35.0,
     "distinctive_features": "Body shape: 35"
-  },
-  {
-    "uuid": "marine-life-siphonodictyon-xamaycaense",
-    "common_name": "Siphonodictyon xamaycaense",
-    "scientific_name": "Siphonodictyon xamaycaense",
-    "category": "sponges",
-    "subcategory": "rope-sponges"
   },
   {
     "uuid": "marine-life-six-keyhole-sand-dollar",
@@ -13285,14 +12646,6 @@
     "max_size": 0.3
   },
   {
-    "uuid": "marine-life-small-sea-fan",
-    "common_name": "Small sea fan",
-    "scientific_name": "Gorgonia mariae",
-    "category": "corals",
-    "subcategory": "octocorals",
-    "family_name": "Gorgoniidae"
-  },
-  {
     "uuid": "marine-life-smallmouth-grunt",
     "common_name": "smallmouth grunt",
     "scientific_name": "Haemulon chrysargyreum",
@@ -13309,14 +12662,6 @@
     "subcategory": "encrusting-sponges",
     "family_name": "Thorectidae",
     "description": "Found in mangroves (Ref. 86836)."
-  },
-  {
-    "uuid": "marine-life-smenospongia-conulosa",
-    "common_name": "Smenospongia conulosa",
-    "scientific_name": "Smenospongia conulosa",
-    "category": "sponges",
-    "subcategory": "encrusting-sponges",
-    "family_name": "Thorectidae"
   },
   {
     "uuid": "marine-life-smooth-brittle-star",
@@ -13649,18 +12994,6 @@
     "distinctive_features": "Body shape: 200"
   },
   {
-    "uuid": "marine-life-spiny-sea-fan",
-    "common_name": "Spiny sea fan",
-    "scientific_name": "Muricea muricata",
-    "category": "corals",
-    "subcategory": "octocorals",
-    "family_name": "Plexauridae",
-    "min_depth": 1.0,
-    "max_depth": 4.0,
-    "description": "1",
-    "distinctive_features": "Body shape: 4"
-  },
-  {
     "uuid": "marine-life-spinyhead-blenny",
     "common_name": "spinyhead blenny",
     "scientific_name": "Acanthemblemaria spinosa",
@@ -13696,26 +13029,6 @@
     "min_depth": 8.0,
     "max_depth": 25.0,
     "distinctive_features": "Body shape: elongated"
-  },
-  {
-    "uuid": "marine-life-sponge-130708",
-    "common_name": "Sponge",
-    "scientific_name": "Aaptos pernucleata",
-    "category": "plants",
-    "subcategory": "red-algae",
-    "family_name": "Suberitidae",
-    "min_depth": 1.0,
-    "max_depth": 70.0,
-    "description": "1",
-    "distinctive_features": "Body shape: 70"
-  },
-  {
-    "uuid": "marine-life-sponge",
-    "common_name": "Sponge",
-    "scientific_name": "Agelas wiedenmayeri",
-    "category": "sponges",
-    "subcategory": "ball-sponges",
-    "family_name": "Agelasidae"
   },
   {
     "uuid": "marine-life-sponge-84508",
@@ -13781,18 +13094,6 @@
     "distinctive_features": "Body shape: 50"
   },
   {
-    "uuid": "marine-life-sponge-841386",
-    "common_name": "Sponge",
-    "scientific_name": "Igernella notabilis",
-    "category": "sponges",
-    "subcategory": "encrusting-sponges",
-    "family_name": "Dictyodendrillidae",
-    "min_depth": 2.0,
-    "max_depth": 20.0,
-    "description": "2",
-    "distinctive_features": "Body shape: 20"
-  },
-  {
     "uuid": "marine-life-sponge-84480",
     "common_name": "Sponge",
     "scientific_name": "Oceanapia peltata",
@@ -13804,18 +13105,6 @@
     "min_depth": 1.0,
     "max_depth": 100.0,
     "distinctive_features": "Body shape: 100"
-  },
-  {
-    "uuid": "marine-life-sponge-51536",
-    "common_name": "Sponge",
-    "scientific_name": "Pandaros acanthifolium",
-    "category": "sponges",
-    "subcategory": "tube-sponges",
-    "family_name": "Microcionidae",
-    "min_depth": 2.0,
-    "max_depth": 35.0,
-    "description": "2",
-    "distinctive_features": "Body shape: 35"
   },
   {
     "uuid": "marine-life-sponge-51434",
@@ -14057,7 +13346,8 @@
     "max_size": 2.3,
     "min_depth": 1.0,
     "max_depth": 80.0,
-    "distinctive_features": "Body shape: other"
+    "distinctive_features": "Body shape: other",
+    "feature_model": "SpottedEagleRay"
   },
   {
     "uuid": "marine-life-spotted-goatfish",
@@ -14288,44 +13578,6 @@
     "min_depth": 18.0,
     "max_depth": 225.0,
     "distinctive_features": "Body shape: 225"
-  },
-  {
-    "uuid": "marine-life-starksia-langi",
-    "common_name": "Starksia langi",
-    "scientific_name": "Starksia langi",
-    "category": "fishes",
-    "subcategory": "blennies",
-    "family_name": "Labrisomidae",
-    "max_size": 0.017,
-    "min_depth": 0.0,
-    "distinctive_features": "Body shape: elongated"
-  },
-  {
-    "uuid": "marine-life-starksia-sangreyae",
-    "common_name": "Starksia sangreyae",
-    "scientific_name": "Starksia sangreyae",
-    "category": "fishes",
-    "subcategory": "blennies",
-    "family_name": "Labrisomidae",
-    "max_size": 0.016,
-    "distinctive_features": "Body shape: elongated"
-  },
-  {
-    "uuid": "marine-life-starksia-weigti",
-    "common_name": "Starksia weigti",
-    "scientific_name": "Starksia weigti",
-    "category": "fishes",
-    "subcategory": "blennies",
-    "family_name": "Labrisomidae",
-    "max_size": 0.024,
-    "distinctive_features": "Body shape: elongated"
-  },
-  {
-    "uuid": "marine-life-stichopathes-luetkeni",
-    "common_name": "Stichopathes luetkeni",
-    "scientific_name": "Stichopathes luetkeni",
-    "category": "corals",
-    "subcategory": "black-corals"
   },
   {
     "uuid": "marine-life-stiff-pen-shell",
@@ -14636,14 +13888,6 @@
     "distinctive_features": "Body shape: elongated"
   },
   {
-    "uuid": "marine-life-svenzea-tubulosa",
-    "common_name": "Svenzea tubulosa",
-    "scientific_name": "Svenzea tubulosa",
-    "category": "sponges",
-    "subcategory": "tube-sponges",
-    "family_name": "Dictyonellidae"
-  },
-  {
     "uuid": "marine-life-swimming-crinoid",
     "common_name": "swimming crinoid",
     "scientific_name": "Analcidometra armata",
@@ -14657,18 +13901,6 @@
     "distinctive_features": "Body shape: 148"
   },
   {
-    "uuid": "marine-life-swollen-knob-candelabrum",
-    "common_name": "Swollen knob candelabrum",
-    "scientific_name": "Eunicea mammosa",
-    "category": "corals",
-    "subcategory": "octocorals",
-    "family_name": "Plexauridae",
-    "min_depth": 1.0,
-    "max_depth": 5.0,
-    "description": "1",
-    "distinctive_features": "Body shape: 5"
-  },
-  {
     "uuid": "marine-life-symmetrical-brain-coral",
     "common_name": "Symmetrical brain coral",
     "scientific_name": "Pseudodiploria strigosa",
@@ -14679,20 +13911,6 @@
     "min_depth": 0.0,
     "max_depth": 47.0,
     "distinctive_features": "Body shape: 47"
-  },
-  {
-    "uuid": "marine-life-symphurus-louisianae",
-    "common_name": "Symphurus louisianae",
-    "scientific_name": "Symphurus louisianae",
-    "category": "fishes",
-    "subcategory": "pipefishes"
-  },
-  {
-    "uuid": "marine-life-symphurus-pelagicus",
-    "common_name": "Symphurus pelagicus",
-    "scientific_name": "Symphurus pelagicus",
-    "category": "fishes",
-    "subcategory": "pipefishes"
   },
   {
     "uuid": "marine-life-taino-elysia",
@@ -15084,13 +14302,6 @@
     "max_size": 0.025
   },
   {
-    "uuid": "marine-life-trichechus-manatus",
-    "common_name": "Trichechus manatus",
-    "scientific_name": "Trichechus manatus",
-    "category": "fishes",
-    "subcategory": "parrotfishes"
-  },
-  {
     "uuid": "marine-life-tricolor-hermit",
     "common_name": "tricolor hermit",
     "scientific_name": "Clibanarius tricolor",
@@ -15130,14 +14341,6 @@
     "distinctive_features": "Body shape: elongated",
     "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Aulostomus_maculatus_430513630.jpg/960px-Aulostomus_maculatus_430513630.jpg",
     "feature_image_resource": "marine-life-trumpetfish"
-  },
-  {
-    "uuid": "marine-life-tube-sponge",
-    "common_name": "Tube sponge",
-    "scientific_name": "Callyspongia longissima",
-    "category": "sponges",
-    "subcategory": "rope-sponges",
-    "family_name": "Callyspongiidae"
   },
   {
     "uuid": "marine-life-tubular-pink-alga",
@@ -15599,18 +14802,6 @@
     "min_depth": 0.0,
     "max_depth": 1600.0,
     "distinctive_features": "Body shape: 1600"
-  },
-  {
-    "uuid": "marine-life-warty-sea-rod",
-    "common_name": "Warty sea rod",
-    "scientific_name": "Eunicea calyculata",
-    "category": "corals",
-    "subcategory": "octocorals",
-    "family_name": "Plexauridae",
-    "min_depth": 4.0,
-    "max_depth": 33.0,
-    "description": "4",
-    "distinctive_features": "Body shape: 33"
   },
   {
     "uuid": "marine-life-warty-seacat",
@@ -16201,14 +15392,6 @@
     "distinctive_features": "Body shape: 16"
   },
   {
-    "uuid": "marine-life-xestospongia-deweerdtae",
-    "common_name": "Xestospongia deweerdtae",
-    "scientific_name": "Xestospongia deweerdtae",
-    "category": "sponges",
-    "subcategory": "encrusting-sponges",
-    "family_name": "Petrosiidae"
-  },
-  {
     "uuid": "marine-life-y-branched-alga",
     "common_name": "Y-branched alga",
     "scientific_name": "Dictyota humifusa",
@@ -16312,14 +15495,6 @@
     "description": "Gray to light blue body with diffuse pale yellow lines on dorsal and anal fins. Yellow tail. Blue markings on head.",
     "max_size": 0.0635,
     "distinctive_features": "Body shape: elongated"
-  },
-  {
-    "uuid": "marine-life-yellow-pencil-coral",
-    "common_name": "Yellow pencil coral",
-    "scientific_name": "Madracis auretenra",
-    "category": "corals",
-    "subcategory": "branching-corals",
-    "family_name": "Pocilloporidae"
   },
   {
     "uuid": "marine-life-yellow-sea-whip",
