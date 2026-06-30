@@ -76,4 +76,13 @@ enum DiveBuddyDetailContentPagerPresentation: Sendable {
 
     /// Buddy pager omits visible page headers; titles remain for accessibility labels.
     nonisolated static let showsPinnedPageHeaders = false
+
+    nonisolated static func pagerPageLayout(for page: DiveBuddyDetailContentPage) -> BlueSheetDetailPagerPageLayout {
+        BlueSheetDetailPagerPageLayout(
+            usesStaticLayout: usesStaticPagerLayout(for: page),
+            staticContentAlignment: staticPagerContentAlignment(for: page),
+            accessibilityLabel: pageTitle(for: page),
+            accessibilityIdentifier: accessibilityIdentifier(for: page)
+        )
+    }
 }

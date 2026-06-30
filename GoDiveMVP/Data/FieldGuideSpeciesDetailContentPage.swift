@@ -76,4 +76,13 @@ enum FieldGuideSpeciesDetailContentPagerPresentation: Sendable {
     }
 
     nonisolated static let showsPinnedPageHeaders = false
+
+    nonisolated static func pagerPageLayout(for page: FieldGuideSpeciesDetailContentPage) -> BlueSheetDetailPagerPageLayout {
+        BlueSheetDetailPagerPageLayout(
+            usesStaticLayout: usesStaticPagerLayout(for: page),
+            staticContentAlignment: staticPagerContentAlignment(for: page),
+            accessibilityLabel: pageTitle(for: page),
+            accessibilityIdentifier: accessibilityIdentifier(for: page)
+        )
+    }
 }

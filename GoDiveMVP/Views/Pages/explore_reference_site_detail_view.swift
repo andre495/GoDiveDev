@@ -13,50 +13,48 @@ struct ExploreReferenceSiteDetailView: View {
     }
 
     var body: some View {
-        FieldGuideBlueSheetPage(
-            accessibilityRootIdentifier: "Explore.ReferenceSiteDetail.Root",
-            scrollAccessibilityIdentifier: "Explore.ReferenceSiteDetail.Scroll",
+        BlueSheetDetailPage(
+            configuration: .pushedDetail(
+                accessibilityRootIdentifier: "Explore.ReferenceSiteDetail.Root"
+            ),
             hero: { context in
                 referenceHeroContent(context: context)
             },
+            heroOverlay: { _ in EmptyView() },
+            panelOverlay: { EmptyView() },
             pinnedContent: {
-                ExploreDiveSiteDetailPinnedTitleView(
-                    record: record,
+                BlueSheetPinnedSummary(
+                    title: record.displayName,
+                    subtitle: record.pinnedLocationLine,
+                    subtitleAccessibilityIdentifier: record.pinnedLocationLine == nil
+                        ? nil
+                        : "Explore.ReferenceSiteDetail.TitleBlock.Location",
                     accessibilityIdentifier: "Explore.ReferenceSiteDetail.TitleBlock"
                 )
             },
-            panelContent: { bottomScrollInset in
-                BlueSheetHeaderScrollPageLayout.scrollPage(
-                    bottomScrollInset: bottomScrollInset,
-                    accessibilityIdentifier: "Explore.ReferenceSiteDetail.Scroll"
-                ) {
-                    VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-                        ExploreDiveSiteDetailMetadataView(record: record)
-
-                        Text("OpenDiveMap reference site. Log a dive here to add it to your catalog.")
-                            .font(.footnote)
-                            .foregroundStyle(AppTheme.Colors.secondaryText)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, AppTheme.Spacing.md)
-                }
+            panelContent: { bottomScrollInset, _ in
+                ExploreReferenceSiteDetailContentPager(
+                    record: record,
+                    bottomScrollInset: bottomScrollInset
+                )
             },
-            heroOverlay: { _ in EmptyView() }
+            topChrome: { safeTop, topInset, _ in
+                BlueSheetDetailTopChrome(
+                    safeTop: safeTop,
+                    topInset: topInset,
+                    isEditEnabled: false,
+                    onEdit: {},
+                    editAccessibilityIdentifier: "Explore.ReferenceSiteDetail.Edit"
+                )
+            }
         )
     }
 
     @ViewBuilder
     private func referenceHeroContent(context: BlueSheetHeaderPageLayoutContext) -> some View {
-        Group {
+        BlueSheetDetailHeroBandFill(accessibilityIdentifier: "Explore.ReferenceSiteDetail.Hero") {
             if mapPins.isEmpty {
-                Rectangle()
-                    .fill(AppTheme.Colors.tabUnselected.opacity(0.12))
-                    .overlay {
-                        Image(systemName: "mappin.and.ellipse")
-                            .font(.system(size: 56))
-                            .foregroundStyle(AppTheme.Colors.tabUnselected)
-                    }
-                    .accessibilityLabel("Dive site header")
+                BlueSheetDetailHeroPlaceholder(style: .diveSite)
             } else {
                 TripDetailMapView(
                     pins: mapPins,
@@ -65,10 +63,5 @@ struct ExploreReferenceSiteDetailView: View {
                 )
             }
         }
-        .frame(height: context.heroHeight)
-        .frame(maxWidth: .infinity)
-        .clipped()
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("Explore.ReferenceSiteDetail.Hero")
     }
 }

@@ -3279,6 +3279,402 @@ struct GoDiveMVPTests {
         #expect(heroHeight > FieldGuideMarineLifeImageLayout.detailHeroBaseHeight)
     }
 
+    @Test func blueSheetDetailPageConfiguration_standardDefaults() {
+        let config = BlueSheetDetailPageConfiguration.standard(
+            accessibilityRootIdentifier: "GoDive.TestDetail"
+        )
+        #expect(config.accessibilityRootIdentifier == "GoDive.TestDetail")
+        #expect(config.presentation == .pushedDetail)
+        #expect(config.showsHero)
+        #expect(config.hidesTabBarWhenPushed)
+    }
+
+    @Test func blueSheetDetailPageConfiguration_tabRoot() {
+        let config = BlueSheetDetailPageConfiguration.tabRoot(
+            accessibilityRootIdentifier: "GoDive.Home"
+        )
+        #expect(config.presentation == .tabRoot)
+        #expect(config.showsHero)
+        #expect(!config.hidesTabBarWhenPushed)
+    }
+
+    @Test func blueSheetPagePresentation_pageLayoutKind() {
+        #expect(BlueSheetPagePresentation.tabRoot.pageLayoutKind == .home)
+        #expect(BlueSheetPagePresentation.pushedDetail.pageLayoutKind == .buddyDetail)
+    }
+
+    @Test func blueSheetPageProportions_reexportHomeOverviewLayoutTokens() {
+        #expect(BlueSheetPageProportions.panelOverlap == HomeOverviewLayout.panelOverlap)
+        #expect(BlueSheetPageProportions.heroHeightToWidthRatio == HomeOverviewLayout.heroHeightToWidthRatio)
+        #expect(BlueSheetPageProportions.heroBottomExtension == HomeOverviewLayout.heroBottomExtension)
+        #expect(BlueSheetPageProportions.tabBarScrollInset == HomeOverviewLayout.tabBarScrollInset)
+        #expect(BlueSheetPageProportions.rootTabBarLayoutHeight == HomeOverviewLayout.rootTabBarLayoutHeight)
+    }
+
+    @Test func blueSheetPageLayoutBuilder_tabRootMatchesPushedHeroHeightWhenViewportAligned() {
+        let pushedGeometryHeight: CGFloat = 852
+        let homeTabViewportHeight = HomeOverviewLayout.viewportHeightMatchingHomeTab(
+            from: pushedGeometryHeight
+        )
+        let screenWidth: CGFloat = 393
+        let topSafeAreaInset: CGFloat = 59
+        let seamInputs = HomeOverviewPushedLayoutPresentation.SeamInputs(
+            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeight,
+            showsBuddyLeaderboard: false
+        )
+
+        let tabRootHero = BlueSheetPageLayoutBuilder.heroHeight(
+            geometryHeight: homeTabViewportHeight,
+            screenWidth: screenWidth,
+            rawGeometrySafeTop: topSafeAreaInset,
+            layoutSafeAreaTopFloor: 0,
+            seamInputs: seamInputs,
+            mode: .tabRoot(isNavigationStackAtRoot: true, frozenRootViewportHeight: homeTabViewportHeight)
+        )
+        let pushedHero = BlueSheetPageLayoutBuilder.heroHeight(
+            geometryHeight: pushedGeometryHeight,
+            screenWidth: screenWidth,
+            rawGeometrySafeTop: topSafeAreaInset,
+            layoutSafeAreaTopFloor: 0,
+            seamInputs: seamInputs,
+            mode: .pushedDetail(transitionViewportHeightFloor: 0)
+        )
+        #expect(tabRootHero == pushedHero)
+    }
+
+    @Test func homeOverviewLayout_settledHomeTabContentGeometryHeight_normalizesFullScreenPeek() {
+        let tabContentHeight: CGFloat = 803
+        let fullScreenHeight = tabContentHeight + HomeOverviewLayout.rootTabBarLayoutHeight
+        #expect(
+            HomeOverviewLayout.settledHomeTabContentGeometryHeight(from: fullScreenHeight)
+                == tabContentHeight
+        )
+        #expect(
+            HomeOverviewLayout.tabRootFullScreenGeometryHeight(from: tabContentHeight)
+                == tabContentHeight
+        )
+        #expect(
+            HomeOverviewLayout.tabRootVirtualFullScreenHeight(from: tabContentHeight)
+                == fullScreenHeight
+        )
+    }
+
+    @Test func blueSheetPageLayoutBuilder_tabRootHeroHeightMatchesPushedDetail() {
+        let tabContentGeometryHeight: CGFloat = 803
+        let pushedGeometryHeight = tabContentGeometryHeight + HomeOverviewLayout.rootTabBarLayoutHeight
+        let screenWidth: CGFloat = 393
+        let topSafeAreaInset: CGFloat = 59
+        let seamInputs = HomeOverviewPushedLayoutPresentation.SeamInputs(
+            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeight,
+            showsBuddyLeaderboard: false
+        )
+
+        let tabRootHero = BlueSheetPageLayoutBuilder.heroHeight(
+            geometryHeight: tabContentGeometryHeight,
+            screenWidth: screenWidth,
+            rawGeometrySafeTop: topSafeAreaInset,
+            layoutSafeAreaTopFloor: 0,
+            seamInputs: seamInputs,
+            mode: .tabRoot(isNavigationStackAtRoot: true, frozenRootViewportHeight: nil)
+        )
+        let pushedHero = BlueSheetPageLayoutBuilder.heroHeight(
+            geometryHeight: pushedGeometryHeight,
+            screenWidth: screenWidth,
+            rawGeometrySafeTop: topSafeAreaInset,
+            layoutSafeAreaTopFloor: 0,
+            seamInputs: seamInputs,
+            mode: .pushedDetail(transitionViewportHeightFloor: 0)
+        )
+        #expect(tabRootHero == pushedHero)
+    }
+
+    @Test func homeTabRootLayoutPresentation_stackMatchesDetailFullScreenHeight() {
+        let tabContentGeometryHeight: CGFloat = 803
+        let pushedGeometryHeight = tabContentGeometryHeight + HomeOverviewLayout.rootTabBarLayoutHeight
+        let screenWidth: CGFloat = 393
+        let topSafeAreaInset: CGFloat = 59
+        let seamInputs = HomeOverviewPushedLayoutPresentation.SeamInputs(
+            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeight,
+            showsBuddyLeaderboard: false
+        )
+
+        let tabRootStack = HomeTabRootLayoutPresentation.stackFrameHeight(
+            from: tabContentGeometryHeight
+        )
+        let pushedStack = HomeOverviewLayout.pushedPageLayoutHeight(from: pushedGeometryHeight)
+        #expect(tabRootStack == pushedStack)
+        #expect(tabRootStack == pushedGeometryHeight)
+
+        let tabRootHero = BlueSheetPageLayoutBuilder.heroHeight(
+            geometryHeight: tabContentGeometryHeight,
+            screenWidth: screenWidth,
+            rawGeometrySafeTop: topSafeAreaInset,
+            layoutSafeAreaTopFloor: 0,
+            seamInputs: seamInputs,
+            mode: .tabRoot(isNavigationStackAtRoot: true, frozenRootViewportHeight: nil)
+        )
+        let pushedHero = BlueSheetPageLayoutBuilder.heroHeight(
+            geometryHeight: pushedGeometryHeight,
+            screenWidth: screenWidth,
+            rawGeometrySafeTop: topSafeAreaInset,
+            layoutSafeAreaTopFloor: 0,
+            seamInputs: seamInputs,
+            mode: .pushedDetail(transitionViewportHeightFloor: 0)
+        )
+        #expect(tabRootHero == pushedHero)
+
+        let homeScreenBot = HomeOverviewLayout.sheetSeamYFromScreenBottom(
+            pageKind: .home,
+            geometryHeight: tabContentGeometryHeight,
+            heroHeight: tabRootHero
+        )
+        let detailScreenBot = HomeOverviewLayout.sheetSeamYFromScreenBottom(
+            pageKind: .buddyDetail,
+            geometryHeight: pushedGeometryHeight,
+            heroHeight: pushedHero
+        )
+        #expect(homeScreenBot == detailScreenBot)
+    }
+
+    @Test func homeTabRootLayoutPresentation_zeroGeometrySafeTop_matchesDetailHeroHeight() {
+        let tabContentGeometryHeight: CGFloat = 803
+        let pushedGeometryHeight = tabContentGeometryHeight + HomeOverviewLayout.rootTabBarLayoutHeight
+        let screenWidth: CGFloat = 393
+        let resolvedTopSafeAreaInset: CGFloat = 59
+        let seamInputs = HomeOverviewPushedLayoutPresentation.SeamInputs(
+            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeight,
+            showsBuddyLeaderboard: false
+        )
+
+        let homeHero = BlueSheetPageLayoutBuilder.heroHeight(
+            geometryHeight: tabContentGeometryHeight,
+            screenWidth: screenWidth,
+            rawGeometrySafeTop: 0,
+            layoutSafeAreaTopFloor: resolvedTopSafeAreaInset,
+            seamInputs: seamInputs,
+            mode: .tabRoot(isNavigationStackAtRoot: true, frozenRootViewportHeight: nil)
+        )
+        let detailHero = BlueSheetPageLayoutBuilder.heroHeight(
+            geometryHeight: pushedGeometryHeight,
+            screenWidth: screenWidth,
+            rawGeometrySafeTop: 0,
+            layoutSafeAreaTopFloor: resolvedTopSafeAreaInset,
+            seamInputs: seamInputs,
+            mode: .pushedDetail(transitionViewportHeightFloor: 0)
+        )
+        #expect(homeHero == detailHero)
+        #expect(homeHero > HomeOverviewLayout.heroHeight(width: screenWidth, topSafeAreaInset: 0))
+    }
+
+    @Test func homeTabRootLayoutPresentation_panelBottomInsetIncludesTabBar() {
+        #expect(
+            HomeTabRootLayoutPresentation.panelBottomSafeAreaInset(
+                tabBarClearance: HomeOverviewLayout.rootTabBarLayoutHeight,
+                safeAreaBottom: 34
+            ) == HomeOverviewLayout.rootTabBarLayoutHeight + 34
+        )
+    }
+
+    @Test func homeOverviewLayout_tabRootVirtualFullScreenHeight_addsRootTabBarReserve() {
+        let tabContentHeight: CGFloat = 803
+        #expect(
+            HomeOverviewLayout.tabRootVirtualFullScreenHeight(from: tabContentHeight)
+                == tabContentHeight + HomeOverviewLayout.rootTabBarLayoutHeight
+        )
+        #expect(
+            HomeOverviewLayout.tabRootHeroLayoutViewportHeight(from: tabContentHeight)
+                == HomeOverviewLayout.viewportHeightMatchingHomeTab(
+                    from: tabContentHeight + HomeOverviewLayout.rootTabBarLayoutHeight
+                )
+        )
+        #expect(
+            HomeOverviewLayout.tabRootPageLayoutHeight(from: tabContentHeight)
+                == HomeOverviewLayout.pushedPageLayoutHeight(
+                    from: tabContentHeight + HomeOverviewLayout.rootTabBarLayoutHeight
+                )
+        )
+    }
+
+    @Test func blueSheetPageLayoutBuilder_tabRootStackUsesDetailFullScreenFrame() {
+        let tabContentGeometryHeight: CGFloat = 803
+        let pushedGeometryHeight = tabContentGeometryHeight + HomeOverviewLayout.rootTabBarLayoutHeight
+        let seamInputs = HomeOverviewPushedLayoutPresentation.SeamInputs(
+            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeight,
+            showsBuddyLeaderboard: false
+        )
+
+        let tabRootHero = BlueSheetPageLayoutBuilder.heroHeight(
+            geometryHeight: tabContentGeometryHeight,
+            screenWidth: 393,
+            rawGeometrySafeTop: 59,
+            layoutSafeAreaTopFloor: 0,
+            seamInputs: seamInputs,
+            mode: .tabRoot(isNavigationStackAtRoot: true, frozenRootViewportHeight: nil)
+        )
+        let pushedHero = BlueSheetPageLayoutBuilder.heroHeight(
+            geometryHeight: pushedGeometryHeight,
+            screenWidth: 393,
+            rawGeometrySafeTop: 59,
+            layoutSafeAreaTopFloor: 0,
+            seamInputs: seamInputs,
+            mode: .pushedDetail(transitionViewportHeightFloor: 0)
+        )
+        #expect(tabRootHero == pushedHero)
+
+        let tabRootStack = HomeTabRootLayoutPresentation.stackFrameHeight(
+            from: tabContentGeometryHeight
+        )
+        let pushedStack = HomeOverviewLayout.pushedPageLayoutHeight(from: pushedGeometryHeight)
+        #expect(tabRootStack == pushedStack)
+        #expect(tabRootStack == pushedGeometryHeight)
+    }
+
+    @Test @MainActor func blueSheetPageLayoutBuilder_pushedHeroUsesPublishedHomeAnchor() {
+        HomeOverviewLayoutAnchor.resetForTesting()
+        defer { HomeOverviewLayoutAnchor.resetForTesting() }
+
+        let screenWidth: CGFloat = 393
+        let topSafeAreaInset: CGFloat = 59
+        let anchoredHeroHeight: CGFloat = 312
+        let homeTabViewportHeight = HomeOverviewLayout.viewportHeightMatchingHomeTab(from: 852)
+        let seamInputs = HomeOverviewPushedLayoutPresentation.SeamInputs(
+            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeight,
+            showsBuddyLeaderboard: false
+        )
+
+        HomeOverviewLayoutAnchor.publish(
+            HomeOverviewLayoutAnchor.RootSnapshot(
+                heroHeight: anchoredHeroHeight,
+                screenWidth: screenWidth,
+                topSafeAreaInset: topSafeAreaInset,
+                statsPanelContentHeight: seamInputs.statsPanelContentHeight,
+                showsBuddyLeaderboard: seamInputs.showsBuddyLeaderboard,
+                homeTabViewportHeight: homeTabViewportHeight
+            )
+        )
+
+        let pushedHero = BlueSheetPageLayoutBuilder.heroHeight(
+            geometryHeight: 852,
+            screenWidth: screenWidth,
+            rawGeometrySafeTop: topSafeAreaInset,
+            layoutSafeAreaTopFloor: 0,
+            seamInputs: seamInputs,
+            mode: .pushedDetail(transitionViewportHeightFloor: 0)
+        )
+        #expect(pushedHero == anchoredHeroHeight)
+    }
+
+    @Test @MainActor func homeOverviewLayoutAnchor_publishHomeTabRootLayout_copiesSettledLayout() {
+        HomeOverviewLayoutAnchor.resetForTesting()
+        defer { HomeOverviewLayoutAnchor.resetForTesting() }
+
+        let layout = BlueSheetHeaderPageLayoutContext(
+            geometryWidth: 393,
+            geometryHeight: 803,
+            safeTop: 59,
+            topInset: 108,
+            heroTopSafeAreaInset: 59,
+            layoutHeight: 803,
+            layoutViewportHeight: 803,
+            heroHeight: 280,
+            bottomScrollInset: 50,
+            panelBottomSafeAreaInset: 34,
+            headerScrollClearance: 0,
+            presentation: .tabRoot
+        )
+
+        HomeOverviewLayoutAnchor.publishHomeTabRootLayout(
+            layout,
+            statsPanelContentHeight: 220,
+            showsBuddyLeaderboard: true
+        )
+
+        let root = HomeOverviewLayoutAnchor.root
+        #expect(root?.heroHeight == layout.heroHeight)
+        #expect(root?.screenWidth == layout.geometryWidth)
+        #expect(root?.topSafeAreaInset == layout.heroTopSafeAreaInset)
+        #expect(root?.homeTabViewportHeight == layout.layoutViewportHeight)
+        #expect(root?.statsPanelContentHeight == 220)
+        #expect(root?.showsBuddyLeaderboard == true)
+    }
+
+    @Test @MainActor func homeOverviewLayoutAnchor_publish_skipsIdenticalSnapshot() {
+        HomeOverviewLayoutAnchor.resetForTesting()
+        defer { HomeOverviewLayoutAnchor.resetForTesting() }
+
+        let snapshot = HomeOverviewLayoutAnchor.RootSnapshot(
+            heroHeight: 280,
+            screenWidth: 393,
+            topSafeAreaInset: 59,
+            statsPanelContentHeight: 200,
+            showsBuddyLeaderboard: false,
+            homeTabViewportHeight: 803
+        )
+        HomeOverviewLayoutAnchor.publish(snapshot)
+        HomeOverviewLayoutAnchor.publish(snapshot)
+        #expect(HomeOverviewLayoutAnchor.root == snapshot)
+    }
+
+    @Test func blueSheetDetailPagePinnedSummaryPresentation_usesThemeSpacing() {
+        #expect(BlueSheetDetailPagePinnedSummaryPresentation.horizontalPadding == AppTheme.Spacing.lg)
+        #expect(BlueSheetDetailPagePinnedSummaryPresentation.topPadding == AppTheme.Spacing.md)
+        #expect(BlueSheetDetailPagePinnedSummaryPresentation.bottomPadding == AppTheme.Spacing.sm)
+        #expect(BlueSheetDetailPagePinnedSummaryPresentation.pinnedSummaryAccessibilitySuffix == "PinnedSummary")
+    }
+
+    @Test func blueSheetTopChromePresentation_homeHeroUsesLogbookScrimFeather() {
+        #expect(BlueSheetTopChromePresentation.HomeHeroFade.usesBrandStatusBarScrim)
+        #expect(BlueSheetTopChromePresentation.HomeHeroFade.logbookScrimFeather == 52)
+    }
+
+    @Test func blueSheetTopChromePresentation_detailTopUsesListFeather() {
+        #expect(BlueSheetTopChromePresentation.DetailTopFade.usesListStatusBarScrim)
+        #expect(BlueSheetTopChromePresentation.DetailTopFade.statusBarFeather == 22)
+    }
+
+    @Test func blueSheetPinnedSummaryPresentation_rowSpacingUsesTheme() {
+        #expect(BlueSheetPinnedSummaryPresentation.rowSpacing == AppTheme.Spacing.sm)
+    }
+
+    @Test func blueSheetDetailPagePinnedSummaryPresentation_shellHorizontalPaddingMatchesPagerInset() {
+        #expect(BlueSheetDetailPagePinnedSummaryPresentation.horizontalPadding == AppTheme.Spacing.lg)
+    }
+
+    @Test func blueSheetDetailHeroPresentation_placeholderTokens() {
+        #expect(BlueSheetDetailHeroPresentation.placeholderFillOpacity == 0.12)
+        #expect(BlueSheetDetailHeroPresentation.placeholderIconSize == 56)
+        #expect(BlueSheetDetailHeroPresentation.loadingBandOpacity == 0.35)
+    }
+
+    @Test func blueSheetDetailPageConfiguration_pushedDetailDefaultsToShowsHero() {
+        let config = BlueSheetDetailPageConfiguration.pushedDetail(
+            accessibilityRootIdentifier: "Test.Hero"
+        )
+        #expect(config.showsHero)
+    }
+
+    @Test func blueSheetDetailPagerPresentation_tripScrollInsetExtraUsesThemeSpacing() {
+        #expect(BlueSheetDetailPagerPresentation.tripScrollBottomInsetExtra == AppTheme.Spacing.lg)
+        #expect(BlueSheetDetailPagerPresentation.scrollPageSpacing == AppTheme.Spacing.lg)
+    }
+
+    @Test @MainActor func exploreReferenceSiteDetailContentPagerPresentation_singleTab() {
+        #expect(ExploreReferenceSiteDetailContentPagerPresentation.pageCount == 1)
+        #expect(ExploreReferenceSiteDetailContentPagerPresentation.defaultPage == .details)
+    }
+
+    @Test @MainActor func equipmentDetailContentPagerPresentation_singleTab() {
+        #expect(EquipmentDetailContentPagerPresentation.pageCount == 1)
+        #expect(EquipmentDetailContentPagerPresentation.defaultPage == .details)
+    }
+
+    @Test func pageLayoutKind_includesSpeciesAndDiveSiteDetail() {
+        #expect(PageLayoutKind.speciesDetail.displayName == "Species detail")
+        #expect(PageLayoutKind.diveSiteDetail.displayName == "Dive site detail")
+        #expect(PageLayoutKind.allCases.contains(.speciesDetail))
+        #expect(PageLayoutKind.allCases.contains(.diveSiteDetail))
+    }
+
     @Test @MainActor func fieldGuideSpeciesDetailContentPager_pages() {
         #expect(FieldGuideSpeciesDetailContentPagerPresentation.pageCount == 4)
         #expect(
@@ -10934,8 +11330,10 @@ struct GoDiveMVPTests {
         }
     }
 
-    @Test func homeMediaCarouselLayout_slideChromeBottomInset_sitsAboveStatsOverlap() {
-        #expect(HomeMediaCarouselLayout.slideChromeBottomInset > HomeLifetimeStatsLayout.panelOverlap)
+    @Test func homeMediaCarouselLayout_slideChromeBottomInset_sitsInPanelOverlapBand() {
+        let inset = HomeMediaCarouselLayout.slideChromeBottomInset
+        #expect(inset < HomeLifetimeStatsLayout.panelOverlap + AppTheme.Spacing.sm)
+        #expect(inset >= HomeLifetimeStatsLayout.panelOverlap - AppTheme.Spacing.lg)
         #expect(HomeMediaCarouselPresentation.keepsAllSlidesLoaded(slideCount: 3))
         #expect(HomeMediaCarouselPresentation.keepsAllSlidesLoaded(slideCount: 1))
         #expect(!HomeMediaCarouselPresentation.keepsAllSlidesLoaded(slideCount: 0))
@@ -10959,6 +11357,25 @@ struct GoDiveMVPTests {
         )
         #expect(gradientHeight >= 112 + 96)
         #expect(gradientHeight >= height * 0.52 - 0.001)
+    }
+
+    @Test func homeMediaCarouselLayout_carouselContentHeight_compensatesForPushedHeroBandBleed() {
+        let bandHeight: CGFloat = 520
+        let safeTop: CGFloat = 59
+        #expect(
+            HomeMediaCarouselLayout.carouselContentHeight(
+                heroBandHeight: bandHeight,
+                topSafeAreaInset: safeTop,
+                appliesOwnTopSafeAreaBleed: true
+            ) == bandHeight
+        )
+        #expect(
+            HomeMediaCarouselLayout.carouselContentHeight(
+                heroBandHeight: bandHeight,
+                topSafeAreaInset: safeTop,
+                appliesOwnTopSafeAreaBleed: false
+            ) == bandHeight + safeTop
+        )
     }
 
     @Test func homeMediaCarouselPresentation_nextIndex_wrapsAndRequiresMultipleSlides() {
@@ -11283,7 +11700,9 @@ struct GoDiveMVPTests {
         #expect(HomeLifetimeStatsLayout.panelTopCornerRadius == AppTheme.Sheet.cornerRadius)
         #expect(HomeLifetimeStatsLayout.panelOverlap >= 140)
         #expect(HomeLifetimeStatsLayout.valueFontSize() >= 20)
-        #expect(HomeLifetimeStatsLayout.panelTopContentPaddingWhenOverlapping > HomeLifetimeStatsLayout.panelTopContentPadding)
+        #expect(HomeLifetimeStatsLayout.panelTopContentPaddingWhenOverlapping == AppTheme.Spacing.md)
+        #expect(HomeLifetimeStatsLayout.panelBottomContentPadding == AppTheme.Spacing.lg)
+        #expect(HomeLifetimeStatsLayout.panelTopContentPaddingWhenOverlapping <= HomeLifetimeStatsLayout.panelTopContentPadding)
         #expect(HomeLifetimeStatsLayout.heroBottomExtension > HomeLifetimeStatsLayout.panelOverlap)
         #expect(HomeLifetimeStatsPresentation.topSpeciesEmptyFootnote.contains("Tag marine life"))
     }

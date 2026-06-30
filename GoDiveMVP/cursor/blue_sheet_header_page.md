@@ -1,13 +1,16 @@
 # Blue sheet header page template
 
-Reusable layout for **trip detail**, **buddy detail**, and future full-screen pushed pages that mirror Home:
+Reusable layout for **Home**, **trip detail**, **buddy detail**, **species detail**, and **dive site detail**:
 
-- **Header band** — edge-to-edge media and/or map under the status bar (`PushedHeroBand`)
+- **Header band** — edge-to-edge media and/or map under the status bar (`PushedHeroBand` on pushed pages; carousel band on Home)
 - **Blue sheet** — `HomeLifetimeStatsPanel` with rounded top corners, ocean gradient fill to the screen bottom
-- **Scrollable body** — lists, grids, or horizontal `TabView` pager inside the sheet
+- **Scrollable body** — lifetime stats grid (Home), horizontal pager (detail pages), or scroll lists
 
-**Canonical implementations:** `TripDetailView`, `ViewDiveBuddyDetails`  
-**Shared components:** `BlueSheetHeaderPageLayout`, `BlueSheetHeaderPageLayoutBuilder`, `BlueSheetHeaderScrollPageLayout`  
+**Shells:** `BlueSheetDetailPage` (pushed detail); **`BlueSheetTabRootPage`** (Home, planned)  
+**Canonical implementations:** `LogOverviewView` (Home), `TripDetailView`, `ViewDiveBuddyDetails`, `FieldGuideMarineLifeDetailView`, `ExploreDiveSiteDetailView`  
+**Per-page customizations:** `GoDiveMVP/cursor/blue_sheet_detail_customizations.md`  
+**Home vs detail measurements:** `GoDiveMVP/cursor/blue_sheet_home_vs_detail_layout.md`  
+**Shared components:** `BlueSheetHeaderPageLayout`, `BlueSheetHeaderPageLayoutBuilder`, `BlueSheetHeaderScrollPageLayout`, `HomeOverviewLayout`  
 **Agent rule:** `.cursor/rules/blue-sheet-header-page.mdc`
 
 ---
@@ -97,7 +100,7 @@ struct MyFeatureDetailView: View {
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     },
-                    backChrome: { safeTop, topInset in
+                    topChrome: { safeTop, topInset in
                         myBackHeader(safeTop: safeTop, topInset: topInset)
                     }
                 )

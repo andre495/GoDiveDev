@@ -142,16 +142,27 @@ struct FieldGuideMarineLifeDetailView: View {
     }
 
     var body: some View {
-        FieldGuideBlueSheetPage(
-            accessibilityRootIdentifier: "FieldGuide.SpeciesDetail.Root",
-            scrollAccessibilityIdentifier: nil,
+        BlueSheetDetailPage(
+            configuration: .pushedDetail(
+                accessibilityRootIdentifier: "FieldGuide.SpeciesDetail.Root"
+            ),
             hero: { context in
                 speciesHeroContent(context: context)
             },
-            pinnedContent: {
-                titleBlock
+            heroOverlay: { _ in
+                speciesHeroChromeOverlay
             },
-            panelContent: { bottomScrollInset in
+            panelOverlay: { EmptyView() },
+            pinnedContent: {
+                BlueSheetPinnedSummary(
+                    accent: taxonomyLabel.isEmpty ? nil : taxonomyLabel,
+                    accentColor: categoryAccentColor,
+                    title: species.commonName,
+                    subtitle: species.scientificName.isEmpty ? nil : species.scientificName,
+                    subtitleFont: .title3.italic()
+                )
+            },
+            panelContent: { bottomScrollInset, _ in
                 FieldGuideSpeciesDetailContentPager(
                     aboutText: species.aboutText,
                     typicalSizeLine: FieldGuidePresentation.sizeRangeLine(
@@ -177,10 +188,15 @@ struct FieldGuideMarineLifeDetailView: View {
                     bottomScrollInset: bottomScrollInset,
                     onOpenDive: onOpenDive
                 )
-                .padding(.horizontal, AppTheme.Spacing.md)
             },
-            heroOverlay: { _ in
-                speciesHeroChromeOverlay
+            topChrome: { safeTop, topInset, _ in
+                BlueSheetDetailTopChrome(
+                    safeTop: safeTop,
+                    topInset: topInset,
+                    isEditEnabled: false,
+                    onEdit: {},
+                    editAccessibilityIdentifier: "FieldGuideMarineLifeDetail.Edit"
+                )
             }
         )
         .onAppear {
@@ -310,93 +326,24 @@ struct FieldGuideMarineLifeDetailView: View {
 
     @ViewBuilder
     private func speciesHeroContent(context: BlueSheetHeaderPageLayoutContext) -> some View {
-        Group {
-            switch speciesHeroMode {
-            case .media:
-                speciesMediaHeroContent(height: context.heroHeight)
-            case .map:
-                TripDetailMapView(
-                    pins: mapPins,
-                    fitLayout: context.mapFitLayout(),
-                    onSiteSelected: openDiveSiteFromMap
-                )
-                .accessibilityIdentifier("FieldGuide.SpeciesDetail.Hero.Map")
-            }
-        }
-        .frame(height: context.heroHeight)
-        .frame(maxWidth: .infinity)
-        .clipped()
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("FieldGuide.SpeciesDetail.Hero")
-    }
-
-    @ViewBuilder
-    private func speciesMediaHeroContent(height: CGFloat) -> some View {
-        switch speciesHeroMediaSource {
-        case .taggedUserMedia:
-            taggedUserMediaHero(height: height)
-        case .catalogReference:
-            speciesCatalogHero(height: height)
-        }
-    }
-
-    @ViewBuilder
-    private func taggedUserMediaHero(height: CGFloat) -> some View {
-        Group {
-            if let media = heroTaggedMedia {
-                DiveActivityMediaItemView(
-                    media: media,
-                    showsCaptureDateOverlay: false,
-                    isVideoPlaybackActive: speciesHeroMode == .media
-                        && DiveBuddyDetailPresentation.shouldAutoPlaySelectedVideo(for: media),
-                    loopsVideoPlayback: true
-                )
-                .id(media.id)
-            } else if !taggedMediaItems.isEmpty {
-                AppTheme.Colors.surfaceMuted.opacity(0.35)
-                    .accessibilityLabel("Loading tagged media")
-            } else {
-                speciesCatalogHero(height: height)
-            }
-        }
-        .accessibilityIdentifier("FieldGuide.SpeciesDetail.Hero.TaggedMedia")
-    }
-
-    @ViewBuilder
-    private func speciesCatalogHero(height: CGFloat) -> some View {
-        let availability = catalogHeroAvailability
-        let display = resolvedCatalogHeroDisplay
-
-        Group {
-            switch display {
-            case .model3D:
-                FieldGuideMarineLifeRealityHeroView(
-                    configuration: FieldGuideMarineLifeHeroPresentation.sceneConfiguration(
-                        forModelResourceName: species.featureModelResourceName
-                    ),
-                    height: height
-                )
-            case .image:
-                FieldGuideMarineLifeCatalogImage(
-                    imageURLString: species.featureImageURL,
-                    bundleResourceName: species.featureImageResourceName,
-                    placement: .detailHero(totalHeight: height)
-                )
-            }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            toggleCatalogHeroDisplayIfNeeded()
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            FieldGuideSpeciesHeroPresentation.catalogHeroHeaderAccessibilityLabel(
-                display: display,
-                supportsToggle: availability.supportsHeaderToggle
-            )
+        FieldGuideSpeciesDetailHeroBand(
+            bandContentHeight: context.heroHeight,
+            mapFitLayout: context.mapFitLayout(),
+            heroMode: speciesHeroMode,
+            mediaSource: speciesHeroMediaSource,
+            heroTaggedMedia: heroTaggedMedia,
+            taggedMediaItems: taggedMediaItems,
+            catalogHeroAvailability: catalogHeroAvailability,
+            catalogHeroDisplay: resolvedCatalogHeroDisplay,
+            featureModelResourceName: species.featureModelResourceName,
+            featureImageResourceName: species.featureImageResourceName,
+            featureImageURL: species.featureImageURL,
+            mapPins: mapPins,
+            isVideoPlaybackActive: speciesHeroMode == .media
+                && DiveBuddyDetailPresentation.shouldAutoPlaySelectedVideo(for: heroTaggedMedia),
+            onCatalogHeroTap: toggleCatalogHeroDisplayIfNeeded,
+            onSiteSelected: openDiveSiteFromMap
         )
-        .accessibilityAddTraits(availability.supportsHeaderToggle ? .isButton : [])
-        .accessibilityIdentifier("FieldGuide.SpeciesDetail.Hero.Catalog")
     }
 
     private func openDiveSiteFromMap(_ siteID: UUID) {
@@ -413,27 +360,6 @@ struct FieldGuideMarineLifeDetailView: View {
             return "\(category) · \(subcategory)"
         }
         return category == "—" ? "" : category
-    }
-
-    private var titleBlock: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            if !taxonomyLabel.isEmpty {
-                Text(taxonomyLabel)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(categoryAccentColor)
-            }
-
-            Text(species.commonName)
-                .font(.title.weight(.bold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-
-            if !species.scientificName.isEmpty {
-                Text(species.scientificName)
-                    .font(.title3.italic())
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var depthRowTitle: String {

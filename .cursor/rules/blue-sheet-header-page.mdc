@@ -6,17 +6,29 @@ alwaysApply: false
 
 # Blue sheet header pages
 
-Use this layout for full-screen **pushed** detail pages with a media/map header and scrollable blue panel (trip detail, buddy detail, and similar).
+Use this layout for full-screen **pushed** detail pages and the **Home** tab root: media/map (or carousel) header and scrollable blue panel.
 
 ## Required building blocks
 
-1. **`AppHeaderlessPage`** root — not `AppPage`.
-2. **`BlueSheetHeaderPageLayout`** + **`BlueSheetHeaderPageLayoutBuilder.make`** — do not duplicate `GeometryReader` seam math from `TripDetailView`.
-3. **Hero height** — `BlueSheetHeaderPageLayoutBuilder.heroHeight` with `HomeOverviewPushedLayoutPresentation.seamInputs` / `pushedPageSeamInputs`.
-4. **Sheet** — `HomeLifetimeStatsPanel(overlapsMedia:showsHero, bottomSafeAreaInset: 0)`.
+### Pushed detail (`BlueSheetDetailPage`)
+
+1. **`BlueSheetDetailPage`** — do not hand-roll `GeometryReader` layout math; use builder slots (`hero`, `heroOverlay`, `panelOverlay`, `pinnedContent`, `panelContent`, `topChrome`). Prefer **`BlueSheetDetailTopChrome`** / **`BlueSheetHomeTopChrome`** for top chrome (see **`BlueSheetTopChrome.swift`**).
+2. **`BlueSheetPageShell`** + **`BlueSheetPageLayoutBuilder`** — shared proportions for tab root and pushed detail.
+3. **Hero height** — resolved inside **`BlueSheetPageLayoutBuilder`** via `HomeOverviewPushedLayoutPresentation.seamInputs`.
+4. **Sheet** — `HomeLifetimeStatsPanel` is applied inside **`BlueSheetHeaderPageLayout`** (via the shell).
 5. **Scroll body** — `BlueSheetHeaderScrollPageLayout.scrollPage` or `.staticPage` with `context.bottomScrollInset`.
-6. **Push transition** — seed `layoutSafeAreaTopFloor` / `layoutViewportHeightFloor` from `DiveBuddyDetailPresentation.initialPushedLayout*`; apply `.blueSheetHeaderPageLayoutState`.
-7. **Tab bar** — `.hidesBottomTabBarWhenPushed()`.
+6. **Push transition** — layout floors are managed by **`BlueSheetDetailPage`** (`DiveBuddyDetailPresentation.initialPushedLayout*`).
+7. **Tab bar** — `.hidesBottomTabBarWhenPushed()` via **`BlueSheetDetailPageConfiguration`**.
+
+### Home tab root (`BlueSheetTabRootPage`)
+
+1. **`NavigationStack`** tab root — not `AppHeaderlessPage`-only.
+2. **Layout math** — `HomeOverviewLayout.metrics` + `homeRootViewportHeight`; publish **`HomeOverviewLayoutAnchor`** on settle.
+3. **Top chrome** — `AppHeader` with brand + profile avatar (no back).
+4. **Tab bar clearance** — bottom inset on `HomeLifetimeStatsPanel` for root tab bar.
+5. **Empty state** — no hero/sheet when logbook is empty.
+
+Proportions must match Home — see **`GoDiveMVP/cursor/blue_sheet_detail_customizations.md`** § Home.
 
 ## Hero band
 
@@ -31,10 +43,16 @@ Use this layout for full-screen **pushed** detail pages with a media/map header 
 
 ## Full reference
 
-Read **`GoDiveMVP/cursor/blue_sheet_header_page.md`** before implementing a new page.
+Read **`GoDiveMVP/cursor/blue_sheet_header_page.md`** before implementing a new page.  
+Per-page slot customizations: **`GoDiveMVP/cursor/blue_sheet_detail_customizations.md`**.
 
 ## Canonical examples
 
+- **`BlueSheetDetailPage`** — buddy, trip, species, dive site pushed detail
+- **`BlueSheetTabRootPage`** — Home tab root
+- `log_overview.swift` (Home)
 - `trip_detail_view.swift`
 - `view_dive_buddy_details.swift`
+- `field_guide_marine_life_detail_view.swift`
+- `explore_dive_site_detail_view.swift`
 - `BlueSheetHeaderPageLayout.swift`

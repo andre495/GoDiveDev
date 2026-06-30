@@ -1,0 +1,48 @@
+import CoreGraphics
+import Foundation
+
+/// Home tab-root geometry normalization — same full-screen coordinate space as pushed detail pages.
+///
+/// Tab content **`GeometryReader`** height (~803pt) sits above the root tab bar. Detail pages use full-screen
+/// geometry (~852pt) with the tab bar hidden. Home layout math uses **virtual full-screen height** so hero +
+/// blue sheet proportions match **`BlueSheetDetailPage`** exactly.
+enum HomeTabRootLayoutPresentation: Sendable {
+
+    nonisolated static func tabContentGeometryHeight(
+        geometryHeight: CGFloat,
+        isNavigationStackAtRoot: Bool,
+        frozenTabContentGeometryHeight: CGFloat?
+    ) -> CGFloat {
+        if isNavigationStackAtRoot {
+            return HomeOverviewLayout.settledHomeTabContentGeometryHeight(from: geometryHeight)
+        }
+        if let frozenTabContentGeometryHeight, frozenTabContentGeometryHeight > 0 {
+            return frozenTabContentGeometryHeight
+        }
+        return HomeOverviewLayout.settledHomeTabContentGeometryHeight(from: geometryHeight)
+    }
+
+    /// Full-screen height detail pages use when the root tab bar is hidden.
+    nonisolated static func referenceFullScreenGeometryHeight(from tabContentGeometryHeight: CGFloat) -> CGFloat {
+        HomeOverviewLayout.tabRootVirtualFullScreenHeight(from: tabContentGeometryHeight)
+    }
+
+    /// Hero viewport band — same subtraction detail pages apply to full-screen geometry.
+    nonisolated static func referenceHeroLayoutViewportHeight(from tabContentGeometryHeight: CGFloat) -> CGFloat {
+        HomeOverviewLayout.pushedHeroLayoutViewportHeight(
+            from: referenceFullScreenGeometryHeight(from: tabContentGeometryHeight)
+        )
+    }
+
+    /// Detail-style **`VStack`** frame — virtual full screen; panel bottom inset clears the root tab bar.
+    nonisolated static func stackFrameHeight(from tabContentGeometryHeight: CGFloat) -> CGFloat {
+        HomeOverviewLayout.pushedPageLayoutHeight(
+            from: referenceFullScreenGeometryHeight(from: tabContentGeometryHeight)
+        )
+    }
+
+    /// Bottom content inset for the stats panel — tab bar + home indicator (detail uses scroll inset only).
+    nonisolated static func panelBottomSafeAreaInset(tabBarClearance: CGFloat, safeAreaBottom: CGFloat) -> CGFloat {
+        tabBarClearance + safeAreaBottom
+    }
+}

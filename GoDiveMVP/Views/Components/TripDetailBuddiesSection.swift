@@ -27,7 +27,6 @@ struct TripDetailBuddiesSection: View {
                     .font(.body)
                     .foregroundStyle(AppTheme.Colors.secondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, AppTheme.Spacing.md)
                     .accessibilityIdentifier("TripDetail.Buddies.Empty")
             } else {
                 LazyVGrid(columns: columns, alignment: .center, spacing: TripDetailBuddiesPresentation.gridSpacing) {
@@ -35,7 +34,6 @@ struct TripDetailBuddiesSection: View {
                         buddyCell(for: buddy)
                     }
                 }
-                .padding(.horizontal, AppTheme.Spacing.md)
                 .accessibilityIdentifier("TripDetail.Buddies.List")
             }
         }

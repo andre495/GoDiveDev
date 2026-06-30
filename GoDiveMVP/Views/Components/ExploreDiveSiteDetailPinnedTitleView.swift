@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Pinned title block on catalog + reference dive-site detail (**FieldGuideBlueSheetPage**).
+/// Pinned title block on catalog + reference dive-site detail (**`BlueSheetDetailPage`**).
 struct ExploreDiveSiteDetailPinnedTitleView: View {
     let record: DiveSiteDisplayRecord
     let starRating: Int
@@ -23,44 +23,38 @@ struct ExploreDiveSiteDetailPinnedTitleView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
-                DiveSitePinnedStarRatingView(
-                    rating: starRating,
-                    isEditable: isStarRatingEditable,
-                    onSelectRating: onStarRatingSelected
-                )
-                .accessibilityIdentifier("\(accessibilityIdentifier).StarRating")
-
-                Spacer(minLength: AppTheme.Spacing.sm)
-
-                Text(record.pinnedDiveCountLabel)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(AppTheme.Colors.accent)
-                    .multilineTextAlignment(.trailing)
-                    .lineLimit(1)
-                    .accessibilityIdentifier("\(accessibilityIdentifier).DiveCount")
+        BlueSheetPinnedSummary(
+            title: record.displayName,
+            titleAccessibilityIdentifier: "\(accessibilityIdentifier).Title",
+            subtitle: record.pinnedLocationLine,
+            subtitleAccessibilityIdentifier: record.pinnedLocationLine == nil
+                ? nil
+                : "\(accessibilityIdentifier).Location",
+            accessibilityIdentifier: accessibilityIdentifier,
+            topRow: {
+                diveSiteRatingRow
             }
+        )
+    }
 
-            Text(record.displayName)
-                .font(.title.weight(.bold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-                .multilineTextAlignment(.leading)
-                .accessibilityAddTraits(.isHeader)
+    @ViewBuilder
+    private var diveSiteRatingRow: some View {
+        HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
+            DiveSitePinnedStarRatingView(
+                rating: starRating,
+                isEditable: isStarRatingEditable,
+                onSelectRating: onStarRatingSelected
+            )
+            .accessibilityIdentifier("\(accessibilityIdentifier).StarRating")
 
-            if let locationLine = record.pinnedLocationLine {
-                Text(locationLine)
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-                    .multilineTextAlignment(.leading)
-                    .lineLimit(2)
-                    .truncationMode(.tail)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityIdentifier("\(accessibilityIdentifier).Location")
-            }
+            Spacer(minLength: AppTheme.Spacing.sm)
+
+            Text(record.pinnedDiveCountLabel)
+                .font(BlueSheetPinnedSummaryPresentation.accentMediumFont)
+                .foregroundStyle(AppTheme.Colors.accent)
+                .multilineTextAlignment(.trailing)
+                .lineLimit(1)
+                .accessibilityIdentifier("\(accessibilityIdentifier).DiveCount")
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier(accessibilityIdentifier)
     }
 }

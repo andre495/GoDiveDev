@@ -21,7 +21,26 @@ enum HomeOverviewLayoutAnchor {
     }
 
     static func publish(_ snapshot: RootSnapshot) {
+        guard _root != snapshot else { return }
         _root = snapshot
+    }
+
+    /// Publishes the latest settled **`BlueSheetTabRootPage`** layout for pushed detail seam sync.
+    static func publishHomeTabRootLayout(
+        _ layout: BlueSheetHeaderPageLayoutContext,
+        statsPanelContentHeight: CGFloat,
+        showsBuddyLeaderboard: Bool
+    ) {
+        publish(
+            RootSnapshot(
+                heroHeight: layout.heroHeight,
+                screenWidth: layout.geometryWidth,
+                topSafeAreaInset: layout.heroTopSafeAreaInset,
+                statsPanelContentHeight: statsPanelContentHeight,
+                showsBuddyLeaderboard: showsBuddyLeaderboard,
+                homeTabViewportHeight: layout.layoutViewportHeight
+            )
+        )
     }
 
     #if DEBUG

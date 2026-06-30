@@ -5,6 +5,8 @@ enum PageLayoutKind: String, Sendable, CaseIterable, Identifiable {
     case home
     case buddyDetail
     case tripDetail
+    case speciesDetail
+    case diveSiteDetail
 
     var id: String { rawValue }
 
@@ -13,6 +15,8 @@ enum PageLayoutKind: String, Sendable, CaseIterable, Identifiable {
         case .home: "Home"
         case .buddyDetail: "Buddy detail"
         case .tripDetail: "Trip detail"
+        case .speciesDetail: "Species detail"
+        case .diveSiteDetail: "Dive site detail"
         }
     }
 }

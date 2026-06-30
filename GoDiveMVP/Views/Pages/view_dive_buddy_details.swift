@@ -43,10 +43,7 @@ struct ViewDiveBuddyDetails: View {
     @State private var buddyDiveNavigationID: BuddyDiveNavigationID?
     @State private var buddySiteNavigationID: UUID?
     @State private var buddyHeroMode: DiveBuddyDetailHeroHeaderView.Mode = .media
-    @State private var headerClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
     @State private var hasLoadedTripRows = false
-    @State private var layoutSafeAreaTopFloor = DiveBuddyDetailPresentation.initialPushedLayoutSafeAreaTopFloor()
-    @State private var layoutViewportHeightFloor = DiveBuddyDetailPresentation.initialPushedLayoutViewportFloor()
 
     private struct BuddyDiveNavigationID: Identifiable, Hashable {
         let id: UUID
@@ -110,14 +107,6 @@ struct ViewDiveBuddyDetails: View {
 
     private var ownerDiveActivitiesForLayout: [DiveActivity] {
         cachedSharedDiveActivities
-    }
-
-    private var homeLayoutSeamInputs: HomeOverviewPushedLayoutPresentation.SeamInputs {
-        HomeOverviewPushedLayoutPresentation.pushedPageSeamInputs()
-    }
-
-    private var homeAlignedStatsPanelContentHeight: CGFloat {
-        homeLayoutSeamInputs.statsPanelContentHeight
     }
 
     private var effectiveBuddyDiveTags: [DiveBuddyTag] {
@@ -191,124 +180,57 @@ struct ViewDiveBuddyDetails: View {
     }
 
     private var buddyDetailsPage: some View {
-        AppHeaderlessPage {
-            GeometryReader { proxy in
-                let rawSafeTop = AppScrollUnderHeaderListLayout.resolvedSafeAreaTop(proxy.safeAreaInsets.top)
-                let safeTop = max(rawSafeTop, layoutSafeAreaTopFloor)
-                let topInset = AppScrollUnderHeaderListLayout.listTopInset(
-                    safeAreaTop: safeTop,
-                    headerClearance: headerClearance
+        BlueSheetDetailPage(
+            configuration: .pushedDetail(
+                accessibilityRootIdentifier: "DiveBuddyDetails.Root"
+            ),
+            hero: { context in
+                DiveBuddyDetailHeroHeaderView(
+                    media: displayHeroTaggedMedia,
+                    mapPins: showsDeferredHeroMap ? cachedMapPins : [],
+                    mapFitLayout: context.mapFitLayout(),
+                    height: context.heroHeight,
+                    expectsTaggedMedia: expectsBuddyHeroTaggedMedia,
+                    isMapContentReady: showsDeferredHeroMap,
+                    shouldAutoPlaySelectedVideo: allowsHeroVideoAutoplay
+                        && DiveBuddyDetailPresentation.shouldAutoPlaySelectedVideo(
+                            for: displayHeroTaggedMedia
+                        ),
+                    onSiteSelected: openDiveSiteFromMap,
+                    selectedMode: $buddyHeroMode
                 )
-                let geometryHeight = max(proxy.size.height, 1)
-                let bottomScrollInset = HomeOverviewLayout.pushedPageScrollBottomInset(
-                    safeAreaBottom: proxy.safeAreaInsets.bottom
-                )
-                let layoutHeight = HomeOverviewLayout.pushedPageLayoutHeight(
-                    from: geometryHeight,
-                    transitionViewportFloor: layoutViewportHeightFloor
-                )
-                let heroTopSafeAreaInset = HomeOverviewLayout.pushedHeroTopSafeAreaInset(
-                    rawGeometrySafeTop: proxy.safeAreaInsets.top,
-                    transitionSafeTopFloor: layoutSafeAreaTopFloor
-                )
-                let heroHeight = DiveBuddyDetailPresentation.heroHeight(
-                    viewportHeight: geometryHeight,
-                    screenWidth: proxy.size.width,
-                    topSafeAreaInset: heroTopSafeAreaInset,
-                    statsPanelContentHeight: homeAlignedStatsPanelContentHeight,
-                    showsBuddyLeaderboard: homeLayoutSeamInputs.showsBuddyLeaderboard,
-                    transitionViewportFloor: layoutViewportHeightFloor
-                )
-
-                ZStack(alignment: .top) {
-                    VStack(spacing: -HomeLifetimeStatsLayout.panelOverlap) {
-                        PushedHeroBand(
-                            height: heroHeight,
-                            topSafeAreaInset: heroTopSafeAreaInset
-                        ) {
-                            DiveBuddyDetailHeroHeaderView(
-                                media: displayHeroTaggedMedia,
-                                mapPins: showsDeferredHeroMap ? cachedMapPins : [],
-                                mapFitLayout: TripDetailMapFitLayout(
-                                    mapHeight: heroHeight,
-                                    topObstructionHeight: topInset
-                                ),
-                                height: heroHeight,
-                                expectsTaggedMedia: expectsBuddyHeroTaggedMedia,
-                                isMapContentReady: showsDeferredHeroMap,
-                                shouldAutoPlaySelectedVideo: allowsHeroVideoAutoplay
-                                    && DiveBuddyDetailPresentation.shouldAutoPlaySelectedVideo(
-                                        for: displayHeroTaggedMedia
-                                    ),
-                                onSiteSelected: openDiveSiteFromMap,
-                                selectedMode: $buddyHeroMode
-                            )
-                        }
-
-                        HomeLifetimeStatsPanel(
-                            overlapsMedia: true,
-                            bottomSafeAreaInset: 0
-                        ) {
-                            VStack(alignment: .leading, spacing: 0) {
-                                buddyIdentityRow
-
-                                buddyContentPager(
-                                    bottomScrollInset: bottomScrollInset,
-                                    onPageFirstMounted: handleBuddyPagerPageFirstMounted
-                                )
-                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                            }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                        }
-                        .overlay(alignment: .topLeading) {
-                            buddyAvatarHeader
-                                .padding(.leading, DiveBuddyDetailPresentation.avatarLeadingInset)
-                                .offset(y: -Layout.avatarOverlapOffset)
-                                .accessibilityIdentifier("DiveBuddyDetails.AvatarOverlay")
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .accessibilityIdentifier("DiveBuddyDetails.ContentPanel")
-                        .zIndex(1)
-                        .ignoresSafeArea(edges: .bottom)
-                    }
-                    .overlay(alignment: .top) {
-                        if showsBuddyHeroModeToggle {
-                            DiveBuddyDetailHeroModeToggle(selectedMode: $buddyHeroMode)
-                                .padding(.trailing, AppTheme.Spacing.md)
-                                .padding(.bottom, DiveBuddyDetailPresentation.heroModeToggleBottomPadding)
-                                .frame(width: proxy.size.width, height: heroHeight, alignment: .bottomTrailing)
-                        }
-                    }
-                    .frame(width: proxy.size.width, height: layoutHeight, alignment: .top)
-                    .ignoresSafeArea(edges: .bottom)
-                    .animation(nil, value: heroHeight)
-
-                    buddyDetailBackChrome(safeTop: safeTop, topInset: topInset)
+            },
+            heroOverlay: { _ in
+                if showsBuddyHeroModeToggle {
+                    DiveBuddyDetailHeroModeToggle(selectedMode: $buddyHeroMode)
+                        .padding(.trailing, AppTheme.Spacing.md)
+                        .padding(.bottom, DiveBuddyDetailPresentation.heroModeToggleBottomPadding)
                 }
-                .onPreferenceChange(AppHeaderMetrics.HeightKey.self) { height in
-                    guard height > 0, height != headerClearance else { return }
-                    var transaction = Transaction()
-                    transaction.disablesAnimations = true
-                    withTransaction(transaction) {
-                        headerClearance = height
-                    }
-                }
-                .onChange(of: rawSafeTop, initial: true) { _, resolvedTop in
-                    guard resolvedTop > layoutSafeAreaTopFloor else { return }
-                    layoutSafeAreaTopFloor = resolvedTop
-                }
-                .onChange(of: geometryHeight, initial: true) { _, height in
-                    let subtractedViewport = HomeOverviewLayout.viewportHeightMatchingHomeTab(from: height)
-                    let transitionViewport = HomeOverviewLayout.pushedHeroLayoutTransitionViewportCandidate(
-                        from: height
-                    )
-                    guard subtractedViewport < transitionViewport else { return }
-                    guard transitionViewport > layoutViewportHeightFloor else { return }
-                    layoutViewportHeightFloor = transitionViewport
-                }
+            },
+            panelOverlay: {
+                buddyAvatarHeader
+                    .padding(.leading, DiveBuddyDetailPresentation.avatarLeadingInset)
+                    .offset(y: -Layout.avatarOverlapOffset)
+                    .accessibilityIdentifier("DiveBuddyDetails.AvatarOverlay")
+            },
+            pinnedContent: {
+                buddyPinnedSummary
+            },
+            panelContent: { bottomScrollInset, _ in
+                buddyContentPager(
+                    bottomScrollInset: bottomScrollInset,
+                    onPageFirstMounted: handleBuddyPagerPageFirstMounted
+                )
+            },
+            topChrome: { safeTop, topInset, _ in
+                BlueSheetDetailTopChrome(
+                    safeTop: safeTop,
+                    topInset: topInset,
+                    onEdit: { showsEditSheet = true },
+                    editAccessibilityIdentifier: "DiveBuddyDetails.Edit"
+                )
             }
-        }
-        .ignoresSafeArea(edges: [.horizontal])
+        )
         .navigationDestination(item: $buddyDiveNavigationID) { target in
             if let activity = ownerDiveActivitiesForLayout.first(where: { $0.id == target.id }) {
                 ViewSingleActivity(activity: activity)
@@ -343,7 +265,6 @@ struct ViewDiveBuddyDetails: View {
                 allowsHeroVideoAutoplay = true
             }
         }
-        .hidesBottomTabBarWhenPushed()
         .onAppear {
             prepareBuddyChromeForDisplay()
             DiveMediaScopeCache.shared.activateScope(.buddyDetail(buddy.id))
@@ -397,7 +318,6 @@ struct ViewDiveBuddyDetails: View {
         } message: {
             Text(contactLinkError ?? "")
         }
-        .accessibilityIdentifier("DiveBuddyDetails.Root")
     }
 
     private func catalogSitesFromSharedDives(_ sharedDives: [DiveActivity]) -> [DiveSite] {
@@ -564,39 +484,6 @@ struct ViewDiveBuddyDetails: View {
         await DiveMediaPreviewStorage.ensureStoredPreviews(for: [hero], modelContext: modelContext)
     }
 
-    @ViewBuilder
-    private func buddyDetailBackChrome(
-        safeTop: CGFloat,
-        topInset: CGFloat
-    ) -> some View {
-        LogbookTopChromeScrim(topObstructionHeight: topInset)
-            .padding(.top, -safeTop)
-            .ignoresSafeArea(edges: .top)
-            .allowsHitTesting(false)
-            .zIndex(0.5)
-
-        Color.clear
-            .frame(height: topInset)
-            .frame(maxWidth: .infinity, alignment: .top)
-            .contentShape(Rectangle())
-            .accessibilityHidden(true)
-            .zIndex(0.75)
-
-        AppHeader(
-            title: "",
-            showsBackButton: true,
-            showsBrandWordmark: false,
-            statusBarSafeAreaTop: safeTop
-        ) {
-            AppEditToolbarButton(
-                action: { showsEditSheet = true },
-                accessibilityIdentifier: "DiveBuddyDetails.Edit"
-            )
-        }
-        .frame(maxWidth: .infinity, alignment: .top)
-        .zIndex(1)
-    }
-
     private func openSharedDive(_ diveID: UUID) {
         buddyDiveNavigationID = BuddyDiveNavigationID(id: diveID)
     }
@@ -654,35 +541,27 @@ struct ViewDiveBuddyDetails: View {
         static let avatarOverlapOffset = DiveBuddyDetailPresentation.avatarOverlapOffset()
     }
 
-    private var buddyIdentityRow: some View {
-        HStack(alignment: .top, spacing: AppTheme.Spacing.md) {
-            Color.clear
-                .frame(
-                    width: Layout.avatarDiameter,
-                    height: Layout.avatarOverlapOffset
-                )
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                Text(buddy.displayName)
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
-                    .multilineTextAlignment(.leading)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.85)
-
-                Text(DiveBuddyRosterPresentation.sharedDiveCountLabel(headerSharedDiveCount))
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.accent)
+    private var buddyPinnedSummary: some View {
+        BlueSheetPinnedSummary(
+            accent: DiveBuddyRosterPresentation.sharedDiveCountLabel(headerSharedDiveCount),
+            accentFont: BlueSheetPinnedSummaryPresentation.buddyAccentFont,
+            title: buddy.displayName,
+            titleFont: BlueSheetPinnedSummaryPresentation.buddyTitleFont,
+            titleLineLimit: 2,
+            titleMinimumScaleFactor: 0.85,
+            accessibilityIdentifier: "DiveBuddyDetails.Header",
+            usesLeadingAccessoryLayout: true,
+            contentVerticalOffset: -DiveBuddyDetailPresentation.identityTextLift,
+            extraBottomPadding: AppTheme.Spacing.lg,
+            leadingAccessory: {
+                Color.clear
+                    .frame(
+                        width: Layout.avatarDiameter,
+                        height: Layout.avatarOverlapOffset
+                    )
+                    .accessibilityHidden(true)
             }
-            .offset(y: -DiveBuddyDetailPresentation.identityTextLift)
-
-            Spacer(minLength: 0)
-        }
-        .padding(.bottom, AppTheme.Spacing.lg)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("DiveBuddyDetails.Header")
+        )
     }
 
     @ViewBuilder
