@@ -75,35 +75,62 @@ struct LogOverviewView: View {
         )
     }
 
-    private func homeOverviewLayoutMetrics(
-        for proxy: GeometryProxy,
-        viewportHeight: CGFloat
-    ) -> HomeOverviewLayout.Metrics {
+    @ViewBuilder
+    private func homeDashboard(hasCarouselMedia: Bool) -> some View {
         let statsContentHeight = HomeLifetimeStatsLayout.estimatedPanelContentHeight(
             showsBuddyLeaderboard: showsHomeBuddyLeaderboard
         )
-        return HomeOverviewLayout.metrics(
-            viewportHeight: viewportHeight,
-            screenWidth: proxy.size.width,
-            topSafeAreaInset: proxy.safeAreaInsets.top,
-            statsPanelContentHeight: statsContentHeight
+        let seamInputs = HomeOverviewPushedLayoutPresentation.SeamInputs(
+            statsPanelContentHeight: statsContentHeight,
+            showsBuddyLeaderboard: showsHomeBuddyLeaderboard
         )
-    }
 
-    private func resolvedHomeViewportHeight(geometryHeight: CGFloat) -> CGFloat {
-        HomeRootViewportPresentation.resolvedViewportHeight(
-            geometryHeight: geometryHeight,
+        BlueSheetTabRootPage(
+            configuration: .tabRoot(accessibilityRootIdentifier: "GoDive.Home"),
+            seamInputs: seamInputs,
             isNavigationStackAtRoot: isHomeNavigationStackAtRoot,
-            frozenRootViewportHeight: frozenHomeRootViewportHeight
-        ).height
+            allowsTopChromeHitTesting: !homeHeroInteractionOverlayActive,
+            onLayoutResolved: { layout in
+                HomeOverviewLayoutAnchor.publishHomeTabRootLayout(
+                    layout,
+                    statsPanelContentHeight: statsContentHeight,
+                    showsBuddyLeaderboard: showsHomeBuddyLeaderboard
+                )
+            },
+            frozenRootViewportHeight: $frozenHomeRootViewportHeight
+        ) { context in
+            if hasCarouselMedia {
+                homeCarouselBlock(context: context)
+            } else {
+                BlueSheetDetailHeroBandFill(accessibilityIdentifier: "Home.MediaCarousel.Empty.Hero") {
+                    HomeMediaCarouselEmptyPlaceholder(
+                        containerWidth: context.geometryWidth,
+                        topSafeAreaInset: context.heroTopSafeAreaInset,
+                        heroBandHeight: context.heroHeight
+                    )
+                }
+            }
+        } heroOverlay: { _ in
+            EmptyView()
+        } panelContent: { _ in
+            homeStatsPanelContent
+        } topChrome: { safeTop, topInset, _ in
+            BlueSheetHomeTopChrome(
+                safeTop: safeTop,
+                topInset: topInset,
+                title: "Home"
+            ) {
+                homeProfileHeaderButton
+            }
+        }
     }
 
     var body: some View {
         NavigationStack(path: $path) {
-            GeometryReader { proxy in
-                ZStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        if ownerDiveActivities.isEmpty {
+            ZStack(alignment: .top) {
+                if ownerDiveActivities.isEmpty {
+                    GeometryReader { proxy in
+                        VStack(alignment: .leading, spacing: 0) {
                             Color.clear
                                 .frame(height: headerClearance)
 
@@ -113,37 +140,28 @@ struct LogOverviewView: View {
                                 .padding(.horizontal, AppTheme.Spacing.lg)
 
                             Spacer(minLength: AppTheme.Spacing.lg)
-                        } else {
-                            homeDashboard(for: proxy, hasCarouselMedia: !carouselHighlights.isEmpty)
                         }
-                    }
-                    .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
+                        .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
 
-                    AppHeader(title: "Home", showsBackButton: false, statusBarSafeAreaTop: proxy.safeAreaInsets.top) {
-                        Button {
-                            path.append(.profile)
-                        } label: {
-                            ProfileAvatarView(
-                                profilePhoto: profilePhotoForHeader,
-                                diameter: Layout.profileAvatarDiameter
-                            )
-                            .frame(minWidth: Layout.profileAvatarDiameter, minHeight: Layout.profileAvatarDiameter)
-                            .contentShape(Rectangle())
+                        BlueSheetHomeTopChrome(
+                            safeTop: proxy.safeAreaInsets.top,
+                            topInset: headerClearance,
+                            title: "Home"
+                        ) {
+                            homeProfileHeaderButton
                         }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel("Profile")
-                        .accessibilityIdentifier("Home.ProfileLink")
+                        .allowsHitTesting(!homeHeroInteractionOverlayActive)
+                        .zIndex(1)
                     }
-                    .allowsHitTesting(!homeHeroInteractionOverlayActive)
-                    .zIndex(1)
+                    .background {
+                        AppTheme.Colors.screenBackgroundGradient
+                            .ignoresSafeArea()
+                    }
+                } else {
+                    homeDashboard(hasCarouselMedia: !carouselHighlights.isEmpty)
                 }
-                .frame(width: proxy.size.width, height: proxy.size.height)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background {
-                AppTheme.Colors.screenBackgroundGradient
-                    .ignoresSafeArea()
-            }
             .onPreferenceChange(AppHeaderMetrics.HeightKey.self) { height in
                 if height > 0 { headerClearance = height }
             }
@@ -209,72 +227,44 @@ struct LogOverviewView: View {
         accountSession.currentProfile?.profilePhoto
     }
 
-    @ViewBuilder
-    private func homeDashboard(for proxy: GeometryProxy, hasCarouselMedia: Bool) -> some View {
-        let statsContentHeight = HomeLifetimeStatsLayout.estimatedPanelContentHeight(
-            showsBuddyLeaderboard: showsHomeBuddyLeaderboard
-        )
-        let viewportHeight = resolvedHomeViewportHeight(geometryHeight: proxy.size.height)
-        let homeLayout = homeOverviewLayoutMetrics(for: proxy, viewportHeight: viewportHeight)
-        let bottomInset = proxy.safeAreaInsets.bottom
-
-        VStack(spacing: -HomeLifetimeStatsLayout.panelOverlap) {
-            if hasCarouselMedia {
-                homeCarouselBlock(
-                    screenWidth: proxy.size.width,
-                    topSafeAreaInset: proxy.safeAreaInsets.top
-                )
-                .frame(height: homeLayout.heroHeight)
-            } else {
-                HomeMediaCarouselEmptyPlaceholder(
-                    containerWidth: proxy.size.width,
-                    topSafeAreaInset: proxy.safeAreaInsets.top
-                )
-                .padding(.top, -proxy.safeAreaInsets.top)
-                .ignoresSafeArea(edges: .top)
-                .frame(height: homeLayout.heroHeight)
-            }
-
-            homeStatsPanel(overlapsMedia: true, bottomSafeAreaInset: bottomInset)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .frame(width: proxy.size.width, height: viewportHeight, alignment: .top)
-        .onChange(of: proxy.size.height, initial: true) { _, height in
-            guard isHomeNavigationStackAtRoot, height > 0 else { return }
-            frozenHomeRootViewportHeight = height
-        }
-        .onAppear {
-            HomeOverviewLayoutAnchor.publish(
-                HomeOverviewLayoutAnchor.RootSnapshot(
-                    heroHeight: homeLayout.heroHeight,
-                    screenWidth: proxy.size.width,
-                    topSafeAreaInset: proxy.safeAreaInsets.top,
-                    statsPanelContentHeight: statsContentHeight,
-                    showsBuddyLeaderboard: showsHomeBuddyLeaderboard,
-                    homeTabViewportHeight: viewportHeight
-                )
+    private var homeProfileHeaderButton: some View {
+        Button {
+            path.append(.profile)
+        } label: {
+            ProfileAvatarView(
+                profilePhoto: profilePhotoForHeader,
+                diameter: Layout.profileAvatarDiameter
             )
+            .frame(minWidth: Layout.profileAvatarDiameter, minHeight: Layout.profileAvatarDiameter)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.borderless)
+        .accessibilityLabel("Profile")
+        .accessibilityIdentifier("Home.ProfileLink")
     }
 
     @ViewBuilder
-    private func homeCarouselBlock(screenWidth: CGFloat, topSafeAreaInset: CGFloat) -> some View {
-        HomeMediaCarouselSection(
-            highlights: carouselHighlights,
-            mediaByID: homeAggregate.mediaByID,
-            sightings: homeAggregate.ownerSightings,
-            marineLifeCatalog: marineLifeCatalog,
-            taggedBuddyRowsByMediaID: homeAggregate.taggedBuddyRowsByMediaID,
-            ownerProfileID: ownerProfileID,
-            containerWidth: screenWidth,
-            topSafeAreaInset: topSafeAreaInset,
-            headerOverlayHeight: headerClearance,
-            selfBuddyID: selfBuddyID,
-            isHeroPlaybackActive: isHomeNavigationStackAtRoot,
-            onOpenDive: { path.append(.diveDetail($0)) },
-            onOpenMedia: { diveID, mediaID in path.append(.diveMedia(diveID: diveID, mediaID: mediaID)) },
-            onOpenBuddy: openBuddyOrProfile
-        )
+    private func homeCarouselBlock(context: BlueSheetHeaderPageLayoutContext) -> some View {
+        BlueSheetDetailHeroBandFill(accessibilityIdentifier: "Home.MediaCarousel.Hero") {
+            HomeMediaCarouselSection(
+                highlights: carouselHighlights,
+                mediaByID: homeAggregate.mediaByID,
+                sightings: homeAggregate.ownerSightings,
+                marineLifeCatalog: marineLifeCatalog,
+                taggedBuddyRowsByMediaID: homeAggregate.taggedBuddyRowsByMediaID,
+                ownerProfileID: ownerProfileID,
+                containerWidth: context.geometryWidth,
+                topSafeAreaInset: context.heroTopSafeAreaInset,
+                headerOverlayHeight: context.topInset,
+                heroBandHeight: context.heroHeight,
+                appliesTopSafeAreaBleed: false,
+                selfBuddyID: selfBuddyID,
+                isHeroPlaybackActive: isHomeNavigationStackAtRoot,
+                onOpenDive: { path.append(.diveDetail($0)) },
+                onOpenMedia: { diveID, mediaID in path.append(.diveMedia(diveID: diveID, mediaID: mediaID)) },
+                onOpenBuddy: openBuddyOrProfile
+            )
+        }
     }
 
     private func openBuddyOrProfile(buddyID: UUID) {
@@ -283,17 +273,6 @@ struct LogOverviewView: View {
         } else {
             path.append(.diveBuddy(buddyID))
         }
-    }
-
-    @ViewBuilder
-    private func homeStatsPanel(overlapsMedia: Bool, bottomSafeAreaInset: CGFloat) -> some View {
-        HomeLifetimeStatsPanel(
-            overlapsMedia: overlapsMedia,
-            bottomSafeAreaInset: bottomSafeAreaInset
-        ) {
-            homeStatsPanelContent
-        }
-        .zIndex(1)
     }
 
     @ViewBuilder

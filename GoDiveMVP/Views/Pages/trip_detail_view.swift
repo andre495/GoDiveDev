@@ -23,9 +23,6 @@ struct TripDetailView: View {
     @Query(sort: \DiveBuddy.displayName) private var rosterBuddies: [DiveBuddy]
 
     @State private var navigationTarget: TripDetailNavigationTarget?
-    @State private var headerClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
-    @State private var layoutSafeAreaTopFloor = DiveBuddyDetailPresentation.initialPushedLayoutSafeAreaTopFloor()
-    @State private var layoutViewportHeightFloor = DiveBuddyDetailPresentation.initialPushedLayoutViewportFloor()
     @State private var contentSnapshot = TripDetailContentSnapshot.empty
     @State private var showsDeferredMap = false
     @State private var tripHeroMode: PushedDetailHeroHeaderView.Mode = .media
@@ -81,14 +78,6 @@ struct TripDetailView: View {
         return diveActivities
     }
 
-    private var homeLayoutSeamInputs: HomeOverviewPushedLayoutPresentation.SeamInputs {
-        HomeOverviewPushedLayoutPresentation.pushedPageSeamInputs()
-    }
-
-    private var homeAlignedStatsPanelContentHeight: CGFloat {
-        homeLayoutSeamInputs.statsPanelContentHeight
-    }
-
     private var linkedDiveActivities: [DiveActivity] {
         guard let trip else { return [] }
         return DiveTripPresentation.linkedDiveActivities(for: trip)
@@ -126,18 +115,17 @@ struct TripDetailView: View {
     }
 
     var body: some View {
-        AppHeaderlessPage {
+        Group {
             if let trip {
-                tripDetailContent(trip: trip)
+                tripDetailBlueSheet(trip: trip)
             } else {
-                missingTripContent
+                missingTripBlueSheet
             }
         }
         .navigationDestination(item: $navigationTarget) { target in
             tripNavigationDestination(for: target)
         }
         .toolbar(.hidden, for: .navigationBar)
-        .hidesBottomTabBarWhenPushed()
         .task(id: tripDetailContentToken) {
             await Task.yield()
             let signpostID = AppPerformanceSignpost.begin(.tripDetailContentRebuild)
@@ -175,51 +163,38 @@ struct TripDetailView: View {
             }
         }
         #endif
-        .accessibilityIdentifier("TripDetail.Root")
     }
 
-    private var missingTripContent: some View {
-        GeometryReader { proxy in
-            let safeTop = AppScrollUnderHeaderListLayout.resolvedSafeAreaTop(proxy.safeAreaInsets.top)
-            let topInset = AppScrollUnderHeaderListLayout.listTopInset(
-                safeAreaTop: safeTop,
-                headerClearance: headerClearance
-            )
-            let headerScrollClearance = max(
-                0,
-                topInset - HomeLifetimeStatsLayout.panelTopContentPadding
-            )
-
-            ZStack(alignment: .top) {
-                HomeLifetimeStatsPanel(
-                    overlapsMedia: false,
-                    bottomSafeAreaInset: proxy.safeAreaInsets.bottom
-                ) {
-                    Text("This trip is no longer available.")
-                        .font(.body)
-                        .foregroundStyle(AppTheme.Colors.secondaryText)
-                        .multilineTextAlignment(.center)
-                        .padding(.top, headerScrollClearance)
-                        .padding(.horizontal, AppTheme.Spacing.lg)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                }
-
-                tripDetailBackChrome(
+    private var missingTripBlueSheet: some View {
+        BlueSheetDetailPage(
+            configuration: .pushedDetail(
+                accessibilityRootIdentifier: "TripDetail.Root",
+                showsHero: false
+            ),
+            hero: { _ in EmptyView() },
+            heroOverlay: { _ in EmptyView() },
+            panelOverlay: { EmptyView() },
+            pinnedContent: {
+                Text("This trip is no longer available.")
+                    .font(.body)
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, alignment: .top)
+            },
+            panelContent: { _, _ in
+                Color.clear
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            },
+            topChrome: { safeTop, topInset, _ in
+                BlueSheetDetailTopChrome(
                     safeTop: safeTop,
                     topInset: topInset,
-                    showsMapScrim: false
+                    isEditEnabled: false,
+                    onEdit: {},
+                    editAccessibilityIdentifier: "TripDetail.Edit"
                 )
             }
-            .frame(width: proxy.size.width, height: proxy.size.height)
-            .onPreferenceChange(AppHeaderMetrics.HeightKey.self) { height in
-                guard height > 0, height != headerClearance else { return }
-                var transaction = Transaction()
-                transaction.disablesAnimations = true
-                withTransaction(transaction) {
-                    headerClearance = height
-                }
-            }
-        }
+        )
     }
 
     private func rebuildTripDetailContent() {
@@ -307,272 +282,140 @@ struct TripDetailView: View {
     }
 
     @ViewBuilder
-    private func tripDetailContent(trip: DiveTrip) -> some View {
+    private func tripDetailBlueSheet(trip: DiveTrip) -> some View {
         let showsTripStats = DiveTripActivityLinking.hasStarted(trip: trip)
         let mapPins = contentSnapshot.mapPins
-        let mediaPhotos = contentSnapshot.mediaPhotos
-        let showsHero = !mapPins.isEmpty || !mediaPhotos.isEmpty
         let showsHeroModeToggle = !mapPins.isEmpty
 
-        GeometryReader { proxy in
-            let rawSafeTop = AppScrollUnderHeaderListLayout.resolvedSafeAreaTop(proxy.safeAreaInsets.top)
-            let safeTop = max(rawSafeTop, layoutSafeAreaTopFloor)
-            let geometryHeight = max(proxy.size.height, 1)
-            let layoutHeight = HomeOverviewLayout.pushedPageLayoutHeight(
-                from: geometryHeight,
-                transitionViewportFloor: layoutViewportHeightFloor
-            )
-            let topInset = AppScrollUnderHeaderListLayout.listTopInset(
-                safeAreaTop: safeTop,
-                headerClearance: headerClearance
-            )
-            let heroTopSafeAreaInset = HomeOverviewLayout.pushedHeroTopSafeAreaInset(
-                rawGeometrySafeTop: proxy.safeAreaInsets.top,
-                transitionSafeTopFloor: layoutSafeAreaTopFloor
-            )
-            let mapHeroHeight = TripDetailMapPresentation.mapHeroHeight(
-                viewportHeight: geometryHeight,
-                screenWidth: proxy.size.width,
-                topSafeAreaInset: heroTopSafeAreaInset,
-                statsPanelContentHeight: homeAlignedStatsPanelContentHeight,
-                showsBuddyLeaderboard: homeLayoutSeamInputs.showsBuddyLeaderboard,
-                transitionViewportFloor: layoutViewportHeightFloor
-            )
-            let heroFitLayout = TripDetailMapFitLayout(
-                mapHeight: mapHeroHeight,
-                topObstructionHeight: topInset
-            )
-            let bottomScrollInset = HomeOverviewLayout.pushedPageScrollBottomInset(
-                safeAreaBottom: proxy.safeAreaInsets.bottom
-            )
-            let headerScrollClearance = max(
-                0,
-                topInset - HomeLifetimeStatsLayout.panelTopContentPadding
-            )
-
-            ZStack(alignment: .top) {
-                VStack(spacing: showsHero ? -HomeLifetimeStatsLayout.panelOverlap : 0) {
-                    if showsHero {
-                        PushedHeroBand(
-                            height: mapHeroHeight,
-                            topSafeAreaInset: heroTopSafeAreaInset
-                        ) {
-                            if mapPins.isEmpty {
-                                PushedDetailHeroHeaderView(
-                                    media: displayHeroTripMedia,
-                                    mapPins: [],
-                                    mapFitLayout: heroFitLayout,
-                                    height: mapHeroHeight,
-                                    shouldAutoPlaySelectedVideo: TripDetailPresentation.shouldAutoPlaySelectedVideo(
-                                        for: displayHeroTripMedia
-                                    ),
-                                    style: .trip,
-                                    onSiteSelected: openDiveSiteFromMap,
-                                    selectedMode: .constant(.media)
-                                )
-                            } else if mediaPhotos.isEmpty {
-                                Group {
-                                    if showsDeferredMap {
-                                        TripDetailMapView(
-                                            pins: mapPins,
-                                            fitLayout: heroFitLayout
-                                        ) { siteID in
-                                            openDiveSiteFromMap(siteID)
-                                        }
-                                        .onAppear {
-                                            TripDetailMapNavigationDebug.tripMapAppeared(
-                                                pinCount: mapPins.count,
-                                                openablePinCount: mapPins.filter { $0.siteID != nil }.count,
-                                                hasOpenCatalogDiveSiteDetail: openCatalogDiveSiteDetail != nil,
-                                                tripID: trip.id
-                                            )
-                                        }
-                                    } else {
-                                        AppTheme.Colors.surfaceMuted.opacity(0.35)
-                                    }
-                                }
-                                .accessibilityIdentifier("TripDetail.MapBand")
-                            } else {
-                                PushedDetailHeroHeaderView(
-                                    media: displayHeroTripMedia,
-                                    mapPins: mapPins,
-                                    mapFitLayout: heroFitLayout,
-                                    height: mapHeroHeight,
-                                    isMapContentReady: showsDeferredMap,
-                                    shouldAutoPlaySelectedVideo: TripDetailPresentation.shouldAutoPlaySelectedVideo(
-                                        for: displayHeroTripMedia
-                                    ),
-                                    style: .trip,
-                                    onSiteSelected: openDiveSiteFromMap,
-                                    selectedMode: $tripHeroMode
-                                )
-                                .onAppear {
-                                    if showsDeferredMap {
-                                        TripDetailMapNavigationDebug.tripMapAppeared(
-                                            pinCount: mapPins.count,
-                                            openablePinCount: mapPins.filter { $0.siteID != nil }.count,
-                                            hasOpenCatalogDiveSiteDetail: openCatalogDiveSiteDetail != nil,
-                                            tripID: trip.id
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        .accessibilityIdentifier(
-                            mediaPhotos.isEmpty ? "TripDetail.MapBand" : "TripDetail.HeroBand"
-                        )
-                    }
-
-                    HomeLifetimeStatsPanel(
-                        overlapsMedia: showsHero,
-                        bottomSafeAreaInset: 0
-                    ) {
-                        tripDetailPanelContent(
-                            trip: trip,
-                            showsTripStats: showsTripStats,
-                            mapPins: mapPins,
-                            headerScrollClearance: showsHero ? 0 : headerScrollClearance,
-                            bottomScrollInset: bottomScrollInset
-                        )
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .accessibilityIdentifier("TripDetail.ContentPanel")
-                    .zIndex(1)
-                    .ignoresSafeArea(edges: .bottom)
+        BlueSheetDetailPage(
+            configuration: .pushedDetail(
+                accessibilityRootIdentifier: "TripDetail.Content"
+            ),
+            hero: { context in
+                tripHeroBandContent(
+                    context: context,
+                    trip: trip,
+                    mapPins: mapPins
+                )
+            },
+            heroOverlay: { _ in
+                if showsHeroModeToggle {
+                    PushedDetailHeroModeToggle(
+                        selectedMode: $tripHeroMode,
+                        accessibilityIdentifierPrefix: "TripDetail.Hero.ModeToggle"
+                    )
+                    .padding(.trailing, AppTheme.Spacing.md)
+                    .padding(.bottom, TripDetailPresentation.heroModeToggleBottomPadding)
                 }
-                .overlay(alignment: .top) {
-                    if showsHeroModeToggle {
-                        PushedDetailHeroModeToggle(
-                            selectedMode: $tripHeroMode,
-                            accessibilityIdentifierPrefix: "TripDetail.Hero.ModeToggle"
-                        )
-                        .padding(.trailing, AppTheme.Spacing.md)
-                        .padding(.bottom, TripDetailPresentation.heroModeToggleBottomPadding)
-                        .frame(width: proxy.size.width, height: mapHeroHeight, alignment: .bottomTrailing)
-                    }
-                }
-
-                tripDetailBackChrome(
+            },
+            panelOverlay: { EmptyView() },
+            pinnedContent: {
+                tripPinnedSummary(trip: trip)
+            },
+            panelContent: { bottomScrollInset, _ in
+                tripDetailPagerContent(
+                    trip: trip,
+                    showsTripStats: showsTripStats,
+                    bottomScrollInset: bottomScrollInset
+                )
+            },
+            topChrome: { safeTop, topInset, _ in
+                BlueSheetDetailTopChrome(
                     safeTop: safeTop,
                     topInset: topInset,
-                    showsMapScrim: showsHero
+                    onEdit: { showsEditSheet = true },
+                    editAccessibilityIdentifier: "TripDetail.Edit",
+                    editAccessibilityLabel: TripPlannerPresentation.editTripToolbarAccessibilityLabel
                 )
             }
-            .frame(width: proxy.size.width, height: layoutHeight)
-            .ignoresSafeArea(edges: .bottom)
-            .animation(nil, value: mapHeroHeight)
-            .onPreferenceChange(AppHeaderMetrics.HeightKey.self) { height in
-                guard height > 0, height != headerClearance else { return }
-                var transaction = Transaction()
-                transaction.disablesAnimations = true
-                withTransaction(transaction) {
-                    headerClearance = height
-                }
-            }
-            .onChange(of: rawSafeTop, initial: true) { _, resolvedTop in
-                guard resolvedTop > layoutSafeAreaTopFloor else { return }
-                layoutSafeAreaTopFloor = resolvedTop
-            }
-            .onChange(of: geometryHeight, initial: true) { _, height in
-                let subtractedViewport = HomeOverviewLayout.viewportHeightMatchingHomeTab(from: height)
-                let transitionViewport = HomeOverviewLayout.pushedHeroLayoutTransitionViewportCandidate(
-                    from: height
-                )
-                guard subtractedViewport < transitionViewport else { return }
-                guard transitionViewport > layoutViewportHeightFloor else { return }
-                layoutViewportHeightFloor = transitionViewport
-            }
-        }
-        .ignoresSafeArea(edges: [.horizontal])
+        )
         .accessibilityIdentifier("TripDetail.Content")
     }
 
-    private func tripDetailPanelContent(
+    @ViewBuilder
+    private func tripHeroBandContent(
+        context: BlueSheetHeaderPageLayoutContext,
+        trip: DiveTrip,
+        mapPins: [TripDetailMapPin]
+    ) -> some View {
+        let heroFitLayout = context.mapFitLayout()
+        let heroModeBinding: Binding<PushedDetailHeroHeaderView.Mode> = mapPins.isEmpty
+            ? .constant(.media)
+            : $tripHeroMode
+
+        BlueSheetDetailHeroBandFill(accessibilityIdentifier: "TripDetail.HeroBand") {
+            PushedDetailHeroHeaderView(
+                media: displayHeroTripMedia,
+                mapPins: showsDeferredMap ? mapPins : [],
+                mapFitLayout: heroFitLayout,
+                height: context.heroHeight,
+                isMapContentReady: showsDeferredMap,
+                shouldAutoPlaySelectedVideo: TripDetailPresentation.shouldAutoPlaySelectedVideo(
+                    for: displayHeroTripMedia
+                ),
+                style: .trip,
+                onSiteSelected: openDiveSiteFromMap,
+                selectedMode: heroModeBinding
+            )
+            .onAppear {
+                guard showsDeferredMap, !mapPins.isEmpty else { return }
+                TripDetailMapNavigationDebug.tripMapAppeared(
+                    pinCount: mapPins.count,
+                    openablePinCount: mapPins.filter { $0.siteID != nil }.count,
+                    hasOpenCatalogDiveSiteDetail: openCatalogDiveSiteDetail != nil,
+                    tripID: trip.id
+                )
+            }
+        }
+    }
+
+    private func tripDetailPagerContent(
         trip: DiveTrip,
         showsTripStats: Bool,
-        mapPins: [TripDetailMapPin],
-        headerScrollClearance: CGFloat,
         bottomScrollInset: CGFloat
     ) -> some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-            if headerScrollClearance > 0 {
-                Color.clear
-                    .frame(height: headerScrollClearance)
-                    .accessibilityHidden(true)
-            }
+        let featuredToggleAction: (() -> Void)? = contentSnapshot.mediaPhotos.isEmpty
+            ? nil
+            : { toggleFeaturedTripMedia() }
 
-            tripTitleBlock(trip: trip, mapPins: mapPins)
-
-            let featuredToggleAction: (() -> Void)? = contentSnapshot.mediaPhotos.isEmpty
-                ? nil
-                : { toggleFeaturedTripMedia() }
-
-            TripDetailContentPager(
-                trip: trip,
-                hasStarted: showsTripStats,
-                statTiles: DiveTripStatsPresentation.highlightTiles(
-                    from: contentSnapshot.aggregate,
-                    unitSystem: diveDisplayUnitSystem
-                ),
-                aggregate: contentSnapshot.aggregate,
-                linkedDiveRows: contentSnapshot.linkedDiveRows,
-                marineLifeItems: contentSnapshot.marineLifeItems,
-                marineLifeCatalog: contentSnapshot.marineLifeCatalog,
-                unitSystem: diveDisplayUnitSystem,
-                ownerProfileID: accountSession.currentProfile?.id,
-                ownerProfile: accountSession.currentProfile,
-                rosterBuddiesByID: contentSnapshot.rosterBuddiesByID,
-                mediaItems: contentSnapshot.mediaPhotos,
-                mediaTimeZoneOffsets: contentSnapshot.mediaTimeZoneOffsets,
-                linkedMediaItems: contentSnapshot.linkedMediaItems,
-                mediaSightings: contentSnapshot.mediaSightings,
-                featuredTripMediaPhotoID: trip.featuredTripMediaPhotoID,
-                gallerySelectedMediaID: $gallerySelectedMediaID,
-                onToggleFeaturedTripMedia: featuredToggleAction,
-                bottomScrollInset: bottomScrollInset,
-                initialContentPage: initialContentPage,
-                initialSelectedMediaID: initialSelectedMediaID,
-                onOpenDive: { pushTripNavigation(.linkedDive($0)) }
-            )
-        }
+        return TripDetailContentPager(
+            trip: trip,
+            hasStarted: showsTripStats,
+            statTiles: DiveTripStatsPresentation.highlightTiles(
+                from: contentSnapshot.aggregate,
+                unitSystem: diveDisplayUnitSystem
+            ),
+            aggregate: contentSnapshot.aggregate,
+            linkedDiveRows: contentSnapshot.linkedDiveRows,
+            marineLifeItems: contentSnapshot.marineLifeItems,
+            marineLifeCatalog: contentSnapshot.marineLifeCatalog,
+            unitSystem: diveDisplayUnitSystem,
+            ownerProfileID: accountSession.currentProfile?.id,
+            ownerProfile: accountSession.currentProfile,
+            rosterBuddiesByID: contentSnapshot.rosterBuddiesByID,
+            mediaItems: contentSnapshot.mediaPhotos,
+            mediaTimeZoneOffsets: contentSnapshot.mediaTimeZoneOffsets,
+            linkedMediaItems: contentSnapshot.linkedMediaItems,
+            mediaSightings: contentSnapshot.mediaSightings,
+            featuredTripMediaPhotoID: trip.featuredTripMediaPhotoID,
+            gallerySelectedMediaID: $gallerySelectedMediaID,
+            onToggleFeaturedTripMedia: featuredToggleAction,
+            bottomScrollInset: bottomScrollInset,
+            initialContentPage: initialContentPage,
+            initialSelectedMediaID: initialSelectedMediaID,
+            onOpenDive: { pushTripNavigation(.linkedDive($0)) }
+        )
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
-    private func tripTitleBlock(trip: DiveTrip, mapPins: [TripDetailMapPin]) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
-                Text(trip.displayTitle)
-                    .font(.title.weight(.bold))
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityAddTraits(.isHeader)
-                    .accessibilityIdentifier("TripDetail.Title")
-
-                HStack(spacing: AppTheme.Spacing.sm) {
-                    AppEditToolbarButton(
-                        action: { showsEditSheet = true },
-                        accessibilityIdentifier: "TripDetail.Edit",
-                        accessibilityLabel: TripPlannerPresentation.editTripToolbarAccessibilityLabel
-                    )
-
-                    AppToolbarIconButton(
-                        systemImage: "square.and.arrow.up",
-                        action: { prepareTripShare(trip: trip, mapPins: mapPins) },
-                        accessibilityIdentifier: "TripDetail.Share",
-                        accessibilityLabel: DiveTripPresentation.shareTripButtonTitle,
-                        isEnabled: !isPreparingShare
-                    )
-                }
-                .appGlassChromeControlRowHeight()
-                .appLiquidGlassChromeContainer()
-            }
-
-            Text(DiveTripPresentation.formattedDateRange(start: trip.startDate, end: trip.endDate))
-                .font(.subheadline)
-                .foregroundStyle(tripLogbookAccentColor(for: trip))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    private func tripPinnedSummary(trip: DiveTrip) -> some View {
+        BlueSheetPinnedSummary(
+            accent: DiveTripPresentation.formattedDateRange(start: trip.startDate, end: trip.endDate),
+            accentColor: tripLogbookAccentColor(for: trip),
+            accentFont: BlueSheetPinnedSummaryPresentation.subtitleFont,
+            title: trip.displayTitle,
+            titleAccessibilityIdentifier: "TripDetail.Title"
+        )
     }
 
     #if canImport(UIKit)
@@ -617,37 +460,6 @@ struct TripDetailView: View {
     #else
     private func prepareTripShare(trip: DiveTrip, mapPins: [TripDetailMapPin]) {}
     #endif
-
-    @ViewBuilder
-    private func tripDetailBackChrome(
-        safeTop: CGFloat,
-        topInset: CGFloat,
-        showsMapScrim: Bool
-    ) -> some View {
-        if showsMapScrim {
-            LogbookTopChromeScrim(topObstructionHeight: topInset)
-                .padding(.top, -safeTop)
-                .ignoresSafeArea(edges: .top)
-                .allowsHitTesting(false)
-                .zIndex(0.5)
-        }
-
-        Color.clear
-            .frame(height: topInset)
-            .frame(maxWidth: .infinity, alignment: .top)
-            .contentShape(Rectangle())
-            .accessibilityHidden(true)
-            .zIndex(0.75)
-
-        AppHeader(
-            title: "",
-            showsBackButton: true,
-            showsBrandWordmark: false,
-            statusBarSafeAreaTop: safeTop
-        )
-        .frame(maxWidth: .infinity, alignment: .top)
-        .zIndex(1)
-    }
 
     private func pushTripNavigation(_ target: TripDetailNavigationTarget) {
         guard navigationTarget == nil else { return }

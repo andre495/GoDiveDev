@@ -85,20 +85,15 @@ struct TripDetailContentPager: View {
     }
 
     var body: some View {
-        TabView(selection: $selectedPage) {
-            ForEach(pages) { page in
-                PushedDetailContentPagerLayout.tabPage {
-                    pagerScrollPage(page) {
-                        pageContent(for: page)
-                    }
-                }
-                .tag(page)
-            }
-        }
-        .tabViewStyle(.page(indexDisplayMode: .automatic))
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .ignoresSafeArea(edges: .bottom)
-        .accessibilityIdentifier("TripDetail.ContentPager")
+        BlueSheetDetailPager(
+            pagerAccessibilityIdentifier: "TripDetail.ContentPager",
+            pages: pages,
+            selection: $selectedPage,
+            bottomScrollInset: bottomScrollInset,
+            usesLazyMount: false,
+            pageLayout: TripDetailContentPagerPresentation.pagerPageLayout(for:),
+            pageContent: pageContent(for:)
+        )
         .onChange(of: hasStarted) { _, started in
             let nextPages = TripDetailContentPagerPresentation.pages(hasStarted: started)
             if !nextPages.contains(selectedPage) {
@@ -158,44 +153,6 @@ struct TripDetailContentPager: View {
                 onToggleFeaturedTripMedia: onToggleFeaturedTripMedia,
                 onOpenDive: onOpenDive
             )
-        }
-    }
-
-    @ViewBuilder
-    private func pagerScrollPage<Content: View>(
-        _ page: TripDetailContentPage,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        if TripDetailContentPagerPresentation.usesStaticPagerLayout(for: page) {
-            let contentAlignment = TripDetailContentPagerPresentation.staticPagerContentAlignment(for: page)
-            VStack(spacing: 0) {
-                content()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: contentAlignment)
-
-                Color.clear
-                    .frame(height: bottomScrollInset)
-                    .accessibilityHidden(true)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .homeSheetPanelBottomScrollFade()
-            .accessibilityIdentifier(TripDetailContentPagerPresentation.accessibilityIdentifier(for: page))
-        } else {
-            ScrollView {
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-                    content()
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    Color.clear
-                        .frame(height: bottomScrollInset + AppTheme.Spacing.lg)
-                        .accessibilityHidden(true)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .scrollClipDisabled(false)
-            .scrollDismissesKeyboard(.interactively)
-            .ignoresSafeArea(edges: .bottom)
-            .homeSheetPanelBottomScrollFade()
-            .accessibilityIdentifier(TripDetailContentPagerPresentation.accessibilityIdentifier(for: page))
         }
     }
 

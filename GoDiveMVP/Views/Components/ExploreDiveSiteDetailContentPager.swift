@@ -19,54 +19,21 @@ struct ExploreDiveSiteDetailContentPager: View {
 
     @State private var selectedPage: ExploreDiveSiteDetailContentPage =
         ExploreDiveSiteDetailContentPagerPresentation.defaultPage
-    @State private var mountedPages: Set<ExploreDiveSiteDetailContentPage> = [
-        ExploreDiveSiteDetailContentPagerPresentation.defaultPage,
-    ]
-
-    private var pages: [ExploreDiveSiteDetailContentPage] {
-        ExploreDiveSiteDetailContentPagerPresentation.pages
-    }
 
     var body: some View {
-        TabView(selection: $selectedPage) {
-            ForEach(pages) { page in
-                PushedDetailContentPagerLayout.tabPage {
-                    pagerScrollPage(page)
-                }
-                .tag(page)
-            }
-        }
-        .tabViewStyle(.page(indexDisplayMode: .automatic))
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .ignoresSafeArea(edges: .bottom)
-        .accessibilityIdentifier("Explore.DiveSiteDetail.ContentPager")
-        .onAppear {
-            notePageFirstMounted(selectedPage)
-        }
-        .onChange(of: selectedPage) { _, page in
-            notePageFirstMounted(page)
-        }
-    }
-
-    private func notePageFirstMounted(_ page: ExploreDiveSiteDetailContentPage) {
-        let inserted = mountedPages.insert(page).inserted
-        guard inserted else { return }
-        onPageFirstMounted?(page)
+        BlueSheetDetailPager(
+            pagerAccessibilityIdentifier: "Explore.DiveSiteDetail.ContentPager",
+            pages: ExploreDiveSiteDetailContentPagerPresentation.pages,
+            selection: $selectedPage,
+            bottomScrollInset: bottomScrollInset,
+            onPageFirstMounted: onPageFirstMounted,
+            pageLayout: ExploreDiveSiteDetailContentPagerPresentation.pagerPageLayout(for:),
+            pageContent: pageContent(for:)
+        )
     }
 
     @ViewBuilder
-    private func pageScrollableContent(for page: ExploreDiveSiteDetailContentPage) -> some View {
-        if !mountedPages.contains(page) {
-            Color.clear
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .accessibilityHidden(true)
-        } else {
-            mountedPageScrollableContent(for: page)
-        }
-    }
-
-    @ViewBuilder
-    private func mountedPageScrollableContent(for page: ExploreDiveSiteDetailContentPage) -> some View {
+    private func pageContent(for page: ExploreDiveSiteDetailContentPage) -> some View {
         switch page {
         case .diveDetails:
             diveDetailsContent
@@ -152,40 +119,5 @@ struct ExploreDiveSiteDetailContentPager: View {
         case .taggedMedia:
             return "Explore.DiveSiteDetail.TaggedMedia.Empty"
         }
-    }
-
-    @ViewBuilder
-    private func pagerScrollPage(_ page: ExploreDiveSiteDetailContentPage) -> some View {
-        Group {
-            if ExploreDiveSiteDetailContentPagerPresentation.usesStaticPagerLayout(for: page) {
-                let contentAlignment = ExploreDiveSiteDetailContentPagerPresentation
-                    .staticPagerContentAlignment(for: page)
-                pageScrollableContent(for: page)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: contentAlignment)
-
-                Color.clear
-                    .frame(height: bottomScrollInset)
-                    .accessibilityHidden(true)
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-                        pageScrollableContent(for: page)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-
-                        Color.clear
-                            .frame(height: bottomScrollInset)
-                            .accessibilityHidden(true)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .scrollClipDisabled(false)
-                .scrollDismissesKeyboard(.interactively)
-                .ignoresSafeArea(edges: .bottom)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .homeSheetPanelBottomScrollFade()
-        .accessibilityLabel(ExploreDiveSiteDetailContentPagerPresentation.pageTitle(for: page))
-        .accessibilityIdentifier(ExploreDiveSiteDetailContentPagerPresentation.accessibilityIdentifier(for: page))
     }
 }

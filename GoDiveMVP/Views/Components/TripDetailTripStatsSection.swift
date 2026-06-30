@@ -19,7 +19,6 @@ struct TripDetailTripStatsSection: View {
         }
         .frame(height: HomeLifetimeStatsTilesLayout.gridHeight(tileCount: tiles.count))
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, TripDetailMediaGalleryPresentation.previewHorizontalInset)
         .accessibilityIdentifier("TripDetail.Stats")
     }
 }

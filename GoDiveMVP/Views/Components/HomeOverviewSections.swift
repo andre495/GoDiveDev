@@ -10,9 +10,9 @@ enum HomeMediaCarouselLayout {
     /// Hero height = width × ratio + top safe inset + extension into the stats sheet overlap zone.
     static let heroHeightToWidthRatio: CGFloat = HomeOverviewLayout.heroHeightToWidthRatio
 
-    /// Bottom inset for slide chrome — just above the stats sheet overlap.
+    /// Bottom inset for slide chrome — sits in the hero/panel overlap band (UI only; does not move the sheet seam).
     static var slideChromeBottomInset: CGFloat {
-        HomeLifetimeStatsLayout.panelOverlap + AppTheme.Spacing.sm
+        HomeLifetimeStatsLayout.panelOverlap - AppTheme.Spacing.md
     }
 
     /// Dive-site capsule + fish / buddy icon chips share this height.
@@ -32,6 +32,18 @@ enum HomeMediaCarouselLayout {
         )
     }
 
+    /// Slide / **`TabView`** height when the parent **`PushedHeroBand`** applies **`-topSafeAreaInset`** bleed.
+    /// Without this, fixed-height carousel content stops **`topSafeAreaInset`** pt above the band bottom (black gap above the stats sheet).
+    static func carouselContentHeight(
+        heroBandHeight: CGFloat,
+        topSafeAreaInset: CGFloat,
+        appliesOwnTopSafeAreaBleed: Bool
+    ) -> CGFloat {
+        appliesOwnTopSafeAreaBleed
+            ? heroBandHeight
+            : heroBandHeight + topSafeAreaInset
+    }
+
     /// Feather under the status bar + **`AppHeader`** for readable chrome over bright media.
     static func headerGradientHeight(
         headerOverlayHeight: CGFloat,
@@ -48,11 +60,21 @@ enum HomeMediaCarouselLayout {
 struct HomeMediaCarouselEmptyPlaceholder: View {
     let containerWidth: CGFloat
     let topSafeAreaInset: CGFloat
+    var heroBandHeight: CGFloat?
 
-    private var heroHeight: CGFloat {
-        HomeMediaCarouselLayout.heroHeight(
+    private var resolvedHeroBandHeight: CGFloat {
+        heroBandHeight ?? HomeMediaCarouselLayout.heroHeight(
             width: containerWidth,
             topSafeAreaInset: topSafeAreaInset
+        )
+    }
+
+    /// Always embedded in **`PushedHeroBand`** on Home — extend slide height for top safe-area bleed.
+    private var resolvedCarouselContentHeight: CGFloat {
+        HomeMediaCarouselLayout.carouselContentHeight(
+            heroBandHeight: resolvedHeroBandHeight,
+            topSafeAreaInset: topSafeAreaInset,
+            appliesOwnTopSafeAreaBleed: false
         )
     }
 
@@ -77,7 +99,7 @@ struct HomeMediaCarouselEmptyPlaceholder: View {
             )
             .padding(.bottom, HomeMediaCarouselLayout.slideChromeBottomInset)
         }
-        .frame(width: containerWidth, height: heroHeight)
+        .frame(width: containerWidth, height: resolvedCarouselContentHeight)
         .frame(maxWidth: .infinity)
         .clipped()
         .accessibilityIdentifier("Home.MediaCarousel.Empty")
@@ -103,6 +125,8 @@ struct HomeMediaCarouselSection: View {
     let containerWidth: CGFloat
     let topSafeAreaInset: CGFloat
     let headerOverlayHeight: CGFloat
+    var heroBandHeight: CGFloat?
+    var appliesTopSafeAreaBleed: Bool = true
     let selfBuddyID: UUID?
     /// False while a pushed Home **`NavigationStack`** destination covers the hero.
     var isHeroPlaybackActive: Bool = true
@@ -118,17 +142,25 @@ struct HomeMediaCarouselSection: View {
     @State private var expandedBuddyListMediaID: UUID?
     @State private var playbackResumeToken = 0
 
-    private var heroHeight: CGFloat {
-        HomeMediaCarouselLayout.heroHeight(
+    private var resolvedHeroBandHeight: CGFloat {
+        heroBandHeight ?? HomeMediaCarouselLayout.heroHeight(
             width: containerWidth,
             topSafeAreaInset: topSafeAreaInset
+        )
+    }
+
+    private var resolvedCarouselContentHeight: CGFloat {
+        HomeMediaCarouselLayout.carouselContentHeight(
+            heroBandHeight: resolvedHeroBandHeight,
+            topSafeAreaInset: topSafeAreaInset,
+            appliesOwnTopSafeAreaBleed: appliesTopSafeAreaBleed
         )
     }
 
     private var marineLifeOverlaySize: CGSize {
         HomeMediaCarouselPresentation.marineLifeOverlaySize(
             width: containerWidth,
-            height: heroHeight
+            height: resolvedHeroBandHeight
         )
     }
 
@@ -189,7 +221,7 @@ struct HomeMediaCarouselSection: View {
                             slideIndex: logicalIndex,
                             slideCount: highlights.count,
                             pageWidth: containerWidth,
-                            pageHeight: heroHeight,
+                            pageHeight: resolvedCarouselContentHeight,
                             isVideoPlaybackActive: isSlideActive(logicalIndex),
                             isAutoAdvanceActive: isAutoAdvanceEnabled && isSlideActive(logicalIndex),
                             loopsSlidePlayback: isCarouselInteractionHold && isSlideActive(logicalIndex),
@@ -211,7 +243,7 @@ struct HomeMediaCarouselSection: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(width: containerWidth, height: heroHeight)
+            .frame(width: containerWidth, height: resolvedCarouselContentHeight)
             .clipped()
             .onChange(of: pagerSelectedIndex) { oldIndex, newIndex in
                 closeMarineLifeOverlay()
@@ -251,7 +283,7 @@ struct HomeMediaCarouselSection: View {
                     height: HomeMediaCarouselLayout.headerGradientHeight(
                         headerOverlayHeight: headerOverlayHeight,
                         topSafeAreaInset: topSafeAreaInset,
-                        heroHeight: heroHeight
+                        heroHeight: resolvedHeroBandHeight
                     )
                 )
                 .allowsHitTesting(false)
@@ -280,8 +312,10 @@ struct HomeMediaCarouselSection: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, -topSafeAreaInset)
-        .ignoresSafeArea(edges: .top)
+        .modifier(HomeMediaCarouselTopSafeAreaBleedModifier(
+            topSafeAreaInset: topSafeAreaInset,
+            isEnabled: appliesTopSafeAreaBleed
+        ))
         .animation(marineLifeOverlayAnimation, value: showsMarineLifeOverlay)
         .background {
             Color.clear.preference(
@@ -1270,8 +1304,10 @@ enum HomeLifetimeStatsLayout {
     /// Extra hero height below the base aspect ratio so media bleeds behind the stats sheet.
     static let heroBottomExtension: CGFloat = HomeOverviewLayout.heroBottomExtension
     static let panelTopContentPadding: CGFloat = AppTheme.Spacing.lg
-    /// Breathing room between carousel bottom and stat tiles when the sheet overlaps the hero.
-    static let panelTopContentPaddingWhenOverlapping: CGFloat = AppTheme.Spacing.lg + AppTheme.Spacing.sm
+    /// In-panel top inset when overlapping media — UI only (hero seam uses **`HomeLifetimeStatsTilesLayout`** estimates).
+    static let panelTopContentPaddingWhenOverlapping: CGFloat = AppTheme.Spacing.md
+    /// Extra inset above the tab bar for panel content (tab bar clearance is added separately).
+    static let panelBottomContentPadding: CGFloat = AppTheme.Spacing.lg
 
     static func rowCount(tileCount: Int) -> Int {
         guard tileCount > 0 else { return 0 }
@@ -1301,27 +1337,41 @@ enum HomeLifetimeStatsLayout {
     static func titleFontSize() -> CGFloat { HomeLifetimeStatsTilesLayout.titleFontSize }
 }
 
+/// Flip **`usesPinkBackground`** to **`false`** (or remove) when Home sheet seam debugging is done.
+private enum HomeSheetContainerDebug {
+    static let usesPinkBackground = false
+}
+
 /// Sheet-style chrome for Home lifetime stats — rounded top, opaque fill, optional hero overlap.
 struct HomeLifetimeStatsPanel<Content: View>: View {
     var overlapsMedia: Bool
     /// Keeps tiles above the tab bar while the panel fill extends to the viewport bottom.
     var bottomSafeAreaInset: CGFloat = 0
+    /// Temporary Home-only seam debug — set **`HomeSheetContainerDebug.usesPinkBackground`** to **`false`** to restore blue.
+    var usesHomeDebugPanelTint: Bool = false
+    /// Home tab root applies list inset here; pushed detail pages use **`BlueSheetDetailPage`** shell padding instead.
+    var appliesHorizontalContentPadding: Bool = true
     @ViewBuilder var content: () -> Content
 
     var body: some View {
-        content()
-            .padding(.horizontal, AppTheme.Spacing.lg)
+        panelContent
             .padding(
                 .top,
                 overlapsMedia
                     ? HomeLifetimeStatsLayout.panelTopContentPaddingWhenOverlapping
                     : HomeLifetimeStatsLayout.panelTopContentPadding
             )
-            .padding(.bottom, AppTheme.Spacing.sm + bottomSafeAreaInset)
+            .padding(.bottom, HomeLifetimeStatsLayout.panelBottomContentPadding + bottomSafeAreaInset)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background {
-                AppOverviewSheetPanelBackground()
-                    .ignoresSafeArea(edges: .bottom)
+                Group {
+                    if usesHomeDebugPanelTint, HomeSheetContainerDebug.usesPinkBackground {
+                        Color.pink
+                    } else {
+                        AppOverviewSheetPanelBackground()
+                    }
+                }
+                .ignoresSafeArea(edges: .bottom)
             }
             .clipShape(panelShape)
             .shadow(
@@ -1330,6 +1380,16 @@ struct HomeLifetimeStatsPanel<Content: View>: View {
                 y: overlapsMedia ? -6 : -2
             )
             .accessibilityIdentifier("Home.LifetimeStats.Panel")
+    }
+
+    @ViewBuilder
+    private var panelContent: some View {
+        if appliesHorizontalContentPadding {
+            content()
+                .padding(.horizontal, AppTheme.Spacing.lg)
+        } else {
+            content()
+        }
     }
 
     private var panelShape: UnevenRoundedRectangle {
@@ -1646,5 +1706,20 @@ private struct HomeBuddyLeaderboardPodiumSlot: View {
         )
         .accessibilityHint("Opens buddy details")
         .accessibilityIdentifier("Home.BuddyLeaderboard.Slot.\(entry.rank)")
+    }
+}
+
+private struct HomeMediaCarouselTopSafeAreaBleedModifier: ViewModifier {
+    let topSafeAreaInset: CGFloat
+    let isEnabled: Bool
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content
+                .padding(.top, -topSafeAreaInset)
+                .ignoresSafeArea(edges: .top)
+        } else {
+            content
+        }
     }
 }

@@ -7,7 +7,8 @@ struct BlueSheetHeaderPageLayout<
     Hero: View,
     HeroOverlay: View,
     Panel: View,
-    BackChrome: View
+    TopChrome: View,
+    PanelOverlay: View
 >: View {
     let context: BlueSheetHeaderPageLayoutContext
     let showsHero: Bool
@@ -15,7 +16,26 @@ struct BlueSheetHeaderPageLayout<
     @ViewBuilder var hero: () -> Hero
     @ViewBuilder var heroOverlay: () -> HeroOverlay
     @ViewBuilder var panel: () -> Panel
-    @ViewBuilder var backChrome: (_ safeTop: CGFloat, _ topInset: CGFloat) -> BackChrome
+    @ViewBuilder var panelOverlay: () -> PanelOverlay
+    @ViewBuilder var topChrome: (_ safeTop: CGFloat, _ topInset: CGFloat) -> TopChrome
+
+    init(
+        context: BlueSheetHeaderPageLayoutContext,
+        showsHero: Bool,
+        @ViewBuilder hero: @escaping () -> Hero,
+        @ViewBuilder heroOverlay: @escaping () -> HeroOverlay,
+        @ViewBuilder panel: @escaping () -> Panel,
+        @ViewBuilder topChrome: @escaping (_ safeTop: CGFloat, _ topInset: CGFloat) -> TopChrome,
+        @ViewBuilder panelOverlay: @escaping () -> PanelOverlay
+    ) {
+        self.context = context
+        self.showsHero = showsHero
+        self.hero = hero
+        self.heroOverlay = heroOverlay
+        self.panel = panel
+        self.panelOverlay = panelOverlay
+        self.topChrome = topChrome
+    }
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -31,9 +51,14 @@ struct BlueSheetHeaderPageLayout<
 
                 HomeLifetimeStatsPanel(
                     overlapsMedia: showsHero,
-                    bottomSafeAreaInset: 0
+                    bottomSafeAreaInset: context.panelBottomSafeAreaInset,
+                    usesHomeDebugPanelTint: context.presentation == .tabRoot,
+                    appliesHorizontalContentPadding: context.presentation == .tabRoot
                 ) {
                     panel()
+                }
+                .overlay(alignment: .topLeading) {
+                    panelOverlay()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .zIndex(1)
@@ -50,11 +75,32 @@ struct BlueSheetHeaderPageLayout<
                 }
             }
 
-            backChrome(context.safeTop, context.topInset)
+            topChrome(context.safeTop, context.topInset)
         }
         .frame(width: context.geometryWidth, height: context.layoutHeight)
         .ignoresSafeArea(edges: .bottom)
         .animation(nil, value: context.heroHeight)
+    }
+}
+
+extension BlueSheetHeaderPageLayout where PanelOverlay == EmptyView {
+    init(
+        context: BlueSheetHeaderPageLayoutContext,
+        showsHero: Bool,
+        @ViewBuilder hero: @escaping () -> Hero,
+        @ViewBuilder heroOverlay: @escaping () -> HeroOverlay,
+        @ViewBuilder panel: @escaping () -> Panel,
+        @ViewBuilder topChrome: @escaping (_ safeTop: CGFloat, _ topInset: CGFloat) -> TopChrome
+    ) {
+        self.init(
+            context: context,
+            showsHero: showsHero,
+            hero: hero,
+            heroOverlay: heroOverlay,
+            panel: panel,
+            topChrome: topChrome,
+            panelOverlay: { EmptyView() }
+        )
     }
 }
 

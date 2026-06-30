@@ -1,7 +1,7 @@
 import CoreGraphics
 import SwiftUI
 
-/// Resolved layout numbers for a **blue sheet header page** (trip / buddy detail pattern).
+/// Resolved layout numbers for a **blue sheet header page** (Home tab root + pushed detail).
 struct BlueSheetHeaderPageLayoutContext: Sendable, Equatable {
     let geometryWidth: CGFloat
     let geometryHeight: CGFloat
@@ -9,9 +9,12 @@ struct BlueSheetHeaderPageLayoutContext: Sendable, Equatable {
     let topInset: CGFloat
     let heroTopSafeAreaInset: CGFloat
     let layoutHeight: CGFloat
+    let layoutViewportHeight: CGFloat
     let heroHeight: CGFloat
     let bottomScrollInset: CGFloat
+    let panelBottomSafeAreaInset: CGFloat
     let headerScrollClearance: CGFloat
+    let presentation: BlueSheetPagePresentation
 
     /// Hero map fit when the page shows dive-site pins in the header band.
     func mapFitLayout(topObstructionHeight: CGFloat? = nil) -> TripDetailMapFitLayout {
@@ -22,7 +25,7 @@ struct BlueSheetHeaderPageLayoutContext: Sendable, Equatable {
     }
 }
 
-/// Builds **`BlueSheetHeaderPageLayoutContext`** from a **`GeometryReader`** pass — same math as **`TripDetailView`** / **`ViewDiveBuddyDetails`**.
+/// Builds **`BlueSheetHeaderPageLayoutContext`** — delegates to **`BlueSheetPageLayoutBuilder`**.
 enum BlueSheetHeaderPageLayoutBuilder: Sendable {
 
     @MainActor
@@ -31,45 +34,29 @@ enum BlueSheetHeaderPageLayoutBuilder: Sendable {
         headerClearance: CGFloat,
         layoutSafeAreaTopFloor: CGFloat,
         layoutViewportHeightFloor: CGFloat,
-        heroHeight: CGFloat,
+        seamInputs: HomeOverviewPushedLayoutPresentation.SeamInputs,
+        mode: BlueSheetPageLayoutMode,
         showsHero: Bool
     ) -> BlueSheetHeaderPageLayoutContext {
-        let rawSafeTop = AppScrollUnderHeaderListLayout.resolvedSafeAreaTop(proxy.safeAreaInsets.top)
-        let safeTop = max(rawSafeTop, layoutSafeAreaTopFloor)
-        let geometryHeight = max(proxy.size.height, 1)
-        let layoutHeight = HomeOverviewLayout.pushedPageLayoutHeight(
-            from: geometryHeight,
-            transitionViewportFloor: layoutViewportHeightFloor
-        )
-        let topInset = AppScrollUnderHeaderListLayout.listTopInset(
-            safeAreaTop: safeTop,
-            headerClearance: headerClearance
-        )
-        let heroTopSafeAreaInset = HomeOverviewLayout.pushedHeroTopSafeAreaInset(
-            rawGeometrySafeTop: proxy.safeAreaInsets.top,
-            transitionSafeTopFloor: layoutSafeAreaTopFloor
-        )
-        let bottomScrollInset = HomeOverviewLayout.pushedPageScrollBottomInset(
-            safeAreaBottom: proxy.safeAreaInsets.bottom
-        )
-        let headerScrollClearance = showsHero
-            ? 0
-            : max(0, topInset - AppTheme.Spacing.lg)
+        let resolvedMode: BlueSheetPageLayoutMode
+        if case .pushedDetail = mode, layoutViewportHeightFloor > 0 {
+            resolvedMode = .pushedDetail(transitionViewportHeightFloor: layoutViewportHeightFloor)
+        } else {
+            resolvedMode = mode
+        }
 
-        return BlueSheetHeaderPageLayoutContext(
-            geometryWidth: proxy.size.width,
-            geometryHeight: geometryHeight,
-            safeTop: safeTop,
-            topInset: topInset,
-            heroTopSafeAreaInset: heroTopSafeAreaInset,
-            layoutHeight: layoutHeight,
-            heroHeight: heroHeight,
-            bottomScrollInset: bottomScrollInset,
-            headerScrollClearance: headerScrollClearance
+        return BlueSheetPageLayoutBuilder.make(
+            proxy: proxy,
+            headerClearance: headerClearance,
+            layoutSafeAreaTopFloor: layoutSafeAreaTopFloor,
+            layoutViewportHeightFloor: layoutViewportHeightFloor,
+            seamInputs: seamInputs,
+            mode: resolvedMode,
+            showsHero: showsHero
         )
     }
 
-    /// Hero height using shared **`HomeOverviewLayout.pushedHeroLayoutMetrics`** (pass feature-specific seam inputs).
+    /// Hero height using shared **`BlueSheetPageLayoutBuilder`** proportions.
     nonisolated static func heroHeight(
         geometryHeight: CGFloat,
         screenWidth: CGFloat,
@@ -78,13 +65,16 @@ enum BlueSheetHeaderPageLayoutBuilder: Sendable {
         showsBuddyLeaderboard: Bool,
         transitionViewportFloor: CGFloat
     ) -> CGFloat {
-        HomeOverviewLayout.pushedHeroLayoutMetrics(
+        BlueSheetPageLayoutBuilder.heroHeight(
             geometryHeight: geometryHeight,
             screenWidth: screenWidth,
-            topSafeAreaInset: topSafeAreaInset,
-            statsPanelContentHeight: statsPanelContentHeight,
-            showsBuddyLeaderboard: showsBuddyLeaderboard,
-            transitionViewportFloor: transitionViewportFloor
-        ).heroHeight
+            rawGeometrySafeTop: topSafeAreaInset,
+            layoutSafeAreaTopFloor: 0,
+            seamInputs: HomeOverviewPushedLayoutPresentation.SeamInputs(
+                statsPanelContentHeight: statsPanelContentHeight,
+                showsBuddyLeaderboard: showsBuddyLeaderboard
+            ),
+            mode: .pushedDetail(transitionViewportHeightFloor: transitionViewportFloor)
+        )
     }
 }

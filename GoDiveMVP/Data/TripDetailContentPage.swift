@@ -73,4 +73,15 @@ enum TripDetailContentPagerPresentation: Sendable {
             return .top
         }
     }
+
+    nonisolated static func pagerPageLayout(for page: TripDetailContentPage) -> BlueSheetDetailPagerPageLayout {
+        BlueSheetDetailPagerPageLayout(
+            usesStaticLayout: usesStaticPagerLayout(for: page),
+            staticContentAlignment: staticPagerContentAlignment(for: page),
+            scrollBottomInsetExtra: usesStaticPagerLayout(for: page)
+                ? 0
+                : BlueSheetDetailPagerPresentation.tripScrollBottomInsetExtra,
+            accessibilityIdentifier: accessibilityIdentifier(for: page)
+        )
+    }
 }

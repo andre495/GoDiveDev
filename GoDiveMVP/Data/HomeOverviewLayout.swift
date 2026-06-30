@@ -15,6 +15,41 @@ enum HomeOverviewLayout: Sendable {
         max(geometryHeight - rootTabBarLayoutHeight, 1)
     }
 
+    /// Tab-root **`GeometryReader`** height plus the root tab bar — same vertical coordinate space as a pushed detail page (803 → 852).
+    nonisolated static func tabRootVirtualFullScreenHeight(from tabContentGeometryHeight: CGFloat) -> CGFloat {
+        max(tabContentGeometryHeight + rootTabBarLayoutHeight, 1)
+    }
+
+    /// Hero viewport for Home tab root — matches **`pushedHeroLayoutViewportHeight`** on detail pages.
+    nonisolated static func tabRootHeroLayoutViewportHeight(from tabContentGeometryHeight: CGFloat) -> CGFloat {
+        pushedHeroLayoutViewportHeight(
+            from: tabRootVirtualFullScreenHeight(from: tabContentGeometryHeight)
+        )
+    }
+
+    /// Tab-root shell **`VStack`** height — full virtual screen so the blue sheet stack matches pushed detail layout.
+    nonisolated static func tabRootPageLayoutHeight(from tabContentGeometryHeight: CGFloat) -> CGFloat {
+        pushedPageLayoutHeight(from: tabRootVirtualFullScreenHeight(from: tabContentGeometryHeight))
+    }
+
+    /// Normalizes Home tab **`GeometryReader`** height to the tab-content band above the root tab bar.
+    ///
+    /// Settled tab content (803) and pushed full-screen peek (852) both resolve to the same band so hero seam math matches detail pages.
+    nonisolated static func settledHomeTabContentGeometryHeight(from geometryHeight: CGFloat) -> CGFloat {
+        let heightIfFullScreen = viewportHeightMatchingHomeTab(from: geometryHeight)
+        if geometryHeight > heightIfFullScreen + rootTabBarLayoutHeight * 0.5 {
+            return heightIfFullScreen
+        }
+        return geometryHeight
+    }
+
+    /// Full-screen height for Home tab-root layout — same coordinate space as pushed detail **`GeometryReader`** input.
+    nonisolated static func tabRootFullScreenGeometryHeight(from geometryHeight: CGFloat) -> CGFloat {
+        tabRootVirtualFullScreenHeight(
+            from: settledHomeTabContentGeometryHeight(from: geometryHeight)
+        )
+    }
+
     /// Home root viewport for hero + stats layout. While **`NavigationStack`** is pushed, the tab bar is hidden and **`GeometryReader`** is taller; subtract tab bar height so interactive pop peek-through matches settled root layout.
     nonisolated static func homeRootViewportHeight(
         geometryHeight: CGFloat,
@@ -163,14 +198,14 @@ enum HomeOverviewLayout: Sendable {
     nonisolated static let heroHeightToWidthRatio: CGFloat = 0.77
 
     /// Kept in sync with **`HomeLifetimeStatsLayout.heroBottomExtension`**.
-    nonisolated static let heroBottomExtension: CGFloat = 162
+    nonisolated static let heroBottomExtension: CGFloat = 202
 
     nonisolated static func heroHeight(
         width: CGFloat,
         topSafeAreaInset: CGFloat,
         additionalBottomExtension: CGFloat? = nil
     ) -> CGFloat {
-        let extensionHeight = additionalBottomExtension ?? 162
+        let extensionHeight = additionalBottomExtension ?? heroBottomExtension
         return max(width * 0.77 + topSafeAreaInset + extensionHeight, 1)
     }
 

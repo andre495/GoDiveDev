@@ -108,9 +108,10 @@ struct ExploreDiveSiteDetailView: View {
     }
 
     var body: some View {
-        FieldGuideBlueSheetPage(
-            accessibilityRootIdentifier: "Explore.DiveSiteDetail.Root",
-            scrollAccessibilityIdentifier: "Explore.DiveSiteDetail.Scroll",
+        BlueSheetDetailPage(
+            configuration: .pushedDetail(
+                accessibilityRootIdentifier: "Explore.DiveSiteDetail.Root"
+            ),
             hero: { context in
                 PushedDetailHeroHeaderView(
                     media: heroTaggedMedia,
@@ -127,6 +128,17 @@ struct ExploreDiveSiteDetailView: View {
                     selectedMode: $siteHeroMode
                 )
             },
+            heroOverlay: { _ in
+                if showsHeroModeToggle {
+                    PushedDetailHeroModeToggle(
+                        selectedMode: $siteHeroMode,
+                        accessibilityIdentifierPrefix: "Explore.DiveSiteDetail.Hero.ModeToggle"
+                    )
+                    .padding(.trailing, AppTheme.Spacing.md)
+                    .padding(.bottom, DiveBuddyDetailPresentation.heroModeToggleBottomPadding)
+                }
+            },
+            panelOverlay: { EmptyView() },
             pinnedContent: {
                 ExploreDiveSiteDetailPinnedTitleView(
                     record: displayRecord,
@@ -136,7 +148,7 @@ struct ExploreDiveSiteDetailView: View {
                     accessibilityIdentifier: "Explore.DiveSiteDetail.TitleBlock"
                 )
             },
-            panelContent: { bottomScrollInset in
+            panelContent: { bottomScrollInset, _ in
                 ExploreDiveSiteDetailContentPager(
                     displayRecord: displayRecord,
                     siteDiveRows: contentSnapshot.siteDiveRows,
@@ -152,17 +164,15 @@ struct ExploreDiveSiteDetailView: View {
                     onOpenDive: onOpenDive,
                     onPageFirstMounted: handleSitePagerPageFirstMounted
                 )
-                .padding(.horizontal, AppTheme.Spacing.md)
             },
-            heroOverlay: { _ in
-                if showsHeroModeToggle {
-                    PushedDetailHeroModeToggle(
-                        selectedMode: $siteHeroMode,
-                        accessibilityIdentifierPrefix: "Explore.DiveSiteDetail.Hero.ModeToggle"
-                    )
-                    .padding(.trailing, AppTheme.Spacing.md)
-                    .padding(.bottom, DiveBuddyDetailPresentation.heroModeToggleBottomPadding)
-                }
+            topChrome: { safeTop, topInset, _ in
+                BlueSheetDetailTopChrome(
+                    safeTop: safeTop,
+                    topInset: topInset,
+                    isEditEnabled: isStarRatingEditable,
+                    onEdit: {},
+                    editAccessibilityIdentifier: "ExploreDiveSiteDetail.Edit"
+                )
             }
         )
         .task(id: siteDetailContentToken, priority: .userInitiated) {

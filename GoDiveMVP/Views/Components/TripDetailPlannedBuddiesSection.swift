@@ -43,7 +43,6 @@ struct TripDetailPlannedBuddiesSection: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(AppTheme.Colors.accent)
-            .padding(.horizontal, AppTheme.Spacing.md)
             .accessibilityIdentifier("TripDetail.PlannedBuddies.Add")
 
             if listMembers.isEmpty {
@@ -51,7 +50,6 @@ struct TripDetailPlannedBuddiesSection: View {
                     .font(.body)
                     .foregroundStyle(AppTheme.Colors.secondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, AppTheme.Spacing.md)
                     .accessibilityIdentifier("TripDetail.PlannedBuddies.Empty")
             } else {
                 LazyVGrid(columns: columns, alignment: .center, spacing: TripDetailBuddiesPresentation.gridSpacing) {
@@ -59,7 +57,6 @@ struct TripDetailPlannedBuddiesSection: View {
                         plannedBuddyCell(for: member)
                     }
                 }
-                .padding(.horizontal, AppTheme.Spacing.md)
                 .accessibilityIdentifier("TripDetail.PlannedBuddies.List")
 
                 if plannedBuddies.isEmpty {
@@ -67,7 +64,6 @@ struct TripDetailPlannedBuddiesSection: View {
                         .font(.footnote)
                         .foregroundStyle(AppTheme.Colors.secondaryText)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, AppTheme.Spacing.md)
                 }
             }
         }

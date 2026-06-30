@@ -49,14 +49,12 @@ struct TripDetailPlannedSitesSection: View {
                 .accessibilityLabel(DiveTripPresentation.addPlannedSiteAccessibilityLabel)
                 .accessibilityIdentifier("TripDetail.PlannedSites.Add")
             }
-            .padding(.horizontal, AppTheme.Spacing.md)
 
             if sortedSites.isEmpty {
                 Text(DiveTripPresentation.tripPlannedSitesEmptyMessage)
                     .font(.footnote)
                     .foregroundStyle(AppTheme.Colors.secondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, AppTheme.Spacing.md)
             } else {
                 VStack(spacing: AppTheme.Spacing.md) {
                     ForEach(siteListRows) { row in
@@ -78,7 +76,6 @@ struct TripDetailPlannedSitesSection: View {
                         }
                     }
                 }
-                .padding(.horizontal, AppTheme.Spacing.md)
                 .accessibilityIdentifier("TripDetail.PlannedSites.List")
             }
         }

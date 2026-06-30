@@ -123,9 +123,9 @@ struct PushedDetailHeroHeaderView: View {
                 )
                 .id(media.id)
             } else if expectsTaggedMedia {
-                heroLoadingPlaceholder
+                BlueSheetDetailHeroLoadingBand(accessibilityLabel: "Loading tagged media")
             } else {
-                heroPlaceholder
+                BlueSheetDetailHeroPlaceholder(style: style)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -142,25 +142,9 @@ struct PushedDetailHeroHeaderView: View {
             )
             .accessibilityIdentifier("\(style.accessibilityPrefix).Map")
         } else {
-            AppTheme.Colors.surfaceMuted.opacity(0.35)
+            BlueSheetDetailHeroLoadingBand(accessibilityLabel: "Loading map")
                 .accessibilityIdentifier("\(style.accessibilityPrefix).Map.Placeholder")
         }
-    }
-
-    private var heroPlaceholder: some View {
-        Rectangle()
-            .fill(AppTheme.Colors.tabUnselected.opacity(0.12))
-            .overlay {
-                Image(systemName: style.emptyPlaceholderSystemImage)
-                    .font(.system(size: 56))
-                    .foregroundStyle(AppTheme.Colors.tabUnselected)
-            }
-            .accessibilityLabel(style.emptyPlaceholderAccessibilityLabel)
-    }
-
-    private var heroLoadingPlaceholder: some View {
-        AppTheme.Colors.surfaceMuted.opacity(0.35)
-            .accessibilityLabel("Loading tagged media")
     }
 }
 
