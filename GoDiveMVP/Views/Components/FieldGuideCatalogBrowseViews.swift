@@ -254,8 +254,6 @@ enum FieldGuideHubTileLayout: Sendable {
 struct FieldGuideCategoryDetailView: View {
     let categoryID: String
     let summary: FieldGuideCatalogIndex.CategorySummary
-    @Binding var speciesSearchQuery: String
-    var speciesSearchFocused: FocusState<Bool>.Binding
     let catalogSnapshots: [MarineLifeCatalogSnapshot]
     let unitSystem: DiveDisplayUnitSystem
     let onSelectSubcategory: (String) -> Void
@@ -270,11 +268,6 @@ struct FieldGuideCategoryDetailView: View {
         FieldGuideCatalogBrowseListPage(
             accessibilityRootIdentifier: "FieldGuide.CategoryDetail.Root",
             listAccessibilityIdentifier: "FieldGuide.CategoryDetail.List",
-            searchText: $speciesSearchQuery,
-            isSearchFocused: speciesSearchFocused,
-            catalogSnapshots: catalogSnapshots,
-            unitSystem: unitSystem,
-            onSelectSpecies: onSelectSpecies,
             onAddSpecies: onAddSpecies
         ) {
             if let definition {
@@ -578,8 +571,6 @@ private struct FieldGuideSubcategoryRow: View {
 struct FieldGuideSubcategorySpeciesView: View {
     let payload: FieldGuideCatalogIndex.SubcategoryBrowsePayload
     let unitSystem: DiveDisplayUnitSystem
-    @Binding var speciesSearchQuery: String
-    var speciesSearchFocused: FocusState<Bool>.Binding
     let catalogSnapshots: [MarineLifeCatalogSnapshot]
     let onSelectSpecies: (String) -> Void
     let onAddSpecies: () -> Void
@@ -600,11 +591,6 @@ struct FieldGuideSubcategorySpeciesView: View {
         FieldGuideCatalogBrowseListPage(
             accessibilityRootIdentifier: "FieldGuide.SubcategoryDetail.Root",
             listAccessibilityIdentifier: "FieldGuide.SubcategoryDetail.List",
-            searchText: $speciesSearchQuery,
-            isSearchFocused: speciesSearchFocused,
-            catalogSnapshots: catalogSnapshots,
-            unitSystem: unitSystem,
-            onSelectSpecies: onSelectSpecies,
             onAddSpecies: onAddSpecies
         ) {
             FieldGuideSubcategoryDetailCopy(

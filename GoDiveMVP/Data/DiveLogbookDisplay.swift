@@ -84,20 +84,11 @@ enum DiveLogbookDisplay {
     }
 }
 
-/// Equality inputs for **`LogbookListSurface`** (**.equatable()**). Includes search focus so top chrome can swap **+** / **Cancel** without rebuilding the list on every SwiftData merge.
+/// Equality inputs for **`LogbookListSurface`** (**.equatable()**).
 struct LogbookListSurfaceEquatableInputs: Equatable, Sendable {
     var items: [LogbookListDisplayItem]
     var upcomingTripBanner: LogbookUpcomingTripBannerData?
     var showsStoredDiveEmptyState: Bool
-    var isFilteringBySiteName: Bool
-    var siteSearchQuery: String
-    var activeTagFilter: String?
-    var activeBuddyFilter: String?
-    var activeTripFilter: LogbookTripSearchSuggestion?
-    var tagSuggestionSignature: String
-    var buddySuggestionSignature: String
-    var tripSuggestionSignature: String
-    var isSiteSearchFocused: Bool
     var bubbleAnimationPaused: Bool
     var headerClearance: CGFloat
     var scrollToTopNonce: Int
@@ -107,15 +98,6 @@ struct LogbookListSurfaceEquatableInputs: Equatable, Sendable {
         lhs.items == rhs.items
             && lhs.upcomingTripBanner == rhs.upcomingTripBanner
             && lhs.showsStoredDiveEmptyState == rhs.showsStoredDiveEmptyState
-            && lhs.isFilteringBySiteName == rhs.isFilteringBySiteName
-            && lhs.siteSearchQuery == rhs.siteSearchQuery
-            && lhs.activeTagFilter == rhs.activeTagFilter
-            && lhs.activeBuddyFilter == rhs.activeBuddyFilter
-            && lhs.activeTripFilter == rhs.activeTripFilter
-            && lhs.tagSuggestionSignature == rhs.tagSuggestionSignature
-            && lhs.buddySuggestionSignature == rhs.buddySuggestionSignature
-            && lhs.tripSuggestionSignature == rhs.tripSuggestionSignature
-            && lhs.isSiteSearchFocused == rhs.isSiteSearchFocused
             && lhs.bubbleAnimationPaused == rhs.bubbleAnimationPaused
             && lhs.headerClearance == rhs.headerClearance
             && lhs.scrollToTopNonce == rhs.scrollToTopNonce

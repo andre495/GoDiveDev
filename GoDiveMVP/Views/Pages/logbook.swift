@@ -9,8 +9,6 @@ struct LogbookView: View {
 
     @Query private var activities: [DiveActivity]
     @Query private var ownerTrips: [DiveTrip]
-    @Query private var ownerActivityTags: [ActivityTag]
-    @Query private var ownerDiveBuddies: [DiveBuddy]
     @Query(sort: \DiveSite.siteName) private var diveSiteCatalog: [DiveSite]
 
     @State private var path: [LogbookRoute] = []
@@ -18,11 +16,6 @@ struct LogbookView: View {
     /// Hides the row immediately; cleared only if background delete fails.
     @State private var optimisticallyRemovedActivityIDs: Set<UUID> = []
     @State private var logbookHeaderClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
-    @State private var siteSearchQuery = ""
-    @State private var activeTagFilter: String?
-    @State private var activeBuddyFilter: String?
-    @State private var activeTripFilter: LogbookTripSearchSuggestion?
-    @FocusState private var isSiteSearchFocused: Bool
     @State private var logbookDisplayItems: [LogbookListDisplayItem] = []
     @State private var duplicateActivityIds: Set<UUID> = []
     @State private var logbookCacheRefreshGeneration = 0
@@ -59,70 +52,19 @@ struct LogbookView: View {
                 SortDescriptor(\DiveTrip.id, order: .forward),
             ]
         )
-        _ownerActivityTags = Query(
-            filter: #Predicate<ActivityTag> { $0.ownerProfileID == filterOwnerID },
-            sort: [SortDescriptor(\ActivityTag.name, order: .forward)]
-        )
-        _ownerDiveBuddies = Query(
-            filter: #Predicate<DiveBuddy> { $0.ownerProfileID == filterOwnerID },
-            sort: [SortDescriptor(\DiveBuddy.displayName, order: .forward)]
-        )
     }
 
     private var visibleActivities: [DiveActivity] {
         activities.filter { !optimisticallyRemovedActivityIDs.contains($0.id) }
     }
 
-    private var isFilteringLogbook: Bool {
-        DiveLogbookSiteSearch.isFiltering(query: siteSearchQuery)
-            || activeTagFilter != nil
-            || activeBuddyFilter != nil
-            || activeTripFilter != nil
-    }
-
     private var logbookUpcomingTripBanner: LogbookUpcomingTripBannerData? {
         guard LogbookUpcomingTripPresentation.shouldShowInLogbookList(
-            isFilteringLogbook: isFilteringLogbook,
+            isFilteringLogbook: false,
             showsStoredDiveEmptyState: showsStoredDiveEmptyState,
             hasDisplayItems: !logbookDisplayItems.isEmpty
         ) else { return nil }
         return LogbookUpcomingTripPresentation.nearestUpcomingBanner(from: ownerTrips)
-    }
-
-    private var tripSearchCatalog: [LogbookTripSearchCatalogEntry] {
-        ownerTrips.map {
-            LogbookTripSearchCatalogEntry(tripID: $0.id, displayTitle: $0.displayTitle)
-        }
-    }
-
-    private var tagSuggestions: [LogbookTagSearchSuggestion] {
-        LogbookTagSearchPresentation.suggestions(
-            catalogTagNames: ownerActivityTags.map(\.name),
-            query: siteSearchQuery,
-            activeTagFilter: activeTagFilter,
-            activeBuddyFilter: activeBuddyFilter,
-            activeTripFilter: activeTripFilter
-        )
-    }
-
-    private var buddySuggestions: [LogbookBuddySearchSuggestion] {
-        LogbookBuddySearchPresentation.suggestions(
-            catalogBuddyNames: ownerDiveBuddies.map(\.displayName),
-            query: siteSearchQuery,
-            activeBuddyFilter: activeBuddyFilter,
-            activeTagFilter: activeTagFilter,
-            activeTripFilter: activeTripFilter
-        )
-    }
-
-    private var tripSuggestions: [LogbookTripSearchSuggestion] {
-        LogbookTripSearchPresentation.suggestions(
-            catalogTrips: tripSearchCatalog,
-            query: siteSearchQuery,
-            activeTripFilter: activeTripFilter,
-            activeTagFilter: activeTagFilter,
-            activeBuddyFilter: activeBuddyFilter
-        )
     }
 
     /// No dives left in the store (accounting for optimistic hides before **`@Query`** catches up).
@@ -162,18 +104,6 @@ struct LogbookView: View {
             }
             .onChange(of: logbookTripGroupingSyncToken) { _, _ in
                 handleTripGroupingDidChange()
-            }
-            .onChange(of: siteSearchQuery) { _, newQuery in
-                handleSiteSearchQueryChange(newQuery)
-            }
-            .onChange(of: activeTagFilter) { _, _ in
-                scheduleLogbookCacheRefresh()
-            }
-            .onChange(of: activeBuddyFilter) { _, _ in
-                scheduleLogbookCacheRefresh()
-            }
-            .onChange(of: activeTripFilter) { _, _ in
-                scheduleLogbookCacheRefresh()
             }
             .onChange(of: diveDisplayUnitSystem) { _, _ in
                 scheduleLogbookCacheRefresh()
@@ -243,23 +173,9 @@ struct LogbookView: View {
             items: logbookDisplayItems,
             upcomingTripBanner: logbookUpcomingTripBanner,
             showsStoredDiveEmptyState: showsStoredDiveEmptyState,
-            isFilteringBySiteName: isFilteringLogbook,
-            isSiteSearchFocused: isSiteSearchFocused,
             bubbleAnimationPaused: suppressStoreDrivenRefresh || isDiveDeleteInProgress,
             headerClearance: logbookHeaderClearance,
             scrollToTopNonce: listScrollToTopNonce,
-            siteSearchQuery: $siteSearchQuery,
-            isSiteSearchFocusedBinding: $isSiteSearchFocused,
-            tagSuggestions: tagSuggestions,
-            buddySuggestions: buddySuggestions,
-            tripSuggestions: tripSuggestions,
-            activeTagFilter: activeTagFilter,
-            activeBuddyFilter: activeBuddyFilter,
-            activeTripFilter: activeTripFilter,
-            onSelectTagSuggestion: selectTagSuggestion,
-            onSelectBuddySuggestion: selectBuddySuggestion,
-            onSelectTripSuggestion: selectTripSuggestion,
-            onClearConfirmedFilters: clearConfirmedSearchFilters,
             onSwipeDelete: requestDeleteForRow,
             onSelectMediaPreview: openDiveMediaPreview,
             onOpenTrip: { path.append(.tripDetail($0)) },
@@ -333,36 +249,6 @@ struct LogbookView: View {
         path.append(.diveMedia(row.id, mediaID: mediaID))
     }
 
-    private func selectTagSuggestion(_ suggestion: LogbookTagSearchSuggestion) {
-        activeTagFilter = suggestion.tagName
-        activeBuddyFilter = nil
-        activeTripFilter = nil
-        siteSearchQuery = ""
-        isSiteSearchFocused = false
-    }
-
-    private func selectBuddySuggestion(_ suggestion: LogbookBuddySearchSuggestion) {
-        activeBuddyFilter = suggestion.buddyName
-        activeTagFilter = nil
-        activeTripFilter = nil
-        siteSearchQuery = ""
-        isSiteSearchFocused = false
-    }
-
-    private func selectTripSuggestion(_ suggestion: LogbookTripSearchSuggestion) {
-        activeTripFilter = suggestion
-        activeTagFilter = nil
-        activeBuddyFilter = nil
-        siteSearchQuery = ""
-        isSiteSearchFocused = false
-    }
-
-    private func clearConfirmedSearchFilters() {
-        activeTagFilter = nil
-        activeBuddyFilter = nil
-        activeTripFilter = nil
-    }
-
     private func requestDeleteForRow(_ rowID: UUID) {
         activityPendingDeletion = activities.first { $0.id == rowID }
     }
@@ -415,19 +301,8 @@ struct LogbookView: View {
         return !fetched.isEmpty
     }
 
-    private func handleSiteSearchQueryChange(_ newQuery: String) {
-        if DiveLogbookSiteSearch.isFiltering(query: newQuery) {
-            if activeTagFilter != nil { activeTagFilter = nil }
-            if activeBuddyFilter != nil { activeBuddyFilter = nil }
-            if activeTripFilter != nil { activeTripFilter = nil }
-        }
-        scheduleLogbookCacheRefresh(includeDuplicateScan: false)
-    }
-
     private func handleLogbookTabReselect() {
         path.removeAll()
-        isSiteSearchFocused = false
-        clearConfirmedSearchFilters()
         RootTabListScrollSupport.scheduleScrollToTop { listScrollToTopNonce += 1 }
     }
 
@@ -646,19 +521,15 @@ struct LogbookView: View {
         )
         let unitSystem = diveDisplayUnitSystem
         let useChronologicalNumbers = automaticallyRenumberDives
-        let query = siteSearchQuery
-        let tagFilter = activeTagFilter
-        let buddyFilter = activeBuddyFilter
-        let tripFilterID = activeTripFilter?.tripID
 
         let result = await Task.detached(priority: priority) {
             LogbookDisplayCacheBuilder.build(
                 visibleSeeds: seeds,
                 tripSeeds: tripSeeds,
-                siteSearchQuery: query,
-                confirmedTagName: tagFilter,
-                confirmedBuddyName: buddyFilter,
-                confirmedTripID: tripFilterID,
+                siteSearchQuery: "",
+                confirmedTagName: nil,
+                confirmedBuddyName: nil,
+                confirmedTripID: nil,
                 unitSystem: unitSystem,
                 useChronologicalNumbers: useChronologicalNumbers,
                 includeDuplicateScan: includeDuplicateScan
@@ -685,10 +556,6 @@ struct LogbookView: View {
                     () -> (
                         DiveDisplayUnitSystem,
                         Bool,
-                        String,
-                        String?,
-                        String?,
-                        UUID?,
                         [LogbookActivitySnapshotSeed],
                         [LogbookTripSnapshotSeed],
                         Int
@@ -696,10 +563,6 @@ struct LogbookView: View {
                     (
                         diveDisplayUnitSystem,
                         automaticallyRenumberDives,
-                        siteSearchQuery,
-                        activeTagFilter,
-                        activeBuddyFilter,
-                        activeTripFilter?.tripID,
                         LogbookActivitySnapshotSeeding.seeds(from: visibleActivities),
                         LogbookTripSnapshotSeeding.tripSeeds(
                             from: visibleActivities,
@@ -710,12 +573,12 @@ struct LogbookView: View {
                 }
                 let result = await Task.detached(priority: priority) {
                     LogbookDisplayCacheBuilder.build(
-                        visibleSeeds: inputs.6,
-                        tripSeeds: inputs.7,
-                        siteSearchQuery: inputs.2,
-                        confirmedTagName: inputs.3,
-                        confirmedBuddyName: inputs.4,
-                        confirmedTripID: inputs.5,
+                        visibleSeeds: inputs.2,
+                        tripSeeds: inputs.3,
+                        siteSearchQuery: "",
+                        confirmedTagName: nil,
+                        confirmedBuddyName: nil,
+                        confirmedTripID: nil,
                         unitSystem: inputs.0,
                         useChronologicalNumbers: inputs.1,
                         includeDuplicateScan: includeDuplicateScan
@@ -749,24 +612,9 @@ private struct LogbookListSurface: View, Equatable {
     let items: [LogbookListDisplayItem]
     let upcomingTripBanner: LogbookUpcomingTripBannerData?
     let showsStoredDiveEmptyState: Bool
-    let isFilteringBySiteName: Bool
-    /// Included in **`Equatable`** so **`.equatable()`** still refreshes search chrome when focus changes.
-    let isSiteSearchFocused: Bool
     let bubbleAnimationPaused: Bool
     let headerClearance: CGFloat
     let scrollToTopNonce: Int
-    @Binding var siteSearchQuery: String
-    @FocusState.Binding var isSiteSearchFocusedBinding: Bool
-    let tagSuggestions: [LogbookTagSearchSuggestion]
-    let buddySuggestions: [LogbookBuddySearchSuggestion]
-    let tripSuggestions: [LogbookTripSearchSuggestion]
-    let activeTagFilter: String?
-    let activeBuddyFilter: String?
-    let activeTripFilter: LogbookTripSearchSuggestion?
-    let onSelectTagSuggestion: (LogbookTagSearchSuggestion) -> Void
-    let onSelectBuddySuggestion: (LogbookBuddySearchSuggestion) -> Void
-    let onSelectTripSuggestion: (LogbookTripSearchSuggestion) -> Void
-    let onClearConfirmedFilters: () -> Void
     let onSwipeDelete: (UUID) -> Void
     let onSelectMediaPreview: (DiveLogbookRowDisplayData) -> Void
     let onOpenTrip: (UUID) -> Void
@@ -782,15 +630,6 @@ private struct LogbookListSurface: View, Equatable {
             items: items,
             upcomingTripBanner: upcomingTripBanner,
             showsStoredDiveEmptyState: showsStoredDiveEmptyState,
-            isFilteringBySiteName: isFilteringBySiteName,
-            siteSearchQuery: siteSearchQuery,
-            activeTagFilter: activeTagFilter,
-            activeBuddyFilter: activeBuddyFilter,
-            activeTripFilter: activeTripFilter,
-            tagSuggestionSignature: tagSuggestions.map(\.id).joined(separator: "|"),
-            buddySuggestionSignature: buddySuggestions.map(\.id).joined(separator: "|"),
-            tripSuggestionSignature: tripSuggestions.map(\.id).joined(separator: "|"),
-            isSiteSearchFocused: isSiteSearchFocused,
             bubbleAnimationPaused: bubbleAnimationPaused,
             headerClearance: headerClearance,
             scrollToTopNonce: scrollToTopNonce
@@ -842,9 +681,6 @@ private struct LogbookListSurface: View, Equatable {
     private func logbookScrollSurface(topInset: CGFloat, bottomInset: CGFloat) -> some View {
         if showsStoredDiveEmptyState {
             logbookStoredEmptyState(topInset: topInset)
-        } else if items.isEmpty && isFilteringBySiteName {
-            LogbookSearchEmptyState()
-                .padding(.top, topInset)
         } else {
             logbookDiveList(topInset: topInset, bottomInset: bottomInset)
         }
@@ -988,20 +824,7 @@ private struct LogbookListSurface: View, Equatable {
     }
 
     private var logbookTopChrome: some View {
-        LogbookTopChrome(
-            searchText: $siteSearchQuery,
-            isSearchFocused: $isSiteSearchFocusedBinding,
-            tagSuggestions: tagSuggestions,
-            buddySuggestions: buddySuggestions,
-            tripSuggestions: tripSuggestions,
-            activeTagFilter: activeTagFilter,
-            activeBuddyFilter: activeBuddyFilter,
-            activeTripFilter: activeTripFilter,
-            onSelectTagSuggestion: onSelectTagSuggestion,
-            onSelectBuddySuggestion: onSelectBuddySuggestion,
-            onSelectTripSuggestion: onSelectTripSuggestion,
-            onClearConfirmedFilters: onClearConfirmedFilters
-        ) {
+        LogbookToolbarChrome {
             NavigationLink(value: LogbookRoute.addActivity) {
                 Image(systemName: "plus")
                     .appToolbarIconButtonLabel()
@@ -1009,32 +832,6 @@ private struct LogbookListSurface: View, Equatable {
             .appStandaloneIconButtonStyle()
             .accessibilityLabel("Add activity")
         }
-    }
-}
-
-private struct LogbookSearchEmptyState: View {
-    var body: some View {
-        VStack(spacing: AppTheme.Spacing.lg) {
-            Spacer(minLength: AppTheme.Spacing.lg)
-
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 44))
-                .foregroundStyle(AppTheme.Colors.accent.opacity(0.85))
-
-            Text("No matching dives")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-                .multilineTextAlignment(.center)
-
-            Text("Try a different dive site name.")
-                .font(.body)
-                .foregroundStyle(AppTheme.Colors.secondaryText)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, AppTheme.Spacing.lg)
-
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

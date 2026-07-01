@@ -7,19 +7,21 @@ GoDive is a dive log for iPhone. It helps you import dives from your dive comput
 | Area | What it’s for |
 |------|----------------|
 | **Home** | Featured photos from your dives, lifetime stats, and quick links to your best sites, species, and buddies |
-| **Logbook** | Your full dive list, search, import, and trip grouping |
-| **Field Guide** | Browse and search a marine life catalog; tag species on dive photos |
+| **Logbook** | Your full dive list, import, and trip grouping |
+| **Field Guide** | Browse a marine life catalog; tag species on dive photos |
 | **Explore** | Map or list of dive sites; add your own sites |
-| **Profile** | Certifications, equipment locker, dive buddies, and trips |
+| **Search** | App-wide search across dives, sites, species, buddies, trips, gear, and more |
+| **Profile** | Certifications, equipment locker, dive buddies, and trips (avatar on Home) |
 
-## The four tabs
+## The main tabs
 
-GoDive opens to four main tabs at the bottom of the screen:
+GoDive opens to tabs at the bottom of the screen:
 
 1. **Home** — dashboard and highlights  
 2. **Logbook** — every dive, newest first  
 3. **Field Guide** — species catalog  
 4. **Explore** — dive sites  
+5. **Search** — unified search (magnifying glass; morphs into the search field when selected)  
 
 Tap a tab again while you’re at the top of a list to scroll back to the top.
 

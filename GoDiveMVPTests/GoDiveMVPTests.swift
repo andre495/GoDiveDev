@@ -16549,28 +16549,454 @@ struct GoDiveMVPTests {
         #expect(AppTheme.Layout.glassChromeControlHeight == 44)
     }
 
-    @Test func logbookListSurfaceEquatableInputs_searchFocusChangeIsNotEqual() {
+    @Test func logbookListSurfaceEquatableInputs_scrollNonceChangeIsNotEqual() {
         let base = LogbookListSurfaceEquatableInputs(
             items: [],
             upcomingTripBanner: nil,
             showsStoredDiveEmptyState: false,
-            isFilteringBySiteName: false,
-            siteSearchQuery: "",
-            activeTagFilter: nil,
-            activeBuddyFilter: nil,
-            activeTripFilter: nil,
-            tagSuggestionSignature: "",
-            buddySuggestionSignature: "",
-            tripSuggestionSignature: "",
-            isSiteSearchFocused: false,
             bubbleAnimationPaused: false,
             headerClearance: 0,
             scrollToTopNonce: 0
         )
-        var focused = base
-        focused.isSiteSearchFocused = true
+        var scrolled = base
+        scrolled.scrollToTopNonce = 1
         #expect(base == base)
-        #expect(base != focused)
+        #expect(base != scrolled)
+    }
+
+    @Test func globalSearchPresentation_indexesDivesSitesAndSpecies() {
+        let catalog = GlobalSearchPresentation.Catalog(
+            dives: [
+                GlobalSearchPresentation.DiveIndexEntry(
+                    id: UUID(),
+                    title: "Salt Pier #12",
+                    subtitle: "Salt Pier",
+                    searchHaystack: "salt pier #12 salt pier"
+                ),
+            ],
+            diveSites: [
+                GlobalSearchPresentation.DiveSiteIndexEntry(
+                    id: UUID(),
+                    title: "Salt Pier",
+                    subtitle: "Bonaire",
+                    searchHaystacks: ["Salt Pier", "Bonaire"]
+                ),
+            ],
+            species: [
+                GlobalSearchPresentation.SpeciesIndexEntry(
+                    uuid: "marine-life-turtle",
+                    title: "Green Sea Turtle",
+                    subtitle: "Chelonia mydas",
+                    searchText: "green sea turtle chelonia mydas"
+                ),
+            ],
+            buddies: [],
+            tags: [],
+            trips: [],
+            equipment: [],
+            certifications: []
+        )
+
+        let results = GlobalSearchPresentation.search(catalog: catalog, query: "salt")
+        #expect(results.sections.count == 2)
+        #expect(results.sections.map(\.kind) == [.diveSites, .dives])
+
+        let turtleResults = GlobalSearchPresentation.search(catalog: catalog, query: "turtle")
+        #expect(turtleResults.sections.count == 1)
+        #expect(turtleResults.sections.first?.kind == .species)
+    }
+
+    @Test func globalSearchPresentation_emptyQueryReturnsNoSections() {
+        let catalog = GlobalSearchPresentation.Catalog(
+            dives: [],
+            diveSites: [],
+            species: [],
+            buddies: [],
+            tags: [],
+            trips: [],
+            equipment: [],
+            certifications: []
+        )
+        #expect(GlobalSearchPresentation.search(catalog: catalog, query: "   ").sections.isEmpty)
+    }
+
+    @Test func globalSearchPresentation_contextTokenScopesBrowseResultsWithoutQuery() {
+        let catalog = GlobalSearchPresentation.Catalog(
+            dives: [
+                GlobalSearchPresentation.DiveIndexEntry(
+                    id: UUID(),
+                    title: "Salt Pier #12",
+                    subtitle: "Salt Pier",
+                    searchHaystack: "salt pier"
+                ),
+            ],
+            diveSites: [
+                GlobalSearchPresentation.DiveSiteIndexEntry(
+                    id: UUID(),
+                    title: "Salt Pier",
+                    subtitle: "Bonaire",
+                    searchHaystacks: ["Salt Pier"]
+                ),
+            ],
+            species: [],
+            buddies: [],
+            tags: [],
+            trips: [],
+            equipment: [],
+            certifications: []
+        )
+
+        let diveOnly = GlobalSearchPresentation.search(
+            catalog: catalog,
+            query: "",
+            contextTokens: [.dives]
+        )
+        #expect(diveOnly.sections.count == 1)
+        #expect(diveOnly.sections.first?.kind == .dives)
+        #expect(diveOnly.sections.first?.hits.count == 1)
+
+        let siteOnly = GlobalSearchPresentation.search(
+            catalog: catalog,
+            query: "",
+            contextTokens: [.sites]
+        )
+        #expect(siteOnly.sections.count == 1)
+        #expect(siteOnly.sections.first?.kind == .diveSites)
+    }
+
+    @Test func globalSearchPresentation_contextTokenAndQueryFilterWithinScope() {
+        let catalog = GlobalSearchPresentation.Catalog(
+            dives: [
+                GlobalSearchPresentation.DiveIndexEntry(
+                    id: UUID(),
+                    title: "Salt Pier #12",
+                    subtitle: "Salt Pier",
+                    searchHaystack: "salt pier"
+                ),
+                GlobalSearchPresentation.DiveIndexEntry(
+                    id: UUID(),
+                    title: "Hilma Hooker",
+                    subtitle: "Hilma Hooker",
+                    searchHaystack: "hilma hooker"
+                ),
+            ],
+            diveSites: [],
+            species: [],
+            buddies: [],
+            tags: [],
+            trips: [],
+            equipment: [],
+            certifications: []
+        )
+
+        let results = GlobalSearchPresentation.search(
+            catalog: catalog,
+            query: "salt",
+            contextTokens: [.dives]
+        )
+        #expect(results.sections.count == 1)
+        #expect(results.sections.first?.hits.count == 1)
+        #expect(results.sections.first?.hits.first?.title == "Salt Pier #12")
+    }
+
+    @Test func globalSearchPresentation_isActiveWhenContextTokenSelected() {
+        #expect(!GlobalSearchPresentation.isActive(query: "", contextTokens: []))
+        #expect(GlobalSearchPresentation.isActive(query: "", contextTokens: [.gear]))
+        #expect(GlobalSearchPresentation.isActive(query: "abc", contextTokens: []))
+    }
+
+    @Test func globalSearchPresentation_applyReturnToCategoryBrowse_clearsQueryAndTokens() {
+        var query = "turtle"
+        var tokens: [GlobalSearchPresentation.ContextToken] = [.marineLife]
+        GlobalSearchPresentation.applyReturnToCategoryBrowse(query: &query, contextTokens: &tokens)
+        #expect(query.isEmpty)
+        #expect(tokens.isEmpty)
+        #expect(!GlobalSearchPresentation.isActive(query: query, contextTokens: tokens))
+    }
+
+    @Test func globalSearchResultsDismissPresentation_revealsCategoryTilesDuringInteractivePop() {
+        #expect(!GlobalSearchResultsDismissPresentation.revealsCategoryTiles(
+            isResultsPanelVisible: true,
+            dragOffset: 0
+        ))
+        #expect(GlobalSearchResultsDismissPresentation.revealsCategoryTiles(
+            isResultsPanelVisible: true,
+            dragOffset: 12
+        ))
+        #expect(GlobalSearchResultsDismissPresentation.revealsCategoryTiles(
+            isResultsPanelVisible: false,
+            dragOffset: 0
+        ))
+    }
+
+    @Test func globalSearchResultsDismissPresentation_commitDismissOffset_usesContainerWidth() {
+        #expect(GlobalSearchResultsDismissPresentation.commitDismissOffset(containerWidth: 390) == 390)
+        #expect(GlobalSearchResultsDismissPresentation.commitDismissOffset(containerWidth: 0) == 1)
+    }
+
+    @Test func globalSearchTabLaunchPresentation_defersIndexUntilSearchOrPush() {
+        #expect(!GlobalSearchTabLaunchPresentation.shouldMountSearchIndexImmediately(
+            isSearchActive: false,
+            pathDepth: 0
+        ))
+        #expect(GlobalSearchTabLaunchPresentation.shouldMountSearchIndexImmediately(
+            isSearchActive: true,
+            pathDepth: 0
+        ))
+        #expect(GlobalSearchTabLaunchPresentation.shouldMountSearchIndexImmediately(
+            isSearchActive: false,
+            pathDepth: 1
+        ))
+        #expect(!GlobalSearchTabLaunchPresentation.shouldBuildSearchCatalog(isSearchActive: false))
+        #expect(GlobalSearchTabLaunchPresentation.shouldBuildSearchCatalog(isSearchActive: true))
+    }
+
+    @Test func globalSearchResultsDismissPresentation_blocksResultsInteractionWhileDismissDragActiveOrOffset() {
+        #expect(GlobalSearchResultsDismissPresentation.blocksResultsInteraction(
+            isDismissDragActive: true,
+            dragOffset: 0
+        ))
+        #expect(GlobalSearchResultsDismissPresentation.blocksResultsInteraction(
+            isDismissDragActive: false,
+            dragOffset: 40
+        ))
+        #expect(!GlobalSearchResultsDismissPresentation.blocksResultsInteraction(
+            isDismissDragActive: false,
+            dragOffset: 0
+        ))
+        #expect(!GlobalSearchResultsDismissPresentation.blocksResultsInteraction(
+            isDismissDragActive: false,
+            dragOffset: 0.5
+        ))
+    }
+
+    @Test func globalSearchResultsDismissPresentation_locksResultsListScrollWhileDismissDragActive() {
+        #expect(GlobalSearchResultsDismissPresentation.locksResultsListScroll(
+            isDismissDragActive: true,
+            dragOffset: 0
+        ))
+        #expect(GlobalSearchResultsDismissPresentation.locksResultsListScroll(
+            isDismissDragActive: false,
+            dragOffset: 12
+        ))
+        #expect(!GlobalSearchResultsDismissPresentation.locksResultsListScroll(
+            isDismissDragActive: false,
+            dragOffset: 0
+        ))
+    }
+
+    @Test func globalSearchResultsSectionHeaderPresentation_reservesBackButtonAndScrollMargin() {
+        let layout = GlobalSearchPresentation.ResultsSectionHeaderPresentation.self
+        #expect(layout.horizontalPadding == AppTheme.Spacing.lg)
+        #expect(layout.backButtonReservedWidth() == AppTheme.Spacing.lg + layout.backButtonTapWidth)
+        #expect(layout.titleFontSize == 20)
+        #expect(layout.verticalPadding == AppTheme.Spacing.sm)
+        #expect(layout.scrollContentTopMargin(chromeHeight: 44) == 44)
+        #expect(layout.scrollContentTopMargin(chromeHeight: 0) == 0)
+    }
+
+    @Test func globalSearchResultsChromePresentation_layersScrimAboveListBelowBackRow() {
+        let chrome = GlobalSearchPresentation.ResultsChromePresentation.self
+        #expect(chrome.topScrimZIndex == 0.5)
+        #expect(chrome.topChromeZIndex == 1.0)
+        #expect(chrome.topScrimZIndex < chrome.topChromeZIndex)
+        #expect(chrome.topScrimObstructionHeight(safeAreaTop: 59, chromeHeight: 44) == 103)
+    }
+
+    @Test func globalSearchResultsDismissPresentation_genericBrowseSlideOffset() {
+        #expect(GlobalSearchResultsDismissPresentation.genericBrowseSlideOffset(
+            dragOffset: 0,
+            containerWidth: 400,
+            isResultsPanelVisible: false
+        ) == 0)
+        #expect(GlobalSearchResultsDismissPresentation.genericBrowseSlideOffset(
+            dragOffset: 0,
+            containerWidth: 400,
+            isResultsPanelVisible: true
+        ) == -400)
+        #expect(GlobalSearchResultsDismissPresentation.genericBrowseSlideOffset(
+            dragOffset: 120,
+            containerWidth: 400,
+            isResultsPanelVisible: true
+        ) == -280)
+        #expect(GlobalSearchResultsDismissPresentation.genericBrowseSlideOffset(
+            dragOffset: 400,
+            containerWidth: 400,
+            isResultsPanelVisible: true
+        ) == 0)
+    }
+
+    @Test func globalSearchPushedDestinationPresentation_attachesStackSearchOnlyAtRoot() {
+        #expect(GlobalSearchPushedDestinationPresentation.attachesStackSearch(pathCount: 0))
+        #expect(!GlobalSearchPushedDestinationPresentation.attachesStackSearch(pathCount: 1))
+        #expect(!GlobalSearchPushedDestinationPresentation.attachesStackSearch(pathCount: 2))
+    }
+
+    @Test func globalSearchPushedDestinationPresentation_dismissesNavigationSearchOnlyOnPush() {
+        #expect(GlobalSearchPushedDestinationPresentation.shouldDismissNavigationSearchOnPathChange(
+            previousDepth: 0,
+            newDepth: 1
+        ))
+        #expect(!GlobalSearchPushedDestinationPresentation.shouldDismissNavigationSearchOnPathChange(
+            previousDepth: 1,
+            newDepth: 0
+        ))
+        #expect(!GlobalSearchPushedDestinationPresentation.shouldDismissNavigationSearchOnPathChange(
+            previousDepth: 0,
+            newDepth: 0
+        ))
+    }
+
+    @Test func globalSearchPushedDestinationPresentation_shouldForceResultsPanelOnPopFromDetail() {
+        #expect(GlobalSearchPushedDestinationPresentation.shouldForceResultsPanelOnPopFromDetail(
+            previousDepth: 1,
+            newDepth: 0,
+            preservedSessionIsActive: true
+        ))
+        #expect(!GlobalSearchPushedDestinationPresentation.shouldForceResultsPanelOnPopFromDetail(
+            previousDepth: 1,
+            newDepth: 0,
+            preservedSessionIsActive: false
+        ))
+        #expect(!GlobalSearchPushedDestinationPresentation.shouldForceResultsPanelOnPopFromDetail(
+            previousDepth: 0,
+            newDepth: 1,
+            preservedSessionIsActive: true
+        ))
+    }
+
+    @Test func globalSearchPushedDestinationPresentation_shouldRestoreStackSearchOnPopToResults() {
+        #expect(GlobalSearchPushedDestinationPresentation.shouldRestoreStackSearchOnPathChange(
+            previousDepth: 1,
+            newDepth: 0,
+            isSearchActive: true
+        ))
+        #expect(!GlobalSearchPushedDestinationPresentation.shouldRestoreStackSearchOnPathChange(
+            previousDepth: 1,
+            newDepth: 0,
+            isSearchActive: false
+        ))
+        #expect(!GlobalSearchPushedDestinationPresentation.shouldRestoreStackSearchOnPathChange(
+            previousDepth: 0,
+            newDepth: 1,
+            isSearchActive: true
+        ))
+    }
+
+    @Test func globalSearchPushedDestinationPresentation_attachesStackInteractivePopWhenPushed() {
+        #expect(!GlobalSearchPushedDestinationPresentation.attachesStackInteractivePop(pathCount: 0))
+        #expect(GlobalSearchPushedDestinationPresentation.attachesStackInteractivePop(pathCount: 1))
+    }
+
+    @Test func globalSearchPresentation_contextTokens_coverMainConceptsInOrder() {
+        let tokens = GlobalSearchPresentation.ContextToken.allCases
+        #expect(tokens.count == 8)
+        #expect(tokens.map(\.title) == [
+            "Dives",
+            "Buddies",
+            "Sites",
+            "Marine life",
+            "Tags",
+            "Gear",
+            "Trips",
+            "Certifications",
+        ])
+        #expect(tokens.map(\.accessibilityIdentifier) == [
+            "GlobalSearch.ContextToken.dives",
+            "GlobalSearch.ContextToken.buddies",
+            "GlobalSearch.ContextToken.sites",
+            "GlobalSearch.ContextToken.marineLife",
+            "GlobalSearch.ContextToken.tags",
+            "GlobalSearch.ContextToken.gear",
+            "GlobalSearch.ContextToken.trips",
+            "GlobalSearch.ContextToken.certifications",
+        ])
+    }
+
+    @Test func globalSearchPresentation_contextTokens_useFieldGuideAccentCategories() {
+        let accentIDs = GlobalSearchPresentation.ContextToken.allCases.map(\.fieldGuideAccentCategoryID)
+        #expect(accentIDs.count == 8)
+        #expect(accentIDs.contains("fishes"))
+        #expect(accentIDs.contains("marine_mammals"))
+        #expect(accentIDs.contains("corals"))
+        #expect(Set(accentIDs).count >= 6)
+    }
+
+    @Test func globalSearchPresentation_resultSections_followDisplayPriorityOrder() {
+        let catalog = GlobalSearchPresentation.Catalog(
+            dives: [
+                GlobalSearchPresentation.DiveIndexEntry(
+                    id: UUID(),
+                    title: "Blue Hole dive",
+                    subtitle: nil,
+                    searchHaystack: "blue hole dive"
+                ),
+            ],
+            diveSites: [
+                GlobalSearchPresentation.DiveSiteIndexEntry(
+                    id: UUID(),
+                    title: "Blue Hole",
+                    subtitle: "Belize",
+                    searchHaystacks: ["Blue Hole"]
+                ),
+            ],
+            species: [],
+            buddies: [
+                GlobalSearchPresentation.BuddyIndexEntry(id: UUID(), displayName: "Blue Buddy"),
+            ],
+            tags: [
+                GlobalSearchPresentation.TagIndexEntry(
+                    id: UUID(),
+                    name: "Blue tag",
+                    appliedDiveCount: 2,
+                    searchHaystack: "blue tag"
+                ),
+            ],
+            trips: [],
+            equipment: [],
+            certifications: []
+        )
+
+        let results = GlobalSearchPresentation.search(catalog: catalog, query: "blue")
+        #expect(results.sections.map(\.kind) == [.buddies, .diveSites, .tags, .dives])
+    }
+
+    @Test func globalSearchPresentation_contextTokenTileLayout_matchesHomeStatsGridSpacing() {
+        let layout = GlobalSearchPresentation.ContextTokenPresentation.self
+        #expect(layout.gridColumnCount == HomeLifetimeStatsTilesLayout.gridColumnCount)
+        #expect(layout.gridSpacing == HomeLifetimeStatsTilesLayout.gridSpacing)
+        #expect(layout.contentHorizontalPadding == AppTheme.Spacing.lg)
+        #expect(layout.idleHeaderTitle == "Search")
+        #expect(layout.idleHeaderTitleBandHeight() == layout.idleHeaderTitleTopPadding + layout.idleHeaderEstimatedHeight + layout.idleHeaderTitleBottomPadding)
+        #expect(layout.idleHeaderTitleTopPadding == AppTheme.Layout.appHeaderTopPadding)
+        #expect(layout.idleHeaderTitleBottomPadding == AppTheme.Layout.appHeaderBottomPadding)
+        #expect(layout.idleHeaderEstimatedHeight == 34)
+        #expect(layout.headerToGridSpacing == AppTheme.Spacing.sm)
+        #expect(layout.tabSearchChromeHeight == 56)
+        #expect(layout.keyboardOpenGridExtraBottomSpacing == AppTheme.Spacing.sm)
+        #expect(layout.resultsListTopInset(safeAreaTop: 59, chromeHeight: 44) == 103)
+        #expect(layout.categoryGridBottomInset(resolvedSafeAreaBottom: 34) == 34 + layout.tabSearchChromeHeight)
+        #expect(
+            layout.categoryGridBottomInset(
+                resolvedSafeAreaBottom: 34,
+                keyboardOverlapHeight: 320,
+                isKeyboardVisible: true
+            ) == 320 + layout.tabSearchChromeHeight + layout.keyboardOpenGridExtraBottomSpacing
+        )
+        #expect(
+            layout.gridRowCount(
+                tokenCount: GlobalSearchPresentation.ContextToken.allCases.count,
+                columnCount: layout.gridColumnCount
+            ) == 4
+        )
+    }
+
+    @Test func globalSearchResultListRowLayout_usesFullWidthHairlineAndCompactArtwork() {
+        let layout = GlobalSearchResultListRowLayout.self
+        #expect(layout.artworkSize == 30)
+        #expect(layout.rowVerticalPadding == 10)
+        #expect(layout.separatorHeight == 0.5)
+        #expect(layout.compactScale == 0.6)
     }
 
     // MARK: - Duplicate dive matching

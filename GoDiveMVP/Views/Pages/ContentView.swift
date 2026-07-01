@@ -13,6 +13,8 @@ struct ContentView: View {
 
     /// Selection binding is required for iOS 18+ tab re-tap scroll-to-top / pop-to-root (see Apple Developer Forums thread 773497).
     @State private var selectedTab: RootTab = .home
+    @State private var searchQuery = ""
+    @State private var searchContextTokens: [GlobalSearchPresentation.ContextToken] = []
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -32,6 +34,14 @@ struct ContentView: View {
 
             Tab("Explore", systemImage: "map", value: RootTab.explore) {
                 ExploreView()
+            }
+
+            Tab(value: RootTab.search, role: .search) {
+                GlobalSearchView(
+                    ownerProfileID: accountSession.currentProfile?.id,
+                    query: $searchQuery,
+                    activeContextTokens: $searchContextTokens
+                )
             }
         }
         .accessibilityIdentifier("GoDive.RootTabs")

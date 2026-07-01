@@ -9,7 +9,7 @@ The **Field Guide** tab is a browsable marine life catalog bundled with GoDive. 
 3. **Subcategory mosaic** — species grid with photos  
 4. **Species detail** — photos, 3D model (when available), range, size, and your tagged dives  
 
-Use **Search Marine Life** on the hub, category, or subcategory pages. Search always filters the **full catalog**, so you can find a species without drilling down first.
+To find a species by name, use the **Search** tab and tap **Marine life** (or type in the search field). Search filters the **full catalog**, so you can find a species without drilling down the browse hierarchy first.
 
 ## Species detail page
 

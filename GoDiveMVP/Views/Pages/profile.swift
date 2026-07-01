@@ -126,11 +126,7 @@ struct ProfileView: View {
     var body: some View {
         AppHeaderlessPage {
             ZStack {
-                if !GoDiveUITestConfiguration.isActive {
-                    WaterBubbleBackground()
-                    AppTheme.Colors.profileBubbleScrim
-                        .ignoresSafeArea()
-                }
+                ProfileBubbleBackgroundLayer()
 
                 VStack(spacing: 0) {
                     HStack(spacing: AppTheme.Spacing.sm) {

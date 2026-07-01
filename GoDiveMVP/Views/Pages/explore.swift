@@ -15,10 +15,7 @@ struct ExploreView: View {
     @State private var path: [ExploreRoute] = []
     @State private var viewMode: ExploreViewMode = .map
     @State private var siteScope: ExploreSiteScope = .logbook
-    @State private var siteSearchQuery = ""
-    @FocusState private var isSiteSearchFocused: Bool
     @State private var mapFocusedSelection: ExploreMapSiteSelection?
-    @State private var mapFocusedSiteName: String?
     @State private var mapFocusRequest: ExploreCatalogMapFocusRequest?
     @State private var exploreTopChromeHeight: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
     @State private var listScrollToTopNonce = 0
@@ -63,37 +60,7 @@ struct ExploreView: View {
     }
 
     private var mapPlottableSignature: String {
-        guard viewMode == .map, mapFocusedSelection != nil else { return displayedPlottableSignature }
-        return ExploreCatalogMapPresentation.sitesChangeSignature(for: mapPlottableSites)
-    }
-
-    private var siteSearchSuggestions: [ExploreDiveSiteSearchSuggestion] {
-        ExploreDiveSiteSearchPresentation.suggestions(
-            rows: displayedListRows,
-            plottableSites: displayedPlottableSites,
-            query: siteSearchQuery
-        )
-    }
-
-    private var showsMapSearchSuggestions: Bool {
-        ExploreDiveSiteSearchPresentation.showsSuggestions(
-            viewMode: viewMode,
-            query: siteSearchQuery,
-            mapFocusedSelection: mapFocusedSelection
-        )
-    }
-
-    private var isFilteringSites: Bool {
-        switch siteScope {
-        case .logbook:
-            ExploreDiveSiteListSearch.isFiltering(query: siteSearchQuery)
-        case .allSites:
-            ExploreReferenceSiteListSearch.isFiltering(query: siteSearchQuery)
-        }
-    }
-
-    private var showsSiteSearch: Bool {
-        showsScopedSiteContent
+        displayedPlottableSignature
     }
 
     private var showsSiteScopeToggle: Bool {
@@ -109,12 +76,14 @@ struct ExploreView: View {
             AppHeaderlessPage {
                 explorePageContent
                     .safeAreaInset(edge: .bottom, spacing: 0) {
-                        if ExploreSiteScopeChromePresentation.showsKeyboardAdjacentToggle(
-                            isSearchFocused: isSiteSearchFocused,
-                            showsSiteScopeToggle: showsSiteScopeToggle,
-                            isNavigationStackAtRoot: isExploreNavigationStackAtRoot
-                        ) {
-                            ExploreSiteScopeKeyboardChrome(selection: $siteScope)
+                        if showsSiteScopeToggle
+                            && isExploreNavigationStackAtRoot
+                        {
+                            ExploreSiteScopeBottomChrome(selection: $siteScope)
+                                .padding(
+                                    .bottom,
+                                    ExploreSiteScopeChromePresentation.paddingAboveTabBar()
+                                )
                         }
                     }
             }
@@ -143,29 +112,16 @@ struct ExploreView: View {
             handleExploreTabReselect()
         }
         .onChange(of: viewMode) { _, mode in
-            if mode != .list {
-                dismissSiteSearchKeyboard()
-            }
             if mode == .list {
-                clearMapSiteSearch()
+                clearMapSiteFocus()
             }
         }
         .onChange(of: siteScope) { _, _ in
-            if mapFocusedSelection != nil {
-                clearMapSiteSearch(keepingQuery: true)
-            }
+            clearMapSiteFocus()
             applyScopePresentation()
-            if viewMode == .list, !isSiteSearchFocused {
+            if viewMode == .list {
                 RootTabListScrollSupport.scheduleScrollToTop { listScrollToTopNonce += 1 }
             }
-        }
-        .onChange(of: siteSearchQuery) { _, _ in
-            scheduleDisplayedListRowsRefresh()
-            guard mapFocusedSelection != nil else { return }
-            let trimmedQuery = siteSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-            let trimmedFocusedName = mapFocusedSiteName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            guard trimmedQuery != trimmedFocusedName else { return }
-            clearMapSiteSearch(keepingQuery: true)
         }
         .onChange(of: scopeCacheSyncToken) { _, _ in
             scheduleScopeCacheRebuild()
@@ -178,11 +134,6 @@ struct ExploreView: View {
             scopeCacheRebuildTask = nil
             listRowsRefreshTask?.cancel()
             listRowsRefreshTask = nil
-        }
-        .onChange(of: isSiteSearchFocused) { _, isFocused in
-            if !isFocused {
-                dismissSiteSearchKeyboard()
-            }
         }
         .sheet(isPresented: $showsAddDiveSiteSheet) {
             ExploreCatalogDiveSiteAddSheet { siteID in
@@ -197,7 +148,6 @@ struct ExploreView: View {
             let topInset = proxy.safeAreaInsets.top + exploreTopChromeHeight
             let showsBottomSiteScopeToggle = showsSiteScopeToggle
                 && isExploreNavigationStackAtRoot
-                && ExploreSiteScopeChromePresentation.showsBottomToggle(isSearchFocused: isSiteSearchFocused)
             let bottomInset = proxy.safeAreaInsets.bottom
                 + AppTheme.Spacing.md
                 + (showsBottomSiteScopeToggle ? ExploreSiteScopeChromePresentation.listExtraBottomInset : 0)
@@ -243,32 +193,11 @@ struct ExploreView: View {
 
                 ExploreTopChrome(
                     viewMode: $viewMode,
-                    siteSearchQuery: $siteSearchQuery,
-                    isSiteSearchFocused: $isSiteSearchFocused,
-                    showsSiteSearch: showsSiteSearch,
-                    siteSearchSuggestions: siteSearchSuggestions,
-                    showsMapSearchSuggestions: showsMapSearchSuggestions,
                     statusBarSafeAreaTop: proxy.safeAreaInsets.top,
-                    onAddDiveSite: { showsAddDiveSiteSheet = true },
-                    onSelectSiteSearchSuggestion: selectMapSiteSearchSuggestion,
-                    onClearMapSiteSearch: { clearMapSiteSearch() }
+                    onAddDiveSite: { showsAddDiveSiteSheet = true }
                 )
                 .frame(maxWidth: .infinity, alignment: .top)
-                .ignoresSafeArea(.keyboard, edges: .bottom)
                 .zIndex(1)
-
-                if showsBottomSiteScopeToggle {
-                    VStack(spacing: 0) {
-                        Spacer(minLength: 0)
-                        ExploreSiteScopeBottomChrome(selection: $siteScope)
-                            .padding(
-                                .bottom,
-                                ExploreSiteScopeChromePresentation.paddingAboveTabBar()
-                            )
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .zIndex(2)
-                }
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
             .ignoresSafeArea(edges: .bottom)
@@ -348,34 +277,13 @@ struct ExploreView: View {
         openExploreSiteSelection(ExploreSiteScopePresentation.rowSelection(for: row))
     }
 
-    private func dismissSiteSearchKeyboard() {
-        isSiteSearchFocused = false
-    }
-
-    private func selectMapSiteSearchSuggestion(_ suggestion: ExploreDiveSiteSearchSuggestion) {
-        mapFocusedSiteName = suggestion.siteName
-        mapFocusedSelection = suggestion.selection
-        mapFocusRequest = ExploreCatalogMapFocusRequest(
-            selection: suggestion.selection,
-            coordinate: suggestion.coordinate,
-            requestID: UUID()
-        )
-        siteSearchQuery = suggestion.siteName
-        dismissSiteSearchKeyboard()
-    }
-
-    private func clearMapSiteSearch(keepingQuery: Bool = false) {
+    private func clearMapSiteFocus() {
         mapFocusedSelection = nil
-        mapFocusedSiteName = nil
         mapFocusRequest = nil
-        if !keepingQuery {
-            siteSearchQuery = ""
-        }
     }
 
     private func handleExploreTabReselect() {
         path.removeAll()
-        isSiteSearchFocused = false
         guard viewMode == .list else { return }
         RootTabListScrollSupport.scheduleScrollToTop { listScrollToTopNonce += 1 }
     }
@@ -386,12 +294,6 @@ struct ExploreView: View {
             exploreSiteListEmptyState
                 .padding(.top, topInset)
                 .padding(.horizontal, AppTheme.Spacing.lg)
-        } else if displayedListRows.isEmpty && isFilteringSites {
-            CatalogSearchEmptyState(
-                title: "No matching dive sites",
-                message: "Try a different site name or place."
-            )
-            .padding(.top, topInset)
         } else {
             List {
                 Color.clear
@@ -495,7 +397,6 @@ struct ExploreView: View {
 
     private func scheduleDisplayedListRowsRefresh(immediate: Bool = false) {
         listRowsRefreshTask?.cancel()
-        let query = siteSearchQuery
         let scope = siteScope
         let rows = scopeCache.listRows(for: scope)
         let debounceNanoseconds = immediate
@@ -509,7 +410,7 @@ struct ExploreView: View {
             guard !Task.isCancelled else { return }
 
             let filteredRows = await Task.detached {
-                ExploreSiteScopeCache.filteringListRows(rows, scope: scope, query: query)
+                ExploreSiteScopeCache.filteringListRows(rows, scope: scope, query: "")
             }.value
 
             guard !Task.isCancelled else { return }

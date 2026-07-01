@@ -5,11 +5,26 @@ import UIKit
 
 /// Circular profile image, optional initials placeholder, or default **person** icon.
 struct ProfileAvatarView: View {
+    enum PlaceholderBackground: Sendable {
+        case surfaceElevated
+        case translucentOnDarkBubble
+
+        var color: Color {
+            switch self {
+            case .surfaceElevated:
+                AppTheme.Colors.surfaceElevated
+            case .translucentOnDarkBubble:
+                Color.white.opacity(0.08)
+            }
+        }
+    }
+
     let profilePhoto: Data?
     var diameter: CGFloat
     var iconFont: Font = .title3
     /// When **`profilePhoto`** is nil, show these initials instead of the person icon (buddy avatars).
     var placeholderInitials: String? = nil
+    var placeholderBackground: PlaceholderBackground = .surfaceElevated
 
     #if canImport(UIKit)
     @State private var decodedImage: UIImage?
@@ -63,19 +78,27 @@ struct ProfileAvatarView: View {
     private var personIconPlaceholder: some View {
         Image(systemName: "person.circle.fill")
             .font(iconFont)
-            .foregroundStyle(AppTheme.Colors.accent)
+            .foregroundStyle(
+                placeholderBackground == .translucentOnDarkBubble
+                    ? Color.white.opacity(0.85)
+                    : AppTheme.Colors.accent
+            )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(AppTheme.Colors.surfaceElevated)
+            .background(placeholderBackground.color)
     }
 
     private func initialsPlaceholder(_ initials: String) -> some View {
         Text(initials)
             .font(.system(size: diameter * 0.36, weight: .semibold, design: .rounded))
-            .foregroundStyle(AppTheme.Colors.accent)
+            .foregroundStyle(
+                placeholderBackground == .translucentOnDarkBubble
+                    ? Color.white.opacity(0.85)
+                    : AppTheme.Colors.accent
+            )
             .minimumScaleFactor(0.5)
             .lineLimit(1)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(AppTheme.Colors.surfaceElevated)
+            .background(placeholderBackground.color)
             .accessibilityHidden(true)
     }
 }

@@ -17,14 +17,9 @@ An **upcoming trip** banner may appear at the top when you have a planned trip w
 
 ## Search and filters
 
-Use **Search Activities** to filter the list. GoDive matches:
+Use the **Search** tab to find dives, buddies, sites, tags, and more across the app. Tap **Dives** on the category grid (or type in the search field) to filter your logbook.
 
-- Site name  
-- Confirmed **trip**  
-- Confirmed **buddy**  
-- Confirmed **tag**
-
-While typing, suggestion chips appear for trips, buddies, and tags. Tap a chip to apply that filter. Use **Clear** or **Cancel** to reset search and filters.
+From **Logbook**, the list itself is not filtered inline — open **Search** to look up dives by site, trip, buddy, or tag. See [Search](search.md).
 
 ## Add a dive
 
