@@ -1586,7 +1586,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Layout reference doc** — **`GoDiveMVP/cursor/blue_sheet_home_vs_detail_layout.md`** (Home vs detail measurement tokens, seam vs content-only tweaks, replication guide).
 - **Equipment detail migration** — **`ViewEquipmentDetails`** on **`BlueSheetDetailPage`**: **`EquipmentDetailHeroBand`** (photo / placeholder), **`BlueSheetPinnedSummary`**, **`EquipmentDetailContentPager`** (one-tab **Details**), **`BlueSheetDetailTopChrome`** + Edit sheet; removed legacy **`AppHeader`** / hand-rolled hero height / full-page scroll. **`EquipmentDetailMetadataView`** holds card sections; shell **`lg`** horizontal inset only. Removed unused **`EquipmentItemPresentation.detailHeroBaseHeight`**. Tests: **`equipmentDetailContentPagerPresentation_singleTab`**.
 
-## 96 - Unified search v2
+## 96 - Unified search v2 **(pushed)**
 
 **Summary:** Single app-wide search via native **`Tab(role: .search)`** morph tab; removed inline search bars from Logbook, Field Guide, and Explore.
 
@@ -1601,3 +1601,5 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Tests: **`globalSearchPresentation_*`**, **`globalSearchPresentation_applyReturnToCategoryBrowse_clearsQueryAndTokens`**, **`globalSearchResultsDismissPresentation_*`**, **`globalSearchResultsChromePresentation_*`**, **`globalSearchResultsSectionHeaderPresentation_*`**, **`globalSearchPushedDestinationPresentation_*`**, **`globalSearchPresentation_contextTokenScopesBrowseResultsWithoutQuery`**, **`globalSearchPresentation_contextTokenAndQueryFilterWithinScope`**, **`globalSearchPresentation_resultSections_followDisplayPriorityOrder`**, **`globalSearchResultListRowLayout_usesFullWidthHairlineAndCompactArtwork`**, **`globalSearchPresentation_contextTokenTileLayout_matchesHomeStatsGridSpacing`**, updated **`logbookListSurfaceEquatableInputs_scrollNonceChangeIsNotEqual`**.
 - **Search tab keyboard** — removed manual **`resignFirstResponder`** / **`.searchFocused`** / tab-launch dismiss retries; **`Tab(role: .search)`** + **`isPresented`** morph handles the search field natively (keyboard only when the user taps the field).
 - **`docs/search.md`** — user guide for the unified Search tab; updated Logbook / Field Guide / Explore pages.
+
+## 97 - Next batch
