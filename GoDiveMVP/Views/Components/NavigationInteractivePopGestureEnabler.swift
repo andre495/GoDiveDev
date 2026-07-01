@@ -118,12 +118,17 @@ extension View {
         }
     }
 
-    /// Leading **bezel** strip: **`highPriorityGesture`** + **`dismiss()`** so **`NavigationStack`** pops when UIKit’s edge recognizer never begins.
+    /// Leading **bezel** strip: **`highPriorityGesture`** + **`dismiss()`** (or custom **`onPop`**) when UIKit’s edge recognizer never begins.
     func goDiveLeadingEdgeSwipePopOverlay(
         enabled: Bool = true,
-        onWillDismiss: (() -> Void)? = nil
+        onWillDismiss: (() -> Void)? = nil,
+        onPop: (() -> Void)? = nil
     ) -> some View {
-        modifier(GoDiveLeadingEdgeSwipePopOverlayModifier(enabled: enabled, onWillDismiss: onWillDismiss))
+        modifier(GoDiveLeadingEdgeSwipePopOverlayModifier(
+            enabled: enabled,
+            onWillDismiss: onWillDismiss,
+            onPop: onPop
+        ))
     }
 }
 
@@ -134,6 +139,7 @@ private struct GoDiveLeadingEdgeSwipePopOverlayModifier: ViewModifier {
 
     let enabled: Bool
     let onWillDismiss: (() -> Void)?
+    let onPop: (() -> Void)?
 
     func body(content: Content) -> some View {
         content.overlay(alignment: .leading) {
@@ -153,7 +159,11 @@ private struct GoDiveLeadingEdgeSwipePopOverlayModifier: ViewModifier {
                                 translation: value.translation
                             ) else { return }
                             onWillDismiss?()
-                            dismiss()
+                            if let onPop {
+                                onPop()
+                            } else {
+                                dismiss()
+                            }
                         }
                     )
             }

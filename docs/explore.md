@@ -21,25 +21,18 @@ Use the **leading toggle** to switch modes:
     - Each row shows site name, coordinates, and place hierarchy (country, region, body of water).  
     - Tap a row for site detail.
 
-## Search dive sites
+## Find dive sites
 
-In list mode, or from the map chrome when search is shown, type to filter by:
-
-- Site name  
-- Country  
-- Region  
-- Body of water  
-
-Map mode shows up to three suggestion rows above the keyboard while searching.
+Use the **Search** tab and tap **Sites** (or type in the search field) to filter by site name, country, region, or body of water. See [Search](search.md).
 
 ## My Sites vs All Sites
 
-Toggle at the bottom of the screen (or above the keyboard during search):
+Toggle at the bottom of the screen:
 
 - **My Sites** — sites you’ve logged dives at or added yourself  
 - **All Sites** — full catalog including reference sites you haven’t visited  
 
-Changing scope during search keeps your query and refreshes results.
+Changing scope refreshes the map pins or list.
 
 ## Site detail
 

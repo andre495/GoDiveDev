@@ -132,6 +132,22 @@ struct WaterBubbleBackground: View {
     }
 }
 
+/// Profile-style decorative stack: rising bubbles plus the semitransparent ocean scrim.
+/// Shared by **`ProfileView`** and **`GlobalSearchView`** idle state.
+struct ProfileBubbleBackgroundLayer: View {
+    var animationPaused: Bool = false
+
+    var body: some View {
+        Group {
+            if !GoDiveUITestConfiguration.isActive {
+                WaterBubbleBackground(animationPaused: animationPaused)
+                AppTheme.Colors.profileBubbleScrim
+                    .ignoresSafeArea()
+            }
+        }
+    }
+}
+
 #Preview("Bubbles") {
     ZStack {
         AppTheme.Colors.screenBackgroundGradient

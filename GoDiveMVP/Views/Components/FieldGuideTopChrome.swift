@@ -1,25 +1,20 @@
 import SwiftUI
 
-/// Field Guide top bar — global species search (hub root).
+/// Field Guide hub top bar — add species only (search lives in the root tab search morph).
 struct FieldGuideTopChrome: View {
-    @Binding var searchText: String
-    @FocusState.Binding var isSearchFocused: Bool
     let statusBarSafeAreaTop: CGFloat
     let onAddSpecies: () -> Void
 
     var body: some View {
-        CatalogListSearchChrome(
-            searchText: $searchText,
-            isSearchFocused: $isSearchFocused,
-            placeholder: FieldGuideSpeciesSearchEnvironment.searchPlaceholder,
-            searchFieldAccessibilityIdentifier: FieldGuideSpeciesSearchEnvironment.searchFieldAccessibilityIdentifier,
-            cancelAccessibilityIdentifier: FieldGuideSpeciesSearchEnvironment.cancelAccessibilityIdentifier,
-            showsTrailingActions: true,
-            reservesCancelSlotWhenUnfocused: true,
-            trailingActions: {
+        GlassEffectContainer {
+            HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
+                Spacer(minLength: 0)
                 FieldGuideMarineLifeAddToolbarButton(action: onAddSpecies)
             }
-        )
+            .appGlassChromeControlRowHeight()
+        }
+        .padding(.horizontal, AppTheme.Spacing.lg)
+        .appTopChromeVerticalPadding()
         .fixedSize(horizontal: false, vertical: true)
         .background(alignment: .top) {
             if statusBarSafeAreaTop > 0.5 {

@@ -6,6 +6,7 @@ enum RootTab: Hashable, Sendable {
     case logbook
     case fieldGuide
     case explore
+    case search
 }
 
 enum RootTabIndex {

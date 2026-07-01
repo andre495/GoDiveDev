@@ -1,82 +1,29 @@
 import SwiftUI
 
-/// Logbook top bar: site search, optional tag / buddy suggestions, trailing actions.
-struct LogbookTopChrome<TrailingActions: View>: View {
-    @Binding var searchText: String
-    @FocusState.Binding var isSearchFocused: Bool
-    let tagSuggestions: [LogbookTagSearchSuggestion]
-    let buddySuggestions: [LogbookBuddySearchSuggestion]
-    let tripSuggestions: [LogbookTripSearchSuggestion]
-    let activeTagFilter: String?
-    let activeBuddyFilter: String?
-    let activeTripFilter: LogbookTripSearchSuggestion?
-    let onSelectTagSuggestion: (LogbookTagSearchSuggestion) -> Void
-    let onSelectBuddySuggestion: (LogbookBuddySearchSuggestion) -> Void
-    let onSelectTripSuggestion: (LogbookTripSearchSuggestion) -> Void
-    let onClearConfirmedFilters: () -> Void
+/// Logbook top bar — trip planner leading action + trailing toolbar actions (no inline search).
+struct LogbookToolbarChrome<TrailingActions: View>: View {
     @ViewBuilder let trailingActions: () -> TrailingActions
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            CatalogListSearchChrome(
-                searchText: $searchText,
-                isSearchFocused: $isSearchFocused,
-                placeholder: "Search Activities",
-                searchFieldAccessibilityIdentifier: "logbookSiteSearchField",
-                cancelAccessibilityIdentifier: "logbookSearchCancel",
-                onCancel: {
-                    searchText = ""
-                    onClearConfirmedFilters()
-                },
-                leadingActions: {
-                    NavigationLink(value: LogbookRoute.tripPlanner) {
-                        Image(systemName: TripPlannerPresentation.exploreChromeSystemImage)
-                            .appToolbarIconButtonLabel()
-                    }
-                    .appStandaloneIconButtonStyle()
-                    .foregroundStyle(AppTheme.Colors.iconPrimary)
-                    .accessibilityLabel(TripPlannerPresentation.exploreChromeAccessibilityLabel)
-                    .accessibilityIdentifier("Logbook.TripPlanner")
-                },
-                trailingActions: trailingActions
-            )
+        GlassEffectContainer {
+            HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
+                NavigationLink(value: LogbookRoute.tripPlanner) {
+                    Image(systemName: TripPlannerPresentation.exploreChromeSystemImage)
+                        .appToolbarIconButtonLabel()
+                }
+                .appStandaloneIconButtonStyle()
+                .foregroundStyle(AppTheme.Colors.iconPrimary)
+                .accessibilityLabel(TripPlannerPresentation.exploreChromeAccessibilityLabel)
+                .accessibilityIdentifier("Logbook.TripPlanner")
 
-            if let activeBuddyFilter {
-                LogbookActiveBuddyFilterChip(
-                    buddyName: activeBuddyFilter,
-                    onClear: onClearConfirmedFilters
-                )
-            } else if let activeTagFilter {
-                LogbookActiveTagFilterChip(
-                    tagName: activeTagFilter,
-                    onClear: onClearConfirmedFilters
-                )
-            } else if let activeTripFilter {
-                LogbookActiveTripFilterChip(
-                    displayTitle: activeTripFilter.displayTitle,
-                    onClear: onClearConfirmedFilters
-                )
-            } else {
-                if !tripSuggestions.isEmpty {
-                    LogbookSearchTripSuggestionsView(
-                        suggestions: tripSuggestions,
-                        onSelect: onSelectTripSuggestion
-                    )
-                }
-                if !buddySuggestions.isEmpty {
-                    LogbookSearchBuddySuggestionsView(
-                        suggestions: buddySuggestions,
-                        onSelect: onSelectBuddySuggestion
-                    )
-                }
-                if !tagSuggestions.isEmpty {
-                    LogbookSearchTagSuggestionsView(
-                        suggestions: tagSuggestions,
-                        onSelect: onSelectTagSuggestion
-                    )
-                }
+                Spacer(minLength: 0)
+
+                trailingActions()
             }
+            .appGlassChromeControlRowHeight()
         }
+        .padding(.horizontal, AppTheme.Spacing.lg)
+        .appTopChromeVerticalPadding()
         .background {
             GeometryReader { proxy in
                 Color.clear.preference(key: AppHeaderMetrics.HeightKey.self, value: proxy.size.height)

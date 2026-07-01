@@ -71,13 +71,19 @@ struct SecondaryDestinationBackButton: View {
 
     /// Minimum tappable width/height (e.g. **44** matches Logbook **+**).
     var minTapDimension: CGFloat = SecondaryDestinationChromeMetrics.backButtonMinimumTapDimension
-    /// Runs immediately before **`dismiss()`** (e.g. drop MapKit before the pop animation).
+    /// Runs immediately before pop (e.g. drop MapKit before the pop animation).
     var onWillDismiss: (() -> Void)? = nil
+    /// When set, runs instead of **`Environment.dismiss`** (e.g. search results → category grid).
+    var dismissAction: (() -> Void)? = nil
 
     var body: some View {
         Button {
             onWillDismiss?()
-            dismiss()
+            if let dismissAction {
+                dismissAction()
+            } else {
+                dismiss()
+            }
         } label: {
             Image(systemName: "chevron.left")
                 .appToolbarIconButtonLabel()

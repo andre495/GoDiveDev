@@ -1,30 +1,23 @@
 import SwiftUI
 
-/// Back chevron + global species search on category / subcategory browse list pages.
-struct FieldGuideBrowseSearchChrome: View {
-    @Binding var searchText: String
-    @FocusState.Binding var isSearchFocused: Bool
+/// Back chevron + add species on category / subcategory browse list pages.
+struct FieldGuideBrowseToolbarChrome: View {
     let safeTop: CGFloat
     let topInset: CGFloat
     let onAddSpecies: () -> Void
 
     var body: some View {
         FieldGuideBlueSheetTopChromeLayer(safeTop: safeTop, topInset: topInset) {
-            CatalogListSearchChrome(
-                searchText: $searchText,
-                isSearchFocused: $isSearchFocused,
-                placeholder: FieldGuideSpeciesSearchEnvironment.searchPlaceholder,
-                searchFieldAccessibilityIdentifier: FieldGuideSpeciesSearchEnvironment.searchFieldAccessibilityIdentifier,
-                cancelAccessibilityIdentifier: FieldGuideSpeciesSearchEnvironment.cancelAccessibilityIdentifier,
-                showsTrailingActions: true,
-                reservesCancelSlotWhenUnfocused: true,
-                leadingActions: {
+            GlassEffectContainer {
+                HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
                     SecondaryDestinationBackButton()
-                },
-                trailingActions: {
+                    Spacer(minLength: 0)
                     FieldGuideMarineLifeAddToolbarButton(action: onAddSpecies)
                 }
-            )
+                .appGlassChromeControlRowHeight()
+            }
+            .padding(.horizontal, AppTheme.Spacing.lg)
+            .appTopChromeVerticalPadding()
             .fixedSize(horizontal: false, vertical: true)
             .background(alignment: .top) {
                 if safeTop > 0.5 {
@@ -169,24 +162,15 @@ struct FieldGuideSpeciesSearchResultsRows: View {
     }
 }
 
-/// Field Guide category / subcategory browse — logbook-style list under back + search chrome.
+/// Field Guide category / subcategory browse — logbook-style list under back + toolbar chrome.
 struct FieldGuideCatalogBrowseListPage<Summary: View, ListRows: View>: View {
     let accessibilityRootIdentifier: String
     let listAccessibilityIdentifier: String?
-    @Binding var searchText: String
-    @FocusState.Binding var isSearchFocused: Bool
-    let catalogSnapshots: [MarineLifeCatalogSnapshot]
-    let unitSystem: DiveDisplayUnitSystem
-    let onSelectSpecies: (String) -> Void
     let onAddSpecies: () -> Void
     @ViewBuilder let summary: () -> Summary
     @ViewBuilder let listRows: () -> ListRows
 
     @State private var headerClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
-
-    private var isFilteringSpecies: Bool {
-        FieldGuideSpeciesSearchResultsPresentation.isFiltering(query: searchText)
-    }
 
     var body: some View {
         AppHeaderlessPage {
@@ -212,21 +196,12 @@ struct FieldGuideCatalogBrowseListPage<Summary: View, ListRows: View>: View {
                             .listRowBackground(Color.clear)
                             .accessibilityHidden(true)
 
-                        if isFilteringSpecies {
-                            FieldGuideSpeciesSearchResultsRows(
-                                catalogSnapshots: catalogSnapshots,
-                                query: searchText,
-                                unitSystem: unitSystem,
-                                onSelectSpecies: onSelectSpecies
-                            )
-                        } else {
-                            summary()
-                                .listRowInsets(summaryRowInsets)
-                                .listRowSeparator(.hidden)
-                                .listRowBackground(Color.clear)
+                        summary()
+                            .listRowInsets(summaryRowInsets)
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
 
-                            listRows()
-                        }
+                        listRows()
 
                         Color.clear
                             .frame(height: listBottomInset)
@@ -243,9 +218,7 @@ struct FieldGuideCatalogBrowseListPage<Summary: View, ListRows: View>: View {
                     .ignoresSafeArea(edges: [.top, .bottom])
                     .accessibilityIdentifier(listAccessibilityIdentifier ?? accessibilityRootIdentifier)
 
-                    FieldGuideBrowseSearchChrome(
-                        searchText: $searchText,
-                        isSearchFocused: $isSearchFocused,
+                    FieldGuideBrowseToolbarChrome(
                         safeTop: proxy.safeAreaInsets.top,
                         topInset: listTopInset,
                         onAddSpecies: onAddSpecies

@@ -23,8 +23,6 @@ struct FieldGuideView: View {
     private var diveActivities: [DiveActivity]
 
     @State private var path: [FieldGuideRoute] = []
-    @State private var speciesSearchQuery = ""
-    @FocusState private var isSpeciesSearchFocused: Bool
     @State private var fieldGuideHeaderClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
     @State private var listScrollToTopNonce = 0
     @State private var catalogSnapshots: [MarineLifeCatalogSnapshot] = []
@@ -59,10 +57,6 @@ struct FieldGuideView: View {
             return FieldGuideCatalogIndex.subcategorySpeciesIndex(for: resolvedCatalogSnapshots)
         }
         return subcategorySpeciesIndex
-    }
-
-    private var isFilteringSpecies: Bool {
-        FieldGuideMarineLifeSearch.isFiltering(query: speciesSearchQuery)
     }
 
     private var showsFieldGuideHubChrome: Bool {
@@ -103,8 +97,6 @@ struct FieldGuideView: View {
 
                         if showsFieldGuideHubChrome {
                             FieldGuideTopChrome(
-                                searchText: $speciesSearchQuery,
-                                isSearchFocused: $isSpeciesSearchFocused,
                                 statusBarSafeAreaTop: proxy.safeAreaInsets.top,
                                 onAddSpecies: { showsAddSpeciesSheet = true }
                             )
@@ -128,8 +120,6 @@ struct FieldGuideView: View {
                     FieldGuideCategoryDetailView(
                         categoryID: summary.categoryID,
                         summary: summary,
-                        speciesSearchQuery: $speciesSearchQuery,
-                        speciesSearchFocused: $isSpeciesSearchFocused,
                         catalogSnapshots: resolvedCatalogSnapshots,
                         unitSystem: diveDisplayUnitSystem,
                         onSelectSubcategory: { subcategoryID in
@@ -149,8 +139,6 @@ struct FieldGuideView: View {
                     FieldGuideSubcategorySpeciesView(
                         payload: payload,
                         unitSystem: diveDisplayUnitSystem,
-                        speciesSearchQuery: $speciesSearchQuery,
-                        speciesSearchFocused: $isSpeciesSearchFocused,
                         catalogSnapshots: resolvedCatalogSnapshots,
                         onSelectSpecies: { uuid in
                             path.append(.speciesDetail(uuid))
@@ -238,8 +226,6 @@ struct FieldGuideView: View {
 
     private func handleFieldGuideTabReselect() {
         path.removeAll()
-        isSpeciesSearchFocused = false
-        speciesSearchQuery = ""
         RootTabListScrollSupport.scheduleScrollToTop { listScrollToTopNonce += 1 }
     }
 
@@ -270,8 +256,6 @@ struct FieldGuideView: View {
         if catalog.isEmpty {
             FieldGuideCatalogEmptyState()
                 .padding(.top, topInset)
-        } else if isFilteringSpecies {
-            fieldGuideSearchResultsList(topInset: topInset, bottomInset: bottomInset)
         } else {
             FieldGuideCatalogHubView(
                 summaries: resolvedCategorySummaries,
@@ -283,41 +267,6 @@ struct FieldGuideView: View {
             }
             .equatable()
         }
-    }
-
-    @ViewBuilder
-    private func fieldGuideSearchResultsList(topInset: CGFloat, bottomInset: CGFloat) -> some View {
-        List {
-            Color.clear
-                .frame(height: topInset)
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-                .accessibilityHidden(true)
-
-            FieldGuideSpeciesSearchResultsRows(
-                catalogSnapshots: resolvedCatalogSnapshots,
-                query: speciesSearchQuery,
-                unitSystem: diveDisplayUnitSystem,
-                onSelectSpecies: { uuid in
-                    path.append(.speciesDetail(uuid))
-                }
-            )
-
-            Color.clear
-                .frame(height: bottomInset)
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-                .accessibilityHidden(true)
-        }
-        .listStyle(.plain)
-        .listRowSpacing(AppTheme.Spacing.md)
-        .scrollContentBackground(.hidden)
-        .background(Color.clear)
-        .scrollDismissesKeyboard(.interactively)
-        .ignoresSafeArea(edges: [.top, .bottom])
-        .listScrollToTopTrigger(nonce: listScrollToTopNonce)
     }
 }
 

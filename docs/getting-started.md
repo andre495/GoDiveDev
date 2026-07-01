@@ -45,11 +45,15 @@ Drag the bottom sheet up or down to change how much detail you see.
 
 ### Field Guide
 
-Browse categories of marine life, search by name, and open a species page. Tag species on dive photos from the **Media** tab.
+Browse categories of marine life and open a species page. Tag species on dive photos from the **Media** tab. To find a species by name, use the **Search** tab and pick **Marine life** (or type in the search field).
 
 ### Explore
 
-Switch between **map** and **list** to browse dive sites. Filter **My Sites** vs **All Sites**. Tap a site for dives logged there and tagged media.
+Switch between **map** and **list** to browse dive sites. Filter **My Sites** vs **All Sites**. Tap a site for dives logged there and tagged media. To find a site by name, use the **Search** tab.
+
+### Search
+
+Tap the **Search** tab (magnifying glass). Pick a category tile or type to search dives, buddies, sites, species, tags, trips, gear, and certifications. See [Search](search.md).
 
 ### Profile
 
