@@ -67,6 +67,24 @@ struct SoftwareKeyboardVisibilityModifier: ViewModifier {
     #endif
 }
 
+/// Explicit keyboard dismissal when SwiftUI search chrome does not resign first responder (e.g. tab morph push).
+enum SoftwareKeyboardDismissal {
+    #if canImport(UIKit)
+    @MainActor
+    static func dismissActiveKeyboardIfNeeded() {
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil,
+            from: nil,
+            for: nil
+        )
+    }
+    #else
+    @MainActor
+    static func dismissActiveKeyboardIfNeeded() {}
+    #endif
+}
+
 extension View {
     func softwareKeyboardVisibility(_ isVisible: Binding<Bool>, overlapHeight: Binding<CGFloat>) -> some View {
         modifier(SoftwareKeyboardVisibilityModifier(isVisible: isVisible, overlapHeight: overlapHeight))

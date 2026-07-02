@@ -104,10 +104,6 @@ struct GlobalSearchView: View {
                 previousDepth: previousDepth,
                 newDepth: depth
             ) {
-                preserveResultsSessionBeforeDetailPush()
-                cancelStackSearchRestore()
-                isStackSearchPresented = false
-                dismissSearch()
                 restorePreservedResultsSessionBindingsIfNeeded()
             }
             if depth > 0 {
@@ -235,19 +231,10 @@ struct GlobalSearchView: View {
         if isActive {
             mountSearchIndexImmediatelyIfNeeded()
             guard !isResultsPanelVisible else { return }
-            isResultsPanelVisible = true
-            let startOffset = GlobalSearchResultsDismissPresentation.commitDismissOffset(
+            resultsDismissDragOffset = GlobalSearchResultsDismissPresentation.initialResultsPanelDragOffsetOnReveal(
                 containerWidth: resultsContainerWidth
             )
-            resultsDismissDragOffset = startOffset
-            withAnimation(
-                .spring(
-                    response: GlobalSearchResultsDismissPresentation.springResponse,
-                    dampingFraction: GlobalSearchResultsDismissPresentation.springDamping
-                )
-            ) {
-                resultsDismissDragOffset = 0
-            }
+            isResultsPanelVisible = true
         } else {
             isResultsPanelVisible = false
             resultsDismissDragOffset = 0
@@ -255,7 +242,20 @@ struct GlobalSearchView: View {
     }
 
     private func pushSearchDestination(_ destination: GlobalSearchPresentation.Destination) {
+        if GlobalSearchPushedDestinationPresentation.shouldDismissSearchBeforePathAppend(
+            currentPathDepth: path.count
+        ) {
+            dismissSearchChromeForResultPush()
+        }
         path.append(destination)
+    }
+
+    private func dismissSearchChromeForResultPush() {
+        preserveResultsSessionBeforeDetailPush()
+        cancelStackSearchRestore()
+        isStackSearchPresented = false
+        dismissSearch()
+        SoftwareKeyboardDismissal.dismissActiveKeyboardIfNeeded()
     }
 
     private func preserveResultsSessionBeforeDetailPush() {
@@ -307,7 +307,6 @@ struct GlobalSearchView: View {
     }
 
     private func finishReturnToGenericSearchPage() {
-        isResultsDismissDragActive = false
         let dismissOffset = GlobalSearchResultsDismissPresentation.commitDismissOffset(
             containerWidth: resultsContainerWidth
         )
@@ -335,6 +334,7 @@ struct GlobalSearchView: View {
         clearPreservedResultsSession()
         isResultsPanelVisible = false
         resultsDismissDragOffset = 0
+        isResultsDismissDragActive = false
     }
 
     private func mountSearchIndexImmediatelyIfNeeded() {
@@ -610,8 +610,16 @@ private struct GlobalSearchSearchIndexLayer: View {
         .accessibilityIdentifier(GlobalSearchPresentation.resultsListAccessibilityIdentifier)
     }
 
+    private var blocksResultsRowSelection: Bool {
+        GlobalSearchResultsDismissPresentation.blocksResultsRowSelection(
+            isDismissDragActive: isResultsDismissDragActive,
+            dragOffset: resultsDismissDragOffset
+        )
+    }
+
     private func resultRowButton(for hit: GlobalSearchPresentation.Hit) -> some View {
         Button {
+            guard !blocksResultsRowSelection else { return }
             onPushDestination(hit.destination)
         } label: {
             GlobalSearchScopedResultLabel(
@@ -629,6 +637,7 @@ private struct GlobalSearchSearchIndexLayer: View {
             )
         }
         .buttonStyle(.plain)
+        .disabled(blocksResultsRowSelection)
         .globalSearchResultListRowChrome()
         .accessibilityIdentifier(hit.accessibilityIdentifier)
     }
@@ -1244,7 +1253,10 @@ private struct GlobalSearchResultsInteractiveDismissModifier: ViewModifier {
                     dragOffset = max(0, value.translation.width)
                 }
                 .onEnded { value in
-                    defer { isDragActive = false }
+                    guard value.startLocation.x <= GoDiveLeadingEdgeSwipePopMetrics.maxStartXFromScreenLeading else {
+                        isDragActive = false
+                        return
+                    }
                     guard GoDiveLeadingEdgeSwipePopGate.shouldCommitPop(
                         startLocationX: value.startLocation.x,
                         translation: value.translation
@@ -1256,6 +1268,12 @@ private struct GlobalSearchResultsInteractiveDismissModifier: ViewModifier {
                             )
                         ) {
                             dragOffset = 0
+                        }
+                        Task { @MainActor in
+                            try? await Task.sleep(
+                                nanoseconds: GlobalSearchResultsDismissPresentation.settleNanoseconds
+                            )
+                            isDragActive = false
                         }
                         return
                     }

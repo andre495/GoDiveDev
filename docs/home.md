@@ -8,7 +8,7 @@ When you have dives with library photos or videos, Home shows a rotating carouse
 
 - **Tap the hero** to open that dive on the **Media** tab with the same item selected.
 - **Tap the dive link capsule** at the bottom of the hero (site name and dive number) to open the dive normally. When the dive is linked to a trip, the **trip name** appears beside the dive number in the same accent color used in Logbook.
-- **Fish and buddy chips** on the hero show tagged species and buddies from that highlight; tap a fish chip to jump into the Field Guide.
+- **Fish and buddy chips** on the hero show tagged species and buddies from that highlight; tap a fish chip to open a species overlay on the carousel (fading feature image, common name, short catalog description, page dots when several species are tagged) and tap the name to open the full Field Guide overview.
 
 If you have dives but no qualifying library media, Home shows a placeholder encouraging you to add photos from Logbook or turn on auto-upload in Settings.
 

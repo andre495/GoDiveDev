@@ -72,6 +72,7 @@ struct BlueSheetHeaderPageLayout<
                             height: context.heroHeight,
                             alignment: .bottomTrailing
                         )
+                        .zIndex(2)
                 }
             }
 

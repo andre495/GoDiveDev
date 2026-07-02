@@ -296,31 +296,27 @@ struct HomeMediaCarouselSection: View {
 
             if showsMarineLifeOverlay, let mediaID = marineLifeOverlayMediaID {
                 let overlaySize = marineLifeOverlaySize
-                let overlayPagerHeight = HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageHeight(
-                    previewHeight: overlaySize.height,
-                    speciesCount: taggedSpecies(for: mediaID).count
+                let panelOverlap = HomeLifetimeStatsLayout.panelOverlap
+                let closeTopInset = HomeMediaCarouselPresentation.marineLifeOverlayCloseTopInset(
+                    topSafeAreaInset: topSafeAreaInset,
+                    headerClearance: max(0, headerOverlayHeight - topSafeAreaInset)
                 )
-                let overlayBottomChromeReserve =
-                    HomeMediaCarouselLayout.slideChromeBottomInset
-                    + HomeMediaCarouselLayout.slideChromeControlHeight
-                    + AppTheme.Spacing.lg
+                let pageIndicatorBottomInset = HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorBottomInset(
+                    overlayHeight: overlaySize.height,
+                    heroBandHeight: resolvedHeroBandHeight,
+                    topSafeAreaInset: topSafeAreaInset,
+                    panelOverlap: panelOverlap
+                )
                 HomeMediaCarouselMarineLifeOverlay(
                     taggedSpecies: taggedSpecies(for: mediaID),
                     previewSize: overlaySize,
                     cornerRadius: HomeMediaCarouselPresentation.marineLifeOverlayCornerRadius,
                     ownerProfileID: ownerProfileID,
-                    closeTopInset: HomeMediaCarouselPresentation.marineLifeOverlayCloseTopInset(
-                        previewHeight: overlaySize.height,
-                        topSafeAreaInset: topSafeAreaInset,
-                        headerOverlayHeight: headerOverlayHeight
-                    ),
-                    speciesContentTopInset: HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesContentTopInset(
-                        previewHeight: overlaySize.height,
-                        pagerHeight: overlayPagerHeight,
-                        topSafeAreaInset: topSafeAreaInset,
-                        headerOverlayHeight: headerOverlayHeight,
-                        bottomChromeReserve: overlayBottomChromeReserve
-                    ),
+                    closeTopInset: closeTopInset,
+                    pageIndicatorBottomInset: pageIndicatorBottomInset,
+                    heroBandHeight: resolvedHeroBandHeight,
+                    topSafeAreaInset: topSafeAreaInset,
+                    panelOverlap: panelOverlap,
                     selectedSpeciesUUID: $selectedTaggedSpeciesUUID,
                     onOpenDive: onOpenDive,
                     onClose: closeMarineLifeOverlay
@@ -339,10 +335,11 @@ struct HomeMediaCarouselSection: View {
         ))
         .animation(marineLifeOverlayAnimation, value: showsMarineLifeOverlay)
         .background {
-            Color.clear.preference(
-                key: HomeHeroInteractionOverlayKey.self,
-                value: isCarouselInteractionHold
-            )
+            Color.clear
+                .preference(
+                    key: HomeHeroInteractionOverlayKey.self,
+                    value: isCarouselInteractionHold
+                )
         }
         .accessibilityIdentifier("Home.MediaCarousel")
         .onAppear {

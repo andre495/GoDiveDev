@@ -11593,8 +11593,8 @@ struct GoDiveMVPTests {
         #expect(imageHeight >= 72)
         #expect(imageHeight <= 104)
         let imageWidth = HomeMediaCarouselPresentation.marineLifeCarouselOverlayImageMaxWidth(previewWidth: 390)
-        #expect(imageWidth >= 96)
-        #expect(imageWidth <= 136)
+        #expect(imageWidth >= 144)
+        #expect(imageWidth <= 204)
         let singlePageHeight = HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageHeight(
             previewHeight: 420,
             speciesCount: 1
@@ -11603,8 +11603,125 @@ struct GoDiveMVPTests {
             previewHeight: 420,
             speciesCount: 3
         )
-        #expect(multiPageHeight > singlePageHeight)
-        #expect(singlePageHeight > imageHeight)
+        #expect(multiPageHeight == singlePageHeight)
+        #expect(
+            singlePageHeight
+                == HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesRowHeight
+        )
+        let closeTop: CGFloat = 175
+        let speciesTop: CGFloat = 320
+        let columnHeight = HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageColumnHeight(
+            closeTopInset: closeTop,
+            speciesContentTopInset: speciesTop
+        )
+        #expect(columnHeight == speciesTop + HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesRowHeight - closeTop)
+        #expect(
+            HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageFadeOpaqueStop > 0
+                && HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageFadeOpaqueStop < 1
+        )
+        let templateSeam: CGFloat = 392
+        let topSafe: CGFloat = 59
+        let heroBand: CGFloat = 520
+        let overlayHeight = topSafe + heroBand
+        let seamOffset = HomeMediaCarouselPresentation.marineLifeCarouselOverlaySheetSeamYOffsetFromTemplate
+        #expect(
+            HomeMediaCarouselPresentation.marineLifeCarouselOverlayTemplateSeamYInHeroBand(
+                heroBandHeight: heroBand,
+                panelOverlap: HomeOverviewLayout.panelOverlap
+            ) == heroBand - HomeOverviewLayout.panelOverlap
+        )
+        #expect(
+            HomeMediaCarouselPresentation.marineLifeCarouselOverlaySheetSeamYFromTop(
+                heroBandHeight: heroBand,
+                topSafeAreaInset: topSafe,
+                panelOverlap: HomeOverviewLayout.panelOverlap
+            ) == overlayHeight - HomeOverviewLayout.panelOverlap + seamOffset
+        )
+        #expect(
+            HomeMediaCarouselPresentation.marineLifeCarouselOverlayClampedSeamYFromTop(
+                templateSeamYFromTop: templateSeam,
+                proposedSeamYFromTop: nil,
+                minimumSeamY: 100,
+                maximumSeamY: 500
+            ) == templateSeam
+        )
+        #expect(
+            HomeMediaCarouselPresentation.marineLifeCarouselOverlayClampedSeamYFromTop(
+                templateSeamYFromTop: templateSeam,
+                proposedSeamYFromTop: 520,
+                minimumSeamY: 100,
+                maximumSeamY: 500
+            ) == 500
+        )
+        #expect(
+            HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorBottomInset(
+                overlayHeight: overlayHeight,
+                sheetSeamYFromTop: templateSeam
+            ) == overlayHeight - templateSeam
+                + HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorClearanceAboveSeam
+        )
+        #expect(
+            HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesContentLeadingInset > 0
+        )
+        #expect(seamOffset == -25)
+        let seamYFromTop = overlayHeight - HomeOverviewLayout.panelOverlap + seamOffset
+        let pageIndicatorTopInset = HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorTopInsetFromTop(
+            sheetSeamYFromTop: seamYFromTop
+        )
+        let pageIndicatorTopOffset = HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorTopOffsetFromSeamSpacing
+        #expect(pageIndicatorTopOffset == 65)
+        #expect(
+            pageIndicatorTopInset
+                == HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorTopInsetAboveSeam(
+                    sheetSeamYFromTop: seamYFromTop
+                ) + pageIndicatorTopOffset
+        )
+        #expect(
+            HomeMediaCarouselPresentation.marineLifeCarouselOverlayProductionSeamYInHeroBand(
+                heroBandHeight: heroBand,
+                panelOverlap: HomeOverviewLayout.panelOverlap
+            ) == heroBand - HomeOverviewLayout.panelOverlap + seamOffset
+        )
+        #expect(
+            HomeMediaCarouselPresentation.marineLifeCarouselOverlaySheetSeamYFromTop(
+                heroBandHeight: heroBand,
+                topSafeAreaInset: topSafe,
+                panelOverlap: HomeOverviewLayout.panelOverlap
+            ) == overlayHeight - HomeOverviewLayout.panelOverlap + seamOffset
+        )
+        #expect(
+            HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorBottomInset(
+                overlayHeight: overlayHeight,
+                heroBandHeight: heroBand,
+                topSafeAreaInset: topSafe,
+                panelOverlap: HomeOverviewLayout.panelOverlap
+            ) == HomeOverviewLayout.panelOverlap
+                - seamOffset
+                + HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorClearanceAboveSeam
+        )
+        #expect(
+            HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesBottomMargin(
+                overlayHeight: overlayHeight,
+                heroBandHeight: heroBand,
+                topSafeAreaInset: topSafe,
+                panelOverlap: HomeOverviewLayout.panelOverlap
+            )
+                > HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorBottomInset(
+                    overlayHeight: overlayHeight,
+                    heroBandHeight: heroBand,
+                    topSafeAreaInset: topSafe,
+                    panelOverlap: HomeOverviewLayout.panelOverlap
+                )
+        )
+        let tallerOverlayHeight: CGFloat = overlayHeight + 24
+        #expect(
+            HomeMediaCarouselPresentation.marineLifeCarouselOverlaySheetSeamYFromTop(
+                heroBandHeight: heroBand,
+                topSafeAreaInset: topSafe,
+                panelOverlap: HomeOverviewLayout.panelOverlap
+            )
+                < tallerOverlayHeight - HomeOverviewLayout.panelOverlap
+        )
         #expect(
             HomeMediaCarouselPresentation.marineLifeCarouselOverlayMediaScrimOpacity
                 < TripDetailMediaGalleryPresentation.marineLifeOverlayMediaScrimOpacity
@@ -11747,35 +11864,120 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func homeMediaCarouselPresentation_marineLifeOverlayCloseTopInset_clearsHomeHeader() {
+    @Test func homeMediaCarouselPresentation_marineLifeOverlayCloseTopInset_alignsWithHomeHeaderProfileRow() {
+        let topSafeAreaInset: CGFloat = 59
+        let headerClearance: CGFloat = 112
         let inset = HomeMediaCarouselPresentation.marineLifeOverlayCloseTopInset(
-            previewHeight: 420,
-            topSafeAreaInset: 59,
-            headerOverlayHeight: 112
+            topSafeAreaInset: topSafeAreaInset,
+            headerClearance: headerClearance
         )
-        #expect(inset == 139)
+        let rowHeight = HomeMediaCarouselPresentation.marineLifeOverlayHeaderBrandRowHeight()
+        let profileCenterY = topSafeAreaInset
+            + HomeMediaCarouselPresentation.marineLifeOverlayHomeHeaderTopPadding
+            + rowHeight / 2
+        #expect(
+            inset
+                == max(
+                    0,
+                    profileCenterY
+                        - HomeMediaCarouselPresentation.marineLifeOverlayCloseButtonTapDimension / 2
+                        + HomeMediaCarouselPresentation.marineLifeCarouselOverlayCloseTopOffsetFromHeaderAlignment
+                )
+        )
     }
 
-    @Test func homeMediaCarouselPresentation_marineLifeCarouselOverlaySpeciesContentTopInset_centersInVisibleHeroBand() {
-        let previewHeight: CGFloat = 579
-        let pagerHeight: CGFloat = 160
-        let bottomReserve: CGFloat = 196
-        let inset = HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesContentTopInset(
-            previewHeight: previewHeight,
-            pagerHeight: pagerHeight,
-            topSafeAreaInset: 59,
-            headerOverlayHeight: 112,
-            bottomChromeReserve: bottomReserve
+    @Test func homeMediaCarouselPresentation_marineLifeCarouselOverlaySpeciesDescriptionLineLimit_fitsAbovePageDots() {
+        let closeInset: CGFloat = 140
+        let speciesNameTop = HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesNameTopInset(
+            closeTopInset: closeInset
         )
+        let pageIndicatorTop: CGFloat = 360
+        let limit = HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesDescriptionLineLimit(
+            speciesNameTopInset: speciesNameTop,
+            pageIndicatorTopInset: pageIndicatorTop
+        )
+        #expect(limit > 4)
+        let reservedDescriptionHeight = CGFloat(limit) * HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesDescriptionLineHeight
+        let reservedNameHeight = 2 * HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesCommonNameLineHeight
+        #expect(
+            speciesNameTop
+                + reservedNameHeight
+                + HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesNameToDescriptionSpacing
+                + reservedDescriptionHeight
+                + HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesToPageIndicatorSpacing
+                <= pageIndicatorTop + 1
+        )
+    }
+
+    @Test func homeMediaCarouselPresentation_marineLifeCarouselOverlaySpeciesDescriptionText_prefersAboutText() {
+        #expect(
+            HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesDescriptionText(
+                aboutText: "  Bold blue angelfish on Caribbean reefs.  ",
+                distinctiveFeatures: "Crown spot on forehead"
+            ) == "Bold blue angelfish on Caribbean reefs."
+        )
+        #expect(
+            HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesDescriptionText(
+                aboutText: "",
+                distinctiveFeatures: "Electric blue body with yellow tail."
+            ) == "Electric blue body with yellow tail."
+        )
+        #expect(
+            HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesDescriptionText(
+                aboutText: "   ",
+                distinctiveFeatures: "   "
+            ) == nil
+        )
+    }
+
+    @Test func homeMediaCarouselPresentation_marineLifeCarouselOverlaySpeciesContentTopInset_alignsWithFeatureImageTop() {
+        let topSafeAreaInset: CGFloat = 59
+        let heroBandHeight: CGFloat = 520
+        let previewHeight = topSafeAreaInset + heroBandHeight
+        let speciesRowHeight = HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesRowHeight
+        let panelOverlap = HomeOverviewLayout.panelOverlap
         let closeInset = HomeMediaCarouselPresentation.marineLifeOverlayCloseTopInset(
             previewHeight: previewHeight,
-            topSafeAreaInset: 59,
+            topSafeAreaInset: topSafeAreaInset,
             headerOverlayHeight: 112
         )
-        #expect(inset > closeInset)
-        let geometricCenterTop = (previewHeight - pagerHeight) / 2
-        #expect(inset > geometricCenterTop)
-        #expect(inset + pagerHeight <= previewHeight - bottomReserve + 0.001)
+        let speciesTopInset = HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesContentTopInset(
+            closeTopInset: closeInset
+        )
+        #expect(speciesTopInset == closeInset)
+        let speciesNameTopInset = HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesNameTopInset(
+            closeTopInset: closeInset
+        )
+        #expect(
+            speciesNameTopInset
+                == closeInset
+                    + HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesNameTopOffsetFromFeatureImageTop
+        )
+        let pageIndicatorTopInset = HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorTopInsetFromTop(
+            sheetSeamYFromTop: HomeMediaCarouselPresentation.marineLifeCarouselOverlaySheetSeamYFromTop(
+                heroBandHeight: heroBandHeight,
+                topSafeAreaInset: topSafeAreaInset,
+                panelOverlap: panelOverlap
+            )
+        )
+        #expect(
+            HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageColumnHeight(
+                closeTopInset: closeInset,
+                pageIndicatorTopInset: pageIndicatorTopInset,
+                speciesRowHeight: speciesRowHeight
+            )
+                == pageIndicatorTopInset - closeInset
+                    - HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesToPageIndicatorSpacing
+                    - HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageColumnBottomLift
+        )
+        #expect(
+            HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorBottomInset(
+                overlayHeight: previewHeight,
+                heroBandHeight: heroBandHeight,
+                topSafeAreaInset: topSafeAreaInset,
+                panelOverlap: panelOverlap
+            ) > panelOverlap
+        )
     }
 
     @Test func homeLifetimeStatsLayout_usesTwoColumnFixedHeightTiles() {
@@ -17056,6 +17258,17 @@ struct GoDiveMVPTests {
         #expect(GlobalSearchResultsDismissPresentation.commitDismissOffset(containerWidth: 0) == 1)
     }
 
+    @Test func globalSearchResultsDismissPresentation_revealUsesInstantOffsetNotSlideIn() {
+        #expect(GlobalSearchResultsDismissPresentation.initialResultsPanelDragOffsetOnReveal(
+            containerWidth: 390
+        ) == 0)
+        #expect(
+            GlobalSearchResultsDismissPresentation.initialResultsPanelDragOffsetOnReveal(
+                containerWidth: 390
+            ) != GlobalSearchResultsDismissPresentation.commitDismissOffset(containerWidth: 390)
+        )
+    }
+
     @Test func globalSearchTabLaunchPresentation_defersIndexUntilSearchOrPush() {
         #expect(!GlobalSearchTabLaunchPresentation.shouldMountSearchIndexImmediately(
             isSearchActive: false,
@@ -17082,13 +17295,24 @@ struct GoDiveMVPTests {
             isDismissDragActive: false,
             dragOffset: 40
         ))
+        #expect(GlobalSearchResultsDismissPresentation.blocksResultsInteraction(
+            isDismissDragActive: false,
+            dragOffset: 0.5
+        ))
         #expect(!GlobalSearchResultsDismissPresentation.blocksResultsInteraction(
             isDismissDragActive: false,
             dragOffset: 0
         ))
-        #expect(!GlobalSearchResultsDismissPresentation.blocksResultsInteraction(
+    }
+
+    @Test func globalSearchResultsDismissPresentation_blocksResultsRowSelectionWhilePanelIsOffset() {
+        #expect(GlobalSearchResultsDismissPresentation.blocksResultsRowSelection(
             isDismissDragActive: false,
-            dragOffset: 0.5
+            dragOffset: 12
+        ))
+        #expect(!GlobalSearchResultsDismissPresentation.blocksResultsRowSelection(
+            isDismissDragActive: false,
+            dragOffset: 0
         ))
     }
 
@@ -17166,6 +17390,15 @@ struct GoDiveMVPTests {
         #expect(!GlobalSearchPushedDestinationPresentation.shouldDismissNavigationSearchOnPathChange(
             previousDepth: 0,
             newDepth: 0
+        ))
+    }
+
+    @Test func globalSearchPushedDestinationPresentation_dismissesSearchBeforePathAppendFromRoot() {
+        #expect(GlobalSearchPushedDestinationPresentation.shouldDismissSearchBeforePathAppend(
+            currentPathDepth: 0
+        ))
+        #expect(!GlobalSearchPushedDestinationPresentation.shouldDismissSearchBeforePathAppend(
+            currentPathDepth: 1
         ))
     }
 

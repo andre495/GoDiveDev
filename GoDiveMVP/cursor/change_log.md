@@ -1640,4 +1640,30 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Collapsible inline titles** — **`docs/field-guide.md`**, **`docs/trips-and-buddies.md`** (Trips, Buddies, Equipment, Certifications, Tagged media).
 - **Home stats panel** — **`docs/home.md`** (Top buddies placement).
 
-## 98 - Next batch
+## 98 - Next batch **(pushed)**
+
+**Summary:** Search results reveal instantly; slide animation only on dismiss back to category browse.
+
+- **`GlobalSearchResultsDismissPresentation.initialResultsPanelDragOffsetOnReveal`** — forward reveal uses offset **0** (no trailing slide-in).
+- **`GlobalSearchView.syncResultsPanelVisibility`** — removed spring animation when search activates; dismiss slide unchanged.
+- **`docs/search.md`** — instant forward transition vs slide-back dismiss.
+- Tests: **`globalSearchResultsDismissPresentation_revealUsesInstantOffsetNotSlideIn`**, **`globalSearchResultsDismissPresentation_blocksResultsRowSelectionWhilePanelIsOffset`**.
+- **Search swipe-back row lock** — **`blocksResultsRowSelection`** disables result rows while dismiss drag is active or the panel offset is non-zero; drag lock held through cancel/commit settle.
+- **Search result push keyboard** — **`dismissSearch()`** + **`SoftwareKeyboardDismissal`** run before **`path.append`** while stack **`.searchable`** is still attached (fixes keyboard staying up on result tap).
+- **Home fish overlay layout** — single draggable **PANEL TOP** line (Y + Δ); page dots follow while guides are on; double-tap to reset.
+- **Home fish overlay seam guide visibility** — draggable **PANEL TOP** line moved to **`heroOverlay`** (above blue stats panel); pink full-width line + **`HomeMarineLifeOverlayVisibleKey`**; **`BlueSheetHeaderPageLayout`** raises **`heroOverlay`** **`zIndex`**.
+- **Home fish overlay seam settled** — production seam offset **Δ −25** baked into **`marineLifeCarouselOverlaySheetSeamYOffsetFromTemplate`** (page dots + species stack); layout guides off.
+- **Home fish overlay page dots** — anchored above tuned sheet seam with **8 pt** clearance (**`marineLifeCarouselOverlayPageIndicatorTopInsetFromTop`**).
+- **Home fish overlay layout guides (on)** — pink tuned **PANEL TOP** line in **`heroOverlay`**; cyan **DOTS** row draggable with Y + Δ; double-tap dots to reset.
+- **Home fish overlay page dots offset** — production dots down **Δ +50** from seam-spaced default (**`marineLifeCarouselOverlayPageIndicatorTopOffsetFromSeamSpacing`**).
+- **Home fish overlay chrome** — **×** vertically centered with Home **`AppHeader`** profile row (status bar + brand-row math); species name top-aligned with feature image top; page dots unchanged.
+- **Home fish overlay close guide** — orange **CLOSE** line draggable with Y + Δ while layout guides are on; double-tap to reset; species image + name follow **×** top; label + line share the **×** row.
+- **Home fish overlay close settled** — production **×** down **Δ +75** from header-aligned default (**`marineLifeCarouselOverlayCloseTopOffsetFromHeaderAlignment`**); species image + name follow; layout guides off.
+- **Home fish overlay species layout** — feature image **50% wider** (**144–204 pt**, **48%** of preview width); common name **56 pt** below image top (**`marineLifeCarouselOverlaySpeciesNameTopOffsetFromFeatureImageTop`**).
+- **Home fish overlay species copy** — italic **`aboutText`** (fallback **`distinctiveFeatures`**) under common name; line limit fills space above page dots; tap opens Field Guide overview.
+- **Home fish overlay close alignment** — **×** leading edge matches feature image (**`marineLifeCarouselOverlaySpeciesContentLeadingInset`**).
+- **Home fish overlay page dots** — nudged **15 pt** lower (**`marineLifeCarouselOverlayPageIndicatorTopOffsetFromSeamSpacing`** **50 → 65**).
+- **Home fish overlay feature image** — column bottom lifted **24 pt** (**`marineLifeCarouselOverlayFeatureImageColumnBottomLift`**).
+- **Home fish overlay debug cleanup** — removed layout-tuning guides (**PANEL TOP**, **DOTS**, **CLOSE**), drag overrides, and **`HomeMarineLifeOverlayVisibleKey`**.
+
+## 99 - Next batch

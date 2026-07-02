@@ -572,6 +572,12 @@ enum GlobalSearchResultsDismissPresentation: Sendable {
         max(containerWidth, 1)
     }
 
+    /// Results appear instantly when search activates — slide motion is reserved for dismiss (results → category browse).
+    nonisolated static func initialResultsPanelDragOffsetOnReveal(containerWidth: CGFloat) -> CGFloat {
+        _ = containerWidth
+        return 0
+    }
+
     /// Generic category browse (bubbles + tiles) slides in from the leading edge while results slide out.
     nonisolated static func genericBrowseSlideOffset(
         dragOffset: CGFloat,
@@ -589,12 +595,22 @@ enum GlobalSearchResultsDismissPresentation: Sendable {
         !isResultsPanelVisible || dragOffset > 0.5
     }
 
-    /// While the interactive slide-back is active (or settling), block row taps and list scroll.
+    /// While the interactive slide-back is active, settling, or the panel has moved, block row taps and list scroll.
+    nonisolated static func blocksResultsRowSelection(
+        isDismissDragActive: Bool,
+        dragOffset: CGFloat
+    ) -> Bool {
+        isDismissDragActive || dragOffset > 0
+    }
+
     nonisolated static func blocksResultsInteraction(
         isDismissDragActive: Bool,
         dragOffset: CGFloat
     ) -> Bool {
-        isDismissDragActive || dragOffset > 0.5
+        blocksResultsRowSelection(
+            isDismissDragActive: isDismissDragActive,
+            dragOffset: dragOffset
+        )
     }
 
     /// While the interactive slide-back is active, the results **`List`** must not scroll vertically.
@@ -622,6 +638,11 @@ enum GlobalSearchPushedDestinationPresentation: Sendable {
         newDepth: Int
     ) -> Bool {
         newDepth > previousDepth
+    }
+
+    /// **`dismissSearch()`** must run while **`path`** is still empty so stack **`.searchable`** remains attached.
+    nonisolated static func shouldDismissSearchBeforePathAppend(currentPathDepth: Int) -> Bool {
+        currentPathDepth == 0
     }
 
     /// Restore interactive pop on the stack while a detail is pushed (root stack must stay free of UIKit anchors for morph).

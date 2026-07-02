@@ -141,59 +141,359 @@ enum HomeMediaCarouselPresentation: Sendable {
     }
 
     nonisolated static func marineLifeCarouselOverlayImageMaxWidth(previewWidth: CGFloat) -> CGFloat {
-        min(136, max(96, previewWidth * 0.32))
+        min(204, max(144, previewWidth * 0.48))
+    }
+
+    /// Text row beside the faded feature column (name + italic description).
+    nonisolated static let marineLifeCarouselOverlaySpeciesRowHeight: CGFloat = 56
+
+    nonisolated static let marineLifeCarouselOverlaySpeciesCommonNameLineHeight: CGFloat = 20
+    nonisolated static let marineLifeCarouselOverlaySpeciesDescriptionLineHeight: CGFloat = 15
+    nonisolated static let marineLifeCarouselOverlaySpeciesNameToDescriptionSpacing: CGFloat = 4
+
+    /// Caps italic description lines so copy ends above page dots (reserves up to two common-name lines).
+    nonisolated static func marineLifeCarouselOverlaySpeciesDescriptionLineLimit(
+        speciesNameTopInset: CGFloat,
+        pageIndicatorTopInset: CGFloat,
+        reservedCommonNameLineCount: Int = 2
+    ) -> Int {
+        let reservedNameHeight = CGFloat(max(1, reservedCommonNameLineCount))
+            * marineLifeCarouselOverlaySpeciesCommonNameLineHeight
+        let availableHeight = pageIndicatorTopInset
+            - speciesNameTopInset
+            - reservedNameHeight
+            - marineLifeCarouselOverlaySpeciesNameToDescriptionSpacing
+            - marineLifeCarouselOverlaySpeciesToPageIndicatorSpacing
+        guard availableHeight > 0 else { return 1 }
+        return max(1, Int(floor(availableHeight / marineLifeCarouselOverlaySpeciesDescriptionLineHeight)))
+    }
+
+    /// **`aboutText`** shown under the common name; falls back to **`distinctiveFeatures`** when empty.
+    nonisolated static func marineLifeCarouselOverlaySpeciesDescriptionText(
+        aboutText: String,
+        distinctiveFeatures: String = ""
+    ) -> String? {
+        let trimmedAbout = aboutText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedAbout.isEmpty {
+            return trimmedAbout
+        }
+        let trimmedDistinctive = distinctiveFeatures.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedDistinctive.isEmpty ? nil : trimmedDistinctive
     }
 
     nonisolated static func marineLifeCarouselOverlayPageHeight(
         previewHeight: CGFloat,
         speciesCount: Int
     ) -> CGFloat {
-        let imageHeight = marineLifeCarouselOverlayImageHeight(previewHeight: previewHeight)
-        let textBlock: CGFloat = 44
-        let pageIndicator: CGFloat = speciesCount > 1 ? 28 : 0
-        return imageHeight + 8 + textBlock + pageIndicator
+        _ = previewHeight
+        _ = speciesCount
+        return marineLifeCarouselOverlaySpeciesRowHeight
     }
 
-    /// Upper **×** sits just below measured **`AppHeader`** height (carousel shares the screen-top coordinate space).
+    nonisolated static func marineLifeCarouselOverlayContentHeight(previewHeight: CGFloat) -> CGFloat {
+        _ = previewHeight
+        return marineLifeCarouselOverlaySpeciesRowHeight
+    }
+
+    /// Faded feature column spans from the header-aligned top down toward page dots.
+    nonisolated static func marineLifeCarouselOverlayFeatureImageColumnHeight(
+        closeTopInset: CGFloat,
+        pageIndicatorTopInset: CGFloat,
+        speciesRowHeight: CGFloat = marineLifeCarouselOverlaySpeciesRowHeight
+    ) -> CGFloat {
+        max(
+            pageIndicatorTopInset
+                - closeTopInset
+                - marineLifeCarouselOverlaySpeciesToPageIndicatorSpacing
+                - marineLifeCarouselOverlayFeatureImageColumnBottomLift,
+            speciesRowHeight
+        )
+    }
+
+    /// Backward-compatible overload — prefer **`pageIndicatorTopInset`** at call sites.
+    nonisolated static func marineLifeCarouselOverlayFeatureImageColumnHeight(
+        closeTopInset: CGFloat,
+        speciesContentTopInset: CGFloat,
+        speciesRowHeight: CGFloat = marineLifeCarouselOverlaySpeciesRowHeight
+    ) -> CGFloat {
+        max(speciesContentTopInset + speciesRowHeight - closeTopInset, 1)
+    }
+
+    /// Gradient stop (0–1) where the feature column reaches full opacity — fades to clear above.
+    nonisolated static let marineLifeCarouselOverlayFeatureImageFadeOpaqueStop: CGFloat = 0.58
+
+    /// Leading inset for the species row (image + name) — nudges content left of center.
+    nonisolated static let marineLifeCarouselOverlaySpeciesContentLeadingInset: CGFloat = 24
+
+    /// Bias species image + name in the visible hero band (legacy — species row now header-aligned).
+    nonisolated static let marineLifeCarouselOverlaySpeciesVerticalBias: CGFloat = 0.68
+
+    /// Drops the species common name below the feature image top.
+    nonisolated static let marineLifeCarouselOverlaySpeciesNameTopOffsetFromFeatureImageTop: CGFloat = 56
+
+    /// Legacy alias — prefer **`marineLifeCarouselOverlaySpeciesNameTopOffsetFromFeatureImageTop`**.
+    nonisolated static let marineLifeCarouselOverlaySpeciesContentDownshift: CGFloat = marineLifeCarouselOverlaySpeciesNameTopOffsetFromFeatureImageTop
+
+    /// Small gap between page-dot bottom and the sheet seam line (before **`marineLifeCarouselOverlayPageIndicatorTopOffsetFromSeamSpacing`**).
+    nonisolated static let marineLifeCarouselOverlayPageIndicatorClearanceAboveSeam: CGFloat = AppTheme.Spacing.sm
+
+    /// Tuned on device — positive moves page dots **down** from seam-spaced default.
+    nonisolated static let marineLifeCarouselOverlayPageIndicatorTopOffsetFromSeamSpacing: CGFloat = 65
+
+    /// Tuned on device — negative moves the seam **up** (page dots + species stack follow).
+    nonisolated static let marineLifeCarouselOverlaySheetSeamYOffsetFromTemplate: CGFloat = -25
+
+    nonisolated static let marineLifeCarouselOverlaySpeciesToPageIndicatorSpacing: CGFloat = 12
+
+    /// Tuned on device — positive shortens the feature column (lifts the image bottom).
+    nonisolated static let marineLifeCarouselOverlayFeatureImageColumnBottomLift: CGFloat = 24
+
+    /// Hero band floor inside the carousel overlay — matches **`PushedHeroBand`** bottom / **`BlueSheetHeaderPageLayout`** hero slot.
+    nonisolated static func marineLifeCarouselOverlayHeroBandBottomYFromTop(
+        heroBandHeight: CGFloat,
+        topSafeAreaInset: CGFloat
+    ) -> CGFloat {
+        topSafeAreaInset + max(heroBandHeight, 0)
+    }
+
+    /// **`BlueSheetHeaderPageLayout`** sheet seam — **`heroHeight − panelOverlap`** in carousel bleed coordinates.
+    nonisolated static func marineLifeCarouselOverlaySheetSeamYFromTop(
+        heroBandHeight: CGFloat,
+        topSafeAreaInset: CGFloat,
+        panelOverlap: CGFloat = HomeOverviewLayout.panelOverlap
+    ) -> CGFloat {
+        max(
+            marineLifeCarouselOverlayHeroBandBottomYFromTop(
+                heroBandHeight: heroBandHeight,
+                topSafeAreaInset: topSafeAreaInset
+            ) - panelOverlap
+                + marineLifeCarouselOverlaySheetSeamYOffsetFromTemplate,
+            0
+        )
+    }
+
+    /// Distance from the overlay bottom to the template sheet seam.
+    nonisolated static func marineLifeCarouselOverlaySheetSeamDistanceFromBottom(
+        overlayHeight: CGFloat,
+        heroBandHeight: CGFloat,
+        topSafeAreaInset: CGFloat,
+        panelOverlap: CGFloat = HomeOverviewLayout.panelOverlap
+    ) -> CGFloat {
+        max(
+            overlayHeight - marineLifeCarouselOverlaySheetSeamYFromTop(
+                heroBandHeight: heroBandHeight,
+                topSafeAreaInset: topSafeAreaInset,
+                panelOverlap: panelOverlap
+            ),
+            0
+        )
+    }
+
+    nonisolated static let marineLifeCarouselOverlayPageIndicatorDotSize: CGFloat = 7
+    nonisolated static let marineLifeCarouselOverlayPageIndicatorSpacing: CGFloat = 8
+
+    nonisolated static func marineLifeCarouselOverlayPageIndicatorTopInsetFromTop(
+        sheetSeamYFromTop: CGFloat
+    ) -> CGFloat {
+        max(
+            0,
+            sheetSeamYFromTop
+                - marineLifeCarouselOverlayPageIndicatorClearanceAboveSeam
+                - marineLifeCarouselOverlayPageIndicatorDotSize
+                + marineLifeCarouselOverlayPageIndicatorTopOffsetFromSeamSpacing
+        )
+    }
+
+    /// Default top inset before debug override — seam spacing + **`marineLifeCarouselOverlayPageIndicatorTopOffsetFromSeamSpacing`**.
+    nonisolated static func marineLifeCarouselOverlayPageIndicatorTopInsetAboveSeam(
+        sheetSeamYFromTop: CGFloat
+    ) -> CGFloat {
+        max(
+            0,
+            sheetSeamYFromTop
+                - marineLifeCarouselOverlayPageIndicatorClearanceAboveSeam
+                - marineLifeCarouselOverlayPageIndicatorDotSize
+        )
+    }
+
+    nonisolated static func marineLifeCarouselOverlayPageIndicatorBottomInset(
+        overlayHeight: CGFloat,
+        heroBandHeight: CGFloat,
+        topSafeAreaInset: CGFloat,
+        panelOverlap: CGFloat = HomeOverviewLayout.panelOverlap
+    ) -> CGFloat {
+        marineLifeCarouselOverlayPageIndicatorBottomInset(
+            overlayHeight: overlayHeight,
+            sheetSeamYFromTop: marineLifeCarouselOverlaySheetSeamYFromTop(
+                heroBandHeight: heroBandHeight,
+                topSafeAreaInset: topSafeAreaInset,
+                panelOverlap: panelOverlap
+            )
+        )
+    }
+
+    /// Keeps species image + name above page dots and the seam.
+    nonisolated static func marineLifeCarouselOverlaySpeciesBottomMargin(
+        overlayHeight: CGFloat,
+        heroBandHeight: CGFloat,
+        topSafeAreaInset: CGFloat,
+        panelOverlap: CGFloat = HomeOverviewLayout.panelOverlap
+    ) -> CGFloat {
+        marineLifeCarouselOverlayPageIndicatorBottomInset(
+            overlayHeight: overlayHeight,
+            heroBandHeight: heroBandHeight,
+            topSafeAreaInset: topSafeAreaInset,
+            panelOverlap: panelOverlap
+        )
+            + marineLifeCarouselOverlayPageIndicatorDotSize
+            + marineLifeCarouselOverlaySpeciesToPageIndicatorSpacing
+    }
+
+    /// Shifts the overlay **×** (and species image + name) down from header-aligned default.
+    nonisolated static let marineLifeCarouselOverlayCloseTopOffsetFromHeaderAlignment: CGFloat = 75
+
+    /// Mirrors **`AppTheme.Layout.appHeaderTopPadding`** for nonisolated layout math.
+    nonisolated static let marineLifeOverlayHomeHeaderTopPadding: CGFloat = AppTheme.Spacing.sm
+
+    /// Mirrors **`AppTheme.Layout.appHeaderBottomPadding`** for nonisolated layout math.
+    nonisolated static let marineLifeOverlayHomeHeaderBottomPadding: CGFloat = AppTheme.Spacing.md
+
+    /// Mirrors **`AppToolbarIconButtonMetrics.tapDimension`** for nonisolated layout math.
+    nonisolated static let marineLifeOverlayCloseButtonTapDimension: CGFloat = 44
+
+    nonisolated static func marineLifeOverlayHeaderBrandRowHeight() -> CGFloat {
+        max(
+            AppHeaderBrandRowMetrics.wordmarkLineHeight,
+            BlueSheetTopChromePresentation.homeProfileAvatarDiameter
+        )
+    }
+
+    /// Vertically centers the overlay **×** with the Home **`AppHeader`** profile avatar row.
+    nonisolated static func marineLifeOverlayCloseTopInset(
+        topSafeAreaInset: CGFloat,
+        headerClearance: CGFloat
+    ) -> CGFloat {
+        _ = headerClearance
+        let rowHeight = marineLifeOverlayHeaderBrandRowHeight()
+        let profileCenterY = topSafeAreaInset
+            + marineLifeOverlayHomeHeaderTopPadding
+            + rowHeight / 2
+        return max(
+            0,
+            profileCenterY
+                - marineLifeOverlayCloseButtonTapDimension / 2
+                + marineLifeCarouselOverlayCloseTopOffsetFromHeaderAlignment
+        )
+    }
+
+    /// Legacy overload — **`listTopInset`** = status bar + **`headerClearance`**.
     nonisolated static func marineLifeOverlayCloseTopInset(
         previewHeight: CGFloat,
         topSafeAreaInset: CGFloat,
         headerOverlayHeight: CGFloat
     ) -> CGFloat {
-        let measuredHeader = max(
-            headerOverlayHeight,
-            topSafeAreaInset + 64
+        _ = previewHeight
+        let headerClearance = max(0, headerOverlayHeight - topSafeAreaInset)
+        return marineLifeOverlayCloseTopInset(
+            topSafeAreaInset: topSafeAreaInset,
+            headerClearance: headerClearance
         )
-        return measuredHeader + 16
     }
 
-    /// Positions species image + name in the visible hero band — below header chrome, above dive-link / fish chips.
+    /// Species feature image top (**`marineLifeOverlayCloseTopInset`**).
+    nonisolated static func marineLifeCarouselOverlaySpeciesContentTopInset(
+        closeTopInset: CGFloat
+    ) -> CGFloat {
+        closeTopInset
+    }
+
+    /// Species common name sits below the feature image top.
+    nonisolated static func marineLifeCarouselOverlaySpeciesNameTopInset(
+        closeTopInset: CGFloat
+    ) -> CGFloat {
+        closeTopInset + marineLifeCarouselOverlaySpeciesNameTopOffsetFromFeatureImageTop
+    }
+
+    /// Legacy hero-band bias helper — prefer **`marineLifeCarouselOverlaySpeciesContentTopInset(closeTopInset:)`**.
     nonisolated static func marineLifeCarouselOverlaySpeciesContentTopInset(
         previewHeight: CGFloat,
-        pagerHeight: CGFloat,
+        speciesRowHeight: CGFloat,
         topSafeAreaInset: CGFloat,
         headerOverlayHeight: CGFloat,
-        bottomChromeReserve: CGFloat
+        heroBandHeight: CGFloat,
+        panelOverlap: CGFloat = HomeOverviewLayout.panelOverlap
     ) -> CGFloat {
-        let headerBand = max(headerOverlayHeight, topSafeAreaInset + 64)
-        let visibleTop = headerBand + 12
-        let visibleBottom = max(visibleTop + pagerHeight, previewHeight - bottomChromeReserve)
-        let availableHeight = visibleBottom - visibleTop
-        let biasedFraction: CGFloat = 0.62
-        let biasedTop = visibleTop + max(0, (availableHeight - pagerHeight) * biasedFraction)
-        let geometricCenterTop = (previewHeight - pagerHeight) / 2
-        let preferredTop = max(biasedTop, geometricCenterTop + topSafeAreaInset * 0.25)
-        let minTop = marineLifeOverlayCloseTopInset(
-            previewHeight: previewHeight,
-            topSafeAreaInset: topSafeAreaInset,
-            headerOverlayHeight: headerOverlayHeight
-        ) + 8
-        let maxTop = max(minTop, previewHeight - bottomChromeReserve - pagerHeight)
-        return min(maxTop, max(minTop, preferredTop))
+        _ = previewHeight
+        _ = speciesRowHeight
+        _ = topSafeAreaInset
+        _ = heroBandHeight
+        _ = panelOverlap
+        return marineLifeCarouselOverlaySpeciesContentTopInset(
+            closeTopInset: marineLifeOverlayCloseTopInset(
+                previewHeight: previewHeight,
+                topSafeAreaInset: topSafeAreaInset,
+                headerOverlayHeight: headerOverlayHeight
+            )
+        )
     }
 
     /// Home carousel fish overlay — full-bleed frosted dimming so media stays visible underneath.
     nonisolated static let marineLifeCarouselOverlayMediaScrimOpacity: Double = 0.38
+
+    nonisolated static func marineLifeCarouselOverlayProductionSeamYInHeroBand(
+        heroBandHeight: CGFloat,
+        panelOverlap: CGFloat = HomeOverviewLayout.panelOverlap
+    ) -> CGFloat {
+        max(
+            marineLifeCarouselOverlayTemplateSeamYInHeroBand(
+                heroBandHeight: heroBandHeight,
+                panelOverlap: panelOverlap
+            ) + marineLifeCarouselOverlaySheetSeamYOffsetFromTemplate,
+            0
+        )
+    }
+
+    nonisolated static func marineLifeCarouselOverlayTemplateSeamYInHeroBand(
+        heroBandHeight: CGFloat,
+        panelOverlap: CGFloat = HomeOverviewLayout.panelOverlap
+    ) -> CGFloat {
+        max(heroBandHeight - panelOverlap, 0)
+    }
+
+    nonisolated static func marineLifeCarouselOverlayClampedSeamYFromTop(
+        templateSeamYFromTop: CGFloat,
+        proposedSeamYFromTop: CGFloat?,
+        minimumSeamY: CGFloat,
+        maximumSeamY: CGFloat
+    ) -> CGFloat {
+        let proposed = proposedSeamYFromTop ?? templateSeamYFromTop
+        return min(max(proposed, minimumSeamY), maximumSeamY)
+    }
+
+    nonisolated static func marineLifeCarouselOverlayPageIndicatorBottomInset(
+        overlayHeight: CGFloat,
+        sheetSeamYFromTop: CGFloat
+    ) -> CGFloat {
+        let topInset = marineLifeCarouselOverlayPageIndicatorTopInsetFromTop(
+            sheetSeamYFromTop: sheetSeamYFromTop
+        )
+        return max(
+            overlayHeight - topInset - marineLifeCarouselOverlayPageIndicatorDotSize,
+            marineLifeCarouselOverlayPageIndicatorClearanceAboveSeam
+        )
+    }
+
+    nonisolated static func marineLifeCarouselOverlaySpeciesBottomMargin(
+        overlayHeight: CGFloat,
+        sheetSeamYFromTop: CGFloat
+    ) -> CGFloat {
+        marineLifeCarouselOverlayPageIndicatorBottomInset(
+            overlayHeight: overlayHeight,
+            sheetSeamYFromTop: sheetSeamYFromTop
+        )
+            + marineLifeCarouselOverlayPageIndicatorDotSize
+            + marineLifeCarouselOverlaySpeciesToPageIndicatorSpacing
+    }
 
     /// Expanded buddy stack shows at most two full avatars; a third may peek with a top fade.
     nonisolated static let taggedBuddyMaxFullVisibleProfiles: Int = 2
