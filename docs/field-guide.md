@@ -2,6 +2,8 @@
 
 The **Field Guide** tab is a browsable marine life catalog bundled with GoDive. Use it to learn about species and to tag what you saw on dives.
 
+The hub shows **Field Guide** in large white type at the top. Scroll down and the title compacts; scroll back up and it expands again — same pattern as **Activity Log** in Logbook.
+
 ## Browse the catalog
 
 1. **Category hub** — top-level groups (e.g. fish families) as full-width tiles with artwork  

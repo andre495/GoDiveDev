@@ -27,7 +27,9 @@ Below the carousel, four tiles summarize your logbook:
 
 Tap any tile to open a **top five** ranked list. Deepest and longest use the same compact dive rows as Logbook; sites use Explore-style site rows; species show catalog thumbnails when available.
 
-When you have tagged buddies, a **Top buddies** tile lists your top three dive partners by shared dive count. Tap a buddy to open their detail page.
+When you have tagged buddies, a **Top buddies** tile appears below the four stat tiles, listing your top three dive partners by shared dive count. Tap a buddy to open their detail page.
+
+Stats and buddies sit in the blue panel between the featured media and the tab bar.
 
 ## Profile and navigation
 

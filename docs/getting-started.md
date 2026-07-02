@@ -49,11 +49,11 @@ Browse categories of marine life and open a species page. Tag species on dive ph
 
 ### Explore
 
-Switch between **map** and **list** to browse dive sites. Filter **My Sites** vs **All Sites**. Tap a site for dives logged there and tagged media. To find a site by name, use the **Search** tab.
+Switch between **map** and **list** to browse dive sites. Toggle **My Sites** vs **All Sites** from the **center of the top bar** (map/list on the left, **+** on the right). Tap a site for dives logged there and tagged media. To find a site by name, use the **Search** tab — **Sites** includes both your logbook sites and the full **All Sites** catalog.
 
 ### Search
 
-Tap the **Search** tab (magnifying glass). Pick a category tile or type to search dives, buddies, sites, species, tags, trips, gear, and certifications. See [Search](search.md).
+Tap the **Search** tab (magnifying glass). Pick a category tile or type to search dives, buddies, sites, species, tags, trips, gear, and certifications. **Sites** results match what you see under **Explore → All Sites**. See [Search](search.md).
 
 ### Profile
 

@@ -1636,4 +1636,8 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Tests: **`homeLifetimeStatsTilesLayout_resolvedVerticalEdgeInsets_centersBetweenSeamAndTabTop`**, **`homeLifetimeStatsTilesLayout_resolvedVerticalEdgeInset_splitsSlackEvenly`**, **`homeLifetimeStatsTilesLayout_resolvedFlexibleSectionHeights_distributesExtraByBaselineWeights`**, **`rootTabBarLayoutMeasurement_estimatedClearanceAboveTabBar`**, **`homeTabRootLayoutPresentation_panelBottomInsetPrefersMeasuredTabBar`**.
 - Tests: **`homeOverviewLayout_blueSheetPanelScale_increasesOverlapAndHeroBleed`**, updated **`blueSheetPageProportions_reexportHomeOverviewLayoutTokens`**.
 
+- **Search site index parity** — **`docs/search.md`**, **`docs/explore.md`**, **`docs/getting-started.md`**.
+- **Collapsible inline titles** — **`docs/field-guide.md`**, **`docs/trips-and-buddies.md`** (Trips, Buddies, Equipment, Certifications, Tagged media).
+- **Home stats panel** — **`docs/home.md`** (Top buddies placement).
+
 ## 98 - Next batch

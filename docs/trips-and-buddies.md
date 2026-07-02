@@ -6,6 +6,8 @@ Plan vacations, see who you dive with, and review shared history — all from **
 
 Open **Profile → Trips** to see **Trip planner**.
 
+The **Trips** title uses the same collapsible large-title header as Logbook — it compacts when you scroll the list and expands when you scroll back to the top.
+
 ### Trip sections
 
 Trips group into:
@@ -59,6 +61,8 @@ When a trip has **started**, dives whose dates fall inside the trip window can *
 
 Open **Profile → Dive Buddies** for your roster.
 
+The **Dive Buddies** title compacts on scroll and expands when you return to the top of the list.
+
 ### Roster
 
 Each buddy shows name, optional photo, and **dives together** count. Tap **+** to add someone without tagging them on a dive yet.
@@ -92,8 +96,12 @@ From buddy **Edit**, **Delete buddy** removes them from the roster and untags th
 
 ## Equipment (related)
 
-**Profile → Equipment locker** stores your gear. Items with **Auto-add on import** link to new dives automatically. From dive detail **Tank** tab → **Equipment**, attach locker items to a specific dive.
+**Profile → Equipment locker** stores your gear. The locker list uses the same scroll-collapsing **Equipment Locker** title as Trips and Buddies. Items with **Auto-add on import** link to new dives automatically. From dive detail **Tank** tab → **Equipment**, attach locker items to a specific dive.
 
 ## Certifications (related)
 
-**Profile → Certifications** stores training cards with photos, agency, number, and date. Your newest certification-type card can appear on Profile.
+**Profile → Certifications** stores training cards with photos, agency, number, and date. The certifications list uses the same collapsible large-title header. Your newest certification-type card can appear on Profile.
+
+## Tagged media (related)
+
+**Profile → My tagged media** shows photos and videos where you tagged marine life. The list uses the same scroll-collapsing title pattern as the other Profile library screens.
