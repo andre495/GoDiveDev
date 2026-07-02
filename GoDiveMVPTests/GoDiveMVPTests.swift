@@ -3305,10 +3305,22 @@ struct GoDiveMVPTests {
 
     @Test func blueSheetPageProportions_reexportHomeOverviewLayoutTokens() {
         #expect(BlueSheetPageProportions.panelOverlap == HomeOverviewLayout.panelOverlap)
+        #expect(BlueSheetPageProportions.blueSheetPanelScale == HomeOverviewLayout.blueSheetPanelScale)
         #expect(BlueSheetPageProportions.heroHeightToWidthRatio == HomeOverviewLayout.heroHeightToWidthRatio)
         #expect(BlueSheetPageProportions.heroBottomExtension == HomeOverviewLayout.heroBottomExtension)
         #expect(BlueSheetPageProportions.tabBarScrollInset == HomeOverviewLayout.tabBarScrollInset)
         #expect(BlueSheetPageProportions.rootTabBarLayoutHeight == HomeOverviewLayout.rootTabBarLayoutHeight)
+    }
+
+    @Test func homeOverviewLayout_blueSheetPanelScale_increasesOverlapAndHeroBleed() {
+        #expect(abs(HomeOverviewLayout.blueSheetPanelScale - 1.10 * 1.15) < 0.001)
+        #expect(HomeOverviewLayout.panelOverlap == 187)
+        #expect(HomeOverviewLayout.heroBottomExtension == 202)
+        #expect(HomeOverviewLayout.heroBottomExtension > HomeOverviewLayout.panelOverlap)
+        let statsContent: CGFloat = 400
+        let scaledBand = HomeOverviewLayout.minimumStatsBandHeight(statsPanelContentHeight: statsContent)
+        #expect(scaledBand == (statsContent + HomeOverviewLayout.tabBarScrollInset) * HomeOverviewLayout.blueSheetPanelScale)
+        #expect(scaledBand > statsContent + HomeOverviewLayout.tabBarScrollInset)
     }
 
     @Test func blueSheetPageLayoutBuilder_tabRootMatchesPushedHeroHeightWhenViewportAligned() {
@@ -3466,12 +3478,28 @@ struct GoDiveMVPTests {
         #expect(homeHero > HomeOverviewLayout.heroHeight(width: screenWidth, topSafeAreaInset: 0))
     }
 
-    @Test func homeTabRootLayoutPresentation_panelBottomInsetIncludesTabBar() {
+    @Test func homeTabRootLayoutPresentation_panelBottomInsetPrefersMeasuredTabBar() {
         #expect(
             HomeTabRootLayoutPresentation.panelBottomSafeAreaInset(
-                tabBarClearance: HomeOverviewLayout.rootTabBarLayoutHeight,
+                measuredTabBarClearance: 83,
                 safeAreaBottom: 34
-            ) == HomeOverviewLayout.rootTabBarLayoutHeight + 34
+            ) == 83
+        )
+        #expect(
+            HomeTabRootLayoutPresentation.panelBottomSafeAreaInset(
+                measuredTabBarClearance: 0,
+                safeAreaBottom: 34
+            ) == RootTabBarLayoutMeasurement.estimatedClearanceAboveTabBar(safeAreaBottom: 34)
+        )
+    }
+
+    @Test func rootTabBarLayoutMeasurement_estimatedClearanceAboveTabBar() {
+        #expect(RootTabBarLayoutMeasurement.estimatedClearanceAboveTabBar(safeAreaBottom: 0) == 49)
+        #expect(
+            RootTabBarLayoutMeasurement.resolvedPanelBottomSafeAreaInset(
+                measuredTabBarClearance: 72,
+                safeAreaBottom: 0
+            ) == 72
         )
     }
 
@@ -3630,6 +3658,17 @@ struct GoDiveMVPTests {
     @Test func blueSheetTopChromePresentation_detailTopUsesListFeather() {
         #expect(BlueSheetTopChromePresentation.DetailTopFade.usesListStatusBarScrim)
         #expect(BlueSheetTopChromePresentation.DetailTopFade.statusBarFeather == 22)
+    }
+
+    @Test func blueSheetTopChromePresentation_homeProfileAvatarDiameter_isTwentyPercentLarger() {
+        #expect(BlueSheetTopChromePresentation.homeProfileAvatarDiameter == 48 * 1.2)
+    }
+
+    @Test func appHeaderBrandRowMetrics_wordmarkLineHeight_tracksLargeTitle() {
+        #if os(iOS)
+        let expected = ceil(UIFont.preferredFont(forTextStyle: .largeTitle).lineHeight)
+        #expect(AppHeaderBrandRowMetrics.wordmarkLineHeight == expected)
+        #endif
     }
 
     @Test func blueSheetPinnedSummaryPresentation_rowSpacingUsesTheme() {
@@ -4797,7 +4836,15 @@ struct GoDiveMVPTests {
 
         #expect(AppLaunchLayout.logoSize == 128)
         #expect(AppLaunchLayout.logoToTitleSpacing == 24)
-        #expect(AppLaunchLayout.titleFontSize == 28)
+        #if canImport(UIKit)
+        let launchTitleFont = UIFont.boldSystemFont(
+            ofSize: UIFont.preferredFont(forTextStyle: .largeTitle).pointSize
+        )
+        #expect(AppLaunchLayout.titleFontSize == launchTitleFont.pointSize)
+        #expect(AppLaunchLayout.titleLineHeight == ceil(launchTitleFont.lineHeight))
+        #else
+        #expect(AppLaunchLayout.titleFontSize == 34)
+        #endif
         #expect(AppLaunchLayout.fixedBackgroundBlue == 0.09)
         #expect(AppLaunchLayout.fixedTitleBlue == 1.0)
     }
@@ -6338,7 +6385,14 @@ struct GoDiveMVPTests {
         #expect(insets.top == layout.topObstructionHeight)
         #expect(insets.bottom == HomeOverviewLayout.panelOverlap + TripDetailMapPresentation.mapMarkerGroundClearance)
         let targetY = TripDetailMapPresentation.targetPinScreenYFraction(for: layout)
-        #expect(abs(targetY - 0.5) < 0.06)
+        let panelFraction = min(max(layout.panelOverlap / layout.mapHeight, 0), 0.92)
+            + TripDetailMapPresentation.mapMarkerGroundClearance / layout.mapHeight
+        let expectedY = DiveLocationMapPresentation.targetPinScreenYFraction(
+            layoutHeight: layout.mapHeight,
+            topObstructionHeight: insets.top,
+            sheetHeightFraction: panelFraction
+        )
+        #expect(abs(targetY - expectedY) < 0.001)
     }
 
     @Test func tripDetailMapPresentation_effectiveMapHeight_usesHeroHeightBeforeUIKitLayout() {
@@ -11522,6 +11576,19 @@ struct GoDiveMVPTests {
         #expect(size.width == 390)
         #expect(size.height == 420)
         #expect(HomeMediaCarouselPresentation.marineLifeOverlayCornerRadius == 0)
+        let bandHeight: CGFloat = 520
+        let safeTop: CGFloat = 59
+        let carouselHeight = HomeMediaCarouselPresentation.marineLifeCarouselOverlayFrameHeight(
+            heroBandHeight: bandHeight,
+            topSafeAreaInset: safeTop,
+            appliesOwnTopSafeAreaBleed: false
+        )
+        #expect(carouselHeight == bandHeight + safeTop)
+        let overlayInHeroBand = HomeMediaCarouselPresentation.marineLifeOverlaySize(
+            width: 390,
+            height: carouselHeight
+        )
+        #expect(overlayInHeroBand.height == carouselHeight)
         let imageHeight = HomeMediaCarouselPresentation.marineLifeCarouselOverlayImageHeight(previewHeight: 420)
         #expect(imageHeight >= 72)
         #expect(imageHeight <= 104)
@@ -11643,6 +11710,8 @@ struct GoDiveMVPTests {
         #expect(height >= 40)
         #expect(height <= 56)
         #expect(height > 44)
+        #expect(HomeMediaCarouselPresentation.taggedOverlayIconTapDimension == 56)
+        #expect(HomeMediaCarouselPresentation.taggedOverlayIconTapDimension >= height)
     }
 
     @Test @MainActor
@@ -11687,35 +11756,154 @@ struct GoDiveMVPTests {
         #expect(inset == 139)
     }
 
+    @Test func homeMediaCarouselPresentation_marineLifeCarouselOverlaySpeciesContentTopInset_centersInVisibleHeroBand() {
+        let previewHeight: CGFloat = 579
+        let pagerHeight: CGFloat = 160
+        let bottomReserve: CGFloat = 196
+        let inset = HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesContentTopInset(
+            previewHeight: previewHeight,
+            pagerHeight: pagerHeight,
+            topSafeAreaInset: 59,
+            headerOverlayHeight: 112,
+            bottomChromeReserve: bottomReserve
+        )
+        let closeInset = HomeMediaCarouselPresentation.marineLifeOverlayCloseTopInset(
+            previewHeight: previewHeight,
+            topSafeAreaInset: 59,
+            headerOverlayHeight: 112
+        )
+        #expect(inset > closeInset)
+        let geometricCenterTop = (previewHeight - pagerHeight) / 2
+        #expect(inset > geometricCenterTop)
+        #expect(inset + pagerHeight <= previewHeight - bottomReserve + 0.001)
+    }
+
     @Test func homeLifetimeStatsLayout_usesTwoColumnFixedHeightTiles() {
         #expect(HomeLifetimeStatsLayout.gridColumnCount == 2)
         #expect(HomeLifetimeStatsLayout.highlightStatTileCount == 4)
         #expect(HomeLifetimeStatsLayout.rowCount(tileCount: 4) == 2)
         #expect(HomeLifetimeStatsLayout.rowCount(tileCount: 3) == 2)
-        #expect(HomeLifetimeStatsLayout.statTileHeight == 92)
+        #expect(HomeLifetimeStatsLayout.statTileHeight == 82)
         let fourTileGrid = HomeLifetimeStatsLayout.gridHeight(tileCount: 4)
         #expect(abs(fourTileGrid - (HomeLifetimeStatsLayout.statTileHeight * 2 + HomeLifetimeStatsLayout.gridSpacing)) < 0.001)
         let threeTileGrid = HomeLifetimeStatsLayout.gridHeight(tileCount: 3)
         #expect(abs(threeTileGrid - (HomeLifetimeStatsLayout.statTileHeight * 2 + HomeLifetimeStatsLayout.gridSpacing)) < 0.001)
         #expect(HomeLifetimeStatsLayout.panelTopCornerRadius == AppTheme.Sheet.cornerRadius)
         #expect(HomeLifetimeStatsLayout.panelOverlap >= 140)
-        #expect(HomeLifetimeStatsLayout.valueFontSize() >= 20)
-        #expect(HomeLifetimeStatsLayout.panelTopContentPaddingWhenOverlapping == AppTheme.Spacing.md)
-        #expect(HomeLifetimeStatsLayout.panelBottomContentPadding == AppTheme.Spacing.lg)
-        #expect(HomeLifetimeStatsLayout.panelTopContentPaddingWhenOverlapping <= HomeLifetimeStatsLayout.panelTopContentPadding)
+        #expect(HomeLifetimeStatsLayout.valueFontSize() >= 18)
+        #expect(HomeLifetimeStatsLayout.panelTopContentPaddingWhenOverlapping == 0)
+        #expect(HomeLifetimeStatsLayout.panelBottomContentPadding == 0)
+        #expect(HomeLifetimeStatsLayout.gridSpacing == HomeLifetimeStatsTilesLayout.gridSpacing)
         #expect(HomeLifetimeStatsLayout.heroBottomExtension > HomeLifetimeStatsLayout.panelOverlap)
         #expect(HomeLifetimeStatsPresentation.topSpeciesEmptyFootnote.contains("Tag marine life"))
     }
 
+    @Test func homeLifetimeStatsTilesLayout_resolvedVerticalEdgeInsets_centersBetweenSeamAndTabTop() {
+        let statRowCount = 2
+        let minContent = HomeLifetimeStatsTilesLayout.scrollContentHeight(
+            statRowCount: statRowCount,
+            showsBuddyLeaderboard: true
+        )
+
+        let baseline = HomeLifetimeStatsTilesLayout.resolvedVerticalEdgeInsets(
+            totalHeight: minContent,
+            statRowCount: statRowCount,
+            showsBuddyLeaderboard: true
+        )
+        #expect(baseline.top == 0)
+        #expect(baseline.bottom == 0)
+
+        let expanded = HomeLifetimeStatsTilesLayout.resolvedVerticalEdgeInsets(
+            totalHeight: minContent + 40,
+            statRowCount: statRowCount,
+            showsBuddyLeaderboard: true
+        )
+        #expect(expanded.top == 20)
+        #expect(expanded.bottom == 20)
+        #expect(
+            abs(minContent + expanded.top + expanded.bottom - (minContent + 40)) < 0.001
+        )
+    }
+
+    @Test func homeLifetimeStatsTilesLayout_resolvedVerticalEdgeInset_splitsSlackEvenly() {
+        let spacing = HomeLifetimeStatsTilesLayout.gridSpacing
+        let statRowCount = 2
+        let minContent = HomeLifetimeStatsTilesLayout.scrollContentHeight(
+            statRowCount: statRowCount,
+            showsBuddyLeaderboard: true
+        )
+
+        #expect(
+            HomeLifetimeStatsTilesLayout.resolvedVerticalEdgeInset(
+                totalHeight: minContent + 24,
+                statRowCount: statRowCount,
+                showsBuddyLeaderboard: true
+            ) == 12
+        )
+        #expect(HomeLifetimeStatsTilesLayout.gridSpacing == spacing)
+    }
+
+    @Test func homeLifetimeStatsTilesLayout_resolvedFlexibleLayoutHeights_usesUniformRowSpacing() {
+        let spacing = HomeLifetimeStatsTilesLayout.gridSpacing
+        let statRowCount = 2
+        let minStatRow = HomeLifetimeStatsTilesLayout.statTileHeight
+        let minBuddy = HomeLifetimeStatsTilesLayout.buddyTileHeight
+        let minTotal = CGFloat(statRowCount) * minStatRow + spacing + minBuddy
+
+        let rows = HomeLifetimeStatsTilesLayout.resolvedFlexibleLayoutHeights(
+            totalHeight: minTotal + 60,
+            statRowCount: statRowCount,
+            showsBuddyLeaderboard: true
+        )
+        #expect(rows.statRowHeight > minStatRow)
+        #expect(rows.buddyRowHeight > minBuddy)
+        let used = rows.statRowHeight * CGFloat(statRowCount)
+            + CGFloat(max(statRowCount - 1, 0)) * spacing
+            + spacing
+            + rows.buddyRowHeight
+        #expect(abs(used - (minTotal + 60)) < 0.001)
+    }
+
+    @Test func homeLifetimeStatsTilesLayout_resolvedFlexibleSectionHeights_distributesExtraByBaselineWeights() {
+        let minGrid = HomeLifetimeStatsTilesLayout.gridHeight(tileCount: 4)
+        let minBuddy = HomeLifetimeStatsTilesLayout.buddyTileHeight
+        let spacing = HomeLifetimeStatsTilesLayout.gridSpacing
+        let minTotal = minGrid + spacing + minBuddy
+
+        let withoutBuddy = HomeLifetimeStatsTilesLayout.resolvedFlexibleSectionHeights(
+            totalHeight: 260,
+            showsBuddyLeaderboard: false
+        )
+        #expect(withoutBuddy.grid == 260)
+        #expect(withoutBuddy.buddy == 0)
+
+        let atMinimum = HomeLifetimeStatsTilesLayout.resolvedFlexibleSectionHeights(
+            totalHeight: minTotal,
+            showsBuddyLeaderboard: true
+        )
+        #expect(atMinimum.grid == minGrid)
+        #expect(atMinimum.buddy == minBuddy)
+
+        let expanded = HomeLifetimeStatsTilesLayout.resolvedFlexibleSectionHeights(
+            totalHeight: minTotal + 84,
+            showsBuddyLeaderboard: true
+        )
+        #expect(expanded.grid > minGrid)
+        #expect(expanded.buddy > minBuddy)
+        #expect(abs(expanded.grid + expanded.buddy + spacing - (minTotal + 84)) < 0.001)
+    }
+
     @Test func homeBuddyLeaderboardLayout_fitsHomeStatsPanelEstimate() {
-        #expect(HomeBuddyLeaderboardLayout.estimatedTileHeight == 152)
-        #expect(HomeLifetimeStatsTilesLayout.buddyTileHeight == 152)
+        #expect(HomeBuddyLeaderboardLayout.estimatedTileHeight == 120)
+        #expect(HomeLifetimeStatsTilesLayout.buddyTileHeight == 120)
+        #expect(HomeBuddyLeaderboardLayout.podiumRowHeight == 80)
+        #expect(HomeBuddyLeaderboardLayout.avatarDiameter == 44)
         #expect(
             HomeLifetimeStatsLayout.estimatedBuddyLeaderboardHeight
                 == HomeBuddyLeaderboardLayout.estimatedTileHeight
         )
         #expect(
-            HomeLifetimeStatsTilesLayout.scrollContentHeight(showsBuddyLeaderboard: true) == 368
+            HomeLifetimeStatsTilesLayout.scrollContentHeight(showsBuddyLeaderboard: true) == 316
         )
     }
 
@@ -11733,14 +11921,14 @@ struct GoDiveMVPTests {
         )
         #expect(
             HomeLifetimeStatsPanelLayout.estimatedPanelContentHeight(showsBuddyLeaderboard: false)
-                == HomeLifetimeStatsPanelLayout.estimatedScrollContentHeight(showsBuddyLeaderboard: false) + 40
+                == HomeLifetimeStatsPanelLayout.estimatedScrollContentHeight(showsBuddyLeaderboard: false)
         )
     }
 
     @Test func homeOverviewLayout_carouselLeavesMinimumStatsBand() {
         let viewport: CGFloat = 769
         let statsContent: CGFloat = 400
-        let minimumStats = statsContent + HomeOverviewLayout.tabBarScrollInset
+        let minimumStats = HomeOverviewLayout.minimumStatsBandHeight(statsPanelContentHeight: statsContent)
         let metrics = HomeOverviewLayout.metrics(
             viewportHeight: viewport,
             screenWidth: 390,
@@ -12054,7 +12242,13 @@ struct GoDiveMVPTests {
             heroHeight: pushedHero
         )
         #expect(homeScreenBot == pushedScreenBot)
-        #expect(abs(homeScreenBot - 473) < 1.5)
+        let statsBand = HomeOverviewLayout.minimumStatsBandHeight(
+            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeightWithLeaderboard
+        )
+        let expectedScreenBot = homeTabViewport + HomeOverviewLayout.rootTabBarLayoutHeight
+            - max(homeHero - HomeOverviewLayout.panelOverlap, 0)
+        #expect(abs(homeScreenBot - expectedScreenBot) < 0.001)
+        #expect(abs(homeScreenBot - statsBand) > 1)
     }
 
     @Test func homeOverviewLayout_heroLayoutStatsBand_matchesHomeTwoByTwoGrid() {
@@ -16555,7 +16749,6 @@ struct GoDiveMVPTests {
             upcomingTripBanner: nil,
             showsStoredDiveEmptyState: false,
             bubbleAnimationPaused: false,
-            headerClearance: 0,
             scrollToTopNonce: 0
         )
         var scrolled = base
@@ -16564,7 +16757,31 @@ struct GoDiveMVPTests {
         #expect(base != scrolled)
     }
 
+    @Test func collapsibleInlineTitleHeaderPresentation_scrollOffsetCollapseLogic() {
+        #expect(CollapsibleInlineTitleHeaderPresentation.collapseScrollOffsetThreshold == 8)
+        #expect(!CollapsibleInlineTitleHeaderPresentation.isCollapsed(forScrollOffset: 0))
+        #expect(!CollapsibleInlineTitleHeaderPresentation.isCollapsed(forScrollOffset: 8))
+        #expect(CollapsibleInlineTitleHeaderPresentation.isCollapsed(forScrollOffset: 8.1))
+        #expect(CollapsibleInlineTitleHeaderPresentation.chromeBandHeight == 68)
+        #expect(CollapsibleInlineTitleHeaderPresentation.listScrollFadeFeatherHeight == 128)
+        #expect(CollapsibleInlineTitleHeaderPresentation.sideControlWidth == 44)
+        #expect(CollapsibleInlineTitleHeaderPresentation.topObstructionHeight(safeAreaTop: 59) == 127)
+        #expect(CollapsibleInlineTitleHeaderPresentation.scrimBandHeight(safeAreaTop: 59) == 255)
+    }
+
+    @Test func logbookAndFieldGuideCollapsibleHeaderTitles() {
+        #expect(LogbookCollapsibleHeaderPresentation.title == "Activity Log")
+        #expect(LogbookCollapsibleHeaderPresentation.titleAccessibilityIdentifier == "Logbook.Title")
+        #expect(FieldGuideHubPresentation.tabTitle == "Field Guide")
+        #expect(FieldGuideHubPresentation.titleAccessibilityIdentifier == "FieldGuide.Hub.Title")
+    }
+
+    @Test func headerChromeIconForeground_isWhite() {
+        #expect(AppTheme.Colors.headerChromeIconForeground == .white)
+    }
+
     @Test func globalSearchPresentation_indexesDivesSitesAndSpecies() {
+        let siteID = UUID()
         let catalog = GlobalSearchPresentation.Catalog(
             dives: [
                 GlobalSearchPresentation.DiveIndexEntry(
@@ -16576,10 +16793,10 @@ struct GoDiveMVPTests {
             ],
             diveSites: [
                 GlobalSearchPresentation.DiveSiteIndexEntry(
-                    id: UUID(),
                     title: "Salt Pier",
                     subtitle: "Bonaire",
-                    searchHaystacks: ["Salt Pier", "Bonaire"]
+                    searchHaystacks: ["Salt Pier", "Bonaire"],
+                    destination: .diveSite(siteID)
                 ),
             ],
             species: [
@@ -16606,6 +16823,110 @@ struct GoDiveMVPTests {
         #expect(turtleResults.sections.first?.kind == .species)
     }
 
+    @Test func globalSearchSiteIndexSeeding_indexesReferenceCatalogAndSupplementalSites() {
+        let reference = DiveSiteReferenceSnapshot(
+            id: "salt01",
+            name: "Salt Pier",
+            country: "Caribbean Netherlands",
+            countryCode: "BQ",
+            latitude: 12.0835,
+            longitude: -68.283,
+            maxDepthMeters: 30,
+            entry: "shore",
+            environment: "ocean",
+            topologies: [],
+            seaName: "Caribbean Sea"
+        )
+        let unvisitedReference = DiveSiteReferenceSnapshot(
+            id: "reef02",
+            name: "Blue Reef",
+            country: "Belize",
+            countryCode: "BZ",
+            latitude: 17.3,
+            longitude: -87.7,
+            maxDepthMeters: 20,
+            entry: "boat",
+            environment: "ocean",
+            topologies: [],
+            seaName: ""
+        )
+        let catalogSite = DiveSite(
+            siteName: "Salt Pier (mine)",
+            latCoords: 12.0835,
+            longCoords: -68.283,
+            siteTags: [DiveSiteCatalogMatcher.openDiveMapSiteTag(referenceID: "salt01")]
+        )
+        let localOnlySite = DiveSite(
+            siteName: "Secret Spot",
+            latCoords: 1,
+            longCoords: 2
+        )
+        let ownerID = UUID()
+        let linkedActivity = DiveActivity(
+            source: .manual,
+            startTime: .now,
+            durationMinutes: 45,
+            maxDepthMeters: 20
+        )
+        linkedActivity.ownerProfileID = ownerID
+        linkedActivity.diveSiteID = localOnlySite.id
+
+        let entries = GlobalSearchSiteIndexSeeding.entries(
+            diveSites: [catalogSite, localOnlySite],
+            ownerActivities: [linkedActivity],
+            ownerProfileID: ownerID,
+            reference: [reference, unvisitedReference]
+        )
+
+        #expect(entries.count == 3)
+        #expect(
+            entries.contains {
+                if case .diveSite(let siteID) = $0.destination {
+                    return siteID == catalogSite.id && $0.title == "Salt Pier (mine)"
+                }
+                return false
+            }
+        )
+        #expect(
+            entries.contains {
+                if case .referenceSite(let referenceID) = $0.destination {
+                    return referenceID == "reef02" && $0.title == "Blue Reef"
+                }
+                return false
+            }
+        )
+        #expect(
+            entries.contains {
+                if case .diveSite(let siteID) = $0.destination {
+                    return siteID == localOnlySite.id && $0.title == "Secret Spot"
+                }
+                return false
+            }
+        )
+
+        let searchResults = GlobalSearchPresentation.search(
+            catalog: GlobalSearchPresentation.Catalog(
+                dives: [],
+                diveSites: entries,
+                species: [],
+                buddies: [],
+                tags: [],
+                trips: [],
+                equipment: [],
+                certifications: []
+            ),
+            query: "blue reef"
+        )
+        #expect(searchResults.sections.count == 1)
+        #expect(searchResults.sections.first?.kind == .diveSites)
+        let destination = searchResults.sections.first?.hits.first?.destination
+        if case .referenceSite("reef02") = destination {
+            // expected reference hit
+        } else {
+            Issue.record("Expected referenceSite(reef02), got \(String(describing: destination))")
+        }
+    }
+
     @Test func globalSearchPresentation_emptyQueryReturnsNoSections() {
         let catalog = GlobalSearchPresentation.Catalog(
             dives: [],
@@ -16621,6 +16942,7 @@ struct GoDiveMVPTests {
     }
 
     @Test func globalSearchPresentation_contextTokenScopesBrowseResultsWithoutQuery() {
+        let siteID = UUID()
         let catalog = GlobalSearchPresentation.Catalog(
             dives: [
                 GlobalSearchPresentation.DiveIndexEntry(
@@ -16632,10 +16954,10 @@ struct GoDiveMVPTests {
             ],
             diveSites: [
                 GlobalSearchPresentation.DiveSiteIndexEntry(
-                    id: UUID(),
                     title: "Salt Pier",
                     subtitle: "Bonaire",
-                    searchHaystacks: ["Salt Pier"]
+                    searchHaystacks: ["Salt Pier"],
+                    destination: .diveSite(siteID)
                 ),
             ],
             species: [],
@@ -16923,6 +17245,7 @@ struct GoDiveMVPTests {
     }
 
     @Test func globalSearchPresentation_resultSections_followDisplayPriorityOrder() {
+        let siteID = UUID()
         let catalog = GlobalSearchPresentation.Catalog(
             dives: [
                 GlobalSearchPresentation.DiveIndexEntry(
@@ -16934,10 +17257,10 @@ struct GoDiveMVPTests {
             ],
             diveSites: [
                 GlobalSearchPresentation.DiveSiteIndexEntry(
-                    id: UUID(),
                     title: "Blue Hole",
                     subtitle: "Belize",
-                    searchHaystacks: ["Blue Hole"]
+                    searchHaystacks: ["Blue Hole"],
+                    destination: .diveSite(siteID)
                 ),
             ],
             species: [],

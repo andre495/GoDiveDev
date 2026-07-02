@@ -221,6 +221,7 @@ enum GlobalSearchPresentation: Sendable {
     enum Destination: Hashable, Sendable {
         case dive(UUID)
         case diveSite(UUID)
+        case referenceSite(String)
         case species(String)
         case buddy(UUID)
         case tag(UUID)
@@ -263,10 +264,10 @@ enum GlobalSearchPresentation: Sendable {
     }
 
     struct DiveSiteIndexEntry: Sendable {
-        let id: UUID
         let title: String
         let subtitle: String?
         let searchHaystacks: [String]
+        let destination: Destination
     }
 
     struct SpeciesIndexEntry: Sendable {
@@ -408,12 +409,12 @@ enum GlobalSearchPresentation: Sendable {
                 .prefix(maxHits)
                 .map { entry in
                     Hit(
-                        id: "site-\(entry.id.uuidString)",
+                        id: diveSiteHitID(for: entry.destination),
                         title: entry.title,
                         subtitle: entry.subtitle,
                         systemImage: "mappin.and.ellipse",
-                        destination: .diveSite(entry.id),
-                        accessibilityIdentifier: "GlobalSearch.Hit.Site.\(entry.id.uuidString)"
+                        destination: entry.destination,
+                        accessibilityIdentifier: diveSiteHitAccessibilityIdentifier(for: entry.destination)
                     )
                 }
         case .species:
@@ -521,6 +522,28 @@ enum GlobalSearchPresentation: Sendable {
                         accessibilityIdentifier: "GlobalSearch.Hit.Certification.\(entry.id.uuidString)"
                     )
                 }
+        }
+    }
+
+    nonisolated private static func diveSiteHitID(for destination: Destination) -> String {
+        switch destination {
+        case .diveSite(let siteID):
+            return "site-\(siteID.uuidString)"
+        case .referenceSite(let referenceID):
+            return "reference-site-\(referenceID)"
+        default:
+            return "site-unknown"
+        }
+    }
+
+    nonisolated private static func diveSiteHitAccessibilityIdentifier(for destination: Destination) -> String {
+        switch destination {
+        case .diveSite(let siteID):
+            return "GlobalSearch.Hit.Site.\(siteID.uuidString)"
+        case .referenceSite(let referenceID):
+            return "GlobalSearch.Hit.ReferenceSite.\(referenceID)"
+        default:
+            return "GlobalSearch.Hit.Site.Unknown"
         }
     }
 }
@@ -654,20 +677,12 @@ enum GlobalSearchCatalogSeeding {
             )
         }
 
-        let siteEntries = diveSites.map { site in
-            let displayName = DiveSiteCatalogMatcher.resolvedCatalogSiteName(for: site) ?? site.siteName
-            let canonicalCountry = DiveSiteCountryPresentation.canonicalDisplayName(for: site.country)
-            return GlobalSearchPresentation.DiveSiteIndexEntry(
-                id: site.id,
-                title: displayName,
-                subtitle: ExploreDiveSiteListDisplay.placeSummary(
-                    country: canonicalCountry,
-                    region: site.region,
-                    bodyOfWater: site.bodyOfWater
-                ),
-                searchHaystacks: ExploreDiveSiteListSearch.searchHaystacks(for: site)
-            )
-        }
+        let ownerProfileID = dives.first?.ownerProfileID ?? buddies.first?.ownerProfileID
+        let siteEntries = GlobalSearchSiteIndexSeeding.entries(
+            diveSites: diveSites,
+            ownerActivities: dives,
+            ownerProfileID: ownerProfileID
+        )
 
         let speciesEntries = speciesCatalog.map { species in
             let snapshot = species.fieldGuideCatalogSnapshot
@@ -683,7 +698,6 @@ enum GlobalSearchCatalogSeeding {
             GlobalSearchPresentation.BuddyIndexEntry(id: $0.id, displayName: $0.displayName)
         }
 
-        let ownerProfileID = dives.first?.ownerProfileID ?? buddies.first?.ownerProfileID
         let tagEntries = tags.map { tag in
             let appliedDiveCount: Int
             if let ownerProfileID {
@@ -755,6 +769,83 @@ enum GlobalSearchCatalogSeeding {
             trips: tripEntries,
             equipment: equipmentEntries,
             certifications: certificationEntries
+        )
+    }
+}
+
+/// Builds the unified dive-site search index — OpenDiveMap reference rows plus SwiftData catalog sites
+/// (same coverage as **Explore → All Sites**, including logbook-linked supplemental sites).
+enum GlobalSearchSiteIndexSeeding: Sendable {
+    nonisolated static func entries(
+        diveSites: [DiveSite],
+        ownerActivities: [DiveActivity],
+        ownerProfileID: UUID?,
+        reference: [DiveSiteReferenceSnapshot] = DiveSiteReferenceCatalog.bundledReference()
+    ) -> [GlobalSearchPresentation.DiveSiteIndexEntry] {
+        let catalogByReferenceID = ExploreSiteScopePresentation.catalogSiteByOpenDiveMapID(diveSites)
+        let logbookSiteIDs = ExploreSiteScopePresentation.logbookSiteIDs(
+            ownerActivities: ownerActivities,
+            ownerProfileID: ownerProfileID
+        )
+        var entries: [GlobalSearchPresentation.DiveSiteIndexEntry] = []
+        var indexedCatalogIDs = Set<UUID>()
+
+        for snapshot in reference {
+            if let catalogSite = catalogByReferenceID[snapshot.id] {
+                entries.append(catalogSiteEntry(for: catalogSite))
+                indexedCatalogIDs.insert(catalogSite.id)
+            } else {
+                entries.append(referenceSiteEntry(for: snapshot))
+            }
+        }
+
+        let supplementalSites = ExploreSiteScopePresentation.supplementalLogbookCatalogSites(
+            catalog: diveSites,
+            logbookSiteIDs: logbookSiteIDs,
+            reference: reference
+        )
+        for site in supplementalSites where !indexedCatalogIDs.contains(site.id) {
+            entries.append(catalogSiteEntry(for: site))
+            indexedCatalogIDs.insert(site.id)
+        }
+
+        for site in diveSites where !indexedCatalogIDs.contains(site.id) {
+            entries.append(catalogSiteEntry(for: site))
+            indexedCatalogIDs.insert(site.id)
+        }
+
+        return entries
+    }
+
+    nonisolated private static func catalogSiteEntry(for site: DiveSite) -> GlobalSearchPresentation.DiveSiteIndexEntry {
+        let displayName = DiveSiteCatalogMatcher.resolvedCatalogSiteName(for: site) ?? site.siteName
+        let canonicalCountry = DiveSiteCountryPresentation.canonicalDisplayName(for: site.country)
+        return GlobalSearchPresentation.DiveSiteIndexEntry(
+            title: displayName,
+            subtitle: ExploreDiveSiteListDisplay.placeSummary(
+                country: canonicalCountry,
+                region: site.region,
+                bodyOfWater: site.bodyOfWater
+            ),
+            searchHaystacks: ExploreDiveSiteListSearch.searchHaystacks(for: site),
+            destination: .diveSite(site.id)
+        )
+    }
+
+    nonisolated private static func referenceSiteEntry(
+        for snapshot: DiveSiteReferenceSnapshot
+    ) -> GlobalSearchPresentation.DiveSiteIndexEntry {
+        let displayName = DiveSiteCatalogMatcher.sanitizedReferenceDisplayName(snapshot.name) ?? snapshot.name
+        let canonicalCountry = DiveSiteCountryPresentation.canonicalDisplayName(for: snapshot.country)
+        return GlobalSearchPresentation.DiveSiteIndexEntry(
+            title: displayName,
+            subtitle: ExploreDiveSiteListDisplay.placeSummary(
+                country: canonicalCountry,
+                region: snapshot.seaName,
+                bodyOfWater: snapshot.seaName
+            ),
+            searchHaystacks: ExploreReferenceSiteListSearch.searchHaystacks(for: snapshot),
+            destination: .referenceSite(snapshot.id)
         )
     }
 }

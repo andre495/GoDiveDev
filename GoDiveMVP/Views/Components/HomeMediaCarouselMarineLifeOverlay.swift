@@ -7,6 +7,7 @@ struct HomeMediaCarouselMarineLifeOverlay: View {
     let cornerRadius: CGFloat
     let ownerProfileID: UUID?
     let closeTopInset: CGFloat
+    let speciesContentTopInset: CGFloat
     @Binding var selectedSpeciesUUID: String?
     var onOpenDive: (UUID) -> Void
     var onClose: () -> Void
@@ -46,7 +47,8 @@ struct HomeMediaCarouselMarineLifeOverlay: View {
             fullMediaScrim
 
             speciesPager
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.top, speciesContentTopInset)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
             closeButton
                 .padding(.horizontal, AppTheme.Spacing.md)
@@ -66,7 +68,6 @@ struct HomeMediaCarouselMarineLifeOverlay: View {
                     .fill(.thinMaterial)
             }
             .frame(width: previewSize.width, height: previewSize.height)
-            .ignoresSafeArea()
     }
 
     private var speciesPager: some View {

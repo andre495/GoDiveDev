@@ -10,6 +10,7 @@ struct FieldGuideMarineLifeAddToolbarButton: View {
                 .appToolbarIconButtonLabel()
         }
         .appStandaloneIconButtonStyle()
+        .appHeaderChromeIconForeground()
         .accessibilityLabel(FieldGuideMarineLifeAddPresentation.chromeAccessibilityLabel)
         .accessibilityIdentifier(FieldGuideMarineLifeAddPresentation.chromeAccessibilityIdentifier)
     }

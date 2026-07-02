@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 enum AppHeaderMetrics {
     /// Measured height of **`AppHeader`** / logbook **top scroll chrome** (no title row) — use an **in‑scroll spacer** (not outer **`padding`**) so rows extend under the bar.
@@ -179,7 +182,7 @@ struct AppHeader<TrailingContent: View>: View {
                 HStack(spacing: AppTheme.Spacing.sm) {
                     trailingContent
                 }
-                .foregroundStyle(AppTheme.Colors.iconPrimary)
+                .appHeaderChromeIconForeground()
             }
 
             if !title.isEmpty {
@@ -206,7 +209,7 @@ struct AppHeader<TrailingContent: View>: View {
             HStack(spacing: AppTheme.Spacing.sm) {
                 trailingContent
             }
-            .foregroundStyle(AppTheme.Colors.iconPrimary)
+            .appHeaderChromeIconForeground()
         }
     }
 
@@ -220,10 +223,19 @@ struct AppHeader<TrailingContent: View>: View {
 
             HStack(spacing: AppTheme.Spacing.sm) {
                 trailingContent
-                    .foregroundStyle(AppTheme.Colors.iconPrimary)
             }
-            .frame(maxWidth: .infinity, alignment: .trailing)
+            .frame(maxWidth: .infinity, minHeight: brandHeaderTrailingMinHeight, alignment: .trailing)
+            .appHeaderChromeIconForeground()
         }
+    }
+
+    private var brandHeaderTrailingMinHeight: CGFloat {
+        showsBrandWordmark
+            ? max(
+                AppHeaderBrandRowMetrics.wordmarkLineHeight,
+                BlueSheetTopChromePresentation.homeProfileAvatarDiameter
+            )
+            : 0
     }
 
     @ViewBuilder
@@ -243,6 +255,7 @@ struct AppHeader<TrailingContent: View>: View {
                     .font(AppTheme.Typography.headerBrandTitle)
                     .fontWeight(.bold)
                     .foregroundStyle(AppTheme.Colors.headerTitleForegroundGradient)
+                    .frame(minHeight: AppHeaderBrandRowMetrics.wordmarkLineHeight, alignment: .center)
             } else if usesCenteredTitlePlacement, !title.isEmpty {
                 headerTitleText
                     .multilineTextAlignment(.center)
@@ -251,8 +264,7 @@ struct AppHeader<TrailingContent: View>: View {
             }
         }
         .lineLimit(1)
-        .minimumScaleFactor(0.82)
-        .allowsTightening(true)
+        .modifier(AppHeaderCenterClusterScalePolicy(isBrandWordmark: showsBrandWordmark))
         .accessibilityLabel(showsBrandWordmark ? appName : title)
         .accessibilityHidden(!showsBrandWordmark && (title.isEmpty || usesLeadingTitlePlacement || usesBelowBackRowPlacement))
     }
@@ -362,6 +374,32 @@ extension AppHeader where TrailingContent == EmptyView {
         ) {
             EmptyView()
         }
+    }
+}
+
+/// Brand wordmark stays at full **`.largeTitle`**; page titles may shrink in tight chrome.
+private struct AppHeaderCenterClusterScalePolicy: ViewModifier {
+    let isBrandWordmark: Bool
+
+    func body(content: Content) -> some View {
+        if isBrandWordmark {
+            content.fixedSize(horizontal: true, vertical: false)
+        } else {
+            content
+                .minimumScaleFactor(0.82)
+                .allowsTightening(true)
+        }
+    }
+}
+
+/// Shared vertical metrics when **`AppHeader`** shows the **GoDive** wordmark + Home profile avatar.
+enum AppHeaderBrandRowMetrics {
+    nonisolated static var wordmarkLineHeight: CGFloat {
+        #if canImport(UIKit)
+        ceil(UIFont.preferredFont(forTextStyle: .largeTitle).lineHeight)
+        #else
+        41
+        #endif
     }
 }
 

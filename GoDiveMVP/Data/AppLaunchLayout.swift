@@ -1,4 +1,7 @@
 import CoreGraphics
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Shared launch branding layout — keep in sync with **`LaunchScreen.storyboard`** constraints.
 ///
@@ -8,9 +11,22 @@ enum AppLaunchLayout: Sendable {
     /// Logo **`centerY`** = safe-area vertical midpoint + this constant (storyboard **`-48`**).
     nonisolated static let logoCenterYOffsetFromSafeAreaCenter: CGFloat = -48
     nonisolated static let logoToTitleSpacing: CGFloat = 24
-    nonisolated static let titleFontSize: CGFloat = 28
-    /// Measured **`UILabel`** height at **28pt** bold on the storyboard reference device.
-    nonisolated static let titleLineHeight: CGFloat = 33.333333333333314
+    /// Matches **`AppTheme.Typography.headerBrandTitle`** (UIKit **`.largeTitle`**, bold) at the current content size.
+    nonisolated static var titleFontSize: CGFloat {
+        #if canImport(UIKit)
+        launchTitleUIFont().pointSize
+        #else
+        34
+        #endif
+    }
+    /// Measured **`UILabel`** line height for the launch title font (storyboard + overlay positioning).
+    nonisolated static var titleLineHeight: CGFloat {
+        #if canImport(UIKit)
+        ceil(launchTitleUIFont().lineHeight)
+        #else
+        41
+        #endif
+    }
     nonisolated static let progressTopSpacing: CGFloat = 8
 
     // MARK: - Fixed dark splash (storyboard + overlay; ignores Light/Dark Mode)
@@ -44,4 +60,11 @@ enum AppLaunchLayout: Sendable {
     nonisolated static func progressCenterY(titleCenterY: CGFloat, progressHeight: CGFloat = 20) -> CGFloat {
         titleCenterY + titleLineHeight / 2 + progressTopSpacing + progressHeight / 2
     }
+
+    #if canImport(UIKit)
+    nonisolated private static func launchTitleUIFont() -> UIFont {
+        let base = UIFont.preferredFont(forTextStyle: .largeTitle)
+        return UIFont.boldSystemFont(ofSize: base.pointSize)
+    }
+    #endif
 }

@@ -24,6 +24,7 @@ struct FieldGuideView: View {
 
     @State private var path: [FieldGuideRoute] = []
     @State private var fieldGuideHeaderClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
+    @State private var isFieldGuideHeaderCollapsed = false
     @State private var listScrollToTopNonce = 0
     @State private var catalogSnapshots: [MarineLifeCatalogSnapshot] = []
     @State private var categorySummaries: [FieldGuideCatalogIndex.CategorySummary] = []
@@ -88,7 +89,10 @@ struct FieldGuideView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                         if showsTopChromeScrim {
-                            LogbookTopChromeScrim(topObstructionHeight: listTopInset)
+                            LogbookTopChromeScrim(
+                                topObstructionHeight: listTopInset,
+                                featherHeight: CollapsibleInlineTitleHeaderPresentation.listScrollFadeFeatherHeight
+                            )
                                 .padding(.top, -proxy.safeAreaInsets.top)
                                 .ignoresSafeArea(edges: .top)
                                 .allowsHitTesting(false)
@@ -97,6 +101,7 @@ struct FieldGuideView: View {
 
                         if showsFieldGuideHubChrome {
                             FieldGuideTopChrome(
+                                isCollapsed: isFieldGuideHeaderCollapsed,
                                 statusBarSafeAreaTop: proxy.safeAreaInsets.top,
                                 onAddSpecies: { showsAddSpeciesSheet = true }
                             )
@@ -226,7 +231,13 @@ struct FieldGuideView: View {
 
     private func handleFieldGuideTabReselect() {
         path.removeAll()
+        isFieldGuideHeaderCollapsed = false
         RootTabListScrollSupport.scheduleScrollToTop { listScrollToTopNonce += 1 }
+    }
+
+    private func handleFieldGuideHubScrollOffset(_ offset: CGFloat) {
+        isFieldGuideHeaderCollapsed = CollapsibleInlineTitleHeaderPresentation
+            .isCollapsed(forScrollOffset: offset)
     }
 
     private var missingSpeciesPlaceholder: some View {
@@ -261,7 +272,9 @@ struct FieldGuideView: View {
                 summaries: resolvedCategorySummaries,
                 topChromeInset: topInset,
                 bottomChromeInset: bottomInset,
-                statusBarSafeAreaTop: safeAreaTop
+                statusBarSafeAreaTop: safeAreaTop,
+                scrollToTopNonce: listScrollToTopNonce,
+                onScrollOffsetChange: handleFieldGuideHubScrollOffset
             ) { summary in
                 path.append(.category(summary))
             }

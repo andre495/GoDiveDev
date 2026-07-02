@@ -10,65 +10,63 @@ struct FieldGuideCatalogHubView: View, Equatable {
     let topChromeInset: CGFloat
     let bottomChromeInset: CGFloat
     let statusBarSafeAreaTop: CGFloat
+    let scrollToTopNonce: Int
+    let onScrollOffsetChange: (CGFloat) -> Void
     let onSelectCategory: (FieldGuideCatalogIndex.CategorySummary) -> Void
 
     var body: some View {
-        ZStack(alignment: .top) {
-            List {
-                Color.clear
-                    .frame(height: topChromeInset)
-                    .listRowInsets(EdgeInsets())
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .accessibilityHidden(true)
+        List {
+            Color.clear
+                .frame(height: topChromeInset)
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .accessibilityHidden(true)
 
-                ForEach(summaries) { summary in
-                    if let definition = FieldGuideTaxonomy.category(id: summary.categoryID) {
-                        Button {
-                            onSelectCategory(summary)
-                        } label: {
-                            FieldGuideCategoryHubTile(
-                                definition: definition,
-                                speciesCount: summary.speciesCount
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .listRowInsets(
-                            EdgeInsets(
-                                top: 0,
-                                leading: AppTheme.Spacing.lg,
-                                bottom: 0,
-                                trailing: AppTheme.Spacing.lg
-                            )
+            ForEach(summaries) { summary in
+                if let definition = FieldGuideTaxonomy.category(id: summary.categoryID) {
+                    Button {
+                        onSelectCategory(summary)
+                    } label: {
+                        FieldGuideCategoryHubTile(
+                            definition: definition,
+                            speciesCount: summary.speciesCount
                         )
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                        .accessibilityIdentifier("FieldGuide.Hub.Category.\(summary.categoryID)")
                     }
-                }
-
-                Color.clear
-                    .frame(height: bottomChromeInset)
-                    .listRowInsets(EdgeInsets())
+                    .buttonStyle(.plain)
+                    .listRowInsets(
+                        EdgeInsets(
+                            top: 0,
+                            leading: AppTheme.Spacing.lg,
+                            bottom: 0,
+                            trailing: AppTheme.Spacing.lg
+                        )
+                    )
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
-                    .accessibilityHidden(true)
+                    .accessibilityIdentifier("FieldGuide.Hub.Category.\(summary.categoryID)")
+                }
             }
-            .listStyle(.plain)
-            .listRowSpacing(FieldGuideHubTileLayout.listRowSpacing)
-            .scrollContentBackground(.hidden)
-            .background(Color.clear)
-            .scrollDismissesKeyboard(.interactively)
-            .ignoresSafeArea(edges: [.top, .bottom])
 
-            FieldGuideHubTitleScrollScrim(
-                topChromeInset: topChromeInset,
-                statusBarSafeAreaTop: statusBarSafeAreaTop
-            )
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-            .zIndex(0.5)
+            Color.clear
+                .frame(height: bottomChromeInset)
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .accessibilityHidden(true)
         }
+        .listStyle(.plain)
+        .listRowSpacing(FieldGuideHubTileLayout.listRowSpacing)
+        .scrollContentBackground(.hidden)
+        .background(Color.clear)
+        .scrollDismissesKeyboard(.interactively)
+        .ignoresSafeArea(edges: [.top, .bottom])
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            geometry.contentOffset.y + geometry.contentInsets.top
+        } action: { offset, _ in
+            onScrollOffsetChange(offset)
+        }
+        .logbookListScrollToTopTrigger(nonce: scrollToTopNonce)
     }
 
     static func == (lhs: Self, rhs: Self) -> Bool {
@@ -76,40 +74,7 @@ struct FieldGuideCatalogHubView: View, Equatable {
             && lhs.topChromeInset == rhs.topChromeInset
             && lhs.bottomChromeInset == rhs.bottomChromeInset
             && lhs.statusBarSafeAreaTop == rhs.statusBarSafeAreaTop
-    }
-}
-
-/// Page-tinted fade from the status bar through hub chrome into scrolling tiles.
-private struct FieldGuideHubTitleScrollScrim: View {
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    let topChromeInset: CGFloat
-    let statusBarSafeAreaTop: CGFloat
-
-    private var bandHeight: CGFloat {
-        FieldGuideHubTileLayout.hubScrollScrimHeight(topChromeInset: topChromeInset)
-    }
-
-    var body: some View {
-        Group {
-            if reduceTransparency {
-                AppTheme.Colors.surfaceGradientTop.opacity(0.98)
-            } else {
-                LinearGradient(
-                    stops: [
-                        .init(color: AppTheme.Colors.surfaceGradientTop, location: 0.0),
-                        .init(color: AppTheme.Colors.surfaceGradientTop.opacity(0.92), location: 0.62),
-                        .init(color: AppTheme.Colors.surfaceGradientTop.opacity(0), location: 1.0),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            }
-        }
-        .frame(height: bandHeight, alignment: .top)
-        .frame(maxWidth: .infinity, alignment: .top)
-        .padding(.top, -statusBarSafeAreaTop)
-        .ignoresSafeArea(edges: .top)
+            && lhs.scrollToTopNonce == rhs.scrollToTopNonce
     }
 }
 

@@ -89,7 +89,7 @@ struct SecondaryDestinationBackButton: View {
                 .appToolbarIconButtonLabel()
         }
         .appStandaloneIconButtonStyle(tapDimension: minTapDimension)
-        .foregroundStyle(AppTheme.Colors.backButtonForeground)
+        .appHeaderChromeIconForeground()
         .accessibilityLabel("Back")
     }
 }

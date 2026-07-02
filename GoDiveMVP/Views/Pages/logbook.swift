@@ -15,7 +15,6 @@ struct LogbookView: View {
     @State private var activityPendingDeletion: DiveActivity?
     /// Hides the row immediately; cleared only if background delete fails.
     @State private var optimisticallyRemovedActivityIDs: Set<UUID> = []
-    @State private var logbookHeaderClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
     @State private var logbookDisplayItems: [LogbookListDisplayItem] = []
     @State private var duplicateActivityIds: Set<UUID> = []
     @State private var logbookCacheRefreshGeneration = 0
@@ -174,13 +173,11 @@ struct LogbookView: View {
             upcomingTripBanner: logbookUpcomingTripBanner,
             showsStoredDiveEmptyState: showsStoredDiveEmptyState,
             bubbleAnimationPaused: suppressStoreDrivenRefresh || isDiveDeleteInProgress,
-            headerClearance: logbookHeaderClearance,
             scrollToTopNonce: listScrollToTopNonce,
             onSwipeDelete: requestDeleteForRow,
             onSelectMediaPreview: openDiveMediaPreview,
             onOpenTrip: { path.append(.tripDetail($0)) },
-            onOpenDive: { path.append(.diveDetail($0)) },
-            onHeaderClearanceChange: updateLogbookHeaderClearance
+            onOpenDive: { path.append(.diveDetail($0)) }
         )
         .equatable()
     }
@@ -251,10 +248,6 @@ struct LogbookView: View {
 
     private func requestDeleteForRow(_ rowID: UUID) {
         activityPendingDeletion = activities.first { $0.id == rowID }
-    }
-
-    private func updateLogbookHeaderClearance(_ height: CGFloat) {
-        if height > 0 { logbookHeaderClearance = height }
     }
 
     /// Media attached to a dive (manual upload or import auto-attach) does not change **`activities.count`**,
@@ -613,13 +606,14 @@ private struct LogbookListSurface: View, Equatable {
     let upcomingTripBanner: LogbookUpcomingTripBannerData?
     let showsStoredDiveEmptyState: Bool
     let bubbleAnimationPaused: Bool
-    let headerClearance: CGFloat
     let scrollToTopNonce: Int
     let onSwipeDelete: (UUID) -> Void
     let onSelectMediaPreview: (DiveLogbookRowDisplayData) -> Void
     let onOpenTrip: (UUID) -> Void
     let onOpenDive: (UUID) -> Void
-    let onHeaderClearanceChange: (CGFloat) -> Void
+
+    @State private var isHeaderCollapsed = false
+    @State private var headerClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
 
     static func == (lhs: LogbookListSurface, rhs: LogbookListSurface) -> Bool {
         lhs.equatableInputs == rhs.equatableInputs
@@ -631,50 +625,57 @@ private struct LogbookListSurface: View, Equatable {
             upcomingTripBanner: upcomingTripBanner,
             showsStoredDiveEmptyState: showsStoredDiveEmptyState,
             bubbleAnimationPaused: bubbleAnimationPaused,
-            headerClearance: headerClearance,
             scrollToTopNonce: scrollToTopNonce
         )
     }
 
     var body: some View {
         GeometryReader { proxy in
-            logbookListGeometryContent(proxy: proxy)
-        }
-        .onPreferenceChange(AppHeaderMetrics.HeightKey.self, perform: onHeaderClearanceChange)
-    }
+            let safeAreaTop = proxy.safeAreaInsets.top
+            let topInset = safeAreaTop + headerClearance
+            let bottomInset = proxy.safeAreaInsets.bottom + AppTheme.Spacing.md
 
-    private func logbookListGeometryContent(proxy: GeometryProxy) -> some View {
-        let logbookListTopInset = proxy.safeAreaInsets.top + headerClearance
-        let logbookListBottomInset = proxy.safeAreaInsets.bottom + AppTheme.Spacing.md
+            ZStack(alignment: .top) {
+                if !GoDiveUITestConfiguration.isActive {
+                    WaterBubbleBackground(animationPaused: bubbleAnimationPaused)
+                }
 
-        return ZStack {
-            logbookListStack(
-                topInset: logbookListTopInset,
-                bottomInset: logbookListBottomInset,
-                safeAreaTop: proxy.safeAreaInsets.top
-            )
-        }
-        .frame(width: proxy.size.width, height: proxy.size.height)
-        .ignoresSafeArea(edges: .bottom)
-    }
+                logbookScrollSurface(topInset: topInset, bottomInset: bottomInset)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-    private func logbookListStack(topInset: CGFloat, bottomInset: CGFloat, safeAreaTop: CGFloat) -> some View {
-        ZStack(alignment: .top) {
-            if !GoDiveUITestConfiguration.isActive {
-                WaterBubbleBackground(animationPaused: bubbleAnimationPaused)
-            }
-
-            logbookScrollSurface(topInset: topInset, bottomInset: bottomInset)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            LogbookTopChromeScrim(topObstructionHeight: topInset)
+                LogbookTopChromeScrim(
+                    topObstructionHeight: topInset,
+                    featherHeight: CollapsibleInlineTitleHeaderPresentation.listScrollFadeFeatherHeight
+                )
                 .padding(.top, -safeAreaTop)
                 .ignoresSafeArea(edges: .top)
+                .allowsHitTesting(false)
                 .zIndex(0.5)
 
-            logbookTopChrome
+                LogbookCollapsibleHeader(
+                    isCollapsed: isHeaderCollapsed,
+                    statusBarSafeAreaTop: safeAreaTop
+                )
+                .frame(maxWidth: .infinity, alignment: .top)
                 .zIndex(1)
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .ignoresSafeArea(edges: .bottom)
+            .onPreferenceChange(AppHeaderMetrics.HeightKey.self) { height in
+                if height > 0 { headerClearance = height }
+            }
+            .onChange(of: scrollToTopNonce) { _, _ in
+                expandHeaderForScrollToTop()
+            }
         }
+    }
+
+    private func expandHeaderForScrollToTop() {
+        isHeaderCollapsed = false
+    }
+
+    private func handleScrollOffset(_ offset: CGFloat) {
+        isHeaderCollapsed = CollapsibleInlineTitleHeaderPresentation.isCollapsed(forScrollOffset: offset)
     }
 
     @ViewBuilder
@@ -701,6 +702,11 @@ private struct LogbookListSurface: View, Equatable {
                 LogbookStoredEmptyState()
             }
             .frame(maxWidth: .infinity)
+        }
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            geometry.contentOffset.y + geometry.contentInsets.top
+        } action: { offset, _ in
+            handleScrollOffset(offset)
         }
         .scrollDismissesKeyboard(.interactively)
         .ignoresSafeArea(edges: [.top, .bottom])
@@ -737,29 +743,26 @@ private struct LogbookListSurface: View, Equatable {
         .animation(nil, value: items.count)
         .scrollDismissesKeyboard(.interactively)
         .ignoresSafeArea(edges: [.top, .bottom])
-        .logbookListScrollToTopTrigger(nonce: scrollToTopNonce)
-    }
-
-    private func logbookUpcomingTripBannerLink(_ banner: LogbookUpcomingTripBannerData) -> some View {
-        NavigationLink(value: LogbookRoute.tripDetail(banner.tripID)) {
-            LogbookUpcomingTripBannerView(data: banner)
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            geometry.contentOffset.y + geometry.contentInsets.top
+        } action: { offset, _ in
+            handleScrollOffset(offset)
         }
-        .buttonStyle(.plain)
-        .navigationLinkIndicatorVisibility(.hidden)
+        .logbookListScrollToTopTrigger(nonce: scrollToTopNonce)
     }
 
     private func logbookUpcomingTripBannerRow(_ banner: LogbookUpcomingTripBannerData) -> some View {
         logbookUpcomingTripBannerLink(banner)
-        .listRowInsets(
-            EdgeInsets(
-                top: 0,
-                leading: AppTheme.Spacing.lg,
-                bottom: AppTheme.Spacing.sm,
-                trailing: AppTheme.Spacing.lg
+            .listRowInsets(
+                EdgeInsets(
+                    top: 0,
+                    leading: AppTheme.Spacing.lg,
+                    bottom: AppTheme.Spacing.sm,
+                    trailing: AppTheme.Spacing.lg
+                )
             )
-        )
-        .listRowSeparator(.hidden)
-        .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
     }
 
     @ViewBuilder
@@ -823,15 +826,12 @@ private struct LogbookListSurface: View, Equatable {
         }
     }
 
-    private var logbookTopChrome: some View {
-        LogbookToolbarChrome {
-            NavigationLink(value: LogbookRoute.addActivity) {
-                Image(systemName: "plus")
-                    .appToolbarIconButtonLabel()
-            }
-            .appStandaloneIconButtonStyle()
-            .accessibilityLabel("Add activity")
+    private func logbookUpcomingTripBannerLink(_ banner: LogbookUpcomingTripBannerData) -> some View {
+        NavigationLink(value: LogbookRoute.tripDetail(banner.tripID)) {
+            LogbookUpcomingTripBannerView(data: banner)
         }
+        .buttonStyle(.plain)
+        .navigationLinkIndicatorVisibility(.hidden)
     }
 }
 

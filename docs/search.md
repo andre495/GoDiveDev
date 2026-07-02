@@ -12,7 +12,7 @@ The browse screen shows a **Search** title and eight category tiles in a **2×4*
 |------|------------------|
 | **Dives** | Your logbook dives |
 | **Buddies** | Dive buddies |
-| **Sites** | Dive sites |
+| **Sites** | Dive sites (your logbook sites and the full OpenDiveMap catalog) |
 | **Marine life** | Field Guide species |
 | **Tags** | Activity tags |
 | **Gear** | Equipment locker |

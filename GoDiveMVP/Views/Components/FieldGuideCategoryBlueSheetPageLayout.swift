@@ -15,6 +15,7 @@ struct FieldGuideBrowseToolbarChrome: View {
                     FieldGuideMarineLifeAddToolbarButton(action: onAddSpecies)
                 }
                 .appGlassChromeControlRowHeight()
+                .appHeaderChromeIconForeground()
             }
             .padding(.horizontal, AppTheme.Spacing.lg)
             .appTopChromeVerticalPadding()

@@ -774,6 +774,12 @@ private struct GlobalSearchSearchDestinationScreen: View {
             } else {
                 GlobalSearchMissingDestinationView(message: "This dive site is no longer in the catalog.")
             }
+        case .referenceSite(let referenceID):
+            if let snapshot = DiveSiteReferenceCatalog.bundledReference().first(where: { $0.id == referenceID }) {
+                ExploreReferenceSiteDetailView(snapshot: snapshot)
+            } else {
+                GlobalSearchMissingDestinationView(message: "This dive site is no longer in the reference catalog.")
+            }
         case .species(let uuid):
             if let species = speciesCatalog.first(where: { $0.uuid == uuid }) {
                 FieldGuideMarineLifeDetailView(

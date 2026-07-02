@@ -213,6 +213,8 @@ enum AppTheme {
         static let iconPrimary = accentDeep
         static let tabSelected = accent
         static let tabUnselected = secondaryText
+        /// Liquid Glass toolbar icons on top chrome rows (**Logbook**, **Explore**, profile lists, etc.).
+        static let headerChromeIconForeground = Color.white
         /// Liquid Glass back chevron — dark slate in light mode, white in dark mode.
         static let backButtonForeground = adaptive(
             light: UIColor(red: 0.12, green: 0.26, blue: 0.40, alpha: 1.0),
@@ -253,7 +255,7 @@ enum AppTheme {
     }
 
     enum Typography {
-        /// **`AppHeader`** brand wordmark (legacy app used **`.largeTitle`**).
+        /// **`AppHeader`** brand wordmark and launch/loading titles — same **`.largeTitle`** as collapsible page headers (**Activity Log**, **Field Guide**, etc.).
         static let headerBrandTitle: Font = .largeTitle
         static let headerTitle = Font.title
     }

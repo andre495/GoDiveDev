@@ -3,6 +3,8 @@ import SwiftUI
 /// Explore top bar — map/list flip and add dive site (no inline search).
 struct ExploreTopChrome: View {
     @Binding var viewMode: ExploreViewMode
+    @Binding var siteScope: ExploreSiteScope
+    let showsSiteScopeToggle: Bool
     let statusBarSafeAreaTop: CGFloat
     let onAddDiveSite: () -> Void
 
@@ -29,12 +31,19 @@ struct ExploreTopChrome: View {
 
     private var chromeActionsRow: some View {
         GlassEffectContainer {
-            HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
-                viewModeFlipButton
-                Spacer(minLength: 0)
-                addDiveSiteButton
+            ZStack {
+                HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
+                    viewModeFlipButton
+                    Spacer(minLength: 0)
+                    addDiveSiteButton
+                }
+
+                if showsSiteScopeToggle {
+                    ExploreSiteScopeToggle(selection: $siteScope)
+                }
             }
             .appGlassChromeControlRowHeight()
+            .appHeaderChromeIconForeground()
         }
         .padding(.horizontal, AppTheme.Spacing.lg)
         .appTopChromeVerticalPadding()
@@ -42,7 +51,6 @@ struct ExploreTopChrome: View {
 
     private var viewModeFlipButton: some View {
         ExploreViewModeFlipButton(viewMode: $viewMode)
-            .tint(chromeActionForeground)
     }
 
     private var addDiveSiteButton: some View {
@@ -51,12 +59,7 @@ struct ExploreTopChrome: View {
                 .appToolbarIconButtonLabel()
         }
         .appStandaloneIconButtonStyle()
-        .tint(chromeActionForeground)
         .accessibilityLabel(ExploreDiveSiteAddPresentation.chromeAccessibilityLabel)
         .accessibilityIdentifier(ExploreDiveSiteAddPresentation.chromeAccessibilityIdentifier)
-    }
-
-    private var chromeActionForeground: Color {
-        viewMode == .map ? .white : AppTheme.Colors.iconPrimary
     }
 }

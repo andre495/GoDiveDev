@@ -2,6 +2,8 @@
 
 The **Logbook** tab is your master list of dives, sorted **newest first**.
 
+The top bar shows **Activity Log** in large white type centered on the same row as **Trips** and **+**. Scroll down and the title compacts; scroll back up and it expands again. A soft fade extends below the header as rows scroll underneath.
+
 ## Dive rows
 
 Each row shows:
@@ -27,8 +29,8 @@ Tap **+** (or use the empty-state button) to open **Add activity**:
 
 === "Import from a file"
 
-    - **Garmin FIT** (`.fit`) — one dive per file from supported Garmin dive computers  
-    - **UDDF** (`.uddf`) — MacDive and other UDDF exporters; one file can contain many dives  
+    - **Garmin** (`.fit`) — import a single dive from your Garmin Connect App
+    - **MacDive / Universal** (`.uddf`) — import one or many dives from MacDive or another compatible source
 
     See [Import dives](import.md) for step-by-step options.
 

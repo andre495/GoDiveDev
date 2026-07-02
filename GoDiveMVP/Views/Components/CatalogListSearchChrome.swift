@@ -12,7 +12,11 @@ struct CatalogSearchDismissButton: View {
                 .appToolbarIconButtonLabel()
         }
         .modifier(CatalogSearchDismissButtonStyleModifier(usesGlass: usesGlassButtonStyle))
-        .foregroundStyle(AppTheme.Colors.tabSelected)
+        .foregroundStyle(
+            usesGlassButtonStyle
+                ? AppTheme.Colors.headerChromeIconForeground
+                : AppTheme.Colors.tabSelected
+        )
         .accessibilityLabel("Cancel search")
         .accessibilityIdentifier(accessibilityIdentifier)
     }
@@ -80,6 +84,7 @@ struct CatalogListSearchChrome<LeadingActions: View, TrailingActions: View>: Vie
                 }
             }
             .appGlassChromeControlRowHeight()
+            .appHeaderChromeIconForeground()
         }
         .animation(reservesCancelSlotWhenUnfocused ? nil : .easeInOut(duration: 0.2), value: isSearchFocused)
         .padding(.horizontal, AppTheme.Spacing.lg)
@@ -117,7 +122,7 @@ struct CatalogListSearchChrome<LeadingActions: View, TrailingActions: View>: Vie
                     .accessibilityHidden(true)
             }
         }
-        .foregroundStyle(AppTheme.Colors.iconPrimary)
+        .foregroundStyle(AppTheme.Colors.headerChromeIconForeground)
         .fixedSize(horizontal: true, vertical: false)
         .appGlassChromeControlRowHeight()
     }

@@ -126,8 +126,8 @@ struct ActivityUploadView: View {
 
                     addActivitySection(title: "Import from a file") {
                         addActivitySourceCard(
-                            title: "Garmin FIT",
-                            subtitle: "A single dive from your Garmin dive computer.",
+                            title: "Garmin",
+                            subtitle: "Import a single dive from your Garmin Connect App.",
                             tag: ".fit",
                             systemImage: "doc.badge.arrow.up",
                             accessibilityIdentifier: "ActivityUpload.FileUpload"
@@ -137,8 +137,8 @@ struct ActivityUploadView: View {
                         }
 
                         addActivitySourceCard(
-                            title: "UDDF",
-                            subtitle: "One or many dives, e.g. exported from MacDive.",
+                            title: "MacDive / Universal",
+                            subtitle: "Import one or many dives at once from MacDive or another compatible source.",
                             tag: ".uddf",
                             systemImage: "doc.on.doc",
                             accessibilityIdentifier: "ActivityUpload.BulkUddf"

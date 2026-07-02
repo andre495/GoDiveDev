@@ -75,17 +75,6 @@ struct ExploreView: View {
         NavigationStack(path: $path) {
             AppHeaderlessPage {
                 explorePageContent
-                    .safeAreaInset(edge: .bottom, spacing: 0) {
-                        if showsSiteScopeToggle
-                            && isExploreNavigationStackAtRoot
-                        {
-                            ExploreSiteScopeBottomChrome(selection: $siteScope)
-                                .padding(
-                                    .bottom,
-                                    ExploreSiteScopeChromePresentation.paddingAboveTabBar()
-                                )
-                        }
-                    }
             }
             .toolbar(.hidden, for: .navigationBar)
             .restoresRootTabBarWhenStackIsEmpty(isExploreNavigationStackAtRoot)
@@ -146,11 +135,7 @@ struct ExploreView: View {
     private var explorePageContent: some View {
         GeometryReader { proxy in
             let topInset = proxy.safeAreaInsets.top + exploreTopChromeHeight
-            let showsBottomSiteScopeToggle = showsSiteScopeToggle
-                && isExploreNavigationStackAtRoot
-            let bottomInset = proxy.safeAreaInsets.bottom
-                + AppTheme.Spacing.md
-                + (showsBottomSiteScopeToggle ? ExploreSiteScopeChromePresentation.listExtraBottomInset : 0)
+            let bottomInset = proxy.safeAreaInsets.bottom + AppTheme.Spacing.md
 
             ZStack(alignment: .top) {
                 if viewMode == .list, !GoDiveUITestConfiguration.isActive {
@@ -193,6 +178,8 @@ struct ExploreView: View {
 
                 ExploreTopChrome(
                     viewMode: $viewMode,
+                    siteScope: $siteScope,
+                    showsSiteScopeToggle: showsSiteScopeToggle && isExploreNavigationStackAtRoot,
                     statusBarSafeAreaTop: proxy.safeAreaInsets.top,
                     onAddDiveSite: { showsAddDiveSiteSheet = true }
                 )

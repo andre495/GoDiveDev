@@ -58,8 +58,8 @@ struct ProfileTaggedMediaView: View {
             title: ProfileTaggedMediaPresentation.sectionTitle,
             showsBackButton: true,
             showsBrandWordmark: false,
-            titlePlacement: AppHeaderStackedTitleChrome.titlePlacement,
             scrollContentUnderHeader: true,
+            collapsibleInlineTitleHeader: true,
             showsWaterBubbleBackground: true
         ) {
             if taggedMediaItems.isEmpty {

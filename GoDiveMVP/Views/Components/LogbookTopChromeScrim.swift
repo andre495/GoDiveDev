@@ -6,11 +6,10 @@ struct LogbookTopChromeScrim: View {
 
     /// Safe-area top + measured **`LogbookTopChrome`** height.
     let topObstructionHeight: CGFloat
+    /// Fade tail below the chrome row into list content.
+    var featherHeight: CGFloat = 52
 
-    /// Fade below the chrome row into list content.
-    private var feather: CGFloat { 52 }
-
-    private var bandHeight: CGFloat { topObstructionHeight + feather }
+    private var bandHeight: CGFloat { topObstructionHeight + featherHeight }
 
     var body: some View {
         Group {

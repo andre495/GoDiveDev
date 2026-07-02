@@ -30,7 +30,7 @@ struct AppLaunchOverlay: View {
                     .accessibilityHidden(true)
 
                 Text("GoDive")
-                    .font(.system(size: AppLaunchLayout.titleFontSize, weight: .bold))
+                    .font(AppTheme.Typography.headerBrandTitle.weight(.bold))
                     .foregroundStyle(launchTitleColor)
                     .position(x: centerX, y: titleCenterY)
 

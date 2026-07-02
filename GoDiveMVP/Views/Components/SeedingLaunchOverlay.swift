@@ -8,14 +8,8 @@ struct SeedingLaunchOverlay: View {
 
             VStack(spacing: AppTheme.Spacing.md) {
                 Text("GoDive")
-                    .font(.title.bold())
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [AppTheme.Colors.headerGradientStart, AppTheme.Colors.headerGradientEnd],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
+                    .font(AppTheme.Typography.headerBrandTitle.weight(.bold))
+                    .foregroundStyle(AppTheme.Colors.headerTitleForegroundGradient)
 
                 ProgressView()
                     .progressViewStyle(.circular)

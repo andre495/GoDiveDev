@@ -1602,4 +1602,38 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Search tab keyboard** — removed manual **`resignFirstResponder`** / **`.searchFocused`** / tab-launch dismiss retries; **`Tab(role: .search)`** + **`isPresented`** morph handles the search field natively (keyboard only when the user taps the field).
 - **`docs/search.md`** — user guide for the unified Search tab; updated Logbook / Field Guide / Explore pages.
 
-## 97 - Next batch
+## 97 - Home stats layout, chrome polish, Explore scope **(pushed)**
+
+**Summary:** Explore **My Sites / All Sites** scope toggle moved from above the tab bar into the top chrome row.
+
+- **`ExploreTopChrome`** — **`ExploreSiteScopeToggle`** centered in the top chrome row (map/list **leading**, **+** **trailing**); removed trailing spacer gap after the slider.
+- **`ExploreView`** — removed bottom **`safeAreaInset`** for scope chrome and the extra list bottom inset that reserved tab-bar space.
+- **`docs/explore.md`** — scope toggle placement updated in the user guide.
+- **`GlobalSearchSiteIndexSeeding`** — Search tab **Sites** index now matches **Explore → All Sites** (OpenDiveMap reference rows + SwiftData catalog, including logbook-only supplemental sites). Reference-only hits open **`ExploreReferenceSiteDetailView`**; catalog hits unchanged.
+- Tests: **`globalSearchSiteIndexSeeding_indexesReferenceCatalogAndSupplementalSites`**; updated **`DiveSiteIndexEntry`** fixtures.
+- **`activity_upload.swift`** — Add activity import cards: **Garmin** (`.fit`) + Garmin Connect copy; **MacDive / Universal** (`.uddf`) + bulk compatible-source copy.
+- **`docs/import.md`**, **`docs/logbook.md`** — matching import option labels.
+- **Logbook title chrome** — inline **Activity Log** row (fixed **44** pt side columns + flexible title); scroll-offset collapse; **`LogbookTopChromeScrim`** feather **128** pt.
+- **Collapsible inline title chrome** — shared **`CollapsibleInlineTitleHeader`** + **`AppPage(collapsibleInlineTitleHeader:)`** on **Certifications**, **Equipment Locker**, **Dive Buddies**, **Trips**, **My tagged media**, and **Field Guide** hub (Logbook-style white **`.largeTitle`**, scroll collapse, extended scrim).
+- **Header chrome icons** — **`AppTheme.Colors.headerChromeIconForeground`** (white) on Liquid Glass top-bar actions (**trip**, **+**, back, map/list, settings, search dismiss) via **`appHeaderChromeIconForeground()`**.
+- **Home carousel overlay chips** — fish / buddy icon buttons use **56×56** pt tap targets (**`taggedOverlayIconTapDimension`**) while keeping the glass circle at slide chrome height.
+- Tests: **`logbookChromePresentation_titleAndScrimHeight`**.
+- **`docs/logbook.md`** — Activity Log collapsible header.
+- **GoDive wordmark typography** — **`AppTheme.Typography.headerBrandTitle`** (**.largeTitle**) everywhere the brand title appears: **`AppHeader`** (no shrink), **`AppLaunchOverlay`**, **`LaunchScreen.storyboard`**, **`SeedingLaunchOverlay`**, **`SignInView`**; **`AppLaunchLayout`** title metrics derived from UIKit **`.largeTitle`** bold.
+- Tests: updated **`appLaunchLayout_matchesStoryboardConstraints`** for large-title launch metrics.
+- **Home fish overlay alignment** — marine-life overlay frame matches **`carouselContentHeight`** (same bounds as slide media inside **`PushedHeroBand`**); species pager vertically centered in the visible hero band (below header, above bottom slide chrome); scrim clipped to media frame.
+- Tests: **`homeMediaCarouselPresentation_marineLifeCarouselOverlaySizing_isCompact`** — overlay height tracks carousel content height.
+- **Home profile avatar** — **`BlueSheetTopChromePresentation.homeProfileAvatarDiameter`** (**48 × 1.2** pt); **`AppHeaderBrandRowMetrics`** keeps avatar vertically centered with **GoDive** **`.largeTitle`** wordmark.
+- Tests: **`blueSheetTopChromePresentation_homeProfileAvatarDiameter_isTwentyPercentLarger`**, **`appHeaderBrandRowMetrics_wordmarkLineHeight_tracksLargeTitle`**.
+- **Home lifetime stats panel** — smaller highlight tiles (**82** pt) and **Top buddies** tile (**120** pt, **44** pt avatars); more top/bottom panel inset (**24** / **20** pt); synced **`HomeLifetimeStatsTilesLayout`** height estimates.
+- Tests: updated **`homeLifetimeStatsLayout_*`**, **`homeBuddyLeaderboardLayout_*`**, **`homeLifetimeStatsPanelLayout_*`**.
+- **Blue sheet overlap (+10%)** — **`HomeOverviewLayout.blueSheetPanelScale`** (**1.10**) raises **`panelOverlap`** (**148 → 163** pt) and **`heroBottomExtension`** (**202 → 222** pt) on Home and all **`BlueSheetPageShell`** detail pages (trip, buddy, equipment, dive site, species).
+- **Blue sheet overlap (+15% more)** — scale **×1.265** (**1.10 × 1.15**); **`panelOverlap`** **187** pt (visual overlap over hero).
+- **Blue sheet height fix** — **`blueSheetPanelScale`** now scales **`minimumStatsBandHeight`** (reserved stats band in **`HomeOverviewLayout.metrics`**) so the sheet is actually taller on viewport-limited phones; scaling **`panelOverlap`** alone did not change band height when the hero was capped. Home + all **`BlueSheetPageShell`** detail pages.
+- **Home tab-bar clearance (UIKit)** — measured **`UITabBar`** top drives **`panelBottomSafeAreaInset`**; tile stack centered vertically between sheet seam and tab-bar top (**`resolvedVerticalEdgeInsets`** splits slack evenly).
+- **Home stats layout guides** — temporary debug bands (**`HomeSheetContainerDebug.showsLayoutGuides`**, now **`false`**) validated buddy-bottom ↔ tab-top alignment on device.
+- **Home stats flexible fill** — fixed **16** pt tile gaps; **Top buddies** full-width below the 2×2 grid.
+- Tests: **`homeLifetimeStatsTilesLayout_resolvedVerticalEdgeInsets_centersBetweenSeamAndTabTop`**, **`homeLifetimeStatsTilesLayout_resolvedVerticalEdgeInset_splitsSlackEvenly`**, **`homeLifetimeStatsTilesLayout_resolvedFlexibleSectionHeights_distributesExtraByBaselineWeights`**, **`rootTabBarLayoutMeasurement_estimatedClearanceAboveTabBar`**, **`homeTabRootLayoutPresentation_panelBottomInsetPrefersMeasuredTabBar`**.
+- Tests: **`homeOverviewLayout_blueSheetPanelScale_increasesOverlapAndHeroBleed`**, updated **`blueSheetPageProportions_reexportHomeOverviewLayoutTokens`**.
+
+## 98 - Next batch

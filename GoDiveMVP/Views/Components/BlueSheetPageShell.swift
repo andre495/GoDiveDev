@@ -19,6 +19,7 @@ struct BlueSheetPageShell<
     @Binding var headerClearance: CGFloat
     @Binding var layoutSafeAreaTopFloor: CGFloat
     @Binding var layoutViewportHeightFloor: CGFloat
+    @State private var measuredTabBarClearance: CGFloat = 0
 
     @ViewBuilder let hero: (_ context: BlueSheetHeaderPageLayoutContext) -> Hero
     @ViewBuilder let heroOverlay: (_ context: BlueSheetHeaderPageLayoutContext) -> HeroOverlay
@@ -40,7 +41,8 @@ struct BlueSheetPageShell<
                 layoutViewportHeightFloor: layoutViewportHeightFloor,
                 seamInputs: seamInputs,
                 mode: layoutMode,
-                showsHero: configuration.showsHero
+                showsHero: configuration.showsHero,
+                measuredTabBarClearance: measuredTabBarClearance
             )
 
             ZStack(alignment: .top) {
@@ -89,8 +91,20 @@ struct BlueSheetPageShell<
                     onLayoutResolved: onLayoutResolved
                 )
             )
+            .rootTabBarClearanceReader(enabled: Self.measuresTabBarClearance(for: layoutMode))
+            .onPreferenceChange(RootTabBarClearanceMetrics.HeightKey.self) { clearance in
+                guard clearance > 0, abs(clearance - measuredTabBarClearance) > 0.5 else { return }
+                measuredTabBarClearance = clearance
+            }
         }
         .ignoresSafeArea(edges: .bottom)
+    }
+
+    private static func measuresTabBarClearance(for mode: BlueSheetPageLayoutMode) -> Bool {
+        if case let .tabRoot(isNavigationStackAtRoot, _) = mode {
+            return isNavigationStackAtRoot
+        }
+        return false
     }
 }
 

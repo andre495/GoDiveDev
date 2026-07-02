@@ -30,8 +30,8 @@ struct DiveBuddiesListView: View {
             title: "Dive Buddies",
             showsBackButton: true,
             showsBrandWordmark: false,
-            titlePlacement: AppHeaderStackedTitleChrome.titlePlacement,
             scrollContentUnderHeader: true,
+            collapsibleInlineTitleHeader: true,
             showsWaterBubbleBackground: true,
             trailingContent: {
                 addBuddyToolbarButton

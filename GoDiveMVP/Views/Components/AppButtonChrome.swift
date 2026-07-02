@@ -96,6 +96,11 @@ extension View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .contentShape(Rectangle())
     }
+
+    /// White icon tint for Liquid Glass top chrome (**trip**, **+**, back chevron, etc.).
+    func appHeaderChromeIconForeground() -> some View {
+        foregroundStyle(AppTheme.Colors.headerChromeIconForeground)
+    }
 }
 
 /// Liquid Glass **Edit** label for page / detail toolbars (not dive overview field-section ellipsis).
@@ -127,7 +132,7 @@ struct AppToolbarIconButton: View {
     let accessibilityIdentifier: String
     let accessibilityLabel: String
     var isEnabled: Bool = true
-    var foregroundStyle: Color = AppTheme.Colors.iconPrimary
+    var foregroundStyle: Color = AppTheme.Colors.headerChromeIconForeground
 
     var body: some View {
         Button(action: action) {

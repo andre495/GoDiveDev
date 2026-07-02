@@ -23,11 +23,11 @@ Use the **leading toggle** to switch modes:
 
 ## Find dive sites
 
-Use the **Search** tab and tap **Sites** (or type in the search field) to filter by site name, country, region, or body of water. See [Search](search.md).
+Use the **Search** tab and tap **Sites** (or type in the search field) to filter by site name, country, region, or body of water. Results include both **My Sites** (places you've logged or added) and unvisited sites from the bundled **All Sites** catalog. See [Search](search.md).
 
 ## My Sites vs All Sites
 
-Toggle at the bottom of the screen:
+Toggle **centered** in the top bar (map/list on the left, **+** on the right):
 
 - **My Sites** — sites you’ve logged dives at or added yourself  
 - **All Sites** — full catalog including reference sites you haven’t visited  

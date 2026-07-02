@@ -54,8 +54,8 @@ struct TripPlannerView: View {
             title: TripPlannerPresentation.pageTitle,
             showsBackButton: true,
             showsBrandWordmark: false,
-            titlePlacement: AppHeaderStackedTitleChrome.titlePlacement,
             scrollContentUnderHeader: true,
+            collapsibleInlineTitleHeader: true,
             trailingContent: {
                 addTripToolbarButton
             },

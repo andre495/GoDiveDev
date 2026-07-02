@@ -35,6 +35,17 @@ struct GlobalSearchScopedResultLabel: View {
                 } else {
                     fallbackRow
                 }
+            case .referenceSite(let referenceID):
+                if let rowData = referenceSiteRowData(for: referenceID) {
+                    GlobalSearchResultListRow(
+                        title: rowData.displayName,
+                        subtitle: siteSubtitle(for: rowData)
+                    ) {
+                        GlobalSearchResultSymbolArtwork(systemName: "mappin.and.ellipse")
+                    }
+                } else {
+                    fallbackRow
+                }
             case .species(let uuid):
                 if let rowData = speciesRowData(for: uuid),
                    let snapshot = speciesSnapshot(for: uuid) {
@@ -196,6 +207,12 @@ struct GlobalSearchScopedResultLabel: View {
     private func siteRowData(for id: UUID) -> ExploreDiveSiteRowDisplayData? {
         guard let site = diveSites.first(where: { $0.id == id }) else { return nil }
         return ExploreDiveSiteListDisplay.rowData(for: [site]).first
+    }
+
+    private func referenceSiteRowData(for referenceID: String) -> ExploreDiveSiteRowDisplayData? {
+        guard let snapshot = DiveSiteReferenceCatalog.bundledReference().first(where: { $0.id == referenceID })
+        else { return nil }
+        return ExploreReferenceSiteListDisplay.rowData(for: [snapshot]).first
     }
 
     private func speciesRowData(for uuid: String) -> FieldGuidePresentation.MarineLifeRowDisplayData? {

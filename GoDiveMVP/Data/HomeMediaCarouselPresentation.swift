@@ -24,6 +24,9 @@ enum HomeMediaCarouselPresentation: Sendable {
         #endif
     }
 
+    /// Minimum tappable square for fish / buddy icon chips (visual glass circle may stay smaller).
+    nonisolated static let taggedOverlayIconTapDimension: CGFloat = 56
+
     /// Next slide index; wraps from last → first.
     nonisolated static func nextIndex(after current: Int, count: Int) -> Int {
         guard count > 0 else { return 0 }
@@ -121,6 +124,17 @@ enum HomeMediaCarouselPresentation: Sendable {
         CGSize(width: max(width, 1), height: max(height, 1))
     }
 
+    /// Fish overlay frame height should match **`HomeMediaCarouselLayout.carouselContentHeight`** so the dimming panel covers the same region as slide media (including top safe-area bleed inside **`PushedHeroBand`**).
+    nonisolated static func marineLifeCarouselOverlayFrameHeight(
+        heroBandHeight: CGFloat,
+        topSafeAreaInset: CGFloat,
+        appliesOwnTopSafeAreaBleed: Bool
+    ) -> CGFloat {
+        appliesOwnTopSafeAreaBleed
+            ? heroBandHeight
+            : heroBandHeight + topSafeAreaInset
+    }
+
     /// Compact feature image on the Home fish overlay (smaller than trip media card).
     nonisolated static func marineLifeCarouselOverlayImageHeight(previewHeight: CGFloat) -> CGFloat {
         min(104, max(72, previewHeight * 0.12))
@@ -151,6 +165,31 @@ enum HomeMediaCarouselPresentation: Sendable {
             topSafeAreaInset + 64
         )
         return measuredHeader + 16
+    }
+
+    /// Positions species image + name in the visible hero band — below header chrome, above dive-link / fish chips.
+    nonisolated static func marineLifeCarouselOverlaySpeciesContentTopInset(
+        previewHeight: CGFloat,
+        pagerHeight: CGFloat,
+        topSafeAreaInset: CGFloat,
+        headerOverlayHeight: CGFloat,
+        bottomChromeReserve: CGFloat
+    ) -> CGFloat {
+        let headerBand = max(headerOverlayHeight, topSafeAreaInset + 64)
+        let visibleTop = headerBand + 12
+        let visibleBottom = max(visibleTop + pagerHeight, previewHeight - bottomChromeReserve)
+        let availableHeight = visibleBottom - visibleTop
+        let biasedFraction: CGFloat = 0.62
+        let biasedTop = visibleTop + max(0, (availableHeight - pagerHeight) * biasedFraction)
+        let geometricCenterTop = (previewHeight - pagerHeight) / 2
+        let preferredTop = max(biasedTop, geometricCenterTop + topSafeAreaInset * 0.25)
+        let minTop = marineLifeOverlayCloseTopInset(
+            previewHeight: previewHeight,
+            topSafeAreaInset: topSafeAreaInset,
+            headerOverlayHeight: headerOverlayHeight
+        ) + 8
+        let maxTop = max(minTop, previewHeight - bottomChromeReserve - pagerHeight)
+        return min(maxTop, max(minTop, preferredTop))
     }
 
     /// Home carousel fish overlay — full-bleed frosted dimming so media stays visible underneath.

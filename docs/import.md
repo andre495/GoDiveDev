@@ -6,14 +6,14 @@ GoDive imports dive logs from industry-standard files. Original files are **not*
 
 | Format | Extension | Typical source | Dives per file |
 |--------|-----------|----------------|----------------|
-| **Garmin FIT** | `.fit` | Garmin dive computers (e.g. MK series) | One |
-| **UDDF** | `.uddf` | MacDive, Subsurface, other UDDF 3.2 exporters | One or many |
+| **Garmin** | `.fit` | Garmin Connect App / dive computers (e.g. MK series) | One |
+| **MacDive / Universal** | `.uddf` | MacDive, Subsurface, other UDDF 3.2 exporters | One or many |
 
 ## How to import
 
 1. Open **Logbook**.  
 2. Tap **+** → **Add activity**.  
-3. Choose **Garmin FIT** or **UDDF**.  
+3. Choose **Garmin** or **MacDive / Universal**.  
 4. Review **import options** (see below).  
 5. Pick the file in the system file picker.  
 6. Wait for the progress overlay to finish.

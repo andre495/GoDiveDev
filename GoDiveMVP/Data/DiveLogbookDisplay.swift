@@ -90,7 +90,6 @@ struct LogbookListSurfaceEquatableInputs: Equatable, Sendable {
     var upcomingTripBanner: LogbookUpcomingTripBannerData?
     var showsStoredDiveEmptyState: Bool
     var bubbleAnimationPaused: Bool
-    var headerClearance: CGFloat
     var scrollToTopNonce: Int
 
     /// Explicit **`nonisolated`** equality — avoids MainActor-isolated synthesis when compared from **`LogbookListSurface`** and unit tests.
@@ -99,7 +98,6 @@ struct LogbookListSurfaceEquatableInputs: Equatable, Sendable {
             && lhs.upcomingTripBanner == rhs.upcomingTripBanner
             && lhs.showsStoredDiveEmptyState == rhs.showsStoredDiveEmptyState
             && lhs.bubbleAnimationPaused == rhs.bubbleAnimationPaused
-            && lhs.headerClearance == rhs.headerClearance
             && lhs.scrollToTopNonce == rhs.scrollToTopNonce
     }
 }

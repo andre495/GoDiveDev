@@ -37,7 +37,7 @@ struct SignInView: View {
                                 .accessibilityIdentifier("SignIn.Logo")
 
                             Text("GoDive")
-                                .font(.largeTitle.weight(.bold))
+                                .font(AppTheme.Typography.headerBrandTitle.weight(.bold))
                                 .foregroundStyle(AppTheme.Colors.textPrimary)
                         }
 

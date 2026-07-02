@@ -35,8 +35,8 @@ struct CertificationsListView: View {
                 title: "Certifications",
                 showsBackButton: true,
                 showsBrandWordmark: false,
-                titlePlacement: AppHeaderStackedTitleChrome.titlePlacement,
                 scrollContentUnderHeader: true,
+                collapsibleInlineTitleHeader: true,
                 trailingContent: {
                 addCertificationToolbarButton
             }, content: {

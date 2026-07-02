@@ -36,7 +36,8 @@ enum BlueSheetHeaderPageLayoutBuilder: Sendable {
         layoutViewportHeightFloor: CGFloat,
         seamInputs: HomeOverviewPushedLayoutPresentation.SeamInputs,
         mode: BlueSheetPageLayoutMode,
-        showsHero: Bool
+        showsHero: Bool,
+        measuredTabBarClearance: CGFloat = 0
     ) -> BlueSheetHeaderPageLayoutContext {
         let resolvedMode: BlueSheetPageLayoutMode
         if case .pushedDetail = mode, layoutViewportHeightFloor > 0 {
@@ -52,7 +53,8 @@ enum BlueSheetHeaderPageLayoutBuilder: Sendable {
             layoutViewportHeightFloor: layoutViewportHeightFloor,
             seamInputs: seamInputs,
             mode: resolvedMode,
-            showsHero: showsHero
+            showsHero: showsHero,
+            measuredTabBarClearance: measuredTabBarClearance
         )
     }
 

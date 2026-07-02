@@ -20,6 +20,11 @@ enum HomeMediaCarouselLayout {
         HomeMediaCarouselPresentation.slideChromeControlHeight
     }
 
+    /// Expanded hit target for fish / buddy overlay icon buttons.
+    static var taggedOverlayIconTapDimension: CGFloat {
+        HomeMediaCarouselPresentation.taggedOverlayIconTapDimension
+    }
+
     static func heroHeight(
         width: CGFloat,
         topSafeAreaInset: CGFloat,
@@ -160,7 +165,7 @@ struct HomeMediaCarouselSection: View {
     private var marineLifeOverlaySize: CGSize {
         HomeMediaCarouselPresentation.marineLifeOverlaySize(
             width: containerWidth,
-            height: resolvedHeroBandHeight
+            height: resolvedCarouselContentHeight
         )
     }
 
@@ -290,21 +295,37 @@ struct HomeMediaCarouselSection: View {
             }
 
             if showsMarineLifeOverlay, let mediaID = marineLifeOverlayMediaID {
+                let overlaySize = marineLifeOverlaySize
+                let overlayPagerHeight = HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageHeight(
+                    previewHeight: overlaySize.height,
+                    speciesCount: taggedSpecies(for: mediaID).count
+                )
+                let overlayBottomChromeReserve =
+                    HomeMediaCarouselLayout.slideChromeBottomInset
+                    + HomeMediaCarouselLayout.slideChromeControlHeight
+                    + AppTheme.Spacing.lg
                 HomeMediaCarouselMarineLifeOverlay(
                     taggedSpecies: taggedSpecies(for: mediaID),
-                    previewSize: marineLifeOverlaySize,
+                    previewSize: overlaySize,
                     cornerRadius: HomeMediaCarouselPresentation.marineLifeOverlayCornerRadius,
                     ownerProfileID: ownerProfileID,
                     closeTopInset: HomeMediaCarouselPresentation.marineLifeOverlayCloseTopInset(
-                        previewHeight: marineLifeOverlaySize.height,
+                        previewHeight: overlaySize.height,
                         topSafeAreaInset: topSafeAreaInset,
                         headerOverlayHeight: headerOverlayHeight
+                    ),
+                    speciesContentTopInset: HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesContentTopInset(
+                        previewHeight: overlaySize.height,
+                        pagerHeight: overlayPagerHeight,
+                        topSafeAreaInset: topSafeAreaInset,
+                        headerOverlayHeight: headerOverlayHeight,
+                        bottomChromeReserve: overlayBottomChromeReserve
                     ),
                     selectedSpeciesUUID: $selectedTaggedSpeciesUUID,
                     onOpenDive: onOpenDive,
                     onClose: closeMarineLifeOverlay
                 )
-                .frame(width: marineLifeOverlaySize.width, height: marineLifeOverlaySize.height)
+                .frame(width: overlaySize.width, height: overlaySize.height)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .allowsHitTesting(true)
                 .transition(marineLifeOverlayTransition)
@@ -705,6 +726,10 @@ private struct HomeMediaCarouselTaggedSpeciesButton: View {
         HomeMediaCarouselLayout.slideChromeControlHeight
     }
 
+    private var tapDimension: CGFloat {
+        HomeMediaCarouselLayout.taggedOverlayIconTapDimension
+    }
+
     var body: some View {
         Button(action: action) {
             ZStack(alignment: .topTrailing) {
@@ -724,6 +749,8 @@ private struct HomeMediaCarouselTaggedSpeciesButton: View {
                         .offset(x: 4, y: -4)
                 }
             }
+            .frame(width: tapDimension, height: tapDimension, alignment: .center)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(taggedCount > 1 ? "\(taggedCount) tagged species" : "Tagged marine life")
@@ -742,6 +769,7 @@ private struct HomeMediaCarouselTaggedBuddiesButton: View {
 
     private enum Layout {
         static var iconDiameter: CGFloat { HomeMediaCarouselLayout.slideChromeControlHeight }
+        static var iconTapDimension: CGFloat { HomeMediaCarouselLayout.taggedOverlayIconTapDimension }
         static var avatarDiameter: CGFloat { max(iconDiameter - 4, 32) }
         static let avatarSpacing: CGFloat = 8
         /// How far the buddy stack rises from the icon when expanding.
@@ -814,6 +842,8 @@ private struct HomeMediaCarouselTaggedBuddiesButton: View {
                             .offset(x: 4, y: -4)
                     }
                 }
+                .frame(width: Layout.iconTapDimension, height: Layout.iconTapDimension, alignment: .center)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .animation(buddyExpandAnimation, value: isExpanded)
@@ -825,7 +855,7 @@ private struct HomeMediaCarouselTaggedBuddiesButton: View {
             .accessibilityHint(isExpanded ? "Collapses the buddy list" : "Shows buddies tagged on this photo")
             .accessibilityIdentifier("Home.MediaCarousel.TaggedBuddies")
         }
-        .frame(minHeight: Layout.iconDiameter, alignment: .bottom)
+        .frame(minWidth: Layout.iconTapDimension, minHeight: Layout.iconTapDimension, alignment: .bottom)
     }
 
     @ViewBuilder
@@ -1291,7 +1321,7 @@ private struct HomeMediaCarouselMediaView: View {
 
 enum HomeLifetimeStatsLayout {
     static let gridColumnCount = HomeLifetimeStatsTilesLayout.gridColumnCount
-    static let gridSpacing = AppTheme.Spacing.md
+    static let gridSpacing = HomeLifetimeStatsTilesLayout.gridSpacing
     /// Fixed height per highlight stat card (intrinsic grid — no **`GeometryReader`** stretch).
     static let statTileHeight: CGFloat = HomeLifetimeStatsTilesLayout.statTileHeight
     static let statTileCornerRadius: CGFloat = 12
@@ -1305,9 +1335,9 @@ enum HomeLifetimeStatsLayout {
     static let heroBottomExtension: CGFloat = HomeOverviewLayout.heroBottomExtension
     static let panelTopContentPadding: CGFloat = AppTheme.Spacing.lg
     /// In-panel top inset when overlapping media — UI only (hero seam uses **`HomeLifetimeStatsTilesLayout`** estimates).
-    static let panelTopContentPaddingWhenOverlapping: CGFloat = AppTheme.Spacing.md
+    static let panelTopContentPaddingWhenOverlapping = HomeLifetimeStatsTilesLayout.panelTopContentPaddingWhenOverlapping
     /// Extra inset above the tab bar for panel content (tab bar clearance is added separately).
-    static let panelBottomContentPadding: CGFloat = AppTheme.Spacing.lg
+    static let panelBottomContentPadding = HomeLifetimeStatsTilesLayout.panelBottomContentPadding
 
     static func rowCount(tileCount: Int) -> Int {
         guard tileCount > 0 else { return 0 }
@@ -1335,11 +1365,59 @@ enum HomeLifetimeStatsLayout {
 
     static func valueFontSize() -> CGFloat { HomeLifetimeStatsTilesLayout.valueFontSize }
     static func titleFontSize() -> CGFloat { HomeLifetimeStatsTilesLayout.titleFontSize }
+
+    static func resolvedVerticalEdgeInsets(
+        totalHeight: CGFloat,
+        statRowCount: Int,
+        showsBuddyLeaderboard: Bool
+    ) -> (top: CGFloat, bottom: CGFloat) {
+        HomeLifetimeStatsTilesLayout.resolvedVerticalEdgeInsets(
+            totalHeight: totalHeight,
+            statRowCount: statRowCount,
+            showsBuddyLeaderboard: showsBuddyLeaderboard
+        )
+    }
+
+    static func resolvedVerticalEdgeInset(
+        totalHeight: CGFloat,
+        statRowCount: Int,
+        showsBuddyLeaderboard: Bool
+    ) -> CGFloat {
+        HomeLifetimeStatsTilesLayout.resolvedVerticalEdgeInset(
+            totalHeight: totalHeight,
+            statRowCount: statRowCount,
+            showsBuddyLeaderboard: showsBuddyLeaderboard
+        )
+    }
+
+    static func resolvedFlexibleLayoutHeights(
+        totalHeight: CGFloat,
+        statRowCount: Int,
+        showsBuddyLeaderboard: Bool
+    ) -> (statRowHeight: CGFloat, buddyRowHeight: CGFloat) {
+        HomeLifetimeStatsTilesLayout.resolvedFlexibleLayoutHeights(
+            totalHeight: totalHeight,
+            statRowCount: statRowCount,
+            showsBuddyLeaderboard: showsBuddyLeaderboard
+        )
+    }
+
+    static func resolvedFlexibleSectionHeights(
+        totalHeight: CGFloat,
+        showsBuddyLeaderboard: Bool
+    ) -> (grid: CGFloat, buddy: CGFloat) {
+        HomeLifetimeStatsTilesLayout.resolvedFlexibleSectionHeights(
+            totalHeight: totalHeight,
+            showsBuddyLeaderboard: showsBuddyLeaderboard
+        )
+    }
 }
 
-/// Flip **`usesPinkBackground`** to **`false`** (or remove) when Home sheet seam debugging is done.
+/// Flip flags to **`false`** (or remove overlays) when Home sheet layout debugging is done.
 private enum HomeSheetContainerDebug {
     static let usesPinkBackground = false
+    /// Temporary guide lines on the Home tab-root stats panel — spacing / tile placement.
+    static let showsLayoutGuides = false
 }
 
 /// Sheet-style chrome for Home lifetime stats — rounded top, opaque fill, optional hero overlap.
@@ -1374,6 +1452,16 @@ struct HomeLifetimeStatsPanel<Content: View>: View {
                 .ignoresSafeArea(edges: .bottom)
             }
             .clipShape(panelShape)
+            .overlay {
+                if usesHomeDebugPanelTint, HomeSheetContainerDebug.showsLayoutGuides {
+                    HomeLifetimeStatsPanelOuterLayoutGuides(
+                        bottomSafeAreaInset: bottomSafeAreaInset,
+                        topPadding: overlapsMedia
+                            ? HomeLifetimeStatsLayout.panelTopContentPaddingWhenOverlapping
+                            : HomeLifetimeStatsLayout.panelTopContentPadding
+                    )
+                }
+            }
             .shadow(
                 color: .black.opacity(overlapsMedia ? 0.14 : 0.08),
                 radius: overlapsMedia ? 16 : 8,
@@ -1402,6 +1490,214 @@ struct HomeLifetimeStatsPanel<Content: View>: View {
     }
 }
 
+// MARK: - Temporary Home stats layout guides (remove when tile placement is settled)
+
+/// Panel-level bands: padded content slot vs tab-bar reserve below tiles.
+private struct HomeLifetimeStatsPanelOuterLayoutGuides: View {
+    let bottomSafeAreaInset: CGFloat
+    let topPadding: CGFloat
+    var estimatedTabBarClearance: CGFloat = RootTabBarLayoutMeasurement.estimatedClearanceAboveTabBar(
+        safeAreaBottom: 0
+    )
+
+    var body: some View {
+        GeometryReader { geo in
+            let height = geo.size.height
+            let contentTop = topPadding
+            let tabReserveTop = max(height - bottomSafeAreaInset, contentTop)
+            let estimatedReserveTop = max(height - estimatedTabBarClearance, contentTop)
+            let usesMeasuredTabBar = bottomSafeAreaInset > 0
+                && abs(bottomSafeAreaInset - estimatedTabBarClearance) > 1
+
+            ZStack(alignment: .topLeading) {
+                if bottomSafeAreaInset > 0 {
+                    Rectangle()
+                        .fill(Color.red.opacity(0.14))
+                        .frame(height: max(height - tabReserveTop, 0))
+                        .offset(y: tabReserveTop)
+                }
+
+                HomeLifetimeStatsLayoutGuideLine(
+                    label: "PANEL TOP (sheet seam)",
+                    color: .white
+                )
+
+                if topPadding > 0.5 {
+                    HomeLifetimeStatsLayoutGuideLine(
+                        label: "PANEL PADDING TOP \(Int(topPadding))pt",
+                        color: .white.opacity(0.7)
+                    )
+                    .offset(y: topPadding)
+                }
+
+                HomeLifetimeStatsLayoutGuideLine(
+                    label: "CONTENT SLOT TOP",
+                    color: .yellow
+                )
+                .offset(y: contentTop)
+
+                if usesMeasuredTabBar {
+                    HomeLifetimeStatsLayoutGuideLine(
+                        label: "OLD ESTIMATE (\(Int(estimatedTabBarClearance))pt)",
+                        color: .orange.opacity(0.65)
+                    )
+                    .offset(y: estimatedReserveTop)
+                }
+
+                HomeLifetimeStatsLayoutGuideLine(
+                    label: "UITabBar TOP (\(Int(bottomSafeAreaInset))pt reserve)",
+                    color: .orange
+                )
+                .offset(y: tabReserveTop)
+
+                HomeLifetimeStatsLayoutGuideLine(
+                    label: "PANEL BOTTOM",
+                    color: .red
+                )
+                .offset(y: max(height - 2, 0))
+
+                if bottomSafeAreaInset > 0 {
+                    HomeLifetimeStatsLayoutGuideLabel(
+                        text: usesMeasuredTabBar ? "MEASURED TAB BAR" : "FALLBACK TAB BAR",
+                        color: .red
+                    )
+                    .offset(x: 4, y: tabReserveTop + 4)
+                }
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+            .accessibilityIdentifier("Home.LifetimeStats.LayoutGuides.Panel")
+        }
+    }
+}
+
+/// In-content bands: top margin, tile stack, bottom margin (inside the content slot).
+private struct HomeLifetimeStatsSectionLayoutGuides: View {
+    let width: CGFloat
+    let height: CGFloat
+    let edgeInsets: (top: CGFloat, bottom: CGFloat)
+    let statRowCount: Int
+    let showsBuddyLeaderboard: Bool
+
+    var body: some View {
+        let spacing = HomeLifetimeStatsTilesLayout.gridSpacing
+        let statRowHeight = HomeLifetimeStatsTilesLayout.statTileHeight
+        let buddyHeight = HomeLifetimeStatsTilesLayout.buddyTileHeight
+        let minContent = HomeLifetimeStatsTilesLayout.scrollContentHeight(
+            statRowCount: statRowCount,
+            showsBuddyLeaderboard: showsBuddyLeaderboard
+        )
+
+        let tilesTop = edgeInsets.top
+        let row1Bottom = tilesTop + statRowHeight
+        let row2Bottom = tilesTop + CGFloat(statRowCount) * statRowHeight
+            + CGFloat(max(statRowCount - 1, 0)) * spacing
+        let buddyTop = showsBuddyLeaderboard ? row2Bottom + spacing : row2Bottom
+        let buddyBottom = showsBuddyLeaderboard ? buddyTop + buddyHeight : row2Bottom
+        let tilesBottom = tilesTop + minContent
+
+        ZStack(alignment: .topLeading) {
+            Rectangle()
+                .fill(Color.yellow.opacity(0.10))
+                .frame(width: width, height: max(tilesTop, 0))
+
+            if edgeInsets.bottom > 0.5 {
+                Rectangle()
+                    .fill(Color.yellow.opacity(0.10))
+                    .frame(width: width, height: edgeInsets.bottom)
+                    .offset(y: height - edgeInsets.bottom)
+            }
+
+            Rectangle()
+                .strokeBorder(Color.green.opacity(0.85), lineWidth: 1.5)
+                .frame(width: width, height: max(minContent, 0))
+                .offset(y: tilesTop)
+
+            if showsBuddyLeaderboard {
+                Rectangle()
+                    .fill(Color.purple.opacity(0.08))
+                    .frame(width: width, height: buddyHeight)
+                    .offset(y: buddyTop)
+            }
+
+            HomeLifetimeStatsLayoutGuideLine(label: "CONTENT TOP", color: .yellow)
+            HomeLifetimeStatsLayoutGuideLine(label: "TOP MARGIN END / TILES TOP", color: .green)
+                .offset(y: tilesTop)
+            HomeLifetimeStatsLayoutGuideLine(label: "STAT ROW 1", color: .mint)
+                .offset(y: row1Bottom)
+            if statRowCount > 1 {
+                HomeLifetimeStatsLayoutGuideLine(label: "STAT ROW 2", color: .mint)
+                    .offset(y: row2Bottom)
+            }
+            if showsBuddyLeaderboard {
+                HomeLifetimeStatsLayoutGuideLine(label: "BUDDY TOP", color: .purple)
+                    .offset(y: buddyTop)
+                HomeLifetimeStatsLayoutGuideLine(label: "BUDDY BOTTOM", color: .purple)
+                    .offset(y: buddyBottom)
+            }
+            HomeLifetimeStatsLayoutGuideLine(label: "TILES BOTTOM", color: .green)
+                .offset(y: tilesBottom)
+            HomeLifetimeStatsLayoutGuideLine(label: "BOTTOM MARGIN END / TAB TOP", color: .yellow)
+                .offset(y: max(height - edgeInsets.bottom - 2, 0))
+            HomeLifetimeStatsLayoutGuideLine(label: "CONTENT SLOT BOTTOM", color: .yellow)
+                .offset(y: max(height - 2, 0))
+
+            HomeLifetimeStatsLayoutGuideLabel(
+                text: "TOP MARGIN \(Int(edgeInsets.top))pt",
+                color: .yellow
+            )
+            .offset(x: 4, y: 4)
+
+            HomeLifetimeStatsLayoutGuideLabel(
+                text: "BOTTOM MARGIN \(Int(edgeInsets.bottom))pt",
+                color: .yellow
+            )
+            .offset(x: 4, y: max(height - edgeInsets.bottom - 18, 0))
+
+            HomeLifetimeStatsLayoutGuideLabel(
+                text: "TILE GAP \(Int(spacing))pt",
+                color: .mint
+            )
+            .offset(x: 4, y: tilesTop + statRowHeight + 2)
+        }
+        .frame(width: width, height: height, alignment: .topLeading)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+        .accessibilityIdentifier("Home.LifetimeStats.LayoutGuides.Section")
+    }
+}
+
+private struct HomeLifetimeStatsLayoutGuideLine: View {
+    let label: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 4) {
+            HomeLifetimeStatsLayoutGuideLabel(text: label, color: color)
+            Rectangle()
+                .fill(color)
+                .frame(height: 2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct HomeLifetimeStatsLayoutGuideLabel: View {
+    let text: String
+    let color: Color
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 8, weight: .bold, design: .monospaced))
+            .lineLimit(2)
+            .minimumScaleFactor(0.8)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
+            .background(color.opacity(0.92))
+            .foregroundStyle(.black)
+    }
+}
+
 struct HomeLifetimeStatsSection: View {
     let stats: HomeLifetimeStats
     let buddyLeaderboard: [HomeBuddyLeaderboardEntry]
@@ -1418,38 +1714,71 @@ struct HomeLifetimeStatsSection: View {
 
     var body: some View {
         let tiles = highlightTiles
+        let statRowCount = HomeLifetimeStatsLayout.rowCount(tileCount: tiles.count)
+        let statTileHeight = HomeLifetimeStatsTilesLayout.statTileHeight
+        let buddyTileHeight = HomeLifetimeStatsTilesLayout.buddyTileHeight
 
-        VStack(alignment: .leading, spacing: HomeLifetimeStatsLayout.gridSpacing) {
-            LazyVGrid(
-                columns: Array(
-                    repeating: GridItem(.flexible(), spacing: HomeLifetimeStatsLayout.gridSpacing),
-                    count: HomeLifetimeStatsLayout.gridColumnCount
-                ),
-                spacing: HomeLifetimeStatsLayout.gridSpacing
-            ) {
-                ForEach(tiles) { tile in
-                    HomeStatTile(
-                        title: tile.title,
-                        value: tile.value,
-                        footnote: tile.footnote,
-                        systemImage: tile.systemImage,
-                        action: tile.action
+        GeometryReader { proxy in
+            let tileSpacing = HomeLifetimeStatsTilesLayout.gridSpacing
+            let edgeInsets = HomeLifetimeStatsLayout.resolvedVerticalEdgeInsets(
+                totalHeight: proxy.size.height,
+                statRowCount: statRowCount,
+                showsBuddyLeaderboard: showsBuddyLeaderboard
+            )
+            let columns = Array(
+                repeating: GridItem(.flexible(), spacing: tileSpacing),
+                count: HomeLifetimeStatsLayout.gridColumnCount
+            )
+
+            VStack(spacing: 0) {
+                Color.clear
+                    .frame(height: edgeInsets.top)
+                    .accessibilityHidden(true)
+
+                VStack(spacing: showsBuddyLeaderboard ? tileSpacing : 0) {
+                    LazyVGrid(columns: columns, spacing: tileSpacing) {
+                        ForEach(tiles) { tile in
+                            HomeStatTile(
+                                title: tile.title,
+                                value: tile.value,
+                                footnote: tile.footnote,
+                                systemImage: tile.systemImage,
+                                action: tile.action
+                            )
+                            .frame(maxWidth: .infinity)
+                            .frame(height: statTileHeight)
+                        }
+                    }
+
+                    if showsBuddyLeaderboard {
+                        HomeBuddyLeaderboardTile(
+                            entries: buddyLeaderboard,
+                            onOpenBuddy: onOpenBuddy
+                        )
+                        .frame(maxWidth: .infinity)
+                        .frame(height: buddyTileHeight)
+                    }
+                }
+
+                Color.clear
+                    .frame(height: edgeInsets.bottom)
+                    .accessibilityHidden(true)
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
+            .overlay {
+                if HomeSheetContainerDebug.showsLayoutGuides {
+                    HomeLifetimeStatsSectionLayoutGuides(
+                        width: proxy.size.width,
+                        height: proxy.size.height,
+                        edgeInsets: edgeInsets,
+                        statRowCount: statRowCount,
+                        showsBuddyLeaderboard: showsBuddyLeaderboard
                     )
-                    .frame(maxWidth: .infinity, minHeight: HomeLifetimeStatsLayout.statTileHeight)
                 }
             }
-            .frame(height: HomeLifetimeStatsLayout.gridHeight(tileCount: tiles.count))
-
-            if showsBuddyLeaderboard {
-                HomeBuddyLeaderboardTile(
-                    entries: buddyLeaderboard,
-                    onOpenBuddy: onOpenBuddy
-                )
-            }
-
-            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .clipped()
         .accessibilityIdentifier("Home.LifetimeStats")
     }
 
@@ -1562,7 +1891,7 @@ private struct HomeStatTile: View {
         .frame(
             maxWidth: .infinity,
             minHeight: HomeLifetimeStatsLayout.statTileHeight,
-            maxHeight: .infinity,
+            maxHeight: HomeLifetimeStatsLayout.statTileHeight,
             alignment: .topLeading
         )
         .contentShape(Rectangle())
@@ -1573,7 +1902,7 @@ private struct HomeStatTile: View {
     }
 
     private var tileLabel: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
                 Image(systemName: systemImage)
                     .font(.system(size: HomeLifetimeStatsLayout.titleFontSize(), weight: .semibold))
@@ -1631,19 +1960,19 @@ struct HomeBuddyLeaderboardTile: View {
     let onOpenBuddy: (UUID) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: AppTheme.Spacing.sm) {
                 Image(systemName: "person.2.fill")
-                    .font(.caption.weight(.semibold))
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(AppTheme.Colors.accent)
                     .accessibilityHidden(true)
                 Text("Top buddies")
-                    .font(.caption.weight(.semibold))
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(AppTheme.Colors.secondaryText)
                 Spacer(minLength: 0)
             }
 
-            HStack(alignment: .center, spacing: AppTheme.Spacing.md) {
+            HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
                 ForEach(entries) { entry in
                     HomeBuddyLeaderboardPodiumSlot(
                         entry: entry,
@@ -1652,11 +1981,11 @@ struct HomeBuddyLeaderboardTile: View {
                     .frame(maxWidth: .infinity)
                 }
             }
-            .frame(height: HomeBuddyLeaderboardLayout.podiumRowHeight)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .frame(minHeight: HomeBuddyLeaderboardLayout.podiumRowHeight)
         }
         .padding(HomeLifetimeStatsLayout.statTilePadding)
-        .frame(height: HomeBuddyLeaderboardLayout.estimatedTileHeight, alignment: .top)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .appHighlightTileChrome()
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("Home.BuddyLeaderboard")
@@ -1677,16 +2006,16 @@ private struct HomeBuddyLeaderboardPodiumSlot: View {
 
     var body: some View {
         Button(action: onOpen) {
-            VStack(spacing: AppTheme.Spacing.sm) {
+            VStack(spacing: 4) {
                 ProfileAvatarView(
                     profilePhoto: entry.profilePhoto,
                     diameter: HomeBuddyLeaderboardLayout.avatarDiameter,
-                    iconFont: .callout,
+                    iconFont: .caption,
                     placeholderInitials: DiveBuddyPresentation.initials(from: entry.displayName)
                 )
 
                 Text(DiveBuddyPresentation.firstName(from: entry.displayName))
-                    .font(.caption.weight(.medium))
+                    .font(.caption2.weight(.medium))
                     .foregroundStyle(AppTheme.Colors.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)

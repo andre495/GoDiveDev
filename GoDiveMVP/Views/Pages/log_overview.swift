@@ -46,7 +46,7 @@ struct LogOverviewView: View {
     }
 
     private enum Layout {
-        static let profileAvatarDiameter: CGFloat = 48
+        static let profileAvatarDiameter = BlueSheetTopChromePresentation.homeProfileAvatarDiameter
     }
 
     /// Sentinel owner id so **`@Query`** returns no rows when signed out (matches Logbook).
@@ -235,8 +235,8 @@ struct LogOverviewView: View {
                 profilePhoto: profilePhotoForHeader,
                 diameter: Layout.profileAvatarDiameter
             )
-            .frame(minWidth: Layout.profileAvatarDiameter, minHeight: Layout.profileAvatarDiameter)
-            .contentShape(Rectangle())
+            .frame(width: Layout.profileAvatarDiameter, height: Layout.profileAvatarDiameter)
+            .contentShape(Circle())
         }
         .buttonStyle(.borderless)
         .accessibilityLabel("Profile")

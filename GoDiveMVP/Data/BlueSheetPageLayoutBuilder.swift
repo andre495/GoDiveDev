@@ -4,6 +4,10 @@ import SwiftUI
 /// Shared hero vs blue-sheet proportion tokens — single source for Home tab root and pushed detail pages.
 enum BlueSheetPageProportions: Sendable {
     nonisolated static var panelOverlap: CGFloat { HomeOverviewLayout.panelOverlap }
+    nonisolated static var blueSheetPanelScale: CGFloat { HomeOverviewLayout.blueSheetPanelScale }
+    nonisolated static func minimumStatsBandHeight(statsPanelContentHeight: CGFloat) -> CGFloat {
+        HomeOverviewLayout.minimumStatsBandHeight(statsPanelContentHeight: statsPanelContentHeight)
+    }
     nonisolated static var heroHeightToWidthRatio: CGFloat { HomeOverviewLayout.heroHeightToWidthRatio }
     nonisolated static var heroBottomExtension: CGFloat { HomeOverviewLayout.heroBottomExtension }
     nonisolated static var tabBarScrollInset: CGFloat { HomeOverviewLayout.tabBarScrollInset }
@@ -151,7 +155,8 @@ enum BlueSheetPageLayoutBuilder: Sendable {
         layoutViewportHeightFloor: CGFloat,
         seamInputs: HomeOverviewPushedLayoutPresentation.SeamInputs,
         mode: BlueSheetPageLayoutMode,
-        showsHero: Bool
+        showsHero: Bool,
+        measuredTabBarClearance: CGFloat = 0
     ) -> BlueSheetHeaderPageLayoutContext {
         let rawSafeTop = AppScrollUnderHeaderListLayout.resolvedSafeAreaTop(proxy.safeAreaInsets.top)
         let safeTop = max(rawSafeTop, layoutSafeAreaTopFloor)
@@ -203,7 +208,7 @@ enum BlueSheetPageLayoutBuilder: Sendable {
                 from: tabContentHeight
             )
             panelBottomSafeAreaInset = HomeTabRootLayoutPresentation.panelBottomSafeAreaInset(
-                tabBarClearance: BlueSheetPageProportions.rootTabBarLayoutHeight,
+                measuredTabBarClearance: measuredTabBarClearance,
                 safeAreaBottom: proxy.safeAreaInsets.bottom
             )
             bottomScrollInset = proxy.safeAreaInsets.bottom + BlueSheetPageProportions.tabBarScrollInset

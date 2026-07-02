@@ -192,13 +192,24 @@ enum HomeOverviewLayout: Sendable {
         return max(geometryHeight, 1)
     }
 
-    /// Kept in sync with **`HomeLifetimeStatsLayout.panelOverlap`**.
-    nonisolated static let panelOverlap: CGFloat = 148
+    /// Scales the **reserved blue stats band** in hero cap math (Home + pushed detail). This is what makes the sheet **taller** on a phone — **`panelOverlap`** alone only adjusts hero bleed under the rounded overlap when viewport-limited.
+    /// Baseline band × **1.10 × 1.15** ≈ **+26.5%** vs unscaled **`statsPanelContentHeight + tabBarScrollInset`**.
+    nonisolated static let blueSheetPanelScale: CGFloat = 1.10 * 1.15
+
+    /// How far the blue stats sheet rises over the hero (negative **`VStack`** spacing) — visual overlap only.
+    nonisolated static var panelOverlap: CGFloat {
+        round(148 * blueSheetPanelScale)
+    }
 
     nonisolated static let heroHeightToWidthRatio: CGFloat = 0.77
 
-    /// Kept in sync with **`HomeLifetimeStatsLayout.heroBottomExtension`**.
+    /// Extra hero height below the width-based band so media bleeds behind the sheet overlap zone.
     nonisolated static let heroBottomExtension: CGFloat = 202
+
+    /// Stats band reserved in **`metrics`** hero cap — drives blue sheet height when the viewport limits the hero.
+    nonisolated static func minimumStatsBandHeight(statsPanelContentHeight: CGFloat) -> CGFloat {
+        (statsPanelContentHeight + tabBarScrollInset) * blueSheetPanelScale
+    }
 
     nonisolated static func heroHeight(
         width: CGFloat,
@@ -226,7 +237,7 @@ enum HomeOverviewLayout: Sendable {
         let heroExtension: CGFloat = heroBottomExtension
 
         let naturalCarouselHeight = max(screenWidth * heroRatio + topSafeAreaInset + heroExtension, 1)
-        let minimumStatsBand = statsPanelContentHeight + tabBarScrollInset
+        let minimumStatsBand = minimumStatsBandHeight(statsPanelContentHeight: statsPanelContentHeight)
         let maximumCarouselHeight = max(viewportHeight - minimumStatsBand + overlap, 1)
         let carouselHeight = min(naturalCarouselHeight, maximumCarouselHeight)
 

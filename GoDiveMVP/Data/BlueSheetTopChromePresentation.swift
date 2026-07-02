@@ -16,4 +16,7 @@ enum BlueSheetTopChromePresentation: Sendable {
         /// Matches **`AppStatusBarEdgeScrimMetrics.listChromeFeatherHeight`** (22 pt).
         nonisolated static var statusBarFeather: CGFloat { 22 }
     }
+
+    /// Home **`AppHeader`** trailing profile control — ~**20%** larger than the original **48** pt chrome avatar.
+    nonisolated static let homeProfileAvatarDiameter: CGFloat = 48 * 1.2
 }

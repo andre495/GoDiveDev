@@ -151,11 +151,11 @@ struct ProfileView: View {
                                         .appToolbarIconButtonLabel()
                                 }
                                 .appStandaloneIconButtonStyle()
-                                .foregroundStyle(AppTheme.Colors.iconPrimary)
                                 .accessibilityLabel("Settings")
                                 .accessibilityIdentifier("Profile.SettingsButton")
                             }
                             .appGlassChromeControlRowHeight()
+                            .appHeaderChromeIconForeground()
                         }
                     }
                     .padding(.horizontal, AppTheme.Spacing.lg)

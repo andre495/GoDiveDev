@@ -41,8 +41,14 @@ enum HomeTabRootLayoutPresentation: Sendable {
         )
     }
 
-    /// Bottom content inset for the stats panel — tab bar + home indicator (detail uses scroll inset only).
-    nonisolated static func panelBottomSafeAreaInset(tabBarClearance: CGFloat, safeAreaBottom: CGFloat) -> CGFloat {
-        tabBarClearance + safeAreaBottom
+    /// Bottom content inset for the stats panel — prefers live **`UITabBar`** geometry.
+    nonisolated static func panelBottomSafeAreaInset(
+        measuredTabBarClearance: CGFloat,
+        safeAreaBottom: CGFloat
+    ) -> CGFloat {
+        RootTabBarLayoutMeasurement.resolvedPanelBottomSafeAreaInset(
+            measuredTabBarClearance: measuredTabBarClearance,
+            safeAreaBottom: safeAreaBottom
+        )
     }
 }
