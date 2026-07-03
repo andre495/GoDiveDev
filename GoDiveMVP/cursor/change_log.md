@@ -1666,7 +1666,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Home fish overlay feature image** — column bottom lifted **24 pt** (**`marineLifeCarouselOverlayFeatureImageColumnBottomLift`**).
 - **Home fish overlay debug cleanup** — removed layout-tuning guides (**PANEL TOP**, **DOTS**, **CLOSE**), drag overrides, and **`HomeMarineLifeOverlayVisibleKey`**.
 
-## 99 - Next batch
+## 99 - Next batch **(pushed)**
 
 **Summary:** Marine life image review UI — Tinder-style one-at-a-time flow with accept vs edit.
 
@@ -1738,3 +1738,5 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Field Guide species catalog hero** — **`catalogPhotoVerticalOffset`** **−206**.
 - **Layout debug removed** — deleted temporary drag handles, HUD, and debug types after baking device-tuned tokens.
 - Tests updated for settled tokens + column layout helper.
+
+## 100 - Next batch
