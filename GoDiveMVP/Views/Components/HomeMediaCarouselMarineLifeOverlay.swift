@@ -45,11 +45,18 @@ struct HomeMediaCarouselMarineLifeOverlay: View {
         )
     }
 
+    private var heroBandBottomYFromTop: CGFloat {
+        HomeMediaCarouselPresentation.marineLifeCarouselOverlayHeroBandBottomYFromTop(
+            heroBandHeight: heroBandHeight,
+            topSafeAreaInset: topSafeAreaInset
+        )
+    }
+
     private var featureImageColumnHeight: CGFloat {
         HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageColumnHeight(
             closeTopInset: closeTopInset,
             pageIndicatorTopInset: pageIndicatorTopInset,
-            speciesRowHeight: speciesRowHeight
+            heroBandBottomYFromTop: heroBandBottomYFromTop
         )
     }
 
@@ -83,6 +90,13 @@ struct HomeMediaCarouselMarineLifeOverlay: View {
         HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesDescriptionLineLimit(
             speciesNameTopInset: speciesNameTopInset,
             pageIndicatorTopInset: pageIndicatorTopInset
+        )
+    }
+
+    private var resolvedFeatureImageColumnLayout: (topInset: CGFloat, height: CGFloat) {
+        HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageColumnLayout(
+            closeTopInset: closeTopInset,
+            featureImageColumnHeight: featureImageColumnHeight
         )
     }
 
@@ -155,13 +169,16 @@ struct HomeMediaCarouselMarineLifeOverlay: View {
 
     @ViewBuilder
     private func speciesPage(for species: MarineLife) -> some View {
+        let columnLayout = resolvedFeatureImageColumnLayout
+
         ZStack(alignment: .topLeading) {
-            featureImageColumn(for: species)
-                .frame(width: featureImageMaxWidth, height: featureImageColumnHeight, alignment: .top)
+            featureImageColumn(for: species, columnHeight: columnLayout.height)
+                .frame(width: featureImageMaxWidth, height: columnLayout.height, alignment: .bottom)
                 .padding(.leading, speciesLeadingInset)
-                .padding(.top, closeTopInset)
+                .padding(.top, columnLayout.topInset)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
+                .offset(y: HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageColumnVerticalOffset)
 
             speciesNameRow(for: species)
         }
@@ -171,13 +188,15 @@ struct HomeMediaCarouselMarineLifeOverlay: View {
     }
 
     @ViewBuilder
-    private func featureImageColumn(for species: MarineLife) -> some View {
+    private func featureImageColumn(for species: MarineLife, columnHeight: CGFloat) -> some View {
         FieldGuideMarineLifeCatalogImage(
             imageURLString: species.featureImageURL,
             bundleResourceName: species.featureImageResourceName,
             placement: .mediaSheetHero(
-                height: featureImageColumnHeight,
-                cornerRadius: AppTheme.Spacing.sm
+                height: columnHeight,
+                cornerRadius: AppTheme.Spacing.sm,
+                alignment: .bottom,
+                contentMode: .fill
             )
         )
         .mask(marineLifeFeatureImageFadeMask)

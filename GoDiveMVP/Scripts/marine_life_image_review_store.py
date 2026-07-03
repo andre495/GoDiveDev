@@ -79,6 +79,11 @@ def apply_deletion_mark(row: dict[str, str], *, mark_for_deletion: bool) -> None
     row["markForDeletion"] = "yes" if mark_for_deletion else ""
 
 
+def apply_species_image_approval(row: dict[str, str]) -> None:
+    """Clear the review flag when the curator accepts the current image."""
+    row["imageNeedsReview"] = ""
+
+
 def apply_species_image_update(
     row: dict[str, str],
     *,

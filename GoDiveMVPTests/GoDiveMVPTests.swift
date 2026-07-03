@@ -3244,6 +3244,51 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func fieldGuideSpeciesHeroPresentation_catalogPhotoSeamUnderlapLayout() {
+        #expect(FieldGuideSpeciesHeroPresentation.catalogPhotoSeamUnderlap == 36)
+        #expect(FieldGuideSpeciesHeroPresentation.catalogPhotoVerticalOffset == -206)
+        #expect(
+            FieldGuideSpeciesHeroPresentation.usesCatalogPhotoSeamUnderlapLayout(
+                heroMode: .media,
+                mediaSource: .catalogReference,
+                catalogHeroDisplay: .image,
+                isShowingTaggedMedia: false
+            )
+        )
+        #expect(
+            !FieldGuideSpeciesHeroPresentation.usesCatalogPhotoSeamUnderlapLayout(
+                heroMode: .media,
+                mediaSource: .catalogReference,
+                catalogHeroDisplay: .model3D,
+                isShowingTaggedMedia: false
+            )
+        )
+        #expect(
+            !FieldGuideSpeciesHeroPresentation.usesCatalogPhotoSeamUnderlapLayout(
+                heroMode: .map,
+                mediaSource: .catalogReference,
+                catalogHeroDisplay: .image,
+                isShowingTaggedMedia: false
+            )
+        )
+        let taggedVideo = DiveMediaPhoto(sortOrder: 0, mediaKind: .video)
+        #expect(
+            FieldGuideSpeciesHeroPresentation.isShowingTaggedMediaHero(
+                mediaSource: .taggedUserMedia,
+                heroTaggedMedia: taggedVideo,
+                taggedMediaItemsEmpty: false
+            )
+        )
+        #expect(
+            !FieldGuideSpeciesHeroPresentation.usesCatalogPhotoSeamUnderlapLayout(
+                heroMode: .media,
+                mediaSource: .taggedUserMedia,
+                catalogHeroDisplay: .image,
+                isShowingTaggedMedia: true
+            )
+        )
+    }
+
     @Test func fieldGuideMarineLifeHeroPresentation_catalogImageKind_ignoresModelName() {
         let kind = FieldGuideMarineLifeHeroPresentation.catalogImageKind(
             featureImageResourceName: "",
@@ -3277,6 +3322,14 @@ struct GoDiveMVPTests {
             transitionViewportFloor: transitionFloor
         )
         #expect(heroHeight > FieldGuideMarineLifeImageLayout.detailHeroBaseHeight)
+    }
+
+    @Test func fieldGuideMarineLifeImageLayout_detailHeroFitsWidthWithoutCropping() {
+        #expect(FieldGuideMarineLifeImageLayout.detailHeroBaseHeight == 280)
+        #expect(FieldGuideMarineLifeImageLayout.detailHeroDefaultContentMode == .fit)
+        let placement = FieldGuideMarineLifeCatalogImage.Placement.detailHero()
+        #expect(placement == .detailHero(alignment: .center, contentMode: .fit))
+        #expect(placement != .detailHero(alignment: .bottom, contentMode: .fill))
     }
 
     @Test func blueSheetDetailPageConfiguration_standardDefaults() {
@@ -4018,6 +4071,40 @@ struct GoDiveMVPTests {
         #expect(turtle?.commonName == "Green Sea Turtle")
         #expect(turtle?.scientificName == "Chelonia mydas")
         #expect(turtle?.featureModelResourceName == "GreenSeaTurtle")
+        #expect(turtle?.featureImageResourceName == "marine-life-green-sea-turtle")
+        #expect(!turtle!.featureImageURL.isEmpty)
+    }
+
+    @Test func fieldGuideMarineLifeBundledImagePresentation_greenSeaTurtlePhotoShipsInAppBundle() {
+        let url = FieldGuideMarineLifeBundledImagePresentation.bundledPhotoURL(
+            resourceName: "marine-life-green-sea-turtle"
+        )
+        #expect(url != nil)
+        let source = FieldGuideMarineLifeBundledImagePresentation.imageSource(
+            featureImageResourceName: "marine-life-green-sea-turtle",
+            featureImageURL: "https://reefguide.org/pix/greenturtle12.jpg"
+        )
+        guard case .bundledFile(let bundledURL) = source else {
+            Issue.record("Expected bundled green sea turtle photo")
+            return
+        }
+        #expect(bundledURL == url)
+    }
+
+    @Test func fieldGuideMarineLifeHeroPresentation_greenSeaTurtleCatalogHasImageAndModel() {
+        let availability = FieldGuideSpeciesHeroPresentation.catalogHeroAvailability(
+            featureModelResourceName: "GreenSeaTurtle",
+            featureImageResourceName: "marine-life-green-sea-turtle",
+            featureImageURL: "https://reefguide.org/pix/greenturtle12.jpg"
+        )
+        #expect(availability.hasModel3D)
+        #expect(availability.hasImage)
+        #expect(availability.supportsHeaderToggle)
+        #expect(
+            FieldGuideSpeciesHeroPresentation.defaultCatalogHeroDisplay(
+                availability: availability
+            ) == .image
+        )
     }
 
     @Test @MainActor func marineLifeCatalogSeeder_seedsSpottedEagleRayModel() throws {
@@ -4915,11 +5002,72 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func fieldGuideCatalogIndex_representativeSpecies_prefersPhotoInSubcategory() {
+        let samples = [
+            MarineLifeCatalogSnapshot(
+                uuid: "no-photo",
+                commonName: "Alpha Fish",
+                scientificName: "",
+                category: "fishes",
+                subcategory: "gobies",
+                featureImageURL: "",
+                minSizeMeters: 0,
+                maxSizeMeters: 0,
+                avgDepthMeters: 0
+            ),
+            MarineLifeCatalogSnapshot(
+                uuid: "with-photo",
+                commonName: "Beta Fish",
+                scientificName: "",
+                category: "fishes",
+                subcategory: "gobies",
+                featureImageURL: "https://example.com/beta.jpg",
+                minSizeMeters: 0,
+                maxSizeMeters: 0,
+                avgDepthMeters: 0
+            ),
+        ]
+        let index = FieldGuideCatalogIndex.subcategorySpeciesIndex(for: samples)
+        let representative = FieldGuideCatalogIndex.representativeSpecies(
+            categoryID: "fishes",
+            subcategoryID: "gobies",
+            speciesIndex: index
+        )
+        #expect(representative?.uuid == "with-photo")
+        #expect(FieldGuideCatalogIndex.speciesHasCatalogImage(samples[1]))
+        #expect(!FieldGuideCatalogIndex.speciesHasCatalogImage(samples[0]))
+    }
+
+    @Test func fieldGuideCatalogIndex_representativeSpecies_fallsBackToFirstSpeciesWithoutPhoto() {
+        let samples = [
+            MarineLifeCatalogSnapshot(
+                uuid: "only",
+                commonName: "Solo Fish",
+                scientificName: "",
+                category: "fishes",
+                subcategory: "blennies",
+                featureImageURL: "",
+                minSizeMeters: 0,
+                maxSizeMeters: 0,
+                avgDepthMeters: 0
+            ),
+        ]
+        let index = FieldGuideCatalogIndex.subcategorySpeciesIndex(for: samples)
+        #expect(
+            FieldGuideCatalogIndex.representativeSpecies(
+                categoryID: "fishes",
+                subcategoryID: "blennies",
+                speciesIndex: index
+            )?.uuid == "only"
+        )
+    }
+
     @Test func fieldGuideHubTileLayout_matchesLogbookActivityRowSpacing() {
         #expect(FieldGuideHubTileLayout.listRowSpacing == AppTheme.Spacing.sm)
         #expect(FieldGuideHubTileLayout.tilePadding == LogbookActivityRowLayout.cardPadding)
         #expect(FieldGuideHubTileLayout.tileCornerRadius == LogbookActivityRowLayout.cardCornerRadius)
-        #expect(FieldGuideHubTileLayout.tileHeight == HomeLifetimeStatsTilesLayout.statTileHeight)
+        #expect(FieldGuideHubTileLayout.tileHeight == 96)
+        #expect(FieldGuideHubTileLayout.subtitleTwoLineMinHeight > 0)
         #expect(FieldGuideHubTileLayout.hubTitleScrollFeather == 44)
         #expect(FieldGuideHubTileLayout.hubScrollScrimHeight(topChromeInset: 111) == 155)
         #expect(FieldGuideHubTileLayout.titleTwoLineMinHeight(isFeatured: false) > 0)
@@ -7885,12 +8033,11 @@ struct GoDiveMVPTests {
             FishialVideoScrubPresentation.formattedTimestamp(durationSeconds: 125, fraction: 0.5)
                 == "1:02"
         )
+        #expect(
+            FishialVideoScrubPresentation.formattedScrubTimestamp(durationSeconds: 125, fraction: 0.5)
+                == "1:02.5"
+        )
         #expect(FishialVideoScrubPresentation.formattedDuration(durationSeconds: 125) == "2:05")
-    }
-
-    @Test func fishialVideoScrubPresentation_usesPrecisePlaybackSeekWhenNotScrubbing() {
-        #expect(FishialVideoScrubPresentation.usesPrecisePlaybackSeek(isScrubbing: true) == false)
-        #expect(FishialVideoScrubPresentation.usesPrecisePlaybackSeek(isScrubbing: false) == true)
     }
 
     @Test func fishialImageCropPresentation_squareCropViewportSize_fitsContainer() {
@@ -7950,6 +8097,7 @@ struct GoDiveMVPTests {
 
     @Test func fishialMediaSelectionPresentation_usesPreviewForSelectionAndFullQualityForExport() {
         #expect(FishialMediaSelectionPresentation.photoPreviewMaxEdge == 1_024)
+        #expect(FishialMediaSelectionPresentation.videoScrubPreviewMaxEdge == 1_024)
         #expect(
             FishialMediaSelectionPresentation.photoExportMaxEdge
                 == DiveMediaFishialFrameExport.maxJPEGEdge
@@ -10969,6 +11117,21 @@ struct GoDiveMVPTests {
         #expect(DiveActivityMediaPresentation.overviewLibraryVideoQuality == .homeCarousel)
     }
 
+    @Test func fieldGuideNavigationPresentation_showsRootTabBarOnBrowsePages() {
+        #expect(
+            FieldGuideNavigationPresentation.showsRootTabBar(for: .hub)
+        )
+        #expect(
+            FieldGuideNavigationPresentation.showsRootTabBar(for: .categoryBrowse)
+        )
+        #expect(
+            FieldGuideNavigationPresentation.showsRootTabBar(for: .subcategoryBrowse)
+        )
+        #expect(
+            !FieldGuideNavigationPresentation.showsRootTabBar(for: .pushedDetail)
+        )
+    }
+
     @Test func rootStackReturnNavigationPresentation_tabBarRestoreAndLogbookSkip() {
         #expect(RootStackReturnNavigationPresentation.isStackAtRoot(pathCount: 0))
         #expect(!RootStackReturnNavigationPresentation.isStackAtRoot(pathCount: 1))
@@ -11657,8 +11820,14 @@ struct GoDiveMVPTests {
             HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorBottomInset(
                 overlayHeight: overlayHeight,
                 sheetSeamYFromTop: templateSeam
-            ) == overlayHeight - templateSeam
-                + HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorClearanceAboveSeam
+            ) == max(
+                overlayHeight
+                    - HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorTopInsetFromTop(
+                        sheetSeamYFromTop: templateSeam
+                    )
+                    - HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorDotSize,
+                HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorClearanceAboveSeam
+            )
         )
         #expect(
             HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesContentLeadingInset > 0
@@ -11695,9 +11864,12 @@ struct GoDiveMVPTests {
                 heroBandHeight: heroBand,
                 topSafeAreaInset: topSafe,
                 panelOverlap: HomeOverviewLayout.panelOverlap
-            ) == HomeOverviewLayout.panelOverlap
-                - seamOffset
-                + HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorClearanceAboveSeam
+            ) == max(
+                overlayHeight
+                    - pageIndicatorTopInset
+                    - HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorDotSize,
+                HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorClearanceAboveSeam
+            )
         )
         #expect(
             HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesBottomMargin(
@@ -11960,23 +12132,53 @@ struct GoDiveMVPTests {
                 panelOverlap: panelOverlap
             )
         )
+        let heroBandBottomY = HomeMediaCarouselPresentation.marineLifeCarouselOverlayHeroBandBottomYFromTop(
+            heroBandHeight: heroBandHeight,
+            topSafeAreaInset: topSafeAreaInset
+        )
+        let pageIndicatorColumnHeight = HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageColumnHeight(
+            closeTopInset: closeInset,
+            pageIndicatorTopInset: pageIndicatorTopInset,
+            speciesRowHeight: speciesRowHeight
+        )
         #expect(
-            HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageColumnHeight(
-                closeTopInset: closeInset,
-                pageIndicatorTopInset: pageIndicatorTopInset,
-                speciesRowHeight: speciesRowHeight
-            )
+            pageIndicatorColumnHeight
                 == pageIndicatorTopInset - closeInset
                     - HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesToPageIndicatorSpacing
                     - HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageColumnBottomLift
         )
+        #expect(
+            HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageColumnHeight(
+                closeTopInset: closeInset,
+                pageIndicatorTopInset: pageIndicatorTopInset,
+                heroBandBottomYFromTop: heroBandBottomY,
+                speciesRowHeight: speciesRowHeight
+            )
+                == heroBandBottomY - closeInset
+                    - HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageColumnBottomLift
+        )
+        #expect(HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageColumnBottomLift == 126)
+        #expect(HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageColumnTopCrop == 103)
+        #expect(HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageColumnVerticalOffset == -83)
+        #expect(HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesNameTopOffsetFromFeatureImageTop == 21)
+        let settledColumnLayout = HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageColumnLayout(
+            closeTopInset: closeInset,
+            featureImageColumnHeight: 200
+        )
+        #expect(settledColumnLayout.topInset == closeInset + 103)
+        #expect(settledColumnLayout.height == 97)
         #expect(
             HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorBottomInset(
                 overlayHeight: previewHeight,
                 heroBandHeight: heroBandHeight,
                 topSafeAreaInset: topSafeAreaInset,
                 panelOverlap: panelOverlap
-            ) > panelOverlap
+            ) == max(
+                previewHeight
+                    - pageIndicatorTopInset
+                    - HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorDotSize,
+                HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorClearanceAboveSeam
+            )
         )
     }
 
@@ -16967,6 +17169,8 @@ struct GoDiveMVPTests {
         #expect(CollapsibleInlineTitleHeaderPresentation.chromeBandHeight == 68)
         #expect(CollapsibleInlineTitleHeaderPresentation.listScrollFadeFeatherHeight == 128)
         #expect(CollapsibleInlineTitleHeaderPresentation.sideControlWidth == 44)
+        #expect(CollapsibleInlineTitleHeaderPresentation.minimumTitleScaleFactor == 0.5)
+        #expect(CollapsibleInlineTitleHeaderPresentation.browseTitleMinimumScaleFactor == 0.45)
         #expect(CollapsibleInlineTitleHeaderPresentation.topObstructionHeight(safeAreaTop: 59) == 127)
         #expect(CollapsibleInlineTitleHeaderPresentation.scrimBandHeight(safeAreaTop: 59) == 255)
     }
@@ -16976,6 +17180,22 @@ struct GoDiveMVPTests {
         #expect(LogbookCollapsibleHeaderPresentation.titleAccessibilityIdentifier == "Logbook.Title")
         #expect(FieldGuideHubPresentation.tabTitle == "Field Guide")
         #expect(FieldGuideHubPresentation.titleAccessibilityIdentifier == "FieldGuide.Hub.Title")
+        #expect(
+            FieldGuideCategoryPresentation.browseTitleAccessibilityIdentifier(categoryID: "fishes")
+                == "FieldGuide.Category.fishes.Title"
+        )
+        #expect(
+            FieldGuideSubcategoryPresentation.browseTitleAccessibilityIdentifier(
+                categoryID: "fishes",
+                subcategoryID: "angelfishes"
+            ) == "FieldGuide.Category.fishes.Subcategory.angelfishes.Title"
+        )
+        #expect(
+            FieldGuideSubcategoryPresentation.browseTitleAccessibilityIdentifier(
+                categoryID: "fishes",
+                subcategoryID: ""
+            ) == "FieldGuide.Category.fishes.Subcategory.all.Title"
+        )
     }
 
     @Test func headerChromeIconForeground_isWhite() {

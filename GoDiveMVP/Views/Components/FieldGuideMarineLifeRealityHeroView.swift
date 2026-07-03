@@ -60,13 +60,11 @@ private final class FieldGuideMarineLifeHeroInteractionState {
 /// Interactive RealityKit hero for Field Guide species with a bundled USDZ model.
 struct FieldGuideMarineLifeRealityHeroView: View {
     let configuration: FieldGuideMarineLifeHeroSceneConfiguration
-    let height: CGFloat
 
     @State private var interactionState: FieldGuideMarineLifeHeroInteractionState
 
-    init(configuration: FieldGuideMarineLifeHeroSceneConfiguration, height: CGFloat) {
+    init(configuration: FieldGuideMarineLifeHeroSceneConfiguration) {
         self.configuration = configuration
-        self.height = height
         _interactionState = State(
             initialValue: FieldGuideMarineLifeHeroInteractionState(
                 initialYawRadians: configuration.initialYawRadians,
@@ -88,8 +86,7 @@ struct FieldGuideMarineLifeRealityHeroView: View {
                     .highPriorityGesture(dragGesture)
             }
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: height)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
         .accessibilityLabel("3D model")
         .accessibilityHint(

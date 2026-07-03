@@ -1667,3 +1667,74 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Home fish overlay debug cleanup** — removed layout-tuning guides (**PANEL TOP**, **DOTS**, **CLOSE**), drag overrides, and **`HomeMarineLifeOverlayVisibleKey`**.
 
 ## 99 - Next batch
+
+**Summary:** Marine life image review UI — Tinder-style one-at-a-time flow with accept vs edit.
+
+- **`marine_life_image_review.html`** — card stack UI: one species, large 4:3 photo, **Accept** (green check) or **Edit** (paste URL → save + bundle). Swipe right/left; keyboard **A**/**→** and **E**/**←**. Default queue **Needs review**.
+- **`serve_marine_life_image_review.py`** — **`POST /api/species/{uuid}/approve`** clears **`imageNeedsReview`** without changing the URL.
+- **`marine_life_image_review_store.py`** — **`apply_species_image_approval`**.
+- **`MARINE_LIFE_CARIBBEAN_WORKFLOW.md`** — updated review UI docs.
+- Tests: **`test_apply_species_image_approval_clears_review_flag`**.
+
+**Summary:** reefguide.org image fetch script for Caribbean staging (permission required before ship).
+
+- **`reefguide_image_utils.py`** — parse reefguide scientific-name index + species galleries; resolve full JPEG URLs.
+- **`fetch_marine_life_images_reefguide.py`** — stage URLs on **`marine_life_caribbean_staging.csv`** with **`imageNeedsReview=yes`**; optional **`--bundle`**.
+- **`MARINE_LIFE_CARIBBEAN_WORKFLOW.md`** — reefguide fetch section + licensing note.
+- Tests: **`test_reefguide_image_utils.py`**.
+
+**Summary:** Fix reefguide bundle downloads — URLs were correct; Pillow arch + clearer errors.
+
+- **`reefguide_image_utils.py`** — derive direct **`/pix/{file}.jpg`** URLs from gallery thumbs (cache v2); **`--only-reefguide`** refresh flag on fetch script.
+- **`marine_life_bundle_image_utils.py`** — reefguide **Referer** header; stop aliasing **`UnidentifiedImageError`** to **`Exception`** (misleading “not an image file” when Pillow missing).
+- Re-ran **`fetch_marine_life_images_reefguide.py --only-reefguide`** + **`download_marine_life_images.py`** for 496 reefguide rows.
+
+**Summary:** WoRMS photogallery fetch for species still missing hero images.
+
+- **`worms_image_utils.py`** — AphiaID lookup, taxon gallery parse, direct **`images.marinespecies.org`** JPEG URLs + license metadata.
+- **`fetch_marine_life_images_worms.py`** — stage gaps on **`marine_life_caribbean_staging.csv`**; default includes NC gallery photos flagged for review; **`--shippable-only`** for CC0/CC BY only.
+- **`MARINE_LIFE_CARIBBEAN_WORKFLOW.md`** — WoRMS fetch section.
+- Tests: **`test_worms_image_utils.py`**.
+
+**Summary:** Marine life header media fill — Home fish overlay + Field Guide species hero.
+
+- **`FieldGuideMarineLifeCatalogImage`** — **`.detailHero`** fills **`BlueSheetDetailHeroBandFill`**; single-layer placeholder (no fish icon bleeding through letterbox); bundled JPEG load falls back to **`Data`** when **`UIImage(contentsOfFile:)`** fails.
+- **`FieldGuideSpeciesDetailHeroBand`** / **`FieldGuideMarineLifeRealityHeroView`** — catalog + 3D heroes expand to the pushed hero band slot.
+- **Home fish overlay** — feature column spans to hero band floor; **aspect-fill** in the tall narrow column (fit was a tiny bottom strip that looked like “no image”).
+- Tests: **`fieldGuideMarineLifeImageLayout_detailHeroFillsHeroBandSlot`**, updated overlay column-height expectations.
+
+**Summary:** Field Guide category + subcategory browse — collapsible inline titles.
+
+- **`FieldGuideBrowseCollapsibleHeader`** + **`FieldGuideCatalogBrowseListPage`** — category/subcategory pages use **`CollapsibleInlineTitleHeader`** (back + **+**, scroll compaction, list scrim) like Logbook hub and Profile library lists.
+- **`FieldGuideCategoryDetailCopy`** / **`FieldGuideSubcategoryDetailCopy`** — description/hint only; title moves to chrome.
+- **`CollapsibleInlineTitleHeader`** — shared title shrink-to-fit (**`minimumTitleScaleFactor`**); Field Guide browse uses tighter **`browseTitleMinimumScaleFactor`** when back + **+** flank the title.
+- **`FieldGuideNavigationPresentation`** — root tab bar stays visible on category + subcategory browse; still hides on species / dive / site detail pushes.
+- **`FieldGuideMarineLifeCatalogImage`** — species detail **`.detailHero`** defaults to width-fit (**`.fit`**) on **`screenBackgroundGradient`** (no center crop); mosaic tiles still use **4:3** fill.
+- **Species detail catalog photo** — bottom-aligned with **36 pt** underlap under the blue-sheet seam (**`catalogPhotoSeamUnderlap`**); 3D / tagged video / map heroes unchanged.
+- Tests: **`logbookAndFieldGuideCollapsibleHeaderTitles`** browse title accessibility IDs; **`fieldGuideMarineLifeImageLayout_detailHeroFitsWidthWithoutCropping`**.
+
+**Summary:** Home fish overlay — shorter feature image column.
+
+- **`marineLifeCarouselOverlayFeatureImageColumnBottomLift`** **126 pt** — raises the feature image bottom edge only; close, text, and page dots unchanged.
+
+**Summary:** Field Guide subcategory tiles — species photo thumbnails.
+
+- **`FieldGuideCatalogIndex.representativeSpecies`** — picks the first alphabetical species in a subcategory (or whole category for **All species**) that has a bundled/remote photo.
+- **`FieldGuideSubcategoryRowThumbnail`** — **44×44** catalog crop on subcategory list rows; taxonomy SF Symbol placeholder when no photo exists.
+- Tests: **`fieldGuideCatalogIndex_representativeSpecies_*`**.
+
+**Summary:** Field Guide hub category tiles — two-line subtitle block.
+
+- **`FieldGuideHubTileLayout.subtitleTwoLineMinHeight`** — hub tile taglines use **`.lineLimit(2)`** in a fixed two-line **`.caption`** frame (blank second line when copy is short); **`tileHeight`** **96 pt** to fit the taller text stack.
+
+**Summary:** Fishial video scrub — frame-accurate preview.
+
+- **`FishialVideoScrubPlayerView`** — scrub preview uses **`AVAssetImageGenerator`** with zero seek tolerance (replaces keyframe-snapped **`AVPlayer`** seeks that jumped ~1 s); timestamp shows tenths (**`formattedScrubTimestamp`**).
+- Tests: **`formattedScrubTimestamp`**, **`videoScrubPreviewMaxEdge`**.
+
+**Summary:** Home fish overlay + species catalog hero — device-tuned layout settled.
+
+- **Home fish overlay** — **`marineLifeCarouselOverlayFeatureImageColumnTopCrop`** **103**; **`marineLifeCarouselOverlayFeatureImageColumnVerticalOffset`** **−83**; **`marineLifeCarouselOverlaySpeciesNameTopOffsetFromFeatureImageTop`** **21** (was **56**).
+- **Field Guide species catalog hero** — **`catalogPhotoVerticalOffset`** **−206**.
+- **Layout debug removed** — deleted temporary drag handles, HUD, and debug types after baking device-tuned tokens.
+- Tests updated for settled tokens + column layout helper.

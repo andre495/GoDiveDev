@@ -39,6 +39,7 @@ from marine_life_bundle_image_utils import (
 )
 from marine_life_image_review_store import (
     apply_deletion_mark,
+    apply_species_image_approval,
     apply_species_image_update,
     filter_species_records,
     find_row,
@@ -116,6 +117,15 @@ class ReviewServerState:
         write_staging_csv(self.staging_path, self.rows)
         return species_review_record(row, photos_dir=self.photos_dir)
 
+    def approve_species(self, uuid: str) -> dict[str, Any]:
+        row = find_row(self.rows, uuid)
+        if row is None:
+            raise KeyError(f"Unknown species uuid: {uuid}")
+
+        apply_species_image_approval(row)
+        write_staging_csv(self.staging_path, self.rows)
+        return species_review_record(row, photos_dir=self.photos_dir)
+
     def _download_bundle_for_row(self, row: dict[str, str], source_url: str) -> None:
         uuid = (row.get("uuid") or "").strip()
         jpeg_bytes, digest = download_and_process_species_photo(source_url)
@@ -184,6 +194,8 @@ def make_handler(state: ReviewServerState):
                         uuid,
                         mark_for_deletion=bool(body.get("markForDeletion")),
                     )
+                elif action == "approve":
+                    record = self.server_state.approve_species(uuid)
                 else:
                     download_bundle = bool(body.get("downloadBundle"))
                     record = self.server_state.update_species(uuid, body, download_bundle=download_bundle)

@@ -31,12 +31,27 @@ struct FieldGuideView: View {
     @State private var subcategorySpeciesIndex: FieldGuideCatalogIndex.SubcategorySpeciesIndex = [:]
     @State private var showsAddSpeciesSheet = false
 
-    private var isNavigatingCatalog: Bool {
-        !path.isEmpty
+    private var showsFieldGuideRootTabBar: Bool {
+        FieldGuideNavigationPresentation.showsRootTabBar(
+            for: fieldGuideTabBarVisibilityContext
+        )
     }
 
-    private var isFieldGuideNavigationStackAtRoot: Bool {
-        RootStackReturnNavigationPresentation.isStackAtRoot(pathCount: path.count)
+    private var fieldGuideTabBarVisibilityContext: FieldGuideNavigationPresentation.TabBarVisibilityContext {
+        switch path.last {
+        case nil:
+            return .hub
+        case .category:
+            return .categoryBrowse
+        case .subcategory:
+            return .subcategoryBrowse
+        case .speciesDetail, .diveDetail, .diveSite:
+            return .pushedDetail
+        }
+    }
+
+    private var isNavigatingCatalog: Bool {
+        !path.isEmpty
     }
 
     private var resolvedCatalogSnapshots: [MarineLifeCatalogSnapshot] {
@@ -117,7 +132,7 @@ struct FieldGuideView: View {
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
-            .restoresRootTabBarWhenStackIsEmpty(isFieldGuideNavigationStackAtRoot)
+            .restoresRootTabBarWhenStackIsEmpty(showsFieldGuideRootTabBar)
             .animation(nil, value: path.count)
             .navigationDestination(for: FieldGuideRoute.self) { route in
                 switch route {
@@ -126,6 +141,7 @@ struct FieldGuideView: View {
                         categoryID: summary.categoryID,
                         summary: summary,
                         catalogSnapshots: resolvedCatalogSnapshots,
+                        subcategorySpeciesIndex: resolvedSubcategorySpeciesIndex,
                         unitSystem: diveDisplayUnitSystem,
                         onSelectSubcategory: { subcategoryID in
                             let payload = FieldGuideCatalogIndex.browsePayload(

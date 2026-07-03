@@ -6,6 +6,7 @@ struct CollapsibleInlineTitleHeader<Leading: View, Trailing: View>: View {
     let isCollapsed: Bool
     let statusBarSafeAreaTop: CGFloat
     var titleAccessibilityIdentifier: String?
+    var minimumTitleScaleFactor: CGFloat = CollapsibleInlineTitleHeaderPresentation.minimumTitleScaleFactor
     @ViewBuilder let leading: () -> Leading
     @ViewBuilder let trailing: () -> Trailing
 
@@ -23,10 +24,11 @@ struct CollapsibleInlineTitleHeader<Leading: View, Trailing: View>: View {
                     .fontWeight(.bold)
                     .foregroundStyle(.white)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+                    .minimumScaleFactor(minimumTitleScaleFactor)
                     .allowsTightening(true)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
+                    .layoutPriority(-1)
                     .accessibilityIdentifier(titleAccessibilityIdentifier ?? title)
 
                 trailing()

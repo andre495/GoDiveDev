@@ -1,61 +1,6 @@
 import SwiftUI
 
-/// Back chevron + add species on category / subcategory browse list pages.
-struct FieldGuideBrowseToolbarChrome: View {
-    let safeTop: CGFloat
-    let topInset: CGFloat
-    let onAddSpecies: () -> Void
-
-    var body: some View {
-        FieldGuideBlueSheetTopChromeLayer(safeTop: safeTop, topInset: topInset) {
-            GlassEffectContainer {
-                HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
-                    SecondaryDestinationBackButton()
-                    Spacer(minLength: 0)
-                    FieldGuideMarineLifeAddToolbarButton(action: onAddSpecies)
-                }
-                .appGlassChromeControlRowHeight()
-                .appHeaderChromeIconForeground()
-            }
-            .padding(.horizontal, AppTheme.Spacing.lg)
-            .appTopChromeVerticalPadding()
-            .fixedSize(horizontal: false, vertical: true)
-            .background(alignment: .top) {
-                if safeTop > 0.5 {
-                    AppStatusBarEdgeScrim(safeAreaTop: safeTop)
-                        .ignoresSafeArea(edges: .top)
-                }
-            }
-            .background {
-                GeometryReader { proxy in
-                    Color.clear.preference(key: AppHeaderMetrics.HeightKey.self, value: proxy.size.height)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .top)
-            .zIndex(1)
-        }
-    }
-}
-
-private struct FieldGuideBlueSheetTopChromeLayer<Content: View>: View {
-    let safeTop: CGFloat
-    let topInset: CGFloat
-    @ViewBuilder let content: () -> Content
-
-    var body: some View {
-        ZStack(alignment: .top) {
-            LogbookTopChromeScrim(topObstructionHeight: topInset)
-                .padding(.top, -safeTop)
-                .ignoresSafeArea(edges: .top)
-                .allowsHitTesting(false)
-                .zIndex(0.5)
-
-            content()
-        }
-    }
-}
-
-/// List-page chrome for Field Guide category / subcategory browse (logbook-style scroll under back + search).
+/// List-page chrome for Field Guide category / subcategory browse (logbook-style scroll under collapsible title).
 enum FieldGuideCatalogBrowseListPresentation {
     nonisolated static let listRowSpacing: CGFloat = FieldGuideHubTileLayout.listRowSpacing
     nonisolated static let listBottomPadding: CGFloat = 16
@@ -163,8 +108,10 @@ struct FieldGuideSpeciesSearchResultsRows: View {
     }
 }
 
-/// Field Guide category / subcategory browse — logbook-style list under back + toolbar chrome.
+/// Field Guide category / subcategory browse — logbook-style list under collapsible title chrome.
 struct FieldGuideCatalogBrowseListPage<Summary: View, ListRows: View>: View {
+    let title: String
+    let titleAccessibilityIdentifier: String
     let accessibilityRootIdentifier: String
     let listAccessibilityIdentifier: String?
     let onAddSpecies: () -> Void
@@ -172,12 +119,14 @@ struct FieldGuideCatalogBrowseListPage<Summary: View, ListRows: View>: View {
     @ViewBuilder let listRows: () -> ListRows
 
     @State private var headerClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
+    @State private var isHeaderCollapsed = false
 
     var body: some View {
         AppHeaderlessPage {
             GeometryReader { proxy in
+                let safeTop = AppScrollUnderHeaderListLayout.resolvedSafeAreaTop(proxy.safeAreaInsets.top)
                 let listTopInset = AppScrollUnderHeaderListLayout.listTopInset(
-                    safeAreaTop: proxy.safeAreaInsets.top,
+                    safeAreaTop: safeTop,
                     headerClearance: headerClearance
                 )
                 let listBottomInset = AppScrollUnderHeaderListLayout.listBottomInset(
@@ -217,13 +166,39 @@ struct FieldGuideCatalogBrowseListPage<Summary: View, ListRows: View>: View {
                     .background(Color.clear)
                     .scrollDismissesKeyboard(.interactively)
                     .ignoresSafeArea(edges: [.top, .bottom])
+                    .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                        geometry.contentOffset.y + geometry.contentInsets.top
+                    } action: { offset, _ in
+                        isHeaderCollapsed = CollapsibleInlineTitleHeaderPresentation
+                            .isCollapsed(forScrollOffset: offset)
+                    }
                     .accessibilityIdentifier(listAccessibilityIdentifier ?? accessibilityRootIdentifier)
 
-                    FieldGuideBrowseToolbarChrome(
-                        safeTop: proxy.safeAreaInsets.top,
-                        topInset: listTopInset,
+                    LogbookTopChromeScrim(
+                        topObstructionHeight: listTopInset,
+                        featherHeight: CollapsibleInlineTitleHeaderPresentation.listScrollFadeFeatherHeight
+                    )
+                    .padding(.top, -safeTop)
+                    .ignoresSafeArea(edges: .top)
+                    .allowsHitTesting(false)
+                    .zIndex(0.5)
+
+                    Color.clear
+                        .frame(height: listTopInset)
+                        .frame(maxWidth: .infinity, alignment: .top)
+                        .contentShape(Rectangle())
+                        .accessibilityHidden(true)
+                        .zIndex(0.75)
+
+                    FieldGuideBrowseCollapsibleHeader(
+                        title: title,
+                        isCollapsed: isHeaderCollapsed,
+                        statusBarSafeAreaTop: safeTop,
+                        titleAccessibilityIdentifier: titleAccessibilityIdentifier,
                         onAddSpecies: onAddSpecies
                     )
+                    .frame(maxWidth: .infinity, alignment: .top)
+                    .zIndex(1)
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height)
                 .ignoresSafeArea(.keyboard, edges: .bottom)
@@ -234,7 +209,6 @@ struct FieldGuideCatalogBrowseListPage<Summary: View, ListRows: View>: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
-        .hidesBottomTabBarWhenPushed()
         .accessibilityIdentifier(accessibilityRootIdentifier)
     }
 

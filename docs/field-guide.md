@@ -2,14 +2,14 @@
 
 The **Field Guide** tab is a browsable marine life catalog bundled with GoDive. Use it to learn about species and to tag what you saw on dives.
 
-The hub shows **Field Guide** in large white type at the top. Scroll down and the title compacts; scroll back up and it expands again — same pattern as **Activity Log** in Logbook.
+The hub and every browse level (**category detail**, **subcategory mosaic**) show the screen name in large white type at the top. Scroll down and the title compacts; scroll back up and it expands again — same pattern as **Activity Log** in Logbook.
 
 ## Browse the catalog
 
 1. **Category hub** — top-level groups (e.g. fish families) as full-width tiles with artwork  
-2. **Category detail** — subcategories within a category  
-3. **Subcategory mosaic** — species grid with photos  
-4. **Species detail** — photos, 3D model (when available), range, size, and your tagged dives  
+2. **Category detail** — subcategories within a category (main tab bar stays visible); each subcategory row shows a photo from a species in that group when available  
+3. **Subcategory mosaic** — species grid with photos (main tab bar stays visible)  
+4. **Species detail** — header photo fits the full width (no crop) on the app’s blue gradient; optional 3D model, range, size, and your tagged dives (tab bar hidden)  
 
 To find a species by name, use the **Search** tab and tap **Marine life** (or type in the search field). Search filters the **full catalog**, so you can find a species without drilling down the browse hierarchy first.
 

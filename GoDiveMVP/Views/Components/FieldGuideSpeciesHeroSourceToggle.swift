@@ -77,9 +77,9 @@ struct FieldGuideSpeciesHeroSourceToggle: View {
                     for: FieldGuideMarineLifeHeroPresentation.sceneConfiguration(
                         forModelResourceName: featureModelResourceName
                     )
-                ),
-                height: diameter
+                )
             )
+            .frame(height: diameter)
             .allowsHitTesting(false)
         case .image:
             FieldGuideMarineLifeCatalogImage(

@@ -8,6 +8,7 @@ from fishbase_catalog_utils import staging_row_marked_for_deletion
 
 from marine_life_image_review_store import (
     apply_deletion_mark,
+    apply_species_image_approval,
     apply_species_image_update,
     filter_species_records,
     species_review_record,
@@ -65,6 +66,11 @@ class MarineLifeImageReviewStoreTests(unittest.TestCase):
         ]
         filtered = filter_species_records(records, filter_key="marked-for-deletion")
         self.assertEqual([item["uuid"] for item in filtered], ["a"])
+
+    def test_apply_species_image_approval_clears_review_flag(self) -> None:
+        row = {"imageNeedsReview": "yes"}
+        apply_species_image_approval(row)
+        self.assertEqual(row["imageNeedsReview"], "")
 
     def test_filter_species_records_supports_needs_review(self) -> None:
         records = [

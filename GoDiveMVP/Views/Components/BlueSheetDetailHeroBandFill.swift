@@ -5,14 +5,27 @@ import SwiftUI
 /// Height and top safe-area bleed come from **`PushedHeroBand`** / **`BlueSheetHeaderPageLayout`** only.
 struct BlueSheetDetailHeroBandFill<Content: View>: View {
     var accessibilityIdentifier: String?
+    var clipsContent: Bool = true
     @ViewBuilder var content: () -> Content
 
     var body: some View {
         content()
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .clipped()
+            .modifier(BlueSheetDetailHeroBandClipModifier(enabled: clipsContent))
             .accessibilityElement(children: .contain)
             .optionalHeroBandAccessibilityIdentifier(accessibilityIdentifier)
+    }
+}
+
+private struct BlueSheetDetailHeroBandClipModifier: ViewModifier {
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.clipped()
+        } else {
+            content
+        }
     }
 }
 

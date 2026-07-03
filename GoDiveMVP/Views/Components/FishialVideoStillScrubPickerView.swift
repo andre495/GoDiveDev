@@ -9,15 +9,12 @@ struct FishialVideoStillScrubPickerView: View {
     let context: FishialVideoScrubContext
     @Binding var scrubFraction: Double
 
-    @State private var isScrubbing = false
-
     var body: some View {
         ZStack(alignment: .bottom) {
             FishialVideoScrubPlayerView(
                 avAsset: context.avAsset,
                 durationSeconds: context.durationSeconds,
-                scrubFraction: scrubFraction,
-                isScrubbing: isScrubbing
+                scrubFraction: scrubFraction
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .accessibilityIdentifier("DiveMediaFishialIdentify.ScrubPreview")
@@ -44,15 +41,13 @@ struct FishialVideoStillScrubPickerView: View {
                 EmptyView()
             } maximumValueLabel: {
                 EmptyView()
-            } onEditingChanged: { editing in
-                isScrubbing = editing
             }
             .tint(AppTheme.Colors.accent)
             .accessibilityIdentifier("DiveMediaFishialIdentify.ScrubSlider")
 
             HStack {
                 Text(
-                    FishialVideoScrubPresentation.formattedTimestamp(
+                    FishialVideoScrubPresentation.formattedScrubTimestamp(
                         durationSeconds: context.durationSeconds,
                         fraction: scrubFraction
                     )

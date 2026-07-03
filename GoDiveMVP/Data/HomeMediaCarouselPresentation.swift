@@ -195,19 +195,30 @@ enum HomeMediaCarouselPresentation: Sendable {
         return marineLifeCarouselOverlaySpeciesRowHeight
     }
 
-    /// Faded feature column spans from the header-aligned top down toward page dots.
+    /// Faded feature column spans from the header-aligned top down to the hero band floor.
     nonisolated static func marineLifeCarouselOverlayFeatureImageColumnHeight(
         closeTopInset: CGFloat,
         pageIndicatorTopInset: CGFloat,
+        heroBandBottomYFromTop: CGFloat? = nil,
         speciesRowHeight: CGFloat = marineLifeCarouselOverlaySpeciesRowHeight
     ) -> CGFloat {
-        max(
+        let pageIndicatorColumnHeight = max(
             pageIndicatorTopInset
                 - closeTopInset
                 - marineLifeCarouselOverlaySpeciesToPageIndicatorSpacing
                 - marineLifeCarouselOverlayFeatureImageColumnBottomLift,
             speciesRowHeight
         )
+        guard let heroBandBottomYFromTop else {
+            return pageIndicatorColumnHeight
+        }
+        let heroBandColumnHeight = max(
+            heroBandBottomYFromTop
+                - closeTopInset
+                - marineLifeCarouselOverlayFeatureImageColumnBottomLift,
+            speciesRowHeight
+        )
+        return max(pageIndicatorColumnHeight, heroBandColumnHeight)
     }
 
     /// Backward-compatible overload — prefer **`pageIndicatorTopInset`** at call sites.
@@ -229,7 +240,7 @@ enum HomeMediaCarouselPresentation: Sendable {
     nonisolated static let marineLifeCarouselOverlaySpeciesVerticalBias: CGFloat = 0.68
 
     /// Drops the species common name below the feature image top.
-    nonisolated static let marineLifeCarouselOverlaySpeciesNameTopOffsetFromFeatureImageTop: CGFloat = 56
+    nonisolated static let marineLifeCarouselOverlaySpeciesNameTopOffsetFromFeatureImageTop: CGFloat = 21
 
     /// Legacy alias — prefer **`marineLifeCarouselOverlaySpeciesNameTopOffsetFromFeatureImageTop`**.
     nonisolated static let marineLifeCarouselOverlaySpeciesContentDownshift: CGFloat = marineLifeCarouselOverlaySpeciesNameTopOffsetFromFeatureImageTop
@@ -246,7 +257,29 @@ enum HomeMediaCarouselPresentation: Sendable {
     nonisolated static let marineLifeCarouselOverlaySpeciesToPageIndicatorSpacing: CGFloat = 12
 
     /// Tuned on device — positive shortens the feature column (lifts the image bottom).
-    nonisolated static let marineLifeCarouselOverlayFeatureImageColumnBottomLift: CGFloat = 24
+    /// Raises the feature column bottom edge without moving text, close, or page dots.
+    nonisolated static let marineLifeCarouselOverlayFeatureImageColumnBottomLift: CGFloat = 126
+
+    /// Tuned on device — positive pushes the feature column top down (bottom stays anchored).
+    nonisolated static let marineLifeCarouselOverlayFeatureImageColumnTopCrop: CGFloat = 103
+
+    /// Tuned on device — vertical nudge for the whole feature column after top crop.
+    nonisolated static let marineLifeCarouselOverlayFeatureImageColumnVerticalOffset: CGFloat = -83
+
+    /// Positive crop pushes the container top down and keeps the bottom anchored.
+    nonisolated static func marineLifeCarouselOverlayFeatureImageColumnLayout(
+        closeTopInset: CGFloat,
+        featureImageColumnHeight: CGFloat,
+        topCrop: CGFloat = marineLifeCarouselOverlayFeatureImageColumnTopCrop
+    ) -> (topInset: CGFloat, height: CGFloat) {
+        let minimumHeight = marineLifeCarouselOverlaySpeciesRowHeight
+        let maxCropDown = max(0, featureImageColumnHeight - minimumHeight)
+        let clampedTopCrop = min(max(topCrop, -closeTopInset), maxCropDown)
+        return (
+            topInset: closeTopInset + clampedTopCrop,
+            height: max(minimumHeight, featureImageColumnHeight - clampedTopCrop)
+        )
+    }
 
     /// Hero band floor inside the carousel overlay — matches **`PushedHeroBand`** bottom / **`BlueSheetHeaderPageLayout`** hero slot.
     nonisolated static func marineLifeCarouselOverlayHeroBandBottomYFromTop(

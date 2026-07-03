@@ -42,16 +42,14 @@ struct DiveActivityMediaTaggedSpeciesDetailContent: View {
             featureImageURL: species.featureImageURL
         ) {
         case .model3D(let configuration):
-            FieldGuideMarineLifeRealityHeroView(
-                configuration: configuration,
-                height: heroHeight
-            )
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Spacing.md, style: .continuous))
+            FieldGuideMarineLifeRealityHeroView(configuration: configuration)
+                .frame(height: heroHeight)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Spacing.md, style: .continuous))
         case .bundledPhoto, .remoteImage:
             FieldGuideMarineLifeCatalogImage(
                 imageURLString: species.featureImageURL,
                 bundleResourceName: species.featureImageResourceName,
-                placement: .mediaSheetHero(height: heroHeight)
+                placement: .mediaSheetHero(height: heroHeight, contentMode: .fit)
             )
         case .placeholder:
             speciesHeroPlaceholder

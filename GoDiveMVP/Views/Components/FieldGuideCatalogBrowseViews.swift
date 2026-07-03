@@ -139,8 +139,12 @@ private struct FieldGuideCategoryHubTile: View {
                     Text(definition.subtitle)
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.88))
-                        .lineLimit(1)
                         .multilineTextAlignment(.leading)
+                        .lineLimit(2)
+                        .frame(
+                            height: FieldGuideHubTileLayout.subtitleTwoLineMinHeight,
+                            alignment: .topLeading
+                        )
 
                     speciesBadge
                 }
@@ -191,13 +195,24 @@ private struct FieldGuideCategoryHubTile: View {
 /// Hub tile layout — full-width list rows aligned with **`LogbookActivityRowLayout`** spacing.
 enum FieldGuideHubTileLayout: Sendable {
     nonisolated static let listRowSpacing: CGFloat = AppTheme.Spacing.sm
-    nonisolated static let tileHeight: CGFloat = HomeLifetimeStatsTilesLayout.statTileHeight
+    /// Taller than Home stat tiles to fit a fixed two-line subtitle block.
+    nonisolated static let tileHeight: CGFloat = 96
     nonisolated static let tilePadding: CGFloat = LogbookActivityRowLayout.cardPadding
     nonisolated static let tileCornerRadius: CGFloat = LogbookActivityRowLayout.cardCornerRadius
     nonisolated static let hubTitleScrollFeather: CGFloat = 44
 
     nonisolated static func hubScrollScrimHeight(topChromeInset: CGFloat) -> CGFloat {
         topChromeInset + hubTitleScrollFeather
+    }
+
+    /// Fixed two-line **`.caption`** block for hub tile subtitles (blank second line when copy is short).
+    nonisolated static var subtitleTwoLineMinHeight: CGFloat {
+        #if canImport(UIKit)
+        let font = UIFont.preferredFont(forTextStyle: .caption1)
+        return ceil(font.lineHeight) * 2
+        #else
+        return 32
+        #endif
     }
 
     nonisolated static func titleTwoLineMinHeight(isFeatured: Bool) -> CGFloat {
@@ -220,6 +235,7 @@ struct FieldGuideCategoryDetailView: View {
     let categoryID: String
     let summary: FieldGuideCatalogIndex.CategorySummary
     let catalogSnapshots: [MarineLifeCatalogSnapshot]
+    let subcategorySpeciesIndex: FieldGuideCatalogIndex.SubcategorySpeciesIndex
     let unitSystem: DiveDisplayUnitSystem
     let onSelectSubcategory: (String) -> Void
     let onSelectSpecies: (String) -> Void
@@ -231,6 +247,10 @@ struct FieldGuideCategoryDetailView: View {
 
     var body: some View {
         FieldGuideCatalogBrowseListPage(
+            title: definition?.title ?? summary.categoryID.capitalized,
+            titleAccessibilityIdentifier: FieldGuideCategoryPresentation.browseTitleAccessibilityIdentifier(
+                categoryID: categoryID
+            ),
             accessibilityRootIdentifier: "FieldGuide.CategoryDetail.Root",
             listAccessibilityIdentifier: "FieldGuide.CategoryDetail.List",
             onAddSpecies: onAddSpecies
@@ -262,13 +282,14 @@ struct FieldGuideCategoryDetailView: View {
             counts: summary.subcategoryCounts,
             categoryID: categoryID,
             speciesCount: summary.speciesCount,
+            subcategorySpeciesIndex: subcategorySpeciesIndex,
             showsAllSpeciesFallback: showsAllSpeciesFallback,
             onSelect: onSelectSubcategory
         )
     }
 }
 
-/// Title, description, and species count for category browse list header.
+/// Description and species count for category browse list header (title lives in collapsible chrome).
 struct FieldGuideCategoryDetailCopy: View {
     let definition: FieldGuideTaxonomy.Category
     let categoryID: String
@@ -276,10 +297,6 @@ struct FieldGuideCategoryDetailCopy: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            Text(definition.title)
-                .font(.title.weight(.bold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-
             Text(definition.description)
                 .font(.body)
                 .foregroundStyle(AppTheme.Colors.secondaryText)
@@ -387,6 +404,7 @@ struct FieldGuideSubcategoryListSection: View {
     let counts: [String: Int]
     let categoryID: String
     let speciesCount: Int
+    let subcategorySpeciesIndex: FieldGuideCatalogIndex.SubcategorySpeciesIndex
     var showsAllSpeciesFallback: Bool = false
     let onSelect: (String) -> Void
 
@@ -399,7 +417,11 @@ struct FieldGuideSubcategoryListSection: View {
                     title: "All species",
                     hint: "Browse every species in this category",
                     speciesCount: speciesCount,
-                    categoryID: categoryID
+                    categoryID: categoryID,
+                    thumbnailSpecies: FieldGuideCatalogIndex.representativeSpecies(
+                        categoryID: categoryID,
+                        speciesIndex: subcategorySpeciesIndex
+                    )
                 )
             }
             .buttonStyle(.plain)
@@ -416,7 +438,12 @@ struct FieldGuideSubcategoryListSection: View {
                 FieldGuideSubcategoryRow(
                     subcategory: subcategory,
                     speciesCount: counts[subcategory.id, default: 0],
-                    categoryID: categoryID
+                    categoryID: categoryID,
+                    thumbnailSpecies: FieldGuideCatalogIndex.representativeSpecies(
+                        categoryID: categoryID,
+                        subcategoryID: subcategory.id,
+                        speciesIndex: subcategorySpeciesIndex
+                    )
                 )
             }
             .buttonStyle(.plain)
@@ -433,17 +460,15 @@ private struct FieldGuideSubcategoryFallbackRow: View {
     let hint: String
     let speciesCount: Int
     let categoryID: String
+    let thumbnailSpecies: MarineLifeCatalogSnapshot?
 
     var body: some View {
         HStack(alignment: .center, spacing: AppTheme.Spacing.md) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(FieldGuideCategoryAccent.gradientTop(categoryID).opacity(0.14))
-                    .frame(width: 44, height: 44)
-                Image(systemName: "list.bullet")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(FieldGuideCategoryAccent.gradientTop(categoryID))
-            }
+            FieldGuideSubcategoryRowThumbnail(
+                categoryID: categoryID,
+                systemImage: "list.bullet",
+                species: thumbnailSpecies
+            )
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
@@ -482,17 +507,15 @@ private struct FieldGuideSubcategoryRow: View {
     let subcategory: FieldGuideTaxonomy.Subcategory
     let speciesCount: Int
     let categoryID: String
+    let thumbnailSpecies: MarineLifeCatalogSnapshot?
 
     var body: some View {
         HStack(alignment: .center, spacing: AppTheme.Spacing.md) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(FieldGuideCategoryAccent.gradientTop(categoryID).opacity(0.14))
-                    .frame(width: 44, height: 44)
-                Image(systemName: subcategory.systemImage)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(FieldGuideCategoryAccent.gradientTop(categoryID))
-            }
+            FieldGuideSubcategoryRowThumbnail(
+                categoryID: categoryID,
+                systemImage: subcategory.systemImage,
+                species: thumbnailSpecies
+            )
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(subcategory.title)
@@ -531,6 +554,47 @@ private struct FieldGuideSubcategoryRow: View {
     }
 }
 
+/// 44×44 subcategory list thumbnail — species photo when available, taxonomy icon otherwise.
+private struct FieldGuideSubcategoryRowThumbnail: View {
+    let categoryID: String
+    let systemImage: String
+    let species: MarineLifeCatalogSnapshot?
+
+    private var thumbnailSize: CGFloat {
+        FieldGuideCategoryPresentation.subcategoryRowThumbnailSize
+    }
+
+    var body: some View {
+        Group {
+            if let species,
+               FieldGuideCatalogIndex.speciesHasCatalogImage(species) {
+                FieldGuideMarineLifeCatalogImage(
+                    imageURLString: species.featureImageURL,
+                    bundleResourceName: species.featureImageResourceName,
+                    placement: .mediaSheetHero(
+                        height: thumbnailSize,
+                        cornerRadius: 10
+                    )
+                )
+            } else {
+                placeholder
+            }
+        }
+        .frame(width: thumbnailSize, height: thumbnailSize)
+        .accessibilityHidden(true)
+    }
+
+    private var placeholder: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(FieldGuideCategoryAccent.gradientTop(categoryID).opacity(0.14))
+            Image(systemName: systemImage)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(FieldGuideCategoryAccent.gradientTop(categoryID))
+        }
+    }
+}
+
 // MARK: - Subcategory species mosaic
 
 struct FieldGuideSubcategorySpeciesView: View {
@@ -554,6 +618,11 @@ struct FieldGuideSubcategorySpeciesView: View {
 
     var body: some View {
         FieldGuideCatalogBrowseListPage(
+            title: payload.title,
+            titleAccessibilityIdentifier: FieldGuideSubcategoryPresentation.browseTitleAccessibilityIdentifier(
+                categoryID: payload.categoryID,
+                subcategoryID: payload.subcategoryID
+            ),
             accessibilityRootIdentifier: "FieldGuide.SubcategoryDetail.Root",
             listAccessibilityIdentifier: "FieldGuide.SubcategoryDetail.List",
             onAddSpecies: onAddSpecies
@@ -622,7 +691,7 @@ struct FieldGuideSubcategorySpeciesView: View {
     }
 }
 
-/// Title, hint, and species count for subcategory browse list header.
+/// Hint and species count for subcategory browse list header (title lives in collapsible chrome).
 struct FieldGuideSubcategoryDetailCopy: View {
     let title: String
     let hint: String
@@ -631,10 +700,6 @@ struct FieldGuideSubcategoryDetailCopy: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            Text(title)
-                .font(.title.weight(.bold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-
             if !hint.isEmpty {
                 Text(hint)
                     .font(.body)

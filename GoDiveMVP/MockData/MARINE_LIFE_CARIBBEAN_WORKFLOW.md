@@ -164,13 +164,41 @@ GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/serve_marine_life_image_rev
 open http://127.0.0.1:8765
 ```
 
-- Browse all species in a **4:3 mosaic grid** (bundled JPEG when present, otherwise remote URL).
-- Filter by **needs review**, **no image**, or **missing bundle**.
-- Click a card → paste a new **CC0 / CC BY** URL, edit license/attribution, then:
-  - **Save URL only** → updates **`marine_life_caribbean_staging.csv`**
-  - **Save + download bundle** → also re-crops and writes **`Resources/MarineLifePhotos/{uuid}.jpg`**
+- **Tinder-style review** — one species at a time with large 4:3 photo, **Accept** (green check clears `imageNeedsReview`) or **Edit** (paste a new URL → **Save + download bundle**). Swipe right to accept, left to edit. Keyboard: **A** / **→** accept, **E** / **←** edit. Default queue: **Needs review**.
+- Filter queue by **needs review**, **no image**, or **missing bundle**.
+- Edit sheet → paste a new **CC0 / CC BY** URL, edit license/attribution, then **Save + download bundle** (updates staging CSV and **`Resources/MarineLifePhotos/{uuid}.jpg`**).
 - **Mark for removal** → sets **`markForDeletion=yes`** on the staging row (red **Remove** badge). Apply deletions with **`apply_marine_life_staging_deletions.py --sync-json --all`** to remove rows from CSV, bundled photos, manifest, and **`marine_life_sample.json`**.
 - After batch edits, run **`sync_marine_life_staging_to_json.py --all`** before rebuilding the app.
+
+## reefguide.org image fetch (optional)
+
+[Florent's Guide to the Tropical Reefs](https://reefguide.org/about.html) has excellent in-situ Caribbean photos, but they are **© Florent Charpin — redistribution requires express written permission** (email **www@reefguide.org**). Use this only when you intend to request permission and manually review every match.
+
+```bash
+GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/fetch_marine_life_images_reefguide.py --dry-run --limit 10
+GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/fetch_marine_life_images_reefguide.py
+GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/fetch_marine_life_images_reefguide.py --bundle
+```
+
+- Matches staging **`scientificName`** against reefguide.org **Caribbean** + **Florida Keys** scientific-name indexes (`carib/cat_sci.html`, `keys/cat_sci.html`).
+- Picks the best adult gallery photo, resolves the full-size JPEG under **`reefguide.org/pix/`**, writes **`featureImageURL`** + attribution with **`imageSource=reefguide`** and **`imageNeedsReview=yes`**.
+- **`--bundle`** runs **`download_marine_life_images.py --overwrite`** after staging (960×720 crop into **`Resources/MarineLifePhotos/`**).
+- Prefer **`fetch_marine_life_images.py`** (Wikimedia/Openverse, CC0/CC BY) for images you can ship without a separate license deal.
+
+## WoRMS image fetch (optional)
+
+[WoRMS](https://www.marinespecies.org/) hosts a large [photogallery](https://www.marinespecies.org/photogallery.php) linked to Aphia taxon pages. Useful for species still missing hero images after reefguide / Commons passes.
+
+```bash
+GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/fetch_marine_life_images_worms.py --dry-run --limit 20
+GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/fetch_marine_life_images_worms.py
+GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/fetch_marine_life_images_worms.py --shippable-only
+GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/fetch_marine_life_images_worms.py --bundle
+```
+
+- Resolves **`scientificName`** → AphiaID via **`/rest/AphiaRecordsByNames`**, parses the taxon **Images** gallery, resolves direct JPEGs on **`images.marinespecies.org`**, writes staging metadata with **`imageSource=worms`**.
+- **Default:** stages gallery matches including **CC BY-NC-SA** with **`imageNeedsReview=yes`**. Use **`--shippable-only`** to keep only **CC0 / CC BY** WoRMS photos.
+- **`--bundle`** runs **`download_marine_life_images.py`** after staging.
 
 ## Your authoring loop
 

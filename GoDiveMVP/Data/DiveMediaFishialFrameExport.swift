@@ -180,6 +180,18 @@ enum DiveMediaFishialFrameExport {
         generator.requestedTimeToleranceAfter = CMTime(seconds: 0.05, preferredTimescale: 600)
         return generator
     }
+
+    /// Exact frame timing for Fishial video scrub preview (not keyframe-snapped).
+    @MainActor
+    static func makeScrubPreviewImageGenerator(for avAsset: AVAsset) -> AVAssetImageGenerator {
+        let maxEdge = FishialMediaSelectionPresentation.videoScrubPreviewMaxEdge
+        let generator = AVAssetImageGenerator(asset: avAsset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: maxEdge, height: maxEdge)
+        generator.requestedTimeToleranceBefore = .zero
+        generator.requestedTimeToleranceAfter = .zero
+        return generator
+    }
     #endif
 
     @MainActor

@@ -327,7 +327,6 @@ struct FieldGuideMarineLifeDetailView: View {
     @ViewBuilder
     private func speciesHeroContent(context: BlueSheetHeaderPageLayoutContext) -> some View {
         FieldGuideSpeciesDetailHeroBand(
-            bandContentHeight: context.heroHeight,
             mapFitLayout: context.mapFitLayout(),
             heroMode: speciesHeroMode,
             mediaSource: speciesHeroMediaSource,

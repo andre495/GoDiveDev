@@ -2,7 +2,6 @@ import SwiftUI
 
 /// Species detail hero — tagged media, catalog image / 3D, or dive-site map behind one band contract.
 struct FieldGuideSpeciesDetailHeroBand: View {
-    let bandContentHeight: CGFloat
     let mapFitLayout: TripDetailMapFitLayout
     let heroMode: PushedDetailHeroHeaderView.Mode
     let mediaSource: FieldGuideSpeciesHeroMediaSource
@@ -18,8 +17,28 @@ struct FieldGuideSpeciesDetailHeroBand: View {
     let onCatalogHeroTap: () -> Void
     let onSiteSelected: (UUID) -> Void
 
+    private var isShowingTaggedMediaHero: Bool {
+        FieldGuideSpeciesHeroPresentation.isShowingTaggedMediaHero(
+            mediaSource: mediaSource,
+            heroTaggedMedia: heroTaggedMedia,
+            taggedMediaItemsEmpty: taggedMediaItems.isEmpty
+        )
+    }
+
+    private var usesCatalogPhotoSeamUnderlapLayout: Bool {
+        FieldGuideSpeciesHeroPresentation.usesCatalogPhotoSeamUnderlapLayout(
+            heroMode: heroMode,
+            mediaSource: mediaSource,
+            catalogHeroDisplay: catalogHeroDisplay,
+            isShowingTaggedMedia: isShowingTaggedMediaHero
+        )
+    }
+
     var body: some View {
-        BlueSheetDetailHeroBandFill(accessibilityIdentifier: "FieldGuide.SpeciesDetail.Hero") {
+        BlueSheetDetailHeroBandFill(
+            accessibilityIdentifier: "FieldGuide.SpeciesDetail.Hero",
+            clipsContent: !usesCatalogPhotoSeamUnderlapLayout
+        ) {
             Group {
                 switch heroMode {
                 case .media:
@@ -69,15 +88,16 @@ struct FieldGuideSpeciesDetailHeroBand: View {
                 FieldGuideMarineLifeRealityHeroView(
                     configuration: FieldGuideMarineLifeHeroPresentation.sceneConfiguration(
                         forModelResourceName: featureModelResourceName
-                    ),
-                    height: bandContentHeight
+                    )
                 )
             case .image:
                 FieldGuideMarineLifeCatalogImage(
                     imageURLString: featureImageURL,
                     bundleResourceName: featureImageResourceName,
-                    placement: .detailHero(totalHeight: bandContentHeight)
+                    placement: .detailHero(alignment: .bottom)
                 )
+                .padding(.bottom, -FieldGuideSpeciesHeroPresentation.catalogPhotoSeamUnderlap)
+                .offset(y: FieldGuideSpeciesHeroPresentation.catalogPhotoVerticalOffset)
             }
         }
         .contentShape(Rectangle())

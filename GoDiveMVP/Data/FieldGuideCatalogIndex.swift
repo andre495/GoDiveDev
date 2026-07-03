@@ -141,4 +141,50 @@ enum FieldGuideCatalogIndex {
         }
         .sorted { $0.commonName.localizedCaseInsensitiveCompare($1.commonName) == .orderedAscending }
     }
+
+    /// Whether a catalog snapshot has a bundled or remote feature photo.
+    nonisolated static func speciesHasCatalogImage(_ snapshot: MarineLifeCatalogSnapshot) -> Bool {
+        FieldGuideMarineLifeBundledImagePresentation.imageSource(
+            featureImageResourceName: snapshot.featureImageResourceName,
+            featureImageURL: snapshot.featureImageURL
+        ) != .none
+    }
+
+    /// First species in a subcategory (alphabetical) that has a catalog photo — any species in the group otherwise.
+    nonisolated static func representativeSpecies(
+        categoryID: String,
+        subcategoryID: String,
+        speciesIndex: SubcategorySpeciesIndex
+    ) -> MarineLifeCatalogSnapshot? {
+        let species = species(
+            categoryID: categoryID,
+            subcategoryID: subcategoryID,
+            speciesIndex: speciesIndex
+        )
+        return species.first(where: speciesHasCatalogImage(_:)) ?? species.first
+    }
+
+    /// First species in a category (alphabetical) that has a catalog photo — for the **All species** row.
+    nonisolated static func representativeSpecies(
+        categoryID: String,
+        speciesIndex: SubcategorySpeciesIndex
+    ) -> MarineLifeCatalogSnapshot? {
+        representativeSpecies(
+            categoryID: categoryID,
+            subcategoryID: "",
+            speciesIndex: speciesIndex
+        )
+    }
+
+    nonisolated private static func species(
+        categoryID: String,
+        subcategoryID: String,
+        speciesIndex: SubcategorySpeciesIndex
+    ) -> [MarineLifeCatalogSnapshot] {
+        browsePayload(
+            categoryID: categoryID,
+            subcategoryID: subcategoryID,
+            speciesIndex: speciesIndex
+        ).species
+    }
 }

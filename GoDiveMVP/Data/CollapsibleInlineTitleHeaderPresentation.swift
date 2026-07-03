@@ -11,6 +11,12 @@ enum CollapsibleInlineTitleHeaderPresentation: Sendable {
     /// Fixed width for leading / trailing columns — title uses the remaining row width.
     nonisolated static let sideControlWidth: CGFloat = 44
 
+    /// Default single-line shrink for centered page titles (**`CollapsibleInlineTitleHeader`**).
+    nonisolated static let minimumTitleScaleFactor: CGFloat = 0.5
+
+    /// Tighter shrink when both leading (back) and trailing actions are shown — Field Guide browse.
+    nonisolated static let browseTitleMinimumScaleFactor: CGFloat = 0.45
+
     /// **44** pt glass row + **`appTopChromeVerticalPadding`** (**8** + **16**).
     nonisolated static let chromeBandHeight: CGFloat = 68
 

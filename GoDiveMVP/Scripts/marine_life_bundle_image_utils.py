@@ -22,13 +22,16 @@ try:
     from PIL import Image, UnidentifiedImageError
 except ImportError:  # pragma: no cover - optional until Pillow is installed
     Image = None  # type: ignore[misc, assignment]
-    UnidentifiedImageError = Exception  # type: ignore[misc, assignment]
+
+    class UnidentifiedImageError(Exception):
+        """Raised when Pillow is unavailable or cannot decode image bytes."""
 
 MOSAIC_ASPECT_RATIO = 4 / 3
 DEFAULT_OUTPUT_WIDTH = 960
 DEFAULT_OUTPUT_HEIGHT = 720
 DEFAULT_JPEG_QUALITY = 82
 BUNDLE_PHOTOS_SUBDIRECTORIES = ("Resources/MarineLifePhotos", "MarineLifePhotos")
+REEFGUIDE_BASE_URL = "https://reefguide.org"
 
 
 @dataclass(frozen=True)
@@ -118,6 +121,13 @@ def download_url_candidates(source_url: str) -> list[str]:
     return ordered
 
 
+def download_request_headers(url: str) -> dict[str, str]:
+    headers = {"User-Agent": USER_AGENT}
+    if "reefguide.org" in url.lower():
+        headers["Referer"] = REEFGUIDE_BASE_URL + "/"
+    return headers
+
+
 def download_image_bytes(
     url: str,
     *,
@@ -128,7 +138,7 @@ def download_image_bytes(
     last_error: Exception | None = None
     for attempt in range(1, max_attempts + 1):
         try:
-            request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+            request = urllib.request.Request(url, headers=download_request_headers(url))
             with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
                 return response.read()
         except urllib.error.HTTPError as error:
@@ -156,7 +166,9 @@ def process_image_bytes(
     jpeg_quality: int = DEFAULT_JPEG_QUALITY,
 ) -> bytes:
     if Image is None:
-        raise RuntimeError("Pillow is required. Install with: pip install Pillow")
+        raise UnidentifiedImageError(
+            "Pillow is required for image processing. Install with: pip install Pillow"
+        )
 
     with Image.open(io.BytesIO(data)) as image:
         rgb = image.convert("RGB")

@@ -5,12 +5,11 @@ import UIKit
 #endif
 
 #if canImport(UIKit) && canImport(AVFoundation)
-/// Full-bleed paused **`AVPlayer`** preview for Fishial still selection (PhotoKit **`AVAsset`**).
+/// Full-bleed paused frame preview for Fishial still selection (exact **`AVAssetImageGenerator`** timing).
 struct FishialVideoScrubPlayerView: UIViewRepresentable {
     let avAsset: AVAsset
     let durationSeconds: Double
     let scrubFraction: Double
-    let isScrubbing: Bool
 
     func makeUIView(context: Context) -> FishialVideoScrubPlayerUIView {
         let view = FishialVideoScrubPlayerUIView()
@@ -24,8 +23,7 @@ struct FishialVideoScrubPlayerView: UIViewRepresentable {
         context.coordinator.bind(to: uiView)
         context.coordinator.syncSeek(
             fraction: scrubFraction,
-            durationSeconds: durationSeconds,
-            isScrubbing: isScrubbing
+            durationSeconds: durationSeconds
         )
     }
 
@@ -51,45 +49,42 @@ struct FishialVideoScrubPlayerView: UIViewRepresentable {
             lastAppliedFraction = nil
         }
 
-        func syncSeek(fraction: Double, durationSeconds: Double, isScrubbing: Bool) {
+        func syncSeek(fraction: Double, durationSeconds: Double) {
             let clamped = FishialVideoScrubPresentation.clampedFraction(fraction)
-            let precise = FishialVideoScrubPresentation.usesPrecisePlaybackSeek(isScrubbing: isScrubbing)
-            if precise {
-                lastAppliedFraction = clamped
-                playerView?.seek(
-                    toFraction: clamped,
-                    durationSeconds: durationSeconds,
-                    precise: true
-                )
-                return
-            }
             if let lastAppliedFraction,
-               abs(lastAppliedFraction - clamped) < 0.000_1 {
+               abs(lastAppliedFraction - clamped) < 0.000_001 {
                 return
             }
             lastAppliedFraction = clamped
             playerView?.seek(
                 toFraction: clamped,
-                durationSeconds: durationSeconds,
-                precise: false
+                durationSeconds: durationSeconds
             )
         }
     }
 }
 
-/// Native **`AVPlayerLayer`** preview — seeks in real time while the slider moves.
+/// Native aspect-fit still preview — extracts the requested frame instead of keyframe-snapped **`AVPlayer`** seeks.
 final class FishialVideoScrubPlayerUIView: UIView {
-    override static var layerClass: AnyClass { AVPlayerLayer.self }
-
-    private var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
-    private var player: AVPlayer?
+    private let imageView = UIImageView()
+    private var imageGenerator: AVAssetImageGenerator?
+    private var generationTask: Task<Void, Never>?
+    private var latestGenerationID = 0
     private var preparedAssetIdentifier: ObjectIdentifier?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         clipsToBounds = true
         backgroundColor = .black
-        playerLayer.videoGravity = .resizeAspect
+        imageView.contentMode = .scaleAspectFit
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(imageView)
+        NSLayoutConstraint.activate([
+            imageView.topAnchor.constraint(equalTo: topAnchor),
+            imageView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            imageView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            imageView.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
     }
 
     @available(*, unavailable)
@@ -102,32 +97,39 @@ final class FishialVideoScrubPlayerUIView: UIView {
         guard preparedAssetIdentifier != assetID else { return }
         teardown()
         preparedAssetIdentifier = assetID
-        DiveMutedVideoAudioSession.activateForMutedPlayback()
-        let item = AVPlayerItem(asset: asset)
-        let newPlayer = AVPlayer(playerItem: item)
-        newPlayer.isMuted = true
-        newPlayer.pause()
-        player = newPlayer
-        playerLayer.player = newPlayer
+        imageGenerator = DiveMediaFishialFrameExport.makeScrubPreviewImageGenerator(for: asset)
     }
 
-    func seek(toFraction fraction: Double, durationSeconds: Double, precise: Bool) {
-        guard let player else { return }
+    func seek(toFraction fraction: Double, durationSeconds: Double) {
+        guard let imageGenerator else { return }
         let time = DiveMediaFishialFrameExport.cmTime(
             durationSeconds: durationSeconds,
             fraction: fraction
         )
-        let tolerance = precise ? CMTime.zero : CMTime.positiveInfinity
-        player.pause()
-        player.seek(to: time, toleranceBefore: tolerance, toleranceAfter: tolerance)
+        generationTask?.cancel()
+        latestGenerationID += 1
+        let generationID = latestGenerationID
+        generationTask = Task { @MainActor in
+            do {
+                let cgImage = try await DiveMediaFishialFrameExport.cgImage(
+                    from: imageGenerator,
+                    at: time
+                )
+                guard !Task.isCancelled, generationID == latestGenerationID else { return }
+                imageView.image = UIImage(cgImage: cgImage)
+            } catch {
+                guard !Task.isCancelled, generationID == latestGenerationID else { return }
+            }
+        }
     }
 
     func teardown() {
-        player?.pause()
-        player?.replaceCurrentItem(with: nil)
-        playerLayer.player = nil
-        player = nil
+        generationTask?.cancel()
+        generationTask = nil
+        imageGenerator = nil
+        imageView.image = nil
         preparedAssetIdentifier = nil
+        latestGenerationID = 0
     }
 }
 #endif

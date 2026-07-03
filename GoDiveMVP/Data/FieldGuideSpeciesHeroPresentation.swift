@@ -167,4 +167,32 @@ enum FieldGuideSpeciesHeroPresentation: Sendable {
             allowsDragRotation: false
         )
     }
+
+    /// How far the catalog still extends below the hero band into the blue-sheet overlap.
+    nonisolated static let catalogPhotoSeamUnderlap: CGFloat = 36
+
+    /// Tuned on device — vertical nudge for the catalog JPEG hero (negative moves up).
+    nonisolated static let catalogPhotoVerticalOffset: CGFloat = -206
+
+    /// True when the hero is showing owner tagged photo/video (not catalog reference).
+    nonisolated static func isShowingTaggedMediaHero(
+        mediaSource: FieldGuideSpeciesHeroMediaSource,
+        heroTaggedMedia: DiveMediaPhoto?,
+        taggedMediaItemsEmpty: Bool
+    ) -> Bool {
+        guard mediaSource == .taggedUserMedia else { return false }
+        if heroTaggedMedia != nil { return true }
+        return !taggedMediaItemsEmpty
+    }
+
+    /// Catalog JPEG heroes bottom-align and underlap the sheet seam; 3D / video / map unchanged.
+    nonisolated static func usesCatalogPhotoSeamUnderlapLayout(
+        heroMode: PushedDetailHeroHeaderView.Mode,
+        mediaSource: FieldGuideSpeciesHeroMediaSource,
+        catalogHeroDisplay: FieldGuideSpeciesCatalogHeroDisplay,
+        isShowingTaggedMedia: Bool
+    ) -> Bool {
+        guard heroMode == .media, !isShowingTaggedMedia else { return false }
+        return catalogHeroDisplay == .image
+    }
 }
