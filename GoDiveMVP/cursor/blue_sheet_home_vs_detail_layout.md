@@ -184,9 +184,9 @@ Buddy · Trip · Dive site · Species · Reference site — all use **`BlueSheet
 | Token | Value | File |
 |-------|------:|------|
 | `horizontalPadding` | **24 pt** (`lg`) | `BlueSheetDetailPagePinnedSummaryPresentation` |
-| `topPadding` | **16 pt** (`md`) | |
-| `bottomPadding` | **8 pt** (`sm`) | |
-| Row spacing | **8 pt** (`sm`) | `BlueSheetPinnedSummaryPresentation.rowSpacing` |
+| `topPadding` | **16 pt** (`md`) | **`seamTopPadding`** — seam → first pinned row |
+| `bottomPadding` | **16 pt** (`md`) | |
+| Row spacing | **8 pt** (`sm`) | `BlueSheetPinnedSummaryPresentation.rowSpacing` → **`pinnedRowSpacing`** |
 
 ### Detail pager (content — seam unchanged)
 

@@ -1895,7 +1895,7 @@ private struct HomeStatTile: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityAddTraits(action != nil ? .isButton : [])
-        .accessibilityHint(action != nil ? "Opens top five list" : "")
+        .accessibilityHint(action != nil ? "Opens top ten list" : "")
     }
 
     private var tileLabel: some View {

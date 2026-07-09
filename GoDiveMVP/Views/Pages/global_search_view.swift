@@ -807,13 +807,7 @@ private struct GlobalSearchSearchDestinationScreen: View {
             }
         case .tag(let id):
             if let tag = ownerActivityTags.first(where: { $0.id == id }) {
-                GlobalSearchTaggedDivesView(
-                    tagName: tag.name,
-                    activities: taggedDiveActivities(for: tag),
-                    unitSystem: diveDisplayUnitSystem,
-                    useChronologicalNumbers: automaticallyRenumberDives,
-                    onSelectDive: onOpenDive
-                )
+                ActivityTagDetailView(tag: tag)
             } else {
                 GlobalSearchMissingDestinationView(message: "This tag is no longer in your catalog.")
             }
@@ -836,14 +830,6 @@ private struct GlobalSearchSearchDestinationScreen: View {
                 GlobalSearchMissingDestinationView(message: "This certification is no longer in your profile.")
             }
         }
-    }
-
-    private func taggedDiveActivities(for tag: ActivityTag) -> [DiveActivity] {
-        ownerDives
-            .filter { activity in
-                activity.activityTags.contains { $0.id == tag.id }
-            }
-            .sorted { $0.startTime > $1.startTime }
     }
 }
 
@@ -1084,62 +1070,6 @@ private struct GlobalSearchEmptyResultsView: View {
                 .foregroundStyle(.white.opacity(0.88))
         }
         .background(Color.clear)
-    }
-}
-
-private struct GlobalSearchTaggedDivesView: View {
-    let tagName: String
-    let activities: [DiveActivity]
-    let unitSystem: DiveDisplayUnitSystem
-    let useChronologicalNumbers: Bool
-    let onSelectDive: (UUID) -> Void
-
-    private var rowData: [DiveLogbookRowDisplayData] {
-        DiveLogbookDisplay.rowData(
-            activities: activities,
-            unitSystem: unitSystem,
-            duplicateIds: [],
-            useChronologicalNumbers: useChronologicalNumbers,
-            numberingActivities: activities
-        )
-    }
-
-    var body: some View {
-        ZStack {
-            ProfileBubbleBackgroundLayer()
-
-            if rowData.isEmpty {
-                ContentUnavailableView(
-                    "No dives",
-                    systemImage: "water.waves",
-                    description: Text("No dives use the tag \(tagName).")
-                )
-            } else {
-                VStack(spacing: 0) {
-                    Text(tagName)
-                        .font(.title2.weight(.bold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, AppTheme.Spacing.lg)
-                        .padding(.top, AppTheme.Spacing.lg)
-                        .padding(.bottom, AppTheme.Spacing.sm)
-                        .accessibilityAddTraits(.isHeader)
-
-                    List {
-                        ForEach(rowData) { data in
-                            Button {
-                                onSelectDive(data.id)
-                            } label: {
-                                GlobalSearchDiveResultListRow(data: data)
-                            }
-                            .buttonStyle(.plain)
-                            .globalSearchResultListRowChrome()
-                        }
-                    }
-                    .globalSearchResultsListChrome()
-                }
-            }
-        }
     }
 }
 

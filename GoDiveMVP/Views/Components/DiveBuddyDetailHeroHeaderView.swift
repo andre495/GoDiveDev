@@ -24,6 +24,12 @@ struct PushedDetailHeroHeaderView: View {
             emptyPlaceholderAccessibilityLabel: "Dive site header",
             accessibilityPrefix: "Explore.DiveSiteDetail.Hero"
         )
+
+        nonisolated static let tag = Style(
+            emptyPlaceholderSystemImage: "tag.fill",
+            emptyPlaceholderAccessibilityLabel: "Tag header",
+            accessibilityPrefix: "ActivityTagDetails.Hero"
+        )
     }
 
     enum Mode: String, CaseIterable, Hashable, Identifiable {

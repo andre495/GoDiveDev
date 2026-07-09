@@ -1,6 +1,6 @@
 import Foundation
 
-/// Home lifetime stat tile destinations — ranked top-five lists.
+/// Home lifetime stat tile destinations — ranked top-ten lists with a top-three podium.
 enum HomeLifetimeStatsLeaderboardKind: Hashable, Sendable {
     case deepestDives
     case longestDives
@@ -10,7 +10,8 @@ enum HomeLifetimeStatsLeaderboardKind: Hashable, Sendable {
 
 enum HomeLifetimeStatsLeaderboardPresentation {
 
-    nonisolated static let limit = 5
+    nonisolated static let limit = 10
+    nonisolated static let podiumLimit = 3
 
     struct SiteEntry: Sendable, Equatable, Identifiable {
         let id: String
@@ -41,13 +42,13 @@ enum HomeLifetimeStatsLeaderboardPresentation {
     nonisolated static func pageTitle(for kind: HomeLifetimeStatsLeaderboardKind) -> String {
         switch kind {
         case .deepestDives:
-            return "Top 5 deepest dives"
+            return "Top 10 deepest dives"
         case .longestDives:
-            return "Top 5 longest dives"
+            return "Top 10 longest dives"
         case .topSites:
-            return "Top 5 dive sites"
+            return "Top 10 dive sites"
         case .topSpecies:
-            return "Top 5 species"
+            return "Top 10 species"
         }
     }
 
@@ -225,6 +226,33 @@ enum HomeLifetimeStatsLeaderboardPresentation {
         case .topSpecies:
             return HomeLifetimeStatsPresentation.sightingCountLabel(count: count)
         }
+    }
+
+    nonisolated static func divePodiumMetricLabel(
+        dive: HomeDiveStatsInput,
+        kind: HomeLifetimeStatsLeaderboardKind,
+        unitSystem: DiveDisplayUnitSystem
+    ) -> String {
+        switch kind {
+        case .deepestDives:
+            return DiveQuantityFormatting.depth(meters: dive.maxDepthMeters, system: unitSystem)
+        case .longestDives:
+            return "\(dive.durationMinutes) min"
+        case .topSites, .topSpecies:
+            return ""
+        }
+    }
+
+    nonisolated static func divePodiumTitle(for dive: HomeDiveStatsInput) -> String {
+        let trimmedSite = dive.siteDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedSite.isEmpty, trimmedSite != "New Dive" {
+            return trimmedSite
+        }
+        return dive.diveNumberLabel
+    }
+
+    nonisolated static func divePodiumSubtitle(for dive: HomeDiveStatsInput) -> String {
+        dive.diveNumberLabel
     }
 
     private nonisolated static func siteEntryID(siteID: UUID?, normalizedName: String) -> String {

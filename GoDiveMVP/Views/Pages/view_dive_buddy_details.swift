@@ -552,7 +552,6 @@ struct ViewDiveBuddyDetails: View {
             accessibilityIdentifier: "DiveBuddyDetails.Header",
             usesLeadingAccessoryLayout: true,
             contentVerticalOffset: -DiveBuddyDetailPresentation.identityTextLift,
-            extraBottomPadding: AppTheme.Spacing.lg,
             leadingAccessory: {
                 Color.clear
                     .frame(

@@ -25,6 +25,7 @@ struct BlueSheetPinnedSummary<TopRow: View, LeadingAccessory: View>: View {
 
     var usesLeadingAccessoryLayout: Bool = false
     var contentVerticalOffset: CGFloat = 0
+    /// Prefer **`BlueSheetDetailPagePinnedSummaryPresentation.bodyBottomPadding`** on detail pages — avoid one-off bottom gaps.
     var extraBottomPadding: CGFloat = 0
 
     @ViewBuilder var topRow: () -> TopRow

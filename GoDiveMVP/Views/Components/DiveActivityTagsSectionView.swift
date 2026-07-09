@@ -6,6 +6,8 @@ struct DiveActivityTagsSectionView: View {
     let canAddTags: Bool
     let onAddTags: () -> Void
 
+    private let columns = [GridItem(.adaptive(minimum: 88), spacing: AppTheme.Spacing.sm)]
+
     var body: some View {
         ActivityTagsOutlinedSection(appliesLogbookOuterMargins: false) {
             if canAddTags {
@@ -23,7 +25,20 @@ struct DiveActivityTagsSectionView: View {
                     .foregroundStyle(AppTheme.Colors.tabUnselected)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                DiveActivityTagChipFlow(tagNames: tags.map(\.name))
+                LazyVGrid(columns: columns, alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                    ForEach(tags, id: \.id) { tag in
+                        NavigationLink {
+                            ActivityTagDetailView(tag: tag)
+                                .hidesBottomTabBarWhenPushed()
+                        } label: {
+                            ActivityTagOvalChipLabel(title: tag.name)
+                        }
+                        .buttonStyle(.plain)
+                        .navigationLinkIndicatorVisibility(.hidden)
+                        .accessibilityHint("Opens tag details")
+                        .accessibilityIdentifier("DiveOverview.Tags.\(tag.id.uuidString)")
+                    }
+                }
             }
         }
         .accessibilityElement(children: .contain)

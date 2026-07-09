@@ -1739,4 +1739,21 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Layout debug removed** — deleted temporary drag handles, HUD, and debug types after baking device-tuned tokens.
 - Tests updated for settled tokens + column layout helper.
 
-## 100 - Next batch
+## 100 - Home leaderboards, tag detail, and blue-sheet header spacing **(pushed)**
+
+**Summary:** Home lifetime stat leaderboards — top-ten podium layout.
+
+- **`HomeLifetimeStatsLeaderboardPresentation`** — limit **10** (was 5); **`podiumLimit`** **3**; page titles **Top 10 …**; **`divePodiumMetricLabel`** / **`divePodiumTitle`** for podium copy.
+- **`HomeLifetimeStatsLeaderboardLayout`** — classic podium slot order (**2 · 1 · 3**), tiered pedestal heights, medal/trophy SF Symbols.
+- **`HomeLifetimeStatsLeaderboardPodiumSection`** — top-three podium (trophy + medals, colored pedestals, category icons/thumbnails); ranks **4–10** as numbered list rows below.
+- **`DiveActivityBuddiesOverviewSection`** — map-tab buddy avatars push **`ViewDiveBuddyDetails`** when the tag links a roster buddy (self row stays static); **`DiveActivityBuddiesOverviewPresentation.shouldOpenBuddyDetail`**. Test: **`diveActivityBuddiesOverviewPresentation_shouldOpenBuddyDetail`**.
+- **`ActivityTagDetailView`** — blue-sheet tag detail (**`PushedDetailHeroHeaderView`** media/map toggle, **`ActivityTagDetailContentSnapshotBuilder`**, five-page pager: stats → activities → marine life → buddies → media — reuses trip sections); map-tab tag chips + Search tag results push here. **`DiveActivityTagsSectionView`** chips use **`NavigationLink`**. Tests: **`activityTagDetailContentPagerPresentation_pagesMatchTripStartedOrder`**, **`activityTagDetailPresentation_ordersTaggedDivesNewestFirst`**.
+- **Search → Tags** — category browse and tag hits list **tag names** (with dive count subtitle), not individual dives; tap opens **`ActivityTagDetailView`** (removed **`GlobalSearchTaggedDivesView`** dive-only list). Test: **`globalSearchPresentation_tagsScopedBrowse_listsTagNamesNotDives`**.
+- **`ActivityTagDetailView`** pinned header — one-line **`tag.fill` · name · dive count** (count trailing). Test: **`activityTagDetailPresentation_headerUsesTagIcon`**.
+- **Blue-sheet pinned header spacing** — **`BlueSheetDetailPagePinnedSummaryPresentation`**: seam → pinned **md**, pinned rows **sm**, pinned → pager **md**; **`BlueSheetPinnedSummaryPresentation.rowSpacing`** aliases shell token; removed buddy **`extraBottomPadding`**. Tests: **`blueSheetDetailPagePinnedSummaryPresentation_usesThemeSpacing`**, **`blueSheetPinnedSummaryPresentation_rowSpacingUsesTheme`**.
+- **`HomeLifetimeStatsLeaderboardView`** — splits podium vs list; **`HomeLifetimeStatsLeaderboardRankBadge`** on list rows; species list rows (**4–10**) stack common name (one line) + blue sighting count on the second line.
+- **`HomeOverviewSections`** — stat tile accessibility hint **Opens top ten list**.
+- Tests: **`homeLifetimeStatsLeaderboardPresentation_rankedDiveIDs_limitsToTenAndSorts`**, **`homeLifetimeStatsLeaderboardLayout_podiumSlots_ordersClassicPodium`**, **`homeLifetimeStatsLeaderboardLayout_pedestalHeights_stepDownFromFirst`**, **`homeLifetimeStatsLeaderboardPresentation_divePodiumMetricLabel_formatsDepthAndDuration`**; updated page-title test.
+- **`docs/home.md`** — top-ten + podium copy.
+
+## 101 - Next batch

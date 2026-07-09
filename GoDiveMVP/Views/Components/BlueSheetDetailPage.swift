@@ -67,8 +67,8 @@ struct BlueSheetDetailPage<
         VStack(alignment: .leading, spacing: 0) {
             if configuration.showsHero {
                 pinnedContent()
-                    .padding(.top, BlueSheetDetailPagePinnedSummaryPresentation.topPadding)
-                    .padding(.bottom, BlueSheetDetailPagePinnedSummaryPresentation.bottomPadding)
+                    .padding(.top, BlueSheetDetailPagePinnedSummaryPresentation.seamTopPadding)
+                    .padding(.bottom, BlueSheetDetailPagePinnedSummaryPresentation.bodyBottomPadding)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityIdentifier(
                         "\(configuration.accessibilityRootIdentifier).\(BlueSheetDetailPagePinnedSummaryPresentation.pinnedSummaryAccessibilitySuffix)"
@@ -76,7 +76,7 @@ struct BlueSheetDetailPage<
             } else {
                 pinnedContent()
                     .padding(.top, layout.headerScrollClearance)
-                    .padding(.bottom, BlueSheetDetailPagePinnedSummaryPresentation.bottomPadding)
+                    .padding(.bottom, BlueSheetDetailPagePinnedSummaryPresentation.bodyBottomPadding)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityIdentifier(
                         "\(configuration.accessibilityRootIdentifier).\(BlueSheetDetailPagePinnedSummaryPresentation.pinnedSummaryAccessibilitySuffix)"

@@ -3324,7 +3324,7 @@ struct GoDiveMVPTests {
         #expect(heroHeight > FieldGuideMarineLifeImageLayout.detailHeroBaseHeight)
     }
 
-    @Test func fieldGuideMarineLifeImageLayout_detailHeroFitsWidthWithoutCropping() {
+    @Test @MainActor func fieldGuideMarineLifeImageLayout_detailHeroFitsWidthWithoutCropping() {
         #expect(FieldGuideMarineLifeImageLayout.detailHeroBaseHeight == 280)
         #expect(FieldGuideMarineLifeImageLayout.detailHeroDefaultContentMode == .fit)
         let placement = FieldGuideMarineLifeCatalogImage.Placement.detailHero()
@@ -3697,10 +3697,14 @@ struct GoDiveMVPTests {
     }
 
     @Test func blueSheetDetailPagePinnedSummaryPresentation_usesThemeSpacing() {
-        #expect(BlueSheetDetailPagePinnedSummaryPresentation.horizontalPadding == AppTheme.Spacing.lg)
-        #expect(BlueSheetDetailPagePinnedSummaryPresentation.topPadding == AppTheme.Spacing.md)
-        #expect(BlueSheetDetailPagePinnedSummaryPresentation.bottomPadding == AppTheme.Spacing.sm)
-        #expect(BlueSheetDetailPagePinnedSummaryPresentation.pinnedSummaryAccessibilitySuffix == "PinnedSummary")
+        let presentation = BlueSheetDetailPagePinnedSummaryPresentation.self
+        #expect(presentation.horizontalPadding == AppTheme.Spacing.lg)
+        #expect(presentation.seamTopPadding == AppTheme.Spacing.md)
+        #expect(presentation.bodyBottomPadding == AppTheme.Spacing.md)
+        #expect(presentation.pinnedRowSpacing == AppTheme.Spacing.sm)
+        #expect(presentation.topPadding == presentation.seamTopPadding)
+        #expect(presentation.bottomPadding == presentation.bodyBottomPadding)
+        #expect(presentation.pinnedSummaryAccessibilitySuffix == "PinnedSummary")
     }
 
     @Test func blueSheetTopChromePresentation_homeHeroUsesLogbookScrimFeather() {
@@ -3725,6 +3729,10 @@ struct GoDiveMVPTests {
     }
 
     @Test func blueSheetPinnedSummaryPresentation_rowSpacingUsesTheme() {
+        #expect(
+            BlueSheetPinnedSummaryPresentation.rowSpacing
+                == BlueSheetDetailPagePinnedSummaryPresentation.pinnedRowSpacing
+        )
         #expect(BlueSheetPinnedSummaryPresentation.rowSpacing == AppTheme.Spacing.sm)
     }
 
@@ -3758,6 +3766,58 @@ struct GoDiveMVPTests {
     @Test @MainActor func equipmentDetailContentPagerPresentation_singleTab() {
         #expect(EquipmentDetailContentPagerPresentation.pageCount == 1)
         #expect(EquipmentDetailContentPagerPresentation.defaultPage == .details)
+    }
+
+    @Test @MainActor func activityTagDetailContentPagerPresentation_pagesMatchTripStartedOrder() {
+        #expect(ActivityTagDetailContentPagerPresentation.pageCount == 5)
+        #expect(
+            ActivityTagDetailContentPagerPresentation.pages == [
+                .stats, .activities, .marineLife, .buddies, .media,
+            ]
+        )
+        #expect(ActivityTagDetailContentPagerPresentation.defaultPage == .stats)
+        #expect(
+            ActivityTagDetailContentPagerPresentation.accessibilityIdentifier(for: .stats)
+                == "ActivityTagDetails.ContentPager.Stats"
+        )
+        #expect(ActivityTagDetailContentPagerPresentation.usesStaticPagerLayout(for: .stats))
+        #expect(!ActivityTagDetailContentPagerPresentation.usesStaticPagerLayout(for: .media))
+        #expect(
+            ActivityTagDetailContentPagerPresentation.staticPagerContentAlignment(for: .stats) == .center
+        )
+    }
+
+    @Test @MainActor func activityTagDetailPresentation_headerUsesTagIcon() {
+        #expect(ActivityTagDetailPresentation.headerSystemImage == "tag.fill")
+        #expect(ActivityTagDetailPresentation.headerTypeAccessibilityLabel == "Activity tag")
+        #expect(
+            ActivityTagDetailPresentation.pinnedHeaderAccessibilityLabel(
+                tagName: "Reef",
+                diveCount: 3
+            ) == "Activity tag, Reef, 3 dives"
+        )
+    }
+
+    @Test @MainActor func activityTagDetailPresentation_ordersTaggedDivesNewestFirst() {
+        let tag = ActivityTag(name: "Wreck", normalizedName: "wreck", ownerProfileID: UUID())
+        let older = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 1_000_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        let newer = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 2_000_000),
+            durationMinutes: 42,
+            maxDepthMeters: 24
+        )
+        tag.dives = [older, newer]
+
+        let ordered = ActivityTagDetailPresentation.taggedDives(on: tag)
+        #expect(ordered.map(\.id) == [newer.id, older.id])
+        #expect(ActivityTagDetailPresentation.diveCountLabel(count: 2) == "2 dives")
+        #expect(ActivityTagDetailPresentation.diveCountLabel(count: 1) == "1 dive")
     }
 
     @Test func pageLayoutKind_includesSpeciesAndDiveSiteDetail() {
@@ -7659,6 +7719,31 @@ struct GoDiveMVPTests {
         #expect(
             DiveActivityEditableCatalog.editableFields(in: DiveActivityEditableCatalog.mapDiveSummarySection, for: manual)
                 .contains(.durationMinutes)
+        )
+    }
+
+    @Test @MainActor func diveActivityBuddiesOverviewPresentation_shouldOpenBuddyDetail() {
+        let owner = UserProfile(appleUserIdentifier: "owner", displayName: "Pat Lee")
+        let selfBuddy = DiveBuddy(displayName: "Pat", owner: owner)
+        let partner = DiveBuddy(displayName: "Alex Kim", owner: owner)
+
+        #expect(
+            !DiveActivityBuddiesOverviewPresentation.shouldOpenBuddyDetail(
+                buddy: nil,
+                owner: owner
+            )
+        )
+        #expect(
+            !DiveActivityBuddiesOverviewPresentation.shouldOpenBuddyDetail(
+                buddy: selfBuddy,
+                owner: owner
+            )
+        )
+        #expect(
+            DiveActivityBuddiesOverviewPresentation.shouldOpenBuddyDetail(
+                buddy: partner,
+                owner: owner
+            )
         )
     }
 
@@ -16762,8 +16847,8 @@ struct GoDiveMVPTests {
         #expect(!HomeBuddyLeaderboardPresentation.shouldShow(diveCount: 3, entries: []))
     }
 
-    @Test func homeLifetimeStatsLeaderboardPresentation_rankedDiveIDs_limitsToFiveAndSorts() {
-        let dives = (1...7).map { index in
+    @Test func homeLifetimeStatsLeaderboardPresentation_rankedDiveIDs_limitsToTenAndSorts() {
+        let dives = (1...12).map { index in
             HomeDiveStatsInput(
                 id: UUID(uuidString: String(format: "00000000-0000-0000-0000-%012d", index))!,
                 maxDepthMeters: Double(index),
@@ -16778,15 +16863,15 @@ struct GoDiveMVPTests {
             dives: dives,
             kind: .deepestDives
         )
-        #expect(deepest.count == 5)
-        #expect(deepest.first == dives[6].id)
+        #expect(deepest.count == 10)
+        #expect(deepest.first == dives[11].id)
 
         let longest = HomeLifetimeStatsLeaderboardPresentation.rankedDiveIDs(
             dives: dives,
             kind: .longestDives
         )
-        #expect(longest.count == 5)
-        #expect(longest.first == dives[6].id)
+        #expect(longest.count == 10)
+        #expect(longest.first == dives[11].id)
     }
 
     @Test func homeLifetimeStatsLeaderboardPresentation_topSites_countsVisitsAndLimitsToFive() {
@@ -16828,7 +16913,7 @@ struct GoDiveMVPTests {
         #expect(topSites[1].siteID == nil)
     }
 
-    @Test func homeLifetimeStatsLeaderboardPresentation_topSpecies_limitsToFive() {
+    @Test func homeLifetimeStatsLeaderboardPresentation_topSpecies_limitsToTen() {
         let sightings = [
             HomeLifetimeStatsPresentation.SightingCountInput(
                 marineLifeUUID: "fish-a",
@@ -16850,8 +16935,51 @@ struct GoDiveMVPTests {
         #expect(topSpecies[0].sightingCount == 2)
         #expect(
             HomeLifetimeStatsLeaderboardPresentation.pageTitle(for: .deepestDives)
-                == "Top 5 deepest dives"
+                == "Top 10 deepest dives"
         )
+    }
+
+    @Test func homeLifetimeStatsLeaderboardLayout_podiumSlots_ordersClassicPodium() {
+        #expect(HomeLifetimeStatsLeaderboardLayout.podiumSlots(entryCount: 1).map(\.rank) == [1])
+        #expect(HomeLifetimeStatsLeaderboardLayout.podiumSlots(entryCount: 2).map(\.rank) == [2, 1])
+        #expect(HomeLifetimeStatsLeaderboardLayout.podiumSlots(entryCount: 3).map(\.rank) == [2, 1, 3])
+        #expect(HomeLifetimeStatsLeaderboardLayout.podiumSlots(entryCount: 0).isEmpty)
+    }
+
+    @Test func homeLifetimeStatsLeaderboardLayout_pedestalHeights_stepDownFromFirst() {
+        #expect(
+            HomeLifetimeStatsLeaderboardLayout.pedestalHeight(for: 1)
+                > HomeLifetimeStatsLeaderboardLayout.pedestalHeight(for: 2)
+        )
+        #expect(
+            HomeLifetimeStatsLeaderboardLayout.pedestalHeight(for: 2)
+                > HomeLifetimeStatsLeaderboardLayout.pedestalHeight(for: 3)
+        )
+    }
+
+    @Test func homeLifetimeStatsLeaderboardPresentation_divePodiumMetricLabel_formatsDepthAndDuration() {
+        let dive = HomeDiveStatsInput(
+            id: UUID(),
+            maxDepthMeters: 30.48,
+            durationMinutes: 52,
+            diveSiteID: nil,
+            diveNumberLabel: "#12",
+            siteDisplayName: "Salt Pier"
+        )
+
+        let depth = HomeLifetimeStatsLeaderboardPresentation.divePodiumMetricLabel(
+            dive: dive,
+            kind: .deepestDives,
+            unitSystem: .imperial
+        )
+        #expect(depth.contains("100"))
+
+        let duration = HomeLifetimeStatsLeaderboardPresentation.divePodiumMetricLabel(
+            dive: dive,
+            kind: .longestDives,
+            unitSystem: .imperial
+        )
+        #expect(duration == "52 min")
     }
 
     @Test func homeLifetimeStatsLeaderboardPresentation_siteRowDisplayData_usesOwnerVisitCount() {
@@ -17735,6 +17863,70 @@ struct GoDiveMVPTests {
 
         let results = GlobalSearchPresentation.search(catalog: catalog, query: "blue")
         #expect(results.sections.map(\.kind) == [.buddies, .diveSites, .tags, .dives])
+    }
+
+    @Test func globalSearchPresentation_tagsScopedBrowse_listsTagNamesNotDives() {
+        let reefTagID = UUID()
+        let wreckTagID = UUID()
+        let catalog = GlobalSearchPresentation.Catalog(
+            dives: [
+                GlobalSearchPresentation.DiveIndexEntry(
+                    id: UUID(),
+                    title: "Blue Hole morning dive",
+                    subtitle: nil,
+                    searchHaystack: "blue hole morning dive reef"
+                ),
+            ],
+            diveSites: [],
+            species: [],
+            buddies: [],
+            tags: [
+                GlobalSearchPresentation.TagIndexEntry(
+                    id: reefTagID,
+                    name: "Reef",
+                    appliedDiveCount: 3,
+                    searchHaystack: "reef"
+                ),
+                GlobalSearchPresentation.TagIndexEntry(
+                    id: wreckTagID,
+                    name: "Wreck",
+                    appliedDiveCount: 1,
+                    searchHaystack: "wreck"
+                ),
+            ],
+            trips: [],
+            equipment: [],
+            certifications: []
+        )
+
+        let browseAll = GlobalSearchPresentation.search(
+            catalog: catalog,
+            query: "",
+            contextTokens: [.tags]
+        )
+        #expect(browseAll.sections.map(\.kind) == [.tags])
+        #expect(browseAll.sections[0].hits.map(\.title) == ["Reef", "Wreck"])
+        #expect(
+            browseAll.sections[0].hits.allSatisfy { hit in
+                if case .tag = hit.destination { return true }
+                return false
+            }
+        )
+
+        let filtered = GlobalSearchPresentation.search(
+            catalog: catalog,
+            query: "reef",
+            contextTokens: [.tags]
+        )
+        #expect(filtered.sections.map(\.kind) == [.tags])
+        #expect(filtered.sections[0].hits.count == 1)
+        #expect(filtered.sections[0].hits[0].title == "Reef")
+        if case .tag(let id) = filtered.sections[0].hits[0].destination {
+            #expect(id == reefTagID)
+        } else {
+            Issue.record("Expected tag destination for scoped tag hit")
+        }
+        #expect(!filtered.sections.contains { $0.kind == .dives })
     }
 
     @Test func globalSearchPresentation_contextTokenTileLayout_matchesHomeStatsGridSpacing() {

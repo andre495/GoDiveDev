@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// Ranked top-five list for a Home lifetime stat tile (deepest, longest, sites, species).
+/// Ranked top-ten list for a Home lifetime stat tile (deepest, longest, sites, species).
 struct HomeLifetimeStatsLeaderboardView: View {
     let kind: HomeLifetimeStatsLeaderboardKind
     let diveStatsInputs: [HomeDiveStatsInput]
@@ -14,6 +14,10 @@ struct HomeLifetimeStatsLeaderboardView: View {
     let onOpenDive: (UUID) -> Void
     let onOpenSite: (UUID) -> Void
     let onOpenSpecies: (String) -> Void
+
+    private var diveStatsByID: [UUID: HomeDiveStatsInput] {
+        Dictionary(uniqueKeysWithValues: diveStatsInputs.map { ($0.id, $0) })
+    }
 
     private var diveRows: [DiveLogbookRowDisplayData] {
         let rankedIDs = HomeLifetimeStatsLeaderboardPresentation.rankedDiveIDs(
@@ -45,6 +49,17 @@ struct HomeLifetimeStatsLeaderboardView: View {
 
     private var marineLifeByUUID: [String: MarineLife] {
         Dictionary(uniqueKeysWithValues: marineLifeCatalog.map { ($0.uuid, $0) })
+    }
+
+    private var speciesRowData: [HomeLifetimeStatsLeaderboardPresentation.SpeciesRowDisplayData] {
+        speciesEntries.map { entry in
+            let catalogSpecies = marineLifeByUUID[entry.marineLifeUUID]
+            return HomeLifetimeStatsLeaderboardPresentation.speciesRowDisplayData(
+                entry: entry,
+                featureImageURL: catalogSpecies?.featureImageURL ?? "",
+                featureImageResourceName: catalogSpecies?.featureImageResourceName ?? ""
+            )
+        }
     }
 
     private var showsEmptyState: Bool {
@@ -87,14 +102,22 @@ struct HomeLifetimeStatsLeaderboardView: View {
 
     @ViewBuilder
     private var listRows: some View {
+        podiumSection
+            .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+
         switch kind {
         case .deepestDives, .longestDives:
-            ForEach(diveRows) { row in
+            ForEach(Array(listPortionDiveRows.enumerated()), id: \.element.id) { index, row in
+                let rank = HomeLifetimeStatsLeaderboardPresentation.podiumLimit + index + 1
                 Button {
                     onOpenDive(row.id)
                 } label: {
-                    LogbookActivityRow(data: row)
-                        .equatable()
+                    HomeLifetimeStatsLeaderboardRankedRow(rank: rank) {
+                        LogbookActivityRow(data: row)
+                            .equatable()
+                    }
                 }
                 .buttonStyle(.plain)
                 .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
@@ -103,7 +126,7 @@ struct HomeLifetimeStatsLeaderboardView: View {
                 .accessibilityIdentifier("\(accessibilityRootIdentifier).Row.\(row.id.uuidString)")
             }
         case .topSites:
-            ForEach(siteEntries) { entry in
+            ForEach(listPortionSiteEntries) { entry in
                 let rowData = HomeLifetimeStatsLeaderboardPresentation.siteRowDisplayData(
                     entry: entry,
                     site: entry.siteID.flatMap { sitesByID[$0] }
@@ -113,13 +136,17 @@ struct HomeLifetimeStatsLeaderboardView: View {
                         Button {
                             onOpenSite(siteID)
                         } label: {
-                            ExploreDiveSiteRow(data: rowData)
-                                .equatable()
+                            HomeLifetimeStatsLeaderboardRankedRow(rank: entry.rank) {
+                                ExploreDiveSiteRow(data: rowData)
+                                    .equatable()
+                            }
                         }
                         .buttonStyle(.plain)
                     } else {
-                        ExploreDiveSiteRow(data: rowData)
-                            .equatable()
+                        HomeLifetimeStatsLeaderboardRankedRow(rank: entry.rank) {
+                            ExploreDiveSiteRow(data: rowData)
+                                .equatable()
+                        }
                     }
                 }
                 .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
@@ -128,12 +155,14 @@ struct HomeLifetimeStatsLeaderboardView: View {
                 .accessibilityIdentifier("\(accessibilityRootIdentifier).Row.\(entry.rank)")
             }
         case .topSpecies:
-            ForEach(speciesRowData) { row in
+            ForEach(listPortionSpeciesRowData) { row in
                 Button {
                     onOpenSpecies(row.marineLifeUUID)
                 } label: {
-                    HomeLifetimeStatsLeaderboardSpeciesRow(data: row)
-                        .equatable()
+                    HomeLifetimeStatsLeaderboardRankedRow(rank: speciesRank(for: row)) {
+                        HomeLifetimeStatsLeaderboardSpeciesRow(data: row)
+                            .equatable()
+                    }
                 }
                 .buttonStyle(.plain)
                 .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
@@ -144,15 +173,52 @@ struct HomeLifetimeStatsLeaderboardView: View {
         }
     }
 
-    private var speciesRowData: [HomeLifetimeStatsLeaderboardPresentation.SpeciesRowDisplayData] {
-        speciesEntries.map { entry in
-            let catalogSpecies = marineLifeByUUID[entry.marineLifeUUID]
-            return HomeLifetimeStatsLeaderboardPresentation.speciesRowDisplayData(
-                entry: entry,
-                featureImageURL: catalogSpecies?.featureImageURL ?? "",
-                featureImageResourceName: catalogSpecies?.featureImageResourceName ?? ""
-            )
-        }
+    private var podiumSection: some View {
+        HomeLifetimeStatsLeaderboardPodiumSection(
+            kind: kind,
+            unitSystem: unitSystem,
+            diveStatsByID: diveStatsByID,
+            diveRows: podiumDiveRows,
+            siteEntries: podiumSiteEntries,
+            speciesEntries: podiumSpeciesEntries,
+            speciesRowData: podiumSpeciesRowData,
+            accessibilityRootIdentifier: accessibilityRootIdentifier,
+            onOpenDive: onOpenDive,
+            onOpenSite: onOpenSite,
+            onOpenSpecies: onOpenSpecies
+        )
+    }
+
+    private var podiumDiveRows: [DiveLogbookRowDisplayData] {
+        Array(diveRows.prefix(HomeLifetimeStatsLeaderboardPresentation.podiumLimit))
+    }
+
+    private var listPortionDiveRows: [DiveLogbookRowDisplayData] {
+        Array(diveRows.dropFirst(HomeLifetimeStatsLeaderboardPresentation.podiumLimit))
+    }
+
+    private var podiumSiteEntries: [HomeLifetimeStatsLeaderboardPresentation.SiteEntry] {
+        Array(siteEntries.prefix(HomeLifetimeStatsLeaderboardPresentation.podiumLimit))
+    }
+
+    private var listPortionSiteEntries: [HomeLifetimeStatsLeaderboardPresentation.SiteEntry] {
+        Array(siteEntries.dropFirst(HomeLifetimeStatsLeaderboardPresentation.podiumLimit))
+    }
+
+    private var podiumSpeciesEntries: [HomeLifetimeStatsLeaderboardPresentation.SpeciesEntry] {
+        Array(speciesEntries.prefix(HomeLifetimeStatsLeaderboardPresentation.podiumLimit))
+    }
+
+    private var podiumSpeciesRowData: [HomeLifetimeStatsLeaderboardPresentation.SpeciesRowDisplayData] {
+        Array(speciesRowData.prefix(HomeLifetimeStatsLeaderboardPresentation.podiumLimit))
+    }
+
+    private var listPortionSpeciesRowData: [HomeLifetimeStatsLeaderboardPresentation.SpeciesRowDisplayData] {
+        Array(speciesRowData.dropFirst(HomeLifetimeStatsLeaderboardPresentation.podiumLimit))
+    }
+
+    private func speciesRank(for row: HomeLifetimeStatsLeaderboardPresentation.SpeciesRowDisplayData) -> Int {
+        speciesEntries.first(where: { $0.marineLifeUUID == row.marineLifeUUID })?.rank ?? 0
     }
 
     private var emptyState: some View {
@@ -203,6 +269,19 @@ struct HomeLifetimeStatsLeaderboardView: View {
     }
 }
 
+private struct HomeLifetimeStatsLeaderboardRankedRow<Content: View>: View {
+    let rank: Int
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
+            HomeLifetimeStatsLeaderboardRankBadge(rank: rank)
+            content()
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
 private struct HomeLifetimeStatsLeaderboardSpeciesRow: View, Equatable {
     let data: HomeLifetimeStatsLeaderboardPresentation.SpeciesRowDisplayData
 
@@ -223,22 +302,18 @@ private struct HomeLifetimeStatsLeaderboardSpeciesRow: View, Equatable {
                 )
             }
 
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .firstTextBaseline, spacing: AppTheme.Spacing.sm) {
-                    Text(data.commonName)
-                        .font(.headline)
-                        .foregroundStyle(AppTheme.Colors.textPrimary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(data.commonName)
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+                    .lineLimit(1)
+                    .multilineTextAlignment(.leading)
 
-                    Spacer(minLength: AppTheme.Spacing.sm)
-
-                    Text(data.sightingCountLabel)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(AppTheme.Colors.accent)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
-                }
+                Text(data.sightingCountLabel)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(AppTheme.Colors.accent)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

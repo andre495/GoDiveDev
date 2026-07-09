@@ -2,7 +2,9 @@ import SwiftUI
 
 /// Typography + spacing for **`BlueSheetPinnedSummary`** (Layer 2 pinned identity rows).
 enum BlueSheetPinnedSummaryPresentation: Sendable {
-    nonisolated static let rowSpacing: CGFloat = AppTheme.Spacing.sm
+    /// Matches **`BlueSheetDetailPagePinnedSummaryPresentation.pinnedRowSpacing`** on detail pages.
+    nonisolated static let rowSpacing: CGFloat =
+        BlueSheetDetailPagePinnedSummaryPresentation.pinnedRowSpacing
 
     nonisolated static var titleFont: Font { .title.weight(.bold) }
     nonisolated static var accentFont: Font { .subheadline.weight(.semibold) }

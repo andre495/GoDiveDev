@@ -57,11 +57,11 @@ If **Fishial** is configured in the app build, a **sparkles** control can sugges
 
 ## Tags (map tab)
 
-**Tags** are free-form labels on a dive (separate from marine life species tags). Use **+** on the Tags section or the overview sheet to add, pick, or remove tags.
+**Tags** are free-form labels on a dive (separate from marine life species tags). Tap a tag chip to open its detail page — a blue sheet with the same five pages as an active trip (**Overall stats**, **Dive activities**, **Marine life**, **Buddies**, **Media**) and a media/map toggle in the hero when tagged dives have site coordinates. Use **+** on the Tags section or the overview sheet to add, pick, or remove tags.
 
 ## Buddies
 
-On the map overview, **Buddies** lists people tagged on this dive. **+** opens the buddy picker from your roster or lets you create a new buddy.
+On the map overview, **Buddies** lists people tagged on this dive. Tap an avatar to open that buddy’s detail page. **+** opens the buddy picker from your roster or lets you create a new buddy.
 
 ## Landscape
 

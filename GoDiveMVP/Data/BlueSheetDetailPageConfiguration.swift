@@ -64,8 +64,17 @@ struct BlueSheetDetailPageConfiguration: Sendable, Equatable {
 /// Pinned summary + pager horizontal inset inside the blue sheet panel (matches logbook / catalog list content).
 enum BlueSheetDetailPagePinnedSummaryPresentation: Sendable {
     nonisolated static let horizontalPadding: CGFloat = AppTheme.Spacing.lg
-    nonisolated static let topPadding: CGFloat = AppTheme.Spacing.md
-    nonisolated static let bottomPadding: CGFloat = AppTheme.Spacing.sm
+
+    /// Blue-sheet seam → first pinned row (title or top accessory row).
+    nonisolated static let seamTopPadding: CGFloat = AppTheme.Spacing.md
+    /// Last pinned row → pager / panel body.
+    nonisolated static let bodyBottomPadding: CGFloat = AppTheme.Spacing.md
+    /// Stacked pinned rows (accent, title, subtitle, **`topRow`**).
+    nonisolated static let pinnedRowSpacing: CGFloat = AppTheme.Spacing.sm
+
+    /// Back-compat aliases used by **`BlueSheetDetailPage`**.
+    nonisolated static let topPadding: CGFloat = seamTopPadding
+    nonisolated static let bottomPadding: CGFloat = bodyBottomPadding
 
     nonisolated static var pinnedSummaryAccessibilitySuffix: String { "PinnedSummary" }
 }
