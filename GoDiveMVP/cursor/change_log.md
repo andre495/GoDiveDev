@@ -1756,7 +1756,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Tests: **`homeLifetimeStatsLeaderboardPresentation_rankedDiveIDs_limitsToTenAndSorts`**, **`homeLifetimeStatsLeaderboardLayout_podiumSlots_ordersClassicPodium`**, **`homeLifetimeStatsLeaderboardLayout_pedestalHeights_stepDownFromFirst`**, **`homeLifetimeStatsLeaderboardPresentation_divePodiumMetricLabel_formatsDepthAndDuration`**; updated page-title test.
 - **`docs/home.md`** — top-ten + podium copy.
 
-## 101 - Next batch
+## 101 - Next batch **(pushed)**
 
 **Summary:** Logged-out onboarding — activity picker, personalized feature slides, sign-in celebration, new-account profile setup.
 
@@ -1810,3 +1810,5 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 - **`HomeOverviewPushedLayoutPresentation.pushedPageSeamInputs`** — when Home anchor is unset, uses **`HomeTabRootLayoutPresentation.defaultLifetimeGridSeamInputs`** (buddy band on) instead of the old 2×2-only band.
 - Tests updated for always-on buddy band + layout-anchor reset isolation; header chrome color compare uses resolved **`UIColor`**.
+
+## 102 - Next batch
