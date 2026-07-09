@@ -14,7 +14,8 @@ struct ExploreView: View {
     private var diveActivities: [DiveActivity]
     @State private var path: [ExploreRoute] = []
     @State private var viewMode: ExploreViewMode = .map
-    @State private var siteScope: ExploreSiteScope = .logbook
+    @State private var siteScope: ExploreSiteScope = .allSites
+    @State private var hasAppliedDefaultSiteScope = false
     @State private var mapFocusedSelection: ExploreMapSiteSelection?
     @State private var mapFocusRequest: ExploreCatalogMapFocusRequest?
     @State private var exploreTopChromeHeight: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
@@ -42,6 +43,10 @@ struct ExploreView: View {
     private var ownerDiveActivities: [DiveActivity] {
         guard let ownerID = accountSession.currentProfile?.id else { return [] }
         return diveActivities.filter { $0.ownerProfileID == ownerID }
+    }
+
+    private var hasLoggedActivities: Bool {
+        !ownerDiveActivities.isEmpty
     }
 
     private var scopeCacheSyncToken: String {
@@ -115,7 +120,11 @@ struct ExploreView: View {
         .onChange(of: scopeCacheSyncToken) { _, _ in
             scheduleScopeCacheRebuild()
         }
+        .onChange(of: hasLoggedActivities) { _, hasActivities in
+            siteScope = ExploreSiteScopePresentation.defaultScope(hasLoggedActivities: hasActivities)
+        }
         .onAppear {
+            applyDefaultSiteScopeIfNeeded()
             scheduleScopeCacheRebuild()
         }
         .onDisappear {
@@ -334,6 +343,12 @@ struct ExploreView: View {
             .ignoresSafeArea(edges: [.top, .bottom])
             .listScrollToTopTrigger(nonce: listScrollToTopNonce)
         }
+    }
+
+    private func applyDefaultSiteScopeIfNeeded() {
+        guard !hasAppliedDefaultSiteScope else { return }
+        hasAppliedDefaultSiteScope = true
+        siteScope = ExploreSiteScopePresentation.defaultScope(hasLoggedActivities: hasLoggedActivities)
     }
 
     private func scheduleScopeCacheRebuild() {

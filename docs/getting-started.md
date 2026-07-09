@@ -1,17 +1,63 @@
 # Getting started
 
+## Before you sign in
+
+Whenever you open GoDive while logged out, onboarding walks you through what the app offers:
+
+### 1. Welcome — pick your activities
+
+Choose one or more (**Scuba Diving** is selected by default):
+
+- **Scuba Diving**
+- **Free Diving**
+- **Snorkeling**
+
+Tap **Show me around** to continue, or **Already have an account? Sign in** at the bottom to jump to Sign in with Apple.
+
+Your choices are saved to your profile when you create an account.
+
+### 2. Feature slides (personalized)
+
+Slides are tailored to what you selected:
+
+| Slide | Shown when |
+|-------|------------|
+| **Log every dive** | Scuba and/or free diving |
+| **Track your snorkeling activities** | Snorkeling |
+| **Explore sites across the world** | Always |
+| **Share experiences with your friends** | Always |
+| **Monitor your equipment** | Always |
+| **Learn from thousands of marine species** | Scuba and/or snorkeling |
+
+Swipe or tap **Continue** / **Get started**, or **Skip** to sign in.
+
+### 3. Sign in with Apple
+
+Create your on-device log with **Sign in with Apple**.
+
+**New accounts** then walk through a short profile setup:
+
+1. **Profile photo** — optional; tap the avatar to add one.
+2. **DAN insurance** — only if you chose scuba or free diving; optional (**Skip for now**).
+3. **Certification** — only if you chose scuba or free diving; add card photos or enter agency details, or skip.
+4. **Welcome** — title **Welcome**, subtitle **Let's Dive In**, with your photo, name, DAN, certification, and activity interests.
+
+Tap **Let's dive in** on the preview. A **bubble celebration** plays, then GoDive opens to **Home**. Contacts and Photos permissions are requested right after that animation.
+
+Returning visits while logged out start onboarding again from the welcome screen (activity picker). Sign in is still available from **Already have an account? Sign in** on welcome or from the final sign-up slide.
+
 ## Sign in
 
-When you first open GoDive, sign in with **Sign in with Apple**. GoDive uses your Apple ID to keep your local profile tied to your account on this device.
+When you open GoDive after onboarding, sign in with **Sign in with Apple**. GoDive uses your Apple ID to keep your local profile tied to your account on this device.
 
 - If Apple provides your name once, GoDive uses it for your display name.
 - Otherwise your name starts as **Diver** — you can change it anytime from **Profile → Edit**.
 
 ### First-time welcome
 
-The first time you sign up with a new Apple ID, GoDive shows a short welcome screen explaining that it may ask for **Contacts** and **Photos** access. Tap **Continue** to proceed through any system permission prompts.
+Older builds showed a permissions welcome screen before system prompts. Current builds request **Contacts** and **Photos** in the background after the post-sign-in bubble animation.
 
-Returning sign-ins skip this step.
+Returning sign-ins skip profile setup and open Home after the bubble celebration.
 
 ## Your first dive
 

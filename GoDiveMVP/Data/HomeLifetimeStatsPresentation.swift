@@ -95,6 +95,120 @@ enum HomeLifetimeStatsPresentation {
     nonisolated static let topSpeciesEmptyValue = "—"
     nonisolated static let topSpeciesEmptyFootnote = "Tag marine life on your dives"
 
+    nonisolated static let emptyStatValue = "—"
+    nonisolated static let deepestEmptyFootnote = "Log dives to track your deepest"
+    nonisolated static let longestEmptyFootnote = "Log dives to track bottom time"
+    nonisolated static let topSiteEmptyFootnote = "Visit sites to see your favorite"
+
+    /// Read-only tile copy for the Home lifetime stats grid (always four tiles).
+    struct HighlightStatTileDescriptor: Equatable, Sendable, Identifiable {
+        let id: String
+        let title: String
+        let value: String
+        let footnote: String
+        let systemImage: String
+        let leaderboardKind: HomeLifetimeStatsLeaderboardKind?
+    }
+
+    nonisolated static func highlightStatTileDescriptors(
+        stats: HomeLifetimeStats,
+        unitSystem: DiveDisplayUnitSystem
+    ) -> [HighlightStatTileDescriptor] {
+        [
+            deepestTileDescriptor(stats: stats, unitSystem: unitSystem),
+            longestTileDescriptor(stats: stats),
+            topSiteTileDescriptor(stats: stats),
+            topSpeciesTileDescriptor(stats: stats),
+        ]
+    }
+
+    private nonisolated static func deepestTileDescriptor(
+        stats: HomeLifetimeStats,
+        unitSystem: DiveDisplayUnitSystem
+    ) -> HighlightStatTileDescriptor {
+        if let deepest = stats.deepestDive, let depth = stats.deepestMaxDepthMeters {
+            return HighlightStatTileDescriptor(
+                id: "deepest",
+                title: "Deepest",
+                value: DiveQuantityFormatting.depth(meters: depth, system: unitSystem),
+                footnote: deepest.siteDisplayName,
+                systemImage: "arrow.down.circle.fill",
+                leaderboardKind: .deepestDives
+            )
+        }
+        return HighlightStatTileDescriptor(
+            id: "deepest",
+            title: "Deepest",
+            value: emptyStatValue,
+            footnote: deepestEmptyFootnote,
+            systemImage: "arrow.down.circle.fill",
+            leaderboardKind: nil
+        )
+    }
+
+    private nonisolated static func longestTileDescriptor(stats: HomeLifetimeStats) -> HighlightStatTileDescriptor {
+        if let longest = stats.longestDive, let minutes = stats.longestDurationMinutes {
+            return HighlightStatTileDescriptor(
+                id: "longest",
+                title: "Longest",
+                value: formattedDuration(minutes: minutes),
+                footnote: longest.siteDisplayName,
+                systemImage: "clock.fill",
+                leaderboardKind: .longestDives
+            )
+        }
+        return HighlightStatTileDescriptor(
+            id: "longest",
+            title: "Longest",
+            value: emptyStatValue,
+            footnote: longestEmptyFootnote,
+            systemImage: "clock.fill",
+            leaderboardKind: nil
+        )
+    }
+
+    private nonisolated static func topSiteTileDescriptor(stats: HomeLifetimeStats) -> HighlightStatTileDescriptor {
+        if let site = stats.mostVisitedSite {
+            return HighlightStatTileDescriptor(
+                id: "top-site",
+                title: "Top site",
+                value: site.name,
+                footnote: siteVisitLabel(count: site.visitCount),
+                systemImage: "mappin.circle.fill",
+                leaderboardKind: .topSites
+            )
+        }
+        return HighlightStatTileDescriptor(
+            id: "top-site",
+            title: "Top site",
+            value: emptyStatValue,
+            footnote: topSiteEmptyFootnote,
+            systemImage: "mappin.circle.fill",
+            leaderboardKind: nil
+        )
+    }
+
+    private nonisolated static func topSpeciesTileDescriptor(stats: HomeLifetimeStats) -> HighlightStatTileDescriptor {
+        if let species = stats.topSpecies {
+            return HighlightStatTileDescriptor(
+                id: "top-species",
+                title: "Top species",
+                value: species.commonName,
+                footnote: sightingCountLabel(count: species.sightingCount),
+                systemImage: "fish.fill",
+                leaderboardKind: .topSpecies
+            )
+        }
+        return HighlightStatTileDescriptor(
+            id: "top-species",
+            title: "Top species",
+            value: topSpeciesEmptyValue,
+            footnote: topSpeciesEmptyFootnote,
+            systemImage: "fish.fill",
+            leaderboardKind: nil
+        )
+    }
+
     struct SightingCountInput: Sendable, Equatable {
         let marineLifeUUID: String
         let commonName: String

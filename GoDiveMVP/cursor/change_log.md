@@ -1757,3 +1757,56 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`docs/home.md`** — top-ten + podium copy.
 
 ## 101 - Next batch
+
+**Summary:** Logged-out onboarding — activity picker, personalized feature slides, sign-in celebration, new-account profile setup.
+
+- **`LoggedOutOnboardingWelcomeView`** — welcome **GoDive** uses **`GoDiveBrandWordmarkText`** (same gradient as **`AppHeader`**); **Show me around** uses Liquid Glass (**`.glass`** capsule).
+- **`LoggedOutOnboardingView`** — sign-up / **Get started** slide uses **`LoggedOutMarketingChrome`** bubbles only (removed opaque full-page surface overlay).
+- **`UserOnboardingActivitySelection`** + **`UserProfile`** **`doesScubaDiving`** / **`doesFreeDiving`** / **`doesSnorkeling`** — pending UserDefaults → applied at sign-in via **`UserProfileStore.applyActivitySelection`**.
+- **`AppLoggedOutOnboardingPresentation`** — logged-out users always see onboarding on app open (no persisted skip); UI tests still use **`SignInView`**.
+- **`PostSignUpProfileSetupView`** — new-account wizard after Sign in with Apple: profile photo → DAN + certification (scuba/free diving only, skippable) → profile preview (photo, name, DAN, cert, interests) → **`SignInCelebrationView`** bubble burst → Home; permissions after celebration. Certification step **`Form`** fills the space between the step header and **Continue**.
+- **`PostSignUpProfileSetupPresentation`** — step list + dive-only gating; preview step copy **Welcome** / **Let's Dive In**; UI tests skip the wizard.
+- **`SignInCelebrationView`** — after profile setup: **GoDive** logo + **`GoDiveBrandWordmarkText`**, standard bubbles ramping **1× → 2×** rise speed over **2 s**, semi-random haptic burst while bubbles animate (**`SignInCelebrationPresentation`** haptic tokens; skipped under UI tests), then Home slides up from the bottom; new-account permissions deferred until after celebration.
+- **`OnboardingLogEveryDiveDemoView`** — scripted logbook scroll → dive open → map / tank / media tab micro-demo on **Log every dive** slide (**`OnboardingLogEveryDiveDemoFixtures`**). Logbook + media thumbnails use bundled Field Guide species photos (French angelfish, stoplight parrotfish, green sea turtle) instead of fish SF Symbol placeholders.
+- **`OnboardingExploreSitesDemoView`** — scripted Caribbean map zoom / pan → Blue Hole pin callout → site detail micro-demo on **Explore sites across the world** slide (**`OnboardingExploreSitesDemoFixtures`**, **`OnboardingExploreSitesMapRepresentable`**). Fixed invalid fixture UUIDs that crashed the Explore onboarding slide; onboarding map pins use standard red markers; no top map fade scrim in the phone frame.
+- **`OnboardingShareWithFriendsDemoView`** — scripted **Belize 2026** trip detail pager (stats → sites → buddies) → **Share** → full-frame **`TripShareCardView`** preview on **Share experiences with your friends** slide (**`OnboardingShareWithFriendsDemoFixtures`**; bundled buddy avatars). Taller trip hero header (lower blue-sheet seam), larger buddy avatars, share card fills the phone frame.
+- **`OnboardingMonitorEquipmentDemoView`** — scripted **Equipment Locker** list → **Garmin Mk3i** dive computer detail (bundled Garmin product photo hero) → scroll to recurring **Service** notes on **Monitor your equipment** slide (**`OnboardingMonitorEquipmentDemoFixtures`**).
+- **`OnboardingMarineSpeciesDemoView`** — scripted **Field Guide** category hub → **Fishes** → **Angelfishes** → **French Angelfish** species detail on **Learn from thousands of marine species** slide (**`OnboardingMarineSpeciesDemoFixtures`**; bundled catalog photo).
+- **`SignInWithAppleSection`** + **`LoggedOutMarketingChrome`** — shared sign-in + bubble chrome.
+- Tests: **`appLoggedOutOnboardingPresentation_featurePages_filterByActivitySelection`**, **`userOnboardingActivitySelection_pendingRoundTrip`**, **`signInCelebrationPresentation_skipsUnderUITest`**, **`postSignUpProfileSetupPresentation_*`**, **`onboardingMonitorEquipmentDemoFixtures_supportMicroDemo`**, **`onboardingMarineSpeciesDemoFixtures_supportMicroDemo`**.
+- **`docs/getting-started.md`** — full pre-sign-in flow + new-account profile setup.
+
+**Summary:** Home empty logbook — same blue-sheet layout, blank stat tiles, animated logging prompt.
+
+- **`LogOverviewView`** — always uses **`BlueSheetTabRootPage`** (removed separate empty-state placeholder); zero dives still show hero + stats panel. Empty hero uses the same header fade + seam math as the media carousel (**`HomeTabRootLayoutPresentation`** / **`HomeMediaCarouselHeaderGradient`**).
+- **`HomeMediaCarouselEmptyPlaceholder`** — matches populated carousel shell (header gradient, slide height); soft gradient hero fill + ghost-frame animation; compact **Log Your First Dive** Liquid Glass capsule (text-width, white label, **44 pt** height) lifted closer to the animation (**`ctaBottomLift` 96**); dives-without-media headline is **Add Media to your Dives** (not tappable). Ghost frames sit under the header (**`contentDownshift` 48**).
+- **`LogbookStoredEmptyState`** / **`LogYourFirstDiveGlassButtonLabel`** — same compact text-width Liquid Glass capsule as Home (**`logYourFirstDiveGlassButtonChrome`**), height **`AppTheme.Layout.glassChromeControlHeight`** (**44 pt**) to match toolbar / search glass controls.
+- **`ExploreSiteScopePresentation.defaultScope`** — empty logbook defaults Explore to **All Sites**; any logged activities default to **My Sites** (**`ExploreView`** applies on first appear and when activity presence changes).
+- **`FieldGuideCategoryAccent`** — hub tile palette (taxonomy order): Yellow, Red, Purple, Light Green, Orange, Cyan, Deep Pink.
+- **`HomeLifetimeStatsPresentation.highlightStatTileDescriptors`** — always four tiles (**Deepest**, **Longest**, **Top site**, **Top species**) with **—** placeholders when empty.
+- **`HomeLifetimeStatsTilesLayout`** — slightly larger highlight tiles (**90** pt) and grid gaps (**20** pt); empty and populated tiles share one fixed height (footnote row always reserved).
+- **`HomeBuddyLeaderboardPresentation.shouldShow`** — always **true** so empty Home keeps the **Top buddies** band; empty tile shows three placeholder slots.
+- Tests: **`homeLifetimeStatsPresentation_highlightStatTileDescriptors_alwaysReturnsFourTiles`**, updated carousel empty copy test.
+- **`docs/home.md`** — empty logbook layout copy.
+
+**Summary:** Light-mode top chrome — dark blue page titles and toolbar icons (profile avatar ring hue).
+
+- **`AppTheme.Colors`** — **`pageTitleForeground`**, **`headerChromeIconForeground`**, and **`backButtonForeground`** use **`accentDeep`** light stop (profile avatar ring) in light mode; dark mode unchanged (light text / white icons).
+- **`AppHeader`**, **`CollapsibleInlineTitleHeader`**, global search idle header, **`AppEditToolbarButton`** — adopt shared chrome title / icon tokens.
+
+**Summary:** Onboarding feature slides — two-line titles, lower copy and continue chrome.
+
+- **`LoggedOutOnboardingFeatureSlidePresentation`** — **`titleLineLimit` 2**, slightly shorter micro-demo height, copy + bottom padding tokens.
+- **`LoggedOutOnboardingFeatureSlideView`** — flexible spacer pins title/body lower; title wraps to two lines.
+- **`LoggedOutOnboardingView`** — page indicator + **Continue** / **Get started** pin near the physical bottom (**`ignoresSafeArea(edges: .bottom)`** + **`bottomChromeBottomPadding` 14**); feature-slide **Continue** is plain secondary text (not a filled button); last-slide **Get started** pulses **twice** (scale + opacity), then settles to static accent text (respects Reduce Motion).
+
+**Summary:** Home media carousel — light haptic on dive title tap.
+
+- **`HomeMediaCarouselDiveLinkButton`** — light impact haptic when the dive title capsule is tapped (opens dive); skipped under UI tests via **`HomeMediaCarouselDiveLinkChromePresentation.shouldPlayOpenDiveHaptic`**. Uses **`.sensoryFeedback`** after starting navigation so an unprepared UIKit generator does not stall the dive push.
+- Test: **`homeMediaCarouselDiveLinkChrome_openDiveHaptic_skipsUnderUITest`**.
+- **`docs/home.md`** — dive link capsule haptic note.
+
+**Summary:** Empty Home buddy band — pushed seam defaults match reserved **Top buddies** height.
+
+- **`HomeOverviewPushedLayoutPresentation.pushedPageSeamInputs`** — when Home anchor is unset, uses **`HomeTabRootLayoutPresentation.defaultLifetimeGridSeamInputs`** (buddy band on) instead of the old 2×2-only band.
+- Tests updated for always-on buddy band + layout-anchor reset isolation; header chrome color compare uses resolved **`UIColor`**.

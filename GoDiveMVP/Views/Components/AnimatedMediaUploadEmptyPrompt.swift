@@ -148,3 +148,26 @@ struct AnimatedMediaUploadEmptyPrompt: View {
         .accessibilityLabel("\(title). \(message)")
     }
 }
+
+/// Shared **Log Your First Dive** Liquid Glass capsule — Home empty hero + Logbook empty state.
+struct LogYourFirstDiveGlassButtonLabel: View {
+    var body: some View {
+        Text(HomeMediaCarouselEmptyPresentation.headline(for: .noLoggedActivities))
+            .font(.body.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, AppTheme.Spacing.md)
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+    }
+}
+
+extension View {
+    /// Compact glass capsule — text-width, same **44 pt** height as toolbar / search glass controls.
+    func logYourFirstDiveGlassButtonChrome() -> some View {
+        buttonStyle(.glass)
+            .buttonBorderShape(.capsule)
+            .controlSize(.regular)
+            .frame(height: AppTheme.Layout.glassChromeControlHeight)
+            .fixedSize(horizontal: true, vertical: false)
+    }
+}

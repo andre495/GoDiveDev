@@ -12,6 +12,10 @@ final class UserProfile {
     var profilePhoto: Data?
     /// DAN (Divers Alert Network) insurance membership number, when provided.
     var danInsuranceNumber: String?
+    /// Onboarding activity preferences (logged-out welcome screen).
+    var doesScubaDiving: Bool = false
+    var doesFreeDiving: Bool = false
+    var doesSnorkeling: Bool = false
     var createdAt: Date
     var lastSignedInAt: Date
 
@@ -36,6 +40,9 @@ final class UserProfile {
         displayName: String,
         profilePhoto: Data? = nil,
         danInsuranceNumber: String? = nil,
+        doesScubaDiving: Bool = false,
+        doesFreeDiving: Bool = false,
+        doesSnorkeling: Bool = false,
         createdAt: Date = .now,
         lastSignedInAt: Date = .now
     ) {
@@ -44,6 +51,9 @@ final class UserProfile {
         self.displayName = displayName
         self.profilePhoto = profilePhoto
         self.danInsuranceNumber = danInsuranceNumber
+        self.doesScubaDiving = doesScubaDiving
+        self.doesFreeDiving = doesFreeDiving
+        self.doesSnorkeling = doesSnorkeling
         self.createdAt = createdAt
         self.lastSignedInAt = lastSignedInAt
     }

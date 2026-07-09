@@ -2,21 +2,22 @@ import CoreGraphics
 import Foundation
 
 /// Shared Home stats + **Top buddies** tile heights for UI and **`HomeLifetimeStatsPanelLayout`**.
-/// With buddies: scroll content ≈ **316** pt (2×2 grid **180** + buddy **120** + gaps).
+/// With buddies: scroll content ≈ **340** pt (2×2 grid **200** + buddy **120** + gaps).
 enum HomeLifetimeStatsTilesLayout: Sendable {
 
-    nonisolated static let gridSpacing: CGFloat = 16
+    nonisolated static let gridSpacing: CGFloat = 20
     nonisolated static let gridColumnCount = 2
     nonisolated static let highlightStatTileCount = 4
 
-    nonisolated static let statTileHeight: CGFloat = 82
+    /// Fixed height for empty and populated highlight tiles (same shell either way).
+    nonisolated static let statTileHeight: CGFloat = 90
     nonisolated static let buddyTileHeight: CGFloat = 120
 
     /// Minimum tile heights — flexible Home layout grows above these to fill the blue panel.
     nonisolated static var statTileMinimumHeight: CGFloat { statTileHeight }
     nonisolated static var buddyTileMinimumHeight: CGFloat { buddyTileHeight }
 
-    nonisolated static let statTilePadding: CGFloat = 8
+    nonisolated static let statTilePadding: CGFloat = 10
     nonisolated static let valueFontSize: CGFloat = 19
     nonisolated static let titleFontSize: CGFloat = 12
 

@@ -63,6 +63,11 @@ enum ExploreSiteScope: String, CaseIterable, Identifiable, Sendable {
 }
 
 enum ExploreSiteScopePresentation: Sendable {
+    /// Empty logbook → **All Sites**; any logged activities → **My Sites**.
+    nonisolated static func defaultScope(hasLoggedActivities: Bool) -> ExploreSiteScope {
+        hasLoggedActivities ? .logbook : .allSites
+    }
+
     nonisolated static func logbookSiteIDs(
         ownerActivities: [DiveActivity],
         ownerProfileID: UUID?

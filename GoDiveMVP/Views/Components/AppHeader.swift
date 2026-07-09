@@ -94,7 +94,7 @@ enum AppHeaderTitlePlacement: Sendable {
     case belowBackRow
 }
 
-/// Full-width **`.title.bold`** under the back row, centered, **`textPrimary`**.
+/// Full-width **`.title.bold`** under the back row, centered, **`pageTitleForeground`**.
 enum AppHeaderStackedTitleChrome: Sendable {
     static let titlePlacement = AppHeaderTitlePlacement.belowBackRow
     static let titleMultilineAlignment = TextAlignment.center
@@ -334,7 +334,7 @@ struct AppHeader<TrailingContent: View>: View {
         } else if titleUsesBrandForeground {
             text.foregroundStyle(AppTheme.Colors.headerTitleForegroundGradient)
         } else {
-            text.foregroundStyle(AppTheme.Colors.textPrimary)
+            text.foregroundStyle(AppTheme.Colors.pageTitleForeground)
         }
     }
 
@@ -400,6 +400,16 @@ enum AppHeaderBrandRowMetrics {
         #else
         41
         #endif
+    }
+}
+
+/// **GoDive** wordmark — same ocean gradient + **`.largeTitle`** as **`AppHeader`** brand row.
+struct GoDiveBrandWordmarkText: View {
+    var body: some View {
+        Text("GoDive")
+            .font(AppTheme.Typography.headerBrandTitle.weight(.bold))
+            .foregroundStyle(AppTheme.Colors.headerTitleForegroundGradient)
+            .frame(minHeight: AppHeaderBrandRowMetrics.wordmarkLineHeight, alignment: .center)
     }
 }
 

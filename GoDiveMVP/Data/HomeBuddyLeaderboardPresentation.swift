@@ -21,8 +21,23 @@ enum HomeBuddyLeaderboardPresentation {
         let diveActivityID: UUID
     }
 
+    /// Home always reserves the **Top buddies** band so empty and populated roots share the same seam.
     nonisolated static func shouldShow(diveCount: Int, entries: [HomeBuddyLeaderboardEntry]) -> Bool {
-        diveCount > 0 && !entries.isEmpty
+        _ = diveCount
+        _ = entries
+        return true
+    }
+
+    nonisolated static let emptyFootnote = "Tag buddies on your dives"
+    nonisolated static let emptySlotLabel = "—"
+    nonisolated static let emptyAccessibilityLabel = "Top buddies, no buddies tagged yet"
+
+    /// Placeholder ranks **1…displayLimit** when the owner has no tagged buddies yet.
+    nonisolated static func displayEntries(
+        from entries: [HomeBuddyLeaderboardEntry]
+    ) -> [HomeBuddyLeaderboardEntry] {
+        guard !entries.isEmpty else { return [] }
+        return Array(entries.prefix(displayLimit))
     }
 
     nonisolated static func topEntries(

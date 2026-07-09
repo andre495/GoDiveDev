@@ -16,7 +16,17 @@ struct AppSessionRootView: View {
         ZStack {
             Group {
                 if accountSession.isSignedIn {
-                    if accountSession.showsNewAccountWelcome {
+                    if accountSession.showsPostSignUpProfileSetup {
+                        PostSignUpProfileSetupView {
+                            accountSession.completePostSignUpProfileSetup()
+                        }
+                        .transition(.opacity)
+                    } else if accountSession.showsSignInCelebration {
+                        SignInCelebrationView {
+                            accountSession.completeSignInCelebration()
+                        }
+                        .transition(.opacity)
+                    } else if accountSession.showsNewAccountWelcome {
                         NewAccountWelcomeView(
                             displayName: accountSession.currentProfile?.displayName,
                             onContinue: {
@@ -25,9 +35,25 @@ struct AppSessionRootView: View {
                         )
                     } else {
                         ContentView()
+                            .transition(homeEntryTransition)
+                            .onAppear {
+                                guard accountSession.prefersHomeRevealFromBottom else { return }
+                                Task { @MainActor in
+                                    try? await Task.sleep(
+                                        nanoseconds: UInt64(
+                                            SignInCelebrationPresentation.homeRevealSpringResponse * 1_000_000_000
+                                        )
+                                    )
+                                    accountSession.acknowledgeHomeRevealFromBottom()
+                                }
+                            }
                     }
                 } else if !accountSession.isRestoringSession {
-                    SignInView()
+                    if AppLoggedOutOnboardingPresentation.shouldPresentOnboarding() {
+                        LoggedOutOnboardingView()
+                    } else {
+                        SignInView()
+                    }
                 } else {
                     Color.clear
                 }
@@ -40,9 +66,28 @@ struct AppSessionRootView: View {
         }
         .animation(.easeInOut(duration: 0.2), value: showsBootstrapOverlay)
         .animation(.easeInOut(duration: 0.2), value: accountSession.showsNewAccountWelcome)
+        .animation(.easeInOut(duration: 0.35), value: accountSession.showsPostSignUpProfileSetup)
+        .animation(
+            .spring(
+                response: SignInCelebrationPresentation.homeRevealSpringResponse,
+                dampingFraction: SignInCelebrationPresentation.homeRevealSpringDamping
+            ),
+            value: accountSession.showsSignInCelebration
+        )
+        .animation(.easeInOut(duration: 0.2), value: accountSession.prefersHomeRevealFromBottom)
         .task {
             await accountSession.restoreSession(modelContext: modelContext)
         }
+    }
+
+    private var homeEntryTransition: AnyTransition {
+        if accountSession.prefersHomeRevealFromBottom {
+            return .asymmetric(
+                insertion: .move(edge: .bottom).combined(with: .opacity),
+                removal: .opacity
+            )
+        }
+        return .opacity
     }
 }
 

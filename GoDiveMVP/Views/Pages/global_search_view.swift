@@ -944,7 +944,7 @@ private struct GlobalSearchIdleHeader: View {
     var body: some View {
         Text(GlobalSearchPresentation.ContextTokenPresentation.idleHeaderTitle)
             .font(AppTheme.Typography.headerTitle.weight(.bold))
-            .foregroundStyle(.white)
+            .foregroundStyle(AppTheme.Colors.pageTitleForeground)
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity, alignment: .center)
             .accessibilityIdentifier(GlobalSearchPresentation.ContextTokenPresentation.idleHeaderAccessibilityIdentifier)

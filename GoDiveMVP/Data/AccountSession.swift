@@ -12,7 +12,14 @@ final class AccountSession {
     private(set) var isRestoringSession = true
     /// Brand-new account after Sign in with Apple — welcome screen before Contacts + Photos prompts.
     private(set) var showsNewAccountWelcome = false
+    /// Brand-new account — photo, DAN, certification, and profile preview before celebration.
+    private(set) var showsPostSignUpProfileSetup = false
+    /// Full-screen bubble celebration after Sign in with Apple (before Home).
+    private(set) var showsSignInCelebration = false
+    /// One-shot Home entry animation after celebration (slide up from bottom).
+    private(set) var prefersHomeRevealFromBottom = false
 
+    private var pendingNewAccountPermissions = false
     private var cachedSelfBuddyID: UUID?
     private var cachedSelfBuddyProfileID: UUID?
 
@@ -78,16 +85,59 @@ final class AccountSession {
         )
         try DiveActivityOwnership.claimUnownedDives(for: profile, modelContext: modelContext)
         try DiveBuddyOwnership.claimUnownedBuddies(for: profile, modelContext: modelContext)
+
+        if let pendingSelection = UserOnboardingActivitySelection.loadPending() {
+            try UserProfileStore.applyActivitySelection(
+                pendingSelection,
+                to: profile,
+                modelContext: modelContext
+            )
+            UserOnboardingActivitySelection.clearPending()
+        }
+
         persistSession(profile: profile)
         currentProfile = profile
         cachedSelfBuddyID = nil
         cachedSelfBuddyProfileID = nil
 
-        if AppNewAccountWelcomePresentation.shouldPresentWelcome(forNewAccount: isNewAccount) {
+        if PostSignUpProfileSetupPresentation.shouldPresentSetup(isNewAccount: isNewAccount) {
+            showsPostSignUpProfileSetup = true
+            pendingNewAccountPermissions = true
+        } else if SignInCelebrationPresentation.shouldPresentCelebration() {
+            showsSignInCelebration = true
+            pendingNewAccountPermissions = isNewAccount
+        } else if AppNewAccountWelcomePresentation.shouldPresentWelcome(forNewAccount: isNewAccount) {
             showsNewAccountWelcome = true
         } else if isNewAccount {
             Task { await AppOnboardingPermissions.requestForNewAccount() }
         }
+    }
+
+    /// Ends the post-sign-up profile wizard and shows the bubble celebration (or Home under UI tests).
+    func completePostSignUpProfileSetup() {
+        guard showsPostSignUpProfileSetup else { return }
+        showsPostSignUpProfileSetup = false
+        if SignInCelebrationPresentation.shouldPresentCelebration() {
+            showsSignInCelebration = true
+        } else if pendingNewAccountPermissions {
+            pendingNewAccountPermissions = false
+            Task { await AppOnboardingPermissions.requestForNewAccount() }
+        }
+    }
+
+    /// Ends the post-sign-in bubble celebration and opens Home (permissions run after for new accounts).
+    func completeSignInCelebration() {
+        guard showsSignInCelebration else { return }
+        showsSignInCelebration = false
+        prefersHomeRevealFromBottom = true
+        if pendingNewAccountPermissions {
+            pendingNewAccountPermissions = false
+            Task { await AppOnboardingPermissions.requestForNewAccount() }
+        }
+    }
+
+    func acknowledgeHomeRevealFromBottom() {
+        prefersHomeRevealFromBottom = false
     }
 
     /// Dismisses the welcome screen and runs the deferred onboarding permission prompts.
@@ -101,6 +151,10 @@ final class AccountSession {
         clearPersistedSession()
         currentProfile = nil
         showsNewAccountWelcome = false
+        showsPostSignUpProfileSetup = false
+        showsSignInCelebration = false
+        prefersHomeRevealFromBottom = false
+        pendingNewAccountPermissions = false
         cachedSelfBuddyID = nil
         cachedSelfBuddyProfileID = nil
     }

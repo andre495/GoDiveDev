@@ -61,11 +61,15 @@ enum HomeMediaCarouselLayout {
     }
 }
 
-/// Animated hero stand-in when the owner has dives but no Photos media for the daily carousel yet.
+/// Animated hero stand-in when the Home carousel has no media to show.
 struct HomeMediaCarouselEmptyPlaceholder: View {
     let containerWidth: CGFloat
     let topSafeAreaInset: CGFloat
+    var headerOverlayHeight: CGFloat?
     var heroBandHeight: CGFloat?
+    var context: HomeMediaCarouselEmptyPresentation.Context = .noMediaYet
+
+    @Environment(\.openLogbook) private var openLogbook
 
     private var resolvedHeroBandHeight: CGFloat {
         heroBandHeight ?? HomeMediaCarouselLayout.heroHeight(
@@ -83,8 +87,20 @@ struct HomeMediaCarouselEmptyPlaceholder: View {
         )
     }
 
+    private var headline: String {
+        HomeMediaCarouselEmptyPresentation.headline(for: context)
+    }
+
+    private var opensLogbookFromHeadline: Bool {
+        context == .noLoggedActivities && openLogbook != nil
+    }
+
+    private var accessibilityPrompt: String {
+        "\(headline). \(HomeMediaCarouselEmptyPresentation.message(for: context))"
+    }
+
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             LinearGradient(
                 colors: [
                     AppTheme.Colors.surfaceGradientTop.opacity(0.92),
@@ -95,19 +111,58 @@ struct HomeMediaCarouselEmptyPlaceholder: View {
                 endPoint: .bottomTrailing
             )
 
-            AnimatedMediaUploadEmptyPrompt(
+            MediaUploadEmptyGhostFramesAnimation(
                 containerWidth: containerWidth,
-                title: HomeMediaCarouselEmptyPresentation.title,
-                message: HomeMediaCarouselEmptyPresentation.message,
-                ghostFramesBottomPadding: HomeLifetimeStatsLayout.panelOverlap * 0.35,
                 verticalOffset: HomeMediaCarouselEmptyPresentation.contentDownshift
             )
-            .padding(.bottom, HomeMediaCarouselLayout.slideChromeBottomInset)
+            .frame(width: containerWidth, height: resolvedCarouselContentHeight)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityHidden(true)
+
+            emptyHeroHeadline
+                .frame(width: containerWidth, height: resolvedCarouselContentHeight, alignment: .bottom)
+                .padding(.bottom, HomeMediaCarouselEmptyPresentation.ctaBottomInset)
+
+            if let headerOverlayHeight {
+                HomeMediaCarouselHeaderGradient(
+                    height: HomeMediaCarouselLayout.headerGradientHeight(
+                        headerOverlayHeight: headerOverlayHeight,
+                        topSafeAreaInset: topSafeAreaInset,
+                        heroHeight: resolvedHeroBandHeight
+                    )
+                )
+                .allowsHitTesting(false)
+            }
         }
         .frame(width: containerWidth, height: resolvedCarouselContentHeight)
         .frame(maxWidth: .infinity)
         .clipped()
+        .modifier(HomeMediaCarouselTopSafeAreaBleedModifier(
+            topSafeAreaInset: topSafeAreaInset,
+            isEnabled: false
+        ))
         .accessibilityIdentifier("Home.MediaCarousel.Empty")
+    }
+
+    @ViewBuilder
+    private var emptyHeroHeadline: some View {
+        if opensLogbookFromHeadline, let openLogbook {
+            Button(action: openLogbook) {
+                LogYourFirstDiveGlassButtonLabel()
+            }
+            .logYourFirstDiveGlassButtonChrome()
+            .accessibilityLabel(accessibilityPrompt)
+            .accessibilityHint("Opens Logbook")
+            .accessibilityIdentifier("Home.MediaCarousel.Empty.LogFirstDive")
+        } else {
+            Text(headline)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.mutedText)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(accessibilityPrompt)
+        }
     }
 }
 
@@ -664,6 +719,9 @@ private struct HomeMediaCarouselDiveLinkButton: View {
     let linkedTripTitle: String?
     let action: () -> Void
 
+    /// Bumps after navigation starts so SwiftUI can fire haptic without blocking the push.
+    @State private var openDiveHapticTick = 0
+
     private var title: String {
         let site = siteDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
         return site.isEmpty ? "New Dive" : site
@@ -677,7 +735,12 @@ private struct HomeMediaCarouselDiveLinkButton: View {
     }
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            // Navigate first — unprepared UIKit impact generators can stall the main actor.
+            action()
+            guard HomeMediaCarouselDiveLinkChromePresentation.shouldPlayOpenDiveHaptic() else { return }
+            openDiveHapticTick &+= 1
+        } label: {
             HStack(spacing: AppTheme.Spacing.sm) {
                 Image(systemName: "book.closed.fill")
                     .font(.subheadline.weight(.semibold))
@@ -702,6 +765,7 @@ private struct HomeMediaCarouselDiveLinkButton: View {
             .appLiquidGlassSearchFieldChrome()
         }
         .buttonStyle(.plain)
+        .sensoryFeedback(.impact(weight: .light), trigger: openDiveHapticTick)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityIdentifier("Home.MediaCarousel.OpenDive")
     }
@@ -1780,77 +1844,22 @@ struct HomeLifetimeStatsSection: View {
     }
 
     private var highlightTiles: [HomeHighlightStatTile] {
-        var tiles: [HomeHighlightStatTile] = []
-
-        if let deepest = stats.deepestDive, let depth = stats.deepestMaxDepthMeters {
-            tiles.append(
-                HomeHighlightStatTile(
-                    id: "deepest",
-                    title: "Deepest",
-                    value: formattedDepth(depth),
-                    footnote: deepest.siteDisplayName,
-                    systemImage: "arrow.down.circle.fill",
-                    action: { onOpenLeaderboard(.deepestDives) }
-                )
+        HomeLifetimeStatsPresentation.highlightStatTileDescriptors(
+            stats: stats,
+            unitSystem: unitSystem
+        )
+        .map { descriptor in
+            HomeHighlightStatTile(
+                id: descriptor.id,
+                title: descriptor.title,
+                value: descriptor.value,
+                footnote: descriptor.footnote,
+                systemImage: descriptor.systemImage,
+                action: descriptor.leaderboardKind.map { kind in
+                    { onOpenLeaderboard(kind) }
+                }
             )
         }
-
-        if let longest = stats.longestDive, let minutes = stats.longestDurationMinutes {
-            tiles.append(
-                HomeHighlightStatTile(
-                    id: "longest",
-                    title: "Longest",
-                    value: HomeLifetimeStatsPresentation.formattedDuration(minutes: minutes),
-                    footnote: longest.siteDisplayName,
-                    systemImage: "clock.fill",
-                    action: { onOpenLeaderboard(.longestDives) }
-                )
-            )
-        }
-
-        if let site = stats.mostVisitedSite {
-            tiles.append(
-                HomeHighlightStatTile(
-                    id: "top-site",
-                    title: "Top site",
-                    value: site.name,
-                    footnote: HomeLifetimeStatsPresentation.siteVisitLabel(count: site.visitCount),
-                    systemImage: "mappin.circle.fill",
-                    action: { onOpenLeaderboard(.topSites) }
-                )
-            )
-        }
-
-        if let species = stats.topSpecies {
-            tiles.append(
-                HomeHighlightStatTile(
-                    id: "top-species",
-                    title: "Top species",
-                    value: species.commonName,
-                    footnote: HomeLifetimeStatsPresentation.sightingCountLabel(count: species.sightingCount),
-                    systemImage: "fish.fill",
-                    action: { onOpenLeaderboard(.topSpecies) }
-                )
-            )
-        } else {
-            tiles.append(
-                HomeHighlightStatTile(
-                    id: "top-species",
-                    title: "Top species",
-                    value: HomeLifetimeStatsPresentation.topSpeciesEmptyValue,
-                    footnote: HomeLifetimeStatsPresentation.topSpeciesEmptyFootnote,
-                    systemImage: "fish.fill",
-                    action: nil
-                )
-            )
-        }
-
-        return tiles
-    }
-
-    private func formattedDepth(_ meters: Double?) -> String {
-        guard let meters else { return "—" }
-        return DiveQuantityFormatting.depth(meters: meters, system: unitSystem)
     }
 }
 
@@ -1929,14 +1938,15 @@ private struct HomeStatTile: View {
                 .minimumScaleFactor(0.7)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            if showsFootnote {
-                Text(footnote)
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.Colors.mutedText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
+            // Always reserve the footnote line so empty (—) and populated tiles share one height.
+            Text(showsFootnote ? footnote : " ")
+                .font(.caption)
+                .foregroundStyle(AppTheme.Colors.mutedText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .opacity(showsFootnote ? 1 : 0)
+                .accessibilityHidden(!showsFootnote)
 
             Spacer(minLength: 0)
         }
@@ -1956,6 +1966,14 @@ struct HomeBuddyLeaderboardTile: View {
     let entries: [HomeBuddyLeaderboardEntry]
     let onOpenBuddy: (UUID) -> Void
 
+    private var displayEntries: [HomeBuddyLeaderboardEntry] {
+        HomeBuddyLeaderboardPresentation.displayEntries(from: entries)
+    }
+
+    private var isEmpty: Bool {
+        displayEntries.isEmpty
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: AppTheme.Spacing.sm) {
@@ -1970,12 +1988,19 @@ struct HomeBuddyLeaderboardTile: View {
             }
 
             HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
-                ForEach(entries) { entry in
-                    HomeBuddyLeaderboardPodiumSlot(
-                        entry: entry,
-                        onOpen: { onOpenBuddy(entry.id) }
-                    )
-                    .frame(maxWidth: .infinity)
+                if isEmpty {
+                    ForEach(1 ... HomeBuddyLeaderboardPresentation.displayLimit, id: \.self) { rank in
+                        HomeBuddyLeaderboardEmptySlot(rank: rank)
+                            .frame(maxWidth: .infinity)
+                    }
+                } else {
+                    ForEach(displayEntries) { entry in
+                        HomeBuddyLeaderboardPodiumSlot(
+                            entry: entry,
+                            onOpen: { onOpenBuddy(entry.id) }
+                        )
+                        .frame(maxWidth: .infinity)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
@@ -1990,10 +2015,43 @@ struct HomeBuddyLeaderboardTile: View {
     }
 
     private var leaderboardAccessibilityLabel: String {
-        let summaries = entries.map { entry in
+        guard !isEmpty else {
+            return HomeBuddyLeaderboardPresentation.emptyAccessibilityLabel
+        }
+        let summaries = displayEntries.map { entry in
             "\(DiveBuddyPresentation.firstName(from: entry.displayName)), \(HomeBuddyLeaderboardPresentation.diveCountLabel(count: entry.diveCount))"
         }
         return "Top buddies, " + summaries.joined(separator: "; ")
+    }
+}
+
+private struct HomeBuddyLeaderboardEmptySlot: View {
+    let rank: Int
+
+    var body: some View {
+        VStack(spacing: 4) {
+            ProfileAvatarView(
+                profilePhoto: nil,
+                diameter: HomeBuddyLeaderboardLayout.avatarDiameter,
+                iconFont: .caption,
+                placeholderInitials: nil
+            )
+            .opacity(0.45)
+
+            Text(HomeBuddyLeaderboardPresentation.emptySlotLabel)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(AppTheme.Colors.mutedText)
+                .lineLimit(1)
+
+            Text(HomeBuddyLeaderboardPresentation.emptySlotLabel)
+                .font(.caption2)
+                .foregroundStyle(AppTheme.Colors.mutedText)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(HomeBuddyLeaderboardPresentation.emptyFootnote)
+        .accessibilityIdentifier("Home.BuddyLeaderboard.EmptySlot.\(rank)")
     }
 }
 

@@ -146,4 +146,16 @@ enum UserProfileStore {
         guard !filtered.isEmpty else { return nil }
         return String(filtered.prefix(40))
     }
+
+    /// Applies logged-out onboarding activity picks to a profile row.
+    static func applyActivitySelection(
+        _ selection: UserOnboardingActivitySelection,
+        to profile: UserProfile,
+        modelContext: ModelContext
+    ) throws {
+        profile.doesScubaDiving = selection.doesScubaDiving
+        profile.doesFreeDiving = selection.doesFreeDiving
+        profile.doesSnorkeling = selection.doesSnorkeling
+        try modelContext.save()
+    }
 }

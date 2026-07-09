@@ -15,7 +15,6 @@ struct LogOverviewView: View {
 
     private let ownerProfileID: UUID?
 
-    @State private var headerClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
     @State private var path: [HomeRoute] = []
     @State private var carouselHighlights: [HomeMediaHighlight] = []
     @State private var homeAggregate = HomeOverviewAggregate.empty
@@ -76,14 +75,11 @@ struct LogOverviewView: View {
     }
 
     @ViewBuilder
-    private func homeDashboard(hasCarouselMedia: Bool) -> some View {
-        let statsContentHeight = HomeLifetimeStatsLayout.estimatedPanelContentHeight(
+    private func homeDashboard() -> some View {
+        let seamInputs = HomeTabRootLayoutPresentation.seamInputs(
             showsBuddyLeaderboard: showsHomeBuddyLeaderboard
         )
-        let seamInputs = HomeOverviewPushedLayoutPresentation.SeamInputs(
-            statsPanelContentHeight: statsContentHeight,
-            showsBuddyLeaderboard: showsHomeBuddyLeaderboard
-        )
+        let statsContentHeight = seamInputs.statsPanelContentHeight
 
         BlueSheetTabRootPage(
             configuration: .tabRoot(accessibilityRootIdentifier: "GoDive.Home"),
@@ -94,22 +90,12 @@ struct LogOverviewView: View {
                 HomeOverviewLayoutAnchor.publishHomeTabRootLayout(
                     layout,
                     statsPanelContentHeight: statsContentHeight,
-                    showsBuddyLeaderboard: showsHomeBuddyLeaderboard
+                    showsBuddyLeaderboard: seamInputs.showsBuddyLeaderboard
                 )
             },
             frozenRootViewportHeight: $frozenHomeRootViewportHeight
         ) { context in
-            if hasCarouselMedia {
-                homeCarouselBlock(context: context)
-            } else {
-                BlueSheetDetailHeroBandFill(accessibilityIdentifier: "Home.MediaCarousel.Empty.Hero") {
-                    HomeMediaCarouselEmptyPlaceholder(
-                        containerWidth: context.geometryWidth,
-                        topSafeAreaInset: context.heroTopSafeAreaInset,
-                        heroBandHeight: context.heroHeight
-                    )
-                }
-            }
+            homeTabRootHeroBand(context: context)
         } heroOverlay: { _ in
             EmptyView()
         } panelContent: { _ in
@@ -123,48 +109,14 @@ struct LogOverviewView: View {
                 homeProfileHeaderButton
             }
         }
+        .animation(nil, value: carouselHighlights.isEmpty)
+        .animation(nil, value: showsHomeBuddyLeaderboard)
     }
 
     var body: some View {
         NavigationStack(path: $path) {
-            ZStack(alignment: .top) {
-                if ownerDiveActivities.isEmpty {
-                    GeometryReader { proxy in
-                        VStack(alignment: .leading, spacing: 0) {
-                            Color.clear
-                                .frame(height: headerClearance)
-
-                            Spacer(minLength: AppTheme.Spacing.lg)
-
-                            homeEmptyState
-                                .padding(.horizontal, AppTheme.Spacing.lg)
-
-                            Spacer(minLength: AppTheme.Spacing.lg)
-                        }
-                        .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
-
-                        BlueSheetHomeTopChrome(
-                            safeTop: proxy.safeAreaInsets.top,
-                            topInset: headerClearance,
-                            title: "Home"
-                        ) {
-                            homeProfileHeaderButton
-                        }
-                        .allowsHitTesting(!homeHeroInteractionOverlayActive)
-                        .zIndex(1)
-                    }
-                    .background {
-                        AppTheme.Colors.screenBackgroundGradient
-                            .ignoresSafeArea()
-                    }
-                } else {
-                    homeDashboard(hasCarouselMedia: !carouselHighlights.isEmpty)
-                }
-            }
+            homeDashboard()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onPreferenceChange(AppHeaderMetrics.HeightKey.self) { height in
-                if height > 0 { headerClearance = height }
-            }
             .onPreferenceChange(HomeHeroInteractionOverlayKey.self) { homeHeroInteractionOverlayActive = $0 }
             .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -244,27 +196,46 @@ struct LogOverviewView: View {
     }
 
     @ViewBuilder
-    private func homeCarouselBlock(context: BlueSheetHeaderPageLayoutContext) -> some View {
-        BlueSheetDetailHeroBandFill(accessibilityIdentifier: "Home.MediaCarousel.Hero") {
-            HomeMediaCarouselSection(
-                highlights: carouselHighlights,
-                mediaByID: homeAggregate.mediaByID,
-                sightings: homeAggregate.ownerSightings,
-                marineLifeCatalog: marineLifeCatalog,
-                taggedBuddyRowsByMediaID: homeAggregate.taggedBuddyRowsByMediaID,
-                ownerProfileID: ownerProfileID,
-                containerWidth: context.geometryWidth,
-                topSafeAreaInset: context.heroTopSafeAreaInset,
-                headerOverlayHeight: context.topInset,
-                heroBandHeight: context.heroHeight,
-                appliesTopSafeAreaBleed: false,
-                selfBuddyID: selfBuddyID,
-                isHeroPlaybackActive: isHomeNavigationStackAtRoot,
-                onOpenDive: { path.append(.diveDetail($0)) },
-                onOpenMedia: { diveID, mediaID in path.append(.diveMedia(diveID: diveID, mediaID: mediaID)) },
-                onOpenBuddy: openBuddyOrProfile
-            )
+    private func homeTabRootHeroBand(context: BlueSheetHeaderPageLayoutContext) -> some View {
+        BlueSheetDetailHeroBandFill(
+            accessibilityIdentifier: carouselHighlights.isEmpty
+                ? "Home.MediaCarousel.Empty.Hero"
+                : "Home.MediaCarousel.Hero"
+        ) {
+            if carouselHighlights.isEmpty {
+                HomeMediaCarouselEmptyPlaceholder(
+                    containerWidth: context.geometryWidth,
+                    topSafeAreaInset: context.heroTopSafeAreaInset,
+                    headerOverlayHeight: context.topInset,
+                    heroBandHeight: context.heroHeight,
+                    context: ownerDiveActivities.isEmpty ? .noLoggedActivities : .noMediaYet
+                )
+            } else {
+                homeCarouselContent(context: context)
+            }
         }
+    }
+
+    @ViewBuilder
+    private func homeCarouselContent(context: BlueSheetHeaderPageLayoutContext) -> some View {
+        HomeMediaCarouselSection(
+            highlights: carouselHighlights,
+            mediaByID: homeAggregate.mediaByID,
+            sightings: homeAggregate.ownerSightings,
+            marineLifeCatalog: marineLifeCatalog,
+            taggedBuddyRowsByMediaID: homeAggregate.taggedBuddyRowsByMediaID,
+            ownerProfileID: ownerProfileID,
+            containerWidth: context.geometryWidth,
+            topSafeAreaInset: context.heroTopSafeAreaInset,
+            headerOverlayHeight: context.topInset,
+            heroBandHeight: context.heroHeight,
+            appliesTopSafeAreaBleed: false,
+            selfBuddyID: selfBuddyID,
+            isHeroPlaybackActive: isHomeNavigationStackAtRoot,
+            onOpenDive: { path.append(.diveDetail($0)) },
+            onOpenMedia: { diveID, mediaID in path.append(.diveMedia(diveID: diveID, mediaID: mediaID)) },
+            onOpenBuddy: openBuddyOrProfile
+        )
     }
 
     private func openBuddyOrProfile(buddyID: UUID) {
@@ -289,15 +260,6 @@ struct LogOverviewView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    }
-
-    private var homeEmptyState: some View {
-        AppComingSoonPlaceholder(
-            systemImage: "water.waves",
-            title: "Your diving home",
-            message: "Import or log dives in the Logbook to unlock lifetime stats and a highlight reel from your media."
-        )
-        .padding(.top, AppTheme.Spacing.lg)
     }
 
     @ViewBuilder

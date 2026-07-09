@@ -62,7 +62,7 @@ enum HomeOverviewPushedLayoutPresentation {
         let showsBuddyLeaderboard: Bool
     }
 
-    /// Pushed buddy/trip hero seam without scanning the full logbook — uses Home anchor or default 2×2 band.
+    /// Pushed buddy/trip hero seam without scanning the full logbook — uses Home anchor or default lifetime grid + **Top buddies** band.
     @MainActor
     static func pushedPageSeamInputs() -> SeamInputs {
         if let anchored = HomeOverviewLayoutAnchor.matchingRootSeamInputs() {
@@ -71,9 +71,6 @@ enum HomeOverviewPushedLayoutPresentation {
                 showsBuddyLeaderboard: anchored.showsBuddyLeaderboard
             )
         }
-        return SeamInputs(
-            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeight,
-            showsBuddyLeaderboard: false
-        )
+        return HomeTabRootLayoutPresentation.defaultLifetimeGridSeamInputs
     }
 }

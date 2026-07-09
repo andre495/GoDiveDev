@@ -32,6 +32,33 @@ enum WaterBubbleRendering {
     }
 }
 
+/// Bubble animation density — standard UI vs post-sign-in celebration burst.
+enum WaterBubbleAnimationIntensity: Sendable {
+    case standard
+    case celebration
+
+    nonisolated var bubbleCount: Int {
+        switch self {
+        case .standard: 12
+        case .celebration: 30
+        }
+    }
+
+    nonisolated var speedMultiplier: CGFloat {
+        switch self {
+        case .standard: 1
+        case .celebration: 2.5
+        }
+    }
+
+    nonisolated var diameterMultiplier: CGFloat {
+        switch self {
+        case .standard: 1
+        case .celebration: 1.2
+        }
+    }
+}
+
 /// Rising water bubbles drawn in a single `Canvas`, driven by `TimelineView`.
 /// Fill styling follows legacy **`AnimatedBackground`** bubbles (two-stop radial on accent family), without the old `Timer` / `ForEach` stack.
 /// Hidden entirely when Reduce Motion is enabled.
@@ -40,14 +67,9 @@ struct WaterBubbleBackground: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Pauses **`TimelineView`** during heavy logbook store work so the main thread stays responsive.
     var animationPaused: Bool = false
-
-    private static let bubbleCount = 12
-
-    private static let bubblePalette: [Color] = [
-        AppTheme.Colors.accent,
-        AppTheme.Colors.accentLight,
-        AppTheme.Colors.accentDeep,
-    ]
+    var intensity: WaterBubbleAnimationIntensity = .standard
+    /// When set, overrides `intensity.speedMultiplier` (e.g. animated ramp on sign-in celebration).
+    var speedMultiplier: CGFloat?
 
     var body: some View {
         ZStack {
@@ -63,7 +85,9 @@ struct WaterBubbleBackground: View {
                             Self.drawBubbles(
                                 in: &context,
                                 size: size,
-                                time: timeline.date.timeIntervalSinceReferenceDate
+                                time: timeline.date.timeIntervalSinceReferenceDate,
+                                intensity: intensity,
+                                speedMultiplier: speedMultiplier
                             )
                         }
                     }
@@ -75,20 +99,38 @@ struct WaterBubbleBackground: View {
         .ignoresSafeArea()
     }
 
-    private static func drawBubbles(in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
+    private static let bubblePalette: [Color] = [
+        AppTheme.Colors.accent,
+        AppTheme.Colors.accentLight,
+        AppTheme.Colors.accentDeep,
+    ]
+
+    private static func drawBubbles(
+        in context: inout GraphicsContext,
+        size: CGSize,
+        time: TimeInterval,
+        intensity: WaterBubbleAnimationIntensity,
+        speedMultiplier: CGFloat?
+    ) {
         guard size.width > 1, size.height > 1 else { return }
 
         let t = CGFloat(time)
         let minSide = min(size.width, size.height)
+        let bubbleCount = intensity.bubbleCount
+        let speedScale = speedMultiplier ?? intensity.speedMultiplier
+        let diameterScale = intensity.diameterMultiplier
 
         for i in 0..<bubbleCount {
             let xNorm = hash01(i, 1)
-            let speed = 10 + 22 * hash01(i, 3)
+            let speed = (10 + 22 * hash01(i, 3)) * speedScale
             let phaseY = (size.height + 80) * hash01(i, 4)
             let phaseWobble = .pi * 2 * hash01(i, 5)
             let wobbleAmp = minSide * (0.018 + 0.035 * hash01(i, 6))
 
-            let diameter = WaterBubbleRendering.bubbleDiameterPoints(minSide: minSide, hash: hash01(i, 2))
+            let diameter = WaterBubbleRendering.bubbleDiameterPoints(
+                minSide: minSide,
+                hash: hash01(i, 2)
+            ) * diameterScale
             // Keep loop length stable vs scaled radius (legacy `scaleEffect` grows to **1.2**).
             let maxRadius = diameter * 1.2 / 2
             let travel = size.height + maxRadius * 2 + 40

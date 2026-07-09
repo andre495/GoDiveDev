@@ -25,7 +25,7 @@ From **Logbook**, the list itself is not filtered inline — open **Search** to 
 
 ## Add a dive
 
-Tap **+** (or use the empty-state button) to open **Add activity**:
+Tap **+** (or the empty-state **Log Your First Dive** button) to open **Add activity**:
 
 === "Import from a file"
 

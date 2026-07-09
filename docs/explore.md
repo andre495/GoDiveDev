@@ -32,7 +32,7 @@ Toggle **centered** in the top bar (map/list on the left, **+** on the right):
 - **My Sites** — sites you’ve logged dives at or added yourself  
 - **All Sites** — full catalog including reference sites you haven’t visited  
 
-Changing scope refreshes the map pins or list.
+Explore opens on **All Sites** when your logbook is empty, and on **My Sites** once you have logged activities. You can still switch either way with the toggle. Changing scope refreshes the map pins or list.
 
 ## Site detail
 

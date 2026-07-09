@@ -213,11 +213,19 @@ enum AppTheme {
         static let iconPrimary = accentDeep
         static let tabSelected = accent
         static let tabUnselected = secondaryText
-        /// Liquid Glass toolbar icons on top chrome rows (**Logbook**, **Explore**, profile lists, etc.).
-        static let headerChromeIconForeground = Color.white
-        /// Liquid Glass back chevron — dark slate in light mode, white in dark mode.
+        /// Top chrome page titles (**Activity Log**, **`AppHeader`** titles, etc.) — profile avatar ring hue in light mode.
+        static let pageTitleForeground = adaptive(
+            light: UIColor(red: 0.00, green: 0.18, blue: 0.36, alpha: 1.0),
+            dark: UIColor(red: 0.92, green: 0.97, blue: 1.00, alpha: 1.0)
+        )
+        /// Liquid Glass toolbar icons on top chrome rows (**Logbook**, **Explore**, back, **+**, etc.).
+        static let headerChromeIconForeground = adaptive(
+            light: UIColor(red: 0.00, green: 0.18, blue: 0.36, alpha: 1.0),
+            dark: UIColor(white: 1.0, alpha: 0.96)
+        )
+        /// Linked dive-site titles on media chrome — profile avatar ring hue in light mode.
         static let backButtonForeground = adaptive(
-            light: UIColor(red: 0.12, green: 0.26, blue: 0.40, alpha: 1.0),
+            light: UIColor(red: 0.00, green: 0.18, blue: 0.36, alpha: 1.0),
             dark: UIColor(white: 1.0, alpha: 0.96)
         )
         static let textPrimary = primaryText

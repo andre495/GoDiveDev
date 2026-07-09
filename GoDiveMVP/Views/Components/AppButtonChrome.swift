@@ -101,6 +101,11 @@ extension View {
     func appHeaderChromeIconForeground() -> some View {
         foregroundStyle(AppTheme.Colors.headerChromeIconForeground)
     }
+
+    /// Collapsible / **`AppHeader`** page titles on top chrome.
+    func appPageTitleForeground() -> some View {
+        foregroundStyle(AppTheme.Colors.pageTitleForeground)
+    }
 }
 
 /// Liquid Glass **Edit** label for page / detail toolbars (not dive overview field-section ellipsis).
@@ -119,7 +124,7 @@ struct AppEditToolbarButton: View {
                 .contentShape(Rectangle())
         }
         .appGlassToolbarTextButtonStyle()
-        .foregroundStyle(AppTheme.Colors.tabSelected)
+        .foregroundStyle(AppTheme.Colors.headerChromeIconForeground)
         .accessibilityLabel(accessibilityLabel ?? title)
         .accessibilityIdentifier(accessibilityIdentifier)
     }

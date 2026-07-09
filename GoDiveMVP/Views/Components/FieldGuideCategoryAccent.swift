@@ -1,18 +1,35 @@
 import SwiftUI
 
 /// Per-category gradient accents for Field Guide hub and browse surfaces.
+///
+/// Hub tile order matches **`FieldGuideTaxonomy.categories`**:
+/// Yellow → Red → Purple → Light Green → Orange → Cyan → Deep Pink.
 enum FieldGuideCategoryAccent {
     static func gradientTop(_ categoryID: String) -> Color {
         switch categoryID {
-        case "fishes", "fish": AppTheme.Colors.accent
-        case "plants", "marine_plants": Color(red: 0.38, green: 0.72, blue: 0.42)
-        case "corals": Color(red: 0.95, green: 0.45, blue: 0.55)
+        case "plants", "marine_plants":
+            // Yellow
+            Color(red: 0.98, green: 0.82, blue: 0.18)
+        case "sponges":
+            // Red
+            Color(red: 0.92, green: 0.22, blue: 0.24)
+        case "corals":
+            // Purple
+            Color(red: 0.62, green: 0.28, blue: 0.88)
         case "invertebrates", "mollusks", "crustaceans", "echinoderms", "worms", "colonial_invertebrates", "other_cnidarians":
-            Color(red: 0.55, green: 0.75, blue: 0.98)
-        case "sponges": Color(red: 0.72, green: 0.55, blue: 0.88)
-        case "reptiles", "sea_turtles", "marine_reptiles": Color(red: 0.34, green: 0.68, blue: 0.48)
-        case "mammals", "marine_mammals": Color(red: 0.28, green: 0.52, blue: 0.78)
-        default: AppTheme.Colors.accent
+            // Light Green
+            Color(red: 0.52, green: 0.88, blue: 0.42)
+        case "fishes", "fish":
+            // Orange
+            Color(red: 1.00, green: 0.55, blue: 0.12)
+        case "reptiles", "sea_turtles", "marine_reptiles":
+            // Cyan
+            Color(red: 0.12, green: 0.82, blue: 0.88)
+        case "mammals", "marine_mammals":
+            // Deep Pink
+            Color(red: 0.92, green: 0.12, blue: 0.52)
+        default:
+            Color(red: 1.00, green: 0.55, blue: 0.12)
         }
     }
 

@@ -856,14 +856,10 @@ private struct LogbookStoredEmptyState: View {
                 .padding(.horizontal, AppTheme.Spacing.lg)
 
             NavigationLink(value: LogbookRoute.addActivity) {
-                Text("Import a dive")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, AppTheme.Spacing.lg)
-                    .padding(.vertical, AppTheme.Spacing.md)
-                    .background(AppTheme.Colors.accent, in: Capsule())
+                LogYourFirstDiveGlassButtonLabel()
             }
-            .buttonStyle(.plain)
+            .logYourFirstDiveGlassButtonChrome()
+            .accessibilityIdentifier("Logbook.Empty.LogFirstDive")
 
             Spacer()
         }

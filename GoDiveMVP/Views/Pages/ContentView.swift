@@ -49,6 +49,9 @@ struct ContentView: View {
         .goDiveRootTabBarChrome()
         .modifier(TabBarMinimizeWhenNotUITesting())
         .environment(\.diveDisplayUnitSystem, useImperialDisplayUnits ? .imperial : .metric)
+        .environment(\.openLogbook) {
+            selectedTab = .logbook
+        }
     }
 }
 

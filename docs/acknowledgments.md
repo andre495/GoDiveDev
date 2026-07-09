@@ -34,6 +34,7 @@ Sites you create manually or from import-only names are stored locally on your d
 | Source | Used for |
 |--------|----------|
 | **[Garmin FIT SDK](https://github.com/garmin/fit-swift-sdk)** (Garmin) | Reading **`.fit`** files from supported Garmin dive computers |
+| **Garmin product photography** ([Garmin](https://www.garmin.com/)) | Onboarding **Monitor equipment** micro-demo hero and list thumbnail (**Descent™ Mk3i** product image, bundled under **`Resources/OnboardingPhotos/`**) |
 | **[UDDF 3.2](https://www.standardsproject.org/)** (Universal Dive Data Format) | Reading **`.uddf`** exports (e.g. MacDive, Subsurface, and other UDDF-compatible apps) |
 
 GoDive maps imported fields into its own dive model; vendor-specific field names are not stored as-is.

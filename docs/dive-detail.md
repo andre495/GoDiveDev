@@ -42,7 +42,7 @@ Tap a section **⋯** menu to edit all fields in that section in one sheet.
 ## Media tab
 
 - Full-bleed **hero pager** swipes between photos and videos.
-- When a dive has **no media yet**, the hero shows bouncing photo/video frames at **minimized** and **medium** (hidden at **large**). The **Your highlight reel lives here** copy sits in the overview sheet at **medium** and **large**; **+** adds library items.
+- When a dive has **no media yet**, the hero shows bouncing photo/video frames at **minimized** and **medium** (hidden at **large**). The **Add Media to your Dives** copy sits in the overview sheet at **medium** and **large**; **+** adds library items.
 - **Carousel** at minimized and medium detents jumps between items; oldest capture time on the left.
 - **+** opens the photo picker to attach library items (up to 20 per add).
 - **Star** marks the featured item used as the Logbook row thumbnail.

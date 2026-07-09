@@ -238,6 +238,8 @@ struct GoDiveMVPTests {
     }
 
     @Test @MainActor func diveBuddyDetailPresentation_initialPushedLayoutFloors_defaultWhenHomeAnchorUnset() {
+        HomeOverviewLayoutAnchor.resetForTesting()
+        defer { HomeOverviewLayoutAnchor.resetForTesting() }
         #expect(
             DiveBuddyDetailPresentation.initialPushedLayoutSafeAreaTopFloor()
                 == AppScrollUnderHeaderListLayout.resolvedSafeAreaTop(0)
@@ -441,11 +443,13 @@ struct GoDiveMVPTests {
     }
 
     @Test @MainActor func homeOverviewPushedLayoutPresentation_pushedPageSeamInputs_usesDefaultBandWithoutStoreScan() {
+        HomeOverviewLayoutAnchor.resetForTesting()
+        defer { HomeOverviewLayoutAnchor.resetForTesting() }
         let inputs = HomeOverviewPushedLayoutPresentation.pushedPageSeamInputs()
-        #expect(
-            inputs.statsPanelContentHeight == HomeOverviewLayout.heroLayoutStatsPanelContentHeight
-        )
-        #expect(inputs.showsBuddyLeaderboard == false)
+        let expected = HomeTabRootLayoutPresentation.defaultLifetimeGridSeamInputs
+        #expect(inputs.statsPanelContentHeight == expected.statsPanelContentHeight)
+        #expect(inputs.showsBuddyLeaderboard == expected.showsBuddyLeaderboard)
+        #expect(inputs.showsBuddyLeaderboard)
     }
 
     @Test @MainActor func diveBuddyDetailContentPager_pages() {
@@ -887,6 +891,297 @@ struct GoDiveMVPTests {
             AppNewAccountWelcomePresentation.welcomeTitle(displayName: nil)
                 == "Welcome to GoDive"
         )
+    }
+
+    @Test func appLoggedOutOnboardingPresentation_shouldPresentWhileLoggedOut() {
+        #expect(AppLoggedOutOnboardingPresentation.shouldPresentOnboarding(isUITest: false))
+        #expect(!AppLoggedOutOnboardingPresentation.shouldPresentOnboarding(isUITest: true))
+    }
+
+    @Test func appLoggedOutOnboardingPresentation_featurePages_filterByActivitySelection() {
+        let scubaOnly = UserOnboardingActivitySelection(
+            doesScubaDiving: true,
+            doesFreeDiving: false,
+            doesSnorkeling: false
+        )
+        let snorkelOnly = UserOnboardingActivitySelection(
+            doesScubaDiving: false,
+            doesFreeDiving: false,
+            doesSnorkeling: true
+        )
+        let all = UserOnboardingActivitySelection(
+            doesScubaDiving: true,
+            doesFreeDiving: true,
+            doesSnorkeling: true
+        )
+
+        #expect(
+            AppLoggedOutOnboardingPresentation.featurePages(for: scubaOnly).map(\.kind) == [
+                .logEveryDive,
+                .exploreSites,
+                .shareWithFriends,
+                .monitorEquipment,
+                .marineSpecies,
+            ]
+        )
+        #expect(
+            AppLoggedOutOnboardingPresentation.featurePages(for: snorkelOnly).map(\.kind) == [
+                .trackSnorkeling,
+                .exploreSites,
+                .shareWithFriends,
+                .monitorEquipment,
+                .marineSpecies,
+            ]
+        )
+        #expect(AppLoggedOutOnboardingPresentation.featurePages(for: all).count == 6)
+        #expect(
+            AppLoggedOutOnboardingPresentation.continueButtonTitle(
+                featurePageIndex: 0,
+                featurePageCount: 3
+            ) == AppLoggedOutOnboardingPresentation.continueButtonTitle
+        )
+        #expect(
+            AppLoggedOutOnboardingPresentation.continueButtonTitle(
+                featurePageIndex: 2,
+                featurePageCount: 3
+            ) == AppLoggedOutOnboardingPresentation.getStartedButtonTitle
+        )
+        #expect(
+            AppLoggedOutOnboardingPresentation.isSignUpPhase(featurePageIndex: 3, featurePageCount: 3)
+        )
+    }
+
+    @Test func loggedOutOnboardingFeatureSlidePresentation_allowsTwoLineTitles() {
+        #expect(LoggedOutOnboardingFeatureSlidePresentation.titleLineLimit == 2)
+        #expect(LoggedOutOnboardingFeatureSlidePresentation.demoMaxHeight < OnboardingDemoPhoneFrameMetrics.defaultMaxHeight)
+        #expect(LoggedOutOnboardingFeatureSlidePresentation.bottomChromeTopPadding == 0)
+        #expect(LoggedOutOnboardingFeatureSlidePresentation.bottomChromeStackSpacing == AppTheme.Spacing.sm)
+        #expect(LoggedOutOnboardingFeatureSlidePresentation.bottomChromeBottomPadding == 14)
+        #expect(LoggedOutOnboardingFeatureSlidePresentation.getStartedCalloutPeakScale >= 1.15)
+        #expect(LoggedOutOnboardingFeatureSlidePresentation.getStartedCalloutMinOpacity < 1)
+        #expect(LoggedOutOnboardingFeatureSlidePresentation.getStartedCalloutCycleSeconds <= 0.8)
+        #expect(LoggedOutOnboardingFeatureSlidePresentation.getStartedCalloutPulseCount == 2)
+    }
+
+    @Test @MainActor
+    func userOnboardingActivitySelection_pendingRoundTrip() {
+        let suiteName = "UserOnboardingActivitySelectionTests"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let selection = UserOnboardingActivitySelection(
+            doesScubaDiving: true,
+            doesFreeDiving: false,
+            doesSnorkeling: true
+        )
+        UserOnboardingActivitySelection.savePending(selection, userDefaults: defaults)
+        #expect(UserOnboardingActivitySelection.loadPending(userDefaults: defaults) == selection)
+        UserOnboardingActivitySelection.clearPending(userDefaults: defaults)
+        #expect(UserOnboardingActivitySelection.loadPending(userDefaults: defaults) == nil)
+    }
+
+    @Test func userOnboardingActivitySelection_welcomeDefault_selectsScuba() {
+        #expect(UserOnboardingActivitySelection.welcomeDefault.doesScubaDiving)
+        #expect(!UserOnboardingActivitySelection.welcomeDefault.doesFreeDiving)
+        #expect(!UserOnboardingActivitySelection.welcomeDefault.doesSnorkeling)
+        #expect(UserOnboardingActivitySelection.welcomeDefault.hasAnySelection)
+    }
+
+    @Test func userOnboardingActivityKind_icons_matchWelcomeScreen() {
+        #expect(UserOnboardingActivityKind.scubaDiving.assetImageName == "ScubaTankTab")
+        #expect(UserOnboardingActivityKind.scubaDiving.systemImage == nil)
+        #expect(UserOnboardingActivityKind.freeDiving.systemImage == "water.waves.and.arrow.down")
+        #expect(UserOnboardingActivityKind.snorkeling.systemImage == "figure.water.fitness")
+    }
+
+    @Test func onboardingLogEveryDiveDemoFixtures_supportMicroDemo() {
+        let rows = OnboardingLogEveryDiveDemoFixtures.logbookRows
+        #expect(rows.count == 5)
+        #expect(rows.contains { $0.id == OnboardingLogEveryDiveDemoFixtures.focusedDiveID })
+        #expect(OnboardingLogEveryDiveDemoFixtures.demoMediaPhotoID.uuidString.isEmpty == false)
+        #expect(OnboardingLogEveryDiveDemoFixtures.depthSamples.count >= 2)
+        #expect(OnboardingLogEveryDiveDemoFixtures.mapOverviewStatsLayout.leadingStats.count == 2)
+        for resourceName in OnboardingLogEveryDiveDemoFixtures.demoMarineLifeSpeciesResourceNames {
+            #expect(
+                FieldGuideMarineLifeBundledImagePresentation.bundledPhotoURL(resourceName: resourceName) != nil,
+                "Missing bundled marine life photo: \(resourceName)"
+            )
+        }
+    }
+
+    @Test func onboardingExploreSitesDemoFixtures_supportMicroDemo() {
+        let sites = OnboardingExploreSitesDemoFixtures.plottedSites
+        #expect(sites.count >= 5)
+        #expect(sites.contains { $0.id == OnboardingExploreSitesDemoFixtures.focusedSiteID })
+        #expect(sites.first { $0.id == OnboardingExploreSitesDemoFixtures.focusedSiteID }?.siteName == "Blue Hole")
+        #expect(OnboardingExploreSitesDemoFixtures.demoRegionSequence.count == 4)
+        #expect(
+            OnboardingExploreSitesDemoFixtures.focusedSiteRegion.latitudeDelta
+                == DiveLocationMapPresentation.diveSiteLatitudeDelta
+        )
+        #expect(OnboardingExploreSitesDemoFixtures.worldOverviewRegion.latitudeDelta > 5)
+        #expect(OnboardingExploreSitesDemoFixtures.plottedSites.map(\.id).count == Set(sites.map(\.id)).count)
+    }
+
+    @Test func onboardingMarineSpeciesDemoFixtures_supportMicroDemo() {
+        #expect(OnboardingMarineSpeciesDemoFixtures.hubCategories.count >= 3)
+        #expect(
+            OnboardingMarineSpeciesDemoFixtures.hubCategories.contains {
+                $0.categoryID == OnboardingMarineSpeciesDemoFixtures.fishesCategoryID
+            }
+        )
+        #expect(OnboardingMarineSpeciesDemoFixtures.fishesSubcategoryRows.count >= 3)
+        #expect(OnboardingMarineSpeciesDemoFixtures.frenchAngelfishSnapshot.commonName == "French Angelfish")
+        #expect(OnboardingMarineSpeciesDemoFixtures.frenchAngelfishSnapshot.scientificName == "Pomacanthus paru")
+        #expect(
+            OnboardingMarineSpeciesDemoFixtures.bundledPhotoURL() != nil,
+            "Missing bundled French angelfish photo for onboarding demo"
+        )
+        #expect(OnboardingMarineSpeciesDemoFixtures.heroHeight > 260)
+    }
+
+    @Test func onboardingMonitorEquipmentDemoFixtures_supportMicroDemo() {
+        #expect(OnboardingMonitorEquipmentDemoFixtures.lockerRows.count >= 3)
+        #expect(
+            OnboardingMonitorEquipmentDemoFixtures.lockerRows.contains {
+                $0.id == OnboardingMonitorEquipmentDemoFixtures.focusedItemID
+            }
+        )
+        #expect(OnboardingMonitorEquipmentDemoFixtures.garminTitle == "Garmin Mk3i")
+        #expect(OnboardingMonitorEquipmentDemoFixtures.garminGearTypeLabel == "Dive Computer")
+        #expect(OnboardingMonitorEquipmentDemoFixtures.recurrenceLabel == "Every 1 year")
+        #expect(!OnboardingMonitorEquipmentDemoFixtures.serviceNotes.isEmpty)
+        #expect(OnboardingMonitorEquipmentDemoFixtures.heroHeight > 280)
+        #expect(
+            OnboardingMonitorEquipmentDemoFixtures.bundledPhotoURL(
+                resourceName: OnboardingMonitorEquipmentDemoFixtures.garminMk3iPhotoResourceName
+            ) != nil
+        )
+        #expect(OnboardingMonitorEquipmentDemoFixtures.garminMk3iPhotoData != nil)
+        #expect(OnboardingMonitorEquipmentDemoFixtures.garminMk3iHeroImage != nil)
+    }
+
+    @Test func onboardingShareWithFriendsDemoFixtures_supportMicroDemo() {
+        #expect(OnboardingShareWithFriendsDemoFixtures.demoPages.count == 3)
+        #expect(OnboardingShareWithFriendsDemoFixtures.statTiles.count == 4)
+        #expect(OnboardingShareWithFriendsDemoFixtures.plannedSiteRows.count == 3)
+        #expect(OnboardingShareWithFriendsDemoFixtures.taggedBuddies.count == 3)
+        #expect(OnboardingShareWithFriendsDemoFixtures.shareCardMembers.count == 4)
+        #expect(OnboardingShareWithFriendsDemoFixtures.tripTitle == "Belize 2026")
+        #expect(OnboardingShareWithFriendsDemoFixtures.heroHeight > 340)
+        #expect(OnboardingShareWithFriendsDemoFixtures.panelOverlap < AppTheme.Spacing.md)
+        #expect(OnboardingShareWithFriendsDemoFixtures.buddyAvatarDiameter >= 64)
+        #expect(OnboardingShareWithFriendsDemoFixtures.shareCardScaleForPhoneFrame() > 0.5)
+        for resourceName in OnboardingShareWithFriendsDemoFixtures.demoBuddyPhotoResourceNames {
+            #expect(
+                FieldGuideMarineLifeBundledImagePresentation.bundledPhotoURL(resourceName: resourceName) != nil,
+                "Missing bundled buddy demo photo: \(resourceName)"
+            )
+            #expect(OnboardingShareWithFriendsDemoFixtures.bundledJPEGData(named: resourceName) != nil)
+        }
+    }
+
+    @Test func onboardingDemoPhoneFrameMetrics_matchIPhonePortraitRatio() {
+        #expect(OnboardingDemoPhoneFrameMetrics.defaultMaxHeight == 450)
+        let size = OnboardingDemoPhoneFrameMetrics.portraitSize(
+            maxHeight: OnboardingDemoPhoneFrameMetrics.defaultMaxHeight
+        )
+        #expect(size.height == 450)
+        #expect(abs(size.width / size.height - OnboardingDemoPhoneFrameMetrics.widthOverHeight) < 0.001)
+        #expect(size.width < size.height)
+        let scale = OnboardingDemoPhoneFrameMetrics.contentScale(for: size)
+        #expect(abs(scale - size.width / 393) < 0.001)
+        #expect(scale > 0.4)
+    }
+
+    @Test func signInCelebrationPresentation_skipsUnderUITest() {
+        #expect(!SignInCelebrationPresentation.shouldPresentCelebration(isUITest: true))
+        #expect(SignInCelebrationPresentation.shouldPresentCelebration(isUITest: false))
+        #expect(SignInCelebrationPresentation.durationNanoseconds == 2_400_000_000)
+        #expect(SignInCelebrationPresentation.bubbleSpeedStartMultiplier == 1)
+        #expect(SignInCelebrationPresentation.bubbleSpeedEndMultiplier == 2)
+        #expect(SignInCelebrationPresentation.bubbleSpeedRampDuration == 2.0)
+        #expect(SignInCelebrationPresentation.logoSpringResponse < 0.55)
+    }
+
+    @Test func signInCelebrationPresentation_hapticBurst_isSemiRandomAndSkippedUnderUITest() {
+        #expect(!SignInCelebrationPresentation.shouldPlayCelebrationHaptics(isUITest: true))
+        #expect(SignInCelebrationPresentation.shouldPlayCelebrationHaptics(isUITest: false))
+        #expect(SignInCelebrationPresentation.hapticBurstCount > 5)
+        #expect(SignInCelebrationPresentation.hapticMinIntervalSeconds
+            < SignInCelebrationPresentation.hapticMaxIntervalSeconds)
+        let first = SignInCelebrationPresentation.hapticIntervalSeconds(index: 0)
+        let second = SignInCelebrationPresentation.hapticIntervalSeconds(index: 1)
+        #expect(first >= SignInCelebrationPresentation.hapticMinIntervalSeconds)
+        #expect(first <= SignInCelebrationPresentation.hapticMaxIntervalSeconds)
+        #expect(second >= SignInCelebrationPresentation.hapticMinIntervalSeconds)
+        #expect(second <= SignInCelebrationPresentation.hapticMaxIntervalSeconds)
+        #expect(first != second)
+    }
+
+    @Test func postSignUpProfileSetupPresentation_shouldPresentSetup_onlyForNewNonUITestAccounts() {
+        #expect(PostSignUpProfileSetupPresentation.shouldPresentSetup(isNewAccount: true, isUITest: false))
+        #expect(!PostSignUpProfileSetupPresentation.shouldPresentSetup(isNewAccount: false, isUITest: false))
+        #expect(!PostSignUpProfileSetupPresentation.shouldPresentSetup(isNewAccount: true, isUITest: true))
+    }
+
+    @Test @MainActor
+    func postSignUpProfileSetupPresentation_steps_includeDiveStepsForScubaOrFreeDive() {
+        let scuba = UserProfile(appleUserIdentifier: "a", displayName: "A", doesScubaDiving: true)
+        let free = UserProfile(appleUserIdentifier: "b", displayName: "B", doesFreeDiving: true)
+        let both = UserProfile(
+            appleUserIdentifier: "c",
+            displayName: "C",
+            doesScubaDiving: true,
+            doesFreeDiving: true
+        )
+
+        #expect(PostSignUpProfileSetupPresentation.steps(for: scuba) == [
+            .profilePhoto, .danInsurance, .certification, .preview,
+        ])
+        #expect(PostSignUpProfileSetupPresentation.steps(for: free) == [
+            .profilePhoto, .danInsurance, .certification, .preview,
+        ])
+        #expect(PostSignUpProfileSetupPresentation.steps(for: both) == [
+            .profilePhoto, .danInsurance, .certification, .preview,
+        ])
+    }
+
+    @Test @MainActor
+    func postSignUpProfileSetupPresentation_steps_skipDiveStepsForSnorkelOnly() {
+        let snorkelOnly = UserProfile(
+            appleUserIdentifier: "d",
+            displayName: "D",
+            doesSnorkeling: true
+        )
+        #expect(PostSignUpProfileSetupPresentation.steps(for: snorkelOnly) == [
+            .profilePhoto, .preview,
+        ])
+    }
+
+    @Test func postSignUpProfileSetupPresentation_selectedInterestKinds_reflectsProfileFlags() {
+        let profile = UserProfile(
+            appleUserIdentifier: "e",
+            displayName: "E",
+            doesScubaDiving: true,
+            doesSnorkeling: true
+        )
+        let kinds = PostSignUpProfileSetupPresentation.selectedInterestKinds(for: profile)
+        #expect(kinds == [.scubaDiving, .snorkeling])
+    }
+
+    @Test func postSignUpProfileSetupPresentation_previewCopy_isWelcomeAndLetsDiveIn() {
+        #expect(PostSignUpProfileSetupPresentation.stepTitle(.preview) == "Welcome")
+        #expect(PostSignUpProfileSetupPresentation.stepSubtitle(.preview) == "Let's Dive In")
+        #expect(PostSignUpProfileSetupPresentation.continueTitle(for: .preview) == "Let's dive in")
+    }
+
+    @Test @MainActor
+    func accountSession_completePostSignUpProfileSetup_isNoOpWhenNotShowingSetup() {
+        let session = AccountSession.shared
+        session.signOut()
+        session.completePostSignUpProfileSetup()
+        #expect(!session.showsSignInCelebration)
     }
 
     @Test @MainActor
@@ -4035,6 +4330,20 @@ struct GoDiveMVPTests {
                 == FieldGuideCategoryImageLayout.detailHeroBaseHeight + inset
         )
         #expect(FieldGuideCategoryImageLayout.detailHeroBaseHeight == 200)
+    }
+
+    @Test @MainActor
+    func fieldGuideCategoryAccent_usesRequestedHubPaletteInTaxonomyOrder() {
+        #expect(FieldGuideTaxonomy.categories.map(\.id) == [
+            "plants", "sponges", "corals", "invertebrates", "fishes", "reptiles", "mammals",
+        ])
+        #expect(FieldGuideCategoryAccent.gradientTop("plants") == Color(red: 0.98, green: 0.82, blue: 0.18))
+        #expect(FieldGuideCategoryAccent.gradientTop("sponges") == Color(red: 0.92, green: 0.22, blue: 0.24))
+        #expect(FieldGuideCategoryAccent.gradientTop("corals") == Color(red: 0.62, green: 0.28, blue: 0.88))
+        #expect(FieldGuideCategoryAccent.gradientTop("invertebrates") == Color(red: 0.52, green: 0.88, blue: 0.42))
+        #expect(FieldGuideCategoryAccent.gradientTop("fishes") == Color(red: 1.00, green: 0.55, blue: 0.12))
+        #expect(FieldGuideCategoryAccent.gradientTop("reptiles") == Color(red: 0.12, green: 0.82, blue: 0.88))
+        #expect(FieldGuideCategoryAccent.gradientTop("mammals") == Color(red: 0.92, green: 0.12, blue: 0.52))
     }
 
     @Test func fieldGuideSubcategoryPresentation_matchesCategoryDetailHeroChrome() {
@@ -9765,6 +10074,8 @@ struct GoDiveMVPTests {
         #expect(ExploreSiteScope.allSites.shortTitle == "All Sites")
         #expect(ExploreSiteScope.logbook.systemImage == "book.closed.fill")
         #expect(ExploreSiteScope.allSites.systemImage == "globe.americas.fill")
+        #expect(ExploreSiteScopePresentation.defaultScope(hasLoggedActivities: false) == .allSites)
+        #expect(ExploreSiteScopePresentation.defaultScope(hasLoggedActivities: true) == .logbook)
     }
 
     @Test func exploreSiteScopeChromePresentation_bottomLayoutReservesTabBarAndToggle() {
@@ -11056,10 +11367,61 @@ struct GoDiveMVPTests {
     @Test func homeMediaCarouselEmptyPresentation_definesEncouragingCopyAndFrameLayout() {
         #expect(HomeMediaCarouselEmptyPresentation.frameCount == 3)
         #expect(HomeMediaCarouselEmptyPresentation.animationCycleSeconds > 0)
-        #expect(HomeMediaCarouselEmptyPresentation.title.contains("highlight reel"))
-        #expect(HomeMediaCarouselEmptyPresentation.message.contains("Logbook"))
+        #expect(HomeMediaCarouselEmptyPresentation.headline(for: .noMediaYet) == "Add Media to your Dives")
+        #expect(HomeMediaCarouselEmptyPresentation.message(for: .noMediaYet).contains("Logbook"))
+        #expect(HomeMediaCarouselEmptyPresentation.headline(for: .noLoggedActivities) == "Log Your First Dive")
+        #expect(HomeMediaCarouselEmptyPresentation.message(for: .noLoggedActivities).contains("Logbook"))
         #expect(HomeMediaCarouselEmptyPresentation.frameOffsetAmplitude(index: 2) > HomeMediaCarouselEmptyPresentation.frameOffsetAmplitude(index: 0))
-        #expect(HomeMediaCarouselEmptyPresentation.contentDownshift == 80)
+        #expect(HomeMediaCarouselEmptyPresentation.contentDownshift == 48)
+        #expect(HomeMediaCarouselEmptyPresentation.ctaBottomLift == 96)
+        #expect(
+            HomeMediaCarouselEmptyPresentation.ctaBottomInset
+                == HomeOverviewLayout.panelOverlap - AppTheme.Spacing.md
+                + HomeMediaCarouselEmptyPresentation.ctaBottomLift
+        )
+    }
+
+    @Test func homeMediaCarouselEmptyPlaceholder_usesSameSlideHeightAsPopulatedCarousel() {
+        let width: CGFloat = 393
+        let topInset: CGFloat = 59
+        let heroBand = HomeMediaCarouselLayout.heroHeight(width: width, topSafeAreaInset: topInset)
+        let expected = HomeMediaCarouselLayout.carouselContentHeight(
+            heroBandHeight: heroBand,
+            topSafeAreaInset: topInset,
+            appliesOwnTopSafeAreaBleed: false
+        )
+        #expect(expected > heroBand)
+        #expect(
+            HomeMediaCarouselLayout.carouselContentHeight(
+                heroBandHeight: heroBand,
+                topSafeAreaInset: topInset,
+                appliesOwnTopSafeAreaBleed: false
+            ) == expected
+        )
+    }
+
+    @Test @MainActor
+    func homeTabRootLayoutPresentation_defaultLifetimeGridSeam_includesBuddyBand() {
+        let emptyLog = HomeTabRootLayoutPresentation.defaultLifetimeGridSeamInputs
+        let withBuddies = HomeTabRootLayoutPresentation.seamInputs(showsBuddyLeaderboard: true)
+        #expect(emptyLog == withBuddies)
+        #expect(emptyLog.showsBuddyLeaderboard)
+        #expect(
+            emptyLog.statsPanelContentHeight
+                == HomeLifetimeStatsPanelLayout.estimatedPanelContentHeight(showsBuddyLeaderboard: true)
+        )
+    }
+
+    @Test @MainActor
+    func homeLifetimeStatsPresentation_highlightStatTileDescriptors_alwaysReturnsFourTiles() {
+        let emptyStats = HomeLifetimeStatsPresentation.build(dives: [], sightings: [])
+        let tiles = HomeLifetimeStatsPresentation.highlightStatTileDescriptors(
+            stats: emptyStats,
+            unitSystem: .metric
+        )
+        #expect(tiles.count == HomeLifetimeStatsTilesLayout.highlightStatTileCount)
+        #expect(tiles.allSatisfy { $0.value == HomeLifetimeStatsPresentation.emptyStatValue })
+        #expect(tiles.allSatisfy { $0.leaderboardKind == nil })
     }
 
     @Test func homeMediaHighlightPresentation_excludesLongVideosFromCarouselCandidates() {
@@ -12121,6 +12483,11 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func homeMediaCarouselDiveLinkChrome_openDiveHaptic_skipsUnderUITest() {
+        #expect(!HomeMediaCarouselDiveLinkChromePresentation.shouldPlayOpenDiveHaptic(isUITest: true))
+        #expect(HomeMediaCarouselDiveLinkChromePresentation.shouldPlayOpenDiveHaptic(isUITest: false))
+    }
+
     @Test func homeMediaCarouselPresentation_marineLifeOverlayCloseTopInset_alignsWithHomeHeaderProfileRow() {
         let topSafeAreaInset: CGFloat = 59
         let headerClearance: CGFloat = 112
@@ -12272,7 +12639,7 @@ struct GoDiveMVPTests {
         #expect(HomeLifetimeStatsLayout.highlightStatTileCount == 4)
         #expect(HomeLifetimeStatsLayout.rowCount(tileCount: 4) == 2)
         #expect(HomeLifetimeStatsLayout.rowCount(tileCount: 3) == 2)
-        #expect(HomeLifetimeStatsLayout.statTileHeight == 82)
+        #expect(HomeLifetimeStatsLayout.statTileHeight == 90)
         let fourTileGrid = HomeLifetimeStatsLayout.gridHeight(tileCount: 4)
         #expect(abs(fourTileGrid - (HomeLifetimeStatsLayout.statTileHeight * 2 + HomeLifetimeStatsLayout.gridSpacing)) < 0.001)
         let threeTileGrid = HomeLifetimeStatsLayout.gridHeight(tileCount: 3)
@@ -12392,7 +12759,7 @@ struct GoDiveMVPTests {
                 == HomeBuddyLeaderboardLayout.estimatedTileHeight
         )
         #expect(
-            HomeLifetimeStatsTilesLayout.scrollContentHeight(showsBuddyLeaderboard: true) == 316
+            HomeLifetimeStatsTilesLayout.scrollContentHeight(showsBuddyLeaderboard: true) == 340
         )
     }
 
@@ -12615,6 +12982,7 @@ struct GoDiveMVPTests {
 
     @Test @MainActor func homeOverviewPushedLayoutPresentation_statsPanelContentHeightMatchingHome_usesLeaderboardBandWhenVisible() {
         HomeOverviewLayoutAnchor.resetForTesting()
+        defer { HomeOverviewLayoutAnchor.resetForTesting() }
         let buddy = DiveBuddy(displayName: "Alex")
         let activity = DiveActivity(
             source: .manual,
@@ -12633,14 +13001,16 @@ struct GoDiveMVPTests {
             withLeaderboard
                 == HomeLifetimeStatsLayout.estimatedPanelContentHeight(showsBuddyLeaderboard: true)
         )
+        // Empty Home still reserves the Top buddies band.
         #expect(
             HomeOverviewPushedLayoutPresentation.statsPanelContentHeightMatchingHome(activities: [])
-                == HomeLifetimeStatsLayout.estimatedPanelContentHeight(showsBuddyLeaderboard: false)
+                == HomeLifetimeStatsLayout.estimatedPanelContentHeight(showsBuddyLeaderboard: true)
         )
     }
 
     @Test @MainActor func homeOverviewPushedLayoutPresentation_statsPanelContentHeightMatchingHome_usesDiveBuddyTagsWhenRelationshipsUnset() {
         HomeOverviewLayoutAnchor.resetForTesting()
+        defer { HomeOverviewLayoutAnchor.resetForTesting() }
         let buddy = DiveBuddy(displayName: "Alex")
         let activity = DiveActivity(
             source: .manual,
@@ -12669,9 +13039,10 @@ struct GoDiveMVPTests {
                 ),
             ]
         )
+        // Home always reserves Top buddies even when no tags are present yet.
         #expect(
             viaActivitiesOnly
-                == HomeLifetimeStatsLayout.estimatedPanelContentHeight(showsBuddyLeaderboard: false)
+                == HomeLifetimeStatsLayout.estimatedPanelContentHeight(showsBuddyLeaderboard: true)
         )
     }
 
@@ -16834,7 +17205,7 @@ struct GoDiveMVPTests {
         #expect(HomeBuddyLeaderboardPresentation.topEntries(from: tags).count == 3)
     }
 
-    @Test func homeBuddyLeaderboard_shouldShow_requiresDivesAndTaggedBuddies() {
+    @Test func homeBuddyLeaderboard_shouldShow_alwaysReservesBand() {
         let entry = HomeBuddyLeaderboardEntry(
             id: UUID(),
             displayName: "Pat",
@@ -16843,8 +17214,12 @@ struct GoDiveMVPTests {
             rank: 1
         )
         #expect(HomeBuddyLeaderboardPresentation.shouldShow(diveCount: 1, entries: [entry]))
-        #expect(!HomeBuddyLeaderboardPresentation.shouldShow(diveCount: 0, entries: [entry]))
-        #expect(!HomeBuddyLeaderboardPresentation.shouldShow(diveCount: 3, entries: []))
+        #expect(HomeBuddyLeaderboardPresentation.shouldShow(diveCount: 0, entries: [entry]))
+        #expect(HomeBuddyLeaderboardPresentation.shouldShow(diveCount: 3, entries: []))
+        #expect(HomeBuddyLeaderboardPresentation.shouldShow(diveCount: 0, entries: []))
+        #expect(HomeBuddyLeaderboardPresentation.displayEntries(from: []).isEmpty)
+        #expect(HomeBuddyLeaderboardPresentation.displayEntries(from: [entry]).count == 1)
+        #expect(HomeBuddyLeaderboardPresentation.emptySlotLabel == "—")
     }
 
     @Test func homeLifetimeStatsLeaderboardPresentation_rankedDiveIDs_limitsToTenAndSorts() {
@@ -17326,8 +17701,20 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func headerChromeIconForeground_isWhite() {
-        #expect(AppTheme.Colors.headerChromeIconForeground == .white)
+    @Test @MainActor
+    func headerChromeIconForeground_alignsWithProfileAvatarRingAndBackButton() {
+        // Adaptive `Color` wrappers are distinct instances; compare resolved UIColors.
+        let light = UITraitCollection(userInterfaceStyle: .light)
+        let dark = UITraitCollection(userInterfaceStyle: .dark)
+        #expect(
+            UIColor(AppTheme.Colors.backButtonForeground).resolvedColor(with: light)
+                == UIColor(AppTheme.Colors.headerChromeIconForeground).resolvedColor(with: light)
+        )
+        #expect(
+            UIColor(AppTheme.Colors.backButtonForeground).resolvedColor(with: dark)
+                == UIColor(AppTheme.Colors.headerChromeIconForeground).resolvedColor(with: dark)
+        )
+        #expect(AppTheme.Colors.iconPrimary == AppTheme.Colors.accentDeep)
     }
 
     @Test func globalSearchPresentation_indexesDivesSitesAndSpecies() {

@@ -22,7 +22,7 @@ struct CollapsibleInlineTitleHeader<Leading: View, Trailing: View>: View {
                 Text(title)
                     .font(titleFont)
                     .fontWeight(.bold)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AppTheme.Colors.pageTitleForeground)
                     .lineLimit(1)
                     .minimumScaleFactor(minimumTitleScaleFactor)
                     .allowsTightening(true)

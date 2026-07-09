@@ -660,6 +660,13 @@ enum HomeMediaCarouselDiveLinkChromePresentation {
     static var siteTitleForeground: Color { AppTheme.Colors.backButtonForeground }
     static var diveNumberForeground: Color { AppTheme.Colors.secondaryText }
 
+    /// Light impact when the dive title capsule is tapped (skipped under UI tests).
+    nonisolated static func shouldPlayOpenDiveHaptic(
+        isUITest: Bool = GoDiveUITestConfiguration.isActive
+    ) -> Bool {
+        !isUITest
+    }
+
     /// Subtitle under the site name — **`#12 · Trip title`** when both are present.
     nonisolated static func diveLinkSubtitle(
         diveNumberLabel: String,

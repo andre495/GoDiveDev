@@ -51,4 +51,21 @@ enum HomeTabRootLayoutPresentation: Sendable {
             safeAreaBottom: safeAreaBottom
         )
     }
+
+    /// Blue sheet seam inputs for **`LogOverviewView`** — keep empty and populated roots on the same band math.
+    nonisolated static func seamInputs(
+        showsBuddyLeaderboard: Bool
+    ) -> HomeOverviewPushedLayoutPresentation.SeamInputs {
+        HomeOverviewPushedLayoutPresentation.SeamInputs(
+            statsPanelContentHeight: HomeLifetimeStatsLayout.estimatedPanelContentHeight(
+                showsBuddyLeaderboard: showsBuddyLeaderboard
+            ),
+            showsBuddyLeaderboard: showsBuddyLeaderboard
+        )
+    }
+
+    /// Default Home stats band (2×2 lifetime grid + **Top buddies**).
+    nonisolated static var defaultLifetimeGridSeamInputs: HomeOverviewPushedLayoutPresentation.SeamInputs {
+        seamInputs(showsBuddyLeaderboard: true)
+    }
 }

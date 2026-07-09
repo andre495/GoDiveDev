@@ -7,12 +7,12 @@ The **Home** tab is your dashboard. It surfaces highlights from your logbook wit
 When you have dives with library photos or videos, Home shows a rotating carousel of up to three daily picks from your collection.
 
 - **Tap the hero** to open that dive on the **Media** tab with the same item selected.
-- **Tap the dive link capsule** at the bottom of the hero (site name and dive number) to open the dive normally. When the dive is linked to a trip, the **trip name** appears beside the dive number in the same accent color used in Logbook.
+- **Tap the dive link capsule** at the bottom of the hero (site name and dive number) to open the dive normally — you’ll feel a light tap haptic. When the dive is linked to a trip, the **trip name** appears beside the dive number in the same accent color used in Logbook.
 - **Fish and buddy chips** on the hero show tagged species and buddies from that highlight; tap a fish chip to open a species overlay on the carousel (fading feature image, common name, short catalog description, page dots when several species are tagged) and tap the name to open the full Field Guide overview.
 
-If you have dives but no qualifying library media, Home shows a placeholder encouraging you to add photos from Logbook or turn on auto-upload in Settings.
+If you have dives but no qualifying library media, Home keeps the same hero layout with a soft gradient behind bouncing photo/video ghost tiles and **Add Media to your Dives** under the animation (not a link).
 
-If you have no dives yet, Home shows short onboarding copy pointing you to Logbook.
+If you have no activities logged yet, Home uses the same blue-sheet layout and hero band — gradient background, ghost-tile animation, and a Liquid Glass **Log Your First Dive** button under the animation that opens Logbook — with the stats panel below still showing all four tiles with blank entries until you log dives.
 
 ## Lifetime stats
 
@@ -25,9 +25,9 @@ Below the carousel, four tiles summarize your logbook:
 | **Top site** | Site you’ve visited most |
 | **Top species** | Species you’ve tagged most often |
 
-Tap any tile to open a **top ten** ranked list. The top three appear on a podium (trophy and medal icons with tiered pedestals); ranks 4–10 continue below in the same compact rows as before. Deepest and longest use Logbook-style dive rows; sites use Explore-style site rows; species show catalog thumbnails when available.
+Empty logbooks still show all four tiles with **—** values and short hints (for example, “Log dives to track your deepest”) until you have data. Tap a tile to open its **top ten** list once you have qualifying dives or sightings. The top three appear on a podium (trophy and medal icons with tiered pedestals); ranks 4–10 continue below in the same compact rows as before. Deepest and longest use Logbook-style dive rows; sites use Explore-style site rows; species show catalog thumbnails when available.
 
-When you have tagged buddies, a **Top buddies** tile appears below the four stat tiles, listing your top three dive partners by shared dive count. Tap a buddy to open their detail page.
+A **Top buddies** tile always sits below the four stat tiles. With tagged buddies it lists your top three dive partners by shared dive count (tap a buddy to open their detail page). With no tagged buddies yet, it shows three blank placeholder slots so the Home layout stays the same.
 
 Stats and buddies sit in the blue panel between the featured media and the tab bar.
 

@@ -38,7 +38,7 @@ struct AppPage<Content: View, TrailingContent: View>: View {
     let titleUsesLinkedSiteAccent: Bool
     let titlePlacement: AppHeaderTitlePlacement
     let scrollContentUnderHeader: Bool
-    /// Logbook-style white **`.largeTitle`** inline with back / trailing actions; compacts on scroll.
+    /// Logbook-style **`.largeTitle`** inline with back / trailing actions; compacts on scroll.
     let collapsibleInlineTitleHeader: Bool
     /// Rising bubbles behind scroll-under list content (Logbook-style); requires **`scrollContentUnderHeader`**.
     let showsWaterBubbleBackground: Bool
