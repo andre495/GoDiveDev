@@ -17,7 +17,7 @@ enum TripShareCardPresentation: Sendable {
     nonisolated static let avatarDiameter: CGFloat = 72
     nonisolated static let avatarGridMinimum: CGFloat = 96
     nonisolated static let contentPadding: CGFloat = 24
-    nonisolated static let logoImageName = "GoDiveLogoPin"
+    nonisolated static let logoImageName = GoDiveLogoPinPresentation.assetName
     nonisolated static let logoHeight: CGFloat = 72
 
     nonisolated static func members(
@@ -174,9 +174,13 @@ enum TripShareCardRenderer {
         .frame(width: TripShareCardPresentation.cardWidth)
         .background(AppOverviewSheetPanelBackground())
 
-        let renderer = ImageRenderer(content: card)
-        renderer.scale = TripShareCardPresentation.renderScale
-        guard let image = renderer.uiImage, let data = image.pngData() else { return nil }
+        guard
+            let image = AppSwiftUIImageRenderer.opaqueUIImage(
+                content: card,
+                scale: TripShareCardPresentation.renderScale
+            ),
+            let data = AppSwiftUIImageRenderer.opaquePNGData(from: image)
+        else { return nil }
 
         let url = TripShareCardPresentation.temporaryPNGURL(tripTitle: tripTitle)
         do {

@@ -71,7 +71,7 @@ struct TripPlannerView: View {
         )
         .hidesBottomTabBarWhenPushed()
         .sheet(isPresented: $showsAddTripSheet) {
-            TripAddSheetView {
+            TripAddSheetView(ownerProfileID: ownerProfileID) {
                 showsAddTripSheet = false
             }
         }

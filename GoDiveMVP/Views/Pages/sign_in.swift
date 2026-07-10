@@ -11,7 +11,7 @@ struct SignInView: View {
 
                 VStack(spacing: AppTheme.Spacing.md) {
                     VStack(spacing: AppTheme.Spacing.lg) {
-                        Image("GoDiveLogoPin")
+                        GoDiveLogoPinPresentation.image
                             .resizable()
                             .scaledToFit()
                             .frame(width: 128, height: 128)

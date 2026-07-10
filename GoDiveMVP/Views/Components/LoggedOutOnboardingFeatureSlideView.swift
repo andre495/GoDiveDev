@@ -6,6 +6,7 @@ struct LoggedOutOnboardingFeatureSlideView: View {
     let isActive: Bool
 
     @State private var hasAnimatedIn = false
+    @State private var hasMountedDemo = false
 
     private var demoMaxHeight: CGFloat {
         LoggedOutOnboardingFeatureSlidePresentation.demoMaxHeight
@@ -31,21 +32,42 @@ struct LoggedOutOnboardingFeatureSlideView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onChange(of: isActive) { _, active in
-            guard active else {
+            if active {
+                scheduleActiveSlideWork()
+            } else {
                 hasAnimatedIn = false
-                return
             }
-            animateIn()
         }
         .onAppear {
             if isActive {
-                animateIn()
+                scheduleActiveSlideWork()
+            }
+        }
+    }
+
+    private func scheduleActiveSlideWork() {
+        Task { @MainActor in
+            hasMountedDemo = true
+            hasAnimatedIn = false
+            withAnimation(.spring(response: 0.55, dampingFraction: 0.78)) {
+                hasAnimatedIn = true
             }
         }
     }
 
     @ViewBuilder
     private var featureVisual: some View {
+        if hasMountedDemo {
+            mountedFeatureDemo
+        } else {
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .accessibilityHidden(true)
+        }
+    }
+
+    @ViewBuilder
+    private var mountedFeatureDemo: some View {
         if page.kind == .logEveryDive {
             OnboardingLogEveryDiveDemoView(
                 isActive: isActive && hasAnimatedIn,
@@ -102,13 +124,6 @@ struct LoggedOutOnboardingFeatureSlideView: View {
                 .foregroundStyle(AppTheme.Colors.secondaryText)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private func animateIn() {
-        hasAnimatedIn = false
-        withAnimation(.spring(response: 0.55, dampingFraction: 0.78)) {
-            hasAnimatedIn = true
         }
     }
 

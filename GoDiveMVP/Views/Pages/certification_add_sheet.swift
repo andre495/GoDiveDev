@@ -14,6 +14,7 @@ struct CertificationAddSheetView: View {
     @State private var frontPhotoPickerItem: PhotosPickerItem?
     @State private var backPhotoPickerItem: PhotosPickerItem?
     @State private var saveErrorMessage: String?
+    @State private var cardPhotoPreview: CertificationCardPhotoPreviewSelection?
 
     var body: some View {
         NavigationStack {
@@ -21,7 +22,8 @@ struct CertificationAddSheetView: View {
                 CertificationFormContent(
                     form: $form,
                     frontPhotoPickerItem: $frontPhotoPickerItem,
-                    backPhotoPickerItem: $backPhotoPickerItem
+                    backPhotoPickerItem: $backPhotoPickerItem,
+                    cardPhotoPreview: $cardPhotoPreview
                 )
             }
             .scrollContentBackground(.hidden)
@@ -49,6 +51,7 @@ struct CertificationAddSheetView: View {
                 Text(saveErrorMessage ?? "Try again.")
             }
         }
+        .certificationCardPhotoPreviewCover($cardPhotoPreview)
         .certificationAddSheetPresentation()
     }
 

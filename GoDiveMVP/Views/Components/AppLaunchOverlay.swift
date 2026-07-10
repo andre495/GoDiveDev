@@ -19,7 +19,7 @@ struct AppLaunchOverlay: View {
                 launchScreenBackground
                     .ignoresSafeArea()
 
-                Image("GoDiveLogoPin")
+                GoDiveLogoPinPresentation.image
                     .resizable()
                     .scaledToFit()
                     .frame(

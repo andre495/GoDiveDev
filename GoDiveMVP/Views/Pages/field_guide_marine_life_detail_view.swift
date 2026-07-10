@@ -11,7 +11,7 @@ struct FieldGuideMarineLifeDetailView: View {
     @Query private var userRecords: [MarineLifeUserRecord]
     @Query private var ownerDiveActivities: [DiveActivity]
     @Query private var taggedSightings: [SightingInstance]
-    @Query(sort: \DiveSite.siteName) private var diveSites: [DiveSite]
+    @State private var diveSiteCatalog: [DiveSite] = []
 
     let species: MarineLife
     let onOpenDive: (UUID) -> Void
@@ -40,6 +40,11 @@ struct FieldGuideMarineLifeDetailView: View {
         _taggedSightings = Query(
             filter: #Predicate<SightingInstance> { $0.marineLifeUUID == marineLifeUUID },
             sort: [SortDescriptor(\.sightingDateTime, order: .reverse)]
+        )
+        _userRecords = Query(
+            filter: #Predicate<MarineLifeUserRecord> {
+                $0.ownerProfileID == ownerFilterID && $0.marineLifeUUID == marineLifeUUID
+            }
         )
     }
 
@@ -93,7 +98,7 @@ struct FieldGuideMarineLifeDetailView: View {
     private var mapPins: [TripDetailMapPin] {
         FieldGuideSpeciesDetailMapPresentation.pins(
             from: sightedDives,
-            catalogSites: diveSites
+            catalogSites: diveSiteCatalog
         )
     }
 
@@ -199,6 +204,9 @@ struct FieldGuideMarineLifeDetailView: View {
                 )
             }
         )
+        .task(id: species.uuid) {
+            diveSiteCatalog = await DiveSiteCatalogLoader.loadSortedCatalog(modelContext: modelContext)
+        }
         .onAppear {
             DiveMediaScopeCache.shared.activateScope(.marineLifeSpecies(species.uuid))
             syncSpeciesHeroPresentation(applyDefaultSource: true)

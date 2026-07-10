@@ -15,12 +15,23 @@ enum DiveActivityMapCoordinateResolution: Sendable {
         return true
     }
 
+    nonisolated static func fetchAllCatalogSitePersistentIDs(container: ModelContainer) async -> [PersistentIdentifier] {
+        await Task.detached(priority: .utility) {
+            let context = ModelContext(container)
+            let rows = (try? context.fetch(FetchDescriptor<DiveSite>())) ?? []
+            return rows.map(\.persistentModelID)
+        }.value
+    }
+
     @MainActor
     static func loadCatalogSitesIfNeeded(
         for activity: DiveActivity,
-        modelContext: ModelContext
-    ) throws -> [DiveSite] {
+        modelContext: ModelContext,
+        container: ModelContainer
+    ) async -> [DiveSite] {
         guard needsCatalogSiteLookup(for: activity) else { return [] }
-        return try modelContext.fetch(FetchDescriptor<DiveSite>())
+        let persistentIDs = await fetchAllCatalogSitePersistentIDs(container: container)
+        guard !Task.isCancelled else { return [] }
+        return persistentIDs.compactMap { modelContext.model(for: $0) as? DiveSite }
     }
 }

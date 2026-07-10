@@ -20,9 +20,11 @@ private enum ManualDiveEntrySiteMode: String, CaseIterable, Identifiable {
 /// Confirms date and optional catalog dive site before **`DiveActivityManualCreation`** inserts a manual dive.
 struct ManualDiveEntrySheet: View {
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \DiveSite.siteName) private var diveSites: [DiveSite]
+    @Environment(\.modelContext) private var modelContext
 
     var onConfirm: (ManualDiveEntryInput) -> Void
+
+    @State private var diveSites: [DiveSite] = []
 
     @State private var startTime = Date()
     @State private var siteMode: ManualDiveEntrySiteMode = .none
@@ -185,6 +187,9 @@ struct ManualDiveEntrySheet: View {
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .appSheetPresentationChrome()
+        .task {
+            diveSites = await DiveSiteCatalogLoader.loadSortedCatalog(modelContext: modelContext)
+        }
         .accessibilityIdentifier("ManualDiveEntry.Sheet")
     }
 

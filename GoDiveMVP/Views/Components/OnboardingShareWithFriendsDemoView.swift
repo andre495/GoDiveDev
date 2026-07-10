@@ -59,14 +59,15 @@ struct OnboardingShareWithFriendsDemoView: View {
     .accessibilityHidden(true)
     .onChange(of: isActive) { _, active in
       if active {
+        scheduleShareCardPreviewWarmup()
         startDemoLoop()
       } else {
         stopDemoLoop()
       }
     }
     .onAppear {
-      warmShareCardPreviewIfNeeded()
       if isActive {
+        scheduleShareCardPreviewWarmup()
         startDemoLoop()
       }
     }
@@ -348,18 +349,21 @@ struct OnboardingShareWithFriendsDemoView: View {
 
   // MARK: - Timeline
 
-  private func warmShareCardPreviewIfNeeded() {
+  private func scheduleShareCardPreviewWarmup() {
     #if canImport(UIKit)
     guard shareCardPreviewImage == nil else { return }
-    shareCardPreviewImage = OnboardingShareWithFriendsDemoFixtures.renderShareCardPreviewImage()
+    Task { @MainActor in
+      await Task.yield()
+      guard shareCardPreviewImage == nil else { return }
+      shareCardPreviewImage = OnboardingShareWithFriendsDemoFixtures.renderShareCardPreviewImage()
+    }
     #endif
   }
 
   private func startDemoLoop() {
     stopDemoLoop()
-    resetDemoState()
-
     demoTask = Task { @MainActor in
+      resetDemoState()
       while !Task.isCancelled {
         await runDemoCycle()
         try? await Task.sleep(for: .milliseconds(500))

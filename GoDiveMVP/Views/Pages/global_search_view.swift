@@ -382,6 +382,7 @@ private enum GlobalSearchIndexQueryOwnerID {
 /// SwiftData-backed search results surface — mounted after the tab morph so the first frame stays light.
 private struct GlobalSearchSearchIndexLayer: View {
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
+    @Environment(\.modelContext) private var modelContext
 
     let ownerProfileID: UUID?
     let query: String
@@ -397,20 +398,16 @@ private struct GlobalSearchSearchIndexLayer: View {
     let onBackToCategoryBrowse: () -> Void
     @Binding var isResultsDismissDragActive: Bool
 
-    @Query private var diveSites: [DiveSite]
-    @Query private var speciesCatalog: [MarineLife]
-    @Query(
-        sort: [
-            SortDescriptor(\DiveActivity.startTime, order: .reverse),
-            SortDescriptor(\DiveActivity.id, order: .forward),
-        ]
-    )
-    private var diveActivities: [DiveActivity]
+    @Query private var ownerDiveActivities: [DiveActivity]
     @Query private var ownerTrips: [DiveTrip]
     @Query private var ownerDiveBuddies: [DiveBuddy]
     @Query private var ownerEquipment: [EquipmentItem]
     @Query private var ownerCertifications: [Certification]
     @Query private var ownerActivityTags: [ActivityTag]
+
+    @State private var diveSites: [DiveSite] = []
+    @State private var speciesCatalog: [MarineLife] = []
+    @State private var hasLoadedSearchCatalogs = false
 
     init(
         ownerProfileID: UUID?,
@@ -442,6 +439,13 @@ private struct GlobalSearchSearchIndexLayer: View {
         _isResultsDismissDragActive = isResultsDismissDragActive
 
         let filterOwnerID = ownerProfileID ?? GlobalSearchIndexQueryOwnerID.noProfile
+        _ownerDiveActivities = Query(
+            filter: #Predicate<DiveActivity> { $0.ownerProfileID == filterOwnerID },
+            sort: [
+                SortDescriptor(\DiveActivity.startTime, order: .reverse),
+                SortDescriptor(\DiveActivity.id, order: .forward),
+            ]
+        )
         _ownerTrips = Query(
             filter: #Predicate<DiveTrip> { $0.ownerProfileID == filterOwnerID },
             sort: [
@@ -468,8 +472,7 @@ private struct GlobalSearchSearchIndexLayer: View {
     }
 
     private var ownerDives: [DiveActivity] {
-        guard let ownerProfileID else { return [] }
-        return diveActivities.filter { $0.ownerProfileID == ownerProfileID }
+        ownerDiveActivities
     }
 
     private var usesFlatScopedResults: Bool {
@@ -478,6 +481,15 @@ private struct GlobalSearchSearchIndexLayer: View {
 
     var body: some View {
         activeSearchResultsBody
+            .task(id: ownerProfileID) {
+                await loadSearchCatalogsIfNeeded()
+            }
+            .onChange(of: diveSites.count) { _, _ in
+                scheduleSearchRefresh()
+            }
+            .onChange(of: speciesCatalog.count) { _, _ in
+                scheduleSearchRefresh()
+            }
             .onAppear {
                 scheduleSearchRefresh()
             }
@@ -654,30 +666,52 @@ private struct GlobalSearchSearchIndexLayer: View {
         }
 
         catalogSyncToken = catalogFingerprint
-        let catalog = GlobalSearchCatalogSeeding.catalog(
-            dives: ownerDives,
-            diveSites: diveSites,
-            speciesCatalog: speciesCatalog,
-            buddies: ownerDiveBuddies,
-            tags: ownerActivityTags,
-            trips: ownerTrips,
-            equipment: ownerEquipment,
-            certifications: ownerCertifications,
-            unitSystem: diveDisplayUnitSystem
-        )
 
         searchTask = Task {
             try? await Task.sleep(nanoseconds: CatalogSearchPresentation.debounceNanoseconds)
             guard !Task.isCancelled else { return }
-            let results = GlobalSearchPresentation.search(
-                catalog: catalog,
-                query: trimmedQuery,
-                contextTokens: contextTokens
-            )
-            await MainActor.run {
-                displayedResults = results
+            if diveSites.isEmpty || speciesCatalog.isEmpty {
+                await loadSearchCatalogsIfNeeded()
             }
+            guard !Task.isCancelled else { return }
+            let catalog = GlobalSearchCatalogSeeding.catalog(
+                dives: ownerDives,
+                diveSites: diveSites,
+                speciesCatalog: speciesCatalog,
+                buddies: ownerDiveBuddies,
+                tags: ownerActivityTags,
+                trips: ownerTrips,
+                equipment: ownerEquipment,
+                certifications: ownerCertifications,
+                unitSystem: diveDisplayUnitSystem
+            )
+            let results = await Task.detached {
+                GlobalSearchPresentation.search(
+                    catalog: catalog,
+                    query: trimmedQuery,
+                    contextTokens: contextTokens
+                )
+            }.value
+            guard !Task.isCancelled else { return }
+            displayedResults = results
         }
+    }
+
+    private func loadSearchCatalogsIfNeeded(force: Bool = false) async {
+        guard force || !hasLoadedSearchCatalogs || speciesCatalog.isEmpty else { return }
+        let container = modelContext.container
+        async let marineLifeIDs = MarineLifeCatalogLoader.fetchSortedPersistentIDs(container: container)
+        async let diveSiteIDs = DiveSiteCatalogLoader.fetchSortedPersistentIDs(container: container)
+        speciesCatalog = MarineLifeCatalogLoader.bindModels(
+            persistentIDs: await marineLifeIDs,
+            modelContext: modelContext
+        )
+        diveSites = DiveSiteCatalogLoader.bindModels(
+            persistentIDs: await diveSiteIDs,
+            modelContext: modelContext
+        )
+        guard !Task.isCancelled else { return }
+        hasLoadedSearchCatalogs = true
     }
 
     private var catalogFingerprint: String {
@@ -698,26 +732,22 @@ private struct GlobalSearchSearchIndexLayer: View {
 /// Pushed search destinations — separate from the idle shell so the tab morph stays instant.
 private struct GlobalSearchSearchDestinationScreen: View {
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
+    @Environment(\.modelContext) private var modelContext
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = false
 
     let destination: GlobalSearchPresentation.Destination
     let ownerProfileID: UUID?
     let onOpenDive: (UUID) -> Void
 
-    @Query private var diveSites: [DiveSite]
-    @Query private var speciesCatalog: [MarineLife]
-    @Query(
-        sort: [
-            SortDescriptor(\DiveActivity.startTime, order: .reverse),
-            SortDescriptor(\DiveActivity.id, order: .forward),
-        ]
-    )
-    private var diveActivities: [DiveActivity]
+    @Query private var ownerDiveActivities: [DiveActivity]
     @Query private var ownerTrips: [DiveTrip]
     @Query private var ownerDiveBuddies: [DiveBuddy]
     @Query private var ownerEquipment: [EquipmentItem]
     @Query private var ownerCertifications: [Certification]
     @Query private var ownerActivityTags: [ActivityTag]
+
+    @State private var diveSites: [DiveSite] = []
+    @State private var speciesCatalog: [MarineLife] = []
 
     init(
         destination: GlobalSearchPresentation.Destination,
@@ -729,6 +759,13 @@ private struct GlobalSearchSearchDestinationScreen: View {
         self.onOpenDive = onOpenDive
 
         let filterOwnerID = ownerProfileID ?? GlobalSearchIndexQueryOwnerID.noProfile
+        _ownerDiveActivities = Query(
+            filter: #Predicate<DiveActivity> { $0.ownerProfileID == filterOwnerID },
+            sort: [
+                SortDescriptor(\DiveActivity.startTime, order: .reverse),
+                SortDescriptor(\DiveActivity.id, order: .forward),
+            ]
+        )
         _ownerTrips = Query(
             filter: #Predicate<DiveTrip> { $0.ownerProfileID == filterOwnerID },
             sort: [
@@ -755,13 +792,25 @@ private struct GlobalSearchSearchDestinationScreen: View {
     }
 
     private var ownerDives: [DiveActivity] {
-        guard let ownerProfileID else { return [] }
-        return diveActivities.filter { $0.ownerProfileID == ownerProfileID }
+        ownerDiveActivities
     }
 
     var body: some View {
         destinationView
             .globalSearchPushedDestinationChrome()
+            .task(id: ownerProfileID) {
+                let container = modelContext.container
+                async let marineLifeIDs = MarineLifeCatalogLoader.fetchSortedPersistentIDs(container: container)
+                async let diveSiteIDs = DiveSiteCatalogLoader.fetchSortedPersistentIDs(container: container)
+                speciesCatalog = MarineLifeCatalogLoader.bindModels(
+                    persistentIDs: await marineLifeIDs,
+                    modelContext: modelContext
+                )
+                diveSites = DiveSiteCatalogLoader.bindModels(
+                    persistentIDs: await diveSiteIDs,
+                    modelContext: modelContext
+                )
+            }
     }
 
     @ViewBuilder

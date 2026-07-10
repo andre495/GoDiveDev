@@ -14,7 +14,7 @@ struct LoggedOutOnboardingWelcomeView: View {
             Spacer(minLength: AppTheme.Spacing.md)
 
             VStack(spacing: AppTheme.Spacing.md) {
-                Image("GoDiveLogoPin")
+                GoDiveLogoPinPresentation.image
                     .resizable()
                     .scaledToFit()
                     .frame(width: 96, height: 96)

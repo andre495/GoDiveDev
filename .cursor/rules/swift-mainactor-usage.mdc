@@ -1,0 +1,70 @@
+---
+description: When to use @MainActor — UI vs background work (Swift concurrency)
+globs: GoDiveMVP/**/*.swift,GoDiveMVPTests/**/*.swift
+alwaysApply: false
+---
+
+# Swift `@MainActor` — when and when not
+
+Inspired by [How I Discovered Swift's MainActor](https://levelup.gitconnected.com/how-i-discovered-swifts-mainactor-956823766adb) and **`swiftui-snappy-navigation.mdc`**.
+
+## Use `@MainActor` for
+
+1. **UI mutations** — `@State`, `@Binding`, `@Observable` / `@Published`, view-model properties that drive SwiftUI, UIKit control updates, sheet/tab/navigation flags.
+2. **View bodies and UI helpers** — types that only exist to render or coordinate SwiftUI (small presentation enums on `@MainActor` are fine when they touch UI state).
+3. **Applying results to the UI** — the **single** assignment after async work completes (e.g. `derivedDiveData = built`, `marineLifeCatalog = fetched`).
+4. **Replacing `DispatchQueue.main.async`** — prefer `@MainActor func …` or `await MainActor.run { … }` for one-off hops; do not sprinkle manual main-queue dispatches.
+
+Prefer **`@MainActor` on the function or type** that owns UI state, not on heavy workers.
+
+## Do **not** use `@MainActor` for
+
+1. **Heavy compute** — sorting thousands of rows, chart/sample derivation, duplicate scans, trip grouping, logbook row caches, Home aggregates. Use **`Task.detached`**, **`@ModelActor`**, or a **`nonisolated static`** helper on **Sendable snapshots** (see **`DiveDerivedDataBuilder`**, **`LogbookDisplayCacheBuilder`**).
+2. **SwiftData / PhotoKit / file I/O** — fetch, decode, import, geocode, map tile work. Snapshot IDs or value types on `@MainActor`, then work off-main; one **`ModelContext`** write back on return if needed.
+3. **Blanket `@MainActor` on large types** — do not mark whole data/import/builder types `@MainActor` just to silence warnings; isolate the UI surface instead.
+4. **Blocking navigation’s first frame** — no heavy `@MainActor` work in `init`, synchronous `onAppear`, or unscoped `@Query` rebuilds. Defer with **`.task`**, **`Task.yield()`**, or post-transition delay.
+
+## Patterns in this repo
+
+```swift
+// ✅ Snapshot → off-main → one UI update
+@MainActor
+func refresh() async {
+    let input = snapshotFromModels() // cheap on main
+    let built = await Task.detached { Builder.build(from: input) }.value
+    guard !Task.isCancelled else { return }
+    self.displayCache = built
+}
+
+// ✅ SwiftData fetch off main (read-only), apply on main
+@MainActor
+func loadCatalogIfNeeded() async {
+    guard catalog.isEmpty else { return }
+    await Task.yield()
+    let container = modelContext.container
+    let rows = await Task.detached {
+        let ctx = ModelContext(container)
+        return (try? ctx.fetch(FetchDescriptor<MarineLife>(…))) ?? []
+    }.value
+    guard !Task.isCancelled else { return }
+    catalog = rows
+}
+
+// ❌ Full fetch on main actor
+marineLifeCatalog = try? modelContext.fetch(FetchDescriptor<MarineLife>(…))
+```
+
+## Tests
+
+- Mark UI/session tests **`@MainActor`** when they touch **`AccountSession`**, `@Observable` state, or view presentation helpers.
+- Prefer **`nonisolated static`** on **`Sendable`** presentation logic when **`#expect`** does not need UI (see **`AccountSessionMainShellPresentation`**).
+- Async tests: `func testUIUpdate() async` and call `@MainActor` APIs with `await` — no **`DispatchQueue.main.async`** in tests.
+
+## Review checklist
+
+- [ ] Does this code **only** need main actor because it **writes UI or `@Published` state**?
+- [ ] Could fetch/decode/sort run off-main with a **Sendable** result?
+- [ ] After moving work off-main, is there **one** batched apply (not many `@MainActor` updates in a loop)?
+- [ ] Would this block tab push / sheet open / first paint? → defer or detach.
+
+Complements **`swiftui-snappy-navigation.mdc`** (navigation-specific) and **`xcode-fix-build-warnings.mdc`** (actor-isolation warnings).

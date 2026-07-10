@@ -942,19 +942,37 @@ struct GoDiveMVPTests {
         )
         #expect(AppLoggedOutOnboardingPresentation.featurePages(for: all).count == 6)
         #expect(
-            AppLoggedOutOnboardingPresentation.continueButtonTitle(
+            AppLoggedOutOnboardingPresentation.showsContinueButton(
                 featurePageIndex: 0,
                 featurePageCount: 3
-            ) == AppLoggedOutOnboardingPresentation.continueButtonTitle
+            )
         )
         #expect(
-            AppLoggedOutOnboardingPresentation.continueButtonTitle(
+            !AppLoggedOutOnboardingPresentation.showsContinueButton(
                 featurePageIndex: 2,
                 featurePageCount: 3
-            ) == AppLoggedOutOnboardingPresentation.getStartedButtonTitle
+            )
         )
         #expect(
-            AppLoggedOutOnboardingPresentation.isSignUpPhase(featurePageIndex: 3, featurePageCount: 3)
+            AppLoggedOutOnboardingPresentation.showsSignInWithAppleOnLastFeatureSlide(
+                featurePageIndex: 2,
+                featurePageCount: 3
+            )
+        )
+        #expect(
+            !AppLoggedOutOnboardingPresentation.showsSignInWithAppleOnLastFeatureSlide(
+                featurePageIndex: 0,
+                featurePageCount: 3
+            )
+        )
+        #expect(
+            AppLoggedOutOnboardingPresentation.showsSkipButton(featurePageIndex: 0, featurePageCount: 3)
+        )
+        #expect(
+            !AppLoggedOutOnboardingPresentation.showsSkipButton(featurePageIndex: 2, featurePageCount: 3)
+        )
+        #expect(
+            !AppLoggedOutOnboardingPresentation.showsSkipButton(featurePageIndex: 0, featurePageCount: 0)
         )
     }
 
@@ -964,10 +982,6 @@ struct GoDiveMVPTests {
         #expect(LoggedOutOnboardingFeatureSlidePresentation.bottomChromeTopPadding == 0)
         #expect(LoggedOutOnboardingFeatureSlidePresentation.bottomChromeStackSpacing == AppTheme.Spacing.sm)
         #expect(LoggedOutOnboardingFeatureSlidePresentation.bottomChromeBottomPadding == 14)
-        #expect(LoggedOutOnboardingFeatureSlidePresentation.getStartedCalloutPeakScale >= 1.15)
-        #expect(LoggedOutOnboardingFeatureSlidePresentation.getStartedCalloutMinOpacity < 1)
-        #expect(LoggedOutOnboardingFeatureSlidePresentation.getStartedCalloutCycleSeconds <= 0.8)
-        #expect(LoggedOutOnboardingFeatureSlidePresentation.getStartedCalloutPulseCount == 2)
     }
 
     @Test @MainActor
@@ -1075,6 +1089,24 @@ struct GoDiveMVPTests {
         #expect(OnboardingMonitorEquipmentDemoFixtures.garminMk3iHeroImage != nil)
     }
 
+    @Test @MainActor func appSwiftUIImageRenderer_opaqueUIImage_omitsAlphaChannel() {
+        let image = AppSwiftUIImageRenderer.opaqueUIImage(
+            content: Color.red.frame(width: 60, height: 34),
+            scale: 2
+        )
+        #expect(image != nil)
+        if let cgImage = image?.cgImage {
+            switch cgImage.alphaInfo {
+            case .none, .noneSkipFirst, .noneSkipLast:
+                break
+            default:
+                Issue.record("Expected opaque CGImage alpha info, got \(cgImage.alphaInfo.rawValue)")
+            }
+        }
+        let pngData = image.flatMap { AppSwiftUIImageRenderer.opaquePNGData(from: $0) }
+        #expect(pngData != nil)
+    }
+
     @Test func onboardingShareWithFriendsDemoFixtures_supportMicroDemo() {
         #expect(OnboardingShareWithFriendsDemoFixtures.demoPages.count == 3)
         #expect(OnboardingShareWithFriendsDemoFixtures.statTiles.count == 4)
@@ -1133,26 +1165,32 @@ struct GoDiveMVPTests {
     @Test func signInCelebrationPresentation_skipsUnderUITest() {
         #expect(!SignInCelebrationPresentation.shouldPresentCelebration(isUITest: true))
         #expect(SignInCelebrationPresentation.shouldPresentCelebration(isUITest: false))
-        #expect(SignInCelebrationPresentation.durationNanoseconds == 2_400_000_000)
-        #expect(SignInCelebrationPresentation.bubbleSpeedStartMultiplier == 1)
-        #expect(SignInCelebrationPresentation.bubbleSpeedEndMultiplier == 2)
-        #expect(SignInCelebrationPresentation.bubbleSpeedRampDuration == 2.0)
+        #expect(SignInCelebrationPresentation.durationNanoseconds == 3_000_000_000)
+        #expect(SignInCelebrationPresentation.handoffFadeOutDuration == 0.2)
+        #expect(SignInCelebrationPresentation.animationDuration == 3.0)
         #expect(SignInCelebrationPresentation.logoSpringResponse < 0.55)
     }
 
     @Test func signInCelebrationPresentation_hapticBurst_isSemiRandomAndSkippedUnderUITest() {
         #expect(!SignInCelebrationPresentation.shouldPlayCelebrationHaptics(isUITest: true))
         #expect(SignInCelebrationPresentation.shouldPlayCelebrationHaptics(isUITest: false))
-        #expect(SignInCelebrationPresentation.hapticBurstCount > 5)
-        #expect(SignInCelebrationPresentation.hapticMinIntervalSeconds
-            < SignInCelebrationPresentation.hapticMaxIntervalSeconds)
-        let first = SignInCelebrationPresentation.hapticIntervalSeconds(index: 0)
-        let second = SignInCelebrationPresentation.hapticIntervalSeconds(index: 1)
+        #expect(
+            SignInCelebrationPresentation.hapticMinIntervalSeconds
+                < SignInCelebrationPresentation.hapticMaxIntervalSeconds
+        )
+
+        let first = SignInCelebrationPresentation.hapticWaitIntervalSeconds(index: 0)
+        let second = SignInCelebrationPresentation.hapticWaitIntervalSeconds(index: 1)
         #expect(first >= SignInCelebrationPresentation.hapticMinIntervalSeconds)
         #expect(first <= SignInCelebrationPresentation.hapticMaxIntervalSeconds)
         #expect(second >= SignInCelebrationPresentation.hapticMinIntervalSeconds)
         #expect(second <= SignInCelebrationPresentation.hapticMaxIntervalSeconds)
         #expect(first != second)
+        #expect(SignInCelebrationPresentation.hapticImpactIntensity(index: 0) > 0)
+        #expect(
+            SignInCelebrationPresentation.hapticImpactIntensity(index: 4)
+                > SignInCelebrationPresentation.hapticImpactIntensity(index: 1)
+        )
     }
 
     @Test func postSignUpProfileSetupPresentation_shouldPresentSetup_onlyForNewNonUITestAccounts() {
@@ -1222,6 +1260,28 @@ struct GoDiveMVPTests {
     @Test func postSignUpProfileSetupPresentation_skipTitle_onOptionalProfileBuildingSteps() {
         #expect(PostSignUpProfileSetupPresentation.skipTitle(for: .danInsurance) == "Skip for now")
         #expect(PostSignUpProfileSetupPresentation.skipTitle(for: .certification) == "Skip for now")
+        #expect(
+            !PostSignUpProfileSetupPresentation.shouldPauseBubbleAnimation(for: .profilePhoto)
+        )
+        #expect(
+            !PostSignUpProfileSetupPresentation.shouldPauseBubbleAnimation(for: .danInsurance)
+        )
+        #expect(
+            PostSignUpProfileSetupPresentation.shouldPauseBubbleAnimation(for: .certification)
+        )
+        #expect(
+            PostSignUpProfileSetupPresentation.usesFlatStepLayout(for: .danInsurance)
+        )
+        #expect(
+            !PostSignUpProfileSetupPresentation.usesFlatStepLayout(for: .profilePhoto)
+        )
+        #expect(
+            PostSignUpProfileSetupPresentation.bubblePauseDelayNanoseconds(whenEntering: .danInsurance) == nil
+        )
+        #expect(
+            PostSignUpProfileSetupPresentation.bubblePauseDelayNanoseconds(whenEntering: .certification)
+                == PostSignUpProfileSetupPresentation.stepTransitionNanoseconds + 30_000_000
+        )
     }
 
     @Test func postSignUpProfileSetupPresentation_showsContinueButton_onlyAfterStepInput() {
@@ -1229,15 +1289,15 @@ struct GoDiveMVPTests {
             !PostSignUpProfileSetupPresentation.showsContinueButton(
                 for: .profilePhoto,
                 hasProfilePhoto: false,
-                danInsuranceNumber: "",
+                danShowsContinue: false,
                 certificationFormCanSave: false
             )
         )
         #expect(
-            PostSignUpProfileSetupPresentation.showsContinueButton(
+            !PostSignUpProfileSetupPresentation.showsContinueButton(
                 for: .profilePhoto,
                 hasProfilePhoto: true,
-                danInsuranceNumber: "",
+                danShowsContinue: false,
                 certificationFormCanSave: false
             )
         )
@@ -1245,7 +1305,7 @@ struct GoDiveMVPTests {
             !PostSignUpProfileSetupPresentation.showsContinueButton(
                 for: .danInsurance,
                 hasProfilePhoto: true,
-                danInsuranceNumber: "   ",
+                danShowsContinue: false,
                 certificationFormCanSave: false
             )
         )
@@ -1253,7 +1313,7 @@ struct GoDiveMVPTests {
             PostSignUpProfileSetupPresentation.showsContinueButton(
                 for: .danInsurance,
                 hasProfilePhoto: true,
-                danInsuranceNumber: "123456",
+                danShowsContinue: true,
                 certificationFormCanSave: false
             )
         )
@@ -1261,7 +1321,7 @@ struct GoDiveMVPTests {
             !PostSignUpProfileSetupPresentation.showsContinueButton(
                 for: .certification,
                 hasProfilePhoto: true,
-                danInsuranceNumber: "",
+                danShowsContinue: false,
                 certificationFormCanSave: false
             )
         )
@@ -1269,7 +1329,7 @@ struct GoDiveMVPTests {
             PostSignUpProfileSetupPresentation.showsContinueButton(
                 for: .certification,
                 hasProfilePhoto: true,
-                danInsuranceNumber: "",
+                danShowsContinue: false,
                 certificationFormCanSave: true
             )
         )
@@ -1277,8 +1337,65 @@ struct GoDiveMVPTests {
             PostSignUpProfileSetupPresentation.showsContinueButton(
                 for: .preview,
                 hasProfilePhoto: false,
-                danInsuranceNumber: "",
+                danShowsContinue: false,
                 certificationFormCanSave: false
+            )
+        )
+    }
+
+    @Test @MainActor
+    func postSignUpProfileSetupDanDraft_updatesContinueVisibilityOnlyOnBoundary() {
+        let draft = PostSignUpProfileSetupDanDraft()
+        draft.replaceText("a")
+        #expect(draft.showsContinue)
+        draft.replaceText("ab")
+        #expect(draft.showsContinue)
+        draft.replaceText("   ")
+        #expect(!draft.showsContinue)
+        #expect(draft.text == "   ")
+    }
+
+    @Test func postSignUpProfileSetupPresentation_certificationKeyboardChrome_hidesBottomSkipAndContinue() {
+        #expect(
+            !PostSignUpProfileSetupPresentation.showsSkipInBottomChrome(
+                for: .certification,
+                isCertificationKeyboardVisible: true
+            )
+        )
+        #expect(
+            PostSignUpProfileSetupPresentation.showsSkipInBottomChrome(
+                for: .certification,
+                isCertificationKeyboardVisible: false
+            )
+        )
+        #expect(
+            !PostSignUpProfileSetupPresentation.showsContinueInBottomChrome(
+                for: .certification,
+                hasProfilePhoto: true,
+                danShowsContinue: false,
+                certificationFormCanSave: true,
+                isCertificationKeyboardVisible: true
+            )
+        )
+        #expect(
+            PostSignUpProfileSetupPresentation.showsContinueInBottomChrome(
+                for: .certification,
+                hasProfilePhoto: true,
+                danShowsContinue: false,
+                certificationFormCanSave: true,
+                isCertificationKeyboardVisible: false
+            )
+        )
+        #expect(
+            PostSignUpProfileSetupPresentation.showsContinueInCertificationKeyboardToolbar(
+                certificationFormCanSave: true,
+                isCertificationKeyboardVisible: true
+            )
+        )
+        #expect(
+            !PostSignUpProfileSetupPresentation.showsContinueInCertificationKeyboardToolbar(
+                certificationFormCanSave: false,
+                isCertificationKeyboardVisible: true
             )
         )
     }
@@ -1287,6 +1404,140 @@ struct GoDiveMVPTests {
         #expect(!PostSignUpProfileSetupPresentation.showsBackButton(stepIndex: 0))
         #expect(PostSignUpProfileSetupPresentation.showsBackButton(stepIndex: 1))
         #expect(PostSignUpProfileSetupPresentation.backButtonAccessibilityIdentifier == "PostSignUpProfileSetup.Back")
+    }
+
+    @Test func postSignUpProfileSetupPresentation_certificationExpandedLayout_afterEntryOrFocus() {
+        let empty = CertificationFormValues()
+        #expect(!PostSignUpProfileSetupPresentation.certificationStepHasStartedEntry(form: empty))
+        #expect(
+            !PostSignUpProfileSetupPresentation.certificationStepUsesExpandedLayout(
+                form: empty,
+                isTextFieldFocused: false
+            )
+        )
+        #expect(
+            PostSignUpProfileSetupPresentation.certificationStepUsesExpandedLayout(
+                form: empty,
+                isTextFieldFocused: true
+            )
+        )
+
+        var withPhoto = CertificationFormValues()
+        withPhoto.certFrontPicture = Data([0x01])
+        #expect(PostSignUpProfileSetupPresentation.certificationStepHasStartedEntry(form: withPhoto))
+        #expect(
+            PostSignUpProfileSetupPresentation.certificationStepUsesExpandedLayout(
+                form: withPhoto,
+                isTextFieldFocused: false
+            )
+        )
+
+        var withAgency = CertificationFormValues()
+        withAgency.agency = "PADI"
+        #expect(PostSignUpProfileSetupPresentation.certificationStepHasStartedEntry(form: withAgency))
+    }
+
+    @Test func accountSessionMainShellPresentation_requiresSignedInPastPostSignUpGates() {
+        #expect(
+            !AccountSessionMainShellPresentation.showsMainAppShell(
+                isSignedIn: false,
+                showsNewAccountWelcome: false,
+                showsPostSignUpProfileSetup: false,
+                showsPostSignUpPermissions: false,
+                showsPostSignUpImportOffer: false,
+                showsPostSignUpOnboardingImport: false,
+                showsSignInCelebration: false
+            )
+        )
+        #expect(
+            AccountSessionMainShellPresentation.showsMainAppShell(
+                isSignedIn: true,
+                showsNewAccountWelcome: false,
+                showsPostSignUpProfileSetup: false,
+                showsPostSignUpPermissions: false,
+                showsPostSignUpImportOffer: false,
+                showsPostSignUpOnboardingImport: false,
+                showsSignInCelebration: false
+            )
+        )
+        #expect(
+            !AccountSessionMainShellPresentation.showsMainAppShell(
+                isSignedIn: true,
+                showsNewAccountWelcome: false,
+                showsPostSignUpProfileSetup: true,
+                showsPostSignUpPermissions: false,
+                showsPostSignUpImportOffer: false,
+                showsPostSignUpOnboardingImport: false,
+                showsSignInCelebration: false
+            )
+        )
+        #expect(
+            !AccountSessionMainShellPresentation.shouldMountMainAppShellUnderlay(
+                isSignedIn: true,
+                showsNewAccountWelcome: false,
+                showsPostSignUpProfileSetup: false,
+                showsPostSignUpPermissions: false,
+                showsPostSignUpImportOffer: false,
+                showsPostSignUpOnboardingImport: false,
+                showsSignInCelebration: true,
+                allowsCelebrationShellPrewarm: false
+            )
+        )
+        #expect(
+            AccountSessionMainShellPresentation.shouldMountMainAppShellUnderlay(
+                isSignedIn: true,
+                showsNewAccountWelcome: false,
+                showsPostSignUpProfileSetup: false,
+                showsPostSignUpPermissions: false,
+                showsPostSignUpImportOffer: false,
+                showsPostSignUpOnboardingImport: false,
+                showsSignInCelebration: true,
+                allowsCelebrationShellPrewarm: true
+            )
+        )
+    }
+
+    @Test func celebrationShellPrewarmPresentation_bulkImportUsesLongerDelay() {
+        #expect(
+            CelebrationShellPrewarmPresentation.postBulkImportDelayNanoseconds
+                > CelebrationShellPrewarmPresentation.defaultDelayNanoseconds
+        )
+        #expect(CelebrationShellPrewarmPresentation.postBulkImportDelayNanoseconds == 1_500_000_000)
+    }
+
+    @Test func homeRootAppearPresentation_startsInitialRebuildDuringCelebrationPrewarm() {
+        #expect(
+            HomeRootAppearPresentation.handleRootAppearAction(hasPerformedInitialHomeBuild: false)
+                == .scheduleImmediateInitialRebuild
+        )
+        #expect(
+            HomeRootAppearPresentation.handleRootAppearAction(hasPerformedInitialHomeBuild: true)
+                == .handleReturnToRoot
+        )
+    }
+
+    @Test func homeOverviewRebuildPresentation_skipsIncidentalRebuildUntilInitialBuildDuringPrewarm() {
+        #expect(
+            HomeOverviewRebuildPresentation.shouldSkipSchedule(
+                isCelebrationShellPrewarmActive: true,
+                hasPerformedInitialHomeBuild: false,
+                source: .incidental
+            )
+        )
+        #expect(
+            !HomeOverviewRebuildPresentation.shouldSkipSchedule(
+                isCelebrationShellPrewarmActive: true,
+                hasPerformedInitialHomeBuild: false,
+                source: .initialRootAppear
+            )
+        )
+        #expect(
+            !HomeOverviewRebuildPresentation.shouldSkipSchedule(
+                isCelebrationShellPrewarmActive: true,
+                hasPerformedInitialHomeBuild: true,
+                source: .incidental
+            )
+        )
     }
 
     @Test @MainActor
@@ -2041,6 +2292,7 @@ struct GoDiveMVPTests {
         form.instructor = " Pat "
         form.instructorNumber = " INS-1 "
         form.diveShop = " Reef Shop "
+        form.diveShopNumber = " 19956 "
         form.cardType = .specialty
         form.certFrontPicture = Data([0x01])
         form.certBackPicture = Data([0x02])
@@ -2052,6 +2304,7 @@ struct GoDiveMVPTests {
         #expect(cert.instructor == "Pat")
         #expect(cert.instructorNumber == "INS-1")
         #expect(cert.diveShop == "Reef Shop")
+        #expect(cert.diveShopNumber == "19956")
         #expect(cert.cardType == .specialty)
         #expect(cert.certFrontPicture == Data([0x01]))
         #expect(cert.certBackPicture == Data([0x02]))
@@ -2064,13 +2317,407 @@ struct GoDiveMVPTests {
         form.certName = "Divemaster"
         form.certNumber = "DM-2"
         form.diveShop = ""
+        form.diveShopNumber = ""
         form.cardType = .specialty
         form.apply(to: cert)
         #expect(cert.agency == "SSI")
         #expect(cert.certName == "Divemaster")
         #expect(cert.certNumber == "DM-2")
         #expect(cert.diveShop == nil)
+        #expect(cert.diveShopNumber == nil)
         #expect(cert.cardType == .specialty)
+    }
+
+    @Test func padiCertificationCardParser_parsesTypicalBackCardLines() {
+        let lines = [
+            "PADI",
+            "JANE DOE",
+            "Diver No. 12345678",
+            "Cert Date 15-Jan-2024",
+            "Instr. No. 987654",
+            "ALEX RIVERA",
+            "54321",
+            "Aquatic Adventures",
+            "Key Largo, FL USA",
+        ]
+
+        let parsed = PADICertificationCardParser.parse(recognizedLines: lines)
+        #expect(parsed != nil)
+        #expect(parsed?.agency == "PADI")
+        #expect(parsed?.certNumber == "12345678")
+        #expect(parsed?.instructorNumber == "987654")
+        #expect(parsed?.instructor == "Alex Rivera")
+        #expect(parsed?.diveShop == "Aquatic Adventures")
+        #expect(parsed?.diveShopNumber == "54321")
+
+        let components = PADICertificationCardParser.wallClockDateComponents(from: parsed!.dateAttained!)
+        #expect(components.year == 2024)
+        #expect(components.month == 1)
+        #expect(components.day == 15)
+    }
+
+    @Test func padiCertificationCardParser_parseCertDate_inlineUsesLocalWallClockDay() {
+        let lines = [
+            "ANDRE B. DUGAS",
+            "Diver No. 21040R0406",
+            "Cert.Date 02-Dec-2021",
+            "Instr.No. OWSI-396419",
+        ]
+
+        let parsed = PADICertificationCardParser.parse(recognizedLines: lines)
+        let components = PADICertificationCardParser.wallClockDateComponents(from: parsed!.dateAttained!)
+        #expect(components.year == 2021)
+        #expect(components.month == 12)
+        #expect(components.day == 2)
+    }
+
+    @Test func padiCertificationCardParser_parsesSplitLabelAndValueLines() {
+        let lines = [
+            "PADI",
+            "Diver No.",
+            "87654321",
+            "Cert Date",
+            "03-Mar-2022",
+            "Instr. No.",
+            "112233",
+            "SAM TAYLOR",
+            "Blue Water Dive Center",
+            "Honolulu, HI USA",
+        ]
+
+        let parsed = PADICertificationCardParser.parse(recognizedLines: lines)
+        #expect(parsed?.certNumber == "87654321")
+        #expect(parsed?.instructorNumber == "112233")
+        #expect(parsed?.instructor == "Sam Taylor")
+        #expect(parsed?.diveShop == "Blue Water Dive Center")
+        #expect(parsed?.diveShopNumber == nil)
+    }
+
+    @Test func padiCertificationCardParser_parsesECardFrontLines() {
+        let lines = [
+            "Andre B Dugas",
+            "BIRTHDATE",
+            "24-April-1998",
+            "edit photo",
+            "CERTIFICATION",
+            "Rescue Diver",
+            "CERT. DATE PADI NO.",
+            "12-August-2024 24080D5449",
+        ]
+
+        let parsed = PADICertificationCardParser.parse(recognizedLines: lines)
+        #expect(parsed != nil)
+        #expect(parsed?.agency == "PADI")
+        #expect(parsed?.certName == "Rescue Diver")
+        #expect(parsed?.certNumber == "24080D5449")
+        #expect(parsed?.instructor == nil)
+        #expect(parsed?.instructorNumber == nil)
+        #expect(parsed?.diveShop == nil)
+
+        let components = PADICertificationCardParser.wallClockDateComponents(from: parsed!.dateAttained!)
+        #expect(components.year == 2024)
+        #expect(components.month == 8)
+        #expect(components.day == 12)
+    }
+
+    @Test func padiCertificationCardParser_parsesAdvancedOpenWaterFrontLines() {
+        let lines = [
+            "Advanced Open Water Diver",
+            "PADI",
+        ]
+
+        let parsed = PADICertificationCardParser.parse(recognizedLines: lines)
+        #expect(parsed?.certName == "Advanced Open Water Diver")
+        #expect(parsed?.agency == "PADI")
+    }
+
+    @Test func padiCertificationCardParser_parsesAdvancedOpenWaterSplitFrontLines() {
+        let lines = [
+            "Advanced",
+            "Open Water Diver",
+            "PADI",
+        ]
+
+        let parsed = PADICertificationCardParser.parse(recognizedLines: lines)
+        #expect(parsed?.certName == "Advanced Open Water Diver")
+        #expect(parsed?.agency == "PADI")
+        #expect(parsed?.agencyDetectedFromCard == true)
+    }
+
+    @Test func padiCertificationCardParser_infersPADIAgencyWhenFrontTitleWithoutAgencyLine() {
+        let lines = [
+            "ANDRE B. DUGAS",
+            "Advanced Open Water Diver",
+        ]
+
+        let parsed = PADICertificationCardParser.parse(recognizedLines: lines)
+        #expect(parsed?.certName == "Advanced Open Water Diver")
+        #expect(parsed?.agency == "PADI")
+        #expect(parsed?.agencyDetectedFromCard == true)
+    }
+
+    @Test func padiCertificationCardParser_parsesPhysicalFrontCardSplitOCRLines() {
+        let lines = [
+            "Open Water",
+            "Diver",
+            "PADI",
+        ]
+
+        let parsed = PADICertificationCardParser.parse(recognizedLines: lines)
+        #expect(parsed != nil)
+        #expect(parsed?.agency == "PADI")
+        #expect(parsed?.agencyDetectedFromCard == true)
+        #expect(parsed?.certName == "Open Water Diver")
+    }
+
+    @Test func padiCertificationCardParser_parsesPhysicalFrontCardVisionOCRLines() {
+        let lines = [
+            "Open Water Diver",
+            "PADI",
+        ]
+
+        let parsed = PADICertificationCardParser.parse(recognizedLines: lines)
+        #expect(parsed != nil)
+        #expect(parsed?.agency == "PADI")
+        #expect(parsed?.agencyDetectedFromCard == true)
+        #expect(parsed?.certName == "Open Water Diver")
+        #expect(parsed?.certNumber == nil)
+        #expect(parsed?.instructor == nil)
+        #expect(parsed?.diveShop == nil)
+        #expect(parsed?.diveShopNumber == nil)
+    }
+
+    @Test func padiCertificationCardParser_parsesPhysicalFrontCardLines() {
+        let lines = [
+            "PADI",
+            "ANDRE B. DUGAS",
+            "OPEN WATER DIVER",
+            "Professional Association of Diving Instructors",
+        ]
+
+        let parsed = PADICertificationCardParser.parse(recognizedLines: lines)
+        #expect(parsed != nil)
+        #expect(parsed?.agency == "PADI")
+        #expect(parsed?.agencyDetectedFromCard == true)
+        #expect(parsed?.certName == "Open Water Diver")
+        #expect(parsed?.certNumber == nil)
+        #expect(parsed?.dateAttained == nil)
+        #expect(parsed?.instructor == nil)
+        #expect(parsed?.diveShop == nil)
+    }
+
+    @Test func padiCertificationCardParser_parsesPhysicalBackCardAlphanumericLines() {
+        let lines = [
+            "ANDRE B. DUGAS",
+            "Diver No. 21040R0406",
+            "BirthDate 24-Apr-1998",
+            "Cert. Date 27-Apr-2021",
+            "Instr.No. OWSI-396419",
+            "KIRIANA HOWLETT",
+            "19956",
+            "HOMESTEAD CRATER",
+            "MIDWAY, UT",
+            "435 657 3840",
+            "www.padi.com",
+        ]
+
+        let parsed = PADICertificationCardParser.parse(recognizedLines: lines)
+        #expect(parsed != nil)
+        #expect(parsed?.certNumber == "21040R0406")
+        #expect(parsed?.instructorNumber == "OWSI-396419")
+        #expect(parsed?.instructor == "Kiriana Howlett")
+        #expect(parsed?.diveShop == "Homestead Crater")
+        #expect(parsed?.diveShopNumber == "19956")
+        #expect(parsed?.agency == "PADI")
+        #expect(parsed?.agencyDetectedFromCard == true)
+        #expect(parsed?.certName == nil)
+
+        let components = PADICertificationCardParser.wallClockDateComponents(from: parsed!.dateAttained!)
+        #expect(components.year == 2021)
+        #expect(components.month == 4)
+        #expect(components.day == 27)
+    }
+
+    @Test func padiCertificationCardParser_parsesPhysicalBackCardVisionOCRLines() {
+        let lines = [
+            "ANDRE B. DUGAS",
+            "Diver No. 21040R0406",
+            "BirthDate 24-Apr-1998",
+            "Cert.Date 27-Аpr-2021",
+            "Instr.No. OWSI-396419",
+            "KIRIANA HOWLETT",
+            "19956",
+            "HOMESTEAD CRATER",
+            "MIDWAY, UT",
+            "435 657 3840",
+            "This qualification meets ISO 24801-2: Diver Level 2 - Autonomous Diver Standard",
+            "This diver has satisfactorily met the standards",
+            "for this certification level as set forth by PADI",
+            "www.padi.com",
+        ]
+
+        let parsed = PADICertificationCardParser.parse(recognizedLines: lines)
+        #expect(parsed != nil)
+        #expect(parsed?.certNumber == "21040R0406")
+        #expect(parsed?.instructorNumber == "OWSI-396419")
+        #expect(parsed?.instructor == "Kiriana Howlett")
+        #expect(parsed?.diveShop == "Homestead Crater")
+        #expect(parsed?.diveShopNumber == "19956")
+
+        let components = PADICertificationCardParser.wallClockDateComponents(from: parsed!.dateAttained!)
+        #expect(components.year == 2021)
+        #expect(components.month == 4)
+        #expect(components.day == 27)
+    }
+
+    @Test func padiCertificationCardParser_stripsShopNumberFromMergedInstructorLine() {
+        let lines = [
+            "ANDRE B. DUGAS",
+            "Diver No. 21040R0406",
+            "Cert. Date 27-Apr-2021",
+            "Instr.No. OWSI-396419",
+            "KIRIANA HOWLETT 19956",
+            "HOMESTEAD CRATER",
+        ]
+
+        let parsed = PADICertificationCardParser.parse(recognizedLines: lines)
+        #expect(parsed?.instructor == "Kiriana Howlett")
+        #expect(parsed?.diveShopNumber == "19956")
+        #expect(parsed?.diveShop == "Homestead Crater")
+    }
+
+    @Test func certificationFormValues_applyPADIParseResult_setsCertNameWhenEmpty() {
+        var form = CertificationFormValues()
+        var parsed = PADICertificationCardParseResult()
+        parsed.certName = "Rescue Diver"
+        parsed.certNumber = "24080D5449"
+
+        form.applyPADIParseResult(parsed)
+
+        #expect(form.agency == "PADI")
+        #expect(form.certName == "Rescue Diver")
+        #expect(form.certNumber == "24080D5449")
+    }
+
+    @Test func certificationFormValues_applyPADIParseResult_setsAgencyWhenCertNameParsedWithoutAgencyFlag() {
+        var form = CertificationFormValues()
+        var parsed = PADICertificationCardParseResult()
+        parsed.certName = "Advanced Open Water Diver"
+
+        form.applyPADIParseResult(parsed)
+
+        #expect(form.agency == "PADI")
+        #expect(form.certName == "Advanced Open Water Diver")
+    }
+
+    @Test func padiCertificationCardParser_ignoresCardFooterBoilerplateForDiveShop() {
+        let lines = [
+            "ANDRE B. DUGAS",
+            "Diver No. 21040R0406",
+            "Cert. Date 27-Apr-2021",
+            "Instr.No. OWSI-396419",
+            "KIRIANA HOWLETT",
+            "19956",
+            "This diver has satisfactorily met the standards for this certification level",
+            "This qualification meets ISO 24801-2: Diver Level 2 - Autonomous Diver Standard",
+            "for this certification level as set forth by PADI",
+            "www.padi.com",
+        ]
+
+        let parsed = PADICertificationCardParser.parse(recognizedLines: lines)
+        #expect(parsed?.instructor == "Kiriana Howlett")
+        #expect(parsed?.diveShopNumber == "19956")
+        #expect(parsed?.diveShop == nil)
+    }
+
+    @Test func padiCertificationCardParser_returnsNilForUnrelatedText() {
+        let parsed = PADICertificationCardParser.parse(recognizedLines: [
+            "Random note",
+            "Not a certification card",
+        ])
+        #expect(parsed == nil)
+    }
+
+    @Test func certificationFormValues_applyPADIParseResult_updatesFieldsWhenParsedValueDiffers() {
+        var form = CertificationFormValues()
+        form.agency = "NAUI"
+        form.certNumber = "KEEP-ME"
+        form.instructor = "Existing Instructor"
+
+        var parsed = PADICertificationCardParseResult()
+        parsed.certNumber = "12345678"
+        parsed.instructorNumber = "987654"
+        parsed.instructor = "Alex Rivera"
+        parsed.diveShop = "Aquatic Adventures"
+        parsed.diveShopNumber = "54321"
+        parsed.dateAttained = PADICertificationCardParser.wallClockDate(year: 2021, month: 12, day: 2)
+
+        form.applyPADIParseResult(parsed)
+
+        #expect(form.agency == "PADI")
+        #expect(form.certNumber == "12345678")
+        #expect(form.instructor == "Alex Rivera")
+        #expect(form.instructorNumber == "987654")
+        #expect(form.diveShop == "Aquatic Adventures")
+        #expect(form.diveShopNumber == "54321")
+
+        let components = PADICertificationCardParser.wallClockDateComponents(from: form.dateAttained)
+        #expect(components.year == 2021)
+        #expect(components.month == 12)
+        #expect(components.day == 2)
+    }
+
+    @Test func certificationFormValues_applyPADIParseResult_leavesFieldUnchangedWhenParsedValueMatches() {
+        var form = CertificationFormValues()
+        form.agency = "PADI"
+        form.certNumber = "21040R0406"
+        form.instructor = "Kiriana Howlett"
+        form.dateAttained = PADICertificationCardParser.wallClockDate(year: 2021, month: 4, day: 27)!
+
+        var parsed = PADICertificationCardParseResult()
+        parsed.certNumber = "21040R0406"
+        parsed.instructor = "Kiriana Howlett"
+        parsed.dateAttained = PADICertificationCardParser.wallClockDate(year: 2021, month: 4, day: 27)
+        parsed.instructorNumber = "OWSI-396419"
+
+        form.applyPADIParseResult(parsed)
+
+        #expect(form.agency == "PADI")
+        #expect(form.certNumber == "21040R0406")
+        #expect(form.instructor == "Kiriana Howlett")
+        #expect(form.instructorNumber == "OWSI-396419")
+
+        let components = PADICertificationCardParser.wallClockDateComponents(from: form.dateAttained)
+        #expect(components.year == 2021)
+        #expect(components.month == 4)
+        #expect(components.day == 27)
+    }
+
+    @Test func certificationFormValues_applyPADIParseResult_leavesFieldUnchangedWhenParsedValueMissing() {
+        var form = CertificationFormValues()
+        form.agency = "PADI"
+        form.certName = "Open Water Diver"
+        form.certNumber = "21040R0406"
+        form.instructor = "Kiriana Howlett"
+        form.dateAttained = PADICertificationCardParser.wallClockDate(year: 2021, month: 4, day: 27)!
+
+        var parsed = PADICertificationCardParseResult()
+        parsed.certName = "Advanced Open Water Diver"
+
+        form.applyPADIParseResult(parsed)
+
+        #expect(form.agency == "PADI")
+        #expect(form.certName == "Advanced Open Water Diver")
+        #expect(form.certNumber == "21040R0406")
+        #expect(form.instructor == "Kiriana Howlett")
+        #expect(form.instructorNumber.isEmpty)
+        #expect(form.diveShop.isEmpty)
+        #expect(form.diveShopNumber.isEmpty)
+
+        let components = PADICertificationCardParser.wallClockDateComponents(from: form.dateAttained)
+        #expect(components.year == 2021)
+        #expect(components.month == 4)
+        #expect(components.day == 27)
     }
 
     @Test func certificationFormValues_initFromCertification_restoresFields() {
@@ -2083,6 +2730,7 @@ struct GoDiveMVPTests {
             instructor: "Alex",
             instructorNumber: "99",
             diveShop: "Blue Shop",
+            diveShopNumber: "19956",
             cardType: .certification,
             certFrontPicture: Data([0xAA])
         )
@@ -2093,6 +2741,7 @@ struct GoDiveMVPTests {
         #expect(form.dateAttained == attained)
         #expect(form.instructor == "Alex")
         #expect(form.diveShop == "Blue Shop")
+        #expect(form.diveShopNumber == "19956")
         #expect(form.cardType == .certification)
         #expect(form.certFrontPicture == Data([0xAA]))
     }
@@ -4586,6 +5235,61 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test @MainActor func diveSiteCatalogLoader_loadsSortedCatalogOffMainActor() async throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let site = DiveSite(siteName: "Test Reef")
+        context.insert(site)
+        try context.save()
+
+        let persistentIDs = await DiveSiteCatalogLoader.fetchSortedPersistentIDs(container: container)
+        #expect(persistentIDs.count == 1)
+
+        let bound = DiveSiteCatalogLoader.bindModels(persistentIDs: persistentIDs, modelContext: context)
+        #expect(bound.count == 1)
+        #expect(bound.first?.siteName == "Test Reef")
+    }
+
+    @Test @MainActor func diveBuddyDetailPresentation_fetchOwnerDiveIndexOffMainActor() async throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let ownerID = UUID()
+        let profile = UserProfile(id: ownerID, appleUserIdentifier: "test-owner", displayName: "Owner")
+        context.insert(profile)
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: .now,
+            durationMinutes: 45,
+            maxDepthMeters: 20
+        )
+        dive.ownerProfileID = ownerID
+        context.insert(dive)
+        try context.save()
+
+        let index = await DiveBuddyDetailPresentation.fetchOwnerDiveIndex(
+            ownerProfileID: ownerID,
+            container: container
+        )
+        #expect(index.numberingRows.count == 1)
+        #expect(index.numberingRows.first?.id == dive.id)
+    }
+
+    @Test @MainActor func marineLifeCatalogLoader_loadsSortedCatalogOffMainActor() async throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+
+        let persistentIDs = await MarineLifeCatalogLoader.fetchSortedPersistentIDs(container: container)
+        #expect(!persistentIDs.isEmpty)
+
+        let bound = MarineLifeCatalogLoader.bindModels(persistentIDs: persistentIDs, modelContext: context)
+        #expect(bound.count == persistentIDs.count)
+        let sortedNames = bound.map(\.commonName)
+        #expect(sortedNames == sortedNames.sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        })
+    }
+
     @Test @MainActor func marineLifeCatalogSeeder_seedsFrenchAngelfishModel() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = container.mainContext
@@ -6839,8 +7543,46 @@ struct GoDiveMVPTests {
     }
 
     @Test func tripShareCardPresentation_includesLogoAssetName() {
-        #expect(TripShareCardPresentation.logoImageName == "GoDiveLogoPin")
+        #expect(TripShareCardPresentation.logoImageName == GoDiveLogoPinPresentation.assetName)
         #expect(TripShareCardPresentation.logoHeight == 72)
+    }
+
+    @Test func goDiveLogoPin_assetResolvesDistinctImagesForLightAndDark() {
+        #if canImport(UIKit)
+        let lightTraits = UITraitCollection(userInterfaceStyle: .light)
+        let darkTraits = UITraitCollection(userInterfaceStyle: .dark)
+        let lightImage = UIImage(
+            named: GoDiveLogoPinPresentation.assetName,
+            in: Bundle.main,
+            compatibleWith: lightTraits
+        )
+        let darkImage = UIImage(
+            named: GoDiveLogoPinPresentation.assetName,
+            in: Bundle.main,
+            compatibleWith: darkTraits
+        )
+        #expect(lightImage != nil)
+        #expect(darkImage != nil)
+        #expect(lightImage?.pngData() != darkImage?.pngData())
+        let lightHasAlpha = lightImage?.cgImage.map { image in
+            switch image.alphaInfo {
+            case .none, .noneSkipFirst, .noneSkipLast:
+                false
+            default:
+                true
+            }
+        } ?? false
+        let darkHasAlpha = darkImage?.cgImage.map { image in
+            switch image.alphaInfo {
+            case .none, .noneSkipFirst, .noneSkipLast:
+                false
+            default:
+                true
+            }
+        } ?? false
+        #expect(lightHasAlpha)
+        #expect(darkHasAlpha)
+        #endif
     }
 
     @Test func tripShareCardPresentation_members_usesPlannedBuddiesBeforeTripStarts() {
@@ -7246,6 +7988,15 @@ struct GoDiveMVPTests {
         #expect(LogbookRoute.diveSite(siteID) == LogbookRoute.diveSite(siteID))
         #expect(LogbookRoute.diveSite(siteID) != LogbookRoute.tripDetail(siteID))
         #expect(LogbookRoute.tripPlanner != LogbookRoute.addActivity)
+    }
+
+    @Test func logbookPendingRouteNavigation_addActivityReplacesStack() {
+        let diveID = UUID()
+        let path = LogbookPendingRouteNavigation.path(
+            afterConsuming: .addActivity,
+            currentPath: [.diveDetail(diveID)]
+        )
+        #expect(path == [.addActivity])
     }
 
     @Test @MainActor func tripStackNavigationRoutes_tripDetailPrecedesSiteOnStack() {
@@ -16645,7 +17396,7 @@ struct GoDiveMVPTests {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = ModelContext(container)
         context.autosaveEnabled = true
-        _ = try await DiveFileImportAutosaveScope.withAutosaveDisabled(modelContext: context) {
+        _ = await DiveFileImportAutosaveScope.withAutosaveDisabled(modelContext: context) {
             #expect(context.autosaveEnabled == false)
             return true
         }

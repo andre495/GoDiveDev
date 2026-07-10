@@ -116,11 +116,18 @@ private struct BlueSheetPageShellLayoutResolveModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .onAppear {
-                onLayoutResolved?(layout)
+                scheduleLayoutResolved(layout)
             }
             .onChange(of: layout) { _, settledLayout in
-                onLayoutResolved?(settledLayout)
+                scheduleLayoutResolved(settledLayout)
             }
+    }
+
+    private func scheduleLayoutResolved(_ settledLayout: BlueSheetHeaderPageLayoutContext) {
+        guard let onLayoutResolved else { return }
+        Task { @MainActor in
+            onLayoutResolved(settledLayout)
+        }
     }
 }
 

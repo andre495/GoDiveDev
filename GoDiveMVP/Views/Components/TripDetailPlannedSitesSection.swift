@@ -9,7 +9,7 @@ struct TripDetailPlannedSitesSection: View {
     let ownerProfileID: UUID?
     let onOpenDive: (UUID) -> Void
 
-    @Query(sort: \DiveSite.siteName) private var diveSiteCatalog: [DiveSite]
+    @State private var diveSiteCatalog: [DiveSite] = []
 
     @State private var showsSitePicker = false
     @State private var selectedSiteIDs: Set<UUID> = []
@@ -81,6 +81,9 @@ struct TripDetailPlannedSitesSection: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityIdentifier("TripDetail.PlannedSitesSection")
+        .task {
+            diveSiteCatalog = await DiveSiteCatalogLoader.loadSortedCatalog(modelContext: modelContext)
+        }
         .sheet(isPresented: $showsSitePicker, onDismiss: applySelectedPlannedSites) {
             TripPlannedSitePickerSheet(
                 selectedSiteIDs: $selectedSiteIDs,

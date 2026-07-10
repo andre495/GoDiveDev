@@ -37,11 +37,16 @@ struct BlueSheetTabRootPage<
             appliesPushedLayoutState: true,
             onLayoutResolved: { layout in
                 if isNavigationStackAtRoot, layout.geometryHeight > 0 {
-                    frozenRootViewportHeight = HomeTabRootLayoutPresentation.tabContentGeometryHeight(
+                    let frozenHeight = HomeTabRootLayoutPresentation.tabContentGeometryHeight(
                         geometryHeight: layout.geometryHeight,
                         isNavigationStackAtRoot: true,
                         frozenTabContentGeometryHeight: nil
                     )
+                    Task { @MainActor in
+                        if frozenRootViewportHeight != frozenHeight {
+                            frozenRootViewportHeight = frozenHeight
+                        }
+                    }
                 }
                 onLayoutResolved?(layout)
             },

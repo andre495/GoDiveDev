@@ -9,15 +9,20 @@ struct PostSignUpProfileSetupView: View {
 
     let onComplete: () -> Void
 
-    @Query(sort: [SortDescriptor(\Certification.dateAttained, order: .reverse)])
-    private var allCertifications: [Certification]
-
     @State private var stepIndex = 0
-    @State private var danText = ""
+    @State private var danDraft = PostSignUpProfileSetupDanDraft()
     @State private var certificationForm = CertificationFormValues()
     @State private var frontPhotoPickerItem: PhotosPickerItem?
     @State private var backPhotoPickerItem: PhotosPickerItem?
     @State private var saveErrorMessage: String?
+    @State private var certificationCardPhotoPreview: CertificationCardPhotoPreviewSelection?
+    @FocusState private var certificationFocusedField: CertificationFormField?
+    @State private var bubbleAnimationPaused = false
+    @State private var bubblePauseDeferTask: Task<Void, Never>?
+
+    init(onComplete: @escaping () -> Void) {
+        self.onComplete = onComplete
+    }
 
     private var profile: UserProfile? { accountSession.currentProfile }
 
@@ -31,13 +36,12 @@ struct PostSignUpProfileSetupView: View {
         return steps[stepIndex]
     }
 
-    private var ownedCertifications: [Certification] {
-        guard let ownerID = profile?.id else { return [] }
-        return allCertifications.filter { $0.ownerProfileID == ownerID }
+    private var shouldPauseBubbleAnimation: Bool {
+        bubbleAnimationPaused
     }
 
     var body: some View {
-        LoggedOutMarketingChrome {
+        LoggedOutMarketingChrome(bubbleAnimationPaused: shouldPauseBubbleAnimation) {
             VStack(spacing: AppTheme.Spacing.lg) {
                 navigationChrome
 
@@ -45,14 +49,10 @@ struct PostSignUpProfileSetupView: View {
                     if let currentStep, let profile {
                         stepContent(currentStep, profile: profile)
                             .id(currentStep)
-                            .transition(.asymmetric(
-                                insertion: .move(edge: .trailing).combined(with: .opacity),
-                                removal: .move(edge: .leading).combined(with: .opacity)
-                            ))
+                            .transition(.opacity)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .animation(.easeInOut(duration: 0.28), value: stepIndex)
 
                 bottomChrome
                     .padding(.horizontal, AppTheme.Spacing.lg)
@@ -65,10 +65,44 @@ struct PostSignUpProfileSetupView: View {
         } message: {
             Text(saveErrorMessage ?? "Try again.")
         }
+        .certificationCardPhotoPreviewCover($certificationCardPhotoPreview)
         .onAppear {
             if let dan = profile?.danInsuranceNumber {
-                danText = dan
+                danDraft.replaceText(dan)
             }
+            syncBubbleAnimationPause(for: currentStep)
+        }
+        .onChange(of: stepIndex) { _, _ in
+            syncBubbleAnimationPause(for: currentStep)
+        }
+        .onDisappear {
+            bubblePauseDeferTask?.cancel()
+            bubblePauseDeferTask = nil
+        }
+    }
+
+    private func syncBubbleAnimationPause(
+        for step: PostSignUpProfileSetupPresentation.Step?
+    ) {
+        bubblePauseDeferTask?.cancel()
+        bubblePauseDeferTask = nil
+
+        guard let step else {
+            bubbleAnimationPaused = false
+            return
+        }
+
+        guard let delayNanoseconds = PostSignUpProfileSetupPresentation.bubblePauseDelayNanoseconds(
+            whenEntering: step
+        ) else {
+            bubbleAnimationPaused = false
+            return
+        }
+
+        bubblePauseDeferTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: delayNanoseconds)
+            guard !Task.isCancelled else { return }
+            bubbleAnimationPaused = true
         }
     }
 
@@ -127,23 +161,26 @@ struct PostSignUpProfileSetupView: View {
         _ step: PostSignUpProfileSetupPresentation.Step,
         profile: UserProfile
     ) -> some View {
-        VStack(spacing: AppTheme.Spacing.lg) {
-            stepHeader(step, displayName: profile.displayName)
+        switch step {
+        case .certification:
+            certificationStepContent(displayName: profile.displayName)
+                .accessibilityIdentifier(PostSignUpProfileSetupPresentation.stepAccessibilityIdentifier(step))
+        case .danInsurance:
+            danInsuranceStepContent(displayName: profile.displayName)
+                .accessibilityIdentifier(PostSignUpProfileSetupPresentation.stepAccessibilityIdentifier(step))
+        default:
+            VStack(spacing: AppTheme.Spacing.lg) {
+                stepHeader(step, displayName: profile.displayName)
 
-            switch step {
-            case .certification:
-                certificationStep
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            default:
                 ScrollView {
                     stepBody(step, profile: profile)
                 }
                 .scrollIndicators(.hidden)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .padding(.vertical, AppTheme.Spacing.md)
+            .accessibilityIdentifier(PostSignUpProfileSetupPresentation.stepAccessibilityIdentifier(step))
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .padding(.vertical, AppTheme.Spacing.md)
-        .accessibilityIdentifier(PostSignUpProfileSetupPresentation.stepAccessibilityIdentifier(step))
     }
 
     private func stepHeader(
@@ -172,9 +209,7 @@ struct PostSignUpProfileSetupView: View {
         switch step {
         case .profilePhoto:
             profilePhotoStep(profile: profile)
-        case .danInsurance:
-            danInsuranceStep
-        case .certification:
+        case .danInsurance, .certification:
             EmptyView()
         case .preview:
             profilePreviewStep(profile: profile)
@@ -182,27 +217,102 @@ struct PostSignUpProfileSetupView: View {
     }
 
     private func profilePhotoStep(profile: UserProfile) -> some View {
-        ProfileAvatarEditor(diameter: 148, profile: profile)
-            .frame(maxWidth: .infinity)
-            .padding(.top, AppTheme.Spacing.md)
+        ProfileAvatarEditor(
+            diameter: 148,
+            onPhotoSaved: advanceAfterProfilePhotoSaved,
+            profile: profile
+        )
+        .frame(maxWidth: .infinity)
+        .padding(.top, AppTheme.Spacing.md)
     }
 
-    private var danInsuranceStep: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            Text("Diver Medical Insurance (DAN)")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
+    private var certificationStepUsesExpandedLayout: Bool {
+        PostSignUpProfileSetupPresentation.certificationStepUsesExpandedLayout(
+            form: certificationForm,
+            isTextFieldFocused: certificationFocusedField != nil
+        )
+    }
 
-            TextField("DAN member number", text: $danText)
-                .font(.body)
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-                .textInputAutocapitalization(.characters)
-                .autocorrectionDisabled()
-                .keyboardType(.asciiCapable)
-                .padding(AppTheme.Spacing.md)
-                .background(AppTheme.Colors.surfaceMuted.opacity(0.5))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .accessibilityIdentifier("PostSignUpProfileSetup.DanField")
+    private var isCertificationKeyboardVisible: Bool {
+        currentStep == .certification && certificationFocusedField != nil
+    }
+
+    private func danInsuranceStepContent(displayName: String) -> some View {
+        VStack(spacing: AppTheme.Spacing.lg) {
+            stepHeader(.danInsurance, displayName: displayName)
+
+            PostSignUpProfileSetupDanInsuranceStep(draft: danDraft)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.vertical, AppTheme.Spacing.md)
+    }
+
+    private func certificationStepContent(displayName: String) -> some View {
+        let isExpanded = certificationStepUsesExpandedLayout
+
+        return VStack(spacing: isExpanded ? AppTheme.Spacing.sm : AppTheme.Spacing.lg) {
+            certificationStepHeader(displayName: displayName, isExpanded: isExpanded)
+
+            certificationStep
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.vertical, isExpanded ? AppTheme.Spacing.sm : AppTheme.Spacing.md)
+        .animation(.easeInOut(duration: 0.28), value: isExpanded)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                if certificationFocusedField != nil {
+                    Button {
+                        certificationFocusedField = nil
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(AppTheme.Colors.secondaryText)
+                            .frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel("Close keyboard")
+                    .accessibilityIdentifier("PostSignUpProfileSetup.CertificationKeyboardDismiss")
+
+                    Spacer()
+
+                    if PostSignUpProfileSetupPresentation.showsContinueInCertificationKeyboardToolbar(
+                        certificationFormCanSave: certificationForm.canSave,
+                        isCertificationKeyboardVisible: true
+                    ) {
+                        Button(PostSignUpProfileSetupPresentation.continueTitle(for: .certification)) {
+                            advanceFromCurrentStep()
+                        }
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("PostSignUpProfileSetup.CertificationKeyboardContinue")
+                    }
+                }
+            }
+        }
+    }
+
+    private func certificationStepHeader(displayName: String, isExpanded: Bool) -> some View {
+        VStack(spacing: AppTheme.Spacing.sm) {
+            Text(
+                PostSignUpProfileSetupPresentation.stepTitle(
+                    .certification,
+                    displayName: displayName
+                )
+            )
+            .font(isExpanded ? .title3.weight(.bold) : .title2.weight(.bold))
+            .foregroundStyle(AppTheme.Colors.textPrimary)
+            .multilineTextAlignment(.center)
+            .animation(.easeInOut(duration: 0.28), value: isExpanded)
+
+            if !isExpanded {
+                Text(PostSignUpProfileSetupPresentation.stepSubtitle(.certification))
+                    .font(.body)
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+                    .multilineTextAlignment(.center)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
         .padding(.horizontal, AppTheme.Spacing.lg)
     }
@@ -212,7 +322,10 @@ struct PostSignUpProfileSetupView: View {
             CertificationFormContent(
                 form: $certificationForm,
                 frontPhotoPickerItem: $frontPhotoPickerItem,
-                backPhotoPickerItem: $backPhotoPickerItem
+                backPhotoPickerItem: $backPhotoPickerItem,
+                cardPhotoPreview: $certificationCardPhotoPreview,
+                focusedField: $certificationFocusedField,
+                disablesTextAutocorrection: true
             )
         }
         .scrollContentBackground(.hidden)
@@ -243,7 +356,7 @@ struct PostSignUpProfileSetupView: View {
                         .accessibilityIdentifier("PostSignUpProfileSetup.Preview.Dan")
                 }
 
-                profilePreviewCertificationSummary
+                profilePreviewCertificationSummary(profileID: profile.id)
 
                 interestChips(for: profile)
             }
@@ -254,23 +367,8 @@ struct PostSignUpProfileSetupView: View {
     }
 
     @ViewBuilder
-    private var profilePreviewCertificationSummary: some View {
-        if let display = CertificationPresentation.profileFeaturedCertification(from: ownedCertifications) {
-            VStack(spacing: AppTheme.Spacing.sm) {
-                Text(display.title)
-                    .font(.title3.weight(.medium))
-                    .foregroundStyle(AppTheme.Colors.tabSelected)
-                    .multilineTextAlignment(.center)
-
-                if let certNumber = display.certNumber {
-                    Text(certNumber)
-                        .font(.body.weight(.medium))
-                        .foregroundStyle(AppTheme.Colors.tabSelected)
-                        .multilineTextAlignment(.center)
-                        .accessibilityIdentifier("PostSignUpProfileSetup.Preview.CertNumber")
-                }
-            }
-        }
+    private func profilePreviewCertificationSummary(profileID: UUID) -> some View {
+        PostSignUpProfileSetupPreviewCertificationSummary(ownerProfileID: profileID)
     }
 
     private func interestChips(for profile: UserProfile) -> some View {
@@ -321,7 +419,7 @@ struct PostSignUpProfileSetupView: View {
     private var bottomChrome: some View {
         if let currentStep {
             VStack(spacing: AppTheme.Spacing.sm) {
-                if showsContinueButton(for: currentStep) {
+                if showsContinueInBottomChrome(for: currentStep) {
                     Button(PostSignUpProfileSetupPresentation.continueTitle(for: currentStep)) {
                         advanceFromCurrentStep()
                     }
@@ -329,8 +427,8 @@ struct PostSignUpProfileSetupView: View {
                     .accessibilityIdentifier("PostSignUpProfileSetup.Continue")
                 }
 
-                if let skipTitle = PostSignUpProfileSetupPresentation.skipTitle(for: currentStep) {
-                    Button(skipTitle) {
+                if showsSkipInBottomChrome(for: currentStep) {
+                    Button(PostSignUpProfileSetupPresentation.skipTitle(for: currentStep) ?? "Skip for now") {
                         skipCurrentStep()
                     }
                     .font(.footnote.weight(.semibold))
@@ -341,14 +439,24 @@ struct PostSignUpProfileSetupView: View {
         }
     }
 
-    private func showsContinueButton(
+    private func showsContinueInBottomChrome(
         for step: PostSignUpProfileSetupPresentation.Step
     ) -> Bool {
-        PostSignUpProfileSetupPresentation.showsContinueButton(
+        PostSignUpProfileSetupPresentation.showsContinueInBottomChrome(
             for: step,
             hasProfilePhoto: profile?.profilePhoto != nil,
-            danInsuranceNumber: danText,
-            certificationFormCanSave: certificationForm.canSave
+            danShowsContinue: danDraft.showsContinue,
+            certificationFormCanSave: certificationForm.canSave,
+            isCertificationKeyboardVisible: isCertificationKeyboardVisible
+        )
+    }
+
+    private func showsSkipInBottomChrome(
+        for step: PostSignUpProfileSetupPresentation.Step
+    ) -> Bool {
+        PostSignUpProfileSetupPresentation.showsSkipInBottomChrome(
+            for: step,
+            isCertificationKeyboardVisible: isCertificationKeyboardVisible
         )
     }
 
@@ -374,20 +482,42 @@ struct PostSignUpProfileSetupView: View {
         if stepIndex >= steps.count - 1 {
             onComplete()
         } else {
+            if currentStep == .certification {
+                certificationFocusedField = nil
+            }
+            advanceToNextStep()
+        }
+    }
+
+    private func advanceToNextStep() {
+        withAnimation(.easeOut(duration: PostSignUpProfileSetupPresentation.stepTransitionDuration)) {
             stepIndex += 1
         }
     }
 
-    private func skipCurrentStep() {
+    private func advanceAfterProfilePhotoSaved() {
+        guard currentStep == .profilePhoto else { return }
         guard stepIndex < steps.count - 1 else {
             onComplete()
             return
         }
-        stepIndex += 1
+        advanceToNextStep()
+    }
+
+    private func skipCurrentStep() {
+        if currentStep == .certification {
+            certificationFocusedField = nil
+        }
+        guard stepIndex < steps.count - 1 else {
+            onComplete()
+            return
+        }
+        advanceToNextStep()
     }
 
     private func goBackOneStep() {
         guard PostSignUpProfileSetupPresentation.showsBackButton(stepIndex: stepIndex) else { return }
+        certificationFocusedField = nil
         withAnimation(.easeInOut(duration: 0.28)) {
             stepIndex -= 1
         }
@@ -395,7 +525,7 @@ struct PostSignUpProfileSetupView: View {
 
     private func saveDanInsurance() {
         guard let profile else { return }
-        profile.danInsuranceNumber = UserProfileStore.sanitizedDanInsuranceNumber(danText)
+        profile.danInsuranceNumber = UserProfileStore.sanitizedDanInsuranceNumber(danDraft.text)
         do {
             try modelContext.save()
         } catch {
@@ -424,6 +554,74 @@ struct PostSignUpProfileSetupView: View {
         } catch {
             saveErrorMessage = error.localizedDescription
             return false
+        }
+    }
+}
+
+/// Isolated DAN field — keystrokes stay local; wizard chrome only refreshes when **Continue** visibility changes.
+private struct PostSignUpProfileSetupDanInsuranceStep: View {
+    var draft: PostSignUpProfileSetupDanDraft
+    @State private var localText: String
+    @FocusState private var isFieldFocused: Bool
+
+    init(draft: PostSignUpProfileSetupDanDraft) {
+        self.draft = draft
+        _localText = State(initialValue: draft.text)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            Text("Diver Medical Insurance (DAN)")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+
+            TextField("DAN member number", text: $localText)
+                .font(.body)
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+                .textInputAutocapitalization(.characters)
+                .autocorrectionDisabled()
+                .textContentType(.none)
+                .keyboardType(.asciiCapable)
+                .focused($isFieldFocused)
+                .padding(AppTheme.Spacing.md)
+                .background(AppTheme.Colors.surfaceMuted.opacity(0.5))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .accessibilityIdentifier("PostSignUpProfileSetup.DanField")
+                .onChange(of: localText) { _, newValue in
+                    draft.replaceText(newValue)
+                }
+        }
+        .padding(.horizontal, AppTheme.Spacing.lg)
+    }
+}
+
+/// Preview-step certification summary — scoped **`@Query`** so earlier wizard steps avoid SwiftData fetch work.
+private struct PostSignUpProfileSetupPreviewCertificationSummary: View {
+    @Query private var ownedCertifications: [Certification]
+
+    init(ownerProfileID: UUID) {
+        _ownedCertifications = Query(
+            filter: #Predicate<Certification> { $0.ownerProfileID == ownerProfileID },
+            sort: [SortDescriptor(\Certification.dateAttained, order: .reverse)]
+        )
+    }
+
+    var body: some View {
+        if let display = CertificationPresentation.profileFeaturedCertification(from: ownedCertifications) {
+            VStack(spacing: AppTheme.Spacing.sm) {
+                Text(display.title)
+                    .font(.title3.weight(.medium))
+                    .foregroundStyle(AppTheme.Colors.tabSelected)
+                    .multilineTextAlignment(.center)
+
+                if let certNumber = display.certNumber {
+                    Text(certNumber)
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(AppTheme.Colors.tabSelected)
+                        .multilineTextAlignment(.center)
+                        .accessibilityIdentifier("PostSignUpProfileSetup.Preview.CertNumber")
+                }
+            }
         }
     }
 }

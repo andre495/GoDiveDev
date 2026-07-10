@@ -173,7 +173,7 @@ struct ViewDiveBuddyDetails: View {
 
     var body: some View {
         if DiveBuddySelfRepresentation.isSelfBuddy(buddy, owner: accountSession.currentProfile) {
-            ProfileView()
+            ProfileView(ownerProfileID: ownerProfileID)
         } else {
             buddyDetailsPage
         }
@@ -384,17 +384,7 @@ struct ViewDiveBuddyDetails: View {
             }
 
             if includeTripRows {
-                cachedTripRows = DiveBuddyTripPresentation.sortedAssociatedTrips(
-                    DiveBuddyTripPresentation.associatedTrips(
-                        buddyID: buddy.id,
-                        ownerProfileID: ownerProfileID,
-                        trips: DiveBuddyDetailPresentation.fetchOwnerTrips(
-                            ownerProfileID: ownerProfileID,
-                            modelContext: modelContext
-                        ),
-                        sharedDiveIDs: Set(sharedDives.map(\.id))
-                    )
-                ).map { DiveBuddyTripPresentation.rowDisplayData(for: $0) }
+                // Populated asynchronously via **`loadBuddyTripRowsIfNeeded`**.
             }
 
             let offsetByActivityID = ownerActivityTimeZoneOffsets.isEmpty
@@ -413,11 +403,6 @@ struct ViewDiveBuddyDetails: View {
         }
 
         if includeMarineLifeEnrichment, !taggedMedia.isEmpty {
-            if cachedMarineLifeCatalog.isEmpty {
-                cachedMarineLifeCatalog = (try? modelContext.fetch(
-                    FetchDescriptor<MarineLife>(sortBy: [SortDescriptor(\.commonName)])
-                )) ?? []
-            }
             let taggedMediaIDs = Set(taggedMedia.map(\.id))
             let sightings = (try? MarineLifeSightingRecorder.sightings(
                 forMediaPhotoIDs: taggedMediaIDs,
@@ -459,6 +444,29 @@ struct ViewDiveBuddyDetails: View {
         )
     }
 
+    private func loadBuddyMarineLifeCatalogIfNeeded() async {
+        guard cachedMarineLifeCatalog.isEmpty else { return }
+        cachedMarineLifeCatalog = await MarineLifeCatalogLoader.loadSortedCatalog(modelContext: modelContext)
+    }
+
+    private func loadBuddyTripRowsIfNeeded(force: Bool = false) async {
+        guard let ownerProfileID else { return }
+        if !force, !cachedTripRows.isEmpty { return }
+        let ownerTrips = await DiveBuddyDetailPresentation.fetchOwnerTripsAsync(
+            ownerProfileID: ownerProfileID,
+            modelContext: modelContext
+        )
+        guard !Task.isCancelled else { return }
+        cachedTripRows = DiveBuddyTripPresentation.sortedAssociatedTrips(
+            DiveBuddyTripPresentation.associatedTrips(
+                buddyID: buddy.id,
+                ownerProfileID: ownerProfileID,
+                trips: ownerTrips,
+                sharedDiveIDs: Set(cachedSharedDiveActivities.map(\.id))
+            )
+        ).map { DiveBuddyTripPresentation.rowDisplayData(for: $0) }
+    }
+
     private func prepareBuddyChromeForDisplay() {
         DiveMediaPreviewStorage.seedSessionCache(for: cachedTaggedMediaItems)
         syncHeroTaggedMediaSelection()
@@ -474,6 +482,9 @@ struct ViewDiveBuddyDetails: View {
             includeTripRows: hasLoadedTripRows,
             includeMarineLifeEnrichment: hasLoadedMarineLifeEnrichment
         )
+        if hasLoadedTripRows {
+            Task { await loadBuddyTripRowsIfNeeded(force: true) }
+        }
     }
 
     private func warmBuddyHeroHeaderMediaPreviewIfNeeded() async {
@@ -591,11 +602,9 @@ struct ViewDiveBuddyDetails: View {
         case .tripsTogether:
             guard !hasLoadedTripRows else { return }
             hasLoadedTripRows = true
-            rebuildBuddyDetailContent(
-                includeSecondarySections: true,
-                includeTripRows: true,
-                includeMarineLifeEnrichment: false
-            )
+            Task {
+                await loadBuddyTripRowsIfNeeded()
+            }
         case .taggedMedia:
             guard !hasLoadedMarineLifeEnrichment else { return }
             hasLoadedMarineLifeEnrichment = true
@@ -604,6 +613,9 @@ struct ViewDiveBuddyDetails: View {
                 includeTripRows: hasLoadedTripRows,
                 includeMarineLifeEnrichment: true
             )
+            Task {
+                await loadBuddyMarineLifeCatalogIfNeeded()
+            }
         case .divesTogether:
             break
         }
@@ -630,9 +642,9 @@ struct ViewDiveBuddyDetails: View {
             return
         }
 
-        let index = DiveBuddyDetailPresentation.fetchOwnerDiveIndex(
+        let index = await DiveBuddyDetailPresentation.fetchOwnerDiveIndex(
             ownerProfileID: ownerProfileID,
-            modelContext: modelContext
+            container: modelContext.container
         )
         OwnerDiveIndexSessionCache.publish(index, ownerProfileID: ownerProfileID)
         applyOwnerDiveIndex(index)

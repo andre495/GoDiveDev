@@ -12,31 +12,11 @@ struct ProfileView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
-    @Query(sort: [SortDescriptor(\Certification.dateAttained, order: .reverse)])
-    private var allCertifications: [Certification]
-
-    @Query(
-        sort: [
-            SortDescriptor(\EquipmentItem.manufacturer, order: .forward),
-            SortDescriptor(\EquipmentItem.model, order: .forward),
-        ]
-    )
-    private var allEquipment: [EquipmentItem]
-
-    @Query private var allDiveActivities: [DiveActivity]
-
-    @Query(
-        sort: [SortDescriptor(\DiveBuddy.displayName, order: .forward)]
-    )
-    private var allDiveBuddies: [DiveBuddy]
-
-    @Query(
-        sort: [
-            SortDescriptor(\DiveTrip.startDate, order: .reverse),
-            SortDescriptor(\DiveTrip.createdAt, order: .reverse),
-        ]
-    )
-    private var allTrips: [DiveTrip]
+    @Query private var ownedCertifications: [Certification]
+    @Query private var ownedEquipment: [EquipmentItem]
+    @Query private var ownedDiveActivities: [DiveActivity]
+    @Query private var ownedDiveBuddies: [DiveBuddy]
+    @Query private var ownedTrips: [DiveTrip]
 
     @Query(sort: [SortDescriptor(\DiveMediaBuddyTag.id, order: .forward)])
     private var buddyMediaTags: [DiveMediaBuddyTag]
@@ -45,57 +25,89 @@ struct ProfileView: View {
     @State private var showsSignOutConfirmation = false
     @State private var selfBuddyID: UUID?
 
-    private var ownedCertifications: [Certification] {
-        guard let ownerID = accountSession.currentProfile?.id else { return [] }
-        return allCertifications.filter { $0.ownerProfileID == ownerID }
+    private let ownerProfileID: UUID?
+
+    init(ownerProfileID: UUID?) {
+        self.ownerProfileID = ownerProfileID
+        let filterOwnerID = ownerProfileID ?? Self.noOwnerQueryToken
+        _ownedCertifications = Query(
+            filter: #Predicate<Certification> { $0.ownerProfileID == filterOwnerID },
+            sort: [SortDescriptor(\Certification.dateAttained, order: .reverse)]
+        )
+        _ownedEquipment = Query(
+            filter: #Predicate<EquipmentItem> { $0.ownerProfileID == filterOwnerID },
+            sort: [
+                SortDescriptor(\EquipmentItem.manufacturer, order: .forward),
+                SortDescriptor(\EquipmentItem.model, order: .forward),
+            ]
+        )
+        _ownedDiveActivities = Query(
+            filter: #Predicate<DiveActivity> { $0.ownerProfileID == filterOwnerID },
+            sort: [
+                SortDescriptor(\DiveActivity.startTime, order: .reverse),
+                SortDescriptor(\DiveActivity.id, order: .forward),
+            ]
+        )
+        _ownedDiveBuddies = Query(
+            filter: #Predicate<DiveBuddy> { $0.ownerProfileID == filterOwnerID },
+            sort: [SortDescriptor(\DiveBuddy.displayName, order: .forward)]
+        )
+        _ownedTrips = Query(
+            filter: #Predicate<DiveTrip> { $0.ownerProfileID == filterOwnerID },
+            sort: [
+                SortDescriptor(\DiveTrip.startDate, order: .reverse),
+                SortDescriptor(\DiveTrip.createdAt, order: .reverse),
+            ]
+        )
     }
 
-    private var ownedEquipment: [EquipmentItem] {
-        guard let ownerID = accountSession.currentProfile?.id else { return [] }
-        return allEquipment.filter { $0.ownerProfileID == ownerID }
+    private static let noOwnerQueryToken = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+
+    private var ownedCertificationsFiltered: [Certification] {
+        ownedCertifications
     }
 
-    private var certificationCountLabel: String {
-        ProfilePresentation.certificationCountLabel(ownedCertifications.count)
+    private var ownedEquipmentFiltered: [EquipmentItem] {
+        ownedEquipment
     }
 
-    private var equipmentItemCountLabel: String {
-        ProfilePresentation.equipmentItemCountLabel(ownedEquipment.count)
-    }
-
-    private var ownedDiveBuddies: [DiveBuddy] {
-        guard let ownerID = accountSession.currentProfile?.id else { return [] }
-        let buddies = allDiveBuddies.filter { $0.ownerProfileID == ownerID }
-        return DiveBuddySelfRepresentation.rosterBuddiesExcludingSelf(
-            buddies,
+    private var ownedDiveBuddiesFiltered: [DiveBuddy] {
+        DiveBuddySelfRepresentation.rosterBuddiesExcludingSelf(
+            ownedDiveBuddies,
             owner: accountSession.currentProfile
         )
     }
 
-    private var diveBuddyCountLabel: String {
-        ProfilePresentation.diveBuddyRosterCountLabel(ownedDiveBuddies.count)
+    private var ownedTripsFiltered: [DiveTrip] {
+        ownedTrips
     }
 
-    private var ownedTrips: [DiveTrip] {
-        guard let ownerID = accountSession.currentProfile?.id else { return [] }
-        return allTrips.filter { $0.ownerProfileID == ownerID }
+    private var certificationCountLabel: String {
+        ProfilePresentation.certificationCountLabel(ownedCertificationsFiltered.count)
+    }
+
+    private var equipmentItemCountLabel: String {
+        ProfilePresentation.equipmentItemCountLabel(ownedEquipmentFiltered.count)
+    }
+
+    private var diveBuddyCountLabel: String {
+        ProfilePresentation.diveBuddyRosterCountLabel(ownedDiveBuddiesFiltered.count)
     }
 
     private var tripCountLabel: String {
-        ProfilePresentation.tripCountLabel(ownedTrips.count)
+        ProfilePresentation.tripCountLabel(ownedTripsFiltered.count)
     }
 
     private var profileFeaturedCertification: CertificationPresentation.ProfileFeaturedCertificationDisplay? {
-        CertificationPresentation.profileFeaturedCertification(from: ownedCertifications)
+        CertificationPresentation.profileFeaturedCertification(from: ownedCertificationsFiltered)
     }
 
     private var featuredCertificationCard: Certification? {
-        CertificationPresentation.profileFeaturedCertificationCard(from: ownedCertifications)
+        CertificationPresentation.profileFeaturedCertificationCard(from: ownedCertificationsFiltered)
     }
 
     private var ownedDiveActivityCount: Int {
-        guard let ownerID = accountSession.currentProfile?.id else { return 0 }
-        return allDiveActivities.filter { $0.ownerProfileID == ownerID }.count
+        ownedDiveActivities.count
     }
 
     private var diveCountLabel: String {
@@ -103,12 +115,7 @@ struct ProfileView: View {
     }
 
     private var ownerDiveActivityIDs: Set<UUID> {
-        guard let ownerID = accountSession.currentProfile?.id else { return [] }
-        return Set(
-            allDiveActivities
-                .filter { $0.ownerProfileID == ownerID }
-                .map(\.id)
-        )
+        Set(ownedDiveActivities.map(\.id))
     }
 
     private var taggedMediaCount: Int {
@@ -299,7 +306,7 @@ struct ProfileView: View {
                 systemImage: "person.2.fill",
                 accessibilityIdentifier: "Profile.DiveBuddiesLink"
             ) {
-                DiveBuddiesListView()
+                DiveBuddiesListView(ownerProfileID: ownerProfileID)
             }
 
             profileDestinationTile(
@@ -308,7 +315,7 @@ struct ProfileView: View {
                 systemImage: "photo.on.rectangle.angled",
                 accessibilityIdentifier: "Profile.TaggedMediaLink"
             ) {
-                ProfileTaggedMediaView()
+                ProfileTaggedMediaView(ownerProfileID: ownerProfileID)
             }
 
             profileDestinationTile(
@@ -433,7 +440,7 @@ struct ProfileView: View {
 
 #Preview {
     NavigationStack {
-        ProfileView()
+        ProfileView(ownerProfileID: nil)
     }
     .environment(AccountSession.shared)
     .modelContainer(try! AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true))

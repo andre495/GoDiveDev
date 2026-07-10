@@ -1,0 +1,44 @@
+import Foundation
+
+/// Whether **`ContentView`** (main tab shell) is visible — signed in and past post-sign-up gates.
+enum AccountSessionMainShellPresentation: Sendable {
+    nonisolated static func showsMainAppShell(
+        isSignedIn: Bool,
+        showsNewAccountWelcome: Bool,
+        showsPostSignUpProfileSetup: Bool,
+        showsPostSignUpPermissions: Bool,
+        showsPostSignUpImportOffer: Bool,
+        showsPostSignUpOnboardingImport: Bool,
+        showsSignInCelebration: Bool
+    ) -> Bool {
+        isSignedIn
+            && !showsNewAccountWelcome
+            && !showsPostSignUpProfileSetup
+            && !showsPostSignUpPermissions
+            && !showsPostSignUpImportOffer
+            && !showsPostSignUpOnboardingImport
+            && !showsSignInCelebration
+    }
+
+    /// Mount **`ContentView`** under the celebration overlay so Home is warm before the handoff.
+    nonisolated static func shouldMountMainAppShellUnderlay(
+        isSignedIn: Bool,
+        showsNewAccountWelcome: Bool,
+        showsPostSignUpProfileSetup: Bool,
+        showsPostSignUpPermissions: Bool,
+        showsPostSignUpImportOffer: Bool,
+        showsPostSignUpOnboardingImport: Bool,
+        showsSignInCelebration: Bool,
+        allowsCelebrationShellPrewarm: Bool
+    ) -> Bool {
+        showsMainAppShell(
+            isSignedIn: isSignedIn,
+            showsNewAccountWelcome: showsNewAccountWelcome,
+            showsPostSignUpProfileSetup: showsPostSignUpProfileSetup,
+            showsPostSignUpPermissions: showsPostSignUpPermissions,
+            showsPostSignUpImportOffer: showsPostSignUpImportOffer,
+            showsPostSignUpOnboardingImport: showsPostSignUpOnboardingImport,
+            showsSignInCelebration: showsSignInCelebration
+        ) || (showsSignInCelebration && allowsCelebrationShellPrewarm)
+    }
+}

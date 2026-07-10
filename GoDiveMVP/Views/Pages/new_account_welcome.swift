@@ -11,7 +11,7 @@ struct NewAccountWelcomeView: View {
         GeometryReader { proxy in
             ZStack(alignment: .top) {
                 VStack(spacing: AppTheme.Spacing.lg) {
-                    Image("GoDiveLogoPin")
+                    GoDiveLogoPinPresentation.image
                         .resizable()
                         .scaledToFit()
                         .frame(width: 88, height: 88)

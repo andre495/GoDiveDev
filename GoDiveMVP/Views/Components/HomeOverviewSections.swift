@@ -69,7 +69,7 @@ struct HomeMediaCarouselEmptyPlaceholder: View {
     var heroBandHeight: CGFloat?
     var context: HomeMediaCarouselEmptyPresentation.Context = .noMediaYet
 
-    @Environment(\.openLogbook) private var openLogbook
+    @Environment(\.openDiveImport) private var openDiveImport
 
     private var resolvedHeroBandHeight: CGFloat {
         heroBandHeight ?? HomeMediaCarouselLayout.heroHeight(
@@ -91,8 +91,8 @@ struct HomeMediaCarouselEmptyPlaceholder: View {
         HomeMediaCarouselEmptyPresentation.headline(for: context)
     }
 
-    private var opensLogbookFromHeadline: Bool {
-        context == .noLoggedActivities && openLogbook != nil
+    private var opensDiveImportFromHeadline: Bool {
+        context == .noLoggedActivities && openDiveImport != nil
     }
 
     private var accessibilityPrompt: String {
@@ -146,13 +146,13 @@ struct HomeMediaCarouselEmptyPlaceholder: View {
 
     @ViewBuilder
     private var emptyHeroHeadline: some View {
-        if opensLogbookFromHeadline, let openLogbook {
-            Button(action: openLogbook) {
+        if opensDiveImportFromHeadline, let openDiveImport {
+            Button(action: openDiveImport) {
                 LogYourFirstDiveGlassButtonLabel()
             }
             .logYourFirstDiveGlassButtonChrome()
             .accessibilityLabel(accessibilityPrompt)
-            .accessibilityHint("Opens Logbook")
+            .accessibilityHint("Opens dive import")
             .accessibilityIdentifier("Home.MediaCarousel.Empty.LogFirstDive")
         } else {
             Text(headline)
@@ -1010,10 +1010,10 @@ private struct HomeMediaCarouselTaggedBuddyScrollRow: View {
             GeometryReader { geometry in
                 Color.clear
                     .onAppear {
-                        viewportFrame = geometry.frame(in: .named("buddyListViewport"))
+                        scheduleViewportFrameUpdate(geometry.frame(in: .named("buddyListViewport")))
                     }
                     .onChange(of: geometry.frame(in: .named("buddyListViewport"))) { _, frame in
-                        viewportFrame = frame
+                        scheduleViewportFrameUpdate(frame)
                     }
             }
         }
@@ -1027,6 +1027,13 @@ private struct HomeMediaCarouselTaggedBuddyScrollRow: View {
                 : "Opens buddy overview"
         )
         .accessibilityIdentifier("Home.MediaCarousel.TaggedBuddy.\(buddy.buddyID.uuidString)")
+    }
+
+    private func scheduleViewportFrameUpdate(_ frame: CGRect) {
+        guard frame != viewportFrame else { return }
+        Task { @MainActor in
+            viewportFrame = frame
+        }
     }
 
     private var buddyAvatar: some View {

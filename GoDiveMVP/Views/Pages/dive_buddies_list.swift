@@ -5,22 +5,27 @@ import SwiftUI
 struct DiveBuddiesListView: View {
     @Environment(AccountSession.self) private var accountSession
 
-    @Query(
-        sort: [SortDescriptor(\DiveBuddy.displayName, order: .forward)]
-    )
-    private var allBuddies: [DiveBuddy]
+    @Query private var ownedBuddies: [DiveBuddy]
 
     @State private var showsAddBuddySheet = false
+
+    init(ownerProfileID: UUID? = nil) {
+        let filterOwnerID = ownerProfileID ?? Self.noOwnerQueryToken
+        _ownedBuddies = Query(
+            filter: #Predicate<DiveBuddy> { $0.ownerProfileID == filterOwnerID },
+            sort: [SortDescriptor(\DiveBuddy.displayName, order: .forward)]
+        )
+    }
+
+    private static let noOwnerQueryToken = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
 
     private var ownerProfileID: UUID? {
         accountSession.currentProfile?.id
     }
 
-    private var ownedBuddies: [DiveBuddy] {
-        guard let ownerProfileID else { return [] }
-        let buddies = allBuddies.filter { $0.ownerProfileID == ownerProfileID }
-        return DiveBuddySelfRepresentation.rosterBuddiesExcludingSelf(
-            buddies,
+    private var rosterBuddies: [DiveBuddy] {
+        DiveBuddySelfRepresentation.rosterBuddiesExcludingSelf(
+            ownedBuddies,
             owner: accountSession.currentProfile
         )
     }
@@ -37,7 +42,7 @@ struct DiveBuddiesListView: View {
                 addBuddyToolbarButton
             }
         ) {
-            if ownedBuddies.isEmpty {
+            if rosterBuddies.isEmpty {
                 AppScrollUnderHeaderEmptyState {
                     emptyState
                 }
@@ -86,7 +91,7 @@ struct DiveBuddiesListView: View {
 
     private var buddyList: some View {
         AppScrollUnderHeaderList(listAccessibilityIdentifier: "DiveBuddiesList.List") {
-            ForEach(ownedBuddies, id: \.id) { buddy in
+            ForEach(rosterBuddies, id: \.id) { buddy in
                 NavigationLink {
                     ViewDiveBuddyDetails(buddy: buddy)
                         .hidesBottomTabBarWhenPushed()

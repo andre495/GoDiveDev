@@ -1928,4 +1928,236 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`OnboardingShareWithFriendsDemoView`** — compact stats/sites/buddies; fixed-height pager; pre-rendered share-card PNG **`scaledToFit`** full preview.
 - **`OnboardingShareWithFriendsDemoFixtures.renderShareCardPreviewImage()`**; tests updated.
 
-## 103 - Next batch
+## 103 - Performance, onboarding, PADI OCR, and certification polish **(pushed)**
+
+**Summary:** Fix launch/onboarding freeze — defer Google Maps warm-up and heavy demo work off the first frame.
+
+- **`GoogleMapsWarmup`** — non-blocking async warm-up with **`Task.yield()`** between SDK init and hidden **`GMSMapView`** layout.
+- **`ProductionAppRoot`** — Google Maps warm-up only when **`AccountSession.showsMainAppShell`**; re-triggers after post-sign-up gates complete.
+- **`LoggedOutOnboardingFeatureSlideView`** — mount micro-demos only after the slide becomes active (avoids TabView preloading maps/video/render work).
+- **`OnboardingShareWithFriendsDemoView`** — defer share-card **`ImageRenderer`** until the slide is active (yield before render).
+- Tests: **`accountSessionMainShellPresentation_requiresSignedInPastPostSignUpGates`**.
+
+**Summary:** Silence SwiftUI “modifying state during view update” warnings.
+
+- **`BlueSheetPageShell`** — defer **`onLayoutResolved`** to the next run loop.
+- **`BlueSheetTabRootPage`** — defer **`frozenRootViewportHeight`** binding writes.
+- **`LoggedOutOnboardingFeatureSlideView`** — defer demo mount + entrance animation when a slide becomes active.
+- Onboarding micro-demos — move **`resetDemoState()`** inside the demo **`Task`** (not synchronous in **`onChange`**).
+- **`HomeMediaCarouselTaggedBuddyScrollRow`** — defer buddy viewport frame latch.
+
+**Summary:** Opaque **`ImageRenderer`** snapshots — no **AlphaLast** PNG warnings.
+
+- **`AppSwiftUIImageRenderer`** — **`isOpaque`** rendering + flatten before **`pngData()`**.
+- **`OnboardingShareWithFriendsDemoFixtures`**, **`TripShareCardPresentation`**, **`DiveMediaPreviewPersistence`** updated.
+- Test: **`appSwiftUIImageRenderer_opaqueUIImage_omitsAlphaChannel`**.
+
+**Summary:** `@MainActor` usage rule + off-main marine-life catalog loads.
+
+- **`.cursor/rules/swift-mainactor-usage.mdc`** — when to use / avoid `@MainActor` (UI vs heavy work), patterns, test notes; complements **`swiftui-snappy-navigation.mdc`**.
+- **`MarineLifeCatalogLoader`** — fetch + sort catalog on a background **`ModelContext`**, re-bind on the UI context.
+- **`ViewSingleActivity`** — marine-life + dive-site catalog loads use the loader (Media tab / overview sheet no longer block on full-table main-actor fetch).
+- **`ViewDiveBuddyDetails`** — tagged-media page loads marine-life catalog asynchronously.
+- **`DiveActivityMapCoordinateResolution`** — dive-site catalog fetch off main actor.
+- Test: **`marineLifeCatalogLoader_loadsSortedCatalogOffMainActor`**.
+
+**Summary:** MainActor audit — snapshot enrichment, profile queries, buddy index, linked dive cover.
+
+- Snapshot **`enrichMarineLife`** builders (**trip**, **activity tag**, **explore site**) take preloaded catalog; callers use **`MarineLifeCatalogLoader`** (no main-actor full-table fetch).
+- **`ExploreDiveSiteDetailView`** — marine-life enrichment deferred to async when marine-life / tagged-media pager mounts.
+- **`DiveBuddyDetailPresentation.fetchOwnerDiveIndex(container:)`** — owner dive index off main; **`ViewDiveBuddyDetails`** uses it.
+- **`LinkedMediaFullscreenLinkedDiveCover`** — dive lookup in **`.task`**, not computed property on every body pass.
+- **`ProfileView`** / **`ProfileTaggedMediaView`** — owner-scoped **`@Query`** predicates (no store-wide fetch + filter on Profile).
+- Tests: **`diveBuddyDetailPresentation_fetchOwnerDiveIndexOffMainActor`**.
+
+**Summary:** MainActor audit — medium-priority screens (tag sheets through explore site fetch).
+
+- **Marine-life tag sheets** — **`DiveMarineLifeMediaTagsSheet`**, **`DiveMarineLifeTagPickerSheet`**, **`DiveMediaFishialIdentifySheet`**: removed full-table **`@Query`**; lazy **`MarineLifeCatalogLoader`** in **`.task`**.
+- **`DiveSiteCatalogLoader`** — off-main dive-site catalog fetch + re-bind (Field Guide + species detail map pins).
+- **Field Guide tab** — owner-scoped dive **`@Query`**; marine-life + dive-site catalogs load asynchronously; **`ContentView`** passes **`ownerProfileID`**.
+- **Explore tab** — owner-scoped dives **`@Query`**; marine-life + dive-site catalogs lazy-loaded in **`.task`** (no full-table catalog **`@Query`** on first frame).
+- **`FieldGuideMarineLifeDetailView`** — scoped **`MarineLifeUserRecord`** query; dive sites via loader.
+- **Buddy detail trips pager** — **`fetchOwnerTripsAsync`** when trips tab mounts (not sync in rebuild).
+- **Explore dive site detail** — site-scoped dive fetch off main (**`fetchSiteDiveActivitiesAsync`**).
+- Tests: **`diveSiteCatalogLoader_loadsSortedCatalogOffMainActor`**.
+
+**Summary:** MainActor audit — lower-priority screens (Home catalogs, Global Search, sheets, scoped buddy queries).
+
+- **Home (`LogOverviewView`)** — full-table marine-life / dive-site **`@Query`** replaced with lazy catalog loaders; home aggregate rebuild uses preloaded catalogs.
+- **Global Search** — index + destination screens: owner-scoped dive **`@Query`**; marine-life + dive-site catalogs lazy-loaded; search index build runs off main via **`Task.detached`**.
+- **Logbook** — dive-site catalog lazy-loaded for catalog site navigation (no full-table **`@Query`** on tab open).
+- **Manual dive entry** / **trip planned sites** — dive-site picker catalogs load in **`.task`**.
+- **Explore** — dive-site catalog lazy-loaded alongside marine-life (scope cache rebuilds when catalogs arrive).
+- **Buddy / trip sheets** — **`DiveActivityBuddiesEditSheet`**, **`DiveMediaBuddyTagPickerSheet`**, **`TripPlannedBuddyPickerSheet`**, **`DiveBuddiesListView`**, **`TripAddSheetView`**, **`PostSignUpProfileSetupView`**: owner-scoped **`@Query`** predicates (no fetch-all + filter).
+
+**Summary:** Onboarding welcome CTA — **Get Started**.
+
+- **`AppLoggedOutOnboardingPresentation.welcomeContinueTitle`** — **Get Started** (was **Show me around**).
+- **`docs/getting-started.md`** — welcome step copy.
+
+**Summary:** Onboarding last feature slide — **Sign Up**; hide redundant **Skip**.
+
+- **`AppLoggedOutOnboardingPresentation.signUpButtonTitle`** — last-slide bottom CTA **Sign Up** (was **Get started**); **`showsSkipButton`** hides **Skip** on that slide.
+- Tests: **`loggedOutOnboardingPresentation_*`** skip visibility expectations.
+- **`docs/getting-started.md`** — feature-slide copy.
+
+**Summary:** Post-sign-up profile photo — auto-advance after crop.
+
+- **`ProfileAvatarEditor`** — optional **`onPhotoSaved`** after successful crop save.
+- **`PostSignUpProfileSetupView`** — advances to the next step on photo save (no **Continue** on photo step); **Skip for now** unchanged.
+- Tests: **`postSignUpProfileSetupPresentation_showsContinueButton_onlyAfterStepInput`**.
+- **`docs/getting-started.md`** — profile photo step copy.
+
+**Summary:** Profile photo crop sheet — standard blue background.
+
+- **`ProfilePhotoCropSheet`** — full-sheet **`screenBackgroundGradient`** (crop canvas + nav bar via hidden toolbar background + **`presentationBackground`**); replaces black crop backdrop.
+
+**Summary:** PADI eCard OCR — digital front layout + cert name.
+
+- **`PADICertificationCardParser`** — eCard path: **CERTIFICATION**, **CERT. DATE** / **PADI NO.** (combined or split); full-month dates (`12-August-2024`); alphanumeric PADI numbers (`24080D5449`); ignores diver name, **BIRTHDATE**, **edit photo**.
+- **`PADICertificationCardParseResult`** — **`certName`**; **`applyPADIParseResult`** fills empty certification name.
+- **`CertificationFormContent`** — OCR on **Front** or **Back** photo pick.
+- Tests: **`padiCertificationCardParser_parsesECardFrontLines`**, **`certificationFormValues_applyPADIParseResult_setsCertNameWhenEmpty`**.
+- **`docs/trips-and-buddies.md`** — eCard / front-photo auto-fill note.
+
+**Summary:** Certification OCR — fix cert name not applying from front scan.
+
+- **`CertificationFormContent`** — independent front/back scan tasks (adding back no longer cancels front apply).
+- **`PADICertificationCardParser`** — physical front detected from cert title alone; prefers longest title match (**Advanced Open Water Diver** over **Open Water Diver**); merges multi-line OCR before single lines.
+- **`applyPADIParseResult`** — only auto-fills agency when detected on card; DEBUG log when a field is skipped because it already has text.
+- Tests: **`padiCertificationCardParser_parsesAdvancedOpenWaterFrontLines`**, **`padiCertificationCardParser_parsesAdvancedOpenWaterSplitFrontLines`**.
+
+**Summary:** Certification OCR debug logging + front-card fixes.
+
+- **`CertificationCardOCRDebug`** — DEBUG console category **`CertOCR`**: logs pixel size, orientation, each OCR line, and parse result (filter device log while scanning).
+- **`CertificationCardTextRecognition`** — passes photo label to logs; applies UIImage orientation to Vision; renamed entry point **`parsePADICard`**.
+- **`PADICertificationCardParser`** — physical front merges split title lines (**Open Water** + **Diver**); **`agencyDetectedFromCard`** so agency-only reads still apply.
+- Tests: **`padiCertificationCardParser_parsesPhysicalFrontCardSplitOCRLines`**.
+
+**Summary:** PADI OCR — blacklist card footer boilerplate for dive shop.
+
+- **`PADICertificationCardParser`** — ignore ISO/PADI footer prose (**This diver…**, **qualification meets…**, etc.); prefer all-caps shop labels (**HOMESTEAD CRATER**) over person-name heuristics.
+- Tests: **`padiCertificationCardParser_ignoresCardFooterBoilerplateForDiveShop`**.
+
+
+- **`Certification`** / **`CertificationFormValues`** — new **`diveShopNumber`** (shop identification number); dive shop name stored separately.
+- **`PADICertificationCardParser`** — shop number no longer appended to instructor or dive shop; title-case parsed person/organization names; strip trailing shop digits from merged OCR lines; physical front handles **PADI®** and Vision layout (**Open Water Diver** / **PADI**).
+- **`CertificationFormContent`** / **`ViewCertificationDetails`** — shop ID field + detail row.
+- Tests: updated parser/form expectations + **`padiCertificationCardParser_parsesPhysicalFrontCardVisionOCRLines`**, **`padiCertificationCardParser_stripsShopNumberFromMergedInstructorLine`**.
+
+
+- **`PADICertificationCardParser`** — back-card detection runs before eCard; eCard requires label lines (not footer **certification** prose); normalize Cyrillic OCR homoglyphs in dates (**А**pr → **Apr**).
+- Tests: **`padiCertificationCardParser_parsesPhysicalBackCardVisionOCRLines`**.
+
+**Summary:** PADI physical front card — agency + certification name OCR.
+
+- **`PADICertificationCardParser`** — physical front path: recognizes agency (**PADI**, etc.) and titles (**Open Water Diver**, **Rescue Diver**, …); ignores diver name and taglines; back-card detection no longer triggers on **PADI** alone.
+- Tests: **`padiCertificationCardParser_parsesPhysicalFrontCardLines`**.
+- **`docs/trips-and-buddies.md`** — front-photo agency/title auto-fill note.
+
+**Summary:** Certification form — tap card thumbnail to preview fullscreen.
+
+- **`CertificationFormContent`** — uploaded front/back thumbnail opens fullscreen preview; **Change photo** still opens PhotosPicker.
+
+- **`PADICertificationCardParser`** — back-card **Diver No.** / **Instr. No.** accept alphanumeric values (`21040R0406`, `OWSI-396419`); ignores diver name + **BirthDate**; pairs shop number with next line (`19956` + **HOMESTEAD CRATER**).
+- Tests: **`padiCertificationCardParser_parsesPhysicalBackCardAlphanumericLines`**.
+
+**Summary:** Adaptive GoDive pin logo — light/dark appearances.
+
+- **`GoDiveLogoPin`** asset — **GoDiveLogoPin-Light** (navy pin) for light mode, **GoDiveLogoPin-Dark** (light blue pin) for dark mode; launch screen + share card pick up catalog appearances automatically.
+- **`GoDiveLogoPinPresentation`** — shared **`Image`** accessor / asset name.
+- Tests: **`goDiveLogoPin_assetResolvesDistinctImagesForLightAndDark`** (includes alpha-channel check).
+
+**Summary:** GoDive pin logos — restore transparent backgrounds.
+
+- Source art was JPEG (no alpha); converted PNGs were opaque RGB with baked-in black. Re-keyed black to transparency → **RGBA** assets.
+- Test: alpha-channel expectation in **`goDiveLogoPin_assetResolvesDistinctImagesForLightAndDark`**.
+
+**Summary:** GoDive pin logos — Desktop source art (RGBA).
+
+- **`GoDiveLogoPin-Light.png`** / **`GoDiveLogoPin-Dark.png`** replaced from Desktop **`pin LIGHT.png`** / **`pin DARK.png`** (native transparency, no black keying).
+
+**Summary:** Logged-out onboarding — page dots pin to screen bottom.
+
+- **`LoggedOutOnboardingView`** — bottom chrome order swapped: **Continue** / **Sign in with Apple** above, page indicator at the physical bottom.
+
+**Summary:** Certification onboarding — keyboard row X + Continue.
+
+- **`PostSignUpProfileSetupView`** — certification keyboard accessory: **X** left, **Continue** right (when form is valid); bottom **Skip** / **Continue** hidden while keyboard is open.
+- **`PostSignUpProfileSetupPresentation`** — **`showsSkipInBottomChrome`**, **`showsContinueInBottomChrome`**, **`showsContinueInCertificationKeyboardToolbar`**.
+- Tests: **`postSignUpProfileSetupPresentation_certificationKeyboardChrome_hidesBottomSkipAndContinue`**.
+
+- **`PostSignUpProfileSetupDanDraft`** — local DAN buffer; only **`showsContinue`** publishes to the wizard (not every keystroke).
+- **`PostSignUpProfileSetupDanInsuranceStep`** — isolated **`TextField`** with **`.textContentType(.none)`**; bubbles paused on DAN/cert steps via **`LoggedOutMarketingChrome`**.
+- Console note: **`[MC] Reading from public effective user settings`** is harmless iOS noise on text-field focus, not an app fault.
+- Tests: **`postSignUpProfileSetupDanDraft_updatesContinueVisibilityOnlyOnBoundary`**, updated **`showsContinueButton`** expectations.
+
+- **`SignInCelebrationTransitionDiagnostics`** — Xcode console lines prefixed **`[SignInCelebration]`** (+ elapsed ms) and Instruments signposts for import handoff, celebration first frame, shell prewarm, Home rebuild.
+- **`PostSignUpOnboardingImportView`** — defers **`onComplete`** after alert dismiss / import finish; flags **`followsBulkImport`** for bulk UDDF summary path.
+- **`CelebrationShellPrewarmPresentation`** — shell prewarm waits **1.5 s** after bulk import (was **120 ms** for all paths).
+- **`LogOverviewView`** — starts initial **`HomeOverviewAggregate`** rebuild while the celebration underlay is hidden (not at handoff); incidental query-driven rebuilds wait until the first build is scheduled.
+- **`HomeRootAppearPresentation`** / **`HomeOverviewRebuildPresentation`** — testable prewarm rebuild policy.
+- **`GoogleMapsWarmup`** — **`includeHiddenMapView: false`** before shell prewarm so Explore’s map is the only **`GMSMapView`** (avoids **`CCTClearcutUploader`** duplicate warning).
+- **`AppSessionRootView`** — SDK-only Google Maps configure when celebration starts.
+- Tests: **`homeRootAppearPresentation_startsInitialRebuildDuringCelebrationPrewarm`**, **`homeOverviewRebuildPresentation_skipsIncidentalRebuildUntilInitialBuildDuringPrewarm`**.
+
+**Summary:** Profile setup + celebration handoff — snappier step transitions and less bubble freeze.
+
+- **`PostSignUpProfileSetupView`** — opacity-only step crossfade; DAN on flat layout (no **`ScrollView`**); bubbles keep animating through DAN handoff; bubble pause deferred ~180 ms after entering certification so the crossfade stays fluid; certification keyboard **Continue** uses white label text.
+- **`ProfileAvatarEditor`** — defers wizard advance until crop sheet dismisses (~320 ms).
+- **`SignInCelebrationView`** — fades logo/wordmark before **`completeSignInCelebration`**; **`AccountSession`** + **`AppSessionRootView`** reveal Home without animating **`ContentView`** opacity in the same transaction as overlay removal.
+- **`PostSignUpProfileSetupPresentation`** — **`shouldPauseBubbleAnimation`**, **`usesFlatStepLayout`**, **`stepTransitionDuration`**.
+- Tests: bubble pause + flat layout expectations; **`handoffFadeOutDuration`**.
+
+**Summary:** Logged-out onboarding — Sign in with Apple on last feature slide; Skip → dedicated sign-in.
+
+- **`LoggedOutOnboardingView`** — last feature slide bottom chrome is **`SignInWithAppleSection`** (no slide-up sign-up page); **Skip** / welcome **Already have an account?** → **`SignInView`**.
+- **`AppLoggedOutOnboardingPresentation`** — **`showsContinueButton`** / **`showsSignInWithAppleOnLastFeatureSlide`** replace last-slide **Sign Up** CTA helpers.
+- Tests + **`docs/getting-started.md`**.
+
+**Summary:** Post-sign-up certification step — expanded form + keyboard dismiss.
+
+- **`PostSignUpProfileSetupView`** — certification step hides the **Snap your card…** subtitle (animated) once the user adds photos, types, or focuses a field; title compacts and the **`Form`** gains vertical space.
+- Keyboard accessory shows **×** to dismiss (no QuickType bar); tapping a field reopens the keyboard.
+- **`CertificationFormContent`** — optional **`@FocusState`** wiring + autocorrection disabled for onboarding text fields.
+- **`PostSignUpProfileSetupPresentation`** — **`certificationStepHasStartedEntry`** / **`certificationStepUsesExpandedLayout`**.
+- Test: **`postSignUpProfileSetupPresentation_certificationExpandedLayout_afterEntryOrFocus`**.
+
+**Summary:** PADI front-card OCR — apply agency when cert title is recognized.
+
+- **`PADICertificationCardParser`** — physical front infers **PADI** when a certification title is parsed without a separate agency line; back/eCard paths finalize agency when any field is extracted.
+- **`CertificationFormValues.applyPADIParseResult`** — fills **Agency** whenever the parse produced any field (not only when OCR read a **PADI** token).
+- Tests: **`padiCertificationCardParser_infersPADIAgencyWhenFrontTitleWithoutAgencyLine`**, **`certificationFormValues_applyPADIParseResult_setsAgencyWhenCertNameParsedWithoutAgencyFlag`**.
+
+**Summary:** Certification form — fix **Change photo** picker.
+
+- **`CertificationCardPhotoPicker`** — dedicated subview observes `@Binding` selection reliably, clears selection after load, and expands the tap target so repeat picks fire **`onChange`**.
+
+**Summary:** PADI cert date OCR — local wall-clock day (no UTC off-by-one).
+
+- **`PADICertificationCardParser.parseCertDate`** — builds date-only values in the device calendar so **`DatePicker`** shows the printed day (e.g. **02-Dec-2021** stays Dec 2 in Mountain Time).
+- Test: **`padiCertificationCardParser_parseCertDate_inlineUsesLocalWallClockDay`**.
+
+**Summary:** Certification OCR re-apply — update fields when re-scan differs.
+
+- **`CertificationFormValues.applyPADIParseResult`** — changing front/back card photos re-applies OCR: updates a field when the new parse has a different non-empty value; leaves it alone when the parse is missing that field or matches what is already filled.
+- Tests: **`certificationFormValues_applyPADIParseResult_updatesFieldsWhenParsedValueDiffers`**, **`_leavesFieldUnchangedWhenParsedValueMatches`**, **`_leavesFieldUnchangedWhenParsedValueMissing`**.
+
+**Summary:** Certification card photo preview — stable first open.
+
+- **`certificationCardPhotoPreviewCover`** — fullscreen preview state lives on the sheet / onboarding root (not inside the **`Form`**), with deferred presentation so OCR + picker transitions do not dismiss the cover on first tap.
+
+**Summary:** Post-sign-up profile photo → DAN step snappier.
+
+- **`ProfilePhotoCropSheet`** — circular JPEG render runs off the main actor before save.
+- **`ProfileAvatarEditor`** — dismisses crop sheet first, advances onboarding on the next frame, then persists **`profilePhoto`** asynchronously.
+- **`PostSignUpProfileSetupView`** — certification **`@Query`** scoped to preview step only; faster step transition animation.
+
+**Summary:** Home **Log Your First Dive** opens dive import.
+
+- **`EnvironmentValues.openDiveImport`** — switches to Logbook tab and pushes **`ActivityUploadView`** (**`LogbookRoute.addActivity`**) instead of only opening the Logbook list.
+- **`ContentView`** — **`pendingLogbookRoute`** binding; **`LogbookView`** consumes pending route on appear.
+- **`HomeOverviewSections`** — empty-state CTA uses **`openDiveImport`**.
+- Test: **`logbookPendingRouteNavigation_addActivityReplacesStack`**.
+
+## 104 - Next batch

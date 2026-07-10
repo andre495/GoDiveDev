@@ -9,18 +9,21 @@ struct TripPlannedBuddyPickerSheet: View {
 
     @Bindable var trip: DiveTrip
 
-    @Query(sort: [SortDescriptor(\DiveBuddy.displayName, order: .forward)])
-    private var allBuddies: [DiveBuddy]
+    @Query private var ownedBuddies: [DiveBuddy]
 
     @State private var showsAddBuddySheet = false
 
-    private var ownerProfileID: UUID? {
-        accountSession.currentProfile?.id
+    init(trip: DiveTrip) {
+        self._trip = Bindable(wrappedValue: trip)
+        let filterOwnerID = trip.ownerProfileID
+        _ownedBuddies = Query(
+            filter: #Predicate<DiveBuddy> { $0.ownerProfileID == filterOwnerID },
+            sort: [SortDescriptor(\DiveBuddy.displayName, order: .forward)]
+        )
     }
 
-    private var ownedBuddies: [DiveBuddy] {
-        guard let ownerProfileID else { return [] }
-        return allBuddies.filter { $0.ownerProfileID == ownerProfileID }
+    private var ownerProfileID: UUID? {
+        accountSession.currentProfile?.id
     }
 
     var body: some View {

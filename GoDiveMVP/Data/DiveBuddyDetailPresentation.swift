@@ -218,6 +218,24 @@ extension DiveBuddyDetailPresentation {
         return ownerDiveIndex(from: activities)
     }
 
+    nonisolated static func fetchOwnerDiveIndex(
+        ownerProfileID: UUID,
+        container: ModelContainer
+    ) async -> OwnerDiveIndex {
+        await Task.detached(priority: .utility) {
+            let context = ModelContext(container)
+            let descriptor = FetchDescriptor<DiveActivity>(
+                predicate: #Predicate { $0.ownerProfileID == ownerProfileID },
+                sortBy: [
+                    SortDescriptor(\.startTime, order: .reverse),
+                    SortDescriptor(\.id, order: .forward),
+                ]
+            )
+            let activities = (try? context.fetch(descriptor)) ?? []
+            return ownerDiveIndex(from: activities)
+        }.value
+    }
+
     nonisolated static func fetchOwnerTrips(
         ownerProfileID: UUID,
         modelContext: ModelContext
@@ -230,5 +248,44 @@ extension DiveBuddyDetailPresentation {
             ]
         )
         return (try? modelContext.fetch(descriptor)) ?? []
+    }
+
+    nonisolated static func fetchOwnerTripPersistentIDs(
+        ownerProfileID: UUID,
+        container: ModelContainer
+    ) async -> [PersistentIdentifier] {
+        await Task.detached(priority: .utility) {
+            let context = ModelContext(container)
+            let descriptor = FetchDescriptor<DiveTrip>(
+                predicate: #Predicate { $0.ownerProfileID == ownerProfileID },
+                sortBy: [
+                    SortDescriptor(\.startDate, order: .reverse),
+                    SortDescriptor(\.createdAt, order: .reverse),
+                ]
+            )
+            let rows = (try? context.fetch(descriptor)) ?? []
+            return rows.map(\.persistentModelID)
+        }.value
+    }
+
+    @MainActor
+    static func bindTrips(
+        persistentIDs: [PersistentIdentifier],
+        modelContext: ModelContext
+    ) -> [DiveTrip] {
+        persistentIDs.compactMap { modelContext.model(for: $0) as? DiveTrip }
+    }
+
+    @MainActor
+    static func fetchOwnerTripsAsync(
+        ownerProfileID: UUID,
+        modelContext: ModelContext
+    ) async -> [DiveTrip] {
+        let persistentIDs = await fetchOwnerTripPersistentIDs(
+            ownerProfileID: ownerProfileID,
+            container: modelContext.container
+        )
+        guard !Task.isCancelled else { return [] }
+        return bindTrips(persistentIDs: persistentIDs, modelContext: modelContext)
     }
 }

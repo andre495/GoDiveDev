@@ -6,25 +6,35 @@ struct ProfileTaggedMediaView: View {
     @Environment(AccountSession.self) private var accountSession
     @Environment(\.modelContext) private var modelContext
 
-    @Query(sort: [SortDescriptor(\DiveActivity.startTime, order: .reverse)])
-    private var allDiveActivities: [DiveActivity]
+    @Query private var ownerDiveActivities: [DiveActivity]
 
     @Query(sort: [SortDescriptor(\DiveMediaBuddyTag.id, order: .forward)])
     private var buddyMediaTags: [DiveMediaBuddyTag]
 
     @State private var selfBuddyID: UUID?
 
-    private var ownerProfileID: UUID? {
-        accountSession.currentProfile?.id
+    private let ownerProfileID: UUID?
+
+    init(ownerProfileID: UUID?) {
+        self.ownerProfileID = ownerProfileID
+        let filterOwnerID = ownerProfileID ?? Self.noOwnerQueryToken
+        _ownerDiveActivities = Query(
+            filter: #Predicate<DiveActivity> { $0.ownerProfileID == filterOwnerID },
+            sort: [
+                SortDescriptor(\DiveActivity.startTime, order: .reverse),
+                SortDescriptor(\DiveActivity.id, order: .forward),
+            ]
+        )
+    }
+
+    private static let noOwnerQueryToken = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+
+    private var resolvedOwnerProfileID: UUID? {
+        ownerProfileID ?? accountSession.currentProfile?.id
     }
 
     private var ownerDiveActivityIDs: Set<UUID> {
-        guard let ownerProfileID else { return [] }
-        return Set(
-            allDiveActivities
-                .filter { $0.ownerProfileID == ownerProfileID }
-                .map(\.id)
-        )
+        Set(ownerDiveActivities.map(\.id))
     }
 
     private var selfBuddyTags: [DiveMediaBuddyTag] {
@@ -42,9 +52,7 @@ struct ProfileTaggedMediaView: View {
 
     private var taggedMediaTimeZoneOffsetByID: [UUID: Int?] {
         let offsetByActivityID = Dictionary(
-            uniqueKeysWithValues: allDiveActivities
-                .filter { ownerDiveActivityIDs.contains($0.id) }
-                .map { ($0.id, $0.timeZoneOffsetSeconds) }
+            uniqueKeysWithValues: ownerDiveActivities.map { ($0.id, $0.timeZoneOffsetSeconds) }
         )
         return DiveBuddyTaggedMediaPresentation.timeZoneOffsetByMediaID(
             tags: selfBuddyTags,
@@ -82,7 +90,7 @@ struct ProfileTaggedMediaView: View {
             }
         }
         .hidesBottomTabBarWhenPushed()
-        .task(id: ownerProfileID) {
+        .task(id: resolvedOwnerProfileID) {
             resolveSelfBuddyIDIfNeeded()
         }
         .onAppear {

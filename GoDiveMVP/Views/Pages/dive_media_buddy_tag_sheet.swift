@@ -102,8 +102,7 @@ struct DiveMediaBuddyTagPickerSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AccountSession.self) private var accountSession
 
-    @Query(sort: [SortDescriptor(\DiveBuddy.displayName, order: .forward)])
-    private var allBuddies: [DiveBuddy]
+    @Query private var ownedBuddies: [DiveBuddy]
 
     let media: DiveMediaPhoto
     let dive: DiveActivity
@@ -115,6 +114,21 @@ struct DiveMediaBuddyTagPickerSheet: View {
     @State private var selfBuddyID: UUID?
     @State private var tagErrorMessage: String?
     @State private var showsAddBuddySheet = false
+
+    init(
+        media: DiveMediaPhoto,
+        dive: DiveActivity,
+        onTagged: @escaping () -> Void
+    ) {
+        self.media = media
+        self.dive = dive
+        self.onTagged = onTagged
+        let filterOwnerID = dive.ownerProfileID
+        _ownedBuddies = Query(
+            filter: #Predicate<DiveBuddy> { $0.ownerProfileID == filterOwnerID },
+            sort: [SortDescriptor(\DiveBuddy.displayName, order: .forward)]
+        )
+    }
 
     private var draftState: DiveMediaBuddyTagDraftPresentation.DraftState {
         DiveMediaBuddyTagDraftPresentation.DraftState(
@@ -133,11 +147,6 @@ struct DiveMediaBuddyTagPickerSheet: View {
 
     private var ownerProfileID: UUID? {
         accountSession.currentProfile?.id
-    }
-
-    private var ownedBuddies: [DiveBuddy] {
-        guard let ownerProfileID else { return [] }
-        return allBuddies.filter { $0.ownerProfileID == ownerProfileID }
     }
 
     private var rosterBuddiesExcludingSelf: [DiveBuddy] {

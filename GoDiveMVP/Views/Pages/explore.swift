@@ -3,15 +3,14 @@ import SwiftUI
 
 struct ExploreView: View {
     @Environment(AccountSession.self) private var accountSession
-    @Query(sort: \DiveSite.siteName) private var diveSites: [DiveSite]
-    @Query(sort: \MarineLife.commonName) private var marineLifeCatalog: [MarineLife]
-    @Query(
-        sort: [
-            SortDescriptor(\DiveActivity.startTime, order: .reverse),
-            SortDescriptor(\DiveActivity.id, order: .forward),
-        ]
-    )
-    private var diveActivities: [DiveActivity]
+    @Environment(\.modelContext) private var modelContext
+    @Query private var ownerDiveActivities: [DiveActivity]
+
+    @State private var diveSites: [DiveSite] = []
+    @State private var hasLoadedDiveSiteCatalog = false
+    @State private var marineLifeCatalog: [MarineLife] = []
+    @State private var hasLoadedMarineLifeCatalog = false
+
     @State private var path: [ExploreRoute] = []
     @State private var viewMode: ExploreViewMode = .map
     @State private var siteScope: ExploreSiteScope = .allSites
@@ -32,6 +31,22 @@ struct ExploreView: View {
     @State private var listRowsRefreshTask: Task<Void, Never>?
     @State private var showsAddDiveSiteSheet = false
 
+    private let ownerProfileID: UUID?
+
+    init(ownerProfileID: UUID?) {
+        self.ownerProfileID = ownerProfileID
+        let filterOwnerID = ownerProfileID ?? Self.noOwnerQueryToken
+        _ownerDiveActivities = Query(
+            filter: #Predicate<DiveActivity> { $0.ownerProfileID == filterOwnerID },
+            sort: [
+                SortDescriptor(\DiveActivity.startTime, order: .reverse),
+                SortDescriptor(\DiveActivity.id, order: .forward),
+            ]
+        )
+    }
+
+    private static let noOwnerQueryToken = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+
     private var referenceCatalog: [DiveSiteReferenceSnapshot] {
         DiveSiteReferenceCatalog.bundledReference()
     }
@@ -40,13 +55,12 @@ struct ExploreView: View {
         RootStackReturnNavigationPresentation.isStackAtRoot(pathCount: path.count)
     }
 
-    private var ownerDiveActivities: [DiveActivity] {
-        guard let ownerID = accountSession.currentProfile?.id else { return [] }
-        return diveActivities.filter { $0.ownerProfileID == ownerID }
+    private var ownerDiveActivitiesForScope: [DiveActivity] {
+        ownerDiveActivities
     }
 
     private var hasLoggedActivities: Bool {
-        !ownerDiveActivities.isEmpty
+        !ownerDiveActivitiesForScope.isEmpty
     }
 
     private var scopeCacheSyncToken: String {
@@ -54,7 +68,7 @@ struct ExploreView: View {
             ownerProfileID: accountSession.currentProfile?.id,
             catalogSiteCount: diveSites.count,
             ownerActivitySiteLinkSignature: ExploreSiteScopeCache.ownerActivitySiteLinkSignature(
-                ownerDiveActivities
+                ownerDiveActivitiesForScope
             )
         )
     }
@@ -126,6 +140,11 @@ struct ExploreView: View {
         .onAppear {
             applyDefaultSiteScopeIfNeeded()
             scheduleScopeCacheRebuild()
+        }
+        .task(id: ownerProfileID) {
+            async let loadedMarineLife = loadMarineLifeCatalogIfNeeded()
+            async let loadedDiveSites = loadDiveSiteCatalogIfNeeded()
+            _ = await (loadedMarineLife, loadedDiveSites)
         }
         .onDisappear {
             scopeCacheRebuildTask?.cancel()
@@ -354,7 +373,7 @@ struct ExploreView: View {
     private func scheduleScopeCacheRebuild() {
         let profileID = accountSession.currentProfile?.id
         let catalog = diveSites
-        let activities = ownerDiveActivities
+        let activities = ownerDiveActivitiesForScope
         scopeCacheRebuildTask?.cancel()
 
         if scopeCache == .empty {
@@ -453,6 +472,20 @@ struct ExploreView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
+
+    private func loadMarineLifeCatalogIfNeeded() async {
+        guard !hasLoadedMarineLifeCatalog || marineLifeCatalog.isEmpty else { return }
+        marineLifeCatalog = await MarineLifeCatalogLoader.loadSortedCatalog(modelContext: modelContext)
+        guard !Task.isCancelled else { return }
+        hasLoadedMarineLifeCatalog = true
+    }
+
+    private func loadDiveSiteCatalogIfNeeded() async {
+        guard !hasLoadedDiveSiteCatalog || diveSites.isEmpty else { return }
+        diveSites = await DiveSiteCatalogLoader.loadSortedCatalog(modelContext: modelContext)
+        guard !Task.isCancelled else { return }
+        hasLoadedDiveSiteCatalog = true
+    }
 }
 
 private struct ExploreDiveSiteListSectionHeader: View {
@@ -470,6 +503,6 @@ private struct ExploreDiveSiteListSectionHeader: View {
 }
 
 #Preview {
-    ExploreView()
+    ExploreView(ownerProfileID: nil)
         .modelContainer(try! AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true))
 }

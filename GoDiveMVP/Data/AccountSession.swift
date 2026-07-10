@@ -1,6 +1,7 @@
 import AuthenticationServices
 import Foundation
 import SwiftData
+import SwiftUI
 
 /// Current Sign in with Apple session and locally persisted **`UserProfile`**.
 @MainActor
@@ -22,14 +23,27 @@ final class AccountSession {
     private(set) var showsPostSignUpImportOffer = false
     /// Full-screen bubble celebration after Sign in with Apple (before Home).
     private(set) var showsSignInCelebration = false
-    /// One-shot Home entry animation after celebration (slide up from bottom).
-    private(set) var prefersHomeRevealFromBottom = false
+    /// Celebration immediately follows onboarding bulk UDDF import — defer shell prewarm.
+    private(set) var celebrationFollowsBulkImport = false
 
     private var pendingNewAccountPermissions = false
     private var cachedSelfBuddyID: UUID?
     private var cachedSelfBuddyProfileID: UUID?
 
     var isSignedIn: Bool { currentProfile != nil }
+
+    /// Signed in and past welcome / post-sign-up gates — **`ContentView`** is on screen.
+    var showsMainAppShell: Bool {
+        AccountSessionMainShellPresentation.showsMainAppShell(
+            isSignedIn: isSignedIn,
+            showsNewAccountWelcome: showsNewAccountWelcome,
+            showsPostSignUpProfileSetup: showsPostSignUpProfileSetup,
+            showsPostSignUpPermissions: showsPostSignUpPermissions,
+            showsPostSignUpImportOffer: showsPostSignUpImportOffer,
+            showsPostSignUpOnboardingImport: showsPostSignUpOnboardingImport,
+            showsSignInCelebration: showsSignInCelebration
+        )
+    }
 
     private init() {}
 
@@ -121,7 +135,9 @@ final class AccountSession {
     /// Ends the post-sign-up profile wizard and shows permissions, then import offer or celebration.
     func completePostSignUpProfileSetup() {
         guard showsPostSignUpProfileSetup else { return }
-        showsPostSignUpProfileSetup = false
+        withoutImplicitOverlayAnimation {
+            showsPostSignUpProfileSetup = false
+        }
         if PostSignUpPermissionsPresentation.shouldPresent() {
             showsPostSignUpPermissions = true
         } else {
@@ -148,7 +164,9 @@ final class AccountSession {
     /// Ends the optional import slide — **Import dives** opens UDDF import options; **Skip** → celebration.
     func completePostSignUpImportOffer(choseImport: Bool) {
         guard showsPostSignUpImportOffer else { return }
-        showsPostSignUpImportOffer = false
+        withoutImplicitOverlayAnimation {
+            showsPostSignUpImportOffer = false
+        }
         if choseImport {
             showsPostSignUpOnboardingImport = true
         } else {
@@ -157,15 +175,21 @@ final class AccountSession {
     }
 
     /// Ends the onboarding UDDF options / MacDive guide (skip or after import) and shows celebration.
-    func completePostSignUpOnboardingImport() {
+    func completePostSignUpOnboardingImport(followsBulkImport: Bool = false) {
         guard showsPostSignUpOnboardingImport else { return }
-        showsPostSignUpOnboardingImport = false
+        withoutImplicitOverlayAnimation {
+            showsPostSignUpOnboardingImport = false
+        }
+        celebrationFollowsBulkImport = followsBulkImport
         presentCelebrationOrDeferredPermissions()
     }
 
     private func presentCelebrationOrDeferredPermissions() {
         if SignInCelebrationPresentation.shouldPresentCelebration() {
+            SignInCelebrationTransitionDiagnostics.resetAnchor("presentCelebration")
+            SignInCelebrationTransitionDiagnostics.mark("showsSignInCelebration_will_set_true")
             showsSignInCelebration = true
+            SignInCelebrationTransitionDiagnostics.mark("showsSignInCelebration_did_set_true")
         } else if pendingNewAccountPermissions {
             pendingNewAccountPermissions = false
             Task { await AppOnboardingPermissions.requestForNewAccount() }
@@ -175,16 +199,19 @@ final class AccountSession {
     /// Ends the post-sign-in bubble celebration and opens Home (permissions run after for new accounts).
     func completeSignInCelebration() {
         guard showsSignInCelebration else { return }
-        showsSignInCelebration = false
-        prefersHomeRevealFromBottom = true
+        SignInCelebrationTransitionDiagnostics.mark("completeSignInCelebration_begin")
+        withoutImplicitOverlayAnimation {
+            showsSignInCelebration = false
+            celebrationFollowsBulkImport = false
+        }
+        SignInCelebrationTransitionDiagnostics.mark("completeSignInCelebration_end")
         if pendingNewAccountPermissions {
             pendingNewAccountPermissions = false
-            Task { await AppOnboardingPermissions.requestForNewAccount() }
+            Task {
+                await Task.yield()
+                await AppOnboardingPermissions.requestForNewAccount()
+            }
         }
-    }
-
-    func acknowledgeHomeRevealFromBottom() {
-        prefersHomeRevealFromBottom = false
     }
 
     /// Dismisses the welcome screen and runs the deferred onboarding permission prompts.
@@ -203,7 +230,7 @@ final class AccountSession {
         showsPostSignUpImportOffer = false
         showsPostSignUpOnboardingImport = false
         showsSignInCelebration = false
-        prefersHomeRevealFromBottom = false
+        celebrationFollowsBulkImport = false
         pendingNewAccountPermissions = false
         cachedSelfBuddyID = nil
         cachedSelfBuddyProfileID = nil
@@ -243,5 +270,12 @@ final class AccountSession {
         UserDefaults.standard.removeObject(
             forKey: AppLaunchSessionRestorePresentation.currentProfileIDUserDefaultsKey
         )
+    }
+
+    /// Avoid animating overlay removal + **`ContentView`** reveal in the same transaction (Instruments handoff jank).
+    private func withoutImplicitOverlayAnimation(_ body: () -> Void) {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction, body)
     }
 }

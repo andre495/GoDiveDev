@@ -12,7 +12,7 @@ Choose one or more (**Scuba Diving** is selected by default):
 - **Free Diving**
 - **Snorkeling**
 
-Tap **Show me around** to continue, or **Already have an account? Sign in** at the bottom to jump to Sign in with Apple.
+Tap **Get Started** to continue, or **Already have an account? Sign in** at the bottom to open the dedicated sign-in screen (skips the feature slides).
 
 Your choices are saved to your profile when you create an account.
 
@@ -29,15 +29,15 @@ Slides are tailored to what you selected:
 | **Monitor your equipment** | Always |
 | **Learn from thousands of marine species** | Scuba and/or snorkeling |
 
-Swipe or tap **Continue** / **Get started**, or **Skip** to sign in.
+Swipe or tap **Continue** on earlier slides. On the last slide, use **Sign in with Apple** at the bottom (**Skip** on earlier slides opens the dedicated sign-in screen).
 
 ### 3. Sign in with Apple
 
-Create your on-device log with **Sign in with Apple**.
+Create your on-device log with **Sign in with Apple** — either on the last feature slide or from the dedicated sign-in screen if you skipped ahead.
 
 **New accounts** then walk through a short profile setup:
 
-1. **Profile photo** — **Welcome,** *your name*; subtitle **Add a profile photo**. **Continue** appears after you crop a photo; or **Skip for now**. A **back** chevron on later steps returns to the previous one.
+1. **Profile photo** — **Welcome,** *your name*; subtitle **Add a profile photo**. After you crop a photo, the wizard advances automatically; or **Skip for now**. A **back** chevron on later steps returns to the previous one.
 2. **DAN insurance** — only if you chose scuba or free diving; optional. **Continue** appears after you enter a member number; or **Skip for now**.
 3. **Certification** — only if you chose scuba or free diving. **Continue** appears after agency, certification name, and number are filled in; or **Skip for now**.
 4. **Welcome** — title **Welcome**, subtitle **Let's Dive In**, with your photo, name, optional DAN and certification, and activity interests.
@@ -50,7 +50,7 @@ Tap **Let's dive in** on the preview.
 
 A **bubble celebration** plays, then GoDive opens to **Home**.
 
-Returning visits while logged out start onboarding again from the welcome screen (activity picker). Sign in is still available from **Already have an account? Sign in** on welcome or from the final sign-up slide.
+Returning visits while logged out start onboarding again from the welcome screen (activity picker). **Skip** on a feature slide or **Already have an account? Sign in** on welcome opens the dedicated sign-in screen.
 
 ## Sign in
 

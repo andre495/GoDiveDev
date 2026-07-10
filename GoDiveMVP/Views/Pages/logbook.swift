@@ -10,9 +10,11 @@ struct LogbookView: View {
 
     @Query private var activities: [DiveActivity]
     @Query private var ownerTrips: [DiveTrip]
-    @Query(sort: \DiveSite.siteName) private var diveSiteCatalog: [DiveSite]
+
+    @State private var diveSiteCatalog: [DiveSite] = []
 
     @State private var path: [LogbookRoute] = []
+    @Binding var pendingRoute: LogbookRoute?
     @State private var activityPendingDeletion: DiveActivity?
     /// Hides the row immediately; cleared only if background delete fails.
     @State private var optimisticallyRemovedActivityIDs: Set<UUID> = []
@@ -35,8 +37,9 @@ struct LogbookView: View {
         RootStackReturnNavigationPresentation.isStackAtRoot(pathCount: path.count)
     }
 
-    init(ownerProfileID: UUID?) {
+    init(ownerProfileID: UUID?, pendingRoute: Binding<LogbookRoute?> = .constant(nil)) {
         self.ownerProfileID = ownerProfileID
+        _pendingRoute = pendingRoute
         let filterOwnerID = ownerProfileID ?? LogbookView.noOwnerQueryToken
         _activities = Query(
             filter: #Predicate<DiveActivity> { $0.ownerProfileID == filterOwnerID },
@@ -99,6 +102,9 @@ struct LogbookView: View {
                 handleTripGroupingDidChange()
             }
             .onAppear(perform: handleLogbookRootAppear)
+            .task(id: ownerProfileID) {
+                diveSiteCatalog = await DiveSiteCatalogLoader.loadSortedCatalog(modelContext: modelContext)
+            }
             .onChange(of: activities.count) { _, _ in
                 handleActivitiesCountChange()
             }
@@ -111,6 +117,16 @@ struct LogbookView: View {
             .onChange(of: automaticallyRenumberDives) { _, _ in
                 scheduleLogbookCacheRefresh()
             }
+            .onAppear(perform: consumePendingLogbookRouteIfNeeded)
+            .onChange(of: pendingRoute) { _, _ in
+                consumePendingLogbookRouteIfNeeded()
+            }
+    }
+
+    private func consumePendingLogbookRouteIfNeeded() {
+        guard let route = pendingRoute else { return }
+        pendingRoute = nil
+        path = LogbookPendingRouteNavigation.path(afterConsuming: route, currentPath: path)
     }
 
     private var logbookNavigationStack: some View {

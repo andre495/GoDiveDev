@@ -12,15 +12,13 @@ private enum FieldGuideRoute: Hashable {
 struct FieldGuideView: View {
     @Environment(AccountSession.self) private var accountSession
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
-    @Query(sort: \MarineLife.commonName) private var catalog: [MarineLife]
-    @Query(sort: \DiveSite.siteName) private var diveSites: [DiveSite]
-    @Query(
-        sort: [
-            SortDescriptor(\DiveActivity.startTime, order: .reverse),
-            SortDescriptor(\DiveActivity.id, order: .forward),
-        ]
-    )
-    private var diveActivities: [DiveActivity]
+    @Environment(\.modelContext) private var modelContext
+
+    @Query private var ownerDiveActivities: [DiveActivity]
+
+    @State private var marineLifeCatalog: [MarineLife] = []
+    @State private var diveSiteCatalog: [DiveSite] = []
+    @State private var hasLoadedCatalogs = false
 
     @State private var path: [FieldGuideRoute] = []
     @State private var fieldGuideHeaderClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
@@ -30,6 +28,22 @@ struct FieldGuideView: View {
     @State private var categorySummaries: [FieldGuideCatalogIndex.CategorySummary] = []
     @State private var subcategorySpeciesIndex: FieldGuideCatalogIndex.SubcategorySpeciesIndex = [:]
     @State private var showsAddSpeciesSheet = false
+
+    private let ownerProfileID: UUID?
+
+    init(ownerProfileID: UUID?) {
+        self.ownerProfileID = ownerProfileID
+        let filterOwnerID = ownerProfileID ?? Self.noOwnerQueryToken
+        _ownerDiveActivities = Query(
+            filter: #Predicate<DiveActivity> { $0.ownerProfileID == filterOwnerID },
+            sort: [
+                SortDescriptor(\DiveActivity.startTime, order: .reverse),
+                SortDescriptor(\DiveActivity.id, order: .forward),
+            ]
+        )
+    }
+
+    private static let noOwnerQueryToken = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
 
     private var showsFieldGuideRootTabBar: Bool {
         FieldGuideNavigationPresentation.showsRootTabBar(
@@ -55,8 +69,8 @@ struct FieldGuideView: View {
     }
 
     private var resolvedCatalogSnapshots: [MarineLifeCatalogSnapshot] {
-        if catalogSnapshots.isEmpty, !catalog.isEmpty {
-            return catalog.map(\.fieldGuideCatalogSnapshot)
+        if catalogSnapshots.isEmpty, !marineLifeCatalog.isEmpty {
+            return marineLifeCatalog.map(\.fieldGuideCatalogSnapshot)
         }
         return catalogSnapshots
     }
@@ -83,9 +97,8 @@ struct FieldGuideView: View {
         showsFieldGuideHubChrome
     }
 
-    private var ownerDiveActivities: [DiveActivity] {
-        guard let ownerID = accountSession.currentProfile?.id else { return [] }
-        return diveActivities.filter { $0.ownerProfileID == ownerID }
+    private var ownerDiveActivitiesForNavigation: [DiveActivity] {
+        ownerDiveActivities
     }
 
     var body: some View {
@@ -167,7 +180,7 @@ struct FieldGuideView: View {
                         onAddSpecies: { showsAddSpeciesSheet = true }
                     )
                 case .speciesDetail(let marineLifeUUID):
-                    if let species = catalog.first(where: { $0.uuid == marineLifeUUID }) {
+                    if let species = marineLifeCatalog.first(where: { $0.uuid == marineLifeUUID }) {
                         FieldGuideMarineLifeDetailView(
                             species: species,
                             ownerProfileID: accountSession.currentProfile?.id
@@ -178,13 +191,13 @@ struct FieldGuideView: View {
                         missingSpeciesPlaceholder
                     }
                 case .diveDetail(let id):
-                    if let activity = ownerDiveActivities.first(where: { $0.id == id }) {
+                    if let activity = ownerDiveActivitiesForNavigation.first(where: { $0.id == id }) {
                         ViewSingleActivity(activity: activity)
                     } else {
                         missingDivePlaceholder
                     }
                 case .diveSite(let siteID):
-                    if let site = diveSites.first(where: { $0.id == siteID }) {
+                    if let site = diveSiteCatalog.first(where: { $0.id == siteID }) {
                         ExploreDiveSiteDetailView(
                             site: site,
                             ownerProfileID: accountSession.currentProfile?.id,
@@ -204,10 +217,10 @@ struct FieldGuideView: View {
         .onReceive(NotificationCenter.default.publisher(for: .fieldGuideTabReselected)) { _ in
             handleFieldGuideTabReselect()
         }
-        .onAppear {
-            syncCatalogCache()
+        .task(id: ownerProfileID) {
+            await reloadFieldGuideCatalogsIfNeeded()
         }
-        .onChange(of: catalog.count) { _, _ in
+        .onChange(of: marineLifeCatalog.count) { _, _ in
             syncCatalogCache()
         }
         .sheet(isPresented: $showsAddSpeciesSheet) {
@@ -218,12 +231,32 @@ struct FieldGuideView: View {
     }
 
     private func handleAddedSpecies(_ marineLifeUUID: String) {
+        Task {
+            await reloadFieldGuideCatalogsIfNeeded(force: true)
+            path.append(.speciesDetail(marineLifeUUID))
+        }
+    }
+
+    private func reloadFieldGuideCatalogsIfNeeded(force: Bool = false) async {
+        guard force || !hasLoadedCatalogs || marineLifeCatalog.isEmpty else { return }
+        let container = modelContext.container
+        async let marineLifeIDs = MarineLifeCatalogLoader.fetchSortedPersistentIDs(container: container)
+        async let diveSiteIDs = DiveSiteCatalogLoader.fetchSortedPersistentIDs(container: container)
+        marineLifeCatalog = MarineLifeCatalogLoader.bindModels(
+            persistentIDs: await marineLifeIDs,
+            modelContext: modelContext
+        )
+        diveSiteCatalog = DiveSiteCatalogLoader.bindModels(
+            persistentIDs: await diveSiteIDs,
+            modelContext: modelContext
+        )
+        guard !Task.isCancelled else { return }
+        hasLoadedCatalogs = true
         syncCatalogCache()
-        path.append(.speciesDetail(marineLifeUUID))
     }
 
     private func syncCatalogCache() {
-        let nextSnapshots = catalog.map(\.fieldGuideCatalogSnapshot)
+        let nextSnapshots = marineLifeCatalog.map(\.fieldGuideCatalogSnapshot)
         guard nextSnapshots != catalogSnapshots else { return }
         catalogSnapshots = nextSnapshots
         categorySummaries = FieldGuideCatalogIndex.summaries(for: nextSnapshots)
@@ -280,7 +313,7 @@ struct FieldGuideView: View {
         bottomInset: CGFloat,
         safeAreaTop: CGFloat
     ) -> some View {
-        if catalog.isEmpty {
+        if !hasLoadedCatalogs, marineLifeCatalog.isEmpty {
             FieldGuideCatalogEmptyState()
                 .padding(.top, topInset)
         } else {
@@ -319,7 +352,7 @@ private struct FieldGuideCatalogEmptyState: View {
 }
 
 #Preview {
-    FieldGuideView()
+    FieldGuideView(ownerProfileID: nil)
         .environment(AccountSession.shared)
         .modelContainer(try! AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true))
 }

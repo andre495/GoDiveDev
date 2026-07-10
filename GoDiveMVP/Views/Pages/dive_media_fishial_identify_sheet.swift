@@ -26,7 +26,7 @@ struct DiveMediaFishialIdentifySheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AccountSession.self) private var accountSession
 
-    @Query(sort: \MarineLife.commonName) private var catalog: [MarineLife]
+    @State private var catalog: [MarineLife] = []
 
     let media: DiveMediaPhoto
     let dive: DiveActivity
@@ -149,7 +149,13 @@ struct DiveMediaFishialIdentifySheet: View {
         .appSheetPresentationChrome()
         .interactiveDismissDisabled(isBlockingInteraction)
         .task(id: media.id) {
+            let container = modelContext.container
+            async let catalogIDs = MarineLifeCatalogLoader.fetchSortedPersistentIDs(container: container)
             await prepareSelection()
+            catalog = MarineLifeCatalogLoader.bindModels(
+                persistentIDs: await catalogIDs,
+                modelContext: modelContext
+            )
         }
         .accessibilityIdentifier("DiveMediaFishialIdentify.Root")
     }

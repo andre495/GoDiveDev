@@ -19,6 +19,8 @@ final class Certification {
     var instructor: String
     var instructorNumber: String
     var diveShop: String?
+    /// PADI dive-center / store identification number when printed on the card back.
+    var diveShopNumber: String?
 
     /// **`CertificationCardType`** raw value (**`certification`** / **`specialty`**).
     var cardTypeRaw: String = CertificationCardType.certification.rawValue
@@ -42,6 +44,7 @@ final class Certification {
         instructor: String = "",
         instructorNumber: String = "",
         diveShop: String? = nil,
+        diveShopNumber: String? = nil,
         cardType: CertificationCardType = .certification,
         certFrontPicture: Data? = nil,
         certBackPicture: Data? = nil,
@@ -56,6 +59,7 @@ final class Certification {
         self.instructor = instructor
         self.instructorNumber = instructorNumber
         self.diveShop = diveShop
+        self.diveShopNumber = diveShopNumber
         self.cardTypeRaw = cardType.rawValue
         self.certFrontPicture = certFrontPicture
         self.certBackPicture = certBackPicture

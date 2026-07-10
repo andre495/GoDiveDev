@@ -15,6 +15,7 @@ struct ContentView: View {
     @State private var selectedTab: RootTab = .home
     @State private var searchQuery = ""
     @State private var searchContextTokens: [GlobalSearchPresentation.ContextToken] = []
+    @State private var pendingLogbookRoute: LogbookRoute?
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -24,16 +25,21 @@ struct ContentView: View {
             }
 
             Tab("Logbook", systemImage: "book.closed", value: RootTab.logbook) {
-                LogbookView(ownerProfileID: accountSession.currentProfile?.id)
+                LogbookView(
+                    ownerProfileID: accountSession.currentProfile?.id,
+                    pendingRoute: $pendingLogbookRoute
+                )
                     .id(accountSession.currentProfile?.id)
             }
 
             Tab("Field Guide", systemImage: "leaf", value: RootTab.fieldGuide) {
-                FieldGuideView()
+                FieldGuideView(ownerProfileID: accountSession.currentProfile?.id)
+                    .id(accountSession.currentProfile?.id)
             }
 
             Tab("Explore", systemImage: "map", value: RootTab.explore) {
-                ExploreView()
+                ExploreView(ownerProfileID: accountSession.currentProfile?.id)
+                    .id(accountSession.currentProfile?.id)
             }
 
             Tab(value: RootTab.search, role: .search) {
@@ -49,8 +55,9 @@ struct ContentView: View {
         .goDiveRootTabBarChrome()
         .modifier(TabBarMinimizeWhenNotUITesting())
         .environment(\.diveDisplayUnitSystem, useImperialDisplayUnits ? .imperial : .metric)
-        .environment(\.openLogbook) {
+        .environment(\.openDiveImport) {
             selectedTab = .logbook
+            pendingLogbookRoute = .addActivity
         }
     }
 }

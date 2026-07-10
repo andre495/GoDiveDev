@@ -7,15 +7,11 @@ enum AppLoggedOutOnboardingPresentation: Sendable {
     nonisolated static let rootAccessibilityIdentifier = "LoggedOutOnboarding.Root"
     nonisolated static let welcomeAccessibilityIdentifier = "LoggedOutOnboarding.Welcome"
     nonisolated static let continueButtonTitle = "Continue"
-    nonisolated static let getStartedButtonTitle = "Get started"
     nonisolated static let skipButtonTitle = "Skip"
     nonisolated static let welcomeTitle = "Welcome to GoDive"
     nonisolated static let welcomeSubtitle = "What do you do in the water?"
-    nonisolated static let welcomeContinueTitle = "Show me around"
+    nonisolated static let welcomeContinueTitle = "Get Started"
     nonisolated static let existingAccountSignInTitle = "Already have an account? Sign in"
-    nonisolated static let signUpTitle = "Create your GoDive log"
-    nonisolated static let signUpSubtitle =
-        "Sign in with Apple to save your dives, buddies, and sightings on this device."
 
     enum FeatureKind: String, CaseIterable, Sendable {
         case logEveryDive
@@ -122,18 +118,28 @@ enum AppLoggedOutOnboardingPresentation: Sendable {
         !isUITest
     }
 
-    nonisolated static func continueButtonTitle(
+    nonisolated static func showsContinueButton(
         featurePageIndex: Int,
         featurePageCount: Int
-    ) -> String {
-        let lastFeatureIndex = max(featurePageCount - 1, 0)
-        return featurePageIndex >= lastFeatureIndex
-            ? getStartedButtonTitle
-            : continueButtonTitle
+    ) -> Bool {
+        guard featurePageCount > 0 else { return false }
+        return featurePageIndex < featurePageCount - 1
     }
 
-    nonisolated static func isSignUpPhase(featurePageIndex: Int, featurePageCount: Int) -> Bool {
-        featurePageIndex >= featurePageCount
+    nonisolated static func showsSignInWithAppleOnLastFeatureSlide(
+        featurePageIndex: Int,
+        featurePageCount: Int
+    ) -> Bool {
+        guard featurePageCount > 0 else { return false }
+        return featurePageIndex >= featurePageCount - 1
+    }
+
+    /// Skip jumps to the dedicated sign-in screen — hide it on the last feature slide.
+    nonisolated static func showsSkipButton(
+        featurePageIndex: Int,
+        featurePageCount: Int
+    ) -> Bool {
+        showsContinueButton(featurePageIndex: featurePageIndex, featurePageCount: featurePageCount)
     }
 }
 
@@ -143,17 +149,10 @@ enum LoggedOutOnboardingFeatureSlidePresentation: Sendable {
     nonisolated static let demoMaxHeight: CGFloat = 418
     nonisolated static let copyTopSpacing: CGFloat = AppTheme.Spacing.md
     nonisolated static let copyBottomSpacing: CGFloat = AppTheme.Spacing.sm
-    /// Top padding above the page indicator inside bottom chrome.
+    /// Top padding above the bottom chrome row (Continue / Sign in with Apple).
     nonisolated static let bottomChromeTopPadding: CGFloat = 0
-    /// Spacing between page dots and Continue / Get started.
+    /// Spacing between Continue / Sign in with Apple and the page indicator below.
     nonisolated static let bottomChromeStackSpacing: CGFloat = AppTheme.Spacing.sm
-    /// Distance from the physical screen bottom (chrome ignores the bottom safe area).
+    /// Distance from the physical screen bottom to the page indicator (chrome ignores the bottom safe area).
     nonisolated static let bottomChromeBottomPadding: CGFloat = 14
-
-    /// Strong pulse on the last-slide **Get started** control so it reads as the next action.
-    nonisolated static let getStartedCalloutPeakScale: CGFloat = 1.2
-    nonisolated static let getStartedCalloutMinOpacity: Double = 0.55
-    nonisolated static let getStartedCalloutCycleSeconds: Double = 0.7
-    /// How many scale-up / scale-down pulses before the label settles to static text.
-    nonisolated static let getStartedCalloutPulseCount = 2
 }

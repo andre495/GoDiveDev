@@ -32,7 +32,7 @@ enum WaterBubbleRendering {
     }
 }
 
-/// Bubble animation density — standard UI vs post-sign-in celebration burst.
+/// Bubble animation density — standard UI vs denser burst (reserved for future use).
 enum WaterBubbleAnimationIntensity: Sendable {
     case standard
     case celebration
@@ -68,7 +68,9 @@ struct WaterBubbleBackground: View {
     /// Pauses **`TimelineView`** during heavy logbook store work so the main thread stays responsive.
     var animationPaused: Bool = false
     var intensity: WaterBubbleAnimationIntensity = .standard
-    /// When set, overrides `intensity.speedMultiplier` (e.g. animated ramp on sign-in celebration).
+    /// When set, overrides `intensity.bubbleCount`.
+    var bubbleCount: Int?
+    /// When set, overrides `intensity.speedMultiplier`.
     var speedMultiplier: CGFloat?
 
     var body: some View {
@@ -87,6 +89,7 @@ struct WaterBubbleBackground: View {
                                 size: size,
                                 time: timeline.date.timeIntervalSinceReferenceDate,
                                 intensity: intensity,
+                                bubbleCount: bubbleCount,
                                 speedMultiplier: speedMultiplier
                             )
                         }
@@ -110,17 +113,18 @@ struct WaterBubbleBackground: View {
         size: CGSize,
         time: TimeInterval,
         intensity: WaterBubbleAnimationIntensity,
+        bubbleCount: Int?,
         speedMultiplier: CGFloat?
     ) {
         guard size.width > 1, size.height > 1 else { return }
 
         let t = CGFloat(time)
         let minSide = min(size.width, size.height)
-        let bubbleCount = intensity.bubbleCount
+        let resolvedBubbleCount = bubbleCount ?? intensity.bubbleCount
         let speedScale = speedMultiplier ?? intensity.speedMultiplier
         let diameterScale = intensity.diameterMultiplier
 
-        for i in 0..<bubbleCount {
+        for i in 0..<resolvedBubbleCount {
             let xNorm = hash01(i, 1)
             let speed = (10 + 22 * hash01(i, 3)) * speedScale
             let phaseY = (size.height + 80) * hash01(i, 4)

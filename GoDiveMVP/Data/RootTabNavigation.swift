@@ -1,13 +1,14 @@
 import SwiftUI
 
-/// Switch the root **`TabView`** selection from nested screens (e.g. Home empty hero → Logbook).
-private struct OpenLogbookKey: EnvironmentKey {
+/// Switch the root **`TabView`** selection and open Logbook destinations from nested screens.
+private struct OpenDiveImportKey: EnvironmentKey {
     static let defaultValue: (() -> Void)? = nil
 }
 
 extension EnvironmentValues {
-    var openLogbook: (() -> Void)? {
-        get { self[OpenLogbookKey.self] }
-        set { self[OpenLogbookKey.self] = newValue }
+    /// Home empty hero **Log Your First Dive** → Logbook import picker (**`ActivityUploadView`**).
+    var openDiveImport: (() -> Void)? {
+        get { self[OpenDiveImportKey.self] }
+        set { self[OpenDiveImportKey.self] = newValue }
     }
 }

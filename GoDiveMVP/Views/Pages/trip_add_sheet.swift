@@ -7,23 +7,26 @@ struct TripAddSheetView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AccountSession.self) private var accountSession
 
-    @Query(
-        sort: [
-            SortDescriptor(\DiveTrip.startDate, order: .reverse),
-            SortDescriptor(\DiveTrip.createdAt, order: .reverse),
-        ]
-    )
-    private var allTrips: [DiveTrip]
+    @Query private var ownerTrips: [DiveTrip]
 
     var onSaved: () -> Void = {}
 
     @State private var form = DiveTripFormValues()
     @State private var saveErrorMessage: String?
 
-    private var ownerTrips: [DiveTrip] {
-        guard let ownerID = accountSession.currentProfile?.id else { return [] }
-        return allTrips.filter { $0.ownerProfileID == ownerID }
+    init(ownerProfileID: UUID? = nil, onSaved: @escaping () -> Void = {}) {
+        self.onSaved = onSaved
+        let filterOwnerID = ownerProfileID ?? Self.noOwnerQueryToken
+        _ownerTrips = Query(
+            filter: #Predicate<DiveTrip> { $0.ownerProfileID == filterOwnerID },
+            sort: [
+                SortDescriptor(\DiveTrip.startDate, order: .reverse),
+                SortDescriptor(\DiveTrip.createdAt, order: .reverse),
+            ]
+        )
     }
+
+    private static let noOwnerQueryToken = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
 
     private var canSaveTrip: Bool {
         form.canSave(existingOwnerTrips: ownerTrips)

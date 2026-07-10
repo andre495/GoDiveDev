@@ -239,10 +239,13 @@ struct ActivityTagDetailView: View {
     }
 
     private func enrichTagDetailMarineLife() async {
+        let marineLifeCatalog = await MarineLifeCatalogLoader.loadSortedCatalog(modelContext: modelContext)
+        guard !Task.isCancelled else { return }
         let enriched = ActivityTagDetailContentSnapshotBuilder.enrichMarineLife(
             snapshot: contentSnapshot,
             taggedDives: taggedDives,
             unitSystem: diveDisplayUnitSystem,
+            marineLifeCatalog: marineLifeCatalog,
             modelContext: modelContext
         )
         contentSnapshot = enriched

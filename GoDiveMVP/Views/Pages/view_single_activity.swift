@@ -345,27 +345,23 @@ struct ViewSingleActivity: View {
         "\(activity.id.uuidString)|\(selectedActivityTab)|\(isOverviewPanelPresented)"
     }
 
-    @MainActor
     private func loadMarineLifeCatalogIfNeeded() async {
         guard selectedActivityTab == .camera || isOverviewPanelPresented else { return }
         guard marineLifeCatalog.isEmpty else { return }
-        await Task.yield()
-        marineLifeCatalog = (try? modelContext.fetch(
-            FetchDescriptor<MarineLife>(sortBy: [SortDescriptor(\.commonName)])
-        )) ?? []
+        marineLifeCatalog = await MarineLifeCatalogLoader.loadSortedCatalog(modelContext: modelContext)
     }
 
-    @MainActor
     private func loadCatalogSitesForMapResolutionIfNeeded() async {
         guard DiveActivityMapCoordinateResolution.needsCatalogSiteLookup(for: activity) else {
             catalogSitesForMapResolution = []
             return
         }
         guard catalogSitesForMapResolution.isEmpty else { return }
-        catalogSitesForMapResolution = (try? DiveActivityMapCoordinateResolution.loadCatalogSitesIfNeeded(
+        catalogSitesForMapResolution = await DiveActivityMapCoordinateResolution.loadCatalogSitesIfNeeded(
             for: activity,
-            modelContext: modelContext
-        )) ?? []
+            modelContext: modelContext,
+            container: modelContext.container
+        )
     }
 
     @MainActor

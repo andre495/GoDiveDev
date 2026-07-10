@@ -81,14 +81,12 @@ enum ExploreDiveSiteDetailContentSnapshotBuilder {
         snapshot: ExploreDiveSiteDetailContentSnapshot,
         site: DiveSite,
         ownerProfileID: UUID?,
+        marineLifeCatalog: [MarineLife],
         modelContext: ModelContext
     ) -> ExploreDiveSiteDetailContentSnapshot {
         guard ownerProfileID != nil, !snapshot.siteDiveActivities.isEmpty else { return snapshot }
 
         let siteSightings = fetchSiteSightings(diveSiteID: site.id, modelContext: modelContext)
-        let marineLifeCatalog = (try? modelContext.fetch(
-            FetchDescriptor<MarineLife>(sortBy: [SortDescriptor(\.commonName)])
-        )) ?? []
         let catalogByUUID = Dictionary(uniqueKeysWithValues: marineLifeCatalog.map {
             ($0.uuid, $0.fieldGuideCatalogSnapshot)
         })
@@ -128,6 +126,50 @@ enum ExploreDiveSiteDetailContentSnapshotBuilder {
             ]
         )
         return (try? modelContext.fetch(descriptor)) ?? []
+    }
+
+    nonisolated static func fetchSiteDiveActivityPersistentIDs(
+        diveSiteID: UUID,
+        ownerProfileID: UUID,
+        container: ModelContainer
+    ) async -> [PersistentIdentifier] {
+        await Task.detached(priority: .utility) {
+            let context = ModelContext(container)
+            let descriptor = FetchDescriptor<DiveActivity>(
+                predicate: #Predicate<DiveActivity> { activity in
+                    activity.ownerProfileID == ownerProfileID && activity.diveSiteID == diveSiteID
+                },
+                sortBy: [
+                    SortDescriptor(\.startTime, order: .reverse),
+                    SortDescriptor(\.id, order: .forward),
+                ]
+            )
+            let rows = (try? context.fetch(descriptor)) ?? []
+            return rows.map(\.persistentModelID)
+        }.value
+    }
+
+    @MainActor
+    static func bindDiveActivities(
+        persistentIDs: [PersistentIdentifier],
+        modelContext: ModelContext
+    ) -> [DiveActivity] {
+        persistentIDs.compactMap { modelContext.model(for: $0) as? DiveActivity }
+    }
+
+    @MainActor
+    static func fetchSiteDiveActivitiesAsync(
+        diveSiteID: UUID,
+        ownerProfileID: UUID,
+        modelContext: ModelContext
+    ) async -> [DiveActivity] {
+        let persistentIDs = await fetchSiteDiveActivityPersistentIDs(
+            diveSiteID: diveSiteID,
+            ownerProfileID: ownerProfileID,
+            container: modelContext.container
+        )
+        guard !Task.isCancelled else { return [] }
+        return bindDiveActivities(persistentIDs: persistentIDs, modelContext: modelContext)
     }
 
     /// Fast first-frame site dives from pushed **`DiveSite`** relationships (fetch refresh follows).

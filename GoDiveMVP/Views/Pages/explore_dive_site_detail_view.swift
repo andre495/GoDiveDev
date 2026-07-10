@@ -183,7 +183,7 @@ struct ExploreDiveSiteDetailView: View {
             showsDeferredHeroMap = true
             syncHeroPresentation()
 
-            rebuildSiteDetailContent(includeMarineLifeEnrichment: hasLoadedMarineLifeEnrichment)
+            await rebuildSiteDetailContent()
         }
         .onAppear {
             DiveMediaPreviewStorage.seedSessionCache(for: contentSnapshot.taggedMediaItems)
@@ -199,10 +199,10 @@ struct ExploreDiveSiteDetailView: View {
         }
     }
 
-    private func rebuildSiteDetailContent(includeMarineLifeEnrichment: Bool) {
+    private func rebuildSiteDetailContent() async {
         let siteActivities: [DiveActivity]
         if let ownerProfileID {
-            siteActivities = ExploreDiveSiteDetailContentSnapshotBuilder.fetchSiteDiveActivities(
+            siteActivities = await ExploreDiveSiteDetailContentSnapshotBuilder.fetchSiteDiveActivitiesAsync(
                 diveSiteID: site.id,
                 ownerProfileID: ownerProfileID,
                 modelContext: modelContext
@@ -211,25 +211,27 @@ struct ExploreDiveSiteDetailView: View {
             siteActivities = []
         }
 
-        var snapshot = ExploreDiveSiteDetailContentSnapshotBuilder.buildLight(
+        let snapshot = ExploreDiveSiteDetailContentSnapshotBuilder.buildLight(
             site: site,
             siteActivities: siteActivities,
             ownerProfileID: ownerProfileID ?? accountSession.currentProfile?.id,
             unitSystem: diveDisplayUnitSystem
         )
 
-        if includeMarineLifeEnrichment {
-            snapshot = ExploreDiveSiteDetailContentSnapshotBuilder.enrichMarineLife(
-                snapshot: snapshot,
-                site: site,
-                ownerProfileID: ownerProfileID ?? accountSession.currentProfile?.id,
-                modelContext: modelContext
-            )
-            hasLoadedMarineLifeEnrichment = true
-        }
-
         contentSnapshot = snapshot
         syncHeroPresentation()
+    }
+
+    private func enrichSiteDetailMarineLife() async {
+        let marineLifeCatalog = await MarineLifeCatalogLoader.loadSortedCatalog(modelContext: modelContext)
+        guard !Task.isCancelled else { return }
+        contentSnapshot = ExploreDiveSiteDetailContentSnapshotBuilder.enrichMarineLife(
+            snapshot: contentSnapshot,
+            site: site,
+            ownerProfileID: ownerProfileID ?? accountSession.currentProfile?.id,
+            marineLifeCatalog: marineLifeCatalog,
+            modelContext: modelContext
+        )
     }
 
     private func handleSitePagerPageFirstMounted(_ page: ExploreDiveSiteDetailContentPage) {
@@ -237,7 +239,9 @@ struct ExploreDiveSiteDetailView: View {
         switch page {
         case .marineLifeHere, .taggedMedia:
             hasLoadedMarineLifeEnrichment = true
-            rebuildSiteDetailContent(includeMarineLifeEnrichment: true)
+            Task {
+                await enrichSiteDetailMarineLife()
+            }
         case .diveDetails, .divesHere:
             break
         }

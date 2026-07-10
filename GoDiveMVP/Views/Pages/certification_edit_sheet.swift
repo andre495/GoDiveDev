@@ -15,6 +15,7 @@ struct CertificationEditSheetView: View {
     @State private var frontPhotoPickerItem: PhotosPickerItem?
     @State private var backPhotoPickerItem: PhotosPickerItem?
     @State private var saveErrorMessage: String?
+    @State private var cardPhotoPreview: CertificationCardPhotoPreviewSelection?
 
     init(certification: Certification, onSaved: @escaping () -> Void = {}) {
         self.certification = certification
@@ -28,7 +29,8 @@ struct CertificationEditSheetView: View {
                 CertificationFormContent(
                     form: $form,
                     frontPhotoPickerItem: $frontPhotoPickerItem,
-                    backPhotoPickerItem: $backPhotoPickerItem
+                    backPhotoPickerItem: $backPhotoPickerItem,
+                    cardPhotoPreview: $cardPhotoPreview
                 )
             }
             .scrollContentBackground(.hidden)
@@ -56,6 +58,7 @@ struct CertificationEditSheetView: View {
                 Text(saveErrorMessage ?? "Try again.")
             }
         }
+        .certificationCardPhotoPreviewCover($cardPhotoPreview)
         .certificationAddSheetPresentation()
     }
 

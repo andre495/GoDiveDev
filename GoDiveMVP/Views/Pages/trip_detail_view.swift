@@ -259,10 +259,13 @@ struct TripDetailView: View {
 
     private func enrichTripDetailMarineLife() async {
         guard let trip else { return }
+        let marineLifeCatalog = await MarineLifeCatalogLoader.loadSortedCatalog(modelContext: modelContext)
+        guard !Task.isCancelled else { return }
         let enriched = TripDetailContentSnapshotBuilder.enrichMarineLife(
             snapshot: contentSnapshot,
             trip: trip,
             unitSystem: diveDisplayUnitSystem,
+            marineLifeCatalog: marineLifeCatalog,
             modelContext: modelContext
         )
         contentSnapshot = enriched

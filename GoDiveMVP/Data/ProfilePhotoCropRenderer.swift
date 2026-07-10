@@ -6,8 +6,8 @@ import UIKit
 
 /// Renders a circular profile photo from a source image and crop gestures (testable off the main actor).
 enum ProfilePhotoCropRenderer: Sendable {
-    static let defaultOutputPixelSize: CGFloat = 400
-    static let minimumGestureScale: CGFloat = 1
+    nonisolated static let defaultOutputPixelSize: CGFloat = 400
+    nonisolated static let minimumGestureScale: CGFloat = 1
 
     /// Base scale so the image fully covers a square crop viewport (aspect fill).
     static func baseFillScale(imageSize: CGSize, cropDiameter: CGFloat) -> CGFloat {
@@ -50,7 +50,7 @@ enum ProfilePhotoCropRenderer: Sendable {
 
     #if canImport(UIKit)
     /// Circular crop in **`outputPixelSize`** × **`outputPixelSize`** pixels (JPEG).
-    static func croppedJPEGData(
+    nonisolated static func croppedJPEGData(
         from image: UIImage,
         cropDiameter: CGFloat,
         gestureScale: CGFloat,
@@ -69,7 +69,7 @@ enum ProfilePhotoCropRenderer: Sendable {
         return cropped?.jpegData(compressionQuality: compressionQuality)
     }
 
-    static func croppedImage(
+    nonisolated static func croppedImage(
         from image: UIImage,
         cropDiameter: CGFloat,
         gestureScale: CGFloat,

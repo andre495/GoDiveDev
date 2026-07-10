@@ -10,18 +10,31 @@ import UIKit
 @MainActor
 enum GoogleMapsWarmup {
     private(set) static var didWarmUp = false
+    private static var hasScheduledWarmUp = false
 
     static var shouldWarmUp: Bool {
         GoogleMapsBootstrap.shouldWarmUpAtLaunch
     }
 
-    /// Safe to call repeatedly; runs at most once per process (skipped under UI tests / without Google key).
-    static func warmUpIfNeeded() {
+    /// Safe to call repeatedly; schedules at most one warm-up per process (skipped under UI tests / without Google key).
+    /// Pass **`includeHiddenMapView: false`** before **`ContentView`** shell prewarm so Explore’s real map is the only **`GMSMapView`**.
+    static func warmUpIfNeeded(includeHiddenMapView: Bool = true) {
+        guard shouldWarmUp, !didWarmUp, !hasScheduledWarmUp else { return }
+        hasScheduledWarmUp = true
+        Task { @MainActor in
+            await performWarmUpOnce(includeHiddenMapView: includeHiddenMapView)
+        }
+    }
+
+    private static func performWarmUpOnce(includeHiddenMapView: Bool) async {
+        defer { hasScheduledWarmUp = false }
         guard shouldWarmUp, !didWarmUp else { return }
 
+        await Task.yield()
         GoogleMapsBootstrap.configureIfNeeded()
         guard GoogleMapsBootstrap.isConfigured else { return }
         didWarmUp = true
+        guard includeHiddenMapView else { return }
 
         let mapView = GoDiveMapPointOfInterestSuppression.makeGoogleMapView()
         mapView.frame = CGRect(x: 0, y: 0, width: 2, height: 2)
@@ -41,16 +54,15 @@ enum GoogleMapsWarmup {
                 zoom: 2
             )
         )
-        mapView.layoutIfNeeded()
 
         guard let window = keyWindow else { return }
         mapView.alpha = 0
         mapView.isAccessibilityElement = false
         window.addSubview(mapView)
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(150))
-            mapView.removeFromSuperview()
-        }
+        await Task.yield()
+        mapView.layoutIfNeeded()
+        try? await Task.sleep(for: .milliseconds(150))
+        mapView.removeFromSuperview()
     }
 
     private static var keyWindow: UIWindow? {

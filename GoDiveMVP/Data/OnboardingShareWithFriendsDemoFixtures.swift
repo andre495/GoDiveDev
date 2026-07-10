@@ -188,9 +188,7 @@ enum OnboardingShareWithFriendsDemoFixtures: Sendable {
     .frame(width: TripShareCardPresentation.cardWidth, alignment: .top)
     .background(AppOverviewSheetPanelBackground())
 
-    let renderer = ImageRenderer(content: card)
-    renderer.scale = 2
-    return renderer.uiImage
+    return AppSwiftUIImageRenderer.opaqueUIImage(content: card, scale: 2)
   }
   #endif
 

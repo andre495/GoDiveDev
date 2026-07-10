@@ -7,11 +7,14 @@ struct LogOverviewView: View {
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.isCelebrationShellPrewarmActive) private var isCelebrationShellPrewarmActive
 
     @Query private var ownerDiveActivities: [DiveActivity]
-    @Query(sort: \DiveSite.siteName) private var diveSites: [DiveSite]
-    @Query(sort: \MarineLife.commonName) private var marineLifeCatalog: [MarineLife]
     @Query private var ownerDiveBuddies: [DiveBuddy]
+
+    @State private var marineLifeCatalog: [MarineLife] = []
+    @State private var diveSiteCatalog: [DiveSite] = []
+    @State private var hasLoadedNavigationCatalogs = false
 
     private let ownerProfileID: UUID?
 
@@ -125,6 +128,9 @@ struct LogOverviewView: View {
             .restoresRootTabBarWhenStackIsEmpty(isHomeNavigationStackAtRoot)
             .animation(nil, value: path.count)
             .onAppear { handleHomeRootAppear() }
+            .task(id: ownerProfileID) {
+                await reloadHomeNavigationCatalogsIfNeeded()
+            }
             .onChange(of: path.count) { oldCount, newCount in
                 if newCount == 0, oldCount > 0 {
                     handleReturnToHomeRoot()
@@ -266,7 +272,7 @@ struct LogOverviewView: View {
     private func homeDestination(for route: HomeRoute) -> some View {
         switch route {
         case .profile:
-            ProfileView()
+            ProfileView(ownerProfileID: ownerProfileID)
         case .tripPlanner:
             TripPlannerView()
         case .tripDetail(let tripID):
@@ -290,7 +296,7 @@ struct LogOverviewView: View {
                 missingDestinationLabel("This dive is no longer in your log.")
             }
         case .diveSite(let siteID):
-            if let site = diveSites.first(where: { $0.id == siteID }) {
+            if let site = diveSiteCatalog.first(where: { $0.id == siteID }) {
                 ExploreDiveSiteDetailView(
                     site: site,
                     ownerProfileID: ownerProfileID,
@@ -312,7 +318,7 @@ struct LogOverviewView: View {
             }
         case .diveBuddy(let buddyID):
             if DiveBuddySelfRepresentation.isSelfBuddyID(buddyID, selfBuddyID: selfBuddyID) {
-                ProfileView()
+                ProfileView(ownerProfileID: ownerProfileID)
             } else if let buddy = ownerDiveBuddies.first(where: { $0.id == buddyID }) {
                 ViewDiveBuddyDetails(buddy: buddy)
                     .hidesBottomTabBarWhenPushed()
@@ -324,7 +330,7 @@ struct LogOverviewView: View {
                 kind: kind,
                 diveStatsInputs: homeAggregate.diveStatsInputs,
                 activities: ownerDiveActivities,
-                diveSites: diveSites,
+                diveSites: diveSiteCatalog,
                 marineLifeCatalog: marineLifeCatalog,
                 unitSystem: diveDisplayUnitSystem,
                 automaticallyRenumberDives: automaticallyRenumberDives,
@@ -344,12 +350,20 @@ struct LogOverviewView: View {
     }
 
     private func handleHomeRootAppear() {
-        if !hasPerformedInitialHomeBuild {
+        switch HomeRootAppearPresentation.handleRootAppearAction(
+            hasPerformedInitialHomeBuild: hasPerformedInitialHomeBuild
+        ) {
+        case .scheduleImmediateInitialRebuild:
             hasPerformedInitialHomeBuild = true
-            scheduleHomeOverviewRebuild(immediate: true)
-            return
+            if isCelebrationShellPrewarmActive {
+                SignInCelebrationTransitionDiagnostics.mark("Home_handleHomeRootAppear_initial_rebuild_during_prewarm")
+            } else {
+                SignInCelebrationTransitionDiagnostics.mark("Home_handleHomeRootAppear_initial_rebuild")
+            }
+            scheduleHomeOverviewRebuild(immediate: true, source: .initialRootAppear)
+        case .handleReturnToRoot:
+            handleReturnToHomeRoot()
         }
-        handleReturnToHomeRoot()
     }
 
     private func handleReturnToHomeRoot() {
@@ -382,8 +396,16 @@ struct LogOverviewView: View {
 
     private func scheduleHomeOverviewRebuild(
         debounceNanoseconds: UInt64 = 80_000_000,
-        immediate: Bool = false
+        immediate: Bool = false,
+        source: HomeOverviewRebuildPresentation.Source = .incidental
     ) {
+        if HomeOverviewRebuildPresentation.shouldSkipSchedule(
+            isCelebrationShellPrewarmActive: isCelebrationShellPrewarmActive,
+            hasPerformedInitialHomeBuild: hasPerformedInitialHomeBuild,
+            source: source
+        ) {
+            return
+        }
         homeOverviewRebuildGeneration += 1
         let generation = homeOverviewRebuildGeneration
 
@@ -405,11 +427,16 @@ struct LogOverviewView: View {
     @MainActor
     private func performHomeOverviewRebuild(generation: Int) async {
         guard generation == homeOverviewRebuildGeneration else { return }
+        let signpostID = SignInCelebrationTransitionDiagnostics.begin(.homeOverviewRebuild)
         await rebuildHomeOverviewAsync()
+        SignInCelebrationTransitionDiagnostics.end(.homeOverviewRebuild, signpostID: signpostID)
     }
 
     @MainActor
     private func rebuildHomeOverviewAsync() async {
+        if marineLifeCatalog.isEmpty {
+            await reloadHomeNavigationCatalogsIfNeeded()
+        }
         let ownerProfile = accountSession.currentProfile
         selfBuddyID = DiveBuddySelfRepresentation.resolveSelfBuddyID(
             owner: ownerProfile,
@@ -432,6 +459,23 @@ struct LogOverviewView: View {
             )
         }
         refreshCarouselHighlightsIfNeeded(using: built)
+    }
+
+    private func reloadHomeNavigationCatalogsIfNeeded(force: Bool = false) async {
+        guard force || !hasLoadedNavigationCatalogs || marineLifeCatalog.isEmpty else { return }
+        let container = modelContext.container
+        async let marineLifeIDs = MarineLifeCatalogLoader.fetchSortedPersistentIDs(container: container)
+        async let diveSiteIDs = DiveSiteCatalogLoader.fetchSortedPersistentIDs(container: container)
+        marineLifeCatalog = MarineLifeCatalogLoader.bindModels(
+            persistentIDs: await marineLifeIDs,
+            modelContext: modelContext
+        )
+        diveSiteCatalog = DiveSiteCatalogLoader.bindModels(
+            persistentIDs: await diveSiteIDs,
+            modelContext: modelContext
+        )
+        guard !Task.isCancelled else { return }
+        hasLoadedNavigationCatalogs = true
     }
 
     private func refreshCarouselHighlightsIfNeeded(using aggregate: HomeOverviewAggregate) {

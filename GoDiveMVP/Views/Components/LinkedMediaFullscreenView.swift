@@ -670,21 +670,19 @@ private struct LinkedMediaFullscreenLinkedDiveCover: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
-    private var resolvedActivity: DiveActivity? {
-        let targetID = diveID
-        var descriptor = FetchDescriptor<DiveActivity>(
-            predicate: #Predicate { activity in
-                activity.id == targetID
-            }
-        )
-        descriptor.fetchLimit = 1
-        return try? modelContext.fetch(descriptor).first
-    }
+    @State private var resolvedActivity: DiveActivity?
+    @State private var hasResolvedActivity = false
 
     var body: some View {
         Group {
             if let activity = resolvedActivity {
                 ViewSingleActivity(activity: activity, initialMediaFocusID: mediaID)
+            } else if !hasResolvedActivity {
+                ZStack {
+                    Color.black.ignoresSafeArea()
+                    ProgressView()
+                        .tint(.white)
+                }
             } else {
                 ZStack {
                     Color.black.ignoresSafeArea()
@@ -704,6 +702,22 @@ private struct LinkedMediaFullscreenLinkedDiveCover: View {
                     .padding(AppTheme.Spacing.lg)
                 }
             }
+        }
+        .task(id: diveID) {
+            hasResolvedActivity = false
+            resolvedActivity = nil
+            await Task.yield()
+            let targetID = diveID
+            var descriptor = FetchDescriptor<DiveActivity>(
+                predicate: #Predicate { activity in
+                    activity.id == targetID
+                }
+            )
+            descriptor.fetchLimit = 1
+            let activity = (try? modelContext.fetch(descriptor))?.first
+            guard !Task.isCancelled else { return }
+            resolvedActivity = activity
+            hasResolvedActivity = true
         }
     }
 }

@@ -8,6 +8,7 @@ import UIKit
 /// Circular profile photo with **PhotosPicker** and crop sheet (camera badge to change).
 struct ProfileAvatarEditor: View {
     var diameter: CGFloat = 120
+    var onPhotoSaved: (() -> Void)? = nil
 
     private var cameraBadgeSize: CGFloat {
         max(32, diameter * 0.27)
@@ -64,9 +65,9 @@ struct ProfileAvatarEditor: View {
             ProfilePhotoCropSheet(
                 sourceImage: draft.image,
                 onSave: { data in
-                    applyCroppedPhoto(data)
                     cropDraft = nil
                     photoPickerItem = nil
+                    applyCroppedPhoto(data)
                 },
                 onCancel: {
                     cropDraft = nil
@@ -106,11 +107,25 @@ struct ProfileAvatarEditor: View {
     @MainActor
     private func applyCroppedPhoto(_ data: Data) {
         profile.profilePhoto = data
+        let advance = onPhotoSaved
+
+        Task { @MainActor in
+            // Let the crop sheet finish dismissing before the wizard step crossfade.
+            try? await Task.sleep(for: .milliseconds(320))
+            guard !Task.isCancelled else { return }
+            advance?()
+        }
+        Task { @MainActor in
+            persistProfilePhoto()
+        }
+    }
+
+    @MainActor
+    private func persistProfilePhoto() {
         do {
             try modelContext.save()
         } catch {
             saveErrorMessage = error.localizedDescription
         }
     }
-
 }

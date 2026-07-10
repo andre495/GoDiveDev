@@ -155,6 +155,10 @@ struct ViewCertificationDetails: View {
                 value: CertificationPresentation.displayString(certification.instructorNumber)
             )
             detailRow(label: "Dive shop", value: CertificationPresentation.displayString(certification.diveShop))
+            detailRow(
+                label: "Shop identification number",
+                value: CertificationPresentation.displayString(certification.diveShopNumber)
+            )
         }
     }
 

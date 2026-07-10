@@ -19,24 +19,30 @@ struct ProfilePhotoCropSheet: View {
     @State private var lastGestureScale: CGFloat = 1
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
+    @State private var isSavingCrop = false
 
     var body: some View {
         #if canImport(UIKit)
         NavigationStack {
-            VStack(spacing: AppTheme.Spacing.lg) {
-                cropCanvas
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            ZStack {
+                AppTheme.Colors.screenBackgroundGradient
+                    .ignoresSafeArea()
 
-                Text("Pinch and drag to position your photo")
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, AppTheme.Spacing.lg)
+                VStack(spacing: AppTheme.Spacing.lg) {
+                    cropCanvas
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    Text("Pinch and drag to position your photo")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.Colors.secondaryText)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, AppTheme.Spacing.lg)
+                }
+                .padding(.vertical, AppTheme.Spacing.md)
             }
-            .padding(.vertical, AppTheme.Spacing.md)
-            .background(AppTheme.Colors.screenBackgroundGradient.ignoresSafeArea())
             .navigationTitle("Adjust photo")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: onCancel)
@@ -47,12 +53,18 @@ struct ProfilePhotoCropSheet: View {
                         saveCroppedPhoto()
                     }
                     .fontWeight(.semibold)
+                    .disabled(isSavingCrop)
                     .accessibilityIdentifier("ProfilePhotoCrop.Save")
                 }
             }
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+        .presentationCornerRadius(AppTheme.Sheet.cornerRadius)
+        .presentationBackground {
+            AppTheme.Colors.screenBackgroundGradient
+                .ignoresSafeArea()
+        }
         .appSheetContentTopSpacing()
         .onAppear {
             resetCropGestures()
@@ -86,7 +98,7 @@ struct ProfilePhotoCropSheet: View {
     private var cropCanvas: some View {
         GeometryReader { proxy in
             ZStack {
-                Color.black.opacity(0.88)
+                AppTheme.Colors.screenBackgroundGradient
 
                 Image(uiImage: sourceImage)
                     .resizable()
@@ -148,17 +160,33 @@ struct ProfilePhotoCropSheet: View {
     }
 
     private func saveCroppedPhoto() {
+        guard !isSavingCrop else { return }
+        isSavingCrop = true
+
         let resolvedOffset = clamped(offset, for: gestureScale)
-        guard let data = ProfilePhotoCropRenderer.croppedJPEGData(
-            from: sourceImage,
-            cropDiameter: Layout.cropDiameter,
-            gestureScale: gestureScale,
-            offset: resolvedOffset
-        ) else {
-            onCancel()
-            return
+        let source = sourceImage
+        let scale = gestureScale
+        let diameter = Layout.cropDiameter
+
+        Task {
+            let data = await Task.detached(priority: .userInitiated) {
+                ProfilePhotoCropRenderer.croppedJPEGData(
+                    from: source,
+                    cropDiameter: diameter,
+                    gestureScale: scale,
+                    offset: resolvedOffset
+                )
+            }.value
+
+            await MainActor.run {
+                isSavingCrop = false
+                guard let data else {
+                    onCancel()
+                    return
+                }
+                onSave(data)
+            }
         }
-        onSave(data)
     }
     #endif
 }

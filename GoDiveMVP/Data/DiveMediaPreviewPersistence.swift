@@ -52,6 +52,7 @@ enum DiveMediaPreviewPersistence: Sendable {
         let targetSize = CGSize(width: pixelWidth * scale, height: pixelHeight * scale)
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
+        format.opaque = true
         return UIGraphicsImageRenderer(size: targetSize, format: format).image { _ in
             image.draw(in: CGRect(origin: .zero, size: targetSize))
         }

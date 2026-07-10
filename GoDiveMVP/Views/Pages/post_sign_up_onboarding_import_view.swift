@@ -5,7 +5,7 @@ import SwiftUI
 struct PostSignUpOnboardingImportView: View {
     @Environment(\.modelContext) private var modelContext
 
-    let onComplete: () -> Void
+    let onComplete: (_ followsBulkImport: Bool) -> Void
 
     @State private var showsMacDiveGuide = false
     @State private var isFileImporterPresented = false
@@ -82,7 +82,7 @@ struct PostSignUpOnboardingImportView: View {
     }
 
     private var onboardingSkipAction: (() -> Void)? {
-        importOverlay.allowsAbortingOnboardingImport ? onComplete : nil
+        importOverlay.allowsAbortingOnboardingImport ? { advanceToCelebration(followsBulkImport: false) } : nil
     }
 
     private func requestFileImporter() {
@@ -231,7 +231,7 @@ struct PostSignUpOnboardingImportView: View {
             }
             try? await Task.sleep(for: DiveImportSuccessTiming.sleepAfterCompleteBeforeDismiss)
             importOverlay = .hidden
-            onComplete()
+            advanceToCelebration(followsBulkImport: false)
         } else {
             importOverlay = .failed(outcome.userMessage)
         }
@@ -241,11 +241,31 @@ struct PostSignUpOnboardingImportView: View {
     private func dismissUddfImportSummaryAndContinue() {
         showUddfImportCompleteAlert = false
         uddfImportSummary = nil
-        onComplete()
+        advanceToCelebration(followsBulkImport: true)
+    }
+
+    @MainActor
+    private func advanceToCelebration(followsBulkImport: Bool) {
+        SignInCelebrationTransitionDiagnostics.resetAnchor("import_advanceToCelebration")
+        SignInCelebrationTransitionDiagnostics.mark(
+            "import_advanceToCelebration followsBulkImport=\(followsBulkImport)"
+        )
+        Task { @MainActor in
+            let signpostID = SignInCelebrationTransitionDiagnostics.begin(.importToCelebration)
+            await Task.yield()
+            try? await Task.sleep(for: .milliseconds(followsBulkImport ? 350 : 80))
+            guard !Task.isCancelled else {
+                SignInCelebrationTransitionDiagnostics.end(.importToCelebration, signpostID: signpostID)
+                return
+            }
+            SignInCelebrationTransitionDiagnostics.mark("import_onComplete_calling")
+            onComplete(followsBulkImport)
+            SignInCelebrationTransitionDiagnostics.end(.importToCelebration, signpostID: signpostID)
+        }
     }
 }
 
 #Preview {
-    PostSignUpOnboardingImportView(onComplete: {})
+    PostSignUpOnboardingImportView(onComplete: { _ in })
         .modelContainer(try! AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true))
 }

@@ -91,15 +91,13 @@ enum TripDetailContentSnapshotBuilder: Sendable {
         snapshot: TripDetailContentSnapshot,
         trip: DiveTrip,
         unitSystem: DiveDisplayUnitSystem,
+        marineLifeCatalog: [MarineLife],
         modelContext: ModelContext
     ) -> TripDetailContentSnapshot {
         let linked = DiveTripPresentation.linkedDiveActivities(for: trip)
         let linkedDiveIDs = Set(linked.map(\.id))
         guard !linkedDiveIDs.isEmpty else { return snapshot }
 
-        let marineLifeCatalog = (try? modelContext.fetch(
-            FetchDescriptor<MarineLife>(sortBy: [SortDescriptor(\.commonName)])
-        )) ?? []
         let linkedSightings = (try? MarineLifeSightingRecorder.sightings(
             forDiveActivityIDs: linkedDiveIDs,
             modelContext: modelContext

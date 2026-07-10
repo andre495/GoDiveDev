@@ -3,30 +3,27 @@ import SwiftUI
 import UIKit
 #endif
 
-/// Full-screen GoDive brand + rising bubble ramp after profile setup — then Home slides up.
+/// Full-screen GoDive brand + standard bubbles after profile setup — then Home slides up.
 struct SignInCelebrationView: View {
     let onComplete: () -> Void
 
     @State private var logoScale: CGFloat = 0.72
     @State private var logoOpacity: CGFloat = 0
     @State private var brandOpacity: CGFloat = 0
-    @State private var bubbleSpeedMultiplier = SignInCelebrationPresentation.bubbleSpeedStartMultiplier
+    @State private var celebrationStartTime = Date().timeIntervalSinceReferenceDate
     @State private var dismissTask: Task<Void, Never>?
     @State private var hapticTask: Task<Void, Never>?
 
     var body: some View {
         ZStack {
-            WaterBubbleBackground(
-                intensity: .standard,
-                speedMultiplier: bubbleSpeedMultiplier
-            )
+            WaterBubbleBackground()
 
             AppTheme.Colors.surface
                 .opacity(0.28)
                 .ignoresSafeArea()
 
             VStack(spacing: AppTheme.Spacing.lg) {
-                Image("GoDiveLogoPin")
+                GoDiveLogoPinPresentation.image
                     .resizable()
                     .scaledToFit()
                     .frame(width: 128, height: 128)
@@ -44,7 +41,13 @@ struct SignInCelebrationView: View {
         }
         .ignoresSafeArea()
         .accessibilityIdentifier(SignInCelebrationPresentation.rootAccessibilityIdentifier)
-        .onAppear {
+        .task {
+            let signpostID = SignInCelebrationTransitionDiagnostics.begin(.celebrationFirstFrame)
+            celebrationStartTime = Date().timeIntervalSinceReferenceDate
+            SignInCelebrationTransitionDiagnostics.mark("SignInCelebrationView_task_begin")
+            await Task.yield()
+            SignInCelebrationTransitionDiagnostics.mark("SignInCelebrationView_task_after_yield")
+
             withAnimation(
                 .spring(
                     response: SignInCelebrationPresentation.logoSpringResponse,
@@ -60,20 +63,28 @@ struct SignInCelebrationView: View {
             ) {
                 brandOpacity = 1
             }
-            withAnimation(.easeIn(duration: SignInCelebrationPresentation.bubbleSpeedRampDuration)) {
-                bubbleSpeedMultiplier = SignInCelebrationPresentation.bubbleSpeedEndMultiplier
-            }
 
             startCelebrationHapticsIfNeeded()
 
             dismissTask?.cancel()
             dismissTask = Task {
-                try? await Task.sleep(nanoseconds: SignInCelebrationPresentation.durationNanoseconds)
+                let holdNanoseconds = SignInCelebrationPresentation.durationNanoseconds
+                    - SignInCelebrationPresentation.handoffFadeOutNanoseconds
+                try? await Task.sleep(nanoseconds: holdNanoseconds)
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    withAnimation(.easeOut(duration: SignInCelebrationPresentation.handoffFadeOutDuration)) {
+                        logoOpacity = 0
+                        brandOpacity = 0
+                    }
+                }
+                try? await Task.sleep(nanoseconds: SignInCelebrationPresentation.handoffFadeOutNanoseconds)
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
                     onComplete()
                 }
             }
+            SignInCelebrationTransitionDiagnostics.end(.celebrationFirstFrame, signpostID: signpostID)
         }
         .onDisappear {
             dismissTask?.cancel()
@@ -87,6 +98,7 @@ struct SignInCelebrationView: View {
         hapticTask?.cancel()
         guard SignInCelebrationPresentation.shouldPlayCelebrationHaptics() else { return }
 
+        let startTime = celebrationStartTime
         hapticTask = Task { @MainActor in
             let startDelay = SignInCelebrationPresentation.hapticBurstStartDelaySeconds
             try? await Task.sleep(nanoseconds: UInt64(startDelay * 1_000_000_000))
@@ -100,18 +112,24 @@ struct SignInCelebrationView: View {
             soft.prepare()
             medium.prepare()
 
-            for index in 0 ..< SignInCelebrationPresentation.hapticBurstCount {
-                guard !Task.isCancelled else { return }
+            var index = 0
+            while !Task.isCancelled {
+                let elapsed = Date().timeIntervalSinceReferenceDate - startTime
+                guard elapsed < SignInCelebrationPresentation.animationDuration else { break }
+
                 let generator: UIImpactFeedbackGenerator
                 switch index % 3 {
                 case 0: generator = light
                 case 1: generator = soft
                 default: generator = medium
                 }
-                generator.impactOccurred(intensity: index.isMultiple(of: 4) ? 0.85 : 0.55)
+                generator.impactOccurred(
+                    intensity: SignInCelebrationPresentation.hapticImpactIntensity(index: index)
+                )
                 generator.prepare()
 
-                let interval = SignInCelebrationPresentation.hapticIntervalSeconds(index: index)
+                let interval = SignInCelebrationPresentation.hapticWaitIntervalSeconds(index: index)
+                index += 1
                 try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
             }
             #endif

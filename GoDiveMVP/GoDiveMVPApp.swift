@@ -67,6 +67,15 @@ private struct ProductionAppRoot: View {
                 AppLaunchMaintenance.runInBackground(container: container)
                 await scheduleDeferredMapWarmup()
             }
+            .onChange(of: accountSession.showsMainAppShell) { _, showsMain in
+                guard showsMain else { return }
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(600))
+                    #if canImport(GoogleMaps)
+                    GoogleMapsWarmup.warmUpIfNeeded()
+                    #endif
+                }
+            }
             #if DEBUG
             .task {
                 if MockDataSeeding.isLaunchSeedingEnabled {
@@ -81,7 +90,9 @@ private struct ProductionAppRoot: View {
         await MainActor.run {
             MapKitWarmup.warmUpIfNeeded()
             #if canImport(GoogleMaps)
-            GoogleMapsWarmup.warmUpIfNeeded()
+            if accountSession.showsMainAppShell {
+                GoogleMapsWarmup.warmUpIfNeeded()
+            }
             #endif
         }
     }

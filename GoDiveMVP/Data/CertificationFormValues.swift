@@ -10,6 +10,7 @@ struct CertificationFormValues: Equatable, Sendable {
     var instructor: String = ""
     var instructorNumber: String = ""
     var diveShop: String = ""
+    var diveShopNumber: String = ""
 
     var cardType: CertificationCardType = .certification
 
@@ -32,6 +33,7 @@ struct CertificationFormValues: Equatable, Sendable {
         instructor = certification.instructor
         instructorNumber = certification.instructorNumber
         diveShop = certification.diveShop ?? ""
+        diveShopNumber = certification.diveShopNumber ?? ""
         cardType = certification.cardType
         certFrontPicture = certification.certFrontPicture
         certBackPicture = certification.certBackPicture
@@ -46,6 +48,8 @@ struct CertificationFormValues: Equatable, Sendable {
         certification.instructorNumber = instructorNumber.trimmingCharacters(in: .whitespacesAndNewlines)
         let shop = diveShop.trimmingCharacters(in: .whitespacesAndNewlines)
         certification.diveShop = shop.isEmpty ? nil : shop
+        let shopNumber = diveShopNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        certification.diveShopNumber = shopNumber.isEmpty ? nil : shopNumber
         certification.cardType = cardType
         certification.certFrontPicture = certFrontPicture
         certification.certBackPicture = certBackPicture
@@ -53,6 +57,7 @@ struct CertificationFormValues: Equatable, Sendable {
 
     func makeCertification() -> Certification {
         let shop = diveShop.trimmingCharacters(in: .whitespacesAndNewlines)
+        let shopNumber = diveShopNumber.trimmingCharacters(in: .whitespacesAndNewlines)
         return Certification(
             agency: agency.trimmingCharacters(in: .whitespacesAndNewlines),
             certName: certName.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -61,6 +66,7 @@ struct CertificationFormValues: Equatable, Sendable {
             instructor: instructor.trimmingCharacters(in: .whitespacesAndNewlines),
             instructorNumber: instructorNumber.trimmingCharacters(in: .whitespacesAndNewlines),
             diveShop: shop.isEmpty ? nil : shop,
+            diveShopNumber: shopNumber.isEmpty ? nil : shopNumber,
             cardType: cardType,
             certFrontPicture: certFrontPicture,
             certBackPicture: certBackPicture

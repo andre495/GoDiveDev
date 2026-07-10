@@ -12,7 +12,7 @@ When you have dives with library photos or videos, Home shows a rotating carouse
 
 If you have dives but no qualifying library media, Home keeps the same hero layout with a soft gradient behind bouncing photo/video ghost tiles and **Add Media to your Dives** under the animation (not a link).
 
-If you have no activities logged yet, Home uses the same blue-sheet layout and hero band — gradient background, ghost-tile animation, and a Liquid Glass **Log Your First Dive** button under the animation that opens Logbook — with the stats panel below still showing all four tiles with blank entries until you log dives.
+If you have no activities logged yet, Home uses the same blue-sheet layout and hero band — gradient background, ghost-tile animation, and a Liquid Glass **Log Your First Dive** button under the animation that opens **Add activity** (FIT, UDDF, or manual entry) — with the stats panel below still showing all four tiles with blank entries until you log dives.
 
 ## Lifetime stats
 

@@ -10,12 +10,20 @@ struct DiveActivityBuddiesEditSheet: View {
 
     @Bindable var activity: DiveActivity
 
-    @Query(sort: [SortDescriptor(\DiveBuddy.displayName, order: .forward)])
-    private var allBuddies: [DiveBuddy]
+    @Query private var ownedBuddies: [DiveBuddy]
 
     @State private var showsAddBuddySheet = false
     @State private var draftTaggedBuddyIDs: Set<UUID> = []
     @State private var draftRosterOverrides: [UUID: DiveBuddy] = [:]
+
+    init(activity: DiveActivity) {
+        self._activity = Bindable(wrappedValue: activity)
+        let filterOwnerID = activity.ownerProfileID
+        _ownedBuddies = Query(
+            filter: #Predicate<DiveBuddy> { $0.ownerProfileID == filterOwnerID },
+            sort: [SortDescriptor(\DiveBuddy.displayName, order: .forward)]
+        )
+    }
 
     private var rosterByID: [UUID: DiveBuddy] {
         var map = Dictionary(uniqueKeysWithValues: ownedBuddies.map { ($0.id, $0) })
@@ -27,11 +35,6 @@ struct DiveActivityBuddiesEditSheet: View {
 
     private var ownerProfileID: UUID? {
         accountSession.currentProfile?.id
-    }
-
-    private var ownedBuddies: [DiveBuddy] {
-        guard let ownerProfileID else { return [] }
-        return allBuddies.filter { $0.ownerProfileID == ownerProfileID }
     }
 
     var body: some View {

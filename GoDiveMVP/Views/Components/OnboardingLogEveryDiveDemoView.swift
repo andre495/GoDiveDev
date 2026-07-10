@@ -390,9 +390,8 @@ struct OnboardingLogEveryDiveDemoView: View {
 
   private func startDemoLoop() {
     stopDemoLoop()
-    resetDemoState()
-
     demoTask = Task { @MainActor in
+      resetDemoState()
       while !Task.isCancelled {
         await runDemoCycle()
         try? await Task.sleep(for: .milliseconds(500))

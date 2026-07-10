@@ -7,7 +7,8 @@ struct DiveMarineLifeMediaTagsSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
 
-    @Query(sort: \MarineLife.commonName) private var catalog: [MarineLife]
+    @State private var catalog: [MarineLife] = []
+    @State private var hasLoadedCatalog = false
 
     let media: DiveMediaPhoto
     let dive: DiveActivity
@@ -79,7 +80,13 @@ struct DiveMarineLifeMediaTagsSheet: View {
             }
         }
         .appSheetPresentationChrome()
-        .onAppear(perform: reloadTaggedRows)
+        .task(id: media.id) {
+            await loadCatalogIfNeeded()
+            reloadTaggedRows()
+        }
+        .onChange(of: catalog.count) { _, _ in
+            reloadTaggedRows()
+        }
     }
 
     private var taggedSpeciesList: some View {
@@ -108,6 +115,15 @@ struct DiveMarineLifeMediaTagsSheet: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+    }
+
+    private func loadCatalogIfNeeded() async {
+        guard catalog.isEmpty else {
+            hasLoadedCatalog = true
+            return
+        }
+        catalog = await MarineLifeCatalogLoader.loadSortedCatalog(modelContext: modelContext)
+        hasLoadedCatalog = true
     }
 
     private func reloadTaggedRows() {
@@ -169,7 +185,8 @@ struct DiveMarineLifeTagPickerSheet: View {
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @Environment(AccountSession.self) private var accountSession
 
-    @Query(sort: \MarineLife.commonName) private var catalog: [MarineLife]
+    @State private var catalog: [MarineLife] = []
+    @State private var hasLoadedCatalog = false
 
     let media: DiveMediaPhoto
     let dive: DiveActivity
@@ -221,7 +238,8 @@ struct DiveMarineLifeTagPickerSheet: View {
             }
         }
         .appSheetPresentationChrome()
-        .onAppear {
+        .task(id: media.id) {
+            await loadCatalogIfNeeded()
             reloadTaggedMarineLifeUUIDs()
             syncCatalogCache()
             refreshDisplayedRows(immediate: true)
@@ -258,7 +276,10 @@ struct DiveMarineLifeTagPickerSheet: View {
 
     @ViewBuilder
     private var pickerContent: some View {
-        if catalog.isEmpty {
+        if !hasLoadedCatalog, catalog.isEmpty {
+            ProgressView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if catalog.isEmpty {
             ContentUnavailableView(
                 "No species in catalog",
                 systemImage: "fish",
@@ -311,6 +332,15 @@ struct DiveMarineLifeTagPickerSheet: View {
             get: { tagErrorMessage != nil },
             set: { if !$0 { tagErrorMessage = nil } }
         )
+    }
+
+    private func loadCatalogIfNeeded() async {
+        guard catalog.isEmpty else {
+            hasLoadedCatalog = true
+            return
+        }
+        catalog = await MarineLifeCatalogLoader.loadSortedCatalog(modelContext: modelContext)
+        hasLoadedCatalog = true
     }
 
     private func syncCatalogCache() {

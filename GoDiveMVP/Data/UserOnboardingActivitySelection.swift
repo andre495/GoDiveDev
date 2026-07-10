@@ -12,7 +12,7 @@ struct UserOnboardingActivitySelection: Hashable, Sendable {
         doesSnorkeling: false
     )
 
-    /// Welcome screen default — scuba pre-selected so **Show me around** is enabled immediately.
+    /// Welcome screen default — scuba pre-selected so **Get Started** is enabled immediately.
     nonisolated static let welcomeDefault = UserOnboardingActivitySelection(
         doesScubaDiving: true,
         doesFreeDiving: false,
