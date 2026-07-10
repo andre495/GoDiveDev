@@ -62,6 +62,34 @@ enum UddfDiveFileImport {
         onMediaAttachProgress: DiveLibraryMediaAutoAttach.ProgressHandler? = nil
     ) async -> DiveFileImportOutcome {
         do {
+            return try await DiveFileImportAutosaveScope.withAutosaveDisabled(modelContext: modelContext) {
+                try await persistImportedActivitiesWhileAutosaveDisabled(
+                    activities,
+                    modelContext: modelContext,
+                    owner: owner,
+                    createMissingDiveSites: createMissingDiveSites,
+                    attachMediaFromPhotoLibrary: attachMediaFromPhotoLibrary,
+                    onProgress: onProgress,
+                    onMediaAttachProgress: onMediaAttachProgress
+                )
+            }
+        } catch {
+            modelContext.rollback()
+            return DiveFileImportOutcome(userMessage: error.localizedDescription, primaryInsertedDiveId: nil)
+        }
+    }
+
+    @MainActor
+    private static func persistImportedActivitiesWhileAutosaveDisabled(
+        _ activities: [DiveActivity],
+        modelContext: ModelContext,
+        owner: UserProfile?,
+        createMissingDiveSites: Bool,
+        attachMediaFromPhotoLibrary: Bool?,
+        onProgress: ProgressHandler?,
+        onMediaAttachProgress: DiveLibraryMediaAutoAttach.ProgressHandler?
+    ) async throws -> DiveFileImportOutcome {
+        do {
             guard let owner = owner ?? AccountSession.shared.currentProfile else {
                 return DiveFileImportOutcome(
                     userMessage: "Sign in to import dives.",
@@ -91,6 +119,9 @@ enum UddfDiveFileImport {
             var importedBuddyIDs = Set<UUID>()
 
             for (index, activity) in activities.enumerated() {
+                if let interrupted = DiveFileImportInterruption.rollbackIfNeededBeforeSave(modelContext: modelContext) {
+                    return interrupted
+                }
                 let candidate = DiveActivityDuplicateMatcher.signature(for: activity)
                 if let match = DiveActivityDuplicateMatcher.findDuplicate(for: candidate, among: duplicateBaseline) {
                     skippedDuplicates += 1
@@ -129,6 +160,10 @@ enum UddfDiveFileImport {
                 }
             }
 
+            if let interrupted = DiveFileImportInterruption.rollbackIfNeededBeforeSave(modelContext: modelContext) {
+                return interrupted
+            }
+
             let createdDiveSites = DiveActivitySiteAssociation.applySiteLinksForImportedActivities(
                 inserted,
                 catalogSites: &catalogSites,
@@ -144,11 +179,19 @@ enum UddfDiveFileImport {
             )
             await DiveActivityTimeZoneResolution.resolveMissingOffsets(for: inserted)
 
+            if let interrupted = DiveFileImportInterruption.rollbackIfNeededBeforeSave(modelContext: modelContext) {
+                return interrupted
+            }
+
             await DiveBuddyContactAutoLink.autoLinkUnlinkedBuddies(
                 owner: owner,
                 modelContext: modelContext,
                 buddyIDs: importedBuddyIDs
             )
+
+            if let interrupted = DiveFileImportInterruption.rollbackIfNeededBeforeSave(modelContext: modelContext) {
+                return interrupted
+            }
 
             if inserted.isEmpty {
                 if skippedDuplicates == 1,
@@ -187,6 +230,7 @@ enum UddfDiveFileImport {
                 ownerProfileID: owner.id,
                 modelContext: modelContext
             )
+            try modelContext.save()
 
             let shouldAttachMedia = attachMediaFromPhotoLibrary
                 ?? AppUserSettings.autoUploadMediaToActivities
@@ -226,7 +270,8 @@ enum UddfDiveFileImport {
                 createdDiveSiteCount: createdDiveSites
             )
         } catch {
-            return DiveFileImportOutcome(userMessage: error.localizedDescription, primaryInsertedDiveId: nil)
+            modelContext.rollback()
+            throw error
         }
     }
 

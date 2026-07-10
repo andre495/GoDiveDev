@@ -3,7 +3,7 @@ import SwiftUI
 import UIKit
 #endif
 
-/// Scripted trip detail pager → share card preview for onboarding.
+/// Scripted trip detail pager → full-bleed share-card PNG preview for onboarding.
 struct OnboardingShareWithFriendsDemoView: View {
   let isActive: Bool
   var maxPhoneHeight: CGFloat = OnboardingDemoPhoneFrameMetrics.defaultMaxHeight
@@ -12,6 +12,9 @@ struct OnboardingShareWithFriendsDemoView: View {
   @State private var selectedPage = OnboardingShareWithFriendsDemoFixtures.DemoPage.stats
   @State private var highlightsShareButton = false
   @State private var demoTask: Task<Void, Never>?
+  #if canImport(UIKit)
+  @State private var shareCardPreviewImage: UIImage?
+  #endif
 
   private enum Screen {
     case tripDetail
@@ -19,47 +22,37 @@ struct OnboardingShareWithFriendsDemoView: View {
   }
 
   private typealias DemoPage = OnboardingShareWithFriendsDemoFixtures.DemoPage
-
-  private enum Layout {
-    static let statusBarInset: CGFloat = 54
-    static let heroHeight = OnboardingShareWithFriendsDemoFixtures.heroHeight
-    static let panelOverlap = OnboardingShareWithFriendsDemoFixtures.panelOverlap
-    static let pinnedSummaryHeight: CGFloat = 68
-    static let demoBuddyAvatarDiameter = OnboardingShareWithFriendsDemoFixtures.buddyAvatarDiameter
-  }
-
-  private var shareCardPreviewScale: CGFloat {
-    OnboardingShareWithFriendsDemoFixtures.shareCardScaleForPhoneFrame()
-  }
-
-  private var phoneLogicalSize: CGSize {
-    OnboardingDemoPhoneFrameMetrics.referenceLogicalSize
-  }
+  private typealias DemoMetrics = OnboardingShareWithFriendsDemoLayout.Metrics
 
   var body: some View {
     OnboardingDemoPhoneFrame(maxHeight: maxPhoneHeight) {
-      ZStack {
-        switch screen {
-        case .tripDetail:
-          tripDetailScene
-            .transition(
-              .asymmetric(
-                insertion: .opacity,
-                removal: .move(edge: .leading).combined(with: .opacity)
+      GeometryReader { geometry in
+        let metrics = OnboardingShareWithFriendsDemoLayout.metrics(phoneSize: geometry.size)
+
+        ZStack {
+          switch screen {
+          case .tripDetail:
+            tripDetailScene(metrics: metrics)
+              .transition(
+                .asymmetric(
+                  insertion: .opacity,
+                  removal: .move(edge: .leading).combined(with: .opacity)
+                )
               )
-            )
-        case .sharePreview:
-          sharePreviewScene
-            .transition(
-              .asymmetric(
-                insertion: .move(edge: .trailing).combined(with: .opacity),
-                removal: .opacity
+          case .sharePreview:
+            sharePreviewScene(metrics: metrics)
+              .transition(
+                .asymmetric(
+                  insertion: .move(edge: .trailing).combined(with: .opacity),
+                  removal: .opacity
+                )
               )
-            )
+          }
         }
+        .frame(width: geometry.size.width, height: geometry.size.height)
+        .background(AppTheme.Colors.surface)
+        .clipped()
       }
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
-      .background(AppTheme.Colors.surface)
     }
     .frame(maxWidth: .infinity)
     .allowsHitTesting(false)
@@ -72,6 +65,7 @@ struct OnboardingShareWithFriendsDemoView: View {
       }
     }
     .onAppear {
+      warmShareCardPreviewIfNeeded()
       if isActive {
         startDemoLoop()
       }
@@ -83,49 +77,68 @@ struct OnboardingShareWithFriendsDemoView: View {
 
   // MARK: - Trip detail
 
-  private var tripDetailScene: some View {
+  private func tripDetailScene(metrics: DemoMetrics) -> some View {
     ZStack(alignment: .top) {
-      VStack(spacing: 0) {
-        tripHero
-        tripBlueSheetPanel
+      VStack(spacing: -metrics.panelOverlap) {
+        tripHero(metrics: metrics)
+        tripBlueSheetPanel(metrics: metrics)
       }
+      .frame(width: metrics.phoneSize.width, height: metrics.phoneSize.height, alignment: .top)
 
       VStack(spacing: 0) {
         Color.clear
-          .frame(height: Layout.statusBarInset)
+          .frame(height: metrics.statusBarInset)
           .accessibilityHidden(true)
 
         tripTopChrome
         Spacer(minLength: 0)
       }
+      .frame(width: metrics.phoneSize.width, height: metrics.phoneSize.height, alignment: .top)
     }
   }
 
-  private var tripHero: some View {
+  private func tripHero(metrics: DemoMetrics) -> some View {
     ZStack {
-      LinearGradient(
-        colors: [
-          Color(red: 0.05, green: 0.22, blue: 0.38),
-          Color(red: 0.12, green: 0.42, blue: 0.55),
-        ],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-      )
-
-      Image(systemName: "airplane.departure")
-        .font(.system(size: 64, weight: .semibold))
-        .foregroundStyle(.white.opacity(0.22))
-        .offset(y: 24)
+      #if canImport(UIKit)
+      if let image = OnboardingShareWithFriendsDemoFixtures.tripHeroImage {
+        Image(uiImage: image)
+          .resizable()
+          .scaledToFill()
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+          .clipped()
+      } else {
+        tripHeroPlaceholder
+      }
+      #else
+      tripHeroPlaceholder
+      #endif
     }
-    .frame(height: Layout.heroHeight)
-    .frame(maxWidth: .infinity)
+    .frame(width: metrics.phoneSize.width, height: metrics.heroHeight)
+  }
+
+  private var tripHeroPlaceholder: some View {
+    LinearGradient(
+      colors: [
+        Color(red: 0.05, green: 0.22, blue: 0.38),
+        Color(red: 0.12, green: 0.42, blue: 0.55),
+      ],
+      startPoint: .topLeading,
+      endPoint: .bottomTrailing
+    )
+    .overlay {
+      Image(systemName: "airplane.departure")
+        .font(.system(size: 56, weight: .semibold))
+        .foregroundStyle(.white.opacity(0.22))
+        .offset(y: 16)
+    }
   }
 
   private var tripTopChrome: some View {
     HStack(spacing: AppTheme.Spacing.sm) {
       Image(systemName: "chevron.left")
-        .appToolbarIconButtonLabel()
-        .frame(width: 44, height: 44)
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(AppTheme.Colors.secondaryText)
+        .frame(width: 40, height: 40)
         .background {
           Circle()
             .fill(AppTheme.Colors.surfaceElevated.opacity(0.92))
@@ -134,9 +147,9 @@ struct OnboardingShareWithFriendsDemoView: View {
       Spacer(minLength: 0)
 
       Text("Edit")
-        .font(.body.weight(.semibold))
+        .font(.subheadline.weight(.semibold))
         .padding(.horizontal, AppTheme.Spacing.sm)
-        .frame(height: 44)
+        .frame(height: 40)
         .background {
           Capsule()
             .fill(AppTheme.Colors.surfaceElevated.opacity(0.92))
@@ -146,96 +159,109 @@ struct OnboardingShareWithFriendsDemoView: View {
     .padding(.top, AppTheme.Spacing.sm)
   }
 
-  private var tripBlueSheetPanel: some View {
-    VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-      tripPinnedSummary
-      tripPager
+  private func tripBlueSheetPanel(metrics: DemoMetrics) -> some View {
+    VStack(alignment: .leading, spacing: 6) {
+      tripPinnedSummary(metrics: metrics)
+      tripPager(metrics: metrics)
     }
     .padding(.horizontal, AppTheme.Spacing.md)
-    .padding(.top, AppTheme.Spacing.sm)
-    .padding(.bottom, AppTheme.Spacing.md)
-    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    .padding(.top, 12)
+    .padding(.bottom, 6)
+    .frame(width: metrics.phoneSize.width, height: metrics.blueSheetHeight, alignment: .top)
     .background {
       RoundedRectangle(cornerRadius: 20, style: .continuous)
         .fill(.thinMaterial)
     }
-    .offset(y: -Layout.panelOverlap)
   }
 
-  private var tripPinnedSummary: some View {
-    BlueSheetPinnedSummary(
-      accent: OnboardingShareWithFriendsDemoFixtures.tripDateRange,
-      accentColor: AppTheme.Colors.accent,
-      title: OnboardingShareWithFriendsDemoFixtures.tripTitle,
-      accessibilityIdentifier: "OnboardingShareWithFriendsDemo.TripTitle"
-    )
-    .frame(height: Layout.pinnedSummaryHeight, alignment: .top)
+  private func tripPinnedSummary(metrics: DemoMetrics) -> some View {
+    VStack(alignment: .leading, spacing: 4) {
+      Text(OnboardingShareWithFriendsDemoFixtures.tripDateRange)
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(AppTheme.Colors.accent)
+        .lineLimit(1)
+        .minimumScaleFactor(0.85)
+
+      Text(OnboardingShareWithFriendsDemoFixtures.tripTitle)
+        .font(.title3.weight(.bold))
+        .foregroundStyle(AppTheme.Colors.textPrimary)
+        .lineLimit(1)
+        .minimumScaleFactor(0.85)
+        .accessibilityIdentifier("OnboardingShareWithFriendsDemo.TripTitle")
+    }
+    .frame(height: metrics.pinnedSummaryHeight, alignment: .topLeading)
   }
 
-  private var tripPager: some View {
+  private func tripPager(metrics: DemoMetrics) -> some View {
     TabView(selection: $selectedPage) {
       ForEach(OnboardingShareWithFriendsDemoFixtures.demoPages) { page in
-        pagerPageContent(for: page)
+        pagerPageContent(for: page, metrics: metrics)
           .tag(page)
       }
     }
     .tabViewStyle(.page(indexDisplayMode: .automatic))
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .frame(height: metrics.pagerHeight)
   }
 
   @ViewBuilder
-  private func pagerPageContent(for page: DemoPage) -> some View {
+  private func pagerPageContent(for page: DemoPage, metrics: DemoMetrics) -> some View {
     switch page {
     case .stats:
-      TripDetailTripStatsSection(tiles: OnboardingShareWithFriendsDemoFixtures.statTiles)
-        .padding(.top, AppTheme.Spacing.sm)
+      OnboardingTripDemoStatsGrid(
+        tiles: OnboardingShareWithFriendsDemoFixtures.statTiles,
+        tileHeight: metrics.statTileHeight,
+        gridSpacing: metrics.statGridSpacing
+      )
+      .padding(.top, 4)
     case .sites:
-      demoSitesPage
+      demoSitesPage(metrics: metrics)
     case .buddies:
-      demoBuddiesPage
+      demoBuddiesPage(metrics: metrics)
     }
   }
 
-  private var demoSitesPage: some View {
-    VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+  private func demoSitesPage(metrics: DemoMetrics) -> some View {
+    VStack(alignment: .leading, spacing: 6) {
       Text("3 planned sites")
-        .font(.subheadline)
+        .font(.caption.weight(.semibold))
         .foregroundStyle(AppTheme.Colors.secondaryText)
 
       ForEach(OnboardingShareWithFriendsDemoFixtures.plannedSiteRows) { row in
         demoSiteRow(row)
       }
+
+      Spacer(minLength: 0)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
   }
 
   private func demoSiteRow(_ row: OnboardingTripDemoSiteRow) -> some View {
-    VStack(alignment: .leading, spacing: 4) {
+    VStack(alignment: .leading, spacing: 2) {
       Text(row.displayName)
-        .font(.subheadline.weight(.semibold))
+        .font(.caption.weight(.semibold))
         .foregroundStyle(AppTheme.Colors.textPrimary)
         .lineLimit(1)
 
       Text(row.coordinateLine)
-        .font(.caption)
+        .font(.caption2)
         .foregroundStyle(AppTheme.Colors.secondaryText)
         .lineLimit(1)
 
       Text(row.placeLine)
-        .font(.caption)
+        .font(.caption2)
         .foregroundStyle(AppTheme.Colors.secondaryText)
         .lineLimit(1)
     }
-    .padding(AppTheme.Spacing.sm)
+    .padding(8)
     .frame(maxWidth: .infinity, alignment: .leading)
     .background {
-      RoundedRectangle(cornerRadius: 10, style: .continuous)
+      RoundedRectangle(cornerRadius: 8, style: .continuous)
         .fill(AppTheme.Colors.surfaceElevated)
     }
   }
 
-  private var demoBuddiesPage: some View {
-    VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+  private func demoBuddiesPage(metrics: DemoMetrics) -> some View {
+    VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
       let columns = Array(
         repeating: GridItem(.flexible(), spacing: AppTheme.Spacing.sm),
         count: 3
@@ -243,7 +269,7 @@ struct OnboardingShareWithFriendsDemoView: View {
 
       LazyVGrid(columns: columns, alignment: .center, spacing: AppTheme.Spacing.sm) {
         ForEach(OnboardingShareWithFriendsDemoFixtures.taggedBuddies) { buddy in
-          demoBuddyCell(buddy)
+          demoBuddyCell(buddy, diameter: metrics.buddyAvatarDiameter)
         }
       }
 
@@ -254,22 +280,22 @@ struct OnboardingShareWithFriendsDemoView: View {
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
   }
 
-  private func demoBuddyCell(_ buddy: OnboardingTripDemoBuddy) -> some View {
-    VStack(spacing: 6) {
+  private func demoBuddyCell(_ buddy: OnboardingTripDemoBuddy, diameter: CGFloat) -> some View {
+    VStack(spacing: 4) {
       ProfileAvatarView(
         profilePhoto: OnboardingShareWithFriendsDemoFixtures.profilePhotoData(for: buddy),
-        diameter: Layout.demoBuddyAvatarDiameter,
-        iconFont: .body,
+        diameter: diameter,
+        iconFont: .caption,
         placeholderInitials: DiveBuddyPresentation.initials(from: buddy.displayName)
       )
 
       Text(buddy.displayName)
-        .font(.caption.weight(.semibold))
+        .font(.caption2.weight(.semibold))
         .foregroundStyle(AppTheme.Colors.textPrimary)
         .lineLimit(1)
 
       Text(buddy.diveCountLabel)
-        .font(.caption.weight(.semibold))
+        .font(.caption2.weight(.semibold))
         .foregroundStyle(AppTheme.Colors.accent)
         .lineLimit(1)
     }
@@ -278,10 +304,10 @@ struct OnboardingShareWithFriendsDemoView: View {
 
   private var shareButton: some View {
     Text(DiveTripPresentation.shareTripButtonTitle)
-      .font(.body.weight(.semibold))
+      .font(.caption.weight(.semibold))
       .foregroundStyle(AppTheme.Colors.headerChromeIconForeground)
       .frame(maxWidth: .infinity)
-      .frame(height: 44)
+      .frame(height: 40)
       .background {
         Capsule()
           .fill(AppTheme.Colors.surfaceElevated.opacity(0.95))
@@ -297,44 +323,37 @@ struct OnboardingShareWithFriendsDemoView: View {
 
   // MARK: - Share preview
 
-  private var sharePreviewScene: some View {
-    ZStack(alignment: .top) {
+  private func sharePreviewScene(metrics: DemoMetrics) -> some View {
+    ZStack {
       AppOverviewSheetPanelBackground()
         .ignoresSafeArea()
 
-      shareCardPreview
-        .frame(width: phoneLogicalSize.width, height: phoneLogicalSize.height, alignment: .top)
-        .clipped()
+      #if canImport(UIKit)
+      if let shareCardPreviewImage {
+        Image(uiImage: shareCardPreviewImage)
+          .resizable()
+          .scaledToFit()
+          .frame(width: metrics.shareCardFitSize.width, height: metrics.shareCardFitSize.height)
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+          .accessibilityIdentifier("OnboardingShareWithFriendsDemo.SharePreview")
+      }
+      #else
+      RoundedRectangle(cornerRadius: 16, style: .continuous)
+        .fill(AppTheme.Colors.surfaceElevated)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+      #endif
     }
-  }
-
-  @ViewBuilder
-  private var shareCardPreview: some View {
-    #if canImport(UIKit)
-    TripShareCardView(
-      tripTitle: OnboardingShareWithFriendsDemoFixtures.tripTitle,
-      dateRange: OnboardingShareWithFriendsDemoFixtures.tripDateRange,
-      members: OnboardingShareWithFriendsDemoFixtures.shareCardMembers,
-      marineLifeCallout: OnboardingShareWithFriendsDemoFixtures.marineLifeCallout,
-      mapImage: OnboardingShareWithFriendsDemoFixtures.shareCardMapImage
-    )
-    .frame(width: TripShareCardPresentation.cardWidth, alignment: .top)
-    .frame(minHeight: TripShareCardPresentation.cardMinHeight, alignment: .top)
-    .background(AppOverviewSheetPanelBackground())
-    .scaleEffect(shareCardPreviewScale, anchor: .top)
-    .frame(
-      width: TripShareCardPresentation.cardWidth * shareCardPreviewScale,
-      height: TripShareCardPresentation.cardMinHeight * shareCardPreviewScale,
-      alignment: .top
-    )
-    #else
-    RoundedRectangle(cornerRadius: 16, style: .continuous)
-      .fill(AppTheme.Colors.surfaceElevated)
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
-    #endif
+    .frame(width: metrics.phoneSize.width, height: metrics.phoneSize.height)
   }
 
   // MARK: - Timeline
+
+  private func warmShareCardPreviewIfNeeded() {
+    #if canImport(UIKit)
+    guard shareCardPreviewImage == nil else { return }
+    shareCardPreviewImage = OnboardingShareWithFriendsDemoFixtures.renderShareCardPreviewImage()
+    #endif
+  }
 
   private func startDemoLoop() {
     stopDemoLoop()
@@ -390,6 +409,79 @@ struct OnboardingShareWithFriendsDemoView: View {
       highlightsShareButton = false
     }
     try? await Task.sleep(for: .milliseconds(2600))
+  }
+}
+
+// MARK: - Compact stats grid
+
+private struct OnboardingTripDemoStatsGrid: View {
+  let tiles: [DiveTripStatTile]
+  let tileHeight: CGFloat
+  let gridSpacing: CGFloat
+
+  private var columns: [GridItem] {
+    [
+      GridItem(.flexible(), spacing: gridSpacing),
+      GridItem(.flexible(), spacing: gridSpacing),
+    ]
+  }
+
+  var body: some View {
+    LazyVGrid(columns: columns, spacing: gridSpacing) {
+      ForEach(tiles) { tile in
+        OnboardingTripDemoStatTile(tile: tile, tileHeight: tileHeight)
+      }
+    }
+    .frame(
+      height: OnboardingShareWithFriendsDemoLayout.statsGridHeight(
+        tileHeight: tileHeight,
+        spacing: gridSpacing,
+        tileCount: tiles.count
+      )
+    )
+    .frame(maxWidth: .infinity)
+    .accessibilityIdentifier("TripDetail.Stats")
+  }
+}
+
+private struct OnboardingTripDemoStatTile: View {
+  let tile: DiveTripStatTile
+  let tileHeight: CGFloat
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      HStack(spacing: 4) {
+        Image(systemName: tile.systemImage)
+          .font(.system(size: 10, weight: .semibold))
+          .foregroundStyle(AppTheme.Colors.accent)
+
+        Text(tile.title)
+          .font(.system(size: 10, weight: .semibold))
+          .foregroundStyle(AppTheme.Colors.secondaryText)
+          .lineLimit(1)
+          .minimumScaleFactor(0.8)
+
+        Spacer(minLength: 0)
+      }
+
+      Text(tile.value)
+        .font(.system(size: 15, weight: .bold))
+        .foregroundStyle(AppTheme.Colors.textPrimary)
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+
+      if !tile.footnote.isEmpty {
+        Text(tile.footnote)
+          .font(.caption2)
+          .foregroundStyle(AppTheme.Colors.mutedText)
+          .lineLimit(1)
+          .minimumScaleFactor(0.8)
+      }
+    }
+    .padding(8)
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    .frame(height: tileHeight, alignment: .topLeading)
+    .appHighlightTileChrome()
   }
 }
 

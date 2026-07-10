@@ -699,6 +699,13 @@ struct GoDiveMVPTests {
         #expect(ProfilePresentation.danInsuranceLabel("1234567") == "DAN 1234567")
     }
 
+    @Test func profilePresentation_signOutConfirmation_copyIsNonEmpty() {
+        #expect(!ProfilePresentation.signOutConfirmationTitle.isEmpty)
+        #expect(ProfilePresentation.signOutConfirmationMessage.contains("Are you sure"))
+        #expect(ProfilePresentation.signOutConfirmButtonTitle == "Sign out")
+        #expect(ProfilePresentation.signOutCancelButtonTitle == "Cancel")
+    }
+
     @Test func profilePresentation_diveActivityCountLabel_pluralizes() {
         #expect(ProfilePresentation.diveActivityCountLabel(0) == "No dives logged")
         #expect(ProfilePresentation.diveActivityCountLabel(1) == "1 dive")
@@ -1001,6 +1008,13 @@ struct GoDiveMVPTests {
         #expect(OnboardingLogEveryDiveDemoFixtures.demoMediaPhotoID.uuidString.isEmpty == false)
         #expect(OnboardingLogEveryDiveDemoFixtures.depthSamples.count >= 2)
         #expect(OnboardingLogEveryDiveDemoFixtures.mapOverviewStatsLayout.leadingStats.count == 2)
+        #expect(OnboardingLogEveryDiveDemoFixtures.mapRegion.centerLatitude == OnboardingLogEveryDiveDemoFixtures.diveCoordinate.latitude)
+        #expect(OnboardingLogEveryDiveDemoFixtures.mapRegion.centerLongitude == OnboardingLogEveryDiveDemoFixtures.diveCoordinate.longitude)
+        #expect(OnboardingLogEveryDiveDemoFixtures.mediaHeroVideoResourceName == "onboarding-log-every-dive-demo")
+        #expect(OnboardingLogEveryDiveDemoFixtures.mediaHeroVideoResourceExtension == "mov")
+        #expect(OnboardingLogEveryDiveDemoFixtures.taggedMediaSpeciesCommonName == "Red lionfish")
+        #expect(OnboardingLogEveryDiveDemoFixtures.taggedMediaSpeciesScientificName == "Pterois volitans")
+        #expect(!OnboardingLogEveryDiveDemoFixtures.taggedMediaSpeciesDescription.isEmpty)
         for resourceName in OnboardingLogEveryDiveDemoFixtures.demoMarineLifeSpeciesResourceNames {
             #expect(
                 FieldGuideMarineLifeBundledImagePresentation.bundledPhotoURL(resourceName: resourceName) != nil,
@@ -1068,10 +1082,27 @@ struct GoDiveMVPTests {
         #expect(OnboardingShareWithFriendsDemoFixtures.taggedBuddies.count == 3)
         #expect(OnboardingShareWithFriendsDemoFixtures.shareCardMembers.count == 4)
         #expect(OnboardingShareWithFriendsDemoFixtures.tripTitle == "Belize 2026")
-        #expect(OnboardingShareWithFriendsDemoFixtures.heroHeight > 340)
-        #expect(OnboardingShareWithFriendsDemoFixtures.panelOverlap < AppTheme.Spacing.md)
-        #expect(OnboardingShareWithFriendsDemoFixtures.buddyAvatarDiameter >= 64)
+        let metrics = OnboardingShareWithFriendsDemoLayout.metrics()
+        #expect(metrics.heroHeight >= 240)
+        #expect(metrics.heroHeight <= 320)
+        #expect(metrics.pagerHeight >= 180)
+        #expect(metrics.buddyAvatarDiameter >= 48)
+        let statsGrid = OnboardingShareWithFriendsDemoLayout.statsGridHeight(
+            tileHeight: metrics.statTileHeight,
+            spacing: metrics.statGridSpacing,
+            tileCount: OnboardingShareWithFriendsDemoFixtures.statTiles.count
+        )
+        #expect(metrics.pagerHeight >= statsGrid + 8)
+        #expect(metrics.shareCardFitSize.width <= metrics.phoneSize.width + 1)
+        #expect(metrics.shareCardFitSize.height <= metrics.phoneSize.height + 1)
         #expect(OnboardingShareWithFriendsDemoFixtures.shareCardScaleForPhoneFrame() > 0.5)
+        #expect(
+            OnboardingShareWithFriendsDemoFixtures.bundledPhotoURL(
+                resourceName: OnboardingShareWithFriendsDemoFixtures.tripHeroPhotoResourceName
+            ) != nil
+        )
+        #expect(OnboardingShareWithFriendsDemoFixtures.tripHeroPhotoData != nil)
+        #expect(OnboardingShareWithFriendsDemoFixtures.tripHeroImage != nil)
         for resourceName in OnboardingShareWithFriendsDemoFixtures.demoBuddyPhotoResourceNames {
             #expect(
                 FieldGuideMarineLifeBundledImagePresentation.bundledPhotoURL(resourceName: resourceName) != nil,
@@ -1079,6 +1110,11 @@ struct GoDiveMVPTests {
             )
             #expect(OnboardingShareWithFriendsDemoFixtures.bundledJPEGData(named: resourceName) != nil)
         }
+    }
+
+    @Test @MainActor
+    func onboardingShareWithFriendsDemoFixtures_rendersShareCardPreviewImage() {
+        #expect(OnboardingShareWithFriendsDemoFixtures.renderShareCardPreviewImage() != nil)
     }
 
     @Test func onboardingDemoPhoneFrameMetrics_matchIPhonePortraitRatio() {
@@ -1170,10 +1206,87 @@ struct GoDiveMVPTests {
         #expect(kinds == [.scubaDiving, .snorkeling])
     }
 
+    @Test func postSignUpProfileSetupPresentation_profilePhotoCopy_welcomesUserByName() {
+        #expect(PostSignUpProfileSetupPresentation.stepTitle(.profilePhoto, displayName: "Alex") == "Welcome, Alex")
+        #expect(PostSignUpProfileSetupPresentation.stepSubtitle(.profilePhoto) == "Add a profile photo")
+        #expect(PostSignUpProfileSetupPresentation.skipTitle(for: .profilePhoto) == "Skip for now")
+    }
+
     @Test func postSignUpProfileSetupPresentation_previewCopy_isWelcomeAndLetsDiveIn() {
-        #expect(PostSignUpProfileSetupPresentation.stepTitle(.preview) == "Welcome")
+        #expect(PostSignUpProfileSetupPresentation.stepTitle(.preview, displayName: "Alex") == "Welcome")
         #expect(PostSignUpProfileSetupPresentation.stepSubtitle(.preview) == "Let's Dive In")
         #expect(PostSignUpProfileSetupPresentation.continueTitle(for: .preview) == "Let's dive in")
+        #expect(PostSignUpProfileSetupPresentation.skipTitle(for: .preview) == nil)
+    }
+
+    @Test func postSignUpProfileSetupPresentation_skipTitle_onOptionalProfileBuildingSteps() {
+        #expect(PostSignUpProfileSetupPresentation.skipTitle(for: .danInsurance) == "Skip for now")
+        #expect(PostSignUpProfileSetupPresentation.skipTitle(for: .certification) == "Skip for now")
+    }
+
+    @Test func postSignUpProfileSetupPresentation_showsContinueButton_onlyAfterStepInput() {
+        #expect(
+            !PostSignUpProfileSetupPresentation.showsContinueButton(
+                for: .profilePhoto,
+                hasProfilePhoto: false,
+                danInsuranceNumber: "",
+                certificationFormCanSave: false
+            )
+        )
+        #expect(
+            PostSignUpProfileSetupPresentation.showsContinueButton(
+                for: .profilePhoto,
+                hasProfilePhoto: true,
+                danInsuranceNumber: "",
+                certificationFormCanSave: false
+            )
+        )
+        #expect(
+            !PostSignUpProfileSetupPresentation.showsContinueButton(
+                for: .danInsurance,
+                hasProfilePhoto: true,
+                danInsuranceNumber: "   ",
+                certificationFormCanSave: false
+            )
+        )
+        #expect(
+            PostSignUpProfileSetupPresentation.showsContinueButton(
+                for: .danInsurance,
+                hasProfilePhoto: true,
+                danInsuranceNumber: "123456",
+                certificationFormCanSave: false
+            )
+        )
+        #expect(
+            !PostSignUpProfileSetupPresentation.showsContinueButton(
+                for: .certification,
+                hasProfilePhoto: true,
+                danInsuranceNumber: "",
+                certificationFormCanSave: false
+            )
+        )
+        #expect(
+            PostSignUpProfileSetupPresentation.showsContinueButton(
+                for: .certification,
+                hasProfilePhoto: true,
+                danInsuranceNumber: "",
+                certificationFormCanSave: true
+            )
+        )
+        #expect(
+            PostSignUpProfileSetupPresentation.showsContinueButton(
+                for: .preview,
+                hasProfilePhoto: false,
+                danInsuranceNumber: "",
+                certificationFormCanSave: false
+            )
+        )
+    }
+
+    @Test func postSignUpProfileSetupPresentation_showsBackButton_afterFirstStep() {
+        #expect(!PostSignUpProfileSetupPresentation.showsBackButton(stepIndex: 0))
+        #expect(PostSignUpProfileSetupPresentation.showsBackButton(stepIndex: 1))
+        #expect(PostSignUpProfileSetupPresentation.backButtonAccessibilityIdentifier == "PostSignUpProfileSetup.Back")
     }
 
     @Test @MainActor
@@ -1182,6 +1295,70 @@ struct GoDiveMVPTests {
         session.signOut()
         session.completePostSignUpProfileSetup()
         #expect(!session.showsSignInCelebration)
+        #expect(!session.showsPostSignUpImportOffer)
+    }
+
+    @Test @MainActor
+    func postSignUpImportOfferPresentation_shouldPresent_forScubaOrFreeDiveOnly() {
+        let scuba = UserProfile(appleUserIdentifier: "import-a", displayName: "A", doesScubaDiving: true)
+        let snorkel = UserProfile(appleUserIdentifier: "import-b", displayName: "B", doesSnorkeling: true)
+        #expect(PostSignUpImportOfferPresentation.shouldPresentImportOffer(for: scuba, isUITest: false))
+        #expect(!PostSignUpImportOfferPresentation.shouldPresentImportOffer(for: snorkel, isUITest: false))
+        #expect(!PostSignUpImportOfferPresentation.shouldPresentImportOffer(for: scuba, isUITest: true))
+    }
+
+    @Test func postSignUpPermissionsPresentation_shouldPresent_skipsUITest() {
+        #expect(PostSignUpPermissionsPresentation.shouldPresent(isUITest: false))
+        #expect(!PostSignUpPermissionsPresentation.shouldPresent(isUITest: true))
+    }
+
+    @Test func postSignUpPermissionsPresentation_copy_reusesOnboardingPermissionStrings() {
+        #expect(PostSignUpPermissionsPresentation.contactsTitle == "Contacts")
+        #expect(PostSignUpPermissionsPresentation.photosTitle == "Photos")
+        #expect(!PostSignUpPermissionsPresentation.subtitle.isEmpty)
+        #expect(PostSignUpPermissionsPresentation.continueButtonTitle == "Continue")
+    }
+
+    @Test @MainActor
+    func accountSession_completePostSignUpPermissions_isNoOpWhenNotShowingPermissions() {
+        let session = AccountSession.shared
+        session.signOut()
+        session.completePostSignUpPermissions()
+        #expect(!session.showsPostSignUpImportOffer)
+        #expect(!session.showsSignInCelebration)
+    }
+
+    @Test func postSignUpImportOfferPresentation_copy_mentionsMacDiveAndSkip() {
+        #expect(PostSignUpImportOfferPresentation.title == "Bring your old dives")
+        #expect(PostSignUpImportOfferPresentation.importButtonTitle == "Import dives")
+        #expect(PostSignUpImportOfferPresentation.skipButtonTitle == "Skip for now")
+        #expect(PostSignUpImportOfferPresentation.macDiveHintBody.contains("MacDive"))
+    }
+
+    @Test @MainActor
+    func accountSession_completePostSignUpOnboardingImport_isNoOpWhenNotShowingImport() {
+        let session = AccountSession.shared
+        session.signOut()
+        session.completePostSignUpOnboardingImport()
+        #expect(!session.showsSignInCelebration)
+    }
+
+    @Test func postSignUpOnboardingImportPresentation_skipTitle_matchesImportOffer() {
+        #expect(PostSignUpOnboardingImportPresentation.skipButtonTitle == "Skip")
+        #expect(
+            PostSignUpOnboardingImportPresentation.optionsAccessibilityIdentifier
+                == "PostSignUpOnboardingImport.Options"
+        )
+    }
+
+    @Test @MainActor
+    func accountSession_completePostSignUpImportOffer_isNoOpWhenNotShowingOffer() {
+        let session = AccountSession.shared
+        session.signOut()
+        session.completePostSignUpImportOffer(choseImport: true)
+        #expect(!session.showsPostSignUpOnboardingImport)
+        session.completePostSignUpImportOffer(choseImport: false)
+        #expect(!session.showsPostSignUpImportOffer)
     }
 
     @Test @MainActor
@@ -1999,7 +2176,7 @@ struct GoDiveMVPTests {
         #expect(subtitle == "Open Water")
     }
 
-    @Test func certificationPresentation_profileSubtitle_defaultsWithoutCertificationType() {
+    @Test func certificationPresentation_profileSubtitle_nilWithoutCertificationType() {
         let cert = Certification(
             agency: "PADI",
             certName: "Wreck Diver",
@@ -2007,7 +2184,13 @@ struct GoDiveMVPTests {
             dateAttained: .now,
             cardType: .specialty
         )
-        #expect(CertificationPresentation.profileCertificationSubtitle(from: [cert]) == "GoDive User")
+        #expect(CertificationPresentation.profileCertificationSubtitle(from: [cert]) == nil)
+        #expect(CertificationPresentation.profileFeaturedCertification(from: [cert]) == nil)
+    }
+
+    @Test func certificationPresentation_profileSubtitle_nilWhenNoCertifications() {
+        #expect(CertificationPresentation.profileCertificationSubtitle(from: []) == nil)
+        #expect(CertificationPresentation.profileFeaturedCertification(from: []) == nil)
     }
 
     @Test func certificationPresentation_profileFeatured_includesCertNumberUnderName() {
@@ -2019,8 +2202,8 @@ struct GoDiveMVPTests {
             cardType: .certification
         )
         let display = CertificationPresentation.profileFeaturedCertification(from: [cert])
-        #expect(display.title == "Rescue Diver")
-        #expect(display.certNumber == "RD-991")
+        #expect(display?.title == "Rescue Diver")
+        #expect(display?.certNumber == "RD-991")
     }
 
     @Test func certificationPresentation_profileFeatured_omitsNumberWhenNameMissing() {
@@ -2031,8 +2214,8 @@ struct GoDiveMVPTests {
             cardType: .certification
         )
         let display = CertificationPresentation.profileFeaturedCertification(from: [cert])
-        #expect(display.title == "PADI · RD-991")
-        #expect(display.certNumber == nil)
+        #expect(display?.title == "PADI · RD-991")
+        #expect(display?.certNumber == nil)
     }
 
     @Test func certificationPresentation_profileFeatured_omitsNumberWhenEmpty() {
@@ -2044,8 +2227,8 @@ struct GoDiveMVPTests {
             cardType: .certification
         )
         let display = CertificationPresentation.profileFeaturedCertification(from: [cert])
-        #expect(display.title == "Rescue Diver")
-        #expect(display.certNumber == nil)
+        #expect(display?.title == "Rescue Diver")
+        #expect(display?.certNumber == nil)
     }
 
     @Test func certificationPresentation_typeBadgeStyle_differsByCardType() {
@@ -16450,6 +16633,46 @@ struct GoDiveMVPTests {
         #expect(outcome.didSucceed == DiveFileImportSuccess.matches(msg))
         let fail = DiveFileImportOutcome(userMessage: "nope", primaryInsertedDiveId: nil)
         #expect(fail.didSucceed == DiveFileImportSuccess.matches("nope"))
+    }
+
+    @Test func diveFileImportInterruption_userMessage_isNonEmptyAndNotSuccess() {
+        #expect(!DiveFileImportInterruption.userMessage.isEmpty)
+        #expect(!DiveFileImportSuccess.matches(DiveFileImportInterruption.userMessage))
+    }
+
+    @Test @MainActor
+    func diveFileImportAutosaveScope_restoresPriorAutosaveFlag() async throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        context.autosaveEnabled = true
+        _ = try await DiveFileImportAutosaveScope.withAutosaveDisabled(modelContext: context) {
+            #expect(context.autosaveEnabled == false)
+            return true
+        }
+        #expect(context.autosaveEnabled == true)
+    }
+
+    @Test @MainActor
+    func diveFileImportInterruption_rollbackDiscardsPendingInserts() async throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        context.autosaveEnabled = false
+        let owner = UserProfile(appleUserIdentifier: "import-rollback", displayName: "Rollback")
+        context.insert(owner)
+        let activity = DiveActivity(
+            source: .macDive,
+            sourceDiveId: "rollback-test",
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18
+        )
+        DiveActivityOwnership.assignOwner(owner, to: activity)
+        context.insert(activity)
+        let outcome = DiveFileImportInterruption.rollbackAndMakeOutcome(modelContext: context)
+        #expect(!outcome.didSucceed)
+        #expect(outcome.userMessage == DiveFileImportInterruption.userMessage)
+        let fetched = try context.fetch(FetchDescriptor<DiveActivity>())
+        #expect(fetched.isEmpty)
     }
 
     @Test @MainActor

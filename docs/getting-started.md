@@ -37,12 +37,18 @@ Create your on-device log with **Sign in with Apple**.
 
 **New accounts** then walk through a short profile setup:
 
-1. **Profile photo** — optional; tap the avatar to add one.
-2. **DAN insurance** — only if you chose scuba or free diving; optional (**Skip for now**).
-3. **Certification** — only if you chose scuba or free diving; add card photos or enter agency details, or skip.
-4. **Welcome** — title **Welcome**, subtitle **Let's Dive In**, with your photo, name, DAN, certification, and activity interests.
+1. **Profile photo** — **Welcome,** *your name*; subtitle **Add a profile photo**. **Continue** appears after you crop a photo; or **Skip for now**. A **back** chevron on later steps returns to the previous one.
+2. **DAN insurance** — only if you chose scuba or free diving; optional. **Continue** appears after you enter a member number; or **Skip for now**.
+3. **Certification** — only if you chose scuba or free diving. **Continue** appears after agency, certification name, and number are filled in; or **Skip for now**.
+4. **Welcome** — title **Welcome**, subtitle **Let's Dive In**, with your photo, name, optional DAN and certification, and activity interests.
 
-Tap **Let's dive in** on the preview. A **bubble celebration** plays, then GoDive opens to **Home**. Contacts and Photos permissions are requested right after that animation.
+Tap **Let's dive in** on the preview.
+
+5. **Contacts & Photos** — explains why GoDive needs access; tap **Continue** and approve each iOS prompt (or deny — you can change this later in Settings).
+
+6. **Bring your old dives** — only if you chose scuba or free diving. Tap **Import dives** for **UDDF import** (choose a **.uddf** file or open the **MacDive Import** guide — no back button; **Skip** top-right exits to celebration), or **Skip for now** on the offer slide to go straight to celebration.
+
+A **bubble celebration** plays, then GoDive opens to **Home**.
 
 Returning visits while logged out start onboarding again from the welcome screen (activity picker). Sign in is still available from **Already have an account? Sign in** on welcome or from the final sign-up slide.
 
@@ -55,9 +61,7 @@ When you open GoDive after onboarding, sign in with **Sign in with Apple**. GoDi
 
 ### First-time welcome
 
-Older builds showed a permissions welcome screen before system prompts. Current builds request **Contacts** and **Photos** in the background after the post-sign-in bubble animation.
-
-Returning sign-ins skip profile setup and open Home after the bubble celebration.
+Returning sign-ins skip profile setup and open Home after the bubble celebration. Permissions for **Contacts** and **Photos** are requested during new-account onboarding (after profile setup, before the optional import slide).
 
 ## Your first dive
 
@@ -110,7 +114,7 @@ From **Home**, tap your avatar (top of the screen) to open **Profile**:
 - **Dive buddies** roster  
 - **Trips** planner  
 - **Settings** (gear icon)  
-- **Sign out** (your dives stay on the device for that Apple ID)
+- **Sign out** (asks for confirmation; your dives stay on the device for that Apple ID)
 
 ## Permissions GoDive may ask for
 

@@ -18,6 +18,9 @@ GoDive imports dive logs from industry-standard files. Original files are **not*
 5. Pick the file in the system file picker.  
 6. Wait for the progress overlay to finish.
 
+!!! tip "Keep GoDive open during import"
+    Large **UDDF** files can take a minute or more. Stay on the import screen and keep the app in the foreground until the progress overlay finishes. If import is interrupted, GoDive shows an error and does not leave partial dives in your logbook.
+
 After a **single-dive** import, GoDive usually navigates to the new dive. **Multi-dive UDDF** files show a summary alert (dives imported, duplicates skipped, sites created) — open individual dives from Logbook.
 
 ## Import options
@@ -92,6 +95,7 @@ Fields missing from your file simply stay empty in GoDive.
 | No photos attached | Enable attach option; grant Photos access; check capture times overlap the dive window |
 | Wrong local time on UDDF | GoDive applies watch-specific rules for Garmin vs Suunto-style timestamps |
 | Site not on map | Link or add a site from dive detail; confirm import included coordinates |
+| Import stopped when I left the app | Re-import the file; keep GoDive open on the import screen until the overlay finishes |
 
 ## Manual entry
 

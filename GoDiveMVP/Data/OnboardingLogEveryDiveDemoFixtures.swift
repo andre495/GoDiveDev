@@ -7,20 +7,44 @@ enum OnboardingLogEveryDiveDemoFixtures: Sendable {
   nonisolated static let focusedDiveName = "Blue Hole"
   nonisolated static let focusedDiveLocation = "Belize"
 
+  /// Lighthouse Reef — matches the **Explore sites** onboarding demo pin.
+  nonisolated static let diveCoordinate = DiveCoordinate(latitude: 17.3158, longitude: -87.5348)
+
+  nonisolated static var mapRegion: DiveLocationMapRegionSpec {
+    DiveLocationMapRegionSpec(
+      centerLatitude: diveCoordinate.latitude,
+      centerLongitude: diveCoordinate.longitude,
+      latitudeDelta: DiveLocationMapPresentation.diveSiteLatitudeDelta,
+      longitudeDelta: DiveLocationMapPresentation.diveSiteLongitudeDelta
+    )
+  }
+
   nonisolated static let tankPressureStartPSI: Double = 3000
   nonisolated static let tankPressureEndPSI: Double = 1200
 
   nonisolated static let demoMediaPhotoID = UUID(uuidString: "A1000001-0000-4000-8000-00000000DE00")!
+
+  /// Bundled **Photos** tab hero for the log-every-dive onboarding micro-demo.
+  nonisolated static let mediaHeroVideoResourceName = "onboarding-log-every-dive-demo"
+  nonisolated static let mediaHeroVideoResourceExtension = "mov"
 
   /// Bundled Field Guide JPEGs for onboarding micro-demo media thumbnails.
   nonisolated static let logbookThumbnailSpeciesResourceName = "marine-life-french-angelfish"
   nonisolated static let mediaHeroPrimarySpeciesResourceName = "marine-life-stoplight-parrotfish"
   nonisolated static let mediaHeroSecondarySpeciesResourceName = "marine-life-green-sea-turtle"
 
+  /// Species tagged on the **Photos** tab hero video in the dive-detail panel.
+  nonisolated static let taggedMediaSpeciesResourceName = "marine-life-red-lionfish"
+  nonisolated static let taggedMediaSpeciesCommonName = "Red lionfish"
+  nonisolated static let taggedMediaSpeciesScientificName = "Pterois volitans"
+  nonisolated static let taggedMediaSpeciesDescription =
+    "Red bars on head and body. Large pectoral arrays. Long dorsal and anal spines. Fleshy appendages around mouth."
+
   nonisolated static let demoMarineLifeSpeciesResourceNames: [String] = [
     logbookThumbnailSpeciesResourceName,
     mediaHeroPrimarySpeciesResourceName,
     mediaHeroSecondarySpeciesResourceName,
+    taggedMediaSpeciesResourceName,
   ]
 
   nonisolated static var logbookRows: [DiveLogbookRowDisplayData] {

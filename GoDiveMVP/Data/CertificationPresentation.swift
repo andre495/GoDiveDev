@@ -5,15 +5,13 @@ import UIKit
 /// Read-only labels for certification list and detail UI.
 enum CertificationPresentation: Sendable {
 
-    static let profileSubtitleDefault = "GoDive User"
-
     struct TypeBadgeStyle: Equatable, Sendable {
         let label: String
         let foreground: Color
         let background: Color
     }
 
-    /// Profile header: newest **`certification`**-type card, else **`profileSubtitleDefault`**.
+    /// Profile header: newest **`certification`**-type card, else omitted.
     struct ProfileFeaturedCertificationDisplay: Equatable, Sendable {
         let title: String
         /// **`certNumber`** when **`title`** is the certification name.
@@ -45,9 +43,9 @@ enum CertificationPresentation: Sendable {
     }
 
     /// Newest **`CertificationCardType.certification`** card for the profile subtitle block.
-    static func profileFeaturedCertification(from certifications: [Certification]) -> ProfileFeaturedCertificationDisplay {
+    static func profileFeaturedCertification(from certifications: [Certification]) -> ProfileFeaturedCertificationDisplay? {
         guard let newest = profileFeaturedCertificationCard(from: certifications) else {
-            return ProfileFeaturedCertificationDisplay(title: profileSubtitleDefault, certNumber: nil)
+            return nil
         }
         let name = newest.certName.trimmingCharacters(in: .whitespacesAndNewlines)
         if !name.isEmpty {
@@ -63,9 +61,9 @@ enum CertificationPresentation: Sendable {
         )
     }
 
-    /// Profile subtitle: featured certification name, else **`profileSubtitleDefault`**.
-    static func profileCertificationSubtitle(from certifications: [Certification]) -> String {
-        profileFeaturedCertification(from: certifications).title
+    /// Profile subtitle: featured certification name when a certification-type card exists.
+    static func profileCertificationSubtitle(from certifications: [Certification]) -> String? {
+        profileFeaturedCertification(from: certifications)?.title
     }
 
     /// Certifications list: newest **`dateAttained`** first; **`agency`** tie-break (case-insensitive).

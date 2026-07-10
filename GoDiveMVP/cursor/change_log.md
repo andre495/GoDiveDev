@@ -1811,4 +1811,121 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`HomeOverviewPushedLayoutPresentation.pushedPageSeamInputs`** — when Home anchor is unset, uses **`HomeTabRootLayoutPresentation.defaultLifetimeGridSeamInputs`** (buddy band on) instead of the old 2×2-only band.
 - Tests updated for always-on buddy band + layout-anchor reset isolation; header chrome color compare uses resolved **`UIColor`**.
 
-## 102 - Next batch
+## 102 - Next batch **(pushed)**
+
+**Summary:** Post-sign-up import offer slide before bubble celebration.
+
+- **`PostSignUpImportOfferView`** — after profile setup (scuba / free dive new accounts): MacDive / UDDF bulk import pitch, **Import dives** + **Skip for now**; bubble celebration → Home, or Logbook → UDDF import options when import is chosen.
+- **`AccountSession`** — `showsPostSignUpImportOffer`, logbook / UDDF handoff flags consumed by **`ContentView`** + **`LogbookView`** + **`ActivityUploadView`**.
+- Tests: **`postSignUpImportOfferPresentation_*`**, **`accountSession_completePostSignUpImportOffer_isNoOpWhenNotShowingOffer`**.
+- **`docs/getting-started.md`** — step 5 in new-account flow.
+
+**Summary:** Onboarding **Log every dive** — Red lionfish on Photos tab panel.
+
+- **`OnboardingLogEveryDiveDemoView`** — **Photos** tab overview panel shows **Marine life** tag + **Red lionfish** / *Pterois volitans* + ID copy (replaces **1 video**).
+- **`OnboardingLogEveryDiveDemoFixtures`** — tagged species constants; bundled **`marine-life-red-lionfish`** in demo photo list.
+
+**Summary:** Onboarding **Log every dive** — bundled dive video on Photos tab.
+
+- **`onboarding-log-every-dive-demo.mov`** in **`Resources/`**; **`OnboardingBundledLoopingVideoView`** plays it full-bleed (muted loop) on the **Photos** tab micro-demo.
+- Replaces the three-photo pager on that tab.
+
+**Summary:** Onboarding **Log every dive** micro-demo — satellite map on dive map tab.
+
+- **`OnboardingLogEveryDiveMapRepresentable`** — read-only **MKImagery** map + red marker at Blue Hole (Belize), matching dive detail map chrome.
+- **`OnboardingLogEveryDiveDemoFixtures`** — `diveCoordinate` + `mapRegion`.
+- Test: map region centers on fixture coordinate.
+
+**Summary:** File import — survive backgrounding and avoid partial saves.
+
+- **`DiveFileImportRuntimeProtection`** — disables SwiftData autosave for the import pass, rolls back pending rows on interruption, and requests a UIKit background task so bulk imports can finish site / buddy work before save.
+- **`UddfDiveFileImport`** / **`FitDiveFileImport`** — atomic persist (site matching + buddy contact linking before **`save()`**); cancellation returns **`DiveFileImportInterruption`** message instead of silent partial state.
+- **`ActivityUploadView`** — no longer cancels import or hides the overlay on **`onDisappear`**; back navigation disabled while the scrim is up; interrupted imports show the failure dialog.
+- Tests: **`diveFileImportInterruption_*`**, **`diveFileImportAutosaveScope_restoresPriorAutosaveFlag`**.
+- **`docs/import.md`** — keep app open tip + troubleshooting row.
+
+**Summary:** Profile — confirm before sign out.
+
+- **`ProfileView`** — **Sign out** presents an **Are you sure?** alert (**Cancel** / destructive **Sign out**) before clearing the session.
+
+**Summary:** Post-sign-up import — MacDive guide before celebration; skip exits to bubbles.
+
+- **`PostSignUpOnboardingImportView`** — after **Import dives** on the offer slide: MacDive UDDF guide (no back; **Skip for now** top-right → celebration); file picker + bulk import on last step.
+- **`MacDiveUddfImportGuideView`** — optional onboarding chrome (`showsBackButton`, skip trailing action).
+- **`AccountSession`** — **`showsPostSignUpOnboardingImport`**; removed Logbook handoff flags after import offer.
+- Shared **`DiveImportOverlayState`** + **`DiveImportProgressOverlayView`** for import scrim.
+- Tests + **`docs/getting-started.md`**.
+
+**Summary:** Post-sign-up — Contacts & Photos page before import offer.
+
+- **`PostSignUpPermissionsView`** — after profile setup, explains Contacts + Photos; **Continue** runs **`AppOnboardingPermissions`** then advances to import offer or celebration.
+- **`AccountSession`** — **`showsPostSignUpPermissions`**; profile setup no longer defers permission prompts until after celebration.
+- Tests: **`postSignUpPermissionsPresentation_*`**, **`accountSession_completePostSignUpPermissions_isNoOpWhenNotShowingPermissions`**.
+- **`docs/getting-started.md`** — new step 5 in new-account flow.
+
+**Summary:** Profile — omit certification subtitle when none on file.
+
+- **`CertificationPresentation`** — no **GoDive User** fallback; **`profileFeaturedCertification`** / **`profileCertificationSubtitle`** return **`nil`** without a certification-type card.
+- **`ProfileView`** + **`PostSignUpProfileSetupView`** preview — hide certification line under the name when absent.
+- Tests + **`docs/getting-started.md`**, **`docs/trips-and-buddies.md`**.
+
+**Summary:** Post-sign-up profile setup — welcome copy + skip on all building steps.
+
+- **`PostSignUpProfileSetupPresentation`** — profile photo title **Welcome,** *display name*; subtitle **Add a profile photo**; **Skip for now** on photo, DAN, and certification steps.
+- **`docs/getting-started.md`** — updated step 1 copy.
+
+**Summary:** Onboarding **Share experiences** — beach hero on trip / buddies micro-demo.
+
+- **`onboarding-share-trip-hero-beach.jpg`** (Unsplash) in **`Resources/OnboardingPhotos/`**; **`OnboardingShareWithFriendsDemoView`** **`tripHero`** shows full-bleed beach + palm trees instead of the blue gradient placeholder.
+- **`OnboardingShareWithFriendsDemoFixtures`** — **`tripHeroPhotoResourceName`**, **`tripHeroImage`**.
+- Test: bundled trip hero photo resolves in **`onboardingShareWithFriendsDemoFixtures_supportMicroDemo`**.
+- **`docs/acknowledgments.md`** — Unsplash credit for onboarding trip hero.
+- **`ProfilePresentation`** — shared confirmation title, message, and button titles.
+- Test: **`profilePresentation_signOutConfirmation_copyIsNonEmpty`**.
+- **`docs/settings.md`**, **`docs/getting-started.md`** — confirmation note.
+
+**Summary:** Onboarding **Share experiences** — trip micro-demo layout fits phone frame with beach hero.
+
+- **`OnboardingShareWithFriendsDemoFixtures`** — shorter **`heroHeight`** (300), layout-aware **`panelOverlap`** (32), **`pagerContentHeight`**, slightly smaller buddy avatars.
+- **`OnboardingShareWithFriendsDemoView`** — negative **`VStack`** overlap (replaces visual-only offset), page-dot clearance, tighter panel bottom padding.
+- Test: **`onboardingShareWithFriendsDemoFixtures_supportMicroDemo`** asserts pager band fits the 2×2 stats grid.
+
+**Summary:** Onboarding **Share experiences** — trip title + date range no longer clip in micro-demo.
+
+- **`OnboardingShareWithFriendsDemoFixtures`** — **`pinnedSummaryMinHeight`** (84); panel chrome math uses seam padding.
+- **`OnboardingShareWithFriendsDemoView`** — trip-detail subtitle accent + **title2** title; intrinsic height instead of fixed 68pt clip; **`AppTheme.Spacing.md`** top seam padding.
+
+**Summary:** Onboarding MacDive import guide — **Skip** button label.
+
+- **`PostSignUpOnboardingImportPresentation`** — top-right skip title **Skip** (was **Skip for now**).
+- **`docs/getting-started.md`** — step 6 MacDive guide copy.
+
+**Summary:** Post-sign-up profile setup — **Continue** only after step input.
+
+- **`PostSignUpProfileSetupPresentation.showsContinueButton`** — photo after crop, DAN after text, cert after required fields; preview always shows CTA.
+- **`PostSignUpProfileSetupView`** — hides **Continue** until the step is complete; **Skip for now** unchanged.
+- Tests: **`postSignUpProfileSetupPresentation_showsContinueButton_onlyAfterStepInput`**; **`docs/getting-started.md`**.
+
+**Summary:** Post-sign-up profile setup — back chevron on later steps.
+
+- **`PostSignUpProfileSetupView`** — upper-left **chevron.left** returns to the previous builder step (hidden on profile photo).
+- **`PostSignUpProfileSetupPresentation.showsBackButton`** + accessibility id **`PostSignUpProfileSetup.Back`**.
+
+**Summary:** Onboarding import — **Import dives** opens UDDF options first.
+
+- **`PostSignUpOnboardingImportView`** — **`DiveFileImportOptionsView`** root (choose file + MacDive card); pushes MacDive guide; no back; **Skip** top-right on both screens.
+- **`DiveFileImportOptionsView`** — optional **`showsBackButton`**, onboarding skip chrome, glass **Choose UDDF file** when requested.
+- Tests + **`docs/getting-started.md`**.
+
+**Summary:** Onboarding primary CTAs — Liquid Glass **`.glass`** capsule buttons.
+
+- **`AppButtonChrome.appOnboardingPrimaryGlassButtonStyle()`** — shared full-width glass CTA (welcome **Continue**, profile setup, permissions, import offer, MacDive guide import).
+- Replaces **`.borderedProminent`** on post-sign-up **Continue** / **Import dives**; **`LoggedOutOnboardingWelcomeView`** uses the shared helper.
+
+**Summary:** Onboarding **Share experiences** — trip micro-demo rebuilt for phone frame.
+
+- **`OnboardingShareWithFriendsDemoLayout`** — explicit hero / blue-sheet / pager geometry budget for **393×852** logical frame.
+- **`OnboardingShareWithFriendsDemoView`** — compact stats/sites/buddies; fixed-height pager; pre-rendered share-card PNG **`scaledToFit`** full preview.
+- **`OnboardingShareWithFriendsDemoFixtures.renderShareCardPreviewImage()`**; tests updated.
+
+## 103 - Next batch

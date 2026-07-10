@@ -85,6 +85,15 @@ extension View {
         }
     }
 
+    /// Full-width Liquid Glass primary CTA on marketing / post-sign-up onboarding screens.
+    func appOnboardingPrimaryGlassButtonStyle() -> some View {
+        font(.body.weight(.semibold))
+            .buttonStyle(.glass)
+            .buttonBorderShape(.capsule)
+            .controlSize(.large)
+            .frame(maxWidth: .infinity)
+    }
+
     /// Fixed row height for search + neighboring glass controls in top chrome.
     func appGlassChromeControlRowHeight() -> some View {
         frame(height: AppTheme.Layout.glassChromeControlHeight)

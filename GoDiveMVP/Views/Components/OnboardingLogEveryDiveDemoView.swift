@@ -238,6 +238,12 @@ struct OnboardingLogEveryDiveDemoView: View {
 
   private var mapHero: some View {
     ZStack {
+      #if canImport(UIKit)
+      OnboardingLogEveryDiveMapRepresentable(
+        coordinate: OnboardingLogEveryDiveDemoFixtures.diveCoordinate,
+        region: OnboardingLogEveryDiveDemoFixtures.mapRegion
+      )
+      #else
       LinearGradient(
         colors: [
           Color(red: 0.18, green: 0.52, blue: 0.78),
@@ -246,12 +252,7 @@ struct OnboardingLogEveryDiveDemoView: View {
         startPoint: .topLeading,
         endPoint: .bottomTrailing
       )
-
-      Image(systemName: "mappin.circle.fill")
-        .font(.system(size: 52, weight: .semibold))
-        .foregroundStyle(.white.opacity(0.92))
-        .shadow(color: .black.opacity(0.25), radius: 6, y: 3)
-        .offset(y: -12)
+      #endif
     }
   }
 
@@ -280,31 +281,11 @@ struct OnboardingLogEveryDiveDemoView: View {
   }
 
   private var mediaHero: some View {
-    ZStack {
-      LinearGradient(
-        colors: [
-          Color(red: 0.05, green: 0.22, blue: 0.38),
-          Color(red: 0.12, green: 0.42, blue: 0.55),
-        ],
-        startPoint: .top,
-        endPoint: .bottom
-      )
-
-      HStack(spacing: AppTheme.Spacing.md) {
-        OnboardingDemoMarineLifeThumbnail(
-          bundleResourceName: OnboardingLogEveryDiveDemoFixtures.mediaHeroPrimarySpeciesResourceName,
-          side: 132
-        )
-        OnboardingDemoMarineLifeThumbnail(
-          bundleResourceName: OnboardingLogEveryDiveDemoFixtures.mediaHeroSecondarySpeciesResourceName,
-          side: 108,
-          showsVideoBadge: true
-        )
-        .offset(y: 18)
-      }
-      .padding(.top, Layout.statusBarInset + Layout.diveChromeHeight)
-      .padding(.bottom, Layout.overviewPanelHeight)
-    }
+    OnboardingBundledLoopingVideoView(
+      resourceName: OnboardingLogEveryDiveDemoFixtures.mediaHeroVideoResourceName,
+      resourceExtension: OnboardingLogEveryDiveDemoFixtures.mediaHeroVideoResourceExtension,
+      isPlaybackActive: isActive && screen == .diveDetail && selectedTab == .camera
+    )
   }
 
   private var diveOverviewPanel: some View {
@@ -341,9 +322,7 @@ struct OnboardingLogEveryDiveDemoView: View {
           demoTankStat(title: "Used", value: "1800", unit: "psi")
         }
       } else {
-        Text("3 photos · 1 video")
-          .font(.caption.weight(.semibold))
-          .foregroundStyle(AppTheme.Colors.secondaryText)
+        demoMediaTaggedSpeciesSummary
       }
     }
     .padding(AppTheme.Spacing.md)
@@ -355,6 +334,39 @@ struct OnboardingLogEveryDiveDemoView: View {
     }
     .padding(.horizontal, AppTheme.Spacing.md)
     .padding(.bottom, AppTheme.Spacing.md)
+  }
+
+  private var demoMediaTaggedSpeciesSummary: some View {
+    VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+      Text(MarineLifeMediaTagPresentation.sectionTitle)
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(AppTheme.Colors.tabUnselected)
+        .textCase(.uppercase)
+
+      ActivityTagOvalChipLabel(
+        title: MarineLifeMediaTagPresentation.chipDisplayTitle(
+          for: OnboardingLogEveryDiveDemoFixtures.taggedMediaSpeciesCommonName
+        )
+      )
+
+      Text(OnboardingLogEveryDiveDemoFixtures.taggedMediaSpeciesScientificName)
+        .font(.caption.italic())
+        .foregroundStyle(AppTheme.Colors.secondaryText)
+        .lineLimit(1)
+
+      Text(OnboardingLogEveryDiveDemoFixtures.taggedMediaSpeciesDescription)
+        .font(.caption)
+        .foregroundStyle(AppTheme.Colors.secondaryText)
+        .lineLimit(3)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel(
+      MarineLifeMediaTagPresentation.mediumDetentAccessibilityLabel(
+        taggedNames: [OnboardingLogEveryDiveDemoFixtures.taggedMediaSpeciesCommonName]
+      )
+    )
   }
 
   private func demoTankStat(title: String, value: String, unit: String) -> some View {
@@ -444,7 +456,7 @@ struct OnboardingLogEveryDiveDemoView: View {
     withAnimation(.easeInOut(duration: 0.32)) {
       selectedTab = .camera
     }
-    try? await Task.sleep(for: .milliseconds(1800))
+    try? await Task.sleep(for: .milliseconds(2600))
   }
 }
 

@@ -14,6 +14,12 @@ final class AccountSession {
     private(set) var showsNewAccountWelcome = false
     /// Brand-new account — photo, DAN, certification, and profile preview before celebration.
     private(set) var showsPostSignUpProfileSetup = false
+    /// Brand-new account — Contacts + Photos explainer before optional import offer.
+    private(set) var showsPostSignUpPermissions = false
+    /// Brand-new scuba / free-dive account — MacDive UDDF guide before celebration.
+    private(set) var showsPostSignUpOnboardingImport = false
+    /// Brand-new scuba / free-dive account — optional MacDive / UDDF import pitch before the guide.
+    private(set) var showsPostSignUpImportOffer = false
     /// Full-screen bubble celebration after Sign in with Apple (before Home).
     private(set) var showsSignInCelebration = false
     /// One-shot Home entry animation after celebration (slide up from bottom).
@@ -102,7 +108,6 @@ final class AccountSession {
 
         if PostSignUpProfileSetupPresentation.shouldPresentSetup(isNewAccount: isNewAccount) {
             showsPostSignUpProfileSetup = true
-            pendingNewAccountPermissions = true
         } else if SignInCelebrationPresentation.shouldPresentCelebration() {
             showsSignInCelebration = true
             pendingNewAccountPermissions = isNewAccount
@@ -113,10 +118,52 @@ final class AccountSession {
         }
     }
 
-    /// Ends the post-sign-up profile wizard and shows the bubble celebration (or Home under UI tests).
+    /// Ends the post-sign-up profile wizard and shows permissions, then import offer or celebration.
     func completePostSignUpProfileSetup() {
         guard showsPostSignUpProfileSetup else { return }
         showsPostSignUpProfileSetup = false
+        if PostSignUpPermissionsPresentation.shouldPresent() {
+            showsPostSignUpPermissions = true
+        } else {
+            advanceAfterPostSignUpPermissions()
+        }
+    }
+
+    /// Ends the permissions explainer (system prompts already requested) and shows import or celebration.
+    func completePostSignUpPermissions() {
+        guard showsPostSignUpPermissions else { return }
+        showsPostSignUpPermissions = false
+        advanceAfterPostSignUpPermissions()
+    }
+
+    private func advanceAfterPostSignUpPermissions() {
+        if let profile = currentProfile,
+           PostSignUpImportOfferPresentation.shouldPresentImportOffer(for: profile) {
+            showsPostSignUpImportOffer = true
+        } else {
+            presentCelebrationOrDeferredPermissions()
+        }
+    }
+
+    /// Ends the optional import slide — **Import dives** opens UDDF import options; **Skip** → celebration.
+    func completePostSignUpImportOffer(choseImport: Bool) {
+        guard showsPostSignUpImportOffer else { return }
+        showsPostSignUpImportOffer = false
+        if choseImport {
+            showsPostSignUpOnboardingImport = true
+        } else {
+            presentCelebrationOrDeferredPermissions()
+        }
+    }
+
+    /// Ends the onboarding UDDF options / MacDive guide (skip or after import) and shows celebration.
+    func completePostSignUpOnboardingImport() {
+        guard showsPostSignUpOnboardingImport else { return }
+        showsPostSignUpOnboardingImport = false
+        presentCelebrationOrDeferredPermissions()
+    }
+
+    private func presentCelebrationOrDeferredPermissions() {
         if SignInCelebrationPresentation.shouldPresentCelebration() {
             showsSignInCelebration = true
         } else if pendingNewAccountPermissions {
@@ -152,6 +199,9 @@ final class AccountSession {
         currentProfile = nil
         showsNewAccountWelcome = false
         showsPostSignUpProfileSetup = false
+        showsPostSignUpPermissions = false
+        showsPostSignUpImportOffer = false
+        showsPostSignUpOnboardingImport = false
         showsSignInCelebration = false
         prefersHomeRevealFromBottom = false
         pendingNewAccountPermissions = false

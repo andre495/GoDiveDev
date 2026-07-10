@@ -3,6 +3,7 @@ import Foundation
 /// Post–Sign in with Apple profile setup for brand-new accounts (photo, DAN, cert, preview).
 enum PostSignUpProfileSetupPresentation: Sendable {
     nonisolated static let rootAccessibilityIdentifier = "PostSignUpProfileSetup.Root"
+    nonisolated static let backButtonAccessibilityIdentifier = "PostSignUpProfileSetup.Back"
 
     enum Step: Equatable, Sendable {
         case profilePhoto
@@ -42,10 +43,10 @@ enum PostSignUpProfileSetupPresentation: Sendable {
         }
     }
 
-    nonisolated static func stepTitle(_ step: Step) -> String {
+    nonisolated static func stepTitle(_ step: Step, displayName: String) -> String {
         switch step {
         case .profilePhoto:
-            "Add a profile photo"
+            "Welcome, \(displayName)"
         case .danInsurance:
             "Add DAN insurance"
         case .certification:
@@ -58,7 +59,7 @@ enum PostSignUpProfileSetupPresentation: Sendable {
     nonisolated static func stepSubtitle(_ step: Step) -> String {
         switch step {
         case .profilePhoto:
-            "Help buddies recognize you in the logbook."
+            "Add a profile photo"
         case .danInsurance:
             "Optional — store your DAN member number on your profile."
         case .certification:
@@ -79,11 +80,34 @@ enum PostSignUpProfileSetupPresentation: Sendable {
 
     nonisolated static func skipTitle(for step: Step) -> String? {
         switch step {
-        case .danInsurance, .certification:
+        case .profilePhoto, .danInsurance, .certification:
             "Skip for now"
-        case .profilePhoto, .preview:
+        case .preview:
             nil
         }
+    }
+
+    /// Optional steps hide **Continue** until the user has entered data; preview always shows the primary CTA.
+    nonisolated static func showsContinueButton(
+        for step: Step,
+        hasProfilePhoto: Bool,
+        danInsuranceNumber: String,
+        certificationFormCanSave: Bool
+    ) -> Bool {
+        switch step {
+        case .profilePhoto:
+            hasProfilePhoto
+        case .danInsurance:
+            !danInsuranceNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .certification:
+            certificationFormCanSave
+        case .preview:
+            true
+        }
+    }
+
+    nonisolated static func showsBackButton(stepIndex: Int) -> Bool {
+        stepIndex > 0
     }
 
     nonisolated static func stepAccessibilityIdentifier(_ step: Step) -> String {

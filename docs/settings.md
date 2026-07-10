@@ -75,4 +75,4 @@ These aren’t on the Settings page but interact with it:
 
 ## Sign out
 
-**Sign out** lives on **Profile**, not Settings. Signing out clears the session pointer; dives for that Apple ID remain on the device until you delete the app or its data.
+**Sign out** lives on **Profile**, not Settings. Tapping it asks **Are you sure?** before clearing the session. Your dives for that Apple ID remain on the device until you delete the app or its data.

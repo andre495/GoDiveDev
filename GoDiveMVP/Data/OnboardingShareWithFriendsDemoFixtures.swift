@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import SwiftUI
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -156,12 +157,15 @@ enum OnboardingShareWithFriendsDemoFixtures: Sendable {
     return try? Data(contentsOf: url)
   }
 
-  nonisolated static let heroHeight: CGFloat = 380
-  /// How far the blue sheet rises over the hero — smaller overlap lowers the seam on screen.
-  nonisolated static let panelOverlap: CGFloat = 12
-  nonisolated static let buddyAvatarDiameter: CGFloat = 64
+  /// Bundled JPEG under **`Resources/OnboardingPhotos/`** — tropical beach hero (Unsplash).
+  nonisolated static let tripHeroPhotoResourceName = "onboarding-share-trip-hero-beach"
 
-  /// Scale **`TripShareCardView`** to fill the onboarding phone frame in share preview.
+  nonisolated static let bundlePhotoSubdirectories = [
+    "Resources/OnboardingPhotos",
+    "OnboardingPhotos",
+  ]
+
+  /// Scale **`TripShareCardView`** to fit the onboarding phone frame in share preview.
   nonisolated static func shareCardScaleForPhoneFrame(
     phoneLogicalSize: CGSize = OnboardingDemoPhoneFrameMetrics.referenceLogicalSize
   ) -> CGFloat {
@@ -170,6 +174,57 @@ enum OnboardingShareWithFriendsDemoFixtures: Sendable {
       phoneLogicalSize.height / TripShareCardPresentation.cardMinHeight
     )
   }
+
+  #if canImport(UIKit)
+  @MainActor
+  static func renderShareCardPreviewImage() -> UIImage? {
+    let card = TripShareCardView(
+      tripTitle: tripTitle,
+      dateRange: tripDateRange,
+      members: shareCardMembers,
+      marineLifeCallout: marineLifeCallout,
+      mapImage: shareCardMapImage
+    )
+    .frame(width: TripShareCardPresentation.cardWidth, alignment: .top)
+    .background(AppOverviewSheetPanelBackground())
+
+    let renderer = ImageRenderer(content: card)
+    renderer.scale = 2
+    return renderer.uiImage
+  }
+  #endif
+
+  nonisolated static func bundledPhotoURL(
+    resourceName: String,
+    bundle: Bundle = .main
+  ) -> URL? {
+    let trimmed = resourceName.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return nil }
+
+    for subdirectory in bundlePhotoSubdirectories {
+      if let url = bundle.url(
+        forResource: trimmed,
+        withExtension: "jpg",
+        subdirectory: subdirectory
+      ) {
+        return url
+      }
+    }
+
+    return bundle.url(forResource: trimmed, withExtension: "jpg")
+  }
+
+  nonisolated static var tripHeroPhotoData: Data? {
+    guard let url = bundledPhotoURL(resourceName: tripHeroPhotoResourceName) else { return nil }
+    return try? Data(contentsOf: url)
+  }
+
+  #if canImport(UIKit)
+  nonisolated static var tripHeroImage: UIImage? {
+    guard let data = tripHeroPhotoData else { return nil }
+    return UIImage(data: data)
+  }
+  #endif
 
   #if canImport(UIKit)
   nonisolated static var shareCardMapImage: UIImage? {

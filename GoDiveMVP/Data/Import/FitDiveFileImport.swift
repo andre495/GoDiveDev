@@ -64,11 +64,38 @@ enum FitDiveFileImport {
         createMissingDiveSites: Bool = true
     ) async -> DiveFileImportOutcome {
         do {
+            return try await DiveFileImportAutosaveScope.withAutosaveDisabled(modelContext: modelContext) {
+                try await persistImportedActivityWhileAutosaveDisabled(
+                    activity,
+                    modelContext: modelContext,
+                    owner: owner,
+                    attachMedia: attachMedia,
+                    createMissingDiveSites: createMissingDiveSites
+                )
+            }
+        } catch {
+            modelContext.rollback()
+            return DiveFileImportOutcome(userMessage: error.localizedDescription, primaryInsertedDiveId: nil)
+        }
+    }
+
+    @MainActor
+    private static func persistImportedActivityWhileAutosaveDisabled(
+        _ activity: DiveActivity,
+        modelContext: ModelContext,
+        owner: UserProfile?,
+        attachMedia: Bool,
+        createMissingDiveSites: Bool
+    ) async throws -> DiveFileImportOutcome {
+        do {
             guard let owner = owner ?? AccountSession.shared.currentProfile else {
                 return DiveFileImportOutcome(
                     userMessage: "Sign in to import dives.",
                     primaryInsertedDiveId: nil
                 )
+            }
+            if let interrupted = DiveFileImportInterruption.rollbackIfNeededBeforeSave(modelContext: modelContext) {
+                return interrupted
             }
             let stored = try DiveActivityOwnership.activities(forOwnerProfileID: owner.id, modelContext: modelContext)
             let existing = stored.map { DiveActivityDuplicateMatcher.signature(for: $0) }
@@ -90,11 +117,6 @@ enum FitDiveFileImport {
                 rosterCache: &buddyRosterCache
             )
             let importedBuddyIDs = Set(activity.buddies.compactMap(\.buddyID))
-            await DiveBuddyContactAutoLink.autoLinkUnlinkedBuddies(
-                owner: owner,
-                modelContext: modelContext,
-                buddyIDs: importedBuddyIDs
-            )
             modelContext.insert(activity)
             try DiveActivityEquipmentAssociation.applyAutoAdd(
                 to: activity,
@@ -124,12 +146,28 @@ enum FitDiveFileImport {
                 resolver: MapKitGeocodingTimeZoneResolver.shared
             )
             await DiveActivityTimeZoneResolution.resolveMissingOffset(for: activity)
+
+            if let interrupted = DiveFileImportInterruption.rollbackIfNeededBeforeSave(modelContext: modelContext) {
+                return interrupted
+            }
+
+            await DiveBuddyContactAutoLink.autoLinkUnlinkedBuddies(
+                owner: owner,
+                modelContext: modelContext,
+                buddyIDs: importedBuddyIDs
+            )
+
+            if let interrupted = DiveFileImportInterruption.rollbackIfNeededBeforeSave(modelContext: modelContext) {
+                return interrupted
+            }
+
             try modelContext.save()
             try DiveActivityDiveNumbering.applyAutomaticSequentialRenumberIfNeeded(modelContext: modelContext)
             try DiveTripActivityLinking.applyAutoLinkForOwner(
                 ownerProfileID: owner.id,
                 modelContext: modelContext
             )
+            try modelContext.save()
             if attachMedia {
                 await DiveLibraryMediaAutoAttachScheduler.attachAfterDivePersisted(
                     activity,
@@ -140,7 +178,8 @@ enum FitDiveFileImport {
             let msg = "\(importSuccessMessagePrefix) starting \(activity.formattedStartDateTime())."
             return DiveFileImportOutcome(userMessage: msg, primaryInsertedDiveId: activity.id)
         } catch {
-            return DiveFileImportOutcome(userMessage: error.localizedDescription, primaryInsertedDiveId: nil)
+            modelContext.rollback()
+            throw error
         }
     }
 }

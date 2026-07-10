@@ -7,6 +7,11 @@ struct DiveFileImportOptionsView: View {
     @Binding var attachMediaFromPhotoLibrary: Bool
     let onChooseFile: () -> Void
     var onOpenMacDiveGuide: (() -> Void)?
+    var showsBackButton: Bool = true
+    var usesOnboardingPrimaryButton: Bool = false
+    var skipButtonTitle: String? = nil
+    var skipButtonAccessibilityIdentifier: String? = nil
+    var onSkip: (() -> Void)? = nil
 
     private var isUddf: Bool { mode.isUddf }
     private var idPrefix: String { DiveFileImportOptionsPresentation.accessibilityPrefix(for: mode) }
@@ -14,7 +19,17 @@ struct DiveFileImportOptionsView: View {
     var body: some View {
         AppPage(
             title: DiveFileImportOptionsPresentation.pageTitle(for: mode),
-            showsBackButton: true
+            showsBackButton: showsBackButton,
+            trailingContent: {
+                if let skipButtonTitle, let onSkip {
+                    Button(skipButtonTitle, action: onSkip)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(AppTheme.Colors.accentDeep)
+                        .accessibilityIdentifier(
+                            skipButtonAccessibilityIdentifier ?? "\(idPrefix).Skip"
+                        )
+                }
+            }
         ) {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
                 Text(DiveFileImportOptionsPresentation.intro(for: mode))
@@ -56,18 +71,7 @@ struct DiveFileImportOptionsView: View {
 
                 Spacer(minLength: 0)
 
-                Button(DiveFileImportOptionsPresentation.chooseFileTitle(for: mode)) {
-                    onChooseFile()
-                }
-                .font(.body.weight(.semibold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, AppTheme.Spacing.md)
-                .background {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(AppTheme.Colors.accent)
-                }
-                .foregroundStyle(.white)
-                .accessibilityIdentifier("\(idPrefix).ChooseFile")
+                chooseFileButton
             }
             .padding(.horizontal, AppTheme.Spacing.lg)
             .padding(.vertical, AppTheme.Spacing.md)
@@ -76,6 +80,28 @@ struct DiveFileImportOptionsView: View {
         .hidesBottomTabBarWhenPushed()
         .onAppear {
             attachMediaFromPhotoLibrary = AppUserSettings.autoUploadMediaToActivities
+        }
+    }
+
+    @ViewBuilder
+    private var chooseFileButton: some View {
+        let button = Button(DiveFileImportOptionsPresentation.chooseFileTitle(for: mode)) {
+            onChooseFile()
+        }
+        .accessibilityIdentifier("\(idPrefix).ChooseFile")
+
+        if usesOnboardingPrimaryButton {
+            button.appOnboardingPrimaryGlassButtonStyle()
+        } else {
+            button
+                .font(.body.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, AppTheme.Spacing.md)
+                .background {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(AppTheme.Colors.accent)
+                }
+                .foregroundStyle(.white)
         }
     }
 

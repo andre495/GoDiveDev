@@ -3,6 +3,10 @@ import SwiftUI
 /// Swipeable MacDive export instructions on a pushed **AppPage**; the last page opens the UDDF file picker.
 struct MacDiveUddfImportGuideView: View {
     let onChooseFile: () -> Void
+    var showsBackButton: Bool = true
+    var skipButtonTitle: String? = nil
+    var skipButtonAccessibilityIdentifier: String? = nil
+    var onSkip: (() -> Void)? = nil
 
     @State private var pageIndex = 0
 
@@ -15,7 +19,19 @@ struct MacDiveUddfImportGuideView: View {
     }
 
     var body: some View {
-        AppPage(title: "MacDive import", showsBackButton: true) {
+        AppPage(
+            title: "MacDive import",
+            showsBackButton: showsBackButton,
+            showsBrandWordmark: false,
+            trailingContent: {
+                if let skipButtonTitle, let onSkip {
+                    Button(skipButtonTitle, action: onSkip)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(AppTheme.Colors.accentDeep)
+                        .accessibilityIdentifier(skipButtonAccessibilityIdentifier ?? "MacDiveUddfImportGuide.Skip")
+                }
+            }
+        ) {
             VStack(spacing: 0) {
                 TabView(selection: $pageIndex) {
                     ForEach(Array(steps.enumerated()), id: \.element.id) { index, step in
@@ -48,14 +64,7 @@ struct MacDiveUddfImportGuideView: View {
         Button(MacDiveUddfImportPresentation.importButtonTitle) {
             onChooseFile()
         }
-        .font(.body.weight(.semibold))
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, AppTheme.Spacing.md)
-        .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(AppTheme.Colors.accent)
-        }
-        .foregroundStyle(.white)
+        .appOnboardingPrimaryGlassButtonStyle()
         .accessibilityIdentifier("MacDiveUddfImportGuide.ImportMacDiveData")
     }
 }

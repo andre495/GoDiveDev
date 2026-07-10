@@ -42,6 +42,7 @@ struct ProfileView: View {
     private var buddyMediaTags: [DiveMediaBuddyTag]
 
     @State private var showsProfileEditSheet = false
+    @State private var showsSignOutConfirmation = false
     @State private var selfBuddyID: UUID?
 
     private var ownedCertifications: [Certification] {
@@ -84,7 +85,7 @@ struct ProfileView: View {
         ProfilePresentation.tripCountLabel(ownedTrips.count)
     }
 
-    private var profileFeaturedCertification: CertificationPresentation.ProfileFeaturedCertificationDisplay {
+    private var profileFeaturedCertification: CertificationPresentation.ProfileFeaturedCertificationDisplay? {
         CertificationPresentation.profileFeaturedCertification(from: ownedCertifications)
     }
 
@@ -182,6 +183,18 @@ struct ProfileView: View {
                 ProfileEditSheet(profile: profile)
             }
         }
+        .alert(
+            ProfilePresentation.signOutConfirmationTitle,
+            isPresented: $showsSignOutConfirmation
+        ) {
+            Button(ProfilePresentation.signOutCancelButtonTitle, role: .cancel) {}
+            Button(ProfilePresentation.signOutConfirmButtonTitle, role: .destructive) {
+                accountSession.signOut()
+                dismiss()
+            }
+        } message: {
+            Text(ProfilePresentation.signOutConfirmationMessage)
+        }
         .task(id: accountSession.currentProfile?.id) {
             selfBuddyID = DiveBuddySelfRepresentation.resolveSelfBuddyID(
                 owner: accountSession.currentProfile,
@@ -228,41 +241,32 @@ struct ProfileView: View {
 
     @ViewBuilder
     private var profileFeaturedCertificationSummary: some View {
-        let summary = profileCertificationSummaryLabels
-        if let featured = featuredCertificationCard {
+        if let display = profileFeaturedCertification, let featured = featuredCertificationCard {
             NavigationLink {
                 ViewCertificationDetails(certification: featured)
             } label: {
-                summary
+                profileCertificationSummaryLabels(display: display)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("View certification, \(profileFeaturedCertification.title)")
+            .accessibilityLabel("View certification, \(display.title)")
             .accessibilityIdentifier("Profile.FeaturedCertificationLink")
-        } else {
-            summary
         }
     }
 
-    private var profileCertificationSummaryLabels: some View {
+    private func profileCertificationSummaryLabels(
+        display: CertificationPresentation.ProfileFeaturedCertificationDisplay
+    ) -> some View {
         VStack(spacing: AppTheme.Spacing.sm) {
-            Text(profileFeaturedCertification.title)
+            Text(display.title)
                 .font(.title3.weight(.medium))
-                .foregroundStyle(
-                    featuredCertificationCard != nil
-                        ? AppTheme.Colors.tabSelected
-                        : AppTheme.Colors.secondaryText
-                )
+                .foregroundStyle(AppTheme.Colors.tabSelected)
                 .multilineTextAlignment(.center)
                 .accessibilityIdentifier("Profile.CertificationSubtitle")
 
-            if let certNumber = profileFeaturedCertification.certNumber {
+            if let certNumber = display.certNumber {
                 Text(certNumber)
                     .font(.body.weight(.medium))
-                    .foregroundStyle(
-                        featuredCertificationCard != nil
-                            ? AppTheme.Colors.tabSelected
-                            : AppTheme.Colors.secondaryText
-                    )
+                    .foregroundStyle(AppTheme.Colors.tabSelected)
                     .multilineTextAlignment(.center)
                     .accessibilityIdentifier("Profile.CertificationNumber")
             }
@@ -419,8 +423,7 @@ struct ProfileView: View {
 
     private var signOutButton: some View {
         Button("Sign out", role: .destructive) {
-            accountSession.signOut()
-            dismiss()
+            showsSignOutConfirmation = true
         }
         .font(.body.weight(.semibold))
         .frame(maxWidth: .infinity)

@@ -100,7 +100,7 @@ From buddy **Edit**, **Delete buddy** removes them from the roster and untags th
 
 ## Certifications (related)
 
-**Profile → Certifications** stores training cards with photos, agency, number, and date. The certifications list uses the same collapsible large-title header. Your newest certification-type card can appear on Profile.
+**Profile → Certifications** stores training cards with photos, agency, number, and date. The certifications list uses the same collapsible large-title header. Your newest certification-type card can appear on Profile when you have added one.
 
 ## Tagged media (related)
 

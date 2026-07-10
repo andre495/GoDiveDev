@@ -61,11 +61,7 @@ struct LoggedOutOnboardingWelcomeView: View {
             Button(AppLoggedOutOnboardingPresentation.welcomeContinueTitle) {
                 onContinue()
             }
-            .font(.body.weight(.semibold))
-            .buttonStyle(.glass)
-            .buttonBorderShape(.capsule)
-            .controlSize(.large)
-            .frame(maxWidth: .infinity)
+            .appOnboardingPrimaryGlassButtonStyle()
             .disabled(!selection.hasAnySelection)
             .accessibilityIdentifier("LoggedOutOnboarding.Welcome.Continue")
 

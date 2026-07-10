@@ -46,12 +46,8 @@ struct ActivityUploadView: View {
             .onDisappear {
                 fileImporterPresentationTask?.cancel()
                 fileImporterPresentationTask = nil
-                activeImportTask?.cancel()
-                activeImportTask = nil
-                // Do not reset `isFileImporterPresented` here — that cancels the picker mid-presentation.
-                if importOverlay.disablesSourceButtons {
-                    importOverlay = .hidden
-                }
+                // Do not cancel `activeImportTask` or hide the import overlay here — leaving Add activity
+                // or backgrounding must not abort a bulk import mid-pass (see DiveFileImportRuntimeProtection).
             }
             .onChange(of: showsFitImportOptions) { _, isShowing in
                 guard !isShowing, pendingFileImporterAfterOptionsPop, importOptionsMode == .fit else { return }
@@ -119,7 +115,7 @@ struct ActivityUploadView: View {
     }
 
     private var addActivityRoot: some View {
-        AppPage(title: "Add activity", showsBackButton: true) {
+        AppPage(title: "Add activity", showsBackButton: !importOverlay.disablesSourceButtons) {
             ZStack {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
                     addActivityIntro
@@ -167,7 +163,7 @@ struct ActivityUploadView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
                 if importOverlay != .hidden {
-                    diveImportProgressOverlay
+                    DiveImportProgressOverlayView(overlay: $importOverlay)
                         .zIndex(1)
                 }
             }
@@ -313,62 +309,7 @@ struct ActivityUploadView: View {
             .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
     }
 
-    private var diveImportProgressOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.45)
-                .ignoresSafeArea()
-                .contentShape(Rectangle())
-                .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-                switch importOverlay {
-                case .hidden:
-                    EmptyView()
-                case .importing(let milestone, let fraction):
-                    ProgressView(value: fraction, total: 1.0)
-                        .tint(AppTheme.Colors.accent)
-                        .animation(.easeInOut(duration: 0.2), value: fraction)
-                    Text(milestone.label)
-                        .font(.body)
-                        .foregroundStyle(AppTheme.Colors.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .contentTransition(.opacity)
-                        .animation(.easeInOut(duration: 0.2), value: milestone)
-                case .failed(let message):
-                    Text("Import failed")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(AppTheme.Colors.textPrimary)
-                    Text(message)
-                        .font(.body)
-                        .foregroundStyle(AppTheme.Colors.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Button("Dismiss") {
-                        importOverlay = .hidden
-                    }
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.tabSelected)
-                    .buttonStyle(.plain)
-                    .padding(.top, AppTheme.Spacing.sm)
-                }
-            }
-            .padding(AppTheme.Spacing.lg)
-            .frame(maxWidth: 320, alignment: .leading)
-            .background {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(AppTheme.Colors.surfaceElevated)
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(AppTheme.Colors.tabUnselected.opacity(0.15), lineWidth: 1)
-            }
-            .shadow(color: .black.opacity(0.28), radius: 14, y: 8)
-            .accessibilityAddTraits(.isModal)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    /// Presents **`.fileImporter`** after any sheet dismiss or navigation pop has finished.
-    /// Presenting during those transitions is dropped by SwiftUI (symptom: first tap does nothing).
     private func requestFileImporter(mode: DiveFileImporterPresentation.PickerMode) {
         fileImporterPresentationTask?.cancel()
         fileImporterMode = mode
@@ -399,8 +340,14 @@ struct ActivityUploadView: View {
         importOverlay = .start(.readingFile)
         activeImportTask?.cancel()
         activeImportTask = Task(priority: .userInitiated) { @MainActor in
+            let backgroundTask = DiveFileImportBackgroundTask.Token()
+            backgroundTask.begin()
+            defer { backgroundTask.end() }
             await yieldForImportOverlayPaint()
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else {
+                importOverlay = .failed(DiveFileImportInterruption.userMessage)
+                return
+            }
             if isUddf {
                 await runUddfImport(from: url)
             } else {
@@ -493,10 +440,16 @@ struct ActivityUploadView: View {
                 )
             }
 
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else {
+                importOverlay = .failed(DiveFileImportInterruption.userMessage)
+                return
+            }
             await finishImport(outcome: outcome, isUddf: false)
         } catch {
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else {
+                importOverlay = .failed(DiveFileImportInterruption.userMessage)
+                return
+            }
             importOverlay = .failed(error.localizedDescription)
         }
     }
@@ -553,20 +506,32 @@ struct ActivityUploadView: View {
             )
             await yieldForImportOverlayPaint()
 
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else {
+                importOverlay = .failed(DiveFileImportInterruption.userMessage)
+                return
+            }
             await finishImport(outcome: outcome, isUddf: true)
         } catch let uddf as UddfDecodeError {
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else {
+                importOverlay = .failed(DiveFileImportInterruption.userMessage)
+                return
+            }
             importOverlay = .failed(uddf.localizedDescription)
         } catch {
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else {
+                importOverlay = .failed(DiveFileImportInterruption.userMessage)
+                return
+            }
             importOverlay = .failed(error.localizedDescription)
         }
     }
 
     @MainActor
     private func finishImport(outcome: DiveFileImportOutcome, isUddf: Bool) async {
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled else {
+            importOverlay = .failed(DiveFileImportInterruption.userMessage)
+            return
+        }
         if isUddf, outcome.bulkImportFinishedWithCounts {
             importOverlay = .hidden
             uddfImportSummary = UddfImportSummary(
@@ -663,30 +628,6 @@ enum DiveImportMilestone: Equatable {
         let ratio = min(1, max(0, Double(completed) / Double(total)))
         return startFraction + (endFraction - startFraction) * ratio
     }
-}
-
-private enum DiveImportOverlayState: Equatable {
-    case hidden
-    case importing(milestone: DiveImportMilestone, fraction: Double)
-    case failed(String)
-
-    /// Enters a milestone at its starting bar position.
-    static func start(_ milestone: DiveImportMilestone) -> DiveImportOverlayState {
-        .importing(milestone: milestone, fraction: milestone.startFraction)
-    }
-
-    /// Disables Add-activity tiles only while an import is actively running (not on failure).
-    var disablesSourceButtons: Bool {
-        switch self {
-        case .hidden, .failed: return false
-        case .importing: return true
-        }
-    }
-}
-
-/// After **Complete**, keep the scrim up briefly so the success state reads before dismiss.
-private enum DiveImportSuccessTiming {
-    static let sleepAfterCompleteBeforeDismiss: Duration = .milliseconds(800)
 }
 
 #Preview {

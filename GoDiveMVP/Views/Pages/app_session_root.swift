@@ -21,6 +21,26 @@ struct AppSessionRootView: View {
                             accountSession.completePostSignUpProfileSetup()
                         }
                         .transition(.opacity)
+                    } else if accountSession.showsPostSignUpPermissions {
+                        PostSignUpPermissionsView {
+                            accountSession.completePostSignUpPermissions()
+                        }
+                        .transition(.opacity)
+                    } else if accountSession.showsPostSignUpImportOffer {
+                        PostSignUpImportOfferView(
+                            onImport: {
+                                accountSession.completePostSignUpImportOffer(choseImport: true)
+                            },
+                            onSkip: {
+                                accountSession.completePostSignUpImportOffer(choseImport: false)
+                            }
+                        )
+                        .transition(.opacity)
+                    } else if accountSession.showsPostSignUpOnboardingImport {
+                        PostSignUpOnboardingImportView {
+                            accountSession.completePostSignUpOnboardingImport()
+                        }
+                        .transition(.opacity)
                     } else if accountSession.showsSignInCelebration {
                         SignInCelebrationView {
                             accountSession.completeSignInCelebration()
@@ -67,6 +87,9 @@ struct AppSessionRootView: View {
         .animation(.easeInOut(duration: 0.2), value: showsBootstrapOverlay)
         .animation(.easeInOut(duration: 0.2), value: accountSession.showsNewAccountWelcome)
         .animation(.easeInOut(duration: 0.35), value: accountSession.showsPostSignUpProfileSetup)
+        .animation(.easeInOut(duration: 0.35), value: accountSession.showsPostSignUpPermissions)
+        .animation(.easeInOut(duration: 0.35), value: accountSession.showsPostSignUpImportOffer)
+        .animation(.easeInOut(duration: 0.35), value: accountSession.showsPostSignUpOnboardingImport)
         .animation(
             .spring(
                 response: SignInCelebrationPresentation.homeRevealSpringResponse,

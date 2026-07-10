@@ -5,6 +5,7 @@ import SwiftUI
 struct LogbookView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
+    @Environment(AccountSession.self) private var accountSession
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
 
     @Query private var activities: [DiveActivity]

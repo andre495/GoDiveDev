@@ -53,6 +53,13 @@ enum ProfilePresentation: Sendable {
             return "\(count) trips"
         }
     }
+
+    /// Confirmation alert when the user taps **Sign out** on Profile.
+    nonisolated static let signOutConfirmationTitle = "Sign out?"
+    nonisolated static let signOutConfirmationMessage =
+        "Are you sure you want to sign out? Your dives stay on this device for this Apple ID."
+    nonisolated static let signOutConfirmButtonTitle = "Sign out"
+    nonisolated static let signOutCancelButtonTitle = "Cancel"
 }
 
 /// Layout for **Profile** destination tiles (Certifications, Equipment Locker, Dive Buddies, Trips).

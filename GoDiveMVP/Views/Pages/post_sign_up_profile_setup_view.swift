@@ -39,9 +39,7 @@ struct PostSignUpProfileSetupView: View {
     var body: some View {
         LoggedOutMarketingChrome {
             VStack(spacing: AppTheme.Spacing.lg) {
-                progressHeader
-                    .padding(.horizontal, AppTheme.Spacing.lg)
-                    .padding(.top, AppTheme.Spacing.md)
+                navigationChrome
 
                 Group {
                     if let currentStep, let profile {
@@ -75,6 +73,37 @@ struct PostSignUpProfileSetupView: View {
     }
 
     @ViewBuilder
+    private var navigationChrome: some View {
+        VStack(spacing: AppTheme.Spacing.sm) {
+            if PostSignUpProfileSetupPresentation.showsBackButton(stepIndex: stepIndex) {
+                topBar
+            }
+
+            progressHeader
+                .padding(.horizontal, AppTheme.Spacing.lg)
+                .padding(.top, PostSignUpProfileSetupPresentation.showsBackButton(stepIndex: stepIndex) ? 0 : AppTheme.Spacing.md)
+        }
+    }
+
+    private var topBar: some View {
+        HStack {
+            Button {
+                goBackOneStep()
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.subheadline.weight(.semibold))
+            }
+            .foregroundStyle(AppTheme.Colors.secondaryText)
+            .accessibilityLabel("Back")
+            .accessibilityIdentifier(PostSignUpProfileSetupPresentation.backButtonAccessibilityIdentifier)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, AppTheme.Spacing.lg)
+        .padding(.top, AppTheme.Spacing.md)
+    }
+
+    @ViewBuilder
     private var progressHeader: some View {
         if steps.count > 1 {
             HStack(spacing: AppTheme.Spacing.sm) {
@@ -99,7 +128,7 @@ struct PostSignUpProfileSetupView: View {
         profile: UserProfile
     ) -> some View {
         VStack(spacing: AppTheme.Spacing.lg) {
-            stepHeader(step)
+            stepHeader(step, displayName: profile.displayName)
 
             switch step {
             case .certification:
@@ -117,9 +146,12 @@ struct PostSignUpProfileSetupView: View {
         .accessibilityIdentifier(PostSignUpProfileSetupPresentation.stepAccessibilityIdentifier(step))
     }
 
-    private func stepHeader(_ step: PostSignUpProfileSetupPresentation.Step) -> some View {
+    private func stepHeader(
+        _ step: PostSignUpProfileSetupPresentation.Step,
+        displayName: String
+    ) -> some View {
         VStack(spacing: AppTheme.Spacing.sm) {
-            Text(PostSignUpProfileSetupPresentation.stepTitle(step))
+            Text(PostSignUpProfileSetupPresentation.stepTitle(step, displayName: displayName))
                 .font(.title2.weight(.bold))
                 .foregroundStyle(AppTheme.Colors.textPrimary)
                 .multilineTextAlignment(.center)
@@ -223,23 +255,20 @@ struct PostSignUpProfileSetupView: View {
 
     @ViewBuilder
     private var profilePreviewCertificationSummary: some View {
-        let display = CertificationPresentation.profileFeaturedCertification(from: ownedCertifications)
-        VStack(spacing: AppTheme.Spacing.sm) {
-            Text(display.title)
-                .font(.title3.weight(.medium))
-                .foregroundStyle(
-                    display.title == CertificationPresentation.profileSubtitleDefault
-                        ? AppTheme.Colors.secondaryText
-                        : AppTheme.Colors.tabSelected
-                )
-                .multilineTextAlignment(.center)
-
-            if let certNumber = display.certNumber {
-                Text(certNumber)
-                    .font(.body.weight(.medium))
+        if let display = CertificationPresentation.profileFeaturedCertification(from: ownedCertifications) {
+            VStack(spacing: AppTheme.Spacing.sm) {
+                Text(display.title)
+                    .font(.title3.weight(.medium))
                     .foregroundStyle(AppTheme.Colors.tabSelected)
                     .multilineTextAlignment(.center)
-                    .accessibilityIdentifier("PostSignUpProfileSetup.Preview.CertNumber")
+
+                if let certNumber = display.certNumber {
+                    Text(certNumber)
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(AppTheme.Colors.tabSelected)
+                        .multilineTextAlignment(.center)
+                        .accessibilityIdentifier("PostSignUpProfileSetup.Preview.CertNumber")
+                }
             }
         }
     }
@@ -292,15 +321,13 @@ struct PostSignUpProfileSetupView: View {
     private var bottomChrome: some View {
         if let currentStep {
             VStack(spacing: AppTheme.Spacing.sm) {
-                Button(PostSignUpProfileSetupPresentation.continueTitle(for: currentStep)) {
-                    advanceFromCurrentStep()
+                if showsContinueButton(for: currentStep) {
+                    Button(PostSignUpProfileSetupPresentation.continueTitle(for: currentStep)) {
+                        advanceFromCurrentStep()
+                    }
+                    .appOnboardingPrimaryGlassButtonStyle()
+                    .accessibilityIdentifier("PostSignUpProfileSetup.Continue")
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(AppTheme.Colors.accentDeep)
-                .controlSize(.large)
-                .frame(maxWidth: .infinity)
-                .disabled(!canContinue(from: currentStep))
-                .accessibilityIdentifier("PostSignUpProfileSetup.Continue")
 
                 if let skipTitle = PostSignUpProfileSetupPresentation.skipTitle(for: currentStep) {
                     Button(skipTitle) {
@@ -314,20 +341,22 @@ struct PostSignUpProfileSetupView: View {
         }
     }
 
+    private func showsContinueButton(
+        for step: PostSignUpProfileSetupPresentation.Step
+    ) -> Bool {
+        PostSignUpProfileSetupPresentation.showsContinueButton(
+            for: step,
+            hasProfilePhoto: profile?.profilePhoto != nil,
+            danInsuranceNumber: danText,
+            certificationFormCanSave: certificationForm.canSave
+        )
+    }
+
     private var saveErrorBinding: Binding<Bool> {
         Binding(
             get: { saveErrorMessage != nil },
             set: { if !$0 { saveErrorMessage = nil } }
         )
-    }
-
-    private func canContinue(from step: PostSignUpProfileSetupPresentation.Step) -> Bool {
-        switch step {
-        case .certification:
-            certificationForm.canSave
-        case .profilePhoto, .danInsurance, .preview:
-            true
-        }
     }
 
     private func advanceFromCurrentStep() {
@@ -355,6 +384,13 @@ struct PostSignUpProfileSetupView: View {
             return
         }
         stepIndex += 1
+    }
+
+    private func goBackOneStep() {
+        guard PostSignUpProfileSetupPresentation.showsBackButton(stepIndex: stepIndex) else { return }
+        withAnimation(.easeInOut(duration: 0.28)) {
+            stepIndex -= 1
+        }
     }
 
     private func saveDanInsurance() {
