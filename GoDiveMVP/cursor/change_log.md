@@ -2160,4 +2160,10 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`HomeOverviewSections`** — empty-state CTA uses **`openDiveImport`**.
 - Test: **`logbookPendingRouteNavigation_addActivityReplacesStack`**.
 
-## 104 - Next batch
+## 104 - Profile cert number layout **(pushed)**
+
+**Summary:** Profile — hide featured certification number so top chrome aligns with other pages.
+
+- **`ProfileView`** — featured certification shows cert name only (no cert number under the title); frees vertical space under the top **Edit** / **Settings** row.
+
+## 105 - Next batch

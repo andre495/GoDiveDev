@@ -263,21 +263,11 @@ struct ProfileView: View {
     private func profileCertificationSummaryLabels(
         display: CertificationPresentation.ProfileFeaturedCertificationDisplay
     ) -> some View {
-        VStack(spacing: AppTheme.Spacing.sm) {
-            Text(display.title)
-                .font(.title3.weight(.medium))
-                .foregroundStyle(AppTheme.Colors.tabSelected)
-                .multilineTextAlignment(.center)
-                .accessibilityIdentifier("Profile.CertificationSubtitle")
-
-            if let certNumber = display.certNumber {
-                Text(certNumber)
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(AppTheme.Colors.tabSelected)
-                    .multilineTextAlignment(.center)
-                    .accessibilityIdentifier("Profile.CertificationNumber")
-            }
-        }
+        Text(display.title)
+            .font(.title3.weight(.medium))
+            .foregroundStyle(AppTheme.Colors.tabSelected)
+            .multilineTextAlignment(.center)
+            .accessibilityIdentifier("Profile.CertificationSubtitle")
     }
 
     private var profileDestinationTiles: some View {

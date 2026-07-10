@@ -1505,7 +1505,7 @@ struct GoDiveMVPTests {
         #expect(CelebrationShellPrewarmPresentation.postBulkImportDelayNanoseconds == 1_500_000_000)
     }
 
-    @Test func homeRootAppearPresentation_startsInitialRebuildDuringCelebrationPrewarm() {
+    @Test @MainActor func homeRootAppearPresentation_startsInitialRebuildDuringCelebrationPrewarm() {
         #expect(
             HomeRootAppearPresentation.handleRootAppearAction(hasPerformedInitialHomeBuild: false)
                 == .scheduleImmediateInitialRebuild
@@ -7990,7 +7990,7 @@ struct GoDiveMVPTests {
         #expect(LogbookRoute.tripPlanner != LogbookRoute.addActivity)
     }
 
-    @Test func logbookPendingRouteNavigation_addActivityReplacesStack() {
+    @Test @MainActor func logbookPendingRouteNavigation_addActivityReplacesStack() {
         let diveID = UUID()
         let path = LogbookPendingRouteNavigation.path(
             afterConsuming: .addActivity,
