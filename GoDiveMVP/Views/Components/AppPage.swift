@@ -40,6 +40,8 @@ struct AppPage<Content: View, TrailingContent: View>: View {
     let scrollContentUnderHeader: Bool
     /// Logbook-style **`.largeTitle`** inline with back / trailing actions; compacts on scroll.
     let collapsibleInlineTitleHeader: Bool
+    /// Expanded font for the collapsible inline title (defaults to the **`.largeTitle`** brand style).
+    let collapsibleInlineTitleFont: Font
     /// Rising bubbles behind scroll-under list content (Logbook-style); requires **`scrollContentUnderHeader`**.
     let showsWaterBubbleBackground: Bool
     let content: Content
@@ -57,6 +59,7 @@ struct AppPage<Content: View, TrailingContent: View>: View {
         titlePlacement: AppHeaderTitlePlacement = .centered,
         scrollContentUnderHeader: Bool = false,
         collapsibleInlineTitleHeader: Bool = false,
+        collapsibleInlineTitleFont: Font = AppTheme.Typography.headerBrandTitle,
         showsWaterBubbleBackground: Bool = false,
         @ViewBuilder trailingContent: () -> TrailingContent,
         @ViewBuilder content: () -> Content
@@ -69,6 +72,7 @@ struct AppPage<Content: View, TrailingContent: View>: View {
         self.titlePlacement = titlePlacement
         self.scrollContentUnderHeader = scrollContentUnderHeader
         self.collapsibleInlineTitleHeader = collapsibleInlineTitleHeader
+        self.collapsibleInlineTitleFont = collapsibleInlineTitleFont
         self.showsWaterBubbleBackground = showsWaterBubbleBackground
         self.trailingContent = trailingContent()
         self.content = content()
@@ -148,7 +152,8 @@ struct AppPage<Content: View, TrailingContent: View>: View {
                     CollapsibleInlineTitleHeader(
                         title: title,
                         isCollapsed: isCollapsibleHeaderCollapsed,
-                        statusBarSafeAreaTop: safeTop
+                        statusBarSafeAreaTop: safeTop,
+                        expandedTitleFont: collapsibleInlineTitleFont
                     ) {
                         if showsBackButton {
                             SecondaryDestinationBackButton()
@@ -217,6 +222,7 @@ extension AppPage where TrailingContent == EmptyView {
         titlePlacement: AppHeaderTitlePlacement = .centered,
         scrollContentUnderHeader: Bool = false,
         collapsibleInlineTitleHeader: Bool = false,
+        collapsibleInlineTitleFont: Font = AppTheme.Typography.headerBrandTitle,
         showsWaterBubbleBackground: Bool = false,
         @ViewBuilder content: () -> Content
     ) {
@@ -229,6 +235,7 @@ extension AppPage where TrailingContent == EmptyView {
             titlePlacement: titlePlacement,
             scrollContentUnderHeader: scrollContentUnderHeader,
             collapsibleInlineTitleHeader: collapsibleInlineTitleHeader,
+            collapsibleInlineTitleFont: collapsibleInlineTitleFont,
             showsWaterBubbleBackground: showsWaterBubbleBackground,
             trailingContent: {
                 EmptyView()

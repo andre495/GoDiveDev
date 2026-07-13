@@ -7,6 +7,9 @@ struct CollapsibleInlineTitleHeader<Leading: View, Trailing: View>: View {
     let statusBarSafeAreaTop: CGFloat
     var titleAccessibilityIdentifier: String?
     var minimumTitleScaleFactor: CGFloat = CollapsibleInlineTitleHeaderPresentation.minimumTitleScaleFactor
+    /// Expanded (uncollapsed) title font — defaults to the **`.largeTitle`** brand style; screens with longer
+    /// dynamic titles (e.g. Media browse counts) can pass a smaller font.
+    var expandedTitleFont: Font = AppTheme.Typography.headerBrandTitle
     @ViewBuilder let leading: () -> Leading
     @ViewBuilder let trailing: () -> Trailing
 
@@ -63,6 +66,6 @@ struct CollapsibleInlineTitleHeader<Leading: View, Trailing: View>: View {
     private var titleFont: Font {
         isCollapsed
             ? .headline
-            : AppTheme.Typography.headerBrandTitle
+            : expandedTitleFont
     }
 }

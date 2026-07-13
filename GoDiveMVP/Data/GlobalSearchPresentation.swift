@@ -7,9 +7,9 @@ enum GlobalSearchPresentation: Sendable {
     nonisolated static let rootAccessibilityIdentifier = "GlobalSearch.Root"
     nonisolated static let resultsListAccessibilityIdentifier = "GlobalSearch.ResultsList"
     nonisolated static let resultsBackButtonAccessibilityIdentifier = "GlobalSearch.ResultsBack"
-    nonisolated static let maxHitsPerSection = 12
-    /// When a context token is active with no typed query, list up to this many matches in that category.
-    nonisolated static let maxScopedBrowseHits = 500
+    /// Maximum matches listed per section. Applies to both scoped browse (a category tile) and typed queries so
+    /// cross-category results are never silently truncated (typed searches previously capped each section at 12).
+    nonisolated static let maxHitsPerSection = 500
     nonisolated static let contextTokensAccessibilityIdentifier = "GlobalSearch.ContextTokens"
     /// Brief delay after returning from a pushed result so **`.searchable`** can reattach before presenting the field.
     nonisolated static let stackSearchRestoreDelayNanoseconds: UInt64 = 80_000_000
@@ -26,6 +26,7 @@ enum GlobalSearchPresentation: Sendable {
         case gear
         case trips
         case certifications
+        case media
 
         var id: String { rawValue }
 
@@ -39,7 +40,30 @@ enum GlobalSearchPresentation: Sendable {
             case .gear: return "Gear"
             case .trips: return "Trips"
             case .certifications: return "Certifications"
+            case .media: return "Media"
             }
+        }
+
+        /// Singular / plural noun for the scoped-results count header (e.g. "Buddy" / "Buddies").
+        nonisolated var scopedCountNoun: (singular: String, plural: String) {
+            switch self {
+            case .dives: return ("Dive", "Dives")
+            case .buddies: return ("Buddy", "Buddies")
+            case .sites: return ("Site", "Sites")
+            case .marineLife: return ("Species", "Species")
+            case .tags: return ("Tag", "Tags")
+            case .gear: return ("Gear item", "Gear items")
+            case .trips: return ("Trip", "Trips")
+            case .certifications: return ("Certification", "Certifications")
+            // Media uses its own video/photo split title (`GlobalSearchMediaBrowsePresentation.pageTitle`).
+            case .media: return ("Media item", "Media items")
+            }
+        }
+
+        /// Back-row count header for a scoped category, e.g. "12 Buddies" / "1 Dive".
+        nonisolated func scopedResultsCountTitle(_ count: Int) -> String {
+            let noun = scopedCountNoun
+            return "\(count) \(count == 1 ? noun.singular : noun.plural)"
         }
 
         nonisolated var systemImage: String {
@@ -52,6 +76,7 @@ enum GlobalSearchPresentation: Sendable {
             case .gear: return "archivebox.fill"
             case .trips: return "airplane"
             case .certifications: return "checkmark.seal.fill"
+            case .media: return "photo.on.rectangle.angled"
             }
         }
 
@@ -69,6 +94,7 @@ enum GlobalSearchPresentation: Sendable {
             case .gear: return .equipment
             case .trips: return .trips
             case .certifications: return .certifications
+            case .media: return .media
             }
         }
 
@@ -82,7 +108,8 @@ enum GlobalSearchPresentation: Sendable {
             case .tags: return "sponges"
             case .gear: return "invertebrates"
             case .trips: return "sea_turtles"
-            case .certifications: return "crustaceans"
+            case .certifications: return "sea_turtles"
+            case .media: return "global_search_media"
             }
         }
     }
@@ -113,7 +140,7 @@ enum GlobalSearchPresentation: Sendable {
                 + idleHeaderTitleBottomPadding
         }
 
-        /// Bottom inset so the **2×4** grid ends just above the morphed tab search field.
+        /// Bottom inset so category tiles end just above the morphed tab search field.
         nonisolated static func categoryGridBottomInset(
             resolvedSafeAreaBottom: CGFloat,
             keyboardOverlapHeight: CGFloat = 0,
@@ -148,6 +175,8 @@ enum GlobalSearchPresentation: Sendable {
         /// Slightly larger than **`.headline`** for scanability while scrolling.
         nonisolated static let titleFontSize: CGFloat = 20
         nonisolated static let verticalPadding = AppTheme.Spacing.sm
+        /// Mirrors **`AppTheme.Layout.appHeaderTopPadding`** (**`Spacing.sm`**) as a nonisolated stored value.
+        nonisolated static let backButtonRowTopPadding = AppTheme.Spacing.sm
 
         nonisolated static func backButtonReservedWidth(
             horizontalPadding: CGFloat = ResultsSectionHeaderPresentation.horizontalPadding,
@@ -156,10 +185,16 @@ enum GlobalSearchPresentation: Sendable {
             horizontalPadding + backButtonTapWidth
         }
 
-        /// Top scroll margin so pinned headers sit on the back-button row. The sectioned **`List`** already
-        /// respects the status-bar safe area — do not add **`safeAreaTop`** again here.
-        nonisolated static func scrollContentTopMargin(chromeHeight: CGFloat) -> CGFloat {
-            max(chromeHeight, 0)
+        /// Top scroll margin that pins each sticky section header **on** the floating back-button row (vertically
+        /// centered on the back button), so the first section label is even with the back arrow instead of sitting
+        /// below the whole chrome band. The sectioned **`List`** already respects the status-bar safe area, so this
+        /// margin is measured from the top of the safe area — do not add **`safeAreaTop`** again here.
+        nonisolated static func scrollContentTopMargin() -> CGFloat {
+            // `backButtonTapWidth` mirrors `AppTheme.Layout.glassChromeControlHeight` (both 44); stored constants keep
+            // this `nonisolated` (main-actor `AppTheme.Layout` / `Spacing` can't be read from a nonisolated body).
+            let backButtonCenterY = backButtonRowTopPadding + backButtonTapWidth / 2
+            let headerHalfHeight = verticalPadding + titleFontSize / 2
+            return max(backButtonCenterY - headerHalfHeight, 0)
         }
     }
 
@@ -180,6 +215,21 @@ enum GlobalSearchPresentation: Sendable {
         }
     }
 
+    /// Fade behavior for the back-row count header ("12 Buddies", "3 videos, 12 photos") as results scroll.
+    enum ResultsCountTitlePresentation: Sendable {
+        /// Scroll distance (pt) over which the count title fades from visible to hidden while scrolling down.
+        nonisolated static let fadeDistance: CGFloat = 44
+
+        /// Opacity for the count title given how far the results list has scrolled from its resting top
+        /// (`contentOffset.y + contentInsets.top`). Fully visible at rest (offset ≤ 0), fully hidden past
+        /// `fadeDistance`, so the title animates away as the user scrolls into the list.
+        nonisolated static func titleOpacity(scrollOffset: CGFloat) -> Double {
+            guard scrollOffset > 0 else { return 1 }
+            let progress = min(scrollOffset / fadeDistance, 1)
+            return Double(1 - progress)
+        }
+    }
+
     enum SectionKind: String, Sendable, CaseIterable, Identifiable {
         case dives
         case diveSites
@@ -189,12 +239,18 @@ enum GlobalSearchPresentation: Sendable {
         case trips
         case equipment
         case certifications
+        case media
 
         var id: String { rawValue }
 
         /// Multi-category search results — highest priority first.
+        ///
+        /// `.media` renders second (after buddies) in the general results surface. It produces no
+        /// text `Hit`s from `search()`; the results view injects a matching-media thumbnail strip at
+        /// this position (see `GlobalSearchSearchIndexLayer`).
         nonisolated static let resultSectionDisplayOrder: [SectionKind] = [
             .buddies,
+            .media,
             .diveSites,
             .tags,
             .trips,
@@ -214,6 +270,7 @@ enum GlobalSearchPresentation: Sendable {
             case .trips: return "Trips"
             case .equipment: return "Equipment"
             case .certifications: return "Certifications"
+            case .media: return "Media"
             }
         }
     }
@@ -230,6 +287,24 @@ enum GlobalSearchPresentation: Sendable {
         case certification(UUID)
     }
 
+    /// Why a result matched the typed query — rendered as an italic "Label: text" line under the row.
+    struct MatchReason: Hashable, Sendable {
+        let label: String
+        let text: String
+    }
+
+    /// A labeled, searchable value on an index entry used to explain *why* the entry matched.
+    /// `value` is matched against the query (may bundle aliases); `display` is what the user sees
+    /// (defaults to `value`). `isSnippet` windows the match with a few words of surrounding context.
+    struct SearchField: Hashable, Sendable {
+        let label: String
+        let value: String
+        var display: String? = nil
+        var isSnippet: Bool = false
+
+        nonisolated var displayText: String { display ?? value }
+    }
+
     struct Hit: Identifiable, Hashable, Sendable {
         let id: String
         let title: String
@@ -237,9 +312,10 @@ enum GlobalSearchPresentation: Sendable {
         let systemImage: String
         let destination: Destination
         let accessibilityIdentifier: String
+        var matchReasons: [MatchReason] = []
     }
 
-    struct Section: Identifiable, Sendable {
+    struct Section: Identifiable, Equatable, Sendable {
         let kind: SectionKind
         let hits: [Hit]
 
@@ -247,7 +323,7 @@ enum GlobalSearchPresentation: Sendable {
         var title: String { kind.title }
     }
 
-    struct Results: Sendable {
+    struct Results: Equatable, Sendable {
         let query: String
         let sections: [Section]
 
@@ -261,6 +337,7 @@ enum GlobalSearchPresentation: Sendable {
         let title: String
         let subtitle: String?
         let searchHaystack: String
+        var matchFields: [SearchField] = []
     }
 
     struct DiveSiteIndexEntry: Sendable {
@@ -332,6 +409,12 @@ enum GlobalSearchPresentation: Sendable {
         isFiltering(query: query) || !contextTokens.isEmpty
     }
 
+    /// **`true`** when the only active scope is **Media** — the results panel renders the media grid
+    /// (filtered by any additional query terms) instead of the text-search results list.
+    nonisolated static func isMediaScope(_ contextTokens: [ContextToken]) -> Bool {
+        contextTokens == [.media]
+    }
+
     /// Clears query + scope tokens so the idle category grid returns (search results back affordance).
     nonisolated static func applyReturnToCategoryBrowse(
         query: inout String,
@@ -357,9 +440,7 @@ enum GlobalSearchPresentation: Sendable {
             return SectionKind.resultSectionDisplayOrder.filter { scoped.contains($0) }
         }()
 
-        let maxHits = appliesTextFilter || contextTokens.isEmpty
-            ? maxHitsPerSection
-            : maxScopedBrowseHits
+        let maxHits = maxHitsPerSection
 
         let sections = sectionKinds.compactMap { kind -> Section? in
             let hits = hits(
@@ -397,7 +478,10 @@ enum GlobalSearchPresentation: Sendable {
                         subtitle: entry.subtitle,
                         systemImage: "water.waves",
                         destination: .dive(entry.id),
-                        accessibilityIdentifier: "GlobalSearch.Hit.Dive.\(entry.id.uuidString)"
+                        accessibilityIdentifier: "GlobalSearch.Hit.Dive.\(entry.id.uuidString)",
+                        matchReasons: appliesTextFilter
+                            ? GlobalSearchMatchReasoning.reasons(query: query, fields: entry.matchFields)
+                            : []
                     )
                 }
         case .diveSites:
@@ -522,6 +606,8 @@ enum GlobalSearchPresentation: Sendable {
                         accessibilityIdentifier: "GlobalSearch.Hit.Certification.\(entry.id.uuidString)"
                     )
                 }
+        case .media:
+            return []
         }
     }
 
@@ -567,6 +653,9 @@ enum GlobalSearchResultsDismissPresentation: Sendable {
     nonisolated static let springResponse: Double = 0.38
     nonisolated static let springDamping: Double = 0.86
     nonisolated static let settleNanoseconds: UInt64 = 320_000_000
+    /// Matches **`GoDiveLeadingEdgeSwipePopMetrics.maxStartXFromScreenLeading`** — duplicated here so
+    /// **`shouldEngageDismissDrag`** stays **`nonisolated`** without referencing UIKit-adjacent metrics.
+    nonisolated static let dismissDragMaxStartXFromScreenLeading: CGFloat = 72
 
     nonisolated static func commitDismissOffset(containerWidth: CGFloat) -> CGFloat {
         max(containerWidth, 1)
@@ -593,6 +682,19 @@ enum GlobalSearchResultsDismissPresentation: Sendable {
         dragOffset: CGFloat
     ) -> Bool {
         !isResultsPanelVisible || dragOffset > 0.5
+    }
+
+    /// The interactive slide-back should only engage for a clearly horizontal, rightward swipe that begins near the
+    /// leading edge. A vertical scroll that starts near the edge must pass through to the results list — otherwise the
+    /// list scroll is locked mid-gesture and scrolling appears frozen.
+    nonisolated static func shouldEngageDismissDrag(
+        startLocationX: CGFloat,
+        translation: CGSize,
+        maxStartXFromScreenLeading: CGFloat = GlobalSearchResultsDismissPresentation.dismissDragMaxStartXFromScreenLeading
+    ) -> Bool {
+        guard startLocationX <= maxStartXFromScreenLeading else { return false }
+        guard translation.width > 0 else { return false }
+        return translation.width > abs(translation.height)
     }
 
     /// While the interactive slide-back is active, settling, or the panel has moved, block row taps and list scroll.
@@ -627,12 +729,12 @@ enum GlobalSearchResultsDismissPresentation: Sendable {
 
 /// Search stack presentation while pushing catalog detail pages from results.
 enum GlobalSearchPushedDestinationPresentation: Sendable {
-    /// Keep **`.searchable`** on the stack only at root so pushed pages match tab-stack safe area (no navigation search drawer inset).
-    nonisolated static func attachesStackSearch(pathCount: Int) -> Bool {
-        pathCount == 0
+    /// **`.searchable`** stays on the stack only at the root — pushed detail pages hide it.
+    nonisolated static func attachesStackSearch(path: [GlobalSearchPresentation.Destination]) -> Bool {
+        path.isEmpty
     }
 
-    /// Clear navigation-layer search chrome when opening a result — not when popping back to results/category browse.
+    /// Clear navigation-layer search chrome when opening a result (any push dismisses the field).
     nonisolated static func shouldDismissNavigationSearchOnPathChange(
         previousDepth: Int,
         newDepth: Int
@@ -640,9 +742,14 @@ enum GlobalSearchPushedDestinationPresentation: Sendable {
         newDepth > previousDepth
     }
 
-    /// **`dismissSearch()`** must run while **`path`** is still empty so stack **`.searchable`** remains attached.
-    nonisolated static func shouldDismissSearchBeforePathAppend(currentPathDepth: Int) -> Bool {
-        currentPathDepth == 0
+    /// **`dismissSearch()`** before append for detail pushes.
+    nonisolated static func shouldDismissSearchBeforePathAppend(
+        destination: GlobalSearchPresentation.Destination,
+        currentPathDepth: Int
+    ) -> Bool {
+        _ = destination
+        _ = currentPathDepth
+        return true
     }
 
     /// Restore interactive pop on the stack while a detail is pushed (root stack must stay free of UIKit anchors for morph).
@@ -683,18 +790,35 @@ enum GlobalSearchCatalogSeeding {
         certifications: [Certification],
         unitSystem: DiveDisplayUnitSystem
     ) -> GlobalSearchPresentation.Catalog {
+        let divesByID = Dictionary(dives.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let diveSpeciesNameByUUID = Dictionary(
+            speciesCatalog.map { ($0.uuid, $0.commonName) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let diveTripTitleByID = Dictionary(
+            trips.map { ($0.id, $0.displayTitle) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let diveIndexMonthSymbols = GlobalSearchDiveIndexing.monthSymbols()
+
         let diveEntries = LogbookActivitySnapshotSeeding.seeds(from: dives).map { seed in
-            GlobalSearchPresentation.DiveIndexEntry(
+            let matchFields = diveMatchFields(
+                seed: seed,
+                activity: divesByID[seed.id],
+                speciesNameByUUID: diveSpeciesNameByUUID,
+                tripTitleByID: diveTripTitleByID,
+                monthSymbols: diveIndexMonthSymbols
+            )
+            // Site name (row title) matches but needs no reason line; all other terms live in matchFields.
+            let haystack = CatalogSearchPresentation.joinedLowercasedHaystacks(
+                [seed.displayName, seed.resolvedSiteNameLowercased ?? ""] + matchFields.map(\.value)
+            )
+            return GlobalSearchPresentation.DiveIndexEntry(
                 id: seed.id,
                 title: seed.displayName,
                 subtitle: seed.resolvedSiteNameLowercased?.capitalized,
-                searchHaystack: CatalogSearchPresentation.joinedLowercasedHaystacks([
-                    seed.displayName,
-                    seed.resolvedSiteNameLowercased ?? "",
-                    seed.diveNumber.map { "#\($0)" } ?? "",
-                    seed.activityTagNames.joined(separator: " "),
-                    seed.buddyDisplayNames.joined(separator: " "),
-                ])
+                searchHaystack: haystack,
+                matchFields: matchFields
             )
         }
 
@@ -791,6 +915,98 @@ enum GlobalSearchCatalogSeeding {
             equipment: equipmentEntries,
             certifications: certificationEntries
         )
+    }
+
+    /// Labeled searchable fields for one dive — powers both the search haystack and the per-result
+    /// "why it matched" reason lines. Order here is the reason-priority order (buddies/marine life
+    /// first, notes/dive number last); the site name (row title) is intentionally excluded.
+    @MainActor
+    private static func diveMatchFields(
+        seed: LogbookActivitySnapshotSeed,
+        activity: DiveActivity?,
+        speciesNameByUUID: [String: String],
+        tripTitleByID: [UUID: String],
+        monthSymbols: [String]
+    ) -> [GlobalSearchPresentation.SearchField] {
+        var fields: [GlobalSearchPresentation.SearchField] = []
+
+        for buddy in seed.buddyDisplayNames {
+            fields.append(.init(label: "Buddy", value: buddy))
+        }
+        if let activity {
+            for name in diveSightingCommonNames(for: activity, speciesNameByUUID: speciesNameByUUID) {
+                fields.append(.init(label: "Marine life", value: name))
+            }
+        }
+        for tag in seed.activityTagNames {
+            fields.append(.init(label: "Tag", value: tag))
+        }
+        if let activity {
+            for title in diveLinkedTripTitles(for: activity, tripTitleByID: tripTitleByID) {
+                fields.append(.init(label: "Trip", value: title))
+            }
+        }
+        if let site = activity?.diveSite {
+            let countryTerms = DiveSiteCountryPresentation.searchTerms(for: site.country)
+            if !countryTerms.isEmpty {
+                let canonical = DiveSiteCountryPresentation.canonicalDisplayName(for: site.country)
+                fields.append(.init(
+                    label: "Country",
+                    value: countryTerms.joined(separator: " "),
+                    display: canonical
+                ))
+            }
+            let region = site.region.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !region.isEmpty {
+                fields.append(.init(label: "Region", value: region))
+            }
+        }
+        if let month = GlobalSearchDiveIndexing.monthName(for: seed.startTime, monthSymbols: monthSymbols) {
+            fields.append(.init(label: "Dive month", value: month))
+        }
+        if let year = GlobalSearchDiveIndexing.yearString(for: seed.startTime) {
+            fields.append(.init(label: "Dive year", value: year))
+        }
+        if let notes = activity?.notes?.trimmingCharacters(in: .whitespacesAndNewlines), !notes.isEmpty {
+            fields.append(.init(label: "Notes", value: notes, isSnippet: true))
+        }
+        if let number = seed.diveNumber {
+            fields.append(.init(label: "Dive number", value: "#\(number)"))
+        }
+
+        return fields
+    }
+
+    /// Common names of species tagged on this dive; prefers the linked catalog row, else resolves the
+    /// denormalized `marineLifeUUID` against the loaded species catalog.
+    @MainActor
+    private static func diveSightingCommonNames(
+        for activity: DiveActivity,
+        speciesNameByUUID: [String: String]
+    ) -> [String] {
+        activity.marineLifeSightings.compactMap { sighting in
+            if let name = sighting.marineLife?.commonName,
+               !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return name
+            }
+            return speciesNameByUUID[sighting.marineLifeUUID]
+        }
+    }
+
+    /// Display titles of trips this dive is linked to (resolved by relationship or denormalized id).
+    @MainActor
+    private static func diveLinkedTripTitles(
+        for activity: DiveActivity,
+        tripTitleByID: [UUID: String]
+    ) -> [String] {
+        activity.tripActivityLinks.compactMap { link in
+            if let title = link.trip?.displayTitle,
+               !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return title
+            }
+            guard let tripID = link.tripID else { return nil }
+            return tripTitleByID[tripID]
+        }
     }
 }
 

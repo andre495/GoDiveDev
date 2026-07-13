@@ -20,6 +20,7 @@ enum DiveSiteReferenceCatalog: Sendable {
     nonisolated static let bundledResourceName = "opendivemap_dive_sites_reference"
 
     private nonisolated(unsafe) static var cachedSnapshots: [DiveSiteReferenceSnapshot]?
+    private nonisolated(unsafe) static var cachedSnapshotsByID: [String: DiveSiteReferenceSnapshot]?
 
     nonisolated static func bundledReference(
         bundle: Bundle = .main,
@@ -44,9 +45,28 @@ enum DiveSiteReferenceCatalog: Sendable {
         }
     }
 
+    /// Reference rows keyed by OpenDiveMap id, built (and cached) once. Use this for per-row lookups —
+    /// scanning `bundledReference()` with `first(where:)` per row is O(n) over thousands of rows and was
+    /// a major source of search-results scroll lag.
+    nonisolated static func bundledReferenceByID(
+        bundle: Bundle = .main,
+        resourceExtension: String = "json"
+    ) -> [String: DiveSiteReferenceSnapshot] {
+        if let cachedSnapshotsByID {
+            return cachedSnapshotsByID
+        }
+        let byID = Dictionary(
+            bundledReference(bundle: bundle, resourceExtension: resourceExtension).map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        cachedSnapshotsByID = byID
+        return byID
+    }
+
     #if DEBUG
     nonisolated static func resetCacheForTesting() {
         cachedSnapshots = nil
+        cachedSnapshotsByID = nil
     }
     #endif
 }

@@ -69,7 +69,8 @@ final class FishialVideoScrubPlayerUIView: UIView {
     private let imageView = UIImageView()
     private var imageGenerator: AVAssetImageGenerator?
     private var generationTask: Task<Void, Never>?
-    private var latestGenerationID = 0
+    private var coalescer = FishialVideoScrubFrameRequestCoalescer()
+    private var durationSeconds: Double = 0
     private var preparedAssetIdentifier: ObjectIdentifier?
 
     override init(frame: CGRect) {
@@ -101,24 +102,33 @@ final class FishialVideoScrubPlayerUIView: UIView {
     }
 
     func seek(toFraction fraction: Double, durationSeconds: Double) {
+        guard imageGenerator != nil else { return }
+        self.durationSeconds = durationSeconds
+        // Coalesce rapid slider ticks: only one decode runs at a time, and the newest
+        // requested fraction runs next so the preview updates live while the user scrubs.
+        if let fractionToGenerate = coalescer.requestFraction(fraction) {
+            startGeneration(fraction: fractionToGenerate)
+        }
+    }
+
+    private func startGeneration(fraction: Double) {
         guard let imageGenerator else { return }
         let time = DiveMediaFishialFrameExport.cmTime(
             durationSeconds: durationSeconds,
             fraction: fraction
         )
-        generationTask?.cancel()
-        latestGenerationID += 1
-        let generationID = latestGenerationID
         generationTask = Task { @MainActor in
-            do {
-                let cgImage = try await DiveMediaFishialFrameExport.cgImage(
-                    from: imageGenerator,
-                    at: time
-                )
-                guard !Task.isCancelled, generationID == latestGenerationID else { return }
+            defer {
+                if let nextFraction = coalescer.completeGeneration() {
+                    startGeneration(fraction: nextFraction)
+                }
+            }
+            let cgImage = try? await DiveMediaFishialFrameExport.cgImage(
+                from: imageGenerator,
+                at: time
+            )
+            if let cgImage {
                 imageView.image = UIImage(cgImage: cgImage)
-            } catch {
-                guard !Task.isCancelled, generationID == latestGenerationID else { return }
             }
         }
     }
@@ -126,10 +136,11 @@ final class FishialVideoScrubPlayerUIView: UIView {
     func teardown() {
         generationTask?.cancel()
         generationTask = nil
+        coalescer.reset()
         imageGenerator = nil
         imageView.image = nil
         preparedAssetIdentifier = nil
-        latestGenerationID = 0
+        durationSeconds = 0
     }
 }
 #endif

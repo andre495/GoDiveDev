@@ -181,15 +181,20 @@ enum DiveMediaFishialFrameExport {
         return generator
     }
 
-    /// Exact frame timing for Fishial video scrub preview (not keyframe-snapped).
+    /// Near-frame timing for the Fishial video scrub preview.
+    ///
+    /// Uses the same small tolerance as the exported still (`makeImageGenerator`) rather than
+    /// zero tolerance: exact decodes are slow enough that a live scrub would only refresh a few
+    /// times per second, so a modest tolerance keeps the preview updating as the user drags while
+    /// staying representative of the frame that is ultimately exported.
     @MainActor
     static func makeScrubPreviewImageGenerator(for avAsset: AVAsset) -> AVAssetImageGenerator {
         let maxEdge = FishialMediaSelectionPresentation.videoScrubPreviewMaxEdge
         let generator = AVAssetImageGenerator(asset: avAsset)
         generator.appliesPreferredTrackTransform = true
         generator.maximumSize = CGSize(width: maxEdge, height: maxEdge)
-        generator.requestedTimeToleranceBefore = .zero
-        generator.requestedTimeToleranceAfter = .zero
+        generator.requestedTimeToleranceBefore = CMTime(seconds: 0.05, preferredTimescale: 600)
+        generator.requestedTimeToleranceAfter = CMTime(seconds: 0.05, preferredTimescale: 600)
         return generator
     }
     #endif

@@ -25,6 +25,9 @@ enum FieldGuideCategoryAccent {
         case "reptiles", "sea_turtles", "marine_reptiles":
             // Cyan
             Color(red: 0.12, green: 0.82, blue: 0.88)
+        case "global_search_media":
+            // Lavender purple — Search → Media tile
+            Color(red: 0.72, green: 0.58, blue: 0.94)
         case "mammals", "marine_mammals":
             // Deep Pink
             Color(red: 0.92, green: 0.12, blue: 0.52)

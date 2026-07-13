@@ -18,6 +18,9 @@ struct LinkedMediaGridSection: View {
     let emptyMessage: String?
     let emptyAccessibilityIdentifier: String?
     var initialFullscreenMediaID: UUID?
+    /// When true (e.g. an interactive back-swipe is in progress), thumbnail taps are ignored so the
+    /// gesture cannot inadvertently open a media item. Matches the search result-row freeze behavior.
+    var isSelectionBlocked: Bool = false
     let onOpenDive: (UUID) -> Void
 
     @State private var fullscreenMediaSelection: FullscreenMediaSelection?
@@ -98,12 +101,14 @@ struct LinkedMediaGridSection: View {
 
     private func gridCellButton(for media: DiveMediaPhoto) -> some View {
         Button {
+            guard !isSelectionBlocked else { return }
             gallerySelectedMediaID = media.id
             fullscreenMediaSelection = FullscreenMediaSelection(id: media.id)
         } label: {
             gridCell(for: media)
         }
         .buttonStyle(.plain)
+        .disabled(isSelectionBlocked)
         .accessibilityLabel(gridCellAccessibilityLabel(for: media))
         .accessibilityIdentifier("\(gridItemAccessibilityPrefix).\(media.id.uuidString)")
     }

@@ -37,3 +37,44 @@ enum FishialVideoScrubPresentation: Sendable {
         formattedTimestamp(durationSeconds: durationSeconds, fraction: 1)
     }
 }
+
+/// Coalesces rapid scrub frame requests so the preview always chases the latest slider
+/// position without queueing a backlog of `AVAssetImageGenerator` work.
+///
+/// Cancelling the prior Swift task does not stop the underlying frame decode, so the earlier
+/// design dropped every intermediate frame and only showed the final one after the finger
+/// lifted. Instead we run one generation at a time and, on completion, start the newest
+/// fraction requested meanwhile — yielding a live-updating preview during the scrub.
+struct FishialVideoScrubFrameRequestCoalescer: Sendable {
+    private var isGenerating = false
+    private var pendingFraction: Double?
+
+    /// Register a newly requested fraction.
+    /// - Returns: The fraction to begin generating now, or `nil` if a generation is already in flight
+    ///   (the fraction is stored as the pending request to run next).
+    mutating func requestFraction(_ fraction: Double) -> Double? {
+        let clamped = FishialVideoScrubPresentation.clampedFraction(fraction)
+        if isGenerating {
+            pendingFraction = clamped
+            return nil
+        }
+        isGenerating = true
+        return clamped
+    }
+
+    /// Signal that the in-flight generation finished.
+    /// - Returns: The next fraction to generate if one was requested while generating, else `nil`.
+    mutating func completeGeneration() -> Double? {
+        isGenerating = false
+        guard let next = pendingFraction else { return nil }
+        pendingFraction = nil
+        isGenerating = true
+        return next
+    }
+
+    /// Reset all coalescing state (e.g. when the preview tears down).
+    mutating func reset() {
+        isGenerating = false
+        pendingFraction = nil
+    }
+}

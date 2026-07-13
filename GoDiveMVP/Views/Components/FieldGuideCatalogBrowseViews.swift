@@ -141,8 +141,12 @@ private struct FieldGuideCategoryHubTile: View {
                         .foregroundStyle(.white.opacity(0.88))
                         .multilineTextAlignment(.leading)
                         .lineLimit(2)
+                        // Constrain width (not just height) so the text wraps into the reserved
+                        // two-line block instead of sizing to its full single-line width.
                         .frame(
-                            height: FieldGuideHubTileLayout.subtitleTwoLineMinHeight,
+                            maxWidth: .infinity,
+                            minHeight: FieldGuideHubTileLayout.subtitleTwoLineMinHeight,
+                            maxHeight: FieldGuideHubTileLayout.subtitleTwoLineMinHeight,
                             alignment: .topLeading
                         )
 
@@ -183,8 +187,8 @@ private struct FieldGuideCategoryHubTile: View {
         Text(speciesCount == 0 ? "Explore" : "\(speciesCount) species")
             .font(.caption2.weight(.bold))
             .foregroundStyle(FieldGuideCategoryAccent.gradientTop(definition.id))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.horizontal, FieldGuideHubTileLayout.speciesBadgeHorizontalPadding)
+            .padding(.vertical, FieldGuideHubTileLayout.speciesBadgeVerticalPadding)
             .background {
                 Capsule().fill(.white)
             }
@@ -195,10 +199,15 @@ private struct FieldGuideCategoryHubTile: View {
 /// Hub tile layout — full-width list rows aligned with **`LogbookActivityRowLayout`** spacing.
 enum FieldGuideHubTileLayout: Sendable {
     nonisolated static let listRowSpacing: CGFloat = AppTheme.Spacing.sm
-    /// Taller than Home stat tiles to fit a fixed two-line subtitle block.
-    nonisolated static let tileHeight: CGFloat = 96
+    /// Fits a title + fixed two-line subtitle + species pill with the same **`cardPadding`** (8 pt)
+    /// breathing room the dive activity tile gets from its intrinsic height (previously 96 pt
+    /// squeezed the content against the tile edges).
+    nonisolated static let tileHeight: CGFloat = 108
     nonisolated static let tilePadding: CGFloat = LogbookActivityRowLayout.cardPadding
     nonisolated static let tileCornerRadius: CGFloat = LogbookActivityRowLayout.cardCornerRadius
+    /// Species pill insets — match the dive activity tile's compact **`ActivityTagOvalChipLabel`** oval.
+    nonisolated static let speciesBadgeHorizontalPadding: CGFloat = 10
+    nonisolated static let speciesBadgeVerticalPadding: CGFloat = 4
     nonisolated static let hubTitleScrollFeather: CGFloat = 44
 
     nonisolated static func hubScrollScrimHeight(topChromeInset: CGFloat) -> CGFloat {

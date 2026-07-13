@@ -15,6 +15,8 @@ enum GlobalSearchResultListRowLayout: Sendable {
     nonisolated static let textSpacing: CGFloat = 1
     nonisolated static let separatorOpacity: CGFloat = 0.14
     nonisolated static let subtitleOpacity: CGFloat = 0.55
+    nonisolated static let matchReasonOpacity: CGFloat = 0.7
+    nonisolated static let matchReasonTopSpacing: CGFloat = 2
     nonisolated static let separatorHeight: CGFloat = 0.5
 }
 
@@ -30,6 +32,7 @@ struct GlobalSearchResultListRowHairline: View {
 struct GlobalSearchResultListRow<Leading: View>: View {
     let title: String
     let subtitle: String?
+    var matchReasons: [GlobalSearchPresentation.MatchReason] = []
     @ViewBuilder let leading: () -> Leading
 
     var body: some View {
@@ -57,6 +60,8 @@ struct GlobalSearchResultListRow<Leading: View>: View {
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
                     }
+
+                    GlobalSearchResultMatchReasonLines(reasons: matchReasons)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -65,6 +70,33 @@ struct GlobalSearchResultListRow<Leading: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.clear)
         .contentShape(Rectangle())
+    }
+}
+
+/// Italic "Label: matched text" lines under a search result explaining why it matched the query.
+struct GlobalSearchResultMatchReasonLines: View {
+    let reasons: [GlobalSearchPresentation.MatchReason]
+
+    var body: some View {
+        if !reasons.isEmpty {
+            VStack(alignment: .leading, spacing: GlobalSearchResultListRowLayout.textSpacing) {
+                ForEach(reasons, id: \.self) { reason in
+                    HStack(spacing: 0) {
+                        Text("\(reason.label): ")
+                            .italic()
+                            .fontWeight(.semibold)
+                        Text(reason.text)
+                            .italic()
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(GlobalSearchResultListRowLayout.matchReasonOpacity))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .accessibilityIdentifier("GlobalSearch.Result.MatchReason.\(reason.label)")
+                }
+            }
+            .padding(.top, GlobalSearchResultListRowLayout.matchReasonTopSpacing)
+        }
     }
 }
 
@@ -165,6 +197,7 @@ struct GlobalSearchResultPhotoArtwork: View {
 
 struct GlobalSearchDiveResultListRow: View {
     let data: DiveLogbookRowDisplayData
+    var matchReasons: [GlobalSearchPresentation.MatchReason] = []
 
     private var subtitle: String {
         let number = data.diveNumberLabel.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -177,7 +210,8 @@ struct GlobalSearchDiveResultListRow: View {
     var body: some View {
         GlobalSearchResultListRow(
             title: data.displayName,
-            subtitle: subtitle
+            subtitle: subtitle,
+            matchReasons: matchReasons
         ) {
             if let previewMediaPhotoID = data.previewMediaPhotoID {
                 GlobalSearchResultMediaArtwork(photoID: previewMediaPhotoID)

@@ -6322,11 +6322,25 @@ struct GoDiveMVPTests {
         #expect(FieldGuideHubTileLayout.listRowSpacing == AppTheme.Spacing.sm)
         #expect(FieldGuideHubTileLayout.tilePadding == LogbookActivityRowLayout.cardPadding)
         #expect(FieldGuideHubTileLayout.tileCornerRadius == LogbookActivityRowLayout.cardCornerRadius)
-        #expect(FieldGuideHubTileLayout.tileHeight == 96)
+        // Taller than the old 96 pt so title + two-line subtitle + species pill keep the same
+        // 8 pt breathing room the dive activity tile has (content no longer crams the edges).
+        #expect(FieldGuideHubTileLayout.tileHeight == 108)
+        #expect(
+            FieldGuideHubTileLayout.tileHeight
+                >= FieldGuideHubTileLayout.subtitleTwoLineMinHeight
+                    + 2 * FieldGuideHubTileLayout.tilePadding
+        )
         #expect(FieldGuideHubTileLayout.subtitleTwoLineMinHeight > 0)
         #expect(FieldGuideHubTileLayout.hubTitleScrollFeather == 44)
         #expect(FieldGuideHubTileLayout.hubScrollScrimHeight(topChromeInset: 111) == 155)
         #expect(FieldGuideHubTileLayout.titleTwoLineMinHeight(isFeatured: false) > 0)
+    }
+
+    @Test func fieldGuideHubTileLayout_speciesBadgeMatchesCompactActivityOvalInsets() {
+        // Species pill insets align with the dive activity tile's compact oval
+        // (`ActivityTagOvalChipLabel` with `isCompact: true` → horizontal 10, vertical 4).
+        #expect(FieldGuideHubTileLayout.speciesBadgeHorizontalPadding == 10)
+        #expect(FieldGuideHubTileLayout.speciesBadgeVerticalPadding == 4)
     }
 
     @Test func diveMarineLifeTagSheetPresentation_fishialIdentifyIsActive_whenSpeciesNameConfirmed() {
@@ -9366,6 +9380,38 @@ struct GoDiveMVPTests {
                 == "1:02.5"
         )
         #expect(FishialVideoScrubPresentation.formattedDuration(durationSeconds: 125) == "2:05")
+    }
+
+    @Test func fishialVideoScrubFrameRequestCoalescer_runsFirstRequestImmediately() {
+        var coalescer = FishialVideoScrubFrameRequestCoalescer()
+        #expect(coalescer.requestFraction(0.25) == 0.25)
+    }
+
+    @Test func fishialVideoScrubFrameRequestCoalescer_clampsRequestedFraction() {
+        var coalescer = FishialVideoScrubFrameRequestCoalescer()
+        #expect(coalescer.requestFraction(1.8) == 1)
+    }
+
+    @Test func fishialVideoScrubFrameRequestCoalescer_queuesLatestWhileGenerating() {
+        var coalescer = FishialVideoScrubFrameRequestCoalescer()
+        #expect(coalescer.requestFraction(0.1) == 0.1)
+        // Further requests while a decode is in flight do not start a new decode...
+        #expect(coalescer.requestFraction(0.4) == nil)
+        // ...and only the newest requested fraction is retained.
+        #expect(coalescer.requestFraction(0.7) == nil)
+        // On completion the newest pending fraction runs next (live scrub keeps up).
+        #expect(coalescer.completeGeneration() == 0.7)
+        // No further pending work once caught up.
+        #expect(coalescer.completeGeneration() == nil)
+    }
+
+    @Test func fishialVideoScrubFrameRequestCoalescer_resetClearsPendingWork() {
+        var coalescer = FishialVideoScrubFrameRequestCoalescer()
+        #expect(coalescer.requestFraction(0.3) == 0.3)
+        #expect(coalescer.requestFraction(0.6) == nil)
+        coalescer.reset()
+        // After reset the next request starts fresh instead of queueing behind stale state.
+        #expect(coalescer.requestFraction(0.9) == 0.9)
     }
 
     @Test func fishialImageCropPresentation_squareCropViewportSize_fitsContainer() {
@@ -18838,6 +18884,172 @@ struct GoDiveMVPTests {
         }
     }
 
+    @Test func globalSearchCatalogWarming_fingerprintReflectsOwnerAndCounts() {
+        let ownerA = UUID()
+        let ownerB = UUID()
+        let baseline = GlobalSearchCatalogWarming.fingerprint(
+            ownerProfileID: ownerA,
+            dives: [],
+            diveSites: [],
+            speciesCatalog: [],
+            buddies: [],
+            tags: [],
+            trips: [],
+            equipment: [],
+            certifications: []
+        )
+        #expect(baseline == "\(ownerA.uuidString)|0|0|0|0|0|0|0|0")
+        // No owner falls back to a stable sentinel rather than empty.
+        let noOwner = GlobalSearchCatalogWarming.fingerprint(
+            ownerProfileID: nil,
+            dives: [],
+            diveSites: [],
+            speciesCatalog: [],
+            buddies: [],
+            tags: [],
+            trips: [],
+            equipment: [],
+            certifications: []
+        )
+        #expect(noOwner == "none|0|0|0|0|0|0|0|0")
+        // A different owner changes the cache key so warmed catalogs never leak across profiles.
+        #expect(baseline != GlobalSearchCatalogWarming.fingerprint(
+            ownerProfileID: ownerB,
+            dives: [],
+            diveSites: [],
+            speciesCatalog: [],
+            buddies: [],
+            tags: [],
+            trips: [],
+            equipment: [],
+            certifications: []
+        ))
+    }
+
+    @MainActor
+    @Test func globalSearchCatalogWarming_ensureCatalogCachesByFingerprint() {
+        let store = GlobalSearchCatalogStore()
+        #expect(store.catalog == nil)
+        #expect(store.fingerprint.isEmpty)
+
+        let ownerID = UUID()
+        _ = GlobalSearchCatalogWarming.ensureCatalog(
+            store: store,
+            ownerProfileID: ownerID,
+            dives: [],
+            diveSites: [],
+            speciesCatalog: [],
+            buddies: [],
+            tags: [],
+            trips: [],
+            equipment: [],
+            certifications: [],
+            unitSystem: .metric
+        )
+        #expect(store.catalog != nil)
+        let warmedFingerprint = store.fingerprint
+        #expect(!warmedFingerprint.isEmpty)
+
+        // A second call with identical inputs must reuse the warmed cache (fingerprint unchanged),
+        // so a category tile tap after warming skips the expensive index rebuild.
+        _ = GlobalSearchCatalogWarming.ensureCatalog(
+            store: store,
+            ownerProfileID: ownerID,
+            dives: [],
+            diveSites: [],
+            speciesCatalog: [],
+            buddies: [],
+            tags: [],
+            trips: [],
+            equipment: [],
+            certifications: [],
+            unitSystem: .metric
+        )
+        #expect(store.fingerprint == warmedFingerprint)
+    }
+
+    @Test func diveSiteReferenceCatalog_bundledReferenceByID_keysMatchBundledReference() {
+        DiveSiteReferenceCatalog.resetCacheForTesting()
+        let list = DiveSiteReferenceCatalog.bundledReference()
+        let byID = DiveSiteReferenceCatalog.bundledReferenceByID()
+        // O(1) lookup dictionary must cover every reference row exactly once.
+        #expect(byID.count == Set(list.map(\.id)).count)
+        for snapshot in list {
+            #expect(byID[snapshot.id]?.id == snapshot.id)
+        }
+        // Second call reuses the cached mapping.
+        #expect(DiveSiteReferenceCatalog.bundledReferenceByID().count == byID.count)
+    }
+
+    @MainActor
+    @Test func globalSearchResultRowContentBuilder_tagHitUsesHitFieldsAndTagArtwork() {
+        let hit = GlobalSearchPresentation.Hit(
+            id: "tag-1",
+            title: "Night dive",
+            subtitle: "3 dives",
+            systemImage: "tag.fill",
+            destination: .tag(UUID()),
+            accessibilityIdentifier: "GlobalSearch.Result.tag-1"
+        )
+        let contents = GlobalSearchResultRowContentBuilder.rowContents(
+            hits: [hit],
+            ownerProfileID: nil,
+            ownerDives: [],
+            diveSites: [],
+            speciesCatalog: [],
+            ownerDiveBuddies: [],
+            ownerTrips: [],
+            ownerEquipment: [],
+            ownerCertifications: [],
+            unitSystem: .metric,
+            useChronologicalNumbers: false
+        )
+        #expect(contents.count == 1)
+        #expect(contents[0].id == "tag-1")
+        #expect(contents[0].accessibilityIdentifier == "GlobalSearch.Result.tag-1")
+        guard case .standard(let title, let subtitle, let artwork) = contents[0].kind else {
+            Issue.record("Expected standard row kind")
+            return
+        }
+        #expect(title == "Night dive")
+        #expect(subtitle == "3 dives")
+        #expect(artwork == .symbol("tag.fill"))
+    }
+
+    @MainActor
+    @Test func globalSearchResultRowContentBuilder_missingModelFallsBackToHitFields() {
+        // A buddy hit whose model isn't in the provided arrays must fall back to the hit's own
+        // title/subtitle/symbol rather than dropping the row.
+        let hit = GlobalSearchPresentation.Hit(
+            id: "buddy-x",
+            title: "Unknown Buddy",
+            subtitle: "buddy subtitle",
+            systemImage: "person.fill",
+            destination: .buddy(UUID()),
+            accessibilityIdentifier: "GlobalSearch.Result.buddy-x"
+        )
+        let contents = GlobalSearchResultRowContentBuilder.rowContents(
+            hits: [hit],
+            ownerProfileID: UUID(),
+            ownerDives: [],
+            diveSites: [],
+            speciesCatalog: [],
+            ownerDiveBuddies: [],
+            ownerTrips: [],
+            ownerEquipment: [],
+            ownerCertifications: [],
+            unitSystem: .metric,
+            useChronologicalNumbers: false
+        )
+        guard case .standard(let title, let subtitle, let artwork) = contents.first?.kind else {
+            Issue.record("Expected standard fallback row kind")
+            return
+        }
+        #expect(title == "Unknown Buddy")
+        #expect(subtitle == "buddy subtitle")
+        #expect(artwork == .symbol("person.fill"))
+    }
+
     @Test func globalSearchPresentation_emptyQueryReturnsNoSections() {
         let catalog = GlobalSearchPresentation.Catalog(
             dives: [],
@@ -18930,6 +19142,63 @@ struct GoDiveMVPTests {
         #expect(results.sections.count == 1)
         #expect(results.sections.first?.hits.count == 1)
         #expect(results.sections.first?.hits.first?.title == "Salt Pier #12")
+    }
+
+    @Test func globalSearchPresentation_typedQueryReturnsAllMatchesNotCappedAtTwelve() {
+        let matchingDives = (0..<15).map { index in
+            GlobalSearchPresentation.DiveIndexEntry(
+                id: UUID(),
+                title: "Reef Dive #\(index)",
+                subtitle: "Blue Reef",
+                searchHaystack: "reef dive blue reef"
+            )
+        }
+        let catalog = GlobalSearchPresentation.Catalog(
+            dives: matchingDives,
+            diveSites: [
+                GlobalSearchPresentation.DiveSiteIndexEntry(
+                    title: "Reef Wall",
+                    subtitle: "Bonaire",
+                    searchHaystacks: ["Reef Wall"],
+                    destination: .diveSite(UUID())
+                ),
+            ],
+            species: [],
+            buddies: [],
+            tags: [],
+            trips: [],
+            equipment: [],
+            certifications: []
+        )
+
+        let results = GlobalSearchPresentation.search(catalog: catalog, query: "reef")
+        let diveSection = results.sections.first { $0.kind == .dives }
+        // Typed multi-category search no longer truncates dives at 12 — all 15 matches come back.
+        #expect(diveSection?.hits.count == 15)
+        #expect(results.sections.contains { $0.kind == .diveSites })
+    }
+
+    @Test func globalSearchResultsDismissPresentation_engagesOnlyForHorizontalEdgeSwipe() {
+        // A vertical scroll that starts near the leading edge must NOT engage the slide-back (otherwise scroll freezes).
+        #expect(!GlobalSearchResultsDismissPresentation.shouldEngageDismissDrag(
+            startLocationX: 12,
+            translation: CGSize(width: 4, height: 120)
+        ))
+        // A clearly horizontal, rightward swipe from the leading edge engages the dismiss.
+        #expect(GlobalSearchResultsDismissPresentation.shouldEngageDismissDrag(
+            startLocationX: 12,
+            translation: CGSize(width: 90, height: 12)
+        ))
+        // A drag that begins away from the leading edge never engages.
+        #expect(!GlobalSearchResultsDismissPresentation.shouldEngageDismissDrag(
+            startLocationX: 220,
+            translation: CGSize(width: 90, height: 12)
+        ))
+        // A leftward drag never engages.
+        #expect(!GlobalSearchResultsDismissPresentation.shouldEngageDismissDrag(
+            startLocationX: 12,
+            translation: CGSize(width: -90, height: 12)
+        ))
     }
 
     @Test func globalSearchPresentation_isActiveWhenContextTokenSelected() {
@@ -19046,8 +19315,13 @@ struct GoDiveMVPTests {
         #expect(layout.backButtonReservedWidth() == AppTheme.Spacing.lg + layout.backButtonTapWidth)
         #expect(layout.titleFontSize == 20)
         #expect(layout.verticalPadding == AppTheme.Spacing.sm)
-        #expect(layout.scrollContentTopMargin(chromeHeight: 44) == 44)
-        #expect(layout.scrollContentTopMargin(chromeHeight: 0) == 0)
+        // Pinned section headers center on the back-button row (even with the back arrow), not below the chrome band.
+        let expectedTopMargin = layout.backButtonRowTopPadding
+            + layout.backButtonTapWidth / 2
+            - (layout.verticalPadding + layout.titleFontSize / 2)
+        #expect(layout.scrollContentTopMargin() == expectedTopMargin)
+        #expect(layout.scrollContentTopMargin() == 12)
+        #expect(layout.scrollContentTopMargin() < layout.backButtonTapWidth)
     }
 
     @Test func globalSearchResultsChromePresentation_layersScrimAboveListBelowBackRow() {
@@ -19082,9 +19356,35 @@ struct GoDiveMVPTests {
     }
 
     @Test func globalSearchPushedDestinationPresentation_attachesStackSearchOnlyAtRoot() {
-        #expect(GlobalSearchPushedDestinationPresentation.attachesStackSearch(pathCount: 0))
-        #expect(!GlobalSearchPushedDestinationPresentation.attachesStackSearch(pathCount: 1))
-        #expect(!GlobalSearchPushedDestinationPresentation.attachesStackSearch(pathCount: 2))
+        #expect(GlobalSearchPushedDestinationPresentation.attachesStackSearch(path: []))
+        #expect(!GlobalSearchPushedDestinationPresentation.attachesStackSearch(path: [.dive(UUID())]))
+        #expect(
+            !GlobalSearchPushedDestinationPresentation.attachesStackSearch(
+                path: [.trip(UUID()), .dive(UUID())]
+            )
+        )
+    }
+
+    @Test func globalSearchPresentation_isMediaScopeOnlyForLoneMediaToken() {
+        #expect(GlobalSearchPresentation.isMediaScope([.media]))
+        #expect(!GlobalSearchPresentation.isMediaScope([]))
+        #expect(!GlobalSearchPresentation.isMediaScope([.dives]))
+        #expect(!GlobalSearchPresentation.isMediaScope([.media, .dives]))
+    }
+
+    @Test func globalSearchPushedDestinationPresentation_dismissesSearchBeforePathAppend() {
+        #expect(
+            GlobalSearchPushedDestinationPresentation.shouldDismissSearchBeforePathAppend(
+                destination: .dive(UUID()),
+                currentPathDepth: 0
+            )
+        )
+        #expect(
+            GlobalSearchPushedDestinationPresentation.shouldDismissSearchBeforePathAppend(
+                destination: .dive(UUID()),
+                currentPathDepth: 1
+            )
+        )
     }
 
     @Test func globalSearchPushedDestinationPresentation_dismissesNavigationSearchOnlyOnPush() {
@@ -19099,15 +19399,6 @@ struct GoDiveMVPTests {
         #expect(!GlobalSearchPushedDestinationPresentation.shouldDismissNavigationSearchOnPathChange(
             previousDepth: 0,
             newDepth: 0
-        ))
-    }
-
-    @Test func globalSearchPushedDestinationPresentation_dismissesSearchBeforePathAppendFromRoot() {
-        #expect(GlobalSearchPushedDestinationPresentation.shouldDismissSearchBeforePathAppend(
-            currentPathDepth: 0
-        ))
-        #expect(!GlobalSearchPushedDestinationPresentation.shouldDismissSearchBeforePathAppend(
-            currentPathDepth: 1
         ))
     }
 
@@ -19154,7 +19445,7 @@ struct GoDiveMVPTests {
 
     @Test func globalSearchPresentation_contextTokens_coverMainConceptsInOrder() {
         let tokens = GlobalSearchPresentation.ContextToken.allCases
-        #expect(tokens.count == 8)
+        #expect(tokens.count == 9)
         #expect(tokens.map(\.title) == [
             "Dives",
             "Buddies",
@@ -19164,6 +19455,7 @@ struct GoDiveMVPTests {
             "Gear",
             "Trips",
             "Certifications",
+            "Media",
         ])
         #expect(tokens.map(\.accessibilityIdentifier) == [
             "GlobalSearch.ContextToken.dives",
@@ -19174,12 +19466,13 @@ struct GoDiveMVPTests {
             "GlobalSearch.ContextToken.gear",
             "GlobalSearch.ContextToken.trips",
             "GlobalSearch.ContextToken.certifications",
+            "GlobalSearch.ContextToken.media",
         ])
     }
 
     @Test func globalSearchPresentation_contextTokens_useFieldGuideAccentCategories() {
         let accentIDs = GlobalSearchPresentation.ContextToken.allCases.map(\.fieldGuideAccentCategoryID)
-        #expect(accentIDs.count == 8)
+        #expect(accentIDs.count == 9)
         #expect(accentIDs.contains("fishes"))
         #expect(accentIDs.contains("marine_mammals"))
         #expect(accentIDs.contains("corals"))
@@ -19224,6 +19517,78 @@ struct GoDiveMVPTests {
 
         let results = GlobalSearchPresentation.search(catalog: catalog, query: "blue")
         #expect(results.sections.map(\.kind) == [.buddies, .diveSites, .tags, .dives])
+    }
+
+    @Test func globalSearchPresentation_mediaSection_rendersSecondAfterBuddies() {
+        let order = GlobalSearchPresentation.SectionKind.resultSectionDisplayOrder
+        let buddiesIndex = order.firstIndex(of: .buddies)
+        let mediaIndex = order.firstIndex(of: .media)
+        #expect(buddiesIndex == 0)
+        #expect(mediaIndex == 1)
+        if let buddiesIndex, let mediaIndex {
+            #expect(mediaIndex == buddiesIndex + 1)
+        }
+    }
+
+    @Test func globalSearchDiveIndexing_dateSearchTokens_yieldsMonthNameAndYear() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        let symbols = GlobalSearchDiveIndexing.monthSymbols(locale: Locale(identifier: "en_US"))
+        let march2026 = calendar.date(from: DateComponents(year: 2026, month: 3, day: 15))!
+
+        let tokens = GlobalSearchDiveIndexing.dateSearchTokens(
+            for: march2026,
+            calendar: calendar,
+            monthSymbols: symbols
+        )
+
+        #expect(tokens.contains("2026"))
+        #expect(tokens.contains("March"))
+        // Year token has no grouping separator.
+        #expect(!tokens.contains("2,026"))
+    }
+
+    @Test func globalSearchMatchReasoning_reasons_labelMatchedFieldsWithDisplayText() {
+        let fields: [GlobalSearchPresentation.SearchField] = [
+            .init(label: "Buddy", value: "Mike"),
+            .init(label: "Country", value: "Mexico MX México", display: "Mexico"),
+            .init(label: "Dive year", value: "2026"),
+        ]
+
+        // Alias match still surfaces the canonical display value.
+        let countryReasons = GlobalSearchMatchReasoning.reasons(query: "mx", fields: fields)
+        #expect(countryReasons == [GlobalSearchPresentation.MatchReason(label: "Country", text: "Mexico")])
+
+        let buddyReasons = GlobalSearchMatchReasoning.reasons(query: "mike", fields: fields)
+        #expect(buddyReasons == [GlobalSearchPresentation.MatchReason(label: "Buddy", text: "Mike")])
+
+        // Blank query explains nothing.
+        #expect(GlobalSearchMatchReasoning.reasons(query: "   ", fields: fields).isEmpty)
+    }
+
+    @Test func globalSearchMatchReasoning_reasons_capsAndOrdersByFieldOrder() {
+        let fields: [GlobalSearchPresentation.SearchField] = [
+            .init(label: "Buddy", value: "reef ranger"),
+            .init(label: "Tag", value: "reef"),
+            .init(label: "Trip", value: "reef week"),
+            .init(label: "Notes", value: "beautiful reef dive", isSnippet: true),
+        ]
+        let reasons = GlobalSearchMatchReasoning.reasons(query: "reef", fields: fields, maxReasons: 3)
+        #expect(reasons.count == 3)
+        #expect(reasons.map(\.label) == ["Buddy", "Tag", "Trip"])
+    }
+
+    @Test func globalSearchMatchSnippet_windowsNotesAroundMatch() {
+        let notes = "We descended slowly and then swam with dolphins for a while before the safety stop"
+
+        let snippet = GlobalSearchMatchSnippet.snippet(from: notes, query: "dolphins", wordsAround: 2)
+        #expect(snippet == "… swam with dolphins for a …")
+
+        // Partial-word matches expand to the whole word.
+        let partial = GlobalSearchMatchSnippet.snippet(from: notes, query: "dolph", wordsAround: 1)
+        #expect(partial.contains("dolphins"))
+        #expect(partial.hasPrefix("…"))
+        #expect(partial.hasSuffix("…"))
     }
 
     @Test func globalSearchPresentation_tagsScopedBrowse_listsTagNamesNotDives() {
@@ -19316,8 +19681,278 @@ struct GoDiveMVPTests {
             layout.gridRowCount(
                 tokenCount: GlobalSearchPresentation.ContextToken.allCases.count,
                 columnCount: layout.gridColumnCount
-            ) == 4
+            ) == 5
         )
+    }
+
+    @Test func globalSearchMediaBrowsePresentation_freeTextFiltersAcrossAllMediaFields() {
+        let snapshot = GlobalSearchMediaBrowsePresentation.IndexSnapshot(
+            entries: [
+                GlobalSearchMediaBrowsePresentation.MediaEntry(
+                    mediaID: UUID(uuidString: "00000000-0000-0000-0000-000000000101")!,
+                    diveActivityID: UUID(),
+                    capturedAt: nil,
+                    sortOrder: 0,
+                    mediaKind: .image,
+                    siteName: "Blue Hole",
+                    activityTagNames: ["Reef"],
+                    mediaBuddyNames: ["Pat Lee"],
+                    tripTitles: ["Bonaire 2026"],
+                    speciesNames: ["Queen Angelfish"]
+                ),
+                GlobalSearchMediaBrowsePresentation.MediaEntry(
+                    mediaID: UUID(uuidString: "00000000-0000-0000-0000-000000000102")!,
+                    diveActivityID: UUID(),
+                    capturedAt: nil,
+                    sortOrder: 1,
+                    mediaKind: .video,
+                    siteName: "Wreck Alley",
+                    activityTagNames: ["Wreck"],
+                    mediaBuddyNames: ["Jamie"],
+                    tripTitles: ["Curaçao Week"],
+                    speciesNames: ["Green Sea Turtle"]
+                ),
+            ],
+            catalogTagNames: ["Reef", "Wreck"],
+            catalogBuddyNames: ["Pat Lee", "Jamie"],
+            catalogTrips: [],
+            catalogSpeciesNames: ["Queen Angelfish", "Green Sea Turtle"]
+        )
+
+        func filtered(_ text: String) -> [UUID] {
+            GlobalSearchMediaBrowsePresentation.filteredEntries(
+                from: snapshot,
+                filter: GlobalSearchMediaBrowsePresentation.resolveFilter(from: text)
+            ).map(\.mediaID)
+        }
+
+        // Plain typed text matches media across every field — no `buddy:` / `tag:` / `trip:` / `species:` prefixes.
+        #expect(filtered("blue") == [snapshot.entries[0].mediaID]) // site name
+        #expect(filtered("pat") == [snapshot.entries[0].mediaID]) // tagged buddy
+        #expect(filtered("wreck") == [snapshot.entries[1].mediaID]) // activity tag + site name
+        #expect(filtered("bonaire") == [snapshot.entries[0].mediaID]) // trip title
+        #expect(filtered("turtle") == [snapshot.entries[1].mediaID]) // tagged species
+
+        // Prefix syntax is treated as literal text (consistent with other categories) and matches nothing here.
+        #expect(filtered("buddy: Pat Lee").isEmpty)
+
+        // Empty query returns the whole library.
+        #expect(filtered("") == snapshot.entries.map(\.mediaID))
+    }
+
+    @Test func globalSearchMediaBrowsePresentation_displayCacheBuildsSnapshotAndFilterTogether() {
+        let photoID = UUID(uuidString: "00000000-0000-0000-0000-000000000401")!
+        let diveID = UUID(uuidString: "00000000-0000-0000-0000-000000000402")!
+        let input = GlobalSearchMediaIndexSnapshotBuilder.CaptureInput(
+            dives: [
+                .init(
+                    id: diveID,
+                    startTime: Date(timeIntervalSince1970: 1_800_000_000),
+                    siteName: "Blue Hole",
+                    activityTagNames: ["Reef"],
+                    tripTitles: ["Bonaire 2026"],
+                    mediaPhotos: [
+                        .init(id: photoID, diveActivityID: diveID, capturedAt: nil, sortOrder: 0, mediaKind: .image),
+                    ]
+                ),
+            ],
+            buddyTags: [],
+            sightings: [],
+            catalogTagNames: ["Reef"],
+            catalogBuddyNames: [],
+            catalogTrips: [],
+            catalogSpeciesNames: []
+        )
+        let filter = GlobalSearchMediaBrowsePresentation.resolveFilter(from: "blue")
+
+        let cache = GlobalSearchMediaBrowsePresentation.displayCache(from: input, filter: filter)
+
+        #expect(cache.snapshot.entries.map(\.mediaID) == [photoID])
+        #expect(cache.filteredMediaIDs == [photoID])
+        #expect(cache.filterFingerprint == GlobalSearchMediaBrowsePresentation.filterFingerprint(filter))
+        #expect(cache.mediaKindCounts == GlobalSearchMediaBrowsePresentation.MediaKindCounts(
+            videoCount: 0,
+            photoCount: 1
+        ))
+    }
+
+    @Test func globalSearchMediaResultsGrid_collapsesToTwoRowsUntilExpanded() {
+        typealias Grid = GlobalSearchMediaBrowsePresentation.ResultsSectionGrid
+        #expect(Grid.collapsedItemLimit == 6)
+
+        // Six or fewer matches fit in the collapsed two-row grid — no expand control.
+        #expect(!Grid.showsExpandControl(total: 6))
+        #expect(Grid.visibleCount(total: 6, isExpanded: false) == 6)
+        #expect(Grid.hiddenCount(total: 6) == 0)
+
+        // More than six shows the control; collapsed grid caps at six, expanded shows all.
+        #expect(Grid.showsExpandControl(total: 10))
+        #expect(Grid.visibleCount(total: 10, isExpanded: false) == 6)
+        #expect(Grid.visibleCount(total: 10, isExpanded: true) == 10)
+        #expect(Grid.hiddenCount(total: 10) == 4)
+
+        // Empty stays empty.
+        #expect(Grid.visibleCount(total: 0, isExpanded: false) == 0)
+        #expect(!Grid.showsExpandControl(total: 0))
+    }
+
+    @Test func globalSearchMediaBrowsePresentation_pageTitleFormatsVideoAndPhotoCounts() {
+        #expect(
+            GlobalSearchMediaBrowsePresentation.pageTitle(
+                for: .init(videoCount: 0, photoCount: 0)
+            ) == "0 videos, 0 photos"
+        )
+        #expect(
+            GlobalSearchMediaBrowsePresentation.pageTitle(
+                for: .init(videoCount: 1, photoCount: 1)
+            ) == "1 video, 1 photo"
+        )
+        #expect(
+            GlobalSearchMediaBrowsePresentation.pageTitle(
+                for: .init(videoCount: 3, photoCount: 12)
+            ) == "3 videos, 12 photos"
+        )
+    }
+
+    @Test func globalSearchContextToken_scopedResultsCountTitle_usesSingularAndPluralNouns() {
+        #expect(GlobalSearchPresentation.ContextToken.buddies.scopedResultsCountTitle(12) == "12 Buddies")
+        #expect(GlobalSearchPresentation.ContextToken.buddies.scopedResultsCountTitle(1) == "1 Buddy")
+        #expect(GlobalSearchPresentation.ContextToken.dives.scopedResultsCountTitle(0) == "0 Dives")
+        #expect(GlobalSearchPresentation.ContextToken.dives.scopedResultsCountTitle(1) == "1 Dive")
+        #expect(GlobalSearchPresentation.ContextToken.sites.scopedResultsCountTitle(3) == "3 Sites")
+        #expect(GlobalSearchPresentation.ContextToken.trips.scopedResultsCountTitle(1) == "1 Trip")
+        #expect(GlobalSearchPresentation.ContextToken.tags.scopedResultsCountTitle(5) == "5 Tags")
+        #expect(GlobalSearchPresentation.ContextToken.gear.scopedResultsCountTitle(1) == "1 Gear item")
+        #expect(GlobalSearchPresentation.ContextToken.gear.scopedResultsCountTitle(4) == "4 Gear items")
+        // "Species" is both singular and plural.
+        #expect(GlobalSearchPresentation.ContextToken.marineLife.scopedResultsCountTitle(1) == "1 Species")
+        #expect(GlobalSearchPresentation.ContextToken.marineLife.scopedResultsCountTitle(9) == "9 Species")
+        #expect(
+            GlobalSearchPresentation.ContextToken.certifications.scopedResultsCountTitle(1)
+                == "1 Certification"
+        )
+        #expect(
+            GlobalSearchPresentation.ContextToken.certifications.scopedResultsCountTitle(2)
+                == "2 Certifications"
+        )
+    }
+
+    @Test func globalSearchResultsCountTitlePresentation_fadesTitleAsListScrollsDown() {
+        typealias Fade = GlobalSearchPresentation.ResultsCountTitlePresentation
+        // At rest (or over-scrolled up) the title is fully visible.
+        #expect(Fade.titleOpacity(scrollOffset: 0) == 1)
+        #expect(Fade.titleOpacity(scrollOffset: -20) == 1)
+        // Fully hidden once scrolled past the fade distance.
+        #expect(Fade.titleOpacity(scrollOffset: Fade.fadeDistance) == 0)
+        #expect(Fade.titleOpacity(scrollOffset: Fade.fadeDistance + 40) == 0)
+        // Half faded at the midpoint.
+        #expect(abs(Fade.titleOpacity(scrollOffset: Fade.fadeDistance / 2) - 0.5) < 0.000_001)
+    }
+
+    @Test func globalSearchMediaBrowsePresentation_displayCacheCountsFollowActiveFilter() {
+        let photoID = UUID(uuidString: "00000000-0000-0000-0000-000000000501")!
+        let videoID = UUID(uuidString: "00000000-0000-0000-0000-000000000502")!
+        let diveID = UUID(uuidString: "00000000-0000-0000-0000-000000000503")!
+        let snapshot = GlobalSearchMediaBrowsePresentation.IndexSnapshot(
+            entries: [
+                .init(
+                    mediaID: photoID,
+                    diveActivityID: diveID,
+                    capturedAt: nil,
+                    sortOrder: 0,
+                    mediaKind: .image,
+                    siteName: "Blue Hole",
+                    activityTagNames: [],
+                    mediaBuddyNames: [],
+                    tripTitles: [],
+                    speciesNames: []
+                ),
+                .init(
+                    mediaID: videoID,
+                    diveActivityID: diveID,
+                    capturedAt: nil,
+                    sortOrder: 1,
+                    mediaKind: .video,
+                    siteName: "Wreck Alley",
+                    activityTagNames: [],
+                    mediaBuddyNames: [],
+                    tripTitles: [],
+                    speciesNames: []
+                ),
+            ],
+            catalogTagNames: [],
+            catalogBuddyNames: [],
+            catalogTrips: [],
+            catalogSpeciesNames: []
+        )
+
+        let unfiltered = GlobalSearchMediaBrowsePresentation.displayCache(
+            snapshot: snapshot,
+            filter: .init(query: "")
+        )
+        #expect(unfiltered.mediaKindCounts == .init(videoCount: 1, photoCount: 1))
+
+        let photoOnly = GlobalSearchMediaBrowsePresentation.displayCache(
+            snapshot: snapshot,
+            filter: GlobalSearchMediaBrowsePresentation.resolveFilter(from: "blue")
+        )
+        #expect(photoOnly.mediaKindCounts == .init(videoCount: 0, photoCount: 1))
+    }
+
+    @Test func globalSearchMediaIndexSnapshotBuilder_buildsNewestDiveFirstGalleryOrder() {
+        let olderDiveID = UUID(uuidString: "00000000-0000-0000-0000-000000000201")!
+        let newerDiveID = UUID(uuidString: "00000000-0000-0000-0000-000000000202")!
+        let olderPhotoID = UUID(uuidString: "00000000-0000-0000-0000-000000000301")!
+        let newerPhotoID = UUID(uuidString: "00000000-0000-0000-0000-000000000302")!
+        let olderDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let newerDate = Date(timeIntervalSince1970: 1_800_000_000)
+
+        let input = GlobalSearchMediaIndexSnapshotBuilder.CaptureInput(
+            dives: [
+                .init(
+                    id: olderDiveID,
+                    startTime: olderDate,
+                    siteName: "Older Site",
+                    activityTagNames: [],
+                    tripTitles: [],
+                    mediaPhotos: [
+                        .init(
+                            id: olderPhotoID,
+                            diveActivityID: olderDiveID,
+                            capturedAt: olderDate,
+                            sortOrder: 0,
+                            mediaKind: .image
+                        ),
+                    ]
+                ),
+                .init(
+                    id: newerDiveID,
+                    startTime: newerDate,
+                    siteName: "Newer Site",
+                    activityTagNames: [],
+                    tripTitles: [],
+                    mediaPhotos: [
+                        .init(
+                            id: newerPhotoID,
+                            diveActivityID: newerDiveID,
+                            capturedAt: newerDate,
+                            sortOrder: 0,
+                            mediaKind: .video
+                        ),
+                    ]
+                ),
+            ],
+            buddyTags: [],
+            sightings: [],
+            catalogTagNames: [],
+            catalogBuddyNames: [],
+            catalogTrips: [],
+            catalogSpeciesNames: []
+        )
+
+        let built = GlobalSearchMediaIndexSnapshotBuilder.build(from: input)
+        #expect(built.entries.map(\.mediaID) == [newerPhotoID, olderPhotoID])
+        #expect(built.entries.map(\.siteName) == ["Newer Site", "Older Site"])
     }
 
     @Test func globalSearchResultListRowLayout_usesFullWidthHairlineAndCompactArtwork() {
