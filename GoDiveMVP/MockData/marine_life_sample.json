@@ -2,6 +2,7 @@
   {
     "uuid": "marine-life-african-pompano",
     "common_name": "african pompano",
+    "feature_image_resource": "marine-life-african-pompano",
     "scientific_name": "Alectis ciliaris",
     "category": "fishes",
     "subcategory": "jacks",
@@ -11,64 +12,6 @@
     "min_depth": 60.0,
     "max_depth": 100.0,
     "distinctive_features": "Body shape: short and / or deep"
-  },
-  {
-    "uuid": "marine-life-agelas-cerebrum",
-    "common_name": "Agelas cerebrum",
-    "feature_image": "https://reefguide.org/pix/agelascerebrum4.jpg",
-    "feature_image_resource": "marine-life-agelas-cerebrum",
-    "scientific_name": "Agelas cerebrum",
-    "category": "sponges",
-    "subcategory": "ball-sponges",
-    "family_name": "Agelasidae"
-  },
-  {
-    "uuid": "marine-life-agelas-cervicornis",
-    "common_name": "Agelas cervicornis",
-    "feature_image": "https://images.marinespecies.org/48236_agelas-cervicornis.jpg",
-    "feature_image_resource": "marine-life-agelas-cervicornis",
-    "scientific_name": "Agelas cervicornis",
-    "category": "sponges",
-    "subcategory": "encrusting-sponges",
-    "family_name": "Agelasidae"
-  },
-  {
-    "uuid": "marine-life-agelas-citrina",
-    "common_name": "Agelas citrina",
-    "feature_image": "https://reefguide.org/pix/agelascitrina1.jpg",
-    "feature_image_resource": "marine-life-agelas-citrina",
-    "scientific_name": "Agelas citrina",
-    "category": "sponges",
-    "subcategory": "tube-sponges",
-    "family_name": "Agelasidae"
-  },
-  {
-    "uuid": "marine-life-agelas-sceptrum",
-    "common_name": "Agelas sceptrum",
-    "feature_image": "https://images.marinespecies.org/48505_alcyonium-sceptrum-lamarck.jpg",
-    "feature_image_resource": "marine-life-agelas-sceptrum",
-    "scientific_name": "Agelas sceptrum",
-    "category": "sponges",
-    "subcategory": "encrusting-sponges",
-    "family_name": "Agelasidae"
-  },
-  {
-    "uuid": "marine-life-agelas-sventres",
-    "common_name": "Agelas sventres",
-    "scientific_name": "Agelas sventres",
-    "category": "plants",
-    "subcategory": "red-algae",
-    "family_name": "Agelasidae"
-  },
-  {
-    "uuid": "marine-life-agelas-tubulata",
-    "common_name": "Agelas tubulata",
-    "feature_image": "https://reefguide.org/pix/agelastubulata10.jpg",
-    "feature_image_resource": "marine-life-agelas-tubulata",
-    "scientific_name": "Agelas tubulata",
-    "category": "sponges",
-    "subcategory": "ball-sponges",
-    "family_name": "Agelasidae"
   },
   {
     "uuid": "marine-life-agua-viva-jelly",
@@ -165,6 +108,7 @@
   {
     "uuid": "marine-life-anemone-mysid",
     "common_name": "Anemone mysid",
+    "feature_image_resource": "marine-life-anemone-mysid",
     "scientific_name": "Heteromysis actiniae",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -174,6 +118,7 @@
   {
     "uuid": "marine-life-angular-brittle-star",
     "common_name": "angular brittle star",
+    "feature_image_resource": "marine-life-angular-brittle-star",
     "scientific_name": "Ophiothrix angulata",
     "category": "invertebrates",
     "subcategory": "brittle-stars",
@@ -225,6 +170,7 @@
   {
     "uuid": "marine-life-annes-spurilla",
     "common_name": "Anne’s spurilla",
+    "feature_image_resource": "marine-life-annes-spurilla",
     "scientific_name": "Spurilla dupontae",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -234,6 +180,7 @@
   {
     "uuid": "marine-life-antiguan-cave-shrimp",
     "common_name": "antiguan cave Shrimp",
+    "feature_image_resource": "marine-life-antiguan-cave-shrimp",
     "scientific_name": "Parhippolyte antiguensis",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -243,6 +190,7 @@
   {
     "uuid": "marine-life-gastropod-7724",
     "common_name": "Antillean doris",
+    "feature_image_resource": "marine-life-gastropod-7724",
     "scientific_name": "Aphelodoris antillensis",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -280,6 +228,7 @@
   {
     "uuid": "marine-life-antilles-brittle-star",
     "common_name": "Antilles brittle star",
+    "feature_image_resource": "marine-life-antilles-brittle-star",
     "scientific_name": "Ophioblenna antillensis",
     "category": "invertebrates",
     "subcategory": "brittle-stars",
@@ -290,6 +239,7 @@
   {
     "uuid": "marine-life-antilles-frillfin-goby",
     "common_name": "Antilles Frillfin goby",
+    "feature_image_resource": "marine-life-antilles-frillfin-goby",
     "scientific_name": "Bathygobius antilliensis",
     "category": "fishes",
     "subcategory": "gobies",
@@ -326,6 +276,7 @@
   {
     "uuid": "marine-life-antilles-oxynoe",
     "common_name": "antilles oxynoe",
+    "feature_image_resource": "marine-life-antilles-oxynoe",
     "scientific_name": "Oxynoe antillarum",
     "category": "invertebrates",
     "subcategory": "sea-slugs",
@@ -339,6 +290,7 @@
   {
     "uuid": "marine-life-antilles-shaggy-alga",
     "common_name": "Antilles Shaggy alga",
+    "feature_image_resource": "marine-life-antilles-shaggy-alga",
     "scientific_name": "Dasya antillarum",
     "category": "plants",
     "subcategory": "red-algae",
@@ -347,33 +299,9 @@
     "max_size": 0.12
   },
   {
-    "uuid": "marine-life-antillogorgia-americana",
-    "common_name": "Antillogorgia americana",
-    "scientific_name": "Antillogorgia americana",
-    "category": "corals",
-    "subcategory": "octocorals"
-  },
-  {
-    "uuid": "marine-life-antipathes-umbratica",
-    "common_name": "Antipathes umbratica",
-    "scientific_name": "Antipathes umbratica",
-    "category": "corals",
-    "subcategory": "black-corals",
-    "family_name": "Antipathidae"
-  },
-  {
-    "uuid": "marine-life-aplysina-bathyphila",
-    "common_name": "Aplysina bathyphila",
-    "feature_image": "https://images.marinespecies.org/172157_aplysina-bathyphila-maldonado-en-amp-young-1998.jpg",
-    "feature_image_resource": "marine-life-aplysina-bathyphila",
-    "scientific_name": "Aplysina bathyphila",
-    "category": "sponges",
-    "subcategory": "tube-sponges",
-    "family_name": "Aplysinidae"
-  },
-  {
     "uuid": "marine-life-apple-murex",
     "common_name": "Apple Murex",
+    "feature_image_resource": "marine-life-apple-murex",
     "scientific_name": "Phyllonotus pomum",
     "category": "invertebrates",
     "subcategory": "snails",
@@ -394,15 +322,9 @@
     "distinctive_features": "Body shape: 50"
   },
   {
-    "uuid": "marine-life-aquarickettsia-rohweri",
-    "common_name": "Aquarickettsia rohweri",
-    "scientific_name": "Aquarickettsia rohweri",
-    "category": "corals",
-    "subcategory": "octocorals"
-  },
-  {
     "uuid": "marine-life-arianes-dondice",
     "common_name": "Ariane’s dondice",
+    "feature_image_resource": "marine-life-arianes-dondice",
     "scientific_name": "Dondice arianeae",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -427,6 +349,7 @@
   {
     "uuid": "marine-life-arrow-shrimp",
     "common_name": "arrow shrimp",
+    "feature_image_resource": "marine-life-arrow-shrimp",
     "scientific_name": "Tozeuma carolinense",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -452,15 +375,9 @@
     "distinctive_features": "Body shape: 80"
   },
   {
-    "uuid": "marine-life-arturia-canariensis",
-    "common_name": "Arturia canariensis",
-    "scientific_name": "Arturia canariensis",
-    "category": "sponges",
-    "subcategory": "encrusting-sponges"
-  },
-  {
     "uuid": "marine-life-asian-brown-mussel",
     "common_name": "Asian Green mussel",
+    "feature_image_resource": "marine-life-asian-brown-mussel",
     "scientific_name": "Perna viridis",
     "category": "invertebrates",
     "subcategory": "oysters",
@@ -487,14 +404,6 @@
     "distinctive_features": "Body shape: 22"
   },
   {
-    "uuid": "marine-life-asteropus-niger",
-    "common_name": "Asteropus niger",
-    "scientific_name": "Asteropus niger",
-    "category": "sponges",
-    "subcategory": "rope-sponges",
-    "family_name": "Ancorinidae"
-  },
-  {
     "uuid": "marine-life-atlantic-bird-squid",
     "common_name": "Atlantic Bird squid",
     "scientific_name": "Ornithoteuthis antillarum",
@@ -510,6 +419,7 @@
   {
     "uuid": "marine-life-sooty-seahare",
     "common_name": "atlantic black seahare",
+    "feature_image_resource": "marine-life-sooty-seahare",
     "scientific_name": "Aplysia morio",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -538,6 +448,7 @@
   {
     "uuid": "marine-life-atlantic-flashlight-fish",
     "common_name": "atlantic flashlight fish",
+    "feature_image_resource": "marine-life-atlantic-flashlight-fish",
     "scientific_name": "Kryptophanaron alfredi",
     "category": "fishes",
     "subcategory": "toadfishes",
@@ -681,6 +592,7 @@
   {
     "uuid": "marine-life-atlantic-thread-herring",
     "common_name": "Atlantic thread herring",
+    "feature_image_resource": "marine-life-atlantic-thread-herring",
     "scientific_name": "Opisthonema oglinum",
     "category": "fishes",
     "subcategory": "silvery-fishes",
@@ -779,6 +691,7 @@
   {
     "uuid": "marine-life-bahama-simnia",
     "common_name": "bahama simnia",
+    "feature_image_resource": "marine-life-bahama-simnia",
     "scientific_name": "Cymbovula acicularis",
     "category": "invertebrates",
     "subcategory": "snails",
@@ -792,6 +705,7 @@
   {
     "uuid": "marine-life-bald-blenny",
     "common_name": "bald blenny",
+    "feature_image_resource": "marine-life-bald-blenny",
     "scientific_name": "Paraclinus infrons",
     "category": "fishes",
     "subcategory": "blennies",
@@ -848,6 +762,7 @@
   {
     "uuid": "marine-life-banded-box-jelly",
     "common_name": "Banded box Jelly",
+    "feature_image_resource": "marine-life-banded-box-jelly",
     "scientific_name": "Tamoya ohboya",
     "category": "invertebrates",
     "subcategory": "jellies",
@@ -933,6 +848,7 @@
   {
     "uuid": "marine-life-banded-porcelain-crab",
     "common_name": "Banded porcelain crab",
+    "feature_image_resource": "marine-life-banded-porcelain-crab",
     "scientific_name": "Petrolisthes galathinus",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -992,6 +908,7 @@
   {
     "uuid": "marine-life-bandtail-searobin",
     "common_name": "bandtail searobin",
+    "feature_image_resource": "marine-life-bandtail-searobin",
     "scientific_name": "Prionotus ophryas",
     "category": "fishes",
     "subcategory": "batfishes",
@@ -1032,6 +949,7 @@
   {
     "uuid": "marine-life-banner-goby",
     "common_name": "Banner goby",
+    "feature_image_resource": "marine-life-banner-goby",
     "scientific_name": "Microgobius microlepis",
     "category": "fishes",
     "subcategory": "gobies",
@@ -1045,6 +963,7 @@
   {
     "uuid": "marine-life-forktailed-bass",
     "common_name": "Bantam bass",
+    "feature_image_resource": "marine-life-forktailed-bass",
     "scientific_name": "Parasphyraenops incisus",
     "category": "fishes",
     "subcategory": "basslets",
@@ -1114,6 +1033,7 @@
   {
     "uuid": "marine-life-baroque-cave-coral",
     "common_name": "Baroque cave coral",
+    "feature_image_resource": "marine-life-baroque-cave-coral",
     "scientific_name": "Thalamophyllia riisei",
     "category": "corals",
     "subcategory": "cup-corals",
@@ -1126,6 +1046,7 @@
   {
     "uuid": "marine-life-barred-blenny",
     "common_name": "Barred blenny",
+    "feature_image_resource": "marine-life-barred-blenny",
     "scientific_name": "Hypleurochilus bermudensis",
     "category": "fishes",
     "subcategory": "blennies",
@@ -1167,6 +1088,7 @@
   {
     "uuid": "marine-life-bartail-goby",
     "common_name": "Bartail goby",
+    "feature_image_resource": "marine-life-bartail-goby",
     "scientific_name": "Coryphopterus thrix",
     "category": "fishes",
     "subcategory": "gobies",
@@ -1180,6 +1102,7 @@
   {
     "uuid": "marine-life-basketstar-shrimp",
     "common_name": "Basket Star shrimp",
+    "feature_image_resource": "marine-life-basketstar-shrimp",
     "scientific_name": "Periclimenes perryae",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -1204,18 +1127,6 @@
     "min_depth": 1.0,
     "max_depth": 50.0,
     "distinctive_features": "Body shape: 50"
-  },
-  {
-    "uuid": "marine-life-batzella-rubra",
-    "common_name": "Batzella rubra",
-    "feature_image": "https://images.marinespecies.org/124780_batzella-rubra-50-110-m-flower-garden-banks-gulf-of-mexico.jpg",
-    "feature_image_resource": "marine-life-batzella-rubra",
-    "scientific_name": "Batzella rubra",
-    "category": "sponges",
-    "subcategory": "encrusting-sponges",
-    "family_name": "Chondropsidae",
-    "description": "Inhabits coralline algae reefs, algal nodules, and lower mesophotic reefs (Ref. 128739).",
-    "min_depth": 90.0
   },
   {
     "uuid": "marine-life-bayers-grass-squid",
@@ -1284,6 +1195,7 @@
   {
     "uuid": "marine-life-bearded-toadfish",
     "common_name": "Bearded toadfish",
+    "feature_image_resource": "marine-life-bearded-toadfish",
     "scientific_name": "Sanopus barbatus",
     "category": "fishes",
     "subcategory": "toadfishes",
@@ -1321,15 +1233,6 @@
     "distinctive_features": "Body shape: 94"
   },
   {
-    "uuid": "marine-life-bellactis-ilkalyseae",
-    "common_name": "Bellactis ilkalyseae",
-    "scientific_name": "Bellactis ilkalyseae",
-    "category": "invertebrates",
-    "subcategory": "anemones",
-    "family_name": "Sagartiidae",
-    "description": "Found in shallow waters, rocky pool (Ref. 121684)."
-  },
-  {
     "uuid": "marine-life-belted-cardinalfish",
     "common_name": "belted Cardinalfish",
     "feature_image": "https://reefguide.org/pix/beltedcardinalfish1.jpg",
@@ -1347,6 +1250,7 @@
   {
     "uuid": "marine-life-belted-sandfish",
     "common_name": "Belted Sandfish",
+    "feature_image_resource": "marine-life-belted-sandfish",
     "scientific_name": "Serranus subligarius",
     "category": "fishes",
     "subcategory": "basses",
@@ -1365,27 +1269,6 @@
     "family_name": "Coeloplanidae",
     "description": "Flat body with pale contractile tentacles from either end. Color matches substrate, with pink or brown highlights.",
     "max_size": 0.025
-  },
-  {
-    "uuid": "marine-life-berghia-catenularis",
-    "common_name": "Berghia catenularis",
-    "scientific_name": "Berghia catenularis",
-    "category": "invertebrates",
-    "subcategory": "zoanthids"
-  },
-  {
-    "uuid": "marine-life-berghia-cutressi",
-    "common_name": "Berghia cutressi",
-    "scientific_name": "Berghia cutressi",
-    "category": "invertebrates",
-    "subcategory": "zoanthids"
-  },
-  {
-    "uuid": "marine-life-berghia-puertoricense",
-    "common_name": "Berghia puertoricense",
-    "scientific_name": "Berghia puertoricense",
-    "category": "invertebrates",
-    "subcategory": "zoanthids"
   },
   {
     "uuid": "marine-life-bermuda-sea-chub",
@@ -1414,6 +1297,7 @@
   {
     "uuid": "marine-life-berolina-aglaja",
     "common_name": "berolina aglaja",
+    "feature_image_resource": "marine-life-berolina-aglaja",
     "scientific_name": "Camachoaglaja berolina",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -1459,6 +1343,7 @@
   {
     "uuid": "marine-life-bigeye",
     "common_name": "bigeye",
+    "feature_image_resource": "marine-life-bigeye",
     "scientific_name": "Priacanthus arenatus",
     "category": "fishes",
     "subcategory": "squirrelfishes",
@@ -1472,6 +1357,7 @@
   {
     "uuid": "marine-life-bigeye-scad",
     "common_name": "bigeye scad",
+    "feature_image_resource": "marine-life-bigeye-scad",
     "scientific_name": "Selar crumenophthalmus",
     "category": "fishes",
     "subcategory": "jacks",
@@ -1485,6 +1371,7 @@
   {
     "uuid": "marine-life-bigtooth-cardinalfish",
     "common_name": "Bigtooth cardinalfish",
+    "feature_image_resource": "marine-life-bigtooth-cardinalfish",
     "scientific_name": "Paroncheilus affinis",
     "category": "fishes",
     "subcategory": "cardinalfishes",
@@ -1572,6 +1459,7 @@
   {
     "uuid": "marine-life-black-coral-shrimp",
     "common_name": "black coral shrimp",
+    "feature_image_resource": "marine-life-black-coral-shrimp",
     "scientific_name": "Periclimenes antipathophilus",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -1582,6 +1470,7 @@
   {
     "uuid": "marine-life-costasiella-nonatoi",
     "common_name": "Black costasiella",
+    "feature_image_resource": "marine-life-costasiella-nonatoi",
     "scientific_name": "Costasiella nonatoi",
     "category": "invertebrates",
     "subcategory": "sea-slugs",
@@ -1655,6 +1544,7 @@
   {
     "uuid": "marine-life-black-mangrove",
     "common_name": "Black mangrove",
+    "feature_image_resource": "marine-life-black-mangrove",
     "scientific_name": "Avicennia germinans",
     "category": "plants",
     "subcategory": "mangroves",
@@ -1679,6 +1569,7 @@
   {
     "uuid": "marine-life-didemnum-vanderhorsti",
     "common_name": "black overgrowing tunicate",
+    "feature_image_resource": "marine-life-didemnum-vanderhorsti",
     "scientific_name": "Didemnum vanderhorsti",
     "category": "invertebrates",
     "subcategory": "tunicates",
@@ -1706,6 +1597,7 @@
   {
     "uuid": "marine-life-black-seabass",
     "common_name": "Black Seabass",
+    "feature_image_resource": "marine-life-black-seabass",
     "scientific_name": "Centropristis striata",
     "category": "fishes",
     "subcategory": "basses",
@@ -1718,6 +1610,7 @@
   {
     "uuid": "marine-life-black-snapper",
     "common_name": "black snapper",
+    "feature_image_resource": "marine-life-black-snapper",
     "scientific_name": "Apsilus dentatus",
     "category": "fishes",
     "subcategory": "snappers",
@@ -1731,6 +1624,7 @@
   {
     "uuid": "marine-life-black-sea-squirt",
     "common_name": "black tunicate",
+    "feature_image_resource": "marine-life-black-sea-squirt",
     "scientific_name": "Phallusia nigra",
     "category": "invertebrates",
     "subcategory": "tunicates",
@@ -1744,6 +1638,7 @@
   {
     "uuid": "marine-life-black-urchin-shrimp",
     "common_name": "black urchin shrimp",
+    "feature_image_resource": "marine-life-black-urchin-shrimp",
     "scientific_name": "Tuleariocaris neglecta",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -1869,6 +1764,7 @@
   {
     "uuid": "marine-life-blackfin-blenny",
     "common_name": "Blackfin blenny",
+    "feature_image_resource": "marine-life-blackfin-blenny",
     "scientific_name": "Paraclinus nigripinnis",
     "category": "fishes",
     "subcategory": "blennies",
@@ -1925,6 +1821,7 @@
   {
     "uuid": "marine-life-blackline-fireworm",
     "common_name": "blackline fireworm",
+    "feature_image_resource": "marine-life-blackline-fireworm",
     "scientific_name": "Chloeia viridis",
     "category": "invertebrates",
     "subcategory": "worms",
@@ -1953,6 +1850,7 @@
   {
     "uuid": "marine-life-blackspotted-snake-eel",
     "common_name": "blackspotted Snake eel",
+    "feature_image_resource": "marine-life-blackspotted-snake-eel",
     "scientific_name": "Quassiremus ascensionis",
     "category": "fishes",
     "subcategory": "eels",
@@ -1965,6 +1863,7 @@
   {
     "uuid": "marine-life-blacktip-shark",
     "common_name": "Blacktip shark",
+    "feature_image_resource": "marine-life-blacktip-shark",
     "scientific_name": "Carcharhinus limbatus",
     "category": "fishes",
     "subcategory": "sharks",
@@ -1992,6 +1891,7 @@
   {
     "uuid": "marine-life-bladetooth-elbow-crab",
     "common_name": "Bladetooth Elbow crab",
+    "feature_image_resource": "marine-life-bladetooth-elbow-crab",
     "scientific_name": "Platylambrus granulatus",
     "category": "invertebrates",
     "subcategory": "crabs",
@@ -2005,6 +1905,7 @@
   {
     "uuid": "marine-life-bleeding-teeth-bryozoan",
     "common_name": "bleeding teeth bryozoan",
+    "feature_image_resource": "marine-life-bleeding-teeth-bryozoan",
     "scientific_name": "Trematooecia aviculifera",
     "category": "invertebrates",
     "subcategory": "bryozoans",
@@ -2027,6 +1928,7 @@
   {
     "uuid": "marine-life-blistered-saucer-leaf-alga",
     "common_name": "Blistered saucer leaf alga",
+    "feature_image_resource": "marine-life-blistered-saucer-leaf-alga",
     "scientific_name": "Turbinaria turbinata",
     "category": "plants",
     "subcategory": "brown-algae",
@@ -2076,6 +1978,7 @@
   {
     "uuid": "marine-life-blue-chromis",
     "common_name": "blue chromis",
+    "feature_image_resource": "marine-life-blue-chromis",
     "scientific_name": "Chromis cyanea",
     "category": "fishes",
     "subcategory": "damselfishes",
@@ -2096,6 +1999,7 @@
   {
     "uuid": "marine-life-blue-crust-coral",
     "common_name": "Blue crust coral",
+    "feature_image_resource": "marine-life-blue-crust-coral",
     "scientific_name": "Porites branneri",
     "category": "corals",
     "subcategory": "star-corals",
@@ -2108,6 +2012,7 @@
   {
     "uuid": "marine-life-blue-dartfish",
     "common_name": "Blue dartfish",
+    "feature_image_resource": "marine-life-blue-dartfish",
     "scientific_name": "Ptereleotris calliura",
     "category": "fishes",
     "subcategory": "gobies",
@@ -2209,6 +2114,7 @@
   {
     "uuid": "marine-life-blue-faced-hermit",
     "common_name": "Blue-faced hermit",
+    "feature_image_resource": "marine-life-blue-faced-hermit",
     "scientific_name": "Pseudopaguristes invisisacculus",
     "category": "invertebrates",
     "subcategory": "crabs",
@@ -2253,6 +2159,7 @@
   {
     "uuid": "marine-life-bluegold-goby",
     "common_name": "Bluegold goby",
+    "feature_image_resource": "marine-life-bluegold-goby",
     "scientific_name": "Lythrypnus spilus",
     "category": "fishes",
     "subcategory": "gobies",
@@ -2279,6 +2186,7 @@
   {
     "uuid": "marine-life-bluelip-hamlet",
     "common_name": "Bluelip hamlet",
+    "feature_image_resource": "marine-life-bluelip-hamlet",
     "scientific_name": "Hypoplectrus affinis",
     "category": "fishes",
     "subcategory": "hamlets",
@@ -2304,6 +2212,7 @@
   {
     "uuid": "marine-life-blue-spot-oxynoe",
     "common_name": "Bluespot oxynoe",
+    "feature_image_resource": "marine-life-blue-spot-oxynoe",
     "scientific_name": "Oxynoe azuropunctata",
     "category": "invertebrates",
     "subcategory": "sea-slugs",
@@ -2368,6 +2277,7 @@
   {
     "uuid": "marine-life-blunt-armed-sea-star",
     "common_name": "blunt-armed sea star",
+    "feature_image_resource": "marine-life-blunt-armed-sea-star",
     "scientific_name": "Asterinides folium",
     "category": "invertebrates",
     "subcategory": "sea-stars",
@@ -2431,6 +2341,7 @@
   {
     "uuid": "marine-life-bonefish",
     "common_name": "bonefish",
+    "feature_image_resource": "marine-life-bonefish",
     "scientific_name": "Albula vulpes",
     "category": "fishes",
     "subcategory": "silvery-fishes",
@@ -2440,12 +2351,12 @@
     "min_depth": 0.0,
     "max_depth": 84.0,
     "distinctive_features": "Body shape: fusiform / normal",
-    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Albula_vulpes_head.jpg/960px-Albula_vulpes_head.jpg",
-    "feature_image_resource": "marine-life-bonefish"
+    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Albula_vulpes_head.jpg/960px-Albula_vulpes_head.jpg"
   },
   {
     "uuid": "marine-life-bonnetmouth",
     "common_name": "bonnetmouth",
+    "feature_image_resource": "marine-life-bonnetmouth",
     "scientific_name": "Emmelichthyops atlanticus",
     "category": "fishes",
     "subcategory": "grunts",
@@ -2487,6 +2398,7 @@
   {
     "uuid": "marine-life-boulder-star-coral",
     "common_name": "Boulder star coral",
+    "feature_image_resource": "marine-life-boulder-star-coral",
     "scientific_name": "Orbicella franksi",
     "category": "corals",
     "subcategory": "star-corals",
@@ -2499,6 +2411,7 @@
   {
     "uuid": "marine-life-branching-agardhiella",
     "common_name": "Branching Agardhiella",
+    "feature_image_resource": "marine-life-branching-agardhiella",
     "scientific_name": "Agardhiella ramosissima",
     "category": "plants",
     "subcategory": "red-algae",
@@ -2520,6 +2433,7 @@
   {
     "uuid": "marine-life-branching-bubble-alga",
     "common_name": "branching bubble alga",
+    "feature_image_resource": "marine-life-branching-bubble-alga",
     "scientific_name": "Ernodesmis verticillata",
     "category": "plants",
     "subcategory": "green-algae",
@@ -2542,6 +2456,7 @@
   {
     "uuid": "marine-life-branching-bush-alga",
     "common_name": "Branching Bush alga",
+    "feature_image_resource": "marine-life-branching-bush-alga",
     "scientific_name": "Dasya ramosissima",
     "category": "plants",
     "subcategory": "red-algae",
@@ -2566,6 +2481,7 @@
   {
     "uuid": "marine-life-branching-leaf-alga",
     "common_name": "Branching leaf alga",
+    "feature_image_resource": "marine-life-branching-leaf-alga",
     "scientific_name": "Halimeda simulans",
     "category": "plants",
     "subcategory": "green-algae",
@@ -2623,6 +2539,7 @@
   {
     "uuid": "marine-life-brazil-reef-octopus",
     "common_name": "Brazilian Reef octopus",
+    "feature_image_resource": "marine-life-brazil-reef-octopus",
     "scientific_name": "Octopus insularis",
     "category": "invertebrates",
     "subcategory": "octopuses",
@@ -2636,6 +2553,7 @@
   {
     "uuid": "marine-life-brazilian-rock-anemone",
     "common_name": "Brazilian Rock anemone",
+    "feature_image_resource": "marine-life-brazilian-rock-anemone",
     "scientific_name": "Telmatactis vernonia",
     "category": "invertebrates",
     "subcategory": "anemones",
@@ -2645,6 +2563,7 @@
   {
     "uuid": "marine-life-brazilian-spurilla",
     "common_name": "Brazilian spurilla",
+    "feature_image_resource": "marine-life-brazilian-spurilla",
     "scientific_name": "Spurilla braziliana",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -2655,6 +2574,7 @@
   {
     "uuid": "marine-life-brazilian-twig-alga",
     "common_name": "brazilian twig alga",
+    "feature_image_resource": "marine-life-brazilian-twig-alga",
     "scientific_name": "Amphiroa brasiliana",
     "category": "plants",
     "subcategory": "red-algae",
@@ -2664,6 +2584,7 @@
   {
     "uuid": "marine-life-bridle-cardinalfish",
     "common_name": "bridle cardinalfish",
+    "feature_image_resource": "marine-life-bridle-cardinalfish",
     "scientific_name": "Apogon aurolineatus",
     "category": "fishes",
     "subcategory": "cardinalfishes",
@@ -2707,6 +2628,7 @@
   {
     "uuid": "marine-life-bristle-ball-brush",
     "common_name": "bristle ball brush",
+    "feature_image_resource": "marine-life-bristle-ball-brush",
     "scientific_name": "Penicillus dumetosus",
     "category": "plants",
     "subcategory": "green-algae",
@@ -2716,6 +2638,7 @@
   {
     "uuid": "marine-life-bristled-rubble-crab",
     "common_name": "Bristled rubble crab",
+    "feature_image_resource": "marine-life-bristled-rubble-crab",
     "scientific_name": "Platyactaea setigera",
     "category": "invertebrates",
     "subcategory": "crabs",
@@ -2729,6 +2652,7 @@
   {
     "uuid": "marine-life-broadsaddle-cardinalfish",
     "common_name": "Broadsaddle Cardinalfish",
+    "feature_image_resource": "marine-life-broadsaddle-cardinalfish",
     "scientific_name": "Apogon pillionatus",
     "category": "fishes",
     "subcategory": "cardinalfishes",
@@ -2763,6 +2687,7 @@
   {
     "uuid": "marine-life-brown-chromis",
     "common_name": "brown chromis",
+    "feature_image_resource": "marine-life-brown-chromis",
     "scientific_name": "Chromis multilineata",
     "category": "fishes",
     "subcategory": "damselfishes",
@@ -2784,6 +2709,7 @@
   {
     "uuid": "marine-life-brown-crinoid-shrimp",
     "common_name": "brown crinoid shrimp",
+    "feature_image_resource": "marine-life-brown-crinoid-shrimp",
     "scientific_name": "Periclimenes meyeri",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -2842,6 +2768,7 @@
   {
     "uuid": "marine-life-brown-fanworm",
     "common_name": "brown fanworm",
+    "feature_image_resource": "marine-life-brown-fanworm",
     "scientific_name": "Notaulax nudicollis",
     "category": "invertebrates",
     "subcategory": "worms",
@@ -2896,6 +2823,7 @@
   {
     "uuid": "marine-life-brown-shrimp",
     "common_name": "brown shrimp",
+    "feature_image_resource": "marine-life-brown-shrimp",
     "scientific_name": "Penaeus aztecus",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -2943,6 +2871,7 @@
   {
     "uuid": "marine-life-browns-doris",
     "common_name": "Brown’s Doris",
+    "feature_image_resource": "marine-life-browns-doris",
     "scientific_name": "Atagema browni",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -2953,6 +2882,7 @@
   {
     "uuid": "marine-life-jorunna-spazzola",
     "common_name": "brush jorunna",
+    "feature_image_resource": "marine-life-jorunna-spazzola",
     "scientific_name": "Jorunna spazzola",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -3015,6 +2945,7 @@
   {
     "uuid": "marine-life-burgundy-crust-alga",
     "common_name": "burgundy crust alga",
+    "feature_image_resource": "marine-life-burgundy-crust-alga",
     "scientific_name": "Peyssonnelia conchicola",
     "category": "plants",
     "subcategory": "red-algae",
@@ -3065,6 +2996,7 @@
   {
     "uuid": "marine-life-buttercup-lucine",
     "common_name": "buttercup lucine",
+    "feature_image_resource": "marine-life-buttercup-lucine",
     "scientific_name": "Anodontia alba",
     "category": "invertebrates",
     "subcategory": "clams",
@@ -3078,6 +3010,7 @@
   {
     "uuid": "marine-life-button-tunicates",
     "common_name": "button tunicates",
+    "feature_image_resource": "marine-life-button-tunicates",
     "scientific_name": "Distaplia corolla",
     "category": "invertebrates",
     "subcategory": "tunicates",
@@ -3088,6 +3021,7 @@
   {
     "uuid": "marine-life-buttonwood",
     "common_name": "Buttonwood",
+    "feature_image_resource": "marine-life-buttonwood",
     "scientific_name": "Conocarpus erectus",
     "category": "plants",
     "subcategory": "mangroves",
@@ -3110,6 +3044,7 @@
   {
     "uuid": "marine-life-cactus-tree-alga",
     "common_name": "cactus tree alga",
+    "feature_image_resource": "marine-life-cactus-tree-alga",
     "scientific_name": "Caulerpa cupressoides",
     "category": "plants",
     "subcategory": "green-algae",
@@ -3136,13 +3071,6 @@
     "distinctive_features": "Body shape: fusiform / normal"
   },
   {
-    "uuid": "marine-life-calliostoma-macropus",
-    "common_name": "Calliostoma macropus",
-    "scientific_name": "Calliostoma macropus",
-    "category": "invertebrates",
-    "subcategory": "octopuses"
-  },
-  {
     "uuid": "marine-life-cancellate-fleshy-limpet",
     "common_name": "Cancellate Fleshy Limpet",
     "scientific_name": "Lucapina suffusa",
@@ -3158,6 +3086,7 @@
   {
     "uuid": "marine-life-candy-basslet",
     "common_name": "candy basslet",
+    "feature_image_resource": "marine-life-candy-basslet",
     "scientific_name": "Liopropoma carmabi",
     "category": "fishes",
     "subcategory": "basslets",
@@ -3198,6 +3127,7 @@
   {
     "uuid": "marine-life-caribbean-blenny",
     "common_name": "caribbean blenny",
+    "feature_image_resource": "marine-life-caribbean-blenny",
     "scientific_name": "Emblemaria caldwelli",
     "category": "fishes",
     "subcategory": "blennies",
@@ -3260,6 +3190,7 @@
   {
     "uuid": "marine-life-caribbean-porcelain-crab",
     "common_name": "caribbean porcelain crab",
+    "feature_image_resource": "marine-life-caribbean-porcelain-crab",
     "scientific_name": "Petrolisthes caribensis",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -3322,6 +3253,7 @@
   {
     "uuid": "marine-life-hexabranchus-morsomus",
     "common_name": "caribbean spanish dancer",
+    "feature_image_resource": "marine-life-hexabranchus-morsomus",
     "scientific_name": "Hexabranchus morsomus",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -3360,6 +3292,7 @@
   {
     "uuid": "marine-life-caribbean-twospot-octopus",
     "common_name": "Caribbean twospot octopus",
+    "feature_image_resource": "marine-life-caribbean-twospot-octopus",
     "scientific_name": "Octopus hummelincki",
     "category": "invertebrates",
     "subcategory": "octopuses",
@@ -3369,6 +3302,7 @@
   {
     "uuid": "marine-life-caribbean-vase",
     "common_name": "Caribbean Vase",
+    "feature_image_resource": "marine-life-caribbean-vase",
     "scientific_name": "Vasum muricatum",
     "category": "invertebrates",
     "subcategory": "snails",
@@ -3424,6 +3358,7 @@
   {
     "uuid": "marine-life-cassiopea-dondice",
     "common_name": "cassiopea dondice",
+    "feature_image_resource": "marine-life-cassiopea-dondice",
     "scientific_name": "Dondice parguerensis",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -3447,6 +3382,7 @@
   {
     "uuid": "marine-life-cave-bass",
     "common_name": "cave basslet",
+    "feature_image_resource": "marine-life-cave-bass",
     "scientific_name": "Liopropoma mowbrayi",
     "category": "fishes",
     "subcategory": "basslets",
@@ -3460,6 +3396,7 @@
   {
     "uuid": "marine-life-cemented-blade-alga",
     "common_name": "cemented blade alga",
+    "feature_image_resource": "marine-life-cemented-blade-alga",
     "scientific_name": "Udotea conglutinata",
     "category": "plants",
     "subcategory": "green-algae",
@@ -3500,6 +3437,7 @@
   {
     "uuid": "marine-life-chain-pipefish",
     "common_name": "Chain pipefish",
+    "feature_image_resource": "marine-life-chain-pipefish",
     "scientific_name": "Syngnathus louisianae",
     "category": "fishes",
     "subcategory": "pipefishes",
@@ -3553,6 +3491,7 @@
   {
     "uuid": "marine-life-checkerboard-frillfin-goby",
     "common_name": "Checkerboard Frillfin goby",
+    "feature_image_resource": "marine-life-checkerboard-frillfin-goby",
     "scientific_name": "Bathygobius lacertus",
     "category": "fishes",
     "subcategory": "gobies",
@@ -3606,6 +3545,7 @@
   {
     "uuid": "marine-life-chestnut-latirus",
     "common_name": "Chestnut Latirus",
+    "feature_image_resource": "marine-life-chestnut-latirus",
     "scientific_name": "Leucozonia nassa",
     "category": "invertebrates",
     "subcategory": "snails",
@@ -3619,6 +3559,7 @@
   {
     "uuid": "marine-life-chestnut-moray",
     "common_name": "Chestnut Moray",
+    "feature_image_resource": "marine-life-chestnut-moray",
     "scientific_name": "Enchelycore carychroa",
     "category": "fishes",
     "subcategory": "eels",
@@ -3628,12 +3569,12 @@
     "min_depth": 1.0,
     "max_depth": 20.0,
     "distinctive_features": "Body shape: eel-like",
-    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/Enchelycore_carychroa%2C_Head_%28Caribbean_Chestnut_Moray%29.jpg/960px-Enchelycore_carychroa%2C_Head_%28Caribbean_Chestnut_Moray%29.jpg",
-    "feature_image_resource": "marine-life-chestnut-moray"
+    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/Enchelycore_carychroa%2C_Head_%28Caribbean_Chestnut_Moray%29.jpg/960px-Enchelycore_carychroa%2C_Head_%28Caribbean_Chestnut_Moray%29.jpg"
   },
   {
     "uuid": "marine-life-chicken-liver-sponge",
     "common_name": "Chicken Liver sponge",
+    "feature_image_resource": "marine-life-chicken-liver-sponge",
     "scientific_name": "Chondrilla caribensis",
     "category": "sponges",
     "subcategory": "encrusting-sponges",
@@ -3647,6 +3588,7 @@
   {
     "uuid": "marine-life-chilean-devil-ray",
     "common_name": "Chilean Devil ray",
+    "feature_image_resource": "marine-life-chilean-devil-ray",
     "scientific_name": "Mobula tarapacana",
     "category": "fishes",
     "subcategory": "rays",
@@ -3660,6 +3602,7 @@
   {
     "uuid": "marine-life-chocolate-line-topsnail",
     "common_name": "chocolate-lined topsnail",
+    "feature_image_resource": "marine-life-chocolate-line-topsnail",
     "scientific_name": "Calliostoma javanicum",
     "category": "invertebrates",
     "subcategory": "snails",
@@ -3748,32 +3691,9 @@
     "distinctive_features": "Body shape: 18"
   },
   {
-    "uuid": "marine-life-clathria-faviformis",
-    "common_name": "Clathria faviformis",
-    "feature_image": "https://images.marinespecies.org/22683_clathria-clathria-faviformis.jpg",
-    "feature_image_resource": "marine-life-clathria-faviformis",
-    "scientific_name": "Clathria faviformis",
-    "category": "sponges",
-    "subcategory": "rope-sponges",
-    "family_name": "Microcionidae"
-  },
-  {
-    "uuid": "marine-life-clathria-virgultosa",
-    "common_name": "Clathria virgultosa",
-    "feature_image": "https://images.marinespecies.org/129405_spongia-virgultosa-esper-1806.jpg",
-    "feature_image_resource": "marine-life-clathria-virgultosa",
-    "scientific_name": "Clathria virgultosa",
-    "category": "sponges",
-    "subcategory": "rope-sponges",
-    "family_name": "Microcionidae",
-    "description": "Found in mangroves (Ref. 86836), coral reefs and rocky bottoms (Ref. 83912).",
-    "min_depth": 9.0,
-    "max_depth": 20.0,
-    "distinctive_features": "Body shape: 20"
-  },
-  {
     "uuid": "marine-life-clenchs-sea-goddess",
     "common_name": "Clench’s sea goddess",
+    "feature_image_resource": "marine-life-clenchs-sea-goddess",
     "scientific_name": "Felimida clenchi",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -3781,17 +3701,9 @@
     "max_size": 0.035
   },
   {
-    "uuid": "marine-life-cliothosa-delitrix",
-    "common_name": "Cliothosa delitrix",
-    "feature_image": "https://reefguide.org/pix/redboring4.jpg",
-    "feature_image_resource": "marine-life-cliothosa-delitrix",
-    "scientific_name": "Cliothosa delitrix",
-    "category": "sponges",
-    "subcategory": "encrusting-sponges"
-  },
-  {
     "uuid": "marine-life-clown-goby",
     "common_name": "clown goby",
+    "feature_image_resource": "marine-life-clown-goby",
     "scientific_name": "Microgobius gulosus",
     "category": "fishes",
     "subcategory": "gobies",
@@ -3866,20 +3778,9 @@
     "distinctive_features": "Body shape: short and / or deep"
   },
   {
-    "uuid": "marine-life-coenocyathus-caribbeana",
-    "common_name": "Coenocyathus caribbeana",
-    "scientific_name": "Coenocyathus caribbeana",
-    "category": "corals",
-    "subcategory": "cup-corals",
-    "family_name": "Caryophylliidae",
-    "description": "Azooxanthellate. Found in the outer continental shelf (Ref. 116012).",
-    "min_depth": 5.0,
-    "max_depth": 100.0,
-    "distinctive_features": "Body shape: 100"
-  },
-  {
     "uuid": "marine-life-coffeebean-trivia",
     "common_name": "coffee bean Trivia",
+    "feature_image_resource": "marine-life-coffeebean-trivia",
     "scientific_name": "Pusula pediculus",
     "category": "invertebrates",
     "subcategory": "snails",
@@ -3943,14 +3844,6 @@
     "distinctive_features": "Body shape: 183"
   },
   {
-    "uuid": "marine-life-colpophyllia-amaranthus",
-    "common_name": "Colpophyllia amaranthus",
-    "scientific_name": "Colpophyllia amaranthus",
-    "category": "corals",
-    "subcategory": "brain-corals",
-    "family_name": "Faviidae"
-  },
-  {
     "uuid": "marine-life-common-atlantic-marginella",
     "common_name": "Common Atlantic Marginella",
     "scientific_name": "Prunum apicinum",
@@ -3981,6 +3874,7 @@
   {
     "uuid": "marine-life-common-octopus",
     "common_name": "common octopus",
+    "feature_image_resource": "marine-life-common-octopus",
     "scientific_name": "Octopus americanus",
     "category": "invertebrates",
     "subcategory": "octopuses",
@@ -4004,6 +3898,7 @@
   {
     "uuid": "marine-life-common-snook",
     "common_name": "common snook",
+    "feature_image_resource": "marine-life-common-snook",
     "scientific_name": "Centropomus undecimalis",
     "category": "fishes",
     "subcategory": "silvery-fishes",
@@ -4025,6 +3920,7 @@
   {
     "uuid": "marine-life-conchfish",
     "common_name": "conchfish",
+    "feature_image_resource": "marine-life-conchfish",
     "scientific_name": "Astrapogon stellatus",
     "category": "fishes",
     "subcategory": "cardinalfishes",
@@ -4038,6 +3934,7 @@
   {
     "uuid": "marine-life-eubranchus-conicla",
     "common_name": "Cone Eubranchus",
+    "feature_image_resource": "marine-life-eubranchus-conicla",
     "scientific_name": "Eubranchus conicla",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -4081,6 +3978,7 @@
   {
     "uuid": "marine-life-conical-spined-sea-star",
     "common_name": "Conical-spined Sea star",
+    "feature_image_resource": "marine-life-conical-spined-sea-star",
     "scientific_name": "Echinaster sentus",
     "category": "invertebrates",
     "subcategory": "sea-stars",
@@ -4123,6 +4021,7 @@
   {
     "uuid": "marine-life-caribbean-furry-lobster",
     "common_name": "copper lobster",
+    "feature_image_resource": "marine-life-caribbean-furry-lobster",
     "scientific_name": "Palinurellus gundlachi",
     "category": "invertebrates",
     "subcategory": "lobsters",
@@ -4271,6 +4170,7 @@
   {
     "uuid": "marine-life-creeping-bubble-alga",
     "common_name": "creeping bubble alga",
+    "feature_image_resource": "marine-life-creeping-bubble-alga",
     "scientific_name": "Valonia utricularis",
     "category": "plants",
     "subcategory": "green-algae",
@@ -4284,6 +4184,7 @@
   {
     "uuid": "marine-life-creeping-fuzz-alga",
     "common_name": "Creeping fuzz alga",
+    "feature_image_resource": "marine-life-creeping-fuzz-alga",
     "scientific_name": "Codium intertextum",
     "category": "plants",
     "subcategory": "green-algae",
@@ -4325,6 +4226,7 @@
   {
     "uuid": "marine-life-crested-goby",
     "common_name": "Crested goby",
+    "feature_image_resource": "marine-life-crested-goby",
     "scientific_name": "Lophogobius cyprinoides",
     "category": "fishes",
     "subcategory": "gobies",
@@ -4345,6 +4247,7 @@
   {
     "uuid": "marine-life-berghia-creutzbergi",
     "common_name": "Creutzberg’s Berghia",
+    "feature_image_resource": "marine-life-berghia-creutzbergi",
     "scientific_name": "Berghia creutzbergi",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -4358,6 +4261,7 @@
   {
     "uuid": "marine-life-crevalle-jack",
     "common_name": "crevalle jack",
+    "feature_image_resource": "marine-life-crevalle-jack",
     "scientific_name": "Caranx hippos",
     "category": "fishes",
     "subcategory": "jacks",
@@ -4371,6 +4275,7 @@
   {
     "uuid": "marine-life-crevice-brittle-star",
     "common_name": "crevice brittle star",
+    "feature_image_resource": "marine-life-crevice-brittle-star",
     "scientific_name": "Ophiopsila riisei",
     "category": "invertebrates",
     "subcategory": "brittle-stars",
@@ -4384,6 +4289,7 @@
   {
     "uuid": "marine-life-crimson-coral-shrimp",
     "common_name": "crimson coral Shrimp",
+    "feature_image_resource": "marine-life-crimson-coral-shrimp",
     "scientific_name": "Microprosthema semilaeve",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -4408,6 +4314,7 @@
   {
     "uuid": "marine-life-crossbanded-grass-shrimp",
     "common_name": "crossbanded grass shrimp",
+    "feature_image_resource": "marine-life-crossbanded-grass-shrimp",
     "scientific_name": "Palaemon northropi",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -4421,6 +4328,7 @@
   {
     "uuid": "marine-life-crossbearer-hermaea",
     "common_name": "Crossbearer Hermaea",
+    "feature_image_resource": "marine-life-crossbearer-hermaea",
     "scientific_name": "Hermaea cruciata",
     "category": "invertebrates",
     "subcategory": "sea-slugs",
@@ -4453,6 +4361,7 @@
   {
     "uuid": "marine-life-cryptic-alga",
     "common_name": "cryptic alga",
+    "feature_image_resource": "marine-life-cryptic-alga",
     "scientific_name": "Halimeda cryptica",
     "category": "plants",
     "subcategory": "green-algae",
@@ -4462,6 +4371,7 @@
   {
     "uuid": "marine-life-cryptic-blade-alga",
     "common_name": "cryptic blade alga",
+    "feature_image_resource": "marine-life-cryptic-blade-alga",
     "scientific_name": "Cryptonemia crenulata",
     "category": "plants",
     "subcategory": "red-algae",
@@ -4471,6 +4381,7 @@
   {
     "uuid": "marine-life-tomicodon-cryptus",
     "common_name": "Cryptic clingfish",
+    "feature_image_resource": "marine-life-tomicodon-cryptus",
     "scientific_name": "Tomicodon cryptus",
     "category": "fishes",
     "subcategory": "clingfishes",
@@ -4535,6 +4446,7 @@
   {
     "uuid": "marine-life-cubera-snapper",
     "common_name": "cubera snapper",
+    "feature_image_resource": "marine-life-cubera-snapper",
     "scientific_name": "Lutjanus cyanopterus",
     "category": "fishes",
     "subcategory": "snappers",
@@ -4544,8 +4456,7 @@
     "min_depth": 18.0,
     "max_depth": 70.0,
     "distinctive_features": "Body shape: fusiform / normal",
-    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/Lutjanus_cyanopterus.jpg/960px-Lutjanus_cyanopterus.jpg",
-    "feature_image_resource": "marine-life-cubera-snapper"
+    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/Lutjanus_cyanopterus.jpg/960px-Lutjanus_cyanopterus.jpg"
   },
   {
     "uuid": "marine-life-curved-nose-neck-crab",
@@ -4586,13 +4497,6 @@
     "max_size": 0.1
   },
   {
-    "uuid": "marine-life-cymbovula-bahamensis",
-    "common_name": "Cymbovula bahamensis",
-    "scientific_name": "Cymbovula bahamensis",
-    "category": "invertebrates",
-    "subcategory": "snails"
-  },
-  {
     "uuid": "marine-life-mantis-shrimp-93001",
     "common_name": "dark mantis",
     "feature_image": "https://reefguide.org/pix/darkmantis4.jpg",
@@ -4631,6 +4535,7 @@
   {
     "uuid": "marine-life-dash-goby",
     "common_name": "dash goby",
+    "feature_image_resource": "marine-life-dash-goby",
     "scientific_name": "Ctenogobius saepepallens",
     "category": "fishes",
     "subcategory": "gobies",
@@ -4640,8 +4545,7 @@
     "min_depth": 0.0,
     "max_depth": 40.0,
     "distinctive_features": "Body shape: elongated",
-    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Environmental_appendix-_Miami-Dade_County_Back_Bay_coastal_storm_risk_management_feasibility_study%2C_Miami-Dade_County%2C_Florida-_Appendix_D_-_USACE-p16021coll7-14462.pdf/page1-960px-thumbnail.pdf.jpg",
-    "feature_image_resource": "marine-life-dash-goby"
+    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Environmental_appendix-_Miami-Dade_County_Back_Bay_coastal_storm_risk_management_feasibility_study%2C_Miami-Dade_County%2C_Florida-_Appendix_D_-_USACE-p16021coll7-14462.pdf/page1-960px-thumbnail.pdf.jpg"
   },
   {
     "uuid": "marine-life-dead-mans-fingers",
@@ -4673,6 +4577,7 @@
   {
     "uuid": "marine-life-deepreef-scorpionfish",
     "common_name": "deepreef scorpionfish",
+    "feature_image_resource": "marine-life-deepreef-scorpionfish",
     "scientific_name": "Scorpaenodes tredecimspinosus",
     "category": "fishes",
     "subcategory": "scorpionfishes",
@@ -4682,12 +4587,12 @@
     "min_depth": 7.0,
     "max_depth": 82.0,
     "distinctive_features": "Body shape: fusiform / normal",
-    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Scorpaenodes_tredecimspinosus.jpg/960px-Scorpaenodes_tredecimspinosus.jpg",
-    "feature_image_resource": "marine-life-deepreef-scorpionfish"
+    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Scorpaenodes_tredecimspinosus.jpg/960px-Scorpaenodes_tredecimspinosus.jpg"
   },
   {
     "uuid": "marine-life-deepwater-rose-alga",
     "common_name": "Deepwater rose alga",
+    "feature_image_resource": "marine-life-deepwater-rose-alga",
     "scientific_name": "Lithothamnion ruptile",
     "category": "plants",
     "subcategory": "red-algae",
@@ -4727,6 +4632,7 @@
   {
     "uuid": "marine-life-delicate-spiny-sea-rod",
     "common_name": "Delicate spiny sea rod",
+    "feature_image_resource": "marine-life-delicate-spiny-sea-rod",
     "scientific_name": "Muricea laxa",
     "category": "corals",
     "subcategory": "octocorals",
@@ -4739,6 +4645,7 @@
   {
     "uuid": "marine-life-delicate-twig-alga",
     "common_name": "delicate twig alga",
+    "feature_image_resource": "marine-life-delicate-twig-alga",
     "scientific_name": "Amphiroa fragilissima",
     "category": "plants",
     "subcategory": "red-algae",
@@ -4810,15 +4717,6 @@
     "distinctive_features": "Body shape: 306"
   },
   {
-    "uuid": "marine-life-dichocoenia-stokesi",
-    "common_name": "Dichocoenia stokesi",
-    "feature_image": "https://images.marinespecies.org/158897_holotype-of-dichocoenia-stokesi-milne-edwards-en-amp-haime-1848.png",
-    "feature_image_resource": "marine-life-dichocoenia-stokesi",
-    "scientific_name": "Dichocoenia stokesi",
-    "category": "corals",
-    "subcategory": "star-corals"
-  },
-  {
     "uuid": "marine-life-dichotomous-medusa",
     "common_name": "Dichotomous Medusa",
     "feature_image": "https://images.marinespecies.org/169133_dichotomia-cannoides-from-gulfstream-off-florida-bell-height-6-mm.jpg",
@@ -4829,15 +4727,6 @@
     "family_name": "Dipleurosomatidae",
     "description": "Elongated bell with visible golden brown branching canals. Long thin tentacles retracted when swimming.",
     "max_size": 0.015
-  },
-  {
-    "uuid": "marine-life-dictyonella-funicularis",
-    "common_name": "Dictyonella funicularis",
-    "scientific_name": "Dictyonella funicularis",
-    "category": "sponges",
-    "subcategory": "rope-sponges",
-    "family_name": "Dictyonellidae",
-    "description": "Found in mangroves (Ref. 86836)."
   },
   {
     "uuid": "marine-life-diffuse-ivory-bush-coral",
@@ -4870,6 +4759,7 @@
   {
     "uuid": "marine-life-diphasic-goby",
     "common_name": "diphasic goby",
+    "feature_image_resource": "marine-life-diphasic-goby",
     "scientific_name": "Lythrypnus heterochroma",
     "category": "fishes",
     "subcategory": "gobies",
@@ -4917,13 +4807,6 @@
     "distinctive_features": "Body shape: elongated"
   },
   {
-    "uuid": "marine-life-dondice-freddiemercuryi",
-    "common_name": "Dondice freddiemercuryi",
-    "scientific_name": "Dondice freddiemercuryi",
-    "category": "invertebrates",
-    "subcategory": "nudibranchs"
-  },
-  {
     "uuid": "marine-life-donkey-dung-sea-cucumber",
     "common_name": "donkey dung sea cucumber",
     "feature_image": "https://reefguide.org/pix/donkeycucumber5.jpg",
@@ -4939,26 +4822,9 @@
     "distinctive_features": "Body shape: 20"
   },
   {
-    "uuid": "marine-life-doriopsilla-nigrolineata",
-    "common_name": "Doriopsilla nigrolineata",
-    "scientific_name": "Doriopsilla nigrolineata",
-    "category": "invertebrates",
-    "subcategory": "nudibranchs",
-    "family_name": "Dendrodorididae",
-    "max_size": 0.03,
-    "min_depth": 3.0,
-    "max_depth": 12.0
-  },
-  {
-    "uuid": "marine-life-doriopsilla-uva",
-    "common_name": "Doriopsilla uva",
-    "scientific_name": "Doriopsilla uva",
-    "category": "invertebrates",
-    "subcategory": "nudibranchs"
-  },
-  {
     "uuid": "marine-life-doubtful-lizardfish",
     "common_name": "Doubtful lizardfish",
+    "feature_image_resource": "marine-life-doubtful-lizardfish",
     "scientific_name": "Saurida suspicio",
     "category": "fishes",
     "subcategory": "lizardfishes",
@@ -4970,6 +4836,7 @@
   {
     "uuid": "marine-life-doughnut-sea-rod",
     "common_name": "Doughnut sea rod",
+    "feature_image_resource": "marine-life-doughnut-sea-rod",
     "scientific_name": "Eunicea fusca",
     "category": "corals",
     "subcategory": "octocorals",
@@ -4982,6 +4849,7 @@
   {
     "uuid": "marine-life-downy-blenny",
     "common_name": "downy blenny",
+    "feature_image_resource": "marine-life-downy-blenny",
     "scientific_name": "Gobioclinus kalisherae",
     "category": "fishes",
     "subcategory": "blennies",
@@ -4989,13 +4857,6 @@
     "description": "Reddish head, usually with irregular patches of orange. Dark bars extend onto very spotted dorsal and anal fins.",
     "max_size": 0.08,
     "distinctive_features": "Body shape: elongated"
-  },
-  {
-    "uuid": "marine-life-dragmacidon-lunaecharta",
-    "common_name": "Dragmacidon lunaecharta",
-    "scientific_name": "Dragmacidon lunaecharta",
-    "category": "sponges",
-    "subcategory": "rope-sponges"
   },
   {
     "uuid": "marine-life-nudibranch-148324",
@@ -5013,6 +4874,7 @@
   {
     "uuid": "marine-life-dusky-blenny",
     "common_name": "Dusky blenny",
+    "feature_image_resource": "marine-life-dusky-blenny",
     "scientific_name": "Malacoctenus gilli",
     "category": "fishes",
     "subcategory": "blennies",
@@ -5022,12 +4884,12 @@
     "min_depth": 1.0,
     "max_depth": 5.0,
     "distinctive_features": "Body shape: Elongated",
-    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/Malacoctenus_gilli.jpeg/960px-Malacoctenus_gilli.jpeg",
-    "feature_image_resource": "marine-life-dusky-blenny"
+    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/Malacoctenus_gilli.jpeg/960px-Malacoctenus_gilli.jpeg"
   },
   {
     "uuid": "marine-life-dusky-cardinalfish",
     "common_name": "dusky cardinalfish",
+    "feature_image_resource": "marine-life-dusky-cardinalfish",
     "scientific_name": "Phaeoptyx pigmentaria",
     "category": "fishes",
     "subcategory": "cardinalfishes",
@@ -5037,8 +4899,7 @@
     "min_depth": 13.0,
     "max_depth": 50.0,
     "distinctive_features": "Body shape: fusiform / normal",
-    "feature_image": "https://ids.si.edu/ids/deliveryService/id/ark:/65665/m3dacc671db331428f935288ace4f26164",
-    "feature_image_resource": "marine-life-dusky-cardinalfish"
+    "feature_image": "https://ids.si.edu/ids/deliveryService/id/ark:/65665/m3dacc671db331428f935288ace4f26164"
   },
   {
     "uuid": "marine-life-dusky-damselfish",
@@ -5088,6 +4949,7 @@
   {
     "uuid": "marine-life-dwarf-blenny",
     "common_name": "Dwarf Blenny",
+    "feature_image_resource": "marine-life-dwarf-blenny",
     "scientific_name": "Starksia nanodes",
     "category": "fishes",
     "subcategory": "blennies",
@@ -5125,6 +4987,7 @@
   {
     "uuid": "marine-life-dwarf-hairy-triton",
     "common_name": "dwarf hairy Triton",
+    "feature_image_resource": "marine-life-dwarf-hairy-triton",
     "scientific_name": "Monoplex vespaceus",
     "category": "invertebrates",
     "subcategory": "snails",
@@ -5160,6 +5023,7 @@
   {
     "uuid": "marine-life-dwarf-sand-perch",
     "common_name": "dwarf sand perch",
+    "feature_image_resource": "marine-life-dwarf-sand-perch",
     "scientific_name": "Diplectrum bivittatum",
     "category": "fishes",
     "subcategory": "basses",
@@ -5172,6 +5036,7 @@
   {
     "uuid": "marine-life-dwarf-spinyhead-blenny",
     "common_name": "Dwarf Spinyhead blenny",
+    "feature_image_resource": "marine-life-dwarf-spinyhead-blenny",
     "scientific_name": "Acanthemblemaria paula",
     "category": "fishes",
     "subcategory": "blennies",
@@ -5234,6 +5099,7 @@
   {
     "uuid": "marine-life-elkhorn-coral-crab",
     "common_name": "elkhorn coral crab",
+    "feature_image_resource": "marine-life-elkhorn-coral-crab",
     "scientific_name": "Domecia acanthophora",
     "category": "invertebrates",
     "subcategory": "crabs",
@@ -5247,6 +5113,7 @@
   {
     "uuid": "marine-life-ellens-elysia",
     "common_name": "Ellen’s Elysia",
+    "feature_image_resource": "marine-life-ellens-elysia",
     "scientific_name": "Elysia ellenae",
     "category": "invertebrates",
     "subcategory": "sea-slugs",
@@ -5256,6 +5123,7 @@
   {
     "uuid": "marine-life-elongated-feather-alga",
     "common_name": "elongated feather alga",
+    "feature_image_resource": "marine-life-elongated-feather-alga",
     "scientific_name": "Bryopsis plumosa",
     "category": "plants",
     "subcategory": "green-algae",
@@ -5278,6 +5146,7 @@
   {
     "uuid": "marine-life-elongated-sea-pearls",
     "common_name": "elongated sea pearls",
+    "feature_image_resource": "marine-life-elongated-sea-pearls",
     "scientific_name": "Valonia macrophysa",
     "category": "plants",
     "subcategory": "green-algae",
@@ -5299,6 +5168,7 @@
   {
     "uuid": "marine-life-emerald-leafslug",
     "common_name": "Emerald Leafslug",
+    "feature_image_resource": "marine-life-emerald-leafslug",
     "scientific_name": "Phyllaplysia smaragda",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -5324,6 +5194,7 @@
   {
     "uuid": "marine-life-emperor-helmet",
     "common_name": "emperor helmet",
+    "feature_image_resource": "marine-life-emperor-helmet",
     "scientific_name": "Cassis madagascariensis",
     "category": "invertebrates",
     "subcategory": "snails",
@@ -5337,6 +5208,7 @@
   {
     "uuid": "marine-life-encrusting-fan-leaf-alga",
     "common_name": "encrusting fan leaf alga",
+    "feature_image_resource": "marine-life-encrusting-fan-leaf-alga",
     "scientific_name": "Lobophora variegata",
     "category": "plants",
     "subcategory": "brown-algae",
@@ -5350,6 +5222,7 @@
   {
     "uuid": "marine-life-encrusting-gorgonian",
     "common_name": "Encrusting gorgonian",
+    "feature_image_resource": "marine-life-encrusting-gorgonian",
     "scientific_name": "Erythropodium caribaeorum",
     "category": "corals",
     "subcategory": "octocorals",
@@ -5387,6 +5260,7 @@
   {
     "uuid": "marine-life-flabellina-engeli",
     "common_name": "engel’s flabellina",
+    "feature_image_resource": "marine-life-flabellina-engeli",
     "scientific_name": "Flabellina engeli",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -5427,22 +5301,6 @@
     "distinctive_features": "Body shape: 17"
   },
   {
-    "uuid": "marine-life-eunicea-flexuosa",
-    "common_name": "Eunicea flexuosa",
-    "scientific_name": "Eunicea flexuosa",
-    "category": "corals",
-    "subcategory": "octocorals",
-    "family_name": "Plexauridae"
-  },
-  {
-    "uuid": "marine-life-eunicea-laxispica",
-    "common_name": "Eunicea laxispica",
-    "scientific_name": "Eunicea laxispica",
-    "category": "corals",
-    "subcategory": "octocorals",
-    "family_name": "Plexauridae"
-  },
-  {
     "uuid": "marine-life-eyed-flounder",
     "common_name": "eyed flounder",
     "feature_image": "https://reefguide.org/pix/eyedflounder3.jpg",
@@ -5460,6 +5318,7 @@
   {
     "uuid": "marine-life-eyespot-costasiella",
     "common_name": "eyespot costasiella",
+    "feature_image_resource": "marine-life-eyespot-costasiella",
     "scientific_name": "Costasiella ocellifera",
     "category": "invertebrates",
     "subcategory": "sea-slugs",
@@ -5502,6 +5361,7 @@
   {
     "uuid": "marine-life-false-moray",
     "common_name": "False Moray",
+    "feature_image_resource": "marine-life-false-moray",
     "scientific_name": "Kaupichthys hyoproroides",
     "category": "fishes",
     "subcategory": "eels",
@@ -5525,6 +5385,7 @@
   {
     "uuid": "marine-life-favored-tellin",
     "common_name": "Favored Tellin",
+    "feature_image_resource": "marine-life-favored-tellin",
     "scientific_name": "Johnsonella fausta",
     "category": "invertebrates",
     "subcategory": "clams",
@@ -5534,6 +5395,7 @@
   {
     "uuid": "marine-life-feather-bush-hydroid",
     "common_name": "feather bush hydroid",
+    "feature_image_resource": "marine-life-feather-bush-hydroid",
     "scientific_name": "Dentitheca dendritica",
     "category": "invertebrates",
     "subcategory": "hydroids",
@@ -5586,6 +5448,7 @@
   {
     "uuid": "marine-life-fingerprint-cyphoma",
     "common_name": "fingerprint cyphoma",
+    "feature_image_resource": "marine-life-fingerprint-cyphoma",
     "scientific_name": "Cyphoma signatum",
     "category": "invertebrates",
     "subcategory": "snails",
@@ -5613,6 +5476,7 @@
   {
     "uuid": "marine-life-fire-sponge",
     "common_name": "Fire sponge",
+    "feature_image_resource": "marine-life-fire-sponge",
     "scientific_name": "Tedania ignis",
     "category": "sponges",
     "subcategory": "encrusting-sponges",
@@ -5625,6 +5489,7 @@
   {
     "uuid": "marine-life-flagfin-mojarra",
     "common_name": "flagfin mojarra",
+    "feature_image_resource": "marine-life-flagfin-mojarra",
     "scientific_name": "Eucinostomus melanopterus",
     "category": "fishes",
     "subcategory": "silvery-fishes",
@@ -5649,6 +5514,7 @@
   {
     "uuid": "marine-life-flame-helmet",
     "common_name": "flame helmet",
+    "feature_image_resource": "marine-life-flame-helmet",
     "scientific_name": "Cassis flammea",
     "category": "invertebrates",
     "subcategory": "snails",
@@ -5662,6 +5528,7 @@
   {
     "uuid": "marine-life-flameback-angelfish",
     "common_name": "Flameback angelfish",
+    "feature_image_resource": "marine-life-flameback-angelfish",
     "scientific_name": "Centropyge aurantonotus",
     "category": "fishes",
     "subcategory": "angelfishes",
@@ -5690,6 +5557,7 @@
   {
     "uuid": "marine-life-flaming-reef-lobster",
     "common_name": "flaming reef lobster",
+    "feature_image_resource": "marine-life-flaming-reef-lobster",
     "scientific_name": "Enoplometopus antillensis",
     "category": "invertebrates",
     "subcategory": "lobsters",
@@ -5733,6 +5601,7 @@
   {
     "uuid": "marine-life-flat-green-feather-alga",
     "common_name": "flat green feather alga",
+    "feature_image_resource": "marine-life-flat-green-feather-alga",
     "scientific_name": "Caulerpa mexicana",
     "category": "plants",
     "subcategory": "green-algae",
@@ -5746,6 +5615,7 @@
   {
     "uuid": "marine-life-flat-tree-oyster",
     "common_name": "flat tree oyster",
+    "feature_image_resource": "marine-life-flat-tree-oyster",
     "scientific_name": "Isognomon alatus",
     "category": "invertebrates",
     "subcategory": "oysters",
@@ -5769,6 +5639,7 @@
   {
     "uuid": "marine-life-flat-twig-alga",
     "common_name": "flat twig alga",
+    "feature_image_resource": "marine-life-flat-twig-alga",
     "scientific_name": "Amphiroa tribulus",
     "category": "plants",
     "subcategory": "red-algae",
@@ -5804,6 +5675,7 @@
   {
     "uuid": "marine-life-fleshy-twig-alga",
     "common_name": "fleshy twig alga",
+    "feature_image_resource": "marine-life-fleshy-twig-alga",
     "scientific_name": "Codium repens",
     "category": "plants",
     "subcategory": "green-algae",
@@ -5828,6 +5700,7 @@
   {
     "uuid": "marine-life-florida-cornirostra",
     "common_name": "Florida Cornirostra",
+    "feature_image_resource": "marine-life-florida-cornirostra",
     "scientific_name": "Cornirostra floridana",
     "category": "invertebrates",
     "subcategory": "snails",
@@ -5841,6 +5714,7 @@
   {
     "uuid": "marine-life-florida-fighting-conch",
     "common_name": "Florida Fighting conch",
+    "feature_image_resource": "marine-life-florida-fighting-conch",
     "scientific_name": "Strombus alatus",
     "category": "invertebrates",
     "subcategory": "conchs",
@@ -5879,6 +5753,7 @@
   {
     "uuid": "marine-life-flower-blade-alga",
     "common_name": "flower blade alga",
+    "feature_image_resource": "marine-life-flower-blade-alga",
     "scientific_name": "Dictyota menstrualis",
     "category": "plants",
     "subcategory": "brown-algae",
@@ -5954,6 +5829,7 @@
   {
     "uuid": "marine-life-fragile-saucer-coral",
     "common_name": "Fragile saucer coral",
+    "feature_image_resource": "marine-life-fragile-saucer-coral",
     "scientific_name": "Agaricia fragilis",
     "category": "corals",
     "subcategory": "plate-corals",
@@ -5966,6 +5842,7 @@
   {
     "uuid": "marine-life-freckled-cardinalfish",
     "common_name": "freckled cardinalfish",
+    "feature_image_resource": "marine-life-freckled-cardinalfish",
     "scientific_name": "Phaeoptyx conklini",
     "category": "fishes",
     "subcategory": "cardinalfishes",
@@ -5979,6 +5856,7 @@
   {
     "uuid": "marine-life-frecklefin-goby",
     "common_name": "Frecklefin goby",
+    "feature_image_resource": "marine-life-frecklefin-goby",
     "scientific_name": "Tigrigobius gemmatus",
     "category": "fishes",
     "subcategory": "gobies",
@@ -5992,6 +5870,7 @@
   {
     "uuid": "marine-life-learchis-poica",
     "common_name": "Freddie Mercury’s dondice",
+    "feature_image_resource": "marine-life-learchis-poica",
     "scientific_name": "Learchis poica",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -6036,6 +5915,7 @@
   {
     "uuid": "marine-life-western-dondice",
     "common_name": "fringeback dondice",
+    "feature_image_resource": "marine-life-western-dondice",
     "scientific_name": "Dondice occidentalis",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -6049,6 +5929,7 @@
   {
     "uuid": "marine-life-fringed-filefish",
     "common_name": "fringed filefish",
+    "feature_image_resource": "marine-life-fringed-filefish",
     "scientific_name": "Monacanthus ciliatus",
     "category": "fishes",
     "subcategory": "filefishes",
@@ -6058,8 +5939,7 @@
     "min_depth": 1.0,
     "max_depth": 50.0,
     "distinctive_features": "Body shape: short and / or deep",
-    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/FMIB_38086_Monacanthus_ciliatus_%28Mitchill%29_Leather-fish%2C_Lija%3B_%27Pez_de_Pucco%27.jpeg/960px-FMIB_38086_Monacanthus_ciliatus_%28Mitchill%29_Leather-fish%2C_Lija%3B_%27Pez_de_Pucco%27.jpeg",
-    "feature_image_resource": "marine-life-fringed-filefish"
+    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/FMIB_38086_Monacanthus_ciliatus_%28Mitchill%29_Leather-fish%2C_Lija%3B_%27Pez_de_Pucco%27.jpeg/960px-FMIB_38086_Monacanthus_ciliatus_%28Mitchill%29_Leather-fish%2C_Lija%3B_%27Pez_de_Pucco%27.jpeg"
   },
   {
     "uuid": "marine-life-frond-oyster",
@@ -6079,6 +5959,7 @@
   {
     "uuid": "marine-life-noumeaella-kristenseni",
     "common_name": "Frosty Mordilla",
+    "feature_image_resource": "marine-life-noumeaella-kristenseni",
     "scientific_name": "Noumeaella kristenseni",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -6092,6 +5973,7 @@
   {
     "uuid": "marine-life-furcate-spider-crab",
     "common_name": "Furcate Spider crab",
+    "feature_image_resource": "marine-life-furcate-spider-crab",
     "scientific_name": "Stenocionops furcatus",
     "category": "invertebrates",
     "subcategory": "crabs",
@@ -6132,6 +6014,7 @@
   {
     "uuid": "marine-life-fuzz-ball-alga",
     "common_name": "fuzz ball alga",
+    "feature_image_resource": "marine-life-fuzz-ball-alga",
     "scientific_name": "Symploca hydnoides",
     "category": "plants",
     "subcategory": "red-algae",
@@ -6142,6 +6025,7 @@
   {
     "uuid": "marine-life-fuzzy-caulerpa",
     "common_name": "Fuzzy Caulerpa",
+    "feature_image_resource": "marine-life-fuzzy-caulerpa",
     "scientific_name": "Caulerpa verticillata",
     "category": "plants",
     "subcategory": "green-algae",
@@ -6170,6 +6054,7 @@
   {
     "uuid": "marine-life-fuzzy-tip-alga",
     "common_name": "fuzzy tip alga",
+    "feature_image_resource": "marine-life-fuzzy-tip-alga",
     "scientific_name": "Neomeris annulata",
     "category": "plants",
     "subcategory": "green-algae",
@@ -6183,6 +6068,7 @@
   {
     "uuid": "marine-life-gaudy-aeolid",
     "common_name": "Gaudy Aeolid",
+    "feature_image_resource": "marine-life-gaudy-aeolid",
     "scientific_name": "Babakina anadoni",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -6237,17 +6123,9 @@
     "distinctive_features": "Body shape: 35"
   },
   {
-    "uuid": "marine-life-geodia-neptuni",
-    "common_name": "Geodia neptuni",
-    "feature_image": "https://reefguide.org/pix/leatherybarrelspounge7.jpg",
-    "feature_image_resource": "marine-life-geodia-neptuni",
-    "scientific_name": "Geodia neptuni",
-    "category": "sponges",
-    "subcategory": "barrel-sponges"
-  },
-  {
     "uuid": "marine-life-geographic-sea-hare",
     "common_name": "Geographic seahare",
+    "feature_image_resource": "marine-life-geographic-sea-hare",
     "scientific_name": "Syphonota geographica",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -6347,6 +6225,7 @@
   {
     "uuid": "marine-life-gianteye-squid",
     "common_name": "gianteye squid",
+    "feature_image_resource": "marine-life-gianteye-squid",
     "scientific_name": "Abralia veranyi",
     "category": "invertebrates",
     "subcategory": "squids",
@@ -6372,6 +6251,7 @@
   {
     "uuid": "marine-life-glass-goby",
     "common_name": "glass goby",
+    "feature_image_resource": "marine-life-glass-goby",
     "scientific_name": "Coryphopterus hyalinus",
     "category": "fishes",
     "subcategory": "gobies",
@@ -6400,6 +6280,7 @@
   {
     "uuid": "marine-life-globular-encrusting-tunicate",
     "common_name": "globular encrusting tunicate",
+    "feature_image_resource": "marine-life-globular-encrusting-tunicate",
     "scientific_name": "Diplosoma glandulosum",
     "category": "invertebrates",
     "subcategory": "tunicates",
@@ -6449,6 +6330,7 @@
   {
     "uuid": "marine-life-goatee-blenny",
     "common_name": "goatee blenny",
+    "feature_image_resource": "marine-life-goatee-blenny",
     "scientific_name": "Paraclinus barbatus",
     "category": "fishes",
     "subcategory": "blennies",
@@ -6460,6 +6342,7 @@
   {
     "uuid": "marine-life-gold-crowned-sea-goddess",
     "common_name": "gold-crowned sea goddess",
+    "feature_image_resource": "marine-life-gold-crowned-sea-goddess",
     "scientific_name": "Felimare acriba",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -6478,6 +6361,7 @@
   {
     "uuid": "marine-life-gold-lined-sea-goddess",
     "common_name": "Gold-lined sea goddess",
+    "feature_image_resource": "marine-life-gold-lined-sea-goddess",
     "scientific_name": "Felimare ruthae",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -6517,6 +6401,7 @@
   {
     "uuid": "marine-life-golden-crinoid-shrimp",
     "common_name": "golden crinoid shrimp",
+    "feature_image_resource": "marine-life-golden-crinoid-shrimp",
     "scientific_name": "Periclimenes crinoidalis",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -6553,6 +6438,7 @@
   {
     "uuid": "marine-life-golden-tuft-alga",
     "common_name": "Golden Tuft alga",
+    "feature_image_resource": "marine-life-golden-tuft-alga",
     "scientific_name": "Sporochnus pedunculatus",
     "category": "plants",
     "subcategory": "brown-algae",
@@ -6664,6 +6550,7 @@
   {
     "uuid": "marine-life-gorgonian-toothpick-shrimp",
     "common_name": "Gorgonian Toothpick shrimp",
+    "feature_image_resource": "marine-life-gorgonian-toothpick-shrimp",
     "scientific_name": "Tozeuma cornutum",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -6799,6 +6686,7 @@
   {
     "uuid": "marine-life-great-hammerhead",
     "common_name": "Great Hammerhead",
+    "feature_image_resource": "marine-life-great-hammerhead",
     "scientific_name": "Sphyrna mokarran",
     "category": "fishes",
     "subcategory": "sharks",
@@ -6856,6 +6744,7 @@
   {
     "uuid": "marine-life-green-algae-crab",
     "common_name": "green algae crab",
+    "feature_image_resource": "marine-life-green-algae-crab",
     "scientific_name": "Thersandrus compressus",
     "category": "invertebrates",
     "subcategory": "crabs",
@@ -6878,6 +6767,7 @@
   {
     "uuid": "marine-life-green-bubble-weed",
     "common_name": "green bubble weed",
+    "feature_image_resource": "marine-life-green-bubble-weed",
     "scientific_name": "Dictyosphaeria cavernosa",
     "category": "plants",
     "subcategory": "green-algae",
@@ -6891,6 +6781,7 @@
   {
     "uuid": "marine-life-green-clinging-crab",
     "common_name": "green clinging crab",
+    "feature_image_resource": "marine-life-green-clinging-crab",
     "scientific_name": "Mithraculus sculptus",
     "category": "invertebrates",
     "subcategory": "crabs",
@@ -6904,6 +6795,7 @@
   {
     "uuid": "marine-life-green-feather-alga",
     "common_name": "green feather alga",
+    "feature_image_resource": "marine-life-green-feather-alga",
     "scientific_name": "Caulerpa sertularioides",
     "category": "plants",
     "subcategory": "green-algae",
@@ -6947,6 +6839,7 @@
   {
     "uuid": "marine-life-green-helmet-alga",
     "common_name": "green helmet alga",
+    "feature_image_resource": "marine-life-green-helmet-alga",
     "scientific_name": "Caulerpa nummularia",
     "category": "plants",
     "subcategory": "green-algae",
@@ -7041,6 +6934,7 @@
   {
     "uuid": "marine-life-yellow-green-sea-squirt",
     "common_name": "green tube tunicate",
+    "feature_image_resource": "marine-life-yellow-green-sea-squirt",
     "scientific_name": "Ascidia sydneiensis",
     "category": "invertebrates",
     "subcategory": "tunicates",
@@ -7203,13 +7097,6 @@
     "max_size": 0.075
   },
   {
-    "uuid": "marine-life-halophila-elongata",
-    "common_name": "Halophila elongata",
-    "scientific_name": "Halophila elongata",
-    "category": "plants",
-    "subcategory": "red-algae"
-  },
-  {
     "uuid": "marine-life-hamners-tritonia",
     "common_name": "Hamner’s tritonia",
     "scientific_name": "Tritonicula hamnerorum",
@@ -7257,6 +7144,7 @@
   {
     "uuid": "marine-life-harlequin-miter",
     "common_name": "Harlequin miter",
+    "feature_image_resource": "marine-life-harlequin-miter",
     "scientific_name": "Vexillum histrio",
     "category": "invertebrates",
     "subcategory": "snails",
@@ -7270,6 +7158,7 @@
   {
     "uuid": "marine-life-harlequin-sea-goddess",
     "common_name": "harlequin sea goddess",
+    "feature_image_resource": "marine-life-harlequin-sea-goddess",
     "scientific_name": "Felimida binza",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -7279,6 +7168,7 @@
   {
     "uuid": "marine-life-harriss-thordisa",
     "common_name": "Harris’s Thordisa",
+    "feature_image_resource": "marine-life-harriss-thordisa",
     "scientific_name": "Thordisa harrisi",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -7302,6 +7192,7 @@
   {
     "uuid": "marine-life-havana-mantis",
     "common_name": "havana mantis",
+    "feature_image_resource": "marine-life-havana-mantis",
     "scientific_name": "Odontodactylus havanensis",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -7325,6 +7216,7 @@
   {
     "uuid": "marine-life-lobatus-raninus",
     "common_name": "hawkwing conch",
+    "feature_image_resource": "marine-life-lobatus-raninus",
     "scientific_name": "Lobatus raninus",
     "category": "invertebrates",
     "subcategory": "conchs",
@@ -7360,13 +7252,6 @@
     "max_size": 0.025
   },
   {
-    "uuid": "marine-life-heterogorgia-uatumani",
-    "common_name": "Heterogorgia uatumani",
-    "scientific_name": "Heterogorgia uatumani",
-    "category": "corals",
-    "subcategory": "octocorals"
-  },
-  {
     "uuid": "marine-life-hidden-anemone",
     "common_name": "Hidden anemone",
     "feature_image": "https://reefguide.org/pix/tutlegrassanemone1.jpg",
@@ -7391,6 +7276,7 @@
   {
     "uuid": "marine-life-high-veined-encrusting-sponge",
     "common_name": "high-veined encrusting sponge",
+    "feature_image_resource": "marine-life-high-veined-encrusting-sponge",
     "scientific_name": "Spirastrella hartmani",
     "category": "sponges",
     "subcategory": "encrusting-sponges",
@@ -7404,6 +7290,7 @@
   {
     "uuid": "marine-life-highfin-goby",
     "common_name": "Highfin goby",
+    "feature_image_resource": "marine-life-highfin-goby",
     "scientific_name": "Gobionellus oceanicus",
     "category": "fishes",
     "subcategory": "gobies",
@@ -7450,6 +7337,7 @@
   {
     "uuid": "marine-life-hoary-rubble-crab",
     "common_name": "hoary rubble crab",
+    "feature_image_resource": "marine-life-hoary-rubble-crab",
     "scientific_name": "Banareia palmeri",
     "category": "invertebrates",
     "subcategory": "crabs",
@@ -7485,6 +7373,7 @@
   {
     "uuid": "marine-life-honeycomb-plate-coral",
     "common_name": "Honeycomb plate coral",
+    "feature_image_resource": "marine-life-honeycomb-plate-coral",
     "scientific_name": "Porites colonensis",
     "category": "corals",
     "subcategory": "plate-corals",
@@ -7530,6 +7419,7 @@
   {
     "uuid": "marine-life-horned-sapsucker",
     "common_name": "horned elysia",
+    "feature_image_resource": "marine-life-horned-sapsucker",
     "scientific_name": "Elysia cornigera",
     "category": "invertebrates",
     "subcategory": "sea-slugs",
@@ -7553,6 +7443,7 @@
   {
     "uuid": "marine-life-hound-needlefish",
     "common_name": "houndfish",
+    "feature_image_resource": "marine-life-hound-needlefish",
     "scientific_name": "Tylosurus crocodilus",
     "category": "fishes",
     "subcategory": "needlefishes",
@@ -7566,6 +7457,7 @@
   {
     "uuid": "marine-life-hovering-goby",
     "common_name": "hovering dartfish",
+    "feature_image_resource": "marine-life-hovering-goby",
     "scientific_name": "Ptereleotris helenae",
     "category": "fishes",
     "subcategory": "gobies",
@@ -7575,16 +7467,6 @@
     "min_depth": 3.0,
     "max_depth": 60.0,
     "distinctive_features": "Body shape: elongated"
-  },
-  {
-    "uuid": "marine-life-hyattella-cavernosa",
-    "common_name": "Hyattella cavernosa",
-    "scientific_name": "Hyattella cavernosa",
-    "category": "sponges",
-    "subcategory": "tube-sponges",
-    "family_name": "Spongiidae",
-    "min_depth": 2.0,
-    "max_depth": 73.0
   },
   {
     "uuid": "marine-life-hydroid-zoanthid",
@@ -7613,6 +7495,7 @@
   {
     "uuid": "marine-life-imitator-blenny",
     "common_name": "Imitator blenny",
+    "feature_image_resource": "marine-life-imitator-blenny",
     "scientific_name": "Malacoctenus erdmani",
     "category": "fishes",
     "subcategory": "blennies",
@@ -7669,6 +7552,7 @@
   {
     "uuid": "marine-life-inshore-lizardfish",
     "common_name": "inshore lizardfish",
+    "feature_image_resource": "marine-life-inshore-lizardfish",
     "scientific_name": "Synodus foetens",
     "category": "fishes",
     "subcategory": "lizardfishes",
@@ -7680,15 +7564,9 @@
     "distinctive_features": "Body shape: elongated"
   },
   {
-    "uuid": "marine-life-isarachnanthus-tuberculatus",
-    "common_name": "Isarachnanthus tuberculatus",
-    "scientific_name": "Isarachnanthus tuberculatus",
-    "category": "invertebrates",
-    "subcategory": "zoanthids"
-  },
-  {
     "uuid": "marine-life-island-frillfin-goby",
     "common_name": "Island Frillfin goby",
+    "feature_image_resource": "marine-life-island-frillfin-goby",
     "scientific_name": "Bathygobius mystacium",
     "category": "fishes",
     "subcategory": "gobies",
@@ -7735,6 +7613,7 @@
   {
     "uuid": "marine-life-jeweled-aglaja",
     "common_name": "jeweled aglaja",
+    "feature_image_resource": "marine-life-jeweled-aglaja",
     "scientific_name": "Navanax gemmatus",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -7744,6 +7623,7 @@
   {
     "uuid": "marine-life-jointed-stalk-alga",
     "common_name": "jointed stalk alga",
+    "feature_image_resource": "marine-life-jointed-stalk-alga",
     "scientific_name": "Halimeda monile",
     "category": "plants",
     "subcategory": "green-algae",
@@ -7769,6 +7649,7 @@
   {
     "uuid": "marine-life-key-worm-eel",
     "common_name": "key worm eel",
+    "feature_image_resource": "marine-life-key-worm-eel",
     "scientific_name": "Ahlia egmontis",
     "category": "fishes",
     "subcategory": "eels",
@@ -7797,6 +7678,7 @@
   {
     "uuid": "marine-life-king-mackerel",
     "common_name": "king mackerel",
+    "feature_image_resource": "marine-life-king-mackerel",
     "scientific_name": "Scomberomorus cavalla",
     "category": "fishes",
     "subcategory": "barracudas",
@@ -7824,6 +7706,7 @@
   {
     "uuid": "marine-life-kingstons-placida",
     "common_name": "Kingston’s Placida",
+    "feature_image_resource": "marine-life-kingstons-placida",
     "scientific_name": "Placida kingstoni",
     "category": "invertebrates",
     "subcategory": "sea-slugs",
@@ -7833,6 +7716,7 @@
   {
     "uuid": "marine-life-knobbed-porgy",
     "common_name": "knobbed porgy",
+    "feature_image_resource": "marine-life-knobbed-porgy",
     "scientific_name": "Calamus nodosus",
     "category": "fishes",
     "subcategory": "porgies",
@@ -7899,6 +7783,7 @@
   {
     "uuid": "marine-life-sclerodoris-prea",
     "common_name": "Knobby Doris",
+    "feature_image_resource": "marine-life-sclerodoris-prea",
     "scientific_name": "Sclerodoris prea",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -7925,6 +7810,7 @@
   {
     "uuid": "marine-life-knobby-scallop",
     "common_name": "knobby scallop",
+    "feature_image_resource": "marine-life-knobby-scallop",
     "scientific_name": "Caribachlamys pellucens",
     "category": "invertebrates",
     "subcategory": "clams",
@@ -7935,6 +7821,7 @@
   {
     "uuid": "marine-life-knobby-star-coral",
     "common_name": "Knobby star coral",
+    "feature_image_resource": "marine-life-knobby-star-coral",
     "scientific_name": "Solenastrea hyades",
     "category": "corals",
     "subcategory": "star-corals",
@@ -7960,6 +7847,7 @@
   {
     "uuid": "marine-life-kuna-goby",
     "common_name": "Kuna goby",
+    "feature_image_resource": "marine-life-kuna-goby",
     "scientific_name": "Coryphopterus kuna",
     "category": "fishes",
     "subcategory": "gobies",
@@ -7969,13 +7857,6 @@
     "min_depth": 10.0,
     "max_depth": 30.0,
     "distinctive_features": "Body shape: fusiform / normal"
-  },
-  {
-    "uuid": "marine-life-labyrinthulomycote-protozoan",
-    "common_name": "Labyrinthulomycote protozoan",
-    "scientific_name": "Labyrinthulomycote protozoan",
-    "category": "corals",
-    "subcategory": "octocorals"
   },
   {
     "uuid": "marine-life-lace-coral-brittle-star",
@@ -7989,22 +7870,6 @@
     "min_depth": 4.0,
     "max_depth": 24.0,
     "distinctive_features": "Body shape: 24"
-  },
-  {
-    "uuid": "marine-life-lactophrys-rigonus",
-    "common_name": "Lactophrys rigonus",
-    "scientific_name": "Lactophrys rigonus",
-    "category": "fishes",
-    "subcategory": "trunkfishes"
-  },
-  {
-    "uuid": "marine-life-laguncularia-racemosa",
-    "common_name": "Laguncularia racemosa",
-    "feature_image": "https://images.marinespecies.org/26695_laguncularia-racemosa.jpg",
-    "feature_image_resource": "marine-life-laguncularia-racemosa",
-    "scientific_name": "Laguncularia racemosa",
-    "category": "plants",
-    "subcategory": "mangroves"
   },
   {
     "uuid": "marine-life-lamarck-s-sheet-coral",
@@ -8080,6 +7945,7 @@
   {
     "uuid": "marine-life-large-leaf-hanging-vine",
     "common_name": "large leaf hanging vine",
+    "feature_image_resource": "marine-life-large-leaf-hanging-vine",
     "scientific_name": "Halimeda copiosa",
     "category": "plants",
     "subcategory": "green-algae",
@@ -8090,6 +7956,7 @@
   {
     "uuid": "marine-life-latticed-flatworm",
     "common_name": "Latticed Flatworm",
+    "feature_image_resource": "marine-life-latticed-flatworm",
     "scientific_name": "Styloplanocera fasciata",
     "category": "invertebrates",
     "subcategory": "flatworms",
@@ -8099,6 +7966,7 @@
   {
     "uuid": "marine-life-lavender-crust-alga",
     "common_name": "lavender crust alga",
+    "feature_image_resource": "marine-life-lavender-crust-alga",
     "scientific_name": "Hydrolithon farinosum",
     "category": "plants",
     "subcategory": "red-algae",
@@ -8127,6 +7995,7 @@
   {
     "uuid": "marine-life-leafy-flat-blade-alga",
     "common_name": "leafy flat blade alga",
+    "feature_image_resource": "marine-life-leafy-flat-blade-alga",
     "scientific_name": "Stypopodium zonale",
     "category": "plants",
     "subcategory": "brown-algae",
@@ -8152,6 +8021,7 @@
   {
     "uuid": "marine-life-leatherjacket",
     "common_name": "leatherjack",
+    "feature_image_resource": "marine-life-leatherjacket",
     "scientific_name": "Oligoplites saurus",
     "category": "fishes",
     "subcategory": "porgies",
@@ -8161,8 +8031,7 @@
     "min_depth": 0.0,
     "max_depth": 50.0,
     "distinctive_features": "Body shape: fusiform / normal",
-    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f6/Oligoplites_saurus.11B.jpg/960px-Oligoplites_saurus.11B.jpg",
-    "feature_image_resource": "marine-life-leatherjacket"
+    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f6/Oligoplites_saurus.11B.jpg/960px-Oligoplites_saurus.11B.jpg"
   },
   {
     "uuid": "marine-life-swallowtail-aglaja",
@@ -8219,6 +8088,7 @@
   {
     "uuid": "marine-life-leopard-goby",
     "common_name": "leopard goby",
+    "feature_image_resource": "marine-life-leopard-goby",
     "scientific_name": "Tigrigobius saucrus",
     "category": "fishes",
     "subcategory": "gobies",
@@ -8283,41 +8153,6 @@
     "distinctive_features": "Body shape: 15"
   },
   {
-    "uuid": "marine-life-leucaltis-clathria",
-    "common_name": "Leucaltis clathria",
-    "scientific_name": "Leucaltis clathria",
-    "category": "sponges",
-    "subcategory": "encrusting-sponges",
-    "family_name": "Leucaltidae",
-    "description": "Filter-feeder (Ref. 68823).",
-    "min_depth": 0.0,
-    "max_depth": 100.0,
-    "distinctive_features": "Body shape: 100"
-  },
-  {
-    "uuid": "marine-life-leucandra-barbata",
-    "common_name": "Leucandra barbata",
-    "scientific_name": "Leucandra barbata",
-    "category": "sponges",
-    "subcategory": "ball-sponges",
-    "family_name": "Grantiidae",
-    "max_depth": 17.0
-  },
-  {
-    "uuid": "marine-life-leucetta-floridana",
-    "common_name": "Leucetta floridana",
-    "feature_image": "https://images.marinespecies.org/20025_leucetta-floridana-in-vivo-brazil-rio-grande-do-norte-state.jpg",
-    "feature_image_resource": "marine-life-leucetta-floridana",
-    "scientific_name": "Leucetta floridana",
-    "category": "sponges",
-    "subcategory": "encrusting-sponges",
-    "family_name": "Leucettidae",
-    "description": "Depth based on occurrence record; to be replaced with better reference.",
-    "min_depth": 18.0,
-    "max_depth": 73.0,
-    "distinctive_features": "Body shape: 73"
-  },
-  {
     "uuid": "marine-life-lilacina-doris",
     "common_name": "lilacina doris",
     "feature_image": "https://images.marinespecies.org/117932_tayuva-lilacina.jpg",
@@ -8332,6 +8167,7 @@
   {
     "uuid": "marine-life-lined-elysia",
     "common_name": "lined elysia",
+    "feature_image_resource": "marine-life-lined-elysia",
     "scientific_name": "Elysia pratensis",
     "category": "invertebrates",
     "subcategory": "sea-slugs",
@@ -8438,6 +8274,7 @@
   {
     "uuid": "marine-life-little-eye-round-herring",
     "common_name": "Little-eye herring",
+    "feature_image_resource": "marine-life-little-eye-round-herring",
     "scientific_name": "Jenkinsia majua",
     "category": "fishes",
     "subcategory": "silvery-fishes",
@@ -8451,6 +8288,7 @@
   {
     "uuid": "marine-life-lofty-triplefin",
     "common_name": "lofty triplefin",
+    "feature_image_resource": "marine-life-lofty-triplefin",
     "scientific_name": "Enneanectes altivelis",
     "category": "fishes",
     "subcategory": "blennies",
@@ -8462,6 +8300,7 @@
   {
     "uuid": "marine-life-loggerhead-sponge",
     "common_name": "Loggerhead sponge",
+    "feature_image_resource": "marine-life-loggerhead-sponge",
     "scientific_name": "Spheciospongia vesparium",
     "category": "sponges",
     "subcategory": "barrel-sponges",
@@ -8488,6 +8327,7 @@
   {
     "uuid": "marine-life-gastropod-8618",
     "common_name": "long-eared Favorinus",
+    "feature_image_resource": "marine-life-gastropod-8618",
     "scientific_name": "Favorinus auritulus",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -8556,6 +8396,7 @@
   {
     "uuid": "marine-life-longfinger-neck-crab",
     "common_name": "Longfinger neck crab",
+    "feature_image_resource": "marine-life-longfinger-neck-crab",
     "scientific_name": "Coryrhynchus riisei",
     "category": "invertebrates",
     "subcategory": "crabs",
@@ -8569,6 +8410,7 @@
   {
     "uuid": "marine-life-longhorn-nudibranch",
     "common_name": "longhorn nudibranch",
+    "feature_image_resource": "marine-life-longhorn-nudibranch",
     "scientific_name": "Austraeolis catina",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -8703,6 +8545,7 @@
   {
     "uuid": "marine-life-longtail-grass-shrimp",
     "common_name": "longtail grass shrimp",
+    "feature_image_resource": "marine-life-longtail-grass-shrimp",
     "scientific_name": "Urocaris longicaudata",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -8713,6 +8556,7 @@
   {
     "uuid": "marine-life-lookdown",
     "common_name": "Lookdown",
+    "feature_image_resource": "marine-life-lookdown",
     "scientific_name": "Selene vomer",
     "category": "fishes",
     "subcategory": "jacks",
@@ -8722,13 +8566,6 @@
     "min_depth": 1.0,
     "max_depth": 53.0,
     "distinctive_features": "Body shape: fusiform / normal"
-  },
-  {
-    "uuid": "marine-life-lottia-suffusa",
-    "common_name": "Lottia suffusa",
-    "scientific_name": "Lottia suffusa",
-    "category": "invertebrates",
-    "subcategory": "limpets"
   },
   {
     "uuid": "marine-life-low-life-lettuce-coral",
@@ -8774,6 +8611,7 @@
   {
     "uuid": "marine-life-gastropod-8614",
     "common_name": "lynx nudibranch",
+    "feature_image_resource": "marine-life-gastropod-8614",
     "scientific_name": "Phidiana lynceus",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -8787,6 +8625,7 @@
   {
     "uuid": "marine-life-mackerel-scad",
     "common_name": "mackerel scad",
+    "feature_image_resource": "marine-life-mackerel-scad",
     "scientific_name": "Decapterus macarellus",
     "category": "fishes",
     "subcategory": "jacks",
@@ -8800,6 +8639,7 @@
   {
     "uuid": "marine-life-maculated-flounder",
     "common_name": "maculated flounder",
+    "feature_image_resource": "marine-life-maculated-flounder",
     "scientific_name": "Bothus maculiferus",
     "category": "fishes",
     "subcategory": "flounders",
@@ -8807,14 +8647,6 @@
     "description": "Blue to gold rings and spots. Midbody blotch. Convex (not notched) forehead. Males have long pectoral spines.",
     "max_size": 0.25,
     "distinctive_features": "Body shape: short and / or deep"
-  },
-  {
-    "uuid": "marine-life-madracis-carmabi",
-    "common_name": "Madracis carmabi",
-    "scientific_name": "Madracis carmabi",
-    "category": "corals",
-    "subcategory": "branching-corals",
-    "family_name": "Pocilloporidae"
   },
   {
     "uuid": "marine-life-magnificent-feather-duster",
@@ -8846,6 +8678,7 @@
   {
     "uuid": "marine-life-magnum-cockle",
     "common_name": "Magnum Cockle",
+    "feature_image_resource": "marine-life-magnum-cockle",
     "scientific_name": "Acrosterigma magnum",
     "category": "invertebrates",
     "subcategory": "clams",
@@ -8859,6 +8692,7 @@
   {
     "uuid": "marine-life-west-indian-top-shell",
     "common_name": "Magpie Whelk",
+    "feature_image_resource": "marine-life-west-indian-top-shell",
     "scientific_name": "Cittarium pica",
     "category": "invertebrates",
     "subcategory": "snails",
@@ -8870,15 +8704,9 @@
     "distinctive_features": "Body shape: 7"
   },
   {
-    "uuid": "marine-life-maguimithrax-variegata",
-    "common_name": "Maguimithrax variegata",
-    "scientific_name": "Maguimithrax variegata",
-    "category": "invertebrates",
-    "subcategory": "worms"
-  },
-  {
     "uuid": "marine-life-mahogany-goby",
     "common_name": "Mahogany goby",
+    "feature_image_resource": "marine-life-mahogany-goby",
     "scientific_name": "Lythrypnus crocodilus",
     "category": "fishes",
     "subcategory": "gobies",
@@ -8988,6 +8816,7 @@
   {
     "uuid": "marine-life-manytooth-conger",
     "common_name": "manytooth conger",
+    "feature_image_resource": "marine-life-manytooth-conger",
     "scientific_name": "Conger triporiceps",
     "category": "fishes",
     "subcategory": "eels",
@@ -9001,6 +8830,7 @@
   {
     "uuid": "marine-life-marbled-blenny",
     "common_name": "Marbled blenny",
+    "feature_image_resource": "marine-life-marbled-blenny",
     "scientific_name": "Paraclinus marmoratus",
     "category": "fishes",
     "subcategory": "blennies",
@@ -9026,6 +8856,7 @@
   {
     "uuid": "marine-life-marbled-puffer",
     "common_name": "Marbled puffer",
+    "feature_image_resource": "marine-life-marbled-puffer",
     "scientific_name": "Sphoeroides dorsalis",
     "category": "fishes",
     "subcategory": "puffers",
@@ -9039,6 +8870,7 @@
   {
     "uuid": "marine-life-marcuss-elysia",
     "common_name": "Marcus’s Elysia",
+    "feature_image_resource": "marine-life-marcuss-elysia",
     "scientific_name": "Elysia marcusi",
     "category": "invertebrates",
     "subcategory": "sea-slugs",
@@ -9140,6 +8972,7 @@
   {
     "uuid": "marine-life-matador-triplefin",
     "common_name": "matador triplefin",
+    "feature_image_resource": "marine-life-matador-triplefin",
     "scientific_name": "Enneanectes matador",
     "category": "fishes",
     "subcategory": "blennies",
@@ -9151,6 +8984,7 @@
   {
     "uuid": "marine-life-catriona-maua",
     "common_name": "Maua Aeolid",
+    "feature_image_resource": "marine-life-catriona-maua",
     "scientific_name": "Catriona maua",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -9164,6 +8998,7 @@
   {
     "uuid": "marine-life-thuridilla-mazda",
     "common_name": "mazda elysia",
+    "feature_image_resource": "marine-life-thuridilla-mazda",
     "scientific_name": "Thuridilla mazda",
     "category": "invertebrates",
     "subcategory": "sea-slugs",
@@ -9187,23 +9022,6 @@
     "min_depth": 0.0,
     "max_depth": 75.0,
     "distinctive_features": "Body shape: 75"
-  },
-  {
-    "uuid": "marine-life-meandrina-danae",
-    "common_name": "Meandrina danae",
-    "scientific_name": "Meandrina danae",
-    "category": "corals",
-    "subcategory": "cactus-corals"
-  },
-  {
-    "uuid": "marine-life-meandrina-jacksoni",
-    "common_name": "Meandrina jacksoni",
-    "feature_image": "https://reefguide.org/pix/whitevalleymazecoral2.jpg",
-    "feature_image_resource": "marine-life-meandrina-jacksoni",
-    "scientific_name": "Meandrina jacksoni",
-    "category": "corals",
-    "subcategory": "cactus-corals",
-    "family_name": "Meandrinidae"
   },
   {
     "uuid": "marine-life-measled-cowrie",
@@ -9278,13 +9096,6 @@
     "distinctive_features": "Body shape: fusiform / normal"
   },
   {
-    "uuid": "marine-life-microspathodon-tarapacana",
-    "common_name": "Microspathodon tarapacana",
-    "scientific_name": "Microspathodon tarapacana",
-    "category": "fishes",
-    "subcategory": "rays"
-  },
-  {
     "uuid": "marine-life-midnight-parrotfish",
     "common_name": "midnight parrotfish (terminal)",
     "feature_image": "https://reefguide.org/pix/midnightparrot7.jpg",
@@ -9302,6 +9113,7 @@
   {
     "uuid": "marine-life-midrib-seagrass",
     "common_name": "midrib seagrass",
+    "feature_image_resource": "marine-life-midrib-seagrass",
     "scientific_name": "Halophila baillonis",
     "category": "plants",
     "subcategory": "seagrasses",
@@ -9328,16 +9140,9 @@
     "distinctive_features": "Body shape: 55"
   },
   {
-    "uuid": "marine-life-millepora-squarrosa",
-    "common_name": "Millepora squarrosa",
-    "scientific_name": "Millepora squarrosa",
-    "category": "corals",
-    "subcategory": "branching-corals",
-    "family_name": "Milleporidae"
-  },
-  {
     "uuid": "marine-life-mimic-blenny",
     "common_name": "mimic blenny",
+    "feature_image_resource": "marine-life-mimic-blenny",
     "scientific_name": "Gobioclinus guppyi",
     "category": "fishes",
     "subcategory": "blennies",
@@ -9364,6 +9169,7 @@
   {
     "uuid": "marine-life-mimic-cardinalfish",
     "common_name": "mimic cardinalfish",
+    "feature_image_resource": "marine-life-mimic-cardinalfish",
     "scientific_name": "Apogon phenax",
     "category": "fishes",
     "subcategory": "cardinalfishes",
@@ -9426,6 +9232,7 @@
   {
     "uuid": "marine-life-molly-miller",
     "common_name": "Molly Miller",
+    "feature_image_resource": "marine-life-molly-miller",
     "scientific_name": "Scartella cristata",
     "category": "fishes",
     "subcategory": "blennies",
@@ -9435,8 +9242,7 @@
     "min_depth": 0.0,
     "max_depth": 10.0,
     "distinctive_features": "Body shape: fusiform / normal",
-    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/7/77/Scartella_cristata_389085003.jpg",
-    "feature_image_resource": "marine-life-molly-miller"
+    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/7/77/Scartella_cristata_389085003.jpg"
   },
   {
     "uuid": "marine-life-monogram-isopod",
@@ -9454,6 +9260,7 @@
   {
     "uuid": "marine-life-mottled-crust-alga",
     "common_name": "mottled crust alga",
+    "feature_image_resource": "marine-life-mottled-crust-alga",
     "scientific_name": "Peyssonnelia stoechas",
     "category": "plants",
     "subcategory": "red-algae",
@@ -9478,6 +9285,7 @@
   {
     "uuid": "marine-life-mottled-jawfish",
     "common_name": "mottled Jawfish",
+    "feature_image_resource": "marine-life-mottled-jawfish",
     "scientific_name": "Opistognathus maxillosus",
     "category": "fishes",
     "subcategory": "jawfishes",
@@ -9487,12 +9295,12 @@
     "min_depth": 1.0,
     "max_depth": 8.0,
     "distinctive_features": "Body shape: elongated",
-    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Environmental_appendix-_Miami-Dade_County_Back_Bay_coastal_storm_risk_management_feasibility_study%2C_Miami-Dade_County%2C_Florida-_Appendix_D_-_USACE-p16021coll7-14462.pdf/page1-960px-thumbnail.pdf.jpg",
-    "feature_image_resource": "marine-life-mottled-jawfish"
+    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Environmental_appendix-_Miami-Dade_County_Back_Bay_coastal_storm_risk_management_feasibility_study%2C_Miami-Dade_County%2C_Florida-_Appendix_D_-_USACE-p16021coll7-14462.pdf/page1-960px-thumbnail.pdf.jpg"
   },
   {
     "uuid": "marine-life-mottled-mojarra",
     "common_name": "mottled mojarra",
+    "feature_image_resource": "marine-life-mottled-mojarra",
     "scientific_name": "Ulaema lefroyi",
     "category": "fishes",
     "subcategory": "silvery-fishes",
@@ -9519,6 +9327,7 @@
   {
     "uuid": "marine-life-mottled-seahare",
     "common_name": "Mottled seahare",
+    "feature_image_resource": "marine-life-mottled-seahare",
     "scientific_name": "Aplysia brasiliana",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -9582,6 +9391,7 @@
   {
     "uuid": "marine-life-mouse-cone",
     "common_name": "Mouse cone",
+    "feature_image_resource": "marine-life-mouse-cone",
     "scientific_name": "Conus mus",
     "category": "invertebrates",
     "subcategory": "snails",
@@ -9623,6 +9433,7 @@
   {
     "uuid": "marine-life-mucus-tip-alga",
     "common_name": "mucus tip alga",
+    "feature_image_resource": "marine-life-mucus-tip-alga",
     "scientific_name": "Neomeris mucosa",
     "category": "plants",
     "subcategory": "green-algae",
@@ -9649,6 +9460,7 @@
   {
     "uuid": "marine-life-murca-glass-slug-variation",
     "common_name": "Murca Glass Slug (variation)",
+    "feature_image_resource": "marine-life-murca-glass-slug-variation",
     "scientific_name": "Mourgona murca",
     "category": "invertebrates",
     "subcategory": "sea-slugs",
@@ -9729,23 +9541,9 @@
     "distinctive_features": "Body shape: fusiform / normal"
   },
   {
-    "uuid": "marine-life-mycetophyllia-danaana",
-    "common_name": "Mycetophyllia danaana",
-    "scientific_name": "Mycetophyllia danaana",
-    "category": "corals",
-    "subcategory": "cactus-corals",
-    "family_name": "Faviidae"
-  },
-  {
-    "uuid": "marine-life-myrichthys-jacobus",
-    "common_name": "Myrichthys jacobus",
-    "scientific_name": "Myrichthys jacobus",
-    "category": "fishes",
-    "subcategory": "squirrelfishes"
-  },
-  {
     "uuid": "marine-life-narrow-blade-alga",
     "common_name": "narrow blade alga",
+    "feature_image_resource": "marine-life-narrow-blade-alga",
     "scientific_name": "Dictyota pulchella",
     "category": "plants",
     "subcategory": "brown-algae",
@@ -9774,6 +9572,7 @@
   {
     "uuid": "marine-life-nebula-sidegill-slug",
     "common_name": "Nebula Sidegill Slug",
+    "feature_image_resource": "marine-life-nebula-sidegill-slug",
     "scientific_name": "Berthella nebula",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -9792,19 +9591,6 @@
     "min_depth": 1.0,
     "max_depth": 45.0,
     "distinctive_features": "Body shape: elongated"
-  },
-  {
-    "uuid": "marine-life-neopetrosia-rosariensis",
-    "common_name": "Neopetrosia rosariensis",
-    "scientific_name": "Neopetrosia rosariensis",
-    "category": "sponges",
-    "subcategory": "tube-sponges",
-    "family_name": "Petrosiidae",
-    "description": "On coral outcrops, and reef environments (Ref. 415).",
-    "max_size": 0.78,
-    "min_depth": 2.0,
-    "max_depth": 30.0,
-    "distinctive_features": "Body shape: 30"
   },
   {
     "uuid": "marine-life-neptune-squilla",
@@ -9845,6 +9631,7 @@
   {
     "uuid": "marine-life-netted-olive",
     "common_name": "netted olive",
+    "feature_image_resource": "marine-life-netted-olive",
     "scientific_name": "Oliva sayana",
     "category": "invertebrates",
     "subcategory": "snails",
@@ -9909,6 +9696,7 @@
   {
     "uuid": "marine-life-nineline-goby",
     "common_name": "Nineline goby",
+    "feature_image_resource": "marine-life-nineline-goby",
     "scientific_name": "Ginsburgellus novemlineatus",
     "category": "fishes",
     "subcategory": "gobies",
@@ -9918,15 +9706,9 @@
     "distinctive_features": "Body shape: fusiform / normal"
   },
   {
-    "uuid": "marine-life-niphates-amorpha",
-    "common_name": "Niphates amorpha",
-    "scientific_name": "Niphates amorpha",
-    "category": "sponges",
-    "subcategory": "encrusting-sponges"
-  },
-  {
     "uuid": "marine-life-palisa-papillata",
     "common_name": "nippled palisa",
+    "feature_image_resource": "marine-life-palisa-papillata",
     "scientific_name": "Palisa papillata",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -9940,6 +9722,7 @@
   {
     "uuid": "marine-life-nodipes-decorator-crab",
     "common_name": "nodipes decorator crab",
+    "feature_image_resource": "marine-life-nodipes-decorator-crab",
     "scientific_name": "Macrocoeloma nodipes",
     "category": "invertebrates",
     "subcategory": "crabs",
@@ -9963,6 +9746,7 @@
   {
     "uuid": "marine-life-nodose-rubble-crab",
     "common_name": "Nodose rubble crab",
+    "feature_image_resource": "marine-life-nodose-rubble-crab",
     "scientific_name": "Paractaea rufopunctata",
     "category": "invertebrates",
     "subcategory": "crabs",
@@ -9985,6 +9769,7 @@
   {
     "uuid": "marine-life-notched-blade-alga",
     "common_name": "notched blade alga",
+    "feature_image_resource": "marine-life-notched-blade-alga",
     "scientific_name": "Dictyota crenulata",
     "category": "plants",
     "subcategory": "brown-algae",
@@ -9998,6 +9783,7 @@
   {
     "uuid": "marine-life-naked-sole",
     "common_name": "Nude sole",
+    "feature_image_resource": "marine-life-naked-sole",
     "scientific_name": "Gymnachirus nudus",
     "category": "fishes",
     "subcategory": "flounders",
@@ -10035,6 +9821,7 @@
   {
     "uuid": "marine-life-clavelina-oblonga",
     "common_name": "oblong tunicate",
+    "feature_image_resource": "marine-life-clavelina-oblonga",
     "scientific_name": "Clavelina oblonga",
     "category": "invertebrates",
     "subcategory": "tunicates",
@@ -10048,6 +9835,7 @@
   {
     "uuid": "marine-life-ocean-surgeonfish",
     "common_name": "ocean surgeonfish",
+    "feature_image_resource": "marine-life-ocean-surgeonfish",
     "scientific_name": "Acanthurus tractus",
     "category": "fishes",
     "subcategory": "surgeonfishes",
@@ -10057,8 +9845,7 @@
     "min_depth": 11.0,
     "max_depth": 45.0,
     "distinctive_features": "Body shape: short and / or deep",
-    "feature_image": "https://inaturalist-open-data.s3.amazonaws.com/photos/32026911/original.jpeg",
-    "feature_image_resource": "marine-life-ocean-surgeonfish"
+    "feature_image": "https://inaturalist-open-data.s3.amazonaws.com/photos/32026911/original.jpeg"
   },
   {
     "uuid": "marine-life-ocean-triggerfish",
@@ -10074,21 +9861,6 @@
     "min_depth": 5.0,
     "max_depth": 60.0,
     "distinctive_features": "Body shape: short and / or deep"
-  },
-  {
-    "uuid": "marine-life-oceanapia-bartschi",
-    "common_name": "Oceanapia bartschi",
-    "scientific_name": "Oceanapia bartschi",
-    "category": "sponges",
-    "subcategory": "barrel-sponges",
-    "family_name": "Phloeodictyidae"
-  },
-  {
-    "uuid": "marine-life-oceanapia-stalagmitica",
-    "common_name": "Oceanapia stalagmitica",
-    "scientific_name": "Oceanapia stalagmitica",
-    "category": "sponges",
-    "subcategory": "rope-sponges"
   },
   {
     "uuid": "marine-life-oceanic-whitetip-shark",
@@ -10130,6 +9902,7 @@
   {
     "uuid": "marine-life-ocellated-frogfish",
     "common_name": "ocellated frogfish",
+    "feature_image_resource": "marine-life-ocellated-frogfish",
     "scientific_name": "Fowlerichthys ocellatus",
     "category": "fishes",
     "subcategory": "frogfishes",
@@ -10143,6 +9916,7 @@
   {
     "uuid": "marine-life-ocellated-tonguefish",
     "common_name": "Ocellated tonguefish",
+    "feature_image_resource": "marine-life-ocellated-tonguefish",
     "scientific_name": "Symphurus ommaspilus",
     "category": "fishes",
     "subcategory": "toadfishes",
@@ -10154,15 +9928,9 @@
     "distinctive_features": "Body shape: short and / or deep"
   },
   {
-    "uuid": "marine-life-okeania-pavonica",
-    "common_name": "Okeania pavonica",
-    "scientific_name": "Okeania pavonica",
-    "category": "plants",
-    "subcategory": "brown-algae"
-  },
-  {
     "uuid": "marine-life-onetooth-simnia",
     "common_name": "onetooth simnia",
+    "feature_image_resource": "marine-life-onetooth-simnia",
     "scientific_name": "Simnialena uniplicata",
     "category": "invertebrates",
     "subcategory": "snails",
@@ -10172,13 +9940,6 @@
     "min_depth": 1.0,
     "max_depth": 116.0,
     "distinctive_features": "Body shape: 116"
-  },
-  {
-    "uuid": "marine-life-ophioderma-brevicaudum",
-    "common_name": "Ophioderma brevicaudum",
-    "scientific_name": "Ophioderma brevicaudum",
-    "category": "invertebrates",
-    "subcategory": "brittle-stars"
   },
   {
     "uuid": "marine-life-orange-ball-corallimorph",
@@ -10367,6 +10128,7 @@
   {
     "uuid": "marine-life-taringa-telopia",
     "common_name": "Orangeball Taringa (Variation)",
+    "feature_image_resource": "marine-life-taringa-telopia",
     "scientific_name": "Taringa telopia",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -10504,6 +10266,7 @@
   {
     "uuid": "marine-life-ornate-scallop",
     "common_name": "ornate scallop",
+    "feature_image_resource": "marine-life-ornate-scallop",
     "scientific_name": "Caribachlamys ornata",
     "category": "invertebrates",
     "subcategory": "clams",
@@ -10530,6 +10293,7 @@
   {
     "uuid": "marine-life-oyster-blenny",
     "common_name": "oyster blenny",
+    "feature_image_resource": "marine-life-oyster-blenny",
     "scientific_name": "Hypleurochilus pseudoaequipinnis",
     "category": "fishes",
     "subcategory": "blennies",
@@ -10541,6 +10305,7 @@
   {
     "uuid": "marine-life-paddle-blade-alga",
     "common_name": "paddle blade alga",
+    "feature_image_resource": "marine-life-paddle-blade-alga",
     "scientific_name": "Avrainvillea longicaulis",
     "category": "plants",
     "subcategory": "green-algae",
@@ -10597,6 +10362,7 @@
   {
     "uuid": "marine-life-cadlina-rumia",
     "common_name": "Pale Cadlina",
+    "feature_image_resource": "marine-life-cadlina-rumia",
     "scientific_name": "Cadlina rumia",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -10610,6 +10376,7 @@
   {
     "uuid": "marine-life-pale-cardinalfish",
     "common_name": "pale Cardinalfish",
+    "feature_image_resource": "marine-life-pale-cardinalfish",
     "scientific_name": "Apogon planifrons",
     "category": "fishes",
     "subcategory": "cardinalfishes",
@@ -10623,6 +10390,7 @@
   {
     "uuid": "marine-life-palehead-blenny",
     "common_name": "palehead blenny",
+    "feature_image_resource": "marine-life-palehead-blenny",
     "scientific_name": "Gobioclinus gobio",
     "category": "fishes",
     "subcategory": "blennies",
@@ -10666,6 +10434,7 @@
   {
     "uuid": "marine-life-palp-worm",
     "common_name": "palp worm",
+    "feature_image_resource": "marine-life-palp-worm",
     "scientific_name": "Mesochaetopterus stinapa",
     "category": "invertebrates",
     "subcategory": "worms",
@@ -10713,6 +10482,7 @@
   {
     "uuid": "marine-life-papillose-blenny",
     "common_name": "Papillose blenny",
+    "feature_image_resource": "marine-life-papillose-blenny",
     "scientific_name": "Acanthemblemaria chaplini",
     "category": "fishes",
     "subcategory": "blennies",
@@ -10765,6 +10535,7 @@
   {
     "uuid": "marine-life-pawliks-elysia",
     "common_name": "Pawlik’s Elysia",
+    "feature_image_resource": "marine-life-pawliks-elysia",
     "scientific_name": "Elysia pawliki",
     "category": "invertebrates",
     "subcategory": "sea-slugs",
@@ -10798,6 +10569,7 @@
   {
     "uuid": "marine-life-pearl-blenny",
     "common_name": "Pearl blenny",
+    "feature_image_resource": "marine-life-pearl-blenny",
     "scientific_name": "Entomacrodus nigricans",
     "category": "fishes",
     "subcategory": "blennies",
@@ -10807,12 +10579,12 @@
     "min_depth": 0.0,
     "max_depth": 6.0,
     "distinctive_features": "Body shape: elongated",
-    "feature_image": "https://ids.si.edu/ids/deliveryService/id/ark:/65665/m343a4fb59939e4c0f8fd2927a369c0fa7",
-    "feature_image_resource": "marine-life-pearl-blenny"
+    "feature_image": "https://ids.si.edu/ids/deliveryService/id/ark:/65665/m343a4fb59939e4c0f8fd2927a369c0fa7"
   },
   {
     "uuid": "marine-life-pearlfish",
     "common_name": "pearlfish",
+    "feature_image_resource": "marine-life-pearlfish",
     "scientific_name": "Carapus bermudensis",
     "category": "fishes",
     "subcategory": "brotulas",
@@ -10867,27 +10639,6 @@
     "distinctive_features": "Body shape: 35"
   },
   {
-    "uuid": "marine-life-penicillus-conchicola",
-    "common_name": "Penicillus conchicola",
-    "scientific_name": "Penicillus conchicola",
-    "category": "plants",
-    "subcategory": "red-algae"
-  },
-  {
-    "uuid": "marine-life-penicillus-inamoena",
-    "common_name": "Penicillus inamoena",
-    "scientific_name": "Penicillus inamoena",
-    "category": "plants",
-    "subcategory": "red-algae"
-  },
-  {
-    "uuid": "marine-life-penicillus-stoechas",
-    "common_name": "Penicillus stoechas",
-    "scientific_name": "Penicillus stoechas",
-    "category": "plants",
-    "subcategory": "red-algae"
-  },
-  {
     "uuid": "marine-life-peppermint-bass",
     "common_name": "peppermint basslet",
     "feature_image": "https://reefguide.org/pix/peppermintbasslet2.jpg",
@@ -10935,6 +10686,7 @@
   {
     "uuid": "marine-life-lomanotus-phiops",
     "common_name": "Phiops nudibranch",
+    "feature_image_resource": "marine-life-lomanotus-phiops",
     "scientific_name": "Lomanotus phiops",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -10961,6 +10713,7 @@
   {
     "uuid": "marine-life-gastropod-8451",
     "common_name": "Pinball seahare",
+    "feature_image_resource": "marine-life-gastropod-8451",
     "scientific_name": "Notarchus punctatus",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -11009,6 +10762,7 @@
   {
     "uuid": "marine-life-pink-branchlet-alga",
     "common_name": "pink branchlet alga",
+    "feature_image_resource": "marine-life-pink-branchlet-alga",
     "scientific_name": "Jania cubensis",
     "category": "plants",
     "subcategory": "red-algae",
@@ -11018,6 +10772,7 @@
   {
     "uuid": "marine-life-pink-bush-alga",
     "common_name": "pink bush alga",
+    "feature_image_resource": "marine-life-pink-bush-alga",
     "scientific_name": "Wrangelia penicillata",
     "category": "plants",
     "subcategory": "red-algae",
@@ -11039,6 +10794,7 @@
   {
     "uuid": "marine-life-pink-segmented-alga",
     "common_name": "pink segmented alga",
+    "feature_image_resource": "marine-life-pink-segmented-alga",
     "scientific_name": "Jania adhaerens",
     "category": "plants",
     "subcategory": "red-algae",
@@ -11094,32 +10850,6 @@
     "distinctive_features": "Body shape: 60"
   },
   {
-    "uuid": "marine-life-placospherastra-micraster",
-    "common_name": "Placospherastra micraster",
-    "scientific_name": "Placospherastra micraster",
-    "category": "sponges",
-    "subcategory": "encrusting-sponges"
-  },
-  {
-    "uuid": "marine-life-plakinastrella-onkodes",
-    "common_name": "Plakinastrella onkodes",
-    "scientific_name": "Plakinastrella onkodes",
-    "category": "sponges",
-    "subcategory": "tube-sponges",
-    "family_name": "Plakinidae",
-    "description": "Depth range based on Panama from Ref. 415. May also occur in mangrove ponds (Ref. 86789).",
-    "min_depth": 9.0,
-    "max_depth": 11.0,
-    "distinctive_features": "Body shape: 11"
-  },
-  {
-    "uuid": "marine-life-plakortis-walpersi",
-    "common_name": "Plakortis walpersi",
-    "scientific_name": "Plakortis walpersi",
-    "category": "sponges",
-    "subcategory": "rope-sponges"
-  },
-  {
     "uuid": "marine-life-planktonic-nudibranch",
     "common_name": "planktonic nudibranch",
     "feature_image": "https://reefguide.org/pix/phylliroebucephalum1.jpg",
@@ -11140,13 +10870,6 @@
     "family_name": "Salpidae",
     "description": "Transparent body, often with blue markings. Faint muscles and reddish digestive tracts can usually be seen. Pelagic.",
     "max_size": 0.05
-  },
-  {
-    "uuid": "marine-life-plexaura-nutans",
-    "common_name": "Plexaura nutans",
-    "scientific_name": "Plexaura nutans",
-    "category": "corals",
-    "subcategory": "octocorals"
   },
   {
     "uuid": "marine-life-polkadotted-hermit",
@@ -11192,13 +10915,6 @@
     "min_depth": 2.0,
     "max_depth": 50.0,
     "distinctive_features": "Body shape: short and / or deep"
-  },
-  {
-    "uuid": "marine-life-porites-urcata",
-    "common_name": "Porites urcata",
-    "scientific_name": "Porites urcata",
-    "category": "corals",
-    "subcategory": "branching-corals"
   },
   {
     "uuid": "marine-life-porkfish",
@@ -11256,34 +10972,6 @@
     "distinctive_features": "Body shape: fusiform / normal"
   },
   {
-    "uuid": "marine-life-pseudobiceros-bicolor",
-    "common_name": "Pseudobiceros bicolor",
-    "scientific_name": "Pseudobiceros bicolor",
-    "category": "invertebrates",
-    "subcategory": "flatworms"
-  },
-  {
-    "uuid": "marine-life-pseudobiceros-bolool",
-    "common_name": "Pseudobiceros bolool",
-    "scientific_name": "Pseudobiceros bolool",
-    "category": "invertebrates",
-    "subcategory": "flatworms"
-  },
-  {
-    "uuid": "marine-life-pseudobiceros-rawlinsonae",
-    "common_name": "Pseudobiceros rawlinsonae",
-    "scientific_name": "Pseudobiceros rawlinsonae",
-    "category": "invertebrates",
-    "subcategory": "flatworms"
-  },
-  {
-    "uuid": "marine-life-pseudogramma-maculatus",
-    "common_name": "Pseudogramma maculatus",
-    "scientific_name": "Pseudogramma maculatus",
-    "category": "fishes",
-    "subcategory": "toadfishes"
-  },
-  {
     "uuid": "marine-life-puddingwife-wrasse",
     "common_name": "puddingwife (initial)",
     "feature_image": "https://reefguide.org/pix/puddingwife5.jpg",
@@ -11301,6 +10989,7 @@
   {
     "uuid": "marine-life-puffcheek-blenny",
     "common_name": "puffcheek blenny",
+    "feature_image_resource": "marine-life-puffcheek-blenny",
     "scientific_name": "Gobioclinus bucciferus",
     "category": "fishes",
     "subcategory": "blennies",
@@ -11314,6 +11003,7 @@
   {
     "uuid": "marine-life-pugjaw-wormfish",
     "common_name": "pugjaw wormfish",
+    "feature_image_resource": "marine-life-pugjaw-wormfish",
     "scientific_name": "Cerdale floridana",
     "category": "fishes",
     "subcategory": "gobies",
@@ -11327,6 +11017,7 @@
   {
     "uuid": "marine-life-purple-bush-alga",
     "common_name": "purple bush alga",
+    "feature_image_resource": "marine-life-purple-bush-alga",
     "scientific_name": "Ochtodes secundiramea",
     "category": "plants",
     "subcategory": "red-algae",
@@ -11364,6 +11055,7 @@
   {
     "uuid": "marine-life-purple-reef-fan",
     "common_name": "purple reef fan",
+    "feature_image_resource": "marine-life-purple-reef-fan",
     "scientific_name": "Bugula minima",
     "category": "invertebrates",
     "subcategory": "bryozoans",
@@ -11388,6 +11080,7 @@
   {
     "uuid": "marine-life-purple-crowned-sea-goddess",
     "common_name": "purple-crowned sea goddess",
+    "feature_image_resource": "marine-life-purple-crowned-sea-goddess",
     "scientific_name": "Felimare kempfi",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -11431,6 +11124,7 @@
   {
     "uuid": "marine-life-pusa-aglaja",
     "common_name": "Pusa aglaja",
+    "feature_image_resource": "marine-life-pusa-aglaja",
     "scientific_name": "Philinopsis pusa",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -11455,6 +11149,7 @@
   {
     "uuid": "marine-life-pygmy-goby",
     "common_name": "Pygmy goby",
+    "feature_image_resource": "marine-life-pygmy-goby",
     "scientific_name": "Lythrypnus minimus",
     "category": "fishes",
     "subcategory": "gobies",
@@ -11493,6 +11188,7 @@
   {
     "uuid": "marine-life-queen-conch",
     "common_name": "queen conch",
+    "feature_image_resource": "marine-life-queen-conch",
     "scientific_name": "Lobatus gigas",
     "category": "invertebrates",
     "subcategory": "conchs",
@@ -11547,6 +11243,7 @@
   {
     "uuid": "marine-life-radial-purse-oyster",
     "common_name": "radial purse oyster",
+    "feature_image_resource": "marine-life-radial-purse-oyster",
     "scientific_name": "Isognomon radiatus",
     "category": "invertebrates",
     "subcategory": "oysters",
@@ -11658,6 +11355,7 @@
   {
     "uuid": "marine-life-red-bush-alga",
     "common_name": "red bush alga",
+    "feature_image_resource": "marine-life-red-bush-alga",
     "scientific_name": "Yuzurua poiteaui",
     "category": "plants",
     "subcategory": "red-algae",
@@ -11681,6 +11379,7 @@
   {
     "uuid": "marine-life-red-clinging-crab",
     "common_name": "Red clinging crab",
+    "feature_image_resource": "marine-life-red-clinging-crab",
     "scientific_name": "Teleophrys ruber",
     "category": "invertebrates",
     "subcategory": "crabs",
@@ -11690,6 +11389,7 @@
   {
     "uuid": "marine-life-red-disc-alga",
     "common_name": "red disc alga",
+    "feature_image_resource": "marine-life-red-disc-alga",
     "scientific_name": "Flahaultia tegetiformans",
     "category": "plants",
     "subcategory": "red-algae",
@@ -11714,6 +11414,7 @@
   {
     "uuid": "marine-life-red-filament-alga",
     "common_name": "red filament alga",
+    "feature_image_resource": "marine-life-red-filament-alga",
     "scientific_name": "Wurdemannia miniata",
     "category": "plants",
     "subcategory": "red-algae",
@@ -11737,6 +11438,7 @@
   {
     "uuid": "marine-life-red-grouper",
     "common_name": "red grouper",
+    "feature_image_resource": "marine-life-red-grouper",
     "scientific_name": "Epinephelus morio",
     "category": "fishes",
     "subcategory": "groupers",
@@ -11794,6 +11496,7 @@
   {
     "uuid": "marine-life-red-lizardfish",
     "common_name": "red lizardfish",
+    "feature_image_resource": "marine-life-red-lizardfish",
     "scientific_name": "Synodus synodus",
     "category": "fishes",
     "subcategory": "lizardfishes",
@@ -11807,6 +11510,7 @@
   {
     "uuid": "marine-life-red-miniature-sea-star",
     "common_name": "Red Miniature Sea star",
+    "feature_image_resource": "marine-life-red-miniature-sea-star",
     "scientific_name": "Poraniella echinulata",
     "category": "invertebrates",
     "subcategory": "sea-stars",
@@ -11874,6 +11578,7 @@
   {
     "uuid": "marine-life-ghost-shrimp",
     "common_name": "red-orange ghost shrimp",
+    "feature_image_resource": "marine-life-ghost-shrimp",
     "scientific_name": "Corallianassa longiventris",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -11902,6 +11607,7 @@
   {
     "uuid": "marine-life-doriopsilla-espinosai",
     "common_name": "Red-speckled Doris",
+    "feature_image_resource": "marine-life-doriopsilla-espinosai",
     "scientific_name": "Doriopsilla espinosai",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -11928,6 +11634,7 @@
   {
     "uuid": "marine-life-red-tipped-alga",
     "common_name": "red-tipped alga",
+    "feature_image_resource": "marine-life-red-tipped-alga",
     "scientific_name": "Laurencia chondrioides",
     "category": "plants",
     "subcategory": "red-algae",
@@ -11963,6 +11670,7 @@
   {
     "uuid": "marine-life-redbelly-triplefin",
     "common_name": "redbelly triplefin",
+    "feature_image_resource": "marine-life-redbelly-triplefin",
     "scientific_name": "Enneanectes jordani",
     "category": "fishes",
     "subcategory": "blennies",
@@ -11976,6 +11684,7 @@
   {
     "uuid": "marine-life-redcheek-goby",
     "common_name": "Redcheek goby",
+    "feature_image_resource": "marine-life-redcheek-goby",
     "scientific_name": "Tigrigobius rubrigenis",
     "category": "fishes",
     "subcategory": "gobies",
@@ -11987,6 +11696,7 @@
   {
     "uuid": "marine-life-redear-herring",
     "common_name": "Redear herring",
+    "feature_image_resource": "marine-life-redear-herring",
     "scientific_name": "Harengula humeralis",
     "category": "fishes",
     "subcategory": "silvery-fishes",
@@ -11996,8 +11706,7 @@
     "min_depth": 0.0,
     "max_depth": 50.0,
     "distinctive_features": "Body shape: fusiform / normal",
-    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/Harengula_humeralis_Martinique.jpg/960px-Harengula_humeralis_Martinique.jpg",
-    "feature_image_resource": "marine-life-redear-herring"
+    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/Harengula_humeralis_Martinique.jpg/960px-Harengula_humeralis_Martinique.jpg"
   },
   {
     "uuid": "marine-life-redeye-sponge-crab",
@@ -12043,6 +11752,7 @@
   {
     "uuid": "marine-life-redline-blue-sea-goddess",
     "common_name": "redline blue sea goddess",
+    "feature_image_resource": "marine-life-redline-blue-sea-goddess",
     "scientific_name": "Felimare nyalya",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -12105,6 +11815,7 @@
   {
     "uuid": "marine-life-redtail-scad",
     "common_name": "redtail scad",
+    "feature_image_resource": "marine-life-redtail-scad",
     "scientific_name": "Decapterus tabl",
     "category": "fishes",
     "subcategory": "jacks",
@@ -12154,6 +11865,7 @@
   {
     "uuid": "marine-life-reef-croaker",
     "common_name": "reef croaker",
+    "feature_image_resource": "marine-life-reef-croaker",
     "scientific_name": "Odontoscion dentex",
     "category": "fishes",
     "subcategory": "silvery-fishes",
@@ -12193,6 +11905,7 @@
   {
     "uuid": "marine-life-reef-squirrelfish",
     "common_name": "reef squirrelfish",
+    "feature_image_resource": "marine-life-reef-squirrelfish",
     "scientific_name": "Neoniphon coruscum",
     "category": "fishes",
     "subcategory": "squirrelfishes",
@@ -12232,6 +11945,7 @@
   {
     "uuid": "marine-life-reef-cave-brotula",
     "common_name": "reef-cave brotula",
+    "feature_image_resource": "marine-life-reef-cave-brotula",
     "scientific_name": "Grammonus claudei",
     "category": "fishes",
     "subcategory": "brotulas",
@@ -12295,20 +12009,6 @@
     "description": "Translucent brown body. Bristled claws have reddish lines in a reticulated pattern. Found in sandy areas."
   },
   {
-    "uuid": "marine-life-rhizophora-mangle",
-    "common_name": "Rhizophora mangle",
-    "scientific_name": "Rhizophora mangle",
-    "category": "plants",
-    "subcategory": "mangroves"
-  },
-  {
-    "uuid": "marine-life-rhizopsammia-maculata",
-    "common_name": "Rhizopsammia maculata",
-    "scientific_name": "Rhizopsammia maculata",
-    "category": "corals",
-    "subcategory": "cup-corals"
-  },
-  {
     "uuid": "marine-life-ribbed-barnacle",
     "common_name": "Ribbed barnacle",
     "scientific_name": "Tetraclita stalactifera",
@@ -12334,6 +12034,7 @@
   {
     "uuid": "marine-life-ribbon-blenny",
     "common_name": "ribbon blenny",
+    "feature_image_resource": "marine-life-ribbon-blenny",
     "scientific_name": "Emblemaria vitta",
     "category": "fishes",
     "subcategory": "blennies",
@@ -12389,6 +12090,7 @@
   {
     "uuid": "marine-life-robust-leaf-alga",
     "common_name": "robust leaf alga",
+    "feature_image_resource": "marine-life-robust-leaf-alga",
     "scientific_name": "Halimeda scabra",
     "category": "plants",
     "subcategory": "green-algae",
@@ -12443,6 +12145,7 @@
   {
     "uuid": "marine-life-roostertail-conch",
     "common_name": "roostertail conch",
+    "feature_image_resource": "marine-life-roostertail-conch",
     "scientific_name": "Lobatus gallus",
     "category": "invertebrates",
     "subcategory": "conchs",
@@ -12477,15 +12180,9 @@
     "max_size": 0.45
   },
   {
-    "uuid": "marine-life-roseofilum-reptotaenium",
-    "common_name": "Roseofilum reptotaenium",
-    "scientific_name": "Roseofilum reptotaenium",
-    "category": "corals",
-    "subcategory": "octocorals"
-  },
-  {
     "uuid": "marine-life-rosy-blenny",
     "common_name": "rosy blenny (female)",
+    "feature_image_resource": "marine-life-rosy-blenny",
     "scientific_name": "Malacoctenus macropus",
     "category": "fishes",
     "subcategory": "blennies",
@@ -12495,8 +12192,7 @@
     "min_depth": 0.0,
     "max_depth": 8.0,
     "distinctive_features": "Body shape: fusiform / normal",
-    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/5/58/Malacoctenus_macropus_287545612.jpg",
-    "feature_image_resource": "marine-life-rosy-blenny"
+    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/5/58/Malacoctenus_macropus_287545612.jpg"
   },
   {
     "uuid": "marine-life-rosy-razorfish-terminal",
@@ -12516,6 +12212,7 @@
   {
     "uuid": "marine-life-rough-box-crab",
     "common_name": "rough box crab",
+    "feature_image_resource": "marine-life-rough-box-crab",
     "scientific_name": "Calappa galloides",
     "category": "invertebrates",
     "subcategory": "crabs",
@@ -12529,6 +12226,7 @@
   {
     "uuid": "marine-life-rough-cactus-coral",
     "common_name": "Rough cactus coral",
+    "feature_image_resource": "marine-life-rough-cactus-coral",
     "scientific_name": "Mycetophyllia ferox",
     "category": "corals",
     "subcategory": "cactus-corals",
@@ -12573,6 +12271,7 @@
   {
     "uuid": "marine-life-rough-sea-plume",
     "common_name": "Rough sea plume",
+    "feature_image_resource": "marine-life-rough-sea-plume",
     "scientific_name": "Muriceopsis flavida",
     "category": "corals",
     "subcategory": "octocorals",
@@ -12611,6 +12310,7 @@
   {
     "uuid": "marine-life-roughback-batfish",
     "common_name": "roughback batfish",
+    "feature_image_resource": "marine-life-roughback-batfish",
     "scientific_name": "Ogcocephalus parvus",
     "category": "fishes",
     "subcategory": "batfishes",
@@ -12652,6 +12352,7 @@
   {
     "uuid": "marine-life-roughhead-triplefin",
     "common_name": "roughhead triplefin",
+    "feature_image_resource": "marine-life-roughhead-triplefin",
     "scientific_name": "Enneanectes boehlkei",
     "category": "fishes",
     "subcategory": "blennies",
@@ -12663,6 +12364,7 @@
   {
     "uuid": "marine-life-roughlip-cardinalfish",
     "common_name": "roughlip cardinalfish",
+    "feature_image_resource": "marine-life-roughlip-cardinalfish",
     "scientific_name": "Apogon robinsi",
     "category": "fishes",
     "subcategory": "cardinalfishes",
@@ -12674,6 +12376,7 @@
   {
     "uuid": "marine-life-roughnose-decorator-crab",
     "common_name": "roughnose decorator crab",
+    "feature_image_resource": "marine-life-roughnose-decorator-crab",
     "scientific_name": "Leptopisa setirostris",
     "category": "invertebrates",
     "subcategory": "crabs",
@@ -12687,6 +12390,7 @@
   {
     "uuid": "marine-life-round-scad",
     "common_name": "round scad",
+    "feature_image_resource": "marine-life-round-scad",
     "scientific_name": "Decapterus punctatus",
     "category": "fishes",
     "subcategory": "jacks",
@@ -12715,6 +12419,7 @@
   {
     "uuid": "marine-life-rubbery-bush-alga",
     "common_name": "Rubbery bush alga",
+    "feature_image_resource": "marine-life-rubbery-bush-alga",
     "scientific_name": "Halymenia elongata",
     "category": "plants",
     "subcategory": "red-algae",
@@ -12724,6 +12429,7 @@
   {
     "uuid": "marine-life-rubbery-leaf-alga",
     "common_name": "rubbery leaf alga",
+    "feature_image_resource": "marine-life-rubbery-leaf-alga",
     "scientific_name": "Asteromenia peltata",
     "category": "plants",
     "subcategory": "red-algae",
@@ -12745,6 +12451,7 @@
   {
     "uuid": "marine-life-ruffled-blade-alga",
     "common_name": "Ruffled Blade alga",
+    "feature_image_resource": "marine-life-ruffled-blade-alga",
     "scientific_name": "Udotea flabellum",
     "category": "plants",
     "subcategory": "green-algae",
@@ -12758,6 +12465,7 @@
   {
     "uuid": "marine-life-rusty-encrusting-sponge",
     "common_name": "rusty encrusting sponge",
+    "feature_image_resource": "marine-life-rusty-encrusting-sponge",
     "scientific_name": "Clathria minuta",
     "category": "sponges",
     "subcategory": "encrusting-sponges",
@@ -12767,6 +12475,7 @@
   {
     "uuid": "marine-life-rusty-flatworm",
     "common_name": "rusty flatworm",
+    "feature_image_resource": "marine-life-rusty-flatworm",
     "scientific_name": "Notocomplana ferruginea",
     "category": "invertebrates",
     "subcategory": "flatworms",
@@ -12776,6 +12485,7 @@
   {
     "uuid": "marine-life-rusty-goby",
     "common_name": "Rusty Goby",
+    "feature_image_resource": "marine-life-rusty-goby",
     "scientific_name": "Priolepis hipoliti",
     "category": "fishes",
     "subcategory": "gobies",
@@ -12834,6 +12544,7 @@
   {
     "uuid": "marine-life-sand-costasiella",
     "common_name": "Sand costasiella",
+    "feature_image_resource": "marine-life-sand-costasiella",
     "scientific_name": "Costasiella arenaria",
     "category": "invertebrates",
     "subcategory": "sea-slugs",
@@ -12872,6 +12583,7 @@
   {
     "uuid": "marine-life-sand-dollar-pea-crab",
     "common_name": "sand dollar pea crab",
+    "feature_image_resource": "marine-life-sand-dollar-pea-crab",
     "scientific_name": "Dissodactylus mellitae",
     "category": "invertebrates",
     "subcategory": "crabs",
@@ -12912,6 +12624,7 @@
   {
     "uuid": "marine-life-sand-snapping-shrimp",
     "common_name": "sand snapping shrimp",
+    "feature_image_resource": "marine-life-sand-snapping-shrimp",
     "scientific_name": "Alpheus floridanus",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -12954,6 +12667,7 @@
   {
     "uuid": "marine-life-sargasso-weed",
     "common_name": "sargasso weed",
+    "feature_image_resource": "marine-life-sargasso-weed",
     "scientific_name": "Sargassum natans",
     "category": "plants",
     "subcategory": "brown-algae",
@@ -12964,6 +12678,7 @@
   {
     "uuid": "marine-life-sargassum-alga",
     "common_name": "sargassum alga",
+    "feature_image_resource": "marine-life-sargassum-alga",
     "scientific_name": "Sargassum acinarium",
     "category": "plants",
     "subcategory": "brown-algae",
@@ -12977,6 +12692,7 @@
   {
     "uuid": "marine-life-sargassum-horned-flatworm",
     "common_name": "Sargassum Horned Flatworm",
+    "feature_image_resource": "marine-life-sargassum-horned-flatworm",
     "scientific_name": "Gnesioceros sargassicola",
     "category": "invertebrates",
     "subcategory": "flatworms",
@@ -13025,6 +12741,7 @@
   {
     "uuid": "marine-life-sargassum-spurilla",
     "common_name": "sargassum spurilla",
+    "feature_image_resource": "marine-life-sargassum-spurilla",
     "scientific_name": "Spurilla sargassicola",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -13063,6 +12780,7 @@
   {
     "uuid": "marine-life-sargassumfish",
     "common_name": "sargassumfish",
+    "feature_image_resource": "marine-life-sargassumfish",
     "scientific_name": "Histrio histrio",
     "category": "fishes",
     "subcategory": "frogfishes",
@@ -13111,6 +12829,7 @@
   {
     "uuid": "marine-life-sawblade-alga",
     "common_name": "sawblade alga",
+    "feature_image_resource": "marine-life-sawblade-alga",
     "scientific_name": "Caulerpa serrulata",
     "category": "plants",
     "subcategory": "green-algae",
@@ -13124,6 +12843,7 @@
   {
     "uuid": "marine-life-sawcheek-cardinalfish",
     "common_name": "sawcheek Cardinalfish",
+    "feature_image_resource": "marine-life-sawcheek-cardinalfish",
     "scientific_name": "Apogon quadrisquamatus",
     "category": "fishes",
     "subcategory": "cardinalfishes",
@@ -13137,6 +12857,7 @@
   {
     "uuid": "marine-life-scalloped-hammerhead",
     "common_name": "scalloped hammerhead",
+    "feature_image_resource": "marine-life-scalloped-hammerhead",
     "scientific_name": "Sphyrna lewini",
     "category": "fishes",
     "subcategory": "sharks",
@@ -13162,6 +12883,7 @@
   {
     "uuid": "marine-life-scamp",
     "common_name": "Scamp",
+    "feature_image_resource": "marine-life-scamp",
     "scientific_name": "Mycteroperca phenax",
     "category": "fishes",
     "subcategory": "groupers",
@@ -13218,6 +12940,7 @@
   {
     "uuid": "marine-life-schizothrix-alga",
     "common_name": "Schizothrix alga",
+    "feature_image_resource": "marine-life-schizothrix-alga",
     "scientific_name": "Schizothrix calcicola",
     "category": "plants",
     "subcategory": "red-algae",
@@ -13254,13 +12977,6 @@
     "distinctive_features": "Body shape: fusiform / normal"
   },
   {
-    "uuid": "marine-life-scorpaena-caribbaeus",
-    "common_name": "Scorpaena caribbaeus",
-    "scientific_name": "Scorpaena caribbaeus",
-    "category": "fishes",
-    "subcategory": "scorpionfishes"
-  },
-  {
     "uuid": "marine-life-scrawled-cowfish",
     "common_name": "scrawled cowfish (variation)",
     "feature_image": "https://reefguide.org/pix/scrawledcowfish9.jpg",
@@ -13293,6 +13009,7 @@
   {
     "uuid": "marine-life-scroll-coral",
     "common_name": "Scroll coral",
+    "feature_image_resource": "marine-life-scroll-coral",
     "scientific_name": "Agaricia undata",
     "category": "corals",
     "subcategory": "plate-corals",
@@ -13320,6 +13037,7 @@
   {
     "uuid": "marine-life-western-atlantic-seabream",
     "common_name": "Sea Bream",
+    "feature_image_resource": "marine-life-western-atlantic-seabream",
     "scientific_name": "Archosargus rhomboidalis",
     "category": "fishes",
     "subcategory": "porgies",
@@ -13329,8 +13047,7 @@
     "min_depth": 1.0,
     "max_depth": 40.0,
     "distinctive_features": "Body shape: short and / or deep",
-    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/7/7d/Archosargus_rhomboidalis.jpg",
-    "feature_image_resource": "marine-life-western-atlantic-seabream"
+    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/7/7d/Archosargus_rhomboidalis.jpg"
   },
   {
     "uuid": "marine-life-sea-elephant",
@@ -13384,6 +13101,7 @@
   {
     "uuid": "marine-life-sea-rod-basket-star",
     "common_name": "sea rod basket star",
+    "feature_image_resource": "marine-life-sea-rod-basket-star",
     "scientific_name": "Schizostella bifurcata",
     "category": "invertebrates",
     "subcategory": "crinoids",
@@ -13421,6 +13139,7 @@
   {
     "uuid": "marine-life-seafan-hydroid",
     "common_name": "seafan hydroid",
+    "feature_image_resource": "marine-life-seafan-hydroid",
     "scientific_name": "Solanderia gracilis",
     "category": "invertebrates",
     "subcategory": "hydroids",
@@ -13431,6 +13150,7 @@
   {
     "uuid": "marine-life-seagrass-elysia",
     "common_name": "SeaGrass Elysia",
+    "feature_image_resource": "marine-life-seagrass-elysia",
     "scientific_name": "Elysia serca",
     "category": "invertebrates",
     "subcategory": "sea-slugs",
@@ -13459,6 +13179,7 @@
   {
     "uuid": "marine-life-seaweed-bryozoan",
     "common_name": "seaweed bryozoan",
+    "feature_image_resource": "marine-life-seaweed-bryozoan",
     "scientific_name": "Caulibugula dendrograpta",
     "category": "invertebrates",
     "subcategory": "bryozoans",
@@ -13495,6 +13216,7 @@
   {
     "uuid": "marine-life-semiscaled-goby",
     "common_name": "semiscaled goby",
+    "feature_image_resource": "marine-life-semiscaled-goby",
     "scientific_name": "Tigrigobius pallens",
     "category": "fishes",
     "subcategory": "gobies",
@@ -13536,6 +13258,7 @@
   {
     "uuid": "marine-life-serrated-alga",
     "common_name": "serrated alga",
+    "feature_image_resource": "marine-life-serrated-alga",
     "scientific_name": "Caulerpa webbiana",
     "category": "plants",
     "subcategory": "green-algae",
@@ -13558,6 +13281,7 @@
   {
     "uuid": "marine-life-shaggy-branch-alga",
     "common_name": "Shaggy branch alga",
+    "feature_image_resource": "marine-life-shaggy-branch-alga",
     "scientific_name": "Dasycladus vermicularis",
     "category": "plants",
     "subcategory": "green-algae",
@@ -13651,6 +13375,7 @@
   {
     "uuid": "marine-life-sheepshead",
     "common_name": "Sheepshead",
+    "feature_image_resource": "marine-life-sheepshead",
     "scientific_name": "Archosargus probatocephalus",
     "category": "fishes",
     "subcategory": "porgies",
@@ -13663,6 +13388,7 @@
   {
     "uuid": "marine-life-sheepshead-porgy",
     "common_name": "sheepshead porgy",
+    "feature_image_resource": "marine-life-sheepshead-porgy",
     "scientific_name": "Calamus penna",
     "category": "fishes",
     "subcategory": "porgies",
@@ -13672,12 +13398,12 @@
     "min_depth": 3.0,
     "max_depth": 87.0,
     "distinctive_features": "Body shape: short and / or deep",
-    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/FMIB_33942_Calamus_Penna_Cuvier_and_Valenciennes.jpeg/960px-FMIB_33942_Calamus_Penna_Cuvier_and_Valenciennes.jpeg",
-    "feature_image_resource": "marine-life-sheepshead-porgy"
+    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/FMIB_33942_Calamus_Penna_Cuvier_and_Valenciennes.jpeg/960px-FMIB_33942_Calamus_Penna_Cuvier_and_Valenciennes.jpeg"
   },
   {
     "uuid": "marine-life-shelf-knob-sea-rod",
     "common_name": "Shelf-knob sea rod",
+    "feature_image_resource": "marine-life-shelf-knob-sea-rod",
     "scientific_name": "Eunicea succinea",
     "category": "corals",
     "subcategory": "octocorals",
@@ -13745,6 +13471,7 @@
   {
     "uuid": "marine-life-shortfin-sweeper",
     "common_name": "shortfin sweeper",
+    "feature_image_resource": "marine-life-shortfin-sweeper",
     "scientific_name": "Pempheris poeyi",
     "category": "fishes",
     "subcategory": "silvery-fishes",
@@ -13786,6 +13513,7 @@
   {
     "uuid": "marine-life-shorthorn-decorator-crab",
     "common_name": "shorthorn decorator crab",
+    "feature_image_resource": "marine-life-shorthorn-decorator-crab",
     "scientific_name": "Chorinus heros",
     "category": "invertebrates",
     "subcategory": "crabs",
@@ -13840,15 +13568,9 @@
     "distinctive_features": "Body shape: short and / or deep"
   },
   {
-    "uuid": "marine-life-siderastrea-bournoni",
-    "common_name": "Siderastrea bournoni",
-    "scientific_name": "Siderastrea bournoni",
-    "category": "corals",
-    "subcategory": "star-corals"
-  },
-  {
     "uuid": "marine-life-silky-shark",
     "common_name": "silky shark",
+    "feature_image_resource": "marine-life-silky-shark",
     "scientific_name": "Carcharhinus falciformis",
     "category": "fishes",
     "subcategory": "sharks",
@@ -13862,6 +13584,7 @@
   {
     "uuid": "marine-life-silky-tegula",
     "common_name": "Silky Tegula",
+    "feature_image_resource": "marine-life-silky-tegula",
     "scientific_name": "Agathistoma fasciatum",
     "category": "invertebrates",
     "subcategory": "snails",
@@ -13880,6 +13603,7 @@
   {
     "uuid": "marine-life-silver-porgy",
     "common_name": "Silver porgy",
+    "feature_image_resource": "marine-life-silver-porgy",
     "scientific_name": "Diplodus argenteus",
     "category": "fishes",
     "subcategory": "porgies",
@@ -13892,6 +13616,7 @@
   {
     "uuid": "marine-life-dwarf-round-herring",
     "common_name": "Silversides",
+    "feature_image_resource": "marine-life-dwarf-round-herring",
     "scientific_name": "Jenkinsia lamprotaenia",
     "category": "fishes",
     "subcategory": "silversides",
@@ -13915,13 +13640,6 @@
     "min_depth": 0.0,
     "max_depth": 35.0,
     "distinctive_features": "Body shape: 35"
-  },
-  {
-    "uuid": "marine-life-siphonodictyon-xamaycaense",
-    "common_name": "Siphonodictyon xamaycaense",
-    "scientific_name": "Siphonodictyon xamaycaense",
-    "category": "sponges",
-    "subcategory": "rope-sponges"
   },
   {
     "uuid": "marine-life-six-keyhole-sand-dollar",
@@ -14024,6 +13742,7 @@
   {
     "uuid": "marine-life-slope-soapfish",
     "common_name": "Slope Soapfish",
+    "feature_image_resource": "marine-life-slope-soapfish",
     "scientific_name": "Rypticus carpenteri",
     "category": "fishes",
     "subcategory": "basses",
@@ -14037,6 +13756,7 @@
   {
     "uuid": "marine-life-small-leaf-hanging-vine",
     "common_name": "small leaf hanging vine",
+    "feature_image_resource": "marine-life-small-leaf-hanging-vine",
     "scientific_name": "Halimeda goreaui",
     "category": "plants",
     "subcategory": "green-algae",
@@ -14062,23 +13782,6 @@
     "subcategory": "grunts",
     "description": "Silvery-gray with broad yellow stripes across head, continuing to tail base. All fins and tail are bright yellow.",
     "max_size": 0.23
-  },
-  {
-    "uuid": "marine-life-smenospongia-aurea",
-    "common_name": "Smenospongia aurea",
-    "scientific_name": "Smenospongia aurea",
-    "category": "sponges",
-    "subcategory": "encrusting-sponges",
-    "family_name": "Thorectidae",
-    "description": "Found in mangroves (Ref. 86836)."
-  },
-  {
-    "uuid": "marine-life-smenospongia-conulosa",
-    "common_name": "Smenospongia conulosa",
-    "scientific_name": "Smenospongia conulosa",
-    "category": "sponges",
-    "subcategory": "encrusting-sponges",
-    "family_name": "Thorectidae"
   },
   {
     "uuid": "marine-life-smooth-brittle-star",
@@ -14150,6 +13853,7 @@
   {
     "uuid": "marine-life-snakefish",
     "common_name": "Snakefish",
+    "feature_image_resource": "marine-life-snakefish",
     "scientific_name": "Trachinocephalus myops",
     "category": "fishes",
     "subcategory": "lizardfishes",
@@ -14163,6 +13867,7 @@
   {
     "uuid": "marine-life-snow-bass",
     "common_name": "Snow bass",
+    "feature_image_resource": "marine-life-snow-bass",
     "scientific_name": "Serranus chionaraia",
     "category": "fishes",
     "subcategory": "basses",
@@ -14188,6 +13893,7 @@
   {
     "uuid": "marine-life-socoa-marginella",
     "common_name": "Socoa Marginella",
+    "feature_image_resource": "marine-life-socoa-marginella",
     "scientific_name": "Volvarina socoae",
     "category": "invertebrates",
     "subcategory": "snails",
@@ -14226,6 +13932,7 @@
   {
     "uuid": "marine-life-sooty-eel",
     "common_name": "sooty eel",
+    "feature_image_resource": "marine-life-sooty-eel",
     "scientific_name": "Bascanichthys bascanium",
     "category": "fishes",
     "subcategory": "eels",
@@ -14239,6 +13946,7 @@
   {
     "uuid": "marine-life-southern-lugworm",
     "common_name": "southern lugworm",
+    "feature_image_resource": "marine-life-southern-lugworm",
     "scientific_name": "Arenicola cristata",
     "category": "invertebrates",
     "subcategory": "worms",
@@ -14252,6 +13960,7 @@
   {
     "uuid": "marine-life-southern-stargazer",
     "common_name": "southern Stargazer",
+    "feature_image_resource": "marine-life-southern-stargazer",
     "scientific_name": "Astroscopus ygraecum",
     "category": "fishes",
     "subcategory": "toadfishes",
@@ -14334,6 +14043,7 @@
   {
     "uuid": "marine-life-speckled-jorunna",
     "common_name": "Speckled jorunna",
+    "feature_image_resource": "marine-life-speckled-jorunna",
     "scientific_name": "Jorunna coloradilla",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -14395,6 +14105,7 @@
   {
     "uuid": "marine-life-spinous-red-grape-alga",
     "common_name": "Spinous red Grape alga",
+    "feature_image_resource": "marine-life-spinous-red-grape-alga",
     "scientific_name": "Botryocladia spinulifera",
     "category": "plants",
     "subcategory": "red-algae",
@@ -14433,6 +14144,7 @@
   {
     "uuid": "marine-life-spiny-sea-fan",
     "common_name": "Spiny sea fan",
+    "feature_image_resource": "marine-life-spiny-sea-fan",
     "scientific_name": "Muricea muricata",
     "category": "corals",
     "subcategory": "octocorals",
@@ -14458,6 +14170,7 @@
   {
     "uuid": "marine-life-splendid-flatworm",
     "common_name": "splendid flatworm",
+    "feature_image_resource": "marine-life-splendid-flatworm",
     "scientific_name": "Pseudobiceros splendidus",
     "category": "invertebrates",
     "subcategory": "flatworms",
@@ -14544,6 +14257,7 @@
   {
     "uuid": "marine-life-sponge-51742",
     "common_name": "Sponge",
+    "feature_image_resource": "marine-life-sponge-51742",
     "scientific_name": "Geodia gibberosa",
     "category": "sponges",
     "subcategory": "barrel-sponges",
@@ -14648,6 +14362,7 @@
   {
     "uuid": "marine-life-sponge-cardinalfish",
     "common_name": "sponge cardinalfish",
+    "feature_image_resource": "marine-life-sponge-cardinalfish",
     "scientific_name": "Phaeoptyx xenus",
     "category": "fishes",
     "subcategory": "cardinalfishes",
@@ -14698,6 +14413,7 @@
   {
     "uuid": "marine-life-spotcheek-blenny",
     "common_name": "Spotcheek blenny",
+    "feature_image_resource": "marine-life-spotcheek-blenny",
     "scientific_name": "Brockius nigricinctus",
     "category": "fishes",
     "subcategory": "blennies",
@@ -14741,6 +14457,7 @@
   {
     "uuid": "marine-life-spotfin-flounder",
     "common_name": "spotfin flounder",
+    "feature_image_resource": "marine-life-spotfin-flounder",
     "scientific_name": "Cyclopsetta fimbriata",
     "category": "fishes",
     "subcategory": "flounders",
@@ -14754,6 +14471,7 @@
   {
     "uuid": "marine-life-spotfin-goby",
     "common_name": "Spotfin goby",
+    "feature_image_resource": "marine-life-spotfin-goby",
     "scientific_name": "Oxyurichthys stigmalophius",
     "category": "fishes",
     "subcategory": "gobies",
@@ -14782,6 +14500,7 @@
   {
     "uuid": "marine-life-spotless-snapping-shrimp",
     "common_name": "spotless snapping shrimp",
+    "feature_image_resource": "marine-life-spotless-snapping-shrimp",
     "scientific_name": "Alpheus immaculatus",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -14807,6 +14526,7 @@
   {
     "uuid": "marine-life-spotted-brittle-star",
     "common_name": "spotted brittle star",
+    "feature_image_resource": "marine-life-spotted-brittle-star",
     "scientific_name": "Ophioderma guttatum",
     "category": "invertebrates",
     "subcategory": "brittle-stars",
@@ -14915,6 +14635,7 @@
   {
     "uuid": "marine-life-spotted-porcelain-crab",
     "common_name": "spotted porcelain crab",
+    "feature_image_resource": "marine-life-spotted-porcelain-crab",
     "scientific_name": "Porcellana sayana",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -14958,6 +14679,7 @@
   {
     "uuid": "marine-life-spotted-soapfish",
     "common_name": "Spotted Soapfish",
+    "feature_image_resource": "marine-life-spotted-soapfish",
     "scientific_name": "Rypticus subbifrenatus",
     "category": "fishes",
     "subcategory": "basses",
@@ -15001,6 +14723,7 @@
   {
     "uuid": "marine-life-spotwing-comb-jelly",
     "common_name": "spotwing comb jelly",
+    "feature_image_resource": "marine-life-spotwing-comb-jelly",
     "scientific_name": "Ocyropsis maculata",
     "category": "invertebrates",
     "subcategory": "jellies",
@@ -15125,48 +14848,9 @@
     "distinctive_features": "Body shape: 225"
   },
   {
-    "uuid": "marine-life-starksia-langi",
-    "common_name": "Starksia langi",
-    "scientific_name": "Starksia langi",
-    "category": "fishes",
-    "subcategory": "blennies",
-    "family_name": "Labrisomidae",
-    "max_size": 0.017,
-    "min_depth": 0.0,
-    "distinctive_features": "Body shape: elongated"
-  },
-  {
-    "uuid": "marine-life-starksia-sangreyae",
-    "common_name": "Starksia sangreyae",
-    "scientific_name": "Starksia sangreyae",
-    "category": "fishes",
-    "subcategory": "blennies",
-    "family_name": "Labrisomidae",
-    "max_size": 0.016,
-    "distinctive_features": "Body shape: elongated"
-  },
-  {
-    "uuid": "marine-life-starksia-weigti",
-    "common_name": "Starksia weigti",
-    "scientific_name": "Starksia weigti",
-    "category": "fishes",
-    "subcategory": "blennies",
-    "family_name": "Labrisomidae",
-    "max_size": 0.024,
-    "distinctive_features": "Body shape: elongated"
-  },
-  {
-    "uuid": "marine-life-stichopathes-luetkeni",
-    "common_name": "Stichopathes luetkeni",
-    "feature_image": "https://reefguide.org/pix/wirecoral4.jpg",
-    "feature_image_resource": "marine-life-stichopathes-luetkeni",
-    "scientific_name": "Stichopathes luetkeni",
-    "category": "corals",
-    "subcategory": "black-corals"
-  },
-  {
     "uuid": "marine-life-stiff-pen-shell",
     "common_name": "stiff penshell",
+    "feature_image_resource": "marine-life-stiff-pen-shell",
     "scientific_name": "Atrina rigida",
     "category": "invertebrates",
     "subcategory": "clams",
@@ -15206,6 +14890,7 @@
   {
     "uuid": "marine-life-stippled-flatworm",
     "common_name": "Stippled Flatworm",
+    "feature_image_resource": "marine-life-stippled-flatworm",
     "scientific_name": "Idioplana atlantica",
     "category": "invertebrates",
     "subcategory": "flatworms",
@@ -15215,6 +14900,7 @@
   {
     "uuid": "marine-life-stocky-cerith",
     "common_name": "stocky cerith",
+    "feature_image_resource": "marine-life-stocky-cerith",
     "scientific_name": "Cerithium litteratum",
     "category": "invertebrates",
     "subcategory": "snails",
@@ -15287,6 +14973,7 @@
   {
     "uuid": "marine-life-striated-seahare",
     "common_name": "striated seahare",
+    "feature_image_resource": "marine-life-striated-seahare",
     "scientific_name": "Stylocheilus polyomma",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -15324,6 +15011,7 @@
   {
     "uuid": "marine-life-striped-cardinalfish",
     "common_name": "striped Cardinalfish",
+    "feature_image_resource": "marine-life-striped-cardinalfish",
     "scientific_name": "Apogon robbyi",
     "category": "fishes",
     "subcategory": "cardinalfishes",
@@ -15337,6 +15025,7 @@
   {
     "uuid": "marine-life-striped-grunt",
     "common_name": "striped grunt",
+    "feature_image_resource": "marine-life-striped-grunt",
     "scientific_name": "Haemulon striatum",
     "category": "fishes",
     "subcategory": "grunts",
@@ -15374,6 +15063,7 @@
   {
     "uuid": "marine-life-striving-red-alga",
     "common_name": "striving red alga",
+    "feature_image_resource": "marine-life-striving-red-alga",
     "scientific_name": "Ceramium nitens",
     "category": "plants",
     "subcategory": "red-algae",
@@ -15442,6 +15132,7 @@
   {
     "uuid": "marine-life-sun-zoanthid",
     "common_name": "sun zoanthid",
+    "feature_image_resource": "marine-life-sun-zoanthid",
     "scientific_name": "Palythoa grandis",
     "category": "invertebrates",
     "subcategory": "zoanthids",
@@ -15480,6 +15171,7 @@
   {
     "uuid": "marine-life-tomicodon-rupestris",
     "common_name": "Surge clingfish",
+    "feature_image_resource": "marine-life-tomicodon-rupestris",
     "scientific_name": "Tomicodon rupestris",
     "category": "fishes",
     "subcategory": "clingfishes",
@@ -15489,14 +15181,6 @@
     "min_depth": 0.0,
     "max_depth": 3.0,
     "distinctive_features": "Body shape: elongated"
-  },
-  {
-    "uuid": "marine-life-svenzea-tubulosa",
-    "common_name": "Svenzea tubulosa",
-    "scientific_name": "Svenzea tubulosa",
-    "category": "sponges",
-    "subcategory": "tube-sponges",
-    "family_name": "Dictyonellidae"
   },
   {
     "uuid": "marine-life-swimming-crinoid",
@@ -15516,6 +15200,7 @@
   {
     "uuid": "marine-life-swollen-knob-candelabrum",
     "common_name": "Swollen knob candelabrum",
+    "feature_image_resource": "marine-life-swollen-knob-candelabrum",
     "scientific_name": "Eunicea mammosa",
     "category": "corals",
     "subcategory": "octocorals",
@@ -15538,22 +15223,9 @@
     "distinctive_features": "Body shape: 47"
   },
   {
-    "uuid": "marine-life-symphurus-louisianae",
-    "common_name": "Symphurus louisianae",
-    "scientific_name": "Symphurus louisianae",
-    "category": "fishes",
-    "subcategory": "pipefishes"
-  },
-  {
-    "uuid": "marine-life-symphurus-pelagicus",
-    "common_name": "Symphurus pelagicus",
-    "scientific_name": "Symphurus pelagicus",
-    "category": "fishes",
-    "subcategory": "pipefishes"
-  },
-  {
     "uuid": "marine-life-taino-elysia",
     "common_name": "Taino elysia",
+    "feature_image_resource": "marine-life-taino-elysia",
     "scientific_name": "Elysia taino",
     "category": "invertebrates",
     "subcategory": "sea-slugs",
@@ -15599,6 +15271,7 @@
   {
     "uuid": "marine-life-janolus-comis",
     "common_name": "Tatty Slug",
+    "feature_image_resource": "marine-life-janolus-comis",
     "scientific_name": "Janolus comis",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -15612,6 +15285,7 @@
   {
     "uuid": "marine-life-tawny-conch-shrimp",
     "common_name": "Tawny conch shrimp",
+    "feature_image_resource": "marine-life-tawny-conch-shrimp",
     "scientific_name": "Microprosthema manningi",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -15639,6 +15313,7 @@
   {
     "uuid": "marine-life-tenant-flatworm",
     "common_name": "Tenant Flatworm",
+    "feature_image_resource": "marine-life-tenant-flatworm",
     "scientific_name": "Hoploplana inquilina",
     "category": "invertebrates",
     "subcategory": "flatworms",
@@ -15649,6 +15324,7 @@
   {
     "uuid": "marine-life-tessellated-blenny",
     "common_name": "Tessellated blenny",
+    "feature_image_resource": "marine-life-tessellated-blenny",
     "scientific_name": "Hypsoblennius invemar",
     "category": "fishes",
     "subcategory": "blennies",
@@ -15703,6 +15379,7 @@
   {
     "uuid": "marine-life-thread-hydroid",
     "common_name": "thread hydroid",
+    "feature_image_resource": "marine-life-thread-hydroid",
     "scientific_name": "Halopteris carinata",
     "category": "invertebrates",
     "subcategory": "hydroids",
@@ -15716,6 +15393,7 @@
   {
     "uuid": "marine-life-three-finger-leaf-alga",
     "common_name": "three finger leaf alga",
+    "feature_image_resource": "marine-life-three-finger-leaf-alga",
     "scientific_name": "Halimeda incrassata",
     "category": "plants",
     "subcategory": "green-algae",
@@ -15744,6 +15422,7 @@
   {
     "uuid": "marine-life-threeline-basslet",
     "common_name": "threeline basslet",
+    "feature_image_resource": "marine-life-threeline-basslet",
     "scientific_name": "Lipogramma trilineata",
     "category": "fishes",
     "subcategory": "basslets",
@@ -15842,6 +15521,7 @@
   {
     "uuid": "marine-life-tishas-black-lined-doris",
     "common_name": "Tisha’s Black-lined doris",
+    "feature_image_resource": "marine-life-tishas-black-lined-doris",
     "scientific_name": "Doriopsilla tishae",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -15894,6 +15574,7 @@
   {
     "uuid": "marine-life-topsail-chub",
     "common_name": "topsail chub",
+    "feature_image_resource": "marine-life-topsail-chub",
     "scientific_name": "Kyphosus cinerascens",
     "category": "fishes",
     "subcategory": "porgies",
@@ -15903,17 +15584,6 @@
     "min_depth": 0.0,
     "max_depth": 45.0,
     "distinctive_features": "Body shape: fusiform / normal"
-  },
-  {
-    "uuid": "marine-life-topsentia-ophiraphidites",
-    "common_name": "Topsentia ophiraphidites",
-    "feature_image": "https://reefguide.org/pix/topsentiaophiraphidites1.jpg",
-    "feature_image_resource": "marine-life-topsentia-ophiraphidites",
-    "scientific_name": "Topsentia ophiraphidites",
-    "category": "sponges",
-    "subcategory": "rope-sponges",
-    "family_name": "Halichondriidae",
-    "description": "Found in mangroves (Ref. 86836)."
   },
   {
     "uuid": "marine-life-touch-me-not-sponge",
@@ -15967,13 +15637,6 @@
     "subcategory": "snails",
     "description": "Elongated shell with white triangles on edges of black or mottled mantle. (Previously Cyphoma “black morph.”)",
     "max_size": 0.025
-  },
-  {
-    "uuid": "marine-life-trichechus-manatus",
-    "common_name": "Trichechus manatus",
-    "scientific_name": "Trichechus manatus",
-    "category": "fishes",
-    "subcategory": "parrotfishes"
   },
   {
     "uuid": "marine-life-tricolor-hermit",
@@ -16039,6 +15702,7 @@
   {
     "uuid": "marine-life-tubular-thicket-alga",
     "common_name": "tubular thicket alga",
+    "feature_image_resource": "marine-life-tubular-thicket-alga",
     "scientific_name": "Galaxaura rugosa",
     "category": "plants",
     "subcategory": "red-algae",
@@ -16052,6 +15716,7 @@
   {
     "uuid": "marine-life-gastropod-2429",
     "common_name": "tufted nudibranch",
+    "feature_image_resource": "marine-life-gastropod-2429",
     "scientific_name": "Tritoniopsis frydis",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -16065,6 +15730,7 @@
   {
     "uuid": "marine-life-tufted-okeania-alga",
     "common_name": "Tufted Okeania alga",
+    "feature_image_resource": "marine-life-tufted-okeania-alga",
     "scientific_name": "Okeania plumata",
     "category": "plants",
     "subcategory": "red-algae",
@@ -16074,6 +15740,7 @@
   {
     "uuid": "marine-life-psilotris-kaufmani",
     "common_name": "Tunnel goby",
+    "feature_image_resource": "marine-life-psilotris-kaufmani",
     "scientific_name": "Psilotris kaufmani",
     "category": "fishes",
     "subcategory": "gobies",
@@ -16087,6 +15754,7 @@
   {
     "uuid": "marine-life-turtle-grass",
     "common_name": "Turtle grass",
+    "feature_image_resource": "marine-life-turtle-grass",
     "scientific_name": "Thalassia testudinum",
     "category": "plants",
     "subcategory": "seagrasses",
@@ -16100,6 +15768,7 @@
   {
     "uuid": "marine-life-turtlegrass-seahare",
     "common_name": "Turtle grass seahare",
+    "feature_image_resource": "marine-life-turtlegrass-seahare",
     "scientific_name": "Phyllaplysia engeli",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -16124,6 +15793,7 @@
   {
     "uuid": "marine-life-twin-corded-latirus",
     "common_name": "twin-corded Latirus",
+    "feature_image_resource": "marine-life-twin-corded-latirus",
     "scientific_name": "Hemipolygona carinifera",
     "category": "invertebrates",
     "subcategory": "snails",
@@ -16133,6 +15803,7 @@
   {
     "uuid": "marine-life-twinspot-bass",
     "common_name": "twinspot bass",
+    "feature_image_resource": "marine-life-twinspot-bass",
     "scientific_name": "Serranus flaviventris",
     "category": "fishes",
     "subcategory": "basses",
@@ -16187,6 +15858,7 @@
   {
     "uuid": "marine-life-two-tone-cup-coral",
     "common_name": "Two-tone cup coral",
+    "feature_image_resource": "marine-life-two-tone-cup-coral",
     "scientific_name": "Phacelocyathus flos",
     "category": "corals",
     "subcategory": "cup-corals",
@@ -16223,6 +15895,7 @@
   {
     "uuid": "marine-life-unicorn-leatherjacket-filefish",
     "common_name": "Unicorn filefish",
+    "feature_image_resource": "marine-life-unicorn-leatherjacket-filefish",
     "scientific_name": "Aluterus monoceros",
     "category": "fishes",
     "subcategory": "filefishes",
@@ -16232,12 +15905,12 @@
     "min_depth": 1.0,
     "max_depth": 80.0,
     "distinctive_features": "Body shape: short and / or deep",
-    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Aluterus_monoceros_129327923.jpg/960px-Aluterus_monoceros_129327923.jpg",
-    "feature_image_resource": "marine-life-unicorn-leatherjacket-filefish"
+    "feature_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Aluterus_monoceros_129327923.jpg/960px-Aluterus_monoceros_129327923.jpg"
   },
   {
     "uuid": "marine-life-unicorn-neck-crab",
     "common_name": "unicorn neck crab",
+    "feature_image_resource": "marine-life-unicorn-neck-crab",
     "scientific_name": "Ericerodes gracilipes",
     "category": "invertebrates",
     "subcategory": "crabs",
@@ -16265,6 +15938,7 @@
   {
     "uuid": "marine-life-squat-urchin-shrimp",
     "common_name": "urchin bumblebee shrimp",
+    "feature_image_resource": "marine-life-squat-urchin-shrimp",
     "scientific_name": "Gnathophylloides mineri",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -16400,21 +16074,9 @@
     "max_size": 1.5
   },
   {
-    "uuid": "marine-life-verongula-reiswigi",
-    "common_name": "Verongula reiswigi",
-    "feature_image": "https://reefguide.org/pix/verongulareiswigi3.jpg",
-    "feature_image_resource": "marine-life-verongula-reiswigi",
-    "scientific_name": "Verongula reiswigi",
-    "category": "sponges",
-    "subcategory": "barrel-sponges",
-    "family_name": "Aplysinidae",
-    "description": "Open reef, rare (Ref. 415). Inhabits heavily silted lower mesophotic reefs (Ref. 128739).",
-    "max_size": 0.15,
-    "min_depth": 76.0
-  },
-  {
     "uuid": "marine-life-verrills-snapping-shrimp",
     "common_name": "Verrill’s snapping shrimp",
+    "feature_image_resource": "marine-life-verrills-snapping-shrimp",
     "scientific_name": "Alpheus verrilli",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -16440,6 +16102,7 @@
   {
     "uuid": "marine-life-virgin-nerite",
     "common_name": "Virgin nerite",
+    "feature_image_resource": "marine-life-virgin-nerite",
     "scientific_name": "Vitta virginea",
     "category": "invertebrates",
     "subcategory": "snails",
@@ -16466,6 +16129,7 @@
   {
     "uuid": "marine-life-warteyed-stargazer",
     "common_name": "warteyed stargazer",
+    "feature_image_resource": "marine-life-warteyed-stargazer",
     "scientific_name": "Gillellus uranidea",
     "category": "fishes",
     "subcategory": "toadfishes",
@@ -16549,6 +16213,7 @@
   {
     "uuid": "marine-life-warty-sidegill-slug",
     "common_name": "warty sidegill slug",
+    "feature_image_resource": "marine-life-warty-sidegill-slug",
     "scientific_name": "Pleurobranchus areolatus",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -16562,6 +16227,7 @@
   {
     "uuid": "marine-life-watercress-alga",
     "common_name": "watercress alga",
+    "feature_image_resource": "marine-life-watercress-alga",
     "scientific_name": "Halimeda opuntia",
     "category": "plants",
     "subcategory": "green-algae",
@@ -16575,6 +16241,7 @@
   {
     "uuid": "marine-life-wavy-cymatioa",
     "common_name": "Wavy Cymatioa",
+    "feature_image_resource": "marine-life-wavy-cymatioa",
     "scientific_name": "Cymatioa undulata",
     "category": "invertebrates",
     "subcategory": "clams",
@@ -16728,6 +16395,7 @@
   {
     "uuid": "marine-life-western-tubular-alga",
     "common_name": "western tubular alga",
+    "feature_image_resource": "marine-life-western-tubular-alga",
     "scientific_name": "Cladosiphon occidentalis",
     "category": "plants",
     "subcategory": "brown-algae",
@@ -16753,6 +16421,7 @@
   {
     "uuid": "marine-life-whispy-okeania-alga",
     "common_name": "whispy Okeania alga",
+    "feature_image_resource": "marine-life-whispy-okeania-alga",
     "scientific_name": "Okeania lorea",
     "category": "plants",
     "subcategory": "red-algae",
@@ -16807,6 +16476,7 @@
   {
     "uuid": "marine-life-white-speck-tunicate",
     "common_name": "white speck tunicate",
+    "feature_image_resource": "marine-life-white-speck-tunicate",
     "scientific_name": "Didemnum conchyliatum",
     "category": "invertebrates",
     "subcategory": "tunicates",
@@ -16835,6 +16505,7 @@
   {
     "uuid": "marine-life-white-tangled-bryozoan",
     "common_name": "White tangled bryozoan",
+    "feature_image_resource": "marine-life-white-tangled-bryozoan",
     "scientific_name": "Adeonellopsis subsulcata",
     "category": "invertebrates",
     "subcategory": "bryozoans",
@@ -16970,6 +16641,7 @@
   {
     "uuid": "marine-life-trapania-dalva",
     "common_name": "White-V Trapania",
+    "feature_image_resource": "marine-life-trapania-dalva",
     "scientific_name": "Trapania dalva",
     "category": "invertebrates",
     "subcategory": "nudibranchs",
@@ -16996,6 +16668,7 @@
   {
     "uuid": "marine-life-whitefin-sharksucker",
     "common_name": "whitefin sharksucker",
+    "feature_image_resource": "marine-life-whitefin-sharksucker",
     "scientific_name": "Remora remora",
     "category": "fishes",
     "subcategory": "sharksuckers",
@@ -17022,6 +16695,7 @@
   {
     "uuid": "marine-life-bermuda-shrimp",
     "common_name": "whitefoot shrimp",
+    "feature_image_resource": "marine-life-bermuda-shrimp",
     "scientific_name": "Periclimenes harringtoni",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -17114,6 +16788,7 @@
   {
     "uuid": "marine-life-wiry-sargassum-alga",
     "common_name": "wiry sargassum alga",
+    "feature_image_resource": "marine-life-wiry-sargassum-alga",
     "scientific_name": "Sargassum filipendula",
     "category": "plants",
     "subcategory": "brown-algae",
@@ -17148,6 +16823,7 @@
   {
     "uuid": "marine-life-wrinkled-pea-crab",
     "common_name": "Wrinkled pea crab",
+    "feature_image_resource": "marine-life-wrinkled-pea-crab",
     "scientific_name": "Clypeasterophilus rugatus",
     "category": "invertebrates",
     "subcategory": "crabs",
@@ -17158,18 +16834,9 @@
     "distinctive_features": "Body shape: 16"
   },
   {
-    "uuid": "marine-life-xestospongia-deweerdtae",
-    "common_name": "Xestospongia deweerdtae",
-    "feature_image": "https://images.marinespecies.org/172179_xestospongia-deweerdtae-lehnert-en-amp-van-soest-1999.jpg",
-    "feature_image_resource": "marine-life-xestospongia-deweerdtae",
-    "scientific_name": "Xestospongia deweerdtae",
-    "category": "sponges",
-    "subcategory": "encrusting-sponges",
-    "family_name": "Petrosiidae"
-  },
-  {
     "uuid": "marine-life-y-branched-alga",
     "common_name": "Y-branched alga",
+    "feature_image_resource": "marine-life-y-branched-alga",
     "scientific_name": "Dictyota humifusa",
     "category": "plants",
     "subcategory": "brown-algae",
@@ -17180,6 +16847,7 @@
   {
     "uuid": "marine-life-y-twig-alga",
     "common_name": "y-twig alga",
+    "feature_image_resource": "marine-life-y-twig-alga",
     "scientific_name": "Amphiroa rigida",
     "category": "plants",
     "subcategory": "red-algae",
@@ -17190,6 +16858,7 @@
   {
     "uuid": "marine-life-yellow-blade-alga",
     "common_name": "yellow blade alga",
+    "feature_image_resource": "marine-life-yellow-blade-alga",
     "scientific_name": "Dictyota bartayresiana",
     "category": "plants",
     "subcategory": "brown-algae",
@@ -17262,6 +16931,7 @@
   {
     "uuid": "marine-life-yellow-jack",
     "common_name": "yellow jack",
+    "feature_image_resource": "marine-life-yellow-jack",
     "scientific_name": "Carangoides bartholomaei",
     "category": "fishes",
     "subcategory": "jacks",
@@ -17270,6 +16940,7 @@
   {
     "uuid": "marine-life-yellow-jawfish-female",
     "common_name": "Yellow Jawfish (female)",
+    "feature_image_resource": "marine-life-yellow-jawfish-female",
     "scientific_name": "Opistognathus gilberti",
     "category": "fishes",
     "subcategory": "jawfishes",
@@ -17281,6 +16952,7 @@
   {
     "uuid": "marine-life-yellow-pencil-coral",
     "common_name": "Yellow pencil coral",
+    "feature_image_resource": "marine-life-yellow-pencil-coral",
     "scientific_name": "Madracis auretenra",
     "category": "corals",
     "subcategory": "branching-corals",
@@ -17289,6 +16961,7 @@
   {
     "uuid": "marine-life-yellow-sea-whip",
     "common_name": "yellow sea whip",
+    "feature_image_resource": "marine-life-yellow-sea-whip",
     "scientific_name": "Pterogorgia citrina",
     "category": "corals",
     "subcategory": "octocorals",
@@ -17302,6 +16975,7 @@
   {
     "uuid": "marine-life-yellow-snapping-shrimp",
     "common_name": "yellow snapping shrimp",
+    "feature_image_resource": "marine-life-yellow-snapping-shrimp",
     "scientific_name": "Alpheus amarillo",
     "category": "invertebrates",
     "subcategory": "shrimps",
@@ -17312,6 +16986,7 @@
   {
     "uuid": "marine-life-yellow-sponge-zoanthid",
     "common_name": "yellow sponge zoanthid",
+    "feature_image_resource": "marine-life-yellow-sponge-zoanthid",
     "scientific_name": "Bergia cutressi",
     "category": "invertebrates",
     "subcategory": "zoanthids",
@@ -17352,6 +17027,7 @@
   {
     "uuid": "marine-life-yellowlined-basslet",
     "common_name": "yellowcheek basslet",
+    "feature_image_resource": "marine-life-yellowlined-basslet",
     "scientific_name": "Gramma linki",
     "category": "fishes",
     "subcategory": "basslets",
@@ -17548,6 +17224,7 @@
   {
     "uuid": "marine-life-yellowtail-reeffish",
     "common_name": "yellowtail reeffish",
+    "feature_image_resource": "marine-life-yellowtail-reeffish",
     "scientific_name": "Chromis enchrysura",
     "category": "fishes",
     "subcategory": "damselfishes",
@@ -17587,6 +17264,7 @@
   {
     "uuid": "marine-life-zemis-elysia",
     "common_name": "Zemi’s elysia",
+    "feature_image_resource": "marine-life-zemis-elysia",
     "scientific_name": "Elysia zemi",
     "category": "invertebrates",
     "subcategory": "sea-slugs",

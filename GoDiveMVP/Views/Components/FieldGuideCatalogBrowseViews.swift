@@ -141,12 +141,13 @@ private struct FieldGuideCategoryHubTile: View {
                         .foregroundStyle(.white.opacity(0.88))
                         .multilineTextAlignment(.leading)
                         .lineLimit(2)
-                        // Constrain width (not just height) so the text wraps into the reserved
-                        // two-line block instead of sizing to its full single-line width.
+                        // `fixedSize(vertical:)` makes the text take the height it needs to wrap
+                        // up to two lines instead of truncating to one line + ellipsis; a hard
+                        // `maxHeight` cap clipped line two. `minHeight` still reserves the block.
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(
                             maxWidth: .infinity,
                             minHeight: FieldGuideHubTileLayout.subtitleTwoLineMinHeight,
-                            maxHeight: FieldGuideHubTileLayout.subtitleTwoLineMinHeight,
                             alignment: .topLeading
                         )
 

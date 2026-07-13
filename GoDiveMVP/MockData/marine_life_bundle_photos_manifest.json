@@ -1,8 +1,8 @@
 {
   "marine-life-african-pompano": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/6/63/Alectis_ciliaris_184713260.png",
-    "sha256": "c1cf87bec62765a5c53345f72fb2374a26b8fadd52705774533d0845cd9b8391",
-    "bytes": 51555,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/African_pompano_cmyk.jpg",
+    "sha256": "601cf208d95e4f1e98b8595f631205307d10d6c00c986e11b600109d37570dbc",
+    "bytes": 90958,
     "path": "Resources/MarineLifePhotos/marine-life-african-pompano.jpg"
   },
   "marine-life-american-whitespotted-filefish": {
@@ -48,9 +48,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-atlantic-spanish-mackerel.jpg"
   },
   "marine-life-atlantic-thread-herring": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Opisthonema_oglinum.jpg/960px-Opisthonema_oglinum.jpg",
-    "sha256": "f4059f2520d12de7dd9989e93228d7ff6dcb8a96440b81015af838215011a5fc",
-    "bytes": 58439,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Atlantic_thread_herring_cmyk.jpg",
+    "sha256": "4cb15c250bfd7fdfe0ca0f079dad26f1e49703b8df1d279c50a8e149f52ac352",
+    "bytes": 43034,
     "path": "Resources/MarineLifePhotos/marine-life-atlantic-thread-herring.jpg"
   },
   "marine-life-atlantic-threadfin": {
@@ -126,9 +126,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-black-margate.jpg"
   },
   "marine-life-blackfin-blenny": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Environmental_appendix-_Miami-Dade_County_Back_Bay_coastal_storm_risk_management_feasibility_study%2C_Miami-Dade_County%2C_Florida-_Appendix_D_-_USACE-p16021coll7-14462.pdf/page1-960px-thumbnail.pdf.jpg",
-    "sha256": "9c58c7bc0bcd1cefb9787f6a4987b6571a11285f33207bb6decb3db860ea1321",
-    "bytes": 49770,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/blackfin_blenny_cmyk.jpg",
+    "sha256": "cd4e549b17d6a4b734ce3d68ceb5f5fa14e84537693bb0bb2f69c8720cfcfe58",
+    "bytes": 96581,
     "path": "Resources/MarineLifePhotos/marine-life-blackfin-blenny.jpg"
   },
   "marine-life-blackhead-blenny": {
@@ -144,9 +144,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-bonnethead.jpg"
   },
   "marine-life-bonnetmouth": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Environmental_appendix-_Miami-Dade_County_Back_Bay_coastal_storm_risk_management_feasibility_study%2C_Miami-Dade_County%2C_Florida-_Appendix_D_-_USACE-p16021coll7-14462.pdf/page1-960px-thumbnail.pdf.jpg",
-    "sha256": "9c58c7bc0bcd1cefb9787f6a4987b6571a11285f33207bb6decb3db860ea1321",
-    "bytes": 49770,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/bonnetmouth_cmyk.jpg",
+    "sha256": "261d51771c8fec5fa412be3f7b7244d7d0d7e8d16741355f25f3c098aa6076c1",
+    "bytes": 71249,
     "path": "Resources/MarineLifePhotos/marine-life-bonnetmouth.jpg"
   },
   "marine-life-brazilian-sardinella": {
@@ -156,9 +156,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-brazilian-sardinella.jpg"
   },
   "marine-life-brown-chromis": {
-    "sourceURL": "https://inaturalist-open-data.s3.amazonaws.com/photos/169252993/original.jpeg",
-    "sha256": "7b62036b45378eed63c671157f47395ff2f9486f96c0ac31de93248456ee617a",
-    "bytes": 89005,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/brown_chromis_cmyk.jpg",
+    "sha256": "3a40c4146cabf4c8ac44b0383f49b89c47438a185566034b090d63b923a4f431",
+    "bytes": 67303,
     "path": "Resources/MarineLifePhotos/marine-life-brown-chromis.jpg"
   },
   "marine-life-bull-pipefish": {
@@ -204,9 +204,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-common-halfbeak.jpg"
   },
   "marine-life-conchfish": {
-    "sourceURL": "https://ids.si.edu/ids/deliveryService/id/ark:/65665/m33b850cbd98844056979913643ee97714",
-    "sha256": "f026dd01bba22e0a218444b4ee23f6f73b10fe5f09c2e069b0e49f5663794cf2",
-    "bytes": 69092,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/conchfish_cmyk.jpg",
+    "sha256": "b5e60679dee0aaf7e162f5078c3961f760d0bc932dd782e5c9da70e19d5f3c44",
+    "bytes": 90012,
     "path": "Resources/MarineLifePhotos/marine-life-conchfish.jpg"
   },
   "marine-life-copper-joe": {
@@ -264,9 +264,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-cubbyu.jpg"
   },
   "marine-life-cubera-snapper": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/Lutjanus_cyanopterus.jpg/960px-Lutjanus_cyanopterus.jpg",
-    "sha256": "eb90b4f4f2c15c656a3334aed31f076d771dc5d5749300e3703c267ea290d75b",
-    "bytes": 225812,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/cubera_snapper_cmyk.jpg",
+    "sha256": "c3e318d499fcad51c37e3abb869cee40dccb6aaf6f57381c4ff69041f7348ac2",
+    "bytes": 81890,
     "path": "Resources/MarineLifePhotos/marine-life-cubera-snapper.jpg"
   },
   "marine-life-curator-brotula": {
@@ -282,15 +282,15 @@
     "path": "Resources/MarineLifePhotos/marine-life-darksaddle-blenny.jpg"
   },
   "marine-life-dash-goby": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Environmental_appendix-_Miami-Dade_County_Back_Bay_coastal_storm_risk_management_feasibility_study%2C_Miami-Dade_County%2C_Florida-_Appendix_D_-_USACE-p16021coll7-14462.pdf/page1-960px-thumbnail.pdf.jpg",
-    "sha256": "9c58c7bc0bcd1cefb9787f6a4987b6571a11285f33207bb6decb3db860ea1321",
-    "bytes": 49770,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/dash_goby_cmyk.jpg",
+    "sha256": "1b97eae900ac16569f05bc831c14e9a518ce17a646a7c5071de47eab62b699a9",
+    "bytes": 119234,
     "path": "Resources/MarineLifePhotos/marine-life-dash-goby.jpg"
   },
   "marine-life-deepreef-scorpionfish": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Scorpaenodes_tredecimspinosus.jpg/960px-Scorpaenodes_tredecimspinosus.jpg",
-    "sha256": "3df287d2bac2202140f9fc43490468f1409a1845510b11e2b42b3430351512c4",
-    "bytes": 128223,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/deepreef_scorpionfish_cmyk.jpg",
+    "sha256": "7942e805811885452ac39858c23fe1634d57cb78333b724d5660456eb0eb55c3",
+    "bytes": 92576,
     "path": "Resources/MarineLifePhotos/marine-life-deepreef-scorpionfish.jpg"
   },
   "marine-life-deepwater-squirrelfish": {
@@ -318,9 +318,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-dogtooth-herring.jpg"
   },
   "marine-life-dusky-cardinalfish": {
-    "sourceURL": "https://ids.si.edu/ids/deliveryService/id/ark:/65665/m3dacc671db331428f935288ace4f26164",
-    "sha256": "87bb122a24e6a9397503092e1ac7ce3217b14e285acaefdae31fa1ad836e0968",
-    "bytes": 26787,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/dusky_cardinalfish_cmyk.jpg",
+    "sha256": "e917f27b0e7d21c2006dd6b0d2513bfa2545d837a1f03e5f09fff0c44d566757",
+    "bytes": 72154,
     "path": "Resources/MarineLifePhotos/marine-life-dusky-cardinalfish.jpg"
   },
   "marine-life-dusky-squirrelfish": {
@@ -366,9 +366,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-honeycomb-cowfish.jpg"
   },
   "marine-life-hovering-goby": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Environmental_appendix-_Miami-Dade_County_Back_Bay_coastal_storm_risk_management_feasibility_study%2C_Miami-Dade_County%2C_Florida-_Appendix_D_-_USACE-p16021coll7-14462.pdf/page1-960px-thumbnail.pdf.jpg",
-    "sha256": "9c58c7bc0bcd1cefb9787f6a4987b6571a11285f33207bb6decb3db860ea1321",
-    "bytes": 49770,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/hovering_dartfish_cmyk.jpg",
+    "sha256": "14e6ebc6eb8e5d9451b3ab466d3e2f2a4e73c2d2a12111ea2d44de3b438df898",
+    "bytes": 33495,
     "path": "Resources/MarineLifePhotos/marine-life-hovering-goby.jpg"
   },
   "marine-life-lancer-dragonet": {
@@ -396,33 +396,33 @@
     "path": "Resources/MarineLifePhotos/marine-life-liopropoma-danae.jpg"
   },
   "marine-life-little-eye-round-herring": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Environmental_appendix-_Miami-Dade_County_Back_Bay_coastal_storm_risk_management_feasibility_study%2C_Miami-Dade_County%2C_Florida-_Appendix_D_-_USACE-p16021coll7-14462.pdf/page1-960px-thumbnail.pdf.jpg",
-    "sha256": "9c58c7bc0bcd1cefb9787f6a4987b6571a11285f33207bb6decb3db860ea1321",
-    "bytes": 49770,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/little-eye_herring_cmyk.jpg",
+    "sha256": "1dfbef9143c9d26a8c4252d5d0720ac4bb3db3fee580107887c61271166d4603",
+    "bytes": 134705,
     "path": "Resources/MarineLifePhotos/marine-life-little-eye-round-herring.jpg"
   },
   "marine-life-lookdown": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Selene_vomer_SI.jpg/960px-Selene_vomer_SI.jpg",
-    "sha256": "809d7b5891af3ec085a53e3fb3fa4e6f261c9557741f30f41765a78b818c7157",
-    "bytes": 62276,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/lookdown_cmyk.jpg",
+    "sha256": "cb28201b63b38bc61df1057da55580801f7e4ee52b0b216a21c7142aa5372eff",
+    "bytes": 48008,
     "path": "Resources/MarineLifePhotos/marine-life-lookdown.jpg"
   },
   "marine-life-mahogany-goby": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Environmental_appendix-_Miami-Dade_County_Back_Bay_coastal_storm_risk_management_feasibility_study%2C_Miami-Dade_County%2C_Florida-_Appendix_D_-_USACE-p16021coll7-14462.pdf/page1-960px-thumbnail.pdf.jpg",
-    "sha256": "9c58c7bc0bcd1cefb9787f6a4987b6571a11285f33207bb6decb3db860ea1321",
-    "bytes": 49770,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/mahogany_goby.jpg",
+    "sha256": "021e37b6299deb6739d5d6d429aee97682d3507c3262af801db1eba36bda711e",
+    "bytes": 105695,
     "path": "Resources/MarineLifePhotos/marine-life-mahogany-goby.jpg"
   },
   "marine-life-manytooth-conger": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Environmental_appendix-_Miami-Dade_County_Back_Bay_coastal_storm_risk_management_feasibility_study%2C_Miami-Dade_County%2C_Florida-_Appendix_D_-_USACE-p16021coll7-14462.pdf/page1-960px-thumbnail.pdf.jpg",
-    "sha256": "9c58c7bc0bcd1cefb9787f6a4987b6571a11285f33207bb6decb3db860ea1321",
-    "bytes": 49770,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/manytooth_conger_cmyk.jpg",
+    "sha256": "57bd783bcfb131ec7a01c95cd73bb83f7aa89e258ceb37b0ddb97fdef0952268",
+    "bytes": 152938,
     "path": "Resources/MarineLifePhotos/marine-life-manytooth-conger.jpg"
   },
   "marine-life-marbled-blenny": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Environmental_appendix-_Miami-Dade_County_Back_Bay_coastal_storm_risk_management_feasibility_study%2C_Miami-Dade_County%2C_Florida-_Appendix_D_-_USACE-p16021coll7-14462.pdf/page1-960px-thumbnail.pdf.jpg",
-    "sha256": "9c58c7bc0bcd1cefb9787f6a4987b6571a11285f33207bb6decb3db860ea1321",
-    "bytes": 49770,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/marbled_blenny_cmyk.jpg",
+    "sha256": "01a4ad8a26320eb27ef993dacb6e139486b58abfc96d37ea81ffafba34c8267a",
+    "bytes": 112918,
     "path": "Resources/MarineLifePhotos/marine-life-marbled-blenny.jpg"
   },
   "marine-life-margintail-conger": {
@@ -438,15 +438,15 @@
     "path": "Resources/MarineLifePhotos/marine-life-masked-stargazer.jpg"
   },
   "marine-life-mimic-cardinalfish": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Environmental_appendix-_Miami-Dade_County_Back_Bay_coastal_storm_risk_management_feasibility_study%2C_Miami-Dade_County%2C_Florida-_Appendix_D_-_USACE-p16021coll7-14462.pdf/page1-960px-thumbnail.pdf.jpg",
-    "sha256": "9c58c7bc0bcd1cefb9787f6a4987b6571a11285f33207bb6decb3db860ea1321",
-    "bytes": 49770,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/mimic_cardinalfish.jpg",
+    "sha256": "65c2eed58bbeca186de0447f0373861483cfe7f48adbf832c9776b473a7f4be4",
+    "bytes": 109929,
     "path": "Resources/MarineLifePhotos/marine-life-mimic-cardinalfish.jpg"
   },
   "marine-life-mottled-jawfish": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Environmental_appendix-_Miami-Dade_County_Back_Bay_coastal_storm_risk_management_feasibility_study%2C_Miami-Dade_County%2C_Florida-_Appendix_D_-_USACE-p16021coll7-14462.pdf/page1-960px-thumbnail.pdf.jpg",
-    "sha256": "9c58c7bc0bcd1cefb9787f6a4987b6571a11285f33207bb6decb3db860ea1321",
-    "bytes": 49770,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/mottled_jawfish_cmyk.jpg",
+    "sha256": "58f162113f06f65cabe422a30a86ec30d795ad5f4ad5c6c178dbf6e899c5c53d",
+    "bytes": 114679,
     "path": "Resources/MarineLifePhotos/marine-life-mottled-jawfish.jpg"
   },
   "marine-life-narrow-striped-anchovy": {
@@ -468,9 +468,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-nurse-shark.jpg"
   },
   "marine-life-ocean-surgeonfish": {
-    "sourceURL": "https://inaturalist-open-data.s3.amazonaws.com/photos/32026911/original.jpeg",
-    "sha256": "782e82dfcdc1630307603089ff92aa6750eb5e015de22738e1bba35e4d7ef6a7",
-    "bytes": 114522,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/ocean_surgeonfish.jpg",
+    "sha256": "d95b91d5550eecf003a4393aa0e46e157f6e2ff788660b40baa98274990272ed",
+    "bytes": 106255,
     "path": "Resources/MarineLifePhotos/marine-life-ocean-surgeonfish.jpg"
   },
   "marine-life-oceanic-two-wing-flyingfish": {
@@ -486,9 +486,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-orangespotted-filefish.jpg"
   },
   "marine-life-pearl-blenny": {
-    "sourceURL": "https://ids.si.edu/ids/deliveryService/id/ark:/65665/m343a4fb59939e4c0f8fd2927a369c0fa7",
-    "sha256": "a5437d3fd2b147d513cbdcec80db27b4ba4874a4f5254c75ce42a618ce96b62d",
-    "bytes": 35330,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/pearl_blenny.jpg",
+    "sha256": "3e7dc26c9ea16d95e11a34808789be8a115f9930ae371d7ead4576c500a1c351",
+    "bytes": 118192,
     "path": "Resources/MarineLifePhotos/marine-life-pearl-blenny.jpg"
   },
   "marine-life-peppermint-bass": {
@@ -516,15 +516,15 @@
     "path": "Resources/MarineLifePhotos/marine-life-poey-s-anchovy.jpg"
   },
   "marine-life-puffcheek-blenny": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Environmental_appendix-_Miami-Dade_County_Back_Bay_coastal_storm_risk_management_feasibility_study%2C_Miami-Dade_County%2C_Florida-_Appendix_D_-_USACE-p16021coll7-14462.pdf/page1-960px-thumbnail.pdf.jpg",
-    "sha256": "9c58c7bc0bcd1cefb9787f6a4987b6571a11285f33207bb6decb3db860ea1321",
-    "bytes": 49770,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/puffcheek_blenny_cmyk.jpg",
+    "sha256": "a5ac73f2cce5fad52b937a9b6281924d11da3adf6f6494932ffdf5f913536a41",
+    "bytes": 133745,
     "path": "Resources/MarineLifePhotos/marine-life-puffcheek-blenny.jpg"
   },
   "marine-life-pugjaw-wormfish": {
-    "sourceURL": "https://ids.si.edu/ids/deliveryService/id/ark:/65665/m327919f7c4303416eaab9438261922ce8",
-    "sha256": "021709839f677fef126908086b6e4f3074a6c97e28345d502aa4d15c73e07c31",
-    "bytes": 51087,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/pugjaw_wormfish_cmyk.jpg",
+    "sha256": "a3bafde4c54693c6f480923af3fb0665284b129e07777fd12c412b0e36f1da22",
+    "bytes": 97936,
     "path": "Resources/MarineLifePhotos/marine-life-pugjaw-wormfish.jpg"
   },
   "marine-life-rake-stardrum": {
@@ -540,9 +540,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-redband-parrotfish.jpg"
   },
   "marine-life-redbelly-triplefin": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Environmental_appendix-_Miami-Dade_County_Back_Bay_coastal_storm_risk_management_feasibility_study%2C_Miami-Dade_County%2C_Florida-_Appendix_D_-_USACE-p16021coll7-14462.pdf/page1-960px-thumbnail.pdf.jpg",
-    "sha256": "9c58c7bc0bcd1cefb9787f6a4987b6571a11285f33207bb6decb3db860ea1321",
-    "bytes": 49770,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/redbelly_triplefin_cmyk.jpg",
+    "sha256": "46f031ad534c6be6359c10769d972892aabe79e054ea9b234498871cc69d29e3",
+    "bytes": 114493,
     "path": "Resources/MarineLifePhotos/marine-life-redbelly-triplefin.jpg"
   },
   "marine-life-redface-moray": {
@@ -570,15 +570,15 @@
     "path": "Resources/MarineLifePhotos/marine-life-royal-gramma.jpg"
   },
   "marine-life-sargassumfish": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/Histrio_histrio_by_A._H._Baldwin.jpg/960px-Histrio_histrio_by_A._H._Baldwin.jpg",
-    "sha256": "d82084ecf1bf6e2628edb9f2bb3b82993e52d216710e74ba5f52bfc2cb373114",
-    "bytes": 140047,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/sargassumfish_cmyk.jpg",
+    "sha256": "3154d39d418214ad55344971de4e9ca9cfff3f6fb29d92cc0837941db330140a",
+    "bytes": 122233,
     "path": "Resources/MarineLifePhotos/marine-life-sargassumfish.jpg"
   },
   "marine-life-sawcheek-cardinalfish": {
-    "sourceURL": "https://ids.si.edu/ids/deliveryService/id/ark:/65665/m3b8b054c7d8d6435198fd70476c2b903f",
-    "sha256": "641ebef0c1e2fd68ea1ddc6b61992e50b4074d261716ce00154db62b1ad2ba62",
-    "bytes": 47491,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/sawcheek_cardinalfish_cmyk.jpg",
+    "sha256": "dfd6da808bfdf6780307b93b0edeb6362cc5d535417279732e2dc6643a80ce3e",
+    "bytes": 61298,
     "path": "Resources/MarineLifePhotos/marine-life-sawcheek-cardinalfish.jpg"
   },
   "marine-life-shoal-flounder": {
@@ -642,9 +642,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-spinyhead-blenny.jpg"
   },
   "marine-life-sponge-cardinalfish": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Environmental_appendix-_Miami-Dade_County_Back_Bay_coastal_storm_risk_management_feasibility_study%2C_Miami-Dade_County%2C_Florida-_Appendix_D_-_USACE-p16021coll7-14462.pdf/page1-960px-thumbnail.pdf.jpg",
-    "sha256": "9c58c7bc0bcd1cefb9787f6a4987b6571a11285f33207bb6decb3db860ea1321",
-    "bytes": 49770,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/sponge_cardinalfish_cmyk.jpg",
+    "sha256": "a5f0f6a968ae926266db7f122f82f8deff4e3ecf0094cbe9631ac5969cf7aa32",
+    "bytes": 66923,
     "path": "Resources/MarineLifePhotos/marine-life-sponge-cardinalfish.jpg"
   },
   "marine-life-spotfin-burrfish": {
@@ -660,9 +660,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-spotfin-butterflyfish.jpg"
   },
   "marine-life-spotfin-goby": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Environmental_appendix-_Miami-Dade_County_Back_Bay_coastal_storm_risk_management_feasibility_study%2C_Miami-Dade_County%2C_Florida-_Appendix_D_-_USACE-p16021coll7-14462.pdf/page1-960px-thumbnail.pdf.jpg",
-    "sha256": "9c58c7bc0bcd1cefb9787f6a4987b6571a11285f33207bb6decb3db860ea1321",
-    "bytes": 49770,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/spotfin_goby_2_cmyk.jpg",
+    "sha256": "9eacabe84e270e1525953602fe99cdc4ee69bfc90dbc45c27096fbd0b48c87f5",
+    "bytes": 122313,
     "path": "Resources/MarineLifePhotos/marine-life-spotfin-goby.jpg"
   },
   "marine-life-spotfin-hogfish": {
@@ -714,9 +714,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-spotted-snake-eel.jpg"
   },
   "marine-life-spotted-soapfish": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/Rypticus_subbifrenatus_-_pone.0010676.g059.png/960px-Rypticus_subbifrenatus_-_pone.0010676.g059.png",
-    "sha256": "619c9d82d22cbba52abc00257fe440c6fc11ddc4bd7bb746ca4905324f1353da",
-    "bytes": 86306,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/spotted_soapfish_cmyk.jpg",
+    "sha256": "6ce377af1203354bca3bade38e9bc99380ce2e7b4a5959dc2eabcc2e3420dff4",
+    "bytes": 123047,
     "path": "Resources/MarineLifePhotos/marine-life-spotted-soapfish.jpg"
   },
   "marine-life-spotted-trunkfish": {
@@ -768,9 +768,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-striped-burrfish.jpg"
   },
   "marine-life-striped-cardinalfish": {
-    "sourceURL": "https://inaturalist-open-data.s3.amazonaws.com/photos/305131359/original.jpg",
-    "sha256": "7fea4eafb403472619f471b52f85df5c41de3ccdac1e00e9a43b80de488e9742",
-    "bytes": 84618,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/striped_cardinalfish_cmyk.jpg",
+    "sha256": "89bea4b4dbac3244129d3c26d82a425a2758f342d7f7c671785b5a9aee450fea",
+    "bytes": 81840,
     "path": "Resources/MarineLifePhotos/marine-life-striped-cardinalfish.jpg"
   },
   "marine-life-striped-croaker": {
@@ -798,9 +798,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-tawny-blenny.jpg"
   },
   "marine-life-tessellated-blenny": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/5/5f/Hypsoblennius_invemar_photo-CarlosGMunoz.JPG",
-    "sha256": "f293fdd127db68f10dcbc98249e4dda21632c88a43317783dd6373b1955b12cc",
-    "bytes": 107774,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/tessellated_blenny_cmyk.jpg",
+    "sha256": "21ccd69bf3054852ee257eb88e5d799425f50ac344dfc0fcb0cb984904b7143e",
+    "bytes": 84550,
     "path": "Resources/MarineLifePhotos/marine-life-tessellated-blenny.jpg"
   },
   "marine-life-thomas-sea-catfish": {
@@ -900,9 +900,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-twostripe-snake-eel.jpg"
   },
   "marine-life-unicorn-leatherjacket-filefish": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Aluterus_monoceros_129327923.jpg/960px-Aluterus_monoceros_129327923.jpg",
-    "sha256": "e57cd9953d25770cc71d290d624b00d614a7a47b0b4eb4b56afef4f22d82d42a",
-    "bytes": 188169,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/unicorn_filefish_cmyk.jpg",
+    "sha256": "d8fe161933ce65d00d9c36c170b67f61a5aff25bbaca4cc2f7b2a1a62e53fd37",
+    "bytes": 39279,
     "path": "Resources/MarineLifePhotos/marine-life-unicorn-leatherjacket-filefish.jpg"
   },
   "marine-life-varicus-bucca": {
@@ -924,9 +924,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-web-burrfish.jpg"
   },
   "marine-life-western-atlantic-seabream": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/7/7d/Archosargus_rhomboidalis.jpg",
-    "sha256": "d097e2f9cd4d8ad836b7061b378dbab6bef31b29b9ec1b6804dc863d0cedd5ac",
-    "bytes": 105560,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/sea_bream_cmyk.jpg",
+    "sha256": "347873527a540a5423f5e25995cce68987206210be54f25a393cc2bbffd25655",
+    "bytes": 93195,
     "path": "Resources/MarineLifePhotos/marine-life-western-atlantic-seabream.jpg"
   },
   "marine-life-white-grunt": {
@@ -984,9 +984,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-yellow-goatfish.jpg"
   },
   "marine-life-yellow-jack": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/Caranx_bartholomaei%2C_avistamento_Quintana_Roo%2C_M%C3%A9xico_2.jpg/960px-Caranx_bartholomaei%2C_avistamento_Quintana_Roo%2C_M%C3%A9xico_2.jpg",
-    "sha256": "d5a76b7b86fcbfe68a15b9b6affcdb8d2cff3d3801149f7ec799edcec9ddaf1d",
-    "bytes": 169511,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/yellow_jack.jpg",
+    "sha256": "e67c09fb74407b88451526d369ad36891fa24b979520bd1d5b864e2dfa2c2802",
+    "bytes": 69942,
     "path": "Resources/MarineLifePhotos/marine-life-yellow-jack.jpg"
   },
   "marine-life-yellow-sea-chub": {
@@ -1038,9 +1038,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-yellowline-goby.jpg"
   },
   "marine-life-yellowlined-basslet": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Gramma_linki.jpg/500px-Gramma_linki.jpg",
-    "sha256": "3abf3604bf1950d219af8b8ab77b1847d74f3a55aec4de5db0982929a0be0c0a",
-    "bytes": 85549,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/yellowcheek_basslet_cmyk.jpg",
+    "sha256": "bc4e8bffff18ca4baa286c00f44a55af6dd04cdf9ab0374d0dd8f3ac2d73a154",
+    "bytes": 43287,
     "path": "Resources/MarineLifePhotos/marine-life-yellowlined-basslet.jpg"
   },
   "marine-life-yellowprow-goby": {
@@ -1062,9 +1062,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-yellowtail-hamlet.jpg"
   },
   "marine-life-yellowtail-reeffish": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e2/Chromis_enchrysura2.jpg/960px-Chromis_enchrysura2.jpg",
-    "sha256": "ca0abcc1e7ac9780eb5d8ffb771dcb6b5ace51017d62a3bb5edf1a6fe46bb3cd",
-    "bytes": 216166,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/yellowtail_reeffish_cmyk.jpg",
+    "sha256": "c5b65f78f5d47cb616df0af961baded14dc72bcaeaeb18afabb4b75a057271fc",
+    "bytes": 87682,
     "path": "Resources/MarineLifePhotos/marine-life-yellowtail-reeffish.jpg"
   },
   "marine-life-zabaleta-anchovy": {
@@ -1098,9 +1098,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-banner-blenny.jpg"
   },
   "marine-life-banner-goby": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Archivos_do_Museu_Nacional_do_Rio_de_Janeiro_%28IA_archivosdomuseu21muse%29.pdf/page1-960px-Archivos_do_Museu_Nacional_do_Rio_de_Janeiro_%28IA_archivosdomuseu21muse%29.pdf.jpg",
-    "sha256": "a7b28af7f720fd8b0604f302746e3b840a1e8d840e8e6ca836378e44bf56de36",
-    "bytes": 40032,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/banner_goby_cmyk.jpg",
+    "sha256": "dd89b868a416618cb7f764a4846670fd7eff5300760d95d5b9d26e286b0edd90",
+    "bytes": 123401,
     "path": "Resources/MarineLifePhotos/marine-life-banner-goby.jpg"
   },
   "marine-life-bar-jack": {
@@ -1152,15 +1152,15 @@
     "path": "Resources/MarineLifePhotos/marine-life-barred-hamlet.jpg"
   },
   "marine-life-bartail-goby": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/16/Coryphopterus_thrix_-_pone.0010676.g168.png/960px-Coryphopterus_thrix_-_pone.0010676.g168.png",
-    "sha256": "bf6a9ee5e70fc24c354fb47b8088fc6056d801a6000508eef00c09593cff25c4",
-    "bytes": 77872,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/bartail_goby_cmyk.jpg",
+    "sha256": "4f32b42239f83083cd56c1b9da9c281c4a82f4530d3713f3457976afebdfa5be",
+    "bytes": 113147,
     "path": "Resources/MarineLifePhotos/marine-life-bartail-goby.jpg"
   },
   "marine-life-belted-sandfish": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Serranus_subligarius.jpg/960px-Serranus_subligarius.jpg",
-    "sha256": "a8b21da9571b7585271e1dc48fa978f4e53b68ceff979532c02fab8bd66b8a16",
-    "bytes": 130101,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/belted_sandfish_cmyk.jpg",
+    "sha256": "ae4801a46413d835cc69d0886824a4eb182224f953bd2d319ea3a59afbf14d25",
+    "bytes": 93876,
     "path": "Resources/MarineLifePhotos/marine-life-belted-sandfish.jpg"
   },
   "marine-life-bermuda-sea-chub": {
@@ -1236,15 +1236,15 @@
     "path": "Resources/MarineLifePhotos/marine-life-blacknose-shark.jpg"
   },
   "marine-life-blackspotted-snake-eel": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Quassiremus_ascensionis.jpg/960px-Quassiremus_ascensionis.jpg",
-    "sha256": "383a0541f8f6cfbee6cb48757eb2015eb541716346ccf94881e42e4a16015707",
-    "bytes": 44464,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/blackspotted_snake_eel_cmyk.jpg",
+    "sha256": "6653ff2b5a1882127cde193c7fa3fb1dd7940c4c78d2185b2b56365596434212",
+    "bytes": 149154,
     "path": "Resources/MarineLifePhotos/marine-life-blackspotted-snake-eel.jpg"
   },
   "marine-life-blue-chromis": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/Azurina_cyanea_345536272.jpg/960px-Azurina_cyanea_345536272.jpg",
-    "sha256": "4ce03e9ec9552c42bd32af663a1ec92a3c482aa7bc252949636825cf6152616e",
-    "bytes": 150785,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/blue_chromis_cmyk.jpg",
+    "sha256": "2020c7e4aa85d64cf63c8e8c13a305cf8c10a28e8211e320b05a07d1ae78d374",
+    "bytes": 114666,
     "path": "Resources/MarineLifePhotos/marine-life-blue-chromis.jpg"
   },
   "marine-life-blue-parrotfish": {
@@ -1272,9 +1272,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-bluehead.jpg"
   },
   "marine-life-bluelip-hamlet": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/Hypoplectrus_affinis%2C_St_John_00830%2C_USVI_imported_from_iNaturalist_photo_475446963.jpg/960px-Hypoplectrus_affinis%2C_St_John_00830%2C_USVI_imported_from_iNaturalist_photo_475446963.jpg",
-    "sha256": "9541dbcb0e1efe81102607207f52fb50aaa84d2ad53178f5c49dab90bcd3864a",
-    "bytes": 318182,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/bluelip_hamlet_cmyk.jpg",
+    "sha256": "6adf946ece4bc6eaca58db39f5a352e0801a9872e4719f6c531591c57b0982bd",
+    "bytes": 91486,
     "path": "Resources/MarineLifePhotos/marine-life-bluelip-hamlet.jpg"
   },
   "marine-life-bluelip-parrotfish": {
@@ -1314,9 +1314,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-bocon-toadfish.jpg"
   },
   "marine-life-bonefish": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Albula_vulpes_head.jpg/960px-Albula_vulpes_head.jpg",
-    "sha256": "5d023e950086e4b447cde11292e04e10e0eb16205a87937863e7ed9864dfe431",
-    "bytes": 136940,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/bonefish_cmyk.jpg",
+    "sha256": "96dd8b2be9bcd765483973c022409ca562646c4ae4871912e21992bba5a8ff37",
+    "bytes": 103920,
     "path": "Resources/MarineLifePhotos/marine-life-bonefish.jpg"
   },
   "marine-life-brazilian-damsel": {
@@ -1344,9 +1344,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-brazilian-sharpnose-shark.jpg"
   },
   "marine-life-bridle-cardinalfish": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Manuscript_of_Henry_Weed_Fowler_on_the_fishes_of_the_Philippines%2C_unpublished%2C_circa_1930-1941_%28IA_manuscripthenry00fowldp%29.pdf/page1-960px-Manuscript_of_Henry_Weed_Fowler_on_the_fishes_of_the_Philippines%2C_unpublished%2C_circa_1930-1941_%28IA_manuscripthenry00fowldp%29.pdf.jpg",
-    "sha256": "d3a8558c44aa764bb21b49dc58017eacf228c653c237e757864229255a155097",
-    "bytes": 93057,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/bridle_cardinalfish_cmyk.jpg",
+    "sha256": "331fe9bb6a0d6336de83dfec0db8a9df1f9b79369f76841f08a424b47e454076",
+    "bytes": 123229,
     "path": "Resources/MarineLifePhotos/marine-life-bridle-cardinalfish.jpg"
   },
   "marine-life-bridled-burrfish": {
@@ -1368,9 +1368,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-broad-striped-anchovy.jpg"
   },
   "marine-life-broadsaddle-cardinalfish": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Biodiversity_Assessment_of_the_Fishes_of_Saba_Bank_Atoll%2C_Netherlands_Antilles.pdf/page1-960px-Biodiversity_Assessment_of_the_Fishes_of_Saba_Bank_Atoll%2C_Netherlands_Antilles.pdf.jpg",
-    "sha256": "39851580095428a1760a38f68110842b0a6f61c5ed329b41d7d4a4eb3136c034",
-    "bytes": 207084,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/broadsaddle_cardinalfish.jpg",
+    "sha256": "390f495f4b3987a047b7e47c5b28449e953f5e74509df3b1387838b0bbf750ed",
+    "bytes": 110892,
     "path": "Resources/MarineLifePhotos/marine-life-broadsaddle-cardinalfish.jpg"
   },
   "marine-life-broadstripe-goby": {
@@ -1446,9 +1446,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-castin-leatherjacket.jpg"
   },
   "marine-life-cave-bass": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/63/Zookeys-409-071-g001_%2814310864892%29.jpg/960px-Zookeys-409-071-g001_%2814310864892%29.jpg",
-    "sha256": "38573eba33053ac95a5e16cace7351fb7b357b5d14cd03528356152ca6a6e1d8",
-    "bytes": 78922,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/cave_basslet_cmyk.jpg",
+    "sha256": "3865f97382b5f671daedc9c7a954a8856af44f96bd73fc4b3cf5f642ae7ff7b0",
+    "bytes": 89995,
     "path": "Resources/MarineLifePhotos/marine-life-cave-bass.jpg"
   },
   "marine-life-cero": {
@@ -1464,9 +1464,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-chain-moray.jpg"
   },
   "marine-life-chain-pipefish": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Syngnathus_louisianae_%28S0591%29_%2812658764723%29.jpg/960px-Syngnathus_louisianae_%28S0591%29_%2812658764723%29.jpg",
-    "sha256": "0158373d6116516ac6369d165401002c21616cd536d7c01ec1b3af0d0458a6bf",
-    "bytes": 26228,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/chain_pipefish_cmyk.jpg",
+    "sha256": "71f1eecc0fd4d0bfe9d150f744e5cc953bff26698d6e434f16dca6891d97f0ff",
+    "bytes": 128994,
     "path": "Resources/MarineLifePhotos/marine-life-chain-pipefish.jpg"
   },
   "marine-life-checkered-blenny": {
@@ -1500,9 +1500,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-chessboard-blenny.jpg"
   },
   "marine-life-chestnut-moray": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/Enchelycore_carychroa%2C_Head_%28Caribbean_Chestnut_Moray%29.jpg/960px-Enchelycore_carychroa%2C_Head_%28Caribbean_Chestnut_Moray%29.jpg",
-    "sha256": "6379d63c3dbd40af6098aba70067f76ec1ba5d1472d96c1d0bd69ce4dfac38b2",
-    "bytes": 77204,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/chestnut_moray_cmyk.jpg",
+    "sha256": "cd9dca0f215ee7b381a6c258d9df8adb1e5451db314d5a92cfad80c27e52ddd3",
+    "bytes": 76572,
     "path": "Resources/MarineLifePhotos/marine-life-chestnut-moray.jpg"
   },
   "marine-life-chola-guitarfish": {
@@ -1530,9 +1530,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-dusky-basslet.jpg"
   },
   "marine-life-dusky-blenny": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/Malacoctenus_gilli.jpeg/960px-Malacoctenus_gilli.jpeg",
-    "sha256": "d7feb0f60ebadd755d2db8f9fa436ad82fbfe7179a5d0da2767060e2df0aadb5",
-    "bytes": 209128,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/dusky_blenny_cmyk.jpg",
+    "sha256": "77b7d15c6827137c7aa71407352d7161608dc4f8adcdbd98e8071b5f50a91e99",
+    "bytes": 88844,
     "path": "Resources/MarineLifePhotos/marine-life-dusky-blenny.jpg"
   },
   "marine-life-dusky-damselfish": {
@@ -1590,15 +1590,15 @@
     "path": "Resources/MarineLifePhotos/marine-life-dwarf-mullet.jpg"
   },
   "marine-life-dwarf-round-herring": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Jenkinsia_lamprotaenia.jpg/960px-Jenkinsia_lamprotaenia.jpg",
-    "sha256": "09d8030286c4e64bec319ce7e8a5b86f819583ac5c011732fe013369a467229d",
-    "bytes": 170882,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/silversides_cmyk.jpg",
+    "sha256": "90cf00c77d18ff940135626a473edeb7a715eb24c1ac1becc4018f14347b96b9",
+    "bytes": 59321,
     "path": "Resources/MarineLifePhotos/marine-life-dwarf-round-herring.jpg"
   },
   "marine-life-dwarf-sand-perch": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Diplectrum_bivittatum.jpg/960px-Diplectrum_bivittatum.jpg",
-    "sha256": "f6592c1de549b7bea18fe8bb082a825d7c3327f4872597b8b302275141277e7e",
-    "bytes": 244953,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/dwarf_sand_perch_cmyk.jpg",
+    "sha256": "bccbf0dd2ea1d7786384f86f6b5ea4105e0b29a97c852f396722ac092811978f",
+    "bytes": 79510,
     "path": "Resources/MarineLifePhotos/marine-life-dwarf-sand-perch.jpg"
   },
   "marine-life-dwarf-seahorse": {
@@ -1638,9 +1638,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-false-herring.jpg"
   },
   "marine-life-false-moray": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Kaupichthys_hyoproroides_-_pone.0010676.g019.png/960px-Kaupichthys_hyoproroides_-_pone.0010676.g019.png",
-    "sha256": "f011bde3028ee494968e2b739855d649512bff07cb19614baa9304d6732fb911",
-    "bytes": 29887,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/false_moray_cmyk.jpg",
+    "sha256": "e226be18a91204a8f1214260f732e0d4793cbb4a4d660237980d3ce75a9fde6e",
+    "bytes": 144054,
     "path": "Resources/MarineLifePhotos/marine-life-false-moray.jpg"
   },
   "marine-life-fangtooth-snake-eel": {
@@ -1698,9 +1698,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-foureye-butterflyfish.jpg"
   },
   "marine-life-freckled-cardinalfish": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Phaeoptyx_conklini_-_pone.0010676.g074.png/960px-Phaeoptyx_conklini_-_pone.0010676.g074.png",
-    "sha256": "1f61f27d81a7e8a4cb8a5d96db5f6fce135454f71b9c5b0a47ce104d039931b0",
-    "bytes": 99660,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/freckled_cardinalfish_cmyk.jpg",
+    "sha256": "69a10e29fe2c845b9a951f106dbef7d40a6a147071ea0bdb0a5e134dbb840564",
+    "bytes": 128939,
     "path": "Resources/MarineLifePhotos/marine-life-freckled-cardinalfish.jpg"
   },
   "marine-life-french-angelfish": {
@@ -1716,9 +1716,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-french-grunt.jpg"
   },
   "marine-life-fringed-filefish": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/FMIB_38086_Monacanthus_ciliatus_%28Mitchill%29_Leather-fish%2C_Lija%3B_%27Pez_de_Pucco%27.jpeg/960px-FMIB_38086_Monacanthus_ciliatus_%28Mitchill%29_Leather-fish%2C_Lija%3B_%27Pez_de_Pucco%27.jpeg",
-    "sha256": "9e95a43234fe270415534f01d874f83775b07cde2ca379ec7984df4001e4a6a1",
-    "bytes": 149290,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/fringed_filefish.jpg",
+    "sha256": "92560173d9f91081cc9e4b16bb3d211028946b512240bd96abcfafae7f72797d",
+    "bytes": 93567,
     "path": "Resources/MarineLifePhotos/marine-life-fringed-filefish.jpg"
   },
   "marine-life-fringed-flounder": {
@@ -1746,9 +1746,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-glass-blenny.jpg"
   },
   "marine-life-glass-goby": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/e/e4/Coryphopterus_hyalinus_256814410.jpg",
-    "sha256": "60156276a870b15ac84c5bda0f33bc2764ebbf779d61ae0ae9a9273ec7730e63",
-    "bytes": 122168,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/glass_goby_cmyk.jpg",
+    "sha256": "cc70f552fbe5ab57ff929a8f5280bb851c9f348bfcdaaf49272c09fbdc46472f",
+    "bytes": 98982,
     "path": "Resources/MarineLifePhotos/marine-life-glass-goby.jpg"
   },
   "marine-life-glassy-sweeper": {
@@ -1872,9 +1872,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-honeycomb-moray-9038.jpg"
   },
   "marine-life-hound-needlefish": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/Tylosurus_crocodilus.jpg/960px-Tylosurus_crocodilus.jpg",
-    "sha256": "90c79f392550bb212b15604bd6386ecb710adcd2bcc5fe8a2ae3adee622172a1",
-    "bytes": 107366,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/houndfish_cmyk.jpg",
+    "sha256": "bdc3f27bbeb9cbaed251679e154f0b63be92565319e3113d0dca64299e49e90a",
+    "bytes": 69812,
     "path": "Resources/MarineLifePhotos/marine-life-hound-needlefish.jpg"
   },
   "marine-life-indigo-hamlet": {
@@ -1908,9 +1908,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-key-brotula.jpg"
   },
   "marine-life-key-worm-eel": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/03/Ahlia_egmontis_-_pone.0010676.g013.png/960px-Ahlia_egmontis_-_pone.0010676.g013.png",
-    "sha256": "021fae09e2f9b074c797342c52cac0fcea48de516f7b4adc0e9c8f45838997d6",
-    "bytes": 34135,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/key_worm_eel_cmyk.jpg",
+    "sha256": "acf8136a2e031e7759f81adb0aec2fb6a2c93eb6baeacb5559021352f0360e6d",
+    "bytes": 117062,
     "path": "Resources/MarineLifePhotos/marine-life-key-worm-eel.jpg"
   },
   "marine-life-king-weakfish": {
@@ -1920,15 +1920,15 @@
     "path": "Resources/MarineLifePhotos/marine-life-king-weakfish.jpg"
   },
   "marine-life-knobbed-porgy": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/74/Calamus_nodosus_%2810.3897-zookeys.882.38449%29_Figure_6.jpg/960px-Calamus_nodosus_%2810.3897-zookeys.882.38449%29_Figure_6.jpg",
-    "sha256": "553aa22d6a09373b788cb0b2fc4872ce3b3a472139d5adc53829011a8c461b13",
-    "bytes": 198071,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/knobbed_porgy_cmyk.jpg",
+    "sha256": "e3c804a227d98f5d5e175564410cbf27e98ddeb01b17491cef4bdf51efcf46df",
+    "bytes": 95554,
     "path": "Resources/MarineLifePhotos/marine-life-knobbed-porgy.jpg"
   },
   "marine-life-kuna-goby": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Coryphopterus_kuna.jpg/960px-Coryphopterus_kuna.jpg",
-    "sha256": "96edb7b32c287d29448eb60dbf9eacf945af9afde0b4db94adcbe901c33f58a1",
-    "bytes": 148670,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/kuna_goby_cmyk.jpg",
+    "sha256": "6a1335121f64f0102bd8815d57f4216b94b89baf49c451e0326a6a400284a5e4",
+    "bytes": 102183,
     "path": "Resources/MarineLifePhotos/marine-life-kuna-goby.jpg"
   },
   "marine-life-ladyfish": {
@@ -1944,9 +1944,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-lantern-bass.jpg"
   },
   "marine-life-leatherjacket": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f6/Oligoplites_saurus.11B.jpg/960px-Oligoplites_saurus.11B.jpg",
-    "sha256": "e436476d1d4d65b986b6981834583b5882f6bb4bf3526c3e90b178139605d152",
-    "bytes": 107674,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/leatherjack_cmyk.jpg",
+    "sha256": "6a560c9162915bce229463b5edf50ae6dc530ce376030332f782b757238763c4",
+    "bytes": 52221,
     "path": "Resources/MarineLifePhotos/marine-life-leatherjacket.jpg"
   },
   "marine-life-lesser-devil-ray": {
@@ -2028,9 +2028,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-mahogany-snapper.jpg"
   },
   "marine-life-marbled-puffer": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Sphoeroides_dorsalis.jpg/960px-Sphoeroides_dorsalis.jpg",
-    "sha256": "4aba3ba1f4495763da670c9c0284320193ae5f758aa919d8c214741cec26be2c",
-    "bytes": 133304,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/marbled_puffer.jpg",
+    "sha256": "811b11683e2148e779b1b3f6e8d4a0d6f09f9c3311097a60090dde2a26e68a23",
+    "bytes": 127604,
     "path": "Resources/MarineLifePhotos/marine-life-marbled-puffer.jpg"
   },
   "marine-life-masked-goby": {
@@ -2058,9 +2058,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-microgobius-signatus.jpg"
   },
   "marine-life-molly-miller": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/7/77/Scartella_cristata_389085003.jpg",
-    "sha256": "2933c008e266a4b8e0e5c55ac652f83ef87cfd269d08d6fa99170d3f77979ffd",
-    "bytes": 104192,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/molly_miller_cmyk.jpg",
+    "sha256": "213d0c9e9b6cb52b4a47827a944888bcf37875cf931e6c9ed314f42a5106980b",
+    "bytes": 130377,
     "path": "Resources/MarineLifePhotos/marine-life-molly-miller.jpg"
   },
   "marine-life-moustache-jawfish": {
@@ -2094,9 +2094,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-naked-blenny.jpg"
   },
   "marine-life-naked-sole": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Sexy_barefoot3.jpg/960px-Sexy_barefoot3.jpg",
-    "sha256": "79bf1a610c0a41530322b5c8ab79488e343d1f137d7a4f2335c5815d43e6fcd4",
-    "bytes": 83794,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/nude_sole_cmyk.jpg",
+    "sha256": "a4affa7ab00d601f6a6996f0261f22f0cb2b9c42d9312195246c33a931a913a8",
+    "bytes": 151034,
     "path": "Resources/MarineLifePhotos/marine-life-naked-sole.jpg"
   },
   "marine-life-narrowfin-smooth-hound": {
@@ -2136,9 +2136,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-ocean-triggerfish.jpg"
   },
   "marine-life-ocellated-tonguefish": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/Symphurus_ommaspilus_-_pone.0010676.g190.png/960px-Symphurus_ommaspilus_-_pone.0010676.g190.png",
-    "sha256": "eb7680b6bbcfae984a3fa99731ae189b856f2b4ad810a0cdddf86b089eada636",
-    "bytes": 105713,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/ocellated_tonguefish_cmyk.jpg",
+    "sha256": "6ab6570c553e4ee0a4347168df52c3cbb4e0ca4a5cf5f581afe33293aa57080a",
+    "bytes": 155531,
     "path": "Resources/MarineLifePhotos/marine-life-ocellated-tonguefish.jpg"
   },
   "marine-life-offshore-tonguefish": {
@@ -2184,15 +2184,15 @@
     "path": "Resources/MarineLifePhotos/marine-life-painted-wrasse.jpg"
   },
   "marine-life-pale-cardinalfish": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/The_fishes_of_India%3B_being_a_natural_history_of_the_fishes_known_to_inhabit_the_seas_and_fresh_waters_of_India%2C_Burma%2C_and_Ceylon_%28IA_cu31924084820624%29.pdf/page1-960px-The_fishes_of_India%3B_being_a_natural_history_of_the_fishes_known_to_inhabit_the_seas_and_fresh_waters_of_India%2C_Burma%2C_and_Ceylon_%28IA_cu31924084820624%29.pdf.jpg",
-    "sha256": "ea27aea8919dcdfdb461418e98854a2c1049d202886d442831c2dbbcc3833507",
-    "bytes": 180960,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/pale_cardinalfish_cmyk.jpg",
+    "sha256": "2eac66fa37be0dababb45c4b3130b21ef564bf69519ccb43de1e83e3d32ca106",
+    "bytes": 109088,
     "path": "Resources/MarineLifePhotos/marine-life-pale-cardinalfish.jpg"
   },
   "marine-life-palehead-blenny": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Bulletin_-_United_States_National_Museum_%28IA_bulletinunitedst4731898unit%29.pdf/page1-500px-Bulletin_-_United_States_National_Museum_%28IA_bulletinunitedst4731898unit%29.pdf.jpg",
-    "sha256": "26def9a818cb4813f03bb5c30af67f30b484a18852c38ac1e5545be90d71c853",
-    "bytes": 72526,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/palehead_blenny_cmyk.jpg",
+    "sha256": "8becfdb7fd2eb8fcde8071ae94d1726a44f60947a2222f27033b62132c8bb2e5",
+    "bytes": 133483,
     "path": "Resources/MarineLifePhotos/marine-life-palehead-blenny.jpg"
   },
   "marine-life-pallid-goby": {
@@ -2202,9 +2202,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-pallid-goby.jpg"
   },
   "marine-life-papillose-blenny": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Acanthemblemaria_chaplini_range.png/960px-Acanthemblemaria_chaplini_range.png",
-    "sha256": "1299b912105fd9e4d85cbb637f587d409bb5bc50129b084982cd574318d65654",
-    "bytes": 68628,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/papillose_blenny_cmyk.jpg",
+    "sha256": "d7b1d676f750e4906649330c9db95c8823a004d71b7fbad81e70ea27f847b55f",
+    "bytes": 82038,
     "path": "Resources/MarineLifePhotos/marine-life-papillose-blenny.jpg"
   },
   "marine-life-peppermint-goby": {
@@ -2340,9 +2340,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-red-eye-round-herring.jpg"
   },
   "marine-life-redear-herring": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/Harengula_humeralis_Martinique.jpg/960px-Harengula_humeralis_Martinique.jpg",
-    "sha256": "5eca40d4c9f6acdafd8b8d13b6d693dca20aa18e72084bd9784122394923736a",
-    "bytes": 199757,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/redear_herring_cmyk.jpg",
+    "sha256": "8e209fd06064b0e81d05abdec4802ad00580e9ef2a50833ff10735dd5a243547",
+    "bytes": 133630,
     "path": "Resources/MarineLifePhotos/marine-life-redear-herring.jpg"
   },
   "marine-life-redfin-brotula": {
@@ -2382,9 +2382,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-reef-scorpionfish.jpg"
   },
   "marine-life-reef-squirrelfish": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Sargocentron_coruscum.jpg/960px-Sargocentron_coruscum.jpg",
-    "sha256": "be48f57b88a277cdff4dc08781235afc835a6a3612f55907ade7654648b4272b",
-    "bytes": 113569,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/reef_squirrelfish_cmyk.jpg",
+    "sha256": "3b816487465d1ee5696e5cc705ceeb3d997d3ea3db2ed6ebcd0fb435db840d67",
+    "bytes": 115542,
     "path": "Resources/MarineLifePhotos/marine-life-reef-squirrelfish.jpg"
   },
   "marine-life-ringneck-blenny": {
@@ -2406,9 +2406,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-rosy-basslet.jpg"
   },
   "marine-life-rosy-blenny": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/5/58/Malacoctenus_macropus_287545612.jpg",
-    "sha256": "5620d08ef21526a037b137e9343eb1db67e14e189729743cfab3d2aacf43ac77",
-    "bytes": 111659,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/rosy_blenny_female_1_cmyk.jpg",
+    "sha256": "aabeee2b862f7af008e79ac883383093ec109cd3edd3e8aa47343717d1e17a0d",
+    "bytes": 109369,
     "path": "Resources/MarineLifePhotos/marine-life-rosy-blenny.jpg"
   },
   "marine-life-rosy-razorfish": {
@@ -2430,15 +2430,15 @@
     "path": "Resources/MarineLifePhotos/marine-life-rough-triggerfish.jpg"
   },
   "marine-life-roughback-batfish": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Roughback_batfish_%28Ogcocephalus_parvus%29.jpg/960px-Roughback_batfish_%28Ogcocephalus_parvus%29.jpg",
-    "sha256": "120819d6f403f167f34e570c69703ba5e5d184f3b7331a2349ff66ec4288f784",
-    "bytes": 69832,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/roughback_batfish_cmyk.jpg",
+    "sha256": "29d85bb37fe86231858fdad5c50f158c03201956b48a43765f62b1594b1ba16e",
+    "bytes": 122900,
     "path": "Resources/MarineLifePhotos/marine-life-roughback-batfish.jpg"
   },
   "marine-life-round-scad": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/FMIB_38130_Decapterus_punctatus_%28Agassiz%29_Scad%3B_Caballo_Azul.jpeg/960px-FMIB_38130_Decapterus_punctatus_%28Agassiz%29_Scad%3B_Caballo_Azul.jpeg",
-    "sha256": "4a37293c52b63919ce22b1ad6de5005be1d6b8d33c06280a26e30561fbdbd087",
-    "bytes": 90519,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/round_scad_cmyk.jpg",
+    "sha256": "8d7c6042c1aa2a19b92c9409dfdeec660b0695065e583e16d4a28cc0e7a84bb3",
+    "bytes": 52446,
     "path": "Resources/MarineLifePhotos/marine-life-round-scad.jpg"
   },
   "marine-life-royal-basslet": {
@@ -2454,9 +2454,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-royal-threadfin.jpg"
   },
   "marine-life-rusty-goby": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/Priolepis_hipoliti_-_Sanc1525.jpg/960px-Priolepis_hipoliti_-_Sanc1525.jpg",
-    "sha256": "fbdaa3b5db157247fefda6bdd61c1782a55807f18c2d9f29fc8259530bb0f472",
-    "bytes": 195301,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/rusty_goby_cmyk.jpg",
+    "sha256": "07e081793cda6d60edd9212e5d5d51d80fe6149648b51d6018b09bc6421ce371",
+    "bytes": 159632,
     "path": "Resources/MarineLifePhotos/marine-life-rusty-goby.jpg"
   },
   "marine-life-saddle-stargazer": {
@@ -2520,9 +2520,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-scaled-herring.jpg"
   },
   "marine-life-scamp": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b7/Scamp_%28Mycteroperca_phenax%29_NOAA.jpg/960px-Scamp_%28Mycteroperca_phenax%29_NOAA.jpg",
-    "sha256": "abc6bddc0c1612b451975f76c93eaeb149787c6bc54ad392ae330ce26630d236",
-    "bytes": 180876,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/scamp_cmyk.jpg",
+    "sha256": "6fcaf4d001c4ab669f0bec6149b1c368e81c182eb95dd9cb3d268cff9a214f19",
+    "bytes": 98358,
     "path": "Resources/MarineLifePhotos/marine-life-scamp.jpg"
   },
   "marine-life-school-bass": {
@@ -2580,9 +2580,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-sharptail-eel.jpg"
   },
   "marine-life-sheepshead-porgy": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/FMIB_33942_Calamus_Penna_Cuvier_and_Valenciennes.jpeg/960px-FMIB_33942_Calamus_Penna_Cuvier_and_Valenciennes.jpeg",
-    "sha256": "48ca1e4024cc144d752c204860a91527662cf588df07f9f2a47c5b8aec25ac57",
-    "bytes": 109614,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/sheepshead_porgy_cmyk.jpg",
+    "sha256": "e3e06fee7e7d708f57c86e0d7b3ad9441fac1e39ac7fff18fc500a66bb87d74a",
+    "bytes": 80394,
     "path": "Resources/MarineLifePhotos/marine-life-sheepshead-porgy.jpg"
   },
   "marine-life-shortfinger-anchovy": {
@@ -2652,9 +2652,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-slender-filefish.jpg"
   },
   "marine-life-slope-soapfish": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7d/Zookeys-409-071-g008_%2814126056058%29.jpg/960px-Zookeys-409-071-g008_%2814126056058%29.jpg",
-    "sha256": "529142b4be720b61c5a6e616e143e6457190a0b8fa0e479b1f6085ebc91d3156",
-    "bytes": 68425,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/slope_soapfish_cmyk.jpg",
+    "sha256": "aa217fbf5951ccbf3af65de6e9918576cca85fd537705e2f18ef141e351ae9a1",
+    "bytes": 114848,
     "path": "Resources/MarineLifePhotos/marine-life-slope-soapfish.jpg"
   },
   "marine-life-smallmouth-grunt": {
@@ -2700,9 +2700,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-smooth-eye-blenny.jpg"
   },
   "marine-life-snow-bass": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/8/8b/Serranus_chionaraia.jpg",
-    "sha256": "9cb3ae9608d4364df48d7ee85a9918b1fbe6a0e88012d09ae18b848f58d099bc",
-    "bytes": 148294,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/snow_bass_cmyk.jpg",
+    "sha256": "a67550fe705311ba12e5c78703b9a05c7925d934825b5c19e5d560bf6b83a588",
+    "bytes": 100481,
     "path": "Resources/MarineLifePhotos/marine-life-snow-bass.jpg"
   },
   "marine-life-southern-eagle-ray": {
@@ -2724,9 +2724,9 @@
     "path": "Resources/MarineLifePhotos/marine-life-southern-puffer.jpg"
   },
   "marine-life-southern-stargazer": {
-    "sourceURL": "https://upload.wikimedia.org/wikipedia/commons/1/1e/Astroscopus_y-graecum_160695016.jpg",
-    "sha256": "08df207b1aad0a5a1a223c4a3098c21785e36b882f915b5cc8728a437b4af2ed",
-    "bytes": 225612,
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/southern_stargazer_cmyk.jpg",
+    "sha256": "8f76506fe53ad3ed265e7b87d6f8214f7306600e56b0f257d6338129160ca7e0",
+    "bytes": 122656,
     "path": "Resources/MarineLifePhotos/marine-life-southern-stargazer.jpg"
   },
   "marine-life-southern-stingray": {
@@ -2897,18 +2897,6 @@
     "bytes": 159298,
     "path": "Resources/MarineLifePhotos/marine-life-purple-lettuce-coral.jpg"
   },
-  "marine-life-agelas-cerebrum": {
-    "sourceURL": "https://reefguide.org/pix/agelascerebrum4.jpg",
-    "sha256": "51efd294af60638a5dc73119dadd95d0db2772e61a43547265eaa345a9df7aef",
-    "bytes": 200649,
-    "path": "Resources/MarineLifePhotos/marine-life-agelas-cerebrum.jpg"
-  },
-  "marine-life-agelas-citrina": {
-    "sourceURL": "https://reefguide.org/pix/agelascitrina1.jpg",
-    "sha256": "98e958b2f326d0ca72fecf3c0bac675b5ad73a9e9bedd12726a5e9e9a4da3941",
-    "bytes": 174245,
-    "path": "Resources/MarineLifePhotos/marine-life-agelas-citrina.jpg"
-  },
   "marine-life-orange-elephant-ear-sponge": {
     "sourceURL": "https://reefguide.org/pix/elephantear3.jpg",
     "sha256": "d64d26a83d8efe1397ee5240a272b5bd3ac6bd023bc890e6b9ef6b5421516629",
@@ -2920,12 +2908,6 @@
     "sha256": "6879f276f5e0e2bb55e00cf4d9cf326ee00e298f7b0ed4bcff2ac0987621dbea",
     "bytes": 210161,
     "path": "Resources/MarineLifePhotos/marine-life-brown-tube-sponge.jpg"
-  },
-  "marine-life-agelas-tubulata": {
-    "sourceURL": "https://reefguide.org/pix/agelastubulata10.jpg",
-    "sha256": "22837b198e5111ff575694316dd8df50caab5770bd757a6151e06a9bc35ad093",
-    "bytes": 185007,
-    "path": "Resources/MarineLifePhotos/marine-life-agelas-tubulata.jpg"
   },
   "marine-life-sponge": {
     "sourceURL": "https://reefguide.org/pix/brownclusteredtube1.jpg",
@@ -3275,12 +3257,6 @@
     "bytes": 149450,
     "path": "Resources/MarineLifePhotos/marine-life-brown-variable-sponge.jpg"
   },
-  "marine-life-cliothosa-delitrix": {
-    "sourceURL": "https://reefguide.org/pix/redboring4.jpg",
-    "sha256": "5a565b0bc583ef5023494a26ae1aa1310e6c158ba1dce0d08a35448c86796c5c",
-    "bytes": 221842,
-    "path": "Resources/MarineLifePhotos/marine-life-cliothosa-delitrix.jpg"
-  },
   "marine-life-boulder-brain-coral": {
     "sourceURL": "https://reefguide.org/pix/boulderbraincoral5.jpg",
     "sha256": "cc4938621420d0c8e8422cfcb35daa1c7ddf40d71f405c3284c4b8b7c665cecb",
@@ -3592,12 +3568,6 @@
     "sha256": "13ef2080d7e50ab2dee76e2fd5fb638bfe1069f4a2e3abc42b50a7c6b0e1b798",
     "bytes": 114834,
     "path": "Resources/MarineLifePhotos/marine-life-flapping-dingbat.jpg"
-  },
-  "marine-life-geodia-neptuni": {
-    "sourceURL": "https://reefguide.org/pix/leatherybarrelspounge7.jpg",
-    "sha256": "63628d56539312f1b3da846f3f285ad1d6be3f44eb1b2d9d20b4b065a4170db2",
-    "bytes": 192064,
-    "path": "Resources/MarineLifePhotos/marine-life-geodia-neptuni.jpg"
   },
   "marine-life-yellowfin-mojarra": {
     "sourceURL": "https://reefguide.org/pix/yellowfinmojarra1.jpg",
@@ -3976,12 +3946,6 @@
     "sha256": "fe1690ed94f79ba32cf81d4390f17c605d48b8b699c2d82d6a520f29063aa99a",
     "bytes": 162502,
     "path": "Resources/MarineLifePhotos/marine-life-rose-coral.jpg"
-  },
-  "marine-life-meandrina-jacksoni": {
-    "sourceURL": "https://reefguide.org/pix/whitevalleymazecoral2.jpg",
-    "sha256": "58d2139b74cc436f5ba49ddd1d802caf0bbb2cee72c39658de50e32198a23849",
-    "bytes": 238823,
-    "path": "Resources/MarineLifePhotos/marine-life-meandrina-jacksoni.jpg"
   },
   "marine-life-maze-coral": {
     "sourceURL": "https://reefguide.org/pix/mazecoral4.jpg",
@@ -4631,12 +4595,6 @@
     "bytes": 145770,
     "path": "Resources/MarineLifePhotos/marine-life-sun-anemone.jpg"
   },
-  "marine-life-stichopathes-luetkeni": {
-    "sourceURL": "https://reefguide.org/pix/wirecoral4.jpg",
-    "sha256": "3369c9f193a707bdb5a18d9f9a057e55af956f50330e33823342e850c48ba697",
-    "bytes": 80494,
-    "path": "Resources/MarineLifePhotos/marine-life-stichopathes-luetkeni.jpg"
-  },
   "marine-life-cannonball-jelly": {
     "sourceURL": "https://reefguide.org/pix/cannonballjellyfish1.jpg",
     "sha256": "286b108dcfc63638053e3082c899723bf4dccefb6bbc11e5244ab64b094ca410",
@@ -4715,12 +4673,6 @@
     "bytes": 121612,
     "path": "Resources/MarineLifePhotos/marine-life-branching-hydroid.jpg"
   },
-  "marine-life-topsentia-ophiraphidites": {
-    "sourceURL": "https://reefguide.org/pix/topsentiaophiraphidites1.jpg",
-    "sha256": "5576ed8e0a1570762c046ffb3b24a15bf81e6080547c2819d5726568dfac5dbf",
-    "bytes": 197686,
-    "path": "Resources/MarineLifePhotos/marine-life-topsentia-ophiraphidites.jpg"
-  },
   "marine-life-roughback-shrimp": {
     "sourceURL": "https://reefguide.org/pix/trachycarisrugosa1.jpg",
     "sha256": "d13c740aa05ea4b8594c891a620bd078bee79516d41bf62df2ae6e6ef1e008ef",
@@ -4781,12 +4733,6 @@
     "bytes": 223565,
     "path": "Resources/MarineLifePhotos/marine-life-netted-barrel-sponge.jpg"
   },
-  "marine-life-verongula-reiswigi": {
-    "sourceURL": "https://reefguide.org/pix/verongulareiswigi3.jpg",
-    "sha256": "9a6fec473fc184a3b06a15fb9c1ef32499c4d87faa92a51ba01a1f48a01cbf45",
-    "bytes": 206130,
-    "path": "Resources/MarineLifePhotos/marine-life-verongula-reiswigi.jpg"
-  },
   "marine-life-pitted-sponge": {
     "sourceURL": "https://reefguide.org/pix/pittedsponge2.jpg",
     "sha256": "649470052d4bd146192e39c865f394e18c1e5d396ddc61aefd3daed47f1cf096",
@@ -4841,18 +4787,6 @@
     "bytes": 146219,
     "path": "Resources/MarineLifePhotos/marine-life-low-life-lettuce-coral.jpg"
   },
-  "marine-life-agelas-cervicornis": {
-    "sourceURL": "https://images.marinespecies.org/48236_agelas-cervicornis.jpg",
-    "sha256": "e2fa9b4f2b59f03872ad115809db915197f4b59517559577d1c1090606cd5d7e",
-    "bytes": 36054,
-    "path": "Resources/MarineLifePhotos/marine-life-agelas-cervicornis.jpg"
-  },
-  "marine-life-agelas-sceptrum": {
-    "sourceURL": "https://images.marinespecies.org/48505_alcyonium-sceptrum-lamarck.jpg",
-    "sha256": "4fc474b76cc3f146945bf773296fd78961d0c22bda606d79621a047cf2f2e0d7",
-    "bytes": 30753,
-    "path": "Resources/MarineLifePhotos/marine-life-agelas-sceptrum.jpg"
-  },
   "marine-life-sea-wasp": {
     "sourceURL": "https://images.marinespecies.org/142814_alatina-alata.png",
     "sha256": "23d564c5529edf5d627cb74544dde0c2eb445a932819b28a3bdb8ddd347e9089",
@@ -4877,12 +4811,6 @@
     "bytes": 83006,
     "path": "Resources/MarineLifePhotos/marine-life-little-sea-hare.jpg"
   },
-  "marine-life-aplysina-bathyphila": {
-    "sourceURL": "https://images.marinespecies.org/172157_aplysina-bathyphila-maldonado-en-amp-young-1998.jpg",
-    "sha256": "35ce091db3820f1e54f59c4885cf5dc9605058a3dcee67ae58a8f8847b769089",
-    "bytes": 144843,
-    "path": "Resources/MarineLifePhotos/marine-life-aplysina-bathyphila.jpg"
-  },
   "marine-life-yellow-finger-tube-sponge": {
     "sourceURL": "https://images.marinespecies.org/148167_aplysina-insularis-from-salvador-ba-brasil.jpg",
     "sha256": "a43dfc22ae8ddaa93ac60f34a9d3d9702551f3e2d9ea2977f824ed7701e3bcd5",
@@ -4906,12 +4834,6 @@
     "sha256": "9c15ffabb90629f50157f10ab2ee6cd4a1c4f89fc45f8deeebaa288fa85e1a10",
     "bytes": 87165,
     "path": "Resources/MarineLifePhotos/marine-life-magnificent-urchin.jpg"
-  },
-  "marine-life-batzella-rubra": {
-    "sourceURL": "https://images.marinespecies.org/124780_batzella-rubra-50-110-m-flower-garden-banks-gulf-of-mexico.jpg",
-    "sha256": "9abd4858a1c2aa3fd62a0c78f1316bd4ed8c663bc0889e466d8ec64134cc76b3",
-    "bytes": 150594,
-    "path": "Resources/MarineLifePhotos/marine-life-batzella-rubra.jpg"
   },
   "marine-life-nudibranch": {
     "sourceURL": "https://images.marinespecies.org/151476_bosellia-mimetica.jpg",
@@ -4949,18 +4871,6 @@
     "bytes": 196166,
     "path": "Resources/MarineLifePhotos/marine-life-green-blade-alga.jpg"
   },
-  "marine-life-clathria-faviformis": {
-    "sourceURL": "https://images.marinespecies.org/22683_clathria-clathria-faviformis.jpg",
-    "sha256": "56641d0c6a182931d61a57b819b49ada77d996fa49a4e8a2e27289d0fa513939",
-    "bytes": 106677,
-    "path": "Resources/MarineLifePhotos/marine-life-clathria-faviformis.jpg"
-  },
-  "marine-life-clathria-virgultosa": {
-    "sourceURL": "https://images.marinespecies.org/129405_spongia-virgultosa-esper-1806.jpg",
-    "sha256": "a547067fe7b27c61ba632b88121435ba8cdee7db452a94f22abdb9dd475b811c",
-    "bytes": 101755,
-    "path": "Resources/MarineLifePhotos/marine-life-clathria-virgultosa.jpg"
-  },
   "marine-life-inflated-sea-biscuit": {
     "sourceURL": "https://images.marinespecies.org/145594_clypeaster-rosaceus-aboral.jpg",
     "sha256": "f8dadfe2bd9ea47a82b7e08584900d6cfee45645839f1dfbf3f4b0b8c10b4c3b",
@@ -4990,12 +4900,6 @@
     "sha256": "862846a84799edda894940be4b3b0fe52c10cf7eebf36276e85830a7a48ee6f1",
     "bytes": 70067,
     "path": "Resources/MarineLifePhotos/marine-life-reticulate-cowrie-helmet.jpg"
-  },
-  "marine-life-dichocoenia-stokesi": {
-    "sourceURL": "https://images.marinespecies.org/158897_holotype-of-dichocoenia-stokesi-milne-edwards-en-amp-haime-1848.png",
-    "sha256": "cce33a470308d7c7c00be1d04919b1bc362d5b6ae3c9803a4b98fbb8ac3e2300",
-    "bytes": 129871,
-    "path": "Resources/MarineLifePhotos/marine-life-dichocoenia-stokesi.jpg"
   },
   "marine-life-dichotomous-medusa": {
     "sourceURL": "https://images.marinespecies.org/169133_dichotomia-cannoides-from-gulfstream-off-florida-bell-height-6-mm.jpg",
@@ -5117,12 +5021,6 @@
     "bytes": 117755,
     "path": "Resources/MarineLifePhotos/marine-life-sinuous-cactus-coral.jpg"
   },
-  "marine-life-laguncularia-racemosa": {
-    "sourceURL": "https://images.marinespecies.org/26695_laguncularia-racemosa.jpg",
-    "sha256": "0d78b2905310604dee24b89ad49597522ecb87ca2e68372df4da6e75a678790a",
-    "bytes": 77351,
-    "path": "Resources/MarineLifePhotos/marine-life-laguncularia-racemosa.jpg"
-  },
   "marine-life-transparent-lamellaria": {
     "sourceURL": "https://images.marinespecies.org/155013_marsenia-perspicua.jpg",
     "sha256": "4c3730888cac361c5d4561f4eaf915bf55074dff54be63d9ab64e366f2d3c247",
@@ -5152,12 +5050,6 @@
     "sha256": "d2df31d4a85c94bb75f9abc518a1b63952f8b51876cebc7081eeef0d219a5583",
     "bytes": 56970,
     "path": "Resources/MarineLifePhotos/marine-life-grooved-gooseneck-barnacle.jpg"
-  },
-  "marine-life-leucetta-floridana": {
-    "sourceURL": "https://images.marinespecies.org/20025_leucetta-floridana-in-vivo-brazil-rio-grande-do-norte-state.jpg",
-    "sha256": "84b217e70734afbe7a0f729439ca93b6c1646790ecf9d2cfb2991546269429d2",
-    "bytes": 110160,
-    "path": "Resources/MarineLifePhotos/marine-life-leucetta-floridana.jpg"
   },
   "marine-life-warty-comb-jelly": {
     "sourceURL": "https://images.marinespecies.org/1264_leucothea-multicornis.jpg",
@@ -5447,12 +5339,6 @@
     "bytes": 74500,
     "path": "Resources/MarineLifePhotos/marine-life-hitchhiking-jelly.jpg"
   },
-  "marine-life-xestospongia-deweerdtae": {
-    "sourceURL": "https://images.marinespecies.org/172179_xestospongia-deweerdtae-lehnert-en-amp-van-soest-1999.jpg",
-    "sha256": "5d46cbdfb27e2aaac2c80ee9574779d5f3bf71cf356c124101c5eb7c5b7b97a7",
-    "bytes": 174979,
-    "path": "Resources/MarineLifePhotos/marine-life-xestospongia-deweerdtae.jpg"
-  },
   "marine-life-pearly-razorfish-terminal": {
     "sourceURL": "https://images.marinespecies.org/64624_xyrichtys-novacula.jpg",
     "sha256": "9b7d7cf61a990ddba872537c7bd5c7054dc74fdabb2eb7354e842e12934cf08a",
@@ -5464,5 +5350,2201 @@
     "sha256": "cde04e0a9554ff32ae8457b24cf4ca58d56f542db08f4fd617397c2e76338e61",
     "bytes": 55815,
     "path": "Resources/MarineLifePhotos/marine-life-zancleopsis-jelly.jpg"
+  },
+  "marine-life-gianteye-squid": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/gianteye_squid_cmyk.jpg",
+    "sha256": "cd1172a0cd826c49a752f0993a3cd322d9145bb49cd76ba8aee86ca9a63a2353",
+    "bytes": 41802,
+    "path": "Resources/MarineLifePhotos/marine-life-gianteye-squid.jpg"
+  },
+  "marine-life-dwarf-spinyhead-blenny": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/dwarf_spinyhead_blenny_cmyk.jpg",
+    "sha256": "211e78b911316ce3cb6fa5d897caade0aaba0972b47ae882a9f0d1aa71c84697",
+    "bytes": 95424,
+    "path": "Resources/MarineLifePhotos/marine-life-dwarf-spinyhead-blenny.jpg"
+  },
+  "marine-life-magnum-cockle": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/magnum_cockle_cmyk.jpg",
+    "sha256": "f76fccf58ab7f69dd13bdc061e3159f0941549f764056deb7b2b7c96639f0a39",
+    "bytes": 124033,
+    "path": "Resources/MarineLifePhotos/marine-life-magnum-cockle.jpg"
+  },
+  "marine-life-white-tangled-bryozoan": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/white_tangled_bryozoan_cmyk.jpg",
+    "sha256": "dfe4521d0125568a13a766f9960b8bc944206f22609cbf53f8fff275835f5411",
+    "bytes": 108728,
+    "path": "Resources/MarineLifePhotos/marine-life-white-tangled-bryozoan.jpg"
+  },
+  "marine-life-branching-agardhiella": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Agardhiella_ramosissima_cmyk.jpg",
+    "sha256": "3cd3052a17344aace7962d71e00e424615910891ece173814fe58e4ac4fdf960",
+    "bytes": 135015,
+    "path": "Resources/MarineLifePhotos/marine-life-branching-agardhiella.jpg"
+  },
+  "marine-life-fragile-saucer-coral": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/fragile_saucer_coral_cmyk.jpg",
+    "sha256": "f0a2b782d0ddd188abb5b127f48813d36bc9017ef7ba35179e41d0034473e81d",
+    "bytes": 100388,
+    "path": "Resources/MarineLifePhotos/marine-life-fragile-saucer-coral.jpg"
+  },
+  "marine-life-scroll-coral": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/scroll_coral.jpg",
+    "sha256": "88573aa6af3695c6f827806c94c93e75cd5f76b16a94e47d6d166da003fc0269",
+    "bytes": 82682,
+    "path": "Resources/MarineLifePhotos/marine-life-scroll-coral.jpg"
+  },
+  "marine-life-silky-tegula": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/silky_tegula_cmyk.jpg",
+    "sha256": "f776ef4cc248351b353d8e4828d397ef9b7aa5cce7beb1770de08cafcc9c8fb8",
+    "bytes": 106100,
+    "path": "Resources/MarineLifePhotos/marine-life-silky-tegula.jpg"
+  },
+  "marine-life-yellow-snapping-shrimp": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/yellow_snapping_shrimp_cmyk.jpg",
+    "sha256": "bda1fded8982143420d8752066e4f89ffeac38fb84a17559fc3fc79caadc5bdc",
+    "bytes": 118289,
+    "path": "Resources/MarineLifePhotos/marine-life-yellow-snapping-shrimp.jpg"
+  },
+  "marine-life-sand-snapping-shrimp": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/sand_snapping_shrimp_cmyk.jpg",
+    "sha256": "493b44409e919788f904f9e952619436d695352e1aabffd71a9f2c46044d8655",
+    "bytes": 106891,
+    "path": "Resources/MarineLifePhotos/marine-life-sand-snapping-shrimp.jpg"
+  },
+  "marine-life-spotless-snapping-shrimp": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/spotless_snapping_shrimp_cmyk.jpg",
+    "sha256": "6289a71a7ef9b92ab17566f924395cdd0931e070d52d02deaa665e2c8a0b2009",
+    "bytes": 129351,
+    "path": "Resources/MarineLifePhotos/marine-life-spotless-snapping-shrimp.jpg"
+  },
+  "marine-life-verrills-snapping-shrimp": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Verrill's_snapping_shrimp_cmyk.jpg",
+    "sha256": "386aef413ef06cef721777f27d77b1672fc009db2ac23aaf9de87cc107985009",
+    "bytes": 122475,
+    "path": "Resources/MarineLifePhotos/marine-life-verrills-snapping-shrimp.jpg"
+  },
+  "marine-life-brazilian-twig-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/amphiroa_brasiliana.jpg",
+    "sha256": "ca123624863bb19ed41ebdb02077309533608a5477c3b2de66d800a32364c84a",
+    "bytes": 124291,
+    "path": "Resources/MarineLifePhotos/marine-life-brazilian-twig-alga.jpg"
+  },
+  "marine-life-delicate-twig-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/amphiroa_fragilissima.jpg",
+    "sha256": "7b7790614537dc1739b3ddf7bfb8b94bea832e25add8177f7cd2885ebaa90e75",
+    "bytes": 153070,
+    "path": "Resources/MarineLifePhotos/marine-life-delicate-twig-alga.jpg"
+  },
+  "marine-life-y-twig-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/y_twig_alga.jpg",
+    "sha256": "28d5cdd10e33e7f07cc9b7e1d87b1e1d27c55d8711cca25fcd3fccb97762682d",
+    "bytes": 125125,
+    "path": "Resources/MarineLifePhotos/marine-life-y-twig-alga.jpg"
+  },
+  "marine-life-flat-twig-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/amphiroa_tribulus.jpg",
+    "sha256": "cdfa0023a8230fc7b671a09c48d74007208ca7f8242255cdbc9bdb229107a154",
+    "bytes": 153507,
+    "path": "Resources/MarineLifePhotos/marine-life-flat-twig-alga.jpg"
+  },
+  "marine-life-buttercup-lucine": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/buttercup_lucine_cmyk.jpg",
+    "sha256": "ca148a7b9462c5ad9f4f6bb6a378054c2341abdb94e710ac2f69d583318bfc52",
+    "bytes": 87634,
+    "path": "Resources/MarineLifePhotos/marine-life-buttercup-lucine.jpg"
+  },
+  "marine-life-gastropod-7724": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/aphelodoris_antillensis.jpg",
+    "sha256": "5fd46c0b5094930d1462632cd279b87eb70f8f3ae1d33af20d7f5055f293774e",
+    "bytes": 116474,
+    "path": "Resources/MarineLifePhotos/marine-life-gastropod-7724.jpg"
+  },
+  "marine-life-mottled-seahare": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/mottled_seahare_cmyk.jpg",
+    "sha256": "418b93611203fc034cffeeec0d136a3b8f33ed25fde06e7aea4a510d367a581a",
+    "bytes": 66442,
+    "path": "Resources/MarineLifePhotos/marine-life-mottled-seahare.jpg"
+  },
+  "marine-life-sooty-seahare": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/atlantic_black_seahare_cmyk.jpg",
+    "sha256": "9ba4c8a31912bf1f83fd3772f801fc540f0515dea94f5e315c33be56438791b9",
+    "bytes": 130127,
+    "path": "Resources/MarineLifePhotos/marine-life-sooty-seahare.jpg"
+  },
+  "marine-life-roughlip-cardinalfish": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/roughlip_cardinalfish_cmyk.jpg",
+    "sha256": "3f5b02d388ec5d0485dae23089562bcddddbb834b1e5fdc3654a88001bb37c7e",
+    "bytes": 97718,
+    "path": "Resources/MarineLifePhotos/marine-life-roughlip-cardinalfish.jpg"
+  },
+  "marine-life-black-snapper": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/black_snapper.jpg",
+    "sha256": "67911baf5a3cddf59cc863534edabe84da7229960603b761919762a53ae2c4b5",
+    "bytes": 50109,
+    "path": "Resources/MarineLifePhotos/marine-life-black-snapper.jpg"
+  },
+  "marine-life-sheepshead": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/sheepshead_cmyk.jpg",
+    "sha256": "53f736459d5bee2d94498e93970aefb55b19746d485f1df85eea0f2d83afaea4",
+    "bytes": 117983,
+    "path": "Resources/MarineLifePhotos/marine-life-sheepshead.jpg"
+  },
+  "marine-life-southern-lugworm": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/southern_lugworm.jpg",
+    "sha256": "909a921cf0165d30881769c1d0f3fee39bc6d2d98e5c12bb3e4e4e95e35ed81b",
+    "bytes": 103492,
+    "path": "Resources/MarineLifePhotos/marine-life-southern-lugworm.jpg"
+  },
+  "marine-life-yellow-green-sea-squirt": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/green_tube_tunicate.jpg",
+    "sha256": "e927f2a9482ce904971602160ab6bddb63f98e7d01724fdcdb704f790b1634ff",
+    "bytes": 116281,
+    "path": "Resources/MarineLifePhotos/marine-life-yellow-green-sea-squirt.jpg"
+  },
+  "marine-life-blunt-armed-sea-star": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/blunt_armed_sea_star_cmyk.jpg",
+    "sha256": "2b3dfb4fb4d445ac0b45090deff07388a464e6b88d0ea03389d8c435323e0ab7",
+    "bytes": 123651,
+    "path": "Resources/MarineLifePhotos/marine-life-blunt-armed-sea-star.jpg"
+  },
+  "marine-life-rubbery-leaf-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Asteromenia_peltata_cmyk.jpg",
+    "sha256": "1e79116231162161e5e40e63f6c1986010e0310715f514d723e162ca5833665c",
+    "bytes": 102621,
+    "path": "Resources/MarineLifePhotos/marine-life-rubbery-leaf-alga.jpg"
+  },
+  "marine-life-browns-doris": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Atagema_browni_cmyk.jpg",
+    "sha256": "e8922a98d3246b83ca458bb358411caebfa20af9acf5e0fa301f6ca592fccbe7",
+    "bytes": 105853,
+    "path": "Resources/MarineLifePhotos/marine-life-browns-doris.jpg"
+  },
+  "marine-life-stiff-pen-shell": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/stiff_penshell_cmyk.jpg",
+    "sha256": "52dc451b0d94ab86b2d4b11978c631c7214baf0054c38a1e4ef949daf45bbdef",
+    "bytes": 97960,
+    "path": "Resources/MarineLifePhotos/marine-life-stiff-pen-shell.jpg"
+  },
+  "marine-life-longhorn-nudibranch": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/longhorn_nudibranch_cmyk.jpg",
+    "sha256": "573bdf6be16874ffd1497b69d6d5d25a5e2b723621499bcc44386fb9ab878ff7",
+    "bytes": 90867,
+    "path": "Resources/MarineLifePhotos/marine-life-longhorn-nudibranch.jpg"
+  },
+  "marine-life-black-mangrove": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/black_mangrove.jpg",
+    "sha256": "3e840adebd4de899c3a947018e59d638d17da8c4633f001021b4a5c246d723b6",
+    "bytes": 178103,
+    "path": "Resources/MarineLifePhotos/marine-life-black-mangrove.jpg"
+  },
+  "marine-life-paddle-blade-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/paddle_blade_alga_cmyk.jpg",
+    "sha256": "a490957480a82c90093578b698d2b438fd30ad41fffad099d187a408daf5b6ae",
+    "bytes": 86098,
+    "path": "Resources/MarineLifePhotos/marine-life-paddle-blade-alga.jpg"
+  },
+  "marine-life-gaudy-aeolid": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/gaudy_aeolid_cmyk.jpg",
+    "sha256": "89233b2b3ff1f9934502cb9320a36a4b421e2d02dbaee5bdafea837bcb086c0b",
+    "bytes": 73947,
+    "path": "Resources/MarineLifePhotos/marine-life-gaudy-aeolid.jpg"
+  },
+  "marine-life-hoary-rubble-crab": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/hoary_rubble_crab_cmyk.jpg",
+    "sha256": "8bc22c63c72911e5c4441ca947043b45c45479fa20fa17b559d3ed7eb5cb5163",
+    "bytes": 72638,
+    "path": "Resources/MarineLifePhotos/marine-life-hoary-rubble-crab.jpg"
+  },
+  "marine-life-sooty-eel": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/sooty_eel_cmyk.jpg",
+    "sha256": "3d60a0c4194fbdc58854e661695d1be640c99725af0050c9a76aef8b5563f01a",
+    "bytes": 83511,
+    "path": "Resources/MarineLifePhotos/marine-life-sooty-eel.jpg"
+  },
+  "marine-life-antilles-frillfin-goby": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/antilles_frillfin_goby_cmyk.jpg",
+    "sha256": "6cf4ef6de2e078f1866a780f12c8c5c54f47f7881efed3c8164065e316b4145a",
+    "bytes": 118661,
+    "path": "Resources/MarineLifePhotos/marine-life-antilles-frillfin-goby.jpg"
+  },
+  "marine-life-checkerboard-frillfin-goby": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/checkerboard_frillfin_goby_cmyk.jpg",
+    "sha256": "9433cd059e214ebc3df7bc11d0407e084c5961675348f0b6a3c397ace3d659ed",
+    "bytes": 122599,
+    "path": "Resources/MarineLifePhotos/marine-life-checkerboard-frillfin-goby.jpg"
+  },
+  "marine-life-island-frillfin-goby": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/island_frillfin_goby_cmyk.jpg",
+    "sha256": "b8cfa1c6c7c481a6facc848ffbb685e03a4c7fa93eff2a20e9308d50320e40da",
+    "bytes": 145629,
+    "path": "Resources/MarineLifePhotos/marine-life-island-frillfin-goby.jpg"
+  },
+  "marine-life-berghia-creutzbergi": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Berghia_creutzbergi_side_cmyk.jpg",
+    "sha256": "42c11924908f5a1d6ffae159165b7a9afd0ca6cf89c69f12b5eaaa4808dc1862",
+    "bytes": 65844,
+    "path": "Resources/MarineLifePhotos/marine-life-berghia-creutzbergi.jpg"
+  },
+  "marine-life-yellow-sponge-zoanthid": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/yellow_sponge_zoanthid_cmyk.jpg",
+    "sha256": "ea38bc70cb68d393b886d70c0af841a1554fafcab38c2ffc944e1405559a19fa",
+    "bytes": 81431,
+    "path": "Resources/MarineLifePhotos/marine-life-yellow-sponge-zoanthid.jpg"
+  },
+  "marine-life-nebula-sidegill-slug": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/berthella_nebula_cmyk.jpg",
+    "sha256": "ed8dcc9b2086fe4c65facd5435f714196f5646e1ad9d34042f5fc3cda4e8adb0",
+    "bytes": 74806,
+    "path": "Resources/MarineLifePhotos/marine-life-nebula-sidegill-slug.jpg"
+  },
+  "marine-life-maculated-flounder": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/maculated_flounder_cmyk.jpg",
+    "sha256": "b94ba4908bcb6f6d8b52febb16cc8bcbf4408de467efdcd4448257097f9dfcf4",
+    "bytes": 111306,
+    "path": "Resources/MarineLifePhotos/marine-life-maculated-flounder.jpg"
+  },
+  "marine-life-spinous-red-grape-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Botryocladia_spinulifera_cmyk.jpg",
+    "sha256": "0cccb115ca835b289762b9b99b459533d198c3b4c4b6072c9fd93eff62b92729",
+    "bytes": 108345,
+    "path": "Resources/MarineLifePhotos/marine-life-spinous-red-grape-alga.jpg"
+  },
+  "marine-life-spotcheek-blenny": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/spotcheek_blenny_cmyk.jpg",
+    "sha256": "85052eb65a0c4ba4539306ecbe044dc823cd9cb6e059f894826c8a5ba7fffd74",
+    "bytes": 144502,
+    "path": "Resources/MarineLifePhotos/marine-life-spotcheek-blenny.jpg"
+  },
+  "marine-life-elongated-feather-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/bryopsis_plumosa_cmyk.jpg",
+    "sha256": "f430fcc90c27713592c8a56a0e18961bafa7524488768cacb425b24a04b59800",
+    "bytes": 118122,
+    "path": "Resources/MarineLifePhotos/marine-life-elongated-feather-alga.jpg"
+  },
+  "marine-life-purple-reef-fan": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/purple_reef_fan.jpg",
+    "sha256": "35155b59d123d37511dbbeaa2c1139d3e5511b050d3abd824ec347c8dfb6f81d",
+    "bytes": 119997,
+    "path": "Resources/MarineLifePhotos/marine-life-purple-reef-fan.jpg"
+  },
+  "marine-life-cadlina-rumia": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/pale_cadlina_cmyk.jpg",
+    "sha256": "2de820f77ca5c5771e868a6628c330b8f88d1340c8e35b37c011eed37bcd7621",
+    "bytes": 60056,
+    "path": "Resources/MarineLifePhotos/marine-life-cadlina-rumia.jpg"
+  },
+  "marine-life-rough-box-crab": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/rough_box_crab_cmyk.jpg",
+    "sha256": "70919a24f4c7d292f04b17000f55080e76e990b308b8f0b02050487d9bed6324",
+    "bytes": 100612,
+    "path": "Resources/MarineLifePhotos/marine-life-rough-box-crab.jpg"
+  },
+  "marine-life-chocolate-line-topsnail": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/chocolate_lined_topsnail_cmyk.jpg",
+    "sha256": "14bd7348849c53775bb88d4f69632ed87dbf7baba490617691139778969fabde",
+    "bytes": 141601,
+    "path": "Resources/MarineLifePhotos/marine-life-chocolate-line-topsnail.jpg"
+  },
+  "marine-life-berolina-aglaja": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/berolina_aglaja_3_cmyk.jpg",
+    "sha256": "43ad0dcf95919b9d15d0acd1456cac46da5b003aead5e9eabe846cdf1c230ebc",
+    "bytes": 113560,
+    "path": "Resources/MarineLifePhotos/marine-life-berolina-aglaja.jpg"
+  },
+  "marine-life-crevalle-jack": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/crevalle_jack_cmyk.jpg",
+    "sha256": "966d7de122c0f76dcc0cf18a2761c4bc8c3874ad1fb1519d86ecd88457bec6e7",
+    "bytes": 63484,
+    "path": "Resources/MarineLifePhotos/marine-life-crevalle-jack.jpg"
+  },
+  "marine-life-pearlfish": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/pearlfish_cmyk.jpg",
+    "sha256": "1c9fbf45c2d18694a532b1dcc990483230596c0c488ec08e5ffc75d2061cd824",
+    "bytes": 50874,
+    "path": "Resources/MarineLifePhotos/marine-life-pearlfish.jpg"
+  },
+  "marine-life-silky-shark": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/silky_shark_cmyk.jpg",
+    "sha256": "0014efebd32885261c5cf1a973acde63490af8f3651e9a004088f05f1fa20ab0",
+    "bytes": 40674,
+    "path": "Resources/MarineLifePhotos/marine-life-silky-shark.jpg"
+  },
+  "marine-life-blacktip-shark": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/blacktip_shark_cmyk.jpg",
+    "sha256": "979fcfd59f34f9de2f82a30cafb633365a9bd3052d90db3ad540545cc123162d",
+    "bytes": 30975,
+    "path": "Resources/MarineLifePhotos/marine-life-blacktip-shark.jpg"
+  },
+  "marine-life-ornate-scallop": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/ornate_scallop_cmyk.jpg",
+    "sha256": "947b46248f1448101dbdcfd99da6ade3f2f3e40d74cf113642f390add926e344",
+    "bytes": 102729,
+    "path": "Resources/MarineLifePhotos/marine-life-ornate-scallop.jpg"
+  },
+  "marine-life-knobby-scallop": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/knobby_scallop.jpg",
+    "sha256": "9a21794fda9a0f23a68a25b854a7ccd1b216deba2d54d0f48ddd625795015ae8",
+    "bytes": 94218,
+    "path": "Resources/MarineLifePhotos/marine-life-knobby-scallop.jpg"
+  },
+  "marine-life-flame-helmet": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/flame_helmet_cmyk.jpg",
+    "sha256": "ade8576c813731eb430abd111c5f7c95c09bc69df269f11f374921e2627e91e6",
+    "bytes": 87438,
+    "path": "Resources/MarineLifePhotos/marine-life-flame-helmet.jpg"
+  },
+  "marine-life-emperor-helmet": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/emperor_helmet_cmyk.jpg",
+    "sha256": "02ca7a31eadfd621c9d658029b5eb708b315aeb41fae650dcd26cf1e9bd125ad",
+    "bytes": 96183,
+    "path": "Resources/MarineLifePhotos/marine-life-emperor-helmet.jpg"
+  },
+  "marine-life-catriona-maua": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Catriona_maua_with_eggs_cmyk.jpg",
+    "sha256": "9288fb8069dbb9b0e85384354dac454cf268f3034287f347977ac6ecd3c1caef",
+    "bytes": 82953,
+    "path": "Resources/MarineLifePhotos/marine-life-catriona-maua.jpg"
+  },
+  "marine-life-cactus-tree-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/cactus_tree_alga.jpg",
+    "sha256": "8e7580dbac3ef4534b36c401aac7aa24287e782d7b7db2a5632a5094c8d41b9f",
+    "bytes": 127983,
+    "path": "Resources/MarineLifePhotos/marine-life-cactus-tree-alga.jpg"
+  },
+  "marine-life-flat-green-feather-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/caulerpa_mexicana_cmyk.jpg",
+    "sha256": "32ddf897e027ffebb54d2db217cfd693d5e0eff3820caf7de2620fa0860c9496",
+    "bytes": 104075,
+    "path": "Resources/MarineLifePhotos/marine-life-flat-green-feather-alga.jpg"
+  },
+  "marine-life-green-helmet-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/caulerpa_nummularia.jpg",
+    "sha256": "2404718482e731963dff25ed9e023a16ede301c6b832e5ec6fe669f9bd333a7a",
+    "bytes": 77188,
+    "path": "Resources/MarineLifePhotos/marine-life-green-helmet-alga.jpg"
+  },
+  "marine-life-sawblade-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/sawblade_alga_cmyk.jpg",
+    "sha256": "5c1056df3191ac53968781d5208f96b0308eac0bcbc47b526038d6377b58e37a",
+    "bytes": 132763,
+    "path": "Resources/MarineLifePhotos/marine-life-sawblade-alga.jpg"
+  },
+  "marine-life-green-feather-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/green_feather_alga_cmyk.jpg",
+    "sha256": "38416d99277d04bcf7cf05203cadc86e92bef77e03d590d6c3e97401b65a65d7",
+    "bytes": 108067,
+    "path": "Resources/MarineLifePhotos/marine-life-green-feather-alga.jpg"
+  },
+  "marine-life-fuzzy-caulerpa": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/caulerpa_verticillata.jpg",
+    "sha256": "e88bccd24631b19f75df08ff07ed0afa687c82ea13c1c423340f0df499926c5f",
+    "bytes": 161741,
+    "path": "Resources/MarineLifePhotos/marine-life-fuzzy-caulerpa.jpg"
+  },
+  "marine-life-serrated-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/caulerpa_webbiana.jpg",
+    "sha256": "a0e78c1110c16bdbf05b23008bca440ae4a275bea24e221bc8d9b76a2d381d05",
+    "bytes": 126918,
+    "path": "Resources/MarineLifePhotos/marine-life-serrated-alga.jpg"
+  },
+  "marine-life-seaweed-bryozoan": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/seaweed_bryozoan_cmyk.jpg",
+    "sha256": "4b8537c77bcb63c9f669addf0fe81f8b037b7107b3fe69cff3290eb3a8d30a02",
+    "bytes": 91359,
+    "path": "Resources/MarineLifePhotos/marine-life-seaweed-bryozoan.jpg"
+  },
+  "marine-life-common-snook": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/common_snook_cmyk.jpg",
+    "sha256": "85df6100ceed17d24b0c6ee6751e8896ccfa279faa9376ba60946a058e16bb77",
+    "bytes": 56247,
+    "path": "Resources/MarineLifePhotos/marine-life-common-snook.jpg"
+  },
+  "marine-life-black-seabass": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/black_seabass_cmyk.jpg",
+    "sha256": "605c7a7542c62116fb810d0247a29a22c212cf0d129e651676c31d5640bcab01",
+    "bytes": 94447,
+    "path": "Resources/MarineLifePhotos/marine-life-black-seabass.jpg"
+  },
+  "marine-life-flameback-angelfish": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/flameback_angelfish.jpg",
+    "sha256": "9c51dfcadb2d77c7ce5b4dbb2973c6a79d9fc66d41793ea217a369c6af4312d6",
+    "bytes": 95361,
+    "path": "Resources/MarineLifePhotos/marine-life-flameback-angelfish.jpg"
+  },
+  "marine-life-striving-red-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/ceramium_nitens.jpg",
+    "sha256": "be4c39c9c627839400df9e66240ad14baec563bb957995ea3962e8b83e667af4",
+    "bytes": 121304,
+    "path": "Resources/MarineLifePhotos/marine-life-striving-red-alga.jpg"
+  },
+  "marine-life-stocky-cerith": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/stocky_cerith_cmyk.jpg",
+    "sha256": "acbc18b4bf9515dee9129f9ade4ff81575d36a2a64a46f066c0811da1fb6c191",
+    "bytes": 77753,
+    "path": "Resources/MarineLifePhotos/marine-life-stocky-cerith.jpg"
+  },
+  "marine-life-blackline-fireworm": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/blackline_fireworm_cmyk.jpg",
+    "sha256": "f3820de58c111ea4e2f9feff9ac23e1473666379412450bf1bd7289f327c5b35",
+    "bytes": 132331,
+    "path": "Resources/MarineLifePhotos/marine-life-blackline-fireworm.jpg"
+  },
+  "marine-life-chicken-liver-sponge": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/chicken_liver_sponge_cmyk.jpg",
+    "sha256": "b49038a58729d8e86d99b849b9dc8524a38346bd25648451c3387cada2476b56",
+    "bytes": 100751,
+    "path": "Resources/MarineLifePhotos/marine-life-chicken-liver-sponge.jpg"
+  },
+  "marine-life-shorthorn-decorator-crab": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/shorthorn_decorator_crab_cmyk.jpg",
+    "sha256": "97360795516fcdfc5981fea9fdc475440e09c9f0636a7f8850c3dd96d46d736b",
+    "bytes": 116076,
+    "path": "Resources/MarineLifePhotos/marine-life-shorthorn-decorator-crab.jpg"
+  },
+  "marine-life-west-indian-top-shell": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/magpie_whelk_cmyk.jpg",
+    "sha256": "5b8e4e98eff3b657c75d1a0f67917e8a120fad04e3dd0b5564e83006e6e0bf8d",
+    "bytes": 113909,
+    "path": "Resources/MarineLifePhotos/marine-life-west-indian-top-shell.jpg"
+  },
+  "marine-life-western-tubular-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/cladosiphon_occidentalis.jpg",
+    "sha256": "b5a353205b542697f9af184a671b1ce3e62855ceaeda25fff8f894de1bdf897c",
+    "bytes": 94674,
+    "path": "Resources/MarineLifePhotos/marine-life-western-tubular-alga.jpg"
+  },
+  "marine-life-rusty-encrusting-sponge": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Clathria_minuta_cmyk.jpg",
+    "sha256": "b4e6f0ac86822d9cbc7f0045212116c02b281f59982977dbfa3fa5711d89594a",
+    "bytes": 111330,
+    "path": "Resources/MarineLifePhotos/marine-life-rusty-encrusting-sponge.jpg"
+  },
+  "marine-life-clavelina-oblonga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/oblong_tunicate_cmyk.jpg",
+    "sha256": "345df716cfe175717444ff13e4517818f46d8fd1fc8a38e9ead3c63c4a001687",
+    "bytes": 85855,
+    "path": "Resources/MarineLifePhotos/marine-life-clavelina-oblonga.jpg"
+  },
+  "marine-life-wrinkled-pea-crab": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/wrinkled_pea_crab_cmyk.jpg",
+    "sha256": "fbcb139d696dbd4387ecd0e7387a9339d7006b7c5663ac7b41fd0095c1dd3c3d",
+    "bytes": 96462,
+    "path": "Resources/MarineLifePhotos/marine-life-wrinkled-pea-crab.jpg"
+  },
+  "marine-life-creeping-fuzz-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/codium_intertextum_cmyk.jpg",
+    "sha256": "b55d252c8c64848bdb83f7769c6bb251a5fdc517afcd49fdb63a0de1fe2230e5",
+    "bytes": 105285,
+    "path": "Resources/MarineLifePhotos/marine-life-creeping-fuzz-alga.jpg"
+  },
+  "marine-life-fleshy-twig-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/codium_repens_cmyk.jpg",
+    "sha256": "1fc886a61f6b79d6ee1335aca9fb854bd7469cf84945461db889382c153f1530",
+    "bytes": 122106,
+    "path": "Resources/MarineLifePhotos/marine-life-fleshy-twig-alga.jpg"
+  },
+  "marine-life-buttonwood": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/buttonwood_cmyk.jpg",
+    "sha256": "6a21931b30b34a472d3947a8ccad0293ab86cf3831a23299a36c93ab1aec7edc",
+    "bytes": 108364,
+    "path": "Resources/MarineLifePhotos/marine-life-buttonwood.jpg"
+  },
+  "marine-life-mouse-cone": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/mouse_cone.jpg",
+    "sha256": "4a8a967b5860533ede874332abe5ac7d495ed171178cbb002a8cb2fd28291462",
+    "bytes": 104750,
+    "path": "Resources/MarineLifePhotos/marine-life-mouse-cone.jpg"
+  },
+  "marine-life-ghost-shrimp": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/red-orange_ghost_shrimp_cmyk.jpg",
+    "sha256": "98125cf3f48b977ceaf290c2b352668b26962edeae0380fe953e01de373849de",
+    "bytes": 137712,
+    "path": "Resources/MarineLifePhotos/marine-life-ghost-shrimp.jpg"
+  },
+  "marine-life-florida-cornirostra": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Cornirostra_floridana_cmyk.jpg",
+    "sha256": "f48c8a15b9c96a8c5cdf4570280a80109160d0ad85750fda928bbd3deb867187",
+    "bytes": 76314,
+    "path": "Resources/MarineLifePhotos/marine-life-florida-cornirostra.jpg"
+  },
+  "marine-life-longfinger-neck-crab": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Coryrhynchus_riisei_cmyk.jpg",
+    "sha256": "23ca06ba7e1fea903d11de2636e2d88a91048dcf95018192afd95fe13a0365df",
+    "bytes": 102589,
+    "path": "Resources/MarineLifePhotos/marine-life-longfinger-neck-crab.jpg"
+  },
+  "marine-life-sand-costasiella": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/costasiella_arenaria_cmyk.jpg",
+    "sha256": "19dc94f0e2207432792eb297dd2fe4f5d36e714d8121e1ab3344e9641f063700",
+    "bytes": 90657,
+    "path": "Resources/MarineLifePhotos/marine-life-sand-costasiella.jpg"
+  },
+  "marine-life-costasiella-nonatoi": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/costasiella_nonatoi_cmyk.jpg",
+    "sha256": "df84022ebce0f78722e94a18033c4447e2b990bf4c26f01257208557abaef5b7",
+    "bytes": 87294,
+    "path": "Resources/MarineLifePhotos/marine-life-costasiella-nonatoi.jpg"
+  },
+  "marine-life-eyespot-costasiella": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/eyespot_costasiella_cmyk.jpg",
+    "sha256": "454026aa3f27e49500d59bf03eec49c13f061ea4e7783ab4ea7f12045a9bec99",
+    "bytes": 142247,
+    "path": "Resources/MarineLifePhotos/marine-life-eyespot-costasiella.jpg"
+  },
+  "marine-life-cryptic-blade-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/cryptonemia_crenulata.jpg",
+    "sha256": "a6a9a02ccf90ba3949d0a2448821a6294b5b75724e2bfd3b6bbe8e1753affe78",
+    "bytes": 101095,
+    "path": "Resources/MarineLifePhotos/marine-life-cryptic-blade-alga.jpg"
+  },
+  "marine-life-spotfin-flounder": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/spotfin_flounder_cmyk.jpg",
+    "sha256": "76c9c78b052479a53ae571125d747f3b667ad37f0cd79340470df72b8b2353df",
+    "bytes": 135660,
+    "path": "Resources/MarineLifePhotos/marine-life-spotfin-flounder.jpg"
+  },
+  "marine-life-wavy-cymatioa": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Cymatioa_undulata_cmyk.jpg",
+    "sha256": "2c18b86f6f5db603b7f349bb34a4f784f6ab3d20f550dbbf439f6187f867902b",
+    "bytes": 74799,
+    "path": "Resources/MarineLifePhotos/marine-life-wavy-cymatioa.jpg"
+  },
+  "marine-life-bahama-simnia": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/bahama_simnia_cmyk.jpg",
+    "sha256": "563c8263e26f45a20001460dc0a6c01143f016283476b168e3fa86e240c04728",
+    "bytes": 35631,
+    "path": "Resources/MarineLifePhotos/marine-life-bahama-simnia.jpg"
+  },
+  "marine-life-fingerprint-cyphoma": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/fingerprint_cyphoma_cmyk.jpg",
+    "sha256": "0d38327d6df5b1511411027470deeb3a157051294cc8c1bb9d2dd571a8cda460",
+    "bytes": 92754,
+    "path": "Resources/MarineLifePhotos/marine-life-fingerprint-cyphoma.jpg"
+  },
+  "marine-life-antilles-shaggy-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/dasya_antillarum_cmyk.jpg",
+    "sha256": "c0b0ff5d3586b2b17c7bdaecbb604d91a6930a3bc277094fc537e888050f2e1c",
+    "bytes": 81480,
+    "path": "Resources/MarineLifePhotos/marine-life-antilles-shaggy-alga.jpg"
+  },
+  "marine-life-branching-bush-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Dasya_ramosissima_cmyk.jpg",
+    "sha256": "837a465b0d31a5dc873f056a70f3953a229e28e0c34791c4023e001551c2f345",
+    "bytes": 107747,
+    "path": "Resources/MarineLifePhotos/marine-life-branching-bush-alga.jpg"
+  },
+  "marine-life-shaggy-branch-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Dasycladus_vermicularis_cmyk.jpg",
+    "sha256": "ccc23a9b30a5eba4b8bd8bd41af90782bd0e6f09673d2212433fda7e89cc0e77",
+    "bytes": 142892,
+    "path": "Resources/MarineLifePhotos/marine-life-shaggy-branch-alga.jpg"
+  },
+  "marine-life-mackerel-scad": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/mackerel_scad_cmyk.jpg",
+    "sha256": "b29ff097e84c0a7fe1628e579bf82aacf276473ae681abb274715ae4c5de300b",
+    "bytes": 67656,
+    "path": "Resources/MarineLifePhotos/marine-life-mackerel-scad.jpg"
+  },
+  "marine-life-redtail-scad": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/redtail_scad_cmyk.jpg",
+    "sha256": "744aa9f31e85555979587c086db679117c613f8c7a479c62bf50c3317171c25f",
+    "bytes": 81787,
+    "path": "Resources/MarineLifePhotos/marine-life-redtail-scad.jpg"
+  },
+  "marine-life-feather-bush-hydroid": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/feather_bush_hydroid_cmyk.jpg",
+    "sha256": "61fd828e5013cff31f93a6c78168a4fc17166b91098cb26eac6b50e0c14aed39",
+    "bytes": 112389,
+    "path": "Resources/MarineLifePhotos/marine-life-feather-bush-hydroid.jpg"
+  },
+  "marine-life-green-bubble-weed": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/green_bubble_weed.jpg",
+    "sha256": "701d3da384fb965acb0e871588c577bdf1a0e35c91732ddcb6685f9a9a40e10c",
+    "bytes": 110680,
+    "path": "Resources/MarineLifePhotos/marine-life-green-bubble-weed.jpg"
+  },
+  "marine-life-yellow-blade-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/dictyota_bartayresiana.jpg",
+    "sha256": "ac0570bae1330b95b3aaed496ef1cb94f818a1757366c4fe21f5a4e752c87967",
+    "bytes": 132078,
+    "path": "Resources/MarineLifePhotos/marine-life-yellow-blade-alga.jpg"
+  },
+  "marine-life-notched-blade-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/dictyota_crenulata.jpg",
+    "sha256": "e25899bf30724f20800236ce0686f20dba8f8bbfa438d2e6c6b96915ef857ce4",
+    "bytes": 101601,
+    "path": "Resources/MarineLifePhotos/marine-life-notched-blade-alga.jpg"
+  },
+  "marine-life-y-branched-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/dictyota_humifusa_cmyk.jpg",
+    "sha256": "f135038df78cdf964bdb258dcc3abc8d0d93d32bb69646be41ee09035f2e795f",
+    "bytes": 117660,
+    "path": "Resources/MarineLifePhotos/marine-life-y-branched-alga.jpg"
+  },
+  "marine-life-flower-blade-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/dictyota_menstrualis.jpg",
+    "sha256": "fa39bbb08323e7c7955d7608dab08a2069d15b03eb64ac86fd3688f6d1aa75ff",
+    "bytes": 129294,
+    "path": "Resources/MarineLifePhotos/marine-life-flower-blade-alga.jpg"
+  },
+  "marine-life-narrow-blade-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/dictyota_pulchella_cmyk.jpg",
+    "sha256": "f01fd9a1c4b44ae869deea785e9a214143ca9288cf62f18f37252e37314edd9d",
+    "bytes": 105031,
+    "path": "Resources/MarineLifePhotos/marine-life-narrow-blade-alga.jpg"
+  },
+  "marine-life-white-speck-tunicate": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/white_speck_tunicate.jpg",
+    "sha256": "c741c80d3719f18b047ea39ba88f6ccf2f96a08e23f6ce78249eeb1b61e0ae21",
+    "bytes": 96488,
+    "path": "Resources/MarineLifePhotos/marine-life-white-speck-tunicate.jpg"
+  },
+  "marine-life-didemnum-vanderhorsti": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/black_overgrowing_tunicate_cmyk.jpg",
+    "sha256": "ad8ac1853d41be702f5e67888df3d43189c2d3b673849e9ce89f9b25f16be521",
+    "bytes": 74917,
+    "path": "Resources/MarineLifePhotos/marine-life-didemnum-vanderhorsti.jpg"
+  },
+  "marine-life-silver-porgy": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/silver_porgy_cmyk.jpg",
+    "sha256": "d537935fb9f70da1fb395e9edeaf442195b8e82fe126665c3fb7494c09237672",
+    "bytes": 78015,
+    "path": "Resources/MarineLifePhotos/marine-life-silver-porgy.jpg"
+  },
+  "marine-life-globular-encrusting-tunicate": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/globular_encrusting_tunicate.jpg",
+    "sha256": "ef236fedb52744819f9c4bffe0725ce093de9d404aeb7858cf27ade735d92956",
+    "bytes": 94925,
+    "path": "Resources/MarineLifePhotos/marine-life-globular-encrusting-tunicate.jpg"
+  },
+  "marine-life-sand-dollar-pea-crab": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/sand_dollar_pea_crab.jpg",
+    "sha256": "e35786fa46aefa4ce9917caf1baa4cb95eae3a8751ed0541a7736e329bd547ca",
+    "bytes": 87245,
+    "path": "Resources/MarineLifePhotos/marine-life-sand-dollar-pea-crab.jpg"
+  },
+  "marine-life-button-tunicates": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/button_tunicates_cmyk.jpg",
+    "sha256": "f78c80d827e7a8106a609df9b8be0220add5a5af5157667faa3ef3efa7ac8c92",
+    "bytes": 92667,
+    "path": "Resources/MarineLifePhotos/marine-life-button-tunicates.jpg"
+  },
+  "marine-life-elkhorn-coral-crab": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/elkhorn_coral_crab_cmyk.jpg",
+    "sha256": "4e1c099008c803bbb5774de6b542bfd3816f08b31984f99e09f67f9350a7dc68",
+    "bytes": 100818,
+    "path": "Resources/MarineLifePhotos/marine-life-elkhorn-coral-crab.jpg"
+  },
+  "marine-life-arianes-dondice": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Ariane's_dondice_cmyk.jpg",
+    "sha256": "9c49da322a002fdf39e9912bd3a45f35cd76f7a04e6019b35a5592a915fedde6",
+    "bytes": 110403,
+    "path": "Resources/MarineLifePhotos/marine-life-arianes-dondice.jpg"
+  },
+  "marine-life-western-dondice": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/fringeback_dondice_cmyk.jpg",
+    "sha256": "98726269994a3243ab6701513a7f50ec849ed58fda79312d85fbcd5480e5e7d6",
+    "bytes": 76829,
+    "path": "Resources/MarineLifePhotos/marine-life-western-dondice.jpg"
+  },
+  "marine-life-cassiopea-dondice": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/cassiopea_dondice_cmyk.jpg",
+    "sha256": "1387e10c3d1d61f709abb1522b9e5cb2baa0b43eb92f894bc9e20f341a017f27",
+    "bytes": 110103,
+    "path": "Resources/MarineLifePhotos/marine-life-cassiopea-dondice.jpg"
+  },
+  "marine-life-doriopsilla-espinosai": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Doriopsilla_espinosai_cmyk.jpg",
+    "sha256": "a0491c53667a3b9e087e26ebed31811ed0a97391e28368b8e9664169d1199039",
+    "bytes": 75109,
+    "path": "Resources/MarineLifePhotos/marine-life-doriopsilla-espinosai.jpg"
+  },
+  "marine-life-tishas-black-lined-doris": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Doriopsilla_tishae_cmyk.jpg",
+    "sha256": "d257b2d6d763d289e1c5148f4549f19fbead977be87b9f82be4051cfbf845e6c",
+    "bytes": 105451,
+    "path": "Resources/MarineLifePhotos/marine-life-tishas-black-lined-doris.jpg"
+  },
+  "marine-life-conical-spined-sea-star": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/conical-spined_sea_star_cmyk.jpg",
+    "sha256": "bea64941ddf2ee1df3b83369a8d36bb89ebc65cc5c4655d4767e0eededd2b394",
+    "bytes": 130014,
+    "path": "Resources/MarineLifePhotos/marine-life-conical-spined-sea-star.jpg"
+  },
+  "marine-life-horned-sapsucker": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/horned_elysia_cmyk.jpg",
+    "sha256": "b8d6d2dfeaa9d037808d50607813378ca6fae7d8f2bbf5785671620f3e38235e",
+    "bytes": 113508,
+    "path": "Resources/MarineLifePhotos/marine-life-horned-sapsucker.jpg"
+  },
+  "marine-life-ellens-elysia": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/elysia_ellenae_cmyk.jpg",
+    "sha256": "94c8065c8c974f9aac8f40260b9359873d7cb24aa0958d8e0e080a3f42d13e42",
+    "bytes": 78666,
+    "path": "Resources/MarineLifePhotos/marine-life-ellens-elysia.jpg"
+  },
+  "marine-life-marcuss-elysia": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Elysia_marcusi_cmyk.jpg",
+    "sha256": "a20815452a47c636b821c17c76129413e601722b949eb07a050adb7a440def5d",
+    "bytes": 71119,
+    "path": "Resources/MarineLifePhotos/marine-life-marcuss-elysia.jpg"
+  },
+  "marine-life-pawliks-elysia": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Elysia_pawliki_cmyk.jpg",
+    "sha256": "1699cac1ef7be21623b2ca8a4757e77909f3af014e55549a634199ee40a9a691",
+    "bytes": 67477,
+    "path": "Resources/MarineLifePhotos/marine-life-pawliks-elysia.jpg"
+  },
+  "marine-life-lined-elysia": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/lined_elysia_cmyk.jpg",
+    "sha256": "d0222885b5bb06807e70e682d8a7455b26f097ab5477e1d91e5a4f8fcd014648",
+    "bytes": 105017,
+    "path": "Resources/MarineLifePhotos/marine-life-lined-elysia.jpg"
+  },
+  "marine-life-seagrass-elysia": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/elysia_serca_cmyk.jpg",
+    "sha256": "93a375ef75d70a29a4593aa51578185e5102f75a6d67d9a7f603eb415268005e",
+    "bytes": 116173,
+    "path": "Resources/MarineLifePhotos/marine-life-seagrass-elysia.jpg"
+  },
+  "marine-life-taino-elysia": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/taino_elysia_cmyk.jpg",
+    "sha256": "f5ea63e5bcff5ac24e60fcf74994cd9c5028ef3c3a00433a61c1a2a280491d54",
+    "bytes": 88223,
+    "path": "Resources/MarineLifePhotos/marine-life-taino-elysia.jpg"
+  },
+  "marine-life-zemis-elysia": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/elysia_zemi_cmyl.jpg",
+    "sha256": "be2b859e37173b05e675c62f34eb8cb7581abc24084236199046beb4e155a642",
+    "bytes": 105696,
+    "path": "Resources/MarineLifePhotos/marine-life-zemis-elysia.jpg"
+  },
+  "marine-life-caribbean-blenny": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Caribbean_blenny_cmyk.jpg",
+    "sha256": "605346d1ec273a3a3208c6ba0a9f8548d91f185953c17555db2b8a8a985999c0",
+    "bytes": 82508,
+    "path": "Resources/MarineLifePhotos/marine-life-caribbean-blenny.jpg"
+  },
+  "marine-life-ribbon-blenny": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/ribbon_blenny_cmyk.jpg",
+    "sha256": "beddfa7d0940d9c6be0bd33c686fe46db1bb5f844ea9852848896a563dce7e6d",
+    "bytes": 73721,
+    "path": "Resources/MarineLifePhotos/marine-life-ribbon-blenny.jpg"
+  },
+  "marine-life-lofty-triplefin": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/lofty_triplefin_cmyk.jpg",
+    "sha256": "808a3fb96befe4e4197920a6488b28db8474f16f84d819beb34ef0473b799dcf",
+    "bytes": 96896,
+    "path": "Resources/MarineLifePhotos/marine-life-lofty-triplefin.jpg"
+  },
+  "marine-life-roughhead-triplefin": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/roughhead_triplefin_cmyk.jpg",
+    "sha256": "bc72e486d46c104c7d2316c9a4e72e9292069c04d87dbb0db2d697ba752cad9d",
+    "bytes": 99509,
+    "path": "Resources/MarineLifePhotos/marine-life-roughhead-triplefin.jpg"
+  },
+  "marine-life-matador-triplefin": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/matador_triplefin_cmyk.jpg",
+    "sha256": "f26b203ed8ad47cfbd96bd7dbd80944ab4aa48b013de263944e1f0ea63766bbf",
+    "bytes": 138376,
+    "path": "Resources/MarineLifePhotos/marine-life-matador-triplefin.jpg"
+  },
+  "marine-life-flaming-reef-lobster": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/flaming_reef_lobster.jpg",
+    "sha256": "407ddc95cd96102cee3301ac4c896c66c755581c5d4340da1fe4b174e29572d7",
+    "bytes": 136030,
+    "path": "Resources/MarineLifePhotos/marine-life-flaming-reef-lobster.jpg"
+  },
+  "marine-life-red-grouper": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/red_grouper_cmyk.jpg",
+    "sha256": "75955705af2ba819f0fa2a58f98e5e0cf731f6bca81e00ae217e911f9649f980",
+    "bytes": 101839,
+    "path": "Resources/MarineLifePhotos/marine-life-red-grouper.jpg"
+  },
+  "marine-life-unicorn-neck-crab": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/unicorn_neck_crab_cmyk.jpg",
+    "sha256": "881b5ffe049deb409be550598447fddb55c2ac5940d93e3c8607de0eb4659da5",
+    "bytes": 105426,
+    "path": "Resources/MarineLifePhotos/marine-life-unicorn-neck-crab.jpg"
+  },
+  "marine-life-branching-bubble-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/ernodesmis_verticillata_cmyk.jpg",
+    "sha256": "8ae7485eb9735c7b4f7276ebe5d5346b69ce60684683cc3312cd7cbe1e6748a2",
+    "bytes": 89104,
+    "path": "Resources/MarineLifePhotos/marine-life-branching-bubble-alga.jpg"
+  },
+  "marine-life-encrusting-gorgonian": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/encrusting_gorgonian.jpg",
+    "sha256": "48381dae4285a05db42219da65b75f998aaa2ce8f77a5dab8ca63c53759bee8d",
+    "bytes": 87467,
+    "path": "Resources/MarineLifePhotos/marine-life-encrusting-gorgonian.jpg"
+  },
+  "marine-life-eubranchus-conicla": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/eubranchus_conicla_cmyk.jpg",
+    "sha256": "8a016c9b00990801673f8810c68e0bdba6bf324b172c4545664837b6fd855446",
+    "bytes": 79112,
+    "path": "Resources/MarineLifePhotos/marine-life-eubranchus-conicla.jpg"
+  },
+  "marine-life-flagfin-mojarra": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/flagfin_mojarra.jpg",
+    "sha256": "7bf5eb1820861c4714aed26d3488bd7a66a4f8cca7bed45018910904104914a1",
+    "bytes": 53404,
+    "path": "Resources/MarineLifePhotos/marine-life-flagfin-mojarra.jpg"
+  },
+  "marine-life-doughnut-sea-rod": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/doughnut_sea_rod_cmyk.jpg",
+    "sha256": "e97c59259e2bbd58c61642c9ad190299bcb1ef9045c818f797f7cef031cc6756",
+    "bytes": 120298,
+    "path": "Resources/MarineLifePhotos/marine-life-doughnut-sea-rod.jpg"
+  },
+  "marine-life-swollen-knob-candelabrum": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/swollen_knob_candelabrum_cmyk.jpg",
+    "sha256": "835b95563ebe135a18fbe1bba0f3e4543e8e28f8d01da1394f13501e9ce20235",
+    "bytes": 103947,
+    "path": "Resources/MarineLifePhotos/marine-life-swollen-knob-candelabrum.jpg"
+  },
+  "marine-life-shelf-knob-sea-rod": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/shelf_knob_sea_rod_cmyk.jpg",
+    "sha256": "acbdcd64fe69694755b7a6928d61e9d09c5fd780cf15ba647b9da259313c1add",
+    "bytes": 128966,
+    "path": "Resources/MarineLifePhotos/marine-life-shelf-knob-sea-rod.jpg"
+  },
+  "marine-life-gastropod-8618": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/long_eared_favorinus_cmyk.jpg",
+    "sha256": "f29a48d39538a43b0aa37260a43676dc6095fcf08b4c3e9bda5bd78346911a50",
+    "bytes": 119016,
+    "path": "Resources/MarineLifePhotos/marine-life-gastropod-8618.jpg"
+  },
+  "marine-life-gold-crowned-sea-goddess": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/gold_crowned_sea_goddess_cmyk.jpg",
+    "sha256": "c80e804e367d828c533789d76e38a74d4ee7f3bc1ef5bf755b73d411f740f751",
+    "bytes": 128533,
+    "path": "Resources/MarineLifePhotos/marine-life-gold-crowned-sea-goddess.jpg"
+  },
+  "marine-life-purple-crowned-sea-goddess": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/purple_crowned_sea_goddess_cmyk.jpg",
+    "sha256": "2be07d584f6ca04665c725a677eea2eb449002d3a67f0af5bdd7764c831116a4",
+    "bytes": 74347,
+    "path": "Resources/MarineLifePhotos/marine-life-purple-crowned-sea-goddess.jpg"
+  },
+  "marine-life-redline-blue-sea-goddess": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/redline_blue_sea_goddess_cmyk.jpg",
+    "sha256": "ed4b7675e17e714319cd3ce780afe16543e8d339454ca0c132f97c342b7d10e7",
+    "bytes": 101436,
+    "path": "Resources/MarineLifePhotos/marine-life-redline-blue-sea-goddess.jpg"
+  },
+  "marine-life-gold-lined-sea-goddess": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/gold_lined_sea_goddess_cmyk.jpg",
+    "sha256": "9e7e2e8b02ff6f9d7a865eea4822bbc90f831d1c736a73b826c9e0ce897c4508",
+    "bytes": 117691,
+    "path": "Resources/MarineLifePhotos/marine-life-gold-lined-sea-goddess.jpg"
+  },
+  "marine-life-harlequin-sea-goddess": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Felimida_binza_cmyk.jpg",
+    "sha256": "5ae2bb4cd378bedabee6197f8dc98912ea6f807f9a0df58f29d55bfcd4ccc40f",
+    "bytes": 81216,
+    "path": "Resources/MarineLifePhotos/marine-life-harlequin-sea-goddess.jpg"
+  },
+  "marine-life-clenchs-sea-goddess": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/felimida_clenchi_cmyk.jpg",
+    "sha256": "dd7596e8d6886584c1045b30d6f255b632dedac0a1d2b820f6ee41fe2ddbb82a",
+    "bytes": 87786,
+    "path": "Resources/MarineLifePhotos/marine-life-clenchs-sea-goddess.jpg"
+  },
+  "marine-life-flabellina-engeli": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Engel's_flabellina_cmyk.jpg",
+    "sha256": "9670992f72619927440bf8469d9a2ca0b615466e6cc8cf709bb1c21fb5a8d64a",
+    "bytes": 91917,
+    "path": "Resources/MarineLifePhotos/marine-life-flabellina-engeli.jpg"
+  },
+  "marine-life-red-disc-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Flahaultia_tegetiformans_cmyk.jpg",
+    "sha256": "bbf92b98e9ecb26ebd7d7c8d4eab09c0c409255aa4362cfd45ced63f66626af8",
+    "bytes": 128666,
+    "path": "Resources/MarineLifePhotos/marine-life-red-disc-alga.jpg"
+  },
+  "marine-life-ocellated-frogfish": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/ocellated_frogfish_cmyk.jpg",
+    "sha256": "331dfcc7d295bf38f6b42fc74cf3b719abfdb2a27c13bfde18339f12c4ca53b3",
+    "bytes": 86516,
+    "path": "Resources/MarineLifePhotos/marine-life-ocellated-frogfish.jpg"
+  },
+  "marine-life-tubular-thicket-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/galaxaura_rugosa_cmyk.jpg",
+    "sha256": "d000a03eefa58678a65f75eae95f53d40065fab35a82082a580d3306ee36424d",
+    "bytes": 169772,
+    "path": "Resources/MarineLifePhotos/marine-life-tubular-thicket-alga.jpg"
+  },
+  "marine-life-sponge-51742": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Geodia_gibberosa_cmyk.jpg",
+    "sha256": "2958947c6c171dbc4a117a53fda0f9058f5e89398d7568fd29c283e5c4b4500f",
+    "bytes": 104573,
+    "path": "Resources/MarineLifePhotos/marine-life-sponge-51742.jpg"
+  },
+  "marine-life-warteyed-stargazer": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/warteyed_stargazer_cmyk.jpg",
+    "sha256": "7584e20de0bf58b8363117bd4f5cb0eb9b855053ee1579c8a3c1eee153e38722",
+    "bytes": 110476,
+    "path": "Resources/MarineLifePhotos/marine-life-warteyed-stargazer.jpg"
+  },
+  "marine-life-nineline-goby": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/nineline_goby_cmyk.jpg",
+    "sha256": "e4f322b55577843f48fc7256288c0d870d6d7efec1272ee21516f9c022e55b95",
+    "bytes": 128591,
+    "path": "Resources/MarineLifePhotos/marine-life-nineline-goby.jpg"
+  },
+  "marine-life-squat-urchin-shrimp": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/urchin_bumblebee_shrimp_cmyk.jpg",
+    "sha256": "0bffe6fcd8f4174f4f9167cf7cef3e447ba96af3bb1944e98a8a05c82b486b46",
+    "bytes": 72642,
+    "path": "Resources/MarineLifePhotos/marine-life-squat-urchin-shrimp.jpg"
+  },
+  "marine-life-sargassum-horned-flatworm": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Gnesioceros_sargassicola_cmyk.jpg",
+    "sha256": "62fd9ebaeaaa43a610dca68a92d628c44fecb8c8a5955b133b583aeef263891c",
+    "bytes": 100610,
+    "path": "Resources/MarineLifePhotos/marine-life-sargassum-horned-flatworm.jpg"
+  },
+  "marine-life-mimic-blenny": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/mimic_blenny_cmyk.jpg",
+    "sha256": "92f5561dc16ba29d2a3accd05c485e6b1e4cf1e4f59c0c8074ffecd23b97ecd2",
+    "bytes": 144918,
+    "path": "Resources/MarineLifePhotos/marine-life-mimic-blenny.jpg"
+  },
+  "marine-life-downy-blenny": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/downy_blenny.jpg",
+    "sha256": "93dd2ace1cdf88e203a9b02cfaf1d6f037cd964ab56fb7f50cc8aa79eaeafd78",
+    "bytes": 106522,
+    "path": "Resources/MarineLifePhotos/marine-life-downy-blenny.jpg"
+  },
+  "marine-life-highfin-goby": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/highfin_goby_cmyk.jpg",
+    "sha256": "0d7aa7af667e25fe195622441e7e294a00f76f2d09e9b39247a5a5bd2a16ee40",
+    "bytes": 132321,
+    "path": "Resources/MarineLifePhotos/marine-life-highfin-goby.jpg"
+  },
+  "marine-life-reef-cave-brotula": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/reef_cave_brotula.jpg",
+    "sha256": "16d164e94098f9e514c11151d56f43badefa2e3deebcab8d5a84fd6bb3071bb6",
+    "bytes": 89892,
+    "path": "Resources/MarineLifePhotos/marine-life-reef-cave-brotula.jpg"
+  },
+  "marine-life-striped-grunt": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/striped_grunt_cmyk.jpg",
+    "sha256": "cc3032f3190fdd45da09e2ec87f57793b95ef3e081c9d8081a9df37c46131f10",
+    "bytes": 93964,
+    "path": "Resources/MarineLifePhotos/marine-life-striped-grunt.jpg"
+  },
+  "marine-life-large-leaf-hanging-vine": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/large_leaf_hanging_vine.jpg",
+    "sha256": "cb636affb006059bcdad87ab386eb4c5745f897fe0c62ab9f1c199d4629331b0",
+    "bytes": 179977,
+    "path": "Resources/MarineLifePhotos/marine-life-large-leaf-hanging-vine.jpg"
+  },
+  "marine-life-cryptic-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/halimeda_cryptica.jpg",
+    "sha256": "e9547facbf1178a91864ece980fd9d34c1adf02785db176e15f5d821e85f9061",
+    "bytes": 106031,
+    "path": "Resources/MarineLifePhotos/marine-life-cryptic-alga.jpg"
+  },
+  "marine-life-small-leaf-hanging-vine": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/small_leaf_hanging_vine_cmyk.jpg",
+    "sha256": "a4bdf80094d45db84a95619acc1614986231f173c811e1a0bbeebf7e3a3b5c40",
+    "bytes": 119350,
+    "path": "Resources/MarineLifePhotos/marine-life-small-leaf-hanging-vine.jpg"
+  },
+  "marine-life-three-finger-leaf-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/three_finger_leaf_alga_cmyk.jpg",
+    "sha256": "0d3d59b4aed6e7f4285a7e5a6cd4c4f52bc480d05856ddfa0be5c69c5228c781",
+    "bytes": 94385,
+    "path": "Resources/MarineLifePhotos/marine-life-three-finger-leaf-alga.jpg"
+  },
+  "marine-life-jointed-stalk-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/jointed_stalk_alga_cmyk.jpg",
+    "sha256": "78c246059a5d63e270fa0c31dd69723f92b8cd258e4a0ce7fb0df57c1b4f603b",
+    "bytes": 113084,
+    "path": "Resources/MarineLifePhotos/marine-life-jointed-stalk-alga.jpg"
+  },
+  "marine-life-watercress-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/watercress_alga_cmyk.jpg",
+    "sha256": "2f37b96de08f6f142321adeebf3c2f50d7118a2cbbf4db90b6b2a578208aa05e",
+    "bytes": 128814,
+    "path": "Resources/MarineLifePhotos/marine-life-watercress-alga.jpg"
+  },
+  "marine-life-robust-leaf-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/halimeda_scabra_cmyk.jpg",
+    "sha256": "2ed0f8b356c6a092a2a23e157001994eaba07afdc30c746dc68a42fbb5cedd79",
+    "bytes": 125224,
+    "path": "Resources/MarineLifePhotos/marine-life-robust-leaf-alga.jpg"
+  },
+  "marine-life-branching-leaf-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/halimeda_simulans_cmyk.jpg",
+    "sha256": "94989fe34cc4e6944edde2e0bc9e2ee945a3b4595ee761fdedf9a3ad61592cb5",
+    "bytes": 90402,
+    "path": "Resources/MarineLifePhotos/marine-life-branching-leaf-alga.jpg"
+  },
+  "marine-life-midrib-seagrass": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/midrib_seagrass_cmyk.jpg",
+    "sha256": "34794ab29e39fbffde8ff4a6221a8a0dc17333c1ac4cec88ad42943153bf39e5",
+    "bytes": 112397,
+    "path": "Resources/MarineLifePhotos/marine-life-midrib-seagrass.jpg"
+  },
+  "marine-life-thread-hydroid": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/thread_hydroid.jpg",
+    "sha256": "bb1f2ba17904d266b89deac62cd36d955b3465c16356e263b74e77d55a0cb5fb",
+    "bytes": 83495,
+    "path": "Resources/MarineLifePhotos/marine-life-thread-hydroid.jpg"
+  },
+  "marine-life-rubbery-bush-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Halymenia_elongata_cmyk.jpg",
+    "sha256": "14ba077a204e6f9f9c46d52c590c68495ebe19483567b440859f1190113630a5",
+    "bytes": 102622,
+    "path": "Resources/MarineLifePhotos/marine-life-rubbery-bush-alga.jpg"
+  },
+  "marine-life-twin-corded-latirus": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/twin-corded_latirus_cmyk.jpg",
+    "sha256": "6e89cbb281670ff078c6351aaff35516dcf698e764458f6d867b70fa081c89df",
+    "bytes": 96773,
+    "path": "Resources/MarineLifePhotos/marine-life-twin-corded-latirus.jpg"
+  },
+  "marine-life-crossbearer-hermaea": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/crossbearer_hermaea_cmyk.jpg",
+    "sha256": "c633bf110452af6ab25149bb633ad3d56c5dcbfba8faad3349704f23758bcbff",
+    "bytes": 92714,
+    "path": "Resources/MarineLifePhotos/marine-life-crossbearer-hermaea.jpg"
+  },
+  "marine-life-anemone-mysid": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/anemone_mysid_cmyk.jpg",
+    "sha256": "5eab49d2b5eb5a040d51581583b18b0667441273fdf5117b680105a6265a965f",
+    "bytes": 104907,
+    "path": "Resources/MarineLifePhotos/marine-life-anemone-mysid.jpg"
+  },
+  "marine-life-hexabranchus-morsomus": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/caribbean_spanish_dancer_cmyk.jpg",
+    "sha256": "4d8dc34fd14baff75d829367d062ad4ccc7d8ed13a1fde9a0db8709f831cf054",
+    "bytes": 103278,
+    "path": "Resources/MarineLifePhotos/marine-life-hexabranchus-morsomus.jpg"
+  },
+  "marine-life-tenant-flatworm": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/tenant_flatworm_cmyk.jpg",
+    "sha256": "bc0cee3ffcce07ed3cba1d96b369c041f886aa61719dbb4185475d36a5fb0371",
+    "bytes": 93028,
+    "path": "Resources/MarineLifePhotos/marine-life-tenant-flatworm.jpg"
+  },
+  "marine-life-lavender-crust-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/lavender_crust_alga.jpg",
+    "sha256": "00b14c67d2a6eee940a1614b610d54f7581b9968b359729321e83f84759b10fa",
+    "bytes": 120767,
+    "path": "Resources/MarineLifePhotos/marine-life-lavender-crust-alga.jpg"
+  },
+  "marine-life-barred-blenny": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/barred_blenny_cmyk.jpg",
+    "sha256": "3a44faff52d7148e78c7190d67849da533a1ad869a77ae07f9aeee9516909dab",
+    "bytes": 93480,
+    "path": "Resources/MarineLifePhotos/marine-life-barred-blenny.jpg"
+  },
+  "marine-life-oyster-blenny": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/oyster_blenny_cmyk.jpg",
+    "sha256": "a7abcf6316f216dbd9b2399e948a99ff5d6436fdb76c3657d9fcf64104f2215b",
+    "bytes": 163919,
+    "path": "Resources/MarineLifePhotos/marine-life-oyster-blenny.jpg"
+  },
+  "marine-life-stippled-flatworm": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Idioplana_atlantica_cmyk.jpg",
+    "sha256": "e30bf5e58a800f4c8d3252227d1f0dae4989518e60664cc7129524cfb296e06d",
+    "bytes": 119414,
+    "path": "Resources/MarineLifePhotos/marine-life-stippled-flatworm.jpg"
+  },
+  "marine-life-flat-tree-oyster": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/flat_tree_oyster_cmyk.jpg",
+    "sha256": "8e30fca72ade8af1b8051d3b7f229c15c7a81c86a34f6afa0a4b9a1f9437fe83",
+    "bytes": 107208,
+    "path": "Resources/MarineLifePhotos/marine-life-flat-tree-oyster.jpg"
+  },
+  "marine-life-radial-purse-oyster": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/radial_purse_oyster_cmyk.jpg",
+    "sha256": "960bdbb49dd26ac9fa85846ab34ab5bddef7ff5d77c89a7af01e24e515f89f4b",
+    "bytes": 118771,
+    "path": "Resources/MarineLifePhotos/marine-life-radial-purse-oyster.jpg"
+  },
+  "marine-life-pink-segmented-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/pink_segmented_alga.jpg",
+    "sha256": "e83e1208880e9b9ce5b89809b0f9557c4dfa0055abb8a6bef3581220bf85031f",
+    "bytes": 129500,
+    "path": "Resources/MarineLifePhotos/marine-life-pink-segmented-alga.jpg"
+  },
+  "marine-life-pink-branchlet-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Jania_cubensis.jpg",
+    "sha256": "a6f299b56c5ce49220fd9d25c0913c0d2730454c70875c2376bd6b5e9eecdfcc",
+    "bytes": 143219,
+    "path": "Resources/MarineLifePhotos/marine-life-pink-branchlet-alga.jpg"
+  },
+  "marine-life-janolus-comis": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Janolus_comis_cmyk.jpg",
+    "sha256": "348ee589809b07589c19110d96de0f0576084058497b66211783a81f3c3212d7",
+    "bytes": 106816,
+    "path": "Resources/MarineLifePhotos/marine-life-janolus-comis.jpg"
+  },
+  "marine-life-favored-tellin": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/favored_tellin_cmyk.jpg",
+    "sha256": "99210584182518d7a39a109535669e6a78839dbd5c3eb72bb075606c673e7729",
+    "bytes": 101631,
+    "path": "Resources/MarineLifePhotos/marine-life-favored-tellin.jpg"
+  },
+  "marine-life-speckled-jorunna": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Jorunna_coloradilla_cmyk.jpg",
+    "sha256": "b137557af4f649c870eff6b3709890a438fcb42177ad3950ffd73048eec50958",
+    "bytes": 88202,
+    "path": "Resources/MarineLifePhotos/marine-life-speckled-jorunna.jpg"
+  },
+  "marine-life-jorunna-spazzola": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/brush_jorunna_cmyk.jpg",
+    "sha256": "69eb7afefdb364506be5f675d3f09998f417eb02a5cd54a053f2b68dfc0ce088",
+    "bytes": 79910,
+    "path": "Resources/MarineLifePhotos/marine-life-jorunna-spazzola.jpg"
+  },
+  "marine-life-atlantic-flashlight-fish": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/atlantic_flashlight_fish.jpg",
+    "sha256": "a530806d789d4d9e2e8ec9a6558d1b9ef7dbe3afd30af27b1bc6d97239e62ee7",
+    "bytes": 109959,
+    "path": "Resources/MarineLifePhotos/marine-life-atlantic-flashlight-fish.jpg"
+  },
+  "marine-life-topsail-chub": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/topsail_chub_cmyk.jpg",
+    "sha256": "b210f73e149d7ec654089a42665dc3ad545109c6d241a10d7f142d4a255eaa2d",
+    "bytes": 63287,
+    "path": "Resources/MarineLifePhotos/marine-life-topsail-chub.jpg"
+  },
+  "marine-life-red-tipped-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Laurencia_chondrioides_cmyk.jpg",
+    "sha256": "87e258a053d389cd0db42da944a12a4d96a2ace17961143c99d1b09495acb82b",
+    "bytes": 104679,
+    "path": "Resources/MarineLifePhotos/marine-life-red-tipped-alga.jpg"
+  },
+  "marine-life-learchis-poica": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/learchis_poica_cmyk.jpg",
+    "sha256": "f27b574b02e26a7be001180f4ccca4ad735191c13c39cb76226e5092656099b4",
+    "bytes": 81964,
+    "path": "Resources/MarineLifePhotos/marine-life-learchis-poica.jpg"
+  },
+  "marine-life-roughnose-decorator-crab": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/roughnose_decorator_crab.jpg",
+    "sha256": "cb4ea9d2074fcd00f7702f3e7108497e2c3a73ffea06963a0d46470a5d30751f",
+    "bytes": 78293,
+    "path": "Resources/MarineLifePhotos/marine-life-roughnose-decorator-crab.jpg"
+  },
+  "marine-life-chestnut-latirus": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/chestnut_latirus_cmyk.jpg",
+    "sha256": "75a8f8962b920c4f5220416e7763e124e0397c29b40f4d1cbe0caf9d2f388c33",
+    "bytes": 90210,
+    "path": "Resources/MarineLifePhotos/marine-life-chestnut-latirus.jpg"
+  },
+  "marine-life-candy-basslet": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/candy_basslet.jpg",
+    "sha256": "e029c0c5e71c2009524955b96710aa6e7eb9fdb4f4ac32208a5af57cfb4edbe9",
+    "bytes": 108142,
+    "path": "Resources/MarineLifePhotos/marine-life-candy-basslet.jpg"
+  },
+  "marine-life-threeline-basslet": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/threeline_basslet.jpg",
+    "sha256": "1592b45cb000be028a022fd8e3c0f3259a99a653ba58f33f671c8d915d856cde",
+    "bytes": 102322,
+    "path": "Resources/MarineLifePhotos/marine-life-threeline-basslet.jpg"
+  },
+  "marine-life-deepwater-rose-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Lithothamnion_ruptile_cmyk.jpg",
+    "sha256": "728c9161b2231fa744bd49c84e8124368746d6badfe68d434f8c98018d482633",
+    "bytes": 110804,
+    "path": "Resources/MarineLifePhotos/marine-life-deepwater-rose-alga.jpg"
+  },
+  "marine-life-roostertail-conch": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/roostertail_conch_cmyk.jpg",
+    "sha256": "e0e7c8e2fbc80af06e489560006e52e7002fc2d960643ba62c0001dfc8c4a55e",
+    "bytes": 121042,
+    "path": "Resources/MarineLifePhotos/marine-life-roostertail-conch.jpg"
+  },
+  "marine-life-queen-conch": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/queen_conch.jpg",
+    "sha256": "82832a4174012e9b682381e31a71b25c144967c9a9cc30263cf551be1bbfe702",
+    "bytes": 100630,
+    "path": "Resources/MarineLifePhotos/marine-life-queen-conch.jpg"
+  },
+  "marine-life-lobatus-raninus": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/hawkwing_conch.jpg",
+    "sha256": "0e7634f6b3d918e95235cc4dc36280466546be4eef6bb31c26e3cf9fd1f7b67f",
+    "bytes": 87623,
+    "path": "Resources/MarineLifePhotos/marine-life-lobatus-raninus.jpg"
+  },
+  "marine-life-encrusting-fan-leaf-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/lobophora_variegata_2.jpg",
+    "sha256": "59dfcfaae385db2e3e46d9a8f56896fa6ed82b800ae8a2a1758819f46723e2ee",
+    "bytes": 97492,
+    "path": "Resources/MarineLifePhotos/marine-life-encrusting-fan-leaf-alga.jpg"
+  },
+  "marine-life-lomanotus-phiops": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Lomanotus_phiops_cmyk.jpg",
+    "sha256": "d626c087d7cf3fb0a7f1542c6ea7caea407b20269a9f00917d9fab6fe26b9520",
+    "bytes": 76261,
+    "path": "Resources/MarineLifePhotos/marine-life-lomanotus-phiops.jpg"
+  },
+  "marine-life-crested-goby": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/crested_goby_cmyk.jpg",
+    "sha256": "cb56feb1324fe49c9cb2609af4c3d4a0af1c6112950f8b77b3a321d29e7bd441",
+    "bytes": 112716,
+    "path": "Resources/MarineLifePhotos/marine-life-crested-goby.jpg"
+  },
+  "marine-life-diphasic-goby": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/diphasic_goby_cmyk.jpg",
+    "sha256": "401c29acec165d5ea867146a3241eee10413bdba4643fe640da87deae310f876",
+    "bytes": 98863,
+    "path": "Resources/MarineLifePhotos/marine-life-diphasic-goby.jpg"
+  },
+  "marine-life-pygmy-goby": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/pygmy_goby_cmyk.jpg",
+    "sha256": "f0fc484c1c4700bc55dddf723ef6c4bccf48177bfd51d53075eedf6a01712177",
+    "bytes": 89225,
+    "path": "Resources/MarineLifePhotos/marine-life-pygmy-goby.jpg"
+  },
+  "marine-life-bluegold-goby": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/bluegold_goby_cmyk.jpg",
+    "sha256": "caa4eb7723f22ed351a455236e950eb826ae72df78667f0449a4c417f3c0e56d",
+    "bytes": 76883,
+    "path": "Resources/MarineLifePhotos/marine-life-bluegold-goby.jpg"
+  },
+  "marine-life-nodipes-decorator-crab": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/nodipes_decorator_crab_cmyk.jpg",
+    "sha256": "c0718dda00b3bf9412145f306a509b3ae96fbcd0ff6eebe8d9fedcdd9d5ae12e",
+    "bytes": 85509,
+    "path": "Resources/MarineLifePhotos/marine-life-nodipes-decorator-crab.jpg"
+  },
+  "marine-life-yellow-pencil-coral": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/yellow_pencil_coral_2_cmyk.jpg",
+    "sha256": "75902b25365728be38d8cc0741a4371010336fea8c45e7d33f15f7ffec2e28ec",
+    "bytes": 120086,
+    "path": "Resources/MarineLifePhotos/marine-life-yellow-pencil-coral.jpg"
+  },
+  "marine-life-imitator-blenny": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/imitator_blenny_cmyk.jpg",
+    "sha256": "5db9ade78d964896253cb13cebf16a682b11053803487972396cc236349058dd",
+    "bytes": 134269,
+    "path": "Resources/MarineLifePhotos/marine-life-imitator-blenny.jpg"
+  },
+  "marine-life-palp-worm": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/palp_worm_cmyk.jpg",
+    "sha256": "19ae78a42255c8c9fb60d115815633149b0a0c44655f2c2df124540458f652ca",
+    "bytes": 92937,
+    "path": "Resources/MarineLifePhotos/marine-life-palp-worm.jpg"
+  },
+  "marine-life-clown-goby": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/clown_goby_cmyk.jpg",
+    "sha256": "bbc237cfc16a28e6beaf6a597b97a13da3f2caf44fbd6947f828c2f90cd535fb",
+    "bytes": 112343,
+    "path": "Resources/MarineLifePhotos/marine-life-clown-goby.jpg"
+  },
+  "marine-life-tawny-conch-shrimp": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/tawny_conch_shrimp_cmyk.jpg",
+    "sha256": "9d3aa4648cb9f6efdd76c5e0f4636db0621195943db06ef1819d0d0f1c6a102c",
+    "bytes": 82367,
+    "path": "Resources/MarineLifePhotos/marine-life-tawny-conch-shrimp.jpg"
+  },
+  "marine-life-crimson-coral-shrimp": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/crimson_coral_shrimp_cmyk.jpg",
+    "sha256": "df0e34e39d7a8b9dd12fde2a73bdaa57bb068a2fc81a23fd67af3fbf1b148e6c",
+    "bytes": 114897,
+    "path": "Resources/MarineLifePhotos/marine-life-crimson-coral-shrimp.jpg"
+  },
+  "marine-life-green-clinging-crab": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/green_clinging_crab.jpg",
+    "sha256": "5beaf8be2d104c0b256e22d5ec5b2e15b1e503f353a75a35279431f8202d2d62",
+    "bytes": 94743,
+    "path": "Resources/MarineLifePhotos/marine-life-green-clinging-crab.jpg"
+  },
+  "marine-life-chilean-devil-ray": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Chilean_devil_ray_cmyk.jpg",
+    "sha256": "9794bd63661a8bb93f630908238af4e1eef38331cfe2df05cdb16802a9c81ac5",
+    "bytes": 36427,
+    "path": "Resources/MarineLifePhotos/marine-life-chilean-devil-ray.jpg"
+  },
+  "marine-life-dwarf-hairy-triton": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/dwarf_hairy_triton_cmyk.jpg",
+    "sha256": "3f537fc86f44bcae21ae31e833d1b2429d7d83da5be8d5aefa52a145f2f2eb3c",
+    "bytes": 103984,
+    "path": "Resources/MarineLifePhotos/marine-life-dwarf-hairy-triton.jpg"
+  },
+  "marine-life-murca-glass-slug-variation": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Mourgona_murca_cmyk.jpg",
+    "sha256": "2743259cd264a97b3982afb2f4e1a9914d805d37b7194d370932bf04fb3ba74b",
+    "bytes": 94178,
+    "path": "Resources/MarineLifePhotos/marine-life-murca-glass-slug-variation.jpg"
+  },
+  "marine-life-delicate-spiny-sea-rod": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/delicate_spiny_sea_rod_cmyk.jpg",
+    "sha256": "f7e09afef70fb008e2dadbd218eef28b34c631c5971781d7e096fd6ee65dc7b7",
+    "bytes": 127122,
+    "path": "Resources/MarineLifePhotos/marine-life-delicate-spiny-sea-rod.jpg"
+  },
+  "marine-life-spiny-sea-fan": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/spiny_sea_fan_cmyk.jpg",
+    "sha256": "bb592e5375345f307a72634d4091d68b9f21bdebcdb96d992c644deeb598cfa1",
+    "bytes": 93777,
+    "path": "Resources/MarineLifePhotos/marine-life-spiny-sea-fan.jpg"
+  },
+  "marine-life-rough-sea-plume": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/rough_sea_plume_cmyk.jpg",
+    "sha256": "88ab77fc8e9b32160576bfb7673945e880b763b38ee5fe466f60b5c288a7cb31",
+    "bytes": 126450,
+    "path": "Resources/MarineLifePhotos/marine-life-rough-sea-plume.jpg"
+  },
+  "marine-life-rough-cactus-coral": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/rough_cactus_coral.jpg",
+    "sha256": "3cb02af6526b2b1d815cef840c60d279e4b05431acb92158726748ac6f05a5ce",
+    "bytes": 138113,
+    "path": "Resources/MarineLifePhotos/marine-life-rough-cactus-coral.jpg"
+  },
+  "marine-life-jeweled-aglaja": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/jeweled_aglaja_cmyk.jpg",
+    "sha256": "183b36c31a759b9443db49fa8fe4cc01f041bf86c271299e24b5af16fc0dc0c8",
+    "bytes": 108004,
+    "path": "Resources/MarineLifePhotos/marine-life-jeweled-aglaja.jpg"
+  },
+  "marine-life-fuzzy-tip-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/neomeris_annulata_cmyk.jpg",
+    "sha256": "19022351277ac978a71d26e06e9d6544f885d692827a5082ecfada632618c616",
+    "bytes": 98999,
+    "path": "Resources/MarineLifePhotos/marine-life-fuzzy-tip-alga.jpg"
+  },
+  "marine-life-mucus-tip-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/neomeris_mucosa_cmyk.jpg",
+    "sha256": "0d8164b318d4ad689165cd073424f50d8b73574f788c09042aa57cd9975dd65d",
+    "bytes": 126726,
+    "path": "Resources/MarineLifePhotos/marine-life-mucus-tip-alga.jpg"
+  },
+  "marine-life-gastropod-8451": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/pinball_seahare_cmyk.jpg",
+    "sha256": "1483e4035f2b8712672d13f1df30626f15438d083d149bb09f810ca853dfa3ed",
+    "bytes": 82397,
+    "path": "Resources/MarineLifePhotos/marine-life-gastropod-8451.jpg"
+  },
+  "marine-life-brown-fanworm": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/brown_fanworm_cmyk.jpg",
+    "sha256": "9953554e7c77b367a0de0aeddbe4877ce3947b7f1091ffac106ab7d75ec05f23",
+    "bytes": 90060,
+    "path": "Resources/MarineLifePhotos/marine-life-brown-fanworm.jpg"
+  },
+  "marine-life-rusty-flatworm": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/rusty_flatworm_cmyk.jpg",
+    "sha256": "c528dcff79f2669fac7ff633cfb22a6ab920276155eb92a7976c84d918218183",
+    "bytes": 85649,
+    "path": "Resources/MarineLifePhotos/marine-life-rusty-flatworm.jpg"
+  },
+  "marine-life-noumeaella-kristenseni": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/frosty_mordilla_cmyk.jpg",
+    "sha256": "ca3adafb081916d320ca1015523885d496427c66507c29b3118c4902db79c915",
+    "bytes": 104708,
+    "path": "Resources/MarineLifePhotos/marine-life-noumeaella-kristenseni.jpg"
+  },
+  "marine-life-purple-bush-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Ochtodes_secundiramea_purple_cmyk.jpg",
+    "sha256": "3783bda4558379b544ec8876724beb8be6a0fa0c4eeec5d19476834582b602eb",
+    "bytes": 141241,
+    "path": "Resources/MarineLifePhotos/marine-life-purple-bush-alga.jpg"
+  },
+  "marine-life-common-octopus": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/octopus_americanus_cmyk.jpg",
+    "sha256": "ea9bcedaf7e0b6806e1a1796101c72db19581d79011cad093b5036149cb6b4af",
+    "bytes": 117507,
+    "path": "Resources/MarineLifePhotos/marine-life-common-octopus.jpg"
+  },
+  "marine-life-caribbean-twospot-octopus": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/caribbean_twospot_octopus.jpg",
+    "sha256": "dacc43c93b495e7538d641ff4e4309d069a66da8fe7a4afd0784f6170d23fc0e",
+    "bytes": 134154,
+    "path": "Resources/MarineLifePhotos/marine-life-caribbean-twospot-octopus.jpg"
+  },
+  "marine-life-brazil-reef-octopus": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/brazilian_reef_octopus_cmyk.jpg",
+    "sha256": "55562577828fb04487ff8dc12208724728280058f45248c54a99495c7db45d01",
+    "bytes": 122257,
+    "path": "Resources/MarineLifePhotos/marine-life-brazil-reef-octopus.jpg"
+  },
+  "marine-life-spotwing-comb-jelly": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/spotwing_comb_jelly_cmyk.jpg",
+    "sha256": "d489f09cfde71dd8199bf55cb9548dc87be369a62448753658a7ce50ea888cba",
+    "bytes": 42127,
+    "path": "Resources/MarineLifePhotos/marine-life-spotwing-comb-jelly.jpg"
+  },
+  "marine-life-havana-mantis": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/havana_mantis_cmyk.jpg",
+    "sha256": "fa023746339233d3c1f301651ef75ce965a33515627c89eb2aff2c7960f01d23",
+    "bytes": 114869,
+    "path": "Resources/MarineLifePhotos/marine-life-havana-mantis.jpg"
+  },
+  "marine-life-reef-croaker": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/reef_croaker.jpg",
+    "sha256": "7f06a99d915dccf3a9143083abdfb93d3e320616d5b8914a134cc42f7bb8e725",
+    "bytes": 102892,
+    "path": "Resources/MarineLifePhotos/marine-life-reef-croaker.jpg"
+  },
+  "marine-life-whispy-okeania-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Okeania_lorea_cmyk.jpg",
+    "sha256": "c16166f91de0ed7cbbfae2aa4cfccf5d47cfde5164a3d4bbc2b0cbef97f897bc",
+    "bytes": 102151,
+    "path": "Resources/MarineLifePhotos/marine-life-whispy-okeania-alga.jpg"
+  },
+  "marine-life-tufted-okeania-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Okeania_plumata_cmyk.jpg",
+    "sha256": "b8c3f1522683e83ae0abef1580855c8ee5215bef52038f0e945a57a5706b7341",
+    "bytes": 149362,
+    "path": "Resources/MarineLifePhotos/marine-life-tufted-okeania-alga.jpg"
+  },
+  "marine-life-netted-olive": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/netted_olive_cmyk.jpg",
+    "sha256": "ca59ca702de3abf129af95b22525eda9e3ee835f298396b72dfe6506e2576f8d",
+    "bytes": 117176,
+    "path": "Resources/MarineLifePhotos/marine-life-netted-olive.jpg"
+  },
+  "marine-life-antilles-brittle-star": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/antilles_brittle_star_cmyk.jpg",
+    "sha256": "f8768616bfb8f174adbcf3f3f178ee35ff225687dba08e44354ad0c9a8cdae7d",
+    "bytes": 93895,
+    "path": "Resources/MarineLifePhotos/marine-life-antilles-brittle-star.jpg"
+  },
+  "marine-life-spotted-brittle-star": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/spotted_brittle_star.jpg",
+    "sha256": "68af17aea5d9504f79e21d339463c505e50900172b2968050d7e57592dea5722",
+    "bytes": 112744,
+    "path": "Resources/MarineLifePhotos/marine-life-spotted-brittle-star.jpg"
+  },
+  "marine-life-crevice-brittle-star": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/crevice_brittle_star_cmyk.jpg",
+    "sha256": "4cd0c6a5c8ad0a0a6c139392959d6defc20b085102c1a2be64b76b1243727f3e",
+    "bytes": 61182,
+    "path": "Resources/MarineLifePhotos/marine-life-crevice-brittle-star.jpg"
+  },
+  "marine-life-angular-brittle-star": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/angular_brittle_star_cmyk.jpg",
+    "sha256": "a7ba88c2f0fc90e4d6b5e3f18e649f2075addc1ee99ccd6b8e0d584f345ed495",
+    "bytes": 107745,
+    "path": "Resources/MarineLifePhotos/marine-life-angular-brittle-star.jpg"
+  },
+  "marine-life-yellow-jawfish-female": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/yellow_jawfish_female_cmyk.jpg",
+    "sha256": "8269cb7af5c7d39bdddf86b4bbe2c5f951e9a0a03988763d5a6151e59d316744",
+    "bytes": 86811,
+    "path": "Resources/MarineLifePhotos/marine-life-yellow-jawfish-female.jpg"
+  },
+  "marine-life-boulder-star-coral": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/boulder_star_coral_cmyk.jpg",
+    "sha256": "5793680fde603e8f90335bf00b54a6b8ea7642dbb535709d5b6c02ad94fffd07",
+    "bytes": 108175,
+    "path": "Resources/MarineLifePhotos/marine-life-boulder-star-coral.jpg"
+  },
+  "marine-life-antilles-oxynoe": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/antilles_oxynoe_cmyk.jpg",
+    "sha256": "bf9f14e5c336c82bedbfa523a9bc012f6dd782734443e607c1a51e196b168cd1",
+    "bytes": 90200,
+    "path": "Resources/MarineLifePhotos/marine-life-antilles-oxynoe.jpg"
+  },
+  "marine-life-blue-spot-oxynoe": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/bluespot_oxynoe_cmyk.jpg",
+    "sha256": "b8f5d0f2df93454f648aa41ca166a402145dbd137ede7937eeb2dc7c665860c1",
+    "bytes": 75390,
+    "path": "Resources/MarineLifePhotos/marine-life-blue-spot-oxynoe.jpg"
+  },
+  "marine-life-crossbanded-grass-shrimp": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/crossbanded_grass_shrimp.jpg",
+    "sha256": "d5365dc38e5bb1f40d5149f9ec8cfda9bc1c3546a65451abb35c0533cda42f18",
+    "bytes": 65369,
+    "path": "Resources/MarineLifePhotos/marine-life-crossbanded-grass-shrimp.jpg"
+  },
+  "marine-life-caribbean-furry-lobster": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/copper_lobster_cmyk.jpg",
+    "sha256": "41be7ba3cfc876bcab8fe53961840b2b1f3c6ce182e919d141ea5536f1ade002",
+    "bytes": 106657,
+    "path": "Resources/MarineLifePhotos/marine-life-caribbean-furry-lobster.jpg"
+  },
+  "marine-life-palisa-papillata": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/nippled_palisa_cmyk.jpg",
+    "sha256": "222e7b776469d32044789235f2ba24f03cd307ad8d9e08d4e4aad20457445de8",
+    "bytes": 101132,
+    "path": "Resources/MarineLifePhotos/marine-life-palisa-papillata.jpg"
+  },
+  "marine-life-sun-zoanthid": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/sun_zoanthid.jpg",
+    "sha256": "f6d543750c1265b8d88c39ada6defaedb8645afcc5810561ce86bab802f7ec1f",
+    "bytes": 94003,
+    "path": "Resources/MarineLifePhotos/marine-life-sun-zoanthid.jpg"
+  },
+  "marine-life-goatee-blenny": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/goatee_blenny_2_cmyk.jpg",
+    "sha256": "23ebadda4d51e408701ac0acd5e763d099845573ef248e149e0631d30ab08de4",
+    "bytes": 125422,
+    "path": "Resources/MarineLifePhotos/marine-life-goatee-blenny.jpg"
+  },
+  "marine-life-bald-blenny": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/bald_blenny_cmyk.jpg",
+    "sha256": "df6e6df7477852a96b29314c8b44a516bbef13288711bcff6da3b9243fc4185a",
+    "bytes": 126275,
+    "path": "Resources/MarineLifePhotos/marine-life-bald-blenny.jpg"
+  },
+  "marine-life-nodose-rubble-crab": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/nodose_rubble_crab_cmyk.jpg",
+    "sha256": "ba9de8a4ed826f87a32021201a9e5ac9fa84be35220e43e558afe9cfbef40384",
+    "bytes": 109422,
+    "path": "Resources/MarineLifePhotos/marine-life-nodose-rubble-crab.jpg"
+  },
+  "marine-life-forktailed-bass": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/bantam_bass_cmyk.jpg",
+    "sha256": "9fa664166b74185c0393c31aa8e165a9e45de43d556ea48e1bf7a107fefdbd7f",
+    "bytes": 56884,
+    "path": "Resources/MarineLifePhotos/marine-life-forktailed-bass.jpg"
+  },
+  "marine-life-antiguan-cave-shrimp": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/antiguan_cave_shrimp_cmyk.jpg",
+    "sha256": "5a62dd0bfd04d005c047447e2018ad9653cb810a9d0c41fc767f540cfc7f6e37",
+    "bytes": 130023,
+    "path": "Resources/MarineLifePhotos/marine-life-antiguan-cave-shrimp.jpg"
+  },
+  "marine-life-bigtooth-cardinalfish": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/bigtooth_cardinalfish_cmyk.jpg",
+    "sha256": "3e12030ae0da067e8046358facfac83a19956a2611518018b9012a70a5a148ae",
+    "bytes": 67513,
+    "path": "Resources/MarineLifePhotos/marine-life-bigtooth-cardinalfish.jpg"
+  },
+  "marine-life-shortfin-sweeper": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/shortfin_sweeper_cmyk.jpg",
+    "sha256": "bca130a3862f29d06250fbee6bcd22510f49a7af96e168309aa68d3900e5b313",
+    "bytes": 68115,
+    "path": "Resources/MarineLifePhotos/marine-life-shortfin-sweeper.jpg"
+  },
+  "marine-life-brown-shrimp": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/brown_shrimp_cmyk.jpg",
+    "sha256": "52e5e76e0c6ee2b2816c47896db0181fbafa2fc0d749f29ce12154d5ee17008e",
+    "bytes": 138592,
+    "path": "Resources/MarineLifePhotos/marine-life-brown-shrimp.jpg"
+  },
+  "marine-life-bristle-ball-brush": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/bristle_ball_brush_cmyk.jpg",
+    "sha256": "5fd1207d42afcd512063369243565dbd2ff2838e7ec1fab7bd1cf97f4113320d",
+    "bytes": 87462,
+    "path": "Resources/MarineLifePhotos/marine-life-bristle-ball-brush.jpg"
+  },
+  "marine-life-black-coral-shrimp": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/black_coral_shrimp_CMYK.jpg",
+    "sha256": "8b1c6186b1c145772911cac9945b80cdafeb3ff6eeddb600b866ac4e4bb4b12f",
+    "bytes": 78565,
+    "path": "Resources/MarineLifePhotos/marine-life-black-coral-shrimp.jpg"
+  },
+  "marine-life-golden-crinoid-shrimp": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/golden_crinoid_shrimp.jpg",
+    "sha256": "8a9c54e3b175742330003725e01be3c6337605aa8df88ef6aa7526b71e99e16a",
+    "bytes": 90100,
+    "path": "Resources/MarineLifePhotos/marine-life-golden-crinoid-shrimp.jpg"
+  },
+  "marine-life-bermuda-shrimp": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/whitefoot_shrimp_cmyk.jpg",
+    "sha256": "752d6a357560229d8e2a2c21c8e21f83c531c1d5f26a6b5245e8e5705535fd44",
+    "bytes": 80360,
+    "path": "Resources/MarineLifePhotos/marine-life-bermuda-shrimp.jpg"
+  },
+  "marine-life-brown-crinoid-shrimp": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/brown_crinoid_shrimp_cmyk.jpg",
+    "sha256": "db88d8867790035c0186d63a52fb0aa9b1c0be24368b9d714545822ddde31143",
+    "bytes": 82708,
+    "path": "Resources/MarineLifePhotos/marine-life-brown-crinoid-shrimp.jpg"
+  },
+  "marine-life-basketstar-shrimp": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/basket_star_shrimp_cmyk.jpg",
+    "sha256": "8740ded51f463e03f8ba41e16bb76b7ecb0d2f0806d377fa2a5f67cf2f0baab1",
+    "bytes": 82744,
+    "path": "Resources/MarineLifePhotos/marine-life-basketstar-shrimp.jpg"
+  },
+  "marine-life-asian-brown-mussel": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/asian_green_mussel_cmyk.jpg",
+    "sha256": "dc0c857d275cbbbd7c783decc503cf1397719f6029314d19ebb30b3fe38a6f96",
+    "bytes": 128855,
+    "path": "Resources/MarineLifePhotos/marine-life-asian-brown-mussel.jpg"
+  },
+  "marine-life-caribbean-porcelain-crab": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/caribbean_porcelain_crab_cmyk.jpg",
+    "sha256": "799a5422431fc3e4a8b21195507e96447aaeace4571ed19bcaef82919a2b12b1",
+    "bytes": 118945,
+    "path": "Resources/MarineLifePhotos/marine-life-caribbean-porcelain-crab.jpg"
+  },
+  "marine-life-banded-porcelain-crab": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/banded_porcelain_crab_cmyk.jpg",
+    "sha256": "623f54fcc1816143c3f5020c3af2cc22b81fb113eb5e6fd02c76d70b3bf27b91",
+    "bytes": 145398,
+    "path": "Resources/MarineLifePhotos/marine-life-banded-porcelain-crab.jpg"
+  },
+  "marine-life-burgundy-crust-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/burgundy_crust_alga.jpg",
+    "sha256": "ea770e91b9d9a472d4e91be9a82947dfe030f72afcaf8bb87c079cd8f188d10c",
+    "bytes": 92733,
+    "path": "Resources/MarineLifePhotos/marine-life-burgundy-crust-alga.jpg"
+  },
+  "marine-life-mottled-crust-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Peyssonnelia_stoechas_cmyk.jpg",
+    "sha256": "40272847b8650600ec7113462273a260b05666028a5217ef604d67c590fc444e",
+    "bytes": 116637,
+    "path": "Resources/MarineLifePhotos/marine-life-mottled-crust-alga.jpg"
+  },
+  "marine-life-two-tone-cup-coral": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/two_tone_cup_coral.jpg",
+    "sha256": "807cef002033f870c1740df24ab106f3c88d85770d46f20ae11eb21dcec3d3c3",
+    "bytes": 101264,
+    "path": "Resources/MarineLifePhotos/marine-life-two-tone-cup-coral.jpg"
+  },
+  "marine-life-black-sea-squirt": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/black_tunicate_cmyk.jpg",
+    "sha256": "40c4440b99a920c8f184b6bd71d15d68bb0d684e9d7cb09b87fbe4a3e7efb26d",
+    "bytes": 90536,
+    "path": "Resources/MarineLifePhotos/marine-life-black-sea-squirt.jpg"
+  },
+  "marine-life-gastropod-8614": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/lynx_nudibranch_cmyk.jpg",
+    "sha256": "fd39c54eaebedcd4013810462e9123a3e7de5490ecaaaad5936e2288189cc72b",
+    "bytes": 107037,
+    "path": "Resources/MarineLifePhotos/marine-life-gastropod-8614.jpg"
+  },
+  "marine-life-pusa-aglaja": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/pusa_aglaja_cmyk.jpg",
+    "sha256": "53d495897decdb221d086b07db83b750663e4bdc723a65ea111c6f141b9ee1f8",
+    "bytes": 111876,
+    "path": "Resources/MarineLifePhotos/marine-life-pusa-aglaja.jpg"
+  },
+  "marine-life-turtlegrass-seahare": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/turtle_grass_seahare_cmyk.jpg",
+    "sha256": "657d42cbbb6677f6bdadb1531c169eb9490a23038cfd84531e653ab182533cfd",
+    "bytes": 122523,
+    "path": "Resources/MarineLifePhotos/marine-life-turtlegrass-seahare.jpg"
+  },
+  "marine-life-emerald-leafslug": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/emerald_leafslug_cmyk.jpg",
+    "sha256": "85e0d6320d43bd52743e01dfc299ed10f114ebe651c9892fecfe66e8c6e996bd",
+    "bytes": 62392,
+    "path": "Resources/MarineLifePhotos/marine-life-emerald-leafslug.jpg"
+  },
+  "marine-life-apple-murex": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/apple_murex_cmyk.jpg",
+    "sha256": "79d25e5ccc2f89f1e1c6a8cd38dbc7116123f94563f8b34fb25ddca40781259c",
+    "bytes": 122806,
+    "path": "Resources/MarineLifePhotos/marine-life-apple-murex.jpg"
+  },
+  "marine-life-kingstons-placida": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Placida_kingstoni_cmyk.jpg",
+    "sha256": "8f9b0221b9ea1b29280bf4d3629556a47d20bb358b135765143b31ede4a92d6f",
+    "bytes": 104232,
+    "path": "Resources/MarineLifePhotos/marine-life-kingstons-placida.jpg"
+  },
+  "marine-life-bristled-rubble-crab": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/bristled_rubble_crab_cmyk.jpg",
+    "sha256": "bce861e07c6f33fb7cde8e76206c1e626bfb27799563cf188ae40c5175d662c8",
+    "bytes": 119596,
+    "path": "Resources/MarineLifePhotos/marine-life-bristled-rubble-crab.jpg"
+  },
+  "marine-life-bladetooth-elbow-crab": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/bladetooth_elbow_crab_cmyk.jpg",
+    "sha256": "f4215653167c6d5a7a6f09253a792d563aa470fd385b76820013d2d276d3220f",
+    "bytes": 122601,
+    "path": "Resources/MarineLifePhotos/marine-life-bladetooth-elbow-crab.jpg"
+  },
+  "marine-life-warty-sidegill-slug": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/warty_sidegill_slug_cmyk.jpg",
+    "sha256": "916aa861321d9900ab582e6d24de81f81f16d40d4efbda9f0434f783f0da8be0",
+    "bytes": 133282,
+    "path": "Resources/MarineLifePhotos/marine-life-warty-sidegill-slug.jpg"
+  },
+  "marine-life-red-miniature-sea-star": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/red_miniature_sea_star_cmyk.jpg",
+    "sha256": "010c7116ab90c702f02894a745b363718dc0bc2f568374e5a73a1fc35db90d94",
+    "bytes": 91247,
+    "path": "Resources/MarineLifePhotos/marine-life-red-miniature-sea-star.jpg"
+  },
+  "marine-life-spotted-porcelain-crab": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/spotted_porcelain_crab_cmyk.jpg",
+    "sha256": "8bf339e266fdd4f7a09d15d8075295a19ae94328437481bd0e72c31697b96de8",
+    "bytes": 114236,
+    "path": "Resources/MarineLifePhotos/marine-life-spotted-porcelain-crab.jpg"
+  },
+  "marine-life-blue-crust-coral": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/blue_crust_coral_cmyk.jpg",
+    "sha256": "07a44d1403b1391b41fb4623f4a7a78f904be042121e07379cb25c2a6ccfc013",
+    "bytes": 132997,
+    "path": "Resources/MarineLifePhotos/marine-life-blue-crust-coral.jpg"
+  },
+  "marine-life-honeycomb-plate-coral": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/honeycomb_plate_coral.jpg",
+    "sha256": "78ea130b127167044df6db6928506fb9c27edba3bc668fdda8bde155a3d04e42",
+    "bytes": 103129,
+    "path": "Resources/MarineLifePhotos/marine-life-honeycomb-plate-coral.jpg"
+  },
+  "marine-life-bigeye": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/bigeye_cmyk.jpg",
+    "sha256": "b64603a4bf802bf4a242504ca2c2d8af372cfc9280d2720b1edbf533e2b18845",
+    "bytes": 102384,
+    "path": "Resources/MarineLifePhotos/marine-life-bigeye.jpg"
+  },
+  "marine-life-bandtail-searobin": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/bandtail_searobin_cmyk.jpg",
+    "sha256": "af21ebdaa494df2596643ae7720f3a92f07786db18630e1fbdc95fe75132e02e",
+    "bytes": 98059,
+    "path": "Resources/MarineLifePhotos/marine-life-bandtail-searobin.jpg"
+  },
+  "marine-life-splendid-flatworm": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/splendid_flatworm.jpg",
+    "sha256": "8765f722a4659fdd46df4f16e9829f26b25b7836c35e8b9c9d05d1ab1ea263df",
+    "bytes": 95504,
+    "path": "Resources/MarineLifePhotos/marine-life-splendid-flatworm.jpg"
+  },
+  "marine-life-blue-faced-hermit": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Pseudopaguristes_invisisacculus_cmyk.jpg",
+    "sha256": "eb06e1255f910ac804ab1868e23eff15985bac571bc2999b20760914dfb7cdc9",
+    "bytes": 97189,
+    "path": "Resources/MarineLifePhotos/marine-life-blue-faced-hermit.jpg"
+  },
+  "marine-life-psilotris-kaufmani": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/tunnel_goby_cmyk.jpg",
+    "sha256": "67296ec1f81426419456fce0a00920c0c601d7611f362a97a4b4256f9238239f",
+    "bytes": 150207,
+    "path": "Resources/MarineLifePhotos/marine-life-psilotris-kaufmani.jpg"
+  },
+  "marine-life-blue-dartfish": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/blue_dartfish_cmyk.jpg",
+    "sha256": "74bafb460b97027f7e24198a785404e72a5e90a9bb1a10369edd482b8e4b88f9",
+    "bytes": 100302,
+    "path": "Resources/MarineLifePhotos/marine-life-blue-dartfish.jpg"
+  },
+  "marine-life-yellow-sea-whip": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/yellow_sea_whip_cmyk.jpg",
+    "sha256": "3d690f3a671838b69513c910d8dc5f55e04320940e398c70eb607a10996145ef",
+    "bytes": 129529,
+    "path": "Resources/MarineLifePhotos/marine-life-yellow-sea-whip.jpg"
+  },
+  "marine-life-coffeebean-trivia": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/coffee_bean_trivia_cmyk.jpg",
+    "sha256": "dc02cb51cf0b5b2502c82af28d7c30156db01bd2632c7aedad820d3061fab0d7",
+    "bytes": 73748,
+    "path": "Resources/MarineLifePhotos/marine-life-coffeebean-trivia.jpg"
+  },
+  "marine-life-whitefin-sharksucker": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/whitefin_sharksucker.jpg",
+    "sha256": "1ff504dc0d68cd67309b0ca5064e0653f2c6c096ceb0581f3fcf8efbcc586969",
+    "bytes": 79605,
+    "path": "Resources/MarineLifePhotos/marine-life-whitefin-sharksucker.jpg"
+  },
+  "marine-life-bearded-toadfish": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/bearded_toadfish.jpg",
+    "sha256": "8344e0ef165452051d2a39a2d7f13749696ae97d64931cf3b79eba2fbbeaaaf4",
+    "bytes": 175352,
+    "path": "Resources/MarineLifePhotos/marine-life-bearded-toadfish.jpg"
+  },
+  "marine-life-sargassum-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/sargassum_alga.jpg",
+    "sha256": "b56be65ef98de2700a172352cdd3fe67c79e32a8a35f5c824533bfa0b26bb26d",
+    "bytes": 109070,
+    "path": "Resources/MarineLifePhotos/marine-life-sargassum-alga.jpg"
+  },
+  "marine-life-wiry-sargassum-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/sargassum_filipendula_cmyk.jpg",
+    "sha256": "a2b363101c13cd676e046e1bf3aa462279d9cad7f59749ea0f317d6981c15db5",
+    "bytes": 114317,
+    "path": "Resources/MarineLifePhotos/marine-life-wiry-sargassum-alga.jpg"
+  },
+  "marine-life-sargasso-weed": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/sargasso_weed_cmyk.jpg",
+    "sha256": "e0c392821c9485b80e3badfdb51adfa2334a92e22812af9f6864045742a3c1aa",
+    "bytes": 82756,
+    "path": "Resources/MarineLifePhotos/marine-life-sargasso-weed.jpg"
+  },
+  "marine-life-doubtful-lizardfish": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/doubtful_lizardfish_cmyk.jpg",
+    "sha256": "b10479da350d02843821c3d0b5805fcb74fb3c8ab536ff5912bd16b27ef7c700",
+    "bytes": 129755,
+    "path": "Resources/MarineLifePhotos/marine-life-doubtful-lizardfish.jpg"
+  },
+  "marine-life-sea-rod-basket-star": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/sea_rod_basket_star_cmyk.jpg",
+    "sha256": "35f6aa41cf12e637b6e813fe1b05ffa76b6a81bf2dbf1d83d67ad00d21f6aa39",
+    "bytes": 94547,
+    "path": "Resources/MarineLifePhotos/marine-life-sea-rod-basket-star.jpg"
+  },
+  "marine-life-schizothrix-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Schizothrix_alga_cmyk.jpg",
+    "sha256": "a66bb529c305e1eade1fdb9a5804caed3861713ff9247894eefcfb5359edbeae",
+    "bytes": 95060,
+    "path": "Resources/MarineLifePhotos/marine-life-schizothrix-alga.jpg"
+  },
+  "marine-life-sclerodoris-prea": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Sclerodoris_prea_cmyk.jpg",
+    "sha256": "131dc944a56f91c5e582ac6fb05ade3eda8995652f3645bcb018a763d656429f",
+    "bytes": 88122,
+    "path": "Resources/MarineLifePhotos/marine-life-sclerodoris-prea.jpg"
+  },
+  "marine-life-king-mackerel": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/king_mackerel_cmyk.jpg",
+    "sha256": "4971b66b671f7e3253aff8ea40cebc768e41ef06258d83695c8c1157ef5c9e11",
+    "bytes": 33486,
+    "path": "Resources/MarineLifePhotos/marine-life-king-mackerel.jpg"
+  },
+  "marine-life-bigeye-scad": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/bigeye_scad_cmyk.jpg",
+    "sha256": "6c017df947b45c4b13afc87c0940692721aa3a936c67e642ce8c00fffdd76dfc",
+    "bytes": 98633,
+    "path": "Resources/MarineLifePhotos/marine-life-bigeye-scad.jpg"
+  },
+  "marine-life-twinspot-bass": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/twinspot_bass_cmyk.jpg",
+    "sha256": "86718769d15a1784e89ae37010ac7e2587681de89d8ba957baeebd4fdfbf83e2",
+    "bytes": 121636,
+    "path": "Resources/MarineLifePhotos/marine-life-twinspot-bass.jpg"
+  },
+  "marine-life-onetooth-simnia": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/onetooth_simnia_cmyk.jpg",
+    "sha256": "ac6f1c49225b43490319c592aa2fb6d6164564fd520bf804eca4d1a40af74e74",
+    "bytes": 50704,
+    "path": "Resources/MarineLifePhotos/marine-life-onetooth-simnia.jpg"
+  },
+  "marine-life-seafan-hydroid": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/seafan_hydroid.jpg",
+    "sha256": "de01bd9f32571bbfff6ad6275fb54bbbe3b092e323405eef2cefdb94248dfe60",
+    "bytes": 145819,
+    "path": "Resources/MarineLifePhotos/marine-life-seafan-hydroid.jpg"
+  },
+  "marine-life-knobby-star-coral": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/knobby_star_coral_cmyk.jpg",
+    "sha256": "952e2532eeaf5b7e89c3c620860ae7b44c1a0adc4b92639eaadeb3da44b550e9",
+    "bytes": 124646,
+    "path": "Resources/MarineLifePhotos/marine-life-knobby-star-coral.jpg"
+  },
+  "marine-life-loggerhead-sponge": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/loggerhead_sponge_cmyk.jpg",
+    "sha256": "a78033c2d75b3c4a5581b6a0e2f1570f8bb5b10fe33a31f5babc76925150d2fe",
+    "bytes": 120750,
+    "path": "Resources/MarineLifePhotos/marine-life-loggerhead-sponge.jpg"
+  },
+  "marine-life-scalloped-hammerhead": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/scalloped_hammerhead_cmyk.jpg",
+    "sha256": "019473ba38be01c50ba2f9b8b0196cf4bb52575e81f6d477fc797debc9fd2668",
+    "bytes": 58459,
+    "path": "Resources/MarineLifePhotos/marine-life-scalloped-hammerhead.jpg"
+  },
+  "marine-life-great-hammerhead": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/great_hammerhead_cmyk.jpg",
+    "sha256": "46611427c5d417e23dfeb45d374421c155955da0e8e9c5f506177c73de0c3fd9",
+    "bytes": 35441,
+    "path": "Resources/MarineLifePhotos/marine-life-great-hammerhead.jpg"
+  },
+  "marine-life-high-veined-encrusting-sponge": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/high-veined_encrusting_sponge_cmyk.jpg",
+    "sha256": "50d36b6b2928d712913efe2cc3a6f185bc9355462877b0fa7ccf258c7363815f",
+    "bytes": 153304,
+    "path": "Resources/MarineLifePhotos/marine-life-high-veined-encrusting-sponge.jpg"
+  },
+  "marine-life-golden-tuft-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Sporochnus_pedunculatus_cmyk.jpg",
+    "sha256": "75c3a06ed4c0c0d4add240649c8d61d428a1c0470e97dafb1362c2ba5e4707c3",
+    "bytes": 119358,
+    "path": "Resources/MarineLifePhotos/marine-life-golden-tuft-alga.jpg"
+  },
+  "marine-life-brazilian-spurilla": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/spurilla_braziliana_cmyk.jpg",
+    "sha256": "eadfd5a6798941600674e00884b77a806979ad0a6cf96e4ea7cf7ed036d6c142",
+    "bytes": 89491,
+    "path": "Resources/MarineLifePhotos/marine-life-brazilian-spurilla.jpg"
+  },
+  "marine-life-annes-spurilla": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Spurilla_dupontae_cmyk.jpg",
+    "sha256": "74a9a5806714180aedc74d8e4e2c2414d6a715ee72ebcafd94c9c957e2be002a",
+    "bytes": 89320,
+    "path": "Resources/MarineLifePhotos/marine-life-annes-spurilla.jpg"
+  },
+  "marine-life-sargassum-spurilla": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/spurilla_sargassicola_cmyk.jpg",
+    "sha256": "7d3818c9fc312663324b57b385044e16211a8628de664d00d242ef5278e02ad2",
+    "bytes": 106207,
+    "path": "Resources/MarineLifePhotos/marine-life-sargassum-spurilla.jpg"
+  },
+  "marine-life-dwarf-blenny": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/dwarf_blenny_cmyk.jpg",
+    "sha256": "f0d0e12355be236a21ffa3bdb3ba3b1b04a97efc96bd12c9522b53c5f4b293ba",
+    "bytes": 108472,
+    "path": "Resources/MarineLifePhotos/marine-life-dwarf-blenny.jpg"
+  },
+  "marine-life-furcate-spider-crab": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/furcate_spider_crab_cmyk.jpg",
+    "sha256": "f5eb8924f065c02977c0b676be9d0fe33d2d8fde5ef98ba7a77f8f51f3f45400",
+    "bytes": 104454,
+    "path": "Resources/MarineLifePhotos/marine-life-furcate-spider-crab.jpg"
+  },
+  "marine-life-florida-fighting-conch": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/florida_fighting_conch_cmyk.jpg",
+    "sha256": "cd2b15821e3c60ce48349949ed13d55461a7c07e2b90f5b40bdc6e30c9f434d2",
+    "bytes": 104659,
+    "path": "Resources/MarineLifePhotos/marine-life-florida-fighting-conch.jpg"
+  },
+  "marine-life-striated-seahare": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/striated_seahare_cmyk.jpg",
+    "sha256": "1540244e474e3a7158729d6cba5201228191423ec461f2d5d453efafecffed21",
+    "bytes": 67201,
+    "path": "Resources/MarineLifePhotos/marine-life-striated-seahare.jpg"
+  },
+  "marine-life-latticed-flatworm": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Styloplanocera_fasciata_cmyk.jpg",
+    "sha256": "1c75b274c6e6cd219e216a5e35be11323b140a9b9cfb43100422581db6119f8a",
+    "bytes": 163934,
+    "path": "Resources/MarineLifePhotos/marine-life-latticed-flatworm.jpg"
+  },
+  "marine-life-leafy-flat-blade-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/stypopodium_zonale_cmyk.jpg",
+    "sha256": "8be8fa7ff5965748e9558d65829a9721ee0981c6b69935b90283336a52fe7c99",
+    "bytes": 122750,
+    "path": "Resources/MarineLifePhotos/marine-life-leafy-flat-blade-alga.jpg"
+  },
+  "marine-life-fuzz-ball-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/fuzz_ball_alga.jpg",
+    "sha256": "adf0de7193aa5bf9e9d7a4145c2a07de2e9386d443000be6c7c6cef766c161e3",
+    "bytes": 95570,
+    "path": "Resources/MarineLifePhotos/marine-life-fuzz-ball-alga.jpg"
+  },
+  "marine-life-inshore-lizardfish": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/inshore_lizardfish_cmyk.jpg",
+    "sha256": "8444601cb7fe59ef6f2b04ecd8a54f471e7620b789b3be9e161fc6fe0a4d1112",
+    "bytes": 104344,
+    "path": "Resources/MarineLifePhotos/marine-life-inshore-lizardfish.jpg"
+  },
+  "marine-life-red-lizardfish": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/red_lizardfish.jpg",
+    "sha256": "5ce0913dc60670c1c2be0ad473e2f73cb43de510aed29041f90292e890c25ede",
+    "bytes": 142071,
+    "path": "Resources/MarineLifePhotos/marine-life-red-lizardfish.jpg"
+  },
+  "marine-life-geographic-sea-hare": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/geographic_seahare_cmyk.jpg",
+    "sha256": "889d71f795ac3b0c6390190fd6a6fc7c70db0b6b2758124a2aa2274e6331a63d",
+    "bytes": 101745,
+    "path": "Resources/MarineLifePhotos/marine-life-geographic-sea-hare.jpg"
+  },
+  "marine-life-banded-box-jelly": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/banded_box_jelly.jpg",
+    "sha256": "650ca2bc373032dd52d4eea0cdd3f6798a59ab1ce395e30f8aa07b67e756e69b",
+    "bytes": 45365,
+    "path": "Resources/MarineLifePhotos/marine-life-banded-box-jelly.jpg"
+  },
+  "marine-life-taringa-telopia": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/taringa_telopia_juv_var_cmyk.jpg",
+    "sha256": "12c0b9e7c111c0684e333864368c299b7889beba964525f923cb07dfeb097817",
+    "bytes": 87342,
+    "path": "Resources/MarineLifePhotos/marine-life-taringa-telopia.jpg"
+  },
+  "marine-life-fire-sponge": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/fire_sponge_cmyk.jpg",
+    "sha256": "26ba8ce0f5898796adb8209bde888748ce25da6ea42c3b526b63c4923bb8edbc",
+    "bytes": 138755,
+    "path": "Resources/MarineLifePhotos/marine-life-fire-sponge.jpg"
+  },
+  "marine-life-red-clinging-crab": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Teleophrys_ruber_cmyk.jpg",
+    "sha256": "514897ad568a9bf3bafedf54c4ed1c9150bd8420881457d3028cdfd459097b7b",
+    "bytes": 74952,
+    "path": "Resources/MarineLifePhotos/marine-life-red-clinging-crab.jpg"
+  },
+  "marine-life-brazilian-rock-anemone": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Telmatactis_vernonia.jpg",
+    "sha256": "823c51f5ecd263b282fd9266b78a0b40bbb5e1df511f5400f26921ef8a120e69",
+    "bytes": 108553,
+    "path": "Resources/MarineLifePhotos/marine-life-brazilian-rock-anemone.jpg"
+  },
+  "marine-life-baroque-cave-coral": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/baroque_cave_coral_cmyk.jpg",
+    "sha256": "403651b6f6c16cb9d9cac27189d6d22dd5150598434186dadbe706b249af8bf2",
+    "bytes": 83665,
+    "path": "Resources/MarineLifePhotos/marine-life-baroque-cave-coral.jpg"
+  },
+  "marine-life-turtle-grass": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/turtle_grass.jpg",
+    "sha256": "b643d5514c691f60c60ce3f48b9fc7456759f2fb0b1fcce423f853c1123d25b2",
+    "bytes": 112127,
+    "path": "Resources/MarineLifePhotos/marine-life-turtle-grass.jpg"
+  },
+  "marine-life-green-algae-crab": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/green_algae_crab_cmyk.jpg",
+    "sha256": "4157ecb1add97ca6377e43b22d0ed73a1238fe093efaff2ffd0f17f2e694be67",
+    "bytes": 128835,
+    "path": "Resources/MarineLifePhotos/marine-life-green-algae-crab.jpg"
+  },
+  "marine-life-harriss-thordisa": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Thordisa_harrisi_cmyk.jpg",
+    "sha256": "272e327f2d4824eb0e4a90fb7ff379f45f5ceb320117ad30c7653504b8f85761",
+    "bytes": 103551,
+    "path": "Resources/MarineLifePhotos/marine-life-harriss-thordisa.jpg"
+  },
+  "marine-life-thuridilla-mazda": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/mazda_elysia_cmyk.jpg",
+    "sha256": "6169f7a2590f4bf897d5be00b625fbe3a11dd493fcb4ab413480e2b571058699",
+    "bytes": 78746,
+    "path": "Resources/MarineLifePhotos/marine-life-thuridilla-mazda.jpg"
+  },
+  "marine-life-frecklefin-goby": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/frecklefin_goby_cmyk.jpg",
+    "sha256": "d43553d838f6effba5f293832552c013f452566182926cd28b496e80e2fe0919",
+    "bytes": 106362,
+    "path": "Resources/MarineLifePhotos/marine-life-frecklefin-goby.jpg"
+  },
+  "marine-life-semiscaled-goby": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/semiscaled_goby_cmyk.jpg",
+    "sha256": "f280b1f8edd841970b3ee4d6b08c2c2b43c774a5a4dd3a7510e1226f22e1baad",
+    "bytes": 109233,
+    "path": "Resources/MarineLifePhotos/marine-life-semiscaled-goby.jpg"
+  },
+  "marine-life-redcheek-goby": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/redcheek_goby_cmyk.jpg",
+    "sha256": "24360e6c435c5541d3d4b93ff87ac7e56dbc77f71f6e5d69b7d9729170d09267",
+    "bytes": 86352,
+    "path": "Resources/MarineLifePhotos/marine-life-redcheek-goby.jpg"
+  },
+  "marine-life-leopard-goby": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/leopard_goby_cmyk.jpg",
+    "sha256": "76210d69bf70b8bd69f392cdf384159fa23ccddba557570b8e7380c5aec6f82e",
+    "bytes": 95350,
+    "path": "Resources/MarineLifePhotos/marine-life-leopard-goby.jpg"
+  },
+  "marine-life-tomicodon-cryptus": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/cryptic_clingfish_cmyk.jpg",
+    "sha256": "c479a36c928ac8d454eaa376468d7205e82b46099d7b6e95c5196e83b4f8469d",
+    "bytes": 100963,
+    "path": "Resources/MarineLifePhotos/marine-life-tomicodon-cryptus.jpg"
+  },
+  "marine-life-tomicodon-rupestris": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/surge_clingfish_cmyk.jpg",
+    "sha256": "b310fa2510b0572035065c3006e73113cfeaa54fab3bd9e68bb230ec37730878",
+    "bytes": 136171,
+    "path": "Resources/MarineLifePhotos/marine-life-tomicodon-rupestris.jpg"
+  },
+  "marine-life-arrow-shrimp": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/arrow_shrimp_cmyk.jpg",
+    "sha256": "85f0e390c035ea75fcd35ffb1180cbb0c9adbcefab2c7baf689274da5d97f3e9",
+    "bytes": 47502,
+    "path": "Resources/MarineLifePhotos/marine-life-arrow-shrimp.jpg"
+  },
+  "marine-life-gorgonian-toothpick-shrimp": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/gorgonian_toothpick_shrimp_cmyk.jpg",
+    "sha256": "85e1abad1eeaadb1115892e57f0d2f26998246ef0e1f46ddfe49b482a39fb779",
+    "bytes": 61977,
+    "path": "Resources/MarineLifePhotos/marine-life-gorgonian-toothpick-shrimp.jpg"
+  },
+  "marine-life-snakefish": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/snakefish_cmyk.jpg",
+    "sha256": "8e7d45709f3bfbad77b903b57a58bd274976923a658d2334481f55659cfb3f5f",
+    "bytes": 135177,
+    "path": "Resources/MarineLifePhotos/marine-life-snakefish.jpg"
+  },
+  "marine-life-trapania-dalva": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/trapania_dalva_cmyk.jpg",
+    "sha256": "a912e30c544822a669e2c6a3488535617eca7483039f636879ffdc334dd0f639",
+    "bytes": 91907,
+    "path": "Resources/MarineLifePhotos/marine-life-trapania-dalva.jpg"
+  },
+  "marine-life-bleeding-teeth-bryozoan": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/bleeding_teeth_bryozoan_2_cmyk.jpg",
+    "sha256": "241f0c65e57fa34368e050d49638c138f8247072c82b7439d793173a74b18166",
+    "bytes": 146054,
+    "path": "Resources/MarineLifePhotos/marine-life-bleeding-teeth-bryozoan.jpg"
+  },
+  "marine-life-gastropod-2429": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/tufted_nudibranch.jpg",
+    "sha256": "881a8ae29a87ae66e8cef235cc949d114eb41c9534f2e308e8ee4c1131faf76c",
+    "bytes": 65983,
+    "path": "Resources/MarineLifePhotos/marine-life-gastropod-2429.jpg"
+  },
+  "marine-life-black-urchin-shrimp": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/black_urchin_shrimp_cmyk.jpg",
+    "sha256": "253f7929af8b1414210045c837a96364e3af7b69730be9154ddf5a1310b843fb",
+    "bytes": 86206,
+    "path": "Resources/MarineLifePhotos/marine-life-black-urchin-shrimp.jpg"
+  },
+  "marine-life-blistered-saucer-leaf-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/blistered_saucer_leaf_alga_cmyk.jpg",
+    "sha256": "f684ebc8383ad977de2cecd1004955aa580396332f6091071afd707a433e7336",
+    "bytes": 113014,
+    "path": "Resources/MarineLifePhotos/marine-life-blistered-saucer-leaf-alga.jpg"
+  },
+  "marine-life-cemented-blade-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/cemented_blade_alga_cmyk.jpg",
+    "sha256": "f9baa0bda31fb40ca1b6cf4da067ddddfde4bf9ee1d49528a195a4d155111bd7",
+    "bytes": 82577,
+    "path": "Resources/MarineLifePhotos/marine-life-cemented-blade-alga.jpg"
+  },
+  "marine-life-ruffled-blade-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/udotea_flabellum.jpg",
+    "sha256": "b94920688e8cac5df9b23a124cf4025b012048b8205bb7ab491149dc36f3a031",
+    "bytes": 83338,
+    "path": "Resources/MarineLifePhotos/marine-life-ruffled-blade-alga.jpg"
+  },
+  "marine-life-mottled-mojarra": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/mottled_mojarra_cmyk.jpg",
+    "sha256": "44331a4b707754b0130c053e54b50b0c3878d3095f182751c31106c7024300fa",
+    "bytes": 87077,
+    "path": "Resources/MarineLifePhotos/marine-life-mottled-mojarra.jpg"
+  },
+  "marine-life-longtail-grass-shrimp": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/longtail_grass_shrimp.jpg",
+    "sha256": "8c96fae4cea29db8ffc3a7bacc69af8ae3f1b167a61948514fff17a51c827173",
+    "bytes": 51411,
+    "path": "Resources/MarineLifePhotos/marine-life-longtail-grass-shrimp.jpg"
+  },
+  "marine-life-elongated-sea-pearls": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/elongated_sea_pearls.jpg",
+    "sha256": "0df0f5b055ce60ea49609ead5dc30b9a04951d9c5a72348d37334ccffaa0b40e",
+    "bytes": 133953,
+    "path": "Resources/MarineLifePhotos/marine-life-elongated-sea-pearls.jpg"
+  },
+  "marine-life-creeping-bubble-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/creeping_bubble_alga_cmyk.jpg",
+    "sha256": "e4effcfdeabe00f321544dab3dd9c2014b4ea41e2b91cb2ee249788a5825554b",
+    "bytes": 119978,
+    "path": "Resources/MarineLifePhotos/marine-life-creeping-bubble-alga.jpg"
+  },
+  "marine-life-caribbean-vase": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Caribbean_vase_cmyk.jpg",
+    "sha256": "c7b55557b04c1596f6e7f605f123aa1cb53a907956118988ab9d272232a74cf7",
+    "bytes": 131217,
+    "path": "Resources/MarineLifePhotos/marine-life-caribbean-vase.jpg"
+  },
+  "marine-life-harlequin-miter": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/harlequin_miter.jpg",
+    "sha256": "443dc89d16a08578c9746056e1c606476b079698b62459d95dedc055a0f6a5ca",
+    "bytes": 88407,
+    "path": "Resources/MarineLifePhotos/marine-life-harlequin-miter.jpg"
+  },
+  "marine-life-virgin-nerite": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/vitta_virginea_virgin_nerite_snail_cmyk.jpg",
+    "sha256": "b4f8da4c9299ab1bdd25f0dc0a588a2824e8394b5a6da4754e0cebf64ff1ac26",
+    "bytes": 96956,
+    "path": "Resources/MarineLifePhotos/marine-life-virgin-nerite.jpg"
+  },
+  "marine-life-socoa-marginella": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/Volvarina_socoae_cmyk.jpg",
+    "sha256": "a9229a4ac51968c237af13c9384c977844161de1f6e7a90f31560329bb753e8e",
+    "bytes": 100857,
+    "path": "Resources/MarineLifePhotos/marine-life-socoa-marginella.jpg"
+  },
+  "marine-life-pink-bush-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/pink_bush_alga.jpg",
+    "sha256": "7634af74ecb05792aeee8d87ec2a97d308f1d950874ed90a1c736ff53dc9b11b",
+    "bytes": 121970,
+    "path": "Resources/MarineLifePhotos/marine-life-pink-bush-alga.jpg"
+  },
+  "marine-life-red-filament-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/wurdemannia_miniata_var.jpg",
+    "sha256": "4d8b9273eb0c36e53db429343f7a667749a9171267a4e92fdb36d5f9a811d3d8",
+    "bytes": 136994,
+    "path": "Resources/MarineLifePhotos/marine-life-red-filament-alga.jpg"
+  },
+  "marine-life-red-bush-alga": {
+    "sourceURL": "caribbean-reef-life-4:OEBPS/image/red_bush_alga_cmyk.jpg",
+    "sha256": "3bdeffe4ba0f75cd3c2110c9f8f7a6e726b7a36c13263c6183b9a1a638d2e90d",
+    "bytes": 106711,
+    "path": "Resources/MarineLifePhotos/marine-life-red-bush-alga.jpg"
   }
 }

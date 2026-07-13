@@ -64,6 +64,10 @@ enum GlobalSearchMediaBrowsePresentation: Sendable {
         let photoCount: Int
 
         nonisolated static let zero = MediaKindCounts(videoCount: 0, photoCount: 0)
+
+        nonisolated static func == (lhs: MediaKindCounts, rhs: MediaKindCounts) -> Bool {
+            lhs.videoCount == rhs.videoCount && lhs.photoCount == rhs.photoCount
+        }
     }
 
     struct IndexSnapshot: Sendable, Equatable {

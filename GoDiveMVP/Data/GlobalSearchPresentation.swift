@@ -291,6 +291,15 @@ enum GlobalSearchPresentation: Sendable {
     struct MatchReason: Hashable, Sendable {
         let label: String
         let text: String
+
+        nonisolated static func == (lhs: MatchReason, rhs: MatchReason) -> Bool {
+            lhs.label == rhs.label && lhs.text == rhs.text
+        }
+
+        nonisolated func hash(into hasher: inout Hasher) {
+            hasher.combine(label)
+            hasher.combine(text)
+        }
     }
 
     /// A labeled, searchable value on an index entry used to explain *why* the entry matched.

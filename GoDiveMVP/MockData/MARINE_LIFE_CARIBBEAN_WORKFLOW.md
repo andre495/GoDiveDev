@@ -200,6 +200,22 @@ GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/fetch_marine_life_images_wo
 - **Default:** stages gallery matches including **CC BY-NC-SA** with **`imageNeedsReview=yes`**. Use **`--shippable-only`** to keep only **CC0 / CC BY** WoRMS photos.
 - **`--bundle`** runs **`download_marine_life_images.py`** after staging.
 
+## Caribbean Reef Life EPUB image extraction (optional)
+
+The CRL 4th-edition EPUB (`caribbean_reef_life_config.json` → `default_epub_path`) stores ~2,195 species photos in `OEBPS/image/`, named by species (`Agelas_spectrum_cmyk.jpg`, `African_pompano_cmyk.jpg`). These photos are **© Mickey Charteris — get written permission before shipping**, the same hold-for-review posture as reefguide.
+
+```bash
+# Preview coverage (default is a dry run — writes nothing):
+GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/extract_marine_life_images_from_crl.py
+# Crop + bundle the matched JPEGs and stage metadata:
+GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/extract_marine_life_images_from_crl.py --bundle
+```
+
+- Indexes EPUB image filenames (works on an unpacked `.epub` directory or a zipped `.epub`), matching staging rows by **`scientificName`** (preferred) then **`commonName`**.
+- **`--bundle`** center-crops each match to 960×720 and writes **`Resources/MarineLifePhotos/{uuid}.jpg`**, sets **`featureImageResourceName`**, and tags the row **`imageSource=caribbean-reef-life`**, **`imageLicense="© Mickey Charteris — permission required"`**, **`imageNeedsReview=yes`**. Provenance is recorded in the bundle manifest.
+- **Never syncs `marine_life_sample.json`** — review in the HTML UI and run **`sync_marine_life_staging_to_json.py --all`** yourself only once you have permission.
+- Filename matching (v1) covers ~452 of the ~803 image-less rows; the rest use descriptive book filenames and can still be filled from Commons / WoRMS.
+
 ## Your authoring loop
 
 1. Open **`marine_life_caribbean_staging.csv`** (Numbers, Excel, or Cursor).

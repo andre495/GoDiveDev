@@ -2273,3 +2273,25 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Tests: **`diveSiteReferenceCatalog_bundledReferenceByID_keysMatchBundledReference`**, **`globalSearchResultRowContentBuilder_tagHitUsesHitFieldsAndTagArtwork`**, **`globalSearchResultRowContentBuilder_missingModelFallsBackToHitFields`**.
 
 ## 106 - Next batch
+
+**Summary:** Marine life — CRL EPUB image extraction pipeline + sync 452 new bundled hero photos into the app catalog (local dev).
+
+- **New pipeline:** **`caribbean_reef_life_image_utils.py`** + **`extract_marine_life_images_from_crl.py`** index ~2,195 photos in the Caribbean Reef Life 4 EPUB (`OEBPS/image/`), match staging rows by scientific name (preferred) then common name, center-crop to 960×720, and write **`Resources/MarineLifePhotos/{uuid}.jpg`**. Rows tagged **`imageSource=caribbean-reef-life`**, **`imageNeedsReview=yes`**, **`imageLicense="© Mickey Charteris — permission required"`** (hold for review — same posture as reefguide; local dev sync only for now).
+- **Coverage:** filename matching filled **452** of **803** image-less staging rows (invertebrates **189**, fishes **157**, plants **76**, corals **18**, sponges **12**). Remaining gaps use descriptive book filenames — still fillable via Commons/WoRMS.
+- **Config:** **`caribbean_reef_life_config.json`** `default_epub_path` → `Desktop/dive example data/Caribbean Reef Life 4.epub`.
+- **Synced to app:** **`sync_marine_life_staging_to_json.py --all`** — **1,407** species in **`marine_life_sample.json`**; **1,059** with **`feature_image_resource`** (452 new CRL bundles).
+- **Docs:** **`MARINE_LIFE_CARIBBEAN_WORKFLOW.md`** — new CRL EPUB image section.
+- Tests: **`test_caribbean_reef_life_image_utils.py`** (7 tests — filename parsing, scientific/common precedence, provenance marker).
+
+**Summary:** Bug fix — Field Guide marine life category tile descriptions now actually wrap to two lines instead of showing one line + ellipsis.
+
+- **Category tile subtitle wrap (real fix):** the earlier `maxWidth: .infinity` change wasn't enough — the subtitle **`Text`** on **`FieldGuideCategoryHubTile`** still truncated to one line because the frame's fixed **`maxHeight`** (exactly two line-heights) clipped the second line, so the text engine fell back to a single line + ellipsis. Added **`.fixedSize(horizontal: false, vertical: true)`** so the text takes the vertical space it needs to wrap up to its two-line limit, and dropped the hard **`maxHeight`** cap (kept **`minHeight: subtitleTwoLineMinHeight`** to reserve the block). Cosmetic view-layer fix — no logic change (the `subtitleTwoLineMinHeight` token is unchanged).
+
+**Summary:** Marine life — removed 89 catalog entries whose common name was identical to the scientific name (no distinct common name).
+
+- **Deleted 89 rows** from **`marine_life_caribbean_staging.csv`** where `commonName == scientificName` (sponges **33**, corals **21**, invertebrates **16**, fishes **11**, plants **8**), cleaned up their **28** orphaned bundled photos in **`Resources/MarineLifePhotos/`** and matching **`marine_life_bundle_photos_manifest.json`** entries.
+- **Resynced:** **`sync_marine_life_staging_to_json.py --all`** — catalog now **1,318** species (was 1,407); **`MarineLifeCatalogSeeder`** removes the dropped uuids from the app on next launch.
+
+**Summary:** Tests — fix Swift 6 main-actor `Equatable` warnings in search presentation types.
+
+- **`GlobalSearchPresentation.MatchReason`** and **`GlobalSearchMediaBrowsePresentation.MediaKindCounts`** — explicit **`nonisolated`** `==` (and `hash` for **`MatchReason`**) so **`#expect`** in unit tests no longer triggers main-actor-isolated synthesized **`Equatable`** warnings.
