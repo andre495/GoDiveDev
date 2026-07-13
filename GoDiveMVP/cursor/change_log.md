@@ -2272,7 +2272,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Enabler:** **`GlobalSearchPresentation.Section`** / **`Results`** are now **`Equatable`** so **`onChange(of: displayedResults)`** can drive the one-shot rebuild.
 - Tests: **`diveSiteReferenceCatalog_bundledReferenceByID_keysMatchBundledReference`**, **`globalSearchResultRowContentBuilder_tagHitUsesHitFieldsAndTagArtwork`**, **`globalSearchResultRowContentBuilder_missingModelFallsBackToHitFields`**.
 
-## 106 - Next batch
+## 106 - Next batch **(pushed)**
 
 **Summary:** Marine life — CRL EPUB image extraction pipeline + sync 452 new bundled hero photos into the app catalog (local dev).
 
@@ -2295,3 +2295,6 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 **Summary:** Tests — fix Swift 6 main-actor `Equatable` warnings in search presentation types.
 
 - **`GlobalSearchPresentation.MatchReason`** and **`GlobalSearchMediaBrowsePresentation.MediaKindCounts`** — explicit **`nonisolated`** `==` (and `hash` for **`MatchReason`**) so **`#expect`** in unit tests no longer triggers main-actor-isolated synthesized **`Equatable`** warnings.
+
+## 107 - Next batch
+
