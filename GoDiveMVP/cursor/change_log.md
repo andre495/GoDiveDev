@@ -2296,7 +2296,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 - **`GlobalSearchPresentation.MatchReason`** and **`GlobalSearchMediaBrowsePresentation.MediaKindCounts`** — explicit **`nonisolated`** `==` (and `hash` for **`MatchReason`**) so **`#expect`** in unit tests no longer triggers main-actor-isolated synthesized **`Equatable`** warnings.
 
-## 107 - Next batch
+## 107 - Next batch **(pushed)**
 
 **Summary:** Home Top 10 pages (deepest / longest / sites / species) now use the same collapsible inline title as Dive Buddies and Certifications — title aligned with the back button, shrinks on scroll.
 
@@ -2658,3 +2658,5 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 - Removed the leading dismiss **X** from the fish/buddy frosted overlay (`DiveActivityMediaLargeDetentOverviewContent` / `DiveActivityMediaLargeDetentOverviewSheet`). Close the overlay with the grabber (swipe down) or tap above the panel.
 - Playback **X** stays for leaving fullscreen back to the media grid (still hidden while the overlay is open so it isn’t confused with overlay dismiss).
+
+## 108 - Next batch
