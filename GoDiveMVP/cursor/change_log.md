@@ -2659,7 +2659,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Removed the leading dismiss **X** from the fish/buddy frosted overlay (`DiveActivityMediaLargeDetentOverviewContent` / `DiveActivityMediaLargeDetentOverviewSheet`). Close the overlay with the grabber (swipe down) or tap above the panel.
 - Playback **X** stays for leaving fullscreen back to the media grid (still hidden while the overlay is open so it isn’t confused with overlay dismiss).
 
-## 108 - Next batch
+## 108 - Next batch **(pushed)**
 
 **Summary:** Fix empty search results after popping back from a result detail; morphed field re-presents with keyboard hidden.
 
@@ -2832,5 +2832,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - With iCloud **CloudKit** entitlements for crash-report upload, ad-hoc **`ModelConfiguration`**s that omitted **`cloudKitDatabase: .none`** were treated as CloudKit-mirrored and failed load (missing inverses / non-optional attributes).
 - All test + preview ad-hoc configs now pass **`.none`** (production **`AppSwiftDataSchema.makeContainer`** already did).
 - Field Guide size→**fitExtent** small-band weight lowered so mid-band (**0.5–6 ft**) slope stays steeper than compressed tiny sizes; cert / Rock Beauty seeder expectations aligned with current `#` formatting and catalog casing.
+
+## 109 - Next batch
 
 
