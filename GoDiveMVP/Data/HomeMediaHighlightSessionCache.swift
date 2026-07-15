@@ -66,12 +66,17 @@ final class HomeMediaHighlightSessionCache {
     }
 
     func bestCachedImage(localIdentifier: String) -> UIImage? {
-        let heroEdge = HomeMediaHighlightWarmup.preloadImageEdge
-        if let hero = image(for: localIdentifier, edge: heroEdge) {
-            return hero
+        let prefix = "\(localIdentifier)|"
+        var best: UIImage?
+        var bestPixels: CGFloat = 0
+        for (key, image) in images where key.hasPrefix(prefix) {
+            let pixels = image.size.width * image.size.height * image.scale * image.scale
+            if pixels > bestPixels {
+                bestPixels = pixels
+                best = image
+            }
         }
-        let previewEdge = HomeMediaHighlightWarmupPresentation.previewImageEdge
-        return image(for: localIdentifier, edge: previewEdge)
+        return best
     }
     #endif
 
@@ -86,10 +91,18 @@ final class HomeMediaHighlightSessionCache {
     #if canImport(UIKit)
     func image(for localIdentifier: String, edge: CGFloat) -> UIImage? {
         let key = imageKey(localIdentifier: localIdentifier, edge: edge)
-        if images[key] != nil {
-            touchAccess(localIdentifier)
+        guard let image = images[key] else { return nil }
+        let pixelWidth = image.size.width * image.scale
+        let pixelHeight = image.size.height * image.scale
+        guard HomeMediaHighlightWarmupPresentation.sessionCachedImageSatisfiesRequestedEdge(
+            pixelWidth: pixelWidth,
+            pixelHeight: pixelHeight,
+            requestedEdge: edge
+        ) else {
+            return nil
         }
-        return images[key]
+        touchAccess(localIdentifier)
+        return image
     }
 
     func storeImage(_ image: UIImage, localIdentifier: String, edge: CGFloat) {

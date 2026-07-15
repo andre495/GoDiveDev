@@ -39,6 +39,14 @@ enum DiveActivityVideoPlaybackPolicy: Sendable {
         return true
     }
 
+    /// **`true`** when hold-to-pause must be owned by a parent (fullscreen gallery layers
+    /// use **`allowsHitTesting(false)`**, so the item’s own long-press never receives touches).
+    nonisolated static func shouldOwnHoldToPauseInParent(
+        mediaHitTestingEnabled: Bool
+    ) -> Bool {
+        !mediaHitTestingEnabled
+    }
+
     /// **`true`** when playback should run (not held, and the page/tab allows play).
     nonisolated static func shouldPlay(
         isPlaybackActive: Bool,

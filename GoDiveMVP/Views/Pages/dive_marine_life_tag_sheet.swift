@@ -1,183 +1,6 @@
 import SwiftData
 import SwiftUI
 
-/// Overview of catalog species tagged on one dive media item.
-struct DiveMarineLifeMediaTagsSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
-    @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
-
-    @State private var catalog: [MarineLife] = []
-    @State private var hasLoadedCatalog = false
-
-    let media: DiveMediaPhoto
-    let dive: DiveActivity
-    let captureContext: DiveMediaCaptureContext?
-    var catalogSites: [DiveSite] = []
-
-    @State private var taggedRows: [MarineLifeMediaTagPresentation.TaggedSpeciesRow] = []
-    @State private var showsTagPicker = false
-    @State private var showsFishialIdentifySheet = false
-
-    private var showsFishialIdentifyAction: Bool {
-        DiveMarineLifeTagSheetPresentation.showsFishialIdentifyAction
-    }
-
-    private var fishialIdentifyIsActive: Bool {
-        DiveMarineLifeTagSheetPresentation.fishialIdentifyIsActive(
-            confirmedSpeciesName: media.resolvedFishialConfirmedSpeciesName
-        )
-    }
-
-    var body: some View {
-        NavigationStack {
-            Group {
-                if taggedRows.isEmpty {
-                    ContentUnavailableView(
-                        "No species tagged",
-                        systemImage: "fish",
-                        description: Text("Tag marine life you spotted in this photo.")
-                    )
-                } else {
-                    taggedSpeciesList
-                }
-            }
-            .appSheetContentTopSpacing()
-            .navigationTitle("Marine life")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    DiveMarineLifeTagSheetLeadingToolbar(
-                        showsFishialIdentifyAction: showsFishialIdentifyAction,
-                        fishialIdentifyIsActive: fishialIdentifyIsActive,
-                        onAddTag: { showsTagPicker = true },
-                        onIdentifyFish: { showsFishialIdentifySheet = true }
-                    )
-                }
-
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .fontWeight(.semibold)
-                        .foregroundStyle(AppTheme.Colors.tabSelected)
-                        .accessibilityIdentifier("DiveMarineLifeMediaTags.Done")
-                }
-            }
-            .sheet(isPresented: $showsFishialIdentifySheet, onDismiss: reloadTaggedRows) {
-                DiveMediaFishialIdentifySheet(
-                    media: media,
-                    dive: dive,
-                    catalogSites: catalogSites,
-                    captureContext: captureContext
-                )
-            }
-            .sheet(isPresented: $showsTagPicker) {
-                DiveMarineLifeTagPickerSheet(
-                    media: media,
-                    dive: dive,
-                    captureContext: captureContext,
-                    onTagged: reloadTaggedRows
-                )
-            }
-        }
-        .appSheetPresentationChrome()
-        .task(id: media.id) {
-            await loadCatalogIfNeeded()
-            reloadTaggedRows()
-        }
-        .onChange(of: catalog.count) { _, _ in
-            reloadTaggedRows()
-        }
-    }
-
-    private var taggedSpeciesList: some View {
-        List {
-            ForEach(taggedRows) { row in
-                DiveMarineLifeTagSpeciesRow(
-                    commonName: row.commonName,
-                    trailingLabel: FieldGuidePresentation.listTrailingLabel(category: row.category),
-                    detailLine: FieldGuidePresentation.listDetailLine(
-                        scientificName: row.scientificName,
-                        sizeDepthLine: row.detailLine
-                    ),
-                    featureImageURL: row.featureImageURL,
-                    featureImageResourceName: row.featureImageResourceName
-                )
-                .equatable()
-                .listRowInsets(EdgeInsets(
-                    top: AppTheme.Spacing.sm,
-                    leading: AppTheme.Spacing.lg,
-                    bottom: AppTheme.Spacing.sm,
-                    trailing: AppTheme.Spacing.lg
-                ))
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-            }
-        }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-    }
-
-    private func loadCatalogIfNeeded() async {
-        guard catalog.isEmpty else {
-            hasLoadedCatalog = true
-            return
-        }
-        catalog = await MarineLifeCatalogLoader.loadSortedCatalog(modelContext: modelContext)
-        hasLoadedCatalog = true
-    }
-
-    private func reloadTaggedRows() {
-        let sightings: [SightingInstance] = (try? MarineLifeSightingRecorder.sightings(
-            forMediaPhotoID: media.id,
-            modelContext: modelContext
-        )) ?? []
-        taggedRows = MarineLifeMediaTagPresentation.taggedRows(
-            mediaPhotoID: media.id,
-            sightings: sightings,
-            catalog: catalog,
-            unitSystem: diveDisplayUnitSystem
-        )
-    }
-}
-
-// MARK: - Leading toolbar (+ tag + Fishial AI)
-
-private struct DiveMarineLifeTagSheetLeadingToolbar: View {
-    let showsFishialIdentifyAction: Bool
-    let fishialIdentifyIsActive: Bool
-    let onAddTag: () -> Void
-    let onIdentifyFish: () -> Void
-
-    var body: some View {
-        HStack(spacing: DiveMarineLifeTagSheetPresentation.leadingToolbarSpacing) {
-            Button(action: onAddTag) {
-                Image(systemName: "plus")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.tabSelected)
-                    .frame(minWidth: 44, minHeight: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Tag marine life")
-            .accessibilityIdentifier("DiveMarineLifeMediaTags.AddTag")
-
-            if showsFishialIdentifyAction {
-                Button(action: onIdentifyFish) {
-                    Image(systemName: "sparkles")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(DiveMarineLifeTagSheetPresentation.fishialIdentifyIconGradient)
-                        .opacity(fishialIdentifyIsActive ? 1 : 0.92)
-                        .frame(minWidth: 44, minHeight: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Identify fish with AI")
-                .accessibilityIdentifier("DiveMarineLifeMediaTags.IdentifyFish")
-            }
-        }
-    }
-}
-
 /// Catalog picker to add a species tag on dive media.
 struct DiveMarineLifeTagPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -225,15 +48,17 @@ struct DiveMarineLifeTagPickerSheet: View {
             .navigationTitle("Tag marine life")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
-                        if commitPendingTags() {
-                            dismiss()
+                ToolbarItem(placement: .topBarLeading) {
+                    LinkedMediaOverlayGlassIconButton(
+                        systemName: "xmark",
+                        accessibilityLabel: "Done",
+                        accessibilityIdentifier: "DiveMarineLifeTagPicker.Done",
+                        action: {
+                            if commitPendingTags() {
+                                dismiss()
+                            }
                         }
-                    }
-                        .fontWeight(.semibold)
-                        .foregroundStyle(AppTheme.Colors.tabSelected)
-                        .accessibilityIdentifier("DiveMarineLifeTagPicker.Done")
+                    )
                 }
             }
         }

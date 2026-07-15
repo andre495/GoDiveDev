@@ -138,6 +138,20 @@ enum DiveActivityMediaPresentation: Sendable {
         detent == .medium && taggedSpeciesCount > 0
     }
 
+    /// Sheet chrome **fish** at **medium** expands to **large** (tagging lives on the **large** **+**).
+    nonisolated static func opensMarineLifeDetailOnSheetFishTap(
+        detent: DiveActivityOverviewDetent
+    ) -> Bool {
+        detent == .medium
+    }
+
+    /// Sheet chrome **buddy** at **medium** expands to **large** with the buddy overview selected.
+    nonisolated static func opensBuddyOverviewOnSheetBuddyTap(
+        detent: DiveActivityOverviewDetent
+    ) -> Bool {
+        detent == .medium
+    }
+
     /// **`DiveOverviewMapTopScrim`** (hero black fade) — map and tank only; **Media** keeps the hero unobscured.
     nonisolated static func showsHeroTopChromeScrim(isMediaTabSelected: Bool) -> Bool {
         !isMediaTabSelected
@@ -191,6 +205,11 @@ enum DiveActivityMediaPresentation: Sendable {
         detent == .medium
     }
 
+    /// Dive **#** / site / place / date header (same as map medium) on the **Media** sheet at **medium** only.
+    nonisolated static func showsDiveIdentityHeaderInSheet(for detent: DiveActivityOverviewDetent) -> Bool {
+        detent == .medium
+    }
+
     /// Species hero + natural-history detail in the **Media** sheet at **large** only.
     nonisolated static func showsMarineLifeDetailInSheet(for detent: DiveActivityOverviewDetent) -> Bool {
         detent == .large
@@ -227,8 +246,34 @@ enum DiveActivityMediaPresentation: Sendable {
         detent == .medium
     }
 
+    /// Trailing **+** on the **large** tagged-species sheet — opens the marine-life tag flow.
+    nonisolated static func showsLargeDetentAddMarineLifeControl(for detent: DiveActivityOverviewDetent) -> Bool {
+        detent == .large
+    }
+
+    /// Trailing **+** on the **large** buddy overview — opens the buddy tag flow.
+    nonisolated static func showsLargeDetentAddBuddyControl(for detent: DiveActivityOverviewDetent) -> Bool {
+        detent == .large
+    }
+
+    /// Fish / buddy mode toggle + **+** chrome on the **large** Media sheet when media exists.
+    nonisolated static func showsLargeDetentTagOverviewChrome(for detent: DiveActivityOverviewDetent) -> Bool {
+        detent == .large
+    }
+
+    /// Reserves space for the fish/buddy toggle row (**segment** + shell padding).
+    nonisolated static var largeDetentTagOverviewChromeHeight: CGFloat {
+        PushedDetailHeroModeTogglePresentation.segmentSize
+            + (PushedDetailHeroModeTogglePresentation.shellPadding * 2)
+    }
+
     /// Hero band height for tagged-species detail at the **large** media detent.
     nonisolated static let largeDetentSpeciesHeroHeight: CGFloat = 220
+
+    /// Species photo hero at **large** Media detent — top fades out like Home fish overlay feature image.
+    nonisolated static var largeDetentSpeciesHeroTopFadeOpaqueStop: CGFloat {
+        HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageFadeOpaqueStop
+    }
 
     /// Thumbnail strip in the **Media** sheet — **minimized** / **medium** only (not **large** species detail).
     nonisolated static func showsMediaCarouselInSheet(for detent: DiveActivityOverviewDetent) -> Bool {
@@ -438,5 +483,41 @@ enum DiveActivityMediaPresentation: Sendable {
     ) -> Bool {
         guard let previousSize else { return false }
         return previousSize != newSize
+    }
+}
+
+/// Fish / buddy overview mode on dive Media **large** detent.
+enum DiveActivityMediaLargeDetentMode: String, CaseIterable, Hashable, Identifiable, Sendable {
+    case marineLife
+    case buddies
+
+    var id: String { rawValue }
+
+    var systemImage: String {
+        switch self {
+        case .marineLife: "fish.fill"
+        case .buddies: "person.2.fill"
+        }
+    }
+
+    var accessibilityLabel: String {
+        switch self {
+        case .marineLife: "Marine life"
+        case .buddies: "Buddies"
+        }
+    }
+
+    var addTagsAccessibilityLabel: String {
+        switch self {
+        case .marineLife: "Tag more marine life"
+        case .buddies: "Tag more buddies"
+        }
+    }
+
+    var addTagsAccessibilityIdentifier: String {
+        switch self {
+        case .marineLife: "DiveOverview.MediaLargeAddMarineLifeTag"
+        case .buddies: "DiveOverview.MediaLargeAddBuddyTag"
+        }
     }
 }

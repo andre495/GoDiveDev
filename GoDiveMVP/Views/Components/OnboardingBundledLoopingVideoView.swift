@@ -111,6 +111,8 @@ private final class OnboardingBundledLoopingVideoUIView: UIView {
   private func syncPlaybackState() {
     guard let player else { return }
     if isPlaybackActive {
+      DiveMutedVideoAudioSession.activateForMutedPlayback()
+      player.isMuted = true
       if player.rate == 0 {
         player.play()
       }
@@ -129,6 +131,8 @@ private final class OnboardingBundledLoopingVideoUIView: UIView {
       queue: .main
     ) { [weak self] _ in
       guard let self, self.isPlaybackActive else { return }
+      DiveMutedVideoAudioSession.activateForMutedPlayback()
+      self.player?.isMuted = true
       self.player?.seek(to: .zero)
       self.player?.play()
     }

@@ -14,7 +14,7 @@ enum MarineLifeMediaTagPresentation {
 
     nonisolated static let untaggedPrompt = "Tag marine life spotted in this photo."
     nonisolated static let largeDetentUntaggedPrompt =
-        "No fish tagged on this photo yet. Pull the sheet to medium height and tap the fish button to tag what you spotted."
+        "No fish tagged on this photo yet. Tap + to tag what you spotted."
 
     struct DescriptionSection: Identifiable, Equatable, Sendable {
         var id: String { title }
@@ -79,6 +79,9 @@ enum MarineLifeMediaTagPresentation {
         guard trimmed.count > chipTitleMaxLength else { return trimmed }
         return String(trimmed.prefix(chipTitleMaxLength)) + "…"
     }
+
+    /// Field Guide entry affordance under species overview on Media **large** / fullscreen overlay.
+    nonisolated static let learnMoreLabel = "Learn More"
 
     nonisolated static func mediumDetentAccessibilityLabel(taggedNames: [String]) -> String {
         guard !taggedNames.isEmpty else { return untaggedPrompt }

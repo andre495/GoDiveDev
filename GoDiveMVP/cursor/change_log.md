@@ -2298,3 +2298,363 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ## 107 - Next batch
 
+**Summary:** Home Top 10 pages (deepest / longest / sites / species) now use the same collapsible inline title as Dive Buddies and Certifications — title aligned with the back button, shrinks on scroll.
+
+- **`HomeLifetimeStatsLeaderboardView`:** enabled **`collapsibleInlineTitleHeader: true`** on **`AppPage`** and dropped stacked **`AppHeaderStackedTitleChrome`** (title-below-back) placement — all four kinds share this one view, so deepest, longest, sites, and species get the Logbook-style chrome together.
+- Presentation flag **`HomeLifetimeStatsLeaderboardPresentation.usesCollapsibleInlineTitleHeader`**; tests cover all four **`pageTitle`** strings + the chrome flag.
+- **Titles:** **My Deepest Dives**, **My Longest Dives**, **My Top Sites**, **My Top Marine Life**.
+
+**Summary:** Home featured media — faster carousel load (stop full-quality video upgrade, restore tiered photo warm, parallelize preview JPEGs, stabilize load keys).
+
+- **Bug fix — Home videos silently requested full-quality streams:** **`DiveActivityVideoPlayerView`** treated **`.homeCarousel`** as **`allowsBackgroundUpgrade: true`**, so after the preview stream was ready it immediately requested PhotoKit **`.highQualityFormat`** — a large iCloud download that contended with image warm. Home now never schedules a full-quality upgrade (**`DiveMediaProgressivePresentation.allowsFullQualityUpgrade`** is false for **`.homeCarousel`**); carousel playback stays on the lighter **`.automatic`** / preview stream.
+- **Bug fix — tiered bootstrap was dead:** **`warmBootstrapTier`** warmed all three slides at **`.full`** despite **`bootstrapQuality(forCarouselIndex:)`** (slide **0** full, slides **1…n** preview). Wired the presentation policy back into warm so off-screen slides stay at preview quality.
+- **Preview JPEG capture no longer blocks warm:** **`scheduleCarouselWarmupIfNeeded`** runs **`ensureStoredPreviews`** in parallel with **`warmHighlights`** via a MainActor **`TaskGroup`** (existing **`previewJPEGData`** is already seeded first). **`ensureStoredPreviews`** itself captures missing JPEGs via a parallel **`TaskGroup`** instead of serial awaits.
+- **Stabilize progressive image loads:** **`HomeMediaCarouselPresentation.stableImageLoadWidth`** buckets container width to **8 pt** for **`loadTaskID`** and hero cache edges so ±1 pt geometry jitter does not cancel/restart PhotoKit requests.
+- Tests: **`allowsFullQualityUpgrade`** for Home vs full quality; **`stableImageLoadWidth`** bucketing.
+
+**Summary:** Home / dive media progressive ladder restored — still preview → low-res → high-res with live upgrade (fix stuck soft previews + video timeouts).
+
+- **Bug fix — soft JPEGs masked sharper frames:** display used **`sessionCachedImage ?? loadedImage`**, and session cache stored 256px **`previewJPEGData`** under the **480** edge — so once a soft preview existed, progressive hero/final frames never showed. **`preferredStillImage`** now prefers the progressive / loaded frame; **`bestCachedImage`** returns the **largest** cached frame for an asset (not a fixed 780/480 lookup that miss-matched bucketed edges).
+- **Bug fix — videos never left preview tier:** the prior pass blocked full upgrade for **`.homeCarousel`**, which also broke the dive Media tab (same quality). Restored the ladder: poster → **`.homeCarousel`** / preview stream → **`.fullQuality`** while playing (and Home may background-upgrade session-pinned carousel clips via **`allowsBackgroundFullVideoUpgrade`**). Playback swaps streams in place.
+- **Home warm:** all **3** carousel stills warm at hero **`.full`** again and stay session-pinned; videos warm at preview first, then upgrade. Preview JPEG fill still runs in parallel with warm (does not block it).
+- Tests: preferred still priority; Home allows full upgrade + background upgrade; Media uses playback-gated upgrade only.
+
+**Summary:** Media ladder contention fix — stop racing full-quality video against preview; prefer sharpest still by pixel area.
+
+- **Bug fix — videos starved / timed out:** full-quality upgrades started as soon as preview *resolved* (and Home used background upgrade), flooding PhotoKit while the preview stream still needed iCloud. Full upgrade now waits until preview is **display-ready**, then delays **~400 ms**, and **never** background-upgrades. Home warm runs heroes + preview videos first; missing JPEG capture runs after warm (not in parallel with it).
+- **Bug fix — soft previews stuck:** **`preferredStillImage(UIImage…)`** now picks the **largest pixel area** among progressive / session / stored candidates so a 256px JPEG cannot mask a warmed hero. Home video slides request **poster-sized** stills only (not full hero edges) so image loads do not compete with **`requestAVAsset`**. Home warm order: photo heroes → video posters → preview AVAssets → missing JPEG fill.
+- Tests: **`shouldScheduleFullVideoUpgrade`** requires display-ready; background full upgrade stays off; UIImage preferred still by area; **`bootstrapStillQuality`** video → preview.
+
+**Summary:** Soft JPEG false cache hits — soft **256 px** was keyed as edge **480**, so warm/load skipped PhotoKit forever.
+
+- **Bug fix — stuck on low-res previews:** **`DiveMediaPreviewStorage.seedSessionCacheIfNeeded`** now stores soft JPEGs under **`storedPreviewSessionEdge` (256)**, not **`previewImageEdge` (480)**. Session cache lookups reject frames whose pixel size does not satisfy the requested edge (**`sessionCachedImageSatisfiesRequestedEdge`**), so legacy soft-under-480 entries no longer short-circuit progressive / hero loads. Preview warm no longer early-returns on “has stored JPEG alone.”
+- Tests: soft JPEG does not satisfy preview edge; session cache rejects soft frames under the **480** key.
+
+**Summary:** Home video never reaches previewReady — duplicate `requestAVAsset` races + still PhotoKit competing.
+
+- **Bug fix — video stuck after `video resolve began`:** Home slide warm, player resolve, poster fetch, and still upgrade all hit PhotoKit at once; one call timed out with **`nil`** even when another already had the **`AVAsset`**. **`loadVideoAsset`** now **coalesces inflight** requests per identifier+quality, rechecks session cache after timeout, and late PhotoKit successes still seed the session cache. Soft posters skip extra still PhotoKit loads while the video resolves; player skips poster PhotoKit when an initial soft frame already exists.
+- Warm logs now include **`loaded=`** so Console can distinguish fail vs success (`cacheHit=false` alone was ambiguous).
+- Tests: preferred asset after raced request; skip still load while video resolves.
+
+**Summary:** Home video `→ failed` / `loaded=false` — switch playback to PhotoKit **`requestPlayerItem`** (stream) instead of **`requestAVAsset`** (full download).
+
+- **Bug fix — carousel video PhotoKit nil / timeout:** Apple recommends **`requestPlayerItem`** for playback; **`requestAVAsset`** waits on a full iCloud download and was failing under the timeout while the soft poster stayed up. **`.homeCarousel`** now loads via **`requestPlayerItem`** (asset cached from the player item); **`.fullQuality`** keeps **`requestAVAsset`** for Fishial/export. Timeouts are quality-specific (**30 s** preview / **45 s** full). Failed requests log **`video asset request failed`** with timedOut / net / iCloud / error detail.
+- Tests: **`usesPlayerItemRequest`**, failure detail formatting, quality timeouts.
+
+**Summary:** All carousel videos `timedOut net=1 30.1s` together — parallel PhotoKit video requests starved each other.
+
+- **Bug fix — serial PhotoKit video lane:** at most one library video request at a time (**`DiveMediaVideoPhotoKitGate`**); Home warm loads videos **serially** (priority / first slide first); inactive slides no longer call **`ensureCarouselVideoReady`**. Soft timeout **30 s** only when no iCloud progress; hard cap **90 s** while progress advances.
+- Tests: active-only ensure; priority warm order; soft/hard timeout policy.
+
+**Summary:** Home videos hung ~30 s because we blocked on **`playerItem.asset`** inside PhotoKit’s callback (full iCloud download) then re-wrapped that asset into a new **`AVPlayerItem`**.
+
+- **Bug fix — use streaming player items as-is:** Home / overview **`playerItem`** returns PhotoKit’s **`requestPlayerItem`** result directly and never reads **`.asset`** in that callback. **`DiveActivityFillVideoPlayerUIView`** plays that item without **`AVPlayerItem(asset:)`**. Carousel warm uses one streaming snapshot for the visible clip (no **`requestAVAsset`** warm). Success logs **`video asset request ready … Xs`**. Soft timeout back to **15 s**.
+- Tests: **`shouldExtractAssetInPlayerItemCallback`** is false; soft timeout **15 s**.
+
+**Summary:** First Home video played; slides **2–3** never prepared — warm stopped after the first clip and only the active slide called ensure.
+
+- **Bug fix — remaining carousel videos stay soft / unloaded:** warm streams **all** carousel videos serially (priority first). Active **and adjacent** slides set **`shouldPrepareVideo`** so neighbors prefetch a streaming player item before swipe.
+- Tests: adjacent ensure + adjacent logical indices wrap.
+
+**Summary:** Home featured videos — simple PhotoKit streaming preload for all **3** carousel clips.
+
+- **Home video path simplified:** **`HomeCarouselVideoSessionCache`** preloads up to **3** library videos in **parallel** via **`requestPlayerItem`** only (muted **`AVPlayer`**, no app-local file, never reads **`.asset`** in the PhotoKit callback). Home slides play through **`HomeCarouselMutedVideoPlayer`** instead of the progressive dive Media player. Still images / other screens still load on demand.
+- Tests: **`HomeCarouselVideoPresentation`** preload filters.
+
+**Summary:** Root-cause fix from device logs — `.automatic` video delivery forced full iCloud downloads (every `requestPlayerItem` timed out with zero callbacks), and opportunistic still loads hung forever discarding local thumbnails. Plus: featured media now starts loading during the launch screen.
+
+- **Evidence (Dre's Phone, fresh launch):** both carousel videos failed **`timedOut net=1 20.3s`** with no PhotoKit callback at all; the slide-0 **photo** hero also never delivered a final frame (no `load ended` for 2.5 min). Library has ~20k photos / ~3.8k videos in iCloud (optimized storage → originals remote).
+- **Bug fix — video delivery tier:** **`.homeCarousel`** now requests **`.mediumQualityFormat`** (streamable medium rendition) instead of **`.automatic`**, which resolved to the full-quality original on optimized-storage libraries — a download far larger than the timeout window. Applies to Home carousel and dive-overview preview playback (**`DiveMediaVideoRequestQuality.photoKitDeliveryMode`**).
+- **Bug fix — stills hung forever on stalled iCloud finals:** **`DiveMediaReferenceLoader`** opportunistic requests now keep the **degraded local thumbnail** and, after **`DiveMediaStillLoad.requestTimeoutSeconds`** (20 s) without a final frame, resolve with it instead of hanging the caller (warm tasks, hero loads, launch overlay). Degraded fallbacks are **displayed but never cached** (**`shouldCacheFetchedImage`**), so future loads still upgrade. Progressive loads get the same timeout resume; late finals still flow to the UI and caches.
+- **Home video diagnostics:** the simple path now sets a **`progressHandler`** (logs `video load progress … %`) and uses the shared progress-aware timeout (soft 20 s only with **no** iCloud progress, hard 90 s) instead of a flat cutoff; still-timeout fallbacks log `still request timed out … degradedFallback=`.
+- **Feature — preload during launch screen:** **`HomeCarouselLaunchPreload`** persists today's 3 carousel picks (owner + daily seed + Photos pointers/kinds). On next launch, as soon as the app shell shows, it preloads all 3 posters and muted video streams — before the Home aggregate rebuild (~3.5 s) even finishes. No-ops when the owner or day changed.
+- **Bug fix — carousel picks reshuffled every launch:** **`HomeMediaHighlightPresentation.dailySeed`** used Swift's **`Hasher`**, which is randomly seeded **per process** — so "daily" picks actually changed on every cold launch (confirmed on device: different assets each run), defeating both the daily-pick UX and the launch preload. Replaced with a deterministic **FNV-1a** hash over owner UUID + year + day-of-year.
+- Tests: still-load cache/fallback policy; launch-preload owner+seed matching and pointer/kind entry building; `.homeCarousel` delivery mode is `.mediumQualityFormat`.
+
+**Summary:** Home carousel slide **0** starved by neighbor video prepares + parallel PhotoKit.
+
+- **Bug fix — first featured item often failed while slides 2–3 worked:** video prepare for the active slide was gated on **`isPlaybackAllowed`** (carousel `onAppear` + scene active). Before that, only **neighbors** of index **0** (slides **1** and **n−1**) called **`shouldPrepareVideo`**, so they claimed PhotoKit first and slide **0** timed out or stayed on the soft poster. Prepare now keys off the selected logical index (playback itself still waits for visibility).
+- **Bug fix — parallel Home video `requestPlayerItem`:** **`HomeCarouselVideoSessionCache.preload`** is serial again (caller order / priority first) and each request goes through **`DiveMediaVideoPhotoKitGate`**. Launch poster preload loads slide **0** before the rest; warm stills warm media row **0** first.
+- **Bug fix — soft-skip stuck after failed video:** if prepare finishes without a player, the slide forces a still upgrade instead of leaving the **256 px** JPEG forever.
+- Tests: **`shouldPrepareCarouselVideo`** includes active index **0**; soft-skip requires prepare in-flight/ready.
+
+**Summary:** Muted in-app video must not stop Music / other phone playback.
+
+- **Bug fix — Home carousel video interrupted other audio:** **`HomeCarouselMutedVideoPlayer`** never called **`DiveMutedVideoAudioSession`** (dive overview / onboarding already did). **`AVPlayer`** then activated the default **`.playback`** session and paused Music. Home now sets **`.ambient` + `.mixWithOthers`** before every **`play()`** (and when building carousel players). Dive / onboarding play paths re-assert the same. Session config is re-applied on each activate (no one-shot) so a later default session steal cannot stick.
+- Tests: ambient + mixWithOthers policy unchanged.
+
+**Summary:** Fix Home slide **0** stuck / silent + reshuffle featured media on every cold launch.
+
+- **Bug fix — looping pager silenced slide 0:** with 3 picks the TabView mounts a duplicate of slide **0** as the last page; both pages shared the same logical index and both set **`isVideoPlaybackActive`**, so two **`AVPlayerLayer`**s fought one shared muted player (and **`detach()`** paused it). Playback now requires the **selected pager index**. **`detach()`** no longer pauses the shared player.
+- **Bug fix — all 3 videos prepared at once:** prepare is now **active + forward neighbor** only (not wrap-previous), so slide **0** is not starved by slides **1** and **2** on first paint.
+- **Bug fix — one-shot soft timeout left slide 0 on a poster:** **`ensurePlayer`** retries up to **3** times; late PhotoKit items after soft timeout are still cached; the slide polls briefly for a late player before falling back to still upgrade.
+- **Behavior — new featured picks each launch:** carousel shuffle uses **`carouselShuffleSeed`** (daily FNV salt ⊕ per-process nonce). Cross-launch UserDefaults preload is disabled so yesterday’s picks cannot pin PhotoKit to the wrong assets.
+- Tests: pager playback gating; prepare excludes wrap-previous; launch preload always off; shuffle seed salts daily seed.
+
+**Summary:** First Home carousel video stayed frozen until swipe-away / swipe-back.
+
+- **Bug fix — `play()` before AVPlayerItem ready:** muted Home player called **`play()`** immediately (and raced with **`seek`**). Item often still **`.unknown`**, so rate stayed **0** until a remount on swipe. Now observes **`.status == .readyToPlay`** (with **`.initial`**), seeks then plays from the seek completion, and remounts when the selected page becomes active if a cached player already exists.
+
+**Summary:** Home featured videos loop while visible.
+
+- **Bug fix — muted carousel clips played once then froze:** looping was gated to fish/buddy overlay hold only; normal play called **`onSlideFinished`** and often left the item on its last frame. Videos now **always loop** while the pager page is active; multi-slide carousels still auto-advance after one playthrough (asset duration, or photo dwell fallback).
+- Tests: **`shouldLoopCarouselVideo`**, **`videoAutoAdvanceSeconds`**.
+
+**Summary:** Hold-to-pause for videos in Search media grid fullscreen (and other linked-media galleries).
+
+- **Bug fix — hold-to-pause never fired in media search fullscreen:** **`LinkedMediaFullscreenView`** mounts **`DiveActivityMediaItemView`** with **`allowsHitTesting(false)`** so browse/dismiss drags win — which also blocked the item’s long-press. Hold-to-pause now lives on the gallery’s interactive surface and is passed down as **`isPausedByUserHoldFromParent`** (clears on swipe / media change / marine-life overlay). Same path as trip / buddy / dive-site tagged media grids.
+- Tests: parent owns hold when media hit-testing is disabled.
+
+**Summary:** Media grid fish + buddy corner icons (Search / trip / site galleries).
+
+- **UX — media grid tag badges (tagged-only):** preview tiles show accent **buddy** (**bottom-leading**) and **fish** (**bottom-trailing**) only when that media has buddy / marine-life tags (no empty white icons). Shared **`linkedMediaGridTagBadges`**; Search → Media + general search media strip included. Buddy detail media grid now receives sightings so fish badges appear when species are tagged too.
+- Tests: **`showsTagIcon`**.
+
+**Summary:** Fullscreen media fish button → dive-style tagged species sheet overlay (not full-bleed card).
+
+- **`LinkedMediaFullscreenView`** (Search media, trip / site / buddy galleries): tapping the marine-life fish when the item has tags presents **`LinkedMediaTaggedMarineLifeSheet`** (medium/large detents + **`appSheetPresentationChrome`**) with the same species selector + overview as dive Media **large** detent; video pauses while the sheet is up.
+- Removed the inline **`TripDetailMediaMarineLifeOverlay`** path from this fullscreen chrome.
+- Presentation gate **`LinkedMediaFullscreenPresentation.shouldPresentTaggedMarineLifeSheet`**; test for button+tags requirement.
+
+**Summary:** Search → Media grid groups thumbnails under month/year section dividers (same header style as multi-category search).
+
+- **`GlobalSearchMediaResultsView`:** month sections newest-first (**March 2026**), using shared **`GlobalSearchResultsSectionHeader`**; one cross-month fullscreen pager.
+- **`GlobalSearchMediaBrowsePresentation.monthSections`** / **`MonthSection`**; **`MediaEntry.diveStartTime`** + **`sectionDate`** (`capturedAt` ?? dive start).
+- Tests: **`globalSearchMediaBrowsePresentation_monthSections_groupsNewestMonthFirstUsingCaptureOrDiveDate`**.
+
+**Summary:** Media preview tiles — buddy badge lower-left, fish lower-right; icons only when tagged.
+
+- **`LinkedMediaGridSection`** / Search media grids: accent **person.2** bottom-leading and **fish** bottom-trailing, only when that media has buddy / species tags. Shared **`linkedMediaGridTagBadges`**.
+- Buddy tagged-media grid now gets sightings so fish badges can appear; untagged tiles stay clean (no white placeholders).
+- Tests: **`showsTagIcon`**.
+
+**Summary:** Fullscreen media playback always shows fish + buddy so tags can be added.
+
+- **`TripDetailMediaGalleryOverlayControls`:** buddy lower-left + fish lower-right always (accent when tagged, white when not). Tap opens **`DiveMediaBuddyTagsSheet`** / **`DiveMarineLifeMediaTagsSheet`**. Preview tiles stay tagged-only.
+- **`LinkedMediaFullscreenPresentation.shouldPresentMediaTagSheet`**; tests for gate + active state.
+
+**Summary:** Search → Media grid scroll performance — lazy sections, no scroll-driven rebuilds, soft JPEG thumbnails.
+
+- **`LazyVStack`** for month sections (was eager **`VStack`** inside **`ScrollView`**, which mounted every cell).
+- Grid body is **`Equatable`** so count-title fade (**`scrollOffset`**) does not rebuild thumbnails every frame.
+- Precomputed **`marineLifeTaggedMediaIDs`** / **`buddyTaggedMediaIDs`** on **`DisplayCache`**; grid uses stored-preview-only thumbnails (no PhotoKit while scrolling); square cells use **`Color.clear.aspectRatio(1)`** + overlay fill (no per-cell **`GeometryReader`**).
+
+**Summary:** Restore square linked-media grid cells after scroll perf pass.
+
+- **Bug fix — portrait/landscape tiles in the 3-column grid:** cells drove layout from the image’s natural aspect instead of a square clip. Restored **`aspectRatio(1)`** square shells with **`scaledToFill`** thumbnails; kept stored-preview + lazy sections.
+- **`LinkedMediaGridPresentation.cellAspectRatio`**; test asserts square cells.
+
+**Summary:** Search → Media month headers pin at the top like multi-category search.
+
+- **`GlobalSearchMediaResultsView`:** month/year titles use a plain **`List`** with **`Section`** headers + the same **`scrollContentTopMargin`** as sectioned search results so they stick under the back row while scrolling.
+- Grid thumbs stay **`Equatable`**; **`pinsMonthSectionHeaders`** flag + test.
+
+**Summary:** Slightly sharper linked-media grid thumbnails.
+
+- Raised grid PhotoKit edge (**`gridThumbnailPointSize` 128 → 180**, **`photoKitRequestEdge` 360**) so 3-column tiles can clear soft **256 px** JPEGs.
+- Search → Media paints stored soft first, then upgrades via PhotoKit (no longer stored-preview-only). Soft JPEG size on disk stays **256**.
+- Tests: grid point / PhotoKit edge metrics.
+
+**Summary:** Fullscreen media fish → transparent tagged-species details sheet (dive Media large detent).
+
+- **`LinkedMediaFullscreenView`:** fish with tags opens **`LinkedMediaTaggedMarineLifeSheet`** (**medium** / **large** + **`appSheetPresentationChrome`**) — species chips + overview over the media; fish without tags still opens **`DiveMarineLifeMediaTagsSheet`** to add tags. Buddy control unchanged.
+- Restored **`shouldPresentTaggedMarineLifeSheet`**; tests cover the gate.
+
+**Summary:** Fullscreen media buddy → transparent tagged-buddies sheet (avatar + name).
+
+- **`LinkedMediaTaggedBuddiesSheet`:** same medium/large frosted chrome as the species sheet; 3-column grid of profile photo + display name.
+- Fish / buddy with tags → details sheets; without tags → tagging sheets. **`shouldPresentTaggedBuddiesSheet`** + tests.
+
+**Summary:** Tagged species / buddy overview sheets get upper-right **+** to add more tags.
+
+- **`LinkedMediaTaggedMarineLifeSheet`** / **`LinkedMediaTaggedBuddiesSheet`:** Liquid Glass trailing **plus** opens the existing marine-life / buddy tagging sheets; lists refresh on dismiss.
+- **`LinkedMediaTaggedOverviewSheetPresentation.showsAddTagsControl`** gated on media + dive.
+
+**Summary:** Dive Media **large** detent also shows trailing **+** to tag marine life.
+
+- **`DiveActivityPhotosPanelContent`:** upper-right Liquid Glass **plus** at **large** (same control as fullscreen species overview) opens the marine-life tag sheet; untagged prompt points at **+**.
+- **`showsLargeDetentAddMarineLifeControl`**; tests updated for chrome/prompt.
+
+**Summary:** Dive Media **medium** fish expands the sheet to **large** (instead of opening tagging).
+
+- Sheet chrome **fish** prefers **`onExpandMarineLifeDetail`** → **large** detent; tagging stays on **large** **+** (and the medium untagged prompt).
+- **`opensMarineLifeDetailOnSheetFishTap`**; test covers medium-only gate.
+
+**Summary:** Dive Media **large** fish/buddy toggle (map/media chrome) switches tagged overviews.
+
+- Upper-leading **`DiveActivityMediaLargeDetentModeToggle`** (**fish** / **person.2**) matches pushed hero map/media chrome; trailing **+** opens marine-life or buddy tagging based on mode.
+- Buddy mode shows avatar + name grid (or untagged prompt); fish mode keeps species detail.
+- Tests for mode icons, buddy **+** gate, chrome height.
+
+**Summary:** Dive Media **medium** buddy icon opens **large** with the buddy toggle selected.
+
+- Medium sheet chrome **buddy** sets **`largeDetentMode = .buddies`** then expands (mirrors fish → marine life); tagging stays on **large** **+**.
+- **`opensBuddyOverviewOnSheetBuddyTap`**; test covers medium-only gate.
+
+**Summary:** Search media grid fish/buddy badges open the dive Media **large** overview sheet.
+
+- Shared **`DiveActivityMediaLargeDetentOverviewSheet`** (**large** + frosted chrome) — same fish/buddy toggle and **+** as dive Media.
+- Search → Media (and typed-search Media section): fish badge → fullscreen + marine-life overview; buddy badge → fullscreen + buddies overview. Fullscreen chrome fish/buddy use the same sheet.
+- **`LinkedMediaGridPresentation.tagOverviewMode`**; dive panel large body reuses **`DiveActivityMediaLargeDetentOverviewContent`**.
+
+**Summary:** Fullscreen media **View** opens the dive on **map**; top chrome vertically aligned.
+
+- **`LinkedMediaFullscreenLinkedDiveCover`** presents **`ViewSingleActivity`** without media focus (default **map** tab), not **Media**.
+- Shared **`topChromeControlHeight` (48)** — **X**, **View**, and **#/#** share one vertical center.
+- Docs **`search.md`**; test for control height.
+
+**Summary:** Fullscreen media **X** matches app toolbar / back button size.
+
+- Close uses **`appToolbarIconButtonLabel()`** + **`appStandaloneIconButtonStyle()`** (same **44** glass chrome as back / other **×**).
+- **`topChromeControlHeight`** is **44** (same as glass chrome / back buttons); stored as a literal for **`nonisolated`** access.
+
+**Summary:** Search → Media month headers clear the videos/photos count title.
+
+- Media browse top margin uses **`scrollContentTopMarginBelowChrome(chromeHeight:)`** (same clearance as scoped results under the floating chrome), not the multi-category **12 pt** pin-on-back-row margin — so **March 2026** no longer clips into **X videos, X photos**.
+- Test covers below-chrome vs on-back-row margins.
+
+**Summary:** Fullscreen fish/buddy overview stays frosted over playing media (dive Media **large**).
+
+- Overview sheet uses **`embeddedOverviewTranslucentOpacity`** (**0.62**) instead of denser default sheet chrome.
+- Video keeps playing under the overview; only nested tagging sheets pause (**`shouldPauseVideoForPresentedTagChrome`**).
+- Test covers pause gate + translucency token.
+
+**Summary:** Media grid fish/buddy corners always accent blue + count capsules (Home style).
+
+- Corner icons always show (not tagged-only); **`showsTagCountBadge`** when count **> 1** (same as Home carousel).
+- Search Media / results grids pass tag counts from **`DisplayCache`**.
+- Tests updated for always-on icons + count badge gate.
+
+**Summary:** Fullscreen media top chrome — centered **#/#**, white **View**.
+
+- Position chip is horizontally centered in the top row (**`ZStack`**), independent of **View** placement.
+- **View** chip label uses white (not accent).
+
+**Summary:** Dive **Tank** / **Media** medium sheets keep the map identity header.
+
+- Shared **`DiveActivityMapOverviewHeader`** (dive **#**, site, place, date/time) on **Tank** medium+large and **Media** medium (above species chips / empty prompt).
+- **`showsDiveIdentityHeaderInSheet`**; docs + test.
+
+**Summary:** Large Media marine-life hero — no letterbox bars, top fade like Home.
+
+- Media-sheet catalog photos no longer draw the blue/gradient letterbox fill; image is centered with **`.fit`**.
+- Top fade to transparency reuses Home fish-overlay opaque stop; placeholder dropsthe filled rectangle.
+- Test ties fade stop to Home carousel token.
+
+**Summary:** Media grid badges tagged-only; fullscreen fish/buddy always on with count badges.
+
+- Search / linked media **grid** previews show accent fish / buddy only when that item has tags; multi-tag count capsules stay **> 1**.
+- Fullscreen playback keeps fish / buddy **always** accent; notification-style badge shows tag count when **≥ 1**.
+- Tests: **`showsTagIcon`**, fullscreen **`showsTagCountBadge`**.
+
+**Summary:** Fullscreen fish/buddy overview uses dive Media translucent panel (not opaque sheet).
+
+- Tag overview is an **in-hierarchy** frosted panel (**`diveActivityMediaLargeDetentOverviewEmbeddedChrome`**) matching dive Media **`usesTranslucentChrome`**, so playing media shows through.
+- System **`.sheet`** over fullscreen was compositing opaque; cleared-background sheet helper remains as a fallback.
+- Panel height matches dive **large** detent; tap above / grabber dismisses. Test covers panel height helper.
+
+**Summary:** Fish/buddy tag count badges are circular (Home shared chip).
+
+- Shared **`MediaTagCountBadge`** — fixed equal **18×18** frame + **`Circle`** fill (no stretched capsule).
+- Home carousel, fullscreen playback, and media grid all use it.
+
+**Summary:** Fullscreen playback chrome uses Liquid Glass.
+
+- **X** stays **`.glass`** circular toolbar; **View** + **#/#** use capsule **`appLiquidGlassSearchFieldChrome`**; **buddy** / **fish** (and star) use **`appLiquidGlassCircleChrome`** like Home.
+- Overlay rows wrapped in **`GlassEffectContainer`**. Dropped hand-rolled black/material icon fills.
+
+**Summary:** Fullscreen chrome — Home dive chip lower-left; merged buddy/fish glass group.
+
+- Replaced **View** with shared **`MediaDiveLinkChromeButton`** (book, site, **#** · trip) opening the dive.
+- Buddy + fish sit lower-right in one Liquid Glass union ([toolbars](https://developer.apple.com/design/Human-Interface-Guidelines/toolbars)); accent when tagged, white when not (no count badges).
+- **#/#** stays top-centered; Home carousel reuses the same dive chip.
+
+**Summary:** Fullscreen **#/#** moves upper-left beside **X**, matching glass control height.
+
+- Position chip shares the leading top row with **X** (**`topChromeControlHeight`** / **44**).
+- Removed centered top placement from the bottom overlay controls.
+
+**Summary:** Large marine-life overview — Fishial sparkles leading **+** in one glass group.
+
+- On fish mode, pink→purple **sparkles** leads **+** in a shared Liquid Glass union (**`DiveActivityMediaLargeDetentMarineLifeTrailingActions`**); opens Identify fish when configured.
+- Same chrome on dive Media **large** and fullscreen overview sheet; buddy mode keeps **+** alone.
+
+**Summary:** Playback **#/#** plain text upper-right; dual icons use one capsule.
+
+- Position label is unstyled white text (no glass chip), trailing in the top row.
+- Buddy/fish and Fishial/**+** use **`AppLiquidGlassIconPair`** — one capsule border wrapping both glyphs.
+
+**Summary:** Fullscreen frosted tag overview — centered fish/buddy toggle, grabber swipe-down dismiss.
+
+- **`DiveActivityMediaLargeDetentOverviewContent`:** fish/buddy toggle is horizontally centered.
+- Grabber drag follows the finger and dismisses past **`tagOverviewGrabberDismissThreshold`** (**`shouldDismissTagOverview`**); tap above the panel also closes.
+- Test: **`linkedMediaFullscreenPresentation_shouldDismissTagOverview_usesGrabberThreshold`**.
+
+**Summary:** Fullscreen fish/buddy capsule matches dive chip height.
+
+- **`AppLiquidGlassIconPair.mediaTagControls`** uses **`HomeMediaCarouselPresentation.slideChromeControlHeight`** (same as **`MediaDiveLinkChromeButton`**).
+
+**Summary:** Tag-overview grabber tracks the finger live; sheet dismiss **X** removed.
+
+- Grabber drag shrinks panel height with animations off (same pattern as dive overview grabber); no tap-vs-drag delay on the grabber.
+- Close via swipe-down or tap above the panel; leading overview **X** removed so the toggle stays centered alone.
+
+**Summary:** Fullscreen video — center play/pause; tap media to hide/show chrome.
+
+- Liquid Glass **play** / **pause** (**`LinkedMediaFullscreenCenterPlaybackControl`**) centered on videos; hold-to-pause still works.
+- Tap empty media toggles top, bottom, and center controls (**`showsPlaybackChrome`**); control taps do not toggle.
+- Tests: **`linkedMediaFullscreenPresentation_playbackChrome_*`**.
+
+**Summary:** Restore top chrome corners; remove fullscreen hold-to-pause.
+
+- **X** / **#/#** again fill the height of a bottom-aligned **`ZStack`** so they stay upper-left / upper-right.
+- Fullscreen hold-to-pause gesture removed so a tap on the video toggles chrome + center pause without delay; pause is center-button only.
+
+**Summary:** Overlay **+** opens tag pickers; remove redundant tagged-list sheets.
+
+- Large-detent / fullscreen overview **+** presents **`DiveMarineLifeTagPickerSheet`** / **`DiveMediaBuddyTagPickerSheet`** (same for dive Media medium tag actions).
+- Removed **`DiveMarineLifeMediaTagsSheet`**, **`DiveMediaBuddyTagsSheet`**, and **`LinkedMediaTaggedMarineLifeSheet`** / **`LinkedMediaTaggedBuddiesSheet`** (overview content already lives on the frosted panel).
+
+**Summary:** Overlay **+** icons are white (not accent blue).
+
+- Standalone **+** and Fishial pair trailing **+** use white glyphs on the frosted overview chrome.
+
+**Summary:** Overlay dismiss **X** upper-left; tag sheets use white circular glass icons.
+
+- Fullscreen tag overview leading **X** closes the panel (playback **X** hides while the overlay is up).
+- **Tag marine life** / **Tag buddy** sheets: leading white circular **X** (saves/dismisses); buddy **+** is the same white circular glass control.
+
+**Summary:** Hide dive chip + fish/buddy chrome while tag overview is open.
+
+- **`TripDetailMediaGalleryOverlayControls`** are removed from the hierarchy when **`showsTagOverviewSheet`** is true.
+
+**Summary:** Overlay buddy avatar → buddy page; marine life **Learn More** → Field Guide.
+
+- Tapping a buddy profile photo opens **`ViewDiveBuddyDetails`**.
+- **Learn More** under tagged species opens **`FieldGuideMarineLifeDetailView`**.
+
+**Summary:** Search → Media grid scroll lag — stop per-frame list invalidation and main-thread JPEG re-decodes.
+
+- **Bug fix — count-title fade invalidated the list every scroll frame:** **`onScrollGeometryChange`** now transforms to the **derived title opacity** (not the raw offset), so the `@State` update / body re-evaluation only fires inside the 44 pt fade band instead of on every frame of a long scroll.
+- **Bug fix — stored previews re-decoded per body evaluation:** **`DiveMediaPreviewStorage.storedPreviewImage`** caches decoded **256 px** JPEGs in an **`NSCache`** keyed by media ID (`previewJPEGData` is write-once), so grid cell bodies and `seedSessionCacheIfNeeded` stop constructing a fresh `UIImage` from data on the main actor each pass.
+- **Bug fix — month-grid `Equatable` touched SwiftData per compare:** **`GlobalSearchMediaBrowseMonthGrid`** compares the display cache's precomputed **`mediaIDs`** instead of `mediaItems.map(\.id)` (model getter per item per invalidation).
+- **Removed page-open hitch:** dropped bulk **`seedSessionCache(for:)`** over the whole filtered result set in `applyResolvedMedia` — the session cache holds only `carouselLimit` (3) entries, so decoding every stored JPEG just to evict them was wasted main-thread work; visible cells still seed themselves on appear.
+- Test: **`diveMediaPreviewStorage_storedPreviewImage_reusesDecodedInstance`** (cached decode returns the same instance; missing data stays `nil`).
+
+**Summary:** Search tab open lag — keep the warm-index work out of the tab-morph animation frames.
+
+- **Bug fix — hidden search warmer mounted mid-morph:** **`scheduleDeferredSearchIndexMount`** deferred by a single `Task.yield()`, so one runloop tick after the Search tab appeared the warmer layer mounted **eight SwiftData `@Query` fetches** (including unscoped all-sightings / all-buddy-media-tags), bound the full species (~1.3k) + dive-site catalogs on the main actor, and built the entire search index (every dive + **3,123** OpenDiveMap reference sites) — all inside the opening animation. Mount now waits **`searchIndexWarmMountDelayNanoseconds`** (**450 ms**) so the morph finishes first; active search, tile taps, and pushed details still mount immediately (**`mountSearchIndexImmediatelyIfNeeded`**).
+- **Off-main reference decode:** **`warmSearchCatalogIfNeeded`** pre-decodes the **~877 KB** reference JSON via `Task.detached` before the main-actor index build, which then reads the warm cache. **`DiveSiteReferenceCatalog`** caches are now **`NSLock`**-guarded so the background decode and main-thread readers stay consistent.
+- Tests: **`diveSiteReferenceCatalog_concurrentAccessReturnsConsistentRows`**, **`globalSearchTabLaunch_warmIndexMountWaitsOutTabMorphButUserActionsMountImmediately`**.
+
+**Summary:** Media tile open lag — hidden warmer now prebuilds the Search → Media grid cache so the tap paints from it.
+
+- **Bug fix — Media grid rebuilt its whole index on the tile tap:** opening **Search → Media** ran **`GlobalSearchMediaIndexSnapshotBuilder.captureInput`** on the main actor (walking every dive, media photo relationship, buddy tag, and sighting) during the results-panel slide-in — then ran it a **second** time when the view's own species-catalog load finished and flipped the refresh token. New shared **`GlobalSearchMediaSnapshotStore`**: the hidden search warmer prebuilds the full display cache (snapshot + unfiltered month sections) during idle time, and **`GlobalSearchMediaResultsView`** paints from it on open (**`applyPrewarmedSnapshotIfCurrent`**) instead of re-capturing.
+- **Double rebuild eliminated:** **`canReusePrewarmedSnapshot`** accepts a core-token match (all data counts except species) while the browse's species catalog is still loading — the warmer built the snapshot with species names included — and the later species-load re-fire lands on the exact-match no-op branch. A stale store falls back to the full rebuild, which then refreshes the store for the next open.
+- **Warmer keeps the cache fresh:** the hidden layer's `mediaIndexRefreshToken` task now warms the store on data changes (**`warmMediaSnapshotIfNeeded`**, token-guarded); a typed query on open re-filters the prewarmed snapshot off-main instead of re-capturing.
+- Tests: **`globalSearchMediaBrowse_coreDataTokenStripsSpeciesComponent`**, **`globalSearchMediaBrowse_prewarmedSnapshotReuseRules`**, **`globalSearchMediaSnapshotStore_holdsPrewarmedCacheForBrowseOpen`**.
+
+**Summary:** Fullscreen tag overview — no **X**; close with grabber or tap above.
+
+- Removed the leading dismiss **X** from the fish/buddy frosted overlay (`DiveActivityMediaLargeDetentOverviewContent` / `DiveActivityMediaLargeDetentOverviewSheet`). Close the overlay with the grabber (swipe down) or tap above the panel.
+- Playback **X** stays for leaving fullscreen back to the media grid (still hidden while the overlay is open so it isn’t confused with overlay dismiss).

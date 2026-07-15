@@ -9,10 +9,14 @@ struct LinkedMediaFullscreenView: View {
         let openOnDiveAccessibilityIdentifier: String
         let featureToggleAccessibilityIdentifier: String
         let marineLifeAccessibilityIdentifier: String
-        let openOnDiveTitle: String
         let accessibilityContextLabel: String
         let showsMarineLifeTagButton: Bool
-        let openOnDivePlacement: TripDetailMediaGalleryOverlayControls.OpenOnDivePlacement
+        var buddyAccessibilityIdentifier: String {
+            "\(rootAccessibilityIdentifier).BuddyTag"
+        }
+
+        /// Prefer **`showsMediaTagButtons`** — kept as `showsMarineLifeTagButton` for call-site compatibility.
+        var showsMediaTagButtons: Bool { showsMarineLifeTagButton }
 
         static let buddy = Configuration(
             rootAccessibilityIdentifier: "DiveBuddyDetails.TaggedMedia.Fullscreen",
@@ -20,10 +24,8 @@ struct LinkedMediaFullscreenView: View {
             openOnDiveAccessibilityIdentifier: "DiveBuddyDetails.TaggedMedia.OpenOnDive",
             featureToggleAccessibilityIdentifier: "DiveBuddyDetails.TaggedMedia.FeatureToggle",
             marineLifeAccessibilityIdentifier: "DiveBuddyDetails.TaggedMedia.MarineLifeTag",
-            openOnDiveTitle: DiveTripPresentation.tripMediaOpenOnDiveButtonTitle,
             accessibilityContextLabel: "Buddy tagged",
-            showsMarineLifeTagButton: false,
-            openOnDivePlacement: .trailing
+            showsMarineLifeTagButton: true
         )
 
         static let trip = Configuration(
@@ -32,10 +34,8 @@ struct LinkedMediaFullscreenView: View {
             openOnDiveAccessibilityIdentifier: "TripDetail.Media.OpenOnDive",
             featureToggleAccessibilityIdentifier: "TripDetail.Media.FeatureToggle",
             marineLifeAccessibilityIdentifier: "TripDetail.Media.MarineLifeTag",
-            openOnDiveTitle: DiveTripPresentation.tripMediaOpenOnDiveButtonTitle,
             accessibilityContextLabel: "Trip media",
-            showsMarineLifeTagButton: true,
-            openOnDivePlacement: .trailing
+            showsMarineLifeTagButton: true
         )
 
         static let diveSite = Configuration(
@@ -44,10 +44,8 @@ struct LinkedMediaFullscreenView: View {
             openOnDiveAccessibilityIdentifier: "Explore.DiveSiteDetail.TaggedMedia.OpenOnDive",
             featureToggleAccessibilityIdentifier: "Explore.DiveSiteDetail.TaggedMedia.FeatureToggle",
             marineLifeAccessibilityIdentifier: "Explore.DiveSiteDetail.TaggedMedia.MarineLifeTag",
-            openOnDiveTitle: DiveTripPresentation.tripMediaOpenOnDiveButtonTitle,
             accessibilityContextLabel: "Dive site tagged",
-            showsMarineLifeTagButton: true,
-            openOnDivePlacement: .trailing
+            showsMarineLifeTagButton: true
         )
     }
 
@@ -71,14 +69,30 @@ struct LinkedMediaFullscreenView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
 
     @State private var horizontalDragTranslation: CGFloat = 0
     @State private var verticalDismissTranslation: CGFloat = 0
     @State private var lockedDragAxis: LinkedMediaFullscreenPresentation.DragAxis?
     @State private var containerHeight: CGFloat = 800
-    @State private var showsMarineLifeOverlay = false
+    @State private var showsTagOverviewSheet = false
+    @State private var tagOverviewMode: DiveActivityMediaLargeDetentMode = .marineLife
     @State private var selectedTaggedSpeciesUUID: String?
     @State private var linkedDivePresentation: LinkedDivePresentation?
+    @State private var didApplyInitialTagOverview = false
+    /// Interactive drag offset while the user pulls the tag-overview grabber down to dismiss.
+    @State private var tagOverviewGrabberTranslation: CGFloat = 0
+    /// Explicit center play/pause toggle (stays until play, media change, or browse).
+    @State private var isPlaybackPausedByUser = false
+    /// Top / bottom / center chrome — tap empty media area to hide / show (Photos-style).
+    @State private var showsPlaybackChrome = true
+
+    /// When set, presents the dive Media **large**-detent overview sheet on first appearance.
+    var initialTagOverviewMode: DiveActivityMediaLargeDetentMode? = nil
+
+    private var isTagSheetPresented: Bool {
+        showsTagOverviewSheet
+    }
 
     private struct LinkedDivePresentation: Identifiable {
         let diveID: UUID
@@ -103,6 +117,7 @@ struct LinkedMediaFullscreenView: View {
         sightings: [SightingInstance] = [],
         marineLifeCatalog: [MarineLife] = [],
         ownerProfileID: UUID? = nil,
+        initialTagOverviewMode: DiveActivityMediaLargeDetentMode? = nil,
         onOpenDive: @escaping (UUID) -> Void = { _ in }
     ) {
         self.mediaItems = mediaItems
@@ -115,6 +130,7 @@ struct LinkedMediaFullscreenView: View {
         self.sightings = sightings
         self.marineLifeCatalog = marineLifeCatalog
         self.ownerProfileID = ownerProfileID
+        self.initialTagOverviewMode = initialTagOverviewMode
         self.onOpenDive = onOpenDive
     }
 
@@ -133,11 +149,48 @@ struct LinkedMediaFullscreenView: View {
         )
     }
 
-    private var showsMarineLifeTagIndicator: Bool {
-        TripDetailMediaGalleryPresentation.showsMarineLifeTagIndicator(
-            mediaID: selectedMediaID,
-            sightings: sightings
+    private var selectedMediaTaggedBuddyModels: [DiveBuddy] {
+        guard let selectedMediaID, let dive = selectedDiveForTagging else { return [] }
+        return DiveMediaBuddyTagPresentation.resolvedTaggedBuddies(
+            mediaPhotoID: selectedMediaID,
+            tags: dive.mediaBuddyTags
         )
+    }
+
+    private var selectedDiveLinkSiteDisplayName: String {
+        LinkedMediaFullscreenDiveLinkPresentation.siteDisplayName(for: selectedDiveForTagging)
+    }
+
+    private var selectedDiveLinkNumberLabel: String {
+        LinkedMediaFullscreenDiveLinkPresentation.diveNumberLabel(
+            for: selectedDiveForTagging,
+            useChronologicalNumbers: automaticallyRenumberDives,
+            chronologicalIndexByDiveID: selectedDiveChronologicalIndexByID
+        )
+    }
+
+    private var selectedDiveLinkTripTitle: String? {
+        LinkedMediaFullscreenDiveLinkPresentation.linkedTripTitle(for: selectedDiveForTagging)
+    }
+
+    private var selectedDiveChronologicalIndexByID: [UUID: Int] {
+        guard automaticallyRenumberDives, let ownerProfileID else { return [:] }
+        guard let index = OwnerDiveIndexSessionCache.resolve(ownerProfileID: ownerProfileID) else {
+            return [:]
+        }
+        return DiveActivityDiveNumbering.numberedDiveSequentialIndicesById(for: index.numberingRows)
+    }
+
+    private var selectedDiveForTagging: DiveActivity? {
+        if let dive = selectedMedia?.dive {
+            return dive
+        }
+        guard let diveActivityID = selectedMedia?.diveActivityID else { return nil }
+        var descriptor = FetchDescriptor<DiveActivity>(
+            predicate: #Predicate { $0.id == diveActivityID }
+        )
+        descriptor.fetchLimit = 1
+        return try? modelContext.fetch(descriptor).first
     }
 
     private var isSelectedMediaFeatured: Bool {
@@ -174,14 +227,21 @@ struct LinkedMediaFullscreenView: View {
             let backgroundOpacity = LinkedMediaFullscreenPresentation.dismissBackgroundOpacity(
                 progress: dismissProgress
             )
-            let chromeOpacity = 1 - Double(dismissProgress) * 0.35
-            let overlaySize = containerSize
+            let chromeOpacity = LinkedMediaFullscreenPresentation.playbackChromeOpacity(
+                dismissProgress: dismissProgress,
+                showsPlaybackChrome: showsPlaybackChrome
+            )
             let topChromeRowOffset = LinkedMediaFullscreenPresentation.topChromeRowOffset(
                 safeAreaTop: geometry.safeAreaInsets.top,
                 containerSize: containerSize
             )
+            let isSelectedVideo = selectedMedia?.resolvedMediaKind == .video
+            let showsCenterPlaybackControl = LinkedMediaFullscreenPresentation.showsCenterPlaybackControl(
+                isVideo: isSelectedVideo,
+                showsPlaybackChrome: showsPlaybackChrome
+            )
 
-            ZStack {
+            ZStack(alignment: .bottom) {
                 Color.black
                     .opacity(backgroundOpacity)
                     .ignoresSafeArea()
@@ -192,51 +252,75 @@ struct LinkedMediaFullscreenView: View {
                     .offset(y: verticalDismissTranslation)
                     .scaleEffect(dismissScale)
                     .gesture(interactionGesture(containerSize: containerSize))
-                    .allowsHitTesting(!showsMarineLifeOverlay)
+                    .onTapGesture(perform: togglePlaybackChrome)
+                    .allowsHitTesting(!isTagSheetPresented)
 
-                if showsMarineLifeOverlay, !selectedMediaTaggedSpecies.isEmpty {
-                    TripDetailMediaMarineLifeOverlay(
-                        taggedSpecies: selectedMediaTaggedSpecies,
-                        previewSize: overlaySize,
-                        cornerRadius: 0,
-                        ownerProfileID: ownerProfileID,
-                        selectedSpeciesUUID: $selectedTaggedSpeciesUUID,
-                        onOpenDive: onOpenDive,
-                        onClose: closeMarineLifeOverlay
-                    )
-                    .transition(.opacity)
-                }
-
-                if !showsMarineLifeOverlay {
+                if !showsTagOverviewSheet {
                     TripDetailMediaGalleryOverlayControls(
-                        openOnDiveTitle: configuration.openOnDiveTitle,
-                        positionLabel: TripDetailMediaGalleryPresentation.mediaPositionLabel(
-                            selectedID: selectedMediaID,
-                            in: mediaItems
-                        ),
+                        siteDisplayName: selectedDiveLinkSiteDisplayName,
+                        diveNumberLabel: selectedDiveLinkNumberLabel,
+                        linkedTripTitle: selectedDiveLinkTripTitle,
                         isFeatured: isSelectedMediaFeatured,
-                        showsMarineLifeTagButton: configuration.showsMarineLifeTagButton,
-                        openOnDivePlacement: configuration.openOnDivePlacement,
-                        showsMarineLifeTagIndicator: showsMarineLifeTagIndicator,
+                        showsMediaTagButtons: configuration.showsMediaTagButtons,
+                        hasBuddyTags: !selectedMediaTaggedBuddyModels.isEmpty,
+                        hasMarineLifeTags: !selectedMediaTaggedSpecies.isEmpty,
                         onOpenOnDive: openSelectedMediaInDive,
                         onToggleFeatured: onToggleFeatured,
-                        onToggleMarineLife: toggleMarineLifeOverlay,
+                        onToggleMarineLife: presentMarineLifeTagSheet,
+                        onToggleBuddy: presentBuddyTagSheet,
                         featureToggleAccessibilityIdentifier: configuration.featureToggleAccessibilityIdentifier,
                         openOnDiveAccessibilityIdentifier: configuration.openOnDiveAccessibilityIdentifier,
-                        marineLifeAccessibilityIdentifier: configuration.marineLifeAccessibilityIdentifier
+                        marineLifeAccessibilityIdentifier: configuration.marineLifeAccessibilityIdentifier,
+                        buddyAccessibilityIdentifier: configuration.buddyAccessibilityIdentifier
                     )
                     .padding(.top, topChromeRowOffset)
                     .padding(.bottom, geometry.safeAreaInsets.bottom)
                     .opacity(chromeOpacity)
                     .allowsHitTesting(chromeOpacity > 0.2)
+                }
 
-                    closeButton(topRowOffset: topChromeRowOffset)
-                        .opacity(chromeOpacity)
-                        .allowsHitTesting(chromeOpacity > 0.2)
+                closeAndPositionChrome(
+                    topRowOffset: topChromeRowOffset,
+                    positionLabel: TripDetailMediaGalleryPresentation.mediaPositionLabel(
+                        selectedID: selectedMediaID,
+                        in: mediaItems
+                    ),
+                    showsCloseButton: !showsTagOverviewSheet
+                )
+                .opacity(chromeOpacity)
+                .allowsHitTesting(chromeOpacity > 0.2 && !isTagSheetPresented)
+
+                if showsTagOverviewSheet, let media = selectedMedia {
+                    Color.clear
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                        .onTapGesture(perform: dismissTagOverview)
+                        .accessibilityLabel("Dismiss media tags overview")
+                        .accessibilityAddTraits(.isButton)
+
+                    tagOverviewEmbeddedPanel(
+                        media: media,
+                        layoutHeight: containerSize.height,
+                        bottomSafeInset: geometry.safeAreaInsets.bottom
+                    )
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .animation(.spring(response: 0.34, dampingFraction: 0.86), value: showsMarineLifeOverlay)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay {
+                if showsCenterPlaybackControl, !isTagSheetPresented {
+                    LinkedMediaFullscreenCenterPlaybackControl(
+                        isPaused: isPlaybackPausedByUser,
+                        action: togglePlaybackPausedByUser
+                    )
+                    .opacity(chromeOpacity)
+                    .allowsHitTesting(chromeOpacity > 0.2)
+                    .offset(y: verticalDismissTranslation)
+                    .scaleEffect(dismissScale)
+                }
+            }
+            .animation(.diveOverviewPanelDetent, value: showsTagOverviewSheet)
+            .animation(.easeInOut(duration: 0.18), value: showsPlaybackChrome)
             .accessibilityElement(children: .contain)
             .accessibilityLabel(fullscreenAccessibilityLabel)
             .accessibilityHint(
@@ -260,53 +344,60 @@ struct LinkedMediaFullscreenView: View {
                 containerHeight = newHeight
             }
             .onChange(of: selectedMediaID) { _, _ in
-                closeMarineLifeOverlay()
+                isPlaybackPausedByUser = false
+                showsTagOverviewSheet = false
             }
+            .onChange(of: isTagSheetPresented) { _, isShowing in
+                if isShowing {
+                    showsPlaybackChrome = true
+                }
+            }
+            .onAppear(perform: applyInitialTagOverviewIfNeeded)
         }
         .ignoresSafeArea()
         .fullScreenCover(item: $linkedDivePresentation) { presentation in
-            LinkedMediaFullscreenLinkedDiveCover(
-                diveID: presentation.diveID,
-                mediaID: presentation.mediaID
-            )
+            LinkedMediaFullscreenLinkedDiveCover(diveID: presentation.diveID)
         }
         .diveActivityLandscapeOrientation()
         .accessibilityIdentifier(configuration.rootAccessibilityIdentifier)
     }
 
-    private func closeButton(topRowOffset: CGFloat) -> some View {
+    private func closeAndPositionChrome(
+        topRowOffset: CGFloat,
+        positionLabel: String?,
+        showsCloseButton: Bool
+    ) -> some View {
         VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                Button(action: { dismissMedia(style: .closeButton) }) {
-                    Image(systemName: "xmark")
-                        .font(.body.weight(.bold))
-                        .foregroundStyle(.white)
-                        .frame(width: 36, height: 36)
-                        .background {
-                            Circle()
-                                .fill(.black.opacity(0.48))
-                                .background {
-                                    Circle()
-                                        .fill(.ultraThinMaterial)
-                                }
-                                .clipShape(Circle())
-                        }
-                        .padding(AppTheme.Spacing.sm)
-                        .frame(minWidth: 48, minHeight: 48)
-                        .contentShape(Rectangle())
+            HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
+                if showsCloseButton {
+                    Button(action: { dismissMedia(style: .closeButton) }) {
+                        Image(systemName: "xmark")
+                            .appToolbarIconButtonLabel()
+                    }
+                    .appStandaloneIconButtonStyle()
+                    .foregroundStyle(.white)
+                    .accessibilityLabel("Close")
+                    .accessibilityIdentifier(configuration.closeAccessibilityIdentifier)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Close")
-                .accessibilityIdentifier(configuration.closeAccessibilityIdentifier)
 
                 Spacer(minLength: 0)
+                    .allowsHitTesting(false)
+
+                if let positionLabel {
+                    Text(positionLabel)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(height: LinkedMediaFullscreenPresentation.topChromeControlHeight)
+                        .accessibilityHidden(true)
+                }
             }
             .padding(.horizontal, AppTheme.Spacing.md)
             .padding(.top, topRowOffset)
 
             Spacer(minLength: 0)
+                .allowsHitTesting(false)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     @ViewBuilder
@@ -370,7 +461,9 @@ struct LinkedMediaFullscreenView: View {
             timeZoneOffsetSeconds: timeZoneOffsetByMediaID[media.id] ?? nil,
             showsCaptureDateOverlay: false,
             isVideoPlaybackActive: isVideoPlaybackActive(for: media),
-            loopsVideoPlayback: true
+            loopsVideoPlayback: true,
+            enablesHoldToPauseGesture: false,
+            isPausedByUserHoldFromParent: isPlaybackPausedByUser && media.id == selectedMediaID
         )
         .frame(width: containerSize.width, height: containerSize.height)
         .id(media.id)
@@ -406,7 +499,6 @@ struct LinkedMediaFullscreenView: View {
             && media.id == selectedMediaID
             && horizontalDragTranslation == 0
             && verticalDismissTranslation == 0
-            && !showsMarineLifeOverlay
             && DiveBuddyDetailPresentation.shouldAutoPlaySelectedVideo(for: media)
     }
 
@@ -611,19 +703,130 @@ struct LinkedMediaFullscreenView: View {
         }
     }
 
-    private func toggleMarineLifeOverlay() {
-        guard configuration.showsMarineLifeTagButton, showsMarineLifeTagIndicator else { return }
-        selectedTaggedSpeciesUUID = selectedMediaTaggedSpecies.first?.uuid
-        withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
-            showsMarineLifeOverlay = true
+    private func applyInitialTagOverviewIfNeeded() {
+        guard !didApplyInitialTagOverview,
+              let initialTagOverviewMode,
+              selectedMedia != nil
+        else { return }
+        didApplyInitialTagOverview = true
+        // Defer so the fullscreen cover finishes presenting before the large overview sheet.
+        Task { @MainActor in
+            presentTagOverview(mode: initialTagOverviewMode)
         }
     }
 
-    private func closeMarineLifeOverlay() {
-        guard showsMarineLifeOverlay else { return }
-        withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
-            showsMarineLifeOverlay = false
+    private func togglePlaybackChrome() {
+        guard !isTagSheetPresented else { return }
+        showsPlaybackChrome.toggle()
+    }
+
+    private func togglePlaybackPausedByUser() {
+        guard selectedMedia?.resolvedMediaKind == .video else { return }
+        isPlaybackPausedByUser.toggle()
+        if !showsPlaybackChrome {
+            showsPlaybackChrome = true
         }
+    }
+
+    private func dismissTagOverview() {
+        withAnimation(.diveOverviewPanelDetent) {
+            showsTagOverviewSheet = false
+            tagOverviewGrabberTranslation = 0
+        }
+    }
+
+    private func presentTagOverview(mode: DiveActivityMediaLargeDetentMode) {
+        guard configuration.showsMediaTagButtons, selectedMedia != nil else { return }
+        tagOverviewGrabberTranslation = 0
+        tagOverviewMode = mode
+        if mode == .marineLife {
+            selectedTaggedSpeciesUUID = selectedMediaTaggedSpecies.first?.uuid
+        }
+        withAnimation(.diveOverviewPanelDetent) {
+            showsTagOverviewSheet = true
+        }
+    }
+
+    private func presentMarineLifeTagSheet() {
+        guard configuration.showsMediaTagButtons, selectedMedia != nil else { return }
+        presentTagOverview(mode: .marineLife)
+    }
+
+    private func presentBuddyTagSheet() {
+        guard configuration.showsMediaTagButtons, selectedMedia != nil else { return }
+        presentTagOverview(mode: .buddies)
+    }
+
+    private var tagOverviewGrabberDragGesture: some Gesture {
+        DragGesture(minimumDistance: 2, coordinateSpace: .global)
+            .onChanged { value in
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    tagOverviewGrabberTranslation = max(0, value.translation.height)
+                }
+            }
+            .onEnded { value in
+                if LinkedMediaFullscreenPresentation.shouldDismissTagOverview(
+                    verticalTranslation: value.translation.height,
+                    predictedEndTranslation: value.predictedEndTranslation.height
+                ) {
+                    dismissTagOverview()
+                } else {
+                    withAnimation(.diveOverviewPanelDetent) {
+                        tagOverviewGrabberTranslation = 0
+                    }
+                }
+            }
+    }
+
+    @ViewBuilder
+    private func tagOverviewEmbeddedPanel(
+        media: DiveMediaPhoto,
+        layoutHeight: CGFloat,
+        bottomSafeInset: CGFloat
+    ) -> some View {
+        let panelHeight = LinkedMediaFullscreenPresentation.tagOverviewPanelHeight(
+            layoutHeight: layoutHeight,
+            bottomSafeInset: bottomSafeInset
+        )
+        let isDragging = tagOverviewGrabberTranslation != 0
+        let displayedHeight = max(0, panelHeight - tagOverviewGrabberTranslation)
+
+        VStack(spacing: 0) {
+            Capsule()
+                .fill(AppTheme.Colors.tabUnselected.opacity(0.55))
+                .frame(width: 36, height: 5)
+                .padding(.top, AppTheme.Spacing.sm)
+                .padding(.bottom, AppTheme.Spacing.sm)
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 28)
+                .contentShape(Rectangle())
+                .highPriorityGesture(tagOverviewGrabberDragGesture)
+                .accessibilityLabel("Dismiss media tags overview")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint("Swipe down to close")
+                .accessibilityAction(named: "Close") {
+                    dismissTagOverview()
+                }
+
+            DiveActivityMediaLargeDetentOverviewSheet(
+                mode: $tagOverviewMode,
+                media: media,
+                dive: selectedDiveForTagging,
+                taggedSpecies: selectedMediaTaggedSpecies,
+                taggedBuddies: selectedMediaTaggedBuddyModels,
+                selectedTaggedSpeciesUUID: $selectedTaggedSpeciesUUID,
+                onOpenDive: onOpenDive
+            )
+            .scrollDisabled(isDragging)
+        }
+        .frame(height: displayedHeight, alignment: .top)
+        .frame(maxWidth: .infinity)
+        .clipped()
+        .animation(isDragging ? nil : .diveOverviewPanelDetent, value: displayedHeight)
+        .diveActivityMediaLargeDetentOverviewEmbeddedChrome()
+        .accessibilityIdentifier("LinkedMedia.TagOverviewEmbeddedPanel")
     }
 
     private var browseAnimation: Animation {
@@ -665,7 +868,6 @@ struct LinkedMediaFullscreenView: View {
 
 private struct LinkedMediaFullscreenLinkedDiveCover: View {
     let diveID: UUID
-    let mediaID: UUID
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -676,7 +878,8 @@ private struct LinkedMediaFullscreenLinkedDiveCover: View {
     var body: some View {
         Group {
             if let activity = resolvedActivity {
-                ViewSingleActivity(activity: activity, initialMediaFocusID: mediaID)
+                // **View** from linked media opens the dive on the default **map** tab (not Media).
+                ViewSingleActivity(activity: activity)
             } else if !hasResolvedActivity {
                 ZStack {
                     Color.black.ignoresSafeArea()

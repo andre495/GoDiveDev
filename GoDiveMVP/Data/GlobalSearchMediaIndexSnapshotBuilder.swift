@@ -204,18 +204,23 @@ enum GlobalSearchMediaIndexSnapshotBuilder: Sendable {
             }
 
             for photo in sortedPhotos {
+                let buddyNames = buddyNamesByMediaID[photo.id] ?? []
+                let speciesNames = speciesNamesByMediaID[photo.id] ?? []
                 entries.append(
                     GlobalSearchMediaBrowsePresentation.MediaEntry(
                         mediaID: photo.id,
                         diveActivityID: photo.diveActivityID,
+                        diveStartTime: dive.startTime,
                         capturedAt: photo.capturedAt,
                         sortOrder: photo.sortOrder,
                         mediaKind: photo.mediaKind,
                         siteName: dive.siteName,
                         activityTagNames: dive.activityTagNames,
-                        mediaBuddyNames: buddyNamesByMediaID[photo.id] ?? [],
+                        mediaBuddyNames: buddyNames,
                         tripTitles: dive.tripTitles,
-                        speciesNames: speciesNamesByMediaID[photo.id] ?? []
+                        speciesNames: speciesNames,
+                        hasMarineLifeTag: !speciesNames.isEmpty,
+                        hasBuddyTag: !buddyNames.isEmpty
                     )
                 )
             }

@@ -29,6 +29,10 @@ struct DiveActivityMediaItemView: View {
     var loopsVideoPlayback: Bool = false
     /// Bumped when dive media becomes active (deep link, tab switch, async hydrate) to remount the player.
     var videoPlaybackEpoch: Int = 0
+    /// When **`false`**, parent drives hold-to-pause (fullscreen galleries use **`allowsHitTesting(false)`**).
+    var enablesHoldToPauseGesture: Bool = true
+    /// Used when **`enablesHoldToPauseGesture`** is **`false`**.
+    var isPausedByUserHoldFromParent: Bool = false
 
     @State private var isHoldingVideoPause = false
     @State private var layoutWidth: CGFloat = 0
@@ -41,6 +45,10 @@ struct DiveActivityMediaItemView: View {
 
     private var isVideo: Bool {
         media.resolvedMediaKind == .video
+    }
+
+    private var effectiveHoldPause: Bool {
+        enablesHoldToPauseGesture ? isHoldingVideoPause : isPausedByUserHoldFromParent
     }
 
     private var captureOverlay: (dateTimeLine: String, divePositionLine: String?)? {
@@ -78,7 +86,7 @@ struct DiveActivityMediaItemView: View {
         }
         .modifier(
             DiveActivityVideoHoldToPauseModifier(
-                isEnabled: isVideo,
+                isEnabled: isVideo && enablesHoldToPauseGesture,
                 isHoldingVideoPause: $isHoldingVideoPause
             )
         )
@@ -135,11 +143,19 @@ struct DiveActivityMediaItemView: View {
     }
 
     private var displayedPreviewImage: UIImage? {
-        sessionCachedImage ?? previewImage ?? storedPreviewImage
+        DiveMediaProgressivePresentation.preferredStillImage(
+            progressive: previewImage,
+            sessionCached: sessionCachedImage,
+            storedPreview: storedPreviewImage
+        )
     }
 
     private var displayedVideoPosterImage: UIImage? {
-        sessionCachedImage ?? videoPosterImage ?? storedPreviewImage
+        DiveMediaProgressivePresentation.preferredStillImage(
+            progressive: videoPosterImage,
+            sessionCached: sessionCachedImage,
+            storedPreview: storedPreviewImage
+        )
     }
     #endif
 
@@ -181,7 +197,7 @@ struct DiveActivityMediaItemView: View {
                 usesProgressiveFidelity: true,
                 screenPixelWidth: layoutWidth * displayScale,
                 initialPosterImage: displayedVideoPosterImage,
-                isPausedByUserHold: isHoldingVideoPause,
+                isPausedByUserHold: effectiveHoldPause,
                 onAssetMissing: pruneIfAssetMissing,
                 clearsSharedSessionPlaybackOnDisappear: true
             )
@@ -389,7 +405,7 @@ struct DiveActivityMediaItemView: View {
 }
 
 /// **`onLongPressGesture(maximumDistance:)`** — movement fails the press so horizontal pager swipes win.
-private struct DiveActivityVideoHoldToPauseModifier: ViewModifier {
+struct DiveActivityVideoHoldToPauseModifier: ViewModifier {
     let isEnabled: Bool
     @Binding var isHoldingVideoPause: Bool
 

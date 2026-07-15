@@ -18,6 +18,26 @@ enum DiveMediaVideoRequestQuality: Sendable, Equatable {
             return "preview"
         }
     }
+
+    /// Home / overview playback uses **`requestPlayerItem`** so iCloud can stream; export / Fishial keep **`requestAVAsset`**.
+    nonisolated var usesPlayerItemRequest: Bool {
+        switch self {
+        case .homeCarousel:
+            return true
+        case .fullQuality:
+            return false
+        }
+    }
+
+    /// Bound wait for PhotoKit video callbacks. Soft fail without iCloud progress; hard cap is higher.
+    nonisolated var requestTimeoutSeconds: Double {
+        DiveMediaVideoLoad.softTimeoutSeconds
+    }
+
+    /// Absolute maximum wait while iCloud progress is still advancing.
+    nonisolated var requestHardTimeoutSeconds: Double {
+        DiveMediaVideoLoad.hardTimeoutSeconds
+    }
 }
 
 extension DiveMediaVideoRequestQuality {
@@ -35,12 +55,15 @@ extension DiveMediaVideoRequestQuality {
 import Photos
 
 extension DiveMediaVideoRequestQuality {
+    /// **`.mediumQualityFormat`** streams a medium rendition for iCloud-remote originals.
+    /// **`.automatic`** resolved to the full-quality asset on optimized-storage libraries, forcing a large
+    /// download that consistently blew the request timeout (observed on device: no callback in 20–30 s).
     nonisolated var photoKitDeliveryMode: PHVideoRequestOptionsDeliveryMode {
         switch self {
         case .fullQuality:
             return .highQualityFormat
         case .homeCarousel:
-            return .automatic
+            return .mediumQualityFormat
         }
     }
 }

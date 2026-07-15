@@ -15,6 +15,10 @@ enum GlobalSearchPresentation: Sendable {
     nonisolated static let stackSearchRestoreDelayNanoseconds: UInt64 = 80_000_000
     /// Idle bubble motion resumes after the tab morph gets its first frame.
     nonisolated static let idleBubbleResumeDelayNanoseconds: UInt64 = 180_000_000
+    /// Deferred warm-index mount — waits out the tab-open morph before the hidden warmer's SwiftData
+    /// queries, catalog model binds, and index build are allowed on the main actor (a bare
+    /// `Task.yield()` landed the whole warm inside the opening animation and dropped its frames).
+    nonisolated static let searchIndexWarmMountDelayNanoseconds: UInt64 = 450_000_000
 
     /// Search scope chips shown on the idle search page before the user types or selects a token.
     enum ContextToken: String, Sendable, CaseIterable, Identifiable {
@@ -189,12 +193,23 @@ enum GlobalSearchPresentation: Sendable {
         /// centered on the back button), so the first section label is even with the back arrow instead of sitting
         /// below the whole chrome band. The sectioned **`List`** already respects the status-bar safe area, so this
         /// margin is measured from the top of the safe area — do not add **`safeAreaTop`** again here.
+        ///
+        /// Use only when the back row has **no** overlapping count title (multi-category results). When a count
+        /// title shares the back row (**Search → Media**, scoped category lists), pin **below** the chrome with
+        /// **`scrollContentTopMarginBelowChrome(chromeHeight:)`** instead.
         nonisolated static func scrollContentTopMargin() -> CGFloat {
             // `backButtonTapWidth` mirrors `AppTheme.Layout.glassChromeControlHeight` (both 44); stored constants keep
             // this `nonisolated` (main-actor `AppTheme.Layout` / `Spacing` can't be read from a nonisolated body).
             let backButtonCenterY = backButtonRowTopPadding + backButtonTapWidth / 2
             let headerHalfHeight = verticalPadding + titleFontSize / 2
             return max(backButtonCenterY - headerHalfHeight, 0)
+        }
+
+        /// Sticky section headers start just under the floating back / count-title chrome (same clearance as
+        /// scoped results content under **`GlobalSearchResultsTopChrome`**). The **`List`** already applies the
+        /// status-bar safe area — pass **measured chrome height only**, not **`safeAreaTop + chromeHeight`**.
+        nonisolated static func scrollContentTopMarginBelowChrome(chromeHeight: CGFloat) -> CGFloat {
+            max(chromeHeight, 0)
         }
     }
 

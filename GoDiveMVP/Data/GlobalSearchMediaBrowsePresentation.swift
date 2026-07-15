@@ -9,6 +9,9 @@ enum GlobalSearchMediaBrowsePresentation: Sendable {
     nonisolated static let emptyFilterMessage = "No media matches your search."
     nonisolated static let rootAccessibilityIdentifier = "GlobalSearch.MediaBrowse.Root"
     nonisolated static let searchFieldAccessibilityIdentifier = "GlobalSearch.MediaBrowse.SearchField"
+    /// Month/year headers use a **`List`** **`Section`** so they pin under the count-title chrome
+    /// (**`scrollContentTopMarginBelowChrome`**), matching scoped search content clearance.
+    nonisolated static let pinsMonthSectionHeaders = true
 
     /// Collapsed layout for the **Media** section inside general search results — a 3-wide grid capped
     /// at two rows; anything beyond is revealed with an **Expand** chevron (grid grows in place).
@@ -47,6 +50,8 @@ enum GlobalSearchMediaBrowsePresentation: Sendable {
     struct MediaEntry: Sendable, Equatable, Identifiable {
         let mediaID: UUID
         let diveActivityID: UUID
+        /// Dive start — fallback for month/year grouping when **`capturedAt`** is missing.
+        let diveStartTime: Date
         let capturedAt: Date?
         let sortOrder: Int
         let mediaKind: DiveMediaKind
@@ -55,8 +60,25 @@ enum GlobalSearchMediaBrowsePresentation: Sendable {
         let mediaBuddyNames: [String]
         let tripTitles: [String]
         let speciesNames: [String]
+        let hasMarineLifeTag: Bool
+        let hasBuddyTag: Bool
 
         var id: UUID { mediaID }
+
+        /// Calendar day used for month/year section dividers.
+        nonisolated var sectionDate: Date {
+            capturedAt ?? diveStartTime
+        }
+    }
+
+    /// Month/year divider for **Search → Media** (titles like **March 2026**).
+    struct MonthSection: Sendable, Equatable, Identifiable {
+        let year: Int
+        let month: Int
+        let title: String
+        let mediaIDs: [UUID]
+
+        var id: String { "\(year)-\(month)" }
     }
 
     struct MediaKindCounts: Equatable, Sendable {
@@ -85,6 +107,13 @@ enum GlobalSearchMediaBrowsePresentation: Sendable {
     struct DisplayCache: Equatable, Sendable {
         let snapshot: IndexSnapshot
         let filteredMediaIDs: [UUID]
+        let monthSections: [MonthSection]
+        /// Precomputed so grid cells do O(1) badge lookups (not O(sightings) per cell).
+        let marineLifeTaggedMediaIDs: Set<UUID>
+        let buddyTaggedMediaIDs: Set<UUID>
+        /// Tag counts for Home-style corner count capsules (**> 1**).
+        let marineLifeTagCountByMediaID: [UUID: Int]
+        let buddyTagCountByMediaID: [UUID: Int]
         let filterFingerprint: String
         let mediaKindCounts: MediaKindCounts
     }
@@ -114,12 +143,7 @@ enum GlobalSearchMediaBrowsePresentation: Sendable {
         filter: ResolvedFilter
     ) -> DisplayCache {
         let filteredEntries = filteredEntries(from: snapshot, filter: filter)
-        return DisplayCache(
-            snapshot: snapshot,
-            filteredMediaIDs: filteredEntries.map(\.mediaID),
-            filterFingerprint: filterFingerprint(filter),
-            mediaKindCounts: mediaKindCounts(from: filteredEntries)
-        )
+        return displayCache(filteredEntries: filteredEntries, snapshot: snapshot, filter: filter)
     }
 
     nonisolated static func displayCache(
@@ -130,8 +154,119 @@ enum GlobalSearchMediaBrowsePresentation: Sendable {
         return displayCache(snapshot: snapshot, filter: filter)
     }
 
+    nonisolated static func displayCache(
+        filteredEntries: [MediaEntry],
+        snapshot: IndexSnapshot,
+        filter: ResolvedFilter
+    ) -> DisplayCache {
+        var marineLifeTaggedMediaIDs = Set<UUID>()
+        var buddyTaggedMediaIDs = Set<UUID>()
+        var marineLifeTagCountByMediaID: [UUID: Int] = [:]
+        var buddyTagCountByMediaID: [UUID: Int] = [:]
+        for entry in filteredEntries {
+            let marineCount = entry.speciesNames.count
+            let buddyCount = entry.mediaBuddyNames.count
+            if marineCount > 0 {
+                marineLifeTaggedMediaIDs.insert(entry.mediaID)
+                marineLifeTagCountByMediaID[entry.mediaID] = marineCount
+            }
+            if buddyCount > 0 {
+                buddyTaggedMediaIDs.insert(entry.mediaID)
+                buddyTagCountByMediaID[entry.mediaID] = buddyCount
+            }
+        }
+        return DisplayCache(
+            snapshot: snapshot,
+            filteredMediaIDs: filteredEntries.map(\.mediaID),
+            monthSections: monthSections(from: filteredEntries),
+            marineLifeTaggedMediaIDs: marineLifeTaggedMediaIDs,
+            buddyTaggedMediaIDs: buddyTaggedMediaIDs,
+            marineLifeTagCountByMediaID: marineLifeTagCountByMediaID,
+            buddyTagCountByMediaID: buddyTagCountByMediaID,
+            filterFingerprint: filterFingerprint(filter),
+            mediaKindCounts: mediaKindCounts(from: filteredEntries)
+        )
+    }
+
+    /// Groups filtered media into newest-month-first sections (**March 2026**).
+    nonisolated static func monthSections(
+        from entries: [MediaEntry],
+        calendar: Calendar = .current,
+        locale: Locale = .current
+    ) -> [MonthSection] {
+        guard !entries.isEmpty else { return [] }
+
+        struct YearMonthKey: Hashable {
+            let year: Int
+            let month: Int
+        }
+
+        var mediaIDsByKey: [YearMonthKey: [UUID]] = [:]
+        for entry in entries {
+            let components = calendar.dateComponents([.year, .month], from: entry.sectionDate)
+            guard let year = components.year, let month = components.month else { continue }
+            let key = YearMonthKey(year: year, month: month)
+            mediaIDsByKey[key, default: []].append(entry.mediaID)
+        }
+
+        let monthSymbols = GlobalSearchDiveIndexing.monthSymbols(locale: locale)
+        return mediaIDsByKey.keys
+            .sorted { lhs, rhs in
+                if lhs.year != rhs.year { return lhs.year > rhs.year }
+                return lhs.month > rhs.month
+            }
+            .map { key in
+                MonthSection(
+                    year: key.year,
+                    month: key.month,
+                    title: monthYearTitle(year: key.year, month: key.month, monthSymbols: monthSymbols),
+                    mediaIDs: mediaIDsByKey[key] ?? []
+                )
+            }
+    }
+
+    nonisolated static func monthYearTitle(
+        year: Int,
+        month: Int,
+        monthSymbols: [String]
+    ) -> String {
+        let monthName: String
+        if month >= 1, month <= monthSymbols.count {
+            monthName = monthSymbols[month - 1]
+        } else {
+            monthName = String(month)
+        }
+        return "\(monthName) \(year)"
+    }
+
     nonisolated static func filterFingerprint(_ filter: ResolvedFilter) -> String {
         filter.query
+    }
+
+    /// Media data-change tokens have the shape `activities|buddyTags|sightings|trips|speciesCount`.
+    /// The species component only enriches tag names, so this strips it — letting a prewarmed
+    /// snapshot (built with the species catalog loaded) satisfy a browse whose own species catalog
+    /// hasn't finished loading yet, instead of forcing a redundant main-actor rebuild.
+    nonisolated static func coreDataToken(fromRefreshToken token: String) -> String {
+        token.split(separator: "|", omittingEmptySubsequences: false)
+            .dropLast()
+            .joined(separator: "|")
+    }
+
+    /// Whether a browse can paint from the prewarmed snapshot instead of re-capturing every
+    /// dive/photo/tag on the main actor. Exact token match reuses outright; while the browse's own
+    /// species catalog is still loading, a matching core token (all counts except species) is enough —
+    /// the warmer built its snapshot with the species catalog already loaded, so it is a superset.
+    nonisolated static func canReusePrewarmedSnapshot(
+        storeToken: String,
+        currentToken: String,
+        isSpeciesCatalogLoaded: Bool
+    ) -> Bool {
+        guard !storeToken.isEmpty else { return false }
+        if storeToken == currentToken { return true }
+        guard !isSpeciesCatalogLoaded else { return false }
+        return coreDataToken(fromRefreshToken: storeToken)
+            == coreDataToken(fromRefreshToken: currentToken)
     }
 
     nonisolated static func resolveFilter(from rawQuery: String) -> ResolvedFilter {

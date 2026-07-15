@@ -39,6 +39,9 @@ enum DiveMediaBuddyTagPresentation {
         tags.contains { $0.mediaPhotoID == mediaPhotoID }
     }
 
+    nonisolated static let largeDetentUntaggedPrompt =
+        "No buddies tagged on this photo yet. Tap + to tag who appears here."
+
     nonisolated static func taggedBuddyIDs(
         mediaPhotoID: UUID,
         tags: [DiveMediaBuddyTag]

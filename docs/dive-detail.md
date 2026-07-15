@@ -31,6 +31,7 @@ Drag the grabber or sheet edge to change size. Switching tabs resets the sheet t
 
 ## Tank tab
 
+- **Medium** and **large** retain the same dive identity header as **Map** (dive number, site name, place, date/time).
 - **Gas**, **cylinder**, and **consumption** fields when import or manual entry provided them.
 - **Equipment** row opens a sheet to link gear from your **Equipment locker**.
 - A **depth profile chart** appears in the hero area (portrait) or full width (landscape).
@@ -43,15 +44,16 @@ Tap a section **⋯** menu to edit all fields in that section in one sheet.
 
 - Full-bleed **hero pager** swipes between photos and videos.
 - When a dive has **no media yet**, the hero shows bouncing photo/video frames at **minimized** and **medium** (hidden at **large**). The **Add Media to your Dives** copy sits in the overview sheet at **medium** and **large**; **+** adds library items.
+- **Medium** also shows the same dive identity header as **Map** (dive number, site name, place, date/time) above the tagged-species chips.
 - **Carousel** at minimized and medium detents jumps between items; oldest capture time on the left.
 - **+** opens the photo picker to attach library items (up to 20 per add).
 - **Star** marks the featured item used as the Logbook row thumbnail.
-- **Fish** opens marine life tagging for the current item.
+- **Fish** / **buddy** at **medium** expand the sheet to **large** (fish or buddy overview selected); at **large** on fish mode, Fishial **sparkles** leads **+** in one glass group when AI identify is available.
 - Videos play **muted** and **loop** on the visible page; hold briefly to pause.
 
 ### Marine life on media
 
-Tag catalog species on a photo or video frame. At **large** detent, tagged species appear as chips with Field Guide links and natural-history copy.
+Tag catalog species on a photo or video frame. At **large** detent, use the centered fish/buddy toggle to switch between tagged species details and tagged buddy photos and names; on fish mode, **sparkles** (Fishial AI, when configured) sits left of **+** in one glass control — tap sparkles to identify, **+** to open the marine-life tag picker (buddy mode **+** opens the buddy tag picker). Tap a buddy’s photo to open their buddy page. On fish mode, **Learn More** opens that species in Field Guide.
 
 If **Fishial** is configured in the app build, a **sparkles** control can suggest species from a cropped still (network required).
 

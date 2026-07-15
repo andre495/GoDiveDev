@@ -155,7 +155,7 @@ enum HomeOverviewAggregateComputer {
     ) -> Int {
         var hasher = Hasher()
         hasher.combine(ownerProfileID)
-        hasher.combine(HomeMediaHighlightPresentation.dailySeed(
+        hasher.combine(HomeMediaHighlightPresentation.carouselShuffleSeed(
             ownerProfileID: ownerProfileID ?? UUID(),
             referenceDate: referenceDate
         ))

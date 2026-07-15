@@ -13,8 +13,9 @@ import UIKit
 /// resolved to an **`AVPlayerItem`** on demand via **`DiveMediaReferenceLoader`** (no exported file). A missing /
 /// offline / deleted asset shows the **`missingPlaceholder`**.
 ///
-/// With **`usesProgressiveFidelity`**, library videos show a poster frame, then preview playback, then silently
-/// upgrade to full quality while preserving playback time.
+/// With **`usesProgressiveFidelity`**, library videos show a poster frame, then preview playback, then
+/// silently upgrade to full quality while preserving playback time (Home may also upgrade session-pinned
+/// carousel clips in the background so all three stay warm).
 struct DiveActivityVideoPlayerView: View {
     let source: DiveVideoSource?
     var isPlaybackActive: Bool = true
@@ -78,6 +79,7 @@ struct DiveActivityVideoPlayerView: View {
                             onPlaybackFinished: loopsPlayback ? nil : onPlaybackFinished,
                             onDisplayReady: {
                                 isPlayerDisplayReady = true
+                                scheduleFullQualityUpgradeIfNeeded()
                             }
                         )
                         .id(
@@ -265,11 +267,15 @@ struct DiveActivityVideoPlayerView: View {
         videoFidelity = .none
         isPlayerDisplayReady = false
 
+        // Prefer soft / session poster under the player. A second PhotoKit image request here races
+        // the AVAsset resolve (Home also warms the same asset) and commonly times both out.
+        let needsPosterFetch = posterImage == nil
         let posterSize = DiveMediaProgressivePresentation.posterTargetSize(
             screenPixelWidth: max(screenPixelWidth, 1)
         )
 
         async let posterTask: UIImage? = {
+            guard needsPosterFetch else { return nil }
             #if canImport(Photos)
             return await DiveMediaReferenceLoader.image(
                 localIdentifier: identifier,
@@ -330,12 +336,13 @@ struct DiveActivityVideoPlayerView: View {
         guard usesProgressiveFidelity,
               case .libraryAsset(let identifier) = source,
               let baseKey = source?.identityKey,
-              DiveMediaProgressivePresentation.shouldUpgradeToFullVideo(
+              DiveMediaProgressivePresentation.allowsFullQualityUpgrade(for: libraryVideoQuality),
+              DiveMediaProgressivePresentation.shouldScheduleFullVideoUpgrade(
                   isPlaybackActive: isPlaybackActive,
                   isPausedByUserHold: isPausedByUserHold,
                   currentFidelity: videoFidelity,
-                  isNetworkAvailable: AppNetworkConnectivitySnapshot.shared.allowsCloudMediaFetch,
-                  allowsBackgroundUpgrade: libraryVideoQuality == .homeCarousel
+                  isPreviewDisplayReady: isPlayerDisplayReady,
+                  isNetworkAvailable: AppNetworkConnectivitySnapshot.shared.allowsCloudMediaFetch
               ) else {
             return
         }
@@ -347,6 +354,19 @@ struct DiveActivityVideoPlayerView: View {
                     fullUpgradeTask = nil
                 }
             }
+            try? await Task.sleep(
+                nanoseconds: DiveMediaProgressivePresentation.fullQualityUpgradeDelayNanoseconds
+            )
+            guard !Task.isCancelled,
+                  baseKey == self.source?.identityKey,
+                  DiveMediaProgressivePresentation.shouldScheduleFullVideoUpgrade(
+                      isPlaybackActive: isPlaybackActive,
+                      isPausedByUserHold: isPausedByUserHold,
+                      currentFidelity: videoFidelity,
+                      isPreviewDisplayReady: isPlayerDisplayReady,
+                      isNetworkAvailable: AppNetworkConnectivitySnapshot.shared.allowsCloudMediaFetch
+                  ) else { return }
+
             let fullItem = await DiveMediaReferenceLoader.playerItem(
                 localIdentifier: identifier,
                 quality: .fullQuality
@@ -714,8 +734,9 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
         player = nil
         currentKey = identityKey
         DiveMutedVideoAudioSession.activateForMutedPlayback()
-        let playbackItem = AVPlayerItem(asset: playerItem.asset)
-        let newPlayer = AVPlayer(playerItem: playbackItem)
+        // Use PhotoKit's streaming item as-is. Re-wrapping via `AVPlayerItem(asset:)` forces a full
+        // iCloud download and was the reason Home carousel videos hung until the soft timeout.
+        let newPlayer = AVPlayer(playerItem: playerItem)
         newPlayer.isMuted = true
         player = newPlayer
         playerLayer.player = newPlayer
@@ -732,8 +753,7 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
             isPausedByUserHold: isPausedByUserHold
         )
         removeEndObserver()
-        let playbackItem = AVPlayerItem(asset: playerItem.asset)
-        player.replaceCurrentItem(with: playbackItem)
+        player.replaceCurrentItem(with: playerItem)
         currentKey = identityKey
         DiveMediaVideoPlaybackSessionCache.shared.store(player: player, resolvedKey: identityKey)
         observeDisplayReady()
@@ -817,6 +837,8 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
             isPausedByUserHold: isPausedByUserHold
         )
         if shouldPlay {
+            DiveMutedVideoAudioSession.activateForMutedPlayback()
+            player?.isMuted = true
             if loopsPlayback && isPlayerAtEnd() {
                 restartFromBeginning()
                 return

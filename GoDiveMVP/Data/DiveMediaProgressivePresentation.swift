@@ -1,5 +1,8 @@
 import CoreGraphics
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Video fidelity ladder for dive overview heroes (poster → preview stream → full stream).
 enum DiveMediaVideoFidelity: Int, Sendable, Comparable {
@@ -12,7 +15,7 @@ enum DiveMediaVideoFidelity: Int, Sendable, Comparable {
     }
 }
 
-/// Progressive load policy for dive **Media** tab heroes (testable without PhotoKit / AVFoundation).
+/// Progressive load policy for dive media heroes (testable without PhotoKit / AVFoundation).
 enum DiveMediaProgressivePresentation: Sendable {
 
     /// Fast poster edge before preview / full video streams resolve.
@@ -25,6 +28,68 @@ enum DiveMediaProgressivePresentation: Sendable {
         )
         return CGSize(width: edge, height: edge)
     }
+
+    /// Fallback when no pixel metric is available (tests / non-UIKit).
+    nonisolated static func preferredStillImage<Image>(
+        progressive: Image?,
+        sessionCached: Image?,
+        storedPreview: Image?
+    ) -> Image? {
+        progressive ?? sessionCached ?? storedPreview
+    }
+
+    #if canImport(UIKit)
+    /// Prefer the sharpest candidate by pixel area so soft 256px JPEGs never mask a warmer hero.
+    nonisolated static func preferredStillImage(
+        progressive: UIImage?,
+        sessionCached: UIImage?,
+        storedPreview: UIImage?
+    ) -> UIImage? {
+        [progressive, sessionCached, storedPreview]
+            .compactMap { $0 }
+            .max { lhs, rhs in pixelArea(lhs) < pixelArea(rhs) }
+    }
+
+    nonisolated static func pixelArea(_ image: UIImage) -> CGFloat {
+        image.size.width * image.size.height * image.scale * image.scale
+    }
+    #endif
+
+    /// Progressive paths may upgrade preview → full once the preview stream is on screen.
+    nonisolated static func allowsFullQualityUpgrade(
+        for libraryVideoQuality: DiveMediaVideoRequestQuality
+    ) -> Bool {
+        _ = libraryVideoQuality
+        return true
+    }
+
+    /// Never race a full-quality iCloud download against the initial preview resolve.
+    nonisolated static func allowsBackgroundFullVideoUpgrade(
+        for libraryVideoQuality: DiveMediaVideoRequestQuality
+    ) -> Bool {
+        _ = libraryVideoQuality
+        return false
+    }
+
+    /// Full upgrade only after preview playback is actually displaying (not merely resolved).
+    nonisolated static func shouldScheduleFullVideoUpgrade(
+        isPlaybackActive: Bool,
+        isPausedByUserHold: Bool,
+        currentFidelity: DiveMediaVideoFidelity,
+        isPreviewDisplayReady: Bool,
+        isNetworkAvailable: Bool = true
+    ) -> Bool {
+        shouldUpgradeToFullVideo(
+            isPlaybackActive: isPlaybackActive,
+            isPausedByUserHold: isPausedByUserHold,
+            currentFidelity: currentFidelity,
+            isNetworkAvailable: isNetworkAvailable,
+            allowsBackgroundUpgrade: false
+        ) && isPreviewDisplayReady
+    }
+
+    /// Brief settle after preview is on screen before requesting **`.highQualityFormat`**.
+    nonisolated static let fullQualityUpgradeDelayNanoseconds: UInt64 = 400_000_000
 
     nonisolated static func shouldUpgradeToFullVideo(
         isPlaybackActive: Bool,

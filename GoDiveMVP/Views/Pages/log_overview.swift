@@ -529,6 +529,14 @@ struct LogOverviewView: View {
         seedCarouselSessionCache(using: aggregate)
         #endif
 
+        if let ownerProfileID {
+            HomeCarouselLaunchPreload.storeTodaysPicks(
+                ownerProfileID: ownerProfileID,
+                highlights: carouselHighlights,
+                mediaByID: aggregate.mediaByID
+            )
+        }
+
         let allDisplayable = carouselSlidesAreDisplayable(using: aggregate)
         if !allDisplayable {
             hasCarouselSessionWarmCompleted = false
@@ -545,18 +553,25 @@ struct LogOverviewView: View {
             carouselHighlights.prefix(HomeMediaHighlightPresentation.carouselLimit)
         )
 
-        Task {
+        Task { @MainActor in
             #if canImport(UIKit)
             let mediaRows = limitedHighlights.compactMap { aggregate.mediaByID[$0.mediaID] }
-            await DiveMediaPreviewStorage.ensureStoredPreviews(
-                for: mediaRows,
-                modelContext: modelContext
-            )
-            #endif
+            // Existing previewJPEGData is already seeded via seedCarouselSessionCache.
+            // Warm heroes + preview videos first; fill missing JPEGs after so PhotoKit isn't flooded.
             await HomeMediaHighlightWarmup.warmHighlights(
                 carouselHighlights,
                 mediaByID: aggregate.mediaByID
             )
+            await DiveMediaPreviewStorage.ensureStoredPreviews(
+                for: mediaRows,
+                modelContext: modelContext
+            )
+            #else
+            await HomeMediaHighlightWarmup.warmHighlights(
+                carouselHighlights,
+                mediaByID: aggregate.mediaByID
+            )
+            #endif
             hasCarouselSessionWarmCompleted = true
             let displayable = Dictionary(
                 uniqueKeysWithValues: limitedHighlights.map { highlight in

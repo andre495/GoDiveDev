@@ -19,16 +19,23 @@ struct DiveSiteReferenceSnapshot: Codable, Equatable, Sendable {
 enum DiveSiteReferenceCatalog: Sendable {
     nonisolated static let bundledResourceName = "opendivemap_dive_sites_reference"
 
+    /// Lock-guarded caches so the ~3,100-row JSON decode can be warmed **off the main actor**
+    /// (search-index prewarm) while main-thread callers safely read the shared cache.
     private nonisolated(unsafe) static var cachedSnapshots: [DiveSiteReferenceSnapshot]?
     private nonisolated(unsafe) static var cachedSnapshotsByID: [String: DiveSiteReferenceSnapshot]?
+    private nonisolated static let cacheLock = NSLock()
 
     nonisolated static func bundledReference(
         bundle: Bundle = .main,
         resourceExtension: String = "json"
     ) -> [DiveSiteReferenceSnapshot] {
+        cacheLock.lock()
         if let cachedSnapshots {
+            cacheLock.unlock()
             return cachedSnapshots
         }
+        cacheLock.unlock()
+
         guard let fileURL = bundle.url(
             forResource: bundledResourceName,
             withExtension: resourceExtension
@@ -37,8 +44,12 @@ enum DiveSiteReferenceCatalog: Sendable {
         }
         do {
             let data = try Data(contentsOf: fileURL)
+            // Decode outside the lock so a concurrent caller is never blocked for the full decode;
+            // a rare race just decodes twice and both store identical results.
             let decoded = try JSONDecoder().decode([DiveSiteReferenceSnapshot].self, from: data)
+            cacheLock.lock()
             cachedSnapshots = decoded
+            cacheLock.unlock()
             return decoded
         } catch {
             return []
@@ -52,21 +63,29 @@ enum DiveSiteReferenceCatalog: Sendable {
         bundle: Bundle = .main,
         resourceExtension: String = "json"
     ) -> [String: DiveSiteReferenceSnapshot] {
+        cacheLock.lock()
         if let cachedSnapshotsByID {
+            cacheLock.unlock()
             return cachedSnapshotsByID
         }
+        cacheLock.unlock()
+
         let byID = Dictionary(
             bundledReference(bundle: bundle, resourceExtension: resourceExtension).map { ($0.id, $0) },
             uniquingKeysWith: { first, _ in first }
         )
+        cacheLock.lock()
         cachedSnapshotsByID = byID
+        cacheLock.unlock()
         return byID
     }
 
     #if DEBUG
     nonisolated static func resetCacheForTesting() {
+        cacheLock.lock()
         cachedSnapshots = nil
         cachedSnapshotsByID = nil
+        cacheLock.unlock()
     }
     #endif
 }

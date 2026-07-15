@@ -58,8 +58,12 @@ enum HomeMediaHighlightPresentation {
 
     nonisolated static let carouselLimit = 3
 
-    /// Videos longer than this are excluded from the daily carousel shuffle (startup + playback cost).
+    /// Videos longer than this are excluded from the carousel shuffle (startup + playback cost).
     nonisolated static let carouselVideoMaxDurationSeconds: Double = 30
+
+    /// Random nonce drawn once per process so each cold launch reshuffles the carousel.
+    /// (Stable for the whole session so Home rebuilds do not reshuffle mid-run.)
+    private nonisolated static let processLaunchNonce: UInt64 = UInt64.random(in: 1 ... .max)
 
     nonisolated static func isEligibleCarouselSource(_ source: HomeMediaHighlightSource) -> Bool {
         guard source.mediaKind == .video else { return true }
@@ -67,16 +71,45 @@ enum HomeMediaHighlightPresentation {
         return duration <= carouselVideoMaxDurationSeconds
     }
 
+    /// Deterministic day + owner salt (FNV-1a). Prefer **`carouselShuffleSeed`** for Home picks so
+    /// each app launch reshuffles while still mixing in the day.
     nonisolated static func dailySeed(ownerProfileID: UUID, referenceDate: Date = .now) -> UInt64 {
         let calendar = Calendar(identifier: .gregorian)
         let day = calendar.ordinality(of: .day, in: .year, for: referenceDate) ?? 0
         let year = calendar.component(.year, from: referenceDate)
-        var hasher = Hasher()
-        hasher.combine(ownerProfileID)
-        hasher.combine(year)
-        hasher.combine(day)
-        return UInt64(bitPattern: Int64(truncatingIfNeeded: hasher.finalize()))
+
+        let fnvPrime: UInt64 = 0x0000_0100_0000_01B3
+        var hash: UInt64 = 0xCBF2_9CE4_8422_2325
+        withUnsafeBytes(of: ownerProfileID.uuid) { bytes in
+            for byte in bytes {
+                hash = (hash ^ UInt64(byte)) &* fnvPrime
+            }
+        }
+        withUnsafeBytes(of: UInt64(year).littleEndian) { bytes in
+            for byte in bytes {
+                hash = (hash ^ UInt64(byte)) &* fnvPrime
+            }
+        }
+        withUnsafeBytes(of: UInt64(day).littleEndian) { bytes in
+            for byte in bytes {
+                hash = (hash ^ UInt64(byte)) &* fnvPrime
+            }
+        }
+        return hash
     }
+
+    /// Seed used for Home carousel shuffle — new value every cold launch, stable within the session.
+    nonisolated static func carouselShuffleSeed(
+        ownerProfileID: UUID,
+        referenceDate: Date = .now
+    ) -> UInt64 {
+        dailySeed(ownerProfileID: ownerProfileID, referenceDate: referenceDate) &+ processLaunchNonce
+    }
+
+    #if DEBUG
+    /// Test helper — exposed launch nonce for assertions that shuffle changes across “launches.”
+    nonisolated static var processLaunchNonceForTesting: UInt64 { processLaunchNonce }
+    #endif
 
     nonisolated static func randomizedHighlights(
         from candidates: [HomeMediaHighlight],
@@ -227,7 +260,7 @@ enum HomeMediaHighlightPresentation {
         candidates: [HomeMediaHighlight],
         referenceDate: Date = .now
     ) -> [HomeMediaHighlight] {
-        let seed = dailySeed(ownerProfileID: ownerProfileID, referenceDate: referenceDate)
+        let seed = carouselShuffleSeed(ownerProfileID: ownerProfileID, referenceDate: referenceDate)
         return randomizedHighlights(from: candidates, seed: seed)
     }
 }

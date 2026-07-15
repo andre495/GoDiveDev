@@ -1,101 +1,6 @@
 import SwiftData
 import SwiftUI
 
-/// Overview of buddies tagged on one dive media item.
-struct DiveMediaBuddyTagsSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
-
-    let media: DiveMediaPhoto
-    let dive: DiveActivity
-
-    @State private var taggedRows: [DiveMediaBuddyTagPresentation.TaggedBuddyRow] = []
-    @State private var showsTagPicker = false
-
-    var body: some View {
-        NavigationStack {
-            Group {
-                if taggedRows.isEmpty {
-                    ContentUnavailableView(
-                        "No buddies tagged",
-                        systemImage: "person.2",
-                        description: Text("Tag dive buddies who appear in this photo.")
-                    )
-                } else {
-                    taggedBuddiesList
-                }
-            }
-            .appSheetContentTopSpacing()
-            .navigationTitle("Buddies")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        showsTagPicker = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(AppTheme.Colors.tabSelected)
-                            .frame(minWidth: 44, minHeight: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Tag buddy")
-                    .accessibilityIdentifier("DiveMediaBuddyTags.AddTag")
-                }
-
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .fontWeight(.semibold)
-                        .foregroundStyle(AppTheme.Colors.tabSelected)
-                        .accessibilityIdentifier("DiveMediaBuddyTags.Done")
-                }
-            }
-            .sheet(isPresented: $showsTagPicker) {
-                DiveMediaBuddyTagPickerSheet(
-                    media: media,
-                    dive: dive,
-                    onTagged: reloadTaggedRows
-                )
-            }
-        }
-        .appSheetPresentationChrome()
-        .onAppear(perform: reloadTaggedRows)
-    }
-
-    private var taggedBuddiesList: some View {
-        List {
-            ForEach(taggedRows) { row in
-                DiveMediaBuddyTaggedRow(
-                    displayName: row.displayName,
-                    profilePhoto: row.profilePhoto
-                )
-                .listRowInsets(EdgeInsets(
-                    top: AppTheme.Spacing.sm,
-                    leading: AppTheme.Spacing.lg,
-                    bottom: AppTheme.Spacing.sm,
-                    trailing: AppTheme.Spacing.lg
-                ))
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-            }
-        }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-    }
-
-    private func reloadTaggedRows() {
-        let tags = (try? DiveMediaBuddyAssociation.tags(
-            forMediaPhotoID: media.id,
-            modelContext: modelContext
-        )) ?? []
-        taggedRows = DiveMediaBuddyTagPresentation.taggedRows(
-            mediaPhotoID: media.id,
-            tags: tags
-        )
-    }
-}
-
 /// Roster picker to add a buddy tag on dive media.
 struct DiveMediaBuddyTagPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -238,27 +143,21 @@ struct DiveMediaBuddyTagPickerSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        showsAddBuddySheet = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(AppTheme.Colors.tabSelected)
-                            .frame(minWidth: 44, minHeight: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Add buddy")
-                    .accessibilityIdentifier("DiveMediaBuddyTagPicker.AddBuddy")
-                }
+                    HStack(spacing: AppTheme.Spacing.sm) {
+                        LinkedMediaOverlayGlassIconButton(
+                            systemName: "xmark",
+                            accessibilityLabel: "Done",
+                            accessibilityIdentifier: "DiveMediaBuddyTagPicker.Done",
+                            action: commitDraftTags
+                        )
 
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
-                        commitDraftTags()
+                        LinkedMediaTaggedOverviewAddTagsButton(
+                            accessibilityLabel: "Add buddy",
+                            accessibilityIdentifier: "DiveMediaBuddyTagPicker.AddBuddy"
+                        ) {
+                            showsAddBuddySheet = true
+                        }
                     }
-                        .fontWeight(.semibold)
-                        .foregroundStyle(AppTheme.Colors.tabSelected)
-                        .accessibilityIdentifier("DiveMediaBuddyTagPicker.Done")
                 }
             }
             .sheet(isPresented: $showsAddBuddySheet) {
@@ -450,34 +349,5 @@ private struct DiveMediaBuddyTagPickerRow: View {
                         lineWidth: 1.5
                     )
             }
-    }
-}
-
-private struct DiveMediaBuddyTaggedRow: View {
-    let displayName: String
-    let profilePhoto: Data?
-
-    var body: some View {
-        HStack(spacing: AppTheme.Spacing.sm) {
-            ProfileAvatarView(
-                profilePhoto: profilePhoto,
-                diameter: DiveMediaBuddyTagPickerRowLayout.avatarDiameter,
-                iconFont: .callout,
-                placeholderInitials: DiveBuddyPresentation.initials(from: displayName)
-            )
-
-            Text(displayName)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(DiveMediaBuddyTagPickerRowLayout.rowPadding)
-        .background(
-            RoundedRectangle(cornerRadius: DiveMediaBuddyTagPickerRowLayout.cornerRadius, style: .continuous)
-                .fill(AppTheme.Colors.surfaceElevated)
-        )
-        .accessibilityElement(children: .combine)
     }
 }

@@ -39,16 +39,20 @@ enum HomeLifetimeStatsLeaderboardPresentation {
         let showsPreviewImage: Bool
     }
 
+    /// Matches **Dive Buddies** / **Certifications** — title inline with the back button, collides to
+    /// **`.headline`** after a short scroll (see **`CollapsibleInlineTitleHeader`**).
+    nonisolated static let usesCollapsibleInlineTitleHeader = true
+
     nonisolated static func pageTitle(for kind: HomeLifetimeStatsLeaderboardKind) -> String {
         switch kind {
         case .deepestDives:
-            return "Top 10 deepest dives"
+            return "My Deepest Dives"
         case .longestDives:
-            return "Top 10 longest dives"
+            return "My Longest Dives"
         case .topSites:
-            return "Top 10 dive sites"
+            return "My Top Sites"
         case .topSpecies:
-            return "Top 10 species"
+            return "My Top Marine Life"
         }
     }
 

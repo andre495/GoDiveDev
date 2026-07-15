@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-/// Toolbar and Fishial affordances on **`DiveMarineLifeMediaTagsSheet`**.
+/// Fishial affordances on dive media marine-life chrome (large detent + identify).
 enum DiveMarineLifeTagSheetPresentation {
     nonisolated static var showsFishialIdentifyAction: Bool {
         FishialSecretsBootstrap.isConfigured

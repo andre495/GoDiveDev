@@ -67,6 +67,7 @@ struct ViewSingleActivity: View {
     @State private var selectedDiveMediaPhotoID: UUID?
     @State private var marineLifeTagMediaID: UUID?
     @State private var buddyTagMediaID: UUID?
+    @State private var fishialIdentifyMediaID: UUID?
     @State private var mediaPresentationEpoch = 0
     @State private var pendingInitialMediaFocusID: UUID?
     @State private var mediaImportOverlay: DiveMediaImportOverlayState = .hidden
@@ -233,19 +234,30 @@ struct ViewSingleActivity: View {
             }
             .sheet(isPresented: marineLifeTagSheetPresented) {
                 if let media = marineLifeTagTargetMedia {
-                    DiveMarineLifeMediaTagsSheet(
+                    DiveMarineLifeTagPickerSheet(
                         media: media,
                         dive: activity,
                         captureContext: mediaCaptureContextsByID[media.id],
-                        catalogSites: catalogSitesForMapResolution
+                        onTagged: {}
                     )
                 }
             }
             .sheet(isPresented: buddyTagSheetPresented) {
                 if let media = buddyTagTargetMedia {
-                    DiveMediaBuddyTagsSheet(
+                    DiveMediaBuddyTagPickerSheet(
                         media: media,
-                        dive: activity
+                        dive: activity,
+                        onTagged: {}
+                    )
+                }
+            }
+            .sheet(isPresented: fishialIdentifySheetPresented) {
+                if let media = fishialIdentifyTargetMedia {
+                    DiveMediaFishialIdentifySheet(
+                        media: media,
+                        dive: activity,
+                        catalogSites: catalogSitesForMapResolution,
+                        captureContext: mediaCaptureContextsByID[media.id]
                     )
                 }
             }
@@ -1143,12 +1155,28 @@ struct ViewSingleActivity: View {
         let showsBuddyTagInSheet = DiveActivityMediaPresentation.showsBuddyTagInSheet(
             for: overviewSheetDetent
         ) && hasMedia
+        let canTagMarineLife = hasMedia && (
+            showsMarineLifeTagInSheet
+                || DiveActivityMediaPresentation.showsLargeDetentAddMarineLifeControl(
+                    for: overviewSheetDetent
+                )
+        )
+        let canTagBuddies = hasMedia && (
+            showsBuddyTagInSheet
+                || DiveActivityMediaPresentation.showsLargeDetentAddBuddyControl(
+                    for: overviewSheetDetent
+                )
+        )
         let taggedSpecies = hasMedia ? selectedMediaTaggedSpecies : []
         let taggedBuddies = hasMedia ? selectedMediaTaggedBuddies : []
-        let expandsMarineLifeDetail = DiveActivityMediaPresentation.opensMarineLifeDetailOnTaggedChipTap(
-            detent: overviewSheetDetent,
-            taggedSpeciesCount: taggedSpecies.count
-        )
+        let expandsMarineLifeDetail =
+            DiveActivityMediaPresentation.opensMarineLifeDetailOnSheetFishTap(
+                detent: overviewSheetDetent
+            )
+            || DiveActivityMediaPresentation.opensMarineLifeDetailOnTaggedChipTap(
+                detent: overviewSheetDetent,
+                taggedSpeciesCount: taggedSpecies.count
+            )
         return DiveActivityPhotosPanelContent(
             mediaItems: derivedDiveData.sortedMediaItems,
             selectedMediaID: $selectedDiveMediaPhotoID,
@@ -1159,12 +1187,15 @@ struct ViewSingleActivity: View {
                 for: overviewSheetDetent
             ),
             showsMarineLifeTagInSheet: showsMarineLifeTagInSheet,
-            onTagMarineLife: showsMarineLifeTagInSheet
+            onTagMarineLife: canTagMarineLife
                 ? { tagMarineLifeFromSelectedMedia() }
                 : nil,
             showsBuddyTagInSheet: showsBuddyTagInSheet,
-            onTagBuddies: showsBuddyTagInSheet
+            onTagBuddies: canTagBuddies
                 ? { tagBuddiesFromSelectedMedia() }
+                : nil,
+            onIdentifyFish: canTagMarineLife && DiveMarineLifeTagSheetPresentation.showsFishialIdentifyAction
+                ? { identifyFishFromSelectedMedia() }
                 : nil,
             onExpandMarineLifeDetail: expandsMarineLifeDetail
                 ? {
@@ -1177,6 +1208,19 @@ struct ViewSingleActivity: View {
             onToggleFeatured: { toggleFeaturedMedia($0) },
             taggedSpecies: taggedSpecies,
             taggedBuddies: taggedBuddies,
+            ownerProfileID: activity.ownerProfileID,
+            diveNumberChip: DiveActivityOverviewPresentation.diveNumberChipLabel(
+                diveNumber: activity.diveNumber,
+                diveNumberExplicitlyNone: activity.diveNumberExplicitlyNone
+            ),
+            siteTitle: overviewSiteHeaderTitle,
+            linkedCatalogSiteID: linkedCatalogSiteID,
+            onOpenLinkedSite: openLinkedDiveSiteOverview,
+            regionCountryLine: overviewMapHeaderRegionCountryLine,
+            dateDashTimeLine: DiveActivityOverviewPresentation.startDateDashTimeLine(
+                startTime: activity.startTime,
+                timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds
+            ),
             mediaPickerItems: $diveMediaPickerItems,
             isImportInProgress: mediaImportOverlay.isBlocking
         )
@@ -1223,6 +1267,14 @@ struct ViewSingleActivity: View {
         tagBuddiesFromMedia(media)
     }
 
+    private func identifyFishFromSelectedMedia() {
+        guard let media = DiveActivityMediaPresentation.selectedMedia(
+            selectedID: selectedDiveMediaPhotoID,
+            in: derivedDiveData.sortedMediaItems
+        ) else { return }
+        fishialIdentifyMediaID = media.id
+    }
+
     @MainActor
     private func importDiveMediaPickerItems(_ items: [PhotosPickerItem]) async {
         let total = items.count
@@ -1267,7 +1319,9 @@ struct ViewSingleActivity: View {
 
     private var tankPanelContent: some View {
         return VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-            tankPanelHeader
+            if overviewSheetDetent != .minimized {
+                diveIdentityOverviewHeader
+            }
 
             DiveActivityEditableSectionsView(
                 activity: activity,
@@ -1316,20 +1370,21 @@ struct ViewSingleActivity: View {
         }
     }
 
-    private var tankPanelHeader: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            Text(activity.formattedStartDateOnly())
-                .font(.title2.weight(.bold))
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-
-            Text("Tank & gas")
-                .font(.headline)
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-
-            Text("Dive \(activity.diveNumberPlainLabel) · \(activity.source.rawValue)")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.Colors.tabUnselected)
-        }
+    private var diveIdentityOverviewHeader: some View {
+        DiveActivityMapOverviewHeader(
+            diveNumberChip: DiveActivityOverviewPresentation.diveNumberChipLabel(
+                diveNumber: activity.diveNumber,
+                diveNumberExplicitlyNone: activity.diveNumberExplicitlyNone
+            ),
+            siteTitle: overviewSiteHeaderTitle,
+            linkedCatalogSiteID: linkedCatalogSiteID,
+            onOpenLinkedSite: openLinkedDiveSiteOverview,
+            regionCountryLine: overviewMapHeaderRegionCountryLine,
+            dateDashTimeLine: DiveActivityOverviewPresentation.startDateDashTimeLine(
+                startTime: activity.startTime,
+                timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds
+            )
+        )
     }
 
     private func shortPressureChip(_ psi: Double?) -> String {
@@ -1430,6 +1485,22 @@ struct ViewSingleActivity: View {
 
     private func tagMarineLifeFromMedia(_ media: DiveMediaPhoto) {
         marineLifeTagMediaID = media.id
+    }
+
+    private var fishialIdentifySheetPresented: Binding<Bool> {
+        Binding(
+            get: { fishialIdentifyMediaID != nil },
+            set: { isPresented in
+                if !isPresented {
+                    fishialIdentifyMediaID = nil
+                }
+            }
+        )
+    }
+
+    private var fishialIdentifyTargetMedia: DiveMediaPhoto? {
+        guard let fishialIdentifyMediaID else { return nil }
+        return derivedDiveData.mediaPhotosByID[fishialIdentifyMediaID]
     }
 
     private var buddyTagSheetPresented: Binding<Bool> {

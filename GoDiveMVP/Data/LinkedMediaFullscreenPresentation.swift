@@ -28,6 +28,10 @@ enum LinkedMediaFullscreenPresentation: Sendable {
     nonisolated static let portraitTopChromeExtraInset: CGFloat = 40
     /// Matches **`AppTheme.Spacing.md`** — shared gap below **`topChromeInset`** for X / chips / **View on dive**.
     nonisolated static let topChromeRowPadding: CGFloat = 16
+    /// Shared height for the **X**, **View**, and **#/#** top chrome so they share a vertical center.
+    /// Matches **`AppToolbarIconButtonMetrics.tapDimension`** / **`AppTheme.Layout.glassChromeControlHeight`** (**44**).
+    /// Stored as a literal so this type stays **`nonisolated`** (main-actor **`AppTheme.Layout`** cannot be read here).
+    nonisolated static let topChromeControlHeight: CGFloat = 44
 
     nonisolated static func topChromeInset(safeAreaTop: CGFloat, containerSize: CGSize) -> CGFloat {
         let isPortrait = containerSize.height >= containerSize.width
@@ -154,6 +158,95 @@ enum LinkedMediaFullscreenPresentation: Sendable {
 
     nonisolated static func linkedDiveCoverIdentity(diveID: UUID, mediaID: UUID) -> String {
         "\(diveID.uuidString)-\(mediaID.uuidString)"
+    }
+
+    /// Fish button opens the tagged-species details sheet when tags exist (dive Media large-detent style).
+    nonisolated static func shouldPresentTaggedMarineLifeSheet(
+        showsMarineLifeTagButton: Bool,
+        hasTaggedSpecies: Bool
+    ) -> Bool {
+        showsMarineLifeTagButton && hasTaggedSpecies
+    }
+
+    /// Buddy button opens the tagged-buddies details sheet when tags exist (avatar + name overview).
+    nonisolated static func shouldPresentTaggedBuddiesSheet(
+        showsMediaTagButtons: Bool,
+        hasTaggedBuddies: Bool
+    ) -> Bool {
+        showsMediaTagButtons && hasTaggedBuddies
+    }
+
+    /// Fullscreen fish / buddy chrome is available whenever tag buttons are enabled and the media
+    /// has a linked dive (needed to open the marine-life / buddy **tag picker** sheets).
+    nonisolated static func shouldPresentMediaTagSheet(
+        showsMediaTagButtons: Bool,
+        hasLinkedDive: Bool
+    ) -> Bool {
+        showsMediaTagButtons && hasLinkedDive
+    }
+
+    /// Accent when tags exist; white when untagged — independent of whether the control is shown.
+    nonisolated static func isMediaTagControlActive(hasTags: Bool) -> Bool {
+        hasTags
+    }
+
+    /// Dive Media **large** keeps video playing under the frosted overview. Fullscreen mirrors that for
+    /// the fish/buddy overview sheet; only nested tagging pickers pause playback.
+    nonisolated static func shouldPauseVideoForPresentedTagChrome(
+        isTaggingSheetPresented: Bool
+    ) -> Bool {
+        isTaggingSheetPresented
+    }
+
+    /// Playback chrome opacity — hides controls when tap-toggled off; softens during vertical dismiss.
+    nonisolated static func playbackChromeOpacity(
+        dismissProgress: Double,
+        showsPlaybackChrome: Bool
+    ) -> Double {
+        guard showsPlaybackChrome else { return 0 }
+        return 1 - dismissProgress * 0.35
+    }
+
+    /// Center play/pause — videos only, and only while chrome is showing.
+    nonisolated static func showsCenterPlaybackControl(
+        isVideo: Bool,
+        showsPlaybackChrome: Bool
+    ) -> Bool {
+        isVideo && showsPlaybackChrome
+    }
+
+    /// Hold-to-pause **or** explicit center play/pause both pause the muted video.
+    nonisolated static func isVideoPausedByUserInteraction(
+        isHoldingPause: Bool,
+        isTogglePaused: Bool
+    ) -> Bool {
+        isHoldingPause || isTogglePaused
+    }
+
+    /// Diameter for the centered Photos-style play/pause control.
+    nonisolated static let centerPlaybackControlDiameter: CGFloat = 64
+
+    /// Swipe-down distance on the tag-overview grabber that dismisses the translucent panel.
+    nonisolated static let tagOverviewGrabberDismissThreshold: CGFloat = 88
+
+    /// Height of the translucent fish/buddy overview panel over fullscreen (matches dive **large** detent).
+    nonisolated static func tagOverviewPanelHeight(
+        layoutHeight: CGFloat,
+        bottomSafeInset: CGFloat
+    ) -> CGFloat {
+        DiveActivityOverviewDetent.sheetHeight(
+            for: .large,
+            layoutHeight: layoutHeight,
+            bottomSafeInset: bottomSafeInset
+        )
+    }
+
+    nonisolated static func shouldDismissTagOverview(
+        verticalTranslation: CGFloat,
+        predictedEndTranslation: CGFloat,
+        threshold: CGFloat = tagOverviewGrabberDismissThreshold
+    ) -> Bool {
+        verticalTranslation >= threshold || predictedEndTranslation >= threshold * 1.25
     }
 }
 

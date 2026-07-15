@@ -28,6 +28,21 @@ import UIKit
 #endif
 @testable import GoDiveMVP
 
+#if canImport(UIKit)
+fileprivate func solidTestImage(edge: CGFloat) -> UIImage {
+    let size = CGSize(width: edge, height: edge)
+    // Force scale 1 so `edge` is literal pixels — default renderer scale (2×/3×) would make a
+    // "256" soft frame look like 512/768 px and wrongly satisfy the 480 preview-edge gate.
+    let format = UIGraphicsImageRendererFormat()
+    format.scale = 1
+    let renderer = UIGraphicsImageRenderer(size: size, format: format)
+    return renderer.image { context in
+        UIColor.darkGray.setFill()
+        context.fill(CGRect(origin: .zero, size: size))
+    }
+}
+#endif
+
 struct GoDiveMVPTests {
 
     @Test func example() async throws {
@@ -5737,6 +5752,18 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func diveActivityMediaPresentation_opensMarineLifeDetailOnSheetFishTap_onlyAtMedium() {
+        #expect(DiveActivityMediaPresentation.opensMarineLifeDetailOnSheetFishTap(detent: .medium))
+        #expect(!DiveActivityMediaPresentation.opensMarineLifeDetailOnSheetFishTap(detent: .minimized))
+        #expect(!DiveActivityMediaPresentation.opensMarineLifeDetailOnSheetFishTap(detent: .large))
+    }
+
+    @Test func diveActivityMediaPresentation_opensBuddyOverviewOnSheetBuddyTap_onlyAtMedium() {
+        #expect(DiveActivityMediaPresentation.opensBuddyOverviewOnSheetBuddyTap(detent: .medium))
+        #expect(!DiveActivityMediaPresentation.opensBuddyOverviewOnSheetBuddyTap(detent: .minimized))
+        #expect(!DiveActivityMediaPresentation.opensBuddyOverviewOnSheetBuddyTap(detent: .large))
+    }
+
     @Test func diveActivityMediaPresentation_showsMarineLifeTagInSheet_onlyAtMedium() {
         #expect(!DiveActivityMediaPresentation.showsMarineLifeTagInSheet(for: .minimized))
         #expect(DiveActivityMediaPresentation.showsMarineLifeTagInSheet(for: .medium))
@@ -5758,6 +5785,13 @@ struct GoDiveMVPTests {
         #expect(!DiveActivityMediaPresentation.showsMarineLifeTagSummaryInSheet(for: .minimized))
         #expect(DiveActivityMediaPresentation.showsMarineLifeTagSummaryInSheet(for: .medium))
         #expect(!DiveActivityMediaPresentation.showsMarineLifeTagSummaryInSheet(for: .large))
+        #expect(!DiveActivityMediaPresentation.showsDiveIdentityHeaderInSheet(for: .minimized))
+        #expect(DiveActivityMediaPresentation.showsDiveIdentityHeaderInSheet(for: .medium))
+        #expect(!DiveActivityMediaPresentation.showsDiveIdentityHeaderInSheet(for: .large))
+        #expect(
+            DiveActivityMediaPresentation.largeDetentSpeciesHeroTopFadeOpaqueStop
+                == HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageFadeOpaqueStop
+        )
     }
 
     @Test func diveActivityMediaPresentation_showsMarineLifeDetail_onlyAtLarge() {
@@ -5770,6 +5804,26 @@ struct GoDiveMVPTests {
         #expect(!DiveActivityMediaPresentation.showsMediaSheetChromeActions(for: .minimized))
         #expect(DiveActivityMediaPresentation.showsMediaSheetChromeActions(for: .medium))
         #expect(!DiveActivityMediaPresentation.showsMediaSheetChromeActions(for: .large))
+    }
+
+    @Test func diveActivityMediaPresentation_showsLargeDetentAddMarineLifeControl_onlyAtLarge() {
+        #expect(!DiveActivityMediaPresentation.showsLargeDetentAddMarineLifeControl(for: .minimized))
+        #expect(!DiveActivityMediaPresentation.showsLargeDetentAddMarineLifeControl(for: .medium))
+        #expect(DiveActivityMediaPresentation.showsLargeDetentAddMarineLifeControl(for: .large))
+    }
+
+    @Test func diveActivityMediaPresentation_showsLargeDetentAddBuddyControl_onlyAtLarge() {
+        #expect(!DiveActivityMediaPresentation.showsLargeDetentAddBuddyControl(for: .minimized))
+        #expect(!DiveActivityMediaPresentation.showsLargeDetentAddBuddyControl(for: .medium))
+        #expect(DiveActivityMediaPresentation.showsLargeDetentAddBuddyControl(for: .large))
+        #expect(DiveActivityMediaPresentation.showsLargeDetentTagOverviewChrome(for: .large))
+        #expect(
+            DiveActivityMediaPresentation.largeDetentTagOverviewChromeHeight
+                == PushedDetailHeroModeTogglePresentation.segmentSize
+                + (PushedDetailHeroModeTogglePresentation.shellPadding * 2)
+        )
+        #expect(DiveActivityMediaLargeDetentMode.marineLife.systemImage == "fish.fill")
+        #expect(DiveActivityMediaLargeDetentMode.buddies.systemImage == "person.2.fill")
     }
 
     @Test func diveActivityOverviewPanelMetrics_mediaCarouselScreenAlignmentTopInset_matchesDetentGap() {
@@ -8114,6 +8168,10 @@ struct GoDiveMVPTests {
         #expect(TripDetailMediaGalleryPresentation.overlayChipHorizontalPadding == 10)
         #expect(TripDetailMediaGalleryPresentation.overlayChipVerticalPadding == 6)
         #expect(TripDetailMediaGalleryPresentation.overlayChipBackgroundOpacity == 0.55)
+        #expect(
+            LinkedMediaFullscreenPresentation.topChromeControlHeight
+                == AppToolbarIconButtonMetrics.tapDimension
+        )
     }
 
     @Test func tripDetailMediaGalleryPresentation_showsMarineLifeTagIndicator_whenSpeciesTagged() {
@@ -11844,6 +11902,13 @@ struct GoDiveMVPTests {
         #expect(options.deliveryMode == .highQualityFormat)
         #expect(options.isNetworkAccessAllowed)
     }
+
+    @Test func diveMediaReferenceLoader_homeCarouselVideoOptions_streamMediumRendition() {
+        let options = DiveMediaReferenceLoader.makeVideoRequestOptions(quality: .homeCarousel)
+        // `.automatic` resolved to full-quality downloads on optimized-storage libraries and timed out.
+        #expect(options.deliveryMode == .mediumQualityFormat)
+        #expect(DiveMediaVideoRequestQuality.homeCarousel.photoKitDeliveryMode == .mediumQualityFormat)
+    }
     #endif
 
     #if canImport(UIKit)
@@ -11897,6 +11962,26 @@ struct GoDiveMVPTests {
         #expect(DiveMediaPreviewStorage.hasStoredPreview(for: media))
     }
 
+    @Test @MainActor func diveMediaPreviewStorage_storedPreviewImage_reusesDecodedInstance() {
+        // Scroll perf: grid cells read the stored preview in `body`, so repeated calls must
+        // return the cached decode (same instance) instead of re-decoding JPEG data each time.
+        let media = DiveMediaPhoto(
+            sortOrder: 0,
+            photosLocalIdentifier: "preview-decode-cache-test"
+        )
+        media.previewJPEGData = DiveMediaPreviewPersistence.encodePreviewJPEG(solidTestImage(edge: 64))
+        let first = DiveMediaPreviewStorage.storedPreviewImage(for: media)
+        let second = DiveMediaPreviewStorage.storedPreviewImage(for: media)
+        #expect(first != nil)
+        #expect(first === second)
+
+        let missing = DiveMediaPhoto(
+            sortOrder: 1,
+            photosLocalIdentifier: "preview-decode-cache-missing"
+        )
+        #expect(DiveMediaPreviewStorage.storedPreviewImage(for: missing) == nil)
+    }
+
     @Test @MainActor func homeMediaHighlightSessionCache_hasDisplayableImage_usesStoredPreview() {
         HomeMediaHighlightSessionCache.shared.clear()
         let media = DiveMediaPhoto(
@@ -11945,6 +12030,239 @@ struct GoDiveMVPTests {
 
     @Test func diveMediaVideoLoad_timeout_isPositive() {
         #expect(DiveMediaVideoLoad.timeoutSeconds > 0)
+        #expect(DiveMediaVideoRequestQuality.homeCarousel.usesPlayerItemRequest)
+        #expect(!DiveMediaVideoRequestQuality.fullQuality.usesPlayerItemRequest)
+        #expect(DiveMediaVideoLoad.softTimeoutSeconds == 15)
+        #expect(DiveMediaVideoLoad.hardTimeoutSeconds == 90)
+        #expect(!DiveMediaVideoLoad.shouldExtractAssetInPlayerItemCallback())
+        #expect(
+            DiveMediaVideoLoad.shouldFailVideoRequest(
+                elapsedSeconds: 15,
+                hasSeenProgress: false
+            )
+        )
+        #expect(
+            !DiveMediaVideoLoad.shouldFailVideoRequest(
+                elapsedSeconds: 15,
+                hasSeenProgress: true
+            )
+        )
+        #expect(
+            DiveMediaVideoLoad.shouldFailVideoRequest(
+                elapsedSeconds: 90,
+                hasSeenProgress: true
+            )
+        )
+        #expect(
+            HomeCarouselVideoPresentation.shouldPreloadLibraryIdentifier(
+                mediaKind: .video,
+                localIdentifier: "ABC/L0/001"
+            )
+        )
+        #expect(
+            !HomeCarouselVideoPresentation.shouldPreloadLibraryIdentifier(
+                mediaKind: .image,
+                localIdentifier: "ABC/L0/001"
+            )
+        )
+        #expect(
+            HomeCarouselVideoPresentation.libraryIdentifiersForPreload(
+                from: [],
+                limit: 3
+            ).isEmpty
+        )
+        #expect(
+            DiveMediaVideoLoad.requestFailureDetail(
+                timedOut: true,
+                networkAllowed: true,
+                elapsedSeconds: 30,
+                isInCloud: true,
+                errorDescription: nil
+            ).contains("timedOut")
+        )
+        #expect(
+            DiveMediaVideoLoad.requestFailureDetail(
+                timedOut: false,
+                networkAllowed: false,
+                elapsedSeconds: 0.2,
+                isInCloud: true,
+                errorDescription: "denied"
+            ).contains("net=0")
+        )
+        #expect(
+            DiveMediaVideoLoad.preferredAssetAfterRequest(
+                requestedAssetResolved: false,
+                sessionCachedAvailable: true
+            )
+        )
+        #expect(
+            !DiveMediaVideoLoad.preferredAssetAfterRequest(
+                requestedAssetResolved: false,
+                sessionCachedAvailable: false
+            )
+        )
+        #expect(
+            HomeMediaHighlightWarmupPresentation.shouldSkipStillPhotoKitLoadWhileVideoResolves(
+                isVideo: true,
+                hasDisplayablePoster: true
+            )
+        )
+        #expect(
+            !HomeMediaHighlightWarmupPresentation.shouldSkipStillPhotoKitLoadWhileVideoResolves(
+                isVideo: true,
+                hasDisplayablePoster: false
+            )
+        )
+        #expect(
+            !HomeMediaHighlightWarmupPresentation.shouldSkipStillPhotoKitLoadWhileVideoResolves(
+                isVideo: false,
+                hasDisplayablePoster: true
+            )
+        )
+        #expect(
+            DiveMediaVideoPhotoKitGatePresentation.shouldEnsureCarouselVideoReady(
+                isSlidePlaybackActive: true
+            )
+        )
+        #expect(
+            !DiveMediaVideoPhotoKitGatePresentation.shouldEnsureCarouselVideoReady(
+                isSlidePlaybackActive: false
+            )
+        )
+        #expect(
+            DiveMediaVideoPhotoKitGatePresentation.shouldEnsureCarouselVideoReady(
+                isSlidePlaybackActive: false,
+                isAdjacentToActive: true
+            )
+        )
+        #expect(
+            DiveMediaVideoPhotoKitGatePresentation.adjacentLogicalIndices(
+                activeLogicalIndex: 0,
+                slideCount: 3
+            ) == [2, 1]
+        )
+        // Active + forward neighbor only — wrap-previous of 0 must NOT prepare (starved slide 0).
+        #expect(
+            DiveMediaVideoPhotoKitGatePresentation.shouldPrepareCarouselVideo(
+                logicalIndex: 0,
+                activeLogicalIndex: 0,
+                slideCount: 3
+            )
+        )
+        #expect(
+            DiveMediaVideoPhotoKitGatePresentation.shouldPrepareCarouselVideo(
+                logicalIndex: 1,
+                activeLogicalIndex: 0,
+                slideCount: 3
+            )
+        )
+        #expect(
+            !DiveMediaVideoPhotoKitGatePresentation.shouldPrepareCarouselVideo(
+                logicalIndex: 2,
+                activeLogicalIndex: 0,
+                slideCount: 3
+            )
+        )
+        #expect(
+            !DiveMediaVideoPhotoKitGatePresentation.shouldPrepareCarouselVideo(
+                logicalIndex: 0,
+                activeLogicalIndex: 1,
+                slideCount: 3
+            )
+        )
+        #expect(
+            HomeMediaCarouselPresentation.isPagerPagePlaybackActive(
+                pagerIndex: 0,
+                selectedPagerIndex: 0
+            )
+        )
+        #expect(
+            !HomeMediaCarouselPresentation.isPagerPagePlaybackActive(
+                pagerIndex: 3,
+                selectedPagerIndex: 0
+            )
+        )
+        #expect(
+            HomeMediaCarouselPresentation.shouldRemountCarouselPlayerWhenBecomingActive(
+                isBecomingActive: true,
+                hasPreparedPlayer: true
+            )
+        )
+        #expect(
+            !HomeMediaCarouselPresentation.shouldRemountCarouselPlayerWhenBecomingActive(
+                isBecomingActive: true,
+                hasPreparedPlayer: false
+            )
+        )
+        #expect(
+            HomeMediaHighlightWarmupPresentation.shouldSkipStillPhotoKitLoadWhileVideoResolves(
+                isVideo: true,
+                hasDisplayablePoster: true,
+                isVideoPrepareInFlightOrReady: true
+            )
+        )
+        #expect(
+            !HomeMediaHighlightWarmupPresentation.shouldSkipStillPhotoKitLoadWhileVideoResolves(
+                isVideo: true,
+                hasDisplayablePoster: true,
+                isVideoPrepareInFlightOrReady: false
+            )
+        )
+        let priority = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+        let ordered = DiveMediaVideoPhotoKitGatePresentation.prioritizedVideoMediaIDs(
+            mediaIDs: [
+                UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+                priority,
+                UUID(uuidString: "00000000-0000-0000-0000-000000000003")!,
+            ],
+            priorityMediaID: priority
+        )
+        #expect(ordered.first == priority)
+    }
+
+    @Test func diveMediaStillLoad_timesOutToDegradedFallbackWithoutCaching() {
+        #expect(DiveMediaStillLoad.requestTimeoutSeconds > 0)
+        #expect(DiveMediaStillLoad.shouldCacheFetchedImage(isFinal: true))
+        #expect(!DiveMediaStillLoad.shouldCacheFetchedImage(isFinal: false))
+        #expect(DiveMediaStillLoad.timeoutFallbackImage(latestDegraded: "degraded") == "degraded")
+        #expect(DiveMediaStillLoad.timeoutFallbackImage(latestDegraded: String?.none) == nil)
+    }
+
+    @Test func homeCarouselLaunchPreload_matchesOwnerAndDailySeed() {
+        let owner = UUID(uuidString: "00000000-0000-0000-0000-00000000000A")!
+        let seed = HomeMediaHighlightPresentation.dailySeed(ownerProfileID: owner)
+
+        // Cross-launch preload is intentionally disabled so each launch can reshuffle.
+        #expect(
+            !HomeCarouselLaunchPreloadPresentation.shouldPreloadStoredPicks(
+                storedOwnerProfileID: owner,
+                currentOwnerProfileID: owner,
+                storedSeed: seed,
+                currentSeed: seed
+            )
+        )
+        #expect(
+            !HomeCarouselLaunchPreloadPresentation.shouldPreloadStoredPicks(
+                storedOwnerProfileID: nil,
+                currentOwnerProfileID: owner,
+                storedSeed: nil,
+                currentSeed: seed
+            )
+        )
+    }
+
+    @Test func homeCarouselLaunchPreload_entriesKeepPointersAndKinds() {
+        let entries = HomeCarouselLaunchPreloadPresentation.entries(
+            from: [
+                (mediaKind: .video, libraryIdentifier: "VID/L0/001"),
+                (mediaKind: .image, libraryIdentifier: " IMG/L0/002 "),
+                (mediaKind: .video, libraryIdentifier: nil),
+                (mediaKind: .image, libraryIdentifier: "   "),
+            ]
+        )
+        #expect(entries.count == 2)
+        #expect(entries[0] == .init(libraryIdentifier: "VID/L0/001", isVideo: true))
+        #expect(entries[1] == .init(libraryIdentifier: "IMG/L0/002", isVideo: false))
     }
 
     @Test func homeLifetimeStatsPresentation_buildsAggregatesAndLinks() {
@@ -11986,6 +12304,20 @@ struct GoDiveMVPTests {
         let seedB = HomeMediaHighlightPresentation.dailySeed(ownerProfileID: ownerID, referenceDate: day)
         #expect(seedA == seedB)
 
+        // Seed must reshuffle when the day or owner changes (FNV-1a over owner + year + day-of-year).
+        let nextDay = day.addingTimeInterval(86_400)
+        #expect(HomeMediaHighlightPresentation.dailySeed(ownerProfileID: ownerID, referenceDate: nextDay) != seedA)
+        let otherOwner = UUID(uuidString: "B1B2C3D4-E5F6-7890-ABCD-EF1234567890")!
+        #expect(HomeMediaHighlightPresentation.dailySeed(ownerProfileID: otherOwner, referenceDate: day) != seedA)
+
+        // Launch shuffle salts the daily seed so cold launches pick a new set within the same day.
+        let launchSeed = HomeMediaHighlightPresentation.carouselShuffleSeed(
+            ownerProfileID: ownerID,
+            referenceDate: day
+        )
+        #expect(launchSeed == seedA &+ HomeMediaHighlightPresentation.processLaunchNonceForTesting)
+        #expect(launchSeed != seedA)
+
         let candidates = (0 ..< 20).map { index in
             HomeMediaHighlight(
                 mediaID: UUID(uuidString: String(format: "00000000-0000-0000-0000-%012x", index))!,
@@ -12023,7 +12355,7 @@ struct GoDiveMVPTests {
         HomeMediaHighlightSessionCache.shared.clear()
         defer { HomeMediaHighlightSessionCache.shared.clear() }
 
-        let image = UIImage()
+        let image = solidTestImage(edge: 480)
         for index in 0 ..< 7 {
             HomeMediaHighlightSessionCache.shared.storeImage(
                 image,
@@ -12043,7 +12375,7 @@ struct GoDiveMVPTests {
         HomeMediaHighlightSessionCache.shared.clear()
         defer { HomeMediaHighlightSessionCache.shared.clear() }
 
-        let image = UIImage()
+        let image = solidTestImage(edge: 480)
         HomeMediaHighlightSessionCache.shared.setPinnedCarouselLocalIdentifiers(["carousel-a", "carousel-b"])
         HomeMediaHighlightSessionCache.shared.storeImage(image, localIdentifier: "carousel-a", edge: 480)
         HomeMediaHighlightSessionCache.shared.storeImage(image, localIdentifier: "carousel-b", edge: 480)
@@ -12058,6 +12390,92 @@ struct GoDiveMVPTests {
 
         #expect(HomeMediaHighlightSessionCache.shared.image(for: "carousel-a", edge: 480) != nil)
         #expect(HomeMediaHighlightSessionCache.shared.image(for: "carousel-b", edge: 480) != nil)
+        #endif
+    }
+
+    @Test func homeMediaHighlightWarmupPresentation_softJPEGDoesNotSatisfyPreviewEdge() {
+        #expect(
+            HomeMediaHighlightWarmupPresentation.sessionCachedImageSatisfiesRequestedEdge(
+                pixelWidth: DiveMediaPreviewPersistence.storedPreviewEdge,
+                pixelHeight: DiveMediaPreviewPersistence.storedPreviewEdge,
+                requestedEdge: DiveMediaPreviewPersistence.storedPreviewEdge
+            )
+        )
+        #expect(
+            !HomeMediaHighlightWarmupPresentation.sessionCachedImageSatisfiesRequestedEdge(
+                pixelWidth: DiveMediaPreviewPersistence.storedPreviewEdge,
+                pixelHeight: DiveMediaPreviewPersistence.storedPreviewEdge,
+                requestedEdge: HomeMediaHighlightWarmupPresentation.previewImageEdge
+            )
+        )
+        #expect(
+            HomeMediaHighlightWarmupPresentation.sessionCachedImageSatisfiesRequestedEdge(
+                pixelWidth: HomeMediaHighlightWarmupPresentation.previewImageEdge,
+                pixelHeight: HomeMediaHighlightWarmupPresentation.previewImageEdge,
+                requestedEdge: HomeMediaHighlightWarmupPresentation.previewImageEdge
+            )
+        )
+        #expect(
+            HomeMediaHighlightWarmupPresentation.storedPreviewSessionEdge
+                == DiveMediaPreviewPersistence.storedPreviewEdge
+        )
+        #expect(
+            HomeMediaHighlightWarmupPresentation.storedPreviewSessionEdge
+                < HomeMediaHighlightWarmupPresentation.previewImageEdge
+        )
+    }
+
+    @Test @MainActor func homeMediaHighlightSessionCache_rejectsSoftFrameUnderPreviewEdgeKey() {
+        #if canImport(UIKit)
+        HomeMediaHighlightSessionCache.shared.clear()
+        defer { HomeMediaHighlightSessionCache.shared.clear() }
+
+        let soft = solidTestImage(edge: DiveMediaPreviewPersistence.storedPreviewEdge)
+        let preview = solidTestImage(edge: HomeMediaHighlightWarmupPresentation.previewImageEdge)
+        let id = "soft-vs-preview"
+
+        // Legacy bug: soft JPEG stored under the 480 key must not short-circuit preview/hero loads.
+        HomeMediaHighlightSessionCache.shared.storeImage(
+            soft,
+            localIdentifier: id,
+            edge: HomeMediaHighlightWarmupPresentation.previewImageEdge
+        )
+        #expect(
+            HomeMediaHighlightSessionCache.shared.image(
+                for: id,
+                edge: HomeMediaHighlightWarmupPresentation.previewImageEdge
+            ) == nil
+        )
+
+        HomeMediaHighlightSessionCache.shared.storeImage(
+            soft,
+            localIdentifier: id,
+            edge: HomeMediaHighlightWarmupPresentation.storedPreviewSessionEdge
+        )
+        #expect(
+            HomeMediaHighlightSessionCache.shared.image(
+                for: id,
+                edge: HomeMediaHighlightWarmupPresentation.storedPreviewSessionEdge
+            ) != nil
+        )
+        #expect(
+            HomeMediaHighlightSessionCache.shared.image(
+                for: id,
+                edge: HomeMediaHighlightWarmupPresentation.previewImageEdge
+            ) == nil
+        )
+
+        HomeMediaHighlightSessionCache.shared.storeImage(
+            preview,
+            localIdentifier: id,
+            edge: HomeMediaHighlightWarmupPresentation.previewImageEdge
+        )
+        #expect(
+            HomeMediaHighlightSessionCache.shared.image(
+                for: id,
+                edge: HomeMediaHighlightWarmupPresentation.previewImageEdge
+            ) != nil
+        )
         #endif
     }
 
@@ -12524,6 +12942,17 @@ struct GoDiveMVPTests {
         #expect(HomeMediaHighlightWarmupPresentation.backgroundFullQualityIndices(totalCount: 3) == [1, 2])
     }
 
+    @Test func homeMediaCarouselPresentation_stableImageLoadWidth_bucketsAgainstGeometryJitter() {
+        #expect(HomeMediaCarouselPresentation.imageLoadWidthBucketPoints == 8)
+        #expect(HomeMediaCarouselPresentation.stableImageLoadWidth(390) == 392)
+        #expect(HomeMediaCarouselPresentation.stableImageLoadWidth(391) == 392)
+        #expect(HomeMediaCarouselPresentation.stableImageLoadWidthKey(390)
+            == HomeMediaCarouselPresentation.stableImageLoadWidthKey(391))
+        #expect(HomeMediaCarouselPresentation.stableImageLoadWidthKey(388)
+            != HomeMediaCarouselPresentation.stableImageLoadWidthKey(396))
+        #expect(HomeMediaCarouselPresentation.stableImageLoadWidth(0) == 0)
+    }
+
     @Test func logbookActivityRowLayout_usesCompactSpacingTokens() {
         #expect(LogbookActivityRowLayout.contentSpacing == 4)
         #expect(LogbookActivityRowLayout.cardPadding == AppTheme.Spacing.sm)
@@ -12849,6 +13278,83 @@ struct GoDiveMVPTests {
                 currentFidelity: .preview
             )
         )
+        #expect(
+            DiveMediaProgressivePresentation.allowsFullQualityUpgrade(for: .fullQuality)
+        )
+        #expect(
+            DiveMediaProgressivePresentation.allowsFullQualityUpgrade(for: .homeCarousel)
+        )
+        #expect(
+            !DiveMediaProgressivePresentation.allowsBackgroundFullVideoUpgrade(for: .homeCarousel)
+        )
+        #expect(
+            !DiveMediaProgressivePresentation.allowsBackgroundFullVideoUpgrade(for: .fullQuality)
+        )
+        #expect(
+            DiveMediaProgressivePresentation.shouldScheduleFullVideoUpgrade(
+                isPlaybackActive: true,
+                isPausedByUserHold: false,
+                currentFidelity: .preview,
+                isPreviewDisplayReady: true
+            )
+        )
+        #expect(
+            !DiveMediaProgressivePresentation.shouldScheduleFullVideoUpgrade(
+                isPlaybackActive: true,
+                isPausedByUserHold: false,
+                currentFidelity: .preview,
+                isPreviewDisplayReady: false
+            )
+        )
+        #expect(
+            DiveMediaProgressivePresentation.preferredStillImage(
+                progressive: "sharp",
+                sessionCached: "soft",
+                storedPreview: "jpeg"
+            ) == "sharp"
+        )
+        #expect(
+            DiveMediaProgressivePresentation.preferredStillImage(
+                progressive: String?.none,
+                sessionCached: "soft",
+                storedPreview: "jpeg"
+            ) == "soft"
+        )
+        #if canImport(UIKit)
+        func solidImage(width: CGFloat, height: CGFloat) -> UIImage {
+            let size = CGSize(width: width, height: height)
+            let renderer = UIGraphicsImageRenderer(size: size)
+            return renderer.image { context in
+                UIColor.gray.setFill()
+                context.fill(CGRect(origin: .zero, size: size))
+            }
+        }
+        let soft = solidImage(width: 32, height: 32)
+        let sharp = solidImage(width: 128, height: 128)
+        #expect(
+            DiveMediaProgressivePresentation.preferredStillImage(
+                progressive: sharp,
+                sessionCached: soft,
+                storedPreview: soft
+            ) === sharp
+        )
+        #expect(
+            DiveMediaProgressivePresentation.preferredStillImage(
+                progressive: soft,
+                sessionCached: sharp,
+                storedPreview: soft
+            ) === sharp
+        )
+        #expect(
+            DiveMediaProgressivePresentation.pixelArea(sharp) > DiveMediaProgressivePresentation.pixelArea(soft)
+        )
+        #endif
+        #expect(
+            HomeMediaHighlightWarmupPresentation.bootstrapStillQuality(isVideo: false) == .full
+        )
+        #expect(
+            HomeMediaHighlightWarmupPresentation.bootstrapStillQuality(isVideo: true) == .preview
+        )
         #expect(DiveMediaProgressivePresentation.prefetchNeighborIndices(selectedIndex: 2, itemCount: 5) == [2, 1, 3])
         #expect(DiveMediaProgressivePresentation.prefetchNeighborIndices(selectedIndex: 0, itemCount: 3) == [0, 1])
 
@@ -13039,6 +13545,26 @@ struct GoDiveMVPTests {
         #expect(HomeMediaCarouselPresentation.shouldRestartClipAfterPlaybackFinished(slideCount: 1) == true)
         #expect(HomeMediaCarouselPresentation.shouldRestartClipAfterPlaybackFinished(slideCount: 3) == false)
         #expect(HomeMediaCarouselPresentation.photoDisplaySeconds == 10)
+        #expect(HomeMediaCarouselPresentation.shouldLoopCarouselVideo(isPagePlaybackActive: true))
+        #expect(!HomeMediaCarouselPresentation.shouldLoopCarouselVideo(isPagePlaybackActive: false))
+        #expect(
+            HomeMediaCarouselPresentation.videoAutoAdvanceSeconds(
+                assetDurationSeconds: 4.5,
+                slideCount: 3
+            ) == 4.5
+        )
+        #expect(
+            HomeMediaCarouselPresentation.videoAutoAdvanceSeconds(
+                assetDurationSeconds: nil,
+                slideCount: 3
+            ) == HomeMediaCarouselPresentation.videoDisplayFallbackSeconds
+        )
+        #expect(
+            HomeMediaCarouselPresentation.videoAutoAdvanceSeconds(
+                assetDurationSeconds: 12,
+                slideCount: 1
+            ) == nil
+        )
     }
 
     @Test func homeMediaCarouselPresentation_shouldBumpPlaybackResumeWhenAllowed() {
@@ -13428,6 +13954,7 @@ struct GoDiveMVPTests {
         #expect(height > 44)
         #expect(HomeMediaCarouselPresentation.taggedOverlayIconTapDimension == 56)
         #expect(HomeMediaCarouselPresentation.taggedOverlayIconTapDimension >= height)
+        #expect(height > AppTheme.Layout.glassChromeControlHeight)
     }
 
     @Test @MainActor
@@ -14502,6 +15029,21 @@ struct GoDiveMVPTests {
             LinkedMediaGridPresentation.cornerRadius
                 == DiveActivityMediaPresentation.carouselThumbnailCornerRadius
         )
+        #expect(LinkedMediaGridPresentation.showsTagIcon(hasTags: true))
+        #expect(!LinkedMediaGridPresentation.showsTagIcon(hasTags: false))
+        #expect(LinkedMediaGridPresentation.showsTagCountBadge(tagCount: 0) == false)
+        #expect(LinkedMediaGridPresentation.showsTagCountBadge(tagCount: 1) == false)
+        #expect(LinkedMediaGridPresentation.showsTagCountBadge(tagCount: 2))
+        #expect(
+            LinkedMediaGridPresentation.tagOverviewMode(isBuddyBadge: false) == .marineLife
+        )
+        #expect(
+            LinkedMediaGridPresentation.tagOverviewMode(isBuddyBadge: true) == .buddies
+        )
+        #expect(LinkedMediaGridPresentation.tagIconEdgePadding == 6)
+        #expect(LinkedMediaGridPresentation.gridThumbnailPointSize == 180)
+        #expect(LinkedMediaGridPresentation.photoKitRequestEdge == 360)
+        #expect(LinkedMediaGridPresentation.cellAspectRatio == 1)
     }
 
     @Test @MainActor func diveBuddyTaggedMediaFullscreenPresentation_lockedDragAxis_prefersDominantTranslation() {
@@ -14634,6 +15176,14 @@ struct GoDiveMVPTests {
                 containerSize: landscape
             ) == safeTop + LinkedMediaFullscreenPresentation.topChromeRowPadding
         )
+        #expect(
+            LinkedMediaFullscreenPresentation.topChromeControlHeight
+                == AppToolbarIconButtonMetrics.tapDimension
+        )
+        #expect(
+            LinkedMediaFullscreenPresentation.topChromeControlHeight
+                == SecondaryDestinationChromeMetrics.backButtonMinimumTapDimension
+        )
     }
 
     @Test func linkedMediaFullscreenPresentation_gestureDismiss_isSnappierThanBrowse() {
@@ -14644,6 +15194,193 @@ struct GoDiveMVPTests {
         #expect(
             LinkedMediaFullscreenPresentation.gestureDismissSpringResponse
                 < LinkedMediaFullscreenPresentation.browseAnimationDuration
+        )
+    }
+
+    @Test func linkedMediaFullscreenPresentation_shouldDismissTagOverview_usesGrabberThreshold() {
+        let threshold = LinkedMediaFullscreenPresentation.tagOverviewGrabberDismissThreshold
+        #expect(
+            LinkedMediaFullscreenPresentation.shouldDismissTagOverview(
+                verticalTranslation: threshold,
+                predictedEndTranslation: 0
+            )
+        )
+        #expect(
+            LinkedMediaFullscreenPresentation.shouldDismissTagOverview(
+                verticalTranslation: threshold - 1,
+                predictedEndTranslation: threshold * 1.25
+            )
+        )
+        #expect(
+            !LinkedMediaFullscreenPresentation.shouldDismissTagOverview(
+                verticalTranslation: threshold - 1,
+                predictedEndTranslation: threshold
+            )
+        )
+    }
+
+    @Test func linkedMediaFullscreenPresentation_playbackChrome_hidesOnToggleAndShowsCenterControlForVideo() {
+        #expect(
+            LinkedMediaFullscreenPresentation.playbackChromeOpacity(
+                dismissProgress: 0,
+                showsPlaybackChrome: true
+            ) == 1
+        )
+        #expect(
+            LinkedMediaFullscreenPresentation.playbackChromeOpacity(
+                dismissProgress: 0,
+                showsPlaybackChrome: false
+            ) == 0
+        )
+        #expect(
+            LinkedMediaFullscreenPresentation.playbackChromeOpacity(
+                dismissProgress: 1,
+                showsPlaybackChrome: true
+            ) == 0.65
+        )
+        #expect(
+            LinkedMediaFullscreenPresentation.showsCenterPlaybackControl(
+                isVideo: true,
+                showsPlaybackChrome: true
+            )
+        )
+        #expect(
+            !LinkedMediaFullscreenPresentation.showsCenterPlaybackControl(
+                isVideo: true,
+                showsPlaybackChrome: false
+            )
+        )
+        #expect(
+            !LinkedMediaFullscreenPresentation.showsCenterPlaybackControl(
+                isVideo: false,
+                showsPlaybackChrome: true
+            )
+        )
+        #expect(
+            LinkedMediaFullscreenPresentation.isVideoPausedByUserInteraction(
+                isHoldingPause: false,
+                isTogglePaused: true
+            )
+        )
+        #expect(
+            LinkedMediaFullscreenPresentation.isVideoPausedByUserInteraction(
+                isHoldingPause: true,
+                isTogglePaused: false
+            )
+        )
+        #expect(
+            !LinkedMediaFullscreenPresentation.isVideoPausedByUserInteraction(
+                isHoldingPause: false,
+                isTogglePaused: false
+            )
+        )
+        #expect(LinkedMediaFullscreenPresentation.centerPlaybackControlDiameter == 64)
+    }
+
+    @Test func linkedMediaFullscreenPresentation_shouldPresentMediaTagSheet_requiresButtonsAndLinkedDive() {
+        #expect(
+            LinkedMediaFullscreenPresentation.shouldPresentMediaTagSheet(
+                showsMediaTagButtons: true,
+                hasLinkedDive: true
+            )
+        )
+        #expect(
+            !LinkedMediaFullscreenPresentation.shouldPresentMediaTagSheet(
+                showsMediaTagButtons: true,
+                hasLinkedDive: false
+            )
+        )
+        #expect(
+            !LinkedMediaFullscreenPresentation.shouldPresentMediaTagSheet(
+                showsMediaTagButtons: false,
+                hasLinkedDive: true
+            )
+        )
+        #expect(LinkedMediaFullscreenPresentation.isMediaTagControlActive(hasTags: true))
+        #expect(!LinkedMediaFullscreenPresentation.isMediaTagControlActive(hasTags: false))
+        #expect(
+            !LinkedMediaFullscreenPresentation.shouldPauseVideoForPresentedTagChrome(
+                isTaggingSheetPresented: false
+            )
+        )
+        #expect(
+            LinkedMediaFullscreenPresentation.shouldPauseVideoForPresentedTagChrome(
+                isTaggingSheetPresented: true
+            )
+        )
+        #expect(AppTheme.Sheet.embeddedOverviewTranslucentOpacity == 0.62)
+        #expect(
+            LinkedMediaFullscreenPresentation.tagOverviewPanelHeight(
+                layoutHeight: 800,
+                bottomSafeInset: 34
+            )
+                == DiveActivityOverviewDetent.sheetHeight(
+                    for: .large,
+                    layoutHeight: 800,
+                    bottomSafeInset: 34
+                )
+        )
+        #expect(
+            LinkedMediaFullscreenDiveLinkPresentation.diveNumberLabel(
+                for: nil,
+                useChronologicalNumbers: false,
+                chronologicalIndexByDiveID: [:]
+            ) == "-"
+        )
+    }
+
+    @Test @MainActor func linkedMediaFullscreenDiveLinkPresentation_siteDisplayName_defaultsWhenDiveMissing() {
+        #expect(LinkedMediaFullscreenDiveLinkPresentation.siteDisplayName(for: nil) == "New Dive")
+        #expect(LinkedMediaFullscreenDiveLinkPresentation.linkedTripTitle(for: nil) == nil)
+    }
+
+    @Test func linkedMediaFullscreenPresentation_shouldPresentTaggedMarineLifeSheet_requiresButtonAndTags() {
+        #expect(
+            LinkedMediaFullscreenPresentation.shouldPresentTaggedMarineLifeSheet(
+                showsMarineLifeTagButton: true,
+                hasTaggedSpecies: true
+            )
+        )
+        #expect(
+            !LinkedMediaFullscreenPresentation.shouldPresentTaggedMarineLifeSheet(
+                showsMarineLifeTagButton: true,
+                hasTaggedSpecies: false
+            )
+        )
+        #expect(
+            !LinkedMediaFullscreenPresentation.shouldPresentTaggedMarineLifeSheet(
+                showsMarineLifeTagButton: false,
+                hasTaggedSpecies: true
+            )
+        )
+    }
+
+    @Test func linkedMediaFullscreenPresentation_shouldPresentTaggedBuddiesSheet_requiresButtonsAndTags() {
+        #expect(
+            LinkedMediaFullscreenPresentation.shouldPresentTaggedBuddiesSheet(
+                showsMediaTagButtons: true,
+                hasTaggedBuddies: true
+            )
+        )
+        #expect(
+            !LinkedMediaFullscreenPresentation.shouldPresentTaggedBuddiesSheet(
+                showsMediaTagButtons: true,
+                hasTaggedBuddies: false
+            )
+        )
+        #expect(
+            !LinkedMediaFullscreenPresentation.shouldPresentTaggedBuddiesSheet(
+                showsMediaTagButtons: false,
+                hasTaggedBuddies: true
+            )
+        )
+        #expect(LinkedMediaTaggedBuddiesSheetPresentation.columnCount == 3)
+        #expect(LinkedMediaTaggedBuddiesSheetPresentation.avatarDiameter == 64)
+        #expect(
+            !LinkedMediaTaggedOverviewSheetPresentation.showsAddTagsControl(
+                media: nil,
+                dive: nil
+            )
         )
     }
 
@@ -14913,6 +15650,12 @@ struct GoDiveMVPTests {
     @Test func diveActivityVideoPlaybackPolicy_holdPauseGesture_failsOnSmallMovement() {
         #expect(DiveActivityVideoPlaybackPolicy.holdPauseMaximumMovementPoints <= 8)
         #expect(DiveActivityVideoPlaybackPolicy.holdPauseMinimumDurationSeconds >= 0.15)
+        #expect(
+            DiveActivityVideoPlaybackPolicy.shouldOwnHoldToPauseInParent(mediaHitTestingEnabled: false)
+        )
+        #expect(
+            !DiveActivityVideoPlaybackPolicy.shouldOwnHoldToPauseInParent(mediaHitTestingEnabled: true)
+        )
     }
 
     @Test func diveDerivedDataBuilder_buildsDepthAndPressureFromSnapshots() {
@@ -15285,11 +16028,16 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func marineLifeMediaTagPresentation_largeDetentUntaggedPrompt_directsUserToMediumSheet() {
+    @Test func marineLifeMediaTagPresentation_largeDetentUntaggedPrompt_directsUserToAddTag() {
         #expect(
             MarineLifeMediaTagPresentation.largeDetentUntaggedPrompt
+                .contains("Tap +")
+        )
+        #expect(
+            !MarineLifeMediaTagPresentation.largeDetentUntaggedPrompt
                 .contains("medium height")
         )
+        #expect(MarineLifeMediaTagPresentation.learnMoreLabel == "Learn More")
     }
 
     @Test func diveActivityMediaPresentation_showsMediaCarouselInSheet_atMinimizedAndMediumOnly() {
@@ -18330,8 +19078,22 @@ struct GoDiveMVPTests {
         #expect(topSpecies[0].sightingCount == 2)
         #expect(
             HomeLifetimeStatsLeaderboardPresentation.pageTitle(for: .deepestDives)
-                == "Top 10 deepest dives"
+                == "My Deepest Dives"
         )
+        #expect(
+            HomeLifetimeStatsLeaderboardPresentation.pageTitle(for: .longestDives)
+                == "My Longest Dives"
+        )
+        #expect(
+            HomeLifetimeStatsLeaderboardPresentation.pageTitle(for: .topSites)
+                == "My Top Sites"
+        )
+        #expect(
+            HomeLifetimeStatsLeaderboardPresentation.pageTitle(for: .topSpecies)
+                == "My Top Marine Life"
+        )
+        // Top 10 pages use Logbook-style collapsible chrome (title inline with back; shrinks on scroll).
+        #expect(HomeLifetimeStatsLeaderboardPresentation.usesCollapsibleInlineTitleHeader)
     }
 
     @Test func homeLifetimeStatsLeaderboardLayout_podiumSlots_ordersClassicPodium() {
@@ -18981,6 +19743,135 @@ struct GoDiveMVPTests {
         #expect(DiveSiteReferenceCatalog.bundledReferenceByID().count == byID.count)
     }
 
+    @Test func diveSiteReferenceCatalog_concurrentAccessReturnsConsistentRows() async {
+        // The search-index prewarm decodes the reference JSON off the main actor while other
+        // callers may read the shared cache — concurrent access must stay consistent (lock-guarded).
+        DiveSiteReferenceCatalog.resetCacheForTesting()
+        let counts = await withTaskGroup(of: Int.self) { group in
+            for _ in 0..<8 {
+                group.addTask {
+                    DiveSiteReferenceCatalog.bundledReferenceByID().count
+                }
+            }
+            var results: [Int] = []
+            for await count in group { results.append(count) }
+            return results
+        }
+        #expect(Set(counts).count == 1)
+        #expect(counts.first == DiveSiteReferenceCatalog.bundledReference().count)
+    }
+
+    @Test func globalSearchMediaBrowse_coreDataTokenStripsSpeciesComponent() {
+        #expect(
+            GlobalSearchMediaBrowsePresentation.coreDataToken(fromRefreshToken: "12|3|45|2|1318")
+                == "12|3|45|2"
+        )
+        // Empty components survive so `a||c|d|0` and `a|b|c|d|0` never collide after stripping.
+        #expect(
+            GlobalSearchMediaBrowsePresentation.coreDataToken(fromRefreshToken: "12||45|2|0")
+                == "12||45|2"
+        )
+    }
+
+    @Test func globalSearchMediaBrowse_prewarmedSnapshotReuseRules() {
+        // Exact token match always reuses.
+        #expect(
+            GlobalSearchMediaBrowsePresentation.canReusePrewarmedSnapshot(
+                storeToken: "12|3|45|2|1318",
+                currentToken: "12|3|45|2|1318",
+                isSpeciesCatalogLoaded: true
+            )
+        )
+        // While the browse's species catalog is still loading, a core match (all counts except
+        // species) reuses the warm snapshot — the warmer built it with species names included.
+        #expect(
+            GlobalSearchMediaBrowsePresentation.canReusePrewarmedSnapshot(
+                storeToken: "12|3|45|2|1318",
+                currentToken: "12|3|45|2|0",
+                isSpeciesCatalogLoaded: false
+            )
+        )
+        // Once species are loaded, only an exact match reuses (species count is real data then).
+        #expect(
+            !GlobalSearchMediaBrowsePresentation.canReusePrewarmedSnapshot(
+                storeToken: "12|3|45|2|1318",
+                currentToken: "12|3|45|2|900",
+                isSpeciesCatalogLoaded: true
+            )
+        )
+        // Underlying data changed (dive/media/tag counts differ) — never reuse.
+        #expect(
+            !GlobalSearchMediaBrowsePresentation.canReusePrewarmedSnapshot(
+                storeToken: "12|3|45|2|1318",
+                currentToken: "13|3|45|2|0",
+                isSpeciesCatalogLoaded: false
+            )
+        )
+        // Nothing prewarmed yet.
+        #expect(
+            !GlobalSearchMediaBrowsePresentation.canReusePrewarmedSnapshot(
+                storeToken: "",
+                currentToken: "12|3|45|2|0",
+                isSpeciesCatalogLoaded: false
+            )
+        )
+    }
+
+    @Test @MainActor func globalSearchMediaSnapshotStore_holdsPrewarmedCacheForBrowseOpen() {
+        let store = GlobalSearchMediaSnapshotStore()
+        #expect(store.displayCache == nil)
+        #expect(store.dataToken.isEmpty)
+
+        let input = GlobalSearchMediaIndexSnapshotBuilder.CaptureInput(
+            dives: [],
+            buddyTags: [],
+            sightings: [],
+            catalogTagNames: [],
+            catalogBuddyNames: [],
+            catalogTrips: [],
+            catalogSpeciesNames: []
+        )
+        let built = GlobalSearchMediaBrowsePresentation.displayCache(
+            from: input,
+            filter: GlobalSearchMediaBrowsePresentation.ResolvedFilter()
+        )
+        store.displayCache = built
+        store.dataToken = "0|0|0|0|0"
+
+        #expect(store.displayCache?.filterFingerprint == "")
+        #expect(
+            GlobalSearchMediaBrowsePresentation.canReusePrewarmedSnapshot(
+                storeToken: store.dataToken,
+                currentToken: "0|0|0|0|0",
+                isSpeciesCatalogLoaded: true
+            )
+        )
+    }
+
+    @Test func globalSearchTabLaunch_warmIndexMountWaitsOutTabMorphButUserActionsMountImmediately() {
+        // Deferred warm mount must wait out the tab-open morph (a bare yield dropped opening frames)…
+        #expect(GlobalSearchPresentation.searchIndexWarmMountDelayNanoseconds >= 300_000_000)
+        // …while an active search or pushed detail still mounts the index immediately.
+        #expect(
+            GlobalSearchTabLaunchPresentation.shouldMountSearchIndexImmediately(
+                isSearchActive: true,
+                pathDepth: 0
+            )
+        )
+        #expect(
+            GlobalSearchTabLaunchPresentation.shouldMountSearchIndexImmediately(
+                isSearchActive: false,
+                pathDepth: 1
+            )
+        )
+        #expect(
+            !GlobalSearchTabLaunchPresentation.shouldMountSearchIndexImmediately(
+                isSearchActive: false,
+                pathDepth: 0
+            )
+        )
+    }
+
     @MainActor
     @Test func globalSearchResultRowContentBuilder_tagHitUsesHitFieldsAndTagArtwork() {
         let hit = GlobalSearchPresentation.Hit(
@@ -19322,6 +20213,11 @@ struct GoDiveMVPTests {
         #expect(layout.scrollContentTopMargin() == expectedTopMargin)
         #expect(layout.scrollContentTopMargin() == 12)
         #expect(layout.scrollContentTopMargin() < layout.backButtonTapWidth)
+        #expect(layout.scrollContentTopMarginBelowChrome(chromeHeight: 44) == 44)
+        #expect(layout.scrollContentTopMarginBelowChrome(chromeHeight: 0) == 0)
+        #expect(layout.scrollContentTopMarginBelowChrome(chromeHeight: -8) == 0)
+        // Count-title chrome (Media / scoped) pins below the row; multi-category pins on the back button.
+        #expect(layout.scrollContentTopMarginBelowChrome(chromeHeight: 44) > layout.scrollContentTopMargin())
     }
 
     @Test func globalSearchResultsChromePresentation_layersScrimAboveListBelowBackRow() {
@@ -19691,6 +20587,7 @@ struct GoDiveMVPTests {
                 GlobalSearchMediaBrowsePresentation.MediaEntry(
                     mediaID: UUID(uuidString: "00000000-0000-0000-0000-000000000101")!,
                     diveActivityID: UUID(),
+                    diveStartTime: Date(timeIntervalSince1970: 1_700_000_000),
                     capturedAt: nil,
                     sortOrder: 0,
                     mediaKind: .image,
@@ -19698,11 +20595,14 @@ struct GoDiveMVPTests {
                     activityTagNames: ["Reef"],
                     mediaBuddyNames: ["Pat Lee"],
                     tripTitles: ["Bonaire 2026"],
-                    speciesNames: ["Queen Angelfish"]
+                    speciesNames: ["Queen Angelfish"],
+                hasMarineLifeTag: false,
+                hasBuddyTag: false
                 ),
                 GlobalSearchMediaBrowsePresentation.MediaEntry(
                     mediaID: UUID(uuidString: "00000000-0000-0000-0000-000000000102")!,
                     diveActivityID: UUID(),
+                    diveStartTime: Date(timeIntervalSince1970: 1_700_000_000),
                     capturedAt: nil,
                     sortOrder: 1,
                     mediaKind: .video,
@@ -19710,7 +20610,9 @@ struct GoDiveMVPTests {
                     activityTagNames: ["Wreck"],
                     mediaBuddyNames: ["Jamie"],
                     tripTitles: ["Curaçao Week"],
-                    speciesNames: ["Green Sea Turtle"]
+                    speciesNames: ["Green Sea Turtle"],
+                hasMarineLifeTag: false,
+                hasBuddyTag: false
                 ),
             ],
             catalogTagNames: ["Reef", "Wreck"],
@@ -19812,6 +20714,7 @@ struct GoDiveMVPTests {
                 for: .init(videoCount: 3, photoCount: 12)
             ) == "3 videos, 12 photos"
         )
+        #expect(GlobalSearchMediaBrowsePresentation.pinsMonthSectionHeaders)
     }
 
     @Test func globalSearchContextToken_scopedResultsCountTitle_usesSingularAndPluralNouns() {
@@ -19858,6 +20761,7 @@ struct GoDiveMVPTests {
                 .init(
                     mediaID: photoID,
                     diveActivityID: diveID,
+                    diveStartTime: Date(timeIntervalSince1970: 1_700_000_000),
                     capturedAt: nil,
                     sortOrder: 0,
                     mediaKind: .image,
@@ -19865,11 +20769,14 @@ struct GoDiveMVPTests {
                     activityTagNames: [],
                     mediaBuddyNames: [],
                     tripTitles: [],
-                    speciesNames: []
+                    speciesNames: [],
+                    hasMarineLifeTag: false,
+                    hasBuddyTag: false
                 ),
                 .init(
                     mediaID: videoID,
                     diveActivityID: diveID,
+                    diveStartTime: Date(timeIntervalSince1970: 1_700_000_000),
                     capturedAt: nil,
                     sortOrder: 1,
                     mediaKind: .video,
@@ -19877,7 +20784,9 @@ struct GoDiveMVPTests {
                     activityTagNames: [],
                     mediaBuddyNames: [],
                     tripTitles: [],
-                    speciesNames: []
+                    speciesNames: [],
+                    hasMarineLifeTag: false,
+                    hasBuddyTag: false
                 ),
             ],
             catalogTagNames: [],
@@ -19897,6 +20806,83 @@ struct GoDiveMVPTests {
             filter: GlobalSearchMediaBrowsePresentation.resolveFilter(from: "blue")
         )
         #expect(photoOnly.mediaKindCounts == .init(videoCount: 0, photoCount: 1))
+    }
+
+    @Test func globalSearchMediaBrowsePresentation_monthSections_groupsNewestMonthFirstUsingCaptureOrDiveDate() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let locale = Locale(identifier: "en_US_POSIX")
+        let monthSymbols = GlobalSearchDiveIndexing.monthSymbols(locale: locale)
+
+        let march2026 = calendar.date(from: DateComponents(year: 2026, month: 3, day: 15))!
+        let january2026 = calendar.date(from: DateComponents(year: 2026, month: 1, day: 10))!
+        let december2025 = calendar.date(from: DateComponents(year: 2025, month: 12, day: 20))!
+
+        let marchID = UUID(uuidString: "00000000-0000-0000-0000-000000000601")!
+        let marchFallbackID = UUID(uuidString: "00000000-0000-0000-0000-000000000602")!
+        let januaryID = UUID(uuidString: "00000000-0000-0000-0000-000000000603")!
+        let decemberID = UUID(uuidString: "00000000-0000-0000-0000-000000000604")!
+        let diveID = UUID(uuidString: "00000000-0000-0000-0000-000000000605")!
+
+        func entry(
+            mediaID: UUID,
+            diveStartTime: Date,
+            capturedAt: Date?,
+            sortOrder: Int
+        ) -> GlobalSearchMediaBrowsePresentation.MediaEntry {
+            .init(
+                mediaID: mediaID,
+                diveActivityID: diveID,
+                diveStartTime: diveStartTime,
+                capturedAt: capturedAt,
+                sortOrder: sortOrder,
+                mediaKind: .image,
+                siteName: nil,
+                activityTagNames: [],
+                mediaBuddyNames: [],
+                tripTitles: [],
+                speciesNames: [],
+                hasMarineLifeTag: false,
+                hasBuddyTag: false
+            )
+        }
+
+        let sections = GlobalSearchMediaBrowsePresentation.monthSections(
+            from: [
+                entry(mediaID: marchID, diveStartTime: march2026, capturedAt: march2026, sortOrder: 0),
+                entry(mediaID: marchFallbackID, diveStartTime: march2026, capturedAt: nil, sortOrder: 1),
+                entry(mediaID: januaryID, diveStartTime: january2026, capturedAt: january2026, sortOrder: 0),
+                entry(mediaID: decemberID, diveStartTime: december2025, capturedAt: december2025, sortOrder: 0),
+            ],
+            calendar: calendar,
+            locale: locale
+        )
+
+        #expect(sections.map(\.title) == [
+            GlobalSearchMediaBrowsePresentation.monthYearTitle(year: 2026, month: 3, monthSymbols: monthSymbols),
+            GlobalSearchMediaBrowsePresentation.monthYearTitle(year: 2026, month: 1, monthSymbols: monthSymbols),
+            GlobalSearchMediaBrowsePresentation.monthYearTitle(year: 2025, month: 12, monthSymbols: monthSymbols),
+        ])
+        #expect(sections.map(\.mediaIDs) == [
+            [marchID, marchFallbackID],
+            [januaryID],
+            [decemberID],
+        ])
+
+        let cache = GlobalSearchMediaBrowsePresentation.displayCache(
+            snapshot: .init(
+                entries: [
+                    entry(mediaID: marchID, diveStartTime: march2026, capturedAt: march2026, sortOrder: 0),
+                    entry(mediaID: januaryID, diveStartTime: january2026, capturedAt: january2026, sortOrder: 0),
+                ],
+                catalogTagNames: [],
+                catalogBuddyNames: [],
+                catalogTrips: [],
+                catalogSpeciesNames: []
+            ),
+            filter: .init(query: "")
+        )
+        #expect(cache.monthSections.map(\.id) == ["2026-3", "2026-1"])
     }
 
     @Test func globalSearchMediaIndexSnapshotBuilder_buildsNewestDiveFirstGalleryOrder() {

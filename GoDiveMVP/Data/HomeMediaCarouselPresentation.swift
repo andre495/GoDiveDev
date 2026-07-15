@@ -11,6 +11,41 @@ enum HomeMediaCarouselPresentation: Sendable {
     /// How long a photo slide stays visible before advancing.
     nonisolated static let photoDisplaySeconds: TimeInterval = 10
 
+    /// Fallback dwell for a video slide when Photos duration is unknown (multi-slide auto-advance).
+    nonisolated static var videoDisplayFallbackSeconds: TimeInterval { photoDisplaySeconds }
+
+    /// Home featured muted videos always loop while their pager page is active.
+    nonisolated static func shouldLoopCarouselVideo(isPagePlaybackActive: Bool) -> Bool {
+        isPagePlaybackActive
+    }
+
+    /// Multi-slide carousels still progress after one playthrough (or the photo dwell fallback).
+    nonisolated static func videoAutoAdvanceSeconds(
+        assetDurationSeconds: Double?,
+        slideCount: Int
+    ) -> TimeInterval? {
+        guard shouldAutoAdvance(slideCount: slideCount) else { return nil }
+        if let assetDurationSeconds, assetDurationSeconds > 0 {
+            return assetDurationSeconds
+        }
+        return videoDisplayFallbackSeconds
+    }
+
+    /// Bucket size (points) for hero image **`.task`** / session-cache width keys — prevents ±1 pt
+    /// geometry jitter from cancelling in-flight PhotoKit progressive loads.
+    nonisolated static let imageLoadWidthBucketPoints: CGFloat = 8
+
+    /// Stable container width for carousel image load identity and cache edges.
+    nonisolated static func stableImageLoadWidth(_ width: CGFloat) -> CGFloat {
+        guard width > 0 else { return 0 }
+        let bucket = imageLoadWidthBucketPoints
+        return (width / bucket).rounded() * bucket
+    }
+
+    nonisolated static func stableImageLoadWidthKey(_ width: CGFloat) -> Int {
+        Int(stableImageLoadWidth(width))
+    }
+
     /// Shared height for dive link capsule + tagged species / buddy icon chips (**`HomeMediaCarouselDiveLinkButton`** two-line layout).
     nonisolated static var slideChromeControlHeight: CGFloat {
         #if canImport(UIKit)
@@ -62,7 +97,9 @@ enum HomeMediaCarouselPresentation: Sendable {
         slideCount > 1
     }
 
-    /// After a video finishes, advance when there are multiple slides; otherwise loop the sole clip.
+    /// After a video finishes: sole-clip carousels restart in place. Multi-slide carousels advance
+    /// on a timer while the mute clip **loops** (`shouldLoopCarouselVideo`); this flag is kept for
+    /// finishSlide callers that still receive an end event.
     nonisolated static func shouldRestartClipAfterPlaybackFinished(slideCount: Int) -> Bool {
         slideCount <= 1
     }
@@ -70,6 +107,25 @@ enum HomeMediaCarouselPresentation: Sendable {
     /// Home carousel has at most **`carouselLimit`** picks — keep every slide hydrated for the session.
     nonisolated static func keepsAllSlidesLoaded(slideCount: Int) -> Bool {
         slideCount > 0 && slideCount <= HomeMediaHighlightPresentation.carouselLimit
+    }
+
+    /// Only the **selected pager page** may drive muted playback — not every page that shares the
+    /// same logical slide. The looping carousel duplicates slide **0** as the last pager page; both
+    /// would otherwise bind one **`AVPlayer`** to two layers and leave the first item silent / stuck.
+    nonisolated static func isPagerPagePlaybackActive(
+        pagerIndex: Int,
+        selectedPagerIndex: Int
+    ) -> Bool {
+        pagerIndex == selectedPagerIndex
+    }
+
+    /// When the selected page becomes playback-active and a muted player is already cached, remount
+    /// so seek / **`readyToPlay`** observation can start playback (first paint often attaches early).
+    nonisolated static func shouldRemountCarouselPlayerWhenBecomingActive(
+        isBecomingActive: Bool,
+        hasPreparedPlayer: Bool
+    ) -> Bool {
+        isBecomingActive && hasPreparedPlayer
     }
 
     /// Only the visible slide may auto-advance (ignores stale end-of-playback callbacks).

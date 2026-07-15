@@ -29,6 +29,42 @@ enum HomeMediaHighlightWarmupPresentation: Sendable {
         case full
     }
 
+    /// Soft JPEG / thumbnail edge used when seeding **`previewJPEGData`** into the session cache.
+    /// Must stay **below** **`previewImageEdge`** so soft frames never satisfy preview/hero lookups.
+    nonisolated static var storedPreviewSessionEdge: CGFloat {
+        DiveMediaPreviewPersistence.storedPreviewEdge
+    }
+
+    /// **`true`** when a cached frame is sharp enough to skip PhotoKit for **`requestedEdge`**.
+    /// Soft **256 px** JPEGs must not satisfy **480** / hero edges (legacy seed keyed soft under **480**).
+    nonisolated static func sessionCachedImageSatisfiesRequestedEdge(
+        pixelWidth: CGFloat,
+        pixelHeight: CGFloat,
+        requestedEdge: CGFloat
+    ) -> Bool {
+        guard requestedEdge > 0 else { return true }
+        let minPixelDimension = min(pixelWidth, pixelHeight)
+        guard minPixelDimension > 0 else { return false }
+        // Allow slight PhotoKit undershoot; reject anything clearly below the requested tier.
+        return minPixelDimension >= requestedEdge * 0.85
+    }
+
+    /// Soft JPEG / stored preview is enough under a Home video **while** the muted stream is preparing —
+    /// kicking another PhotoKit still fetch races the stream and can leave both hung / timed out.
+    /// Pass **`false`** after prepare finishes without a player so the slide can still upgrade the poster.
+    nonisolated static func shouldSkipStillPhotoKitLoadWhileVideoResolves(
+        isVideo: Bool,
+        hasDisplayablePoster: Bool,
+        isVideoPrepareInFlightOrReady: Bool = true
+    ) -> Bool {
+        isVideo && hasDisplayablePoster && isVideoPrepareInFlightOrReady
+    }
+
+    /// Photos warm at hero size; videos only need a poster still before AVAsset warm.
+    nonisolated static func bootstrapStillQuality(isVideo: Bool) -> WarmupQuality {
+        isVideo ? .preview : .full
+    }
+
     /// Quality tier for a carousel index during bootstrap (**0**-based).
     nonisolated static func bootstrapQuality(forCarouselIndex index: Int) -> WarmupQuality {
         index < startupFullQualityCount ? .full : .preview

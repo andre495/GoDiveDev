@@ -81,9 +81,13 @@ struct DiveBuddyDetailContentPager: View {
                 mediaItems: taggedMediaItems,
                 timeZoneOffsetByMediaID: taggedMediaTimeZoneOffsetByID,
                 linkedMediaItems: linkedMediaItems,
+                sightings: mediaSightings,
+                marineLifeCatalog: marineLifeCatalog,
+                ownerProfileID: ownerProfileID,
                 featuredMediaPhotoID: featuredTaggedMediaPhotoID,
                 gallerySelectedMediaID: $gallerySelectedMediaID,
-                onToggleFeaturedTaggedMedia: onToggleFeaturedTaggedMedia
+                onToggleFeaturedTaggedMedia: onToggleFeaturedTaggedMedia,
+                onOpenDive: onOpenDive
             )
             .accessibilityIdentifier("DiveBuddyDetails.TaggedMedia")
         }

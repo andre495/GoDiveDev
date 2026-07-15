@@ -78,8 +78,8 @@ struct HomeLifetimeStatsLeaderboardView: View {
             title: HomeLifetimeStatsLeaderboardPresentation.pageTitle(for: kind),
             showsBackButton: true,
             showsBrandWordmark: false,
-            titlePlacement: AppHeaderStackedTitleChrome.titlePlacement,
             scrollContentUnderHeader: true,
+            collapsibleInlineTitleHeader: HomeLifetimeStatsLeaderboardPresentation.usesCollapsibleInlineTitleHeader,
             showsWaterBubbleBackground: !GoDiveUITestConfiguration.isActive,
             trailingContent: { EmptyView() },
             content: {

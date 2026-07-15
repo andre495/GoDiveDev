@@ -13,35 +13,48 @@ enum HomeMediaHighlightWarmup {
     }
 
     nonisolated static func shouldStoreInSessionCache(edge: CGFloat) -> Bool {
-        edge >= HomeMediaHighlightWarmupPresentation.previewImageEdge - 1
+        edge >= HomeMediaHighlightWarmupPresentation.storedPreviewSessionEdge - 1
+            || edge >= HomeMediaHighlightWarmupPresentation.previewImageEdge - 1
             || edge >= preloadImageEdge - 1
     }
 
     private static var inflightWarmups: [String: Task<Void, Never>] = [:]
     private static var cachedVideoDurationSeconds: [String: Double] = [:]
 
-    /// Warms all carousel slides at hero quality plus video assets and playback snapshots.
+    /// Warms carousel stills and kicks all featured video streams ASAP for muted Home playback.
     static func warmHighlights(
         _ highlights: [HomeMediaHighlight],
-        mediaByID: [UUID: DiveMediaPhoto]
+        mediaByID: [UUID: DiveMediaPhoto],
+        priorityMediaID: UUID? = nil
     ) async {
         let limited = Array(highlights.prefix(HomeMediaHighlightPresentation.carouselLimit))
         guard !limited.isEmpty else { return }
 
         let mediaRows = limited.compactMap { mediaByID[$0.mediaID] }
+        let priorityID = priorityMediaID ?? limited.first?.mediaID
         pinCarouselSessionCache(for: limited, mediaByID: mediaByID)
-        await warmBootstrapTier(mediaRows)
-        await warmCarouselVideoAssets(for: mediaRows)
-        await warmCarouselVideoPlaybackSnapshots(for: mediaRows)
+        #if canImport(Photos) && canImport(AVFoundation)
+        // Kick video streams immediately (priority / slide 0 first, serialized) while stills warm.
+        let orderedVideos = DiveMediaVideoPhotoKitGatePresentation.prioritizedVideoMedia(
+            mediaRows,
+            priorityMediaID: priorityID
+        )
+        let videoIDs = HomeCarouselVideoPresentation.libraryIdentifiersForPreload(from: orderedVideos)
+        async let videos: Void = HomeCarouselVideoSessionCache.shared.preload(libraryIdentifiers: videoIDs)
+        #endif
+        await warmBootstrapTiers(mediaRows)
+        #if canImport(Photos) && canImport(AVFoundation)
+        await videos
         registerHomeCarouselSession(for: mediaRows)
+        #endif
     }
 
-    /// Ensures a carousel video has a warmed **`AVAsset`** and SwiftUI playback snapshot (idempotent).
+    /// Ensures a carousel video has a muted streaming **`AVPlayer`** (idempotent).
     static func ensureCarouselVideoReady(for media: DiveMediaPhoto) async {
         #if canImport(Photos) && canImport(AVFoundation)
-        guard media.resolvedMediaKind == .video else { return }
-        await warmCarouselVideoAsset(for: media)
-        await warmCarouselVideoPlaybackSnapshot(for: media)
+        guard media.resolvedMediaKind == .video,
+              let identifier = media.libraryAssetLocalIdentifier else { return }
+        _ = await HomeCarouselVideoSessionCache.shared.ensurePlayer(forLibraryIdentifier: identifier)
         #endif
     }
 
@@ -126,28 +139,41 @@ enum HomeMediaHighlightWarmup {
 
     // MARK: - Bootstrap warm tiers
 
-    private static func warmBootstrapTier(_ mediaRows: [DiveMediaPhoto]) async {
+    private static func warmBootstrapTiers(_ mediaRows: [DiveMediaPhoto]) async {
         guard !mediaRows.isEmpty else { return }
 
         #if canImport(Photos) && canImport(UIKit)
         preheatPhotoKit(for: mediaRows)
 
+        // Slide 0 first — it is on-screen at paint and historically lost PhotoKit races to later slides.
+        let first = mediaRows[0]
+        await warmMediaRow(
+            first,
+            quality: HomeMediaHighlightWarmupPresentation.bootstrapStillQuality(
+                isVideo: first.resolvedMediaKind == .video
+            )
+        )
+
+        let remaining = Array(mediaRows.dropFirst())
+        let photos = remaining.filter { $0.resolvedMediaKind == .image }
+        let videos = remaining.filter { $0.resolvedMediaKind == .video }
         await withTaskGroup(of: Void.self) { group in
-            for media in mediaRows {
+            for media in photos {
                 group.addTask {
-                    await warmMediaRow(media, quality: .full)
+                    await warmMediaRow(
+                        media,
+                        quality: HomeMediaHighlightWarmupPresentation.bootstrapStillQuality(isVideo: false)
+                    )
                 }
             }
         }
-        #endif
-    }
-
-    private static func warmCarouselVideoAssets(for mediaRows: [DiveMediaPhoto]) async {
-        #if canImport(Photos) && canImport(AVFoundation)
         await withTaskGroup(of: Void.self) { group in
-            for media in mediaRows where media.resolvedMediaKind == .video {
+            for media in videos {
                 group.addTask {
-                    await warmCarouselVideoAsset(for: media)
+                    await warmMediaRow(
+                        media,
+                        quality: HomeMediaHighlightWarmupPresentation.bootstrapStillQuality(isVideo: true)
+                    )
                 }
             }
         }
@@ -155,81 +181,6 @@ enum HomeMediaHighlightWarmup {
     }
 
     #if canImport(Photos) && canImport(AVFoundation)
-    private static func warmCarouselVideoAsset(for media: DiveMediaPhoto) async {
-        guard let identifier = media.libraryAssetLocalIdentifier else { return }
-        let quality = DiveMediaVideoRequestQuality.homeCarousel
-        if DiveMediaVideoAssetSessionCache.shared.contains(
-            localIdentifier: identifier,
-            quality: quality
-        ) {
-            HomeMediaCarouselDebug.warmVideo(
-                mediaID: media.id,
-                cacheHit: true,
-                stored: DiveMediaPreviewStorage.hasStoredPreview(for: media)
-            )
-            return
-        }
-        guard let asset = await DiveMediaReferenceLoader.loadVideoAsset(
-            localIdentifier: identifier,
-            quality: quality
-        ) else {
-            HomeMediaCarouselDebug.warmVideo(
-                mediaID: media.id,
-                cacheHit: false,
-                stored: DiveMediaPreviewStorage.hasStoredPreview(for: media)
-            )
-            return
-        }
-        DiveMediaVideoAssetSessionCache.shared.store(
-            asset,
-            localIdentifier: identifier,
-            quality: quality
-        )
-        HomeMediaCarouselDebug.warmVideo(
-            mediaID: media.id,
-            cacheHit: false,
-            stored: DiveMediaPreviewStorage.hasStoredPreview(for: media)
-        )
-    }
-
-    private static func warmCarouselVideoPlaybackSnapshots(for mediaRows: [DiveMediaPhoto]) async {
-        await withTaskGroup(of: Void.self) { group in
-            for media in mediaRows where media.resolvedMediaKind == .video {
-                group.addTask {
-                    await warmCarouselVideoPlaybackSnapshot(for: media)
-                }
-            }
-        }
-    }
-
-    private static func warmCarouselVideoPlaybackSnapshot(for media: DiveMediaPhoto) async {
-        guard let source = media.videoPlaybackSource,
-              case .libraryAsset(let identifier) = source else { return }
-
-        if DiveMediaVideoPlaybackSessionCache.shared.swiftUISnapshot(
-            forSourceIdentityKey: source.identityKey
-        ) != nil {
-            return
-        }
-
-        guard let playerItem = await DiveMediaReferenceLoader.playerItem(
-            localIdentifier: identifier,
-            quality: .homeCarousel
-        ) else { return }
-
-        let poster = HomeMediaHighlightSessionCache.shared.bestCachedImage(localIdentifier: identifier)
-        DiveMediaVideoPlaybackSessionCache.shared.storeSwiftUISnapshot(
-            DiveMediaVideoPlaybackSessionCache.SwiftUISnapshot(
-                playerItem: playerItem,
-                resolvedKey: "\(source.identityKey)|preview",
-                videoFidelity: .preview,
-                isDisplayReady: false,
-                posterImage: poster
-            ),
-            sourceIdentityKey: source.identityKey
-        )
-    }
-
     private static func registerHomeCarouselSession(for mediaRows: [DiveMediaPhoto]) {
         let libraryIdentifiers = mediaRows.compactMap(\.libraryAssetLocalIdentifier)
         let sourceKeys = mediaRows.compactMap { media -> String? in
@@ -262,14 +213,21 @@ enum HomeMediaHighlightWarmup {
             )
             return
         }
-        if quality == .preview, HomeMediaHighlightSessionCache.shared.hasDisplayableImage(for: media) {
-            HomeMediaCarouselDebug.warmImage(
-                mediaID: media.id,
-                quality: warmupQualityLabel(quality),
-                cacheHit: true,
-                stored: DiveMediaPreviewStorage.hasStoredPreview(for: media)
-            )
-            return
+        if quality == .preview {
+            let previewEdge = HomeMediaHighlightWarmupPresentation.previewImageEdge
+            // Soft JPEG alone is displayable — only skip when a true preview-or-better frame is cached.
+            if HomeMediaHighlightSessionCache.shared.containsImage(
+                localIdentifier: identifier,
+                edge: previewEdge
+            ) {
+                HomeMediaCarouselDebug.warmImage(
+                    mediaID: media.id,
+                    quality: warmupQualityLabel(quality),
+                    cacheHit: true,
+                    stored: DiveMediaPreviewStorage.hasStoredPreview(for: media)
+                )
+                return
+            }
         }
 
         let inflightKey = "\(identifier)|\(quality)"

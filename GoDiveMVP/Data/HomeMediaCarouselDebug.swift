@@ -96,12 +96,20 @@ enum HomeMediaCarouselDebug: Sendable {
         """)
     }
 
-    static func warmVideo(mediaID: UUID, cacheHit: Bool, stored: Bool) {
+    static func warmVideo(mediaID: UUID, cacheHit: Bool, stored: Bool, loaded: Bool? = nil) {
         guard isEnabled else { return }
-        logger.info("""
-        warm video media=\(mediaID.uuidString, privacy: .public) \
-        cacheHit=\(cacheHit, privacy: .public) stored=\(stored, privacy: .public)
-        """)
+        if let loaded {
+            logger.info("""
+            warm video media=\(mediaID.uuidString, privacy: .public) \
+            cacheHit=\(cacheHit, privacy: .public) loaded=\(loaded, privacy: .public) \
+            stored=\(stored, privacy: .public)
+            """)
+        } else {
+            logger.info("""
+            warm video media=\(mediaID.uuidString, privacy: .public) \
+            cacheHit=\(cacheHit, privacy: .public) stored=\(stored, privacy: .public)
+            """)
+        }
     }
 
     static func slideSelected(
@@ -188,6 +196,57 @@ enum HomeMediaCarouselDebug: Sendable {
         logger.info("""
         video resolve source=\(sourceKey, privacy: .public) \
         -> \(outcome.rawValue, privacy: .public)\(suffix, privacy: .public)
+        """)
+    }
+
+    static func videoAssetRequestFailed(
+        localIdentifier: String,
+        quality: String,
+        detail: String
+    ) {
+        guard isEnabled else { return }
+        logger.error("""
+        video asset request failed library=\(localIdentifier, privacy: .public) \
+        quality=\(quality, privacy: .public) \(detail, privacy: .public)
+        """)
+    }
+
+    static func videoLoadProgress(
+        localIdentifier: String,
+        progress: Double,
+        errorDescription: String? = nil
+    ) {
+        guard isEnabled else { return }
+        let percent = Int((progress * 100).rounded())
+        let suffix = errorDescription.map { " error=\($0)" } ?? ""
+        logger.info("""
+        video load progress library=\(localIdentifier, privacy: .public) \
+        \(percent, privacy: .public)%\(suffix, privacy: .public)
+        """)
+    }
+
+    static func stillRequestFellBackToDegraded(
+        localIdentifier: String,
+        elapsedSeconds: Double,
+        hadDegradedFrame: Bool
+    ) {
+        guard isEnabled else { return }
+        logger.error("""
+        still request timed out library=\(localIdentifier, privacy: .public) \
+        \(String(format: "%.1fs", elapsedSeconds), privacy: .public) \
+        degradedFallback=\(hadDegradedFrame, privacy: .public)
+        """)
+    }
+
+    static func videoAssetRequestSucceeded(
+        localIdentifier: String,
+        quality: String,
+        elapsedSeconds: Double
+    ) {
+        guard isEnabled else { return }
+        logger.info("""
+        video asset request ready library=\(localIdentifier, privacy: .public) \
+        quality=\(quality, privacy: .public) \(String(format: "%.2fs", elapsedSeconds), privacy: .public)
         """)
     }
 }

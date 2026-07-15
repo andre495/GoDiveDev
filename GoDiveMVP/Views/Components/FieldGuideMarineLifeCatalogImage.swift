@@ -242,9 +242,11 @@ struct FieldGuideMarineLifeCatalogImage: View {
     ) -> Bool {
         guard contentMode == .fit else { return false }
         switch placement {
-        case .detailHero, .mediaSheetHero:
+        case .detailHero:
+            // Field Guide detail hero — letterbox on the screen gradient.
             return true
-        case .mosaicTile:
+        case .mediaSheetHero, .mosaicTile:
+            // Dive / Home / trip media heroes — image only (no blue / gradient side bars).
             return false
         }
     }

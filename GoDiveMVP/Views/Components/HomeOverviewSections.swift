@@ -1,5 +1,8 @@
 import SwiftData
 import SwiftUI
+#if canImport(AVFoundation)
+import AVFoundation
+#endif
 #if canImport(Photos)
 import Photos
 #endif
@@ -265,6 +268,26 @@ struct HomeMediaCarouselSection: View {
         isPlaybackAllowed && activeLogicalSlideIndex == logicalIndex
     }
 
+    /// Prefetch streaming players for the selected slide + **next** slide even before the carousel
+    /// appears — otherwise slide **0** waits on visibility while others claim PhotoKit first.
+    private func shouldPrepareVideo(for logicalIndex: Int) -> Bool {
+        DiveMediaVideoPhotoKitGatePresentation.shouldPrepareCarouselVideo(
+            logicalIndex: logicalIndex,
+            activeLogicalIndex: activeLogicalSlideIndex,
+            slideCount: highlights.count
+        )
+    }
+
+    /// Playback must key off the **selected pager page** — the looping duplicate of slide **0**
+    /// shares its logical index and must not bind/pause the shared muted player.
+    private func isPagerPagePlaybackActive(_ pagerIndex: Int) -> Bool {
+        isPlaybackAllowed
+            && HomeMediaCarouselPresentation.isPagerPagePlaybackActive(
+                pagerIndex: pagerIndex,
+                selectedPagerIndex: pagerSelectedIndex
+            )
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
             TabView(selection: $pagerSelectedIndex) {
@@ -275,6 +298,7 @@ struct HomeMediaCarouselSection: View {
                     )
                     let highlight = highlights[logicalIndex]
                     if let media = mediaByID[highlight.mediaID] {
+                        let pagePlaybackActive = isPagerPagePlaybackActive(pagerIndex)
                         HomeMediaCarouselPage(
                             highlight: highlight,
                             media: media,
@@ -282,10 +306,13 @@ struct HomeMediaCarouselSection: View {
                             slideCount: highlights.count,
                             pageWidth: containerWidth,
                             pageHeight: resolvedCarouselContentHeight,
-                            isVideoPlaybackActive: isSlideActive(logicalIndex),
-                            isAutoAdvanceActive: isAutoAdvanceEnabled && isSlideActive(logicalIndex),
-                            loopsSlidePlayback: isCarouselInteractionHold && isSlideActive(logicalIndex),
-                            playbackResumeToken: isSlideActive(logicalIndex) ? playbackResumeToken : 0,
+                            isVideoPlaybackActive: pagePlaybackActive,
+                            shouldPrepareVideo: shouldPrepareVideo(for: logicalIndex),
+                            isAutoAdvanceActive: isAutoAdvanceEnabled && pagePlaybackActive,
+                            loopsSlidePlayback: HomeMediaCarouselPresentation.shouldLoopCarouselVideo(
+                                isPagePlaybackActive: pagePlaybackActive
+                            ),
+                            playbackResumeToken: pagePlaybackActive ? playbackResumeToken : 0,
                             playbackAllowed: isPlaybackAllowed,
                             showsBottomChrome: !showsMarineLifeOverlay,
                             onSlideFinished: { finishSlide(at: logicalIndex) },
@@ -588,6 +615,8 @@ private struct HomeMediaCarouselPage: View {
     let pageWidth: CGFloat
     let pageHeight: CGFloat
     var isVideoPlaybackActive: Bool
+    /// Active or adjacent slides prepare streaming video; others wait so PhotoKit stays free.
+    var shouldPrepareVideo: Bool = false
     var isAutoAdvanceActive: Bool
     var loopsSlidePlayback: Bool = false
     var playbackResumeToken: Int = 0
@@ -610,6 +639,7 @@ private struct HomeMediaCarouselPage: View {
             slideCount: slideCount,
             containerWidth: pageWidth,
             isVideoPlaybackActive: isVideoPlaybackActive,
+            shouldPrepareVideo: shouldPrepareVideo,
             isAutoAdvanceActive: isAutoAdvanceActive,
             loopsSlidePlayback: loopsSlidePlayback,
             playbackResumeToken: playbackResumeToken,
@@ -656,7 +686,7 @@ private struct HomeMediaCarouselSlideBottomChrome: View {
 
     var body: some View {
         HStack(alignment: .bottom, spacing: AppTheme.Spacing.md) {
-            HomeMediaCarouselDiveLinkButton(
+            MediaDiveLinkChromeButton(
                 siteDisplayName: highlight.siteDisplayName,
                 diveNumberLabel: highlight.diveNumberLabel,
                 linkedTripTitle: highlight.linkedTripTitle,
@@ -713,72 +743,6 @@ private struct HomeMediaCarouselFooterGradient: View {
     }
 }
 
-private struct HomeMediaCarouselDiveLinkButton: View {
-    let siteDisplayName: String
-    let diveNumberLabel: String
-    let linkedTripTitle: String?
-    let action: () -> Void
-
-    /// Bumps after navigation starts so SwiftUI can fire haptic without blocking the push.
-    @State private var openDiveHapticTick = 0
-
-    private var title: String {
-        let site = siteDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
-        return site.isEmpty ? "New Dive" : site
-    }
-
-    private var subtitleLine: String? {
-        HomeMediaCarouselDiveLinkChromePresentation.diveLinkSubtitle(
-            diveNumberLabel: diveNumberLabel,
-            linkedTripTitle: linkedTripTitle
-        )
-    }
-
-    var body: some View {
-        Button {
-            // Navigate first — unprepared UIKit impact generators can stall the main actor.
-            action()
-            guard HomeMediaCarouselDiveLinkChromePresentation.shouldPlayOpenDiveHaptic() else { return }
-            openDiveHapticTick &+= 1
-        } label: {
-            HStack(spacing: AppTheme.Spacing.sm) {
-                Image(systemName: "book.closed.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(title)
-                        .font(.subheadline.weight(.semibold))
-                        .lineLimit(1)
-                    if let subtitleLine {
-                        Text(subtitleLine)
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(HomeMediaCarouselDiveLinkChromePresentation.diveNumberForeground)
-                            .lineLimit(1)
-                    }
-                }
-
-            }
-            .foregroundStyle(HomeMediaCarouselDiveLinkChromePresentation.siteTitleForeground)
-            .padding(.horizontal, AppTheme.Spacing.md)
-            .frame(height: HomeMediaCarouselLayout.slideChromeControlHeight)
-            .appLiquidGlassSearchFieldChrome()
-        }
-        .buttonStyle(.plain)
-        .sensoryFeedback(.impact(weight: .light), trigger: openDiveHapticTick)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityIdentifier("Home.MediaCarousel.OpenDive")
-    }
-
-    private var accessibilityLabel: String {
-        var parts = ["Open dive at \(title)"]
-        if let subtitleLine {
-            parts.append(subtitleLine)
-        }
-        return parts.joined(separator: ", ")
-    }
-}
-
 private struct HomeMediaCarouselTaggedSpeciesButton: View {
     let taggedCount: Int
     let action: () -> Void
@@ -801,13 +765,7 @@ private struct HomeMediaCarouselTaggedSpeciesButton: View {
                     .appLiquidGlassCircleChrome()
 
                 if taggedCount > 1 {
-                    Text("\(taggedCount)")
-                        .font(.caption2.weight(.bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(Capsule().fill(AppTheme.Colors.accentDeep))
-                        .offset(x: 4, y: -4)
+                    MediaTagCountBadge(count: taggedCount)
                 }
             }
             .frame(width: tapDimension, height: tapDimension, alignment: .center)
@@ -894,13 +852,7 @@ private struct HomeMediaCarouselTaggedBuddiesButton: View {
                         .appLiquidGlassCircleChrome()
 
                     if taggedCount > 1, !isExpanded {
-                        Text("\(taggedCount)")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(AppTheme.Colors.accentDeep))
-                            .offset(x: 4, y: -4)
+                        MediaTagCountBadge(count: taggedCount)
                     }
                 }
                 .frame(width: Layout.iconTapDimension, height: Layout.iconTapDimension, alignment: .center)
@@ -1093,6 +1045,7 @@ private struct HomeMediaCarouselMediaView: View {
     var slideCount: Int = 1
     var containerWidth: CGFloat = HomeMediaHighlightWarmupPresentation.defaultHeroContainerWidth
     var isVideoPlaybackActive: Bool
+    var shouldPrepareVideo: Bool = false
     var isAutoAdvanceActive: Bool
     var loopsSlidePlayback: Bool = false
     var playbackResumeToken: Int = 0
@@ -1102,10 +1055,28 @@ private struct HomeMediaCarouselMediaView: View {
     #if canImport(UIKit)
     @State private var loadedImage: UIImage?
     @State private var heroImageLoadFinished = false
+    @State private var homeCarouselPlayerTick = 0
     #endif
 
     private var isVideo: Bool {
         media.resolvedMediaKind == .video
+    }
+
+    @ViewBuilder
+    private var homeCarouselVideoLayer: some View {
+        #if canImport(UIKit) && canImport(AVFoundation)
+        if let identifier = media.libraryAssetLocalIdentifier,
+           let player = HomeCarouselVideoSessionCache.shared.player(forLibraryIdentifier: identifier) {
+            HomeCarouselMutedVideoPlayer(
+                player: player,
+                isPlaybackActive: isVideoPlaybackActive,
+                loopsPlayback: loopsSlidePlayback,
+                onPlaybackFinished: nil
+            )
+            .id("\(identifier)-player-\(homeCarouselPlayerTick)")
+        }
+        // Soft / session poster remains underneath until the player is ready.
+        #endif
     }
 
     var body: some View {
@@ -1115,19 +1086,9 @@ private struct HomeMediaCarouselMediaView: View {
                 .accessibilityHidden(isVideo && isVideoPlaybackActive)
 
             if isVideo && isVideoPlaybackActive {
-                DiveActivityVideoPlayerView(
-                    source: media.videoPlaybackSource,
-                    isPlaybackActive: isVideoPlaybackActive,
-                    loopsPlayback: loopsSlidePlayback,
-                    libraryVideoQuality: .homeCarousel,
-                    usesProgressiveFidelity: true,
-                    screenPixelWidth: containerWidth * displayScale,
-                    initialPosterImage: sessionCachedImage ?? storedPreviewImage,
-                    onPlaybackFinished: loopsSlidePlayback ? nil : onSlideFinished,
-                    onAssetMissing: pruneIfAssetMissing
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .id("\(media.id)-resume-\(playbackResumeToken)")
+                homeCarouselVideoLayer
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .id("\(media.id)-resume-\(playbackResumeToken)")
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1148,21 +1109,58 @@ private struct HomeMediaCarouselMediaView: View {
                 shouldLoad: true
             )
             logVideoLayer(mounted: isVideo && isActive)
+            #if canImport(UIKit) && canImport(AVFoundation)
+            let hasPlayer = media.libraryAssetLocalIdentifier.map {
+                HomeCarouselVideoSessionCache.shared.player(forLibraryIdentifier: $0) != nil
+            } ?? false
+            if HomeMediaCarouselPresentation.shouldRemountCarouselPlayerWhenBecomingActive(
+                isBecomingActive: isActive,
+                hasPreparedPlayer: hasPlayer
+            ) {
+                homeCarouselPlayerTick += 1
+            }
+            #endif
         }
         .task(id: loadTaskID) {
             await loadHeroImageIfNeeded()
         }
-        .task(id: media.id) {
-            guard isVideo else { return }
+        .task(id: "\(media.id.uuidString)-video-\(shouldPrepareVideo)") {
+            guard isVideo,
+                  DiveMediaVideoPhotoKitGatePresentation.shouldEnsureCarouselVideoReady(
+                      isSlidePlaybackActive: shouldPrepareVideo
+                  ) else { return }
             await HomeMediaHighlightWarmup.ensureCarouselVideoReady(for: media)
+            homeCarouselPlayerTick += 1
+            #if canImport(UIKit) && canImport(AVFoundation)
+            guard let identifier = media.libraryAssetLocalIdentifier else { return }
+            // Soft-timeout races: PhotoKit may still deliver after ensure returns nil.
+            if HomeCarouselVideoSessionCache.shared.player(forLibraryIdentifier: identifier) == nil {
+                for _ in 0 ..< 8 {
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    guard !Task.isCancelled else { return }
+                    if HomeCarouselVideoSessionCache.shared.player(forLibraryIdentifier: identifier) != nil {
+                        homeCarouselPlayerTick += 1
+                        return
+                    }
+                }
+                await loadHeroImageIfNeeded(forceStillUpgradeAfterFailedVideo: true)
+            }
+            #endif
         }
         .task(id: photoAutoAdvanceTaskID) {
             await runPhotoAutoAdvanceIfNeeded()
+        }
+        .task(id: videoAutoAdvanceTaskID) {
+            await runVideoAutoAdvanceIfNeeded()
         }
     }
 
     private var photoAutoAdvanceTaskID: String {
         "\(media.id.uuidString)-photo-auto-\(isAutoAdvanceActive)-\(playbackResumeToken)"
+    }
+
+    private var videoAutoAdvanceTaskID: String {
+        "\(media.id.uuidString)-video-auto-\(isAutoAdvanceActive)-\(playbackResumeToken)-\(homeCarouselPlayerTick)"
     }
 
     private func runPhotoAutoAdvanceIfNeeded() async {
@@ -1173,8 +1171,30 @@ private struct HomeMediaCarouselMediaView: View {
         onSlideFinished()
     }
 
+    private func runVideoAutoAdvanceIfNeeded() async {
+        guard isAutoAdvanceActive, isVideo else { return }
+        #if canImport(AVFoundation)
+        let assetDuration: Double? = {
+            guard let identifier = media.libraryAssetLocalIdentifier,
+                  let player = HomeCarouselVideoSessionCache.shared.player(forLibraryIdentifier: identifier),
+                  let item = player.currentItem else { return nil }
+            let seconds = CMTimeGetSeconds(item.duration)
+            return seconds.isFinite && seconds > 0 ? seconds : nil
+        }()
+        #else
+        let assetDuration: Double? = nil
+        #endif
+        guard let seconds = HomeMediaCarouselPresentation.videoAutoAdvanceSeconds(
+            assetDurationSeconds: assetDuration,
+            slideCount: slideCount
+        ) else { return }
+        try? await Task.sleep(for: .seconds(seconds))
+        guard !Task.isCancelled, isAutoAdvanceActive else { return }
+        onSlideFinished()
+    }
+
     private var loadTaskID: String {
-        "\(media.id.uuidString)-\(media.resolvedMediaKind.rawValue)-\(Int(containerWidth))"
+        "\(media.id.uuidString)-\(media.resolvedMediaKind.rawValue)-\(HomeMediaCarouselPresentation.stableImageLoadWidthKey(containerWidth))"
     }
 
     @ViewBuilder
@@ -1200,7 +1220,11 @@ private struct HomeMediaCarouselMediaView: View {
 
     #if canImport(UIKit)
     private var resolvedHeroDisplayImage: UIImage? {
-        sessionCachedImage ?? loadedImage ?? storedPreviewImage
+        DiveMediaProgressivePresentation.preferredStillImage(
+            progressive: loadedImage,
+            sessionCached: sessionCachedImage,
+            storedPreview: storedPreviewImage
+        )
     }
 
     private var storedPreviewImage: UIImage? {
@@ -1229,7 +1253,7 @@ private struct HomeMediaCarouselMediaView: View {
     }
 
     #if canImport(UIKit)
-    private func loadHeroImageIfNeeded() async {
+    private func loadHeroImageIfNeeded(forceStillUpgradeAfterFailedVideo: Bool = false) async {
         let libraryIdentifier = media.libraryAssetLocalIdentifier
         let hadSessionHero = libraryIdentifier.map {
             HomeMediaHighlightSessionCache.shared.containsImage(
@@ -1259,6 +1283,24 @@ private struct HomeMediaCarouselMediaView: View {
             loadedImage = sessionCachedImage ?? storedPreviewImage
         }
 
+        // Soft/session poster is enough while AVAsset resolves — don't race PhotoKit stills vs video.
+        // After a failed prepare, `forceStillUpgradeAfterFailedVideo` allows a poster upgrade.
+        if !forceStillUpgradeAfterFailedVideo,
+           HomeMediaHighlightWarmupPresentation.shouldSkipStillPhotoKitLoadWhileVideoResolves(
+            isVideo: isVideo,
+            hasDisplayablePoster: resolvedHeroDisplayImage != nil,
+            isVideoPrepareInFlightOrReady: shouldPrepareVideo
+        ) {
+            heroImageLoadFinished = true
+            HomeMediaCarouselDebug.loadTaskEnded(
+                index: slideIndex,
+                mediaID: media.id,
+                outcome: .storedPreviewHit,
+                hadDisplayedImage: true
+            )
+            return
+        }
+
         guard let identifier = libraryIdentifier else {
             heroImageLoadFinished = true
             HomeMediaCarouselDebug.loadTaskEnded(
@@ -1270,9 +1312,14 @@ private struct HomeMediaCarouselMediaView: View {
             return
         }
 
-        let targetEdge = networkConnectivity.isConnected
-            ? HomeMediaHighlightWarmupPresentation.heroImageEdge(containerWidth: containerWidth)
-            : HomeMediaHighlightWarmupPresentation.previewImageEdge
+        let stableWidth = HomeMediaCarouselPresentation.stableImageLoadWidth(containerWidth)
+        // Videos only need a poster still — requesting hero-sized frames competes with AVAsset loads.
+        let targetEdge: CGFloat
+        if isVideo || !networkConnectivity.isConnected {
+            targetEdge = HomeMediaHighlightWarmupPresentation.previewImageEdge
+        } else {
+            targetEdge = HomeMediaHighlightWarmupPresentation.heroImageEdge(containerWidth: stableWidth)
+        }
         let targetSize = CGSize(width: targetEdge, height: targetEdge)
         let hasCachedImageAtTargetEdge = HomeMediaHighlightSessionCache.shared.containsImage(
             localIdentifier: identifier,

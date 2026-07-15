@@ -44,28 +44,47 @@ struct DiveActivityMediaTaggedSpeciesDetailContent: View {
         case .model3D(let configuration):
             FieldGuideMarineLifeRealityHeroView(configuration: configuration)
                 .frame(height: heroHeight)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Spacing.md, style: .continuous))
+                .frame(maxWidth: .infinity, alignment: .center)
+                .mask(speciesHeroTopFadeMask)
         case .bundledPhoto, .remoteImage:
             FieldGuideMarineLifeCatalogImage(
                 imageURLString: species.featureImageURL,
                 bundleResourceName: species.featureImageResourceName,
-                placement: .mediaSheetHero(height: heroHeight, contentMode: .fit)
+                placement: .mediaSheetHero(
+                    height: heroHeight,
+                    cornerRadius: 0,
+                    alignment: .center,
+                    contentMode: .fit
+                )
             )
+            .frame(maxWidth: .infinity, alignment: .center)
+            .mask(speciesHeroTopFadeMask)
         case .placeholder:
             speciesHeroPlaceholder
                 .frame(height: heroHeight)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Spacing.md, style: .continuous))
+                .frame(maxWidth: .infinity, alignment: .center)
+                .mask(speciesHeroTopFadeMask)
         }
     }
 
+    private var speciesHeroTopFadeMask: some View {
+        let opaqueStop = DiveActivityMediaPresentation.largeDetentSpeciesHeroTopFadeOpaqueStop
+        return LinearGradient(
+            stops: [
+                .init(color: .clear, location: 0),
+                .init(color: .white, location: opaqueStop),
+                .init(color: .white, location: 1),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
     private var speciesHeroPlaceholder: some View {
-        Rectangle()
-            .fill(AppTheme.Colors.tabUnselected.opacity(0.12))
-            .overlay {
-                Image(systemName: "fish")
-                    .font(.largeTitle)
-                    .foregroundStyle(AppTheme.Colors.tabUnselected)
-            }
+        Image(systemName: "fish")
+            .font(.largeTitle)
+            .foregroundStyle(AppTheme.Colors.tabUnselected)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func descriptionBlock(title: String, body: String) -> some View {

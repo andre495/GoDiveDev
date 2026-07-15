@@ -14,6 +14,8 @@ struct DiveActivityMediaThumbnailView: View {
     var size: CGFloat = DiveActivityMediaPresentation.carouselThumbnailSize
     var cornerRadius: CGFloat = DiveActivityMediaPresentation.carouselThumbnailCornerRadius
     var showsPlayBadge: Bool = true
+    /// When true, use stored / session soft JPEG only (no PhotoKit) — for large scrollable grids.
+    var prefersStoredPreviewOnly: Bool = false
 
     @Environment(\.modelContext) private var modelContext
     #if canImport(UIKit)
@@ -24,8 +26,8 @@ struct DiveActivityMediaThumbnailView: View {
     var body: some View {
         ZStack {
             thumbnailContent
-                .frame(width: size, height: size)
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
 
             if showsPlayBadge, media.resolvedMediaKind == .video {
                 Image(systemName: "play.circle.fill")
@@ -35,16 +37,27 @@ struct DiveActivityMediaThumbnailView: View {
                     .allowsHitTesting(false)
             }
         }
+        .frame(
+            width: size > 0 ? size : nil,
+            height: size > 0 ? size : nil
+        )
+        .frame(maxWidth: size > 0 ? nil : .infinity, maxHeight: size > 0 ? nil : .infinity)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .task(id: loadTaskID) {
             await loadThumbnailIfNeeded()
         }
         .onAppear {
             DiveMediaPreviewStorage.seedSessionCacheIfNeeded(for: media)
+            #if canImport(UIKit)
+            if thumbnailImage == nil, let stored = storedThumbnailImage {
+                thumbnailImage = stored
+            }
+            #endif
         }
     }
 
     private var loadTaskID: String {
-        "\(media.id.uuidString)-\(Int(size))"
+        "\(media.id.uuidString)-\(Int(size))-\(prefersStoredPreviewOnly ? "stored" : "full")"
     }
 
     private var playBadgeFont: Font {
@@ -99,15 +112,28 @@ struct DiveActivityMediaThumbnailView: View {
     private func loadThumbnailIfNeeded() async {
         #if canImport(Photos)
         DiveMediaPreviewStorage.seedSessionCacheIfNeeded(for: media)
+        if let stored = storedThumbnailImage {
+            thumbnailImage = stored
+            thumbnailLoadFinished = true
+            if prefersStoredPreviewOnly {
+                return
+            }
+        } else if prefersStoredPreviewOnly {
+            thumbnailLoadFinished = true
+            return
+        }
+
         guard let identifier = media.libraryAssetLocalIdentifier else {
-            thumbnailImage = nil
             thumbnailLoadFinished = true
             return
         }
         if storedThumbnailImage == nil {
             thumbnailLoadFinished = false
         }
-        let edge = max(size * 2, 1)
+        let requestSize = size > 0 ? size : LinkedMediaGridPresentation.gridThumbnailPointSize
+        let edge = size > 0
+            ? max(requestSize * 2, 1)
+            : LinkedMediaGridPresentation.photoKitRequestEdge
         let image = await DiveMediaReferenceLoader.image(
             localIdentifier: identifier,
             targetSize: CGSize(width: edge, height: edge),

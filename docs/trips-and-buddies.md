@@ -75,7 +75,7 @@ Tap a buddy for:
 - Stats panel with avatar and dives-together count  
 - Pager: **Dives together**, **Trips together**, **Your tagged photos**  
 
-Tap a dive or photo to open dive detail or full-screen media. **Edit** changes name and photo; optionally **link to Contacts** for photo sync.
+Tap a dive or photo to open dive detail or full-screen media. In full-screen media, the Home-style dive chip (lower left) opens the dive; **buddy** and **fish** share one glass control (lower right) and turn blue when that media is tagged. **Edit** changes name and photo; optionally **link to Contacts** for photo sync.
 
 ### Tag buddies on a dive
 

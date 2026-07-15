@@ -32,6 +32,8 @@ struct GlobalSearchView: View {
     /// Shared built-catalog cache; warmed by a hidden layer after the tab morph so the first scoped
     /// browse (category tile tap) reuses the index instead of building it on the tap.
     @State private var catalogStore = GlobalSearchCatalogStore()
+    /// Shared prebuilt Media browse cache; the hidden warmer fills it so the Media tile opens instantly.
+    @State private var mediaSnapshotStore = GlobalSearchMediaSnapshotStore()
     @State private var areIdleBubblesPaused = true
     @State private var preservedResultsQuery = ""
     @State private var preservedResultsContextTokens: [GlobalSearchPresentation.ContextToken] = []
@@ -183,6 +185,7 @@ struct GlobalSearchView: View {
                 safeAreaTop: 0,
                 resultsDismissDragOffset: 0,
                 catalogStore: catalogStore,
+                mediaSnapshotStore: mediaSnapshotStore,
                 rendersResultsBody: false,
                 onPushDestination: pushSearchDestination,
                 onBackToCategoryBrowse: finishReturnToGenericSearchPage,
@@ -228,6 +231,7 @@ struct GlobalSearchView: View {
                 GlobalSearchMediaResultsView(
                     ownerProfileID: ownerProfileID,
                     query: $query,
+                    snapshotStore: mediaSnapshotStore,
                     safeAreaTop: safeAreaTop,
                     resultsTopChromeHeight: $resultsTopChromeHeight,
                     scrollDisabled: GlobalSearchResultsDismissPresentation.locksResultsListScroll(
@@ -260,6 +264,7 @@ struct GlobalSearchView: View {
                     safeAreaTop: safeAreaTop,
                     resultsDismissDragOffset: resultsDismissDragOffset,
                     catalogStore: catalogStore,
+                    mediaSnapshotStore: mediaSnapshotStore,
                     onPushDestination: pushSearchDestination,
                     onBackToCategoryBrowse: finishReturnToGenericSearchPage,
                     isResultsDismissDragActive: $isResultsDismissDragActive
@@ -429,7 +434,12 @@ struct GlobalSearchView: View {
     private func scheduleDeferredSearchIndexMount() {
         cancelDeferredSearchIndexMount()
         searchIndexMountTask = Task { @MainActor in
-            await Task.yield()
+            // Wait out the tab-open morph: mounting the warmer runs eight SwiftData fetches, binds
+            // the full species + site catalogs, and builds the search index on the main actor — a
+            // single yield used to land all of that inside the opening animation's frames.
+            try? await Task.sleep(
+                nanoseconds: GlobalSearchPresentation.searchIndexWarmMountDelayNanoseconds
+            )
             guard !Task.isCancelled, !isSearchIndexMounted else { return }
             isSearchIndexMounted = true
         }
@@ -470,6 +480,17 @@ private enum GlobalSearchIndexQueryOwnerID {
 final class GlobalSearchCatalogStore {
     var catalog: GlobalSearchPresentation.Catalog?
     var fingerprint = ""
+}
+
+/// Shared, main-actor cache of the prebuilt **Search → Media** display cache (index snapshot +
+/// unfiltered month sections). The hidden warmer fills it during idle time so tapping the **Media**
+/// tile paints the grid from the cache instead of re-capturing every dive/photo/tag on the main
+/// actor while the results panel is animating in.
+@MainActor
+final class GlobalSearchMediaSnapshotStore {
+    var displayCache: GlobalSearchMediaBrowsePresentation.DisplayCache?
+    /// The `mediaIndexRefreshToken` the cache was captured from (empty until first warm).
+    var dataToken = ""
 }
 
 /// Fingerprint + build helper shared by the results layer and the warmer so both produce the same
@@ -567,6 +588,8 @@ private struct GlobalSearchSearchIndexLayer: View {
     @Binding var isResultsDismissDragActive: Bool
     /// Shared catalog cache so a hidden warmer instance and the visible results layer reuse one build.
     let catalogStore: GlobalSearchCatalogStore
+    /// Shared prebuilt Media browse cache — the hidden warmer fills it; the Media grid reads it on open.
+    let mediaSnapshotStore: GlobalSearchMediaSnapshotStore
     /// When `false`, this instance is a hidden warmer: it only loads catalogs + warms the shared cache
     /// (no results body, no search / media work). The visible results instance keeps the default `true`.
     var rendersResultsBody = true
@@ -611,6 +634,7 @@ private struct GlobalSearchSearchIndexLayer: View {
         safeAreaTop: CGFloat,
         resultsDismissDragOffset: CGFloat,
         catalogStore: GlobalSearchCatalogStore,
+        mediaSnapshotStore: GlobalSearchMediaSnapshotStore,
         rendersResultsBody: Bool = true,
         onPushDestination: @escaping (GlobalSearchPresentation.Destination) -> Void,
         onBackToCategoryBrowse: @escaping () -> Void,
@@ -627,6 +651,7 @@ private struct GlobalSearchSearchIndexLayer: View {
         self.safeAreaTop = safeAreaTop
         self.resultsDismissDragOffset = resultsDismissDragOffset
         self.catalogStore = catalogStore
+        self.mediaSnapshotStore = mediaSnapshotStore
         self.rendersResultsBody = rendersResultsBody
         self.onPushDestination = onPushDestination
         self.onBackToCategoryBrowse = onBackToCategoryBrowse
@@ -734,6 +759,18 @@ private struct GlobalSearchSearchIndexLayer: View {
         }
     }
 
+    private var mediaSectionBuddyTaggedMediaIDs: Set<UUID> {
+        let visibleIDs = Set(filteredMediaIDs)
+        guard !visibleIDs.isEmpty else { return [] }
+        return Set(
+            buddyMediaTags.compactMap { tag -> UUID? in
+                guard let mediaPhotoID = tag.mediaPhotoID,
+                      visibleIDs.contains(mediaPhotoID) else { return nil }
+                return mediaPhotoID
+            }
+        )
+    }
+
     private var mediaIndexRefreshToken: String {
         "\(ownerDiveActivities.count)|\(buddyMediaTags.count)|\(sightings.count)|\(ownerTrips.count)|\(speciesCatalog.count)"
     }
@@ -750,10 +787,17 @@ private struct GlobalSearchSearchIndexLayer: View {
         .task(id: ownerProfileID) {
             await loadSearchCatalogsIfNeeded()
             await warmSearchCatalogIfNeeded()
+            if !rendersResultsBody {
+                await warmMediaSnapshotIfNeeded()
+            }
         }
         .task(id: mediaIndexRefreshToken) {
-            guard rendersResultsBody else { return }
-            scheduleMediaIndexRebuild()
+            if rendersResultsBody {
+                scheduleMediaIndexRebuild()
+            } else {
+                // Hidden warmer: keep the shared Media browse cache fresh when data changes.
+                await warmMediaSnapshotIfNeeded()
+            }
         }
         .onChange(of: diveSites.count) { _, _ in
             guard rendersResultsBody else { return }
@@ -940,6 +984,7 @@ private struct GlobalSearchSearchIndexLayer: View {
                 sightings: mediaSectionSightings,
                 marineLifeCatalog: speciesCatalog,
                 ownerProfileID: ownerProfileID,
+                buddyTaggedMediaIDs: mediaSectionBuddyTaggedMediaIDs,
                 gallerySelectedMediaID: $mediaGallerySelectedID,
                 isSelectionBlocked: blocksResultsRowSelection,
                 onOpenDive: { onPushDestination(.dive($0)) }
@@ -1126,9 +1171,42 @@ private struct GlobalSearchSearchIndexLayer: View {
     /// scoped browse is instant instead of paying the full index build on the first keystroke.
     private func warmSearchCatalogIfNeeded() async {
         guard catalogStore.catalog == nil || catalogStore.fingerprint != catalogFingerprint else { return }
+        // Decode the ~3,100-row OpenDiveMap reference JSON off the main actor first — the index
+        // build below reads it from the warm cache instead of paying the decode on main.
+        await Task.detached(priority: .utility) {
+            _ = DiveSiteReferenceCatalog.bundledReferenceByID()
+        }.value
         await Task.yield()
         guard !Task.isCancelled else { return }
         _ = ensureBuiltCatalog()
+    }
+
+    /// Hidden-warmer counterpart of `scheduleMediaIndexRebuild`: prebuilds the **Search → Media**
+    /// browse cache into the shared store during idle time, so the Media tile tap paints from the
+    /// cache instead of walking every dive/photo/tag on the main actor during the panel slide-in.
+    private func warmMediaSnapshotIfNeeded() async {
+        guard hasLoadedSearchCatalogs else { return }
+        let dataToken = mediaIndexRefreshToken
+        guard mediaSnapshotStore.dataToken != dataToken else { return }
+        await Task.yield()
+        guard !Task.isCancelled else { return }
+        let input = GlobalSearchMediaIndexSnapshotBuilder.captureInput(
+            activities: ownerDiveActivities,
+            buddyMediaTags: buddyMediaTags,
+            sightings: sightings,
+            ownerTrips: ownerTrips,
+            speciesCatalog: speciesCatalog,
+            ownerDiveActivityIDs: ownerDiveActivityIDs
+        )
+        // Build the empty filter on the main actor — `ResolvedFilter()` is main-actor isolated
+        // under the module's default isolation, so constructing it inside `Task.detached` warns.
+        let emptyFilter = GlobalSearchMediaBrowsePresentation.ResolvedFilter()
+        let built = await Task.detached {
+            GlobalSearchMediaBrowsePresentation.displayCache(from: input, filter: emptyFilter)
+        }.value
+        guard !Task.isCancelled else { return }
+        mediaSnapshotStore.displayCache = built
+        mediaSnapshotStore.dataToken = dataToken
     }
 
     private func loadSearchCatalogsIfNeeded(force: Bool = false) async {
@@ -1559,6 +1637,7 @@ private struct GlobalSearchResultsMediaGrid: View {
     let sightings: [SightingInstance]
     let marineLifeCatalog: [MarineLife]
     let ownerProfileID: UUID?
+    var buddyTaggedMediaIDs: Set<UUID> = []
     @Binding var gallerySelectedMediaID: UUID?
     let isSelectionBlocked: Bool
     let onOpenDive: (UUID) -> Void
@@ -1568,6 +1647,7 @@ private struct GlobalSearchResultsMediaGrid: View {
 
     private struct FullscreenMediaSelection: Identifiable {
         let id: UUID
+        var tagOverviewMode: DiveActivityMediaLargeDetentMode? = nil
     }
 
     private var gridColumns: [GridItem] {
@@ -1616,6 +1696,7 @@ private struct GlobalSearchResultsMediaGrid: View {
                 sightings: sightings,
                 marineLifeCatalog: marineLifeCatalog,
                 ownerProfileID: ownerProfileID,
+                initialTagOverviewMode: selection.tagOverviewMode,
                 onOpenDive: onOpenDive
             )
             .onAppear {
@@ -1624,11 +1705,21 @@ private struct GlobalSearchResultsMediaGrid: View {
         }
     }
 
+    private func openFullscreen(
+        mediaID: UUID,
+        tagOverviewMode: DiveActivityMediaLargeDetentMode?
+    ) {
+        gallerySelectedMediaID = mediaID
+        fullscreenMediaSelection = FullscreenMediaSelection(
+            id: mediaID,
+            tagOverviewMode: tagOverviewMode
+        )
+    }
+
     private func gridCellButton(for media: DiveMediaPhoto) -> some View {
         Button {
             guard !isSelectionBlocked else { return }
-            gallerySelectedMediaID = media.id
-            fullscreenMediaSelection = FullscreenMediaSelection(id: media.id)
+            openFullscreen(mediaID: media.id, tagOverviewMode: nil)
         } label: {
             Color.clear
                 .aspectRatio(1, contentMode: .fit)
@@ -1651,8 +1742,62 @@ private struct GlobalSearchResultsMediaGrid: View {
         }
         .buttonStyle(.plain)
         .disabled(isSelectionBlocked)
-        .accessibilityLabel(media.resolvedMediaKind == .video ? "Video" : "Photo")
+        .overlay {
+            Color.clear
+                .aspectRatio(1, contentMode: .fit)
+                .linkedMediaGridTagBadges(
+                    buddyTagCount: buddyTagCount(for: media.id),
+                    marineLifeTagCount: marineLifeTagCount(for: media.id),
+                    onBuddyTap: {
+                        guard !isSelectionBlocked else { return }
+                        openFullscreen(
+                            mediaID: media.id,
+                            tagOverviewMode: LinkedMediaGridPresentation.tagOverviewMode(isBuddyBadge: true)
+                        )
+                    },
+                    onMarineLifeTap: {
+                        guard !isSelectionBlocked else { return }
+                        openFullscreen(
+                            mediaID: media.id,
+                            tagOverviewMode: LinkedMediaGridPresentation.tagOverviewMode(isBuddyBadge: false)
+                        )
+                    }
+                )
+                .allowsHitTesting(true)
+        }
+        .accessibilityLabel(gridCellAccessibilityLabel(for: media))
         .accessibilityIdentifier("GlobalSearch.Results.MediaGrid.Item.\(media.id.uuidString)")
+    }
+
+    private func marineLifeTagCount(for mediaID: UUID) -> Int {
+        sightings.reduce(into: 0) { count, sighting in
+            if sighting.mediaPhotoID == mediaID { count += 1 }
+        }
+    }
+
+    private func buddyTagCount(for mediaID: UUID) -> Int {
+        if let dive = mediaItems.first(where: { $0.id == mediaID })?.dive {
+            return DiveMediaBuddyTagPresentation.resolvedTaggedBuddies(
+                mediaPhotoID: mediaID,
+                tags: dive.mediaBuddyTags
+            ).count
+        }
+        return buddyTaggedMediaIDs.contains(mediaID) ? 1 : 0
+    }
+
+    private func gridCellAccessibilityLabel(for media: DiveMediaPhoto) -> String {
+        let kind = media.resolvedMediaKind == .video ? "Video" : "Photo"
+        var parts = [kind]
+        if TripDetailMediaGalleryPresentation.showsMarineLifeTagIndicator(
+            mediaID: media.id,
+            sightings: sightings
+        ) {
+            parts.append("marine life tagged")
+        }
+        if buddyTaggedMediaIDs.contains(media.id) {
+            parts.append("buddies tagged")
+        }
+        return parts.joined(separator: ", ")
     }
 
     private var expandControl: some View {
@@ -1675,37 +1820,6 @@ private struct GlobalSearchResultsMediaGrid: View {
         .buttonStyle(.plain)
         .disabled(isSelectionBlocked)
         .accessibilityIdentifier("GlobalSearch.Results.MediaGrid.ExpandToggle")
-    }
-}
-
-private struct GlobalSearchResultsSectionHeader: View {
-    let title: String
-
-    var body: some View {
-        HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
-            Color.clear
-                .frame(
-                    width: GlobalSearchPresentation.ResultsSectionHeaderPresentation.backButtonReservedWidth()
-                )
-                .accessibilityHidden(true)
-
-            Spacer(minLength: 0)
-
-            Text(title)
-                .font(
-                    .system(
-                        size: GlobalSearchPresentation.ResultsSectionHeaderPresentation.titleFontSize,
-                        weight: .bold
-                    )
-                )
-                .foregroundStyle(.white)
-                .textCase(nil)
-                .multilineTextAlignment(.trailing)
-        }
-        .padding(.horizontal, GlobalSearchPresentation.ResultsSectionHeaderPresentation.horizontalPadding)
-        .padding(.vertical, GlobalSearchPresentation.ResultsSectionHeaderPresentation.verticalPadding)
-        .frame(maxWidth: .infinity)
-        .accessibilityAddTraits(.isHeader)
     }
 }
 

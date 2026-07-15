@@ -65,10 +65,18 @@ private struct ProductionAppRoot: View {
             }
             .task {
                 AppLaunchMaintenance.runInBackground(container: container)
+                if accountSession.showsMainAppShell {
+                    HomeCarouselLaunchPreload.preloadStoredPicksIfCurrent(
+                        ownerProfileID: accountSession.currentProfile?.id
+                    )
+                }
                 await scheduleDeferredMapWarmup()
             }
             .onChange(of: accountSession.showsMainAppShell) { _, showsMain in
                 guard showsMain else { return }
+                HomeCarouselLaunchPreload.preloadStoredPicksIfCurrent(
+                    ownerProfileID: accountSession.currentProfile?.id
+                )
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(600))
                     #if canImport(GoogleMaps)
