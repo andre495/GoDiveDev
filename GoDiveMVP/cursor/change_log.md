@@ -2835,4 +2835,31 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ## 109 - Next batch
 
+**Summary:** Three new Field Guide **3D** heroes (Meshy USDZ) sized from catalog length.
+
+- Bundled **`Resources/MarineLife3D/`**: **`CaribbeanReefShark.usdz`**, **`Tarpon.usdz`**, **`StoplightParrotfish.usdz`**.
+- **`marine_life_sample.json`** **`feature_model`** on **`marine-life-caribbean-reef-shark`**, **`marine-life-tarpon`**, **`marine-life-stoplight-parrotfish`**; tarpon gains **`max_size` 2.5 m** (and depth / family) so hero **`fitExtent`** uses the mid→large size curve (shark **3.0 m**, parrot **0.64 m** already present).
+- Seeder + relative **fitExtent** unit tests; acknowledgments / **`app_summary`** lists updated.
+
+**Summary:** Dive Media tagged-species panel defaults to the catalog photo, not 3D.
+
+- **`mediaOverlayHeroKind`** prefers bundled/remote photo; 3D only when no catalog image (Field Guide detail toggle unchanged).
+- **`DiveActivityMediaTaggedSpeciesDetailContent`** uses that helper; unit test.
+
+**Summary:** Field Guide **3D** heroes — drop teal backplate / wash.
+
+- Removed SwiftUI gradient wash and RealityKit scene plate behind USDZ models (glow disc + particles under the mesh stay).
+- Heroes render in a non-AR **`ARView`** with a **clear** environment so the page / blue sheet shows through (virtual **`RealityView`** canvas was opaque).
+- **`FieldGuideMarineLifeHeroBackdropPresentation`** deleted; backdrop unit test removed.
+
+**Summary:** Field Guide **3D** heroes — lower glow + subtle vertical bob.
+
+- Glow plate **`verticalClearance`** **0.18 → 0.54** (~**3×** lower under the mesh).
+- Species model now floats up/down (**`FieldGuideMarineLifeHeroModelMotionPresentation`**) while spinning; unit test for sine bob.
+
+**Summary:** Field Guide **3D** hero motion polish — bigger bob, glow above seam, longer sparkles.
+
+- Model bob amplitude **0.014 → 0.042**; glow clearance **0.54 → 0.36** (lifted above the sheet seam).
+- Particles: longer life (**2.1 → 3.4 s**), higher speed / variation, wider emitter footprint so sparkles travel farther before fading.
+
 

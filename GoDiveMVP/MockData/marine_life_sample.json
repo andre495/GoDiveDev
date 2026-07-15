@@ -3258,7 +3258,8 @@
     "distinctive_features": "Dorsal behind pectorals; dusky fin tips; white belly",
     "abundance": "Common on Caribbean reefs and drop-offs (Bahamas, Belize, Bay Islands, Florida Keys).",
     "habitat_behavior": "Patrols mid-water and reef edges; often encountered on walls and shark dives.",
-    "diver_reaction": "Stay calm and horizontal; give space at cleaning stations — do not chase or block escape routes."
+    "diver_reaction": "Stay calm and horizontal; give space at cleaning stations — do not chase or block escape routes.",
+    "feature_model": "CaribbeanReefShark"
   },
   {
     "uuid": "marine-life-caribbean-sharpnose-shark",
@@ -14946,7 +14947,8 @@
     "max_size": 0.64,
     "min_depth": 3.0,
     "max_depth": 50.0,
-    "distinctive_features": "Body shape: fusiform / normal"
+    "distinctive_features": "Body shape: fusiform / normal",
+    "feature_model": "StoplightParrotfish"
   },
   {
     "uuid": "marine-life-stove-pipe-sponge",
@@ -15275,7 +15277,13 @@
     "scientific_name": "Megalops atlanticus",
     "category": "fishes",
     "subcategory": "silvery-fishes",
-    "description": "Silvery body with distinctively large scales and a large upturned mouth. Dark grayish fins. Mostly nocturnal."
+    "description": "Silvery body with distinctively large scales and a large upturned mouth. Dark grayish fins. Mostly nocturnal.",
+    "feature_model": "Tarpon",
+    "max_size": 2.5,
+    "family_name": "Megalopidae",
+    "min_depth": 0.0,
+    "max_depth": 40.0,
+    "distinctive_features": "Huge silver scales; upturned mouth; often at night or wrecks"
   },
   {
     "uuid": "marine-life-orange-dragon-slug",

@@ -4414,7 +4414,7 @@ struct GoDiveMVPTests {
         #expect(FieldGuideMarineLifeHeroGlowPresentation.layers.count == 3)
         let radius = FieldGuideMarineLifeHeroGlowPresentation.baseRadius(fitExtent: 0.22)
         #expect(abs(radius - 0.22 * 0.72) < 0.0001)
-        #expect(abs(FieldGuideMarineLifeHeroGlowPresentation.verticalClearance - 0.18) < 0.0001)
+        #expect(abs(FieldGuideMarineLifeHeroGlowPresentation.verticalClearance - 0.36) < 0.0001)
 
         let y = FieldGuideMarineLifeHeroGlowPresentation.discY(
             modelPositionY: -0.09,
@@ -4451,8 +4451,15 @@ struct GoDiveMVPTests {
         let emitterSize = FieldGuideMarineLifeHeroGlowPresentation.particleEmitterShapeSize(
             baseRadius: radius
         )
-        #expect(abs(emitterSize.x - radius * 0.85) < 0.0001)
+        #expect(
+            abs(
+                emitterSize.x
+                    - radius * FieldGuideMarineLifeHeroGlowPresentation.particleEmitterRadiusScale
+            ) < 0.0001
+        )
         #expect(abs(emitterSize.y - FieldGuideMarineLifeHeroGlowPresentation.particleEmitterHeight) < 0.0001)
+        #expect(FieldGuideMarineLifeHeroGlowPresentation.particleLifeSpan > 3.0)
+        #expect(FieldGuideMarineLifeHeroGlowPresentation.particleSpeed > 0.06)
         #expect(
             FieldGuideMarineLifeHeroGlowPresentation.particleEmissionDirection == SIMD3<Float>(0, 1, 0)
         )
@@ -4463,10 +4470,21 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func fieldGuideMarineLifeHeroBackdropPresentation_scenePlateSitsBehindModel() {
-        #expect(FieldGuideMarineLifeHeroBackdropPresentation.scenePlaneZ < -0.5)
-        #expect(FieldGuideMarineLifeHeroBackdropPresentation.scenePlaneWidth > 1)
-        #expect(FieldGuideMarineLifeHeroBackdropPresentation.scenePlaneHeight > 1)
+    @Test func fieldGuideMarineLifeHeroModelMotionPresentation_bobOffset_isSineWave() {
+        #expect(
+            abs(FieldGuideMarineLifeHeroModelMotionPresentation.bobOffset(elapsed: 0)) < 0.0001
+        )
+        let peakElapsed = Double(
+            .pi / (2 * FieldGuideMarineLifeHeroModelMotionPresentation.bobAngularSpeed)
+        )
+        #expect(
+            abs(
+                FieldGuideMarineLifeHeroModelMotionPresentation.bobOffset(elapsed: peakElapsed)
+                    - FieldGuideMarineLifeHeroModelMotionPresentation.bobAmplitude
+            ) < 0.0001
+        )
+        #expect(FieldGuideMarineLifeHeroModelMotionPresentation.bobAmplitude > 0.035)
+        #expect(FieldGuideMarineLifeHeroModelMotionPresentation.bobAmplitude < 0.06)
     }
 
     @Test func fieldGuideMarineLifeHeroPresentation_caribbeanReefSquidUsesBundledModel() {
@@ -4558,6 +4576,98 @@ struct GoDiveMVPTests {
             return
         }
         #expect(config.modelResourceName == "RedLionfish")
+    }
+
+    @Test func fieldGuideMarineLifeHeroPresentation_caribbeanReefSharkUsesBundledModel() {
+        let kind = FieldGuideMarineLifeHeroPresentation.heroKind(
+            featureModelResourceName: "CaribbeanReefShark",
+            featureImageResourceName: "",
+            featureImageURL: ""
+        )
+        guard case .model3D(let config) = kind else {
+            Issue.record("Expected 3D model hero")
+            return
+        }
+        #expect(config.modelResourceName == "CaribbeanReefShark")
+    }
+
+    @Test func fieldGuideMarineLifeHeroPresentation_tarponUsesBundledModel() {
+        let kind = FieldGuideMarineLifeHeroPresentation.heroKind(
+            featureModelResourceName: "Tarpon",
+            featureImageResourceName: "",
+            featureImageURL: ""
+        )
+        guard case .model3D(let config) = kind else {
+            Issue.record("Expected 3D model hero")
+            return
+        }
+        #expect(config.modelResourceName == "Tarpon")
+    }
+
+    @Test func fieldGuideMarineLifeHeroPresentation_stoplightParrotfishUsesBundledModel() {
+        let kind = FieldGuideMarineLifeHeroPresentation.heroKind(
+            featureModelResourceName: "StoplightParrotfish",
+            featureImageResourceName: "",
+            featureImageURL: ""
+        )
+        guard case .model3D(let config) = kind else {
+            Issue.record("Expected 3D model hero")
+            return
+        }
+        #expect(config.modelResourceName == "StoplightParrotfish")
+    }
+
+    @Test func fieldGuideMarineLifeHeroPresentation_newModels_applyCatalogSizeFitExtent() {
+        let parrot = FieldGuideMarineLifeHeroPresentation.sceneConfiguration(
+            forModelResourceName: "StoplightParrotfish",
+            minSizeMeters: 0,
+            maxSizeMeters: 0.64
+        )
+        let tarpon = FieldGuideMarineLifeHeroPresentation.sceneConfiguration(
+            forModelResourceName: "Tarpon",
+            minSizeMeters: 0,
+            maxSizeMeters: 2.5
+        )
+        let shark = FieldGuideMarineLifeHeroPresentation.sceneConfiguration(
+            forModelResourceName: "CaribbeanReefShark",
+            minSizeMeters: 0,
+            maxSizeMeters: 3.0
+        )
+        #expect(parrot.fitExtent < tarpon.fitExtent)
+        #expect(tarpon.fitExtent < shark.fitExtent)
+        #expect(
+            abs(
+                parrot.fitExtent
+                    - FieldGuideMarineLifeHeroFitExtentPresentation.fitExtent(
+                        minSizeMeters: 0,
+                        maxSizeMeters: 0.64
+                    )
+            ) < 0.0001
+        )
+    }
+
+    @Test func fieldGuideMarineLifeHeroPresentation_mediaOverlay_prefersPhotoOverModel() {
+        let withPhoto = FieldGuideMarineLifeHeroPresentation.mediaOverlayHeroKind(
+            featureModelResourceName: "GreatBarracuda",
+            featureImageResourceName: "",
+            featureImageURL: "https://example.com/barracuda.jpg"
+        )
+        guard case .remoteImage(let url) = withPhoto else {
+            Issue.record("Expected catalog photo on media overlay when both model and image exist")
+            return
+        }
+        #expect(url.absoluteString == "https://example.com/barracuda.jpg")
+
+        let modelOnly = FieldGuideMarineLifeHeroPresentation.mediaOverlayHeroKind(
+            featureModelResourceName: "GreatBarracuda",
+            featureImageResourceName: "",
+            featureImageURL: ""
+        )
+        guard case .model3D(let config) = modelOnly else {
+            Issue.record("Expected 3D fallback when media overlay has no catalog image")
+            return
+        }
+        #expect(config.modelResourceName == "GreatBarracuda")
     }
 
     @Test func fieldGuideMarineLifeHeroPresentation_remoteImageWhenNoModel() {
@@ -5705,6 +5815,7 @@ struct GoDiveMVPTests {
         #expect(species?.subcategory == "sharks")
         #expect(species?.familyName == "Carcharhinidae")
         #expect(species?.featureImageResourceName == "marine-life-caribbean-reef-shark")
+        #expect(species?.featureModelResourceName == "CaribbeanReefShark")
         #expect(species?.maxSizeMeters == 3.0)
         #expect(species?.minDepthMeters == 1.0)
         #expect(species?.maxDepthMeters == 100.0)
@@ -5814,6 +5925,45 @@ struct GoDiveMVPTests {
         #expect(species?.commonName == "Red Lionfish")
         #expect(species?.scientificName == "Pterois volitans")
         #expect(species?.featureModelResourceName == "RedLionfish")
+    }
+
+    @Test @MainActor func marineLifeCatalogSeeder_seedsCaribbeanReefSharkModel() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+        let species = try context.fetch(FetchDescriptor<MarineLife>()).first {
+            $0.uuid == "marine-life-caribbean-reef-shark"
+        }
+        #expect(species?.commonName == "Caribbean Reef Shark")
+        #expect(species?.scientificName == "Carcharhinus perezii")
+        #expect(species?.featureModelResourceName == "CaribbeanReefShark")
+        #expect(species?.maxSizeMeters == 3.0)
+    }
+
+    @Test @MainActor func marineLifeCatalogSeeder_seedsTarponModel() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+        let species = try context.fetch(FetchDescriptor<MarineLife>()).first {
+            $0.uuid == "marine-life-tarpon"
+        }
+        #expect(species?.commonName == "Tarpon")
+        #expect(species?.scientificName == "Megalops atlanticus")
+        #expect(species?.featureModelResourceName == "Tarpon")
+        #expect(species?.maxSizeMeters == 2.5)
+    }
+
+    @Test @MainActor func marineLifeCatalogSeeder_seedsStoplightParrotfishModel() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+        let species = try context.fetch(FetchDescriptor<MarineLife>()).first {
+            $0.uuid == "marine-life-stoplight-parrotfish"
+        }
+        #expect(species?.commonName == "Stoplight Parrotfish (terminal)")
+        #expect(species?.scientificName == "Sparisoma viride")
+        #expect(species?.featureModelResourceName == "StoplightParrotfish")
+        #expect(species?.maxSizeMeters == 0.64)
     }
 
     @Test func fieldGuidePresentation_depthLine_prefersMinMaxRange() {

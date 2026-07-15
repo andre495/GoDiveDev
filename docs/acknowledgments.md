@@ -6,7 +6,7 @@ GoDive is built on Apple’s platforms and a mix of open catalogs, third-party S
 
 | Source | Used for |
 |--------|----------|
-| **[Meshy AI](https://www.meshy.ai/)** | Field Guide **3D hero** models (French Angelfish, Caribbean reef squid, green sea turtle, spotted eagle ray, great barracuda, sergeant major, rock beauty, red lionfish), exported as **USDZ** for on-device **RealityKit** viewing |
+| **[Meshy AI](https://www.meshy.ai/)** | Field Guide **3D hero** models (French Angelfish, Caribbean reef squid, green sea turtle, spotted eagle ray, great barracuda, sergeant major, rock beauty, red lionfish, Caribbean reef shark, tarpon, stoplight parrotfish), exported as **USDZ** for on-device **RealityKit** viewing |
 
 ## Marine life catalog
 

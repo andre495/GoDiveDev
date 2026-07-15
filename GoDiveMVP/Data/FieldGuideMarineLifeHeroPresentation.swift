@@ -1,5 +1,4 @@
 import Foundation
-import SwiftUI
 
 /// Bundled RealityKit hero configuration for a catalog species detail page.
 struct FieldGuideMarineLifeHeroSceneConfiguration: Equatable, Sendable {
@@ -146,8 +145,9 @@ enum FieldGuideMarineLifeHeroGlowPresentation: Sendable {
     nonisolated static let radiusRelativeToFitExtent: Float = 0.72
     /// Thin cylinder height so the disc reads as a flat ground plate.
     nonisolated static let discHeight: Float = 0.0018
-    /// Gap below the fitted model’s lowest point so the plate sits clearly under the mesh.
-    nonisolated static let verticalClearance: Float = 0.18
+    /// Gap below the fitted model’s lowest point so the plate sits under the mesh
+    /// but still above the blue-sheet seam in the hero band.
+    nonisolated static let verticalClearance: Float = 0.36
 
     /// Peak horizontal scale oscillation for the breathing disc (**±** this amount).
     nonisolated static let pulseAmplitude: Float = 0.10
@@ -160,13 +160,14 @@ enum FieldGuideMarineLifeHeroGlowPresentation: Sendable {
     /// Soft sparkle emitters rising from the plate (world **+Y**, hemispheric spray).
     nonisolated static let particleBirthRate: Float = 28
     nonisolated static let particleSize: Float = 0.007
-    nonisolated static let particleLifeSpan: TimeInterval = 2.1
-    nonisolated static let particleSpeed: Float = 0.045
-    nonisolated static let particleSpeedVariation: Float = 0.018
+    /// Longer life so sparkles travel farther before fading out.
+    nonisolated static let particleLifeSpan: TimeInterval = 3.4
+    nonisolated static let particleSpeed: Float = 0.078
+    nonisolated static let particleSpeedVariation: Float = 0.032
     /// Hemispheric cone around world **+Y** (**π/2** ≈ all outward directions above the plate).
     nonisolated static let particleSpreadingAngle: Float = .pi / 2
-    /// Emitter footprint relative to the glow base radius.
-    nonisolated static let particleEmitterRadiusScale: Float = 0.85
+    /// Emitter footprint relative to the glow base radius (wider birth ring).
+    nonisolated static let particleEmitterRadiusScale: Float = 1.15
     /// Thin plate volume so births stay under the model, not inside it.
     nonisolated static let particleEmitterHeight: Float = 0.006
     nonisolated static let particleEmissionDirection: SIMD3<Float> = [0, 1, 0]
@@ -219,30 +220,16 @@ enum FieldGuideMarineLifeHeroGlowPresentation: Sendable {
     }
 }
 
-/// Soft cool-toned backdrop behind Field Guide **3D** heroes (SwiftUI, not RealityKit).
-enum FieldGuideMarineLifeHeroBackdropPresentation: Sendable {
-    /// Deep navy → teal vertical wash.
-    nonisolated static let baseTop = (red: 0.03, green: 0.14, blue: 0.32)
-    nonisolated static let baseMid = (red: 0.01, green: 0.08, blue: 0.22)
-    nonisolated static let baseBottom = (red: 0.00, green: 0.04, blue: 0.12)
+/// Slow vertical float for Field Guide **3D** species models (applied with yaw spin).
+enum FieldGuideMarineLifeHeroModelMotionPresentation: Sendable {
+    /// Rise/fall amplitude in scene units (~**3×** the initial subtle float).
+    nonisolated static let bobAmplitude: Float = 0.042
+    /// Radians/sec — slow float (~**0.18 Hz**), independent of spin rate.
+    nonisolated static let bobAngularSpeed: Float = 1.15
 
-    nonisolated static func color(
-        _ rgb: (red: Double, green: Double, blue: Double),
-        opacity: Double = 1
-    ) -> Color {
-        Color(red: rgb.red, green: rgb.green, blue: rgb.blue, opacity: opacity)
+    nonisolated static func bobOffset(elapsed: TimeInterval) -> Float {
+        bobAmplitude * sin(Float(elapsed) * bobAngularSpeed)
     }
-
-    // MARK: - RealityKit scene backplate (opaque virtual-camera canvas)
-
-    /// Vertical plane width/height so it fills the hero band behind the model.
-    nonisolated static let scenePlaneWidth: Float = 1.45
-    nonisolated static let scenePlaneHeight: Float = 1.15
-    /// Place well behind the USDZ (model sits near **z ≈ −0.08**).
-    nonisolated static let scenePlaneZ: Float = -0.72
-    nonisolated static let scenePlaneY: Float = 0.02
-    /// Soft base wash on the back plate (non-additive).
-    nonisolated static let scenePlateRGB = (red: Float(0.02), green: Float(0.12), blue: Float(0.28))
 }
 
 /// Resolves species detail hero content (3D model, remote image, or placeholder).
@@ -289,20 +276,33 @@ enum FieldGuideMarineLifeHeroPresentation {
             )
         }
 
-        let resourceName = featureImageResourceName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !resourceName.isEmpty,
-           let bundledURL = FieldGuideMarineLifeBundledImagePresentation.bundledPhotoURL(
-               resourceName: resourceName
-           ) {
-            return .bundledPhoto(bundledURL)
-        }
+        return catalogImageKind(
+            featureImageResourceName: featureImageResourceName,
+            featureImageURL: featureImageURL
+        ) ?? .placeholder
+    }
 
-        let imageURLString = featureImageURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let url = URL(string: imageURLString), !imageURLString.isEmpty {
-            return .remoteImage(url)
+    /// Dive **Media** sheet / tagged-species overlays — catalog photo first; 3D only when no image.
+    nonisolated static func mediaOverlayHeroKind(
+        featureModelResourceName: String,
+        featureImageResourceName: String,
+        featureImageURL: String,
+        minSizeMeters: Double = 0,
+        maxSizeMeters: Double = 0
+    ) -> HeroKind {
+        if let imageKind = catalogImageKind(
+            featureImageResourceName: featureImageResourceName,
+            featureImageURL: featureImageURL
+        ) {
+            return imageKind
         }
-
-        return .placeholder
+        return heroKind(
+            featureModelResourceName: featureModelResourceName,
+            featureImageResourceName: featureImageResourceName,
+            featureImageURL: featureImageURL,
+            minSizeMeters: minSizeMeters,
+            maxSizeMeters: maxSizeMeters
+        )
     }
 
     nonisolated static func hasCatalogModel(featureModelResourceName: String) -> Bool {

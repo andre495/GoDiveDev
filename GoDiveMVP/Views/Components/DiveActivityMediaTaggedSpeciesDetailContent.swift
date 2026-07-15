@@ -36,7 +36,7 @@ struct DiveActivityMediaTaggedSpeciesDetailContent: View {
 
     @ViewBuilder
     private var speciesHero: some View {
-        switch FieldGuideMarineLifeHeroPresentation.heroKind(
+        switch FieldGuideMarineLifeHeroPresentation.mediaOverlayHeroKind(
             featureModelResourceName: species.featureModelResourceName,
             featureImageResourceName: species.featureImageResourceName,
             featureImageURL: species.featureImageURL,
