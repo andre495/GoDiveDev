@@ -2833,7 +2833,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - All test + preview ad-hoc configs now pass **`.none`** (production **`AppSwiftDataSchema.makeContainer`** already did).
 - Field Guide size→**fitExtent** small-band weight lowered so mid-band (**0.5–6 ft**) slope stays steeper than compressed tiny sizes; cert / Rock Beauty seeder expectations aligned with current `#` formatting and catalog casing.
 
-## 109 - Next batch
+## 109 - Next batch **(pushed)**
 
 **Summary:** Three new Field Guide **3D** heroes (Meshy USDZ) sized from catalog length.
 
@@ -2862,4 +2862,5 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Model bob amplitude **0.014 → 0.042**; glow clearance **0.54 → 0.36** (lifted above the sheet seam).
 - Particles: longer life (**2.1 → 3.4 s**), higher speed / variation, wider emitter footprint so sparkles travel farther before fading.
 
+## 110 - Next batch
 
