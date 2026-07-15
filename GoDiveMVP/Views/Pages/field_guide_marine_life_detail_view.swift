@@ -271,7 +271,9 @@ struct FieldGuideMarineLifeDetailView: View {
             return .catalogReference(
                 featureModelResourceName: species.featureModelResourceName,
                 featureImageResourceName: species.featureImageResourceName,
-                featureImageURL: species.featureImageURL
+                featureImageURL: species.featureImageURL,
+                minSizeMeters: species.minSizeMeters,
+                maxSizeMeters: species.maxSizeMeters
             )
         case .catalogReference:
             guard let heroTaggedMedia else { return nil }
@@ -345,6 +347,8 @@ struct FieldGuideMarineLifeDetailView: View {
             featureModelResourceName: species.featureModelResourceName,
             featureImageResourceName: species.featureImageResourceName,
             featureImageURL: species.featureImageURL,
+            minSizeMeters: species.minSizeMeters,
+            maxSizeMeters: species.maxSizeMeters,
             mapPins: mapPins,
             isVideoPlaybackActive: speciesHeroMode == .media
                 && DiveBuddyDetailPresentation.shouldAutoPlaySelectedVideo(for: heroTaggedMedia),

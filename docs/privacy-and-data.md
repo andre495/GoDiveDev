@@ -13,8 +13,9 @@ The following live in GoDive’s on-device database and local app storage:
 - **References** to Photos library items (local identifier + optional small preview JPEG)  
 - Marine life catalog and your tagged sightings  
 - App settings (units, tank default, renumber, auto-upload)  
+- Crash reports (technical diagnostics captured when the app crashes)  
 
-There is **no CloudKit or multi-device sync** in the current MVP. Your log does not upload to a GoDive server for backup.
+There is **no CloudKit or multi-device sync of your dive log** in the current MVP. Your log does not upload to a GoDive server for backup. The only data that can leave the device is **crash diagnostics**, and only when you turn on **Settings → Share crash reports** (see below).
 
 ## Sign in with Apple
 
@@ -46,6 +47,15 @@ Most of GoDive works **offline** after install. Network may be used for:
 | **Fishial identify** (optional) | One **JPEG still** per identification request, optional dive coordinates in a header | Only when you tap identify on a cropped fish photo and the feature is configured |
 | **Remote species images** | HTTP fetch for catalog URLs | Field Guide when a species uses a remote image fallback |
 | **iCloud Photos** | Apple’s PhotoKit may fetch originals | When you view media not stored locally on the device |
+| **Crash reports** (optional) | Technical crash diagnostics via Apple CloudKit | Only when **Settings → Share crash reports** is on |
+
+### Crash reports
+
+GoDive records a report when the app crashes or quits unexpectedly (using Apple's MetricKit diagnostics). Reports contain the crash type, call stack, app/iOS versions, and a short **breadcrumb trail** of recent UI context (which tab/screen you were on, dive IDs, open sheets) — **no dive log text, photo contents, location details, or account data**.
+
+- Reports are stored **on your device** and viewable under **Settings → Crash Reports**.
+- Sharing is **opt-in**: the **Share crash reports** toggle uploads them to the developer through Apple's CloudKit; it is off by default.
+- You can also share a single report manually from the Crash Reports page at any time.
 
 ### Fishial fish identification
 

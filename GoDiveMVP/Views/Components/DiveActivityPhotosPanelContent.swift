@@ -17,10 +17,14 @@ struct DiveActivityPhotosPanelContent: View {
     var onIdentifyFish: (() -> Void)? = nil
     /// Expands the overview sheet to **large** tagged-species detail (medium oval chips).
     var onExpandMarineLifeDetail: (() -> Void)?
+    /// Soft-collapses **large** tagged detail back to **medium** when scrolling past the top.
+    var onCollapsePanelToMedium: (() -> Void)? = nil
     /// Resolved featured media id (user-chosen, else oldest); marks the carousel item and the toggle state.
     var featuredMediaID: UUID?
     /// Toggles the selected media as the featured logbook preview (tap a featured item to revert to default).
     var onToggleFeatured: ((DiveMediaPhoto) -> Void)?
+    /// User tapped a different carousel thumbnail.
+    var onUserSelectMedia: ((DiveMediaPhoto) -> Void)? = nil
     /// Catalog species tagged on the selected media item.
     var taggedSpecies: [MarineLife] = []
     /// Buddies tagged on the selected media item.
@@ -43,11 +47,6 @@ struct DiveActivityPhotosPanelContent: View {
 
     private var selectedMedia: DiveMediaPhoto? {
         DiveActivityMediaPresentation.selectedMedia(selectedID: selectedMediaID, in: mediaItems)
-    }
-
-    private var isSelectedMediaFeatured: Bool {
-        guard let selectedMedia, let featuredMediaID else { return false }
-        return selectedMedia.id == featuredMediaID
     }
 
     private var isMarineLifeTagControlActive: Bool {
@@ -84,21 +83,18 @@ struct DiveActivityPhotosPanelContent: View {
         DiveActivityMediaPresentation.showsMarineLifeDetailInSheet(for: sheetDetent)
     }
 
-    private var showsSheetChromeActions: Bool {
-        DiveActivityMediaPresentation.showsMediaSheetChromeActions(for: sheetDetent)
-    }
-
     private var showsMarineLifeTagInCarousel: Bool {
         DiveActivityMediaPresentation.showsMarineLifeTagInCarousel(for: sheetDetent)
             && onTagMarineLife != nil
     }
 
-    private var usesCarouselPinnedLayout: Bool {
-        showsMediaCarousel && sheetDetent != .minimized && layoutHeight > 0
+    private var showsMediumTrailingTagChrome: Bool {
+        DiveActivityMediaPresentation.showsMediumDetentTrailingTagChrome(for: sheetDetent)
+            && (showsMarineLifeTagInSheet || showsBuddyTagInSheet)
     }
 
-    private var sheetChromeClearance: CGFloat {
-        showsSheetChromeActions ? DiveActivityMediaPresentation.sheetChromeRowHeight : 0
+    private var usesCarouselPinnedLayout: Bool {
+        showsMediaCarousel && sheetDetent != .minimized && layoutHeight > 0
     }
 
     private var sheetBodyHeight: CGFloat {
@@ -116,39 +112,34 @@ struct DiveActivityPhotosPanelContent: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-                if mediaItems.isEmpty {
-                    emptyMediaPanelContent
-                } else if showsMarineLifeDetail {
-                    DiveActivityMediaLargeDetentOverviewContent(
-                        mode: $largeDetentMode,
-                        media: selectedMedia,
-                        taggedSpecies: taggedSpecies,
-                        taggedBuddies: taggedBuddies,
-                        onTagMarineLife: onTagMarineLife,
-                        onTagBuddies: onTagBuddies,
-                        onIdentifyFish: onIdentifyFish,
-                        ownerProfileID: ownerProfileID,
-                        onOpenDive: onOpenDive,
-                        selectedTaggedSpeciesUUID: $selectedTaggedSpeciesUUID,
-                        overlaysChrome: true
-                    )
-                } else if usesCarouselPinnedLayout {
-                    carouselPinnedSheetContent {
-                        mediumDetentBody
-                    }
-                } else {
-                    minimizedDetentContent
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            if mediaItems.isEmpty {
+                emptyMediaPanelContent
+            } else if showsMarineLifeDetail {
+                DiveActivityMediaLargeDetentOverviewContent(
+                    mode: $largeDetentMode,
+                    media: selectedMedia,
+                    taggedSpecies: taggedSpecies,
+                    taggedBuddies: taggedBuddies,
+                    onTagMarineLife: onTagMarineLife,
+                    onTagBuddies: onTagBuddies,
+                    onIdentifyFish: onIdentifyFish,
+                    ownerProfileID: ownerProfileID,
+                    onOpenDive: onOpenDive,
+                    selectedTaggedSpeciesUUID: $selectedTaggedSpeciesUUID,
+                    overlaysChrome: true,
+                    onCollapseToMedium: onCollapsePanelToMedium
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            } else if usesCarouselPinnedLayout {
+                carouselPinnedSheetContent {
+                    mediumDetentBody
                 }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            if showsSheetChromeActions || (mediaItems.isEmpty && sheetDetent == .large) {
-                sheetTopChromeRow
+            } else {
+                minimizedDetentContent
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onChange(of: selectedMediaID) { _, _ in
             selectedTaggedSpeciesUUID = nil
             largeDetentMode = .marineLife
@@ -166,10 +157,6 @@ struct DiveActivityPhotosPanelContent: View {
         @ViewBuilder body: () -> Body
     ) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Color.clear
-                .frame(height: sheetChromeClearance)
-                .accessibilityHidden(true)
-
             body()
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(height: sheetBodyHeight, alignment: .top)
@@ -191,30 +178,15 @@ struct DiveActivityPhotosPanelContent: View {
                 addMediaButton
             }
         case .medium:
-            VStack(alignment: .leading, spacing: 0) {
-                Color.clear
-                    .frame(height: sheetChromeClearance)
-                    .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-                    if showsDiveIdentityHeader {
-                        diveIdentityHeader
-                    }
-                    emptyUploadPromptTextBlock
-                }
-                .frame(maxWidth: .infinity, alignment: .top)
-                .frame(height: sheetBodyHeight, alignment: .top)
-            }
-            .frame(height: carouselPinnedStackHeight, alignment: .top)
-        case .large:
             VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-                Color.clear
-                    .frame(height: DiveActivityMediaPresentation.sheetChromeRowHeight)
-                    .accessibilityHidden(true)
-
+                mediumDetentIdentityRow
                 emptyUploadPromptTextBlock
             }
-            .frame(maxWidth: .infinity, alignment: .top)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .frame(height: carouselPinnedStackHeight, alignment: .top)
+        case .large:
+            emptyUploadPromptTextBlock
+                .frame(maxWidth: .infinity, alignment: .top)
         }
     }
 
@@ -237,12 +209,22 @@ struct DiveActivityPhotosPanelContent: View {
     @ViewBuilder
     private var mediumDetentBody: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-            if showsDiveIdentityHeader {
-                diveIdentityHeader
-            }
+            mediumDetentIdentityRow
 
             if showsMarineLifeTagSummary {
                 marineLifeTagsSection
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+
+    /// Dive identity (same as **Map** / **Tank**) with fish / buddy trailing the dive-number row.
+    private var mediumDetentIdentityRow: some View {
+        HStack(alignment: .top, spacing: AppTheme.Spacing.sm) {
+            diveIdentityHeader
+
+            if showsMediumTrailingTagChrome {
+                mediumDetentTrailingTagChrome
             }
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -259,29 +241,23 @@ struct DiveActivityPhotosPanelContent: View {
                 regionCountryLine: regionCountryLine,
                 dateDashTimeLine: dateDashTimeLine
             )
+        } else {
+            Spacer(minLength: 0)
         }
     }
 
-    private var sheetTopChromeRow: some View {
-        HStack(alignment: .top, spacing: AppTheme.Spacing.sm) {
-            HStack(spacing: AppTheme.Spacing.sm) {
-                if showsMarineLifeTagInSheet {
-                    mediumSheetMarineLifeChromeButton
-                }
-
-                if showsBuddyTagInSheet {
-                    mediumSheetBuddyChromeButton
-                }
+    private var mediumDetentTrailingTagChrome: some View {
+        HStack(spacing: AppTheme.Spacing.sm) {
+            if showsMarineLifeTagInSheet {
+                mediumSheetMarineLifeChromeButton
             }
 
-            Spacer(minLength: AppTheme.Spacing.sm)
-
-            if onToggleFeatured != nil, selectedMedia != nil {
-                featuredButton
+            if showsBuddyTagInSheet {
+                mediumSheetBuddyChromeButton
             }
-
-            addMediaButton
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("DiveOverview.MediaMediumTrailingTagChrome")
     }
 
     @ViewBuilder
@@ -330,48 +306,22 @@ struct DiveActivityPhotosPanelContent: View {
             DiveActivityMediaCarouselView(
                 mediaItems: mediaItems,
                 selectedMediaID: $selectedMediaID,
-                featuredMediaID: featuredMediaID
+                featuredMediaID: featuredMediaID,
+                onToggleFeatured: isImportInProgress ? nil : onToggleFeatured,
+                onUserSelectMedia: isImportInProgress ? nil : onUserSelectMedia
             )
 
-            if !showsSheetChromeActions {
-                if showsMarineLifeTagInCarousel, let onTagMarineLife {
-                    DiveActivityMediaMarineLifeTagButton(
-                        isActive: isMarineLifeTagControlActive,
-                        action: onTagMarineLife
-                    )
-                    .disabled(isImportInProgress)
-                    .opacity(isImportInProgress ? 0.45 : 1)
-                }
-
-                addMediaButton
-            }
-        }
-    }
-
-    private var featuredButton: some View {
-        Button {
-            guard let selectedMedia, let onToggleFeatured else { return }
-            onToggleFeatured(selectedMedia)
-        } label: {
-            Image(systemName: isSelectedMediaFeatured ? "star.fill" : "star")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(
-                    isSelectedMediaFeatured
-                        ? AppTheme.Colors.accent
-                        : AppTheme.Colors.tabUnselected
+            if showsMarineLifeTagInCarousel, let onTagMarineLife {
+                DiveActivityMediaMarineLifeTagButton(
+                    isActive: isMarineLifeTagControlActive,
+                    action: onTagMarineLife
                 )
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(Rectangle())
+                .disabled(isImportInProgress)
+                .opacity(isImportInProgress ? 0.45 : 1)
+            }
+
+            addMediaButton
         }
-        .disabled(isImportInProgress)
-        .opacity(isImportInProgress ? 0.45 : 1)
-        .accessibilityLabel(isSelectedMediaFeatured ? "Featured photo" : "Set as featured")
-        .accessibilityHint(
-            isSelectedMediaFeatured
-                ? "Removes this as the logbook preview, reverting to the default."
-                : "Uses this as the logbook preview for this dive."
-        )
-        .accessibilityIdentifier("DiveOverview.MediaFeatureToggle")
     }
 
     private var marineLifeTagsSection: some View {

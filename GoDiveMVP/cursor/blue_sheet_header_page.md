@@ -7,7 +7,7 @@ Reusable layout for **Home**, **trip detail**, **buddy detail**, **species detai
 - **Scrollable body** — lifetime stats grid (Home), horizontal pager (detail pages), or scroll lists
 
 **Shells:** `BlueSheetDetailPage` (pushed detail); **`BlueSheetTabRootPage`** (Home, planned)  
-**Canonical implementations:** `LogOverviewView` (Home), `TripDetailView`, `ViewDiveBuddyDetails`, `FieldGuideMarineLifeDetailView`, `ExploreDiveSiteDetailView`  
+**Canonical implementations:** `LogOverviewView` (Home), `TripDetailView`, `ViewDiveBuddyDetails`, `FieldGuideMarineLifeDetailView`, `ExploreDiveSiteDetailView`, `ViewEquipmentDetails`, `ViewCertificationDetails`  
 **Per-page customizations:** `GoDiveMVP/cursor/blue_sheet_detail_customizations.md`  
 **Home vs detail measurements:** `GoDiveMVP/cursor/blue_sheet_home_vs_detail_layout.md`  
 **Shared components:** `BlueSheetHeaderPageLayout`, `BlueSheetHeaderPageLayoutBuilder`, `BlueSheetHeaderScrollPageLayout`, `HomeOverviewLayout`  

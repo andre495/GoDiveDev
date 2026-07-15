@@ -42,6 +42,14 @@ enum DiveMediaBuddyTagPresentation {
     nonisolated static let largeDetentUntaggedPrompt =
         "No buddies tagged on this photo yet. Tap + to tag who appears here."
 
+    nonisolated static let sheetTitle = "Tag buddy"
+    nonisolated static let doneButtonTitle = "Done"
+    nonisolated static let cancelAccessibilityLabel = "Cancel"
+    nonisolated static let addBuddyAccessibilityLabel = "Add buddy"
+    nonisolated static let doneAccessibilityIdentifier = "DiveMediaBuddyTagPicker.Done"
+    nonisolated static let cancelAccessibilityIdentifier = "DiveMediaBuddyTagPicker.Cancel"
+    nonisolated static let addBuddyAccessibilityIdentifier = "DiveMediaBuddyTagPicker.AddBuddy"
+
     nonisolated static func taggedBuddyIDs(
         mediaPhotoID: UUID,
         tags: [DiveMediaBuddyTag]

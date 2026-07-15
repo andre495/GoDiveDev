@@ -30,8 +30,9 @@ Swipe horizontally between content sections on the detail pager.
 From a dive’s **Media** tab:
 
 1. Open the current photo or video.  
-2. Tap **fish** (marine life) on the sheet toolbar.  
-3. Search or browse species; confirm to tag.  
+2. Tap **fish** (marine life) on the sheet toolbar (or **+** on the marine life overview).  
+3. Search or browse species — each tap stages a tag.  
+4. Tap **Done** (upper right) to save. **×** (upper left) or swipe the sheet down to close without applying staged tags.
 
 Tagged species appear on the media carousel, in dive overview chips, on Home highlights, and in Field Guide **tagged dives** / **tagged media** for that species.
 

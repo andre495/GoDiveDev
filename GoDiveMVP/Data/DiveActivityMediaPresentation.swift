@@ -22,6 +22,12 @@ enum DiveActivityMediaPresentation: Sendable {
         isMediaTabSelected && showsBackgroundPhotos(for: detent)
     }
 
+    /// Mount an **`AVPlayer`** only for the selected paging page — keeps LazyHStack neighbors on posters
+    /// so rapid carousel / swipe between library videos cannot race shared session invalidate + item ownership.
+    nonisolated static func mountsVideoPlayerForActivePlayback(_ isVideoPlaybackActive: Bool) -> Bool {
+        isVideoPlaybackActive
+    }
+
     nonisolated static func sortedMedia(on activity: DiveActivity) -> [DiveMediaPhoto] {
         sortedPhotos(on: activity)
     }
@@ -157,13 +163,20 @@ enum DiveActivityMediaPresentation: Sendable {
         !isMediaTabSelected
     }
 
-    /// Feathered top mask on scroll content in the **Media** sheet at **large** only.
+    /// Outer panel scroll fade — **Media** **large** owns scroll under pinned chrome, so this stays **0**.
     nonisolated static func panelTopScrollFadeHeight(
         detent: DiveActivityOverviewDetent,
         isMediaTabSelected: Bool
     ) -> CGFloat {
-        guard isMediaTabSelected, detent == .large else { return 0 }
-        return DiveActivityOverviewPanelMetrics.mediaLargeDetentTopScrollFadeHeight
+        _ = detent
+        _ = isMediaTabSelected
+        return 0
+    }
+
+    /// Soft top feather under the pinned fish/buddy toggle/**+** while body content scrolls.
+    nonisolated static var largeDetentPinnedChromeScrollFadeHeight: CGFloat {
+        largeDetentTagOverviewChromeHeight
+            + DiveActivityOverviewPanelMetrics.mediaLargeDetentPinnedChromeFadeExtra
     }
 
     /// **`false`** — **Media** large detent keeps frosted panel chrome; scroll feather fades over the hero.
@@ -241,9 +254,30 @@ enum DiveActivityMediaPresentation: Sendable {
         return !confirmedSpeciesName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    /// Fish tag, featured toggle, and **+** add control in the **Media** sheet chrome at **medium** only.
+    /// Reserved top chrome clearance — unused; fish / buddy sit on the dive-number row at **medium**.
     nonisolated static func showsMediaSheetChromeActions(for detent: DiveActivityOverviewDetent) -> Bool {
+        _ = detent
+        return false
+    }
+
+    /// Fish / buddy trailing the dive-number / identity header at **medium**.
+    nonisolated static func showsMediumDetentTrailingTagChrome(for detent: DiveActivityOverviewDetent) -> Bool {
         detent == .medium
+    }
+
+    /// Carousel star: always on the featured preview; also on the **selected** preview (white when not featured).
+    nonisolated static func showsCarouselFeaturedStar(isSelected: Bool, isFeatured: Bool) -> Bool {
+        isSelected || isFeatured
+    }
+
+    /// Accent (blue) when featured; white when selected but not featured.
+    nonisolated static func carouselFeaturedStarUsesAccent(isFeatured: Bool) -> Bool {
+        isFeatured
+    }
+
+    /// Star glyph size tracks selected / unselected thumbnail extent.
+    nonisolated static func carouselFeaturedStarFontSize(isSelected: Bool) -> CGFloat {
+        carouselThumbnailExtent(isSelected: isSelected) * 0.22
     }
 
     /// Trailing **+** on the **large** tagged-species sheet — opens the marine-life tag flow.
@@ -308,12 +342,13 @@ enum DiveActivityMediaPresentation: Sendable {
         return inset + carouselRowHeight
     }
 
-    /// **Media** panel scroll is only needed at **large** (tagged-species detail).
+    /// **Media** panel outer scroll stays off — **large** scrolls inside the pinned chrome host.
     nonisolated static func disablesPanelScroll(
         isMediaTabSelected: Bool,
         detent: DiveActivityOverviewDetent
     ) -> Bool {
-        isMediaTabSelected && detent != .large
+        _ = detent
+        return isMediaTabSelected
     }
 
     nonisolated static let carouselThumbnailSize: CGFloat = 72

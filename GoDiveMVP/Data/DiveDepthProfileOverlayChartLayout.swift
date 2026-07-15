@@ -3,10 +3,12 @@ import Foundation
 
 /// Plot geometry for **`DiveDepthProfileOverlayChart`** (testable off the main actor).
 enum DiveDepthProfileOverlayChartLayout: Sendable {
-    static let insetTop: CGFloat = 10
-    static let insetLeading: CGFloat = 8
-    static let insetBottom: CGFloat = 10
-    static let insetTrailing: CGFloat = 8
+    /// Room for depth tick labels left of the plot.
+    static let insetTop: CGFloat = 12
+    static let insetLeading: CGFloat = 36
+    /// Room for dive-time tick labels under the plot.
+    static let insetBottom: CGFloat = 22
+    static let insetTrailing: CGFloat = 10
 
     static func plotRect(in size: CGSize) -> CGRect {
         CGRect(

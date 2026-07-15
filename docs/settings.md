@@ -62,6 +62,31 @@ Requires **Photos** permission. GoDive stores **references** to library assets (
 
 When **off**, imports skip library scan unless you enable attach on the import options screen for that one import.
 
+## Crash reporting
+
+If GoDive crashes or quits unexpectedly, a report is saved in the app's on-device database.
+
+### Share crash reports
+
+When **on**, saved reports upload automatically to the GoDive developer so problems can be diagnosed and fixed. Reports contain **technical diagnostics only** (crash type, call stack, app and iOS version) — never your dive log, photos, or personal data.
+
+- Requires an iCloud account signed in on the device.
+- Turning the toggle on also sends any reports saved while it was off.
+- When **off** (the default), reports stay on your device.
+
+### Crash Reports page
+
+Open **Settings → Crash Reports** to review what was captured:
+
+- Reports list newest first, each showing whether it was **sent to the developer**.
+- Tap a report for full detail, or use **Share** to send it manually (works regardless of the toggle).
+- **Clear All** deletes every stored report (asks to confirm).
+
+Reports include technical diagnostics plus a short **breadcrumb trail** of recent UI context (which tab you were on, dive overview tab/detent, media counts and selection, open sheets, and recent actions like starring or uploading) so crashes and unexpected quits are easier to place. Trails use screen names and dive/media IDs only — not your log text or photos.
+
+!!! note
+    System crash diagnostics (full call stacks) can take until the **next app launch** to appear. An **Abnormal exit** entry may show first with breadcrumbs; a fuller **Crash** entry can follow later.
+
 ## Related settings elsewhere
 
 These aren’t on the Settings page but interact with it:

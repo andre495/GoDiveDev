@@ -6,7 +6,13 @@ enum DiveActivityMediaEmptyHeroPresentation: Sendable {
 
     static let title = HomeMediaCarouselEmptyPresentation.title
     static let message =
-        "Tap + below to add photos or videos — or turn on auto-upload in Settings to pull in matching library media."
+        "Add photos or videos, or turn on auto-upload in Settings to pull in matching library media."
+    static let uploadMediaCTATitle = "Upload Media"
+
+    /// Liquid Glass **Upload Media** CTA in the hero band above the sheet (**minimized** / **medium**).
+    nonisolated static func showsUploadMediaCTA(forHeightFraction fraction: CGFloat) -> Bool {
+        showsHeroGhostFrames(forHeightFraction: fraction)
+    }
 
     /// Vertical center of ghost frames in the hero band above the overview sheet.
     nonisolated static func ghostFramesCenterY(

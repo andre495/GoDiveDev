@@ -23,8 +23,8 @@ enum DiveActivityOverviewPanelMetrics: Sendable {
     /// Bottom inset on embedded overview panel scroll content (matches **`AppTheme.Spacing.lg`**).
     nonisolated static let panelContentBottomPadding: CGFloat = 24
 
-    /// Soft top edge on **Media** **large** panel scroll content (replaces a hard clip).
-    nonisolated static let mediaLargeDetentTopScrollFadeHeight: CGFloat = 40
+    /// Extra feather below the pinned fish/buddy chrome height for scroll-under fade.
+    nonisolated static let mediaLargeDetentPinnedChromeFadeExtra: CGFloat = 12
 
     /// Matches **`DiveActivityOverviewEmbeddedPanel`** grabber row **`minHeight`**.
     nonisolated static let embeddedGrabberRowHeight: CGFloat = 28

@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 
 /// Full-bleed **Media** tab hero — one photo or video at a time; horizontal paging.
@@ -31,6 +32,9 @@ struct DiveActivityMediaBackgroundView: View {
     let bottomContentMargin: CGFloat
     /// Lifts the capture-date oval above the overview sheet when the hero is full-bleed.
     var captureOverlayBottomInset: CGFloat = 0
+    /// Empty-hero **Upload Media** CTA — shared picker with the overview sheet **+**.
+    @Binding var mediaPickerItems: [PhotosPickerItem]
+    var isImportInProgress = false
 
     @State private var pagerScrollReaffirmToken = 0
     @State private var pagerLayoutReaffirmTask: Task<Void, Never>?
@@ -187,12 +191,24 @@ struct DiveActivityMediaBackgroundView: View {
                         bottomSafeInset: bottomSafeInset,
                         topObstructionHeight: topObstructionHeight
                     )
-                    MediaUploadEmptyGhostFramesAnimation(
-                        containerWidth: geometry.size.width,
-                        verticalOffset: DiveActivityMediaEmptyHeroPresentation.ghostFramesVerticalOffset(
+                    VStack(spacing: AppTheme.Spacing.lg) {
+                        MediaUploadEmptyGhostFramesAnimation(
+                            containerWidth: geometry.size.width,
+                            verticalOffset: 0,
+                            contentScale: DiveActivityMediaEmptyHeroPresentation.ghostFramesScale(
+                                forHeightFraction: sheetHeightFraction
+                            )
+                        )
+
+                        if DiveActivityMediaEmptyHeroPresentation.showsUploadMediaCTA(
                             forHeightFraction: sheetHeightFraction
-                        ),
-                        contentScale: DiveActivityMediaEmptyHeroPresentation.ghostFramesScale(
+                        ) {
+                            emptyHeroUploadMediaCTA
+                                .padding(.horizontal, AppTheme.Spacing.lg)
+                        }
+                    }
+                    .offset(
+                        y: DiveActivityMediaEmptyHeroPresentation.ghostFramesVerticalOffset(
                             forHeightFraction: sheetHeightFraction
                         )
                     )
@@ -203,6 +219,22 @@ struct DiveActivityMediaBackgroundView: View {
             }
         }
         .accessibilityIdentifier("DiveActivity.MediaBackground.Empty")
+    }
+
+    private var emptyHeroUploadMediaCTA: some View {
+        PhotosPicker(
+            selection: $mediaPickerItems,
+            maxSelectionCount: 20,
+            matching: .any(of: [.images, .videos]),
+            photoLibrary: .shared()
+        ) {
+            Text(DiveActivityMediaEmptyHeroPresentation.uploadMediaCTATitle)
+                .frame(maxWidth: .infinity)
+        }
+        .appOnboardingPrimaryGlassButtonStyle()
+        .disabled(isImportInProgress)
+        .opacity(isImportInProgress ? 0.45 : 1)
+        .accessibilityIdentifier("DiveActivity.MediaBackground.UploadMedia")
     }
 
     private var emptyStateAccessibilityLabel: String {

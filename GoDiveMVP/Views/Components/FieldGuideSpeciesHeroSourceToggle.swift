@@ -6,7 +6,9 @@ struct FieldGuideSpeciesHeroSourceToggle: View {
         case catalogReference(
             featureModelResourceName: String,
             featureImageResourceName: String,
-            featureImageURL: String
+            featureImageURL: String,
+            minSizeMeters: Double,
+            maxSizeMeters: Double
         )
         case taggedUserMedia(DiveMediaPhoto)
     }
@@ -43,12 +45,16 @@ struct FieldGuideSpeciesHeroSourceToggle: View {
         case .catalogReference(
             let featureModelResourceName,
             let featureImageResourceName,
-            let featureImageURL
+            let featureImageURL,
+            let minSizeMeters,
+            let maxSizeMeters
         ):
             catalogPreview(
                 featureModelResourceName: featureModelResourceName,
                 featureImageResourceName: featureImageResourceName,
-                featureImageURL: featureImageURL
+                featureImageURL: featureImageURL,
+                minSizeMeters: minSizeMeters,
+                maxSizeMeters: maxSizeMeters
             )
         case .taggedUserMedia(let media):
             taggedMediaPreview(media: media)
@@ -59,7 +65,9 @@ struct FieldGuideSpeciesHeroSourceToggle: View {
     private func catalogPreview(
         featureModelResourceName: String,
         featureImageResourceName: String,
-        featureImageURL: String
+        featureImageURL: String,
+        minSizeMeters: Double,
+        maxSizeMeters: Double
     ) -> some View {
         let availability = FieldGuideSpeciesHeroPresentation.catalogHeroAvailability(
             featureModelResourceName: featureModelResourceName,
@@ -75,7 +83,9 @@ struct FieldGuideSpeciesHeroSourceToggle: View {
             FieldGuideMarineLifeRealityHeroView(
                 configuration: FieldGuideSpeciesHeroPresentation.compactSceneConfiguration(
                     for: FieldGuideMarineLifeHeroPresentation.sceneConfiguration(
-                        forModelResourceName: featureModelResourceName
+                        forModelResourceName: featureModelResourceName,
+                        minSizeMeters: minSizeMeters,
+                        maxSizeMeters: maxSizeMeters
                     )
                 )
             )

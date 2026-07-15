@@ -6,7 +6,7 @@ GoDive is built on Apple’s platforms and a mix of open catalogs, third-party S
 
 | Source | Used for |
 |--------|----------|
-| **[Meshy AI](https://www.meshy.ai/)** | Field Guide **3D hero** models (e.g. French Angelfish), exported as **USDZ** for on-device **RealityKit** viewing |
+| **[Meshy AI](https://www.meshy.ai/)** | Field Guide **3D hero** models (French Angelfish, Caribbean reef squid, green sea turtle, spotted eagle ray, great barracuda, sergeant major, rock beauty, red lionfish), exported as **USDZ** for on-device **RealityKit** viewing |
 
 ## Marine life catalog
 
@@ -56,6 +56,14 @@ These require network access and developer configuration; they are **off** unles
 | Source | Used for |
 |--------|----------|
 | **[Fishial.AI](https://fishial.ai/)** | Optional **Identify fish** on dive media — one cropped JPEG per request, plus optional dive coordinates in a header ([API terms](https://docs.fishial.ai/api)) |
+
+## Marketing website
+
+| Source | Used for |
+|--------|----------|
+| **[Wix](https://www.wix.com/)** (Premium) | Public product landing page for GoDive (site project **GoDive** / GoDive iOS), served at **[godiveios.com](https://godiveios.com)** with the domain registered at GoDaddy and connected to Wix |
+
+The iPhone app does not embed or require Wix. The user guide remains on [GitHub Pages](https://andre495.github.io/GoDiveDev/).
 
 ## Apple platform services
 

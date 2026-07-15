@@ -5,6 +5,7 @@
 //  Created by André Dugas on 4/1/26.
 //
 
+import CloudKit
 import Contacts
 import AuthenticationServices
 import CoreGraphics
@@ -2768,7 +2769,29 @@ struct GoDiveMVPTests {
 
     @Test func certificationPresentation_title_fallsBackToAgencyAndNumber() {
         let cert = Certification(agency: "PADI", certNumber: "123")
-        #expect(CertificationPresentation.title(for: cert) == "PADI · 123")
+        #expect(CertificationPresentation.title(for: cert) == "PADI · #123")
+    }
+
+    @Test func certificationPresentation_listRows_showAgencyNumberAndDateSeparately() {
+        let cert = Certification(
+            agency: "PADI",
+            certName: "Rescue Diver",
+            certNumber: "240988",
+            dateAttained: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+        #expect(CertificationPresentation.listAgencyNumberLine(for: cert) == "PADI · #240988")
+        #expect(CertificationPresentation.formattedCertNumber("240988") == "#240988")
+        #expect(CertificationPresentation.formattedCertNumber("#99") == "#99")
+        #expect(CertificationPresentation.formattedCertNumber("  ") == nil)
+        #expect(CertificationPresentation.listAgencyNumberLine(for: Certification()) == "—")
+        #expect(
+            CertificationPresentation.listDateLine(for: cert)
+                == CertificationPresentation.formattedDate(cert.dateAttained)
+        )
+        #expect(
+            CertificationPresentation.subtitle(for: cert)
+                == "PADI · #240988 · \(CertificationPresentation.listDateLine(for: cert))"
+        )
     }
 
     @Test func certificationPresentation_profileFeaturedCertificationCard_returnsNewestCertificationType() {
@@ -2878,7 +2901,7 @@ struct GoDiveMVPTests {
             cardType: .certification
         )
         let display = CertificationPresentation.profileFeaturedCertification(from: [cert])
-        #expect(display?.title == "PADI · RD-991")
+        #expect(display?.title == "PADI · #RD-991")
         #expect(display?.certNumber == nil)
     }
 
@@ -2911,7 +2934,7 @@ struct GoDiveMVPTests {
 
     @Test func certificationPresentation_detailHeaderName_fallsBackToTitle() {
         let cert = Certification(agency: "PADI", certNumber: "99")
-        #expect(CertificationPresentation.detailHeaderName(for: cert) == "PADI · 99")
+        #expect(CertificationPresentation.detailHeaderName(for: cert) == "PADI · #99")
     }
 
     @Test func certificationPresentation_sortedForList_newestDateAttainedFirst() {
@@ -2931,6 +2954,85 @@ struct GoDiveMVPTests {
         )
         let sorted = CertificationPresentation.sortedForList([older, newer])
         #expect(sorted.map(\.certName) == ["Rescue Diver", "Open Water"])
+    }
+
+    @Test func certificationPresentation_divesLoggedSinceAttainedCount_includesAttainedDayOnward() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let attainedDay = calendar.date(from: DateComponents(year: 2024, month: 6, day: 15))!
+        let sameDayMorning = calendar.date(from: DateComponents(year: 2024, month: 6, day: 15, hour: 9))!
+        let dayBefore = calendar.date(from: DateComponents(year: 2024, month: 6, day: 14, hour: 18))!
+        let dayAfter = calendar.date(from: DateComponents(year: 2024, month: 6, day: 16, hour: 10))!
+        let count = CertificationPresentation.divesLoggedSinceAttainedCount(
+            startTimes: [dayBefore, sameDayMorning, dayAfter],
+            dateAttained: attainedDay,
+            calendar: calendar
+        )
+        #expect(count == 2)
+        #expect(CertificationPresentation.divesLoggedSinceAttainedLabel(count: 0) == "0 dives")
+        #expect(CertificationPresentation.divesLoggedSinceAttainedLabel(count: 1) == "1 dive")
+        #expect(CertificationPresentation.divesLoggedSinceAttainedLabel(count: 2) == "2 dives")
+    }
+
+    @Test func certificationDetailHeroPresentation_showsToggleOnlyWhenBothFacesPresent() {
+        #expect(
+            CertificationDetailHeroPresentation.showsHeroSideToggle(hasFront: true, hasBack: true)
+        )
+        #expect(
+            !CertificationDetailHeroPresentation.showsHeroSideToggle(hasFront: true, hasBack: false)
+        )
+        #expect(
+            !CertificationDetailHeroPresentation.showsHeroSideToggle(hasFront: false, hasBack: true)
+        )
+        #expect(
+            !CertificationDetailHeroPresentation.showsHeroSideToggle(hasFront: false, hasBack: false)
+        )
+        #expect(
+            CertificationDetailHeroPresentation.defaultHeroSide(hasFront: false, hasBack: true) == .back
+        )
+        #expect(
+            CertificationDetailHeroPresentation.defaultHeroSide(hasFront: true, hasBack: false) == .front
+        )
+        let front = Data([0x01])
+        let back = Data([0x02])
+        #expect(
+            CertificationDetailHeroPresentation.photoData(
+                for: .front,
+                frontPicture: front,
+                backPicture: back
+            ) == front
+        )
+        #expect(
+            CertificationDetailHeroPresentation.photoData(
+                for: .back,
+                frontPicture: nil,
+                backPicture: back
+            ) == back
+        )
+        #expect(CertificationDetailHeroPresentation.cardPhotoSeamBottomInset == HomeOverviewLayout.panelOverlap)
+        #expect(CertificationDetailHeroPresentation.cardPhotoHorizontalInset == 0)
+    }
+
+    @Test func certificationDetailContentPagerPresentation_twoTabs() {
+        #expect(CertificationDetailContentPagerPresentation.pageCount == 2)
+        #expect(CertificationDetailContentPagerPresentation.defaultPage == .details)
+        #expect(
+            CertificationDetailContentPagerPresentation.pages == [
+                .details,
+                .instructorAndShop,
+            ]
+        )
+        #expect(
+            CertificationDetailContentPagerPresentation.pageTitle(for: .details) == "Details"
+        )
+        #expect(
+            CertificationDetailContentPagerPresentation.pageTitle(for: .instructorAndShop)
+                == "Instructor & shop"
+        )
+        #expect(
+            CertificationDetailContentPagerPresentation.accessibilityIdentifier(for: .details)
+                == "CertificationDetails.ContentPager.Details"
+        )
     }
 
     @Test func appUserSettings_automaticallyRenumberDivesKey_matchesAppStorage() {
@@ -3098,7 +3200,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
         let dive = DiveActivity(
@@ -3254,6 +3356,77 @@ struct GoDiveMVPTests {
         )
         #expect(abs(point.x - 100) < 0.5)
         #expect(abs(point.y - 50) < 0.5)
+    }
+
+    @Test func diveDepthProfileChartAxisPresentation_formatsDiveTimeMinutes() {
+        #expect(DiveDepthProfileChartAxisPresentation.formattedDiveTimeMinutes(elapsedSeconds: 0) == "0 min")
+        #expect(DiveDepthProfileChartAxisPresentation.formattedDiveTimeMinutes(elapsedSeconds: 60) == "1 min")
+        #expect(DiveDepthProfileChartAxisPresentation.formattedDiveTimeMinutes(elapsedSeconds: 90) == "1.5 min")
+        #expect(DiveDepthProfileChartAxisPresentation.scrubTimeLabel(elapsedSeconds: 150) == "Time 2.5 min")
+        #expect(
+            DiveDepthProfileChartAxisPresentation.scrubDepthLabel(depthMeters: 10, system: .metric)
+                == "Depth 10.0 m"
+        )
+        #expect(
+            DiveDepthProfileChartAxisPresentation.scrubDepthLabel(depthMeters: 10, system: .imperial)
+                == "Depth 32.8 ft"
+        )
+    }
+
+    @Test func diveDepthProfileChartAxisPresentation_timeTicks_coverVisibleWindowInMinutes() {
+        let viewport = DiveDepthProfileChartViewport(elapsedStart: 0, elapsedEnd: 1_800)
+        let ticks = DiveDepthProfileChartAxisPresentation.timeTicks(viewport: viewport)
+        #expect(ticks.count == 2)
+        #expect(!ticks.contains { $0.label == "0 min" })
+        #expect(abs((ticks[0].canonicalValue) - 900) < 0.001)
+        #expect(ticks[0].label == "15 min")
+        #expect(abs(ticks[0].fraction - 0.5) < 0.001)
+        #expect(abs((ticks[1].canonicalValue) - 1_800) < 0.001)
+        #expect(ticks[1].label == "30 min")
+        #expect(abs(ticks[1].fraction - 1.0) < 0.001)
+    }
+
+    @Test func diveTankOverviewHeroPresentation_landscapeChartHorizontalInset_isInsetFromEdges() {
+        #expect(DiveTankOverviewHeroPresentation.minimizedLandscapeChartHorizontalInset == 48)
+    }
+
+    @Test func diveDepthProfileChartAxisPresentation_depthTicks_unitAware() {
+        let metric = DiveDepthProfileChartAxisPresentation.depthTicks(
+            maxDepthMeters: 40,
+            system: .metric
+        )
+        #expect(metric.count >= 2)
+        #expect(metric.first?.label == "0 m")
+        #expect(metric.last?.label == "40 m")
+        #expect(abs((metric.last?.fraction ?? 0) - 1) < 0.001)
+
+        let imperial = DiveDepthProfileChartAxisPresentation.depthTicks(
+            maxDepthMeters: 30.48, // 100 ft
+            system: .imperial
+        )
+        #expect(imperial.count >= 2)
+        #expect(imperial.first?.label == "0 ft")
+        #expect(imperial.last?.label.contains("ft") == true)
+        #expect(abs((imperial.last?.fraction ?? 0) - 1) < 0.001)
+    }
+
+    @Test func diveDepthProfileChartAxisPresentation_niceStep_uses1_2_5_ladder() {
+        #expect(abs(DiveDepthProfileChartAxisPresentation.niceStep(range: 30, targetCount: 4) - 10) < 0.001)
+        #expect(abs(DiveDepthProfileChartAxisPresentation.niceStep(range: 100, targetCount: 5) - 50) < 0.001)
+        #expect(abs(DiveDepthProfileChartAxisPresentation.niceStep(range: 12, targetCount: 4) - 5) < 0.001)
+    }
+
+    @Test func diveDepthProfileOverlayChartLayout_plotRect_reservesAxisInsets() {
+        let size = CGSize(width: 320, height: 180)
+        let rect = DiveDepthProfileOverlayChartLayout.plotRect(in: size)
+        #expect(abs(rect.minX - DiveDepthProfileOverlayChartLayout.insetLeading) < 0.1)
+        #expect(abs(rect.minY - DiveDepthProfileOverlayChartLayout.insetTop) < 0.1)
+        #expect(
+            abs(rect.maxX - (size.width - DiveDepthProfileOverlayChartLayout.insetTrailing)) < 0.1
+        )
+        #expect(
+            abs(rect.maxY - (size.height - DiveDepthProfileOverlayChartLayout.insetBottom)) < 0.1
+        )
     }
 
     @Test func diveTankOverviewHeroPresentation_landscapeMinimized_hidesGasSummaryAndShowsMediaMarkers() {
@@ -4147,6 +4320,155 @@ struct GoDiveMVPTests {
         #expect(kind == .model3D(.frenchAngelfish))
     }
 
+    @Test func fieldGuideMarineLifeHeroPresentation_defaultFitExtent_matchesPlateSize() {
+        #expect(
+            abs(FieldGuideMarineLifeHeroSceneConfiguration.defaultFitExtent - 0.22) < 0.0001
+        )
+        #expect(
+            FieldGuideMarineLifeHeroSceneConfiguration.frenchAngelfish.fitExtent
+                == FieldGuideMarineLifeHeroSceneConfiguration.defaultFitExtent
+        )
+        let generic = FieldGuideMarineLifeHeroPresentation.sceneConfiguration(
+            forModelResourceName: "RedLionfish"
+        )
+        #expect(generic.fitExtent == FieldGuideMarineLifeHeroSceneConfiguration.defaultFitExtent)
+    }
+
+    @Test func fieldGuideMarineLifeHeroFitExtent_usesAverageOrMaxSize() {
+        #expect(
+            abs(
+                FieldGuideMarineLifeHeroFitExtentPresentation.representativeSizeMeters(
+                    minSizeMeters: 0.2,
+                    maxSizeMeters: 0.4
+                ) - 0.3
+            ) < 0.0001
+        )
+        #expect(
+            abs(
+                FieldGuideMarineLifeHeroFitExtentPresentation.representativeSizeMeters(
+                    minSizeMeters: 0,
+                    maxSizeMeters: 2.0
+                ) - 2.0
+            ) < 0.0001
+        )
+        #expect(
+            FieldGuideMarineLifeHeroFitExtentPresentation.representativeSizeMeters(
+                minSizeMeters: 0,
+                maxSizeMeters: 0
+            ) == 0
+        )
+    }
+
+    @Test func fieldGuideMarineLifeHeroFitExtent_emphasizesMidBandOverExtremes() {
+        let fit: (Double) -> Float = { feet in
+            let meters = feet / FieldGuideMarineLifeHeroFitExtentPresentation.feetPerMeter
+            return FieldGuideMarineLifeHeroFitExtentPresentation.fitExtent(forSizeMeters: meters)
+        }
+
+        let atTiny = fit(0.1)
+        let atSmallCeiling = fit(0.5)
+        let atMid = fit(3.0)
+        let atLargeFloor = fit(6.0)
+        let atHuge = fit(20.0)
+        let unknown = FieldGuideMarineLifeHeroFitExtentPresentation.fitExtent(
+            minSizeMeters: 0,
+            maxSizeMeters: 0
+        )
+
+        #expect(atTiny < atSmallCeiling)
+        #expect(atSmallCeiling < atMid)
+        #expect(atMid < atLargeFloor)
+        #expect(atLargeFloor < atHuge)
+        #expect(atHuge <= FieldGuideMarineLifeHeroFitExtentPresentation.maxFitExtent + 0.0001)
+        #expect(
+            abs(unknown - FieldGuideMarineLifeHeroSceneConfiguration.defaultFitExtent) < 0.0001
+        )
+
+        // Per-foot change is largest across the mid band (0.5–6 ft).
+        let smallSlope = Double(atSmallCeiling - atTiny) / 0.4
+        let midSlope = Double(atLargeFloor - atSmallCeiling) / 5.5
+        let largeSlope = Double(atHuge - atLargeFloor) / 14.0
+        #expect(midSlope > smallSlope)
+        #expect(midSlope > largeSlope)
+
+        // Catalog examples: sergeant major (~0.75 ft) smaller plate than barracuda (~6.6 ft).
+        let sergeant = FieldGuideMarineLifeHeroFitExtentPresentation.fitExtent(
+            minSizeMeters: 0,
+            maxSizeMeters: 0.23
+        )
+        let barracuda = FieldGuideMarineLifeHeroFitExtentPresentation.fitExtent(
+            minSizeMeters: 0,
+            maxSizeMeters: 2.0
+        )
+        #expect(sergeant < barracuda)
+
+        let sized = FieldGuideMarineLifeHeroPresentation.sceneConfiguration(
+            forModelResourceName: "GreatBarracuda",
+            minSizeMeters: 0,
+            maxSizeMeters: 2.0
+        )
+        #expect(abs(sized.fitExtent - barracuda) < 0.0001)
+    }
+
+    @Test func fieldGuideMarineLifeHeroGlowPresentation_accentTintAndDiscPlacement() {
+        #expect(FieldGuideMarineLifeHeroGlowPresentation.layers.count == 3)
+        let radius = FieldGuideMarineLifeHeroGlowPresentation.baseRadius(fitExtent: 0.22)
+        #expect(abs(radius - 0.22 * 0.72) < 0.0001)
+        #expect(abs(FieldGuideMarineLifeHeroGlowPresentation.verticalClearance - 0.18) < 0.0001)
+
+        let y = FieldGuideMarineLifeHeroGlowPresentation.discY(
+            modelPositionY: -0.09,
+            modelExtentY: 1.0,
+            modelScale: 0.22
+        )
+        // Plate sits below the model lowest point (half extent − clearance).
+        #expect(
+            abs(
+                y - (
+                    -0.09
+                        - 0.11
+                        - FieldGuideMarineLifeHeroGlowPresentation.verticalClearance
+                )
+            ) < 0.0001
+        )
+        let underSpin = FieldGuideMarineLifeHeroGlowPresentation.discPositionUnderSpinAxis(glowY: y)
+        #expect(underSpin.x == 0)
+        #expect(underSpin.z == 0)
+        #expect(underSpin.y == y)
+
+        let tint = FieldGuideMarineLifeHeroGlowPresentation.tintRGB(intensity: 0.5)
+        #expect(abs(tint.red - 0) < 0.0001)
+        #expect(abs(tint.green - 0.24) < 0.0001)
+        #expect(abs(tint.blue - 0.36) < 0.0001)
+
+        let midPulse = FieldGuideMarineLifeHeroGlowPresentation.pulseScale(elapsed: 0)
+        #expect(abs(midPulse - 1.0) < 0.0001)
+        let peakPulse = FieldGuideMarineLifeHeroGlowPresentation.pulseScale(
+            elapsed: Double(.pi / (2 * FieldGuideMarineLifeHeroGlowPresentation.pulseAngularSpeed))
+        )
+        #expect(abs(peakPulse - (1 + FieldGuideMarineLifeHeroGlowPresentation.pulseAmplitude)) < 0.001)
+
+        let emitterSize = FieldGuideMarineLifeHeroGlowPresentation.particleEmitterShapeSize(
+            baseRadius: radius
+        )
+        #expect(abs(emitterSize.x - radius * 0.85) < 0.0001)
+        #expect(abs(emitterSize.y - FieldGuideMarineLifeHeroGlowPresentation.particleEmitterHeight) < 0.0001)
+        #expect(
+            FieldGuideMarineLifeHeroGlowPresentation.particleEmissionDirection == SIMD3<Float>(0, 1, 0)
+        )
+        #expect(
+            abs(
+                FieldGuideMarineLifeHeroGlowPresentation.particleSpreadingAngle - (.pi / 2)
+            ) < 0.0001
+        )
+    }
+
+    @Test func fieldGuideMarineLifeHeroBackdropPresentation_scenePlateSitsBehindModel() {
+        #expect(FieldGuideMarineLifeHeroBackdropPresentation.scenePlaneZ < -0.5)
+        #expect(FieldGuideMarineLifeHeroBackdropPresentation.scenePlaneWidth > 1)
+        #expect(FieldGuideMarineLifeHeroBackdropPresentation.scenePlaneHeight > 1)
+    }
+
     @Test func fieldGuideMarineLifeHeroPresentation_caribbeanReefSquidUsesBundledModel() {
         let kind = FieldGuideMarineLifeHeroPresentation.heroKind(
             featureModelResourceName: "CaribbeanReefSquid",
@@ -4184,6 +4506,58 @@ struct GoDiveMVPTests {
             return
         }
         #expect(config.modelResourceName == "SpottedEagleRay")
+    }
+
+    @Test func fieldGuideMarineLifeHeroPresentation_greatBarracudaUsesBundledModel() {
+        let kind = FieldGuideMarineLifeHeroPresentation.heroKind(
+            featureModelResourceName: "GreatBarracuda",
+            featureImageResourceName: "",
+            featureImageURL: ""
+        )
+        guard case .model3D(let config) = kind else {
+            Issue.record("Expected 3D model hero")
+            return
+        }
+        #expect(config.modelResourceName == "GreatBarracuda")
+    }
+
+    @Test func fieldGuideMarineLifeHeroPresentation_sergeantMajorUsesBundledModel() {
+        let kind = FieldGuideMarineLifeHeroPresentation.heroKind(
+            featureModelResourceName: "SergeantMajor",
+            featureImageResourceName: "",
+            featureImageURL: ""
+        )
+        guard case .model3D(let config) = kind else {
+            Issue.record("Expected 3D model hero")
+            return
+        }
+        #expect(config.modelResourceName == "SergeantMajor")
+    }
+
+    @Test func fieldGuideMarineLifeHeroPresentation_rockBeautyUsesBundledModel() {
+        let kind = FieldGuideMarineLifeHeroPresentation.heroKind(
+            featureModelResourceName: "RockBeauty",
+            featureImageResourceName: "",
+            featureImageURL: ""
+        )
+        guard case .model3D(let config) = kind else {
+            Issue.record("Expected 3D model hero")
+            return
+        }
+        #expect(config.modelResourceName == "RockBeauty")
+    }
+
+    @Test func fieldGuideMarineLifeHeroPresentation_redLionfishUsesBundledModel() {
+        let kind = FieldGuideMarineLifeHeroPresentation.heroKind(
+            featureModelResourceName: "RedLionfish",
+            featureImageResourceName: "",
+            featureImageURL: ""
+        )
+        guard case .model3D(let config) = kind else {
+            Issue.record("Expected 3D model hero")
+            return
+        }
+        #expect(config.modelResourceName == "RedLionfish")
     }
 
     @Test func fieldGuideMarineLifeHeroPresentation_remoteImageWhenNoModel() {
@@ -5318,18 +5692,22 @@ struct GoDiveMVPTests {
         #expect(french?.scientificName == "Pomacanthus paru")
     }
 
-    @Test @MainActor func marineLifeCatalogSeeder_seedsCaribbeanReefSquid() throws {
+    @Test @MainActor func marineLifeCatalogSeeder_seedsCaribbeanReefShark() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = container.mainContext
         try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
-        let squid = try context.fetch(FetchDescriptor<MarineLife>()).first {
-            $0.uuid == "marine-life-caribbean-reef-squid"
+        let species = try context.fetch(FetchDescriptor<MarineLife>()).first {
+            $0.uuid == "marine-life-caribbean-reef-shark"
         }
-        #expect(squid?.commonName == "Caribbean Reef Squid")
-        #expect(squid?.scientificName == "Sepioteuthis sepioidea")
-        #expect(squid?.category == "invertebrates")
-        #expect(squid?.subcategory == "squids")
-        #expect(squid?.featureModelResourceName == "CaribbeanReefSquid")
+        #expect(species?.commonName == "Caribbean Reef Shark")
+        #expect(species?.scientificName == "Carcharhinus perezii")
+        #expect(species?.category == "fishes")
+        #expect(species?.subcategory == "sharks")
+        #expect(species?.familyName == "Carcharhinidae")
+        #expect(species?.featureImageResourceName == "marine-life-caribbean-reef-shark")
+        #expect(species?.maxSizeMeters == 3.0)
+        #expect(species?.minDepthMeters == 1.0)
+        #expect(species?.maxDepthMeters == 100.0)
     }
 
     @Test @MainActor func marineLifeCatalogSeeder_seedsGreenSeaTurtleModel() throws {
@@ -5388,6 +5766,54 @@ struct GoDiveMVPTests {
         #expect(ray?.commonName == "Spotted Eagle Ray")
         #expect(ray?.scientificName == "Aetobatus narinari")
         #expect(ray?.featureModelResourceName == "SpottedEagleRay")
+    }
+
+    @Test @MainActor func marineLifeCatalogSeeder_seedsGreatBarracudaModel() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+        let species = try context.fetch(FetchDescriptor<MarineLife>()).first {
+            $0.uuid == "marine-life-great-barracuda"
+        }
+        #expect(species?.commonName == "Great Barracuda")
+        #expect(species?.scientificName == "Sphyraena barracuda")
+        #expect(species?.featureModelResourceName == "GreatBarracuda")
+    }
+
+    @Test @MainActor func marineLifeCatalogSeeder_seedsSergeantMajorModel() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+        let species = try context.fetch(FetchDescriptor<MarineLife>()).first {
+            $0.uuid == "marine-life-sergeant-major"
+        }
+        #expect(species?.commonName == "Sergeant Major")
+        #expect(species?.scientificName == "Abudefduf saxatilis")
+        #expect(species?.featureModelResourceName == "SergeantMajor")
+    }
+
+    @Test @MainActor func marineLifeCatalogSeeder_seedsRockBeautyModel() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+        let species = try context.fetch(FetchDescriptor<MarineLife>()).first {
+            $0.uuid == "marine-life-rock-beauty"
+        }
+        #expect(species?.commonName == "Rock Beauty (juvenile)")
+        #expect(species?.scientificName == "Holacanthus tricolor")
+        #expect(species?.featureModelResourceName == "RockBeauty")
+    }
+
+    @Test @MainActor func marineLifeCatalogSeeder_seedsRedLionfishModel() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+        let species = try context.fetch(FetchDescriptor<MarineLife>()).first {
+            $0.uuid == "marine-life-red-lionfish"
+        }
+        #expect(species?.commonName == "Red Lionfish")
+        #expect(species?.scientificName == "Pterois volitans")
+        #expect(species?.featureModelResourceName == "RedLionfish")
     }
 
     @Test func fieldGuidePresentation_depthLine_prefersMinMaxRange() {
@@ -5622,12 +6048,12 @@ struct GoDiveMVPTests {
         }
     }
 
-    @Test func diveActivityMediaPresentation_panelTopScrollFadeHeight_onlyAtLargeOnMediaTab() {
+    @Test func diveActivityMediaPresentation_panelTopScrollFadeHeight_outerAlwaysZero() {
         #expect(
             DiveActivityMediaPresentation.panelTopScrollFadeHeight(
                 detent: .large,
                 isMediaTabSelected: true
-            ) == DiveActivityOverviewPanelMetrics.mediaLargeDetentTopScrollFadeHeight
+            ) == 0
         )
         #expect(
             DiveActivityMediaPresentation.panelTopScrollFadeHeight(
@@ -5643,6 +6069,15 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func diveActivityMediaPresentation_pinnedChromeScrollFade_coversToggleBand() {
+        let fade = DiveActivityMediaPresentation.largeDetentPinnedChromeScrollFadeHeight
+        #expect(fade > DiveActivityMediaPresentation.largeDetentTagOverviewChromeHeight)
+        #expect(
+            fade == DiveActivityMediaPresentation.largeDetentTagOverviewChromeHeight
+                + DiveActivityOverviewPanelMetrics.mediaLargeDetentPinnedChromeFadeExtra
+        )
+    }
+
     @Test func diveActivityMediaPresentation_showsHeroTopChromeScrim_onlyOnMapAndTank() {
         #expect(!DiveActivityMediaPresentation.showsHeroTopChromeScrim(isMediaTabSelected: true))
         #expect(DiveActivityMediaPresentation.showsHeroTopChromeScrim(isMediaTabSelected: false))
@@ -5655,12 +6090,7 @@ struct GoDiveMVPTests {
                 isMediaTabSelected: true
             )
         )
-        #expect(
-            DiveActivityMediaPresentation.panelTopScrollFadeHeight(
-                detent: .large,
-                isMediaTabSelected: true
-            ) > 0
-        )
+        #expect(DiveActivityMediaPresentation.largeDetentPinnedChromeScrollFadeHeight > 0)
     }
 
     @Test func diveActivityMediaPresentation_speciesWasFishialIdentified_matchesScientificName() {
@@ -5800,10 +6230,34 @@ struct GoDiveMVPTests {
         #expect(DiveActivityMediaPresentation.showsMarineLifeDetailInSheet(for: .large))
     }
 
-    @Test func diveActivityMediaPresentation_showsMediaSheetChromeActions_onlyAtMedium() {
+    @Test func diveActivityMediaPresentation_showsMediaSheetChromeActions_alwaysOff() {
         #expect(!DiveActivityMediaPresentation.showsMediaSheetChromeActions(for: .minimized))
-        #expect(DiveActivityMediaPresentation.showsMediaSheetChromeActions(for: .medium))
+        #expect(!DiveActivityMediaPresentation.showsMediaSheetChromeActions(for: .medium))
         #expect(!DiveActivityMediaPresentation.showsMediaSheetChromeActions(for: .large))
+        #expect(DiveActivityMediaPresentation.showsMediumDetentTrailingTagChrome(for: .medium))
+        #expect(!DiveActivityMediaPresentation.showsMediumDetentTrailingTagChrome(for: .minimized))
+        #expect(!DiveActivityMediaPresentation.showsMediumDetentTrailingTagChrome(for: .large))
+    }
+
+    @Test func diveActivityMediaPresentation_carouselFeaturedStarVisibilityAndScale() {
+        #expect(
+            DiveActivityMediaPresentation.showsCarouselFeaturedStar(isSelected: true, isFeatured: false)
+        )
+        #expect(
+            DiveActivityMediaPresentation.showsCarouselFeaturedStar(isSelected: false, isFeatured: true)
+        )
+        #expect(
+            DiveActivityMediaPresentation.showsCarouselFeaturedStar(isSelected: true, isFeatured: true)
+        )
+        #expect(
+            !DiveActivityMediaPresentation.showsCarouselFeaturedStar(isSelected: false, isFeatured: false)
+        )
+        #expect(DiveActivityMediaPresentation.carouselFeaturedStarUsesAccent(isFeatured: true))
+        #expect(!DiveActivityMediaPresentation.carouselFeaturedStarUsesAccent(isFeatured: false))
+        #expect(
+            DiveActivityMediaPresentation.carouselFeaturedStarFontSize(isSelected: true)
+                > DiveActivityMediaPresentation.carouselFeaturedStarFontSize(isSelected: false)
+        )
     }
 
     @Test func diveActivityMediaPresentation_showsLargeDetentAddMarineLifeControl_onlyAtLarge() {
@@ -6493,6 +6947,23 @@ struct GoDiveMVPTests {
         #expect(tagged.isTagged)
         #expect(tagged.marineLifeUUID == row.marineLifeUUID)
         #expect(tagged.commonName == row.commonName)
+    }
+
+    @Test func diveMarineLifeTagPickerPresentation_doneConfirmChrome_allowsInteractiveDismiss() {
+        #expect(DiveMarineLifeTagPickerPresentation.doneButtonTitle == "Done")
+        #expect(DiveMarineLifeTagPickerPresentation.doneAccessibilityIdentifier == "DiveMarineLifeTagPicker.Done")
+        #expect(DiveMarineLifeTagPickerPresentation.cancelAccessibilityIdentifier == "DiveMarineLifeTagPicker.Cancel")
+        #expect(DiveMarineLifeTagPickerPresentation.blocksInteractiveDismiss(pendingTagCount: 0) == false)
+        #expect(DiveMarineLifeTagPickerPresentation.blocksInteractiveDismiss(pendingTagCount: 1) == false)
+    }
+
+    @Test func diveMediaBuddyTagPresentation_toolbarChromeIdentifiers() {
+        #expect(DiveMediaBuddyTagPresentation.sheetTitle == "Tag buddy")
+        #expect(DiveMediaBuddyTagPresentation.doneButtonTitle == "Done")
+        #expect(DiveMediaBuddyTagPresentation.doneAccessibilityIdentifier == "DiveMediaBuddyTagPicker.Done")
+        #expect(DiveMediaBuddyTagPresentation.cancelAccessibilityIdentifier == "DiveMediaBuddyTagPicker.Cancel")
+        #expect(DiveMediaBuddyTagPresentation.addBuddyAccessibilityIdentifier == "DiveMediaBuddyTagPicker.AddBuddy")
+        #expect(DiveMediaBuddyTagPresentation.addBuddyAccessibilityLabel == "Add buddy")
     }
 
     @Test func fieldGuideMarineLifeSearch_precomputedSearchText_matchesLegacyMatcher() {
@@ -9873,7 +10344,7 @@ struct GoDiveMVPTests {
             DiveActivity.self,
             DiveMediaPhoto.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
         let dive = DiveActivity(
@@ -14819,7 +15290,17 @@ struct GoDiveMVPTests {
 
     @Test func diveActivityMediaEmptyHeroPresentation_reusesHomeHighlightTitle() {
         #expect(DiveActivityMediaEmptyHeroPresentation.title == HomeMediaCarouselEmptyPresentation.title)
-        #expect(DiveActivityMediaEmptyHeroPresentation.message.contains("Tap +"))
+        #expect(DiveActivityMediaEmptyHeroPresentation.uploadMediaCTATitle == "Upload Media")
+        #expect(
+            DiveActivityMediaEmptyHeroPresentation.showsUploadMediaCTA(
+                forHeightFraction: DiveActivityOverviewPanelMetrics.mediumHeightFraction
+            )
+        )
+        #expect(
+            !DiveActivityMediaEmptyHeroPresentation.showsUploadMediaCTA(
+                forHeightFraction: DiveActivityOverviewPanelMetrics.largeHeightFraction
+            )
+        )
     }
 
     @Test func diveActivityMediaPresentation_emptyStateMessage() {
@@ -15712,6 +16193,33 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func diveActivityMediaPresentation_mountsVideoPlayerOnlyWhenPlaybackActive() {
+        #expect(DiveActivityMediaPresentation.mountsVideoPlayerForActivePlayback(true))
+        #expect(!DiveActivityMediaPresentation.mountsVideoPlayerForActivePlayback(false))
+    }
+
+    @Test func diveActivityVideoPlaybackPolicy_settledMountRequiresActiveAndDelay() {
+        #expect(
+            DiveActivityVideoPlaybackPolicy.shouldMountSettledVideoPlayer(
+                isVideoPlaybackActive: true,
+                hasCompletedSettleDelay: true
+            )
+        )
+        #expect(
+            !DiveActivityVideoPlaybackPolicy.shouldMountSettledVideoPlayer(
+                isVideoPlaybackActive: true,
+                hasCompletedSettleDelay: false
+            )
+        )
+        #expect(
+            !DiveActivityVideoPlaybackPolicy.shouldMountSettledVideoPlayer(
+                isVideoPlaybackActive: false,
+                hasCompletedSettleDelay: true
+            )
+        )
+        #expect(DiveActivityVideoPlaybackPolicy.videoPlayerMountSettleDelayNanoseconds >= 200_000_000)
+    }
+
     @Test func diveActivityMediaPresentation_resolvedSelectedPhotoID() {
         let first = UUID()
         let second = UUID()
@@ -15961,7 +16469,7 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func diveActivityMediaPresentation_disablesPanelScroll_mediaTabUntilLarge() {
+    @Test func diveActivityMediaPresentation_disablesPanelScroll_mediaTabAllDetents() {
         #expect(
             DiveActivityMediaPresentation.disablesPanelScroll(
                 isMediaTabSelected: true,
@@ -15975,7 +16483,7 @@ struct GoDiveMVPTests {
             )
         )
         #expect(
-            !DiveActivityMediaPresentation.disablesPanelScroll(
+            DiveActivityMediaPresentation.disablesPanelScroll(
                 isMediaTabSelected: true,
                 detent: .large
             )
@@ -15988,7 +16496,7 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func diveActivityMediaPresentation_sheetBodyHeightAboveMediaCarousel_reservesChromeRow() {
+    @Test func diveActivityMediaPresentation_sheetBodyHeightAboveMediaCarousel_matchesMapTankHeaderBand() {
         let layoutHeight: CGFloat = 800
         let mediumInset = DiveActivityOverviewPanelMetrics.mediaCarouselScreenAlignmentTopInset(
             layoutHeight: layoutHeight,
@@ -15998,7 +16506,7 @@ struct GoDiveMVPTests {
             DiveActivityMediaPresentation.sheetBodyHeightAboveMediaCarousel(
                 layoutHeight: layoutHeight,
                 detent: .medium
-            ) == mediumInset - DiveActivityMediaPresentation.sheetChromeRowHeight
+            ) == mediumInset
         )
         let largeInset = DiveActivityOverviewPanelMetrics.mediaCarouselScreenAlignmentTopInset(
             layoutHeight: layoutHeight,
@@ -17018,7 +17526,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
         let outcome = await FitDiveFileImport.importFitData(Data(), modelContext: context)
@@ -18255,7 +18763,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
 
@@ -18673,7 +19181,7 @@ struct GoDiveMVPTests {
             DiveBuddyTag.self,
             UserProfile.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
 
@@ -20339,6 +20847,69 @@ struct GoDiveMVPTests {
         #expect(GlobalSearchPushedDestinationPresentation.attachesStackInteractivePop(pathCount: 1))
     }
 
+    @Test func globalSearchIndexLayer_onlyVisibleResultsLayerCancelsSharedSearchTaskOnDisappear() {
+        // The hidden warmer shares the `searchTask` binding; if its unmount cancelled the task, the
+        // refresh scheduled by the remounted results layer on pop-from-detail died and every text
+        // section stayed empty (Media survived on per-instance tasks).
+        #expect(
+            GlobalSearchIndexLayerPresentation.cancelsSharedSearchTaskOnDisappear(rendersResultsBody: true)
+        )
+        #expect(
+            !GlobalSearchIndexLayerPresentation.cancelsSharedSearchTaskOnDisappear(rendersResultsBody: false)
+        )
+    }
+
+    @Test func globalSearchIndexLayer_keepsDisplayedResultsWhileDetailPushPreservesSession() {
+        // `dismissSearch()` on a detail push transiently clears the query; the preserved session must
+        // keep the results the user pops back to.
+        #expect(
+            !GlobalSearchIndexLayerPresentation.shouldClearResultsForInactiveSearch(
+                preservesResultsSessionForDetailPush: true
+            )
+        )
+        #expect(
+            GlobalSearchIndexLayerPresentation.shouldClearResultsForInactiveSearch(
+                preservesResultsSessionForDetailPush: false
+            )
+        )
+    }
+
+    @Test func globalSearchPresentation_stackSearchRestoreDismissesKeyboardAfterPresentation() {
+        // Popping back to results re-presents the morphed field (which focuses it); the keyboard
+        // resign must wait out the presentation so the field stays open but unfocused.
+        #expect(GlobalSearchPresentation.stackSearchRestoreKeyboardDismissDelayNanoseconds > 0)
+        #expect(
+            GlobalSearchPresentation.stackSearchRestoreKeyboardDismissDelayNanoseconds
+                >= GlobalSearchPresentation.stackSearchRestoreDelayNanoseconds
+        )
+    }
+
+    @Test func globalSearchPresentation_stackSearchRestorePresentsAfterPopTransitionSettles() {
+        // Presenting the morphed field mid pop-transition (nav pop + returning tab bar) is swallowed
+        // by the toolbar machinery — the present must wait out the whole transition (~0.35 s pop).
+        #expect(GlobalSearchPresentation.stackSearchRestoreAfterPopDelayNanoseconds >= 400_000_000)
+        #expect(
+            GlobalSearchPresentation.stackSearchRestoreAfterPopDelayNanoseconds
+                > GlobalSearchPresentation.stackSearchRestoreDelayNanoseconds
+        )
+    }
+
+    @Test func globalSearchPushedDestinationPresentation_keepsResultsPanelThroughPreservedSessionBlips() {
+        // `.searchable` dismiss/reattach around a detail push transiently clears the query — the
+        // results panel must survive those blips while the session is preserved; a genuine user clear
+        // (no preserved session) still dismisses it.
+        #expect(
+            GlobalSearchPushedDestinationPresentation.keepsResultsPanelThroughInactiveSearch(
+                preservedSessionIsActive: true
+            )
+        )
+        #expect(
+            !GlobalSearchPushedDestinationPresentation.keepsResultsPanelThroughInactiveSearch(
+                preservedSessionIsActive: false
+            )
+        )
+    }
+
     @Test func globalSearchPresentation_contextTokens_coverMainConceptsInOrder() {
         let tokens = GlobalSearchPresentation.ContextToken.allCases
         #expect(tokens.count == 9)
@@ -21087,7 +21658,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
 
@@ -21110,7 +21681,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
 
@@ -21134,7 +21705,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
 
@@ -21165,7 +21736,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
 
@@ -21536,7 +22107,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
 
@@ -21579,7 +22150,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
 
@@ -21612,7 +22183,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
 
@@ -21649,7 +22220,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
 
@@ -21692,7 +22263,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
 
@@ -21725,7 +22296,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
 
@@ -21753,7 +22324,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
 
@@ -21792,7 +22363,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
 
@@ -21825,7 +22396,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
 
@@ -22136,7 +22707,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
 
         let t0 = Date(timeIntervalSince1970: 0)
@@ -22201,7 +22772,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
 
         let t0 = Date(timeIntervalSince1970: 0)
@@ -22303,7 +22874,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
 
         let diveID = try await MainActor.run { () throws -> UUID in
@@ -22348,7 +22919,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
 
         let diveID = try await MainActor.run { () throws -> UUID in
@@ -22400,7 +22971,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
 
         let activityID = try await MainActor.run { () throws -> UUID in
@@ -22747,7 +23318,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
 
@@ -22789,7 +23360,7 @@ struct GoDiveMVPTests {
             DiveProfilePoint.self,
             DiveSite.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
 
@@ -23373,5 +23944,282 @@ private final class FailingGeocodingTimeZoneResolver: GeocodingTimeZoneResolving
 
     func timeZone(forLocationQuery query: String) async -> TimeZone? {
         return nil
+    }
+}
+
+// MARK: - Crash reporting
+
+struct CrashReportingTests {
+
+    private func makeInMemoryStore(cap: Int = 20) throws -> CrashReportStore {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        return CrashReportStore(container: container, maxStoredReports: cap)
+    }
+
+    private func makeReport(capturedAt: Date, reason: String = "SIGABRT") -> CrashReport {
+        CrashReport(
+            capturedAt: capturedAt,
+            kind: .metricKitCrash,
+            reason: reason,
+            appVersion: "1.0 (42)",
+            osVersion: "iOS 26.0",
+            details: "stack"
+        )
+    }
+
+    @Test func crashReportStore_saveLoadRoundTrip_newestFirst() throws {
+        let store = try makeInMemoryStore()
+
+        let older = makeReport(capturedAt: Date(timeIntervalSince1970: 100), reason: "older")
+        let newer = makeReport(capturedAt: Date(timeIntervalSince1970: 200), reason: "newer")
+        try store.save(older)
+        try store.save(newer)
+
+        let loaded = store.loadAll()
+        #expect(loaded.count == 2)
+        #expect(loaded.first?.reason == "newer")
+        #expect(loaded.last == older)
+    }
+
+    @Test func crashReportStore_prunesToNewestReportsBeyondCap() throws {
+        let store = try makeInMemoryStore(cap: 3)
+
+        for second in 1...5 {
+            try store.save(makeReport(capturedAt: Date(timeIntervalSince1970: Double(second)), reason: "r\(second)"))
+        }
+
+        let loaded = store.loadAll()
+        #expect(loaded.count == 3)
+        #expect(loaded.map(\.reason) == ["r5", "r4", "r3"])
+    }
+
+    @Test func crashReportStore_pendingCloudShareAndMarkShared() throws {
+        let store = try makeInMemoryStore()
+        let first = makeReport(capturedAt: Date(timeIntervalSince1970: 100), reason: "first")
+        let second = makeReport(capturedAt: Date(timeIntervalSince1970: 200), reason: "second")
+        try store.save(first)
+        try store.save(second)
+
+        // Pending uploads run oldest first.
+        #expect(store.pendingCloudShare().map(\.reason) == ["first", "second"])
+
+        let sharedAt = Date(timeIntervalSince1970: 300)
+        store.markShared(id: first.id, at: sharedAt)
+        #expect(store.pendingCloudShare().map(\.reason) == ["second"])
+        #expect(store.loadAll().last?.sharedToCloudAt == sharedAt)
+    }
+
+    @Test func crashReportStore_deleteAllRemovesEverything() throws {
+        let store = try makeInMemoryStore()
+        try store.save(makeReport(capturedAt: Date(timeIntervalSince1970: 100)))
+        try store.save(makeReport(capturedAt: Date(timeIntervalSince1970: 200)))
+
+        store.deleteAll()
+        #expect(store.loadAll().isEmpty)
+    }
+
+    @Test func crashReportCloudUploader_makeRecord_mapsFields() {
+        let report = makeReport(capturedAt: Date(timeIntervalSince1970: 100), reason: "SIGSEGV")
+        let record = CrashReportCloudUploader.makeRecord(for: report, detailsAssetFileURL: nil)
+
+        #expect(record.recordType == CrashReportCloudUploader.recordType)
+        #expect(record.recordID.recordName == report.id.uuidString)
+        #expect(record["capturedAt"] as? Date == report.capturedAt)
+        #expect(record["kind"] as? String == "metricKitCrash")
+        #expect(record["reason"] as? String == "SIGSEGV")
+        #expect(record["appVersion"] as? String == "1.0 (42)")
+        #expect(record["osVersion"] as? String == "iOS 26.0")
+        #expect(record["details"] as? String == "stack")
+        #expect(record["detailsAsset"] == nil)
+    }
+
+    @Test func crashReportCloudUploader_usesDetailsAsset_onlyForOversizedBodies() {
+        var small = makeReport(capturedAt: Date(timeIntervalSince1970: 0))
+        small.details = "short"
+        #expect(!CrashReportCloudUploader.usesDetailsAsset(for: small))
+
+        var large = small
+        large.details = String(
+            repeating: "x",
+            count: CrashReportCloudUploader.inlineDetailsCharacterLimit + 1
+        )
+        #expect(CrashReportCloudUploader.usesDetailsAsset(for: large))
+    }
+
+    @Test func appUserSettings_shareCrashReports_defaultsOff() {
+        let defaults = UserDefaults(suiteName: "CrashReportingTests-\(UUID().uuidString)")!
+        AppUserSettings.registerDefaultValues(in: defaults)
+        #expect(!AppUserSettings.shareCrashReports(userDefaults: defaults))
+    }
+
+    @Test func crashSessionMarker_abnormalExit_onlyWhenForeground() {
+        let foreground = CrashSessionMarker.indicatesAbnormalExit(previousState: .foreground)
+        let background = CrashSessionMarker.indicatesAbnormalExit(previousState: .background)
+        let missing = CrashSessionMarker.indicatesAbnormalExit(previousState: nil)
+        #expect(foreground)
+        #expect(!background)
+        #expect(!missing)
+    }
+
+    @Test func crashReportPresentation_metricKitReasonLine_namesSignalsAndExceptions() {
+        #expect(
+            CrashReportPresentation.metricKitReasonLine(
+                exceptionType: 1,
+                signal: 11,
+                terminationReason: "Namespace SIGNAL"
+            ) == "EXC_BAD_ACCESS · SIGSEGV · Namespace SIGNAL"
+        )
+        #expect(
+            CrashReportPresentation.metricKitReasonLine(
+                exceptionType: nil,
+                signal: nil,
+                terminationReason: nil
+            ) == "Crash (no diagnostic detail)"
+        )
+        #expect(CrashReportPresentation.signalName(99) == "signal 99")
+        #expect(CrashReportPresentation.machExceptionName(99) == "exception 99")
+    }
+
+    @Test func crashReportPresentation_exportText_coversEmptyAndPopulated() {
+        #expect(CrashReportPresentation.exportText(for: []) == "No crash reports recorded.")
+
+        let report = makeReport(capturedAt: Date(timeIntervalSince1970: 0), reason: "SIGSEGV")
+        let text = CrashReportPresentation.exportText(for: report)
+        #expect(text.contains("SIGSEGV"))
+        #expect(text.contains("1.0 (42)"))
+        #expect(text.contains("stack"))
+    }
+
+    @Test func crashReportPresentation_kindLabels() {
+        #expect(CrashReportPresentation.kindLabel(.metricKitCrash) == "Crash")
+        #expect(CrashReportPresentation.kindLabel(.abnormalExit) == "Abnormal exit")
+    }
+
+    @Test func crashReportPresentation_sharedStatusLabel() {
+        #expect(CrashReportPresentation.sharedStatusLabel(sharedToCloudAt: nil) == "Not sent to developer")
+        #expect(
+            CrashReportPresentation.sharedStatusLabel(sharedToCloudAt: Date(timeIntervalSince1970: 0))
+                == "Sent to developer"
+        )
+    }
+
+    @Test func crashBreadcrumbTrail_keepsOnlyNewestEntries() {
+        let defaults = UserDefaults(suiteName: "CrashBreadcrumbTrail-\(UUID().uuidString)")!
+        CrashBreadcrumbTrail.resetForTests(userDefaults: defaults)
+
+        for index in 1...(CrashBreadcrumbTrail.maxEntries + 5) {
+            CrashBreadcrumbTrail.record("step \(index)", userDefaults: defaults)
+        }
+
+        let entries = CrashBreadcrumbTrail.loadEntriesForTests(userDefaults: defaults)
+        #expect(entries.count == CrashBreadcrumbTrail.maxEntries)
+        #expect(entries.first?.message == "step 6")
+        #expect(entries.last?.message == "step \(CrashBreadcrumbTrail.maxEntries + 5)")
+    }
+
+    @Test func crashBreadcrumbTrail_freezePreservesPreviousSessionExport() {
+        let defaults = UserDefaults(suiteName: "CrashBreadcrumbTrail-Freeze-\(UUID().uuidString)")!
+        CrashBreadcrumbTrail.resetForTests(userDefaults: defaults)
+        CrashBreadcrumbTrail.noteRootTab(.logbook, userDefaults: defaults)
+        CrashBreadcrumbTrail.record("before freeze", userDefaults: defaults)
+
+        CrashBreadcrumbTrail.freezePreviousSessionAndBeginNew(userDefaults: defaults)
+        let frozen = CrashBreadcrumbTrail.previousSessionExportPlainText(userDefaults: defaults)
+        #expect(frozen?.contains("rootTab → logbook") == true)
+        #expect(frozen?.contains("before freeze") == true)
+        #expect(CrashBreadcrumbTrail.loadEntriesForTests(userDefaults: defaults).isEmpty)
+
+        CrashBreadcrumbTrail.record("after freeze", userDefaults: defaults)
+        #expect(CrashBreadcrumbTrail.loadEntriesForTests(userDefaults: defaults).map(\.message) == ["after freeze"])
+        #expect(
+            CrashBreadcrumbTrail.previousSessionExportPlainText(userDefaults: defaults)?
+                .contains("before freeze") == true
+        )
+    }
+
+    @Test func crashBreadcrumbTrail_formatExport_includesContextAndTrail() {
+        let context = CrashBreadcrumbTrail.Context(
+            rootTab: "logbook",
+            screen: "diveOverview",
+            diveActivityID: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE",
+            diveNumber: 12,
+            diveActivityTab: "media",
+            overviewDetent: "medium",
+            presentedSheet: "tagBuddy",
+            mediaCount: 4,
+            selectedMediaID: "11111111-1111-1111-1111-111111111111",
+            featuredMediaID: "22222222-2222-2222-2222-222222222222",
+            selectedMediaKind: "image",
+            overviewPanelPresented: true,
+            orientation: "portrait",
+            lastAction: "carouselSelect 11111111"
+        )
+        let entries = [
+            CrashBreadcrumbTrail.Entry(at: Date(timeIntervalSince1970: 100), message: "rootTab → logbook"),
+            CrashBreadcrumbTrail.Entry(at: Date(timeIntervalSince1970: 200), message: "action → carouselSelect 11111111"),
+        ]
+        let text = CrashBreadcrumbTrail.formatExport(
+            context: context,
+            entries: entries,
+            processSnapshot: "uptimeSeconds: 1"
+        )
+        #expect(text.contains("## Last UI context"))
+        #expect(text.contains("diveNumber: 12"))
+        #expect(text.contains("diveActivityTab: media"))
+        #expect(text.contains("mediaCount: 4"))
+        #expect(text.contains("selectedMediaKind: image"))
+        #expect(text.contains("orientation: portrait"))
+        #expect(text.contains("lastAction: carouselSelect 11111111"))
+        #expect(text.contains("presentedSheet: tagBuddy"))
+        #expect(text.contains("action → carouselSelect 11111111"))
+        #expect(text.contains("uptimeSeconds: 1"))
+    }
+
+    @Test func crashBreadcrumbTrail_noteDiveOverview_encodesMediaFields() {
+        let defaults = UserDefaults(suiteName: "CrashBreadcrumbTrail-Dive-\(UUID().uuidString)")!
+        CrashBreadcrumbTrail.resetForTests(userDefaults: defaults)
+        let activityID = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!
+        let selectedID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        CrashBreadcrumbTrail.noteDiveOverview(
+            .init(
+                activityID: activityID,
+                diveNumber: 145,
+                activityTab: .camera,
+                detent: .medium,
+                mediaCount: 3,
+                selectedMediaID: selectedID,
+                featuredMediaID: selectedID,
+                selectedMediaKind: "video",
+                overviewPanelPresented: true,
+                orientation: "portrait"
+            ),
+            userDefaults: defaults
+        )
+        let export = CrashBreadcrumbTrail.exportPlainText(userDefaults: defaults)
+        #expect(export.contains("mediaCount: 3"))
+        #expect(export.contains("selectedMediaKind: video"))
+        #expect(export.contains("tab=media"))
+        #expect(export.contains("kind=video"))
+        #expect(export.contains("media=3"))
+    }
+
+    @Test func crashSessionMarker_lifecyclePreface_stopsBeforeSectionHeaders() {
+        let details = """
+        Last lifecycle state: foreground
+        Marked at: 2026-07-15T20:44:01Z
+        App version: 1.0 (1)
+
+        ## Session context
+        uptimeSeconds: 1
+        """
+        let preface = CrashSessionMarker.lifecyclePreface(from: details)
+        #expect(preface.contains("Last lifecycle state: foreground"))
+        #expect(preface.contains("Marked at:"))
+        #expect(!preface.contains("## Session context"))
+    }
+
+    @Test func crashBreadcrumbTrail_labelHelpers() {
+        #expect(CrashBreadcrumbTrail.rootTabLabel(.fieldGuide) == "fieldGuide")
+        #expect(CrashBreadcrumbTrail.diveActivityTabLabel(.camera) == "media")
     }
 }

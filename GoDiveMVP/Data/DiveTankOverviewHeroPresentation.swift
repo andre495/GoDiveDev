@@ -22,8 +22,8 @@ enum DiveTankOverviewHeroPresentation: Sendable {
     nonisolated static let minimizedChartMaxHeightFraction: CGFloat = 0.88
     /// Plot width ÷ height when sizing the centered minimized chart.
     nonisolated static let minimizedChartAspectWidthOverHeight: CGFloat = 1.65
-    /// **Minimized** + landscape — chart spans nearly the full screen width.
-    nonisolated static let minimizedLandscapeChartHorizontalInset: CGFloat = 12
+    /// **Minimized** + landscape — inset from both edges so Dynamic Island / side chrome clear the plot.
+    nonisolated static let minimizedLandscapeChartHorizontalInset: CGFloat = 48
     nonisolated static let minimizedLandscapeChartVerticalPadding: CGFloat = 12
     nonisolated static let minimizedTankSummaryGapBeforeTank: CGFloat = 10
     /// Vertical space for left-aligned header-style gas summary (used + SAC + RMV).

@@ -8,6 +8,7 @@ struct SettingsView: View {
     @AppStorage(AppUserSettings.useImperialDisplayUnitsKey) private var useImperialDisplayUnits = true
     @AppStorage(AppUserSettings.defaultTankSizeKey) private var defaultTankSizeRaw = DefaultTankSize.al80.rawValue
     @AppStorage(AppUserSettings.autoUploadMediaToActivitiesKey) private var autoUploadMediaToActivities = true
+    @AppStorage(AppUserSettings.shareCrashReportsKey) private var shareCrashReports = false
 
     @State private var mediaBackfillOverlay: DiveLibraryMediaBackfillOverlayState = .hidden
     @State private var mediaBackfillTask: Task<Void, Never>?
@@ -15,6 +16,7 @@ struct SettingsView: View {
     var body: some View {
         settingsAppPage
             .hidesBottomTabBarWhenPushed()
+            .onAppear { CrashBreadcrumbTrail.noteScreen("settings") }
             .onDisappear(perform: cancelMediaBackfillTask)
     }
 
@@ -25,9 +27,11 @@ struct SettingsView: View {
                 useImperialDisplayUnits: $useImperialDisplayUnits,
                 defaultTankSizeRaw: $defaultTankSizeRaw,
                 autoUploadMediaToActivities: $autoUploadMediaToActivities,
+                shareCrashReports: $shareCrashReports,
                 mediaBackfillOverlay: mediaBackfillOverlay,
                 onRenumberWhenEnabled: renumberAllDivesWhenEnabled,
                 onAutoUploadEnabled: startMediaBackfillForExistingDives,
+                onShareCrashReportsEnabled: uploadCrashReportBacklog,
                 onDismissMediaBackfill: dismissMediaBackfillOverlay,
                 onCancelMediaBackfill: cancelMediaBackfill
             )
@@ -38,6 +42,10 @@ struct SettingsView: View {
         Task { @MainActor in
             try? DiveActivityDiveNumbering.renumberAllChronologically(modelContext: modelContext)
         }
+    }
+
+    private func uploadCrashReportBacklog() {
+        CrashReportingService.uploadBacklogNow(container: modelContext.container)
     }
 
     private func startMediaBackfillForExistingDives() {
@@ -97,6 +105,7 @@ private struct SettingsPageContent: View {
     @Binding var useImperialDisplayUnits: Bool
     @Binding var defaultTankSizeRaw: String
     @Binding var autoUploadMediaToActivities: Bool
+    @Binding var shareCrashReports: Bool
 
     @State private var saltWaterWeightText = ""
     @State private var freshWaterWeightText = ""
@@ -105,6 +114,7 @@ private struct SettingsPageContent: View {
     let mediaBackfillOverlay: DiveLibraryMediaBackfillOverlayState
     let onRenumberWhenEnabled: () -> Void
     let onAutoUploadEnabled: () -> Void
+    let onShareCrashReportsEnabled: () -> Void
     let onDismissMediaBackfill: () -> Void
     let onCancelMediaBackfill: () -> Void
 
@@ -155,6 +165,23 @@ private struct SettingsPageContent: View {
             .onChange(of: autoUploadMediaToActivities) { wasOn, isOn in
                 guard isOn, !wasOn else { return }
                 onAutoUploadEnabled()
+            }
+
+            SettingsToggleRow(
+                title: SettingsPresentation.ShareCrashReports.title,
+                infoMessage: SettingsPresentation.ShareCrashReports.infoMessage,
+                isOn: $shareCrashReports
+            )
+            .onChange(of: shareCrashReports) { wasOn, isOn in
+                guard isOn, !wasOn else { return }
+                onShareCrashReportsEnabled()
+            }
+
+            SettingsNavigationLinkRow(
+                title: SettingsPresentation.CrashReports.title,
+                infoMessage: SettingsPresentation.CrashReports.infoMessage
+            ) {
+                CrashReportsView()
             }
 
             Spacer()

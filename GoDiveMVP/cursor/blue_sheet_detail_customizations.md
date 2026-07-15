@@ -36,6 +36,7 @@ Layer 3 — Pager page content   [Detail only: lists, media, metadata, static ti
 | **Trip Share** | **Not in top chrome.** Trailing row matches other detail pages (back + edit only). Remove Share from trip pinned title during unification; Share placement deferred (future sheet / pager action). |
 | **Reference site** | **One-tab pager** (same `BlueSheetDetailPager` chrome as multi-tab details), not a standalone scroll body. |
 | **Equipment detail** | **One-tab pager** + photo hero (same shell as reference site); migrated from legacy full-page scroll. |
+| **Certification detail** | **Two-tab pager** (Details → Instructor & shop) + front/back card hero toggle (hidden unless both photos); type badge above title; ocean-gradient letterbox behind card images. |
 | **Detail top fade** | **Small fade** — distinct token from Home’s full hero chrome fade (`BlueSheetTopChromePresentation.detailFade` vs `.homeHeroFade`). |
 
 ---
@@ -56,7 +57,7 @@ Layer 3 — Pager page content   [Detail only: lists, media, metadata, static ti
 | Wrapper | Pages | Slots |
 |---------|-------|-------|
 | **`BlueSheetTabRootPage`** | Home | `hero`, `heroOverlay`, **`topChrome`**, `panelContent` |
-| **`BlueSheetDetailPage`** | Buddy, trip, site, species, reference, equipment | `hero`, `heroOverlay`, **`topChrome`**, `panelOverlay`, `pinnedContent`, `panelContent` |
+| **`BlueSheetDetailPage`** | Buddy, trip, site, species, reference, equipment, certification | `hero`, `heroOverlay`, **`topChrome`**, `panelOverlay`, `pinnedContent`, `panelContent` |
 
 **Rename (Phase 1):** detail `backChrome` → **`topChrome`** to match Home vocabulary.
 
@@ -86,6 +87,7 @@ Same **slot**; different **plug-in**. Shared helpers, not one identical view.
 | **Species** | Back | Edit (disabled) | **Disabled** (scalable flag) | **`detailTopFade`** |
 | **Reference site** | Back | Edit (disabled) | **Disabled** | **`detailTopFade`** |
 | **Equipment** | Back | Edit | Enabled | **`detailTopFade`** |
+| **Certification** | Back | Edit | Enabled | **`detailTopFade`** |
 
 ### Target helpers (Phase 1)
 
@@ -114,6 +116,7 @@ Same **slot**; different **plug-in**. Shared helpers, not one identical view.
 | **Species** | Strategy: tagged media \| catalog image \| 3D (`FieldGuideMarineLifeRealityHeroView`) | Source toggle + mode toggle |
 | **Reference site** | Map or map placeholder | — |
 | **Equipment** | Photo or archive placeholder | — |
+| **Certification** | Front/back card photo (ocean gradient letterbox) or seal placeholder | Front/back toggle when both photos exist |
 
 ---
 
@@ -142,6 +145,7 @@ BlueSheetDetailPager       ← shared tab strip + swipe + insets + bottom fade
 | Species | Category · subcategory | Common name | Scientific name | — |
 | Reference | — | Site name | Region / country | — |
 | Equipment | Retired (when set) | Manufacturer + model | Gear type | — |
+| Certification | — | Certification name | — | Type badge (`topRow` above title) |
 
 ### Home (unique blue body)
 
@@ -164,6 +168,7 @@ BlueSheetDetailPager       ← shared tab strip + swipe + insets + bottom fade
 | Species | About · Size & range · Tagged dives · Tagged media |
 | **Reference site** | **Details** (single tab — same pager chrome) |
 | **Equipment** | **Details** (single tab — metadata sections) |
+| **Certification** | **Details** · **Instructor & shop** |
 
 ### Shared page building blocks
 
@@ -277,6 +282,16 @@ BlueSheetDetailPager       ← shared tab strip + swipe + insets + bottom fade
 | Hero | **`EquipmentDetailHeroBand`** — photo or archive placeholder |
 | Pinned | **`BlueSheetPinnedSummary`** — title, gear type, **Retired** accent when set |
 | Body | **One-tab pager** — **`EquipmentDetailMetadataView`** (equipment, status, purchase, service, notes) |
+
+### 7. Certification — `ViewCertificationDetails`
+
+| Area | Target |
+|------|--------|
+| Top chrome | Back + **Edit enabled**, **detailTopFade** |
+| Hero | **`CertificationDetailHeroBand`** — front/back photo letterboxed on ocean gradient, or seal placeholder |
+| Hero overlay | **`CertificationDetailHeroSideToggle`** when both card faces exist |
+| Pinned | **`BlueSheetPinnedSummary`** — type badge `topRow` above certification name |
+| Body | **Two-tab pager** — Details (agency, number, date, dives since attained) · Instructor & shop |
 
 ---
 

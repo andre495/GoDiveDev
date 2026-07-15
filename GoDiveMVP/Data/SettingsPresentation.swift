@@ -35,6 +35,22 @@ enum SettingsPresentation: Sendable {
             "When on, GoDive reads your Apple Photos library (with your permission) and attaches photos and videos whose capture time falls within each dive’s start and end window. Turning this on scans dives already in your log; new imports are matched automatically. Media stays on your device in GoDive only — nothing is uploaded to a server. With Limited Photos access, only photos you allow are visible to the app."
     }
 
+    enum CrashReports {
+        nonisolated static let title = "Crash Reports"
+        nonisolated static let infoMessage =
+            "GoDive keeps a local record when the app crashes or quits unexpectedly. Open this page after a crash to review or share reports. System crash diagnostics can take until the next launch to appear."
+        nonisolated static let emptyStateMessage = "No crashes recorded. If the app crashes, a report appears here on the next launch."
+        nonisolated static let exportButtonTitle = "Share"
+        nonisolated static let clearButtonTitle = "Clear All"
+        nonisolated static let clearConfirmationTitle = "Delete all stored crash reports?"
+    }
+
+    enum ShareCrashReports {
+        nonisolated static let title = "Share crash reports"
+        nonisolated static let infoMessage =
+            "When on, crash reports upload automatically to the GoDive developer so problems can be fixed (requires an iCloud account on this device). Reports contain technical diagnostics only — no dive log, photo, or personal data. When off, reports stay on your device; you can still share one manually from Crash Reports."
+    }
+
     enum BulkUddfImport {
         nonisolated static let attachMediaTitle = "Attach photos from library"
         nonisolated static let attachMediaSubtitle =

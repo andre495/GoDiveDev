@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// Bundled RealityKit hero configuration for a catalog species detail page.
 struct FieldGuideMarineLifeHeroSceneConfiguration: Equatable, Sendable {
@@ -31,9 +32,12 @@ struct FieldGuideMarineLifeHeroSceneConfiguration: Equatable, Sendable {
             && lhs.allowsDragRotation == rhs.allowsDragRotation
     }
 
+    /// Fallback fit when catalog size is missing; also the mid-band visual target.
+    nonisolated static let defaultFitExtent: Float = 0.22
+
     nonisolated static let frenchAngelfish = FieldGuideMarineLifeHeroSceneConfiguration(
         modelResourceName: "FrenchAngelfish",
-        fitExtent: 0.48,
+        fitExtent: defaultFitExtent,
         modelForwardOffset: -0.08,
         modelVerticalOffset: -0.09,
         initialYawRadians: -.pi / 5,
@@ -41,6 +45,204 @@ struct FieldGuideMarineLifeHeroSceneConfiguration: Equatable, Sendable {
         autoSpinPauseAfterDragSeconds: 15,
         allowsDragRotation: true
     )
+}
+
+/// Maps catalog species size → RealityKit **`fitExtent`** with a non-linear curve.
+///
+/// Mid-band lengths (**0.5–6 ft**) get the most visual size difference; tiny (under **0.5 ft**)
+/// and huge (over **6 ft**) species compress toward the ends of the fit range.
+enum FieldGuideMarineLifeHeroFitExtentPresentation: Sendable {
+    /// Small-band ceiling / large-band floor in feet (user-facing size bands).
+    nonisolated static let smallBandCeilingFeet: Double = 0.5
+    nonisolated static let largeBandFloorFeet: Double = 6.0
+    /// Diminishing-returns length above **6 ft** (same units as the band floor).
+    nonisolated static let largeBandAsymptoteFeet: Double = 8.0
+    /// Same scale as dive display conversion (**m → ft**).
+    nonisolated static let feetPerMeter: Double = 3.280839895013123
+
+    /// Scene units — longest model axis after load.
+    nonisolated static let minFitExtent: Float = 0.145
+    nonisolated static let maxFitExtent: Float = 0.285
+    /// Normalized weight **0…1** at the mid-band edges (steep slope between these).
+    /// Small-band ceiling stays low so per-foot change is largest through **0.5–6 ft**.
+    nonisolated static let weightAtSmallBandCeiling: Double = 0.05
+    nonisolated static let weightAtLargeBandFloor: Double = 0.82
+
+    /// Average of min/max when both exist; otherwise the non-zero side; **0** if unknown.
+    nonisolated static func representativeSizeMeters(
+        minSizeMeters: Double,
+        maxSizeMeters: Double
+    ) -> Double {
+        let minSize = minSizeMeters > 0 ? minSizeMeters : 0
+        let maxSize = maxSizeMeters > 0 ? maxSizeMeters : 0
+        if minSize > 0, maxSize > 0 {
+            return (minSize + maxSize) / 2
+        }
+        if maxSize > 0 { return maxSize }
+        if minSize > 0 { return minSize }
+        return 0
+    }
+
+    nonisolated static func sizeFeet(fromMeters meters: Double) -> Double {
+        meters * feetPerMeter
+    }
+
+    /// **0…1** size weight — shallow below **0.5 ft**, steep through **6 ft**, asymptotic after.
+    nonisolated static func sizeWeight(feet: Double) -> Double {
+        let clampedFeet = Swift.max(feet, 0)
+        if clampedFeet <= smallBandCeilingFeet {
+            let u = smallBandCeilingFeet > 0 ? clampedFeet / smallBandCeilingFeet : 0
+            return weightAtSmallBandCeiling * u
+        }
+        if clampedFeet <= largeBandFloorFeet {
+            let span = largeBandFloorFeet - smallBandCeilingFeet
+            let u = span > 0 ? (clampedFeet - smallBandCeilingFeet) / span : 1
+            return weightAtSmallBandCeiling
+                + (weightAtLargeBandFloor - weightAtSmallBandCeiling) * u
+        }
+        let remaining = 1 - weightAtLargeBandFloor
+        let asymptote = Swift.max(largeBandAsymptoteFeet, 0.001)
+        let u = 1 - exp(-(clampedFeet - largeBandFloorFeet) / asymptote)
+        return weightAtLargeBandFloor + remaining * u
+    }
+
+    nonisolated static func fitExtent(forSizeMeters meters: Double) -> Float {
+        guard meters > 0 else {
+            return FieldGuideMarineLifeHeroSceneConfiguration.defaultFitExtent
+        }
+        let weight = sizeWeight(feet: sizeFeet(fromMeters: meters))
+        let span = maxFitExtent - minFitExtent
+        return minFitExtent + span * Float(weight)
+    }
+
+    nonisolated static func fitExtent(
+        minSizeMeters: Double,
+        maxSizeMeters: Double
+    ) -> Float {
+        fitExtent(
+            forSizeMeters: representativeSizeMeters(
+                minSizeMeters: minSizeMeters,
+                maxSizeMeters: maxSizeMeters
+            )
+        )
+    }
+}
+
+/// Soft light-blue glow disc parameters under Field Guide **3D** heroes (RealityKit).
+enum FieldGuideMarineLifeHeroGlowPresentation: Sendable {
+    struct Layer: Equatable, Sendable {
+        /// Multiplier of the base glow radius.
+        let radiusScale: Float
+        /// Relative brightness for additive accent tint (**0…1**).
+        let intensity: Float
+    }
+
+    /// Brand accent (light-mode ocean blue) used for the glow tint.
+    nonisolated static let accentRed: Float = 0.00
+    nonisolated static let accentGreen: Float = 0.48
+    nonisolated static let accentBlue: Float = 0.72
+
+    /// Glow radius relative to the fitted longest model axis.
+    nonisolated static let radiusRelativeToFitExtent: Float = 0.72
+    /// Thin cylinder height so the disc reads as a flat ground plate.
+    nonisolated static let discHeight: Float = 0.0018
+    /// Gap below the fitted model’s lowest point so the plate sits clearly under the mesh.
+    nonisolated static let verticalClearance: Float = 0.18
+
+    /// Peak horizontal scale oscillation for the breathing disc (**±** this amount).
+    nonisolated static let pulseAmplitude: Float = 0.10
+    /// Radians/sec for the disc breathe cycle (~2.4 → ~0.4 Hz).
+    nonisolated static let pulseAngularSpeed: Float = 2.4
+    /// Soft vertical bob amplitude (meters) synchronized with the pulse.
+    nonisolated static let pulseVerticalAmplitude: Float = 0.0018
+    nonisolated static let pulseVerticalAngularSpeed: Float = 1.85
+
+    /// Soft sparkle emitters rising from the plate (world **+Y**, hemispheric spray).
+    nonisolated static let particleBirthRate: Float = 28
+    nonisolated static let particleSize: Float = 0.007
+    nonisolated static let particleLifeSpan: TimeInterval = 2.1
+    nonisolated static let particleSpeed: Float = 0.045
+    nonisolated static let particleSpeedVariation: Float = 0.018
+    /// Hemispheric cone around world **+Y** (**π/2** ≈ all outward directions above the plate).
+    nonisolated static let particleSpreadingAngle: Float = .pi / 2
+    /// Emitter footprint relative to the glow base radius.
+    nonisolated static let particleEmitterRadiusScale: Float = 0.85
+    /// Thin plate volume so births stay under the model, not inside it.
+    nonisolated static let particleEmitterHeight: Float = 0.006
+    nonisolated static let particleEmissionDirection: SIMD3<Float> = [0, 1, 0]
+
+    nonisolated static let layers: [Layer] = [
+        Layer(radiusScale: 1.00, intensity: 0.55),
+        Layer(radiusScale: 1.40, intensity: 0.28),
+        Layer(radiusScale: 1.85, intensity: 0.12),
+    ]
+
+    nonisolated static func baseRadius(fitExtent: Float) -> Float {
+        Swift.max(fitExtent * radiusRelativeToFitExtent, 0.04)
+    }
+
+    /// World **Y** for the glow plate — well **below** the fitted model’s lowest point.
+    nonisolated static func discY(
+        modelPositionY: Float,
+        modelExtentY: Float,
+        modelScale: Float
+    ) -> Float {
+        modelPositionY - (modelExtentY * modelScale * 0.5) - verticalClearance
+    }
+
+    /// Horizontal center under the model’s yaw spin axis (**model anchor origin**).
+    nonisolated static func discPositionUnderSpinAxis(glowY: Float) -> SIMD3<Float> {
+        [0, glowY, 0]
+    }
+
+    nonisolated static func tintRGB(intensity: Float) -> (red: Float, green: Float, blue: Float) {
+        let clamped = Swift.min(Swift.max(intensity, 0), 1)
+        return (
+            accentRed * clamped,
+            accentGreen * clamped,
+            accentBlue * clamped
+        )
+    }
+
+    /// Horizontal breathe scale for glow discs (**1 ± amplitude**).
+    nonisolated static func pulseScale(elapsed: TimeInterval) -> Float {
+        1 + pulseAmplitude * sin(Float(elapsed) * pulseAngularSpeed)
+    }
+
+    nonisolated static func pulseVerticalOffset(elapsed: TimeInterval) -> Float {
+        pulseVerticalAmplitude * sin(Float(elapsed) * pulseVerticalAngularSpeed)
+    }
+
+    nonisolated static func particleEmitterShapeSize(baseRadius: Float) -> SIMD3<Float> {
+        let radius = baseRadius * particleEmitterRadiusScale
+        return [radius, particleEmitterHeight, radius]
+    }
+}
+
+/// Soft cool-toned backdrop behind Field Guide **3D** heroes (SwiftUI, not RealityKit).
+enum FieldGuideMarineLifeHeroBackdropPresentation: Sendable {
+    /// Deep navy → teal vertical wash.
+    nonisolated static let baseTop = (red: 0.03, green: 0.14, blue: 0.32)
+    nonisolated static let baseMid = (red: 0.01, green: 0.08, blue: 0.22)
+    nonisolated static let baseBottom = (red: 0.00, green: 0.04, blue: 0.12)
+
+    nonisolated static func color(
+        _ rgb: (red: Double, green: Double, blue: Double),
+        opacity: Double = 1
+    ) -> Color {
+        Color(red: rgb.red, green: rgb.green, blue: rgb.blue, opacity: opacity)
+    }
+
+    // MARK: - RealityKit scene backplate (opaque virtual-camera canvas)
+
+    /// Vertical plane width/height so it fills the hero band behind the model.
+    nonisolated static let scenePlaneWidth: Float = 1.45
+    nonisolated static let scenePlaneHeight: Float = 1.15
+    /// Place well behind the USDZ (model sits near **z ≈ −0.08**).
+    nonisolated static let scenePlaneZ: Float = -0.72
+    nonisolated static let scenePlaneY: Float = 0.02
+    /// Soft base wash on the back plate (non-additive).
+    nonisolated static let scenePlateRGB = (red: Float(0.02), green: Float(0.12), blue: Float(0.28))
 }
 
 /// Resolves species detail hero content (3D model, remote image, or placeholder).
@@ -72,11 +274,19 @@ enum FieldGuideMarineLifeHeroPresentation {
     nonisolated static func heroKind(
         featureModelResourceName: String,
         featureImageResourceName: String,
-        featureImageURL: String
+        featureImageURL: String,
+        minSizeMeters: Double = 0,
+        maxSizeMeters: Double = 0
     ) -> HeroKind {
         let modelName = featureModelResourceName.trimmingCharacters(in: .whitespacesAndNewlines)
         if !modelName.isEmpty {
-            return .model3D(sceneConfiguration(forModelResourceName: modelName))
+            return .model3D(
+                sceneConfiguration(
+                    forModelResourceName: modelName,
+                    minSizeMeters: minSizeMeters,
+                    maxSizeMeters: maxSizeMeters
+                )
+            )
         }
 
         let resourceName = featureImageResourceName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -121,15 +331,31 @@ enum FieldGuideMarineLifeHeroPresentation {
     }
 
     nonisolated static func sceneConfiguration(
-        forModelResourceName resourceName: String
+        forModelResourceName resourceName: String,
+        minSizeMeters: Double = 0,
+        maxSizeMeters: Double = 0
     ) -> FieldGuideMarineLifeHeroSceneConfiguration {
+        let fitExtent = FieldGuideMarineLifeHeroFitExtentPresentation.fitExtent(
+            minSizeMeters: minSizeMeters,
+            maxSizeMeters: maxSizeMeters
+        )
         switch resourceName {
         case FieldGuideMarineLifeHeroSceneConfiguration.frenchAngelfish.modelResourceName:
-            return .frenchAngelfish
+            let base = FieldGuideMarineLifeHeroSceneConfiguration.frenchAngelfish
+            return FieldGuideMarineLifeHeroSceneConfiguration(
+                modelResourceName: base.modelResourceName,
+                fitExtent: fitExtent,
+                modelForwardOffset: base.modelForwardOffset,
+                modelVerticalOffset: base.modelVerticalOffset,
+                initialYawRadians: base.initialYawRadians,
+                autoRotateSpeedRadiansPerSecond: base.autoRotateSpeedRadiansPerSecond,
+                autoSpinPauseAfterDragSeconds: base.autoSpinPauseAfterDragSeconds,
+                allowsDragRotation: base.allowsDragRotation
+            )
         default:
             return FieldGuideMarineLifeHeroSceneConfiguration(
                 modelResourceName: resourceName,
-                fitExtent: 0.48,
+                fitExtent: fitExtent,
                 modelForwardOffset: -0.08,
                 modelVerticalOffset: -0.09,
                 initialYawRadians: 0,

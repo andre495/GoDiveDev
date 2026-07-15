@@ -13,6 +13,13 @@ enum GlobalSearchPresentation: Sendable {
     nonisolated static let contextTokensAccessibilityIdentifier = "GlobalSearch.ContextTokens"
     /// Brief delay after returning from a pushed result so **`.searchable`** can reattach before presenting the field.
     nonisolated static let stackSearchRestoreDelayNanoseconds: UInt64 = 80_000_000
+    /// Pop-from-detail restore must wait out the **whole** pop transition (nav pop + the tab bar
+    /// returning from `hidesBottomTabBarWhenPushed`) — presenting the morphed field mid-transition is
+    /// swallowed by the toolbar machinery and the bar stays hidden.
+    nonisolated static let stackSearchRestoreAfterPopDelayNanoseconds: UInt64 = 550_000_000
+    /// After re-presenting the morphed field on pop, wait out the presentation focus before resigning
+    /// first responder — the field stays morphed open over the results, but the keyboard stays hidden.
+    nonisolated static let stackSearchRestoreKeyboardDismissDelayNanoseconds: UInt64 = 120_000_000
     /// Idle bubble motion resumes after the tab morph gets its first frame.
     nonisolated static let idleBubbleResumeDelayNanoseconds: UInt64 = 180_000_000
     /// Deferred warm-index mount — waits out the tab-open morph before the hidden warmer's SwiftData
@@ -672,6 +679,26 @@ enum GlobalSearchTabLaunchPresentation: Sendable {
     }
 }
 
+/// Shared-state ownership between the visible results layer and the hidden catalog warmer — both are
+/// instances of the same index layer, but only the visible one owns the shared search task + results.
+enum GlobalSearchIndexLayerPresentation: Sendable {
+    /// Only the **visible** results layer may cancel the shared search task on unmount. On pop from a
+    /// pushed detail the warmer unmounts while the remounted results layer is scheduling its refresh —
+    /// a warmer-side cancel killed that refresh, leaving every text section empty (Media survived on
+    /// per-instance tasks).
+    nonisolated static func cancelsSharedSearchTaskOnDisappear(rendersResultsBody: Bool) -> Bool {
+        rendersResultsBody
+    }
+
+    /// Keep the last displayed results while a detail push preserves the search session — the
+    /// transient **`dismissSearch()`** query clear on push must not wipe the list the user pops back to.
+    nonisolated static func shouldClearResultsForInactiveSearch(
+        preservesResultsSessionForDetailPush: Bool
+    ) -> Bool {
+        !preservesResultsSessionForDetailPush
+    }
+}
+
 /// Interactive slide-back from search results → category browse (mirrors **`NavigationStack`** pop timing).
 enum GlobalSearchResultsDismissPresentation: Sendable {
     nonisolated static let springResponse: Double = 0.38
@@ -788,6 +815,16 @@ enum GlobalSearchPushedDestinationPresentation: Sendable {
         isSearchActive: Bool
     ) -> Bool {
         newDepth == 0 && previousDepth > 0 && isSearchActive
+    }
+
+    /// While a detail push preserves the search session, the **`.searchable`** machinery can
+    /// transiently clear the query (dismiss on push, reattach on pop) — those blips must not hide the
+    /// results panel the user pops back to. Only a real user-driven clear (no preserved session)
+    /// dismisses the panel.
+    nonisolated static func keepsResultsPanelThroughInactiveSearch(
+        preservedSessionIsActive: Bool
+    ) -> Bool {
+        preservedSessionIsActive
     }
 
     /// Pop from a pushed result should land on the results list, not the idle category grid.

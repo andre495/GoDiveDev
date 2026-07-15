@@ -23,6 +23,10 @@ enum AppUserSettings: Sendable {
     /// When **`true`**, attach Photos library items whose capture time falls within each dive window after dive import.
     nonisolated static let autoUploadMediaToActivitiesKey = "goDiveAutoUploadMediaToActivities"
 
+    /// When **`true`**, stored crash reports upload to the developer's CloudKit public database
+    /// (**`CrashReportCloudUploader`**). Default **off** — sharing is opt-in.
+    nonisolated static let shareCrashReportsKey = "goDiveShareCrashReports"
+
     static var automaticallyRenumberDives: Bool {
         UserDefaults.standard.bool(forKey: automaticallyRenumberDivesKey)
     }
@@ -58,6 +62,12 @@ enum AppUserSettings: Sendable {
 
     static var autoUploadMediaToActivities: Bool {
         UserDefaults.standard.bool(forKey: autoUploadMediaToActivitiesKey)
+    }
+
+    /// `nonisolated` — read from crash-upload paths off the main actor. Unregistered key
+    /// defaults to `false`, keeping crash sharing opt-in.
+    nonisolated static func shareCrashReports(userDefaults: UserDefaults = .standard) -> Bool {
+        userDefaults.bool(forKey: shareCrashReportsKey)
     }
 
     /// Toggle defaults applied when the user has never changed them (call once at launch).

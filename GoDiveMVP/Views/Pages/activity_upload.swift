@@ -638,7 +638,7 @@ enum DiveImportMilestone: Equatable {
         DiveProfilePoint.self,
         DiveSite.self,
     ])
-    let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+    let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
     let container = try! ModelContainer(for: schema, configurations: [configuration])
     return ActivityUploadView()
         .modelContainer(container)

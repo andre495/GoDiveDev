@@ -39,31 +39,48 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
         showsMinimizedLayout && !showsPanelContentWhenMinimized
     }
 
+    /// When the outer panel must not scroll (**Media** tab), host content in a fixed frame so
+    /// nested pinned-chrome scroll views receive a bounded height.
+    private var usesFixedPanelContentHost: Bool {
+        isPanelScrollDisabled
+            || (showsMinimizedLayout && disablesPanelScrollWhenMinimized)
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
             if keepsExpandedPanelMounted {
-                OverviewPanelScrollArea(
-                    restingDetent: selectedDetent,
-                    onExpand: {
-                        withAnimation(.diveOverviewPanelDetent) {
-                            selectedDetent = .large
+                Group {
+                    if usesFixedPanelContentHost {
+                        panelContent()
+                            .environment(\.diveOverviewPanelHeightFraction, layoutHeightFraction)
+                            .padding(.top, DiveActivityOverviewPanelMetrics.panelContentTopPadding)
+                            .padding(.horizontal, AppTheme.Spacing.md)
+                            .padding(.bottom, AppTheme.Spacing.lg)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    } else {
+                        OverviewPanelScrollArea(
+                            restingDetent: selectedDetent,
+                            onExpand: {
+                                withAnimation(.diveOverviewPanelDetent) {
+                                    selectedDetent = .large
+                                }
+                            },
+                            onCollapseToMedium: {
+                                withAnimation(.diveOverviewPanelDetent) {
+                                    selectedDetent = .medium
+                                }
+                            },
+                            isScrollDisabled: false,
+                            topScrollFadeHeight: topScrollFadeHeight,
+                            usesOpaquePanelScrollFadeBackground: usesOpaquePanelScrollFadeBackground
+                        ) {
+                            panelContent()
+                                .environment(\.diveOverviewPanelHeightFraction, layoutHeightFraction)
+                                .padding(.top, DiveActivityOverviewPanelMetrics.panelContentTopPadding)
+                                .padding(.horizontal, AppTheme.Spacing.md)
+                                .padding(.bottom, AppTheme.Spacing.lg)
                         }
-                    },
-                    onCollapseToMedium: {
-                        withAnimation(.diveOverviewPanelDetent) {
-                            selectedDetent = .medium
-                        }
-                    },
-                    isScrollDisabled: isPanelScrollDisabled
-                        || (showsMinimizedLayout && disablesPanelScrollWhenMinimized),
-                    topScrollFadeHeight: topScrollFadeHeight,
-                    usesOpaquePanelScrollFadeBackground: usesOpaquePanelScrollFadeBackground
-                ) {
-                    panelContent()
-                        .environment(\.diveOverviewPanelHeightFraction, layoutHeightFraction)
-                        .padding(.top, DiveActivityOverviewPanelMetrics.panelContentTopPadding)
-                        .padding(.horizontal, AppTheme.Spacing.md)
-                        .padding(.bottom, AppTheme.Spacing.lg)
+                    }
                 }
                 .opacity(hidesMountedPanelContent ? 0 : 1)
                 .allowsHitTesting(!hidesMountedPanelContent)

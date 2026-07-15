@@ -33,8 +33,12 @@ struct DiveActivityVideoPlayerView: View {
     var onPlaybackFinished: (() -> Void)?
     /// Called when a referenced Photos asset can't be resolved (e.g. deleted) so the owner can prune the row.
     var onAssetMissing: (() -> Void)?
-    /// Dive overview sharing PhotoKit streams with Home carousel — drop cached players on pop so Home can restart cleanly.
+    /// Legacy flag — deferred invalidate-on-disappear was removed (pager remount race). Prefer
+    /// invalidating from the owning screen when popping dive overview.
     var clearsSharedSessionPlaybackOnDisappear: Bool = false
+    /// When **`false`** (dive Media carousel), tear down players on remount instead of session-cache
+    /// reuse — avoids binding one **`AVPlayer`** / **`AVPlayerItem`** across rapid representable churn.
+    var reusesSessionPlayerAcrossRemounts: Bool = true
 
     #if canImport(UIKit)
     @State private var playerItem: AVPlayerItem?
@@ -76,6 +80,7 @@ struct DiveActivityVideoPlayerView: View {
                             isPlaybackActive: isPlaybackActive,
                             loopsPlayback: loopsPlayback,
                             isPausedByUserHold: isPausedByUserHold,
+                            cachesPlayerOnDismantle: reusesSessionPlayerAcrossRemounts,
                             onPlaybackFinished: loopsPlayback ? nil : onPlaybackFinished,
                             onDisplayReady: {
                                 isPlayerDisplayReady = true
@@ -131,15 +136,9 @@ struct DiveActivityVideoPlayerView: View {
         }
         .onDisappear {
             cancelFullQualityUpgrade()
-            if clearsSharedSessionPlaybackOnDisappear, let source {
-                let sourceKey = source.identityKey
-                Task { @MainActor in
-                    await Task.yield()
-                    DiveMediaVideoPlaybackSessionCache.shared.invalidateLibraryPlayback(
-                        sourceIdentityKey: sourceKey
-                    )
-                }
-            } else {
+            // Snapshot/reuse is for rotation. Dive Media carousel remounts too aggressively —
+            // caching player items across those remounts re-associates one item with two players.
+            if reusesSessionPlayerAcrossRemounts {
                 storePlaybackSnapshotIfNeeded()
             }
         }
@@ -182,7 +181,8 @@ struct DiveActivityVideoPlayerView: View {
             HomeMediaCarouselDebug.videoResolve(sourceKey: source.identityKey, outcome: .began)
         }
 
-        if let cached = DiveMediaVideoPlaybackSessionCache.shared.swiftUISnapshot(
+        if reusesSessionPlayerAcrossRemounts,
+           let cached = DiveMediaVideoPlaybackSessionCache.shared.swiftUISnapshot(
             forSourceIdentityKey: source.identityKey
         ), cached.resolvedKey.hasPrefix(source.identityKey) {
             playerItem = cached.playerItem
@@ -538,11 +538,13 @@ private struct DiveActivityFillVideoPlayerRepresentable: UIViewRepresentable {
     let isPlaybackActive: Bool
     let loopsPlayback: Bool
     let isPausedByUserHold: Bool
+    var cachesPlayerOnDismantle: Bool = true
     let onPlaybackFinished: (() -> Void)?
     let onDisplayReady: (() -> Void)?
 
     func makeUIView(context: Context) -> DiveActivityFillVideoPlayerUIView {
         let view = DiveActivityFillVideoPlayerUIView()
+        view.cachesPlayerOnDismantle = cachesPlayerOnDismantle
         view.onDisplayReady = onDisplayReady
         view.configure(
             playerItem: playerItem,
@@ -550,12 +552,14 @@ private struct DiveActivityFillVideoPlayerRepresentable: UIViewRepresentable {
             isPlaybackActive: isPlaybackActive,
             loopsPlayback: loopsPlayback,
             isPausedByUserHold: isPausedByUserHold,
+            reusesCachedPlayer: cachesPlayerOnDismantle,
             onPlaybackFinished: onPlaybackFinished
         )
         return view
     }
 
     func updateUIView(_ uiView: DiveActivityFillVideoPlayerUIView, context: Context) {
+        uiView.cachesPlayerOnDismantle = cachesPlayerOnDismantle
         uiView.onDisplayReady = onDisplayReady
         uiView.configure(
             playerItem: playerItem,
@@ -563,12 +567,17 @@ private struct DiveActivityFillVideoPlayerRepresentable: UIViewRepresentable {
             isPlaybackActive: isPlaybackActive,
             loopsPlayback: loopsPlayback,
             isPausedByUserHold: isPausedByUserHold,
+            reusesCachedPlayer: cachesPlayerOnDismantle,
             onPlaybackFinished: onPlaybackFinished
         )
     }
 
     static func dismantleUIView(_ uiView: DiveActivityFillVideoPlayerUIView, coordinator: ()) {
-        uiView.detachForReuse()
+        if uiView.cachesPlayerOnDismantle {
+            uiView.detachForReuse()
+        } else {
+            uiView.stop()
+        }
     }
 }
 
@@ -585,6 +594,7 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
     private var endObserver: NSObjectProtocol?
     private var onPlaybackFinished: (() -> Void)?
     var onDisplayReady: (() -> Void)?
+    var cachesPlayerOnDismantle = true
     private var displayReadyObservation: NSKeyValueObservation?
 
     override init(frame: CGRect) {
@@ -609,6 +619,7 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
         isPlaybackActive: Bool,
         loopsPlayback: Bool,
         isPausedByUserHold: Bool,
+        reusesCachedPlayer: Bool = true,
         onPlaybackFinished: (() -> Void)?
     ) {
         let wasPlaybackActive = lastAppliedPlaybackActive
@@ -626,7 +637,7 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
             from: currentKey,
             to: identityKey
         )
-        if isQualityUpgradeTransition {
+        if reusesCachedPlayer, isQualityUpgradeTransition {
             if player == nil,
                let previewKey = DiveMediaProgressivePresentation.previewResolvedKey(forFullResolvedKey: identityKey),
                let cachedPreviewPlayer = DiveMediaVideoPlaybackSessionCache.shared.player(forResolvedKey: previewKey) {
@@ -655,8 +666,12 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
             isAtEnd: isPlayerAtEnd()
         )
 
-        if mediaChanged {
-            loadPlayer(playerItem: playerItem, identityKey: identityKey)
+        if mediaChanged || player == nil {
+            loadPlayer(
+                playerItem: playerItem,
+                identityKey: identityKey,
+                reusesCachedPlayer: reusesCachedPlayer
+            )
         }
         syncPlaybackEndObserver()
 
@@ -715,8 +730,13 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
         lastAppliedPlaybackActive = false
     }
 
-    private func loadPlayer(playerItem: AVPlayerItem, identityKey: String) {
-        if let cachedPlayer = DiveMediaVideoPlaybackSessionCache.shared.player(forResolvedKey: identityKey) {
+    private func loadPlayer(
+        playerItem: AVPlayerItem,
+        identityKey: String,
+        reusesCachedPlayer: Bool
+    ) {
+        if reusesCachedPlayer,
+           let cachedPlayer = DiveMediaVideoPlaybackSessionCache.shared.player(forResolvedKey: identityKey) {
             currentKey = identityKey
             DiveMutedVideoAudioSession.activateForMutedPlayback()
             player = cachedPlayer
@@ -734,13 +754,18 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
         player = nil
         currentKey = identityKey
         DiveMutedVideoAudioSession.activateForMutedPlayback()
+        // An `AVPlayerItem` may only belong to one `AVPlayer`. Rapid remounts previously
+        // rewrapped a still-cached item → native crash.
+        DiveMediaVideoPlaybackSessionCache.shared.releasePlayerItemFromAllCachedPlayers(playerItem)
         // Use PhotoKit's streaming item as-is. Re-wrapping via `AVPlayerItem(asset:)` forces a full
         // iCloud download and was the reason Home carousel videos hung until the soft timeout.
         let newPlayer = AVPlayer(playerItem: playerItem)
         newPlayer.isMuted = true
         player = newPlayer
         playerLayer.player = newPlayer
-        DiveMediaVideoPlaybackSessionCache.shared.store(player: newPlayer, resolvedKey: identityKey)
+        if reusesCachedPlayer {
+            DiveMediaVideoPlaybackSessionCache.shared.store(player: newPlayer, resolvedKey: identityKey)
+        }
         observeDisplayReady()
         syncPlaybackEndObserver()
     }

@@ -215,19 +215,26 @@ private struct CertificationListRowView: View {
             rowThumbnail
 
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: AppTheme.Spacing.sm) {
+                HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
                     Text(CertificationPresentation.title(for: certification))
                         .font(.body.weight(.semibold))
                         .foregroundStyle(AppTheme.Colors.textPrimary)
-                        .lineLimit(2)
+                        .lineLimit(1)
 
                     CertificationTypeBadge(cardType: certification.cardType)
+
+                    Spacer(minLength: 0)
                 }
 
-                Text(CertificationPresentation.subtitle(for: certification))
+                Text(CertificationPresentation.listAgencyNumberLine(for: certification))
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.Colors.secondaryText)
-                    .lineLimit(2)
+                    .lineLimit(1)
+
+                Text(CertificationPresentation.listDateLine(for: certification))
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+                    .lineLimit(1)
             }
 
             Spacer(minLength: 0)
@@ -242,10 +249,12 @@ private struct CertificationListRowView: View {
     }
 
     private var rowAccessibilityLabel: String {
-        var parts = [CertificationPresentation.title(for: certification)]
-        parts.append(certification.cardType.displayName)
-        parts.append(CertificationPresentation.subtitle(for: certification))
-        return parts.joined(separator: ", ")
+        [
+            CertificationPresentation.title(for: certification),
+            certification.cardType.displayName,
+            CertificationPresentation.listAgencyNumberLine(for: certification),
+            CertificationPresentation.listDateLine(for: certification),
+        ].joined(separator: ", ")
     }
 
     @ViewBuilder

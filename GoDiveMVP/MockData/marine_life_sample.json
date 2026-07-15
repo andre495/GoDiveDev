@@ -3243,6 +3243,24 @@
     "feature_model": "CaribbeanReefSquid"
   },
   {
+    "uuid": "marine-life-caribbean-reef-shark",
+    "common_name": "Caribbean reef shark",
+    "feature_image": "https://pd.w.org/2024/01/67065a4e92da66e16.96148023-2048x1536.jpg",
+    "feature_image_resource": "marine-life-caribbean-reef-shark",
+    "scientific_name": "Carcharhinus perezii",
+    "category": "fishes",
+    "subcategory": "sharks",
+    "family_name": "Carcharhinidae",
+    "description": "Gray requiem shark with a white abdomen; first dorsal starts well behind the pectorals. Dusky undersides on pectoral and pelvic tips help separate it from bull shark.",
+    "max_size": 3.0,
+    "min_depth": 1.0,
+    "max_depth": 100.0,
+    "distinctive_features": "Dorsal behind pectorals; dusky fin tips; white belly",
+    "abundance": "Common on Caribbean reefs and drop-offs (Bahamas, Belize, Bay Islands, Florida Keys).",
+    "habitat_behavior": "Patrols mid-water and reef edges; often encountered on walls and shark dives.",
+    "diver_reaction": "Stay calm and horizontal; give space at cleaning stations — do not chase or block escape routes."
+  },
+  {
     "uuid": "marine-life-caribbean-sharpnose-shark",
     "common_name": "Caribbean sharpnose shark",
     "scientific_name": "Rhizoprionodon porosus",
@@ -6681,7 +6699,8 @@
     "max_size": 2.0,
     "min_depth": 0.0,
     "max_depth": 100.0,
-    "distinctive_features": "Body shape: elongated"
+    "distinctive_features": "Body shape: elongated",
+    "feature_model": "GreatBarracuda"
   },
   {
     "uuid": "marine-life-great-hammerhead",
@@ -11491,7 +11510,8 @@
     "max_size": 0.49,
     "min_depth": 2.0,
     "max_depth": 55.0,
-    "distinctive_features": "Body shape: fusiform / normal"
+    "distinctive_features": "Body shape: fusiform / normal",
+    "feature_model": "RedLionfish"
   },
   {
     "uuid": "marine-life-red-lizardfish",
@@ -12110,7 +12130,8 @@
     "max_size": 0.35,
     "min_depth": 3.0,
     "max_depth": 92.0,
-    "distinctive_features": "Body shape: short and / or deep"
+    "distinctive_features": "Body shape: short and / or deep",
+    "feature_model": "RockBeauty"
   },
   {
     "uuid": "marine-life-rock-hind",
@@ -13253,7 +13274,8 @@
     "max_size": 0.23,
     "min_depth": 0.0,
     "max_depth": 20.0,
-    "distinctive_features": "Body shape: short and / or deep"
+    "distinctive_features": "Body shape: short and / or deep",
+    "feature_model": "SergeantMajor"
   },
   {
     "uuid": "marine-life-serrated-alga",

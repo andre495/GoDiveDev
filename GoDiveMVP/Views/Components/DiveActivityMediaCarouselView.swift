@@ -10,15 +10,19 @@ struct DiveActivityMediaCarouselView: View {
 
     let mediaItems: [DiveMediaPhoto]
     @Binding var selectedMediaID: UUID?
-    /// Resolved featured media id — shows a star badge on that thumbnail.
+    /// Resolved featured media id — star badge on that thumbnail (and selected non-featured).
     var featuredMediaID: UUID?
+    /// Toggles featured logbook preview for the tapped carousel item.
+    var onToggleFeatured: ((DiveMediaPhoto) -> Void)? = nil
+    /// Fired when the user picks a different thumbnail (not when selection is synced programmatically).
+    var onUserSelectMedia: ((DiveMediaPhoto) -> Void)? = nil
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: DiveActivityMediaPresentation.carouselThumbnailSpacing) {
                     ForEach(mediaItems, id: \.id) { item in
-                        carouselButton(for: item)
+                        carouselItem(for: item)
                             .id(item.id)
                     }
                 }
@@ -46,23 +50,36 @@ struct DiveActivityMediaCarouselView: View {
         )
     }
 
-    private func carouselButton(for item: DiveMediaPhoto) -> some View {
-        Button {
-            guard selectedMediaID != item.id else { return }
-            withAnimation(.easeInOut(duration: 0.22)) {
-                selectedMediaID = item.id
+    private func carouselItem(for item: DiveMediaPhoto) -> some View {
+        let isSelected = selectedMediaID == item.id
+        let isFeatured = item.id == featuredMediaID
+        let showsStar = DiveActivityMediaPresentation.showsCarouselFeaturedStar(
+            isSelected: isSelected,
+            isFeatured: isFeatured
+        )
+
+        return ZStack(alignment: .topTrailing) {
+            Button {
+                guard selectedMediaID != item.id else { return }
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    selectedMediaID = item.id
+                }
+                onUserSelectMedia?(item)
+            } label: {
+                carouselThumbnail(for: item, isSelected: isSelected)
             }
-        } label: {
-            carouselThumbnail(for: item)
+            .buttonStyle(.plain)
+            .accessibilityLabel(thumbnailAccessibilityLabel(for: item, isFeatured: isFeatured))
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
+            .accessibilityIdentifier("DiveActivity.MediaCarousel.Item.\(item.id.uuidString)")
+
+            if showsStar {
+                featuredStarButton(for: item, isSelected: isSelected, isFeatured: isFeatured)
+            }
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(thumbnailAccessibilityLabel(for: item))
-        .accessibilityAddTraits(selectedMediaID == item.id ? .isSelected : [])
-        .accessibilityIdentifier("DiveActivity.MediaCarousel.Item.\(item.id.uuidString)")
     }
 
-    private func carouselThumbnail(for item: DiveMediaPhoto) -> some View {
-        let isSelected = selectedMediaID == item.id
+    private func carouselThumbnail(for item: DiveMediaPhoto, isSelected: Bool) -> some View {
         let size = DiveActivityMediaPresentation.carouselThumbnailExtent(isSelected: isSelected)
         let cornerRadius = DiveActivityMediaPresentation.carouselThumbnailCornerRadius
 
@@ -79,12 +96,6 @@ struct DiveActivityMediaCarouselView: View {
                     lineWidth: isSelected ? 3 : 0
                 )
         }
-        .overlay(alignment: .topTrailing) {
-            if item.id == featuredMediaID {
-                featuredBadge
-                    .padding(5)
-            }
-        }
         .shadow(
             color: isSelected ? AppTheme.Colors.accent.opacity(0.35) : .clear,
             radius: isSelected ? 6 : 0,
@@ -92,24 +103,38 @@ struct DiveActivityMediaCarouselView: View {
         )
     }
 
-    private var featuredBadge: some View {
-        Image(systemName: "star.fill")
-            .font(.system(size: 11, weight: .bold))
-            .foregroundStyle(.white)
-            .padding(4)
-            .background {
-                Circle().fill(AppTheme.Colors.accent)
-            }
-            .overlay {
-                Circle().stroke(.white.opacity(0.9), lineWidth: 1)
-            }
-            .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
-            .accessibilityLabel("Featured")
+    private func featuredStarButton(
+        for item: DiveMediaPhoto,
+        isSelected: Bool,
+        isFeatured: Bool
+    ) -> some View {
+        let usesAccent = DiveActivityMediaPresentation.carouselFeaturedStarUsesAccent(isFeatured: isFeatured)
+        let fontSize = DiveActivityMediaPresentation.carouselFeaturedStarFontSize(isSelected: isSelected)
+
+        return Button {
+            onToggleFeatured?(item)
+        } label: {
+            Image(systemName: isFeatured ? "star.fill" : "star")
+                .font(.system(size: fontSize, weight: .bold))
+                .foregroundStyle(usesAccent ? AppTheme.Colors.accent : Color.white)
+                .shadow(color: .black.opacity(0.45), radius: 2, y: 1)
+                .padding(5)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(onToggleFeatured == nil)
+        .accessibilityLabel(isFeatured ? "Featured photo" : "Set as featured")
+        .accessibilityHint(
+            isFeatured
+                ? "Removes this as the logbook preview, reverting to the default."
+                : "Uses this as the logbook preview for this dive."
+        )
+        .accessibilityIdentifier("DiveOverview.MediaFeatureToggle")
     }
 
-    private func thumbnailAccessibilityLabel(for item: DiveMediaPhoto) -> String {
+    private func thumbnailAccessibilityLabel(for item: DiveMediaPhoto, isFeatured: Bool) -> String {
         let kind = item.resolvedMediaKind == .video ? "Video" : "Photo"
-        let featured = item.id == featuredMediaID ? "Featured " : ""
+        let featured = isFeatured ? "Featured " : ""
         if selectedMediaID == item.id {
             return "Selected \(featured)\(kind), show in viewer"
         }

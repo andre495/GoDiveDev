@@ -69,6 +69,19 @@ final class DiveMediaVideoPlaybackSessionCache {
         accessOrder.removeAll { $0 == resolvedKey }
     }
 
+    /// Detaches `playerItem` from any cached player so a new `AVPlayer(playerItem:)` is safe.
+    func releasePlayerItemFromAllCachedPlayers(_ playerItem: AVPlayerItem) {
+        let keys = playersByResolvedKey.compactMap { key, player -> String? in
+            player.currentItem === playerItem ? key : nil
+        }
+        for key in keys {
+            let player = playersByResolvedKey.removeValue(forKey: key)
+            player?.pause()
+            player?.replaceCurrentItem(with: nil)
+            accessOrder.removeAll { $0 == key }
+        }
+    }
+
     /// Drops cached players and SwiftUI snapshots for one library asset (carousel re-activation).
     func invalidateLibraryPlayback(sourceIdentityKey: String) {
         removeSwiftUISnapshot(forSourceIdentityKey: sourceIdentityKey)

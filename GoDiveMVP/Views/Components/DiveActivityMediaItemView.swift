@@ -36,6 +36,9 @@ struct DiveActivityMediaItemView: View {
 
     @State private var isHoldingVideoPause = false
     @State private var layoutWidth: CGFloat = 0
+    /// Dive overview: delay **`AVPlayer`** mount until selection rests (rapid carousel taps).
+    @State private var hasCompletedVideoMountSettleDelay = false
+    @State private var videoMountSettleTask: Task<Void, Never>?
     #if canImport(UIKit)
     @State private var previewImage: UIImage?
     @State private var videoPosterImage: UIImage?
@@ -93,10 +96,14 @@ struct DiveActivityMediaItemView: View {
         .onChange(of: isVideoPlaybackActive) { _, isActive in
             if !isActive {
                 isHoldingVideoPause = false
+            } else {
+                reloadActiveMediaIfNeeded()
             }
+            scheduleVideoPlayerMountSettle(isActive: isActive)
         }
         .onDisappear {
             isHoldingVideoPause = false
+            cancelVideoPlayerMountSettle()
         }
         .onAppear {
             DiveMediaPreviewStorage.seedSessionCacheIfNeeded(for: media)
@@ -108,10 +115,7 @@ struct DiveActivityMediaItemView: View {
                 videoPosterImage = sessionCachedImage ?? storedPreviewImage
             }
             #endif
-        }
-        .onChange(of: isVideoPlaybackActive) { _, isActive in
-            guard isActive else { return }
-            reloadActiveMediaIfNeeded()
+            scheduleVideoPlayerMountSettle(isActive: isVideoPlaybackActive)
         }
         .task(id: mediaLoadTaskID) {
             switch media.resolvedMediaKind {
@@ -165,6 +169,29 @@ struct DiveActivityMediaItemView: View {
         #endif
     }
 
+    private func scheduleVideoPlayerMountSettle(isActive: Bool) {
+        videoMountSettleTask?.cancel()
+        videoMountSettleTask = nil
+        guard isActive, isVideo else {
+            hasCompletedVideoMountSettleDelay = false
+            return
+        }
+        hasCompletedVideoMountSettleDelay = false
+        videoMountSettleTask = Task { @MainActor in
+            try? await Task.sleep(
+                nanoseconds: DiveActivityVideoPlaybackPolicy.videoPlayerMountSettleDelayNanoseconds
+            )
+            guard !Task.isCancelled else { return }
+            hasCompletedVideoMountSettleDelay = true
+        }
+    }
+
+    private func cancelVideoPlayerMountSettle() {
+        videoMountSettleTask?.cancel()
+        videoMountSettleTask = nil
+        hasCompletedVideoMountSettleDelay = false
+    }
+
     private var mediaContent: some View {
         ZStack(alignment: .bottomLeading) {
             Group {
@@ -189,19 +216,27 @@ struct DiveActivityMediaItemView: View {
         ZStack {
             videoPosterPage
 
-            DiveActivityVideoPlayerView(
-                source: media.videoPlaybackSource,
-                isPlaybackActive: isVideoPlaybackActive,
-                loopsPlayback: loopsVideoPlayback,
-                libraryVideoQuality: DiveActivityMediaPresentation.overviewLibraryVideoQuality,
-                usesProgressiveFidelity: true,
-                screenPixelWidth: layoutWidth * displayScale,
-                initialPosterImage: displayedVideoPosterImage,
-                isPausedByUserHold: effectiveHoldPause,
-                onAssetMissing: pruneIfAssetMissing,
-                clearsSharedSessionPlaybackOnDisappear: true
-            )
-            .id("\(media.id)-epoch-\(videoPlaybackEpoch)")
+            // Mount only after selection settles — rapid carousel flipping kept remounting
+            // AVPlayers / shared PhotoKit items and still crashed after the neighbor-mount fix.
+            if DiveActivityVideoPlaybackPolicy.shouldMountSettledVideoPlayer(
+                isVideoPlaybackActive: isVideoPlaybackActive,
+                hasCompletedSettleDelay: hasCompletedVideoMountSettleDelay
+            ) {
+                DiveActivityVideoPlayerView(
+                    source: media.videoPlaybackSource,
+                    isPlaybackActive: true,
+                    loopsPlayback: loopsVideoPlayback,
+                    libraryVideoQuality: DiveActivityMediaPresentation.overviewLibraryVideoQuality,
+                    usesProgressiveFidelity: true,
+                    screenPixelWidth: layoutWidth * displayScale,
+                    initialPosterImage: displayedVideoPosterImage,
+                    isPausedByUserHold: effectiveHoldPause,
+                    onAssetMissing: pruneIfAssetMissing,
+                    clearsSharedSessionPlaybackOnDisappear: false,
+                    reusesSessionPlayerAcrossRemounts: false
+                )
+                .id("\(media.id)-epoch-\(videoPlaybackEpoch)")
+            }
         }
     }
 

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Single-dive sub-screens shown from the top icon tab row on **`ViewSingleActivity`**.
-enum DiveActivityTab: CaseIterable, Hashable {
+nonisolated enum DiveActivityTab: CaseIterable, Hashable, Sendable {
     case map
     case tank
     case camera

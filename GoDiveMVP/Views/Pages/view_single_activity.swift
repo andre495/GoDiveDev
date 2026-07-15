@@ -1,6 +1,9 @@
 import PhotosUI
 import SwiftUI
 import SwiftData
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct ViewSingleActivity: View {
     private struct DerivedDiveData {
@@ -141,6 +144,7 @@ struct ViewSingleActivity: View {
             .onAppear(perform: handleSingleActivityAppear)
             .onDisappear {
                 DiveMediaScopeCache.shared.deactivateScope(.diveOverview(activity.id))
+                invalidateDiveOverviewVideoPlaybackCache()
             }
             .onChange(of: initialMediaFocusID) { _, _ in
                 didApplyInitialMediaFocus = false
@@ -172,6 +176,7 @@ struct ViewSingleActivity: View {
             }
             .onChange(of: overviewSheetDetent) { oldDetent, newDetent in
                 guard oldDetent != newDetent else { return }
+                recordDiveOverviewBreadcrumb()
                 handleOverviewSheetDetentChange(from: oldDetent, to: newDetent)
             }
     }
@@ -297,6 +302,7 @@ struct ViewSingleActivity: View {
         reloadMapSitePromptDeclinedState()
         syncOverviewSheetPresentation(for: selectedActivityTab)
         presentMapSitePromptIfNeeded()
+        recordDiveOverviewBreadcrumb()
     }
 
     /// Deep link from logbook / Home / trip media: jump to the **Media** tab on a specific photo (medium detent).
@@ -328,6 +334,54 @@ struct ViewSingleActivity: View {
             overviewMapTeardownRequested = false
             presentMapSitePromptIfNeeded()
         }
+        recordDiveOverviewBreadcrumb()
+    }
+
+    private func recordDiveOverviewBreadcrumb() {
+        let selected = DiveActivityMediaPresentation.selectedMedia(
+            selectedID: selectedDiveMediaPhotoID,
+            in: derivedDiveData.sortedMediaItems
+        )
+        CrashBreadcrumbTrail.noteDiveOverview(
+            .init(
+                activityID: activity.id,
+                diveNumber: activity.diveNumber,
+                activityTab: selectedActivityTab,
+                detent: overviewSheetDetent,
+                mediaCount: derivedDiveData.sortedMediaItems.count,
+                selectedMediaID: selected?.id ?? selectedDiveMediaPhotoID,
+                featuredMediaID: DiveActivityMediaPresentation.featuredPhotoID(on: activity),
+                selectedMediaKind: selected?.mediaKind,
+                overviewPanelPresented: isOverviewPanelPresented,
+                orientation: crashOrientationLabel
+            )
+        )
+    }
+
+    /// Drop dive-hero video players when leaving the screen so Home carousel can reclaim streams.
+    private func invalidateDiveOverviewVideoPlaybackCache() {
+        for media in derivedDiveData.sortedMediaItems {
+            guard let sourceKey = media.videoPlaybackSource?.identityKey else { continue }
+            DiveMediaVideoPlaybackSessionCache.shared.invalidateLibraryPlayback(
+                sourceIdentityKey: sourceKey
+            )
+        }
+    }
+
+    private var crashOrientationLabel: String {
+        #if canImport(UIKit)
+        switch UIDevice.current.orientation {
+        case .landscapeLeft, .landscapeRight:
+            return "landscape"
+        case .portrait, .portraitUpsideDown:
+            return "portrait"
+        default:
+            // Avoid deprecated `UIScreen.main` — unknown when flat/face-up.
+            return "unknown"
+        }
+        #else
+        return "unknown"
+        #endif
     }
 
     private func handleActivityIdentityChange() {
@@ -440,6 +494,9 @@ struct ViewSingleActivity: View {
         if resolved != selectedDiveMediaPhotoID {
             selectedDiveMediaPhotoID = resolved
             bumpMediaPresentationEpoch()
+            if selectedActivityTab == .camera {
+                recordDiveOverviewBreadcrumb()
+            }
         }
     }
 
@@ -594,7 +651,9 @@ struct ViewSingleActivity: View {
                                     layoutHeight: layoutHeight,
                                     detent: overviewSheetDetent,
                                     bottomSafeInset: bottomSafeInset
-                                )
+                                ),
+                            mediaPickerItems: $diveMediaPickerItems,
+                            isImportInProgress: mediaImportOverlay.isBlocking
                         )
                         .ignoresSafeArea()
                     }
@@ -1204,8 +1263,17 @@ struct ViewSingleActivity: View {
                     }
                 }
                 : nil,
+            onCollapsePanelToMedium: {
+                withAnimation(.diveOverviewPanelDetent) {
+                    overviewSheetDetent = .medium
+                }
+            },
             featuredMediaID: DiveActivityMediaPresentation.featuredPhotoID(on: activity),
             onToggleFeatured: { toggleFeaturedMedia($0) },
+            onUserSelectMedia: { media in
+                CrashBreadcrumbTrail.noteAction("carouselSelect \(media.id.uuidString.prefix(8))")
+                recordDiveOverviewBreadcrumb()
+            },
             taggedSpecies: taggedSpecies,
             taggedBuddies: taggedBuddies,
             ownerProfileID: activity.ownerProfileID,
@@ -1244,14 +1312,21 @@ struct ViewSingleActivity: View {
     private func toggleFeaturedMedia(_ media: DiveMediaPhoto) {
         let resolvedFeaturedID = DiveActivityMediaPresentation.featuredPhotoID(on: activity)
         let newValue: UUID? = resolvedFeaturedID == media.id ? nil : media.id
+        CrashBreadcrumbTrail.noteAction(
+            newValue == nil
+                ? "featuredStarClear \(media.id.uuidString.prefix(8))"
+                : "featuredStarSet \(media.id.uuidString.prefix(8))"
+        )
         try? DiveActivityMediaStorage.setFeaturedMedia(
             newValue,
             on: activity,
             modelContext: modelContext
         )
+        recordDiveOverviewBreadcrumb()
     }
 
     private func tagMarineLifeFromSelectedMedia() {
+        CrashBreadcrumbTrail.noteAction("openTagMarineLife")
         guard let media = DiveActivityMediaPresentation.selectedMedia(
             selectedID: selectedDiveMediaPhotoID,
             in: derivedDiveData.sortedMediaItems
@@ -1260,6 +1335,7 @@ struct ViewSingleActivity: View {
     }
 
     private func tagBuddiesFromSelectedMedia() {
+        CrashBreadcrumbTrail.noteAction("openTagBuddy")
         guard let media = DiveActivityMediaPresentation.selectedMedia(
             selectedID: selectedDiveMediaPhotoID,
             in: derivedDiveData.sortedMediaItems
@@ -1268,15 +1344,18 @@ struct ViewSingleActivity: View {
     }
 
     private func identifyFishFromSelectedMedia() {
+        CrashBreadcrumbTrail.noteAction("openFishialIdentify")
         guard let media = DiveActivityMediaPresentation.selectedMedia(
             selectedID: selectedDiveMediaPhotoID,
             in: derivedDiveData.sortedMediaItems
         ) else { return }
         fishialIdentifyMediaID = media.id
+        CrashBreadcrumbTrail.noteSheet("fishialIdentify")
     }
 
     @MainActor
     private func importDiveMediaPickerItems(_ items: [PhotosPickerItem]) async {
+        CrashBreadcrumbTrail.noteAction("uploadMedia count=\(items.count)")
         let total = items.count
         withAnimation(.easeInOut(duration: 0.15)) {
             mediaImportOverlay = .importing(completed: 0, total: total, stage: "Preparing…")
@@ -1473,6 +1552,7 @@ struct ViewSingleActivity: View {
             set: { isPresented in
                 if !isPresented {
                     marineLifeTagMediaID = nil
+                    CrashBreadcrumbTrail.noteSheet(nil)
                 }
             }
         )
@@ -1485,6 +1565,7 @@ struct ViewSingleActivity: View {
 
     private func tagMarineLifeFromMedia(_ media: DiveMediaPhoto) {
         marineLifeTagMediaID = media.id
+        CrashBreadcrumbTrail.noteSheet("tagMarineLife")
     }
 
     private var fishialIdentifySheetPresented: Binding<Bool> {
@@ -1493,6 +1574,7 @@ struct ViewSingleActivity: View {
             set: { isPresented in
                 if !isPresented {
                     fishialIdentifyMediaID = nil
+                    CrashBreadcrumbTrail.noteSheet(nil)
                 }
             }
         )
@@ -1509,6 +1591,7 @@ struct ViewSingleActivity: View {
             set: { isPresented in
                 if !isPresented {
                     buddyTagMediaID = nil
+                    CrashBreadcrumbTrail.noteSheet(nil)
                 }
             }
         )
@@ -1521,6 +1604,7 @@ struct ViewSingleActivity: View {
 
     private func tagBuddiesFromMedia(_ media: DiveMediaPhoto) {
         buddyTagMediaID = media.id
+        CrashBreadcrumbTrail.noteSheet("tagBuddy")
     }
 
     private var depthChartPreviewCaptureContext: DiveMediaCaptureContext? {
@@ -1558,7 +1642,7 @@ private func viewSingleActivityPreview() -> some View {
         DiveProfilePoint.self,
         DiveSite.self,
     ])
-    let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+    let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
     let container = try! ModelContainer(for: schema, configurations: [configuration])
     let sampleActivity = DiveActivity(
         source: .manual,

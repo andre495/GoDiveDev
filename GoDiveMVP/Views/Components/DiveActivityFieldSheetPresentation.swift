@@ -11,6 +11,13 @@ extension View {
     func diveActivityTagsSheetPresentation() -> some View {
         modifier(DiveActivityTagsSheetPresentationModifier())
     }
+
+    /// Media **Tag marine life** / **Tag buddy** — **large** only; grabber swipe dismisses (no **medium** rest).
+    func diveMediaTagPickerSheetPresentation() -> some View {
+        presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+            .appSheetPresentationChrome()
+    }
 }
 
 private struct DiveActivityTagsSheetPresentationModifier: ViewModifier {

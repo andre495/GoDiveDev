@@ -43,6 +43,16 @@ enum DiveMarineLifeTagPickerPresentation {
 
     nonisolated static let searchPlaceholder = "Search by name or group"
     nonisolated static let searchDebounceNanoseconds: UInt64 = 80_000_000
+    nonisolated static let doneButtonTitle = "Done"
+    nonisolated static let cancelAccessibilityLabel = "Cancel"
+    nonisolated static let doneAccessibilityIdentifier = "DiveMarineLifeTagPicker.Done"
+    nonisolated static let cancelAccessibilityIdentifier = "DiveMarineLifeTagPicker.Cancel"
+
+    /// Always **`false`** — grabber swipe dismisses (**large** only; staged tags discard like Cancel).
+    nonisolated static func blocksInteractiveDismiss(pendingTagCount: Int) -> Bool {
+        _ = pendingTagCount
+        return false
+    }
 
     struct RowDisplayData: Identifiable, Equatable, Sendable {
         var id: String { marineLifeUUID }

@@ -48,21 +48,26 @@ struct DiveMarineLifeTagPickerSheet: View {
             .navigationTitle("Tag marine life")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    LinkedMediaOverlayGlassIconButton(
-                        systemName: "xmark",
-                        accessibilityLabel: "Done",
-                        accessibilityIdentifier: "DiveMarineLifeTagPicker.Done",
-                        action: {
-                            if commitPendingTags() {
-                                dismiss()
-                            }
-                        }
-                    )
+                ToolbarItem(placement: .cancellationAction) {
+                    // Plain toolbar control — do not nest `LinkedMediaOverlayGlassIconButton`
+                    // (extra glass circle) inside Liquid Glass nav-bar chrome.
+                    Button(action: discardPendingTagsAndDismiss) {
+                        Image(systemName: "xmark")
+                    }
+                    .foregroundStyle(.white)
+                    .accessibilityLabel(DiveMarineLifeTagPickerPresentation.cancelAccessibilityLabel)
+                    .accessibilityIdentifier(DiveMarineLifeTagPickerPresentation.cancelAccessibilityIdentifier)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(DiveMarineLifeTagPickerPresentation.doneButtonTitle) {
+                        confirmPendingTagsAndDismiss()
+                    }
+                    .buttonStyle(.glassProminent)
+                    .accessibilityIdentifier(DiveMarineLifeTagPickerPresentation.doneAccessibilityIdentifier)
                 }
             }
         }
-        .appSheetPresentationChrome()
+        .diveMediaTagPickerSheetPresentation()
         .task(id: media.id) {
             await loadCatalogIfNeeded()
             reloadTaggedMarineLifeUUIDs()
@@ -227,6 +232,17 @@ struct DiveMarineLifeTagPickerSheet: View {
         guard !effectiveTaggedUUIDs.contains(row.marineLifeUUID) else { return }
         pendingMarineLifeUUIDs.insert(row.marineLifeUUID)
         markRowTagged(marineLifeUUID: row.marineLifeUUID, isTagged: true)
+    }
+
+    private func discardPendingTagsAndDismiss() {
+        pendingMarineLifeUUIDs.removeAll()
+        dismiss()
+    }
+
+    private func confirmPendingTagsAndDismiss() {
+        if commitPendingTags() {
+            dismiss()
+        }
     }
 
     private func markRowTagged(marineLifeUUID: String, isTagged: Bool) {

@@ -82,8 +82,9 @@ enum CertificationPresentation: Sendable {
         return agencyNumberLine(for: certification) ?? "Certification"
     }
 
+    /// Single-line subtitle for search / legacy callers (**agency · #number · date** when available).
     static func subtitle(for certification: Certification) -> String {
-        let date = formattedDate(certification.dateAttained)
+        let date = listDateLine(for: certification)
         guard let agencyLine = agencyNumberLine(for: certification),
               !certification.certName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else {
@@ -92,13 +93,33 @@ enum CertificationPresentation: Sendable {
         return "\(agencyLine) · \(date)"
     }
 
+    /// List tile middle row: agency and/or **`#certNumber`**.
+    static func listAgencyNumberLine(for certification: Certification) -> String {
+        agencyNumberLine(for: certification) ?? "—"
+    }
+
+    /// List tile bottom row: attained date (or **—**).
+    static func listDateLine(for certification: Certification) -> String {
+        formattedDate(certification.dateAttained)
+    }
+
     static func agencyNumberLine(for certification: Certification) -> String? {
         let agency = certification.agency.trimmingCharacters(in: .whitespacesAndNewlines)
-        let number = certification.certNumber.trimmingCharacters(in: .whitespacesAndNewlines)
-        if agency.isEmpty, number.isEmpty { return nil }
+        let number = formattedCertNumber(certification.certNumber)
+        if agency.isEmpty, number == nil { return nil }
         if agency.isEmpty { return number }
-        if number.isEmpty { return agency }
-        return "\(agency) · \(number)"
+        if let number {
+            return "\(agency) · \(number)"
+        }
+        return agency
+    }
+
+    /// Cert number for display with a leading **`#`** (empty → **`nil`**).
+    static func formattedCertNumber(_ raw: String?) -> String? {
+        let number = raw?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !number.isEmpty else { return nil }
+        if number.hasPrefix("#") { return number }
+        return "#\(number)"
     }
 
     static func displayString(_ value: String?) -> String {
@@ -118,6 +139,31 @@ enum CertificationPresentation: Sendable {
         let name = certification.certName.trimmingCharacters(in: .whitespacesAndNewlines)
         if !name.isEmpty { return name }
         return title(for: certification)
+    }
+
+    /// Dives whose start falls on or after the start of the certification attained calendar day.
+    nonisolated static func divesLoggedSinceAttainedCount(
+        startTimes: some Sequence<Date>,
+        dateAttained: Date,
+        calendar: Calendar = .current
+    ) -> Int {
+        let dayStart = calendar.startOfDay(for: dateAttained)
+        var count = 0
+        for startTime in startTimes where startTime >= dayStart {
+            count += 1
+        }
+        return count
+    }
+
+    nonisolated static func divesLoggedSinceAttainedLabel(count: Int) -> String {
+        switch count {
+        case 0:
+            return "0 dives"
+        case 1:
+            return "1 dive"
+        default:
+            return "\(count) dives"
+        }
     }
 
     private static var specialtyBadgeForeground: Color {

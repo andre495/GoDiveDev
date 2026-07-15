@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Compact depth profile with optional yellow gas line (**PSI** above ending pressure) and dual scrub callout.
+/// Compact depth profile with optional yellow gas line (**PSI** above ending pressure), labeled time/depth axes, and dual scrub callout.
 struct DiveDepthProfileOverlayChart: View {
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
 
@@ -45,6 +45,8 @@ struct DiveDepthProfileOverlayChart: View {
                         .foregroundStyle(AppTheme.Colors.tabUnselected)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 } else {
+                    axisChrome(in: rect, viewport: viewport, maxDepth: maxDepth)
+
                     Group {
                         Group {
                             if showsGasOverlay, let baseline, let maxAboveBaseline {
@@ -150,6 +152,65 @@ struct DiveDepthProfileOverlayChart: View {
     private var chartMaxDepth: Double {
         let maxDepthData = depthSamples.map(\.depthMeters).max() ?? 0
         return max(maxDepthData, maxDepthHintMeters, 0.5)
+    }
+
+    private func axisChrome(
+        in rect: CGRect,
+        viewport: DiveDepthProfileChartViewport,
+        maxDepth: Double
+    ) -> some View {
+        let timeTicks = DiveDepthProfileChartAxisPresentation.timeTicks(viewport: viewport)
+        let depthTicks = DiveDepthProfileChartAxisPresentation.depthTicks(
+            maxDepthMeters: maxDepth,
+            system: diveDisplayUnitSystem
+        )
+        let axisColor = AppTheme.Colors.tabUnselected.opacity(0.55)
+        let tickLength: CGFloat = 4
+
+        return ZStack(alignment: .topLeading) {
+            Path { path in
+                path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+                path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+                path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+            }
+            .stroke(axisColor, style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round))
+
+            ForEach(Array(depthTicks.enumerated()), id: \.offset) { _, tick in
+                let point = DiveDepthProfileChartAxisPresentation.depthTickPoint(
+                    fraction: tick.fraction,
+                    in: rect
+                )
+                Path { path in
+                    path.move(to: point)
+                    path.addLine(to: CGPoint(x: point.x + tickLength, y: point.y))
+                }
+                .stroke(axisColor, lineWidth: 1)
+
+                Text(tick.label)
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(AppTheme.Colors.tabUnselected)
+                    .position(x: point.x - 18, y: point.y)
+            }
+
+            ForEach(Array(timeTicks.enumerated()), id: \.offset) { _, tick in
+                let point = DiveDepthProfileChartAxisPresentation.timeTickPoint(
+                    fraction: tick.fraction,
+                    in: rect
+                )
+                Path { path in
+                    path.move(to: point)
+                    path.addLine(to: CGPoint(x: point.x, y: point.y - tickLength))
+                }
+                .stroke(axisColor, lineWidth: 1)
+
+                Text(tick.label)
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(AppTheme.Colors.tabUnselected)
+                    .position(x: point.x, y: point.y + 10)
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     private func depthPolyline(
@@ -298,6 +359,7 @@ struct DiveDepthProfileOverlayChart: View {
         }
 
         scrubCallout(
+            elapsedSeconds: depthSample.elapsedSeconds,
             depthMeters: depthSample.depthMeters,
             pressurePSI: scrubPressurePSI(for: depthSample),
             anchor: depthPoint,
@@ -313,9 +375,19 @@ struct DiveDepthProfileOverlayChart: View {
         return pressureSamples[index].pressurePSI
     }
 
-    private func scrubCallout(depthMeters: Double, pressurePSI: Double?, anchor: CGPoint, in rect: CGRect) -> some View {
+    private func scrubCallout(
+        elapsedSeconds: Double,
+        depthMeters: Double,
+        pressurePSI: Double?,
+        anchor: CGPoint,
+        in rect: CGRect
+    ) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("Depth \(formattedDepth(depthMeters))")
+            Text(DiveDepthProfileChartAxisPresentation.scrubTimeLabel(elapsedSeconds: elapsedSeconds))
+            Text(DiveDepthProfileChartAxisPresentation.scrubDepthLabel(
+                depthMeters: depthMeters,
+                system: diveDisplayUnitSystem
+            ))
             if let pressurePSI {
                 Text("Pressure \(formattedPressure(pressurePSI))")
                     .foregroundStyle(AppTheme.Colors.tankGasAccent)
@@ -334,31 +406,44 @@ struct DiveDepthProfileOverlayChart: View {
                 .stroke(AppTheme.Colors.tabUnselected.opacity(0.25), lineWidth: 1)
         }
         .shadow(color: .black.opacity(0.2), radius: 6, y: 2)
-        .position(scrubCalloutPosition(point: anchor, in: rect))
+        .position(scrubCalloutPosition(point: anchor, pressurePresent: pressurePSI != nil, in: rect))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(scrubAccessibilityLabel(depthMeters: depthMeters, pressurePSI: pressurePSI))
+        .accessibilityLabel(
+            scrubAccessibilityLabel(
+                elapsedSeconds: elapsedSeconds,
+                depthMeters: depthMeters,
+                pressurePSI: pressurePSI
+            )
+        )
     }
 
-    private func scrubAccessibilityLabel(depthMeters: Double, pressurePSI: Double?) -> String {
+    private func scrubAccessibilityLabel(
+        elapsedSeconds: Double,
+        depthMeters: Double,
+        pressurePSI: Double?
+    ) -> String {
+        var parts = [
+            DiveDepthProfileChartAxisPresentation.scrubTimeLabel(elapsedSeconds: elapsedSeconds),
+            DiveDepthProfileChartAxisPresentation.scrubDepthLabel(
+                depthMeters: depthMeters,
+                system: diveDisplayUnitSystem
+            ),
+        ]
         if let pressurePSI {
-            return "Depth \(formattedDepth(depthMeters)), pressure \(formattedPressure(pressurePSI))"
+            parts.append("Pressure \(formattedPressure(pressurePSI))")
         }
-        return "Depth \(formattedDepth(depthMeters))"
+        return parts.joined(separator: ", ")
     }
 
-    private func scrubCalloutPosition(point: CGPoint, in rect: CGRect) -> CGPoint {
-        let boxHalfW: CGFloat = 78
-        let boxHalfH: CGFloat = 28
+    private func scrubCalloutPosition(point: CGPoint, pressurePresent: Bool, in rect: CGRect) -> CGPoint {
+        let boxHalfW: CGFloat = 86
+        let boxHalfH: CGFloat = pressurePresent ? 40 : 30
         let margin: CGFloat = 6
-        let preferredY = point.y - 44
+        let preferredY = point.y - (pressurePresent ? 56 : 48)
         let yTop = min(preferredY, point.y - margin - boxHalfH)
         let y = max(rect.minY + boxHalfH + margin, yTop)
         let x = min(max(point.x, rect.minX + boxHalfW + margin), rect.maxX - boxHalfW - margin)
         return CGPoint(x: x, y: y)
-    }
-
-    private func formattedDepth(_ meters: Double) -> String {
-        DiveQuantityFormatting.depth(meters: meters, system: diveDisplayUnitSystem)
     }
 
     private func formattedPressure(_ psi: Double) -> String {

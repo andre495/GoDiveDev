@@ -139,25 +139,38 @@ struct DiveMediaBuddyTagPickerSheet: View {
             .listRowSpacing(DiveMediaBuddyTagPickerRowLayout.listRowSpacing)
             .scrollContentBackground(.hidden)
             .appSheetContentTopSpacing()
-            .navigationTitle("Tag buddy")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    HStack(spacing: AppTheme.Spacing.sm) {
-                        LinkedMediaOverlayGlassIconButton(
-                            systemName: "xmark",
-                            accessibilityLabel: "Done",
-                            accessibilityIdentifier: "DiveMediaBuddyTagPicker.Done",
-                            action: commitDraftTags
-                        )
-
-                        LinkedMediaTaggedOverviewAddTagsButton(
-                            accessibilityLabel: "Add buddy",
-                            accessibilityIdentifier: "DiveMediaBuddyTagPicker.AddBuddy"
-                        ) {
-                            showsAddBuddySheet = true
-                        }
+                ToolbarItem(placement: .principal) {
+                    Text(DiveMediaBuddyTagPresentation.sheetTitle)
+                        .font(.headline)
+                        .accessibilityAddTraits(.isHeader)
+                }
+                ToolbarItem(placement: .cancellationAction) {
+                    // Plain toolbar control — avoid nested overlay glass inside Liquid Glass nav chrome.
+                    Button(action: discardDraftAndDismiss) {
+                        Image(systemName: "xmark")
                     }
+                    .accessibilityLabel(DiveMediaBuddyTagPresentation.cancelAccessibilityLabel)
+                    .accessibilityIdentifier(DiveMediaBuddyTagPresentation.cancelAccessibilityIdentifier)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showsAddBuddySheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel(DiveMediaBuddyTagPresentation.addBuddyAccessibilityLabel)
+                    .accessibilityIdentifier(DiveMediaBuddyTagPresentation.addBuddyAccessibilityIdentifier)
+                }
+                // Keep **+** and **Done** as separate Liquid Glass borders (not one shared capsule).
+                ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(DiveMediaBuddyTagPresentation.doneButtonTitle) {
+                        commitDraftTags()
+                    }
+                    .buttonStyle(.glassProminent)
+                    .accessibilityIdentifier(DiveMediaBuddyTagPresentation.doneAccessibilityIdentifier)
                 }
             }
             .sheet(isPresented: $showsAddBuddySheet) {
@@ -167,7 +180,7 @@ struct DiveMediaBuddyTagPickerSheet: View {
                 }
             }
         }
-        .diveActivityTagsSheetPresentation()
+        .diveMediaTagPickerSheetPresentation()
         .onAppear(perform: reloadTaggedBuddyIDs)
         .alert("Could not save tag", isPresented: tagErrorPresented) {
             Button("OK", role: .cancel) {}
@@ -213,6 +226,10 @@ struct DiveMediaBuddyTagPickerSheet: View {
         } else {
             taggedBuddyIDs.insert(buddy.id)
         }
+    }
+
+    private func discardDraftAndDismiss() {
+        dismiss()
     }
 
     private func commitDraftTags() {

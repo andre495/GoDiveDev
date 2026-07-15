@@ -100,7 +100,7 @@ From buddy **Edit**, **Delete buddy** removes them from the roster and untags th
 
 ## Certifications (related)
 
-**Profile → Certifications** stores training cards with photos, agency, number, and date. When you add a **PADI card photo** (digital eCard front, physical front, or physical back) while creating or editing a certification, GoDive reads the card on your device and can suggest the agency, certification name, number, date, instructor, dive shop, and shop identification number — review and edit before saving. The certifications list uses the same collapsible large-title header. Your newest certification-type card can appear on Profile when you have added one.
+**Profile → Certifications** stores training cards with photos, agency, number, and date. When you add a **PADI card photo** (digital eCard front, physical front, or physical back) while creating or editing a certification, GoDive reads the card on your device and can suggest the agency, certification name, number, date, instructor, dive shop, and shop identification number — review and edit before saving. The certifications list uses the same collapsible large-title header; each row shows the card photo, name with a certification/specialty badge, agency and **#**cert number, and the date attained. Open a card to see the photo header (switch **Front** / **Back** when both sides are saved), certification details including how many of your logged dives fall on or after the date you earned it, and instructor/shop info on a second page. Your newest certification-type card can appear on Profile when you have added one.
 
 ## Tagged media (related)
 

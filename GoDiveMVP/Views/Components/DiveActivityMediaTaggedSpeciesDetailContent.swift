@@ -39,7 +39,9 @@ struct DiveActivityMediaTaggedSpeciesDetailContent: View {
         switch FieldGuideMarineLifeHeroPresentation.heroKind(
             featureModelResourceName: species.featureModelResourceName,
             featureImageResourceName: species.featureImageResourceName,
-            featureImageURL: species.featureImageURL
+            featureImageURL: species.featureImageURL,
+            minSizeMeters: species.minSizeMeters,
+            maxSizeMeters: species.maxSizeMeters
         ) {
         case .model3D(let configuration):
             FieldGuideMarineLifeRealityHeroView(configuration: configuration)

@@ -24,8 +24,10 @@ struct DiveActivityMediaLargeDetentOverviewContent: View {
     var ownerProfileID: UUID? = nil
     var onOpenDive: ((UUID) -> Void)? = nil
     @Binding var selectedTaggedSpeciesUUID: String?
-    /// When true, draws the toggle/**+** row as an overlay (dive panel). When false, only body content.
+    /// When true, draws the toggle/**+** row pinned above scroll. When false, only body content.
     var overlaysChrome: Bool = true
+    /// Soft-collapse the dive overview panel when the user overscrolls past the top of tagged detail.
+    var onCollapseToMedium: (() -> Void)? = nil
 
     @State private var buddyDetailCover: BuddyDetailCover?
     @State private var speciesDetailCover: SpeciesDetailCover?
@@ -53,25 +55,13 @@ struct DiveActivityMediaLargeDetentOverviewContent: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-                Color.clear
-                    .frame(height: DiveActivityMediaPresentation.largeDetentTagOverviewChromeHeight)
-                    .accessibilityHidden(true)
-
-                switch mode {
-                case .marineLife:
-                    marineLifeBody
-                case .buddies:
-                    buddiesBody
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            pinnedChromeScrollHost
 
             if overlaysChrome {
                 chromeRow
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onChange(of: taggedSpecies.map(\.uuid)) { _, uuids in
             if let selectedTaggedSpeciesUUID, uuids.contains(selectedTaggedSpeciesUUID) {
                 return
@@ -97,6 +87,50 @@ struct DiveActivityMediaLargeDetentOverviewContent: View {
                 .hidesBottomTabBarWhenPushed()
             }
         }
+    }
+
+    private var scrollFadeHeight: CGFloat {
+        overlaysChrome
+            ? DiveActivityMediaPresentation.largeDetentPinnedChromeScrollFadeHeight
+            : 0
+    }
+
+    @ViewBuilder
+    private var pinnedChromeScrollHost: some View {
+        if let onCollapseToMedium {
+            OverviewPanelScrollArea(
+                restingDetent: .large,
+                onExpand: {},
+                onCollapseToMedium: onCollapseToMedium,
+                topScrollFadeHeight: scrollFadeHeight
+            ) {
+                scrollableBody
+            }
+        } else {
+            ScrollView {
+                scrollableBody
+            }
+            .scrollIndicators(.hidden)
+            .overviewPanelTopScrollFade(height: scrollFadeHeight)
+        }
+    }
+
+    private var scrollableBody: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            if overlaysChrome {
+                Color.clear
+                    .frame(height: DiveActivityMediaPresentation.largeDetentTagOverviewChromeHeight)
+                    .accessibilityHidden(true)
+            }
+
+            switch mode {
+            case .marineLife:
+                marineLifeBody
+            case .buddies:
+                buddiesBody
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     var chromeRow: some View {
@@ -295,24 +329,22 @@ struct DiveActivityMediaLargeDetentOverviewSheet: View {
     }
 
     var body: some View {
-        ScrollView {
-            DiveActivityMediaLargeDetentOverviewContent(
-                mode: $mode,
-                media: media,
-                taggedSpecies: taggedSpecies,
-                taggedBuddies: taggedBuddies,
-                onTagMarineLife: dive != nil ? { showsMarineLifeTagPicker = true } : nil,
-                onTagBuddies: dive != nil ? { showsBuddyTagPicker = true } : nil,
-                onIdentifyFish: canIdentifyFish ? { showsFishialIdentifySheet = true } : nil,
-                ownerProfileID: dive?.ownerProfileID,
-                onOpenDive: onOpenDive,
-                selectedTaggedSpeciesUUID: $selectedTaggedSpeciesUUID,
-                overlaysChrome: true
-            )
-            .padding(.horizontal, AppTheme.Spacing.lg)
-            .padding(.bottom, AppTheme.Spacing.lg)
-        }
-        .scrollContentBackground(.hidden)
+        DiveActivityMediaLargeDetentOverviewContent(
+            mode: $mode,
+            media: media,
+            taggedSpecies: taggedSpecies,
+            taggedBuddies: taggedBuddies,
+            onTagMarineLife: dive != nil ? { showsMarineLifeTagPicker = true } : nil,
+            onTagBuddies: dive != nil ? { showsBuddyTagPicker = true } : nil,
+            onIdentifyFish: canIdentifyFish ? { showsFishialIdentifySheet = true } : nil,
+            ownerProfileID: dive?.ownerProfileID,
+            onOpenDive: onOpenDive,
+            selectedTaggedSpeciesUUID: $selectedTaggedSpeciesUUID,
+            overlaysChrome: true
+        )
+        .padding(.horizontal, AppTheme.Spacing.lg)
+        .padding(.bottom, AppTheme.Spacing.lg)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .appSheetContentTopSpacing()
         .accessibilityIdentifier("DiveOverview.MediaLargeDetentOverviewSheet")
         .sheet(isPresented: $showsMarineLifeTagPicker) {

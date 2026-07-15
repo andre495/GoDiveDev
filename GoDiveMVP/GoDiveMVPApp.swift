@@ -57,6 +57,7 @@ private struct ProductionAppRoot: View {
             .environment(accountSession)
             .modelContainer(container)
             .onChange(of: scenePhase) { _, phase in
+                CrashReportingService.updateSessionPhase(phase)
                 if phase == .background {
                     Task { @MainActor in
                         DiveMediaReferenceLoader.clearSessionMediaCaches()
@@ -64,6 +65,7 @@ private struct ProductionAppRoot: View {
                 }
             }
             .task {
+                CrashReportingService.startAtLaunch(container: container)
                 AppLaunchMaintenance.runInBackground(container: container)
                 if accountSession.showsMainAppShell {
                     HomeCarouselLaunchPreload.preloadStoredPicksIfCurrent(

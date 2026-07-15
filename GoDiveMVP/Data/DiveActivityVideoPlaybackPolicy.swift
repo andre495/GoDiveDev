@@ -10,6 +10,18 @@ enum DiveActivityVideoPlaybackPolicy: Sendable {
     /// Total finger movement beyond this fails the long-press so the pager swipe wins.
     nonisolated static let holdPauseMaximumMovementPoints: CGFloat = 5
 
+    /// After carousel / pager selection, wait this long before mounting an **`AVPlayer`**.
+    /// Rapid flipping keeps the poster up and avoids remount races.
+    nonisolated static let videoPlayerMountSettleDelayNanoseconds: UInt64 = 300_000_000
+
+    /// **`true`** when selection has been active long enough to mount the dive overview video player.
+    nonisolated static func shouldMountSettledVideoPlayer(
+        isVideoPlaybackActive: Bool,
+        hasCompletedSettleDelay: Bool
+    ) -> Bool {
+        isVideoPlaybackActive && hasCompletedSettleDelay
+    }
+
     /// Restart from the beginning when a pager item becomes active, its file changes, or playback is stuck at the end.
     ///
     /// Pager / carousel navigation always starts from **0** — cached **`AVPlayer`** instances must not resume mid-clip.

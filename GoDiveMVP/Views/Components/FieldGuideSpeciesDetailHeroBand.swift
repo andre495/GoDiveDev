@@ -12,6 +12,8 @@ struct FieldGuideSpeciesDetailHeroBand: View {
     let featureModelResourceName: String
     let featureImageResourceName: String
     let featureImageURL: String
+    let minSizeMeters: Double
+    let maxSizeMeters: Double
     let mapPins: [TripDetailMapPin]
     let isVideoPlaybackActive: Bool
     let onCatalogHeroTap: () -> Void
@@ -87,7 +89,9 @@ struct FieldGuideSpeciesDetailHeroBand: View {
             case .model3D:
                 FieldGuideMarineLifeRealityHeroView(
                     configuration: FieldGuideMarineLifeHeroPresentation.sceneConfiguration(
-                        forModelResourceName: featureModelResourceName
+                        forModelResourceName: featureModelResourceName,
+                        minSizeMeters: minSizeMeters,
+                        maxSizeMeters: maxSizeMeters
                     )
                 )
             case .image:

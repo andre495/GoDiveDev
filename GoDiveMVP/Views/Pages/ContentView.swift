@@ -59,6 +59,12 @@ struct ContentView: View {
             selectedTab = .logbook
             pendingLogbookRoute = .addActivity
         }
+        .onAppear {
+            CrashBreadcrumbTrail.noteRootTab(selectedTab)
+        }
+        .onChange(of: selectedTab) { _, tab in
+            CrashBreadcrumbTrail.noteRootTab(tab)
+        }
     }
 }
 

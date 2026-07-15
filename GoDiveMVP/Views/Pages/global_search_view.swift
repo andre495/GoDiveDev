@@ -187,6 +187,7 @@ struct GlobalSearchView: View {
                 catalogStore: catalogStore,
                 mediaSnapshotStore: mediaSnapshotStore,
                 rendersResultsBody: false,
+                preservesDetailPushResultsSession: preservesResultsSessionForDetailPush,
                 onPushDestination: pushSearchDestination,
                 onBackToCategoryBrowse: finishReturnToGenericSearchPage,
                 isResultsDismissDragActive: $isResultsDismissDragActive
@@ -265,6 +266,7 @@ struct GlobalSearchView: View {
                     resultsDismissDragOffset: resultsDismissDragOffset,
                     catalogStore: catalogStore,
                     mediaSnapshotStore: mediaSnapshotStore,
+                    preservesDetailPushResultsSession: preservesResultsSessionForDetailPush,
                     onPushDestination: pushSearchDestination,
                     onBackToCategoryBrowse: finishReturnToGenericSearchPage,
                     isResultsDismissDragActive: $isResultsDismissDragActive
@@ -308,6 +310,13 @@ struct GlobalSearchView: View {
             )
             isResultsPanelVisible = true
         } else {
+            // Transient query clears from `.searchable` dismiss/reattach around a detail push must not
+            // hide the panel — the preserved session is restored on pop.
+            if GlobalSearchPushedDestinationPresentation.keepsResultsPanelThroughInactiveSearch(
+                preservedSessionIsActive: preservesResultsSessionForDetailPush
+            ) {
+                return
+            }
             isResultsPanelVisible = false
             resultsDismissDragOffset = 0
         }
@@ -366,7 +375,11 @@ struct GlobalSearchView: View {
         stackSearchRestoreTask = nil
     }
 
-    /// Re-present tab-bar search after popping from a result — brief delay lets **`.searchable`** reattach.
+    /// Re-present tab-bar search after popping from a result. Bindings are restored early (results
+    /// stay populated through the transition), but the morphed field is only presented **after** the
+    /// pop transition and the returning tab bar settle — a mid-transition present is swallowed by the
+    /// toolbar machinery and the bar stays hidden. Programmatic presentation can focus the field, so
+    /// the keyboard is resigned once presentation settles (field open, not focused).
     private func restoreStackSearchPresentationIfNeeded() {
         cancelStackSearchRestore()
         stackSearchRestoreTask = Task { @MainActor in
@@ -374,8 +387,23 @@ struct GlobalSearchView: View {
             try? await Task.sleep(nanoseconds: GlobalSearchPresentation.stackSearchRestoreDelayNanoseconds)
             guard !Task.isCancelled, path.isEmpty else { return }
             restorePreservedResultsSessionBindingsIfNeeded()
+            try? await Task.sleep(
+                nanoseconds: GlobalSearchPresentation.stackSearchRestoreAfterPopDelayNanoseconds
+            )
+            guard !Task.isCancelled, path.isEmpty else { return }
+            // `.searchable` reattachment can stomp the query/tokens after the early restore — re-apply
+            // before presenting.
+            restorePreservedResultsSessionBindingsIfNeeded()
             guard isSearchActive else { return }
             isStackSearchPresented = true
+            try? await Task.sleep(
+                nanoseconds: GlobalSearchPresentation.stackSearchRestoreKeyboardDismissDelayNanoseconds
+            )
+            guard !Task.isCancelled, path.isEmpty else { return }
+            SoftwareKeyboardDismissal.dismissActiveKeyboardIfNeeded()
+            // The restore is complete — retire the preserved session so a later manual query clear
+            // behaves like a fresh search again (the next detail push re-preserves).
+            clearPreservedResultsSession()
         }
     }
 
@@ -593,6 +621,9 @@ private struct GlobalSearchSearchIndexLayer: View {
     /// When `false`, this instance is a hidden warmer: it only loads catalogs + warms the shared cache
     /// (no results body, no search / media work). The visible results instance keeps the default `true`.
     var rendersResultsBody = true
+    /// `true` while a pushed detail preserves the search session — the transient query clear from
+    /// **`dismissSearch()`** on push must not wipe `displayedResults` the user pops back to.
+    var preservesDetailPushResultsSession = false
 
     @Query private var ownerDiveActivities: [DiveActivity]
     @Query private var ownerTrips: [DiveTrip]
@@ -636,6 +667,7 @@ private struct GlobalSearchSearchIndexLayer: View {
         catalogStore: GlobalSearchCatalogStore,
         mediaSnapshotStore: GlobalSearchMediaSnapshotStore,
         rendersResultsBody: Bool = true,
+        preservesDetailPushResultsSession: Bool = false,
         onPushDestination: @escaping (GlobalSearchPresentation.Destination) -> Void,
         onBackToCategoryBrowse: @escaping () -> Void,
         isResultsDismissDragActive: Binding<Bool>
@@ -653,6 +685,7 @@ private struct GlobalSearchSearchIndexLayer: View {
         self.catalogStore = catalogStore
         self.mediaSnapshotStore = mediaSnapshotStore
         self.rendersResultsBody = rendersResultsBody
+        self.preservesDetailPushResultsSession = preservesDetailPushResultsSession
         self.onPushDestination = onPushDestination
         self.onBackToCategoryBrowse = onBackToCategoryBrowse
         _isResultsDismissDragActive = isResultsDismissDragActive
@@ -809,6 +842,12 @@ private struct GlobalSearchSearchIndexLayer: View {
         }
         .onAppear {
             guard rendersResultsBody else { return }
+            // Remount with preserved results (pop from a pushed detail): the row-content caches are
+            // fresh per-instance state and `onChange(of: displayedResults)` will not fire when the
+            // refresh returns an equal value — rebuild rows now so preserved hits paint immediately.
+            if !displayedResults.isEmpty {
+                rebuildRowContents()
+            }
             // Tapping a category tile is a discrete action — run the scoped browse immediately
             // (no keystroke debounce) so results return without the extra delay.
             scheduleSearchRefresh(immediate: true)
@@ -837,8 +876,15 @@ private struct GlobalSearchSearchIndexLayer: View {
             rebuildRowContents()
         }
         .onDisappear {
-            searchTask?.cancel()
-            searchTask = nil
+            // The hidden warmer shares the `searchTask` binding but never schedules searches; its
+            // unmount (e.g. when the results layer remounts on pop from a detail) must not cancel the
+            // visible layer's in-flight refresh. Media tasks are per-instance state — always safe.
+            if GlobalSearchIndexLayerPresentation.cancelsSharedSearchTaskOnDisappear(
+                rendersResultsBody: rendersResultsBody
+            ) {
+                searchTask?.cancel()
+                searchTask = nil
+            }
             mediaIndexRebuildTask?.cancel()
             mediaIndexRebuildTask = nil
             mediaFilterTask?.cancel()
@@ -1057,7 +1103,11 @@ private struct GlobalSearchSearchIndexLayer: View {
         guard GlobalSearchTabLaunchPresentation.shouldBuildSearchCatalog(
             isSearchActive: GlobalSearchPresentation.isActive(query: trimmedQuery, contextTokens: contextTokens)
         ) else {
-            displayedResults = GlobalSearchPresentation.Results(query: trimmedQuery, sections: [])
+            if GlobalSearchIndexLayerPresentation.shouldClearResultsForInactiveSearch(
+                preservesResultsSessionForDetailPush: preservesDetailPushResultsSession
+            ) {
+                displayedResults = GlobalSearchPresentation.Results(query: trimmedQuery, sections: [])
+            }
             return
         }
 
@@ -1082,7 +1132,13 @@ private struct GlobalSearchSearchIndexLayer: View {
                 )
             }.value
             guard !Task.isCancelled else { return }
+            let resultsUnchanged = displayedResults == results
             displayedResults = results
+            // `onChange(of: displayedResults)` skips equal values — after a remount (pop from detail)
+            // the per-instance row caches still need a rebuild with the loaded catalogs.
+            if resultsUnchanged {
+                rebuildRowContents()
+            }
         }
     }
 

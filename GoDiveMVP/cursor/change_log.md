@@ -2660,3 +2660,177 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Playback **X** stays for leaving fullscreen back to the media grid (still hidden while the overlay is open so it isn’t confused with overlay dismiss).
 
 ## 108 - Next batch
+
+**Summary:** Fix empty search results after popping back from a result detail; morphed field re-presents with keyboard hidden.
+
+- **Bug:** returning from a pushed result showed empty text sections (dives, sites, species, …) while the Media section still loaded. Two causes: the hidden catalog warmer's `onDisappear` cancelled the **shared** `searchTask` binding right as the remounted results layer scheduled its refresh (media rebuilds on per-instance tasks, so it survived); and the transient `dismissSearch()` query clear on push wiped `displayedResults`.
+- **`GlobalSearchIndexLayerPresentation`** (new) — `cancelsSharedSearchTaskOnDisappear` (only the visible results layer cancels the shared task) + `shouldClearResultsForInactiveSearch` (keep results while a detail push preserves the session). `GlobalSearchSearchIndexLayer` gains `preservesDetailPushResultsSession`.
+- **Pop restore** — `restoreStackSearchPresentationIfNeeded` now resigns the keyboard after the morphed field presents (`stackSearchRestoreKeyboardDismissDelayNanoseconds`), so the field is open over the restored results but unfocused; preserved session retires after a completed restore.
+- Tests: `globalSearchIndexLayer_onlyVisibleResultsLayerCancelsSharedSearchTaskOnDisappear`, `globalSearchIndexLayer_keepsDisplayedResultsWhileDetailPushPreservesSession`, `globalSearchPresentation_stackSearchRestoreDismissesKeyboardAfterPresentation`.
+- **Follow-up (still reproduced on device):** three more holes closed. (1) **Row caches on remount** — `scopedRowContents` / `rowContentByID` are per-instance `@State` rebuilt only via `onChange(of: displayedResults)`, which skips equal values; after pop the refreshed results equal the preserved ones, so rows never rebuilt and every text hit rendered empty (`if let content = rowContentByID[hit.id]` failed) while Media rendered from its own cache. Rows now rebuild in `onAppear` (preserved results paint instantly) and after a refresh returning an unchanged value. (2) **Panel hidden by query blips** — `keepsResultsPanelThroughInactiveSearch` keeps `isResultsPanelVisible` through transient `.searchable` dismiss/reattach query clears while the session is preserved. (3) **Bar present swallowed mid-transition** — the morphed field now presents after `stackSearchRestoreAfterPopDelayNanoseconds` (550 ms, past the nav pop + returning tab bar), with bindings re-applied first in case reattach stomped them. Tests: `globalSearchPresentation_stackSearchRestorePresentsAfterPopTransitionSettles`, `globalSearchPushedDestinationPresentation_keepsResultsPanelThroughPreservedSessionBlips`.
+
+**Summary:** Certification card hero — full-bleed width like media headers; seam alignment unchanged.
+
+- Card photos size **width-first** (`maxWidth` + `fixedSize`) with **0** horizontal inset so width matches media/map heroes; bottom still sits on **`panelOverlap`** seam.
+
+**Summary:** Certification card hero — bottom-align photos to the visible blue-sheet seam.
+
+- Card images sit on the **rounded panel top** via **`cardPhotoSeamBottomInset`** (= **`HomeOverviewLayout.panelOverlap`**), not under the sheet or centered high in the full hero band.
+- Presentation token + unit test.
+
+**Summary:** Field Guide glow — plate under model + upward particle spray; **3D** heroes **~40%** smaller.
+
+- Glow disc **Y** sits **below** the model’s lowest point (clearance subtracted, not into the mesh).
+- Particles emit on world **+Y** with a hemispheric **`spreadingAngle`** so sparkles shoot outward above the plate; thin cylinder emitter under the mesh.
+- Scene order: glow/particles added before the USDZ; **`fitExtent`** **0.2304** (**0.384 × 0.6**).
+- Tests updated for fit extent, disc placement, and emission direction.
+
+**Summary:** Migrate certification detail onto the blue sheet template (front/back hero, two-page pager, dives-since-attained).
+
+- **`ViewCertificationDetails`** — **`BlueSheetDetailPage`** + **`BlueSheetDetailTopChrome`** (Edit); ocean-gradient hero letterboxes card photos so unmatched aspect ratios don’t leave empty bars; front/back glass toggle only when **both** photos exist; type badge pinned **above** the certification name.
+- **Pager** — **Details** (agency, number, date attained, dives logged on/after the attained day) → **Instructor & shop** (instructor, instructor #, dive shop, shop ID).
+- **`CertificationPresentation.divesLoggedSinceAttainedCount`** / label helpers; hero/pager presentation types + unit tests.
+
+**Summary:** Tank depth profile chart — labeled time/depth axes + scrub callout fields.
+
+- **`DiveDepthProfileOverlayChart`** draws an **L**-shaped **x** (dive time, minutes) / **y** (depth, ft or m from **Settings**) axis with tick labels; plot insets leave room for chrome.
+- Scrub callout now includes **Time** and **Depth** (pressure line unchanged when PSI samples exist).
+- **`DiveDepthProfileChartAxisPresentation`** — nice ticks + label helpers; layout inset update; unit tests for formatting, ticks, and plot insets.
+
+**Summary:** Four new Field Guide **3D** heroes (Meshy USDZ).
+
+- Bundled **`Resources/MarineLife3D/`**: **`GreatBarracuda.usdz`**, **`SergeantMajor.usdz`**, **`RockBeauty.usdz`**, **`RedLionfish.usdz`**.
+- **`marine_life_sample.json`** **`feature_model`** on **`marine-life-great-barracuda`**, **`marine-life-sergeant-major`**, **`marine-life-rock-beauty`**, **`marine-life-red-lionfish`** (existing installs pick up on catalog reseed).
+- Seeder + hero presentation unit tests for each species.
+
+**Summary:** Add missing **Caribbean reef shark** to Field Guide catalog.
+
+- Confirmed in **Caribbean Reef Life 4** EPUB (ID plate): **`Carcharhinus perezii`**, to **3 m**; dorsal behind pectorals, dusky paired-fin tips, white abdomen.
+- Seeded **`marine-life-caribbean-reef-shark`** in **`marine_life_sample.json`** + staging / CRL species reference; uses already-bundled photo (**CC0** Openverse); seeder test.
+
+**Summary:** Field Guide **3D** heroes — **20%** smaller + accent glow disc.
+
+- Default **`fitExtent`** **0.384** (**0.48 × 0.8**) for all bundled species configs.
+- RealityKit soft **light-blue** (**accent**) grounded glow under each model — three additive **`UnlitMaterial`** discs (static while the model spins).
+- Tests: fit extent + glow placement/tint helpers.
+
+**Summary:** Field Guide glow — breathe animation + soft accent particles.
+
+- Disc plate **pulses** (horizontal scale + slight vertical bob) each frame via **`SceneEvents.Update`**.
+- RealityKit **`ParticleEmitterComponent.Presets.magic`** tuned to brand blue/cyan sparkles rising from the plate.
+- Glow presentation helpers + unit tests for pulse / emitter footprint.
+
+**Summary:** Certifications list tile — three text rows.
+
+- Row layout: thumbnail + **name + type badge**, then **agency · #number**, then **date attained**.
+- **`CertificationPresentation`** formats cert numbers with a leading **`#`**; list / subtitle helpers + unit tests.
+
+**Summary:** Landscape tank depth chart — tighter side inset; hide **0 min** axis label.
+
+- Landscape minimized chart horizontal inset **12 → 28** pt each side.
+- Time axis omits the **0 min** tick label (end/mid labels unchanged).
+
+**Summary:** Landscape depth chart — more side inset; time labels at mid + end only.
+
+- Landscape horizontal inset **28 → 48** pt (clears Dynamic Island / edge chrome).
+- Time axis shows only **halfway** and **end** of the visible window (no start / **0 min**).
+
+**Summary:** Field Guide **3D** heroes — slightly larger models, lower glow plate, cool backdrop.
+
+- Default **`fitExtent`** **0.22** (down from **0.28**); glow **`verticalClearance`** **0.018 → 0.18** so the disc + particles sit much lower under the mesh.
+- Cool teal atmospheric wash: simple gradient backplate (no bloom discs) behind the model.
+- Glow disc + particles are **siblings** of the spinning model anchor, centered on the yaw axis (**x/z = 0**) so they do not orbit with the mesh.
+- Unit tests for fit, clearance, and spin-axis glow placement.
+
+**Summary:** Field Guide **3D** hero scale from typical species size (non-linear).
+
+- **`FieldGuideMarineLifeHeroFitExtentPresentation`** maps catalog min/max size (meters → ft) to **`fitExtent`**: steep mid-band (**0.5–6 ft**), compressed under **0.5 ft** and over **6 ft**; missing size → default plate.
+- Field Guide detail, hero toggle preview, and dive media species hero pass **`minSizeMeters` / `maxSizeMeters`** into scene config.
+- Unit tests cover average/max pick, mid-band slope emphasis, and barracuda vs sergeant major plating.
+
+**Summary:** Marketing site dependency — Wix Premium + **godiveios.com**.
+
+- Documented **Wix Premium** (GoDive / GoDive iOS project) and domain **godiveios.com** in **`app_summary.md`** External dependencies and **`docs/acknowledgments.md`**.
+- Connected **godiveios.com** to the Wix site via pointing (GoDaddy DNS); landing-page ops notes in **`cursor/wix_landing_page.md`**.
+
+**Summary:** Media **Tag marine life** sheet — trailing **Done** confirms tags.
+
+- Trailing **Done** commits staged species tags and dismisses; leading **×** cancels without applying pending tags.
+- Presentation helpers + unit test for Done/cancel identifiers.
+- Leading **×** uses a plain toolbar button (no nested overlay glass) so Liquid Glass nav chrome is not double-outlined; white **×** icon.
+- Trailing **Done** uses **`.glassProminent`** (matches **Tag buddy**).
+- **Tag marine life** / **Tag buddy** use **`diveMediaTagPickerSheetPresentation`**: **large** only, visible grabber, interactive swipe-down dismiss (discards draft like **×**); no **medium** detent.
+
+**Summary:** Media tab carousel — trailing **+** at medium; featured star on previews.
+
+- Medium detent moves upload **+** to the carousel trailing edge (matches minimized).
+- Featured star lives on carousel thumbnails: selected → always show (accent if featured, white if not; tap toggles); featured unselected → smaller accent star; non-featured unselected → no star.
+- Presentation helpers + unit test for star visibility / scale; user guide + **`app_summary`** updated.
+
+**Summary:** Media **medium** — fish/buddy trailing dive number; header matches Map/Tank.
+
+- Fish / buddy move to the trailing side of the shared dive identity header (top-aligned with dive **#**); no reserved top chrome band so number / title / place / date match **Map** / **Tank** height.
+- Empty-media hero: Liquid Glass **Upload Media** CTA above the sheet at **minimized** / **medium**.
+- Tests + user guide / **`app_summary`** updated.
+
+**Summary:** Media large overview — pin fish/buddy toggle + **+**; content scrolls under with fade.
+
+- Fish/buddy mode toggle and trailing **+** / Fishial stay pinned; species detail and buddy grid scroll underneath.
+- Soft top fade under the pinned chrome (no hard clip); outer Media panel scroll disabled so the inner host gets a bounded height.
+- Unit tests for pinned chrome fade height and Media outer-scroll always-off; user guide / **`app_summary`** refreshed.
+
+**Summary:** **Tag buddy** sheet toolbar — **×** left; **+** then **Done** on the right.
+
+- Leading **×** discards draft tags; trailing **+** (add roster buddy) and **Done** (save) are separate toolbar buttons.
+- Plain nav toolbar controls (no nested overlay glass); presentation identifier helpers + unit test.
+- **+** / **Done** use separate Liquid Glass borders (**`ToolbarSpacer`**); **Done** uses **`.glassProminent`**.
+- Sheet title **Tag buddy** centered via principal toolbar item (asymmetric trailing chrome no longer shifts it).
+- Presentation switched from shared tags **medium/large** helper to media tag picker **large**-only dismissible chrome.
+
+**Summary:** Lightweight crash analytics — MetricKit + abnormal-exit heuristic stored in SwiftData, opt-in CloudKit upload to the developer, viewable in **Settings → Crash Reports**.
+
+- **`CrashReportRecord`** (`@Model`, in **`AppSwiftDataSchema`**) — kind, reason, versions, diagnostic details, **`sharedToCloudAt`**; **`CrashReport`** Sendable snapshot; **`CrashReportStore`** (per-call background **`ModelContext`**) with newest-first load, prune to **20**, pending-share fetch, mark-shared.
+- **`CrashDiagnosticsCollector`** — **MetricKit** subscriber converts delivered **`MXCrashDiagnostic`**s (signal, exception, call-stack JSON) into stored reports (arrive on the launch after a crash; not while the debugger is attached).
+- **`CrashSessionMarker`** heuristic — `UserDefaults` lifecycle marker; a launch that finds the previous session still **foreground** records an **Abnormal exit** report (catches watchdog kills / crashes MetricKit misses).
+- **`CrashReportCloudUploader`** — uploads pending reports to the **CloudKit public database** (**`iCloud.PrimoSoftware.GoDiveMVP`**, record type **`CrashReport`**; oversized details ship as **`CKAsset`**); idempotent by report UUID; skips silently when offline / no iCloud account (retries next launch). Entitlements gain iCloud **CloudKit** + container id.
+- **Settings → Share crash reports** toggle (**`goDiveShareCrashReports`**, default **off** — sharing is opt-in); enabling uploads the stored backlog immediately; new captures upload automatically while on.
+- **`CrashReportingService.startAtLaunch(container:)`** wired in **`ProductionAppRoot.task`**; scene-phase changes keep the marker in sync. No third-party SDK.
+- **Settings → Crash Reports** (`SettingsNavigationLinkRow`) — list with kind + date + reason + **Sent / Not sent to developer** status, detail page with monospaced diagnostic body, **Share** export (single or all) and confirmed **Clear All**.
+- Tests: SwiftData store round-trip / prune / pending-share / mark-shared / delete-all, abnormal-exit decision, CloudKit record field mapping + details-asset threshold, share-toggle default off, reason-line + export formatting, kind + status labels. User guide **`docs/settings.md`** + **`docs/privacy-and-data.md`** + **`app_summary`** updated.
+
+**Summary:** Enrich crash / abnormal-exit reports with a persistent UI breadcrumb trail (tab, dive overview, sheets, memory).
+
+- **`CrashBreadcrumbTrail`** — ring of last **20** events in **`UserDefaults`** (survives the dying process); last UI context (root tab, screen, dive id/#, overview tab/detent, open sheet); process snapshot (uptime, memory footprint, machine id).
+- Launch **freezes** the dying session's trail into a previous-session export, then starts a fresh trail — attached to **Abnormal exit** and **MetricKit** report bodies.
+- Wired from root tab changes, dive overview appear/tab/detent, media tag/Fishial sheets, Settings / Crash Reports screens.
+- Tests for ring prune, freeze/previous-session export, formatter, label helpers; user guide note on breadcrumbs.
+
+**Summary:** Richer abnormal-exit breadcrumbs — media selection context + actions; keep session marker fresh while navigating.
+
+- **`CrashBreadcrumbTrail.Context`** adds **mediaCount**, selected/featured media IDs, media kind, panel on/off, orientation, **lastAction**; dive overview lines encode the same.
+- **`noteAction`** for carousel select, featured star, upload, open tag/Fishial.
+- **`CrashSessionMarker.refreshDetailsPreservingState`** on every breadcrumb so the dying session’s marker is no longer stuck on launch-time **home**.
+- Abnormal-exit reports prefer the frozen trail (plus a thin lifecycle preface) to avoid the duplicated stale+fresh blocks.
+- Thermal state in process snapshot; unit tests for dive-overview encoding + lifecycle preface.
+
+**Summary:** Fix Media-tab crash when rapidly selecting library videos in the carousel.
+
+- Breadcrumb report: dive **#144** Media medium, **15** videos, last action **`carouselSelect`** after flipping between clips in ~1s.
+- **Cause:** pager pages deferred-invalidated shared video session cache on **`onDisappear`**, racing remount of the same clip; neighbors also kept mounting **`AVPlayer`**s.
+- **Fix:** mount overview **`DiveActivityVideoPlayerView`** only while that page is the active selection (poster otherwise); stop deferred invalidate on player disappear (snapshot only); invalidate dive video caches when leaving **`ViewSingleActivity`**.
+- Test: **`mountsVideoPlayerForActivePlayback`**.
+
+**Summary:** Harden Media video carousel crash under sustained rapid tapping.
+
+- Follow-up crash still only **`carouselSelect`** between library videos (took longer — prior fix helped).
+- **300 ms settle delay** before mounting an **`AVPlayer`** on dive overview pages (poster while flipping).
+- Dive overview players **`reusesSessionPlayerAcrossRemounts: false`** — full **`stop()`** on dismantle, no SwiftUI snapshot/player cache reuse across remounts; release any cached owner of an **`AVPlayerItem`** before wrapping a new player.
+- Tests for settle-mount policy.
+
+**Summary:** CloudKit entitlement no longer breaks in-memory SwiftData tests / previews.
+
+- With iCloud **CloudKit** entitlements for crash-report upload, ad-hoc **`ModelConfiguration`**s that omitted **`cloudKitDatabase: .none`** were treated as CloudKit-mirrored and failed load (missing inverses / non-optional attributes).
+- All test + preview ad-hoc configs now pass **`.none`** (production **`AppSwiftDataSchema.makeContainer`** already did).
+- Field Guide size→**fitExtent** small-band weight lowered so mid-band (**0.5–6 ft**) slope stays steeper than compressed tiny sizes; cert / Rock Beauty seeder expectations aligned with current `#` formatting and catalog casing.
+
+
