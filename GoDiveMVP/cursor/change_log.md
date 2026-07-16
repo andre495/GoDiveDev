@@ -2862,7 +2862,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Model bob amplitude **0.014 → 0.042**; glow clearance **0.54 → 0.36** (lifted above the sheet seam).
 - Particles: longer life (**2.1 → 3.4 s**), higher speed / variation, wider emitter footprint so sparkles travel farther before fading.
 
-## 110 - Next batch
+## 110 - Next batch **(pushed)**
 
 **Summary:** Tank tab hero — shift PSI / cylinder / depth chart lower.
 
@@ -2942,4 +2942,6 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Bundled **`Resources/MarineLife3D/`**: **`BarredHamlet`**, **`BlackHamlet`**, **`ButterHamlet`**, **`GrayAngelfish`**, **`IndigoHamlet`**, **`LongspineSquirrelfish`**, **`PorcupineFish`**, **`QueenAngelfish`**, **`ShyHamlet`**.
 - **`marine_life_sample.json`** **`feature_model`** on matching catalog UUIDs (gray angelfish → juvenile row; porcupine fish → **Porcupinefish**).
 - Seeder test **`marineLifeCatalogSeeder_seedsNineAdditionalFeatureModels`**.
+
+## 111 - Next batch
 
