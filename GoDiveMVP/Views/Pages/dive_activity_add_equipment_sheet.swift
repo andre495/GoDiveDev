@@ -36,15 +36,18 @@ struct DiveActivityAddEquipmentSheet: View {
                     }
                 }
             }
-            .navigationTitle("Add equipment")
-            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    AppGlassToolbarCancelButton(
+                        action: { dismiss() },
+                        accessibilityIdentifier: "DiveAddEquipment.Cancel"
+                    )
+                }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
-                    .accessibilityIdentifier("DiveAddEquipment.Done")
+                    AppGlassProminentDoneButton(
+                        action: { dismiss() },
+                        accessibilityIdentifier: "DiveAddEquipment.Done"
+                    )
                 }
             }
         }

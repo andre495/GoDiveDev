@@ -6,4 +6,6 @@ enum ExploreDiveSiteAddPresentation: Sendable {
     nonisolated static let chromeAccessibilityLabel = "Add dive site"
     nonisolated static let chromeSystemImage = "plus"
     nonisolated static let chromeAccessibilityIdentifier = "Explore.AddDiveSite"
+    nonisolated static let cancelAccessibilityIdentifier = "Explore.AddDiveSiteSheet.Cancel"
+    nonisolated static let doneAccessibilityIdentifier = "Explore.AddDiveSiteSheet.Done"
 }

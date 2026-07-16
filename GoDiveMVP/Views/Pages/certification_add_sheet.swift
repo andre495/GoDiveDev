@@ -23,26 +23,25 @@ struct CertificationAddSheetView: View {
                     form: $form,
                     frontPhotoPickerItem: $frontPhotoPickerItem,
                     backPhotoPickerItem: $backPhotoPickerItem,
-                    cardPhotoPreview: $cardPhotoPreview
+                    cardPhotoPreview: $cardPhotoPreview,
+                    clearsListRowBackgrounds: true
                 )
             }
             .scrollContentBackground(.hidden)
-            .navigationTitle("New certification")
-            .navigationBarTitleDisplayMode(.inline)
+            .listStyle(.plain)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .accessibilityIdentifier("CertificationAddSheet.Cancel")
+                    AppGlassToolbarCancelButton(
+                        action: { dismiss() },
+                        accessibilityIdentifier: CertificationPresentation.addSheetCancelAccessibilityIdentifier
+                    )
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        saveCertification()
-                    }
-                    .fontWeight(.semibold)
-                    .disabled(!form.canSave)
-                    .accessibilityIdentifier("CertificationAddSheet.Save")
+                    AppGlassProminentDoneButton(
+                        action: saveCertification,
+                        accessibilityIdentifier: CertificationPresentation.addSheetDoneAccessibilityIdentifier,
+                        isEnabled: form.canSave
+                    )
                 }
             }
             .alert("Could not save", isPresented: saveErrorBinding) {
@@ -52,7 +51,8 @@ struct CertificationAddSheetView: View {
             }
         }
         .certificationCardPhotoPreviewCover($cardPhotoPreview)
-        .certificationAddSheetPresentation()
+        .diveActivityOverviewPanelModalSheetPresentation()
+        .accessibilityIdentifier("CertificationAddSheet.Root")
     }
 
     private var saveErrorBinding: Binding<Bool> {

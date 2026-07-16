@@ -101,9 +101,51 @@ struct DiveSiteFormDraft: Equatable, Sendable {
     var latitudeText: String
     var longitudeText: String
     var waterType: DiveWaterType = .saltwater
+    var entry: String = ""
+    var environment: String = ""
+    var maxDepthMetersText: String = ""
+
+    /// Prefills the edit sheet from an existing catalog **`DiveSite`**.
+    nonisolated init(from site: DiveSite) {
+        let coordinate = DiveMapCoordinateResolver.coordinate(from: site)
+        self.siteName = site.siteName
+        self.country = site.country
+        self.region = site.region
+        self.bodyOfWater = site.bodyOfWater
+        self.latitudeText = coordinate.map { String(format: "%.5f", $0.latitude) } ?? ""
+        self.longitudeText = coordinate.map { String(format: "%.5f", $0.longitude) } ?? ""
+        self.waterType = site.resolvedWaterType
+        self.entry = site.entry
+        self.environment = site.environment
+        self.maxDepthMetersText = site.maxDepthMeters.map(String.init) ?? ""
+    }
+
+    nonisolated init(
+        siteName: String,
+        country: String,
+        region: String,
+        bodyOfWater: String,
+        latitudeText: String,
+        longitudeText: String,
+        waterType: DiveWaterType = .saltwater,
+        entry: String = "",
+        environment: String = "",
+        maxDepthMetersText: String = ""
+    ) {
+        self.siteName = siteName
+        self.country = country
+        self.region = region
+        self.bodyOfWater = bodyOfWater
+        self.latitudeText = latitudeText
+        self.longitudeText = longitudeText
+        self.waterType = waterType
+        self.entry = entry
+        self.environment = environment
+        self.maxDepthMetersText = maxDepthMetersText
+    }
 }
 
-enum DiveSiteFormValidation {
+enum DiveSiteFormValidation: Sendable {
     nonisolated static func sanitizedSiteName(_ raw: String) -> String? {
         trimmedNonEmpty(raw)
     }
@@ -128,6 +170,27 @@ enum DiveSiteFormValidation {
     }
 
     nonisolated static func canSave(draft: DiveSiteFormDraft) -> Bool {
-        sanitizedSiteName(draft.siteName) != nil
+        guard sanitizedSiteName(draft.siteName) != nil else { return false }
+        switch parsedOptionalMaxDepthMeters(draft.maxDepthMetersText) {
+        case .invalid:
+            return false
+        case .none, .value:
+            return true
+        }
     }
+
+    /// Parses optional max-depth meters text. Empty → **`.none`**; valid int ≥ 0 → **`.value`**; otherwise **`.invalid`**.
+    nonisolated static func parsedOptionalMaxDepthMeters(_ raw: String) -> DiveSiteFormOptionalIntParseResult {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return .none }
+        guard let value = Int(trimmed), value >= 0 else { return .invalid }
+        return .value(value)
+    }
+}
+
+/// Optional integer parse result for dive-site form fields (file-scoped for nonisolated Equatable).
+nonisolated enum DiveSiteFormOptionalIntParseResult: Equatable, Sendable {
+    case none
+    case value(Int)
+    case invalid
 }

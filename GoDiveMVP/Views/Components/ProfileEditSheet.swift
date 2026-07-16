@@ -20,66 +20,53 @@ struct ProfileEditSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                    Text("Display name")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.Colors.textPrimary)
-
+            Form {
+                Section {
                     TextField("Your name", text: $nameText)
-                        .font(.body)
-                        .foregroundStyle(AppTheme.Colors.textPrimary)
                         .textInputAutocapitalization(.words)
                         .autocorrectionDisabled()
                         .focused($focusedField, equals: .name)
-                        .padding(AppTheme.Spacing.md)
-                        .background(AppTheme.Colors.surfaceMuted.opacity(0.5))
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .listRowBackground(Color.clear)
                         .accessibilityIdentifier("ProfileEditSheet.NameField")
+                } header: {
+                    Text("Display name")
                 }
 
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                    Text("Diver Medical Insurance (DAN)")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.Colors.textPrimary)
-
+                Section {
                     TextField("DAN member number (optional)", text: $danText)
-                        .font(.body)
-                        .foregroundStyle(AppTheme.Colors.textPrimary)
                         .textInputAutocapitalization(.characters)
                         .autocorrectionDisabled()
                         .keyboardType(.asciiCapable)
                         .focused($focusedField, equals: .dan)
-                        .padding(AppTheme.Spacing.md)
-                        .background(AppTheme.Colors.surfaceMuted.opacity(0.5))
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .listRowBackground(Color.clear)
                         .accessibilityIdentifier("ProfileEditSheet.DanField")
+                } header: {
+                    Text("Diver Medical Insurance (DAN)")
                 }
 
                 if let validationMessage {
-                    Text(validationMessage)
-                        .font(.footnote)
-                        .foregroundStyle(AppTheme.Colors.tabUnselected)
+                    Section {
+                        Text(validationMessage)
+                            .font(.footnote)
+                            .foregroundStyle(AppTheme.Colors.tabUnselected)
+                            .listRowBackground(Color.clear)
+                    }
                 }
-
-                Spacer(minLength: 0)
             }
-            .padding(AppTheme.Spacing.lg)
-            .navigationTitle("Edit profile")
-            .navigationBarTitleDisplayMode(.inline)
+            .scrollContentBackground(.hidden)
+            .listStyle(.plain)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .accessibilityIdentifier("ProfileEditSheet.Cancel")
+                    AppGlassToolbarCancelButton(
+                        action: { dismiss() },
+                        accessibilityIdentifier: ProfilePresentation.editSheetCancelAccessibilityIdentifier
+                    )
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        saveProfile()
-                    }
-                    .fontWeight(.semibold)
-                    .accessibilityIdentifier("ProfileEditSheet.Save")
+                    AppGlassProminentDoneButton(
+                        action: saveProfile,
+                        accessibilityIdentifier: ProfilePresentation.editSheetDoneAccessibilityIdentifier
+                    )
                 }
                 ToolbarItemGroup(placement: .keyboard) {
                     if focusedField != nil {

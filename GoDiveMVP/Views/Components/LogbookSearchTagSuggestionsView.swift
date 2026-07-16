@@ -5,18 +5,19 @@ struct LogbookSearchTagSuggestionsView: View {
     let suggestions: [LogbookTagSearchSuggestion]
     let onSelect: (LogbookTagSearchSuggestion) -> Void
 
-    private let columns = [GridItem(.adaptive(minimum: 88), spacing: AppTheme.Spacing.sm)]
-
     var body: some View {
         ActivityTagsOutlinedSection(appliesLogbookOuterMargins: true) {
             EmptyView()
         } content: {
-            LazyVGrid(columns: columns, alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            ActivityTagChipWrappingLayout(spacing: AppTheme.Spacing.sm) {
                 ForEach(suggestions) { suggestion in
                     Button {
                         onSelect(suggestion)
                     } label: {
-                        ActivityTagOvalChipLabel(title: suggestion.tagName)
+                        ActivityTagOvalChipLabel(
+                            title: ActivityTagPresentation.chipDisplayTitle(for: suggestion.tagName)
+                        )
+                        .fixedSize(horizontal: true, vertical: false)
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("Logbook.TagSuggestion.\(suggestion.id)")
@@ -41,7 +42,11 @@ struct LogbookActiveTagFilterChip: View {
                 .foregroundStyle(AppTheme.Colors.tabSelected)
         } content: {
             HStack(spacing: AppTheme.Spacing.sm) {
-                ActivityTagOvalChipLabel(title: tagName, isEmphasized: true)
+                ActivityTagOvalChipLabel(
+                    title: ActivityTagPresentation.chipDisplayTitle(for: tagName),
+                    isEmphasized: true
+                )
+                .fixedSize(horizontal: true, vertical: false)
                 Spacer(minLength: 0)
             }
         }

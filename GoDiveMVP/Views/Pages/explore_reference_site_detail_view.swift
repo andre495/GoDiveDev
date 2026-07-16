@@ -42,6 +42,7 @@ struct ExploreReferenceSiteDetailView: View {
                 BlueSheetDetailTopChrome(
                     safeTop: safeTop,
                     topInset: topInset,
+                    showsEditAction: false,
                     isEditEnabled: false,
                     onEdit: {},
                     editAccessibilityIdentifier: "Explore.ReferenceSiteDetail.Edit"

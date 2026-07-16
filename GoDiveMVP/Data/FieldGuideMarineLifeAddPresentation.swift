@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 /// Copy, validation, and persistence helpers for user-created catalog species.
 enum FieldGuideMarineLifeAddPresentation: Sendable {
@@ -16,10 +17,41 @@ enum FieldGuideMarineLifeAddPresentation: Sendable {
         var subcategoryID = ""
         var familyName = ""
         var aboutText = ""
+
+        /// Prefills the edit sheet from an existing catalog species.
+        nonisolated init(from species: MarineLife) {
+            let snapshot = species.fieldGuideCatalogSnapshot
+            self.commonName = species.commonName
+            self.scientificName = species.scientificName
+            self.categoryID = FieldGuideTaxonomy.resolvedCategoryID(for: snapshot)
+            self.subcategoryID = FieldGuideTaxonomy.resolvedSubcategoryID(for: snapshot)
+            self.familyName = species.familyName
+            self.aboutText = species.aboutText
+        }
+
+        nonisolated init(
+            commonName: String = "",
+            scientificName: String = "",
+            categoryID: String = FieldGuideTaxonomy.categories.first?.id ?? "",
+            subcategoryID: String = "",
+            familyName: String = "",
+            aboutText: String = ""
+        ) {
+            self.commonName = commonName
+            self.scientificName = scientificName
+            self.categoryID = categoryID
+            self.subcategoryID = subcategoryID
+            self.familyName = familyName
+            self.aboutText = aboutText
+        }
     }
 
     nonisolated static func isUserCreated(uuid: String) -> Bool {
         uuid.hasPrefix(userCreatedUUIDPrefix)
+    }
+
+    nonisolated static func isUserEditable(_ species: MarineLife) -> Bool {
+        isUserCreated(uuid: species.uuid)
     }
 
     nonisolated static func makeUserCreatedUUID() -> String {
@@ -64,7 +96,48 @@ enum FieldGuideMarineLifeAddPresentation: Sendable {
         )
     }
 
+    /// Updates identity / taxonomy / about fields on a **user-created** species only.
+    static func applyEdits(
+        to species: MarineLife,
+        form: FormValues,
+        modelContext: ModelContext,
+        persistImmediately: Bool = true
+    ) throws {
+        guard isUserEditable(species) else {
+            throw FieldGuideMarineLifeEditError.notUserCreated
+        }
+        guard canSave(form) else {
+            throw FieldGuideMarineLifeEditError.invalidForm
+        }
+
+        let categoryID = form.categoryID.trimmingCharacters(in: .whitespacesAndNewlines)
+        species.commonName = MarineLifeCommonNameFormatting.normalized(trimmedCommonName(form.commonName))
+        species.scientificName = form.scientificName.trimmingCharacters(in: .whitespacesAndNewlines)
+        species.category = categoryID
+        species.subcategory = normalizedSubcategoryID(
+            categoryID: categoryID,
+            subcategoryID: form.subcategoryID
+        )
+        species.familyName = form.familyName.trimmingCharacters(in: .whitespacesAndNewlines)
+        species.aboutText = form.aboutText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if persistImmediately {
+            try modelContext.save()
+        }
+    }
+
     nonisolated static func shouldPreserveOnCatalogReseed(uuid: String) -> Bool {
         isUserCreated(uuid: uuid)
     }
+}
+
+enum FieldGuideMarineLifeEditError: Error, Equatable {
+    case notUserCreated
+    case invalidForm
+}
+
+enum FieldGuideMarineLifeEditPresentation: Sendable {
+    nonisolated static let cancelAccessibilityIdentifier = "FieldGuide.EditSpeciesSheet.Cancel"
+    nonisolated static let doneAccessibilityIdentifier = "FieldGuide.EditSpeciesSheet.Done"
+    nonisolated static let rootAccessibilityIdentifier = "FieldGuide.EditSpeciesSheet.Root"
 }

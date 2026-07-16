@@ -46,6 +46,7 @@ struct DiveActivityBuddiesEditSheet: View {
                             .font(.body)
                             .foregroundStyle(AppTheme.Colors.tabUnselected)
                             .accessibilityIdentifier("DiveBuddiesEditSheet.EmptyRoster")
+                            .listRowBackground(Color.clear)
                     }
                 } else {
                     Section {
@@ -83,36 +84,33 @@ struct DiveActivityBuddiesEditSheet: View {
             .listStyle(.plain)
             .listRowSpacing(DiveActivityBuddyRosterPickerRowLayout.listRowSpacing)
             .scrollContentBackground(.hidden)
-            .navigationTitle("Buddies")
-            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        showsAddBuddySheet = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(AppTheme.Colors.tabSelected)
-                            .frame(minWidth: 44, minHeight: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Add buddy")
-                    .accessibilityIdentifier("DiveBuddiesEditSheet.AddBuddy")
+                ToolbarItem(placement: .cancellationAction) {
+                    AppGlassToolbarCancelButton(
+                        action: { dismiss() },
+                        accessibilityIdentifier: "DiveBuddiesEditSheet.Cancel"
+                    )
                 }
-
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
-                        commitDraftTaggedBuddies()
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
-                    .foregroundStyle(AppTheme.Colors.tabSelected)
-                    .accessibilityIdentifier("DiveBuddiesEditSheet.Done")
+                    AppSheetToolbarPlusButton(
+                        action: { showsAddBuddySheet = true },
+                        accessibilityIdentifier: "DiveBuddiesEditSheet.AddBuddy",
+                        accessibilityLabel: "Add buddy"
+                    )
+                }
+                ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                ToolbarItem(placement: .confirmationAction) {
+                    AppGlassProminentDoneButton(
+                        action: {
+                            commitDraftTaggedBuddies()
+                            dismiss()
+                        },
+                        accessibilityIdentifier: "DiveBuddiesEditSheet.Done"
+                    )
                 }
             }
         }
-        .diveActivityTagsSheetPresentation()
+        .diveActivityOverviewPanelModalSheetPresentation()
         .onAppear(perform: reloadDraftTaggedBuddyIDs)
         .sheet(isPresented: $showsAddBuddySheet) {
             DiveActivityAddBuddySheet(

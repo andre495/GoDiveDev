@@ -36,7 +36,7 @@ Tap **+** (or the empty-state **Log Your First Dive** button) to open **Add acti
 
 === "Add it yourself"
 
-    **Manual entry** — create a dive without a file.
+    **Manual entry** — create a dive without a file (blue sheet: date, optional site, **Cancel** / **Done**).
 
 Before import, you can choose whether to **create dive sites** from import data and whether to **attach photos** from your library for that session.
 

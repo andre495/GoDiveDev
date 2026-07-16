@@ -20,28 +20,28 @@ An **upcoming** trip also surfaces as a **Trip on the horizon** banner at the to
 
 ### Create a trip
 
-Tap **+** to add:
+Tap **+** to open the full-height blue form (no grabber). Use **Cancel** to discard or **Done** to save:
 
 - Title (optional)  
 - Start and end dates  
 - Destination countries  
 
-Trips cannot share any calendar days — if your dates overlap an existing trip, the form shows an error and **Save** stays disabled until you adjust the range.
+Trips cannot share any calendar days — if your dates overlap an existing trip, the form shows an error and **Done** stays disabled until you adjust the range.
 
-Add **planned dive sites** and **buddies** on the trip detail page after saving.
+Add **planned dive sites** and **buddies** on the trip detail page after saving. Tap **+** on planned sites to open the full-height blue picker (no grabber): **Cancel** discards changes; **Done** saves the selection. **Add buddy** opens the same blue roster picker with **Cancel**, **+** (new roster buddy), and **Done**.
 
 ### Trip detail
 
 Each trip opens a map-forward overview:
 
-- **Hero map** with planned (blue) and completed (red) site pins when applicable  
+- **Hero map** with planned (blue) and completed (red) site pins when applicable. On a **planned** (not-yet-started) trip with saved dive sites that have locations, the header opens on the **map** by default.  
 - **Stats** — dive count, underwater time, deepest, longest (after the trip starts)  
 - **Pager pages** depend on trip phase:
 
 === "Before the trip starts"
 
     - Planned dive sites  
-    - Planned buddies (roster grid with **You** and **Add buddy**)
+    - Planned buddies (roster grid with **You** and **Add buddy** — blue sheet with **Cancel**, **+**, and **Done**; **Cancel** discards, **Done** saves)
 
 === "After the trip starts"
 
@@ -51,7 +51,7 @@ Each trip opens a map-forward overview:
     - **Buddies** with dive counts  
     - **Trip media** gallery  
 
-Use **Edit** (⋯ menu) to change dates, title, or countries. **Share** exports a share card image with map, buddies, and species highlights.
+Use **Edit** (⋯ menu) to change dates, title, or countries — same blue sheet as **New trip** (**Cancel** / **Done**; **Delete trip** at the bottom). **Share** exports a share card image with map, buddies, and species highlights.
 
 ### Linking dives to trips
 
@@ -65,7 +65,7 @@ The **Dive Buddies** title compacts on scroll and expands when you return to the
 
 ### Roster
 
-Each buddy shows name, optional photo, and **dives together** count. Tap **+** to add someone without tagging them on a dive yet.
+Each buddy shows name, optional photo, and **dives together** count. Tap **+** to open the blue **New buddy** sheet (**Cancel** / **Done**; optional Contacts link).
 
 ### Buddy detail
 
@@ -83,7 +83,7 @@ On dive detail **Map** tab → **Buddies** → **+**:
 
 - Pick from your roster (checkmark to tag or untag)  
 - **Done** saves all changes at once  
-- **+** creates a **New buddy** with optional Contacts link  
+- **+** creates a **New buddy** (blue sheet: **Cancel** / **Done**) with optional Contacts link  
 
 Importing FIT or UDDF files can create buddy names from the file; GoDive may fuzzy-match Contacts when you’ve granted access.
 
@@ -96,11 +96,11 @@ From buddy **Edit**, **Delete buddy** removes them from the roster and untags th
 
 ## Equipment (related)
 
-**Profile → Equipment locker** stores your gear. The locker list uses the same scroll-collapsing **Equipment Locker** title as Trips and Buddies. Items with **Auto-add on import** link to new dives automatically. From dive detail **Tank** tab → **Equipment**, attach locker items to a specific dive.
+**Profile → Equipment locker** stores your gear. The locker list uses the same scroll-collapsing **Equipment Locker** title as Trips and Buddies. Tap **+** for the full-height blue **New equipment** sheet (**Cancel** / **Done**). Items with **Auto-add on import** link to new dives automatically. From dive detail **Tank** tab → **Equipment**, attach locker items to a specific dive.
 
 ## Certifications (related)
 
-**Profile → Certifications** stores training cards with photos, agency, number, and date. When you add a **PADI card photo** (digital eCard front, physical front, or physical back) while creating or editing a certification, GoDive reads the card on your device and can suggest the agency, certification name, number, date, instructor, dive shop, and shop identification number — review and edit before saving. The certifications list uses the same collapsible large-title header; each row shows the card photo, name with a certification/specialty badge, agency and **#**cert number, and the date attained. Open a card to see the photo header (switch **Front** / **Back** when both sides are saved), certification details including how many of your logged dives fall on or after the date you earned it, and instructor/shop info on a second page. Your newest certification-type card can appear on Profile when you have added one.
+**Profile → Certifications** stores training cards with photos, agency, number, and date. Tap **+** to open the full-height blue **New certification** sheet (**Cancel** / **Done**). When you add a **PADI card photo** (digital eCard front, physical front, or physical back) while creating or editing a certification, GoDive reads the card on your device and can suggest the agency, certification name, number, date, instructor, dive shop, and shop identification number — review and edit before saving. The certifications list uses the same collapsible large-title header; each row shows the card photo, name with a certification/specialty badge, agency and **#**cert number, and the date attained. Open a card to see the photo header (switch **Front** / **Back** when both sides are saved), certification details including how many of your logged dives fall on or after the date you earned it, and instructor/shop info on a second page. Your newest certification-type card can appear on Profile when you have added one.
 
 ## Tagged media (related)
 

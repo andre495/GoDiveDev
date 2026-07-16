@@ -2,6 +2,9 @@ import Foundation
 
 /// Read-only copy for the **Profile** header.
 enum ProfilePresentation: Sendable {
+    nonisolated static let editSheetCancelAccessibilityIdentifier = "ProfileEditSheet.Cancel"
+    nonisolated static let editSheetDoneAccessibilityIdentifier = "ProfileEditSheet.Done"
+
     static func danInsuranceLabel(_ memberNumber: String) -> String {
         "DAN \(memberNumber)"
     }

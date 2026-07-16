@@ -17,8 +17,10 @@ enum DiveActivityOverviewPanelMetrics: Sendable {
         largeHeightFraction,
     ]
 
-    /// Gap between the embedded grabber row and panel body (matches **`AppTheme.Sheet.contentTopSpacing`**).
-    nonisolated static let panelContentTopPadding: CGFloat = 24
+    /// Gap between the embedded grabber row and panel body (**minimized** / **medium** / **large**).
+    /// Tighter than **`AppTheme.Sheet.contentTopSpacing`** so dive identity stays clear of the sheet clip
+    /// at low detent while matching medium on every tab.
+    nonisolated static let panelContentTopPadding: CGFloat = 10
 
     /// Bottom inset on embedded overview panel scroll content (matches **`AppTheme.Spacing.lg`**).
     nonisolated static let panelContentBottomPadding: CGFloat = 24

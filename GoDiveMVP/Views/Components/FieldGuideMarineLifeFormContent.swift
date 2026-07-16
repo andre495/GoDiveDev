@@ -12,10 +12,12 @@ struct FieldGuideMarineLifeFormContent: View {
             TextField("Common name", text: $form.commonName)
                 .textInputAutocapitalization(.words)
                 .accessibilityIdentifier("FieldGuide.AddSpecies.CommonName")
+                .listRowBackground(Color.clear)
 
             TextField("Scientific name", text: $form.scientificName)
                 .textInputAutocapitalization(.words)
                 .accessibilityIdentifier("FieldGuide.AddSpecies.ScientificName")
+                .listRowBackground(Color.clear)
         } header: {
             Text("Identity")
         }
@@ -27,6 +29,7 @@ struct FieldGuideMarineLifeFormContent: View {
                 }
             }
             .accessibilityIdentifier("FieldGuide.AddSpecies.Category")
+            .listRowBackground(Color.clear)
 
             if let selectedCategory {
                 Picker("Group", selection: $form.subcategoryID) {
@@ -36,11 +39,13 @@ struct FieldGuideMarineLifeFormContent: View {
                     }
                 }
                 .accessibilityIdentifier("FieldGuide.AddSpecies.Subcategory")
+                .listRowBackground(Color.clear)
             }
 
             TextField("Family", text: $form.familyName)
                 .textInputAutocapitalization(.words)
                 .accessibilityIdentifier("FieldGuide.AddSpecies.Family")
+                .listRowBackground(Color.clear)
         } header: {
             Text("Taxonomy")
         }
@@ -53,6 +58,7 @@ struct FieldGuideMarineLifeFormContent: View {
             )
             .lineLimit(3...8)
             .accessibilityIdentifier("FieldGuide.AddSpecies.About")
+            .listRowBackground(Color.clear)
         } header: {
             Text("About")
         }

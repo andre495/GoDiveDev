@@ -60,4 +60,15 @@ extension View {
                     .ignoresSafeArea(edges: .bottom)
             }
     }
+
+    /// Opaque blue panel sheet chrome matching the dive overview detent background.
+    /// Prefer **`diveActivityOverviewPanelModalSheetPresentation()`** for notes / buddies / tags / conditions
+    /// (opens at dive **large** detent). This helper is for other blue-panel sheets that set their own detents.
+    func appOverviewPanelSheetPresentationChrome() -> some View {
+        presentationCornerRadius(AppTheme.Sheet.cornerRadius)
+            .presentationBackground {
+                AppOverviewSheetPanelBackground()
+                    .ignoresSafeArea(edges: .bottom)
+            }
+    }
 }

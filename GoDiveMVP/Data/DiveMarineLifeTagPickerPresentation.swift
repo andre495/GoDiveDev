@@ -3,6 +3,9 @@ import SwiftUI
 
 /// Fishial affordances on dive media marine-life chrome (large detent + identify).
 enum DiveMarineLifeTagSheetPresentation {
+    nonisolated static let identifySheetCancelAccessibilityIdentifier = "DiveMediaFishialIdentify.Cancel"
+    nonisolated static let identifySheetDoneAccessibilityIdentifier = "DiveMediaFishialIdentify.Done"
+
     nonisolated static var showsFishialIdentifyAction: Bool {
         FishialSecretsBootstrap.isConfigured
     }
@@ -47,11 +50,13 @@ enum DiveMarineLifeTagPickerPresentation {
     nonisolated static let cancelAccessibilityLabel = "Cancel"
     nonisolated static let doneAccessibilityIdentifier = "DiveMarineLifeTagPicker.Done"
     nonisolated static let cancelAccessibilityIdentifier = "DiveMarineLifeTagPicker.Cancel"
+    nonisolated static let addSpeciesAccessibilityIdentifier = "DiveMarineLifeTagPicker.AddSpecies"
+    nonisolated static let addSpeciesAccessibilityLabel = "Add new species"
 
-    /// Always **`false`** — grabber swipe dismisses (**large** only; staged tags discard like Cancel).
+    /// Blue overview-panel modal — dismiss only via toolbar (**Cancel** / **Done**).
     nonisolated static func blocksInteractiveDismiss(pendingTagCount: Int) -> Bool {
         _ = pendingTagCount
-        return false
+        return true
     }
 
     struct RowDisplayData: Identifiable, Equatable, Sendable {

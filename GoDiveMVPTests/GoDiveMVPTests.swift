@@ -715,6 +715,11 @@ struct GoDiveMVPTests {
         #expect(ProfilePresentation.danInsuranceLabel("1234567") == "DAN 1234567")
     }
 
+    @Test func profilePresentation_editSheetAccessibilityIdentifiers() {
+        #expect(ProfilePresentation.editSheetCancelAccessibilityIdentifier == "ProfileEditSheet.Cancel")
+        #expect(ProfilePresentation.editSheetDoneAccessibilityIdentifier == "ProfileEditSheet.Done")
+    }
+
     @Test func profilePresentation_signOutConfirmation_copyIsNonEmpty() {
         #expect(!ProfilePresentation.signOutConfirmationTitle.isEmpty)
         #expect(ProfilePresentation.signOutConfirmationMessage.contains("Are you sure"))
@@ -1914,6 +1919,11 @@ struct GoDiveMVPTests {
         #expect(EquipmentItemPresentation.formattedRecurrence(days: 14) == "Every 2 weeks")
     }
 
+    @Test func equipmentItemPresentation_addSheetAccessibilityIdentifiers() {
+        #expect(EquipmentItemPresentation.addSheetCancelAccessibilityIdentifier == "EquipmentAddSheet.Cancel")
+        #expect(EquipmentItemPresentation.addSheetDoneAccessibilityIdentifier == "EquipmentAddSheet.Done")
+    }
+
     @Test func equipmentGearType_allCases_includesLockerCategories() {
         #expect(EquipmentGearType.allCases.count == 9)
         #expect(EquipmentGearType.regulator.displayName == "Regulator")
@@ -2767,6 +2777,11 @@ struct GoDiveMVPTests {
         #expect(CertificationPresentation.title(for: cert) == "Rescue Diver")
     }
 
+    @Test func certificationPresentation_addSheetAccessibilityIdentifiers() {
+        #expect(CertificationPresentation.addSheetCancelAccessibilityIdentifier == "CertificationAddSheet.Cancel")
+        #expect(CertificationPresentation.addSheetDoneAccessibilityIdentifier == "CertificationAddSheet.Done")
+    }
+
     @Test func certificationPresentation_title_fallsBackToAgencyAndNumber() {
         let cert = Certification(agency: "PADI", certNumber: "123")
         #expect(CertificationPresentation.title(for: cert) == "PADI · #123")
@@ -3288,7 +3303,7 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func diveTankOverviewHeroPresentation_minimizedProfileChartFrame_isCenteredInVisibleBand() {
+    @Test func diveTankOverviewHeroPresentation_minimizedProfileChartFrame_isBiasedDownInVisibleBand() {
         let layoutSize = CGSize(width: 390, height: 640)
         let layoutHeight: CGFloat = 844
         let topObstruction: CGFloat = 100
@@ -3304,6 +3319,22 @@ struct GoDiveMVPTests {
         #expect(abs(frame.midX - layoutSize.width / 2) < 1)
         #expect(frame.minY > topObstruction)
         #expect(frame.maxY < layoutHeight - bottomMargin)
+
+        let bandTop = topObstruction + DiveTankOverviewHeroPresentation.minimizedChartVerticalPadding
+        let bandBottom =
+            layoutHeight - bottomMargin - DiveTankOverviewHeroPresentation.minimizedChartVerticalPadding
+        let availableHeight = bandBottom - bandTop
+        let centeredY = bandTop + (availableHeight - frame.height) / 2
+        #expect(frame.minY >= centeredY - 0.5)
+        #expect(
+            abs(
+                frame.minY
+                    - min(
+                        centeredY + DiveTankOverviewHeroPresentation.heroContentDownwardOffset,
+                        bandBottom - frame.height
+                    )
+            ) < 0.5
+        )
     }
 
     @Test func diveTankOverviewHeroPresentation_landscapeMinimizedProfileChart_isFullWidth() {
@@ -5966,6 +5997,32 @@ struct GoDiveMVPTests {
         #expect(species?.maxSizeMeters == 0.64)
     }
 
+    @Test @MainActor func marineLifeCatalogSeeder_seedsNineAdditionalFeatureModels() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+        let byUUID = Dictionary(
+            uniqueKeysWithValues: try context.fetch(FetchDescriptor<MarineLife>()).map { ($0.uuid, $0) }
+        )
+        let expected: [(uuid: String, common: String, scientific: String, model: String)] = [
+            ("marine-life-barred-hamlet", "Barred Hamlet", "Hypoplectrus puella", "BarredHamlet"),
+            ("marine-life-black-hamlet", "Black Hamlet", "Hypoplectrus nigricans", "BlackHamlet"),
+            ("marine-life-butter-hamlet", "Butter Hamlet", "Hypoplectrus unicolor", "ButterHamlet"),
+            ("marine-life-gray-angelfish", "Gray Angelfish (juvenile)", "Pomacanthus arcuatus", "GrayAngelfish"),
+            ("marine-life-indigo-hamlet", "Indigo Hamlet", "Hypoplectrus indigo", "IndigoHamlet"),
+            ("marine-life-longspine-squirrelfish", "Longspine Squirrelfish", "Holocentrus rufus", "LongspineSquirrelfish"),
+            ("marine-life-spot-fin-porcupinefish", "Porcupinefish", "Diodon hystrix", "PorcupineFish"),
+            ("marine-life-queen-angelfish", "Queen Angelfish", "Holacanthus ciliaris", "QueenAngelfish"),
+            ("marine-life-shy-hamlet", "Shy Hamlet", "Hypoplectrus guttavarius", "ShyHamlet"),
+        ]
+        for row in expected {
+            let species = byUUID[row.uuid]
+            #expect(species?.commonName == row.common)
+            #expect(species?.scientificName == row.scientific)
+            #expect(species?.featureModelResourceName == row.model)
+        }
+    }
+
     @Test func fieldGuidePresentation_depthLine_prefersMinMaxRange() {
         let entry = MarineLifeCatalogSnapshot(
             uuid: "queen",
@@ -6068,6 +6125,54 @@ struct GoDiveMVPTests {
             FieldGuideMarineLifeAddPresentation.chromeAccessibilityIdentifier
                 == "FieldGuide.AddSpecies"
         )
+    }
+
+    @Test @MainActor
+    func fieldGuideMarineLifeAddPresentation_applyEdits_updatesUserCreatedOnly() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let userSpecies = FieldGuideMarineLifeAddPresentation.makeMarineLife(
+            from: FieldGuideMarineLifeAddPresentation.FormValues(
+                commonName: "Custom Tang",
+                scientificName: "Acanthurus sp",
+                categoryID: "fishes",
+                subcategoryID: "surgeonfishes",
+                familyName: "Acanthuridae",
+                aboutText: "Original note"
+            )
+        )
+        context.insert(userSpecies)
+        try context.save()
+
+        var form = FieldGuideMarineLifeAddPresentation.FormValues(from: userSpecies)
+        form.commonName = "Updated Tang"
+        form.aboutText = "Revised note"
+        try FieldGuideMarineLifeAddPresentation.applyEdits(
+            to: userSpecies,
+            form: form,
+            modelContext: context
+        )
+        #expect(userSpecies.commonName == "Updated Tang")
+        #expect(userSpecies.aboutText == "Revised note")
+
+        let bundled = MarineLife(
+            uuid: "marine-life-queen-angelfish",
+            commonName: "Queen Angelfish",
+            category: "fishes"
+        )
+        #expect(!FieldGuideMarineLifeAddPresentation.isUserEditable(bundled))
+        #expect(
+            throws: FieldGuideMarineLifeEditError.notUserCreated
+        ) {
+            try FieldGuideMarineLifeAddPresentation.applyEdits(
+                to: bundled,
+                form: FieldGuideMarineLifeAddPresentation.FormValues(commonName: "Nope"),
+                modelContext: context,
+                persistImmediately: false
+            )
+        }
+        #expect(FieldGuideMarineLifeEditPresentation.doneAccessibilityIdentifier == "FieldGuide.EditSpeciesSheet.Done")
     }
 
     @Test @MainActor func marineLifeCatalogSeeder_seedsQueenAngelfish() throws {
@@ -6372,6 +6477,17 @@ struct GoDiveMVPTests {
             DiveActivityMediaPresentation.largeDetentSpeciesHeroTopFadeOpaqueStop
                 == HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageFadeOpaqueStop
         )
+    }
+
+    @Test func diveActivityMediaPresentation_showsBuddyTagSummary_andBottomPinsCarouselAtMedium() {
+        #expect(!DiveActivityMediaPresentation.showsBuddyTagSummaryInSheet(for: .minimized))
+        #expect(DiveActivityMediaPresentation.showsBuddyTagSummaryInSheet(for: .medium))
+        #expect(!DiveActivityMediaPresentation.showsBuddyTagSummaryInSheet(for: .large))
+        #expect(DiveActivityMediaPresentation.pinsMediaCarouselToSheetBottom(for: .medium))
+        #expect(!DiveActivityMediaPresentation.pinsMediaCarouselToSheetBottom(for: .minimized))
+        #expect(DiveActivityMediaPresentation.mediumCarouselBottomPadding == 8)
+        #expect(DiveMediaBuddyTagPresentation.mediumSectionTitle == "Buddies")
+        #expect(DiveMediaBuddyTagPresentation.mediumAvatarDiameter == 48)
     }
 
     @Test func diveActivityMediaPresentation_showsMarineLifeDetail_onlyAtLarge() {
@@ -7014,6 +7130,17 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func diveMarineLifeTagSheetPresentation_identifySheetAccessibilityIdentifiers() {
+        #expect(
+            DiveMarineLifeTagSheetPresentation.identifySheetCancelAccessibilityIdentifier
+                == "DiveMediaFishialIdentify.Cancel"
+        )
+        #expect(
+            DiveMarineLifeTagSheetPresentation.identifySheetDoneAccessibilityIdentifier
+                == "DiveMediaFishialIdentify.Done"
+        )
+    }
+
     @Test func diveMarineLifeTagSheetPresentation_fishialIdentifyIconGradient_usesPinkPurpleStops() {
         #expect(DiveMarineLifeTagSheetPresentation.fishialIdentifyGradientLeading == Color(
             red: 0.96,
@@ -7103,8 +7230,9 @@ struct GoDiveMVPTests {
         #expect(DiveMarineLifeTagPickerPresentation.doneButtonTitle == "Done")
         #expect(DiveMarineLifeTagPickerPresentation.doneAccessibilityIdentifier == "DiveMarineLifeTagPicker.Done")
         #expect(DiveMarineLifeTagPickerPresentation.cancelAccessibilityIdentifier == "DiveMarineLifeTagPicker.Cancel")
-        #expect(DiveMarineLifeTagPickerPresentation.blocksInteractiveDismiss(pendingTagCount: 0) == false)
-        #expect(DiveMarineLifeTagPickerPresentation.blocksInteractiveDismiss(pendingTagCount: 1) == false)
+        #expect(DiveMarineLifeTagPickerPresentation.addSpeciesAccessibilityIdentifier == "DiveMarineLifeTagPicker.AddSpecies")
+        #expect(DiveMarineLifeTagPickerPresentation.blocksInteractiveDismiss(pendingTagCount: 0) == true)
+        #expect(DiveMarineLifeTagPickerPresentation.blocksInteractiveDismiss(pendingTagCount: 1) == true)
     }
 
     @Test func diveMediaBuddyTagPresentation_toolbarChromeIdentifiers() {
@@ -7330,6 +7458,13 @@ struct GoDiveMVPTests {
     @Test func activityTagStore_normalizedName_collapsesWhitespaceAndCase() {
         #expect(ActivityTagStore.normalizedName(from: "  Night  Dive  ") == "night dive")
         #expect(ActivityTagStore.displayName(from: "  Wreck  ") == "Wreck")
+        #expect(ActivityTagPresentation.chipTitleMaxLength == 25)
+        #expect(ActivityTagPresentation.chipDisplayTitle(for: "Night Dive") == "Night Dive")
+        #expect(
+            ActivityTagPresentation.chipDisplayTitle(for: String(repeating: "A", count: 30))
+                == String(repeating: "A", count: 25) + "…"
+        )
+        #expect(ActivityTagPresentation.chipDisplayTitle(for: "  Drift Dive  ") == "Drift Dive")
     }
 
     @Test @MainActor func activityTagStore_findOrCreate_dedupesPerOwner() throws {
@@ -7382,6 +7517,10 @@ struct GoDiveMVPTests {
         #expect(TripPlannerPresentation.exploreChromeAccessibilityLabel == "Plan a trip")
         #expect(TripPlannerPresentation.exploreChromeSystemImage == "airplane")
         #expect(TripPlannerPresentation.newTripSheetTitle == "Plan a trip")
+        #expect(TripPlannerPresentation.addTripDoneAccessibilityIdentifier == "TripAddSheet.Done")
+        #expect(TripPlannerPresentation.addTripCancelAccessibilityIdentifier == "TripAddSheet.Cancel")
+        #expect(TripPlannerPresentation.editTripDoneAccessibilityIdentifier == "TripEditSheet.Done")
+        #expect(TripPlannerPresentation.editTripCancelAccessibilityIdentifier == "TripEditSheet.Cancel")
     }
 
     @Test func tripPlannerPresentation_sortsTripsByStartDateNewestFirst() {
@@ -8042,6 +8181,48 @@ struct GoDiveMVPTests {
         #expect(DiveTripPlannedBuddyLinking.plannedBuddies(for: trip).isEmpty)
     }
 
+    @Test @MainActor func diveTripPlannedBuddyDraftPresentation_apply_writesOnlyOnDoneDiff() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+
+        let owner = UserProfile(appleUserIdentifier: "owner-planned-buddy-draft", displayName: "Alex")
+        let jordan = DiveBuddy(displayName: "Jordan", owner: owner)
+        let sam = DiveBuddy(displayName: "Sam", owner: owner)
+        let trip = DiveTrip(
+            startDate: Date(timeIntervalSince1970: 2_000_000),
+            endDate: Date(timeIntervalSince1970: 2_086_400),
+            owner: owner
+        )
+        context.insert(owner)
+        context.insert(jordan)
+        context.insert(sam)
+        context.insert(trip)
+
+        DiveTripPlannedBuddyLinking.addBuddy(jordan, to: trip, modelContext: context)
+        try context.save()
+
+        let initial = DiveTripPlannedBuddyDraftPresentation.plannedBuddyIDs(on: trip)
+        #expect(initial == [jordan.id])
+
+        DiveTripPlannedBuddyDraftPresentation.apply(
+            draftBuddyIDs: [sam.id],
+            to: trip,
+            rosterByID: [jordan.id: jordan, sam.id: sam],
+            modelContext: context
+        )
+        try context.save()
+
+        #expect(DiveTripPlannedBuddyDraftPresentation.plannedBuddyIDs(on: trip) == [sam.id])
+        #expect(DiveTripPlannedBuddyLinking.plannedBuddies(for: trip).map(\.id) == [sam.id])
+    }
+
+    @Test func diveTripPresentation_plannedBuddyPickerAccessibilityIdentifiers() {
+        #expect(DiveTripPresentation.plannedBuddyPickerCancelAccessibilityIdentifier == "TripPlannedBuddyPicker.Cancel")
+        #expect(DiveTripPresentation.plannedBuddyPickerAddBuddyAccessibilityIdentifier == "TripPlannedBuddyPicker.AddBuddy")
+        #expect(DiveTripPresentation.plannedBuddyPickerDoneAccessibilityIdentifier == "TripPlannedBuddyPicker.Done")
+        #expect(DiveTripPresentation.tripPlannedBuddyPickerFooter.contains("Done"))
+    }
+
     @Test @MainActor func diveBuddyTripPresentation_associatedTrips_includesPlannedAndTaggedLinkedDives() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = container.mainContext
@@ -8400,6 +8581,49 @@ struct GoDiveMVPTests {
         #expect(aggregate.buddies[0].diveCount == 2)
         #expect(aggregate.buddies[1].buddyID == buddyB)
         #expect(aggregate.buddies[1].diveCount == 2)
+    }
+
+    @Test func tripDetailPresentation_prefersMapHero_forPlannedTripWithSites() {
+        #expect(
+            TripDetailPresentation.prefersMapHero(
+                tripHasStarted: false,
+                plannedSiteCount: 2,
+                hasMapPins: true,
+                hasTripMedia: false
+            )
+        )
+        #expect(
+            TripDetailPresentation.prefersMapHero(
+                tripHasStarted: false,
+                plannedSiteCount: 1,
+                hasMapPins: true,
+                hasTripMedia: true
+            )
+        )
+        #expect(
+            !TripDetailPresentation.prefersMapHero(
+                tripHasStarted: false,
+                plannedSiteCount: 2,
+                hasMapPins: false,
+                hasTripMedia: false
+            )
+        )
+        #expect(
+            !TripDetailPresentation.prefersMapHero(
+                tripHasStarted: true,
+                plannedSiteCount: 2,
+                hasMapPins: true,
+                hasTripMedia: true
+            )
+        )
+        #expect(
+            TripDetailPresentation.prefersMapHero(
+                tripHasStarted: true,
+                plannedSiteCount: 0,
+                hasMapPins: true,
+                hasTripMedia: false
+            )
+        )
     }
 
     @Test @MainActor func tripDetailMapPresentation_plannedBlueAndCompletedRedPins() throws {
@@ -8978,6 +9202,14 @@ struct GoDiveMVPTests {
             DiveTripPresentation.plannedSitesPageSubtitle(siteCount: 3)
                 == "Saved Dive Sites"
         )
+        #expect(
+            DiveTripPresentation.plannedSitePickerCancelAccessibilityIdentifier
+                == "TripPlannedSitePicker.Cancel"
+        )
+        #expect(
+            DiveTripPresentation.plannedSitePickerDoneAccessibilityIdentifier
+                == "TripPlannedSitePicker.Done"
+        )
     }
 
     @Test @MainActor func diveTripActivityLinking_linksDiveAndSuggestsDateMatches() throws {
@@ -9428,6 +9660,11 @@ struct GoDiveMVPTests {
         #expect(dive.tankMaterial == "aluminum")
     }
 
+    @Test func diveActivityManualCreation_sheetAccessibilityIdentifiers() {
+        #expect(DiveActivityManualCreation.cancelAccessibilityIdentifier == "ManualDiveEntry.Cancel")
+        #expect(DiveActivityManualCreation.doneAccessibilityIdentifier == "ManualDiveEntry.Done")
+    }
+
     @Test func diveActivityManualCreation_makeBlank_appliesStartTimeAndSiteName() {
         let when = Date(timeIntervalSince1970: 1_700_000_000)
         let dive = DiveActivityManualCreation.makeBlankActivity(
@@ -9512,8 +9749,12 @@ struct GoDiveMVPTests {
         #expect(stored.first?.ownerProfileID == profile.id)
     }
 
-    @Test func diveActivityOverviewPanelMetrics_panelContentTopPadding_matchesSheetToken() {
-        #expect(DiveActivityOverviewPanelMetrics.panelContentTopPadding == AppTheme.Sheet.contentTopSpacing)
+    @Test func diveActivityOverviewPanelMetrics_panelContentTopPadding_isSharedAcrossDetents() {
+        #expect(DiveActivityOverviewPanelMetrics.panelContentTopPadding == 10)
+        #expect(
+            DiveActivityOverviewPanelMetrics.panelContentTopPadding
+                < AppTheme.Sheet.contentTopSpacing
+        )
     }
 
     @Test func diveActivityEditableCatalog_sourceAndImportFieldsAreNotEditable() {
@@ -9656,6 +9897,39 @@ struct GoDiveMVPTests {
             DiveActivityEditableCatalog.editableFields(in: DiveActivityEditableCatalog.mapDiveSummarySection, for: manual)
                 .contains(.durationMinutes)
         )
+    }
+
+    @Test func diveActivityEditableCatalog_mapNotesUsesDedicatedEditor() throws {
+        let mapSections = DiveActivityEditableCatalog.sections(for: .map, detent: .large)
+        let tankSections = DiveActivityEditableCatalog.sections(for: .tank, detent: .large)
+
+        let notesSection = try #require(mapSections.first { $0.id == "notes" })
+        let gasSection = try #require(tankSections.first { $0.id == "gas" })
+
+        #expect(DiveActivityEditableCatalog.usesDedicatedNotesEditor(section: notesSection, tab: .map))
+        #expect(!DiveActivityEditableCatalog.usesDedicatedNotesEditor(section: gasSection, tab: .tank))
+        #expect(!DiveActivityEditableCatalog.usesDedicatedNotesEditor(section: notesSection, tab: .tank))
+    }
+
+    @Test func diveActivityEditableCatalog_mapDiveSummaryAndConditionsUseOverviewPanelModal() throws {
+        let mapSections = DiveActivityEditableCatalog.sections(for: .map, detent: .large)
+        let tankLarge = DiveActivityEditableCatalog.sections(for: .tank, detent: .large)
+        let conditions = try #require(mapSections.first { $0.id == "diveConditions" })
+        let gas = try #require(tankLarge.first { $0.id == "gas" })
+        let weights = try #require(tankLarge.first { $0.id == "weights" })
+        let operatorSection = try #require(tankLarge.first { $0.id == "operator" })
+        let source = try #require(tankLarge.first { $0.id == "source" })
+
+        #expect(
+            DiveActivityEditableCatalog.usesOverviewPanelModalEditor(
+                section: DiveActivityEditableCatalog.mapDiveSummarySection
+            )
+        )
+        #expect(DiveActivityEditableCatalog.usesOverviewPanelModalEditor(section: conditions))
+        #expect(DiveActivityEditableCatalog.usesOverviewPanelModalEditor(section: gas))
+        #expect(DiveActivityEditableCatalog.usesOverviewPanelModalEditor(section: weights))
+        #expect(DiveActivityEditableCatalog.usesOverviewPanelModalEditor(section: operatorSection))
+        #expect(!DiveActivityEditableCatalog.usesOverviewPanelModalEditor(section: source))
     }
 
     @Test @MainActor func diveActivityBuddiesOverviewPresentation_shouldOpenBuddyDetail() {
@@ -12082,11 +12356,107 @@ struct GoDiveMVPTests {
         #expect(try context.fetchCount(FetchDescriptor<DiveActivity>()) == 0)
     }
 
+    @Test @MainActor
+    func diveActivitySiteAssociation_applyCatalogSiteEdits_updatesFieldsAndClearsCoords() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let site = try DiveActivitySiteAssociation.createCatalogSite(
+            siteName: "Old Reef",
+            country: "Belize",
+            region: "Lighthouse",
+            bodyOfWater: "Caribbean Sea",
+            latCoords: 17.2,
+            longCoords: -87.5,
+            waterType: .saltwater,
+            modelContext: context
+        )
+        site.timeZoneIdentifier = "America/Belize"
+        site.timeZoneOffsetSeconds = -21_600
+
+        var draft = DiveSiteFormDraft(from: site)
+        #expect(draft.siteName == "Old Reef")
+        #expect(draft.latitudeText.contains("17.2"))
+        #expect(draft.waterType == .saltwater)
+
+        draft.siteName = "  New Reef  "
+        draft.country = " Mexico "
+        draft.region = "Baja"
+        draft.bodyOfWater = "Sea of Cortez"
+        draft.waterType = .freshwater
+        draft.entry = "boat"
+        draft.environment = "ocean"
+        draft.maxDepthMetersText = "40"
+        draft.latitudeText = ""
+        draft.longitudeText = ""
+
+        try DiveActivitySiteAssociation.applyCatalogSiteEdits(
+            to: site,
+            draft: draft,
+            modelContext: context
+        )
+
+        #expect(site.siteName == "New Reef")
+        #expect(site.country == "Mexico")
+        #expect(site.region == "Baja")
+        #expect(site.bodyOfWater == "Sea of Cortez")
+        #expect(site.waterType == .freshwater)
+        #expect(site.entry == "boat")
+        #expect(site.environment == "ocean")
+        #expect(site.maxDepthMeters == 40)
+        #expect(site.latCoords == nil)
+        #expect(site.longCoords == nil)
+        #expect(site.timeZoneIdentifier == nil)
+        #expect(site.timeZoneOffsetSeconds == nil)
+    }
+
+    @Test func diveSiteFormValidation_parsedOptionalMaxDepthMeters() {
+        #expect(DiveSiteFormValidation.parsedOptionalMaxDepthMeters("") == .none)
+        #expect(DiveSiteFormValidation.parsedOptionalMaxDepthMeters("  ") == .none)
+        #expect(DiveSiteFormValidation.parsedOptionalMaxDepthMeters("18") == .value(18))
+        #expect(DiveSiteFormValidation.parsedOptionalMaxDepthMeters("-1") == .invalid)
+        #expect(DiveSiteFormValidation.parsedOptionalMaxDepthMeters("abc") == .invalid)
+        #expect(!DiveSiteFormValidation.canSave(draft: DiveSiteFormDraft(
+            siteName: "Reef",
+            country: "",
+            region: "",
+            bodyOfWater: "",
+            latitudeText: "",
+            longitudeText: "",
+            maxDepthMetersText: "nope"
+        )))
+    }
+
+    @Test func diveSiteEditPresentation_accessibilityIdentifiers() {
+        #expect(DiveSiteEditPresentation.cancelAccessibilityIdentifier == "DiveSiteEditSheet.Cancel")
+        #expect(DiveSiteEditPresentation.doneAccessibilityIdentifier == "DiveSiteEditSheet.Done")
+        #expect(DiveSiteEditPresentation.rootAccessibilityIdentifier == "DiveSiteEditSheet.Root")
+    }
+
+    @Test func diveSiteCatalogMatcher_isUserEditableCatalogSite_excludesOpenDiveMapTagged() {
+        let local = DiveSite(siteName: "My Spot")
+        #expect(DiveSiteCatalogMatcher.isUserEditableCatalogSite(local))
+        #expect(DiveSiteCatalogMatcher.isUserEditableCatalogSite(siteTags: []))
+
+        let linked = DiveSite(
+            siteName: "OpenDive Reef",
+            siteTags: [DiveSiteCatalogMatcher.openDiveMapSiteTag(referenceID: "odm-123")]
+        )
+        #expect(!DiveSiteCatalogMatcher.isUserEditableCatalogSite(linked))
+        #expect(
+            !DiveSiteCatalogMatcher.isUserEditableCatalogSite(
+                siteTags: [DiveSiteCatalogMatcher.openDiveMapSiteTag(referenceID: "odm-123")]
+            )
+        )
+    }
+
     @Test func exploreDiveSiteAddPresentation_chromeCopy() {
         #expect(ExploreDiveSiteAddPresentation.sheetTitle == "New dive site")
         #expect(ExploreDiveSiteAddPresentation.chromeAccessibilityLabel == "Add dive site")
         #expect(ExploreDiveSiteAddPresentation.chromeSystemImage == "plus")
         #expect(ExploreDiveSiteAddPresentation.chromeAccessibilityIdentifier == "Explore.AddDiveSite")
+        #expect(ExploreDiveSiteAddPresentation.cancelAccessibilityIdentifier == "Explore.AddDiveSiteSheet.Cancel")
+        #expect(ExploreDiveSiteAddPresentation.doneAccessibilityIdentifier == "Explore.AddDiveSiteSheet.Done")
     }
 
     @Test func exploreDiveSiteDetailContentPager_pages() {
@@ -16968,6 +17338,7 @@ struct GoDiveMVPTests {
                 == chromeTop
                 + DiveTankOverviewHeroPresentation.minimizedTopInsetBelowChrome
                 + DiveTankOverviewHeroPresentation.minimizedAdditionalTopOffset
+                + DiveTankOverviewHeroPresentation.heroContentDownwardOffset
         )
     }
 
@@ -17041,7 +17412,12 @@ struct GoDiveMVPTests {
             topObstructionHeight: topObstruction,
             sheetHeightFraction: DiveActivityOverviewPanelMetrics.mediumHeightFraction
         ) * layoutHeight
-        #expect(abs(metrics.cylinderCenterY - targetY) < 0.5)
+        #expect(
+            abs(
+                metrics.cylinderCenterY
+                    - (targetY + DiveTankOverviewHeroPresentation.heroContentDownwardOffset)
+            ) < 0.5
+        )
     }
 
     @Test func diveLocationMapPresentation_adjustedMapCenter_medium_shiftsSouthOfPin() {
@@ -19736,19 +20112,19 @@ struct GoDiveMVPTests {
         #expect(topSpecies[0].sightingCount == 2)
         #expect(
             HomeLifetimeStatsLeaderboardPresentation.pageTitle(for: .deepestDives)
-                == "My Deepest Dives"
+                == "Deepest Dives"
         )
         #expect(
             HomeLifetimeStatsLeaderboardPresentation.pageTitle(for: .longestDives)
-                == "My Longest Dives"
+                == "Longest Activities"
         )
         #expect(
             HomeLifetimeStatsLeaderboardPresentation.pageTitle(for: .topSites)
-                == "My Top Sites"
+                == "Top Sites"
         )
         #expect(
             HomeLifetimeStatsLeaderboardPresentation.pageTitle(for: .topSpecies)
-                == "My Top Marine Life"
+                == "Top Species"
         )
         // Top 10 pages use Logbook-style collapsible chrome (title inline with back; shrinks on scroll).
         #expect(HomeLifetimeStatsLeaderboardPresentation.usesCollapsibleInlineTitleHeader)
@@ -19875,6 +20251,11 @@ struct GoDiveMVPTests {
         #expect(DiveBuddyPresentation.firstName(from: "  Jamie  ") == "Jamie")
         #expect(DiveBuddyPresentation.firstName(from: "Madonna") == "Madonna")
         #expect(DiveBuddyPresentation.firstName(from: "   ") == "Buddy")
+    }
+
+    @Test func diveBuddyPresentation_addBuddySheetAccessibilityIdentifiers() {
+        #expect(DiveBuddyPresentation.addBuddySheetCancelAccessibilityIdentifier == "DiveActivityAddBuddySheet.Cancel")
+        #expect(DiveBuddyPresentation.addBuddySheetDoneAccessibilityIdentifier == "DiveActivityAddBuddySheet.Done")
     }
 
     @Test func diveBuddyPresentation_initials_usesFirstAndLastToken() {

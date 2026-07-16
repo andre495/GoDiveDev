@@ -3,6 +3,9 @@ import Foundation
 /// Display helpers for **`DiveBuddy`** on dive overview UI.
 enum DiveBuddyPresentation {
 
+    nonisolated static let addBuddySheetCancelAccessibilityIdentifier = "DiveActivityAddBuddySheet.Cancel"
+    nonisolated static let addBuddySheetDoneAccessibilityIdentifier = "DiveActivityAddBuddySheet.Done"
+
     /// First token of **`displayName`** for compact labels (e.g. **Pat** from **Pat Lee**).
     nonisolated static func firstName(from displayName: String) -> String {
         let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)

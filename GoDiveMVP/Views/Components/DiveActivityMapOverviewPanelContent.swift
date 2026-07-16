@@ -13,6 +13,7 @@ struct DiveActivityMapOverviewPanelContent: View {
     let onEditSection: (DiveActivityEditableCatalog.Section) -> Void
     let onManageEquipment: () -> Void
     let onManageBuddies: () -> Void
+    let onEditNotes: () -> Void
     let onAddTags: () -> Void
     let canAddTags: Bool
 
@@ -107,7 +108,8 @@ struct DiveActivityMapOverviewPanelContent: View {
                 profileGasStats: profileGasStats,
                 onEditSection: onEditSection,
                 onManageEquipment: onManageEquipment,
-                onManageBuddies: onManageBuddies
+                onManageBuddies: onManageBuddies,
+                onEditNotes: onEditNotes
             )
 
             DiveActivityTagsSectionView(

@@ -29,26 +29,25 @@ struct DiveSiteAddSheet: View {
             Form {
                 DiveSiteFormContent(
                     draft: $draft,
-                    fallbackCoordinate: activity.entryCoordinate
+                    fallbackCoordinate: activity.entryCoordinate,
+                    clearsListRowBackgrounds: true
                 )
             }
             .scrollContentBackground(.hidden)
-            .navigationTitle("New dive site")
-            .navigationBarTitleDisplayMode(.inline)
+            .listStyle(.plain)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .accessibilityIdentifier("DiveSiteAddSheet.Cancel")
+                    AppGlassToolbarCancelButton(
+                        action: { dismiss() },
+                        accessibilityIdentifier: "DiveSiteAddSheet.Cancel"
+                    )
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        saveSite()
-                    }
-                    .fontWeight(.semibold)
-                    .disabled(!DiveSiteFormValidation.canSave(draft: draft))
-                    .accessibilityIdentifier("DiveSiteAddSheet.Save")
+                    AppGlassProminentDoneButton(
+                        action: saveSite,
+                        accessibilityIdentifier: "DiveSiteAddSheet.Done",
+                        isEnabled: DiveSiteFormValidation.canSave(draft: draft)
+                    )
                 }
             }
             .alert("Could not save", isPresented: saveErrorBinding) {

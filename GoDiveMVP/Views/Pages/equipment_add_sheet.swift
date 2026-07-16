@@ -17,25 +17,27 @@ struct EquipmentAddSheetView: View {
     var body: some View {
         NavigationStack {
             Form {
-                EquipmentItemFormContent(form: $form, photoPickerItem: $photoPickerItem)
+                EquipmentItemFormContent(
+                    form: $form,
+                    photoPickerItem: $photoPickerItem,
+                    clearsListRowBackgrounds: true
+                )
             }
             .scrollContentBackground(.hidden)
-            .navigationTitle("New equipment")
-            .navigationBarTitleDisplayMode(.inline)
+            .listStyle(.plain)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .accessibilityIdentifier("EquipmentAddSheet.Cancel")
+                    AppGlassToolbarCancelButton(
+                        action: { dismiss() },
+                        accessibilityIdentifier: EquipmentItemPresentation.addSheetCancelAccessibilityIdentifier
+                    )
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        saveEquipment()
-                    }
-                    .fontWeight(.semibold)
-                    .disabled(!form.canSave)
-                    .accessibilityIdentifier("EquipmentAddSheet.Save")
+                    AppGlassProminentDoneButton(
+                        action: saveEquipment,
+                        accessibilityIdentifier: EquipmentItemPresentation.addSheetDoneAccessibilityIdentifier,
+                        isEnabled: form.canSave
+                    )
                 }
             }
             .alert("Could not save", isPresented: saveErrorBinding) {
@@ -44,7 +46,8 @@ struct EquipmentAddSheetView: View {
                 Text(saveErrorMessage ?? "Try again.")
             }
         }
-        .equipmentAddSheetPresentation()
+        .diveActivityOverviewPanelModalSheetPresentation()
+        .accessibilityIdentifier("EquipmentAddSheet.Root")
     }
 
     private var saveErrorBinding: Binding<Bool> {

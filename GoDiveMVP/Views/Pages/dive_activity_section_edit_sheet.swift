@@ -33,7 +33,63 @@ struct DiveActivitySectionEditSheet: View {
         _drafts = State(initialValue: loaded)
     }
 
+    private var usesOverviewPanelStyle: Bool {
+        DiveActivityEditableCatalog.usesOverviewPanelModalEditor(section: section)
+    }
+
     var body: some View {
+        if usesOverviewPanelStyle {
+            overviewPanelStyleBody
+        } else {
+            standardBody
+        }
+    }
+
+    private var overviewPanelStyleBody: some View {
+        NavigationStack {
+            Form {
+                ForEach(editableFields, id: \.self) { field in
+                    Section {
+                        DiveActivityFieldEditorRows(
+                            activity: activity,
+                            field: field,
+                            draft: draftBinding(for: field),
+                            displayUnits: displayUnits
+                        )
+                        .listRowBackground(Color.clear)
+                    } header: {
+                        if showsFieldHeader(for: field) {
+                            Text(DiveActivityEditableCatalog.label(for: field))
+                        }
+                    } footer: {
+                        if field == .diveSignature {
+                            Text("Changes save when you tap Done.")
+                        }
+                    }
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .listStyle(.plain)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    AppGlassToolbarCancelButton(
+                        action: { dismiss() },
+                        accessibilityIdentifier: "DiveSectionEditSheet.\(section.id).Cancel"
+                    )
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    AppGlassProminentDoneButton(
+                        action: saveAndDismiss,
+                        accessibilityIdentifier: "DiveSectionEditSheet.\(section.id).Done"
+                    )
+                }
+            }
+        }
+        .diveActivityOverviewPanelModalSheetPresentation()
+        .accessibilityIdentifier("DiveSectionEditSheet.\(section.id)")
+    }
+
+    private var standardBody: some View {
         NavigationStack {
             Form {
                 ForEach(editableFields, id: \.self) { field in

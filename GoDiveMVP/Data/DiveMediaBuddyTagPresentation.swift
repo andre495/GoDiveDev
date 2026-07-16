@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 /// Rows for buddies already tagged on a dive media item.
@@ -41,6 +42,12 @@ enum DiveMediaBuddyTagPresentation {
 
     nonisolated static let largeDetentUntaggedPrompt =
         "No buddies tagged on this photo yet. Tap + to tag who appears here."
+
+    nonisolated static let mediumSectionTitle = "Buddies"
+    nonisolated static let mediumUntaggedPrompt = "Tag buddies who appear in this photo."
+    /// Avatar size for the **medium** Media buddy strip (under marine-life ovals).
+    nonisolated static let mediumAvatarDiameter: CGFloat = 48
+    nonisolated static let mediumChipRowSpacing: CGFloat = AppTheme.Spacing.md
 
     nonisolated static let sheetTitle = "Tag buddy"
     nonisolated static let doneButtonTitle = "Done"

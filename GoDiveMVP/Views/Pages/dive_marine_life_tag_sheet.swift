@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// Catalog picker to add a species tag on dive media.
+/// Catalog picker to add a species tag on dive media (blue overview-panel modal).
 struct DiveMarineLifeTagPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -29,6 +29,7 @@ struct DiveMarineLifeTagPickerSheet: View {
     @State private var speciesSearchQuery = ""
     @FocusState private var isSpeciesSearchFocused: Bool
     @State private var rowsRefreshTask: Task<Void, Never>?
+    @State private var showsAddSpeciesSheet = false
 
     private var isFilteringSpecies: Bool {
         DiveMarineLifeTagPickerPresentation.isFiltering(query: speciesSearchQuery)
@@ -44,30 +45,38 @@ struct DiveMarineLifeTagPickerSheet: View {
                 speciesSearchChrome
                 pickerContent
             }
-            .appSheetContentTopSpacing()
-            .navigationTitle("Tag marine life")
-            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    // Plain toolbar control — do not nest `LinkedMediaOverlayGlassIconButton`
-                    // (extra glass circle) inside Liquid Glass nav-bar chrome.
-                    Button(action: discardPendingTagsAndDismiss) {
-                        Image(systemName: "xmark")
-                    }
-                    .foregroundStyle(.white)
-                    .accessibilityLabel(DiveMarineLifeTagPickerPresentation.cancelAccessibilityLabel)
-                    .accessibilityIdentifier(DiveMarineLifeTagPickerPresentation.cancelAccessibilityIdentifier)
+                    AppGlassToolbarCancelButton(
+                        action: discardPendingTagsAndDismiss,
+                        accessibilityIdentifier: DiveMarineLifeTagPickerPresentation.cancelAccessibilityIdentifier
+                    )
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    AppSheetToolbarPlusButton(
+                        action: { showsAddSpeciesSheet = true },
+                        accessibilityIdentifier: DiveMarineLifeTagPickerPresentation.addSpeciesAccessibilityIdentifier,
+                        accessibilityLabel: DiveMarineLifeTagPickerPresentation.addSpeciesAccessibilityLabel
+                    )
+                }
+                ToolbarSpacer(.fixed, placement: .topBarTrailing)
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(DiveMarineLifeTagPickerPresentation.doneButtonTitle) {
-                        confirmPendingTagsAndDismiss()
-                    }
-                    .buttonStyle(.glassProminent)
-                    .accessibilityIdentifier(DiveMarineLifeTagPickerPresentation.doneAccessibilityIdentifier)
+                    AppGlassProminentDoneButton(
+                        action: confirmPendingTagsAndDismiss,
+                        accessibilityIdentifier: DiveMarineLifeTagPickerPresentation.doneAccessibilityIdentifier,
+                        title: DiveMarineLifeTagPickerPresentation.doneButtonTitle
+                    )
                 }
             }
         }
-        .diveMediaTagPickerSheetPresentation()
+        .diveActivityOverviewPanelModalSheetPresentation()
+        .sheet(isPresented: $showsAddSpeciesSheet) {
+            FieldGuideMarineLifeAddSheet { speciesUUID in
+                Task { @MainActor in
+                    await incorporateNewlyAddedSpecies(uuid: speciesUUID)
+                }
+            }
+        }
         .task(id: media.id) {
             await loadCatalogIfNeeded()
             reloadTaggedMarineLifeUUIDs()
@@ -90,6 +99,7 @@ struct DiveMarineLifeTagPickerSheet: View {
         } message: {
             Text(tagErrorMessage ?? "Try again.")
         }
+        .accessibilityIdentifier("DiveMarineLifeTagPicker.Root")
     }
 
     private var speciesSearchChrome: some View {
@@ -113,7 +123,7 @@ struct DiveMarineLifeTagPickerSheet: View {
             ContentUnavailableView(
                 "No species in catalog",
                 systemImage: "fish",
-                description: Text("Field guide species will appear here when available.")
+                description: Text("Tap + to add a species, or wait for the Field Guide catalog to load.")
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if displayedRows.isEmpty, isFilteringSpecies {
@@ -173,9 +183,23 @@ struct DiveMarineLifeTagPickerSheet: View {
         hasLoadedCatalog = true
     }
 
+    @MainActor
+    private func incorporateNewlyAddedSpecies(uuid: String) async {
+        catalog = await MarineLifeCatalogLoader.loadSortedCatalog(modelContext: modelContext)
+        hasLoadedCatalog = true
+        syncCatalogCache()
+        pendingMarineLifeUUIDs.insert(uuid)
+        rebuildAllPickerRows()
+        markRowTagged(marineLifeUUID: uuid, isTagged: true)
+        refreshDisplayedRows(immediate: true)
+    }
+
     private func syncCatalogCache() {
         let nextCache = DiveMarineLifeTagPickerPresentation.CatalogCache.make(from: catalog)
-        guard nextCache != catalogCache else { return }
+        guard nextCache != catalogCache else {
+            catalogByUUID = Dictionary(uniqueKeysWithValues: catalog.map { ($0.uuid, $0) })
+            return
+        }
         catalogCache = nextCache
         catalogByUUID = Dictionary(uniqueKeysWithValues: catalog.map { ($0.uuid, $0) })
         rebuildAllPickerRows()

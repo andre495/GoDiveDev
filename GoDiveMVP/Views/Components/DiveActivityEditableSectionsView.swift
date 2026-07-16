@@ -10,6 +10,7 @@ struct DiveActivityEditableSectionsView: View {
     let onEditSection: (DiveActivityEditableCatalog.Section) -> Void
     let onManageEquipment: () -> Void
     let onManageBuddies: () -> Void
+    var onEditNotes: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
@@ -25,20 +26,15 @@ struct DiveActivityEditableSectionsView: View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
             sectionHeader(section)
 
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                if section.id == "buddies" {
-                    DiveActivityBuddiesOverviewSection(activity: activity)
-                } else {
-                    ForEach(section.fieldIDs, id: \.self) { fieldID in
-                        row(for: fieldID)
-                    }
+            if isMapNotesSection(section), let onEditNotes {
+                Button(action: onEditNotes) {
+                    sectionCardContent(section)
+                        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
-            }
-            .padding(AppTheme.Spacing.md)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(AppTheme.Colors.surfaceElevated)
+                .buttonStyle(.plain)
+                .accessibilityHint("Edits dive notes")
+            } else {
+                sectionCardContent(section)
             }
         }
     }
@@ -67,7 +63,11 @@ struct DiveActivityEditableSectionsView: View {
                     systemImage: "ellipsis",
                     accessibilityLabel: "Edit \(section.title)"
                 ) {
-                    onEditSection(section)
+                    if isMapNotesSection(section), let onEditNotes {
+                        onEditNotes()
+                    } else {
+                        onEditSection(section)
+                    }
                 }
                 .accessibilityIdentifier("DiveOverview.Section.\(section.id).Edit")
             case .manageEquipment:
@@ -95,5 +95,27 @@ struct DiveActivityEditableSectionsView: View {
             signaturePreviewData: fieldID == .diveSignature ? activity.diveSignatureData : nil
         )
         .accessibilityIdentifier("DiveOverview.Field.\(fieldID.rawValue)")
+    }
+
+    private func sectionCardContent(_ section: DiveActivityEditableCatalog.Section) -> some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            if section.id == "buddies" {
+                DiveActivityBuddiesOverviewSection(activity: activity)
+            } else {
+                ForEach(section.fieldIDs, id: \.self) { fieldID in
+                    row(for: fieldID)
+                }
+            }
+        }
+        .padding(AppTheme.Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppTheme.Colors.surfaceElevated)
+        }
+    }
+
+    private func isMapNotesSection(_ section: DiveActivityEditableCatalog.Section) -> Bool {
+        DiveActivityEditableCatalog.usesDedicatedNotesEditor(section: section, tab: tab)
     }
 }

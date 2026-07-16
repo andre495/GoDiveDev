@@ -23,6 +23,7 @@ struct CertificationFormContent: View {
     @Binding var cardPhotoPreview: CertificationCardPhotoPreviewSelection?
     var focusedField: FocusState<CertificationFormField?>.Binding?
     var disablesTextAutocorrection = false
+    var clearsListRowBackgrounds = false
 
     @State private var isScanningCard = false
     @State private var frontCardScanTask: Task<Void, Never>?
@@ -122,6 +123,7 @@ struct CertificationFormContent: View {
                     onPickerActivated: dismissCertificationKeyboardIfNeeded
                 )
             }
+            .modifier(CertificationFormListRowBackground(clears: clearsListRowBackgrounds))
         } else {
             CertificationCardPhotoPicker(
                 pickerSelection: pickerSelection,
@@ -132,10 +134,12 @@ struct CertificationFormContent: View {
                 onLoaded: onLoaded,
                 onPickerActivated: dismissCertificationKeyboardIfNeeded
             )
+            .modifier(CertificationFormListRowBackground(clears: clearsListRowBackgrounds))
         }
 
         if imageData != nil {
             Button("Remove \(label.lowercased()) photo", role: .destructive, action: onRemove)
+                .modifier(CertificationFormListRowBackground(clears: clearsListRowBackgrounds))
         }
     }
 
@@ -197,6 +201,7 @@ struct CertificationFormContent: View {
 
             DatePicker("Date attained", selection: $form.dateAttained, displayedComponents: .date)
                 .accessibilityIdentifier("CertificationForm.DateAttained")
+                .modifier(CertificationFormListRowBackground(clears: clearsListRowBackgrounds))
         }
     }
 
@@ -248,15 +253,18 @@ struct CertificationFormContent: View {
             .textInputAutocapitalization(capitalization)
             .accessibilityIdentifier(accessibilityIdentifier)
 
-        if let focusedField {
-            baseField
-                .focused(focusedField, equals: field)
-                .autocorrectionDisabled(disablesTextAutocorrection)
-                .textContentType(.none)
-                .keyboardType(.asciiCapable)
-        } else {
-            baseField
+        Group {
+            if let focusedField {
+                baseField
+                    .focused(focusedField, equals: field)
+                    .autocorrectionDisabled(disablesTextAutocorrection)
+                    .textContentType(.none)
+                    .keyboardType(.asciiCapable)
+            } else {
+                baseField
+            }
         }
+        .modifier(CertificationFormListRowBackground(clears: clearsListRowBackgrounds))
     }
 
     private var cardTypeSection: some View {
@@ -268,6 +276,7 @@ struct CertificationFormContent: View {
             }
             .pickerStyle(.segmented)
             .accessibilityIdentifier("CertificationForm.CardType")
+            .modifier(CertificationFormListRowBackground(clears: clearsListRowBackgrounds))
         } footer: {
             Text("Certification cards can appear on your profile when they are the newest certification-type entry.")
                 .foregroundStyle(AppTheme.Colors.secondaryText)
@@ -502,5 +511,17 @@ private struct CertificationCardPhotoFullscreenPreview: View {
             }
         }
         .accessibilityIdentifier("CertificationForm.CardPhotoPreview")
+    }
+}
+
+private struct CertificationFormListRowBackground: ViewModifier {
+    let clears: Bool
+
+    func body(content: Content) -> some View {
+        if clears {
+            content.listRowBackground(Color.clear)
+        } else {
+            content
+        }
     }
 }

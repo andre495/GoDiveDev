@@ -5,6 +5,9 @@ import UIKit
 /// Read-only labels for certification list and detail UI.
 enum CertificationPresentation: Sendable {
 
+    nonisolated static let addSheetCancelAccessibilityIdentifier = "CertificationAddSheet.Cancel"
+    nonisolated static let addSheetDoneAccessibilityIdentifier = "CertificationAddSheet.Done"
+
     struct TypeBadgeStyle: Equatable, Sendable {
         let label: String
         let foreground: Color

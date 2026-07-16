@@ -27,6 +27,21 @@ enum TripDetailPresentation: Sendable {
         )
     }
 
+    /// Default hero mode: planned (not-yet-started) trips with mappable planned sites open on the map.
+    /// Otherwise map when pins exist and there is no trip media.
+    nonisolated static func prefersMapHero(
+        tripHasStarted: Bool,
+        plannedSiteCount: Int,
+        hasMapPins: Bool,
+        hasTripMedia: Bool
+    ) -> Bool {
+        guard hasMapPins else { return false }
+        if !tripHasStarted, plannedSiteCount > 0 {
+            return true
+        }
+        return !hasTripMedia
+    }
+
     /// Hero pick from linked trip media.
     @MainActor
     static func initialHeroMediaPhotoID(

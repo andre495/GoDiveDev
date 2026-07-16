@@ -47,7 +47,8 @@ struct TripEditSheetView: View {
                 TripPlannerFormContent(
                     form: $form,
                     existingOwnerTrips: ownerTrips,
-                    editingTripID: trip.id
+                    editingTripID: trip.id,
+                    clearsListRowBackgrounds: true
                 )
 
                 Section {
@@ -55,25 +56,24 @@ struct TripEditSheetView: View {
                         showsDeleteConfirmation = true
                     }
                     .accessibilityIdentifier("TripEditSheet.Delete")
+                    .listRowBackground(Color.clear)
                 }
             }
             .scrollContentBackground(.hidden)
-            .navigationTitle(TripPlannerPresentation.editTripSheetTitle)
-            .navigationBarTitleDisplayMode(.inline)
+            .listStyle(.plain)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .accessibilityIdentifier("TripEditSheet.Cancel")
+                    AppGlassToolbarCancelButton(
+                        action: { dismiss() },
+                        accessibilityIdentifier: TripPlannerPresentation.editTripCancelAccessibilityIdentifier
+                    )
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        saveChanges()
-                    }
-                    .fontWeight(.semibold)
-                    .disabled(!canSaveTrip)
-                    .accessibilityIdentifier("TripEditSheet.Save")
+                    AppGlassProminentDoneButton(
+                        action: saveChanges,
+                        accessibilityIdentifier: TripPlannerPresentation.editTripDoneAccessibilityIdentifier,
+                        isEnabled: canSaveTrip
+                    )
                 }
             }
             .alert("Could not save", isPresented: saveErrorBinding) {
@@ -98,7 +98,7 @@ struct TripEditSheetView: View {
                 Text(TripPlannerPresentation.deleteTripConfirmationMessage(displayTitle: trip.displayTitle))
             }
         }
-        .tripPlannerAddSheetPresentation()
+        .diveActivityOverviewPanelModalSheetPresentation()
         .accessibilityIdentifier("TripEditSheet.Root")
     }
 

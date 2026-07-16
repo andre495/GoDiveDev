@@ -218,6 +218,11 @@ enum DiveActivityMediaPresentation: Sendable {
         detent == .medium
     }
 
+    /// Buddy avatar strip under marine life on the **Media** sheet at **medium** only.
+    nonisolated static func showsBuddyTagSummaryInSheet(for detent: DiveActivityOverviewDetent) -> Bool {
+        detent == .medium
+    }
+
     /// Dive **#** / site / place / date header (same as map medium) on the **Media** sheet at **medium** only.
     nonisolated static func showsDiveIdentityHeaderInSheet(for detent: DiveActivityOverviewDetent) -> Bool {
         detent == .medium
@@ -317,7 +322,8 @@ enum DiveActivityMediaPresentation: Sendable {
     /// Top chrome action row height at **medium** / **large** — matches **44 pt** action targets.
     nonisolated static let sheetChromeRowHeight: CGFloat = 44
 
-    /// Vertical space for sheet body copy between top chrome and the pinned carousel.
+    /// Vertical space reserved above a **legacy** fixed-height carousel stack (tests / empty-state sizing).
+    /// Live **medium** Media layout bottom-pins the carousel and gives remaining height to identity + tags.
     nonisolated static func sheetBodyHeightAboveMediaCarousel(
         layoutHeight: CGFloat,
         detent: DiveActivityOverviewDetent
@@ -330,7 +336,7 @@ enum DiveActivityMediaPresentation: Sendable {
         return max(0, inset - chromeReserve)
     }
 
-    /// Fixed stack height so the **medium** carousel lands on the minimized on-screen slot.
+    /// Fixed stack height for the historical minimized-slot alignment math (tests).
     nonisolated static func mediaCarouselPinnedStackHeight(
         layoutHeight: CGFloat,
         detent: DiveActivityOverviewDetent
@@ -342,6 +348,14 @@ enum DiveActivityMediaPresentation: Sendable {
         return inset + carouselRowHeight
     }
 
+    /// Inset under the **medium** Media carousel so thumbnails sit near the sheet’s bottom edge.
+    nonisolated static let mediumCarouselBottomPadding: CGFloat = 8
+
+    /// **Medium** Media pins the carousel to the bottom of the overview panel (not the minimized slot).
+    nonisolated static func pinsMediaCarouselToSheetBottom(for detent: DiveActivityOverviewDetent) -> Bool {
+        detent == .medium
+    }
+
     /// **Media** panel outer scroll stays off — **large** scrolls inside the pinned chrome host.
     nonisolated static func disablesPanelScroll(
         isMediaTabSelected: Bool,
@@ -351,7 +365,8 @@ enum DiveActivityMediaPresentation: Sendable {
         return isMediaTabSelected
     }
 
-    nonisolated static let carouselThumbnailSize: CGFloat = 72
+    /// Base carousel preview size (~60% of the former **72 pt** thumbnails).
+    nonisolated static let carouselThumbnailSize: CGFloat = 43.2
     nonisolated static let carouselSelectedThumbnailScale: CGFloat = 1.4
 
     nonisolated static func carouselThumbnailExtent(isSelected: Bool) -> CGFloat {
@@ -364,7 +379,7 @@ enum DiveActivityMediaPresentation: Sendable {
     /// Fallback square extent before the logbook row measures its text column.
     nonisolated static let logbookRowMediaPreviewMinExtent: CGFloat = 48
     nonisolated static let logbookRowMediaPreviewCornerRadius: CGFloat = 6
-    nonisolated static let carouselThumbnailSpacing: CGFloat = 10
+    nonisolated static let carouselThumbnailSpacing: CGFloat = 6
     nonisolated static let carouselThumbnailCornerRadius: CGFloat = 10
     /// Fixed row height so the carousel lays out inside the overview panel's vertical **`ScrollView`**.
     nonisolated static var carouselRowHeight: CGFloat {

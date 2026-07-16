@@ -62,6 +62,7 @@ struct ViewSingleActivity: View {
     @State private var showsAddDiveSiteSheet = false
     @State private var mapSitePromptUserDeclined = false
     @State private var editingSectionContext: DiveActivitySectionEditContext?
+    @State private var showsMapNotesEditSheet = false
     @State private var showsBuddiesEditSheet = false
     @State private var showsTagsEditSheet = false
     @State private var showsAddEquipmentSheet = false
@@ -216,6 +217,9 @@ struct ViewSingleActivity: View {
                         displayUnits: diveDisplayUnitSystem
                     )
                 }
+            }
+            .sheet(isPresented: $showsMapNotesEditSheet) {
+                DiveActivityNotesEditSheet(activity: activity)
             }
             .sheet(isPresented: $showsBuddiesEditSheet) {
                 DiveActivityBuddiesEditSheet(activity: activity)
@@ -1525,6 +1529,7 @@ struct ViewSingleActivity: View {
             },
             onManageEquipment: { showsAddEquipmentSheet = true },
             onManageBuddies: { showsBuddiesEditSheet = true },
+            onEditNotes: { showsMapNotesEditSheet = true },
             onAddTags: { showsTagsEditSheet = true },
             canAddTags: accountSession.currentProfile?.id != nil
         )

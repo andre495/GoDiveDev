@@ -31,6 +31,8 @@ enum DiveTankOverviewHeroPresentation: Sendable {
     nonisolated static let minimizedTopInsetBelowChrome: CGFloat = 8
     /// Extra downward shift for the small tank on the **minimized** detent.
     nonisolated static let minimizedAdditionalTopOffset: CGFloat = 56
+    /// Portrait tank hero stack (PSI summary, cylinder, depth chart) — shift down in the hero band.
+    nonisolated static let heroContentDownwardOffset: CGFloat = 40
 
     /// Matches **`DiveTankCylinderVisual`** frame width ÷ height.
     nonisolated static let cylinderLayoutWidthOverHeight: CGFloat = 0.34
@@ -220,8 +222,9 @@ enum DiveTankOverviewHeroPresentation: Sendable {
         }
 
         let x = (layoutSize.width - width) / 2
-        let y = bandTop + (availableHeight - height) / 2
-        return CGRect(x: x, y: y, width: width, height: height)
+        let centeredY = bandTop + (availableHeight - height) / 2
+        let y = min(centeredY + heroContentDownwardOffset, bandBottom - height)
+        return CGRect(x: x, y: max(y, bandTop), width: width, height: height)
     }
 
     /// Landscape **minimized** — full-width plot; gas summary and cylinder are hidden.
@@ -286,7 +289,10 @@ enum DiveTankOverviewHeroPresentation: Sendable {
         topObstructionHeight: CGFloat
     ) -> (top: CGFloat, trailing: CGFloat) {
         (
-            top: topObstructionHeight + minimizedTopInsetBelowChrome + minimizedAdditionalTopOffset,
+            top: topObstructionHeight
+                + minimizedTopInsetBelowChrome
+                + minimizedAdditionalTopOffset
+                + heroContentDownwardOffset,
             trailing: minimizedTrailingInset
         )
     }
@@ -322,7 +328,7 @@ enum DiveTankOverviewHeroPresentation: Sendable {
             )
             let heroBandMidY = (layoutHeight - bottomContentMargin) / 2
             centerX = layoutSize.width / 2
-            centerY = heroBandMidY + yOffset
+            centerY = heroBandMidY + yOffset + heroContentDownwardOffset
         }
 
         let labelGap: CGFloat = 8

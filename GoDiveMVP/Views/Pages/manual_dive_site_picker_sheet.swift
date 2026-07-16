@@ -51,23 +51,21 @@ struct ManualDiveEntrySitePickerSheet: View {
                             .accessibilityIdentifier("ManualDiveEntrySitePicker.Row.\(row.id.uuidString)")
                         }
                     }
-                    .listStyle(.insetGrouped)
+                    .listStyle(.plain)
                     .scrollContentBackground(.hidden)
                 }
             }
             .searchable(text: $searchQuery, prompt: "Search dive sites")
-            .navigationTitle("Choose dive site")
-            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .accessibilityIdentifier("ManualDiveEntrySitePicker.Cancel")
+                    AppGlassToolbarCancelButton(
+                        action: { dismiss() },
+                        accessibilityIdentifier: "ManualDiveEntrySitePicker.Cancel"
+                    )
                 }
             }
         }
-        .appSheetPresentationChrome()
+        .diveActivityOverviewPanelModalSheetPresentation()
         .accessibilityIdentifier("ManualDiveEntrySitePicker.Root")
     }
 }

@@ -46,13 +46,13 @@ enum HomeLifetimeStatsLeaderboardPresentation {
     nonisolated static func pageTitle(for kind: HomeLifetimeStatsLeaderboardKind) -> String {
         switch kind {
         case .deepestDives:
-            return "My Deepest Dives"
+            return "Deepest Dives"
         case .longestDives:
-            return "My Longest Dives"
+            return "Longest Activities"
         case .topSites:
-            return "My Top Sites"
+            return "Top Sites"
         case .topSpecies:
-            return "My Top Marine Life"
+            return "Top Species"
         }
     }
 

@@ -1,17 +1,18 @@
 import SwiftData
 import SwiftUI
 
-/// Pick roster buddies to invite on a planned trip.
+/// Pick roster buddies to invite on a planned trip (blue overview-panel modal).
 struct TripPlannedBuddyPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @Environment(AccountSession.self) private var accountSession
 
     @Bindable var trip: DiveTrip
 
     @Query private var ownedBuddies: [DiveBuddy]
 
     @State private var showsAddBuddySheet = false
+    @State private var draftBuddyIDs: Set<UUID> = []
+    @State private var draftRosterOverrides: [UUID: DiveBuddy] = [:]
 
     init(trip: DiveTrip) {
         self._trip = Bindable(wrappedValue: trip)
@@ -22,8 +23,12 @@ struct TripPlannedBuddyPickerSheet: View {
         )
     }
 
-    private var ownerProfileID: UUID? {
-        accountSession.currentProfile?.id
+    private var rosterByID: [UUID: DiveBuddy] {
+        var map = Dictionary(uniqueKeysWithValues: ownedBuddies.map { ($0.id, $0) })
+        for (id, buddy) in draftRosterOverrides {
+            map[id] = buddy
+        }
+        return map
     }
 
     var body: some View {
@@ -35,6 +40,7 @@ struct TripPlannedBuddyPickerSheet: View {
                             .font(.body)
                             .foregroundStyle(AppTheme.Colors.tabUnselected)
                             .accessibilityIdentifier("TripPlannedBuddyPicker.EmptyRoster")
+                            .listRowBackground(Color.clear)
                     }
                 } else {
                     Section {
@@ -44,10 +50,7 @@ struct TripPlannedBuddyPickerSheet: View {
                             } label: {
                                 TripPlannedBuddyPickerRow(
                                     buddy: buddy,
-                                    isOnTrip: DiveTripPlannedBuddyLinking.isBuddyOnTrip(
-                                        buddyID: buddy.id,
-                                        trip: trip
-                                    )
+                                    isOnTrip: draftBuddyIDs.contains(buddy.id)
                                 )
                             }
                             .buttonStyle(.plain)
@@ -71,44 +74,63 @@ struct TripPlannedBuddyPickerSheet: View {
             .listStyle(.plain)
             .listRowSpacing(TripPlannedBuddyPickerRowLayout.listRowSpacing)
             .scrollContentBackground(.hidden)
-            .navigationTitle(DiveTripPresentation.tripPlannedBuddyPickerTitle)
-            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        showsAddBuddySheet = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(AppTheme.Colors.tabSelected)
-                            .frame(minWidth: 44, minHeight: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(DiveTripPresentation.addPlannedBuddyAccessibilityLabel)
-                    .accessibilityIdentifier("TripPlannedBuddyPicker.AddBuddy")
+                ToolbarItem(placement: .cancellationAction) {
+                    AppGlassToolbarCancelButton(
+                        action: { dismiss() },
+                        accessibilityIdentifier: DiveTripPresentation.plannedBuddyPickerCancelAccessibilityIdentifier
+                    )
                 }
-
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
-                        try? modelContext.save()
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
-                    .foregroundStyle(AppTheme.Colors.tabSelected)
-                    .accessibilityIdentifier("TripPlannedBuddyPicker.Done")
+                    AppSheetToolbarPlusButton(
+                        action: { showsAddBuddySheet = true },
+                        accessibilityIdentifier: DiveTripPresentation.plannedBuddyPickerAddBuddyAccessibilityIdentifier,
+                        accessibilityLabel: DiveTripPresentation.addPlannedBuddyAccessibilityLabel
+                    )
+                }
+                ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                ToolbarItem(placement: .confirmationAction) {
+                    AppGlassProminentDoneButton(
+                        action: {
+                            commitDraftBuddies()
+                            dismiss()
+                        },
+                        accessibilityIdentifier: DiveTripPresentation.plannedBuddyPickerDoneAccessibilityIdentifier
+                    )
                 }
             }
         }
-        .diveActivityTagsSheetPresentation()
+        .diveActivityOverviewPanelModalSheetPresentation()
+        .onAppear(perform: reloadDraftBuddyIDs)
         .sheet(isPresented: $showsAddBuddySheet) {
-            DiveActivityAddBuddySheet()
+            DiveActivityAddBuddySheet { buddy in
+                draftRosterOverrides[buddy.id] = buddy
+                draftBuddyIDs.insert(buddy.id)
+            }
         }
         .accessibilityIdentifier("TripPlannedBuddyPicker.Root")
     }
 
+    private func reloadDraftBuddyIDs() {
+        draftBuddyIDs = DiveTripPlannedBuddyDraftPresentation.plannedBuddyIDs(on: trip)
+    }
+
     private func toggleBuddy(_ buddy: DiveBuddy) {
-        DiveTripPlannedBuddyLinking.toggleBuddy(buddy, on: trip, modelContext: modelContext)
+        if draftBuddyIDs.contains(buddy.id) {
+            draftBuddyIDs.remove(buddy.id)
+        } else {
+            draftBuddyIDs.insert(buddy.id)
+        }
+    }
+
+    private func commitDraftBuddies() {
+        DiveTripPlannedBuddyDraftPresentation.apply(
+            draftBuddyIDs: draftBuddyIDs,
+            to: trip,
+            rosterByID: rosterByID,
+            modelContext: modelContext
+        )
+        try? modelContext.save()
     }
 }
 

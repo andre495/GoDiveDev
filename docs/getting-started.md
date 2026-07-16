@@ -109,7 +109,7 @@ Tap the **Search** tab (magnifying glass). Pick a category tile or type to searc
 
 From **Home**, tap your avatar (top of the screen) to open **Profile**:
 
-- Edit name and photo  
+- Edit name and DAN (blue **Cancel** / **Done** sheet); change photo on Profile  
 - **Certifications** and **Equipment locker**  
 - **Dive buddies** roster  
 - **Trips** planner  

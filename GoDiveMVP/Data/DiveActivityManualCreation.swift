@@ -17,6 +17,9 @@ struct ManualDiveEntryInput: Equatable, Sendable {
 /// Creates and persists a blank **Manual** **`DiveActivity`** from **Add activity → Manual entry**.
 enum DiveActivityManualCreation {
 
+    nonisolated static let cancelAccessibilityIdentifier = "ManualDiveEntry.Cancel"
+    nonisolated static let doneAccessibilityIdentifier = "ManualDiveEntry.Done"
+
     static let successMessagePrefix = "Manual dive created"
 
     /// Blank dive for in-app editing — **Manual** source, no profile, no **`sourceDiveId`**.

@@ -12,11 +12,30 @@ extension View {
         modifier(DiveActivityTagsSheetPresentationModifier())
     }
 
-    /// Media **Tag marine life** / **Tag buddy** — **large** only; grabber swipe dismisses (no **medium** rest).
+    /// Opaque blue overview-panel modal (notes / buddies / tags / dive conditions).
+    /// Opens at the system **large** detent so it fully covers the ~85% overview panel; no grabber;
+    /// dismiss only via toolbar actions.
+    func diveActivityOverviewPanelModalSheetPresentation() -> some View {
+        modifier(DiveActivityOverviewPanelModalSheetPresentationModifier())
+    }
+
+    /// Media **Tag marine life** — same blue overview-panel modal as notes / buddies.
     func diveMediaTagPickerSheetPresentation() -> some View {
-        presentationDetents([.large])
-            .presentationDragIndicator(.visible)
-            .appSheetPresentationChrome()
+        diveActivityOverviewPanelModalSheetPresentation()
+    }
+}
+
+private struct DiveActivityOverviewPanelModalSheetPresentationModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .presentationDetents([.large])
+            .presentationDragIndicator(.hidden)
+            .interactiveDismissDisabled()
+            .presentationCornerRadius(AppTheme.Sheet.cornerRadius)
+            .presentationBackground {
+                AppOverviewSheetPanelBackground()
+                    .ignoresSafeArea(edges: .bottom)
+            }
     }
 }
 

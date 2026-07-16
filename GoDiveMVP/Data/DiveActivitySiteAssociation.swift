@@ -309,6 +309,59 @@ enum DiveActivitySiteAssociation {
         }
         return site
     }
+
+    /// Applies **`DiveSiteFormDraft`** fields onto an existing catalog **`DiveSite`** (name, place, water type, coordinates).
+    /// Clears coordinates (and timezone) when the draft has no usable lat/lon pair.
+    static func applyCatalogSiteEdits(
+        to site: DiveSite,
+        draft: DiveSiteFormDraft,
+        modelContext: ModelContext,
+        persistImmediately: Bool = true
+    ) throws {
+        guard let siteName = DiveSiteFormValidation.sanitizedSiteName(draft.siteName) else {
+            throw DiveActivitySiteAssociationError.missingSiteName
+        }
+
+        let previousLat = site.latCoords
+        let previousLon = site.longCoords
+        let parsed = DiveSiteFormValidation.parsedCoordinate(
+            latitudeText: draft.latitudeText,
+            longitudeText: draft.longitudeText
+        )
+
+        site.siteName = siteName
+        site.country = DiveSiteFormValidation.sanitizedPlaceField(draft.country)
+        site.region = DiveSiteFormValidation.sanitizedPlaceField(draft.region)
+        site.bodyOfWater = DiveSiteFormValidation.sanitizedPlaceField(draft.bodyOfWater)
+        site.waterType = draft.waterType
+        site.entry = DiveSiteFormValidation.sanitizedPlaceField(draft.entry)
+        site.environment = DiveSiteFormValidation.sanitizedPlaceField(draft.environment)
+        switch DiveSiteFormValidation.parsedOptionalMaxDepthMeters(draft.maxDepthMetersText) {
+        case .none:
+            site.maxDepthMeters = nil
+        case .value(let meters):
+            site.maxDepthMeters = meters
+        case .invalid:
+            throw DiveActivitySiteAssociationError.invalidMaxDepth
+        }
+        site.latCoords = parsed?.latitude
+        site.longCoords = parsed?.longitude
+
+        let coordsChanged = site.latCoords != previousLat || site.longCoords != previousLon
+        if coordsChanged, parsed == nil {
+            site.timeZoneIdentifier = nil
+            site.timeZoneOffsetSeconds = nil
+        }
+
+        if persistImmediately {
+            try modelContext.save()
+        }
+    }
+}
+
+enum DiveActivitySiteAssociationError: Error, Equatable {
+    case missingSiteName
+    case invalidMaxDepth
 }
 
 extension DiveActivitySiteAssociation {

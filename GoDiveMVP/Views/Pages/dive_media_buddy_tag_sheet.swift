@@ -138,39 +138,28 @@ struct DiveMediaBuddyTagPickerSheet: View {
             .listStyle(.plain)
             .listRowSpacing(DiveMediaBuddyTagPickerRowLayout.listRowSpacing)
             .scrollContentBackground(.hidden)
-            .appSheetContentTopSpacing()
-            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text(DiveMediaBuddyTagPresentation.sheetTitle)
-                        .font(.headline)
-                        .accessibilityAddTraits(.isHeader)
-                }
                 ToolbarItem(placement: .cancellationAction) {
-                    // Plain toolbar control — avoid nested overlay glass inside Liquid Glass nav chrome.
-                    Button(action: discardDraftAndDismiss) {
-                        Image(systemName: "xmark")
-                    }
-                    .accessibilityLabel(DiveMediaBuddyTagPresentation.cancelAccessibilityLabel)
-                    .accessibilityIdentifier(DiveMediaBuddyTagPresentation.cancelAccessibilityIdentifier)
+                    AppGlassToolbarCancelButton(
+                        action: discardDraftAndDismiss,
+                        accessibilityIdentifier: DiveMediaBuddyTagPresentation.cancelAccessibilityIdentifier
+                    )
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showsAddBuddySheet = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .accessibilityLabel(DiveMediaBuddyTagPresentation.addBuddyAccessibilityLabel)
-                    .accessibilityIdentifier(DiveMediaBuddyTagPresentation.addBuddyAccessibilityIdentifier)
+                    AppSheetToolbarPlusButton(
+                        action: { showsAddBuddySheet = true },
+                        accessibilityIdentifier: DiveMediaBuddyTagPresentation.addBuddyAccessibilityIdentifier,
+                        accessibilityLabel: DiveMediaBuddyTagPresentation.addBuddyAccessibilityLabel
+                    )
                 }
                 // Keep **+** and **Done** as separate Liquid Glass borders (not one shared capsule).
                 ToolbarSpacer(.fixed, placement: .topBarTrailing)
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(DiveMediaBuddyTagPresentation.doneButtonTitle) {
-                        commitDraftTags()
-                    }
-                    .buttonStyle(.glassProminent)
-                    .accessibilityIdentifier(DiveMediaBuddyTagPresentation.doneAccessibilityIdentifier)
+                    AppGlassProminentDoneButton(
+                        action: commitDraftTags,
+                        accessibilityIdentifier: DiveMediaBuddyTagPresentation.doneAccessibilityIdentifier,
+                        title: DiveMediaBuddyTagPresentation.doneButtonTitle
+                    )
                 }
             }
             .sheet(isPresented: $showsAddBuddySheet) {
@@ -180,7 +169,7 @@ struct DiveMediaBuddyTagPickerSheet: View {
                 }
             }
         }
-        .diveMediaTagPickerSheetPresentation()
+        .diveActivityOverviewPanelModalSheetPresentation()
         .onAppear(perform: reloadTaggedBuddyIDs)
         .alert("Could not save tag", isPresented: tagErrorPresented) {
             Button("OK", role: .cancel) {}

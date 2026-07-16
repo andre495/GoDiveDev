@@ -2864,3 +2864,82 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ## 110 - Next batch
 
+**Summary:** Tank tab hero — shift PSI / cylinder / depth chart lower.
+
+- Portrait tank hero content moves down **`heroContentDownwardOffset` (40 pt)** — minimized PSI + small cylinder, medium animated tank, and minimized depth profile (landscape full-bleed chart unchanged).
+- Unit tests for padding, medium center Y, and chart Y bias.
+
+**Summary:** Dive overview sheets — raise identity header at minimized detent.
+
+- **`minimizedPanelContentTopPadding` (10 pt)** vs **24 pt** on medium/large so dive **#** / site / place / date sit higher and are less likely to clip under the low sheet band (map / tank / media share the token).
+- Unit test covers height-fraction-aware top padding.
+
+**Summary:** Dive overview grabber-to-content spacing unified at **10 pt**.
+
+- One **`panelContentTopPadding`** for **minimized** (map) and **medium** (all tabs) — same gap under the grabber; no detent-specific inset.
+- Intentionally tighter than generic **`AppTheme.Sheet.contentTopSpacing`** (24) so identity lines clear the low sheet band.
+
+**Summary:** Map-tab notes now edit in a blue detent-styled sheet.
+
+- Tapping the **Notes** card on the map overview panel opens a dedicated **`DiveActivityNotesEditSheet`** instead of the generic frosted section form.
+- The notes editor uses **`AppOverviewSheetPanelBackground`** via **`appOverviewPanelSheetPresentationChrome()`** so its sheet background matches the embedded overview detent styling.
+- The notes section header ellipsis routes to the same dedicated notes editor for a consistent map-tab notes flow.
+- Notes text sits directly on the blue sheet under **Edit Notes** (no inset card / container).
+- **Cancel** (leading) discards draft edits; **Done** saves. Grabber hidden and interactive dismiss disabled — sheet closes only via Cancel / Done.
+
+**Summary:** Buddy tag sheets match the blue notes-sheet chrome.
+
+- **`DiveActivityBuddiesEditSheet`** (map) and **`DiveMediaBuddyTagPickerSheet`** (media): opaque blue panel, no grabber / swipe dismiss.
+- Toolbar: **Cancel** leading; trailing white **+** and prominent **Done** (draft commits only on Done).
+- Shared presentation helper: **`diveActivityOverviewPanelModalSheetPresentation()`**.
+
+**Summary:** Map Tags sheet matches the blue modal chrome.
+
+- **`DiveActivityTagsEditSheet`** now uses the same opaque blue panel, hidden grabber, disabled swipe-dismiss, leading **Cancel**, trailing white **+**, and prominent **Done**.
+- Tag row taps update a draft; **Cancel** discards dive tag changes and **Done** applies/removes tags, matching the buddy picker flow.
+
+**Summary:** Dive Conditions edit sheet matches the blue modal chrome.
+
+- Map-tab **Dive Conditions** (**`DiveActivitySectionEditSheet`** for `diveConditions`) uses the blue panel, hidden grabber, no swipe-dismiss, leading **Cancel** (discards), and prominent **Done** (saves). No **+** button.
+- Other section edit sheets (tank gas / consumption / weights / operator / source, map dive summary) keep the standard frosted **Done**-only chrome.
+
+**Summary:** Dive tag ovals allow up to **25** characters.
+
+- Replaced the cramped **88 pt** adaptive grid with content-sized wrapping chips (**`ActivityTagChipWrappingLayout`**).
+- **`ActivityTagPresentation.chipDisplayTitle`** caps visible oval text at **25** characters with **…**; full names stay in accessibility labels.
+- Unit test covers truncation.
+
+**Summary:** Blue edit sheets open at dive **large** detent with no layered fills.
+
+- Notes / Buddies / Tags / Dive Conditions / media Tag buddy use **`diveActivityOverviewPanelModalSheetPresentation()`** at the system **`.large`** detent only — fully covers the ~85% overview panel beneath; no grabber / swipe-dismiss.
+- Removed duplicate content **`AppOverviewSheetPanelBackground`** and Form/List row fills so only the presentation blue panel shows; nav bar background hidden over the panel.
+- Sheet toolbars match Tag marine life: leave nav-bar background visible so system Liquid Glass wraps controls; white **Cancel** / **+** (**`AppGlassToolbarCancelButton`** / **`AppSheetToolbarPlusButton`** — no nested **`.glass`**); **Done** **`.glassProminent`** tinted with **`AppTheme.Colors.accent`** (blue) per [HIG Liquid Glass color](https://developer.apple.com/design/human-interface-guidelines/color#Liquid-Glass-color).
+- Blue overview-panel edit sheets hide the nav-bar title (toolbar-only chrome).
+- **New trip** (**`TripAddSheetView`**) uses the same blue **`.large`** modal chrome: no grabber / title, Liquid Glass **Cancel** + prominent **Done** (**`diveActivityOverviewPanelModalSheetPresentation`**).
+- **Edit trip** (**`TripEditSheetView`**) matches that chrome (**`tripPlannerAddSheetPresentation`** → overview modal): no grabber / title, Liquid Glass **Cancel** + prominent **Done** (saves), cleared Form rows, **Delete trip** section retained.
+- **New species** (**`FieldGuideMarineLifeAddSheet`**) uses the same blue **`.large`** modal chrome: no grabber / title, cleared Form row fills, Liquid Glass **Cancel** + prominent **Done** (**`fieldGuideMarineLifeAddSheetPresentation`** → **`diveActivityOverviewPanelModalSheetPresentation`**).
+- **New dive site** (**`DiveSiteAddSheet`** / **`ExploreCatalogDiveSiteAddSheet`**) uses the same blue **`.large`** modal chrome via **`diveSiteAddSheetPresentation`**.
+- **Edit dive site** — catalog detail **Edit** opens **`DiveSiteEditSheet`** (same blue Cancel / Done chrome) only for **user-defined / local** catalog sites (**`DiveSiteCatalogMatcher.isUserEditableCatalogSite`** — no **`opendivemap:`** tag). OpenDiveMap-linked catalog rows and reference-only sites hide **Edit**. Saves name, place, water type, entry, environment, max depth, and coordinates via **`DiveActivitySiteAssociation.applyCatalogSiteEdits`** (not dive count / media).
+- **Edit marine life** — Field Guide species detail **Edit** appears only for **user-created** species (**`user-marine-life-`** uuid / **`isUserEditable`**). Bundled catalog species hide **Edit**. Opens **`FieldGuideMarineLifeEditSheet`** (same blue Cancel / Done chrome) via **`FieldGuideMarineLifeAddPresentation.applyEdits`**.
+- **Trip planned sites picker** — **`TripPlannedSitePickerSheet`** uses the same blue **`.large`** Cancel / Done chrome; **Cancel** discards draft selection, **Done** commits planned sites.
+- **Trip planned buddies picker** — **`TripPlannedBuddyPickerSheet`** uses the same blue **`.large`** Cancel / **+** / Done chrome as dive buddies; taps update a draft (**`DiveTripPlannedBuddyDraftPresentation`**); **Cancel** discards, **Done** applies links + save; **+** opens roster-only **New buddy** and selects them in the draft.
+- **Planned trip hero** — not-yet-started trips with selected planned sites that have map pins default the header to the **map** (**`TripDetailPresentation.prefersMapHero`**).
+- Map stats **Dive** summary editor (start time, dive number, etc.) uses the same blue Cancel / Done modal as Dive Conditions (**`usesOverviewPanelModalEditor`**).
+- Tank tab **Gas & cylinder**, **Weights**, **Operator**, and **Add equipment** use the same blue large-detent Cancel / Done chrome.
+- **New certification** (**`CertificationAddSheetView`**) uses the same blue **`.large`** modal chrome: no grabber / title, cleared Form rows, Liquid Glass **Cancel** + prominent **Done**.
+- **Edit profile** (**`ProfileEditSheet`**) uses the same blue **`.large`** Cancel / **Done** chrome (display name + DAN; **Save** renamed to **Done**).
+- **New equipment** (**`EquipmentAddSheetView`**) uses the same blue **`.large`** Cancel / **Done** chrome (cleared Form rows; no grabber / title).
+- **New buddy** (**`DiveActivityAddBuddySheet`**) uses the same blue **`.large`** Cancel / **Done** chrome (name + Connect to Contact; **Add** renamed to **Done**).
+- **Manual entry new dive** (**`ManualDiveEntrySheet`**) uses the same blue **`.large`** Cancel / **Done** chrome (date + optional site; **Create** renamed to **Done**); choose-site picker matches.
+- **Home Top 10 page titles** — **Deepest Dives**, **Longest Activities**, **Top Sites**, **Top Species** (dropped **My** / **Marine Life** wording).
+- **Fishial Identify fish** (**`DiveMediaFishialIdentifySheet`**) uses the same blue **`.large`** Cancel / glass prominent trailing chrome (**Continue** / **Identify** / **Done**; multi-select save uses **Done**).
+- **Tag marine life** (**`DiveMarineLifeTagPickerSheet`**) uses the same blue **`.large`** Cancel / **+** / Done chrome; **+** opens **New species** (**`FieldGuideMarineLifeAddSheet`**) and stages the new catalog row for tagging on Done.
+- **Media medium detent** — **Buddies** section (avatar chips) under marine-life ovals; carousel bottom-pinned near the sheet edge for the extra content.
+- **Media carousel thumbnails** — base size **43.2 pt** (~60% of prior **72 pt**); spacing scaled to **6 pt**.
+
+**Summary:** Nine new Field Guide **3D** heroes (Meshy USDZ).
+
+- Bundled **`Resources/MarineLife3D/`**: **`BarredHamlet`**, **`BlackHamlet`**, **`ButterHamlet`**, **`GrayAngelfish`**, **`IndigoHamlet`**, **`LongspineSquirrelfish`**, **`PorcupineFish`**, **`QueenAngelfish`**, **`ShyHamlet`**.
+- **`marine_life_sample.json`** **`feature_model`** on matching catalog UUIDs (gray angelfish → juvenile row; porcupine fish → **Porcupinefish**).
+- Seeder test **`marineLifeCatalogSeeder_seedsNineAdditionalFeatureModels`**.
+

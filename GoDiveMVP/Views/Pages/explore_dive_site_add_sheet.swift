@@ -23,26 +23,25 @@ struct ExploreCatalogDiveSiteAddSheet: View {
             Form {
                 DiveSiteFormContent(
                     draft: $draft,
-                    fallbackCoordinate: nil
+                    fallbackCoordinate: nil,
+                    clearsListRowBackgrounds: true
                 )
             }
             .scrollContentBackground(.hidden)
-            .navigationTitle(ExploreDiveSiteAddPresentation.sheetTitle)
-            .navigationBarTitleDisplayMode(.inline)
+            .listStyle(.plain)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .accessibilityIdentifier("Explore.AddDiveSiteSheet.Cancel")
+                    AppGlassToolbarCancelButton(
+                        action: { dismiss() },
+                        accessibilityIdentifier: ExploreDiveSiteAddPresentation.cancelAccessibilityIdentifier
+                    )
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        saveSite()
-                    }
-                    .fontWeight(.semibold)
-                    .disabled(!DiveSiteFormValidation.canSave(draft: draft))
-                    .accessibilityIdentifier("Explore.AddDiveSiteSheet.Save")
+                    AppGlassProminentDoneButton(
+                        action: saveSite,
+                        accessibilityIdentifier: ExploreDiveSiteAddPresentation.doneAccessibilityIdentifier,
+                        isEnabled: DiveSiteFormValidation.canSave(draft: draft)
+                    )
                 }
             }
             .alert("Could not save", isPresented: saveErrorBinding) {

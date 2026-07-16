@@ -73,6 +73,10 @@ struct DiveActivityPhotosPanelContent: View {
         DiveActivityMediaPresentation.showsMarineLifeTagSummaryInSheet(for: sheetDetent)
     }
 
+    private var showsBuddyTagSummary: Bool {
+        DiveActivityMediaPresentation.showsBuddyTagSummaryInSheet(for: sheetDetent)
+    }
+
     private var showsDiveIdentityHeader: Bool {
         DiveActivityMediaPresentation.showsDiveIdentityHeaderInSheet(for: sheetDetent)
             && siteTitle != nil
@@ -97,18 +101,8 @@ struct DiveActivityPhotosPanelContent: View {
         showsMediaCarousel && sheetDetent != .minimized && layoutHeight > 0
     }
 
-    private var sheetBodyHeight: CGFloat {
-        DiveActivityMediaPresentation.sheetBodyHeightAboveMediaCarousel(
-            layoutHeight: layoutHeight,
-            detent: sheetDetent
-        )
-    }
-
-    private var carouselPinnedStackHeight: CGFloat {
-        DiveActivityMediaPresentation.mediaCarouselPinnedStackHeight(
-            layoutHeight: layoutHeight,
-            detent: sheetDetent
-        )
+    private var pinsCarouselToSheetBottom: Bool {
+        DiveActivityMediaPresentation.pinsMediaCarouselToSheetBottom(for: sheetDetent)
     }
 
     var body: some View {
@@ -158,15 +152,20 @@ struct DiveActivityPhotosPanelContent: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             body()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: sheetBodyHeight, alignment: .top)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .clipped()
 
             if showsMediaCarousel {
                 carouselRow
+                    .padding(
+                        .bottom,
+                        pinsCarouselToSheetBottom
+                            ? DiveActivityMediaPresentation.mediumCarouselBottomPadding
+                            : 0
+                    )
             }
         }
-        .frame(height: carouselPinnedStackHeight, alignment: .top)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
     }
 
     @ViewBuilder
@@ -182,8 +181,7 @@ struct DiveActivityPhotosPanelContent: View {
                 mediumDetentIdentityRow
                 emptyUploadPromptTextBlock
             }
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-            .frame(height: carouselPinnedStackHeight, alignment: .top)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         case .large:
             emptyUploadPromptTextBlock
                 .frame(maxWidth: .infinity, alignment: .top)
@@ -213,6 +211,10 @@ struct DiveActivityPhotosPanelContent: View {
 
             if showsMarineLifeTagSummary {
                 marineLifeTagsSection
+            }
+
+            if showsBuddyTagSummary {
+                buddiesTagsSection
             }
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -363,6 +365,40 @@ struct DiveActivityPhotosPanelContent: View {
         .accessibilityIdentifier("DiveOverview.MediaMarineLifeTags")
     }
 
+    private var buddiesTagsSection: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            Text(DiveMediaBuddyTagPresentation.mediumSectionTitle)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.tabUnselected)
+                .textCase(.uppercase)
+
+            if taggedBuddies.isEmpty {
+                Button {
+                    openBuddyTaggingOrOverview()
+                } label: {
+                    HStack(alignment: .top, spacing: AppTheme.Spacing.sm) {
+                        Image(systemName: "person.2")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.Colors.accent)
+                            .accessibilityHidden(true)
+
+                        Text(DiveMediaBuddyTagPresentation.mediumUntaggedPrompt)
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.Colors.tabUnselected)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(onTagBuddies == nil && onExpandMarineLifeDetail == nil)
+            } else {
+                mediumDetentBuddyChips
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("DiveOverview.MediaBuddyTags")
+    }
+
     private var mediumDetentMarineLifeTagChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: MarineLifeMediaTagPresentation.chipRowSpacing) {
@@ -370,6 +406,7 @@ struct DiveActivityPhotosPanelContent: View {
                     if let onExpandMarineLifeDetail {
                         Button {
                             selectedTaggedSpeciesUUID = species.uuid
+                            largeDetentMode = .marineLife
                             onExpandMarineLifeDetail()
                         } label: {
                             marineLifeSpeciesChip(for: species)
@@ -382,6 +419,49 @@ struct DiveActivityPhotosPanelContent: View {
                     }
                 }
             }
+        }
+    }
+
+    private var mediumDetentBuddyChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: DiveMediaBuddyTagPresentation.mediumChipRowSpacing) {
+                ForEach(taggedBuddies, id: \.id) { buddy in
+                    if let onExpandMarineLifeDetail {
+                        Button {
+                            largeDetentMode = .buddies
+                            onExpandMarineLifeDetail()
+                        } label: {
+                            DiveActivityBuddyAvatarChip(
+                                displayName: buddy.displayName,
+                                profilePhoto: buddy.profilePhoto,
+                                avatarDiameter: DiveMediaBuddyTagPresentation.mediumAvatarDiameter
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Shows buddy details")
+                        .accessibilityIdentifier("DiveOverview.MediaBuddyTag.\(buddy.id.uuidString)")
+                    } else {
+                        DiveActivityBuddyAvatarChip(
+                            displayName: buddy.displayName,
+                            profilePhoto: buddy.profilePhoto,
+                            avatarDiameter: DiveMediaBuddyTagPresentation.mediumAvatarDiameter
+                        )
+                        .accessibilityIdentifier("DiveOverview.MediaBuddyTag.\(buddy.id.uuidString)")
+                    }
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    private func openBuddyTaggingOrOverview() {
+        if DiveActivityMediaPresentation.opensBuddyOverviewOnSheetBuddyTap(detent: sheetDetent),
+           let onExpandMarineLifeDetail
+        {
+            largeDetentMode = .buddies
+            onExpandMarineLifeDetail()
+        } else {
+            onTagBuddies?()
         }
     }
 

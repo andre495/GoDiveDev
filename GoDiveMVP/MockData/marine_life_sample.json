@@ -1083,7 +1083,8 @@
     "max_size": 0.17,
     "min_depth": 3.0,
     "max_depth": 23.0,
-    "distinctive_features": "Body shape: short and / or deep"
+    "distinctive_features": "Body shape: short and / or deep",
+    "feature_model": "BarredHamlet"
   },
   {
     "uuid": "marine-life-bartail-goby",
@@ -1524,7 +1525,8 @@
     "max_size": 0.15,
     "min_depth": 3.0,
     "max_depth": 13.0,
-    "distinctive_features": "Body shape: short and / or deep"
+    "distinctive_features": "Body shape: short and / or deep",
+    "feature_model": "BlackHamlet"
   },
   {
     "uuid": "marine-life-black-jack",
@@ -2991,7 +2993,8 @@
     "family_name": "Serranidae",
     "description": "Uniformly pale yellow body. Large black spot or saddle at tail base. Black spot on snout (sometimes absent).",
     "max_size": 0.13,
-    "distinctive_features": "Body shape: short and / or deep"
+    "distinctive_features": "Body shape: short and / or deep",
+    "feature_model": "ButterHamlet"
   },
   {
     "uuid": "marine-life-buttercup-lucine",
@@ -6646,7 +6649,8 @@
     "distinctive_features": "Body shape: short and / or deep",
     "abundance": "Common on Caribbean and Florida reef slopes.",
     "habitat_behavior": "Often seen alone or in pairs over sponge and coral on mid-depth reefs.",
-    "diver_reaction": "Usually keeps a polite distance; slow approaches work best for photos."
+    "diver_reaction": "Usually keeps a polite distance; slow approaches work best for photos.",
+    "feature_model": "GrayAngelfish"
   },
   {
     "uuid": "marine-life-gray-snapper",
@@ -7552,7 +7556,8 @@
     "max_size": 0.16,
     "min_depth": 3.0,
     "max_depth": 45.0,
-    "distinctive_features": "Body shape: short and / or deep"
+    "distinctive_features": "Body shape: short and / or deep",
+    "feature_model": "IndigoHamlet"
   },
   {
     "uuid": "marine-life-inflated-sea-biscuit",
@@ -8548,7 +8553,8 @@
     "max_size": 0.44,
     "min_depth": 0.0,
     "max_depth": 32.0,
-    "distinctive_features": "Body shape: fusiform / normal"
+    "distinctive_features": "Body shape: fusiform / normal",
+    "feature_model": "LongspineSquirrelfish"
   },
   {
     "uuid": "marine-life-longspine-starsnail",
@@ -10934,7 +10940,8 @@
     "max_size": 0.9,
     "min_depth": 2.0,
     "max_depth": 50.0,
-    "distinctive_features": "Body shape: short and / or deep"
+    "distinctive_features": "Body shape: short and / or deep",
+    "feature_model": "PorcupineFish"
   },
   {
     "uuid": "marine-life-porkfish",
@@ -11203,7 +11210,8 @@
     "distinctive_features": "Body shape: short and / or deep",
     "abundance": "Common in Florida, Bahamas, Gulf of Mexico, Bermuda.",
     "habitat_behavior": "Swim slowly in the vicinity of sea whips, sea fans, and corals.",
-    "diver_reaction": "Wary, tend to keep their distance."
+    "diver_reaction": "Wary, tend to keep their distance.",
+    "feature_model": "QueenAngelfish"
   },
   {
     "uuid": "marine-life-queen-conch",
@@ -13588,7 +13596,8 @@
     "max_size": 0.15,
     "min_depth": 3.0,
     "max_depth": 30.0,
-    "distinctive_features": "Body shape: short and / or deep"
+    "distinctive_features": "Body shape: short and / or deep",
+    "feature_model": "ShyHamlet"
   },
   {
     "uuid": "marine-life-silky-shark",

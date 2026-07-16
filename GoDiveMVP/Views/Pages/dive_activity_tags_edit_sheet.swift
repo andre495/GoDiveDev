@@ -13,6 +13,7 @@ struct DiveActivityTagsEditSheet: View {
     @State private var ownerTags: [ActivityTag] = []
     @State private var loadErrorMessage: String?
     @State private var showsCreateTagSheet = false
+    @State private var draftAppliedTagIDs: Set<UUID> = []
 
     var body: some View {
         NavigationStack {
@@ -22,13 +23,15 @@ struct DiveActivityTagsEditSheet: View {
                         Text(loadErrorMessage)
                             .foregroundStyle(AppTheme.Colors.secondaryText)
                     }
+                    .listRowBackground(Color.clear)
                 }
 
                 Section("On this dive") {
-                    let applied = ActivityTagStore.sortedTags(on: activity)
+                    let applied = draftAppliedTags
                     if applied.isEmpty {
                         Text("No tags on this dive yet.")
                             .foregroundStyle(AppTheme.Colors.tabUnselected)
+                            .listRowBackground(Color.clear)
                     } else {
                         DiveActivityTagChipFlow(tagNames: applied.map(\.name))
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -48,16 +51,17 @@ struct DiveActivityTagsEditSheet: View {
                         Text("Tap + to create a tag, or add one from your roster below.")
                             .foregroundStyle(AppTheme.Colors.tabUnselected)
                             .accessibilityIdentifier("DiveTagsEditSheet.EmptyRoster")
+                            .listRowBackground(Color.clear)
                     } else {
                         ForEach(ownerTags, id: \.id) { tag in
                             Button {
-                                toggleApplied(tag)
+                                toggleDraftApplied(tag)
                             } label: {
                                 HStack {
                                     Text(tag.name)
                                         .foregroundStyle(AppTheme.Colors.textPrimary)
                                     Spacer(minLength: AppTheme.Spacing.sm)
-                                    if ActivityTagStore.isApplied(tag, on: activity) {
+                                    if isDraftApplied(tag) {
                                         Image(systemName: "checkmark")
                                             .font(.body.weight(.semibold))
                                             .foregroundStyle(AppTheme.Colors.tabSelected)
@@ -65,9 +69,10 @@ struct DiveActivityTagsEditSheet: View {
                                 }
                             }
                             .buttonStyle(.plain)
+                            .listRowBackground(Color.clear)
                             .accessibilityLabel(tag.name)
                             .accessibilityValue(
-                                ActivityTagStore.isApplied(tag, on: activity) ? "On this dive" : "Not on this dive"
+                                isDraftApplied(tag) ? "On this dive" : "Not on this dive"
                             )
                         }
                     }
@@ -78,39 +83,35 @@ struct DiveActivityTagsEditSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .navigationTitle("Tags")
-            .navigationBarTitleDisplayMode(.inline)
+            .listStyle(.plain)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        showsCreateTagSheet = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(AppTheme.Colors.tabSelected)
-                            .frame(minWidth: 44, minHeight: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Create tag")
-                    .accessibilityIdentifier("DiveTagsEditSheet.CreateTag")
+                ToolbarItem(placement: .cancellationAction) {
+                    AppGlassToolbarCancelButton(
+                        action: { dismiss() },
+                        accessibilityIdentifier: "DiveTagsEditSheet.Cancel"
+                    )
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    AppSheetToolbarPlusButton(
+                        action: { showsCreateTagSheet = true },
+                        accessibilityIdentifier: "DiveTagsEditSheet.CreateTag",
+                        accessibilityLabel: "Create tag"
+                    )
                 }
 
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
-                        try? modelContext.save()
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
-                    .foregroundStyle(AppTheme.Colors.tabSelected)
-                    .accessibilityIdentifier("DiveTagsEditSheet.Done")
+                ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                ToolbarItem(placement: .confirmationAction) {
+                    AppGlassProminentDoneButton(
+                        action: commitDraftTagsAndDismiss,
+                        accessibilityIdentifier: "DiveTagsEditSheet.Done"
+                    )
                 }
             }
             .task(id: ownerProfileID) {
                 await reloadOwnerTags()
             }
         }
-        .diveActivityTagsSheetPresentation()
+        .diveActivityOverviewPanelModalSheetPresentation()
         .sheet(isPresented: $showsCreateTagSheet) {
             DiveActivityCreateTagSheet(tagName: $newTagName) {
                 createAndApplyTag()
@@ -119,11 +120,23 @@ struct DiveActivityTagsEditSheet: View {
         .accessibilityIdentifier("DiveTagsEditSheet.Root")
     }
 
-    private func toggleApplied(_ tag: ActivityTag) {
-        if ActivityTagStore.isApplied(tag, on: activity) {
-            ActivityTagStore.removeTag(tag, from: activity)
+    private var draftAppliedTags: [ActivityTag] {
+        ownerTags
+            .filter { draftAppliedTagIDs.contains($0.id) }
+            .sorted {
+                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
+    }
+
+    private func isDraftApplied(_ tag: ActivityTag) -> Bool {
+        draftAppliedTagIDs.contains(tag.id)
+    }
+
+    private func toggleDraftApplied(_ tag: ActivityTag) {
+        if draftAppliedTagIDs.contains(tag.id) {
+            draftAppliedTagIDs.remove(tag.id)
         } else {
-            ActivityTagStore.applyTag(tag, to: activity)
+            draftAppliedTagIDs.insert(tag.id)
         }
     }
 
@@ -134,7 +147,7 @@ struct DiveActivityTagsEditSheet: View {
                 ownerProfileID: ownerProfileID,
                 modelContext: modelContext
             ) else { return }
-            ActivityTagStore.applyTag(tag, to: activity)
+            draftAppliedTagIDs.insert(tag.id)
             newTagName = ""
             try modelContext.save()
             try reloadOwnerTagsSync()
@@ -148,6 +161,7 @@ struct DiveActivityTagsEditSheet: View {
     private func reloadOwnerTags() async {
         do {
             try reloadOwnerTagsSync()
+            reloadDraftAppliedTags()
             loadErrorMessage = nil
         } catch {
             loadErrorMessage = "Could not load your tags."
@@ -160,6 +174,22 @@ struct DiveActivityTagsEditSheet: View {
             ownerProfileID: ownerProfileID,
             modelContext: modelContext
         )
+    }
+
+    private func reloadDraftAppliedTags() {
+        draftAppliedTagIDs = Set(ActivityTagStore.sortedTags(on: activity).map(\.id))
+    }
+
+    private func commitDraftTagsAndDismiss() {
+        for tag in ownerTags {
+            if draftAppliedTagIDs.contains(tag.id) {
+                ActivityTagStore.applyTag(tag, to: activity)
+            } else {
+                ActivityTagStore.removeTag(tag, from: activity)
+            }
+        }
+        try? modelContext.save()
+        dismiss()
     }
 }
 

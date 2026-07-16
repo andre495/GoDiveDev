@@ -115,6 +115,15 @@ enum DiveSiteCatalogMatcher: Sendable {
         return nil
     }
 
+    /// User-created / local-only catalog sites (no OpenDiveMap tag) can be edited; preloaded OpenDiveMap-linked rows cannot.
+    nonisolated static func isUserEditableCatalogSite(_ site: DiveSite) -> Bool {
+        referenceID(from: site.siteTags) == nil
+    }
+
+    nonisolated static func isUserEditableCatalogSite(siteTags: [String]) -> Bool {
+        referenceID(from: siteTags) == nil
+    }
+
     nonisolated static func normalizedSiteName(_ value: String) -> String {
         var text = value.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         while let open = text.firstIndex(of: "("), let close = text[open...].firstIndex(of: ")") {

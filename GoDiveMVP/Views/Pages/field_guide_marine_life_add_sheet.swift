@@ -17,22 +17,20 @@ struct FieldGuideMarineLifeAddSheet: View {
                 FieldGuideMarineLifeFormContent(form: $form)
             }
             .scrollContentBackground(.hidden)
-            .navigationTitle(FieldGuideMarineLifeAddPresentation.sheetTitle)
-            .navigationBarTitleDisplayMode(.inline)
+            .listStyle(.plain)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .accessibilityIdentifier("FieldGuide.AddSpeciesSheet.Cancel")
+                    AppGlassToolbarCancelButton(
+                        action: { dismiss() },
+                        accessibilityIdentifier: "FieldGuide.AddSpeciesSheet.Cancel"
+                    )
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        saveSpecies()
-                    }
-                    .fontWeight(.semibold)
-                    .disabled(!FieldGuideMarineLifeAddPresentation.canSave(form))
-                    .accessibilityIdentifier("FieldGuide.AddSpeciesSheet.Save")
+                    AppGlassProminentDoneButton(
+                        action: saveSpecies,
+                        accessibilityIdentifier: "FieldGuide.AddSpeciesSheet.Done",
+                        isEnabled: FieldGuideMarineLifeAddPresentation.canSave(form)
+                    )
                 }
             }
             .alert("Could not save", isPresented: saveErrorBinding) {

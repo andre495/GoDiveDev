@@ -84,10 +84,14 @@ struct TripDetailPlannedSitesSection: View {
         .task {
             diveSiteCatalog = await DiveSiteCatalogLoader.loadSortedCatalog(modelContext: modelContext)
         }
-        .sheet(isPresented: $showsSitePicker, onDismiss: applySelectedPlannedSites) {
+        .sheet(isPresented: $showsSitePicker) {
             TripPlannedSitePickerSheet(
                 selectedSiteIDs: $selectedSiteIDs,
-                sites: diveSiteCatalog
+                sites: diveSiteCatalog,
+                onCancel: {
+                    selectedSiteIDs = Set(trip.plannedSites.map(\.id))
+                },
+                onDone: applySelectedPlannedSites
             )
         }
     }

@@ -20,6 +20,7 @@ struct FieldGuideMarineLifeDetailView: View {
     @State private var speciesHeroMediaSource: FieldGuideSpeciesHeroMediaSource = .taggedUserMedia
     @State private var catalogHeroDisplay: FieldGuideSpeciesCatalogHeroDisplay = .image
     @State private var heroTaggedMediaID: UUID?
+    @State private var showsEditSheet = false
 
     init(
         species: MarineLife,
@@ -46,6 +47,10 @@ struct FieldGuideMarineLifeDetailView: View {
                 $0.ownerProfileID == ownerFilterID && $0.marineLifeUUID == marineLifeUUID
             }
         )
+    }
+
+    private var canEditSpecies: Bool {
+        FieldGuideMarineLifeAddPresentation.isUserEditable(species)
     }
 
     private var ownerDiveActivityIDs: Set<UUID> {
@@ -198,12 +203,16 @@ struct FieldGuideMarineLifeDetailView: View {
                 BlueSheetDetailTopChrome(
                     safeTop: safeTop,
                     topInset: topInset,
-                    isEditEnabled: false,
-                    onEdit: {},
+                    showsEditAction: canEditSpecies,
+                    isEditEnabled: canEditSpecies,
+                    onEdit: { showsEditSheet = true },
                     editAccessibilityIdentifier: "FieldGuideMarineLifeDetail.Edit"
                 )
             }
         )
+        .sheet(isPresented: $showsEditSheet) {
+            FieldGuideMarineLifeEditSheet(species: species)
+        }
         .task(id: species.uuid) {
             diveSiteCatalog = await DiveSiteCatalogLoader.loadSortedCatalog(modelContext: modelContext)
         }

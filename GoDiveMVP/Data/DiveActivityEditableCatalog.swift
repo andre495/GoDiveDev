@@ -67,6 +67,24 @@ enum DiveActivityEditableCatalog: Sendable {
         headerAction(for: mapDiveSummarySection, activity: activity) == .editForm
     }
 
+    static func usesDedicatedNotesEditor(section: Section, tab: DiveActivityEditablePanelTab) -> Bool {
+        tab == .map && section.id == "notes"
+    }
+
+    /// Map / tank overview blue-panel modal editors — Cancel / Done, no **+**.
+    static func usesOverviewPanelModalEditor(section: Section) -> Bool {
+        switch section.id {
+        case mapDiveSummarySection.id,
+             "diveConditions",
+             "gas",
+             "weights",
+             "operator":
+            return true
+        default:
+            return false
+        }
+    }
+
     private static func allSections(for tab: DiveActivityEditablePanelTab) -> [Section] {
         switch tab {
         case .map:

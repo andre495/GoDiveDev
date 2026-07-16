@@ -46,12 +46,16 @@ Swipe between sections. Open any dive or species from these lists.
 
 ## Add a dive site
 
-Tap **+** (trailing on Explore chrome) to add a site manually:
+Tap **+** (trailing on Explore chrome) to open the full-height blue form (no grabber). Use **Cancel** to discard or **Done** to save:
 
 - Name and place fields  
 - Pick coordinates on a map or enter them  
 
 You can also create sites during dive import or when a dive has GPS but no matching catalog name.
+
+## Edit a dive site
+
+On a **user-created** catalog site’s detail page, tap **Edit** to open the same blue form and change the site name, place fields, water type, entry, environment, max depth, and coordinates. Sites from the preloaded OpenDiveMap list are read-only — **Edit** does not appear. **Dives logged here**, marine life, and tagged media stay on the detail pages — they are not edited in this sheet. Star rating stays on the detail header.
 
 ## Linking dives to sites
 

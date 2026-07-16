@@ -64,6 +64,7 @@ struct ManualDiveEntrySheet: View {
                         selection: $startTime,
                         displayedComponents: [.date, .hourAndMinute]
                     )
+                    .listRowBackground(Color.clear)
                     .accessibilityIdentifier("ManualDiveEntry.Date")
                 }
 
@@ -74,6 +75,7 @@ struct ManualDiveEntrySheet: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                    .listRowBackground(Color.clear)
                     .accessibilityIdentifier("ManualDiveEntry.SiteMode")
 
                     switch siteMode {
@@ -108,16 +110,19 @@ struct ManualDiveEntrySheet: View {
                                     .foregroundStyle(AppTheme.Colors.secondaryText)
                             }
                         }
+                        .listRowBackground(Color.clear)
                         .accessibilityIdentifier("ManualDiveEntry.ChooseExistingSite")
                     case .new:
                         NavigationLink {
                             Form {
                                 DiveSiteFormContent(
                                     draft: $newSiteDraft,
-                                    fallbackCoordinate: nil
+                                    fallbackCoordinate: nil,
+                                    clearsListRowBackgrounds: true
                                 )
                             }
                             .scrollContentBackground(.hidden)
+                            .listStyle(.plain)
                             .navigationTitle("New dive site")
                             .navigationBarTitleDisplayMode(.inline)
                         } label: {
@@ -134,6 +139,7 @@ struct ManualDiveEntrySheet: View {
                                 Spacer(minLength: AppTheme.Spacing.sm)
                             }
                         }
+                        .listRowBackground(Color.clear)
                         .accessibilityIdentifier("ManualDiveEntry.NewSiteDetails")
                     }
                 } header: {
@@ -143,28 +149,28 @@ struct ManualDiveEntrySheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .navigationTitle("New dive")
-            .navigationBarTitleDisplayMode(.inline)
+            .listStyle(.plain)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .accessibilityIdentifier("ManualDiveEntry.Cancel")
+                    AppGlassToolbarCancelButton(
+                        action: { dismiss() },
+                        accessibilityIdentifier: DiveActivityManualCreation.cancelAccessibilityIdentifier
+                    )
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Create") {
-                        onConfirm(
-                            ManualDiveEntryInput(
-                                startTime: startTime,
-                                siteSelection: builtSiteSelection()
+                    AppGlassProminentDoneButton(
+                        action: {
+                            onConfirm(
+                                ManualDiveEntryInput(
+                                    startTime: startTime,
+                                    siteSelection: builtSiteSelection()
+                                )
                             )
-                        )
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
-                    .disabled(!canConfirm)
-                    .accessibilityIdentifier("ManualDiveEntry.Confirm")
+                            dismiss()
+                        },
+                        accessibilityIdentifier: DiveActivityManualCreation.doneAccessibilityIdentifier,
+                        isEnabled: canConfirm
+                    )
                 }
             }
             .sheet(isPresented: $showsSitePicker) {
@@ -184,9 +190,7 @@ struct ManualDiveEntrySheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
-        .appSheetPresentationChrome()
+        .diveActivityOverviewPanelModalSheetPresentation()
         .task {
             diveSites = await DiveSiteCatalogLoader.loadSortedCatalog(modelContext: modelContext)
         }

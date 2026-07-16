@@ -34,12 +34,17 @@ struct DiveActivityAddBuddySheet: View {
         self.onBuddyCreated = onBuddyCreated
     }
 
+    private var canSaveBuddy: Bool {
+        !newBuddyName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var body: some View {
         NavigationStack {
             Form {
                 Section {
                     TextField("Buddy name", text: $newBuddyName)
                         .textInputAutocapitalization(.words)
+                        .listRowBackground(Color.clear)
                         .accessibilityIdentifier("DiveActivityAddBuddySheet.NameField")
                 } header: {
                     Text("Name")
@@ -52,30 +57,30 @@ struct DiveActivityAddBuddySheet: View {
                     } label: {
                         Label("Connect to Contact", systemImage: "person.crop.circle.badge.plus")
                     }
+                    .listRowBackground(Color.clear)
                     .accessibilityIdentifier("DiveActivityAddBuddySheet.ConnectContact")
                 }
                 #endif
             }
             .scrollContentBackground(.hidden)
-            .navigationTitle("New buddy")
-            .navigationBarTitleDisplayMode(.inline)
+            .listStyle(.plain)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
+                    AppGlassToolbarCancelButton(
+                        action: { dismiss() },
+                        accessibilityIdentifier: DiveBuddyPresentation.addBuddySheetCancelAccessibilityIdentifier
+                    )
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") {
-                        addManualBuddy()
-                    }
-                    .fontWeight(.semibold)
-                    .disabled(newBuddyName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .accessibilityIdentifier("DiveActivityAddBuddySheet.Add")
+                    AppGlassProminentDoneButton(
+                        action: addManualBuddy,
+                        accessibilityIdentifier: DiveBuddyPresentation.addBuddySheetDoneAccessibilityIdentifier,
+                        isEnabled: canSaveBuddy
+                    )
                 }
             }
         }
-        .diveActivityFieldSheetPresentation()
+        .diveActivityOverviewPanelModalSheetPresentation()
         #if canImport(UIKit)
         .sheet(isPresented: $showsContactPicker) {
             ContactPickerView(

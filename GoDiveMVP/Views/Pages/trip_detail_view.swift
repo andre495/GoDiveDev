@@ -103,6 +103,8 @@ struct TripDetailView: View {
         return [
             trip.id.uuidString,
             "\(trip.activityLinks.count)",
+            "\(trip.plannedSites.count)",
+            "\(trip.updatedAt.timeIntervalSince1970)",
             "\(ownedDiveActivities.count)",
             trip.featuredTripMediaPhotoID?.uuidString ?? "",
             diveDisplayUnitSystem.rawValue,
@@ -214,7 +216,12 @@ struct TripDetailView: View {
             for: trip,
             photos: contentSnapshot.mediaPhotos
         )
-        if contentSnapshot.mediaPhotos.isEmpty, !contentSnapshot.mapPins.isEmpty {
+        if TripDetailPresentation.prefersMapHero(
+            tripHasStarted: DiveTripActivityLinking.hasStarted(trip: trip),
+            plannedSiteCount: trip.plannedSites.count,
+            hasMapPins: !contentSnapshot.mapPins.isEmpty,
+            hasTripMedia: !contentSnapshot.mediaPhotos.isEmpty
+        ) {
             tripHeroMode = .map
         }
     }

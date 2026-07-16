@@ -139,6 +139,57 @@ struct AppEditToolbarButton: View {
     }
 }
 
+/// Sheet-toolbar **Cancel** — white label; NavigationStack supplies Liquid Glass (do not nest **`.glass`**).
+/// Matches **Tag marine life** / media pickers — use when the bar is not **`toolbarBackground(.hidden)`**.
+struct AppGlassToolbarCancelButton: View {
+    let action: () -> Void
+    let accessibilityIdentifier: String
+
+    var body: some View {
+        Button("Cancel", action: action)
+            .fontWeight(.semibold)
+            .foregroundStyle(AppTheme.Colors.headerChromeIconForeground)
+            .accessibilityIdentifier(accessibilityIdentifier)
+    }
+}
+
+/// Sheet-toolbar **+** — white glyph; NavigationStack supplies Liquid Glass (do not nest **`.glass`**).
+struct AppSheetToolbarPlusButton: View {
+    let action: () -> Void
+    let accessibilityIdentifier: String
+    let accessibilityLabel: String
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "plus")
+        }
+        .fontWeight(.semibold)
+        .foregroundStyle(AppTheme.Colors.headerChromeIconForeground)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityIdentifier(accessibilityIdentifier)
+    }
+}
+
+/// Sheet-toolbar **Done** — Liquid Glass **`.glassProminent`** tinted with brand accent blue
+/// ([HIG Liquid Glass color](https://developer.apple.com/design/human-interface-guidelines/color#Liquid-Glass-color):
+/// tint primary actions only).
+struct AppGlassProminentDoneButton: View {
+    let action: () -> Void
+    let accessibilityIdentifier: String
+    var title: String = "Done"
+    var isEnabled: Bool = true
+    var tint: Color = AppTheme.Colors.accent
+
+    var body: some View {
+        Button(title, action: action)
+            .fontWeight(.semibold)
+            .buttonStyle(.glassProminent)
+            .tint(tint)
+            .disabled(!isEnabled)
+            .accessibilityIdentifier(accessibilityIdentifier)
+    }
+}
+
 /// Liquid Glass circular toolbar icon (**share**, **settings**, **+**, etc.).
 struct AppToolbarIconButton: View {
     let systemImage: String

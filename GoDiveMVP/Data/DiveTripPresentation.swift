@@ -33,9 +33,15 @@ enum DiveTripPresentation: Sendable {
     nonisolated static let addPlannedBuddyButtonTitle = "Add buddy"
     nonisolated static let addPlannedBuddyAccessibilityLabel = "Add buddy to trip"
     nonisolated static let addPlannedSiteAccessibilityLabel = "Add or remove saved dive sites"
+    nonisolated static let plannedSitePickerCancelAccessibilityIdentifier = "TripPlannedSitePicker.Cancel"
+    nonisolated static let plannedSitePickerDoneAccessibilityIdentifier = "TripPlannedSitePicker.Done"
+    nonisolated static let plannedBuddyPickerCancelAccessibilityIdentifier = "TripPlannedBuddyPicker.Cancel"
+    nonisolated static let plannedBuddyPickerAddBuddyAccessibilityIdentifier = "TripPlannedBuddyPicker.AddBuddy"
+    nonisolated static let plannedBuddyPickerDoneAccessibilityIdentifier = "TripPlannedBuddyPicker.Done"
     nonisolated static let shareTripButtonTitle = "Share"
     nonisolated static let tripPlannedBuddyPickerTitle = "Trip buddies"
-    nonisolated static let tripPlannedBuddyPickerFooter = "Tap a buddy to add or remove them from this trip."
+    nonisolated static let tripPlannedBuddyPickerFooter =
+        "Tap buddies to add or remove them. Changes save when you tap Done."
     nonisolated static let tripPlannedBuddyPickerEmptyRosterMessage =
         "No buddies in your roster yet. Tap + to add someone to your roster, then add them to this trip."
 

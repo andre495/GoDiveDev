@@ -3,6 +3,9 @@ import Foundation
 /// Read-only labels for **Equipment Locker** detail UI.
 enum EquipmentItemPresentation: Sendable {
 
+    nonisolated static let addSheetCancelAccessibilityIdentifier = "EquipmentAddSheet.Cancel"
+    nonisolated static let addSheetDoneAccessibilityIdentifier = "EquipmentAddSheet.Done"
+
     static func title(for item: EquipmentItem) -> String {
         let manufacturer = item.manufacturer.trimmingCharacters(in: .whitespacesAndNewlines)
         let model = item.model.trimmingCharacters(in: .whitespacesAndNewlines)

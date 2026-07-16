@@ -7,18 +7,6 @@ import UIKit
 import AVFoundation
 #endif
 
-private struct FishialIdentifySheetTopSpacing: ViewModifier {
-    let isEnabled: Bool
-
-    func body(content: Content) -> some View {
-        if isEnabled {
-            content.appSheetContentTopSpacing()
-        } else {
-            content
-        }
-    }
-}
-
 /// Progress, still picker, Fishial recognition, and user confirmation for one dive media item.
 struct DiveMediaFishialIdentifySheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -71,7 +59,8 @@ struct DiveMediaFishialIdentifySheet: View {
         case failed(String)
     }
 
-    private var usesLargeFishialLayout: Bool {
+    /// Crop / video scrub fill the large blue panel; review copy aligns to the top.
+    private var usesFullBleedMediaLayout: Bool {
         #if canImport(UIKit)
         if case .croppingStill = phase { return true }
         #endif
@@ -79,10 +68,6 @@ struct DiveMediaFishialIdentifySheet: View {
         if case .selectingVideo = phase { return true }
         #endif
         return false
-    }
-
-    private var identifyPresentationDetents: Set<PresentationDetent> {
-        usesLargeFishialLayout ? [.large] : [.medium, .large]
     }
 
     var body: some View {
@@ -127,27 +112,18 @@ struct DiveMediaFishialIdentifySheet: View {
             .frame(
                 maxWidth: .infinity,
                 maxHeight: .infinity,
-                alignment: usesLargeFishialLayout ? .center : .topLeading
+                alignment: usesFullBleedMediaLayout ? .center : .topLeading
             )
-            .modifier(FishialIdentifySheetTopSpacing(isEnabled: !usesLargeFishialLayout))
-            .navigationTitle("Identify fish")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
             .toolbar {
-                #if canImport(UIKit) && canImport(AVFoundation)
                 ToolbarItem(placement: .cancellationAction) {
-                    cropBackToolbarContent
+                    leadingToolbarContent
                 }
-                #endif
                 ToolbarItem(placement: .confirmationAction) {
-                    toolbarTrailingContent
+                    trailingToolbarContent
                 }
             }
         }
-        .presentationDetents(identifyPresentationDetents)
-        .presentationDragIndicator(.visible)
-        .appSheetPresentationChrome()
-        .interactiveDismissDisabled(isBlockingInteraction)
+        .diveActivityOverviewPanelModalSheetPresentation()
         .task(id: media.id) {
             let container = modelContext.container
             async let catalogIDs = MarineLifeCatalogLoader.fetchSortedPersistentIDs(container: container)
@@ -161,7 +137,7 @@ struct DiveMediaFishialIdentifySheet: View {
     }
 
     @ViewBuilder
-    private var cropBackToolbarContent: some View {
+    private var leadingToolbarContent: some View {
         #if canImport(UIKit) && canImport(AVFoundation)
         if case .croppingStill(let context) = phase, context.videoScrubContext != nil {
             Button("Back") {
@@ -169,62 +145,63 @@ struct DiveMediaFishialIdentifySheet: View {
                 resetCropGestures()
                 phase = .selectingVideo(videoScrubContext)
             }
+            .fontWeight(.semibold)
+            .foregroundStyle(AppTheme.Colors.headerChromeIconForeground)
             .accessibilityIdentifier("DiveMediaFishialIdentify.BackToScrub")
         } else {
-            EmptyView()
+            AppGlassToolbarCancelButton(
+                action: { dismiss() },
+                accessibilityIdentifier: DiveMarineLifeTagSheetPresentation.identifySheetCancelAccessibilityIdentifier
+            )
         }
         #else
-        EmptyView()
+        AppGlassToolbarCancelButton(
+            action: { dismiss() },
+            accessibilityIdentifier: DiveMarineLifeTagSheetPresentation.identifySheetCancelAccessibilityIdentifier
+        )
         #endif
     }
 
     @ViewBuilder
-    private var toolbarTrailingContent: some View {
+    private var trailingToolbarContent: some View {
         switch phase {
         case .loading, .recognizing:
             EmptyView()
         #if canImport(UIKit) && canImport(AVFoundation)
         case .selectingVideo:
-            Button("Continue") {
-                Task { await continueFromVideoScrub() }
-            }
-            .fontWeight(.semibold)
-            .accessibilityIdentifier("DiveMediaFishialIdentify.Continue")
+            AppGlassProminentDoneButton(
+                action: { Task { await continueFromVideoScrub() } },
+                accessibilityIdentifier: "DiveMediaFishialIdentify.Continue",
+                title: "Continue"
+            )
         #endif
         #if canImport(UIKit)
         case .croppingStill:
-            Button("Identify") {
-                Task { await identifyCroppedStill() }
-            }
-            .fontWeight(.semibold)
-            .accessibilityIdentifier("DiveMediaFishialIdentify.Identify")
+            AppGlassProminentDoneButton(
+                action: { Task { await identifyCroppedStill() } },
+                accessibilityIdentifier: "DiveMediaFishialIdentify.Identify",
+                title: "Identify"
+            )
         #endif
         case .selectSpecies(_, let options, let selectedMarineLifeUUIDs):
-            Button("Save") {
-                let selectedOptions = options.filter {
-                    selectedMarineLifeUUIDs.contains($0.marineLifeUUID)
-                }
-                guard !selectedOptions.isEmpty else { return }
-                saveConfirmedCatalogMatches(selectedOptions)
-            }
-            .fontWeight(.semibold)
-            .disabled(selectedMarineLifeUUIDs.isEmpty)
-            .accessibilityIdentifier("DiveMediaFishialIdentify.Save")
+            AppGlassProminentDoneButton(
+                action: {
+                    let selectedOptions = options.filter {
+                        selectedMarineLifeUUIDs.contains($0.marineLifeUUID)
+                    }
+                    guard !selectedOptions.isEmpty else { return }
+                    saveConfirmedCatalogMatches(selectedOptions)
+                },
+                accessibilityIdentifier: DiveMarineLifeTagSheetPresentation.identifySheetDoneAccessibilityIdentifier,
+                isEnabled: !selectedMarineLifeUUIDs.isEmpty
+            )
         case .reviewNoFishDetected, .reviewUnmatchedFishial, .declinedSingle, .saved, .failed:
-            Button("Done") { dismiss() }
-                .fontWeight(.semibold)
-                .accessibilityIdentifier("DiveMediaFishialIdentify.Done")
+            AppGlassProminentDoneButton(
+                action: { dismiss() },
+                accessibilityIdentifier: DiveMarineLifeTagSheetPresentation.identifySheetDoneAccessibilityIdentifier
+            )
         case .confirmSingle:
             EmptyView()
-        }
-    }
-
-    private var isBlockingInteraction: Bool {
-        switch phase {
-        case .loading, .recognizing:
-            return true
-        default:
-            return false
         }
     }
 

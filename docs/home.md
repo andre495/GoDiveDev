@@ -25,7 +25,7 @@ Below the carousel, four tiles summarize your logbook:
 | **Top site** | Site you’ve visited most |
 | **Top species** | Species you’ve tagged most often |
 
-Empty logbooks still show all four tiles with **—** values and short hints (for example, “Log dives to track your deepest”) until you have data. Tap a tile to open its **top ten** list once you have qualifying dives or sightings. The top three appear on a podium (trophy and medal icons with tiered pedestals); ranks 4–10 continue below in the same compact rows as before. Deepest and longest use Logbook-style dive rows; sites use Explore-style site rows; species show catalog thumbnails when available.
+Empty logbooks still show all four tiles with **—** values and short hints (for example, “Log dives to track your deepest”) until you have data. Tap a tile to open its top-ten list (**Deepest Dives**, **Longest Activities**, **Top Sites**, **Top Species**) once you have qualifying dives or sightings. The top three appear on a podium (trophy and medal icons with tiered pedestals); ranks 4–10 continue below in the same compact rows as before. Deepest and longest use Logbook-style dive rows; sites use Explore-style site rows; species show catalog thumbnails when available.
 
 A **Top buddies** tile always sits below the four stat tiles. With tagged buddies it lists your top three dive partners by shared dive count (tap a buddy to open their detail page). With no tagged buddies yet, it shows three blank placeholder slots so the Home layout stays the same.
 

@@ -38,7 +38,7 @@ Tagged species appear on the media carousel, in dive overview chips, on Home hig
 
 ## Add your own species
 
-Tap **+** on Field Guide chrome to add a **user-owned** catalog entry (custom species not in the bundled set). User entries persist across app updates.
+Tap **+** on Field Guide chrome to add a **user-owned** catalog entry (custom species not in the bundled set). User entries persist across app updates. On a custom species detail page, tap **Edit** to change name, taxonomy, and description in the same full-height blue form. Bundled Field Guide species are read-only — **Edit** does not appear.
 
 ## Links from elsewhere
 

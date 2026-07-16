@@ -37,26 +37,25 @@ struct TripAddSheetView: View {
             Form {
                 TripPlannerFormContent(
                     form: $form,
-                    existingOwnerTrips: ownerTrips
+                    existingOwnerTrips: ownerTrips,
+                    clearsListRowBackgrounds: true
                 )
             }
             .scrollContentBackground(.hidden)
-            .navigationTitle(TripPlannerPresentation.newTripSheetTitle)
-            .navigationBarTitleDisplayMode(.inline)
+            .listStyle(.plain)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .accessibilityIdentifier("TripAddSheet.Cancel")
+                    AppGlassToolbarCancelButton(
+                        action: { dismiss() },
+                        accessibilityIdentifier: TripPlannerPresentation.addTripCancelAccessibilityIdentifier
+                    )
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        saveTrip()
-                    }
-                    .fontWeight(.semibold)
-                    .disabled(!canSaveTrip)
-                    .accessibilityIdentifier("TripAddSheet.Save")
+                    AppGlassProminentDoneButton(
+                        action: saveTrip,
+                        accessibilityIdentifier: TripPlannerPresentation.addTripDoneAccessibilityIdentifier,
+                        isEnabled: canSaveTrip
+                    )
                 }
             }
             .alert("Could not save", isPresented: saveErrorBinding) {
@@ -65,7 +64,7 @@ struct TripAddSheetView: View {
                 Text(saveErrorMessage ?? "Try again.")
             }
         }
-        .tripPlannerAddSheetPresentation()
+        .diveActivityOverviewPanelModalSheetPresentation()
         .accessibilityIdentifier("TripAddSheet.Root")
     }
 
@@ -118,6 +117,8 @@ struct TripPlannerFormContent: View {
     @Binding var form: DiveTripFormValues
     var existingOwnerTrips: [DiveTrip] = []
     var editingTripID: UUID? = nil
+    /// Blue overview-panel modals clear Form card fills so rows sit on the presentation background.
+    var clearsListRowBackgrounds: Bool = false
 
     private var overlappingTrip: DiveTrip? {
         form.overlappingTrip(among: existingOwnerTrips, excludingTripID: editingTripID)
@@ -128,6 +129,7 @@ struct TripPlannerFormContent: View {
             TextField("Trip name", text: $form.title, prompt: Text("e.g. Bonaire 2026"))
                 .textInputAutocapitalization(.words)
                 .accessibilityIdentifier("TripPlanner.Title")
+                .modifier(TripPlannerFormListRowBackground(clears: clearsListRowBackgrounds))
 
             DatePicker(
                 "Start date",
@@ -135,6 +137,7 @@ struct TripPlannerFormContent: View {
                 displayedComponents: .date
             )
             .accessibilityIdentifier("TripPlanner.StartDate")
+            .modifier(TripPlannerFormListRowBackground(clears: clearsListRowBackgrounds))
 
             DatePicker(
                 "End date",
@@ -142,6 +145,7 @@ struct TripPlannerFormContent: View {
                 displayedComponents: .date
             )
             .accessibilityIdentifier("TripPlanner.EndDate")
+            .modifier(TripPlannerFormListRowBackground(clears: clearsListRowBackgrounds))
         } footer: {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
                 if !form.hasValidDateRange {
@@ -163,8 +167,21 @@ struct TripPlannerFormContent: View {
             )
             .textInputAutocapitalization(.words)
             .accessibilityIdentifier("TripPlanner.Countries")
+            .modifier(TripPlannerFormListRowBackground(clears: clearsListRowBackgrounds))
         } footer: {
             Text("Separate multiple countries with commas.")
+        }
+    }
+}
+
+private struct TripPlannerFormListRowBackground: ViewModifier {
+    let clears: Bool
+
+    func body(content: Content) -> some View {
+        if clears {
+            content.listRowBackground(Color.clear)
+        } else {
+            content
         }
     }
 }

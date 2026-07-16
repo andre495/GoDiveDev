@@ -1,12 +1,14 @@
 import SwiftData
 import SwiftUI
 
-/// Multi-select catalog **`DiveSite`** rows for trip planning.
+/// Multi-select catalog **`DiveSite`** rows for trip planning (blue overview-panel modal).
 struct TripPlannedSitePickerSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @Binding var selectedSiteIDs: Set<UUID>
     let sites: [DiveSite]
+    var onCancel: () -> Void = {}
+    var onDone: () -> Void = {}
 
     @State private var searchQuery = ""
 
@@ -53,24 +55,33 @@ struct TripPlannedSitePickerSheet: View {
                             .accessibilityIdentifier("TripPlannedSitePicker.Row.\(row.id.uuidString)")
                         }
                     }
-                    .listStyle(.insetGrouped)
+                    .listStyle(.plain)
                     .scrollContentBackground(.hidden)
                 }
             }
             .searchable(text: $searchQuery, prompt: "Search dive sites")
-            .navigationTitle(DiveTripPresentation.plannedSitesSectionTitle)
-            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    AppGlassToolbarCancelButton(
+                        action: {
+                            onCancel()
+                            dismiss()
+                        },
+                        accessibilityIdentifier: DiveTripPresentation.plannedSitePickerCancelAccessibilityIdentifier
+                    )
+                }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
-                    .accessibilityIdentifier("TripPlannedSitePicker.Done")
+                    AppGlassProminentDoneButton(
+                        action: {
+                            onDone()
+                            dismiss()
+                        },
+                        accessibilityIdentifier: DiveTripPresentation.plannedSitePickerDoneAccessibilityIdentifier
+                    )
                 }
             }
         }
-        .appSheetPresentationChrome()
+        .diveActivityOverviewPanelModalSheetPresentation()
         .accessibilityIdentifier("TripPlannedSitePicker.Root")
     }
 

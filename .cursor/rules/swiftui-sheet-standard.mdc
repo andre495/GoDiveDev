@@ -11,7 +11,7 @@ When adding or updating a SwiftUI **`.sheet`** in **GoDiveMVP**:
 
 2. **Tokens:** Corner radius, grabber-to-content spacing, and material opacity live in **`AppTheme.Sheet`** (**`cornerRadius`**, **`contentTopSpacing`**, **`backgroundMaterialOpacity`**). Change spacing or transparency app-wide there — not per screen.
 
-3. **Top spacing:** **`appSheetPresentationChrome()`** applies **`appSheetContentTopSpacing()`** (**`AppTheme.Sheet.contentTopSpacing`**, currently **`Spacing.lg`**). Opaque profile sheets use **`appSheetContentTopSpacing()`** without the frosted background. Embedded dive overview uses the same value via **`DiveActivityOverviewPanelMetrics.panelContentTopPadding`**.
+3. **Top spacing:** **`appSheetPresentationChrome()`** applies **`appSheetContentTopSpacing()`** (**`AppTheme.Sheet.contentTopSpacing`**, currently **`Spacing.lg`**). Embedded dive overview uses **`DiveActivityOverviewPanelMetrics.panelContentTopPadding`** (**10 pt** — tighter than the generic sheet token so identity content matches across **minimized** / **medium** and clears the low sheet band).
 
 4. **Material:** **`Rectangle().fill(.thinMaterial)`** at **`AppTheme.Sheet.backgroundMaterialOpacity`** so heroes and full-bleed content remain visible under the panel.
 

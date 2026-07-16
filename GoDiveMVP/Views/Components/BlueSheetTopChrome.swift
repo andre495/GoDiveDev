@@ -77,10 +77,12 @@ struct BlueSheetDetailEditAction: View {
     }
 }
 
-/// Back + **Edit** row with **detailTopFade** (short status-bar scrim via list feather).
+/// Back + optional **Edit** row with **detailTopFade** (short status-bar scrim via list feather).
 struct BlueSheetDetailTopChrome: View {
     let safeTop: CGFloat
     let topInset: CGFloat
+    /// When **`false`**, trailing **Edit** is omitted (e.g. OpenDiveMap / read-only detail).
+    var showsEditAction: Bool = true
     var isEditEnabled: Bool = true
     let onEdit: () -> Void
     var editAccessibilityIdentifier: String
@@ -101,12 +103,14 @@ struct BlueSheetDetailTopChrome: View {
                 statusBarSafeAreaTop: safeTop,
                 statusBarUsesListChromeFeather: BlueSheetTopChromePresentation.DetailTopFade.usesListStatusBarScrim
             ) {
-                BlueSheetDetailEditAction(
-                    isEnabled: isEditEnabled,
-                    action: onEdit,
-                    accessibilityIdentifier: editAccessibilityIdentifier,
-                    accessibilityLabel: editAccessibilityLabel
-                )
+                if showsEditAction {
+                    BlueSheetDetailEditAction(
+                        isEnabled: isEditEnabled,
+                        action: onEdit,
+                        accessibilityIdentifier: editAccessibilityIdentifier,
+                        accessibilityLabel: editAccessibilityLabel
+                    )
+                }
             }
             .frame(maxWidth: .infinity, alignment: .top)
             .zIndex(1)

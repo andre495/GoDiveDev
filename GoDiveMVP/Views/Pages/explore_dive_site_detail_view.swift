@@ -16,6 +16,7 @@ struct ExploreDiveSiteDetailView: View {
     @State private var heroTaggedMediaID: UUID?
     @State private var showsDeferredHeroMap = false
     @State private var hasLoadedMarineLifeEnrichment = false
+    @State private var showsEditSheet = false
 
     init(
         site: DiveSite,
@@ -88,6 +89,10 @@ struct ExploreDiveSiteDetailView: View {
             ownerHasVisited: ownerHasVisitedSite,
             isReferenceOnly: false
         )
+    }
+
+    private var canEditSiteDetails: Bool {
+        DiveSiteCatalogMatcher.isUserEditableCatalogSite(site)
     }
 
     private var displayStarRating: Int {
@@ -169,12 +174,18 @@ struct ExploreDiveSiteDetailView: View {
                 BlueSheetDetailTopChrome(
                     safeTop: safeTop,
                     topInset: topInset,
-                    isEditEnabled: isStarRatingEditable,
-                    onEdit: {},
+                    showsEditAction: canEditSiteDetails,
+                    isEditEnabled: canEditSiteDetails,
+                    onEdit: { showsEditSheet = true },
                     editAccessibilityIdentifier: "ExploreDiveSiteDetail.Edit"
                 )
             }
         )
+        .sheet(isPresented: $showsEditSheet) {
+            DiveSiteEditSheet(site: site) {
+                syncHeroPresentation()
+            }
+        }
         .task(id: siteDetailContentToken, priority: .userInitiated) {
             await Task.yield()
 
