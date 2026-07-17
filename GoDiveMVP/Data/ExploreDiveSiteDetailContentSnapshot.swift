@@ -117,7 +117,7 @@ enum ExploreDiveSiteDetailContentSnapshotBuilder {
         guard ownerProfileID != nil, !snapshot.siteDiveActivities.isEmpty else { return snapshot }
 
         let siteSightings = fetchSiteSightings(diveSiteID: siteID, modelContext: modelContext)
-        let catalogByUUID = Dictionary(uniqueKeysWithValues: marineLifeCatalog.map {
+        let catalogByUUID = Dictionary(godiveUniquingKeysWithValues: marineLifeCatalog.map {
             ($0.uuid, $0.fieldGuideCatalogSnapshot)
         })
         let ownerDiveActivityIDs = Set(snapshot.siteDiveActivities.map(\.id))

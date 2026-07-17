@@ -39,8 +39,12 @@ enum DiveMediaCloudIdentifierPolicy: Sendable {
         !localAssetExists && DiveMediaCloudIdentifierStorage.isPresent(cloudIdentifier)
     }
 
-    /// Prune only when the original is confirmed gone (full auth + missing local, and cloud resolve
-    /// either absent or **`notFound`**).
+    /// Prune when the original is confirmed gone under **full** Photos authorization.
+    ///
+    /// When a cloud ID is present, the caller must attempt resolve first. **`nil`** cloudResolve means
+    /// “not attempted yet” → do not prune. After a resolve attempt, **`notFound`** / **`resolved`** /
+    /// **`ambiguous`** with **`localAssetExists == false`** means the Photos original is gone (including
+    /// reinstall after the user deleted the photo) → prune. **`unavailable`** keeps the row.
     nonisolated static func shouldPrune(
         hasLocalIdentifier: Bool,
         hasCloudIdentifier: Bool,
@@ -52,9 +56,9 @@ enum DiveMediaCloudIdentifierPolicy: Sendable {
         guard hasLocalIdentifier || hasCloudIdentifier else { return false }
         if hasCloudIdentifier {
             switch cloudResolve {
-            case .notFound:
+            case .notFound, .resolved, .ambiguous:
                 return true
-            case .resolved, .ambiguous, .unavailable, .emptyInput, .none:
+            case .unavailable, .emptyInput, .none:
                 return false
             }
         }

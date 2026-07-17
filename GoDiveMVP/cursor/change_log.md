@@ -3057,6 +3057,18 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Tests: cloud-identifier policy gates + **`libraryCloudIdentifier`** trim helper.
 - Docs: hybrid boundaries / migration checklist, **`app_summary`**, privacy + getting-started.
 
-## 114 - Next batch
+## 114 - Next batch **(pushed)**
+
+**Summary:** Harden dive media ID map against duplicate-key traps; clarify abnormal-exit breadcrumbs after install kills.
+
+- **`Dictionary(godiveUniquingKeysWithValues:)`** — last-wins map builder; dive overview **`mediaPhotosByID`** uses it instead of **`uniqueKeysWithValues`** (duplicate CloudKit / relationship IDs no longer **`EXC_BREAKPOINT`**).
+- **`CrashBreadcrumbTrail.freezePreviousSessionAndBeginNew`** clears live UI context after snapshotting so the next launch trail is not paired with a stale dive Media / star action.
+- Silent Photos cloud→local ID repair no longer posts **`.diveActivityMediaDidChange`** (avoids cascading derived-data rebuilds while the gallery loads).
+- Tests: uniquing helper keeps last on duplicate keys; freeze clears context.
+- **Explore tab crash:** map pin sync used **`Dictionary(uniqueKeysWithValues:)`** on plottable sites — duplicate site IDs (catalog + user snapshot / remigration) crashed on tab open. MapKit + Google map coordinators now use **`godiveUniquingKeysWithValues`**; **`ExploreCatalogMapPresentation.deduplicatingPlottableSites`** + scope cache / all-sites merge dedupe first.
+- **Stale media after CloudKit restore:** batch **`DiveMediaReferencePruning.pruneMissingLibraryAssets`** runs after successful CloudKit **import** events and on launch (full Photos access only). Pointers whose Photos originals were deleted (e.g. delete app → delete photo → reinstall) are removed; cloud resolve that still cannot find an asset also prunes.
+
+## 115 - Phase 4 Catalog CDN
+
 
 

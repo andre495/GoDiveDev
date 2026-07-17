@@ -30,7 +30,7 @@ When you attach media or enable **auto-upload**:
 - GoDive reads **metadata and thumbnails** through Apple’s PhotoKit APIs.  
 - Full-resolution frames load on demand for viewing, export, or identification.  
 - Dive media stays in **your Photos / iCloud Photos** library — GoDive syncs a **pointer** (and a small preview) with your dive log, then remaps that pointer on each device.  
-- If the original asset is deleted from Photos, GoDive removes the stale reference.
+- If the original asset is deleted from Photos, GoDive removes the stale reference (including after iCloud restores your dive log).
 
 GoDive does **not** bulk-upload your entire camera roll — only items you attach or that match a dive window when auto-upload runs.
 

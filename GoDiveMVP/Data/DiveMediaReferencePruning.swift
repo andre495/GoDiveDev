@@ -12,7 +12,8 @@ import Photos
 /// failures don't prune (the asset still exists, so **`assetExists`** is **`true`**).
 ///
 /// Phase 3: when a cloud identifier is present, resolve the device-local ID **before** pruning so Device B does not
-/// delete a valid pointer that only needs remapping.
+/// delete a valid pointer that only needs remapping. After CloudKit import / reinstall, batch prune runs so
+/// pointers whose originals were deleted from Photos are removed without waiting for a thumbnail load.
 enum DiveMediaReferencePruning {
 
     /// Pure decision gate (testable without PhotoKit): prune only when we can be sure the original is gone.
@@ -37,6 +38,41 @@ enum DiveMediaReferencePruning {
     @MainActor
     @discardableResult
     static func pruneIfAssetMissing(_ media: DiveMediaPhoto, modelContext: ModelContext) -> Bool {
+        let pruned = evaluateAndPruneIfNeeded(media, modelContext: modelContext)
+        if pruned {
+            try? modelContext.save()
+            DiveActivityMediaStorage.postMediaDidChange()
+        }
+        return pruned
+    }
+
+    /// Scans stored media pointers and removes rows whose Photos originals are gone.
+    /// Call after CloudKit import and on launch (full Photos authorization required).
+    @discardableResult
+    static func pruneMissingLibraryAssets(
+        modelContext: ModelContext,
+        batchLimit: Int = 64
+    ) -> Int {
+        guard PHPhotoLibrary.authorizationStatus(for: .readWrite) == .authorized else { return 0 }
+        let all = (try? modelContext.fetch(FetchDescriptor<DiveMediaPhoto>())) ?? []
+        var pruned = 0
+        for media in all where pruned < batchLimit {
+            if evaluateAndPruneIfNeeded(media, modelContext: modelContext) {
+                pruned += 1
+            }
+        }
+        if pruned > 0 {
+            try? modelContext.save()
+            DiveActivityMediaStorage.postMediaDidChange()
+        }
+        return pruned
+    }
+
+    /// Core prune decision + delete (no save / notify). Returns **`true`** when the row was deleted.
+    private static func evaluateAndPruneIfNeeded(
+        _ media: DiveMediaPhoto,
+        modelContext: ModelContext
+    ) -> Bool {
         let hasFullAuthorization = PHPhotoLibrary.authorizationStatus(for: .readWrite) == .authorized
         let hasLocal = media.libraryAssetLocalIdentifier != nil
         let hasCloud = DiveMediaCloudIdentifierStorage.isPresent(media.photosCloudIdentifier)
@@ -56,8 +92,6 @@ enum DiveMediaReferencePruning {
             case .resolved(let localID):
                 if media.photosLocalIdentifier != localID {
                     media.photosLocalIdentifier = localID
-                    try? modelContext.save()
-                    DiveActivityMediaStorage.postMediaDidChange()
                 }
                 if DiveMediaReferenceLoader.assetExists(localIdentifier: localID) {
                     return false
@@ -65,8 +99,6 @@ enum DiveMediaReferencePruning {
             case .ambiguous(let locals):
                 if let first = locals.first {
                     media.photosLocalIdentifier = first
-                    try? modelContext.save()
-                    DiveActivityMediaStorage.postMediaDidChange()
                     if DiveMediaReferenceLoader.assetExists(localIdentifier: first) {
                         return false
                     }
@@ -87,8 +119,6 @@ enum DiveMediaReferencePruning {
         }
 
         modelContext.delete(media)
-        try? modelContext.save()
-        DiveActivityMediaStorage.postMediaDidChange()
         return true
     }
     #endif

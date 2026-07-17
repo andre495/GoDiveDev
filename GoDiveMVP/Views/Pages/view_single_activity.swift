@@ -463,7 +463,7 @@ struct ViewSingleActivity: View {
             pressureSamples: built.pressureSamples,
             mediaMarkers: built.mediaMarkers,
             mediaCaptureContextsByID: built.mediaCaptureContextsByID,
-            mediaPhotosByID: Dictionary(uniqueKeysWithValues: sortedMediaItems.map { ($0.id, $0) }),
+            mediaPhotosByID: Dictionary(godiveUniquingKeysWithValues: sortedMediaItems.map { ($0.id, $0) }),
             profileGasStats: built.profileGasStats
         )
         syncMediaPresentationAfterContentAvailable()

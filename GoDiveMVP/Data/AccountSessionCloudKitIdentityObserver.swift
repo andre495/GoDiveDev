@@ -36,6 +36,11 @@ enum AccountSessionCloudKitIdentityObserver {
                         modelContext: container.mainContext
                     )
                 }
+                #if canImport(Photos)
+                _ = DiveMediaReferencePruning.pruneMissingLibraryAssets(
+                    modelContext: container.mainContext
+                )
+                #endif
             }
         }
     }

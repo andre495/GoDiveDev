@@ -107,13 +107,17 @@ enum ExploreSiteScopeCache: Sendable {
             logbookSiteIDs: logbookSiteIDs,
             reference: reference
         ).filter { !logbookUserIDs.contains($0.id) }
-        let logbookPlottable = logbookUserPlottable + logbookCatalogPlottable
-        let allSitesPlottable = ExploreSiteScopePresentation.plottableSites(
-            scope: .allSites,
-            catalog: catalog,
-            logbookSiteIDs: logbookSiteIDs,
-            reference: reference
-        ) + ExploreCatalogMapPresentation.plottableSites(from: allSitesUserSites)
+        let logbookPlottable = ExploreCatalogMapPresentation.deduplicatingPlottableSites(
+            logbookUserPlottable + logbookCatalogPlottable
+        )
+        let allSitesPlottable = ExploreCatalogMapPresentation.deduplicatingPlottableSites(
+            ExploreSiteScopePresentation.plottableSites(
+                scope: .allSites,
+                catalog: catalog,
+                logbookSiteIDs: logbookSiteIDs,
+                reference: reference
+            ) + ExploreCatalogMapPresentation.plottableSites(from: allSitesUserSites)
+        )
         let logbookUserRows = DiveSitePresentation.listRecords(for: logbookUserSites)
         let logbookUserRowIDs = Set(logbookUserRows.map(\.id))
         let logbookCatalogRows = ExploreSiteScopePresentation.catalogListRows(

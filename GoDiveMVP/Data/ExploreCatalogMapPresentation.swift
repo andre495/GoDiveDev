@@ -34,6 +34,18 @@ enum ExploreCatalogMapPresentation: Sendable {
         }
     }
 
+    /// Keeps the **first** pin when the same site id appears more than once (catalog + user snapshot overlap).
+    nonisolated static func deduplicatingPlottableSites(_ sites: [PlottedSite]) -> [PlottedSite] {
+        var seen = Set<UUID>()
+        var ordered: [PlottedSite] = []
+        ordered.reserveCapacity(sites.count)
+        for site in sites {
+            guard seen.insert(site.id).inserted else { continue }
+            ordered.append(site)
+        }
+        return ordered
+    }
+
     nonisolated static func plottableSites(from catalog: [DiveSite]) -> [PlottedSite] {
         catalog.compactMap { site in
             guard let lat = site.latCoords, let lon = site.longCoords else { return nil }

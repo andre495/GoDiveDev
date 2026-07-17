@@ -12306,6 +12306,36 @@ struct GoDiveMVPTests {
         #expect(snapshot.plottableSignature(for: .logbook) != snapshot.plottableSignature(for: .allSites))
     }
 
+    @Test func exploreCatalogMapPresentation_deduplicatingPlottableSites_keepsFirstOnDuplicateIDs() {
+        let id = UUID()
+        let first = ExploreCatalogMapPresentation.PlottedSite(
+            id: id,
+            siteName: "First",
+            coordinate: DiveCoordinate(latitude: 12, longitude: -68),
+            isVisited: true
+        )
+        let duplicate = ExploreCatalogMapPresentation.PlottedSite(
+            id: id,
+            siteName: "Duplicate",
+            coordinate: DiveCoordinate(latitude: 13, longitude: -69),
+            isVisited: false
+        )
+        let other = ExploreCatalogMapPresentation.PlottedSite(
+            id: UUID(),
+            siteName: "Other",
+            coordinate: DiveCoordinate(latitude: 14, longitude: -70),
+            isVisited: false
+        )
+        let deduped = ExploreCatalogMapPresentation.deduplicatingPlottableSites([first, duplicate, other])
+        #expect(deduped.count == 2)
+        #expect(deduped[0].siteName == "First")
+        #expect(deduped[1].siteName == "Other")
+        // Building a sitesByID map must not trap (Explore map sync path).
+        let byID = Dictionary(godiveUniquingKeysWithValues: [first, duplicate, other].map { ($0.id, $0) })
+        #expect(byID.count == 2)
+        #expect(byID[id]?.siteName == "Duplicate")
+    }
+
     @Test func exploreSiteScopeCache_filteringListRows_matchesDisplayFields() {
         let rows = [
             DiveSitePresentation.listRecord(
@@ -17307,9 +17337,9 @@ struct GoDiveMVPTests {
                 cloudResolve: .notFound
             )
         )
-        // Cloud resolve remapped → keep.
+        // Remapped ID still missing from Photos (reinstall + deleted original) → prune.
         #expect(
-            !DiveMediaCloudIdentifierPolicy.shouldPrune(
+            DiveMediaCloudIdentifierPolicy.shouldPrune(
                 hasLocalIdentifier: true,
                 hasCloudIdentifier: true,
                 hasFullAuthorization: true,
@@ -17317,7 +17347,7 @@ struct GoDiveMVPTests {
                 cloudResolve: .resolved(localIdentifier: "OTHER/1")
             )
         )
-        // Ambiguous / unavailable → keep.
+        // Unavailable → keep (PhotoKit not ready / transient).
         #expect(
             !DiveMediaCloudIdentifierPolicy.shouldPrune(
                 hasLocalIdentifier: false,
@@ -25155,6 +25185,7 @@ struct CrashReportingTests {
         #expect(frozen?.contains("rootTab → logbook") == true)
         #expect(frozen?.contains("before freeze") == true)
         #expect(CrashBreadcrumbTrail.loadEntriesForTests(userDefaults: defaults).isEmpty)
+        #expect(CrashBreadcrumbTrail.loadContextForTests(userDefaults: defaults) == nil)
 
         CrashBreadcrumbTrail.record("after freeze", userDefaults: defaults)
         #expect(CrashBreadcrumbTrail.loadEntriesForTests(userDefaults: defaults).map(\.message) == ["after freeze"])
@@ -25162,6 +25193,21 @@ struct CrashReportingTests {
             CrashBreadcrumbTrail.previousSessionExportPlainText(userDefaults: defaults)?
                 .contains("before freeze") == true
         )
+        // Live export after freeze must not keep the dying session's UI context.
+        let live = CrashBreadcrumbTrail.exportPlainText(userDefaults: defaults)
+        #expect(!live.contains("rootTab: logbook"))
+    }
+
+    @Test func dictionary_godiveUniquingKeysWithValues_keepsLastOnDuplicateKeys() {
+        let id = UUID()
+        let first = DiveMediaPhoto(id: id, sortOrder: 0, mediaKind: .image, photosLocalIdentifier: "A")
+        let second = DiveMediaPhoto(id: id, sortOrder: 1, mediaKind: .video, photosLocalIdentifier: "B")
+        let map: [UUID: DiveMediaPhoto] = Dictionary(
+            godiveUniquingKeysWithValues: [first, second].map { ($0.id, $0) }
+        )
+        #expect(map.count == 1)
+        #expect(map[id]?.photosLocalIdentifier == "B")
+        #expect(map[id]?.resolvedMediaKind == .video)
     }
 
     @Test func crashBreadcrumbTrail_formatExport_includesContextAndTrail() {

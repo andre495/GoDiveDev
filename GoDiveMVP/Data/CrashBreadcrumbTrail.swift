@@ -189,7 +189,8 @@ nonisolated enum CrashBreadcrumbTrail {
     }
 
     /// Call once at process launch *before* recording new breadcrumbs: freeze the dying session's
-    /// trail, then clear the live ring so this session starts fresh.
+    /// trail, then clear the live ring **and** UI context so this session starts fresh (avoids stale
+    /// dive/media context paired with a short new-launch breadcrumb trail in the next abnormal-exit).
     static func freezePreviousSessionAndBeginNew(userDefaults: UserDefaults = .standard) {
         withTrailLock {
             let context = loadContext(userDefaults: userDefaults)
@@ -201,7 +202,7 @@ nonisolated enum CrashBreadcrumbTrail {
             )
             userDefaults.set(snapshot, forKey: previousSessionExportKey)
             userDefaults.removeObject(forKey: entriesKey)
-            // Keep last UI context across the freeze — useful if MetricKit arrives before new notes.
+            userDefaults.removeObject(forKey: contextKey)
         }
     }
 
@@ -280,6 +281,10 @@ nonisolated enum CrashBreadcrumbTrail {
 
     static func loadEntriesForTests(userDefaults: UserDefaults = .standard) -> [Entry] {
         withTrailLock { loadEntries(userDefaults: userDefaults) }
+    }
+
+    static func loadContextForTests(userDefaults: UserDefaults = .standard) -> Context? {
+        withTrailLock { loadContext(userDefaults: userDefaults) }
     }
 
     private nonisolated static func loadEntries(userDefaults: UserDefaults) -> [Entry] {

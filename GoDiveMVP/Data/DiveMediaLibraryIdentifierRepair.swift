@@ -34,14 +34,12 @@ enum DiveMediaLibraryIdentifierRepair: Sendable {
             if media.photosLocalIdentifier != localID {
                 media.photosLocalIdentifier = localID
                 try? modelContext.save()
-                DiveActivityMediaStorage.postMediaDidChange()
             }
             return localID
         case .ambiguous(let locals):
             if let first = locals.first {
                 media.photosLocalIdentifier = first
                 try? modelContext.save()
-                DiveActivityMediaStorage.postMediaDidChange()
                 return first
             }
             return media.libraryAssetLocalIdentifier

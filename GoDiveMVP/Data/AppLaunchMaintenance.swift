@@ -27,6 +27,9 @@ enum AppLaunchMaintenance: Sendable {
             await DiveMediaPreviewStorage.backfillMissingPreviews(modelContext: context)
             #endif
             DiveMediaCloudIdentifierBackfill.backfillIfNeeded(modelContext: context)
+            #if canImport(Photos)
+            _ = DiveMediaReferencePruning.pruneMissingLibraryAssets(modelContext: context)
+            #endif
             await AppSwiftDataDualStoreFactory.appendCloudKitAccountStatusDiagnostics()
         } catch {
             #if DEBUG
