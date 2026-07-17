@@ -3068,7 +3068,16 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Explore tab crash:** map pin sync used **`Dictionary(uniqueKeysWithValues:)`** on plottable sites — duplicate site IDs (catalog + user snapshot / remigration) crashed on tab open. MapKit + Google map coordinators now use **`godiveUniquingKeysWithValues`**; **`ExploreCatalogMapPresentation.deduplicatingPlottableSites`** + scope cache / all-sites merge dedupe first.
 - **Stale media after CloudKit restore:** batch **`DiveMediaReferencePruning.pruneMissingLibraryAssets`** runs after successful CloudKit **import** events and on launch (full Photos access only). Pointers whose Photos originals were deleted (e.g. delete app → delete photo → reinstall) are removed; cloud resolve that still cannot find an asset also prunes.
 
-## 115 - Phase 4 Catalog CDN
+## 115 - Phase 4 Catalog CDN **(pushed)**
 
+**Summary:** Phase 4 — Firebase Hosting CDN refresh for Marine Life catalog (bundled seed remains offline fallback).
 
+- **`CatalogCDNManifest`** / **`CatalogCDNChecksum`** / **`CatalogCDNRefreshPolicy`** — decode, SHA-256, version + min-app gates.
+- **`CatalogCDNSecretsBootstrap`** + example plist — optional **`ManifestBaseURL`**; empty → CDN off.
+- **`CatalogCDNClient`** — HTTPS fetch (no Firebase SDK); **`MarineLifeCatalogUpsert`** shared with bundled seeder.
+- **`CatalogCDNRefresh`** after bundled seed in **`AppLaunchMaintenance`**.
+- Docs: **`catalog_cdn_publish.md`**, hybrid boundaries / migration checklist, **`app_summary`**.
+- Tests: manifest decode, version gates, checksum, upsert/prune preserves user species UUID prefix.
+
+## 116 - Phase 4b Sites + Assets
 

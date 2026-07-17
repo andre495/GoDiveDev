@@ -40,7 +40,8 @@ Source of truth companion to `hybrid_cloud_sync_boundaries.md` and `AppSwiftData
 
 - Vendor: **Firebase Storage + Hosting** (versioned manifests, content-addressed assets).
 - Bundled seed remains offline fallback.
-- Implementation deferred to Phase 4.
+- **Phase 4 (Marine Life):** HTTPS Hosting manifest + full `marine_life.json` upsert via **`CatalogCDNRefresh`** (optional **`CatalogCDNSecrets.plist`**). See **`catalog_cdn_publish.md`**.
+- Phase 4b: dive site / OpenDiveMap CDN + heavy assets (deferred).
 
 ## Gate checklist
 
@@ -55,4 +56,4 @@ Source of truth companion to `hybrid_cloud_sync_boundaries.md` and `AppSwiftData
 - [x] Dual-store / multi-device smoke on a real iPhone (signed into iCloud) — device smoke after clean install / profile-merge fix
 - [x] Synced **`UserPreferences`** for Settings keys (crash sharing local-only)
 - [x] Phase 3: Photos `PHCloudIdentifier` resolve across devices
-- [ ] Phase 4: Firebase catalog CDN
+- [x] Phase 4: Firebase catalog CDN (Marine Life JSON refresh; sites / assets = Phase 4b)

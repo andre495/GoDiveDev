@@ -6271,6 +6271,139 @@ struct GoDiveMVPTests {
         })
     }
 
+    @Test func catalogCDNManifestCodec_decodesV1Manifest() throws {
+        let json = """
+        {
+          "schemaVersion": 1,
+          "catalogVersion": 42,
+          "minimumAppVersion": "1.0",
+          "generatedAt": "2026-07-17T00:00:00Z",
+          "marineLife": {
+            "format": "full",
+            "path": "catalog/v1/marine_life.json",
+            "sha256": "abc123",
+            "itemCount": 3
+          }
+        }
+        """
+        let manifest = try CatalogCDNManifestCodec.decode(Data(json.utf8))
+        #expect(manifest.schemaVersion == 1)
+        #expect(manifest.catalogVersion == 42)
+        #expect(manifest.minimumAppVersion == "1.0")
+        #expect(manifest.marineLife?.format == "full")
+        #expect(manifest.marineLife?.path == "catalog/v1/marine_life.json")
+        #expect(manifest.marineLife?.sha256 == "abc123")
+        #expect(manifest.marineLife?.itemCount == 3)
+    }
+
+    @Test func catalogCDNRefreshPolicy_versionAndMinAppGates() {
+        #expect(CatalogCDNRefreshPolicy.shouldApply(remoteCatalogVersion: 2, appliedCatalogVersion: 1))
+        #expect(!CatalogCDNRefreshPolicy.shouldApply(remoteCatalogVersion: 2, appliedCatalogVersion: 2))
+        #expect(!CatalogCDNRefreshPolicy.shouldApply(remoteCatalogVersion: 1, appliedCatalogVersion: 2))
+        #expect(CatalogCDNRefreshPolicy.meetsMinimumAppVersion(appVersion: "1.2", minimumAppVersion: "1.0"))
+        #expect(CatalogCDNRefreshPolicy.meetsMinimumAppVersion(appVersion: "1.0.0", minimumAppVersion: "1.0"))
+        #expect(!CatalogCDNRefreshPolicy.meetsMinimumAppVersion(appVersion: "0.9", minimumAppVersion: "1.0"))
+        #expect(CatalogCDNRefreshPolicy.compareDottedVersions("2.0", "1.9") == .orderedDescending)
+    }
+
+    @Test func catalogCDNChecksum_sha256HexMatchesKnownFixture() {
+        let data = Data("GoDive catalog".utf8)
+        let hex = CatalogCDNChecksum.sha256Hex(data)
+        #expect(hex.count == 64)
+        #expect(CatalogCDNChecksum.matches(data: data, expectedHex: hex))
+        #expect(CatalogCDNChecksum.matches(data: data, expectedHex: hex.uppercased()))
+        #expect(!CatalogCDNChecksum.matches(data: data, expectedHex: "deadbeef"))
+        #expect(!CatalogCDNChecksum.matches(data: data, expectedHex: ""))
+    }
+
+    @Test func catalogCDNSecretsBootstrap_rejectsPlaceholderAndEmpty() {
+        #expect(CatalogCDNSecretsBootstrap.validatedBaseURL("") == nil)
+        #expect(CatalogCDNSecretsBootstrap.validatedBaseURL("YOUR_FIREBASE_HOSTING_BASE_URL") == nil)
+        #expect(CatalogCDNSecretsBootstrap.validatedBaseURL("ftp://example.com") == nil)
+        #expect(
+            CatalogCDNSecretsBootstrap.validatedBaseURL("https://godive-catalog.web.app")?.absoluteString
+                == "https://godive-catalog.web.app"
+        )
+    }
+
+    @Test func catalogCDNClient_buildsManifestURL() {
+        let base = URL(string: "https://example.web.app")!
+        #expect(
+            CatalogCDNClient.url(base: base, relativePath: CatalogCDNClient.manifestRelativePath)?
+                .absoluteString == "https://example.web.app/catalog/v1/manifest.json"
+        )
+        #expect(CatalogCDNClient.url(base: base, relativePath: "") == nil)
+    }
+
+    @Test @MainActor func catalogCDNRefresh_skippedWhenNotConfigured() async throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let outcome = await CatalogCDNRefresh.refreshMarineLifeIfNeeded(
+            modelContext: container.mainContext,
+            baseURL: nil
+        )
+        #expect(outcome == .skippedNotConfigured)
+    }
+
+    @Test @MainActor func marineLifeCatalogUpsert_updatesAndPrunesCatalogRowsPreservingUserPrefix() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+
+        context.insert(
+            MarineLife(
+                uuid: "marine-life-cdn-keep",
+                commonName: "Old Name",
+                scientificName: "Oldus nameus",
+                ownership: .catalog
+            )
+        )
+        context.insert(
+            MarineLife(
+                uuid: "marine-life-cdn-orphan",
+                commonName: "Orphan",
+                scientificName: "Orphanus",
+                ownership: .catalog
+            )
+        )
+        let userUUID = FieldGuideMarineLifeAddPresentation.makeUserCreatedUUID()
+        context.insert(
+            MarineLife(
+                uuid: userUUID,
+                commonName: "User Keep",
+                scientificName: "Userus keepus",
+                ownership: .userOwned
+            )
+        )
+        try context.save()
+
+        let outcome = try MarineLifeCatalogUpsert.apply(
+            dtos: [
+                MarineLifeDTO(
+                    uuid: "marine-life-cdn-keep",
+                    commonName: "Updated Name",
+                    scientificName: "Newus nameus",
+                    category: "fishes"
+                ),
+                MarineLifeDTO(
+                    uuid: "marine-life-cdn-new",
+                    commonName: "Brand New",
+                    scientificName: "Brandus newus"
+                ),
+            ],
+            modelContext: context
+        )
+
+        #expect(outcome.upsertedCount == 2)
+        #expect(outcome.prunedCount == 1)
+
+        let rows = try context.fetch(FetchDescriptor<MarineLife>())
+        let byUUID = Dictionary(uniqueKeysWithValues: rows.map { ($0.uuid, $0) })
+        #expect(byUUID["marine-life-cdn-keep"]?.commonName == "Updated Name")
+        #expect(byUUID["marine-life-cdn-keep"]?.ownership == .catalog)
+        #expect(byUUID["marine-life-cdn-new"]?.commonName == "Brand New")
+        #expect(byUUID["marine-life-cdn-orphan"] == nil)
+        #expect(byUUID[userUUID]?.commonName == "User Keep")
+    }
+
     @Test func fieldGuideMarineLifeAddPresentation_validatesAndBuildsSpecies() {
         var form = FieldGuideMarineLifeAddPresentation.FormValues(
             commonName: "  Blue Tang  ",
