@@ -34,6 +34,7 @@ enum DiveActivityEditableFieldID: String, Identifiable, Sendable, CaseIterable, 
     case notes
 
     case buddies
+    case marineLife
 
     case gasType
     case oxygenMix

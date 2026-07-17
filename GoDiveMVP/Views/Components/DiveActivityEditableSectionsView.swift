@@ -10,6 +10,7 @@ struct DiveActivityEditableSectionsView: View {
     let onEditSection: (DiveActivityEditableCatalog.Section) -> Void
     let onManageEquipment: () -> Void
     let onManageBuddies: () -> Void
+    var onManageMarineLife: (() -> Void)? = nil
     var onEditNotes: (() -> Void)? = nil
 
     var body: some View {
@@ -53,9 +54,13 @@ struct DiveActivityEditableSectionsView: View {
             case .add:
                 DiveActivitySectionHeaderActionButton(
                     systemImage: "plus",
-                    accessibilityLabel: "Add buddies"
+                    accessibilityLabel: section.id == "marineLife" ? "Add marine life" : "Add buddies"
                 ) {
-                    onManageBuddies()
+                    if section.id == "marineLife" {
+                        onManageMarineLife?()
+                    } else {
+                        onManageBuddies()
+                    }
                 }
                 .accessibilityIdentifier("DiveOverview.Section.\(section.id).Add")
             case .editForm:
@@ -101,6 +106,8 @@ struct DiveActivityEditableSectionsView: View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
             if section.id == "buddies" {
                 DiveActivityBuddiesOverviewSection(activity: activity)
+            } else if section.id == "marineLife" {
+                DiveActivityMarineLifeOverviewSection(activity: activity)
             } else {
                 ForEach(section.fieldIDs, id: \.self) { fieldID in
                     row(for: fieldID)

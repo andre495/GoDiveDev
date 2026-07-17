@@ -256,12 +256,15 @@ private struct FieldGuideMarineLifeClearARHeroRepresentable: UIViewRepresentable
             modelAnchor.addChild(loadedEntity)
 
             // Glow stays a sibling of the model anchor so yaw spin does not orbit the plate/particles.
-            let glowShadow = await makeGlowShadowEntity(
-                modelPosition: loadedEntity.position,
-                modelExtentY: bounds.extents.y,
-                modelScale: scale
-            )
-            sceneRoot.addChild(glowShadow)
+            // Compact avatar chips (map Marine Life) opt out — no plate/sparkles behind the mesh.
+            if configuration.showsGlow {
+                let glowShadow = await makeGlowShadowEntity(
+                    modelPosition: loadedEntity.position,
+                    modelExtentY: bounds.extents.y,
+                    modelScale: scale
+                )
+                sceneRoot.addChild(glowShadow)
+            }
             sceneRoot.addChild(modelAnchor)
 
             let keyLight = DirectionalLight()

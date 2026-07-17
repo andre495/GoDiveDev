@@ -2945,3 +2945,42 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ## 111 - Next batch
 
+**Summary:** Empty Media hero — pin **Upload Media** CTA below the animation.
+
+- Ghost frames no longer expand under a centered full-height stack (which buried the button under the overview sheet).
+- **`DiveActivityMediaEmptyHeroPresentation`** reserves CTA height in the visible hero band and places **Upload Media** near the sheet seam under the animation (**minimized** / **medium**).
+- Unit test **`diveActivityMediaEmptyHeroPresentation_pinsUploadCTABelowAnimationInHeroBand`**.
+- Marked CTA layout constants **`nonisolated`** to clear Swift 6 main-actor warnings from layout helpers.
+- Ghost frames shifted down **`ghostFramesDownshift` (40 pt)** toward the CTA; **Upload Media** button Y unchanged.
+- **Upload Media** CTA is text-width compact Liquid Glass (same chrome as **Log Your First Dive**), not full-bleed.
+- **Upload Media** label uses **`AppTheme.Colors.secondaryText`** (dark gray in light mode; light slate in dark).
+- **Media frosted overlays** (dive **Media** translucent panel + media-grid playback tag overview) always use dark-mode **`.thinMaterial`** / content tokens via **`DiveActivityMediaFrostedOverlayPresentation.forcesDarkAppearance`**, so light mode matches the same gray frost as dark mode.
+- **Empty Media sheet matches populated layout** — removed the dedicated empty-panel branch (identity row + upload copy); with no media the sheet shows the same identity header, fish / buddy chrome, marine-life + buddies sections (untagged prompts), and carousel row with **+**. Upload copy lives only in the hero; fish/buddy sheet chrome no longer hidden by the has-media gate (tag actions still require a media target). Test updated: **`diveActivityMediaEmptyHeroPresentation_emptySheetReusesPopulatedLayout`**.
+
+**Summary:** Map-tab **Marine Life** section under Buddies.
+
+- New **`marineLife`** editable section on dive **Map** (large) between **Buddies** and **Notes**.
+- Lists unique species from all dive sightings (media tags + dive-level tags); **+** opens **`DiveActivityMarineLifeTagPickerSheet`** to add dive-level tags without media.
+- **`MarineLifeSightingRecorder.tagSpeciesOnDive`** / **`tagPendingSpeciesOnDive`** — no-op when the species is already sighted on the dive.
+- Buddy-style chips: 3D RealityKit avatar when **`featureModelResourceName`** is set, else catalog photo, else fish icon + common name; tap opens Field Guide.
+- Tests: unique-chip dedupe, avatar kind priority, dive-level tag dedupe with media, catalog section order / header action.
+
+**Summary:** Marine Life avatar 3D — fill the circle, drop the glow.
+
+- **`FieldGuideMarineLifeHeroSceneConfiguration.showsGlow`** gates the accent glow plate / sparkles; species detail heroes keep it, compact avatar chips opt out.
+- **`compactModelSceneConfiguration`** uses a fixed **`avatarModelFitExtent` (0.42)** so every species fills the circle at max size (not the species-size hero fit), centers the model vertically (no hero downshift), and disables the glow.
+- Tests: **`diveActivityMarineLifeOverviewPresentation_compactAvatarConfigMaximizesModelAndDropsGlow`**, **`fieldGuideMarineLifeHero_speciesConfigKeepsGlow`**.
+
+**Summary:** Map Buddies / Marine Life chip rows — soft trailing fade.
+
+- Horizontal chip `ScrollView`s use **`horizontalChipRowTrailingScrollFade()`** so overflow softens on the right instead of a hard clip; fade ramps down as the user scrolls to the end.
+- **`DiveActivityHorizontalChipRowScrollFadePresentation`** owns fade width + opacity math; Reduce Transparency skips the mask.
+- Tests: **`diveActivityHorizontalChipRowScrollFade_*`**.
+
+**Summary:** Bug fix — Home carousel swipe unresponsive on the first item after a loop wrap.
+
+- The looping pager snapped the duplicate-first page back to index **0** synchronously inside **`onChange`**, racing the still-running **0.35 s** wrap animation. A non-animated jump mid-transition desyncs the paged **`TabView`** (it keeps showing the duplicate last page — which has no next page — while the binding says **0**), so forward swipes on slide **0** bounced until the next **10 s** auto-advance resynced it.
+- Reset now defers **`loopingPagerResetDelaySeconds` (0.6 s)** after landing on the duplicate, re-verifies the pager is still there, then snaps without animation; cancelled if the user swipes away first or the carousel disappears. Advance animation length moved to **`slideAdvanceAnimationSeconds`**.
+- Test: delay outlasts the wrap animation (in **`homeMediaCarouselPresentation_nextIndex_wrapsAndRequiresMultipleSlides`**).
+- **`AvatarKind`** — explicit **`nonisolated`** **`Equatable`** for Swift Testing **`#expect`** (clears Swift 6 main-actor warnings).
+

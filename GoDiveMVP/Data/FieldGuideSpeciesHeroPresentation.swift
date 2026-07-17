@@ -164,7 +164,8 @@ enum FieldGuideSpeciesHeroPresentation: Sendable {
             initialYawRadians: configuration.initialYawRadians,
             autoRotateSpeedRadiansPerSecond: configuration.autoRotateSpeedRadiansPerSecond,
             autoSpinPauseAfterDragSeconds: configuration.autoSpinPauseAfterDragSeconds,
-            allowsDragRotation: false
+            allowsDragRotation: false,
+            showsGlow: configuration.showsGlow
         )
     }
 

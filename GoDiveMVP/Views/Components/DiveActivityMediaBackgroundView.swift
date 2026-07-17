@@ -185,13 +185,27 @@ struct DiveActivityMediaBackgroundView: View {
             ) {
                 GeometryReader { geometry in
                     let resolvedLayoutHeight = layoutHeight > 0 ? layoutHeight : geometry.size.height
-                    let centerY = DiveActivityMediaEmptyHeroPresentation.ghostFramesCenterY(
+                    let band = DiveActivityMediaEmptyHeroPresentation.visibleHeroBand(
                         layoutHeight: resolvedLayoutHeight,
                         sheetHeightFraction: sheetHeightFraction,
                         bottomSafeInset: bottomSafeInset,
                         topObstructionHeight: topObstructionHeight
                     )
-                    VStack(spacing: AppTheme.Spacing.lg) {
+                    let midX = geometry.size.width / 2
+                    let animationCenterY = DiveActivityMediaEmptyHeroPresentation.ghostFramesCenterY(
+                        layoutHeight: resolvedLayoutHeight,
+                        sheetHeightFraction: sheetHeightFraction,
+                        bottomSafeInset: bottomSafeInset,
+                        topObstructionHeight: topObstructionHeight
+                    )
+                    let animationHeight = max(
+                        0,
+                        band.height - DiveActivityMediaEmptyHeroPresentation.uploadMediaCTAReservedHeight(
+                            forHeightFraction: sheetHeightFraction
+                        )
+                    )
+
+                    ZStack {
                         MediaUploadEmptyGhostFramesAnimation(
                             containerWidth: geometry.size.width,
                             verticalOffset: 0,
@@ -199,21 +213,24 @@ struct DiveActivityMediaBackgroundView: View {
                                 forHeightFraction: sheetHeightFraction
                             )
                         )
+                        .frame(width: geometry.size.width, height: animationHeight)
+                        .position(x: midX, y: animationCenterY)
 
                         if DiveActivityMediaEmptyHeroPresentation.showsUploadMediaCTA(
                             forHeightFraction: sheetHeightFraction
                         ) {
                             emptyHeroUploadMediaCTA
-                                .padding(.horizontal, AppTheme.Spacing.lg)
+                                .position(
+                                    x: midX,
+                                    y: DiveActivityMediaEmptyHeroPresentation.uploadMediaCTACenterY(
+                                        layoutHeight: resolvedLayoutHeight,
+                                        sheetHeightFraction: sheetHeightFraction,
+                                        bottomSafeInset: bottomSafeInset,
+                                        topObstructionHeight: topObstructionHeight
+                                    )
+                                )
                         }
                     }
-                    .offset(
-                        y: DiveActivityMediaEmptyHeroPresentation.ghostFramesVerticalOffset(
-                            forHeightFraction: sheetHeightFraction
-                        )
-                    )
-                    .frame(width: geometry.size.width)
-                    .position(x: geometry.size.width / 2, y: centerY)
                 }
                 .accessibilityIdentifier("DiveActivity.MediaBackground.EmptyAnimation")
             }
@@ -229,9 +246,13 @@ struct DiveActivityMediaBackgroundView: View {
             photoLibrary: .shared()
         ) {
             Text(DiveActivityMediaEmptyHeroPresentation.uploadMediaCTATitle)
-                .frame(maxWidth: .infinity)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.secondaryText)
+                .padding(.horizontal, AppTheme.Spacing.md)
+                .frame(maxHeight: .infinity)
+                .contentShape(Rectangle())
         }
-        .appOnboardingPrimaryGlassButtonStyle()
+        .logYourFirstDiveGlassButtonChrome()
         .disabled(isImportInProgress)
         .opacity(isImportInProgress ? 0.45 : 1)
         .accessibilityIdentifier("DiveActivity.MediaBackground.UploadMedia")

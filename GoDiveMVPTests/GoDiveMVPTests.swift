@@ -6275,6 +6275,164 @@ struct GoDiveMVPTests {
         #expect(sighting.mediaPhotoID == nil)
     }
 
+    @Test @MainActor func marineLifeSightingRecorder_tagSpeciesOnDive_dedupesWithMediaTag() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let owner = UserProfile(appleUserIdentifier: "owner-ml-dive", displayName: "Pat")
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 2_100_000),
+            durationMinutes: 40,
+            maxDepthMeters: 16
+        )
+        dive.owner = owner
+        let species = MarineLife(uuid: "marine-life-test-hamlet", commonName: "Barred Hamlet")
+        let media = DiveMediaPhoto(sortOrder: 0, mediaKind: .image, photosLocalIdentifier: "ph-test-1")
+        dive.mediaPhotos = [media]
+        context.insert(owner)
+        context.insert(dive)
+        context.insert(species)
+        context.insert(media)
+        try context.save()
+
+        let mediaSighting = try MarineLifeSightingRecorder.tagSpecies(
+            species,
+            on: media,
+            dive: dive,
+            captureContext: nil,
+            owner: owner,
+            modelContext: context
+        )
+        let diveSighting = try MarineLifeSightingRecorder.tagSpeciesOnDive(
+            species,
+            dive: dive,
+            owner: owner,
+            modelContext: context
+        )
+        #expect(diveSighting.sightingUUID == mediaSighting.sightingUUID)
+
+        let all = try MarineLifeSightingRecorder.sightings(
+            forDiveActivityID: dive.id,
+            modelContext: context
+        )
+        #expect(all.count == 1)
+        let chips = DiveActivityMarineLifeOverviewPresentation.uniqueSpeciesChips(sightings: all)
+        #expect(chips.map(\.marineLifeUUID) == [species.uuid])
+    }
+
+    @Test func diveActivityMarineLifeOverviewPresentation_avatarKindPrefersModelThenPhoto() {
+        #expect(
+            DiveActivityMarineLifeOverviewPresentation.resolvedAvatarKind(
+                featureModelResourceName: "BarredHamlet",
+                featureImageResourceName: "marine-life-barred-hamlet",
+                featureImageURL: "https://example.com/x.jpg"
+            ) == .model3D(resourceName: "BarredHamlet")
+        )
+        #expect(
+            DiveActivityMarineLifeOverviewPresentation.resolvedAvatarKind(
+                featureModelResourceName: "",
+                featureImageResourceName: "marine-life-barred-hamlet",
+                featureImageURL: ""
+            ) == .photo(resourceName: "marine-life-barred-hamlet", imageURL: "")
+        )
+        #expect(
+            DiveActivityMarineLifeOverviewPresentation.resolvedAvatarKind(
+                featureModelResourceName: "  ",
+                featureImageResourceName: "",
+                featureImageURL: ""
+            ) == .fishIcon
+        )
+    }
+
+    @Test func diveActivityMarineLifeOverviewPresentation_compactAvatarConfigMaximizesModelAndDropsGlow() {
+        let config = DiveActivityMarineLifeOverviewPresentation.compactModelSceneConfiguration(
+            resourceName: "BarredHamlet",
+            minSizeMeters: 0.05,
+            maxSizeMeters: 0.1
+        )
+        // Avatar uses the fixed max fit (not the tiny species-size hero fit) and no glow plate,
+        // centered vertically with drag disabled.
+        #expect(config.fitExtent == DiveActivityMarineLifeOverviewPresentation.avatarModelFitExtent)
+        #expect(config.showsGlow == false)
+        #expect(config.modelVerticalOffset == 0)
+        #expect(config.allowsDragRotation == false)
+    }
+
+    @Test func diveActivityHorizontalChipRowScrollFade_hidesWhenContentFits() {
+        #expect(
+            DiveActivityHorizontalChipRowScrollFadePresentation.trailingFadeOpacity(
+                contentWidth: 200,
+                containerWidth: 320,
+                contentOffsetX: 0
+            ) == 0
+        )
+    }
+
+    @Test func diveActivityHorizontalChipRowScrollFade_showsWhenOverflowingAndFadesNearEnd() {
+        let fadeWidth = DiveActivityHorizontalChipRowScrollFadePresentation.fadeWidth
+        #expect(
+            DiveActivityHorizontalChipRowScrollFadePresentation.trailingFadeOpacity(
+                contentWidth: 500,
+                containerWidth: 300,
+                contentOffsetX: 0
+            ) == 1
+        )
+        #expect(
+            DiveActivityHorizontalChipRowScrollFadePresentation.trailingFadeOpacity(
+                contentWidth: 500,
+                containerWidth: 300,
+                contentOffsetX: 200
+            ) == 0
+        )
+        let mid = DiveActivityHorizontalChipRowScrollFadePresentation.trailingFadeOpacity(
+            contentWidth: 500,
+            containerWidth: 300,
+            contentOffsetX: 200 - (fadeWidth / 2)
+        )
+        #expect(abs(mid - 0.5) < 0.001)
+    }
+
+    @Test func fieldGuideMarineLifeHero_speciesConfigKeepsGlow() {
+        #expect(FieldGuideMarineLifeHeroSceneConfiguration.frenchAngelfish.showsGlow == true)
+        let generated = FieldGuideMarineLifeHeroPresentation.sceneConfiguration(
+            forModelResourceName: "BarredHamlet"
+        )
+        #expect(generated.showsGlow == true)
+    }
+
+    @Test func diveActivityMarineLifeOverviewPresentation_uniqueSpeciesChips_dedupesByUUID() {
+        let diveID = UUID()
+        let first = SightingInstance(
+            sightingUUID: "s1",
+            marineLifeUUID: "marine-life-a",
+            sightingDateTime: Date(timeIntervalSince1970: 100)
+        )
+        first.diveActivityID = diveID
+        let second = SightingInstance(
+            sightingUUID: "s2",
+            marineLifeUUID: "marine-life-a",
+            sightingDateTime: Date(timeIntervalSince1970: 200)
+        )
+        second.diveActivityID = diveID
+        let third = SightingInstance(
+            sightingUUID: "s3",
+            marineLifeUUID: "marine-life-b",
+            sightingDateTime: Date(timeIntervalSince1970: 150)
+        )
+        third.diveActivityID = diveID
+
+        let catalog = [
+            MarineLife(uuid: "marine-life-b", commonName: "Zebra"),
+            MarineLife(uuid: "marine-life-a", commonName: "Alpha"),
+        ]
+        let chips = DiveActivityMarineLifeOverviewPresentation.uniqueSpeciesChips(
+            sightings: [first, second, third],
+            catalog: catalog
+        )
+        #expect(chips.map(\.marineLifeUUID) == ["marine-life-a", "marine-life-b"])
+        #expect(chips.map(\.commonName) == ["Alpha", "Zebra"])
+    }
+
     @Test func diveActivityMediaPresentation_showsMarineLifeTagOnHero_isDisabled() {
         #expect(!DiveActivityMediaPresentation.showsMarineLifeTagOnHero(for: .minimized))
         #expect(!DiveActivityMediaPresentation.showsMarineLifeTagOnHero(for: .medium))
@@ -9852,6 +10010,11 @@ struct GoDiveMVPTests {
 
         #expect(DiveActivityEditableCatalog.headerAction(for: diveConditions, activity: manualDive) == .editForm)
         #expect(DiveActivityEditableCatalog.headerAction(for: buddies, activity: manualDive) == .add)
+        let marineLife = mapSections.first { $0.id == "marineLife" }!
+        #expect(DiveActivityEditableCatalog.headerAction(for: marineLife, activity: manualDive) == .add)
+        #expect(
+            mapSections.map(\.id) == ["diveConditions", "buddies", "marineLife", "notes"]
+        )
         #expect(DiveActivityEditableCatalog.headerAction(for: equipment, activity: manualDive) == .manageEquipment)
 
         #expect(DiveActivityEditableCatalog.isEditable(.durationMinutes, for: manualDive))
@@ -14529,6 +14692,12 @@ struct GoDiveMVPTests {
         #expect(HomeMediaCarouselPresentation.nextLoopingPagerIndex(after: 0, slideCount: 3) == 1)
         #expect(HomeMediaCarouselPresentation.shouldResetLoopingPagerIndex(pagerIndex: 3, slideCount: 3))
         #expect(!HomeMediaCarouselPresentation.shouldResetLoopingPagerIndex(pagerIndex: 2, slideCount: 3))
+        // Deferred duplicate-page snap-back must outlast the forward wrap animation — an
+        // immediate reset mid-transition desyncs the pager and drops swipes on slide 0.
+        #expect(
+            HomeMediaCarouselPresentation.loopingPagerResetDelaySeconds
+                > HomeMediaCarouselPresentation.slideAdvanceAnimationSeconds
+        )
         #expect(HomeMediaCarouselPresentation.nextIndex(after: 0, count: 0) == 0)
         #expect(HomeMediaCarouselPresentation.shouldAutoAdvance(slideCount: 1) == false)
         #expect(HomeMediaCarouselPresentation.shouldAutoAdvance(slideCount: 2) == true)
@@ -15802,10 +15971,11 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func diveActivityMediaEmptyHeroPresentation_showsUploadTextInMediumAndLargeSheet() {
-        #expect(DiveActivityMediaEmptyHeroPresentation.showsUploadPromptTextInSheet(for: .medium))
-        #expect(DiveActivityMediaEmptyHeroPresentation.showsUploadPromptTextInSheet(for: .large))
+    @Test func diveActivityMediaEmptyHeroPresentation_emptySheetReusesPopulatedLayout() {
+        // Upload copy lives only in the hero; the sheet renders the standard Media layout when empty.
         #expect(!DiveActivityMediaEmptyHeroPresentation.showsUploadPromptTextInSheet(for: .minimized))
+        #expect(!DiveActivityMediaEmptyHeroPresentation.showsUploadPromptTextInSheet(for: .medium))
+        #expect(!DiveActivityMediaEmptyHeroPresentation.showsUploadPromptTextInSheet(for: .large))
     }
 
     @Test func diveActivityMediaEmptyHeroPresentation_reusesHomeHighlightTitle() {
@@ -15820,6 +15990,54 @@ struct GoDiveMVPTests {
             !DiveActivityMediaEmptyHeroPresentation.showsUploadMediaCTA(
                 forHeightFraction: DiveActivityOverviewPanelMetrics.largeHeightFraction
             )
+        )
+    }
+
+    @Test func diveActivityMediaEmptyHeroPresentation_pinsUploadCTABelowAnimationInHeroBand() {
+        let layoutHeight: CGFloat = 844
+        let bottomSafeInset: CGFloat = 34
+        let topObstruction: CGFloat = 100
+        let fraction = DiveActivityOverviewPanelMetrics.mediumHeightFraction
+
+        let band = DiveActivityMediaEmptyHeroPresentation.visibleHeroBand(
+            layoutHeight: layoutHeight,
+            sheetHeightFraction: fraction,
+            bottomSafeInset: bottomSafeInset,
+            topObstructionHeight: topObstruction
+        )
+        let animationY = DiveActivityMediaEmptyHeroPresentation.ghostFramesCenterY(
+            layoutHeight: layoutHeight,
+            sheetHeightFraction: fraction,
+            bottomSafeInset: bottomSafeInset,
+            topObstructionHeight: topObstruction
+        )
+        let ctaY = DiveActivityMediaEmptyHeroPresentation.uploadMediaCTACenterY(
+            layoutHeight: layoutHeight,
+            sheetHeightFraction: fraction,
+            bottomSafeInset: bottomSafeInset,
+            topObstructionHeight: topObstruction
+        )
+
+        #expect(ctaY > animationY)
+        #expect(ctaY < band.top + band.height)
+        #expect(ctaY > band.top)
+        let animationBandHeight = max(
+            0,
+            band.height - DiveActivityMediaEmptyHeroPresentation.uploadMediaCTAReservedHeight(
+                forHeightFraction: fraction
+            )
+        )
+        let centeredWithoutDownshift = band.top + animationBandHeight / 2
+        #expect(animationY > centeredWithoutDownshift)
+        #expect(
+            DiveActivityMediaEmptyHeroPresentation.uploadMediaCTAReservedHeight(
+                forHeightFraction: fraction
+            ) > DiveActivityMediaEmptyHeroPresentation.uploadMediaCTAHeight
+        )
+        #expect(
+            DiveActivityMediaEmptyHeroPresentation.uploadMediaCTAReservedHeight(
+                forHeightFraction: DiveActivityOverviewPanelMetrics.largeHeightFraction
+            ) == 0
         )
     }
 
@@ -16310,6 +16528,7 @@ struct GoDiveMVPTests {
             )
         )
         #expect(AppTheme.Sheet.embeddedOverviewTranslucentOpacity == 0.62)
+        #expect(DiveActivityMediaFrostedOverlayPresentation.forcesDarkAppearance)
         #expect(
             LinkedMediaFullscreenPresentation.tagOverviewPanelHeight(
                 layoutHeight: 800,

@@ -18,6 +18,9 @@ struct FieldGuideMarineLifeHeroSceneConfiguration: Equatable, Sendable {
     let autoSpinPauseAfterDragSeconds: TimeInterval
     /// When **`true`**, horizontal drag orbits the model on the Y axis.
     let allowsDragRotation: Bool
+    /// When **`true`**, the soft accent glow plate + sparkles render under the model.
+    /// Species detail heroes use the glow; compact avatars (map Marine Life chips) do not.
+    let showsGlow: Bool
 
     /// Explicit **nonisolated** equality for Swift 6 checks from nonisolated contexts.
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
@@ -29,6 +32,7 @@ struct FieldGuideMarineLifeHeroSceneConfiguration: Equatable, Sendable {
             && lhs.autoRotateSpeedRadiansPerSecond == rhs.autoRotateSpeedRadiansPerSecond
             && lhs.autoSpinPauseAfterDragSeconds == rhs.autoSpinPauseAfterDragSeconds
             && lhs.allowsDragRotation == rhs.allowsDragRotation
+            && lhs.showsGlow == rhs.showsGlow
     }
 
     /// Fallback fit when catalog size is missing; also the mid-band visual target.
@@ -42,7 +46,8 @@ struct FieldGuideMarineLifeHeroSceneConfiguration: Equatable, Sendable {
         initialYawRadians: -.pi / 5,
         autoRotateSpeedRadiansPerSecond: 0.225,
         autoSpinPauseAfterDragSeconds: 15,
-        allowsDragRotation: true
+        allowsDragRotation: true,
+        showsGlow: true
     )
 }
 
@@ -350,7 +355,8 @@ enum FieldGuideMarineLifeHeroPresentation {
                 initialYawRadians: base.initialYawRadians,
                 autoRotateSpeedRadiansPerSecond: base.autoRotateSpeedRadiansPerSecond,
                 autoSpinPauseAfterDragSeconds: base.autoSpinPauseAfterDragSeconds,
-                allowsDragRotation: base.allowsDragRotation
+                allowsDragRotation: base.allowsDragRotation,
+                showsGlow: base.showsGlow
             )
         default:
             return FieldGuideMarineLifeHeroSceneConfiguration(
@@ -361,7 +367,8 @@ enum FieldGuideMarineLifeHeroPresentation {
                 initialYawRadians: 0,
                 autoRotateSpeedRadiansPerSecond: 0.225,
                 autoSpinPauseAfterDragSeconds: 15,
-                allowsDragRotation: true
+                allowsDragRotation: true,
+                showsGlow: true
             )
         }
     }

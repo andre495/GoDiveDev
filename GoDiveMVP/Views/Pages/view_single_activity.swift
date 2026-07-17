@@ -64,6 +64,7 @@ struct ViewSingleActivity: View {
     @State private var editingSectionContext: DiveActivitySectionEditContext?
     @State private var showsMapNotesEditSheet = false
     @State private var showsBuddiesEditSheet = false
+    @State private var showsMarineLifeTagSheet = false
     @State private var showsTagsEditSheet = false
     @State private var showsAddEquipmentSheet = false
     @State private var equipmentLinkErrorMessage: String?
@@ -223,6 +224,9 @@ struct ViewSingleActivity: View {
             }
             .sheet(isPresented: $showsBuddiesEditSheet) {
                 DiveActivityBuddiesEditSheet(activity: activity)
+            }
+            .sheet(isPresented: $showsMarineLifeTagSheet) {
+                DiveActivityMarineLifeTagPickerSheet(dive: activity, onTagged: {})
             }
             .sheet(isPresented: $showsTagsEditSheet) {
                 if let ownerProfileID = accountSession.currentProfile?.id {
@@ -1212,12 +1216,14 @@ struct ViewSingleActivity: View {
 
     private func photosOverviewPanelContent(layoutHeight: CGFloat) -> some View {
         let hasMedia = !derivedDiveData.sortedMediaItems.isEmpty
+        // Chrome stays visible with no media so the empty sheet matches the populated layout;
+        // tagging actions below still require a selected media target.
         let showsMarineLifeTagInSheet = DiveActivityMediaPresentation.showsMarineLifeTagInSheet(
             for: overviewSheetDetent
-        ) && hasMedia
+        )
         let showsBuddyTagInSheet = DiveActivityMediaPresentation.showsBuddyTagInSheet(
             for: overviewSheetDetent
-        ) && hasMedia
+        )
         let canTagMarineLife = hasMedia && (
             showsMarineLifeTagInSheet
                 || DiveActivityMediaPresentation.showsLargeDetentAddMarineLifeControl(
@@ -1529,6 +1535,7 @@ struct ViewSingleActivity: View {
             },
             onManageEquipment: { showsAddEquipmentSheet = true },
             onManageBuddies: { showsBuddiesEditSheet = true },
+            onManageMarineLife: { showsMarineLifeTagSheet = true },
             onEditNotes: { showsMapNotesEditSheet = true },
             onAddTags: { showsTagsEditSheet = true },
             canAddTags: accountSession.currentProfile?.id != nil

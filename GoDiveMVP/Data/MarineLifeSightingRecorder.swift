@@ -84,6 +84,20 @@ enum MarineLifeSightingRecorder {
         return try modelContext.fetch(descriptor).first
     }
 
+    /// Any sighting of this species on the dive (media-linked or dive-level).
+    static func existingSightingOnDive(
+        marineLifeUUID: String,
+        diveActivityID: UUID,
+        modelContext: ModelContext
+    ) throws -> SightingInstance? {
+        let descriptor = FetchDescriptor<SightingInstance>(
+            predicate: #Predicate<SightingInstance> {
+                $0.marineLifeUUID == marineLifeUUID && $0.diveActivityID == diveActivityID
+            }
+        )
+        return try modelContext.fetch(descriptor).first
+    }
+
     @discardableResult
     static func tagSpecies(
         _ marineLife: MarineLife,
@@ -142,6 +156,57 @@ enum MarineLifeSightingRecorder {
         return sighting
     }
 
+    /// Tags a species on the dive without linking media. No-ops when the species is already
+    /// sighted on this dive (including via a media tag).
+    @discardableResult
+    static func tagSpeciesOnDive(
+        _ marineLife: MarineLife,
+        dive: DiveActivity,
+        owner: UserProfile,
+        modelContext: ModelContext,
+        persistImmediately: Bool = true
+    ) throws -> SightingInstance {
+        if let existing = try existingSightingOnDive(
+            marineLifeUUID: marineLife.uuid,
+            diveActivityID: dive.id,
+            modelContext: modelContext
+        ) {
+            try syncUserRecord(
+                marineLife: marineLife,
+                dive: dive,
+                media: nil,
+                owner: owner,
+                modelContext: modelContext,
+                persistImmediately: persistImmediately
+            )
+            return existing
+        }
+
+        let draft = SightingInstanceCreation.makeDraft(
+            marineLifeUUID: marineLife.uuid,
+            dive: dive,
+            mediaPhoto: nil
+        )
+        let sighting = try SightingInstanceCreation.insert(
+            draft: draft,
+            marineLife: marineLife,
+            dive: dive,
+            diveSite: dive.diveSite,
+            mediaPhoto: nil,
+            modelContext: modelContext,
+            persistImmediately: persistImmediately
+        )
+        try syncUserRecord(
+            marineLife: marineLife,
+            dive: dive,
+            media: nil,
+            owner: owner,
+            modelContext: modelContext,
+            persistImmediately: persistImmediately
+        )
+        return sighting
+    }
+
     /// Persists multiple pending media tags with a single save at the end.
     static func tagPendingSpecies(
         _ marineLife: [MarineLife],
@@ -171,10 +236,34 @@ enum MarineLifeSightingRecorder {
         DiveActivityMediaStorage.postMediaDidChange()
     }
 
+    /// Persists multiple dive-level species tags (no media) with a single save at the end.
+    static func tagPendingSpeciesOnDive(
+        _ marineLife: [MarineLife],
+        dive: DiveActivity,
+        owner: UserProfile,
+        modelContext: ModelContext
+    ) throws {
+        guard !marineLife.isEmpty else { return }
+
+        for species in marineLife {
+            _ = try tagSpeciesOnDive(
+                species,
+                dive: dive,
+                owner: owner,
+                modelContext: modelContext,
+                persistImmediately: false
+            )
+        }
+
+        if modelContext.hasChanges {
+            try modelContext.save()
+        }
+    }
+
     private static func syncUserRecord(
         marineLife: MarineLife,
         dive: DiveActivity,
-        media: DiveMediaPhoto,
+        media: DiveMediaPhoto?,
         owner: UserProfile,
         modelContext: ModelContext,
         persistImmediately: Bool
@@ -193,9 +282,11 @@ enum MarineLifeSightingRecorder {
             record.sitesSightedOn.append(siteID)
         }
 
-        let mediaLink = userTaggedMediaLink(for: media)
-        if !record.userTaggedMedia.contains(mediaLink) {
-            record.userTaggedMedia.append(mediaLink)
+        if let media {
+            let mediaLink = userTaggedMediaLink(for: media)
+            if !record.userTaggedMedia.contains(mediaLink) {
+                record.userTaggedMedia.append(mediaLink)
+            }
         }
 
         if persistImmediately {

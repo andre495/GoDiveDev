@@ -93,6 +93,18 @@ enum HomeMediaCarouselPresentation: Sendable {
         slideCount > 1 && pagerIndex == slideCount
     }
 
+    /// Programmatic slide-advance animation length (forward wrap onto the duplicate first page).
+    nonisolated static let slideAdvanceAnimationSeconds: TimeInterval = 0.35
+
+    /// Delay before the duplicate-first page snaps back to index **0**.
+    ///
+    /// Must outlast **`slideAdvanceAnimationSeconds`** plus settle time: a non-animated selection
+    /// jump issued while the pager is still animating / decelerating desyncs the paged
+    /// **`TabView`** (it keeps showing the duplicate last page — which has no next page — while
+    /// the binding says **0**), leaving forward swipes on the first item unresponsive until the
+    /// next auto-advance resyncs it.
+    nonisolated static let loopingPagerResetDelaySeconds: TimeInterval = 0.6
+
     nonisolated static func shouldAutoAdvance(slideCount: Int) -> Bool {
         slideCount > 1
     }

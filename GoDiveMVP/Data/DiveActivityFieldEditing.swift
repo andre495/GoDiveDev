@@ -82,6 +82,12 @@ enum DiveActivityFieldEditing {
         case .buddies:
             if activity.buddies.isEmpty { return "—" }
             return activity.buddies.map(\.displayName).joined(separator: ", ")
+        case .marineLife:
+            let chips = DiveActivityMarineLifeOverviewPresentation.uniqueSpeciesChips(
+                sightings: activity.marineLifeSightings
+            )
+            if chips.isEmpty { return DiveActivityMarineLifeOverviewPresentation.emptyValue }
+            return chips.map(\.commonName).joined(separator: ", ")
         case .gasType:
             return activity.gasDetailsGasTypeLine
         case .oxygenMix:
@@ -137,6 +143,7 @@ enum DiveActivityFieldEditing {
         case .diveWaterType: .waterType
         case .notes: .multilineText
         case .buddies: .buddies
+        case .marineLife: .readOnly
         case .linkedEquipment: .equipment
         case .linkedCatalogSite: .linkedSite
         case .avgSAC, .avgRMV: .readOnly
@@ -302,7 +309,7 @@ enum DiveActivityFieldEditing {
             activity.tankPressureStartPSI = DiveActivityFieldValueParsing.parsePressurePSI(draft.text, displayUnits: displayUnits)
         case .tankPressureEndPSI:
             activity.tankPressureEndPSI = DiveActivityFieldValueParsing.parsePressurePSI(draft.text, displayUnits: displayUnits)
-        case .diveSignature, .buddies, .linkedEquipment, .linkedCatalogSite,
+        case .diveSignature, .buddies, .marineLife, .linkedEquipment, .linkedCatalogSite,
              .source, .sourceDiveId, .rawImportVersion,
              .startTimeUTC, .timeZoneOffset,
              .profileSampleCount, .profileGasSampleStats, .recordID, .ownerName,

@@ -107,9 +107,7 @@ struct DiveActivityPhotosPanelContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-            if mediaItems.isEmpty {
-                emptyMediaPanelContent
-            } else if showsMarineLifeDetail {
+            if showsMarineLifeDetail {
                 DiveActivityMediaLargeDetentOverviewContent(
                     mode: $largeDetentMode,
                     media: selectedMedia,
@@ -166,35 +164,6 @@ struct DiveActivityPhotosPanelContent: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-    }
-
-    @ViewBuilder
-    private var emptyMediaPanelContent: some View {
-        switch sheetDetent {
-        case .minimized:
-            HStack {
-                Spacer(minLength: 0)
-                addMediaButton
-            }
-        case .medium:
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-                mediumDetentIdentityRow
-                emptyUploadPromptTextBlock
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        case .large:
-            emptyUploadPromptTextBlock
-                .frame(maxWidth: .infinity, alignment: .top)
-        }
-    }
-
-    private var emptyUploadPromptTextBlock: some View {
-        MediaUploadEmptyPromptTextBlock(
-            title: DiveActivityMediaEmptyHeroPresentation.title,
-            message: DiveActivityMediaEmptyHeroPresentation.message,
-            horizontalAlignment: .leading
-        )
-        .accessibilityIdentifier("DiveOverview.MediaEmptyUploadPrompt")
     }
 
     @ViewBuilder

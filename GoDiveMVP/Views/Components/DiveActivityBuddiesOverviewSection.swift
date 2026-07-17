@@ -31,6 +31,7 @@ struct DiveActivityBuddiesOverviewSection: View {
                 }
                 .padding(.vertical, 2)
             }
+            .horizontalChipRowTrailingScrollFade()
         }
     }
 

@@ -43,7 +43,8 @@ Tap a section **⋯** menu to edit all fields in that section in one sheet.
 ## Media tab
 
 - Full-bleed **hero pager** swipes between photos and videos.
-- When a dive has **no media yet**, the hero shows bouncing photo/video frames at **minimized** and **medium** (hidden at **large**) with a Liquid Glass **Upload Media** button above the sheet. The empty-state copy also sits in the overview sheet at **medium** and **large**.
+- When a dive has **no media yet**, the hero shows bouncing photo/video frames at **minimized** and **medium** (hidden at **large**) with a compact Liquid Glass **Upload Media** button directly under the animation in the hero band above the sheet. The overview sheet keeps its usual Media layout (identity header, **Marine life** and **Buddies** sections with tagging prompts, and the carousel row with **+**).
+- The frosted Media overview panel (and the same overlay on full-screen media-grid playback) stays the same dark gray in light and dark mode so photos and videos remain readable underneath.
 - **Medium** uses the same dive identity header as **Map** / **Tank** (dive number, site name, place, date/time). **Fish** / **buddy** sit on the trailing side of that header, aligned with the dive number, and expand the sheet to **large**.
 - **Carousel** at minimized and medium detents jumps between items; oldest capture time on the left. At **medium**, the carousel sits near the bottom edge of the blue sheet (under **Marine life** and **Buddies**). **+** sits on the trailing edge of the carousel (same at minimized and medium).
 - **Star** on a carousel preview marks the featured Logbook thumbnail (one per dive). Selected preview always shows a star (blue if featured, white if not — tap to toggle). Featured previews keep a smaller blue star when not selected; non-featured, unselected previews show no star.
@@ -65,7 +66,11 @@ If **Fishial** is configured in the app build, a **sparkles** control can sugges
 
 ## Buddies
 
-On the map overview, **Buddies** lists people tagged on this dive. Tap an avatar to open that buddy’s detail page. **+** opens the buddy picker from your roster or lets you create a new buddy.
+On the map overview, **Buddies** lists people tagged on this dive. When more avatars than fit on one row, swipe sideways to see the rest (the right edge softens instead of cutting off). Tap an avatar to open that buddy’s detail page. **+** opens the buddy picker from your roster or lets you create a new buddy.
+
+## Marine Life (map tab)
+
+Under **Buddies** on the map overview, **Marine Life** lists every unique species tagged on this dive — both species tagged on photos/videos and species you add directly here. The same species only appears once even if it was tagged in media and on the map. Each chip shows a circular avatar (3D model when the Field Guide has one, otherwise the species photo, otherwise a fish icon) with the common name underneath. When the row overflows, swipe sideways — the trailing edge fades softly. Tap a chip to open Field Guide. **+** opens the species picker to add dive-level tags.
 
 ## Landscape
 

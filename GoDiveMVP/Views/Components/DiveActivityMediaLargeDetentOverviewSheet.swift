@@ -388,6 +388,7 @@ extension View {
             Rectangle()
                 .fill(.thinMaterial)
                 .opacity(AppTheme.Sheet.embeddedOverviewTranslucentOpacity)
+                .modifier(DiveActivityMediaFrostedOverlayDarkAppearance(enabled: true))
                 .ignoresSafeArea(edges: .bottom)
         }
         .presentationDetents([.large])
@@ -395,6 +396,7 @@ extension View {
         .presentationCornerRadius(AppTheme.Sheet.cornerRadius)
         .presentationBackground(.clear)
         .presentationBackgroundInteraction(.enabled)
+        .modifier(DiveActivityMediaFrostedOverlayDarkAppearance(enabled: true))
     }
 
     /// Same frosted chrome as dive Media **`usesTranslucentChrome`** — use on an in-hierarchy panel

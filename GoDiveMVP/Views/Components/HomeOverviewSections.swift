@@ -204,6 +204,7 @@ struct HomeMediaCarouselSection: View {
     @State private var selectedTaggedSpeciesUUID: String?
     @State private var expandedBuddyListMediaID: UUID?
     @State private var playbackResumeToken = 0
+    @State private var loopingPagerResetTask: Task<Void, Never>?
 
     private var resolvedHeroBandHeight: CGFloat {
         heroBandHeight ?? HomeMediaCarouselLayout.heroHeight(
@@ -335,15 +336,15 @@ struct HomeMediaCarouselSection: View {
             .onChange(of: pagerSelectedIndex) { oldIndex, newIndex in
                 closeMarineLifeOverlay()
                 closeBuddyList()
+                loopingPagerResetTask?.cancel()
                 if HomeMediaCarouselPresentation.shouldResetLoopingPagerIndex(
                     pagerIndex: newIndex,
                     slideCount: highlights.count
                 ) {
-                    var transaction = Transaction()
-                    transaction.disablesAnimations = true
-                    withTransaction(transaction) {
-                        pagerSelectedIndex = 0
-                    }
+                    // Defer the snap-back until the forward wrap animation / swipe settle
+                    // finishes — an immediate non-animated jump here desyncs the paged
+                    // TabView and leaves swipes on the first item unresponsive.
+                    scheduleLoopingPagerReset()
                     logSlideSelection(
                         from: HomeMediaCarouselPresentation.logicalSlideIndex(
                             pagerIndex: oldIndex,
@@ -435,6 +436,8 @@ struct HomeMediaCarouselSection: View {
         }
         .onDisappear {
             isCarouselVisible = false
+            loopingPagerResetTask?.cancel()
+            loopingPagerResetTask = nil
             HomeMediaCarouselDebug.carouselVisibility(visible: false, slideCount: highlights.count)
         }
         .onChange(of: scenePhase) { _, phase in
@@ -522,8 +525,29 @@ struct HomeMediaCarouselSection: View {
             after: pagerSelectedIndex,
             slideCount: highlights.count
         )
-        withAnimation(.easeInOut(duration: 0.35)) {
+        withAnimation(.easeInOut(duration: HomeMediaCarouselPresentation.slideAdvanceAnimationSeconds)) {
             pagerSelectedIndex = next
+        }
+    }
+
+    /// Snap the duplicate-first page back to index **0** once the wrap transition has settled.
+    /// The duplicate renders identical slide-0 content (and owns playback while selected), so the
+    /// user sees nothing; re-verifies the pager is still on the duplicate before jumping.
+    private func scheduleLoopingPagerReset() {
+        loopingPagerResetTask = Task { @MainActor in
+            try? await Task.sleep(
+                for: .seconds(HomeMediaCarouselPresentation.loopingPagerResetDelaySeconds)
+            )
+            guard !Task.isCancelled else { return }
+            guard HomeMediaCarouselPresentation.shouldResetLoopingPagerIndex(
+                pagerIndex: pagerSelectedIndex,
+                slideCount: highlights.count
+            ) else { return }
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                pagerSelectedIndex = 0
+            }
         }
     }
 

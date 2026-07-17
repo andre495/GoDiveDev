@@ -94,6 +94,7 @@ enum DiveActivityEditableCatalog: Sendable {
                     .diveCurrentStrength, .surfaceCondition, .entryType, .diveVisibility,
                 ]),
                 Section(id: "buddies", title: "Buddies", fieldIDs: [.buddies]),
+                Section(id: "marineLife", title: DiveActivityMarineLifeOverviewPresentation.sectionTitle, fieldIDs: [.marineLife]),
                 Section(id: "notes", title: "Notes", fieldIDs: [.notes]),
             ]
         case .tank:
@@ -150,6 +151,7 @@ enum DiveActivityEditableCatalog: Sendable {
         case .diveSignature: "Signature"
         case .notes: "Notes"
         case .buddies: "Buddies"
+        case .marineLife: DiveActivityMarineLifeOverviewPresentation.sectionTitle
         case .gasType: "Gas"
         case .oxygenMix: "O₂ mix"
         case .tankMaterial: "Tank material"
@@ -216,7 +218,7 @@ enum DiveActivityEditableCatalog: Sendable {
         activity: DiveActivity
     ) -> DiveActivityEditableSectionHeaderAction {
         switch section.id {
-        case "buddies":
+        case "buddies", "marineLife":
             return .add
         case "equipment":
             return .manageEquipment

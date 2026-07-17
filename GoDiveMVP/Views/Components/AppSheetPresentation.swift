@@ -24,28 +24,10 @@ extension View {
     }
 
     /// Rounded top corners + opaque blue panel fill (matches **`HomeLifetimeStatsPanel`**).
+    /// When **`translucent`**, frosted **`.thinMaterial`** over the hero — always dark-mode gray
+    /// (same shade in light and dark) so media stays readable underneath.
     func diveActivityOverviewEmbeddedPanelChrome(translucent: Bool = false) -> some View {
-        background {
-            Group {
-                if translucent {
-                    Rectangle()
-                        .fill(.thinMaterial)
-                        .opacity(AppTheme.Sheet.embeddedOverviewTranslucentOpacity)
-                } else {
-                    AppOverviewSheetPanelBackground()
-                }
-            }
-            .ignoresSafeArea(edges: .bottom)
-        }
-        .clipShape(
-            .rect(
-                topLeadingRadius: AppTheme.Sheet.cornerRadius,
-                topTrailingRadius: AppTheme.Sheet.cornerRadius,
-                style: .continuous
-            )
-        )
-        .shadow(color: .black.opacity(0.14), radius: 16, y: -6)
-        .ignoresSafeArea(edges: .bottom)
+        modifier(DiveActivityOverviewEmbeddedPanelChromeModifier(translucent: translucent))
     }
 
     /// Standard GoDive sheet chrome: top spacing, rounded corners, frosted **`.thinMaterial`** background.
@@ -70,5 +52,52 @@ extension View {
                 AppOverviewSheetPanelBackground()
                     .ignoresSafeArea(edges: .bottom)
             }
+    }
+}
+
+private struct DiveActivityOverviewEmbeddedPanelChromeModifier: ViewModifier {
+    var translucent: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                Group {
+                    if translucent {
+                        Rectangle()
+                            .fill(.thinMaterial)
+                            .opacity(AppTheme.Sheet.embeddedOverviewTranslucentOpacity)
+                            .modifier(
+                                DiveActivityMediaFrostedOverlayDarkAppearance(enabled: true)
+                            )
+                    } else {
+                        AppOverviewSheetPanelBackground()
+                    }
+                }
+                .ignoresSafeArea(edges: .bottom)
+            }
+            .clipShape(
+                .rect(
+                    topLeadingRadius: AppTheme.Sheet.cornerRadius,
+                    topTrailingRadius: AppTheme.Sheet.cornerRadius,
+                    style: .continuous
+                )
+            )
+            .shadow(color: .black.opacity(0.14), radius: 16, y: -6)
+            .ignoresSafeArea(edges: .bottom)
+            .modifier(DiveActivityMediaFrostedOverlayDarkAppearance(enabled: translucent))
+    }
+}
+
+/// Forces dark appearance on translucent Media frost so light mode uses the same gray as dark mode.
+struct DiveActivityMediaFrostedOverlayDarkAppearance: ViewModifier {
+    var enabled: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if enabled, DiveActivityMediaFrostedOverlayPresentation.forcesDarkAppearance {
+            content.environment(\.colorScheme, .dark)
+        } else {
+            content
+        }
     }
 }
