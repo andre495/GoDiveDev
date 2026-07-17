@@ -126,7 +126,7 @@ struct FieldGuideMarineLifeCatalogImage: View {
         contentMode: FieldGuideMarineLifeCatalogImageContentMode
     ) -> some View {
         switch resolvedImageSource {
-        case .bundledFile(let url):
+        case .bundledFile(let url), .cachedFile(let url):
             bundledFillImage(
                 url: url,
                 accent: accent,

@@ -1,18 +1,18 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": 1,
+  "catalogVersion": 2,
   "minimumAppVersion": "1.0",
-  "generatedAt": "2026-07-17T22:00:21Z",
+  "generatedAt": "2026-07-17T22:33:55Z",
   "marineLife": {
     "format": "full",
     "path": "catalog/v1/marine_life.json",
-    "sha256": "db0972e2bdbca50b64e4a061b1d330f5a01a6596f1f8694277432e70d2f01110",
+    "sha256": "8a20ca6914abba8d31c233ce9f8da21d191ea77e2d2172084ee37d058ba93f80",
     "itemCount": 1319
   },
   "diveSites": {
     "format": "full",
     "path": "catalog/v1/dive_sites.json",
-    "sha256": "4feb8db6d99f13ee9a299f33a2c136348769dee7adf0b7ce94945984df858305",
-    "itemCount": 2
+    "sha256": "7dbf343989be34d2b9935c3750d877c40762d92f7d94f818ff9157d8bb7fc246",
+    "itemCount": 3123
   }
 }

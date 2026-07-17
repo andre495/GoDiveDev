@@ -8,9 +8,10 @@ enum FieldGuideMarineLifeBundledImagePresentation: Sendable {
         "MarineLifePhotos",
     ]
 
-    /// Where catalog UI should load a species photo from (bundled first, then remote URL).
+    /// Where catalog UI should load a species photo from (bundled first, then disk CDN cache, then remote URL).
     enum ImageSource: Equatable, Sendable {
         case bundledFile(URL)
+        case cachedFile(URL)
         case remote(URL)
         case none
     }
@@ -18,11 +19,21 @@ enum FieldGuideMarineLifeBundledImagePresentation: Sendable {
     nonisolated static func imageSource(
         featureImageResourceName: String,
         featureImageURL: String,
-        bundle: Bundle = .main
+        bundle: Bundle = .main,
+        fileManager: FileManager = .default
     ) -> ImageSource {
         let resourceName = featureImageResourceName.trimmingCharacters(in: .whitespacesAndNewlines)
         if !resourceName.isEmpty, let url = bundledPhotoURL(resourceName: resourceName, bundle: bundle) {
             return .bundledFile(url)
+        }
+        if !resourceName.isEmpty,
+           let cached = CatalogAssetDiskCache.cachedFileURL(
+               kind: .photo,
+               resourceName: resourceName,
+               fileManager: fileManager
+           )
+        {
+            return .cachedFile(cached)
         }
 
         let remoteString = featureImageURL.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -62,6 +73,8 @@ extension FieldGuideMarineLifeBundledImagePresentation.ImageSource {
         case (.none, .none):
             return true
         case let (.bundledFile(left), .bundledFile(right)):
+            return left == right
+        case let (.cachedFile(left), .cachedFile(right)):
             return left == right
         case let (.remote(left), .remote(right)):
             return left == right

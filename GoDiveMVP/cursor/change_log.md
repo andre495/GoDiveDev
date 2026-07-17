@@ -3079,5 +3079,16 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Docs: **`catalog_cdn_publish.md`**, hybrid boundaries / migration checklist, **`app_summary`**.
 - Tests: manifest decode, version gates, checksum, upsert/prune preserves user species UUID prefix.
 
-## 116 - Phase 4b Sites + Assets
+## 116 - Phase 4b Sites + Assets **(pushed)**
+
+**Summary:** OpenDiveMap dive-site CDN reference cache + Firebase Storage URLs for marine life photos/USDZ (bundled assets remain offline-first).
+
+- **`CatalogCDNManifest.diveSites`** + unified **`CatalogCDNRefresh.refreshIfNeeded`** (Marine Life upsert + OpenDiveMap disk cache).
+- **`DiveSiteReferenceCDNCache`** / **`DiveSiteReferenceCatalog`** prefer Application Support CDN JSON over bundled OpenDiveMap.
+- **`featureModelURL`** on **`MarineLife`** / DTO; **`CatalogAssetDiskCache`**; image/USDZ resolve **bundled → disk cache → remote**.
+- Publish: **`catalog-cdn/scripts/build_catalog_cdn.py`**, Storage rules (`catalog/v1/**` public read), full ODM `dive_sites.json`.
+- User custom sites stay CloudKit **`UserDiveSite`** only — no bulk SwiftData ODM seed.
+- Tests: manifest diveSites, disk cache prefer, photo disk resolve.
+
+## 117 - Next batch
 

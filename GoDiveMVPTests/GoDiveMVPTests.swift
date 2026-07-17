@@ -6283,6 +6283,12 @@ struct GoDiveMVPTests {
             "path": "catalog/v1/marine_life.json",
             "sha256": "abc123",
             "itemCount": 3
+          },
+          "diveSites": {
+            "format": "full",
+            "path": "catalog/v1/dive_sites.json",
+            "sha256": "def456",
+            "itemCount": 3123
           }
         }
         """
@@ -6294,6 +6300,8 @@ struct GoDiveMVPTests {
         #expect(manifest.marineLife?.path == "catalog/v1/marine_life.json")
         #expect(manifest.marineLife?.sha256 == "abc123")
         #expect(manifest.marineLife?.itemCount == 3)
+        #expect(manifest.diveSites?.path == "catalog/v1/dive_sites.json")
+        #expect(manifest.diveSites?.itemCount == 3123)
     }
 
     @Test func catalogCDNRefreshPolicy_versionAndMinAppGates() {
@@ -6402,6 +6410,55 @@ struct GoDiveMVPTests {
         #expect(byUUID["marine-life-cdn-new"]?.commonName == "Brand New")
         #expect(byUUID["marine-life-cdn-orphan"] == nil)
         #expect(byUUID[userUUID]?.commonName == "User Keep")
+    }
+
+    @Test @MainActor func diveSiteReferenceCDNCache_prefersDiskOverBundle() throws {
+        DiveSiteReferenceCDNCache.removeForTesting()
+        defer { DiveSiteReferenceCDNCache.removeForTesting() }
+
+        let snapshots = [
+            DiveSiteReferenceSnapshot(
+                id: "cdn-site-1",
+                name: "CDN Reef",
+                country: "Belize",
+                countryCode: "BZ",
+                latitude: 17.0,
+                longitude: -88.0,
+                maxDepthMeters: 30,
+                entry: "boat",
+                environment: "ocean",
+                topologies: [],
+                seaName: "Caribbean"
+            ),
+        ]
+        let data = try JSONEncoder().encode(snapshots)
+        try DiveSiteReferenceCDNCache.store(data: data)
+
+        let loaded = DiveSiteReferenceCatalog.bundledReference()
+        #expect(loaded.count == 1)
+        #expect(loaded.first?.id == "cdn-site-1")
+        #expect(loaded.first?.name == "CDN Reef")
+    }
+
+    @Test func catalogAssetDiskCache_storesAndResolvesPhoto() throws {
+        let name = "test-catalog-photo-\(UUID().uuidString)"
+        let data = Data("fake-jpeg".utf8)
+        let url = try CatalogAssetDiskCache.store(data: data, kind: .photo, resourceName: name)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let cached = CatalogAssetDiskCache.cachedFileURL(kind: .photo, resourceName: name)
+        #expect(cached == url)
+        #expect(try Data(contentsOf: url) == data)
+
+        let source = FieldGuideMarineLifeBundledImagePresentation.imageSource(
+            featureImageResourceName: name,
+            featureImageURL: "https://example.com/missing.jpg"
+        )
+        guard case .cachedFile(let cachedURL) = source else {
+            Issue.record("Expected disk cache image source")
+            return
+        }
+        #expect(cachedURL == url)
     }
 
     @Test func fieldGuideMarineLifeAddPresentation_validatesAndBuildsSpecies() {

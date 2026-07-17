@@ -17,7 +17,7 @@ enum AppLaunchMaintenance: Sendable {
             try DiveActivityDiveNumbering.backfillMissingDiveNumbers(modelContext: context)
             try DiveBuddyLegacyMigration.migrateIfNeeded(modelContext: context)
             try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
-            _ = await CatalogCDNRefresh.refreshMarineLifeIfNeeded(modelContext: context)
+            _ = await CatalogCDNRefresh.refreshIfNeeded(modelContext: context)
             try MarineLifeCommonNameNormalization.normalizeStoredCatalogIfNeeded(modelContext: context)
             try DiveActivityOpenDiveMapSiteBackfill.backfillIfNeeded(modelContext: context)
             try AppSwiftDataOwnershipBackfill.backfillIfNeeded(modelContext: context)

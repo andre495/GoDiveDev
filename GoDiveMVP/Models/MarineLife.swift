@@ -21,6 +21,8 @@ final class MarineLife {
     var featureImageResourceName: String = ""
     /// Bundled USDZ resource name (no extension) for RealityKit detail hero; empty uses photo / placeholder.
     var featureModelResourceName: String = ""
+    /// Remote USDZ URL (Firebase Storage); prefer bundled / disk cache offline.
+    var featureModelURL: String = ""
     var scientificName: String = ""
     var category: String = ""
     /// Taxonomy slug or display label (e.g. `sharks-and-rays`, `Disk and Large Oval`).
@@ -48,6 +50,7 @@ final class MarineLife {
         featureImageURL: String = "",
         featureImageResourceName: String = "",
         featureModelResourceName: String = "",
+        featureModelURL: String = "",
         scientificName: String = "",
         category: String = "",
         subcategory: String = "",
@@ -70,6 +73,7 @@ final class MarineLife {
         self.featureImageURL = featureImageURL
         self.featureImageResourceName = featureImageResourceName
         self.featureModelResourceName = featureModelResourceName
+        self.featureModelURL = featureModelURL
         self.scientificName = scientificName
         self.category = category
         self.subcategory = subcategory
@@ -108,6 +112,7 @@ extension MarineLife {
             featureImageURL: featureImageURL,
             featureImageResourceName: featureImageResourceName,
             featureModelResourceName: featureModelResourceName,
+            featureModelURL: featureModelURL,
             minSizeMeters: minSizeMeters,
             maxSizeMeters: maxSizeMeters,
             avgDepthMeters: avgDepthMeters,

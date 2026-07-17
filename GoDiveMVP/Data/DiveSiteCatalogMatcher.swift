@@ -1,8 +1,8 @@
 import Foundation
 import SwiftData
 
-/// One OpenDiveMap row from bundled reference JSON (read-only; not a SwiftData model).
-struct DiveSiteReferenceSnapshot: Codable, Equatable, Sendable {
+/// One OpenDiveMap row from bundled / CDN reference JSON (read-only; not a SwiftData model).
+nonisolated struct DiveSiteReferenceSnapshot: Codable, Equatable, Sendable {
     let id: String
     let name: String
     let country: String
@@ -28,7 +28,8 @@ enum DiveSiteReferenceCatalog: Sendable {
 
     nonisolated static func bundledReference(
         bundle: Bundle = .main,
-        resourceExtension: String = "json"
+        resourceExtension: String = "json",
+        fileManager: FileManager = .default
     ) -> [DiveSiteReferenceSnapshot] {
         cacheLock.lock()
         if let cachedSnapshots {
@@ -36,6 +37,16 @@ enum DiveSiteReferenceCatalog: Sendable {
             return cachedSnapshots
         }
         cacheLock.unlock()
+
+        if let diskData = DiveSiteReferenceCDNCache.loadData(fileManager: fileManager),
+           let decoded = try? JSONDecoder().decode([DiveSiteReferenceSnapshot].self, from: diskData),
+           !decoded.isEmpty
+        {
+            cacheLock.lock()
+            cachedSnapshots = decoded
+            cacheLock.unlock()
+            return decoded
+        }
 
         guard let fileURL = bundle.url(
             forResource: bundledResourceName,
@@ -83,12 +94,16 @@ enum DiveSiteReferenceCatalog: Sendable {
 
     #if DEBUG
     nonisolated static func resetCacheForTesting() {
+        invalidateCaches()
+    }
+    #endif
+
+    nonisolated static func invalidateCaches() {
         cacheLock.lock()
         cachedSnapshots = nil
         cachedSnapshotsByID = nil
         cacheLock.unlock()
     }
-    #endif
 }
 
 /// Result of matching import dive metadata against the OpenDiveMap reference catalog.

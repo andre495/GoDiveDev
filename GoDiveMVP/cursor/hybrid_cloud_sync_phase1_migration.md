@@ -41,7 +41,7 @@ Source of truth companion to `hybrid_cloud_sync_boundaries.md` and `AppSwiftData
 - Vendor: **Firebase Storage + Hosting** (versioned manifests, content-addressed assets).
 - Bundled seed remains offline fallback.
 - **Phase 4 (Marine Life):** HTTPS Hosting manifest + full `marine_life.json` upsert via **`CatalogCDNRefresh`** (optional **`CatalogCDNSecrets.plist`**). See **`catalog_cdn_publish.md`**.
-- Phase 4b: dive site / OpenDiveMap CDN + heavy assets (deferred).
+- **Phase 4b:** OpenDiveMap `dive_sites.json` → on-disk reference cache; photos/USDZ on Firebase Storage with on-demand disk cache (bundled offline-first).
 
 ## Gate checklist
 
@@ -57,3 +57,4 @@ Source of truth companion to `hybrid_cloud_sync_boundaries.md` and `AppSwiftData
 - [x] Synced **`UserPreferences`** for Settings keys (crash sharing local-only)
 - [x] Phase 3: Photos `PHCloudIdentifier` resolve across devices
 - [x] Phase 4: Firebase catalog CDN (Marine Life JSON refresh; sites / assets = Phase 4b)
+- [x] Phase 4b: OpenDiveMap sites CDN (reference cache) + Storage photos/USDZ

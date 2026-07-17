@@ -83,11 +83,13 @@ enum FieldGuideSpeciesHeroPresentation: Sendable {
     nonisolated static func catalogHeroAvailability(
         featureModelResourceName: String,
         featureImageResourceName: String,
-        featureImageURL: String
+        featureImageURL: String,
+        featureModelURL: String = ""
     ) -> FieldGuideSpeciesCatalogHeroAvailability {
         FieldGuideSpeciesCatalogHeroAvailability(
             hasModel3D: FieldGuideMarineLifeHeroPresentation.hasCatalogModel(
-                featureModelResourceName: featureModelResourceName
+                featureModelResourceName: featureModelResourceName,
+                featureModelURL: featureModelURL
             ),
             hasImage: FieldGuideMarineLifeHeroPresentation.catalogImageKind(
                 featureImageResourceName: featureImageResourceName,

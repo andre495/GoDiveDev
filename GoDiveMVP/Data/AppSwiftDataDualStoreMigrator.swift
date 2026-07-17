@@ -117,6 +117,7 @@ enum AppSwiftDataDualStoreMigrator {
                 featureImageURL: species.featureImageURL,
                 featureImageResourceName: species.featureImageResourceName,
                 featureModelResourceName: species.featureModelResourceName,
+                featureModelURL: species.featureModelURL,
                 scientificName: species.scientificName,
                 category: species.category,
                 subcategory: species.subcategory,

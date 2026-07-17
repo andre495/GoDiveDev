@@ -1,14 +1,15 @@
 import Foundation
 
-/// Phase 4 CDN manifest (`catalog/v1/manifest.json`) — Firebase Hosting.
+/// Phase 4 / 4b CDN manifest (`catalog/v1/manifest.json`) — Firebase Hosting.
 nonisolated struct CatalogCDNManifest: Codable, Equatable, Sendable {
     var schemaVersion: Int
     var catalogVersion: Int
     var minimumAppVersion: String
     var generatedAt: String?
-    var marineLife: MarineLifePayload?
+    var marineLife: CatalogPayload?
+    var diveSites: CatalogPayload?
 
-    nonisolated struct MarineLifePayload: Codable, Equatable, Sendable {
+    nonisolated struct CatalogPayload: Codable, Equatable, Sendable {
         var format: String
         var path: String
         var sha256: String
@@ -18,6 +19,9 @@ nonisolated struct CatalogCDNManifest: Codable, Equatable, Sendable {
             case format, path, sha256, itemCount
         }
     }
+
+    /// Backward-compatible alias used by older call sites / tests.
+    typealias MarineLifePayload = CatalogPayload
 }
 
 enum CatalogCDNManifestCodec: Sendable {

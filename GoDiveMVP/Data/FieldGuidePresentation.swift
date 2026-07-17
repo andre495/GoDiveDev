@@ -11,6 +11,7 @@ struct MarineLifeCatalogSnapshot: Sendable, Equatable, Hashable {
     let featureImageURL: String
     let featureImageResourceName: String
     let featureModelResourceName: String
+    let featureModelURL: String
     let minSizeMeters: Double
     let maxSizeMeters: Double
     let minDepthMeters: Double
@@ -30,6 +31,7 @@ struct MarineLifeCatalogSnapshot: Sendable, Equatable, Hashable {
         featureImageURL: String,
         featureImageResourceName: String = "",
         featureModelResourceName: String = "",
+        featureModelURL: String = "",
         minSizeMeters: Double,
         maxSizeMeters: Double,
         avgDepthMeters: Double,
@@ -50,6 +52,7 @@ struct MarineLifeCatalogSnapshot: Sendable, Equatable, Hashable {
         self.featureImageURL = featureImageURL
         self.featureImageResourceName = featureImageResourceName
         self.featureModelResourceName = featureModelResourceName
+        self.featureModelURL = featureModelURL
         self.minSizeMeters = minSizeMeters
         self.maxSizeMeters = maxSizeMeters
         self.minDepthMeters = minDepthMeters

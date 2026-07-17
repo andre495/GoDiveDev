@@ -4,6 +4,8 @@ import Foundation
 struct FieldGuideMarineLifeHeroSceneConfiguration: Equatable, Sendable {
     /// USDZ resource name in the app bundle (no extension).
     let modelResourceName: String
+    /// Optional Firebase Storage (or other HTTPS) USDZ URL when the model is not bundled.
+    var modelRemoteURLString: String = ""
     /// Longest axis of the model is scaled to this many scene units after load.
     let fitExtent: Float
     /// Nudge toward the virtual camera after centering (negative = closer).
@@ -25,6 +27,7 @@ struct FieldGuideMarineLifeHeroSceneConfiguration: Equatable, Sendable {
     /// Explicit **nonisolated** equality for Swift 6 checks from nonisolated contexts.
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.modelResourceName == rhs.modelResourceName
+            && lhs.modelRemoteURLString == rhs.modelRemoteURLString
             && lhs.fitExtent == rhs.fitExtent
             && lhs.modelForwardOffset == rhs.modelForwardOffset
             && lhs.modelVerticalOffset == rhs.modelVerticalOffset
@@ -267,14 +270,17 @@ enum FieldGuideMarineLifeHeroPresentation {
         featureModelResourceName: String,
         featureImageResourceName: String,
         featureImageURL: String,
+        featureModelURL: String = "",
         minSizeMeters: Double = 0,
         maxSizeMeters: Double = 0
     ) -> HeroKind {
         let modelName = featureModelResourceName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !modelName.isEmpty {
+        let modelURL = featureModelURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !modelName.isEmpty || !modelURL.isEmpty {
             return .model3D(
                 sceneConfiguration(
-                    forModelResourceName: modelName,
+                    forModelResourceName: modelName.isEmpty ? "CatalogModel" : modelName,
+                    modelRemoteURLString: modelURL,
                     minSizeMeters: minSizeMeters,
                     maxSizeMeters: maxSizeMeters
                 )
@@ -292,6 +298,7 @@ enum FieldGuideMarineLifeHeroPresentation {
         featureModelResourceName: String,
         featureImageResourceName: String,
         featureImageURL: String,
+        featureModelURL: String = "",
         minSizeMeters: Double = 0,
         maxSizeMeters: Double = 0
     ) -> HeroKind {
@@ -305,13 +312,18 @@ enum FieldGuideMarineLifeHeroPresentation {
             featureModelResourceName: featureModelResourceName,
             featureImageResourceName: featureImageResourceName,
             featureImageURL: featureImageURL,
+            featureModelURL: featureModelURL,
             minSizeMeters: minSizeMeters,
             maxSizeMeters: maxSizeMeters
         )
     }
 
-    nonisolated static func hasCatalogModel(featureModelResourceName: String) -> Bool {
+    nonisolated static func hasCatalogModel(
+        featureModelResourceName: String,
+        featureModelURL: String = ""
+    ) -> Bool {
         !featureModelResourceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !featureModelURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     /// Dataset image only — ignores the bundled 3D model name.
@@ -326,6 +338,11 @@ enum FieldGuideMarineLifeHeroPresentation {
            ) {
             return .bundledPhoto(bundledURL)
         }
+        if !resourceName.isEmpty,
+           let cached = CatalogAssetDiskCache.cachedFileURL(kind: .photo, resourceName: resourceName)
+        {
+            return .bundledPhoto(cached)
+        }
 
         let imageURLString = featureImageURL.trimmingCharacters(in: .whitespacesAndNewlines)
         if let url = URL(string: imageURLString), !imageURLString.isEmpty {
@@ -337,6 +354,7 @@ enum FieldGuideMarineLifeHeroPresentation {
 
     nonisolated static func sceneConfiguration(
         forModelResourceName resourceName: String,
+        modelRemoteURLString: String = "",
         minSizeMeters: Double = 0,
         maxSizeMeters: Double = 0
     ) -> FieldGuideMarineLifeHeroSceneConfiguration {
@@ -344,11 +362,13 @@ enum FieldGuideMarineLifeHeroPresentation {
             minSizeMeters: minSizeMeters,
             maxSizeMeters: maxSizeMeters
         )
+        let remote = modelRemoteURLString.trimmingCharacters(in: .whitespacesAndNewlines)
         switch resourceName {
         case FieldGuideMarineLifeHeroSceneConfiguration.frenchAngelfish.modelResourceName:
             let base = FieldGuideMarineLifeHeroSceneConfiguration.frenchAngelfish
             return FieldGuideMarineLifeHeroSceneConfiguration(
                 modelResourceName: base.modelResourceName,
+                modelRemoteURLString: remote,
                 fitExtent: fitExtent,
                 modelForwardOffset: base.modelForwardOffset,
                 modelVerticalOffset: base.modelVerticalOffset,
@@ -361,6 +381,7 @@ enum FieldGuideMarineLifeHeroPresentation {
         default:
             return FieldGuideMarineLifeHeroSceneConfiguration(
                 modelResourceName: resourceName,
+                modelRemoteURLString: remote,
                 fitExtent: fitExtent,
                 modelForwardOffset: -0.08,
                 modelVerticalOffset: -0.09,
@@ -378,6 +399,8 @@ enum FieldGuideMarineLifeHeroPresentation {
         resourceName: String,
         bundle: Bundle = .main
     ) -> URL? {
+        let trimmed = resourceName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
         let subdirectories = [
             "Resources/MarineLife3D",
             "MarineLife3D",
@@ -385,7 +408,7 @@ enum FieldGuideMarineLifeHeroPresentation {
         ]
         for subdirectory in subdirectories {
             if let url = bundle.url(
-                forResource: resourceName,
+                forResource: trimmed,
                 withExtension: "usdz",
                 subdirectory: subdirectory
             ) {
@@ -393,6 +416,37 @@ enum FieldGuideMarineLifeHeroPresentation {
             }
         }
         return nil
+    }
+
+    /// Bundled → disk cache → download remote Storage URL into cache.
+    static func resolvedModelURL(
+        resourceName: String,
+        remoteURLString: String,
+        bundle: Bundle = .main,
+        session: URLSession = .shared,
+        fileManager: FileManager = .default
+    ) async -> URL? {
+        if let bundled = bundledModelURL(resourceName: resourceName, bundle: bundle) {
+            return bundled
+        }
+        let name = resourceName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cacheKey = name.isEmpty ? "remote-model" : name
+        if let cached = CatalogAssetDiskCache.cachedFileURL(
+            kind: .model,
+            resourceName: cacheKey,
+            fileManager: fileManager
+        ) {
+            return cached
+        }
+        let remote = remoteURLString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let remoteURL = URL(string: remote), !remote.isEmpty else { return nil }
+        return try? await CatalogAssetDiskCache.ensureCached(
+            remoteURL: remoteURL,
+            kind: .model,
+            resourceName: cacheKey,
+            session: session,
+            fileManager: fileManager
+        )
     }
 
     nonisolated static func shouldAdvanceAutoSpin(

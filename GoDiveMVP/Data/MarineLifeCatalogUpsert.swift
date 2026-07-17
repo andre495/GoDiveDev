@@ -60,6 +60,7 @@ enum MarineLifeCatalogUpsert: Sendable {
         destination.featureImageURL = source.featureImageURL
         destination.featureImageResourceName = source.featureImageResourceName
         destination.featureModelResourceName = source.featureModelResourceName
+        destination.featureModelURL = source.featureModelURL
         destination.scientificName = source.scientificName
         destination.category = source.category
         destination.subcategory = source.subcategory

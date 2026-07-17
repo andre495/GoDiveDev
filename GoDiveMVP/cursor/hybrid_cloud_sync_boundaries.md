@@ -101,7 +101,7 @@ Phase 4 app-owned catalog refresh uses a **Firebase Hosting** CDN (HTTPS manifes
 - Local cache upserts by stable catalog IDs and prunes removed reference rows while preserving user-created rows and user overlays.
 - Android can reuse this catalog API unchanged later.
 - Do **not** put user dive data or media bytes in Firebase — Firebase is developer catalog CDN only.
-- Dive site / OpenDiveMap CDN and photo/USDZ CDN are **Phase 4b**.
+- Dive site / OpenDiveMap CDN and photo/USDZ CDN are **Phase 4b** (implemented: ODM reference cache + Storage asset URLs; bundled assets remain offline-first).
 
 ## Conflict and Identity Rules
 
@@ -142,8 +142,10 @@ Shipped on `feature/icloud-hybrid-sync`:
 - On other devices / after reinstall: map cloud → **`photosLocalIdentifier`** before PhotoKit load or prune.
 - Full media bytes remain in **iCloud Photos**; CloudKit syncs only the pointer row + preview JPEG.
 
-## Phase 4 Catalog CDN (Marine Life)
+## Phase 4 / 4b Catalog CDN
 
 - Optional **`CatalogCDNSecrets.plist`** → **`ManifestBaseURL`** (Firebase Hosting).
-- Launch: bundled seed, then **`CatalogCDNRefresh.refreshMarineLifeIfNeeded`** (manifest version gate + SHA-256 + upsert/prune catalog-owned rows only).
-- Publish notes: **`cursor/catalog_cdn_publish.md`**. Dive sites / photos CDN = Phase 4b.
+- Launch: bundled seed, then **`CatalogCDNRefresh.refreshIfNeeded`** (Marine Life upsert + OpenDiveMap reference disk cache; version gate + SHA-256).
+- Photos/USDZ: Firebase Storage URLs + on-demand disk cache; bundled offline-first.
+- Publish notes: **`cursor/catalog_cdn_publish.md`**. User sites stay CloudKit **`UserDiveSite`**.
+
