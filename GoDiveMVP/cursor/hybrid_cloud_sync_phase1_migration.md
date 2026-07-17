@@ -54,5 +54,5 @@ Source of truth companion to `hybrid_cloud_sync_boundaries.md` and `AppSwiftData
 - [x] Legacy unified → dual **migration out of scope** (dev-only; delete app for clean Phase 2)
 - [x] Dual-store / multi-device smoke on a real iPhone (signed into iCloud) — device smoke after clean install / profile-merge fix
 - [x] Synced **`UserPreferences`** for Settings keys (crash sharing local-only)
-- [ ] Phase 3: Photos `PHCloudIdentifier` resolve across devices
+- [x] Phase 3: Photos `PHCloudIdentifier` resolve across devices
 - [ ] Phase 4: Firebase catalog CDN

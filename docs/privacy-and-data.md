@@ -10,7 +10,7 @@ The following live in GoDive’s on-device database and local app storage:
 - Dive site catalog and your custom sites  
 - Buddy roster, trips, tags, and equipment  
 - Certifications and profile name  
-- **References** to Photos library items (local identifier + optional small preview JPEG)  
+- **References** to Photos library items (device-local identifier, cross-device Photos cloud identifier, and optional small preview JPEG)  
 - Marine life catalog and your tagged sightings  
 - App settings (units, tank default, renumber, auto-upload)  
 - Crash reports (technical diagnostics captured when the app crashes)  
@@ -29,6 +29,7 @@ When you attach media or enable **auto-upload**:
 
 - GoDive reads **metadata and thumbnails** through Apple’s PhotoKit APIs.  
 - Full-resolution frames load on demand for viewing, export, or identification.  
+- Dive media stays in **your Photos / iCloud Photos** library — GoDive syncs a **pointer** (and a small preview) with your dive log, then remaps that pointer on each device.  
 - If the original asset is deleted from Photos, GoDive removes the stale reference.
 
 GoDive does **not** bulk-upload your entire camera roll — only items you attach or that match a dive window when auto-upload runs.

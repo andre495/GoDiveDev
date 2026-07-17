@@ -35,6 +35,12 @@ extension DiveMediaPhoto {
         return trimmed.isEmpty ? nil : trimmed
     }
 
+    /// Trimmed Photos **`PHCloudIdentifier.stringValue`**, or **`nil`** when blank.
+    var libraryCloudIdentifier: String? {
+        let trimmed = DiveMediaCloudIdentifierStorage.normalized(photosCloudIdentifier)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
     /// Video playback source: the referenced Photos asset.
     var videoPlaybackSource: DiveVideoSource? {
         guard resolvedMediaKind == .video, let identifier = libraryAssetLocalIdentifier else { return nil }

@@ -17244,6 +17244,115 @@ struct GoDiveMVPTests {
         #expect(!DiveMediaReferencePruning.shouldPrune(hasIdentifier: false, hasFullAuthorization: true, assetExists: false))
     }
 
+    @Test func diveMediaCloudIdentifierPolicy_needsCapture_whenLocalPresentAndCloudMissing() {
+        #expect(
+            DiveMediaCloudIdentifierPolicy.needsCloudIdentifierCapture(
+                localIdentifier: "LOCAL/1",
+                cloudIdentifier: ""
+            )
+        )
+        #expect(
+            !DiveMediaCloudIdentifierPolicy.needsCloudIdentifierCapture(
+                localIdentifier: "LOCAL/1",
+                cloudIdentifier: "cloud/abc"
+            )
+        )
+        #expect(
+            !DiveMediaCloudIdentifierPolicy.needsCloudIdentifierCapture(
+                localIdentifier: nil,
+                cloudIdentifier: ""
+            )
+        )
+    }
+
+    @Test func diveMediaCloudIdentifierPolicy_shouldAttemptResolve_whenLocalMissingAndCloudPresent() {
+        #expect(
+            DiveMediaCloudIdentifierPolicy.shouldAttemptCloudResolve(
+                localAssetExists: false,
+                cloudIdentifier: "cloud/abc"
+            )
+        )
+        #expect(
+            !DiveMediaCloudIdentifierPolicy.shouldAttemptCloudResolve(
+                localAssetExists: true,
+                cloudIdentifier: "cloud/abc"
+            )
+        )
+        #expect(
+            !DiveMediaCloudIdentifierPolicy.shouldAttemptCloudResolve(
+                localAssetExists: false,
+                cloudIdentifier: "  "
+            )
+        )
+    }
+
+    @Test func diveMediaCloudIdentifierPolicy_shouldPrune_waitsForCloudResolve() {
+        // Cloud ID present but resolve not attempted yet → keep (Device B race).
+        #expect(
+            !DiveMediaCloudIdentifierPolicy.shouldPrune(
+                hasLocalIdentifier: true,
+                hasCloudIdentifier: true,
+                hasFullAuthorization: true,
+                localAssetExists: false,
+                cloudResolve: nil
+            )
+        )
+        // Cloud resolve says deleted → prune.
+        #expect(
+            DiveMediaCloudIdentifierPolicy.shouldPrune(
+                hasLocalIdentifier: true,
+                hasCloudIdentifier: true,
+                hasFullAuthorization: true,
+                localAssetExists: false,
+                cloudResolve: .notFound
+            )
+        )
+        // Cloud resolve remapped → keep.
+        #expect(
+            !DiveMediaCloudIdentifierPolicy.shouldPrune(
+                hasLocalIdentifier: true,
+                hasCloudIdentifier: true,
+                hasFullAuthorization: true,
+                localAssetExists: false,
+                cloudResolve: .resolved(localIdentifier: "OTHER/1")
+            )
+        )
+        // Ambiguous / unavailable → keep.
+        #expect(
+            !DiveMediaCloudIdentifierPolicy.shouldPrune(
+                hasLocalIdentifier: false,
+                hasCloudIdentifier: true,
+                hasFullAuthorization: true,
+                localAssetExists: false,
+                cloudResolve: .unavailable
+            )
+        )
+        // No cloud ID, local missing under full auth → prune (legacy pointer).
+        #expect(
+            DiveMediaCloudIdentifierPolicy.shouldPrune(
+                hasLocalIdentifier: true,
+                hasCloudIdentifier: false,
+                hasFullAuthorization: true,
+                localAssetExists: false,
+                cloudResolve: nil
+            )
+        )
+    }
+
+    @Test func diveMediaCloudIdentifierStorage_normalized_trimsAndDetectsPresence() {
+        #expect(DiveMediaCloudIdentifierStorage.normalized("  abc  ") == "abc")
+        #expect(DiveMediaCloudIdentifierStorage.isPresent(" cloud "))
+        #expect(!DiveMediaCloudIdentifierStorage.isPresent("   "))
+        #expect(!DiveMediaCloudIdentifierStorage.isPresent(nil))
+    }
+
+    @Test func diveMediaPhoto_libraryCloudIdentifier_trimsAndNilsWhenBlank() {
+        let blank = DiveMediaPhoto(photosCloudIdentifier: "  ")
+        #expect(blank.libraryCloudIdentifier == nil)
+        let present = DiveMediaPhoto(photosCloudIdentifier: " cloud/1 ")
+        #expect(present.libraryCloudIdentifier == "cloud/1")
+    }
+
     @Test @MainActor func diveMediaStorage_addLibraryReference_persistsPointerWithoutBytes() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = ModelContext(container)

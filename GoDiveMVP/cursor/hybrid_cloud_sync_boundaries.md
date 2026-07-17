@@ -132,5 +132,11 @@ Shipped on `feature/icloud-hybrid-sync`:
 - Removed `@Attribute(.unique)` from `MarineLife.uuid` and `SightingInstance.sightingUUID`; app-level uniqueness helpers.
 - CloudKit-oriented property defaults on user/catalog models; inverse relationship gaps filled (`DiveMediaPhoto` buddy tags / sightings, `DiveSite` sightings, `UserProfile.marineLifeUserRecords`).
 - `ownershipRaw` on `MarineLife` and `DiveSite` with launch backfill.
-- `DiveMediaPhoto.photosCloudIdentifier` (empty until Phase 3 resolve).
+- `DiveMediaPhoto.photosCloudIdentifier` — captured at attach + launch backfill; resolved to device-local IDs on load/prune (Phase 3).
 - Production container opens **dual on-disk stores**; Phase 2 enables **private CloudKit on the user store** (`iCloud.PrimoSoftware.GoDiveMVP`); catalog + diagnostics stay local-only. Legacy unified store migrates once.
+
+## Phase 3 Media Resolve
+
+- Capture **`PHCloudIdentifier.stringValue`** into **`photosCloudIdentifier`** when attaching library media (and backfill legacy rows).
+- On other devices / after reinstall: map cloud → **`photosLocalIdentifier`** before PhotoKit load or prune.
+- Full media bytes remain in **iCloud Photos**; CloudKit syncs only the pointer row + preview JPEG.

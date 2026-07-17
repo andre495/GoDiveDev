@@ -301,10 +301,19 @@ struct DiveActivityMediaItemView: View {
     }
 
     private func loadVideoPosterIfNeeded() async {
-        guard media.resolvedMediaKind == .video,
-              let identifier = media.libraryAssetLocalIdentifier else {
+        guard media.resolvedMediaKind == .video else {
             videoPosterImage = nil
             videoPosterLoadFinished = true
+            return
+        }
+        let identifier = DiveMediaLibraryIdentifierRepair.resolveLocalIdentifierIfNeeded(
+            for: media,
+            modelContext: modelContext
+        )
+        guard let identifier else {
+            videoPosterImage = nil
+            videoPosterLoadFinished = true
+            pruneIfAssetMissing()
             return
         }
 
@@ -329,6 +338,9 @@ struct DiveActivityMediaItemView: View {
         }
         if !receivedFrame, networkConnectivity.isConnected {
             DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
+        } else if receivedFrame {
+            _ = DiveMediaLibraryIdentifierRepair.captureCloudIdentifierIfNeeded(for: media)
+            try? modelContext.save()
         }
         videoPosterLoadFinished = true
         if receivedFrame {
@@ -340,9 +352,19 @@ struct DiveActivityMediaItemView: View {
     }
 
     private func loadPreviewImageIfNeeded() async {
-        guard media.resolvedMediaKind == .image, let identifier = media.libraryAssetLocalIdentifier else {
+        guard media.resolvedMediaKind == .image else {
             previewImage = nil
             imageLoadFinished = true
+            return
+        }
+        let identifier = DiveMediaLibraryIdentifierRepair.resolveLocalIdentifierIfNeeded(
+            for: media,
+            modelContext: modelContext
+        )
+        guard let identifier else {
+            previewImage = nil
+            imageLoadFinished = true
+            pruneIfAssetMissing()
             return
         }
         if storedPreviewImage == nil, sessionCachedImage == nil {
@@ -378,6 +400,9 @@ struct DiveActivityMediaItemView: View {
         }
         if !receivedFrame, networkConnectivity.isConnected {
             DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
+        } else if receivedFrame {
+            _ = DiveMediaLibraryIdentifierRepair.captureCloudIdentifierIfNeeded(for: media)
+            try? modelContext.save()
         }
         imageLoadFinished = true
         if receivedFrame {

@@ -2984,7 +2984,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Test: delay outlasts the wrap animation (in **`homeMediaCarouselPresentation_nextIndex_wrapsAndRequiresMultipleSlides`**).
 - **`AvatarKind`** — explicit **`nonisolated`** **`Equatable`** for Swift Testing **`#expect`** (clears Swift 6 main-actor warnings).
 
-## 112 - Next batch
+## 112 - Next batch **(pushed)**
 
 **Summary:** Hybrid cloud sync Phase 0 — data ownership boundaries.
 
@@ -3045,3 +3045,18 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **OpenDiveMap My Sites after CloudKit restore:** linking an OpenDiveMap / catalog **`DiveSite`** now upserts a synced **`UserDiveSite`** snapshot (same id + **`openDiveMapReferenceID`**). Launch hydrate recreates missing snapshots for orphaned **`diveSiteID`**s (rematch from name/GPS when the local catalog row is gone). Explore My Sites dedupes catalog+user pins; refreshes user sites on appear.
 - **CloudKit reinstall empty logbook:** Sign in with Apple was minting a new **`UserProfile` UUID** before CloudKit imported the existing account (same **`appleUserIdentifier`**). UI filters by **`ownerProfileID`**, so synced dives looked missing. **`UserProfileCloudKitIdentityMerge`** collapses duplicates, reassigns owned rows, updates the session; runs on sign-in, launch, session validation, and CloudKit import events.
 - **Synced user settings:** **`UserPreferences`** in the CloudKit user store mirrors units / tank / renumber / auto-upload / diver weights / bulk UDDF create-sites; **`UserDefaults`** stays a cache for `@AppStorage`. **Share crash reports** remains local-only. Sync on sign-in, launch, Settings edits, and CloudKit import.
+
+## 113 - Phase 3 Photos cloud identifiers **(pushed)**
+
+**Summary:** Phase 3 — resolve Photos **`PHCloudIdentifier`** across devices so dive media pointers survive CloudKit restore.
+
+- **`DiveMediaCloudIdentifierPolicy`** / **`DiveMediaCloudIdentifierResolver`** / **`DiveMediaCloudIdentifierCodec`** — capture local→cloud at attach; resolve cloud→local on Device B; prune only after **`notFound`** (never while resolve is pending/unavailable).
+- **`DiveActivityMediaStorage.addLibraryReference`** stores **`photosCloudIdentifier`** when PhotoKit can map it.
+- **`DiveMediaLibraryIdentifierRepair`** + launch **`DiveMediaCloudIdentifierBackfill`** fill missing cloud IDs and rewrite stale local IDs.
+- Thumbnails / full media loaders resolve-before-load; **`DiveMediaReferencePruning`** resolve-before-prune.
+- Tests: cloud-identifier policy gates + **`libraryCloudIdentifier`** trim helper.
+- Docs: hybrid boundaries / migration checklist, **`app_summary`**, privacy + getting-started.
+
+## 114 - Next batch
+
+

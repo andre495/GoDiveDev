@@ -20,7 +20,7 @@ final class DiveMediaPhoto {
     var capturedAt: Date?
     /// **`PHAsset.localIdentifier`** of the referenced Photos asset (device-local).
     var photosLocalIdentifier: String = ""
-    /// Cross-device Photos lookup string for Phase 3 (`PHCloudIdentifier` serialized). Empty until resolved.
+    /// Cross-device Photos lookup string (`PHCloudIdentifier.stringValue`). Captured at attach / backfill; used to rematch **`photosLocalIdentifier`** on other devices.
     var photosCloudIdentifier: String = ""
     /// User-confirmed Fishial scientific name for this media item (empty when unset).
     var fishialConfirmedSpeciesName: String = ""
