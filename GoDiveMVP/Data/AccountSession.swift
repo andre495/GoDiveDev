@@ -67,9 +67,21 @@ final class AccountSession {
 
         let container = modelContext.container
         let appleUserIdentifier = profile.appleUserIdentifier
+        if let merge = try? reconcileCloudKitIdentityIfNeeded(modelContext: modelContext),
+           merge.didChangeCanonicalID,
+           let updated = currentProfile {
+            Task(priority: .utility) {
+                await AppLaunchSessionValidation.validatePersistedSessionIfNeeded(
+                    profileID: updated.id,
+                    appleUserIdentifier: updated.appleUserIdentifier,
+                    container: container
+                )
+            }
+            return
+        }
         Task(priority: .utility) {
             await AppLaunchSessionValidation.validatePersistedSessionIfNeeded(
-                profileID: profileID,
+                profileID: profile.id,
                 appleUserIdentifier: appleUserIdentifier,
                 container: container
             )
@@ -92,7 +104,7 @@ final class AccountSession {
             appleUserIdentifier: credential.user,
             modelContext: modelContext
         ) == nil
-        let profile = try UserProfileStore.findOrCreateProfile(
+        var profile = try UserProfileStore.findOrCreateProfile(
             appleUserIdentifier: credential.user,
             displayName: resolvedName,
             modelContext: modelContext
@@ -103,8 +115,28 @@ final class AccountSession {
             appleUserIdentifier: credential.user,
             modelContext: modelContext
         )
+        let merge = try UserProfileCloudKitIdentityMerge.reconcile(
+            appleUserIdentifier: credential.user,
+            preferredSessionProfileID: profile.id,
+            modelContext: modelContext
+        )
+        if let canonical = try UserProfileStore.profile(id: merge.canonicalProfileID, modelContext: modelContext) {
+            profile = canonical
+        }
         try DiveActivityOwnership.claimUnownedDives(for: profile, modelContext: modelContext)
         try DiveBuddyOwnership.claimUnownedBuddies(for: profile, modelContext: modelContext)
+        try UserPreferencesSync.syncForSignedInOwner(profile, modelContext: modelContext)
+
+        let profileID = profile.id
+        let ownedDiveCount = try modelContext.fetchCount(
+            FetchDescriptor<DiveActivity>(
+                predicate: #Predicate<DiveActivity> { $0.ownerProfileID == profileID }
+            )
+        )
+        /// CloudKit may already have restored an account — don't treat that as a brand-new signup.
+        let treatAsNewAccount = isNewAccount
+            && merge.mergedDuplicateCount == 0
+            && ownedDiveCount == 0
 
         if let pendingSelection = UserOnboardingActivitySelection.loadPending() {
             try UserProfileStore.applyActivitySelection(
@@ -120,16 +152,61 @@ final class AccountSession {
         cachedSelfBuddyID = nil
         cachedSelfBuddyProfileID = nil
 
-        if PostSignUpProfileSetupPresentation.shouldPresentSetup(isNewAccount: isNewAccount) {
+        if PostSignUpProfileSetupPresentation.shouldPresentSetup(isNewAccount: treatAsNewAccount) {
             showsPostSignUpProfileSetup = true
         } else if SignInCelebrationPresentation.shouldPresentCelebration() {
             showsSignInCelebration = true
-            pendingNewAccountPermissions = isNewAccount
-        } else if AppNewAccountWelcomePresentation.shouldPresentWelcome(forNewAccount: isNewAccount) {
+            pendingNewAccountPermissions = treatAsNewAccount
+        } else if AppNewAccountWelcomePresentation.shouldPresentWelcome(forNewAccount: treatAsNewAccount) {
             showsNewAccountWelcome = true
-        } else if isNewAccount {
+        } else if treatAsNewAccount {
             Task { await AppOnboardingPermissions.requestForNewAccount() }
         }
+    }
+
+    /// Re-runs Apple-ID profile merge after CloudKit import (or launch) and updates the session if needed.
+    @discardableResult
+    func reconcileCloudKitIdentityIfNeeded(modelContext: ModelContext) throws -> UserProfileCloudKitIdentityMerge.Outcome? {
+        guard let profile = currentProfile else { return nil }
+        let appleID = profile.appleUserIdentifier
+        let merge = try UserProfileCloudKitIdentityMerge.reconcile(
+            appleUserIdentifier: appleID,
+            preferredSessionProfileID: profile.id,
+            modelContext: modelContext
+        )
+        guard let canonical = try UserProfileStore.profile(
+            id: merge.canonicalProfileID,
+            modelContext: modelContext
+        ) else {
+            return merge
+        }
+        if merge.didChangeCanonicalID || currentProfile?.id != canonical.id {
+            persistSession(profile: canonical)
+            currentProfile = canonical
+            cachedSelfBuddyID = nil
+            cachedSelfBuddyProfileID = nil
+            suppressNewAccountOverlaysIfReturningCloudKitAccount(canonical: canonical, modelContext: modelContext)
+        }
+        return merge
+    }
+
+    private func suppressNewAccountOverlaysIfReturningCloudKitAccount(
+        canonical: UserProfile,
+        modelContext: ModelContext
+    ) {
+        let id = canonical.id
+        let diveCount = (try? modelContext.fetchCount(
+            FetchDescriptor<DiveActivity>(
+                predicate: #Predicate<DiveActivity> { $0.ownerProfileID == id }
+            )
+        )) ?? 0
+        guard diveCount > 0 else { return }
+        showsNewAccountWelcome = false
+        showsPostSignUpProfileSetup = false
+        showsPostSignUpPermissions = false
+        showsPostSignUpImportOffer = false
+        showsPostSignUpOnboardingImport = false
+        pendingNewAccountPermissions = false
     }
 
     /// Ends the post-sign-up profile wizard and shows permissions, then import offer or celebration.

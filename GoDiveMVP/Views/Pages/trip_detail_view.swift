@@ -103,7 +103,7 @@ struct TripDetailView: View {
         return [
             trip.id.uuidString,
             "\(trip.activityLinks.count)",
-            "\(trip.plannedSites.count)",
+            "\(trip.plannedSiteIDs.count)",
             "\(trip.updatedAt.timeIntervalSince1970)",
             "\(ownedDiveActivities.count)",
             trip.featuredTripMediaPhotoID?.uuidString ?? "",
@@ -218,7 +218,7 @@ struct TripDetailView: View {
         )
         if TripDetailPresentation.prefersMapHero(
             tripHasStarted: DiveTripActivityLinking.hasStarted(trip: trip),
-            plannedSiteCount: trip.plannedSites.count,
+            plannedSiteCount: trip.plannedSiteIDs.count,
             hasMapPins: !contentSnapshot.mapPins.isEmpty,
             hasTripMedia: !contentSnapshot.mediaPhotos.isEmpty
         ) {
@@ -481,7 +481,7 @@ struct TripDetailView: View {
 
         if let site = TripDetailDiveSiteNavigation.resolvedSite(
             siteID: siteID,
-            plannedSites: trip?.plannedSites ?? [],
+            plannedSites: [],
             catalogSites: catalogSitesForNavigation()
         ) {
             TripDetailMapNavigationDebug.siteResolutionSucceeded(siteID: siteID, siteName: site.siteName)

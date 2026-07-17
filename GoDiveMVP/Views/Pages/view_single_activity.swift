@@ -155,8 +155,8 @@ struct ViewSingleActivity: View {
             .onChange(of: selectedActivityTab) { _, newTab in
                 handleSelectedActivityTabChange(newTab)
             }
-            .onChange(of: activity.diveSite?.id) { _, _ in
-                if activity.diveSite != nil {
+            .onChange(of: activity.diveSiteID) { _, _ in
+                if activity.diveSiteID != nil {
                     showsMapSitePromptDialog = false
                 }
             }
@@ -203,7 +203,7 @@ struct ViewSingleActivity: View {
                     activity: activity,
                     initialDraft: DiveActivityMapSitePrompt.draft(
                         from: activity,
-                        catalogSite: activity.diveSite
+                        catalogSite: activity.resolvedLinkedSite
                     ),
                     onSaved: {
                         mapSitePromptUserDeclined = false
@@ -409,7 +409,7 @@ struct ViewSingleActivity: View {
     }
 
     private var catalogSiteMapLookupToken: String {
-        let linkedSiteID = activity.diveSite?.id.uuidString ?? "none"
+        let linkedSiteID = activity.diveSiteID?.uuidString ?? "none"
         let siteName = activity.siteName ?? ""
         let entry = activity.entryCoordinate.map { "\($0.latitude),\($0.longitude)" } ?? "none"
         return "\(activity.id.uuidString)|\(linkedSiteID)|\(siteName)|\(entry)"
@@ -1490,7 +1490,7 @@ struct ViewSingleActivity: View {
     }
 
     private var linkedCatalogSiteID: UUID? {
-        activity.diveSite?.id
+        activity.diveSiteID
     }
 
     private func openLinkedDiveSiteOverview() {
@@ -1512,7 +1512,7 @@ struct ViewSingleActivity: View {
 
     private var overviewMapHeaderRegionCountryLine: String? {
         DiveActivityOverviewPresentation.mapHeaderRegionCountryLine(
-            diveSite: activity.diveSite,
+            diveSite: activity.resolvedLinkedSite,
             locationName: activity.locationName
         )
     }

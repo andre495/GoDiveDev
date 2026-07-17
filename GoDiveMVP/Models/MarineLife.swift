@@ -8,41 +8,39 @@ import SwiftData
 final class MarineLife {
 
     /// Stable catalog id from bundled JSON or a future API (not the SwiftData row id).
-    @Attribute(.unique) var uuid: String
+    /// Uniqueness is app-enforced (`AppSwiftDataLogicalUniqueness`) — CloudKit forbids `@Attribute(.unique)`.
+    var uuid: String = ""
 
-    var commonName: String
+    /// **`MarineLifeOwnership`** raw value — catalog vs user-created for the hybrid store split.
+    var ownershipRaw: String = MarineLifeOwnership.catalog.rawValue
+
+    var commonName: String = ""
     /// Remote image URL (legacy fallback / provenance); prefer **`featureImageResourceName`** offline.
-    var featureImageURL: String
+    var featureImageURL: String = ""
     /// Bundled JPEG resource name (no extension) under **`Resources/MarineLifePhotos/`**.
     var featureImageResourceName: String = ""
     /// Bundled USDZ resource name (no extension) for RealityKit detail hero; empty uses photo / placeholder.
     var featureModelResourceName: String = ""
-    var scientificName: String
-    var category: String
+    var scientificName: String = ""
+    var category: String = ""
     /// Taxonomy slug or display label (e.g. `sharks-and-rays`, `Disk and Large Oval`).
     /// Default at declaration for SwiftData lightweight migration on existing stores.
     var subcategory: String = ""
     /// Family group label (e.g. Angelfishes).
     var familyName: String = ""
-    var aboutText: String
+    var aboutText: String = ""
 
     /// Observed size range and typical depth — stored in **meters**; UI uses **`DiveDisplayUnitSystem`**.
-    var minSizeMeters: Double
-    var maxSizeMeters: Double
+    var minSizeMeters: Double = 0
+    var maxSizeMeters: Double = 0
     var minDepthMeters: Double = 0
     var maxDepthMeters: Double = 0
-    var avgDepthMeters: Double
+    var avgDepthMeters: Double = 0
 
     var distinctiveFeatures: String = ""
     var abundance: String = ""
     var habitatBehavior: String = ""
     var diverReaction: String = ""
-
-    @Relationship(deleteRule: .cascade, inverse: \MarineLifeUserRecord.marineLife)
-    var userRecords: [MarineLifeUserRecord] = []
-
-    @Relationship
-    var sightingInstances: [SightingInstance] = []
 
     init(
         uuid: String,
@@ -63,9 +61,11 @@ final class MarineLife {
         distinctiveFeatures: String = "",
         abundance: String = "",
         habitatBehavior: String = "",
-        diverReaction: String = ""
+        diverReaction: String = "",
+        ownership: MarineLifeOwnership? = nil
     ) {
         self.uuid = uuid
+        self.ownershipRaw = (ownership ?? MarineLifeOwnership.inferred(fromUUID: uuid)).rawValue
         self.commonName = MarineLifeCommonNameFormatting.normalized(commonName)
         self.featureImageURL = featureImageURL
         self.featureImageResourceName = featureImageResourceName
@@ -88,6 +88,16 @@ final class MarineLife {
 }
 
 extension MarineLife {
+    var ownership: MarineLifeOwnership {
+        get { MarineLifeOwnership(rawValue: ownershipRaw) ?? MarineLifeOwnership.inferred(fromUUID: uuid) }
+        set { ownershipRaw = newValue.rawValue }
+    }
+
+    /// Recomputes ownership from the stable UUID (catalog seed / user-created prefix).
+    func refreshOwnershipFromUUID() {
+        ownership = MarineLifeOwnership.inferred(fromUUID: uuid)
+    }
+
     var fieldGuideCatalogSnapshot: MarineLifeCatalogSnapshot {
         MarineLifeCatalogSnapshot(
             uuid: uuid,

@@ -1,13 +1,51 @@
 import SwiftData
 import SwiftUI
 
-/// Pushed catalog dive-site detail from **Explore** (blue sheet + media/map hero).
+/// Pushed dive-site detail from **Explore** (blue sheet + media/map hero).
+///
+/// Accepts catalog **`DiveSite`** or user-owned **`UserDiveSite`** (UUID-only hybrid store).
 struct ExploreDiveSiteDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @Environment(AccountSession.self) private var accountSession
 
-    @Bindable var site: DiveSite
+    private enum BoundSite {
+        case catalog(DiveSite)
+        case user(UserDiveSite)
+
+        var id: UUID {
+            switch self {
+            case .catalog(let site): site.id
+            case .user(let site): site.id
+            }
+        }
+
+        var siteRating: Int? {
+            get {
+                switch self {
+                case .catalog(let site): site.siteRating
+                case .user(let site): site.siteRating
+                }
+            }
+            nonmutating set {
+                switch self {
+                case .catalog(let site): site.siteRating = newValue
+                case .user(let site): site.siteRating = newValue
+                }
+            }
+        }
+
+        var canEdit: Bool {
+            switch self {
+            case .catalog(let site):
+                DiveSiteCatalogMatcher.isUserEditableCatalogSite(site)
+            case .user:
+                true
+            }
+        }
+    }
+
+    private let boundSite: BoundSite
     let ownerProfileID: UUID?
     let onOpenDive: (UUID) -> Void
 
@@ -23,7 +61,7 @@ struct ExploreDiveSiteDetailView: View {
         ownerProfileID: UUID?,
         onOpenDive: @escaping (UUID) -> Void = { _ in }
     ) {
-        self.site = site
+        self.boundSite = .catalog(site)
         self.ownerProfileID = ownerProfileID
         self.onOpenDive = onOpenDive
 
@@ -50,12 +88,50 @@ struct ExploreDiveSiteDetailView: View {
         )
     }
 
+    init(
+        site: UserDiveSite,
+        ownerProfileID: UUID?,
+        onOpenDive: @escaping (UUID) -> Void = { _ in }
+    ) {
+        self.boundSite = .user(site)
+        self.ownerProfileID = ownerProfileID
+        self.onOpenDive = onOpenDive
+
+        let initialSnapshot = ExploreDiveSiteDetailContentSnapshotBuilder.buildLight(
+            site: site,
+            siteActivities: [],
+            ownerProfileID: ownerProfileID,
+            unitSystem: AppUserSettings.diveDisplayUnitSystem()
+        )
+        _contentSnapshot = State(initialValue: initialSnapshot)
+        _heroTaggedMediaID = State(
+            initialValue: ExploreDiveSiteDetailPresentation.initialHeroTaggedMediaPhotoID(
+                from: initialSnapshot.taggedMediaItems
+            )
+        )
+
+        let mapPins = ExploreDiveSiteDetailPresentation.mapPins(for: site)
+        _siteHeroMode = State(
+            initialValue: mapPins.isEmpty ? .media : .map
+        )
+    }
+
     private var displayRecord: DiveSiteDisplayRecord {
-        DiveSitePresentation.listRecord(for: site)
+        switch boundSite {
+        case .catalog(let site):
+            DiveSitePresentation.listRecord(for: site)
+        case .user(let site):
+            DiveSitePresentation.listRecord(for: site)
+        }
     }
 
     private var mapPins: [TripDetailMapPin] {
-        ExploreDiveSiteDetailPresentation.mapPins(for: site)
+        switch boundSite {
+        case .catalog(let site):
+            ExploreDiveSiteDetailPresentation.mapPins(for: site)
+        case .user(let site):
+            ExploreDiveSiteDetailPresentation.mapPins(for: site)
+        }
     }
 
     private var showsHeroModeToggle: Bool {
@@ -92,20 +168,20 @@ struct ExploreDiveSiteDetailView: View {
     }
 
     private var canEditSiteDetails: Bool {
-        DiveSiteCatalogMatcher.isUserEditableCatalogSite(site)
+        boundSite.canEdit
     }
 
     private var displayStarRating: Int {
-        DiveSitePresentation.displayPinnedStarRating(from: site.siteRating)
+        DiveSitePresentation.displayPinnedStarRating(from: boundSite.siteRating)
     }
 
     private var siteDetailContentToken: String {
         [
-            site.id.uuidString,
+            boundSite.id.uuidString,
             accountSession.currentProfile?.id.uuidString ?? "nil",
             diveDisplayUnitSystem.rawValue,
             ExploreDiveSiteMediaPresentation.galleryRefreshToken(
-                diveSiteID: site.id,
+                diveSiteID: boundSite.id,
                 ownerProfileID: accountSession.currentProfile?.id,
                 activities: contentSnapshot.siteDiveActivities
             ),
@@ -182,8 +258,15 @@ struct ExploreDiveSiteDetailView: View {
             }
         )
         .sheet(isPresented: $showsEditSheet) {
-            DiveSiteEditSheet(site: site) {
-                syncHeroPresentation()
+            switch boundSite {
+            case .catalog(let site):
+                DiveSiteEditSheet(site: site) {
+                    syncHeroPresentation()
+                }
+            case .user(let site):
+                DiveSiteEditSheet(site: site) {
+                    syncHeroPresentation()
+                }
             }
         }
         .task(id: siteDetailContentToken, priority: .userInitiated) {
@@ -198,10 +281,10 @@ struct ExploreDiveSiteDetailView: View {
         }
         .onAppear {
             DiveMediaPreviewStorage.seedSessionCache(for: contentSnapshot.taggedMediaItems)
-            DiveMediaScopeCache.shared.activateScope(.diveSite(site.id))
+            DiveMediaScopeCache.shared.activateScope(.diveSite(boundSite.id))
         }
         .onDisappear {
-            DiveMediaScopeCache.shared.deactivateScope(.diveSite(site.id))
+            DiveMediaScopeCache.shared.deactivateScope(.diveSite(boundSite.id))
         }
         .onChange(of: mapPins.count) { _, count in
             if count == 0, siteHeroMode == .map {
@@ -214,7 +297,7 @@ struct ExploreDiveSiteDetailView: View {
         let siteActivities: [DiveActivity]
         if let ownerProfileID {
             siteActivities = await ExploreDiveSiteDetailContentSnapshotBuilder.fetchSiteDiveActivitiesAsync(
-                diveSiteID: site.id,
+                diveSiteID: boundSite.id,
                 ownerProfileID: ownerProfileID,
                 modelContext: modelContext
             )
@@ -223,7 +306,7 @@ struct ExploreDiveSiteDetailView: View {
         }
 
         let snapshot = ExploreDiveSiteDetailContentSnapshotBuilder.buildLight(
-            site: site,
+            siteID: boundSite.id,
             siteActivities: siteActivities,
             ownerProfileID: ownerProfileID ?? accountSession.currentProfile?.id,
             unitSystem: diveDisplayUnitSystem
@@ -238,7 +321,7 @@ struct ExploreDiveSiteDetailView: View {
         guard !Task.isCancelled else { return }
         contentSnapshot = ExploreDiveSiteDetailContentSnapshotBuilder.enrichMarineLife(
             snapshot: contentSnapshot,
-            site: site,
+            siteID: boundSite.id,
             ownerProfileID: ownerProfileID ?? accountSession.currentProfile?.id,
             marineLifeCatalog: marineLifeCatalog,
             modelContext: modelContext
@@ -260,7 +343,7 @@ struct ExploreDiveSiteDetailView: View {
 
     private func updateSiteRating(_ rating: Int) {
         guard isStarRatingEditable else { return }
-        site.siteRating = DiveSitePresentation.storageSiteRating(for: rating)
+        boundSite.siteRating = DiveSitePresentation.storageSiteRating(for: rating)
         try? modelContext.save()
     }
 

@@ -124,7 +124,7 @@ struct TripEditSheetView: View {
             return
         }
 
-        form.apply(to: trip, plannedSites: trip.plannedSites)
+        form.apply(to: trip)
 
         do {
             if let ownerID = accountSession.currentProfile?.id ?? trip.ownerProfileID {

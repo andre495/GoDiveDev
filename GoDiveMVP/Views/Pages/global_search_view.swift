@@ -1391,15 +1391,11 @@ private struct GlobalSearchSearchDestinationScreen: View {
                 GlobalSearchMissingDestinationView(message: "This dive is no longer in your log.")
             }
         case .diveSite(let id):
-            if let site = diveSites.first(where: { $0.id == id }) {
-                ExploreDiveSiteDetailView(
-                    site: site,
-                    ownerProfileID: ownerProfileID,
-                    onOpenDive: onOpenDive
-                )
-            } else {
-                GlobalSearchMissingDestinationView(message: "This dive site is no longer in the catalog.")
-            }
+            ExploreDiveSiteDetailHost(
+                siteID: id,
+                ownerProfileID: ownerProfileID,
+                onOpenDive: onOpenDive
+            )
         case .referenceSite(let referenceID):
             if let snapshot = DiveSiteReferenceCatalog.bundledReference().first(where: { $0.id == referenceID }) {
                 ExploreReferenceSiteDetailView(snapshot: snapshot)

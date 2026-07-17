@@ -50,14 +50,31 @@ enum AppLaunchSessionValidation: Sendable {
             guard let profile = try? UserProfileStore.profile(id: profileID, modelContext: context) else {
                 return
             }
-            try? UserProfileStore.applyDisplayNameFromApple(
-                to: profile,
-                appleProvided: nil,
+            let outcome = try? UserProfileCloudKitIdentityMerge.reconcile(
                 appleUserIdentifier: profile.appleUserIdentifier,
+                preferredSessionProfileID: profile.id,
                 modelContext: context
             )
-            try? DiveActivityOwnership.claimUnownedDives(for: profile, modelContext: context)
-            try? DiveBuddyOwnership.claimUnownedBuddies(for: profile, modelContext: context)
+            let canonicalID = outcome?.canonicalProfileID ?? profileID
+            guard let canonical = try? UserProfileStore.profile(id: canonicalID, modelContext: context) else {
+                return
+            }
+            try? UserProfileStore.applyDisplayNameFromApple(
+                to: canonical,
+                appleProvided: nil,
+                appleUserIdentifier: canonical.appleUserIdentifier,
+                modelContext: context
+            )
+            try? DiveActivityOwnership.claimUnownedDives(for: canonical, modelContext: context)
+            try? DiveBuddyOwnership.claimUnownedBuddies(for: canonical, modelContext: context)
+            try? UserPreferencesSync.syncForSignedInOwner(canonical, modelContext: context)
+            if canonical.id != profileID {
+                await MainActor.run {
+                    _ = try? AccountSession.shared.reconcileCloudKitIdentityIfNeeded(
+                        modelContext: container.mainContext
+                    )
+                }
+            }
         }.value
     }
 }

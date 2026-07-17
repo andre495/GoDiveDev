@@ -142,7 +142,8 @@ enum ActivityTagDetailContentSnapshotBuilder: Sendable {
     private static func catalogSitesForMap(linkedActivities: [DiveActivity]) -> [DiveSite] {
         var byID: [UUID: DiveSite] = [:]
         for activity in linkedActivities {
-            if let site = activity.diveSite {
+            guard let diveSiteID = activity.diveSiteID, let modelContext = activity.modelContext else { continue }
+            if let site = try? DiveLinkedSiteResolver.existingCatalogDiveSite(id: diveSiteID, modelContext: modelContext) {
                 byID[site.id] = site
             }
         }

@@ -9,7 +9,8 @@ import Foundation
 /// `serverRecordChanged` collision means the report already made it and is treated as success.
 nonisolated enum CrashReportCloudUploader {
 
-    nonisolated static let containerIdentifier = "iCloud.PrimoSoftware.GoDiveMVP"
+    nonisolated static let containerIdentifier =
+        AppSwiftDataCloudKitCompatibility.iCloudContainerIdentifier
     nonisolated static let recordType = "CrashReport"
 
     /// Details bodies (MetricKit stack JSON) can be hundreds of KB; CKRecord fields cap at

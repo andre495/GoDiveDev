@@ -244,7 +244,9 @@ enum DiveSitePresentation: Sendable {
     ) -> DiveSiteDisplayRecord {
         let displayName = DiveSiteCatalogMatcher.resolvedCatalogSiteName(for: site) ?? site.siteName
         let country = DiveSiteCountryPresentation.canonicalDisplayName(for: site.country)
-        let diveCount = site.diveActivities.count
+        // `DiveSite` no longer holds an inverse `diveActivities` relationship (UUID-only link);
+        // per-site dive counts are resolved elsewhere via `diveSiteID` fetches when needed.
+        let diveCount = 0
         let displayCountry = displayValue(country)
         let displayRegion = displayValue(site.region)
         let displayBodyOfWater = displayValue(site.bodyOfWater)
@@ -276,6 +278,61 @@ enum DiveSitePresentation: Sendable {
             diveCountLabel: overrideDiveCountLabel
                 ?? diveCountLabel(for: site, style: trailingStyle),
             listCountry: ExploreDiveSiteListPresentation.listCountry(from: site),
+            searchHaystacks: searchHaystacks,
+            searchHaystackLowercased: listSearchHaystackLowercased(
+                haystacks: searchHaystacks,
+                coordinateLine: coordinateLine,
+                placeLine: placeLine
+            ),
+            isReferenceOnly: false
+        )
+    }
+
+    nonisolated static func listRecord(
+        for site: UserDiveSite,
+        trailingStyle: ExploreDiveSiteRowTrailingStyle = .catalogDefault,
+        overrideDiveCountLabel: String? = nil
+    ) -> DiveSiteDisplayRecord {
+        let country = DiveSiteCountryPresentation.canonicalDisplayName(for: site.country)
+        let diveCount = 0
+        let displayCountry = displayValue(country)
+        let displayRegion = displayValue(site.region)
+        let displayBodyOfWater = displayValue(site.bodyOfWater)
+        let coordinateLine = listCoordinateLine(
+            latitude: site.latCoords,
+            longitude: site.longCoords
+        )
+        let searchHaystacks = [
+            site.siteName,
+            site.country,
+            site.region,
+            site.bodyOfWater,
+        ].filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        let placeLine = listPlaceLine(
+            country: country,
+            region: site.region,
+            bodyOfWater: site.bodyOfWater
+        )
+
+        return DiveSiteDisplayRecord(
+            id: site.id,
+            referenceID: site.openDiveMapReferenceID,
+            catalogSiteID: site.catalogDiveSiteID ?? site.id,
+            displayName: site.siteName,
+            country: displayCountry,
+            region: displayRegion,
+            bodyOfWater: displayBodyOfWater,
+            coordinateLine: coordinateLine,
+            entry: displayValue(site.entry),
+            environment: displayValue(site.environment),
+            siteType: formattedSiteType(from: site.siteTags, entry: site.entry),
+            maxDepth: formattedMaxDepth(meters: site.maxDepthMeters),
+            rating: formattedRating(site.siteRating),
+            siteRating: site.siteRating,
+            waterType: site.resolvedWaterType.displayTitle,
+            divesLogged: "\(diveCount)",
+            diveCountLabel: overrideDiveCountLabel ?? (trailingStyle == .plannedTrip ? nil : nil),
+            listCountry: displayCountry == missingValue ? "" : displayCountry,
             searchHaystacks: searchHaystacks,
             searchHaystackLowercased: listSearchHaystackLowercased(
                 haystacks: searchHaystacks,
@@ -332,6 +389,13 @@ enum DiveSitePresentation: Sendable {
         sites.map { listRecord(for: $0, trailingStyle: trailingStyle) }
     }
 
+    nonisolated static func listRecords(
+        for sites: [UserDiveSite],
+        trailingStyle: ExploreDiveSiteRowTrailingStyle = .catalogDefault
+    ) -> [DiveSiteDisplayRecord] {
+        sites.map { listRecord(for: $0, trailingStyle: trailingStyle) }
+    }
+
     nonisolated static func listRecords(for reference: [DiveSiteReferenceSnapshot]) -> [DiveSiteDisplayRecord] {
         reference.map { listRecord(for: $0) }
     }
@@ -341,8 +405,7 @@ enum DiveSitePresentation: Sendable {
         style: ExploreDiveSiteRowTrailingStyle
     ) -> String? {
         guard style == .catalogDefault else { return nil }
-        let diveCount = site.diveActivities.count
-        guard diveCount > 0 else { return nil }
-        return diveCount == 1 ? "1 dive" : "\(diveCount) dives"
+        // `DiveSite` no longer holds an inverse `diveActivities` relationship (UUID-only link).
+        return nil
     }
 }

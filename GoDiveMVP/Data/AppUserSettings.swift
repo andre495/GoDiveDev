@@ -1,6 +1,8 @@
 import Foundation
 
-/// User-facing preferences stored in **`UserDefaults.standard`** (not SwiftData).
+/// User-facing preferences. Synced keys live in SwiftData **`UserPreferences`** (CloudKit) with a
+/// **`UserDefaults`** cache for `@AppStorage` and nonisolated reads. **`shareCrashReports`** is
+/// device-local only.
 enum AppUserSettings: Sendable {
     /// When **`true`**, import/seed may run **`renumberAllChronologically`**; **delete** uses partial tail renumber on a background context (**`DiveActivityPostDeleteRenumbering`**).
     nonisolated static let automaticallyRenumberDivesKey = "goDiveAutomaticallyRenumberDives"

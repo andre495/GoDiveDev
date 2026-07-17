@@ -19,7 +19,12 @@ enum MarineLifeCatalogSeeder {
     guard !dtos.isEmpty else { return }
 
     let existing = try context.fetch(FetchDescriptor<MarineLife>())
-    var existingByUUID = Dictionary(uniqueKeysWithValues: existing.map { ($0.uuid, $0) })
+    var existingByUUID: [String: MarineLife] = [:]
+    for row in existing {
+      if existingByUUID[row.uuid] == nil {
+        existingByUUID[row.uuid] = row
+      }
+    }
 
     let bundledUUIDs = Set(dtos.map(\.uuid))
 
@@ -34,9 +39,6 @@ enum MarineLifeCatalogSeeder {
     }
 
     for species in existing where shouldPrune(species, bundledUUIDs: bundledUUIDs) {
-      for sighting in species.sightingInstances {
-        sighting.marineLife = nil
-      }
       context.delete(species)
     }
 
@@ -64,6 +66,7 @@ enum MarineLifeCatalogSeeder {
     destination.abundance = source.abundance
     destination.habitatBehavior = source.habitatBehavior
     destination.diverReaction = source.diverReaction
+    destination.ownership = .catalog
   }
 
   private static func shouldPrune(_ species: MarineLife, bundledUUIDs: Set<String>) -> Bool {

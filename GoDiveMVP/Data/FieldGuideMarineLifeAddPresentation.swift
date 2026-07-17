@@ -29,6 +29,16 @@ enum FieldGuideMarineLifeAddPresentation: Sendable {
             self.aboutText = species.aboutText
         }
 
+        nonisolated init(from species: UserMarineLife) {
+            let snapshot = species.fieldGuideCatalogSnapshot
+            self.commonName = species.commonName
+            self.scientificName = species.scientificName
+            self.categoryID = FieldGuideTaxonomy.resolvedCategoryID(for: snapshot)
+            self.subcategoryID = FieldGuideTaxonomy.resolvedSubcategoryID(for: snapshot)
+            self.familyName = species.familyName
+            self.aboutText = species.aboutText
+        }
+
         nonisolated init(
             commonName: String = "",
             scientificName: String = "",
@@ -48,6 +58,10 @@ enum FieldGuideMarineLifeAddPresentation: Sendable {
 
     nonisolated static func isUserCreated(uuid: String) -> Bool {
         uuid.hasPrefix(userCreatedUUIDPrefix)
+    }
+
+    nonisolated static func isUserEditable(_ species: UserMarineLife) -> Bool {
+        isUserCreated(uuid: species.uuid)
     }
 
     nonisolated static func isUserEditable(_ species: MarineLife) -> Bool {
@@ -80,9 +94,12 @@ enum FieldGuideMarineLifeAddPresentation: Sendable {
         return ""
     }
 
-    nonisolated static func makeMarineLife(from form: FormValues) -> MarineLife {
+    nonisolated static func makeUserMarineLife(
+        from form: FormValues,
+        owner: UserProfile? = nil
+    ) -> UserMarineLife {
         let categoryID = form.categoryID.trimmingCharacters(in: .whitespacesAndNewlines)
-        return MarineLife(
+        return UserMarineLife(
             uuid: makeUserCreatedUUID(),
             commonName: trimmedCommonName(form.commonName),
             scientificName: form.scientificName.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -92,11 +109,48 @@ enum FieldGuideMarineLifeAddPresentation: Sendable {
                 subcategoryID: form.subcategoryID
             ),
             familyName: form.familyName.trimmingCharacters(in: .whitespacesAndNewlines),
-            aboutText: form.aboutText.trimmingCharacters(in: .whitespacesAndNewlines)
+            aboutText: form.aboutText.trimmingCharacters(in: .whitespacesAndNewlines),
+            owner: owner
         )
     }
 
+    /// Legacy alias — prefer **`makeUserMarineLife`**.
+    nonisolated static func makeMarineLife(from form: FormValues) -> UserMarineLife {
+        makeUserMarineLife(from: form)
+    }
+
     /// Updates identity / taxonomy / about fields on a **user-created** species only.
+    static func applyEdits(
+        to species: UserMarineLife,
+        form: FormValues,
+        modelContext: ModelContext,
+        persistImmediately: Bool = true
+    ) throws {
+        guard isUserEditable(species) else {
+            throw FieldGuideMarineLifeEditError.notUserCreated
+        }
+        guard canSave(form) else {
+            throw FieldGuideMarineLifeEditError.invalidForm
+        }
+
+        let categoryID = form.categoryID.trimmingCharacters(in: .whitespacesAndNewlines)
+        species.commonName = MarineLifeCommonNameFormatting.normalized(trimmedCommonName(form.commonName))
+        species.scientificName = form.scientificName.trimmingCharacters(in: .whitespacesAndNewlines)
+        species.category = categoryID
+        species.subcategory = normalizedSubcategoryID(
+            categoryID: categoryID,
+            subcategoryID: form.subcategoryID
+        )
+        species.familyName = form.familyName.trimmingCharacters(in: .whitespacesAndNewlines)
+        species.aboutText = form.aboutText.trimmingCharacters(in: .whitespacesAndNewlines)
+        species.updatedAt = Date()
+
+        if persistImmediately {
+            try modelContext.save()
+        }
+    }
+
+    /// Legacy catalog-row edit path (only valid for leftover pre-migration user rows).
     static func applyEdits(
         to species: MarineLife,
         form: FormValues,

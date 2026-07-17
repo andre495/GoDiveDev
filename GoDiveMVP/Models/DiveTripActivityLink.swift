@@ -5,20 +5,20 @@ import SwiftData
 @Model
 final class DiveTripActivityLink {
 
-    var id: UUID
+    var id: UUID = UUID()
 
     /// Denormalized for **`#Predicate`** / batch deletes.
     var tripID: UUID?
-    @Relationship(inverse: \DiveTrip.activityLinks)
+    @Relationship(inverse: \DiveTrip.activityLinksStorage)
     var trip: DiveTrip?
 
     /// Denormalized for **`#Predicate`** / batch deletes.
     var diveActivityID: UUID?
-    @Relationship(inverse: \DiveActivity.tripActivityLinks)
+    @Relationship(inverse: \DiveActivity.tripActivityLinksStorage)
     var diveActivity: DiveActivity?
 
     /// When the diver linked this dive to the trip.
-    var linkedAt: Date
+    var linkedAt: Date = Date()
 
     init(
         id: UUID = UUID(),

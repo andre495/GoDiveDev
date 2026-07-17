@@ -10,18 +10,46 @@ struct TripDetailPlannedSitesSection: View {
     let onOpenDive: (UUID) -> Void
 
     @State private var diveSiteCatalog: [DiveSite] = []
+    @State private var userDiveSites: [UserDiveSite] = []
 
     @State private var showsSitePicker = false
     @State private var selectedSiteIDs: Set<UUID> = []
 
-    private var sortedSites: [DiveSite] {
-        trip.plannedSites.sorted {
+    private var sortedSites: [DiveLinkedSiteResolver.ResolvedSite] {
+        let plannedIDs = trip.plannedSiteIDs
+        let userByID = Dictionary(uniqueKeysWithValues: userDiveSites.map { ($0.id, $0) })
+        let catalogByID = Dictionary(uniqueKeysWithValues: diveSiteCatalog.map { ($0.id, $0) })
+        return plannedIDs.compactMap {
+            DiveLinkedSiteResolver.resolve(id: $0, userSitesByID: userByID, catalogSitesByID: catalogByID)
+        }
+        .sorted {
             $0.siteName.localizedCaseInsensitiveCompare($1.siteName) == .orderedAscending
         }
     }
 
     private var siteListRows: [ExploreDiveSiteRowDisplayData] {
-        ExploreDiveSiteListDisplay.rowData(for: sortedSites, trailingStyle: .plannedTrip)
+        let userByID = Dictionary(uniqueKeysWithValues: userDiveSites.map { ($0.id, $0) })
+        let catalogByID = Dictionary(uniqueKeysWithValues: diveSiteCatalog.map { ($0.id, $0) })
+        return sortedSites.map { resolved in
+            if let user = userByID[resolved.id] {
+                return DiveSitePresentation.listRecord(for: user, trailingStyle: .plannedTrip)
+            }
+            if let catalog = catalogByID[resolved.id] {
+                return DiveSitePresentation.listRecord(for: catalog, trailingStyle: .plannedTrip)
+            }
+            return DiveSitePresentation.listRecord(
+                for: UserDiveSite(
+                    id: resolved.id,
+                    siteName: resolved.siteName,
+                    country: resolved.country,
+                    region: resolved.region,
+                    bodyOfWater: resolved.bodyOfWater,
+                    latCoords: resolved.latCoords,
+                    longCoords: resolved.longCoords
+                ),
+                trailingStyle: .plannedTrip
+            )
+        }
     }
 
     var body: some View {
@@ -36,7 +64,7 @@ struct TripDetailPlannedSitesSection: View {
                     )
 
                 Button {
-                    selectedSiteIDs = Set(trip.plannedSites.map(\.id))
+                    selectedSiteIDs = Set(trip.plannedSiteIDs)
                     showsSitePicker = true
                 } label: {
                     Image(systemName: "plus")
@@ -58,22 +86,20 @@ struct TripDetailPlannedSitesSection: View {
             } else {
                 VStack(spacing: AppTheme.Spacing.md) {
                     ForEach(siteListRows) { row in
-                        if let site = sortedSites.first(where: { $0.id == row.id }) {
-                            NavigationLink {
-                                ExploreDiveSiteDetailView(
-                                    site: site,
-                                    ownerProfileID: ownerProfileID,
-                                    onOpenDive: onOpenDive
-                                )
-                                .hidesBottomTabBarWhenPushed()
-                            } label: {
-                                ExploreDiveSiteRow(data: row)
-                                    .equatable()
-                            }
-                            .buttonStyle(.plain)
-                            .navigationLinkIndicatorVisibility(.hidden)
-                            .accessibilityIdentifier("TripDetail.PlannedSites.\(row.id.uuidString)")
+                        NavigationLink {
+                            ExploreDiveSiteDetailHost(
+                                siteID: row.id,
+                                ownerProfileID: ownerProfileID,
+                                onOpenDive: onOpenDive
+                            )
+                            .hidesBottomTabBarWhenPushed()
+                        } label: {
+                            ExploreDiveSiteRow(data: row)
+                                .equatable()
                         }
+                        .buttonStyle(.plain)
+                        .navigationLinkIndicatorVisibility(.hidden)
+                        .accessibilityIdentifier("TripDetail.PlannedSites.\(row.id.uuidString)")
                     }
                 }
                 .accessibilityIdentifier("TripDetail.PlannedSites.List")
@@ -83,13 +109,16 @@ struct TripDetailPlannedSitesSection: View {
         .accessibilityIdentifier("TripDetail.PlannedSitesSection")
         .task {
             diveSiteCatalog = await DiveSiteCatalogLoader.loadSortedCatalog(modelContext: modelContext)
+            userDiveSites = (try? modelContext.fetch(
+                FetchDescriptor<UserDiveSite>(sortBy: [SortDescriptor(\.siteName)])
+            )) ?? []
         }
         .sheet(isPresented: $showsSitePicker) {
             TripPlannedSitePickerSheet(
                 selectedSiteIDs: $selectedSiteIDs,
                 sites: diveSiteCatalog,
                 onCancel: {
-                    selectedSiteIDs = Set(trip.plannedSites.map(\.id))
+                    selectedSiteIDs = Set(trip.plannedSiteIDs)
                 },
                 onDone: applySelectedPlannedSites
             )
@@ -102,7 +131,7 @@ struct TripDetailPlannedSitesSection: View {
             .sorted {
                 $0.siteName.localizedCaseInsensitiveCompare($1.siteName) == .orderedAscending
             }
-        trip.plannedSites = selected
+        trip.plannedSiteIDs = selected.map(\.id)
         trip.updatedAt = .now
         try? modelContext.save()
     }

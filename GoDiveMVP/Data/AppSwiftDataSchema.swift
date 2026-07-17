@@ -1,44 +1,59 @@
+import Foundation
 import SwiftData
 
 /// Shared SwiftData schema for production and tests.
 enum AppSwiftDataSchema {
-    nonisolated static let modelTypes: [any PersistentModel.Type] = [
-        UserProfile.self,
-        DiveActivity.self,
-        DiveActivityEquipmentList.self,
-        DiveEquipmentEntry.self,
-        DiveBuddy.self,
-        DiveBuddyTag.self,
-        ActivityTag.self,
-        DiveMediaPhoto.self,
-        DiveMediaBuddyTag.self,
-        DiveProfilePoint.self,
-        DiveSite.self,
-        MarineLife.self,
-        MarineLifeUserRecord.self,
-        SightingInstance.self,
-        EquipmentItem.self,
-        Certification.self,
-        DiveTrip.self,
-        DiveTripActivityLink.self,
-        DiveTripBuddyLink.self,
-        CrashReportRecord.self,
-    ]
+    nonisolated static var modelTypes: [any PersistentModel.Type] {
+        AppSwiftDataStorePartition.allModelTypes
+    }
 
-    /// Builds a **`ModelContainer`**. On-disk stores perform file I/O — use **`AppModelContainer.loadProduction()`**
-    /// at launch (background thread) for **`isStoredInMemoryOnly: false`**; in-memory is fine on any thread (tests / previews).
+    /// Builds a **`ModelContainer`**.
+    ///
+    /// - **In-memory** (tests / previews): single unified configuration (simpler fixtures); CloudKit **off**.
+    /// - **On-disk** (production): dual user / catalog / diagnostics via **`AppSwiftDataDualStoreBootstrap`**.
+    ///   Phase 2: private CloudKit on the user store (local fallback). Legacy unified migration is
+    ///   **out of scope** — clean install for dual + CloudKit.
+    ///
+    /// On-disk stores perform file I/O — use **`AppModelContainer.loadProduction()`** at launch on a
+    /// background thread; in-memory is fine on any thread.
     nonisolated static func makeContainer(isStoredInMemoryOnly: Bool) throws -> ModelContainer {
+        if isStoredInMemoryOnly {
+            return try makeUnifiedContainer(isStoredInMemoryOnly: true)
+        }
+        return try AppSwiftDataDualStoreBootstrap.openProductionContainer().container
+    }
+
+    /// On-disk with an explicit store URL (legacy unified **`default.store`** recovery path).
+    nonisolated static func makeUnifiedContainer(
+        isStoredInMemoryOnly: Bool,
+        storeURL: URL?
+    ) throws -> ModelContainer {
         let schema = Schema(modelTypes)
-        // `cloudKitDatabase: .none` is required: the app has an iCloud container entitlement
-        // (crash-report upload via `CrashReportCloudUploader`), and the default `.automatic`
-        // would try to CloudKit-mirror this store — our schema (non-optional attributes,
-        // unique constraints, inverse-less relationships) intentionally does not support that,
-        // and the container fails to load at launch.
-        let configuration = ModelConfiguration(
-            schema: schema,
-            isStoredInMemoryOnly: isStoredInMemoryOnly,
-            cloudKitDatabase: .none
-        )
+        let configuration: ModelConfiguration
+        if isStoredInMemoryOnly {
+            configuration = ModelConfiguration(
+                schema: schema,
+                isStoredInMemoryOnly: true,
+                cloudKitDatabase: AppSwiftDataCloudKitCompatibility.requiredCloudKitDatabase
+            )
+        } else if let storeURL {
+            configuration = ModelConfiguration(
+                schema: schema,
+                url: storeURL,
+                cloudKitDatabase: AppSwiftDataCloudKitCompatibility.requiredCloudKitDatabase
+            )
+        } else {
+            configuration = ModelConfiguration(
+                schema: schema,
+                isStoredInMemoryOnly: false,
+                cloudKitDatabase: AppSwiftDataCloudKitCompatibility.requiredCloudKitDatabase
+            )
+        }
         return try ModelContainer(for: schema, configurations: [configuration])
+    }
+
+    /// Single-configuration container (legacy shape). Used for in-memory tests and as the migration source.
+    nonisolated static func makeUnifiedContainer(isStoredInMemoryOnly: Bool) throws -> ModelContainer {
+        try makeUnifiedContainer(isStoredInMemoryOnly: isStoredInMemoryOnly, storeURL: nil)
     }
 }

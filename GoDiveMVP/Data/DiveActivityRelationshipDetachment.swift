@@ -40,10 +40,6 @@ enum DiveActivityRelationshipDetachment {
         }
         activity.owner = nil
 
-        if let linkedSite = activity.diveSite {
-            linkedSite.diveActivities.removeAll { $0.id == activityID }
-        }
-        activity.diveSite = nil
         activity.diveSiteID = nil
 
         let tripLinks = activity.tripActivityLinks

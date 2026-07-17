@@ -66,6 +66,7 @@ private struct ProductionAppRoot: View {
             }
             .task {
                 CrashReportingService.startAtLaunch(container: container)
+                AccountSessionCloudKitIdentityObserver.startIfNeeded(container: container)
                 AppLaunchMaintenance.runInBackground(container: container)
                 if accountSession.showsMainAppShell {
                     HomeCarouselLaunchPreload.preloadStoredPicksIfCurrent(

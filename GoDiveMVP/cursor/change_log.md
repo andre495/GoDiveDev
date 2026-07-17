@@ -2986,3 +2986,62 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ## 112 - Next batch
 
+**Summary:** Hybrid cloud sync Phase 0 — data ownership boundaries.
+
+- **`cursor/hybrid_cloud_sync_boundaries.md`** — Option A boundary doc for the feature branch: user-generated structured data → future CloudKit private user store; media bytes stay in Photos / iCloud Photos with synced pointers; app-provided catalogs → local cache + future developer CDN.
+- Phase 0 decisions: full **`DiveProfilePoint`** rows sync by default (volume-gated later if needed); user-created **`MarineLife`** / **`DiveSite`** rows are user data, not app catalog rows; crash reports remain local + opt-in public CloudKit upload outside private sync.
+- **`app_summary.md`** records the boundary while noting runtime sync remains off until Phase 1 schema split / migration is ready.
+
+**Summary:** Hybrid cloud sync Phase 1 kickoff — schema readiness (sync still off).
+
+- **`AppSwiftDataStorePartition`** — target user / catalog / diagnostics model lists; Firebase catalog CDN vendor lock; synced vs local-only preference keys.
+- CloudKit-shape prep in the unified store: removed `@Attribute(.unique)` on **`MarineLife.uuid`** / **`SightingInstance.sightingUUID`**; property defaults; inverse gaps filled; **`AppSwiftDataLogicalUniqueness`** + sighting insert dedupe.
+- Hybrid ownership: **`MarineLifeOwnership`** / **`DiveSiteOwnership`** + **`ownershipRaw`** with launch **`AppSwiftDataOwnershipBackfill`**.
+- **`DiveMediaPhoto.photosCloudIdentifier`** for Phase 3; empty until resolve.
+- Migration plan: **`cursor/hybrid_cloud_sync_phase1_migration.md`** (production stays single store until cross-store relationships become UUID-only).
+- Tests: partition coverage, CloudKit-off schema, ownership inference, cloud identifier persistence, logical uniqueness, ownership backfill, sighting UUID dedupe.
+- Simulator preflight fix: SwiftData `@Model` defaults must be fully qualified (`Date()`, `DiveSource.manual`); CloudKit policy helper avoids non-`Equatable` switch.
+
+**Summary:** Hybrid cloud sync Phase 1b — user species/sites in the user store + UUID-only refs.
+
+- **`UserMarineLife`** / **`UserDiveSite`** models in the user partition; Field Guide add + Explore add create these rows (not catalog **`MarineLife`** / **`DiveSite`**).
+- Dropped live catalog relationships: sightings/overlays/dives/trips use **`marineLifeUUID`** / **`diveSiteID`** / **`plannedSiteIDs`**; resolve via **`MarineLifeSpeciesResolver`** / **`DiveLinkedSiteResolver`**.
+- Launch **`AppSwiftDataHybridRowMigration`** moves legacy user-owned catalog rows into the new models; **`AppSwiftDataDualStoreFactory`** opens split in-memory stores for tests (production still unified, CloudKit still **`.none`**).
+- UI: **`ExploreDiveSiteDetailHost`**, Field Guide / Explore / trip planned sites resolve catalog + user rows; map pin lookup prefers linked site id in provided catalogs.
+- Tests: hybrid migration, dual-store open, species/site resolvers, user species create path; updated site-link / map / seeder expectations.
+- Docs: **`hybrid_cloud_sync_phase1_migration.md`**, **`app_summary.md`**.
+
+**Summary:** Hybrid cloud sync Phase 1c — production dual-store flip (CloudKit still off).
+
+- **`AppSwiftDataDualStoreFactory`** — on-disk **`GoDiveUser` / `GoDiveCatalog` / `GoDiveDiagnostics`** store URLs under Application Support / GoDiveMVP.
+- **`AppSwiftDataDualStoreBootstrap`** — production open path; one-shot migrate from legacy unified store; marker key **`godive.dualStoreMigration.v1.completed`**.
+- **`AppSwiftDataDualStoreMigrator`** — copies catalog / diagnostics / user graph (IDs preserved, relationships rewired); legacy store renamed **`*.migrated-bak`**.
+- **`AppSwiftDataSchema.makeContainer`** — in-memory stays unified (tests); on-disk uses dual bootstrap.
+- Tests: in-memory unified→dual copy; fresh dual open in temp directory.
+- Docs: migration plan + **`app_summary`** / boundaries updated for Phase 1c.
+
+**Summary:** Hybrid cloud sync Phase 2 — private CloudKit on the user store only.
+
+- **`AppSwiftDataDualStoreFactory`** — production on-disk **user** configuration uses **`.private("iCloud.PrimoSoftware.GoDiveMVP")`**; catalog + diagnostics stay **`.none`**. In-memory / custom-root test opens keep CloudKit off; legacy→dual migrator copies with sync off, then production reopen enables user mirroring.
+- **`AppSwiftDataCloudKitCompatibility`** — Phase 2 policy helpers (`privateUserCloudKitDatabase`, `usesPhase2DualStoreCloudKitPolicy`); shared container id with crash public uploader.
+- Background **`remote-notification`** Info.plist key for CloudKit wakeups.
+- Tests: Phase 2 policy + local-only dual open; temp-root bootstrap asserts user CloudKit off.
+- Docs: migration plan, boundaries, **`app_summary`**, privacy guide.
+- Device build warning fixes: **`nonisolated`** on dual-store bootstrap / migrator / catalog resolvers / logical uniqueness (Swift 6 default MainActor).
+- **Launch crash fix:** opening existing dual user store with private CloudKit was failing → `fatalError` in **`AppModelContainer`**. **`makeOnDiskSplitContainer`** now falls back to local-only user store on CloudKit open failure so the app can launch; logs the error.
+- **Empty dual remigration:** empty dual stores could skip copying from legacy **`default.store`**. Bootstrap now remigrates when legacy still exists and dual dive count is 0 (wipes empty dual first). Legacy URL is explicit Application Support / **`default.store`** (not bare **`ModelConfiguration().url`**); refuse to park legacy if 0 dives were copied from a large store.
+- **Migration performance:** copy **`DiveProfilePoint`** per dive with intermediate saves (full-table fetch of 100k+ rows was hanging launch). Remigrate when dual dive count is below legacy count (interrupted copy).
+- **Data recovery:** object-by-object dual remigration was crashing on device. While legacy **`default.store`** still has dives and dual is empty/incomplete, production opens the **unified legacy store** so the log is usable; dual copy deferred.
+- **Phase 2 strategy (dev):** legacy unified → dual **migration out of scope**. Production bootstrap opens dual + user CloudKit only (no remigration / no legacy open). Clean install (delete app) for Phase 2 device smoke.
+- **Local-only fallback root cause:** device diagnostics showed `accountStatus=available` but `SwiftDataError` **`loadIssueModelContainer`** even after wipe+retry — not an iCloud sign-in problem. CloudKit rejects Codable transformable attributes (`NSCodableAttributeType`). **`DiveActivity.entryCoordinate: DiveCoordinate?`** was the blocker; replaced with **`entryLatitude` / `entryLongitude`** Doubles + `@Transient` **`entryCoordinate`** wrapper. Diagnostics now map SwiftDataError cases, append A/B/C open probes (user-only CloudKit vs dual vs local), and record the fix in **`removedCodableAttributeKeys`**.
+- Tests: entry coordinate primitive persistence; CloudKit probe diagnostics file; schema documents removed Codable key.
+- **Data-loss fix:** CloudKit open failure no longer **wipes** dual store files (that deleted **`UserProfile`** + dives and forced a new Sign in with Apple after force-quit). Fallback opens **local-only on existing files**; sticky local-only skips CloudKit on later launches; policy version **2** clears sticky once after this fix so CloudKit can be retried safely.
+- Tests: sticky / policy-bump helpers; CloudKit failure preserves existing store files + marker (no `removeDualStoreFiles`).
+- **CloudKit array flatten (policy v3):** stored `[UUID]` / `[String]` on **`MarineLifeUserRecord`**, **`DiveTrip`**, **`UserDiveSite`**, **`DiveSite`** → JSON **`Data?`** + `@Transient` accessors (`AppSwiftDataCloudKitArrayStorage`). Fixes in-place append/remove call sites. Sticky local cleared once via open-policy **3**; when leaving sticky local, dual files are **renamed aside** so a fresh CloudKit-backed store can be created (local-only files cannot enable CloudKit in place — expect one re-sign-in for Phase 2 smoke).
+- Tests: array storage codecs + model Data persistence.
+- **Device retest:** after v3, fresh CloudKit create still failed (`probeA`/`probeB` `loadIssueModelContainer`). **Policy v4–v5:** flatten enums to raw strings; Core Data probe **D** revealed the real blocker: **CloudKit requires all relationships optional**, including to-many arrays (`UserProfile.diveActivities`, `DiveActivity.buddies`, …).
+- **Policy v6:** optional to-many `*Storage` relationships + `@Transient` non-optional accessors; inverses retargeted to storage properties.
+- **Device:** Dre’s Phone open diagnostics **`result=success`** with **`enableUserCloudKitSync=true`**, **`accountStatus=available`** (policy v6). Fresh dual user store created after rename-aside; next smoke = Sign in → add a dive → confirm private DB records in CloudKit Console (**Development** / container **`iCloud.PrimoSoftware.GoDiveMVP`**).
+- **OpenDiveMap My Sites after CloudKit restore:** linking an OpenDiveMap / catalog **`DiveSite`** now upserts a synced **`UserDiveSite`** snapshot (same id + **`openDiveMapReferenceID`**). Launch hydrate recreates missing snapshots for orphaned **`diveSiteID`**s (rematch from name/GPS when the local catalog row is gone). Explore My Sites dedupes catalog+user pins; refreshes user sites on appear.
+- **CloudKit reinstall empty logbook:** Sign in with Apple was minting a new **`UserProfile` UUID** before CloudKit imported the existing account (same **`appleUserIdentifier`**). UI filters by **`ownerProfileID`**, so synced dives looked missing. **`UserProfileCloudKitIdentityMerge`** collapses duplicates, reassigns owned rows, updates the session; runs on sign-in, launch, session validation, and CloudKit import events.
+- **Synced user settings:** **`UserPreferences`** in the CloudKit user store mirrors units / tank / renumber / auto-upload / diver weights / bulk UDDF create-sites; **`UserDefaults`** stays a cache for `@AppStorage`. **Share crash reports** remains local-only. Sync on sign-in, launch, Settings edits, and CloudKit import.

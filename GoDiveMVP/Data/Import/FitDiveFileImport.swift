@@ -124,7 +124,11 @@ enum FitDiveFileImport {
                 modelContext: modelContext
             )
             var catalogSites = try DiveActivitySiteAssociation.fetchCatalogSites(modelContext: modelContext)
-            DiveActivitySiteAssociation.applyBestMatch(to: activity, catalogSites: catalogSites)
+            DiveActivitySiteAssociation.applyBestMatch(
+                to: activity,
+                catalogSites: catalogSites,
+                modelContext: modelContext
+            )
             let reference = DiveSiteReferenceCatalog.bundledReference()
             _ = DiveActivitySiteAssociation.applyOpenDiveMapSiteLinkIfNeeded(
                 to: activity,
@@ -133,7 +137,7 @@ enum FitDiveFileImport {
                 reference: reference,
                 createSiteWhenMissing: true
             )
-            if createMissingDiveSites, activity.diveSite == nil {
+            if createMissingDiveSites, activity.diveSiteID == nil {
                 _ = DiveActivitySiteAssociation.createSiteForImportNameIfNeeded(
                     to: activity,
                     catalogSites: &catalogSites,

@@ -38,13 +38,17 @@ enum SightingInstanceCreation {
     @discardableResult
     static func insert(
         draft: Draft,
-        marineLife: MarineLife,
         dive: DiveActivity,
-        diveSite: DiveSite? = nil,
         mediaPhoto: DiveMediaPhoto? = nil,
         modelContext: ModelContext,
         persistImmediately: Bool = true
     ) throws -> SightingInstance {
+        if let existing = try AppSwiftDataLogicalUniqueness.existingSighting(
+            sightingUUID: draft.sightingUUID,
+            modelContext: modelContext
+        ) {
+            return existing
+        }
         let sighting = SightingInstance(
             sightingUUID: draft.sightingUUID,
             marineLifeUUID: draft.marineLifeUUID,
@@ -54,9 +58,9 @@ enum SightingInstanceCreation {
         )
         SightingInstanceLinking.link(
             sighting,
-            marineLife: marineLife,
+            marineLifeUUID: draft.marineLifeUUID,
             dive: dive,
-            diveSite: diveSite,
+            diveSiteID: draft.diveSiteID,
             mediaPhoto: mediaPhoto
         )
         modelContext.insert(sighting)

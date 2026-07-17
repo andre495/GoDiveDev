@@ -1,54 +1,52 @@
 import Foundation
 import SwiftData
 
-/// One logged sighting of a catalog **`MarineLife`** species (dive, site, depth, optional tagged media).
+/// One logged sighting of a catalog or user-created species (dive, site, depth, optional tagged media).
+///
+/// Species and site links are **UUID / ID only** so user and catalog stores can split without
+/// cross-configuration SwiftData relationships.
 @Model
 final class SightingInstance {
 
     /// Stable id for this sighting (local UUID string today; remote API later).
-    @Attribute(.unique) var sightingUUID: String
+    /// Uniqueness is app-enforced (`AppSwiftDataLogicalUniqueness`) — CloudKit forbids `@Attribute(.unique)`.
+    var sightingUUID: String = ""
 
-    /// Matches **`MarineLife.uuid`** (denormalized for queries when the catalog link is missing).
-    var marineLifeUUID: String
-    @Relationship(inverse: \MarineLife.sightingInstances)
-    var marineLife: MarineLife?
+    /// Matches **`MarineLife.uuid`** or **`UserMarineLife.uuid`**.
+    var marineLifeUUID: String = ""
 
     /// UTC instant — dive **`startTime`** by default; media **`capturedAt`** when tagged from media.
-    var sightingDateTime: Date
+    var sightingDateTime: Date = Date()
 
     var diveActivityID: UUID?
-    @Relationship(inverse: \DiveActivity.marineLifeSightings)
+    @Relationship(inverse: \DiveActivity.marineLifeSightingsStorage)
     var diveActivity: DiveActivity?
 
+    /// Matches **`DiveSite.id`** or **`UserDiveSite.id`**.
     var diveSiteID: UUID?
-    @Relationship(deleteRule: .nullify)
-    var diveSite: DiveSite?
 
     /// Depth at the sighting (**m**); **`nil`** when unknown.
     var sightingDepthMeters: Double?
 
     var mediaPhotoID: UUID?
-    @Relationship
+    @Relationship(deleteRule: .nullify, inverse: \DiveMediaPhoto.marineLifeSightingsStorage)
     var mediaPhoto: DiveMediaPhoto?
 
     init(
         sightingUUID: String = UUID().uuidString,
         marineLifeUUID: String,
         sightingDateTime: Date,
-        marineLife: MarineLife? = nil,
         diveActivity: DiveActivity? = nil,
-        diveSite: DiveSite? = nil,
+        diveSiteID: UUID? = nil,
         sightingDepthMeters: Double? = nil,
         mediaPhoto: DiveMediaPhoto? = nil
     ) {
         self.sightingUUID = sightingUUID
         self.marineLifeUUID = marineLifeUUID
         self.sightingDateTime = sightingDateTime
-        self.marineLife = marineLife
         self.diveActivity = diveActivity
         self.diveActivityID = diveActivity?.id
-        self.diveSite = diveSite
-        self.diveSiteID = diveSite?.id ?? diveActivity?.diveSiteID
+        self.diveSiteID = diveSiteID ?? diveActivity?.diveSiteID
         self.sightingDepthMeters = sightingDepthMeters
         self.mediaPhoto = mediaPhoto
         self.mediaPhotoID = mediaPhoto?.id

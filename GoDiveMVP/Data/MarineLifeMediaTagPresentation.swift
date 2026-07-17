@@ -48,7 +48,7 @@ enum MarineLifeMediaTagPresentation {
                 guard !seenUUIDs.contains(sighting.marineLifeUUID) else { return nil }
                 seenUUIDs.insert(sighting.marineLifeUUID)
 
-                let species = sighting.marineLife ?? catalogByUUID[sighting.marineLifeUUID]
+                let species = catalogByUUID[sighting.marineLifeUUID]
                 guard let species else { return nil }
 
                 let snapshot = species.fieldGuideCatalogSnapshot
@@ -114,7 +114,7 @@ enum MarineLifeMediaTagPresentation {
             .compactMap { sighting -> MarineLife? in
                 guard !seenUUIDs.contains(sighting.marineLifeUUID) else { return nil }
                 seenUUIDs.insert(sighting.marineLifeUUID)
-                return sighting.marineLife ?? catalogByUUID[sighting.marineLifeUUID]
+                return catalogByUUID[sighting.marineLifeUUID]
             }
             .sorted {
                 $0.commonName.localizedCaseInsensitiveCompare($1.commonName) == .orderedAscending

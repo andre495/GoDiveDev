@@ -33,9 +33,35 @@ struct SettingsView: View {
                 onAutoUploadEnabled: startMediaBackfillForExistingDives,
                 onShareCrashReportsEnabled: uploadCrashReportBacklog,
                 onDismissMediaBackfill: dismissMediaBackfillOverlay,
-                onCancelMediaBackfill: cancelMediaBackfill
+                onCancelMediaBackfill: cancelMediaBackfill,
+                onSyncedSettingsChanged: pushSyncedPreferencesFromDefaults
             )
         }
+        .onAppear {
+            pullSyncedPreferencesIntoDefaults()
+        }
+        .onChange(of: automaticallyRenumberDives) { _, _ in
+            pushSyncedPreferencesFromDefaults()
+        }
+        .onChange(of: useImperialDisplayUnits) { _, _ in
+            pushSyncedPreferencesFromDefaults()
+        }
+        .onChange(of: defaultTankSizeRaw) { _, _ in
+            pushSyncedPreferencesFromDefaults()
+        }
+        .onChange(of: autoUploadMediaToActivities) { _, _ in
+            pushSyncedPreferencesFromDefaults()
+        }
+    }
+
+    private func pullSyncedPreferencesIntoDefaults() {
+        guard let owner = accountSession.currentProfile else { return }
+        try? UserPreferencesSync.syncForSignedInOwner(owner, modelContext: modelContext)
+    }
+
+    private func pushSyncedPreferencesFromDefaults() {
+        guard let owner = accountSession.currentProfile else { return }
+        try? UserPreferencesSync.pushUserDefaultsToStore(owner: owner, modelContext: modelContext)
     }
 
     private func renumberAllDivesWhenEnabled() {
@@ -117,6 +143,7 @@ private struct SettingsPageContent: View {
     let onShareCrashReportsEnabled: () -> Void
     let onDismissMediaBackfill: () -> Void
     let onCancelMediaBackfill: () -> Void
+    let onSyncedSettingsChanged: () -> Void
 
     var body: some View {
         ZStack {
@@ -223,6 +250,7 @@ private struct SettingsPageContent: View {
                 persistDefaultWeightText(newValue) { kilograms in
                     AppUserSettings.setDefaultSaltwaterWeightKilograms(kilograms)
                 }
+                onSyncedSettingsChanged()
             }
 
             SettingsWeightFieldRow(
@@ -236,6 +264,7 @@ private struct SettingsPageContent: View {
                 persistDefaultWeightText(newValue) { kilograms in
                     AppUserSettings.setDefaultFreshwaterWeightKilograms(kilograms)
                 }
+                onSyncedSettingsChanged()
             }
         }
     }

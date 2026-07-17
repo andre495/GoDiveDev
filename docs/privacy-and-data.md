@@ -15,13 +15,13 @@ The following live in GoDive’s on-device database and local app storage:
 - App settings (units, tank default, renumber, auto-upload)  
 - Crash reports (technical diagnostics captured when the app crashes)  
 
-There is **no CloudKit or multi-device sync of your dive log** in the current MVP. Your log does not upload to a GoDive server for backup. The only data that can leave the device is **crash diagnostics**, and only when you turn on **Settings → Share crash reports** (see below).
+There is **no GoDive server backup** of your dive log. On devices signed into **iCloud**, GoDive may sync your **dive log and related structured data** across **your** Apple devices using Apple’s **private CloudKit** (your iCloud account). That includes trips, gear, certifications, buddies, **sites you’ve logged** (including snapshots of OpenDiveMap places you’ve visited), and most **Settings** preferences (units, tank default, renumber, auto-upload, and related options). **Share crash reports** stays on-device. The full Explore **All Sites** reference catalog stays on-device and is not uploaded to your private database. Crash reports are separate (see below). Opt-in **crash diagnostics** upload uses CloudKit’s **public** database when you turn on **Settings → Share crash reports**.
 
 ## Sign in with Apple
 
 GoDive uses **Sign in with Apple** to associate data with your Apple ID on this device. GoDive does not implement its own username/password system.
 
-Sign out clears the active session; local data for that profile remains until you remove the app or its data.
+Sign out clears the active session; local data for that profile remains until you remove the app or its data. Multi-device sync follows your **iCloud** account availability on each device. After reinstall, GoDive matches your Apple ID to the synced account so your existing log comes back under the same sign-in (it may take a moment for iCloud to finish downloading).
 
 ## Photos library
 
@@ -46,6 +46,7 @@ Most of GoDive works **offline** after install. Network may be used for:
 | **Maps** | Map tile and geocoding requests | Explore, dive maps, site picker — via Apple MapKit or Google Maps when configured in the app build |
 | **Fishial identify** (optional) | One **JPEG still** per identification request, optional dive coordinates in a header | Only when you tap identify on a cropped fish photo and the feature is configured |
 | **Remote species images** | HTTP fetch for catalog URLs | Field Guide when a species uses a remote image fallback |
+| **iCloud dive-log sync** | Structured dive data via Apple CloudKit private database | When signed into iCloud on the device; syncs across your Apple devices |
 | **iCloud Photos** | Apple’s PhotoKit may fetch originals | When you view media not stored locally on the device |
 | **Crash reports** (optional) | Technical crash diagnostics via Apple CloudKit | Only when **Settings → Share crash reports** is on |
 
@@ -73,7 +74,7 @@ When the app includes a Google Maps API key, map views may use Google tile servi
 ## What GoDive does not do (MVP)
 
 - No selling or sharing your dive log with third parties  
-- No automatic cloud backup of dives  
+- No GoDive-operated cloud backup server (sync uses **your** Apple iCloud private database)  
 - No social feed or public profile  
 - No retaining imported FIT/UDDF file bytes after parse  
 

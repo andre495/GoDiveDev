@@ -7,13 +7,13 @@ enum DiveSiteReviewIndicator {
     ///
     /// **Requirements:** the store must contain **`DiveSite`** rows with **`latCoords`** / **`longCoords`** (optional: enable **`MockDataSeeding.isLaunchSeedingEnabled`** to load **`divesites_sample`**). The activity needs a **`coordinate`** within **`DiveSiteCoordinateMatcher.toleranceDegrees`** of a catalog point. **FIT** files often omit GPS → no match.
     static func needsReview(for activity: DiveActivity, catalogSites: [DiveSite]) -> Bool {
-        let catalogNameSource: DiveSite? = activity.diveSite
-            ?? DiveSiteCoordinateMatcher.bestMatch(for: activity.entryCoordinate, in: catalogSites)
-        guard let matched = catalogNameSource else { return false }
+        let catalogSiteName: String? = activity.resolvedLinkedSite?.siteName
+            ?? DiveSiteCoordinateMatcher.bestMatch(for: activity.entryCoordinate, in: catalogSites)?.siteName
+        guard let matched = catalogSiteName else { return false }
         let activityName = activity.siteName?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased() ?? ""
-        let catalogName = matched.siteName
+        let catalogName = matched
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
         return activityName != catalogName

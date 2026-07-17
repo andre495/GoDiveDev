@@ -3,22 +3,25 @@ import SwiftData
 
 /// Pointer to a Photos-library asset attached to a dive (**`DiveActivity.mediaPhotos`**).
 ///
-/// GoDive stores the **`PHAsset.localIdentifier`**, lightweight metadata, and a **low-res JPEG preview**
+/// GoDive stores the **`PHAsset.localIdentifier`**, optional cross-device **`photosCloudIdentifier`**
+/// (Phase 3 **`PHCloudIdentifier`** resolve), lightweight metadata, and a **low-res JPEG preview**
 /// (**`previewJPEGData`**) for instant logbook / carousel / dive-hero placeholders. Full frames still load on demand
 /// via **`DiveMediaReferenceLoader`**. If the user deletes the original from Photos, the row is pruned
 /// (**`DiveMediaReferencePruning`**).
 @Model
 final class DiveMediaPhoto {
 
-    var id: UUID
+    var id: UUID = UUID()
     /// Stable ordering within **`DiveActivity.mediaPhotos`** (lower first).
-    var sortOrder: Int
+    var sortOrder: Int = 0
     /// **`DiveMediaKind`** raw value (**`image`** / **`video`**).
     var mediaKind: String = DiveMediaKind.image.rawValue
     /// When the photo/video was captured (**`PHAsset.creationDate`**).
     var capturedAt: Date?
-    /// **`PHAsset.localIdentifier`** of the referenced Photos asset.
+    /// **`PHAsset.localIdentifier`** of the referenced Photos asset (device-local).
     var photosLocalIdentifier: String = ""
+    /// Cross-device Photos lookup string for Phase 3 (`PHCloudIdentifier` serialized). Empty until resolved.
+    var photosCloudIdentifier: String = ""
     /// User-confirmed Fishial scientific name for this media item (empty when unset).
     var fishialConfirmedSpeciesName: String = ""
     /// Low-res JPEG poster for instant UI (**`DiveMediaPreviewPersistence`**); full asset still loads from Photos.
@@ -27,8 +30,24 @@ final class DiveMediaPhoto {
     /// Denormalized for batch **`delete(model:where:)`**.
     var diveActivityID: UUID?
 
-    @Relationship(inverse: \DiveActivity.mediaPhotos)
+    @Relationship(inverse: \DiveActivity.mediaPhotosStorage)
     var dive: DiveActivity?
+
+    @Relationship
+    var mediaBuddyTagsStorage: [DiveMediaBuddyTag]? = []
+    @Transient
+    var mediaBuddyTags: [DiveMediaBuddyTag] {
+        get { mediaBuddyTagsStorage ?? [] }
+        set { mediaBuddyTagsStorage = newValue }
+    }
+
+    @Relationship
+    var marineLifeSightingsStorage: [SightingInstance]? = []
+    @Transient
+    var marineLifeSightings: [SightingInstance] {
+        get { marineLifeSightingsStorage ?? [] }
+        set { marineLifeSightingsStorage = newValue }
+    }
 
     init(
         id: UUID = UUID(),
@@ -36,6 +55,7 @@ final class DiveMediaPhoto {
         mediaKind: DiveMediaKind = .image,
         capturedAt: Date? = nil,
         photosLocalIdentifier: String = "",
+        photosCloudIdentifier: String = "",
         fishialConfirmedSpeciesName: String = "",
         previewJPEGData: Data? = nil,
         dive: DiveActivity? = nil
@@ -45,6 +65,7 @@ final class DiveMediaPhoto {
         self.mediaKind = mediaKind.rawValue
         self.capturedAt = capturedAt
         self.photosLocalIdentifier = photosLocalIdentifier
+        self.photosCloudIdentifier = photosCloudIdentifier
         self.fishialConfirmedSpeciesName = fishialConfirmedSpeciesName
         self.previewJPEGData = previewJPEGData
         self.diveActivityID = dive?.id

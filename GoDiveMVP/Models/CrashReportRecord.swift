@@ -8,16 +8,16 @@ import SwiftData
 @Model
 final class CrashReportRecord {
 
-    var id: UUID
-    var capturedAt: Date
+    var id: UUID = UUID()
+    var capturedAt: Date = Date()
     /// `CrashReport.Kind` raw value (**`metricKitCrash`** / **`abnormalExit`**).
-    var kindRaw: String
+    var kindRaw: String = ""
     /// Human-readable one-liner (signal / exception / heuristic explanation).
-    var reason: String
-    var appVersion: String
-    var osVersion: String
+    var reason: String = ""
+    var appVersion: String = ""
+    var osVersion: String = ""
     /// Full diagnostic body — MetricKit call-stack JSON or heuristic session details.
-    var details: String
+    var details: String = ""
     /// When the report was uploaded to the developer's CloudKit database; `nil` = not shared.
     var sharedToCloudAt: Date?
 

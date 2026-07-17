@@ -46,7 +46,7 @@ enum DiveActivityFieldEditing {
         case .entryCoordinate:
             return formatCoordinate(activity.entryCoordinate)
         case .linkedCatalogSite:
-            if let site = activity.diveSite {
+            if let site = activity.resolvedLinkedSite {
                 return site.siteName
             }
             return "Not linked"

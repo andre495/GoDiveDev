@@ -152,13 +152,13 @@ struct DiveActivityMediaAttachWindow: Equatable, Sendable {
     nonisolated static func resolvedTimeZone(for activity: DiveActivity, at referenceInstant: Date? = nil) -> TimeZone {
         let instant = referenceInstant ?? activity.startTime
 
-        if let site = activity.diveSite,
+        if let site = activity.resolvedLinkedSite,
            let identifier = normalizedTimeZoneIdentifier(site.timeZoneIdentifier),
            let timeZone = TimeZone(identifier: identifier) {
             return timeZone
         }
 
-        if let site = activity.diveSite,
+        if let site = activity.resolvedLinkedSite,
            let offset = DiveSiteTimeZoneResolution.offsetSeconds(for: site, at: instant),
            let timeZone = TimeZone(secondsFromGMT: offset) {
             return timeZone

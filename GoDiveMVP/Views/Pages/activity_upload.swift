@@ -37,6 +37,10 @@ struct ActivityUploadView: View {
 
     var body: some View {
         addActivityRoot
+            .onChange(of: importCreateDiveSitesFromImport) { _, _ in
+                guard let owner = accountSession.currentProfile else { return }
+                try? UserPreferencesSync.pushUserDefaultsToStore(owner: owner, modelContext: modelContext)
+            }
             .navigationDestination(isPresented: $showsFitImportOptions) {
                 fitImportOptionsDestination
             }
@@ -372,7 +376,9 @@ struct ActivityUploadView: View {
             modelContext: modelContext
         )
         if let id = outcome.primaryInsertedDiveId {
-            if case .newSite = input.siteSelection, let site = activity.diveSite {
+            if case .newSite = input.siteSelection,
+               let diveSiteID = activity.diveSiteID,
+               let site = try? DiveLinkedSiteResolver.existingUserDiveSite(id: diveSiteID, modelContext: modelContext) {
                 Task { @MainActor in
                     await DiveSiteTimeZoneResolution.ensureResolved(
                         for: site,

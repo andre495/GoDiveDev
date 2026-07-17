@@ -76,8 +76,7 @@ enum HomeOverviewSnapshotSeeding {
             }
 
             for sighting in activity.marineLifeSightings {
-                let commonName = sighting.marineLife?.commonName
-                    ?? marineLifeCatalog.first(where: { $0.uuid == sighting.marineLifeUUID })?.commonName
+                let commonName = marineLifeCatalog.first(where: { $0.uuid == sighting.marineLifeUUID })?.commonName
                     ?? sighting.marineLifeUUID
                 sightingSeeds.append(
                     HomeOverviewSightingSeed(

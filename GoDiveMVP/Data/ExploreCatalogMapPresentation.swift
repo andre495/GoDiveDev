@@ -49,6 +49,21 @@ enum ExploreCatalogMapPresentation: Sendable {
         }
     }
 
+    nonisolated static func plottableSites(from userSites: [UserDiveSite]) -> [PlottedSite] {
+        userSites.compactMap { site in
+            guard let lat = site.latCoords, let lon = site.longCoords else { return nil }
+            let coordinate = DiveCoordinate(latitude: lat, longitude: lon)
+            guard DiveMapCoordinateResolver.isUsable(coordinate) else { return nil }
+            return PlottedSite(
+                id: site.id,
+                siteName: site.siteName,
+                coordinate: coordinate,
+                selection: .catalog(site.id),
+                isVisited: true
+            )
+        }
+    }
+
     /// Region that fits all plotted sites with padding; **`nil`** when empty (use default world view).
     nonisolated static func boundingRegion(for sites: [PlottedSite]) -> DiveLocationMapRegionSpec? {
         guard let first = sites.first else { return nil }

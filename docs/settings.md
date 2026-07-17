@@ -4,6 +4,8 @@ Open **Profile → Settings** (gear icon).
 
 Settings use compact rows with an **info** (ⓘ) button on some items for longer explanations in a popup.
 
+When you’re signed into **iCloud**, most Settings (units, default tank, renumber, auto-upload media, default diver weights, and bulk UDDF “create dive sites”) sync across **your** Apple devices with your dive log. **Share crash reports** stays on this device only.
+
 ## Display units
 
 ### Imperial units

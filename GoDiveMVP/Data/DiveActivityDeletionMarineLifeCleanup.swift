@@ -42,20 +42,26 @@ enum DiveActivityDeletionMarineLifeCleanup {
         var changed = false
         for record in records {
             if record.activitiesSightedOn.contains(diveID) {
-                record.activitiesSightedOn.removeAll { $0 == diveID }
+                var activities = record.activitiesSightedOn
+                activities.removeAll { $0 == diveID }
+                record.activitiesSightedOn = activities
                 changed = true
             }
 
             let mediaBefore = record.userTaggedMedia.count
-            record.userTaggedMedia.removeAll { mediaLinks.contains($0) }
-            if record.userTaggedMedia.count != mediaBefore {
+            var mediaLinksOnRecord = record.userTaggedMedia
+            mediaLinksOnRecord.removeAll { mediaLinks.contains($0) }
+            if mediaLinksOnRecord.count != mediaBefore {
+                record.userTaggedMedia = mediaLinksOnRecord
                 changed = true
             }
 
             if let diveSiteID,
                record.sitesSightedOn.contains(diveSiteID),
                !ownerStillHasDiveAtSite {
-                record.sitesSightedOn.removeAll { $0 == diveSiteID }
+                var sites = record.sitesSightedOn
+                sites.removeAll { $0 == diveSiteID }
+                record.sitesSightedOn = sites
                 changed = true
             }
         }

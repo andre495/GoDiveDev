@@ -8,21 +8,36 @@ enum DiveActivitySiteAssociation {
     }
 
     /// Tries to set **`diveSite`** / **`diveSiteID`** when not already linked.
-    static func applyBestMatch(to activity: DiveActivity, catalogSites: [DiveSite]) {
-        guard activity.diveSite == nil else { return }
+    static func applyBestMatch(
+        to activity: DiveActivity,
+        catalogSites: [DiveSite],
+        modelContext: ModelContext? = nil
+    ) {
+        guard activity.diveSiteID == nil else { return }
         guard let site = previewBestMatch(for: activity, catalogSites: catalogSites) else { return }
-        link(activity, to: site)
+        if let modelContext {
+            link(activity, to: site, modelContext: modelContext)
+        } else {
+            link(activity, to: site)
+        }
         let reference = DiveSiteReferenceCatalog.bundledReference()
         _ = DiveSiteCatalogMatcher.enrichCatalogSiteFromOpenDiveMapIfNeeded(
             site,
             catalogSites: catalogSites,
             reference: reference
         )
+        if let modelContext {
+            _ = ensureSyncedUserDiveSiteSnapshot(
+                of: site,
+                owner: activity.owner,
+                modelContext: modelContext
+            )
+        }
     }
 
     /// Same rules as **`applyBestMatch`**, without mutating **`diveSite`** (import datetime / timezone lookup).
     static func previewBestMatch(for activity: DiveActivity, catalogSites: [DiveSite]) -> DiveSite? {
-        guard activity.diveSite == nil else { return activity.diveSite }
+        guard activity.diveSiteID == nil else { return catalogSites.first { $0.id == activity.diveSiteID } }
 
         if let siteName = trimmedSiteName(activity.siteName) {
             let exactMatches = DiveMapCoordinateResolver.exactMatchingSites(forSiteName: siteName, in: catalogSites)
@@ -45,7 +60,7 @@ enum DiveActivitySiteAssociation {
         catalogSites: [DiveSite],
         reference: [DiveSiteReferenceSnapshot] = DiveSiteReferenceCatalog.bundledReference()
     ) -> DiveSite? {
-        guard activity.diveSite == nil else { return activity.diveSite }
+        guard activity.diveSiteID == nil else { return catalogSites.first { $0.id == activity.diveSiteID } }
         guard let match = bestOpenDiveMapReferenceMatch(for: activity, reference: reference) else { return nil }
         return DiveSiteCatalogMatcher.catalogSite(forReferenceID: match.snapshot.id, in: catalogSites)
     }
@@ -71,13 +86,57 @@ enum DiveActivitySiteAssociation {
     }
 
     static func link(_ activity: DiveActivity, to site: DiveSite) {
-        activity.diveSite = site
         activity.diveSiteID = site.id
+        activity.diveWaterType = site.resolvedWaterType
         DiveActivityDiverWeightDefaults.applyInheritedDefaults(to: activity)
     }
 
+    /// Links a dive to a catalog site and upserts a CloudKit-synced **`UserDiveSite`** snapshot.
+    static func link(_ activity: DiveActivity, to site: DiveSite, modelContext: ModelContext) {
+        link(activity, to: site)
+        _ = ensureSyncedUserDiveSiteSnapshot(
+            of: site,
+            owner: activity.owner,
+            modelContext: modelContext
+        )
+    }
+
+    static func link(_ activity: DiveActivity, to site: UserDiveSite) {
+        activity.diveSiteID = site.id
+        activity.diveWaterType = site.resolvedWaterType
+        DiveActivityDiverWeightDefaults.applyInheritedDefaults(to: activity)
+    }
+
+    /// Ensures an OpenDiveMap / catalog link has a user-store row that can sync with the dive.
+    @discardableResult
+    static func ensureSyncedUserDiveSiteSnapshot(
+        of catalogSite: DiveSite,
+        owner: UserProfile?,
+        modelContext: ModelContext
+    ) -> UserDiveSite {
+        if let existing = try? DiveLinkedSiteResolver.existingUserDiveSite(
+            id: catalogSite.id,
+            modelContext: modelContext
+        ) {
+            if existing.openDiveMapReferenceID == nil,
+               let referenceID = DiveSiteCatalogMatcher.referenceID(from: catalogSite.siteTags) {
+                existing.openDiveMapReferenceID = referenceID
+            }
+            if existing.catalogDiveSiteID == nil {
+                existing.catalogDiveSiteID = catalogSite.id
+            }
+            if existing.owner == nil, let owner {
+                existing.owner = owner
+                existing.ownerProfileID = owner.id
+            }
+            return existing
+        }
+        let snapshot = UserDiveSite.snapshot(from: catalogSite, owner: owner)
+        modelContext.insert(snapshot)
+        return snapshot
+    }
+
     static func unlink(_ activity: DiveActivity) {
-        activity.diveSite = nil
         activity.diveSiteID = nil
     }
 
@@ -93,8 +152,8 @@ enum DiveActivitySiteAssociation {
         var createdSiteCount = 0
         let reference = DiveSiteReferenceCatalog.bundledReference()
         for activity in activities {
-            applyBestMatch(to: activity, catalogSites: catalogSites)
-            guard activity.diveSite == nil else { continue }
+            applyBestMatch(to: activity, catalogSites: catalogSites, modelContext: modelContext)
+            guard activity.diveSiteID == nil else { continue }
             switch applyOpenDiveMapSiteLinkIfNeeded(
                 to: activity,
                 catalogSites: &catalogSites,
@@ -138,11 +197,11 @@ enum DiveActivitySiteAssociation {
         reference: [DiveSiteReferenceSnapshot] = DiveSiteReferenceCatalog.bundledReference(),
         createSiteWhenMissing: Bool = true
     ) -> OpenDiveMapSiteLinkOutcome {
-        guard activity.diveSite == nil else { return .noMatch }
+        guard activity.diveSiteID == nil else { return .noMatch }
         guard let match = bestOpenDiveMapReferenceMatch(for: activity, reference: reference) else { return .noMatch }
 
         if let site = DiveSiteCatalogMatcher.catalogSite(forReferenceID: match.snapshot.id, in: catalogSites) {
-            link(activity, to: site)
+            link(activity, to: site, modelContext: modelContext)
             return .linkedExisting
         }
         guard createSiteWhenMissing else { return .noMatch }
@@ -150,7 +209,7 @@ enum DiveActivitySiteAssociation {
         let site = DiveSiteCatalogMatcher.makeDiveSite(from: match.snapshot)
         modelContext.insert(site)
         catalogSites.append(site)
-        link(activity, to: site)
+        link(activity, to: site, modelContext: modelContext)
         return .createdAndLinked
     }
 
@@ -159,14 +218,19 @@ enum DiveActivitySiteAssociation {
     static func applyOpenDiveMapReferenceLinkIfNeeded(
         to activity: DiveActivity,
         catalogSites: [DiveSite],
+        modelContext: ModelContext? = nil,
         reference: [DiveSiteReferenceSnapshot] = DiveSiteReferenceCatalog.bundledReference()
     ) -> Bool {
-        guard activity.diveSite == nil else { return false }
+        guard activity.diveSiteID == nil else { return false }
         guard let match = bestOpenDiveMapReferenceMatch(for: activity, reference: reference) else { return false }
         guard let site = DiveSiteCatalogMatcher.catalogSite(forReferenceID: match.snapshot.id, in: catalogSites) else {
             return false
         }
-        link(activity, to: site)
+        if let modelContext {
+            link(activity, to: site, modelContext: modelContext)
+        } else {
+            link(activity, to: site)
+        }
         return true
     }
 
@@ -193,7 +257,7 @@ enum DiveActivitySiteAssociation {
         }
     }
 
-    /// Creates a catalog **`DiveSite`** when the dive has an import **`siteName`** with no exact catalog match.
+    /// Creates a user-owned **`UserDiveSite`** when the dive has an import **`siteName`** with no exact catalog match.
     @MainActor
     @discardableResult
     static func createSiteForImportNameIfNeeded(
@@ -201,7 +265,7 @@ enum DiveActivitySiteAssociation {
         catalogSites: inout [DiveSite],
         modelContext: ModelContext
     ) -> Bool {
-        guard activity.diveSite == nil else { return false }
+        guard activity.diveSiteID == nil else { return false }
         guard let siteName = trimmedSiteName(activity.siteName) else { return false }
         guard DiveMapCoordinateResolver.exactMatchingSites(forSiteName: siteName, in: catalogSites).isEmpty else {
             return false
@@ -210,16 +274,16 @@ enum DiveActivitySiteAssociation {
         let places = DiveImportedLocationParsing.placeFields(fromLocationName: activity.locationName)
         let lat = activity.entryCoordinate.flatMap { DiveMapCoordinateResolver.isUsable($0) ? $0.latitude : nil }
         let lon = activity.entryCoordinate.flatMap { DiveMapCoordinateResolver.isUsable($0) ? $0.longitude : nil }
-        let site = DiveSite(
+        let site = UserDiveSite(
             siteName: siteName,
             country: DiveSiteFormValidation.sanitizedPlaceField(places.country),
             region: DiveSiteFormValidation.sanitizedPlaceField(places.region),
             latCoords: lat,
             longCoords: lon,
-            waterType: .saltwater
+            waterType: .saltwater,
+            owner: activity.owner
         )
         modelContext.insert(site)
-        catalogSites.append(site)
         link(activity, to: site)
         return true
     }
@@ -249,7 +313,7 @@ enum DiveActivitySiteAssociation {
         )
     }
 
-    /// Inserts a catalog **`DiveSite`** without linking a dive.
+    /// Inserts a user-owned **`UserDiveSite`** without linking a dive (Explore add).
     @discardableResult
     static func createCatalogSite(
         siteName: String,
@@ -259,17 +323,19 @@ enum DiveActivitySiteAssociation {
         latCoords: Double?,
         longCoords: Double?,
         waterType: DiveWaterType = .saltwater,
+        owner: UserProfile? = nil,
         modelContext: ModelContext,
         persistImmediately: Bool = true
-    ) throws -> DiveSite {
-        let site = DiveSite(
+    ) throws -> UserDiveSite {
+        let site = UserDiveSite(
             siteName: siteName,
             country: DiveSiteFormValidation.sanitizedPlaceField(country),
             region: DiveSiteFormValidation.sanitizedPlaceField(region),
             bodyOfWater: DiveSiteFormValidation.sanitizedPlaceField(bodyOfWater),
             latCoords: latCoords,
             longCoords: longCoords,
-            waterType: waterType
+            waterType: waterType,
+            owner: owner
         )
         modelContext.insert(site)
         if persistImmediately {
@@ -278,7 +344,7 @@ enum DiveActivitySiteAssociation {
         return site
     }
 
-    /// Inserts a catalog **`DiveSite`** and links **`activity`** to it.
+    /// Inserts a user-owned **`UserDiveSite`** and links **`activity`** to it.
     @discardableResult
     static func createSiteAndLink(
         to activity: DiveActivity,
@@ -291,7 +357,7 @@ enum DiveActivitySiteAssociation {
         waterType: DiveWaterType = .saltwater,
         modelContext: ModelContext,
         persistImmediately: Bool = true
-    ) throws -> DiveSite {
+    ) throws -> UserDiveSite {
         let site = try createCatalogSite(
             siteName: siteName,
             country: country,
@@ -300,6 +366,7 @@ enum DiveActivitySiteAssociation {
             latCoords: latCoords,
             longCoords: longCoords,
             waterType: waterType,
+            owner: activity.owner,
             modelContext: modelContext,
             persistImmediately: false
         )
@@ -317,6 +384,25 @@ enum DiveActivitySiteAssociation {
         draft: DiveSiteFormDraft,
         modelContext: ModelContext,
         persistImmediately: Bool = true
+    ) throws {
+        try applySiteEdits(to: site, draft: draft, modelContext: modelContext, persistImmediately: persistImmediately)
+    }
+
+    /// Applies **`DiveSiteFormDraft`** fields onto a user-owned **`UserDiveSite`**.
+    static func applyUserSiteEdits(
+        to site: UserDiveSite,
+        draft: DiveSiteFormDraft,
+        modelContext: ModelContext,
+        persistImmediately: Bool = true
+    ) throws {
+        try applySiteEdits(to: site, draft: draft, modelContext: modelContext, persistImmediately: persistImmediately)
+    }
+
+    private static func applySiteEdits(
+        to site: DiveSite,
+        draft: DiveSiteFormDraft,
+        modelContext: ModelContext,
+        persistImmediately: Bool
     ) throws {
         guard let siteName = DiveSiteFormValidation.sanitizedSiteName(draft.siteName) else {
             throw DiveActivitySiteAssociationError.missingSiteName
@@ -352,6 +438,54 @@ enum DiveActivitySiteAssociation {
             site.timeZoneIdentifier = nil
             site.timeZoneOffsetSeconds = nil
         }
+        site.refreshOwnershipFromSiteTags()
+
+        if persistImmediately {
+            try modelContext.save()
+        }
+    }
+
+    private static func applySiteEdits(
+        to site: UserDiveSite,
+        draft: DiveSiteFormDraft,
+        modelContext: ModelContext,
+        persistImmediately: Bool
+    ) throws {
+        guard let siteName = DiveSiteFormValidation.sanitizedSiteName(draft.siteName) else {
+            throw DiveActivitySiteAssociationError.missingSiteName
+        }
+
+        let previousLat = site.latCoords
+        let previousLon = site.longCoords
+        let parsed = DiveSiteFormValidation.parsedCoordinate(
+            latitudeText: draft.latitudeText,
+            longitudeText: draft.longitudeText
+        )
+
+        site.siteName = siteName
+        site.country = DiveSiteFormValidation.sanitizedPlaceField(draft.country)
+        site.region = DiveSiteFormValidation.sanitizedPlaceField(draft.region)
+        site.bodyOfWater = DiveSiteFormValidation.sanitizedPlaceField(draft.bodyOfWater)
+        site.waterType = draft.waterType
+        site.entry = DiveSiteFormValidation.sanitizedPlaceField(draft.entry)
+        site.environment = DiveSiteFormValidation.sanitizedPlaceField(draft.environment)
+        switch DiveSiteFormValidation.parsedOptionalMaxDepthMeters(draft.maxDepthMetersText) {
+        case .none:
+            site.maxDepthMeters = nil
+        case .value(let meters):
+            site.maxDepthMeters = meters
+        case .invalid:
+            throw DiveActivitySiteAssociationError.invalidMaxDepth
+        }
+        site.latCoords = parsed?.latitude
+        site.longCoords = parsed?.longitude
+
+        let coordsChanged = site.latCoords != previousLat || site.longCoords != previousLon
+        if coordsChanged, parsed == nil {
+            site.timeZoneIdentifier = nil
+            site.timeZoneOffsetSeconds = nil
+        }
+        site.updatedAt = Date()
 
         if persistImmediately {
             try modelContext.save()
@@ -369,11 +503,13 @@ extension DiveActivitySiteAssociation {
         let linkedActivityCount: Int
         let createdSiteCount: Int
         let enrichedSiteCount: Int
+        let hydratedUserSiteCount: Int
 
         static let empty = OpenDiveMapSiteBackfillResult(
             linkedActivityCount: 0,
             createdSiteCount: 0,
-            enrichedSiteCount: 0
+            enrichedSiteCount: 0,
+            hydratedUserSiteCount: 0
         )
     }
 
@@ -399,7 +535,7 @@ extension DiveActivitySiteAssociation {
 
         var linkedActivityCount = 0
         var createdSiteCount = 0
-        for activity in activities where activity.diveSite == nil {
+        for activity in activities where activity.diveSiteID == nil {
             switch applyOpenDiveMapSiteLinkIfNeeded(
                 to: activity,
                 catalogSites: &catalogSites,
@@ -417,15 +553,99 @@ extension DiveActivitySiteAssociation {
             }
         }
 
-        if linkedActivityCount > 0 || createdSiteCount > 0 || enrichedSiteCount > 0 {
+        let hydratedUserSiteCount = try hydrateSyncedUserDiveSitesForLinkedDives(
+            modelContext: modelContext,
+            catalogSites: catalogSites,
+            reference: reference
+        )
+
+        if linkedActivityCount > 0 || createdSiteCount > 0 || enrichedSiteCount > 0 || hydratedUserSiteCount > 0 {
             try modelContext.save()
         }
 
         return OpenDiveMapSiteBackfillResult(
             linkedActivityCount: linkedActivityCount,
             createdSiteCount: createdSiteCount,
-            enrichedSiteCount: enrichedSiteCount
+            enrichedSiteCount: enrichedSiteCount,
+            hydratedUserSiteCount: hydratedUserSiteCount
         )
+    }
+
+    /// Ensures every dive-linked site id has a CloudKit-synced **`UserDiveSite`** (catalog snapshot or OpenDiveMap rematch).
+    ///
+    /// Heals CloudKit restore / second-device installs where **`DiveActivity.diveSiteID`** survived but the
+    /// local-only catalog **`DiveSite`** did not.
+    @MainActor
+    @discardableResult
+    static func hydrateSyncedUserDiveSitesForLinkedDives(
+        modelContext: ModelContext,
+        catalogSites: [DiveSite]? = nil,
+        reference: [DiveSiteReferenceSnapshot] = DiveSiteReferenceCatalog.bundledReference()
+    ) throws -> Int {
+        let activities = try modelContext.fetch(FetchDescriptor<DiveActivity>())
+        let existingUserSites = try modelContext.fetch(FetchDescriptor<UserDiveSite>())
+        var userByID: [UUID: UserDiveSite] = [:]
+        for site in existingUserSites {
+            userByID[site.id] = site
+        }
+        var catalog = try catalogSites ?? fetchCatalogSites(modelContext: modelContext)
+        var catalogByID: [UUID: DiveSite] = [:]
+        for site in catalog {
+            catalogByID[site.id] = site
+        }
+        var created = 0
+
+        for activity in activities {
+            guard let siteID = activity.diveSiteID else { continue }
+            if userByID[siteID] != nil { continue }
+
+            if let catalogSite = catalogByID[siteID] {
+                let snapshot = ensureSyncedUserDiveSiteSnapshot(
+                    of: catalogSite,
+                    owner: activity.owner,
+                    modelContext: modelContext
+                )
+                userByID[siteID] = snapshot
+                created += 1
+                continue
+            }
+
+            guard let match = bestOpenDiveMapReferenceMatch(for: activity, reference: reference) else {
+                continue
+            }
+
+            if let tagged = DiveSiteCatalogMatcher.catalogSite(
+                forReferenceID: match.snapshot.id,
+                in: catalog
+            ) {
+                // Dive still points at an orphan UUID; retarget to the existing tagged catalog row + snapshot.
+                link(activity, to: tagged, modelContext: modelContext)
+                if userByID[tagged.id] == nil {
+                    created += 1
+                }
+                userByID[tagged.id] = try? DiveLinkedSiteResolver.existingUserDiveSite(
+                    id: tagged.id,
+                    modelContext: modelContext
+                )
+                continue
+            }
+
+            let userSnapshot = UserDiveSite.snapshot(
+                from: match.snapshot,
+                id: siteID,
+                owner: activity.owner
+            )
+            modelContext.insert(userSnapshot)
+            userByID[siteID] = userSnapshot
+
+            let catalogSite = DiveSiteCatalogMatcher.makeDiveSite(from: match.snapshot, id: siteID)
+            modelContext.insert(catalogSite)
+            catalog.append(catalogSite)
+            catalogByID[siteID] = catalogSite
+            created += 1
+        }
+
+        return created
     }
 
     /// Trims or backfills **`siteName`** on OpenDiveMap-tagged catalog rows (idempotent).

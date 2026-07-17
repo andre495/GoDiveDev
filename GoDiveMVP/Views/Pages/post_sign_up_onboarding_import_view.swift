@@ -4,6 +4,7 @@ import SwiftUI
 /// Post-sign-up UDDF import — options page, optional MacDive guide, file picker; no back; **Skip** → celebration.
 struct PostSignUpOnboardingImportView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(AccountSession.self) private var accountSession
 
     let onComplete: (_ followsBulkImport: Bool) -> Void
 
@@ -33,6 +34,10 @@ struct PostSignUpOnboardingImportView: View {
                     onSkip: onboardingSkipAction
                 )
                 .accessibilityIdentifier(PostSignUpOnboardingImportPresentation.optionsAccessibilityIdentifier)
+                .onChange(of: importCreateDiveSitesFromImport) { _, _ in
+                    guard let owner = accountSession.currentProfile else { return }
+                    try? UserPreferencesSync.pushUserDefaultsToStore(owner: owner, modelContext: modelContext)
+                }
                 .navigationDestination(isPresented: $showsMacDiveGuide) {
                     MacDiveUddfImportGuideView(
                         onChooseFile: requestFileImporter,

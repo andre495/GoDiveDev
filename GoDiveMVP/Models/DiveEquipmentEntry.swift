@@ -5,17 +5,17 @@ import SwiftData
 @Model
 final class DiveEquipmentEntry {
 
-    var id: UUID
+    var id: UUID = UUID()
 
     /// Denormalized for lookups; kept in sync with **`equipment`**.
-    var equipmentItemID: UUID
+    var equipmentItemID: UUID = UUID()
     /// Denormalized for lookups; kept in sync with **`equipmentList.dive`**.
-    var diveActivityID: UUID
+    var diveActivityID: UUID = UUID()
 
-    @Relationship(inverse: \DiveActivityEquipmentList.entries)
+    @Relationship(inverse: \DiveActivityEquipmentList.entriesStorage)
     var equipmentList: DiveActivityEquipmentList?
 
-    @Relationship(inverse: \EquipmentItem.diveEquipmentEntries)
+    @Relationship(inverse: \EquipmentItem.diveEquipmentEntriesStorage)
     var equipment: EquipmentItem?
 
     init(

@@ -87,7 +87,7 @@ struct TripAddSheetView: View {
             return
         }
 
-        let trip = form.makeDiveTrip(plannedSites: [])
+        let trip = form.makeDiveTrip()
         DiveTripOwnership.assignOwner(profile, to: trip)
         modelContext.insert(trip)
 

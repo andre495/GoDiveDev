@@ -5,7 +5,7 @@ import SwiftData
 @Model
 final class DiveBuddyTag {
 
-    var id: UUID
+    var id: UUID = UUID()
 
     /// Denormalized for batch **`delete(model:where:)`**.
     var diveActivityID: UUID?
@@ -13,10 +13,10 @@ final class DiveBuddyTag {
     /// Denormalized for batch deletes / predicates.
     var buddyID: UUID?
 
-    @Relationship(inverse: \DiveActivity.buddies)
+    @Relationship(inverse: \DiveActivity.buddiesStorage)
     var dive: DiveActivity?
 
-    @Relationship(inverse: \DiveBuddy.diveParticipations)
+    @Relationship(inverse: \DiveBuddy.diveParticipationsStorage)
     var buddy: DiveBuddy?
 
     /// Migrated from pre–**`DiveBuddy`** tags; cleared after **`DiveBuddyLegacyMigration`**.
