@@ -2943,7 +2943,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`marine_life_sample.json`** **`feature_model`** on matching catalog UUIDs (gray angelfish → juvenile row; porcupine fish → **Porcupinefish**).
 - Seeder test **`marineLifeCatalogSeeder_seedsNineAdditionalFeatureModels`**.
 
-## 111 - Next batch
+## 111 - Next batch **(pushed)**
 
 **Summary:** Empty Media hero — pin **Upload Media** CTA below the animation.
 
@@ -2983,4 +2983,6 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Reset now defers **`loopingPagerResetDelaySeconds` (0.6 s)** after landing on the duplicate, re-verifies the pager is still there, then snaps without animation; cancelled if the user swipes away first or the carousel disappears. Advance animation length moved to **`slideAdvanceAnimationSeconds`**.
 - Test: delay outlasts the wrap animation (in **`homeMediaCarouselPresentation_nextIndex_wrapsAndRequiresMultipleSlides`**).
 - **`AvatarKind`** — explicit **`nonisolated`** **`Equatable`** for Swift Testing **`#expect`** (clears Swift 6 main-actor warnings).
+
+## 112 - Next batch
 
