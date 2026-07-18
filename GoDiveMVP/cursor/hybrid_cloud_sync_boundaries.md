@@ -1,25 +1,33 @@
 # Hybrid Cloud Sync Boundaries
 
-Phase 0 source of truth for the `feature/icloud-hybrid-sync` branch.
+Source of truth for the hybrid architecture on `feature/icloud-hybrid-sync` (Phases **1–4b** + **friends-ready v1** are **implemented**).
 
-Goal: adopt the Apple-native hybrid strategy without changing runtime sync yet. User-generated rows will eventually sync through the user's iCloud private database; app-provided catalog content will stay developer-owned and refresh from a platform-agnostic CDN; media bytes stay in the user's Photos / iCloud Photos library by default.
+**Goal:** Apple-native hybrid strategy. User-generated rows sync through the user’s **iCloud private CloudKit** database; app-provided catalog content stays developer-owned and refreshes from a **Firebase** CDN; media bytes stay in the user’s Photos / iCloud Photos library by default; a **Firebase Auth + Firestore** social directory is friends-ready (no dive data in Firebase).
 
 ## Current Decision
 
-| Layer | Local store | Cloud owner | Phase |
-|-------|-------------|-------------|-------|
-| User-generated dive log data | SwiftData user store | User iCloud private database | Phase 2 |
-| Media bytes | Photos library | User iCloud Photos | Phase 3 |
-| Media pointers / previews | SwiftData user store | User iCloud private database | Phase 3 |
-| App catalogs | Local catalog cache | GoDive CDN | Phase 4 |
-| Crash reports | Local diagnostics rows | GoDive CloudKit public database (opt-in) | Existing |
+| Layer | Local store | Cloud owner | Status |
+|-------|-------------|-------------|--------|
+| User-generated dive log data | SwiftData user store | User iCloud private database (**CloudKit**) | **Phase 2 — live** |
+| Media bytes | Photos library | User iCloud Photos | **Phase 3 — live** (bytes never in CloudKit) |
+| Media pointers / previews | SwiftData user store | User iCloud private database (**CloudKit**) | **Phase 3 — live** |
+| App catalogs | Local catalog cache | GoDive CDN (**Firebase Hosting / Storage**) | **Phase 4 / 4b — live** (optional secrets) |
+| Social directory (friends-ready) | Firestore `users/{uid}` | **Firebase Auth + Firestore** | **Friends-ready v1 — live** |
+| Crash reports | Local diagnostics rows | GoDive CloudKit **public** database (opt-in) | Existing |
+
+### Highlighted dependencies
+
+| Stack | Role |
+|-------|------|
+| **Apple CloudKit** | Dive-log sync (private) + opt-in crash upload (public). Entitlement container **`iCloud.PrimoSoftware.GoDiveMVP`**. |
+| **Firebase** (SPM: **Core**, **Auth**, **Firestore**, **Storage**; Hosting/Storage for CDN) | Social directory (display name, interests, avatar) + developer catalog CDN. **Never** stores the dive log. |
 
 Option A is the chosen approach:
 
-- Use **SwiftData + CloudKit private** for user-owned structured data.
+- Use **SwiftData + CloudKit private** for user-owned structured data (dive log).
 - Use **PhotoKit / iCloud Photos** for media storage; sync identifiers and small previews, not full media copies.
 - Use **CDN manifests** for app-owned catalogs and heavy reference assets (**Firebase Storage + Hosting**).
-- Defer Firebase / Supabase **user-sync** adapters until Android is an active product commitment (Firebase is OK for the developer catalog CDN).
+- Use **Firebase Auth + Firestore** only as a **social directory** (display name + stable Firebase UID for future friends) — **not** as dive-log sync. Dive data stays on CloudKit / SwiftData.
 
 ## Store Split
 
@@ -100,12 +108,33 @@ Phase 4 app-owned catalog refresh uses a **Firebase Hosting** CDN (HTTPS manifes
 - Assets may use content-addressed immutable URLs later (Phase 4b); manifests use short cache TTL.
 - Local cache upserts by stable catalog IDs and prunes removed reference rows while preserving user-created rows and user overlays.
 - Android can reuse this catalog API unchanged later.
-- Do **not** put user dive data or media bytes in Firebase — Firebase is developer catalog CDN only.
+- Do **not** put user dive data or media bytes in Firebase Hosting/Storage — those stay CDN-only for catalogs.
 - Dive site / OpenDiveMap CDN and photo/USDZ CDN are **Phase 4b** (implemented: ODM reference cache + Storage asset URLs; bundled assets remain offline-first).
+
+## Social directory (Firebase Auth + Firestore)
+
+Friends-ready v1 — setup notes in **`cursor/firebase_user_profiles.md`**.
+
+| Doc | Path | Access |
+|-----|------|--------|
+| Public profile | `users/{firebaseUid}` | Signed-in read; owner write |
+| Private Apple link | `users/{firebaseUid}/private/account` | Owner read/write only |
+
+Public fields: `displayName`, `handle` (reserved, empty), `photoURL` (Storage download URL after signup photo), `interests` (`Scuba Diving` / `Free Diving` / `Snorkeling`), `discoverable` (default `true`), `createdAt` / `updatedAt`, `schemaVersion` (= 2).  
+Private fields: `appleUserIdentifier` (links to CloudKit `UserProfile`; never on public reads).
+
+- Sign in with Apple still drives **`AccountSession`** / CloudKit `UserProfile`.
+- Same Apple credential also signs into **Firebase Auth** (`identityToken` + nonce); soft-fail if Firebase is unavailable.
+- **New accounts:** Auth immediately; **defer** Firestore until post-sign-up **photo** step (upload avatar to Storage when present, then upsert with `photoURL` + `interests`). Returning accounts upsert on sign-in / launch.
+- **Delete account** (Settings): revoke Apple token via Firebase, delete Storage avatar + Firestore docs + Auth user, wipe local SwiftData user store (CloudKit mirrors deletes), clear returning-account hints, sign out (`GoDiveAccountDeletion`).
+- `ownerProfileID` for dive rows remains the CloudKit / SwiftData UUID — not the Firebase UID.
+- Deferred: friend requests / friendships collections, handle uniqueness UI.
 
 ## Conflict and Identity Rules
 
-- Treat Sign in with Apple `appleUserIdentifier` as the stable account key for GoDive profile lookup.
+- Treat Sign in with Apple `appleUserIdentifier` as the stable account key for GoDive profile lookup (CloudKit dive log).
+- Treat Firebase Auth UID as the stable key for the **social directory** only (`users/{uid}`).
+
 - After CloudKit import, **`UserProfileCloudKitIdentityMerge`** collapses duplicate profiles that share the same Apple ID and reassigns `ownerProfileID` rows to one canonical profile (avoids empty logbook after reinstall).
 - Treat CloudKit private database ownership as the sync boundary: one user's private data, across that user's Apple devices.
 - Do not support buddy-to-buddy shared editing in Phase 0-2. That requires a separate CloudKit Sharing / shared-database design.

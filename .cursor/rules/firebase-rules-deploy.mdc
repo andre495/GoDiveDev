@@ -1,0 +1,33 @@
+---
+description: Deploy Firebase Storage/Firestore rules when catalog-cdn rules change
+globs: catalog-cdn/**/*.rules
+alwaysApply: false
+---
+
+# Deploy Firebase rules when they change
+
+When you **create or edit** Firebase security rules under **`catalog-cdn/`** (`firestore.rules`, `storage.rules`, or both):
+
+1. **Deploy in the same turn** — do not leave rules only on disk. Push to project **`godive-1cff8`** from **`catalog-cdn/`**.
+
+```bash
+cd /Users/andrdugas/Desktop/GoDiveMVP/catalog-cdn
+# Storage only
+npx firebase-tools@latest deploy --only storage --project godive-1cff8
+# Firestore only
+npx firebase-tools@latest deploy --only firestore:rules --project godive-1cff8
+# Both
+npx firebase-tools@latest deploy --only firestore:rules,storage --project godive-1cff8
+```
+
+2. **Pick the right target(s)** — deploy only what changed (`storage` and/or `firestore:rules`). If both files changed in the same batch, deploy both.
+
+3. **Confirm success** — report Deploy complete (or the error). Do not assume Console was updated manually.
+
+4. **Docs** — if the rule behavior is user- or agent-facing, keep **`cursor/firebase_user_profiles.md`** in sync.
+
+## Do not
+
+- Ask the user to run deploy when you can run it with network / full permissions.
+- Skip deploy because “they can do it later.”
+- Deploy Hosting or unrelated Firebase targets unless the user asked.

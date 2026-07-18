@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Social directory — signed-in users can read public profiles; only owner writes.
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+
+      // Apple ID link — owner only (never returned by public profile reads).
+      match /private/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Deny everything else by default (no dive / catalog data here).
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -497,6 +497,7 @@ struct PostSignUpProfileSetupView: View {
 
     private func advanceAfterProfilePhotoSaved() {
         guard currentStep == .profilePhoto else { return }
+        accountSession.publishFirestoreSocialProfileAfterPhotoStep()
         guard stepIndex < steps.count - 1 else {
             onComplete()
             return
@@ -507,6 +508,9 @@ struct PostSignUpProfileSetupView: View {
     private func skipCurrentStep() {
         if currentStep == .certification {
             certificationFocusedField = nil
+        }
+        if currentStep == .profilePhoto {
+            accountSession.publishFirestoreSocialProfileAfterPhotoStep()
         }
         guard stepIndex < steps.count - 1 else {
             onComplete()

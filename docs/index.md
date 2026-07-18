@@ -25,13 +25,15 @@ GoDive opens to tabs at the bottom of the screen:
 
 Tap a tab again while you’re at the top of a list to scroll back to the top.
 
-## Data stays on your device
+## Data on your device (and iCloud)
 
-Your dive log, photos references, buddies, equipment, and certifications are stored locally on your iPhone using Apple’s on-device database. Sign in with Apple links your profile to your Apple ID on that device.
+Your dive log, photo references, buddies, equipment, and certifications are stored in GoDive’s on-device database. When you’re signed into **iCloud**, that dive log can sync across **your** Apple devices via **CloudKit**.
 
-Some optional features (fish identification, map tiles) may use the network — see [Privacy & data](privacy-and-data.md).
+**Sign in with Apple** links your profile to your Apple ID. A separate **Firebase** social directory (for future friends features) may store your display name — it does **not** hold your dive log.
 
-Bundled catalogs, 3D models, and import libraries are credited on [Acknowledgments & external resources](acknowledgments.md).
+Optional network features (maps, fish identification, catalog refresh) are described in [Privacy & data](privacy-and-data.md).
+
+Bundled catalogs, 3D models, SDKs, and cloud services are credited on [Acknowledgments & external resources](acknowledgments.md).
 
 ## Getting help in this guide
 

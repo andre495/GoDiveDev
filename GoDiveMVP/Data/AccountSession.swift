@@ -2,6 +2,7 @@ import AuthenticationServices
 import Foundation
 import SwiftData
 import SwiftUI
+import FirebaseAuth
 
 /// Current Sign in with Apple session and locally persisted **`UserProfile`**.
 @MainActor
@@ -64,6 +65,7 @@ final class AccountSession {
         }
 
         currentProfile = profile
+        ReturningAccountHints.remember(profile: profile)
 
         let container = modelContext.container
         let appleUserIdentifier = profile.appleUserIdentifier
@@ -90,33 +92,38 @@ final class AccountSession {
 
     func completeSignIn(
         credential: ASAuthorizationAppleIDCredential,
+        rawNonce: String? = nil,
         modelContext: ModelContext
     ) throws {
+        let appleUserID = credential.user
         let appleProvidedName = UserProfileStore.displayName(from: credential.fullName)
         if let appleProvidedName {
-            UserProfileStore.cacheDisplayName(appleProvidedName, forAppleUserIdentifier: credential.user)
+            UserProfileStore.cacheDisplayName(appleProvidedName, forAppleUserIdentifier: appleUserID)
         }
         let resolvedName = UserProfileStore.resolvedDisplayName(
             appleProvided: appleProvidedName,
-            appleUserIdentifier: credential.user
+            appleUserIdentifier: appleUserID
         )
-        let isNewAccount = try UserProfileStore.profile(
-            appleUserIdentifier: credential.user,
+
+        let existingBeforeSignIn = try resolveExistingProfile(
+            appleUserIdentifier: appleUserID,
             modelContext: modelContext
-        ) == nil
+        )
+        let profileDidExistLocally = existingBeforeSignIn != nil
+
         var profile = try UserProfileStore.findOrCreateProfile(
-            appleUserIdentifier: credential.user,
+            appleUserIdentifier: appleUserID,
             displayName: resolvedName,
             modelContext: modelContext
         )
         try UserProfileStore.applyDisplayNameFromApple(
             to: profile,
             appleProvided: appleProvidedName,
-            appleUserIdentifier: credential.user,
+            appleUserIdentifier: appleUserID,
             modelContext: modelContext
         )
         let merge = try UserProfileCloudKitIdentityMerge.reconcile(
-            appleUserIdentifier: credential.user,
+            appleUserIdentifier: appleUserID,
             preferredSessionProfileID: profile.id,
             modelContext: modelContext
         )
@@ -133,10 +140,13 @@ final class AccountSession {
                 predicate: #Predicate<DiveActivity> { $0.ownerProfileID == profileID }
             )
         )
-        /// CloudKit may already have restored an account — don't treat that as a brand-new signup.
-        let treatAsNewAccount = isNewAccount
-            && merge.mergedDuplicateCount == 0
-            && ownedDiveCount == 0
+        /// CloudKit / prior device session — don't re-run brand-new signup chrome for returning Apple IDs.
+        let treatAsNewAccount = ReturningAccountHints.treatAsNewAccount(
+            profileDidExistLocally: profileDidExistLocally,
+            mergedDuplicateCount: merge.mergedDuplicateCount,
+            ownedDiveCount: ownedDiveCount,
+            appleUserIdentifier: appleUserID
+        )
 
         if let pendingSelection = UserOnboardingActivitySelection.loadPending() {
             try UserProfileStore.applyActivitySelection(
@@ -147,12 +157,46 @@ final class AccountSession {
             UserOnboardingActivitySelection.clearPending()
         }
 
+        try modelContext.save()
         persistSession(profile: profile)
         currentProfile = profile
         cachedSelfBuddyID = nil
         cachedSelfBuddyProfileID = nil
 
-        if PostSignUpProfileSetupPresentation.shouldPresentSetup(isNewAccount: treatAsNewAccount) {
+        let identityToken = credential.identityToken
+        let appleUserIdentifier = profile.appleUserIdentifier
+        let displayName = profile.displayName
+        let fullName = credential.fullName
+        let interests = GoDiveFirestoreUserProfileMapping.interests(
+            doesScubaDiving: profile.doesScubaDiving,
+            doesFreeDiving: profile.doesFreeDiving,
+            doesSnorkeling: profile.doesSnorkeling
+        )
+        let deferFirestoreUpsert = PostSignUpProfileSetupPresentation.shouldPresentSetup(
+            isNewAccount: treatAsNewAccount
+        )
+        Task(priority: .utility) {
+            let outcome = await GoDiveFirestoreUserProfileSync.syncAfterAppleSignIn(
+                identityToken: identityToken,
+                rawNonce: rawNonce,
+                fullName: fullName,
+                displayName: displayName,
+                appleUserIdentifier: appleUserIdentifier,
+                interests: interests,
+                deferProfileDocumentWrite: deferFirestoreUpsert
+            )
+            if case let .upserted(_, remoteDisplayName) = outcome {
+                await MainActor.run {
+                    AccountSession.shared.applyRemoteDisplayNameIfNeeded(
+                        profileID: profileID,
+                        remoteDisplayName: remoteDisplayName,
+                        modelContext: modelContext
+                    )
+                }
+            }
+        }
+
+        if deferFirestoreUpsert {
             showsPostSignUpProfileSetup = true
         } else if SignInCelebrationPresentation.shouldPresentCelebration() {
             showsSignInCelebration = true
@@ -162,6 +206,49 @@ final class AccountSession {
         } else if treatAsNewAccount {
             Task { await AppOnboardingPermissions.requestForNewAccount() }
         }
+    }
+
+    /// Local profile for this Apple ID, including the last signed-in row remembered across sign-out.
+    private func resolveExistingProfile(
+        appleUserIdentifier: String,
+        modelContext: ModelContext
+    ) throws -> UserProfile? {
+        if let existing = try UserProfileStore.profile(
+            appleUserIdentifier: appleUserIdentifier,
+            modelContext: modelContext
+        ) {
+            return existing
+        }
+        if let rememberedID = ReturningAccountHints.rememberedProfileID(
+            forAppleUserIdentifier: appleUserIdentifier
+        ),
+            let remembered = try UserProfileStore.profile(id: rememberedID, modelContext: modelContext),
+            remembered.appleUserIdentifier == appleUserIdentifier
+        {
+            return remembered
+        }
+        return nil
+    }
+
+    /// Applies a Firestore / remote display name when the local profile is still the placeholder.
+    func applyRemoteDisplayNameIfNeeded(
+        profileID: UUID,
+        remoteDisplayName: String?,
+        modelContext: ModelContext
+    ) {
+        guard let live = try? UserProfileStore.profile(id: profileID, modelContext: modelContext) else {
+            return
+        }
+        let didApply = (try? UserProfileStore.applyRestoredDisplayNameIfNeeded(
+            to: live,
+            restoredName: remoteDisplayName,
+            modelContext: modelContext
+        )) ?? false
+        guard didApply else { return }
+        if currentProfile?.id == live.id {
+            currentProfile = live
+        }
+        ReturningAccountHints.remember(profile: live)
     }
 
     /// Re-runs Apple-ID profile merge after CloudKit import (or launch) and updates the session if needed.
@@ -212,6 +299,9 @@ final class AccountSession {
     /// Ends the post-sign-up profile wizard and shows permissions, then import offer or celebration.
     func completePostSignUpProfileSetup() {
         guard showsPostSignUpProfileSetup else { return }
+        if GoDiveFirestoreProfilePublishGate.isDeferredUntilPhotoStep() {
+            publishFirestoreSocialProfileAfterPhotoStep()
+        }
         withoutImplicitOverlayAnimation {
             showsPostSignUpProfileSetup = false
         }
@@ -219,6 +309,53 @@ final class AccountSession {
             showsPostSignUpPermissions = true
         } else {
             advanceAfterPostSignUpPermissions()
+        }
+    }
+
+    /// First Firestore social-directory write after the profile-photo step (or skip), including Storage avatar when present.
+    func publishFirestoreSocialProfileAfterPhotoStep() {
+        guard let profile = currentProfile else { return }
+        let displayName = profile.displayName
+        let appleUserIdentifier = profile.appleUserIdentifier
+        let interests = GoDiveFirestoreUserProfileMapping.interests(
+            doesScubaDiving: profile.doesScubaDiving,
+            doesFreeDiving: profile.doesFreeDiving,
+            doesSnorkeling: profile.doesSnorkeling
+        )
+        let photoJPEG = profile.profilePhoto
+        Task(priority: .utility) {
+            _ = await GoDiveFirestoreUserProfileSync.publishAfterProfilePhotoStep(
+                displayName: displayName,
+                appleUserIdentifier: appleUserIdentifier,
+                interests: interests,
+                profilePhotoJPEG: photoJPEG
+            )
+        }
+    }
+
+    /// Pushes display name and/or a new profile photo to Firestore / Storage after Profile edits.
+    /// No-ops while the post-sign-up photo-step deferral is still active (initial publish owns that write).
+    func pushFirestoreSocialProfileEdits(uploadPhoto: Bool) {
+        guard GoDiveFirestoreProfileEditSync.shouldSyncEdits(
+            isDeferredUntilPhotoStep: GoDiveFirestoreProfilePublishGate.isDeferredUntilPhotoStep()
+        ) else { return }
+        guard let profile = currentProfile else { return }
+        let displayName = profile.displayName
+        let appleUserIdentifier = profile.appleUserIdentifier
+        let interests = GoDiveFirestoreUserProfileMapping.interests(
+            doesScubaDiving: profile.doesScubaDiving,
+            doesFreeDiving: profile.doesFreeDiving,
+            doesSnorkeling: profile.doesSnorkeling
+        )
+        let photoJPEG = uploadPhoto ? profile.profilePhoto : nil
+        Task(priority: .utility) {
+            _ = await GoDiveFirestoreUserProfileSync.syncProfileEdits(
+                displayName: displayName,
+                appleUserIdentifier: appleUserIdentifier,
+                interests: interests,
+                profilePhotoJPEG: photoJPEG,
+                uploadPhoto: uploadPhoto
+            )
         }
     }
 
@@ -311,6 +448,11 @@ final class AccountSession {
         pendingNewAccountPermissions = false
         cachedSelfBuddyID = nil
         cachedSelfBuddyProfileID = nil
+        UserDefaults.standard.removeObject(forKey: GoDiveFirestoreUserProfileMapping.firebaseUIDDefaultsKey)
+        GoDiveFirestoreProfilePublishGate.clear()
+        if GoDiveFirebaseBootstrap.isConfigured {
+            try? Auth.auth().signOut()
+        }
     }
 
     /// Owner roster row for the signed-in diver — resolved once per profile per session.
@@ -341,6 +483,7 @@ final class AccountSession {
             profile.id.uuidString,
             forKey: AppLaunchSessionRestorePresentation.currentProfileIDUserDefaultsKey
         )
+        ReturningAccountHints.remember(profile: profile)
     }
 
     private func clearPersistedSession() {

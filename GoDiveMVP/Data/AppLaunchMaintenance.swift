@@ -32,6 +32,7 @@ enum AppLaunchMaintenance: Sendable {
             _ = DiveMediaReferencePruning.pruneMissingLibraryAssets(modelContext: context)
             #endif
             await AppSwiftDataDualStoreFactory.appendCloudKitAccountStatusDiagnostics()
+            await syncFirebaseSocialProfileIfNeeded(modelContext: context)
         } catch {
             #if DEBUG
             print("AppLaunchMaintenance failed: \(error)")
@@ -80,5 +81,27 @@ enum AppLaunchMaintenance: Sendable {
                 )
             }
         }
+    }
+
+    private static func syncFirebaseSocialProfileIfNeeded(modelContext: ModelContext) async {
+        guard
+            let profileID = AppLaunchSessionRestorePresentation.persistedProfileID(
+                storedUUIDString: UserDefaults.standard.string(
+                    forKey: AppLaunchSessionRestorePresentation.currentProfileIDUserDefaultsKey
+                )
+            ),
+            let profile = try? UserProfileStore.profile(id: profileID, modelContext: modelContext)
+        else {
+            return
+        }
+        _ = await GoDiveFirestoreUserProfileSync.syncIfAuthenticated(
+            displayName: profile.displayName,
+            appleUserIdentifier: profile.appleUserIdentifier,
+            interests: GoDiveFirestoreUserProfileMapping.interests(
+                doesScubaDiving: profile.doesScubaDiving,
+                doesFreeDiving: profile.doesFreeDiving,
+                doesSnorkeling: profile.doesSnorkeling
+            )
+        )
     }
 }

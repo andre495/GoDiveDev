@@ -3090,5 +3090,20 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - User custom sites stay CloudKit **`UserDiveSite`** only — no bulk SwiftData ODM seed.
 - Tests: manifest diveSites, disk cache prefer, photo disk resolve.
 
-## 117 - Next batch
+## 117 - Firebase user profiles (friends-ready)
+
+**Summary:** Firebase Auth (Sign in with Apple) + Firestore social directory (`users/{uid}` public + private Apple link) alongside CloudKit dive accounts — no dive data in Firebase.
+
+- SPM **FirebaseCore / Auth / Firestore**; gitignored **`GoogleService-Info.plist`** + example; **`GoDiveFirebaseBootstrap`**.
+- Apple sign-in also exchanges **`identityToken` + nonce** → Firebase Auth; soft-fail if unconfigured.
+- Upsert public profile + `private/account` on sign-in and launch; clear Auth on sign-out.
+- Firestore rules in **`catalog-cdn/firestore.rules`**; setup notes **`cursor/firebase_user_profiles.md`**.
+- Boundaries / app summary updated; mapping + nonce unit tests (no live Firebase in CI).
+- Fix CloudKit `remote-notification` background mode: merge **`GoDiveMVP/Info.plist`** array (build-setting string was not landing in the app Info.plist).
+- Returning Apple sign-in: **`ReturningAccountHints`** survive sign-out; skip new-account chrome; restore display name from cache / prior session / Firestore (avoid re-created **Diver** accounts).
+- **Delete account** (Settings): red button → are-you-sure alert → Sign in with Apple confirm sheet → **`GoDiveAccountDeletion`** revokes Apple token (Firebase), deletes Firestore social profile + Auth user, wipes local SwiftData user data (CloudKit syncs deletes), clears returning-account hints, signs out. Unit tests for local wipe + presentation copy.
+- Delete account is **disabled / grayed** when **`AppNetworkConnectivityMonitor`** reports offline (Firebase / Apple revoke require network); footnote explains why.
+- Docs: architecture + dependency highlights for **CloudKit** and **Firebase** in **`app_summary`**, **`hybrid_cloud_sync_boundaries`**, root **`README`**, and user guide (**`docs/`** privacy / acknowledgments / index / getting started).
+- Firebase signup: defer Firestore until post-sign-up **photo** step; upload avatar to **Storage** (`users/{uid}/profile.jpg`) when present; write **`interests`** array from onboarding; SPM **FirebaseStorage**; Storage rules; mapping **`schemaVersion` 2**.
+- Profile edits (display name / avatar) push to Firestore / Storage via **`AccountSession.pushFirestoreSocialProfileEdits`** (skips while signup photo deferral is active).
 

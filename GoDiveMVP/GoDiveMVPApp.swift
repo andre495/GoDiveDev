@@ -19,6 +19,8 @@ struct GoDiveMVPApp: App {
     @State private var productionContainer: ModelContainer?
 
     init() {
+        // Backup if App Delegate has not run yet; primary configure is in GoDiveGoogleMapsAppDelegate.
+        GoDiveFirebaseBootstrap.configureIfNeeded()
         AppUserSettings.registerDefaultValues()
         guard GoDiveUITestConfiguration.isActive else {
             AppModelContainer.beginLoadingProductionIfNeeded()

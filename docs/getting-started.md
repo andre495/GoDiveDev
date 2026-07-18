@@ -54,10 +54,12 @@ Returning visits while logged out start onboarding again from the welcome screen
 
 ## Sign in
 
-When you open GoDive after onboarding, sign in with **Sign in with Apple**. GoDive uses your Apple ID to keep your local profile tied to your account on this device.
+When you open GoDive after onboarding, sign in with **Sign in with Apple**. GoDive uses your Apple ID to keep your dive profile tied to your account.
 
 - If Apple provides your name once, GoDive uses it for your display name.
 - Otherwise your name starts as **Diver** — you can change it anytime from **Profile → Edit**.
+- On devices signed into **iCloud**, your dive log can sync across your Apple devices (**CloudKit**).
+- GoDive may also create a lightweight **Firebase** social profile (display name) for future friends features — that is separate from your dive log. See [Privacy & data](privacy-and-data.md).
 
 ### First-time welcome
 

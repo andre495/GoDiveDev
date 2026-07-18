@@ -1,6 +1,27 @@
 # GoDive
 
-GoDive is an iPhone dive log app built with SwiftUI and SwiftData.
+GoDive is an iPhone dive log app built with **SwiftUI** and **SwiftData**.
+
+## Architecture (hybrid cloud)
+
+GoDive is **local-first** with an Apple-native hybrid cloud split:
+
+| Layer | Technology | Holds |
+|-------|------------|--------|
+| **Dive log sync** | **Apple CloudKit** (private DB via SwiftData) | Dives, profile, trips, buddies, gear, certs, media pointers/previews, user sites/species, most Settings |
+| **Media bytes** | **Photos / iCloud Photos** | Full photos and videos (not uploaded to GoDive or CloudKit as full assets) |
+| **Social directory** | **Firebase Auth + Firestore + Storage** | Friends-ready profile (`users/{uid}` + avatar); **not** the dive log |
+| **App catalogs** | **Firebase Hosting / Storage** (optional CDN) + on-device cache | Marine Life + OpenDiveMap reference data |
+
+Developer docs: [`GoDiveMVP/cursor/app_summary.md`](GoDiveMVP/cursor/app_summary.md), [`GoDiveMVP/cursor/hybrid_cloud_sync_boundaries.md`](GoDiveMVP/cursor/hybrid_cloud_sync_boundaries.md), [`GoDiveMVP/cursor/firebase_user_profiles.md`](GoDiveMVP/cursor/firebase_user_profiles.md).
+
+### Notable dependencies
+
+- **CloudKit** — system framework + iCloud entitlement (`iCloud.PrimoSoftware.GoDiveMVP`)
+- **Firebase iOS SDK** (SPM) — `FirebaseCore`, `FirebaseAuth`, `FirebaseFirestore`, `FirebaseStorage`
+- **FITSwiftSDK**, **Google Maps SDK**, optional **Fishial.AI** — see app summary
+
+Secrets (gitignored): `GoogleService-Info.plist`, optional `CatalogCDNSecrets.plist`, `GoogleMapsSecrets.plist`, `FishialSecrets.plist`.
 
 ## User guide
 

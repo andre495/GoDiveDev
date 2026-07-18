@@ -51,6 +51,6 @@ npx firebase-tools@latest deploy --only hosting,storage --project godive-1cff8
 | User / My Sites | CloudKit `UserDiveSite` |
 | Photos / USDZ | Bundled first → disk cache → Storage URL |
 
-## Out of scope
+## Out of scope (this document)
 
-Firebase Auth / user profile stubs, App Store binary thinning (removing bundled assets), Android.
+App Store binary thinning (removing bundled assets), Android. Social profiles (Auth + Firestore) are documented in **`cursor/firebase_user_profiles.md`**.

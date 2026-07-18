@@ -38,6 +38,7 @@ GoDiveMVP/MockData/CaribbeanReefLife.pdf
 GoDiveMVP/Config/GoogleMapsSecrets.plist
 GoDiveMVP/Config/FishialSecrets.plist
 GoDiveMVP/Config/CatalogCDNSecrets.plist
+GoDiveMVP/Config/GoogleService-Info.plist
 
 # Local agent skills / Firebase CLI cache
 .agents/

@@ -667,6 +667,145 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func returningAccountHints_treatAsNewAccount_falseWhenPriorAppleSession() {
+        let suite = "returning-hints-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let appleID = "apple-return-1"
+        let profile = UserProfile(appleUserIdentifier: appleID, displayName: "Andre")
+        ReturningAccountHints.remember(profile: profile, userDefaults: defaults)
+
+        #expect(ReturningAccountHints.hasPriorSession(forAppleUserIdentifier: appleID, userDefaults: defaults))
+        #expect(
+            ReturningAccountHints.rememberedDisplayName(forAppleUserIdentifier: appleID, userDefaults: defaults)
+                == "Andre"
+        )
+        #expect(
+            !ReturningAccountHints.treatAsNewAccount(
+                profileDidExistLocally: false,
+                mergedDuplicateCount: 0,
+                ownedDiveCount: 0,
+                appleUserIdentifier: appleID,
+                userDefaults: defaults
+            )
+        )
+        #expect(
+            ReturningAccountHints.treatAsNewAccount(
+                profileDidExistLocally: false,
+                mergedDuplicateCount: 0,
+                ownedDiveCount: 0,
+                appleUserIdentifier: "different-apple",
+                userDefaults: defaults
+            )
+        )
+        #expect(
+            !ReturningAccountHints.treatAsNewAccount(
+                profileDidExistLocally: true,
+                mergedDuplicateCount: 0,
+                ownedDiveCount: 0,
+                appleUserIdentifier: "brand-new",
+                userDefaults: defaults
+            )
+        )
+    }
+
+    @Test func returningAccountHints_clearAll_removesPriorSession() {
+        let suite = "returning-hints-clear-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let appleID = "apple-clear-1"
+        let profile = UserProfile(appleUserIdentifier: appleID, displayName: "Andre")
+        ReturningAccountHints.remember(profile: profile, userDefaults: defaults)
+        #expect(ReturningAccountHints.hasPriorSession(forAppleUserIdentifier: appleID, userDefaults: defaults))
+
+        ReturningAccountHints.clearAll(userDefaults: defaults)
+
+        #expect(!ReturningAccountHints.hasPriorSession(forAppleUserIdentifier: appleID, userDefaults: defaults))
+        #expect(
+            ReturningAccountHints.rememberedDisplayName(forAppleUserIdentifier: appleID, userDefaults: defaults) == nil
+        )
+        #expect(
+            ReturningAccountHints.rememberedProfileID(forAppleUserIdentifier: appleID, userDefaults: defaults) == nil
+        )
+    }
+
+    @Test @MainActor
+    func goDiveAccountDeletion_deleteAllLocalUserData_removesOwnedRows() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let appleID = "apple-delete-\(UUID().uuidString)"
+        let profile = try UserProfileStore.findOrCreateProfile(
+            appleUserIdentifier: appleID,
+            displayName: "Delete Me",
+            modelContext: context
+        )
+        let ownerID = profile.id
+
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: .now,
+            durationMinutes: 30,
+            maxDepthMeters: 12
+        )
+        dive.ownerProfileID = ownerID
+        dive.owner = profile
+        context.insert(dive)
+
+        let tag = ActivityTag(
+            name: "Reef",
+            normalizedName: "reef",
+            ownerProfileID: ownerID
+        )
+        context.insert(tag)
+        try context.save()
+
+        try GoDiveAccountDeletion.deleteAllLocalUserData(ownerProfileID: ownerID, modelContext: context)
+
+        #expect(try UserProfileStore.profile(id: ownerID, modelContext: context) == nil)
+        #expect(try context.fetch(FetchDescriptor<DiveActivity>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<ActivityTag>()).isEmpty)
+    }
+
+    @Test func accountDeletionPresentation_copyIsDestructive() {
+        #expect(AccountDeletionPresentation.buttonTitle == "Delete account")
+        #expect(AccountDeletionPresentation.confirmButtonTitle == "Delete account")
+        #expect(AccountDeletionPresentation.confirmationTitle.contains("Delete"))
+        #expect(!AccountDeletionPresentation.confirmationMessage.isEmpty)
+        #expect(AccountDeletionPresentation.isDeleteAccountEnabled(isConnected: true))
+        #expect(!AccountDeletionPresentation.isDeleteAccountEnabled(isConnected: false))
+        #expect(!AccountDeletionPresentation.offlineDisabledMessage.isEmpty)
+    }
+
+    @Test @MainActor
+    func userProfileStore_applyRestoredDisplayNameIfNeeded_upgradesPlaceholderOnly() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let appleID = "apple-restore-\(UUID().uuidString)"
+        let profile = try UserProfileStore.findOrCreateProfile(
+            appleUserIdentifier: appleID,
+            displayName: nil,
+            modelContext: context
+        )
+        #expect(profile.displayName == UserProfileStore.defaultDisplayName)
+
+        #expect(
+            try UserProfileStore.applyRestoredDisplayNameIfNeeded(
+                to: profile,
+                restoredName: "Andre",
+                modelContext: context
+            )
+        )
+        #expect(profile.displayName == "Andre")
+        #expect(
+            !(try UserProfileStore.applyRestoredDisplayNameIfNeeded(
+                to: profile,
+                restoredName: "Someone Else",
+                modelContext: context
+            ))
+        )
+        #expect(profile.displayName == "Andre")
+    }
+
     @Test @MainActor
     func userProfileStore_applyDisplayNameFromApple_writesFreshFullName() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
@@ -6269,6 +6408,93 @@ struct GoDiveMVPTests {
         #expect(try context.fetch(FetchDescriptor<MarineLife>()).allSatisfy {
             !FieldGuideMarineLifeAddPresentation.isUserCreated(uuid: $0.uuid)
         })
+    }
+
+    @Test func firestoreUserProfileMapping_trimsAndBuildsPublicFields() {
+        let draft = GoDiveFirestoreUserProfileMapping.publicDraft(
+            displayName: "  Alex Diver  ",
+            handle: "  ",
+            photoURL: "  ",
+            interests: [" Scuba Diving ", "Scuba Diving", "  "],
+            discoverable: true
+        )
+        #expect(draft.displayName == "Alex Diver")
+        #expect(draft.handle == "")
+        #expect(draft.photoURL == "")
+        #expect(draft.interests == ["Scuba Diving"])
+        #expect(draft.discoverable == true)
+        #expect(draft.schemaVersion == GoDiveFirestoreUserProfileMapping.schemaVersion)
+
+        let fields = GoDiveFirestoreUserProfileMapping.publicFields(from: draft)
+        #expect(fields["displayName"] as? String == "Alex Diver")
+        #expect(fields["handle"] as? String == "")
+        #expect(fields["photoURL"] as? String == "")
+        #expect(fields["interests"] as? [String] == ["Scuba Diving"])
+        #expect(fields["discoverable"] as? Bool == true)
+        #expect(fields["schemaVersion"] as? Int == 2)
+        #expect(fields["createdAt"] == nil)
+        #expect(fields["updatedAt"] == nil)
+
+        let withoutPhoto = GoDiveFirestoreUserProfileMapping.publicFields(from: draft, includePhotoURL: false)
+        #expect(withoutPhoto["photoURL"] == nil)
+        #expect(withoutPhoto["interests"] as? [String] == ["Scuba Diving"])
+    }
+
+    @Test func firestoreUserProfileMapping_interestsFromActivityFlags() {
+        #expect(
+            GoDiveFirestoreUserProfileMapping.interests(
+                doesScubaDiving: true,
+                doesFreeDiving: false,
+                doesSnorkeling: true
+            ) == ["Scuba Diving", "Snorkeling"]
+        )
+        #expect(
+            GoDiveFirestoreUserProfileMapping.interests(
+                doesScubaDiving: false,
+                doesFreeDiving: true,
+                doesSnorkeling: false
+            ) == ["Free Diving"]
+        )
+        #expect(GoDiveFirebaseProfilePhotoStorage.objectPath(uid: "abc") == "users/abc/profile.jpg")
+        #expect(!GoDiveFirestoreProfilePublishGate.isDeferredUntilPhotoStep(userDefaults: UserDefaults(suiteName: "gate-test-\(UUID().uuidString)")!))
+    }
+
+    @Test func firestoreProfilePublishGate_defersUntilCleared() {
+        let suite = "firestore-gate-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        #expect(!GoDiveFirestoreProfilePublishGate.isDeferredUntilPhotoStep(userDefaults: defaults))
+        GoDiveFirestoreProfilePublishGate.markDeferredUntilPhotoStep(userDefaults: defaults)
+        #expect(GoDiveFirestoreProfilePublishGate.isDeferredUntilPhotoStep(userDefaults: defaults))
+        GoDiveFirestoreProfilePublishGate.clear(userDefaults: defaults)
+        #expect(!GoDiveFirestoreProfilePublishGate.isDeferredUntilPhotoStep(userDefaults: defaults))
+    }
+
+    @Test func firestoreProfileEditSync_skipsWhileSignupPhotoDeferred() {
+        #expect(GoDiveFirestoreProfileEditSync.shouldSyncEdits(isDeferredUntilPhotoStep: false))
+        #expect(!GoDiveFirestoreProfileEditSync.shouldSyncEdits(isDeferredUntilPhotoStep: true))
+    }
+
+    @Test func firestoreUserProfileMapping_buildsPrivateAppleLinkFields() {
+        let draft = GoDiveFirestoreUserProfileMapping.privateDraft(appleUserIdentifier: "  apple.id.123  ")
+        #expect(draft.appleUserIdentifier == "apple.id.123")
+        let fields = GoDiveFirestoreUserProfileMapping.privateFields(from: draft)
+        #expect(fields["appleUserIdentifier"] as? String == "apple.id.123")
+        #expect(GoDiveFirestoreUserProfileMapping.privateAccountDocumentID == "account")
+    }
+
+    @Test func firebaseAppleNonce_sha256IsDeterministicHex() {
+        let nonce = "GoDive-test-nonce-0123456789"
+        let hash = GoDiveFirebaseAppleNonce.sha256Nonce(nonce)
+        #expect(hash.count == 64)
+        #expect(hash == GoDiveFirebaseAppleNonce.sha256Nonce(nonce))
+        #expect(hash == hash.lowercased())
+        #expect(GoDiveFirebaseAppleNonce.sha256Nonce(nonce + "x") != hash)
+
+        let random = GoDiveFirebaseAppleNonce.randomNonce(length: 32)
+        #expect(random.count == 32)
+        let allowed = CharacterSet(charactersIn: "0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        #expect(random.unicodeScalars.allSatisfy { allowed.contains($0) })
     }
 
     @Test func catalogCDNManifestCodec_decodesV1Manifest() throws {
