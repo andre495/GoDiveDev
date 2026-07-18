@@ -1156,6 +1156,10 @@ private struct HomeMediaCarouselMediaView: View {
             await HomeMediaHighlightWarmup.ensureCarouselVideoReady(for: media)
             homeCarouselPlayerTick += 1
             #if canImport(UIKit) && canImport(AVFoundation)
+            _ = DiveMediaLibraryIdentifierRepair.resolveLocalIdentifierIfNeeded(
+                for: media,
+                modelContext: modelContext
+            )
             guard let identifier = media.libraryAssetLocalIdentifier else { return }
             // Soft-timeout races: PhotoKit may still deliver after ensure returns nil.
             if HomeCarouselVideoSessionCache.shared.player(forLibraryIdentifier: identifier) == nil {
@@ -1278,6 +1282,10 @@ private struct HomeMediaCarouselMediaView: View {
 
     #if canImport(UIKit)
     private func loadHeroImageIfNeeded(forceStillUpgradeAfterFailedVideo: Bool = false) async {
+        _ = DiveMediaLibraryIdentifierRepair.resolveLocalIdentifierIfNeeded(
+            for: media,
+            modelContext: modelContext
+        )
         let libraryIdentifier = media.libraryAssetLocalIdentifier
         let hadSessionHero = libraryIdentifier.map {
             HomeMediaHighlightSessionCache.shared.containsImage(
@@ -1333,6 +1341,9 @@ private struct HomeMediaCarouselMediaView: View {
                 outcome: .missingLibraryIdentifier,
                 hadDisplayedImage: resolvedHeroDisplayImage != nil
             )
+            if DiveMediaCloudIdentifierStorage.isPresent(media.photosCloudIdentifier) {
+                DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
+            }
             return
         }
 
@@ -1412,6 +1423,8 @@ private struct HomeMediaCarouselMediaView: View {
 
         if loadedImage != nil {
             heroImageLoadFinished = true
+            _ = DiveMediaLibraryIdentifierRepair.captureCloudIdentifierIfNeeded(for: media)
+            try? modelContext.save()
             HomeMediaCarouselDebug.loadTaskEnded(
                 index: slideIndex,
                 mediaID: media.id,

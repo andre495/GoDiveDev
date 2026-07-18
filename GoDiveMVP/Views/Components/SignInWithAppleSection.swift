@@ -11,11 +11,15 @@ struct SignInWithAppleSection: View {
     var buttonAccessibilityIdentifier = "SignIn.AppleButton"
 
     @State private var signInErrorMessage: String?
+    @State private var currentNonce: String?
 
     var body: some View {
         VStack(spacing: AppTheme.Spacing.md) {
             SignInWithAppleButton(.continue) { request in
+                let nonce = GoDiveFirebaseAppleNonce.randomNonce()
+                currentNonce = nonce
                 request.requestedScopes = [.fullName, .email]
+                request.nonce = GoDiveFirebaseAppleNonce.sha256Nonce(nonce)
             } onCompletion: { result in
                 handleSignInCompletion(result)
             }
@@ -41,7 +45,11 @@ struct SignInWithAppleSection: View {
                 return
             }
             do {
-                try accountSession.completeSignIn(credential: credential, modelContext: modelContext)
+                try accountSession.completeSignIn(
+                    credential: credential,
+                    rawNonce: currentNonce,
+                    modelContext: modelContext
+                )
             } catch {
                 signInErrorMessage = "Could not save your profile. Try again."
                 accountSession.recordSignInFailure(error)

@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 /// Map overview stat icons — top-level for **nonisolated** **`Equatable`** (Swift 6).
 enum DiveActivityMapOverviewStatIcon: Sendable, Equatable {
@@ -53,7 +54,7 @@ enum DiveActivityOverviewPresentation: Sendable {
         }
     }
 
-    nonisolated static func regionCountryLine(diveSite: DiveSite?) -> String? {
+    nonisolated static func regionCountryLine(diveSite: DiveLinkedSiteResolver.ResolvedSite?) -> String? {
         guard let diveSite else { return nil }
         return regionCountryLine(region: diveSite.region, country: diveSite.country)
     }
@@ -65,7 +66,7 @@ enum DiveActivityOverviewPresentation: Sendable {
 
     /// Linked catalog site first, then import **`locationName`**.
     nonisolated static func mapHeaderRegionCountryLine(
-        diveSite: DiveSite?,
+        diveSite: DiveLinkedSiteResolver.ResolvedSite?,
         locationName: String?
     ) -> String? {
         regionCountryLine(diveSite: diveSite) ?? regionCountryLine(locationName: locationName)

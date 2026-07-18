@@ -71,24 +71,22 @@ struct TripPlannedSitesListView: View {
         } else {
             AppScrollUnderHeaderList(listAccessibilityIdentifier: "TripPlannedSites.List") {
                 ForEach(siteListRows) { row in
-                    if let site = sortedSites.first(where: { $0.id == row.id }) {
-                        NavigationLink {
-                            ExploreDiveSiteDetailView(
-                                site: site,
-                                ownerProfileID: ownerProfileID,
-                                onOpenDive: onOpenDive
-                            )
-                        } label: {
-                            ExploreDiveSiteRow(data: row)
-                                .equatable()
-                        }
-                        .buttonStyle(.plain)
-                        .navigationLinkIndicatorVisibility(.hidden)
-                        .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                        .accessibilityIdentifier("TripPlannedSites.Row.\(row.id.uuidString)")
+                    NavigationLink {
+                        ExploreDiveSiteDetailHost(
+                            siteID: row.id,
+                            ownerProfileID: ownerProfileID,
+                            onOpenDive: onOpenDive
+                        )
+                    } label: {
+                        ExploreDiveSiteRow(data: row)
+                            .equatable()
                     }
+                    .buttonStyle(.plain)
+                    .navigationLinkIndicatorVisibility(.hidden)
+                    .listRowInsets(AppScrollUnderHeaderListLayout.horizontalRowInsets)
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .accessibilityIdentifier("TripPlannedSites.Row.\(row.id.uuidString)")
                 }
             }
             .scrollDismissesKeyboard(.interactively)

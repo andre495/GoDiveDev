@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 /// When a dive has location hints but no linked **`DiveSite`**, offers creating a catalog site from the map tab.
 enum DiveActivityMapSitePrompt {
@@ -7,7 +8,7 @@ enum DiveActivityMapSitePrompt {
 
     /// **`true`** when the dive is unlinked and has import **`entryCoordinate`** and/or **`siteName`**.
     nonisolated static func isEligible(for activity: DiveActivity) -> Bool {
-        activity.diveSite == nil && hasLocationHint(activity)
+        activity.diveSiteID == nil && hasLocationHint(activity)
     }
 
     nonisolated static func hasLocationHint(_ activity: DiveActivity) -> Bool {
@@ -33,7 +34,10 @@ enum DiveActivityMapSitePrompt {
     }
 
     /// Prepopulates the add/edit site sheet from import fields and optional linked **`catalogSite`**.
-    nonisolated static func draft(from activity: DiveActivity, catalogSite: DiveSite? = nil) -> DiveSiteFormDraft {
+    nonisolated static func draft(
+        from activity: DiveActivity,
+        catalogSite: DiveLinkedSiteResolver.ResolvedSite? = nil
+    ) -> DiveSiteFormDraft {
         let importedPlace = DiveImportedLocationParsing.placeFields(fromLocationName: activity.locationName)
 
         let siteName: String = {
@@ -69,7 +73,7 @@ enum DiveActivityMapSitePrompt {
         return trimmed.isEmpty ? nil : trimmed
     }
 
-    private nonisolated static func catalogCoordinate(_ site: DiveSite?) -> DiveCoordinate? {
+    private nonisolated static func catalogCoordinate(_ site: DiveLinkedSiteResolver.ResolvedSite?) -> DiveCoordinate? {
         guard let site else { return nil }
         return DiveMapCoordinateResolver.coordinate(from: site)
     }
@@ -107,6 +111,21 @@ struct DiveSiteFormDraft: Equatable, Sendable {
 
     /// Prefills the edit sheet from an existing catalog **`DiveSite`**.
     nonisolated init(from site: DiveSite) {
+        let coordinate = DiveMapCoordinateResolver.coordinate(from: site)
+        self.siteName = site.siteName
+        self.country = site.country
+        self.region = site.region
+        self.bodyOfWater = site.bodyOfWater
+        self.latitudeText = coordinate.map { String(format: "%.5f", $0.latitude) } ?? ""
+        self.longitudeText = coordinate.map { String(format: "%.5f", $0.longitude) } ?? ""
+        self.waterType = site.resolvedWaterType
+        self.entry = site.entry
+        self.environment = site.environment
+        self.maxDepthMetersText = site.maxDepthMeters.map(String.init) ?? ""
+    }
+
+    /// Prefills the edit sheet from a user-owned **`UserDiveSite`**.
+    nonisolated init(from site: UserDiveSite) {
         let coordinate = DiveMapCoordinateResolver.coordinate(from: site)
         self.siteName = site.siteName
         self.country = site.country

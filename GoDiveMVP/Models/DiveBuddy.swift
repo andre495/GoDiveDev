@@ -5,8 +5,8 @@ import SwiftData
 @Model
 final class DiveBuddy {
 
-    var id: UUID
-    var displayName: String
+    var id: UUID = UUID()
+    var displayName: String = ""
     /// Cached avatar bytes (JPEG/PNG from Contacts or Photos).
     var profilePhoto: Data?
     /// **`CNContact.identifier`** when linked from Contacts; used to refresh name/photo.
@@ -20,13 +20,28 @@ final class DiveBuddy {
     var owner: UserProfile?
 
     @Relationship(deleteRule: .cascade)
-    var diveParticipations: [DiveBuddyTag] = []
+    var diveParticipationsStorage: [DiveBuddyTag]? = []
+    @Transient
+    var diveParticipations: [DiveBuddyTag] {
+        get { diveParticipationsStorage ?? [] }
+        set { diveParticipationsStorage = newValue }
+    }
 
     @Relationship(deleteRule: .cascade)
-    var tripBuddyLinks: [DiveTripBuddyLink] = []
+    var tripBuddyLinksStorage: [DiveTripBuddyLink]? = []
+    @Transient
+    var tripBuddyLinks: [DiveTripBuddyLink] {
+        get { tripBuddyLinksStorage ?? [] }
+        set { tripBuddyLinksStorage = newValue }
+    }
 
     @Relationship(deleteRule: .cascade)
-    var mediaBuddyTags: [DiveMediaBuddyTag] = []
+    var mediaBuddyTagsStorage: [DiveMediaBuddyTag]? = []
+    @Transient
+    var mediaBuddyTags: [DiveMediaBuddyTag] {
+        get { mediaBuddyTagsStorage ?? [] }
+        set { mediaBuddyTagsStorage = newValue }
+    }
 
     init(
         id: UUID = UUID(),

@@ -192,6 +192,7 @@ private struct FieldGuideMarineLifeClearARHeroRepresentable: UIViewRepresentable
         var configuration: FieldGuideMarineLifeHeroSceneConfiguration
         var interactionState: FieldGuideMarineLifeHeroInteractionState
         private var loadedResourceName: String?
+        private var loadedRemoteURLString: String?
         private var updateSubscription: (any Cancellable)?
 
         init(
@@ -208,8 +209,10 @@ private struct FieldGuideMarineLifeClearARHeroRepresentable: UIViewRepresentable
 
         func reloadIfNeeded(in arView: ARView) {
             let resourceName = configuration.modelResourceName
-            guard loadedResourceName != resourceName else { return }
+            let remote = configuration.modelRemoteURLString
+            guard loadedResourceName != resourceName || loadedRemoteURLString != remote else { return }
             loadedResourceName = resourceName
+            loadedRemoteURLString = remote
             updateSubscription?.cancel()
             updateSubscription = nil
             for anchor in arView.scene.anchors {
@@ -221,13 +224,14 @@ private struct FieldGuideMarineLifeClearARHeroRepresentable: UIViewRepresentable
         }
 
         private func loadScene(into arView: ARView) async {
-            guard let url = FieldGuideMarineLifeHeroPresentation.bundledModelURL(
-                resourceName: configuration.modelResourceName
+            guard let url = await FieldGuideMarineLifeHeroPresentation.resolvedModelURL(
+                resourceName: configuration.modelResourceName,
+                remoteURLString: configuration.modelRemoteURLString
             ) else {
                 #if DEBUG
                 print(
                     "GoDive: Marine life USDZ missing for \(configuration.modelResourceName). " +
-                    "Expected Resources/MarineLife3D/\(configuration.modelResourceName).usdz in app bundle."
+                    "Expected Resources/MarineLife3D/\(configuration.modelResourceName).usdz or a Storage URL."
                 )
                 #endif
                 return

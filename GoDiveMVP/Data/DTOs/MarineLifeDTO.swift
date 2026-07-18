@@ -7,6 +7,7 @@ struct MarineLifeDTO: Decodable {
   let featureImage: String?
   let featureImageResource: String?
   let featureModel: String?
+  let featureModelURL: String?
   let scientificName: String?
   let category: String?
   let subcategory: String?
@@ -28,6 +29,7 @@ struct MarineLifeDTO: Decodable {
     case featureImage = "feature_image"
     case featureImageResource = "feature_image_resource"
     case featureModel = "feature_model"
+    case featureModelURL = "feature_model_url"
     case scientificName = "scientific_name"
     case category
     case subcategory
@@ -50,6 +52,7 @@ struct MarineLifeDTO: Decodable {
     featureImage: String? = nil,
     featureImageResource: String? = nil,
     featureModel: String? = nil,
+    featureModelURL: String? = nil,
     scientificName: String? = nil,
     category: String? = nil,
     subcategory: String? = nil,
@@ -70,6 +73,7 @@ struct MarineLifeDTO: Decodable {
     self.featureImage = featureImage
     self.featureImageResource = featureImageResource
     self.featureModel = featureModel
+    self.featureModelURL = featureModelURL
     self.scientificName = scientificName
     self.category = category
     self.subcategory = subcategory

@@ -129,17 +129,11 @@ struct ActivityTagDetailView: View {
             }
         }
         .navigationDestination(item: $tagSiteNavigationID) { siteID in
-            if let site = TripDetailDiveSiteNavigation.resolvedSite(
+            ExploreDiveSiteDetailHost(
                 siteID: siteID,
-                plannedSites: [],
-                catalogSites: contentSnapshot.catalogSites
-            ) {
-                ExploreDiveSiteDetailView(
-                    site: site,
-                    ownerProfileID: ownerProfileID,
-                    onOpenDive: openTaggedDive
-                )
-            }
+                ownerProfileID: ownerProfileID,
+                onOpenDive: openTaggedDive
+            )
         }
         .task(id: tagContentToken) {
             await Task.yield()

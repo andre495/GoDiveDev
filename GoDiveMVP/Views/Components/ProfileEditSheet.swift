@@ -110,6 +110,7 @@ struct ProfileEditSheet: View {
         do {
             try modelContext.save()
             requestPhotoLibraryAccessForAutoUploadIfNeeded()
+            AccountSession.shared.pushFirestoreSocialProfileEdits(uploadPhoto: false)
             dismiss()
         } catch {
             validationMessage = "Could not save. Try again."

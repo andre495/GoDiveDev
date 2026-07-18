@@ -7,6 +7,7 @@ struct ExploreView: View {
     @Query private var ownerDiveActivities: [DiveActivity]
 
     @State private var diveSites: [DiveSite] = []
+    @State private var userDiveSites: [UserDiveSite] = []
     @State private var hasLoadedDiveSiteCatalog = false
     @State private var marineLifeCatalog: [MarineLife] = []
     @State private var hasLoadedMarineLifeCatalog = false
@@ -67,6 +68,7 @@ struct ExploreView: View {
         ExploreSiteScopeCache.syncToken(
             ownerProfileID: accountSession.currentProfile?.id,
             catalogSiteCount: diveSites.count,
+            userSiteCount: userDiveSites.count,
             ownerActivitySiteLinkSignature: ExploreSiteScopeCache.ownerActivitySiteLinkSignature(
                 ownerDiveActivitiesForScope
             )
@@ -140,6 +142,7 @@ struct ExploreView: View {
         .onAppear {
             applyDefaultSiteScopeIfNeeded()
             scheduleScopeCacheRebuild()
+            Task { await loadDiveSiteCatalogIfNeeded() }
         }
         .task(id: ownerProfileID) {
             async let loadedMarineLife = loadMarineLifeCatalogIfNeeded()
@@ -236,17 +239,11 @@ struct ExploreView: View {
                 initialSelectedMediaID: mediaID
             )
         case .siteDetail(let siteID):
-            if let site = diveSites.first(where: { $0.id == siteID }) {
-                ExploreDiveSiteDetailView(
-                    site: site,
-                    ownerProfileID: accountSession.currentProfile?.id,
-                    onOpenDive: { path.append(.diveDetail($0)) }
-                )
-            } else {
-                Text("This dive site is no longer in the catalog.")
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-                    .padding()
-            }
+            ExploreDiveSiteDetailHost(
+                siteID: siteID,
+                ownerProfileID: accountSession.currentProfile?.id,
+                onOpenDive: { path.append(.diveDetail($0)) }
+            )
         case .referenceSiteDetail(let referenceID):
             if let snapshot = referenceCatalog.first(where: { $0.id == referenceID }) {
                 ExploreReferenceSiteDetailView(snapshot: snapshot)
@@ -373,6 +370,7 @@ struct ExploreView: View {
     private func scheduleScopeCacheRebuild() {
         let profileID = accountSession.currentProfile?.id
         let catalog = diveSites
+        let userSites = userDiveSites
         let activities = ownerDiveActivitiesForScope
         scopeCacheRebuildTask?.cancel()
 
@@ -380,6 +378,7 @@ struct ExploreView: View {
             scopeCache = ExploreSiteScopeCache.make(
                 ownerProfileID: profileID,
                 catalog: catalog,
+                userSites: userSites,
                 ownerActivities: activities
             )
             if let profileID {
@@ -396,6 +395,7 @@ struct ExploreView: View {
             let snapshot = ExploreSiteScopeCache.make(
                 ownerProfileID: profileID,
                 catalog: catalog,
+                userSites: userSites,
                 ownerActivities: activities
             )
             guard !Task.isCancelled else { return }
@@ -481,8 +481,14 @@ struct ExploreView: View {
     }
 
     private func loadDiveSiteCatalogIfNeeded() async {
-        guard !hasLoadedDiveSiteCatalog || diveSites.isEmpty else { return }
-        diveSites = await DiveSiteCatalogLoader.loadSortedCatalog(modelContext: modelContext)
+        let shouldLoadCatalog = !hasLoadedDiveSiteCatalog || diveSites.isEmpty
+        if shouldLoadCatalog {
+            diveSites = await DiveSiteCatalogLoader.loadSortedCatalog(modelContext: modelContext)
+        }
+        // Always refresh user sites — launch hydrate / CloudKit import can insert after first paint.
+        userDiveSites = (try? modelContext.fetch(
+            FetchDescriptor<UserDiveSite>(sortBy: [SortDescriptor(\.siteName)])
+        )) ?? []
         guard !Task.isCancelled else { return }
         hasLoadedDiveSiteCatalog = true
     }

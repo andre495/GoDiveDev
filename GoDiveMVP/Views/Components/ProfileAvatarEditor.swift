@@ -124,6 +124,7 @@ struct ProfileAvatarEditor: View {
     private func persistProfilePhoto() {
         do {
             try modelContext.save()
+            AccountSession.shared.pushFirestoreSocialProfileEdits(uploadPhoto: true)
         } catch {
             saveErrorMessage = error.localizedDescription
         }

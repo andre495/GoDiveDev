@@ -51,12 +51,14 @@ enum TripDetailContentSnapshotBuilder: Sendable {
             useChronologicalNumbers: useChronologicalNumbers,
             numberingActivities: ownedDiveActivities
         )
+        let resolvedPlannedSites = resolvedPlannedSites(for: trip)
         let catalogSites = catalogSitesForMap(
-            plannedSites: trip.plannedSites,
-            linkedActivities: linked
+            plannedSiteIDs: trip.plannedSiteIDs,
+            linkedActivities: linked,
+            modelContext: trip.modelContext
         )
         let mapPins = TripDetailMapPresentation.pins(
-            plannedSites: trip.plannedSites,
+            plannedSites: resolvedPlannedSites,
             linkedActivities: linked,
             catalogSites: catalogSites
         )
@@ -136,22 +138,38 @@ enum TripDetailContentSnapshotBuilder: Sendable {
         linkedActivities: [DiveActivity]
     ) -> [DiveSite] {
         catalogSitesForMap(
-            plannedSites: trip.plannedSites,
-            linkedActivities: linkedActivities
+            plannedSiteIDs: trip.plannedSiteIDs,
+            linkedActivities: linkedActivities,
+            modelContext: trip.modelContext
         )
+    }
+
+    /// Resolves **`trip.plannedSiteIDs`** to catalog/user site snapshots via the trip's attached model context.
+    @MainActor
+    private static func resolvedPlannedSites(for trip: DiveTrip) -> [DiveLinkedSiteResolver.ResolvedSite] {
+        guard let modelContext = trip.modelContext else { return [] }
+        return trip.plannedSiteIDs.compactMap {
+            try? DiveLinkedSiteResolver.resolve(id: $0, modelContext: modelContext)
+        }
     }
 
     @MainActor
     private static func catalogSitesForMap(
-        plannedSites: [DiveSite],
-        linkedActivities: [DiveActivity]
+        plannedSiteIDs: [UUID],
+        linkedActivities: [DiveActivity],
+        modelContext: ModelContext?
     ) -> [DiveSite] {
         var byID: [UUID: DiveSite] = [:]
-        for site in plannedSites {
-            byID[site.id] = site
+        if let modelContext {
+            for id in plannedSiteIDs {
+                if let site = try? DiveLinkedSiteResolver.existingCatalogDiveSite(id: id, modelContext: modelContext) {
+                    byID[site.id] = site
+                }
+            }
         }
         for activity in linkedActivities {
-            if let site = activity.diveSite {
+            guard let diveSiteID = activity.diveSiteID, let context = activity.modelContext else { continue }
+            if let site = try? DiveLinkedSiteResolver.existingCatalogDiveSite(id: diveSiteID, modelContext: context) {
                 byID[site.id] = site
             }
         }

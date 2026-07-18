@@ -5,16 +5,21 @@ import SwiftData
 @Model
 final class ActivityTag {
 
-    var id: UUID
+    var id: UUID = UUID()
     /// Display label (trimmed; casing preserved from creation).
-    var name: String
+    var name: String = ""
     /// Lowercased, collapsed key for deduping per owner (**`ActivityTagStore.normalizedName(from:)`**).
-    var normalizedName: String
+    var normalizedName: String = ""
 
     var ownerProfileID: UUID?
 
-    @Relationship(inverse: \DiveActivity.activityTags)
-    var dives: [DiveActivity] = []
+    @Relationship(inverse: \DiveActivity.activityTagsStorage)
+    var divesStorage: [DiveActivity]? = []
+    @Transient
+    var dives: [DiveActivity] {
+        get { divesStorage ?? [] }
+        set { divesStorage = newValue }
+    }
 
     init(
         id: UUID = UUID(),

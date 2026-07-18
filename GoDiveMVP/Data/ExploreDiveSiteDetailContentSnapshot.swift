@@ -29,7 +29,7 @@ enum ExploreDiveSiteDetailContentSnapshotBuilder {
     /// Fast path — site-scoped dives + media only (no marine catalog / species links).
     @MainActor
     static func buildLight(
-        site: DiveSite,
+        siteID: UUID,
         siteActivities: [DiveActivity],
         ownerProfileID: UUID?,
         unitSystem: DiveDisplayUnitSystem
@@ -44,7 +44,7 @@ enum ExploreDiveSiteDetailContentSnapshotBuilder {
             )
         }
         let activityLinks = DiveSiteMarineLifePresentation.siteActivityLinks(
-            diveSiteID: site.id,
+            diveSiteID: siteID,
             ownerProfileID: ownerProfileID,
             activities: activitySnapshots
         )
@@ -75,24 +75,54 @@ enum ExploreDiveSiteDetailContentSnapshotBuilder {
         )
     }
 
+    @MainActor
+    static func buildLight(
+        site: DiveSite,
+        siteActivities: [DiveActivity],
+        ownerProfileID: UUID?,
+        unitSystem: DiveDisplayUnitSystem
+    ) -> ExploreDiveSiteDetailContentSnapshot {
+        buildLight(
+            siteID: site.id,
+            siteActivities: siteActivities,
+            ownerProfileID: ownerProfileID,
+            unitSystem: unitSystem
+        )
+    }
+
+    @MainActor
+    static func buildLight(
+        site: UserDiveSite,
+        siteActivities: [DiveActivity],
+        ownerProfileID: UUID?,
+        unitSystem: DiveDisplayUnitSystem
+    ) -> ExploreDiveSiteDetailContentSnapshot {
+        buildLight(
+            siteID: site.id,
+            siteActivities: siteActivities,
+            ownerProfileID: ownerProfileID,
+            unitSystem: unitSystem
+        )
+    }
+
     /// Enriches species links + tagged-media sighting overlays after the shell is visible.
     @MainActor
     static func enrichMarineLife(
         snapshot: ExploreDiveSiteDetailContentSnapshot,
-        site: DiveSite,
+        siteID: UUID,
         ownerProfileID: UUID?,
         marineLifeCatalog: [MarineLife],
         modelContext: ModelContext
     ) -> ExploreDiveSiteDetailContentSnapshot {
         guard ownerProfileID != nil, !snapshot.siteDiveActivities.isEmpty else { return snapshot }
 
-        let siteSightings = fetchSiteSightings(diveSiteID: site.id, modelContext: modelContext)
-        let catalogByUUID = Dictionary(uniqueKeysWithValues: marineLifeCatalog.map {
+        let siteSightings = fetchSiteSightings(diveSiteID: siteID, modelContext: modelContext)
+        let catalogByUUID = Dictionary(godiveUniquingKeysWithValues: marineLifeCatalog.map {
             ($0.uuid, $0.fieldGuideCatalogSnapshot)
         })
         let ownerDiveActivityIDs = Set(snapshot.siteDiveActivities.map(\.id))
         let sightedSpeciesLinks = DiveSiteMarineLifePresentation.sightedSpeciesLinks(
-            diveSiteID: site.id,
+            diveSiteID: siteID,
             ownerProfileID: ownerProfileID,
             sightings: siteSightings,
             ownerDiveActivityIDs: ownerDiveActivityIDs,
@@ -108,6 +138,40 @@ enum ExploreDiveSiteDetailContentSnapshotBuilder {
             siteSightings: siteSightings,
             sightedSpeciesLinks: sightedSpeciesLinks,
             marineLifeCatalog: marineLifeCatalog
+        )
+    }
+
+    @MainActor
+    static func enrichMarineLife(
+        snapshot: ExploreDiveSiteDetailContentSnapshot,
+        site: DiveSite,
+        ownerProfileID: UUID?,
+        marineLifeCatalog: [MarineLife],
+        modelContext: ModelContext
+    ) -> ExploreDiveSiteDetailContentSnapshot {
+        enrichMarineLife(
+            snapshot: snapshot,
+            siteID: site.id,
+            ownerProfileID: ownerProfileID,
+            marineLifeCatalog: marineLifeCatalog,
+            modelContext: modelContext
+        )
+    }
+
+    @MainActor
+    static func enrichMarineLife(
+        snapshot: ExploreDiveSiteDetailContentSnapshot,
+        site: UserDiveSite,
+        ownerProfileID: UUID?,
+        marineLifeCatalog: [MarineLife],
+        modelContext: ModelContext
+    ) -> ExploreDiveSiteDetailContentSnapshot {
+        enrichMarineLife(
+            snapshot: snapshot,
+            siteID: site.id,
+            ownerProfileID: ownerProfileID,
+            marineLifeCatalog: marineLifeCatalog,
+            modelContext: modelContext
         )
     }
 
@@ -172,18 +236,13 @@ enum ExploreDiveSiteDetailContentSnapshotBuilder {
         return bindDiveActivities(persistentIDs: persistentIDs, modelContext: modelContext)
     }
 
-    /// Fast first-frame site dives from pushed **`DiveSite`** relationships (fetch refresh follows).
+    /// Fast first-frame site dives — **`DiveSite`** no longer holds an inverse relationship (UUID-only link),
+    /// so this returns empty; **`fetchSiteDiveActivitiesAsync`** populates the real list right after.
     nonisolated static func siteActivitiesFromRelationships(
         site: DiveSite,
         ownerProfileID: UUID?
     ) -> [DiveActivity] {
-        guard let ownerProfileID else { return [] }
-        return site.diveActivities
-            .filter { $0.ownerProfileID == ownerProfileID }
-            .sorted { lhs, rhs in
-                if lhs.startTime != rhs.startTime { return lhs.startTime > rhs.startTime }
-                return lhs.id.uuidString < rhs.id.uuidString
-            }
+        []
     }
 
     nonisolated static func fetchSiteSightings(

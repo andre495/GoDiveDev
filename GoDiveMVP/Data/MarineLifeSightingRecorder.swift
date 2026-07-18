@@ -135,9 +135,7 @@ enum MarineLifeSightingRecorder {
         )
         let sighting = try SightingInstanceCreation.insert(
             draft: draft,
-            marineLife: marineLife,
             dive: dive,
-            diveSite: dive.diveSite,
             mediaPhoto: media,
             modelContext: modelContext,
             persistImmediately: persistImmediately
@@ -189,9 +187,7 @@ enum MarineLifeSightingRecorder {
         )
         let sighting = try SightingInstanceCreation.insert(
             draft: draft,
-            marineLife: marineLife,
             dive: dive,
-            diveSite: dive.diveSite,
             mediaPhoto: nil,
             modelContext: modelContext,
             persistImmediately: persistImmediately
@@ -276,16 +272,22 @@ enum MarineLifeSightingRecorder {
         record.isSighted = true
 
         if !record.activitiesSightedOn.contains(dive.id) {
-            record.activitiesSightedOn.append(dive.id)
+            var activities = record.activitiesSightedOn
+            activities.append(dive.id)
+            record.activitiesSightedOn = activities
         }
         if let siteID = dive.diveSiteID, !record.sitesSightedOn.contains(siteID) {
-            record.sitesSightedOn.append(siteID)
+            var sites = record.sitesSightedOn
+            sites.append(siteID)
+            record.sitesSightedOn = sites
         }
 
         if let media {
             let mediaLink = userTaggedMediaLink(for: media)
             if !record.userTaggedMedia.contains(mediaLink) {
-                record.userTaggedMedia.append(mediaLink)
+                var mediaLinks = record.userTaggedMedia
+                mediaLinks.append(mediaLink)
+                record.userTaggedMedia = mediaLinks
             }
         }
 

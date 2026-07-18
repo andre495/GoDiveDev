@@ -12,12 +12,30 @@ struct SettingsView: View {
 
     @State private var mediaBackfillOverlay: DiveLibraryMediaBackfillOverlayState = .hidden
     @State private var mediaBackfillTask: Task<Void, Never>?
+    @State private var showsDeleteAccountConfirmation = false
+    @State private var showsDeleteAccountAppleConfirm = false
 
     var body: some View {
         settingsAppPage
             .hidesBottomTabBarWhenPushed()
             .onAppear { CrashBreadcrumbTrail.noteScreen("settings") }
             .onDisappear(perform: cancelMediaBackfillTask)
+            .alert(
+                AccountDeletionPresentation.confirmationTitle,
+                isPresented: $showsDeleteAccountConfirmation
+            ) {
+                Button(AccountDeletionPresentation.cancelButtonTitle, role: .cancel) {}
+                Button(AccountDeletionPresentation.confirmButtonTitle, role: .destructive) {
+                    showsDeleteAccountAppleConfirm = true
+                }
+            } message: {
+                Text(AccountDeletionPresentation.confirmationMessage)
+            }
+            .sheet(isPresented: $showsDeleteAccountAppleConfirm) {
+                if let profile = accountSession.currentProfile {
+                    AccountDeletionAppleConfirmSheet(profile: profile)
+                }
+            }
     }
 
     private var settingsAppPage: some View {
@@ -33,9 +51,36 @@ struct SettingsView: View {
                 onAutoUploadEnabled: startMediaBackfillForExistingDives,
                 onShareCrashReportsEnabled: uploadCrashReportBacklog,
                 onDismissMediaBackfill: dismissMediaBackfillOverlay,
-                onCancelMediaBackfill: cancelMediaBackfill
+                onCancelMediaBackfill: cancelMediaBackfill,
+                onSyncedSettingsChanged: pushSyncedPreferencesFromDefaults,
+                onDeleteAccount: { showsDeleteAccountConfirmation = true }
             )
         }
+        .onAppear {
+            pullSyncedPreferencesIntoDefaults()
+        }
+        .onChange(of: automaticallyRenumberDives) { _, _ in
+            pushSyncedPreferencesFromDefaults()
+        }
+        .onChange(of: useImperialDisplayUnits) { _, _ in
+            pushSyncedPreferencesFromDefaults()
+        }
+        .onChange(of: defaultTankSizeRaw) { _, _ in
+            pushSyncedPreferencesFromDefaults()
+        }
+        .onChange(of: autoUploadMediaToActivities) { _, _ in
+            pushSyncedPreferencesFromDefaults()
+        }
+    }
+
+    private func pullSyncedPreferencesIntoDefaults() {
+        guard let owner = accountSession.currentProfile else { return }
+        try? UserPreferencesSync.syncForSignedInOwner(owner, modelContext: modelContext)
+    }
+
+    private func pushSyncedPreferencesFromDefaults() {
+        guard let owner = accountSession.currentProfile else { return }
+        try? UserPreferencesSync.pushUserDefaultsToStore(owner: owner, modelContext: modelContext)
     }
 
     private func renumberAllDivesWhenEnabled() {
@@ -101,6 +146,8 @@ struct SettingsView: View {
 }
 
 private struct SettingsPageContent: View {
+    @Environment(AppNetworkConnectivityMonitor.self) private var networkConnectivity
+
     @Binding var automaticallyRenumberDives: Bool
     @Binding var useImperialDisplayUnits: Bool
     @Binding var defaultTankSizeRaw: String
@@ -117,6 +164,12 @@ private struct SettingsPageContent: View {
     let onShareCrashReportsEnabled: () -> Void
     let onDismissMediaBackfill: () -> Void
     let onCancelMediaBackfill: () -> Void
+    let onSyncedSettingsChanged: () -> Void
+    let onDeleteAccount: () -> Void
+
+    private var isDeleteAccountEnabled: Bool {
+        AccountDeletionPresentation.isDeleteAccountEnabled(isConnected: networkConnectivity.isConnected)
+    }
 
     var body: some View {
         ZStack {
@@ -184,10 +237,38 @@ private struct SettingsPageContent: View {
                 CrashReportsView()
             }
 
+            Spacer(minLength: AppTheme.Spacing.lg)
+
+            VStack(spacing: AppTheme.Spacing.sm) {
+                Button(AccountDeletionPresentation.buttonTitle, role: .destructive) {
+                    guard isDeleteAccountEnabled else { return }
+                    onDeleteAccount()
+                }
+                .font(.body.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .disabled(!isDeleteAccountEnabled)
+                .opacity(isDeleteAccountEnabled ? 1 : 0.45)
+                .accessibilityIdentifier(AccountDeletionPresentation.accessibilityIdentifier)
+                .accessibilityHint(
+                    isDeleteAccountEnabled
+                        ? ""
+                        : AccountDeletionPresentation.offlineDisabledMessage
+                )
+
+                if !isDeleteAccountEnabled {
+                    Text(AccountDeletionPresentation.offlineDisabledMessage)
+                        .font(.footnote)
+                        .foregroundStyle(AppTheme.Colors.tabUnselected)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+
             Spacer()
         }
         .padding(.horizontal, AppTheme.Spacing.lg)
         .padding(.top, AppTheme.Spacing.md)
+        .padding(.bottom, AppTheme.Spacing.lg)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear(perform: reloadDefaultWeightFields)
         .onChange(of: useImperialDisplayUnits) { _, _ in
@@ -223,6 +304,7 @@ private struct SettingsPageContent: View {
                 persistDefaultWeightText(newValue) { kilograms in
                     AppUserSettings.setDefaultSaltwaterWeightKilograms(kilograms)
                 }
+                onSyncedSettingsChanged()
             }
 
             SettingsWeightFieldRow(
@@ -236,6 +318,7 @@ private struct SettingsPageContent: View {
                 persistDefaultWeightText(newValue) { kilograms in
                     AppUserSettings.setDefaultFreshwaterWeightKilograms(kilograms)
                 }
+                onSyncedSettingsChanged()
             }
         }
     }
@@ -301,6 +384,7 @@ private struct SettingsMediaBackfillOverlayLayer: View {
 #Preview {
     SettingsView()
         .environment(AccountSession.shared)
+        .environment(AppNetworkConnectivityMonitor.shared)
         .modelContainer(
             for: [
                 DiveActivity.self,

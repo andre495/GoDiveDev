@@ -237,17 +237,11 @@ struct ViewDiveBuddyDetails: View {
             }
         }
         .navigationDestination(item: $buddySiteNavigationID) { siteID in
-            if let site = TripDetailDiveSiteNavigation.resolvedSite(
+            ExploreDiveSiteDetailHost(
                 siteID: siteID,
-                plannedSites: [],
-                catalogSites: cachedCatalogSites
-            ) {
-                ExploreDiveSiteDetailView(
-                    site: site,
-                    ownerProfileID: ownerProfileID,
-                    onOpenDive: openSharedDive
-                )
-            }
+                ownerProfileID: ownerProfileID,
+                onOpenDive: openSharedDive
+            )
         }
         .task(id: buddyDetailContentToken, priority: .userInitiated) {
             await Task.yield()

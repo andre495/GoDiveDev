@@ -4,6 +4,8 @@ Open **Profile → Settings** (gear icon).
 
 Settings use compact rows with an **info** (ⓘ) button on some items for longer explanations in a popup.
 
+When you’re signed into **iCloud**, most Settings (units, default tank, renumber, auto-upload media, default diver weights, and bulk UDDF “create dive sites”) sync across **your** Apple devices with your dive log. **Share crash reports** stays on this device only.
+
 ## Display units
 
 ### Imperial units
@@ -101,3 +103,15 @@ These aren’t on the Settings page but interact with it:
 ## Sign out
 
 **Sign out** lives on **Profile**, not Settings. Tapping it asks **Are you sure?** before clearing the session. Your dives for that Apple ID remain on the device until you delete the app or its data.
+
+## Delete account
+
+**Delete account** is at the bottom of **Settings** (red). It stays grayed out when the device is offline — deletion needs a network connection for Apple and account cleanup.
+
+Flow when online:
+
+1. **Are you sure?** confirmation.  
+2. **Sign in with Apple** once more to authorize permanent deletion.  
+3. GoDive removes your **social profile** (Firebase), **revokes** Sign in with Apple for this app, **deletes** your on-device dive log and related data (and syncs those deletes to your private iCloud dive store when CloudKit is enabled), then **signs you out**.
+
+This cannot be undone. Catalog species/sites that come with the app are not removed.

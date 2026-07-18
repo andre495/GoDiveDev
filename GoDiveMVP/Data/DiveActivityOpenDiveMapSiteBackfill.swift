@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// One-time backfill linking existing dives and local catalog sites to the bundled OpenDiveMap reference.
+/// One-time OpenDiveMap linking plus every-launch hydrate of synced **`UserDiveSite`** snapshots.
 enum DiveActivityOpenDiveMapSiteBackfill {
     private static let completedKey = "goDiveOpenDiveMapSiteLinkBackfillComplete"
 
@@ -9,6 +9,14 @@ enum DiveActivityOpenDiveMapSiteBackfill {
         if !UserDefaults.standard.bool(forKey: completedKey) {
             _ = try DiveActivitySiteAssociation.backfillOpenDiveMapSiteLinks(modelContext: modelContext)
             UserDefaults.standard.set(true, forKey: completedKey)
+        } else {
+            // CloudKit restore can reintroduce orphaned diveSiteIDs after the one-time link pass.
+            let hydrated = try DiveActivitySiteAssociation.hydrateSyncedUserDiveSitesForLinkedDives(
+                modelContext: modelContext
+            )
+            if hydrated > 0 {
+                try modelContext.save()
+            }
         }
         try DiveActivitySiteAssociation.normalizeOpenDiveMapCatalogSiteNames(modelContext: modelContext)
         try DiveActivitySiteAssociation.normalizeCatalogSiteCountries(modelContext: modelContext)

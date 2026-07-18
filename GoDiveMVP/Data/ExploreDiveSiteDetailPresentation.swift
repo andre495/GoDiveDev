@@ -8,6 +8,11 @@ enum ExploreDiveSiteDetailPresentation: Sendable {
         return [pin]
     }
 
+    nonisolated static func mapPins(for site: UserDiveSite) -> [TripDetailMapPin] {
+        guard let pin = userMapPin(for: site) else { return [] }
+        return [pin]
+    }
+
     nonisolated static func mapPins(for reference: DiveSiteReferenceSnapshot) -> [TripDetailMapPin] {
         guard let pin = referenceMapPin(for: reference) else { return [] }
         return [pin]
@@ -22,6 +27,20 @@ enum ExploreDiveSiteDetailPresentation: Sendable {
         return TripDetailMapPin(
             id: "site-\(site.id.uuidString)",
             title: title,
+            coordinate: coordinate,
+            kind: .completed,
+            siteID: site.id
+        )
+    }
+
+    nonisolated static func userMapPin(for site: UserDiveSite) -> TripDetailMapPin? {
+        guard let coordinate = DiveMapCoordinateResolver.coordinate(from: site),
+              DiveMapCoordinateResolver.isUsable(coordinate)
+        else { return nil }
+
+        return TripDetailMapPin(
+            id: "user-site-\(site.id.uuidString)",
+            title: site.siteName,
             coordinate: coordinate,
             kind: .completed,
             siteID: site.id

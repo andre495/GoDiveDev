@@ -5,8 +5,8 @@ import SwiftData
 @Model
 final class DiveSite {
 
-    var id: UUID
-    var siteName: String
+    var id: UUID = UUID()
+    var siteName: String = ""
     /// Broadest place label (e.g. country). Default at declaration for SwiftData lightweight migration.
     var country: String = ""
     /// Subnational or survey region (e.g. state, province, atoll group).
@@ -19,7 +19,13 @@ final class DiveSite {
     var timeZoneIdentifier: String?
     /// Seconds east of UTC at last timezone resolution (display fallback when **`timeZoneIdentifier`** unset).
     var timeZoneOffsetSeconds: Int?
-    var siteTags: [String]
+    /// JSON site tags — CloudKit rejects stored `[String]` (`NSCodableAttributeType`).
+    var siteTagsData: Data?
+    @Transient
+    var siteTags: [String] {
+        get { AppSwiftDataCloudKitArrayStorage.decodeStringList(siteTagsData) }
+        set { siteTagsData = AppSwiftDataCloudKitArrayStorage.encodeStringList(newValue) }
+    }
     var siteRating: Int?
     /// Shore / boat / etc. (from OpenDiveMap **`entry`** when linked).
     var entry: String = ""
@@ -27,14 +33,15 @@ final class DiveSite {
     var environment: String = ""
     /// Catalog max depth in meters when known (OpenDiveMap **`maxDepthMeters`**).
     var maxDepthMeters: Int?
-    /// Salt vs fresh water for diver ballast defaults on linked dives (**`nil`** → salt water).
-    var waterType: DiveWaterType?
-
-    @Relationship(inverse: \DiveActivity.diveSite)
-    var diveActivities: [DiveActivity] = []
-
-    @Relationship(inverse: \DiveTrip.plannedSites)
-    var plannedTrips: [DiveTrip] = []
+    /// **`DiveWaterType`** raw value; **`nil`** → salt water.
+    var waterTypeRaw: String?
+    @Transient
+    var waterType: DiveWaterType? {
+        get { waterTypeRaw.flatMap(DiveWaterType.init(rawValue:)) }
+        set { waterTypeRaw = newValue?.rawValue }
+    }
+    /// **`DiveSiteOwnership`** raw value — OpenDiveMap/CDN reference vs legacy user-owned (migrated to **`UserDiveSite`**).
+    var ownershipRaw: String = DiveSiteOwnership.catalogReference.rawValue
 
     init(
         id: UUID = UUID(),
@@ -51,7 +58,8 @@ final class DiveSite {
         entry: String = "",
         environment: String = "",
         maxDepthMeters: Int? = nil,
-        waterType: DiveWaterType? = nil
+        waterType: DiveWaterType? = nil,
+        ownership: DiveSiteOwnership? = nil
     ) {
         self.id = id
         self.siteName = siteName
@@ -68,10 +76,21 @@ final class DiveSite {
         self.environment = environment
         self.maxDepthMeters = maxDepthMeters
         self.waterType = waterType
+        self.ownershipRaw = (ownership ?? DiveSiteOwnership.inferred(fromSiteTags: siteTags)).rawValue
     }
 }
 
 extension DiveSite {
+    var ownership: DiveSiteOwnership {
+        get { DiveSiteOwnership(rawValue: ownershipRaw) ?? DiveSiteOwnership.inferred(fromSiteTags: siteTags) }
+        set { ownershipRaw = newValue.rawValue }
+    }
+
+    /// Recomputes ownership from OpenDiveMap / CDN site tags.
+    func refreshOwnershipFromSiteTags() {
+        ownership = DiveSiteOwnership.inferred(fromSiteTags: siteTags)
+    }
+
     /// Catalog default when **`waterType`** is unset (most dive sites are salt water).
     var resolvedWaterType: DiveWaterType {
         waterType ?? .saltwater

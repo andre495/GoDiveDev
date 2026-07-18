@@ -1,19 +1,26 @@
 import Foundation
 import SwiftData
 
-/// A planned or completed dive vacation — date range, destinations, optional catalog sites, and linked logbook dives.
+/// A planned or completed dive vacation — date range, destinations, optional planned site ids, and linked logbook dives.
 @Model
 final class DiveTrip {
 
-    var id: UUID
+    var id: UUID = UUID()
 
     /// Inclusive calendar start (normalize with **`DiveTripDateRange`** for comparisons).
-    var startDate: Date
+    var startDate: Date = Date()
     /// Inclusive calendar end.
-    var endDate: Date
+    var endDate: Date = Date()
+
+    /// JSON country labels — CloudKit rejects stored `[String]` (`NSCodableAttributeType`).
+    var countriesData: Data?
 
     /// Destination countries (broad place labels — same vocabulary as **`DiveSite.country`**).
-    var countries: [String] = []
+    @Transient
+    var countries: [String] {
+        get { AppSwiftDataCloudKitArrayStorage.decodeStringList(countriesData) }
+        set { countriesData = AppSwiftDataCloudKitArrayStorage.encodeStringList(newValue) }
+    }
 
     /// Optional user label (e.g. **Bonaire 2026**).
     var title: String?
@@ -21,25 +28,41 @@ final class DiveTrip {
     /// Starred linked dive media shown in the trip detail hero (**`TripDetailView`**).
     var featuredTripMediaPhotoID: UUID?
 
-    /// Catalog sites the diver plans to visit (**optional** planning metadata).
-    @Relationship(deleteRule: .nullify)
-    var plannedSites: [DiveSite] = []
+    /// JSON planned site id strings — CloudKit rejects stored `[UUID]`.
+    var plannedSiteIDsData: Data?
+
+    /// Planned catalog / user site ids (**`DiveSite.id`** or **`UserDiveSite.id`**).
+    @Transient
+    var plannedSiteIDs: [UUID] {
+        get { AppSwiftDataCloudKitArrayStorage.decodeUUIDList(plannedSiteIDsData) }
+        set { plannedSiteIDsData = AppSwiftDataCloudKitArrayStorage.encodeUUIDList(newValue) }
+    }
 
     /// Logbook dives associated with this trip after it happens.
     @Relationship(deleteRule: .cascade)
-    var activityLinks: [DiveTripActivityLink] = []
+    var activityLinksStorage: [DiveTripActivityLink]? = []
+    @Transient
+    var activityLinks: [DiveTripActivityLink] {
+        get { activityLinksStorage ?? [] }
+        set { activityLinksStorage = newValue }
+    }
 
     /// Roster buddies invited on a planned trip (before / during the trip).
     @Relationship(deleteRule: .cascade)
-    var buddyLinks: [DiveTripBuddyLink] = []
+    var buddyLinksStorage: [DiveTripBuddyLink]? = []
+    @Transient
+    var buddyLinks: [DiveTripBuddyLink] {
+        get { buddyLinksStorage ?? [] }
+        set { buddyLinksStorage = newValue }
+    }
 
     /// Denormalized for **`#Predicate`**; kept in sync with **`owner`**.
     var ownerProfileID: UUID?
     @Relationship
     var owner: UserProfile?
 
-    var createdAt: Date
-    var updatedAt: Date
+    var createdAt: Date = Date()
+    var updatedAt: Date = Date()
 
     init(
         id: UUID = UUID(),
@@ -47,7 +70,7 @@ final class DiveTrip {
         endDate: Date,
         countries: [String] = [],
         title: String? = nil,
-        plannedSites: [DiveSite] = [],
+        plannedSiteIDs: [UUID] = [],
         ownerProfileID: UUID? = nil,
         owner: UserProfile? = nil,
         createdAt: Date = .now,
@@ -58,7 +81,7 @@ final class DiveTrip {
         self.endDate = endDate
         self.countries = countries
         self.title = title
-        self.plannedSites = plannedSites
+        self.plannedSiteIDs = plannedSiteIDs
         self.ownerProfileID = owner?.id ?? ownerProfileID
         self.owner = owner
         self.createdAt = createdAt

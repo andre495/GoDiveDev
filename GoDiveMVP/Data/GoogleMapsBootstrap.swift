@@ -96,7 +96,9 @@ final class GoDiveGoogleMapsAppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
-        true
+        // Firebase Auth/Firestore may touch the default app during launch swizzling — configure first.
+        GoDiveFirebaseBootstrap.configureIfNeeded()
+        return true
     }
 
     func application(

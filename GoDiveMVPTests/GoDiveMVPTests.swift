@@ -410,12 +410,11 @@ struct GoDiveMVPTests {
             durationMinutes: 40,
             maxDepthMeters: 18
         )
-        dive.diveSite = site
-        dive.diveSiteID = site.id
+        DiveActivitySiteAssociation.link(dive, to: site)
 
-        let pins = DiveBuddyDetailPresentation.initialMapPins(from: [dive])
+        let pins = DiveBuddyDetailMapPresentation.pins(from: [dive], catalogSites: [site])
         #expect(pins.count == 1)
-        #expect(pins[0].siteID == site.id)
+        #expect(pins.first?.siteID == site.id)
     }
 
     @Test func exploreDiveSiteDetailContentSnapshotBuilder_siteActivitiesFromRelationships_filtersOwner() {
@@ -430,7 +429,7 @@ struct GoDiveMVPTests {
             maxDepthMeters: 18
         )
         ownerDive.ownerProfileID = ownerID
-        ownerDive.diveSite = site
+        DiveActivitySiteAssociation.link(ownerDive, to: site)
 
         let otherDive = DiveActivity(
             source: .manual,
@@ -439,16 +438,14 @@ struct GoDiveMVPTests {
             maxDepthMeters: 15
         )
         otherDive.ownerProfileID = otherOwnerID
-        otherDive.diveSite = site
+        DiveActivitySiteAssociation.link(otherDive, to: site)
 
-        site.diveActivities = [ownerDive, otherDive]
-
+        // Relationship inverse removed — UUID-only site links. Helper returns empty by design.
         let filtered = ExploreDiveSiteDetailContentSnapshotBuilder.siteActivitiesFromRelationships(
             site: site,
             ownerProfileID: ownerID
         )
-        #expect(filtered.count == 1)
-        #expect(filtered[0].id == ownerDive.id)
+        #expect(filtered.isEmpty)
     }
 
     @Test func pushedNavigationDeferralPresentation_afterPushMapDeferral_matchesAfterPushDelay() {
@@ -668,6 +665,145 @@ struct GoDiveMVPTests {
         #expect(
             UserProfileStore.resolvedDisplayName(appleProvided: "Fresh", appleUserIdentifier: appleID) == "Fresh"
         )
+    }
+
+    @Test func returningAccountHints_treatAsNewAccount_falseWhenPriorAppleSession() {
+        let suite = "returning-hints-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let appleID = "apple-return-1"
+        let profile = UserProfile(appleUserIdentifier: appleID, displayName: "Andre")
+        ReturningAccountHints.remember(profile: profile, userDefaults: defaults)
+
+        #expect(ReturningAccountHints.hasPriorSession(forAppleUserIdentifier: appleID, userDefaults: defaults))
+        #expect(
+            ReturningAccountHints.rememberedDisplayName(forAppleUserIdentifier: appleID, userDefaults: defaults)
+                == "Andre"
+        )
+        #expect(
+            !ReturningAccountHints.treatAsNewAccount(
+                profileDidExistLocally: false,
+                mergedDuplicateCount: 0,
+                ownedDiveCount: 0,
+                appleUserIdentifier: appleID,
+                userDefaults: defaults
+            )
+        )
+        #expect(
+            ReturningAccountHints.treatAsNewAccount(
+                profileDidExistLocally: false,
+                mergedDuplicateCount: 0,
+                ownedDiveCount: 0,
+                appleUserIdentifier: "different-apple",
+                userDefaults: defaults
+            )
+        )
+        #expect(
+            !ReturningAccountHints.treatAsNewAccount(
+                profileDidExistLocally: true,
+                mergedDuplicateCount: 0,
+                ownedDiveCount: 0,
+                appleUserIdentifier: "brand-new",
+                userDefaults: defaults
+            )
+        )
+    }
+
+    @Test func returningAccountHints_clearAll_removesPriorSession() {
+        let suite = "returning-hints-clear-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let appleID = "apple-clear-1"
+        let profile = UserProfile(appleUserIdentifier: appleID, displayName: "Andre")
+        ReturningAccountHints.remember(profile: profile, userDefaults: defaults)
+        #expect(ReturningAccountHints.hasPriorSession(forAppleUserIdentifier: appleID, userDefaults: defaults))
+
+        ReturningAccountHints.clearAll(userDefaults: defaults)
+
+        #expect(!ReturningAccountHints.hasPriorSession(forAppleUserIdentifier: appleID, userDefaults: defaults))
+        #expect(
+            ReturningAccountHints.rememberedDisplayName(forAppleUserIdentifier: appleID, userDefaults: defaults) == nil
+        )
+        #expect(
+            ReturningAccountHints.rememberedProfileID(forAppleUserIdentifier: appleID, userDefaults: defaults) == nil
+        )
+    }
+
+    @Test @MainActor
+    func goDiveAccountDeletion_deleteAllLocalUserData_removesOwnedRows() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let appleID = "apple-delete-\(UUID().uuidString)"
+        let profile = try UserProfileStore.findOrCreateProfile(
+            appleUserIdentifier: appleID,
+            displayName: "Delete Me",
+            modelContext: context
+        )
+        let ownerID = profile.id
+
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: .now,
+            durationMinutes: 30,
+            maxDepthMeters: 12
+        )
+        dive.ownerProfileID = ownerID
+        dive.owner = profile
+        context.insert(dive)
+
+        let tag = ActivityTag(
+            name: "Reef",
+            normalizedName: "reef",
+            ownerProfileID: ownerID
+        )
+        context.insert(tag)
+        try context.save()
+
+        try GoDiveAccountDeletion.deleteAllLocalUserData(ownerProfileID: ownerID, modelContext: context)
+
+        #expect(try UserProfileStore.profile(id: ownerID, modelContext: context) == nil)
+        #expect(try context.fetch(FetchDescriptor<DiveActivity>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<ActivityTag>()).isEmpty)
+    }
+
+    @Test func accountDeletionPresentation_copyIsDestructive() {
+        #expect(AccountDeletionPresentation.buttonTitle == "Delete account")
+        #expect(AccountDeletionPresentation.confirmButtonTitle == "Delete account")
+        #expect(AccountDeletionPresentation.confirmationTitle.contains("Delete"))
+        #expect(!AccountDeletionPresentation.confirmationMessage.isEmpty)
+        #expect(AccountDeletionPresentation.isDeleteAccountEnabled(isConnected: true))
+        #expect(!AccountDeletionPresentation.isDeleteAccountEnabled(isConnected: false))
+        #expect(!AccountDeletionPresentation.offlineDisabledMessage.isEmpty)
+    }
+
+    @Test @MainActor
+    func userProfileStore_applyRestoredDisplayNameIfNeeded_upgradesPlaceholderOnly() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let appleID = "apple-restore-\(UUID().uuidString)"
+        let profile = try UserProfileStore.findOrCreateProfile(
+            appleUserIdentifier: appleID,
+            displayName: nil,
+            modelContext: context
+        )
+        #expect(profile.displayName == UserProfileStore.defaultDisplayName)
+
+        #expect(
+            try UserProfileStore.applyRestoredDisplayNameIfNeeded(
+                to: profile,
+                restoredName: "Andre",
+                modelContext: context
+            )
+        )
+        #expect(profile.displayName == "Andre")
+        #expect(
+            !(try UserProfileStore.applyRestoredDisplayNameIfNeeded(
+                to: profile,
+                restoredName: "Someone Else",
+                modelContext: context
+            ))
+        )
+        #expect(profile.displayName == "Andre")
     }
 
     @Test @MainActor
@@ -1661,6 +1797,54 @@ struct GoDiveMVPTests {
         #expect(first.id == second.id)
         #expect(second.displayName == "Casey")
         #expect(try context.fetchCount(FetchDescriptor<UserProfile>()) == 1)
+    }
+
+    @Test @MainActor
+    func userProfileCloudKitIdentityMerge_adoptsCloudKitProfileOwnedDives() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let appleID = "apple-merge-race"
+
+        let localEmpty = UserProfile(appleUserIdentifier: appleID, displayName: "Diver")
+        let cloudKitAccount = UserProfile(appleUserIdentifier: appleID, displayName: "Andre Dugas")
+        context.insert(localEmpty)
+        context.insert(cloudKitAccount)
+
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            siteName: "Candyland"
+        )
+        DiveActivityOwnership.assignOwner(cloudKitAccount, to: dive)
+        context.insert(dive)
+        try context.save()
+
+        let outcome = try UserProfileCloudKitIdentityMerge.reconcile(
+            appleUserIdentifier: appleID,
+            preferredSessionProfileID: localEmpty.id,
+            modelContext: context
+        )
+
+        #expect(outcome.canonicalProfileID == cloudKitAccount.id)
+        #expect(outcome.mergedDuplicateCount == 1)
+        #expect(outcome.didChangeCanonicalID)
+        #expect(try context.fetchCount(FetchDescriptor<UserProfile>()) == 1)
+        #expect(dive.ownerProfileID == cloudKitAccount.id)
+        #expect(try UserProfileStore.profile(id: localEmpty.id, modelContext: context) == nil)
+    }
+
+    @Test @MainActor
+    func userProfileCloudKitIdentityMerge_chooseCanonical_prefersDiveOwnerOverPlaceholder() {
+        let empty = UserProfile(appleUserIdentifier: "a", displayName: "Diver")
+        let named = UserProfile(appleUserIdentifier: "a", displayName: "Andre")
+        let canonical = UserProfileCloudKitIdentityMerge.chooseCanonical(
+            profiles: [empty, named],
+            diveCounts: [empty.id: 0, named.id: 2],
+            preferredSessionProfileID: empty.id
+        )
+        #expect(canonical.id == named.id)
     }
 
     @Test @MainActor
@@ -3765,7 +3949,9 @@ struct GoDiveMVPTests {
             siteName: "Salt Pier",
             entryCoordinate: DiveCoordinate(latitude: 12.084, longitude: -68.284)
         )
+        context.insert(activity)
         DiveActivitySiteAssociation.link(activity, to: catalog)
+        try context.save()
 
         let mapCoord = activity.resolvedMapCoordinate(catalogSites: [catalog])
         #expect(mapCoord?.latitude == 12.0835)
@@ -3801,8 +3987,10 @@ struct GoDiveMVPTests {
         )
 
         DiveActivitySiteAssociation.applyBestMatch(to: activity, catalogSites: [nearbyWrong, saltPier])
-        #expect(activity.diveSite?.siteName == "Salt Pier")
         #expect(activity.diveSiteID == saltPier.id)
+        #expect(
+            activity.resolvedMapCoordinate(catalogSites: [nearbyWrong, saltPier])?.latitude == 1
+        )
     }
 
     @Test @MainActor
@@ -3856,7 +4044,7 @@ struct GoDiveMVPTests {
         )
 
         DiveActivitySiteAssociation.applyBestMatch(to: activity, catalogSites: [byCoord, fuzzyCatalog])
-        #expect(activity.diveSite == nil)
+        #expect(activity.diveSiteID == nil)
     }
 
     @Test @MainActor
@@ -3890,9 +4078,10 @@ struct GoDiveMVPTests {
         )
 
         #expect(created)
-        #expect(activity.diveSite?.siteName == "Salt Pier")
-        #expect(activity.diveSite?.latCoords == 12.08316)
-        #expect(try context.fetchCount(FetchDescriptor<DiveSite>()) == 2)
+        #expect(activity.resolvedLinkedSite?.siteName == "Salt Pier")
+        #expect(activity.resolvedLinkedSite?.latCoords == 12.08316)
+        #expect(try context.fetchCount(FetchDescriptor<DiveSite>()) == 1)
+        #expect(try context.fetchCount(FetchDescriptor<UserDiveSite>()) == 1)
     }
 
     @Test func diveSiteCatalogMatcher_nameAndCoordinateMatch() {
@@ -3952,7 +4141,124 @@ struct GoDiveMVPTests {
             reference: [reference]
         )
         #expect(linked)
-        #expect(activity.diveSite?.id == taggedSite.id)
+        #expect(activity.diveSiteID == taggedSite.id)
+    }
+
+    @Test @MainActor
+    func diveActivitySiteAssociation_openDiveMapLink_createsSyncedUserDiveSiteSnapshot() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "odm-snapshot-owner", displayName: "Owner")
+        context.insert(owner)
+
+        let reference = DiveSiteReferenceSnapshot(
+            id: "salt01",
+            name: "Salt Pier",
+            country: "Caribbean Netherlands",
+            countryCode: "BQ",
+            latitude: 12.0835,
+            longitude: -68.283,
+            maxDepthMeters: 30,
+            entry: "shore",
+            environment: "ocean",
+            topologies: ["reef"],
+            seaName: "Caribbean Sea"
+        )
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 10,
+            siteName: "Salt Pier",
+            entryCoordinate: DiveCoordinate(latitude: 12.08316, longitude: -68.2833)
+        )
+        activity.owner = owner
+        activity.ownerProfileID = owner.id
+        context.insert(activity)
+
+        var catalog: [DiveSite] = []
+        let outcome = DiveActivitySiteAssociation.applyOpenDiveMapSiteLinkIfNeeded(
+            to: activity,
+            catalogSites: &catalog,
+            modelContext: context,
+            reference: [reference],
+            createSiteWhenMissing: true
+        )
+        try context.save()
+
+        #expect(outcome == .createdAndLinked)
+        guard let siteID = activity.diveSiteID else {
+            Issue.record("Expected diveSiteID after OpenDiveMap link")
+            return
+        }
+        let userSite = try DiveLinkedSiteResolver.existingUserDiveSite(id: siteID, modelContext: context)
+        #expect(userSite != nil)
+        #expect(userSite?.openDiveMapReferenceID == "salt01")
+        #expect(userSite?.siteName == "Salt Pier")
+        #expect(userSite?.ownerProfileID == owner.id)
+    }
+
+    @Test @MainActor
+    func diveActivitySiteAssociation_hydrateSyncedUserDiveSites_healsOrphanOpenDiveMapLink() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "odm-hydrate-owner", displayName: "Owner")
+        context.insert(owner)
+
+        let orphanSiteID = UUID()
+        let activity = DiveActivity(
+            source: .macDive,
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            siteName: "Salt Pier",
+            entryCoordinate: DiveCoordinate(latitude: 12.08316, longitude: -68.2833)
+        )
+        activity.owner = owner
+        activity.ownerProfileID = owner.id
+        activity.diveSiteID = orphanSiteID
+        context.insert(activity)
+        try context.save()
+
+        let reference = DiveSiteReferenceSnapshot(
+            id: "salt01",
+            name: "Salt Pier",
+            country: "Caribbean Netherlands",
+            countryCode: "BQ",
+            latitude: 12.0835,
+            longitude: -68.283,
+            maxDepthMeters: 30,
+            entry: "shore",
+            environment: "ocean",
+            topologies: [],
+            seaName: "Caribbean Sea"
+        )
+        let hydrated = try DiveActivitySiteAssociation.hydrateSyncedUserDiveSitesForLinkedDives(
+            modelContext: context,
+            catalogSites: [],
+            reference: [reference]
+        )
+        try context.save()
+
+        #expect(hydrated == 1)
+        #expect(activity.diveSiteID == orphanSiteID)
+        let userSite = try DiveLinkedSiteResolver.existingUserDiveSite(id: orphanSiteID, modelContext: context)
+        #expect(userSite?.openDiveMapReferenceID == "salt01")
+        #expect(userSite?.siteName == "Salt Pier")
+
+        let logbookIDs = ExploreSiteScopePresentation.logbookSiteIDs(
+            ownerActivities: [activity],
+            ownerProfileID: owner.id
+        )
+        let snapshot = ExploreSiteScopeCache.make(
+            ownerProfileID: owner.id,
+            catalog: [],
+            userSites: userSite.map { [$0] } ?? [],
+            ownerActivities: [activity]
+        )
+        #expect(logbookIDs.contains(orphanSiteID))
+        #expect(snapshot.hasLogbookSites)
+        #expect(snapshot.logbookPlottableSites.contains(where: { $0.id == orphanSiteID }))
     }
 
     @Test @MainActor
@@ -3993,10 +4299,10 @@ struct GoDiveMVPTests {
         )
 
         #expect(created)
-        #expect(activity.diveSite?.siteName == "Salt Pier")
-        #expect(activity.diveSite?.country == "Caribbean Netherlands")
-        #expect(activity.diveSite?.latCoords == 12.0835)
-        #expect(activity.diveSite?.siteTags.contains(DiveSiteCatalogMatcher.openDiveMapSiteTag(referenceID: "salt01")) == true)
+        #expect(activity.resolvedLinkedSite?.siteName == "Salt Pier")
+        #expect(activity.resolvedLinkedSite?.country == "Caribbean Netherlands")
+        #expect(activity.resolvedLinkedSite?.latCoords == 12.0835)
+        #expect(activity.resolvedLinkedSite?.siteTags.contains(DiveSiteCatalogMatcher.openDiveMapSiteTag(referenceID: "salt01")) == true)
     }
 
     @Test @MainActor
@@ -4027,7 +4333,7 @@ struct GoDiveMVPTests {
 
         #expect(result.linkedActivityCount == 1)
         #expect(result.createdSiteCount == 0)
-        #expect(activity.diveSite?.id == localOnlySite.id)
+        #expect(activity.diveSiteID == localOnlySite.id)
         #expect(localOnlySite.siteTags.contains(where: { $0.hasPrefix(DiveSiteCatalogMatcher.openDiveMapTagPrefix) }))
         #expect(result.enrichedSiteCount == 1)
     }
@@ -4135,8 +4441,8 @@ struct GoDiveMVPTests {
         )
 
         #expect(outcome.didSucceed)
-        #expect(activity.diveSite != nil)
-        #expect(activity.diveSite?.siteTags.contains(where: { $0.hasPrefix(DiveSiteCatalogMatcher.openDiveMapTagPrefix) }) == true)
+        #expect(activity.diveSiteID != nil)
+        #expect(activity.resolvedLinkedSite?.siteTags.contains(where: { $0.hasPrefix(DiveSiteCatalogMatcher.openDiveMapTagPrefix) }) == true)
     }
 
     @Test func diveActivityMapSitePrompt_isEligibleWhenUnlinkedWithEntryOrName() {
@@ -4166,7 +4472,7 @@ struct GoDiveMVPTests {
             siteName: "Salt Pier"
         )
         let site = DiveSite(siteName: "Catalog", latCoords: 12, longCoords: -68)
-        linked.diveSite = site
+        DiveActivitySiteAssociation.link(linked, to: site)
         #expect(!DiveActivityMapSitePrompt.isEligible(for: linked))
     }
 
@@ -4248,13 +4554,12 @@ struct GoDiveMVPTests {
             modelContext: context
         )
 
-        #expect(activity.diveSite?.id == site.id)
         #expect(activity.diveSiteID == site.id)
         #expect(activity.siteCoordinate?.latitude == 12.05)
         #expect(site.country == "Caribbean Netherlands")
         #expect(site.region == "Bonaire")
         #expect(site.bodyOfWater == "Caribbean Sea")
-        #expect(try context.fetchCount(FetchDescriptor<DiveSite>()) == 1)
+        #expect(try context.fetchCount(FetchDescriptor<UserDiveSite>()) == 1)
     }
 
     @Test func diveSiteMapper_mapsOptionalPlaceFields() {
@@ -6095,11 +6400,291 @@ struct GoDiveMVPTests {
 
         try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
 
-        let preserved = try context.fetch(FetchDescriptor<MarineLife>()).first {
+        let preserved = try context.fetch(FetchDescriptor<UserMarineLife>()).first {
             $0.uuid == userSpecies.uuid
         }
         #expect(preserved?.commonName == "My Custom Goby")
         #expect(FieldGuideMarineLifeAddPresentation.isUserCreated(uuid: userSpecies.uuid))
+        #expect(try context.fetch(FetchDescriptor<MarineLife>()).allSatisfy {
+            !FieldGuideMarineLifeAddPresentation.isUserCreated(uuid: $0.uuid)
+        })
+    }
+
+    @Test func firestoreUserProfileMapping_trimsAndBuildsPublicFields() {
+        let draft = GoDiveFirestoreUserProfileMapping.publicDraft(
+            displayName: "  Alex Diver  ",
+            handle: "  ",
+            photoURL: "  ",
+            interests: [" Scuba Diving ", "Scuba Diving", "  "],
+            discoverable: true
+        )
+        #expect(draft.displayName == "Alex Diver")
+        #expect(draft.handle == "")
+        #expect(draft.photoURL == "")
+        #expect(draft.interests == ["Scuba Diving"])
+        #expect(draft.discoverable == true)
+        #expect(draft.schemaVersion == GoDiveFirestoreUserProfileMapping.schemaVersion)
+
+        let fields = GoDiveFirestoreUserProfileMapping.publicFields(from: draft)
+        #expect(fields["displayName"] as? String == "Alex Diver")
+        #expect(fields["handle"] as? String == "")
+        #expect(fields["photoURL"] as? String == "")
+        #expect(fields["interests"] as? [String] == ["Scuba Diving"])
+        #expect(fields["discoverable"] as? Bool == true)
+        #expect(fields["schemaVersion"] as? Int == 2)
+        #expect(fields["createdAt"] == nil)
+        #expect(fields["updatedAt"] == nil)
+
+        let withoutPhoto = GoDiveFirestoreUserProfileMapping.publicFields(from: draft, includePhotoURL: false)
+        #expect(withoutPhoto["photoURL"] == nil)
+        #expect(withoutPhoto["interests"] as? [String] == ["Scuba Diving"])
+    }
+
+    @Test func firestoreUserProfileMapping_interestsFromActivityFlags() {
+        #expect(
+            GoDiveFirestoreUserProfileMapping.interests(
+                doesScubaDiving: true,
+                doesFreeDiving: false,
+                doesSnorkeling: true
+            ) == ["Scuba Diving", "Snorkeling"]
+        )
+        #expect(
+            GoDiveFirestoreUserProfileMapping.interests(
+                doesScubaDiving: false,
+                doesFreeDiving: true,
+                doesSnorkeling: false
+            ) == ["Free Diving"]
+        )
+        #expect(GoDiveFirebaseProfilePhotoStorage.objectPath(uid: "abc") == "users/abc/profile.jpg")
+        #expect(!GoDiveFirestoreProfilePublishGate.isDeferredUntilPhotoStep(userDefaults: UserDefaults(suiteName: "gate-test-\(UUID().uuidString)")!))
+    }
+
+    @Test func firestoreProfilePublishGate_defersUntilCleared() {
+        let suite = "firestore-gate-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        #expect(!GoDiveFirestoreProfilePublishGate.isDeferredUntilPhotoStep(userDefaults: defaults))
+        GoDiveFirestoreProfilePublishGate.markDeferredUntilPhotoStep(userDefaults: defaults)
+        #expect(GoDiveFirestoreProfilePublishGate.isDeferredUntilPhotoStep(userDefaults: defaults))
+        GoDiveFirestoreProfilePublishGate.clear(userDefaults: defaults)
+        #expect(!GoDiveFirestoreProfilePublishGate.isDeferredUntilPhotoStep(userDefaults: defaults))
+    }
+
+    @Test func firestoreProfileEditSync_skipsWhileSignupPhotoDeferred() {
+        #expect(GoDiveFirestoreProfileEditSync.shouldSyncEdits(isDeferredUntilPhotoStep: false))
+        #expect(!GoDiveFirestoreProfileEditSync.shouldSyncEdits(isDeferredUntilPhotoStep: true))
+    }
+
+    @Test func firestoreUserProfileMapping_buildsPrivateAppleLinkFields() {
+        let draft = GoDiveFirestoreUserProfileMapping.privateDraft(appleUserIdentifier: "  apple.id.123  ")
+        #expect(draft.appleUserIdentifier == "apple.id.123")
+        let fields = GoDiveFirestoreUserProfileMapping.privateFields(from: draft)
+        #expect(fields["appleUserIdentifier"] as? String == "apple.id.123")
+        #expect(GoDiveFirestoreUserProfileMapping.privateAccountDocumentID == "account")
+    }
+
+    @Test func firebaseAppleNonce_sha256IsDeterministicHex() {
+        let nonce = "GoDive-test-nonce-0123456789"
+        let hash = GoDiveFirebaseAppleNonce.sha256Nonce(nonce)
+        #expect(hash.count == 64)
+        #expect(hash == GoDiveFirebaseAppleNonce.sha256Nonce(nonce))
+        #expect(hash == hash.lowercased())
+        #expect(GoDiveFirebaseAppleNonce.sha256Nonce(nonce + "x") != hash)
+
+        let random = GoDiveFirebaseAppleNonce.randomNonce(length: 32)
+        #expect(random.count == 32)
+        let allowed = CharacterSet(charactersIn: "0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        #expect(random.unicodeScalars.allSatisfy { allowed.contains($0) })
+    }
+
+    @Test func catalogCDNManifestCodec_decodesV1Manifest() throws {
+        let json = """
+        {
+          "schemaVersion": 1,
+          "catalogVersion": 42,
+          "minimumAppVersion": "1.0",
+          "generatedAt": "2026-07-17T00:00:00Z",
+          "marineLife": {
+            "format": "full",
+            "path": "catalog/v1/marine_life.json",
+            "sha256": "abc123",
+            "itemCount": 3
+          },
+          "diveSites": {
+            "format": "full",
+            "path": "catalog/v1/dive_sites.json",
+            "sha256": "def456",
+            "itemCount": 3123
+          }
+        }
+        """
+        let manifest = try CatalogCDNManifestCodec.decode(Data(json.utf8))
+        #expect(manifest.schemaVersion == 1)
+        #expect(manifest.catalogVersion == 42)
+        #expect(manifest.minimumAppVersion == "1.0")
+        #expect(manifest.marineLife?.format == "full")
+        #expect(manifest.marineLife?.path == "catalog/v1/marine_life.json")
+        #expect(manifest.marineLife?.sha256 == "abc123")
+        #expect(manifest.marineLife?.itemCount == 3)
+        #expect(manifest.diveSites?.path == "catalog/v1/dive_sites.json")
+        #expect(manifest.diveSites?.itemCount == 3123)
+    }
+
+    @Test func catalogCDNRefreshPolicy_versionAndMinAppGates() {
+        #expect(CatalogCDNRefreshPolicy.shouldApply(remoteCatalogVersion: 2, appliedCatalogVersion: 1))
+        #expect(!CatalogCDNRefreshPolicy.shouldApply(remoteCatalogVersion: 2, appliedCatalogVersion: 2))
+        #expect(!CatalogCDNRefreshPolicy.shouldApply(remoteCatalogVersion: 1, appliedCatalogVersion: 2))
+        #expect(CatalogCDNRefreshPolicy.meetsMinimumAppVersion(appVersion: "1.2", minimumAppVersion: "1.0"))
+        #expect(CatalogCDNRefreshPolicy.meetsMinimumAppVersion(appVersion: "1.0.0", minimumAppVersion: "1.0"))
+        #expect(!CatalogCDNRefreshPolicy.meetsMinimumAppVersion(appVersion: "0.9", minimumAppVersion: "1.0"))
+        #expect(CatalogCDNRefreshPolicy.compareDottedVersions("2.0", "1.9") == .orderedDescending)
+    }
+
+    @Test func catalogCDNChecksum_sha256HexMatchesKnownFixture() {
+        let data = Data("GoDive catalog".utf8)
+        let hex = CatalogCDNChecksum.sha256Hex(data)
+        #expect(hex.count == 64)
+        #expect(CatalogCDNChecksum.matches(data: data, expectedHex: hex))
+        #expect(CatalogCDNChecksum.matches(data: data, expectedHex: hex.uppercased()))
+        #expect(!CatalogCDNChecksum.matches(data: data, expectedHex: "deadbeef"))
+        #expect(!CatalogCDNChecksum.matches(data: data, expectedHex: ""))
+    }
+
+    @Test func catalogCDNSecretsBootstrap_rejectsPlaceholderAndEmpty() {
+        #expect(CatalogCDNSecretsBootstrap.validatedBaseURL("") == nil)
+        #expect(CatalogCDNSecretsBootstrap.validatedBaseURL("YOUR_FIREBASE_HOSTING_BASE_URL") == nil)
+        #expect(CatalogCDNSecretsBootstrap.validatedBaseURL("ftp://example.com") == nil)
+        #expect(
+            CatalogCDNSecretsBootstrap.validatedBaseURL("https://godive-catalog.web.app")?.absoluteString
+                == "https://godive-catalog.web.app"
+        )
+    }
+
+    @Test func catalogCDNClient_buildsManifestURL() {
+        let base = URL(string: "https://example.web.app")!
+        #expect(
+            CatalogCDNClient.url(base: base, relativePath: CatalogCDNClient.manifestRelativePath)?
+                .absoluteString == "https://example.web.app/catalog/v1/manifest.json"
+        )
+        #expect(CatalogCDNClient.url(base: base, relativePath: "") == nil)
+    }
+
+    @Test @MainActor func catalogCDNRefresh_skippedWhenNotConfigured() async throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let outcome = await CatalogCDNRefresh.refreshMarineLifeIfNeeded(
+            modelContext: container.mainContext,
+            baseURL: nil
+        )
+        #expect(outcome == .skippedNotConfigured)
+    }
+
+    @Test @MainActor func marineLifeCatalogUpsert_updatesAndPrunesCatalogRowsPreservingUserPrefix() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+
+        context.insert(
+            MarineLife(
+                uuid: "marine-life-cdn-keep",
+                commonName: "Old Name",
+                scientificName: "Oldus nameus",
+                ownership: .catalog
+            )
+        )
+        context.insert(
+            MarineLife(
+                uuid: "marine-life-cdn-orphan",
+                commonName: "Orphan",
+                scientificName: "Orphanus",
+                ownership: .catalog
+            )
+        )
+        let userUUID = FieldGuideMarineLifeAddPresentation.makeUserCreatedUUID()
+        context.insert(
+            MarineLife(
+                uuid: userUUID,
+                commonName: "User Keep",
+                scientificName: "Userus keepus",
+                ownership: .userOwned
+            )
+        )
+        try context.save()
+
+        let outcome = try MarineLifeCatalogUpsert.apply(
+            dtos: [
+                MarineLifeDTO(
+                    uuid: "marine-life-cdn-keep",
+                    commonName: "Updated Name",
+                    scientificName: "Newus nameus",
+                    category: "fishes"
+                ),
+                MarineLifeDTO(
+                    uuid: "marine-life-cdn-new",
+                    commonName: "Brand New",
+                    scientificName: "Brandus newus"
+                ),
+            ],
+            modelContext: context
+        )
+
+        #expect(outcome.upsertedCount == 2)
+        #expect(outcome.prunedCount == 1)
+
+        let rows = try context.fetch(FetchDescriptor<MarineLife>())
+        let byUUID = Dictionary(uniqueKeysWithValues: rows.map { ($0.uuid, $0) })
+        #expect(byUUID["marine-life-cdn-keep"]?.commonName == "Updated Name")
+        #expect(byUUID["marine-life-cdn-keep"]?.ownership == .catalog)
+        #expect(byUUID["marine-life-cdn-new"]?.commonName == "Brand New")
+        #expect(byUUID["marine-life-cdn-orphan"] == nil)
+        #expect(byUUID[userUUID]?.commonName == "User Keep")
+    }
+
+    @Test @MainActor func diveSiteReferenceCDNCache_prefersDiskOverBundle() throws {
+        DiveSiteReferenceCDNCache.removeForTesting()
+        defer { DiveSiteReferenceCDNCache.removeForTesting() }
+
+        let snapshots = [
+            DiveSiteReferenceSnapshot(
+                id: "cdn-site-1",
+                name: "CDN Reef",
+                country: "Belize",
+                countryCode: "BZ",
+                latitude: 17.0,
+                longitude: -88.0,
+                maxDepthMeters: 30,
+                entry: "boat",
+                environment: "ocean",
+                topologies: [],
+                seaName: "Caribbean"
+            ),
+        ]
+        let data = try JSONEncoder().encode(snapshots)
+        try DiveSiteReferenceCDNCache.store(data: data)
+
+        let loaded = DiveSiteReferenceCatalog.bundledReference()
+        #expect(loaded.count == 1)
+        #expect(loaded.first?.id == "cdn-site-1")
+        #expect(loaded.first?.name == "CDN Reef")
+    }
+
+    @Test func catalogAssetDiskCache_storesAndResolvesPhoto() throws {
+        let name = "test-catalog-photo-\(UUID().uuidString)"
+        let data = Data("fake-jpeg".utf8)
+        let url = try CatalogAssetDiskCache.store(data: data, kind: .photo, resourceName: name)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let cached = CatalogAssetDiskCache.cachedFileURL(kind: .photo, resourceName: name)
+        #expect(cached == url)
+        #expect(try Data(contentsOf: url) == data)
+
+        let source = FieldGuideMarineLifeBundledImagePresentation.imageSource(
+            featureImageResourceName: name,
+            featureImageURL: "https://example.com/missing.jpg"
+        )
+        guard case .cachedFile(let cachedURL) = source else {
+            Issue.record("Expected disk cache image source")
+            return
+        }
+        #expect(cachedURL == url)
     }
 
     @Test func fieldGuideMarineLifeAddPresentation_validatesAndBuildsSpecies() {
@@ -6263,7 +6848,6 @@ struct GoDiveMVPTests {
         )
         let sighting = try SightingInstanceCreation.insert(
             draft: draft,
-            marineLife: species,
             dive: dive,
             modelContext: context
         )
@@ -6316,7 +6900,10 @@ struct GoDiveMVPTests {
             modelContext: context
         )
         #expect(all.count == 1)
-        let chips = DiveActivityMarineLifeOverviewPresentation.uniqueSpeciesChips(sightings: all)
+        let chips = DiveActivityMarineLifeOverviewPresentation.uniqueSpeciesChips(
+            sightings: all,
+            catalog: [species]
+        )
         #expect(chips.map(\.marineLifeUUID) == [species.uuid])
     }
 
@@ -6889,19 +7476,16 @@ struct GoDiveMVPTests {
         let sightingOnMedia = SightingInstance(
             marineLifeUUID: angelfish.uuid,
             sightingDateTime: Date(timeIntervalSince1970: 4_000_000),
-            marineLife: angelfish,
             mediaPhoto: taggedMedia
         )
         let duplicateOnMedia = SightingInstance(
             marineLifeUUID: angelfish.uuid,
             sightingDateTime: Date(timeIntervalSince1970: 4_000_100),
-            marineLife: angelfish,
             mediaPhoto: taggedMedia
         )
         let otherMediaSighting = SightingInstance(
             marineLifeUUID: ray.uuid,
             sightingDateTime: Date(timeIntervalSince1970: 4_000_200),
-            marineLife: ray,
             mediaPhoto: otherMedia
         )
 
@@ -6968,19 +7552,16 @@ struct GoDiveMVPTests {
         let angelfishSighting = SightingInstance(
             marineLifeUUID: angelfish.uuid,
             sightingDateTime: Date(timeIntervalSince1970: 4_100_100),
-            marineLife: angelfish,
             mediaPhoto: taggedMedia
         )
         let raySighting = SightingInstance(
             marineLifeUUID: ray.uuid,
             sightingDateTime: Date(timeIntervalSince1970: 4_100_200),
-            marineLife: ray,
             mediaPhoto: taggedMedia
         )
         let turtleSighting = SightingInstance(
             marineLifeUUID: turtle.uuid,
             sightingDateTime: Date(timeIntervalSince1970: 4_100_300),
-            marineLife: turtle,
             mediaPhoto: DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 4_100_400))
         )
         context.insert(angelfishSighting)
@@ -7463,18 +8044,14 @@ struct GoDiveMVPTests {
                     durationMinutes: 40,
                     maxDepthMeters: 20
                 ),
-                diveSite: DiveSite(siteName: "Salt Pier")
+                diveSiteID: siteID
             ),
             SightingInstance(
                 marineLifeUUID: angelfishUUID,
-                sightingDateTime: Date(timeIntervalSince1970: 1_000_100),
-                marineLife: angelfish
-            ),
+                sightingDateTime: Date(timeIntervalSince1970: 1_000_100)),
             SightingInstance(
                 marineLifeUUID: rayUUID,
-                sightingDateTime: Date(timeIntervalSince1970: 1_000_200),
-                marineLife: ray
-            ),
+                sightingDateTime: Date(timeIntervalSince1970: 1_000_200)),
         ]
         sightings[0].diveSiteID = siteID
         sightings[0].diveActivityID = diveID
@@ -7958,7 +8535,7 @@ struct GoDiveMVPTests {
         var form = DiveTripFormValues(from: trip)
         form.title = "Bonaire 2026"
         form.countriesText = "Curaçao"
-        form.apply(to: trip, plannedSites: [])
+        form.apply(to: trip)
 
         #expect(trip.displayTitle == "Bonaire 2026")
         #expect(trip.countries == ["Curaçao"])
@@ -8801,8 +9378,8 @@ struct GoDiveMVPTests {
             durationMinutes: 45,
             maxDepthMeters: 20
         )
-        completedAtPlanned.diveSite = plannedAndDone
-        completedAtPlanned.diveSiteID = plannedAndDone.id
+        DiveActivitySiteAssociation.link(completedAtPlanned, to: plannedAndDone)
+        context.insert(completedAtPlanned)
 
         let completedUnplanned = DiveActivity(
             source: .manual,
@@ -8811,9 +9388,14 @@ struct GoDiveMVPTests {
             maxDepthMeters: 18,
             entryCoordinate: DiveCoordinate(latitude: 12.111, longitude: -68.222)
         )
+        context.insert(completedUnplanned)
+        try context.save()
 
         let pins = TripDetailMapPresentation.pins(
-            plannedSites: [plannedOnly, plannedAndDone],
+            plannedSites: [
+                DiveLinkedSiteResolver.resolved(from: plannedOnly),
+                DiveLinkedSiteResolver.resolved(from: plannedAndDone),
+            ],
             linkedActivities: [completedAtPlanned, completedUnplanned],
             catalogSites: [plannedOnly, plannedAndDone, unplannedDoneSite]
         )
@@ -9852,7 +10434,7 @@ struct GoDiveMVPTests {
             owner: profile
         )
         #expect(outcome.primaryInsertedDiveId == dive.id)
-        #expect(dive.diveSite?.id == catalogSite.id)
+        #expect(dive.diveSiteID == catalogSite.id)
         #expect(dive.diveSiteID == catalogSite.id)
         #expect(dive.resolvedDiveWaterType == .saltwater)
     }
@@ -9882,9 +10464,10 @@ struct GoDiveMVPTests {
             owner: profile
         )
         #expect(outcome.primaryInsertedDiveId == dive.id)
-        #expect(dive.diveSite?.siteName == "Cenote Dos Ojos")
-        #expect(dive.diveSite?.resolvedWaterType == .freshwater)
-        #expect(try context.fetchCount(FetchDescriptor<DiveSite>()) == 1)
+        #expect(dive.resolvedLinkedSite?.siteName == "Cenote Dos Ojos")
+        #expect(dive.resolvedLinkedSite?.resolvedWaterType == .freshwater)
+        #expect(try context.fetchCount(FetchDescriptor<DiveSite>()) == 0)
+        #expect(try context.fetchCount(FetchDescriptor<UserDiveSite>()) == 1)
     }
 
     @Test @MainActor
@@ -10227,7 +10810,10 @@ struct GoDiveMVPTests {
             latCoords: 24.5,
             longCoords: -110.2
         )
-        let draft = DiveActivityMapSitePrompt.draft(from: activity, catalogSite: site)
+        let draft = DiveActivityMapSitePrompt.draft(
+            from: activity,
+            catalogSite: DiveLinkedSiteResolver.resolved(from: site)
+        )
         #expect(draft.siteName == "Catalog Reef")
         #expect(draft.country == "Mexico")
         #expect(draft.region == "Baja")
@@ -10243,7 +10829,10 @@ struct GoDiveMVPTests {
             locationName: "Bonaire, Caribbean Netherlands"
         )
         let site = DiveSite(siteName: "Salt Pier")
-        let draft = DiveActivityMapSitePrompt.draft(from: activity, catalogSite: site)
+        let draft = DiveActivityMapSitePrompt.draft(
+            from: activity,
+            catalogSite: DiveLinkedSiteResolver.resolved(from: site)
+        )
         #expect(draft.region == "Bonaire")
         #expect(draft.country == "Caribbean Netherlands")
     }
@@ -10354,9 +10943,11 @@ struct GoDiveMVPTests {
             maxDepthMeters: 10,
             siteName: "Salt Pier"
         )
+        context.insert(activity)
 
         DiveActivitySiteAssociation.applyBestMatch(to: activity, catalogSites: [catalog])
-        #expect(activity.diveSite?.id == catalog.id)
+        try context.save()
+        #expect(activity.diveSiteID == catalog.id)
         #expect(activity.entryCoordinate == nil)
         #expect(activity.siteCoordinate?.latitude == 12.0835)
     }
@@ -10382,7 +10973,7 @@ struct GoDiveMVPTests {
         )
 
         DiveActivitySiteAssociation.applyBestMatch(to: activity, catalogSites: [catalog])
-        #expect(activity.diveSite == nil)
+        #expect(activity.diveSiteID == nil)
         #expect(activity.entryCoordinate == nil)
         #expect(activity.siteCoordinate == nil)
     }
@@ -10687,10 +11278,10 @@ struct GoDiveMVPTests {
             siteName: "Imported Site",
             entryCoordinate: DiveCoordinate(latitude: 1, longitude: 2)
         )
-        activity.diveSite = site
+        DiveActivitySiteAssociation.link(activity, to: site)
 
         #expect(
-            FishialObservationLocation.resolvedCoordinate(for: activity, catalogSites: [])?.latitude
+            FishialObservationLocation.resolvedCoordinate(for: activity, catalogSites: [site])?.latitude
                 == 12.10325
         )
     }
@@ -11824,7 +12415,6 @@ struct GoDiveMVPTests {
             siteRating: 4
         )
         let unrated = DiveSite(siteName: "Mystery Reef", country: "Belize")
-        unrated.diveActivities = [DiveActivity(source: .macDive, sourceDiveId: "a", startTime: .now, durationMinutes: 40, maxDepthMeters: 18)]
 
         let rows = ExploreDiveSiteListDisplay.rowData(for: [rated, unrated])
 
@@ -11833,7 +12423,7 @@ struct GoDiveMVPTests {
         #expect(rows[0].diveCountLabel == nil)
         #expect(rows[0].coordinateLine.contains("12.083"))
         #expect(rows[0].placeLine == "Bonaire · Caribbean")
-        #expect(rows[1].diveCountLabel == "1 dive")
+        #expect(rows[1].diveCountLabel == nil)
         #expect(rows[1].coordinateLine == DiveSitePresentation.missingValue)
         #expect(rows[1].placeLine == "Belize")
     }
@@ -11846,9 +12436,6 @@ struct GoDiveMVPTests {
             siteRating: 4
         )
         let unrated = DiveSite(siteName: "Mystery Reef", country: "Belize")
-        unrated.diveActivities = [
-            DiveActivity(source: .macDive, sourceDiveId: "a", startTime: .now, durationMinutes: 40, maxDepthMeters: 18),
-        ]
 
         let rows = ExploreDiveSiteListDisplay.rowData(for: [rated, unrated], trailingStyle: .plannedTrip)
 
@@ -12133,6 +12720,36 @@ struct GoDiveMVPTests {
         #expect(snapshot.allSitesPlottableSites.count >= 1)
         #expect(snapshot.logbookListRows.map(\.displayName) == ["Salt Pier"])
         #expect(snapshot.plottableSignature(for: .logbook) != snapshot.plottableSignature(for: .allSites))
+    }
+
+    @Test func exploreCatalogMapPresentation_deduplicatingPlottableSites_keepsFirstOnDuplicateIDs() {
+        let id = UUID()
+        let first = ExploreCatalogMapPresentation.PlottedSite(
+            id: id,
+            siteName: "First",
+            coordinate: DiveCoordinate(latitude: 12, longitude: -68),
+            isVisited: true
+        )
+        let duplicate = ExploreCatalogMapPresentation.PlottedSite(
+            id: id,
+            siteName: "Duplicate",
+            coordinate: DiveCoordinate(latitude: 13, longitude: -69),
+            isVisited: false
+        )
+        let other = ExploreCatalogMapPresentation.PlottedSite(
+            id: UUID(),
+            siteName: "Other",
+            coordinate: DiveCoordinate(latitude: 14, longitude: -70),
+            isVisited: false
+        )
+        let deduped = ExploreCatalogMapPresentation.deduplicatingPlottableSites([first, duplicate, other])
+        #expect(deduped.count == 2)
+        #expect(deduped[0].siteName == "First")
+        #expect(deduped[1].siteName == "Other")
+        // Building a sitesByID map must not trap (Explore map sync path).
+        let byID = Dictionary(godiveUniquingKeysWithValues: [first, duplicate, other].map { ($0.id, $0) })
+        #expect(byID.count == 2)
+        #expect(byID[id]?.siteName == "Duplicate")
     }
 
     @Test func exploreSiteScopeCache_filteringListRows_matchesDisplayFields() {
@@ -12515,7 +13132,7 @@ struct GoDiveMVPTests {
         #expect(site.country == "Belize")
         #expect(site.region == "Lighthouse")
         #expect(site.bodyOfWater == "Caribbean Sea")
-        #expect(try context.fetchCount(FetchDescriptor<DiveSite>()) == 1)
+        #expect(try context.fetchCount(FetchDescriptor<UserDiveSite>()) == 1)
         #expect(try context.fetchCount(FetchDescriptor<DiveActivity>()) == 0)
     }
 
@@ -12553,7 +13170,7 @@ struct GoDiveMVPTests {
         draft.latitudeText = ""
         draft.longitudeText = ""
 
-        try DiveActivitySiteAssociation.applyCatalogSiteEdits(
+        try DiveActivitySiteAssociation.applyUserSiteEdits(
             to: site,
             draft: draft,
             modelContext: context
@@ -17073,6 +17690,115 @@ struct GoDiveMVPTests {
         #expect(!DiveMediaReferencePruning.shouldPrune(hasIdentifier: false, hasFullAuthorization: true, assetExists: false))
     }
 
+    @Test func diveMediaCloudIdentifierPolicy_needsCapture_whenLocalPresentAndCloudMissing() {
+        #expect(
+            DiveMediaCloudIdentifierPolicy.needsCloudIdentifierCapture(
+                localIdentifier: "LOCAL/1",
+                cloudIdentifier: ""
+            )
+        )
+        #expect(
+            !DiveMediaCloudIdentifierPolicy.needsCloudIdentifierCapture(
+                localIdentifier: "LOCAL/1",
+                cloudIdentifier: "cloud/abc"
+            )
+        )
+        #expect(
+            !DiveMediaCloudIdentifierPolicy.needsCloudIdentifierCapture(
+                localIdentifier: nil,
+                cloudIdentifier: ""
+            )
+        )
+    }
+
+    @Test func diveMediaCloudIdentifierPolicy_shouldAttemptResolve_whenLocalMissingAndCloudPresent() {
+        #expect(
+            DiveMediaCloudIdentifierPolicy.shouldAttemptCloudResolve(
+                localAssetExists: false,
+                cloudIdentifier: "cloud/abc"
+            )
+        )
+        #expect(
+            !DiveMediaCloudIdentifierPolicy.shouldAttemptCloudResolve(
+                localAssetExists: true,
+                cloudIdentifier: "cloud/abc"
+            )
+        )
+        #expect(
+            !DiveMediaCloudIdentifierPolicy.shouldAttemptCloudResolve(
+                localAssetExists: false,
+                cloudIdentifier: "  "
+            )
+        )
+    }
+
+    @Test func diveMediaCloudIdentifierPolicy_shouldPrune_waitsForCloudResolve() {
+        // Cloud ID present but resolve not attempted yet → keep (Device B race).
+        #expect(
+            !DiveMediaCloudIdentifierPolicy.shouldPrune(
+                hasLocalIdentifier: true,
+                hasCloudIdentifier: true,
+                hasFullAuthorization: true,
+                localAssetExists: false,
+                cloudResolve: nil
+            )
+        )
+        // Cloud resolve says deleted → prune.
+        #expect(
+            DiveMediaCloudIdentifierPolicy.shouldPrune(
+                hasLocalIdentifier: true,
+                hasCloudIdentifier: true,
+                hasFullAuthorization: true,
+                localAssetExists: false,
+                cloudResolve: .notFound
+            )
+        )
+        // Remapped ID still missing from Photos (reinstall + deleted original) → prune.
+        #expect(
+            DiveMediaCloudIdentifierPolicy.shouldPrune(
+                hasLocalIdentifier: true,
+                hasCloudIdentifier: true,
+                hasFullAuthorization: true,
+                localAssetExists: false,
+                cloudResolve: .resolved(localIdentifier: "OTHER/1")
+            )
+        )
+        // Unavailable → keep (PhotoKit not ready / transient).
+        #expect(
+            !DiveMediaCloudIdentifierPolicy.shouldPrune(
+                hasLocalIdentifier: false,
+                hasCloudIdentifier: true,
+                hasFullAuthorization: true,
+                localAssetExists: false,
+                cloudResolve: .unavailable
+            )
+        )
+        // No cloud ID, local missing under full auth → prune (legacy pointer).
+        #expect(
+            DiveMediaCloudIdentifierPolicy.shouldPrune(
+                hasLocalIdentifier: true,
+                hasCloudIdentifier: false,
+                hasFullAuthorization: true,
+                localAssetExists: false,
+                cloudResolve: nil
+            )
+        )
+    }
+
+    @Test func diveMediaCloudIdentifierStorage_normalized_trimsAndDetectsPresence() {
+        #expect(DiveMediaCloudIdentifierStorage.normalized("  abc  ") == "abc")
+        #expect(DiveMediaCloudIdentifierStorage.isPresent(" cloud "))
+        #expect(!DiveMediaCloudIdentifierStorage.isPresent("   "))
+        #expect(!DiveMediaCloudIdentifierStorage.isPresent(nil))
+    }
+
+    @Test func diveMediaPhoto_libraryCloudIdentifier_trimsAndNilsWhenBlank() {
+        let blank = DiveMediaPhoto(photosCloudIdentifier: "  ")
+        #expect(blank.libraryCloudIdentifier == nil)
+        let present = DiveMediaPhoto(photosCloudIdentifier: " cloud/1 ")
+        #expect(present.libraryCloudIdentifier == "cloud/1")
+    }
+
     @Test @MainActor func diveMediaStorage_addLibraryReference_persistsPointerWithoutBytes() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = ModelContext(container)
@@ -18713,7 +19439,7 @@ struct GoDiveMVPTests {
         )
         let matched = DiveActivitySiteAssociation.previewBestMatch(for: activity, catalogSites: [catalog])
         #expect(matched?.id == catalog.id)
-        #expect(activity.diveSite == nil)
+        #expect(activity.diveSiteID == nil)
     }
 
     @Test func diveActivityTimeZoneResolution_prefersPreviewCatalogSiteCoordinates() {
@@ -19310,7 +20036,7 @@ struct GoDiveMVPTests {
         // Unmatched import name + createMissingDiveSites false → no new catalog site, dive left unlinked.
         let sites = try context.fetch(FetchDescriptor<DiveSite>())
         #expect(sites.isEmpty)
-        #expect(activity.diveSite == nil)
+        #expect(activity.diveSiteID == nil)
         #expect(activity.siteName == "Totally Unmatched Reef XYZ")
     }
 
@@ -22812,7 +23538,7 @@ struct GoDiveMVPTests {
 
         let cenote = DiveSite(siteName: "Cenote Azul", waterType: .freshwater)
         let activity = DiveActivity(source: .garminMK3, startTime: .now, durationMinutes: 30, maxDepthMeters: 18)
-        activity.diveSite = cenote
+        DiveActivitySiteAssociation.link(activity, to: cenote)
         activity.diveSiteID = cenote.id
 
         DiveActivityDiverWeightDefaults.applyInheritedDefaults(to: activity, userDefaults: defaults)
@@ -23888,12 +24614,10 @@ struct GoDiveMVPTests {
                 startTime: Date(),
                 durationMinutes: 40,
                 maxDepthMeters: 25,
-                diveSiteID: site.id,
-                diveSite: site
+                diveSiteID: site.id
             )
             activity.owner = owner
             activity.ownerProfileID = owner.id
-            site.diveActivities.append(activity)
 
             let tag = ActivityTag(name: "Night", normalizedName: "night", ownerProfileID: owner.id)
             activity.activityTags.append(tag)
@@ -23905,23 +24629,20 @@ struct GoDiveMVPTests {
             let sighting = SightingInstance(
                 marineLifeUUID: species.uuid,
                 sightingDateTime: activity.startTime,
-                marineLife: species,
                 diveActivity: activity,
-                diveSite: site,
+                diveSiteID: site.id,
                 mediaPhoto: photo
             )
             activity.marineLifeSightings.append(sighting)
-            species.sightingInstances.append(sighting)
-
             let record = MarineLifeUserRecord(
                 owner: owner,
-                marineLife: species,
+                marineLifeUUID: species.uuid,
                 isSighted: true,
                 activitiesSightedOn: [activity.id],
                 sitesSightedOn: [site.id],
                 userTaggedMedia: [DiveActivityDeletionMarineLifeCleanup.userTaggedMediaLink(for: photo.id)]
             )
-            record.link(to: species, owner: owner)
+            record.link(marineLifeUUID: species.uuid, owner: owner)
 
             context.insert(owner)
             context.insert(site)
@@ -23982,7 +24703,7 @@ struct GoDiveMVPTests {
             category: "Fish"
         )
         let record = MarineLifeUserRecord(
-            marineLife: species,
+            marineLifeUUID: species.uuid,
             isSighted: true,
             activitiesSightedOn: [diveID],
             sitesSightedOn: [siteID],
@@ -24028,12 +24749,10 @@ struct GoDiveMVPTests {
             startTime: Date(),
             durationMinutes: 40,
             maxDepthMeters: 25,
-            diveSiteID: site.id,
-            diveSite: site
+            diveSiteID: site.id
         )
         activity.owner = owner
         activity.ownerProfileID = owner.id
-        site.diveActivities.append(activity)
         owner.diveActivities.append(activity)
 
         let tag = ActivityTag(name: "Night", normalizedName: "night", ownerProfileID: owner.id)
@@ -24054,9 +24773,8 @@ struct GoDiveMVPTests {
 
         #expect(tag.dives.isEmpty)
         #expect(owner.diveActivities.isEmpty)
-        #expect(site.diveActivities.isEmpty)
         #expect(activity.activityTags.isEmpty)
-        #expect(activity.diveSite == nil)
+        #expect(activity.diveSiteID == nil)
     }
 
     @Test @MainActor
@@ -24482,6 +25200,8 @@ struct GoDiveMVPTests {
     }
 
     @Test func diveActivityMediaAttachWindow_resolvedTimeZone_prefersLinkedSiteIdentifier() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
         let site = DiveSite(
             siteName: "Reef",
             timeZoneIdentifier: "America/Cancun",
@@ -24494,7 +25214,10 @@ struct GoDiveMVPTests {
             durationMinutes: 60,
             maxDepthMeters: 10
         )
-        activity.diveSite = site
+        context.insert(site)
+        context.insert(activity)
+        DiveActivitySiteAssociation.link(activity, to: site)
+        try context.save()
         let tz = DiveActivityMediaAttachWindow.resolvedTimeZone(for: activity)
         #expect(tz.identifier == "America/Cancun")
     }
@@ -24878,6 +25601,7 @@ struct CrashReportingTests {
         #expect(frozen?.contains("rootTab → logbook") == true)
         #expect(frozen?.contains("before freeze") == true)
         #expect(CrashBreadcrumbTrail.loadEntriesForTests(userDefaults: defaults).isEmpty)
+        #expect(CrashBreadcrumbTrail.loadContextForTests(userDefaults: defaults) == nil)
 
         CrashBreadcrumbTrail.record("after freeze", userDefaults: defaults)
         #expect(CrashBreadcrumbTrail.loadEntriesForTests(userDefaults: defaults).map(\.message) == ["after freeze"])
@@ -24885,6 +25609,21 @@ struct CrashReportingTests {
             CrashBreadcrumbTrail.previousSessionExportPlainText(userDefaults: defaults)?
                 .contains("before freeze") == true
         )
+        // Live export after freeze must not keep the dying session's UI context.
+        let live = CrashBreadcrumbTrail.exportPlainText(userDefaults: defaults)
+        #expect(!live.contains("rootTab: logbook"))
+    }
+
+    @Test func dictionary_godiveUniquingKeysWithValues_keepsLastOnDuplicateKeys() {
+        let id = UUID()
+        let first = DiveMediaPhoto(id: id, sortOrder: 0, mediaKind: .image, photosLocalIdentifier: "A")
+        let second = DiveMediaPhoto(id: id, sortOrder: 1, mediaKind: .video, photosLocalIdentifier: "B")
+        let map: [UUID: DiveMediaPhoto] = Dictionary(
+            godiveUniquingKeysWithValues: [first, second].map { ($0.id, $0) }
+        )
+        #expect(map.count == 1)
+        #expect(map[id]?.photosLocalIdentifier == "B")
+        #expect(map[id]?.resolvedMediaKind == .video)
     }
 
     @Test func crashBreadcrumbTrail_formatExport_includesContextAndTrail() {
@@ -24971,5 +25710,694 @@ struct CrashReportingTests {
     @Test func crashBreadcrumbTrail_labelHelpers() {
         #expect(CrashBreadcrumbTrail.rootTabLabel(.fieldGuide) == "fieldGuide")
         #expect(CrashBreadcrumbTrail.diveActivityTabLabel(.camera) == "media")
+    }
+
+    // MARK: - Hybrid cloud sync Phase 1
+
+    @Test func appSwiftDataStorePartition_coversEveryModelExactlyOnce() {
+        #expect(AppSwiftDataCloudKitCompatibility.partitionCoverageIssues().isEmpty)
+        #expect(AppSwiftDataStorePartition.userModelTypeNames.contains("DiveActivity"))
+        #expect(AppSwiftDataStorePartition.catalogModelTypeNames.contains("MarineLife"))
+        #expect(AppSwiftDataStorePartition.catalogModelTypeNames.contains("DiveSite"))
+        #expect(AppSwiftDataStorePartition.diagnosticsModelTypeNames.contains("CrashReportRecord"))
+        #expect(AppSwiftDataStorePartition.catalogCDNVendor.contains("Firebase"))
+    }
+
+    @Test func appSwiftDataSchema_keepsCloudKitDisabled() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        #expect(container.configurations.count == 1)
+        #expect(
+            AppSwiftDataCloudKitCompatibility.removedUniqueAttributeKeys.contains("MarineLife.uuid")
+        )
+        #expect(
+            AppSwiftDataCloudKitCompatibility.removedUniqueAttributeKeys.contains("SightingInstance.sightingUUID")
+        )
+        #expect(
+            AppSwiftDataCloudKitCompatibility.removedCodableAttributeKeys.contains("DiveActivity.entryCoordinate")
+        )
+        #expect(AppSwiftDataCloudKitCompatibility.pendingCrossStoreRelationshipBreaks.isEmpty)
+        #expect(AppSwiftDataStorePartition.userModelTypeNames.contains("UserMarineLife"))
+        #expect(AppSwiftDataStorePartition.userModelTypeNames.contains("UserDiveSite"))
+        #expect(AppSwiftDataStorePartition.userModelTypeNames.contains("UserPreferences"))
+        #expect(AppSwiftDataStorePartition.syncedPreferenceKeys.contains(AppUserSettings.useImperialDisplayUnitsKey))
+        #expect(AppSwiftDataStorePartition.localOnlyPreferenceKeys.contains(AppUserSettings.shareCrashReportsKey))
+        #expect(
+            AppSwiftDataCloudKitCompatibility.iCloudContainerIdentifier
+                == CrashReportCloudUploader.containerIdentifier
+        )
+        _ = container
+    }
+
+    @Test @MainActor
+    func userPreferencesSync_seedsFromUserDefaultsAndPullsBack() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "prefs-sync", displayName: "Diver")
+        context.insert(owner)
+
+        let suite = "goDive.prefsSync.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        AppUserSettings.registerDefaultValues(in: defaults)
+        defaults.set(false, forKey: AppUserSettings.useImperialDisplayUnitsKey)
+        defaults.set(DefaultTankSize.st100.rawValue, forKey: AppUserSettings.defaultTankSizeKey)
+        defaults.set(false, forKey: AppUserSettings.automaticallyRenumberDivesKey)
+
+        let created = try UserPreferencesSync.findOrCreate(
+            for: owner,
+            modelContext: context,
+            userDefaults: defaults
+        )
+        #expect(created.didCreate)
+        try context.save()
+
+        let prefs = try context.fetch(FetchDescriptor<UserPreferences>()).first
+        #expect(prefs?.useImperialDisplayUnits == false)
+        #expect(prefs?.defaultTankSizeRaw == DefaultTankSize.st100.rawValue)
+        #expect(prefs?.automaticallyRenumberDives == false)
+
+        defaults.set(true, forKey: AppUserSettings.useImperialDisplayUnitsKey)
+        try UserPreferencesSync.syncForSignedInOwner(owner, modelContext: context, userDefaults: defaults)
+        #expect(defaults.bool(forKey: AppUserSettings.useImperialDisplayUnitsKey) == false)
+        #expect(defaults.string(forKey: AppUserSettings.defaultTankSizeKey) == DefaultTankSize.st100.rawValue)
+    }
+
+    @Test @MainActor
+    func userPreferencesSync_pushUserDefaultsUpdatesStore() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "prefs-push", displayName: "Diver")
+        context.insert(owner)
+
+        let suite = "goDive.prefsPush.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        AppUserSettings.registerDefaultValues(in: defaults)
+        _ = try UserPreferencesSync.findOrCreate(for: owner, modelContext: context, userDefaults: defaults)
+
+        defaults.set(false, forKey: AppUserSettings.autoUploadMediaToActivitiesKey)
+        defaults.set(DefaultTankSize.al63.rawValue, forKey: AppUserSettings.defaultTankSizeKey)
+        try UserPreferencesSync.pushUserDefaultsToStore(
+            owner: owner,
+            modelContext: context,
+            userDefaults: defaults
+        )
+
+        let prefs = try context.fetch(FetchDescriptor<UserPreferences>()).first
+        #expect(prefs?.autoUploadMediaToActivities == false)
+        #expect(prefs?.defaultTankSizeRaw == DefaultTankSize.al63.rawValue)
+    }
+
+    @Test func appSwiftDataDualStoreFactory_phase2UserPrivateCloudKitPolicy() throws {
+        #expect(
+            AppSwiftDataCloudKitCompatibility.usesPhase2DualStoreCloudKitPolicy(
+                user: AppSwiftDataCloudKitCompatibility.privateUserCloudKitDatabase,
+                catalog: AppSwiftDataCloudKitCompatibility.localOnlyCloudKitDatabase,
+                diagnostics: AppSwiftDataCloudKitCompatibility.localOnlyCloudKitDatabase
+            )
+        )
+        #expect(
+            !AppSwiftDataCloudKitCompatibility.usesPhase2DualStoreCloudKitPolicy(
+                user: .none,
+                catalog: .none,
+                diagnostics: .none
+            )
+        )
+        #expect(
+            AppSwiftDataCloudKitCompatibility.cloudKitDatabaseDescription(
+                AppSwiftDataCloudKitCompatibility.privateUserCloudKitDatabase
+            ).contains(AppSwiftDataCloudKitCompatibility.iCloudContainerIdentifier)
+        )
+
+        let local = try AppSwiftDataDualStoreFactory.makeInMemorySplitContainer()
+        #expect(!local.enableUserCloudKitSync)
+        #expect(!local.didFallBackFromCloudKit)
+        #expect(
+            AppSwiftDataCloudKitCompatibility.isLocalOnlyCloudKitDatabase(
+                local.userConfiguration.cloudKitDatabase
+            )
+        )
+        #expect(
+            AppSwiftDataCloudKitCompatibility.isLocalOnlyCloudKitDatabase(
+                local.catalogConfiguration.cloudKitDatabase
+            )
+        )
+
+        // On-disk with sync off (tests / migration copy). Opening with sync **on** is device QA —
+        // unit hosts may lack a signed-in iCloud account.
+        let temp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("GoDiveCKOff-\(UUID().uuidString)", isDirectory: true)
+        let offline = try AppSwiftDataDualStoreFactory.makeOnDiskSplitContainer(
+            rootDirectory: temp,
+            enableUserCloudKitSync: false
+        )
+        defer { try? FileManager.default.removeItem(at: temp) }
+        #expect(!offline.enableUserCloudKitSync)
+        #expect(
+            AppSwiftDataCloudKitCompatibility.isLocalOnlyCloudKitDatabase(
+                offline.userConfiguration.cloudKitDatabase
+            )
+        )
+        #expect(
+            AppSwiftDataCloudKitCompatibility.isLocalOnlyCloudKitDatabase(
+                offline.catalogConfiguration.cloudKitDatabase
+            )
+        )
+        #expect(
+            AppSwiftDataCloudKitCompatibility.isLocalOnlyCloudKitDatabase(
+                offline.diagnosticsConfiguration.cloudKitDatabase
+            )
+        )
+    }
+
+    @Test func diveActivity_entryCoordinate_persistsAsLatitudeLongitudePrimitives() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let activity = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 12,
+            entryCoordinate: DiveCoordinate(latitude: 17.3158, longitude: -87.5348)
+        )
+        context.insert(activity)
+        try context.save()
+
+        #expect(activity.entryLatitude == 17.3158)
+        #expect(activity.entryLongitude == -87.5348)
+        #expect(activity.entryCoordinate == DiveCoordinate(latitude: 17.3158, longitude: -87.5348))
+
+        activity.entryCoordinate = nil
+        try context.save()
+        #expect(activity.entryLatitude == nil)
+        #expect(activity.entryLongitude == nil)
+        #expect(activity.entryCoordinate == nil)
+    }
+
+    @Test func appSwiftDataDualStoreFactory_cloudKitOpenProbes_writeDiagnostics() throws {
+        let temp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("GoDiveCKProbes-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: temp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temp) }
+
+        AppSwiftDataDualStoreFactory.runCloudKitOpenProbes(rootDirectory: temp)
+        let path = temp.appendingPathComponent(AppSwiftDataDualStoreFactory.cloudKitDiagnosticsFileName)
+        let text = try String(contentsOf: path, encoding: .utf8)
+        #expect(text.contains("probeC_userOnlyLocal=success"))
+        // Probes A/B may fail without a signed-in iCloud account; still must emit a result line.
+        #expect(text.contains("probeA_userOnlyCloudKit="))
+        #expect(text.contains("probeB_dualUserCloudKit="))
+    }
+
+    @Test func marineLifeOwnership_infersFromUUIDPrefix() {
+        #expect(MarineLifeOwnership.inferred(fromUUID: "marine-life-french-angelfish") == .catalog)
+        #expect(
+            MarineLifeOwnership.inferred(fromUUID: "user-marine-life-\(UUID().uuidString)") == .userOwned
+        )
+        let catalog = MarineLife(uuid: "marine-life-phase1", commonName: "Phase One Fish")
+        #expect(catalog.ownership == .catalog)
+        let user = MarineLife(
+            uuid: FieldGuideMarineLifeAddPresentation.makeUserCreatedUUID(),
+            commonName: "My Fish"
+        )
+        #expect(user.ownership == .userOwned)
+        #expect(FieldGuideMarineLifeAddPresentation.isUserEditable(user))
+        #expect(!FieldGuideMarineLifeAddPresentation.isUserEditable(catalog))
+    }
+
+    @Test func diveSiteOwnership_infersFromOpenDiveMapTag() {
+        let userSite = DiveSite(siteName: "Home Reef")
+        #expect(userSite.ownership == .userOwned)
+        #expect(DiveSiteCatalogMatcher.isUserEditableCatalogSite(userSite))
+
+        let referenceSite = DiveSite(
+            siteName: "Buddy Dive",
+            siteTags: [DiveSiteCatalogMatcher.openDiveMapSiteTag(referenceID: "abc123")]
+        )
+        #expect(referenceSite.ownership == .catalogReference)
+        #expect(!DiveSiteCatalogMatcher.isUserEditableCatalogSite(referenceSite))
+    }
+
+    @Test func diveMediaPhoto_persistsPhotosCloudIdentifier() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let media = DiveMediaPhoto(
+            photosLocalIdentifier: "local/ABC",
+            photosCloudIdentifier: "cloud/XYZ"
+        )
+        context.insert(media)
+        try context.save()
+
+        let fetched = try context.fetch(FetchDescriptor<DiveMediaPhoto>())
+        #expect(fetched.count == 1)
+        #expect(fetched[0].photosLocalIdentifier == "local/ABC")
+        #expect(fetched[0].photosCloudIdentifier == "cloud/XYZ")
+    }
+
+    @Test func appSwiftDataLogicalUniqueness_findsMarineLifeAndSightingByKey() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let species = MarineLife(uuid: "marine-life-unique-key", commonName: "Unique Key")
+        context.insert(species)
+        let sighting = SightingInstance(
+            sightingUUID: "sighting-unique-key",
+            marineLifeUUID: species.uuid,
+            sightingDateTime: .now)
+        context.insert(sighting)
+        try context.save()
+
+        let foundSpecies = try AppSwiftDataLogicalUniqueness.existingMarineLife(
+            uuid: "marine-life-unique-key",
+            modelContext: context
+        )
+        let foundSighting = try AppSwiftDataLogicalUniqueness.existingSighting(
+            sightingUUID: "sighting-unique-key",
+            modelContext: context
+        )
+        #expect(foundSpecies?.uuid == species.uuid)
+        #expect(foundSighting?.sightingUUID == "sighting-unique-key")
+    }
+
+    @Test func appSwiftDataOwnershipBackfill_updatesLegacyRows() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let species = MarineLife(uuid: "user-marine-life-backfill", commonName: "Backfill")
+        species.ownershipRaw = MarineLifeOwnership.catalog.rawValue
+        context.insert(species)
+
+        let site = DiveSite(
+            siteName: "Tagged",
+            siteTags: [DiveSiteCatalogMatcher.openDiveMapSiteTag(referenceID: "ref1")]
+        )
+        site.ownershipRaw = DiveSiteOwnership.userOwned.rawValue
+        context.insert(site)
+        try context.save()
+
+        try AppSwiftDataOwnershipBackfill.backfillIfNeeded(modelContext: context)
+        #expect(species.ownership == .userOwned)
+        #expect(site.ownership == .catalogReference)
+    }
+
+    @Test func sightingInstanceCreation_dedupesBySightingUUID() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let owner = UserProfile(appleUserIdentifier: "phase1", displayName: "Phase")
+        context.insert(owner)
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: .now,
+            durationMinutes: 30,
+            maxDepthMeters: 12
+        )
+        dive.owner = owner
+        context.insert(dive)
+        let species = MarineLife(uuid: "marine-life-dedupe", commonName: "Dedupe")
+        context.insert(species)
+        try context.save()
+
+        let draft = SightingInstanceCreation.makeDraft(
+            marineLifeUUID: species.uuid,
+            dive: dive,
+            sightingUUID: "shared-sighting-uuid"
+        )
+        let first = try SightingInstanceCreation.insert(
+            draft: draft,
+            dive: dive,
+            modelContext: context
+        )
+        let second = try SightingInstanceCreation.insert(
+            draft: draft,
+            dive: dive,
+            modelContext: context
+        )
+        #expect(first.sightingUUID == second.sightingUUID)
+        #expect(first.persistentModelID == second.persistentModelID)
+        let all = try context.fetch(FetchDescriptor<SightingInstance>())
+        #expect(all.count == 1)
+    }
+
+    // MARK: - Hybrid cloud sync Phase 1b
+
+    @Test @MainActor
+    func appSwiftDataHybridRowMigration_movesUserSpeciesAndSites() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let userSpecies = MarineLife(
+            uuid: FieldGuideMarineLifeAddPresentation.makeUserCreatedUUID(),
+            commonName: "My Goby"
+        )
+        let catalogSpecies = MarineLife(uuid: "marine-life-keep", commonName: "Keep Me")
+        let userSite = DiveSite(siteName: "Home Reef", latCoords: 1, longCoords: 2)
+        let referenceSite = DiveSite(
+            siteName: "Buddy Dive",
+            siteTags: [DiveSiteCatalogMatcher.openDiveMapSiteTag(referenceID: "ref-keep")]
+        )
+        context.insert(userSpecies)
+        context.insert(catalogSpecies)
+        context.insert(userSite)
+        context.insert(referenceSite)
+        try context.save()
+
+        let result = try AppSwiftDataHybridRowMigration.migrateIfNeeded(modelContext: context)
+        #expect(result.migratedSpeciesCount == 1)
+        #expect(result.migratedSiteCount == 1)
+        #expect(try context.fetchCount(FetchDescriptor<UserMarineLife>()) == 1)
+        #expect(try context.fetchCount(FetchDescriptor<UserDiveSite>()) == 1)
+        #expect(try context.fetchCount(FetchDescriptor<MarineLife>()) == 1)
+        #expect(try context.fetchCount(FetchDescriptor<DiveSite>()) == 1)
+        #expect(
+            try AppSwiftDataLogicalUniqueness.existingUserMarineLife(
+                uuid: userSpecies.uuid,
+                modelContext: context
+            )?.commonName == "My Goby"
+        )
+    }
+
+    @Test @MainActor
+    func appSwiftDataDualStoreFactory_opensSplitInMemoryContainer() throws {
+        let stores = try AppSwiftDataDualStoreFactory.makeInMemorySplitContainer()
+        #expect(stores.container.configurations.count == 3)
+        let context = ModelContext(stores.container)
+        context.insert(UserMarineLife(commonName: "Split Species"))
+        context.insert(DiveSite(siteName: "Catalog Only"))
+        try context.save()
+        #expect(try context.fetchCount(FetchDescriptor<UserMarineLife>()) == 1)
+        #expect(try context.fetchCount(FetchDescriptor<DiveSite>()) == 1)
+    }
+
+    @Test @MainActor
+    func marineLifeSpeciesResolver_resolvesCatalogAndUserRows() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let catalog = MarineLife(uuid: "marine-life-resolver", commonName: "Catalog Fish")
+        let user = UserMarineLife(commonName: "User Fish")
+        context.insert(catalog)
+        context.insert(user)
+        try context.save()
+
+        #expect(try MarineLifeSpeciesResolver.snapshot(uuid: catalog.uuid, modelContext: context)?.commonName == "Catalog Fish")
+        #expect(try MarineLifeSpeciesResolver.snapshot(uuid: user.uuid, modelContext: context)?.commonName == "User Fish")
+        let all = try MarineLifeSpeciesResolver.allCatalogSnapshots(modelContext: context)
+        #expect(all.map(\.uuid).contains(catalog.uuid))
+        #expect(all.map(\.uuid).contains(user.uuid))
+    }
+
+    @Test @MainActor
+    func diveLinkedSiteResolver_resolvesCatalogAndUserRows() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let catalog = DiveSite(siteName: "Catalog Reef", latCoords: 10, longCoords: 20)
+        let user = UserDiveSite(siteName: "User Reef", latCoords: 11, longCoords: 21)
+        context.insert(catalog)
+        context.insert(user)
+        try context.save()
+
+        #expect(try DiveLinkedSiteResolver.resolve(id: catalog.id, modelContext: context)?.siteName == "Catalog Reef")
+        #expect(try DiveLinkedSiteResolver.resolve(id: user.id, modelContext: context)?.isUserOwned == true)
+    }
+
+    @Test @MainActor
+    func fieldGuideMarineLifeAddPresentation_createsUserMarineLifeRow() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let form = FieldGuideMarineLifeAddPresentation.FormValues(
+            commonName: "New User Tang",
+            scientificName: "Acanthurus user",
+            categoryID: "fishes"
+        )
+        let species = FieldGuideMarineLifeAddPresentation.makeUserMarineLife(from: form)
+        context.insert(species)
+        try context.save()
+        #expect(FieldGuideMarineLifeAddPresentation.isUserCreated(uuid: species.uuid))
+        #expect(try context.fetchCount(FetchDescriptor<UserMarineLife>()) == 1)
+        #expect(try context.fetchCount(FetchDescriptor<MarineLife>()) == 0)
+    }
+
+    // MARK: - Hybrid cloud sync Phase 1c
+
+    @Test @MainActor
+    func appSwiftDataDualStoreMigrator_copiesUnifiedRowsIntoSplitContainer() throws {
+        let sourceContainer = try AppSwiftDataSchema.makeUnifiedContainer(isStoredInMemoryOnly: true)
+        let source = ModelContext(sourceContainer)
+
+        let profile = UserProfile(appleUserIdentifier: "dual-mig", displayName: "Diver")
+        source.insert(profile)
+        let catalogSpecies = MarineLife(uuid: "marine-life-dual", commonName: "Catalog Fish")
+        source.insert(catalogSpecies)
+        let userSpecies = UserMarineLife(commonName: "My Fish", owner: profile)
+        source.insert(userSpecies)
+        let catalogSite = DiveSite(
+            siteName: "Salt Pier",
+            latCoords: 12.1,
+            longCoords: -68.2,
+            siteTags: [DiveSiteCatalogMatcher.openDiveMapSiteTag(referenceID: "salt")]
+        )
+        source.insert(catalogSite)
+        let userSite = UserDiveSite(siteName: "Home Reef", latCoords: 1, longCoords: 2, owner: profile)
+        source.insert(userSite)
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: .now,
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            diveSiteID: userSite.id
+        )
+        dive.owner = profile
+        dive.ownerProfileID = profile.id
+        source.insert(dive)
+        let media = DiveMediaPhoto(photosLocalIdentifier: "ph-dual", dive: dive)
+        source.insert(media)
+        let report = CrashReportRecord(
+            kindRaw: CrashReport.Kind.abnormalExit.rawValue,
+            reason: "test",
+            appVersion: "1",
+            osVersion: "18",
+            details: "details"
+        )
+        source.insert(report)
+        try source.save()
+
+        let dual = try AppSwiftDataDualStoreFactory.makeInMemorySplitContainer()
+        #expect(dual.container.configurations.count == 3)
+        let destination = ModelContext(dual.container)
+        let result = try AppSwiftDataDualStoreMigrator.migrate(from: source, to: destination)
+
+        #expect(result.catalogMarineLifeCount == 1)
+        #expect(result.catalogDiveSiteCount == 1)
+        #expect(result.diagnosticsCount == 1)
+        #expect(result.userProfileCount == 1)
+        #expect(result.diveActivityCount == 1)
+        #expect(result.totalInsertedCount >= 7)
+
+        #expect(try destination.fetchCount(FetchDescriptor<MarineLife>()) == 1)
+        #expect(try destination.fetchCount(FetchDescriptor<UserMarineLife>()) == 1)
+        #expect(try destination.fetchCount(FetchDescriptor<DiveSite>()) == 1)
+        #expect(try destination.fetchCount(FetchDescriptor<UserDiveSite>()) == 1)
+        #expect(try destination.fetchCount(FetchDescriptor<DiveActivity>()) == 1)
+        #expect(try destination.fetchCount(FetchDescriptor<DiveMediaPhoto>()) == 1)
+        #expect(try destination.fetchCount(FetchDescriptor<CrashReportRecord>()) == 1)
+
+        let migratedDive = try destination.fetch(FetchDescriptor<DiveActivity>()).first
+        #expect(migratedDive?.diveSiteID == userSite.id)
+        #expect(migratedDive?.owner?.appleUserIdentifier == "dual-mig")
+        #expect(migratedDive?.mediaPhotos.count == 1)
+    }
+
+    @Test @MainActor
+    func appSwiftDataDualStoreBootstrap_opensFreshDualInTempDirectory() throws {
+        let temp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("GoDiveDual-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: temp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temp) }
+
+        let defaults = UserDefaults(suiteName: "GoDiveDualBootstrap.\(UUID().uuidString)")!
+        defaults.removeObject(forKey: AppSwiftDataDualStoreBootstrap.migrationCompletedDefaultsKey)
+
+        let opened = try AppSwiftDataDualStoreBootstrap.openProductionContainer(
+            defaults: defaults,
+            rootDirectory: temp
+        )
+        #expect(opened.container.configurations.count == 3)
+        #expect(opened.openResult.enableUserCloudKitSync == false)
+        #expect(defaults.bool(forKey: AppSwiftDataDualStoreBootstrap.migrationCompletedDefaultsKey))
+        #expect(AppSwiftDataDualStoreFactory.dualStoreFilesExist(in: temp))
+    }
+
+    @Test func appSwiftDataDualStoreFactory_legacyUnifiedStoreURLIsDefaultStore() {
+        let url = AppSwiftDataDualStoreFactory.legacyUnifiedStoreURL()
+        #expect(url.lastPathComponent == "default.store")
+        #expect(url.path.contains("Application Support") || url.path.contains("Application%20Support"))
+    }
+
+    @Test @MainActor
+    func appSwiftDataDualStoreFactory_removeDualStoreFilesClearsTrio() throws {
+        let temp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("GoDiveDualWipe-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: temp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temp) }
+
+        _ = try AppSwiftDataDualStoreFactory.makeOnDiskSplitContainer(
+            rootDirectory: temp,
+            enableUserCloudKitSync: false
+        )
+        #expect(AppSwiftDataDualStoreFactory.dualStoreFilesExist(in: temp))
+        try AppSwiftDataDualStoreFactory.removeDualStoreFiles(in: temp)
+        #expect(!AppSwiftDataDualStoreFactory.dualStoreFilesExist(in: temp))
+    }
+
+    @Test func appSwiftDataCloudKitArrayStorage_roundTripsUUIDAndStringLists() {
+        let ids = [UUID(), UUID()]
+        let encodedIDs = AppSwiftDataCloudKitArrayStorage.encodeUUIDList(ids)
+        #expect(AppSwiftDataCloudKitArrayStorage.decodeUUIDList(encodedIDs) == ids)
+        #expect(AppSwiftDataCloudKitArrayStorage.encodeUUIDList([]) == nil)
+        #expect(AppSwiftDataCloudKitArrayStorage.decodeUUIDList(nil).isEmpty)
+
+        let tags = ["open-dive-map:abc", "shore"]
+        let encodedTags = AppSwiftDataCloudKitArrayStorage.encodeStringList(tags)
+        #expect(AppSwiftDataCloudKitArrayStorage.decodeStringList(encodedTags) == tags)
+        #expect(AppSwiftDataCloudKitArrayStorage.encodeStringList(["  ", ""]) == nil)
+    }
+
+    @Test func diveTrip_andMarineLifeUserRecord_persistListAttributesAsData() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let siteID = UUID()
+        let diveID = UUID()
+        let trip = DiveTrip(
+            startDate: Date(),
+            endDate: Date(),
+            countries: ["Bonaire"],
+            plannedSiteIDs: [siteID]
+        )
+        context.insert(trip)
+        let record = MarineLifeUserRecord(
+            marineLifeUUID: "marine-life-test",
+            activitiesSightedOn: [diveID],
+            sitesSightedOn: [siteID],
+            userTaggedMedia: ["media:\(UUID().uuidString)"]
+        )
+        context.insert(record)
+        let userSite = UserDiveSite(siteName: "Test Reef", siteTags: ["shore"])
+        context.insert(userSite)
+        try context.save()
+
+        #expect(trip.countriesData != nil)
+        #expect(trip.plannedSiteIDsData != nil)
+        #expect(trip.countries == ["Bonaire"])
+        #expect(trip.plannedSiteIDs == [siteID])
+        #expect(record.activitiesSightedOnData != nil)
+        #expect(record.activitiesSightedOn == [diveID])
+        #expect(userSite.siteTagsData != nil)
+        #expect(userSite.siteTags == ["shore"])
+    }
+
+    @Test func appSwiftDataDualStoreFactory_cloudKitOpenPolicy_stickyLocalSkipsAttempt() {
+        let suite = "godive.ckPolicy.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        defaults.set(
+            AppSwiftDataDualStoreFactory.cloudKitOpenPolicyVersion,
+            forKey: AppSwiftDataDualStoreFactory.cloudKitOpenPolicyVersionKey
+        )
+        defaults.set(false, forKey: AppSwiftDataDualStoreFactory.lastCloudKitSyncEnabledDefaultsKey)
+
+        #expect(
+            !AppSwiftDataDualStoreFactory.shouldAttemptUserCloudKitSync(requested: true, defaults: defaults)
+        )
+        #expect(
+            !AppSwiftDataDualStoreFactory.shouldAttemptUserCloudKitSync(requested: false, defaults: defaults)
+        )
+    }
+
+    @Test func appSwiftDataDualStoreFactory_cloudKitOpenPolicy_versionBumpClearsStickyOnce() {
+        let suite = "godive.ckPolicyBump.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        defaults.set(1, forKey: AppSwiftDataDualStoreFactory.cloudKitOpenPolicyVersionKey)
+        defaults.set(false, forKey: AppSwiftDataDualStoreFactory.lastCloudKitSyncEnabledDefaultsKey)
+        defaults.set("old-error", forKey: AppSwiftDataDualStoreFactory.lastCloudKitFallbackErrorDefaultsKey)
+
+        #expect(
+            AppSwiftDataDualStoreFactory.shouldAttemptUserCloudKitSync(requested: true, defaults: defaults)
+        )
+        #expect(defaults.object(forKey: AppSwiftDataDualStoreFactory.lastCloudKitSyncEnabledDefaultsKey) == nil)
+        #expect(defaults.bool(forKey: AppSwiftDataDualStoreFactory.recreateDualStoresForCloudKitDefaultsKey))
+        #expect(
+            defaults.integer(forKey: AppSwiftDataDualStoreFactory.cloudKitOpenPolicyVersionKey)
+                == AppSwiftDataDualStoreFactory.cloudKitOpenPolicyVersion
+        )
+    }
+
+    @Test func appSwiftDataDualStoreFactory_cloudKitFailurePreservesExistingStoresWithoutWipe() throws {
+        let temp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("GoDiveCKPreserve-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: temp, withIntermediateDirectories: true)
+        let suite = "godive.ckPreserve.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer {
+            AppSwiftDataDualStoreFactory.userCloudKitDatabaseOverrideForTests = nil
+            AppSwiftDataDualStoreFactory.forceUserCloudKitOpenFailureForTests = false
+            defaults.removePersistentDomain(forName: suite)
+            try? FileManager.default.removeItem(at: temp)
+        }
+
+        _ = try AppSwiftDataDualStoreFactory.makeOnDiskSplitContainer(
+            rootDirectory: temp,
+            enableUserCloudKitSync: false,
+            defaults: defaults
+        )
+        #expect(AppSwiftDataDualStoreFactory.dualStoreFilesExist(in: temp))
+        let userStoreURL = AppSwiftDataDualStoreFactory.storeURL(
+            named: AppSwiftDataDualStoreFactory.userStoreName,
+            rootDirectory: temp
+        )
+        let markerURL = temp.appendingPathComponent("user-data-marker.txt")
+        try Data("preserve-me".utf8).write(to: markerURL)
+
+        defaults.set(
+            AppSwiftDataDualStoreFactory.cloudKitOpenPolicyVersion,
+            forKey: AppSwiftDataDualStoreFactory.cloudKitOpenPolicyVersionKey
+        )
+        defaults.removeObject(forKey: AppSwiftDataDualStoreFactory.lastCloudKitSyncEnabledDefaultsKey)
+        AppSwiftDataDualStoreFactory.forceUserCloudKitOpenFailureForTests = true
+
+        let reopened = try AppSwiftDataDualStoreFactory.makeOnDiskSplitContainer(
+            rootDirectory: temp,
+            enableUserCloudKitSync: true,
+            defaults: defaults
+        )
+        #expect(reopened.didFallBackFromCloudKit)
+        #expect(!reopened.enableUserCloudKitSync)
+        #expect(AppSwiftDataDualStoreFactory.dualStoreFilesExist(in: temp))
+        #expect(FileManager.default.fileExists(atPath: userStoreURL.path))
+        #expect(FileManager.default.fileExists(atPath: markerURL.path))
+
+        let diagnostics = try String(
+            contentsOf: temp.appendingPathComponent(AppSwiftDataDualStoreFactory.cloudKitDiagnosticsFileName),
+            encoding: .utf8
+        )
+        #expect(diagnostics.contains("fallback-local-preserve-existing"))
+        #expect(diagnostics.contains("openLocalOnlyWithoutWipe"))
+        #expect(!diagnostics.contains("removeDualStoreFiles"))
+        #expect(
+            defaults.object(forKey: AppSwiftDataDualStoreFactory.lastCloudKitSyncEnabledDefaultsKey) as? Bool
+                == false
+        )
+
+        let sticky = try AppSwiftDataDualStoreFactory.makeOnDiskSplitContainer(
+            rootDirectory: temp,
+            enableUserCloudKitSync: true,
+            defaults: defaults
+        )
+        #expect(sticky.didFallBackFromCloudKit)
+        let stickyDiagnostics = try String(
+            contentsOf: temp.appendingPathComponent(AppSwiftDataDualStoreFactory.cloudKitDiagnosticsFileName),
+            encoding: .utf8
+        )
+        #expect(stickyDiagnostics.contains("sticky-local-skip-cloudkit"))
+        #expect(FileManager.default.fileExists(atPath: markerURL.path))
     }
 }

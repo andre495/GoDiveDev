@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 /// Read-only dive row for trip aggregate math (tests + builders without touching **`@Model`**).
 struct DiveTripDiveSnapshot: Sendable, Equatable {
@@ -153,8 +154,7 @@ enum DiveTripAggregateBuilder: Sendable {
     ) -> [DiveTripSightingSnapshot] {
         let catalogByUUID = Dictionary(uniqueKeysWithValues: marineLifeCatalog.map { ($0.uuid, $0) })
         return sightings.map { sighting in
-            let name = sighting.marineLife?.commonName
-                ?? catalogByUUID[sighting.marineLifeUUID]?.commonName
+            let name = catalogByUUID[sighting.marineLifeUUID]?.commonName
                 ?? sighting.marineLifeUUID
             return DiveTripSightingSnapshot(
                 marineLifeUUID: sighting.marineLifeUUID,
@@ -172,7 +172,12 @@ enum DiveTripAggregateBuilder: Sendable {
     ) -> DiveTripAggregate {
         let dives = snapshots(from: trip.linkedActivities)
         let sightings = sightingSnapshots(from: allSightings, marineLifeCatalog: marineLifeCatalog)
-        let plannedNames = trip.plannedSites.map(\.siteName)
+        let plannedNames: [String] = {
+            guard let modelContext = trip.modelContext else { return [] }
+            return trip.plannedSiteIDs.compactMap {
+                try? DiveLinkedSiteResolver.resolve(id: $0, modelContext: modelContext)?.siteName
+            }
+        }()
         return build(
             linkedDives: dives,
             sightings: sightings,

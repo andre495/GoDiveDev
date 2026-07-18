@@ -51,10 +51,12 @@ Map use is described in [Privacy & data](privacy-and-data.md). Dive log contents
 
 ## Optional cloud features
 
-These require network access and developer configuration; they are **off** unless enabled in the app build.
+These require network access and (for some) developer configuration in the app build.
 
 | Source | Used for |
 |--------|----------|
+| **Apple CloudKit** | Syncs your **dive log** across your Apple devices (private iCloud database). Optional **Share crash reports** uploads technical diagnostics to the developer via CloudKit’s public database. |
+| **[Firebase](https://firebase.google.com/)** (Auth, Firestore, Storage; optional Hosting) | **Social directory** for future friends features (display name, activity interests, optional profile photo after Sign in with Apple). Optional **catalog CDN** refresh for Marine Life and dive-site reference data. **Does not store your dive log.** |
 | **[Fishial.AI](https://fishial.ai/)** | Optional **Identify fish** on dive media — one cropped JPEG per request, plus optional dive coordinates in a header ([API terms](https://docs.fishial.ai/api)) |
 
 ## Marketing website
@@ -69,13 +71,14 @@ The iPhone app does not embed or require Wix. The user guide remains on [GitHub 
 
 | Service | Used for |
 |---------|----------|
-| **Sign in with Apple** | Account gate and profile association on device |
-| **PhotoKit** | Attach dive photos and videos from your library |
+| **Sign in with Apple** | Account gate and profile association; also signs into Firebase Auth when that service is configured |
+| **CloudKit** | Private dive-log sync; optional public crash-report upload |
+| **PhotoKit** | Attach dive photos and videos from your library; cross-device media pointers |
 | **Contacts** | Optional buddy name and avatar when you link a contact |
 
 ---
 
 !!! note "Trademarks"
-    Garmin, MacDive, Subsurface, Google Maps, Apple, Sign in with Apple, and other names are trademarks of their respective owners. GoDive references them only to describe compatible import and map features.
+    Garmin, MacDive, Subsurface, Google Maps, Apple, Sign in with Apple, CloudKit, Firebase, and other names are trademarks of their respective owners. GoDive references them only to describe compatible import, map, and cloud features.
 
 If you believe a bundled asset should be credited differently or removed, please open an issue on the [GoDiveDev repository](https://github.com/andre495/GoDiveDev).

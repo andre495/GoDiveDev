@@ -1,39 +1,55 @@
 import Foundation
 import SwiftData
 
-/// Per-user sighting / tagging overlay for one catalog **`MarineLife`** row.
+/// Per-user sighting / tagging overlay for one catalog or user-created species UUID.
 @Model
 final class MarineLifeUserRecord {
 
-    var id: UUID
+    var id: UUID = UUID()
 
     /// Denormalized for **`#Predicate`** / batch queries; kept in sync with **`owner`**.
     var ownerProfileID: UUID?
     @Relationship
     var owner: UserProfile?
 
-    /// Matches **`MarineLife.uuid`** (denormalized when the catalog link is missing).
-    var marineLifeUUID: String
-
-    @Relationship
-    var marineLife: MarineLife?
+    /// Matches **`MarineLife.uuid`** or **`UserMarineLife.uuid`**.
+    var marineLifeUUID: String = ""
 
     /// User marked this species as seen (in the field guide or on a dive).
-    var isSighted: Bool
+    var isSighted: Bool = false
+
+    /// JSON UUID strings — CloudKit rejects stored `[UUID]` (`NSCodableAttributeType`).
+    var activitiesSightedOnData: Data?
+    /// JSON UUID strings for catalog / user site ids.
+    var sitesSightedOnData: Data?
+    /// JSON media link strings.
+    var userTaggedMediaData: Data?
 
     /// Dive activities where the user logged this species.
-    var activitiesSightedOn: [UUID]
+    @Transient
+    var activitiesSightedOn: [UUID] {
+        get { AppSwiftDataCloudKitArrayStorage.decodeUUIDList(activitiesSightedOnData) }
+        set { activitiesSightedOnData = AppSwiftDataCloudKitArrayStorage.encodeUUIDList(newValue) }
+    }
 
-    /// Catalog **`DiveSite`** ids where the user logged this species.
-    var sitesSightedOn: [UUID]
+    /// Catalog / user **`DiveSite`** / **`UserDiveSite`** ids where the user logged this species.
+    @Transient
+    var sitesSightedOn: [UUID] {
+        get { AppSwiftDataCloudKitArrayStorage.decodeUUIDList(sitesSightedOnData) }
+        set { sitesSightedOnData = AppSwiftDataCloudKitArrayStorage.encodeUUIDList(newValue) }
+    }
 
     /// User media URLs where this species is tagged (local paths or future remote links).
-    var userTaggedMedia: [String]
+    @Transient
+    var userTaggedMedia: [String] {
+        get { AppSwiftDataCloudKitArrayStorage.decodeStringList(userTaggedMediaData) }
+        set { userTaggedMediaData = AppSwiftDataCloudKitArrayStorage.encodeStringList(newValue) }
+    }
 
     init(
         id: UUID = UUID(),
         owner: UserProfile? = nil,
-        marineLife: MarineLife? = nil,
+        marineLifeUUID: String = "",
         isSighted: Bool = false,
         activitiesSightedOn: [UUID] = [],
         sitesSightedOn: [UUID] = [],
@@ -42,17 +58,15 @@ final class MarineLifeUserRecord {
         self.id = id
         self.owner = owner
         self.ownerProfileID = owner?.id
-        self.marineLife = marineLife
-        self.marineLifeUUID = marineLife?.uuid ?? ""
+        self.marineLifeUUID = marineLifeUUID
         self.isSighted = isSighted
         self.activitiesSightedOn = activitiesSightedOn
         self.sitesSightedOn = sitesSightedOn
         self.userTaggedMedia = userTaggedMedia
     }
 
-    func link(to marineLife: MarineLife, owner: UserProfile) {
-        self.marineLife = marineLife
-        self.marineLifeUUID = marineLife.uuid
+    func link(marineLifeUUID: String, owner: UserProfile) {
+        self.marineLifeUUID = marineLifeUUID
         self.owner = owner
         self.ownerProfileID = owner.id
     }

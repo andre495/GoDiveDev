@@ -18,9 +18,7 @@ enum DiveActivityDiverWeightDefaults: Sendable {
 
     /// Resolves water type from linked **`DiveSite`**, else activity value, else salt water.
     nonisolated static func resolvedWaterType(for activity: DiveActivity) -> DiveWaterType {
-        activity.diveSite?.resolvedWaterType
-            ?? activity.diveWaterType
-            ?? defaultWaterType
+        activity.diveWaterType ?? defaultWaterType
     }
 
     /// Sets **`diveWaterType`** from the linked catalog site (or salt default) and fills **`diverWeightKilograms`** when still empty.

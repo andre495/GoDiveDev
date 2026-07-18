@@ -5,26 +5,15 @@ enum SightingInstanceLinking {
 
     static func link(
         _ sighting: SightingInstance,
-        marineLife: MarineLife,
+        marineLifeUUID: String,
         dive: DiveActivity,
-        diveSite: DiveSite? = nil,
+        diveSiteID: UUID? = nil,
         mediaPhoto: DiveMediaPhoto? = nil
     ) {
-        sighting.marineLife = marineLife
-        sighting.marineLifeUUID = marineLife.uuid
+        sighting.marineLifeUUID = marineLifeUUID
         sighting.diveActivity = dive
         sighting.diveActivityID = dive.id
-
-        if let diveSite {
-            sighting.diveSite = diveSite
-            sighting.diveSiteID = diveSite.id
-        } else if let linkedSite = dive.diveSite {
-            sighting.diveSite = linkedSite
-            sighting.diveSiteID = linkedSite.id
-        } else {
-            sighting.diveSite = nil
-            sighting.diveSiteID = dive.diveSiteID
-        }
+        sighting.diveSiteID = diveSiteID ?? dive.diveSiteID
 
         if let mediaPhoto {
             sighting.mediaPhoto = mediaPhoto

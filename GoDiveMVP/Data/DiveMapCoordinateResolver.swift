@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 /// Resolves the coordinate shown on dive maps (stored GPS, then catalog **`DiveSite`** match).
 enum DiveMapCoordinateResolver {
@@ -34,6 +35,20 @@ enum DiveMapCoordinateResolver {
 
     /// Reads **`latCoords`** / **`longCoords`** only — **`nonisolated`** for map prompt drafts and Explore (Swift 6).
     nonisolated static func coordinate(from site: DiveSite) -> DiveCoordinate? {
+        guard let lat = site.latCoords, let lon = site.longCoords else { return nil }
+        let candidate = DiveCoordinate(latitude: lat, longitude: lon)
+        return isUsable(candidate) ? candidate : nil
+    }
+
+    /// Same as `coordinate(from: DiveSite)` for a resolved catalog/user site (**`DiveLinkedSiteResolver`**).
+    nonisolated static func coordinate(from site: DiveLinkedSiteResolver.ResolvedSite) -> DiveCoordinate? {
+        guard let lat = site.latCoords, let lon = site.longCoords else { return nil }
+        let candidate = DiveCoordinate(latitude: lat, longitude: lon)
+        return isUsable(candidate) ? candidate : nil
+    }
+
+    /// Same as `coordinate(from: DiveSite)` for a user-owned **`UserDiveSite`**.
+    nonisolated static func coordinate(from site: UserDiveSite) -> DiveCoordinate? {
         guard let lat = site.latCoords, let lon = site.longCoords else { return nil }
         let candidate = DiveCoordinate(latitude: lat, longitude: lon)
         return isUsable(candidate) ? candidate : nil

@@ -5,17 +5,17 @@ import SwiftData
 @Model
 final class DiveTripBuddyLink {
 
-    var id: UUID
+    var id: UUID = UUID()
 
     var tripID: UUID?
-    @Relationship(inverse: \DiveTrip.buddyLinks)
+    @Relationship(inverse: \DiveTrip.buddyLinksStorage)
     var trip: DiveTrip?
 
     var buddyID: UUID?
-    @Relationship(inverse: \DiveBuddy.tripBuddyLinks)
+    @Relationship(inverse: \DiveBuddy.tripBuddyLinksStorage)
     var buddy: DiveBuddy?
 
-    var addedAt: Date
+    var addedAt: Date = Date()
 
     init(
         id: UUID = UUID(),

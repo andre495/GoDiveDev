@@ -116,7 +116,7 @@ struct ExploreCatalogMapRepresentable: UIViewRepresentable {
             sitesChangeSignature: String
         ) -> Bool {
             self.sites = sites
-            sitesByID = Dictionary(uniqueKeysWithValues: sites.map { ($0.id, $0) })
+            sitesByID = Dictionary(godiveUniquingKeysWithValues: sites.map { ($0.id, $0) })
             let sitesChanged = sitesChangeSignature != lastSitesSignature
             guard sitesChanged else { return false }
             lastSitesSignature = sitesChangeSignature

@@ -8,8 +8,8 @@ import SwiftData
 @Model
 final class DiveProfilePoint {
 
-    var timestamp: Date
-    var depthMeters: Double
+    var timestamp: Date = Date()
+    var depthMeters: Double = 0
     var temperatureCelsius: Double?
     var ascentRateMetersPerSecond: Double?
     var ndlSeconds: Int?
@@ -29,7 +29,7 @@ final class DiveProfilePoint {
     /// Denormalized for batch **`delete(model:where:)`** (avoids per-row cascade deletes).
     var diveActivityID: UUID?
 
-    @Relationship(inverse: \DiveActivity.profilePoints)
+    @Relationship(inverse: \DiveActivity.profilePointsStorage)
     var dive: DiveActivity?
 
     init(

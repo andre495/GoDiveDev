@@ -62,14 +62,14 @@ struct DiveTripFormValues: Equatable, Sendable {
 
     init() {}
 
-    func makeDiveTrip(plannedSites: [DiveSite]) -> DiveTrip {
+    func makeDiveTrip(plannedSiteIDs: [UUID] = []) -> DiveTrip {
         let normalized = DiveTripDateRange.normalizedRange(start: startDate, end: endDate)
         return DiveTrip(
             startDate: normalized.start,
             endDate: normalized.end,
             countries: parsedCountries,
             title: trimmedTitle.isEmpty ? nil : trimmedTitle,
-            plannedSites: plannedSites
+            plannedSiteIDs: plannedSiteIDs
         )
     }
 
@@ -80,13 +80,12 @@ struct DiveTripFormValues: Equatable, Sendable {
         countriesText = trip.countries.joined(separator: ", ")
     }
 
-    mutating func apply(to trip: DiveTrip, plannedSites: [DiveSite]) {
+    mutating func apply(to trip: DiveTrip) {
         let normalized = DiveTripDateRange.normalizedRange(start: startDate, end: endDate)
         trip.startDate = normalized.start
         trip.endDate = normalized.end
         trip.countries = parsedCountries
         trip.title = trimmedTitle.isEmpty ? nil : trimmedTitle
-        trip.plannedSites = plannedSites
         trip.updatedAt = .now
     }
 }

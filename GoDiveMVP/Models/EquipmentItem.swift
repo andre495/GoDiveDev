@@ -7,21 +7,26 @@ import SwiftData
 @Model
 final class EquipmentItem {
 
-    var id: UUID
+    var id: UUID = UUID()
 
-    var manufacturer: String
-    var model: String
+    var manufacturer: String = ""
+    var model: String = ""
     /// Category label (e.g. **Regulator**, **BCD**) — kept in sync with **`gearType`** on save.
-    var type: String
+    var type: String = ""
     /// Gear category (**`EquipmentGearType`** raw value).
-    var gearType: String
+    var gearType: String = ""
 
-    var isRetired: Bool
+    var isRetired: Bool = false
     /// When **`true`**, linked automatically to new dives via **`DiveActivityEquipmentAssociation.applyAutoAdd`**.
-    var autoAdd: Bool
+    var autoAdd: Bool = false
 
     @Relationship(deleteRule: .nullify)
-    var diveEquipmentEntries: [DiveEquipmentEntry] = []
+    var diveEquipmentEntriesStorage: [DiveEquipmentEntry]? = []
+    @Transient
+    var diveEquipmentEntries: [DiveEquipmentEntry] {
+        get { diveEquipmentEntriesStorage ?? [] }
+        set { diveEquipmentEntriesStorage = newValue }
+    }
 
     var purchaseDate: Date?
     var purchasedShop: String?
@@ -89,6 +94,6 @@ final class EquipmentItem {
 extension EquipmentItem {
     /// Dive activity IDs where this gear appears (**`DiveEquipmentEntry.diveActivityID`**).
     var divesUsedOn: [UUID] {
-        diveEquipmentEntries.map(\.diveActivityID)
+        diveEquipmentEntries.compactMap(\.diveActivityID)
     }
 }

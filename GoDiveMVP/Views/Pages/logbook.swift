@@ -239,15 +239,11 @@ struct LogbookView: View {
                 initialSelectedMediaID: mediaID
             )
         case .diveSite(let siteID):
-            if let site = diveSiteCatalog.first(where: { $0.id == siteID }) {
-                ExploreDiveSiteDetailView(
-                    site: site,
-                    ownerProfileID: ownerProfileID,
-                    onOpenDive: { path.append(.diveDetail($0)) }
-                )
-            } else {
-                diveNoLongerInLogText
-            }
+            ExploreDiveSiteDetailHost(
+                siteID: siteID,
+                ownerProfileID: ownerProfileID,
+                onOpenDive: { path.append(.diveDetail($0)) }
+            )
         }
     }
 

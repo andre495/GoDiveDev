@@ -13,7 +13,7 @@ struct FieldGuideMarineLifeDetailView: View {
     @Query private var taggedSightings: [SightingInstance]
     @State private var diveSiteCatalog: [DiveSite] = []
 
-    let species: MarineLife
+    let species: FieldGuideSpeciesBinding
     let onOpenDive: (UUID) -> Void
 
     @State private var speciesHeroMode: PushedDetailHeroHeaderView.Mode = .media
@@ -27,9 +27,33 @@ struct FieldGuideMarineLifeDetailView: View {
         ownerProfileID: UUID?,
         onOpenDive: @escaping (UUID) -> Void
     ) {
-        self.species = species
+        self.init(
+            binding: .catalog(species),
+            ownerProfileID: ownerProfileID,
+            onOpenDive: onOpenDive
+        )
+    }
+
+    init(
+        species: UserMarineLife,
+        ownerProfileID: UUID?,
+        onOpenDive: @escaping (UUID) -> Void
+    ) {
+        self.init(
+            binding: .user(species),
+            ownerProfileID: ownerProfileID,
+            onOpenDive: onOpenDive
+        )
+    }
+
+    private init(
+        binding: FieldGuideSpeciesBinding,
+        ownerProfileID: UUID?,
+        onOpenDive: @escaping (UUID) -> Void
+    ) {
+        self.species = binding
         self.onOpenDive = onOpenDive
-        let marineLifeUUID = species.uuid
+        let marineLifeUUID = binding.uuid
         let ownerFilterID = ownerProfileID ?? Self.noOwnerQueryToken
         _ownerDiveActivities = Query(
             filter: #Predicate<DiveActivity> { $0.ownerProfileID == ownerFilterID },
@@ -50,7 +74,16 @@ struct FieldGuideMarineLifeDetailView: View {
     }
 
     private var canEditSpecies: Bool {
-        FieldGuideMarineLifeAddPresentation.isUserEditable(species)
+        species.canEdit
+    }
+
+    private var catalogMarineLifeForPager: [MarineLife] {
+        switch species {
+        case .catalog(let catalog):
+            [catalog]
+        case .user:
+            []
+        }
     }
 
     private var ownerDiveActivityIDs: Set<UUID> {
@@ -193,7 +226,7 @@ struct FieldGuideMarineLifeDetailView: View {
                     taggedMediaTimeZoneOffsetByID: taggedMediaTimeZoneOffsetByID,
                     linkedMediaItems: linkedMediaItems,
                     mediaSightings: taggedSightings,
-                    marineLifeCatalog: [species],
+                    marineLifeCatalog: catalogMarineLifeForPager,
                     ownerProfileID: accountSession.currentProfile?.id,
                     bottomScrollInset: bottomScrollInset,
                     onOpenDive: onOpenDive

@@ -123,8 +123,16 @@ struct DiveActivityMediaThumbnailView: View {
             return
         }
 
-        guard let identifier = media.libraryAssetLocalIdentifier else {
+        let identifier = DiveMediaLibraryIdentifierRepair.resolveLocalIdentifierIfNeeded(
+            for: media,
+            modelContext: modelContext
+        )
+        guard let identifier else {
             thumbnailLoadFinished = true
+            if DiveMediaCloudIdentifierStorage.isPresent(media.photosCloudIdentifier)
+                || media.libraryAssetLocalIdentifier != nil {
+                DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
+            }
             return
         }
         if storedThumbnailImage == nil {
@@ -142,6 +150,8 @@ struct DiveActivityMediaThumbnailView: View {
         if let image {
             thumbnailImage = image
             DiveMediaPreviewStorage.persistPreview(from: image, on: media, modelContext: modelContext)
+            _ = DiveMediaLibraryIdentifierRepair.captureCloudIdentifierIfNeeded(for: media)
+            try? modelContext.save()
         } else if thumbnailImage == nil, storedThumbnailImage == nil {
             DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
         }

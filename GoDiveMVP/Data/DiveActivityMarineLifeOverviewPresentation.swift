@@ -63,7 +63,7 @@ enum DiveActivityMarineLifeOverviewPresentation: Sendable {
         for sighting in sightings {
             let uuid = sighting.marineLifeUUID
             guard seen.insert(uuid).inserted else { continue }
-            let species = sighting.marineLife ?? catalogByUUID[uuid]
+            let species = catalogByUUID[uuid]
             guard let species else { continue }
             chips.append(
                 SpeciesChip(

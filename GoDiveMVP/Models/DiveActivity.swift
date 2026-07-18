@@ -11,19 +11,25 @@ import SwiftData
 final class DiveActivity {
 
     // Core Identity
-    var id: UUID
-    /// Import / entry origin (Garmin, MacDive, manual). Persisted column was **`deviceSource`**.
+    var id: UUID = UUID()
+    /// Import / entry origin raw value — CloudKit-safe `String` (was stored `DiveSource` enum).
     @Attribute(originalName: "deviceSource")
-    var source: DiveSource
+    var sourceRaw: String = DiveSource.manual.rawValue
+    /// Import / entry origin (Garmin, MacDive, manual).
+    @Transient
+    var source: DiveSource {
+        get { DiveSource(rawValue: sourceRaw) ?? .manual }
+        set { sourceRaw = newValue.rawValue }
+    }
     var sourceDiveId: String?
 
     // Core Dive Data
     /// Dive start instant (UTC). Display via **`formattedStartDateTime()`** using **`timeZoneOffsetSeconds`** when set.
-    var startTime: Date
+    var startTime: Date = Date()
     /// Seconds east of UTC for dive-local display (from UDDF **`timezone`**, **`Z`**, or **`±HH:MM`** on import).
     var timeZoneOffsetSeconds: Int?
-    var durationMinutes: Int
-    var maxDepthMeters: Double
+    var durationMinutes: Int = 0
+    var maxDepthMeters: Double = 0
     var averageDepthMeters: Double?
 
     // Dive Metrics
@@ -46,31 +52,61 @@ final class DiveActivity {
     // Location
     var siteName: String?
     var locationName: String?
-    /// GPS from import / manual entry (entry point). Map uses **`siteCoordinate`** when **`diveSite`** is linked.
-    @Attribute(originalName: "coordinate")
-    var entryCoordinate: DiveCoordinate?
+    /// Import / manual entry GPS latitude (degrees). Paired with **`entryLongitude`**.
+    /// Flattened from Codable **`DiveCoordinate`** — CloudKit rejects `NSCodableAttributeType`.
+    var entryLatitude: Double?
+    /// Import / manual entry GPS longitude (degrees). Paired with **`entryLatitude`**.
+    var entryLongitude: Double?
 
-    /// Denormalized for **`#Predicate`**; kept in sync with **`diveSite`**.
+    /// GPS from import / manual entry (entry point). Map uses **`siteCoordinate`** when **`diveSite`** is linked.
+    /// Transient wrapper over **`entryLatitude`** / **`entryLongitude`** (CloudKit-safe primitives).
+    @Transient
+    var entryCoordinate: DiveCoordinate? {
+        get {
+            guard let entryLatitude, let entryLongitude else { return nil }
+            return DiveCoordinate(latitude: entryLatitude, longitude: entryLongitude)
+        }
+        set {
+            entryLatitude = newValue?.latitude
+            entryLongitude = newValue?.longitude
+        }
+    }
+
+    /// Denormalized for **`#Predicate`**; kept in sync with linked catalog or user site id.
     var diveSiteID: UUID?
-    @Relationship(deleteRule: .nullify)
-    var diveSite: DiveSite?
 
     // User-Provided Data
     var notes: String?
 
     // Manual log (overview sheet, large detent — not from import)
-    /// **`nil`** = none / unset (optional for SwiftData migration — do not use a non-optional enum default).
-    var diveCurrentStrength: DiveCurrentStrength?
+    /// **`DiveCurrentStrength`** raw value; **`nil`** = unset.
+    var diveCurrentStrengthRaw: String?
+    @Transient
+    var diveCurrentStrength: DiveCurrentStrength? {
+        get { diveCurrentStrengthRaw.flatMap(DiveCurrentStrength.init(rawValue:)) }
+        set { diveCurrentStrengthRaw = newValue?.rawValue }
+    }
     var surfaceCondition: String?
     var entryType: String?
-    var diveVisibility: DiveVisibilityRating?
+    /// **`DiveVisibilityRating`** raw value; **`nil`** = unset.
+    var diveVisibilityRaw: String?
+    @Transient
+    var diveVisibility: DiveVisibilityRating? {
+        get { diveVisibilityRaw.flatMap(DiveVisibilityRating.init(rawValue:)) }
+        set { diveVisibilityRaw = newValue?.rawValue }
+    }
     var diveOperatorName: String?
     var diveMasterName: String?
     /// **`PKDrawing`** archive from **`DiveSignaturePadView`**; **`nil`** when empty.
     var diveSignatureData: Data?
 
-    /// Salt vs fresh water for ballast context (**`nil`** → salt water on import).
-    var diveWaterType: DiveWaterType?
+    /// **`DiveWaterType`** raw value; **`nil`** → salt water on import / display defaults.
+    var diveWaterTypeRaw: String?
+    @Transient
+    var diveWaterType: DiveWaterType? {
+        get { diveWaterTypeRaw.flatMap(DiveWaterType.init(rawValue:)) }
+        set { diveWaterTypeRaw = newValue?.rawValue }
+    }
     /// Diver ballast weight in **kilograms** (canonical storage).
     var diverWeightKilograms: Double?
 
@@ -94,16 +130,32 @@ final class DiveActivity {
     /// Respiratory minute volume at the surface: **L/min**. Computed on import from SAC × tank factor or FIT **`volume_used`** / time.
     var avgRMV: Double?
 
+    /// CloudKit requires optional to-many relationships; **`buddies`** is the app-facing accessor.
     @Relationship(deleteRule: .cascade)
-    var buddies: [DiveBuddyTag] = []
+    var buddiesStorage: [DiveBuddyTag]? = []
+    @Transient
+    var buddies: [DiveBuddyTag] {
+        get { buddiesStorage ?? [] }
+        set { buddiesStorage = newValue }
+    }
 
     /// Reusable custom labels (**`ActivityTag`**) applied to this dive (unlinked on dive delete; tag rows persist).
     @Relationship(deleteRule: .nullify)
-    var activityTags: [ActivityTag] = []
+    var activityTagsStorage: [ActivityTag]? = []
+    @Transient
+    var activityTags: [ActivityTag] {
+        get { activityTagsStorage ?? [] }
+        set { activityTagsStorage = newValue }
+    }
 
     /// Post-dive photos and videos (**`DiveMediaPhoto`**). Empty until the user adds media.
     @Relationship(deleteRule: .cascade)
-    var mediaPhotos: [DiveMediaPhoto] = []
+    var mediaPhotosStorage: [DiveMediaPhoto]? = []
+    @Transient
+    var mediaPhotos: [DiveMediaPhoto] {
+        get { mediaPhotosStorage ?? [] }
+        set { mediaPhotosStorage = newValue }
+    }
 
     /// User-chosen **featured** media (logbook row preview). **`nil`** = default to the oldest gallery item
     /// (**`DiveActivityMediaPresentation.featuredPhotoID`** resolves / falls back when this id is missing).
@@ -111,15 +163,30 @@ final class DiveActivity {
 
     /// Field-guide sightings logged on this dive (**`SightingInstance`**).
     @Relationship(deleteRule: .cascade)
-    var marineLifeSightings: [SightingInstance] = []
+    var marineLifeSightingsStorage: [SightingInstance]? = []
+    @Transient
+    var marineLifeSightings: [SightingInstance] {
+        get { marineLifeSightingsStorage ?? [] }
+        set { marineLifeSightingsStorage = newValue }
+    }
 
     /// Buddies tagged on individual media items for this dive (**`DiveMediaBuddyTag`**).
     @Relationship(deleteRule: .cascade)
-    var mediaBuddyTags: [DiveMediaBuddyTag] = []
+    var mediaBuddyTagsStorage: [DiveMediaBuddyTag]? = []
+    @Transient
+    var mediaBuddyTags: [DiveMediaBuddyTag] {
+        get { mediaBuddyTagsStorage ?? [] }
+        set { mediaBuddyTagsStorage = newValue }
+    }
 
     /// Trips this dive is linked to (at most one **`DiveTripActivityLink`**).
     @Relationship
-    var tripActivityLinks: [DiveTripActivityLink] = []
+    var tripActivityLinksStorage: [DiveTripActivityLink]? = []
+    @Transient
+    var tripActivityLinks: [DiveTripActivityLink] {
+        get { tripActivityLinksStorage ?? [] }
+        set { tripActivityLinksStorage = newValue }
+    }
 
     /// Gear used on this dive (**`DiveEquipmentEntry`** rows). Created on first link / auto-add.
     @Relationship(deleteRule: .cascade)
@@ -127,7 +194,12 @@ final class DiveActivity {
 
     // Time-series profile (Garmin record messages mapped to canonical points)
     @Relationship(deleteRule: .cascade)
-    var profilePoints: [DiveProfilePoint] = []
+    var profilePointsStorage: [DiveProfilePoint]? = []
+    @Transient
+    var profilePoints: [DiveProfilePoint] {
+        get { profilePointsStorage ?? [] }
+        set { profilePointsStorage = newValue }
+    }
 
     /// Denormalized for **`#Predicate`** / logbook filtering; kept in sync with **`owner`**.
     var ownerProfileID: UUID?
@@ -162,7 +234,6 @@ final class DiveActivity {
         locationName: String? = nil,
         entryCoordinate: DiveCoordinate? = nil,
         diveSiteID: UUID? = nil,
-        diveSite: DiveSite? = nil,
         notes: String? = nil,
         diveCurrentStrength: DiveCurrentStrength? = nil,
         surfaceCondition: String? = nil,
@@ -203,7 +274,6 @@ final class DiveActivity {
         self.locationName = locationName
         self.entryCoordinate = entryCoordinate
         self.diveSiteID = diveSiteID
-        self.diveSite = diveSite
         self.notes = notes
         self.diveCurrentStrength = diveCurrentStrength
         self.surfaceCondition = surfaceCondition
@@ -227,14 +297,26 @@ final class DiveActivity {
 }
 
 extension DiveActivity {
+    /// Resolves the linked catalog/user site from **`diveSiteID`** when a model context is attached.
+    var resolvedLinkedSite: DiveLinkedSiteResolver.ResolvedSite? {
+        guard let diveSiteID, let modelContext else { return nil }
+        return try? DiveLinkedSiteResolver.resolve(id: diveSiteID, modelContext: modelContext)
+    }
+
     /// Catalog **`DiveSite`** coordinates when linked and usable.
     var siteCoordinate: DiveCoordinate? {
-        guard let site = diveSite else { return nil }
+        guard let site = resolvedLinkedSite else { return nil }
         return DiveMapCoordinateResolver.coordinate(from: site)
     }
 
-    /// Coordinate for map pin: linked site first, then entry GPS, then unlinked name lookup in **`catalogSites`**.
+    /// Coordinate for map pin: linked site (context or **`catalogSites`** by id), then entry GPS, then name lookup.
     func resolvedMapCoordinate(catalogSites: [DiveSite]) -> DiveCoordinate? {
+        if let diveSiteID,
+           let matched = catalogSites.first(where: { $0.id == diveSiteID }),
+           let coordinate = DiveMapCoordinateResolver.coordinate(from: matched),
+           DiveMapCoordinateResolver.isUsable(coordinate) {
+            return coordinate
+        }
         if let siteCoordinate {
             return siteCoordinate
         }
@@ -249,7 +331,7 @@ extension DiveActivity {
 
     /// Primary site title: linked catalog name, else import **`siteName`**.
     var resolvedSiteName: String? {
-        if let diveSite, let linked = DiveSiteCatalogMatcher.resolvedCatalogSiteName(for: diveSite) {
+        if let site = resolvedLinkedSite, let linked = DiveSiteCatalogMatcher.resolvedCatalogSiteName(for: site) {
             return linked
         }
         let imported = siteName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""

@@ -1,19 +1,30 @@
 import SwiftData
 import SwiftUI
 
-/// Blue modal form to edit an existing catalog **`DiveSite`** (name, place, water, depth, coordinates).
+/// Blue modal form to edit an existing dive site (catalog or user-owned).
 struct DiveSiteEditSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
-    @Bindable var site: DiveSite
+    private enum BoundSite {
+        case catalog(DiveSite)
+        case user(UserDiveSite)
+    }
+
+    private let boundSite: BoundSite
     var onSaved: () -> Void = {}
 
     @State private var draft: DiveSiteFormDraft
     @State private var saveErrorMessage: String?
 
     init(site: DiveSite, onSaved: @escaping () -> Void = {}) {
-        self.site = site
+        self.boundSite = .catalog(site)
+        self.onSaved = onSaved
+        _draft = State(initialValue: DiveSiteFormDraft(from: site))
+    }
+
+    init(site: UserDiveSite, onSaved: @escaping () -> Void = {}) {
+        self.boundSite = .user(site)
         self.onSaved = onSaved
         _draft = State(initialValue: DiveSiteFormDraft(from: site))
     }
@@ -22,12 +33,21 @@ struct DiveSiteEditSheet: View {
         DiveSiteFormValidation.canSave(draft: draft)
     }
 
+    private var fallbackCoordinate: DiveCoordinate? {
+        switch boundSite {
+        case .catalog(let site):
+            DiveMapCoordinateResolver.coordinate(from: site)
+        case .user(let site):
+            DiveMapCoordinateResolver.coordinate(from: site)
+        }
+    }
+
     var body: some View {
         NavigationStack {
             Form {
                 DiveSiteFormContent(
                     draft: $draft,
-                    fallbackCoordinate: DiveMapCoordinateResolver.coordinate(from: site),
+                    fallbackCoordinate: fallbackCoordinate,
                     clearsListRowBackgrounds: true
                 )
             }
@@ -68,28 +88,51 @@ struct DiveSiteEditSheet: View {
     private func saveChanges() {
         guard canSave else { return }
 
-        let previousLat = site.latCoords
-        let previousLon = site.longCoords
-        let parsed = DiveSiteFormValidation.parsedCoordinate(
-            latitudeText: draft.latitudeText,
-            longitudeText: draft.longitudeText
-        )
-        let coordsChanged = parsed?.latitude != previousLat || parsed?.longitude != previousLon
-
         Task { @MainActor in
             do {
-                try DiveActivitySiteAssociation.applyCatalogSiteEdits(
-                    to: site,
-                    draft: draft,
-                    modelContext: modelContext,
-                    persistImmediately: false
-                )
-                if coordsChanged, parsed != nil {
-                    await DiveSiteTimeZoneResolution.ensureResolved(
-                        for: site,
-                        at: Date(),
-                        resolver: MapKitGeocodingTimeZoneResolver.shared
+                switch boundSite {
+                case .catalog(let site):
+                    let previousLat = site.latCoords
+                    let previousLon = site.longCoords
+                    let parsed = DiveSiteFormValidation.parsedCoordinate(
+                        latitudeText: draft.latitudeText,
+                        longitudeText: draft.longitudeText
                     )
+                    let coordsChanged = parsed?.latitude != previousLat || parsed?.longitude != previousLon
+                    try DiveActivitySiteAssociation.applyCatalogSiteEdits(
+                        to: site,
+                        draft: draft,
+                        modelContext: modelContext,
+                        persistImmediately: false
+                    )
+                    if coordsChanged, parsed != nil {
+                        await DiveSiteTimeZoneResolution.ensureResolved(
+                            for: site,
+                            at: Date(),
+                            resolver: MapKitGeocodingTimeZoneResolver.shared
+                        )
+                    }
+                case .user(let site):
+                    let previousLat = site.latCoords
+                    let previousLon = site.longCoords
+                    let parsed = DiveSiteFormValidation.parsedCoordinate(
+                        latitudeText: draft.latitudeText,
+                        longitudeText: draft.longitudeText
+                    )
+                    let coordsChanged = parsed?.latitude != previousLat || parsed?.longitude != previousLon
+                    try DiveActivitySiteAssociation.applyUserSiteEdits(
+                        to: site,
+                        draft: draft,
+                        modelContext: modelContext,
+                        persistImmediately: false
+                    )
+                    if coordsChanged, parsed != nil {
+                        await DiveSiteTimeZoneResolution.ensureResolved(
+                            for: site,
+                            at: Date(),
+                            resolver: MapKitGeocodingTimeZoneResolver.shared
+                        )
+                    }
                 }
                 try modelContext.save()
                 onSaved()

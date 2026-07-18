@@ -130,7 +130,9 @@ enum ExploreSiteScopePresentation: Sendable {
                 logbookSiteIDs: logbookSiteIDs,
                 reference: reference
             )
-            return referencePlotted + supplementalPlotted
+            return ExploreCatalogMapPresentation.deduplicatingPlottableSites(
+                referencePlotted + supplementalPlotted
+            )
         }
     }
 

@@ -1007,7 +1007,7 @@ enum GlobalSearchCatalogSeeding {
                 fields.append(.init(label: "Trip", value: title))
             }
         }
-        if let site = activity?.diveSite {
+        if let site = activity?.resolvedLinkedSite {
             let countryTerms = DiveSiteCountryPresentation.searchTerms(for: site.country)
             if !countryTerms.isEmpty {
                 let canonical = DiveSiteCountryPresentation.canonicalDisplayName(for: site.country)
@@ -1046,11 +1046,7 @@ enum GlobalSearchCatalogSeeding {
         speciesNameByUUID: [String: String]
     ) -> [String] {
         activity.marineLifeSightings.compactMap { sighting in
-            if let name = sighting.marineLife?.commonName,
-               !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                return name
-            }
-            return speciesNameByUUID[sighting.marineLifeUUID]
+            speciesNameByUUID[sighting.marineLifeUUID]
         }
     }
 

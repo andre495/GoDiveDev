@@ -142,7 +142,8 @@ extension DiveBuddyDetailPresentation {
     nonisolated static func catalogSitesFromSharedDives(_ sharedDives: [DiveActivity]) -> [DiveSite] {
         var byID: [UUID: DiveSite] = [:]
         for dive in sharedDives {
-            if let site = dive.diveSite {
+            guard let diveSiteID = dive.diveSiteID, let modelContext = dive.modelContext else { continue }
+            if let site = try? DiveLinkedSiteResolver.existingCatalogDiveSite(id: diveSiteID, modelContext: modelContext) {
                 byID[site.id] = site
             }
         }

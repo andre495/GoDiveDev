@@ -5,7 +5,7 @@ import SwiftData
 @Model
 final class DiveActivityEquipmentList {
 
-    var id: UUID
+    var id: UUID = UUID()
 
     /// Denormalized for **`#Predicate`**; kept in sync with **`dive`**.
     var diveActivityID: UUID?
@@ -14,7 +14,12 @@ final class DiveActivityEquipmentList {
     var dive: DiveActivity?
 
     @Relationship(deleteRule: .cascade)
-    var entries: [DiveEquipmentEntry] = []
+    var entriesStorage: [DiveEquipmentEntry]? = []
+    @Transient
+    var entries: [DiveEquipmentEntry] {
+        get { entriesStorage ?? [] }
+        set { entriesStorage = newValue }
+    }
 
     init(
         id: UUID = UUID(),

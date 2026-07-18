@@ -76,7 +76,11 @@ enum MockDataSeeder {
             context.insert(tag)
         }
         if let sites = try? context.fetch(FetchDescriptor<DiveSite>()) {
-            DiveActivitySiteAssociation.applyBestMatch(to: activity, catalogSites: sites)
+            DiveActivitySiteAssociation.applyBestMatch(
+                to: activity,
+                catalogSites: sites,
+                modelContext: context
+            )
         }
     }
 

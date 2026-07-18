@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import SwiftData
 import MapKit
 
 /// Map hero layout inputs for framing planned + completed pins above the overlapping trip sheet.
@@ -135,7 +136,7 @@ enum TripDetailMapPresentation: Sendable {
 
     @MainActor
     static func pins(
-        plannedSites: [DiveSite],
+        plannedSites: [DiveLinkedSiteResolver.ResolvedSite],
         linkedActivities: [DiveActivity],
         catalogSites: [DiveSite]
     ) -> [TripDetailMapPin] {

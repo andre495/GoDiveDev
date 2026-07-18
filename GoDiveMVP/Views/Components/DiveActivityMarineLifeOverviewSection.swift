@@ -77,12 +77,7 @@ struct DiveActivityMarineLifeOverviewSection: View {
     private func resolvedSpecies(
         for chip: DiveActivityMarineLifeOverviewPresentation.SpeciesChip
     ) -> MarineLife? {
-        if let linked = activity.marineLifeSightings.first(where: {
-            $0.marineLifeUUID == chip.marineLifeUUID
-        })?.marineLife {
-            return linked
-        }
-        return catalogByUUID[chip.marineLifeUUID]
+        catalogByUUID[chip.marineLifeUUID]
     }
 
     @MainActor

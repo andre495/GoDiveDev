@@ -16,6 +16,9 @@ enum AppModelContainer {
                     do {
                         return try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: false)
                     } catch {
+                        // Last resort — dual-store open already falls back from CloudKit → local.
+                        Logger(subsystem: "PrimoSoftware.GoDiveMVP", category: "ModelContainer")
+                            .fault("Could not create ModelContainer: \(String(describing: error), privacy: .public)")
                         fatalError("Could not create ModelContainer: \(error)")
                     }
                 }

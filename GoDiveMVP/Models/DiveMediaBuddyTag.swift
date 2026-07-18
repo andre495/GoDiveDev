@@ -5,7 +5,7 @@ import SwiftData
 @Model
 final class DiveMediaBuddyTag {
 
-    var id: UUID
+    var id: UUID = UUID()
 
     /// Denormalized for batch **`delete(model:where:)`**.
     var mediaPhotoID: UUID?
@@ -16,13 +16,13 @@ final class DiveMediaBuddyTag {
     /// Denormalized parent dive for cleanup and queries.
     var diveActivityID: UUID?
 
-    @Relationship(inverse: \DiveBuddy.mediaBuddyTags)
+    @Relationship(inverse: \DiveBuddy.mediaBuddyTagsStorage)
     var buddy: DiveBuddy?
 
-    @Relationship
+    @Relationship(inverse: \DiveMediaPhoto.mediaBuddyTagsStorage)
     var mediaPhoto: DiveMediaPhoto?
 
-    @Relationship(inverse: \DiveActivity.mediaBuddyTags)
+    @Relationship(inverse: \DiveActivity.mediaBuddyTagsStorage)
     var diveActivity: DiveActivity?
 
     init(

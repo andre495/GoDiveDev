@@ -1,5 +1,8 @@
 import Foundation
 import SwiftData
+#if canImport(Photos)
+import Photos
+#endif
 
 extension Notification.Name {
     /// Posted after a dive's media set changes (reference added or pruned), so the logbook can rebuild its
@@ -35,13 +38,22 @@ enum DiveActivityMediaStorage {
         to activity: DiveActivity,
         modelContext: ModelContext
     ) throws -> UUID {
+        let trimmedLocal = localIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        #if canImport(Photos)
+        let cloudIdentifier = DiveMediaCloudIdentifierResolver.cloudIdentifierString(
+            forLocalIdentifier: trimmedLocal
+        ) ?? ""
+        #else
+        let cloudIdentifier = ""
+        #endif
         let mediaID = UUID()
         let row = DiveMediaPhoto(
             id: mediaID,
             sortOrder: nextSortOrder(on: activity),
             mediaKind: mediaKind,
             capturedAt: capturedAt,
-            photosLocalIdentifier: localIdentifier.trimmingCharacters(in: .whitespacesAndNewlines),
+            photosLocalIdentifier: trimmedLocal,
+            photosCloudIdentifier: cloudIdentifier,
             dive: activity
         )
         activity.mediaPhotos.append(row)

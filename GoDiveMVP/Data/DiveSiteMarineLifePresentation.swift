@@ -47,7 +47,6 @@ enum DiveSiteMarineLifePresentation {
             seenUUIDs.insert(sighting.marineLifeUUID)
 
             let displayName = catalogByUUID[sighting.marineLifeUUID]?.commonName
-                ?? sighting.marineLife?.commonName
                 ?? "Unknown species"
 
             links.append(

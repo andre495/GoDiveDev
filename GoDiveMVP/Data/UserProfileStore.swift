@@ -46,7 +46,7 @@ enum UserProfileStore {
         }
     }
 
-    /// Prefer a fresh Apple **`fullName`**, then cached name from a prior first-time authorization.
+    /// Prefer a fresh Apple **`fullName`**, then cached name, then a sign-out-surviving returning-user hint.
     nonisolated static func resolvedDisplayName(
         appleProvided: String?,
         appleUserIdentifier: String
@@ -54,7 +54,10 @@ enum UserProfileStore {
         if let appleProvided, !appleProvided.isEmpty {
             return appleProvided
         }
-        return cachedDisplayName(forAppleUserIdentifier: appleUserIdentifier)
+        if let cached = cachedDisplayName(forAppleUserIdentifier: appleUserIdentifier) {
+            return cached
+        }
+        return ReturningAccountHints.rememberedDisplayName(forAppleUserIdentifier: appleUserIdentifier)
     }
 
     nonisolated static func profile(
@@ -117,15 +120,36 @@ enum UserProfileStore {
         try applyCachedDisplayNameIfNeeded(to: profile, modelContext: modelContext)
     }
 
-    /// Applies a cached Apple name when the stored profile still has the placeholder.
+    /// Applies a cached / remembered Apple name when the stored profile still has the placeholder.
     nonisolated static func applyCachedDisplayNameIfNeeded(
         to profile: UserProfile,
         modelContext: ModelContext
     ) throws {
         guard profile.displayName == defaultDisplayName || profile.displayName.isEmpty else { return }
-        guard let cached = cachedDisplayName(forAppleUserIdentifier: profile.appleUserIdentifier) else { return }
-        profile.displayName = cached
+        let restored =
+            cachedDisplayName(forAppleUserIdentifier: profile.appleUserIdentifier)
+            ?? ReturningAccountHints.rememberedDisplayName(
+                forAppleUserIdentifier: profile.appleUserIdentifier
+            )
+        guard let restored else { return }
+        profile.displayName = restored
         try modelContext.save()
+    }
+
+    /// Upgrades a placeholder **Diver** name from an explicit restored value (e.g. Firestore).
+    @discardableResult
+    nonisolated static func applyRestoredDisplayNameIfNeeded(
+        to profile: UserProfile,
+        restoredName: String?,
+        modelContext: ModelContext
+    ) throws -> Bool {
+        let trimmed = restoredName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmed.isEmpty, trimmed != defaultDisplayName else { return false }
+        guard profile.displayName == defaultDisplayName || profile.displayName.isEmpty else { return false }
+        profile.displayName = trimmed
+        cacheDisplayName(trimmed, forAppleUserIdentifier: profile.appleUserIdentifier)
+        try modelContext.save()
+        return true
     }
 
     /// Trims and validates a user-entered display name (post-sign-in prompt).

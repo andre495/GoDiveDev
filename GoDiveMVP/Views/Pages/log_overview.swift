@@ -296,15 +296,11 @@ struct LogOverviewView: View {
                 missingDestinationLabel("This dive is no longer in your log.")
             }
         case .diveSite(let siteID):
-            if let site = diveSiteCatalog.first(where: { $0.id == siteID }) {
-                ExploreDiveSiteDetailView(
-                    site: site,
-                    ownerProfileID: ownerProfileID,
-                    onOpenDive: { path.append(.diveDetail($0)) }
-                )
-            } else {
-                missingDestinationLabel("This dive site is no longer in the catalog.")
-            }
+            ExploreDiveSiteDetailHost(
+                siteID: siteID,
+                ownerProfileID: ownerProfileID,
+                onOpenDive: { path.append(.diveDetail($0)) }
+            )
         case .marineLife(let uuid):
             if let species = marineLifeCatalog.first(where: { $0.uuid == uuid }) {
                 FieldGuideMarineLifeDetailView(

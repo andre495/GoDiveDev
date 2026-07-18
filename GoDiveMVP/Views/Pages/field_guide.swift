@@ -17,6 +17,7 @@ struct FieldGuideView: View {
     @Query private var ownerDiveActivities: [DiveActivity]
 
     @State private var marineLifeCatalog: [MarineLife] = []
+    @State private var userMarineLifeCatalog: [UserMarineLife] = []
     @State private var diveSiteCatalog: [DiveSite] = []
     @State private var hasLoadedCatalogs = false
 
@@ -187,6 +188,13 @@ struct FieldGuideView: View {
                         ) { activityID in
                             path.append(.diveDetail(activityID))
                         }
+                    } else if let species = userMarineLifeCatalog.first(where: { $0.uuid == marineLifeUUID }) {
+                        FieldGuideMarineLifeDetailView(
+                            species: species,
+                            ownerProfileID: accountSession.currentProfile?.id
+                        ) { activityID in
+                            path.append(.diveDetail(activityID))
+                        }
                     } else {
                         missingSpeciesPlaceholder
                     }
@@ -197,15 +205,11 @@ struct FieldGuideView: View {
                         missingDivePlaceholder
                     }
                 case .diveSite(let siteID):
-                    if let site = diveSiteCatalog.first(where: { $0.id == siteID }) {
-                        ExploreDiveSiteDetailView(
-                            site: site,
-                            ownerProfileID: accountSession.currentProfile?.id,
-                            onOpenDive: { path.append(.diveDetail($0)) }
-                        )
-                    } else {
-                        missingDiveSitePlaceholder
-                    }
+                    ExploreDiveSiteDetailHost(
+                        siteID: siteID,
+                        ownerProfileID: accountSession.currentProfile?.id,
+                        onOpenDive: { path.append(.diveDetail($0)) }
+                    )
                 }
             }
         }
@@ -246,6 +250,9 @@ struct FieldGuideView: View {
             persistentIDs: await marineLifeIDs,
             modelContext: modelContext
         )
+        userMarineLifeCatalog = (try? modelContext.fetch(
+            FetchDescriptor<UserMarineLife>(sortBy: [SortDescriptor(\.commonName)])
+        )) ?? []
         diveSiteCatalog = DiveSiteCatalogLoader.bindModels(
             persistentIDs: await diveSiteIDs,
             modelContext: modelContext
@@ -256,7 +263,9 @@ struct FieldGuideView: View {
     }
 
     private func syncCatalogCache() {
-        let nextSnapshots = marineLifeCatalog.map(\.fieldGuideCatalogSnapshot)
+        let nextSnapshots = (try? MarineLifeSpeciesResolver.allCatalogSnapshots(modelContext: modelContext))
+            ?? (marineLifeCatalog.map(\.fieldGuideCatalogSnapshot)
+                + userMarineLifeCatalog.map(\.fieldGuideCatalogSnapshot))
         guard nextSnapshots != catalogSnapshots else { return }
         catalogSnapshots = nextSnapshots
         categorySummaries = FieldGuideCatalogIndex.summaries(for: nextSnapshots)

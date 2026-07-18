@@ -7,17 +7,17 @@ import SwiftData
 @Model
 final class Certification {
 
-    var id: UUID
+    var id: UUID = UUID()
 
     /// Training agency (e.g. **PADI**, **NAUI**, **SSI**).
-    var agency: String
+    var agency: String = ""
     /// Certification title (e.g. **Rescue Diver**, **Open Water**).
-    var certName: String
-    var certNumber: String
-    var dateAttained: Date
+    var certName: String = ""
+    var certNumber: String = ""
+    var dateAttained: Date = Date()
 
-    var instructor: String
-    var instructorNumber: String
+    var instructor: String = ""
+    var instructorNumber: String = ""
     var diveShop: String?
     /// PADI dive-center / store identification number when printed on the card back.
     var diveShopNumber: String?

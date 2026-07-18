@@ -67,9 +67,10 @@ enum ExploreSiteScopeCache: Sendable {
     nonisolated static func syncToken(
         ownerProfileID: UUID?,
         catalogSiteCount: Int,
+        userSiteCount: Int = 0,
         ownerActivitySiteLinkSignature: Int
     ) -> String {
-        "\(ownerProfileID?.uuidString ?? "nil")|\(catalogSiteCount)|\(ownerActivitySiteLinkSignature)"
+        "\(ownerProfileID?.uuidString ?? "nil")|\(catalogSiteCount)|\(userSiteCount)|\(ownerActivitySiteLinkSignature)"
     }
 
     nonisolated static func ownerActivitySiteLinkSignature(_ ownerActivities: [DiveActivity]) -> Int {
@@ -83,6 +84,7 @@ enum ExploreSiteScopeCache: Sendable {
     nonisolated static func make(
         ownerProfileID: UUID?,
         catalog: [DiveSite],
+        userSites: [UserDiveSite] = [],
         ownerActivities: [DiveActivity]
     ) -> Snapshot {
         let reference = DiveSiteReferenceCatalog.bundledReference()
@@ -94,32 +96,45 @@ enum ExploreSiteScopeCache: Sendable {
             catalog: catalog,
             logbookSiteIDs: logbookSiteIDs
         )
-        let logbookPlottable = ExploreSiteScopePresentation.plottableSites(
+        let logbookUserSites = userSites.filter { logbookSiteIDs.contains($0.id) }
+        // Pure user-created sites only on All Sites — OpenDiveMap snapshots are already in the reference layer.
+        let allSitesUserSites = logbookUserSites.filter { $0.openDiveMapReferenceID == nil }
+        let logbookUserPlottable = ExploreCatalogMapPresentation.plottableSites(from: logbookUserSites)
+        let logbookUserIDs = Set(logbookUserPlottable.map(\.id))
+        let logbookCatalogPlottable = ExploreSiteScopePresentation.plottableSites(
             scope: .logbook,
             catalog: catalog,
             logbookSiteIDs: logbookSiteIDs,
             reference: reference
+        ).filter { !logbookUserIDs.contains($0.id) }
+        let logbookPlottable = ExploreCatalogMapPresentation.deduplicatingPlottableSites(
+            logbookUserPlottable + logbookCatalogPlottable
         )
-        let allSitesPlottable = ExploreSiteScopePresentation.plottableSites(
-            scope: .allSites,
-            catalog: catalog,
-            logbookSiteIDs: logbookSiteIDs,
-            reference: reference
+        let allSitesPlottable = ExploreCatalogMapPresentation.deduplicatingPlottableSites(
+            ExploreSiteScopePresentation.plottableSites(
+                scope: .allSites,
+                catalog: catalog,
+                logbookSiteIDs: logbookSiteIDs,
+                reference: reference
+            ) + ExploreCatalogMapPresentation.plottableSites(from: allSitesUserSites)
         )
-        let logbookRows = ExploreSiteScopePresentation.catalogListRows(
+        let logbookUserRows = DiveSitePresentation.listRecords(for: logbookUserSites)
+        let logbookUserRowIDs = Set(logbookUserRows.map(\.id))
+        let logbookCatalogRows = ExploreSiteScopePresentation.catalogListRows(
             scope: .logbook,
             catalog: catalog,
             logbookSiteIDs: logbookSiteIDs,
             reference: reference,
             query: ""
-        )
+        ).filter { !logbookUserRowIDs.contains($0.id) }
+        let logbookRows = logbookUserRows + logbookCatalogRows
         let allSitesRows = ExploreSiteScopePresentation.catalogListRows(
             scope: .allSites,
             catalog: catalog,
             logbookSiteIDs: logbookSiteIDs,
             reference: reference,
             query: ""
-        )
+        ) + DiveSitePresentation.listRecords(for: allSitesUserSites)
 
         return Snapshot(
             logbookSiteIDs: logbookSiteIDs,
@@ -129,9 +144,9 @@ enum ExploreSiteScopeCache: Sendable {
             allSitesPlottableSignature: ExploreCatalogMapPresentation.sitesChangeSignature(for: allSitesPlottable),
             logbookListRows: logbookRows,
             allSitesListRows: allSitesRows,
-            showsSiteScopeToggle: !reference.isEmpty,
-            hasLogbookSites: !logbookCatalogSites.isEmpty,
-            hasAllSitesCatalog: !reference.isEmpty
+            showsSiteScopeToggle: !reference.isEmpty || !logbookUserSites.isEmpty,
+            hasLogbookSites: !logbookCatalogSites.isEmpty || !logbookUserSites.isEmpty,
+            hasAllSitesCatalog: !reference.isEmpty || !userSites.isEmpty
         )
     }
 

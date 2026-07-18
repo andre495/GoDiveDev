@@ -107,7 +107,7 @@ enum DiveActivityManualCreation {
             )
             descriptor.fetchLimit = 1
             guard let site = try modelContext.fetch(descriptor).first else { return }
-            DiveActivitySiteAssociation.link(activity, to: site)
+            DiveActivitySiteAssociation.link(activity, to: site, modelContext: modelContext)
         case .newSite(let draft):
             guard let siteName = DiveSiteFormValidation.sanitizedSiteName(draft.siteName) else { return }
             let parsed = DiveSiteFormValidation.parsedCoordinate(

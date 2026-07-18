@@ -29,7 +29,7 @@ Use the **Search** tab and tap **Sites** (or type in the search field) to filter
 
 Toggle **centered** in the top bar (map/list on the left, **+** on the right):
 
-- **My Sites** — sites you’ve logged dives at or added yourself  
+- **My Sites** — sites you’ve logged dives at or added yourself (including OpenDiveMap places you’ve visited — those follow your iCloud dive log across devices)  
 - **All Sites** — full catalog including reference sites you haven’t visited  
 
 Explore opens on **All Sites** when your logbook is empty, and on **My Sites** once you have logged activities. You can still switch either way with the toggle. Changing scope refreshes the map pins or list.

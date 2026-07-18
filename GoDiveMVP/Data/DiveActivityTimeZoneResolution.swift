@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 /// Fills **`DiveActivity.timeZoneOffsetSeconds`** from dive GPS / linked site coordinates when import did not supply an offset.
 enum DiveActivityTimeZoneResolution {
@@ -98,11 +99,17 @@ enum DiveActivityTimeZoneResolution {
         )
         if let timeZone = await resolver.timeZone(for: input) {
             activity.timeZoneOffsetSeconds = timeZone.secondsFromGMT(for: activity.startTime)
-            if let site = activity.diveSite ?? DiveActivitySiteAssociation.previewBestMatch(
+            if let diveSiteID = activity.diveSiteID, let modelContext = activity.modelContext {
+                if let userSite = try? DiveLinkedSiteResolver.existingUserDiveSite(id: diveSiteID, modelContext: modelContext) {
+                    DiveSiteTimeZoneResolution.persist(timeZone, on: userSite, at: activity.startTime)
+                } else if let catalogSite = try? DiveLinkedSiteResolver.existingCatalogDiveSite(id: diveSiteID, modelContext: modelContext) {
+                    DiveSiteTimeZoneResolution.persist(timeZone, on: catalogSite, at: activity.startTime)
+                }
+            } else if let matched = DiveActivitySiteAssociation.previewBestMatch(
                 for: activity,
                 catalogSites: catalogSites
             ) {
-                DiveSiteTimeZoneResolution.persist(timeZone, on: site, at: activity.startTime)
+                DiveSiteTimeZoneResolution.persist(timeZone, on: matched, at: activity.startTime)
             }
         }
     }

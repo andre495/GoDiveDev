@@ -99,12 +99,7 @@ enum GlobalSearchMediaIndexSnapshotBuilder: Sendable {
                   let mediaPhotoID = sighting.mediaPhotoID
             else { return nil }
 
-            let speciesName: String
-            if let catalogName = speciesNameByUUID[sighting.marineLifeUUID] {
-                speciesName = catalogName
-            } else if let linked = sighting.marineLife?.commonName {
-                speciesName = linked
-            } else {
+            guard let speciesName = speciesNameByUUID[sighting.marineLifeUUID] else {
                 return nil
             }
 
