@@ -3090,7 +3090,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - User custom sites stay CloudKit **`UserDiveSite`** only — no bulk SwiftData ODM seed.
 - Tests: manifest diveSites, disk cache prefer, photo disk resolve.
 
-## 117 - Firebase user profiles (friends-ready)
+## 117 - Firebase user profiles (friends-ready) **(pushed)**
 
 **Summary:** Firebase Auth (Sign in with Apple) + Firestore social directory (`users/{uid}` public + private Apple link) alongside CloudKit dive accounts — no dive data in Firebase.
 
@@ -3106,4 +3106,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Docs: architecture + dependency highlights for **CloudKit** and **Firebase** in **`app_summary`**, **`hybrid_cloud_sync_boundaries`**, root **`README`**, and user guide (**`docs/`** privacy / acknowledgments / index / getting started).
 - Firebase signup: defer Firestore until post-sign-up **photo** step; upload avatar to **Storage** (`users/{uid}/profile.jpg`) when present; write **`interests`** array from onboarding; SPM **FirebaseStorage**; Storage rules; mapping **`schemaVersion` 2**.
 - Profile edits (display name / avatar) push to Firestore / Storage via **`AccountSession.pushFirestoreSocialProfileEdits`** (skips while signup photo deferral is active).
+
+
+## 118 - Next batch
 
