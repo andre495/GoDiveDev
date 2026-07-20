@@ -31,7 +31,7 @@ enum GoDiveFirebaseProfilePhotoStorage: Sendable {
 
         _ = try await ref.putDataAsync(data, metadata: metadata)
         let url = try await ref.downloadURL()
-        log.notice("Profile photo uploaded uid=\(uid, privacy: .public)")
+        log.notice("Profile photo uploaded (uid redacted)")
         return url.absoluteString
     }
 
@@ -43,9 +43,9 @@ enum GoDiveFirebaseProfilePhotoStorage: Sendable {
         let ref = Storage.storage().reference().child(objectPath(uid: uid))
         do {
             try await ref.delete()
-            log.notice("Profile photo deleted uid=\(uid, privacy: .public)")
+            log.notice("Profile photo deleted (uid redacted)")
         } catch {
-            log.notice("Profile photo delete skipped: \(String(describing: error), privacy: .public)")
+            log.notice("Profile photo delete skipped: \(String(describing: error), privacy: .private)")
         }
     }
 

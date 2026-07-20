@@ -240,13 +240,14 @@ enum DiveSitePresentation: Sendable {
     nonisolated static func listRecord(
         for site: DiveSite,
         trailingStyle: ExploreDiveSiteRowTrailingStyle = .catalogDefault,
+        loggedDiveCount: Int = 0,
         overrideDiveCountLabel: String? = nil
     ) -> DiveSiteDisplayRecord {
         let displayName = DiveSiteCatalogMatcher.resolvedCatalogSiteName(for: site) ?? site.siteName
         let country = DiveSiteCountryPresentation.canonicalDisplayName(for: site.country)
         // `DiveSite` no longer holds an inverse `diveActivities` relationship (UUID-only link);
-        // per-site dive counts are resolved elsewhere via `diveSiteID` fetches when needed.
-        let diveCount = 0
+        // callers pass **`loggedDiveCount`** from `diveSiteID` fetches when known.
+        let diveCount = max(0, loggedDiveCount)
         let displayCountry = displayValue(country)
         let displayRegion = displayValue(site.region)
         let displayBodyOfWater = displayValue(site.bodyOfWater)
@@ -291,10 +292,11 @@ enum DiveSitePresentation: Sendable {
     nonisolated static func listRecord(
         for site: UserDiveSite,
         trailingStyle: ExploreDiveSiteRowTrailingStyle = .catalogDefault,
+        loggedDiveCount: Int = 0,
         overrideDiveCountLabel: String? = nil
     ) -> DiveSiteDisplayRecord {
         let country = DiveSiteCountryPresentation.canonicalDisplayName(for: site.country)
-        let diveCount = 0
+        let diveCount = max(0, loggedDiveCount)
         let displayCountry = displayValue(country)
         let displayRegion = displayValue(site.region)
         let displayBodyOfWater = displayValue(site.bodyOfWater)

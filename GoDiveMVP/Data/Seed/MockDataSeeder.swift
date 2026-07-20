@@ -72,6 +72,7 @@ enum MockDataSeeder {
     private static func insertActivityFromFixture(_ dto: DiveActivityDTO, context: ModelContext) {
         let activity = DiveActivityMapper.map(dto, modelContext: context)
         context.insert(activity)
+        DiveProfilePointStore.insertStagedPointsAndSyncTrack(for: activity, into: context)
         for tag in activity.buddies {
             context.insert(tag)
         }

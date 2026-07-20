@@ -8,7 +8,6 @@ struct DiveFileImportOptionsView: View {
     let onChooseFile: () -> Void
     var onOpenMacDiveGuide: (() -> Void)?
     var showsBackButton: Bool = true
-    var usesOnboardingPrimaryButton: Bool = false
     var skipButtonTitle: String? = nil
     var skipButtonAccessibilityIdentifier: String? = nil
     var onSkip: (() -> Void)? = nil
@@ -83,26 +82,13 @@ struct DiveFileImportOptionsView: View {
         }
     }
 
-    @ViewBuilder
     private var chooseFileButton: some View {
-        let button = Button(DiveFileImportOptionsPresentation.chooseFileTitle(for: mode)) {
+        Button(DiveFileImportOptionsPresentation.chooseFileTitle(for: mode)) {
             onChooseFile()
         }
         .accessibilityIdentifier("\(idPrefix).ChooseFile")
-
-        if usesOnboardingPrimaryButton {
-            button.appOnboardingPrimaryGlassButtonStyle()
-        } else {
-            button
-                .font(.body.weight(.semibold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, AppTheme.Spacing.md)
-                .background {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(AppTheme.Colors.accent)
-                }
-                .foregroundStyle(.white)
-        }
+        .appOnboardingPrimaryGlassButtonStyle()
+        .foregroundStyle(.white)
     }
 
     private func macDiveImportButton(action: @escaping () -> Void) -> some View {

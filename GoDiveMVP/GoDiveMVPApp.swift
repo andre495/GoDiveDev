@@ -60,7 +60,12 @@ private struct ProductionAppRoot: View {
             .modelContainer(container)
             .onChange(of: scenePhase) { _, phase in
                 CrashReportingService.updateSessionPhase(phase)
+                if phase == .active {
+                    AccountSessionCloudKitIdentityObserver.reconcileOnForegroundIfNeeded(container: container)
+                    GoDiveCloudKitBackgroundSync.scheduleNextOpportunities()
+                }
                 if phase == .background {
+                    GoDiveCloudKitBackgroundSync.scheduleNextOpportunities()
                     Task { @MainActor in
                         DiveMediaReferenceLoader.clearSessionMediaCaches()
                     }
@@ -68,8 +73,10 @@ private struct ProductionAppRoot: View {
             }
             .task {
                 CrashReportingService.startAtLaunch(container: container)
+                GoDiveSecurityEventJournal.configure(container: container)
                 AccountSessionCloudKitIdentityObserver.startIfNeeded(container: container)
                 AppLaunchMaintenance.runInBackground(container: container)
+                GoDiveCloudKitBackgroundSync.scheduleNextOpportunities()
                 if accountSession.showsMainAppShell {
                     HomeCarouselLaunchPreload.preloadStoredPicksIfCurrent(
                         ownerProfileID: accountSession.currentProfile?.id

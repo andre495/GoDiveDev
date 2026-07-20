@@ -537,7 +537,12 @@ struct DiveMediaFishialIdentifySheet: View {
                     .foregroundStyle(AppTheme.Colors.tabUnselected)
 
                 if option.nameMatchScore < 1.0 {
-                    Text("Fishial: \(option.fishialScientificName)")
+                    Text(
+                        verbatim: GoDivePlainText.labeled(
+                            "Fishial: ",
+                            value: option.fishialScientificName
+                        )
+                    )
                         .font(.caption)
                         .foregroundStyle(AppTheme.Colors.tabUnselected)
                         .multilineTextAlignment(.leading)

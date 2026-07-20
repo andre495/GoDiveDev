@@ -345,7 +345,7 @@ enum FieldGuideMarineLifeHeroPresentation {
         }
 
         let imageURLString = featureImageURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let url = URL(string: imageURLString), !imageURLString.isEmpty {
+        if let url = GoDiveRemoteURLPolicy.sanitizedCatalogImageURL(from: imageURLString) {
             return .remoteImage(url)
         }
 
@@ -439,7 +439,9 @@ enum FieldGuideMarineLifeHeroPresentation {
             return cached
         }
         let remote = remoteURLString.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let remoteURL = URL(string: remote), !remote.isEmpty else { return nil }
+        guard let remoteURL = GoDiveRemoteURLPolicy.sanitizedCatalogDownloadURL(from: remote) else {
+            return nil
+        }
         return try? await CatalogAssetDiskCache.ensureCached(
             remoteURL: remoteURL,
             kind: .model,

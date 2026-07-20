@@ -65,8 +65,8 @@ enum AppLaunchSessionValidation: Sendable {
                 appleUserIdentifier: canonical.appleUserIdentifier,
                 modelContext: context
             )
-            try? DiveActivityOwnership.claimUnownedDives(for: canonical, modelContext: context)
-            try? DiveBuddyOwnership.claimUnownedBuddies(for: canonical, modelContext: context)
+            _ = try? DiveActivityOwnership.claimUnownedDives(for: canonical, modelContext: context)
+            _ = try? DiveBuddyOwnership.claimUnownedBuddies(for: canonical, modelContext: context)
             try? UserPreferencesSync.syncForSignedInOwner(canonical, modelContext: context)
             if canonical.id != profileID {
                 await MainActor.run {

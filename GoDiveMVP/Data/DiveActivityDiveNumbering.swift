@@ -153,7 +153,6 @@ enum DiveActivityDiveNumbering {
         return (lastNumbered ?? 0) + 1
     }
 
-    @MainActor
     static func assignNextDiveNumberChainedAfterNewest(for activity: DiveActivity, modelContext: ModelContext) throws {
         var existing = try modelContext.fetch(FetchDescriptor<DiveActivity>())
         assignNextChainedDiveNumber(to: activity, among: &existing)
@@ -166,8 +165,7 @@ enum DiveActivityDiveNumbering {
         existingDives.append(activity)
     }
 
-    /// Rewrites **`diveNumber`** on numbered dives to **1…n** in **`startTime`** order (ties **`id`**); leaves **`-`** dives untouched. Main-context only; background delete uses **`DiveBackgroundRenumberingWorker`**.
-    @MainActor
+    /// Rewrites **`diveNumber`** on numbered dives to **1…n** in **`startTime`** order (ties **`id`**); leaves **`-`** dives untouched.
     static func renumberAllChronologically(modelContext: ModelContext) throws {
         let all = try modelContext.fetch(FetchDescriptor<DiveActivity>())
         guard !all.isEmpty else { return }
@@ -185,14 +183,12 @@ enum DiveActivityDiveNumbering {
         }
     }
 
-    @MainActor
     static func applyAutomaticSequentialRenumberIfNeeded(modelContext: ModelContext) throws {
         guard AppUserSettings.automaticallyRenumberDives else { return }
         try renumberAllChronologically(modelContext: modelContext)
     }
 
-    /// Renumbers only dives **strictly after** **`(deletedStartTime, deletedId)`** in chronological order: **`base + 1`**, **`base + 2`**, … where **`base`** = **`max(diveNumber)`** among older dives (or **0**). Older dives are untouched. Main-context only; background delete uses **`DiveBackgroundRenumberingWorker`**.
-    @MainActor
+    /// Renumbers only dives **strictly after** **`(deletedStartTime, deletedId)`** in chronological order: **`base + 1`**, **`base + 2`**, … where **`base`** = **`max(diveNumber)`** among older dives (or **0**). Older dives are untouched.
     static func renumberDivesNewerThanDeleted(
         deletedStartTime: Date,
         deletedId: UUID,

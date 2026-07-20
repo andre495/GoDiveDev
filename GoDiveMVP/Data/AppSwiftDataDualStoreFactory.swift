@@ -6,13 +6,15 @@ import SwiftData
 
 /// On-disk dual-store layout and container factory.
 ///
-/// Phase 2: production **user** store prefers private CloudKit; catalog + diagnostics stay `.none`.
+/// Phase 2: production **user** store prefers private CloudKit; **user-local** (profile points),
+/// catalog, and diagnostics stay `.none`.
 /// If CloudKit open fails, opens **local-only on the existing files** (never deletes the dive log /
 /// signed-in profile). After a fallback, sticky local-only skips CloudKit on later launches until
 /// the open-policy version bumps (schema fix) or the user resets the app container.
 enum AppSwiftDataDualStoreFactory {
 
     nonisolated static let userStoreName = "GoDiveUser"
+    nonisolated static let userLocalStoreName = "GoDiveUserLocal"
     nonisolated static let catalogStoreName = "GoDiveCatalog"
     nonisolated static let diagnosticsStoreName = "GoDiveDiagnostics"
     nonisolated static let cloudKitDiagnosticsFileName = "cloudkit-open-diagnostics.txt"
@@ -22,8 +24,8 @@ enum AppSwiftDataDualStoreFactory {
     nonisolated static let cloudKitOpenPolicyVersionKey = "godive.dualStore.cloudKitOpenPolicyVersion"
     /// One-shot: park existing local-only dual files and create a fresh CloudKit-backed trio.
     nonisolated static let recreateDualStoresForCloudKitDefaultsKey = "godive.dualStore.recreateForCloudKit"
-    /// v6: CloudKit requires optional to-many relationships.
-    nonisolated static let cloudKitOpenPolicyVersion = 6
+    /// v7: **`DiveProfilePoint`** moves to local-only store (unstick CloudKit export backlog).
+    nonisolated static let cloudKitOpenPolicyVersion = 7
 
     /// Test hook — when set, replaces the private user CloudKit database target for open attempts.
     nonisolated(unsafe) static var userCloudKitDatabaseOverrideForTests: ModelConfiguration.CloudKitDatabase?
@@ -34,6 +36,7 @@ enum AppSwiftDataDualStoreFactory {
     struct Stores {
         let container: ModelContainer
         let userConfiguration: ModelConfiguration
+        let userLocalConfiguration: ModelConfiguration
         let catalogConfiguration: ModelConfiguration
         let diagnosticsConfiguration: ModelConfiguration
         let rootDirectory: URL?
@@ -60,9 +63,8 @@ enum AppSwiftDataDualStoreFactory {
 
     /// Clears sticky local-only once when **`cloudKitOpenPolicyVersion`** advances.
     ///
-    /// When the device was stuck on local-only, also schedules a one-shot **rename-aside** of the
-    /// existing dual trio so the next open can create a **fresh** CloudKit-backed store (local-only
-    /// files cannot be upgraded in place).
+    /// **v7+** always schedules a one-shot **rename-aside** so CloudKit can open a fresh user store
+    /// without the **`DiveProfilePoint`** backlog. Sticky-local devices also clear sticky keys.
     nonisolated static func migrateCloudKitOpenPolicyIfNeeded(defaults: UserDefaults = .standard) {
         let stored = defaults.integer(forKey: cloudKitOpenPolicyVersionKey)
         guard stored < cloudKitOpenPolicyVersion else { return }
@@ -71,17 +73,20 @@ enum AppSwiftDataDualStoreFactory {
         if hadStickyLocal {
             defaults.removeObject(forKey: lastCloudKitSyncEnabledDefaultsKey)
             defaults.removeObject(forKey: lastCloudKitFallbackErrorDefaultsKey)
+        }
+        let requiresFreshCloudKitStore = stored < 7 && cloudKitOpenPolicyVersion >= 7
+        if requiresFreshCloudKitStore || hadStickyLocal {
             defaults.set(true, forKey: recreateDualStoresForCloudKitDefaultsKey)
         }
         defaults.set(cloudKitOpenPolicyVersion, forKey: cloudKitOpenPolicyVersionKey)
     }
 
-    /// Parks dual store files as **`*.pre-cloudkit-bak`** (and SQLite sidecars) so a fresh CloudKit
-    /// trio can be created. Idempotent if already parked.
+    /// Parks dual store files as **`*.pre-cloudkit-vN`** (and SQLite sidecars) so a fresh CloudKit
+    /// store can be created. Idempotent if already parked.
     nonisolated static func renameDualStoreFilesAsideForCloudKit(in rootDirectory: URL) {
         let fm = FileManager.default
         let stamp = "pre-cloudkit-v\(cloudKitOpenPolicyVersion)"
-        for name in [userStoreName, catalogStoreName, diagnosticsStoreName] {
+        for name in [userStoreName, userLocalStoreName, catalogStoreName, diagnosticsStoreName] {
             let base = storeURL(named: name, rootDirectory: rootDirectory)
             for suffix in ["", "-shm", "-wal"] {
                 let url = URL(fileURLWithPath: base.path + suffix)
@@ -118,6 +123,7 @@ enum AppSwiftDataDualStoreFactory {
             defaults: defaults
         )
 
+        var shouldMigrateFromParkedUserStore = false
         if attemptCloudKit,
            defaults.bool(forKey: recreateDualStoresForCloudKitDefaultsKey),
            dualStoreFilesExist(in: root)
@@ -127,16 +133,15 @@ enum AppSwiftDataDualStoreFactory {
                 lines: [
                     "result=rename-aside-for-fresh-cloudkit",
                     "action=renameDualStoreFilesAsideForCloudKit",
-                    "reason=policyBumpAfterStickyLocal",
+                    "reason=policyBumpExcludeProfilePoints",
                     "container=\(AppSwiftDataCloudKitCompatibility.iCloudContainerIdentifier)",
                 ]
             )
             renameDualStoreFilesAsideForCloudKit(in: root)
             defaults.set(false, forKey: recreateDualStoresForCloudKitDefaultsKey)
+            shouldMigrateFromParkedUserStore = true
             // Parked store no longer matches the persisted profile id.
-            defaults.removeObject(
-                forKey: AppLaunchSessionRestorePresentation.currentProfileIDUserDefaultsKey
-            )
+            AppLaunchSessionRestorePresentation.clearPersistedProfileID(userDefaults: defaults)
         } else if defaults.bool(forKey: recreateDualStoresForCloudKitDefaultsKey) {
             defaults.set(false, forKey: recreateDualStoresForCloudKitDefaultsKey)
         }
@@ -159,6 +164,7 @@ enum AppSwiftDataDualStoreFactory {
             return Stores(
                 container: local.container,
                 userConfiguration: local.userConfiguration,
+                userLocalConfiguration: local.userLocalConfiguration,
                 catalogConfiguration: local.catalogConfiguration,
                 diagnosticsConfiguration: local.diagnosticsConfiguration,
                 rootDirectory: local.rootDirectory,
@@ -176,16 +182,28 @@ enum AppSwiftDataDualStoreFactory {
                 rootDirectory: root,
                 enableUserCloudKitSync: attemptCloudKit
             )
+            let migrated = try migrateFromParkedUserStoreIfNeeded(
+                shouldMigrate: shouldMigrateFromParkedUserStore,
+                root: root,
+                container: stores.container
+            )
             if attemptCloudKit {
-                writeCloudKitDiagnostics(
-                    root: root,
-                    lines: [
-                        "result=success",
-                        "enableUserCloudKitSync=true",
-                        "container=\(AppSwiftDataCloudKitCompatibility.iCloudContainerIdentifier)",
-                        "userStore=\(storeURL(named: userStoreName, rootDirectory: root).path)",
-                    ]
-                )
+                var lines = [
+                    "result=success",
+                    "enableUserCloudKitSync=true",
+                    "container=\(AppSwiftDataCloudKitCompatibility.iCloudContainerIdentifier)",
+                    "userStore=\(storeURL(named: userStoreName, rootDirectory: root).path)",
+                    "userLocalStore=\(storeURL(named: userLocalStoreName, rootDirectory: root).path)",
+                ]
+                if let migrated {
+                    lines.append(contentsOf: [
+                        "migratedFromParked=true",
+                        "copiedDives=\(migrated.diveActivityCount)",
+                        "copiedProfiles=\(migrated.userProfileCount)",
+                        "totalInserted=\(migrated.totalInsertedCount)",
+                    ])
+                }
+                writeCloudKitDiagnostics(root: root, lines: lines)
                 defaults.set(true, forKey: lastCloudKitSyncEnabledDefaultsKey)
                 defaults.removeObject(forKey: lastCloudKitFallbackErrorDefaultsKey)
             }
@@ -207,6 +225,7 @@ enum AppSwiftDataDualStoreFactory {
                     "attempt1Error=\(firstError)",
                     "action=openLocalOnlyWithoutWipe",
                     "dualStoreFilesExisted=\(dualStoreFilesExist(in: root))",
+                    "pendingParkedMigration=\(shouldMigrateFromParkedUserStore)",
                     "policyVersion=\(cloudKitOpenPolicyVersion)",
                     "container=\(AppSwiftDataCloudKitCompatibility.iCloudContainerIdentifier)",
                 ]
@@ -223,9 +242,15 @@ enum AppSwiftDataDualStoreFactory {
                 rootDirectory: root,
                 enableUserCloudKitSync: false
             )
+            _ = try migrateFromParkedUserStoreIfNeeded(
+                shouldMigrate: shouldMigrateFromParkedUserStore,
+                root: root,
+                container: local.container
+            )
             return Stores(
                 container: local.container,
                 userConfiguration: local.userConfiguration,
+                userLocalConfiguration: local.userLocalConfiguration,
                 catalogConfiguration: local.catalogConfiguration,
                 diagnosticsConfiguration: local.diagnosticsConfiguration,
                 rootDirectory: local.rootDirectory,
@@ -233,6 +258,20 @@ enum AppSwiftDataDualStoreFactory {
                 didFallBackFromCloudKit: true
             )
         }
+    }
+
+    @discardableResult
+    nonisolated private static func migrateFromParkedUserStoreIfNeeded(
+        shouldMigrate: Bool,
+        root: URL,
+        container: ModelContainer
+    ) throws -> AppSwiftDataDualStoreMigrator.Result? {
+        guard shouldMigrate else { return nil }
+        return try AppSwiftDataDualStoreMigrator.migrateFromParkedPreCloudKitUserStore(
+            rootDirectory: root,
+            destinationContainer: container,
+            policyVersion: cloudKitOpenPolicyVersion
+        )
     }
 
     /// Appends iCloud account status for the shared container (call after launch; async-safe).
@@ -486,6 +525,7 @@ enum AppSwiftDataDualStoreFactory {
         let body = (lines + ["writtenAt=\(ISO8601DateFormatter().string(from: Date()))"])
             .joined(separator: "\n")
         try? body.write(to: path, atomically: true, encoding: .utf8)
+        GoDiveFileBackupPolicy.excludeFromBackupIfExists(path)
     }
 
     nonisolated static func defaultRootDirectory() throws -> URL {
@@ -512,7 +552,7 @@ enum AppSwiftDataDualStoreFactory {
     /// Deletes dual store files (and SQLite sidecars) under **`rootDirectory`**.
     nonisolated static func removeDualStoreFiles(in rootDirectory: URL) throws {
         let fm = FileManager.default
-        for name in [userStoreName, catalogStoreName, diagnosticsStoreName] {
+        for name in [userStoreName, userLocalStoreName, catalogStoreName, diagnosticsStoreName] {
             let base = storeURL(named: name, rootDirectory: rootDirectory)
             for suffix in ["", "-shm", "-wal"] {
                 let url = URL(fileURLWithPath: base.path + suffix)
@@ -607,6 +647,7 @@ enum AppSwiftDataDualStoreFactory {
         enableUserCloudKitSync: Bool
     ) throws -> Stores {
         let userSchema = Schema(AppSwiftDataStorePartition.userModelTypes)
+        let userLocalSchema = Schema(AppSwiftDataStorePartition.userLocalModelTypes)
         let catalogSchema = Schema(AppSwiftDataStorePartition.catalogModelTypes)
         let diagnosticsSchema = Schema(AppSwiftDataStorePartition.diagnosticsModelTypes)
 
@@ -617,6 +658,7 @@ enum AppSwiftDataDualStoreFactory {
                 : AppSwiftDataCloudKitCompatibility.localOnlyCloudKitDatabase
 
         let userConfiguration: ModelConfiguration
+        let userLocalConfiguration: ModelConfiguration
         let catalogConfiguration: ModelConfiguration
         let diagnosticsConfiguration: ModelConfiguration
 
@@ -626,6 +668,12 @@ enum AppSwiftDataDualStoreFactory {
                 schema: userSchema,
                 isStoredInMemoryOnly: true,
                 cloudKitDatabase: userCloudKit
+            )
+            userLocalConfiguration = ModelConfiguration(
+                userLocalStoreName,
+                schema: userLocalSchema,
+                isStoredInMemoryOnly: true,
+                cloudKitDatabase: AppSwiftDataCloudKitCompatibility.localOnlyCloudKitDatabase
             )
             catalogConfiguration = ModelConfiguration(
                 catalogStoreName,
@@ -647,6 +695,12 @@ enum AppSwiftDataDualStoreFactory {
                 url: storeURL(named: userStoreName, rootDirectory: root),
                 cloudKitDatabase: userCloudKit
             )
+            userLocalConfiguration = ModelConfiguration(
+                userLocalStoreName,
+                schema: userLocalSchema,
+                url: storeURL(named: userLocalStoreName, rootDirectory: root),
+                cloudKitDatabase: AppSwiftDataCloudKitCompatibility.localOnlyCloudKitDatabase
+            )
             catalogConfiguration = ModelConfiguration(
                 catalogStoreName,
                 schema: catalogSchema,
@@ -659,16 +713,24 @@ enum AppSwiftDataDualStoreFactory {
                 url: storeURL(named: diagnosticsStoreName, rootDirectory: root),
                 cloudKitDatabase: AppSwiftDataCloudKitCompatibility.localOnlyCloudKitDatabase
             )
+            // Crash rows + open dumps stay out of device/iCloud backups (Phase 4).
+            GoDiveFileBackupPolicy.excludeStoreFamilyFromBackup(
+                baseStoreURL: storeURL(named: diagnosticsStoreName, rootDirectory: root)
+            )
+            GoDiveFileBackupPolicy.excludeFromBackupIfExists(
+                root.appendingPathComponent(cloudKitDiagnosticsFileName)
+            )
         }
 
         let fullSchema = Schema(AppSwiftDataStorePartition.allModelTypes)
         let container = try ModelContainer(
             for: fullSchema,
-            configurations: userConfiguration, catalogConfiguration, diagnosticsConfiguration
+            configurations: userConfiguration, userLocalConfiguration, catalogConfiguration, diagnosticsConfiguration
         )
         return Stores(
             container: container,
             userConfiguration: userConfiguration,
+            userLocalConfiguration: userLocalConfiguration,
             catalogConfiguration: catalogConfiguration,
             diagnosticsConfiguration: diagnosticsConfiguration,
             rootDirectory: rootDirectory,
@@ -680,8 +742,9 @@ enum AppSwiftDataDualStoreFactory {
 
 /// Production dual-store bootstrap (Phase 2).
 ///
-/// Opens **`GoDiveUser` / `GoDiveCatalog` / `GoDiveDiagnostics`**. User store prefers private CloudKit
-/// (falls back to local-only on open failure). **Legacy unified `default.store` migration is out of
+/// Opens **`GoDiveUser` / `GoDiveUserLocal` / `GoDiveCatalog` / `GoDiveDiagnostics`**. User store prefers private CloudKit
+/// (falls back to local-only on open failure). **`DiveProfilePoint`** lives in **`GoDiveUserLocal`** (CloudKit off).
+/// **Legacy unified `default.store` migration is out of
 /// scope** for this development build — delete the app (or clear container data) for a clean dual
 /// + CloudKit install. The object-by-object migrator remains in-tree for tests only.
 enum AppSwiftDataDualStoreBootstrap {

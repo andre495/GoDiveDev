@@ -19,6 +19,7 @@ struct AppSessionRootView: View {
         AccountSessionMainShellPresentation.shouldMountMainAppShellUnderlay(
             isSignedIn: accountSession.isSignedIn,
             showsNewAccountWelcome: accountSession.showsNewAccountWelcome,
+            showsPostSignUpInterests: accountSession.showsPostSignUpInterests,
             showsPostSignUpProfileSetup: accountSession.showsPostSignUpProfileSetup,
             showsPostSignUpPermissions: accountSession.showsPostSignUpPermissions,
             showsPostSignUpImportOffer: accountSession.showsPostSignUpImportOffer,
@@ -51,6 +52,7 @@ struct AppSessionRootView: View {
         }
         .animation(.easeInOut(duration: 0.2), value: showsBootstrapOverlay)
         .animation(.easeInOut(duration: 0.2), value: accountSession.showsNewAccountWelcome)
+        .animation(.easeInOut(duration: 0.35), value: accountSession.showsPostSignUpInterests)
         .animation(.easeInOut(duration: 0.35), value: accountSession.showsPostSignUpProfileSetup)
         .animation(.easeInOut(duration: 0.35), value: accountSession.showsPostSignUpPermissions)
         .animation(.easeInOut(duration: 0.35), value: accountSession.showsPostSignUpImportOffer)
@@ -98,7 +100,15 @@ struct AppSessionRootView: View {
 
     @ViewBuilder
     private var postSignUpOverlay: some View {
-        if accountSession.showsPostSignUpProfileSetup {
+        if accountSession.showsPostSignUpInterests {
+            PostSignUpInterestsView { selection in
+                try? accountSession.completePostSignUpInterests(
+                    selection: selection,
+                    modelContext: modelContext
+                )
+            }
+            .transition(.opacity)
+        } else if accountSession.showsPostSignUpProfileSetup {
             PostSignUpProfileSetupView(
                 onComplete: {
                     accountSession.completePostSignUpProfileSetup()

@@ -3110,3 +3110,52 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 
 ## 118 - Next batch
 
+**Summary:** Open **`feature/owasp-secure-coding`** and complete OWASP **Phases 0–6** (policy through output-encoding audit).
+
+- Branch **`feature/owasp-secure-coding`** from **`main`** for OWASP secure-coding hardening ([LevelBlue guide](https://www.levelblue.com/blogs/levelblue-blog/a-guide-to-owasps-secure-coding)).
+- **`cursor/owasp_secure_coding_hardening_plan.md`**: phased plan (0–6) mapped to GoDive surfaces.
+- **Phase 0:** **`cursor/owasp_access_control_policy.md`** — identities, access matrix, AuthZ rules, scope freeze, Release gates.
+- **Cursor rules:** **`godive-hybrid-trust-boundaries`**, **`godive-owner-scoped-data`**, **`godive-secrets-release-gates`**, **`godive-session-keychain`**, **`godive-input-import-hardening`**, **`godive-security-logging`**.
+- **Phase 1:** **`GoDiveKeychainStore`**; **`DiveUnownedClaimGate`**; scoped ownership fetches; privacy-aware auth logging.
+- **Phase 2:** **`GoDiveInputSanitization`** / **`DiveNotesValidation`**; **`DiveFileImportLimits`** (size, sample caps, content magic, parse deadline; dive-count uncapped); UDDF **`shouldResolveExternalEntities = false`** + DOCTYPE reject; CDN HTTPS-only + **`catalog/v1/`** path allowlist + same-host redirect session + response size cap.
+- **Phase 3:** **`cursor/owasp_secrets_handling.md`**; Maps/Fishial example plists; **`GoDiveSecretLogging`** + **`AppTransportSecurityPolicy`**; Fishial in-memory bearer + **`minimumRecognizeInterval`**; Firebase/social sync log hygiene (`.private`); CDN checksum fail-closed confirmed.
+- **Phase 3 follow-ups** (tracked in **`cursor/todo.md`**, not blocking): Fishial Cloud Function proxy → App Check → signed CDN manifests → TLS pinning.
+- **Phase 4:** **`CrashReportPayloadScrubber`** on CloudKit upload; **`GoDiveFileBackupPolicy`** excludes diagnostics dump + diagnostics store from backup; **`GoDiveDataProtectionPolicy`** documents container class; **`GoDiveReleaseConfigurationGates`** (R1/R2/R7); **`TripShareTempFilePolicy`**; Firestore/Storage review notes (**`owasp_phase4_firestore_storage_review.md`**, no deploy).
+- **Phase 5:** **`GoDiveSecurityEvent`** (auth / sign-out / account delete / import reject / CDN); **`GoDiveUserFacingError`** for deletion + unexpected import; **`HomeMediaCarouselDebug`** DEBUG-only; launch maintenance **`Logger`**.
+- **Security journal:** **`SecurityEventRecord`** on the user store (cap **300**, private CloudKit); **`GoDiveSecurityEventJournal`** + **`SecurityEventStore`**; opt-in **`shareSecurityEvents`** → scrubbed **`SecurityEventCloudUploader`** (public CloudKit, no owner id); Settings **Diagnostic Events** / **Share diagnostic events**; wiped on account delete.
+- **CloudKit identity retry:** After SIWA / import / foreground, **`AccountSessionCloudKitIdentityObserver`** debounces + retries **`UserProfileCloudKitIdentityMerge`** so a minted **Diver** profile adopts the restored Apple-ID account (fixes empty logbook + Welcome chrome when CloudKit lands late).
+- **Sign-in path onboarding:** Brand-new SIWA from **Already have an account? Sign in** clears pending welcome picks and runs **`PostSignUpInterestsView`** before profile photo → permissions → import; **Get Started** still saves pending interests and skips that step.
+- **Sign-in back:** Dedicated **`SignInView`** opened from onboarding (**Already have an account?** / **Skip**) shows a Liquid Glass back chevron to return to welcome or feature slides; root/UI-test **`SignInView()`** has no back.
+- **Feature-slide back to interests:** First feature carousel slide (**Log every dive**, etc.) shows **Back** → welcome activity picker (clears pending); later slides still step back within the carousel.
+- **Import limits:** FIT/UDDF max file size raised to **100 MB**; removed per-file dive-count cap (sample-count + parse timeout still apply).
+- **Parse timeout fix:** UDDF deadline now **aborts XMLParser** immediately (was soft-flagging and continuing); checks during dive build; budget raised **120 s → 600 s**.
+- **CloudKit background + cellular:** **`GoDiveCloudKitBackgroundSync`** registers **BGAppRefresh** + **BGProcessing** (`fetch` / `processing` modes); processing requires network but **not** external power so maintenance can run on cellular; schedules on launch / foreground / background. Docs note Wi‑Fi-or-cellular + background sync.
+- **Import options CTA:** **Choose UDDF/FIT file** uses Liquid Glass capsule + white label (same chrome as onboarding primary).
+- **Phase 6:** Output-encoding audit (**`owasp_phase6_output_encoding_audit.md`**) — no Markdown/WebView sinks; Fishial label **`Text(verbatim:)`**; **`GoDiveRemoteURLPolicy`** for catalog images / Storage downloads; trip-share PNG filenames UUID-only; rule **`godive-output-encoding`**.
+- **User guide / website:** **`docs/privacy-and-data.md`** is the single **Privacy Policy** (website waitlist + iOS app), aligned with godiveios.com structure; corrected CloudKit private sync, diagnostic events, HTTPS catalog images, Firebase social directory, delete account, and §9 protections table. Nav title **Privacy Policy**.
+- **Build fix:** **`CatalogCDNRedirectDelegate`** uses completion-handler redirect API (async thunk crashed SILGen under MainActor default isolation).
+- Tests: Keychain / claim gate; import limits; CDN; secret redaction; ATS; Fishial rate limit; crash scrub; Release gates; security events; journal store / CloudKit record mapping; remote URL policy; plain-text label; user-facing error mapping; post–sign-up interests gate + main-shell presentation.
+- **Import speed (1–4):** Parsing milestone + file read off-main; **`UddfImportGeocodeBatch`** dedupes + parallel-prefetches MapKit TZ lookups; **`DiveSiteReferenceMatchIndex`** (spatial grid + name tokens) for OpenDiveMap auto-link; **`DiveBackgroundImportCoordinator`** wraps decode/persist (Swift 6 default MainActor isolation blocks `@ModelActor` create of dive models — background insert deferred). Tests: milestone fractions, match-index parity, geocode key dedupe. User guide import tip updated.
+- **CloudKit unstick (policy v7):** **`DiveProfilePoint`** moved to **`GoDiveUserLocal`** (CloudKit **off**), linked by **`diveActivityID`** only. Stuck export (~237k pending samples) blocked dive-header upload. Open policy **v7** parks the old user store, opens a fresh CloudKit user schema without profile points, and migrates dives + points (points → local). Charts stay on-device; dive headers / buddies / media pointers can sync.
+- **Profile track sync:** Compressed binary **`DiveActivity.profileTrackData`** (**`DiveProfileTrackCodec`**, LZFSE) syncs full depth tracks with the dive row (one CloudKit field per dive). Local **`DiveProfilePoint`** rows remain for charts; materialize-from-blob when a synced dive has no local samples. Import/seed encode the blob; launch **`DiveProfileTrackBackfill`** fills existing dives once.
+- **Top Sites custom sites:** Home Top Sites leaderboard resolves **`UserDiveSite`** rows (not only catalog **`DiveSite`**); lifetime stats prefer linked site titles so custom sites aren’t dropped as **“New Dive”**.
+
+**Summary:** Custom import sites — correct dive counts + one site per name.
+
+- Site detail pinned / **Dives logged here** now use linked activity count (**`DiveSitePresentation.listRecord(…, loggedDiveCount:)`** + **`ExploreDiveSiteDetailView`**).
+- Import **`createSiteForImportNameIfNeeded`** reuses an existing owner **`UserDiveSite`** with the same name (case-insensitive) instead of creating one row per dive.
+- Launch **`UserDiveSiteDuplicateConsolidation`** merges older pure-custom duplicates (same owner + name), relinks dives / sightings / trip planned sites, and deletes orphans — heals cases like **Judy’s Dream Belair**.
+- Tests: reuse-by-name, consolidation merge + fetch count, **`loggedDiveCount`** pinned label.
+
+**Summary:** Top Sites ranks custom import sites by name (not only identical site IDs).
+
+- Top Sites / most-visited grouping treats the same display name as one place even when import created duplicate **`diveSiteID`**s.
+- Home rebuilds when **`diveSiteLinksDidChange`** fires after consolidation.
+- Site-title seeding falls back to import **`siteName`** when the linked row can’t resolve.
+- Tests: same-name / different-ID visit merge for leaderboard + Home tile.
+
+**Summary:** Dual-store partition coverage includes **`GoDiveUserLocal`**; tests expect **4** configurations.
+
+- **`partitionCoverageIssues`** unions **userLocal** (fixes **`DiveProfilePoint`** missing-from-union).
+- Dual-store factory / migrator / bootstrap tests expect **4** configs (user + user-local + catalog + diagnostics).
+

@@ -1,14 +1,29 @@
 import CoreData
 import Foundation
 import SwiftData
+import os
 
 /// Watches CloudKit import events and merges duplicate Apple-ID profiles into the signed-in session.
+///
+/// Sign-in can mint a local **Diver** profile before CloudKit downloads the existing account. Import
+/// notifications are easy to miss or fire before the second profile is visible on the main context,
+/// so this observer debounces and retries reconciliation.
 enum AccountSessionCloudKitIdentityObserver {
     @MainActor
     private static var isStarted = false
+    @MainActor
+    private static var pendingReconcileTask: Task<Void, Never>?
+    @MainActor
+    private static weak var observedContainer: ModelContainer?
+
+    private nonisolated static let log = Logger(
+        subsystem: "PrimoSoftware.GoDiveMVP",
+        category: "CloudKitIdentity"
+    )
 
     @MainActor
     static func startIfNeeded(container: ModelContainer) {
+        observedContainer = container
         guard !isStarted else { return }
         isStarted = true
 
@@ -27,21 +42,69 @@ enum AccountSessionCloudKitIdentityObserver {
                 return
             }
             Task { @MainActor in
-                _ = try? AccountSession.shared.reconcileCloudKitIdentityIfNeeded(
-                    modelContext: container.mainContext
-                )
-                if let owner = AccountSession.shared.currentProfile {
-                    try? UserPreferencesSync.syncForSignedInOwner(
-                        owner,
-                        modelContext: container.mainContext
-                    )
-                }
-                #if canImport(Photos)
-                _ = DiveMediaReferencePruning.pruneMissingLibraryAssets(
-                    modelContext: container.mainContext
-                )
-                #endif
+                scheduleReconcileAfterCloudKitImport(container: container)
             }
+        }
+    }
+
+    /// Call after Sign in with Apple when the local store may still be empty — CloudKit often lands
+    /// the real profile a few seconds later.
+    @MainActor
+    static func schedulePostSignInReconcileRetries(container: ModelContainer) {
+        observedContainer = container
+        pendingReconcileTask?.cancel()
+        pendingReconcileTask = Task { @MainActor in
+            // Staggered retries: import may arrive after the first notification window.
+            for delayMs in [1_500, 5_000, 15_000, 45_000] {
+                try? await Task.sleep(for: .milliseconds(delayMs))
+                guard !Task.isCancelled else { return }
+                await reconcileNow(container: container, reason: "postSignInRetry-\(delayMs)ms")
+            }
+        }
+    }
+
+    @MainActor
+    static func reconcileOnForegroundIfNeeded(container: ModelContainer) {
+        Task { @MainActor in
+            await reconcileNow(container: container, reason: "sceneActive")
+        }
+    }
+
+    @MainActor
+    private static func scheduleReconcileAfterCloudKitImport(container: ModelContainer) {
+        pendingReconcileTask?.cancel()
+        pendingReconcileTask = Task { @MainActor in
+            // Let SwiftData merge the imported objects onto the main context first.
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+            await reconcileNow(container: container, reason: "cloudKitImport")
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            await reconcileNow(container: container, reason: "cloudKitImport-followUp")
+        }
+    }
+
+    @MainActor
+    private static func reconcileNow(container: ModelContainer, reason: String) async {
+        let context = container.mainContext
+        context.processPendingChanges()
+        do {
+            let outcome = try AccountSession.shared.reconcileCloudKitIdentityIfNeeded(modelContext: context)
+            if let outcome, outcome.mergedDuplicateCount > 0 || outcome.didChangeCanonicalID {
+                log.notice(
+                    "identity_merge reason=\(reason, privacy: .public) merged=\(outcome.mergedDuplicateCount) switched=\(outcome.didChangeCanonicalID) reassigned=\(outcome.reassignedOwnedRowCount)"
+                )
+            }
+            if let owner = AccountSession.shared.currentProfile {
+                try? UserPreferencesSync.syncForSignedInOwner(owner, modelContext: context)
+            }
+            #if canImport(Photos)
+            _ = DiveMediaReferencePruning.pruneMissingLibraryAssets(modelContext: context)
+            #endif
+        } catch {
+            log.error(
+                "identity_merge_failed reason=\(reason, privacy: .public) error=\(String(describing: error), privacy: .private)"
+            )
         }
     }
 }

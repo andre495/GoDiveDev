@@ -7,6 +7,9 @@ enum UddfDiveFileImport {
     /// Shown when **one** dive was saved (same wording as **`.fit`** for shared UI).
     static let importSingleSuccessMessagePrefix = FitDiveFileImport.importSuccessMessagePrefix
 
+    /// **`imported`** = rows inserted; **`duplicates`** = skipped; **`processed`** = dives handled so far; **`total`** = dives in file.
+    typealias ProgressHandler = @MainActor (_ imported: Int, _ duplicates: Int, _ processed: Int, _ total: Int) -> Void
+
     /// Reads **`Data`** from **`url`** while the security-scoped resource is active. **`nonisolated`** so UI can read off the main actor after showing the import scrim.
     nonisolated static func readUddfFileData(from url: URL) throws -> Data {
         let accessed = url.startAccessingSecurityScopedResource()
@@ -21,36 +24,38 @@ enum UddfDiveFileImport {
             }
             throw AccessError()
         }
-        return try Data(contentsOf: url)
+        return try DiveFileImportLimits.readCappedFileData(from: url, kind: .uddf)
     }
 
-    /// Inserts all dives in **`startTime`** order (required for chained **`diveNumber`**). **`primaryInsertedDiveId`** is the newest dive by **`startTime`** ( **`id`** tie-break) when multiple rows are inserted.
+    /// Decodes + persists (batched geocode + indexed site match). Contacts / media attach run inside persist when enabled.
     @MainActor
     static func importUddfData(
         _ data: Data,
         modelContext: ModelContext,
         owner: UserProfile? = nil,
-        createMissingDiveSites: Bool = false
+        createMissingDiveSites: Bool = false,
+        attachMediaFromPhotoLibrary: Bool? = nil,
+        onProgress: ProgressHandler? = nil,
+        onMediaAttachProgress: DiveLibraryMediaAutoAttach.ProgressHandler? = nil
     ) async -> DiveFileImportOutcome {
-        do {
-            let activities = try UddfDiveFileDecoder.buildDiveActivities(from: data)
-            return await persistImportedActivities(
-                activities,
-                modelContext: modelContext,
-                owner: owner,
-                createMissingDiveSites: createMissingDiveSites
+        guard let owner = owner ?? AccountSession.shared.currentProfile else {
+            return DiveFileImportOutcome(
+                userMessage: "Sign in to import dives.",
+                primaryInsertedDiveId: nil
             )
-        } catch let uddf as UddfDecodeError {
-            return DiveFileImportOutcome(userMessage: uddf.localizedDescription, primaryInsertedDiveId: nil)
-        } catch {
-            return DiveFileImportOutcome(userMessage: error.localizedDescription, primaryInsertedDiveId: nil)
         }
+        return await DiveBackgroundImportCoordinator.importUddf(
+            data: data,
+            modelContext: modelContext,
+            owner: owner,
+            createMissingDiveSites: createMissingDiveSites,
+            attachMediaFromPhotoLibrary: attachMediaFromPhotoLibrary,
+            onProgress: onProgress,
+            onMediaAttachProgress: onMediaAttachProgress
+        )
     }
 
-    /// **`imported`** = rows inserted; **`duplicates`** = skipped; **`processed`** = dives handled so far; **`total`** = dives in file.
-    typealias ProgressHandler = @MainActor (_ imported: Int, _ duplicates: Int, _ processed: Int, _ total: Int) -> Void
-
-    /// Duplicate check + SwiftData insert (call after decode so UI can show progress first).
+    /// Duplicate check + SwiftData insert (call after decode so UI / tests can drive progress).
     @MainActor
     static func persistImportedActivities(
         _ activities: [DiveActivity],
@@ -75,7 +80,11 @@ enum UddfDiveFileImport {
             }
         } catch {
             modelContext.rollback()
-            return DiveFileImportOutcome(userMessage: error.localizedDescription, primaryInsertedDiveId: nil)
+            GoDiveUserFacingError.recordImportRejection(error)
+            return DiveFileImportOutcome(
+                userMessage: GoDiveUserFacingError.importUserMessage(for: error),
+                primaryInsertedDiveId: nil
+            )
         }
     }
 
@@ -117,15 +126,15 @@ enum UddfDiveFileImport {
                 modelContext: modelContext
             )
             var importedBuddyIDs = Set<UUID>()
+            let yieldStride = DiveBackgroundImportCoordinator.progressYieldStride
 
             for (index, activity) in activities.enumerated() {
                 if let interrupted = DiveFileImportInterruption.rollbackIfNeededBeforeSave(modelContext: modelContext) {
                     return interrupted
                 }
                 let candidate = DiveActivityDuplicateMatcher.signature(for: activity)
-                if let match = DiveActivityDuplicateMatcher.findDuplicate(for: candidate, among: duplicateBaseline) {
+                if DiveActivityDuplicateMatcher.findDuplicate(for: candidate, among: duplicateBaseline) != nil {
                     skippedDuplicates += 1
-                    _ = match
                 } else {
                     if !activity.diveNumberExplicitlyNone, activity.diveNumber == nil {
                         DiveActivityDiveNumbering.assignNextChainedDiveNumber(
@@ -146,6 +155,7 @@ enum UddfDiveFileImport {
                         }
                     }
                     modelContext.insert(activity)
+                    DiveProfilePointStore.insertStagedPointsAndSyncTrack(for: activity, into: modelContext)
                     try DiveActivityEquipmentAssociation.applyAutoAdd(
                         to: activity,
                         candidates: autoAddCandidates,
@@ -154,8 +164,9 @@ enum UddfDiveFileImport {
                     inserted.append(activity)
                     duplicateBaseline.append(candidate)
                 }
-                onProgress?(inserted.count, skippedDuplicates, index + 1, activities.count)
-                if onProgress != nil {
+                let processed = index + 1
+                onProgress?(inserted.count, skippedDuplicates, processed, activities.count)
+                if onProgress != nil, processed % yieldStride == 0 || processed == activities.count {
                     await Task.yield()
                 }
             }
@@ -243,6 +254,7 @@ enum UddfDiveFileImport {
             )
 
             let primaryId = primaryInsertedActivity(from: inserted)?.id
+            let insertedIDs = inserted.map(\.id)
             if inserted.count == 1, let only = inserted.first {
                 var msg = "\(importSingleSuccessMessagePrefix) starting \(only.formattedStartDateTime())."
                 if skippedDuplicates > 0 {
@@ -254,7 +266,8 @@ enum UddfDiveFileImport {
                     insertedCount: inserted.count,
                     skippedDuplicateCount: skippedDuplicates,
                     totalInFile: activities.count,
-                    createdDiveSiteCount: createdDiveSites
+                    createdDiveSiteCount: createdDiveSites,
+                    insertedDiveIDs: insertedIDs
                 )
             }
             var msg = "Imported \(inserted.count) dives."
@@ -267,7 +280,8 @@ enum UddfDiveFileImport {
                 insertedCount: inserted.count,
                 skippedDuplicateCount: skippedDuplicates,
                 totalInFile: activities.count,
-                createdDiveSiteCount: createdDiveSites
+                createdDiveSiteCount: createdDiveSites,
+                insertedDiveIDs: insertedIDs
             )
         } catch {
             modelContext.rollback()

@@ -12,6 +12,8 @@ struct DiveFileImportOutcome: Equatable {
     let totalInFile: Int?
     /// New **`DiveSite`** rows created during import site linking (not links to existing catalog sites).
     let createdDiveSiteCount: Int?
+    /// All newly inserted dive ids (background worker → UI media/contacts attach).
+    let insertedDiveIDs: [UUID]
 
     init(
         userMessage: String,
@@ -19,7 +21,8 @@ struct DiveFileImportOutcome: Equatable {
         insertedCount: Int? = nil,
         skippedDuplicateCount: Int? = nil,
         totalInFile: Int? = nil,
-        createdDiveSiteCount: Int? = nil
+        createdDiveSiteCount: Int? = nil,
+        insertedDiveIDs: [UUID] = []
     ) {
         self.userMessage = userMessage
         self.primaryInsertedDiveId = primaryInsertedDiveId
@@ -27,6 +30,9 @@ struct DiveFileImportOutcome: Equatable {
         self.skippedDuplicateCount = skippedDuplicateCount
         self.totalInFile = totalInFile
         self.createdDiveSiteCount = createdDiveSiteCount
+        self.insertedDiveIDs = insertedDiveIDs.isEmpty
+            ? (primaryInsertedDiveId.map { [$0] } ?? [])
+            : insertedDiveIDs
     }
 
     /// Bulk UDDF finished parsing + persist (success or all-duplicate); use for the completion summary alert.

@@ -11,7 +11,10 @@ enum FitDiveFileDecoder {
         guard !data.isEmpty else {
             throw FitDecodeError.emptyFile
         }
+        try DiveFileImportLimits.enforceFileSize(byteCount: data.count)
+        try DiveFileImportLimits.validateContent(data, kind: .fit)
 
+        let parseStartedAt = Date()
         let stream = FITSwiftSDK.InputStream(data: data)
         guard try Decoder.isFIT(stream: stream) else {
             throw FitDecodeError.notAFitFile
@@ -26,6 +29,7 @@ enum FitDiveFileDecoder {
         } catch {
             throw FitDecodeError.readFailed(underlying: error)
         }
+        try DiveFileImportLimits.enforceParseDeadline(startedAt: parseStartedAt)
 
         let messages = listener.fitMessages
 
@@ -160,6 +164,7 @@ enum FitDiveFileDecoder {
             )
         }
         activity.profilePoints = points
+        try DiveFileImportLimits.enforceProfileSampleCount(points.count)
         activity.applyImportedGasConsumptionMetrics(volumeUsedSurfaceLiters: volumeUsedSurfaceLiters)
 
         return activity

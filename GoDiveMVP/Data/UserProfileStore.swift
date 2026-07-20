@@ -154,13 +154,13 @@ enum UserProfileStore {
 
     /// Trims and validates a user-entered display name (post-sign-in prompt).
     nonisolated static func sanitizedUserEnteredDisplayName(_ raw: String) -> String? {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
+        GoDiveInputSanitization.sanitizedDisplayName(raw)
     }
 
     /// Trims a DAN membership number; empty input clears the field. Letters, digits, spaces, and hyphens only (max 40).
     nonisolated static func sanitizedDanInsuranceNumber(_ raw: String) -> String? {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = GoDiveInputSanitization.strippingControlCharacters(raw)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -")
         let filteredScalars = trimmed.unicodeScalars.filter { allowed.contains($0) }
@@ -168,7 +168,7 @@ enum UserProfileStore {
             .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !filtered.isEmpty else { return nil }
-        return String(filtered.prefix(40))
+        return String(filtered.prefix(GoDiveInputSanitization.maxDanInsuranceNumberLength))
     }
 
     /// Applies logged-out onboarding activity picks to a profile row.

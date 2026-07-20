@@ -7,6 +7,7 @@ struct HomeLifetimeStatsLeaderboardView: View {
     let diveStatsInputs: [HomeDiveStatsInput]
     let activities: [DiveActivity]
     let diveSites: [DiveSite]
+    let userDiveSites: [UserDiveSite]
     let marineLifeCatalog: [MarineLife]
     let unitSystem: DiveDisplayUnitSystem
     let automaticallyRenumberDives: Bool
@@ -45,6 +46,10 @@ struct HomeLifetimeStatsLeaderboardView: View {
 
     private var sitesByID: [UUID: DiveSite] {
         Dictionary(uniqueKeysWithValues: diveSites.map { ($0.id, $0) })
+    }
+
+    private var userSitesByID: [UUID: UserDiveSite] {
+        Dictionary(uniqueKeysWithValues: userDiveSites.map { ($0.id, $0) })
     }
 
     private var marineLifeByUUID: [String: MarineLife] {
@@ -129,7 +134,8 @@ struct HomeLifetimeStatsLeaderboardView: View {
             ForEach(listPortionSiteEntries) { entry in
                 let rowData = HomeLifetimeStatsLeaderboardPresentation.siteRowDisplayData(
                     entry: entry,
-                    site: entry.siteID.flatMap { sitesByID[$0] }
+                    site: entry.siteID.flatMap { sitesByID[$0] },
+                    userSite: entry.siteID.flatMap { userSitesByID[$0] }
                 )
                 Group {
                     if let siteID = entry.siteID {

@@ -110,7 +110,7 @@ Your log stays on your iPhone. Sign in with Apple — no GoDive cloud account re
 
 **Links:**  
 - User guide → `https://andre495.github.io/GoDiveDev/`  
-- Privacy → `https://andre495.github.io/GoDiveDev/privacy-and-data/`  
+- Privacy → `https://andre495.github.io/GoDiveDev/privacy-and-data/` (canonical **Privacy Policy** for website + app — keep Wix footer linked here; update Wix page body to match `docs/privacy-and-data.md` when the site hosts a full paste)
 
 **Copyright (edit legal name as needed):**  
 © PrimoSoftware. All rights reserved.

@@ -14,6 +14,7 @@ struct LogOverviewView: View {
 
     @State private var marineLifeCatalog: [MarineLife] = []
     @State private var diveSiteCatalog: [DiveSite] = []
+    @State private var userDiveSites: [UserDiveSite] = []
     @State private var hasLoadedNavigationCatalogs = false
 
     private let ownerProfileID: UUID?
@@ -145,6 +146,13 @@ struct LogOverviewView: View {
                     .receive(on: RunLoop.main)
             ) { _ in
                 scheduleHomeOverviewRebuild()
+            }
+            .onReceive(
+                NotificationCenter.default
+                    .publisher(for: .diveSiteLinksDidChange)
+                    .receive(on: RunLoop.main)
+            ) { _ in
+                scheduleHomeOverviewRebuild(immediate: true)
             }
             .onReceive(
                 NotificationCenter.default
@@ -327,6 +335,7 @@ struct LogOverviewView: View {
                 diveStatsInputs: homeAggregate.diveStatsInputs,
                 activities: ownerDiveActivities,
                 diveSites: diveSiteCatalog,
+                userDiveSites: userDiveSites,
                 marineLifeCatalog: marineLifeCatalog,
                 unitSystem: diveDisplayUnitSystem,
                 automaticallyRenumberDives: automaticallyRenumberDives,
@@ -470,6 +479,17 @@ struct LogOverviewView: View {
             persistentIDs: await diveSiteIDs,
             modelContext: modelContext
         )
+        if let ownerProfileID {
+            let ownerID = ownerProfileID
+            userDiveSites = (try? modelContext.fetch(
+                FetchDescriptor<UserDiveSite>(
+                    predicate: #Predicate { $0.ownerProfileID == ownerID },
+                    sortBy: [SortDescriptor(\.siteName)]
+                )
+            )) ?? []
+        } else {
+            userDiveSites = []
+        }
         guard !Task.isCancelled else { return }
         hasLoadedNavigationCatalogs = true
     }

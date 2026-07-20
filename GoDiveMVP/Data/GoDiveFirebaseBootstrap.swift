@@ -41,16 +41,14 @@ enum GoDiveFirebaseBootstrap: Sendable {
         }
 
         guard let plistURL = googleServiceInfoURL(in: bundle) else {
-            log.error(
-                "Firebase not configured: GoogleService-Info.plist not found in app bundle at \(bundle.bundlePath, privacy: .public)"
-            )
+            log.error("Firebase not configured: GoogleService-Info.plist not found in app bundle")
             return
         }
 
-        log.notice("Loading Firebase options from \(plistURL.path, privacy: .public)")
+        log.notice("Loading Firebase options from GoogleService-Info.plist")
 
         guard let options = FirebaseOptions(contentsOfFile: plistURL.path) else {
-            log.error("Firebase not configured: could not parse \(plistURL.lastPathComponent, privacy: .public)")
+            log.error("Firebase not configured: could not parse GoogleService-Info.plist")
             return
         }
 
@@ -64,9 +62,7 @@ enum GoDiveFirebaseBootstrap: Sendable {
         FirebaseApp.configure(options: options)
         configuredSuccessfully = FirebaseApp.app() != nil
         if configuredSuccessfully {
-            let project = options.projectID ?? "?"
-            let bundleID = options.bundleID
-            log.notice("Firebase configured project=\(project, privacy: .public) bundle=\(bundleID, privacy: .public)")
+            log.notice("Firebase configured (project/bundle redacted)")
         } else {
             log.error("FirebaseApp.configure(options:) completed but FirebaseApp.app() is nil")
         }

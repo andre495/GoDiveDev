@@ -21,7 +21,9 @@ Developer docs: [`GoDiveMVP/cursor/app_summary.md`](GoDiveMVP/cursor/app_summary
 - **Firebase iOS SDK** (SPM) — `FirebaseCore`, `FirebaseAuth`, `FirebaseFirestore`, `FirebaseStorage`
 - **FITSwiftSDK**, **Google Maps SDK**, optional **Fishial.AI** — see app summary
 
-Secrets (gitignored): `GoogleService-Info.plist`, optional `CatalogCDNSecrets.plist`, `GoogleMapsSecrets.plist`, `FishialSecrets.plist`.
+Secrets (gitignored — copy from `.example` templates): `GoogleService-Info.plist`, optional `CatalogCDNSecrets.plist`, `GoogleMapsSecrets.plist`, `FishialSecrets.plist`.
+
+**Secret handling / OWASP Phase 3:** restrict Maps keys to this iOS bundle; Fishial client secret remains in-IPA until a proxy — see [`GoDiveMVP/cursor/owasp_secrets_handling.md`](GoDiveMVP/cursor/owasp_secrets_handling.md). Never commit real secret plists.
 
 ## User guide
 

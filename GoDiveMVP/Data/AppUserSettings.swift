@@ -1,8 +1,8 @@
 import Foundation
 
 /// User-facing preferences. Synced keys live in SwiftData **`UserPreferences`** (CloudKit) with a
-/// **`UserDefaults`** cache for `@AppStorage` and nonisolated reads. **`shareCrashReports`** is
-/// device-local only.
+/// **`UserDefaults`** cache for `@AppStorage` and nonisolated reads. **`shareCrashReports`** and
+/// **`shareSecurityEvents`** are device-local only.
 enum AppUserSettings: Sendable {
     /// When **`true`**, import/seed may run **`renumberAllChronologically`**; **delete** uses partial tail renumber on a background context (**`DiveActivityPostDeleteRenumbering`**).
     nonisolated static let automaticallyRenumberDivesKey = "goDiveAutomaticallyRenumberDives"
@@ -29,7 +29,12 @@ enum AppUserSettings: Sendable {
     /// (**`CrashReportCloudUploader`**). Default **off** — sharing is opt-in.
     nonisolated static let shareCrashReportsKey = "goDiveShareCrashReports"
 
-    static var automaticallyRenumberDives: Bool {
+    /// When **`true`**, scrubbed security events upload to the developer's CloudKit public database
+    /// (**`SecurityEventCloudUploader`**). Default **off** — sharing is opt-in. The local journal
+    /// still syncs via private CloudKit with the dive account.
+    nonisolated static let shareSecurityEventsKey = "goDiveShareSecurityEvents"
+
+    nonisolated static var automaticallyRenumberDives: Bool {
         UserDefaults.standard.bool(forKey: automaticallyRenumberDivesKey)
     }
 
@@ -70,6 +75,10 @@ enum AppUserSettings: Sendable {
     /// defaults to `false`, keeping crash sharing opt-in.
     nonisolated static func shareCrashReports(userDefaults: UserDefaults = .standard) -> Bool {
         userDefaults.bool(forKey: shareCrashReportsKey)
+    }
+
+    nonisolated static func shareSecurityEvents(userDefaults: UserDefaults = .standard) -> Bool {
+        userDefaults.bool(forKey: shareSecurityEventsKey)
     }
 
     /// Toggle defaults applied when the user has never changed them (call once at launch).

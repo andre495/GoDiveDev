@@ -3,12 +3,12 @@ import SwiftData
 
 /// Phase 1 store ownership map for Option A hybrid sync.
 ///
-/// Production opens **dual on-disk stores** via **`AppSwiftDataDualStoreBootstrap`**
-/// (`cloudKitDatabase: .none` until Phase 2). In-memory tests still use a unified container.
-/// These lists define which types live in user / catalog / diagnostics configurations.
+/// Production opens **split on-disk stores** via **`AppSwiftDataDualStoreBootstrap`**.
+/// In-memory tests still use a unified container.
+/// These lists define which types live in user / user-local / catalog / diagnostics configurations.
 enum AppSwiftDataStorePartition: Sendable {
 
-    /// User-owned structured data that will sync via CloudKit private once Phase 2 enables it.
+    /// User-owned structured data mirrored via CloudKit private (dive headers, buddies, media pointers, etc.).
     nonisolated static let userModelTypes: [any PersistentModel.Type] = [
         UserProfile.self,
         DiveActivity.self,
@@ -19,7 +19,6 @@ enum AppSwiftDataStorePartition: Sendable {
         ActivityTag.self,
         DiveMediaPhoto.self,
         DiveMediaBuddyTag.self,
-        DiveProfilePoint.self,
         MarineLifeUserRecord.self,
         SightingInstance.self,
         EquipmentItem.self,
@@ -30,7 +29,19 @@ enum AppSwiftDataStorePartition: Sendable {
         UserMarineLife.self,
         UserDiveSite.self,
         UserPreferences.self,
+        SecurityEventRecord.self,
     ]
+
+    /// High-volume samples kept **on-device only** (**`GoDiveUserLocal`**, CloudKit **off**).
+    /// Linked to dives by **`diveActivityID`** (no cross-store SwiftData relationship).
+    nonisolated static let userLocalModelTypes: [any PersistentModel.Type] = [
+        DiveProfilePoint.self,
+    ]
+
+    /// Pre–policy-v7 **`GoDiveUser`** files that still embed profile points in the user store.
+    nonisolated static var legacyCloudKitUserModelTypes: [any PersistentModel.Type] {
+        userModelTypes + userLocalModelTypes
+    }
 
     /// Developer-owned catalog cache (bundled seed today; Firebase CDN refresh in Phase 4).
     ///
@@ -48,12 +59,16 @@ enum AppSwiftDataStorePartition: Sendable {
 
     /// Every production `@Model` type, in a stable order for the unified container.
     nonisolated static var allModelTypes: [any PersistentModel.Type] {
-        userModelTypes + catalogModelTypes + diagnosticsModelTypes
+        userModelTypes + userLocalModelTypes + catalogModelTypes + diagnosticsModelTypes
     }
 
     /// Type names for tests / migration planning (SwiftData metatypes are not `Equatable`).
     nonisolated static var userModelTypeNames: [String] {
         userModelTypes.map { String(describing: $0) }
+    }
+
+    nonisolated static var userLocalModelTypeNames: [String] {
+        userLocalModelTypes.map { String(describing: $0) }
     }
 
     nonisolated static var catalogModelTypeNames: [String] {
@@ -84,6 +99,7 @@ enum AppSwiftDataStorePartition: Sendable {
     /// Stay device-local (privacy / diagnostics), not mirrored in the user CloudKit store.
     nonisolated static let localOnlyPreferenceKeys: [String] = [
         AppUserSettings.shareCrashReportsKey,
+        AppUserSettings.shareSecurityEventsKey,
     ]
 
     /// Catalog CDN vendor locked for Phase 4 (developer-owned; not user sync).

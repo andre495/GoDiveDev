@@ -35,7 +35,8 @@ Phase 1 should split today's single `ModelContainer` into at least two configura
 
 | Store | CloudKit | Models / data | Notes |
 |-------|----------|---------------|-------|
-| User store | `.private("iCloud.PrimoSoftware.GoDiveMVP")` or explicit equivalent | `UserProfile`, dives, buddies, media pointers, sightings, equipment, certifications, trips, user tags/settings overlays | Must become CloudKit-compatible before sync turns on. |
+| User store | `.private("iCloud.PrimoSoftware.GoDiveMVP")` or explicit equivalent | `UserProfile`, dives, buddies, media pointers, sightings, equipment, certifications, trips, user tags/settings overlays | Must become CloudKit-compatible before sync turns on. **Does not** include depth-profile samples. |
+| User-local store | `.none` | `DiveProfilePoint` | On-device chart rows; UUID-linked to dives. Full track also synced as **`DiveActivity.profileTrackData`** on the user store. |
 | Catalog store | `.none` | Bundled / remote `MarineLife`, reference `DiveSite` cache, app-provided catalog metadata | Developer-owned; refreshed by seeder / CDN. Never uploads to a user's private DB. |
 | Diagnostics | `.none` locally, manual CloudKit upload | `CrashReportRecord` | Existing opt-in uploader can keep using CloudKit public records outside SwiftData mirroring. |
 
@@ -53,7 +54,7 @@ These rows represent user-created or user-owned data and should sync across the 
 |-------|-------------|-------------------------------|
 | `UserProfile` | Sync | Stable Apple user ID already exists (`appleUserIdentifier`). Avoid depending on local UUID as cross-device identity. |
 | `DiveActivity` | Sync | Core log entry. Needs defaults/optionals and inverse audit. Keep canonical units. |
-| `DiveProfilePoint` | Sync by default, with a size gate | Full profile points preserve imported dive fidelity and power charts. Revisit only if test sync volume is poor; fallback is derived stats + optional on-demand profile sync. |
+| `DiveProfilePoint` | **Local-only** (`GoDiveUserLocal`) + synced via dive blob | Row samples stay local for charts. Full track syncs as compressed **`DiveActivity.profileTrackData`** (`DiveProfileTrackCodec`) — one CloudKit field update per dive, not per sample. |
 | `DiveBuddy` | Sync | Contact links are device-local-ish; sync roster name/photo, resolve Contacts opportunistically per device. |
 | `DiveBuddyTag` | Sync | Join row. Use stable denormalized IDs plus relationships. |
 | `DiveMediaPhoto` | Sync pointer row | Sync `PHCloudIdentifier` + local identifier + preview JPEG. Full asset bytes stay in Photos. |
@@ -73,15 +74,17 @@ These rows represent user-created or user-owned data and should sync across the 
 
 | Model / data | Policy | Reason |
 |--------------|--------|--------|
+| `DiveProfilePoint` | Local user-local store (+ blob on dive) | Per-sample CloudKit rows blocked export; charts use local rows; sync uses compressed **`profileTrackData`** on **`DiveActivity`**. |
 | `MarineLife` bundled catalog rows | Local catalog cache | App-provided source of truth belongs to GoDive CDN / bundled seed, not each user. |
 | User-created `MarineLife` (`user-marine-life-*`) | **`UserMarineLife`** in user store | Synced user data; catalog store keeps bundled / CDN `MarineLife` only. |
 | `DiveSite` reference catalog / OpenDiveMap rows | Local catalog cache | App/reference source comes from GoDive CDN / OpenDiveMap seed. |
 | User-created / edited `DiveSite` rows | **`UserDiveSite`** in user store | Synced user data; OpenDiveMap / CDN reference rows stay on catalog `DiveSite`. |
 | OpenDiveMap sites linked from a dive | **`UserDiveSite` snapshot** (same UUID) + local catalog cache | Catalog `DiveSite` alone does not sync — snapshot carries My Sites / resolve across reinstall. |
 | `CrashReportRecord` | Local diagnostics; manual opt-in public upload | Not part of private user sync. |
+| `SecurityEventRecord` | User store (private CloudKit) + opt-in public upload | Journal mirrors across the user’s devices; developer share is scrubbed public CloudKit (no `ownerProfileID`). |
 | Raw FIT / UDDF files | Never sync by default | GoDive does not retain source file bytes today; keep that behavior. |
 | Generated preview / session caches | Never sync, except `previewJPEGData` on media rows | Rebuildable or device-specific. |
-| App settings in `UserDefaults` | Synced via **`UserPreferences`** (except crash sharing) | Units / tank / renumber / auto-upload / weights / bulk UDDF create-sites mirror through CloudKit; **`shareCrashReports`** stays local. |
+| App settings in `UserDefaults` | Synced via **`UserPreferences`** (except crash / diagnostic sharing) | Units / tank / renumber / auto-upload / weights / bulk UDDF create-sites mirror through CloudKit; **`shareCrashReports`** and **`shareSecurityEvents`** stay local. |
 
 ## Media Boundary
 

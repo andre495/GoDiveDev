@@ -1,0 +1,33 @@
+---
+description: Input sanitization, FIT/UDDF import caps, CDN HTTPS path hardening
+alwaysApply: true
+---
+
+# Input validation & import hardening
+
+Source: **`owasp_access_control_policy.md`**, Phase 2 — **`GoDiveInputSanitization`**, **`DiveFileImportLimits`**, **`CatalogCDNPathValidation`**.
+
+## User text
+
+- Route free text through **`GoDiveInputSanitization`** / existing form helpers (**`DiveSiteFormValidation`**, **`UserProfileStore.sanitizedDan*`**, **`DiveNotesValidation`**, buddy name caps).
+- Strip **control characters**; enforce max lengths. Do not invent unbounded `TextField` / import string paths.
+- Markup characters in site/notes are OK for SwiftUI **`Text`** — do not treat the app as an HTML sink.
+
+## File import (FIT / UDDF)
+
+- Read via **`DiveFileImportLimits.readCappedFileData`** (size + content magic / `<uddf` check). **Never** trust filename/UTI alone.
+- Keep picker UTType allow-lists (**`DiveFileImporterPresentation`**); re-validate content after pick.
+- Enforce profile-sample caps and parse deadline in decoders (dive count is uncapped). On UDDF timeout / sample overflow, **abort `XMLParser` immediately** — do not soft-flag and keep parsing. Fail closed with user-facing **`DiveFileImportLimits.Error`** copy.
+- UDDF: **`XMLParser.shouldResolveExternalEntities = false`**; reject DTD / `<!ENTITY` in the file prefix.
+
+## Catalog CDN
+
+- Base URL **HTTPS only** (**`CatalogCDNSecretsBootstrap.validatedBaseURL`**).
+- Relative paths must pass **`CatalogCDNPathValidation.isAllowedRelativePath`** (`catalog/v1/…`, no `..`).
+- Prefer **`CatalogCDNSessionFactory.makeSession`** (same-host HTTPS redirects, response size cap). Keep SHA-256 fail-closed.
+
+## Do not
+
+- Load unbounded `Data(contentsOf:)` for dive imports.
+- Allow `http://` CDN bases or open redirects off-host.
+- Resolve XML external entities or accept DOCTYPE/entity payloads in UDDF.

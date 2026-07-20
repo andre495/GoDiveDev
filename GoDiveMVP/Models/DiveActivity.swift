@@ -192,14 +192,14 @@ final class DiveActivity {
     @Relationship(deleteRule: .cascade)
     var equipmentList: DiveActivityEquipmentList?
 
-    // Time-series profile (Garmin record messages mapped to canonical points)
-    @Relationship(deleteRule: .cascade)
-    var profilePointsStorage: [DiveProfilePoint]? = []
+    /// Staged / cached depth-profile samples. Persisted in **`GoDiveUserLocal`** via
+    /// **`DiveProfilePointStore`** (not a CloudKit-mirrored relationship).
     @Transient
-    var profilePoints: [DiveProfilePoint] {
-        get { profilePointsStorage ?? [] }
-        set { profilePointsStorage = newValue }
-    }
+    var profilePoints: [DiveProfilePoint] = []
+
+    /// Compressed binary depth track for CloudKit sync (**`DiveProfileTrackCodec`**).
+    /// Local chart rows live in **`GoDiveUserLocal`**; this blob mirrors across devices.
+    var profileTrackData: Data?
 
     /// Denormalized for **`#Predicate`** / logbook filtering; kept in sync with **`owner`**.
     var ownerProfileID: UUID?

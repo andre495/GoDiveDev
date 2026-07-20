@@ -5,6 +5,7 @@ enum AccountSessionMainShellPresentation: Sendable {
     nonisolated static func showsMainAppShell(
         isSignedIn: Bool,
         showsNewAccountWelcome: Bool,
+        showsPostSignUpInterests: Bool,
         showsPostSignUpProfileSetup: Bool,
         showsPostSignUpPermissions: Bool,
         showsPostSignUpImportOffer: Bool,
@@ -13,6 +14,7 @@ enum AccountSessionMainShellPresentation: Sendable {
     ) -> Bool {
         isSignedIn
             && !showsNewAccountWelcome
+            && !showsPostSignUpInterests
             && !showsPostSignUpProfileSetup
             && !showsPostSignUpPermissions
             && !showsPostSignUpImportOffer
@@ -24,6 +26,7 @@ enum AccountSessionMainShellPresentation: Sendable {
     nonisolated static func shouldMountMainAppShellUnderlay(
         isSignedIn: Bool,
         showsNewAccountWelcome: Bool,
+        showsPostSignUpInterests: Bool,
         showsPostSignUpProfileSetup: Bool,
         showsPostSignUpPermissions: Bool,
         showsPostSignUpImportOffer: Bool,
@@ -34,6 +37,7 @@ enum AccountSessionMainShellPresentation: Sendable {
         showsMainAppShell(
             isSignedIn: isSignedIn,
             showsNewAccountWelcome: showsNewAccountWelcome,
+            showsPostSignUpInterests: showsPostSignUpInterests,
             showsPostSignUpProfileSetup: showsPostSignUpProfileSetup,
             showsPostSignUpPermissions: showsPostSignUpPermissions,
             showsPostSignUpImportOffer: showsPostSignUpImportOffer,

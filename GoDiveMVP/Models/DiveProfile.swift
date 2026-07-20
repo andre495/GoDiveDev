@@ -5,6 +5,9 @@ import SwiftData
 
 /// Time-series sample for dive profile visualization and future insights (ascent rate, stops, etc.).
 /// **Canonical:** **`depthMeters`**, **`temperatureCelsius`**, **`ascentRateMetersPerSecond`**, **`tankPressurePSI`** (see **`DiveActivity`**).
+///
+/// Stored in **`GoDiveUserLocal`** (CloudKit **off**) and linked by **`diveActivityID`** only — mirroring
+/// hundreds of thousands of samples blocked private CloudKit export of dive headers.
 @Model
 final class DiveProfilePoint {
 
@@ -26,11 +29,8 @@ final class DiveProfilePoint {
     /// **FIT `RecordMesg`:** **CNS** load (native **`UInt8`** stored as **`Int`**, commonly **0…100**).
     var cnsLoad: Int?
 
-    /// Denormalized for batch **`delete(model:where:)`** (avoids per-row cascade deletes).
+    /// Links this sample to a **`DiveActivity`** across the user / user-local store split.
     var diveActivityID: UUID?
-
-    @Relationship(inverse: \DiveActivity.profilePointsStorage)
-    var dive: DiveActivity?
 
     init(
         timestamp: Date,
@@ -58,10 +58,9 @@ final class DiveProfilePoint {
         self.n2Load = n2Load
         self.cnsLoad = cnsLoad
         self.diveActivityID = dive?.id
-        self.dive = dive
     }
 
-    /// Links this sample to a dive and updates **`diveActivityID`** for batch deletes.
+    /// Links this sample to a dive and updates **`diveActivityID`**.
     func link(to dive: DiveActivity) {
         DiveActivityChildRecordLinking.link(self, to: dive)
     }

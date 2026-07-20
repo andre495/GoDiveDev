@@ -166,17 +166,25 @@ struct DiveSiteFormDraft: Equatable, Sendable {
 
 enum DiveSiteFormValidation: Sendable {
     nonisolated static func sanitizedSiteName(_ raw: String) -> String? {
-        trimmedNonEmpty(raw)
+        GoDiveInputSanitization.sanitizedOptionalText(
+            raw,
+            maxLength: GoDiveInputSanitization.maxSiteNameLength
+        )
     }
 
     /// Trims whitespace; returns `""` when empty (optional hierarchy fields on the add-site form).
     nonisolated static func sanitizedPlaceField(_ raw: String) -> String {
-        raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        GoDiveInputSanitization.trimmedAndCapped(
+            raw,
+            maxLength: GoDiveInputSanitization.maxPlaceFieldLength
+        )
     }
 
     nonisolated static func trimmedNonEmpty(_ raw: String) -> String? {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
+        GoDiveInputSanitization.sanitizedOptionalText(
+            raw,
+            maxLength: GoDiveInputSanitization.maxSiteNameLength
+        )
     }
 
     nonisolated static func parsedCoordinate(latitudeText: String, longitudeText: String) -> DiveCoordinate? {

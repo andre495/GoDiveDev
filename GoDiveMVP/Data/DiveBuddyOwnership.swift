@@ -9,20 +9,34 @@ enum DiveBuddyOwnership {
     }
 
     static func buddies(forOwnerProfileID ownerProfileID: UUID, modelContext: ModelContext) throws -> [DiveBuddy] {
-        let all = try modelContext.fetch(FetchDescriptor<DiveBuddy>())
-        return all.filter { $0.ownerProfileID == ownerProfileID }
+        let ownerID = ownerProfileID
+        return try modelContext.fetch(
+            FetchDescriptor<DiveBuddy>(
+                predicate: #Predicate<DiveBuddy> { $0.ownerProfileID == ownerID }
+            )
+        )
     }
 
     /// Claims buddies created on import before sign-in (same pattern as dives).
-    nonisolated static func claimUnownedBuddies(for owner: UserProfile, modelContext: ModelContext) throws {
-        let all = try modelContext.fetch(FetchDescriptor<DiveBuddy>())
-        var changed = false
-        for buddy in all where buddy.ownerProfileID == nil {
+    /// Skips when another profile already owns dives/buddies on this device (shared-device safe).
+    @discardableResult
+    nonisolated static func claimUnownedBuddies(
+        for owner: UserProfile,
+        modelContext: ModelContext,
+        force: Bool = false
+    ) throws -> Int {
+        if !force {
+            guard try DiveUnownedClaimGate.allowsClaim(ownerID: owner.id, modelContext: modelContext) else {
+                return 0
+            }
+        }
+        let orphans = try modelContext.fetch(FetchDescriptor<DiveBuddy>())
+            .filter { $0.ownerProfileID == nil }
+        guard !orphans.isEmpty else { return 0 }
+        for buddy in orphans {
             assignOwner(owner, to: buddy)
-            changed = true
         }
-        if changed {
-            try modelContext.save()
-        }
+        try modelContext.save()
+        return orphans.count
     }
 }

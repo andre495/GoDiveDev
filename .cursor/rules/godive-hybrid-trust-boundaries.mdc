@@ -1,0 +1,32 @@
+---
+description: Hybrid trust boundaries — CloudKit dive log vs Firebase social/CDN only
+alwaysApply: true
+---
+
+# GoDive hybrid trust boundaries
+
+Source: **`GoDiveMVP/cursor/owasp_access_control_policy.md`**, **`hybrid_cloud_sync_boundaries.md`**.
+
+## Ownership of data
+
+| Data | Where it lives | Cloud |
+|------|----------------|-------|
+| Dive log (dives, buddies, trips, gear, certs, media **pointers**/previews, user sites/species) | SwiftData **user** store | **Private CloudKit** only |
+| Full photo/video bytes | Photos / iCloud Photos | **Never** CloudKit / Firebase by default |
+| Social directory (display name, interests, avatar URL) | Firestore `users/{uid}` (+ Storage avatar) | **Firebase** only |
+| App catalogs (Marine Life, ODM refs) | SwiftData **catalog** store + CDN | Firebase **Hosting/Storage catalog** — not user private DB |
+
+## Do
+
+- Keep dive ownership on **`ownerProfileID` → `UserProfile`** (Apple / CloudKit). **Never** use Firebase UID as dive-log owner.
+- Soft-fail Firebase Auth/social when unconfigured; dive log must still work via SIWA + local/CloudKit.
+- Fail closed on CDN checksum / non-HTTPS catalog base URL.
+- When changing **`catalog-cdn/*.rules`**, deploy per **`firebase-rules-deploy.mdc`**.
+
+## Do not
+
+- Write dive activities, GPS tracks, FIT/UDDF files, sightings, or dive media bytes to **Firestore** or **Firebase Storage** (except social **avatar** under `users/{uid}/`).
+- Put full media or import source files in **CloudKit** by default.
+- Add buddy-to-buddy shared dive editing without an explicit **CloudKit Sharing** design.
+- Broaden Firestore/Storage access in client code when rules are missing — fail soft on social features instead.
+- Widen Firestore reads/writes beyond owner + documented public profile fields without updating **`owasp_access_control_policy.md`** and deploying rules.

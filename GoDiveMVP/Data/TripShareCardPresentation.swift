@@ -136,14 +136,10 @@ enum TripShareCardPresentation: Sendable {
         return members
     }
 
-    nonisolated static func temporaryPNGURL(tripTitle: String) -> URL {
-        let sanitized = tripTitle
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: "/", with: "-")
-            .replacingOccurrences(of: ":", with: "-")
-        let base = sanitized.isEmpty ? "GoDive-Trip" : "GoDive-Trip-\(sanitized)"
+    nonisolated static func temporaryPNGURL(tripTitle _: String) -> URL {
+        // Filename is UUID-only — trip title is drawn into the PNG pixels, not the path.
         return FileManager.default.temporaryDirectory
-            .appendingPathComponent("\(base)-\(UUID().uuidString).png")
+            .appendingPathComponent("GoDive-Trip-\(UUID().uuidString).png")
     }
 }
 

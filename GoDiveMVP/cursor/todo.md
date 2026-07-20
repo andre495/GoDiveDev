@@ -5,6 +5,37 @@ Update this file whenever a model, view, or feature is added or changed.
 
 ---
 
+## OWASP secure coding (`feature/owasp-secure-coding`)
+
+**Plan:** `cursor/owasp_secure_coding_hardening_plan.md`  
+**Policy:** `cursor/owasp_access_control_policy.md`  
+**Secrets:** `cursor/owasp_secrets_handling.md`
+
+### Phases
+
+| Phase | Status |
+|-------|--------|
+| 0 Policy / Release gates | Done |
+| 1 Keychain session + ownership | Done |
+| 2 Input / import / CDN | Done |
+| 3 Secrets / ATS / Fishial hygiene | Done |
+| 4 Crash scrub + data protection at rest | Done |
+| 5 Logging / security events | Done (journal + opt-in share) |
+| 6 Output-encoding audit | Done |
+
+### Deferred follow-ups (after Phase 3 — do **not** block Phase 4+)
+
+Track here; implement when product/ops need them (recommended order below).
+
+- [ ] **Fishial Cloud Function proxy** — Hold `ClientSecret` server-side; app calls App Check–attested (or SIWA-backed) function for short-lived token or proxied `/v2/recognize`. Removes secret from IPA. See `owasp_secrets_handling.md`.
+- [ ] **Firebase App Check** — SPM `FirebaseAppCheck` + DeviceCheck/App Attest; enable with Fishial proxy and/or when friends/directory abuse appears.
+- [ ] **Signed CDN manifests** — Optional Ed25519/CMS publisher authenticity on top of existing SHA-256 fail-closed checksums.
+- [ ] **TLS certificate pinning** — Last resort only; requires safe pin rotation. Prefer after proxy + stable CDN endpoints.
+
+**Suggested order:** Fishial proxy → App Check (with proxy) → signed CDN (optional) → pinning (if ever).
+
+---
+
 ## Models
 
 ### DiveActivity (`Models/DiveActivity.swift`)

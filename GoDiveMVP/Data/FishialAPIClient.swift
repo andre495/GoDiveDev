@@ -3,6 +3,10 @@ import Foundation
 /// Fishial.AI recognition client — v2 auth token and binary image recognition.
 ///
 /// Flow mirrors [Fishial API v2 reference](https://docs.fishial.ai/api/api_reference).
+///
+/// **Security (Phase 3):** `ClientSecret` ships in the IPA until a proxy exists
+/// (`cursor/owasp_secrets_handling.md`). Bearer tokens stay **in memory only** — never log
+/// `Authorization`, `client_secret`, or access tokens.
 final class FishialAPIClient: @unchecked Sendable {
 
     struct Configuration: Sendable {
@@ -11,6 +15,8 @@ final class FishialAPIClient: @unchecked Sendable {
         var recognizeURL = URL(string: "https://api-recognition.fishial.ai/v2/recognize")!
         /// Refresh the bearer token slightly before Fishial's 10-minute expiry.
         var accessTokenLifetime: TimeInterval = 9 * 60
+        /// Client-side spacing between recognize calls (portal rate-limit hygiene).
+        var minimumRecognizeInterval: TimeInterval = 1.0
     }
 
     private let configuration: Configuration
@@ -18,6 +24,7 @@ final class FishialAPIClient: @unchecked Sendable {
     private let tokenLock = NSLock()
     private var cachedAccessToken: String?
     private var cachedAccessTokenFetchedAt: Date?
+    private var lastRecognizeAt: Date?
 
     nonisolated init(
         configuration: Configuration,
@@ -119,6 +126,8 @@ final class FishialAPIClient: @unchecked Sendable {
         accessToken: String,
         observationCoordinate: DiveCoordinate?
     ) async throws -> FishialRecognitionResponse {
+        try await waitForRecognizeRateLimit()
+
         var request = URLRequest(url: configuration.recognizeURL)
         request.httpMethod = "POST"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
@@ -133,6 +142,7 @@ final class FishialAPIClient: @unchecked Sendable {
         request.httpBody = jpegData
 
         let (data, response) = try await session.data(for: request)
+        tokenLock.withLock { lastRecognizeAt = Date() }
         try validateHTTP(response: response, endpoint: "v2/recognize")
 
         let recognitionResponse = try JSONDecoder().decode(FishialRecognitionResponse.self, from: data)
@@ -143,6 +153,18 @@ final class FishialAPIClient: @unchecked Sendable {
             )
         }
         return recognitionResponse
+    }
+
+    private func waitForRecognizeRateLimit() async throws {
+        let delay: TimeInterval? = tokenLock.withLock {
+            guard let lastRecognizeAt else { return nil }
+            let elapsed = Date().timeIntervalSince(lastRecognizeAt)
+            let remaining = configuration.minimumRecognizeInterval - elapsed
+            return remaining > 0 ? remaining : nil
+        }
+        if let delay {
+            try await Task.sleep(for: .seconds(delay))
+        }
     }
 
     private func validateHTTP(response: URLResponse, endpoint: String) throws {

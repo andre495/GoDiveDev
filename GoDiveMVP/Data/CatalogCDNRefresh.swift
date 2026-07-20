@@ -22,15 +22,16 @@ enum CatalogCDNRefresh: Sendable {
         baseURL: URL? = CatalogCDNSecretsBootstrap.loadManifestBaseURL(),
         appVersion: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0",
         userDefaults: UserDefaults = .standard,
-        session: URLSession = .shared,
+        session: URLSession? = nil,
         fileManager: FileManager = .default
     ) async -> Outcome {
         guard let baseURL else { return .skippedNotConfigured }
 
         let applied = userDefaults.integer(forKey: appliedCatalogVersionDefaultsKey)
+        let resolvedSession = session ?? CatalogCDNSessionFactory.makeSession(forBaseURL: baseURL)
 
         do {
-            let (manifest, _) = try await CatalogCDNClient.fetchManifest(baseURL: baseURL, session: session)
+            let (manifest, _) = try await CatalogCDNClient.fetchManifest(baseURL: baseURL, session: resolvedSession)
             guard CatalogCDNRefreshPolicy.meetsMinimumAppVersion(
                 appVersion: appVersion,
                 minimumAppVersion: manifest.minimumAppVersion
@@ -56,9 +57,10 @@ enum CatalogCDNRefresh: Sendable {
                 let payload = try await CatalogCDNClient.fetchPayload(
                     baseURL: baseURL,
                     relativePath: marinePayload.path,
-                    session: session
+                    session: resolvedSession
                 )
                 guard CatalogCDNChecksum.matches(data: payload, expectedHex: marinePayload.sha256) else {
+                    GoDiveSecurityEvent.record(.cdnChecksumMismatch, detail: "marineLife")
                     return .skippedChecksumMismatch
                 }
                 let dtos = try JSONDecoder().decode([MarineLifeDTO].self, from: payload)
@@ -72,9 +74,10 @@ enum CatalogCDNRefresh: Sendable {
                 let payload = try await CatalogCDNClient.fetchPayload(
                     baseURL: baseURL,
                     relativePath: sitesPayload.path,
-                    session: session
+                    session: resolvedSession
                 )
                 guard CatalogCDNChecksum.matches(data: payload, expectedHex: sitesPayload.sha256) else {
+                    GoDiveSecurityEvent.record(.cdnChecksumMismatch, detail: "diveSites")
                     return .skippedChecksumMismatch
                 }
                 // Validate OpenDiveMap snapshot shape before replacing the disk cache.
@@ -94,7 +97,8 @@ enum CatalogCDNRefresh: Sendable {
                 diveSitesStored: diveSitesStored
             )
         } catch {
-            return .failed(String(describing: error))
+            GoDiveSecurityEvent.record(.cdnRefreshFailed, detail: "fetchOrDecode")
+            return .failed("Catalog refresh failed.")
         }
     }
 
@@ -105,7 +109,7 @@ enum CatalogCDNRefresh: Sendable {
         baseURL: URL? = CatalogCDNSecretsBootstrap.loadManifestBaseURL(),
         appVersion: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0",
         userDefaults: UserDefaults = .standard,
-        session: URLSession = .shared
+        session: URLSession? = nil
     ) async -> Outcome {
         await refreshIfNeeded(
             modelContext: modelContext,
@@ -121,7 +125,7 @@ enum CatalogCDNRefresh: Sendable {
     ) -> CatalogCDNManifest.CatalogPayload? {
         guard let payload,
               payload.format.lowercased() == "full",
-              !payload.path.isEmpty
+              CatalogCDNPathValidation.isAllowedRelativePath(payload.path)
         else {
             return nil
         }

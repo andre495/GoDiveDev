@@ -28,7 +28,6 @@ struct PostSignUpOnboardingImportView: View {
                     onChooseFile: requestFileImporter,
                     onOpenMacDiveGuide: { showsMacDiveGuide = true },
                     showsBackButton: false,
-                    usesOnboardingPrimaryButton: true,
                     skipButtonTitle: onboardingSkipTitle,
                     skipButtonAccessibilityIdentifier: PostSignUpOnboardingImportPresentation.skipButtonAccessibilityIdentifier,
                     onSkip: onboardingSkipAction
@@ -152,26 +151,22 @@ struct PostSignUpOnboardingImportView: View {
                 try UddfDiveFileImport.readUddfFileData(from: url)
             }.value
 
-            await yieldForImportOverlayPaint()
-            let activities = try UddfDiveFileDecoder.buildDiveActivities(from: data)
-
-            let total = activities.count
-            guard total > 0 else {
-                importOverlay = .failed(UddfDecodeError.noDives.localizedDescription)
-                return
+            withAnimation(.easeInOut(duration: 0.15)) {
+                importOverlay = .start(.parsingFile)
             }
+            await yieldForImportOverlayPaint()
 
             withAnimation(.easeInOut(duration: 0.15)) {
                 importOverlay = .start(.creatingDiveLogs)
             }
             await yieldForImportOverlayPaint()
 
-            let outcome = await UddfDiveFileImport.persistImportedActivities(
-                activities,
+            let outcome = await UddfDiveFileImport.importUddfData(
+                data,
                 modelContext: modelContext,
                 createMissingDiveSites: importCreateDiveSitesFromImport,
                 attachMediaFromPhotoLibrary: importAttachMediaFromPhotoLibrary,
-                onProgress: { _, _, processed, _ in
+                onProgress: { _, _, processed, total in
                     importOverlay = .importing(
                         milestone: .creatingDiveLogs,
                         fraction: DiveImportMilestone.creatingDiveLogs.fraction(
@@ -208,7 +203,7 @@ struct PostSignUpOnboardingImportView: View {
                 importOverlay = .failed(DiveFileImportInterruption.userMessage)
                 return
             }
-            importOverlay = .failed(error.localizedDescription)
+            importOverlay = .failed(GoDiveUserFacingError.importUserMessage(for: error))
         }
     }
 

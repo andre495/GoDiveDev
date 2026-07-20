@@ -45,7 +45,7 @@ struct ViewSingleActivity: View {
     @Environment(AccountSession.self) private var accountSession
 
     private enum DetailNotes {
-        static let maxCharacterCount = 2500
+        static let maxCharacterCount = DiveNotesValidation.maxCharacterCount
     }
 
     @State private var selectedActivityTab: DiveActivityTab = .map
@@ -440,6 +440,7 @@ struct ViewSingleActivity: View {
 
     @MainActor
     private func refreshDerivedDiveDataAsync() async {
+        try? DiveProfilePointStore.ensurePointsLoaded(for: activity, modelContext: modelContext)
         let sortedProfilePoints = activity.profilePoints.sorted { $0.timestamp < $1.timestamp }
         let sortedMediaItems = activity.sortedMediaPhotos
         let buildInput = DiveDerivedDataBuildInput(
@@ -1006,8 +1007,8 @@ struct ViewSingleActivity: View {
                                 value: point.cnsLoad.map(String.init) ?? "nil"
                             )
                             detailLabeledRow(
-                                label: "dive (parent id)",
-                                value: point.dive?.id.uuidString ?? "nil"
+                                label: "diveActivityID",
+                                value: point.diveActivityID?.uuidString ?? "nil"
                             )
                         }
                     }
@@ -1124,17 +1125,16 @@ struct ViewSingleActivity: View {
     private func clampNotesToLimitIfNeeded() {
         guard let notes = activity.notes else { return }
         guard notes.count > DetailNotes.maxCharacterCount else { return }
-        activity.notes = String(notes.prefix(DetailNotes.maxCharacterCount))
+        activity.notes = DiveNotesValidation.cappedNotes(notes)
     }
 
     private var notesBinding: Binding<String> {
         Binding(
             get: {
-                String((activity.notes ?? "").prefix(DetailNotes.maxCharacterCount))
+                DiveNotesValidation.cappedNotes(activity.notes ?? "")
             },
             set: { newValue in
-                let capped = String(newValue.prefix(DetailNotes.maxCharacterCount))
-                activity.notes = capped.isEmpty ? nil : capped
+                activity.notes = GoDiveInputSanitization.sanitizedNotes(newValue)
             }
         )
     }
@@ -1686,6 +1686,7 @@ private func viewSingleActivityPreview() -> some View {
     }
     let previewContext = ModelContext(container)
     previewContext.insert(sampleActivity)
+    DiveProfilePointStore.insertStagedPointsAndSyncTrack(for: sampleActivity, into: previewContext)
     try! previewContext.save()
 
     return NavigationStack {

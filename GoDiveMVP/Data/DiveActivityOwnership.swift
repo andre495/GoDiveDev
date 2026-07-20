@@ -13,21 +13,34 @@ enum DiveActivityOwnership {
     }
 
     static func activities(forOwnerProfileID ownerProfileID: UUID, modelContext: ModelContext) throws -> [DiveActivity] {
-        let all = try modelContext.fetch(FetchDescriptor<DiveActivity>())
-        return all.filter { $0.ownerProfileID == ownerProfileID }
+        let ownerID = ownerProfileID
+        return try modelContext.fetch(
+            FetchDescriptor<DiveActivity>(
+                predicate: #Predicate<DiveActivity> { $0.ownerProfileID == ownerID }
+            )
+        )
     }
 
     /// Claims dives imported before accounts existed for this profile.
-    nonisolated static func claimUnownedDives(for owner: UserProfile, modelContext: ModelContext) throws {
-        let descriptor = FetchDescriptor<DiveActivity>()
-        let all = try modelContext.fetch(descriptor)
-        var changed = false
-        for activity in all where activity.ownerProfileID == nil {
+    /// Skips when another profile already owns dives/buddies on this device (shared-device safe).
+    @discardableResult
+    nonisolated static func claimUnownedDives(
+        for owner: UserProfile,
+        modelContext: ModelContext,
+        force: Bool = false
+    ) throws -> Int {
+        if !force {
+            guard try DiveUnownedClaimGate.allowsClaim(ownerID: owner.id, modelContext: modelContext) else {
+                return 0
+            }
+        }
+        let orphans = try modelContext.fetch(FetchDescriptor<DiveActivity>())
+            .filter { $0.ownerProfileID == nil }
+        guard !orphans.isEmpty else { return 0 }
+        for activity in orphans {
             assignOwner(owner, to: activity)
-            changed = true
         }
-        if changed {
-            try modelContext.save()
-        }
+        try modelContext.save()
+        return orphans.count
     }
 }

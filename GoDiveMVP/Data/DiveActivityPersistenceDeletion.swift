@@ -42,6 +42,8 @@ enum DiveActivityPersistenceDeletion {
             )
         }
 
+        try DiveProfilePointStore.deletePoints(for: diveID, modelContext: modelContext)
+
         DiveActivityRelationshipDetachment.detachNonCascadeRelationships(
             from: activity,
             modelContext: modelContext

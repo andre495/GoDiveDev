@@ -1,0 +1,28 @@
+---
+description: Persist session/account identifiers in Keychain; clear on sign-out/delete
+alwaysApply: true
+---
+
+# Session & account identifiers (Keychain)
+
+Source: **`owasp_access_control_policy.md`**, Phase 1 — **`GoDiveKeychainStore`**, **`AppLaunchSessionRestorePresentation`**, **`ReturningAccountHints`**.
+
+## Do
+
+- Store **current profile id**, **returning Apple user id / profile id / display name**, and **cached Firebase UID** via **`GoDiveKeychainStore`** (or the presentation helpers above) — not plain UserDefaults for new work.
+- Migrate legacy UserDefaults values into Keychain on read, then remove the legacy key.
+- On **sign-out**: clear current profile id + Firebase UID cache (`AccountSession.signOut`).
+- On **account delete**: also clear returning-account hints (`ReturningAccountHints.clearAll`).
+- Log auth failures with **`Logger`** + **`.private`**; user-facing copy must stay **generic** (`AccountSession.signInFailureUserMessage`).
+- Soft-fail Firebase: **never** upsert Firestore without **`Auth.auth().currentUser`** (already required in **`GoDiveFirestoreUserProfileSync`**).
+
+## Do not
+
+- Persist SIWA / Firebase session identifiers only in UserDefaults going forward.
+- Log Apple identity tokens, Firebase ID tokens, or UIDs with **`.public`**.
+- Use **`print`** for Sign in with Apple failures.
+- Invent social write rights from a local SIWA session when Firebase Auth is missing.
+
+## Tests
+
+Use **`GoDiveKeychainStore.testingStore = [:]`** (and `nil` in `defer`) so unit tests do not touch the system Keychain.

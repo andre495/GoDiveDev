@@ -35,17 +35,25 @@ enum HomeOverviewAggregateComputer {
 
         let diveStatsInputs = input.activitySeeds.map { seed in
             let linkedTripID = seed.linkedTripID
+            let diveSiteID = input.diveSiteIDByActivityID[seed.id] ?? nil
+            let linkedSiteName = diveSiteID.flatMap { input.linkedSiteDisplayNameByID[$0] }
+            let siteDisplayName: String
+            if let linkedSiteName, !linkedSiteName.isEmpty {
+                siteDisplayName = linkedSiteName
+            } else {
+                siteDisplayName = seed.displayName
+            }
             return HomeDiveStatsInput(
                 id: seed.id,
                 maxDepthMeters: seed.maxDepthMeters,
                 durationMinutes: seed.durationMinutes,
-                diveSiteID: input.diveSiteIDByActivityID[seed.id] ?? nil,
+                diveSiteID: diveSiteID,
                 diveNumberLabel: homeDiveNumberLabel(
                     for: seed,
                     chronologicalNumbers: chronologicalNumbers,
                     useChronologicalNumbers: input.automaticallyRenumberDives
                 ),
-                siteDisplayName: seed.displayName,
+                siteDisplayName: siteDisplayName,
                 linkedTripID: linkedTripID,
                 linkedTripTitle: linkedTripID.flatMap { tripTitleByID[$0] },
                 linkedTripAccentColorIndex: linkedTripID.flatMap { tripAccentIndexByID[$0] }

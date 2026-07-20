@@ -51,6 +51,22 @@ enum SettingsPresentation: Sendable {
             "When on, crash reports upload automatically to the GoDive developer so problems can be fixed (requires an iCloud account on this device). Reports contain technical diagnostics only — no dive log, photo, or personal data. When off, reports stay on your device; you can still share one manually from Crash Reports."
     }
 
+    enum SecurityEvents {
+        nonisolated static let title = "Diagnostic Events"
+        nonisolated static let infoMessage =
+            "GoDive keeps a short local journal of security-related events (sign-in, sign-out, rejected imports, catalog refresh issues). Events sync with your dive account across your devices. Open this page to review or export them."
+        nonisolated static let emptyStateMessage = "No diagnostic events yet. Sign-in, import, and catalog events appear here as they occur."
+        nonisolated static let exportButtonTitle = "Share"
+        nonisolated static let clearButtonTitle = "Clear All"
+        nonisolated static let clearConfirmationTitle = "Delete all stored diagnostic events?"
+    }
+
+    enum ShareSecurityEvents {
+        nonisolated static let title = "Share diagnostic events"
+        nonisolated static let infoMessage =
+            "When on, scrubbed diagnostic events upload automatically to the GoDive developer (requires an iCloud account on this device). Events contain short technical tokens only — no dive log, photo, or personal data. When off, the journal stays on your devices; you can still share entries manually from Diagnostic Events."
+    }
+
     enum BulkUddfImport {
         nonisolated static let attachMediaTitle = "Attach photos from library"
         nonisolated static let attachMediaSubtitle =

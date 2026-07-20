@@ -20,7 +20,7 @@ enum FitDiveFileImport {
             }
             throw AccessError()
         }
-        return try Data(contentsOf: url)
+        return try DiveFileImportLimits.readCappedFileData(from: url, kind: .fit)
     }
 
     @MainActor
@@ -29,7 +29,11 @@ enum FitDiveFileImport {
             let data = try readFitFileData(from: url)
             return await importFitData(data, modelContext: modelContext)
         } catch {
-            return DiveFileImportOutcome(userMessage: error.localizedDescription, primaryInsertedDiveId: nil)
+            GoDiveUserFacingError.recordImportRejection(error)
+            return DiveFileImportOutcome(
+                userMessage: GoDiveUserFacingError.importUserMessage(for: error),
+                primaryInsertedDiveId: nil
+            )
         }
     }
 
@@ -37,16 +41,41 @@ enum FitDiveFileImport {
     static func importFitData(
         _ data: Data,
         modelContext: ModelContext,
-        owner: UserProfile? = nil
+        owner: UserProfile? = nil,
+        createMissingDiveSites: Bool = true,
+        attachMedia: Bool = true
     ) async -> DiveFileImportOutcome {
+        // Decode first so empty / invalid files surface format errors even before sign-in checks.
+        let activity: DiveActivity
         do {
-            let activity = try FitDiveFileDecoder.buildDiveActivity(from: data)
-            return await persistImportedActivity(activity, modelContext: modelContext, owner: owner)
+            activity = try FitDiveFileDecoder.buildDiveActivity(from: data)
         } catch let fit as FitDecodeError {
-            return DiveFileImportOutcome(userMessage: fit.localizedDescription, primaryInsertedDiveId: nil)
+            GoDiveUserFacingError.recordImportRejection(fit)
+            return DiveFileImportOutcome(
+                userMessage: GoDiveUserFacingError.importUserMessage(for: fit),
+                primaryInsertedDiveId: nil
+            )
         } catch {
-            return DiveFileImportOutcome(userMessage: error.localizedDescription, primaryInsertedDiveId: nil)
+            GoDiveUserFacingError.recordImportRejection(error)
+            return DiveFileImportOutcome(
+                userMessage: GoDiveUserFacingError.importUserMessage(for: error),
+                primaryInsertedDiveId: nil
+            )
         }
+
+        guard let owner = owner ?? AccountSession.shared.currentProfile else {
+            return DiveFileImportOutcome(
+                userMessage: "Sign in to import dives.",
+                primaryInsertedDiveId: nil
+            )
+        }
+        return await persistImportedActivity(
+            activity,
+            modelContext: modelContext,
+            owner: owner,
+            attachMedia: attachMedia,
+            createMissingDiveSites: createMissingDiveSites
+        )
     }
 
     /// Duplicate check + SwiftData insert (call after decode so UI can show progress first).
@@ -75,7 +104,11 @@ enum FitDiveFileImport {
             }
         } catch {
             modelContext.rollback()
-            return DiveFileImportOutcome(userMessage: error.localizedDescription, primaryInsertedDiveId: nil)
+            GoDiveUserFacingError.recordImportRejection(error)
+            return DiveFileImportOutcome(
+                userMessage: GoDiveUserFacingError.importUserMessage(for: error),
+                primaryInsertedDiveId: nil
+            )
         }
     }
 
@@ -118,6 +151,7 @@ enum FitDiveFileImport {
             )
             let importedBuddyIDs = Set(activity.buddies.compactMap(\.buddyID))
             modelContext.insert(activity)
+            DiveProfilePointStore.insertStagedPointsAndSyncTrack(for: activity, into: modelContext)
             try DiveActivityEquipmentAssociation.applyAutoAdd(
                 to: activity,
                 ownerProfileID: owner.id,
@@ -129,12 +163,12 @@ enum FitDiveFileImport {
                 catalogSites: catalogSites,
                 modelContext: modelContext
             )
-            let reference = DiveSiteReferenceCatalog.bundledReference()
+            let matchIndex = DiveSiteReferenceCatalog.bundledMatchIndex()
             _ = DiveActivitySiteAssociation.applyOpenDiveMapSiteLinkIfNeeded(
                 to: activity,
                 catalogSites: &catalogSites,
                 modelContext: modelContext,
-                reference: reference,
+                matchIndex: matchIndex,
                 createSiteWhenMissing: true
             )
             if createMissingDiveSites, activity.diveSiteID == nil {

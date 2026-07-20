@@ -10,7 +10,7 @@ struct DiveActivityNotesEditSheet: View {
     @FocusState private var isNotesFieldFocused: Bool
 
     private enum NotesPresentation {
-        static let maxCharacterCount = 2500
+        static let maxCharacterCount = DiveNotesValidation.maxCharacterCount
     }
 
     init(activity: DiveActivity) {
@@ -59,17 +59,14 @@ struct DiveActivityNotesEditSheet: View {
         Binding(
             get: { draftText },
             set: { newValue in
-                draftText = String(newValue.prefix(NotesPresentation.maxCharacterCount))
+                draftText = DiveNotesValidation.cappedNotes(newValue)
             }
         )
     }
 
     private func saveAndDismiss() {
         isNotesFieldFocused = false
-        let capped = draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? ""
-            : String(draftText.prefix(NotesPresentation.maxCharacterCount))
-        activity.notes = capped.isEmpty ? nil : capped
+        activity.notes = GoDiveInputSanitization.sanitizedNotes(draftText)
         dismiss()
     }
 }

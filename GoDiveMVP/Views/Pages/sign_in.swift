@@ -2,11 +2,18 @@ import SwiftData
 import SwiftUI
 
 struct SignInView: View {
+    /// When set (onboarding → dedicated sign-in), shows a leading back control to return to welcome / feature slides.
+    var onBack: (() -> Void)? = nil
+
     @Environment(AccountSession.self) private var accountSession
 
     var body: some View {
         LoggedOutMarketingChrome {
             VStack(spacing: AppTheme.Spacing.lg) {
+                if onBack != nil {
+                    backBar
+                }
+
                 Spacer(minLength: AppTheme.Spacing.lg)
 
                 VStack(spacing: AppTheme.Spacing.md) {
@@ -41,6 +48,24 @@ struct SignInView: View {
             }
         }
         .accessibilityIdentifier("SignIn.Root")
+    }
+
+    private var backBar: some View {
+        HStack {
+            Button {
+                onBack?()
+            } label: {
+                Image(systemName: "chevron.left")
+                    .appToolbarIconButtonLabel()
+            }
+            .appStandaloneIconButtonStyle()
+            .accessibilityLabel("Back")
+            .accessibilityIdentifier(SignInPresentation.backButtonAccessibilityIdentifier)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, AppTheme.Spacing.lg)
+        .padding(.top, AppTheme.Spacing.md)
     }
 }
 

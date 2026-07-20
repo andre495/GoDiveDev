@@ -1,8 +1,11 @@
 import Foundation
 import SwiftData
+import os
 
 /// One-time / idempotent store work after the production **`ModelContainer`** attaches — off the main actor so launch stays responsive.
 enum AppLaunchMaintenance: Sendable {
+
+    private static let log = Logger(subsystem: "PrimoSoftware.GoDiveMVP", category: "LaunchMaintenance")
 
     static func runInBackground(container: ModelContainer) {
         Task.detached(priority: .utility) {
@@ -22,6 +25,8 @@ enum AppLaunchMaintenance: Sendable {
             try DiveActivityOpenDiveMapSiteBackfill.backfillIfNeeded(modelContext: context)
             try AppSwiftDataOwnershipBackfill.backfillIfNeeded(modelContext: context)
             try AppSwiftDataHybridRowMigration.migrateIfNeeded(modelContext: context)
+            try DiveProfileTrackBackfill.backfillIfNeeded(modelContext: context)
+            try UserDiveSiteDuplicateConsolidation.consolidateIfNeeded(modelContext: context)
             try reconcileSignedInProfileIdentityIfNeeded(modelContext: context)
             try syncSignedInUserPreferencesIfNeeded(modelContext: context)
             #if canImport(UIKit)
@@ -34,19 +39,13 @@ enum AppLaunchMaintenance: Sendable {
             await AppSwiftDataDualStoreFactory.appendCloudKitAccountStatusDiagnostics()
             await syncFirebaseSocialProfileIfNeeded(modelContext: context)
         } catch {
-            #if DEBUG
-            print("AppLaunchMaintenance failed: \(error)")
-            #endif
+            log.error("AppLaunchMaintenance failed: \(String(describing: error), privacy: .private)")
         }
     }
 
     private static func syncSignedInUserPreferencesIfNeeded(modelContext: ModelContext) throws {
         guard
-            let profileID = AppLaunchSessionRestorePresentation.persistedProfileID(
-                storedUUIDString: UserDefaults.standard.string(
-                    forKey: AppLaunchSessionRestorePresentation.currentProfileIDUserDefaultsKey
-                )
-            ),
+            let profileID = AppLaunchSessionRestorePresentation.loadPersistedProfileID(),
             let profile = try UserProfileStore.profile(id: profileID, modelContext: modelContext)
         else {
             return
@@ -56,11 +55,7 @@ enum AppLaunchMaintenance: Sendable {
 
     private static func reconcileSignedInProfileIdentityIfNeeded(modelContext: ModelContext) throws {
         guard
-            let profileID = AppLaunchSessionRestorePresentation.persistedProfileID(
-                storedUUIDString: UserDefaults.standard.string(
-                    forKey: AppLaunchSessionRestorePresentation.currentProfileIDUserDefaultsKey
-                )
-            ),
+            let profileID = AppLaunchSessionRestorePresentation.loadPersistedProfileID(),
             let profile = try UserProfileStore.profile(id: profileID, modelContext: modelContext)
         else {
             return
@@ -71,10 +66,7 @@ enum AppLaunchMaintenance: Sendable {
             modelContext: modelContext
         )
         if outcome.didChangeCanonicalID {
-            UserDefaults.standard.set(
-                outcome.canonicalProfileID.uuidString,
-                forKey: AppLaunchSessionRestorePresentation.currentProfileIDUserDefaultsKey
-            )
+            AppLaunchSessionRestorePresentation.savePersistedProfileID(outcome.canonicalProfileID)
             Task { @MainActor in
                 _ = try? AccountSession.shared.reconcileCloudKitIdentityIfNeeded(
                     modelContext: modelContext.container.mainContext
@@ -85,11 +77,7 @@ enum AppLaunchMaintenance: Sendable {
 
     private static func syncFirebaseSocialProfileIfNeeded(modelContext: ModelContext) async {
         guard
-            let profileID = AppLaunchSessionRestorePresentation.persistedProfileID(
-                storedUUIDString: UserDefaults.standard.string(
-                    forKey: AppLaunchSessionRestorePresentation.currentProfileIDUserDefaultsKey
-                )
-            ),
+            let profileID = AppLaunchSessionRestorePresentation.loadPersistedProfileID(),
             let profile = try? UserProfileStore.profile(id: profileID, modelContext: modelContext)
         else {
             return

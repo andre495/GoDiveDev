@@ -141,6 +141,18 @@ enum AppLoggedOutOnboardingPresentation: Sendable {
     ) -> Bool {
         showsContinueButton(featurePageIndex: featurePageIndex, featurePageCount: featurePageCount)
     }
+
+    /// Feature carousel always shows **Back** — first slide returns to the welcome interests picker.
+    nonisolated static func showsFeatureBackButton(
+        featurePageCount: Int
+    ) -> Bool {
+        featurePageCount > 0
+    }
+
+    /// When **true**, **Back** on the feature carousel returns to welcome; otherwise previous slide.
+    nonisolated static func featureBackReturnsToWelcome(featurePageIndex: Int) -> Bool {
+        featurePageIndex <= 0
+    }
 }
 
 /// Feature-carousel slide layout — copy + bottom chrome spacing for two-line titles.

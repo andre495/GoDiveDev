@@ -4,7 +4,7 @@ Open **Profile → Settings** (gear icon).
 
 Settings use compact rows with an **info** (ⓘ) button on some items for longer explanations in a popup.
 
-When you’re signed into **iCloud**, most Settings (units, default tank, renumber, auto-upload media, default diver weights, and bulk UDDF “create dive sites”) sync across **your** Apple devices with your dive log. **Share crash reports** stays on this device only.
+When you’re signed into **iCloud**, most Settings (units, default tank, renumber, auto-upload media, default diver weights, and bulk UDDF “create dive sites”) sync across **your** Apple devices with your dive log. **Share crash reports** and **Share diagnostic events** stay on this device only.
 
 ## Display units
 
@@ -88,6 +88,26 @@ Reports include technical diagnostics plus a short **breadcrumb trail** of recen
 
 !!! note
     System crash diagnostics (full call stacks) can take until the **next app launch** to appear. An **Abnormal exit** entry may show first with breadcrumbs; a fuller **Crash** entry can follow later.
+
+## Diagnostic events
+
+GoDive keeps a short on-device journal of security-related events (sign-in, sign-out, rejected imports, catalog refresh issues). The journal syncs with your dive account across your Apple devices.
+
+### Share diagnostic events
+
+When **on**, scrubbed events upload automatically to the GoDive developer. Events contain **short technical tokens only** — never your dive log, photos, or personal data.
+
+- Requires an iCloud account signed in on the device.
+- Turning the toggle on also sends any events saved while it was off.
+- When **off** (the default), the journal stays on your devices.
+
+### Diagnostic Events page
+
+Open **Settings → Diagnostic Events** to review what was recorded:
+
+- Events list newest first, each showing whether it was **sent to the developer**.
+- Tap an event for full detail, or use **Share** to send it manually (works regardless of the toggle).
+- **Clear All** deletes every stored event for your account on this device (asks to confirm).
 
 ## Related settings elsewhere
 

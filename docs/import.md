@@ -19,7 +19,7 @@ GoDive imports dive logs from industry-standard files. Original files are **not*
 6. Wait for the progress overlay to finish.
 
 !!! tip "Keep GoDive open during import"
-    Large **UDDF** files can take a minute or more. Stay on the import screen and keep the app in the foreground until the progress overlay finishes. If import is interrupted, GoDive shows an error and does not leave partial dives in your logbook.
+    Large **UDDF** files are parsed and saved on a background thread (with a **Parsing File** step in the progress overlay). Typical imports finish in seconds to a short wait; very large files may still take longer. Stay on the import screen and keep the app in the foreground until the progress overlay finishes. If import is interrupted, GoDive shows an error and does not leave partial dives in your logbook. Files larger than **100 MB** are rejected. Reading/parsing a file is capped at about **10 minutes** — you’ll see an error if it takes longer.
 
 After a **single-dive** import, GoDive usually navigates to the new dive. **Multi-dive UDDF** files show a summary alert (dives imported, duplicates skipped, sites created) — open individual dives from Logbook.
 
@@ -31,7 +31,8 @@ Before the file picker, you can set:
 
 When **on** (default for bulk UDDF):
 
-- New site names from the file become **Explore** catalog entries if no match exists.  
+- New site names from the file become **Explore** sites if no catalog match exists.  
+- The same import site name reuses one site (so many dives at **Judy’s Dream Belair** share a single place).  
 - GPS may link to an existing nearby site when names align.
 
 When **off**, dives still import but unmatched sites may stay as text on the dive only.

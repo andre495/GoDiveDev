@@ -8,6 +8,43 @@ enum GoDiveFirestoreUserProfileMapping: Sendable {
     nonisolated static let privateAccountDocumentID = "account"
     nonisolated static let firebaseUIDDefaultsKey = "godive.firebase.uid"
 
+    /// Loads cached Firebase UID from Keychain (migrates legacy UserDefaults once).
+    nonisolated static func loadCachedFirebaseUID(
+        userDefaults: UserDefaults = .standard
+    ) -> String? {
+        if let fromKeychain = GoDiveKeychainStore.string(for: .firebaseUID), !fromKeychain.isEmpty {
+            return fromKeychain
+        }
+        guard let legacy = userDefaults.string(forKey: firebaseUIDDefaultsKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+            !legacy.isEmpty
+        else {
+            return nil
+        }
+        saveCachedFirebaseUID(legacy, userDefaults: userDefaults)
+        return legacy
+    }
+
+    nonisolated static func saveCachedFirebaseUID(
+        _ uid: String,
+        userDefaults: UserDefaults = .standard
+    ) {
+        let trimmed = uid.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            clearCachedFirebaseUID(userDefaults: userDefaults)
+            return
+        }
+        _ = GoDiveKeychainStore.setString(trimmed, account: .firebaseUID)
+        userDefaults.removeObject(forKey: firebaseUIDDefaultsKey)
+    }
+
+    nonisolated static func clearCachedFirebaseUID(
+        userDefaults: UserDefaults = .standard
+    ) {
+        _ = GoDiveKeychainStore.remove(.firebaseUID)
+        userDefaults.removeObject(forKey: firebaseUIDDefaultsKey)
+    }
+
     struct PublicProfileDraft: Equatable, Sendable {
         var displayName: String
         var handle: String

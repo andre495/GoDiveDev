@@ -92,24 +92,29 @@ enum AppSwiftDataCloudKitCompatibility: Sendable {
     /// Partition coverage: every production model appears in exactly one store list.
     nonisolated static func partitionCoverageIssues() -> [String] {
         let user = Set(AppSwiftDataStorePartition.userModelTypeNames)
+        let userLocal = Set(AppSwiftDataStorePartition.userLocalModelTypeNames)
         let catalog = Set(AppSwiftDataStorePartition.catalogModelTypeNames)
         let diagnostics = Set(AppSwiftDataStorePartition.diagnosticsModelTypeNames)
         var issues: [String] = []
 
-        let overlapUserCatalog = user.intersection(catalog)
-        if !overlapUserCatalog.isEmpty {
-            issues.append("user∩catalog: \(overlapUserCatalog.sorted().joined(separator: ", "))")
-        }
-        let overlapUserDiagnostics = user.intersection(diagnostics)
-        if !overlapUserDiagnostics.isEmpty {
-            issues.append("user∩diagnostics: \(overlapUserDiagnostics.sorted().joined(separator: ", "))")
-        }
-        let overlapCatalogDiagnostics = catalog.intersection(diagnostics)
-        if !overlapCatalogDiagnostics.isEmpty {
-            issues.append("catalog∩diagnostics: \(overlapCatalogDiagnostics.sorted().joined(separator: ", "))")
+        let partitions: [(String, Set<String>)] = [
+            ("user", user),
+            ("userLocal", userLocal),
+            ("catalog", catalog),
+            ("diagnostics", diagnostics),
+        ]
+        for i in partitions.indices {
+            for j in partitions.indices where j > i {
+                let overlap = partitions[i].1.intersection(partitions[j].1)
+                if !overlap.isEmpty {
+                    issues.append(
+                        "\(partitions[i].0)∩\(partitions[j].0): \(overlap.sorted().joined(separator: ", "))"
+                    )
+                }
+            }
         }
 
-        let union = user.union(catalog).union(diagnostics)
+        let union = user.union(userLocal).union(catalog).union(diagnostics)
         let all = Set(AppSwiftDataStorePartition.allModelTypeNames)
         let missing = all.subtracting(union)
         if !missing.isEmpty {

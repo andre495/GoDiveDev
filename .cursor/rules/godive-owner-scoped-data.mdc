@@ -1,0 +1,31 @@
+---
+description: Scope SwiftData/UI fetches by ownerProfileID; treat claimUnowned as privileged
+globs: GoDiveMVP/**/*.swift,GoDiveMVPTests/**/*.swift
+alwaysApply: false
+---
+
+# Owner-scoped dive data
+
+Source: **`GoDiveMVP/cursor/owasp_access_control_policy.md`** (§2.1, §3).
+
+## Do
+
+- Filter `@Query`, `FetchDescriptor`, and list builders with **`ownerProfileID == currentProfile.id`** (or equivalent signed-in owner).
+- Assign ownership via existing helpers (`DiveActivityOwnership`, buddy/trip/equipment/cert helpers) when inserting user rows.
+- Prefer passing **owner UUID / `PersistentIdentifier`**, not assuming “all rows on device are mine.”
+- Keep catalog reads (`MarineLife`, reference `DiveSite`) on the **catalog** store — do not mix into owner-scoped user queries.
+
+## Do not
+
+- Add unscoped fetches of dives, media, sightings, buddies, or trips for production UI “because the device only has one user.”
+- Use **Firebase UID** for `ownerProfileID` or dive ownership.
+- Expand **`claimUnowned*`** / orphan adoption without going through **`DiveUnownedClaimGate`**. Default policy: claim only when **no other profile** already owns dives/buddies on the device (`force:` is tests / explicit migration only).
+- Show another profile’s rows in Logbook / Home / Search / export without an explicit multi-profile product design.
+
+```swift
+// ✅ Scoped
+#Predicate<DiveActivity> { $0.ownerProfileID == ownerID }
+
+// ❌ Unscoped owner data for a signed-in screen
+FetchDescriptor<DiveActivity>()
+```

@@ -418,29 +418,43 @@ struct ActivityUploadView: View {
             }.value
 
             withAnimation(.easeInOut(duration: 0.2)) {
+                importOverlay = .start(.parsingFile)
+            }
+            await yieldForImportOverlayPaint()
+
+            guard let owner = accountSession.currentProfile else {
+                importOverlay = .failed("Sign in to import dives.")
+                return
+            }
+
+            withAnimation(.easeInOut(duration: 0.2)) {
                 importOverlay = .start(.creatingDiveLogs)
             }
             await yieldForImportOverlayPaint()
 
-            let activity = try FitDiveFileDecoder.buildDiveActivity(from: data)
-            await yieldForImportOverlayPaint()
-            let outcome = await FitDiveFileImport.persistImportedActivity(
-                activity,
+            let outcome = await FitDiveFileImport.importFitData(
+                data,
                 modelContext: modelContext,
-                attachMedia: false,
-                createMissingDiveSites: importCreateDiveSitesFromImport
+                owner: owner,
+                createMissingDiveSites: importCreateDiveSitesFromImport,
+                attachMedia: false
             )
 
             guard !Task.isCancelled else { return }
 
-            if outcome.didSucceed, importAttachMediaFromPhotoLibrary, let ownerID = accountSession.currentProfile?.id {
+            if outcome.didSucceed, importAttachMediaFromPhotoLibrary,
+               let activityID = outcome.primaryInsertedDiveId,
+               let activity = (try? DiveActivityOwnership.activities(
+                   forOwnerProfileID: owner.id,
+                   modelContext: modelContext
+               ))?.first(where: { $0.id == activityID }) {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     importOverlay = .start(.addingMedia)
                 }
                 await yieldForImportOverlayPaint()
                 await DiveLibraryMediaAutoAttachScheduler.attachAfterDivePersisted(
                     activity,
-                    ownerProfileID: ownerID,
+                    ownerProfileID: owner.id,
                     modelContext: modelContext,
                     attachMediaFromPhotoLibrary: true
                 )
@@ -456,7 +470,7 @@ struct ActivityUploadView: View {
                 importOverlay = .failed(DiveFileImportInterruption.userMessage)
                 return
             }
-            importOverlay = .failed(error.localizedDescription)
+            importOverlay = .failed(GoDiveUserFacingError.importUserMessage(for: error))
         }
     }
 
@@ -478,12 +492,13 @@ struct ActivityUploadView: View {
                 try UddfDiveFileImport.readUddfFileData(from: url)
             }.value
 
+            withAnimation(.easeInOut(duration: 0.15)) {
+                importOverlay = .start(.parsingFile)
+            }
             await yieldForImportOverlayPaint()
-            let activities = try UddfDiveFileDecoder.buildDiveActivities(from: data)
 
-            let total = activities.count
-            guard total > 0 else {
-                importOverlay = .failed(UddfDecodeError.noDives.localizedDescription)
+            guard let owner = accountSession.currentProfile else {
+                importOverlay = .failed("Sign in to import dives.")
                 return
             }
 
@@ -492,12 +507,13 @@ struct ActivityUploadView: View {
             }
             await yieldForImportOverlayPaint()
 
-            let outcome = await UddfDiveFileImport.persistImportedActivities(
-                activities,
+            let outcome = await UddfDiveFileImport.importUddfData(
+                data,
                 modelContext: modelContext,
+                owner: owner,
                 createMissingDiveSites: importCreateDiveSitesFromImport,
                 attachMediaFromPhotoLibrary: importAttachMediaFromPhotoLibrary,
-                onProgress: { _, _, processed, _ in
+                onProgress: { _, _, processed, total in
                     importOverlay = .importing(
                         milestone: .creatingDiveLogs,
                         fraction: DiveImportMilestone.creatingDiveLogs.fraction(completed: processed, total: total)
@@ -528,7 +544,7 @@ struct ActivityUploadView: View {
                 importOverlay = .failed(DiveFileImportInterruption.userMessage)
                 return
             }
-            importOverlay = .failed(error.localizedDescription)
+            importOverlay = .failed(GoDiveUserFacingError.importUserMessage(for: error))
         }
     }
 
@@ -596,15 +612,17 @@ struct UddfImportSummary: Equatable {
     }
 }
 
-/// The three user-facing milestones shown in the simplified import dialog.
+/// Import dialog milestones (bar segments are contiguous).
 enum DiveImportMilestone: Equatable {
     case readingFile
+    case parsingFile
     case creatingDiveLogs
     case addingMedia
 
     var label: String {
         switch self {
         case .readingFile: return "Reading File"
+        case .parsingFile: return "Parsing File"
         case .creatingDiveLogs: return "Creating Dive Logs"
         case .addingMedia: return "Adding Media"
         }
@@ -614,16 +632,18 @@ enum DiveImportMilestone: Equatable {
     var startFraction: Double {
         switch self {
         case .readingFile: return 0.05
-        case .creatingDiveLogs: return 0.30
-        case .addingMedia: return 0.75
+        case .parsingFile: return 0.20
+        case .creatingDiveLogs: return 0.40
+        case .addingMedia: return 0.80
         }
     }
 
     /// Bar position when the milestone finishes (where the next one begins).
     var endFraction: Double {
         switch self {
-        case .readingFile: return 0.30
-        case .creatingDiveLogs: return 0.75
+        case .readingFile: return 0.20
+        case .parsingFile: return 0.40
+        case .creatingDiveLogs: return 0.80
         case .addingMedia: return 1.0
         }
     }

@@ -103,6 +103,7 @@ enum DiveSiteReferenceCatalog: Sendable {
         cachedSnapshots = nil
         cachedSnapshotsByID = nil
         cacheLock.unlock()
+        invalidateMatchIndexCache()
     }
 }
 
@@ -215,6 +216,7 @@ enum DiveSiteCatalogMatcher: Sendable {
         return 0
     }
 
+    /// Full linear scan over **`reference`**. Prefer **`bestReferenceMatch(..., index:)`** for bulk import.
     nonisolated static func bestReferenceMatch(
         importName: String?,
         importCoordinate: DiveCoordinate?,
@@ -243,6 +245,20 @@ enum DiveSiteCatalogMatcher: Sendable {
             }
         }
         return best
+    }
+
+    /// Indexed candidate matching (spatial grid + name tokens) with the same scoring as the linear scan.
+    nonisolated static func bestReferenceMatch(
+        importName: String?,
+        importCoordinate: DiveCoordinate?,
+        index: DiveSiteReferenceMatchIndex,
+        minimumScore: Double = autoLinkThreshold
+    ) -> DiveSiteReferenceMatch? {
+        index.bestMatch(
+            importName: importName,
+            importCoordinate: importCoordinate,
+            minimumScore: minimumScore
+        )
     }
 
     nonisolated static func catalogSite(

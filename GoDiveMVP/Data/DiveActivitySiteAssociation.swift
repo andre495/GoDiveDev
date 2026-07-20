@@ -141,7 +141,6 @@ enum DiveActivitySiteAssociation {
     }
 
     /// Links inserted dives to catalog sites; optionally creates **`DiveSite`** rows for unmatched import site names.
-    @MainActor
     @discardableResult
     static func applySiteLinksForImportedActivities(
         _ activities: [DiveActivity],
@@ -150,7 +149,7 @@ enum DiveActivitySiteAssociation {
         modelContext: ModelContext
     ) -> Int {
         var createdSiteCount = 0
-        let reference = DiveSiteReferenceCatalog.bundledReference()
+        let matchIndex = DiveSiteReferenceCatalog.bundledMatchIndex()
         for activity in activities {
             applyBestMatch(to: activity, catalogSites: catalogSites, modelContext: modelContext)
             guard activity.diveSiteID == nil else { continue }
@@ -158,7 +157,7 @@ enum DiveActivitySiteAssociation {
                 to: activity,
                 catalogSites: &catalogSites,
                 modelContext: modelContext,
-                reference: reference,
+                matchIndex: matchIndex,
                 createSiteWhenMissing: true
             ) {
             case .noMatch:
@@ -188,17 +187,21 @@ enum DiveActivitySiteAssociation {
     }
 
     /// Links to an OpenDiveMap reference row — existing tagged catalog site, or a new enriched site.
-    @MainActor
     @discardableResult
     static func applyOpenDiveMapSiteLinkIfNeeded(
         to activity: DiveActivity,
         catalogSites: inout [DiveSite],
         modelContext: ModelContext,
         reference: [DiveSiteReferenceSnapshot] = DiveSiteReferenceCatalog.bundledReference(),
+        matchIndex: DiveSiteReferenceMatchIndex? = nil,
         createSiteWhenMissing: Bool = true
     ) -> OpenDiveMapSiteLinkOutcome {
         guard activity.diveSiteID == nil else { return .noMatch }
-        guard let match = bestOpenDiveMapReferenceMatch(for: activity, reference: reference) else { return .noMatch }
+        guard let match = bestOpenDiveMapReferenceMatch(
+            for: activity,
+            reference: reference,
+            matchIndex: matchIndex
+        ) else { return .noMatch }
 
         if let site = DiveSiteCatalogMatcher.catalogSite(forReferenceID: match.snapshot.id, in: catalogSites) {
             link(activity, to: site, modelContext: modelContext)
@@ -235,7 +238,6 @@ enum DiveActivitySiteAssociation {
     }
 
     /// Creates a catalog **`DiveSite`** from a strong OpenDiveMap reference match (name + coordinates when present).
-    @MainActor
     @discardableResult
     static func createSiteFromOpenDiveMapReferenceIfNeeded(
         to activity: DiveActivity,
@@ -248,6 +250,7 @@ enum DiveActivitySiteAssociation {
             catalogSites: &catalogSites,
             modelContext: modelContext,
             reference: reference,
+            matchIndex: DiveSiteReferenceMatchIndex(reference: reference),
             createSiteWhenMissing: true
         ) {
         case .createdAndLinked:
@@ -258,7 +261,9 @@ enum DiveActivitySiteAssociation {
     }
 
     /// Creates a user-owned **`UserDiveSite`** when the dive has an import **`siteName`** with no exact catalog match.
-    @MainActor
+    ///
+    /// Reuses an existing owner **`UserDiveSite`** with the same name (case-insensitive) so bulk imports
+    /// do not create one site row per dive.
     @discardableResult
     static func createSiteForImportNameIfNeeded(
         to activity: DiveActivity,
@@ -268,6 +273,28 @@ enum DiveActivitySiteAssociation {
         guard activity.diveSiteID == nil else { return false }
         guard let siteName = trimmedSiteName(activity.siteName) else { return false }
         guard DiveMapCoordinateResolver.exactMatchingSites(forSiteName: siteName, in: catalogSites).isEmpty else {
+            return false
+        }
+
+        let existingUserSites = (try? modelContext.fetch(FetchDescriptor<UserDiveSite>())) ?? []
+        let nameMatches = DiveMapCoordinateResolver.exactMatchingUserSites(
+            forSiteName: siteName,
+            in: existingUserSites
+        )
+        let ownerMatches = nameMatches.filter { site in
+            guard let ownerID = activity.ownerProfileID else { return true }
+            return site.ownerProfileID == ownerID || site.ownerProfileID == nil
+        }
+        if let existing = disambiguateUserSiteMatches(
+            ownerMatches,
+            entryCoordinate: activity.entryCoordinate
+        ) {
+            if existing.owner == nil, let owner = activity.owner {
+                existing.owner = owner
+                existing.ownerProfileID = owner.id
+            }
+            fillMissingCoordinates(on: existing, from: activity)
+            link(activity, to: existing)
             return false
         }
 
@@ -288,6 +315,44 @@ enum DiveActivitySiteAssociation {
         return true
     }
 
+    /// Import **`siteName`** → exact user-site name match; duplicate names disambiguate by GPS within that name set.
+    private static func disambiguateUserSiteMatches(
+        _ matches: [UserDiveSite],
+        entryCoordinate: DiveCoordinate?
+    ) -> UserDiveSite? {
+        switch matches.count {
+        case 0:
+            return nil
+        case 1:
+            return matches[0]
+        default:
+            if let entry = entryCoordinate,
+               DiveMapCoordinateResolver.isUsable(entry) {
+                let scored = matches.compactMap { site -> (UserDiveSite, Double)? in
+                    guard let lat = site.latCoords, let lon = site.longCoords else { return nil }
+                    let score = max(abs(entry.latitude - lat), abs(entry.longitude - lon))
+                    return (site, score)
+                }
+                if let nearest = scored.min(by: { $0.1 < $1.1 }) {
+                    return nearest.0
+                }
+            }
+            return matches.sorted { lhs, rhs in
+                if lhs.createdAt != rhs.createdAt { return lhs.createdAt < rhs.createdAt }
+                return lhs.id.uuidString < rhs.id.uuidString
+            }.first
+        }
+    }
+
+    private static func fillMissingCoordinates(on site: UserDiveSite, from activity: DiveActivity) {
+        guard site.latCoords == nil || site.longCoords == nil,
+              let entry = activity.entryCoordinate,
+              DiveMapCoordinateResolver.isUsable(entry)
+        else { return }
+        if site.latCoords == nil { site.latCoords = entry.latitude }
+        if site.longCoords == nil { site.longCoords = entry.longitude }
+    }
+
     private static func trimmedSiteName(_ raw: String?) -> String? {
         guard let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
             return nil
@@ -297,7 +362,8 @@ enum DiveActivitySiteAssociation {
 
     private static func bestOpenDiveMapReferenceMatch(
         for activity: DiveActivity,
-        reference: [DiveSiteReferenceSnapshot]
+        reference: [DiveSiteReferenceSnapshot],
+        matchIndex: DiveSiteReferenceMatchIndex? = nil
     ) -> DiveSiteReferenceMatch? {
         guard !reference.isEmpty else { return nil }
         let importName = trimmedSiteName(activity.siteName)
@@ -305,6 +371,14 @@ enum DiveActivitySiteAssociation {
             DiveMapCoordinateResolver.isUsable($0) ? $0 : nil
         }
         guard importName != nil || coordinate != nil else { return nil }
+        if let matchIndex {
+            return DiveSiteCatalogMatcher.bestReferenceMatch(
+                importName: importName,
+                importCoordinate: coordinate,
+                index: matchIndex,
+                minimumScore: DiveSiteCatalogMatcher.autoLinkThreshold
+            )
+        }
         return DiveSiteCatalogMatcher.bestReferenceMatch(
             importName: importName,
             importCoordinate: coordinate,

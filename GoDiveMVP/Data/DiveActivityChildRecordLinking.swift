@@ -11,7 +11,6 @@ enum DiveActivityChildRecordLinking {
 
     static func link(_ point: DiveProfilePoint, to dive: DiveActivity) {
         point.diveActivityID = dive.id
-        point.dive = dive
     }
 
     static func link(_ photo: DiveMediaPhoto, to dive: DiveActivity) {

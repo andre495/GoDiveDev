@@ -9,7 +9,6 @@ enum DiveFileImportInterruption: Sendable {
     static let userMessage =
         "Import was interrupted before it could finish. Keep GoDive open until importing completes, then try again."
 
-    @MainActor
     static func rollbackAndMakeOutcome(
         modelContext: ModelContext,
         totalInFile: Int? = nil
@@ -22,7 +21,6 @@ enum DiveFileImportInterruption: Sendable {
         )
     }
 
-    @MainActor
     static func rollbackIfNeededBeforeSave(modelContext: ModelContext) -> DiveFileImportOutcome? {
         guard Task.isCancelled else { return nil }
         return rollbackAndMakeOutcome(modelContext: modelContext)
@@ -63,7 +61,6 @@ enum DiveFileImportBackgroundTask {
 
 /// Disables SwiftData autosave for the import pass so partial dive rows are not flushed before site / buddy work finishes.
 enum DiveFileImportAutosaveScope {
-    @MainActor
     static func withAutosaveDisabled<T>(
         modelContext: ModelContext,
         operation: () async throws -> T

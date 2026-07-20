@@ -8,14 +8,21 @@ enum UddfDiveFileDecoder {
     /// Builds one **`DiveActivity`** per **`<dive>`** under **`profiledata`**, sorted by **`startTime`** (caller should insert in this order for chained **`diveNumber`**).
     static func buildDiveActivities(from data: Data) throws -> [DiveActivity] {
         guard !data.isEmpty else { throw UddfDecodeError.emptyFile }
+        try DiveFileImportLimits.enforceFileSize(byteCount: data.count)
+        try DiveFileImportLimits.validateContent(data, kind: .uddf)
 
-        let engine = ParserEngine()
+        let parseStartedAt = Date()
+        let engine = ParserEngine(parseStartedAt: parseStartedAt)
         let parser = XMLParser(data: data)
         parser.delegate = engine
         parser.shouldProcessNamespaces = true
         parser.shouldReportNamespacePrefixes = false
+        parser.shouldResolveExternalEntities = false
 
         guard parser.parse() else {
+            if let limitsError = engine.limitsError {
+                throw limitsError
+            }
             if let err = engine.parseError {
                 throw UddfDecodeError.invalidXML(underlying: err)
             }
@@ -23,9 +30,14 @@ enum UddfDiveFileDecoder {
             throw UddfDecodeError.invalidXML(underlying: underlying)
         }
 
+        if let limitsError = engine.limitsError {
+            throw limitsError
+        }
         if let err = engine.parseError {
             throw UddfDecodeError.invalidXML(underlying: err)
         }
+
+        try DiveFileImportLimits.enforceParseDeadline(startedAt: parseStartedAt)
 
         guard engine.sawUddfRoot else {
             throw UddfDecodeError.missingUddfRoot
@@ -41,6 +53,7 @@ enum UddfDiveFileDecoder {
         activities.reserveCapacity(engine.diveScratches.count)
 
         for scratch in engine.diveScratches {
+            try DiveFileImportLimits.enforceParseDeadline(startedAt: parseStartedAt)
             let activity = try buildOneDive(
                 from: scratch,
                 sites: sites,
@@ -344,10 +357,14 @@ enum UddfDiveFileDecoder {
 
     private final class ParserEngine: NSObject, XMLParserDelegate {
 
+        private let parseStartedAt: Date
         private var elementStack: [String] = []
         private var textBuffer = ""
+        private var waypointEventCounter = 0
+        private var endElementCounter = 0
 
         var parseError: Error?
+        var limitsError: DiveFileImportLimits.Error?
         var sawUddfRoot = false
         private(set) var uddfVersion: String?
         private(set) var generatorName: String?
@@ -359,6 +376,11 @@ enum UddfDiveFileDecoder {
         private(set) var gasMixO2ById: [String: Double] = [:]
         private(set) var diveScratches: [DiveScratch] = []
         private(set) var equipmentById: [String: UddfEquipmentCatalogItem] = [:]
+
+        init(parseStartedAt: Date) {
+            self.parseStartedAt = parseStartedAt
+            super.init()
+        }
 
         private static let equipmentCatalogElementNames: Set<String> = [
             "buoyancycontroldevice", "boots", "camera", "compass", "compressor", "divecomputer",
@@ -409,7 +431,26 @@ enum UddfDiveFileDecoder {
             return Array(elementStack.suffix(suffix.count)) == suffix
         }
 
+        private func failLimit(_ error: DiveFileImportLimits.Error, parser: XMLParser) {
+            limitsError = error
+            parser.abortParsing()
+        }
+
+        private func checkParseDeadline(parser: XMLParser) {
+            do {
+                try DiveFileImportLimits.enforceParseDeadline(startedAt: parseStartedAt)
+            } catch let error as DiveFileImportLimits.Error {
+                failLimit(error, parser: parser)
+            } catch {
+                failLimit(.parseTimeout, parser: parser)
+            }
+        }
+
         func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String: String]) {
+            if limitsError != nil {
+                parser.abortParsing()
+                return
+            }
             let name = Self.localName(elementName)
             textBuffer = ""
 
@@ -492,6 +533,15 @@ enum UddfDiveFileDecoder {
         }
 
         func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
+            if limitsError != nil {
+                parser.abortParsing()
+                return
+            }
+            endElementCounter += 1
+            if endElementCounter.isMultiple(of: 2_000) {
+                checkParseDeadline(parser: parser)
+                if limitsError != nil { return }
+            }
             let name = Self.localName(elementName)
             let trimmed = textBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
             textBuffer = ""
@@ -675,14 +725,28 @@ enum UddfDiveFileDecoder {
             case "waypoint":
                 if var d = diveScratch, let w = waypointScratch {
                     d.waypoints.append(w)
+                    if d.waypoints.count > DiveFileImportLimits.maxProfileSamplesPerDive {
+                        diveScratch = d
+                        waypointScratch = nil
+                        failLimit(
+                            .tooManyProfileSamples(max: DiveFileImportLimits.maxProfileSamplesPerDive),
+                            parser: parser
+                        )
+                        return
+                    }
                     diveScratch = d
                 }
                 waypointScratch = nil
+                waypointEventCounter += 1
+                if waypointEventCounter.isMultiple(of: 500) {
+                    checkParseDeadline(parser: parser)
+                }
             case "dive":
                 if let d = diveScratch, elementStack.contains("profiledata") {
                     diveScratches.append(d)
                 }
                 diveScratch = nil
+                checkParseDeadline(parser: parser)
             default:
                 if Self.equipmentCatalogElementNames.contains(name),
                    let id = currentEquipmentId,

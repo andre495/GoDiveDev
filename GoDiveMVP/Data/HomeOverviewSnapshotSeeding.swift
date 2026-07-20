@@ -23,6 +23,8 @@ struct HomeOverviewBuildInput: Sendable {
     let activitySeeds: [LogbookActivitySnapshotSeed]
     let tripSeeds: [LogbookTripSnapshotSeed]
     let diveSiteIDByActivityID: [UUID: UUID?]
+    /// Linked catalog / user site titles by **`diveSiteID`** (so Top Sites stats don’t fall back to **“New Dive”**).
+    let linkedSiteDisplayNameByID: [UUID: String]
     let buddyTagSeeds: [HomeBuddyLeaderboardPresentation.TagInput]
     let mediaPhotoSeeds: [HomeOverviewMediaPhotoSeed]
     let sightingSeeds: [HomeOverviewSightingSeed]
@@ -113,11 +115,29 @@ enum HomeOverviewSnapshotSeeding {
         }
 
         let diveSiteIDByActivityID = Dictionary(uniqueKeysWithValues: activities.map { ($0.id, $0.diveSiteID) })
+        var linkedSiteDisplayNameByID: [UUID: String] = [:]
+        for activity in activities {
+            guard let siteID = activity.diveSiteID else { continue }
+            if linkedSiteDisplayNameByID[siteID] != nil { continue }
+            if let resolved = activity.resolvedLinkedSite,
+               let name = DiveSiteCatalogMatcher.resolvedCatalogSiteName(for: resolved)
+                ?? DiveSiteFormValidation.sanitizedSiteName(resolved.siteName)
+            {
+                linkedSiteDisplayNameByID[siteID] = name
+                continue
+            }
+            if let imported = activity.siteName.flatMap(DiveSiteFormValidation.sanitizedSiteName)
+                ?? activity.resolvedSiteName.flatMap(DiveSiteFormValidation.sanitizedSiteName)
+            {
+                linkedSiteDisplayNameByID[siteID] = imported
+            }
+        }
 
         return HomeOverviewBuildInput(
             activitySeeds: LogbookActivitySnapshotSeeding.seeds(from: activities),
             tripSeeds: LogbookTripSnapshotSeeding.tripSeeds(from: activities),
             diveSiteIDByActivityID: diveSiteIDByActivityID,
+            linkedSiteDisplayNameByID: linkedSiteDisplayNameByID,
             buddyTagSeeds: HomeBuddyLeaderboardSeeding.tagInputs(from: activities),
             mediaPhotoSeeds: mediaPhotoSeeds,
             sightingSeeds: sightingSeeds,

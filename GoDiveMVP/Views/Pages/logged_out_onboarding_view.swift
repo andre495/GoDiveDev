@@ -23,7 +23,7 @@ struct LoggedOutOnboardingView: View {
     var body: some View {
         Group {
             if showsDedicatedSignIn {
-                SignInView()
+                SignInView(onBack: dismissDedicatedSignIn)
             } else {
                 onboardingContent
             }
@@ -75,9 +75,12 @@ struct LoggedOutOnboardingView: View {
 
     private var topBar: some View {
         HStack {
-            if phase == .features, featurePageIndex > 0 {
+            if phase == .features,
+               AppLoggedOutOnboardingPresentation.showsFeatureBackButton(
+                featurePageCount: featurePageCount
+               ) {
                 Button {
-                    featurePageIndex -= 1
+                    handleFeatureBack()
                 } label: {
                     Image(systemName: "chevron.left")
                         .font(.body.weight(.semibold))
@@ -169,14 +172,36 @@ struct LoggedOutOnboardingView: View {
         }
     }
 
+    private func handleFeatureBack() {
+        if AppLoggedOutOnboardingPresentation.featureBackReturnsToWelcome(
+            featurePageIndex: featurePageIndex
+        ) {
+            returnToWelcomeFromFeatures()
+        } else {
+            featurePageIndex -= 1
+        }
+    }
+
+    private func returnToWelcomeFromFeatures() {
+        UserOnboardingActivitySelection.clearPending()
+        featurePageIndex = 0
+        featurePages = []
+        phase = .welcome
+    }
+
     private func showDedicatedSignInFromWelcome() {
-        UserOnboardingActivitySelection.savePending(activitySelection)
-        featurePages = AppLoggedOutOnboardingPresentation.featurePages(for: activitySelection)
+        // Do not treat welcome picks as committed — Sign in path may still be a brand-new account
+        // and should run post–SIWA interests → photo → permissions → import.
+        UserOnboardingActivitySelection.clearPending()
         showDedicatedSignIn()
     }
 
     private func showDedicatedSignIn() {
         showsDedicatedSignIn = true
+    }
+
+    private func dismissDedicatedSignIn() {
+        showsDedicatedSignIn = false
     }
 }
 

@@ -3,7 +3,9 @@ import Foundation
 /// Loads Fishial.AI developer API credentials from gitignored **`Config/FishialSecrets.plist`**.
 ///
 /// Obtain keys at [portal.fishial.ai](https://portal.fishial.ai) → About → for developers.
-/// Add **`Config/FishialSecrets.plist`** with **`ClientID`** and **`ClientSecret`** (gitignored).
+/// Copy **`Config/FishialSecrets.example.plist`** → **`FishialSecrets.plist`** and set **`ClientID`** /
+/// **`ClientSecret`** (gitignored). The client secret is extractable from the IPA until a proxy ships —
+/// see **`cursor/owasp_secrets_handling.md`**.
 struct FishialAPICredentials: Equatable, Sendable {
     let clientID: String
     let clientSecret: String

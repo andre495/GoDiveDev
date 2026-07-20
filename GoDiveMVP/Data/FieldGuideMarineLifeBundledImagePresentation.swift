@@ -37,7 +37,7 @@ enum FieldGuideMarineLifeBundledImagePresentation: Sendable {
         }
 
         let remoteString = featureImageURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let url = URL(string: remoteString), !remoteString.isEmpty {
+        if let url = GoDiveRemoteURLPolicy.sanitizedCatalogImageURL(from: remoteString) {
             return .remote(url)
         }
 

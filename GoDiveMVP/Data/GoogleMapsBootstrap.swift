@@ -98,6 +98,8 @@ final class GoDiveGoogleMapsAppDelegate: NSObject, UIApplicationDelegate {
     ) -> Bool {
         // Firebase Auth/Firestore may touch the default app during launch swizzling — configure first.
         GoDiveFirebaseBootstrap.configureIfNeeded()
+        // BGTask handlers must register before launch completes.
+        GoDiveCloudKitBackgroundSync.registerTasksIfNeeded()
         return true
     }
 

@@ -61,19 +61,19 @@ nonisolated enum CrashReportCloudUploader {
     }
 
     /// CKRecord keyed by the report UUID. `detailsAssetFileURL` non-nil replaces the inline
-    /// `details` string with a `CKAsset`.
+    /// `details` string with a `CKAsset`. Reason/details are scrubbed for public upload.
     nonisolated static func makeRecord(for report: CrashReport, detailsAssetFileURL: URL?) -> CKRecord {
         let recordID = CKRecord.ID(recordName: report.id.uuidString)
         let record = CKRecord(recordType: recordType, recordID: recordID)
         record["capturedAt"] = report.capturedAt as NSDate
         record["kind"] = report.kind.rawValue as NSString
-        record["reason"] = report.reason as NSString
+        record["reason"] = CrashReportPayloadScrubber.scrub(report.reason) as NSString
         record["appVersion"] = report.appVersion as NSString
         record["osVersion"] = report.osVersion as NSString
         if let detailsAssetFileURL {
             record["detailsAsset"] = CKAsset(fileURL: detailsAssetFileURL)
         } else {
-            record["details"] = report.details as NSString
+            record["details"] = CrashReportPayloadScrubber.scrub(report.details) as NSString
         }
         return record
     }
@@ -81,7 +81,8 @@ nonisolated enum CrashReportCloudUploader {
     private nonisolated static func writeDetailsTemporaryFile(for report: CrashReport) throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("CrashReportDetails-\(report.id.uuidString).txt")
-        try Data(report.details.utf8).write(to: url, options: .atomic)
+        let scrubbed = CrashReportPayloadScrubber.scrub(report.details)
+        try Data(scrubbed.utf8).write(to: url, options: .atomic)
         return url
     }
 }

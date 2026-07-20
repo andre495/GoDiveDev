@@ -7,7 +7,12 @@ import os
 enum HomeMediaCarouselDebug: Sendable {
 
     /// Flip to **`false`** to silence carousel media logs.
+    /// Default **on** in DEBUG only — Release stays quiet (OWASP Phase 5).
+    #if DEBUG
     nonisolated(unsafe) static var isEnabled = true
+    #else
+    nonisolated(unsafe) static var isEnabled = false
+    #endif
 
     private static let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "GoDiveMVP",

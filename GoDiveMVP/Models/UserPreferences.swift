@@ -4,7 +4,7 @@ import SwiftData
 /// Synced per-account preferences (CloudKit private user store).
 ///
 /// **`UserDefaults`** remains a fast local cache for `@AppStorage` and nonisolated reads.
-/// **`shareCrashReports`** stays device-local and is not stored here.
+/// **`shareCrashReports`** and **`shareSecurityEvents`** stay device-local and are not stored here.
 @Model
 final class UserPreferences {
 

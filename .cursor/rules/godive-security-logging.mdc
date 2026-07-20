@@ -1,0 +1,25 @@
+---
+description: Security events and privacy-aware logging (OWASP Phase 5)
+globs: GoDiveMVP/**/*.swift
+alwaysApply: false
+---
+
+# Security logging
+
+Source: **`owasp_secure_coding_hardening_plan.md`** Phase 5; helpers **`GoDiveSecurityEvent`**, **`GoDiveSecurityEventJournal`**, **`SecurityEventRecord`**.
+
+## Do
+
+- Record coarse **`GoDiveSecurityEvent`** for: auth success/fail, sign-out, account delete, import reject, CDN checksum / refresh fail.
+- Event **details** are short tokens only (`fit.contentTypeMismatch`, `firebase`) — scrub via **`GoDiveSecurityEvent.sanitizedDetail`**.
+- Persist to the **user-store** journal when a signed-in **`ownerProfileID`** is known (Keychain or explicit). Pre-auth / post-wipe: OSLog only (`persistToJournal: false` when needed).
+- Opt-in developer share: **`AppUserSettings.shareSecurityEvents`** (device-local) → **`SecurityEventCloudUploader`** with **`CrashReportPayloadScrubber`**; never upload **`ownerProfileID`**.
+- User-facing failures: **`GoDiveUserFacingError`** / **`AccountSession.signInFailureUserMessage`** — never `String(describing:)` or raw SDK errors in Release UI.
+- Prefer **`Logger`** with **`.private`** for UIDs, emails, tokens, GPS, site names, dive notes.
+
+## Do not
+
+- Log tokens, Apple identity tokens, Firebase ID tokens, or `Authorization` headers (see **`GoDiveSecretLogging`**).
+- Enable verbose `*Debug` loggers in Release by default (gate with **`#if DEBUG`**).
+- Use **`.public`** for PII in production-facing categories (**`Security`**, **`AccountSession`**, **`FirebaseAuth`**).
+- Sync **`shareSecurityEvents`** / **`shareCrashReports`** through **`UserPreferences`** CloudKit (keep device-local).

@@ -3,9 +3,12 @@ import SwiftData
 import FirebaseAuth
 import FirebaseFirestore
 import AuthenticationServices
+import os
 
 /// Permanently removes the signed-in diver’s local SwiftData (CloudKit-synced), Firestore social profile, Firebase Auth user, and Apple Sign in tokens.
 enum GoDiveAccountDeletion: Sendable {
+
+    private nonisolated static let log = Logger(subsystem: "PrimoSoftware.GoDiveMVP", category: "AccountDeletion")
 
     enum DeletionError: Error, Equatable, LocalizedError {
         case notSignedIn
@@ -24,11 +27,24 @@ enum GoDiveAccountDeletion: Sendable {
                 return "Apple did not return an authorization code. Try again."
             case .missingFirebaseUser:
                 return "Firebase session missing. Sign in again, then retry delete."
-            case .firestoreFailed(let message),
-                 .appleRevokeFailed(let message),
-                 .firebaseDeleteFailed(let message),
-                 .localDeleteFailed(let message):
-                return message
+            case .firestoreFailed,
+                 .appleRevokeFailed,
+                 .firebaseDeleteFailed,
+                 .localDeleteFailed:
+                return GoDiveUserFacingError.accountDeletionFailed
+            }
+        }
+
+        /// Coarse failure token for security logging (not shown in UI).
+        nonisolated var securityEventDetail: String {
+            switch self {
+            case .notSignedIn: return "notSignedIn"
+            case .missingAppleAuthorizationCode: return "missingAppleCode"
+            case .missingFirebaseUser: return "missingFirebaseUser"
+            case .firestoreFailed: return "firestore"
+            case .appleRevokeFailed: return "appleRevoke"
+            case .firebaseDeleteFailed: return "firebaseDelete"
+            case .localDeleteFailed: return "localDelete"
             }
         }
     }
@@ -48,29 +64,51 @@ enum GoDiveAccountDeletion: Sendable {
               let authCode = String(data: authCodeData, encoding: .utf8),
               !authCode.isEmpty
         else {
-            throw DeletionError.missingAppleAuthorizationCode
+            let error = DeletionError.missingAppleAuthorizationCode
+            recordDeletionFailure(error)
+            throw error
         }
 
         GoDiveFirebaseBootstrap.configureIfNeeded()
 
-        if GoDiveFirebaseBootstrap.isConfigured {
-            try await reauthenticateFirebaseIfNeeded(
-                appleCredential: appleCredential,
-                rawNonce: rawNonce
-            )
-            try await deleteFirestoreSocialProfileIfNeeded()
-            await GoDiveFirebaseProfilePhotoStorage.deleteProfilePhotoIfPresent()
-            try await revokeAppleTokenAndDeleteFirebaseUser(authorizationCode: authCode)
-        }
-
         do {
-            try deleteAllLocalUserData(ownerProfileID: profileID, modelContext: modelContext)
-        } catch {
-            throw DeletionError.localDeleteFailed(String(describing: error))
-        }
+            if GoDiveFirebaseBootstrap.isConfigured {
+                try await reauthenticateFirebaseIfNeeded(
+                    appleCredential: appleCredential,
+                    rawNonce: rawNonce
+                )
+                try await deleteFirestoreSocialProfileIfNeeded()
+                await GoDiveFirebaseProfilePhotoStorage.deleteProfilePhotoIfPresent()
+                try await revokeAppleTokenAndDeleteFirebaseUser(authorizationCode: authCode)
+            }
 
-        clearLocalAccountHints(appleUserIdentifier: appleUserIdentifier)
-        AccountSession.shared.signOut()
+            do {
+                try deleteAllLocalUserData(ownerProfileID: profileID, modelContext: modelContext)
+            } catch {
+                log.error("Local account wipe failed: \(String(describing: error), privacy: .private)")
+                let wrapped = DeletionError.localDeleteFailed(String(describing: error))
+                recordDeletionFailure(wrapped)
+                throw wrapped
+            }
+
+            clearLocalAccountHints(appleUserIdentifier: appleUserIdentifier)
+            // Journal rows for this owner are wiped with local user data; keep Logger events only.
+            GoDiveSecurityEvent.record(.accountDeleted, persistToJournal: false)
+            AccountSession.shared.signOut(persistSecurityEvent: false)
+        } catch let deletion as DeletionError {
+            if case .localDeleteFailed = deletion {
+                throw deletion
+            }
+            recordDeletionFailure(deletion)
+            throw deletion
+        }
+    }
+
+    private nonisolated static func recordDeletionFailure(_ error: DeletionError) {
+        GoDiveSecurityEvent.record(.accountDeleteFailed, detail: error.securityEventDetail)
+        log.error(
+            "Account deletion failed detail=\(error.securityEventDetail, privacy: .public): \(String(describing: error), privacy: .private)"
+        )
     }
 
     // MARK: - Firebase / Firestore / Apple
@@ -142,6 +180,14 @@ enum GoDiveAccountDeletion: Sendable {
         // Tags are not cascaded from `UserProfile`; wipe them first.
         try deleteOwned(ActivityTag.self, ownerProfileID: ownerProfileID, modelContext: modelContext) { $0.ownerProfileID }
 
+        // Profile points are local-only (no cascade from dive delete across stores).
+        let ownedDiveIDs = try modelContext.fetch(FetchDescriptor<DiveActivity>())
+            .filter { $0.ownerProfileID == ownerProfileID }
+            .map(\.id)
+        for diveID in ownedDiveIDs {
+            try DiveProfilePointStore.deletePoints(for: diveID, modelContext: modelContext)
+        }
+
         // Explicit ownership wipe covers orphans that lost the inverse relationship.
         try deleteOwned(DiveActivity.self, ownerProfileID: ownerProfileID, modelContext: modelContext) { $0.ownerProfileID }
         try deleteOwned(DiveBuddy.self, ownerProfileID: ownerProfileID, modelContext: modelContext) { $0.ownerProfileID }
@@ -152,6 +198,7 @@ enum GoDiveAccountDeletion: Sendable {
         try deleteOwned(UserMarineLife.self, ownerProfileID: ownerProfileID, modelContext: modelContext) { $0.ownerProfileID }
         try deleteOwned(MarineLifeUserRecord.self, ownerProfileID: ownerProfileID, modelContext: modelContext) { $0.ownerProfileID }
         try deleteOwned(UserPreferences.self, ownerProfileID: ownerProfileID, modelContext: modelContext) { $0.ownerProfileID }
+        try deleteOwned(SecurityEventRecord.self, ownerProfileID: ownerProfileID, modelContext: modelContext) { $0.ownerProfileID }
 
         if let profile = try UserProfileStore.profile(id: ownerProfileID, modelContext: modelContext) {
             modelContext.delete(profile)
@@ -175,6 +222,6 @@ enum GoDiveAccountDeletion: Sendable {
         UserProfileStore.cacheDisplayName(nil, forAppleUserIdentifier: appleUserIdentifier)
         ReturningAccountHints.clearAll()
         GoDiveFirestoreProfilePublishGate.clear()
-        UserDefaults.standard.removeObject(forKey: GoDiveFirestoreUserProfileMapping.firebaseUIDDefaultsKey)
+        GoDiveFirestoreUserProfileMapping.clearCachedFirebaseUID()
     }
 }

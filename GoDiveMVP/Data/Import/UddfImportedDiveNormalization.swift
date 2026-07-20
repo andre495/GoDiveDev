@@ -1,5 +1,4 @@
 import Foundation
-import SwiftData
 
 /// UDDF import pipeline: normalize dive-local **`startTime`** / profile timestamps, then resolve display offsets.
 enum UddfImportedDiveNormalization: Sendable {
@@ -12,6 +11,11 @@ enum UddfImportedDiveNormalization: Sendable {
         resolver: (any GeocodingTimeZoneResolving)? = nil
     ) async {
         let resolvedResolver = resolver ?? MapKitGeocodingTimeZoneResolver.shared
+        await UddfImportGeocodeBatch.prefetchForActivities(
+            activities,
+            catalogSites: catalogSites,
+            resolver: resolvedResolver
+        )
         await UddfMacDiveImportDatetimeNetworkNormalization.apply(
             activities,
             catalogSites: catalogSites,

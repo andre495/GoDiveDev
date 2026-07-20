@@ -12,9 +12,7 @@ Choose one or more (**Scuba Diving** is selected by default):
 - **Free Diving**
 - **Snorkeling**
 
-Tap **Get Started** to continue, or **Already have an account? Sign in** at the bottom to open the dedicated sign-in screen (skips the feature slides).
-
-Your choices are saved to your profile when you create an account.
+Tap **Get Started** to continue, or **Already have an account? Sign in** at the bottom to open the dedicated sign-in screen (skips the feature slides). Use the **back** chevron on that screen to return to welcome (or to the feature slides if you skipped from there). Activity picks on welcome are saved when you tap **Get Started**; if you sign in from welcome instead and Apple creates a new account, you’ll choose activities again in the post–sign-in setup.
 
 ### 2. Feature slides (personalized)
 
@@ -29,28 +27,29 @@ Slides are tailored to what you selected:
 | **Monitor your equipment** | Always |
 | **Learn from thousands of marine species** | Scuba and/or snorkeling |
 
-Swipe or tap **Continue** on earlier slides. On the last slide, use **Sign in with Apple** at the bottom (**Skip** on earlier slides opens the dedicated sign-in screen).
+Swipe or tap **Continue** on earlier slides. On the **first** feature slide, **Back** returns to the welcome activity picker so you can change scuba / free diving / snorkeling. On later slides, **Back** goes to the previous slide. On the last slide, use **Sign in with Apple** at the bottom (**Skip** on earlier slides opens the dedicated sign-in screen).
 
 ### 3. Sign in with Apple
 
 Create your on-device log with **Sign in with Apple** — either on the last feature slide or from the dedicated sign-in screen if you skipped ahead.
 
-**New accounts** then walk through a short profile setup:
+**New accounts** then walk through setup:
 
-1. **Profile photo** — **Welcome,** *your name*; subtitle **Add a profile photo**. After you crop a photo, the wizard advances automatically; or **Skip for now**. A **back** chevron on later steps returns to the previous one.
-2. **DAN insurance** — only if you chose scuba or free diving; optional. **Continue** appears after you enter a member number; or **Skip for now**.
-3. **Certification** — only if you chose scuba or free diving. **Continue** appears after agency, certification name, and number are filled in; or **Skip for now**.
-4. **Welcome** — title **Welcome**, subtitle **Let's Dive In**, with your photo, name, optional DAN and certification, and activity interests.
+1. **Activities** — only if you signed in from the dedicated sign-in screen without picking activities on welcome (**Already have an account? Sign in**). Choose scuba / free diving / snorkeling, then **Continue**.
+2. **Profile photo** — **Welcome,** *your name*; subtitle **Add a profile photo**. After you crop a photo, the wizard advances automatically; or **Skip for now**. A **back** chevron on later steps returns to the previous one.
+3. **DAN insurance** — only if you chose scuba or free diving; optional. **Continue** appears after you enter a member number; or **Skip for now**.
+4. **Certification** — only if you chose scuba or free diving. **Continue** appears after agency, certification name, and number are filled in; or **Skip for now**.
+5. **Welcome** — title **Welcome**, subtitle **Let's Dive In**, with your photo, name, optional DAN and certification, and activity interests.
 
 Tap **Let's dive in** on the preview.
 
-5. **Contacts & Photos** — explains why GoDive needs access; tap **Continue** and approve each iOS prompt (or deny — you can change this later in Settings).
+6. **Contacts & Photos** — explains why GoDive needs access; tap **Continue** and approve each iOS prompt (or deny — you can change this later in Settings).
 
-6. **Bring your old dives** — only if you chose scuba or free diving. Tap **Import dives** for **UDDF import** (choose a **.uddf** file or open the **MacDive Import** guide — no back button; **Skip** top-right exits to celebration), or **Skip for now** on the offer slide to go straight to celebration.
+7. **Bring your old dives** — only if you chose scuba or free diving. Tap **Import dives** for **UDDF import** (choose a **.uddf** file or open the **MacDive Import** guide — no back button; **Skip** top-right exits to celebration), or **Skip for now** on the offer slide to go straight to celebration.
 
 A **bubble celebration** plays, then GoDive opens to **Home**.
 
-Returning visits while logged out start onboarding again from the welcome screen (activity picker). **Skip** on a feature slide or **Already have an account? Sign in** on welcome opens the dedicated sign-in screen.
+Returning visits while logged out start onboarding again from the welcome screen (activity picker). **Skip** on a feature slide or **Already have an account? Sign in** on welcome opens the dedicated sign-in screen. If that Sign in with Apple creates a **new** account (no prior GoDive profile), you still get activities → profile photo → permissions → optional import — not a jump straight to Home.
 
 ## Sign in
 
@@ -58,8 +57,8 @@ When you open GoDive after onboarding, sign in with **Sign in with Apple**. GoDi
 
 - If Apple provides your name once, GoDive uses it for your display name.
 - Otherwise your name starts as **Diver** — you can change it anytime from **Profile → Edit**.
-- On devices signed into **iCloud**, your dive log can sync across your Apple devices (**CloudKit**).
-- GoDive may also create a lightweight **Firebase** social profile (display name) for future friends features — that is separate from your dive log. See [Privacy & data](privacy-and-data.md).
+- On devices signed into **iCloud**, your dive log can sync across your Apple devices (**CloudKit**) over Wi‑Fi or cellular, including in the background when iOS allows.
+- GoDive may also create a lightweight **Firebase** social profile (display name) for future friends features — that is separate from your dive log. See the [Privacy Policy](privacy-and-data.md).
 
 ### First-time welcome
 

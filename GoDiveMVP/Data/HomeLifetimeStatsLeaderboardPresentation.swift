@@ -135,12 +135,21 @@ enum HomeLifetimeStatsLeaderboardPresentation {
 
     nonisolated static func siteRowDisplayData(
         entry: SiteEntry,
-        site: DiveSite?
+        site: DiveSite? = nil,
+        userSite: UserDiveSite? = nil
     ) -> DiveSiteDisplayRecord {
         let visitLabel = HomeLifetimeStatsPresentation.siteVisitLabel(count: entry.visitCount)
+        if let userSite {
+            return DiveSitePresentation.listRecord(
+                for: userSite,
+                loggedDiveCount: entry.visitCount,
+                overrideDiveCountLabel: visitLabel
+            )
+        }
         if let site {
             return DiveSitePresentation.listRecord(
                 for: site,
+                loggedDiveCount: entry.visitCount,
                 overrideDiveCountLabel: visitLabel
             )
         }
@@ -274,6 +283,9 @@ enum HomeLifetimeStatsLeaderboardPresentation {
             guard let key = HomeLifetimeStatsLeaderboardSiteKey(dive: dive) else { continue }
             if let index = groups.firstIndex(where: { $0.key.isSameSite(as: key) }) {
                 groups[index].count += 1
+                if groups[index].key.siteID == nil, key.siteID != nil {
+                    groups[index].key = key
+                }
             } else {
                 groups.append((key: key, count: 1))
             }
@@ -296,9 +308,10 @@ private struct HomeLifetimeStatsLeaderboardSiteKey: Sendable {
     }
 
     nonisolated func isSameSite(as other: Self) -> Bool {
-        if let siteID, let otherSiteID = other.siteID {
-            return siteID == otherSiteID
+        if let siteID, let otherSiteID = other.siteID, siteID == otherSiteID {
+            return true
         }
+        // Same display name = same place for Top Sites, even when import created duplicate site IDs.
         return normalizedName == other.normalizedName
     }
 }

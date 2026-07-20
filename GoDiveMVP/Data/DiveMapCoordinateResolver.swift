@@ -60,6 +60,12 @@ enum DiveMapCoordinateResolver {
         return sites.filter { normalizedSiteName($0.siteName) == normalized }
     }
 
+    /// User-owned rows whose **`siteName`** equals the import name (case-insensitive trim).
+    static func exactMatchingUserSites(forSiteName siteName: String?, in sites: [UserDiveSite]) -> [UserDiveSite] {
+        guard let normalized = normalizedSiteName(siteName) else { return [] }
+        return sites.filter { normalizedSiteName($0.siteName) == normalized }
+    }
+
     /// Single catalog row whose **`siteName`** equals **`siteName`** (case-insensitive trim). **`nil`** when none or ambiguous.
     static func uniquelyMatchingSite(forSiteName siteName: String?, in sites: [DiveSite]) -> DiveSite? {
         let matches = exactMatchingSites(forSiteName: siteName, in: sites)

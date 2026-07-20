@@ -82,9 +82,10 @@ private struct HomeSiteVisitKey: Sendable {
     }
 
     nonisolated func isSameSite(as other: Self) -> Bool {
-        if let siteID, let otherSiteID = other.siteID {
-            return siteID == otherSiteID
+        if let siteID, let otherSiteID = other.siteID, siteID == otherSiteID {
+            return true
         }
+        // Same display name = same place for Top Sites, even when import created duplicate site IDs.
         return normalizedName == other.normalizedName
     }
 }
@@ -333,6 +334,9 @@ enum HomeLifetimeStatsPresentation {
             guard let key = HomeSiteVisitKey(dive: dive) else { continue }
             if let index = groups.firstIndex(where: { $0.key.isSameSite(as: key) }) {
                 groups[index].count += 1
+                if groups[index].key.siteID == nil, key.siteID != nil {
+                    groups[index].key = key
+                }
             } else {
                 groups.append((key: key, count: 1))
             }

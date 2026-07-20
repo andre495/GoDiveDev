@@ -30,8 +30,8 @@ enum GoDiveFirebaseAuthSession: Sendable {
         // Prefer a fresh Apple token when available so provider misconfig surfaces on each Sign in.
         let hasAppleCredential = identityToken != nil && !(rawNonce ?? "").isEmpty
         if !hasAppleCredential, let existing = Auth.auth().currentUser {
-            UserDefaults.standard.set(existing.uid, forKey: GoDiveFirestoreUserProfileMapping.firebaseUIDDefaultsKey)
-            log.notice("Firebase Auth already signed in uid=\(existing.uid, privacy: .public)")
+            GoDiveFirestoreUserProfileMapping.saveCachedFirebaseUID(existing.uid)
+            log.notice("Firebase Auth already signed in (uid redacted)")
             return .alreadySignedIn(uid: existing.uid)
         }
 
@@ -52,13 +52,14 @@ enum GoDiveFirebaseAuthSession: Sendable {
             )
             let result = try await Auth.auth().signIn(with: credential)
             let uid = result.user.uid
-            UserDefaults.standard.set(uid, forKey: GoDiveFirestoreUserProfileMapping.firebaseUIDDefaultsKey)
-            log.notice("Firebase Auth signed in uid=\(uid, privacy: .public)")
+            GoDiveFirestoreUserProfileMapping.saveCachedFirebaseUID(uid)
+            log.notice("Firebase Auth signed in (uid redacted)")
+            GoDiveSecurityEvent.record(.authSucceeded, detail: "firebase")
             return .signedIn(uid: uid)
         } catch {
-            let message = String(describing: error)
-            log.error("Firebase Auth failed: \(message, privacy: .public)")
-            return .failed(message)
+            log.error("Firebase Auth failed: \(String(describing: error), privacy: .private)")
+            GoDiveSecurityEvent.record(.authFailed, detail: "firebase")
+            return .failed("Sign-in could not be completed.")
         }
     }
 
@@ -68,9 +69,9 @@ enum GoDiveFirebaseAuthSession: Sendable {
         GoDiveFirebaseBootstrap.configureIfNeeded()
         guard GoDiveFirebaseBootstrap.isConfigured else { return nil }
         if let uid = Auth.auth().currentUser?.uid {
-            UserDefaults.standard.set(uid, forKey: GoDiveFirestoreUserProfileMapping.firebaseUIDDefaultsKey)
+            GoDiveFirestoreUserProfileMapping.saveCachedFirebaseUID(uid)
             return uid
         }
-        return UserDefaults.standard.string(forKey: GoDiveFirestoreUserProfileMapping.firebaseUIDDefaultsKey)
+        return GoDiveFirestoreUserProfileMapping.loadCachedFirebaseUID()
     }
 }

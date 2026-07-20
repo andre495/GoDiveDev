@@ -9,6 +9,7 @@ struct SettingsView: View {
     @AppStorage(AppUserSettings.defaultTankSizeKey) private var defaultTankSizeRaw = DefaultTankSize.al80.rawValue
     @AppStorage(AppUserSettings.autoUploadMediaToActivitiesKey) private var autoUploadMediaToActivities = true
     @AppStorage(AppUserSettings.shareCrashReportsKey) private var shareCrashReports = false
+    @AppStorage(AppUserSettings.shareSecurityEventsKey) private var shareSecurityEvents = false
 
     @State private var mediaBackfillOverlay: DiveLibraryMediaBackfillOverlayState = .hidden
     @State private var mediaBackfillTask: Task<Void, Never>?
@@ -46,10 +47,12 @@ struct SettingsView: View {
                 defaultTankSizeRaw: $defaultTankSizeRaw,
                 autoUploadMediaToActivities: $autoUploadMediaToActivities,
                 shareCrashReports: $shareCrashReports,
+                shareSecurityEvents: $shareSecurityEvents,
                 mediaBackfillOverlay: mediaBackfillOverlay,
                 onRenumberWhenEnabled: renumberAllDivesWhenEnabled,
                 onAutoUploadEnabled: startMediaBackfillForExistingDives,
                 onShareCrashReportsEnabled: uploadCrashReportBacklog,
+                onShareSecurityEventsEnabled: uploadSecurityEventBacklog,
                 onDismissMediaBackfill: dismissMediaBackfillOverlay,
                 onCancelMediaBackfill: cancelMediaBackfill,
                 onSyncedSettingsChanged: pushSyncedPreferencesFromDefaults,
@@ -91,6 +94,10 @@ struct SettingsView: View {
 
     private func uploadCrashReportBacklog() {
         CrashReportingService.uploadBacklogNow(container: modelContext.container)
+    }
+
+    private func uploadSecurityEventBacklog() {
+        GoDiveSecurityEventJournal.uploadBacklogNow(container: modelContext.container)
     }
 
     private func startMediaBackfillForExistingDives() {
@@ -153,6 +160,7 @@ private struct SettingsPageContent: View {
     @Binding var defaultTankSizeRaw: String
     @Binding var autoUploadMediaToActivities: Bool
     @Binding var shareCrashReports: Bool
+    @Binding var shareSecurityEvents: Bool
 
     @State private var saltWaterWeightText = ""
     @State private var freshWaterWeightText = ""
@@ -162,6 +170,7 @@ private struct SettingsPageContent: View {
     let onRenumberWhenEnabled: () -> Void
     let onAutoUploadEnabled: () -> Void
     let onShareCrashReportsEnabled: () -> Void
+    let onShareSecurityEventsEnabled: () -> Void
     let onDismissMediaBackfill: () -> Void
     let onCancelMediaBackfill: () -> Void
     let onSyncedSettingsChanged: () -> Void
@@ -235,6 +244,23 @@ private struct SettingsPageContent: View {
                 infoMessage: SettingsPresentation.CrashReports.infoMessage
             ) {
                 CrashReportsView()
+            }
+
+            SettingsToggleRow(
+                title: SettingsPresentation.ShareSecurityEvents.title,
+                infoMessage: SettingsPresentation.ShareSecurityEvents.infoMessage,
+                isOn: $shareSecurityEvents
+            )
+            .onChange(of: shareSecurityEvents) { wasOn, isOn in
+                guard isOn, !wasOn else { return }
+                onShareSecurityEventsEnabled()
+            }
+
+            SettingsNavigationLinkRow(
+                title: SettingsPresentation.SecurityEvents.title,
+                infoMessage: SettingsPresentation.SecurityEvents.infoMessage
+            ) {
+                SecurityEventsView()
             }
 
             Spacer(minLength: AppTheme.Spacing.lg)

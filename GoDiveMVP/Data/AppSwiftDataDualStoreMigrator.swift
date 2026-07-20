@@ -334,6 +334,21 @@ enum AppSwiftDataDualStoreMigrator {
             result.totalInsertedCount += 1
         }
 
+        for event in try source.fetch(FetchDescriptor<SecurityEventRecord>()) {
+            let copy = SecurityEventRecord(
+                id: event.id,
+                capturedAt: event.capturedAt,
+                kindRaw: event.kindRaw,
+                detail: event.detail,
+                appVersion: event.appVersion,
+                osVersion: event.osVersion,
+                ownerProfileID: event.ownerProfileID,
+                sharedToCloudAt: event.sharedToCloudAt
+            )
+            destination.insert(copy)
+            result.totalInsertedCount += 1
+        }
+
         for record in try source.fetch(FetchDescriptor<MarineLifeUserRecord>()) {
             let copy = MarineLifeUserRecord(
                 id: record.id,
@@ -398,7 +413,6 @@ enum AppSwiftDataDualStoreMigrator {
                     predicate: #Predicate { $0.diveActivityID == targetDiveID }
                 )
             )
-            let destDive = divesByID[diveID]
             for point in points {
                 let copy = DiveProfilePoint(
                     timestamp: point.timestamp,
@@ -411,9 +425,9 @@ enum AppSwiftDataDualStoreMigrator {
                     heartRateBPM: point.heartRateBPM,
                     po2Bars: point.po2Bars,
                     n2Load: point.n2Load,
-                    cnsLoad: point.cnsLoad,
-                    dive: destDive
+                    cnsLoad: point.cnsLoad
                 )
+                copy.diveActivityID = diveID
                 destination.insert(copy)
                 result.totalInsertedCount += 1
                 profilePointCount += 1
@@ -421,6 +435,21 @@ enum AppSwiftDataDualStoreMigrator {
             if destination.hasChanges {
                 try destination.save()
             }
+        }
+        // Encode synced track blobs for dives that have local points but no profileTrackData yet.
+        for (diveID, destDive) in divesByID {
+            if destDive.profileTrackData != nil { continue }
+            let points = try destination.fetch(
+                FetchDescriptor<DiveProfilePoint>(
+                    predicate: #Predicate { $0.diveActivityID == diveID }
+                )
+            )
+            guard !points.isEmpty else { continue }
+            destDive.profilePoints = points
+            DiveProfilePointStore.syncTrackData(from: destDive)
+        }
+        if destination.hasChanges {
+            try destination.save()
         }
         try? "profilePointsCopied=\(profilePointCount)\n"
             .write(
@@ -579,6 +608,7 @@ enum AppSwiftDataDualStoreMigrator {
             rawImportVersion: source.rawImportVersion
         )
         copy.featuredMediaPhotoID = source.featuredMediaPhotoID
+        copy.profileTrackData = source.profileTrackData
         copy.owner = owner
         copy.ownerProfileID = owner?.id ?? source.ownerProfileID
         return copy
@@ -599,5 +629,40 @@ enum AppSwiftDataDualStoreMigrator {
     /// Visible to bootstrap when dual already has content but the legacy rename was skipped.
     nonisolated static func renameLegacyStoreAsideForBootstrap(_ url: URL) {
         renameLegacyStoreAside(url)
+    }
+
+    /// Copies a parked pre–CloudKit **`GoDiveUser`** bak (policy rename-aside) into a fresh split container.
+    ///
+    /// Catalog / diagnostics reseed from bundled sources; only the user store bak is required.
+    /// Profile points land in **`GoDiveUserLocal`** via the destination schema partition.
+    @discardableResult
+    nonisolated static func migrateFromParkedPreCloudKitUserStore(
+        rootDirectory: URL,
+        destinationContainer: ModelContainer,
+        policyVersion: Int
+    ) throws -> Result {
+        let stamp = "pre-cloudkit-v\(policyVersion)"
+        let userBase = AppSwiftDataDualStoreFactory.storeURL(
+            named: AppSwiftDataDualStoreFactory.userStoreName,
+            rootDirectory: rootDirectory
+        )
+        let parkedUserURL = URL(fileURLWithPath: userBase.path + ".\(stamp)")
+        guard FileManager.default.fileExists(atPath: parkedUserURL.path) else {
+            return Result()
+        }
+
+        let legacySchema = Schema(AppSwiftDataStorePartition.legacyCloudKitUserModelTypes)
+        let sourceConfiguration = ModelConfiguration(
+            "GoDiveUserParkedPreCloudKit",
+            schema: legacySchema,
+            url: parkedUserURL,
+            cloudKitDatabase: .none
+        )
+        let sourceContainer = try ModelContainer(for: legacySchema, configurations: [sourceConfiguration])
+        let sourceContext = ModelContext(sourceContainer)
+        let destinationContext = ModelContext(destinationContainer)
+        let result = try migrate(from: sourceContext, to: destinationContext)
+        try destinationContext.save()
+        return result
     }
 }

@@ -88,6 +88,9 @@ enum CatalogAssetDiskCache: Sendable {
         session: URLSession = .shared,
         fileManager: FileManager = .default
     ) async throws -> URL {
+        guard GoDiveRemoteURLPolicy.sanitizedCatalogDownloadURL(from: remoteURL.absoluteString) != nil else {
+            throw CatalogCDNClientError.invalidURL
+        }
         if let existing = cachedFileURL(kind: kind, resourceName: resourceName, fileManager: fileManager) {
             return existing
         }

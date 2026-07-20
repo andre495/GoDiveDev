@@ -2,7 +2,6 @@ import Foundation
 import SwiftData
 
 /// Links **`EquipmentItem`** rows to **`DiveActivity`** via **`DiveActivityEquipmentList`** / **`DiveEquipmentEntry`**.
-@MainActor
 enum DiveActivityEquipmentAssociation {
 
     // MARK: - Read
@@ -50,7 +49,7 @@ enum DiveActivityEquipmentAssociation {
             .sorted(by: equipmentSort)
     }
 
-    private static func equipmentSort(_ lhs: EquipmentItem, _ rhs: EquipmentItem) -> Bool {
+    nonisolated private static func equipmentSort(_ lhs: EquipmentItem, _ rhs: EquipmentItem) -> Bool {
         let lm = lhs.manufacturer.localizedCaseInsensitiveCompare(rhs.manufacturer)
         if lm != .orderedSame { return lm == .orderedAscending }
         let lmod = lhs.model.localizedCaseInsensitiveCompare(rhs.model)

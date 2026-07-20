@@ -47,7 +47,7 @@ GoDive maps imported fields into its own dive model; vendor-specific field names
 | **Apple MapKit** | Default **Explore**, dive overview, and site-picker maps when no Google key is configured; reverse geocoding for time zones |
 | **[Google Maps SDK for iOS](https://developers.google.com/maps/documentation/ios-sdk)** | Optional hybrid map tiles and markers when the app build includes a valid Google Maps API key |
 
-Map use is described in [Privacy & data](privacy-and-data.md). Dive log contents are not uploaded to map providers for basic display.
+Map use is described in the [Privacy Policy](privacy-and-data.md). Dive log contents are not uploaded to map providers for basic display.
 
 ## Optional cloud features
 
@@ -55,7 +55,7 @@ These require network access and (for some) developer configuration in the app b
 
 | Source | Used for |
 |--------|----------|
-| **Apple CloudKit** | Syncs your **dive log** across your Apple devices (private iCloud database). Optional **Share crash reports** uploads technical diagnostics to the developer via CloudKit’s public database. |
+| **Apple CloudKit** | Syncs your **dive log** across your Apple devices (private iCloud database). Optional **Share crash reports** / **Share diagnostic events** uploads technical diagnostics to the developer via CloudKit’s public database. |
 | **[Firebase](https://firebase.google.com/)** (Auth, Firestore, Storage; optional Hosting) | **Social directory** for future friends features (display name, activity interests, optional profile photo after Sign in with Apple). Optional **catalog CDN** refresh for Marine Life and dive-site reference data. **Does not store your dive log.** |
 | **[Fishial.AI](https://fishial.ai/)** | Optional **Identify fish** on dive media — one cropped JPEG per request, plus optional dive coordinates in a header ([API terms](https://docs.fishial.ai/api)) |
 

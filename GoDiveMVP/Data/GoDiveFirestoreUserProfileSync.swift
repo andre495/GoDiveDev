@@ -35,7 +35,7 @@ enum GoDiveFirestoreUserProfileSync: Sendable {
             log.notice("Firestore profile skip: no Firebase Auth currentUser")
             return .skippedNotSignedIn
         }
-        UserDefaults.standard.set(uid, forKey: GoDiveFirestoreUserProfileMapping.firebaseUIDDefaultsKey)
+        GoDiveFirestoreUserProfileMapping.saveCachedFirebaseUID(uid)
 
         let privateDraft = GoDiveFirestoreUserProfileMapping.privateDraft(
             appleUserIdentifier: appleUserIdentifier
@@ -66,7 +66,7 @@ enum GoDiveFirestoreUserProfileSync: Sendable {
                 do {
                     uploadedPhotoURL = try await GoDiveFirebaseProfilePhotoStorage.uploadProfileJPEG(profilePhotoJPEG)
                 } catch {
-                    log.error("Profile photo upload failed: \(String(describing: error), privacy: .public)")
+                    log.error("Profile photo upload failed: \(String(describing: error), privacy: .private)")
                     return .failed(String(describing: error))
                 }
             }
@@ -107,7 +107,7 @@ enum GoDiveFirestoreUserProfileSync: Sendable {
 
             GoDiveFirestoreProfilePublishGate.clear()
             log.notice(
-                "Firestore profile upserted uid=\(uid, privacy: .public) name=\(resolvedName, privacy: .public) interests=\(interests.count)"
+                "Firestore profile upserted (uid/name redacted) interests=\(interests.count, privacy: .public)"
             )
             let nameToRestore: String? = {
                 guard resolvedName != UserProfileStore.defaultDisplayName else { return nil }
@@ -118,9 +118,8 @@ enum GoDiveFirestoreUserProfileSync: Sendable {
             }()
             return .upserted(uid: uid, remoteDisplayName: nameToRestore ?? remoteDisplayName)
         } catch {
-            let message = String(describing: error)
-            log.error("Firestore profile upsert failed: \(message, privacy: .public)")
-            return .failed(message)
+            log.error("Firestore profile upsert failed: \(String(describing: error), privacy: .private)")
+            return .failed("Social profile could not be saved.")
         }
     }
 
@@ -191,7 +190,7 @@ enum GoDiveFirestoreUserProfileSync: Sendable {
                 interests: interests
             )
         case .failed(let message):
-            log.error("Social sync after Apple: Auth failed — \(message, privacy: .public)")
+            log.error("Social sync after Apple: Auth failed — \(message, privacy: .private)")
             return .failed(message)
         case .signedIn, .alreadySignedIn:
             if deferProfileDocumentWrite {

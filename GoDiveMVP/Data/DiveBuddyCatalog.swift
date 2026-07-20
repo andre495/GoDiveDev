@@ -3,7 +3,7 @@ import SwiftData
 
 /// Find-or-create **`DiveBuddy`** rows for the signed-in diver.
 enum DiveBuddyCatalog {
-    nonisolated static let maxDisplayNameLength = 80
+    nonisolated static let maxDisplayNameLength = GoDiveInputSanitization.maxDisplayNameLength
 
     /// Do not tag a dive buddy when the name fuzzy-matches the owner's profile display name.
     nonisolated static func shouldExcludeBuddyName(_ buddyName: String, owner: UserProfile?) -> Bool {
@@ -63,7 +63,10 @@ enum DiveBuddyCatalog {
         modelContext: ModelContext,
         rosterCache: inout DiveBuddyImportConsolidation.RosterCache?
     ) -> DiveBuddy {
-        let trimmedName = String(displayName.trimmingCharacters(in: .whitespacesAndNewlines).prefix(maxDisplayNameLength))
+        let trimmedName = GoDiveInputSanitization.trimmedAndCapped(
+            displayName,
+            maxLength: maxDisplayNameLength
+        )
         let resolvedName = trimmedName.isEmpty ? "Buddy" : trimmedName
 
         if var cache = rosterCache,

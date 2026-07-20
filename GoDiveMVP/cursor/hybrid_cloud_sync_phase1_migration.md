@@ -34,7 +34,7 @@ Source of truth companion to `hybrid_cloud_sync_boundaries.md` and `AppSwiftData
 ## Preferences
 
 - Synced later (still UserDefaults for now; keys in `AppSwiftDataStorePartition.syncedPreferenceKeys`).
-- Local only: `shareCrashReports` (`localOnlyPreferenceKeys`).
+- Local only: `shareCrashReports`, `shareSecurityEvents` (`localOnlyPreferenceKeys`).
 
 ## Catalog CDN
 

@@ -1,0 +1,24 @@
+---
+description: Output encoding — plain Text, remote URL gates, no WebView HTML (OWASP Phase 6)
+globs: GoDiveMVP/**/*.swift
+alwaysApply: false
+---
+
+# Output encoding (mobile analogs)
+
+Source: **`owasp_secure_coding_hardening_plan.md`** Phase 6; helpers **`GoDivePlainText`**, **`GoDiveRemoteURLPolicy`**.
+
+## Do
+
+- Render user / API strings with **`Text(stringVar)`** or **`Text(verbatim:)`** — never **`Text("…\(untrusted)")`** (`LocalizedStringKey` Markdown).
+- Gate remote catalog image URLs with **`GoDiveRemoteURLPolicy.sanitizedCatalogImageURL`** before **`AsyncImage`**.
+- Gate USDZ / Storage downloads with **`GoDiveRemoteURLPolicy.sanitizedCatalogDownloadURL`** (Firebase / CDN hosts only).
+- Share / export as plain text or PNG; XML-escape if a UDDF/CSV writer is added later.
+- Trip share temp files: UUID filenames under the system temp directory (**`TripShareTempFilePolicy`**).
+
+## Do not
+
+- Render dive notes / site names / Fishial names as Markdown or HTML.
+- Add **`WKWebView`** / **`loadHTMLString`** of user content without a new security review.
+- Embed raw user notes into XML/UDDF/CSV without escaping.
+- Load `http://`, `file://`, localhost, or IP-literal catalog asset URLs.

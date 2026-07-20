@@ -27,11 +27,11 @@ Tap a tab again while you’re at the top of a list to scroll back to the top.
 
 ## Data on your device (and iCloud)
 
-Your dive log, photo references, buddies, equipment, and certifications are stored in GoDive’s on-device database. When you’re signed into **iCloud**, that dive log can sync across **your** Apple devices via **CloudKit**.
+Your dive log, photo references, buddies, equipment, and certifications are stored in GoDive’s on-device database. When you’re signed into **iCloud**, that dive log can sync across **your** Apple devices via **CloudKit** (Wi‑Fi or cellular; also in the background when iOS allows).
 
 **Sign in with Apple** links your profile to your Apple ID. A separate **Firebase** social directory (for future friends features) may store your display name — it does **not** hold your dive log.
 
-Optional network features (maps, fish identification, catalog refresh) are described in [Privacy & data](privacy-and-data.md).
+Optional network features (maps, fish identification, catalog refresh) and the full Privacy Policy are in [Privacy Policy](privacy-and-data.md).
 
 Bundled catalogs, 3D models, SDKs, and cloud services are credited on [Acknowledgments & external resources](acknowledgments.md).
 

@@ -1,5 +1,6 @@
 import AuthenticationServices
 import Foundation
+import os
 import SwiftData
 import SwiftUI
 import FirebaseAuth
@@ -14,6 +15,8 @@ final class AccountSession {
     private(set) var isRestoringSession = true
     /// Brand-new account after Sign in with Apple — welcome screen before Contacts + Photos prompts.
     private(set) var showsNewAccountWelcome = false
+    /// Brand-new account that skipped welcome interests — activity picker before profile photo.
+    private(set) var showsPostSignUpInterests = false
     /// Brand-new account — photo, DAN, certification, and profile preview before celebration.
     private(set) var showsPostSignUpProfileSetup = false
     /// Brand-new account — Contacts + Photos explainer before optional import offer.
@@ -38,6 +41,7 @@ final class AccountSession {
         AccountSessionMainShellPresentation.showsMainAppShell(
             isSignedIn: isSignedIn,
             showsNewAccountWelcome: showsNewAccountWelcome,
+            showsPostSignUpInterests: showsPostSignUpInterests,
             showsPostSignUpProfileSetup: showsPostSignUpProfileSetup,
             showsPostSignUpPermissions: showsPostSignUpPermissions,
             showsPostSignUpImportOffer: showsPostSignUpImportOffer,
@@ -51,11 +55,7 @@ final class AccountSession {
     func restoreSession(modelContext: ModelContext) async {
         defer { isRestoringSession = false }
 
-        let profileID = AppLaunchSessionRestorePresentation.persistedProfileID(
-            storedUUIDString: UserDefaults.standard.string(
-                forKey: AppLaunchSessionRestorePresentation.currentProfileIDUserDefaultsKey
-            )
-        )
+        let profileID = AppLaunchSessionRestorePresentation.loadPersistedProfileID()
         guard
             let profileID,
             let profile = try? UserProfileStore.profile(id: profileID, modelContext: modelContext)
@@ -148,20 +148,23 @@ final class AccountSession {
             appleUserIdentifier: appleUserID
         )
 
-        if let pendingSelection = UserOnboardingActivitySelection.loadPending() {
+        let pendingSelection = UserOnboardingActivitySelection.loadPending()
+        let hadPendingWelcomeInterests = pendingSelection?.hasAnySelection == true
+        if let pendingSelection, hadPendingWelcomeInterests {
             try UserProfileStore.applyActivitySelection(
                 pendingSelection,
                 to: profile,
                 modelContext: modelContext
             )
-            UserOnboardingActivitySelection.clearPending()
         }
+        UserOnboardingActivitySelection.clearPending()
 
         try modelContext.save()
         persistSession(profile: profile)
         currentProfile = profile
         cachedSelfBuddyID = nil
         cachedSelfBuddyProfileID = nil
+        GoDiveSecurityEvent.record(.authSucceeded, detail: "siwa")
 
         let identityToken = credential.identityToken
         let appleUserIdentifier = profile.appleUserIdentifier
@@ -197,7 +200,17 @@ final class AccountSession {
         }
 
         if deferFirestoreUpsert {
-            showsPostSignUpProfileSetup = true
+            if PostSignUpInterestsPresentation.shouldPresent(
+                hadPendingWelcomeInterests: hadPendingWelcomeInterests
+            ) {
+                showsPostSignUpInterests = true
+            } else {
+                showsPostSignUpProfileSetup = true
+            }
+            // CloudKit may still be downloading the existing Apple-ID profile + dives.
+            AccountSessionCloudKitIdentityObserver.schedulePostSignInReconcileRetries(
+                container: modelContext.container
+            )
         } else if SignInCelebrationPresentation.shouldPresentCelebration() {
             showsSignInCelebration = true
             pendingNewAccountPermissions = treatAsNewAccount
@@ -255,6 +268,7 @@ final class AccountSession {
     @discardableResult
     func reconcileCloudKitIdentityIfNeeded(modelContext: ModelContext) throws -> UserProfileCloudKitIdentityMerge.Outcome? {
         guard let profile = currentProfile else { return nil }
+        modelContext.processPendingChanges()
         let appleID = profile.appleUserIdentifier
         let merge = try UserProfileCloudKitIdentityMerge.reconcile(
             appleUserIdentifier: appleID,
@@ -267,18 +281,26 @@ final class AccountSession {
         ) else {
             return merge
         }
-        if merge.didChangeCanonicalID || currentProfile?.id != canonical.id {
+        let sessionNeedsSwitch = currentProfile?.id != canonical.id
+        if merge.didChangeCanonicalID || sessionNeedsSwitch {
             persistSession(profile: canonical)
             currentProfile = canonical
             cachedSelfBuddyID = nil
             cachedSelfBuddyProfileID = nil
-            suppressNewAccountOverlaysIfReturningCloudKitAccount(canonical: canonical, modelContext: modelContext)
         }
+        // Always evaluate overlays after a merge attempt — CloudKit may have attached dives to the
+        // canonical row without changing the session UUID (or switched us onto the restored profile).
+        suppressNewAccountOverlaysIfReturningCloudKitAccount(
+            canonical: canonical,
+            mergedDuplicateCount: merge.mergedDuplicateCount,
+            modelContext: modelContext
+        )
         return merge
     }
 
     private func suppressNewAccountOverlaysIfReturningCloudKitAccount(
         canonical: UserProfile,
+        mergedDuplicateCount: Int,
         modelContext: ModelContext
     ) {
         let id = canonical.id
@@ -287,13 +309,34 @@ final class AccountSession {
                 predicate: #Predicate<DiveActivity> { $0.ownerProfileID == id }
             )
         )) ?? 0
-        guard diveCount > 0 else { return }
+        // Dives on the canonical profile, or a CloudKit duplicate merge, prove this is not a cold signup.
+        guard diveCount > 0 || mergedDuplicateCount > 0 else { return }
         showsNewAccountWelcome = false
+        showsPostSignUpInterests = false
         showsPostSignUpProfileSetup = false
         showsPostSignUpPermissions = false
         showsPostSignUpImportOffer = false
         showsPostSignUpOnboardingImport = false
         pendingNewAccountPermissions = false
+        ReturningAccountHints.remember(profile: canonical)
+    }
+
+    /// Ends the post-sign-up interests picker and shows profile photo setup.
+    func completePostSignUpInterests(
+        selection: UserOnboardingActivitySelection,
+        modelContext: ModelContext
+    ) throws {
+        guard showsPostSignUpInterests else { return }
+        guard let profile = currentProfile else { return }
+        try UserProfileStore.applyActivitySelection(
+            selection,
+            to: profile,
+            modelContext: modelContext
+        )
+        withoutImplicitOverlayAnimation {
+            showsPostSignUpInterests = false
+            showsPostSignUpProfileSetup = true
+        }
     }
 
     /// Ends the post-sign-up profile wizard and shows permissions, then import offer or celebration.
@@ -435,10 +478,14 @@ final class AccountSession {
         Task { await AppOnboardingPermissions.requestForNewAccount() }
     }
 
-    func signOut() {
+    /// - Parameter persistSecurityEvent: Pass **`false`** when the account wipe already cleared the journal
+    ///   (account delete) so we do not recreate rows for a deleted owner.
+    func signOut(persistSecurityEvent: Bool = true) {
+        let ownerID = AppLaunchSessionRestorePresentation.loadPersistedProfileID()
         clearPersistedSession()
         currentProfile = nil
         showsNewAccountWelcome = false
+        showsPostSignUpInterests = false
         showsPostSignUpProfileSetup = false
         showsPostSignUpPermissions = false
         showsPostSignUpImportOffer = false
@@ -448,11 +495,16 @@ final class AccountSession {
         pendingNewAccountPermissions = false
         cachedSelfBuddyID = nil
         cachedSelfBuddyProfileID = nil
-        UserDefaults.standard.removeObject(forKey: GoDiveFirestoreUserProfileMapping.firebaseUIDDefaultsKey)
+        GoDiveFirestoreUserProfileMapping.clearCachedFirebaseUID()
         GoDiveFirestoreProfilePublishGate.clear()
         if GoDiveFirebaseBootstrap.isConfigured {
             try? Auth.auth().signOut()
         }
+        GoDiveSecurityEvent.record(
+            .signOut,
+            ownerProfileID: ownerID,
+            persistToJournal: persistSecurityEvent
+        )
     }
 
     /// Owner roster row for the signed-in diver — resolved once per profile per session.
@@ -474,22 +526,23 @@ final class AccountSession {
         return resolved
     }
 
+    private static let authLog = Logger(subsystem: "PrimoSoftware.GoDiveMVP", category: "AccountSession")
+
+    /// Generic failure recording — does not surface credential details to the UI.
     func recordSignInFailure(_ error: Error) {
-        print("Sign in with Apple failed: \(error)")
+        Self.authLog.error("Sign in with Apple failed: \(String(describing: error), privacy: .private)")
+        GoDiveSecurityEvent.record(.authFailed, detail: "siwa")
     }
 
+    nonisolated static let signInFailureUserMessage = "Sign-in could not be completed. Please try again."
+
     private func persistSession(profile: UserProfile) {
-        UserDefaults.standard.set(
-            profile.id.uuidString,
-            forKey: AppLaunchSessionRestorePresentation.currentProfileIDUserDefaultsKey
-        )
+        AppLaunchSessionRestorePresentation.savePersistedProfileID(profile.id)
         ReturningAccountHints.remember(profile: profile)
     }
 
     private func clearPersistedSession() {
-        UserDefaults.standard.removeObject(
-            forKey: AppLaunchSessionRestorePresentation.currentProfileIDUserDefaultsKey
-        )
+        AppLaunchSessionRestorePresentation.clearPersistedProfileID()
     }
 
     /// Avoid animating overlay removal + **`ContentView`** reveal in the same transaction (Instruments handoff jank).

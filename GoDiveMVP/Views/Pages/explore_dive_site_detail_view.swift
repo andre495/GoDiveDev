@@ -117,11 +117,12 @@ struct ExploreDiveSiteDetailView: View {
     }
 
     private var displayRecord: DiveSiteDisplayRecord {
+        let loggedDiveCount = contentSnapshot.siteDiveActivities.count
         switch boundSite {
         case .catalog(let site):
-            DiveSitePresentation.listRecord(for: site)
+            return DiveSitePresentation.listRecord(for: site, loggedDiveCount: loggedDiveCount)
         case .user(let site):
-            DiveSitePresentation.listRecord(for: site)
+            return DiveSitePresentation.listRecord(for: site, loggedDiveCount: loggedDiveCount)
         }
     }
 

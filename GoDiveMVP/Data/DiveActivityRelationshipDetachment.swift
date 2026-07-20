@@ -3,9 +3,11 @@ import SwiftData
 
 /// Breaks SwiftData **non-cascade** relationship inverses on a **`DiveActivity`** so the row can be deleted.
 ///
-/// Cascade children (**`profilePoints`**, **`buddies`**, **`mediaPhotos`**, **`marineLifeSightings`**) are **not**
-/// touched here — iterating them would fault thousands of FIT samples into memory for no benefit; they are removed by
+/// Cascade children (**`buddies`**, **`mediaPhotos`**, **`marineLifeSightings`**) are **not**
+/// touched here — iterating them would fault large graphs into memory for no benefit; they are removed by
 /// **`modelContext.delete(activity)`** + **`deleteRule: .cascade`** on the parent.
+/// **`DiveProfilePoint`** rows live in the user-local store and are deleted separately via
+/// **`DiveProfilePointStore.deletePoints`**.
 enum DiveActivityRelationshipDetachment {
 
     nonisolated static func detachNonCascadeRelationships(
