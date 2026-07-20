@@ -3108,7 +3108,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Profile edits (display name / avatar) push to Firestore / Storage via **`AccountSession.pushFirestoreSocialProfileEdits`** (skips while signup photo deferral is active).
 
 
-## 118 - Next batch
+## 118 - OWASP, profile-track sync, custom sites **(pushed)**
 
 **Summary:** Open **`feature/owasp-secure-coding`** and complete OWASP **Phases 0–6** (policy through output-encoding audit).
 
@@ -3159,3 +3159,5 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`partitionCoverageIssues`** unions **userLocal** (fixes **`DiveProfilePoint`** missing-from-union).
 - Dual-store factory / migrator / bootstrap tests expect **4** configs (user + user-local + catalog + diagnostics).
 
+
+## 119 - Next batch
