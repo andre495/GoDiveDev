@@ -1,17 +1,44 @@
 # Logbook
 
-The **Logbook** tab is your master list of dives, sorted **newest first**.
+The **Logbook** tab is your master activity list — **dives and snorkel sessions**, sorted **newest first**.
 
-The top bar shows **Activity Log** in large white type centered on the same row as **Trips** and **+**. Scroll down and the title compacts; scroll back up and it expands again. A soft fade extends below the header as rows scroll underneath.
+The top bar shows **Activity Log** in large white type centered on the same row as **Trips** and **+**. Directly under the title, a compact glass control switches **My Activities** (your log) and **Buddy Feed** (friends’ shared dives, when they’ve enabled sharing) — the same style as **Explore → My Sites / All Sites**. When **My Activities** is selected, a **filter** button sits beside that control: choose **All activities**, **Dives**, or **Snorkels** to narrow the list (Buddy Feed is unchanged). Scroll down and that control fades away; scroll back to the top (or tap the **Logbook** tab again) and it returns. The **Activity Log** title still compacts when you scroll.
 
-## Dive rows
+## My Activities vs Buddy Feed
 
-Each row shows:
+| Segment | What you see |
+|--------|----------------|
+| **My Activities** | Your dives and snorkel sessions — everything below in this page applies to this view |
 
-- **Dive number** (or **-** if you hid the number for that dive)
+Use the **filter** next to the segment control to show **all** activities, **dives only**, or **snorkels only**. The dive count and bottom-time summary under the toggle reflects the same filter (dives and bottom time still count scuba dives only).
+
+Under **My Activities**, a centered line under the scope toggle shows your **numbered** dive count and combined bottom time (for example **12 Dives | 4 hr Bottom Time**). While the list is still loading, a spinner appears there instead of **0 Dives | 0 Bottom Time**. Dives you hid from numbering in the logbook (**-**) still appear in the list but are not counted here. It hides when you scroll down, together with the expanded **Activity Log** title and **My Activities | Buddy Feed** toggle. It sits below an upcoming-trip banner in the list when one is shown.
+
+| **Buddy Feed** | A merged list of dives your friends share with you (newest first) |
+
+Buddy Feed loads when you select it. Each row shows the dive title, your friend’s name, and a short summary (dive number, date, depth, duration). Tap a row for read-only detail. Notes and photos appear only if your friend opted in under Settings.
+
+Pull down on Buddy Feed to refresh. The feed also refreshes when you switch to **Buddy Feed**, open the **Logbook** tab while that segment is selected, return from a shared dive detail, tap the **Logbook** tab again while already on it, or bring the app back to the foreground while you’re on Buddy Feed in Logbook.
+
+If you have no friends yet, Buddy Feed explains that and offers **Add friends** to open the Friends list (invite via QR or link). If friends have not shared dives yet, you’ll see **No buddy activities yet** with **View friends**.
+
+## Activity rows
+
+Each row shows a type chip, site or session title, stats, and an optional thumbnail.
+
+### Scuba dives
+
+- **Dive number** (or **-** if you hid the number for that dive), with a small **downward waves** icon before the number
 - **Site name** (or location label)
 - **Date, max depth, and duration**
 - A **thumbnail** when the dive has media — tap the thumbnail to open the dive directly on the **Media** tab at that photo
+
+### Snorkel sessions
+
+- **Snorkel** sessions show a **swimmer** icon only (no oval chip); scuba dives show the **downward waves** icon beside an oval **#** (symbol not inside the oval).
+- **Site name** (or **New Snorkel** when no site is set)
+- **Date**, optional **swim distance** (meters or yards per Settings) and shallow **depth**, and **duration**
+- Tap the row to open **snorkel detail** — same three-tab overview as a dive (**Map**, **Heart rate**, **Media**). On **Map**, expand the sheet to **large** for a **Weather** section (Apple Weather at entry time) when GPS or a linked site provides coordinates; imported snorkels keep a stored snapshot from import. The **Heart rate** tab shows your GPS swim track on the map and heart-rate stats/chart in the panel (instead of tank and gas). **Media** works like dive photos: add from your library, tag **marine life** and **buddies**, use **Fishial** identify when configured, and pick a **featured** thumbnail for the logbook row. Tap a thumbnail to open **Media** on that photo.
 
 Rows grouped under the same **trip** show a colored trip header with title, dive count, and date range. Tap the trip title to open trip detail.
 
@@ -25,7 +52,13 @@ From **Logbook**, the list itself is not filtered inline — open **Search** to 
 
 ## Add a dive
 
-Tap **+** (or the empty-state **Log Your First Dive** button) to open **Add activity**:
+Tap **+** (or the empty-state **Log Your First Dive** button) to open **Add activity** — three full-height choices:
+
+- **New Dive Activity** — import a scuba dive (FIT / UDDF) or add one manually (same flow as before).
+- **New Snorkel Activity** — import a snorkel or open-water swim FIT file (Garmin **Snorkeling** or **Open Water** swim). When import finishes, GoDive shows **Import complete** or **Import failed** with how many activities were imported, then opens that activity’s detail (for bulk dive imports, the **newest** dive).
+- **Connect Device** — pair a dive computer or wearable (coming soon).
+
+### New dive activity
 
 === "Import from a file"
 
@@ -64,4 +97,4 @@ Dives linked to a trip appear under that trip’s header with a distinct accent 
 
 ## Empty logbook
 
-With no dives, Logbook prompts you to add your first activity via the same **+** flow.
+With no dives or snorkel sessions, Logbook prompts you to add your first activity via the same **+** flow.

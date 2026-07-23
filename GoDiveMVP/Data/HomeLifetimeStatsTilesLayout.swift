@@ -13,6 +13,17 @@ enum HomeLifetimeStatsTilesLayout: Sendable {
     nonisolated static let statTileHeight: CGFloat = 90
     nonisolated static let buddyTileHeight: CGFloat = 120
 
+    /// Space above the lifetime summary line (below the sheet seam).
+    nonisolated static let lifetimeSummaryTopInset: CGFloat = 8
+    /// Approximate one-line summary height (`.subheadline`).
+    nonisolated static let lifetimeSummaryLineHeight: CGFloat = 20
+    nonisolated static let lifetimeSummaryHeaderSpacingBelow: CGFloat = 10
+
+    nonisolated static func lifetimeSummaryBandHeight(includesHeader: Bool = true) -> CGFloat {
+        guard includesHeader else { return 0 }
+        return lifetimeSummaryTopInset + lifetimeSummaryLineHeight + lifetimeSummaryHeaderSpacingBelow
+    }
+
     /// Minimum tile heights — flexible Home layout grows above these to fill the blue panel.
     nonisolated static var statTileMinimumHeight: CGFloat { statTileHeight }
     nonisolated static var buddyTileMinimumHeight: CGFloat { buddyTileHeight }
@@ -27,7 +38,8 @@ enum HomeLifetimeStatsTilesLayout: Sendable {
 
     nonisolated static func scrollContentHeight(
         statRowCount: Int,
-        showsBuddyLeaderboard: Bool
+        showsBuddyLeaderboard: Bool,
+        includesLifetimeSummaryHeader: Bool = true
     ) -> CGFloat {
         let rows = max(statRowCount, 0)
         guard rows > 0 else { return 0 }
@@ -36,6 +48,7 @@ enum HomeLifetimeStatsTilesLayout: Sendable {
         if showsBuddyLeaderboard {
             height += gridSpacing + buddyTileHeight
         }
+        height += lifetimeSummaryBandHeight(includesHeader: includesLifetimeSummaryHeader)
         return height
     }
 
@@ -64,11 +77,13 @@ enum HomeLifetimeStatsTilesLayout: Sendable {
     nonisolated static func resolvedVerticalEdgeInsets(
         totalHeight: CGFloat,
         statRowCount: Int,
-        showsBuddyLeaderboard: Bool
+        showsBuddyLeaderboard: Bool,
+        includesLifetimeSummaryHeader: Bool = true
     ) -> (top: CGFloat, bottom: CGFloat) {
         let minContent = scrollContentHeight(
             statRowCount: statRowCount,
-            showsBuddyLeaderboard: showsBuddyLeaderboard
+            showsBuddyLeaderboard: showsBuddyLeaderboard,
+            includesLifetimeSummaryHeader: includesLifetimeSummaryHeader
         )
         guard totalHeight > 0, minContent > 0 else {
             return (0, 0)

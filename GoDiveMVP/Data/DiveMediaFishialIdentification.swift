@@ -44,6 +44,7 @@ struct FishialStillCropContext {
     let filename: String
     /// Set for photos so Identify can re-export a full-quality crop.
     let diveMedia: DiveMediaPhoto?
+    let snorkelMedia: SnorkelMediaPhoto?
     #if canImport(AVFoundation)
     let videoScrubContext: FishialVideoScrubContext?
     #endif
@@ -52,6 +53,17 @@ struct FishialStillCropContext {
         sourceImage = previewImage
         filename = DiveMediaFishialFrameExport.photoFilename(mediaID: diveMedia.id)
         self.diveMedia = diveMedia
+        snorkelMedia = nil
+        #if canImport(AVFoundation)
+        videoScrubContext = nil
+        #endif
+    }
+
+    init(snorkelMedia: SnorkelMediaPhoto, previewImage: UIImage) {
+        sourceImage = previewImage
+        filename = DiveMediaFishialFrameExport.photoFilename(mediaID: snorkelMedia.id)
+        diveMedia = nil
+        self.snorkelMedia = snorkelMedia
         #if canImport(AVFoundation)
         videoScrubContext = nil
         #endif
@@ -65,6 +77,7 @@ struct FishialStillCropContext {
         sourceImage = exportedFrame.previewImage
         filename = exportedFrame.filename
         diveMedia = nil
+        snorkelMedia = nil
         self.videoScrubContext = videoScrubContext
     }
     #endif
@@ -146,6 +159,59 @@ enum DiveMediaFishialIdentification {
 
         let observationCoordinate = FishialObservationLocation.resolvedCoordinate(
             for: dive,
+            catalogSites: catalogSites
+        )
+        let response = try await client.recognizeJPEG(
+            frame.data,
+            observationCoordinate: observationCoordinate
+        )
+        let rankedSpecies = FishialRecognitionPresentation.rankedSpecies(from: response)
+        let species = FishialRecognitionPresentation.speciesMatches(from: response)
+
+        return Outcome(
+            selectedFilename: frame.filename,
+            observationCoordinate: observationCoordinate,
+            rankedSpecies: rankedSpecies,
+            detectedFishCount: response.objects.count,
+            species: species
+        )
+    }
+
+    @MainActor
+    static func prepareSelection(for media: SnorkelMediaPhoto) async throws -> SelectionContext {
+        switch media.resolvedMediaKind {
+        case .image:
+            let context = try await DiveMediaFishialFrameExport.makePhotoCropContext(for: media)
+            return .photoCrop(context)
+        case .video:
+            #if canImport(AVFoundation)
+            let context = try await DiveMediaFishialFrameExport.makeVideoScrubContext(for: media)
+            return .video(context)
+            #else
+            throw DiveMediaFishialFrameExportError.assetUnavailable
+            #endif
+        }
+    }
+
+    @MainActor
+    static func recognizeSelectedFrame(
+        _ frame: FishialIdentifyCandidateFrame,
+        snorkel: SnorkelActivity,
+        catalogSites: [DiveSite],
+        onProgress: @escaping @MainActor (FishialIdentifyProgress) -> Void
+    ) async throws -> Outcome {
+        guard !GoDiveUITestConfiguration.isActive else {
+            throw FishialAPIError.missingCredentials
+        }
+        guard let client = FishialAPIClient() else {
+            throw FishialAPIError.missingCredentials
+        }
+
+        onProgress(.recognizingSelectedFrame())
+        await Task.yield()
+
+        let observationCoordinate = FishialObservationLocation.resolvedCoordinate(
+            for: snorkel,
             catalogSites: catalogSites
         )
         let response = try await client.recognizeJPEG(

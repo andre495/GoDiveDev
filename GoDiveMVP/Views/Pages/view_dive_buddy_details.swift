@@ -63,42 +63,6 @@ struct ViewDiveBuddyDetails: View {
         _heroTaggedMediaID = State(
             initialValue: DiveBuddyDetailPresentation.initialHeroTaggedMediaPhotoID(for: buddy)
         )
-
-        let initialMediaTags = Array(buddy.mediaBuddyTags)
-        let initialTaggedPhotos = DiveBuddyTaggedMediaPresentation.photosAvailableFromTagRelationships(
-            initialMediaTags
-        )
-        _cachedTaggedMediaItems = State(initialValue: initialTaggedPhotos)
-
-        let initialSharedDiveContent = DiveBuddyDetailPresentation.initialSharedDiveContent(for: buddy)
-        _cachedDiveRows = State(initialValue: initialSharedDiveContent.rows)
-        _cachedSharedDiveActivities = State(initialValue: initialSharedDiveContent.sharedDives)
-        _cachedSharedDiveCount = State(initialValue: initialSharedDiveContent.sharedDives.count)
-        _cachedMapPins = State(
-            initialValue: DiveBuddyDetailPresentation.initialMapPins(
-                from: initialSharedDiveContent.sharedDives
-            )
-        )
-        _cachedCatalogSites = State(
-            initialValue: DiveBuddyDetailPresentation.catalogSitesFromSharedDives(
-                initialSharedDiveContent.sharedDives
-            )
-        )
-
-        if let ownerProfileID = buddy.ownerProfileID,
-           let index = OwnerDiveIndexSessionCache.resolve(ownerProfileID: ownerProfileID) {
-            _ownerNumberingRows = State(initialValue: index.numberingRows)
-            _ownerActivityTimeZoneOffsets = State(initialValue: index.timeZoneOffsetByActivityID)
-            let numberedRows = DiveBuddyRosterPresentation.sharedDiveRowDisplayData(
-                sharedDives: initialSharedDiveContent.sharedDives,
-                unitSystem: AppUserSettings.diveDisplayUnitSystem(),
-                useChronologicalNumbers: AppUserSettings.automaticallyRenumberDives,
-                numberingRows: index.numberingRows
-            )
-            if !numberedRows.isEmpty {
-                _cachedDiveRows = State(initialValue: numberedRows)
-            }
-        }
     }
 
     private var ownerProfileID: UUID? {
@@ -156,9 +120,9 @@ struct ViewDiveBuddyDetails: View {
     }
 
     private var showsBuddyHeroModeToggle: Bool {
-        ExploreDiveSiteDetailPresentation.showsHeroModeToggle(
-            hasTaggedMedia: !buddyHeaderTaggedMediaItems.isEmpty,
-            hasMapPin: !cachedMapPins.isEmpty
+        PushedDetailHeroModePresentation.showsModeToggle(
+            hasAssociatedMedia: !buddyHeaderTaggedMediaItems.isEmpty,
+            hasMapContent: !cachedMapPins.isEmpty
         )
     }
 
@@ -172,6 +136,7 @@ struct ViewDiveBuddyDetails: View {
     }
 
     var body: some View {
+        let _ = BuddiesListNavigationDiagnostics.logBuddyDetailBodyEvaluation()
         if DiveBuddySelfRepresentation.isSelfBuddy(buddy, owner: accountSession.currentProfile) {
             ProfileView(ownerProfileID: ownerProfileID)
         } else {
@@ -181,24 +146,11 @@ struct ViewDiveBuddyDetails: View {
 
     private var buddyDetailsPage: some View {
         BlueSheetDetailPage(
-            configuration: .pushedDetail(
+            configuration: DiveBuddyDetailPresentation.identityBlueSheetPageConfiguration(
                 accessibilityRootIdentifier: "DiveBuddyDetails.Root"
             ),
             hero: { context in
-                DiveBuddyDetailHeroHeaderView(
-                    media: displayHeroTaggedMedia,
-                    mapPins: showsDeferredHeroMap ? cachedMapPins : [],
-                    mapFitLayout: context.mapFitLayout(),
-                    height: context.heroHeight,
-                    expectsTaggedMedia: expectsBuddyHeroTaggedMedia,
-                    isMapContentReady: showsDeferredHeroMap,
-                    shouldAutoPlaySelectedVideo: allowsHeroVideoAutoplay
-                        && DiveBuddyDetailPresentation.shouldAutoPlaySelectedVideo(
-                            for: displayHeroTaggedMedia
-                        ),
-                    onSiteSelected: openDiveSiteFromMap,
-                    selectedMode: $buddyHeroMode
-                )
+                buddyHeroBandContent(context: context)
             },
             heroOverlay: { _ in
                 if showsBuddyHeroModeToggle {
@@ -210,7 +162,7 @@ struct ViewDiveBuddyDetails: View {
             panelOverlay: {
                 buddyAvatarHeader
                     .padding(.leading, DiveBuddyDetailPresentation.avatarLeadingInset)
-                    .offset(y: -Layout.avatarOverlapOffset)
+                    .offset(y: DiveBuddyDetailPresentation.avatarPanelOverlayVerticalOffset())
                     .accessibilityIdentifier("DiveBuddyDetails.AvatarOverlay")
             },
             pinnedContent: {
@@ -244,10 +196,15 @@ struct ViewDiveBuddyDetails: View {
             )
         }
         .task(id: buddyDetailContentToken, priority: .userInitiated) {
+            BuddiesListNavigationDiagnostics.logBuddyDetailTaskPhase("start")
             await Task.yield()
 
             try? await Task.sleep(for: PushedNavigationDeferralPresentation.afterPushMapDeferral)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else {
+                BuddiesListNavigationDiagnostics.logBuddyDetailTaskPhase("cancelled-after-sleep")
+                return
+            }
+            BuddiesListNavigationDiagnostics.logBuddyDetailTaskPhase("deferred-map-on")
             showsDeferredHeroMap = true
 
             async let contentRefresh: Void = refreshBuddyDetailContentAfterDeferral()
@@ -258,18 +215,37 @@ struct ViewDiveBuddyDetails: View {
             if !Task.isCancelled {
                 allowsHeroVideoAutoplay = true
             }
+            BuddiesListNavigationDiagnostics.logBuddyDetailTaskPhase("complete")
         }
         .onAppear {
+            BuddiesListNavigationDiagnostics.logBuddyDetailAppear(
+                isSelfBuddy: DiveBuddySelfRepresentation.isSelfBuddy(
+                    buddy,
+                    owner: accountSession.currentProfile
+                )
+            )
+            seedBuddyDetailCacheIfNeeded()
             prepareBuddyChromeForDisplay()
             DiveMediaScopeCache.shared.activateScope(.buddyDetail(buddy.id))
         }
-        .onChange(of: buddyDiveTags.count) { _, _ in
+        .onChange(of: buddyDiveTags.count) { _, newCount in
+            BuddiesListNavigationDiagnostics.logBuddyDetailTagChange(
+                diveTagCount: newCount,
+                mediaTagCount: buddyMediaTags.count,
+                source: "diveTags"
+            )
             refreshBuddyDetailContentAfterTagChange()
         }
-        .onChange(of: buddyMediaTags.count) { _, _ in
+        .onChange(of: buddyMediaTags.count) { _, newCount in
+            BuddiesListNavigationDiagnostics.logBuddyDetailTagChange(
+                diveTagCount: buddyDiveTags.count,
+                mediaTagCount: newCount,
+                source: "mediaTags"
+            )
             refreshBuddyDetailContentAfterTagChange()
         }
         .onDisappear {
+            BuddiesListNavigationDiagnostics.logBuddyDetailDisappear()
             DiveMediaScopeCache.shared.deactivateScope(.buddyDetail(buddy.id))
         }
         .sheet(isPresented: $showsEditSheet) {
@@ -346,6 +322,12 @@ struct ViewDiveBuddyDetails: View {
             from: diveTags,
             ownerProfileID: ownerProfileID
         )
+        BuddiesListNavigationDiagnostics.logBuddyDetailRebuild(
+            sharedDiveCount: sharedDives.count,
+            mapPinCount: cachedMapPins.count,
+            includeSecondary: includeSecondarySections,
+            includeMarineLife: includeMarineLifeEnrichment
+        )
         cachedSharedDiveActivities = sharedDives
         cachedSharedDiveCount = sharedDives.count
         let ownerDiveActivityIDs = DiveBuddyDetailPresentation.mediaScopeDiveActivityIDs(
@@ -373,9 +355,7 @@ struct ViewDiveBuddyDetails: View {
                 from: sharedDives,
                 catalogSites: catalogSites
             )
-            if cachedMapPins.isEmpty, buddyHeroMode == .map {
-                buddyHeroMode = .media
-            }
+            syncBuddyHeroMode()
 
             if includeTripRows {
                 // Populated asynchronously via **`loadBuddyTripRowsIfNeeded`**.
@@ -470,6 +450,54 @@ struct ViewDiveBuddyDetails: View {
         }
     }
 
+    /// First paint after push — heavy cache work moved out of **`init`** so list rows do not pay it during navigation resolution.
+    private func seedBuddyDetailCacheIfNeeded() {
+        guard cachedSharedDiveActivities.isEmpty else { return }
+
+        let initStart = CFAbsoluteTimeGetCurrent()
+        let initialMediaTags = Array(buddy.mediaBuddyTags)
+        cachedTaggedMediaItems = DiveBuddyTaggedMediaPresentation.photosAvailableFromTagRelationships(
+            initialMediaTags
+        )
+
+        let initialSharedDiveContent = DiveBuddyDetailPresentation.initialSharedDiveContent(for: buddy)
+        cachedDiveRows = initialSharedDiveContent.rows
+        cachedSharedDiveActivities = initialSharedDiveContent.sharedDives
+        cachedSharedDiveCount = initialSharedDiveContent.sharedDives.count
+        cachedMapPins = DiveBuddyDetailPresentation.initialMapPins(
+            from: initialSharedDiveContent.sharedDives
+        )
+        cachedCatalogSites = DiveBuddyDetailPresentation.catalogSitesFromSharedDives(
+            initialSharedDiveContent.sharedDives
+        )
+
+        if let ownerProfileID = buddy.ownerProfileID,
+           let index = OwnerDiveIndexSessionCache.resolve(ownerProfileID: ownerProfileID) {
+            ownerNumberingRows = index.numberingRows
+            ownerActivityTimeZoneOffsets = index.timeZoneOffsetByActivityID
+            let numberedRows = DiveBuddyRosterPresentation.sharedDiveRowDisplayData(
+                sharedDives: initialSharedDiveContent.sharedDives,
+                unitSystem: diveDisplayUnitSystem,
+                useChronologicalNumbers: automaticallyRenumberDives,
+                numberingRows: index.numberingRows
+            )
+            if !numberedRows.isEmpty {
+                cachedDiveRows = numberedRows
+            }
+        }
+
+        syncBuddyHeroMode()
+
+        let initElapsedMs = (CFAbsoluteTimeGetCurrent() - initStart) * 1000
+        BuddiesListNavigationDiagnostics.logBuddyDetailInit(
+            sharedDiveCount: initialSharedDiveContent.sharedDives.count,
+            mapPinCount: cachedMapPins.count,
+            mediaTagCount: initialMediaTags.count,
+            diveTagCount: buddy.diveParticipations.count,
+            elapsedMilliseconds: initElapsedMs
+        )
+    }
+
     private func refreshBuddyDetailContentAfterTagChange() {
         rebuildBuddyDetailContent(
             includeSecondarySections: true,
@@ -524,6 +552,14 @@ struct ViewDiveBuddyDetails: View {
                 in: cachedTaggedMediaItems
             )
         }
+
+        GoDiveProfileHeroFeaturedMediaSync.scheduleSyncForSelfBuddyHeader(
+            buddy: buddy,
+            owner: accountSession.currentProfile,
+            sessionRandomHeroMediaID: heroTaggedMediaID,
+            modelContext: modelContext,
+            force: true
+        )
     }
 
     private var contactsAccessAlertBinding: Binding<Bool> {
@@ -556,7 +592,7 @@ struct ViewDiveBuddyDetails: View {
             titleMinimumScaleFactor: 0.85,
             accessibilityIdentifier: "DiveBuddyDetails.Header",
             usesLeadingAccessoryLayout: true,
-            contentVerticalOffset: -DiveBuddyDetailPresentation.identityTextLift,
+            contentVerticalOffset: DiveBuddyDetailPresentation.identityPinnedSummaryVerticalOffset,
             leadingAccessory: {
                 Color.clear
                     .frame(
@@ -758,4 +794,48 @@ struct ViewDiveBuddyDetails: View {
         }
     }
     #endif
+
+    private func syncBuddyHeroMode() {
+        let prior = buddyHeroMode
+        let hasMedia = !buddyHeaderTaggedMediaItems.isEmpty
+        let hasMap = !cachedMapPins.isEmpty
+        buddyHeroMode = PushedDetailHeroModePresentation.enforceModeWhenToggleHidden(
+            buddyHeroMode,
+            hasAssociatedMedia: hasMedia,
+            hasMapContent: hasMap
+        )
+        BuddiesListNavigationDiagnostics.logBuddyHeroModeSync(
+            from: prior.rawValue,
+            to: buddyHeroMode.rawValue,
+            hasMedia: hasMedia,
+            hasMap: hasMap
+        )
+    }
+
+    @ViewBuilder
+    private func buddyHeroBandContent(context: BlueSheetHeaderPageLayoutContext) -> some View {
+        let heroFitLayout = context.mapFitLayout()
+        let heroModeBinding = PushedDetailHeroModePresentation.heroModeBinding(
+            hasAssociatedMedia: !buddyHeaderTaggedMediaItems.isEmpty,
+            hasMapContent: !cachedMapPins.isEmpty,
+            mode: $buddyHeroMode
+        )
+
+        BlueSheetDetailHeroBandFill(accessibilityIdentifier: "DiveBuddyDetails.HeroBand") {
+            DiveBuddyDetailHeroHeaderView(
+                media: displayHeroTaggedMedia,
+                mapPins: showsDeferredHeroMap ? cachedMapPins : [],
+                mapFitLayout: heroFitLayout,
+                height: context.heroHeight,
+                expectsTaggedMedia: expectsBuddyHeroTaggedMedia,
+                isMapContentReady: showsDeferredHeroMap,
+                shouldAutoPlaySelectedVideo: allowsHeroVideoAutoplay
+                    && DiveBuddyDetailPresentation.shouldAutoPlaySelectedVideo(
+                        for: displayHeroTaggedMedia
+                    ),
+                onSiteSelected: openDiveSiteFromMap,
+                selectedMode: heroModeBinding
+            )
+        }
+    }
 }

@@ -11,7 +11,7 @@ GoDive is a dive log for iPhone. It helps you import dives from your dive comput
 | **Field Guide** | Browse a marine life catalog; tag species on dive photos |
 | **Explore** | Map or list of dive sites; add your own sites |
 | **Search** | App-wide search across dives, sites, species, buddies, trips, gear, and more |
-| **Profile** | Certifications, equipment locker, dive buddies, and trips (avatar on Home) |
+| **Profile** | Avatar on Home; buddy-style blue sheet (tagged media hero); side menu for trips, certifications, gear, buddies, **Friends**, Edit Profile, Settings |
 
 ## The main tabs
 
@@ -29,7 +29,7 @@ Tap a tab again while you’re at the top of a list to scroll back to the top.
 
 Your dive log, photo references, buddies, equipment, and certifications are stored in GoDive’s on-device database. When you’re signed into **iCloud**, that dive log can sync across **your** Apple devices via **CloudKit** (Wi‑Fi or cellular; also in the background when iOS allows).
 
-**Sign in with Apple** links your profile to your Apple ID. A separate **Firebase** social directory (for future friends features) may store your display name — it does **not** hold your dive log.
+**Sign in with Apple** links your profile to your Apple ID. **Firebase** holds a social directory and, when you use Friends, invite/friendship records plus **friend-visible dive details** you choose to share (notes and media stay opt-in). Your private dive log still syncs through **CloudKit** on your devices.
 
 Optional network features (maps, fish identification, catalog refresh) and the full Privacy Policy are in [Privacy Policy](privacy-and-data.md).
 

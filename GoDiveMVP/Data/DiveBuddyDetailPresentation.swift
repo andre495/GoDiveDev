@@ -45,6 +45,45 @@ enum DiveBuddyDetailPresentation: Sendable {
     /// Lifts buddy name + dives-together beside the overlapping avatar (applied as negative Y offset).
     nonisolated static let identityTextLift: CGFloat = 12
 
+    /// Layout lab deltas (profile / buddy / friend identity chrome) — §119 spacing pass.
+    nonisolated static let identityAvatarVerticalOffsetAdjustment: CGFloat = 23
+    nonisolated static let identityTextVerticalOffsetAdjustment: CGFloat = 13
+    nonisolated static let panelBodyTopSpacingAdjustment: CGFloat =
+        BlueSheetDetailPagePinnedSummaryPresentation.panelBodyTopSpacingAdjustment
+
+    /// Panel-overlay avatar Y — half on hero, half on sheet, plus **`identityAvatarVerticalOffsetAdjustment`**.
+    nonisolated static func avatarPanelOverlayVerticalOffset(
+        diameter: CGFloat = profileAvatarDiameter
+    ) -> CGFloat {
+        -avatarOverlapOffset(diameter: diameter) + identityAvatarVerticalOffsetAdjustment
+    }
+
+    /// **`BlueSheetPinnedSummary`** **`contentVerticalOffset`** for buddy-style identity rows.
+    nonisolated static var identityPinnedSummaryVerticalOffset: CGFloat {
+        -identityTextLift + identityTextVerticalOffsetAdjustment
+    }
+
+    /// Pinned identity block → pager / panel body ( **`bodyBottomPadding`** + adjustment).
+    nonisolated static var pinnedSummaryToPanelBodyPadding: CGFloat {
+        BlueSheetDetailPagePinnedSummaryPresentation.pushedDetailPinnedSummaryBottomPadding
+    }
+
+    /// Bottom padding for **`BlueSheetDetailPage`** pinned summary on profile / buddy / friend.
+    nonisolated static var identityPinnedSummaryBottomPadding: CGFloat {
+        pinnedSummaryToPanelBodyPadding
+    }
+
+    nonisolated static func identityBlueSheetPageConfiguration(
+        accessibilityRootIdentifier: String,
+        usesProfileBubblePanelBackground: Bool = false
+    ) -> BlueSheetDetailPageConfiguration {
+        .pushedDetail(
+            accessibilityRootIdentifier: accessibilityRootIdentifier,
+            usesProfileBubblePanelBackground: usesProfileBubblePanelBackground,
+            pinnedSummaryBottomPadding: identityPinnedSummaryBottomPadding
+        )
+    }
+
     /// Bottom padding for hero media/map toggle — clears **`HomeLifetimeStatsPanel`** overlap.
     nonisolated static let heroModeToggleBottomPadding: CGFloat =
         HomeLifetimeStatsLayout.panelOverlap + AppTheme.Spacing.md

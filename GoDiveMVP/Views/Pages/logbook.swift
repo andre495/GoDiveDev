@@ -5,10 +5,12 @@ import SwiftUI
 struct LogbookView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(AccountSession.self) private var accountSession
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
 
     @Query private var activities: [DiveActivity]
+    @Query private var snorkelActivities: [SnorkelActivity]
     @Query private var ownerTrips: [DiveTrip]
 
     @State private var diveSiteCatalog: [DiveSite] = []
@@ -19,6 +21,7 @@ struct LogbookView: View {
     /// Hides the row immediately; cleared only if background delete fails.
     @State private var optimisticallyRemovedActivityIDs: Set<UUID> = []
     @State private var logbookDisplayItems: [LogbookListDisplayItem] = []
+    @State private var logbookMyActivitiesSummary: LogbookMyActivitiesSummary = .empty
     @State private var duplicateActivityIds: Set<UUID> = []
     @State private var logbookCacheRefreshGeneration = 0
     /// While **`true`**, SwiftData **`@Query`** updates do not schedule row rebuilds (delete + background renumber).
@@ -30,15 +33,30 @@ struct LogbookView: View {
     @State private var diveDeleteProgressStartedAt: Date?
     @State private var listScrollToTopNonce = 0
     @State private var hasPerformedInitialLogbookCacheBuild = false
+    @State private var logbookFeedScope: LogbookFeedScope = .myActivities
+    @State private var myActivitiesKindFilter: LogbookMyActivitiesKindFilter = .all
+    @State private var buddyFeedRows: [LogbookBuddyFeedPresentation.Row] = []
+    @State private var buddyFeedFriends: [GoDiveFriendGraphService.FriendEdge] = []
+    @State private var isBuddyFeedLoading = false
+    @State private var buddyFeedLoadGeneration = 0
 
     private let ownerProfileID: UUID?
+    private let logbookTabSelectionGeneration: Int
+    private let isLogbookTabSelected: Bool
 
     private var isLogbookNavigationStackAtRoot: Bool {
         RootStackReturnNavigationPresentation.isStackAtRoot(pathCount: path.count)
     }
 
-    init(ownerProfileID: UUID?, pendingRoute: Binding<LogbookRoute?> = .constant(nil)) {
+    init(
+        ownerProfileID: UUID?,
+        pendingRoute: Binding<LogbookRoute?> = .constant(nil),
+        logbookTabSelectionGeneration: Int = 0,
+        isLogbookTabSelected: Bool = true
+    ) {
         self.ownerProfileID = ownerProfileID
+        self.logbookTabSelectionGeneration = logbookTabSelectionGeneration
+        self.isLogbookTabSelected = isLogbookTabSelected
         _pendingRoute = pendingRoute
         let filterOwnerID = ownerProfileID ?? LogbookView.noOwnerQueryToken
         _activities = Query(
@@ -46,6 +64,13 @@ struct LogbookView: View {
             sort: [
                 SortDescriptor(\DiveActivity.startTime, order: .reverse),
                 SortDescriptor(\DiveActivity.id, order: .forward),
+            ]
+        )
+        _snorkelActivities = Query(
+            filter: #Predicate<SnorkelActivity> { $0.ownerProfileID == filterOwnerID },
+            sort: [
+                SortDescriptor(\SnorkelActivity.startTime, order: .reverse),
+                SortDescriptor(\SnorkelActivity.id, order: .forward),
             ]
         )
         _ownerTrips = Query(
@@ -61,6 +86,26 @@ struct LogbookView: View {
         activities.filter { !optimisticallyRemovedActivityIDs.contains($0.id) }
     }
 
+    private var visibleSnorkelActivities: [SnorkelActivity] {
+        snorkelActivities
+    }
+
+    private var visibleMyActivitiesCount: Int {
+        visibleActivities.count + visibleSnorkelActivities.count
+    }
+
+    @MainActor
+    private func mergedLogbookActivitySeeds() -> [LogbookActivitySnapshotSeed] {
+        let merged = LogbookActivitySnapshotSeeding.mergedActivitySeeds(
+            dives: visibleActivities,
+            snorkels: visibleSnorkelActivities
+        )
+        return LogbookMyActivitiesKindFilterPresentation.filteredSeeds(
+            merged,
+            filter: myActivitiesKindFilter
+        )
+    }
+
     private var logbookUpcomingTripBanner: LogbookUpcomingTripBannerData? {
         guard LogbookUpcomingTripPresentation.shouldShowInLogbookList(
             isFilteringLogbook: false,
@@ -72,7 +117,7 @@ struct LogbookView: View {
 
     /// No dives left in the store (accounting for optimistic hides before **`@Query`** catches up).
     private var showsStoredDiveEmptyState: Bool {
-        activities.count <= optimisticallyRemovedActivityIDs.count
+        visibleMyActivitiesCount == 0
     }
 
     /// Trip rows / dive ↔ trip links can change without **`activities.count`** changing.
@@ -81,9 +126,17 @@ struct LogbookView: View {
     }
 
     var body: some View {
-        logbookNavigationStack
-            .navigationInteractivePopGestureForHiddenNavBar()
-            .logbookTabReselectObserver()
+        attachLogbookStoreObservers(
+            to: attachLogbookNotificationObservers(
+                to: logbookNavigationStack
+                    .navigationInteractivePopGestureForHiddenNavBar()
+                    .logbookTabReselectObserver()
+            )
+        )
+    }
+
+    private func attachLogbookNotificationObservers<Content: View>(to content: Content) -> some View {
+        content
             .onReceive(NotificationCenter.default.publisher(for: .logbookTabReselected)) { _ in
                 handleLogbookTabReselect()
             }
@@ -101,11 +154,25 @@ struct LogbookView: View {
             ) { _ in
                 handleTripGroupingDidChange()
             }
+            .onReceive(
+                NotificationCenter.default
+                    .publisher(for: .goDiveFriendGraphDidChange)
+                    .receive(on: RunLoop.main)
+            ) { _ in
+                refreshBuddyFeedWhenBuddyFeedListVisible()
+            }
+    }
+
+    private func attachLogbookStoreObservers<Content: View>(to content: Content) -> some View {
+        content
             .onAppear(perform: handleLogbookRootAppear)
             .task(id: ownerProfileID) {
                 diveSiteCatalog = await DiveSiteCatalogLoader.loadSortedCatalog(modelContext: modelContext)
             }
             .onChange(of: activities.count) { _, _ in
+                handleActivitiesCountChange()
+            }
+            .onChange(of: snorkelActivities.count) { _, _ in
                 handleActivitiesCountChange()
             }
             .onChange(of: logbookTripGroupingSyncToken) { _, _ in
@@ -117,9 +184,35 @@ struct LogbookView: View {
             .onChange(of: automaticallyRenumberDives) { _, _ in
                 scheduleLogbookCacheRefresh()
             }
+            .onChange(of: myActivitiesKindFilter) { _, _ in
+                scheduleLogbookCacheRefresh()
+            }
             .onAppear(perform: consumePendingLogbookRouteIfNeeded)
             .onChange(of: pendingRoute) { _, _ in
                 consumePendingLogbookRouteIfNeeded()
+            }
+            .onChange(of: logbookFeedScope) { _, scope in
+                if scope == .buddyFeed {
+                    refreshBuddyFeedIfOnBuddyFeed()
+                }
+            }
+            .onChange(of: logbookTabSelectionGeneration) { _, _ in
+                refreshBuddyFeedWhenBuddyFeedListVisible()
+                performDeferredLogbookCacheBuildIfNeeded()
+            }
+            .onChange(of: isLogbookTabSelected) { _, isSelected in
+                if isSelected {
+                    performDeferredLogbookCacheBuildIfNeeded()
+                }
+            }
+            .onChange(of: path.count) { oldCount, newCount in
+                if newCount == 0, oldCount > 0 {
+                    refreshBuddyFeedWhenBuddyFeedListVisible()
+                }
+            }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .active else { return }
+                refreshBuddyFeedWhenBuddyFeedListVisible()
             }
     }
 
@@ -152,6 +245,9 @@ struct LogbookView: View {
         .environment(\.openTripDetailMedia) { launch in
             path.append(.tripDetailMedia(tripID: launch.tripID, mediaID: launch.mediaID))
         }
+        .environment(\.openBuddiesListDetailRoute) { route in
+            path.append(.buddiesListDetail(route))
+        }
     }
 
     private func handleLogbookRootAppear() {
@@ -159,6 +255,25 @@ struct LogbookView: View {
             hasPerformedInitialCacheBuild: hasPerformedInitialLogbookCacheBuild,
             hasDisplayRows: !logbookDisplayItems.isEmpty
         ) {
+            return
+        }
+        guard LogbookRootAppearPresentation.shouldBuildCacheOnAppear(
+            isLogbookTabSelected: isLogbookTabSelected,
+            hasPerformedInitialCacheBuild: hasPerformedInitialLogbookCacheBuild
+        ) else {
+            if logbookDisplayItems.isEmpty, !visibleActivities.isEmpty {
+                scheduleLogbookCacheRefresh()
+            }
+            return
+        }
+        performDeferredLogbookCacheBuildIfNeeded()
+    }
+
+    private func performDeferredLogbookCacheBuildIfNeeded() {
+        guard LogbookRootAppearPresentation.shouldBuildCacheOnAppear(
+            isLogbookTabSelected: isLogbookTabSelected,
+            hasPerformedInitialCacheBuild: hasPerformedInitialLogbookCacheBuild
+        ) else {
             return
         }
         hasPerformedInitialLogbookCacheBuild = true
@@ -184,38 +299,122 @@ struct LogbookView: View {
         }
     }
 
+    private var showsMyActivitiesKindFilterEmptyState: Bool {
+        guard logbookFeedScope == .myActivities else { return false }
+        guard !showsStoredDiveEmptyState else { return false }
+        guard !isMyActivitiesLogbookLoading else { return false }
+        guard logbookDisplayItems.isEmpty else { return false }
+        let matching = LogbookMyActivitiesKindFilterPresentation.matchingStoredActivityCount(
+            diveCount: visibleActivities.count,
+            snorkelCount: visibleSnorkelActivities.count,
+            filter: myActivitiesKindFilter
+        )
+        return matching == 0
+    }
+
+    private var isMyActivitiesLogbookLoading: Bool {
+        LogbookMyActivitiesSummaryPresentation.showsLoadingChrome(
+            feedScope: logbookFeedScope,
+            visibleDiveCount: visibleActivities.count,
+            visibleSnorkelCount: visibleSnorkelActivities.count,
+            kindFilter: myActivitiesKindFilter,
+            displayItemCount: logbookDisplayItems.count
+        )
+    }
+
     private var logbookListSurfaceView: some View {
         LogbookListSurface(
+            feedScope: logbookFeedScope,
+            feedScopeSelection: $logbookFeedScope,
+            myActivitiesKindFilter: $myActivitiesKindFilter,
             items: logbookDisplayItems,
+            buddyFeedRows: buddyFeedRows,
+            buddyFeedEmptyKind: buddyFeedEmptyKind,
+            isBuddyFeedLoading: isBuddyFeedLoading,
+            isMyActivitiesLoading: isMyActivitiesLogbookLoading,
             upcomingTripBanner: logbookUpcomingTripBanner,
+            myActivitiesSummary: logbookMyActivitiesSummary,
             showsStoredDiveEmptyState: showsStoredDiveEmptyState,
+            showsMyActivitiesKindFilterEmptyState: showsMyActivitiesKindFilterEmptyState,
             bubbleAnimationPaused: suppressStoreDrivenRefresh || isDiveDeleteInProgress,
             scrollToTopNonce: listScrollToTopNonce,
             onSwipeDelete: requestDeleteForRow,
-            onSelectMediaPreview: openDiveMediaPreview,
+            onSelectMediaPreview: openActivityMediaPreview,
             onOpenTrip: { path.append(.tripDetail($0)) },
-            onOpenDive: { path.append(.diveDetail($0)) }
+            onOpenDive: { path.append(.diveDetail($0)) },
+            onOpenFriendProfile: { friend in
+                path.append(.friendProfile(friend))
+            },
+            onBuddyFeedRefresh: refreshBuddyFeed
         )
         .equatable()
+    }
+
+    private var buddyFeedEmptyKind: LogbookBuddyFeedPresentation.EmptyKind? {
+        LogbookBuddyFeedPresentation.emptyKind(
+            friends: buddyFeedFriends,
+            rows: buddyFeedRows,
+            firebaseConfigured: GoDiveFirebaseBootstrap.isConfigured,
+            isSignedIn: GoDiveFirestoreUserProfileMapping.loadCachedFirebaseUID() != nil
+        )
+    }
+
+    @MainActor
+    private func refreshBuddyFeed() async {
+        buddyFeedLoadGeneration += 1
+        let generation = buddyFeedLoadGeneration
+        if buddyFeedRows.isEmpty || buddyFeedFriends.isEmpty {
+            isBuddyFeedLoading = true
+        }
+        defer {
+            if generation == buddyFeedLoadGeneration {
+                isBuddyFeedLoading = false
+            }
+        }
+        GoDiveFirebaseBootstrap.configureIfNeeded()
+        let snapshot = await GoDiveSharedDiveProjectionSync.fetchBuddyFeedSnapshot()
+        guard generation == buddyFeedLoadGeneration else { return }
+        buddyFeedFriends = snapshot.friends
+        buddyFeedRows = snapshot.rows
+        if let owner = accountSession.currentProfile {
+            GoDiveFriendBuddyLinking.syncRosterLinks(
+                friends: snapshot.friends,
+                owner: owner,
+                modelContext: modelContext
+            )
+        }
+    }
+
+    private func refreshBuddyFeedIfOnBuddyFeed() {
+        guard logbookFeedScope == .buddyFeed else { return }
+        Task { await refreshBuddyFeed() }
+    }
+
+    /// Refreshes when the buddy feed list is on screen (logbook root + **Buddy Feed** segment).
+    private func refreshBuddyFeedWhenBuddyFeedListVisible() {
+        guard LogbookBuddyFeedPresentation.shouldAutoRefreshBuddyFeedList(
+            feedScope: logbookFeedScope,
+            navigationPathCount: path.count,
+            isLogbookTabSelected: isLogbookTabSelected
+        ) else { return }
+        Task { await refreshBuddyFeed() }
     }
 
     @ViewBuilder
     private func logbookRouteDestination(route: LogbookRoute) -> some View {
         switch route {
         case .addActivity:
-            ActivityUploadView(
-                onSuccessfulImport: { diveId in
-                    if !path.isEmpty {
-                        path.removeLast()
-                    }
-                    path.append(.diveDetail(diveId))
-                },
-                onBulkImportComplete: {
-                    if !path.isEmpty {
-                        path.removeLast()
-                    }
+            LogbookAddActivityHubView()
+        case .diveActivityUpload:
+            logbookDiveActivityUploadDestination()
+        case .snorkelActivityUpload:
+            SnorkelActivityUploadView(
+                onSuccessfulImport: { snorkelId in
+                    openImportedSnorkelDetail(snorkelId)
                 }
             )
+        case .connectDeviceComingSoon:
+            ConnectDeviceComingSoonView()
         case .tripPlanner:
             TripPlannerView()
         case .diveDetail(let id):
@@ -223,6 +422,22 @@ struct LogbookView: View {
                 ViewSingleActivity(activity: activity)
             } else {
                 diveNoLongerInLogText
+            }
+        case .snorkelDetail(let id):
+            if let activity = snorkelActivities.first(where: { $0.id == id }) {
+                ViewSingleSnorkelActivity(activity: activity)
+            } else {
+                Text("This snorkel is no longer in your log.")
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+                    .padding()
+            }
+        case .snorkelMedia(let id, let mediaID):
+            if let activity = snorkelActivities.first(where: { $0.id == id }) {
+                ViewSingleSnorkelActivity(activity: activity, initialMediaFocusID: mediaID)
+            } else {
+                Text("This snorkel is no longer in your log.")
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+                    .padding()
             }
         case .diveMedia(let id, let mediaID):
             if let activity = activities.first(where: { $0.id == id }) {
@@ -244,6 +459,53 @@ struct LogbookView: View {
                 ownerProfileID: ownerProfileID,
                 onOpenDive: { path.append(.diveDetail($0)) }
             )
+        case .buddySharedDive(let friendUID, let diveDocumentID):
+            if let row = buddyFeedRows.first(where: {
+                $0.friendUID == friendUID && $0.dive.id == diveDocumentID
+            }) {
+                FriendSharedDiveDetailView(dive: row.dive, friendName: row.friendDisplayName)
+                    .hidesBottomTabBarWhenPushed()
+            } else {
+                Text("This shared dive is no longer available.")
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+                    .padding()
+            }
+        case .friendProfile(let friend):
+            FriendProfileView(
+                friend: friend
+            )
+        case .friends:
+            FriendsListView()
+        case .buddiesListDetail(let route):
+            BuddiesListNavigationDestinationView(route: route)
+                .hidesBottomTabBarWhenPushed()
+        }
+    }
+
+    private func logbookDiveActivityUploadDestination() -> some View {
+        ActivityUploadView(
+            onSuccessfulImport: { diveId in
+                openImportedDiveDetail(diveId)
+            },
+            onBulkImportComplete: {
+                popLogbookImportRouteIfNeeded()
+            }
+        )
+    }
+
+    private func openImportedDiveDetail(_ diveId: UUID) {
+        popLogbookImportRouteIfNeeded()
+        path.append(.diveDetail(diveId))
+    }
+
+    private func openImportedSnorkelDetail(_ snorkelId: UUID) {
+        popLogbookImportRouteIfNeeded()
+        path.append(.snorkelDetail(snorkelId))
+    }
+
+    private func popLogbookImportRouteIfNeeded() {
+        if !path.isEmpty {
+            path.removeLast()
         }
     }
 
@@ -253,10 +515,15 @@ struct LogbookView: View {
             .padding()
     }
 
-    /// Tapping a row's media thumbnail opens the dive's **Media** tab on that photo (medium detent).
-    private func openDiveMediaPreview(_ row: DiveLogbookRowDisplayData) {
+    /// Tapping a row's media thumbnail opens activity detail on the **Media** tab for that photo.
+    private func openActivityMediaPreview(_ row: DiveLogbookRowDisplayData) {
         guard let mediaID = row.previewMediaPhotoID else { return }
-        path.append(.diveMedia(row.id, mediaID: mediaID))
+        switch row.activityKind {
+        case .scubaDive:
+            path.append(.diveMedia(row.id, mediaID: mediaID))
+        case .snorkel:
+            path.append(.snorkelMedia(row.id, mediaID: mediaID))
+        }
     }
 
     private func requestDeleteForRow(_ rowID: UUID) {
@@ -310,6 +577,7 @@ struct LogbookView: View {
     private func handleLogbookTabReselect() {
         path.removeAll()
         RootTabListScrollSupport.scheduleScrollToTop { listScrollToTopNonce += 1 }
+        refreshBuddyFeedWhenBuddyFeedListVisible()
     }
 
     private func confirmDeleteDiveOverlay(activity: DiveActivity) -> some View {
@@ -392,7 +660,11 @@ struct LogbookView: View {
                 switch $0 {
                 case .diveDetail(let detailId): return detailId == id
                 case .diveMedia(let detailId, _): return detailId == id
-                case .addActivity, .tripPlanner, .tripDetail, .tripDetailMedia, .diveSite: return false
+                case .snorkelDetail(let detailId): return detailId == id
+                case .snorkelMedia(let detailId, _): return detailId == id
+                case .addActivity, .diveActivityUpload, .snorkelActivityUpload, .connectDeviceComingSoon,
+                     .tripPlanner, .tripDetail, .tripDetailMedia, .diveSite, .buddySharedDive, .friendProfile, .friends,
+                     .buddiesListDetail: return false
                 }
             }
 
@@ -498,6 +770,7 @@ struct LogbookView: View {
     /// Drops the deleted row immediately; when automatic renumber is on, refreshes **#** labels without a full duplicate scan.
     private func applyOptimisticDeleteToLogbookRows(removedId: UUID) {
         logbookDisplayItems = LogbookTripGrouping.removingDive(id: removedId, from: logbookDisplayItems)
+        refreshLogbookMyActivitiesSummaryFromVisibleStore()
         guard automaticallyRenumberDives else { return }
 
         let numberingRows = visibleActivities.map {
@@ -520,7 +793,7 @@ struct LogbookView: View {
     ) async {
         logbookCacheRefreshGeneration += 1
         let generation = logbookCacheRefreshGeneration
-        let seeds = LogbookActivitySnapshotSeeding.seeds(from: visibleActivities)
+        let seeds = mergedLogbookActivitySeeds()
         let tripSeeds = LogbookTripSnapshotSeeding.tripSeeds(
             from: visibleActivities,
             ownerTrips: ownerTrips
@@ -545,6 +818,13 @@ struct LogbookView: View {
         guard generation == logbookCacheRefreshGeneration else { return }
         logbookDisplayItems = result.items
         duplicateActivityIds = result.duplicateIds
+        logbookMyActivitiesSummary = result.myActivitiesSummary
+    }
+
+    @MainActor
+    private func refreshLogbookMyActivitiesSummaryFromVisibleStore() {
+        let seeds = mergedLogbookActivitySeeds()
+        logbookMyActivitiesSummary = LogbookMyActivitiesSummaryPresentation.summary(from: seeds)
     }
 
     private func scheduleLogbookCacheRefresh(
@@ -569,7 +849,7 @@ struct LogbookView: View {
                     (
                         diveDisplayUnitSystem,
                         automaticallyRenumberDives,
-                        LogbookActivitySnapshotSeeding.seeds(from: visibleActivities),
+                        mergedLogbookActivitySeeds(),
                         LogbookTripSnapshotSeeding.tripSeeds(
                             from: visibleActivities,
                             ownerTrips: ownerTrips
@@ -594,6 +874,7 @@ struct LogbookView: View {
                     guard generation == logbookCacheRefreshGeneration else { return }
                     logbookDisplayItems = result.items
                     duplicateActivityIds = result.duplicateIds
+                    logbookMyActivitiesSummary = result.myActivitiesSummary
                 }
             }
         }
@@ -615,15 +896,26 @@ struct LogbookView: View {
 // MARK: - List surface (no `@Query` — avoids redrawing bubbles/list on every SwiftData merge)
 
 private struct LogbookListSurface: View, Equatable {
+    let feedScope: LogbookFeedScope
+    @Binding var feedScopeSelection: LogbookFeedScope
+    @Binding var myActivitiesKindFilter: LogbookMyActivitiesKindFilter
     let items: [LogbookListDisplayItem]
+    let buddyFeedRows: [LogbookBuddyFeedPresentation.Row]
+    let buddyFeedEmptyKind: LogbookBuddyFeedPresentation.EmptyKind?
+    let isBuddyFeedLoading: Bool
+    let isMyActivitiesLoading: Bool
     let upcomingTripBanner: LogbookUpcomingTripBannerData?
+    let myActivitiesSummary: LogbookMyActivitiesSummary
     let showsStoredDiveEmptyState: Bool
+    let showsMyActivitiesKindFilterEmptyState: Bool
     let bubbleAnimationPaused: Bool
     let scrollToTopNonce: Int
     let onSwipeDelete: (UUID) -> Void
     let onSelectMediaPreview: (DiveLogbookRowDisplayData) -> Void
     let onOpenTrip: (UUID) -> Void
     let onOpenDive: (UUID) -> Void
+    let onOpenFriendProfile: (GoDiveFriendGraphService.FriendEdge) -> Void
+    let onBuddyFeedRefresh: () async -> Void
 
     @State private var isHeaderCollapsed = false
     @State private var headerClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
@@ -634,8 +926,16 @@ private struct LogbookListSurface: View, Equatable {
 
     private var equatableInputs: LogbookListSurfaceEquatableInputs {
         LogbookListSurfaceEquatableInputs(
+            feedScope: feedScope,
+            myActivitiesKindFilter: myActivitiesKindFilter,
+            showsMyActivitiesKindFilterEmptyState: showsMyActivitiesKindFilterEmptyState,
             items: items,
+            buddyFeedRows: buddyFeedRows,
+            buddyFeedEmptyKind: buddyFeedEmptyKind,
+            isBuddyFeedLoading: isBuddyFeedLoading,
+            isMyActivitiesLoading: isMyActivitiesLoading,
             upcomingTripBanner: upcomingTripBanner,
+            myActivitiesSummary: myActivitiesSummary,
             showsStoredDiveEmptyState: showsStoredDiveEmptyState,
             bubbleAnimationPaused: bubbleAnimationPaused,
             scrollToTopNonce: scrollToTopNonce
@@ -666,7 +966,16 @@ private struct LogbookListSurface: View, Equatable {
                 .zIndex(0.5)
 
                 LogbookCollapsibleHeader(
+                    feedScope: $feedScopeSelection,
+                    myActivitiesKindFilter: $myActivitiesKindFilter,
                     isCollapsed: isHeaderCollapsed,
+                    showsFeedScopeToggle: !isHeaderCollapsed,
+                    showsMyActivitiesSummary: LogbookCollapsibleHeaderPresentation.showsMyActivitiesSummaryChrome(
+                        feedScope: feedScope,
+                        showsStoredDiveEmptyState: showsStoredDiveEmptyState
+                    ),
+                    isMyActivitiesSummaryLoading: isMyActivitiesLoading,
+                    myActivitiesSummary: myActivitiesSummary,
                     statusBarSafeAreaTop: safeAreaTop
                 )
                 .frame(maxWidth: .infinity, alignment: .top)
@@ -693,11 +1002,184 @@ private struct LogbookListSurface: View, Equatable {
 
     @ViewBuilder
     private func logbookScrollSurface(topInset: CGFloat, bottomInset: CGFloat) -> some View {
-        if showsStoredDiveEmptyState {
+        if feedScope == .buddyFeed {
+            logbookBuddyFeedSurface(topInset: topInset, bottomInset: bottomInset)
+        } else if showsStoredDiveEmptyState {
             logbookStoredEmptyState(topInset: topInset)
+        } else if showsMyActivitiesKindFilterEmptyState {
+            logbookMyActivitiesKindFilterEmptyState(topInset: topInset)
+        } else if isMyActivitiesLoading {
+            logbookMyActivitiesLoadingSurface(topInset: topInset)
         } else {
             logbookDiveList(topInset: topInset, bottomInset: bottomInset)
         }
+    }
+
+    private func logbookMyActivitiesLoadingSurface(topInset: CGFloat) -> some View {
+        ScrollView {
+            Color.clear.frame(height: topInset)
+            ProgressView()
+                .frame(maxWidth: .infinity)
+                .padding(.top, AppTheme.Spacing.lg)
+                .accessibilityIdentifier(LogbookMyActivitiesSummaryPresentation.loadingAccessibilityIdentifier)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .ignoresSafeArea(edges: [.top, .bottom])
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            geometry.contentOffset.y + geometry.contentInsets.top
+        } action: { offset, _ in
+            handleScrollOffset(offset)
+        }
+    }
+
+    private func logbookMyActivitiesKindFilterEmptyState(topInset: CGFloat) -> some View {
+        ScrollView {
+            VStack(spacing: AppTheme.Spacing.lg) {
+                Color.clear
+                    .frame(height: topInset)
+                    .accessibilityHidden(true)
+
+                LogbookMyActivitiesKindFilterEmptyState(filter: myActivitiesKindFilter)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            geometry.contentOffset.y + geometry.contentInsets.top
+        } action: { offset, _ in
+            handleScrollOffset(offset)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .ignoresSafeArea(edges: [.top, .bottom])
+        .accessibilityIdentifier("Logbook.MyActivitiesKindFilter.Empty")
+    }
+
+    @ViewBuilder
+    private func logbookBuddyFeedSurface(topInset: CGFloat, bottomInset: CGFloat) -> some View {
+        if isBuddyFeedLoading, buddyFeedRows.isEmpty {
+            ScrollView {
+                Color.clear.frame(height: topInset)
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, AppTheme.Spacing.lg)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .ignoresSafeArea(edges: [.top, .bottom])
+            .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top
+            } action: { offset, _ in
+                handleScrollOffset(offset)
+            }
+            .accessibilityIdentifier(LogbookBuddyFeedPresentation.buddyFeedRootAccessibilityIdentifier)
+            .logbookBuddyFeedPullToRefresh(action: onBuddyFeedRefresh)
+        } else if let emptyKind = buddyFeedEmptyKind {
+            logbookBuddyFeedEmptyState(topInset: topInset, kind: emptyKind)
+        } else {
+            logbookBuddyFeedList(topInset: topInset, bottomInset: bottomInset)
+        }
+    }
+
+    private func logbookBuddyFeedEmptyState(
+        topInset: CGFloat,
+        kind: LogbookBuddyFeedPresentation.EmptyKind
+    ) -> some View {
+        ScrollView {
+            VStack(spacing: AppTheme.Spacing.lg) {
+                Color.clear
+                    .frame(height: topInset)
+                    .accessibilityHidden(true)
+
+                LogbookBuddyFeedEmptyState(kind: kind)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            geometry.contentOffset.y + geometry.contentInsets.top
+        } action: { offset, _ in
+            handleScrollOffset(offset)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .ignoresSafeArea(edges: [.top, .bottom])
+        .accessibilityIdentifier(LogbookBuddyFeedPresentation.buddyFeedRootAccessibilityIdentifier)
+        .logbookBuddyFeedPullToRefresh(action: onBuddyFeedRefresh)
+    }
+
+    private func logbookBuddyFeedList(topInset: CGFloat, bottomInset: CGFloat) -> some View {
+        List {
+            Color.clear
+                .frame(height: topInset)
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .accessibilityHidden(true)
+
+            ForEach(buddyFeedRows) { row in
+                VStack(alignment: .leading, spacing: 4) {
+                    NavigationLink(
+                        value: LogbookRoute.buddySharedDive(
+                            friendUID: row.friendUID,
+                            diveDocumentID: row.dive.id
+                        )
+                    ) {
+                        Text(GoDiveSharedDiveProjectionMapping.displayTitle(for: row.dive))
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(AppTheme.Colors.textPrimary)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        onOpenFriendProfile(
+                            GoDiveFriendGraphService.friendEdge(
+                                friendUID: row.friendUID,
+                                displayName: row.friendDisplayName
+                            )
+                        )
+                    } label: {
+                        Text(row.friendDisplayName)
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.Colors.accent)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
+
+                    Text(LogbookBuddyFeedPresentation.subtitle(for: row.dive))
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.Colors.secondaryText)
+                }
+                .buttonStyle(.plain)
+                .navigationLinkIndicatorVisibility(.hidden)
+                .listRowInsets(
+                    EdgeInsets(
+                        top: 0,
+                        leading: AppTheme.Spacing.lg,
+                        bottom: AppTheme.Spacing.sm,
+                        trailing: AppTheme.Spacing.lg
+                    )
+                )
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+            }
+
+            Color.clear
+                .frame(height: bottomInset)
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .accessibilityHidden(true)
+        }
+        .listStyle(.plain)
+        .listRowSpacing(AppTheme.Spacing.sm)
+        .scrollContentBackground(.hidden)
+        .background(Color.clear)
+        .scrollDismissesKeyboard(.interactively)
+        .ignoresSafeArea(edges: [.top, .bottom])
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            geometry.contentOffset.y + geometry.contentInsets.top
+        } action: { offset, _ in
+            handleScrollOffset(offset)
+        }
+        .logbookListScrollToTopTrigger(nonce: scrollToTopNonce)
+        .accessibilityIdentifier(LogbookBuddyFeedPresentation.buddyFeedRootAccessibilityIdentifier)
+        .logbookBuddyFeedPullToRefresh(action: onBuddyFeedRefresh)
     }
 
     private func logbookStoredEmptyState(topInset: CGFloat) -> some View {
@@ -808,8 +1290,25 @@ private struct LogbookListSurface: View, Equatable {
         .listRowBackground(Color.clear)
     }
 
+    @ViewBuilder
     private func logbookDiveRow(_ row: DiveLogbookRowDisplayData) -> some View {
-        NavigationLink(value: LogbookRoute.diveDetail(row.id)) {
+        switch row.activityKind {
+        case .scubaDive:
+            logbookActivityRowLink(row: row, route: .diveDetail(row.id))
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button(role: .destructive) {
+                        onSwipeDelete(row.id)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+        case .snorkel:
+            logbookActivityRowLink(row: row, route: .snorkelDetail(row.id))
+        }
+    }
+
+    private func logbookActivityRowLink(row: DiveLogbookRowDisplayData, route: LogbookRoute) -> some View {
+        NavigationLink(value: route) {
             LogbookActivityRow(
                 data: row,
                 onTapMediaPreview: row.previewMediaPhotoID == nil
@@ -830,13 +1329,6 @@ private struct LogbookListSurface: View, Equatable {
         )
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button(role: .destructive) {
-                onSwipeDelete(row.id)
-            } label: {
-                Label("Delete", systemImage: "trash")
-            }
-        }
     }
 
     private func logbookUpcomingTripBannerLink(_ banner: LogbookUpcomingTripBannerData) -> some View {
@@ -845,6 +1337,115 @@ private struct LogbookListSurface: View, Equatable {
         }
         .buttonStyle(.plain)
         .navigationLinkIndicatorVisibility(.hidden)
+    }
+}
+
+private struct LogbookMyActivitiesKindFilterEmptyState: View {
+    let filter: LogbookMyActivitiesKindFilter
+
+    var body: some View {
+        VStack(spacing: AppTheme.Spacing.lg) {
+            Spacer(minLength: AppTheme.Spacing.lg)
+
+            Image(systemName: "line.3.horizontal.decrease.circle")
+                .font(.system(size: 48))
+                .foregroundStyle(AppTheme.Colors.accent.opacity(0.85))
+
+            Text(LogbookMyActivitiesKindFilterPresentation.emptyStateTitle(filter: filter))
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+                .multilineTextAlignment(.center)
+
+            Text(LogbookMyActivitiesKindFilterPresentation.emptyStateMessage(filter: filter))
+                .font(.body)
+                .foregroundStyle(AppTheme.Colors.secondaryText)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, AppTheme.Spacing.lg)
+
+            Spacer()
+        }
+        .padding(.horizontal, AppTheme.Spacing.lg)
+    }
+}
+
+private struct LogbookBuddyFeedEmptyState: View {
+    let kind: LogbookBuddyFeedPresentation.EmptyKind
+
+    var body: some View {
+        VStack(spacing: AppTheme.Spacing.lg) {
+            Spacer(minLength: AppTheme.Spacing.lg)
+
+            Image(systemName: iconName)
+                .font(.system(size: 48))
+                .foregroundStyle(AppTheme.Colors.accent.opacity(0.85))
+
+            Text(title)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+                .multilineTextAlignment(.center)
+
+            Text(message)
+                .font(.body)
+                .foregroundStyle(AppTheme.Colors.secondaryText)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, AppTheme.Spacing.lg)
+
+            if let buttonTitle = LogbookBuddyFeedPresentation.openFriendsButtonTitle(for: kind) {
+                NavigationLink(value: LogbookRoute.friends) {
+                    Text(buttonTitle)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, AppTheme.Spacing.md)
+                        .frame(maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                }
+                .logYourFirstDiveGlassButtonChrome()
+                .accessibilityIdentifier(LogbookBuddyFeedPresentation.openFriendsButtonAccessibilityIdentifier)
+            }
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilitySummary)
+    }
+
+    private var iconName: String {
+        switch kind {
+        case .noFriends, .noSharedDives:
+            "person.2.slash"
+        case .unavailable:
+            "wifi.exclamationmark"
+        }
+    }
+
+    private var accessibilitySummary: String {
+        if let buttonTitle = LogbookBuddyFeedPresentation.openFriendsButtonTitle(for: kind) {
+            return "\(title). \(message). \(buttonTitle)."
+        }
+        return "\(title). \(message)"
+    }
+
+    private var title: String {
+        switch kind {
+        case .noFriends:
+            LogbookBuddyFeedPresentation.noFriendsTitle
+        case .noSharedDives:
+            LogbookBuddyFeedPresentation.noActivitiesTitle
+        case .unavailable:
+            LogbookBuddyFeedPresentation.unavailableTitle
+        }
+    }
+
+    private var message: String {
+        switch kind {
+        case .noFriends:
+            LogbookBuddyFeedPresentation.noFriendsMessage
+        case .noSharedDives:
+            LogbookBuddyFeedPresentation.noActivitiesMessage
+        case .unavailable:
+            GoDiveFriendsPresentation.firebaseUnavailableMessage
+        }
     }
 }
 

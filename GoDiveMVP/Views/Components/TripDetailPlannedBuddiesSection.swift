@@ -84,7 +84,7 @@ struct TripDetailPlannedBuddiesSection: View {
         } else if let buddy = plannedBuddies.first(where: { $0.id == member.id }),
                   !DiveBuddySelfRepresentation.isSelfBuddy(buddy, owner: ownerProfile) {
             NavigationLink {
-                ViewDiveBuddyDetails(buddy: buddy)
+                DiveBuddyOrFriendDetailView(buddy: buddy)
                     .hidesBottomTabBarWhenPushed()
             } label: {
                 cell

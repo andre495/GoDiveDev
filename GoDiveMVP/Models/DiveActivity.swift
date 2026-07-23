@@ -201,6 +201,9 @@ final class DiveActivity {
     /// Local chart rows live in **`GoDiveUserLocal`**; this blob mirrors across devices.
     var profileTrackData: Data?
 
+    /// Frozen WeatherKit snapshot captured at import (**`ActivityWeatherPersistedSnapshot`** JSON envelope).
+    var activityWeatherSnapshotData: Data?
+
     /// Denormalized for **`#Predicate`** / logbook filtering; kept in sync with **`owner`**.
     var ownerProfileID: UUID?
     @Relationship
@@ -358,7 +361,12 @@ extension DiveActivity {
 
     /// **`mediaPhotos`** ordered for gallery UI (**`capturedAt`** oldest first, then **`sortOrder`**, then **`id`**).
     var sortedMediaPhotos: [DiveMediaPhoto] {
-        DiveActivityMediaPresentation.sortedPhotos(on: self)
+        mediaPhotos.sorted {
+            GalleryMediaOrdering.isOrderedBefore(
+                GalleryMediaOrderFields(id: $0.id, capturedAt: $0.capturedAt, sortOrder: $0.sortOrder),
+                GalleryMediaOrderFields(id: $1.id, capturedAt: $1.capturedAt, sortOrder: $1.sortOrder)
+            )
+        }
     }
 
     /// Logbook row: **`#n`** or **`-`** when hidden or unset.

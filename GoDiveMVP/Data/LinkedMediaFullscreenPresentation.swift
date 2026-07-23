@@ -229,15 +229,31 @@ enum LinkedMediaFullscreenPresentation: Sendable {
     /// Swipe-down distance on the tag-overview grabber that dismisses the translucent panel.
     nonisolated static let tagOverviewGrabberDismissThreshold: CGFloat = 88
 
-    /// Height of the translucent fish/buddy overview panel over fullscreen (matches dive **large** detent).
+    /// Height of the fish/buddy overview panel over fullscreen — same **large** detent as dive **Media**.
+    nonisolated static func tagOverviewPanelHeight(
+        in context: DiveActivityOverviewSheetLayoutContext
+    ) -> CGFloat {
+        DiveActivityOverviewDetent.sheetHeight(
+            for: .large,
+            layoutHeight: context.layoutHeight,
+            bottomSafeInset: context.bottomSafeInset,
+            screenWidth: context.screenWidth,
+            topSafeInset: context.topSafeInset
+        )
+    }
+
+    /// Convenience when only height + bottom inset are known (uses presentation-reference width / top inset).
     nonisolated static func tagOverviewPanelHeight(
         layoutHeight: CGFloat,
         bottomSafeInset: CGFloat
     ) -> CGFloat {
-        DiveActivityOverviewDetent.sheetHeight(
-            for: .large,
-            layoutHeight: layoutHeight,
-            bottomSafeInset: bottomSafeInset
+        tagOverviewPanelHeight(
+            in: DiveActivityOverviewSheetLayoutContext(
+                layoutHeight: layoutHeight,
+                screenWidth: DiveActivityOverviewDetent.presentationReferenceScreenWidth,
+                topSafeInset: DiveActivityOverviewSheetLayoutContext.presentationReference.topSafeInset,
+                bottomSafeInset: bottomSafeInset
+            )
         )
     }
 
@@ -247,6 +263,32 @@ enum LinkedMediaFullscreenPresentation: Sendable {
         threshold: CGFloat = tagOverviewGrabberDismissThreshold
     ) -> Bool {
         verticalTranslation >= threshold || predictedEndTranslation >= threshold * 1.25
+    }
+
+    /// Lower-leading fullscreen label when opening media from the landscape tank depth chart.
+    @MainActor
+    static func bottomLeadingCaptureTimestampLabels(
+        media: DiveMediaPhoto?,
+        captureContext: DiveMediaCaptureContext?,
+        timeZoneOffsetSeconds: Int?,
+        displayUnits: DiveDisplayUnitSystem
+    ) -> (primary: String, secondary: String?)? {
+        guard let media else { return nil }
+        if let overlay = DiveActivityMediaPresentation.mediaPreviewCaptureOverlayLines(
+            media: media,
+            captureContext: captureContext,
+            timeZoneOffsetSeconds: timeZoneOffsetSeconds,
+            displayUnits: displayUnits
+        ) {
+            return (overlay.dateTimeLine, overlay.divePositionLine)
+        }
+        return (
+            DiveActivityMediaPresentation.captureDatePanelText(
+                for: media,
+                timeZoneOffsetSeconds: timeZoneOffsetSeconds
+            ),
+            nil
+        )
     }
 }
 

@@ -55,8 +55,9 @@ GoDive stores your dive log primarily **on your device**. In the current product
 
 - There is **no** GoDive-operated cloud account that stores your full dive log on our servers  
 - When you are signed into **iCloud**, your dive log and related structured data can sync across **your** Apple devices using Apple’s **private CloudKit** database (your iCloud account — not a GoDive public feed)  
-- There is **no** social feed or public dive feed yet  
-- A lightweight **social directory** profile (display name, optional photo, activity interests) may be stored in **Firebase** for future friends features — that directory does **not** hold your dive log  
+- There is **no** public dive feed for the whole internet  
+- You can **connect with friends** via QR code or invite link (Profile → menu → Friends). When you share dives with friends (on by default once you have friends), a **friend-visible copy** of dive details is stored in **Firebase** so they can read them. **Notes** and **photo previews** stay private unless you turn those Settings on. Your private CloudKit log remains the source of truth on your devices  
+- A lightweight **social directory** profile (display name, optional photo, activity interests) is stored in **Firebase** for friends features  
 - We do **not** sell your dive log or share it with third parties for advertising  
 
 Most of the app works **offline** after install. Some optional features use the network (described below).
@@ -90,16 +91,22 @@ Apple may provide a stable identifier for your Apple ID and, if you choose, a na
 
 Signing out ends the active session. Local dive data for that profile remains on the device until you delete the app, its data, or your account.
 
-### Social directory (Firebase)
+### Social directory and friends (Firebase)
 
-When Sign in with Apple succeeds (and Firebase is configured in the build), GoDive may create or update a **social directory** profile used for future friends features: display name, activity interests (scuba / free diving / snorkeling), and an optional profile photo. For new accounts, GoDive typically waits until you finish the profile photo step (upload or skip) before writing that directory entry. This is **not** your dive log.
+When Sign in with Apple succeeds (and Firebase is configured in the build), GoDive may create or update a **social directory** profile: display name, activity interests (scuba / free diving / snorkeling), and an optional profile photo. For new accounts, GoDive typically waits until you finish the profile photo step (upload or skip) before writing that directory entry.
+
+**Friends:** you connect via QR code or invite link (not a public browseable directory). When **Share dives with friends** is on, GoDive mirrors **friend-visible dive details** to Firebase so accepted friends can read them, and updates those copies when you edit shared dive fields. **Notes** and **photo previews** are included only if you enable those Settings. Your private CloudKit / on-device log remains the source of truth. Deleting your account removes friendships, invites, and shared projections.
+
+If you allow notifications, GoDive may store an **FCM device token** under your Firebase user (owner-only) so we can alert you when someone accepts your friend invite. Tokens are removed on sign-out from this device.
+
+Your **featured Profile header media** (tagged photo or video) may be uploaded to Firebase so friends can see it on your friend profile page.
 
 ### Delete account
 
 **Settings → Delete account** permanently removes your GoDive account after confirmation and a second Sign in with Apple. That process:
 
 - Revokes Sign in with Apple for GoDive and deletes the Firebase Auth user (when Firebase is configured)  
-- Deletes your Firebase social directory documents  
+- Deletes your Firebase social directory, friendships, invites, and friend-visible dive projections (and opt-in shared media previews)  
 - Deletes your on-device dive log and related user data (including the diagnostic-events journal for your account); private CloudKit sync mirrors those deletes when enabled  
 - Clears Keychain session identifiers and signs you out  
 
@@ -152,9 +159,9 @@ When the build includes catalog CDN configuration, the app may fetch Marine Life
 
 When a Field Guide species uses a remote image fallback, the app may fetch that image over **HTTPS** from public hosts. Downloadable 3D catalog models are limited to GoDive’s CDN / Firebase Storage hosts.
 
-### Firebase social directory
+### Firebase social directory and friends
 
-Display name, activity interests, and optional profile photo may be sent to Firebase as described in §5. This is not your dive log.
+Display name, activity interests, and optional profile photo may be sent to Firebase as described in §5. When you use Friends, invite/friendship records and **friend-visible dive projections** (notes and media only if you opt in) may also be stored so friends can read what you share. This is not a public dive feed and is not a replacement for your private CloudKit log.
 
 ### iCloud dive-log sync (CloudKit)
 
@@ -199,7 +206,7 @@ Deferred hardening tracked for later (not required for current use): Fishial API
 
 - Sell information pertaining to you or your dive log  
 - Automatically back up your full dive log to a **GoDive-operated** cloud account (sync uses **your** Apple iCloud CloudKit private database)  
-- Store your dive log in Firebase (Firebase is social directory + optional catalog CDN only)  
+- Store your full dive log as a GoDive-operated backup in Firebase (Firebase holds social directory, friends graph, and **opt-in friend-visible projections** only — your private CloudKit log remains authoritative on your devices)  
 - Run a public social feed of your dives  
 - Keep the original imported FIT/UDDF file bytes after parsing  
 - Automatically upload crash reports or diagnostic events (both opt-in, off by default)  
@@ -222,7 +229,7 @@ GoDive is not directed at children under 13 (or the equivalent minimum age in yo
 | **Waitlist emails** | Kept until you ask to be removed, we close the waitlist, or we no longer need them for launch communication |
 | **On-device app data** | Retained on your iPhone until you delete it (or delete the app / its data / your account) |
 | **Private CloudKit dive sync** | Controlled by your Apple iCloud account and Apple’s retention for that service; deletes you make in-app are mirrored when sync is available; may use cellular or Wi‑Fi and continue in background when iOS allows |
-| **Firebase social directory** | Kept while your account exists; removed when you delete your GoDive account (when Firebase is configured) |
+| **Firebase social directory + friends** | Kept while your account exists; removed when you delete your GoDive account (when Firebase is configured) |
 | **Shared crash reports** | Retained only as long as reasonably needed to diagnose and improve the app |
 | **Shared diagnostic events** | Retained only as long as reasonably needed to diagnose and improve the app |
 

@@ -19,7 +19,8 @@ enum FieldGuideTaggedMediaPresentation {
         return "\(sightings.count)|\(firstSightingID)|\(lastMediaID)|\(ownerDiveActivityIDs.count)"
     }
 
-    nonisolated static func galleryPayload(
+    @MainActor
+    static func galleryPayload(
         sightings: [SightingInstance],
         ownerDiveActivityIDs: Set<UUID>,
         timeZoneOffsetByActivityID: [UUID: Int?]
@@ -39,7 +40,8 @@ enum FieldGuideTaggedMediaPresentation {
     }
 
     /// Unique **`DiveMediaPhoto`** rows for the signed-in user's dives, gallery order (oldest capture first).
-    nonisolated static func taggedMediaPhotos(
+    @MainActor
+    static func taggedMediaPhotos(
         sightings: [SightingInstance],
         ownerDiveActivityIDs: Set<UUID>
     ) -> [DiveMediaPhoto] {

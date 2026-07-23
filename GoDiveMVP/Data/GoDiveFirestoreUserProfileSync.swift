@@ -23,7 +23,8 @@ enum GoDiveFirestoreUserProfileSync: Sendable {
         interests: [String],
         profilePhotoJPEG: Data? = nil,
         /// When true and no JPEG upload, omit `photoURL` from the merge so an existing Storage URL is kept.
-        preserveExistingPhotoURLIfNoUpload: Bool = true
+        preserveExistingPhotoURLIfNoUpload: Bool = true,
+        totalDiveCount: Int? = nil
     ) async -> Outcome {
         GoDiveFirebaseBootstrap.configureIfNeeded()
         guard GoDiveFirebaseBootstrap.isConfigured else {
@@ -96,6 +97,9 @@ enum GoDiveFirestoreUserProfileSync: Sendable {
             publicFields["updatedAt"] = FieldValue.serverTimestamp()
             if !existing.exists {
                 publicFields["createdAt"] = FieldValue.serverTimestamp()
+            }
+            if let totalDiveCount, totalDiveCount >= 0 {
+                publicFields["totalDiveCount"] = totalDiveCount
             }
             try await userRef.setData(publicFields, merge: true)
 
@@ -211,7 +215,8 @@ enum GoDiveFirestoreUserProfileSync: Sendable {
     static func syncIfAuthenticated(
         displayName: String,
         appleUserIdentifier: String,
-        interests: [String]
+        interests: [String],
+        totalDiveCount: Int? = nil
     ) async -> Outcome {
         GoDiveFirebaseBootstrap.configureIfNeeded()
         guard GoDiveFirebaseBootstrap.isConfigured else { return .skippedNotConfigured }
@@ -225,7 +230,8 @@ enum GoDiveFirestoreUserProfileSync: Sendable {
         return await upsertProfile(
             displayName: displayName,
             appleUserIdentifier: appleUserIdentifier,
-            interests: interests
+            interests: interests,
+            totalDiveCount: totalDiveCount
         )
     }
 }

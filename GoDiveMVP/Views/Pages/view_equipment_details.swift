@@ -13,7 +13,7 @@ struct ViewEquipmentDetails: View {
 
     var body: some View {
         BlueSheetDetailPage(
-            configuration: .pushedDetail(
+            configuration: .pushedDetailWithStandardPanelBodySpacing(
                 accessibilityRootIdentifier: "EquipmentDetails.Root"
             ),
             hero: { _ in

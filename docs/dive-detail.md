@@ -25,16 +25,17 @@ Drag the grabber or sheet edge to change size. Switching tabs resets the sheet t
 ## Map tab
 
 - Shows a map pin at the dive location when coordinates exist.
-- If the dive is linked to a catalog **dive site**, the site name appears under the dive number; tap it to open that site in Explore.
+- If the dive is linked to a catalog **dive site**, the site name appears under the dive number; tap it to open that site in Explore. When region and country are known, the subtitle shows a country flag before the place line (for example 🇺🇸 Midway, Utah, United States).
 - **Medium** and **large** detents show the stats box (max depth, average depth, surface interval, dive time), **Dive Conditions**, buddies, notes, and **Tags**. Tap **⋯** (top trailing on the stats box) to change dive metrics when editable.
+- At the **large** detent, a **Weather** section (when the dive has map coordinates) shows conditions from **Apple Weather** for around entry time — temperature, condition, humidity, wind, and the day’s high/low. **Imported** dives and snorkels capture weather at import time and show it instantly when you reopen the dive; older dives without a stored snapshot still load live from Apple Weather. Dives before August 2021 show a short explanation instead. Apple’s weather attribution appears under the card.
 - If the dive has a location hint but no linked site, GoDive may prompt you to add or match a dive site.
 
 ## Tank tab
 
-- **Medium** and **large** retain the same dive identity header as **Map** (dive number, site name, place, date/time).
+- **Large** retains the same dive identity header as **Map** (dive number, site name, place, date/time).
 - **Gas**, **cylinder**, and **consumption** fields when import or manual entry provided them.
 - **Equipment** row opens a sheet to link gear from your **Equipment locker**.
-- A **depth profile chart** appears in the hero area (portrait) or full width (landscape). The chart shows **dive time** (minutes) on the horizontal axis and **depth** (feet or meters from Settings) on the vertical axis. Hold and drag to scrub — the callout shows time and depth (and tank pressure when available).
+- A **depth profile chart** appears in the hero area at **large** (portrait band above the sheet) and at **minimized** (beside the small cylinder); landscape uses the full-width hero chart. The chart shows **dive time** (minutes) on the horizontal axis and **depth** (feet or meters from Settings) on the vertical axis. Hold and drag to scrub — the callout shows time and depth (and tank pressure when available). At **large**, pinch to zoom and two-finger pan when the dive is long enough; media thumbnails on the profile open a preview when present.
 - **SAC** and **RMV** are calculated from tank pressure and depth when data allows — read-only.
 - Some fields from file import (duration, max depth, bottom time, surface interval, average ascent rate) are **read-only** on imported dives; manual dives can edit more fields.
 
@@ -43,6 +44,7 @@ Tap a section **⋯** menu to edit all fields in that section in one sheet.
 ## Media tab
 
 - Full-bleed **hero pager** swipes between photos and videos.
+- At **large** (portrait), the current item **fits inside the hero strip** above the sheet (full photo/video visible, letterboxed on the long edge). **Drag the sheet down** toward **minimized** and the media **animates to full-screen fill**; at **minimized** it stays edge-to-edge behind the compact panel. Landscape keeps full-bleed at every detent.
 - When a dive has **no media yet**, the hero shows bouncing photo/video frames at **minimized** and **medium** (hidden at **large**) with a compact Liquid Glass **Upload Media** button directly under the animation in the hero band above the sheet. The overview sheet keeps its usual Media layout (identity header, **Marine life** and **Buddies** sections with tagging prompts, and the carousel row with **+**).
 - The frosted Media overview panel (and the same overlay on full-screen media-grid playback) stays the same dark gray in light and dark mode so photos and videos remain readable underneath.
 - **Medium** uses the same dive identity header as **Map** / **Tank** (dive number, site name, place, date/time). **Fish** / **buddy** sit on the trailing side of that header, aligned with the dive number, and expand the sheet to **large**.

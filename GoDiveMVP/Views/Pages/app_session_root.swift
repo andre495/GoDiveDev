@@ -3,20 +3,28 @@ import SwiftUI
 
 /// Gates **`ContentView`** behind Sign in with Apple when no local profile session exists.
 struct AppSessionRootView: View {
+    /// **`false`** until **`ProductionAppRoot`** registers the live container + CloudKit reconnect handler.
+    var isSessionRestoreAllowed = true
+
     @Environment(AccountSession.self) private var accountSession
     @Environment(\.modelContext) private var modelContext
 
     /// Defers hidden **`ContentView`** mount until after the celebration first frame paints.
     @State private var allowsCelebrationShellPrewarm = false
+    @State private var pendingFriendInviteToken: String?
+    @State private var didRunInitialSessionRestore = false
 
     private var showsBootstrapOverlay: Bool {
         AppSessionBootstrapPresentation.showsLaunchOverlay(
-            isRestoringSession: accountSession.isRestoringSession
+            isRestoringSession: accountSession.isRestoringSession,
+            isPopulatingRemoteAccountData: accountSession.isPopulatingRemoteAccountData
         )
     }
 
     private var shouldMountMainAppShellUnderlay: Bool {
         AccountSessionMainShellPresentation.shouldMountMainAppShellUnderlay(
+            isRestoringSession: accountSession.isRestoringSession,
+            isPopulatingRemoteAccountData: accountSession.isPopulatingRemoteAccountData,
             isSignedIn: accountSession.isSignedIn,
             showsNewAccountWelcome: accountSession.showsNewAccountWelcome,
             showsPostSignUpInterests: accountSession.showsPostSignUpInterests,
@@ -59,8 +67,38 @@ struct AppSessionRootView: View {
         .animation(.easeInOut(duration: 0.35), value: accountSession.showsPostSignUpOnboardingImport)
         .animation(nil, value: accountSession.showsSignInCelebration)
         .animation(.easeInOut(duration: 0.25), value: allowsCelebrationShellPrewarm)
-        .task {
+        .task(id: isSessionRestoreAllowed) {
+            guard isSessionRestoreAllowed else { return }
+            guard !didRunInitialSessionRestore else { return }
+            didRunInitialSessionRestore = true
             await accountSession.restoreSession(modelContext: modelContext)
+            presentPendingFriendInviteIfNeeded()
+        }
+        .onOpenURL { url in
+            GoDiveFriendInviteDeepLinkStore.shared.handleIncomingURL(url)
+            presentPendingFriendInviteIfNeeded()
+        }
+        .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+            guard let url = activity.webpageURL else { return }
+            GoDiveFriendInviteDeepLinkStore.shared.handleIncomingURL(url)
+            presentPendingFriendInviteIfNeeded()
+        }
+        .onChange(of: accountSession.showsMainAppShell) { _, showsShell in
+            if showsShell {
+                presentPendingFriendInviteIfNeeded()
+            }
+        }
+        .sheet(item: Binding(
+            get: { pendingFriendInviteToken.map(FriendInviteTokenBox.init) },
+            set: { pendingFriendInviteToken = $0?.token }
+        )) { box in
+            FriendInviteRedeemSheet(token: box.token) {
+                pendingFriendInviteToken = nil
+                GoDiveFriendInviteDeepLinkStore.shared.clear()
+            }
+            .appSheetPresentationChrome()
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
         }
         .onChange(of: accountSession.showsSignInCelebration) { _, showsCelebration in
             if showsCelebration {
@@ -175,6 +213,21 @@ struct AppSessionRootView: View {
             SignInCelebrationTransitionDiagnostics.end(.celebrationShellPrewarm, signpostID: signpostID)
         }
     }
+
+    private func presentPendingFriendInviteIfNeeded() {
+        guard accountSession.isSignedIn,
+              accountSession.showsMainAppShell,
+              pendingFriendInviteToken == nil
+        else { return }
+        if let token = GoDiveFriendInviteDeepLinkStore.shared.consumePendingToken() {
+            pendingFriendInviteToken = token
+        }
+    }
+}
+
+private struct FriendInviteTokenBox: Identifiable {
+    var id: String { token }
+    let token: String
 }
 
 #Preview {

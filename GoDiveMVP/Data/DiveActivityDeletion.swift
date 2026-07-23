@@ -88,6 +88,7 @@ enum DiveActivityDeletion {
 
         DiveActivityDeletionDebug.succeeded(diveID: request.activityID)
         await emitDeleteProgress(1.0, handler: reportProgress)
+        await GoDiveSharedDiveProjectionSync.deleteDiveProjection(diveID: request.activityID)
     }
 
     private static func emitDeleteProgress(

@@ -17,6 +17,7 @@ enum DiveBuddyActivityAssociation {
         tag.link(to: activity)
         activity.buddies.append(tag)
         buddy.diveParticipations.append(tag)
+        GoDiveFriendBuddyLinking.scheduleAutoLinkAfterBuddyTagged(buddy, modelContext: modelContext)
         return tag
     }
 

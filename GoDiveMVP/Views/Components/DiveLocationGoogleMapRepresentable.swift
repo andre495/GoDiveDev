@@ -11,7 +11,8 @@ struct DiveLocationGoogleMapRepresentable: UIViewRepresentable {
     let bottomContentMargin: CGFloat
     let topObstructionHeight: CGFloat
     let layoutHeight: CGFloat
-    let cameraLayoutDetent: DiveActivityOverviewDetent
+    let sheetHeightFraction: CGFloat
+    let largeRestingFraction: CGFloat
     var isUserInteractionEnabled: Bool = true
 
     func makeCoordinator() -> Coordinator {
@@ -46,12 +47,20 @@ struct DiveLocationGoogleMapRepresentable: UIViewRepresentable {
 
         let layoutContext = mapLayoutContext
         let previous = context.coordinator.lastAppliedLayoutContext
-        let animateDetentChange = previous != nil
-            && previous?.cameraLayoutDetent != layoutContext.cameraLayoutDetent
+        let animateSnap = previous.map {
+            Self.restingDetentSnap(for: $0) != Self.restingDetentSnap(for: layoutContext)
+        } ?? false
         guard layoutContext != previous else { return }
 
-        context.coordinator.applyCamera(on: mapView, animated: animateDetentChange)
+        context.coordinator.applyCamera(on: mapView, animated: animateSnap)
         context.coordinator.lastAppliedLayoutContext = layoutContext
+    }
+
+    private static func restingDetentSnap(for context: DiveMapCameraLayoutContext) -> DiveActivityOverviewDetent {
+        DiveActivityOverviewDetent.nearest(
+            toHeightFraction: context.sheetHeightFraction,
+            largeRestingFraction: context.largeRestingFraction
+        )
     }
 
     private var mapLayoutContext: DiveMapCameraLayoutContext {
@@ -60,7 +69,8 @@ struct DiveLocationGoogleMapRepresentable: UIViewRepresentable {
             layoutHeight: layoutHeight,
             bottomContentMargin: bottomContentMargin,
             topObstructionHeight: topObstructionHeight,
-            cameraLayoutDetent: cameraLayoutDetent
+            sheetHeightFraction: sheetHeightFraction,
+            largeRestingFraction: largeRestingFraction
         )
     }
 
@@ -133,7 +143,8 @@ struct DiveLocationGoogleMapRepresentable: UIViewRepresentable {
                 layoutHeight: parent.layoutHeight,
                 topObstructionHeight: parent.topObstructionHeight,
                 bottomContentMargin: parent.bottomContentMargin,
-                cameraLayoutDetent: parent.cameraLayoutDetent
+                sheetHeightFraction: parent.sheetHeightFraction,
+                largeRestingFraction: parent.largeRestingFraction
             )
             let position = GMSCameraPosition(
                 target: CLLocationCoordinate2D(

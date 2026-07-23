@@ -38,6 +38,8 @@ enum TripPlannerPresentation: Sendable {
     nonisolated static let exploreChromeAccessibilityLabel = "Plan a trip"
     nonisolated static let exploreChromeSystemImage = "airplane"
     nonisolated static let newTripSheetTitle = "Plan a trip"
+    nonisolated static let newTripFormFooterHint =
+        "Enter a trip name and choose your dates on the calendar."
     nonisolated static let editTripSheetTitle = "Edit trip"
     nonisolated static let addTripCancelAccessibilityIdentifier = "TripAddSheet.Cancel"
     nonisolated static let addTripDoneAccessibilityIdentifier = "TripAddSheet.Done"

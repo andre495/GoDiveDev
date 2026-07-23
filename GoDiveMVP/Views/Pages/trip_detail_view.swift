@@ -216,14 +216,12 @@ struct TripDetailView: View {
             for: trip,
             photos: contentSnapshot.mediaPhotos
         )
-        if TripDetailPresentation.prefersMapHero(
-            tripHasStarted: DiveTripActivityLinking.hasStarted(trip: trip),
-            plannedSiteCount: trip.plannedSiteIDs.count,
-            hasMapPins: !contentSnapshot.mapPins.isEmpty,
-            hasTripMedia: !contentSnapshot.mediaPhotos.isEmpty
-        ) {
-            tripHeroMode = .map
-        }
+        let hasMedia = !contentSnapshot.mediaPhotos.isEmpty
+        let hasMap = !contentSnapshot.mapPins.isEmpty
+        tripHeroMode = PushedDetailHeroModePresentation.resolvedMode(
+            hasAssociatedMedia: hasMedia,
+            hasMapContent: hasMap
+        )
     }
 
     private var displayHeroTripMedia: DiveMediaPhoto? {
@@ -295,7 +293,11 @@ struct TripDetailView: View {
     private func tripDetailBlueSheet(trip: DiveTrip) -> some View {
         let showsTripStats = DiveTripActivityLinking.hasStarted(trip: trip)
         let mapPins = contentSnapshot.mapPins
-        let showsHeroModeToggle = !mapPins.isEmpty
+        let hasTripMedia = !contentSnapshot.mediaPhotos.isEmpty
+        let showsHeroModeToggle = PushedDetailHeroModePresentation.showsModeToggle(
+            hasAssociatedMedia: hasTripMedia,
+            hasMapContent: !mapPins.isEmpty
+        )
 
         BlueSheetDetailPage(
             configuration: .pushedDetail(
@@ -349,9 +351,11 @@ struct TripDetailView: View {
         mapPins: [TripDetailMapPin]
     ) -> some View {
         let heroFitLayout = context.mapFitLayout()
-        let heroModeBinding: Binding<PushedDetailHeroHeaderView.Mode> = mapPins.isEmpty
-            ? .constant(.media)
-            : $tripHeroMode
+        let heroModeBinding = PushedDetailHeroModePresentation.heroModeBinding(
+            hasAssociatedMedia: !contentSnapshot.mediaPhotos.isEmpty,
+            hasMapContent: !mapPins.isEmpty,
+            mode: $tripHeroMode
+        )
 
         BlueSheetDetailHeroBandFill(accessibilityIdentifier: "TripDetail.HeroBand") {
             PushedDetailHeroHeaderView(

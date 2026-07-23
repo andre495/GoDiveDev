@@ -6,20 +6,43 @@ import CoreGraphics
 enum DiveActivityOverviewPanelMetrics: Sendable {
     /// Compact summary strip (~20% of the screen) over the full-bleed map.
     nonisolated static let minimizedHeightFraction: CGFloat = 0.20
-    /// Default resting detent (~half screen).
+
+    /// Reference **large** fraction on **`DiveActivityOverviewSheetLayoutContext.presentationReference`** — matches pushed blue sheet panel height.
+    nonisolated static var referenceLargeHeightFraction: CGFloat {
+        largeHeightFraction(in: .presentationReference)
+    }
+
+    /// Legacy alias — half-screen detent removed; retained for media carousel alignment tests only.
     nonisolated static let mediumHeightFraction: CGFloat = 0.50
-    /// Nearly full screen; back button remains above in the parent **`ZStack`**.
-    nonisolated static let largeHeightFraction: CGFloat = 0.85
 
-    nonisolated static let allDetents: [CGFloat] = [
-        minimizedHeightFraction,
-        mediumHeightFraction,
-        largeHeightFraction,
-    ]
+    nonisolated static var allDetents: [CGFloat] {
+        [minimizedHeightFraction, referenceLargeHeightFraction]
+    }
 
-    /// Gap between the embedded grabber row and panel body (**minimized** / **medium** / **large**).
-    /// Tighter than **`AppTheme.Sheet.contentTopSpacing`** so dive identity stays clear of the sheet clip
-    /// at low detent while matching medium on every tab.
+    /// Sheet height for the **large** resting detent — same seam math as **`BlueSheetDetailPage`** on pushed detail.
+    nonisolated static func largeSheetHeight(in context: DiveActivityOverviewSheetLayoutContext) -> CGFloat {
+        let heroHeight = HomeOverviewLayout.pushedHeroLayoutMetrics(
+            geometryHeight: context.layoutHeight,
+            screenWidth: context.screenWidth,
+            topSafeAreaInset: context.topSafeInset,
+            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeight
+        ).heroHeight
+        return HomeOverviewLayout.sheetSeamYFromScreenBottom(
+            pageKind: .buddyDetail,
+            geometryHeight: context.layoutHeight,
+            heroHeight: heroHeight
+        )
+    }
+
+    /// Height fraction for the **large** detent at the current layout size.
+    nonisolated static func largeHeightFraction(in context: DiveActivityOverviewSheetLayoutContext) -> CGFloat {
+        guard context.layoutHeight > 0 else { return referenceLargeHeightFraction }
+        let sheetHeight = largeSheetHeight(in: context)
+        let fraction = (sheetHeight - context.bottomSafeInset) / context.layoutHeight
+        return clampedHeightFraction(fraction, largeRestingFraction: fraction)
+    }
+
+    /// Gap between the embedded grabber row and panel body.
     nonisolated static let panelContentTopPadding: CGFloat = 10
 
     /// Bottom inset on embedded overview panel scroll content (matches **`AppTheme.Spacing.lg`**).
@@ -31,58 +54,78 @@ enum DiveActivityOverviewPanelMetrics: Sendable {
     /// Matches **`DiveActivityOverviewEmbeddedPanel`** grabber row **`minHeight`**.
     nonisolated static let embeddedGrabberRowHeight: CGFloat = 28
 
-    /// Progress **0…1** for map stats box reveal between **minimized** and **medium**.
-    nonisolated static func mapStatsRevealProgress(heightFraction: CGFloat) -> CGFloat {
+    /// Progress **0…1** for map stats box reveal between **minimized** and **large**.
+    nonisolated static func mapStatsRevealProgress(
+        heightFraction: CGFloat,
+        largeRestingFraction: CGFloat = referenceLargeHeightFraction
+    ) -> CGFloat {
         clampedRevealProgress(
             heightFraction: heightFraction,
             startFraction: minimizedHeightFraction,
-            endFraction: mediumHeightFraction
+            endFraction: largeRestingFraction
         )
     }
 
-    /// Progress **0…1** for editable map details reveal between **medium** and **large**.
-    nonisolated static func mapDetailsRevealProgress(heightFraction: CGFloat) -> CGFloat {
-        clampedRevealProgress(
-            heightFraction: heightFraction,
-            startFraction: mediumHeightFraction,
-            endFraction: largeHeightFraction
-        )
+    /// Progress **0…1** for editable map details at **large** (binary until content pass realigns).
+    nonisolated static func mapDetailsRevealProgress(
+        heightFraction: CGFloat,
+        largeRestingFraction: CGFloat = referenceLargeHeightFraction
+    ) -> CGFloat {
+        isLarge(heightFraction, largeRestingFraction: largeRestingFraction) ? 1 : 0
     }
 
     /// Map stats box visibility — hidden at **minimized** unless the grabber is dragging upward.
     nonisolated static func mapPanelShowsStatsBox(
         restingDetent: DiveActivityOverviewDetent,
-        heightFraction: CGFloat
+        heightFraction: CGFloat,
+        largeRestingFraction: CGFloat = referenceLargeHeightFraction
     ) -> Bool {
-        restingDetent != .minimized || mapStatsRevealProgress(heightFraction: heightFraction) > 0
+        restingDetent != .minimized || mapStatsRevealProgress(
+            heightFraction: heightFraction,
+            largeRestingFraction: largeRestingFraction
+        ) > 0
     }
 
-    /// Editable map sections + tags — shown at **large** and while dragging **medium → large**.
+    /// Editable map sections + tags — shown at **large** and while dragging toward **large**.
     nonisolated static func mapPanelShowsDetails(
         restingDetent: DiveActivityOverviewDetent,
-        heightFraction: CGFloat
+        heightFraction: CGFloat,
+        largeRestingFraction: CGFloat = referenceLargeHeightFraction
     ) -> Bool {
-        restingDetent == .large || mapDetailsRevealProgress(heightFraction: heightFraction) > 0
+        restingDetent == .large || mapDetailsRevealProgress(
+            heightFraction: heightFraction,
+            largeRestingFraction: largeRestingFraction
+        ) > 0
     }
 
     /// Stats box layout height while progressively revealing from **minimized**.
     nonisolated static func mapStatsBoxRevealHeight(
         restingDetent: DiveActivityOverviewDetent,
         heightFraction: CGFloat,
-        expandedHeight: CGFloat
+        expandedHeight: CGFloat,
+        largeRestingFraction: CGFloat = referenceLargeHeightFraction
     ) -> CGFloat {
         if restingDetent != .minimized {
             return expandedHeight
         }
-        return expandedHeight * mapStatsRevealProgress(heightFraction: heightFraction)
+        return expandedHeight * mapStatsRevealProgress(
+            heightFraction: heightFraction,
+            largeRestingFraction: largeRestingFraction
+        )
     }
 
-    /// Opacity for map details while revealing **medium → large** (full at **large**).
+    /// Opacity for map details while revealing toward **large** (full at **large**).
     nonisolated static func mapDetailsPresentationOpacity(
         restingDetent: DiveActivityOverviewDetent,
-        heightFraction: CGFloat
+        heightFraction: CGFloat,
+        largeRestingFraction: CGFloat = referenceLargeHeightFraction
     ) -> CGFloat {
-        restingDetent == .large ? 1 : mapDetailsRevealProgress(heightFraction: heightFraction)
+        restingDetent == .large
+            ? 1
+            : mapDetailsRevealProgress(
+                heightFraction: heightFraction,
+                largeRestingFraction: largeRestingFraction
+            )
     }
 
     nonisolated static func clampedRevealProgress(
@@ -110,75 +153,107 @@ enum DiveActivityOverviewPanelMetrics: Sendable {
         return max(0, bodyHeight - panelContentTopPadding - 24)
     }
 
-    /// Scroll offset (pt) past which a **medium** sheet expands to **large** (one-shot, no per-frame resize).
+    /// Scroll offset (pt) past which a compact sheet expands to **large** (one-shot, no per-frame resize).
     nonisolated static let scrollExpandTriggerOffset: CGFloat = 32
     nonisolated static let scrollCommitCollapseOffset: CGFloat = -28
 
     /// Picks the nearest detent after a drag ends.
     nonisolated static func snappedHeightFraction(
         currentFraction: CGFloat,
-        predictedFraction: CGFloat
+        predictedFraction: CGFloat,
+        largeRestingFraction: CGFloat = referenceLargeHeightFraction
     ) -> CGFloat {
         let target = predictedFraction
-        return allDetents.min(by: { abs($0 - target) < abs($1 - target) }) ?? mediumHeightFraction
+        return allDetents(largeRestingFraction: largeRestingFraction)
+            .min(by: { abs($0 - target) < abs($1 - target) }) ?? largeRestingFraction
     }
 
-    /// Grabber drag snap with one-step transitions at the ends: **minimized ↔ medium ↔ large**.
-    /// - **`verticalTranslation`:** drag gesture Y (> 0 finger moved down, < 0 moved up).
+    /// Grabber drag snap — **minimized ↔ large** only.
     nonisolated static func snappedHeightFractionAfterDrag(
         currentFraction: CGFloat,
         predictedFraction: CGFloat,
-        verticalTranslation: CGFloat
+        verticalTranslation: CGFloat,
+        largeRestingFraction: CGFloat = referenceLargeHeightFraction
     ) -> CGFloat {
         if isMinimized(currentFraction), verticalTranslation < 0 {
-            return mediumHeightFraction
+            return largeRestingFraction
         }
-        if isExpanded(currentFraction), verticalTranslation > 0 {
-            return mediumHeightFraction
+        if isLarge(currentFraction, largeRestingFraction: largeRestingFraction), verticalTranslation > 0 {
+            return minimizedHeightFraction
         }
         return snappedHeightFraction(
             currentFraction: currentFraction,
-            predictedFraction: predictedFraction
+            predictedFraction: predictedFraction,
+            largeRestingFraction: largeRestingFraction
         )
     }
 
-    nonisolated static func clampedHeightFraction(_ fraction: CGFloat) -> CGFloat {
-        min(max(fraction, minimizedHeightFraction), largeHeightFraction)
+    nonisolated static func allDetents(largeRestingFraction: CGFloat) -> [CGFloat] {
+        [minimizedHeightFraction, largeRestingFraction]
+    }
+
+    nonisolated static func clampedHeightFraction(
+        _ fraction: CGFloat,
+        largeRestingFraction: CGFloat = referenceLargeHeightFraction
+    ) -> CGFloat {
+        min(max(fraction, minimizedHeightFraction), largeRestingFraction)
     }
 
     /// Visible panel fraction while the grabber is moving (clamped between detents).
     nonisolated static func heightFractionWhileDragging(
         restingFraction: CGFloat,
         dragTranslation: CGFloat,
-        layoutHeight: CGFloat
+        layoutHeight: CGFloat,
+        largeRestingFraction: CGFloat = referenceLargeHeightFraction
     ) -> CGFloat {
         guard dragTranslation != 0, layoutHeight > 0 else {
             return restingFraction
         }
         let currentHeight = layoutHeight * restingFraction - dragTranslation
-        return clampedHeightFraction(currentHeight / layoutHeight)
+        return clampedHeightFraction(
+            currentHeight / layoutHeight,
+            largeRestingFraction: largeRestingFraction
+        )
     }
 
-    /// Whether scrolling in the panel should snap from **medium** to **large** (not used for continuous layout).
+    /// Whether scrolling in the panel should snap from compact to **large**.
     nonisolated static func shouldExpandFromScroll(
         restingFraction: CGFloat,
-        scrollOffsetY: CGFloat
+        scrollOffsetY: CGFloat,
+        largeRestingFraction: CGFloat = referenceLargeHeightFraction
     ) -> Bool {
-        restingFraction <= mediumHeightFraction + 0.02
+        !isLarge(restingFraction, largeRestingFraction: largeRestingFraction)
             && scrollOffsetY >= scrollExpandTriggerOffset
     }
 
-    /// Pull down at the top while **large** → back to **medium** (default).
+    /// Pull down at the top while **large** → back to **minimized**.
+    nonisolated static func shouldCollapseFromScroll(
+        restingFraction: CGFloat,
+        scrollOffsetY: CGFloat,
+        largeRestingFraction: CGFloat = referenceLargeHeightFraction
+    ) -> Bool {
+        isLarge(restingFraction, largeRestingFraction: largeRestingFraction)
+            && scrollOffsetY <= scrollCommitCollapseOffset
+    }
+
+    /// Back-compat alias while call sites migrate.
     nonisolated static func shouldCollapseToMediumFromScroll(
         restingFraction: CGFloat,
         scrollOffsetY: CGFloat
     ) -> Bool {
-        restingFraction >= largeHeightFraction - 0.01
-            && scrollOffsetY <= scrollCommitCollapseOffset
+        shouldCollapseFromScroll(restingFraction: restingFraction, scrollOffsetY: scrollOffsetY)
     }
 
+    nonisolated static func isLarge(
+        _ fraction: CGFloat,
+        largeRestingFraction: CGFloat = referenceLargeHeightFraction
+    ) -> Bool {
+        fraction >= largeRestingFraction - 0.02
+    }
+
+    /// Back-compat — **large** resting detent.
     nonisolated static func isExpanded(_ fraction: CGFloat) -> Bool {
-        fraction >= largeHeightFraction - 0.01
+        isLarge(fraction)
     }
 
     nonisolated static func isMinimized(_ fraction: CGFloat) -> Bool {
@@ -186,23 +261,21 @@ enum DiveActivityOverviewPanelMetrics: Sendable {
     }
 
     /// Next taller detent after **`fraction`**, or **`nil`** if already at **large**.
-    nonisolated static func nextTallerDetent(after fraction: CGFloat) -> CGFloat? {
-        guard let index = allDetents.firstIndex(where: { abs($0 - fraction) < 0.03 }) else {
-            return allDetents.first { $0 > fraction + 0.02 }
-        }
-        let nextIndex = index + 1
-        guard nextIndex < allDetents.count else { return nil }
-        return allDetents[nextIndex]
+    nonisolated static func nextTallerDetent(
+        after fraction: CGFloat,
+        largeRestingFraction: CGFloat = referenceLargeHeightFraction
+    ) -> CGFloat? {
+        guard !isLarge(fraction, largeRestingFraction: largeRestingFraction) else { return nil }
+        return largeRestingFraction
     }
 
     /// Next shorter detent after **`fraction`**, or **`nil`** if already at **minimized**.
-    nonisolated static func nextShorterDetent(after fraction: CGFloat) -> CGFloat? {
-        guard let index = allDetents.firstIndex(where: { abs($0 - fraction) < 0.03 }) else {
-            return allDetents.last { $0 < fraction - 0.02 }
-        }
-        let previousIndex = index - 1
-        guard previousIndex >= 0 else { return nil }
-        return allDetents[previousIndex]
+    nonisolated static func nextShorterDetent(
+        after fraction: CGFloat,
+        largeRestingFraction: CGFloat = referenceLargeHeightFraction
+    ) -> CGFloat? {
+        guard !isMinimized(fraction) else { return nil }
+        return minimizedHeightFraction
     }
 
     /// Top coverage for map framing: safe area + dive toolbar row (**points**).
@@ -233,15 +306,32 @@ enum DiveActivityOverviewPanelMetrics: Sendable {
     /// Height of the sheet band above the minimized carousel slot for a resting detent.
     nonisolated static func mediaCarouselScreenAlignmentTopInset(
         layoutHeight: CGFloat,
-        detent: DiveActivityOverviewDetent
+        detent: DiveActivityOverviewDetent,
+        layoutContext: DiveActivityOverviewSheetLayoutContext
     ) -> CGFloat {
         guard layoutHeight > 0 else { return 0 }
-        return layoutHeight * (detent.heightFraction - minimizedHeightFraction)
+        let detentFraction = detent.resolvedHeightFraction(in: layoutContext)
+        return layoutHeight * (detentFraction - minimizedHeightFraction)
     }
 
-    /// Back-compat alias for **medium** alignment math in tests.
+    /// Back-compat — **large** alignment math in tests.
     nonisolated static func mediaCarouselExpandedRegionHeight(layoutHeight: CGFloat) -> CGFloat {
-        mediaCarouselScreenAlignmentTopInset(layoutHeight: layoutHeight, detent: .medium)
+        mediaCarouselScreenAlignmentTopInset(
+            layoutHeight: layoutHeight,
+            detent: .large,
+            layoutContext: .presentationReference
+        )
+    }
+
+    nonisolated static func mediaCarouselScreenAlignmentTopInset(
+        layoutHeight: CGFloat,
+        detent: DiveActivityOverviewDetent
+    ) -> CGFloat {
+        mediaCarouselScreenAlignmentTopInset(
+            layoutHeight: layoutHeight,
+            detent: detent,
+            layoutContext: .presentationReference
+        )
     }
 
     /// Top padding for **Tag marine life** on the media hero — same clearance as the map info control.
@@ -260,7 +350,6 @@ enum DiveActivityOverviewPanelMetrics: Sendable {
     /// VoiceOver label for the current resting detent.
     nonisolated static func accessibilityDetentDescription(for fraction: CGFloat) -> String {
         if isMinimized(fraction) { return "Minimized" }
-        if isExpanded(fraction) { return "Expanded" }
-        return "Half height"
+        return "Expanded"
     }
 }

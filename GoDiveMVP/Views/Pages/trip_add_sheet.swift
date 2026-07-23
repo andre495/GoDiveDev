@@ -34,15 +34,12 @@ struct TripAddSheetView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            TripPlannerSheetScrollContainer {
                 TripPlannerFormContent(
                     form: $form,
-                    existingOwnerTrips: ownerTrips,
-                    clearsListRowBackgrounds: true
+                    existingOwnerTrips: ownerTrips
                 )
             }
-            .scrollContentBackground(.hidden)
-            .listStyle(.plain)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     AppGlassToolbarCancelButton(
@@ -117,72 +114,93 @@ struct TripPlannerFormContent: View {
     @Binding var form: DiveTripFormValues
     var existingOwnerTrips: [DiveTrip] = []
     var editingTripID: UUID? = nil
-    /// Blue overview-panel modals clear Form card fills so rows sit on the presentation background.
-    var clearsListRowBackgrounds: Bool = false
 
     private var overlappingTrip: DiveTrip? {
         form.overlappingTrip(among: existingOwnerTrips, excludingTripID: editingTripID)
     }
 
     var body: some View {
-        Section {
-            TextField("Trip name", text: $form.title, prompt: Text("e.g. Bonaire 2026"))
-                .textInputAutocapitalization(.words)
-                .accessibilityIdentifier("TripPlanner.Title")
-                .modifier(TripPlannerFormListRowBackground(clears: clearsListRowBackgrounds))
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                Text("Trip name")
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
 
-            DatePicker(
-                "Start date",
-                selection: $form.startDate,
-                displayedComponents: .date
-            )
-            .accessibilityIdentifier("TripPlanner.StartDate")
-            .modifier(TripPlannerFormListRowBackground(clears: clearsListRowBackgrounds))
+                TextField("e.g. Bonaire 2026", text: $form.title)
+                    .textInputAutocapitalization(.words)
+                    .font(.body)
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+                    .padding(.horizontal, AppTheme.Spacing.md)
+                    .padding(.vertical, AppTheme.Spacing.sm)
+                    .background {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(AppTheme.Colors.textPrimary.opacity(0.06))
+                    }
+                    .accessibilityIdentifier("TripPlanner.Title")
+            }
 
-            DatePicker(
-                "End date",
-                selection: $form.endDate,
-                displayedComponents: .date
-            )
-            .accessibilityIdentifier("TripPlanner.EndDate")
-            .modifier(TripPlannerFormListRowBackground(clears: clearsListRowBackgrounds))
-        } footer: {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                Text(DiveTripPresentation.datesSectionTitle)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(AppTheme.Colors.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
+
+                Text(DiveTripPresentation.formattedDateRange(start: form.startDate, end: form.endDate))
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+
+                TripDateRangeCalendarView(
+                    dateRange: Binding(
+                        get: { (form.startDate, form.endDate) },
+                        set: { range in
+                            var updated = form
+                            updated.startDate = range.start
+                            updated.endDate = range.end
+                            form = updated
+                        }
+                    )
+                )
+                .frame(maxWidth: .infinity)
+                .frame(height: DiveTripDateRangePickerPresentation.calendarHeight)
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("TripPlanner.DateRange")
+
             VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
                 if !form.hasValidDateRange {
                     Text(DiveTripPresentation.invalidDateRangeMessage)
+                        .font(.footnote)
                         .foregroundStyle(Color.red)
                 } else if let overlappingTrip {
                     Text(DiveTripPresentation.overlappingTripMessage(displayTitle: overlappingTrip.displayTitle))
+                        .font(.footnote)
                         .foregroundStyle(Color.red)
                 }
-                Text("Give your trip a name, a destination, or both.")
+
+                Text(TripPlannerPresentation.newTripFormFooterHint)
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-
-        Section {
-            TextField(
-                "Countries",
-                text: $form.countriesText,
-                prompt: Text("e.g. Bonaire, Curaçao")
-            )
-            .textInputAutocapitalization(.words)
-            .accessibilityIdentifier("TripPlanner.Countries")
-            .modifier(TripPlannerFormListRowBackground(clears: clearsListRowBackgrounds))
-        } footer: {
-            Text("Separate multiple countries with commas.")
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
-private struct TripPlannerFormListRowBackground: ViewModifier {
-    let clears: Bool
+/// Scroll surface shared by Trip Planner add / edit blue panel sheets (matches notes / buddies modals).
+struct TripPlannerSheetScrollContainer<Content: View>: View {
+    @ViewBuilder var content: () -> Content
 
-    func body(content: Content) -> some View {
-        if clears {
-            content.listRowBackground(Color.clear)
-        } else {
-            content
+    var body: some View {
+        ScrollView {
+            content()
+                .padding(.horizontal, AppTheme.Spacing.lg)
+                .padding(.top, DiveActivityOverviewPanelMetrics.panelContentTopPadding)
+                .padding(.bottom, AppTheme.Spacing.lg)
         }
+        .scrollIndicators(.visible)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 

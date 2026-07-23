@@ -11,6 +11,10 @@ final class DiveBuddy {
     var profilePhoto: Data?
     /// **`CNContact.identifier`** when linked from Contacts; used to refresh name/photo.
     var contactsIdentifier: String?
+    /// Firebase Auth UID when this roster row is a GoDive friend.
+    var linkedFirebaseUID: String?
+    /// Cached social-directory avatar URL for a linked friend (optional).
+    var linkedPhotoURL: String?
     /// User-chosen tagged media for the buddy detail hero; **`nil`** uses a random tagged item.
     var featuredTaggedMediaPhotoID: UUID?
 
@@ -25,6 +29,14 @@ final class DiveBuddy {
     var diveParticipations: [DiveBuddyTag] {
         get { diveParticipationsStorage ?? [] }
         set { diveParticipationsStorage = newValue }
+    }
+
+    @Relationship(deleteRule: .cascade)
+    var snorkelParticipationsStorage: [SnorkelBuddyTag]? = []
+    @Transient
+    var snorkelParticipations: [SnorkelBuddyTag] {
+        get { snorkelParticipationsStorage ?? [] }
+        set { snorkelParticipationsStorage = newValue }
     }
 
     @Relationship(deleteRule: .cascade)

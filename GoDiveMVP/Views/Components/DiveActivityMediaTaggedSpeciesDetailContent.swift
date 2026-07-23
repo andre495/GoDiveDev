@@ -105,7 +105,7 @@ struct DiveActivityMediaTaggedSpeciesDetailContent: View {
 /// Horizontal chip picker when multiple species are tagged on one media item.
 struct DiveActivityMediaTaggedSpeciesSelector: View {
     let species: [MarineLife]
-    var media: DiveMediaPhoto?
+    var media: (any ActivityOverviewGalleryMedia)?
     @Binding var selectedUUID: String?
 
     private var resolvedSelectedUUID: String? {

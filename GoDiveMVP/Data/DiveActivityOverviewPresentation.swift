@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import SwiftData
 
@@ -18,6 +19,9 @@ enum DiveActivityMapOverviewStatIcon: Sendable, Equatable {
 
 /// Copy and labels for the dive overview embedded panel (map / tank sheet).
 enum DiveActivityOverviewPresentation: Sendable {
+    /// Overview sheet title when **`siteName`** is missing (matches Logbook add-activity copy).
+    nonisolated static let newDiveActivitySiteTitle = "New Dive Activity"
+
     /// Primary sheet header — trimmed **`siteName`**, otherwise import-source fallback.
     nonisolated static func siteHeaderTitle(siteName: String?, fallback: String) -> String {
         let trimmed = siteName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -38,20 +42,26 @@ enum DiveActivityOverviewPresentation: Sendable {
         return "#\(diveNumber)"
     }
 
-    /// **Region, Country** (or whichever side is present).
+    /// **Region, Country** (or whichever side is present), with a leading country-flag emoji when known.
     nonisolated static func regionCountryLine(region: String, country: String) -> String? {
         let trimmedRegion = region.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedCountry = country.trimmingCharacters(in: .whitespacesAndNewlines)
+        let canonicalCountry = DiveSiteCountryPresentation.canonicalDisplayName(for: trimmedCountry)
+
+        let base: String?
         switch (trimmedRegion.isEmpty, trimmedCountry.isEmpty) {
         case (false, false):
-            return "\(trimmedRegion), \(trimmedCountry)"
+            base = "\(trimmedRegion), \(trimmedCountry)"
         case (false, true):
-            return trimmedRegion
+            base = trimmedRegion
         case (true, false):
-            return trimmedCountry
+            base = trimmedCountry
         case (true, true):
-            return nil
+            base = nil
         }
+        guard let base else { return nil }
+        guard !canonicalCountry.isEmpty else { return base }
+        return DiveSiteCountryPresentation.prefixedWithFlagEmoji(base, countryName: canonicalCountry)
     }
 
     nonisolated static func regionCountryLine(diveSite: DiveLinkedSiteResolver.ResolvedSite?) -> String? {
@@ -251,4 +261,8 @@ enum DiveActivityOverviewPresentation: Sendable {
         }
         return "\(minutes) min \(remainder) s"
     }
+
+    /// Scuba / snorkel SF Symbol on dive & snorkel overview headers (**`DiveActivityMapOverviewHeader`**).
+    /// Roughly **2×** logbook row **`.caption`** (~12 pt → 24 pt).
+    nonisolated static let activityIdentitySymbolPointSize: CGFloat = 24
 }

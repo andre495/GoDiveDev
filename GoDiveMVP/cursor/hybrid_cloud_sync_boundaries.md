@@ -12,7 +12,8 @@ Source of truth for the hybrid architecture on `feature/icloud-hybrid-sync` (Pha
 | Media bytes | Photos library | User iCloud Photos | **Phase 3 — live** (bytes never in CloudKit) |
 | Media pointers / previews | SwiftData user store | User iCloud private database (**CloudKit**) | **Phase 3 — live** |
 | App catalogs | Local catalog cache | GoDive CDN (**Firebase Hosting / Storage**) | **Phase 4 / 4b — live** (optional secrets) |
-| Social directory (friends-ready) | Firestore `users/{uid}` | **Firebase Auth + Firestore** | **Friends-ready v1 — live** |
+| Social directory + friends | Firestore `users/{uid}`, `friendInvites`, `friendships` | **Firebase Auth + Firestore** | **Friends graph — live** |
+| Friend-visible dive projections | Firestore `users/{uid}/sharedDives` (+ opt-in Storage previews) | **Firebase** (friends-only read) | **Friends share — live** |
 | Crash reports | Local diagnostics rows | GoDive CloudKit **public** database (opt-in) | Existing |
 
 ### Highlighted dependencies
@@ -114,33 +115,37 @@ Phase 4 app-owned catalog refresh uses a **Firebase Hosting** CDN (HTTPS manifes
 - Do **not** put user dive data or media bytes in Firebase Hosting/Storage — those stay CDN-only for catalogs.
 - Dive site / OpenDiveMap CDN and photo/USDZ CDN are **Phase 4b** (implemented: ODM reference cache + Storage asset URLs; bundled assets remain offline-first).
 
-## Social directory (Firebase Auth + Firestore)
+## Social directory + friends (Firebase Auth + Firestore)
 
-Friends-ready v1 — setup notes in **`cursor/firebase_user_profiles.md`**.
+Setup notes in **`cursor/firebase_user_profiles.md`**.
 
 | Doc | Path | Access |
 |-----|------|--------|
 | Public profile | `users/{firebaseUid}` | Signed-in read; owner write |
 | Private Apple link | `users/{firebaseUid}/private/account` | Owner read/write only |
+| Friend invites | `friendInvites/{token}` | Creator write; signed-in read by token; redeem updates status |
+| Friendships | `friendships/{sortedUidPair}` | Members read/delete; create via open invite |
+| Friend-visible dives | `users/{uid}/sharedDives/{diveId}` | Owner write; owner or **active friend** read |
+| Shared media previews | Storage `users/{uid}/sharedMedia/...` | Owner write; public download URL when opted in |
 
-Public fields: `displayName`, `handle` (reserved, empty), `photoURL` (Storage download URL after signup photo), `interests` (`Scuba Diving` / `Free Diving` / `Snorkeling`), `discoverable` (default `true`), `createdAt` / `updatedAt`, `schemaVersion` (= 2).  
-Private fields: `appleUserIdentifier` (links to CloudKit `UserProfile`; never on public reads).
+Public profile fields: `displayName`, `handle` (reserved, empty), `photoURL`, `interests`, `discoverable`, timestamps, `schemaVersion` (= 2).
 
 - Sign in with Apple still drives **`AccountSession`** / CloudKit `UserProfile`.
-- Same Apple credential also signs into **Firebase Auth** (`identityToken` + nonce); soft-fail if Firebase is unavailable.
-- **New accounts:** Auth immediately; **defer** Firestore until post-sign-up **photo** step (upload avatar to Storage when present, then upsert with `photoURL` + `interests`). Returning accounts upsert on sign-in / launch.
-- **Delete account** (Settings): revoke Apple token via Firebase, delete Storage avatar + Firestore docs + Auth user, wipe local SwiftData user store (CloudKit mirrors deletes), clear returning-account hints, sign out (`GoDiveAccountDeletion`).
+- Same Apple credential also signs into **Firebase Auth**; soft-fail if Firebase is unavailable.
+- **Friends:** QR / shareable link invites only (no directory search). Soft cap **50** friends; invites expire in **7** days.
+- Friend-visible dive projections: when **Share dives with friends** is on and the user has ≥1 friend, the owner’s app mirrors structured dive details to Firestore for friends to read. **Notes** and **media previews** are **opt-in**. Local edits that touch shared dive fields debounce-upsert the affected dive(s) via **`GoDiveFriendShareRefreshCoordinator`** (SwiftData **`didSave`**). The owner’s SwiftData + private CloudKit remain source of truth. FIT/UDDF originals and full Photos libraries are never uploaded.
+- **Delete account** also wipes invites, friendships, shared dives, and shared media.
 - `ownerProfileID` for dive rows remains the CloudKit / SwiftData UUID — not the Firebase UID.
-- Deferred: friend requests / friendships collections, handle uniqueness UI.
+- Deferred: `@handle` uniqueness UI; CloudKit Sharing / co-edit of one dive record.
 
 ## Conflict and Identity Rules
 
 - Treat Sign in with Apple `appleUserIdentifier` as the stable account key for GoDive profile lookup (CloudKit dive log).
-- Treat Firebase Auth UID as the stable key for the **social directory** only (`users/{uid}`).
+- Treat Firebase Auth UID as the stable key for the **social directory**, friend graph, and friend-visible projections.
 
 - After CloudKit import, **`UserProfileCloudKitIdentityMerge`** collapses duplicate profiles that share the same Apple ID and reassigns `ownerProfileID` rows to one canonical profile (avoids empty logbook after reinstall).
-- Treat CloudKit private database ownership as the sync boundary: one user's private data, across that user's Apple devices.
-- Do not support buddy-to-buddy shared editing in Phase 0-2. That requires a separate CloudKit Sharing / shared-database design.
+- Treat CloudKit private database ownership as the sync boundary for the **owner’s** devices.
+- Buddy-to-buddy **co-editing** of one shared dive record is still out of scope (CloudKit Sharing). Friends see **read-only projections**, not the owner’s CloudKit store.
 - Prefer app-level logical uniqueness and tombstones over CloudKit-unsupported uniqueness constraints.
 - Preserve denormalized stable UUID/string IDs on join rows so relationships can be repaired after sync conflicts.
 

@@ -46,6 +46,15 @@ enum GoDiveRemoteURLPolicy: Sendable {
             || h.hasSuffix(".firebaseapp.com")
     }
 
+    /// Firebase Storage download URLs (profile avatars / friend profile hero).
+    nonisolated static func sanitizedFirebaseStorageURL(from raw: String) -> URL? {
+        guard let url = parsedHTTPSURL(from: raw) else { return nil }
+        guard let host = url.host?.lowercased(),
+              isAllowedCatalogDownloadHost(host)
+        else { return nil }
+        return url
+    }
+
     // MARK: - Internals
 
     nonisolated private static func parsedHTTPSURL(from raw: String) -> URL? {

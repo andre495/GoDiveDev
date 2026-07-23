@@ -18,7 +18,7 @@ Use the **leading toggle** to switch modes:
 
     Logbook-style rows grouped by **country**, with dive counts when you’ve logged dives there.
 
-    - Each row shows site name, coordinates, and place hierarchy (country, region, body of water).  
+    - Each row shows site name, coordinates, and place hierarchy (country, region, body of water). When the country is known, a flag emoji appears before that line (for example 🇺🇸 United States · Utah).  
     - Tap a row for site detail.
 
 ## Find dive sites

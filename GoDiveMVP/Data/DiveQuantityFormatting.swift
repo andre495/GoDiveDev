@@ -2,6 +2,7 @@ import Foundation
 
 private enum DiveQuantityFormattingConstants: Sendable {
     nonisolated static let feetPerMeter = 3.280839895013123
+    nonisolated static let yardsPerMeter = feetPerMeter / 3.0
     /// Same scale as **`FitTankFieldImport`** (**bar → psi**).
     nonisolated static let psiPerBar = 14.5037738007
     nonisolated static let cubicFeetPerLiter = 0.0353146667214888
@@ -86,6 +87,18 @@ enum DiveQuantityFormatting {
         linearMeters(meters, system: system)
     }
 
+    /// Snorkel swim distance — **m** (metric) or **yd** (imperial).
+    nonisolated static func swimDistance(meters: Double, system: DiveDisplayUnitSystem) -> String {
+        guard meters > 0 else { return "—" }
+        switch system {
+        case .metric:
+            return "\(Int(meters.rounded())) m"
+        case .imperial:
+            let yards = meters * DiveQuantityFormattingConstants.yardsPerMeter
+            return "\(Int(yards.rounded())) yd"
+        }
+    }
+
     private nonisolated static func linearMeters(_ meters: Double, system: DiveDisplayUnitSystem) -> String {
         switch system {
         case .metric:
@@ -97,7 +110,7 @@ enum DiveQuantityFormatting {
     }
 
     /// Water temperature from stored **°C**; **`nil`** → **—**.
-    static func waterTemperature(celsius: Double?, system: DiveDisplayUnitSystem) -> String {
+    nonisolated static func waterTemperature(celsius: Double?, system: DiveDisplayUnitSystem) -> String {
         guard let celsius else { return "—" }
         switch system {
         case .metric:
@@ -118,6 +131,11 @@ enum DiveQuantityFormatting {
             let pounds = kilograms * DiveQuantityFormattingConstants.poundsPerKilogram
             return String(format: "%.1f lb", pounds)
         }
+    }
+
+    /// Canonical **psi** → **bar** (same scale as **`FitTankFieldImport`**).
+    nonisolated static func bar(fromPSI psi: Double) -> Double {
+        psi / DiveQuantityFormattingConstants.psiPerBar
     }
 
     /// Cylinder pressure from stored **psi**; **`nil`** → **—**. Metric UI uses **bar**; imperial uses **psi** (whole).

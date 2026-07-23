@@ -83,6 +83,12 @@ enum UserOnboardingActivityKind: String, CaseIterable, Identifiable, Sendable {
     case freeDiving
     case snorkeling
 
+    /// Welcome + post–sign-up interest pickers (excludes free diving).
+    nonisolated static let welcomePickerKinds: [UserOnboardingActivityKind] = [
+        .scubaDiving,
+        .snorkeling,
+    ]
+
     var id: String { rawValue }
 
     nonisolated var title: String {

@@ -288,7 +288,7 @@ struct FieldGuideCategoryDetailView: View {
         )
 
         FieldGuideSubcategoryListSection(
-            subcategories: definition.subcategories,
+            subcategories: FieldGuideCatalogIndex.sortedSubcategories(definition.subcategories),
             counts: summary.subcategoryCounts,
             categoryID: categoryID,
             speciesCount: summary.speciesCount,

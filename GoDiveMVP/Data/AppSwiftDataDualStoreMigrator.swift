@@ -24,6 +24,7 @@ enum AppSwiftDataDualStoreMigrator {
         var diagnosticsCount: Int = 0
         var userProfileCount: Int = 0
         var diveActivityCount: Int = 0
+        var snorkelActivityCount: Int = 0
         var totalInsertedCount: Int = 0
 
         nonisolated init(
@@ -32,6 +33,7 @@ enum AppSwiftDataDualStoreMigrator {
             diagnosticsCount: Int = 0,
             userProfileCount: Int = 0,
             diveActivityCount: Int = 0,
+            snorkelActivityCount: Int = 0,
             totalInsertedCount: Int = 0
         ) {
             self.catalogMarineLifeCount = catalogMarineLifeCount
@@ -39,6 +41,7 @@ enum AppSwiftDataDualStoreMigrator {
             self.diagnosticsCount = diagnosticsCount
             self.userProfileCount = userProfileCount
             self.diveActivityCount = diveActivityCount
+            self.snorkelActivityCount = snorkelActivityCount
             self.totalInsertedCount = totalInsertedCount
         }
     }
@@ -108,6 +111,8 @@ enum AppSwiftDataDualStoreMigrator {
         var mediaByID: [UUID: DiveMediaPhoto] = [:]
         var equipmentListsByID: [UUID: DiveActivityEquipmentList] = [:]
         var activityTagsByID: [UUID: ActivityTag] = [:]
+        var snorkelsByID: [UUID: SnorkelActivity] = [:]
+        var snorkelMediaByID: [UUID: SnorkelMediaPhoto] = [:]
 
         // MARK: Catalog
         for species in try source.fetch(FetchDescriptor<MarineLife>()) {
@@ -384,6 +389,15 @@ enum AppSwiftDataDualStoreMigrator {
             result.totalInsertedCount += 1
         }
 
+        for snorkel in try source.fetch(FetchDescriptor<SnorkelActivity>()) {
+            let ownerID = snorkel.ownerProfileID ?? snorkel.owner?.id
+            let copy = cloneSnorkelActivity(snorkel, owner: ownerID.flatMap { profilesByID[$0] })
+            destination.insert(copy)
+            snorkelsByID[copy.id] = copy
+            result.snorkelActivityCount += 1
+            result.totalInsertedCount += 1
+        }
+
         // MARK: Dive children
         for media in try source.fetch(FetchDescriptor<DiveMediaPhoto>()) {
             let dive = media.diveActivityID.flatMap { divesByID[$0] } ?? media.dive.flatMap { divesByID[$0.id] }
@@ -400,6 +414,25 @@ enum AppSwiftDataDualStoreMigrator {
             )
             destination.insert(copy)
             mediaByID[copy.id] = copy
+            result.totalInsertedCount += 1
+        }
+
+        for media in try source.fetch(FetchDescriptor<SnorkelMediaPhoto>()) {
+            let snorkel = media.snorkelActivityID.flatMap { snorkelsByID[$0] }
+                ?? media.snorkelActivity.flatMap { snorkelsByID[$0.id] }
+            let copy = SnorkelMediaPhoto(
+                id: media.id,
+                sortOrder: media.sortOrder,
+                mediaKind: DiveMediaKind(rawValue: media.mediaKind) ?? .image,
+                capturedAt: media.capturedAt,
+                photosLocalIdentifier: media.photosLocalIdentifier,
+                photosCloudIdentifier: media.photosCloudIdentifier,
+                fishialConfirmedSpeciesName: media.fishialConfirmedSpeciesName,
+                previewJPEGData: media.previewJPEGData,
+                snorkelActivity: snorkel
+            )
+            destination.insert(copy)
+            snorkelMediaByID[copy.id] = copy
             result.totalInsertedCount += 1
         }
 
@@ -448,6 +481,42 @@ enum AppSwiftDataDualStoreMigrator {
             destDive.profilePoints = points
             DiveProfilePointStore.syncTrackData(from: destDive)
         }
+        // Snorkel GPS/HR samples: same per-activity batching as dive profile points.
+        for snorkelID in snorkelsByID.keys {
+            let targetSnorkelID = snorkelID
+            let points = try source.fetch(
+                FetchDescriptor<SnorkelProfilePoint>(
+                    predicate: #Predicate { $0.snorkelActivityID == targetSnorkelID }
+                )
+            )
+            for point in points {
+                let copy = SnorkelProfilePoint(
+                    timestamp: point.timestamp,
+                    latitude: point.latitude,
+                    longitude: point.longitude,
+                    heartRateBPM: point.heartRateBPM,
+                    snorkelActivityID: snorkelID
+                )
+                destination.insert(copy)
+                result.totalInsertedCount += 1
+                profilePointCount += 1
+            }
+            if destination.hasChanges {
+                try destination.save()
+            }
+        }
+        for (snorkelID, destSnorkel) in snorkelsByID {
+            if destSnorkel.swimTrackData != nil { continue }
+            let points = try destination.fetch(
+                FetchDescriptor<SnorkelProfilePoint>(
+                    predicate: #Predicate { $0.snorkelActivityID == snorkelID }
+                )
+            )
+            guard !points.isEmpty else { continue }
+            destSnorkel.profilePoints = points
+            SnorkelProfilePointStore.syncTrackData(from: destSnorkel)
+        }
+
         if destination.hasChanges {
             try destination.save()
         }
@@ -495,9 +564,35 @@ enum AppSwiftDataDualStoreMigrator {
             result.totalInsertedCount += 1
         }
 
+        for tag in try source.fetch(FetchDescriptor<SnorkelBuddyTag>()) {
+            guard let buddy = tag.buddyID.flatMap({ buddiesByID[$0] }) ?? tag.buddy.flatMap({ buddiesByID[$0.id] })
+            else { continue }
+            let snorkel = tag.snorkelActivityID.flatMap { snorkelsByID[$0] }
+                ?? tag.snorkelActivity.flatMap { snorkelsByID[$0.id] }
+            let copy = SnorkelBuddyTag(id: tag.id, buddy: buddy, snorkelActivity: snorkel)
+            copy.legacyDisplayName = tag.legacyDisplayName
+            destination.insert(copy)
+            result.totalInsertedCount += 1
+        }
+
         for tag in try source.fetch(FetchDescriptor<DiveMediaBuddyTag>()) {
             guard let buddy = tag.buddyID.flatMap({ buddiesByID[$0] }) ?? tag.buddy.flatMap({ buddiesByID[$0.id] })
             else { continue }
+            let snorkelMedia = tag.snorkelMediaPhoto.flatMap { snorkelMediaByID[$0.id] }
+                ?? tag.mediaPhotoID.flatMap { snorkelMediaByID[$0] }
+            let snorkel = tag.snorkelActivityID.flatMap { snorkelsByID[$0] }
+                ?? tag.snorkelActivity.flatMap { snorkelsByID[$0.id] }
+            if let snorkelMedia, let snorkel {
+                let copy = DiveMediaBuddyTag(
+                    id: tag.id,
+                    buddy: buddy,
+                    snorkelMediaPhoto: snorkelMedia,
+                    snorkelActivity: snorkel
+                )
+                destination.insert(copy)
+                result.totalInsertedCount += 1
+                continue
+            }
             let media = tag.mediaPhotoID.flatMap { mediaByID[$0] } ?? tag.mediaPhoto.flatMap { mediaByID[$0.id] }
             let dive = tag.diveActivityID.flatMap { divesByID[$0] } ?? tag.diveActivity.flatMap { divesByID[$0.id] }
             let copy = DiveMediaBuddyTag(id: tag.id, buddy: buddy, mediaPhoto: media, diveActivity: dive)
@@ -510,14 +605,20 @@ enum AppSwiftDataDualStoreMigrator {
                 ?? sighting.diveActivity.flatMap { divesByID[$0.id] }
             let media = sighting.mediaPhotoID.flatMap { mediaByID[$0] }
                 ?? sighting.mediaPhoto.flatMap { mediaByID[$0.id] }
+            let snorkel = sighting.snorkelActivityID.flatMap { snorkelsByID[$0] }
+                ?? sighting.snorkelActivity.flatMap { snorkelsByID[$0.id] }
+            let snorkelMedia = sighting.snorkelMediaPhotoID.flatMap { snorkelMediaByID[$0] }
+                ?? sighting.snorkelMediaPhoto.flatMap { snorkelMediaByID[$0.id] }
             let copy = SightingInstance(
                 sightingUUID: sighting.sightingUUID,
                 marineLifeUUID: sighting.marineLifeUUID,
                 sightingDateTime: sighting.sightingDateTime,
                 diveActivity: dive,
+                snorkelActivity: snorkel,
                 diveSiteID: sighting.diveSiteID,
                 sightingDepthMeters: sighting.sightingDepthMeters,
-                mediaPhoto: media
+                mediaPhoto: media,
+                snorkelMediaPhoto: snorkelMedia
             )
             destination.insert(copy)
             result.totalInsertedCount += 1
@@ -609,6 +710,40 @@ enum AppSwiftDataDualStoreMigrator {
         )
         copy.featuredMediaPhotoID = source.featuredMediaPhotoID
         copy.profileTrackData = source.profileTrackData
+        copy.activityWeatherSnapshotData = source.activityWeatherSnapshotData
+        copy.owner = owner
+        copy.ownerProfileID = owner?.id ?? source.ownerProfileID
+        return copy
+    }
+
+    private nonisolated static func cloneSnorkelActivity(
+        _ source: SnorkelActivity,
+        owner: UserProfile?
+    ) -> SnorkelActivity {
+        let copy = SnorkelActivity(
+            id: source.id,
+            source: source.source,
+            sourceActivityId: source.sourceActivityId,
+            startTime: source.startTime,
+            timeZoneOffsetSeconds: source.timeZoneOffsetSeconds,
+            durationMinutes: source.durationMinutes,
+            swimDistanceMeters: source.swimDistanceMeters,
+            totalCalories: source.totalCalories,
+            avgHeartRateBPM: source.avgHeartRateBPM,
+            maxHeartRateBPM: source.maxHeartRateBPM,
+            avgTemperatureCelsius: source.avgTemperatureCelsius,
+            avgMovingSpeedMetersPerSecond: source.avgMovingSpeedMetersPerSecond,
+            maxDepthMeters: source.maxDepthMeters,
+            entryCoordinate: source.entryCoordinate,
+            rawImportVersion: source.rawImportVersion
+        )
+        copy.siteName = source.siteName
+        copy.locationName = source.locationName
+        copy.diveSiteID = source.diveSiteID
+        copy.notes = source.notes
+        copy.featuredMediaPhotoID = source.featuredMediaPhotoID
+        copy.swimTrackData = source.swimTrackData
+        copy.activityWeatherSnapshotData = source.activityWeatherSnapshotData
         copy.owner = owner
         copy.ownerProfileID = owner?.id ?? source.ownerProfileID
         return copy

@@ -4,6 +4,8 @@ import SwiftUI
 struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: View>: View {
     @Binding var selectedDetent: DiveActivityOverviewDetent
     let layoutHeight: CGFloat
+    let screenWidth: CGFloat
+    let topSafeInset: CGFloat
     let bottomSafeInset: CGFloat
     @ViewBuilder var collapsedSummary: () -> CollapsedSummary
     @ViewBuilder var panelContent: () -> PanelContent
@@ -19,19 +21,43 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
     var usesOpaquePanelScrollFadeBackground: Bool = false
     /// Optional sink for the panel’s live height fraction (resting detent or grabber drag).
     var liveHeightFraction: Binding<CGFloat>? = nil
+    /// Persisted vertical scroll offset for nested-navigation return (map / tank panel).
+    @Binding var panelScrollOffsetY: CGFloat
+    /// Last offset saved in **`DiveActivityOverviewUIStateStore`** while the binding may read zero during nested pushes.
+    var scrollRestorationFallbackY: CGFloat = 0
+    /// Remounts scroll when map / tank / media panel body changes.
+    var panelScrollContentIdentity: AnyHashable = "default"
 
     @State private var grabberDragTranslation: CGFloat = 0
+
+    private var layoutContext: DiveActivityOverviewSheetLayoutContext {
+        DiveActivityOverviewSheetLayoutContext(
+            layoutHeight: layoutHeight,
+            screenWidth: screenWidth,
+            topSafeInset: topSafeInset,
+            bottomSafeInset: bottomSafeInset
+        )
+    }
+
+    private var largeRestingFraction: CGFloat {
+        DiveActivityOverviewPanelMetrics.largeHeightFraction(in: layoutContext)
+    }
+
+    private var restingHeightFraction: CGFloat {
+        selectedDetent.resolvedHeightFraction(in: layoutContext)
+    }
 
     private var isDragging: Bool { grabberDragTranslation != 0 }
 
     private var displayHeightFraction: CGFloat {
         guard isDragging, layoutHeight > 0 else {
-            return selectedDetent.heightFraction
+            return restingHeightFraction
         }
         return DiveActivityOverviewPanelMetrics.heightFractionWhileDragging(
-            restingFraction: selectedDetent.heightFraction,
+            restingFraction: restingHeightFraction,
             dragTranslation: grabberDragTranslation,
-            layoutHeight: layoutHeight
+            layoutHeight: layoutHeight,
+            largeRestingFraction: largeRestingFraction
         )
     }
 
@@ -46,13 +72,15 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
         return DiveActivityOverviewDetent.sheetHeight(
             for: selectedDetent,
             layoutHeight: layoutHeight,
-            bottomSafeInset: bottomSafeInset
+            bottomSafeInset: bottomSafeInset,
+            screenWidth: screenWidth,
+            topSafeInset: topSafeInset
         )
     }
 
     /// Height fraction passed to map panel content — continuous while dragging, resting detent otherwise.
     private var contentHeightFraction: CGFloat {
-        isDragging ? displayHeightFraction : selectedDetent.heightFraction
+        isDragging ? displayHeightFraction : restingHeightFraction
     }
 
     var body: some View {
@@ -63,7 +91,9 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
 
             DiveActivityOverviewSheetContent(
                 selectedDetent: $selectedDetent,
+                layoutContext: layoutContext,
                 liveHeightFraction: contentHeightFraction,
+                panelScrollOffsetY: $panelScrollOffsetY,
                 collapsedSummary: collapsedSummary,
                 panelContent: panelContent,
                 collapsedSummaryExpandsOnTap: collapsedSummaryExpandsOnTap,
@@ -71,7 +101,9 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
                 disablesPanelScrollWhenMinimized: disablesPanelScrollWhenMinimized,
                 isPanelScrollDisabled: isPanelScrollDisabled,
                 topScrollFadeHeight: topScrollFadeHeight,
-                usesOpaquePanelScrollFadeBackground: usesOpaquePanelScrollFadeBackground
+                usesOpaquePanelScrollFadeBackground: usesOpaquePanelScrollFadeBackground,
+                scrollRestorationFallbackY: scrollRestorationFallbackY,
+                panelScrollContentIdentity: panelScrollContentIdentity
             )
         }
         .frame(height: panelHeight, alignment: .top)
@@ -114,18 +146,23 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
                 }
             }
             .onEnded { value in
-                let current = selectedDetent.heightFraction
+                let current = restingHeightFraction
                 let predicted = DiveActivityOverviewPanelMetrics.heightFractionWhileDragging(
                     restingFraction: current,
                     dragTranslation: value.predictedEndTranslation.height,
-                    layoutHeight: layoutHeight
+                    layoutHeight: layoutHeight,
+                    largeRestingFraction: largeRestingFraction
                 )
                 let snapped = DiveActivityOverviewPanelMetrics.snappedHeightFractionAfterDrag(
                     currentFraction: current,
                     predictedFraction: predicted,
-                    verticalTranslation: value.translation.height
+                    verticalTranslation: value.translation.height,
+                    largeRestingFraction: largeRestingFraction
                 )
-                let nextDetent = DiveActivityOverviewDetent.nearest(toHeightFraction: snapped)
+                let nextDetent = DiveActivityOverviewDetent.nearest(
+                    toHeightFraction: snapped,
+                    largeRestingFraction: largeRestingFraction
+                )
                 withAnimation(.diveOverviewPanelDetent) {
                     selectedDetent = nextDetent
                     grabberDragTranslation = 0

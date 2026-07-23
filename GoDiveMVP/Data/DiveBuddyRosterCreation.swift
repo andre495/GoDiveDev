@@ -12,12 +12,14 @@ enum DiveBuddyRosterCreation {
         modelContext: ModelContext
     ) -> DiveBuddy? {
         guard !DiveBuddyCatalog.shouldExcludeBuddyName(displayName, owner: owner) else { return nil }
-        return DiveBuddyCatalog.findOrCreate(
+        let buddy = DiveBuddyCatalog.findOrCreate(
             displayName: displayName,
             contactsIdentifier: contactsIdentifier,
             profilePhoto: profilePhoto,
             owner: owner,
             modelContext: modelContext
         )
+        GoDiveFriendBuddyLinking.scheduleAutoLinkAfterBuddyTagged(buddy, modelContext: modelContext)
+        return buddy
     }
 }

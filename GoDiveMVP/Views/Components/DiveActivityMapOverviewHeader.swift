@@ -1,7 +1,14 @@
 import SwiftUI
 
-/// Map-tab overview sheet header — dive **#**, site, place, and start date/time.
+/// Scuba vs snorkel identity row (symbol tint + optional dive **#** chip).
+enum ActivityOverviewHeaderKind: Equatable {
+    case scubaDive
+    case snorkel
+}
+
+/// Map-tab overview sheet header — activity symbol (+ dive **#** for scuba), site, place, and start date/time.
 struct DiveActivityMapOverviewHeader: View {
+    var activityKind: ActivityOverviewHeaderKind = .scubaDive
     let diveNumberChip: String?
     let siteTitle: String
     let linkedCatalogSiteID: UUID?
@@ -11,8 +18,8 @@ struct DiveActivityMapOverviewHeader: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            if let diveNumberChip {
-                diveNumberChipLabel(diveNumberChip)
+            if showsIdentityLeadingRow {
+                identityLeadingRow
             }
 
             DiveActivityLinkedSiteTitle(
@@ -36,6 +43,63 @@ struct DiveActivityMapOverviewHeader: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("DiveOverview.MapHeader")
+    }
+
+    private var showsIdentityLeadingRow: Bool {
+        identityLeadingSymbolName != nil || diveNumberChip != nil
+    }
+
+    private var identityLeadingSymbolName: String? {
+        switch activityKind {
+        case .scubaDive:
+            LogbookActivityRowPresentation.scubaDiveLeadingSymbolName
+        case .snorkel:
+            LogbookActivityRowPresentation.snorkelLeadingSymbolName
+        }
+    }
+
+    private var identityLeadingSymbolColor: Color {
+        switch activityKind {
+        case .scubaDive:
+            AppTheme.Colors.accent
+        case .snorkel:
+            .red
+        }
+    }
+
+    private var identityLeadingRow: some View {
+        HStack(spacing: 6) {
+            if let identityLeadingSymbolName {
+                Image(systemName: identityLeadingSymbolName)
+                    .font(
+                        .system(
+                            size: DiveActivityOverviewPresentation.activityIdentitySymbolPointSize,
+                            weight: .semibold
+                        )
+                    )
+                    .foregroundStyle(identityLeadingSymbolColor)
+                    .accessibilityHidden(true)
+            }
+
+            if let diveNumberChip {
+                diveNumberChipLabel(diveNumberChip)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(identityLeadingRowAccessibilityLabel)
+    }
+
+    private var identityLeadingRowAccessibilityLabel: String {
+        switch activityKind {
+        case .snorkel:
+            "Snorkel activity"
+        case .scubaDive:
+            if let diveNumberChip {
+                "Scuba dive number \(diveNumberChip)"
+            } else {
+                "Scuba dive"
+            }
+        }
     }
 
     private func diveNumberChipLabel(_ title: String) -> some View {

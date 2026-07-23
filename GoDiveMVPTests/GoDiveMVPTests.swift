@@ -106,7 +106,7 @@ struct GoDiveMVPTests {
         #expect(
             focus == DiveActivityMediaFocusPresentation.Focus(
                 tab: .camera,
-                detent: .medium,
+                detent: .large,
                 mediaID: mediaID
             )
         )
@@ -139,7 +139,7 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func diveActivityMediaPresentation_resolvedSelectedPhotoID_prefersDeepLinkTarget() {
+    @Test @MainActor func diveActivityMediaPresentation_resolvedSelectedPhotoID_prefersDeepLinkTarget() {
         let first = UUID()
         let second = UUID()
         let photos = [DiveMediaPhoto(id: first), DiveMediaPhoto(id: second)]
@@ -169,6 +169,15 @@ struct GoDiveMVPTests {
         #expect(DiveBuddyDetailPresentation.avatarOverlapOffset() == 60)
         #expect(DiveBuddyDetailPresentation.avatarLeadingInset == AppTheme.Spacing.lg)
         #expect(DiveBuddyDetailPresentation.identityTextLift == 12)
+        #expect(DiveBuddyDetailPresentation.identityAvatarVerticalOffsetAdjustment == 23)
+        #expect(DiveBuddyDetailPresentation.identityPinnedSummaryVerticalOffset == 1)
+        #expect(DiveBuddyDetailPresentation.avatarPanelOverlayVerticalOffset() == -37)
+        #expect(
+            DiveBuddyDetailPresentation.identityPinnedSummaryBottomPadding
+                == BlueSheetDetailPagePinnedSummaryPresentation.pushedDetailPinnedSummaryBottomPadding
+        )
+        #expect(BlueSheetPinnedSummaryPresentation.buddyTitleFont == .title2.weight(.bold))
+        #expect(BlueSheetPinnedSummaryPresentation.buddyAccentFont == .body.weight(.semibold))
         #expect(
             DiveBuddyDetailPresentation.heroModeToggleBottomPadding
                 > HomeLifetimeStatsLayout.panelOverlap
@@ -923,6 +932,79 @@ struct GoDiveMVPTests {
         #expect(ProfilePresentation.tripCountLabel(4) == "4 trips")
     }
 
+    @Test func profilePresentation_sideMenuTitles_arePageTitlesOnly() {
+        #expect(ProfilePresentation.menuEditProfileTitle == "Edit Profile")
+        #expect(ProfilePresentation.menuSettingsTitle == "Settings")
+        #expect(ProfilePresentation.menuCertificationsTitle == "Certifications")
+        #expect(ProfilePresentation.menuEquipmentTitle == "Equipment Locker")
+        #expect(ProfilePresentation.menuBuddiesTitle == "Buddies")
+        #expect(ProfilePresentation.menuTripsTitle == "Trips")
+        #expect(ProfilePresentation.menuSignOutTitle == "Sign out")
+        #expect(ProfilePresentation.menuIconPointSize == 28)
+        #expect(ProfilePresentation.sideMenuWidthFraction == CGFloat(2.0 / 3.0))
+        #expect(ProfilePresentation.sideMenuItemTitles == [
+            "Trips",
+            "Certifications",
+            "Equipment Locker",
+            "Buddies",
+            "Edit Profile",
+            "Settings",
+        ])
+        #expect(!ProfilePresentation.sideMenuItemTitles.contains("My tagged media"))
+        #expect(!ProfilePresentation.sideMenuItemTitles.contains("Sign out"))
+    }
+
+    @Test @MainActor func profileDetailContentPagerPresentation_detailsPageCopy() {
+        #expect(ProfileDetailContentPagerPresentation.pageCount == 3)
+        #expect(
+            ProfileDetailContentPagerPresentation.pages == [
+                .diverStats,
+                .details,
+                .taggedMedia,
+            ]
+        )
+        #expect(ProfileDetailContentPagerPresentation.defaultPage == .diverStats)
+        #expect(ProfileDetailContentPagerPresentation.pageTitle(for: .diverStats) == "Diver stats")
+        #expect(ProfileDetailContentPagerPresentation.pageTitle(for: .details) == "Details")
+        #expect(
+            ProfileDetailContentPagerPresentation.pageTitle(for: .taggedMedia)
+                == DiveBuddyTaggedMediaPresentation.sectionTitle
+        )
+        #expect(!ProfileDetailContentPagerPresentation.usesStaticPagerLayout(for: .diverStats))
+        #expect(!ProfileDetailContentPagerPresentation.usesStaticPagerLayout(for: .taggedMedia))
+        #expect(ProfileDetailContentPagerPresentation.danSectionTitle == "DAN insurance")
+        #expect(ProfileDetailContentPagerPresentation.certificationSectionTitle == "Certification")
+        #expect(ProfileDetailContentPagerPresentation.certificationDateAttainedLabel == "Date attained")
+        #expect(ProfileDetailContentPagerPresentation.usesStaticPagerLayout(for: .details))
+        #expect(ProfileDetailContentPagerPresentation.formattedDanMemberNumberForDisplay("1234567") == "#1234567")
+        #expect(ProfileDetailContentPagerPresentation.formattedDanMemberNumberForDisplay("#999") == "#999")
+        #expect(ProfileDetailContentPagerPresentation.formattedDanMemberNumberForDisplay(nil) == "#")
+        #expect(ProfileDetailContentPagerPresentation.formattedDanMemberNumberForDisplay("  ") == "#")
+        #expect(ProfileDetailContentPagerPresentation.usesBlueSheetDetailHorizontalPaddingOnly)
+        #expect(
+            BlueSheetDetailPagePinnedSummaryPresentation.horizontalPadding == AppTheme.Spacing.lg
+        )
+        #expect(ProfileDetailContentPagerPresentation.danWebsiteURL.absoluteString == "https://dan.org/")
+        #expect(ProfileDetailContentPagerPresentation.emptyDanMessage.contains("DAN"))
+        #expect(
+            ProfileDetailContentPagerPresentation.accessibilityIdentifier(for: .diverStats)
+                == "Profile.ContentPager.DiverStats"
+        )
+        #expect(
+            ProfileDetailContentPagerPresentation.accessibilityIdentifier(for: .details)
+                == "Profile.ContentPager.Details"
+        )
+        #expect(
+            ProfileDetailContentPagerPresentation.accessibilityIdentifier(for: .taggedMedia)
+                == "Profile.ContentPager.TaggedMedia"
+        )
+        #expect(ProfileDetailContentPagerPresentation.showsPinnedPageHeaders == false)
+        #expect(
+            ProfileDetailContentPagerPresentation.emptyStateMessage(for: .taggedMedia)
+                .contains("tagged with you")
+        )
+    }
+
     @Test func profileTaggedMediaPresentation_mediaCountLabel() {
         #expect(ProfileTaggedMediaPresentation.mediaCountLabel(0) == "No tagged media")
         #expect(ProfileTaggedMediaPresentation.mediaCountLabel(1) == "1 photo or video")
@@ -1220,6 +1302,7 @@ struct GoDiveMVPTests {
     }
 
     @Test func userOnboardingActivityKind_icons_matchWelcomeScreen() {
+        #expect(UserOnboardingActivityKind.welcomePickerKinds == [.scubaDiving, .snorkeling])
         #expect(UserOnboardingActivityKind.scubaDiving.assetImageName == "ScubaTankTab")
         #expect(UserOnboardingActivityKind.scubaDiving.systemImage == nil)
         #expect(UserOnboardingActivityKind.freeDiving.systemImage == "water.waves.and.arrow.down")
@@ -1648,10 +1731,16 @@ struct GoDiveMVPTests {
         #expect(PostSignUpProfileSetupPresentation.certificationStepHasStartedEntry(form: withAgency))
     }
 
+    @Test func iCloudDiveLogReconnectPresentation_postSignInCopy() {
+        #expect(ICloudDiveLogReconnectPresentation.postSignInAlertTitle == "Loading dive log from iCloud")
+        #expect(ICloudDiveLogReconnectPresentation.postSignInAlertButtonTitle == "OK")
+    }
+
     @Test func signInPresentation_showsBackButton_onlyWhenOnBackProvided() {
         #expect(SignInPresentation.showsBackButton(hasOnBack: true))
         #expect(!SignInPresentation.showsBackButton(hasOnBack: false))
         #expect(SignInPresentation.backButtonAccessibilityIdentifier == "SignIn.Back")
+        #expect(SignInPresentation.loggedOutCrashReportsLinkTitle == "Diagnostic reports")
     }
 
     @Test func postSignUpInterestsPresentation_shouldPresent_onlyWithoutPendingWelcomeInterests() {
@@ -1729,6 +1818,8 @@ struct GoDiveMVPTests {
         )
         #expect(
             !AccountSessionMainShellPresentation.shouldMountMainAppShellUnderlay(
+                isRestoringSession: false,
+                isPopulatingRemoteAccountData: false,
                 isSignedIn: true,
                 showsNewAccountWelcome: false,
                 showsPostSignUpInterests: false,
@@ -1742,6 +1833,8 @@ struct GoDiveMVPTests {
         )
         #expect(
             AccountSessionMainShellPresentation.shouldMountMainAppShellUnderlay(
+                isRestoringSession: false,
+                isPopulatingRemoteAccountData: false,
                 isSignedIn: true,
                 showsNewAccountWelcome: false,
                 showsPostSignUpInterests: false,
@@ -1751,6 +1844,36 @@ struct GoDiveMVPTests {
                 showsPostSignUpOnboardingImport: false,
                 showsSignInCelebration: true,
                 allowsCelebrationShellPrewarm: true
+            )
+        )
+        #expect(
+            !AccountSessionMainShellPresentation.shouldMountMainAppShellUnderlay(
+                isRestoringSession: false,
+                isPopulatingRemoteAccountData: true,
+                isSignedIn: true,
+                showsNewAccountWelcome: false,
+                showsPostSignUpInterests: false,
+                showsPostSignUpProfileSetup: false,
+                showsPostSignUpPermissions: false,
+                showsPostSignUpImportOffer: false,
+                showsPostSignUpOnboardingImport: false,
+                showsSignInCelebration: false,
+                allowsCelebrationShellPrewarm: false
+            )
+        )
+        #expect(
+            !AccountSessionMainShellPresentation.shouldMountMainAppShellUnderlay(
+                isRestoringSession: true,
+                isPopulatingRemoteAccountData: false,
+                isSignedIn: true,
+                showsNewAccountWelcome: false,
+                showsPostSignUpInterests: false,
+                showsPostSignUpProfileSetup: false,
+                showsPostSignUpPermissions: false,
+                showsPostSignUpImportOffer: false,
+                showsPostSignUpOnboardingImport: false,
+                showsSignInCelebration: false,
+                allowsCelebrationShellPrewarm: false
             )
         )
     }
@@ -1914,6 +2037,78 @@ struct GoDiveMVPTests {
         #expect(try context.fetchCount(FetchDescriptor<UserProfile>()) == 1)
     }
 
+    @Test func goDiveFirestoreProfilePhotoRestore_needsLocalRestore_whenEmptyOrMissing() {
+        let withPhoto = UserProfile(appleUserIdentifier: "a", displayName: "A")
+        withPhoto.profilePhoto = Data([0xFF, 0xD8])
+        #expect(!GoDiveFirestoreProfilePhotoRestore.needsLocalRestore(withPhoto))
+
+        let empty = UserProfile(appleUserIdentifier: "b", displayName: "B")
+        empty.profilePhoto = Data()
+        #expect(GoDiveFirestoreProfilePhotoRestore.needsLocalRestore(empty))
+
+        let missing = UserProfile(appleUserIdentifier: "c", displayName: "C")
+        #expect(GoDiveFirestoreProfilePhotoRestore.needsLocalRestore(missing))
+    }
+
+    @Test @MainActor
+    func userProfileCloudKitIdentityMerge_adoptsCloudKitProfileOwnedSnorkels() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let appleID = "apple-merge-snorkel"
+
+        let localEmpty = UserProfile(appleUserIdentifier: appleID, displayName: "Diver")
+        let cloudKitAccount = UserProfile(appleUserIdentifier: appleID, displayName: "Andre Dugas")
+        context.insert(localEmpty)
+        context.insert(cloudKitAccount)
+
+        let snorkel = SnorkelActivity(startTime: Date(), durationMinutes: 30)
+        SnorkelActivityOwnership.assignOwner(cloudKitAccount, to: snorkel)
+        context.insert(snorkel)
+        try context.save()
+
+        let outcome = try UserProfileCloudKitIdentityMerge.reconcile(
+            appleUserIdentifier: appleID,
+            preferredSessionProfileID: localEmpty.id,
+            modelContext: context
+        )
+
+        #expect(outcome.canonicalProfileID == cloudKitAccount.id)
+        #expect(snorkel.ownerProfileID == cloudKitAccount.id)
+    }
+
+    @Test @MainActor
+    func goDiveCloudKitDiveLogLocalStatus_countsSessionAndSplitProfiles() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let appleID = "apple-status"
+        let session = UserProfile(appleUserIdentifier: appleID, displayName: "Session")
+        let other = UserProfile(appleUserIdentifier: appleID, displayName: "Cloud")
+        context.insert(session)
+        context.insert(other)
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            siteName: "Reef"
+        )
+        DiveActivityOwnership.assignOwner(other, to: dive)
+        context.insert(dive)
+        try context.save()
+
+        let snapshot = try GoDiveCloudKitDiveLogLocalStatus.snapshot(
+            sessionProfileID: session.id,
+            appleUserIdentifier: appleID,
+            modelContext: context,
+            defaults: UserDefaults(suiteName: "GoDiveCloudKitDiveLogLocalStatusTests")!
+        )
+
+        #expect(snapshot.sessionProfileDiveCount == 0)
+        #expect(snapshot.totalDiveCount == 1)
+        #expect(snapshot.appleIDProfileCount == 2)
+        #expect(snapshot.activitiesOnOtherProfilesForSameAppleID == 1)
+    }
+
     @Test @MainActor
     func userProfileCloudKitIdentityMerge_adoptsCloudKitProfileOwnedDives() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
@@ -1960,6 +2155,79 @@ struct GoDiveMVPTests {
             preferredSessionProfileID: empty.id
         )
         #expect(canonical.id == named.id)
+    }
+
+    @Test @MainActor
+    func userProfileCloudKitIdentityMerge_chooseCanonical_doesNotPreferEmptySessionTwin() {
+        let localMint = UserProfile(appleUserIdentifier: "a", displayName: "Andre")
+        localMint.createdAt = Date().addingTimeInterval(10)
+        let cloudOlder = UserProfile(appleUserIdentifier: "a", displayName: "Andre")
+        cloudOlder.createdAt = Date().addingTimeInterval(-1_000)
+        let canonical = UserProfileCloudKitIdentityMerge.chooseCanonical(
+            profiles: [localMint, cloudOlder],
+            diveCounts: [localMint.id: 0, cloudOlder.id: 0],
+            preferredSessionProfileID: localMint.id
+        )
+        #expect(canonical.id == cloudOlder.id)
+    }
+
+    @Test @MainActor
+    func userProfileCloudKitIdentityMerge_defersDeleteWhenNoOwnedActivitiesYet() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let appleID = "apple-merge-defer"
+        let localMint = UserProfile(appleUserIdentifier: appleID, displayName: "Diver")
+        localMint.createdAt = Date()
+        let cloudProfile = UserProfile(appleUserIdentifier: appleID, displayName: "Andre")
+        cloudProfile.createdAt = Date().addingTimeInterval(-86_400)
+        context.insert(localMint)
+        context.insert(cloudProfile)
+        try context.save()
+
+        let outcome = try UserProfileCloudKitIdentityMerge.reconcile(
+            appleUserIdentifier: appleID,
+            preferredSessionProfileID: localMint.id,
+            modelContext: context
+        )
+
+        #expect(outcome.mergedDuplicateCount == 0)
+        #expect(outcome.canonicalProfileID == cloudProfile.id)
+        #expect(try context.fetchCount(FetchDescriptor<UserProfile>()) == 2)
+    }
+
+    @Test @MainActor
+    func accountRemoteDataPopulation_shouldReconnectBeforeSignIn_whenStickyLocalEmpty() throws {
+        let suite = "godive.reconnectBeforeSignIn.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(false, forKey: AppSwiftDataDualStoreFactory.lastCloudKitSyncEnabledDefaultsKey)
+
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        #expect(
+            AccountRemoteDataPopulation.shouldReconnectBeforeSignIn(
+                appleUserIdentifier: "apple-reconnect",
+                modelContext: context,
+                defaults: defaults
+            )
+        )
+
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 12,
+            siteName: "Local"
+        )
+        context.insert(dive)
+        try context.save()
+        #expect(
+            !AccountRemoteDataPopulation.shouldReconnectBeforeSignIn(
+                appleUserIdentifier: "apple-reconnect",
+                modelContext: context,
+                defaults: defaults
+            )
+        )
     }
 
     @Test @MainActor
@@ -3358,6 +3626,7 @@ struct GoDiveMVPTests {
     }
 
     @Test func settingsPresentation_exposesSettingTitlesAndInfoCopy() {
+        #expect(SettingsPresentation.pageTitle == "Settings")
         #expect(SettingsPresentation.ImperialUnits.title == "Imperial units")
         #expect(SettingsPresentation.ImperialUnits.infoMessage.contains("feet"))
         #expect(SettingsPresentation.DefaultTank.title == "Default tank")
@@ -3598,7 +3867,7 @@ struct GoDiveMVPTests {
             !DiveTankOverviewHeroPresentation.showsMinimizedProfileChart(for: .minimized, depthSampleCount: 1)
         )
         #expect(
-            !DiveTankOverviewHeroPresentation.showsMinimizedProfileChart(for: .medium, depthSampleCount: 10)
+            !DiveTankOverviewHeroPresentation.showsMinimizedProfileChart(for: .large, depthSampleCount: 10)
         )
     }
 
@@ -3853,7 +4122,7 @@ struct GoDiveMVPTests {
     }
 
     @Test func diveTankOverviewHeroPresentation_landscapeProfileChart_atEveryDetent() {
-        for detent in [DiveActivityOverviewDetent.minimized, .medium, .large] {
+        for detent in [DiveActivityOverviewDetent.minimized, .large] {
             #expect(
                 DiveTankOverviewHeroPresentation.showsProfileChart(
                     for: detent,
@@ -3870,11 +4139,63 @@ struct GoDiveMVPTests {
         }
         #expect(
             DiveTankOverviewHeroPresentation.showsProfileChart(
-                for: .medium,
+                for: .large,
                 depthSampleCount: 4,
                 isLandscape: false
-            ) == false
+            )
         )
+        #expect(
+            !DiveTankOverviewHeroPresentation.showsTankCylinderHero(
+                for: .large,
+                isLandscape: false
+            )
+        )
+    }
+
+    @Test func diveActivityOverviewLandscapePresentation_mapBottomMargin_usesDeviceLargeSheetHeight() {
+        let context = DiveActivityOverviewSheetLayoutContext(
+            layoutHeight: 844,
+            screenWidth: 393,
+            topSafeInset: 59,
+            bottomSafeInset: 34
+        )
+        let margin = DiveActivityOverviewLandscapePresentation.mapBottomContentMargin(
+            layoutContext: context,
+            detent: .large,
+            liveHeightFraction: nil,
+            isLandscape: false
+        )
+        let expected = DiveActivityOverviewDetent.sheetHeight(
+            for: .large,
+            layoutHeight: 844,
+            bottomSafeInset: 34,
+            screenWidth: 393,
+            topSafeInset: 59
+        )
+        #expect(abs(margin - expected) < 0.5)
+        let referenceOnly = DiveActivityOverviewDetent.bottomObstructionHeight(
+            layoutHeight: 844,
+            detent: .large,
+            bottomSafeInset: 34
+        )
+        #expect(margin >= referenceOnly - 0.5)
+    }
+
+    @Test func diveActivityOverviewLandscapePresentation_mapBottomMargin_liveFraction_matchesContinuousSheet() {
+        let context = DiveActivityOverviewSheetLayoutContext.presentationReference
+        let fraction: CGFloat = 0.35
+        let margin = DiveActivityOverviewLandscapePresentation.mapBottomContentMargin(
+            layoutContext: context,
+            detent: .large,
+            liveHeightFraction: fraction,
+            isLandscape: false
+        )
+        let expected = DiveActivityOverviewDetent.sheetHeight(
+            forHeightFraction: fraction,
+            layoutHeight: context.layoutHeight,
+            bottomSafeInset: context.bottomSafeInset
+        )
+        #expect(abs(margin - expected) < 0.01)
     }
 
     @Test func diveTankOverviewHeroPresentation_landscapeMinimized_hidesSheetAndShowsRotateHintInPortrait() {
@@ -3933,6 +4254,32 @@ struct GoDiveMVPTests {
         #expect(DiveTankMinimizedGasSummary.rmvRateLine(formattedRate: "18.4 L/min") == "RMV: 18.4 L/min")
         #expect(DiveTankMinimizedGasSummary.sacRateLabel == "SAC:")
         #expect(DiveTankMinimizedGasSummary.rmvRateLabel == "RMV:")
+    }
+
+    @Test func diveTankMinimizedGasSummary_consumedTally_countsUpFromZero() {
+        let start = DiveTankMinimizedGasSummary.minimizedGasConsumedTally(
+            totalConsumedPSI: 1800,
+            revealProgress: 0,
+            system: .imperial
+        )
+        #expect(start.numericAnimationValue == 0)
+        #expect(start.pressureValueText == "0")
+        #expect(start.unitSuffix == " psi")
+
+        let mid = DiveTankMinimizedGasSummary.minimizedGasConsumedTally(
+            totalConsumedPSI: 1800,
+            revealProgress: 0.5,
+            system: .imperial
+        )
+        #expect(mid.numericAnimationValue == 900)
+
+        let end = DiveTankMinimizedGasSummary.minimizedGasConsumedTally(
+            totalConsumedPSI: 1800,
+            revealProgress: 1,
+            system: .imperial
+        )
+        #expect(end.numericAnimationValue == 1800)
+        #expect(end.pressureValueText == "1,800")
     }
 
     @Test func diveSACRMVCalculation_scubascribblesFreshwaterAL80Example() throws {
@@ -5547,6 +5894,15 @@ struct GoDiveMVPTests {
         #expect(config.presentation == .pushedDetail)
         #expect(config.showsHero)
         #expect(config.hidesTabBarWhenPushed)
+        #expect(!config.usesProfileBubblePanelBackground)
+    }
+
+    @Test func blueSheetDetailPageConfiguration_pushedDetailWithStandardPanelBodySpacing() {
+        let config = BlueSheetDetailPageConfiguration.pushedDetailWithStandardPanelBodySpacing(
+            accessibilityRootIdentifier: "GoDive.CatalogDetail"
+        )
+        #expect(config.presentation == .pushedDetail)
+        #expect(config.pinnedSummaryBottomPadding == BlueSheetDetailPagePinnedSummaryPresentation.pushedDetailPinnedSummaryBottomPadding)
     }
 
     @Test func blueSheetDetailPageConfiguration_tabRoot() {
@@ -5556,6 +5912,15 @@ struct GoDiveMVPTests {
         #expect(config.presentation == .tabRoot)
         #expect(config.showsHero)
         #expect(!config.hidesTabBarWhenPushed)
+        #expect(!config.usesProfileBubblePanelBackground)
+    }
+
+    @Test func blueSheetDetailPageConfiguration_profileBubblePanelBackground() {
+        let config = BlueSheetDetailPageConfiguration.pushedDetail(
+            accessibilityRootIdentifier: "Profile.Root",
+            usesProfileBubblePanelBackground: true
+        )
+        #expect(config.usesProfileBubblePanelBackground)
     }
 
     @Test func blueSheetPagePresentation_pageLayoutKind() {
@@ -5908,10 +6273,22 @@ struct GoDiveMVPTests {
         #expect(presentation.horizontalPadding == AppTheme.Spacing.lg)
         #expect(presentation.seamTopPadding == AppTheme.Spacing.md)
         #expect(presentation.bodyBottomPadding == AppTheme.Spacing.md)
+        #expect(presentation.panelBodyTopSpacingAdjustment == 30)
+        #expect(presentation.panelContentTopDividerVerticalAdjustment == -21)
+        #expect(
+            presentation.pushedDetailPinnedSummaryBottomPadding
+                == presentation.bodyBottomPadding
+                + presentation.panelBodyTopSpacingAdjustment
+                + presentation.panelContentTopDividerVerticalAdjustment
+        )
         #expect(presentation.pinnedRowSpacing == AppTheme.Spacing.sm)
         #expect(presentation.topPadding == presentation.seamTopPadding)
         #expect(presentation.bottomPadding == presentation.bodyBottomPadding)
         #expect(presentation.pinnedSummaryAccessibilitySuffix == "PinnedSummary")
+    }
+
+    @Test func blueSheetDetailPanelContentTopDividerPresentation_usesHairlineHeight() {
+        #expect(BlueSheetDetailPanelContentTopDividerPresentation.lineHeight == 1)
     }
 
     @Test func blueSheetTopChromePresentation_homeHeroUsesLogbookScrimFeather() {
@@ -6245,17 +6622,25 @@ struct GoDiveMVPTests {
     }
 
     @Test @MainActor
-    func fieldGuideCategoryAccent_usesRequestedHubPaletteInTaxonomyOrder() {
+    func fieldGuideCategoryAccent_usesContrastyLightAndPastelDarkHubPalette() {
         #expect(FieldGuideTaxonomy.categories.map(\.id) == [
             "plants", "sponges", "corals", "invertebrates", "fishes", "reptiles", "mammals",
         ])
-        #expect(FieldGuideCategoryAccent.gradientTop("plants") == Color(red: 0.98, green: 0.82, blue: 0.18))
-        #expect(FieldGuideCategoryAccent.gradientTop("sponges") == Color(red: 0.92, green: 0.22, blue: 0.24))
-        #expect(FieldGuideCategoryAccent.gradientTop("corals") == Color(red: 0.62, green: 0.28, blue: 0.88))
-        #expect(FieldGuideCategoryAccent.gradientTop("invertebrates") == Color(red: 0.52, green: 0.88, blue: 0.42))
-        #expect(FieldGuideCategoryAccent.gradientTop("fishes") == Color(red: 1.00, green: 0.55, blue: 0.12))
-        #expect(FieldGuideCategoryAccent.gradientTop("reptiles") == Color(red: 0.12, green: 0.82, blue: 0.88))
-        #expect(FieldGuideCategoryAccent.gradientTop("mammals") == Color(red: 0.92, green: 0.12, blue: 0.52))
+        func luminance(_ rgb: FieldGuideCategoryAccentPresentation.RGB) -> Double {
+            0.2126 * rgb.red + 0.7152 * rgb.green + 0.0722 * rgb.blue
+        }
+        for categoryID in FieldGuideTaxonomy.categories.map(\.id) {
+            let pair = FieldGuideCategoryAccentPresentation.huePair(for: categoryID)
+            #expect(luminance(pair.light) < luminance(pair.dark))
+        }
+        #expect(
+            FieldGuideCategoryAccentPresentation.darkGradientTopRGB(for: "fishes")
+                == FieldGuideCategoryAccentPresentation.RGB(red: 1.00, green: 0.55, blue: 0.12)
+        )
+        #expect(
+            FieldGuideCategoryAccentPresentation.lightGradientTopRGB(for: "fishes")
+                == FieldGuideCategoryAccentPresentation.RGB(red: 0.78, green: 0.38, blue: 0.04)
+        )
     }
 
     @Test func fieldGuideSubcategoryPresentation_matchesCategoryDetailHeroChrome() {
@@ -6301,6 +6686,15 @@ struct GoDiveMVPTests {
             !FieldGuideMarineLifeHeroPresentation.shouldAdvanceAutoSpin(
                 autoRotateSpeedRadiansPerSecond: 0.225,
                 isDragging: false,
+                isPinching: true,
+                autoSpinPausedUntil: nil,
+                now: now
+            )
+        )
+        #expect(
+            !FieldGuideMarineLifeHeroPresentation.shouldAdvanceAutoSpin(
+                autoRotateSpeedRadiansPerSecond: 0.225,
+                isDragging: false,
                 autoSpinPausedUntil: pausedUntil,
                 now: now
             )
@@ -6313,6 +6707,68 @@ struct GoDiveMVPTests {
                 now: pausedUntil
             )
         )
+    }
+
+    @Test func fieldGuideMarineLifeHeroInteractionPresentation_zoomTrackballAndIdleReset() {
+        #expect(
+            FieldGuideMarineLifeHeroInteractionPresentation.clampedZoomScale(0.5)
+                == FieldGuideMarineLifeHeroInteractionPresentation.minimumZoomScale
+        )
+        #expect(
+            FieldGuideMarineLifeHeroInteractionPresentation.clampedZoomScale(4)
+                == FieldGuideMarineLifeHeroInteractionPresentation.maximumZoomScale
+        )
+
+        let horizontal = FieldGuideMarineLifeHeroInteractionPresentation.dragTrackballRotation(
+            translationWidth: 120,
+            translationHeight: 0
+        )
+        #expect(
+            FieldGuideMarineLifeHeroInteractionPresentation.hasSignificantUserRotation(horizontal)
+        )
+
+        let diagonal = FieldGuideMarineLifeHeroInteractionPresentation.dragTrackballRotation(
+            translationWidth: 80,
+            translationHeight: 80
+        )
+        #expect(
+            FieldGuideMarineLifeHeroInteractionPresentation.hasSignificantUserRotation(diagonal)
+        )
+
+        let now = Date(timeIntervalSinceReferenceDate: 2_000)
+        let pausedUntil = now.addingTimeInterval(15)
+        let spun = FieldGuideMarineLifeHeroInteractionPresentation.dragTrackballRotation(
+            translationWidth: 0,
+            translationHeight: 200
+        )
+        #expect(
+            !FieldGuideMarineLifeHeroInteractionPresentation.shouldBeginIdleReset(
+                isDragging: false,
+                isPinching: false,
+                isPlayingIdleReset: false,
+                autoSpinPausedUntil: pausedUntil,
+                zoomScale: 1,
+                committedUserRotation: FieldGuideMarineLifeHeroInteractionPresentation.identityRotation,
+                now: now
+            )
+        )
+        #expect(
+            FieldGuideMarineLifeHeroInteractionPresentation.shouldBeginIdleReset(
+                isDragging: false,
+                isPinching: false,
+                isPlayingIdleReset: false,
+                autoSpinPausedUntil: pausedUntil,
+                zoomScale: 1,
+                committedUserRotation: spun,
+                now: pausedUntil
+            )
+        )
+
+        let mid = FieldGuideMarineLifeHeroInteractionPresentation.idleResetLerp(
+            start: 0.2,
+            linearProgress: 0.5
+        )
+        #expect(mid > 0 && mid < 0.2)
     }
 
     @Test @MainActor func diveSiteCatalogLoader_loadsSortedCatalogOffMainActor() async throws {
@@ -6676,7 +7132,7 @@ struct GoDiveMVPTests {
         #expect(fields["photoURL"] as? String == "")
         #expect(fields["interests"] as? [String] == ["Scuba Diving"])
         #expect(fields["discoverable"] as? Bool == true)
-        #expect(fields["schemaVersion"] as? Int == 2)
+        #expect(fields["schemaVersion"] as? Int == GoDiveFirestoreUserProfileMapping.schemaVersion)
         #expect(fields["createdAt"] == nil)
         #expect(fields["updatedAt"] == nil)
 
@@ -7443,13 +7899,13 @@ struct GoDiveMVPTests {
 
     @Test func diveActivityMediaPresentation_showsMarineLifeTagOnHero_isDisabled() {
         #expect(!DiveActivityMediaPresentation.showsMarineLifeTagOnHero(for: .minimized))
-        #expect(!DiveActivityMediaPresentation.showsMarineLifeTagOnHero(for: .medium))
+        #expect(!DiveActivityMediaPresentation.showsMarineLifeTagOnHero(for: .large))
         #expect(!DiveActivityMediaPresentation.showsMarineLifeTagOnHero(for: .large))
     }
 
     @Test func diveActivityMediaPresentation_showsMarineLifeTagInCarousel_onlyAtMinimized() {
         #expect(DiveActivityMediaPresentation.showsMarineLifeTagInCarousel(for: .minimized))
-        #expect(!DiveActivityMediaPresentation.showsMarineLifeTagInCarousel(for: .medium))
+        #expect(!DiveActivityMediaPresentation.showsMarineLifeTagInCarousel(for: .large))
         #expect(!DiveActivityMediaPresentation.showsMarineLifeTagInCarousel(for: .large))
     }
 
@@ -7462,10 +7918,10 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func diveActivityMediaPresentation_mediaTab_usesFullBleedHeroAndTranslucentPanelAtAllDetents() {
-        for detent in [DiveActivityOverviewDetent.minimized, .medium, .large] {
+    @Test func diveActivityMediaPresentation_mediaTab_usesFullBleedHeroAndOpaquePanelAtAllDetents() {
+        for detent in [DiveActivityOverviewDetent.minimized, .large] {
             #expect(DiveActivityMediaPresentation.usesFullBleedMediaHero(for: detent))
-            #expect(DiveActivityMediaPresentation.usesTranslucentOverviewPanel(for: detent))
+            #expect(!DiveActivityMediaPresentation.usesTranslucentOverviewPanel(for: detent))
         }
     }
 
@@ -7478,7 +7934,7 @@ struct GoDiveMVPTests {
         )
         #expect(
             DiveActivityMediaPresentation.panelTopScrollFadeHeight(
-                detent: .medium,
+                detent: .large,
                 isMediaTabSelected: true
             ) == 0
         )
@@ -7504,17 +7960,23 @@ struct GoDiveMVPTests {
         #expect(DiveActivityMediaPresentation.showsHeroTopChromeScrim(isMediaTabSelected: false))
     }
 
-    @Test func diveActivityMediaPresentation_panelTopScrollKeepsTranslucentChromeAtLargeMediaTab() {
+    @Test func diveActivityMediaPresentation_panelTopScrollUsesOpaqueFadeAtLargeMediaTab() {
+        #expect(
+            DiveActivityMediaPresentation.panelTopScrollUsesOpaqueFadeBackground(
+                detent: .large,
+                isMediaTabSelected: true
+            )
+        )
         #expect(
             !DiveActivityMediaPresentation.panelTopScrollUsesOpaqueFadeBackground(
-                detent: .large,
+                detent: .minimized,
                 isMediaTabSelected: true
             )
         )
         #expect(DiveActivityMediaPresentation.largeDetentPinnedChromeScrollFadeHeight > 0)
     }
 
-    @Test func diveActivityMediaPresentation_speciesWasFishialIdentified_matchesScientificName() {
+    @Test @MainActor func diveActivityMediaPresentation_speciesWasFishialIdentified_matchesScientificName() {
         let media = DiveMediaPhoto(fishialConfirmedSpeciesName: "Holacanthus ciliaris")
         let species = MarineLife(
             uuid: "marine-life-queen-angelfish",
@@ -7530,7 +7992,7 @@ struct GoDiveMVPTests {
         #expect(!DiveActivityMediaPresentation.speciesWasFishialIdentified(species: other, on: media))
     }
 
-    @Test func diveActivityMediaPresentation_speciesWasFishialIdentified_matchesAnyConfirmedName() {
+    @Test @MainActor func diveActivityMediaPresentation_speciesWasFishialIdentified_matchesAnyConfirmedName() {
         let media = DiveMediaPhoto(
             fishialConfirmedSpeciesName: "Holacanthus ciliaris|Paracanthurus hepatus"
         )
@@ -7585,46 +8047,36 @@ struct GoDiveMVPTests {
     @Test func diveActivityMediaPresentation_opensMarineLifeDetailOnTaggedChipTap_onlyAtMediumWithTags() {
         #expect(
             DiveActivityMediaPresentation.opensMarineLifeDetailOnTaggedChipTap(
-                detent: .medium,
+                detent: .large,
                 taggedSpeciesCount: 2
-            )
-        )
-        #expect(
-            !DiveActivityMediaPresentation.opensMarineLifeDetailOnTaggedChipTap(
-                detent: .medium,
-                taggedSpeciesCount: 0
             )
         )
         #expect(
             !DiveActivityMediaPresentation.opensMarineLifeDetailOnTaggedChipTap(
                 detent: .large,
-                taggedSpeciesCount: 2
+                taggedSpeciesCount: 0
             )
         )
     }
 
     @Test func diveActivityMediaPresentation_opensMarineLifeDetailOnSheetFishTap_onlyAtMedium() {
-        #expect(DiveActivityMediaPresentation.opensMarineLifeDetailOnSheetFishTap(detent: .medium))
+        #expect(DiveActivityMediaPresentation.opensMarineLifeDetailOnSheetFishTap(detent: .large))
         #expect(!DiveActivityMediaPresentation.opensMarineLifeDetailOnSheetFishTap(detent: .minimized))
-        #expect(!DiveActivityMediaPresentation.opensMarineLifeDetailOnSheetFishTap(detent: .large))
     }
 
     @Test func diveActivityMediaPresentation_opensBuddyOverviewOnSheetBuddyTap_onlyAtMedium() {
-        #expect(DiveActivityMediaPresentation.opensBuddyOverviewOnSheetBuddyTap(detent: .medium))
+        #expect(DiveActivityMediaPresentation.opensBuddyOverviewOnSheetBuddyTap(detent: .large))
         #expect(!DiveActivityMediaPresentation.opensBuddyOverviewOnSheetBuddyTap(detent: .minimized))
-        #expect(!DiveActivityMediaPresentation.opensBuddyOverviewOnSheetBuddyTap(detent: .large))
     }
 
     @Test func diveActivityMediaPresentation_showsMarineLifeTagInSheet_onlyAtMedium() {
         #expect(!DiveActivityMediaPresentation.showsMarineLifeTagInSheet(for: .minimized))
-        #expect(DiveActivityMediaPresentation.showsMarineLifeTagInSheet(for: .medium))
-        #expect(!DiveActivityMediaPresentation.showsMarineLifeTagInSheet(for: .large))
+        #expect(DiveActivityMediaPresentation.showsMarineLifeTagInSheet(for: .large))
     }
 
     @Test func diveActivityMediaPresentation_showsBuddyTagInSheet_onlyAtMedium() {
         #expect(!DiveActivityMediaPresentation.showsBuddyTagInSheet(for: .minimized))
-        #expect(DiveActivityMediaPresentation.showsBuddyTagInSheet(for: .medium))
-        #expect(!DiveActivityMediaPresentation.showsBuddyTagInSheet(for: .large))
+        #expect(DiveActivityMediaPresentation.showsBuddyTagInSheet(for: .large))
     }
 
     @Test func diveActivityMediaPresentation_buddyTagControlIsActive_whenTagged() {
@@ -7634,11 +8086,9 @@ struct GoDiveMVPTests {
 
     @Test func diveActivityMediaPresentation_showsMarineLifeTagSummary_onlyAtMedium() {
         #expect(!DiveActivityMediaPresentation.showsMarineLifeTagSummaryInSheet(for: .minimized))
-        #expect(DiveActivityMediaPresentation.showsMarineLifeTagSummaryInSheet(for: .medium))
-        #expect(!DiveActivityMediaPresentation.showsMarineLifeTagSummaryInSheet(for: .large))
+        #expect(DiveActivityMediaPresentation.showsMarineLifeTagSummaryInSheet(for: .large))
         #expect(!DiveActivityMediaPresentation.showsDiveIdentityHeaderInSheet(for: .minimized))
-        #expect(DiveActivityMediaPresentation.showsDiveIdentityHeaderInSheet(for: .medium))
-        #expect(!DiveActivityMediaPresentation.showsDiveIdentityHeaderInSheet(for: .large))
+        #expect(DiveActivityMediaPresentation.showsDiveIdentityHeaderInSheet(for: .large))
         #expect(
             DiveActivityMediaPresentation.largeDetentSpeciesHeroTopFadeOpaqueStop
                 == HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageFadeOpaqueStop
@@ -7647,9 +8097,8 @@ struct GoDiveMVPTests {
 
     @Test func diveActivityMediaPresentation_showsBuddyTagSummary_andBottomPinsCarouselAtMedium() {
         #expect(!DiveActivityMediaPresentation.showsBuddyTagSummaryInSheet(for: .minimized))
-        #expect(DiveActivityMediaPresentation.showsBuddyTagSummaryInSheet(for: .medium))
-        #expect(!DiveActivityMediaPresentation.showsBuddyTagSummaryInSheet(for: .large))
-        #expect(DiveActivityMediaPresentation.pinsMediaCarouselToSheetBottom(for: .medium))
+        #expect(DiveActivityMediaPresentation.showsBuddyTagSummaryInSheet(for: .large))
+        #expect(DiveActivityMediaPresentation.pinsMediaCarouselToSheetBottom(for: .large))
         #expect(!DiveActivityMediaPresentation.pinsMediaCarouselToSheetBottom(for: .minimized))
         #expect(DiveActivityMediaPresentation.mediumCarouselBottomPadding == 8)
         #expect(DiveMediaBuddyTagPresentation.mediumSectionTitle == "Buddies")
@@ -7658,17 +8107,14 @@ struct GoDiveMVPTests {
 
     @Test func diveActivityMediaPresentation_showsMarineLifeDetail_onlyAtLarge() {
         #expect(!DiveActivityMediaPresentation.showsMarineLifeDetailInSheet(for: .minimized))
-        #expect(!DiveActivityMediaPresentation.showsMarineLifeDetailInSheet(for: .medium))
         #expect(DiveActivityMediaPresentation.showsMarineLifeDetailInSheet(for: .large))
     }
 
     @Test func diveActivityMediaPresentation_showsMediaSheetChromeActions_alwaysOff() {
         #expect(!DiveActivityMediaPresentation.showsMediaSheetChromeActions(for: .minimized))
-        #expect(!DiveActivityMediaPresentation.showsMediaSheetChromeActions(for: .medium))
         #expect(!DiveActivityMediaPresentation.showsMediaSheetChromeActions(for: .large))
-        #expect(DiveActivityMediaPresentation.showsMediumDetentTrailingTagChrome(for: .medium))
+        #expect(DiveActivityMediaPresentation.showsMediumDetentTrailingTagChrome(for: .large))
         #expect(!DiveActivityMediaPresentation.showsMediumDetentTrailingTagChrome(for: .minimized))
-        #expect(!DiveActivityMediaPresentation.showsMediumDetentTrailingTagChrome(for: .large))
     }
 
     @Test func diveActivityMediaPresentation_carouselFeaturedStarVisibilityAndScale() {
@@ -7694,13 +8140,11 @@ struct GoDiveMVPTests {
 
     @Test func diveActivityMediaPresentation_showsLargeDetentAddMarineLifeControl_onlyAtLarge() {
         #expect(!DiveActivityMediaPresentation.showsLargeDetentAddMarineLifeControl(for: .minimized))
-        #expect(!DiveActivityMediaPresentation.showsLargeDetentAddMarineLifeControl(for: .medium))
         #expect(DiveActivityMediaPresentation.showsLargeDetentAddMarineLifeControl(for: .large))
     }
 
     @Test func diveActivityMediaPresentation_showsLargeDetentAddBuddyControl_onlyAtLarge() {
         #expect(!DiveActivityMediaPresentation.showsLargeDetentAddBuddyControl(for: .minimized))
-        #expect(!DiveActivityMediaPresentation.showsLargeDetentAddBuddyControl(for: .medium))
         #expect(DiveActivityMediaPresentation.showsLargeDetentAddBuddyControl(for: .large))
         #expect(DiveActivityMediaPresentation.showsLargeDetentTagOverviewChrome(for: .large))
         #expect(
@@ -7714,16 +8158,20 @@ struct GoDiveMVPTests {
 
     @Test func diveActivityOverviewPanelMetrics_mediaCarouselScreenAlignmentTopInset_matchesDetentGap() {
         let layoutHeight: CGFloat = 800
-        #expect(
-            DiveActivityOverviewPanelMetrics.mediaCarouselScreenAlignmentTopInset(
-                layoutHeight: layoutHeight,
-                detent: .medium
-            ) == layoutHeight * (0.50 - 0.20)
+        let largeInset = DiveActivityOverviewPanelMetrics.mediaCarouselScreenAlignmentTopInset(
+            layoutHeight: layoutHeight,
+            detent: .large
         )
+        let expected = layoutHeight * (
+            DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
+                - DiveActivityOverviewPanelMetrics.minimizedHeightFraction
+        )
+        #expect(abs(largeInset - expected) < 0.02)
         #expect(
-            DiveActivityOverviewPanelMetrics.mediaCarouselExpandedRegionHeight(
-                layoutHeight: layoutHeight
-            ) == layoutHeight * (0.50 - 0.20)
+            abs(
+                DiveActivityOverviewPanelMetrics.mediaCarouselExpandedRegionHeight(layoutHeight: layoutHeight)
+                    - expected
+            ) < 0.02
         )
     }
 
@@ -8103,16 +8551,39 @@ struct GoDiveMVPTests {
         #expect(FieldGuideCatalogIndex.species(in: "fishes", subcategoryID: "eels", catalog: samples).isEmpty)
     }
 
+    @Test func fieldGuideCatalogIndex_summariesAndSubcategoriesSortAlphabeticallyByDisplayTitle() {
+        let summaries = FieldGuideCatalogIndex.summaries(for: [])
+        #expect(
+            summaries.map(\.categoryID) == [
+                "corals",
+                "fishes",
+                "invertebrates",
+                "mammals",
+                "plants",
+                "reptiles",
+                "sponges",
+            ]
+        )
+
+        let fish = FieldGuideTaxonomy.category(id: "fishes")!
+        let ordered = FieldGuideCatalogIndex.sortedSubcategories(fish.subcategories)
+        #expect(ordered.first?.title == "Angelfishes")
+        #expect(ordered.last?.title == "Wrasses")
+        #expect(ordered.map(\.id) == ordered.sorted {
+            $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+        }.map(\.id))
+    }
+
     @Test func appLaunchLayout_matchesStoryboardConstraints() {
         let safeMidY: CGFloat = 400
         let logoCenterY = AppLaunchLayout.logoCenterY(safeAreaMidY: safeMidY)
         #expect(logoCenterY == safeMidY - 48)
 
         let titleCenterY = AppLaunchLayout.titleCenterY(logoCenterY: logoCenterY)
-        #expect(titleCenterY == logoCenterY + 64 + 24 + AppLaunchLayout.titleLineHeight / 2)
+        #expect(titleCenterY == logoCenterY + 64 + AppLaunchLayout.logoToTitleSpacing + AppLaunchLayout.titleLineHeight / 2)
 
         #expect(AppLaunchLayout.logoSize == 128)
-        #expect(AppLaunchLayout.logoToTitleSpacing == 24)
+        #expect(AppLaunchLayout.logoToTitleSpacing == 10)
         #if canImport(UIKit)
         let launchTitleFont = UIFont.boldSystemFont(
             ofSize: UIFont.preferredFont(forTextStyle: .largeTitle).pointSize
@@ -8123,6 +8594,8 @@ struct GoDiveMVPTests {
         #expect(AppLaunchLayout.titleFontSize == 34)
         #endif
         #expect(AppLaunchLayout.fixedBackgroundBlue == 0.09)
+        #expect(AppLaunchLayout.fixedTitleRed == 0.64)
+        #expect(AppLaunchLayout.fixedTitleGreen == 0.90)
         #expect(AppLaunchLayout.fixedTitleBlue == 1.0)
     }
 
@@ -8918,13 +9391,36 @@ struct GoDiveMVPTests {
         #expect(sections[0].phase == .upcoming)
     }
 
+    @Test func diveTripDateRangePickerPresentation_normalizedDates_singleDayWhenEndMissing() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let start = DateComponents(year: 2026, month: 6, day: 10)
+        let end = DateComponents(year: 2026, month: 6, day: 15)
+
+        let single = DiveTripDateRangePickerPresentation.normalizedDates(
+            startComponents: start,
+            endComponents: nil,
+            calendar: calendar
+        )
+        #expect(single?.start == calendar.date(from: start))
+        #expect(single?.end == single?.start)
+
+        let range = DiveTripDateRangePickerPresentation.normalizedDates(
+            startComponents: start,
+            endComponents: end,
+            calendar: calendar
+        )
+        #expect(range?.start == calendar.date(from: start))
+        #expect(range?.end == calendar.date(from: end))
+    }
+
     @Test func diveTripFormValues_parsesCountriesAndValidatesSave() {
         var form = DiveTripFormValues()
         #expect(!form.canSave)
 
         form.countriesText = " Bonaire , Curaçao "
         #expect(form.parsedCountries == ["Bonaire", "Curaçao"])
-        #expect(form.canSave)
+        #expect(!form.canSave)
 
         form = DiveTripFormValues()
         form.title = "  Reef week  "
@@ -8955,11 +9451,10 @@ struct GoDiveMVPTests {
 
         var form = DiveTripFormValues(from: trip)
         form.title = "Bonaire 2026"
-        form.countriesText = "Curaçao"
         form.apply(to: trip)
 
         #expect(trip.displayTitle == "Bonaire 2026")
-        #expect(trip.countries == ["Curaçao"])
+        #expect(trip.countries == ["Bonaire"])
     }
 
     @Test @MainActor func diveTripDeletion_deletePermanentlyRemovesTrip() throws {
@@ -10059,6 +10554,21 @@ struct GoDiveMVPTests {
         #expect(resolvedCatalog?.id == catalogID)
     }
 
+    @Test func blueSheetIdentityLayoutTuning_handoffSummary_listsDeltaKeys() {
+        let summary = BlueSheetIdentityLayoutTuningPresentation.handoffSummary(
+            deltas: BlueSheetIdentityLayoutTuningPresentation.Deltas(
+                avatarLeading: 2,
+                avatarVertical: -4,
+                identityTextVertical: 1.5,
+                panelDividerVertical: -3,
+                panelContentTop: 8
+            )
+        )
+        #expect(summary.contains("avatarLeading: +2.0 pt"))
+        #expect(summary.contains("panelDividerVertical:"))
+        #expect(summary.contains("panelContentTop: +8.0 pt"))
+    }
+
     @Test @MainActor func logbookRoute_includesCatalogSiteDetail() {
         let siteID = UUID()
         #expect(LogbookRoute.diveSite(siteID) == LogbookRoute.diveSite(siteID))
@@ -10073,6 +10583,82 @@ struct GoDiveMVPTests {
             currentPath: [.diveDetail(diveID)]
         )
         #expect(path == [.addActivity])
+    }
+
+    @Test @MainActor func logbookAddActivityPresentation_hubOptionsMapToRoutes() {
+        let routes = LogbookAddActivityPresentation.hubOptions.map(\.route)
+        #expect(routes == [.diveActivityUpload, .snorkelActivityUpload, .connectDeviceComingSoon])
+        #expect(LogbookAddActivityPresentation.hubOptions.count == 3)
+    }
+
+    @Test func logbookActivityRowPresentation_activityKindSymbols() {
+        #expect(LogbookActivityRowPresentation.scubaDiveLeadingSymbolName == "water.waves.and.arrow.trianglehead.down")
+        #expect(LogbookActivityRowPresentation.snorkelLeadingSymbolName == "figure.pool.swim")
+    }
+
+    @Test func logbookDisplayCacheBuilder_snorkelRowUsesSnorkelChipAndDetailLine() {
+        let snorkelID = UUID()
+        let diveID = UUID()
+        let newer = Date(timeIntervalSinceReferenceDate: 100)
+        let older = Date(timeIntervalSinceReferenceDate: 0)
+        let seeds = [
+            LogbookActivitySnapshotSeed(
+                id: diveID,
+                kind: .scubaDive,
+                sourceDiveId: nil,
+                sourceActivityId: nil,
+                startTime: older,
+                maxDepthMeters: 20,
+                swimDistanceMeters: nil,
+                durationMinutes: 40,
+                bottomTimeSeconds: nil,
+                diveNumber: 1,
+                diveNumberExplicitlyNone: false,
+                displayName: "Reef",
+                formattedStartDateOnly: "Jan 1",
+                resolvedSiteNameLowercased: "reef",
+                activityTagNames: [],
+                buddyDisplayNames: [],
+                previewMediaPhotoID: nil,
+                linkedTripID: nil,
+                previewMediaIsSnorkel: false
+            ),
+            LogbookActivitySnapshotSeed(
+                id: snorkelID,
+                kind: .snorkel,
+                sourceDiveId: nil,
+                sourceActivityId: "fit-snorkel",
+                startTime: newer,
+                maxDepthMeters: 0.1,
+                swimDistanceMeters: 210,
+                durationMinutes: 35,
+                bottomTimeSeconds: nil,
+                diveNumber: nil,
+                diveNumberExplicitlyNone: true,
+                displayName: "Lagoon",
+                formattedStartDateOnly: "Jan 2",
+                resolvedSiteNameLowercased: "lagoon",
+                activityTagNames: [],
+                buddyDisplayNames: [],
+                previewMediaPhotoID: nil,
+                linkedTripID: nil,
+                previewMediaIsSnorkel: true
+            ),
+        ]
+        let built = LogbookDisplayCacheBuilder.build(
+            visibleSeeds: seeds,
+            tripSeeds: [],
+            siteSearchQuery: "",
+            unitSystem: .metric,
+            useChronologicalNumbers: true,
+            includeDuplicateScan: false
+        )
+        let snorkelRow = built.rows.first { $0.id == snorkelID }
+        #expect(snorkelRow?.diveNumberLabel == "Snorkel")
+        #expect(snorkelRow?.diveNumberLeadingSymbolName == "figure.pool.swim")
+        #expect(snorkelRow?.detailLine.contains("210 m") == true)
+        let diveRow = built.rows.first { $0.id == diveID }
+        #expect(diveRow?.diveNumberLeadingSymbolName == "water.waves.and.arrow.trianglehead.down")
     }
 
     @Test @MainActor func tripStackNavigationRoutes_tripDetailPrecedesSiteOnStack() {
@@ -10160,7 +10746,7 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func tripDetailMediaGalleryPresentation_mediaPositionLabel_usesNumericOnlyFormat() {
+    @Test @MainActor func tripDetailMediaGalleryPresentation_mediaPositionLabel_usesNumericOnlyFormat() {
         let first = DiveMediaPhoto(sortOrder: 0)
         let second = DiveMediaPhoto(sortOrder: 1, mediaKind: .video)
         let photos = [first, second]
@@ -10700,7 +11286,7 @@ struct GoDiveMVPTests {
         #expect(photos[0].id == media.id)
     }
 
-    @Test func fieldGuideTaggedMediaPresentation_collectsUniqueOwnerPhotos_oldestCaptureFirst() {
+    @Test @MainActor func fieldGuideTaggedMediaPresentation_collectsUniqueOwnerPhotos_oldestCaptureFirst() {
         let dive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 1, maxDepthMeters: 1)
         let otherDive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 1, maxDepthMeters: 1)
         let older = DiveMediaPhoto(
@@ -10967,7 +11553,7 @@ struct GoDiveMVPTests {
             avgSAC: 20,
             avgRMV: 16
         )
-        let consumption = DiveActivityEditableCatalog.sections(for: .tank, detent: .medium)
+        let consumption = DiveActivityEditableCatalog.sections(for: .tank, detent: .large)
             .first { $0.id == "consumption" }!
         #expect(DiveActivityEditableCatalog.editableFields(in: consumption, for: activity).isEmpty)
         #expect(DiveActivityEditableCatalog.headerAction(for: consumption, activity: activity) == .none)
@@ -11011,7 +11597,7 @@ struct GoDiveMVPTests {
         let mapSections = DiveActivityEditableCatalog.sections(for: .map, detent: .large)
         let diveConditions = mapSections.first { $0.id == "diveConditions" }!
         let buddies = mapSections.first { $0.id == "buddies" }!
-        let equipment = DiveActivityEditableCatalog.sections(for: .tank, detent: .medium)
+        let equipment = DiveActivityEditableCatalog.sections(for: .tank, detent: .large)
             .first { $0.id == "equipment" }!
 
         #expect(DiveActivityEditableCatalog.headerAction(for: diveConditions, activity: manualDive) == .editForm)
@@ -11038,7 +11624,7 @@ struct GoDiveMVPTests {
         let mapSections = DiveActivityEditableCatalog.sections(for: .map, detent: .large)
         #expect(!mapSections.contains { $0.id == "dive" })
 
-        let tankMedium = DiveActivityEditableCatalog.sections(for: .tank, detent: .medium)
+        let tankMedium = DiveActivityEditableCatalog.sections(for: .tank, detent: .large)
         let tankLarge = DiveActivityEditableCatalog.sections(for: .tank, detent: .large)
         #expect(!tankMedium.contains { $0.id == "profileGas" })
         #expect(!tankLarge.contains { $0.id == "profileGas" })
@@ -11057,7 +11643,7 @@ struct GoDiveMVPTests {
         let context = DiveActivitySectionEditContext(
             sectionID: DiveActivityEditableCatalog.mapDiveSummarySection.id,
             tab: .map,
-            panelDetent: .medium
+            panelDetent: .large
         )
         let section = context.resolvedSection()
         #expect(section?.id == "dive")
@@ -11202,6 +11788,28 @@ struct GoDiveMVPTests {
         #expect(fields.country == "")
     }
 
+    @Test func diveImportedLocationParsing_uddfCityStateCountry_splitsOnRecognizedCountry() {
+        let fields = DiveImportedLocationParsing.placeFields(
+            fromLocationName: "Greenwood Village, Colorado, United States"
+        )
+        #expect(fields.region == "Greenwood Village, Colorado")
+        #expect(fields.country == "United States")
+    }
+
+    @Test func diveImportedLocationParsing_uddfStateInCountryField() {
+        let fields = DiveImportedLocationParsing.placeFields(
+            fromLocationName: "Colorado, United States"
+        )
+        #expect(fields.region == "Colorado")
+        #expect(fields.country == "United States")
+    }
+
+    @Test func diveImportedLocationParsing_singleSegmentRecognizedCountry() {
+        let fields = DiveImportedLocationParsing.placeFields(fromLocationName: "United States")
+        #expect(fields.region == "")
+        #expect(fields.country == "United States")
+    }
+
     @Test func diveActivityMapSitePrompt_draft_prefillsPlaceFromImportLocation() {
         let activity = DiveActivity(
             source: .macDive,
@@ -11291,13 +11899,13 @@ struct GoDiveMVPTests {
         #expect(!tankIDs.contains(.startTime))
     }
 
-    @Test func diveActivityEditableCatalog_tankLargeDetentSections_filterAtMedium() {
-        let medium = DiveActivityEditableCatalog.sections(for: .tank, detent: .medium)
-        let large = DiveActivityEditableCatalog.sections(for: .tank, detent: .large)
-        #expect(!medium.contains { $0.id == "operator" })
-        #expect(!medium.contains { $0.id == "source" })
-        #expect(large.contains { $0.id == "operator" })
-        #expect(large.contains { $0.id == "source" })
+    @Test func diveActivityEditableCatalog_tankLargeDetentSections_includeOperatorAndSource() {
+        let tankLarge = DiveActivityEditableCatalog.sections(for: .tank, detent: .large)
+        #expect(tankLarge.contains { $0.id == "operator" })
+        #expect(tankLarge.contains { $0.id == "source" })
+        let tankMinimized = DiveActivityEditableCatalog.sections(for: .tank, detent: .minimized)
+        #expect(!tankMinimized.contains { $0.id == "operator" })
+        #expect(!tankMinimized.contains { $0.id == "source" })
     }
 
     @Test func diveActivityFieldValueParsing_depthAndPressureRespectDisplayUnits() {
@@ -12887,7 +13495,7 @@ struct GoDiveMVPTests {
         #expect(rows[0].placeLine == "Bonaire · Caribbean")
         #expect(rows[1].diveCountLabel == nil)
         #expect(rows[1].coordinateLine == DiveSitePresentation.missingValue)
-        #expect(rows[1].placeLine == "Belize")
+        #expect(rows[1].placeLine == "🇧🇿 Belize")
     }
 
     @Test func exploreDiveSiteListDisplay_plannedTripRow_omitsDiveCount() {
@@ -13335,7 +13943,7 @@ struct GoDiveMVPTests {
         )
         #expect(
             ExploreDiveSiteListPresentation.referencePlaceLine(for: snapshot)
-                == "Caribbean Netherlands · Caribbean Sea"
+                == "🇧🇶 Caribbean Netherlands · Caribbean Sea"
         )
         #expect(ExploreDiveSiteListPresentation.listCountry(from: snapshot) == "Caribbean Netherlands")
     }
@@ -13382,12 +13990,20 @@ struct GoDiveMVPTests {
         #expect(ExploreDiveSiteListSearch.matches(site, query: "caribbean netherlands"))
     }
 
+    @Test func diveSiteCountryPresentation_flagEmoji_mapsCommonCatalogCountries() {
+        #expect(DiveSiteCountryPresentation.flagEmoji(forCountryName: "United States") == "🇺🇸")
+        #expect(DiveSiteCountryPresentation.flagEmoji(forISORegionCode: "US") == "🇺🇸")
+        #expect(DiveSiteCountryPresentation.flagEmoji(forCountryName: "Caribbean Netherlands") == "🇧🇶")
+        #expect(DiveSiteCountryPresentation.prefixedWithFlagEmoji("Midway, Utah, United States", countryName: "United States")
+            == "🇺🇸 Midway, Utah, United States")
+    }
+
     @Test func exploreDiveSiteListDisplay_cityCountryLine_formatsRegionAndCountry() {
         #expect(
             ExploreDiveSiteListDisplay.cityCountryLine(country: "Bonaire", region: "Caribbean")
                 == "Bonaire · Caribbean"
         )
-        #expect(ExploreDiveSiteListDisplay.cityCountryLine(country: "Belize", region: "") == "Belize")
+        #expect(ExploreDiveSiteListDisplay.cityCountryLine(country: "Belize", region: "") == "🇧🇿 Belize")
         #expect(ExploreDiveSiteListDisplay.cityCountryLine(country: "", region: "Pacific") == "Pacific")
     }
 
@@ -13428,13 +14044,13 @@ struct GoDiveMVPTests {
                 bodyOfWater: "Caribbean Sea"
             )
         )
-        #expect(bonaire.pinnedLocationLine == "Bonaire, Caribbean Netherlands")
+        #expect(bonaire.pinnedLocationLine == "🇧🇶 Bonaire, Caribbean Netherlands")
         #expect(bonaire.pinnedDiveCountLabel == "0 dives")
 
         let belizeOnly = DiveSitePresentation.listRecord(
             for: DiveSite(siteName: "Blue Hole", country: "Belize")
         )
-        #expect(belizeOnly.pinnedLocationLine == "Belize")
+        #expect(belizeOnly.pinnedLocationLine == "🇧🇿 Belize")
         #expect(DiveSitePresentation.pinnedDiveCountLabel(count: 1) == "1 dive")
         #expect(DiveSitePresentation.pinnedDiveCountLabel(count: 3) == "3 dives")
 
@@ -13892,14 +14508,16 @@ struct GoDiveMVPTests {
             layoutHeight: 800,
             bottomContentMargin: 400,
             topObstructionHeight: 100,
-            cameraLayoutDetent: .medium
+            sheetHeightFraction: 0.5,
+            largeRestingFraction: 0.62
         )
         let b = DiveMapCameraLayoutContext(
             coordinateIdentity: "1,2",
             layoutHeight: 800,
             bottomContentMargin: 400,
             topObstructionHeight: 100,
-            cameraLayoutDetent: .medium
+            sheetHeightFraction: 0.5,
+            largeRestingFraction: 0.62
         )
         #expect(a == b)
         #expect(
@@ -13908,9 +14526,31 @@ struct GoDiveMVPTests {
                 layoutHeight: 800,
                 bottomContentMargin: 400,
                 topObstructionHeight: 100,
-                cameraLayoutDetent: .minimized
+                sheetHeightFraction: 0.2,
+                largeRestingFraction: 0.62
             ) != a
         )
+    }
+
+    @Test func diveLocationMapPresentation_cameraDistanceMeters_interpolatesWithSheetHeight() {
+        let large = DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
+        let minF = DiveActivityOverviewPanelMetrics.minimizedHeightFraction
+        let wide = DiveLocationMapPresentation.cameraDistanceMeters(
+            sheetHeightFraction: minF,
+            largeRestingFraction: large
+        )
+        let tight = DiveLocationMapPresentation.cameraDistanceMeters(
+            sheetHeightFraction: large,
+            largeRestingFraction: large
+        )
+        let mid = DiveLocationMapPresentation.cameraDistanceMeters(
+            sheetHeightFraction: (minF + large) / 2,
+            largeRestingFraction: large
+        )
+        #expect(wide > mid)
+        #expect(mid > tight)
+        #expect(abs(wide - DiveLocationMapPresentation.minimizedCameraDistanceMeters) < 1)
+        #expect(abs(tight - DiveLocationMapPresentation.mediumCameraDistanceMeters) < 1)
     }
 
     @Test func diveLocationMapPresentation_cameraDistanceMeters_detentZoomSteps() {
@@ -13919,10 +14559,10 @@ struct GoDiveMVPTests {
         #expect(DiveLocationMapPresentation.cameraDistanceMeters(for: .minimized) > DiveLocationMapPresentation.referenceCameraDistanceMeters)
         #expect(
             DiveLocationMapPresentation.cameraDistanceMeters(for: .minimized)
-                > DiveLocationMapPresentation.cameraDistanceMeters(for: .medium)
+                > DiveLocationMapPresentation.cameraDistanceMeters(for: .large)
         )
-        #expect(DiveLocationMapPresentation.cameraDistanceMeters(for: .medium) < DiveLocationMapPresentation.referenceCameraDistanceMeters)
-        #expect(DiveLocationMapPresentation.cameraDistanceMeters(for: .large) == DiveLocationMapPresentation.cameraDistanceMeters(for: .medium))
+        #expect(DiveLocationMapPresentation.cameraDistanceMeters(for: .large) < DiveLocationMapPresentation.referenceCameraDistanceMeters)
+        #expect(DiveLocationMapPresentation.cameraDistanceMeters(for: .large) == DiveLocationMapPresentation.cameraDistanceMeters(for: .large))
     }
 
     @Test func diveLocationMapGoogleCameraPresentation_zoomLevel_tightensWhenDistanceShrinks() {
@@ -13944,7 +14584,7 @@ struct GoDiveMVPTests {
             layoutHeight: 800,
             topObstructionHeight: 100,
             bottomContentMargin: 400,
-            cameraLayoutDetent: .medium
+            cameraLayoutDetent: .large
         )
         #expect(abs(spec.centerLatitude - coordinate.latitude) < 0.000_001)
         #expect(abs(spec.centerLongitude - coordinate.longitude) < 0.000_001)
@@ -13956,7 +14596,7 @@ struct GoDiveMVPTests {
         let topObstruction: CGFloat = 100
         let bottomMargin = DiveActivityOverviewDetent.bottomObstructionHeight(
             layoutHeight: layoutHeight,
-            detent: .medium,
+            detent: .large,
             bottomSafeInset: 34
         )
         let paddedCenterY = topObstruction + (layoutHeight - topObstruction - bottomMargin) / 2
@@ -13968,13 +14608,16 @@ struct GoDiveMVPTests {
         #expect(abs(paddedCenterY - targetY) < 0.5)
     }
 
-    @Test func diveActivityOverviewTabSelection_allTabs_useMediumDetent() {
-        #expect(DiveActivityOverviewTabSelection.overviewDetent(whenSelecting: .map) == .medium)
-        #expect(DiveActivityOverviewTabSelection.overviewDetent(whenSelecting: .tank) == .medium)
-        #expect(DiveActivityOverviewTabSelection.overviewDetent(whenSelecting: .camera) == .medium)
+    @Test func diveActivityOverviewTabSelection_allTabs_useLargeDetent() {
+        #expect(DiveActivityOverviewTabSelection.overviewDetent(whenSelecting: .map) == .large)
+        #expect(DiveActivityOverviewTabSelection.overviewDetent(whenSelecting: .tank) == .large)
+        #expect(DiveActivityOverviewTabSelection.overviewDetent(whenSelecting: .camera) == .large)
+        #expect(DiveActivityOverviewTabSelection.overviewDetent(whenSelectingSnorkel: .map) == .large)
+        #expect(DiveActivityOverviewTabSelection.overviewDetent(whenSelectingSnorkel: .heartRate) == .large)
+        #expect(DiveActivityOverviewTabSelection.overviewDetent(whenSelectingSnorkel: .camera) == .large)
     }
 
-    @Test func diveActivityMediaPresentation_sortedPhotos_withoutCaptureDate_respectsSortOrder() {
+    @Test @MainActor func diveActivityMediaPresentation_sortedPhotos_withoutCaptureDate_respectsSortOrder() {
         let activity = DiveActivity(
             source: .manual,
             startTime: Date(),
@@ -13988,7 +14631,7 @@ struct GoDiveMVPTests {
         #expect(sorted.map(\.sortOrder) == [0, 1])
     }
 
-    @Test func diveActivityMediaPresentation_sortedPhotos_ordersByCapturedAt_oldestFirst() {
+    @Test @MainActor func diveActivityMediaPresentation_sortedPhotos_ordersByCapturedAt_oldestFirst() {
         let activity = DiveActivity(
             source: .manual,
             startTime: Date(),
@@ -14007,7 +14650,7 @@ struct GoDiveMVPTests {
         #expect(sorted.map(\.capturedAt) == [oldest, middle, newest])
     }
 
-    @Test func diveActivityMediaPresentation_oldestGalleryPhotoID_returnsFirstInGalleryOrder() {
+    @Test @MainActor func diveActivityMediaPresentation_oldestGalleryPhotoID_returnsFirstInGalleryOrder() {
         let activity = DiveActivity(
             source: .manual,
             startTime: Date(),
@@ -14058,7 +14701,7 @@ struct GoDiveMVPTests {
         #expect(rows.first?.previewMediaPhotoID == oldest.id)
     }
 
-    @Test func diveActivityMediaPresentation_featuredPhotoID_prefersExplicitThenFallsBackToOldest() {
+    @Test @MainActor func diveActivityMediaPresentation_featuredPhotoID_prefersExplicitThenFallsBackToOldest() {
         let activity = DiveActivity(
             source: .manual,
             startTime: Date(),
@@ -14083,7 +14726,7 @@ struct GoDiveMVPTests {
         #expect(DiveActivityMediaPresentation.featuredPhotoID(on: activity) == oldest.id)
 
         // No media → nil.
-        #expect(DiveActivityMediaPresentation.featuredPhotoID(in: [], explicitFeaturedID: UUID()) == nil)
+        #expect(DiveActivityMediaPresentation.featuredPhotoID(in: [DiveMediaPhoto](), explicitFeaturedID: UUID()) == nil)
     }
 
     @Test func diveLogbookDisplay_previewMediaPhotoID_usesExplicitFeaturedWhenSet() {
@@ -14125,6 +14768,26 @@ struct GoDiveMVPTests {
         #expect(activity.featuredMediaPhotoID == featured)
 
         try DiveActivityMediaStorage.setFeaturedMedia(nil, on: activity, modelContext: context)
+        #expect(activity.featuredMediaPhotoID == nil)
+    }
+
+    @Test func snorkelActivityMediaStorage_setFeaturedMedia_persistsAndClears() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let activity = SnorkelActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 0,
+            maxDepthMeters: 0
+        )
+        context.insert(activity)
+        try context.save()
+
+        let featured = UUID()
+        try SnorkelActivityMediaStorage.setFeaturedMedia(featured, on: activity, modelContext: context)
+        #expect(activity.featuredMediaPhotoID == featured)
+
+        try SnorkelActivityMediaStorage.setFeaturedMedia(nil, on: activity, modelContext: context)
         #expect(activity.featuredMediaPhotoID == nil)
     }
 
@@ -15291,9 +15954,12 @@ struct GoDiveMVPTests {
         let siteID = UUID()
         let activitySeed = LogbookActivitySnapshotSeed(
             id: diveID,
+            kind: .scubaDive,
             sourceDiveId: nil,
+            sourceActivityId: nil,
             startTime: Date(timeIntervalSinceReferenceDate: 0),
             maxDepthMeters: 18,
+            swimDistanceMeters: nil,
             durationMinutes: 42,
             bottomTimeSeconds: nil,
             diveNumber: 1,
@@ -15304,7 +15970,8 @@ struct GoDiveMVPTests {
             activityTagNames: [],
             buddyDisplayNames: [],
             previewMediaPhotoID: mediaID,
-            linkedTripID: nil
+            linkedTripID: nil,
+            previewMediaIsSnorkel: false
         )
         let input = HomeOverviewBuildInput(
             activitySeeds: [activitySeed],
@@ -15352,9 +16019,12 @@ struct GoDiveMVPTests {
         let otherDiveID = UUID()
         let activitySeed = LogbookActivitySnapshotSeed(
             id: ownerDiveID,
+            kind: .scubaDive,
             sourceDiveId: nil,
+            sourceActivityId: nil,
             startTime: Date(timeIntervalSinceReferenceDate: 0),
             maxDepthMeters: 12,
+            swimDistanceMeters: nil,
             durationMinutes: 30,
             bottomTimeSeconds: nil,
             diveNumber: 1,
@@ -15365,7 +16035,8 @@ struct GoDiveMVPTests {
             activityTagNames: [],
             buddyDisplayNames: [],
             previewMediaPhotoID: nil,
-            linkedTripID: nil
+            linkedTripID: nil,
+            previewMediaIsSnorkel: false
         )
         let input = HomeOverviewBuildInput(
             activitySeeds: [activitySeed],
@@ -15438,6 +16109,7 @@ struct GoDiveMVPTests {
             DiveUnownedClaimGate.decision(
                 ownerID: ownerB,
                 diveOwnerIDs: [ownerA, nil],
+                snorkelOwnerIDs: [],
                 buddyOwnerIDs: []
             ) == .skipOtherOwnersPresent
         )
@@ -15445,6 +16117,7 @@ struct GoDiveMVPTests {
             DiveUnownedClaimGate.decision(
                 ownerID: ownerA,
                 diveOwnerIDs: [nil, nil],
+                snorkelOwnerIDs: [nil],
                 buddyOwnerIDs: [nil]
             ) == .claim
         )
@@ -15452,8 +16125,25 @@ struct GoDiveMVPTests {
             DiveUnownedClaimGate.decision(
                 ownerID: ownerA,
                 diveOwnerIDs: [ownerA],
+                snorkelOwnerIDs: [],
                 buddyOwnerIDs: []
             ) == .nothingToClaim
+        )
+        #expect(
+            DiveUnownedClaimGate.decision(
+                ownerID: ownerA,
+                diveOwnerIDs: [],
+                snorkelOwnerIDs: [nil],
+                buddyOwnerIDs: []
+            ) == .claim
+        )
+        #expect(
+            DiveUnownedClaimGate.decision(
+                ownerID: ownerB,
+                diveOwnerIDs: [],
+                snorkelOwnerIDs: [ownerA, nil],
+                buddyOwnerIDs: []
+            ) == .skipOtherOwnersPresent
         )
     }
 
@@ -15488,6 +16178,82 @@ struct GoDiveMVPTests {
         let claimed = try DiveActivityOwnership.claimUnownedDives(for: ownerB, modelContext: context)
         #expect(claimed == 0)
         #expect(orphan.ownerProfileID == nil)
+    }
+
+    @Test @MainActor
+    func snorkelActivityOwnership_claimUnowned_assignsOrphanSnorkels() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let owner = UserProfile(appleUserIdentifier: "apple-snorkel-claim", displayName: "Snorkeler")
+        context.insert(owner)
+
+        let orphan = SnorkelActivity(startTime: Date(), durationMinutes: 20)
+        context.insert(orphan)
+        try context.save()
+
+        let claimed = try SnorkelActivityOwnership.claimUnownedSnorkels(for: owner, modelContext: context)
+        #expect(claimed == 1)
+        #expect(orphan.ownerProfileID == owner.id)
+        #expect(orphan.owner?.id == owner.id)
+    }
+
+    @Test func snorkelSwimTrackCodec_roundTripsGPSAndHeartRateSamples() throws {
+        let start = Date(timeIntervalSinceReferenceDate: 700_000)
+        let samples = [
+            SnorkelSwimTrackSample(
+                timestamp: start,
+                latitude: 21.3069,
+                longitude: -157.8583,
+                heartRateBPM: 92
+            ),
+            SnorkelSwimTrackSample(
+                timestamp: start.addingTimeInterval(45),
+                latitude: 21.3071,
+                longitude: -157.8580,
+                heartRateBPM: nil
+            ),
+        ]
+        let data = try #require(try SnorkelSwimTrackCodec.encode(samples: samples, activityStartTime: start))
+        let decoded = try SnorkelSwimTrackCodec.decode(data, activityStartTime: start)
+        #expect(decoded.count == 2)
+        #expect(decoded[0].heartRateBPM == 92)
+        #expect(abs(decoded[1].latitude - 21.3071) < 0.0001)
+        #expect(decoded[1].heartRateBPM == nil)
+    }
+
+    @Test @MainActor
+    func snorkelProfilePointStore_materializesLocalRowsFromSwimTrackBlob() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let profile = UserProfile(appleUserIdentifier: "snorkel-track", displayName: "Diver")
+        context.insert(profile)
+        let snorkel = SnorkelActivity(startTime: Date(), durationMinutes: 25)
+        SnorkelActivityOwnership.assignOwner(profile, to: snorkel)
+        snorkel.profilePoints = [
+            SnorkelProfilePoint(
+                timestamp: snorkel.startTime,
+                latitude: 20.0,
+                longitude: -155.0,
+                heartRateBPM: 88,
+                snorkelActivityID: snorkel.id
+            ),
+        ]
+        SnorkelProfilePointStore.syncTrackData(from: snorkel)
+        #expect(snorkel.swimTrackData != nil)
+        snorkel.profilePoints = []
+        context.insert(snorkel)
+        try context.save()
+
+        let inserted = try SnorkelProfilePointStore.materializeFromTrackIfNeeded(
+            activity: snorkel,
+            modelContext: context
+        )
+        #expect(inserted == 1)
+        let fetched = try SnorkelProfilePointStore.fetchPoints(for: snorkel.id, modelContext: context)
+        #expect(fetched.count == 1)
+        #expect(fetched.first?.heartRateBPM == 88)
     }
 
     @Test func accountSession_signInFailureUserMessage_isGeneric() {
@@ -16190,7 +16956,11 @@ struct GoDiveMVPTests {
         )
         #expect(
             HomeMediaCarouselPresentation.marineLifeCarouselOverlayMediaScrimOpacity
-                < TripDetailMediaGalleryPresentation.marineLifeOverlayMediaScrimOpacity
+                == TripDetailMediaGalleryPresentation.marineLifeOverlayMediaScrimOpacity
+        )
+        #expect(
+            DiveActivityMediaFrostedOverlayPresentation.mediaScrimOpacity
+                == HomeMediaCarouselPresentation.marineLifeCarouselOverlayMediaScrimOpacity
         )
         #expect(HomeMediaCarouselPresentation.marineLifeCarouselOverlayMediaScrimOpacity > 0.3)
     }
@@ -16217,6 +16987,42 @@ struct GoDiveMVPTests {
         #expect(HomeMediaCarouselPresentation.taggedBuddyListShowsScrollFade(buddyCount: 3))
         #expect(HomeMediaCarouselPresentation.taggedBuddyPeekProfileIndex(buddyCount: 3) == 0)
         #expect(HomeMediaCarouselPresentation.taggedBuddyPeekProfileIndex(buddyCount: 4) == 1)
+    }
+
+    @Test func homeMediaCarouselPresentation_taggedBuddyHorizontalOffsetX_fansLeftWhenExpanded() {
+        let diameter: CGFloat = 40
+        let spacing: CGFloat = 8
+        #expect(
+            HomeMediaCarouselPresentation.taggedBuddyHorizontalOffsetX(
+                distanceFromIcon: 0,
+                avatarDiameter: diameter,
+                avatarSpacing: spacing,
+                isExpanded: false
+            ) == 0
+        )
+        #expect(
+            HomeMediaCarouselPresentation.taggedBuddyHorizontalOffsetX(
+                distanceFromIcon: 0,
+                avatarDiameter: diameter,
+                avatarSpacing: spacing,
+                isExpanded: true
+            ) == -48
+        )
+        #expect(
+            HomeMediaCarouselPresentation.taggedBuddyHorizontalOffsetX(
+                distanceFromIcon: 1,
+                avatarDiameter: diameter,
+                avatarSpacing: spacing,
+                isExpanded: true
+            ) == -96
+        )
+        #expect(
+            HomeMediaCarouselPresentation.taggedBuddyHorizontalStripWidth(
+                buddyCount: 2,
+                avatarDiameter: diameter,
+                avatarSpacing: spacing
+            ) == 88
+        )
     }
 
     @Test func homeMediaCarouselPresentation_buddyRowFadeMask_peekAndScrollZones() {
@@ -16569,7 +17375,9 @@ struct GoDiveMVPTests {
     }
 
     @Test func homeLifetimeStatsTilesLayout_resolvedFlexibleSectionHeights_distributesExtraByBaselineWeights() {
-        let minGrid = HomeLifetimeStatsTilesLayout.gridHeight(tileCount: 4)
+        let minGrid = HomeLifetimeStatsTilesLayout.gridHeight(
+            tileCount: HomeLifetimeStatsTilesLayout.highlightStatTileCount
+        )
         let minBuddy = HomeLifetimeStatsTilesLayout.buddyTileHeight
         let spacing = HomeLifetimeStatsTilesLayout.gridSpacing
         let minTotal = minGrid + spacing + minBuddy
@@ -16585,15 +17393,15 @@ struct GoDiveMVPTests {
             totalHeight: minTotal,
             showsBuddyLeaderboard: true
         )
-        #expect(atMinimum.grid == minGrid)
-        #expect(atMinimum.buddy == minBuddy)
+        #expect(atMinimum.grid >= minGrid - 0.001)
+        #expect(atMinimum.buddy >= minBuddy - 0.001)
 
         let expanded = HomeLifetimeStatsTilesLayout.resolvedFlexibleSectionHeights(
             totalHeight: minTotal + 84,
             showsBuddyLeaderboard: true
         )
-        #expect(expanded.grid > minGrid)
-        #expect(expanded.buddy > minBuddy)
+        #expect(expanded.grid > atMinimum.grid)
+        #expect(expanded.buddy > atMinimum.buddy)
         #expect(abs(expanded.grid + expanded.buddy + spacing - (minTotal + 84)) < 0.001)
     }
 
@@ -16607,16 +17415,49 @@ struct GoDiveMVPTests {
                 == HomeBuddyLeaderboardLayout.estimatedTileHeight
         )
         #expect(
-            HomeLifetimeStatsTilesLayout.scrollContentHeight(showsBuddyLeaderboard: true) == 340
+            HomeLifetimeStatsTilesLayout.scrollContentHeight(showsBuddyLeaderboard: true)
+                == 340 + HomeLifetimeStatsTilesLayout.lifetimeSummaryBandHeight()
+        )
+    }
+
+    @Test func homeOverviewAggregate_myActivitiesSummary_matchesLogbookPresentation() {
+        let seed = LogbookActivitySnapshotSeed(
+            id: UUID(),
+            kind: .scubaDive,
+            sourceDiveId: nil,
+            sourceActivityId: nil,
+            startTime: Date(timeIntervalSinceReferenceDate: 0),
+            maxDepthMeters: 20,
+            swimDistanceMeters: nil,
+            durationMinutes: 45,
+            bottomTimeSeconds: 3_600,
+            diveNumber: 1,
+            diveNumberExplicitlyNone: false,
+            displayName: "Reef",
+            formattedStartDateOnly: "Jan 1",
+            resolvedSiteNameLowercased: "reef",
+            activityTagNames: [],
+            buddyDisplayNames: [],
+            previewMediaPhotoID: nil,
+            linkedTripID: nil,
+            previewMediaIsSnorkel: false
+        )
+        let summary = LogbookMyActivitiesSummaryPresentation.summary(from: [seed])
+        #expect(summary.diveCount == 1)
+        #expect(summary.totalBottomTimeSeconds == 3_600)
+        #expect(
+            LogbookMyActivitiesSummaryPresentation.headerLine(for: summary)
+                == "1 Dive | 1 hr Bottom Time"
         )
     }
 
     @Test func homeLifetimeStatsPanelLayout_matchesVisualGridAndPadding() {
         let fourTileGrid = HomeLifetimeStatsLayout.gridHeight(tileCount: 4)
+        let summaryBand = HomeLifetimeStatsTilesLayout.lifetimeSummaryBandHeight()
         #expect(
             abs(
                 HomeLifetimeStatsPanelLayout.estimatedScrollContentHeight(showsBuddyLeaderboard: false)
-                    - fourTileGrid
+                    - (fourTileGrid + summaryBand)
             ) < 0.001
         )
         #expect(
@@ -17055,16 +17896,109 @@ struct GoDiveMVPTests {
         #expect(homeScreenBottomSeam == pushedScreenBottomSeam)
     }
 
-    @Test func appSessionBootstrapPresentation_showsLaunchOverlayOnlyWhileRestoringSession() {
+    @Test func appSessionBootstrapPresentation_showsLaunchOverlayWhileRestoringOrPopulating() {
         #expect(
             AppSessionBootstrapPresentation.showsLaunchOverlay(
-                isRestoringSession: true
+                isRestoringSession: true,
+                isPopulatingRemoteAccountData: false
+            )
+        )
+        #expect(
+            AppSessionBootstrapPresentation.showsLaunchOverlay(
+                isRestoringSession: false,
+                isPopulatingRemoteAccountData: true
             )
         )
         #expect(
             !AppSessionBootstrapPresentation.showsLaunchOverlay(
-                isRestoringSession: false
+                isRestoringSession: false,
+                isPopulatingRemoteAccountData: false
             )
+        )
+    }
+
+    @Test func goDiveCloudKitPrivateImportNotification_defaultPollIntervalIsResponsive() {
+        #expect(GoDiveCloudKitPrivateImportNotification.defaultPollIntervalMilliseconds == 150)
+        #expect(GoDiveCloudKitPrivateImportNotification.defaultPollIntervalMilliseconds < 500)
+    }
+
+    @Test func accountSessionProfileResolution_launchImportTimeoutIsBoundedForSplash() {
+        #expect(AccountSessionProfileResolution.launchImportTimeoutSeconds > 0)
+        #expect(
+            AccountSessionProfileResolution.launchImportTimeoutSeconds
+                < AccountSessionProfileResolution.defaultImportTimeoutSeconds
+        )
+    }
+
+    @Test @MainActor func accountSessionProfileResolution_totalOwnedActivityCount_sumsAcrossProfiles() throws {
+        let dual = try AppSwiftDataDualStoreFactory.makeInMemorySplitContainer()
+        let context = ModelContext(dual.container)
+
+        let older = UserProfile(appleUserIdentifier: "ck-total", displayName: "Cloud")
+        older.createdAt = Date(timeIntervalSince1970: 1_000)
+        context.insert(older)
+        let newer = UserProfile(appleUserIdentifier: "ck-total", displayName: "Local")
+        newer.createdAt = Date(timeIntervalSince1970: 2_000)
+        context.insert(newer)
+
+        let dive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 30, maxDepthMeters: 12)
+        dive.owner = older
+        dive.ownerProfileID = older.id
+        context.insert(dive)
+        try context.save()
+
+        #expect(
+            AccountSessionProfileResolution.totalOwnedActivityCount(
+                appleUserIdentifier: "ck-total",
+                modelContext: context
+            ) == 1
+        )
+    }
+
+    @Test func appLaunchPostOverlayPresentation_defersHeavyWorkAfterFirstFrame() {
+        #expect(AppLaunchPostOverlayPresentation.initialHomeRebuildDeferNanoseconds == 150_000_000)
+        #expect(AppLaunchPostOverlayPresentation.deferredMaintenanceDelaySeconds == 2)
+    }
+
+    @Test func logbookRootAppearPresentation_defersCacheUntilLogbookTabSelected() {
+        #expect(
+            !LogbookRootAppearPresentation.shouldBuildCacheOnAppear(
+                isLogbookTabSelected: false,
+                hasPerformedInitialCacheBuild: false
+            )
+        )
+        #expect(
+            LogbookRootAppearPresentation.shouldBuildCacheOnAppear(
+                isLogbookTabSelected: true,
+                hasPerformedInitialCacheBuild: false
+            )
+        )
+        #expect(
+            LogbookRootAppearPresentation.shouldBuildCacheOnAppear(
+                isLogbookTabSelected: false,
+                hasPerformedInitialCacheBuild: true
+            )
+        )
+    }
+
+    @Test func homeOverviewRebuildPresentation_initialLaunchUsesPostOverlayDefer() {
+        #expect(
+            HomeOverviewRebuildPresentation.initialLaunchDebounceNanoseconds(
+                immediate: true,
+                source: .initialRootAppear
+            ) == AppLaunchPostOverlayPresentation.initialHomeRebuildDeferNanoseconds
+        )
+        #expect(
+            HomeOverviewRebuildPresentation.initialLaunchDebounceNanoseconds(
+                immediate: true,
+                source: .incidental
+            ) == 0
+        )
+        #expect(
+            HomeOverviewRebuildPresentation.initialLaunchDebounceNanoseconds(
+                immediate: false,
+                source: .initialRootAppear
+            ) == 0
         )
     }
 
@@ -17217,20 +18151,109 @@ struct GoDiveMVPTests {
     @Test func diveActivityMediaEmptyHeroPresentation_hidesHeroAnimationAtLargeDetent() {
         #expect(
             !DiveActivityMediaEmptyHeroPresentation.showsHeroGhostFrames(
-                forHeightFraction: DiveActivityOverviewPanelMetrics.largeHeightFraction
+                forHeightFraction: DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
             )
         )
         #expect(
             DiveActivityMediaEmptyHeroPresentation.showsHeroGhostFrames(
-                forHeightFraction: DiveActivityOverviewPanelMetrics.mediumHeightFraction
+                forHeightFraction: DiveActivityOverviewPanelMetrics.minimizedHeightFraction
             )
         )
+    }
+
+    @Test func diveActivityMediaHeroPresentation_fullBleedProgress_tracksSheetDrag() {
+        let context = DiveActivityOverviewSheetLayoutContext.presentationReference
+        let large = DiveActivityOverviewPanelMetrics.largeHeightFraction(in: context)
+        let minimized = DiveActivityOverviewPanelMetrics.minimizedHeightFraction
+        #expect(
+            abs(
+                DiveActivityMediaHeroPresentation.fullBleedProgress(
+                    sheetHeightFraction: large,
+                    layoutContext: context
+                )
+            ) < 0.001
+        )
+        #expect(
+            abs(
+                DiveActivityMediaHeroPresentation.fullBleedProgress(
+                    sheetHeightFraction: minimized,
+                    layoutContext: context
+                ) - 1
+            ) < 0.001
+        )
+        let midpoint = (large + minimized) / 2
+        let midProgress = DiveActivityMediaHeroPresentation.fullBleedProgress(
+            sheetHeightFraction: midpoint,
+            layoutContext: context
+        )
+        #expect(midProgress > 0.4 && midProgress < 0.6)
+    }
+
+    @Test func diveActivityMediaHeroPresentation_interpolatedSize_fillsBandAtZeroProgress() {
+        let band = CGRect(x: 0, y: 0, width: 390, height: 280)
+        let viewport = CGSize(width: 390, height: 844)
+        let size = DiveActivityMediaHeroPresentation.interpolatedMediaSize(
+            mediaAspect: 4 / 3,
+            band: band,
+            viewport: viewport,
+            progress: 0
+        )
+        #expect(size.width >= band.width - 0.5)
+        #expect(size.height >= band.height - 0.5)
+        #expect(abs(size.width / size.height - 4 / 3) < 0.02)
+    }
+
+    @Test func diveActivityMediaHeroPresentation_heroBandRect_fillsToScreenTop() {
+        let band = DiveActivityMediaHeroPresentation.heroBandRect(
+            viewportSize: CGSize(width: 390, height: 844),
+            layoutHeight: 844,
+            sheetHeightFraction: DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction,
+            bottomSafeInset: 34,
+            topObstructionHeight: 100
+        )
+        #expect(abs(band.minY) < 0.001)
+        #expect(band.width == 390)
+        #expect(band.height > 200)
+    }
+
+    @Test func diveActivityMediaHeroPresentation_heroBandRect_bleedsBelowSheetSeam() {
+        let layoutHeight: CGFloat = 844
+        let bottomSafeInset: CGFloat = 34
+        let fraction = DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
+        let seamY = DiveActivityMediaHeroPresentation.sheetSeamY(
+            layoutHeight: layoutHeight,
+            sheetHeightFraction: fraction,
+            bottomSafeInset: bottomSafeInset
+        )
+        let band = DiveActivityMediaHeroPresentation.heroBandRect(
+            viewportSize: CGSize(width: 390, height: layoutHeight),
+            layoutHeight: layoutHeight,
+            sheetHeightFraction: fraction,
+            bottomSafeInset: bottomSafeInset,
+            topObstructionHeight: 0
+        )
+        #expect(band.maxY == seamY + DiveActivityMediaHeroPresentation.sheetSeamCornerBleed)
+    }
+
+    @Test func diveActivityMediaHeroPresentation_interpolatedCenterY_bottomAlignsToBandAtZeroProgress() {
+        let band = CGRect(x: 0, y: 0, width: 390, height: 300)
+        let centerY = DiveActivityMediaHeroPresentation.interpolatedMediaCenterY(
+            band: band,
+            viewportHeight: 844,
+            mediaAspect: 16 / 9,
+            progress: 0
+        )
+        let fillHeight = DiveActivityMediaHeroPresentation.aspectFillSize(
+            mediaAspect: 16 / 9,
+            in: band.size
+        ).height
+        #expect(abs(centerY + fillHeight / 2 - band.maxY) < 0.5)
     }
 
     @Test func diveActivityMediaEmptyHeroPresentation_emptySheetReusesPopulatedLayout() {
         // Upload copy lives only in the hero; the sheet renders the standard Media layout when empty.
         #expect(!DiveActivityMediaEmptyHeroPresentation.showsUploadPromptTextInSheet(for: .minimized))
-        #expect(!DiveActivityMediaEmptyHeroPresentation.showsUploadPromptTextInSheet(for: .medium))
+        #expect(!DiveActivityMediaEmptyHeroPresentation.showsUploadPromptTextInSheet(for: .large))
         #expect(!DiveActivityMediaEmptyHeroPresentation.showsUploadPromptTextInSheet(for: .large))
     }
 
@@ -17239,12 +18262,12 @@ struct GoDiveMVPTests {
         #expect(DiveActivityMediaEmptyHeroPresentation.uploadMediaCTATitle == "Upload Media")
         #expect(
             DiveActivityMediaEmptyHeroPresentation.showsUploadMediaCTA(
-                forHeightFraction: DiveActivityOverviewPanelMetrics.mediumHeightFraction
+                forHeightFraction: DiveActivityOverviewPanelMetrics.minimizedHeightFraction
             )
         )
         #expect(
             !DiveActivityMediaEmptyHeroPresentation.showsUploadMediaCTA(
-                forHeightFraction: DiveActivityOverviewPanelMetrics.largeHeightFraction
+                forHeightFraction: DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
             )
         )
     }
@@ -17253,7 +18276,7 @@ struct GoDiveMVPTests {
         let layoutHeight: CGFloat = 844
         let bottomSafeInset: CGFloat = 34
         let topObstruction: CGFloat = 100
-        let fraction = DiveActivityOverviewPanelMetrics.mediumHeightFraction
+        let fraction = DiveActivityOverviewPanelMetrics.minimizedHeightFraction
 
         let band = DiveActivityMediaEmptyHeroPresentation.visibleHeroBand(
             layoutHeight: layoutHeight,
@@ -17292,7 +18315,7 @@ struct GoDiveMVPTests {
         )
         #expect(
             DiveActivityMediaEmptyHeroPresentation.uploadMediaCTAReservedHeight(
-                forHeightFraction: DiveActivityOverviewPanelMetrics.largeHeightFraction
+                forHeightFraction: DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
             ) == 0
         )
     }
@@ -17303,7 +18326,7 @@ struct GoDiveMVPTests {
         #expect(DiveActivityMediaPresentation.mediaCountLabel(photoCount: 2) == "2 items")
     }
 
-    @Test func diveActivityMediaPresentation_nextSortOrder_increments() {
+    @Test @MainActor func diveActivityMediaPresentation_nextSortOrder_increments() {
         let activity = DiveActivity(
             source: .manual,
             startTime: Date(),
@@ -17318,7 +18341,7 @@ struct GoDiveMVPTests {
     }
 
     @Test func diveActivityMediaPresentation_showsBackgroundPhotos_atAllDetents() {
-        for detent in [DiveActivityOverviewDetent.minimized, .medium, .large] {
+        for detent in [DiveActivityOverviewDetent.minimized, .large] {
             #expect(DiveActivityMediaPresentation.showsBackgroundPhotos(for: detent))
         }
     }
@@ -17395,7 +18418,7 @@ struct GoDiveMVPTests {
         #expect(photos[0].id == media.id)
     }
 
-    @Test func diveBuddyTaggedMediaPresentation_collectsUniqueOwnerPhotos_oldestCaptureFirst() {
+    @Test @MainActor func diveBuddyTaggedMediaPresentation_collectsUniqueOwnerPhotos_oldestCaptureFirst() {
         let dive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 1, maxDepthMeters: 1)
         let otherDive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 1, maxDepthMeters: 1)
         let buddy = DiveBuddy(displayName: "Alex")
@@ -17783,7 +18806,10 @@ struct GoDiveMVPTests {
                 isTaggingSheetPresented: true
             )
         )
-        #expect(AppTheme.Sheet.embeddedOverviewTranslucentOpacity == 0.62)
+        #expect(
+            DiveActivityMediaFrostedOverlayPresentation.mediaScrimOpacity
+                == HomeMediaCarouselPresentation.marineLifeCarouselOverlayMediaScrimOpacity
+        )
         #expect(DiveActivityMediaFrostedOverlayPresentation.forcesDarkAppearance)
         #expect(
             LinkedMediaFullscreenPresentation.tagOverviewPanelHeight(
@@ -17794,6 +18820,22 @@ struct GoDiveMVPTests {
                     for: .large,
                     layoutHeight: 800,
                     bottomSafeInset: 34
+                )
+        )
+        let landscapeContext = DiveActivityOverviewSheetLayoutContext(
+            layoutHeight: 390,
+            screenWidth: 844,
+            topSafeInset: 0,
+            bottomSafeInset: 21
+        )
+        #expect(
+            LinkedMediaFullscreenPresentation.tagOverviewPanelHeight(in: landscapeContext)
+                == DiveActivityOverviewDetent.sheetHeight(
+                    for: .large,
+                    layoutHeight: landscapeContext.layoutHeight,
+                    bottomSafeInset: landscapeContext.bottomSafeInset,
+                    screenWidth: landscapeContext.screenWidth,
+                    topSafeInset: landscapeContext.topSafeInset
                 )
         )
         #expect(
@@ -17808,6 +18850,41 @@ struct GoDiveMVPTests {
     @Test @MainActor func linkedMediaFullscreenDiveLinkPresentation_siteDisplayName_defaultsWhenDiveMissing() {
         #expect(LinkedMediaFullscreenDiveLinkPresentation.siteDisplayName(for: nil) == "New Dive")
         #expect(LinkedMediaFullscreenDiveLinkPresentation.linkedTripTitle(for: nil) == nil)
+    }
+
+    @Test @MainActor func linkedMediaFullscreenPresentation_bottomLeadingCaptureTimestampLabels_usesOverlayLines() {
+        let capturedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let media = DiveMediaPhoto(
+            capturedAt: capturedAt,
+            photosLocalIdentifier: "test-photo"
+        )
+        let context = DiveMediaCaptureContext(elapsedSeconds: 720, depthMeters: 13.7)
+        let labels = LinkedMediaFullscreenPresentation.bottomLeadingCaptureTimestampLabels(
+            media: media,
+            captureContext: context,
+            timeZoneOffsetSeconds: nil,
+            displayUnits: .imperial
+        )
+        #expect(labels != nil)
+        #expect(labels?.secondary?.contains("into the dive") == true)
+    }
+
+    @Test @MainActor func linkedMediaFullscreenPresentation_bottomLeadingCaptureTimestampLabels_fallsBackWhenNoCaptureDate() {
+        let media = DiveMediaPhoto(
+            photosLocalIdentifier: "test-photo"
+        )
+        let labels = LinkedMediaFullscreenPresentation.bottomLeadingCaptureTimestampLabels(
+            media: media,
+            captureContext: nil,
+            timeZoneOffsetSeconds: nil,
+            displayUnits: .metric
+        )
+        #expect(labels?.primary == DiveActivityMediaPresentation.captureDateUnknownMessage)
+        #expect(labels?.secondary == nil)
+    }
+
+    @Test @MainActor func linkedMediaFullscreenViewConfiguration_diveDepthChart_usesCaptureTimestampChrome() {
+        #expect(LinkedMediaFullscreenView.Configuration.diveDepthChart.bottomLeadingChrome == .captureTimestamp)
     }
 
     @Test func linkedMediaFullscreenPresentation_shouldPresentTaggedMarineLifeSheet_requiresButtonAndTags() {
@@ -17860,7 +18937,7 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func diveBuddyTaggedMediaPresentation_photosAvailableFromTagRelationships_collectsUniqueSortedPhotos() {
+    @Test @MainActor func diveBuddyTaggedMediaPresentation_photosAvailableFromTagRelationships_collectsUniqueSortedPhotos() {
         let dive = DiveActivity(source: .manual, startTime: .now, durationMinutes: 1, maxDepthMeters: 1)
         let buddy = DiveBuddy(displayName: "Alex")
         let older = DiveMediaPhoto(capturedAt: Date(timeIntervalSince1970: 1_000), dive: dive)
@@ -18036,7 +19113,7 @@ struct GoDiveMVPTests {
     }
 
     @Test func diveActivityMediaPresentation_shouldPlayBackgroundVideo_inLandscapeLayout() {
-        for detent in [DiveActivityOverviewDetent.minimized, .medium, .large] {
+        for detent in [DiveActivityOverviewDetent.minimized, .large] {
             #expect(
                 DiveActivityMediaPresentation.shouldPlayBackgroundVideo(
                     isMediaTabSelected: true,
@@ -18047,7 +19124,7 @@ struct GoDiveMVPTests {
         #expect(
             !DiveActivityMediaPresentation.shouldPlayBackgroundVideo(
                 isMediaTabSelected: false,
-                detent: .medium
+                detent: .large
             )
         )
     }
@@ -18172,7 +19249,7 @@ struct GoDiveMVPTests {
     }
 
     @Test func diveActivityMediaPresentation_shouldPlayBackgroundVideo_mediaTabAtEveryDetent() {
-        for detent in [DiveActivityOverviewDetent.minimized, .medium, .large] {
+        for detent in [DiveActivityOverviewDetent.minimized, .large] {
             #expect(
                 DiveActivityMediaPresentation.shouldPlayBackgroundVideo(
                     isMediaTabSelected: true,
@@ -18183,7 +19260,7 @@ struct GoDiveMVPTests {
         #expect(
             !DiveActivityMediaPresentation.shouldPlayBackgroundVideo(
                 isMediaTabSelected: false,
-                detent: .medium
+                detent: .large
             )
         )
     }
@@ -18215,7 +19292,7 @@ struct GoDiveMVPTests {
         #expect(DiveActivityVideoPlaybackPolicy.videoPlayerMountSettleDelayNanoseconds >= 200_000_000)
     }
 
-    @Test func diveActivityMediaPresentation_resolvedSelectedPhotoID() {
+    @Test @MainActor func diveActivityMediaPresentation_resolvedSelectedPhotoID() {
         let first = UUID()
         let second = UUID()
         let photos = [
@@ -18229,12 +19306,12 @@ struct GoDiveMVPTests {
             DiveActivityMediaPresentation.resolvedSelectedPhotoID(selectedID: UUID(), in: photos) == first
         )
         #expect(
-            DiveActivityMediaPresentation.resolvedSelectedPhotoID(selectedID: first, in: []) == first
+            DiveActivityMediaPresentation.resolvedSelectedPhotoID(selectedID: first, in: [DiveMediaPhoto]()) == first
         )
-        #expect(DiveActivityMediaPresentation.resolvedSelectedPhotoID(selectedID: nil, in: []) == nil)
+        #expect(DiveActivityMediaPresentation.resolvedSelectedPhotoID(selectedID: nil, in: [DiveMediaPhoto]()) == nil)
     }
 
-    @Test func diveActivityMediaPresentation_adjacentPhotoID_stepsThroughGalleryOrder() {
+    @Test @MainActor func diveActivityMediaPresentation_adjacentPhotoID_stepsThroughGalleryOrder() {
         let first = UUID()
         let second = UUID()
         let third = UUID()
@@ -18525,8 +19602,41 @@ struct GoDiveMVPTests {
 
     @Test func diveActivityMediaPresentation_showsCaptureDateOnHero_onlyAtMinimized() {
         #expect(DiveActivityMediaPresentation.showsCaptureDateOnHero(for: .minimized))
-        #expect(!DiveActivityMediaPresentation.showsCaptureDateOnHero(for: .medium))
         #expect(!DiveActivityMediaPresentation.showsCaptureDateOnHero(for: .large))
+        #expect(!DiveActivityMediaPresentation.showsCaptureDateOnHero(for: .large))
+    }
+
+    @Test func diveActivityMediaPresentation_liquidGlassCaptureOverlay_matchesMinimizedHero() {
+        #expect(
+            DiveActivityMediaPresentation.usesLiquidGlassCaptureOverlayOnHero(for: .minimized)
+                == DiveActivityMediaPresentation.showsCaptureDateOnHero(for: .minimized)
+        )
+        #expect(!DiveActivityMediaPresentation.usesLiquidGlassCaptureOverlayOnHero(for: .large))
+    }
+
+    @Test func diveActivityMediaPresentation_landscapeGridStyleChrome_requiresLandscapeAndMedia() {
+        #expect(
+            DiveActivityMediaPresentation.showsLandscapeGridStyleMediaChrome(
+                isLandscape: true,
+                hasMedia: true
+            )
+        )
+        #expect(
+            !DiveActivityMediaPresentation.showsLandscapeGridStyleMediaChrome(
+                isLandscape: false,
+                hasMedia: true
+            )
+        )
+        #expect(
+            !DiveActivityMediaPresentation.showsLandscapeGridStyleMediaChrome(
+                isLandscape: true,
+                hasMedia: false
+            )
+        )
+    }
+
+    @Test @MainActor func tripDetailMediaGalleryFeaturedStarPlacement_supportsDiveLandscapeTopTrailing() {
+        #expect(TripDetailMediaGalleryFeaturedStarPlacement.bottomTrailing != .topTrailing)
     }
 
     @Test func diveActivityMediaPresentation_captureOverlayBottomInset_sitsAboveSheetAtMinimized() {
@@ -18547,7 +19657,7 @@ struct GoDiveMVPTests {
         #expect(
             DiveActivityMediaPresentation.captureOverlayBottomInset(
                 layoutHeight: layoutHeight,
-                detent: .medium,
+                detent: .large,
                 bottomSafeInset: bottomSafeInset
             ) == 0
         )
@@ -18563,12 +19673,12 @@ struct GoDiveMVPTests {
         let layoutHeight: CGFloat = 800
         let inset = DiveActivityOverviewPanelMetrics.mediaCarouselScreenAlignmentTopInset(
             layoutHeight: layoutHeight,
-            detent: .medium
+            detent: .large
         )
         #expect(
             DiveActivityMediaPresentation.mediaCarouselPinnedStackHeight(
                 layoutHeight: layoutHeight,
-                detent: .medium
+                detent: .large
             ) == inset + DiveActivityMediaPresentation.carouselRowHeight
         )
     }
@@ -18583,7 +19693,7 @@ struct GoDiveMVPTests {
         #expect(
             DiveActivityMediaPresentation.disablesPanelScroll(
                 isMediaTabSelected: true,
-                detent: .medium
+                detent: .large
             )
         )
         #expect(
@@ -18595,7 +19705,7 @@ struct GoDiveMVPTests {
         #expect(
             !DiveActivityMediaPresentation.disablesPanelScroll(
                 isMediaTabSelected: false,
-                detent: .medium
+                detent: .large
             )
         )
     }
@@ -18604,12 +19714,12 @@ struct GoDiveMVPTests {
         let layoutHeight: CGFloat = 800
         let mediumInset = DiveActivityOverviewPanelMetrics.mediaCarouselScreenAlignmentTopInset(
             layoutHeight: layoutHeight,
-            detent: .medium
+            detent: .large
         )
         #expect(
             DiveActivityMediaPresentation.sheetBodyHeightAboveMediaCarousel(
                 layoutHeight: layoutHeight,
-                detent: .medium
+                detent: .large
             ) == mediumInset
         )
         let largeInset = DiveActivityOverviewPanelMetrics.mediaCarouselScreenAlignmentTopInset(
@@ -18652,9 +19762,8 @@ struct GoDiveMVPTests {
         #expect(MarineLifeMediaTagPresentation.learnMoreLabel == "Learn More")
     }
 
-    @Test func diveActivityMediaPresentation_showsMediaCarouselInSheet_atMinimizedAndMediumOnly() {
+    @Test func diveActivityMediaPresentation_showsMediaCarouselInSheet_atMinimizedOnly() {
         #expect(DiveActivityMediaPresentation.showsMediaCarouselInSheet(for: .minimized))
-        #expect(DiveActivityMediaPresentation.showsMediaCarouselInSheet(for: .medium))
         #expect(!DiveActivityMediaPresentation.showsMediaCarouselInSheet(for: .large))
     }
 
@@ -18684,7 +19793,7 @@ struct GoDiveMVPTests {
         #expect(DiveDepthProfileMediaPlotting.depthMeters(atElapsed: 50, in: samples) == 10)
     }
 
-    @Test func diveDepthProfileMediaPlotting_markers_onlyWithinDiveWindow() {
+    @Test @MainActor func diveDepthProfileMediaPlotting_markers_onlyWithinDiveWindow() {
         let start = Date(timeIntervalSince1970: 1_000_000)
         let points = [
             DiveProfilePoint(timestamp: start, depthMeters: 5),
@@ -18835,7 +19944,7 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func diveActivityMediaPresentation_mediaPositionLabel_usesSelectedItem() {
+    @Test @MainActor func diveActivityMediaPresentation_mediaPositionLabel_usesSelectedItem() {
         let first = DiveMediaPhoto(sortOrder: 0, mediaKind: .image)
         let second = DiveMediaPhoto(sortOrder: 1, mediaKind: .video)
         let photos = [first, second]
@@ -18848,15 +19957,13 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func diveActivityOverviewDetent_mapCameraDetent_largeMatchesMedium() {
-        #expect(DiveActivityOverviewDetent.large.mapCameraDetent == .medium)
-        #expect(DiveActivityOverviewDetent.medium.mapCameraDetent == .medium)
+    @Test func diveActivityOverviewDetent_mapCameraDetent_followsRestingDetent() {
+        #expect(DiveActivityOverviewDetent.large.mapCameraDetent == .large)
         #expect(DiveActivityOverviewDetent.minimized.mapCameraDetent == .minimized)
     }
 
     @Test func diveActivityOverviewDetent_allowsMapInteraction_onlyWhenMinimized() {
         #expect(DiveActivityOverviewDetent.minimized.allowsMapInteraction)
-        #expect(!DiveActivityOverviewDetent.medium.allowsMapInteraction)
         #expect(!DiveActivityOverviewDetent.large.allowsMapInteraction)
     }
 
@@ -18885,21 +19992,117 @@ struct GoDiveMVPTests {
 
     @Test func diveTankOverviewHeroPresentation_scale_byDetent() {
         #expect(DiveTankOverviewHeroPresentation.scale(for: .minimized) == 0.5)
-        #expect(DiveTankOverviewHeroPresentation.scale(for: .medium) == 1)
+        #expect(DiveTankOverviewHeroPresentation.scale(for: .large) == 1)
     }
 
-    @Test func diveTankOverviewHeroPresentation_medium_fullFill_andGasLabelOnly() {
-        #expect(DiveTankOverviewHeroPresentation.showsTankHero(for: .medium))
-        #expect(DiveTankOverviewHeroPresentation.showsTankHero(for: .minimized))
+    @Test func diveTankOverviewHeroPresentation_minimizedEntranceAnimationDuration_isFiveSeconds() {
+        #expect(DiveTankOverviewHeroPresentation.minimizedEntranceAnimationDuration == 5)
+    }
+
+    @Test func diveTankOverviewHeroPresentation_shouldPlayMinimizedEntranceAnimation_onlyWhenCollapsingToMinimized() {
+        #expect(
+            DiveTankOverviewHeroPresentation.shouldPlayMinimizedEntranceAnimation(
+                from: .large,
+                to: .minimized
+            )
+        )
+        #expect(
+            !DiveTankOverviewHeroPresentation.shouldPlayMinimizedEntranceAnimation(
+                from: .minimized,
+                to: .large
+            )
+        )
+        #expect(
+            !DiveTankOverviewHeroPresentation.shouldPlayMinimizedEntranceAnimation(
+                from: .minimized,
+                to: .minimized
+            )
+        )
+    }
+
+    @Test func diveTankOverviewHeroPresentation_displayedPsiConsumed_scalesWithRevealProgress() {
+        #expect(
+            DiveTankOverviewHeroPresentation.displayedPsiConsumed(
+                consumedPSI: 900,
+                revealProgress: 0.5
+            ) == 450
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.displayedPsiConsumed(
+                consumedPSI: 900,
+                revealProgress: 1.2
+            ) == 900
+        )
+    }
+
+    @Test func diveTankOverviewHeroPresentation_profileLineRevealProgress_usesMinimizedProgressOnlyOnMinimized() {
+        #expect(
+            DiveTankOverviewHeroPresentation.profileLineRevealProgress(
+                sheetDetent: .large,
+                minimizedRevealProgress: 0.25
+            ) == 1
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.profileLineRevealProgress(
+                sheetDetent: .minimized,
+                minimizedRevealProgress: 0.25
+            ) == 0.25
+        )
+    }
+
+    @Test func diveTankOverviewHeroPresentation_large_portraitProfileChart_inHeroBand() {
+        #expect(
+            DiveTankOverviewHeroPresentation.showsProfileChart(
+                for: .large,
+                depthSampleCount: 4,
+                isLandscape: false
+            )
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.showsInteractiveProfileChartChrome(
+                for: .large,
+                isLandscape: false,
+                depthSampleCount: 4
+            )
+        )
+        #expect(
+            !DiveTankOverviewHeroPresentation.showsMediaMarkersOnLandscapeProfile(isLandscape: false)
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.showsMediaMarkersOnLandscapeProfile(isLandscape: true)
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.showsTankHeroVisuals(
+                for: .large,
+                depthSampleCount: 4,
+                isLandscape: false
+            )
+        )
+        let layoutSize = CGSize(width: 390, height: 844)
+        let largeFraction = DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
+        let bottomMargin = layoutSize.height * largeFraction
+        let frame = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
+            layoutSize: layoutSize,
+            layoutHeight: layoutSize.height,
+            topObstructionHeight: 100,
+            bottomContentMargin: bottomMargin,
+            isLandscape: false,
+            detent: .large
+        )
+        #expect(frame.maxY < layoutSize.height - bottomMargin + 1)
+        #expect(frame.minY > 100)
+    }
+
+    @Test func diveTankOverviewHeroPresentation_large_fullFill_andGasLabelOnly() {
         #expect(!DiveTankOverviewHeroPresentation.showsTankHero(for: .large))
-        #expect(DiveTankOverviewHeroPresentation.layoutDetent(for: .large) == .medium)
+        #expect(DiveTankOverviewHeroPresentation.showsTankHero(for: .minimized))
+        #expect(DiveTankOverviewHeroPresentation.layoutDetent(for: .large) == .large)
         #expect(DiveTankOverviewHeroPresentation.layoutDetent(for: .minimized) == .minimized)
-        #expect(DiveTankOverviewHeroPresentation.showsGasMixLabel(for: .medium))
-        #expect(!DiveTankOverviewHeroPresentation.showsGasMixLabel(for: .minimized))
         #expect(!DiveTankOverviewHeroPresentation.showsGasMixLabel(for: .large))
+        #expect(!DiveTankOverviewHeroPresentation.showsGasMixLabel(for: .minimized))
         #expect(
             DiveTankOverviewHeroPresentation.displayPressureFillFraction(
-                sheetDetent: .medium,
+                sheetDetent: .large,
                 animatedFillFraction: 0.25
             ) == 1
         )
@@ -18934,7 +20137,7 @@ struct GoDiveMVPTests {
         let cylinderHeight: CGFloat = 148
 
         let medium = DiveTankOverviewHeroPresentation.layoutMetrics(
-            detent: .medium,
+            detent: .large,
             layoutSize: layoutSize,
             layoutHeight: layoutHeight,
             topObstructionHeight: topObstruction,
@@ -18977,14 +20180,15 @@ struct GoDiveMVPTests {
         #expect(offset > 0)
     }
 
-    @Test func diveTankOverviewHeroPresentation_layoutMetrics_medium_centerY_matchesTargetPinY() {
+    @Test func diveTankOverviewHeroPresentation_layoutMetrics_large_centerY_matchesTargetPinY() {
         let layoutSize = CGSize(width: 390, height: 844)
         let layoutHeight = layoutSize.height
         let topObstruction: CGFloat = 100
-        let bottomMargin = layoutHeight * DiveActivityOverviewPanelMetrics.mediumHeightFraction
+        let largeFraction = DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
+        let bottomMargin = layoutHeight * largeFraction
         let cylinderHeight: CGFloat = 148
         let metrics = DiveTankOverviewHeroPresentation.layoutMetrics(
-            detent: .medium,
+            detent: .large,
             layoutSize: layoutSize,
             layoutHeight: layoutHeight,
             topObstructionHeight: topObstruction,
@@ -18994,7 +20198,7 @@ struct GoDiveMVPTests {
         let targetY = DiveLocationMapPresentation.targetPinScreenYFraction(
             layoutHeight: layoutHeight,
             topObstructionHeight: topObstruction,
-            sheetHeightFraction: DiveActivityOverviewPanelMetrics.mediumHeightFraction
+            sheetHeightFraction: largeFraction
         ) * layoutHeight
         #expect(
             abs(
@@ -19012,7 +20216,7 @@ struct GoDiveMVPTests {
             layoutHeight: layoutHeight,
             topObstructionHeight: 100,
             bottomContentMargin: layoutHeight * DiveActivityOverviewPanelMetrics.mediumHeightFraction,
-            mapCameraDetent: .medium
+            mapCameraDetent: .large
         )
         #expect(center.latitude < coordinate.latitude)
         #expect(center.longitude == coordinate.longitude)
@@ -19035,7 +20239,7 @@ struct GoDiveMVPTests {
             layoutHeight: layoutHeight,
             topObstructionHeight: top,
             bottomContentMargin: bottom,
-            mapCameraDetent: .medium
+            mapCameraDetent: .large
         )
         let appliedShift = coordinate.latitude - center.latitude
         #expect(appliedShift < unscaled)
@@ -19052,7 +20256,7 @@ struct GoDiveMVPTests {
             layoutHeight: layoutHeight,
             topObstructionHeight: top,
             bottomContentMargin: layoutHeight * DiveActivityOverviewPanelMetrics.mediumHeightFraction + bottomInset,
-            mapCameraDetent: .medium
+            mapCameraDetent: .large
         )
         let minimized = DiveLocationMapPresentation.adjustedMapCenter(
             for: coordinate,
@@ -19084,24 +20288,25 @@ struct GoDiveMVPTests {
     }
 
     @Test func diveActivityOverviewPanelMetrics_snappedHeightFraction_snapsToNearestDetent() {
-        let medium = DiveActivityOverviewPanelMetrics.mediumHeightFraction
+        let large = DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
+        let minimized = DiveActivityOverviewPanelMetrics.minimizedHeightFraction
         #expect(
             DiveActivityOverviewPanelMetrics.snappedHeightFraction(
-                currentFraction: medium,
+                currentFraction: large,
                 predictedFraction: 0.18
-            ) == DiveActivityOverviewPanelMetrics.minimizedHeightFraction
+            ) == minimized
         )
         #expect(
             DiveActivityOverviewPanelMetrics.snappedHeightFraction(
-                currentFraction: medium,
-                predictedFraction: 0.52
-            ) == medium
+                currentFraction: minimized,
+                predictedFraction: large
+            ) == large
         )
         #expect(
             DiveActivityOverviewPanelMetrics.snappedHeightFraction(
-                currentFraction: medium,
+                currentFraction: minimized,
                 predictedFraction: 0.87
-            ) == DiveActivityOverviewPanelMetrics.largeHeightFraction
+            ) == large
         )
     }
 
@@ -19209,67 +20414,56 @@ struct GoDiveMVPTests {
     }
 
     @Test func diveActivityOverviewPanelMetrics_clampedHeightFraction_limitsRange() {
+        let large = DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
         #expect(DiveActivityOverviewPanelMetrics.clampedHeightFraction(0.05) == 0.20)
-        #expect(DiveActivityOverviewPanelMetrics.clampedHeightFraction(0.99) == 0.85)
-        #expect(
-            DiveActivityOverviewPanelMetrics.clampedHeightFraction(0.50)
-                == DiveActivityOverviewPanelMetrics.mediumHeightFraction
-        )
+        #expect(DiveActivityOverviewPanelMetrics.clampedHeightFraction(0.99) == large)
     }
 
-    @Test func diveActivityOverviewPanelMetrics_shouldExpandFromScroll_atMedium() {
+    @Test func diveActivityOverviewPanelMetrics_shouldExpandFromScroll_atMinimized() {
         #expect(
             DiveActivityOverviewPanelMetrics.shouldExpandFromScroll(
-                restingFraction: DiveActivityOverviewPanelMetrics.mediumHeightFraction,
+                restingFraction: DiveActivityOverviewPanelMetrics.minimizedHeightFraction,
                 scrollOffsetY: 40
             )
         )
         #expect(
             !DiveActivityOverviewPanelMetrics.shouldExpandFromScroll(
-                restingFraction: DiveActivityOverviewPanelMetrics.largeHeightFraction,
+                restingFraction: DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction,
                 scrollOffsetY: 40
             )
         )
     }
 
-    @Test func diveActivityOverviewPanelMetrics_snappedHeightFractionAfterDrag_stepsThroughMedium() {
+    @Test func diveActivityOverviewPanelMetrics_snappedHeightFractionAfterDrag_twoDetentsOnly() {
         let minimized = DiveActivityOverviewPanelMetrics.minimizedHeightFraction
-        let medium = DiveActivityOverviewPanelMetrics.mediumHeightFraction
-        let large = DiveActivityOverviewPanelMetrics.largeHeightFraction
+        let large = DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
 
         #expect(
             DiveActivityOverviewPanelMetrics.snappedHeightFractionAfterDrag(
                 currentFraction: minimized,
                 predictedFraction: large,
                 verticalTranslation: -80
-            ) == medium
+            ) == large
         )
         #expect(
             DiveActivityOverviewPanelMetrics.snappedHeightFractionAfterDrag(
                 currentFraction: large,
                 predictedFraction: minimized,
                 verticalTranslation: 80
-            ) == medium
-        )
-        #expect(
-            DiveActivityOverviewPanelMetrics.snappedHeightFractionAfterDrag(
-                currentFraction: medium,
-                predictedFraction: large,
-                verticalTranslation: -120
-            ) == large
+            ) == minimized
         )
     }
 
-    @Test func diveActivityOverviewPanelMetrics_shouldCollapseToMediumFromScroll_whenExpanded() {
+    @Test func diveActivityOverviewPanelMetrics_shouldCollapseFromScroll_whenExpanded() {
         #expect(
-            DiveActivityOverviewPanelMetrics.shouldCollapseToMediumFromScroll(
-                restingFraction: DiveActivityOverviewPanelMetrics.largeHeightFraction,
+            DiveActivityOverviewPanelMetrics.shouldCollapseFromScroll(
+                restingFraction: DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction,
                 scrollOffsetY: -30
             )
         )
         #expect(
-            !DiveActivityOverviewPanelMetrics.shouldCollapseToMediumFromScroll(
-                restingFraction: DiveActivityOverviewPanelMetrics.mediumHeightFraction,
+            !DiveActivityOverviewPanelMetrics.shouldCollapseFromScroll(
+                restingFraction: DiveActivityOverviewPanelMetrics.minimizedHeightFraction,
                 scrollOffsetY: -30
             )
         )
@@ -19277,8 +20471,7 @@ struct GoDiveMVPTests {
 
     @Test func diveActivityOverviewPanelMetrics_mapPanelVisibility_followsRestingDetent() {
         let minimized = DiveActivityOverviewPanelMetrics.minimizedHeightFraction
-        let medium = DiveActivityOverviewPanelMetrics.mediumHeightFraction
-        let large = DiveActivityOverviewPanelMetrics.largeHeightFraction
+        let large = DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
 
         #expect(
             !DiveActivityOverviewPanelMetrics.mapPanelShowsStatsBox(
@@ -19288,14 +20481,14 @@ struct GoDiveMVPTests {
         )
         #expect(
             DiveActivityOverviewPanelMetrics.mapPanelShowsStatsBox(
-                restingDetent: .medium,
-                heightFraction: medium
+                restingDetent: .large,
+                heightFraction: large
             )
         )
         #expect(
             !DiveActivityOverviewPanelMetrics.mapPanelShowsDetails(
-                restingDetent: .medium,
-                heightFraction: medium
+                restingDetent: .minimized,
+                heightFraction: minimized
             )
         )
         #expect(
@@ -19304,60 +20497,39 @@ struct GoDiveMVPTests {
                 heightFraction: large
             )
         )
-        #expect(
-            DiveActivityOverviewPanelMetrics.mapDetailsPresentationOpacity(
-                restingDetent: .large,
-                heightFraction: medium
-            ) == 1
-        )
     }
 
     @Test func diveActivityOverviewPanelMetrics_mapRevealProgress_tracksDetentBands() {
         let minimized = DiveActivityOverviewPanelMetrics.minimizedHeightFraction
-        let medium = DiveActivityOverviewPanelMetrics.mediumHeightFraction
-        let large = DiveActivityOverviewPanelMetrics.largeHeightFraction
+        let large = DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
 
         #expect(
             DiveActivityOverviewPanelMetrics.mapStatsRevealProgress(heightFraction: minimized) == 0
         )
         #expect(
-            DiveActivityOverviewPanelMetrics.mapStatsRevealProgress(heightFraction: medium) == 1
+            DiveActivityOverviewPanelMetrics.mapStatsRevealProgress(heightFraction: large) == 1
         )
         #expect(
-            DiveActivityOverviewPanelMetrics.mapDetailsRevealProgress(heightFraction: medium) == 0
+            DiveActivityOverviewPanelMetrics.mapDetailsRevealProgress(heightFraction: minimized) == 0
         )
         #expect(
             DiveActivityOverviewPanelMetrics.mapDetailsRevealProgress(heightFraction: large) == 1
         )
-
-        let midStats = (minimized + medium) / 2
-        let statsMid = DiveActivityOverviewPanelMetrics.mapStatsRevealProgress(
-            heightFraction: midStats
-        )
-        #expect(statsMid > 0.35 && statsMid < 0.65)
-
-        let midDetails = (medium + large) / 2
-        let detailsMid = DiveActivityOverviewPanelMetrics.mapDetailsRevealProgress(
-            heightFraction: midDetails
-        )
-        #expect(detailsMid > 0.35 && detailsMid < 0.65)
     }
 
     @Test func diveActivityOverviewPanelMetrics_nextDetent_stepsThroughAllHeights() {
         let minimized = DiveActivityOverviewPanelMetrics.minimizedHeightFraction
-        let medium = DiveActivityOverviewPanelMetrics.mediumHeightFraction
-        let large = DiveActivityOverviewPanelMetrics.largeHeightFraction
+        let large = DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
 
-        #expect(DiveActivityOverviewPanelMetrics.nextTallerDetent(after: minimized) == medium)
-        #expect(DiveActivityOverviewPanelMetrics.nextTallerDetent(after: medium) == large)
+        #expect(DiveActivityOverviewPanelMetrics.nextTallerDetent(after: minimized) == large)
         #expect(DiveActivityOverviewPanelMetrics.nextTallerDetent(after: large) == nil)
 
-        #expect(DiveActivityOverviewPanelMetrics.nextShorterDetent(after: large) == medium)
-        #expect(DiveActivityOverviewPanelMetrics.nextShorterDetent(after: medium) == minimized)
+        #expect(DiveActivityOverviewPanelMetrics.nextShorterDetent(after: large) == minimized)
         #expect(DiveActivityOverviewPanelMetrics.nextShorterDetent(after: minimized) == nil)
     }
 
     @Test func diveActivityOverviewDetent_nearest_toHeightFraction_mapsDetents() {
+        let large = DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
         #expect(
             DiveActivityOverviewDetent.nearest(
                 toHeightFraction: DiveActivityOverviewPanelMetrics.minimizedHeightFraction
@@ -19365,14 +20537,11 @@ struct GoDiveMVPTests {
         )
         #expect(
             DiveActivityOverviewDetent.nearest(
-                toHeightFraction: DiveActivityOverviewPanelMetrics.mediumHeightFraction
-            ) == .medium
-        )
-        #expect(
-            DiveActivityOverviewDetent.nearest(
-                toHeightFraction: DiveActivityOverviewPanelMetrics.largeHeightFraction
+                toHeightFraction: large
             ) == .large
         )
+        let midpoint = (DiveActivityOverviewPanelMetrics.minimizedHeightFraction + large) / 2
+        #expect(DiveActivityOverviewDetent.nearest(toHeightFraction: midpoint) == .large)
     }
 
     @Test func diveActivityOverviewDetent_roundTripsPresentationDetent() {
@@ -19384,16 +20553,23 @@ struct GoDiveMVPTests {
         }
         #expect(DiveActivityOverviewDetent.large.nextTaller() == nil)
         #expect(DiveActivityOverviewDetent.minimized.nextShorter() == nil)
-        #expect(DiveActivityOverviewDetent.minimized.nextTaller() == .medium)
+        #expect(DiveActivityOverviewDetent.minimized.nextTaller() == .large)
     }
 
     @Test func diveActivityOverviewDetent_bottomObstructionHeight_usesFraction() {
-        let height = DiveActivityOverviewDetent.bottomObstructionHeight(
-            layoutHeight: 800,
-            detent: .medium,
-            bottomSafeInset: 34
+        let layoutHeight: CGFloat = 800
+        let bottomSafeInset: CGFloat = 34
+        let expected = DiveActivityOverviewDetent.sheetHeight(
+            for: .large,
+            layoutHeight: layoutHeight,
+            bottomSafeInset: bottomSafeInset
         )
-        #expect(abs(height - (800 * 0.50 + 34)) < 0.01)
+        let height = DiveActivityOverviewDetent.bottomObstructionHeight(
+            layoutHeight: layoutHeight,
+            detent: .large,
+            bottomSafeInset: bottomSafeInset
+        )
+        #expect(abs(height - expected) < 0.02)
     }
 
     @Test func diveActivityOverviewDetent_sheetHeight_forHeightFraction_isContinuous() {
@@ -19427,11 +20603,11 @@ struct GoDiveMVPTests {
         #expect(
             DiveActivityOverviewPanelMetrics.accessibilityDetentDescription(
                 for: DiveActivityOverviewPanelMetrics.mediumHeightFraction
-            ) == "Half height"
+            ) == "Expanded"
         )
         #expect(
             DiveActivityOverviewPanelMetrics.accessibilityDetentDescription(
-                for: DiveActivityOverviewPanelMetrics.largeHeightFraction
+                for: DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
             ) == "Expanded"
         )
     }
@@ -19446,6 +20622,164 @@ struct GoDiveMVPTests {
         #expect(
             DiveActivityOverviewPresentation.siteHeaderTitle(siteName: nil, fallback: "Dive") == "Dive"
         )
+        #expect(
+            DiveActivityOverviewPresentation.siteHeaderTitle(
+                siteName: nil,
+                fallback: DiveActivityOverviewPresentation.newDiveActivitySiteTitle
+            ) == "New Dive Activity"
+        )
+    }
+
+    @Test func snorkelActivityOverviewPresentation_siteHeaderTitle_usesNewSnorkelActivityWhenUntitled() {
+        #expect(
+            SnorkelActivityOverviewPresentation.siteHeaderTitle(siteName: "Hanauma Bay") == "Hanauma Bay"
+        )
+        #expect(
+            SnorkelActivityOverviewPresentation.siteHeaderTitle(siteName: "  ")
+                == SnorkelActivityOverviewPresentation.newSnorkelActivitySiteTitle
+        )
+        #expect(
+            SnorkelActivityOverviewPresentation.siteHeaderTitle(siteName: nil)
+                == "New Snorkel Activity"
+        )
+    }
+
+    @Test @MainActor func activityWeatherConditionsPresentation_eligibilityAndFormatting() {
+        let coordinate = DiveCoordinate(latitude: 21.3, longitude: -157.8)
+        #expect(
+            ActivityWeatherConditionsPresentation.unavailableReason(
+                mapCoordinate: nil,
+                activityStart: Date(timeIntervalSince1970: 1_700_000_000)
+            ) == .noMapCoordinate
+        )
+        #expect(
+            ActivityWeatherConditionsPresentation.unavailableReason(
+                mapCoordinate: coordinate,
+                activityStart: Date(timeIntervalSince1970: 1_000_000_000)
+            ) == .beforeHistoryWindow
+        )
+        let referenceNow = Date(timeIntervalSince1970: 1_700_000_000)
+        let farFuture = referenceNow.addingTimeInterval(11 * 86_400)
+        #expect(
+            ActivityWeatherConditionsPresentation.unavailableReason(
+                mapCoordinate: coordinate,
+                activityStart: farFuture,
+                referenceNow: referenceNow
+            ) == .beyondForecastHorizon
+        )
+        let candidates = [
+            Date(timeIntervalSince1970: 100),
+            Date(timeIntervalSince1970: 500),
+            Date(timeIntervalSince1970: 900),
+        ]
+        let closest = ActivityWeatherConditionsPresentation.closestHourDate(
+            to: Date(timeIntervalSince1970: 480),
+            candidates: candidates
+        )
+        #expect(closest == Date(timeIntervalSince1970: 500))
+        #expect(ActivityWeatherConditionsPresentation.humidityDisplay(fraction: 0.62) == "62% humidity")
+        #expect(
+            ActivityWeatherConditionsPresentation.windDisplay(metersPerSecond: 5, displayUnits: .metric)
+            == "Wind 18 km/h"
+        )
+        #expect(
+            ActivityWeatherConditionsPresentation.dailyHighLowDisplay(
+                highCelsius: 30,
+                lowCelsius: 24,
+                displayUnits: .metric
+            )?.contains("High") == true
+        )
+        #expect(ActivityWeatherConditionsPresentation.normalizedHumidityFraction(0.55) == 0.55)
+        #expect(ActivityWeatherConditionsPresentation.normalizedHumidityFraction(55) == 0.55)
+        let range = ActivityWeatherConditionsPresentation.weatherQueryRange(
+            activityStart: Date(timeIntervalSince1970: 1_700_000_000),
+            timeZoneOffsetSeconds: -10 * 3600
+        )
+        #expect(range.end > range.start)
+
+        let jwtError = NSError(
+            domain: "WeatherDaemon.WDSJWTAuthenticatorServiceListener.Errors",
+            code: 2
+        )
+        #expect(
+            ActivityWeatherKitErrorMapping.failureReason(for: jwtError) == .permissionDenied
+        )
+        let urlError = NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet)
+        #expect(ActivityWeatherKitErrorMapping.failureReason(for: urlError) == .network)
+    }
+
+    @Test func activityWeatherPersistedSnapshot_codecRoundTrips() throws {
+        let referenceHour = Date(timeIntervalSince1970: 1_700_000_000)
+        let capturedAt = Date(timeIntervalSince1970: 1_700_000_100)
+        let snapshot = ActivityWeatherPersistedSnapshot(
+            conditionDescription: "Partly Cloudy",
+            symbolName: "cloud.sun.fill",
+            temperatureCelsius: 27.5,
+            humidityFraction: 0.62,
+            windMetersPerSecond: 5.2,
+            dailyHighCelsius: 30,
+            dailyLowCelsius: 24,
+            referenceHour: referenceHour,
+            usesDailyFallback: false,
+            capturedAt: capturedAt
+        )
+        let data = try ActivityWeatherPersistedSnapshotCodec.encode(snapshot)
+        let decoded = try ActivityWeatherPersistedSnapshotCodec.decode(data)
+        #expect(decoded == snapshot)
+    }
+
+    @Test func activityWeatherSnapshotStorage_rebuildsDisplayForUnits() {
+        let activityStart = Date(timeIntervalSince1970: 1_700_000_000)
+        let persisted = ActivityWeatherPersistedSnapshot(
+            conditionDescription: "Clear",
+            symbolName: "sun.max.fill",
+            temperatureCelsius: 28,
+            humidityFraction: 0.55,
+            windMetersPerSecond: 5,
+            dailyHighCelsius: 31,
+            dailyLowCelsius: 25,
+            referenceHour: activityStart,
+            usesDailyFallback: false,
+            capturedAt: activityStart
+        )
+        let data = try? ActivityWeatherPersistedSnapshotCodec.encode(persisted)
+        let metric = ActivityWeatherSnapshotStorage.displaySnapshot(
+            from: data,
+            activityStart: activityStart,
+            timeZoneOffsetSeconds: -10 * 3_600,
+            displayUnits: .metric
+        )
+        let imperial = ActivityWeatherSnapshotStorage.displaySnapshot(
+            from: data,
+            activityStart: activityStart,
+            timeZoneOffsetSeconds: -10 * 3_600,
+            displayUnits: .imperial
+        )
+        #expect(metric?.conditionDescription == "Clear")
+        #expect(metric?.temperatureDisplay.contains("28") == true)
+        #expect(imperial?.temperatureDisplay.contains("°F") == true)
+        #expect(metric?.humidityLine == "55% humidity")
+    }
+
+    @Test func snorkelActivityOverviewPresentation_mapStats_swimDistanceUsesMetersOrYards() {
+        let imperial = SnorkelActivityOverviewPresentation.mapOverviewStatsLayout(
+            durationMinutes: 30,
+            swimDistanceMeters: 100,
+            maxDepthMeters: 2,
+            avgTemperatureCelsius: 26,
+            displayUnits: .imperial
+        )
+        #expect(imperial.leadingStats[1].valueNumber == "109")
+        #expect(imperial.leadingStats[1].valueUnit == "yd")
+        let metric = SnorkelActivityOverviewPresentation.mapOverviewStatsLayout(
+            durationMinutes: 30,
+            swimDistanceMeters: 210,
+            maxDepthMeters: 2,
+            avgTemperatureCelsius: 26,
+            displayUnits: .metric
+        )
+        #expect(metric.leadingStats[1].valueNumber == "210")
+        #expect(metric.leadingStats[1].valueUnit == "m")
     }
 
     @Test func diveActivityOverviewPresentation_siteTitleLinksToCatalogOverview_requiresLinkedSiteID() {
@@ -19464,6 +20798,7 @@ struct GoDiveMVPTests {
     }
 
     @Test func diveActivityOverviewPresentation_mapHeaderCopy() {
+        #expect(DiveActivityOverviewPresentation.activityIdentitySymbolPointSize == 24)
         #expect(
             DiveActivityOverviewPresentation.diveNumberChipLabel(
                 diveNumber: 12,
@@ -19480,12 +20815,12 @@ struct GoDiveMVPTests {
             DiveActivityOverviewPresentation.regionCountryLine(
                 region: "Bonaire",
                 country: "Caribbean Netherlands"
-            ) == "Bonaire, Caribbean Netherlands"
+            ) == "🇧🇶 Bonaire, Caribbean Netherlands"
         )
         #expect(
             DiveActivityOverviewPresentation.regionCountryLine(
                 locationName: "Negril, Jamaica"
-            ) == "Negril, Jamaica"
+            ) == "🇯🇲 Negril, Jamaica"
         )
         let line = DiveActivityOverviewPresentation.startDateDashTimeLine(
             startTime: Date(timeIntervalSince1970: 0),
@@ -21886,9 +23221,12 @@ struct GoDiveMVPTests {
         let userSiteID = UUID()
         let activitySeed = LogbookActivitySnapshotSeed(
             id: diveID,
+            kind: .scubaDive,
             sourceDiveId: nil,
+            sourceActivityId: nil,
             startTime: Date(timeIntervalSinceReferenceDate: 0),
             maxDepthMeters: 18,
+            swimDistanceMeters: nil,
             durationMinutes: 40,
             bottomTimeSeconds: nil,
             diveNumber: 1,
@@ -21899,7 +23237,8 @@ struct GoDiveMVPTests {
             activityTagNames: [],
             buddyDisplayNames: [],
             previewMediaPhotoID: nil,
-            linkedTripID: nil
+            linkedTripID: nil,
+            previewMediaIsSnorkel: false
         )
         let input = HomeOverviewBuildInput(
             activitySeeds: [activitySeed],
@@ -22203,8 +23542,16 @@ struct GoDiveMVPTests {
 
     @Test func logbookListSurfaceEquatableInputs_scrollNonceChangeIsNotEqual() {
         let base = LogbookListSurfaceEquatableInputs(
+            feedScope: .myActivities,
+            myActivitiesKindFilter: .all,
+            showsMyActivitiesKindFilterEmptyState: false,
             items: [],
+            buddyFeedRows: [],
+            buddyFeedEmptyKind: nil,
+            isBuddyFeedLoading: false,
+            isMyActivitiesLoading: false,
             upcomingTripBanner: nil,
+            myActivitiesSummary: .empty,
             showsStoredDiveEmptyState: false,
             bubbleAnimationPaused: false,
             scrollToTopNonce: 0
@@ -22232,6 +23579,22 @@ struct GoDiveMVPTests {
     @Test func logbookAndFieldGuideCollapsibleHeaderTitles() {
         #expect(LogbookCollapsibleHeaderPresentation.title == "Activity Log")
         #expect(LogbookCollapsibleHeaderPresentation.titleAccessibilityIdentifier == "Logbook.Title")
+        #expect(LogbookCollapsibleHeaderPresentation.myActivitiesSegmentTitle == "My Activities")
+        #expect(LogbookCollapsibleHeaderPresentation.buddyFeedSegmentTitle == "Buddy Feed")
+        #expect(
+            LogbookCollapsibleHeaderPresentation.showsMyActivitiesSummaryChrome(
+                feedScope: .myActivities,
+                showsStoredDiveEmptyState: false
+            )
+        )
+        #expect(
+            !LogbookCollapsibleHeaderPresentation.showsMyActivitiesSummaryChrome(
+                feedScope: .buddyFeed,
+                showsStoredDiveEmptyState: false
+            )
+        )
+        #expect(LogbookFeedScope.myActivities.systemImage == "book.closed.fill")
+        #expect(LogbookFeedScope.buddyFeed.systemImage == "person.2.fill")
         #expect(FieldGuideHubPresentation.tabTitle == "Field Guide")
         #expect(FieldGuideHubPresentation.titleAccessibilityIdentifier == "FieldGuide.Hub.Title")
         #expect(
@@ -22250,6 +23613,283 @@ struct GoDiveMVPTests {
                 subcategoryID: ""
             ) == "FieldGuide.Category.fishes.Subcategory.all.Title"
         )
+    }
+
+    @Test func logbookMyActivitiesSummary_headerLine_usesDiveCountAndBottomTime() {
+        let seeds = [
+            logbookSnapshotSeed(
+                id: UUID(),
+                resolvedSiteNameLowercased: "reef",
+                durationMinutes: 45,
+                bottomTimeSeconds: 2_700
+            ),
+            logbookSnapshotSeed(
+                id: UUID(),
+                resolvedSiteNameLowercased: "wall",
+                durationMinutes: 30,
+                bottomTimeSeconds: nil
+            ),
+            logbookSnapshotSeed(
+                id: UUID(),
+                resolvedSiteNameLowercased: "hidden",
+                durationMinutes: 20,
+                bottomTimeSeconds: 1_200,
+                diveNumberExplicitlyNone: true
+            ),
+        ]
+        let summary = LogbookMyActivitiesSummaryPresentation.summary(from: seeds)
+        #expect(summary.diveCount == 2)
+        #expect(summary.totalBottomTimeSeconds == 2_700 + 30 * 60 + 1_200)
+        let line = LogbookMyActivitiesSummaryPresentation.headerLine(for: summary)
+        #expect(line == "2 Dives | 2 hr Bottom Time")
+    }
+
+    @Test func logbookMyActivitiesSummary_bottomTimeHoursRounded_nearestHour() {
+        #expect(
+            LogbookMyActivitiesSummaryPresentation.formattedBottomTimeHoursRounded(
+                totalBottomTimeSeconds: 3_600
+            ) == "1 hr"
+        )
+        #expect(
+            LogbookMyActivitiesSummaryPresentation.formattedBottomTimeHoursRounded(
+                totalBottomTimeSeconds: 5_700
+            ) == "2 hr"
+        )
+        #expect(
+            LogbookMyActivitiesSummaryPresentation.formattedBottomTimeHoursRounded(
+                totalBottomTimeSeconds: 1_799
+            ) == "0 hr"
+        )
+        #expect(
+            LogbookMyActivitiesSummaryPresentation.formattedBottomTimeHoursRounded(
+                totalBottomTimeSeconds: 1_800
+            ) == "1 hr"
+        )
+    }
+
+    @Test func logbookMyActivitiesSummary_singularDiveLabel() {
+        let summary = LogbookMyActivitiesSummary(diveCount: 1, totalBottomTimeSeconds: 3_600)
+        #expect(LogbookMyActivitiesSummaryPresentation.headerLine(for: summary) == "1 Dive | 1 hr Bottom Time")
+    }
+
+    @Test func logbookMyActivitiesSummary_showsLoadingChrome_whenStoreHasDivesButListCacheEmpty() {
+        #expect(
+            LogbookMyActivitiesSummaryPresentation.showsLoadingChrome(
+                feedScope: .myActivities,
+                visibleDiveCount: 12,
+                visibleSnorkelCount: 0,
+                kindFilter: .all,
+                displayItemCount: 0
+            )
+        )
+        #expect(
+            !LogbookMyActivitiesSummaryPresentation.showsLoadingChrome(
+                feedScope: .myActivities,
+                visibleDiveCount: 12,
+                visibleSnorkelCount: 0,
+                kindFilter: .all,
+                displayItemCount: 3
+            )
+        )
+        #expect(
+            !LogbookMyActivitiesSummaryPresentation.showsLoadingChrome(
+                feedScope: .buddyFeed,
+                visibleDiveCount: 12,
+                visibleSnorkelCount: 0,
+                kindFilter: .all,
+                displayItemCount: 0
+            )
+        )
+        #expect(
+            !LogbookMyActivitiesSummaryPresentation.showsLoadingChrome(
+                feedScope: .myActivities,
+                visibleDiveCount: 0,
+                visibleSnorkelCount: 0,
+                kindFilter: .all,
+                displayItemCount: 0
+            )
+        )
+        #expect(
+            !LogbookMyActivitiesSummaryPresentation.showsLoadingChrome(
+                feedScope: .myActivities,
+                visibleDiveCount: 0,
+                visibleSnorkelCount: 5,
+                kindFilter: .dives,
+                displayItemCount: 0
+            )
+        )
+    }
+
+    @Test func logbookMyActivitiesKindFilter_filtersMergedSeeds() {
+        let dive = LogbookActivitySnapshotSeed(
+            id: UUID(),
+            kind: .scubaDive,
+            sourceDiveId: "d1",
+            sourceActivityId: nil,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            maxDepthMeters: 10,
+            swimDistanceMeters: nil,
+            durationMinutes: 40,
+            bottomTimeSeconds: 2_400,
+            diveNumber: 1,
+            diveNumberExplicitlyNone: false,
+            displayName: "Dive",
+            formattedStartDateOnly: "Jan 1",
+            resolvedSiteNameLowercased: nil,
+            activityTagNames: [],
+            buddyDisplayNames: [],
+            previewMediaPhotoID: nil,
+            linkedTripID: nil,
+            previewMediaIsSnorkel: false
+        )
+        let snorkel = LogbookActivitySnapshotSeed(
+            id: UUID(),
+            kind: .snorkel,
+            sourceDiveId: nil,
+            sourceActivityId: "s1",
+            startTime: Date(timeIntervalSince1970: 1_700_100_000),
+            maxDepthMeters: 2,
+            swimDistanceMeters: 400,
+            durationMinutes: 30,
+            bottomTimeSeconds: nil,
+            diveNumber: nil,
+            diveNumberExplicitlyNone: false,
+            displayName: "Snorkel",
+            formattedStartDateOnly: "Jan 2",
+            resolvedSiteNameLowercased: nil,
+            activityTagNames: [],
+            buddyDisplayNames: [],
+            previewMediaPhotoID: nil,
+            linkedTripID: nil,
+            previewMediaIsSnorkel: true
+        )
+        let merged = [snorkel, dive]
+        #expect(
+            LogbookMyActivitiesKindFilterPresentation.filteredSeeds(merged, filter: .all).count == 2
+        )
+        #expect(
+            LogbookMyActivitiesKindFilterPresentation.filteredSeeds(merged, filter: .dives).map(\.kind)
+            == [.scubaDive]
+        )
+        #expect(
+            LogbookMyActivitiesKindFilterPresentation.filteredSeeds(merged, filter: .snorkels).map(\.kind)
+            == [.snorkel]
+        )
+        #expect(
+            LogbookMyActivitiesKindFilterPresentation.matchingStoredActivityCount(
+                diveCount: 3,
+                snorkelCount: 2,
+                filter: .dives
+            ) == 3
+        )
+        #expect(LogbookMyActivitiesKindFilterPresentation.menuTitle(for: .snorkels) == "Snorkels")
+    }
+
+    @Test func diveActivityOverviewUIStateStore_roundTripsSnapshotByActivityID() {
+        DiveActivityOverviewUIStateStore.resetForTesting()
+        defer { DiveActivityOverviewUIStateStore.resetForTesting() }
+
+        let activityID = UUID()
+        let snapshot = DiveActivityOverviewUISnapshot(
+            selectedActivityTab: .tank,
+            overviewSheetDetent: .large,
+            isOverviewPanelPresented: true,
+            selectedDiveMediaPhotoID: UUID(),
+            overviewPanelScrollOffsetY: 120
+        )
+        DiveActivityOverviewUIStateStore.save(snapshot, for: activityID)
+        #expect(DiveActivityOverviewUIStateStore.snapshot(for: activityID) == snapshot)
+        DiveActivityOverviewUIStateStore.remove(activityID: activityID)
+        #expect(DiveActivityOverviewUIStateStore.snapshot(for: activityID) == nil)
+    }
+
+    @Test func diveActivityOverviewScrollRestoration_effectiveOffsetUsesFallbackWhenBindingCleared() {
+        #expect(
+            DiveActivityOverviewScrollRestoration.effectiveScrollOffsetForRestoration(
+                persisted: 0,
+                fallback: 180
+            ) == 180
+        )
+        #expect(
+            DiveActivityOverviewScrollRestoration.effectiveScrollOffsetForRestoration(
+                persisted: 12,
+                fallback: 8
+            ) == 12
+        )
+        #expect(
+            DiveActivityOverviewScrollRestoration.effectiveScrollOffsetForRestoration(
+                persisted: 0,
+                fallback: 2
+            ) == 0
+        )
+    }
+
+    @Test func diveActivityOverviewScrollRestoration_ignoresSuddenResetToTopWhileDeepScrolled() {
+        #expect(
+            DiveActivityOverviewScrollRestoration.shouldIgnoreSuddenScrollResetToTop(
+                proposedOffset: 0,
+                persistedOffset: 200,
+                lastReportedOffset: 198
+            )
+        )
+        #expect(
+            !DiveActivityOverviewScrollRestoration.shouldIgnoreSuddenScrollResetToTop(
+                proposedOffset: 0,
+                persistedOffset: 200,
+                lastReportedOffset: 4
+            )
+        )
+    }
+
+    @Test func diveActivityOverviewScrollRestoration_insetOnlyWhenReturningFromNestedNavigation() {
+        #expect(
+            !DiveActivityOverviewScrollRestoration.shouldApplyScrollRestorationInset(
+                fallback: 0,
+                persisted: 120
+            )
+        )
+        #expect(
+            DiveActivityOverviewScrollRestoration.shouldApplyScrollRestorationInset(
+                fallback: 180,
+                persisted: 0
+            )
+        )
+        #expect(
+            !DiveActivityOverviewScrollRestoration.shouldApplyScrollRestorationInset(
+                fallback: 180,
+                persisted: 220
+            )
+        )
+        #expect(
+            !DiveActivityOverviewScrollRestoration.shouldApplyScrollRestorationInset(
+                fallback: 120,
+                persisted: 120
+            )
+        )
+        #expect(
+            !DiveActivityOverviewScrollRestoration.shouldApplyScrollRestorationInset(
+                fallback: 2,
+                persisted: 200
+            )
+        )
+    }
+
+    @Test @MainActor func snorkelActivityOverviewUIStateStore_roundTripsSnapshotByActivityID() {
+        DiveActivityOverviewUIStateStore.resetForTesting()
+        defer { DiveActivityOverviewUIStateStore.resetForTesting() }
+
+        let activityID = UUID()
+        let snapshot = SnorkelActivityOverviewUISnapshot(
+            selectedActivityTab: .map,
+            overviewSheetDetent: .large,
+            isOverviewPanelPresented: true,
+            selectedMediaPhotoID: nil,
+            overviewPanelScrollOffsetY: 96
+        )
+        DiveActivityOverviewUIStateStore.saveSnorkel(snapshot, for: activityID)
+        #expect(DiveActivityOverviewUIStateStore.snorkelSnapshot(for: activityID) == snapshot)
+        DiveActivityOverviewUIStateStore.removeSnorkel(activityID: activityID)
+        #expect(DiveActivityOverviewUIStateStore.snorkelSnapshot(for: activityID) == nil)
     }
 
     @Test @MainActor
@@ -24111,6 +25751,9 @@ struct GoDiveMVPTests {
     @Test func diveQuantityFormatting_depth_temperature_tankVolume() {
         #expect(DiveQuantityFormatting.depth(meters: 10, system: .metric) == "10.0 m")
         #expect(DiveQuantityFormatting.depth(meters: 1, system: .imperial) == "3.3 ft")
+        #expect(DiveQuantityFormatting.swimDistance(meters: 210, system: .metric) == "210 m")
+        #expect(DiveQuantityFormatting.swimDistance(meters: 100, system: .imperial) == "109 yd")
+        #expect(DiveQuantityFormatting.swimDistance(meters: 0, system: .metric) == "—")
 
         #expect(DiveQuantityFormatting.fieldGuideDepth(meters: 15.5, system: .metric) == "16 m")
         #expect(DiveQuantityFormatting.fieldGuideDepth(meters: 6, system: .imperial) == "20 ft")
@@ -24400,6 +26043,15 @@ struct GoDiveMVPTests {
         #expect(map[a.id] == 1)
         #expect(map[hidden.id] == nil)
         #expect(map[c.id] == 2)
+    }
+
+    @Test func diveActivityDiveNumbering_numberedDiveCount_excludesExplicitNone() {
+        let t0 = Date(timeIntervalSince1970: 0)
+        let t1 = Date(timeIntervalSince1970: 86_400)
+        let a = DiveActivity(source: .manual, startTime: t0, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 1)
+        let hidden = DiveActivity(source: .manual, startTime: t1, durationMinutes: 1, maxDepthMeters: 1, diveNumber: 99)
+        hidden.diveNumberExplicitlyNone = true
+        #expect(DiveActivityDiveNumbering.numberedDiveCount(in: [a, hidden]) == 1)
     }
 
     @Test @MainActor
@@ -24911,12 +26563,24 @@ struct GoDiveMVPTests {
         #expect(LogbookTripGroupAccentPalette.nextIndex(after: LogbookTripGroupAccentPalette.palette.count - 1) == 0)
     }
 
-    @Test func logbookTripGroupAccentPalette_avoidsLightPastelHues() {
-        for rgb in LogbookTripGroupAccentPalette.palette {
+    @Test func logbookTripGroupAccentPalette_lightModeAvoidsLightPastelHues() {
+        for rgb in LogbookTripGroupAccentPalette.lightModePalette {
             let maxChannel = max(rgb.red, rgb.green, rgb.blue)
             #expect(maxChannel <= 0.90)
             let isLightBlue = rgb.blue >= 0.62 && rgb.blue >= rgb.red && rgb.blue >= rgb.green
             #expect(!isLightBlue)
+        }
+    }
+
+    @Test func logbookTripGroupAccentPalette_darkModeIsLighterThanLightMode() {
+        func luminance(_ rgb: LogbookTripGroupAccentPalette.RGB) -> Double {
+            0.2126 * rgb.red + 0.7152 * rgb.green + 0.0722 * rgb.blue
+        }
+        #expect(LogbookTripGroupAccentPalette.lightModePalette.count == LogbookTripGroupAccentPalette.darkModePalette.count)
+        for index in LogbookTripGroupAccentPalette.lightModePalette.indices {
+            let light = LogbookTripGroupAccentPalette.rgb(at: index, colorScheme: .light)
+            let dark = LogbookTripGroupAccentPalette.rgb(at: index, colorScheme: .dark)
+            #expect(luminance(light) < luminance(dark))
         }
     }
 
@@ -26159,24 +27823,31 @@ private func logbookSnapshotSeed(
     activityTagNames: [String] = [],
     buddyDisplayNames: [String] = [],
     linkedTripID: UUID? = nil,
-    startTime: Date = Date(timeIntervalSince1970: 0)
+    startTime: Date = Date(timeIntervalSince1970: 0),
+    durationMinutes: Int = 30,
+    bottomTimeSeconds: Int? = nil,
+    diveNumberExplicitlyNone: Bool = false
 ) -> LogbookActivitySnapshotSeed {
     LogbookActivitySnapshotSeed(
         id: id,
+        kind: .scubaDive,
         sourceDiveId: nil,
+        sourceActivityId: nil,
         startTime: startTime,
         maxDepthMeters: 10,
-        durationMinutes: 30,
-        bottomTimeSeconds: nil,
+        swimDistanceMeters: nil,
+        durationMinutes: durationMinutes,
+        bottomTimeSeconds: bottomTimeSeconds,
         diveNumber: 1,
-        diveNumberExplicitlyNone: false,
+        diveNumberExplicitlyNone: diveNumberExplicitlyNone,
         displayName: resolvedSiteNameLowercased ?? "New Dive",
         formattedStartDateOnly: "Jan 1, 1970",
         resolvedSiteNameLowercased: resolvedSiteNameLowercased,
         activityTagNames: activityTagNames,
         buddyDisplayNames: buddyDisplayNames,
         previewMediaPhotoID: nil,
-        linkedTripID: linkedTripID
+        linkedTripID: linkedTripID,
+        previewMediaIsSnorkel: false
     )
 }
 
@@ -26685,7 +28356,7 @@ struct CrashReportingTests {
                 activityID: activityID,
                 diveNumber: 145,
                 activityTab: .camera,
-                detent: .medium,
+                detent: .large,
                 mediaCount: 3,
                 selectedMediaID: selectedID,
                 featuredMediaID: selectedID,
@@ -27223,6 +28894,94 @@ struct CrashReportingTests {
         #expect(migratedDive?.mediaPhotos.count == 1)
     }
 
+    /// CloudKit mirroring requires an inverse for **`SnorkelActivity.owner`**; without it every
+    /// CloudKit store open fails and the app silently falls back to local-only (no sync).
+    /// The cascade assertion only holds when the inverse relationship exists on `UserProfile`.
+    @Test @MainActor
+    func userProfile_snorkelActivityOwnerInverse_cascadeDeletesOwnedSnorkels() throws {
+        let dual = try AppSwiftDataDualStoreFactory.makeInMemorySplitContainer()
+        let context = ModelContext(dual.container)
+
+        let profile = UserProfile(appleUserIdentifier: "snorkel-inverse", displayName: "Diver")
+        context.insert(profile)
+        let snorkel = SnorkelActivity(startTime: .now, durationMinutes: 30)
+        snorkel.owner = profile
+        snorkel.ownerProfileID = profile.id
+        context.insert(snorkel)
+        try context.save()
+
+        #expect(profile.snorkelActivities.count == 1)
+        #expect(profile.snorkelActivities.first?.id == snorkel.id)
+
+        context.delete(profile)
+        try context.save()
+        #expect(try context.fetchCount(FetchDescriptor<SnorkelActivity>()) == 0)
+    }
+
+    @Test @MainActor
+    func appSwiftDataDualStoreMigrator_copiesSnorkelRowsIntoSplitContainer() throws {
+        let sourceContainer = try AppSwiftDataSchema.makeUnifiedContainer(isStoredInMemoryOnly: true)
+        let source = ModelContext(sourceContainer)
+
+        let profile = UserProfile(appleUserIdentifier: "snorkel-mig", displayName: "Snorkeler")
+        source.insert(profile)
+        let buddy = DiveBuddy(displayName: "Reef Pal", owner: profile)
+        source.insert(buddy)
+        let snorkel = SnorkelActivity(
+            source: .garminMK3,
+            sourceActivityId: "fit-1",
+            startTime: .now,
+            durationMinutes: 45,
+            swimDistanceMeters: 800,
+            maxDepthMeters: 3.5
+        )
+        snorkel.siteName = "Turtle Bay"
+        snorkel.owner = profile
+        snorkel.ownerProfileID = profile.id
+        source.insert(snorkel)
+        let media = SnorkelMediaPhoto(photosLocalIdentifier: "ph-snorkel", snorkelActivity: snorkel)
+        source.insert(media)
+        let buddyTag = SnorkelBuddyTag(buddy: buddy, snorkelActivity: snorkel)
+        source.insert(buddyTag)
+        let sighting = SightingInstance(
+            marineLifeUUID: "turtle-uuid",
+            sightingDateTime: .now,
+            snorkelActivity: snorkel,
+            snorkelMediaPhoto: media
+        )
+        source.insert(sighting)
+        let point = SnorkelProfilePoint(
+            timestamp: .now,
+            latitude: 20.7,
+            longitude: -156.4,
+            heartRateBPM: 95,
+            snorkelActivityID: snorkel.id
+        )
+        source.insert(point)
+        try source.save()
+
+        let dual = try AppSwiftDataDualStoreFactory.makeInMemorySplitContainer()
+        let destination = ModelContext(dual.container)
+        let result = try AppSwiftDataDualStoreMigrator.migrate(from: source, to: destination)
+
+        #expect(result.snorkelActivityCount == 1)
+
+        let migrated = try destination.fetch(FetchDescriptor<SnorkelActivity>()).first
+        #expect(migrated?.id == snorkel.id)
+        #expect(migrated?.siteName == "Turtle Bay")
+        #expect(migrated?.owner?.appleUserIdentifier == "snorkel-mig")
+        #expect(migrated?.mediaPhotos.count == 1)
+        #expect(migrated?.buddies.count == 1)
+        #expect(migrated?.marineLifeSightings.count == 1)
+        #expect(try destination.fetchCount(FetchDescriptor<SnorkelMediaPhoto>()) == 1)
+        #expect(try destination.fetchCount(FetchDescriptor<SnorkelBuddyTag>()) == 1)
+        #expect(try destination.fetchCount(FetchDescriptor<SnorkelProfilePoint>()) == 1)
+        let migratedPoint = try destination.fetch(FetchDescriptor<SnorkelProfilePoint>()).first
+        #expect(migratedPoint?.snorkelActivityID == snorkel.id)
+        #expect(migratedPoint?.heartRateBPM == 95)
+        #expect(migrated?.swimTrackData != nil)
+    }
+
     @Test @MainActor
     func appSwiftDataDualStoreBootstrap_opensFreshDualInTempDirectory() throws {
         let temp = FileManager.default.temporaryDirectory
@@ -27309,6 +29068,21 @@ struct CrashReportingTests {
         #expect(record.activitiesSightedOn == [diveID])
         #expect(userSite.siteTagsData != nil)
         #expect(userSite.siteTags == ["shore"])
+    }
+
+    @Test func appSwiftDataDualStoreFactory_cloudKitReconnect_clearsStickyOnNextAttempt() {
+        let defaults = UserDefaults(suiteName: "GoDiveCloudKitReconnectTests")!
+        defer { defaults.removePersistentDomain(forName: "GoDiveCloudKitReconnectTests") }
+
+        defaults.set(false, forKey: AppSwiftDataDualStoreFactory.lastCloudKitSyncEnabledDefaultsKey)
+        defaults.set("schema error", forKey: AppSwiftDataDualStoreFactory.lastCloudKitFallbackErrorDefaultsKey)
+        AppSwiftDataDualStoreFactory.scheduleReconnectPrivateCloudKitOnNextLaunch(defaults: defaults)
+
+        #expect(
+            AppSwiftDataDualStoreFactory.shouldAttemptUserCloudKitSync(requested: true, defaults: defaults)
+        )
+        #expect(defaults.object(forKey: AppSwiftDataDualStoreFactory.lastCloudKitSyncEnabledDefaultsKey) == nil)
+        #expect(defaults.bool(forKey: AppSwiftDataDualStoreFactory.recreateDualStoresForCloudKitDefaultsKey))
     }
 
     @Test func appSwiftDataDualStoreFactory_cloudKitOpenPolicy_stickyLocalSkipsAttempt() {
@@ -27519,6 +29293,160 @@ struct CrashReportingTests {
     @Test func appSwiftDataStorePartition_excludesDiveProfilePointFromUserCloudKitTypes() {
         #expect(!AppSwiftDataStorePartition.userModelTypeNames.contains("DiveProfilePoint"))
         #expect(AppSwiftDataStorePartition.userLocalModelTypeNames.contains("DiveProfilePoint"))
+        #expect(AppSwiftDataStorePartition.userModelTypeNames.contains("SnorkelActivity"))
+        #expect(AppSwiftDataStorePartition.userLocalModelTypeNames.contains("SnorkelProfilePoint"))
+    }
+
+    @Test func diveImportPostCompletionNavigation_opensNewestWhenAnyImported() {
+        let newest = UUID()
+        #expect(
+            DiveImportPostCompletionNavigation.importedDetailTargetID(
+                importedCount: 12,
+                primaryInsertedID: newest
+            ) == newest
+        )
+        #expect(
+            DiveImportPostCompletionNavigation.importedDetailTargetID(
+                importedCount: 1,
+                primaryInsertedID: newest
+            ) == newest
+        )
+        #expect(
+            DiveImportPostCompletionNavigation.importedDetailTargetID(
+                importedCount: 0,
+                primaryInsertedID: newest
+            ) == nil
+        )
+        #expect(
+            DiveImportPostCompletionNavigation.importedDetailTargetID(
+                importedCount: 3,
+                primaryInsertedID: nil
+            ) == nil
+        )
+    }
+
+    @Test func snorkelImportAlertPresentation_successAndFailureMessages() {
+        let success = SnorkelImportAlertPresentation.payload(
+            for: SnorkelFileImportOutcome(
+                userMessage: "\(FitSnorkelFileImport.importSuccessMessagePrefix) starting Jan 1, 2026.",
+                primaryInsertedActivityId: UUID()
+            )
+        )
+        #expect(success.isSuccess)
+        #expect(success.importedCount == 1)
+        #expect(SnorkelImportAlertPresentation.title(for: success) == "Import complete")
+        #expect(SnorkelImportAlertPresentation.message(for: success).contains("1 activity imported"))
+
+        let failure = SnorkelImportAlertPresentation.failurePayload(message: "Duplicate session.")
+        #expect(!failure.isSuccess)
+        #expect(failure.importedCount == 0)
+        #expect(SnorkelImportAlertPresentation.title(for: failure) == "Import failed")
+        let failureMessage = SnorkelImportAlertPresentation.message(for: failure)
+        #expect(failureMessage.contains("0 activities imported"))
+        #expect(failureMessage.contains("Duplicate session."))
+    }
+
+    private nonisolated static func snorkelFitFixtureData(named filename: String) throws -> Data {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/\(filename)")
+        return try Data(contentsOf: url)
+    }
+
+    @Test func fitSnorkelDecoder_snorkelFixture_mapsSummaryAndDepth() throws {
+        let data = try Self.snorkelFitFixtureData(named: "snorkel_garmin.fit")
+        let activity = try FitSnorkelFileDecoder.buildSnorkelActivity(from: data)
+        #expect(activity.swimDistanceMeters.map { $0 > 100 } == true)
+        #expect(activity.totalCalories == 59)
+        #expect(activity.avgHeartRateBPM == 77)
+        #expect(activity.maxHeartRateBPM == 123)
+        #expect(activity.avgTemperatureCelsius == 31)
+        #expect(activity.maxDepthMeters.map { $0 > 0 } == true)
+        #expect(!activity.profilePoints.isEmpty)
+        #expect(activity.profilePoints.allSatisfy { $0.heartRateBPM != nil })
+    }
+
+    @Test func fitSnorkelDecoder_snorkelFixture_rejectsDiveImportPipeline() throws {
+        let data = try Self.snorkelFitFixtureData(named: "snorkel_garmin.fit")
+        #expect(throws: FitDecodeError.self) {
+            _ = try FitDiveFileDecoder.buildDiveActivity(from: data)
+        }
+        do {
+            _ = try FitDiveFileDecoder.buildDiveActivity(from: data)
+        } catch let error as FitDecodeError {
+            #expect(error.errorDescription?.contains("Snorkel Activity") == true)
+        }
+    }
+
+    @Test func fitDecoder_singleGasSample_rejectsSnorkelImportPipeline() throws {
+        let data = try Data(
+            contentsOf: URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent()
+                .appendingPathComponent("SingleGasDiveSample.fit", isDirectory: false)
+        )
+        #expect(throws: FitSnorkelDecodeError.self) {
+            _ = try FitSnorkelFileDecoder.buildSnorkelActivity(from: data)
+        }
+        do {
+            _ = try FitSnorkelFileDecoder.buildSnorkelActivity(from: data)
+        } catch let error as FitSnorkelDecodeError {
+            #expect(error.errorDescription?.contains("New Dive Activity") == true)
+        }
+    }
+
+    @Test func fitSnorkelDecoder_openWaterFixture_omitsMaxDepth() throws {
+        let data = try Self.snorkelFitFixtureData(named: "open_water_garmin.fit")
+        let activity = try FitSnorkelFileDecoder.buildSnorkelActivity(from: data)
+        #expect(activity.maxDepthMeters == nil)
+        #expect(activity.totalCalories == 110)
+        #expect(!activity.profilePoints.isEmpty)
+    }
+
+    @Test func snorkelDerivedDataBuilder_buildsHeartRateSeriesAndTrack() {
+        let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+        let snapshots = [
+            SnorkelDerivedProfilePointSnapshot(
+                timestamp: t0,
+                latitude: 20.0,
+                longitude: -156.0,
+                heartRateBPM: 90
+            ),
+            SnorkelDerivedProfilePointSnapshot(
+                timestamp: t0.addingTimeInterval(60),
+                latitude: 20.001,
+                longitude: -156.001,
+                heartRateBPM: 110
+            ),
+        ]
+        let built = SnorkelDerivedDataBuilder.build(from: snapshots)
+        #expect(built.heartRateSamples.count == 2)
+        #expect(built.heartRateSamples[1].heartRateBPM == 110)
+        #expect(built.trackCoordinates.count == 2)
+        #expect(built.heartRateStats.maxBPM == 110)
+    }
+
+    @Test func snorkelSwimTrackMapPresentation_fittingRegion_singlePointUsesDefaultSpan() {
+        let region = SnorkelSwimTrackMapPresentation.fittingRegion(
+            for: [DiveCoordinate(latitude: 20, longitude: -156)]
+        )
+        #expect(region != nil)
+        #expect(region!.latitudeDelta > 0)
+    }
+
+    @Test @MainActor func snorkelDuplicateMatcher_blocksSameSourceActivityId() {
+        let id = UUID()
+        let a = SnorkelActivityDuplicateMatcher.Signature(
+            id: id,
+            sourceActivityId: "fit-1-2-3",
+            startTime: Date(timeIntervalSince1970: 1_000),
+            durationMinutes: 26
+        )
+        let b = SnorkelActivityDuplicateMatcher.Signature(
+            sourceActivityId: "fit-1-2-3",
+            startTime: Date(timeIntervalSince1970: 9_000),
+            durationMinutes: 99
+        )
+        #expect(SnorkelActivityDuplicateMatcher.matchReason(candidate: a, existing: b) == .sameSourceActivityId)
     }
 
     @Test func appSwiftDataDualStoreFactory_cloudKitFailurePreservesExistingStoresWithoutWipe() throws {

@@ -18,7 +18,8 @@ extension Notification.Name {
 enum DiveActivityMediaStorage {
 
     /// Next **`sortOrder`** after existing **`mediaPhotos`**.
-    nonisolated static func nextSortOrder(on activity: DiveActivity) -> Int {
+    @MainActor
+    static func nextSortOrder(on activity: DiveActivity) -> Int {
         DiveActivityMediaPresentation.nextSortOrder(on: activity)
     }
 

@@ -73,12 +73,18 @@ enum ExploreDiveSiteDetailPresentation: Sendable {
         hasTaggedMedia: Bool,
         hasMapPin: Bool
     ) -> Bool {
-        hasTaggedMedia && hasMapPin
+        PushedDetailHeroModePresentation.showsModeToggle(
+            hasAssociatedMedia: hasTaggedMedia,
+            hasMapContent: hasMapPin
+        )
     }
 
     /// **`true`** when the hero should open on the map (coordinates, no tagged media).
     nonisolated static func prefersMapHero(hasTaggedMedia: Bool, hasMapPin: Bool) -> Bool {
-        !hasTaggedMedia && hasMapPin
+        PushedDetailHeroModePresentation.resolvedMode(
+            hasAssociatedMedia: hasTaggedMedia,
+            hasMapContent: hasMapPin
+        ) == .map
     }
 
     /// Wait for the owner dive roster query before defaulting to map-only (avoids racing sightings).

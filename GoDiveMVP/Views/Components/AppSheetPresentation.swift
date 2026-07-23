@@ -17,6 +17,18 @@ struct AppOverviewSheetPanelBackground: View {
     }
 }
 
+/// Full-bleed dimming over playing media — black scrim over **`.thinMaterial`** (Home fish overlay).
+struct DiveActivityMediaFrostedOverlayBackground: View {
+    var body: some View {
+        Rectangle()
+            .fill(.black.opacity(DiveActivityMediaFrostedOverlayPresentation.mediaScrimOpacity))
+            .background {
+                Rectangle()
+                    .fill(.thinMaterial)
+            }
+    }
+}
+
 extension View {
     /// Breathing room below the sheet grabber before the first content row (modal and embedded overview).
     func appSheetContentTopSpacing() -> some View {
@@ -63,9 +75,7 @@ private struct DiveActivityOverviewEmbeddedPanelChromeModifier: ViewModifier {
             .background {
                 Group {
                     if translucent {
-                        Rectangle()
-                            .fill(.thinMaterial)
-                            .opacity(AppTheme.Sheet.embeddedOverviewTranslucentOpacity)
+                        DiveActivityMediaFrostedOverlayBackground()
                             .modifier(
                                 DiveActivityMediaFrostedOverlayDarkAppearance(enabled: true)
                             )

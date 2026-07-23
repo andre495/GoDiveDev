@@ -34,4 +34,17 @@ enum HomeOverviewRebuildPresentation: Sendable {
             return false
         }
     }
+
+    nonisolated static func initialLaunchDebounceNanoseconds(
+        immediate: Bool,
+        source: Source
+    ) -> UInt64 {
+        guard immediate else { return 0 }
+        switch source {
+        case .initialRootAppear:
+            return AppLaunchPostOverlayPresentation.initialHomeRebuildDeferNanoseconds
+        case .incidental:
+            return 0
+        }
+    }
 }

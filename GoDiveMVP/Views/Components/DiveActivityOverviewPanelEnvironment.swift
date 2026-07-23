@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Live overview panel height fraction (resting detent or grabber drag) for progressive map content reveal.
 private struct DiveOverviewPanelHeightFractionKey: EnvironmentKey {
-    static let defaultValue: CGFloat = DiveActivityOverviewPanelMetrics.mediumHeightFraction
+    static let defaultValue: CGFloat = DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
 }
 
 extension EnvironmentValues {

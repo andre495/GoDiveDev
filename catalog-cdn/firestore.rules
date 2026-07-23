@@ -1,19 +1,81 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isInviteOpen() {
+      return resource.data.status == 'open'
+        && resource.data.expiresAt > request.time;
+    }
+
+    function friendshipMembers() {
+      return request.resource.data.members;
+    }
+
+    function areFriends(a, b) {
+      let pair = a < b ? a + '_' + b : b + '_' + a;
+      return exists(/databases/$(database)/documents/friendships/$(pair))
+        && get(/databases/$(database)/documents/friendships/$(pair)).data.status == 'active'
+        && a in get(/databases/$(database)/documents/friendships/$(pair)).data.members
+        && b in get(/databases/$(database)/documents/friendships/$(pair)).data.members;
+    }
+
     // Social directory — signed-in users can read public profiles; only owner writes.
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow create, update: if request.auth != null && request.auth.uid == userId;
-      allow delete: if request.auth != null && request.auth.uid == userId;
+      allow read: if signedIn();
+      allow create, update: if signedIn() && request.auth.uid == userId;
+      allow delete: if signedIn() && request.auth.uid == userId;
 
       // Apple ID link — owner only (never returned by public profile reads).
       match /private/{docId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
+
+      // Friend-visible dive projections — owner write; friends (or owner) read.
+      match /sharedDives/{diveId} {
+        allow read: if signedIn()
+          && (request.auth.uid == userId || areFriends(request.auth.uid, userId));
+        allow create, update, delete: if signedIn() && request.auth.uid == userId;
       }
     }
 
-    // Deny everything else by default (no dive / catalog data here).
+    // QR / link invites — creator writes; any signed-in user can read by token; redeem updates status.
+    match /friendInvites/{token} {
+      allow create: if signedIn()
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.status == 'open';
+      allow read: if signedIn();
+      allow update: if signedIn() && (
+        resource.data.fromUid == request.auth.uid
+        || (
+          isInviteOpen()
+          && request.resource.data.status == 'redeemed'
+          && request.resource.data.redeemedBy == request.auth.uid
+          && request.auth.uid != resource.data.fromUid
+        )
+      );
+      allow delete: if signedIn() && resource.data.fromUid == request.auth.uid;
+    }
+
+    // Mutual friendship (doc id = sorted uidA_uidB).
+    match /friendships/{friendshipId} {
+      allow read: if signedIn() && request.auth.uid in resource.data.members;
+      allow create: if signedIn()
+        && request.auth.uid in friendshipMembers()
+        && friendshipMembers().size() == 2
+        && request.resource.data.status == 'active'
+        && request.resource.data.inviteToken is string
+        && exists(/databases/$(database)/documents/friendInvites/$(request.resource.data.inviteToken))
+        && get(/databases/$(database)/documents/friendInvites/$(request.resource.data.inviteToken)).data.status == 'open'
+        && get(/databases/$(database)/documents/friendInvites/$(request.resource.data.inviteToken)).data.fromUid in friendshipMembers()
+        && request.auth.uid != get(/databases/$(database)/documents/friendInvites/$(request.resource.data.inviteToken)).data.fromUid;
+      allow delete: if signedIn() && request.auth.uid in resource.data.members;
+      allow update: if false;
+    }
+
+    // Deny everything else by default.
     match /{document=**} {
       allow read, write: if false;
     }

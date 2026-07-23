@@ -6,6 +6,9 @@ struct SignInView: View {
     var onBack: (() -> Void)? = nil
 
     @Environment(AccountSession.self) private var accountSession
+    @Environment(\.modelContext) private var modelContext
+    @State private var showsCrashReports = false
+    @State private var savedCrashReportCount = 0
 
     var body: some View {
         LoggedOutMarketingChrome {
@@ -44,10 +47,29 @@ struct SignInView: View {
                 SignInWithAppleSection()
                     .padding(.horizontal, AppTheme.Spacing.lg)
 
+                if savedCrashReportCount > 0 {
+                    Button(SignInPresentation.loggedOutCrashReportsLinkTitle) {
+                        showsCrashReports = true
+                    }
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.Colors.tabUnselected)
+                    .accessibilityIdentifier(SignInPresentation.loggedOutCrashReportsAccessibilityIdentifier)
+                }
+
                 Spacer()
             }
         }
         .accessibilityIdentifier("SignIn.Root")
+        .task { refreshSavedCrashReportCount() }
+        .sheet(isPresented: $showsCrashReports) {
+            NavigationStack {
+                CrashReportsView()
+            }
+        }
+    }
+
+    private func refreshSavedCrashReportCount() {
+        savedCrashReportCount = CrashReportStore(container: modelContext.container).loadAll().count
     }
 
     private var backBar: some View {

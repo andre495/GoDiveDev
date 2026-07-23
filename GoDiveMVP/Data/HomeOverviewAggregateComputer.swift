@@ -8,6 +8,7 @@ struct HomeOverviewComputedResult: Sendable {
     let diveStatsInputs: [HomeDiveStatsInput]
     let sightingCountInputs: [HomeLifetimeStatsPresentation.SightingCountInput]
     let lifetimeStats: HomeLifetimeStats
+    let myActivitiesSummary: LogbookMyActivitiesSummary
     let buddyLeaderboard: [HomeBuddyLeaderboardEntry]
     let ownerMediaPhotoIDs: [UUID]
     let ownerDiveIDs: Set<UUID>
@@ -79,6 +80,9 @@ enum HomeOverviewAggregateComputer {
             dives: diveStatsInputs,
             sightings: sightingCountInputs
         )
+        let myActivitiesSummary = LogbookMyActivitiesSummaryPresentation.summary(
+            from: input.activitySeeds
+        )
 
         let buddyLeaderboard = HomeBuddyLeaderboardPresentation.topEntries(
             from: input.buddyTagSeeds,
@@ -133,6 +137,7 @@ enum HomeOverviewAggregateComputer {
             diveStatsInputs: diveStatsInputs,
             sightingCountInputs: sightingCountInputs,
             lifetimeStats: lifetimeStats,
+            myActivitiesSummary: myActivitiesSummary,
             buddyLeaderboard: buddyLeaderboard,
             ownerMediaPhotoIDs: ownerMediaPhotoIDs,
             ownerDiveIDs: ownerDiveIDs,

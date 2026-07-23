@@ -48,6 +48,9 @@ nonisolated enum SecurityEventPresentation: Sendable {
         case .importRejected: "Import rejected"
         case .cdnChecksumMismatch: "Catalog checksum mismatch"
         case .cdnRefreshFailed: "Catalog refresh failed"
+        case .friendAdded: "Friend added"
+        case .friendRemoved: "Friend removed"
+        case .friendShareSyncFailed: "Friend share sync failed"
         case nil: kindRaw
         }
     }

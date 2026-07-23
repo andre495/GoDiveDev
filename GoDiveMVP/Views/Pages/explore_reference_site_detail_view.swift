@@ -14,7 +14,7 @@ struct ExploreReferenceSiteDetailView: View {
 
     var body: some View {
         BlueSheetDetailPage(
-            configuration: .pushedDetail(
+            configuration: .pushedDetailWithStandardPanelBodySpacing(
                 accessibilityRootIdentifier: "Explore.ReferenceSiteDetail.Root"
             ),
             hero: { context in

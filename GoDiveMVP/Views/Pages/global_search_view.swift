@@ -1414,7 +1414,7 @@ private struct GlobalSearchSearchDestinationScreen: View {
             }
         case .buddy(let id):
             if let buddy = ownerDiveBuddies.first(where: { $0.id == id }) {
-                ViewDiveBuddyDetails(buddy: buddy)
+                DiveBuddyOrFriendDetailView(buddy: buddy)
             } else {
                 GlobalSearchMissingDestinationView(message: "This buddy is no longer in your catalog.")
             }

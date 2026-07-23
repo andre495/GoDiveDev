@@ -2,11 +2,11 @@ import PhotosUI
 import SwiftUI
 
 /// **Media** overview sheet — carousel at **minimized** / **medium**; scrollable tagged-species detail at **large**.
-struct DiveActivityPhotosPanelContent: View {
-    let mediaItems: [DiveMediaPhoto]
+struct ActivityPhotosPanelContent<Media: PhotoLibraryMediaRow>: View {
+    let mediaItems: [Media]
     @Binding var selectedMediaID: UUID?
     let timeZoneOffsetSeconds: Int?
-    var sheetDetent: DiveActivityOverviewDetent = .medium
+    var sheetDetent: DiveActivityOverviewDetent = .large
     var layoutHeight: CGFloat = 0
     var showsMediaCarousel = false
     var showsMarineLifeTagInSheet = false
@@ -22,9 +22,9 @@ struct DiveActivityPhotosPanelContent: View {
     /// Resolved featured media id (user-chosen, else oldest); marks the carousel item and the toggle state.
     var featuredMediaID: UUID?
     /// Toggles the selected media as the featured logbook preview (tap a featured item to revert to default).
-    var onToggleFeatured: ((DiveMediaPhoto) -> Void)?
+    var onToggleFeatured: ((Media) -> Void)?
     /// User tapped a different carousel thumbnail.
-    var onUserSelectMedia: ((DiveMediaPhoto) -> Void)? = nil
+    var onUserSelectMedia: ((Media) -> Void)? = nil
     /// Catalog species tagged on the selected media item.
     var taggedSpecies: [MarineLife] = []
     /// Buddies tagged on the selected media item.
@@ -32,7 +32,8 @@ struct DiveActivityPhotosPanelContent: View {
     /// Owner for Field Guide / buddy detail covers opened from **large** overview.
     var ownerProfileID: UUID? = nil
     var onOpenDive: ((UUID) -> Void)? = nil
-    /// Map-style identity header (dive **#**, site, place, date) — shown at **medium**.
+    /// Map-style identity header (activity symbol, dive **#**, site, place, date) — shown at **medium**.
+    var activityKind: ActivityOverviewHeaderKind = .scubaDive
     var diveNumberChip: String? = nil
     var siteTitle: String? = nil
     var linkedCatalogSiteID: UUID? = nil
@@ -45,7 +46,7 @@ struct DiveActivityPhotosPanelContent: View {
     @State private var selectedTaggedSpeciesUUID: String?
     @State private var largeDetentMode: DiveActivityMediaLargeDetentMode = .marineLife
 
-    private var selectedMedia: DiveMediaPhoto? {
+    private var selectedMedia: Media? {
         DiveActivityMediaPresentation.selectedMedia(selectedID: selectedMediaID, in: mediaItems)
     }
 
@@ -205,6 +206,7 @@ struct DiveActivityPhotosPanelContent: View {
     private var diveIdentityHeader: some View {
         if let siteTitle, let dateDashTimeLine {
             DiveActivityMapOverviewHeader(
+                activityKind: activityKind,
                 diveNumberChip: diveNumberChip,
                 siteTitle: siteTitle,
                 linkedCatalogSiteID: linkedCatalogSiteID,
@@ -274,7 +276,7 @@ struct DiveActivityPhotosPanelContent: View {
 
     private var carouselRow: some View {
         HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
-            DiveActivityMediaCarouselView(
+            ActivityMediaCarouselView(
                 mediaItems: mediaItems,
                 selectedMediaID: $selectedMediaID,
                 featuredMediaID: featuredMediaID,
@@ -466,3 +468,6 @@ struct DiveActivityPhotosPanelContent: View {
         .accessibilityIdentifier("DiveOverview.MediaAdd")
     }
 }
+
+typealias DiveActivityPhotosPanelContent = ActivityPhotosPanelContent<DiveMediaPhoto>
+typealias SnorkelActivityPhotosPanelContent = ActivityPhotosPanelContent<SnorkelMediaPhoto>

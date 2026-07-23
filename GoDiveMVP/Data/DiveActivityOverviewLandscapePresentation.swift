@@ -21,20 +21,29 @@ enum DiveActivityOverviewLandscapePresentation: Sendable {
         isLandscape || detentAllowsInteraction
     }
 
-    /// Map camera uses only the bottom safe inset when the sheet is hidden.
+    /// Bottom inset for map camera / **`GMSMapView.padding`** — full sheet height from the physical bottom (incl. safe area).
     nonisolated static func mapBottomContentMargin(
-        layoutHeight: CGFloat,
+        layoutContext: DiveActivityOverviewSheetLayoutContext,
         detent: DiveActivityOverviewDetent,
-        bottomSafeInset: CGFloat,
+        liveHeightFraction: CGFloat?,
         isLandscape: Bool
     ) -> CGFloat {
         if isLandscape {
-            return bottomSafeInset
+            return layoutContext.bottomSafeInset
+        }
+        if let liveHeightFraction {
+            return DiveActivityOverviewDetent.sheetHeight(
+                forHeightFraction: liveHeightFraction,
+                layoutHeight: layoutContext.layoutHeight,
+                bottomSafeInset: layoutContext.bottomSafeInset
+            )
         }
         return DiveActivityOverviewDetent.bottomObstructionHeight(
-            layoutHeight: layoutHeight,
+            layoutHeight: layoutContext.layoutHeight,
             detent: detent,
-            bottomSafeInset: bottomSafeInset
+            bottomSafeInset: layoutContext.bottomSafeInset,
+            screenWidth: layoutContext.screenWidth,
+            topSafeInset: layoutContext.topSafeInset
         )
     }
 

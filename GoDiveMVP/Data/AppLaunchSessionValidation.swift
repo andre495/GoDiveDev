@@ -66,6 +66,7 @@ enum AppLaunchSessionValidation: Sendable {
                 modelContext: context
             )
             _ = try? DiveActivityOwnership.claimUnownedDives(for: canonical, modelContext: context)
+            _ = try? SnorkelActivityOwnership.claimUnownedSnorkels(for: canonical, modelContext: context)
             _ = try? DiveBuddyOwnership.claimUnownedBuddies(for: canonical, modelContext: context)
             try? UserPreferencesSync.syncForSignedInOwner(canonical, modelContext: context)
             if canonical.id != profileID {

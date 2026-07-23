@@ -265,6 +265,7 @@ struct LogOverviewView: View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
             HomeLifetimeStatsSection(
                 stats: homeAggregate.lifetimeStats,
+                myActivitiesSummary: homeAggregate.myActivitiesSummary,
                 buddyLeaderboard: homeAggregate.buddyLeaderboard,
                 unitSystem: diveDisplayUnitSystem,
                 onOpenLeaderboard: { path.append(.lifetimeStatsLeaderboard($0)) },
@@ -324,7 +325,7 @@ struct LogOverviewView: View {
             if DiveBuddySelfRepresentation.isSelfBuddyID(buddyID, selfBuddyID: selfBuddyID) {
                 ProfileView(ownerProfileID: ownerProfileID)
             } else if let buddy = ownerDiveBuddies.first(where: { $0.id == buddyID }) {
-                ViewDiveBuddyDetails(buddy: buddy)
+                DiveBuddyOrFriendDetailView(buddy: buddy)
                     .hidesBottomTabBarWhenPushed()
             } else {
                 missingDestinationLabel("This buddy is no longer on your roster.")
@@ -414,14 +415,19 @@ struct LogOverviewView: View {
         homeOverviewRebuildGeneration += 1
         let generation = homeOverviewRebuildGeneration
 
+        let launchDefer = HomeOverviewRebuildPresentation.initialLaunchDebounceNanoseconds(
+            immediate: immediate,
+            source: source
+        )
         Task {
-            if immediate {
+            if immediate, launchDefer == 0 {
                 await HomeOverviewRebuildScheduler.shared.runImmediately {
                     await performHomeOverviewRebuild(generation: generation)
                 }
             } else {
+                let nanos = launchDefer > 0 ? launchDefer : debounceNanoseconds
                 await HomeOverviewRebuildScheduler.shared.schedule(
-                    debounceNanoseconds: debounceNanoseconds
+                    debounceNanoseconds: nanos
                 ) {
                     await performHomeOverviewRebuild(generation: generation)
                 }

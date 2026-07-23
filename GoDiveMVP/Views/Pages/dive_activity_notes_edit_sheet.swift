@@ -1,8 +1,10 @@
+import SwiftData
 import SwiftUI
 
 /// Dedicated map-tab notes editor using the same blue panel styling as the overview detent.
 struct DiveActivityNotesEditSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
 
     @Bindable var activity: DiveActivity
 
@@ -67,6 +69,7 @@ struct DiveActivityNotesEditSheet: View {
     private func saveAndDismiss() {
         isNotesFieldFocused = false
         activity.notes = GoDiveInputSanitization.sanitizedNotes(draftText)
+        try? modelContext.save()
         dismiss()
     }
 }

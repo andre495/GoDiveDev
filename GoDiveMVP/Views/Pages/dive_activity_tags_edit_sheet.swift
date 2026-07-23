@@ -201,39 +201,50 @@ private struct DiveActivityCreateTagSheet: View {
     @Binding var tagName: String
     var onCreate: () -> Void
 
+    private var canAddTag: Bool {
+        !tagName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var body: some View {
         NavigationStack {
             Form {
                 Section {
                     TextField("Tag name", text: $tagName)
                         .textInputAutocapitalization(.words)
+                        .listRowBackground(Color.clear)
                         .accessibilityIdentifier("DiveTagsCreateSheet.NameField")
+                } header: {
+                    Text("Name")
                 }
             }
             .scrollContentBackground(.hidden)
+            .listStyle(.plain)
             .navigationTitle("New tag")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        tagName = ""
-                        dismiss()
-                    }
-                    .accessibilityIdentifier("DiveTagsCreateSheet.Cancel")
+                    AppGlassToolbarCancelButton(
+                        action: {
+                            tagName = ""
+                            dismiss()
+                        },
+                        accessibilityIdentifier: "DiveTagsCreateSheet.Cancel"
+                    )
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") {
-                        onCreate()
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
-                    .foregroundStyle(AppTheme.Colors.tabSelected)
-                    .disabled(tagName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .accessibilityIdentifier("DiveTagsCreateSheet.Add")
+                    AppGlassProminentDoneButton(
+                        action: {
+                            onCreate()
+                            dismiss()
+                        },
+                        accessibilityIdentifier: "DiveTagsCreateSheet.Add",
+                        title: "Add",
+                        isEnabled: canAddTag
+                    )
                 }
             }
         }
-        .diveActivityFieldSheetPresentation()
+        .diveActivityOverviewPanelModalSheetPresentation()
         .accessibilityIdentifier("DiveTagsCreateSheet.Root")
     }
 }

@@ -98,9 +98,19 @@ final class GoDiveGoogleMapsAppDelegate: NSObject, UIApplicationDelegate {
     ) -> Bool {
         // Firebase Auth/Firestore may touch the default app during launch swizzling — configure first.
         GoDiveFirebaseBootstrap.configureIfNeeded()
-        // BGTask handlers must register before launch completes.
         GoDiveCloudKitBackgroundSync.registerTasksIfNeeded()
+        GoDiveFirebaseCloudMessaging.configureAtLaunch(application: application)
         return true
+    }
+
+    func application(
+        _ application: UIApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {
+        GoDiveFirebaseCloudMessaging.setAPNSToken(deviceToken)
+        Task { @MainActor in
+            await GoDiveFirebaseCloudMessaging.uploadCurrentFCMTokenIfAvailable()
+        }
     }
 
     func application(

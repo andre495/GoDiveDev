@@ -22,6 +22,11 @@ enum AccountSessionCloudKitIdentityObserver {
     )
 
     @MainActor
+    static func setActiveContainer(_ container: ModelContainer) {
+        observedContainer = container
+    }
+
+    @MainActor
     static func startIfNeeded(container: ModelContainer) {
         observedContainer = container
         guard !isStarted else { return }
@@ -42,6 +47,8 @@ enum AccountSessionCloudKitIdentityObserver {
                 return
             }
             Task { @MainActor in
+                guard let container = observedContainer else { return }
+                GoDiveCloudKitPrivateImportNotification.postImportSucceeded()
                 scheduleReconcileAfterCloudKitImport(container: container)
             }
         }
@@ -54,8 +61,8 @@ enum AccountSessionCloudKitIdentityObserver {
         observedContainer = container
         pendingReconcileTask?.cancel()
         pendingReconcileTask = Task { @MainActor in
-            // Staggered retries: import may arrive after the first notification window.
-            for delayMs in [1_500, 5_000, 15_000, 45_000] {
+            await reconcileNow(container: container, reason: "postSignInRetry-immediate")
+            for delayMs in [400, 1_500, 4_000, 10_000] {
                 try? await Task.sleep(for: .milliseconds(delayMs))
                 guard !Task.isCancelled else { return }
                 await reconcileNow(container: container, reason: "postSignInRetry-\(delayMs)ms")
@@ -74,11 +81,10 @@ enum AccountSessionCloudKitIdentityObserver {
     private static func scheduleReconcileAfterCloudKitImport(container: ModelContainer) {
         pendingReconcileTask?.cancel()
         pendingReconcileTask = Task { @MainActor in
-            // Let SwiftData merge the imported objects onto the main context first.
-            try? await Task.sleep(for: .milliseconds(400))
+            try? await Task.sleep(for: .milliseconds(80))
             guard !Task.isCancelled else { return }
             await reconcileNow(container: container, reason: "cloudKitImport")
-            try? await Task.sleep(for: .seconds(2))
+            try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
             await reconcileNow(container: container, reason: "cloudKitImport-followUp")
         }
@@ -94,6 +100,21 @@ enum AccountSessionCloudKitIdentityObserver {
                 log.notice(
                     "identity_merge reason=\(reason, privacy: .public) merged=\(outcome.mergedDuplicateCount) switched=\(outcome.didChangeCanonicalID) reassigned=\(outcome.reassignedOwnedRowCount)"
                 )
+            }
+            if let profile = AccountSession.shared.currentProfile {
+                let appleID = profile.appleUserIdentifier
+                let total = AccountSessionProfileResolution.totalOwnedActivityCount(
+                    appleUserIdentifier: appleID,
+                    modelContext: context
+                )
+                if total > 0 {
+                    _ = try? await AccountSession.shared.attachSessionProfile(
+                        preferredProfileID: profile.id,
+                        appleUserIdentifier: appleID,
+                        fallbackContext: context,
+                        waitForCloudKitImport: false
+                    )
+                }
             }
             if let owner = AccountSession.shared.currentProfile {
                 try? UserPreferencesSync.syncForSignedInOwner(owner, modelContext: context)

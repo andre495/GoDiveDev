@@ -44,12 +44,24 @@ enum UserProfileCloudKitIdentityMerge: Sendable {
             )
         }
 
-        let diveCounts = try ownedDiveCounts(for: matches, modelContext: modelContext)
+        let activityCounts = try ownedActivityCounts(for: matches, modelContext: modelContext)
         let canonical = chooseCanonical(
             profiles: matches,
-            diveCounts: diveCounts,
+            diveCounts: activityCounts,
             preferredSessionProfileID: preferredSessionProfileID
         )
+        let totalOwnedActivities = activityCounts.values.reduce(0, +)
+        // CloudKit often imports the twin **`UserProfile`** before its dives/snorkels. Deleting the
+        // empty twin here permanently orphans the upcoming import under the deleted UUID.
+        if totalOwnedActivities == 0 {
+            return Outcome(
+                canonicalProfileID: canonical.id,
+                mergedDuplicateCount: 0,
+                reassignedOwnedRowCount: 0,
+                didChangeCanonicalID: preferredSessionProfileID.map { $0 != canonical.id } ?? false
+            )
+        }
+
         let duplicates = matches.filter { $0.id != canonical.id }
 
         var reassigned = 0
@@ -62,6 +74,7 @@ enum UserProfileCloudKitIdentityMerge: Sendable {
             mergeProfileMetadata(from: duplicate, into: canonical)
             // Clear inverses so cascade delete on the duplicate does not wipe adopted rows.
             duplicate.diveActivities = []
+            duplicate.snorkelActivities = []
             duplicate.diveBuddies = []
             duplicate.diveTrips = []
             duplicate.equipmentItems = []
@@ -84,7 +97,10 @@ enum UserProfileCloudKitIdentityMerge: Sendable {
         )
     }
 
-    /// Scoring: most owned dives, then non-placeholder display name, then older **`createdAt`**.
+    /// Scoring: most owned activities, then non-placeholder display name, then older **`createdAt`**.
+    ///
+    /// Never prefer the session profile when it owns **zero** activities — that empty SIWA-minted
+    /// row would otherwise win ties and delete the CloudKit profile before dives import.
     nonisolated static func chooseCanonical(
         profiles: [UserProfile],
         diveCounts: [UUID: Int],
@@ -99,6 +115,7 @@ enum UserProfileCloudKitIdentityMerge: Sendable {
         }
         if let preferred = preferredSessionProfileID,
            let preferredProfile = ranked.first(where: { $0.id == preferred }),
+           (diveCounts[preferred] ?? 0) > 0,
            (diveCounts[preferred] ?? 0) == (diveCounts[ranked[0].id] ?? 0),
            score(profile: preferredProfile, diveCount: diveCounts[preferred] ?? 0)
                == score(profile: ranked[0], diveCount: diveCounts[ranked[0].id] ?? 0) {
@@ -128,17 +145,24 @@ enum UserProfileCloudKitIdentityMerge: Sendable {
 
     // MARK: - Private
 
-    private nonisolated static func ownedDiveCounts(
+    private nonisolated static func ownedActivityCounts(
         for profiles: [UserProfile],
         modelContext: ModelContext
     ) throws -> [UUID: Int] {
         var counts: [UUID: Int] = [:]
         for profile in profiles {
             let id = profile.id
-            let descriptor = FetchDescriptor<DiveActivity>(
-                predicate: #Predicate<DiveActivity> { $0.ownerProfileID == id }
+            let dives = try modelContext.fetchCount(
+                FetchDescriptor<DiveActivity>(
+                    predicate: #Predicate<DiveActivity> { $0.ownerProfileID == id }
+                )
             )
-            counts[id] = try modelContext.fetchCount(descriptor)
+            let snorkels = try modelContext.fetchCount(
+                FetchDescriptor<SnorkelActivity>(
+                    predicate: #Predicate<SnorkelActivity> { $0.ownerProfileID == id }
+                )
+            )
+            counts[id] = dives + snorkels
         }
         return counts
     }
@@ -153,6 +177,13 @@ enum UserProfileCloudKitIdentityMerge: Sendable {
 
         count += try reassign(
             FetchDescriptor<DiveActivity>(predicate: #Predicate { $0.ownerProfileID == duplicateID }),
+            modelContext: modelContext
+        ) { activity in
+            activity.owner = canonical
+            activity.ownerProfileID = canonical.id
+        }
+        count += try reassign(
+            FetchDescriptor<SnorkelActivity>(predicate: #Predicate { $0.ownerProfileID == duplicateID }),
             modelContext: modelContext
         ) { activity in
             activity.owner = canonical

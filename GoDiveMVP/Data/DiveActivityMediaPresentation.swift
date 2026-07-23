@@ -28,42 +28,53 @@ enum DiveActivityMediaPresentation: Sendable {
         isVideoPlaybackActive
     }
 
-    nonisolated static func sortedMedia(on activity: DiveActivity) -> [DiveMediaPhoto] {
+    @MainActor
+    static func sortedMedia(on activity: DiveActivity) -> [DiveMediaPhoto] {
         sortedPhotos(on: activity)
     }
 
-    nonisolated static func sortedPhotos(on activity: DiveActivity) -> [DiveMediaPhoto] {
+    @MainActor
+    static func sortedPhotos(on activity: DiveActivity) -> [DiveMediaPhoto] {
         sortedPhotos(activity.mediaPhotos)
     }
 
-    nonisolated static func sortedPhotos(_ photos: [DiveMediaPhoto]) -> [DiveMediaPhoto] {
-        photos.sorted(by: isOrderedBeforeInGallery)
+    @MainActor
+    static func sortedPhotos(_ photos: [DiveMediaPhoto]) -> [DiveMediaPhoto] {
+        photos.sorted { isOrderedBeforeInGallery($0, $1) }
     }
 
     /// First item in gallery order (oldest **`capturedAt`** when set).
-    nonisolated static func oldestGalleryPhotoID(in photos: [DiveMediaPhoto]) -> UUID? {
+    @MainActor
+    static func oldestGalleryPhotoID(in photos: [DiveMediaPhoto]) -> UUID? {
         sortedPhotos(photos).first?.id
     }
 
-    nonisolated static func oldestGalleryPhotoID(on activity: DiveActivity) -> UUID? {
+    @MainActor
+    static func oldestGalleryPhotoID(on activity: DiveActivity) -> UUID? {
         oldestGalleryPhotoID(in: activity.mediaPhotos)
     }
 
     /// Resolved **featured** media: the user-chosen **`explicitFeaturedID`** when it still exists in **`photos`**,
     /// otherwise the default (oldest gallery item). Falls back gracefully if the featured asset was removed / pruned.
-    nonisolated static func featuredPhotoID(in photos: [DiveMediaPhoto], explicitFeaturedID: UUID?) -> UUID? {
+    @MainActor
+    static func featuredPhotoID<T: ActivityOverviewGalleryMedia>(
+        in photos: [T],
+        explicitFeaturedID: UUID?
+    ) -> UUID? {
         if let explicitFeaturedID, photos.contains(where: { $0.id == explicitFeaturedID }) {
             return explicitFeaturedID
         }
-        return oldestGalleryPhotoID(in: photos)
+        return photos.sorted { isOrderedBeforeInGallery($0, $1) }.first?.id
     }
 
-    nonisolated static func featuredPhotoID(on activity: DiveActivity) -> UUID? {
+    @MainActor
+    static func featuredPhotoID(on activity: DiveActivity) -> UUID? {
         featuredPhotoID(in: activity.mediaPhotos, explicitFeaturedID: activity.featuredMediaPhotoID)
     }
 
     /// **`true`** when **`mediaID`** is the resolved featured item for **`photos`**.
-    nonisolated static func isFeatured(
+    @MainActor
+    static func isFeatured(
         mediaID: UUID,
         in photos: [DiveMediaPhoto],
         explicitFeaturedID: UUID?
@@ -72,30 +83,43 @@ enum DiveActivityMediaPresentation: Sendable {
     }
 
     /// Gallery / carousel order: oldest **`capturedAt`** first (left); undated items last, then **`sortOrder`**, then **`id`**.
-    nonisolated static func isOrderedBeforeInGallery(_ lhs: DiveMediaPhoto, _ rhs: DiveMediaPhoto) -> Bool {
-        switch (lhs.capturedAt, rhs.capturedAt) {
-        case let (left?, right?):
-            if left != right { return left < right }
-        case (nil, .some):
-            return false
-        case (.some, nil):
-            return true
-        case (nil, nil):
-            break
-        }
-        if lhs.sortOrder != rhs.sortOrder {
-            return lhs.sortOrder < rhs.sortOrder
-        }
-        return lhs.id.uuidString < rhs.id.uuidString
+    @MainActor
+    static func isOrderedBeforeInGallery(_ lhs: DiveMediaPhoto, _ rhs: DiveMediaPhoto) -> Bool {
+        GalleryMediaOrdering.isOrderedBefore(orderFields(lhs), orderFields(rhs))
     }
 
-    nonisolated static func hasDisplayableMedia(on activity: DiveActivity) -> Bool {
+    @MainActor
+    static func isOrderedBeforeInGallery<T: ActivityOverviewGalleryMedia>(_ lhs: T, _ rhs: T) -> Bool {
+        GalleryMediaOrdering.isOrderedBefore(orderFields(lhs), orderFields(rhs))
+    }
+
+    @MainActor
+    private static func orderFields<T: ActivityOverviewGalleryMedia>(_ media: T) -> GalleryMediaOrderFields {
+        GalleryMediaOrderFields(
+            id: media.id,
+            capturedAt: media.capturedAt,
+            sortOrder: media.sortOrder
+        )
+    }
+
+    @MainActor
+    static func hasDisplayableMedia(on activity: DiveActivity) -> Bool {
         !sortedPhotos(on: activity).isEmpty
     }
 
     /// Date/time + dive-position subtitle on the **Media** hero at **minimized** only.
     nonisolated static func showsCaptureDateOnHero(for detent: DiveActivityOverviewDetent) -> Bool {
         detent == .minimized
+    }
+
+    /// Minimized hero capture chip uses the same Liquid Glass capsule as fullscreen / Home dive link chrome.
+    nonisolated static func usesLiquidGlassCaptureOverlayOnHero(for detent: DiveActivityOverviewDetent) -> Bool {
+        showsCaptureDateOnHero(for: detent)
+    }
+
+    /// Landscape **Media** tab — **`LinkedMediaFullscreenView`**-style play/pause + buddy/fish chrome over the pager.
+    nonisolated static func showsLandscapeGridStyleMediaChrome(isLandscape: Bool, hasMedia: Bool) -> Bool {
+        isLandscape && hasMedia
     }
 
     /// Breathing room between the capture oval and the top edge of the overview sheet.
@@ -128,12 +152,14 @@ enum DiveActivityMediaPresentation: Sendable {
 
     /// Full-bleed hero under translucent **Media** overview panels at every detent.
     nonisolated static func usesFullBleedMediaHero(for detent: DiveActivityOverviewDetent) -> Bool {
-        detent == .minimized || detent == .medium || detent == .large
+        _ = detent
+        return true
     }
 
-    /// Frosted **Media** overview panel so the hero remains visible underneath.
+    /// Opaque embedded panel — same blue gradient as map / tank (**`AppOverviewSheetPanelBackground`**).
     nonisolated static func usesTranslucentOverviewPanel(for detent: DiveActivityOverviewDetent) -> Bool {
-        detent == .minimized || detent == .medium || detent == .large
+        _ = detent
+        return false
     }
 
     /// Tagged-species oval chips at **medium** expand the sheet to **large** species detail.
@@ -141,21 +167,21 @@ enum DiveActivityMediaPresentation: Sendable {
         detent: DiveActivityOverviewDetent,
         taggedSpeciesCount: Int
     ) -> Bool {
-        detent == .medium && taggedSpeciesCount > 0
+        detent == .large && taggedSpeciesCount > 0
     }
 
     /// Sheet chrome **fish** at **medium** expands to **large** (tagging lives on the **large** **+**).
     nonisolated static func opensMarineLifeDetailOnSheetFishTap(
         detent: DiveActivityOverviewDetent
     ) -> Bool {
-        detent == .medium
+        detent == .large
     }
 
     /// Sheet chrome **buddy** at **medium** expands to **large** with the buddy overview selected.
     nonisolated static func opensBuddyOverviewOnSheetBuddyTap(
         detent: DiveActivityOverviewDetent
     ) -> Bool {
-        detent == .medium
+        detent == .large
     }
 
     /// **`DiveOverviewMapTopScrim`** (hero black fade) — map and tank only; **Media** keeps the hero unobscured.
@@ -179,22 +205,35 @@ enum DiveActivityMediaPresentation: Sendable {
             + DiveActivityOverviewPanelMetrics.mediaLargeDetentPinnedChromeFadeExtra
     }
 
-    /// **`false`** — **Media** large detent keeps frosted panel chrome; scroll feather fades over the hero.
+    /// **`true`** at **large** so scroll feather fades into opaque panel blue, not the hero.
     nonisolated static func panelTopScrollUsesOpaqueFadeBackground(
         detent: DiveActivityOverviewDetent,
         isMediaTabSelected: Bool
     ) -> Bool {
-        _ = detent
-        _ = isMediaTabSelected
-        return false
+        isMediaTabSelected && detent == .large
     }
 
     /// **`true`** when the user confirmed this catalog species via Fishial on the media item.
-    nonisolated static func speciesWasFishialIdentified(
+    @MainActor
+    static func speciesWasFishialIdentified(
         species: MarineLife,
         on media: DiveMediaPhoto
     ) -> Bool {
-        let confirmedNames = media.resolvedFishialConfirmedSpeciesNames
+        speciesWasFishialIdentified(species: species, confirmedNames: media.resolvedFishialConfirmedSpeciesNames)
+    }
+
+    @MainActor
+    static func speciesWasFishialIdentified(
+        species: MarineLife,
+        on media: some ActivityOverviewGalleryMedia
+    ) -> Bool {
+        speciesWasFishialIdentified(species: species, confirmedNames: media.resolvedFishialConfirmedSpeciesNames)
+    }
+
+    private nonisolated static func speciesWasFishialIdentified(
+        species: MarineLife,
+        confirmedNames: [String]
+    ) -> Bool {
         guard !confirmedNames.isEmpty else { return false }
         return confirmedNames.contains {
             species.scientificName.caseInsensitiveCompare($0) == .orderedSame
@@ -215,17 +254,17 @@ enum DiveActivityMediaPresentation: Sendable {
 
     /// Oval-chip marine life summary in the **Media** sheet at **medium** only.
     nonisolated static func showsMarineLifeTagSummaryInSheet(for detent: DiveActivityOverviewDetent) -> Bool {
-        detent == .medium
+        detent == .large
     }
 
     /// Buddy avatar strip under marine life on the **Media** sheet at **medium** only.
     nonisolated static func showsBuddyTagSummaryInSheet(for detent: DiveActivityOverviewDetent) -> Bool {
-        detent == .medium
+        detent == .large
     }
 
     /// Dive **#** / site / place / date header (same as map medium) on the **Media** sheet at **medium** only.
     nonisolated static func showsDiveIdentityHeaderInSheet(for detent: DiveActivityOverviewDetent) -> Bool {
-        detent == .medium
+        detent == .large
     }
 
     /// Species hero + natural-history detail in the **Media** sheet at **large** only.
@@ -235,12 +274,12 @@ enum DiveActivityMediaPresentation: Sendable {
 
     /// **Tag marine life** control in the **Media** sheet chrome at **medium** only.
     nonisolated static func showsMarineLifeTagInSheet(for detent: DiveActivityOverviewDetent) -> Bool {
-        detent == .medium
+        detent == .large
     }
 
     /// **Tag buddies** control in the **Media** sheet chrome at **medium** only.
     nonisolated static func showsBuddyTagInSheet(for detent: DiveActivityOverviewDetent) -> Bool {
-        detent == .medium
+        detent == .large
     }
 
     /// Marine-life fish control uses accent when at least one species is tagged on the media item.
@@ -267,7 +306,7 @@ enum DiveActivityMediaPresentation: Sendable {
 
     /// Fish / buddy trailing the dive-number / identity header at **medium**.
     nonisolated static func showsMediumDetentTrailingTagChrome(for detent: DiveActivityOverviewDetent) -> Bool {
-        detent == .medium
+        detent == .large
     }
 
     /// Carousel star: always on the featured preview; also on the **selected** preview (white when not featured).
@@ -316,7 +355,7 @@ enum DiveActivityMediaPresentation: Sendable {
 
     /// Thumbnail strip in the **Media** sheet — **minimized** / **medium** only (not **large** species detail).
     nonisolated static func showsMediaCarouselInSheet(for detent: DiveActivityOverviewDetent) -> Bool {
-        detent == .minimized || detent == .medium
+        detent == .minimized
     }
 
     /// Top chrome action row height at **medium** / **large** — matches **44 pt** action targets.
@@ -353,7 +392,7 @@ enum DiveActivityMediaPresentation: Sendable {
 
     /// **Medium** Media pins the carousel to the bottom of the overview panel (not the minimized slot).
     nonisolated static func pinsMediaCarouselToSheetBottom(for detent: DiveActivityOverviewDetent) -> Bool {
-        detent == .medium
+        detent == .large
     }
 
     /// **Media** panel outer scroll stays off — **large** scrolls inside the pinned chrome host.
@@ -388,15 +427,17 @@ enum DiveActivityMediaPresentation: Sendable {
 
     nonisolated static let captureDateUnknownMessage = "Capture date unavailable"
 
-    nonisolated static func selectedMedia(
+    @MainActor
+    static func selectedMedia<T: ActivityOverviewGalleryMedia>(
         selectedID: UUID?,
-        in photos: [DiveMediaPhoto]
-    ) -> DiveMediaPhoto? {
+        in photos: [T]
+    ) -> T? {
         guard let resolvedID = resolvedSelectedPhotoID(selectedID: selectedID, in: photos) else { return nil }
         return photos.first { $0.id == resolvedID }
     }
 
-    nonisolated static func mediaPositionLabel(selectedID: UUID?, in photos: [DiveMediaPhoto]) -> String? {
+    @MainActor
+    static func mediaPositionLabel(selectedID: UUID?, in photos: [DiveMediaPhoto]) -> String? {
         guard let resolvedID = resolvedSelectedPhotoID(selectedID: selectedID, in: photos),
               let index = photos.firstIndex(where: { $0.id == resolvedID })
         else { return nil }
@@ -410,6 +451,13 @@ enum DiveActivityMediaPresentation: Sendable {
     }
 
     static func formattedCapturedAt(_ media: DiveMediaPhoto, timeZoneOffsetSeconds: Int?) -> String? {
+        formattedCapturedAtGallery(media, timeZoneOffsetSeconds: timeZoneOffsetSeconds)
+    }
+
+    static func formattedCapturedAtGallery(
+        _ media: some ActivityOverviewGalleryMedia,
+        timeZoneOffsetSeconds: Int?
+    ) -> String? {
         guard let capturedAt = media.capturedAt else { return nil }
         return DiveActivityTimePresentation.formatDateTime(capturedAt, timeZoneOffsetSeconds: timeZoneOffsetSeconds)
     }
@@ -436,12 +484,12 @@ enum DiveActivityMediaPresentation: Sendable {
 
     /// Bottom overlay on full-screen media preview (date/time + optional profile position).
     static func mediaPreviewCaptureOverlayLines(
-        media: DiveMediaPhoto,
+        media: some ActivityOverviewGalleryMedia,
         captureContext: DiveMediaCaptureContext?,
         timeZoneOffsetSeconds: Int?,
         displayUnits: DiveDisplayUnitSystem
     ) -> (dateTimeLine: String, divePositionLine: String?)? {
-        guard let dateTimeLine = formattedCapturedAt(media, timeZoneOffsetSeconds: timeZoneOffsetSeconds) else {
+        guard let dateTimeLine = formattedCapturedAtGallery(media, timeZoneOffsetSeconds: timeZoneOffsetSeconds) else {
             return nil
         }
         let divePositionLine = captureContext.map {
@@ -451,7 +499,7 @@ enum DiveActivityMediaPresentation: Sendable {
     }
 
     static func mediaPreviewCaptureAccessibilityLabel(
-        media: DiveMediaPhoto,
+        media: some ActivityOverviewGalleryMedia,
         captureContext: DiveMediaCaptureContext?,
         timeZoneOffsetSeconds: Int?,
         displayUnits: DiveDisplayUnitSystem
@@ -479,7 +527,8 @@ enum DiveActivityMediaPresentation: Sendable {
         }
     }
 
-    nonisolated static func nextSortOrder(on activity: DiveActivity) -> Int {
+    @MainActor
+    static func nextSortOrder(on activity: DiveActivity) -> Int {
         let orders = activity.mediaPhotos.map(\.sortOrder)
         return (orders.max() ?? -1) + 1
     }
@@ -487,9 +536,10 @@ enum DiveActivityMediaPresentation: Sendable {
     /// Keeps pager selection valid when the photo list changes.
     /// Preserves a pending **`selectedID`** while **`photos`** is still empty (e.g. Home featured-media deep link before derived media loads).
     /// When **`preferredID`** is present in **`photos`**, it wins (Home / logbook deep link).
-    nonisolated static func resolvedSelectedPhotoID(
+    @MainActor
+    static func resolvedSelectedPhotoID<T: ActivityOverviewGalleryMedia>(
         selectedID: UUID?,
-        in photos: [DiveMediaPhoto],
+        in photos: [T],
         preferredID: UUID? = nil
     ) -> UUID? {
         guard !photos.isEmpty else { return preferredID ?? selectedID }
@@ -503,7 +553,8 @@ enum DiveActivityMediaPresentation: Sendable {
     }
 
     /// Index offset from the resolved selection (**`+1`** = next item in gallery order).
-    nonisolated static func adjacentPhotoID(
+    @MainActor
+    static func adjacentPhotoID(
         selectedID: UUID?,
         in photos: [DiveMediaPhoto],
         offset: Int

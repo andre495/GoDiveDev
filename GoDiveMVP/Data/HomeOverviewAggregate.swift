@@ -10,6 +10,7 @@ struct HomeOverviewAggregate: Sendable {
         diveStatsInputs: [],
         sightingCountInputs: [],
         lifetimeStats: HomeLifetimeStatsPresentation.build(dives: [], sightings: []),
+        myActivitiesSummary: .empty,
         buddyLeaderboard: [],
         ownerMediaPhotos: [],
         mediaByID: [:],
@@ -27,6 +28,7 @@ struct HomeOverviewAggregate: Sendable {
     let diveStatsInputs: [HomeDiveStatsInput]
     let sightingCountInputs: [HomeLifetimeStatsPresentation.SightingCountInput]
     let lifetimeStats: HomeLifetimeStats
+    let myActivitiesSummary: LogbookMyActivitiesSummary
     let buddyLeaderboard: [HomeBuddyLeaderboardEntry]
     let ownerMediaPhotos: [DiveMediaPhoto]
     let mediaByID: [UUID: DiveMediaPhoto]
@@ -123,6 +125,7 @@ enum HomeOverviewAggregateBuilder {
             diveStatsInputs: computed.diveStatsInputs,
             sightingCountInputs: computed.sightingCountInputs,
             lifetimeStats: computed.lifetimeStats,
+            myActivitiesSummary: computed.myActivitiesSummary,
             buddyLeaderboard: computed.buddyLeaderboard,
             ownerMediaPhotos: ownerMedia,
             mediaByID: mediaByID,

@@ -55,6 +55,20 @@ enum DiveMediaFishialFrameExport {
         )
     }
 
+    @MainActor
+    static func makePhotoCropContext(for media: SnorkelMediaPhoto) async throws -> FishialStillCropContext {
+        guard let localIdentifier = media.libraryAssetLocalIdentifier else {
+            throw DiveMediaFishialFrameExportError.missingLibraryIdentifier
+        }
+        guard let previewImage = await loadPhotoPreviewImage(localIdentifier: localIdentifier) else {
+            throw DiveMediaFishialFrameExportError.assetUnavailable
+        }
+        return FishialStillCropContext(
+            snorkelMedia: media,
+            previewImage: previewImage
+        )
+    }
+
     /// Exports a cropped full-quality JPEG for Fishial after the user frames the fish.
     @MainActor
     static func exportCroppedPhotoFrame(
@@ -79,6 +93,57 @@ enum DiveMediaFishialFrameExport {
             displayScale: displayScale
         )
     }
+
+    @MainActor
+    static func exportCroppedPhotoFrame(
+        snorkelMedia: SnorkelMediaPhoto,
+        cropViewportSize: CGSize,
+        gestureScale: CGFloat,
+        offset: CGSize,
+        displayScale: CGFloat
+    ) async throws -> FishialIdentifyCandidateFrame {
+        guard let localIdentifier = snorkelMedia.libraryAssetLocalIdentifier else {
+            throw DiveMediaFishialFrameExportError.missingLibraryIdentifier
+        }
+        guard let sourceImage = await loadPhotoExportImage(localIdentifier: localIdentifier) else {
+            throw DiveMediaFishialFrameExportError.assetUnavailable
+        }
+        return try croppedCandidateFrame(
+            sourceImage: sourceImage,
+            cropViewportSize: cropViewportSize,
+            gestureScale: gestureScale,
+            offset: offset,
+            filename: photoFilename(mediaID: snorkelMedia.id),
+            displayScale: displayScale
+        )
+    }
+
+    #if canImport(AVFoundation) && canImport(Photos)
+    @MainActor
+    static func makeVideoScrubContext(for media: SnorkelMediaPhoto) async throws -> FishialVideoScrubContext {
+        guard let localIdentifier = media.libraryAssetLocalIdentifier else {
+            throw DiveMediaFishialFrameExportError.missingLibraryIdentifier
+        }
+        guard let durationSeconds = DiveMediaReferenceLoader.videoDurationSeconds(
+            localIdentifier: localIdentifier
+        ) else {
+            throw DiveMediaFishialFrameExportError.videoDurationUnavailable
+        }
+        guard let previewAsset = await DiveMediaReferenceLoader.loadVideoAsset(
+            localIdentifier: localIdentifier,
+            quality: FishialMediaSelectionPresentation.videoScrubRequestQuality
+        ) else {
+            throw DiveMediaFishialFrameExportError.assetUnavailable
+        }
+
+        return FishialVideoScrubContext(
+            mediaID: media.id,
+            localIdentifier: localIdentifier,
+            durationSeconds: durationSeconds,
+            previewAsset: previewAsset
+        )
+    }
+    #endif
 
     #if canImport(AVFoundation) && canImport(Photos)
     @MainActor

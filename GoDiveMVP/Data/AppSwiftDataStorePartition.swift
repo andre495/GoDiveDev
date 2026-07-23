@@ -12,6 +12,9 @@ enum AppSwiftDataStorePartition: Sendable {
     nonisolated static let userModelTypes: [any PersistentModel.Type] = [
         UserProfile.self,
         DiveActivity.self,
+        SnorkelActivity.self,
+        SnorkelBuddyTag.self,
+        SnorkelMediaPhoto.self,
         DiveActivityEquipmentList.self,
         DiveEquipmentEntry.self,
         DiveBuddy.self,
@@ -36,6 +39,7 @@ enum AppSwiftDataStorePartition: Sendable {
     /// Linked to dives by **`diveActivityID`** (no cross-store SwiftData relationship).
     nonisolated static let userLocalModelTypes: [any PersistentModel.Type] = [
         DiveProfilePoint.self,
+        SnorkelProfilePoint.self,
     ]
 
     /// Pre–policy-v7 **`GoDiveUser`** files that still embed profile points in the user store.

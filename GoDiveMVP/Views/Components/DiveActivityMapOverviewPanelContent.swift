@@ -5,6 +5,7 @@ import SwiftData
 struct DiveActivityMapOverviewPanelContent: View {
     @Bindable var activity: DiveActivity
     @Binding var overviewSheetDetent: DiveActivityOverviewDetent
+    let mapCoordinate: DiveCoordinate?
     let profileGasStats: DiveActivityTankPanelSummary.ProfilePressureStats
     let siteTitle: String
     let linkedCatalogSiteID: UUID?
@@ -66,7 +67,7 @@ struct DiveActivityMapOverviewPanelContent: View {
                 .onTapGesture {
                     guard overviewSheetDetent == .minimized else { return }
                     withAnimation(.diveOverviewPanelDetent) {
-                        overviewSheetDetent = .medium
+                        overviewSheetDetent = .large
                     }
                 }
                 .accessibilityAddTraits(overviewSheetDetent == .minimized ? .isButton : [])
@@ -101,6 +102,21 @@ struct DiveActivityMapOverviewPanelContent: View {
 
     private var mapDetailsSection: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            ActivityMapWeatherConditionsSection(
+                activityID: activity.id,
+                mapCoordinate: mapCoordinate,
+                activityStart: activity.startTime,
+                timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds,
+                displayUnits: diveDisplayUnitSystem,
+                isSectionVisible: showsDetailsSection && overviewSheetDetent == .large,
+                importedSnapshot: ActivityWeatherSnapshotStorage.displaySnapshot(
+                    from: activity.activityWeatherSnapshotData,
+                    activityStart: activity.startTime,
+                    timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds,
+                    displayUnits: diveDisplayUnitSystem
+                )
+            )
+
             DiveActivityEditableSectionsView(
                 activity: activity,
                 tab: .map,

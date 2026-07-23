@@ -87,3 +87,70 @@ enum DiveActivityMediaBatchImport {
         return Outcome(savedCount: savedCount, lastAddedMediaID: lastAddedID, failureMessage: nil)
     }
 }
+
+/// Imports **`PhotosPicker`** items onto a snorkel activity as Photos-library references.
+enum SnorkelActivityMediaBatchImport {
+    typealias Outcome = DiveActivityMediaBatchImport.Outcome
+    typealias ProgressHandler = DiveActivityMediaBatchImport.ProgressHandler
+
+    @MainActor
+    static func importPickerItems(
+        _ items: [PhotosPickerItem],
+        into activity: SnorkelActivity,
+        modelContext: ModelContext,
+        onProgress: ProgressHandler? = nil
+    ) async -> Outcome {
+        let total = items.count
+        guard total > 0 else {
+            return Outcome(savedCount: 0, lastAddedMediaID: nil, failureMessage: nil)
+        }
+
+        var savedCount = 0
+        var lastAddedID: UUID?
+
+        for (index, item) in items.enumerated() {
+            let itemIndex = index + 1
+            onProgress?(savedCount, total, DiveMediaImportProgressPresentation.loadingStage(itemIndex: itemIndex, total: total))
+            await Task.yield()
+
+            guard SnorkelActivityMediaStorage.shouldReferenceLibraryAsset(localIdentifier: item.itemIdentifier),
+                  let identifier = item.itemIdentifier else {
+                continue
+            }
+
+            onProgress?(savedCount, total, DiveMediaImportProgressPresentation.savingStage(itemIndex: itemIndex, total: total))
+            await Task.yield()
+
+            do {
+                let kind: DiveMediaKind = DiveActivityMediaPickerImport.isVideoItem(item) ? .video : .image
+                let capturedAt = await DiveMediaReferenceLoader.creationDate(localIdentifier: identifier)
+                let addedID = try SnorkelActivityMediaStorage.addLibraryReference(
+                    localIdentifier: identifier,
+                    mediaKind: kind,
+                    capturedAt: capturedAt,
+                    to: activity,
+                    modelContext: modelContext
+                )
+                lastAddedID = addedID
+                savedCount += 1
+                onProgress?(savedCount, total, DiveMediaImportProgressPresentation.savingStage(itemIndex: itemIndex, total: total))
+            } catch {
+                return Outcome(
+                    savedCount: savedCount,
+                    lastAddedMediaID: lastAddedID,
+                    failureMessage: error.localizedDescription
+                )
+            }
+        }
+
+        if savedCount == 0 {
+            return Outcome(
+                savedCount: 0,
+                lastAddedMediaID: nil,
+                failureMessage: DiveMediaImportProgressPresentation.failureMessageWhenNoneSaved(attempted: total)
+            )
+        }
+
+        return Outcome(savedCount: savedCount, lastAddedMediaID: lastAddedID, failureMessage: nil)
+    }
+}

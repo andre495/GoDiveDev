@@ -21,9 +21,11 @@ enum AppPortraitOrientationLockPolicy: Sendable {
 
     nonisolated static func logbookRouteIsDiveActivity(_ route: LogbookRoute) -> Bool {
         switch route {
-        case .diveDetail, .diveMedia:
+        case .diveDetail, .diveMedia, .snorkelDetail, .snorkelMedia:
             return true
-        case .addActivity, .tripPlanner, .tripDetail, .tripDetailMedia, .diveSite:
+        case .addActivity, .diveActivityUpload, .snorkelActivityUpload, .connectDeviceComingSoon,
+             .tripPlanner, .tripDetail, .tripDetailMedia, .diveSite, .buddySharedDive, .friendProfile, .friends,
+             .buddiesListDetail:
             return false
         }
     }

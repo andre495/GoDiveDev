@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["PV93U8CPLQ.PrimoSoftware.GoDiveMVP"],
+        "paths": ["/invite/*"]
+      }
+    ]
+  }
+}

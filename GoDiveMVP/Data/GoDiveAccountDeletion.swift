@@ -77,8 +77,11 @@ enum GoDiveAccountDeletion: Sendable {
                     appleCredential: appleCredential,
                     rawNonce: rawNonce
                 )
+                await GoDiveFriendGraphService.deleteAllSocialGraphForCurrentUser()
+                await GoDiveSharedDiveProjectionSync.deleteAllSharedDivesForCurrentUser()
                 try await deleteFirestoreSocialProfileIfNeeded()
                 await GoDiveFirebaseProfilePhotoStorage.deleteProfilePhotoIfPresent()
+                await GoDiveFirebaseProfileHeroStorage.deleteAllHeroMediaIfPresent()
                 try await revokeAppleTokenAndDeleteFirebaseUser(authorizationCode: authCode)
             }
 

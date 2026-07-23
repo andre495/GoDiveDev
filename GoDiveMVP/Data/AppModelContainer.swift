@@ -28,9 +28,27 @@ enum AppModelContainer {
         func loadingTask() -> Task<ModelContainer, Never>? {
             state.withLock { $0 }
         }
+
+        func reset() {
+            state.withLock { stored in
+                stored?.cancel()
+                stored = nil
+            }
+        }
     }
 
     private static let loadState = LoadState()
+
+    /// Drops the cached load task so the next **`loadProduction()`** opens stores again (CloudKit reconnect).
+    static func resetProductionLoadStateForReconnect() {
+        loadState.reset()
+    }
+
+    /// Re-open on-disk stores after **`scheduleReconnectPrivateCloudKitOnNextLaunch()`**.
+    static func reloadProductionAfterCloudKitReconnect() async -> ModelContainer {
+        resetProductionLoadStateForReconnect()
+        return await loadProduction()
+    }
 
     /// Starts on-disk container creation as early as possible ( **`GoDiveMVPApp.init`** ).
     static func beginLoadingProductionIfNeeded() {

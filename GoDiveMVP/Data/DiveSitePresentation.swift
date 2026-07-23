@@ -109,24 +109,34 @@ enum DiveSitePresentation: Sendable {
         let parts = [canonicalCountry, region, bodyOfWater]
             .map { displayValue($0) }
             .filter { $0 != missingValue }
-        return parts.isEmpty ? missingValue : parts.joined(separator: " · ")
+        guard !parts.isEmpty else { return missingValue }
+        let joined = parts.joined(separator: " · ")
+        return DiveSiteCountryPresentation.prefixedWithFlagEmoji(
+            joined,
+            countryName: canonicalCountry.isEmpty ? country : canonicalCountry
+        )
     }
 
     /// Pinned dive-site detail header — **Country** or **Region, Country** when both exist.
     nonisolated static func pinnedLocationLine(country: String, region: String) -> String? {
         let countryValue = country == missingValue ? "" : country
         let regionValue = region == missingValue ? "" : region
+        let canonicalCountry = DiveSiteCountryPresentation.canonicalDisplayName(for: countryValue)
 
+        let base: String?
         switch (regionValue.isEmpty, countryValue.isEmpty) {
         case (false, false):
-            return "\(regionValue), \(countryValue)"
+            base = "\(regionValue), \(countryValue)"
         case (_, false):
-            return countryValue
+            base = countryValue
         case (false, true):
-            return regionValue
+            base = regionValue
         case (true, true):
-            return nil
+            base = nil
         }
+        guard let base else { return nil }
+        guard !canonicalCountry.isEmpty else { return base }
+        return DiveSiteCountryPresentation.prefixedWithFlagEmoji(base, countryName: canonicalCountry)
     }
 
     nonisolated static func pinnedDiveCountLabel(count: Int) -> String {

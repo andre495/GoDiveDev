@@ -24,8 +24,14 @@ enum AppSwiftDataDualStoreFactory {
     nonisolated static let cloudKitOpenPolicyVersionKey = "godive.dualStore.cloudKitOpenPolicyVersion"
     /// One-shot: park existing local-only dual files and create a fresh CloudKit-backed trio.
     nonisolated static let recreateDualStoresForCloudKitDefaultsKey = "godive.dualStore.recreateForCloudKit"
+    /// User tapped **Reconnect iCloud dive log** — clear sticky local skip on next cold start.
+    nonisolated static let cloudKitUserRequestedReconnectDefaultsKey = "godive.dualStore.cloudKitUserRequestedReconnect"
+    /// Prior session had private sync off and an empty on-device log — retry CloudKit once on next launch.
+    nonisolated static let cloudKitRetryEmptyLocalLogDefaultsKey = "godive.dualStore.cloudKitRetryEmptyLocalLog"
     /// v7: **`DiveProfilePoint`** moves to local-only store (unstick CloudKit export backlog).
-    nonisolated static let cloudKitOpenPolicyVersion = 7
+    /// v8: **`SnorkelActivity.owner`** gained its required CloudKit inverse on **`UserProfile`** —
+    /// clears sticky local-only once so devices that fell back retry CloudKit with the fixed schema.
+    nonisolated static let cloudKitOpenPolicyVersion = 8
 
     /// Test hook — when set, replaces the private user CloudKit database target for open attempts.
     nonisolated(unsafe) static var userCloudKitDatabaseOverrideForTests: ModelConfiguration.CloudKitDatabase?
@@ -56,9 +62,37 @@ enum AppSwiftDataDualStoreFactory {
         guard requested else { return false }
         migrateCloudKitOpenPolicyIfNeeded(defaults: defaults)
         if defaults.object(forKey: lastCloudKitSyncEnabledDefaultsKey) as? Bool == false {
+            if defaults.bool(forKey: cloudKitUserRequestedReconnectDefaultsKey)
+                || defaults.bool(forKey: cloudKitRetryEmptyLocalLogDefaultsKey)
+            {
+                defaults.set(false, forKey: cloudKitUserRequestedReconnectDefaultsKey)
+                defaults.set(false, forKey: cloudKitRetryEmptyLocalLogDefaultsKey)
+                defaults.removeObject(forKey: lastCloudKitSyncEnabledDefaultsKey)
+                defaults.removeObject(forKey: lastCloudKitFallbackErrorDefaultsKey)
+                defaults.set(true, forKey: recreateDualStoresForCloudKitDefaultsKey)
+                return true
+            }
             return false
         }
         return true
+    }
+
+    /// Clears sticky local-only skip so the next launch opens a fresh CloudKit-backed user store.
+    nonisolated static func scheduleReconnectPrivateCloudKitOnNextLaunch(defaults: UserDefaults = .standard) {
+        defaults.set(true, forKey: cloudKitUserRequestedReconnectDefaultsKey)
+        defaults.set(true, forKey: recreateDualStoresForCloudKitDefaultsKey)
+    }
+
+    /// When the on-device log is empty but iCloud may still hold data, retry CloudKit on next cold start.
+    nonisolated static func scheduleRetryPrivateCloudKitAfterEmptyLocalLog(defaults: UserDefaults = .standard) {
+        defaults.set(true, forKey: cloudKitRetryEmptyLocalLogDefaultsKey)
+    }
+
+    nonisolated static func lastCloudKitFallbackErrorMessage(defaults: UserDefaults = .standard) -> String? {
+        let raw = defaults.string(forKey: lastCloudKitFallbackErrorDefaultsKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let raw, !raw.isEmpty else { return nil }
+        return raw
     }
 
     /// Clears sticky local-only once when **`cloudKitOpenPolicyVersion`** advances.

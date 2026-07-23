@@ -184,20 +184,10 @@ enum DiveDerivedDataBuilder: Sendable {
         _ lhs: DiveDerivedMediaSnapshot,
         _ rhs: DiveDerivedMediaSnapshot
     ) -> Bool {
-        switch (lhs.capturedAt, rhs.capturedAt) {
-        case let (left?, right?):
-            if left != right { return left < right }
-        case (nil, .some):
-            return false
-        case (.some, nil):
-            return true
-        case (nil, nil):
-            break
-        }
-        if lhs.sortOrder != rhs.sortOrder {
-            return lhs.sortOrder < rhs.sortOrder
-        }
-        return lhs.id.uuidString < rhs.id.uuidString
+        GalleryMediaOrdering.isOrderedBefore(
+            GalleryMediaOrderFields(id: lhs.id, capturedAt: lhs.capturedAt, sortOrder: lhs.sortOrder),
+            GalleryMediaOrderFields(id: rhs.id, capturedAt: rhs.capturedAt, sortOrder: rhs.sortOrder)
+        )
     }
 }
 

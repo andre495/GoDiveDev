@@ -64,30 +64,47 @@ struct BlueSheetDetailPage<
 
     @ViewBuilder
     private func panelBody(layout: BlueSheetHeaderPageLayoutContext) -> some View {
+        let pinnedBottomPadding = configuration.pinnedSummaryBottomPadding
+            ?? BlueSheetDetailPagePinnedSummaryPresentation.defaultPinnedSummaryBottomPaddingBeforeDivider
+        let horizontalPadding = BlueSheetDetailPagePinnedSummaryPresentation.horizontalPadding
         VStack(alignment: .leading, spacing: 0) {
-            if configuration.showsHero {
-                pinnedContent()
-                    .padding(.top, BlueSheetDetailPagePinnedSummaryPresentation.seamTopPadding)
-                    .padding(.bottom, BlueSheetDetailPagePinnedSummaryPresentation.bodyBottomPadding)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityIdentifier(
-                        "\(configuration.accessibilityRootIdentifier).\(BlueSheetDetailPagePinnedSummaryPresentation.pinnedSummaryAccessibilitySuffix)"
-                    )
-            } else {
-                pinnedContent()
-                    .padding(.top, layout.headerScrollClearance)
-                    .padding(.bottom, BlueSheetDetailPagePinnedSummaryPresentation.bodyBottomPadding)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityIdentifier(
-                        "\(configuration.accessibilityRootIdentifier).\(BlueSheetDetailPagePinnedSummaryPresentation.pinnedSummaryAccessibilitySuffix)"
-                    )
-            }
+            pinnedSummarySection(
+                layout: layout,
+                pinnedBottomPadding: pinnedBottomPadding
+            )
+            .padding(.horizontal, horizontalPadding)
+
+            BlueSheetDetailPanelContentTopDivider()
 
             panelContent(layout.bottomScrollInset, layout)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .padding(.horizontal, horizontalPadding)
         }
-        .padding(.horizontal, BlueSheetDetailPagePinnedSummaryPresentation.horizontalPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    @ViewBuilder
+    private func pinnedSummarySection(
+        layout: BlueSheetHeaderPageLayoutContext,
+        pinnedBottomPadding: CGFloat
+    ) -> some View {
+        if configuration.showsHero {
+            pinnedContent()
+                .padding(.top, BlueSheetDetailPagePinnedSummaryPresentation.seamTopPadding)
+                .padding(.bottom, pinnedBottomPadding)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier(
+                    "\(configuration.accessibilityRootIdentifier).\(BlueSheetDetailPagePinnedSummaryPresentation.pinnedSummaryAccessibilitySuffix)"
+                )
+        } else {
+            pinnedContent()
+                .padding(.top, layout.headerScrollClearance)
+                .padding(.bottom, BlueSheetDetailPagePinnedSummaryPresentation.bodyBottomPadding)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier(
+                    "\(configuration.accessibilityRootIdentifier).\(BlueSheetDetailPagePinnedSummaryPresentation.pinnedSummaryAccessibilitySuffix)"
+                )
+        }
     }
 }
 

@@ -42,6 +42,33 @@ enum DiveTankOverviewHeroPresentation: Sendable {
 
     nonisolated static let heroDetentAnimationDuration: TimeInterval = 0.45
 
+    /// Portrait **minimized** entrance — cylinder drain, profile lines, and PSI-used tally run together.
+    nonisolated static let minimizedEntranceAnimationDuration: TimeInterval = 5
+
+    nonisolated static func shouldPlayMinimizedEntranceAnimation(
+        from oldDetent: DiveActivityOverviewDetent,
+        to newDetent: DiveActivityOverviewDetent
+    ) -> Bool {
+        newDetent == .minimized && newDetent.heightFraction < oldDetent.heightFraction
+    }
+
+    /// Interpolates consumed cylinder pressure for the minimized gas summary tally.
+    nonisolated static func displayedPsiConsumed(
+        consumedPSI: Double,
+        revealProgress: CGFloat
+    ) -> Double {
+        let clamped = min(1, max(0, revealProgress))
+        return consumedPSI * Double(clamped)
+    }
+
+    /// Depth + gas polylines draw progressively when entering **minimized**.
+    nonisolated static func profileLineRevealProgress(
+        sheetDetent: DiveActivityOverviewDetent,
+        minimizedRevealProgress: CGFloat
+    ) -> CGFloat {
+        sheetDetent == .minimized ? min(1, max(0, minimizedRevealProgress)) : 1
+    }
+
     /// Defer landscape-only chart chrome (media markers, zoom) until after rotation settles.
     nonisolated static let landscapeChartChromeCommitDelay: Duration = .milliseconds(120)
 
@@ -49,8 +76,9 @@ enum DiveTankOverviewHeroPresentation: Sendable {
         detent == .minimized ? minimizedScale : 1
     }
 
+    /// Gas mix under the cylinder — **minimized** only (panel + chart carry gas context at **large**).
     nonisolated static func showsGasMixLabel(for detent: DiveActivityOverviewDetent) -> Bool {
-        detent == .medium
+        false
     }
 
     /// Depth mini-chart beside the small cylinder on the **minimized** detent.
@@ -95,25 +123,34 @@ enum DiveTankOverviewHeroPresentation: Sendable {
         depthSampleCount: Int,
         isLandscape: Bool
     ) -> Bool {
+        guard depthSampleCount >= 2 else { return false }
         if isLandscape {
-            return depthSampleCount >= 2
+            return true
         }
-        return showsMinimizedProfileChart(for: detent, depthSampleCount: depthSampleCount)
+        return detent == .minimized || detent == .large
     }
 
-    /// Cylinder + gas label (portrait only; hidden for landscape full-screen profile).
+    /// Pinch zoom and pan on the hero profile (landscape or portrait **large**). Media thumbnails use **`showsMediaMarkersOnLandscapeProfile`**.
+    nonisolated static func showsInteractiveProfileChartChrome(
+        for detent: DiveActivityOverviewDetent,
+        isLandscape: Bool,
+        depthSampleCount: Int
+    ) -> Bool {
+        guard depthSampleCount >= 2 else { return false }
+        if isLandscape { return true }
+        return detent == .large
+    }
+
+    /// Cylinder + gas label (portrait **minimized** only; **large** uses the depth chart in the hero band).
     nonisolated static func showsTankCylinderHero(
         for detent: DiveActivityOverviewDetent,
         isLandscape: Bool
     ) -> Bool {
         guard !isLandscape else { return false }
-        if detent == .minimized {
-            return showsMinimizedCylinder(for: detent, isLandscape: false)
-        }
-        return detent == .medium
+        return showsMinimizedCylinder(for: detent, isLandscape: false)
     }
 
-    /// Tank hero layer visible — landscape profile or portrait detent rules.
+    /// Tank hero layer visible — profile chart and/or minimized cylinder stack.
     nonisolated static func showsTankHeroVisuals(
         for detent: DiveActivityOverviewDetent,
         depthSampleCount: Int,
@@ -121,6 +158,9 @@ enum DiveTankOverviewHeroPresentation: Sendable {
     ) -> Bool {
         if isLandscape {
             return depthSampleCount >= 2
+        }
+        if detent == .large {
+            return showsProfileChart(for: detent, depthSampleCount: depthSampleCount, isLandscape: false)
         }
         return showsTankHero(for: detent)
     }
@@ -178,13 +218,14 @@ enum DiveTankOverviewHeroPresentation: Sendable {
         return CGRect(x: left, y: y, width: width, height: height)
     }
 
-    /// Plot frame in the visible band above the minimized sheet (portrait vs landscape).
+    /// Plot frame in the visible band above the overview sheet (portrait vs landscape).
     nonisolated static func minimizedProfileChartFrame(
         layoutSize: CGSize,
         layoutHeight: CGFloat,
         topObstructionHeight: CGFloat,
         bottomContentMargin: CGFloat,
-        isLandscape: Bool
+        isLandscape: Bool,
+        detent: DiveActivityOverviewDetent = .minimized
     ) -> CGRect {
         if isLandscape {
             return minimizedLandscapeProfileChartFrame(
@@ -198,16 +239,18 @@ enum DiveTankOverviewHeroPresentation: Sendable {
             layoutSize: layoutSize,
             layoutHeight: layoutHeight,
             topObstructionHeight: topObstructionHeight,
-            bottomContentMargin: bottomContentMargin
+            bottomContentMargin: bottomContentMargin,
+            detent: detent
         )
     }
 
-    /// Portrait **minimized** — centered plot beside the small cylinder.
+    /// Portrait **minimized** or **large** — centered plot in the hero band above the sheet.
     nonisolated static func minimizedPortraitProfileChartFrame(
         layoutSize: CGSize,
         layoutHeight: CGFloat,
         topObstructionHeight: CGFloat,
-        bottomContentMargin: CGFloat
+        bottomContentMargin: CGFloat,
+        detent: DiveActivityOverviewDetent = .minimized
     ) -> CGRect {
         let bandTop = topObstructionHeight + minimizedChartVerticalPadding
         let bandBottom = layoutHeight - bottomContentMargin - minimizedChartVerticalPadding
@@ -223,7 +266,8 @@ enum DiveTankOverviewHeroPresentation: Sendable {
 
         let x = (layoutSize.width - width) / 2
         let centeredY = bandTop + (availableHeight - height) / 2
-        let y = min(centeredY + heroContentDownwardOffset, bandBottom - height)
+        let downwardBias = detent == .minimized ? heroContentDownwardOffset : 0
+        let y = min(centeredY + downwardBias, bandBottom - height)
         return CGRect(x: x, y: max(y, bandTop), width: width, height: height)
     }
 
@@ -242,22 +286,21 @@ enum DiveTankOverviewHeroPresentation: Sendable {
         return CGRect(x: x, y: bandTop, width: width, height: height)
     }
 
-    /// Cylinder hero is hidden when the sheet covers the tab (**large**); returns on **medium** / **minimized**.
+    /// Portrait minimized cylinder + chart stack (hidden at **large** — chart-only hero).
     nonisolated static func showsTankHero(for detent: DiveActivityOverviewDetent) -> Bool {
-        detent != .large
+        detent == .minimized
     }
 
-    /// **Large** keeps **medium** layout while the hero is hidden so expand/collapse only fades opacity.
     nonisolated static func layoutDetent(for detent: DiveActivityOverviewDetent) -> DiveActivityOverviewDetent {
-        detent == .large ? .medium : detent
+        detent
     }
 
-    /// **Medium** always shows a full cylinder; shorter detents use **`animatedFillFraction`** (PSI drain).
+    /// **Large** always shows a full cylinder; **minimized** uses **`animatedFillFraction`** (PSI drain).
     nonisolated static func displayPressureFillFraction(
         sheetDetent: DiveActivityOverviewDetent,
         animatedFillFraction: CGFloat
     ) -> CGFloat {
-        sheetDetent == .medium ? 1 : animatedFillFraction
+        sheetDetent == .large ? 1 : animatedFillFraction
     }
 
     /// Base cylinder height before **`scale(for:)`**.
@@ -319,7 +362,7 @@ enum DiveTankOverviewHeroPresentation: Sendable {
             let insets = topTrailingPadding(topObstructionHeight: topObstructionHeight)
             centerX = layoutSize.width - insets.trailing - scaledWidth / 2
             centerY = insets.top + scaledHeight / 2
-        case .medium, .large:
+        case .large:
             let yOffset = verticalCenterOffset(
                 layoutHeight: layoutHeight,
                 topObstructionHeight: topObstructionHeight,

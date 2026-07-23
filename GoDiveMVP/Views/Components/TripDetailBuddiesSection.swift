@@ -54,7 +54,7 @@ struct TripDetailBuddiesSection: View {
                 .accessibilityIdentifier("TripDetail.Buddies.\(summary.buddyID.uuidString)")
         } else if let rosterBuddy = rosterBuddiesByID[summary.buddyID] {
             NavigationLink {
-                ViewDiveBuddyDetails(buddy: rosterBuddy)
+                DiveBuddyOrFriendDetailView(buddy: rosterBuddy)
                     .hidesBottomTabBarWhenPushed()
             } label: {
                 cell

@@ -45,13 +45,18 @@ The iOS API key’s **API restrictions** omit Auth. In [Google Cloud → Credent
 | `displayName` | string | From local profile |
 | `handle` | string | Reserved (empty) |
 | `photoURL` | string | Firebase Storage download URL when avatar uploaded; empty if skipped |
+| `profileHeroURL` | string | Friend-visible header media (tagged photo / video mirror); Storage **`profileHero.jpg`** or **`profileHero.mp4`** |
+| `profileHeroMediaKind` | string | `"image"` or `"video"` |
+| `profileHeroSourceMediaID` | string | Local **`DiveMediaPhoto.id`** last synced (owner debugging) |
 | `interests` | array&lt;string&gt; | Onboarding tags: `"Scuba Diving"`, `"Free Diving"`, `"Snorkeling"` |
 | `discoverable` | bool | Default `true` |
-| `schemaVersion` | number | `2` |
+| `totalDiveCount` | number | Owner’s numbered dive total (synced from local log on launch) |
+| `schemaVersion` | number | `3` |
 | `createdAt` / `updatedAt` | timestamp | Server timestamps |
 
 Private: `users/{uid}/private/account` → `{ appleUserIdentifier }`.  
-Storage avatar: `users/{uid}/profile.jpg`.
+Storage avatar: `users/{uid}/profile.jpg`.  
+Friend profile hero: `users/{uid}/profileHero.jpg` or `profileHero.mp4` (synced from Profile tagged-media hero via **`GoDiveProfileHeroFirestoreSync`**).
 
 ## Client behavior
 
@@ -63,6 +68,7 @@ Storage avatar: `users/{uid}/profile.jpg`.
 | Post-sign-up **photo** step (save or skip) | Upload JPEG to Storage when present → first Firestore upsert with `photoURL` + `interests` |
 | **Profile edit** (name) | Upsert Firestore `displayName` (+ `interests`); keep existing `photoURL` |
 | **Profile avatar change** | Re-upload Storage JPEG → upsert `photoURL` + `displayName` |
+| **Profile hero tagged media** (Friends) | Export photo/video → Storage + merge `profileHeroURL` / `profileHeroMediaKind` |
 | Post-launch (signed in, not deferred) | `syncIfAuthenticated` refreshes display name + interests |
 | Sign out | Clears Firebase UID + defer gate + `Auth.auth().signOut()` |
 | **Delete account** | Delete Storage avatar + Firestore docs + revoke Apple + Auth delete + wipe local SwiftData |
@@ -71,4 +77,15 @@ Helpers: `GoDiveFirebaseAuthSession`, `GoDiveFirestoreUserProfileSync`, `GoDiveF
 
 ## Deferred
 
-Friend request / friendship graph UI, `@handle` picker + uniqueness.
+`@handle` uniqueness UI; CloudKit Sharing / co-edit of one dive record; Universal Links (HTTPS invites work via custom scheme `godive://` today — HTTPS URLs are generated for sharing).
+
+## Friends graph + shared dives
+
+| Collection | Purpose |
+|------------|---------|
+| `friendInvites/{token}` | QR / link invites (`fromUid`, status, expiry) |
+| `friendships/{sortedUidPair}` | Mutual friendship (`members`, `status`, `inviteToken`) |
+| `users/{uid}/sharedDives/{diveId}` | Friend-visible dive projections (notes/media opt-in) |
+| Storage `users/{uid}/sharedMedia/...` | Opt-in preview JPEGs |
+
+Client helpers: `GoDiveFriendGraphService`, `GoDiveSharedDiveProjectionSync`, `GoDiveFriendInviteURL` (`godive://invite/{token}` + `https://godiveios.com/invite/{token}`).

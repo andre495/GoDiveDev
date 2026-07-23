@@ -7,10 +7,9 @@ import Photos
 import UIKit
 #endif
 
-/// Square image or video-frame thumbnail for carousel and depth-profile markers. Loads on demand from the
-/// referenced Photos asset (videos show their poster frame); prunes the row if the original was deleted.
-struct DiveActivityMediaThumbnailView: View {
-    let media: DiveMediaPhoto
+/// Square image or video-frame thumbnail for carousel and depth-profile markers.
+struct ActivityMediaThumbnailView<Media: PhotoLibraryMediaRow>: View {
+    let media: Media
     var size: CGFloat = DiveActivityMediaPresentation.carouselThumbnailSize
     var cornerRadius: CGFloat = DiveActivityMediaPresentation.carouselThumbnailCornerRadius
     var showsPlayBadge: Bool = true
@@ -47,7 +46,7 @@ struct DiveActivityMediaThumbnailView: View {
             await loadThumbnailIfNeeded()
         }
         .onAppear {
-            DiveMediaPreviewStorage.seedSessionCacheIfNeeded(for: media)
+            GalleryMediaPhotoKit.seedSessionCacheIfNeeded(for: media)
             #if canImport(UIKit)
             if thumbnailImage == nil, let stored = storedThumbnailImage {
                 thumbnailImage = stored
@@ -88,7 +87,7 @@ struct DiveActivityMediaThumbnailView: View {
 
     #if canImport(UIKit)
     private var storedThumbnailImage: UIImage? {
-        DiveMediaPreviewStorage.storedPreviewImage(for: media)
+        GalleryMediaPhotoKit.storedPreviewImage(for: media)
     }
 
     private var displayedThumbnailImage: UIImage? {
@@ -111,7 +110,7 @@ struct DiveActivityMediaThumbnailView: View {
     #if canImport(UIKit)
     private func loadThumbnailIfNeeded() async {
         #if canImport(Photos)
-        DiveMediaPreviewStorage.seedSessionCacheIfNeeded(for: media)
+        GalleryMediaPhotoKit.seedSessionCacheIfNeeded(for: media)
         if let stored = storedThumbnailImage {
             thumbnailImage = stored
             thumbnailLoadFinished = true
@@ -123,7 +122,7 @@ struct DiveActivityMediaThumbnailView: View {
             return
         }
 
-        let identifier = DiveMediaLibraryIdentifierRepair.resolveLocalIdentifierIfNeeded(
+        let identifier = GalleryMediaPhotoKit.resolveLocalIdentifierIfNeeded(
             for: media,
             modelContext: modelContext
         )
@@ -131,7 +130,7 @@ struct DiveActivityMediaThumbnailView: View {
             thumbnailLoadFinished = true
             if DiveMediaCloudIdentifierStorage.isPresent(media.photosCloudIdentifier)
                 || media.libraryAssetLocalIdentifier != nil {
-                DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
+                GalleryMediaPhotoKit.pruneIfAssetMissing(media, modelContext: modelContext)
             }
             return
         }
@@ -149,11 +148,11 @@ struct DiveActivityMediaThumbnailView: View {
         )
         if let image {
             thumbnailImage = image
-            DiveMediaPreviewStorage.persistPreview(from: image, on: media, modelContext: modelContext)
-            _ = DiveMediaLibraryIdentifierRepair.captureCloudIdentifierIfNeeded(for: media)
+            GalleryMediaPhotoKit.persistPreview(from: image, on: media, modelContext: modelContext)
+            _ = GalleryMediaPhotoKit.captureCloudIdentifierIfNeeded(for: media)
             try? modelContext.save()
         } else if thumbnailImage == nil, storedThumbnailImage == nil {
-            DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
+            GalleryMediaPhotoKit.pruneIfAssetMissing(media, modelContext: modelContext)
         }
         thumbnailLoadFinished = true
         #else
@@ -165,3 +164,6 @@ struct DiveActivityMediaThumbnailView: View {
     private func loadThumbnailIfNeeded() async {}
     #endif
 }
+
+typealias DiveActivityMediaThumbnailView = ActivityMediaThumbnailView<DiveMediaPhoto>
+typealias SnorkelActivityMediaThumbnailView = ActivityMediaThumbnailView<SnorkelMediaPhoto>

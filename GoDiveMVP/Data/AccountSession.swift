@@ -29,12 +29,24 @@ final class AccountSession {
     private(set) var showsSignInCelebration = false
     /// Celebration immediately follows onboarding bulk UDDF import — defer shell prewarm.
     private(set) var celebrationFollowsBulkImport = false
+    /// Firebase + iCloud population after sign-in / session restore (keeps launch overlay up).
+    private(set) var isPopulatingRemoteAccountData = false
+    /// Returning user on a local-only store — private CloudKit reconnect is scheduled for the next cold launch.
+    private(set) var pendingICloudDiveLogReconnectOnNextLaunch = false
 
     private var pendingNewAccountPermissions = false
     private var cachedSelfBuddyID: UUID?
     private var cachedSelfBuddyProfileID: UUID?
 
-    var isSignedIn: Bool { currentProfile != nil }
+    /// Production shell registers the live store so sign-in can re-attach **`UserProfile`** after CloudKit reconnect.
+    weak var activeModelContainer: ModelContainer?
+
+    /// Invoked by **`AccountRemoteDataPopulation`** to reopen the user store with private CloudKit.
+    var cloudKitContainerReconnectHandler: (@MainActor () async -> Void)?
+
+    private var remoteAccountPopulationDepth = 0
+
+    var isSignedIn: Bool { currentProfile != nil && !isPopulatingRemoteAccountData }
 
     /// Signed in and past welcome / post-sign-up gates — **`ContentView`** is on screen.
     var showsMainAppShell: Bool {
@@ -53,49 +65,259 @@ final class AccountSession {
     private init() {}
 
     func restoreSession(modelContext: ModelContext) async {
-        defer { isRestoringSession = false }
+        defer {
+            isRestoringSession = false
+            endLaunchBlockingPopulationIfStuck()
+        }
 
-        let profileID = AppLaunchSessionRestorePresentation.loadPersistedProfileID()
-        guard
-            let profileID,
-            let profile = try? UserProfileStore.profile(id: profileID, modelContext: modelContext)
-        else {
+        await waitForCloudKitContainerReconnectHandler()
+
+        let context = activeModelContainer?.mainContext ?? modelContext
+
+        let appleID = GoDiveKeychainStore.string(for: .lastAppleUserIdentifier)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !appleID.isEmpty else {
+            if let profileID = AppLaunchSessionRestorePresentation.loadPersistedProfileID(),
+               let profile = try? UserProfileStore.profile(id: profileID, modelContext: context)
+            {
+                currentProfile = profile
+                ReturningAccountHints.remember(profile: profile)
+            } else {
+                currentProfile = nil
+            }
+            return
+        }
+
+        let preferredID = AppLaunchSessionRestorePresentation.loadPersistedProfileID()
+            ?? ReturningAccountHints.rememberedProfileID(forAppleUserIdentifier: appleID)
+        guard let preferredID else {
             currentProfile = nil
             return
         }
 
-        currentProfile = profile
-        ReturningAccountHints.remember(profile: profile)
-
-        let container = modelContext.container
-        let appleUserIdentifier = profile.appleUserIdentifier
-        if let merge = try? reconcileCloudKitIdentityIfNeeded(modelContext: modelContext),
-           merge.didChangeCanonicalID,
-           let updated = currentProfile {
-            Task(priority: .utility) {
-                await AppLaunchSessionValidation.validatePersistedSessionIfNeeded(
-                    profileID: updated.id,
-                    appleUserIdentifier: updated.appleUserIdentifier,
-                    container: container
-                )
-            }
-            return
+        let launchWait = AccountSessionProfileResolution.launchImportTimeoutSeconds
+        if let attached = try? await attachSessionProfile(
+            preferredProfileID: preferredID,
+            appleUserIdentifier: appleID,
+            fallbackContext: context,
+            waitForCloudKitImport: true,
+            importTimeoutSeconds: launchWait
+        ) {
+            persistSession(profile: attached)
+            _ = try? reconcileCloudKitIdentityIfNeeded(modelContext: context)
+        } else {
+            currentProfile = nil
         }
-        Task(priority: .utility) {
-            await AppLaunchSessionValidation.validatePersistedSessionIfNeeded(
-                profileID: profile.id,
-                appleUserIdentifier: appleUserIdentifier,
+
+        let profileIDForDeferred = currentProfile?.id ?? preferredID
+        Task { @MainActor in
+            async let population: Void = self.runDeferredSessionRestorePopulation(
+                preferredProfileID: profileIDForDeferred,
+                appleUserIdentifier: appleID,
+                modelContext: modelContext
+            )
+            async let cloudKit: Void = self.syncCloudKitDiveLogIntoSession(
+                preferredProfileID: profileIDForDeferred,
+                appleUserIdentifier: appleID,
+                modelContext: modelContext
+            )
+            _ = await (population, cloudKit)
+        }
+    }
+
+    /// Firebase + CloudKit merge after the splash dismisses — does not block **`AppLaunchOverlay`**.
+    private func runDeferredSessionRestorePopulation(
+        preferredProfileID: UUID,
+        appleUserIdentifier: String,
+        modelContext: ModelContext
+    ) async {
+        var context = activeModelContainer?.mainContext ?? modelContext
+
+        await AccountRemoteDataPopulation.populateSignedInAccount(
+            trigger: .sessionRestore,
+            modelContext: context,
+            treatAsNewAccount: false,
+            mergedDuplicateCount: 0,
+            holdsLaunchOverlay: false
+        )
+
+        context = activeModelContainer?.mainContext ?? modelContext
+
+        if let attached = try? await attachSessionProfile(
+            preferredProfileID: preferredProfileID,
+            appleUserIdentifier: appleUserIdentifier,
+            fallbackContext: context,
+            waitForCloudKitImport: false
+        ) {
+            persistSession(profile: attached)
+            _ = try? reconcileCloudKitIdentityIfNeeded(modelContext: context)
+        }
+    }
+
+    /// Polls private CloudKit import, merges Apple-ID profile twins, and re-attaches the session to
+    /// whichever profile owns dives/snorkels (fixes an empty Logbook after reinstall / sign-in).
+    @MainActor
+    func syncCloudKitDiveLogIntoSession(
+        preferredProfileID: UUID,
+        appleUserIdentifier: String,
+        modelContext: ModelContext,
+        waitForActivitiesSeconds: Int = AccountSessionProfileResolution.defaultImportTimeoutSeconds
+    ) async {
+        let appleID = appleUserIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !appleID.isEmpty else { return }
+
+        var context = activeModelContainer?.mainContext ?? modelContext
+        let deadline = ContinuousClock.now + .seconds(waitForActivitiesSeconds)
+
+        while ContinuousClock.now < deadline {
+            guard !Task.isCancelled else { return }
+            context.processPendingChanges()
+            _ = try? reconcileCloudKitIdentityIfNeeded(modelContext: context)
+
+            let totalForAppleID = AccountSessionProfileResolution.totalOwnedActivityCount(
+                appleUserIdentifier: appleID,
+                modelContext: context
+            )
+            if totalForAppleID > 0 {
+                if let attached = try? await attachSessionProfile(
+                    preferredProfileID: preferredProfileID,
+                    appleUserIdentifier: appleID,
+                    fallbackContext: context,
+                    waitForCloudKitImport: false
+                ) {
+                    persistSession(profile: attached)
+                    _ = try? reconcileCloudKitIdentityIfNeeded(modelContext: context)
+                    if let owner = currentProfile {
+                        _ = try? DiveActivityOwnership.claimUnownedDives(
+                            for: owner,
+                            modelContext: context
+                        )
+                        _ = try? SnorkelActivityOwnership.claimUnownedSnorkels(
+                            for: owner,
+                            modelContext: context
+                        )
+                        _ = try? DiveBuddyOwnership.claimUnownedBuddies(
+                            for: owner,
+                            modelContext: context
+                        )
+                    }
+                }
+                break
+            }
+
+            await GoDiveCloudKitPrivateImportNotification.waitForImportOrTimeout(
+                milliseconds: GoDiveCloudKitPrivateImportNotification.defaultPollIntervalMilliseconds
+            )
+            context = activeModelContainer?.mainContext ?? modelContext
+        }
+
+        if let container = activeModelContainer,
+           AccountSessionProfileResolution.totalOwnedActivityCount(
+               appleUserIdentifier: appleID,
+               modelContext: context
+           ) == 0
+        {
+            AccountSessionCloudKitIdentityObserver.schedulePostSignInReconcileRetries(
                 container: container
             )
         }
+    }
+
+    /// After Sign in with Apple scheduled iCloud — reload stores once Home is visible, then import + merge.
+    func finishAfterScheduledCloudKitReconnect(modelContext: ModelContext) async {
+        var context = activeModelContainer?.mainContext ?? modelContext
+        let appleID = GoDiveKeychainStore.string(for: .lastAppleUserIdentifier)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let preferredID = AppLaunchSessionRestorePresentation.loadPersistedProfileID()
+            ?? ReturningAccountHints.rememberedProfileID(forAppleUserIdentifier: appleID)
+            ?? UUID()
+        guard !appleID.isEmpty else {
+            pendingICloudDiveLogReconnectOnNextLaunch = false
+            return
+        }
+
+        // Wait for CloudKit dive/snorkel import before attaching the session + merging twins.
+        // Profile rows often arrive before activities; merging too early orphans the log.
+        _ = await AccountSessionProfileResolution.waitForOwnedActivities(
+            appleUserIdentifier: appleID,
+            modelContext: context,
+            timeoutSeconds: 90
+        )
+
+        await AccountRemoteDataPopulation.populateSignedInAccount(
+            trigger: .sessionRestore,
+            modelContext: context,
+            skipCloudKitReconnect: true,
+            treatAsNewAccount: false,
+            mergedDuplicateCount: 0,
+            holdsLaunchOverlay: false
+        )
+
+        context = activeModelContainer?.mainContext ?? modelContext
+
+        if let attached = try? await attachSessionProfile(
+            preferredProfileID: preferredID,
+            appleUserIdentifier: appleID,
+            fallbackContext: context,
+            waitForCloudKitImport: true,
+            importTimeoutSeconds: AccountSessionProfileResolution.defaultImportTimeoutSeconds
+        ) {
+            persistSession(profile: attached)
+            _ = try? reconcileCloudKitIdentityIfNeeded(modelContext: context)
+            // Second pass after attach — import may have landed more rows during population.
+            _ = await AccountSessionProfileResolution.waitForOwnedActivities(
+                appleUserIdentifier: appleID,
+                modelContext: context,
+                timeoutSeconds: 15
+            )
+            context = activeModelContainer?.mainContext ?? context
+            if let refreshed = try? await attachSessionProfile(
+                preferredProfileID: attached.id,
+                appleUserIdentifier: appleID,
+                fallbackContext: context,
+                waitForCloudKitImport: false
+            ) {
+                persistSession(profile: refreshed)
+                _ = try? reconcileCloudKitIdentityIfNeeded(modelContext: context)
+                suppressNewAccountOverlaysIfReturningCloudKitAccount(
+                    canonical: refreshed,
+                    mergedDuplicateCount: 0,
+                    modelContext: context
+                )
+            } else {
+                suppressNewAccountOverlaysIfReturningCloudKitAccount(
+                    canonical: attached,
+                    mergedDuplicateCount: 0,
+                    modelContext: context
+                )
+            }
+        }
+        pendingICloudDiveLogReconnectOnNextLaunch = false
+    }
+
+    func registerActiveModelContainer(_ container: ModelContainer) {
+        activeModelContainer = container
     }
 
     func completeSignIn(
         credential: ASAuthorizationAppleIDCredential,
         rawNonce: String? = nil,
         modelContext: ModelContext
-    ) throws {
+    ) async throws {
+        beginRemoteAccountPopulation()
+        defer { endRemoteAccountPopulation() }
+
         let appleUserID = credential.user
+        let workingContext = activeModelContainer?.mainContext ?? modelContext
+
+        if AccountRemoteDataPopulation.shouldReconnectBeforeSignIn(
+            appleUserIdentifier: appleUserID,
+            modelContext: workingContext
+        ) {
+            AppSwiftDataDualStoreFactory.scheduleReconnectPrivateCloudKitOnNextLaunch()
+            pendingICloudDiveLogReconnectOnNextLaunch = true
+        }
+
         let appleProvidedName = UserProfileStore.displayName(from: credential.fullName)
         if let appleProvidedName {
             UserProfileStore.cacheDisplayName(appleProvidedName, forAppleUserIdentifier: appleUserID)
@@ -107,35 +329,36 @@ final class AccountSession {
 
         let existingBeforeSignIn = try resolveExistingProfile(
             appleUserIdentifier: appleUserID,
-            modelContext: modelContext
+            modelContext: workingContext
         )
         let profileDidExistLocally = existingBeforeSignIn != nil
 
         var profile = try UserProfileStore.findOrCreateProfile(
             appleUserIdentifier: appleUserID,
             displayName: resolvedName,
-            modelContext: modelContext
+            modelContext: workingContext
         )
         try UserProfileStore.applyDisplayNameFromApple(
             to: profile,
             appleProvided: appleProvidedName,
             appleUserIdentifier: appleUserID,
-            modelContext: modelContext
+            modelContext: workingContext
         )
         let merge = try UserProfileCloudKitIdentityMerge.reconcile(
             appleUserIdentifier: appleUserID,
             preferredSessionProfileID: profile.id,
-            modelContext: modelContext
+            modelContext: workingContext
         )
-        if let canonical = try UserProfileStore.profile(id: merge.canonicalProfileID, modelContext: modelContext) {
+        if let canonical = try UserProfileStore.profile(id: merge.canonicalProfileID, modelContext: workingContext) {
             profile = canonical
         }
-        try DiveActivityOwnership.claimUnownedDives(for: profile, modelContext: modelContext)
-        try DiveBuddyOwnership.claimUnownedBuddies(for: profile, modelContext: modelContext)
-        try UserPreferencesSync.syncForSignedInOwner(profile, modelContext: modelContext)
+        try DiveActivityOwnership.claimUnownedDives(for: profile, modelContext: workingContext)
+        try SnorkelActivityOwnership.claimUnownedSnorkels(for: profile, modelContext: workingContext)
+        try DiveBuddyOwnership.claimUnownedBuddies(for: profile, modelContext: workingContext)
+        try UserPreferencesSync.syncForSignedInOwner(profile, modelContext: workingContext)
 
         let profileID = profile.id
-        let ownedDiveCount = try modelContext.fetchCount(
+        let ownedDiveCount = try workingContext.fetchCount(
             FetchDescriptor<DiveActivity>(
                 predicate: #Predicate<DiveActivity> { $0.ownerProfileID == profileID }
             )
@@ -154,22 +377,18 @@ final class AccountSession {
             try UserProfileStore.applyActivitySelection(
                 pendingSelection,
                 to: profile,
-                modelContext: modelContext
+                modelContext: workingContext
             )
         }
         UserOnboardingActivitySelection.clearPending()
 
-        try modelContext.save()
-        persistSession(profile: profile)
-        currentProfile = profile
+        try workingContext.save()
         cachedSelfBuddyID = nil
         cachedSelfBuddyProfileID = nil
+        ReturningAccountHints.remember(profile: profile)
         GoDiveSecurityEvent.record(.authSucceeded, detail: "siwa")
 
-        let identityToken = credential.identityToken
         let appleUserIdentifier = profile.appleUserIdentifier
-        let displayName = profile.displayName
-        let fullName = credential.fullName
         let interests = GoDiveFirestoreUserProfileMapping.interests(
             doesScubaDiving: profile.doesScubaDiving,
             doesFreeDiving: profile.doesFreeDiving,
@@ -178,26 +397,38 @@ final class AccountSession {
         let deferFirestoreUpsert = PostSignUpProfileSetupPresentation.shouldPresentSetup(
             isNewAccount: treatAsNewAccount
         )
-        Task(priority: .utility) {
-            let outcome = await GoDiveFirestoreUserProfileSync.syncAfterAppleSignIn(
-                identityToken: identityToken,
-                rawNonce: rawNonce,
-                fullName: fullName,
-                displayName: displayName,
-                appleUserIdentifier: appleUserIdentifier,
-                interests: interests,
-                deferProfileDocumentWrite: deferFirestoreUpsert
-            )
-            if case let .upserted(_, remoteDisplayName) = outcome {
-                await MainActor.run {
-                    AccountSession.shared.applyRemoteDisplayNameIfNeeded(
-                        profileID: profileID,
-                        remoteDisplayName: remoteDisplayName,
-                        modelContext: modelContext
-                    )
-                }
-            }
-        }
+        let signInPopulation = AccountRemoteDataPopulation.SignInWithAppleRequest(
+            identityToken: credential.identityToken,
+            rawNonce: rawNonce,
+            fullName: credential.fullName,
+            displayName: profile.displayName,
+            appleUserIdentifier: appleUserIdentifier,
+            interests: interests,
+            profileID: profileID,
+            deferFirestoreProfileDocumentWrite: deferFirestoreUpsert
+        )
+        let populationContext = activeModelContainer?.mainContext ?? workingContext
+        async let cloudKitSync: Void = syncCloudKitDiveLogIntoSession(
+            preferredProfileID: profileID,
+            appleUserIdentifier: appleUserIdentifier,
+            modelContext: populationContext
+        )
+        await AccountRemoteDataPopulation.populateSignedInAccount(
+            trigger: .signInWithApple,
+            modelContext: populationContext,
+            signInWithApple: signInPopulation,
+            treatAsNewAccount: treatAsNewAccount,
+            mergedDuplicateCount: merge.mergedDuplicateCount
+        )
+        let attachContext = activeModelContainer?.mainContext ?? workingContext
+        try await attachSessionProfile(
+            preferredProfileID: profileID,
+            appleUserIdentifier: appleUserIdentifier,
+            fallbackContext: attachContext,
+            waitForCloudKitImport: !treatAsNewAccount && !pendingICloudDiveLogReconnectOnNextLaunch
+        )
+        persistSession(profile: currentProfile ?? profile)
+        await cloudKitSync
 
         if deferFirestoreUpsert {
             if PostSignUpInterestsPresentation.shouldPresent(
@@ -208,9 +439,6 @@ final class AccountSession {
                 showsPostSignUpProfileSetup = true
             }
             // CloudKit may still be downloading the existing Apple-ID profile + dives.
-            AccountSessionCloudKitIdentityObserver.schedulePostSignInReconcileRetries(
-                container: modelContext.container
-            )
         } else if SignInCelebrationPresentation.shouldPresentCelebration() {
             showsSignInCelebration = true
             pendingNewAccountPermissions = treatAsNewAccount
@@ -309,8 +537,13 @@ final class AccountSession {
                 predicate: #Predicate<DiveActivity> { $0.ownerProfileID == id }
             )
         )) ?? 0
-        // Dives on the canonical profile, or a CloudKit duplicate merge, prove this is not a cold signup.
-        guard diveCount > 0 || mergedDuplicateCount > 0 else { return }
+        let snorkelCount = (try? modelContext.fetchCount(
+            FetchDescriptor<SnorkelActivity>(
+                predicate: #Predicate<SnorkelActivity> { $0.ownerProfileID == id }
+            )
+        )) ?? 0
+        // Activities on the canonical profile, or a CloudKit duplicate merge, prove this is not a cold signup.
+        guard diveCount > 0 || snorkelCount > 0 || mergedDuplicateCount > 0 else { return }
         showsNewAccountWelcome = false
         showsPostSignUpInterests = false
         showsPostSignUpProfileSetup = false
@@ -480,6 +713,10 @@ final class AccountSession {
 
     /// - Parameter persistSecurityEvent: Pass **`false`** when the account wipe already cleared the journal
     ///   (account delete) so we do not recreate rows for a deleted owner.
+    func acknowledgePendingICloudDiveLogReconnectReminder() {
+        pendingICloudDiveLogReconnectOnNextLaunch = false
+    }
+
     func signOut(persistSecurityEvent: Bool = true) {
         let ownerID = AppLaunchSessionRestorePresentation.loadPersistedProfileID()
         clearPersistedSession()
@@ -492,13 +729,18 @@ final class AccountSession {
         showsPostSignUpOnboardingImport = false
         showsSignInCelebration = false
         celebrationFollowsBulkImport = false
+        pendingICloudDiveLogReconnectOnNextLaunch = false
         pendingNewAccountPermissions = false
         cachedSelfBuddyID = nil
         cachedSelfBuddyProfileID = nil
         GoDiveFirestoreUserProfileMapping.clearCachedFirebaseUID()
         GoDiveFirestoreProfilePublishGate.clear()
+        GoDiveFriendShareRefreshCoordinator.stopObservingSaves()
         if GoDiveFirebaseBootstrap.isConfigured {
-            try? Auth.auth().signOut()
+            Task { @MainActor in
+                await GoDiveFirebaseCloudMessaging.removeStoredTokenOnSignOut()
+                try? Auth.auth().signOut()
+            }
         }
         GoDiveSecurityEvent.record(
             .signOut,
@@ -532,6 +774,105 @@ final class AccountSession {
     func recordSignInFailure(_ error: Error) {
         Self.authLog.error("Sign in with Apple failed: \(String(describing: error), privacy: .private)")
         GoDiveSecurityEvent.record(.authFailed, detail: "siwa")
+    }
+
+    func beginRemoteAccountPopulation() {
+        remoteAccountPopulationDepth += 1
+        isPopulatingRemoteAccountData = true
+    }
+
+    func endRemoteAccountPopulation() {
+        remoteAccountPopulationDepth = max(0, remoteAccountPopulationDepth - 1)
+        if remoteAccountPopulationDepth == 0 {
+            isPopulatingRemoteAccountData = false
+        }
+    }
+
+    func requestModelContainerCloudKitReconnect() async {
+        for _ in 0 ..< 15 {
+            if let cloudKitContainerReconnectHandler {
+                currentProfile = nil
+                cachedSelfBuddyID = nil
+                cachedSelfBuddyProfileID = nil
+                await cloudKitContainerReconnectHandler()
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(200))
+        }
+    }
+
+    /// Session restore can start in the same frame as **`ProductionAppRoot`** — wait briefly for the handler.
+    private func waitForCloudKitContainerReconnectHandler() async {
+        guard cloudKitContainerReconnectHandler == nil else { return }
+        for _ in 0 ..< 15 {
+            if cloudKitContainerReconnectHandler != nil { return }
+            try? await Task.sleep(for: .milliseconds(200))
+        }
+    }
+
+    /// Safety valve if population depth was left non-zero after a cancelled reconnect path.
+    private func endLaunchBlockingPopulationIfStuck() {
+        guard isPopulatingRemoteAccountData else { return }
+        remoteAccountPopulationDepth = 0
+        isPopulatingRemoteAccountData = false
+    }
+
+    @discardableResult
+    func attachSessionProfile(
+        preferredProfileID: UUID,
+        appleUserIdentifier: String,
+        fallbackContext: ModelContext,
+        waitForCloudKitImport: Bool,
+        importTimeoutSeconds: Int = AccountSessionProfileResolution.defaultImportTimeoutSeconds
+    ) async throws -> UserProfile {
+        let context = activeModelContainer?.mainContext ?? fallbackContext
+        _ = try? reconcileCloudKitIdentityIfNeeded(modelContext: context)
+        guard let profile = await AccountSessionProfileResolution.resolve(
+            preferredProfileID: preferredProfileID,
+            appleUserIdentifier: appleUserIdentifier,
+            modelContext: context,
+            waitForCloudKitImport: waitForCloudKitImport,
+            importTimeoutSeconds: importTimeoutSeconds
+        ) else {
+            throw AttachSessionProfileError.profileMissingAfterPopulation
+        }
+        currentProfile = profile
+        ReturningAccountHints.remember(profile: profile)
+        return profile
+    }
+
+    enum AttachSessionProfileError: Error {
+        case profileMissingAfterPopulation
+    }
+
+    /// Re-attach session + merge after SwiftData re-opened with private CloudKit.
+    func rebindAfterModelContainerReconnect(modelContext: ModelContext) async {
+        let appleID = GoDiveKeychainStore.string(for: .lastAppleUserIdentifier)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let preferredID = AppLaunchSessionRestorePresentation.loadPersistedProfileID()
+            ?? ReturningAccountHints.rememberedProfileID(forAppleUserIdentifier: appleID ?? "")
+
+        guard let appleID, !appleID.isEmpty else {
+            if let preferredID {
+                _ = try? await attachSessionProfile(
+                    preferredProfileID: preferredID,
+                    appleUserIdentifier: "",
+                    fallbackContext: modelContext,
+                    waitForCloudKitImport: true
+                )
+            } else {
+                currentProfile = nil
+            }
+            return
+        }
+
+        let profileID = preferredID ?? UUID()
+        _ = try? await attachSessionProfile(
+            preferredProfileID: profileID,
+            appleUserIdentifier: appleID,
+            fallbackContext: modelContext,
+            waitForCloudKitImport: true
+        )
     }
 
     nonisolated static let signInFailureUserMessage = "Sign-in could not be completed. Please try again."

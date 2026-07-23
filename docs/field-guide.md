@@ -6,6 +6,8 @@ The hub and every browse level (**category detail**, **subcategory mosaic**) sho
 
 ## Browse the catalog
 
+Categories, subcategories, and species in each group are listed **A–Z** by name (common name for species).
+
 1. **Category hub** — top-level groups (e.g. fish families) as full-width tiles with artwork  
 2. **Category detail** — subcategories within a category (main tab bar stays visible); each subcategory row shows a photo from a species in that group when available  
 3. **Subcategory mosaic** — species grid with photos (main tab bar stays visible)  
@@ -20,7 +22,7 @@ Each species page includes:
 - **Common** and **scientific** name  
 - Category and subcategory  
 - **About**, **size & range**, and tabs for **tagged dives** and **tagged media** from your logbook  
-- Optional **3D model** — tap the hero to toggle between photo and 3D when both exist  
+- Optional **3D model** — tap the hero to toggle between photo and 3D when both exist. On 3D, drag to spin the model freely in any direction (full **360°**), pinch to zoom in (not smaller than the default size). After about **15 seconds** without touching, it eases back to the default view and resumes its gentle spin and float; the blue glow under the model stays put.
 - Optional **map** of sites where you’ve tagged that species  
 
 Swipe horizontally between content sections on the detail pager.

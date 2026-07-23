@@ -8,7 +8,7 @@ enum LogbookActivityRowLayout {
     static let cardCornerRadius: CGFloat = 10
 }
 
-/// Compact logbook row: oval dive **#** (top leading), name + stats, optional oldest-media preview (trailing).
+/// Compact logbook row: activity-kind icon (+ oval **#** for scuba), name + stats, optional media preview (trailing).
 struct LogbookActivityRow: View, Equatable {
     let data: DiveLogbookRowDisplayData
     /// When set, tapping the trailing media thumbnail runs this (open dive Media tab) instead of the row link.
@@ -24,8 +24,8 @@ struct LogbookActivityRow: View, Equatable {
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             VStack(alignment: .leading, spacing: LogbookActivityRowLayout.contentSpacing) {
-                ActivityTagOvalChipLabel(title: data.diveNumberLabel, isCompact: true)
-                    .accessibilityLabel("Dive number \(diveNumberForAccessibility)")
+                logbookActivityLeadingChrome
+                    .accessibilityLabel(chipAccessibilityLabel)
 
                 Text(data.displayName)
                     .font(.subheadline.weight(.semibold))
@@ -42,7 +42,11 @@ struct LogbookActivityRow: View, Equatable {
                     Text("Possible duplicate")
                         .font(.caption2)
                         .foregroundStyle(AppTheme.Colors.mutedText)
-                        .accessibilityLabel("Possible duplicate dive in log")
+                        .accessibilityLabel(
+                            data.activityKind == .snorkel
+                                ? "Possible duplicate snorkel in log"
+                                : "Possible duplicate dive in log"
+                        )
                 }
             }
             .background {
@@ -76,11 +80,47 @@ struct LogbookActivityRow: View, Equatable {
         }
     }
 
+    /// Activity kind icon sits **outside** the dive-number oval; snorkel rows show the icon only (no chip).
+    @ViewBuilder
+    private var logbookActivityLeadingChrome: some View {
+        HStack(spacing: 6) {
+            if let symbolName = data.diveNumberLeadingSymbolName {
+                Image(systemName: symbolName)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(logbookActivityKindSymbolColor)
+                    .accessibilityHidden(true)
+            }
+
+            switch data.activityKind {
+            case .scubaDive:
+                ActivityTagOvalChipLabel(
+                    title: data.diveNumberLabel,
+                    isCompact: true
+                )
+            case .snorkel:
+                EmptyView()
+            }
+        }
+    }
+
+    private var logbookActivityKindSymbolColor: Color {
+        switch data.activityKind {
+        case .snorkel:
+            return .red
+        case .scubaDive:
+            return AppTheme.Colors.accent
+        }
+    }
+
     /// Trailing thumbnail. When **`onTapMediaPreview`** is set it becomes a borderless button so the tap
     /// opens the dive's Media tab (and does not trigger the surrounding row **`NavigationLink`**).
     @ViewBuilder
     private func mediaPreview(photoID: UUID) -> some View {
-        let preview = LogbookRowMediaPreviewView(photoID: photoID, extent: textColumnHeight)
+        let preview = LogbookRowMediaPreviewView(
+            photoID: photoID,
+            extent: textColumnHeight,
+            usesSnorkelMedia: data.previewMediaIsSnorkel
+        )
         if let onTapMediaPreview {
             Button(action: onTapMediaPreview) {
                 preview
@@ -90,6 +130,15 @@ struct LogbookActivityRow: View, Equatable {
             .accessibilityHint("Opens this dive's media on the selected photo")
         } else {
             preview
+        }
+    }
+
+    private var chipAccessibilityLabel: String {
+        switch data.activityKind {
+        case .snorkel:
+            return "Snorkel activity"
+        case .scubaDive:
+            return "Scuba dive number \(diveNumberForAccessibility)"
         }
     }
 
@@ -103,14 +152,19 @@ struct LogbookActivityRow: View, Equatable {
     }
 
     /// Dive site name when set; otherwise **"New Dive"**.
-    nonisolated static func displayName(resolvedSiteName: String?) -> String {
+    nonisolated static func displayName(resolvedSiteName: String?, defaultUntitled: String = "New Dive") -> String {
         let trimmed = resolvedSiteName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return trimmed.isEmpty ? "New Dive" : trimmed
+        return trimmed.isEmpty ? defaultUntitled : trimmed
     }
 
     @MainActor
     static func displayName(for activity: DiveActivity) -> String {
         displayName(resolvedSiteName: activity.resolvedSiteName)
+    }
+
+    @MainActor
+    static func displayName(for activity: SnorkelActivity) -> String {
+        displayName(resolvedSiteName: activity.resolvedSiteName, defaultUntitled: "New Snorkel")
     }
 }
 

@@ -9,16 +9,17 @@ import UIKit
 
 /// One pager page — image or video for a **`DiveMediaPhoto`** row. Loads on demand from the referenced Photos
 /// asset; prunes the row if the original was deleted.
-struct DiveActivityMediaItemView: View {
+struct ActivityMediaItemView<Media: PhotoLibraryMediaRow>: View {
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @Environment(\.displayScale) private var displayScale
     @Environment(\.modelContext) private var modelContext
     @Environment(AppNetworkConnectivityMonitor.self) private var networkConnectivity
 
-    let media: DiveMediaPhoto
+    let media: Media
     var timeZoneOffsetSeconds: Int?
     var captureContext: DiveMediaCaptureContext?
     var showsCaptureDateOverlay = true
+    var usesLiquidGlassCaptureOverlay = false
     var captureOverlayBottomInset: CGFloat = 0
     var showsMarineLifeTagButton = false
     var marineLifeTagIsActive = false
@@ -29,6 +30,9 @@ struct DiveActivityMediaItemView: View {
     var loopsVideoPlayback: Bool = false
     /// Bumped when dive media becomes active (deep link, tab switch, async hydrate) to remount the player.
     var videoPlaybackEpoch: Int = 0
+    /// **0** = aspect-fill in **`heroBandRect`** (top + sides to sheet seam); **1** = full viewport fill.
+    var heroFitFillProgress: CGFloat = 1
+    var heroBandRect: CGRect = .zero
     /// When **`false`**, parent drives hold-to-pause (fullscreen galleries use **`allowsHitTesting(false)`**).
     var enablesHoldToPauseGesture: Bool = true
     /// Used when **`enablesHoldToPauseGesture`** is **`false`**.
@@ -106,7 +110,7 @@ struct DiveActivityMediaItemView: View {
             cancelVideoPlayerMountSettle()
         }
         .onAppear {
-            DiveMediaPreviewStorage.seedSessionCacheIfNeeded(for: media)
+            GalleryMediaPhotoKit.seedSessionCacheIfNeeded(for: media)
             #if canImport(UIKit)
             if previewImage == nil {
                 previewImage = sessionCachedImage ?? storedPreviewImage
@@ -143,7 +147,7 @@ struct DiveActivityMediaItemView: View {
     }
 
     private var storedPreviewImage: UIImage? {
-        DiveMediaPreviewStorage.storedPreviewImage(for: media)
+        GalleryMediaPhotoKit.storedPreviewImage(for: media)
     }
 
     private var displayedPreviewImage: UIImage? {
@@ -165,7 +169,7 @@ struct DiveActivityMediaItemView: View {
 
     private func pruneIfAssetMissing() {
         #if canImport(Photos)
-        DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
+        GalleryMediaPhotoKit.pruneIfAssetMissing(media, modelContext: modelContext)
         #endif
     }
 
@@ -213,56 +217,58 @@ struct DiveActivityMediaItemView: View {
 
     @ViewBuilder
     private var videoPage: some View {
-        ZStack {
-            videoPosterPage
+        GeometryReader { geometry in
+            let mediaAspect = heroMediaAspect(fallback: 16 / 9)
+            heroClippedMediaContainer(viewport: geometry.size, mediaAspect: mediaAspect) {
+                ZStack {
+                    videoPosterFillContent
 
-            // Mount only after selection settles — rapid carousel flipping kept remounting
-            // AVPlayers / shared PhotoKit items and still crashed after the neighbor-mount fix.
-            if DiveActivityVideoPlaybackPolicy.shouldMountSettledVideoPlayer(
-                isVideoPlaybackActive: isVideoPlaybackActive,
-                hasCompletedSettleDelay: hasCompletedVideoMountSettleDelay
-            ) {
-                DiveActivityVideoPlayerView(
-                    source: media.videoPlaybackSource,
-                    isPlaybackActive: true,
-                    loopsPlayback: loopsVideoPlayback,
-                    libraryVideoQuality: DiveActivityMediaPresentation.overviewLibraryVideoQuality,
-                    usesProgressiveFidelity: true,
-                    screenPixelWidth: layoutWidth * displayScale,
-                    initialPosterImage: displayedVideoPosterImage,
-                    isPausedByUserHold: effectiveHoldPause,
-                    onAssetMissing: pruneIfAssetMissing,
-                    clearsSharedSessionPlaybackOnDisappear: false,
-                    reusesSessionPlayerAcrossRemounts: false
-                )
-                .id("\(media.id)-epoch-\(videoPlaybackEpoch)")
+                    if DiveActivityVideoPlaybackPolicy.shouldMountSettledVideoPlayer(
+                        isVideoPlaybackActive: isVideoPlaybackActive,
+                        hasCompletedSettleDelay: hasCompletedVideoMountSettleDelay
+                    ) {
+                        DiveActivityVideoPlayerView(
+                            source: media.videoPlaybackSource,
+                            isPlaybackActive: true,
+                            loopsPlayback: loopsVideoPlayback,
+                            libraryVideoQuality: DiveActivityMediaPresentation.overviewLibraryVideoQuality,
+                            usesProgressiveFidelity: true,
+                            screenPixelWidth: layoutWidth * displayScale,
+                            initialPosterImage: displayedVideoPosterImage,
+                            isPausedByUserHold: effectiveHoldPause,
+                            onAssetMissing: pruneIfAssetMissing,
+                            clearsSharedSessionPlaybackOnDisappear: false,
+                            reusesSessionPlayerAcrossRemounts: false
+                        )
+                        .id("\(media.id)-epoch-\(videoPlaybackEpoch)")
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
     }
 
     @ViewBuilder
-    private var videoPosterPage: some View {
-        GeometryReader { geometry in
-            #if canImport(UIKit)
-            if let displayedVideoPosterImage {
-                Image(uiImage: displayedVideoPosterImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: geometry.size.width, height: geometry.size.height)
-                    .clipped()
-                    .accessibilityLabel("Dive video poster")
-            } else if DiveMediaPreviewPersistence.showsMissingMediaPlaceholder(
-                hasDisplayedImage: displayedVideoPosterImage != nil,
-                loadFinished: videoPosterLoadFinished
-            ) {
-                missingImage(in: geometry.size, systemImage: "video", showsOfflineIndicator: !networkConnectivity.isConnected)
-            } else {
-                loadingMediaPlaceholder(in: geometry.size)
-            }
-            #else
-            missingImage(in: geometry.size, systemImage: "video")
-            #endif
+    private var videoPosterFillContent: some View {
+        #if canImport(UIKit)
+        if let displayedVideoPosterImage {
+            Image(uiImage: displayedVideoPosterImage)
+                .resizable()
+                .scaledToFill()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+                .accessibilityLabel("Dive video poster")
+        } else if DiveMediaPreviewPersistence.showsMissingMediaPlaceholder(
+            hasDisplayedImage: displayedVideoPosterImage != nil,
+            loadFinished: videoPosterLoadFinished
+        ) {
+            missingImage(in: CGSize(width: layoutWidth, height: layoutWidth), systemImage: "video", showsOfflineIndicator: !networkConnectivity.isConnected)
+        } else {
+            loadingMediaPlaceholder(in: CGSize(width: max(layoutWidth, 1), height: max(layoutWidth, 1)))
         }
+        #else
+        missingImage(in: CGSize(width: layoutWidth, height: layoutWidth), systemImage: "video")
+        #endif
     }
 
     @ViewBuilder
@@ -270,11 +276,7 @@ struct DiveActivityMediaItemView: View {
         GeometryReader { geometry in
             #if canImport(UIKit)
             if let displayedPreviewImage {
-                Image(uiImage: displayedPreviewImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: geometry.size.width, height: geometry.size.height)
-                    .clipped()
+                heroScaledImage(uiImage: displayedPreviewImage, in: geometry.size)
                     .accessibilityLabel("Dive photo")
             } else if DiveMediaPreviewPersistence.showsMissingMediaPlaceholder(
                 hasDisplayedImage: displayedPreviewImage != nil,
@@ -306,7 +308,7 @@ struct DiveActivityMediaItemView: View {
             videoPosterLoadFinished = true
             return
         }
-        let identifier = DiveMediaLibraryIdentifierRepair.resolveLocalIdentifierIfNeeded(
+        let identifier = GalleryMediaPhotoKit.resolveLocalIdentifierIfNeeded(
             for: media,
             modelContext: modelContext
         )
@@ -334,12 +336,12 @@ struct DiveActivityMediaItemView: View {
         ) { image, _ in
             videoPosterImage = image
             receivedFrame = true
-            DiveMediaPreviewStorage.persistPreview(from: image, on: media, modelContext: modelContext)
+            GalleryMediaPhotoKit.persistPreview(from: image, on: media, modelContext: modelContext)
         }
         if !receivedFrame, networkConnectivity.isConnected {
-            DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
+            GalleryMediaPhotoKit.pruneIfAssetMissing(media, modelContext: modelContext)
         } else if receivedFrame {
-            _ = DiveMediaLibraryIdentifierRepair.captureCloudIdentifierIfNeeded(for: media)
+            _ = GalleryMediaPhotoKit.captureCloudIdentifierIfNeeded(for: media)
             try? modelContext.save()
         }
         videoPosterLoadFinished = true
@@ -357,7 +359,7 @@ struct DiveActivityMediaItemView: View {
             imageLoadFinished = true
             return
         }
-        let identifier = DiveMediaLibraryIdentifierRepair.resolveLocalIdentifierIfNeeded(
+        let identifier = GalleryMediaPhotoKit.resolveLocalIdentifierIfNeeded(
             for: media,
             modelContext: modelContext
         )
@@ -396,12 +398,12 @@ struct DiveActivityMediaItemView: View {
             if isFinal {
                 receivedFinal = true
             }
-            DiveMediaPreviewStorage.persistPreview(from: image, on: media, modelContext: modelContext)
+            GalleryMediaPhotoKit.persistPreview(from: image, on: media, modelContext: modelContext)
         }
         if !receivedFrame, networkConnectivity.isConnected {
-            DiveMediaReferencePruning.pruneIfAssetMissing(media, modelContext: modelContext)
+            GalleryMediaPhotoKit.pruneIfAssetMissing(media, modelContext: modelContext)
         } else if receivedFrame {
-            _ = DiveMediaLibraryIdentifierRepair.captureCloudIdentifierIfNeeded(for: media)
+            _ = GalleryMediaPhotoKit.captureCloudIdentifierIfNeeded(for: media)
             try? modelContext.save()
         }
         imageLoadFinished = true
@@ -418,6 +420,29 @@ struct DiveActivityMediaItemView: View {
     #endif
 
     private func captureOverlayBadge(dateTimeLine: String, divePositionLine: String?) -> some View {
+        Group {
+            if usesLiquidGlassCaptureOverlay {
+                MediaCaptureTimestampChromeLabel(
+                    primaryLine: dateTimeLine,
+                    secondaryLine: divePositionLine,
+                    accessibilityIdentifier: "DiveActivity.Media.CaptureTimestamp"
+                )
+            } else {
+                legacyCaptureOverlayBadge(dateTimeLine: dateTimeLine, divePositionLine: divePositionLine)
+                    .accessibilityLabel(
+                        DiveActivityMediaPresentation.mediaPreviewCaptureAccessibilityLabel(
+                            media: media,
+                            captureContext: captureContext,
+                            timeZoneOffsetSeconds: timeZoneOffsetSeconds,
+                            displayUnits: diveDisplayUnitSystem
+                        ) ?? "Captured \(dateTimeLine)"
+                    )
+            }
+        }
+        .padding(AppTheme.Spacing.md)
+    }
+
+    private func legacyCaptureOverlayBadge(dateTimeLine: String, divePositionLine: String?) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(dateTimeLine)
             if let divePositionLine {
@@ -429,15 +454,6 @@ struct DiveActivityMediaItemView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(.black.opacity(0.55), in: Capsule())
-        .padding(AppTheme.Spacing.md)
-        .accessibilityLabel(
-            DiveActivityMediaPresentation.mediaPreviewCaptureAccessibilityLabel(
-                media: media,
-                captureContext: captureContext,
-                timeZoneOffsetSeconds: timeZoneOffsetSeconds,
-                displayUnits: diveDisplayUnitSystem
-            ) ?? "Captured \(dateTimeLine)"
-        )
     }
 
     private func missingImage(
@@ -462,6 +478,61 @@ struct DiveActivityMediaItemView: View {
         AppTheme.Colors.surfaceMuted.opacity(0.35)
             .frame(width: size.width, height: size.height)
     }
+
+    #if canImport(UIKit)
+    private func heroMediaAspect(fallback: CGFloat) -> CGFloat {
+        if let displayedPreviewImage {
+            return displayedPreviewImage.size.width / max(displayedPreviewImage.size.height, 1)
+        }
+        if let displayedVideoPosterImage {
+            return displayedVideoPosterImage.size.width / max(displayedVideoPosterImage.size.height, 1)
+        }
+        return fallback
+    }
+
+    private func heroScaledImage(uiImage: UIImage, in viewport: CGSize) -> some View {
+        let aspect = uiImage.size.width / max(uiImage.size.height, 1)
+        return heroClippedMediaContainer(viewport: viewport, mediaAspect: aspect) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFill()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+        }
+    }
+
+    private func heroClippedMediaContainer<Content: View>(
+        viewport: CGSize,
+        mediaAspect: CGFloat,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        Group {
+            if heroFitFillProgress >= 0.999 || heroBandRect.height <= 0 {
+                content()
+                    .frame(width: viewport.width, height: viewport.height)
+                    .clipped()
+            } else {
+                let size = DiveActivityMediaHeroPresentation.interpolatedMediaSize(
+                    mediaAspect: mediaAspect,
+                    band: heroBandRect,
+                    viewport: viewport,
+                    progress: heroFitFillProgress
+                )
+                let centerY = DiveActivityMediaHeroPresentation.interpolatedMediaCenterY(
+                    band: heroBandRect,
+                    viewportHeight: viewport.height,
+                    mediaAspect: mediaAspect,
+                    progress: heroFitFillProgress
+                )
+                content()
+                    .frame(width: size.width, height: size.height)
+                    .position(x: viewport.width / 2, y: centerY)
+                    .frame(width: viewport.width, height: viewport.height)
+                    .clipped()
+            }
+        }
+    }
+    #endif
 }
 
 /// **`onLongPressGesture(maximumDistance:)`** — movement fails the press so horizontal pager swipes win.
@@ -484,3 +555,6 @@ struct DiveActivityVideoHoldToPauseModifier: ViewModifier {
         }
     }
 }
+
+typealias DiveActivityMediaItemView = ActivityMediaItemView<DiveMediaPhoto>
+typealias SnorkelActivityMediaItemView = ActivityMediaItemView<SnorkelMediaPhoto>

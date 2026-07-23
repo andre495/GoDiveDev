@@ -22,6 +22,10 @@ final class SightingInstance {
     @Relationship(inverse: \DiveActivity.marineLifeSightingsStorage)
     var diveActivity: DiveActivity?
 
+    var snorkelActivityID: UUID?
+    @Relationship(inverse: \SnorkelActivity.marineLifeSightingsStorage)
+    var snorkelActivity: SnorkelActivity?
+
     /// Matches **`DiveSite.id`** or **`UserDiveSite.id`**.
     var diveSiteID: UUID?
 
@@ -32,23 +36,33 @@ final class SightingInstance {
     @Relationship(deleteRule: .nullify, inverse: \DiveMediaPhoto.marineLifeSightingsStorage)
     var mediaPhoto: DiveMediaPhoto?
 
+    var snorkelMediaPhotoID: UUID?
+    @Relationship(deleteRule: .nullify, inverse: \SnorkelMediaPhoto.marineLifeSightingsStorage)
+    var snorkelMediaPhoto: SnorkelMediaPhoto?
+
     init(
         sightingUUID: String = UUID().uuidString,
         marineLifeUUID: String,
         sightingDateTime: Date,
         diveActivity: DiveActivity? = nil,
+        snorkelActivity: SnorkelActivity? = nil,
         diveSiteID: UUID? = nil,
         sightingDepthMeters: Double? = nil,
-        mediaPhoto: DiveMediaPhoto? = nil
+        mediaPhoto: DiveMediaPhoto? = nil,
+        snorkelMediaPhoto: SnorkelMediaPhoto? = nil
     ) {
         self.sightingUUID = sightingUUID
         self.marineLifeUUID = marineLifeUUID
         self.sightingDateTime = sightingDateTime
         self.diveActivity = diveActivity
         self.diveActivityID = diveActivity?.id
-        self.diveSiteID = diveSiteID ?? diveActivity?.diveSiteID
+        self.snorkelActivity = snorkelActivity
+        self.snorkelActivityID = snorkelActivity?.id
+        self.diveSiteID = diveSiteID ?? diveActivity?.diveSiteID ?? snorkelActivity?.diveSiteID
         self.sightingDepthMeters = sightingDepthMeters
         self.mediaPhoto = mediaPhoto
         self.mediaPhotoID = mediaPhoto?.id
+        self.snorkelMediaPhoto = snorkelMediaPhoto
+        self.snorkelMediaPhotoID = snorkelMediaPhoto?.id
     }
 }

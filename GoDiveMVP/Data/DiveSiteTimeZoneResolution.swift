@@ -110,6 +110,24 @@ enum DiveSiteTimeZoneResolution: Sendable {
         }
     }
 
+    @MainActor
+    static func ensureResolvedForLinkedSnorkelActivities(
+        _ activities: [SnorkelActivity],
+        resolver: any GeocodingTimeZoneResolving
+    ) async {
+        var resolvedSiteIDs: Set<UUID> = []
+        for activity in activities {
+            guard let diveSiteID = activity.diveSiteID, let modelContext = activity.modelContext else { continue }
+            guard resolvedSiteIDs.insert(diveSiteID).inserted else { continue }
+            if let userSite = try? DiveLinkedSiteResolver.existingUserDiveSite(id: diveSiteID, modelContext: modelContext) {
+                await ensureResolved(for: userSite, at: activity.startTime, resolver: resolver)
+            } else if let catalogSite = try? DiveLinkedSiteResolver.existingCatalogDiveSite(id: diveSiteID, modelContext: modelContext) {
+                await ensureResolved(for: catalogSite, at: activity.startTime, resolver: resolver)
+            }
+            await Task.yield()
+        }
+    }
+
     nonisolated static func persist(_ timeZone: TimeZone, on site: DiveSite, at instant: Date) {
         site.timeZoneIdentifier = timeZone.identifier
         site.timeZoneOffsetSeconds = timeZone.secondsFromGMT(for: instant)

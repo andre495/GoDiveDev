@@ -7,6 +7,7 @@ struct BlueSheetPinnedSummary<TopRow: View, LeadingAccessory: View>: View {
     var accent: String?
     var accentColor: Color = AppTheme.Colors.accent
     var accentFont: Font = BlueSheetPinnedSummaryPresentation.accentFont
+    var accentAccessibilityIdentifier: String?
 
     let title: String
     var titleFont: Font = BlueSheetPinnedSummaryPresentation.titleFont
@@ -53,6 +54,7 @@ struct BlueSheetPinnedSummary<TopRow: View, LeadingAccessory: View>: View {
                     .foregroundStyle(accentColor)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .optionalAccessibilityIdentifier(accentAccessibilityIdentifier)
             }
 
             Text(title)
@@ -99,6 +101,7 @@ struct BlueSheetPinnedSummary<TopRow: View, LeadingAccessory: View>: View {
                         .font(accentFont)
                         .foregroundStyle(accentColor)
                         .multilineTextAlignment(.leading)
+                        .optionalAccessibilityIdentifier(accentAccessibilityIdentifier)
                 }
             }
             .offset(y: contentVerticalOffset)
@@ -115,6 +118,7 @@ extension BlueSheetPinnedSummary where TopRow == EmptyView, LeadingAccessory == 
         accent: String? = nil,
         accentColor: Color = AppTheme.Colors.accent,
         accentFont: Font = BlueSheetPinnedSummaryPresentation.accentFont,
+        accentAccessibilityIdentifier: String? = nil,
         title: String,
         titleFont: Font = BlueSheetPinnedSummaryPresentation.titleFont,
         titleColor: Color = AppTheme.Colors.textPrimary,
@@ -134,6 +138,7 @@ extension BlueSheetPinnedSummary where TopRow == EmptyView, LeadingAccessory == 
         self.accent = accent
         self.accentColor = accentColor
         self.accentFont = accentFont
+        self.accentAccessibilityIdentifier = accentAccessibilityIdentifier
         self.title = title
         self.titleFont = titleFont
         self.titleColor = titleColor
@@ -159,6 +164,7 @@ extension BlueSheetPinnedSummary where TopRow == EmptyView {
         accent: String? = nil,
         accentColor: Color = AppTheme.Colors.accent,
         accentFont: Font = BlueSheetPinnedSummaryPresentation.accentFont,
+        accentAccessibilityIdentifier: String? = nil,
         title: String,
         titleFont: Font = BlueSheetPinnedSummaryPresentation.titleFont,
         titleColor: Color = AppTheme.Colors.textPrimary,
@@ -179,6 +185,7 @@ extension BlueSheetPinnedSummary where TopRow == EmptyView {
         self.accent = accent
         self.accentColor = accentColor
         self.accentFont = accentFont
+        self.accentAccessibilityIdentifier = accentAccessibilityIdentifier
         self.title = title
         self.titleFont = titleFont
         self.titleColor = titleColor
@@ -204,6 +211,7 @@ extension BlueSheetPinnedSummary where LeadingAccessory == EmptyView {
         accent: String? = nil,
         accentColor: Color = AppTheme.Colors.accent,
         accentFont: Font = BlueSheetPinnedSummaryPresentation.accentFont,
+        accentAccessibilityIdentifier: String? = nil,
         title: String,
         titleFont: Font = BlueSheetPinnedSummaryPresentation.titleFont,
         titleColor: Color = AppTheme.Colors.textPrimary,
@@ -224,6 +232,7 @@ extension BlueSheetPinnedSummary where LeadingAccessory == EmptyView {
         self.accent = accent
         self.accentColor = accentColor
         self.accentFont = accentFont
+        self.accentAccessibilityIdentifier = accentAccessibilityIdentifier
         self.title = title
         self.titleFont = titleFont
         self.titleColor = titleColor

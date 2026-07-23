@@ -9,8 +9,9 @@ struct DiveLocationMapView: View {
     /// Height from the **top** of **`layoutHeight`** covered by status bar + dive toolbar (**points**).
     var topObstructionHeight: CGFloat = 0
     var layoutHeight: CGFloat = 0
-    /// Resting sheet detent — camera reframes when this changes (not on every layout tick).
-    var cameraLayoutDetent: DiveActivityOverviewDetent = .medium
+    /// Continuous overview panel height — drives zoom while the grabber moves.
+    var sheetHeightFraction: CGFloat = DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
+    var largeRestingFraction: CGFloat = DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
     /// When **`false`**, the map does not accept pan/zoom (dive overview at medium/large detents).
     var isUserInteractionEnabled: Bool = true
 
@@ -35,7 +36,8 @@ struct DiveLocationMapView: View {
                 bottomContentMargin: bottomContentMargin,
                 topObstructionHeight: topObstructionHeight,
                 layoutHeight: layoutHeight,
-                cameraLayoutDetent: cameraLayoutDetent,
+                sheetHeightFraction: sheetHeightFraction,
+                largeRestingFraction: largeRestingFraction,
                 isUserInteractionEnabled: isUserInteractionEnabled
             )
         } else {
@@ -44,7 +46,8 @@ struct DiveLocationMapView: View {
                 bottomContentMargin: bottomContentMargin,
                 topObstructionHeight: topObstructionHeight,
                 layoutHeight: layoutHeight,
-                cameraLayoutDetent: cameraLayoutDetent,
+                sheetHeightFraction: sheetHeightFraction,
+                largeRestingFraction: largeRestingFraction,
                 isUserInteractionEnabled: isUserInteractionEnabled
             )
         }

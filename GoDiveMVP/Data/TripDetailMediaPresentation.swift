@@ -90,6 +90,14 @@ enum TripDetailMediaPresentation: Sendable {
     }
 }
 
+/// Where the featured-media star sits in **`TripDetailMediaGalleryOverlayControls`**.
+enum TripDetailMediaGalleryFeaturedStarPlacement: Sendable {
+    /// Bottom row beside buddy / fish tag controls (fullscreen grid default).
+    case bottomTrailing
+    /// Upper trailing corner (dive **Media** tab landscape).
+    case topTrailing
+}
+
 /// Trip media gallery chrome on **`TripDetailView`**.
 enum TripDetailMediaGalleryPresentation: Sendable {
     nonisolated static let previewCornerRadius: CGFloat = 16
@@ -105,7 +113,8 @@ enum TripDetailMediaGalleryPresentation: Sendable {
     nonisolated static let marineLifeOverlayFeatureImageHeight: CGFloat = 148
     nonisolated static let marineLifeOverlayFeatureImageMaxWidth: CGFloat = 220
     /// Dimming scrim when the overlay sits on top of playing media (Home carousel / full-bleed heroes).
-    nonisolated static let marineLifeOverlayMediaScrimOpacity: Double = 0.42
+    nonisolated static let marineLifeOverlayMediaScrimOpacity: Double =
+        DiveActivityMediaFrostedOverlayPresentation.mediaScrimOpacity
     nonisolated static let marineLifeOverlayTranslucentPanelOpacity: Double = 0.9
     /// Matches dive-media capture timestamp capsule (**`DiveActivityMediaItemView`**).
     nonisolated static let overlayChipHorizontalPadding: CGFloat = 10
@@ -198,7 +207,8 @@ enum TripDetailMediaGalleryPresentation: Sendable {
         return nil
     }
 
-    nonisolated static func mediaPositionLabel(selectedID: UUID?, in photos: [DiveMediaPhoto]) -> String? {
+    @MainActor
+    static func mediaPositionLabel(selectedID: UUID?, in photos: [DiveMediaPhoto]) -> String? {
         guard let resolvedID = DiveActivityMediaPresentation.resolvedSelectedPhotoID(
             selectedID: selectedID,
             in: photos

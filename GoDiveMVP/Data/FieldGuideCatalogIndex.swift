@@ -40,6 +40,22 @@ enum FieldGuideCatalogIndex {
 
     typealias SubcategorySpeciesIndex = [String: [String: [MarineLifeCatalogSnapshot]]]
 
+    nonisolated static func compareDisplayTitlesAscending(_ lhs: String, _ rhs: String) -> Bool {
+        lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
+    }
+
+    nonisolated static func sortedCategories(
+        _ categories: [FieldGuideTaxonomy.Category]
+    ) -> [FieldGuideTaxonomy.Category] {
+        categories.sorted { compareDisplayTitlesAscending($0.title, $1.title) }
+    }
+
+    nonisolated static func sortedSubcategories(
+        _ subcategories: [FieldGuideTaxonomy.Subcategory]
+    ) -> [FieldGuideTaxonomy.Subcategory] {
+        subcategories.sorted { compareDisplayTitlesAscending($0.title, $1.title) }
+    }
+
     nonisolated static func summaries(for catalog: [MarineLifeCatalogSnapshot]) -> [CategorySummary] {
         var subCounts: [String: [String: Int]] = [:]
         var categoryTotals: [String: Int] = [:]
@@ -51,12 +67,17 @@ enum FieldGuideCatalogIndex {
             subCounts[categoryID, default: [:]][subcategoryID, default: 0] += 1
         }
 
-        return FieldGuideTaxonomy.categories.map { definition in
+        let summaries = FieldGuideTaxonomy.categories.map { definition in
             CategorySummary(
                 categoryID: definition.id,
                 speciesCount: categoryTotals[definition.id, default: 0],
                 subcategoryCounts: subCounts[definition.id, default: [:]]
             )
+        }
+        return summaries.sorted { lhs, rhs in
+            let leftTitle = FieldGuideTaxonomy.category(id: lhs.categoryID)?.title ?? lhs.categoryID
+            let rightTitle = FieldGuideTaxonomy.category(id: rhs.categoryID)?.title ?? rhs.categoryID
+            return compareDisplayTitlesAscending(leftTitle, rightTitle)
         }
     }
 
@@ -75,7 +96,7 @@ enum FieldGuideCatalogIndex {
             guard var subcategoryBuckets = buckets[categoryID] else { continue }
             for subcategoryID in subcategoryBuckets.keys {
                 subcategoryBuckets[subcategoryID]?.sort {
-                    $0.commonName.localizedCaseInsensitiveCompare($1.commonName) == .orderedAscending
+                    compareDisplayTitlesAscending($0.commonName, $1.commonName)
                 }
             }
             buckets[categoryID] = subcategoryBuckets
@@ -96,9 +117,7 @@ enum FieldGuideCatalogIndex {
             species = (speciesIndex[normalizedCategoryID] ?? [:])
                 .values
                 .flatMap { $0 }
-                .sorted {
-                    $0.commonName.localizedCaseInsensitiveCompare($1.commonName) == .orderedAscending
-                }
+                .sorted { compareDisplayTitlesAscending($0.commonName, $1.commonName) }
         } else {
             species = speciesIndex[normalizedCategoryID]?[normalizedSubcategoryID] ?? []
         }
@@ -129,7 +148,7 @@ enum FieldGuideCatalogIndex {
             FieldGuideTaxonomy.resolvedCategoryID(for: entry) == FieldGuideTaxonomy.normalizedCategoryID(categoryID)
                 && FieldGuideTaxonomy.resolvedSubcategoryID(for: entry) == FieldGuideTaxonomy.normalizedSubcategoryID(subcategoryID)
         }
-        .sorted { $0.commonName.localizedCaseInsensitiveCompare($1.commonName) == .orderedAscending }
+        .sorted { compareDisplayTitlesAscending($0.commonName, $1.commonName) }
     }
 
     nonisolated static func species(
@@ -139,7 +158,7 @@ enum FieldGuideCatalogIndex {
         catalog.filter {
             FieldGuideTaxonomy.resolvedCategoryID(for: $0) == FieldGuideTaxonomy.normalizedCategoryID(categoryID)
         }
-        .sorted { $0.commonName.localizedCaseInsensitiveCompare($1.commonName) == .orderedAscending }
+        .sorted { compareDisplayTitlesAscending($0.commonName, $1.commonName) }
     }
 
     /// Whether a catalog snapshot has a bundled or remote feature photo.

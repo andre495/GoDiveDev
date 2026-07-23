@@ -1,8 +1,10 @@
+import SwiftData
 import SwiftUI
 
 /// Sheet editor for all editable fields in one dive overview section.
 struct DiveActivitySectionEditSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
 
     @Bindable var activity: DiveActivity
     let section: DiveActivityEditableCatalog.Section
@@ -150,6 +152,7 @@ struct DiveActivitySectionEditSheet: View {
                 displayUnits: displayUnits
             )
         }
+        try? modelContext.save()
         dismiss()
     }
 }

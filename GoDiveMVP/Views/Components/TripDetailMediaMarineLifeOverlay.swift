@@ -93,7 +93,7 @@ struct TripDetailMediaMarineLifeOverlay: View {
                         .stroke(AppTheme.Colors.tabUnselected.opacity(0.12), lineWidth: 1)
                 }
         case .overMediaDimming:
-            Color.black.opacity(TripDetailMediaGalleryPresentation.marineLifeOverlayMediaScrimOpacity)
+            DiveActivityMediaFrostedOverlayBackground()
                 .ignoresSafeArea()
         }
     }

@@ -4,6 +4,11 @@ import SwiftUI
 /// Full-screen linked media — horizontal browse, vertical dismiss, optional marine-life overlay.
 struct LinkedMediaFullscreenView: View {
     struct Configuration: Sendable {
+        enum BottomLeadingChrome: Sendable {
+            case diveLink
+            case captureTimestamp
+        }
+
         let rootAccessibilityIdentifier: String
         let closeAccessibilityIdentifier: String
         let openOnDiveAccessibilityIdentifier: String
@@ -11,6 +16,7 @@ struct LinkedMediaFullscreenView: View {
         let marineLifeAccessibilityIdentifier: String
         let accessibilityContextLabel: String
         let showsMarineLifeTagButton: Bool
+        let bottomLeadingChrome: BottomLeadingChrome
         var buddyAccessibilityIdentifier: String {
             "\(rootAccessibilityIdentifier).BuddyTag"
         }
@@ -25,7 +31,8 @@ struct LinkedMediaFullscreenView: View {
             featureToggleAccessibilityIdentifier: "DiveBuddyDetails.TaggedMedia.FeatureToggle",
             marineLifeAccessibilityIdentifier: "DiveBuddyDetails.TaggedMedia.MarineLifeTag",
             accessibilityContextLabel: "Buddy tagged",
-            showsMarineLifeTagButton: true
+            showsMarineLifeTagButton: true,
+            bottomLeadingChrome: .diveLink
         )
 
         static let trip = Configuration(
@@ -35,7 +42,8 @@ struct LinkedMediaFullscreenView: View {
             featureToggleAccessibilityIdentifier: "TripDetail.Media.FeatureToggle",
             marineLifeAccessibilityIdentifier: "TripDetail.Media.MarineLifeTag",
             accessibilityContextLabel: "Trip media",
-            showsMarineLifeTagButton: true
+            showsMarineLifeTagButton: true,
+            bottomLeadingChrome: .diveLink
         )
 
         static let diveSite = Configuration(
@@ -45,7 +53,20 @@ struct LinkedMediaFullscreenView: View {
             featureToggleAccessibilityIdentifier: "Explore.DiveSiteDetail.TaggedMedia.FeatureToggle",
             marineLifeAccessibilityIdentifier: "Explore.DiveSiteDetail.TaggedMedia.MarineLifeTag",
             accessibilityContextLabel: "Dive site tagged",
-            showsMarineLifeTagButton: true
+            showsMarineLifeTagButton: true,
+            bottomLeadingChrome: .diveLink
+        )
+
+        /// Landscape tank depth-chart marker — same fullscreen chrome as linked grids; capture time in the lower leading corner.
+        static let diveDepthChart = Configuration(
+            rootAccessibilityIdentifier: "DiveActivity.DepthChart.Media.Fullscreen",
+            closeAccessibilityIdentifier: "DiveActivity.DepthChart.Media.Fullscreen.Close",
+            openOnDiveAccessibilityIdentifier: "DiveActivity.DepthChart.Media.OpenOnDive",
+            featureToggleAccessibilityIdentifier: "DiveActivity.DepthChart.Media.FeatureToggle",
+            marineLifeAccessibilityIdentifier: "DiveActivity.DepthChart.Media.MarineLifeTag",
+            accessibilityContextLabel: "Dive media",
+            showsMarineLifeTagButton: true,
+            bottomLeadingChrome: .captureTimestamp
         )
     }
 
@@ -57,6 +78,7 @@ struct LinkedMediaFullscreenView: View {
 
     let mediaItems: [DiveMediaPhoto]
     let timeZoneOffsetByMediaID: [UUID: Int?]
+    let captureContextByMediaID: [UUID: DiveMediaCaptureContext]
     let linkedMediaItems: [TripDetailLinkedMediaItem]
     @Binding var selectedMediaID: UUID?
     let featuredMediaPhotoID: UUID?
@@ -69,6 +91,7 @@ struct LinkedMediaFullscreenView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
 
     @State private var horizontalDragTranslation: CGFloat = 0
@@ -112,6 +135,7 @@ struct LinkedMediaFullscreenView: View {
         linkedMediaItems: [TripDetailLinkedMediaItem],
         selectedMediaID: Binding<UUID?>,
         configuration: Configuration,
+        captureContextByMediaID: [UUID: DiveMediaCaptureContext] = [:],
         featuredMediaPhotoID: UUID? = nil,
         onToggleFeatured: (() -> Void)? = nil,
         sightings: [SightingInstance] = [],
@@ -122,6 +146,7 @@ struct LinkedMediaFullscreenView: View {
     ) {
         self.mediaItems = mediaItems
         self.timeZoneOffsetByMediaID = timeZoneOffsetByMediaID
+        self.captureContextByMediaID = captureContextByMediaID
         self.linkedMediaItems = linkedMediaItems
         _selectedMediaID = selectedMediaID
         self.configuration = configuration
@@ -171,6 +196,16 @@ struct LinkedMediaFullscreenView: View {
 
     private var selectedDiveLinkTripTitle: String? {
         LinkedMediaFullscreenDiveLinkPresentation.linkedTripTitle(for: selectedDiveForTagging)
+    }
+
+    private var selectedCaptureTimestampLabels: (primary: String, secondary: String?)? {
+        guard let selectedMedia else { return nil }
+        return LinkedMediaFullscreenPresentation.bottomLeadingCaptureTimestampLabels(
+            media: selectedMedia,
+            captureContext: captureContextByMediaID[selectedMedia.id],
+            timeZoneOffsetSeconds: timeZoneOffsetByMediaID[selectedMedia.id] ?? nil,
+            displayUnits: diveDisplayUnitSystem
+        )
     }
 
     private var selectedDiveChronologicalIndexByID: [UUID: Int] {
@@ -257,21 +292,30 @@ struct LinkedMediaFullscreenView: View {
 
                 if !showsTagOverviewSheet {
                     TripDetailMediaGalleryOverlayControls(
-                        siteDisplayName: selectedDiveLinkSiteDisplayName,
-                        diveNumberLabel: selectedDiveLinkNumberLabel,
-                        linkedTripTitle: selectedDiveLinkTripTitle,
+                        bottomLeadingChrome: configuration.bottomLeadingChrome == .captureTimestamp
+                            ? .captureTimestamp(
+                                primaryLine: selectedCaptureTimestampLabels?.primary
+                                    ?? DiveActivityMediaPresentation.captureDateUnknownMessage,
+                                secondaryLine: selectedCaptureTimestampLabels?.secondary
+                            )
+                            : .diveLink(
+                                siteDisplayName: selectedDiveLinkSiteDisplayName,
+                                diveNumberLabel: selectedDiveLinkNumberLabel,
+                                linkedTripTitle: selectedDiveLinkTripTitle,
+                                onOpenOnDive: openSelectedMediaInDive
+                            ),
                         isFeatured: isSelectedMediaFeatured,
                         showsMediaTagButtons: configuration.showsMediaTagButtons,
                         hasBuddyTags: !selectedMediaTaggedBuddyModels.isEmpty,
                         hasMarineLifeTags: !selectedMediaTaggedSpecies.isEmpty,
-                        onOpenOnDive: openSelectedMediaInDive,
                         onToggleFeatured: onToggleFeatured,
                         onToggleMarineLife: presentMarineLifeTagSheet,
                         onToggleBuddy: presentBuddyTagSheet,
                         featureToggleAccessibilityIdentifier: configuration.featureToggleAccessibilityIdentifier,
                         openOnDiveAccessibilityIdentifier: configuration.openOnDiveAccessibilityIdentifier,
                         marineLifeAccessibilityIdentifier: configuration.marineLifeAccessibilityIdentifier,
-                        buddyAccessibilityIdentifier: configuration.buddyAccessibilityIdentifier
+                        buddyAccessibilityIdentifier: configuration.buddyAccessibilityIdentifier,
+                        captureTimestampAccessibilityIdentifier: "\(configuration.rootAccessibilityIdentifier).CaptureTimestamp"
                     )
                     .padding(.top, topChromeRowOffset)
                     .padding(.bottom, geometry.safeAreaInsets.bottom)
@@ -300,8 +344,12 @@ struct LinkedMediaFullscreenView: View {
 
                     tagOverviewEmbeddedPanel(
                         media: media,
-                        layoutHeight: containerSize.height,
-                        bottomSafeInset: geometry.safeAreaInsets.bottom
+                        layoutContext: DiveActivityOverviewSheetLayoutContext(
+                            layoutHeight: containerSize.height,
+                            screenWidth: containerSize.width,
+                            topSafeInset: geometry.safeAreaInsets.top,
+                            bottomSafeInset: geometry.safeAreaInsets.bottom
+                        )
                     )
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
@@ -783,12 +831,10 @@ struct LinkedMediaFullscreenView: View {
     @ViewBuilder
     private func tagOverviewEmbeddedPanel(
         media: DiveMediaPhoto,
-        layoutHeight: CGFloat,
-        bottomSafeInset: CGFloat
+        layoutContext: DiveActivityOverviewSheetLayoutContext
     ) -> some View {
         let panelHeight = LinkedMediaFullscreenPresentation.tagOverviewPanelHeight(
-            layoutHeight: layoutHeight,
-            bottomSafeInset: bottomSafeInset
+            in: layoutContext
         )
         let isDragging = tagOverviewGrabberTranslation != 0
         let displayedHeight = max(0, panelHeight - tagOverviewGrabberTranslation)

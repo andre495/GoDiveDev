@@ -189,12 +189,18 @@ enum UddfDiveFileImport {
                 resolver: MapKitGeocodingTimeZoneResolver.shared
             )
             await DiveActivityTimeZoneResolution.resolveMissingOffsets(for: inserted)
+            await ActivityWeatherImportCapture.captureForDives(inserted, catalogSites: catalogSites)
 
             if let interrupted = DiveFileImportInterruption.rollbackIfNeededBeforeSave(modelContext: modelContext) {
                 return interrupted
             }
 
             await DiveBuddyContactAutoLink.autoLinkUnlinkedBuddies(
+                owner: owner,
+                modelContext: modelContext,
+                buddyIDs: importedBuddyIDs
+            )
+            await GoDiveFriendBuddyLinking.autoLinkUnlinkedBuddies(
                 owner: owner,
                 modelContext: modelContext,
                 buddyIDs: importedBuddyIDs

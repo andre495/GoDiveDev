@@ -98,7 +98,7 @@ enum FieldGuidePresentation {
         unitSystem: DiveDisplayUnitSystem
     ) -> [MarineLifeRowDisplayData] {
         species
-            .sorted { $0.commonName.localizedCaseInsensitiveCompare($1.commonName) == .orderedAscending }
+            .sorted { FieldGuideCatalogIndex.compareDisplayTitlesAscending($0.commonName, $1.commonName) }
             .map { entry in
                 marineLifeRowDisplayData(
                     for: entry,

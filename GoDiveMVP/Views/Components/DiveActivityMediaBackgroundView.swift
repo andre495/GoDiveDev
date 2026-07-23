@@ -2,7 +2,7 @@ import PhotosUI
 import SwiftUI
 
 /// Full-bleed **Media** tab hero — one photo or video at a time; horizontal paging.
-struct DiveActivityMediaBackgroundView: View {
+struct ActivityMediaBackgroundView<Media: PhotoLibraryMediaRow>: View {
     private struct MediaSelectionSignature: Equatable {
         var count: Int
         var firstID: UUID?
@@ -10,22 +10,26 @@ struct DiveActivityMediaBackgroundView: View {
     }
 
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
 
-    let mediaItems: [DiveMediaPhoto]
+    let mediaItems: [Media]
     @Binding var selectedMediaID: UUID?
     var timeZoneOffsetSeconds: Int?
     var mediaCaptureContextsByID: [UUID: DiveMediaCaptureContext] = [:]
-    var sheetDetent: DiveActivityOverviewDetent = .medium
+    var sheetDetent: DiveActivityOverviewDetent = .large
     /// Continuous panel height fraction while dragging the grabber (resting detent fraction when idle).
-    var sheetHeightFraction: CGFloat = DiveActivityOverviewPanelMetrics.mediumHeightFraction
+    var sheetHeightFraction: CGFloat = DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
     var layoutHeight: CGFloat = 0
+    var screenWidth: CGFloat = 0
+    var topSafeAreaInset: CGFloat = 0
     var topObstructionHeight: CGFloat = 0
     var bottomSafeInset: CGFloat = 0
+    var isLandscape: Bool = false
     var isMediaTabSelected: Bool = true
     var presentationEpoch: Int = 0
     /// Deep-link target (Home / logbook) — keeps the tapped photo selected while the pager hydrates.
     var deepLinkMediaID: UUID? = nil
-    var onTagMarineLife: ((DiveMediaPhoto) -> Void)?
+    var onTagMarineLife: ((Media) -> Void)?
     var marineLifeSightings: [SightingInstance] = []
     /// Top padding so the marine-life fish control sits below the dive tab bar (see **`marineLifeTagButtonTopPadding`**).
     var marineLifeTagTopPadding: CGFloat = 0
@@ -35,9 +39,17 @@ struct DiveActivityMediaBackgroundView: View {
     /// Empty-hero **Upload Media** CTA — shared picker with the overview sheet **+**.
     @Binding var mediaPickerItems: [PhotosPickerItem]
     var isImportInProgress = false
+    var hasTaggedBuddiesOnSelectedMedia = false
+    var hasTaggedMarineLifeOnSelectedMedia = false
+    var isSelectedMediaFeatured = false
+    var onToggleFeatured: (() -> Void)?
+    var onToggleMarineLifeTags: (() -> Void)?
+    var onToggleBuddyTags: (() -> Void)?
 
     @State private var pagerScrollReaffirmToken = 0
     @State private var pagerLayoutReaffirmTask: Task<Void, Never>?
+    @State private var isPlaybackPausedByUser = false
+    @State private var showsPlaybackChrome = true
 
     private var showsMarineLifeTagButton: Bool {
         onTagMarineLife != nil
@@ -48,11 +60,49 @@ struct DiveActivityMediaBackgroundView: View {
         DiveActivityMediaPresentation.showsBackgroundPhotos(for: sheetDetent)
     }
 
+    private var overviewLayoutContext: DiveActivityOverviewSheetLayoutContext {
+        DiveActivityOverviewSheetLayoutContext(
+            layoutHeight: layoutHeight,
+            screenWidth: screenWidth,
+            topSafeInset: topSafeAreaInset,
+            bottomSafeInset: bottomSafeInset
+        )
+    }
+
+    private var mediaHeroFullBleedProgress: CGFloat {
+        guard !isLandscape, layoutHeight > 0, screenWidth > 0 else { return 1 }
+        return DiveActivityMediaHeroPresentation.fullBleedProgress(
+            sheetHeightFraction: sheetHeightFraction,
+            layoutContext: overviewLayoutContext
+        )
+    }
+
+    private func mediaHeroBandRect(viewportSize: CGSize) -> CGRect {
+        DiveActivityMediaHeroPresentation.heroBandRect(
+            viewportSize: viewportSize,
+            layoutHeight: layoutHeight,
+            sheetHeightFraction: sheetHeightFraction,
+            bottomSafeInset: bottomSafeInset,
+            topObstructionHeight: topObstructionHeight
+        )
+    }
+
     private var shouldPlayBackgroundVideo: Bool {
         DiveActivityMediaPresentation.shouldPlayBackgroundVideo(
             isMediaTabSelected: isMediaTabSelected,
             detent: sheetDetent
         )
+    }
+
+    private var showsLandscapeGridStyleChrome: Bool {
+        DiveActivityMediaPresentation.showsLandscapeGridStyleMediaChrome(
+            isLandscape: isLandscape,
+            hasMedia: !mediaItems.isEmpty
+        )
+    }
+
+    private var selectedMedia: Media? {
+        DiveActivityMediaPresentation.selectedMedia(selectedID: selectedMediaID, in: mediaItems)
     }
 
     var body: some View {
@@ -64,8 +114,12 @@ struct DiveActivityMediaBackgroundView: View {
                 if mediaItems.isEmpty {
                     emptyState
                 } else {
-                    mediaPager
+                    landscapeMediaPager
                 }
+            }
+
+            if showsLandscapeGridStyleChrome, isMediaTabSelected {
+                landscapeGridStyleChromeOverlay
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -101,6 +155,10 @@ struct DiveActivityMediaBackgroundView: View {
             pagerLayoutReaffirmTask?.cancel()
             pagerLayoutReaffirmTask = nil
         }
+        .onChange(of: selectedMediaID) { _, _ in
+            isPlaybackPausedByUser = false
+            showsPlaybackChrome = true
+        }
     }
 
     private var mediaIDsSignature: MediaSelectionSignature {
@@ -111,20 +169,42 @@ struct DiveActivityMediaBackgroundView: View {
         )
     }
 
+    private var landscapeMediaPager: some View {
+        Group {
+            if showsLandscapeGridStyleChrome {
+                mediaPager
+                    .simultaneousGesture(
+                        TapGesture().onEnded { _ in
+                            toggleLandscapePlaybackChrome()
+                        }
+                    )
+            } else {
+                mediaPager
+            }
+        }
+    }
+
     private var mediaPager: some View {
         GeometryReader { geometry in
             let viewportSize = geometry.size
+            let heroBand = mediaHeroBandRect(viewportSize: viewportSize)
+            let heroProgress = mediaHeroFullBleedProgress
+            let showsGridChrome = showsLandscapeGridStyleChrome
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 0) {
                         ForEach(mediaItems, id: \.id) { item in
-                            DiveActivityMediaItemView(
+                            ActivityMediaItemView(
                                 media: item,
                                 timeZoneOffsetSeconds: timeZoneOffsetSeconds,
                                 captureContext: mediaCaptureContextsByID[item.id],
                                 showsCaptureDateOverlay: DiveActivityMediaPresentation.showsCaptureDateOnHero(
                                     for: sheetDetent
-                                ),
+                                ) && !showsGridChrome,
+                                usesLiquidGlassCaptureOverlay:
+                                    DiveActivityMediaPresentation.usesLiquidGlassCaptureOverlayOnHero(
+                                        for: sheetDetent
+                                    ) && !showsGridChrome,
                                 captureOverlayBottomInset: captureOverlayBottomInset,
                                 showsMarineLifeTagButton: showsMarineLifeTagButton
                                     && selectedMediaID == item.id,
@@ -139,7 +219,13 @@ struct DiveActivityMediaBackgroundView: View {
                                     : nil,
                             isVideoPlaybackActive: shouldPlayBackgroundVideo && selectedMediaID == item.id,
                             loopsVideoPlayback: shouldPlayBackgroundVideo,
-                            videoPlaybackEpoch: presentationEpoch
+                            videoPlaybackEpoch: presentationEpoch,
+                            heroFitFillProgress: heroProgress,
+                            heroBandRect: heroBand,
+                            enablesHoldToPauseGesture: !showsGridChrome,
+                            isPausedByUserHoldFromParent: showsGridChrome
+                                && isPlaybackPausedByUser
+                                && selectedMediaID == item.id
                         )
                             .containerRelativeFrame(.horizontal, count: 1, span: 1, spacing: 0)
                             .frame(height: viewportSize.height)
@@ -173,9 +259,103 @@ struct DiveActivityMediaBackgroundView: View {
                 }
             }
         }
+        .animation(.interactiveSpring(response: 0.38, dampingFraction: 0.86), value: sheetHeightFraction)
         .ignoresSafeArea()
         .padding(.bottom, bottomContentMargin)
         .accessibilityIdentifier("DiveActivity.MediaBackground.Pager")
+    }
+
+    private var landscapeGridStyleChromeOverlay: some View {
+        GeometryReader { geometry in
+            let chromeOpacity = LinkedMediaFullscreenPresentation.playbackChromeOpacity(
+                dismissProgress: 0,
+                showsPlaybackChrome: showsPlaybackChrome
+            )
+            let isSelectedVideo = selectedMedia?.resolvedMediaKind == .video
+            let showsCenterPlayback = LinkedMediaFullscreenPresentation.showsCenterPlaybackControl(
+                isVideo: isSelectedVideo,
+                showsPlaybackChrome: showsPlaybackChrome
+            )
+            let captureLabels = landscapeCaptureTimestampLabels(for: selectedMedia)
+
+            ZStack {
+                let starTopInset = LinkedMediaFullscreenPresentation.topChromeRowOffset(
+                    safeAreaTop: geometry.safeAreaInsets.top,
+                    containerSize: geometry.size
+                )
+
+                TripDetailMediaGalleryOverlayControls(
+                    bottomLeadingChrome: .captureTimestamp(
+                        primaryLine: captureLabels?.primary
+                            ?? DiveActivityMediaPresentation.captureDateUnknownMessage,
+                        secondaryLine: captureLabels?.secondary
+                    ),
+                    isFeatured: isSelectedMediaFeatured,
+                    showsMediaTagButtons: onToggleMarineLifeTags != nil && onToggleBuddyTags != nil,
+                    hasBuddyTags: hasTaggedBuddiesOnSelectedMedia,
+                    hasMarineLifeTags: hasTaggedMarineLifeOnSelectedMedia,
+                    onToggleFeatured: onToggleFeatured,
+                    onToggleMarineLife: onToggleMarineLifeTags,
+                    onToggleBuddy: onToggleBuddyTags,
+                    featuredStarPlacement: .topTrailing,
+                    featuredStarTopInset: starTopInset,
+                    featureToggleAccessibilityIdentifier: "DiveActivity.Media.Landscape.FeatureToggle",
+                    openOnDiveAccessibilityIdentifier: "DiveActivity.Media.Landscape.OpenOnDive",
+                    marineLifeAccessibilityIdentifier: "DiveActivity.Media.Landscape.MarineLifeTag",
+                    buddyAccessibilityIdentifier: "DiveActivity.Media.Landscape.BuddyTag",
+                    captureTimestampAccessibilityIdentifier: "DiveActivity.Media.Landscape.CaptureTimestamp"
+                )
+                .padding(.bottom, geometry.safeAreaInsets.bottom)
+                .opacity(chromeOpacity)
+                .allowsHitTesting(chromeOpacity > 0.2)
+
+                if showsCenterPlayback {
+                    LinkedMediaFullscreenCenterPlaybackControl(
+                        isPaused: isPlaybackPausedByUser,
+                        action: toggleLandscapePlaybackPausedByUser
+                    )
+                    .opacity(chromeOpacity)
+                    .allowsHitTesting(chromeOpacity > 0.2)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .animation(.easeInOut(duration: 0.18), value: showsPlaybackChrome)
+        }
+        .ignoresSafeArea()
+        .accessibilityIdentifier("DiveActivity.Media.Landscape.Chrome")
+    }
+
+    private func landscapeCaptureTimestampLabels(
+        for media: Media?
+    ) -> (primary: String, secondary: String?)? {
+        guard let media else { return nil }
+        if let overlay = DiveActivityMediaPresentation.mediaPreviewCaptureOverlayLines(
+            media: media,
+            captureContext: mediaCaptureContextsByID[media.id],
+            timeZoneOffsetSeconds: timeZoneOffsetSeconds,
+            displayUnits: diveDisplayUnitSystem
+        ) {
+            return (overlay.dateTimeLine, overlay.divePositionLine)
+        }
+        return (
+            DiveActivityMediaPresentation.formattedCapturedAtGallery(
+                media,
+                timeZoneOffsetSeconds: timeZoneOffsetSeconds
+            ) ?? DiveActivityMediaPresentation.captureDateUnknownMessage,
+            nil
+        )
+    }
+
+    private func toggleLandscapePlaybackChrome() {
+        showsPlaybackChrome.toggle()
+    }
+
+    private func toggleLandscapePlaybackPausedByUser() {
+        guard selectedMedia?.resolvedMediaKind == .video else { return }
+        isPlaybackPausedByUser.toggle()
+        if !showsPlaybackChrome {
+            showsPlaybackChrome = true
+        }
     }
 
     private var emptyState: some View {
@@ -321,3 +501,6 @@ struct DiveActivityMediaBackgroundView: View {
         )
     }
 }
+
+typealias DiveActivityMediaBackgroundView = ActivityMediaBackgroundView<DiveMediaPhoto>
+typealias SnorkelActivityMediaBackgroundView = ActivityMediaBackgroundView<SnorkelMediaPhoto>

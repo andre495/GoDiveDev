@@ -5,11 +5,19 @@ struct ActivityTagOvalChipLabel: View {
     let title: String
     var isEmphasized: Bool = false
     var isCompact: Bool = false
+    var leadingSystemImage: String? = nil
     /// Sparkles inside the oval when the species was confirmed via Fishial identify.
     var showsFishialBadge: Bool = false
 
     var body: some View {
         HStack(spacing: 4) {
+            if let leadingSystemImage {
+                Image(systemName: leadingSystemImage)
+                    .font(isCompact ? .caption2.weight(.semibold) : .caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.accent)
+                    .accessibilityHidden(true)
+            }
+
             if showsFishialBadge {
                 Image(systemName: "sparkles")
                     .font(isCompact ? .caption2.weight(.semibold) : .caption2.weight(.semibold))

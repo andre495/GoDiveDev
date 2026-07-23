@@ -33,14 +33,7 @@ enum FitDiveFileDecoder {
 
         let messages = listener.fitMessages
 
-        let divingSessions = messages.sessionMesgs.filter { $0.getSport() == .diving }
-        guard !divingSessions.isEmpty else {
-            throw FitDecodeError.noDivingSession
-        }
-        guard divingSessions.count == 1 else {
-            throw FitDecodeError.multipleDivingSessionsInOneFile(sessionCount: divingSessions.count)
-        }
-        let session = divingSessions[0]
+        let session = try FitActivitySessionValidation.diveSessionForImport(from: messages)
 
         let tankUpdates = messages.tankUpdateMesgs
         let tankSummaries = messages.tankSummaryMesgs
@@ -251,6 +244,8 @@ enum FitDecodeError: LocalizedError {
     case notAFitFile
     case readFailed(underlying: Error)
     case noDivingSession
+    case wrongActivityKindForDiveImport
+    case unsupportedDiveSubSport(foundLabel: String?)
     case missingStartTime
     /// More than one **diving** **`SessionMesg`** — likely multiple dives or divers in one file; import one dive per file for now.
     case multipleDivingSessionsInOneFile(sessionCount: Int)
@@ -266,7 +261,14 @@ enum FitDecodeError: LocalizedError {
         case .readFailed(let underlying):
             return "Could not read FIT data: \(underlying.localizedDescription)"
         case .noDivingSession:
-            return "No diving session was found in this FIT file."
+            return "No scuba dive session was found in this FIT file."
+        case .wrongActivityKindForDiveImport:
+            return "This FIT file is a snorkel or open-water swim activity, not a scuba dive. Import it from Logbook → New Snorkel Activity instead."
+        case .unsupportedDiveSubSport(let foundLabel):
+            if let foundLabel, !foundLabel.isEmpty {
+                return "This dive session is labeled “\(foundLabel)” in the FIT file. GoDive only imports scuba dives recorded as \(FitActivitySessionValidation.allowedDiveSubSportUserLabels)."
+            }
+            return "This dive session does not specify a supported dive mode. GoDive only imports scuba dives recorded as \(FitActivitySessionValidation.allowedDiveSubSportUserLabels)."
         case .missingStartTime:
             return "The dive session is missing a start time."
         case .multipleDivingSessionsInOneFile(let count):

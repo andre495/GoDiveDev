@@ -5,16 +5,19 @@
 //  Created by André Dugas on 4/1/26.
 //
 
+import SwiftData
 import SwiftUI
 
 struct ContentView: View {
     @Environment(AccountSession.self) private var accountSession
+    @Environment(\.modelContext) private var modelContext
     @AppStorage(AppUserSettings.useImperialDisplayUnitsKey) private var useImperialDisplayUnits = true
 
     /// Selection binding is required for iOS 18+ tab re-tap scroll-to-top / pop-to-root (see Apple Developer Forums thread 773497).
     @State private var selectedTab: RootTab = .home
     @State private var searchQuery = ""
     @State private var searchContextTokens: [GlobalSearchPresentation.ContextToken] = []
+    @State private var logbookTabSelectionGeneration = 0
     @State private var pendingLogbookRoute: LogbookRoute?
 
     var body: some View {
@@ -27,7 +30,9 @@ struct ContentView: View {
             Tab("Logbook", systemImage: "book.closed", value: RootTab.logbook) {
                 LogbookView(
                     ownerProfileID: accountSession.currentProfile?.id,
-                    pendingRoute: $pendingLogbookRoute
+                    pendingRoute: $pendingLogbookRoute,
+                    logbookTabSelectionGeneration: logbookTabSelectionGeneration,
+                    isLogbookTabSelected: selectedTab == .logbook
                 )
                     .id(accountSession.currentProfile?.id)
             }
@@ -50,6 +55,7 @@ struct ContentView: View {
                 )
             }
         }
+        .id(accountSession.currentProfile?.id)
         .accessibilityIdentifier("GoDive.RootTabs")
         .tint(AppTheme.Colors.tabSelected)
         .goDiveRootTabBarChrome()
@@ -61,10 +67,53 @@ struct ContentView: View {
         }
         .onAppear {
             CrashBreadcrumbTrail.noteRootTab(selectedTab)
+            startFriendShareSaveObserverIfNeeded()
+            openPendingFriendProfileAfterInviteRedeemIfNeeded()
         }
         .onChange(of: selectedTab) { _, tab in
             CrashBreadcrumbTrail.noteRootTab(tab)
+            if tab == .logbook {
+                logbookTabSelectionGeneration += 1
+            }
         }
+        .onChange(of: accountSession.currentProfile?.id) { _, _ in
+            startFriendShareSaveObserverIfNeeded()
+        }
+        .onChange(of: accountSession.showsMainAppShell) { _, showsMain in
+            guard showsMain else { return }
+            openPendingFriendProfileAfterInviteRedeemIfNeeded()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: GoDiveFirebaseCloudMessaging.openFriendsListNotification)) { _ in
+            selectedTab = .logbook
+            pendingLogbookRoute = .friends
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: GoDiveFriendInvitePostRedeemNavigation.openFriendProfileNotification
+            )
+        ) { _ in
+            openPendingFriendProfileAfterInviteRedeemIfNeeded()
+        }
+    }
+
+    private func openPendingFriendProfileAfterInviteRedeemIfNeeded() {
+        guard accountSession.showsMainAppShell else { return }
+        guard let friend = GoDiveFriendInvitePostRedeemNavigationStore.shared.consumePendingFriend() else {
+            return
+        }
+        selectedTab = .logbook
+        pendingLogbookRoute = .friendProfile(friend)
+    }
+
+    private func startFriendShareSaveObserverIfNeeded() {
+        guard accountSession.isSignedIn, let ownerID = accountSession.currentProfile?.id else {
+            GoDiveFriendShareRefreshCoordinator.stopObservingSaves()
+            return
+        }
+        GoDiveFriendShareRefreshCoordinator.startObservingSaves(
+            ownerProfileID: ownerID,
+            modelContext: modelContext
+        )
     }
 }
 

@@ -221,4 +221,11 @@ extension View {
     func logbookListScrollToTopTrigger(nonce: Int) -> some View {
         listScrollToTopTrigger(nonce: nonce)
     }
+
+    /// Pull-to-refresh on Activity Log **Buddy Feed** (list, empty, and initial loading scroll surfaces).
+    func logbookBuddyFeedPullToRefresh(action: @escaping () async -> Void) -> some View {
+        refreshable {
+            await action()
+        }
+    }
 }

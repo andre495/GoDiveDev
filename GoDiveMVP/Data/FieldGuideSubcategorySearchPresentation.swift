@@ -25,8 +25,9 @@ enum FieldGuideSubcategorySearchPresentation {
         _ subcategories: [FieldGuideTaxonomy.Subcategory],
         query: String
     ) -> [FieldGuideTaxonomy.Subcategory] {
-        guard isFiltering(query: query) else { return subcategories }
-        return subcategories.filter { matches($0, query: query) }
+        let ordered = FieldGuideCatalogIndex.sortedSubcategories(subcategories)
+        guard isFiltering(query: query) else { return ordered }
+        return ordered.filter { matches($0, query: query) }
     }
 
     nonisolated static func showsAllSpeciesFallback(

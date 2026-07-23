@@ -8,7 +8,7 @@ struct DiveTankOverviewHeroView: View {
     let bottomContentMargin: CGFloat
     let topObstructionHeight: CGFloat
     let layoutHeight: CGFloat
-    var sheetDetent: DiveActivityOverviewDetent = .medium
+    var sheetDetent: DiveActivityOverviewDetent = .large
     var gasMixLabel: String = DiveGasMixImport.tankHeroNoGasSpecifiedLabel
 
     /// **0...1** — **`tankPressureEndPSI / tankPressureStartPSI`** when not on **medium** (animated on shorter detents).
@@ -31,6 +31,10 @@ struct DiveTankOverviewHeroView: View {
     var sacRateDisplay: String?
     /// Formatted RMV (**L/min** or **cu ft/min**); **`nil`** hides the RMV line.
     var rmvRateDisplay: String?
+    /// **0...1** — depth + PSI profile lines draw left-to-right when entering **minimized**.
+    var profileLineRevealProgress: CGFloat = 1
+    /// **0...1** — minimized **PSI used** tally from zero.
+    var psiUsedRevealProgress: CGFloat = 1
 
     @State private var landscapeChartChromeReady = false
     @State private var landscapeChartChromeTask: Task<Void, Never>?
@@ -90,13 +94,28 @@ struct DiveTankOverviewHeroView: View {
         )
     }
 
-    private var showsLandscapeChartChrome: Bool {
+    private var showsInteractiveChartChrome: Bool {
+        DiveTankOverviewHeroPresentation.showsInteractiveProfileChartChrome(
+            for: sheetDetent,
+            isLandscape: isLandscape,
+            depthSampleCount: depthSamples.count
+        ) && landscapeChartChromeReady
+    }
+
+    private var chartProfileLineRevealProgress: CGFloat {
+        DiveTankOverviewHeroPresentation.profileLineRevealProgress(
+            sheetDetent: sheetDetent,
+            minimizedRevealProgress: profileLineRevealProgress
+        )
+    }
+
+    private var showsChartMediaMarkers: Bool {
         DiveTankOverviewHeroPresentation.showsMediaMarkersOnLandscapeProfile(isLandscape: isLandscape)
-            && landscapeChartChromeReady
+            && showsInteractiveChartChrome
     }
 
     private var chartMediaMarkers: [DiveDepthProfileMediaMarker] {
-        showsLandscapeChartChrome ? mediaMarkers : []
+        showsChartMediaMarkers ? mediaMarkers : []
     }
 
     private var psiConsumedPSI: Double? {
@@ -131,7 +150,8 @@ struct DiveTankOverviewHeroView: View {
                         layoutHeight: layoutHeight,
                         topObstructionHeight: topObstructionHeight,
                         bottomContentMargin: bottomContentMargin,
-                        isLandscape: isLandscape
+                        isLandscape: isLandscape,
+                        detent: sheetDetent
                     )
                     if DiveTankOverviewHeroPresentation.showsRotatePhoneHint(
                         for: sheetDetent,
@@ -154,7 +174,8 @@ struct DiveTankOverviewHeroView: View {
                         mediaPhotosByID: mediaPhotosByID,
                         maxDepthHintMeters: maxDepthMeters,
                         pressureBaselinePSI: pressureBaselinePSI,
-                        allowsZoomAndPan: showsLandscapeChartChrome,
+                        profileLineRevealProgress: chartProfileLineRevealProgress,
+                        allowsZoomAndPan: showsInteractiveChartChrome,
                         onMediaMarkerTap: onMediaMarkerTap
                     )
                     .frame(width: chartFrame.width, height: chartFrame.height)
@@ -181,9 +202,13 @@ struct DiveTankOverviewHeroView: View {
                         metrics: metrics,
                         cylinderHeight: cylinderHeight
                     )
-                    minimizedTankGasSummary(consumedPSI: consumed)
+                    minimizedTankGasSummary(
+                        totalConsumedPSI: consumed,
+                        revealProgress: psiUsedRevealProgress
+                    )
                         .frame(width: summaryFrame.width, height: summaryFrame.height, alignment: .topLeading)
                         .position(x: summaryFrame.midX, y: summaryFrame.midY)
+                        .animation(nil, value: sheetDetent)
                         .accessibilityIdentifier("DiveTank.Hero.GasSummary")
                 }
 
@@ -209,6 +234,9 @@ struct DiveTankOverviewHeroView: View {
         .onChange(of: isLandscape) { _, landscape in
             syncLandscapeChartChrome(isLandscape: landscape)
         }
+        .onChange(of: sheetDetent) { _, _ in
+            syncLandscapeChartChrome(isLandscape: isLandscape)
+        }
         .onDisappear {
             landscapeChartChromeTask?.cancel()
             landscapeChartChromeTask = nil
@@ -220,7 +248,12 @@ struct DiveTankOverviewHeroView: View {
 
     private func syncLandscapeChartChrome(isLandscape: Bool) {
         landscapeChartChromeTask?.cancel()
-        if isLandscape {
+        let wantsInteractiveChrome = DiveTankOverviewHeroPresentation.showsInteractiveProfileChartChrome(
+            for: sheetDetent,
+            isLandscape: isLandscape,
+            depthSampleCount: depthSamples.count
+        )
+        if wantsInteractiveChrome {
             landscapeChartChromeReady = false
             landscapeChartChromeTask = Task { @MainActor in
                 try? await Task.sleep(
@@ -234,15 +267,19 @@ struct DiveTankOverviewHeroView: View {
         }
     }
 
-    private func minimizedTankGasSummary(consumedPSI: Double) -> some View {
-        let consumedText = DiveQuantityFormatting.cylinderPressure(
-            fromPSI: consumedPSI,
+    private func minimizedTankGasSummary(totalConsumedPSI: Double, revealProgress: CGFloat) -> some View {
+        let tally = DiveTankMinimizedGasSummary.minimizedGasConsumedTally(
+            totalConsumedPSI: totalConsumedPSI,
+            revealProgress: revealProgress,
             system: diveDisplayUnitSystem
         )
-        return VStack(alignment: .leading, spacing: 6) {
-            minimizedGasUsedLine(consumedText: consumedText)
+        let consumedText = "\(tally.pressureValueText)\(tally.unitSuffix)"
+        let showsSecondaryRates = revealProgress >= 0.999
 
-            if let sacRateDisplay {
+        return VStack(alignment: .leading, spacing: 6) {
+            minimizedGasUsedLine(tally: tally)
+
+            if showsSecondaryRates, let sacRateDisplay {
                 minimizedGasMetricLine(
                     label: DiveTankMinimizedGasSummary.sacRateLabel,
                     value: sacRateDisplay,
@@ -250,7 +287,7 @@ struct DiveTankOverviewHeroView: View {
                 )
             }
 
-            if let rmvRateDisplay {
+            if showsSecondaryRates, let rmvRateDisplay {
                 minimizedGasMetricLine(
                     label: DiveTankMinimizedGasSummary.rmvRateLabel,
                     value: rmvRateDisplay,
@@ -263,15 +300,21 @@ struct DiveTankOverviewHeroView: View {
         .accessibilityLabel(minimizedGasSummaryAccessibility(consumedText: consumedText))
     }
 
-    private func minimizedGasUsedLine(consumedText: String) -> some View {
+    private func minimizedGasUsedLine(tally: MinimizedGasConsumedTally) -> some View {
         HStack(spacing: 0) {
-            Text(consumedText)
+            Text(tally.pressureValueText)
                 .foregroundStyle(AppTheme.Colors.tankGasAccent)
-            Text(" used.")
+                .monospacedDigit()
+                .contentTransition(.numericText())
+            Text("\(tally.unitSuffix) used.")
                 .foregroundStyle(AppTheme.Colors.textPrimary)
         }
         .font(AppTheme.Typography.headerTitle.weight(.semibold))
         .fixedSize(horizontal: false, vertical: true)
+        .animation(
+            .easeInOut(duration: DiveTankOverviewHeroPresentation.minimizedEntranceAnimationDuration),
+            value: tally.numericAnimationValue
+        )
     }
 
     private func minimizedGasMetricLine(label: String, value: String, font: Font) -> some View {
@@ -301,10 +344,7 @@ struct DiveTankOverviewHeroView: View {
         if isLandscape {
             return "Depth profile with gas overlay"
         }
-        if showsGasMixLabel {
-            return "Cylinder overview, \(gasMixLabel), full"
-        }
-        if sheetDetent == .minimized {
+        if sheetDetent == .minimized || sheetDetent == .large {
             return "Depth profile with gas overlay"
         }
         return "Cylinder overview"

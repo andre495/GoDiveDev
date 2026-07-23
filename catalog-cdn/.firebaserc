@@ -1,5 +1,18 @@
 {
   "projects": {
     "default": "godive-1cff8"
-  }
+  },
+  "targets": {
+    "godive-1cff8": {
+      "hosting": {
+        "links": [
+          "godive-links"
+        ],
+        "catalog": [
+          "godive-1cff8"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

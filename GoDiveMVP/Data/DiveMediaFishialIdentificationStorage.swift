@@ -99,6 +99,100 @@ enum DiveMediaFishialIdentificationStorage {
         _ = try saveConfirmedSpeciesScientificNames(scientificNames, on: media, modelContext: modelContext)
         return commonNames
     }
+
+    // MARK: - Snorkel media
+
+    @discardableResult
+    static func saveConfirmedSpecies(
+        _ scientificName: String,
+        on media: SnorkelMediaPhoto,
+        modelContext: ModelContext
+    ) throws -> String {
+        let saved = try saveConfirmedSpeciesScientificNames([scientificName], on: media, modelContext: modelContext)
+        guard let first = saved.first else {
+            throw DiveMediaFishialIdentificationStorageError.emptySpeciesName
+        }
+        return first
+    }
+
+    @discardableResult
+    static func saveConfirmedSpeciesScientificNames(
+        _ scientificNames: [String],
+        on media: SnorkelMediaPhoto,
+        modelContext: ModelContext
+    ) throws -> [String] {
+        let merged = FishialConfirmedSpeciesPresentation.mergedScientificNames(
+            existingStoredValue: media.fishialConfirmedSpeciesName,
+            adding: scientificNames
+        )
+        guard !merged.isEmpty else {
+            throw DiveMediaFishialIdentificationStorageError.emptySpeciesName
+        }
+        let storedValue = FishialConfirmedSpeciesPresentation.storageValue(for: merged)
+        guard media.fishialConfirmedSpeciesName != storedValue else { return merged }
+        media.fishialConfirmedSpeciesName = storedValue
+        try modelContext.save()
+        DiveActivityMediaStorage.postMediaDidChange()
+        return merged
+    }
+
+    @discardableResult
+    static func saveConfirmedCatalogMatch(
+        _ option: FishialCatalogReviewOption,
+        marineLife: MarineLife,
+        media: SnorkelMediaPhoto,
+        snorkel: SnorkelActivity,
+        owner: UserProfile,
+        modelContext: ModelContext
+    ) throws -> String {
+        let saved = try saveConfirmedCatalogMatches(
+            [option],
+            marineLifeByUUID: [marineLife.uuid: marineLife],
+            media: media,
+            snorkel: snorkel,
+            owner: owner,
+            modelContext: modelContext
+        )
+        guard let first = saved.first else {
+            throw DiveMediaFishialIdentificationStorageError.emptySpeciesName
+        }
+        return first
+    }
+
+    @discardableResult
+    static func saveConfirmedCatalogMatches(
+        _ options: [FishialCatalogReviewOption],
+        marineLifeByUUID: [String: MarineLife],
+        media: SnorkelMediaPhoto,
+        snorkel: SnorkelActivity,
+        owner: UserProfile,
+        modelContext: ModelContext
+    ) throws -> [String] {
+        guard !options.isEmpty else {
+            throw DiveMediaFishialIdentificationStorageError.emptySpeciesName
+        }
+
+        var commonNames: [String] = []
+        var scientificNames: [String] = []
+
+        for option in options {
+            guard let marineLife = marineLifeByUUID[option.marineLifeUUID] else {
+                throw DiveMediaFishialIdentificationStorageError.missingCatalogSpecies
+            }
+            _ = try MarineLifeSightingRecorder.tagSpecies(
+                marineLife,
+                on: media,
+                snorkel: snorkel,
+                owner: owner,
+                modelContext: modelContext
+            )
+            commonNames.append(marineLife.commonName)
+            scientificNames.append(option.catalogScientificName)
+        }
+
+        _ = try saveConfirmedSpeciesScientificNames(scientificNames, on: media, modelContext: modelContext)
+        return commonNames
+    }
 }
 
 enum DiveMediaFishialIdentificationStorageError: Error, Equatable, Sendable {

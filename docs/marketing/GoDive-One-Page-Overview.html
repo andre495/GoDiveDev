@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>GoDive one-page overview</title>
+  <style>
+    @page { size: letter; margin: 0.35in 0.4in; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      font-size: 11.5pt;
+      line-height: 1.45;
+      color: #0c2a3a;
+      background: #fff;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .page {
+      display: grid;
+      grid-template-columns: 1fr 1.05fr;
+      grid-template-rows: auto 1fr auto;
+      gap: 14px 18px;
+      height: 10.2in;
+      max-height: 10.2in;
+      overflow: hidden;
+    }
+    header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding-bottom: 10px;
+      border-bottom: 2.5px solid #1a8fb0;
+    }
+    header img.logo {
+      width: 64px;
+      height: 64px;
+      border-radius: 14px;
+    }
+    .brand h1 {
+      font-size: 28pt;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #063d52;
+    }
+    .brand .tagline {
+      font-size: 12.5pt;
+      color: #2d6b7f;
+      margin-top: 4px;
+    }
+    .features {
+      grid-column: 1;
+      grid-row: 2;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-self: start;
+      gap: 12px;
+      padding: 0;
+    }
+    .feature {
+      padding-left: 2px;
+    }
+    .feature h2 {
+      font-size: 14pt;
+      font-weight: 700;
+      color: #063d52;
+      margin-bottom: 6px;
+    }
+    .feature p {
+      font-size: 11.5pt;
+      color: #2d5060;
+    }
+    .shots {
+      grid-row: 2;
+      grid-column: 2;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-auto-rows: auto;
+      gap: 10px;
+      align-content: start;
+      align-self: start;
+    }
+    figure {
+      margin: 0;
+      text-align: center;
+    }
+    figure img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 12px;
+      box-shadow: none;
+      background: transparent;
+    }
+    figcaption {
+      font-size: 9.5pt;
+      color: #4a7080;
+      margin-top: 6px;
+      font-weight: 600;
+    }
+    footer {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10.5pt;
+      color: #5a7a88;
+      border-top: 1px solid #d0e8ef;
+      padding-top: 10px;
+    }
+    footer a { color: #1a8fb0; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <img class="logo" src="file:///Users/andrdugas/Desktop/GoDiveMVP_icon/pin%20LIGHT.png" alt="GoDive" />
+      <div class="brand">
+        <h1>GoDive</h1>
+        <p class="tagline">A modern logbook and ocean companion for scuba divers and snorkelers.</p>
+      </div>
+    </header>
+
+    <div class="features">
+      <div class="feature">
+        <h2>Log your dives</h2>
+        <p>Import your dive and snorkel activities or create them directly in the app. Track your stats, notes, and media in one place.</p>
+      </div>
+      <div class="feature">
+        <h2>Explore sites</h2>
+        <p>Explore dive sites around the world, rate the places you have visited, and plan where you want to go next with the trip planner.</p>
+      </div>
+      <div class="feature">
+        <h2>Connect with buddies</h2>
+        <p>Share your dive and snorkel experiences with buddies, plan trips together, and share your favorite sightings with others.</p>
+      </div>
+      <div class="feature">
+        <h2>Tag marine life</h2>
+        <p>Browse the species field guide and tag the critters you've spotted on a dive or snorkel.</p>
+      </div>
+    </div>
+
+    <div class="shots">
+      <figure>
+        <img src="file:///Users/andrdugas/Desktop/GoDiveMVP/docs/marketing/map-thumb.jpg" alt="Dive map" />
+        <figcaption>Explore sites</figcaption>
+      </figure>
+      <figure>
+        <img src="file:///Users/andrdugas/Desktop/GoDiveMVP/docs/marketing/fish-thumb.jpg" alt="Marine life" />
+        <figcaption>Marine life</figcaption>
+      </figure>
+      <figure>
+        <img src="file:///Users/andrdugas/Desktop/GoDiveMVP/docs/marketing/air-thumb.jpg" alt="Dive stats" />
+        <figcaption>Log your dives</figcaption>
+      </figure>
+      <figure>
+        <img src="file:///Users/andrdugas/Desktop/GoDiveMVP/docs/marketing/trips-thumb.jpg" alt="Trips" />
+        <figcaption>Trips &amp; buddies</figcaption>
+      </figure>
+    </div>
+
+    <footer>
+      <span>Andre Dugas, Founder, <a href="mailto:andre@godiveios.com">andre@godiveios.com</a></span>
+      <span><a href="https://godiveios.com">godiveios.com</a></span>
+    </footer>
+  </div>
+</body>
+</html>

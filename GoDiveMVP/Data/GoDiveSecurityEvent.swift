@@ -18,6 +18,9 @@ enum GoDiveSecurityEvent: Sendable {
         case importRejected = "import.reject"
         case cdnChecksumMismatch = "cdn.checksumFail"
         case cdnRefreshFailed = "cdn.refreshFail"
+        case friendAdded = "friend.add"
+        case friendRemoved = "friend.remove"
+        case friendShareSyncFailed = "friend.shareSyncFail"
     }
 
     private nonisolated static let log = Logger(

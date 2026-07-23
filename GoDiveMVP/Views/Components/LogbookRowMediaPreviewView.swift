@@ -11,12 +11,18 @@ struct LogbookRowMediaPreviewView: View {
     let photoID: UUID
     /// Square edge length (matches logbook row text column height).
     var extent: CGFloat
+    var usesSnorkelMedia: Bool = false
     var placeholderStyle: PlaceholderStyle = .surfaceMuted
     /// When **`true`**, use **`extent`** as-is (search compact rows); logbook rows still enforce **`logbookRowMediaPreviewMinExtent`**.
     var allowsCompactExtent: Bool = false
 
     @Environment(\.modelContext) private var modelContext
-    @State private var media: DiveMediaPhoto?
+    @State private var diveMedia: DiveMediaPhoto?
+    @State private var snorkelMedia: SnorkelMediaPhoto?
+
+    private var accessibilityPreviewLabel: String {
+        usesSnorkelMedia ? "Snorkel media preview" : "Dive media preview"
+    }
 
     private var resolvedExtent: CGFloat {
         if allowsCompactExtent { return extent }
@@ -25,9 +31,16 @@ struct LogbookRowMediaPreviewView: View {
 
     var body: some View {
         Group {
-            if let media {
+            if let diveMedia {
                 DiveActivityMediaThumbnailView(
-                    media: media,
+                    media: diveMedia,
+                    size: resolvedExtent,
+                    cornerRadius: DiveActivityMediaPresentation.logbookRowMediaPreviewCornerRadius,
+                    showsPlayBadge: true
+                )
+            } else if let snorkelMedia {
+                SnorkelActivityMediaThumbnailView(
+                    media: snorkelMedia,
                     size: resolvedExtent,
                     cornerRadius: DiveActivityMediaPresentation.logbookRowMediaPreviewCornerRadius,
                     showsPlayBadge: true
@@ -37,10 +50,14 @@ struct LogbookRowMediaPreviewView: View {
             }
         }
         .frame(width: resolvedExtent, height: resolvedExtent, alignment: .trailing)
-        .accessibilityLabel("Dive media preview")
-        .task(id: photoID) {
+        .accessibilityLabel(accessibilityPreviewLabel)
+        .task(id: loadTaskID) {
             await loadMedia()
         }
+    }
+
+    private var loadTaskID: String {
+        "\(photoID.uuidString)-\(usesSnorkelMedia ? "snorkel" : "dive")"
     }
 
     private var logbookRowMediaPlaceholder: some View {
@@ -73,10 +90,20 @@ struct LogbookRowMediaPreviewView: View {
     @MainActor
     private func loadMedia() async {
         let targetID = photoID
-        var descriptor = FetchDescriptor<DiveMediaPhoto>(
-            predicate: #Predicate { $0.id == targetID }
-        )
-        descriptor.fetchLimit = 1
-        media = (try? modelContext.fetch(descriptor))?.first
+        if usesSnorkelMedia {
+            var descriptor = FetchDescriptor<SnorkelMediaPhoto>(
+                predicate: #Predicate { $0.id == targetID }
+            )
+            descriptor.fetchLimit = 1
+            snorkelMedia = (try? modelContext.fetch(descriptor))?.first
+            diveMedia = nil
+        } else {
+            var descriptor = FetchDescriptor<DiveMediaPhoto>(
+                predicate: #Predicate { $0.id == targetID }
+            )
+            descriptor.fetchLimit = 1
+            diveMedia = (try? modelContext.fetch(descriptor))?.first
+            snorkelMedia = nil
+        }
     }
 }

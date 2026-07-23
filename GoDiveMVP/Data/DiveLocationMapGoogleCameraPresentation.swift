@@ -15,7 +15,8 @@ enum DiveLocationMapGoogleCameraPresentation: Sendable {
         layoutHeight: CGFloat,
         topObstructionHeight: CGFloat,
         bottomContentMargin: CGFloat,
-        cameraLayoutDetent: DiveActivityOverviewDetent
+        sheetHeightFraction: CGFloat,
+        largeRestingFraction: CGFloat
     ) -> CameraSpec {
         guard let coordinate, DiveMapCoordinateResolver.isUsable(coordinate) else {
             return CameraSpec(
@@ -27,12 +28,40 @@ enum DiveLocationMapGoogleCameraPresentation: Sendable {
 
         // **`DiveLocationGoogleMapRepresentable`** applies **`GMSMapView.padding`** for top chrome + sheet
         // insets; the camera target stays on the dive coordinate so the pin centers in the visible band.
-        let distance = DiveLocationMapPresentation.cameraDistanceMeters(for: cameraLayoutDetent)
+        let distance = DiveLocationMapPresentation.cameraDistanceMeters(
+            sheetHeightFraction: sheetHeightFraction,
+            largeRestingFraction: largeRestingFraction
+        )
         let zoom = approximateZoomLevel(atLatitude: coordinate.latitude, viewingDistanceMeters: distance)
         return CameraSpec(
             centerLatitude: coordinate.latitude,
             centerLongitude: coordinate.longitude,
             zoomLevel: zoom
+        )
+    }
+
+    nonisolated static func cameraSpec(
+        coordinate: DiveCoordinate?,
+        layoutHeight: CGFloat,
+        topObstructionHeight: CGFloat,
+        bottomContentMargin: CGFloat,
+        cameraLayoutDetent: DiveActivityOverviewDetent,
+        largeRestingFraction: CGFloat = DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
+    ) -> CameraSpec {
+        let fraction: CGFloat
+        switch cameraLayoutDetent {
+        case .minimized:
+            fraction = DiveActivityOverviewPanelMetrics.minimizedHeightFraction
+        case .large:
+            fraction = largeRestingFraction
+        }
+        return cameraSpec(
+            coordinate: coordinate,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstructionHeight,
+            bottomContentMargin: bottomContentMargin,
+            sheetHeightFraction: fraction,
+            largeRestingFraction: largeRestingFraction
         )
     }
 

@@ -125,12 +125,7 @@ struct HomeMediaCarouselMarineLifeOverlay: View {
     }
 
     private var fullMediaScrim: some View {
-        Rectangle()
-            .fill(.black.opacity(HomeMediaCarouselPresentation.marineLifeCarouselOverlayMediaScrimOpacity))
-            .background {
-                Rectangle()
-                    .fill(.thinMaterial)
-            }
+        DiveActivityMediaFrostedOverlayBackground()
             .frame(width: previewSize.width, height: previewSize.height)
     }
 

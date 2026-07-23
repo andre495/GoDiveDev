@@ -9,26 +9,41 @@ enum AppLaunchMaintenance: Sendable {
 
     static func runInBackground(container: ModelContainer) {
         Task.detached(priority: .utility) {
-            await perform(container: container)
+            await performEssentialTier(container: container)
+        }
+        Task.detached(priority: .utility) {
+            let delay = AppLaunchPostOverlayPresentation.deferredMaintenanceDelaySeconds
+            try? await Task.sleep(for: .seconds(delay))
+            await performDeferredTier(container: container)
         }
     }
 
-    private static func perform(container: ModelContainer) async {
+    /// Fast, local correctness — dive numbers, migrations, bundled catalog seed.
+    private static func performEssentialTier(container: ModelContainer) async {
         let context = ModelContext(container)
         context.autosaveEnabled = true
         do {
             try DiveActivityDiveNumbering.backfillMissingDiveNumbers(modelContext: context)
             try DiveBuddyLegacyMigration.migrateIfNeeded(modelContext: context)
             try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
-            _ = await CatalogCDNRefresh.refreshIfNeeded(modelContext: context)
             try MarineLifeCommonNameNormalization.normalizeStoredCatalogIfNeeded(modelContext: context)
-            try DiveActivityOpenDiveMapSiteBackfill.backfillIfNeeded(modelContext: context)
             try AppSwiftDataOwnershipBackfill.backfillIfNeeded(modelContext: context)
             try AppSwiftDataHybridRowMigration.migrateIfNeeded(modelContext: context)
+        } catch {
+            log.error("AppLaunchMaintenance essential tier failed: \(String(describing: error), privacy: .private)")
+        }
+    }
+
+    /// Network, PhotoKit, and large backfills — deferred so the first frame after launch stays responsive.
+    private static func performDeferredTier(container: ModelContainer) async {
+        let context = ModelContext(container)
+        context.autosaveEnabled = true
+        do {
+            _ = await CatalogCDNRefresh.refreshIfNeeded(modelContext: context)
+            try DiveActivityOpenDiveMapSiteBackfill.backfillIfNeeded(modelContext: context)
             try DiveProfileTrackBackfill.backfillIfNeeded(modelContext: context)
+            try SnorkelSwimTrackBackfill.backfillIfNeeded(modelContext: context)
             try UserDiveSiteDuplicateConsolidation.consolidateIfNeeded(modelContext: context)
-            try reconcileSignedInProfileIdentityIfNeeded(modelContext: context)
-            try syncSignedInUserPreferencesIfNeeded(modelContext: context)
             #if canImport(UIKit)
             await DiveMediaPreviewStorage.backfillMissingPreviews(modelContext: context)
             #endif
@@ -39,39 +54,7 @@ enum AppLaunchMaintenance: Sendable {
             await AppSwiftDataDualStoreFactory.appendCloudKitAccountStatusDiagnostics()
             await syncFirebaseSocialProfileIfNeeded(modelContext: context)
         } catch {
-            log.error("AppLaunchMaintenance failed: \(String(describing: error), privacy: .private)")
-        }
-    }
-
-    private static func syncSignedInUserPreferencesIfNeeded(modelContext: ModelContext) throws {
-        guard
-            let profileID = AppLaunchSessionRestorePresentation.loadPersistedProfileID(),
-            let profile = try UserProfileStore.profile(id: profileID, modelContext: modelContext)
-        else {
-            return
-        }
-        try UserPreferencesSync.syncForSignedInOwner(profile, modelContext: modelContext)
-    }
-
-    private static func reconcileSignedInProfileIdentityIfNeeded(modelContext: ModelContext) throws {
-        guard
-            let profileID = AppLaunchSessionRestorePresentation.loadPersistedProfileID(),
-            let profile = try UserProfileStore.profile(id: profileID, modelContext: modelContext)
-        else {
-            return
-        }
-        let outcome = try UserProfileCloudKitIdentityMerge.reconcile(
-            appleUserIdentifier: profile.appleUserIdentifier,
-            preferredSessionProfileID: profile.id,
-            modelContext: modelContext
-        )
-        if outcome.didChangeCanonicalID {
-            AppLaunchSessionRestorePresentation.savePersistedProfileID(outcome.canonicalProfileID)
-            Task { @MainActor in
-                _ = try? AccountSession.shared.reconcileCloudKitIdentityIfNeeded(
-                    modelContext: modelContext.container.mainContext
-                )
-            }
+            log.error("AppLaunchMaintenance deferred tier failed: \(String(describing: error), privacy: .private)")
         }
     }
 
@@ -82,6 +65,9 @@ enum AppLaunchMaintenance: Sendable {
         else {
             return
         }
+        let activities = (try? modelContext.fetch(FetchDescriptor<DiveActivity>()))?
+            .filter { $0.ownerProfileID == profile.id } ?? []
+        let totalDiveCount = DiveActivityDiveNumbering.numberedDiveCount(in: activities)
         _ = await GoDiveFirestoreUserProfileSync.syncIfAuthenticated(
             displayName: profile.displayName,
             appleUserIdentifier: profile.appleUserIdentifier,
@@ -89,7 +75,8 @@ enum AppLaunchMaintenance: Sendable {
                 doesScubaDiving: profile.doesScubaDiving,
                 doesFreeDiving: profile.doesFreeDiving,
                 doesSnorkeling: profile.doesSnorkeling
-            )
+            ),
+            totalDiveCount: totalDiveCount
         )
     }
 }

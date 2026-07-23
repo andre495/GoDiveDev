@@ -8,6 +8,7 @@ struct DiveActivityOverviewCollapsedSummary: View {
     var onOpenLinkedSite: (() -> Void)?
     let diveNumberText: String
     let maxDepthText: String
+    var swimDistanceText: String? = nil
     let durationText: String
 
     var body: some View {
@@ -25,13 +26,26 @@ struct DiveActivityOverviewCollapsedSummary: View {
 
             HStack(spacing: AppTheme.Spacing.sm) {
                 summaryChip(label: "Dive", value: diveNumberText)
+                if let swimDistanceText {
+                    summaryChip(label: "Distance", value: swimDistanceText)
+                }
                 summaryChip(label: "Depth", value: maxDepthText)
                 summaryChip(label: "Time", value: durationText)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(titleText), \(dateText), dive \(diveNumberText), max depth \(maxDepthText), duration \(durationText)")
+        .accessibilityLabel(collapsedSummaryAccessibilityLabel)
+    }
+
+    private var collapsedSummaryAccessibilityLabel: String {
+        var parts = ["\(titleText)", dateText, "dive \(diveNumberText)"]
+        if let swimDistanceText {
+            parts.append("swim distance \(swimDistanceText)")
+        }
+        parts.append("max depth \(maxDepthText)")
+        parts.append("duration \(durationText)")
+        return parts.joined(separator: ", ")
     }
 
     private func summaryChip(label: String, value: String) -> some View {

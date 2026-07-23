@@ -1,4 +1,5 @@
 import Foundation
+import simd
 
 /// Bundled RealityKit hero configuration for a catalog species detail page.
 struct FieldGuideMarineLifeHeroSceneConfiguration: Equatable, Sendable {
@@ -18,7 +19,7 @@ struct FieldGuideMarineLifeHeroSceneConfiguration: Equatable, Sendable {
     let autoRotateSpeedRadiansPerSecond: Float
     /// Auto-spin stays off this long after the user finishes a drag.
     let autoSpinPauseAfterDragSeconds: TimeInterval
-    /// When **`true`**, horizontal drag orbits the model on the Y axis.
+    /// When **`true`**, drag orbits the model in place and pinch zooms in (with idle reset to default framing).
     let allowsDragRotation: Bool
     /// When **`true`**, the soft accent glow plate + sparkles render under the model.
     /// Species detail heroes use the glow; compact avatars (map Marine Life chips) do not.
@@ -454,12 +455,127 @@ enum FieldGuideMarineLifeHeroPresentation {
     nonisolated static func shouldAdvanceAutoSpin(
         autoRotateSpeedRadiansPerSecond: Float,
         isDragging: Bool,
+        isPinching: Bool = false,
+        isPlayingIdleReset: Bool = false,
         autoSpinPausedUntil: Date?,
         now: Date
     ) -> Bool {
         guard autoRotateSpeedRadiansPerSecond != 0 else { return false }
         if isDragging { return false }
+        if isPinching { return false }
+        if isPlayingIdleReset { return false }
         if let autoSpinPausedUntil, now < autoSpinPausedUntil { return false }
         return true
+    }
+
+    nonisolated static func shouldAdvanceIdleBob(
+        isDragging: Bool,
+        isPinching: Bool = false,
+        isPlayingIdleReset: Bool = false,
+        autoSpinPausedUntil: Date?,
+        now: Date
+    ) -> Bool {
+        if isDragging { return false }
+        if isPinching { return false }
+        if isPlayingIdleReset { return false }
+        if let autoSpinPausedUntil, now < autoSpinPausedUntil { return false }
+        return true
+    }
+}
+
+/// Drag trackball / zoom / idle-reset rules for Field Guide **3D** species heroes.
+enum FieldGuideMarineLifeHeroInteractionPresentation: Sendable {
+    /// Radians of rotation per screen point along the drag vector (full **360°** trackball).
+    nonisolated static let dragRadiansPerPoint: Float = 0.014
+    /// Minimum zoom (**1** = default fitted size); user cannot zoom out past this.
+    nonisolated static let minimumZoomScale: Float = 1
+    /// Maximum pinch zoom-in multiplier.
+    nonisolated static let maximumZoomScale: Float = 2.35
+    /// Eased return to default framing after **`autoSpinPauseAfterDragSeconds`** idle.
+    nonisolated static let idleResetAnimationSeconds: TimeInterval = 0.85
+
+    nonisolated static let identityRotation = simd_quatf(ix: 0, iy: 0, iz: 0, r: 1)
+
+    nonisolated static func clampedZoomScale(_ proposed: Float) -> Float {
+        Swift.min(Swift.max(proposed, minimumZoomScale), maximumZoomScale)
+    }
+
+    /// Maps a drag vector to a rotation quaternion (axis ⟂ drag, angle ∝ length).
+    nonisolated static func dragTrackballRotation(
+        translationWidth: CGFloat,
+        translationHeight: CGFloat
+    ) -> simd_quatf {
+        let dx = Float(translationWidth)
+        let dy = Float(-translationHeight)
+        let length = simd_length(SIMD2(dx, dy))
+        guard length > 0.0001 else { return identityRotation }
+        let angle = length * dragRadiansPerPoint
+        let axis = simd_normalize(SIMD3(dy, dx, 0))
+        return simd_quatf(angle: angle, axis: axis)
+    }
+
+    nonisolated static func normalizedRotation(_ rotation: simd_quatf) -> simd_quatf {
+        let length = simd_length(rotation.vector)
+        guard length > 0.0001 else { return identityRotation }
+        return simd_quatf(vector: rotation.vector / length)
+    }
+
+    nonisolated static func hasSignificantUserRotation(
+        _ rotation: simd_quatf,
+        angleEpsilon: Float = 0.002
+    ) -> Bool {
+        let normalized = normalizedRotation(rotation)
+        let cosineHalfAngle = Swift.min(Swift.abs(normalized.real), 1)
+        let angle = 2 * acos(cosineHalfAngle)
+        return angle > angleEpsilon
+    }
+
+    nonisolated static func hasUserFramingAdjustment(
+        zoomScale: Float,
+        committedUserRotation: simd_quatf,
+        zoomEpsilon: Float = 0.0001
+    ) -> Bool {
+        if zoomScale > minimumZoomScale + zoomEpsilon { return true }
+        return hasSignificantUserRotation(committedUserRotation)
+    }
+
+    nonisolated static func shouldBeginIdleReset(
+        isDragging: Bool,
+        isPinching: Bool,
+        isPlayingIdleReset: Bool,
+        autoSpinPausedUntil: Date?,
+        zoomScale: Float,
+        committedUserRotation: simd_quatf,
+        now: Date
+    ) -> Bool {
+        guard !isDragging, !isPinching, !isPlayingIdleReset else { return false }
+        guard let autoSpinPausedUntil, now >= autoSpinPausedUntil else { return false }
+        return hasUserFramingAdjustment(
+            zoomScale: zoomScale,
+            committedUserRotation: committedUserRotation
+        )
+    }
+
+    /// Smoothstep **0…1** for idle-reset easing.
+    nonisolated static func idleResetEase(_ linearProgress: Double) -> Double {
+        let t = Swift.min(Swift.max(linearProgress, 0), 1)
+        return t * t * (3 - 2 * t)
+    }
+
+    nonisolated static func idleResetLerp(
+        start: Float,
+        linearProgress: Double
+    ) -> Float {
+        let eased = Float(idleResetEase(linearProgress))
+        return start * (1 - eased)
+    }
+
+    nonisolated static func idleResetSlerp(
+        from: simd_quatf,
+        to: simd_quatf,
+        linearProgress: Double
+    ) -> simd_quatf {
+        let t = Float(idleResetEase(linearProgress))
+        return simd_slerp(from, to, t)
     }
 }

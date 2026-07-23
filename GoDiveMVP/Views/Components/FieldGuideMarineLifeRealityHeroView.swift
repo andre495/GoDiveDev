@@ -20,13 +20,23 @@ private final class FieldGuideMarineLifeHeroInteractionState {
     let autoRotateSpeedRadiansPerSecond: Float
     let autoSpinPauseAfterDragSeconds: TimeInterval
 
-    var committedYawRadians: Float = 0
-    var dragYawRadians: Float = 0
+    var committedUserRotation: simd_quatf = FieldGuideMarineLifeHeroInteractionPresentation.identityRotation
+    var dragUserRotation: simd_quatf = FieldGuideMarineLifeHeroInteractionPresentation.identityRotation
+    var committedZoomScale: Float = 1
+    var pinchZoomScale: Float = 1
     var isDragging = false
+    var isPinching = false
     var autoSpinPausedUntil: Date?
     private var autoYawRadians: Float = 0
 
+    private var idleResetStartZoom: Float = 1
+    private var idleResetStartUserRotation: simd_quatf =
+        FieldGuideMarineLifeHeroInteractionPresentation.identityRotation
+    private var idleResetBeganAt: Date?
+
     weak var modelAnchor: Entity?
+    weak var fittedModelEntity: Entity?
+    var modelBaseScale: SIMD3<Float> = [1, 1, 1]
     var modelBasePosition: SIMD3<Float> = .zero
     var modelBobElapsed: TimeInterval = 0
 
@@ -44,19 +54,122 @@ private final class FieldGuideMarineLifeHeroInteractionState {
         self.autoSpinPauseAfterDragSeconds = autoSpinPauseAfterDragSeconds
     }
 
-    func noteDragChanged() {
-        isDragging = true
+    var isPlayingIdleReset: Bool {
+        idleResetBeganAt != nil
     }
 
-    func noteDragEnded(now: Date = Date()) {
+    var displayZoomScale: Float {
+        FieldGuideMarineLifeHeroInteractionPresentation.clampedZoomScale(
+            committedZoomScale * pinchZoomScale
+        )
+    }
+
+    func noteDragChanged() {
+        isDragging = true
+        cancelIdleResetIfNeeded()
+    }
+
+    func notePinchChanged() {
+        isPinching = true
+        cancelIdleResetIfNeeded()
+    }
+
+    func noteInteractionEnded(now: Date = Date()) {
         isDragging = false
+        isPinching = false
         autoSpinPausedUntil = now.addingTimeInterval(autoSpinPauseAfterDragSeconds)
     }
 
+    func noteDragEnded() {
+        committedUserRotation = FieldGuideMarineLifeHeroInteractionPresentation.normalizedRotation(
+            committedUserRotation * dragUserRotation
+        )
+        dragUserRotation = FieldGuideMarineLifeHeroInteractionPresentation.identityRotation
+        noteInteractionEnded()
+    }
+
+    func notePinchEnded(magnification: CGFloat) {
+        committedZoomScale = FieldGuideMarineLifeHeroInteractionPresentation.clampedZoomScale(
+            committedZoomScale * Float(magnification)
+        )
+        pinchZoomScale = 1
+        noteInteractionEnded()
+    }
+
+    private func cancelIdleResetIfNeeded() {
+        idleResetBeganAt = nil
+    }
+
+    func tickIdleResetIfNeeded(now: Date = Date()) {
+        guard !isDragging, !isPinching else { return }
+
+        if idleResetBeganAt == nil,
+           FieldGuideMarineLifeHeroInteractionPresentation.shouldBeginIdleReset(
+               isDragging: isDragging,
+               isPinching: isPinching,
+               isPlayingIdleReset: isPlayingIdleReset,
+               autoSpinPausedUntil: autoSpinPausedUntil,
+               zoomScale: committedZoomScale,
+               committedUserRotation: committedUserRotation,
+               now: now
+           ) {
+            beginIdleReset(now: now)
+        }
+    }
+
+    private func beginIdleReset(now: Date) {
+        idleResetStartZoom = committedZoomScale
+        idleResetStartUserRotation = committedUserRotation
+        idleResetBeganAt = now
+    }
+
+    func advanceIdleReset(deltaTime: TimeInterval, now: Date = Date()) {
+        guard let beganAt = idleResetBeganAt else { return }
+        let duration = FieldGuideMarineLifeHeroInteractionPresentation.idleResetAnimationSeconds
+        let linear = duration > 0 ? (now.timeIntervalSince(beganAt) / duration) : 1
+
+        if linear >= 1 {
+            committedZoomScale = FieldGuideMarineLifeHeroInteractionPresentation.minimumZoomScale
+            committedUserRotation = FieldGuideMarineLifeHeroInteractionPresentation.identityRotation
+            dragUserRotation = FieldGuideMarineLifeHeroInteractionPresentation.identityRotation
+            pinchZoomScale = 1
+            idleResetBeganAt = nil
+            autoSpinPausedUntil = nil
+            applyModelTransform()
+            applyFittedModelScale()
+            return
+        }
+
+        committedZoomScale = FieldGuideMarineLifeHeroInteractionPresentation.idleResetLerp(
+            start: idleResetStartZoom,
+            linearProgress: linear
+        )
+        committedUserRotation = FieldGuideMarineLifeHeroInteractionPresentation.idleResetSlerp(
+            from: idleResetStartUserRotation,
+            to: FieldGuideMarineLifeHeroInteractionPresentation.identityRotation,
+            linearProgress: linear
+        )
+        applyModelTransform()
+        applyFittedModelScale()
+    }
+
     func advanceAutoRotation(deltaTime: TimeInterval, now: Date = Date()) {
+        tickIdleResetIfNeeded(now: now)
+        if isPlayingIdleReset {
+            advanceIdleReset(deltaTime: deltaTime, now: now)
+        } else if let autoSpinPausedUntil, now >= autoSpinPausedUntil,
+                  !FieldGuideMarineLifeHeroInteractionPresentation.hasUserFramingAdjustment(
+                      zoomScale: committedZoomScale,
+                      committedUserRotation: committedUserRotation
+                  ) {
+            self.autoSpinPausedUntil = nil
+        }
+
         guard FieldGuideMarineLifeHeroPresentation.shouldAdvanceAutoSpin(
             autoRotateSpeedRadiansPerSecond: autoRotateSpeedRadiansPerSecond,
             isDragging: isDragging,
+            isPinching: isPinching,
+            isPlayingIdleReset: isPlayingIdleReset,
             autoSpinPausedUntil: autoSpinPausedUntil,
             now: now
         ) else {
@@ -65,7 +178,16 @@ private final class FieldGuideMarineLifeHeroInteractionState {
         autoYawRadians += autoRotateSpeedRadiansPerSecond * Float(deltaTime)
     }
 
-    func advanceModelBob(deltaTime: TimeInterval) {
+    func advanceModelBob(deltaTime: TimeInterval, now: Date = Date()) {
+        guard FieldGuideMarineLifeHeroPresentation.shouldAdvanceIdleBob(
+            isDragging: isDragging,
+            isPinching: isPinching,
+            isPlayingIdleReset: isPlayingIdleReset,
+            autoSpinPausedUntil: autoSpinPausedUntil,
+            now: now
+        ) else {
+            return
+        }
         modelBobElapsed += deltaTime
         applyModelTransform()
     }
@@ -78,10 +200,21 @@ private final class FieldGuideMarineLifeHeroInteractionState {
             modelBasePosition.y + bob,
             modelBasePosition.z,
         ]
-        modelAnchor.transform.rotation = simd_quatf(
-            angle: totalYawRadians,
-            axis: [0, 1, 0]
+        let baseYaw = simd_quatf(angle: initialYawRadians + autoYawRadians, axis: [0, 1, 0])
+        let userRotation = FieldGuideMarineLifeHeroInteractionPresentation.normalizedRotation(
+            committedUserRotation * dragUserRotation
         )
+        modelAnchor.transform.rotation = baseYaw * userRotation
+    }
+
+    func applyFittedModelScale() {
+        guard let fittedModelEntity else { return }
+        let zoom = displayZoomScale
+        fittedModelEntity.scale = [
+            modelBaseScale.x * zoom,
+            modelBaseScale.y * zoom,
+            modelBaseScale.z * zoom,
+        ]
     }
 
     func advanceGlowPulse(deltaTime: TimeInterval) {
@@ -95,10 +228,6 @@ private final class FieldGuideMarineLifeHeroInteractionState {
             glowBasePosition.y + lift,
             glowBasePosition.z,
         ]
-    }
-
-    var totalYawRadians: Float {
-        initialYawRadians + autoYawRadians + committedYawRadians + dragYawRadians
     }
 }
 
@@ -132,6 +261,7 @@ struct FieldGuideMarineLifeRealityHeroView: View {
                 Color.clear
                     .contentShape(Rectangle())
                     .highPriorityGesture(dragGesture)
+                    .simultaneousGesture(pinchGesture)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -139,7 +269,7 @@ struct FieldGuideMarineLifeRealityHeroView: View {
         .accessibilityLabel("3D model")
         .accessibilityHint(
             configuration.allowsDragRotation
-                ? "Drag horizontally to rotate the model"
+                ? "Drag to rotate the model. Pinch to zoom in. After a pause it returns to the default view and spins."
                 : "Animated 3D species model"
         )
     }
@@ -148,12 +278,26 @@ struct FieldGuideMarineLifeRealityHeroView: View {
         DragGesture(minimumDistance: 4)
             .onChanged { value in
                 interactionState.noteDragChanged()
-                interactionState.dragYawRadians = Float(value.translation.width) * 0.015
+                interactionState.dragUserRotation = FieldGuideMarineLifeHeroInteractionPresentation.dragTrackballRotation(
+                    translationWidth: value.translation.width,
+                    translationHeight: value.translation.height
+                )
+                interactionState.applyModelTransform()
             }
             .onEnded { _ in
-                interactionState.committedYawRadians += interactionState.dragYawRadians
-                interactionState.dragYawRadians = 0
                 interactionState.noteDragEnded()
+            }
+    }
+
+    private var pinchGesture: some Gesture {
+        MagnificationGesture()
+            .onChanged { value in
+                interactionState.notePinchChanged()
+                interactionState.pinchZoomScale = Float(value)
+                interactionState.applyFittedModelScale()
+            }
+            .onEnded { value in
+                interactionState.notePinchEnded(magnification: value)
             }
     }
 }
@@ -258,6 +402,8 @@ private struct FieldGuideMarineLifeClearARHeroRepresentable: UIViewRepresentable
             modelAnchor.name = FieldGuideMarineLifeRealityHeroScene.modelAnchorName
             fitModelEntity(loadedEntity, bounds: bounds, scale: scale)
             modelAnchor.addChild(loadedEntity)
+            interactionState.fittedModelEntity = loadedEntity
+            interactionState.modelBaseScale = loadedEntity.scale
 
             // Glow stays a sibling of the model anchor so yaw spin does not orbit the plate/particles.
             // Compact avatar chips (map Marine Life) opt out — no plate/sparkles behind the mesh.
@@ -292,7 +438,15 @@ private struct FieldGuideMarineLifeClearARHeroRepresentable: UIViewRepresentable
             interactionState.modelAnchor = modelAnchor
             interactionState.modelBasePosition = modelAnchor.position
             interactionState.modelBobElapsed = 0
+            interactionState.committedZoomScale = 1
+            interactionState.pinchZoomScale = 1
+            interactionState.committedUserRotation =
+                FieldGuideMarineLifeHeroInteractionPresentation.identityRotation
+            interactionState.dragUserRotation =
+                FieldGuideMarineLifeHeroInteractionPresentation.identityRotation
+            interactionState.autoSpinPausedUntil = nil
             interactionState.applyModelTransform()
+            interactionState.applyFittedModelScale()
 
             updateSubscription = arView.scene.subscribe(to: SceneEvents.Update.self) {
                 @MainActor [weak self] event in

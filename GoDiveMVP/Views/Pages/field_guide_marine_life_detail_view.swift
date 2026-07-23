@@ -167,7 +167,10 @@ struct FieldGuideMarineLifeDetailView: View {
     }
 
     private var showsHeroModeToggle: Bool {
-        !mapPins.isEmpty
+        PushedDetailHeroModePresentation.showsModeToggle(
+            hasAssociatedMedia: !taggedMediaItems.isEmpty,
+            hasMapContent: !mapPins.isEmpty
+        )
     }
 
     private var taggedDiveRows: [DiveLogbookRowDisplayData] {
@@ -186,7 +189,7 @@ struct FieldGuideMarineLifeDetailView: View {
 
     var body: some View {
         BlueSheetDetailPage(
-            configuration: .pushedDetail(
+            configuration: .pushedDetailWithStandardPanelBodySpacing(
                 accessibilityRootIdentifier: "FieldGuide.SpeciesDetail.Root"
             ),
             hero: { context in
@@ -256,13 +259,12 @@ struct FieldGuideMarineLifeDetailView: View {
         .onDisappear {
             DiveMediaScopeCache.shared.deactivateScope(.marineLifeSpecies(species.uuid))
         }
-        .onChange(of: mapPins.count) { _, count in
-            if count == 0, speciesHeroMode == .map {
-                speciesHeroMode = .media
-            }
+        .onChange(of: mapPins.count) { _, _ in
+            syncSpeciesHeroMapMode()
         }
         .onChange(of: taggedMediaItems.map(\.id)) { _, _ in
             syncSpeciesHeroPresentation(applyDefaultSource: false)
+            syncSpeciesHeroMapMode()
         }
     }
 
@@ -328,6 +330,7 @@ struct FieldGuideMarineLifeDetailView: View {
             heroTaggedMediaID = nil
             speciesHeroMediaSource = .catalogReference
             resetCatalogHeroDisplay()
+            syncSpeciesHeroMapMode()
             return
         }
 
@@ -373,6 +376,14 @@ struct FieldGuideMarineLifeDetailView: View {
         }
         heroTaggedMediaID = FieldGuideSpeciesHeroPresentation.initialTaggedMediaPhotoID(
             from: taggedMediaItems
+        )
+    }
+
+    private func syncSpeciesHeroMapMode() {
+        speciesHeroMode = PushedDetailHeroModePresentation.enforceModeWhenToggleHidden(
+            speciesHeroMode,
+            hasAssociatedMedia: !taggedMediaItems.isEmpty,
+            hasMapContent: !mapPins.isEmpty
         )
     }
 

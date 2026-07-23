@@ -80,7 +80,8 @@ enum DiveDepthProfileMediaPlotting {
         )
     }
 
-    nonisolated static func markers(
+    @MainActor
+    static func markers(
         mediaPhotos: [DiveMediaPhoto],
         profileSamples: [DiveDepthProfileSample],
         activityStartTime: Date,

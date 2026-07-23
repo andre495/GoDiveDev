@@ -12,6 +12,7 @@ struct BlueSheetHeaderPageLayout<
 >: View {
     let context: BlueSheetHeaderPageLayoutContext
     let showsHero: Bool
+    var usesProfileBubblePanelBackground: Bool = false
 
     @ViewBuilder var hero: () -> Hero
     @ViewBuilder var heroOverlay: () -> HeroOverlay
@@ -22,6 +23,7 @@ struct BlueSheetHeaderPageLayout<
     init(
         context: BlueSheetHeaderPageLayoutContext,
         showsHero: Bool,
+        usesProfileBubblePanelBackground: Bool = false,
         @ViewBuilder hero: @escaping () -> Hero,
         @ViewBuilder heroOverlay: @escaping () -> HeroOverlay,
         @ViewBuilder panel: @escaping () -> Panel,
@@ -30,6 +32,7 @@ struct BlueSheetHeaderPageLayout<
     ) {
         self.context = context
         self.showsHero = showsHero
+        self.usesProfileBubblePanelBackground = usesProfileBubblePanelBackground
         self.hero = hero
         self.heroOverlay = heroOverlay
         self.panel = panel
@@ -53,7 +56,8 @@ struct BlueSheetHeaderPageLayout<
                     overlapsMedia: showsHero,
                     bottomSafeAreaInset: context.panelBottomSafeAreaInset,
                     usesHomeDebugPanelTint: context.presentation == .tabRoot,
-                    appliesHorizontalContentPadding: context.presentation == .tabRoot
+                    appliesHorizontalContentPadding: context.presentation == .tabRoot,
+                    usesProfileBubbleBackground: usesProfileBubblePanelBackground
                 ) {
                     panel()
                 }
@@ -96,6 +100,7 @@ extension BlueSheetHeaderPageLayout where PanelOverlay == EmptyView {
         self.init(
             context: context,
             showsHero: showsHero,
+            usesProfileBubblePanelBackground: false,
             hero: hero,
             heroOverlay: heroOverlay,
             panel: panel,

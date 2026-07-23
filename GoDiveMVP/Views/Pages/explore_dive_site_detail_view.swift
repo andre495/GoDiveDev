@@ -83,8 +83,12 @@ struct ExploreDiveSiteDetailView: View {
         )
 
         let mapPins = ExploreDiveSiteDetailPresentation.mapPins(for: site)
+        let hasMedia = !initialSnapshot.taggedMediaItems.isEmpty
         _siteHeroMode = State(
-            initialValue: mapPins.isEmpty ? .media : .map
+            initialValue: PushedDetailHeroModePresentation.resolvedMode(
+                hasAssociatedMedia: hasMedia,
+                hasMapContent: !mapPins.isEmpty
+            )
         )
     }
 
@@ -111,8 +115,12 @@ struct ExploreDiveSiteDetailView: View {
         )
 
         let mapPins = ExploreDiveSiteDetailPresentation.mapPins(for: site)
+        let hasMedia = !initialSnapshot.taggedMediaItems.isEmpty
         _siteHeroMode = State(
-            initialValue: mapPins.isEmpty ? .media : .map
+            initialValue: PushedDetailHeroModePresentation.resolvedMode(
+                hasAssociatedMedia: hasMedia,
+                hasMapContent: !mapPins.isEmpty
+            )
         )
     }
 
@@ -191,7 +199,7 @@ struct ExploreDiveSiteDetailView: View {
 
     var body: some View {
         BlueSheetDetailPage(
-            configuration: .pushedDetail(
+            configuration: .pushedDetailWithStandardPanelBodySpacing(
                 accessibilityRootIdentifier: "Explore.DiveSiteDetail.Root"
             ),
             hero: { context in
@@ -354,32 +362,21 @@ struct ExploreDiveSiteDetailView: View {
         let hasMedia = !contentSnapshot.taggedMediaItems.isEmpty
         let hasMap = !mapPins.isEmpty
 
-        if hasMedia {
-            siteHeroMode = .media
-        } else if hasMap {
-            siteHeroMode = .map
-        }
-
-        enforceSingleModeHeroWhenToggleHidden()
-
-        if !hasMap, siteHeroMode == .map {
-            siteHeroMode = .media
-        }
+        siteHeroMode = PushedDetailHeroModePresentation.enforceModeWhenToggleHidden(
+            siteHeroMode,
+            hasAssociatedMedia: hasMedia,
+            hasMapContent: hasMap
+        )
     }
 
     private func enforceSingleModeHeroWhenToggleHidden() {
         let hasMedia = !contentSnapshot.taggedMediaItems.isEmpty
         let hasMap = !mapPins.isEmpty
-        guard !ExploreDiveSiteDetailPresentation.showsHeroModeToggle(
-            hasTaggedMedia: hasMedia,
-            hasMapPin: hasMap
-        ) else { return }
-
-        if hasMedia {
-            siteHeroMode = .media
-        } else if hasMap {
-            siteHeroMode = .map
-        }
+        siteHeroMode = PushedDetailHeroModePresentation.enforceModeWhenToggleHidden(
+            siteHeroMode,
+            hasAssociatedMedia: hasMedia,
+            hasMapContent: hasMap
+        )
     }
 
     private func syncHeroTaggedMediaSelection() {

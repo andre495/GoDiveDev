@@ -43,24 +43,22 @@ struct TripEditSheetView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                TripPlannerFormContent(
-                    form: $form,
-                    existingOwnerTrips: ownerTrips,
-                    editingTripID: trip.id,
-                    clearsListRowBackgrounds: true
-                )
+            TripPlannerSheetScrollContainer {
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+                    TripPlannerFormContent(
+                        form: $form,
+                        existingOwnerTrips: ownerTrips,
+                        editingTripID: trip.id
+                    )
 
-                Section {
                     Button("Delete trip", role: .destructive) {
                         showsDeleteConfirmation = true
                     }
+                    .font(.body.weight(.semibold))
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityIdentifier("TripEditSheet.Delete")
-                    .listRowBackground(Color.clear)
                 }
             }
-            .scrollContentBackground(.hidden)
-            .listStyle(.plain)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     AppGlassToolbarCancelButton(

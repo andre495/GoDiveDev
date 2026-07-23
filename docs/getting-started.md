@@ -9,7 +9,6 @@ Whenever you open GoDive while logged out, onboarding walks you through what the
 Choose one or more (**Scuba Diving** is selected by default):
 
 - **Scuba Diving**
-- **Free Diving**
 - **Snorkeling**
 
 Tap **Get Started** to continue, or **Already have an account? Sign in** at the bottom to open the dedicated sign-in screen (skips the feature slides). Use the **back** chevron on that screen to return to welcome (or to the feature slides if you skipped from there). Activity picks on welcome are saved when you tap **Get Started**; if you sign in from welcome instead and Apple creates a new account, you’ll choose activities again in the post–sign-in setup.
@@ -20,14 +19,14 @@ Slides are tailored to what you selected:
 
 | Slide | Shown when |
 |-------|------------|
-| **Log every dive** | Scuba and/or free diving |
+| **Log every dive** | Scuba diving |
 | **Track your snorkeling activities** | Snorkeling |
 | **Explore sites across the world** | Always |
 | **Share experiences with your friends** | Always |
 | **Monitor your equipment** | Always |
 | **Learn from thousands of marine species** | Scuba and/or snorkeling |
 
-Swipe or tap **Continue** on earlier slides. On the **first** feature slide, **Back** returns to the welcome activity picker so you can change scuba / free diving / snorkeling. On later slides, **Back** goes to the previous slide. On the last slide, use **Sign in with Apple** at the bottom (**Skip** on earlier slides opens the dedicated sign-in screen).
+Swipe or tap **Continue** on earlier slides. On the **first** feature slide, **Back** returns to the welcome activity picker so you can change scuba or snorkeling. On later slides, **Back** goes to the previous slide. On the last slide, use **Sign in with Apple** at the bottom (**Skip** on earlier slides opens the dedicated sign-in screen).
 
 ### 3. Sign in with Apple
 
@@ -35,17 +34,17 @@ Create your on-device log with **Sign in with Apple** — either on the last fea
 
 **New accounts** then walk through setup:
 
-1. **Activities** — only if you signed in from the dedicated sign-in screen without picking activities on welcome (**Already have an account? Sign in**). Choose scuba / free diving / snorkeling, then **Continue**.
+1. **Activities** — only if you signed in from the dedicated sign-in screen without picking activities on welcome (**Already have an account? Sign in**). Choose scuba diving or snorkeling, then **Continue**.
 2. **Profile photo** — **Welcome,** *your name*; subtitle **Add a profile photo**. After you crop a photo, the wizard advances automatically; or **Skip for now**. A **back** chevron on later steps returns to the previous one.
-3. **DAN insurance** — only if you chose scuba or free diving; optional. **Continue** appears after you enter a member number; or **Skip for now**.
-4. **Certification** — only if you chose scuba or free diving. **Continue** appears after agency, certification name, and number are filled in; or **Skip for now**.
+3. **DAN insurance** — only if you chose scuba diving; optional. **Continue** appears after you enter a member number; or **Skip for now**.
+4. **Certification** — only if you chose scuba diving. **Continue** appears after agency, certification name, and number are filled in; or **Skip for now**.
 5. **Welcome** — title **Welcome**, subtitle **Let's Dive In**, with your photo, name, optional DAN and certification, and activity interests.
 
 Tap **Let's dive in** on the preview.
 
 6. **Contacts & Photos** — explains why GoDive needs access; tap **Continue** and approve each iOS prompt (or deny — you can change this later in Settings).
 
-7. **Bring your old dives** — only if you chose scuba or free diving. Tap **Import dives** for **UDDF import** (choose a **.uddf** file or open the **MacDive Import** guide — no back button; **Skip** top-right exits to celebration), or **Skip for now** on the offer slide to go straight to celebration.
+7. **Bring your old dives** — only if you chose scuba diving. Tap **Import dives** for **UDDF import** (choose a **.uddf** file or open the **MacDive Import** guide — no back button; **Skip** top-right exits to celebration), or **Skip for now** on the offer slide to go straight to celebration.
 
 A **bubble celebration** plays, then GoDive opens to **Home**.
 
@@ -56,7 +55,7 @@ Returning visits while logged out start onboarding again from the welcome screen
 When you open GoDive after onboarding, sign in with **Sign in with Apple**. GoDive uses your Apple ID to keep your dive profile tied to your account.
 
 - If Apple provides your name once, GoDive uses it for your display name.
-- Otherwise your name starts as **Diver** — you can change it anytime from **Profile → Edit**.
+- Otherwise your name starts as **Diver** — you can change it anytime from **Profile → menu → Edit Profile**.
 - On devices signed into **iCloud**, your dive log can sync across your Apple devices (**CloudKit**) over Wi‑Fi or cellular, including in the background when iOS allows.
 - GoDive may also create a lightweight **Firebase** social profile (display name) for future friends features — that is separate from your dive log. See the [Privacy Policy](privacy-and-data.md).
 
@@ -110,12 +109,11 @@ Tap the **Search** tab (magnifying glass). Pick a category tile or type to searc
 
 From **Home**, tap your avatar (top of the screen) to open **Profile**:
 
-- Edit name and DAN (blue **Cancel** / **Done** sheet); change photo on Profile  
-- **Certifications** and **Equipment locker**  
-- **Dive buddies** roster  
-- **Trips** planner  
-- **Settings** (gear icon)  
-- **Sign out** (asks for confirmation; your dives stay on the device for that Apple ID)
+- Buddy-style blue sheet: your tagged media in the header, photo on the seam  
+- Name and dive count beside your avatar  
+- Sheet **Details** page: DAN insurance number and featured certification (tap the cert to open it; **View all certifications** when you have more than one)  
+- Tap the **menu** (☰) for **Trips**, **Certifications**, **Equipment locker**, **Buddies**, **Friends**, **Edit Profile**, and **Settings**, with **Sign out** pinned at the bottom  
+- Change your photo by tapping the avatar on Profile
 
 ## Permissions GoDive may ask for
 
@@ -128,7 +126,7 @@ You can decline either permission and still use most of GoDive. Photo attach and
 
 ## Units and defaults
 
-Open **Profile → Settings** to choose:
+Open **Profile → menu (☰) → Settings** to choose:
 
 - **Imperial vs metric** display (depth, temperature, etc.)  
 - **Default tank size** for gas calculations on new imports  

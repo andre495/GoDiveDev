@@ -49,6 +49,7 @@ struct BlueSheetPageShell<
                 BlueSheetHeaderPageLayout(
                     context: layout,
                     showsHero: configuration.showsHero,
+                    usesProfileBubblePanelBackground: configuration.usesProfileBubblePanelBackground,
                     hero: {
                         hero(layout)
                     },

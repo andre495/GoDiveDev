@@ -3,8 +3,10 @@ import SwiftUI
 /// Body of the persistent dive overview panel (map + tank tabs) — embedded or **`.sheet`**.
 struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: View>: View {
     @Binding var selectedDetent: DiveActivityOverviewDetent
+    var layoutContext: DiveActivityOverviewSheetLayoutContext = .presentationReference
     /// When set (embedded grabber drag), layout follows the finger instead of the resting detent.
     var liveHeightFraction: CGFloat? = nil
+    @Binding var panelScrollOffsetY: CGFloat
     @ViewBuilder var collapsedSummary: () -> CollapsedSummary
     @ViewBuilder var panelContent: () -> PanelContent
     /// When **`false`**, minimized content handles its own taps (e.g. **Media** carousel); expand via grabber.
@@ -19,12 +21,20 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
     var topScrollFadeHeight: CGFloat = 0
     /// Solid panel fill behind scroll content so the feather mask fades into opaque chrome, not the hero.
     var usesOpaquePanelScrollFadeBackground: Bool = false
+    /// Store-backed offset when the scroll binding was cleared during nested **`NavigationLink`** pushes.
+    var scrollRestorationFallbackY: CGFloat = 0
+    /// Remounts panel scroll when switching map / tank / media tab content.
+    var panelScrollContentIdentity: AnyHashable = "default"
 
     /// Keeps the heavy scroll body mounted after first expand so detent changes do not rebuild the chart.
     @State private var keepsExpandedPanelMounted = true
 
     private var layoutHeightFraction: CGFloat {
-        liveHeightFraction ?? selectedDetent.heightFraction
+        liveHeightFraction ?? selectedDetent.resolvedHeightFraction(in: layoutContext)
+    }
+
+    private var largeRestingFraction: CGFloat {
+        DiveActivityOverviewPanelMetrics.largeHeightFraction(in: layoutContext)
     }
 
     private var showsMinimizedLayout: Bool {
@@ -60,19 +70,23 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
                     } else {
                         OverviewPanelScrollArea(
                             restingDetent: selectedDetent,
+                            layoutContext: layoutContext,
                             onExpand: {
                                 withAnimation(.diveOverviewPanelDetent) {
                                     selectedDetent = .large
                                 }
                             },
-                            onCollapseToMedium: {
+                            onCollapseToMinimized: {
                                 withAnimation(.diveOverviewPanelDetent) {
-                                    selectedDetent = .medium
+                                    selectedDetent = .minimized
                                 }
                             },
                             isScrollDisabled: false,
                             topScrollFadeHeight: topScrollFadeHeight,
-                            usesOpaquePanelScrollFadeBackground: usesOpaquePanelScrollFadeBackground
+                            usesOpaquePanelScrollFadeBackground: usesOpaquePanelScrollFadeBackground,
+                            fallbackScrollOffsetY: scrollRestorationFallbackY,
+                            contentIdentity: panelScrollContentIdentity,
+                            persistedScrollOffsetY: $panelScrollOffsetY
                         ) {
                             panelContent()
                                 .environment(\.diveOverviewPanelHeightFraction, layoutHeightFraction)
@@ -80,6 +94,7 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
                                 .padding(.horizontal, AppTheme.Spacing.md)
                                 .padding(.bottom, AppTheme.Spacing.lg)
                         }
+                        .frame(maxHeight: .infinity, alignment: .top)
                     }
                 }
                 .opacity(hidesMountedPanelContent ? 0 : 1)
@@ -93,7 +108,7 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
                     if collapsedSummaryExpandsOnTap {
                         Button {
                             withAnimation(.diveOverviewPanelDetent) {
-                                selectedDetent = .medium
+                                selectedDetent = .large
                             }
                         } label: {
                             collapsedSummary()
@@ -147,20 +162,30 @@ struct DiveActivityOverviewSheetContent<CollapsedSummary: View, PanelContent: Vi
 // MARK: - Native sheet presentation
 
 extension View {
-    /// Standard dive overview sheet chrome: three detents, system grabber, hero interaction through **medium**.
+    /// Standard dive overview sheet chrome: two detents (**minimized** + blue-sheet **large**), system grabber.
     func diveActivityOverviewSheetPresentation(
         selectedDetent: Binding<DiveActivityOverviewDetent>,
         screenHeight: CGFloat,
+        screenWidth: CGFloat,
+        topSafeInset: CGFloat,
         bottomSafeInset: CGFloat
     ) -> some View {
         let resolvedScreenHeight = screenHeight > 1
             ? screenHeight
             : DiveActivityOverviewDetent.presentationReferenceScreenHeight
+        let resolvedScreenWidth = screenWidth > 1
+            ? screenWidth
+            : DiveActivityOverviewDetent.presentationReferenceScreenWidth
         let resolvedBottomSafeInset = screenHeight > 1
             ? bottomSafeInset
             : DiveActivityOverviewDetent.presentationReferenceBottomSafeInset
+        let resolvedTopSafeInset = screenHeight > 1
+            ? topSafeInset
+            : DiveActivityOverviewSheetLayoutContext.presentationReference.topSafeInset
         let detents = DiveActivityOverviewDetent.allPresentationDetents(
             screenHeight: resolvedScreenHeight,
+            screenWidth: resolvedScreenWidth,
+            topSafeInset: resolvedTopSafeInset,
             bottomSafeInset: resolvedBottomSafeInset
         )
         return presentationDetents(
@@ -169,6 +194,8 @@ extension View {
                 get: {
                     selectedDetent.wrappedValue.presentationDetent(
                         screenHeight: resolvedScreenHeight,
+                        screenWidth: resolvedScreenWidth,
+                        topSafeInset: resolvedTopSafeInset,
                         bottomSafeInset: resolvedBottomSafeInset
                     )
                 },
@@ -177,6 +204,8 @@ extension View {
                         let matched = DiveActivityOverviewDetent(
                             presentationDetent: newDetent,
                             screenHeight: resolvedScreenHeight,
+                            screenWidth: resolvedScreenWidth,
+                            topSafeInset: resolvedTopSafeInset,
                             bottomSafeInset: resolvedBottomSafeInset
                         ),
                         matched != selectedDetent.wrappedValue
@@ -188,8 +217,10 @@ extension View {
         .presentationDragIndicator(.visible)
         .presentationBackgroundInteraction(
             .enabled(
-                upThrough: DiveActivityOverviewDetent.medium.presentationDetent(
+                upThrough: DiveActivityOverviewDetent.large.presentationDetent(
                     screenHeight: resolvedScreenHeight,
+                    screenWidth: resolvedScreenWidth,
+                    topSafeInset: resolvedTopSafeInset,
                     bottomSafeInset: resolvedBottomSafeInset
                 )
             )
@@ -205,21 +236,38 @@ extension View {
 /// Tracks scroll offset locally; parent only receives one-shot expand / collapse callbacks.
 struct OverviewPanelScrollArea<Content: View>: View {
     let restingDetent: DiveActivityOverviewDetent
+    var layoutContext: DiveActivityOverviewSheetLayoutContext = .presentationReference
     let onExpand: () -> Void
-    let onCollapseToMedium: () -> Void
+    let onCollapseToMinimized: () -> Void
     var isScrollDisabled = false
     var topScrollFadeHeight: CGFloat = 0
     var usesOpaquePanelScrollFadeBackground = false
+    /// Last known offset from **`DiveActivityOverviewUIStateStore`** when the binding was cleared during nested navigation.
+    var fallbackScrollOffsetY: CGFloat = 0
+    /// Forces a fresh **`ScrollView`** when overview tab content changes (map / tank / media).
+    var contentIdentity: AnyHashable = "default"
+    @Binding var persistedScrollOffsetY: CGFloat
     @ViewBuilder var content: () -> Content
 
     @State private var lastScrollOffsetY: CGFloat = 0
     @State private var didFireExpandThisGesture = false
     @State private var pendingDetentScrollTask: Task<Void, Never>?
+    @State private var scrollRestorationInset: CGFloat = 0
+    @State private var acceptsScrollOffsetPersistence = true
 
     var body: some View {
         ScrollView {
-            content()
+            VStack(spacing: 0) {
+                if scrollRestorationInset > 0 {
+                    Color.clear
+                        .frame(height: scrollRestorationInset)
+                        .accessibilityHidden(true)
+                }
+                content()
+            }
         }
+        .id(contentIdentity)
+        .frame(maxHeight: .infinity, alignment: .top)
         .background {
             if usesOpaquePanelScrollFadeBackground, topScrollFadeHeight > 0 {
                 AppOverviewSheetPanelBackground()
@@ -231,16 +279,65 @@ struct OverviewPanelScrollArea<Content: View>: View {
         .onScrollGeometryChange(for: CGFloat.self) { geometry in
             geometry.contentOffset.y
         } action: { _, newOffset in
+            if DiveActivityOverviewScrollRestoration.shouldIgnoreSuddenScrollResetToTop(
+                proposedOffset: newOffset,
+                persistedOffset: persistedScrollOffsetY,
+                lastReportedOffset: lastScrollOffsetY
+            ) {
+                return
+            }
             lastScrollOffsetY = newOffset
+            if DiveActivityOverviewScrollRestoration.shouldPersistScrollOffsetBinding(
+                proposedOffset: newOffset,
+                acceptsPersistence: acceptsScrollOffsetPersistence
+            ) {
+                persistedScrollOffsetY = newOffset
+            }
             handleScrollOffset(newOffset)
+        }
+        .onAppear {
+            acceptsScrollOffsetPersistence = true
+            applyScrollRestorationInsetIfNeeded()
+        }
+        .onChange(of: contentIdentity) { _, _ in
+            scrollRestorationInset = 0
+            lastScrollOffsetY = 0
+            didFireExpandThisGesture = false
         }
         .onScrollPhaseChange { _, phase in
             guard phase == .idle || phase == .decelerating else { return }
             handleScrollEnded()
         }
         .onDisappear {
+            acceptsScrollOffsetPersistence = false
             pendingDetentScrollTask?.cancel()
+            let preserved = DiveActivityOverviewScrollRestoration.preservedScrollOffset(
+                binding: persistedScrollOffsetY,
+                lastReportedOffset: lastScrollOffsetY
+            )
+            if preserved > 4 {
+                persistedScrollOffsetY = preserved
+            }
+            scrollRestorationInset = 0
         }
+    }
+
+    private func applyScrollRestorationInsetIfNeeded() {
+        guard DiveActivityOverviewScrollRestoration.shouldApplyScrollRestorationInset(
+            fallback: fallbackScrollOffsetY,
+            persisted: persistedScrollOffsetY
+        ) else {
+            scrollRestorationInset = 0
+            return
+        }
+        let target = DiveActivityOverviewScrollRestoration.effectiveScrollOffsetForRestoration(
+            persisted: persistedScrollOffsetY,
+            fallback: fallbackScrollOffsetY
+        )
+        if persistedScrollOffsetY < target {
+            persistedScrollOffsetY = target
+        }
+        scrollRestorationInset = target
     }
 
     private func handleScrollOffset(_ offsetY: CGFloat) {
@@ -249,8 +346,9 @@ struct OverviewPanelScrollArea<Content: View>: View {
         }
 
         guard DiveActivityOverviewPanelMetrics.shouldExpandFromScroll(
-            restingFraction: restingDetent.heightFraction,
-            scrollOffsetY: offsetY
+            restingFraction: restingDetent.resolvedHeightFraction(in: layoutContext),
+            scrollOffsetY: offsetY,
+            largeRestingFraction: DiveActivityOverviewPanelMetrics.largeHeightFraction(in: layoutContext)
         ), !didFireExpandThisGesture
         else { return }
 
@@ -259,12 +357,13 @@ struct OverviewPanelScrollArea<Content: View>: View {
     }
 
     private func handleScrollEnded() {
-        guard DiveActivityOverviewPanelMetrics.shouldCollapseToMediumFromScroll(
-            restingFraction: restingDetent.heightFraction,
-            scrollOffsetY: lastScrollOffsetY
+        guard DiveActivityOverviewPanelMetrics.shouldCollapseFromScroll(
+            restingFraction: restingDetent.resolvedHeightFraction(in: layoutContext),
+            scrollOffsetY: lastScrollOffsetY,
+            largeRestingFraction: DiveActivityOverviewPanelMetrics.largeHeightFraction(in: layoutContext)
         ) else { return }
 
-        scheduleDetentScrollAction(onCollapseToMedium)
+        scheduleDetentScrollAction(onCollapseToMinimized)
     }
 
     /// Coalesces rapid scroll callbacks so sheet detent changes do not stack in one frame.

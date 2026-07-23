@@ -13,7 +13,9 @@
 		AEFDAC522F7DD34800587D52 /* FITSwiftSDK in Frameworks */ = {isa = PBXBuildFile; productRef = AEFDAC512F7DD34800587D52 /* FITSwiftSDK */; };
 		B0FDAC622F8EE45900698E65 /* GoogleMaps in Frameworks */ = {isa = PBXBuildFile; productRef = B0FDAC612F8EE45900698E64 /* GoogleMaps */; };
 		BEFCD8A35880F62A7B677A48 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 8ED65D8CD55B1FB8C73C581E /* FirebaseAuth */; };
+		C1F2E3D4C5B6A79887766555 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = D2E3D4C5B6A7988776655444 /* FirebaseMessaging */; };
 		D2065B3ADAE6718AE39B3A36 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = B237F6CBEAB2E359CA50369F /* FirebaseCore */; };
+		F1WEATHER0012F9A1000000001 /* WeatherKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F1WEATHER0022F9A1000000002 /* WeatherKit.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -38,6 +40,7 @@
 		AEFDAC0C2F7DD34500587D52 /* GoDiveMVP.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GoDiveMVP.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AEFDAC1B2F7DD34800587D52 /* GoDiveMVPTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GoDiveMVPTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AEFDAC252F7DD34800587D52 /* GoDiveMVPUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GoDiveMVPUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F1WEATHER0022F9A1000000002 /* WeatherKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WeatherKit.framework; path = System/Library/Frameworks/WeatherKit.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -87,6 +90,8 @@
 				BEFCD8A35880F62A7B677A48 /* FirebaseAuth in Frameworks */,
 				74F7E139D71BFE40DAE3987F /* FirebaseFirestore in Frameworks */,
 				A1F2E3D4C5B6A79887766554 /* FirebaseStorage in Frameworks */,
+				C1F2E3D4C5B6A79887766555 /* FirebaseMessaging in Frameworks */,
+				F1WEATHER0012F9A1000000001 /* WeatherKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -107,6 +112,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		AE0541813012891B0088EF48 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				F1WEATHER0022F9A1000000002 /* WeatherKit.framework */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 		AEFDAC032F7DD34500587D52 = {
 			isa = PBXGroup;
 			children = (
@@ -115,6 +128,7 @@
 				AEFDAC282F7DD34800587D52 /* GoDiveMVPUITests */,
 				AEFDAC0D2F7DD34500587D52 /* Products */,
 				A6CBAB98D16A3C051B173F88 /* GoogleService-Info.plist */,
+				AE0541813012891B0088EF48 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -154,6 +168,7 @@
 				8ED65D8CD55B1FB8C73C581E /* FirebaseAuth */,
 				873FE6B21549065754F05DA2 /* FirebaseFirestore */,
 				B2E3D4C5B6A7988776655443 /* FirebaseStorage */,
+				D2E3D4C5B6A7988776655444 /* FirebaseMessaging */,
 			);
 			productName = GoDiveMVP;
 			productReference = AEFDAC0C2F7DD34500587D52 /* GoDiveMVP.app */;
@@ -696,6 +711,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C78AD83853009B0267A65D98 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseStorage;
+		};
+		D2E3D4C5B6A7988776655444 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C78AD83853009B0267A65D98 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

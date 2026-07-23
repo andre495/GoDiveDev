@@ -3,6 +3,8 @@ import Foundation
 /// Copy for **Settings** rows (testable without SwiftUI).
 enum SettingsPresentation: Sendable {
 
+    nonisolated static let pageTitle = "Settings"
+
     enum ImperialUnits {
         nonisolated static let title = "Imperial units"
         nonisolated static let infoMessage =
@@ -45,6 +47,56 @@ enum SettingsPresentation: Sendable {
         nonisolated static let clearConfirmationTitle = "Delete all stored crash reports?"
     }
 
+    enum ICloudDiveLog {
+        nonisolated static let title = "iCloud dive log"
+        nonisolated static let infoMessage =
+            "Your dive log, buddies from imports, and profile photo bytes sync through Apple’s private iCloud database when mirroring is on. Friends, display name, and friend-linked buddies come from GoDive’s social service (Firebase). After reinstalling, GoDive can pull your avatar from Firebase if iCloud has not restored it yet. If private sync is off, dive data from this phone was never mirrored to iCloud and cannot be restored by reinstalling alone."
+        nonisolated static func subtitle(for snapshot: GoDiveCloudKitDiveLogLocalStatus.Snapshot) -> String {
+            let syncLabel: String = switch snapshot.privateSync {
+            case .enabled: "Private sync on"
+            case .disabled: "Private sync off"
+            case .unknown: "Private sync status unknown"
+            }
+            let onProfile = snapshot.sessionProfileDiveCount + snapshot.sessionProfileSnorkelCount
+            return "\(syncLabel) · \(onProfile) on this profile"
+        }
+        nonisolated static func detailMessage(for snapshot: GoDiveCloudKitDiveLogLocalStatus.Snapshot) -> String {
+            var lines: [String] = []
+            lines.append("Dives on this profile: \(snapshot.sessionProfileDiveCount)")
+            lines.append("Snorkels on this profile: \(snapshot.sessionProfileSnorkelCount)")
+            lines.append("Total on device: \(snapshot.totalDiveCount) dives, \(snapshot.totalSnorkelCount) snorkels")
+            if snapshot.appleIDProfileCount > 1 {
+                lines.append(
+                    "Profiles for this Apple ID on device: \(snapshot.appleIDProfileCount) (merge in progress if activities are split)"
+                )
+            }
+            if snapshot.activitiesOnOtherProfilesForSameAppleID > 0 {
+                lines.append(
+                    "Activities on other profiles: \(snapshot.activitiesOnOtherProfilesForSameAppleID) — leave the app open on Wi‑Fi; GoDive will merge them automatically."
+                )
+            }
+            if snapshot.sessionProfileDiveCount == 0,
+               snapshot.sessionProfileSnorkelCount == 0,
+               snapshot.totalDiveCount + snapshot.totalSnorkelCount > 0 {
+                lines.append(
+                    "Some activities are on this device but not linked to your session yet. Try force-quitting and reopening, or wait a few minutes on Wi‑Fi."
+                )
+            }
+            if let diagnostic = snapshot.lastOpenDiagnosticLine {
+                lines.append("Last store open: \(diagnostic)")
+            }
+            if snapshot.privateSync == .disabled {
+                lines.append(
+                    "Private sync is off on this device — sign out and sign in again, or restart GoDive, so your iCloud dive log can reconnect automatically."
+                )
+                if let error = snapshot.lastCloudKitOpenError {
+                    lines.append("Last open error: \(error)")
+                }
+            }
+            return lines.joined(separator: "\n")
+        }
+    }
+
     enum ShareCrashReports {
         nonisolated static let title = "Share crash reports"
         nonisolated static let infoMessage =
@@ -65,6 +117,24 @@ enum SettingsPresentation: Sendable {
         nonisolated static let title = "Share diagnostic events"
         nonisolated static let infoMessage =
             "When on, scrubbed diagnostic events upload automatically to the GoDive developer (requires an iCloud account on this device). Events contain short technical tokens only — no dive log, photo, or personal data. When off, the journal stays on your devices; you can still share entries manually from Diagnostic Events."
+    }
+
+    enum ShareDives {
+        nonisolated static let title = "Share dives with friends"
+        nonisolated static let infoMessage =
+            "When on, friends can see your dive details (site, depth, duration, conditions, and more). Your private CloudKit log stays the source of truth; a friend-visible copy is stored for them to read. Notes and media stay off unless you enable those toggles."
+    }
+
+    enum ShareNotesWithFriends {
+        nonisolated static let title = "Share notes with friends"
+        nonisolated static let infoMessage =
+            "When on, dive notes are included in what friends can see. Off by default."
+    }
+
+    enum ShareMediaWithFriends {
+        nonisolated static let title = "Share media with friends"
+        nonisolated static let infoMessage =
+            "When on, small photo previews from your dives upload so friends can see them. Full originals stay in your Photos library. Off by default."
     }
 
     enum BulkUddfImport {

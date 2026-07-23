@@ -44,15 +44,17 @@ struct SignInWithAppleSection: View {
                 signInErrorMessage = "Could not read your Apple ID."
                 return
             }
-            do {
-                try accountSession.completeSignIn(
-                    credential: credential,
-                    rawNonce: currentNonce,
-                    modelContext: modelContext
-                )
-            } catch {
-                signInErrorMessage = "Could not save your profile. Try again."
-                accountSession.recordSignInFailure(error)
+            Task { @MainActor in
+                do {
+                    try await accountSession.completeSignIn(
+                        credential: credential,
+                        rawNonce: currentNonce,
+                        modelContext: modelContext
+                    )
+                } catch {
+                    signInErrorMessage = "Could not save your profile. Try again."
+                    accountSession.recordSignInFailure(error)
+                }
             }
         case .failure(let error):
             if (error as? ASAuthorizationError)?.code == .canceled {

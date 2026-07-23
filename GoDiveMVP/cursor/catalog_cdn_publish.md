@@ -15,7 +15,8 @@ Storage:
   gs://{bucket}/catalog/v1/marine_life/models/{Name}.usdz
 ```
 
-Example base: `https://godive-1cff8.web.app`  
+Example base: `https://godive-1cff8.web.app` (default Hosting site **`godive-1cff8`** — not `links.godiveios.com`).  
+Friend invite links use site **`godive-links`** / `public-links/` — see **`friend_invite_links_domain.md`**.
 Example bucket: `godive-1cff8.firebasestorage.app`
 
 ## Rebuild + upload
@@ -30,7 +31,7 @@ python3 scripts/build_catalog_cdn.py --catalog-version 2
 python3 scripts/build_catalog_cdn.py --catalog-version 2 --upload
 
 # Deploy Hosting + Storage rules
-npx firebase-tools@latest deploy --only hosting,storage --project godive-1cff8
+npx firebase-tools@latest deploy --only hosting:catalog,storage --project godive-1cff8
 ```
 
 - Bump **`catalogVersion`** whenever JSON or asset pointers change.

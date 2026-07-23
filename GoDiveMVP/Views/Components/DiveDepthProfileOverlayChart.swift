@@ -12,6 +12,8 @@ struct DiveDepthProfileOverlayChart: View {
     var maxDepthHintMeters: Double
     /// **Y = 0** for the gas line; typically dive ending **PSI**.
     var pressureBaselinePSI: Double?
+    /// **0...1** — progressive draw for depth + PSI polylines (tank **minimized** entrance).
+    var profileLineRevealProgress: CGFloat = 1
     /// Landscape minimized profile with media markers — pinch to zoom; two-finger pan; one-finger scrub.
     var allowsZoomAndPan = false
     var onMediaMarkerTap: ((DiveDepthProfileMediaMarker) -> Void)? = nil
@@ -37,6 +39,7 @@ struct DiveDepthProfileOverlayChart: View {
                     baselinePSI: $0
                 )
             }
+            let lineReveal = min(1, max(0, profileLineRevealProgress))
 
             ZStack(alignment: .topLeading) {
                 if depthSamples.count < 2 {
@@ -54,10 +57,16 @@ struct DiveDepthProfileOverlayChart: View {
                                     in: rect,
                                     viewport: viewport,
                                     baselinePSI: baseline,
-                                    maxPressureAboveBaseline: maxAboveBaseline
+                                    maxPressureAboveBaseline: maxAboveBaseline,
+                                    revealProgress: lineReveal
                                 )
                             }
-                            depthPolyline(in: rect, viewport: viewport, maxDepth: maxDepth)
+                            depthPolyline(
+                                in: rect,
+                                viewport: viewport,
+                                maxDepth: maxDepth,
+                                revealProgress: lineReveal
+                            )
                         }
                         .drawingGroup()
 
@@ -67,6 +76,7 @@ struct DiveDepthProfileOverlayChart: View {
                             maxDepth: maxDepth,
                             fullElapsedMax: maxElapsed
                         )
+                        .opacity(Double(lineReveal))
 
                         if scrubActive, let idx = scrubDepthIndex, depthSamples.indices.contains(idx) {
                             scrubChrome(
@@ -216,7 +226,8 @@ struct DiveDepthProfileOverlayChart: View {
     private func depthPolyline(
         in rect: CGRect,
         viewport: DiveDepthProfileChartViewport,
-        maxDepth: Double
+        maxDepth: Double,
+        revealProgress: CGFloat
     ) -> some View {
         Path { path in
             for (i, sample) in depthSamples.enumerated() {
@@ -233,6 +244,7 @@ struct DiveDepthProfileOverlayChart: View {
                 }
             }
         }
+        .trim(from: 0, to: revealProgress)
         .stroke(AppTheme.Colors.accent, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
     }
 
@@ -281,7 +293,8 @@ struct DiveDepthProfileOverlayChart: View {
         in rect: CGRect,
         viewport: DiveDepthProfileChartViewport,
         baselinePSI: Double,
-        maxPressureAboveBaseline: Double
+        maxPressureAboveBaseline: Double,
+        revealProgress: CGFloat
     ) -> some View {
         Path { path in
             for (i, sample) in pressureSamples.enumerated() {
@@ -299,6 +312,7 @@ struct DiveDepthProfileOverlayChart: View {
                 }
             }
         }
+        .trim(from: 0, to: revealProgress)
         .stroke(AppTheme.Colors.tankGasAccent, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
     }
 

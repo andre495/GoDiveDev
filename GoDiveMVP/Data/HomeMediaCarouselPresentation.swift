@@ -710,6 +710,35 @@ enum HomeMediaCarouselPresentation: Sendable {
         buddyCount > taggedBuddyMaxFullVisibleProfiles
     }
 
+    /// Horizontal fan-out from the trailing buddy icon — **0** is the avatar adjacent to the icon.
+    nonisolated static func taggedBuddyHorizontalOffsetX(
+        distanceFromIcon: Int,
+        avatarDiameter: CGFloat,
+        avatarSpacing: CGFloat,
+        isExpanded: Bool
+    ) -> CGFloat {
+        guard isExpanded, distanceFromIcon >= 0 else { return 0 }
+        return -CGFloat(distanceFromIcon + 1) * (avatarDiameter + avatarSpacing)
+    }
+
+    nonisolated static func taggedBuddyHorizontalRevealDelay(
+        distanceFromIcon: Int,
+        staggerStep: TimeInterval = 0.055
+    ) -> TimeInterval {
+        Double(distanceFromIcon) * staggerStep
+    }
+
+    /// Total width of all avatars in the horizontal fan (one row, no vertical peek cap).
+    nonisolated static func taggedBuddyHorizontalStripWidth(
+        buddyCount: Int,
+        avatarDiameter: CGFloat,
+        avatarSpacing: CGFloat
+    ) -> CGFloat {
+        guard buddyCount > 0 else { return 0 }
+        return CGFloat(buddyCount) * avatarDiameter
+            + CGFloat(max(0, buddyCount - 1)) * avatarSpacing
+    }
+
     nonisolated static func taggedSpecies(
         mediaID: UUID,
         sightings: [SightingInstance],

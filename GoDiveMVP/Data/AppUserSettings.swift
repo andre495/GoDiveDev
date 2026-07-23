@@ -34,6 +34,16 @@ enum AppUserSettings: Sendable {
     /// still syncs via private CloudKit with the dive account.
     nonisolated static let shareSecurityEventsKey = "goDiveShareSecurityEvents"
 
+    /// When **`true`** and the user has friends, friend-visible dive projections publish to Firestore.
+    /// Default **on** (registered); notes/media stay opt-in separately.
+    nonisolated static let shareDivesWithFriendsKey = "goDiveShareDivesWithFriends"
+
+    /// When **`true`**, dive notes are included in friend-visible projections. Default **off**.
+    nonisolated static let shareNotesWithFriendsKey = "goDiveShareNotesWithFriends"
+
+    /// When **`true`**, dive media previews upload for friends. Default **off**.
+    nonisolated static let shareMediaWithFriendsKey = "goDiveShareMediaWithFriends"
+
     nonisolated static var automaticallyRenumberDives: Bool {
         UserDefaults.standard.bool(forKey: automaticallyRenumberDivesKey)
     }
@@ -81,6 +91,21 @@ enum AppUserSettings: Sendable {
         userDefaults.bool(forKey: shareSecurityEventsKey)
     }
 
+    nonisolated static func shareDivesWithFriends(userDefaults: UserDefaults = .standard) -> Bool {
+        if userDefaults.object(forKey: shareDivesWithFriendsKey) == nil {
+            return true
+        }
+        return userDefaults.bool(forKey: shareDivesWithFriendsKey)
+    }
+
+    nonisolated static func shareNotesWithFriends(userDefaults: UserDefaults = .standard) -> Bool {
+        userDefaults.bool(forKey: shareNotesWithFriendsKey)
+    }
+
+    nonisolated static func shareMediaWithFriends(userDefaults: UserDefaults = .standard) -> Bool {
+        userDefaults.bool(forKey: shareMediaWithFriendsKey)
+    }
+
     /// Toggle defaults applied when the user has never changed them (call once at launch).
     /// **`register(defaults:)`** only fills keys that are not already set, so it never overrides a saved choice.
     nonisolated static func registerDefaultValues(in defaults: UserDefaults = .standard) {
@@ -88,6 +113,9 @@ enum AppUserSettings: Sendable {
             automaticallyRenumberDivesKey: true,
             useImperialDisplayUnitsKey: true,
             autoUploadMediaToActivitiesKey: true,
+            shareDivesWithFriendsKey: true,
+            shareNotesWithFriendsKey: false,
+            shareMediaWithFriendsKey: false,
         ])
     }
 

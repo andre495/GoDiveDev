@@ -708,23 +708,32 @@ private struct HomeMediaCarouselSlideBottomChrome: View {
         static let gradientHeight: CGFloat = 112
     }
 
+    private var buddyChromeAnimation: Animation {
+        .spring(response: 0.34, dampingFraction: 0.82)
+    }
+
     var body: some View {
         HStack(alignment: .bottom, spacing: AppTheme.Spacing.md) {
-            MediaDiveLinkChromeButton(
-                siteDisplayName: highlight.siteDisplayName,
-                diveNumberLabel: highlight.diveNumberLabel,
-                linkedTripTitle: highlight.linkedTripTitle,
-                action: onOpenDive
-            )
+            Group {
+                MediaDiveLinkChromeButton(
+                    siteDisplayName: highlight.siteDisplayName,
+                    diveNumberLabel: highlight.diveNumberLabel,
+                    linkedTripTitle: highlight.linkedTripTitle,
+                    action: onOpenDive
+                )
+
+                if highlight.hasTaggedSpecies {
+                    HomeMediaCarouselTaggedSpeciesButton(
+                        taggedCount: highlight.taggedSpeciesCount,
+                        action: onShowTaggedSpecies
+                    )
+                }
+            }
+            .opacity(isBuddyListExpanded ? 0 : 1)
+            .allowsHitTesting(!isBuddyListExpanded)
+            .accessibilityHidden(isBuddyListExpanded)
 
             Spacer(minLength: AppTheme.Spacing.sm)
-
-            if highlight.hasTaggedSpecies {
-                HomeMediaCarouselTaggedSpeciesButton(
-                    taggedCount: highlight.taggedSpeciesCount,
-                    action: onShowTaggedSpecies
-                )
-            }
 
             if highlight.hasTaggedBuddies {
                 HomeMediaCarouselTaggedBuddiesButton(
@@ -738,6 +747,7 @@ private struct HomeMediaCarouselSlideBottomChrome: View {
                 .zIndex(isBuddyListExpanded ? 2 : 0)
             }
         }
+        .animation(buddyChromeAnimation, value: isBuddyListExpanded)
         .padding(.horizontal, AppTheme.Spacing.lg)
         .padding(.bottom, HomeMediaCarouselLayout.slideChromeBottomInset)
         .frame(maxWidth: .infinity, alignment: .bottomLeading)
@@ -815,55 +825,29 @@ private struct HomeMediaCarouselTaggedBuddiesButton: View {
         static var iconTapDimension: CGFloat { HomeMediaCarouselLayout.taggedOverlayIconTapDimension }
         static var avatarDiameter: CGFloat { max(iconDiameter - 4, 32) }
         static let avatarSpacing: CGFloat = 8
-        /// How far the buddy stack rises from the icon when expanding.
-        static let iconAnchorRise: CGFloat = 12
         static let staggerDelayStep: TimeInterval = 0.055
-        static var maxAnimatedRevealCount: Int {
-            min(
-                HomeMediaCarouselPresentation.taggedBuddyMaxFullVisibleProfiles + 1,
-                3
-            )
-        }
     }
 
     private var buddyExpandAnimation: Animation {
         .spring(response: 0.4, dampingFraction: 0.76)
     }
 
-    private var expandedBuddyListHeight: CGFloat {
-        HomeMediaCarouselPresentation.taggedBuddyExpandedListHeight(
+    private var expandedBuddyRowWidth: CGFloat {
+        HomeMediaCarouselPresentation.taggedBuddyHorizontalStripWidth(
             buddyCount: taggedBuddies.count,
             avatarDiameter: Layout.avatarDiameter,
             avatarSpacing: Layout.avatarSpacing
         )
     }
 
-    private var showsBuddyScrollFade: Bool {
-        isExpanded && HomeMediaCarouselPresentation.taggedBuddyListShowsScrollFade(
-            buddyCount: taggedBuddies.count
-        )
-    }
-
-    private func collapsedBuddyOffset(index: Int, total: Int) -> CGFloat {
-        let avatarsBelow = (total - 1) - index
-        let stackBelowHeight = CGFloat(avatarsBelow) * (Layout.avatarDiameter + Layout.avatarSpacing)
-        return stackBelowHeight + Layout.iconDiameter + Layout.iconAnchorRise
-    }
-
-    private func buddyRevealDelay(index: Int, total: Int) -> TimeInterval {
-        Double(total - 1 - index) * Layout.staggerDelayStep
-    }
-
-    @State private var buddyScrollContentOffset: CGFloat = 0
-
     private var iconColor: Color {
         isExpanded ? AppTheme.Colors.tabUnselected : AppTheme.Colors.accent
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            expandedBuddyList
-                .padding(.bottom, Layout.iconDiameter + Layout.avatarSpacing)
+        ZStack(alignment: .trailing) {
+            expandedBuddyRow
+                .padding(.trailing, Layout.iconDiameter + Layout.avatarSpacing)
                 .allowsHitTesting(isExpanded)
                 .accessibilityHidden(!isExpanded)
 
@@ -892,107 +876,64 @@ private struct HomeMediaCarouselTaggedBuddiesButton: View {
             .accessibilityHint(isExpanded ? "Collapses the buddy list" : "Shows buddies tagged on this photo")
             .accessibilityIdentifier("Home.MediaCarousel.TaggedBuddies")
         }
-        .frame(minWidth: Layout.iconTapDimension, minHeight: Layout.iconTapDimension, alignment: .bottom)
+        .frame(
+            minWidth: Layout.iconTapDimension,
+            minHeight: Layout.iconTapDimension,
+            alignment: .trailing
+        )
     }
 
     @ViewBuilder
-    private var expandedBuddyList: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(spacing: Layout.avatarSpacing) {
-                ForEach(Array(taggedBuddies.enumerated()), id: \.element.id) { index, buddy in
-                    HomeMediaCarouselTaggedBuddyScrollRow(
-                        buddy: buddy,
-                        index: index,
-                        buddyCount: taggedBuddies.count,
-                        isExpanded: isExpanded,
-                        viewportHeight: expandedBuddyListHeight,
+    private var expandedBuddyRow: some View {
+        ZStack(alignment: .trailing) {
+            ForEach(Array(taggedBuddies.enumerated()), id: \.element.id) { index, buddy in
+                let distanceFromIcon = taggedBuddies.count - 1 - index
+                HomeMediaCarouselTaggedBuddyFanRow(
+                    buddy: buddy,
+                    isExpanded: isExpanded,
+                    avatarDiameter: Layout.avatarDiameter,
+                    offsetX: HomeMediaCarouselPresentation.taggedBuddyHorizontalOffsetX(
+                        distanceFromIcon: distanceFromIcon,
                         avatarDiameter: Layout.avatarDiameter,
                         avatarSpacing: Layout.avatarSpacing,
-                        scrollContentOffset: buddyScrollContentOffset,
-                        selfBuddyID: selfBuddyID,
-                        collapsedOffset: collapsedBuddyOffset(
-                            index: min(index, Layout.maxAnimatedRevealCount - 1),
-                            total: min(taggedBuddies.count, Layout.maxAnimatedRevealCount)
-                        ),
-                        revealDelay: buddyRevealDelay(
-                            index: min(index, Layout.maxAnimatedRevealCount - 1),
-                            total: min(taggedBuddies.count, Layout.maxAnimatedRevealCount)
-                        ),
-                        expandAnimation: buddyExpandAnimation,
-                        onOpenBuddy: onOpenBuddy
-                    )
-                }
+                        isExpanded: isExpanded
+                    ),
+                    revealDelay: HomeMediaCarouselPresentation.taggedBuddyHorizontalRevealDelay(
+                        distanceFromIcon: distanceFromIcon,
+                        staggerStep: Layout.staggerDelayStep
+                    ),
+                    expandAnimation: buddyExpandAnimation,
+                    selfBuddyID: selfBuddyID,
+                    onOpenBuddy: onOpenBuddy
+                )
             }
-            .padding(.vertical, 2)
         }
-        .coordinateSpace(name: "buddyListViewport")
-        .defaultScrollAnchor(.bottom)
-        .scrollClipDisabled(true)
-        .onScrollGeometryChange(for: CGFloat.self) { geometry in
-            geometry.contentOffset.y
-        } action: { _, offsetY in
-            buddyScrollContentOffset = offsetY
-        }
-        .frame(height: expandedBuddyListHeight)
-        .accessibilityHint(showsBuddyScrollFade ? "Scroll to see more tagged buddies" : "")
+        .frame(width: isExpanded ? expandedBuddyRowWidth : 0, alignment: .trailing)
+        .clipped()
     }
 }
 
-private struct HomeMediaCarouselTaggedBuddyScrollRow: View {
+private struct HomeMediaCarouselTaggedBuddyFanRow: View {
     let buddy: DiveMediaBuddyTagPresentation.TaggedBuddyRow
-    let index: Int
-    let buddyCount: Int
     let isExpanded: Bool
-    let viewportHeight: CGFloat
     let avatarDiameter: CGFloat
-    let avatarSpacing: CGFloat
-    let scrollContentOffset: CGFloat
-    let selfBuddyID: UUID?
-    let collapsedOffset: CGFloat
+    let offsetX: CGFloat
     let revealDelay: TimeInterval
     let expandAnimation: Animation
+    let selfBuddyID: UUID?
     let onOpenBuddy: (UUID) -> Void
-
-    @State private var viewportFrame: CGRect = .zero
-
-    private var fadeMask: HomeMediaCarouselPresentation.BuddyRowFadeMask {
-        _ = scrollContentOffset
-        return HomeMediaCarouselPresentation.buddyRowFadeMask(
-            rowMinYInViewport: viewportFrame.minY,
-            rowMaxYInViewport: viewportFrame.maxY,
-            viewportHeight: viewportHeight,
-            avatarDiameter: avatarDiameter,
-            avatarSpacing: avatarSpacing,
-            buddyCount: buddyCount
-        )
-    }
 
     var body: some View {
         Button {
             onOpenBuddy(buddy.buddyID)
         } label: {
             buddyAvatar
-                .compositingGroup()
-                .mask(alignment: .top) {
-                    buddyAvatarFadeMask
-                }
         }
         .buttonStyle(.plain)
-        .opacity(fadeMask.isHidden ? 0 : (isExpanded ? 1 : 0))
-        .allowsHitTesting(isExpanded && !fadeMask.isHidden)
-        .offset(y: isExpanded ? 0 : collapsedOffset)
+        .opacity(isExpanded ? 1 : 0)
+        .allowsHitTesting(isExpanded)
+        .offset(x: offsetX)
         .animation(expandAnimation.delay(revealDelay), value: isExpanded)
-        .background {
-            GeometryReader { geometry in
-                Color.clear
-                    .onAppear {
-                        scheduleViewportFrameUpdate(geometry.frame(in: .named("buddyListViewport")))
-                    }
-                    .onChange(of: geometry.frame(in: .named("buddyListViewport"))) { _, frame in
-                        scheduleViewportFrameUpdate(frame)
-                    }
-            }
-        }
         .accessibilityLabel(buddy.displayName)
         .accessibilityHint(
             DiveBuddySelfRepresentation.isSelfBuddyID(
@@ -1003,13 +944,6 @@ private struct HomeMediaCarouselTaggedBuddyScrollRow: View {
                 : "Opens buddy overview"
         )
         .accessibilityIdentifier("Home.MediaCarousel.TaggedBuddy.\(buddy.buddyID.uuidString)")
-    }
-
-    private func scheduleViewportFrameUpdate(_ frame: CGRect) {
-        guard frame != viewportFrame else { return }
-        Task { @MainActor in
-            viewportFrame = frame
-        }
     }
 
     private var buddyAvatar: some View {
@@ -1027,32 +961,6 @@ private struct HomeMediaCarouselTaggedBuddyScrollRow: View {
                         .fill(.ultraThinMaterial)
                 }
                 .clipShape(Circle())
-        }
-        .frame(width: avatarDiameter, height: avatarDiameter)
-    }
-
-    private var buddyAvatarFadeMask: some View {
-        VStack(spacing: 0) {
-            if fadeMask.transparentTopHeight > 0 {
-                Color.clear
-                    .frame(height: fadeMask.transparentTopHeight)
-            }
-            if fadeMask.fadeHeight > 0 {
-                LinearGradient(
-                    stops: [
-                        .init(color: .clear, location: 0),
-                        .init(color: .black, location: 1),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: fadeMask.fadeHeight)
-            }
-            if fadeMask.opaqueBottomHeight > 0 {
-                Rectangle()
-                    .fill(.black)
-                    .frame(height: fadeMask.opaqueBottomHeight)
-            }
         }
         .frame(width: avatarDiameter, height: avatarDiameter)
     }
@@ -1581,6 +1489,8 @@ struct HomeLifetimeStatsPanel<Content: View>: View {
     var usesHomeDebugPanelTint: Bool = false
     /// Home tab root applies list inset here; pushed detail pages use **`BlueSheetDetailPage`** shell padding instead.
     var appliesHorizontalContentPadding: Bool = true
+    /// Profile sheet fill — rising bubbles + **`profileBubbleScrim`** instead of opaque overview blue.
+    var usesProfileBubbleBackground: Bool = false
     @ViewBuilder var content: () -> Content
 
     var body: some View {
@@ -1597,6 +1507,11 @@ struct HomeLifetimeStatsPanel<Content: View>: View {
                 Group {
                     if usesHomeDebugPanelTint, HomeSheetContainerDebug.usesPinkBackground {
                         Color.pink
+                    } else if usesProfileBubbleBackground {
+                        ZStack {
+                            AppTheme.Colors.screenBackgroundGradient
+                            ProfileBubbleBackgroundLayer()
+                        }
                     } else {
                         AppOverviewSheetPanelBackground()
                     }
@@ -1735,12 +1650,13 @@ private struct HomeLifetimeStatsSectionLayoutGuides: View {
         let spacing = HomeLifetimeStatsTilesLayout.gridSpacing
         let statRowHeight = HomeLifetimeStatsTilesLayout.statTileHeight
         let buddyHeight = HomeLifetimeStatsTilesLayout.buddyTileHeight
+        let summaryBand = HomeLifetimeStatsTilesLayout.lifetimeSummaryBandHeight()
         let minContent = HomeLifetimeStatsTilesLayout.scrollContentHeight(
             statRowCount: statRowCount,
             showsBuddyLeaderboard: showsBuddyLeaderboard
         )
 
-        let tilesTop = edgeInsets.top
+        let tilesTop = edgeInsets.top + summaryBand
         let row1Bottom = tilesTop + statRowHeight
         let row2Bottom = tilesTop + CGFloat(statRowCount) * statRowHeight
             + CGFloat(max(statRowCount - 1, 0)) * spacing
@@ -1852,6 +1768,7 @@ private struct HomeLifetimeStatsLayoutGuideLabel: View {
 
 struct HomeLifetimeStatsSection: View {
     let stats: HomeLifetimeStats
+    let myActivitiesSummary: LogbookMyActivitiesSummary
     let buddyLeaderboard: [HomeBuddyLeaderboardEntry]
     let unitSystem: DiveDisplayUnitSystem
     let onOpenLeaderboard: (HomeLifetimeStatsLeaderboardKind) -> Void
@@ -1887,28 +1804,45 @@ struct HomeLifetimeStatsSection: View {
                     .frame(height: edgeInsets.top)
                     .accessibilityHidden(true)
 
-                VStack(spacing: showsBuddyLeaderboard ? tileSpacing : 0) {
-                    LazyVGrid(columns: columns, spacing: tileSpacing) {
-                        ForEach(tiles) { tile in
-                            HomeStatTile(
-                                title: tile.title,
-                                value: tile.value,
-                                footnote: tile.footnote,
-                                systemImage: tile.systemImage,
-                                action: tile.action
+                VStack(spacing: 0) {
+                    Color.clear
+                        .frame(height: HomeLifetimeStatsTilesLayout.lifetimeSummaryTopInset)
+                        .accessibilityHidden(true)
+
+                    Text(LogbookMyActivitiesSummaryPresentation.headerLine(for: myActivitiesSummary))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.Colors.secondaryText)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .accessibilityIdentifier("Home.LifetimeSummary")
+
+                    Color.clear
+                        .frame(height: HomeLifetimeStatsTilesLayout.lifetimeSummaryHeaderSpacingBelow)
+                        .accessibilityHidden(true)
+
+                    VStack(spacing: showsBuddyLeaderboard ? tileSpacing : 0) {
+                        LazyVGrid(columns: columns, spacing: tileSpacing) {
+                            ForEach(tiles) { tile in
+                                HomeStatTile(
+                                    title: tile.title,
+                                    value: tile.value,
+                                    footnote: tile.footnote,
+                                    systemImage: tile.systemImage,
+                                    action: tile.action
+                                )
+                                .frame(maxWidth: .infinity)
+                                .frame(height: statTileHeight)
+                            }
+                        }
+
+                        if showsBuddyLeaderboard {
+                            HomeBuddyLeaderboardTile(
+                                entries: buddyLeaderboard,
+                                onOpenBuddy: onOpenBuddy
                             )
                             .frame(maxWidth: .infinity)
-                            .frame(height: statTileHeight)
+                            .frame(height: buddyTileHeight)
                         }
-                    }
-
-                    if showsBuddyLeaderboard {
-                        HomeBuddyLeaderboardTile(
-                            entries: buddyLeaderboard,
-                            onOpenBuddy: onOpenBuddy
-                        )
-                        .frame(maxWidth: .infinity)
-                        .frame(height: buddyTileHeight)
                     }
                 }
 

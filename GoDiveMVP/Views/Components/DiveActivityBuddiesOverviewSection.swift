@@ -47,14 +47,13 @@ struct DiveActivityBuddiesOverviewSection: View {
             owner: accountSession.currentProfile
         ), let buddy = tag.buddy {
             NavigationLink {
-                ViewDiveBuddyDetails(buddy: buddy)
-                    .hidesBottomTabBarWhenPushed()
+                DiveBuddyOrFriendDetailView(buddy: buddy)
             } label: {
                 chip
             }
             .buttonStyle(.plain)
             .navigationLinkIndicatorVisibility(.hidden)
-            .accessibilityHint("Opens buddy details")
+            .accessibilityHint("Opens buddy or friend profile")
             .accessibilityIdentifier(buddyAccessibilityIdentifier(for: tag))
         } else {
             chip

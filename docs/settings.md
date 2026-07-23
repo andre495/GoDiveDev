@@ -1,10 +1,32 @@
 # Settings
 
-Open **Profile → Settings** (gear icon).
+Open **Profile → menu (☰) → Settings**.
+
+The **Settings** title uses the same collapsible large-title header as Certifications and Friends — it compacts when you scroll and expands when you return to the top.
 
 Settings use compact rows with an **info** (ⓘ) button on some items for longer explanations in a popup.
 
-When you’re signed into **iCloud**, most Settings (units, default tank, renumber, auto-upload media, default diver weights, and bulk UDDF “create dive sites”) sync across **your** Apple devices with your dive log. **Share crash reports** and **Share diagnostic events** stay on this device only.
+When you’re signed into **iCloud**, most Settings (units, default tank, renumber, auto-upload media, default diver weights, and bulk UDDF “create dive sites”) sync across **your** Apple devices with your dive log. **Share crash reports**, **Share diagnostic events**, and friend-share toggles stay on this device only.
+
+### iCloud dive log (status)
+
+Near the top of Settings, **iCloud dive log** shows whether private iCloud mirroring is **on** for this install and how many dives/snorkels are attached to **your profile** (what the logbook shows) versus stored on the device overall. When you **sign in with Apple**, GoDive automatically loads your **Firebase** social profile (name, friends, avatar when available) and reconnects to your **iCloud dive log** when the on-device log is empty but iCloud still has data — you should see the launch overlay while that runs. After reinstalling, leave the app open on Wi‑Fi for a few minutes if the logbook is still catching up.
+
+## Friends sharing
+
+These apply when you use **Profile → menu → Friends** (QR / invite link):
+
+### Share dives with friends
+
+When **on** (default): friends can see your dive details (site, depth, duration, conditions, and more). GoDive keeps a friend-visible copy in Firebase for them to read. Your private log on device / iCloud stays the source of truth.
+
+### Share notes with friends
+
+When **on**, dive notes are included for friends. **Off** by default.
+
+### Share media with friends
+
+When **on**, small photo **previews** upload so friends can see them. Full originals stay in your Photos library. **Off** by default.
 
 ## Display units
 
@@ -122,7 +144,7 @@ These aren’t on the Settings page but interact with it:
 
 ## Sign out
 
-**Sign out** lives on **Profile**, not Settings. Tapping it asks **Are you sure?** before clearing the session. Your dives for that Apple ID remain on the device until you delete the app or its data.
+**Sign out** lives in the **Profile → menu (☰)** panel (pinned at the bottom), not on Settings or the main Profile page. Tapping it asks **Are you sure?** before clearing the session. Your dives for that Apple ID remain on the device until you delete the app or its data.
 
 ## Delete account
 

@@ -32,7 +32,7 @@ struct ViewSingleActivity: View {
         _pendingInitialMediaFocusID = State(initialValue: initialMediaFocusID)
         if initialMediaFocusID != nil {
             _selectedActivityTab = State(initialValue: .camera)
-            _overviewSheetDetent = State(initialValue: .medium)
+            _overviewSheetDetent = State(initialValue: .large)
             _selectedDiveMediaPhotoID = State(initialValue: initialMediaFocusID)
             _isOverviewPanelPresented = State(initialValue: true)
         }
@@ -54,6 +54,8 @@ struct ViewSingleActivity: View {
     @State private var isOverviewPanelPresented = true
     /// Tank hero gas column (**1** = full); animates toward **`ending/beginning`** PSI when the sheet snaps to a shorter detent.
     @State private var tankHeroPressureFillFraction: CGFloat = 1
+    @State private var tankMinimizedProfileRevealProgress: CGFloat = 1
+    @State private var tankMinimizedPsiUsedRevealProgress: CGFloat = 1
     @FocusState private var isNotesFieldFocused: Bool
     @State private var depthChartPreviewMediaID: UUID?
     /// When **`true`**, map tab uses **`DiveOverviewMapTeardownPlaceholder`** instead of live MapKit (set before pop).
@@ -78,6 +80,7 @@ struct ViewSingleActivity: View {
     @State private var mediaImportOverlay: DiveMediaImportOverlayState = .hidden
     @State private var derivedDiveData = DerivedDiveData()
     @State private var catalogSitesForMapResolution: [DiveSite] = []
+    @State private var overviewPanelScrollOffsetY: CGFloat = 0
     /// Guards redundant focus application within a single appear cycle when media is already loaded.
     @State private var didApplyInitialMediaFocus = false
 
@@ -145,6 +148,7 @@ struct ViewSingleActivity: View {
             }
             .onAppear(perform: handleSingleActivityAppear)
             .onDisappear {
+                persistOverviewUIState()
                 DiveMediaScopeCache.shared.deactivateScope(.diveOverview(activity.id))
                 invalidateDiveOverviewVideoPlaybackCache()
             }
@@ -180,6 +184,10 @@ struct ViewSingleActivity: View {
                 guard oldDetent != newDetent else { return }
                 recordDiveOverviewBreadcrumb()
                 handleOverviewSheetDetentChange(from: oldDetent, to: newDetent)
+            }
+            .onChange(of: overviewPanelScrollOffsetY) { _, offset in
+                guard offset > 4 else { return }
+                persistOverviewUIState()
             }
     }
 
@@ -242,8 +250,8 @@ struct ViewSingleActivity: View {
                     onAdd: { linkEquipmentToDive($0) }
                 )
             }
-            .sheet(isPresented: depthChartMediaPreviewPresented) {
-                depthChartMediaPreviewSheet
+            .fullScreenCover(isPresented: depthChartMediaPreviewPresented) {
+                depthChartMediaFullscreenCover
             }
             .sheet(isPresented: marineLifeTagSheetPresented) {
                 if let media = marineLifeTagTargetMedia {
@@ -286,31 +294,86 @@ struct ViewSingleActivity: View {
     }
 
     @ViewBuilder
-    private var depthChartMediaPreviewSheet: some View {
-        if let media = depthChartPreviewMedia {
-            DiveDepthProfileMediaPreviewSheet(
-                media: media,
-                timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds,
-                captureContext: depthChartPreviewCaptureContext
+    private var depthChartMediaFullscreenCover: some View {
+        if depthChartPreviewMediaID != nil {
+            LinkedMediaFullscreenView(
+                mediaItems: derivedDiveData.sortedMediaItems,
+                timeZoneOffsetByMediaID: depthChartFullscreenTimeZoneOffsetByMediaID,
+                linkedMediaItems: depthChartFullscreenLinkedMediaItems,
+                selectedMediaID: $depthChartPreviewMediaID,
+                configuration: .diveDepthChart,
+                captureContextByMediaID: mediaCaptureContextsByID,
+                sightings: activity.marineLifeSightings,
+                marineLifeCatalog: marineLifeCatalog,
+                ownerProfileID: activity.ownerProfileID
             )
-            .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
-            .presentationCornerRadius(AppTheme.Sheet.cornerRadius)
-            .presentationBackground {
-                Color.black.ignoresSafeArea()
-            }
         }
     }
 
     private func handleSingleActivityAppear() {
         DiveMediaScopeCache.shared.activateScope(.diveOverview(activity.id))
-        applyInitialMediaFocusIfNeeded()
+        let restoredFromStore: Bool
+        if initialMediaFocusID != nil, !didApplyInitialMediaFocus {
+            DiveActivityOverviewUIStateStore.remove(activityID: activity.id)
+            applyInitialMediaFocusIfNeeded()
+            restoredFromStore = false
+        } else {
+            restoredFromStore = restoreOverviewUIStateIfNeeded()
+        }
         overviewMapTeardownRequested = false
         catalogSitesForMapResolution = []
         reloadMapSitePromptDeclinedState()
-        syncOverviewSheetPresentation(for: selectedActivityTab)
+        if restoredFromStore {
+            if !isOverviewPanelPresented {
+                isOverviewPanelPresented = true
+            }
+        } else {
+            syncOverviewSheetPresentation(for: selectedActivityTab)
+        }
         presentMapSitePromptIfNeeded()
         recordDiveOverviewBreadcrumb()
+    }
+
+    @discardableResult
+    private func restoreOverviewUIStateIfNeeded() -> Bool {
+        guard let snapshot = DiveActivityOverviewUIStateStore.snapshot(for: activity.id) else { return false }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            selectedActivityTab = snapshot.selectedActivityTab
+            overviewSheetDetent = snapshot.overviewSheetDetent
+            isOverviewPanelPresented = snapshot.isOverviewPanelPresented
+            selectedDiveMediaPhotoID = snapshot.selectedDiveMediaPhotoID
+            overviewPanelScrollOffsetY = snapshot.overviewPanelScrollOffsetY
+        }
+        if snapshot.selectedActivityTab == .camera {
+            bumpMediaPresentationEpoch()
+        }
+        return true
+    }
+
+    private func persistOverviewUIState() {
+        DiveActivityOverviewUIStateStore.save(
+            DiveActivityOverviewUISnapshot(
+                selectedActivityTab: selectedActivityTab,
+                overviewSheetDetent: overviewSheetDetent,
+                isOverviewPanelPresented: isOverviewPanelPresented,
+                selectedDiveMediaPhotoID: selectedDiveMediaPhotoID,
+                overviewPanelScrollOffsetY: overviewPanelScrollOffsetY
+            ),
+            for: activity.id
+        )
+    }
+
+    private var storedOverviewPanelScrollOffsetY: CGFloat {
+        DiveActivityOverviewUIStateStore.snapshot(for: activity.id)?.overviewPanelScrollOffsetY ?? 0
+    }
+
+    /// Store offset used only when the live binding was cleared (nested push) — not during normal scrolling.
+    private var overviewScrollRestorationFallbackY: CGFloat {
+        guard overviewPanelScrollOffsetY < 4 else { return 0 }
+        let stored = storedOverviewPanelScrollOffsetY
+        return stored > 4 ? stored : 0
     }
 
     /// Deep link from logbook / Home / trip media: jump to the **Media** tab on a specific photo (medium detent).
@@ -338,6 +401,7 @@ struct ViewSingleActivity: View {
     }
 
     private func handleSelectedActivityTabChange(_ newTab: DiveActivityTab) {
+        overviewPanelScrollOffsetY = 0
         if newTab == .map {
             overviewMapTeardownRequested = false
             presentMapSitePromptIfNeeded()
@@ -394,6 +458,8 @@ struct ViewSingleActivity: View {
 
     private func handleActivityIdentityChange() {
         tankHeroPressureFillFraction = 1
+        tankMinimizedProfileRevealProgress = 1
+        tankMinimizedPsiUsedRevealProgress = 1
         overviewMapTeardownRequested = false
         catalogSitesForMapResolution = []
         selectedDiveMediaPhotoID = nil
@@ -482,7 +548,7 @@ struct ViewSingleActivity: View {
             selectedActivityTab = .camera
             selectedDiveMediaPhotoID = resolvedPending
             isOverviewPanelPresented = true
-            overviewSheetDetent = .medium
+            overviewSheetDetent = .large
             pendingInitialMediaFocusID = nil
             didApplyInitialMediaFocus = true
             bumpMediaPresentationEpoch()
@@ -538,7 +604,6 @@ struct ViewSingleActivity: View {
         GeometryReader { geometry in
             let layoutHeight = max(geometry.size.height, 1)
             let bottomSafeInset = geometry.safeAreaInsets.bottom
-            let mapCameraDetent = overviewSheetDetent.mapCameraDetent
             let bottomObstruction = DiveActivityOverviewDetent.bottomObstructionHeight(
                 layoutHeight: layoutHeight,
                 detent: overviewSheetDetent,
@@ -560,10 +625,19 @@ struct ViewSingleActivity: View {
                     isLandscape: isLandscape,
                     detentAllowsInteraction: overviewSheetDetent.allowsMapInteraction
                 )
-            let mapBottomMargin = DiveActivityOverviewLandscapePresentation.mapBottomContentMargin(
+            let overviewLayoutContext = DiveActivityOverviewSheetLayoutContext(
                 layoutHeight: layoutHeight,
-                detent: mapCameraDetent,
-                bottomSafeInset: bottomSafeInset,
+                screenWidth: geometry.size.width,
+                topSafeInset: geometry.safeAreaInsets.top,
+                bottomSafeInset: bottomSafeInset
+            )
+            let mapLargeRestingFraction = DiveActivityOverviewPanelMetrics.largeHeightFraction(
+                in: overviewLayoutContext
+            )
+            let mapBottomMargin = DiveActivityOverviewLandscapePresentation.mapBottomContentMargin(
+                layoutContext: overviewLayoutContext,
+                detent: overviewSheetDetent,
+                liveHeightFraction: selectedActivityTab == .map ? overviewPanelLiveHeightFraction : nil,
                 isLandscape: isLandscape
             )
             let mediaUsesFullBleedHero = DiveActivityOverviewLandscapePresentation.mediaUsesFullBleedHero(
@@ -590,7 +664,8 @@ struct ViewSingleActivity: View {
                                     bottomContentMargin: mapBottomMargin,
                                     topObstructionHeight: topObstruction,
                                     layoutHeight: layoutHeight,
-                                    cameraLayoutDetent: mapCameraDetent,
+                                    sheetHeightFraction: overviewPanelLiveHeightFraction,
+                                    largeRestingFraction: mapLargeRestingFraction,
                                     isUserInteractionEnabled: isMapInteractive
                                 )
                                 .allowsHitTesting(isMapInteractive)
@@ -637,7 +712,9 @@ struct ViewSingleActivity: View {
                             tankPressureStartPSI: activity.tankPressureStartPSI,
                             tankPressureEndPSI: activity.tankPressureEndPSI,
                             sacRateDisplay: activity.tankHeroSACRateLine(displayUnits: diveDisplayUnitSystem),
-                            rmvRateDisplay: activity.tankHeroRMVRateLine(displayUnits: diveDisplayUnitSystem)
+                            rmvRateDisplay: activity.tankHeroRMVRateLine(displayUnits: diveDisplayUnitSystem),
+                            profileLineRevealProgress: tankMinimizedProfileRevealProgress,
+                            psiUsedRevealProgress: tankMinimizedPsiUsedRevealProgress
                         )
                     case .camera:
                         DiveActivityMediaBackgroundView(
@@ -648,8 +725,11 @@ struct ViewSingleActivity: View {
                             sheetDetent: overviewSheetDetent,
                             sheetHeightFraction: overviewPanelLiveHeightFraction,
                             layoutHeight: layoutHeight,
+                            screenWidth: geometry.size.width,
+                            topSafeAreaInset: geometry.safeAreaInsets.top,
                             topObstructionHeight: topObstruction,
                             bottomSafeInset: bottomSafeInset,
+                            isLandscape: isLandscape,
                             isMediaTabSelected: selectedActivityTab == .camera,
                             presentationEpoch: mediaPresentationEpoch,
                             deepLinkMediaID: pendingInitialMediaFocusID ?? initialMediaFocusID,
@@ -662,7 +742,27 @@ struct ViewSingleActivity: View {
                                     bottomSafeInset: bottomSafeInset
                                 ),
                             mediaPickerItems: $diveMediaPickerItems,
-                            isImportInProgress: mediaImportOverlay.isBlocking
+                            isImportInProgress: mediaImportOverlay.isBlocking,
+                            hasTaggedBuddiesOnSelectedMedia: !selectedMediaTaggedBuddies.isEmpty,
+                            hasTaggedMarineLifeOnSelectedMedia: !selectedMediaTaggedSpecies.isEmpty,
+                            isSelectedMediaFeatured: {
+                                guard let selectedDiveMediaPhotoID else { return false }
+                                return DiveActivityMediaPresentation.featuredPhotoID(on: activity)
+                                    == selectedDiveMediaPhotoID
+                            }(),
+                            onToggleFeatured: {
+                                guard let media = DiveActivityMediaPresentation.selectedMedia(
+                                    selectedID: selectedDiveMediaPhotoID,
+                                    in: derivedDiveData.sortedMediaItems
+                                ) else { return }
+                                toggleFeaturedMedia(media)
+                            },
+                            onToggleMarineLifeTags: derivedDiveData.sortedMediaItems.isEmpty
+                                ? nil
+                                : { tagMarineLifeFromSelectedMedia() },
+                            onToggleBuddyTags: derivedDiveData.sortedMediaItems.isEmpty
+                                ? nil
+                                : { tagBuddiesFromSelectedMedia() }
                         )
                         .ignoresSafeArea()
                     }
@@ -673,6 +773,8 @@ struct ViewSingleActivity: View {
                     DiveActivityOverviewEmbeddedPanel(
                         selectedDetent: $overviewSheetDetent,
                         layoutHeight: layoutHeight,
+                        screenWidth: geometry.size.width,
+                        topSafeInset: geometry.safeAreaInsets.top,
                         bottomSafeInset: bottomSafeInset,
                         collapsedSummary: {
                             switch selectedActivityTab {
@@ -714,9 +816,10 @@ struct ViewSingleActivity: View {
                                 detent: overviewSheetDetent,
                                 isMediaTabSelected: selectedActivityTab == .camera
                             ),
-                        liveHeightFraction: selectedActivityTab == .camera
-                            ? $overviewPanelLiveHeightFraction
-                            : nil
+                        liveHeightFraction: $overviewPanelLiveHeightFraction,
+                        panelScrollOffsetY: $overviewPanelScrollOffsetY,
+                        scrollRestorationFallbackY: overviewScrollRestorationFallbackY,
+                        panelScrollContentIdentity: selectedActivityTab
                     )
                     .zIndex(1)
                 }
@@ -778,7 +881,7 @@ struct ViewSingleActivity: View {
                 overviewSheetDetent = detent
                 isOverviewPanelPresented = true
                 if tab == .tank {
-                    tankHeroPressureFillFraction = 1
+                    resetTankMinimizedEntranceAnimationState()
                 }
             } else {
                 isOverviewPanelPresented = false
@@ -798,7 +901,7 @@ struct ViewSingleActivity: View {
             overviewSheetDetent = detent
         }
         if tab == .tank {
-            tankHeroPressureFillFraction = 1
+            resetTankMinimizedEntranceAnimationState()
         }
     }
 
@@ -807,22 +910,44 @@ struct ViewSingleActivity: View {
         to newDetent: DiveActivityOverviewDetent
     ) {
         guard selectedActivityTab == .tank else { return }
-        if newDetent == .minimized, newDetent.heightFraction < oldDetent.heightFraction {
-            animateTankHeroPressureDrainIfNeeded()
+        if DiveTankOverviewHeroPresentation.shouldPlayMinimizedEntranceAnimation(
+            from: oldDetent,
+            to: newDetent
+        ) {
+            playTankMinimizedEntranceAnimation()
         } else if newDetent.heightFraction > oldDetent.heightFraction + 0.007 {
-            tankHeroPressureFillFraction = 1
+            resetTankMinimizedEntranceAnimationState()
         }
     }
 
-    private func animateTankHeroPressureDrainIfNeeded() {
-        guard let target = DiveActivityTankPanelSummary.remainingPressureFillFraction(
+    private func resetTankMinimizedEntranceAnimationState() {
+        tankHeroPressureFillFraction = 1
+        tankMinimizedProfileRevealProgress = 1
+        tankMinimizedPsiUsedRevealProgress = 1
+    }
+
+    private func playTankMinimizedEntranceAnimation() {
+        let targetFill = DiveActivityTankPanelSummary.remainingPressureFillFraction(
             startPSI: activity.tankPressureStartPSI,
             endPSI: activity.tankPressureEndPSI
-        ) else { return }
-        let fraction = CGFloat(target)
-        guard fraction < 0.999 else { return }
-        withAnimation(.easeInOut(duration: 0.55)) {
-            tankHeroPressureFillFraction = fraction
+        )
+        let fraction = CGFloat(targetFill ?? 1)
+        let duration = DiveTankOverviewHeroPresentation.minimizedEntranceAnimationDuration
+
+        var reset = Transaction()
+        reset.disablesAnimations = true
+        withTransaction(reset) {
+            tankMinimizedProfileRevealProgress = 0
+            tankMinimizedPsiUsedRevealProgress = 0
+            tankHeroPressureFillFraction = 1
+        }
+
+        withAnimation(.easeInOut(duration: duration)) {
+            tankMinimizedProfileRevealProgress = 1
+            tankMinimizedPsiUsedRevealProgress = 1
+            if fraction < 0.999 {
+                tankHeroPressureFillFraction = fraction
+            }
         }
     }
 
@@ -1275,7 +1400,7 @@ struct ViewSingleActivity: View {
                 : nil,
             onCollapsePanelToMedium: {
                 withAnimation(.diveOverviewPanelDetent) {
-                    overviewSheetDetent = .medium
+                    overviewSheetDetent = .large
                 }
             },
             featuredMediaID: DiveActivityMediaPresentation.featuredPhotoID(on: activity),
@@ -1310,8 +1435,6 @@ struct ViewSingleActivity: View {
         switch overviewSheetDetent {
         case .large:
             "DiveOverview.MediaPanel.Large"
-        case .medium:
-            "DiveOverview.MediaPanel"
         case .minimized:
             "DiveOverview.MediaPanel.Minimized"
         }
@@ -1485,7 +1608,7 @@ struct ViewSingleActivity: View {
     private var overviewSiteHeaderTitle: String {
         DiveActivityOverviewPresentation.siteHeaderTitle(
             siteName: activity.resolvedSiteName,
-            fallback: activity.source.overviewFallbackSiteTitle
+            fallback: DiveActivityOverviewPresentation.newDiveActivitySiteTitle
         )
     }
 
@@ -1521,6 +1644,7 @@ struct ViewSingleActivity: View {
         DiveActivityMapOverviewPanelContent(
             activity: activity,
             overviewSheetDetent: $overviewSheetDetent,
+            mapCoordinate: activity.resolvedMapCoordinate(catalogSites: catalogSitesForMapResolution),
             profileGasStats: derivedDiveData.profileGasStats,
             siteTitle: overviewSiteHeaderTitle,
             linkedCatalogSiteID: linkedCatalogSiteID,
@@ -1549,9 +1673,15 @@ struct ViewSingleActivity: View {
         )
     }
 
-    private var depthChartPreviewMedia: DiveMediaPhoto? {
-        guard let depthChartPreviewMediaID else { return nil }
-        return activity.mediaPhotos.first { $0.id == depthChartPreviewMediaID }
+    private var depthChartFullscreenLinkedMediaItems: [TripDetailLinkedMediaItem] {
+        TripDetailMediaPresentation.linkedMediaItems(from: [activity])
+    }
+
+    private var depthChartFullscreenTimeZoneOffsetByMediaID: [UUID: Int?] {
+        TripDetailMediaPresentation.timeZoneOffsetByMediaID(
+            from: [activity],
+            itemIDs: depthChartFullscreenLinkedMediaItems
+        )
     }
 
     private var mediaCaptureContextsByID: [UUID: DiveMediaCaptureContext] {
@@ -1617,11 +1747,6 @@ struct ViewSingleActivity: View {
     private func tagBuddiesFromMedia(_ media: DiveMediaPhoto) {
         buddyTagMediaID = media.id
         CrashBreadcrumbTrail.noteSheet("tagBuddy")
-    }
-
-    private var depthChartPreviewCaptureContext: DiveMediaCaptureContext? {
-        guard let depthChartPreviewMediaID else { return nil }
-        return mediaCaptureContextsByID[depthChartPreviewMediaID]
     }
 
     private var depthProfileMediaPhotosByID: [UUID: DiveMediaPhoto] {

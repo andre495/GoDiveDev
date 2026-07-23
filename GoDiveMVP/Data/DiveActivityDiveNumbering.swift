@@ -49,6 +49,25 @@ enum DiveActivityDiveNumbering {
         numberedDiveSequentialIndicesById(rows: rows)
     }
 
+    /// Count for profile / logbook totals — excludes **`diveNumberExplicitlyNone`** (logbook **`-`**).
+    nonisolated static func numberedDiveCount(in activities: [DiveActivity]) -> Int {
+        numberedDiveCount(
+            in: activities.map {
+                NumberingRow(
+                    id: $0.id,
+                    startTime: $0.startTime,
+                    diveNumberExplicitlyNone: $0.diveNumberExplicitlyNone
+                )
+            }
+        )
+    }
+
+    nonisolated static func numberedDiveCount(in rows: [NumberingRow]) -> Int {
+        rows.reduce(0) { count, row in
+            count + (row.diveNumberExplicitlyNone ? 0 : 1)
+        }
+    }
+
     private nonisolated static func numberedDiveSequentialIndicesById(rows: [NumberingRow]) -> [UUID: Int] {
         guard !rows.isEmpty else { return [:] }
         let sorted = rows.sorted {

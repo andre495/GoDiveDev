@@ -1,8 +1,10 @@
+import SwiftData
 import SwiftUI
 
 /// Sheet editor for a single dive overview field (legacy entry point; prefer section sheet).
 struct DiveActivityFieldEditSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
 
     @Bindable var activity: DiveActivity
     let field: DiveActivityEditableFieldID
@@ -64,6 +66,7 @@ struct DiveActivityFieldEditSheet: View {
             to: activity,
             displayUnits: displayUnits
         )
+        try? modelContext.save()
         dismiss()
     }
 }

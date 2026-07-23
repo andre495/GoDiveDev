@@ -31,8 +31,22 @@ enum DiveLocationMapPresentation: Sendable {
     nonisolated static func cameraDistanceMeters(for detent: DiveActivityOverviewDetent) -> CLLocationDistance {
         switch detent.mapCameraDetent {
         case .minimized: minimizedCameraDistanceMeters
-        case .medium, .large: mediumCameraDistanceMeters
+        case .large: mediumCameraDistanceMeters
         }
+    }
+
+    /// Zoom interpolates with overview panel height — wide at **minimized**, tight at **large**.
+    nonisolated static func cameraDistanceMeters(
+        sheetHeightFraction: CGFloat,
+        largeRestingFraction: CGFloat
+    ) -> CLLocationDistance {
+        let progress = DiveActivityOverviewPanelMetrics.mapStatsRevealProgress(
+            heightFraction: sheetHeightFraction,
+            largeRestingFraction: largeRestingFraction
+        )
+        let wide = minimizedCameraDistanceMeters
+        let tight = mediumCameraDistanceMeters
+        return wide + (tight - wide) * progress
     }
 
     nonisolated static func regionSpec(for coordinate: DiveCoordinate?) -> DiveLocationMapRegionSpec {
@@ -107,8 +121,21 @@ enum DiveLocationMapPresentation: Sendable {
     nonisolated static func latitudeShiftTuning(for detent: DiveActivityOverviewDetent) -> CGFloat {
         switch detent.mapCameraDetent {
         case .minimized: 0.52
-        case .medium, .large: 0.38
+        case .large: 0.38
         }
+    }
+
+    nonisolated static func latitudeShiftTuning(
+        sheetHeightFraction: CGFloat,
+        largeRestingFraction: CGFloat
+    ) -> CGFloat {
+        let progress = DiveActivityOverviewPanelMetrics.mapStatsRevealProgress(
+            heightFraction: sheetHeightFraction,
+            largeRestingFraction: largeRestingFraction
+        )
+        let minimizedTuning: CGFloat = 0.52
+        let largeTuning: CGFloat = 0.38
+        return minimizedTuning + (largeTuning - minimizedTuning) * progress
     }
 
     /// Sheet coverage as a fraction of **`layoutHeight`** (panel + home indicator), for map framing.
@@ -125,10 +152,14 @@ enum DiveLocationMapPresentation: Sendable {
         layoutHeight: CGFloat,
         topObstructionHeight: CGFloat,
         bottomContentMargin: CGFloat,
-        mapCameraDetent: DiveActivityOverviewDetent
+        sheetHeightFraction: CGFloat,
+        largeRestingFraction: CGFloat
     ) -> CLLocationCoordinate2D {
         let h = max(layoutHeight, 1)
-        let sheetFraction = sheetHeightFraction(layoutHeight: h, bottomContentMargin: bottomContentMargin)
+        let sheetFraction = Self.sheetHeightFraction(
+            layoutHeight: h,
+            bottomContentMargin: bottomContentMargin
+        )
         let targetY = targetPinScreenYFraction(
             layoutHeight: h,
             topObstructionHeight: topObstructionHeight,
@@ -139,14 +170,47 @@ enum DiveLocationMapPresentation: Sendable {
             return CLLocationCoordinate2D(latitude: coordinate.latitude, longitude: coordinate.longitude)
         }
 
-        let distanceScale = CGFloat(cameraDistanceMeters(for: mapCameraDetent) / referenceCameraDistanceMeters)
+        let distance = cameraDistanceMeters(
+            sheetHeightFraction: sheetHeightFraction,
+            largeRestingFraction: largeRestingFraction
+        )
+        let distanceScale = CGFloat(distance / referenceCameraDistanceMeters)
         let latitudeShift = offsetFromCenter
             * diveSiteLatitudeDelta
             * distanceScale
-            * latitudeShiftTuning(for: mapCameraDetent)
+            * latitudeShiftTuning(
+                sheetHeightFraction: sheetHeightFraction,
+                largeRestingFraction: largeRestingFraction
+            )
         return CLLocationCoordinate2D(
             latitude: coordinate.latitude - latitudeShift,
             longitude: coordinate.longitude
+        )
+    }
+
+    /// Detent-based pin shift — prefer **`sheetHeightFraction`** while the grabber moves.
+    nonisolated static func adjustedMapCenter(
+        for coordinate: DiveCoordinate,
+        layoutHeight: CGFloat,
+        topObstructionHeight: CGFloat,
+        bottomContentMargin: CGFloat,
+        mapCameraDetent: DiveActivityOverviewDetent,
+        largeRestingFraction: CGFloat = DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
+    ) -> CLLocationCoordinate2D {
+        let sheetHeightFraction: CGFloat
+        switch mapCameraDetent {
+        case .minimized:
+            sheetHeightFraction = DiveActivityOverviewPanelMetrics.minimizedHeightFraction
+        case .large:
+            sheetHeightFraction = largeRestingFraction
+        }
+        return adjustedMapCenter(
+            for: coordinate,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstructionHeight,
+            bottomContentMargin: bottomContentMargin,
+            sheetHeightFraction: sheetHeightFraction,
+            largeRestingFraction: largeRestingFraction
         )
     }
 }

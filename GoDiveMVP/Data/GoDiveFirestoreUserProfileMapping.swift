@@ -3,8 +3,8 @@ import Foundation
 
 /// Pure mapping for Firestore social profile docs (testable without Firebase).
 enum GoDiveFirestoreUserProfileMapping: Sendable {
-    /// Bumped when public profile shape gained **`interests`** (+ Storage-backed **`photoURL`**).
-    nonisolated static let schemaVersion = 2
+    /// Bumped when public profile gained friend-visible **`profileHeroURL`** / **`profileHeroMediaKind`**.
+    nonisolated static let schemaVersion = 3
     nonisolated static let privateAccountDocumentID = "account"
     nonisolated static let firebaseUIDDefaultsKey = "godive.firebase.uid"
 
@@ -104,6 +104,20 @@ enum GoDiveFirestoreUserProfileMapping: Sendable {
             result.append(trimmed)
         }
         return result
+    }
+
+    /// Parses public **`totalDiveCount`** (numbered dives on the friend’s account).
+    nonisolated static func totalDiveCount(from data: [String: Any]) -> Int? {
+        if let value = data["totalDiveCount"] as? Int, value >= 0 {
+            return value
+        }
+        if let value = data["totalDiveCount"] as? Int64, value >= 0 {
+            return Int(value)
+        }
+        if let value = data["totalDiveCount"] as? Double, value >= 0 {
+            return Int(value)
+        }
+        return nil
     }
 
     /// Dictionary for Firestore `setData` (timestamps added by sync layer).

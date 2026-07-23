@@ -37,6 +37,16 @@ struct DiveActivityBuddiesEditSheet: View {
         accountSession.currentProfile?.id
     }
 
+    /// GoDive friends (linked Firebase UID) first, then alphabetical.
+    private var rosterBuddiesSorted: [DiveBuddy] {
+        ownedBuddies.sorted { lhs, rhs in
+            let leftLinked = lhs.linkedFirebaseUID != nil
+            let rightLinked = rhs.linkedFirebaseUID != nil
+            if leftLinked != rightLinked { return leftLinked && !rightLinked }
+            return lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+        }
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -50,7 +60,7 @@ struct DiveActivityBuddiesEditSheet: View {
                     }
                 } else {
                     Section {
-                        ForEach(ownedBuddies, id: \.id) { buddy in
+                        ForEach(rosterBuddiesSorted, id: \.id) { buddy in
                             Button {
                                 toggleBuddyOnDive(buddy)
                             } label: {
@@ -77,7 +87,7 @@ struct DiveActivityBuddiesEditSheet: View {
                     } header: {
                         Text("Your buddies")
                     } footer: {
-                        Text("Tap buddies to tag or remove them. Changes save when you tap Done.")
+                        Text("Tap buddies to tag or remove them. Changes save when you tap Done. GoDive friends appear first.")
                     }
                 }
             }
@@ -180,6 +190,13 @@ private struct DiveActivityBuddyRosterPickerRow: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
                 .frame(maxWidth: .infinity, alignment: .leading)
+
+            if buddy.linkedFirebaseUID != nil {
+                Image(systemName: "person.crop.circle.badge.checkmark")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.Colors.accent)
+                    .accessibilityLabel("GoDive friend")
+            }
 
             if isTaggedOnDive {
                 Image(systemName: "checkmark.circle.fill")

@@ -27,6 +27,17 @@ final class UserProfile {
         set { diveActivitiesStorage = newValue }
     }
 
+    /// Inverse required by CloudKit mirroring — **`SnorkelActivity.owner`** without this inverse
+    /// makes every CloudKit store open fail (`CloudKit integration requires that all relationships
+    /// have an inverse`), silently forcing local-only fallback.
+    @Relationship(deleteRule: .cascade, inverse: \SnorkelActivity.owner)
+    var snorkelActivitiesStorage: [SnorkelActivity]? = []
+    @Transient
+    var snorkelActivities: [SnorkelActivity] {
+        get { snorkelActivitiesStorage ?? [] }
+        set { snorkelActivitiesStorage = newValue }
+    }
+
     @Relationship(deleteRule: .cascade, inverse: \EquipmentItem.owner)
     var equipmentItemsStorage: [EquipmentItem]? = []
     @Transient

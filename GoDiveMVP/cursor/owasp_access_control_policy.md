@@ -74,15 +74,19 @@ Add or extend rules as later OWASP phases land (import caps, crash scrubbing, et
 |------|------|----------------|
 | `users/{uid}` (public profile) | Any **authenticated** Firebase user | Owner only (`request.auth.uid == uid`) |
 | `users/{uid}/private/{doc}` | Owner only | Owner only |
+| `users/{uid}/sharedDives/{diveId}` | Owner or **active friend** | Owner only |
+| `friendInvites/{token}` | Any authenticated (token must be known) | Creator create/revoke; redeeming user may mark redeemed |
+| `friendships/{sortedPair}` | Members | Create via valid open invite; members may delete |
 | All other paths | **Deny** | **Deny** |
 
 **Public profile may include:** `displayName`, `handle` (reserved), `photoURL`, `interests`, `discoverable`, timestamps, `schemaVersion`.  
 **Private only:** `appleUserIdentifier` (and future sensitive account linkage).
 
+**Friend-visible dive projections** may include structured dive fields (site, depths, times, conditions, tags, sightings, capped depth track, etc.). **Notes** and **media preview URLs** are included only when the owner opts in (Settings). FIT/UDDF source files and full Photos library bytes must not appear in Firestore.
+
 **Policy notes**
 
-- Dive activities, sites, media, catalogs, GPS tracks **must not** appear in Firestore.
-- Directory-wide authenticated read is acceptable for friends-ready v1; narrowing to friends-only / field redaction is a **future product** change (tracked as hardening follow-up, not required to finish Phase 0–2).
+- The owner’s private CloudKit dive log remains source of truth; Firestore projections are a **friends-readable mirror**, not a second dive-log account.
 - Soft-fail Firebase Auth must not invent Firestore write rights; local SIWA session alone does not authorize directory writes.
 
 Rules file: `catalog-cdn/firestore.rules` (deploy via project Firebase workflow).
@@ -92,12 +96,12 @@ Rules file: `catalog-cdn/firestore.rules` (deploy via project Firebase workflow)
 | Path | Read | Write / delete |
 |------|------|----------------|
 | `catalog/v1/**` | Public | **Deny** (CI/admin publish only) |
-| `users/{uid}/**` (avatars) | Public (download URL / friends UI) | Owner only; ≤ 5 MB; `image/*` |
+| `users/{uid}/**` (avatars + opt-in shared media previews) | Public (download URL / friends UI) | Owner only; ≤ 5 MB; `image/*` |
 | Other paths | Default deny (unmatched) | Default deny |
 
 Rules file: `catalog-cdn/storage.rules`.
 
-**Never** store dive media or catalog write from the client app under user paths.
+**Never** upload FIT/UDDF originals or full-resolution Photos library assets. Opt-in friend media uses **preview JPEGs** only under `users/{uid}/sharedMedia/…`.
 
 ### 2.5 Catalog CDN (Firebase Hosting)
 
@@ -157,7 +161,7 @@ Fail closed on checksum mismatch / non-HTTPS base URL (Phase 2/3 may harden redi
 
 - Full Fishial **backend proxy** / App Check (may start design in Phase 3; shipping proxy can be a follow-up PR)
 - TLS certificate pinning (optional later; ops cost)
-- Friends graph, handle uniqueness, friends-only Firestore reads (product)
+- Handle uniqueness / directory search (product); App Check when friends abuse appears
 - CloudKit Sharing / multi-user dive editing
 - Jailbreak detection, binary obfuscation, ASVS Level 2 certification
 - Replacing CloudKit or Firebase

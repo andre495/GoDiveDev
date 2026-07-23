@@ -55,7 +55,8 @@ enum DiveBuddyTaggedMediaPresentation {
         return "\(tags.count)|\(firstTagID)|\(lastMediaID)|\(ownerDiveActivityIDs.count)"
     }
 
-    nonisolated static func galleryPayload(
+    @MainActor
+    static func galleryPayload(
         tags: [DiveMediaBuddyTag],
         ownerDiveActivityIDs: Set<UUID>,
         timeZoneOffsetByActivityID: [UUID: Int?]
@@ -75,7 +76,8 @@ enum DiveBuddyTaggedMediaPresentation {
     }
 
     /// Walks loaded tag relationships for instant hero picks before owner-scoped gallery hydration finishes.
-    nonisolated static func photosAvailableFromTagRelationships(_ tags: [DiveMediaBuddyTag]) -> [DiveMediaPhoto] {
+    @MainActor
+    static func photosAvailableFromTagRelationships(_ tags: [DiveMediaBuddyTag]) -> [DiveMediaPhoto] {
         var seenPhotoIDs = Set<UUID>()
         var photos: [DiveMediaPhoto] = []
 
@@ -88,7 +90,8 @@ enum DiveBuddyTaggedMediaPresentation {
     }
 
     /// Unique **`DiveMediaPhoto`** rows for the signed-in user's dives, gallery order (oldest capture first).
-    nonisolated static func taggedMediaPhotos(
+    @MainActor
+    static func taggedMediaPhotos(
         tags: [DiveMediaBuddyTag],
         ownerDiveActivityIDs: Set<UUID>
     ) -> [DiveMediaPhoto] {

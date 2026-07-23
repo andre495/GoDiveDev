@@ -132,8 +132,6 @@ enum DiveActivityMediaEmptyHeroPresentation: Sendable {
         switch detent {
         case .minimized, .large:
             return 0
-        case .medium:
-            return -16
         }
     }
 
@@ -143,8 +141,6 @@ enum DiveActivityMediaEmptyHeroPresentation: Sendable {
         switch detent {
         case .minimized, .large:
             return 1
-        case .medium:
-            return 0.9
         }
     }
 

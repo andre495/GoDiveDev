@@ -24,7 +24,7 @@ struct FieldGuideMarineLifeFormContent: View {
 
         Section {
             Picker("Category", selection: $form.categoryID) {
-                ForEach(FieldGuideTaxonomy.categories) { category in
+                ForEach(FieldGuideCatalogIndex.sortedCategories(FieldGuideTaxonomy.categories)) { category in
                     Text(category.title).tag(category.id)
                 }
             }
@@ -34,7 +34,7 @@ struct FieldGuideMarineLifeFormContent: View {
             if let selectedCategory {
                 Picker("Group", selection: $form.subcategoryID) {
                     Text("None").tag("")
-                    ForEach(selectedCategory.subcategories) { subcategory in
+                    ForEach(FieldGuideCatalogIndex.sortedSubcategories(selectedCategory.subcategories)) { subcategory in
                         Text(subcategory.title).tag(subcategory.id)
                     }
                 }

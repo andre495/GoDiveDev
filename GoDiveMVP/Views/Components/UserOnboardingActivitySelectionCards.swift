@@ -3,13 +3,14 @@ import SwiftUI
 /// Multi-select water-activity cards shared by logged-out welcome and post–sign-up interests.
 struct UserOnboardingActivitySelectionCards: View {
     @Binding var selection: UserOnboardingActivitySelection
+    var offeredKinds: [UserOnboardingActivityKind] = UserOnboardingActivityKind.welcomePickerKinds
     var animateAppearance: Bool = true
 
     @State private var cardsVisible = false
 
     var body: some View {
         VStack(spacing: AppTheme.Spacing.sm) {
-            ForEach(Array(UserOnboardingActivityKind.allCases.enumerated()), id: \.element.id) { index, kind in
+            ForEach(Array(offeredKinds.enumerated()), id: \.element.id) { index, kind in
                 activityCard(for: kind)
                     .opacity(animateAppearance ? (cardsVisible ? 1 : 0) : 1)
                     .offset(y: animateAppearance ? (cardsVisible ? 0 : 18) : 0)

@@ -13,7 +13,7 @@ struct DiveActivityMediaLargeDetentOverviewContent: View {
     }
 
     @Binding var mode: DiveActivityMediaLargeDetentMode
-    let media: DiveMediaPhoto?
+    let media: (any ActivityOverviewGalleryMedia)?
     let taggedSpecies: [MarineLife]
     let taggedBuddies: [DiveBuddy]
     var onTagMarineLife: (() -> Void)?
@@ -31,6 +31,7 @@ struct DiveActivityMediaLargeDetentOverviewContent: View {
 
     @State private var buddyDetailCover: BuddyDetailCover?
     @State private var speciesDetailCover: SpeciesDetailCover?
+    @State private var largeDetentScrollOffsetY: CGFloat = 0
 
     private var addTagAction: (() -> Void)? {
         switch mode {
@@ -70,7 +71,7 @@ struct DiveActivityMediaLargeDetentOverviewContent: View {
         }
         .fullScreenCover(item: $buddyDetailCover) { cover in
             NavigationStack {
-                ViewDiveBuddyDetails(buddy: cover.buddy)
+                DiveBuddyOrFriendDetailView(buddy: cover.buddy)
                     .hidesBottomTabBarWhenPushed()
             }
         }
@@ -101,8 +102,10 @@ struct DiveActivityMediaLargeDetentOverviewContent: View {
             OverviewPanelScrollArea(
                 restingDetent: .large,
                 onExpand: {},
-                onCollapseToMedium: onCollapseToMedium,
-                topScrollFadeHeight: scrollFadeHeight
+                onCollapseToMinimized: onCollapseToMedium,
+                topScrollFadeHeight: scrollFadeHeight,
+                usesOpaquePanelScrollFadeBackground: scrollFadeHeight > 0,
+                persistedScrollOffsetY: $largeDetentScrollOffsetY
             ) {
                 scrollableBody
             }
@@ -385,9 +388,7 @@ extension View {
     /// Kept for rare modal hosts — clears the system fill and paints dive Media frost on the content.
     func diveActivityMediaLargeDetentOverviewSheetPresentation() -> some View {
         background {
-            Rectangle()
-                .fill(.thinMaterial)
-                .opacity(AppTheme.Sheet.embeddedOverviewTranslucentOpacity)
+            DiveActivityMediaFrostedOverlayBackground()
                 .modifier(DiveActivityMediaFrostedOverlayDarkAppearance(enabled: true))
                 .ignoresSafeArea(edges: .bottom)
         }

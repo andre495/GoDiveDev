@@ -68,6 +68,17 @@ struct ActivityTagDetailView: View {
         ].joined(separator: "|")
     }
 
+    private var tagHasAssociatedMedia: Bool {
+        !contentSnapshot.mediaPhotos.isEmpty
+    }
+
+    private var tagShowsHeroModeToggle: Bool {
+        PushedDetailHeroModePresentation.showsModeToggle(
+            hasAssociatedMedia: tagHasAssociatedMedia,
+            hasMapContent: !contentSnapshot.mapPins.isEmpty
+        )
+    }
+
     var body: some View {
         BlueSheetDetailPage(
             configuration: .pushedDetail(
@@ -77,7 +88,7 @@ struct ActivityTagDetailView: View {
                 tagHeroBandContent(context: context)
             },
             heroOverlay: { _ in
-                if !contentSnapshot.mapPins.isEmpty {
+                if tagShowsHeroModeToggle {
                     PushedDetailHeroModeToggle(
                         selectedMode: $tagHeroMode,
                         accessibilityIdentifierPrefix: "ActivityTagDetails.Hero.ModeToggle"
@@ -186,9 +197,11 @@ struct ActivityTagDetailView: View {
     @ViewBuilder
     private func tagHeroBandContent(context: BlueSheetHeaderPageLayoutContext) -> some View {
         let heroFitLayout = context.mapFitLayout()
-        let heroModeBinding: Binding<PushedDetailHeroHeaderView.Mode> = contentSnapshot.mapPins.isEmpty
-            ? .constant(.media)
-            : $tagHeroMode
+        let heroModeBinding = PushedDetailHeroModePresentation.heroModeBinding(
+            hasAssociatedMedia: tagHasAssociatedMedia,
+            hasMapContent: !contentSnapshot.mapPins.isEmpty,
+            mode: $tagHeroMode
+        )
 
         BlueSheetDetailHeroBandFill(accessibilityIdentifier: "ActivityTagDetails.HeroBand") {
             PushedDetailHeroHeaderView(
@@ -227,9 +240,10 @@ struct ActivityTagDetailView: View {
             tagID: tag.id,
             photos: contentSnapshot.mediaPhotos
         )
-        if contentSnapshot.mediaPhotos.isEmpty, !contentSnapshot.mapPins.isEmpty {
-            tagHeroMode = .map
-        }
+        tagHeroMode = PushedDetailHeroModePresentation.resolvedMode(
+            hasAssociatedMedia: !contentSnapshot.mediaPhotos.isEmpty,
+            hasMapContent: !contentSnapshot.mapPins.isEmpty
+        )
     }
 
     private func enrichTagDetailMarineLife() async {

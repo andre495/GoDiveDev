@@ -54,7 +54,7 @@ struct ViewCertificationDetails: View {
 
     var body: some View {
         BlueSheetDetailPage(
-            configuration: .pushedDetail(
+            configuration: .pushedDetailWithStandardPanelBodySpacing(
                 accessibilityRootIdentifier: "CertificationDetails.Root"
             ),
             hero: { _ in

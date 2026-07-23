@@ -24,6 +24,8 @@ enum AccountSessionMainShellPresentation: Sendable {
 
     /// Mount **`ContentView`** under the celebration overlay so Home is warm before the handoff.
     nonisolated static func shouldMountMainAppShellUnderlay(
+        isRestoringSession: Bool,
+        isPopulatingRemoteAccountData: Bool,
         isSignedIn: Bool,
         showsNewAccountWelcome: Bool,
         showsPostSignUpInterests: Bool,
@@ -34,7 +36,8 @@ enum AccountSessionMainShellPresentation: Sendable {
         showsSignInCelebration: Bool,
         allowsCelebrationShellPrewarm: Bool
     ) -> Bool {
-        showsMainAppShell(
+        guard !isRestoringSession, !isPopulatingRemoteAccountData else { return false }
+        return showsMainAppShell(
             isSignedIn: isSignedIn,
             showsNewAccountWelcome: showsNewAccountWelcome,
             showsPostSignUpInterests: showsPostSignUpInterests,

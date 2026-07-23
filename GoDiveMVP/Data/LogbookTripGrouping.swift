@@ -199,11 +199,14 @@ enum LogbookTripGrouping {
           return .standalone(
             DiveLogbookRowDisplayData(
               id: row.id,
+              activityKind: row.activityKind,
               displayName: row.displayName,
               diveNumberLabel: label,
+              diveNumberLeadingSymbolName: row.diveNumberLeadingSymbolName,
               detailLine: row.detailLine,
               showsDuplicateHint: row.showsDuplicateHint,
               previewMediaPhotoID: row.previewMediaPhotoID,
+              previewMediaIsSnorkel: row.previewMediaIsSnorkel,
               startTime: row.startTime
             )
           )
@@ -211,11 +214,14 @@ enum LogbookTripGrouping {
           let dives = group.dives.map { row in
             DiveLogbookRowDisplayData(
               id: row.id,
+              activityKind: row.activityKind,
               displayName: row.displayName,
               diveNumberLabel: labels[row.id] ?? row.diveNumberLabel,
+              diveNumberLeadingSymbolName: row.diveNumberLeadingSymbolName,
               detailLine: row.detailLine,
               showsDuplicateHint: row.showsDuplicateHint,
               previewMediaPhotoID: row.previewMediaPhotoID,
+              previewMediaIsSnorkel: row.previewMediaIsSnorkel,
               startTime: row.startTime
             )
           }

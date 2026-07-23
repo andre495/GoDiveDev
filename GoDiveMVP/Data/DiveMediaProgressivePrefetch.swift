@@ -13,7 +13,7 @@ enum DiveMediaProgressivePrefetch {
     private static var inflightKeys: Set<String> = []
 
     static func warmNeighbors(
-        mediaItems: [DiveMediaPhoto],
+        mediaItems: [some PhotoLibraryMediaRow],
         selectedMediaID: UUID?,
         screenPixelWidth: CGFloat,
         isMediaTabSelected: Bool

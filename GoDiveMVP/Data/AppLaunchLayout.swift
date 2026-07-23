@@ -10,7 +10,7 @@ enum AppLaunchLayout: Sendable {
     nonisolated static let logoSize: CGFloat = 128
     /// Logo **`centerY`** = safe-area vertical midpoint + this constant (storyboard **`-48`**).
     nonisolated static let logoCenterYOffsetFromSafeAreaCenter: CGFloat = -48
-    nonisolated static let logoToTitleSpacing: CGFloat = 24
+    nonisolated static let logoToTitleSpacing: CGFloat = 10
     /// Matches **`AppTheme.Typography.headerBrandTitle`** (UIKit **`.largeTitle`**, bold) at the current content size.
     nonisolated static var titleFontSize: CGFloat {
         #if canImport(UIKit)
@@ -35,9 +35,9 @@ enum AppLaunchLayout: Sendable {
     nonisolated static let fixedBackgroundRed: CGFloat = 0.02
     nonisolated static let fixedBackgroundGreen: CGFloat = 0.05
     nonisolated static let fixedBackgroundBlue: CGFloat = 0.09
-    /// Matches dark **`AppTheme.Colors.accent`** / **`LaunchScreenTitle`** dark stop.
-    nonisolated static let fixedTitleRed: CGFloat = 0.30
-    nonisolated static let fixedTitleGreen: CGFloat = 0.76
+    /// Matches dark **`GoDiveLogoPin`** fill (sampled ~**`#A2E5FE`**) / dark **`AppTheme.Colors.accentDeep`**.
+    nonisolated static let fixedTitleRed: CGFloat = 0.64
+    nonisolated static let fixedTitleGreen: CGFloat = 0.90
     nonisolated static let fixedTitleBlue: CGFloat = 1.0
 
     nonisolated static func safeAreaMidY(

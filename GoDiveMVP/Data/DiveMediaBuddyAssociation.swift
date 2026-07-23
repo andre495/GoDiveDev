@@ -63,6 +63,7 @@ enum DiveMediaBuddyAssociation {
         DiveActivityChildRecordLinking.link(tag, to: dive)
         dive.mediaBuddyTags.append(tag)
         buddy.mediaBuddyTags.append(tag)
+        GoDiveFriendBuddyLinking.scheduleAutoLinkAfterBuddyTagged(buddy, modelContext: modelContext)
         if persistImmediately {
             try modelContext.save()
             DiveActivityMediaStorage.postMediaDidChange()

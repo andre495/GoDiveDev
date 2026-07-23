@@ -12,6 +12,6 @@ enum DiveActivityMediaFocusPresentation {
     /// **`nil`** when there is no media to focus (so the dive opens with its default tab/detent).
     static func focus(forMediaFocusID mediaFocusID: UUID?) -> Focus? {
         guard let mediaFocusID else { return nil }
-        return Focus(tab: .camera, detent: .medium, mediaID: mediaFocusID)
+        return Focus(tab: .camera, detent: .large, mediaID: mediaFocusID)
     }
 }

@@ -45,11 +45,17 @@ This respects **Settings → Auto-upload media to activities** as the default; y
 
 Turn **off** for a fast import without PhotoKit access.
 
-## Garmin FIT
+## Garmin FIT (scuba)
 
-- One diving session per file.  
+- One **scuba** diving session per file.  
+- The session must be recorded as **Single-Gas**, **Multi-Gas**, **CCR**, or **Gauge** in Garmin Connect. Other FIT activity types (for example snorkel or open-water swim) are rejected with an explanation — use **New Snorkel Activity** for those.  
 - Imports depth profile, temperatures, tank pressure when present, gas mix, GPS entry point, and summary stats.  
 - Buddy names from the file join your buddy roster when possible.
+
+## Garmin FIT (snorkel)
+
+- One **snorkel** or **open-water swim** session per file (Garmin **Snorkel** or **Open Water** swim).  
+- Scuba dive FIT files are rejected — import those from **New Dive Activity** instead.
 
 ## UDDF (including MacDive)
 
@@ -68,6 +74,12 @@ GoDive blocks importing the same dive twice when:
 - Time, depth, and duration closely match an existing dive (including across FIT vs UDDF).
 
 Skipped duplicates appear in the bulk import summary. Logbook may label suspicious pairs **Possible duplicate** — there is no merge tool yet.
+
+## After import
+
+- **Single dive or snorkel FIT** — GoDive opens that activity’s detail screen.
+- **Bulk UDDF** — After the summary alert, GoDive opens the **newest** imported dive by date.
+- If nothing new was imported (for example, every dive was a duplicate), you return to the logbook list.
 
 ## Dive numbers after import
 
@@ -92,7 +104,7 @@ Fields missing from your file simply stay empty in GoDive.
 | Issue | Things to try |
 |-------|----------------|
 | File grayed out in picker | Ensure extension is `.fit` or `.uddf` |
-| Import fails immediately | File may be corrupt or not a dive FIT session |
+| Import fails immediately | File may be corrupt, wrong activity type (dive vs snorkel), or unsupported dive mode |
 | No photos attached | Enable attach option; grant Photos access; check capture times overlap the dive window |
 | Wrong local time on UDDF | GoDive applies watch-specific rules for Garmin vs Suunto-style timestamps |
 | Site not on map | Link or add a site from dive detail; confirm import included coordinates |

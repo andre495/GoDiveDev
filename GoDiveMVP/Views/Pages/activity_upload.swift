@@ -5,9 +5,9 @@ struct ActivityUploadView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AccountSession.self) private var accountSession
 
-    /// Called after a successful FIT import (or UDDF import of exactly one new dive).
+    /// Called after a successful import when at least one activity was inserted (newest id for bulk).
     var onSuccessfulImport: ((UUID) -> Void)?
-    /// Called after a UDDF import when more than one dive was inserted (returns to logbook without opening a dive).
+    /// Called when import finishes with zero new activities (e.g. all duplicates).
     var onBulkImportComplete: (() -> Void)?
 
     @State private var isFileImporterPresented = false
@@ -119,7 +119,7 @@ struct ActivityUploadView: View {
     }
 
     private var addActivityRoot: some View {
-        AppPage(title: "Add activity", showsBackButton: !importOverlay.disablesSourceButtons) {
+        AppPage(title: LogbookAddActivityPresentation.diveUploadPageTitle, showsBackButton: !importOverlay.disablesSourceButtons) {
             ZStack {
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
                     addActivityIntro
@@ -573,6 +573,13 @@ struct ActivityUploadView: View {
             try? await Task.sleep(for: DiveImportSuccessTiming.sleepAfterCompleteBeforeDismiss)
             importOverlay = .hidden
 
+            if let owner = accountSession.currentProfile {
+                GoDiveFriendShareRefreshCoordinator.scheduleRepublish(
+                    ownerProfileID: owner.id,
+                    modelContext: modelContext
+                )
+            }
+
             if let id = outcome.primaryInsertedDiveId {
                 onSuccessfulImport?(id)
             }
@@ -587,9 +594,10 @@ struct ActivityUploadView: View {
         guard let summary = uddfImportSummary else { return }
         uddfImportSummary = nil
 
-        if summary.imported > 1 {
-            onBulkImportComplete?()
-        } else if summary.imported == 1, let id = summary.primaryInsertedDiveId {
+        if let id = DiveImportPostCompletionNavigation.importedDetailTargetID(
+            importedCount: summary.imported,
+            primaryInsertedID: summary.primaryInsertedDiveId
+        ) {
             onSuccessfulImport?(id)
         } else {
             onBulkImportComplete?()

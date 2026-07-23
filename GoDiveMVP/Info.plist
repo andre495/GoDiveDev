@@ -13,5 +13,16 @@
 		<string>processing</string>
 		<string>remote-notification</string>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>PrimoSoftware.GoDiveMVP.invite</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>godive</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

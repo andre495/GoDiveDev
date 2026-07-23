@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// Shared-device-safe gate for adopting orphan (`ownerProfileID == nil`) dives/buddies.
+/// Shared-device-safe gate for adopting orphan (`ownerProfileID == nil`) dives/snorkels/buddies.
 enum DiveUnownedClaimGate: Sendable {
     enum Decision: Equatable, Sendable {
         /// No orphan rows — callers may no-op.
@@ -25,13 +25,19 @@ enum DiveUnownedClaimGate: Sendable {
     nonisolated static func decision(
         ownerID: UUID,
         diveOwnerIDs: [UUID?],
+        snorkelOwnerIDs: [UUID?],
         buddyOwnerIDs: [UUID?]
     ) -> Decision {
         let hasUnownedDive = diveOwnerIDs.contains { $0 == nil }
+        let hasUnownedSnorkel = snorkelOwnerIDs.contains { $0 == nil }
         let hasUnownedBuddy = buddyOwnerIDs.contains { $0 == nil }
-        guard hasUnownedDive || hasUnownedBuddy else { return .nothingToClaim }
+        guard hasUnownedDive || hasUnownedSnorkel || hasUnownedBuddy else { return .nothingToClaim }
 
         let otherOwnsDive = diveOwnerIDs.contains { id in
+            guard let id else { return false }
+            return id != ownerID
+        }
+        let otherOwnsSnorkel = snorkelOwnerIDs.contains { id in
             guard let id else { return false }
             return id != ownerID
         }
@@ -39,7 +45,7 @@ enum DiveUnownedClaimGate: Sendable {
             guard let id else { return false }
             return id != ownerID
         }
-        if otherOwnsDive || otherOwnsBuddy {
+        if otherOwnsDive || otherOwnsSnorkel || otherOwnsBuddy {
             return .skipOtherOwnersPresent
         }
         return .claim
@@ -47,10 +53,12 @@ enum DiveUnownedClaimGate: Sendable {
 
     nonisolated static func decision(ownerID: UUID, modelContext: ModelContext) throws -> Decision {
         let dives = try modelContext.fetch(FetchDescriptor<DiveActivity>())
+        let snorkels = try modelContext.fetch(FetchDescriptor<SnorkelActivity>())
         let buddies = try modelContext.fetch(FetchDescriptor<DiveBuddy>())
         return decision(
             ownerID: ownerID,
             diveOwnerIDs: dives.map(\.ownerProfileID),
+            snorkelOwnerIDs: snorkels.map(\.ownerProfileID),
             buddyOwnerIDs: buddies.map(\.ownerProfileID)
         )
     }

@@ -184,12 +184,18 @@ enum FitDiveFileImport {
                 resolver: MapKitGeocodingTimeZoneResolver.shared
             )
             await DiveActivityTimeZoneResolution.resolveMissingOffset(for: activity)
+            await ActivityWeatherImportCapture.captureForDive(activity, catalogSites: catalogSites)
 
             if let interrupted = DiveFileImportInterruption.rollbackIfNeededBeforeSave(modelContext: modelContext) {
                 return interrupted
             }
 
             await DiveBuddyContactAutoLink.autoLinkUnlinkedBuddies(
+                owner: owner,
+                modelContext: modelContext,
+                buddyIDs: importedBuddyIDs
+            )
+            await GoDiveFriendBuddyLinking.autoLinkUnlinkedBuddies(
                 owner: owner,
                 modelContext: modelContext,
                 buddyIDs: importedBuddyIDs

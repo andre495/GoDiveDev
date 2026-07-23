@@ -22,6 +22,9 @@ enum GoDiveUserFacingError: Sendable {
         if let fit = error as? FitDecodeError, let message = fit.errorDescription, !message.isEmpty {
             return message
         }
+        if let fit = error as? FitSnorkelDecodeError, let message = fit.errorDescription, !message.isEmpty {
+            return message
+        }
         if let uddf = error as? UddfDecodeError, let message = uddf.errorDescription, !message.isEmpty {
             return message
         }
@@ -45,6 +48,10 @@ enum GoDiveUserFacingError: Sendable {
         }
         if error is FitDecodeError {
             GoDiveSecurityEvent.record(.importRejected, detail: "fit.decode")
+            return
+        }
+        if error is FitSnorkelDecodeError {
+            GoDiveSecurityEvent.record(.importRejected, detail: "fit.snorkel.decode")
             return
         }
         if error is UddfDecodeError {

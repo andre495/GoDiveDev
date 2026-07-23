@@ -1,6 +1,6 @@
 import Foundation
 
-/// Read-only copy for the **Profile** header.
+/// Read-only copy for the **Profile** header and side menu.
 enum ProfilePresentation: Sendable {
     nonisolated static let editSheetCancelAccessibilityIdentifier = "ProfileEditSheet.Cancel"
     nonisolated static let editSheetDoneAccessibilityIdentifier = "ProfileEditSheet.Done"
@@ -63,9 +63,38 @@ enum ProfilePresentation: Sendable {
         "Are you sure you want to sign out? Your dives stay on this device for this Apple ID."
     nonisolated static let signOutConfirmButtonTitle = "Sign out"
     nonisolated static let signOutCancelButtonTitle = "Cancel"
+
+    // MARK: - Side menu (hamburger overlay)
+
+    /// Fraction of screen width for the trailing Profile menu panel.
+    nonisolated static let sideMenuWidthFraction: CGFloat = 2.0 / 3.0
+
+    nonisolated static let menuAccessibilityLabel = "Profile menu"
+    nonisolated static let menuCloseAccessibilityLabel = "Close profile menu"
+    /// Glyph size so the hamburger reads about as tall as the glass back control.
+    nonisolated static let menuIconPointSize: CGFloat = 28
+    nonisolated static let menuEditProfileTitle = "Edit Profile"
+    nonisolated static let menuSettingsTitle = "Settings"
+    nonisolated static let menuCertificationsTitle = "Certifications"
+    nonisolated static let menuEquipmentTitle = "Equipment Locker"
+    nonisolated static let menuBuddiesTitle = "Buddies"
+    nonisolated static let menuFriendsTitle = "Friends"
+    nonisolated static let menuTripsTitle = "Trips"
+    nonisolated static let menuSignOutTitle = "Sign out"
+
+    /// Ordered page titles shown in the Profile side menu (tagged media lives on the Profile page).
+    /// **Sign out** is pinned separately at the bottom of the overlay.
+    nonisolated static let sideMenuItemTitles: [String] = [
+        menuTripsTitle,
+        menuCertificationsTitle,
+        menuEquipmentTitle,
+        menuBuddiesTitle,
+        menuEditProfileTitle,
+        menuSettingsTitle,
+    ]
 }
 
-/// Layout for **Profile** destination tiles (Certifications, Equipment Locker, Dive Buddies, Trips).
+/// Layout tokens retained for any legacy profile list rows (menu replaced full-width tiles).
 enum ProfileDestinationTilePresentation: Sendable {
     nonisolated static let iconPointSize: CGFloat = 22
     nonisolated static let iconSlotWidth: CGFloat = 28

@@ -40,7 +40,7 @@ struct DiveTripFormValues: Equatable, Sendable {
         calendar: Calendar = .current
     ) -> Bool {
         hasValidDateRange
-            && (!parsedCountries.isEmpty || !trimmedTitle.isEmpty)
+            && !trimmedTitle.isEmpty
             && overlappingTrip(
                 among: existingOwnerTrips,
                 excludingTripID: excludingTripID,
@@ -67,8 +67,8 @@ struct DiveTripFormValues: Equatable, Sendable {
         return DiveTrip(
             startDate: normalized.start,
             endDate: normalized.end,
-            countries: parsedCountries,
-            title: trimmedTitle.isEmpty ? nil : trimmedTitle,
+            countries: [],
+            title: trimmedTitle,
             plannedSiteIDs: plannedSiteIDs
         )
     }
@@ -77,15 +77,13 @@ struct DiveTripFormValues: Equatable, Sendable {
         title = trip.title ?? ""
         startDate = trip.startDate
         endDate = trip.endDate
-        countriesText = trip.countries.joined(separator: ", ")
     }
 
     mutating func apply(to trip: DiveTrip) {
         let normalized = DiveTripDateRange.normalizedRange(start: startDate, end: endDate)
         trip.startDate = normalized.start
         trip.endDate = normalized.end
-        trip.countries = parsedCountries
-        trip.title = trimmedTitle.isEmpty ? nil : trimmedTitle
+        trip.title = trimmedTitle
         trip.updatedAt = .now
     }
 }

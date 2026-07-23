@@ -2,48 +2,62 @@ import CoreGraphics
 
 /// Resting heights for the dive overview bottom panel (map + tank tabs).
 ///
-/// Kept free of **SwiftUI** so **`Equatable`** / **`Hashable`** stay **nonisolated** (Swift 6).
+/// Two detents only — **minimized** (compact) and **large** (blue-sheet-aligned). Kept free of **SwiftUI** so **`Equatable`** / **`Hashable`** stay **nonisolated** (Swift 6).
 /// See **`DiveActivityOverviewDetent+Presentation.swift`** for **`PresentationDetent`** mapping.
 enum DiveActivityOverviewDetent: CaseIterable, Equatable, Hashable, Sendable {
     case minimized
-    case medium
     case large
 
     nonisolated var heightFraction: CGFloat {
         switch self {
         case .minimized:
             DiveActivityOverviewPanelMetrics.minimizedHeightFraction
-        case .medium:
-            DiveActivityOverviewPanelMetrics.mediumHeightFraction
         case .large:
-            DiveActivityOverviewPanelMetrics.largeHeightFraction
+            DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
         }
     }
 
-    static let defaultSelection: Self = .medium
-
-    /// Map camera zoom / pin framing — **large** matches **medium** (map is mostly covered by the sheet).
-    nonisolated var mapCameraDetent: Self {
-        self == .large ? .medium : self
+    nonisolated func resolvedHeightFraction(in context: DiveActivityOverviewSheetLayoutContext) -> CGFloat {
+        switch self {
+        case .minimized:
+            DiveActivityOverviewPanelMetrics.minimizedHeightFraction
+        case .large:
+            DiveActivityOverviewPanelMetrics.largeHeightFraction(in: context)
+        }
     }
+
+    static let defaultSelection: Self = .large
+
+    /// Map camera zoom / pin framing follows the resting overview detent.
+    nonisolated var mapCameraDetent: Self { self }
 
     /// Pan/zoom on the dive overview map is enabled only at the low (**minimized**) sheet detent.
     nonisolated var allowsMapInteraction: Bool {
         self == .minimized
     }
 
-    /// Reference layout for **`presentationDetent(screenHeight:bottomSafeInset:)`** round-trip tests.
+    /// Reference layout for **`presentationDetent(…)`** round-trip tests.
     nonisolated static let presentationReferenceScreenHeight: CGFloat = 844
+    nonisolated static let presentationReferenceScreenWidth: CGFloat = 393
     nonisolated static let presentationReferenceBottomSafeInset: CGFloat = 34
 
     /// Sheet height in points — includes **`bottomSafeInset`** so the panel meets the physical bottom edge.
     nonisolated static func sheetHeight(
         for detent: Self,
         layoutHeight: CGFloat,
-        bottomSafeInset: CGFloat
+        bottomSafeInset: CGFloat,
+        screenWidth: CGFloat = presentationReferenceScreenWidth,
+        topSafeInset: CGFloat = DiveActivityOverviewSheetLayoutContext.presentationReference.topSafeInset
     ) -> CGFloat {
         sheetHeight(
-            forHeightFraction: detent.heightFraction,
+            forHeightFraction: detent.resolvedHeightFraction(
+                in: DiveActivityOverviewSheetLayoutContext(
+                    layoutHeight: layoutHeight,
+                    screenWidth: screenWidth,
+                    topSafeInset: topSafeInset,
+                    bottomSafeInset: bottomSafeInset
+                )
+            ),
             layoutHeight: layoutHeight,
             bottomSafeInset: bottomSafeInset
         )
@@ -61,9 +75,17 @@ enum DiveActivityOverviewDetent: CaseIterable, Equatable, Hashable, Sendable {
     nonisolated static func bottomObstructionHeight(
         layoutHeight: CGFloat,
         detent: Self,
-        bottomSafeInset: CGFloat
+        bottomSafeInset: CGFloat,
+        screenWidth: CGFloat = presentationReferenceScreenWidth,
+        topSafeInset: CGFloat = DiveActivityOverviewSheetLayoutContext.presentationReference.topSafeInset
     ) -> CGFloat {
-        sheetHeight(for: detent, layoutHeight: layoutHeight, bottomSafeInset: bottomSafeInset)
+        sheetHeight(
+            for: detent,
+            layoutHeight: layoutHeight,
+            bottomSafeInset: bottomSafeInset,
+            screenWidth: screenWidth,
+            topSafeInset: topSafeInset
+        )
     }
 
     nonisolated var accessibilityDescription: String {
@@ -71,23 +93,17 @@ enum DiveActivityOverviewDetent: CaseIterable, Equatable, Hashable, Sendable {
     }
 
     nonisolated func nextTaller() -> Self? {
-        guard let fraction = DiveActivityOverviewPanelMetrics.nextTallerDetent(after: heightFraction) else {
-            return nil
-        }
-        return Self(fraction: fraction)
+        self == .minimized ? .large : nil
     }
 
     nonisolated func nextShorter() -> Self? {
-        guard let fraction = DiveActivityOverviewPanelMetrics.nextShorterDetent(after: heightFraction) else {
-            return nil
-        }
-        return Self(fraction: fraction)
+        self == .large ? .minimized : nil
     }
 
     /// Explicit **nonisolated** equality for Swift Testing **`#expect`** (Swift 6).
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         switch (lhs, rhs) {
-        case (.minimized, .minimized), (.medium, .medium), (.large, .large):
+        case (.minimized, .minimized), (.large, .large):
             return true
         default:
             return false
@@ -97,32 +113,38 @@ enum DiveActivityOverviewDetent: CaseIterable, Equatable, Hashable, Sendable {
     nonisolated func hash(into hasher: inout Hasher) {
         switch self {
         case .minimized: hasher.combine(0)
-        case .medium: hasher.combine(1)
-        case .large: hasher.combine(2)
+        case .large: hasher.combine(1)
         }
     }
 
     /// Maps a height fraction (e.g. after grabber drag) to the nearest resting detent.
-    nonisolated static func nearest(toHeightFraction fraction: CGFloat) -> Self {
+    nonisolated static func nearest(
+        toHeightFraction fraction: CGFloat,
+        largeRestingFraction: CGFloat = referenceLargeHeightFraction
+    ) -> Self {
         if DiveActivityOverviewPanelMetrics.isMinimized(fraction) {
             return .minimized
         }
-        if DiveActivityOverviewPanelMetrics.isExpanded(fraction) {
+        if DiveActivityOverviewPanelMetrics.isLarge(fraction, largeRestingFraction: largeRestingFraction) {
             return .large
         }
-        if abs(fraction - DiveActivityOverviewPanelMetrics.mediumHeightFraction) < 0.03 {
-            return .medium
-        }
-        return .medium
+        let midpoint = (minimizedHeightFraction + largeRestingFraction) / 2
+        return fraction < midpoint ? .minimized : .large
     }
 
-    nonisolated private init?(fraction: CGFloat) {
+    nonisolated private static var minimizedHeightFraction: CGFloat {
+        DiveActivityOverviewPanelMetrics.minimizedHeightFraction
+    }
+
+    nonisolated private static var referenceLargeHeightFraction: CGFloat {
+        DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
+    }
+
+    nonisolated private init?(fraction: CGFloat, largeRestingFraction: CGFloat) {
         if DiveActivityOverviewPanelMetrics.isMinimized(fraction) {
             self = .minimized
-        } else if DiveActivityOverviewPanelMetrics.isExpanded(fraction) {
+        } else if DiveActivityOverviewPanelMetrics.isLarge(fraction, largeRestingFraction: largeRestingFraction) {
             self = .large
-        } else if abs(fraction - DiveActivityOverviewPanelMetrics.mediumHeightFraction) < 0.03 {
-            self = .medium
         } else {
             return nil
         }

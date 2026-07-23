@@ -30,6 +30,12 @@ struct PushedDetailHeroHeaderView: View {
             emptyPlaceholderAccessibilityLabel: "Tag header",
             accessibilityPrefix: "ActivityTagDetails.Hero"
         )
+
+        nonisolated static let profile = Style(
+            emptyPlaceholderSystemImage: "person.crop.circle.fill",
+            emptyPlaceholderAccessibilityLabel: "Profile header",
+            accessibilityPrefix: "Profile.Hero"
+        )
     }
 
     enum Mode: String, CaseIterable, Hashable, Identifiable {
@@ -101,10 +107,24 @@ struct PushedDetailHeroHeaderView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier(style.accessibilityPrefix)
-            .onChange(of: mapPins.count) { _, count in
-                if count == 0, selectedMode == .map {
-                    selectedMode = .media
-                }
+            .onChange(of: mapPins.count) { oldCount, count in
+                let willFallBack = PushedDetailHeroModePresentation.shouldFallBackFromMapToMedia(
+                    mapPinCount: count,
+                    currentMode: selectedMode,
+                    isMapContentReady: isMapContentReady,
+                    hasAssociatedMedia: media != nil || expectsTaggedMedia
+                )
+                BuddiesListNavigationDiagnostics.logHeroMapPinCountChange(
+                    stylePrefix: style.accessibilityPrefix,
+                    oldCount: oldCount,
+                    newCount: count,
+                    selectedMode: selectedMode.rawValue,
+                    isMapContentReady: isMapContentReady,
+                    hasAssociatedMedia: media != nil || expectsTaggedMedia,
+                    willFallBackToMedia: willFallBack
+                )
+                guard willFallBack else { return }
+                selectedMode = .media
             }
     }
 

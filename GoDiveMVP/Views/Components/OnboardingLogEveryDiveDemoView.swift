@@ -143,7 +143,17 @@ struct OnboardingLogEveryDiveDemoView: View {
 
     return HStack(alignment: .top, spacing: 0) {
       VStack(alignment: .leading, spacing: LogbookActivityRowLayout.contentSpacing) {
-        ActivityTagOvalChipLabel(title: row.diveNumberLabel, isCompact: true)
+        HStack(spacing: 6) {
+          if let symbol = row.diveNumberLeadingSymbolName {
+            Image(systemName: symbol)
+              .font(.caption.weight(.semibold))
+              .foregroundStyle(AppTheme.Colors.accent)
+          }
+          ActivityTagOvalChipLabel(
+            title: row.diveNumberLabel,
+            isCompact: true
+          )
+        }
 
         Text(row.displayName)
           .font(.subheadline.weight(.semibold))

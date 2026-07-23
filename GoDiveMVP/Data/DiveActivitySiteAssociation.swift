@@ -9,7 +9,7 @@ enum DiveActivitySiteAssociation {
 
     /// Tries to set **`diveSite`** / **`diveSiteID`** when not already linked.
     static func applyBestMatch(
-        to activity: DiveActivity,
+        to activity: any DiveSiteLinkableActivity,
         catalogSites: [DiveSite],
         modelContext: ModelContext? = nil
     ) {
@@ -36,7 +36,7 @@ enum DiveActivitySiteAssociation {
     }
 
     /// Same rules as **`applyBestMatch`**, without mutating **`diveSite`** (import datetime / timezone lookup).
-    static func previewBestMatch(for activity: DiveActivity, catalogSites: [DiveSite]) -> DiveSite? {
+    static func previewBestMatch(for activity: any DiveSiteLinkableActivity, catalogSites: [DiveSite]) -> DiveSite? {
         guard activity.diveSiteID == nil else { return catalogSites.first { $0.id == activity.diveSiteID } }
 
         if let siteName = trimmedSiteName(activity.siteName) {
@@ -56,7 +56,7 @@ enum DiveActivitySiteAssociation {
 
     /// Links when a prior import already created a catalog row tagged with the matched OpenDiveMap id.
     static func previewBestOpenDiveMapCatalogMatch(
-        for activity: DiveActivity,
+        for activity: any DiveSiteLinkableActivity,
         catalogSites: [DiveSite],
         reference: [DiveSiteReferenceSnapshot] = DiveSiteReferenceCatalog.bundledReference()
     ) -> DiveSite? {
@@ -85,14 +85,16 @@ enum DiveActivitySiteAssociation {
         }
     }
 
-    static func link(_ activity: DiveActivity, to site: DiveSite) {
+    static func link(_ activity: any DiveSiteLinkableActivity, to site: DiveSite) {
         activity.diveSiteID = site.id
-        activity.diveWaterType = site.resolvedWaterType
-        DiveActivityDiverWeightDefaults.applyInheritedDefaults(to: activity)
+        if let dive = activity as? DiveActivity {
+            dive.diveWaterType = site.resolvedWaterType
+            DiveActivityDiverWeightDefaults.applyInheritedDefaults(to: dive)
+        }
     }
 
     /// Links a dive to a catalog site and upserts a CloudKit-synced **`UserDiveSite`** snapshot.
-    static func link(_ activity: DiveActivity, to site: DiveSite, modelContext: ModelContext) {
+    static func link(_ activity: any DiveSiteLinkableActivity, to site: DiveSite, modelContext: ModelContext) {
         link(activity, to: site)
         _ = ensureSyncedUserDiveSiteSnapshot(
             of: site,
@@ -101,10 +103,12 @@ enum DiveActivitySiteAssociation {
         )
     }
 
-    static func link(_ activity: DiveActivity, to site: UserDiveSite) {
+    static func link(_ activity: any DiveSiteLinkableActivity, to site: UserDiveSite) {
         activity.diveSiteID = site.id
-        activity.diveWaterType = site.resolvedWaterType
-        DiveActivityDiverWeightDefaults.applyInheritedDefaults(to: activity)
+        if let dive = activity as? DiveActivity {
+            dive.diveWaterType = site.resolvedWaterType
+            DiveActivityDiverWeightDefaults.applyInheritedDefaults(to: dive)
+        }
     }
 
     /// Ensures an OpenDiveMap / catalog link has a user-store row that can sync with the dive.
@@ -189,7 +193,7 @@ enum DiveActivitySiteAssociation {
     /// Links to an OpenDiveMap reference row — existing tagged catalog site, or a new enriched site.
     @discardableResult
     static func applyOpenDiveMapSiteLinkIfNeeded(
-        to activity: DiveActivity,
+        to activity: any DiveSiteLinkableActivity,
         catalogSites: inout [DiveSite],
         modelContext: ModelContext,
         reference: [DiveSiteReferenceSnapshot] = DiveSiteReferenceCatalog.bundledReference(),
@@ -219,7 +223,7 @@ enum DiveActivitySiteAssociation {
     /// Links to an existing catalog row tagged with the matched OpenDiveMap reference id.
     @discardableResult
     static func applyOpenDiveMapReferenceLinkIfNeeded(
-        to activity: DiveActivity,
+        to activity: any DiveSiteLinkableActivity,
         catalogSites: [DiveSite],
         modelContext: ModelContext? = nil,
         reference: [DiveSiteReferenceSnapshot] = DiveSiteReferenceCatalog.bundledReference()
@@ -240,7 +244,7 @@ enum DiveActivitySiteAssociation {
     /// Creates a catalog **`DiveSite`** from a strong OpenDiveMap reference match (name + coordinates when present).
     @discardableResult
     static func createSiteFromOpenDiveMapReferenceIfNeeded(
-        to activity: DiveActivity,
+        to activity: any DiveSiteLinkableActivity,
         catalogSites: inout [DiveSite],
         modelContext: ModelContext,
         reference: [DiveSiteReferenceSnapshot] = DiveSiteReferenceCatalog.bundledReference()
@@ -266,7 +270,7 @@ enum DiveActivitySiteAssociation {
     /// do not create one site row per dive.
     @discardableResult
     static func createSiteForImportNameIfNeeded(
-        to activity: DiveActivity,
+        to activity: any DiveSiteLinkableActivity,
         catalogSites: inout [DiveSite],
         modelContext: ModelContext
     ) -> Bool {
@@ -344,7 +348,7 @@ enum DiveActivitySiteAssociation {
         }
     }
 
-    private static func fillMissingCoordinates(on site: UserDiveSite, from activity: DiveActivity) {
+    private static func fillMissingCoordinates(on site: UserDiveSite, from activity: any DiveSiteLinkableActivity) {
         guard site.latCoords == nil || site.longCoords == nil,
               let entry = activity.entryCoordinate,
               DiveMapCoordinateResolver.isUsable(entry)
@@ -361,7 +365,7 @@ enum DiveActivitySiteAssociation {
     }
 
     private static func bestOpenDiveMapReferenceMatch(
-        for activity: DiveActivity,
+        for activity: any DiveSiteLinkableActivity,
         reference: [DiveSiteReferenceSnapshot],
         matchIndex: DiveSiteReferenceMatchIndex? = nil
     ) -> DiveSiteReferenceMatch? {

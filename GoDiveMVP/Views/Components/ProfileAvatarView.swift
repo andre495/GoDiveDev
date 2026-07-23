@@ -3,6 +3,19 @@ import SwiftUI
 import UIKit
 #endif
 
+/// Shared accent ring for profile / buddy avatars (**`ProfileAvatarView`**, remote friend photos).
+enum ProfileAvatarChrome {
+    static func ringLineWidth(diameter: CGFloat) -> CGFloat {
+        max(2, diameter / 24)
+    }
+
+    @ViewBuilder
+    static func accentRingOverlay(diameter: CGFloat) -> some View {
+        Circle()
+            .strokeBorder(AppTheme.Colors.accentDeep, lineWidth: ringLineWidth(diameter: diameter))
+    }
+}
+
 /// Circular profile image, optional initials placeholder, or default **person** icon.
 struct ProfileAvatarView: View {
     enum PlaceholderBackground: Sendable {
@@ -52,18 +65,13 @@ struct ProfileAvatarView: View {
         .frame(width: diameter, height: diameter)
         .clipShape(Circle())
         .overlay {
-            Circle()
-                .strokeBorder(AppTheme.Colors.accentDeep, lineWidth: ringLineWidth)
+            ProfileAvatarChrome.accentRingOverlay(diameter: diameter)
         }
         #if canImport(UIKit)
         .task(id: profilePhotoCacheKey) {
             decodedImage = await ProfileAvatarImageCache.shared.image(for: profilePhoto)
         }
         #endif
-    }
-
-    private var ringLineWidth: CGFloat {
-        max(2, diameter / 24)
     }
 
     @ViewBuilder
