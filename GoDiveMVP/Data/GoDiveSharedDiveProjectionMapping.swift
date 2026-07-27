@@ -1,11 +1,19 @@
+import FirebaseFirestore
 import Foundation
+
+/// Friend-visible activity kind stored on **`sharedDives`** documents (dives + snorkels).
+enum FriendSharedActivityKind: String, Sendable, Equatable {
+    case scubaDive
+    case snorkel
+}
 
 /// Builds Firestore-safe friend-visible dive projections from local dive snapshots.
 enum GoDiveSharedDiveProjectionMapping: Sendable {
     nonisolated static let sharedDivesSubcollection = "sharedDives"
-    nonisolated static let schemaVersion = 1
+    nonisolated static let schemaVersion = 2
     /// Leave headroom under Firestore’s 1 MiB document limit.
     nonisolated static let maxProfileTrackBytes = 700_000
+    nonisolated static let maxSwimTrackBytes = 700_000
 
     struct TaggedBuddySnapshot: Equatable, Sendable {
         var displayName: String
@@ -25,6 +33,7 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
 
     struct DiveSnapshot: Equatable, Sendable {
         var id: UUID
+        var activityKind: FriendSharedActivityKind = .scubaDive
         var startTime: Date
         var timeZoneOffsetSeconds: Int?
         var durationMinutes: Int
@@ -37,6 +46,9 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
         var waterTempMaxCelsius: Double?
         var siteName: String?
         var locationName: String?
+        var region: String? = nil
+        var country: String? = nil
+        var swimDistanceMeters: Double? = nil
         var entryLatitude: Double?
         var entryLongitude: Double?
         var notes: String?
@@ -61,6 +73,7 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
         var taggedBuddies: [TaggedBuddySnapshot]
         var equipmentSummary: [String]
         var profileTrackData: Data?
+        var swimTrackData: Data? = nil
         var mediaPreviews: [MediaPreviewSnapshot]
     }
 
@@ -78,6 +91,7 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
         var fields: [String: Any] = [
             "schemaVersion": schemaVersion,
             "diveId": dive.id.uuidString,
+            "activityKind": dive.activityKind.rawValue,
             "startTime": dive.startTime,
             "durationMinutes": dive.durationMinutes,
             "maxDepthMeters": dive.maxDepthMeters,
@@ -85,6 +99,9 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
         ]
 
         setOptional(dive.timeZoneOffsetSeconds, key: "timeZoneOffsetSeconds", into: &fields)
+        setOptionalString(dive.region, key: "region", into: &fields)
+        setOptionalString(dive.country, key: "country", into: &fields)
+        setOptional(dive.swimDistanceMeters, key: "swimDistanceMeters", into: &fields)
         setOptional(dive.averageDepthMeters, key: "averageDepthMeters", into: &fields)
         setOptional(dive.bottomTimeSeconds, key: "bottomTimeSeconds", into: &fields)
         setOptional(dive.diveNumber, key: "diveNumber", into: &fields)
@@ -143,6 +160,9 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
         if let track = cappedProfileTrack(dive.profileTrackData) {
             fields["profileTrackBase64"] = track.base64EncodedString()
         }
+        if let swimTrack = cappedSwimTrack(dive.swimTrackData) {
+            fields["swimTrackBase64"] = swimTrack.base64EncodedString()
+        }
 
         if options.includeNotes, let notes = dive.notes {
             let trimmed = GoDiveInputSanitization.trimmedAndCapped(
@@ -169,6 +189,7 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
     /// Parses a Firestore document into a display model (missing fields → nil / empty).
     struct FriendVisibleDive: Equatable, Sendable, Identifiable {
         var id: String
+        var activityKind: FriendSharedActivityKind = .scubaDive
         var startTime: Date?
         var durationMinutes: Int?
         var maxDepthMeters: Double?
@@ -176,6 +197,9 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
         var diveNumber: Int?
         var siteName: String?
         var locationName: String?
+        var region: String? = nil
+        var country: String? = nil
+        var swimDistanceMeters: Double? = nil
         var entryLatitude: Double?
         var entryLongitude: Double?
         var notes: String?
@@ -185,11 +209,19 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
         var equipmentSummary: [String]
         var mediaPreviews: [MediaPreviewSnapshot]
         var profileTrackBase64: String?
+        var swimTrackBase64: String? = nil
         var gasType: String?
         var oxygenMix: Double?
         var tankVolumeDescription: String?
         var waterTempMinCelsius: Double?
         var bottomTimeSeconds: Int?
+        var tankPressureStartPSI: Double? = nil
+        var tankPressureEndPSI: Double? = nil
+        var updatedAt: Date? = nil
+
+        nonisolated var resolvedActivityKind: FriendSharedActivityKind {
+            activityKind
+        }
     }
 
     nonisolated static func parseFriendVisibleDive(id: String, data: [String: Any]) -> FriendVisibleDive {
@@ -217,8 +249,12 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
             return MediaPreviewSnapshot(photoID: photoID, previewURL: url)
         } ?? []
 
+        let activityKind = FriendSharedActivityKind(rawValue: data["activityKind"] as? String ?? "")
+            ?? .scubaDive
+
         return FriendVisibleDive(
             id: id,
+            activityKind: activityKind,
             startTime: dateValue(data["startTime"]),
             durationMinutes: data["durationMinutes"] as? Int,
             maxDepthMeters: data["maxDepthMeters"] as? Double,
@@ -226,6 +262,9 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
             diveNumber: data["diveNumber"] as? Int,
             siteName: data["siteName"] as? String,
             locationName: data["locationName"] as? String,
+            region: data["region"] as? String,
+            country: data["country"] as? String,
+            swimDistanceMeters: data["swimDistanceMeters"] as? Double,
             entryLatitude: data["entryLatitude"] as? Double,
             entryLongitude: data["entryLongitude"] as? Double,
             notes: data["notes"] as? String,
@@ -235,12 +274,33 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
             equipmentSummary: data["equipmentSummary"] as? [String] ?? [],
             mediaPreviews: media,
             profileTrackBase64: data["profileTrackBase64"] as? String,
+            swimTrackBase64: data["swimTrackBase64"] as? String,
             gasType: data["gasType"] as? String,
             oxygenMix: data["oxygenMix"] as? Double,
             tankVolumeDescription: data["tankVolumeDescription"] as? String,
             waterTempMinCelsius: data["waterTempMinCelsius"] as? Double,
-            bottomTimeSeconds: data["bottomTimeSeconds"] as? Int
+            bottomTimeSeconds: data["bottomTimeSeconds"] as? Int,
+            tankPressureStartPSI: data["tankPressureStartPSI"] as? Double,
+            tankPressureEndPSI: data["tankPressureEndPSI"] as? Double,
+            updatedAt: dateValue(data["updatedAt"])
         )
+    }
+
+    /// Depth + optional gas overlay series decoded from a friend-visible projection track blob.
+    struct FriendSharedDepthChartSeries: Equatable, Sendable {
+        var depthSamples: [DiveDepthProfileSample]
+        var pressureSamples: [DiveDepthProfilePressureSample]
+        var pressureBaselinePSI: Double?
+
+        nonisolated static let empty = FriendSharedDepthChartSeries(
+            depthSamples: [],
+            pressureSamples: [],
+            pressureBaselinePSI: nil
+        )
+
+        nonisolated var hasRenderableProfile: Bool {
+            depthSamples.count >= 2
+        }
     }
 
     nonisolated static func displayTitle(for dive: FriendVisibleDive) -> String {
@@ -248,7 +308,72 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
         if !site.isEmpty { return site }
         let location = dive.locationName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if !location.isEmpty { return location }
-        return "Dive"
+        switch dive.resolvedActivityKind {
+        case .snorkel:
+            return "Snorkel"
+        case .scubaDive:
+            return "Dive"
+        }
+    }
+
+    nonisolated static func regionCountryDisplayLine(for dive: FriendVisibleDive) -> String? {
+        let region = dive.region?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let country = dive.country?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if let line = DiveActivityOverviewPresentation.regionCountryLine(region: region, country: country) {
+            return line
+        }
+        return DiveActivityOverviewPresentation.regionCountryLine(locationName: dive.locationName)
+    }
+
+    nonisolated static func decodedDepthChartSeries(
+        from dive: FriendVisibleDive
+    ) -> FriendSharedDepthChartSeries {
+        guard dive.resolvedActivityKind == .scubaDive,
+              let base64 = dive.profileTrackBase64,
+              let data = Data(base64Encoded: base64),
+              let startTime = dive.startTime
+        else { return .empty }
+        guard let track = try? DiveProfileTrackCodec.decode(data, diveStartTime: startTime) else { return .empty }
+        let snapshots = track
+            .map {
+                DiveDerivedProfilePointSnapshot(
+                    timestamp: $0.timestamp,
+                    depthMeters: $0.depthMeters,
+                    tankPressurePSI: $0.tankPressurePSI
+                )
+            }
+            .sorted { $0.timestamp < $1.timestamp }
+        let built = DiveDerivedDataBuilder.build(
+            from: DiveDerivedDataBuildInput(
+                profilePointSnapshots: snapshots,
+                sortedMediaSnapshots: [],
+                activityStartTime: startTime,
+                durationMinutes: dive.durationMinutes ?? 0
+            )
+        )
+        let baseline = dive.tankPressureEndPSI ?? built.profileGasStats.minPSI
+        return FriendSharedDepthChartSeries(
+            depthSamples: built.depthSamples,
+            pressureSamples: built.pressureSamples,
+            pressureBaselinePSI: baseline
+        )
+    }
+
+    nonisolated static func decodedDepthSamples(from dive: FriendVisibleDive) -> [DiveDepthProfileSample] {
+        decodedDepthChartSeries(from: dive).depthSamples
+    }
+
+    nonisolated static func decodedSwimTrackCoordinates(from dive: FriendVisibleDive) -> [DiveCoordinate] {
+        guard dive.resolvedActivityKind == .snorkel,
+              let base64 = dive.swimTrackBase64,
+              let data = Data(base64Encoded: base64),
+              let startTime = dive.startTime
+        else { return [] }
+        guard let track = try? SnorkelSwimTrackCodec.decode(data, activityStartTime: startTime) else { return [] }
+        return track.compactMap { sample in
+            let coordinate = DiveCoordinate(latitude: sample.latitude, longitude: sample.longitude)
+            return DiveMapCoordinateResolver.isUsable(coordinate) ? coordinate : nil
+        }
     }
 
     nonisolated static func wasCurrentUserTagged(
@@ -267,6 +392,12 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
         return data
     }
 
+    nonisolated static func cappedSwimTrack(_ data: Data?) -> Data? {
+        guard let data, !data.isEmpty else { return nil }
+        guard data.count <= maxSwimTrackBytes else { return nil }
+        return data
+    }
+
     private nonisolated static func setOptional<T>(_ value: T?, key: String, into fields: inout [String: Any]) {
         if let value { fields[key] = value }
     }
@@ -280,6 +411,7 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
 
     private nonisolated static func dateValue(_ raw: Any?) -> Date? {
         if let date = raw as? Date { return date }
+        if let timestamp = raw as? Timestamp { return timestamp.dateValue() }
         return nil
     }
 }

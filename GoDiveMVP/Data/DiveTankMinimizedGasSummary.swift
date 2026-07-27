@@ -2,7 +2,7 @@ import Foundation
 
 /// Animated minimized **PSI used** tally (number + unit suffix).
 struct MinimizedGasConsumedTally: Equatable, Sendable {
-    /// Drives **`.contentTransition(.numericText())`** during the tank **minimized** entrance.
+    /// Integer / tenths value shown while **`revealProgress`** runs **0 → 1**.
     var numericAnimationValue: Double
     var pressureValueText: String
     var unitSuffix: String

@@ -20,11 +20,11 @@ enum LogbookBuddyFeedPresentation: Sendable {
 
     nonisolated static let noFriendsTitle = "No friends yet"
     nonisolated static let noFriendsMessage =
-        "When friends share dives with you, their activities show up here. Invite someone to get started."
+        "When friends share dives and snorkels with you, their activities show up here. Invite someone to get started."
 
     nonisolated static let noActivitiesTitle = "No buddy activities yet"
     nonisolated static let noActivitiesMessage =
-        "None of your friends have shared dives yet. Check back later, or invite more divers from Friends."
+        "None of your friends have shared activities yet. Check back later, or invite more divers from Friends."
 
     nonisolated static let unavailableTitle = "Can't load buddy feed"
 
@@ -56,6 +56,8 @@ enum LogbookBuddyFeedPresentation: Sendable {
                 || left.friendUID != right.friendUID
                 || left.friendDisplayName != right.friendDisplayName
                 || left.dive.id != right.dive.id
+                || left.dive.profileTrackBase64 != right.dive.profileTrackBase64
+                || left.dive.swimTrackBase64 != right.dive.swimTrackBase64
             {
                 return false
             }
@@ -102,30 +104,90 @@ enum LogbookBuddyFeedPresentation: Sendable {
         return sortRowsNewestFirst(merged)
     }
 
+    /// Newest activity first — **`startTime`**, then **`diveNumber`**, then stable id.
+    nonisolated static func sortFriendVisibleDivesNewestFirst(
+        _ dives: [GoDiveSharedDiveProjectionMapping.FriendVisibleDive]
+    ) -> [GoDiveSharedDiveProjectionMapping.FriendVisibleDive] {
+        dives.sorted(by: friendVisibleDiveIsNewerFirst)
+    }
+
     nonisolated static func sortRowsNewestFirst(_ rows: [Row]) -> [Row] {
         rows.sorted { lhs, rhs in
-            let left = lhs.dive.startTime ?? .distantPast
-            let right = rhs.dive.startTime ?? .distantPast
-            if left != right { return left > right }
+            if friendVisibleDiveIsNewerFirst(lhs.dive, rhs.dive) { return true }
+            if friendVisibleDiveIsNewerFirst(rhs.dive, lhs.dive) { return false }
             return lhs.id < rhs.id
         }
     }
 
+    nonisolated static func friendVisibleDiveIsNewerFirst(
+        _ lhs: GoDiveSharedDiveProjectionMapping.FriendVisibleDive,
+        _ rhs: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
+    ) -> Bool {
+        let left = chronologicalSortKey(for: lhs)
+        let right = chronologicalSortKey(for: rhs)
+        if left.instant != right.instant { return left.instant > right.instant }
+        if left.diveNumber != right.diveNumber {
+            return (left.diveNumber ?? Int.min) > (right.diveNumber ?? Int.min)
+        }
+        return lhs.id < rhs.id
+    }
+
+    nonisolated static func chronologicalSortKey(
+        for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
+    ) -> (instant: Date, diveNumber: Int?) {
+        (
+            instant: dive.startTime ?? dive.updatedAt ?? .distantPast,
+            diveNumber: dive.diveNumber
+        )
+    }
+
     nonisolated static func subtitle(for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive) -> String {
-        var parts: [String] = []
-        if let number = dive.diveNumber {
-            parts.append("#\(number)")
+        tileStatsLine(for: dive, unitSystem: .metric)
+    }
+
+    nonisolated static func tileStatsLine(
+        for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive,
+        unitSystem: DiveDisplayUnitSystem
+    ) -> String {
+        switch dive.resolvedActivityKind {
+        case .scubaDive:
+            var parts: [String] = []
+            if let number = dive.diveNumber {
+                parts.append("#\(number)")
+            }
+            if let start = dive.startTime {
+                parts.append(start.formatted(date: .abbreviated, time: .omitted))
+            }
+            if let max = dive.maxDepthMeters {
+                parts.append(DiveQuantityFormatting.depth(meters: max, system: unitSystem))
+            }
+            if let minutes = dive.durationMinutes {
+                parts.append("\(minutes) min")
+            }
+            return parts.joined(separator: " · ")
+        case .snorkel:
+            var parts: [String] = []
+            if let start = dive.startTime {
+                parts.append(start.formatted(date: .abbreviated, time: .omitted))
+            }
+            if let minutes = dive.durationMinutes {
+                parts.append("\(minutes) min")
+            }
+            if let distance = dive.swimDistanceMeters {
+                parts.append(DiveQuantityFormatting.swimDistance(meters: distance, system: unitSystem))
+            }
+            return parts.joined(separator: " · ")
         }
-        if let start = dive.startTime {
-            parts.append(start.formatted(date: .abbreviated, time: .omitted))
-        }
-        if let max = dive.maxDepthMeters {
-            parts.append(String(format: "%.0f m", max))
-        }
-        if let minutes = dive.durationMinutes {
-            parts.append("\(minutes) min")
-        }
-        return parts.joined(separator: " · ")
+    }
+
+    nonisolated static func tileSiteTitle(for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive) -> String {
+        GoDiveSharedDiveProjectionMapping.displayTitle(for: dive)
+    }
+
+    nonisolated static func tileRegionCountryLine(
+        for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
+    ) -> String? {
+        GoDiveSharedDiveProjectionMapping.regionCountryDisplayLine(for: dive)
     }
 
     nonisolated static func emptyKind(

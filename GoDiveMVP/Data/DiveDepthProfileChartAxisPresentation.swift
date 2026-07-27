@@ -97,8 +97,15 @@ enum DiveDepthProfileChartAxisPresentation: Sendable {
         CGPoint(x: rect.minX + CGFloat(fraction) * rect.width, y: rect.maxY)
     }
 
-    nonisolated static func depthTickPoint(fraction: Double, in rect: CGRect) -> CGPoint {
-        CGPoint(x: rect.minX, y: rect.minY + CGFloat(fraction) * rect.height)
+    nonisolated static func depthTickPoint(
+        depthDataFraction: Double,
+        in rect: CGRect,
+        topBufferFraction: Double = DiveDepthProfileChartPresentation.depthAxisTopBufferFraction
+    ) -> CGPoint {
+        let plotFraction = topBufferFraction
+            + Swift.min(Swift.max(depthDataFraction, 0), 1)
+            * (1 - topBufferFraction)
+        return CGPoint(x: rect.minX, y: rect.minY + CGFloat(plotFraction) * rect.height)
     }
 
     // MARK: - Nice steps

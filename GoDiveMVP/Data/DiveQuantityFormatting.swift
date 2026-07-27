@@ -139,7 +139,7 @@ enum DiveQuantityFormatting {
     }
 
     /// Cylinder pressure from stored **psi**; **`nil`** → **—**. Metric UI uses **bar**; imperial uses **psi** (whole).
-    static func cylinderPressure(fromPSI psi: Double?, system: DiveDisplayUnitSystem) -> String {
+    nonisolated static func cylinderPressure(fromPSI psi: Double?, system: DiveDisplayUnitSystem) -> String {
         guard let psi else { return "—" }
         switch system {
         case .metric:

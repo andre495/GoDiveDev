@@ -1,18 +1,15 @@
 import SwiftUI
 
-/// Logbook tab collapsible header — **Activity Log** inline with trip / **+**, feed scope toggle, and My Activities summary.
+/// Logbook tab collapsible header — **Activity Log** inline with trip / **+** and feed scope toggle.
 struct LogbookCollapsibleHeader: View {
     @Binding var feedScope: LogbookFeedScope
     @Binding var myActivitiesKindFilter: LogbookMyActivitiesKindFilter
     let isCollapsed: Bool
     let showsFeedScopeToggle: Bool
-    let showsMyActivitiesSummary: Bool
-    let isMyActivitiesSummaryLoading: Bool
-    let myActivitiesSummary: LogbookMyActivitiesSummary
     let statusBarSafeAreaTop: CGFloat
 
     private var showsExpandedChromeBelowTitle: Bool {
-        !isCollapsed && (showsFeedScopeToggle || showsMyActivitiesSummary)
+        !isCollapsed && showsFeedScopeToggle
     }
 
     var body: some View {
@@ -44,37 +41,8 @@ struct LogbookCollapsibleHeader: View {
             .clipped()
             .allowsHitTesting(showsFeedScopeToggle)
             .accessibilityHidden(!showsFeedScopeToggle)
-
-            if showsMyActivitiesSummary {
-                Group {
-                    if isMyActivitiesSummaryLoading {
-                        ProgressView()
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .accessibilityIdentifier(
-                                LogbookMyActivitiesSummaryPresentation.loadingAccessibilityIdentifier
-                            )
-                    } else {
-                        Text(LogbookMyActivitiesSummaryPresentation.headerLine(for: myActivitiesSummary))
-                            .font(.subheadline)
-                            .foregroundStyle(AppTheme.Colors.secondaryText)
-                            .multilineTextAlignment(.center)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .accessibilityIdentifier(
-                                LogbookCollapsibleHeaderPresentation.myActivitiesSummaryAccessibilityIdentifier
-                            )
-                    }
-                }
-                .padding(.horizontal, AppTheme.Spacing.lg)
-                .opacity(showsExpandedChromeBelowTitle ? 1 : 0)
-                .frame(maxHeight: showsExpandedChromeBelowTitle ? nil : 0)
-                .clipped()
-                .allowsHitTesting(false)
-                .accessibilityHidden(!showsExpandedChromeBelowTitle)
-            }
         }
         .animation(.snappy(duration: 0.18), value: showsFeedScopeToggle)
-        .animation(.snappy(duration: 0.18), value: showsMyActivitiesSummary)
-        .animation(.snappy(duration: 0.18), value: isMyActivitiesSummaryLoading)
         .animation(.snappy(duration: 0.18), value: isCollapsed)
         .background {
             GeometryReader { proxy in

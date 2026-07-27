@@ -114,6 +114,10 @@ struct ContentView: View {
             ownerProfileID: ownerID,
             modelContext: modelContext
         )
+        GoDiveFriendShareProfileTrackRepublish.scheduleOneTimeRepublishIfNeeded(
+            ownerProfileID: ownerID,
+            modelContext: modelContext
+        )
     }
 }
 

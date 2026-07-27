@@ -1,3 +1,4 @@
+import FirebaseFirestore
 import Foundation
 import SwiftData
 import Testing
@@ -94,11 +95,21 @@ struct GoDiveFriendsTests {
         #expect(capped == .failure(.friendCapReached))
     }
 
-    @Test func sharedDiveProjection_omitsNotesAndMediaByDefault() {
+    @Test func sharedDiveProjection_omitsNotesAndMediaByDefault() throws {
         let diveID = UUID()
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let profileTrack = try #require(
+            try DiveProfileTrackCodec.encode(
+                samples: [
+                    DiveProfileTrackSample(timestamp: start, depthMeters: 0),
+                    DiveProfileTrackSample(timestamp: start.addingTimeInterval(120), depthMeters: 18.5),
+                ],
+                diveStartTime: start
+            )
+        )
         let snapshot = GoDiveSharedDiveProjectionMapping.DiveSnapshot(
             id: diveID,
-            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            startTime: start,
             timeZoneOffsetSeconds: nil,
             durationMinutes: 45,
             maxDepthMeters: 18.5,
@@ -133,7 +144,8 @@ struct GoDiveFriendsTests {
             sightings: [.init(commonName: "Turtle", scientificName: nil, catalogUUID: "t1")],
             taggedBuddies: [.init(displayName: "Sam", firebaseUID: "uid-sam")],
             equipmentSummary: ["Scubapro regulator"],
-            profileTrackData: Data([1, 2, 3]),
+            profileTrackData: profileTrack,
+            swimTrackData: nil,
             mediaPreviews: [.init(photoID: "p1", previewURL: "https://example.com/p.jpg")]
         )
 
@@ -144,6 +156,7 @@ struct GoDiveFriendsTests {
         #expect(withoutOptIn["notes"] as? String == nil)
         #expect(withoutOptIn["mediaPreviews"] == nil)
         #expect(withoutOptIn["siteName"] as? String == "Blue Hole")
+        #expect(withoutOptIn["activityKind"] as? String == FriendSharedActivityKind.scubaDive.rawValue)
         #expect((withoutOptIn["profileTrackBase64"] as? String)?.isEmpty == false)
 
         let withOptIn = GoDiveSharedDiveProjectionMapping.projectionFields(
@@ -171,6 +184,325 @@ struct GoDiveFriendsTests {
                 currentFirebaseUID: "other"
             )
         )
+        let chartSeries = GoDiveSharedDiveProjectionMapping.decodedDepthChartSeries(from: parsed)
+        #expect(chartSeries.depthSamples.count >= 2)
+    }
+
+    @Test func sharedDiveProjection_decodedDepthChartSeries_includesPressureBaseline() throws {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let profileTrack = try #require(
+            try DiveProfileTrackCodec.encode(
+                samples: [
+                    DiveProfileTrackSample(timestamp: start, depthMeters: 0, tankPressurePSI: 3000),
+                    DiveProfileTrackSample(timestamp: start.addingTimeInterval(60), depthMeters: 12, tankPressurePSI: 2500),
+                    DiveProfileTrackSample(timestamp: start.addingTimeInterval(120), depthMeters: 18, tankPressurePSI: 2000),
+                ],
+                diveStartTime: start
+            )
+        )
+        let fields = GoDiveSharedDiveProjectionMapping.projectionFields(
+            from: GoDiveSharedDiveProjectionMapping.DiveSnapshot(
+                id: UUID(),
+                startTime: start,
+                timeZoneOffsetSeconds: nil,
+                durationMinutes: 45,
+                maxDepthMeters: 18,
+                averageDepthMeters: nil,
+                bottomTimeSeconds: nil,
+                diveNumber: 1,
+                waterTempAvgCelsius: nil,
+                waterTempMinCelsius: nil,
+                waterTempMaxCelsius: nil,
+                siteName: "Reef",
+                locationName: nil,
+                entryLatitude: nil,
+                entryLongitude: nil,
+                notes: nil,
+                diveCurrentStrengthRaw: nil,
+                surfaceCondition: nil,
+                entryType: nil,
+                diveVisibilityRaw: nil,
+                diveOperatorName: nil,
+                diveMasterName: nil,
+                diveWaterTypeRaw: nil,
+                diverWeightKilograms: nil,
+                tankMaterial: nil,
+                tankVolumeDescription: nil,
+                tankPressureStartPSI: 3000,
+                tankPressureEndPSI: 2000,
+                gasType: nil,
+                oxygenMix: nil,
+                avgSAC: nil,
+                avgRMV: nil,
+                activityTagNames: [],
+                sightings: [],
+                taggedBuddies: [],
+                equipmentSummary: [],
+                profileTrackData: profileTrack,
+                mediaPreviews: []
+            ),
+            options: .init(includeNotes: false, includeMedia: false)
+        )
+        let parsed = GoDiveSharedDiveProjectionMapping.parseFriendVisibleDive(
+            id: UUID().uuidString,
+            data: fields
+        )
+        let chartSeries = GoDiveSharedDiveProjectionMapping.decodedDepthChartSeries(from: parsed)
+        #expect(chartSeries.depthSamples.count >= 2)
+        #expect(!chartSeries.pressureSamples.isEmpty)
+        #expect(chartSeries.pressureBaselinePSI == 2000)
+    }
+
+    @Test func sharedDiveProjection_parseFriendVisibleDive_readsFirestoreTimestamp() throws {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let profileTrack = try #require(
+            try DiveProfileTrackCodec.encode(
+                samples: [
+                    DiveProfileTrackSample(timestamp: start, depthMeters: 0),
+                    DiveProfileTrackSample(timestamp: start.addingTimeInterval(60), depthMeters: 12),
+                ],
+                diveStartTime: start
+            )
+        )
+        let fields = GoDiveSharedDiveProjectionMapping.projectionFields(
+            from: GoDiveSharedDiveProjectionMapping.DiveSnapshot(
+                id: UUID(),
+                startTime: start,
+                timeZoneOffsetSeconds: nil,
+                durationMinutes: 40,
+                maxDepthMeters: 12,
+                averageDepthMeters: nil,
+                bottomTimeSeconds: nil,
+                diveNumber: 1,
+                waterTempAvgCelsius: nil,
+                waterTempMinCelsius: nil,
+                waterTempMaxCelsius: nil,
+                siteName: "Reef",
+                locationName: nil,
+                entryLatitude: nil,
+                entryLongitude: nil,
+                notes: nil,
+                diveCurrentStrengthRaw: nil,
+                surfaceCondition: nil,
+                entryType: nil,
+                diveVisibilityRaw: nil,
+                diveOperatorName: nil,
+                diveMasterName: nil,
+                diveWaterTypeRaw: nil,
+                diverWeightKilograms: nil,
+                tankMaterial: nil,
+                tankVolumeDescription: nil,
+                tankPressureStartPSI: nil,
+                tankPressureEndPSI: nil,
+                gasType: nil,
+                oxygenMix: nil,
+                avgSAC: nil,
+                avgRMV: nil,
+                activityTagNames: [],
+                sightings: [],
+                taggedBuddies: [],
+                equipmentSummary: [],
+                profileTrackData: profileTrack,
+                mediaPreviews: []
+            ),
+            options: .init(includeNotes: false, includeMedia: false)
+        )
+        var firestoreFields = fields
+        firestoreFields["startTime"] = Timestamp(date: start)
+
+        let parsed = GoDiveSharedDiveProjectionMapping.parseFriendVisibleDive(
+            id: UUID().uuidString,
+            data: firestoreFields
+        )
+        #expect(parsed.startTime == start)
+        let chartSeries = GoDiveSharedDiveProjectionMapping.decodedDepthChartSeries(from: parsed)
+        #expect(chartSeries.depthSamples.count >= 2)
+    }
+
+    @Test func buddyFeed_rowsEqual_comparesProfileTrackPayload() {
+        let baseDive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "dive-1",
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            siteName: "Reef",
+            locationName: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil
+        )
+        let left = LogbookBuddyFeedPresentation.Row(
+            id: "friend_dive-1",
+            friendUID: "friend",
+            friendDisplayName: "Sam",
+            dive: baseDive
+        )
+        var withTrack = baseDive
+        withTrack.profileTrackBase64 = "dHJhY2s="
+        let right = LogbookBuddyFeedPresentation.Row(
+            id: "friend_dive-1",
+            friendUID: "friend",
+            friendDisplayName: "Sam",
+            dive: withTrack
+        )
+        #expect(!LogbookBuddyFeedPresentation.rowsEqual([left], [right]))
+    }
+
+    @Test @MainActor
+    func friendShareProjection_profileTrackDataForSharing_encodesFromFetchedPoints() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: start,
+            durationMinutes: 40,
+            maxDepthMeters: 20
+        )
+        context.insert(dive)
+
+        let pointA = DiveProfilePoint(timestamp: start, depthMeters: 0)
+        pointA.diveActivityID = dive.id
+        let pointB = DiveProfilePoint(timestamp: start.addingTimeInterval(90), depthMeters: 20)
+        pointB.diveActivityID = dive.id
+        context.insert(pointA)
+        context.insert(pointB)
+        try context.save()
+
+        dive.profileTrackData = nil
+        dive.profilePoints = []
+
+        let encoded = try DiveProfilePointStore.profileTrackDataForSharing(
+            activity: dive,
+            modelContext: context
+        )
+        #expect(encoded != nil)
+        #expect(!(encoded?.isEmpty ?? true))
+        #expect(dive.profileTrackData != nil)
+    }
+
+    @Test @MainActor
+    func friendShareProfileTrackRepublish_schedulesOnce() throws {
+        let defaults = UserDefaults(suiteName: "GoDiveFriendShareProfileTrackRepublishTests")!
+        defaults.removePersistentDomain(forName: "GoDiveFriendShareProfileTrackRepublishTests")
+        defer { defaults.removePersistentDomain(forName: "GoDiveFriendShareProfileTrackRepublishTests") }
+        GoDiveFriendShareProfileTrackRepublish.resetCompletedFlag(defaults: defaults)
+        defaults.set(true, forKey: AppUserSettings.shareDivesWithFriendsKey)
+
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let ownerID = UUID()
+
+        GoDiveFriendShareProfileTrackRepublish.scheduleOneTimeRepublishIfNeeded(
+            ownerProfileID: ownerID,
+            modelContext: context,
+            userDefaults: defaults
+        )
+        #expect(defaults.bool(forKey: GoDiveFriendShareProfileTrackRepublish.completedDefaultsKey))
+
+        GoDiveFriendShareProfileTrackRepublish.scheduleOneTimeRepublishIfNeeded(
+            ownerProfileID: ownerID,
+            modelContext: context,
+            userDefaults: defaults
+        )
+    }
+
+    @Test @MainActor
+    func friendShareProjection_encodesProfileTrackFromLocalPoints() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let ownerID = UUID()
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: start,
+            durationMinutes: 40,
+            maxDepthMeters: 20
+        )
+        dive.ownerProfileID = ownerID
+        context.insert(dive)
+
+        let pointA = DiveProfilePoint(timestamp: start, depthMeters: 0)
+        pointA.diveActivityID = dive.id
+        let pointB = DiveProfilePoint(timestamp: start.addingTimeInterval(90), depthMeters: 20)
+        pointB.diveActivityID = dive.id
+        context.insert(pointA)
+        context.insert(pointB)
+        try context.save()
+
+        dive.profileTrackData = nil
+        #expect(dive.profileTrackData == nil)
+
+        try DiveProfilePointStore.ensurePointsLoaded(for: dive, modelContext: context)
+        DiveProfilePointStore.syncTrackData(from: dive)
+        #expect(dive.profileTrackData != nil)
+        #expect(!(dive.profileTrackData?.isEmpty ?? true))
+    }
+
+    @Test @MainActor
+    func friendShareProjection_encodesSwimTrackFromLocalPoints() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+
+        let snorkel = SnorkelActivity(
+            startTime: start,
+            durationMinutes: 30,
+            swimDistanceMeters: 500
+        )
+        context.insert(snorkel)
+
+        let pointA = SnorkelProfilePoint(timestamp: start, latitude: 12.1, longitude: -68.9)
+        pointA.snorkelActivityID = snorkel.id
+        let pointB = SnorkelProfilePoint(
+            timestamp: start.addingTimeInterval(120),
+            latitude: 12.11,
+            longitude: -68.91
+        )
+        pointB.snorkelActivityID = snorkel.id
+        context.insert(pointA)
+        context.insert(pointB)
+        try context.save()
+
+        snorkel.swimTrackData = nil
+        snorkel.profilePoints = []
+
+        let encoded = try SnorkelProfilePointStore.swimTrackDataForSharing(
+            activity: snorkel,
+            modelContext: context
+        )
+        #expect(encoded != nil)
+        #expect(!(encoded?.isEmpty ?? true))
+        #expect(snorkel.swimTrackData != nil)
+    }
+
+    @Test @MainActor
+    func friendShareAffectedDiveIDs_includesSnorkelMediaPhoto() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let ownerID = UUID()
+
+        let snorkel = SnorkelActivity(
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 30,
+            swimDistanceMeters: 400
+        )
+        snorkel.ownerProfileID = ownerID
+        context.insert(snorkel)
+
+        let media = SnorkelMediaPhoto(sortOrder: 0, mediaKind: .image, snorkelActivity: snorkel)
+        context.insert(media)
+
+        let ids = GoDiveFriendShareAffectedDiveIDs.diveIDs(
+            fromModels: [media],
+            ownerProfileID: ownerID
+        )
+        #expect(ids == [snorkel.id])
     }
 
     @Test func sharedDiveProjection_dropsOversizedProfileTrack() {
@@ -178,6 +510,166 @@ struct GoDiveFriendsTests {
         #expect(GoDiveSharedDiveProjectionMapping.cappedProfileTrack(huge) == nil)
         let ok = Data(repeating: 0x01, count: 10)
         #expect(GoDiveSharedDiveProjectionMapping.cappedProfileTrack(ok)?.count == 10)
+        #expect(GoDiveSharedDiveProjectionMapping.cappedSwimTrack(huge) == nil)
+        #expect(GoDiveSharedDiveProjectionMapping.cappedSwimTrack(ok)?.count == 10)
+    }
+
+    @Test func sharedSnorkelProjection_includesKindDistanceAndTracks() throws {
+        let activityID = UUID()
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        let swimSamples = [
+            SnorkelSwimTrackSample(
+                timestamp: start,
+                latitude: 12.1,
+                longitude: -68.9
+            ),
+            SnorkelSwimTrackSample(
+                timestamp: start.addingTimeInterval(120),
+                latitude: 12.11,
+                longitude: -68.91
+            ),
+        ]
+        let swimTrack = try #require(
+            try SnorkelSwimTrackCodec.encode(samples: swimSamples, activityStartTime: start)
+        )
+
+        let snapshot = GoDiveSharedDiveProjectionMapping.DiveSnapshot(
+            id: activityID,
+            activityKind: .snorkel,
+            startTime: start,
+            timeZoneOffsetSeconds: nil,
+            durationMinutes: 32,
+            maxDepthMeters: 2.5,
+            averageDepthMeters: nil,
+            bottomTimeSeconds: nil,
+            diveNumber: nil,
+            waterTempAvgCelsius: nil,
+            waterTempMinCelsius: nil,
+            waterTempMaxCelsius: nil,
+            siteName: "Klein Bonaire",
+            locationName: nil,
+            region: "Bonaire",
+            country: "Caribbean Netherlands",
+            swimDistanceMeters: 840,
+            entryLatitude: 12.1,
+            entryLongitude: -68.9,
+            notes: nil,
+            diveCurrentStrengthRaw: nil,
+            surfaceCondition: nil,
+            entryType: nil,
+            diveVisibilityRaw: nil,
+            diveOperatorName: nil,
+            diveMasterName: nil,
+            diveWaterTypeRaw: nil,
+            diverWeightKilograms: nil,
+            tankMaterial: nil,
+            tankVolumeDescription: nil,
+            tankPressureStartPSI: nil,
+            tankPressureEndPSI: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            avgSAC: nil,
+            avgRMV: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            profileTrackData: nil,
+            swimTrackData: swimTrack,
+            mediaPreviews: []
+        )
+
+        let fields = GoDiveSharedDiveProjectionMapping.projectionFields(
+            from: snapshot,
+            options: .init(includeNotes: false, includeMedia: false)
+        )
+        #expect(fields["activityKind"] as? String == FriendSharedActivityKind.snorkel.rawValue)
+        #expect(fields["swimDistanceMeters"] as? Double == 840)
+        #expect(fields["region"] as? String == "Bonaire")
+        #expect((fields["swimTrackBase64"] as? String)?.isEmpty == false)
+
+        let parsed = GoDiveSharedDiveProjectionMapping.parseFriendVisibleDive(
+            id: activityID.uuidString,
+            data: fields
+        )
+        #expect(parsed.resolvedActivityKind == .snorkel)
+        #expect(parsed.swimDistanceMeters == 840)
+        #expect(GoDiveSharedDiveProjectionMapping.displayTitle(for: parsed) == "Klein Bonaire")
+        let coordinates = GoDiveSharedDiveProjectionMapping.decodedSwimTrackCoordinates(from: parsed)
+        #expect(coordinates.count == 2)
+    }
+
+    @Test func buddyFeed_tileStatsLine_formatsDiveAndSnorkel() {
+        let dive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "dive-1",
+            activityKind: .scubaDive,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            averageDepthMeters: nil,
+            diveNumber: 3,
+            siteName: "Reef",
+            locationName: nil,
+            region: "Bonaire",
+            country: "Caribbean Netherlands",
+            swimDistanceMeters: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil,
+            swimTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+        let diveLine = LogbookBuddyFeedPresentation.tileStatsLine(for: dive, unitSystem: .metric)
+        #expect(diveLine.contains("#3"))
+        #expect(diveLine.contains("18.0 m"))
+        #expect(diveLine.contains("40 min"))
+
+        let snorkel = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "snorkel-1",
+            activityKind: .snorkel,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 25,
+            maxDepthMeters: nil,
+            averageDepthMeters: nil,
+            diveNumber: nil,
+            siteName: nil,
+            locationName: "Kralendijk, Bonaire, Caribbean Netherlands",
+            region: nil,
+            country: nil,
+            swimDistanceMeters: 500,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil,
+            swimTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+        let snorkelLine = LogbookBuddyFeedPresentation.tileStatsLine(for: snorkel, unitSystem: .metric)
+        #expect(snorkelLine.contains("25 min"))
+        #expect(snorkelLine.contains("500 m"))
+        #expect(
+            GoDiveSharedDiveProjectionMapping.regionCountryDisplayLine(for: snorkel)?
+                .contains("Bonaire") == true
+        )
     }
 
     @Test func friendsPresentation_friendCountLabel() {
@@ -228,6 +720,27 @@ struct GoDiveFriendsTests {
             ownerProfileID: ownerID
         )
         #expect(fromMedia == [ownedDive.id])
+    }
+
+    @Test @MainActor
+    func friendShareAffectedDiveIDs_includesSnorkelActivities() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let ownerID = UUID()
+
+        let snorkel = SnorkelActivity(
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 30,
+            swimDistanceMeters: 400
+        )
+        snorkel.ownerProfileID = ownerID
+        context.insert(snorkel)
+
+        let ids = GoDiveFriendShareAffectedDiveIDs.diveIDs(
+            fromModels: [snorkel],
+            ownerProfileID: ownerID
+        )
+        #expect(ids == [snorkel.id])
     }
 
     @Test func friendShareChangeNotification_carriesDiveID() {
@@ -319,6 +832,77 @@ struct GoDiveFriendsTests {
         #expect(rows[0].dive.id == "dive-new")
         #expect(rows[1].dive.id == "dive-old")
         #expect(rows[0].friendDisplayName == "Blake")
+    }
+
+    @Test func buddyFeed_sortsSameDayActivitiesByStartTime() {
+        let day = Date(timeIntervalSince1970: 1_700_000_000)
+        let morning = Self.makeBuddyFeedDive(id: "morning", startTime: day.addingTimeInterval(9 * 3600))
+        let afternoon = Self.makeBuddyFeedDive(id: "afternoon", startTime: day.addingTimeInterval(15 * 3600))
+        let friends = [
+            GoDiveFriendGraphService.FriendEdge(
+                friendUID: "friend-a",
+                friendshipID: "a_b",
+                displayName: "Alex",
+                photoURL: nil,
+                since: nil
+            ),
+            GoDiveFriendGraphService.FriendEdge(
+                friendUID: "friend-b",
+                friendshipID: "b_c",
+                displayName: "Blake",
+                photoURL: nil,
+                since: nil
+            ),
+        ]
+        let rows = LogbookBuddyFeedPresentation.rows(
+            friends: friends,
+            divesByFriendUID: [
+                "friend-a": [morning],
+                "friend-b": [afternoon],
+            ]
+        )
+        #expect(rows.map(\.dive.id) == ["afternoon", "morning"])
+    }
+
+    @Test func buddyFeed_sortFriendVisibleDives_fallsBackToUpdatedAt() {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let newerSync = Self.makeBuddyFeedDive(id: "synced", startTime: nil, updatedAt: start.addingTimeInterval(3600))
+        let olderSync = Self.makeBuddyFeedDive(id: "stale", startTime: nil, updatedAt: start)
+        let sorted = LogbookBuddyFeedPresentation.sortFriendVisibleDivesNewestFirst([olderSync, newerSync])
+        #expect(sorted.map(\.id) == ["synced", "stale"])
+    }
+
+    private static func makeBuddyFeedDive(
+        id: String,
+        startTime: Date?,
+        updatedAt: Date? = nil,
+        diveNumber: Int? = nil
+    ) -> GoDiveSharedDiveProjectionMapping.FriendVisibleDive {
+        GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: id,
+            startTime: startTime,
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            averageDepthMeters: nil,
+            diveNumber: diveNumber,
+            siteName: "Reef",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil,
+            updatedAt: updatedAt
+        )
     }
 
     @Test @MainActor func buddyFeed_emptyKind_whenNoFriends() {
@@ -743,5 +1327,114 @@ struct GoDiveFriendsTests {
 
     @Test func diveBuddyContactSMSPresentation_emptyRecipientsWithoutContact() {
         #expect(DiveBuddyContactSMSPresentation.smsRecipients(contactsIdentifier: nil).isEmpty)
+    }
+
+    @Test func friendSharedDetail_diveNumberChip_nilForSnorkel() {
+        let snorkel = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "snorkel-1",
+            activityKind: .snorkel,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 2,
+            averageDepthMeters: nil,
+            diveNumber: 5,
+            siteName: "Lagoon",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+        #expect(FriendSharedActivityDetailPresentation.diveNumberChip(for: snorkel) == nil)
+        #expect(FriendSharedActivityDetailPresentation.diveNumberPlainLabel(for: snorkel) == "#5")
+    }
+
+    @Test func friendSharedDetail_mapCoordinate_rejectsInvalid() {
+        let dive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "dive-1",
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            averageDepthMeters: nil,
+            diveNumber: 3,
+            siteName: "Reef",
+            locationName: nil,
+            entryLatitude: 0,
+            entryLongitude: 0,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+        #expect(FriendSharedActivityDetailPresentation.mapCoordinate(from: dive) == nil)
+    }
+
+    @Test func friendSharedDetail_snorkelDerivedSnapshot_decodesSwimTrack() throws {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let samples = [
+            SnorkelSwimTrackSample(
+                timestamp: start,
+                latitude: 21.3,
+                longitude: -157.8,
+                heartRateBPM: 90
+            ),
+            SnorkelSwimTrackSample(
+                timestamp: start.addingTimeInterval(60),
+                latitude: 21.31,
+                longitude: -157.79,
+                heartRateBPM: 110
+            ),
+        ]
+        let trackData = try #require(try SnorkelSwimTrackCodec.encode(samples: samples, activityStartTime: start))
+        let snorkel = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "snorkel-track",
+            activityKind: .snorkel,
+            startTime: start,
+            durationMinutes: 25,
+            maxDepthMeters: 1.5,
+            averageDepthMeters: nil,
+            diveNumber: nil,
+            siteName: "Bay",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil,
+            swimTrackBase64: trackData.base64EncodedString(),
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+        let snapshot = FriendSharedActivityDetailPresentation.snorkelDerivedSnapshot(from: snorkel)
+        #expect(snapshot.trackCoordinates.count == 2)
+        #expect(snapshot.heartRateSamples.count >= 2)
+        #expect(snapshot.avgHeartRateBPM == 100)
+        #expect(snapshot.maxHeartRateBPM == 110)
+        #expect(FriendSharedActivityDetailPresentation.swimTrackCoordinates(from: snorkel).count == 2)
     }
 }

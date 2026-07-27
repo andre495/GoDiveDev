@@ -35,8 +35,17 @@ enum DiveProfilePointStore {
     }
 
     /// Encodes staged/local points onto **`activity.profileTrackData`** for CloudKit sync.
-    nonisolated static func syncTrackData(from activity: DiveActivity) {
-        let points = activity.profilePoints
+    nonisolated static func syncTrackData(
+        from activity: DiveActivity,
+        modelContext: ModelContext? = nil
+    ) {
+        var points = activity.profilePoints
+        if points.isEmpty, let modelContext {
+            points = (try? fetchPoints(for: activity.id, modelContext: modelContext)) ?? []
+            if !points.isEmpty {
+                activity.profilePoints = points
+            }
+        }
         guard !points.isEmpty else {
             activity.profileTrackData = nil
             return
@@ -45,6 +54,29 @@ enum DiveProfilePointStore {
             points: points,
             diveStartTime: activity.startTime
         )
+    }
+
+    /// Resolves encoded profile bytes for friend-share upload (existing blob, local rows, or materialized track).
+    @discardableResult
+    nonisolated static func profileTrackDataForSharing(
+        activity: DiveActivity,
+        modelContext: ModelContext
+    ) throws -> Data? {
+        if let existing = activity.profileTrackData, !existing.isEmpty {
+            return existing
+        }
+        try ensurePointsLoaded(for: activity, modelContext: modelContext)
+        if activity.profilePoints.isEmpty {
+            let fetched = try fetchPoints(for: activity.id, modelContext: modelContext)
+            activity.profilePoints = fetched
+        }
+        guard !activity.profilePoints.isEmpty else { return nil }
+        guard let encoded = try DiveProfileTrackCodec.encode(
+            points: activity.profilePoints,
+            diveStartTime: activity.startTime
+        ) else { return nil }
+        activity.profileTrackData = encoded
+        return encoded
     }
 
     /// Inserts staged points and refreshes the synced track blob.

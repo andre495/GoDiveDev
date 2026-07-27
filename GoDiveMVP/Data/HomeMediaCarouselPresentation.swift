@@ -121,6 +121,41 @@ enum HomeMediaCarouselPresentation: Sendable {
         slideCount > 0 && slideCount <= HomeMediaHighlightPresentation.carouselLimit
     }
 
+    /// Extra bleed below the template seam so Home media tucks into the blue-sheet overlap (not the full hero bottom).
+    nonisolated static let featuredMediaBleedBelowSeam: CGFloat = 52
+
+    /// Media band from screen top to just below the blue-sheet seam (viewport coordinates).
+    nonisolated static func featuredMediaBottomYFromTop(
+        viewportHeight: CGFloat,
+        panelOverlap: CGFloat = HomeOverviewLayout.panelOverlap
+    ) -> CGFloat {
+        let seamY = max(viewportHeight - panelOverlap, 0)
+        return seamY + featuredMediaBleedBelowSeam
+    }
+
+    nonisolated static func featuredMediaBandRect(
+        viewportWidth: CGFloat,
+        viewportHeight: CGFloat,
+        panelOverlap: CGFloat = HomeOverviewLayout.panelOverlap
+    ) -> CGRect {
+        let bandHeight = featuredMediaBottomYFromTop(
+            viewportHeight: viewportHeight,
+            panelOverlap: panelOverlap
+        )
+        return CGRect(x: 0, y: 0, width: max(viewportWidth, 1), height: bandHeight)
+    }
+
+    /// Legacy helper — prefer **`featuredMediaBandRect(viewportWidth:viewportHeight:)`**.
+    nonisolated static func featuredMediaBandRect(
+        heroBandHeight: CGFloat,
+        viewportWidth: CGFloat
+    ) -> CGRect {
+        featuredMediaBandRect(
+            viewportWidth: viewportWidth,
+            viewportHeight: heroBandHeight
+        )
+    }
+
     /// Only the **selected pager page** may drive muted playback — not every page that shares the
     /// same logical slide. The looping carousel duplicates slide **0** as the last pager page; both
     /// would otherwise bind one **`AVPlayer`** to two layers and leave the first item silent / stuck.
@@ -717,8 +752,8 @@ enum HomeMediaCarouselPresentation: Sendable {
         avatarSpacing: CGFloat,
         isExpanded: Bool
     ) -> CGFloat {
-        guard isExpanded, distanceFromIcon >= 0 else { return 0 }
-        return -CGFloat(distanceFromIcon + 1) * (avatarDiameter + avatarSpacing)
+        guard isExpanded, distanceFromIcon > 0 else { return 0 }
+        return -CGFloat(distanceFromIcon) * (avatarDiameter + avatarSpacing)
     }
 
     nonisolated static func taggedBuddyHorizontalRevealDelay(
@@ -737,6 +772,32 @@ enum HomeMediaCarouselPresentation: Sendable {
         guard buddyCount > 0 else { return 0 }
         return CGFloat(buddyCount) * avatarDiameter
             + CGFloat(max(0, buddyCount - 1)) * avatarSpacing
+    }
+
+    /// Buddy strip viewport when expanded — reserves the trailing icon + gap beside the first avatar.
+    nonisolated static func taggedBuddyExpandedMaxVisibleWidth(
+        containerWidth: CGFloat,
+        horizontalPadding: CGFloat,
+        iconDiameter: CGFloat,
+        iconToStripSpacing: CGFloat
+    ) -> CGFloat {
+        let contentWidth = max(0, containerWidth - 2 * horizontalPadding)
+        return max(0, contentWidth - iconDiameter - iconToStripSpacing)
+    }
+
+    nonisolated static func taggedBuddyHorizontalNeedsScroll(
+        stripWidth: CGFloat,
+        maxVisibleWidth: CGFloat
+    ) -> Bool {
+        stripWidth > maxVisibleWidth + 0.5
+    }
+
+    /// Locks the carousel pager while fish overlay or expanded buddy strip is active.
+    nonisolated static func taggedBuddyPagerScrollDisabled(
+        hasExpandedBuddyList: Bool,
+        showsMarineLifeOverlay: Bool = false
+    ) -> Bool {
+        hasExpandedBuddyList || showsMarineLifeOverlay
     }
 
     nonisolated static func taggedSpecies(

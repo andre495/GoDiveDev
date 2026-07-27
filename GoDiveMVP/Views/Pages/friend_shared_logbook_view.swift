@@ -32,18 +32,33 @@ struct FriendSharedLogbookView: View {
                 } else if dives.isEmpty {
                     emptyState
                 } else {
-                    List(dives) { dive in
-                        NavigationLink {
-                            FriendSharedDiveDetailView(dive: dive, friendName: friend.displayName)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(GoDiveSharedDiveProjectionMapping.displayTitle(for: dive))
-                                    .font(.body.weight(.semibold))
-                                    .foregroundStyle(AppTheme.Colors.textPrimary)
-                                Text(subtitle(for: dive))
-                                    .font(.caption)
-                                    .foregroundStyle(AppTheme.Colors.secondaryText)
+                    List {
+                        ForEach(dives) { dive in
+                            NavigationLink {
+                                FriendSharedDiveDetailView(dive: dive, friendName: friend.displayName)
+                            } label: {
+                                LogbookBuddyFeedTileView(
+                                    row: LogbookBuddyFeedPresentation.Row(
+                                        id: LogbookBuddyFeedPresentation.rowID(
+                                            friendUID: friend.friendUID,
+                                            diveDocumentID: dive.id
+                                        ),
+                                        friendUID: friend.friendUID,
+                                        friendDisplayName: friend.displayName,
+                                        dive: dive
+                                    )
+                                )
                             }
+                            .listRowInsets(
+                                EdgeInsets(
+                                    top: 0,
+                                    leading: AppTheme.Spacing.lg,
+                                    bottom: AppTheme.Spacing.sm,
+                                    trailing: AppTheme.Spacing.lg
+                                )
+                            )
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
                         }
                     }
                     .listStyle(.plain)
@@ -67,23 +82,6 @@ struct FriendSharedLogbookView: View {
         }
         .padding(AppTheme.Spacing.lg)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private func subtitle(for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive) -> String {
-        var parts: [String] = []
-        if let number = dive.diveNumber {
-            parts.append("#\(number)")
-        }
-        if let start = dive.startTime {
-            parts.append(start.formatted(date: .abbreviated, time: .omitted))
-        }
-        if let max = dive.maxDepthMeters {
-            parts.append(String(format: "%.0f m", max))
-        }
-        if let minutes = dive.durationMinutes {
-            parts.append("\(minutes) min")
-        }
-        return parts.joined(separator: " · ")
     }
 
     @MainActor

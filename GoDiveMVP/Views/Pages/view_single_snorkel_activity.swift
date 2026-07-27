@@ -39,7 +39,6 @@ struct ViewSingleSnorkelActivity: View {
     @State private var overviewSheetDetent = DiveActivityOverviewDetent.defaultSelection
     @State private var overviewPanelLiveHeightFraction = DiveActivityOverviewDetent.defaultSelection.heightFraction
     @State private var isOverviewPanelPresented = true
-    @State private var overviewMapTeardownRequested = false
     @State private var selectedMediaPhotoID: UUID?
     @State private var pendingInitialMediaFocusID: UUID?
     @State private var didApplyInitialMediaFocus = false
@@ -55,7 +54,7 @@ struct ViewSingleSnorkelActivity: View {
     @State private var fishialIdentifyMediaID: UUID?
 
     var body: some View {
-        AppHeaderlessPage(leadingEdgePopOnWillDismiss: requestOverviewMapTeardown) {
+        AppHeaderlessPage {
             ZStack(alignment: .top) {
                 snorkelOverviewHeroLayer
                 activityTopChrome
@@ -77,11 +76,8 @@ struct ViewSingleSnorkelActivity: View {
             guard offset > 4 else { return }
             persistSnorkelOverviewUIState()
         }
-        .onChange(of: selectedActivityTab) { _, newTab in
+        .onChange(of: selectedActivityTab) { _, _ in
             overviewPanelScrollOffsetY = 0
-            if newTab == .map {
-                overviewMapTeardownRequested = false
-            }
         }
         .task(id: derivedDataRefreshToken) {
             await refreshDerivedSnorkelDataAsync()
@@ -143,19 +139,11 @@ struct ViewSingleSnorkelActivity: View {
         "\(activity.id.uuidString)-\(activity.mediaPhotos.count)-\(activity.marineLifeSightings.count)-\(activity.mediaBuddyTags.count)"
     }
 
-    private var showsLiveOverviewMap: Bool {
-        DiveActivityOverviewMapTeardown.showsLiveMap(teardownRequested: overviewMapTeardownRequested)
-    }
-
-    private func requestOverviewMapTeardown() {
-        overviewMapTeardownRequested = true
-    }
-
     private var activityTopChrome: some View {
         GlassEffectContainer {
             ZStack {
                 HStack {
-                    SecondaryDestinationBackButton(onWillDismiss: requestOverviewMapTeardown)
+                    SecondaryDestinationBackButton()
                     Spacer(minLength: 0)
                 }
                 SnorkelActivityIconTabBar(
@@ -217,9 +205,6 @@ struct ViewSingleSnorkelActivity: View {
                 topSafeInset: geometry.safeAreaInsets.top,
                 bottomSafeInset: bottomSafeInset
             )
-            let mapLargeRestingFraction = DiveActivityOverviewPanelMetrics.largeHeightFraction(
-                in: overviewLayoutContext
-            )
             let bottomObstruction = DiveActivityOverviewDetent.bottomObstructionHeight(
                 layoutHeight: layoutHeight,
                 detent: overviewSheetDetent,
@@ -249,7 +234,7 @@ struct ViewSingleSnorkelActivity: View {
                 liveHeightFraction: selectedActivityTab == .map ? overviewPanelLiveHeightFraction : nil,
                 isLandscape: isLandscape
             )
-            let trackBottomMargin = DiveActivityOverviewLandscapePresentation.mapBottomContentMargin(
+            let heartRateBottomMargin = DiveActivityOverviewLandscapePresentation.mapBottomContentMargin(
                 layoutContext: overviewLayoutContext,
                 detent: overviewSheetDetent,
                 liveHeightFraction: selectedActivityTab == .heartRate ? overviewPanelLiveHeightFraction : nil,
@@ -271,32 +256,28 @@ struct ViewSingleSnorkelActivity: View {
                 Group {
                     switch selectedActivityTab {
                     case .map:
-                        Group {
-                            if showsLiveOverviewMap {
-                                DiveLocationMapView(
-                                    coordinate: overviewMapCoordinate,
-                                    bottomContentMargin: mapBottomMargin,
-                                    topObstructionHeight: topObstruction,
-                                    layoutHeight: layoutHeight,
-                                    sheetHeightFraction: overviewPanelLiveHeightFraction,
-                                    largeRestingFraction: mapLargeRestingFraction,
-                                    isUserInteractionEnabled: isMapInteractive
-                                )
-                                .allowsHitTesting(isMapInteractive)
-                                .id(overviewMapViewIdentity)
-                            } else {
-                                DiveOverviewMapTeardownPlaceholder()
-                            }
-                        }
-                        .ignoresSafeArea()
-                    case .heartRate:
                         SnorkelSwimTrackMapView(
                             trackCoordinates: derivedSnorkelData.trackCoordinates,
-                            bottomContentMargin: trackBottomMargin,
+                            bottomContentMargin: mapBottomMargin,
                             topObstructionHeight: topObstruction,
                             layoutHeight: layoutHeight,
                             cameraLayoutDetent: overviewSheetDetent.mapCameraDetent,
-                            isUserInteractionEnabled: overviewSheetDetent == .minimized
+                            isUserInteractionEnabled: isMapInteractive
+                        )
+                        .allowsHitTesting(isMapInteractive)
+                        .id(
+                            SnorkelSwimTrackMapPresentation.mapViewIdentity(
+                                activityID: activity.id,
+                                coordinateCount: derivedSnorkelData.trackCoordinates.count
+                            )
+                        )
+                        .ignoresSafeArea()
+                    case .heartRate:
+                        SnorkelHeartRateOverviewHeroView(
+                            samples: derivedSnorkelData.heartRateSamples,
+                            sessionMaxBPMHint: activity.maxHeartRateBPM,
+                            bottomContentMargin: heartRateBottomMargin,
+                            topObstructionHeight: topObstruction
                         )
                         .ignoresSafeArea()
                     case .camera:
@@ -423,17 +404,6 @@ struct ViewSingleSnorkelActivity: View {
         .ignoresSafeArea()
     }
 
-    private var overviewMapCoordinate: DiveCoordinate? {
-        activity.resolvedMapCoordinate(catalogSites: catalogSitesForMapResolution)
-    }
-
-    private var overviewMapViewIdentity: String {
-        DiveLocationMapPresentation.mapViewIdentity(
-            activityID: activity.id,
-            coordinate: overviewMapCoordinate
-        )
-    }
-
     private var siteHeaderTitle: String {
         SnorkelActivityOverviewPresentation.siteHeaderTitle(siteName: activity.resolvedSiteName)
     }
@@ -486,7 +456,6 @@ struct ViewSingleSnorkelActivity: View {
             avgHeartRateBPM: activity.avgHeartRateBPM,
             maxHeartRateBPM: activity.maxHeartRateBPM,
             profileHeartRateStats: derivedSnorkelData.heartRateStats,
-            heartRateSamples: derivedSnorkelData.heartRateSamples,
             totalCalories: activity.totalCalories
         )
     }
@@ -791,7 +760,6 @@ struct ViewSingleSnorkelActivity: View {
         } else {
             _ = restoreSnorkelOverviewUIStateIfNeeded()
         }
-        overviewMapTeardownRequested = false
     }
 
     @discardableResult

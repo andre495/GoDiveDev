@@ -3871,45 +3871,113 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func diveTankOverviewHeroPresentation_minimizedProfileChartFrame_isBiasedDownInVisibleBand() {
+    @Test func diveTankOverviewHeroPresentation_largeProfileChartFrame_isEdgeToEdgeAboveSheetSeam() {
         let layoutSize = CGSize(width: 390, height: 640)
         let layoutHeight: CGFloat = 844
         let topObstruction: CGFloat = 100
-        let bottomMargin = layoutHeight * DiveActivityOverviewPanelMetrics.minimizedHeightFraction
+        let largeMargin = layoutHeight * DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
         let frame = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
             layoutSize: layoutSize,
             layoutHeight: layoutHeight,
             topObstructionHeight: topObstruction,
-            bottomContentMargin: bottomMargin,
-            isLandscape: false
+            bottomContentMargin: largeMargin,
+            isLandscape: false,
+            detent: .large,
+            chartSizingBottomContentMargin: largeMargin
         )
-        #expect(frame.width > 200)
-        #expect(abs(frame.midX - layoutSize.width / 2) < 1)
-        #expect(frame.minY > topObstruction)
-        #expect(frame.maxY < layoutHeight - bottomMargin)
-
-        let bandTop = topObstruction + DiveTankOverviewHeroPresentation.minimizedChartVerticalPadding
-        let bandBottom =
-            layoutHeight - bottomMargin - DiveTankOverviewHeroPresentation.minimizedChartVerticalPadding
-        let availableHeight = bandBottom - bandTop
-        let centeredY = bandTop + (availableHeight - frame.height) / 2
-        #expect(frame.minY >= centeredY - 0.5)
+        #expect(abs(frame.minX) < 0.5)
+        #expect(abs(frame.width - layoutSize.width) < 0.5)
+        #expect(abs(frame.minY - DiveTankOverviewHeroPresentation.largeDetentSheetSeamCornerBleed) < 0.5)
         #expect(
             abs(
-                frame.minY
-                    - min(
-                        centeredY + DiveTankOverviewHeroPresentation.heroContentDownwardOffset,
-                        bandBottom - frame.height
+                frame.maxY
+                    - (
+                        layoutHeight - largeMargin
+                            + DiveTankOverviewHeroPresentation.largeDetentSheetSeamCornerBleed
                     )
             ) < 0.5
         )
     }
 
-    @Test func diveTankOverviewHeroPresentation_landscapeMinimizedProfileChart_isFullWidth() {
+    @Test func diveTankOverviewHeroPresentation_minimizedProfileChartFrame_matchesLargeSizeAndSeamAligned() {
+        let layoutSize = CGSize(width: 390, height: 640)
+        let layoutHeight: CGFloat = 844
+        let topObstruction: CGFloat = 100
+        let minimizedMargin = layoutHeight * DiveActivityOverviewPanelMetrics.minimizedHeightFraction
+        let largeMargin = layoutHeight * DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
+        let minimizedFrame = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstruction,
+            bottomContentMargin: minimizedMargin,
+            isLandscape: false,
+            detent: .minimized,
+            chartSizingBottomContentMargin: largeMargin
+        )
+        let largeFrame = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstruction,
+            bottomContentMargin: largeMargin,
+            isLandscape: false,
+            detent: .large,
+            chartSizingBottomContentMargin: largeMargin
+        )
+        #expect(abs(minimizedFrame.width - largeFrame.width) < 0.5)
+        #expect(abs(minimizedFrame.height - largeFrame.height) < 0.5)
+        #expect(abs(minimizedFrame.midX - layoutSize.width / 2) < 1)
+        #expect(abs(minimizedFrame.maxY - (
+            layoutHeight - minimizedMargin + DiveTankOverviewHeroPresentation.largeDetentSheetSeamCornerBleed
+        )) < 0.5)
+        #expect(minimizedFrame.minY > largeFrame.minY)
+    }
+
+    @Test func diveTankOverviewHeroPresentation_minimizedProfileChartFrame_keepsSizeWhileSeamMoves() {
+        let layoutSize = CGSize(width: 390, height: 640)
+        let layoutHeight: CGFloat = 844
+        let topObstruction: CGFloat = 100
+        let minimizedMargin = layoutHeight * DiveActivityOverviewPanelMetrics.minimizedHeightFraction
+        let largeMargin = layoutHeight * DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
+        let resting = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstruction,
+            bottomContentMargin: minimizedMargin,
+            isLandscape: false,
+            detent: .minimized,
+            chartSizingBottomContentMargin: largeMargin
+        )
+        let dragged = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstruction,
+            bottomContentMargin: largeMargin,
+            isLandscape: false,
+            detent: .minimized,
+            chartSizingBottomContentMargin: largeMargin
+        )
+        #expect(abs(resting.width - dragged.width) < 0.5)
+        #expect(abs(resting.height - dragged.height) < 0.5)
+        #expect(dragged.maxY < resting.maxY)
+    }
+
+    @Test func diveDepthProfileOverlayChartLayout_edgeToEdgePlotRect_usesFullBounds() {
+        let size = CGSize(width: 390, height: 220)
+        let rect = DiveDepthProfileOverlayChartLayout.plotRect(
+            in: size,
+            chromeStyle: .edgeToEdge
+        )
+        #expect(abs(rect.minX) < 0.1)
+        #expect(abs(rect.minY) < 0.1)
+        #expect(abs(rect.width - size.width) < 0.1)
+        #expect(abs(rect.height - size.height) < 0.1)
+    }
+
+    @Test func diveTankOverviewHeroPresentation_landscapeMinimizedProfileChart_isEdgeToEdge() {
         let layoutSize = CGSize(width: 844, height: 390)
         let layoutHeight: CGFloat = 390
         let topObstruction: CGFloat = 60
-        let bottomMargin: CGFloat = 120
+        let bottomMargin: CGFloat = 34
         #expect(DiveTankOverviewHeroPresentation.isLandscapeLayout(layoutSize: layoutSize))
         let frame = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
             layoutSize: layoutSize,
@@ -3918,10 +3986,10 @@ struct GoDiveMVPTests {
             bottomContentMargin: bottomMargin,
             isLandscape: true
         )
-        let expectedWidth =
-            layoutSize.width - DiveTankOverviewHeroPresentation.minimizedLandscapeChartHorizontalInset * 2
-        #expect(abs(frame.width - expectedWidth) < 1)
-        #expect(abs(frame.midX - layoutSize.width / 2) < 1)
+        #expect(abs(frame.minX) < 0.5)
+        #expect(abs(frame.width - layoutSize.width) < 0.5)
+        #expect(abs(frame.minY - DiveTankOverviewHeroPresentation.profileChartBandTop) < 0.5)
+        #expect(abs(frame.maxY - (layoutHeight - bottomMargin)) < 0.5)
     }
 
     @Test func diveDepthProfileChartViewport_zoomAndPan_clampsToFullDive() {
@@ -3954,7 +4022,41 @@ struct GoDiveMVPTests {
             maxDepth: 20
         )
         #expect(abs(point.x - 100) < 0.5)
-        #expect(abs(point.y - 50) < 0.5)
+        let expectedY = DiveDepthProfileChartPresentation.depthPlotY(
+            depthMeters: 10,
+            axisMaxDepthMeters: 20,
+            in: rect
+        )
+        #expect(abs(point.y - expectedY) < 0.5)
+    }
+
+    @Test func diveDepthProfileChartPresentation_depthPlotY_reservesFifteenPercentTopBuffer() {
+        let rect = CGRect(x: 0, y: 0, width: 200, height: 100)
+        let axisMax: Double = 36
+        let surfaceY = DiveDepthProfileChartPresentation.depthPlotY(
+            depthMeters: 0,
+            axisMaxDepthMeters: axisMax,
+            in: rect
+        )
+        #expect(
+            abs(surfaceY - (rect.minY + CGFloat(DiveDepthProfileChartPresentation.depthAxisTopBufferFraction) * rect.height))
+                < 0.5
+        )
+        #expect(surfaceY > rect.minY)
+    }
+
+    @Test func diveDepthProfileChartPresentation_largeDetentTopBuffer_isThirtyPercentTotal() {
+        let rect = CGRect(x: 0, y: 0, width: 200, height: 100)
+        let axisMax: Double = 36
+        let buffer = DiveDepthProfileChartPresentation.depthAxisTopBufferFraction(for: .edgeToEdge)
+        #expect(abs(buffer - 0.30) < 0.001)
+        let surfaceY = DiveDepthProfileChartPresentation.depthPlotY(
+            depthMeters: 0,
+            axisMaxDepthMeters: axisMax,
+            in: rect,
+            topBufferFraction: buffer
+        )
+        #expect(abs(surfaceY - (rect.minY + CGFloat(buffer) * rect.height)) < 0.5)
     }
 
     @Test func diveDepthProfileChartAxisPresentation_formatsDiveTimeMinutes() {
@@ -3985,8 +4087,91 @@ struct GoDiveMVPTests {
         #expect(abs(ticks[1].fraction - 1.0) < 0.001)
     }
 
-    @Test func diveTankOverviewHeroPresentation_landscapeChartHorizontalInset_isInsetFromEdges() {
-        #expect(DiveTankOverviewHeroPresentation.minimizedLandscapeChartHorizontalInset == 48)
+    @Test func diveDepthProfileChartPresentation_depthAxisExtendsTwentyPercentBeyondMax() {
+        let axisMax = DiveDepthProfileChartPresentation.depthAxisMaximumMeters(
+            dataMaxMeters: 30.48,
+            hintMeters: 0
+        )
+        #expect(abs(axisMax - (30.48 * 1.2)) < 0.01)
+        #expect(DiveDepthProfileChartPresentation.depthAxisExtensionFraction == 0.2)
+        #expect(DiveDepthProfileChartPresentation.depthAxisTopBufferFraction == 0.15)
+    }
+
+    @Test func diveDepthProfileChartPresentation_lightlySmoothedPressureSamples_preservesEndpoints() {
+        let samples = [
+            DiveDepthProfilePressureSample(elapsedSeconds: 0, pressurePSI: 3_000),
+            DiveDepthProfilePressureSample(elapsedSeconds: 60, pressurePSI: 2_500),
+            DiveDepthProfilePressureSample(elapsedSeconds: 120, pressurePSI: 1_800),
+            DiveDepthProfilePressureSample(elapsedSeconds: 180, pressurePSI: 1_200),
+        ]
+        let smoothed = DiveDepthProfileChartPresentation.lightlySmoothedPressureSamples(samples)
+        #expect(smoothed.count == samples.count)
+        #expect(smoothed.first?.pressurePSI == samples.first?.pressurePSI)
+        #expect(smoothed.last?.pressurePSI == samples.last?.pressurePSI)
+        #expect(smoothed[1].pressurePSI != samples[1].pressurePSI)
+    }
+
+    @Test func diveDepthProfileChartPresentation_downsampledPressureSamplesForLine_bucketsEveryFiveSeconds() {
+        var samples: [DiveDepthProfilePressureSample] = []
+        for second in stride(from: 0, through: 60, by: 1) {
+            let wobble = Double(second % 3) * 12
+            samples.append(
+                DiveDepthProfilePressureSample(
+                    elapsedSeconds: Double(second),
+                    pressurePSI: 3_000 - Double(second) * 20 + wobble
+                )
+            )
+        }
+        let downsampled = DiveDepthProfileChartPresentation.downsampledPressureSamplesForLine(samples)
+        #expect(downsampled.count < samples.count)
+        #expect(downsampled.first?.elapsedSeconds == 0)
+        #expect(downsampled.first?.pressurePSI == samples.first?.pressurePSI)
+        #expect(downsampled.last?.elapsedSeconds == 60)
+        #expect(downsampled.last?.pressurePSI == samples.last?.pressurePSI)
+        let interior = downsampled.dropFirst().dropLast()
+        for point in interior {
+            let remainder = point.elapsedSeconds.truncatingRemainder(dividingBy: 5)
+            #expect(abs(remainder - 2.5) < 0.01)
+        }
+    }
+
+    @Test func diveDepthProfileChartPresentation_downsampledPressureSamplesForLine_shortDive_keepsAllPoints() {
+        let samples = [
+            DiveDepthProfilePressureSample(elapsedSeconds: 0, pressurePSI: 3_000),
+            DiveDepthProfilePressureSample(elapsedSeconds: 2, pressurePSI: 2_900),
+            DiveDepthProfilePressureSample(elapsedSeconds: 4, pressurePSI: 2_800),
+        ]
+        let downsampled = DiveDepthProfileChartPresentation.downsampledPressureSamplesForLine(samples)
+        #expect(downsampled.count == samples.count)
+    }
+
+    @Test func diveDepthProfileChartPresentation_depthProfileAreaPath_closesAboveCurve() {
+        let rect = CGRect(x: 0, y: 0, width: 200, height: 100)
+        let viewport = DiveDepthProfileChartViewport(elapsedStart: 0, elapsedEnd: 120)
+        let samples = [
+            DiveDepthProfileSample(elapsedSeconds: 0, depthMeters: 0),
+            DiveDepthProfileSample(elapsedSeconds: 60, depthMeters: 12),
+            DiveDepthProfileSample(elapsedSeconds: 120, depthMeters: 6),
+        ]
+        let axisMax = DiveDepthProfileChartPresentation.depthAxisMaximumMeters(dataMaxMeters: 12)
+        let above = DiveDepthProfileChartPresentation.depthProfileAreaPath(
+            samples: samples,
+            in: rect,
+            viewport: viewport,
+            axisMaxDepthMeters: axisMax
+        )
+        let below = DiveDepthProfileChartPresentation.depthProfileUnderCurveAreaPath(
+            samples: samples,
+            in: rect,
+            viewport: viewport,
+            axisMaxDepthMeters: axisMax
+        )
+        #expect(!above.isEmpty)
+        #expect(!below.isEmpty)
+        #expect(above.contains(CGPoint(x: 100, y: 8)))
+        #expect(!below.contains(CGPoint(x: 100, y: 8)))
+        #expect(below.contains(CGPoint(x: 100, y: 92)))
+        #expect(!above.contains(CGPoint(x: 100, y: 92)))
     }
 
     @Test func diveDepthProfileChartAxisPresentation_depthTicks_unitAware() {
@@ -4229,6 +4414,13 @@ struct GoDiveMVPTests {
         #expect(withoutSheet < withSheet)
     }
 
+    @Test func diveTankOverviewHeroPresentation_minimizedRotateHintTopInset_sitsBelowGrabber() {
+        #expect(
+            DiveTankOverviewHeroPresentation.minimizedPortraitRotateHintTopInset
+                == DiveActivityOverviewPanelMetrics.embeddedGrabberRowHeight + 4
+        )
+    }
+
     @Test func diveDepthProfileOverlayChartLayout_resolvedBaseline_prefersEndingPSI() {
         let samples = [
             DiveDepthProfilePressureSample(elapsedSeconds: 0, pressurePSI: 3000),
@@ -4332,32 +4524,164 @@ struct GoDiveMVPTests {
         #expect(cfm.contains("cu ft/min"))
     }
 
-    @Test func diveDepthProfileOverlayChartLayout_pressurePoint_endingPSIAtBottom() {
-        let rect = CGRect(x: 10, y: 20, width: 100, height: 80)
-        let baseline: Double = 1500
-        let maxAbove = DiveDepthProfileOverlayChartLayout.maxPressureAboveBaseline(
-            pressureSamples: [
-                DiveDepthProfilePressureSample(elapsedSeconds: 0, pressurePSI: 3000),
-                DiveDepthProfilePressureSample(elapsedSeconds: 100, pressurePSI: 1500),
-            ],
-            baselinePSI: baseline
+    @Test func diveDepthProfileScrubCalloutPresentation_labelTopPadding_sitsBelowTabMenu() {
+        let topSafeInset: CGFloat = 59
+        let chromeTopPadding = AppTheme.Spacing.sm
+        let padding = DiveDepthProfileScrubCalloutPresentation.labelTopPadding(
+            topSafeInset: topSafeInset,
+            chromeTopPadding: chromeTopPadding
+        )
+        #expect(
+            padding
+                == topSafeInset
+                    + chromeTopPadding
+                    + DiveDepthProfileScrubCalloutPresentation.iconTabBarChromeRowHeight
+                    + DiveDepthProfileScrubCalloutPresentation.gapBelowTabMenu
+        )
+
+        let topObstruction: CGFloat = 104
+        let legacyPadding = DiveDepthProfileScrubCalloutPresentation.labelTopPadding(
+            topObstructionHeight: topObstruction
+        )
+        #expect(
+            legacyPadding
+                == topObstruction
+                    + DiveDepthProfileScrubCalloutPresentation.iconTabBarShellVerticalInset
+                    + DiveDepthProfileScrubCalloutPresentation.gapBelowTabMenu
+        )
+    }
+
+    @Test func diveDepthProfileScrubCalloutPresentation_labelTopPadding_pinsAtMinimizedChartFade() {
+        let layoutSize = CGSize(width: 390, height: 640)
+        let layoutHeight: CGFloat = 844
+        let topObstruction: CGFloat = 100
+        let minimizedMargin = layoutHeight * DiveActivityOverviewPanelMetrics.minimizedHeightFraction
+        let largeMargin = layoutHeight * DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
+        let chartFrame = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstruction,
+            bottomContentMargin: minimizedMargin,
+            isLandscape: false,
+            detent: .minimized,
+            chartSizingBottomContentMargin: largeMargin
+        )
+        let padding = DiveDepthProfileScrubCalloutPresentation.labelTopPaddingPinnedAtMinimizedPortraitChartFade(
+            chartFrame: chartFrame
+        )
+        let fadeBandHeight = chartFrame.height
+            * DiveTankOverviewHeroPresentation.minimizedPortraitChartTopFadeFraction
+        let expected = chartFrame.minY + max(6, fadeBandHeight * 0.4)
+        #expect(abs(padding - expected) < 0.01)
+        #expect(padding > chartFrame.minY)
+        #expect(padding < chartFrame.minY + fadeBandHeight)
+    }
+
+    @Test func diveDepthProfileOverlayChartLayout_pressurePoint_alignsWithDepthBandAndBuffer() {
+        let rect = CGRect(x: 10, y: 20, width: 100, height: 120)
+        let maxDepthMeters: Double = 30
+        let axisMax = DiveDepthProfileChartPresentation.depthAxisMaximumMeters(dataMaxMeters: maxDepthMeters)
+        let band = DiveDepthProfileOverlayChartLayout.depthDataVerticalBand(
+            in: rect,
+            minDepthMeters: 0,
+            maxDepthMeters: maxDepthMeters,
+            axisMaxDepthMeters: axisMax
         )
         let start = DiveDepthProfileOverlayChartLayout.pressurePoint(
             sample: DiveDepthProfilePressureSample(elapsedSeconds: 0, pressurePSI: 3000),
             in: rect,
             maxElapsed: 100,
-            baselinePSI: baseline,
-            maxPressureAboveBaseline: maxAbove
+            minDepthMeters: 0,
+            maxDepthMeters: maxDepthMeters,
+            axisMaxDepthMeters: axisMax,
+            minPressurePSI: 1500,
+            maxPressurePSI: 3000
         )
         let end = DiveDepthProfileOverlayChartLayout.pressurePoint(
             sample: DiveDepthProfilePressureSample(elapsedSeconds: 100, pressurePSI: 1500),
             in: rect,
             maxElapsed: 100,
-            baselinePSI: baseline,
-            maxPressureAboveBaseline: maxAbove
+            minDepthMeters: 0,
+            maxDepthMeters: maxDepthMeters,
+            axisMaxDepthMeters: axisMax,
+            minPressurePSI: 1500,
+            maxPressurePSI: 3000
         )
-        #expect(abs(end.y - rect.maxY) < 0.01)
+        #expect(abs(start.y - band.minY) < 0.01)
+        #expect(abs(end.y - band.maxY) < 0.01)
+        #expect(end.y < rect.maxY - 1)
         #expect(start.y < end.y)
+    }
+
+    @Test func diveDepthProfileOverlayChartLayout_chartX_landscapeBuffer_insetsDataBand() {
+        let rect = CGRect(x: 0, y: 0, width: 200, height: 100)
+        let buffer = DiveDepthProfileChartPresentation.landscapeHorizontalEdgeBufferFraction
+        let startX = DiveDepthProfileOverlayChartLayout.chartX(
+            forElapsedFraction: 0,
+            in: rect,
+            horizontalEdgeBufferFraction: buffer
+        )
+        let endX = DiveDepthProfileOverlayChartLayout.chartX(
+            forElapsedFraction: 1,
+            in: rect,
+            horizontalEdgeBufferFraction: buffer
+        )
+        #expect(abs(startX - 14) < 0.01)
+        #expect(abs(endX - 186) < 0.01)
+    }
+
+    @Test func diveDepthProfileOverlayChartLayout_elapsedSeconds_rejectsLandscapeBufferMargins() {
+        let rect = CGRect(x: 0, y: 0, width: 200, height: 100)
+        let viewport = DiveDepthProfileChartViewport.full(elapsedMax: 100)
+        let buffer = DiveDepthProfileChartPresentation.landscapeHorizontalEdgeBufferFraction
+        #expect(
+            DiveDepthProfileOverlayChartLayout.elapsedSeconds(
+                atChartX: 5,
+                in: rect,
+                viewport: viewport,
+                horizontalEdgeBufferFraction: buffer
+            ) == nil
+        )
+        #expect(
+            DiveDepthProfileOverlayChartLayout.elapsedSeconds(
+                atChartX: 195,
+                in: rect,
+                viewport: viewport,
+                horizontalEdgeBufferFraction: buffer
+            ) == nil
+        )
+        let mid = DiveDepthProfileOverlayChartLayout.elapsedSeconds(
+            atChartX: 100,
+            in: rect,
+            viewport: viewport,
+            horizontalEdgeBufferFraction: buffer
+        )
+        #expect(mid != nil)
+        #expect(abs((mid ?? 0) - 50) < 0.01)
+    }
+
+    @Test func diveDepthProfileOverlayChartLayout_tracedProfilePath_extendsFlatIntoBufferForFillOnly() {
+        let rect = CGRect(x: 0, y: 0, width: 100, height: 80)
+        let points = [
+            CGPoint(x: 10, y: 40),
+            CGPoint(x: 90, y: 60),
+        ]
+        let fillPath = DiveDepthProfileOverlayChartLayout.tracedProfilePath(
+            points: points,
+            in: rect,
+            horizontalEdgeBufferFraction: 0.07,
+            extendsIntoHorizontalBuffers: true
+        )
+        let linePath = DiveDepthProfileOverlayChartLayout.tracedProfilePath(
+            points: points,
+            in: rect,
+            horizontalEdgeBufferFraction: 0.07,
+            extendsIntoHorizontalBuffers: false
+        )
+        #expect(abs(fillPath.boundingRect.minX - rect.minX) < 0.01)
+        #expect(abs(fillPath.boundingRect.maxX - rect.maxX) < 0.01)
+        #expect(abs(linePath.boundingRect.minX - 10) < 0.01)
+        #expect(abs(linePath.boundingRect.maxX - 90) < 0.01)
     }
 
     @Test func goDiveUITestConfiguration_launchArgument_matchesAppCheck() {
@@ -16629,6 +16953,20 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func homeMediaCarouselPresentation_featuredMediaBandRect_endsAtSheetSeam() {
+        let viewportHeight: CGFloat = 500
+        let rect = HomeMediaCarouselPresentation.featuredMediaBandRect(
+            viewportWidth: 390,
+            viewportHeight: viewportHeight
+        )
+        let expectedHeight = max(viewportHeight - HomeOverviewLayout.panelOverlap, 0)
+            + HomeMediaCarouselPresentation.featuredMediaBleedBelowSeam
+        #expect(rect.origin.x == 0)
+        #expect(rect.origin.y == 0)
+        #expect(rect.width == 390)
+        #expect(abs(rect.height - expectedHeight) < 0.001)
+    }
+
     @Test func homeMediaCarouselPresentation_nextIndex_wrapsAndRequiresMultipleSlides() {
         #expect(HomeMediaCarouselPresentation.nextIndex(after: 0, count: 3) == 1)
         #expect(HomeMediaCarouselPresentation.nextIndex(after: 2, count: 3) == 0)
@@ -17006,11 +17344,19 @@ struct GoDiveMVPTests {
                 avatarDiameter: diameter,
                 avatarSpacing: spacing,
                 isExpanded: true
-            ) == -48
+            ) == 0
         )
         #expect(
             HomeMediaCarouselPresentation.taggedBuddyHorizontalOffsetX(
                 distanceFromIcon: 1,
+                avatarDiameter: diameter,
+                avatarSpacing: spacing,
+                isExpanded: true
+            ) == -48
+        )
+        #expect(
+            HomeMediaCarouselPresentation.taggedBuddyHorizontalOffsetX(
+                distanceFromIcon: 2,
                 avatarDiameter: diameter,
                 avatarSpacing: spacing,
                 isExpanded: true
@@ -17022,6 +17368,63 @@ struct GoDiveMVPTests {
                 avatarDiameter: diameter,
                 avatarSpacing: spacing
             ) == 88
+        )
+    }
+
+    @Test func homeMediaCarouselPresentation_taggedBuddyExpandedStripViewport_andPagerLock() {
+        let diameter: CGFloat = 40
+        let spacing: CGFloat = 8
+        let padding: CGFloat = 24
+        let containerWidth: CGFloat = 390
+
+        let maxVisible = HomeMediaCarouselPresentation.taggedBuddyExpandedMaxVisibleWidth(
+            containerWidth: containerWidth,
+            horizontalPadding: padding,
+            iconDiameter: diameter,
+            iconToStripSpacing: spacing
+        )
+        #expect(maxVisible == containerWidth - 2 * padding - diameter - spacing)
+
+        let twoBuddyStrip = HomeMediaCarouselPresentation.taggedBuddyHorizontalStripWidth(
+            buddyCount: 2,
+            avatarDiameter: diameter,
+            avatarSpacing: spacing
+        )
+        #expect(
+            !HomeMediaCarouselPresentation.taggedBuddyHorizontalNeedsScroll(
+                stripWidth: twoBuddyStrip,
+                maxVisibleWidth: maxVisible
+            )
+        )
+
+        let sevenBuddyStrip = HomeMediaCarouselPresentation.taggedBuddyHorizontalStripWidth(
+            buddyCount: 7,
+            avatarDiameter: diameter,
+            avatarSpacing: spacing
+        )
+        #expect(
+            HomeMediaCarouselPresentation.taggedBuddyHorizontalNeedsScroll(
+                stripWidth: sevenBuddyStrip,
+                maxVisibleWidth: maxVisible
+            )
+        )
+
+        #expect(
+            HomeMediaCarouselPresentation.taggedBuddyPagerScrollDisabled(
+                hasExpandedBuddyList: true
+            )
+        )
+        #expect(
+            HomeMediaCarouselPresentation.taggedBuddyPagerScrollDisabled(
+                hasExpandedBuddyList: false,
+                showsMarineLifeOverlay: true
+            )
+        )
+        #expect(
+            !HomeMediaCarouselPresentation.taggedBuddyPagerScrollDisabled(
+                hasExpandedBuddyList: false,
+                showsMarineLifeOverlay: false
+            )
         )
     }
 
@@ -20087,10 +20490,21 @@ struct GoDiveMVPTests {
             topObstructionHeight: 100,
             bottomContentMargin: bottomMargin,
             isLandscape: false,
-            detent: .large
+            detent: .large,
+            chartSizingBottomContentMargin: bottomMargin
         )
-        #expect(frame.maxY < layoutSize.height - bottomMargin + 1)
-        #expect(frame.minY > 100)
+        #expect(abs(frame.minX) < 0.5)
+        #expect(abs(frame.width - layoutSize.width) < 0.5)
+        #expect(abs(frame.minY - DiveTankOverviewHeroPresentation.largeDetentSheetSeamCornerBleed) < 0.5)
+        #expect(
+            abs(
+                frame.maxY
+                    - (
+                        layoutSize.height - bottomMargin
+                            + DiveTankOverviewHeroPresentation.largeDetentSheetSeamCornerBleed
+                    )
+            ) < 0.5
+        )
     }
 
     @Test func diveTankOverviewHeroPresentation_large_fullFill_andGasLabelOnly() {
@@ -23551,7 +23965,6 @@ struct GoDiveMVPTests {
             isBuddyFeedLoading: false,
             isMyActivitiesLoading: false,
             upcomingTripBanner: nil,
-            myActivitiesSummary: .empty,
             showsStoredDiveEmptyState: false,
             bubbleAnimationPaused: false,
             scrollToTopNonce: 0
@@ -23581,18 +23994,6 @@ struct GoDiveMVPTests {
         #expect(LogbookCollapsibleHeaderPresentation.titleAccessibilityIdentifier == "Logbook.Title")
         #expect(LogbookCollapsibleHeaderPresentation.myActivitiesSegmentTitle == "My Activities")
         #expect(LogbookCollapsibleHeaderPresentation.buddyFeedSegmentTitle == "Buddy Feed")
-        #expect(
-            LogbookCollapsibleHeaderPresentation.showsMyActivitiesSummaryChrome(
-                feedScope: .myActivities,
-                showsStoredDiveEmptyState: false
-            )
-        )
-        #expect(
-            !LogbookCollapsibleHeaderPresentation.showsMyActivitiesSummaryChrome(
-                feedScope: .buddyFeed,
-                showsStoredDiveEmptyState: false
-            )
-        )
         #expect(LogbookFeedScope.myActivities.systemImage == "book.closed.fill")
         #expect(LogbookFeedScope.buddyFeed.systemImage == "person.2.fill")
         #expect(FieldGuideHubPresentation.tabTitle == "Field Guide")
@@ -29430,7 +29831,39 @@ struct CrashReportingTests {
             for: [DiveCoordinate(latitude: 20, longitude: -156)]
         )
         #expect(region != nil)
-        #expect(region!.latitudeDelta > 0)
+        #expect(region!.latitudeDelta == SnorkelSwimTrackMapPresentation.singlePointSpanDegrees)
+    }
+
+    @Test func snorkelSwimTrackMapPresentation_fittingMapRect_isTighterThanRegionPadding() {
+        let coordinates = [
+            DiveCoordinate(latitude: 12.1, longitude: -68.9),
+            DiveCoordinate(latitude: 12.11, longitude: -68.905),
+            DiveCoordinate(latitude: 12.108, longitude: -68.898),
+        ]
+        let loose = SnorkelSwimTrackMapPresentation.fittingRegion(for: coordinates)!.mkMapRect
+        let tight = SnorkelSwimTrackMapPresentation.fittingMapRect(for: coordinates)!
+        #expect(tight.size.width < loose.size.width)
+        #expect(tight.size.height < loose.size.height)
+    }
+
+    @Test func snorkelSwimTrackMapPresentation_compactCameraPadding_isMinimal() {
+        let padding = SnorkelSwimTrackMapPresentation.cameraEdgePadding(
+            fitting: .compact,
+            topObstructionHeight: 100,
+            bottomContentMargin: 200
+        )
+        #expect(padding.top == 8)
+        #expect(padding.bottom == 8)
+    }
+
+    @Test func snorkelHeartRateOverviewHeroPresentation_chartContentInsets_accountsForObstructions() {
+        let insets = SnorkelHeartRateOverviewHeroPresentation.chartContentInsets(
+            topObstructionHeight: 100,
+            bottomContentMargin: 200
+        )
+        #expect(insets.top == 108)
+        #expect(insets.horizontal == 16)
+        #expect(insets.bottom == 216)
     }
 
     @Test @MainActor func snorkelDuplicateMatcher_blocksSameSourceActivityId() {

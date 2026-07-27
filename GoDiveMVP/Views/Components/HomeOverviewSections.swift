@@ -331,6 +331,12 @@ struct HomeMediaCarouselSection: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
+            .scrollDisabled(
+                HomeMediaCarouselPresentation.taggedBuddyPagerScrollDisabled(
+                    hasExpandedBuddyList: expandedBuddyListMediaID != nil,
+                    showsMarineLifeOverlay: showsMarineLifeOverlay
+                )
+            )
             .frame(width: containerWidth, height: resolvedCarouselContentHeight)
             .clipped()
             .onChange(of: pagerSelectedIndex) { oldIndex, newIndex in
@@ -678,6 +684,7 @@ private struct HomeMediaCarouselPage: View {
             if showsBottomChrome {
                 HomeMediaCarouselSlideBottomChrome(
                     highlight: highlight,
+                    containerWidth: pageWidth,
                     onOpenDive: onOpenDive,
                     onShowTaggedSpecies: onShowTaggedSpecies,
                     taggedBuddies: taggedBuddies,
@@ -696,6 +703,7 @@ private struct HomeMediaCarouselPage: View {
 
 private struct HomeMediaCarouselSlideBottomChrome: View {
     let highlight: HomeMediaHighlight
+    let containerWidth: CGFloat
     let onOpenDive: () -> Void
     let onShowTaggedSpecies: () -> Void
     let taggedBuddies: [DiveMediaBuddyTagPresentation.TaggedBuddyRow]
@@ -739,6 +747,7 @@ private struct HomeMediaCarouselSlideBottomChrome: View {
                 HomeMediaCarouselTaggedBuddiesButton(
                     taggedBuddies: taggedBuddies,
                     taggedCount: highlight.taggedBuddyCount,
+                    containerWidth: containerWidth,
                     isExpanded: isBuddyListExpanded,
                     selfBuddyID: selfBuddyID,
                     onToggle: onToggleBuddyList,
@@ -815,6 +824,7 @@ private struct HomeMediaCarouselTaggedSpeciesButton: View {
 private struct HomeMediaCarouselTaggedBuddiesButton: View {
     let taggedBuddies: [DiveMediaBuddyTagPresentation.TaggedBuddyRow]
     let taggedCount: Int
+    let containerWidth: CGFloat
     let isExpanded: Bool
     let selfBuddyID: UUID?
     let onToggle: () -> Void
@@ -825,6 +835,7 @@ private struct HomeMediaCarouselTaggedBuddiesButton: View {
         static var iconTapDimension: CGFloat { HomeMediaCarouselLayout.taggedOverlayIconTapDimension }
         static var avatarDiameter: CGFloat { max(iconDiameter - 4, 32) }
         static let avatarSpacing: CGFloat = 8
+        static let horizontalPadding: CGFloat = AppTheme.Spacing.lg
         static let staggerDelayStep: TimeInterval = 0.055
     }
 
@@ -832,11 +843,31 @@ private struct HomeMediaCarouselTaggedBuddiesButton: View {
         .spring(response: 0.4, dampingFraction: 0.76)
     }
 
-    private var expandedBuddyRowWidth: CGFloat {
+    private var expandedBuddyStripWidth: CGFloat {
         HomeMediaCarouselPresentation.taggedBuddyHorizontalStripWidth(
             buddyCount: taggedBuddies.count,
             avatarDiameter: Layout.avatarDiameter,
             avatarSpacing: Layout.avatarSpacing
+        )
+    }
+
+    private var expandedBuddyMaxVisibleWidth: CGFloat {
+        HomeMediaCarouselPresentation.taggedBuddyExpandedMaxVisibleWidth(
+            containerWidth: containerWidth,
+            horizontalPadding: Layout.horizontalPadding,
+            iconDiameter: Layout.iconDiameter,
+            iconToStripSpacing: Layout.avatarSpacing
+        )
+    }
+
+    private var expandedBuddyViewportWidth: CGFloat {
+        min(expandedBuddyStripWidth, expandedBuddyMaxVisibleWidth)
+    }
+
+    private var buddyStripNeedsHorizontalScroll: Bool {
+        HomeMediaCarouselPresentation.taggedBuddyHorizontalNeedsScroll(
+            stripWidth: expandedBuddyStripWidth,
+            maxVisibleWidth: expandedBuddyMaxVisibleWidth
         )
     }
 
@@ -885,19 +916,29 @@ private struct HomeMediaCarouselTaggedBuddiesButton: View {
 
     @ViewBuilder
     private var expandedBuddyRow: some View {
-        ZStack(alignment: .trailing) {
+        Group {
+            if buddyStripNeedsHorizontalScroll {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    expandedBuddyAvatarRow
+                }
+                .defaultScrollAnchor(.trailing)
+            } else {
+                expandedBuddyAvatarRow
+            }
+        }
+        .frame(width: isExpanded ? expandedBuddyViewportWidth : 0, alignment: .trailing)
+        .clipped()
+        .contentShape(Rectangle())
+    }
+
+    private var expandedBuddyAvatarRow: some View {
+        HStack(spacing: Layout.avatarSpacing) {
             ForEach(Array(taggedBuddies.enumerated()), id: \.element.id) { index, buddy in
                 let distanceFromIcon = taggedBuddies.count - 1 - index
                 HomeMediaCarouselTaggedBuddyFanRow(
                     buddy: buddy,
                     isExpanded: isExpanded,
                     avatarDiameter: Layout.avatarDiameter,
-                    offsetX: HomeMediaCarouselPresentation.taggedBuddyHorizontalOffsetX(
-                        distanceFromIcon: distanceFromIcon,
-                        avatarDiameter: Layout.avatarDiameter,
-                        avatarSpacing: Layout.avatarSpacing,
-                        isExpanded: isExpanded
-                    ),
                     revealDelay: HomeMediaCarouselPresentation.taggedBuddyHorizontalRevealDelay(
                         distanceFromIcon: distanceFromIcon,
                         staggerStep: Layout.staggerDelayStep
@@ -908,8 +949,6 @@ private struct HomeMediaCarouselTaggedBuddiesButton: View {
                 )
             }
         }
-        .frame(width: isExpanded ? expandedBuddyRowWidth : 0, alignment: .trailing)
-        .clipped()
     }
 }
 
@@ -917,7 +956,6 @@ private struct HomeMediaCarouselTaggedBuddyFanRow: View {
     let buddy: DiveMediaBuddyTagPresentation.TaggedBuddyRow
     let isExpanded: Bool
     let avatarDiameter: CGFloat
-    let offsetX: CGFloat
     let revealDelay: TimeInterval
     let expandAnimation: Animation
     let selfBuddyID: UUID?
@@ -932,7 +970,6 @@ private struct HomeMediaCarouselTaggedBuddyFanRow: View {
         .buttonStyle(.plain)
         .opacity(isExpanded ? 1 : 0)
         .allowsHitTesting(isExpanded)
-        .offset(x: offsetX)
         .animation(expandAnimation.delay(revealDelay), value: isExpanded)
         .accessibilityLabel(buddy.displayName)
         .accessibilityHint(
@@ -1012,19 +1049,39 @@ private struct HomeMediaCarouselMediaView: View {
     }
 
     var body: some View {
-        ZStack {
-            photoContent
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .accessibilityHidden(isVideo && isVideoPlaybackActive)
+        GeometryReader { geometry in
+            let viewport = geometry.size
+            let mediaBandRect = HomeMediaCarouselPresentation.featuredMediaBandRect(
+                viewportWidth: viewport.width,
+                viewportHeight: viewport.height
+            )
+            let mediaAspect = resolvedMediaAspect(fallback: 16 / 9)
 
-            if isVideo && isVideoPlaybackActive {
-                homeCarouselVideoLayer
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            ZStack {
+                homeCarouselBandClippedMedia(
+                    viewport: viewport,
+                    mediaBandRect: mediaBandRect,
+                    mediaAspect: mediaAspect
+                ) {
+                    photoContent
+                        .accessibilityHidden(isVideo && isVideoPlaybackActive)
+                }
+
+                if isVideo && isVideoPlaybackActive {
+                    homeCarouselBandClippedMedia(
+                        viewport: viewport,
+                        mediaBandRect: mediaBandRect,
+                        mediaAspect: mediaAspect
+                    ) {
+                        homeCarouselVideoLayer
+                    }
                     .id("\(media.id)-resume-\(playbackResumeToken)")
+                }
             }
+            .frame(width: viewport.width, height: viewport.height)
+            .clipped()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipped()
         .onAppear {
             DiveMediaPreviewStorage.seedSessionCacheIfNeeded(for: media)
             logVideoLayer(mounted: isVideo)
@@ -1131,6 +1188,42 @@ private struct HomeMediaCarouselMediaView: View {
 
     private var loadTaskID: String {
         "\(media.id.uuidString)-\(media.resolvedMediaKind.rawValue)-\(HomeMediaCarouselPresentation.stableImageLoadWidthKey(containerWidth))"
+    }
+
+    #if canImport(UIKit)
+    private func resolvedMediaAspect(fallback: CGFloat) -> CGFloat {
+        if let displayImage = resolvedHeroDisplayImage {
+            return displayImage.size.width / max(displayImage.size.height, 1)
+        }
+        return fallback
+    }
+    #else
+    private func resolvedMediaAspect(fallback: CGFloat) -> CGFloat {
+        fallback
+    }
+    #endif
+
+    private func homeCarouselBandClippedMedia<Content: View>(
+        viewport: CGSize,
+        mediaBandRect: CGRect,
+        mediaAspect: CGFloat,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        let size = DiveActivityMediaHeroPresentation.interpolatedMediaSize(
+            mediaAspect: mediaAspect,
+            band: mediaBandRect,
+            viewport: viewport,
+            progress: 0
+        )
+        let bottomY = HomeMediaCarouselPresentation.featuredMediaBottomYFromTop(
+            viewportHeight: viewport.height
+        )
+        let centerY = bottomY - size.height / 2
+        return content()
+            .frame(width: size.width, height: size.height)
+            .position(x: viewport.width / 2, y: centerY)
+            .frame(width: viewport.width, height: viewport.height)
+            .clipped()
     }
 
     @ViewBuilder

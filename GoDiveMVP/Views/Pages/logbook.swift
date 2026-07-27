@@ -21,7 +21,6 @@ struct LogbookView: View {
     /// Hides the row immediately; cleared only if background delete fails.
     @State private var optimisticallyRemovedActivityIDs: Set<UUID> = []
     @State private var logbookDisplayItems: [LogbookListDisplayItem] = []
-    @State private var logbookMyActivitiesSummary: LogbookMyActivitiesSummary = .empty
     @State private var duplicateActivityIds: Set<UUID> = []
     @State private var logbookCacheRefreshGeneration = 0
     /// While **`true`**, SwiftData **`@Query`** updates do not schedule row rebuilds (delete + background renumber).
@@ -333,7 +332,6 @@ struct LogbookView: View {
             isBuddyFeedLoading: isBuddyFeedLoading,
             isMyActivitiesLoading: isMyActivitiesLogbookLoading,
             upcomingTripBanner: logbookUpcomingTripBanner,
-            myActivitiesSummary: logbookMyActivitiesSummary,
             showsStoredDiveEmptyState: showsStoredDiveEmptyState,
             showsMyActivitiesKindFilterEmptyState: showsMyActivitiesKindFilterEmptyState,
             bubbleAnimationPaused: suppressStoreDrivenRefresh || isDiveDeleteInProgress,
@@ -770,7 +768,6 @@ struct LogbookView: View {
     /// Drops the deleted row immediately; when automatic renumber is on, refreshes **#** labels without a full duplicate scan.
     private func applyOptimisticDeleteToLogbookRows(removedId: UUID) {
         logbookDisplayItems = LogbookTripGrouping.removingDive(id: removedId, from: logbookDisplayItems)
-        refreshLogbookMyActivitiesSummaryFromVisibleStore()
         guard automaticallyRenumberDives else { return }
 
         let numberingRows = visibleActivities.map {
@@ -818,13 +815,6 @@ struct LogbookView: View {
         guard generation == logbookCacheRefreshGeneration else { return }
         logbookDisplayItems = result.items
         duplicateActivityIds = result.duplicateIds
-        logbookMyActivitiesSummary = result.myActivitiesSummary
-    }
-
-    @MainActor
-    private func refreshLogbookMyActivitiesSummaryFromVisibleStore() {
-        let seeds = mergedLogbookActivitySeeds()
-        logbookMyActivitiesSummary = LogbookMyActivitiesSummaryPresentation.summary(from: seeds)
     }
 
     private func scheduleLogbookCacheRefresh(
@@ -874,7 +864,6 @@ struct LogbookView: View {
                     guard generation == logbookCacheRefreshGeneration else { return }
                     logbookDisplayItems = result.items
                     duplicateActivityIds = result.duplicateIds
-                    logbookMyActivitiesSummary = result.myActivitiesSummary
                 }
             }
         }
@@ -905,7 +894,6 @@ private struct LogbookListSurface: View, Equatable {
     let isBuddyFeedLoading: Bool
     let isMyActivitiesLoading: Bool
     let upcomingTripBanner: LogbookUpcomingTripBannerData?
-    let myActivitiesSummary: LogbookMyActivitiesSummary
     let showsStoredDiveEmptyState: Bool
     let showsMyActivitiesKindFilterEmptyState: Bool
     let bubbleAnimationPaused: Bool
@@ -935,7 +923,6 @@ private struct LogbookListSurface: View, Equatable {
             isBuddyFeedLoading: isBuddyFeedLoading,
             isMyActivitiesLoading: isMyActivitiesLoading,
             upcomingTripBanner: upcomingTripBanner,
-            myActivitiesSummary: myActivitiesSummary,
             showsStoredDiveEmptyState: showsStoredDiveEmptyState,
             bubbleAnimationPaused: bubbleAnimationPaused,
             scrollToTopNonce: scrollToTopNonce
@@ -970,12 +957,6 @@ private struct LogbookListSurface: View, Equatable {
                     myActivitiesKindFilter: $myActivitiesKindFilter,
                     isCollapsed: isHeaderCollapsed,
                     showsFeedScopeToggle: !isHeaderCollapsed,
-                    showsMyActivitiesSummary: LogbookCollapsibleHeaderPresentation.showsMyActivitiesSummaryChrome(
-                        feedScope: feedScope,
-                        showsStoredDiveEmptyState: showsStoredDiveEmptyState
-                    ),
-                    isMyActivitiesSummaryLoading: isMyActivitiesLoading,
-                    myActivitiesSummary: myActivitiesSummary,
                     statusBarSafeAreaTop: safeAreaTop
                 )
                 .frame(maxWidth: .infinity, alignment: .top)
@@ -1113,16 +1094,14 @@ private struct LogbookListSurface: View, Equatable {
                 .accessibilityHidden(true)
 
             ForEach(buddyFeedRows) { row in
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
                     NavigationLink(
                         value: LogbookRoute.buddySharedDive(
                             friendUID: row.friendUID,
                             diveDocumentID: row.dive.id
                         )
                     ) {
-                        Text(GoDiveSharedDiveProjectionMapping.displayTitle(for: row.dive))
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(AppTheme.Colors.textPrimary)
+                        LogbookBuddyFeedTileView(row: row)
                     }
                     .buttonStyle(.plain)
 
@@ -1135,15 +1114,12 @@ private struct LogbookListSurface: View, Equatable {
                         )
                     } label: {
                         Text(row.friendDisplayName)
-                            .font(.subheadline)
+                            .font(.caption.weight(.medium))
                             .foregroundStyle(AppTheme.Colors.accent)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.plain)
-
-                    Text(LogbookBuddyFeedPresentation.subtitle(for: row.dive))
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.Colors.secondaryText)
+                    .padding(.horizontal, AppTheme.Spacing.sm)
                 }
                 .buttonStyle(.plain)
                 .navigationLinkIndicatorVisibility(.hidden)

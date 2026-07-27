@@ -56,6 +56,7 @@ struct ViewSingleActivity: View {
     @State private var tankHeroPressureFillFraction: CGFloat = 1
     @State private var tankMinimizedProfileRevealProgress: CGFloat = 1
     @State private var tankMinimizedPsiUsedRevealProgress: CGFloat = 1
+    @State private var tankDepthChartScrubCallout: DiveDepthProfileScrubCallout?
     @FocusState private var isNotesFieldFocused: Bool
     @State private var depthChartPreviewMediaID: UUID?
     /// When **`true`**, map tab uses **`DiveOverviewMapTeardownPlaceholder`** instead of live MapKit (set before pop).
@@ -115,6 +116,8 @@ struct ViewSingleActivity: View {
         AppHeaderlessPage(leadingEdgePopOnWillDismiss: requestOverviewMapTeardown) {
             ZStack(alignment: .top) {
                 diveOverviewHeroLayer
+
+                tankDepthChartScrubCalloutOverlay
 
                 activityTopChrome
                     .zIndex(1_000)
@@ -402,6 +405,9 @@ struct ViewSingleActivity: View {
 
     private func handleSelectedActivityTabChange(_ newTab: DiveActivityTab) {
         overviewPanelScrollOffsetY = 0
+        if newTab != .tank {
+            tankDepthChartScrubCallout = nil
+        }
         if newTab == .map {
             overviewMapTeardownRequested = false
             presentMapSitePromptIfNeeded()
@@ -593,6 +599,87 @@ struct ViewSingleActivity: View {
         .allowsHitTesting(true)
     }
 
+    @ViewBuilder
+    private var tankDepthChartScrubCalloutOverlay: some View {
+        if selectedActivityTab == .tank, let tankDepthChartScrubCallout {
+            GeometryReader { geometry in
+                DiveDepthProfileScrubCalloutLabel(callout: tankDepthChartScrubCallout)
+                    .frame(maxWidth: .infinity, alignment: .top)
+                    .padding(
+                        .top,
+                        tankDepthChartScrubCalloutTopPadding(in: geometry)
+                    )
+            }
+            .allowsHitTesting(false)
+        }
+    }
+
+    private func tankDepthChartScrubCalloutTopPadding(in geometry: GeometryProxy) -> CGFloat {
+        let layoutHeight = max(geometry.size.height, 1)
+        let isLandscape = DiveActivityOverviewLandscapePresentation.isLandscapeLayout(
+            layoutSize: geometry.size
+        )
+        if overviewSheetDetent == .minimized && !isLandscape {
+            let overviewLayoutContext = DiveActivityOverviewSheetLayoutContext(
+                layoutHeight: layoutHeight,
+                screenWidth: geometry.size.width,
+                topSafeInset: geometry.safeAreaInsets.top,
+                bottomSafeInset: geometry.safeAreaInsets.bottom
+            )
+            let topObstruction = DiveActivityOverviewPanelMetrics.mapTopObstructionHeight(
+                topSafeInset: geometry.safeAreaInsets.top,
+                chromeRowHeight: DiveActivityTabIcon.menuRowHeight,
+                chromeTopPadding: AppTheme.Spacing.sm
+            )
+            let bottomMargin = DiveTankOverviewHeroPresentation.tankHeroBottomContentMargin(
+                layoutContext: overviewLayoutContext,
+                detent: .minimized,
+                isLandscape: false,
+                liveHeightFraction: overviewPanelLiveHeightFraction
+            )
+            let largeMargin = DiveActivityOverviewDetent.bottomObstructionHeight(
+                layoutHeight: layoutHeight,
+                detent: .large,
+                bottomSafeInset: geometry.safeAreaInsets.bottom,
+                screenWidth: geometry.size.width,
+                topSafeInset: geometry.safeAreaInsets.top
+            )
+            let chartFrame = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
+                layoutSize: geometry.size,
+                layoutHeight: layoutHeight,
+                topObstructionHeight: topObstruction,
+                bottomContentMargin: bottomMargin,
+                isLandscape: false,
+                detent: .minimized,
+                chartSizingBottomContentMargin: largeMargin
+            )
+            return DiveDepthProfileScrubCalloutPresentation.labelTopPaddingPinnedAtMinimizedPortraitChartFade(
+                chartFrame: chartFrame
+            )
+        }
+        return DiveDepthProfileScrubCalloutPresentation.labelTopPadding(
+            topSafeInset: geometry.safeAreaInsets.top,
+            chromeTopPadding: AppTheme.Spacing.sm
+        )
+    }
+
+    @ViewBuilder
+    private func tankMinimizedRotatePhoneHintOverlay(isLandscape: Bool) -> some View {
+        if selectedActivityTab == .tank,
+           overviewSheetDetent == .minimized,
+           !isLandscape,
+           DiveTankOverviewHeroPresentation.showsRotatePhoneHint(
+               for: .minimized,
+               isLandscape: false,
+               depthSampleCount: derivedDiveData.depthSamples.count
+           ) {
+            DiveTankRotatePhoneHintView()
+                .padding(.trailing, AppTheme.Spacing.md)
+                .padding(.top, DiveTankOverviewHeroPresentation.minimizedPortraitRotateHintTopInset)
+                .allowsHitTesting(false)
+        }
+    }
+
     private var activityIconTabBar: some View {
         DiveActivityIconTabBar(
             selection: $selectedActivityTab,
@@ -646,11 +733,20 @@ struct ViewSingleActivity: View {
                     for: overviewSheetDetent
                 )
             )
-            let tankHeroBottomMargin = DiveTankOverviewHeroPresentation.tankHeroBottomContentMargin(
+            let tankChartSizingBottomMargin = DiveActivityOverviewDetent.bottomObstructionHeight(
                 layoutHeight: layoutHeight,
-                detent: overviewSheetDetent,
+                detent: .large,
                 bottomSafeInset: bottomSafeInset,
-                isLandscape: isLandscape
+                screenWidth: overviewLayoutContext.screenWidth,
+                topSafeInset: overviewLayoutContext.topSafeInset
+            )
+            let tankHeroBottomMargin = DiveTankOverviewHeroPresentation.tankHeroBottomContentMargin(
+                layoutContext: overviewLayoutContext,
+                detent: overviewSheetDetent,
+                isLandscape: isLandscape,
+                liveHeightFraction: selectedActivityTab == .tank
+                    ? overviewPanelLiveHeightFraction
+                    : nil
             )
 
             ZStack(alignment: .bottom) {
@@ -695,6 +791,7 @@ struct ViewSingleActivity: View {
                         DiveTankOverviewHeroView(
                             layoutSize: geometry.size,
                             bottomContentMargin: tankHeroBottomMargin,
+                            chartSizingBottomContentMargin: tankChartSizingBottomMargin,
                             topObstructionHeight: topObstruction,
                             layoutHeight: layoutHeight,
                             sheetDetent: overviewSheetDetent,
@@ -714,7 +811,8 @@ struct ViewSingleActivity: View {
                             sacRateDisplay: activity.tankHeroSACRateLine(displayUnits: diveDisplayUnitSystem),
                             rmvRateDisplay: activity.tankHeroRMVRateLine(displayUnits: diveDisplayUnitSystem),
                             profileLineRevealProgress: tankMinimizedProfileRevealProgress,
-                            psiUsedRevealProgress: tankMinimizedPsiUsedRevealProgress
+                            psiUsedRevealProgress: tankMinimizedPsiUsedRevealProgress,
+                            scrubCallout: $tankDepthChartScrubCallout
                         )
                     case .camera:
                         DiveActivityMediaBackgroundView(
@@ -821,6 +919,9 @@ struct ViewSingleActivity: View {
                         scrollRestorationFallbackY: overviewScrollRestorationFallbackY,
                         panelScrollContentIdentity: selectedActivityTab
                     )
+                    .overlay(alignment: .topTrailing) {
+                        tankMinimizedRotatePhoneHintOverlay(isLandscape: isLandscape)
+                    }
                     .zIndex(1)
                 }
             }

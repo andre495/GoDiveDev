@@ -122,7 +122,7 @@ enum SettingsPresentation: Sendable {
     enum ShareDives {
         nonisolated static let title = "Share dives with friends"
         nonisolated static let infoMessage =
-            "When on, friends can see your dive details (site, depth, duration, conditions, and more). Your private CloudKit log stays the source of truth; a friend-visible copy is stored for them to read. Notes and media stay off unless you enable those toggles."
+            "When on, friends can see your dives and snorkel sessions (site, depth or distance, duration, conditions, and more). Your private CloudKit log stays the source of truth; a friend-visible copy is stored for them to read. Notes and media stay off unless you enable those toggles."
     }
 
     enum ShareNotesWithFriends {

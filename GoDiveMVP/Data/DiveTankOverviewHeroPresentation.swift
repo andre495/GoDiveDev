@@ -22,9 +22,6 @@ enum DiveTankOverviewHeroPresentation: Sendable {
     nonisolated static let minimizedChartMaxHeightFraction: CGFloat = 0.88
     /// Plot width ÷ height when sizing the centered minimized chart.
     nonisolated static let minimizedChartAspectWidthOverHeight: CGFloat = 1.65
-    /// **Minimized** + landscape — inset from both edges so Dynamic Island / side chrome clear the plot.
-    nonisolated static let minimizedLandscapeChartHorizontalInset: CGFloat = 48
-    nonisolated static let minimizedLandscapeChartVerticalPadding: CGFloat = 12
     nonisolated static let minimizedTankSummaryGapBeforeTank: CGFloat = 10
     /// Vertical space for left-aligned header-style gas summary (used + SAC + RMV).
     nonisolated static let minimizedTankGasSummaryHeight: CGFloat = 96
@@ -165,7 +162,7 @@ enum DiveTankOverviewHeroPresentation: Sendable {
         return showsTankHero(for: detent)
     }
 
-    /// Portrait **minimized** cue above the sheet grabber band.
+    /// Portrait **minimized** cue on the embedded sheet's upper trailing corner.
     nonisolated static func showsRotatePhoneHint(
         for detent: DiveActivityOverviewDetent,
         isLandscape: Bool,
@@ -175,32 +172,40 @@ enum DiveTankOverviewHeroPresentation: Sendable {
     }
 
     nonisolated static func tankHeroBottomContentMargin(
+        layoutContext: DiveActivityOverviewSheetLayoutContext,
+        detent: DiveActivityOverviewDetent,
+        isLandscape: Bool,
+        liveHeightFraction: CGFloat? = nil
+    ) -> CGFloat {
+        DiveActivityOverviewLandscapePresentation.mapBottomContentMargin(
+            layoutContext: layoutContext,
+            detent: detent,
+            liveHeightFraction: liveHeightFraction,
+            isLandscape: isLandscape
+        )
+    }
+
+    nonisolated static func tankHeroBottomContentMargin(
         layoutHeight: CGFloat,
         detent: DiveActivityOverviewDetent,
         bottomSafeInset: CGFloat,
         isLandscape: Bool
     ) -> CGFloat {
-        if isLandscape {
-            return bottomSafeInset + minimizedLandscapeChartVerticalPadding
-        }
-        return DiveActivityOverviewDetent.bottomObstructionHeight(
-            layoutHeight: layoutHeight,
+        tankHeroBottomContentMargin(
+            layoutContext: DiveActivityOverviewSheetLayoutContext(
+                layoutHeight: layoutHeight,
+                screenWidth: DiveActivityOverviewDetent.presentationReferenceScreenWidth,
+                topSafeInset: DiveActivityOverviewSheetLayoutContext.presentationReference.topSafeInset,
+                bottomSafeInset: bottomSafeInset
+            ),
             detent: detent,
-            bottomSafeInset: bottomSafeInset
+            isLandscape: isLandscape
         )
     }
 
-    /// Center point for the rotate hint between the portrait chart and the sheet.
-    nonisolated static func minimizedPortraitRotateHintCenter(
-        layoutSize: CGSize,
-        chartFrame: CGRect,
-        layoutHeight: CGFloat,
-        bottomContentMargin: CGFloat
-    ) -> CGPoint {
-        let bandBottom = layoutHeight - bottomContentMargin
-        let y = (chartFrame.maxY + bandBottom) / 2
-        return CGPoint(x: layoutSize.width / 2, y: y)
-    }
+    /// Below the embedded grabber row inside the minimized sheet band.
+    nonisolated static let minimizedPortraitRotateHintTopInset: CGFloat =
+        DiveActivityOverviewPanelMetrics.embeddedGrabberRowHeight + 4
 
     /// Two-line gas summary to the left of the minimized cylinder.
     nonisolated static func minimizedTankGasSummaryFrame(
@@ -225,7 +230,8 @@ enum DiveTankOverviewHeroPresentation: Sendable {
         topObstructionHeight: CGFloat,
         bottomContentMargin: CGFloat,
         isLandscape: Bool,
-        detent: DiveActivityOverviewDetent = .minimized
+        detent: DiveActivityOverviewDetent = .minimized,
+        chartSizingBottomContentMargin: CGFloat? = nil
     ) -> CGRect {
         if isLandscape {
             return minimizedLandscapeProfileChartFrame(
@@ -240,50 +246,91 @@ enum DiveTankOverviewHeroPresentation: Sendable {
             layoutHeight: layoutHeight,
             topObstructionHeight: topObstructionHeight,
             bottomContentMargin: bottomContentMargin,
-            detent: detent
+            detent: detent,
+            chartSizingBottomContentMargin: chartSizingBottomContentMargin
+                ?? bottomContentMargin
         )
     }
 
-    /// Portrait **minimized** or **large** — centered plot in the hero band above the sheet.
+    /// Portrait **large** and **minimized** — same fixed plot size; bottom tracks the live sheet seam.
     nonisolated static func minimizedPortraitProfileChartFrame(
         layoutSize: CGSize,
         layoutHeight: CGFloat,
         topObstructionHeight: CGFloat,
         bottomContentMargin: CGFloat,
-        detent: DiveActivityOverviewDetent = .minimized
+        detent: DiveActivityOverviewDetent = .minimized,
+        chartSizingBottomContentMargin: CGFloat? = nil
     ) -> CGRect {
-        let bandTop = topObstructionHeight + minimizedChartVerticalPadding
-        let bandBottom = layoutHeight - bottomContentMargin - minimizedChartVerticalPadding
-        let availableHeight = max(bandBottom - bandTop, 0)
-        let availableWidth = max(layoutSize.width - minimizedChartHorizontalInset * 2, 0)
-
-        var width = availableWidth * minimizedChartMaxWidthFraction
-        var height = width / minimizedChartAspectWidthOverHeight
-        if height > availableHeight * minimizedChartMaxHeightFraction {
-            height = availableHeight * minimizedChartMaxHeightFraction
-            width = height * minimizedChartAspectWidthOverHeight
-        }
-
-        let x = (layoutSize.width - width) / 2
-        let centeredY = bandTop + (availableHeight - height) / 2
-        let downwardBias = detent == .minimized ? heroContentDownwardOffset : 0
-        let y = min(centeredY + downwardBias, bandBottom - height)
-        return CGRect(x: x, y: max(y, bandTop), width: width, height: height)
+        portraitProfileChartFrame(
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstructionHeight,
+            bottomContentMargin: bottomContentMargin,
+            chartSizingBottomContentMargin: chartSizingBottomContentMargin ?? bottomContentMargin
+        )
     }
 
-    /// Landscape **minimized** — full-width plot; gas summary and cylinder are hidden.
+    /// Top of the edge-to-edge profile plot — flush with the physical top of the hero (tab chrome overlays).
+    nonisolated static let profileChartBandTop: CGFloat = 0
+
+    /// Portrait tank profile — nudge the plot slightly below the sheet seam (under rounded panel corners).
+    nonisolated static let largeDetentSheetSeamCornerBleed: CGFloat = 8
+
+    /// Top of portrait **minimized** chart fades to transparent over this fraction of plot height.
+    nonisolated static let minimizedPortraitChartTopFadeFraction: CGFloat = 0.14
+
+    /// Portrait profile plot dimensions at the **large** resting detent — fixed while the grabber moves the sheet.
+    nonisolated static func portraitLargeDetentProfileChartSize(
+        layoutSize: CGSize,
+        layoutHeight: CGFloat,
+        topObstructionHeight: CGFloat,
+        chartSizingBottomContentMargin: CGFloat
+    ) -> CGSize {
+        let bandBottom = layoutHeight - chartSizingBottomContentMargin
+        return CGSize(
+            width: layoutSize.width,
+            height: max(bandBottom - profileChartBandTop, 1)
+        )
+    }
+
+    /// Portrait plot frame — fixed **large**-detent size; bottom tracks the live sheet seam (translate, do not stretch).
+    nonisolated static func portraitProfileChartFrame(
+        layoutSize: CGSize,
+        layoutHeight: CGFloat,
+        topObstructionHeight: CGFloat,
+        bottomContentMargin: CGFloat,
+        chartSizingBottomContentMargin: CGFloat
+    ) -> CGRect {
+        let size = portraitLargeDetentProfileChartSize(
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstructionHeight,
+            chartSizingBottomContentMargin: chartSizingBottomContentMargin
+        )
+        let seamY = layoutHeight - bottomContentMargin
+        let y = seamY - size.height + largeDetentSheetSeamCornerBleed
+        return CGRect(
+            x: 0,
+            y: max(y, profileChartBandTop),
+            width: size.width,
+            height: size.height
+        )
+    }
+
+    /// Landscape — edge-to-edge plot band (sheet hidden; gas summary and cylinder are hidden).
     nonisolated static func minimizedLandscapeProfileChartFrame(
         layoutSize: CGSize,
         layoutHeight: CGFloat,
         topObstructionHeight: CGFloat,
         bottomContentMargin: CGFloat
     ) -> CGRect {
-        let bandTop = topObstructionHeight + minimizedLandscapeChartVerticalPadding
-        let bandBottom = layoutHeight - bottomContentMargin - minimizedLandscapeChartVerticalPadding
-        let height = max(bandBottom - bandTop, 0)
-        let width = max(layoutSize.width - minimizedLandscapeChartHorizontalInset * 2, 0)
-        let x = (layoutSize.width - width) / 2
-        return CGRect(x: x, y: bandTop, width: width, height: height)
+        let bandBottom = layoutHeight - bottomContentMargin
+        return CGRect(
+            x: 0,
+            y: profileChartBandTop,
+            width: layoutSize.width,
+            height: max(bandBottom - profileChartBandTop, 1)
+        )
     }
 
     /// Portrait minimized cylinder + chart stack (hidden at **large** — chart-only hero).

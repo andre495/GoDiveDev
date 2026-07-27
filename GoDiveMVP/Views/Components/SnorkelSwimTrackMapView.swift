@@ -4,13 +4,14 @@ import SwiftUI
 import UIKit
 #endif
 
-/// Map hero for the snorkel **heart rate** tab — GPS swim track polyline.
+/// Map hero for the snorkel **map** tab — GPS swim track polyline.
 struct SnorkelSwimTrackMapView: View {
     let trackCoordinates: [DiveCoordinate]
     var bottomContentMargin: CGFloat = 0
     var topObstructionHeight: CGFloat = 0
     var layoutHeight: CGFloat = 0
     var cameraLayoutDetent: DiveActivityOverviewDetent = .large
+    var cameraFitting: SnorkelSwimTrackMapCameraFitting = .heroBand
     var isUserInteractionEnabled: Bool = true
 
     var body: some View {
@@ -25,6 +26,7 @@ struct SnorkelSwimTrackMapView: View {
                     topObstructionHeight: topObstructionHeight,
                     layoutHeight: layoutHeight,
                     cameraLayoutDetent: cameraLayoutDetent,
+                    cameraFitting: cameraFitting,
                     isUserInteractionEnabled: isUserInteractionEnabled
                 )
                 #else
@@ -60,6 +62,7 @@ struct SnorkelSwimTrackMapRepresentable: UIViewRepresentable {
     let topObstructionHeight: CGFloat
     let layoutHeight: CGFloat
     let cameraLayoutDetent: DiveActivityOverviewDetent
+    let cameraFitting: SnorkelSwimTrackMapCameraFitting
     var isUserInteractionEnabled: Bool = true
 
     func makeCoordinator() -> Coordinator {
@@ -90,7 +93,8 @@ struct SnorkelSwimTrackMapRepresentable: UIViewRepresentable {
             layoutHeight: layoutHeight,
             bottomContentMargin: bottomContentMargin,
             topObstructionHeight: topObstructionHeight,
-            cameraLayoutDetent: cameraLayoutDetent
+            cameraLayoutDetent: cameraLayoutDetent,
+            cameraFitting: cameraFitting
         )
         let previous = context.coordinator.lastAppliedLayoutContext
         let animate = previous != nil && previous?.cameraLayoutDetent != layoutContext.cameraLayoutDetent
@@ -126,16 +130,25 @@ struct SnorkelSwimTrackMapRepresentable: UIViewRepresentable {
         func applyCamera(on mapView: MKMapView, animated: Bool) {
             guard let parent else { return }
 
+            let padding = SnorkelSwimTrackMapPresentation.cameraEdgePadding(
+                fitting: parent.cameraFitting,
+                topObstructionHeight: parent.topObstructionHeight,
+                bottomContentMargin: parent.bottomContentMargin
+            )
             let edgePadding = UIEdgeInsets(
-                top: parent.topObstructionHeight + 24,
-                left: 32,
-                bottom: parent.bottomContentMargin + 24,
-                right: 32
+                top: padding.top,
+                left: padding.left,
+                bottom: padding.bottom,
+                right: padding.right
             )
 
+            if let mapRect = SnorkelSwimTrackMapPresentation.fittingMapRect(for: parent.trackCoordinates) {
+                mapView.setVisibleMapRect(mapRect, edgePadding: edgePadding, animated: animated)
+                return
+            }
+
             if let region = SnorkelSwimTrackMapPresentation.fittingRegion(for: parent.trackCoordinates) {
-                let rect = region.mkMapRect
-                mapView.setVisibleMapRect(rect, edgePadding: edgePadding, animated: animated)
+                mapView.setVisibleMapRect(region.mkMapRect, edgePadding: edgePadding, animated: animated)
                 return
             }
 
@@ -174,5 +187,6 @@ fileprivate struct SnorkelTrackMapLayoutContext: Equatable {
     var bottomContentMargin: CGFloat
     var topObstructionHeight: CGFloat
     var cameraLayoutDetent: DiveActivityOverviewDetent
+    var cameraFitting: SnorkelSwimTrackMapCameraFitting
 }
 #endif

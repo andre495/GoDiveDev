@@ -34,8 +34,17 @@ enum SnorkelProfilePointStore {
     }
 
     /// Encodes staged/local points onto **`activity.swimTrackData`** for CloudKit sync.
-    nonisolated static func syncTrackData(from activity: SnorkelActivity) {
-        let points = activity.profilePoints
+    nonisolated static func syncTrackData(
+        from activity: SnorkelActivity,
+        modelContext: ModelContext? = nil
+    ) {
+        var points = activity.profilePoints
+        if points.isEmpty, let modelContext {
+            points = (try? fetchPoints(for: activity.id, modelContext: modelContext)) ?? []
+            if !points.isEmpty {
+                activity.profilePoints = points
+            }
+        }
         guard !points.isEmpty else {
             activity.swimTrackData = nil
             return
@@ -44,6 +53,29 @@ enum SnorkelProfilePointStore {
             points: points,
             activityStartTime: activity.startTime
         )
+    }
+
+    /// Resolves encoded swim-track bytes for friend-share upload (existing blob, local rows, or materialized track).
+    @discardableResult
+    nonisolated static func swimTrackDataForSharing(
+        activity: SnorkelActivity,
+        modelContext: ModelContext
+    ) throws -> Data? {
+        if let existing = activity.swimTrackData, !existing.isEmpty {
+            return existing
+        }
+        try ensurePointsLoaded(for: activity, modelContext: modelContext)
+        if activity.profilePoints.isEmpty {
+            let fetched = try fetchPoints(for: activity.id, modelContext: modelContext)
+            activity.profilePoints = fetched
+        }
+        guard !activity.profilePoints.isEmpty else { return nil }
+        guard let encoded = try SnorkelSwimTrackCodec.encode(
+            points: activity.profilePoints,
+            activityStartTime: activity.startTime
+        ) else { return nil }
+        activity.swimTrackData = encoded
+        return encoded
     }
 
     nonisolated static func insertStagedPointsAndSyncTrack(

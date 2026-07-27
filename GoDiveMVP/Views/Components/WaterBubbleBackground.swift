@@ -36,11 +36,14 @@ enum WaterBubbleRendering {
 enum WaterBubbleAnimationIntensity: Sendable {
     case standard
     case celebration
+    /// Depth-profile above-curve fill — same motion as standard bubbles scaled **~7×** smaller.
+    case chartUnderfill
 
     nonisolated var bubbleCount: Int {
         switch self {
         case .standard: 12
         case .celebration: 30
+        case .chartUnderfill: 10
         }
     }
 
@@ -48,6 +51,7 @@ enum WaterBubbleAnimationIntensity: Sendable {
         switch self {
         case .standard: 1
         case .celebration: 2.5
+        case .chartUnderfill: 0.85
         }
     }
 
@@ -55,6 +59,7 @@ enum WaterBubbleAnimationIntensity: Sendable {
         switch self {
         case .standard: 1
         case .celebration: 1.2
+        case .chartUnderfill: 1.0 / 7.0
         }
     }
 }
@@ -72,11 +77,15 @@ struct WaterBubbleBackground: View {
     var bubbleCount: Int?
     /// When set, overrides `intensity.speedMultiplier`.
     var speedMultiplier: CGFloat?
+    /// When **`false`**, only the bubble canvas is drawn (for clipped chart underlays).
+    var showsBackdrop: Bool = true
 
     var body: some View {
         ZStack {
-            AppTheme.Colors.waterBubbleBackdrop
-                .ignoresSafeArea()
+            if showsBackdrop {
+                AppTheme.Colors.waterBubbleBackdrop
+                    .ignoresSafeArea()
+            }
 
             Group {
                 if reduceMotion {

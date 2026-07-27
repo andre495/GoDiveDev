@@ -4,17 +4,9 @@ import Foundation
 enum LogbookCollapsibleHeaderPresentation: Sendable {
     nonisolated static let title = "Activity Log"
     nonisolated static let titleAccessibilityIdentifier = "Logbook.Title"
-    nonisolated static let myActivitiesSummaryAccessibilityIdentifier = "Logbook.MyActivitiesSummary"
 
     nonisolated static let myActivitiesSegmentTitle = "My Activities"
     nonisolated static let buddyFeedSegmentTitle = "Buddy Feed"
-
-    nonisolated static func showsMyActivitiesSummaryChrome(
-        feedScope: LogbookFeedScope,
-        showsStoredDiveEmptyState: Bool
-    ) -> Bool {
-        feedScope == .myActivities && !showsStoredDiveEmptyState
-    }
 }
 
 /// Activity Log list scope — own dives vs friends’ shared projections.

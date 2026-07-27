@@ -2,7 +2,7 @@
 
 The **Logbook** tab is your master activity list — **dives and snorkel sessions**, sorted **newest first**.
 
-The top bar shows **Activity Log** in large white type centered on the same row as **Trips** and **+**. Directly under the title, a compact glass control switches **My Activities** (your log) and **Buddy Feed** (friends’ shared dives, when they’ve enabled sharing) — the same style as **Explore → My Sites / All Sites**. When **My Activities** is selected, a **filter** button sits beside that control: choose **All activities**, **Dives**, or **Snorkels** to narrow the list (Buddy Feed is unchanged). Scroll down and that control fades away; scroll back to the top (or tap the **Logbook** tab again) and it returns. The **Activity Log** title still compacts when you scroll.
+The top bar shows **Activity Log** in large white type centered on the same row as **Trips** and **+**. Directly under the title, a compact glass control switches **My Activities** (your log) and **Buddy Feed** (friends’ shared dives and snorkels, when they’ve enabled sharing) — the same style as **Explore → My Sites / All Sites**. When **My Activities** is selected, a **filter** button sits beside that control: choose **All activities**, **Dives**, or **Snorkels** to narrow the list (Buddy Feed is unchanged). Scroll down and that control fades away; scroll back to the top (or tap the **Logbook** tab again) and it returns. The **Activity Log** title still compacts when you scroll.
 
 ## My Activities vs Buddy Feed
 
@@ -10,17 +10,17 @@ The top bar shows **Activity Log** in large white type centered on the same row 
 |--------|----------------|
 | **My Activities** | Your dives and snorkel sessions — everything below in this page applies to this view |
 
-Use the **filter** next to the segment control to show **all** activities, **dives only**, or **snorkels only**. The dive count and bottom-time summary under the toggle reflects the same filter (dives and bottom time still count scuba dives only).
+Use the **filter** next to the segment control to show **all** activities, **dives only**, or **snorkels only**.
 
-Under **My Activities**, a centered line under the scope toggle shows your **numbered** dive count and combined bottom time (for example **12 Dives | 4 hr Bottom Time**). While the list is still loading, a spinner appears there instead of **0 Dives | 0 Bottom Time**. Dives you hid from numbering in the logbook (**-**) still appear in the list but are not counted here. It hides when you scroll down, together with the expanded **Activity Log** title and **My Activities | Buddy Feed** toggle. It sits below an upcoming-trip banner in the list when one is shown.
+| **Buddy Feed** | A merged list of dives and snorkels your friends share with you (newest first) |
 
-| **Buddy Feed** | A merged list of dives your friends share with you (newest first) |
+Buddy Feed loads when you select it. Each activity appears as a **card tile** with a hero header — **depth chart** for dives, **GPS swim track map** for snorkels — plus site name, region/country when available, key stats, and your friend’s name below the tile. **Dives** show max depth and dive time; **snorkels** show session time and swim distance. Tap a tile to open the same style of detail screen as your own dives and snorkels: a full-screen hero (map, depth chart or heart rate, or photos) with a draggable overview panel underneath. **Dives** use **Map**, **Tank**, and **Media** tabs; **snorkels** use **Map**, **Heart rate**, and **Media**. Notes, tags, buddies, marine life, equipment, and photos only appear when your friend opted in under Settings — otherwise those sections are hidden or show a short “not shared” message.
 
-Buddy Feed loads when you select it. Each row shows the dive title, your friend’s name, and a short summary (dive number, date, depth, duration). Tap a row for read-only detail. Notes and photos appear only if your friend opted in under Settings.
+**Share dives with friends** (Settings) includes **snorkel sessions** as well as scuba dives — each uploads a friend-visible projection with the correct activity type and GPS track when available.
 
 Pull down on Buddy Feed to refresh. The feed also refreshes when you switch to **Buddy Feed**, open the **Logbook** tab while that segment is selected, return from a shared dive detail, tap the **Logbook** tab again while already on it, or bring the app back to the foreground while you’re on Buddy Feed in Logbook.
 
-If you have no friends yet, Buddy Feed explains that and offers **Add friends** to open the Friends list (invite via QR or link). If friends have not shared dives yet, you’ll see **No buddy activities yet** with **View friends**.
+If you have no friends yet, Buddy Feed explains that and offers **Add friends** to open the Friends list (invite via QR or link). If friends have not shared activities yet, you’ll see **No buddy activities yet** with **View friends**.
 
 ## Activity rows
 
@@ -38,7 +38,7 @@ Each row shows a type chip, site or session title, stats, and an optional thumbn
 - **Snorkel** sessions show a **swimmer** icon only (no oval chip); scuba dives show the **downward waves** icon beside an oval **#** (symbol not inside the oval).
 - **Site name** (or **New Snorkel** when no site is set)
 - **Date**, optional **swim distance** (meters or yards per Settings) and shallow **depth**, and **duration**
-- Tap the row to open **snorkel detail** — same three-tab overview as a dive (**Map**, **Heart rate**, **Media**). On **Map**, expand the sheet to **large** for a **Weather** section (Apple Weather at entry time) when GPS or a linked site provides coordinates; imported snorkels keep a stored snapshot from import. The **Heart rate** tab shows your GPS swim track on the map and heart-rate stats/chart in the panel (instead of tank and gas). **Media** works like dive photos: add from your library, tag **marine life** and **buddies**, use **Fishial** identify when configured, and pick a **featured** thumbnail for the logbook row. Tap a thumbnail to open **Media** on that photo.
+- Tap the row to open **snorkel detail** — same three-tab overview as a dive (**Map**, **Heart rate**, **Media**). On **Map**, the hero shows your GPS **swim track**; expand the sheet to **large** for a **Weather** section (Apple Weather at entry time) when GPS or a linked site provides coordinates; imported snorkels keep a stored snapshot from import. The **Heart rate** tab shows a **heart-rate chart** in the hero and avg/max stats plus calories in the panel (instead of tank and gas). **Media** works like dive photos: add from your library, tag **marine life** and **buddies**, use **Fishial** identify when configured, and pick a **featured** thumbnail for the logbook row. Tap a thumbnail to open **Media** on that photo.
 
 Rows grouped under the same **trip** show a colored trip header with title, dive count, and date range. Tap the trip title to open trip detail.
 

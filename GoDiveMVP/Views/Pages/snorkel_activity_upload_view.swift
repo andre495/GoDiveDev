@@ -261,6 +261,12 @@ struct SnorkelActivityUploadView: View {
                 importOverlay = .importing(milestone: .addingMedia, fraction: 1.0)
             }
             try? await Task.sleep(for: DiveImportSuccessTiming.sleepAfterCompleteBeforeDismiss)
+            if let owner = accountSession.currentProfile {
+                GoDiveFriendShareRefreshCoordinator.scheduleRepublish(
+                    ownerProfileID: owner.id,
+                    modelContext: modelContext
+                )
+            }
         }
         importOverlay = .hidden
         pendingImportedActivityID = outcome.didSucceed ? outcome.primaryInsertedActivityId : nil

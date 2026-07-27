@@ -128,7 +128,6 @@ struct LogbookListSurfaceEquatableInputs: Equatable, Sendable {
     var isBuddyFeedLoading: Bool
     var isMyActivitiesLoading: Bool
     var upcomingTripBanner: LogbookUpcomingTripBannerData?
-    var myActivitiesSummary: LogbookMyActivitiesSummary
     var showsStoredDiveEmptyState: Bool
     var bubbleAnimationPaused: Bool
     var scrollToTopNonce: Int
@@ -144,7 +143,6 @@ struct LogbookListSurfaceEquatableInputs: Equatable, Sendable {
             && lhs.isBuddyFeedLoading == rhs.isBuddyFeedLoading
             && lhs.isMyActivitiesLoading == rhs.isMyActivitiesLoading
             && lhs.upcomingTripBanner == rhs.upcomingTripBanner
-            && lhs.myActivitiesSummary == rhs.myActivitiesSummary
             && lhs.showsStoredDiveEmptyState == rhs.showsStoredDiveEmptyState
             && lhs.bubbleAnimationPaused == rhs.bubbleAnimationPaused
             && lhs.scrollToTopNonce == rhs.scrollToTopNonce

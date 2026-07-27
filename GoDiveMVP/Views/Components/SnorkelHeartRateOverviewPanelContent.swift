@@ -11,7 +11,6 @@ struct SnorkelHeartRateOverviewPanelContent: View {
     let avgHeartRateBPM: Int?
     let maxHeartRateBPM: Int?
     let profileHeartRateStats: SnorkelHeartRatePanelSummary.ProfileHeartRateStats
-    let heartRateSamples: [SnorkelHeartRateProfileSample]
     let totalCalories: Int?
 
     var body: some View {
@@ -29,13 +28,6 @@ struct SnorkelHeartRateOverviewPanelContent: View {
             }
 
             heartRateStatsRow
-
-            SnorkelHeartRateProfileChart(
-                samples: heartRateSamples,
-                sessionMaxBPMHint: maxHeartRateBPM
-            )
-            .frame(height: 160)
-            .accessibilityIdentifier("SnorkelOverview.HeartRateChart")
 
             if let calories = totalCalories, calories > 0 {
                 HStack {

@@ -6,6 +6,8 @@ struct DiveTankOverviewHeroView: View {
 
     let layoutSize: CGSize
     let bottomContentMargin: CGFloat
+    /// **Large**-detent sheet obstruction — fixed portrait chart dimensions while the grabber moves the seam.
+    var chartSizingBottomContentMargin: CGFloat?
     let topObstructionHeight: CGFloat
     let layoutHeight: CGFloat
     var sheetDetent: DiveActivityOverviewDetent = .large
@@ -38,6 +40,7 @@ struct DiveTankOverviewHeroView: View {
 
     @State private var landscapeChartChromeReady = false
     @State private var landscapeChartChromeTask: Task<Void, Never>?
+    @Binding var scrubCallout: DiveDepthProfileScrubCallout?
 
     private var isLandscape: Bool {
         DiveTankOverviewHeroPresentation.isLandscapeLayout(layoutSize: layoutSize)
@@ -151,22 +154,9 @@ struct DiveTankOverviewHeroView: View {
                         topObstructionHeight: topObstructionHeight,
                         bottomContentMargin: bottomContentMargin,
                         isLandscape: isLandscape,
-                        detent: sheetDetent
+                        detent: sheetDetent,
+                        chartSizingBottomContentMargin: chartSizingBottomContentMargin
                     )
-                    if DiveTankOverviewHeroPresentation.showsRotatePhoneHint(
-                        for: sheetDetent,
-                        isLandscape: isLandscape,
-                        depthSampleCount: depthSamples.count
-                    ) {
-                        let hintCenter = DiveTankOverviewHeroPresentation.minimizedPortraitRotateHintCenter(
-                            layoutSize: layoutSize,
-                            chartFrame: chartFrame,
-                            layoutHeight: layoutHeight,
-                            bottomContentMargin: bottomContentMargin
-                        )
-                        DiveTankRotatePhoneHintView()
-                            .position(x: hintCenter.x, y: hintCenter.y)
-                    }
                     DiveDepthProfileOverlayChart(
                         depthSamples: depthSamples,
                         pressureSamples: pressureSamples,
@@ -176,10 +166,22 @@ struct DiveTankOverviewHeroView: View {
                         pressureBaselinePSI: pressureBaselinePSI,
                         profileLineRevealProgress: chartProfileLineRevealProgress,
                         allowsZoomAndPan: showsInteractiveChartChrome,
-                        onMediaMarkerTap: onMediaMarkerTap
+                        topEdgeFadeFraction: sheetDetent == .minimized && !isLandscape
+                            ? DiveTankOverviewHeroPresentation.minimizedPortraitChartTopFadeFraction
+                            : 0,
+                        horizontalEdgeBufferFraction: isLandscape
+                            ? DiveDepthProfileChartPresentation.landscapeHorizontalEdgeBufferFraction
+                            : 0,
+                        chromeStyle: .edgeToEdge,
+                        onMediaMarkerTap: onMediaMarkerTap,
+                        scrubCalloutPinning: .pinnedUnderTabMenu(
+                            topObstructionHeight: topObstructionHeight
+                        ),
+                        onScrubCalloutChange: { scrubCallout = $0 }
                     )
                     .frame(width: chartFrame.width, height: chartFrame.height)
                     .position(x: chartFrame.midX, y: chartFrame.midY)
+                    .animation(nil, value: bottomContentMargin)
                     .accessibilityIdentifier("DiveTank.Hero.ProfileChart")
                 }
 
@@ -277,7 +279,10 @@ struct DiveTankOverviewHeroView: View {
         let showsSecondaryRates = revealProgress >= 0.999
 
         return VStack(alignment: .leading, spacing: 6) {
-            minimizedGasUsedLine(tally: tally)
+            minimizedGasUsedLine(
+                totalConsumedPSI: totalConsumedPSI,
+                revealProgress: revealProgress
+            )
 
             if showsSecondaryRates, let sacRateDisplay {
                 minimizedGasMetricLine(
@@ -300,21 +305,24 @@ struct DiveTankOverviewHeroView: View {
         .accessibilityLabel(minimizedGasSummaryAccessibility(consumedText: consumedText))
     }
 
-    private func minimizedGasUsedLine(tally: MinimizedGasConsumedTally) -> some View {
-        HStack(spacing: 0) {
-            Text(tally.pressureValueText)
-                .foregroundStyle(AppTheme.Colors.tankGasAccent)
-                .monospacedDigit()
-                .contentTransition(.numericText())
-            Text("\(tally.unitSuffix) used.")
+    private func minimizedGasUsedLine(
+        totalConsumedPSI: Double,
+        revealProgress: CGFloat
+    ) -> some View {
+        let unitSuffix = diveDisplayUnitSystem == .imperial ? " psi" : " bar"
+        return HStack(spacing: 0) {
+            MinimizedGasUsedCountText(
+                revealProgress: revealProgress,
+                totalConsumedPSI: totalConsumedPSI,
+                unitSystem: diveDisplayUnitSystem
+            )
+            .foregroundStyle(AppTheme.Colors.tankGasAccent)
+            .monospacedDigit()
+            Text("\(unitSuffix) used.")
                 .foregroundStyle(AppTheme.Colors.textPrimary)
         }
         .font(AppTheme.Typography.headerTitle.weight(.semibold))
         .fixedSize(horizontal: false, vertical: true)
-        .animation(
-            .easeInOut(duration: DiveTankOverviewHeroPresentation.minimizedEntranceAnimationDuration),
-            value: tally.numericAnimationValue
-        )
     }
 
     private func minimizedGasMetricLine(label: String, value: String, font: Font) -> some View {
@@ -350,4 +358,30 @@ struct DiveTankOverviewHeroView: View {
         return "Cylinder overview"
     }
 
+}
+
+/// Count-up PSI / bar used — interpolates with the tank **minimized** entrance progress.
+private struct MinimizedGasUsedCountText: View, Animatable {
+    var revealProgress: CGFloat
+    let totalConsumedPSI: Double
+    let unitSystem: DiveDisplayUnitSystem
+
+    var animatableData: CGFloat {
+        get { revealProgress }
+        set { revealProgress = newValue }
+    }
+
+    var body: some View {
+        let tally = DiveTankMinimizedGasSummary.minimizedGasConsumedTally(
+            totalConsumedPSI: totalConsumedPSI,
+            revealProgress: revealProgress,
+            system: unitSystem
+        )
+        switch unitSystem {
+        case .imperial:
+            Text(tally.numericAnimationValue, format: .number.grouping(.automatic).precision(.fractionLength(0)))
+        case .metric:
+            Text(tally.numericAnimationValue, format: .number.precision(.fractionLength(1)))
+        }
+    }
 }

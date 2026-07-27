@@ -28,6 +28,10 @@ enum GoDiveFriendShareAffectedDiveIDs: Sendable {
             guard dive.ownerProfileID == ownerProfileID else { return }
             ids.insert(dive.id)
 
+        case let snorkel as SnorkelActivity:
+            guard snorkel.ownerProfileID == ownerProfileID else { return }
+            ids.insert(snorkel.id)
+
         case let tag as DiveBuddyTag:
             if let dive = tag.dive, dive.ownerProfileID == ownerProfileID {
                 ids.insert(dive.id)
@@ -47,6 +51,10 @@ enum GoDiveFriendShareAffectedDiveIDs: Sendable {
                 ids.insert(dive.id)
             } else if let diveID = sighting.diveActivityID {
                 ids.insert(diveID)
+            } else if let snorkel = sighting.snorkelActivity, snorkel.ownerProfileID == ownerProfileID {
+                ids.insert(snorkel.id)
+            } else if let snorkelID = sighting.snorkelActivityID {
+                ids.insert(snorkelID)
             }
 
         case let entry as DiveEquipmentEntry:
@@ -71,6 +79,27 @@ enum GoDiveFriendShareAffectedDiveIDs: Sendable {
                 } else if let diveID = participation.diveActivityID {
                     ids.insert(diveID)
                 }
+            }
+            for participation in buddy.snorkelParticipations {
+                if let snorkel = participation.snorkelActivity, snorkel.ownerProfileID == ownerProfileID {
+                    ids.insert(snorkel.id)
+                } else if let snorkelID = participation.snorkelActivityID {
+                    ids.insert(snorkelID)
+                }
+            }
+
+        case let media as SnorkelMediaPhoto:
+            if let snorkel = media.snorkelActivity, snorkel.ownerProfileID == ownerProfileID {
+                ids.insert(snorkel.id)
+            } else if let snorkelID = media.snorkelActivityID {
+                ids.insert(snorkelID)
+            }
+
+        case let tag as SnorkelBuddyTag:
+            if let snorkel = tag.snorkelActivity, snorkel.ownerProfileID == ownerProfileID {
+                ids.insert(snorkel.id)
+            } else if let snorkelID = tag.snorkelActivityID {
+                ids.insert(snorkelID)
             }
 
         case let tag as ActivityTag:

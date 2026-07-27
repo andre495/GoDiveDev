@@ -173,5 +173,12 @@ enum GoDiveFriendShareRefreshCoordinator {
         for dive in owned {
             await GoDiveSharedDiveProjectionSync.upsertDive(dive, modelContext: modelContext)
         }
+
+        let ownedSnorkels = (try? modelContext.fetch(FetchDescriptor<SnorkelActivity>()))?
+            .filter { $0.ownerProfileID == ownerProfileID && diveIDs.contains($0.id) } ?? []
+
+        for snorkel in ownedSnorkels {
+            await GoDiveSharedDiveProjectionSync.upsertSnorkel(snorkel, modelContext: modelContext)
+        }
     }
 }
