@@ -75,6 +75,7 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
         var profileTrackData: Data?
         var swimTrackData: Data? = nil
         var mediaPreviews: [MediaPreviewSnapshot]
+        var featuredMediaPhotoID: String? = nil
     }
 
     struct ShareOptions: Equatable, Sendable {
@@ -181,6 +182,7 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
                     "previewURL": preview.previewURL,
                 ] as [String: Any]
             }
+            setOptionalString(dive.featuredMediaPhotoID, key: "featuredMediaPhotoId", into: &fields)
         }
 
         return fields
@@ -208,6 +210,7 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
         var taggedBuddies: [TaggedBuddySnapshot]
         var equipmentSummary: [String]
         var mediaPreviews: [MediaPreviewSnapshot]
+        var featuredMediaPhotoID: String? = nil
         var profileTrackBase64: String?
         var swimTrackBase64: String? = nil
         var gasType: String?
@@ -273,6 +276,7 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
             taggedBuddies: buddies,
             equipmentSummary: data["equipmentSummary"] as? [String] ?? [],
             mediaPreviews: media,
+            featuredMediaPhotoID: data["featuredMediaPhotoId"] as? String,
             profileTrackBase64: data["profileTrackBase64"] as? String,
             swimTrackBase64: data["swimTrackBase64"] as? String,
             gasType: data["gasType"] as? String,

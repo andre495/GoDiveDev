@@ -34,20 +34,25 @@ struct FriendSharedLogbookView: View {
                 } else {
                     List {
                         ForEach(dives) { dive in
-                            NavigationLink {
-                                FriendSharedDiveDetailView(dive: dive, friendName: friend.displayName)
-                            } label: {
-                                LogbookBuddyFeedTileView(
-                                    row: LogbookBuddyFeedPresentation.Row(
-                                        id: LogbookBuddyFeedPresentation.rowID(
-                                            friendUID: friend.friendUID,
-                                            diveDocumentID: dive.id
-                                        ),
-                                        friendUID: friend.friendUID,
-                                        friendDisplayName: friend.displayName,
-                                        dive: dive
+                            let row = LogbookBuddyFeedPresentation.Row(
+                                id: LogbookBuddyFeedPresentation.rowID(
+                                    friendUID: friend.friendUID,
+                                    diveDocumentID: dive.id
+                                ),
+                                friendUID: friend.friendUID,
+                                friendDisplayName: friend.displayName,
+                                dive: dive
+                            )
+                            LogbookBuddyFeedNavigableTile(row: row) { isolatesHero in
+                                NavigationLink {
+                                    FriendSharedDiveDetailView(dive: dive, friendName: friend.displayName)
+                                } label: {
+                                    LogbookBuddyFeedTileView(
+                                        row: row,
+                                        part: isolatesHero ? .body : .full
                                     )
-                                )
+                                }
+                                .buttonStyle(.plain)
                             }
                             .listRowInsets(
                                 EdgeInsets(

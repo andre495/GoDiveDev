@@ -124,6 +124,8 @@ struct LogbookListSurfaceEquatableInputs: Equatable, Sendable {
     var showsMyActivitiesKindFilterEmptyState: Bool
     var items: [LogbookListDisplayItem]
     var buddyFeedRows: [LogbookBuddyFeedPresentation.Row]
+    var buddyFeedHasMoreRows: Bool
+    var buddyFeedTotalRowCount: Int
     var buddyFeedEmptyKind: LogbookBuddyFeedPresentation.EmptyKind?
     var isBuddyFeedLoading: Bool
     var isMyActivitiesLoading: Bool
@@ -139,6 +141,8 @@ struct LogbookListSurfaceEquatableInputs: Equatable, Sendable {
             && lhs.showsMyActivitiesKindFilterEmptyState == rhs.showsMyActivitiesKindFilterEmptyState
             && lhs.items == rhs.items
             && LogbookBuddyFeedPresentation.rowsEqual(lhs.buddyFeedRows, rhs.buddyFeedRows)
+            && lhs.buddyFeedHasMoreRows == rhs.buddyFeedHasMoreRows
+            && lhs.buddyFeedTotalRowCount == rhs.buddyFeedTotalRowCount
             && LogbookBuddyFeedPresentation.emptyKindsEqual(lhs.buddyFeedEmptyKind, rhs.buddyFeedEmptyKind)
             && lhs.isBuddyFeedLoading == rhs.isBuddyFeedLoading
             && lhs.isMyActivitiesLoading == rhs.isMyActivitiesLoading

@@ -23,7 +23,7 @@ enum DiveActivityTankPanelSummary {
 
     /// **Remaining gas** level **0...1** from dive-level cylinder pressures (**`end / start`**), for tank visuals.
     /// Returns **`nil`** when **`start`** is missing or **≤ 0**, or **`end`** is missing (**no animation / keep “full”**).
-    static func remainingPressureFillFraction(startPSI: Double?, endPSI: Double?) -> Double? {
+    nonisolated static func remainingPressureFillFraction(startPSI: Double?, endPSI: Double?) -> Double? {
         guard let start = startPSI, start > 0, let end = endPSI else { return nil }
         guard end >= 0 else { return nil }
         return min(1, max(0, end / start))

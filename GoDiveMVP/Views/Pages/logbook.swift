@@ -34,10 +34,25 @@ struct LogbookView: View {
     @State private var hasPerformedInitialLogbookCacheBuild = false
     @State private var logbookFeedScope: LogbookFeedScope = .myActivities
     @State private var myActivitiesKindFilter: LogbookMyActivitiesKindFilter = .all
-    @State private var buddyFeedRows: [LogbookBuddyFeedPresentation.Row] = []
+    @State private var buddyFeedAllRows: [LogbookBuddyFeedPresentation.Row] = []
+    @State private var buddyFeedDisplayedCount = 0
     @State private var buddyFeedFriends: [GoDiveFriendGraphService.FriendEdge] = []
     @State private var isBuddyFeedLoading = false
     @State private var buddyFeedLoadGeneration = 0
+
+    private var buddyFeedVisibleRows: [LogbookBuddyFeedPresentation.Row] {
+        LogbookBuddyFeedPresentation.visibleRows(
+            from: buddyFeedAllRows,
+            displayedCount: buddyFeedDisplayedCount
+        )
+    }
+
+    private var buddyFeedHasMoreRows: Bool {
+        LogbookBuddyFeedPresentation.hasMoreRows(
+            totalRowCount: buddyFeedAllRows.count,
+            displayedCount: buddyFeedDisplayedCount
+        )
+    }
 
     private let ownerProfileID: UUID?
     private let logbookTabSelectionGeneration: Int
@@ -327,7 +342,9 @@ struct LogbookView: View {
             feedScopeSelection: $logbookFeedScope,
             myActivitiesKindFilter: $myActivitiesKindFilter,
             items: logbookDisplayItems,
-            buddyFeedRows: buddyFeedRows,
+            buddyFeedRows: buddyFeedVisibleRows,
+            buddyFeedHasMoreRows: buddyFeedHasMoreRows,
+            buddyFeedTotalRowCount: buddyFeedAllRows.count,
             buddyFeedEmptyKind: buddyFeedEmptyKind,
             isBuddyFeedLoading: isBuddyFeedLoading,
             isMyActivitiesLoading: isMyActivitiesLogbookLoading,
@@ -343,7 +360,8 @@ struct LogbookView: View {
             onOpenFriendProfile: { friend in
                 path.append(.friendProfile(friend))
             },
-            onBuddyFeedRefresh: refreshBuddyFeed
+            onBuddyFeedRefresh: refreshBuddyFeed,
+            onBuddyFeedLoadMore: loadMoreBuddyFeedRowsIfNeeded
         )
         .equatable()
     }
@@ -351,7 +369,7 @@ struct LogbookView: View {
     private var buddyFeedEmptyKind: LogbookBuddyFeedPresentation.EmptyKind? {
         LogbookBuddyFeedPresentation.emptyKind(
             friends: buddyFeedFriends,
-            rows: buddyFeedRows,
+            rows: buddyFeedAllRows,
             firebaseConfigured: GoDiveFirebaseBootstrap.isConfigured,
             isSignedIn: GoDiveFirestoreUserProfileMapping.loadCachedFirebaseUID() != nil
         )
@@ -361,7 +379,7 @@ struct LogbookView: View {
     private func refreshBuddyFeed() async {
         buddyFeedLoadGeneration += 1
         let generation = buddyFeedLoadGeneration
-        if buddyFeedRows.isEmpty || buddyFeedFriends.isEmpty {
+        if buddyFeedAllRows.isEmpty || buddyFeedFriends.isEmpty {
             isBuddyFeedLoading = true
         }
         defer {
@@ -373,7 +391,10 @@ struct LogbookView: View {
         let snapshot = await GoDiveSharedDiveProjectionSync.fetchBuddyFeedSnapshot()
         guard generation == buddyFeedLoadGeneration else { return }
         buddyFeedFriends = snapshot.friends
-        buddyFeedRows = snapshot.rows
+        buddyFeedAllRows = snapshot.rows
+        buddyFeedDisplayedCount = LogbookBuddyFeedPresentation.initialDisplayedCount(
+            for: snapshot.rows.count
+        )
         if let owner = accountSession.currentProfile {
             GoDiveFriendBuddyLinking.syncRosterLinks(
                 friends: snapshot.friends,
@@ -381,6 +402,16 @@ struct LogbookView: View {
                 modelContext: modelContext
             )
         }
+    }
+
+    @MainActor
+    private func loadMoreBuddyFeedRowsIfNeeded() {
+        let nextCount = LogbookBuddyFeedPresentation.nextDisplayedCount(
+            current: buddyFeedDisplayedCount,
+            totalRowCount: buddyFeedAllRows.count
+        )
+        guard nextCount > buddyFeedDisplayedCount else { return }
+        buddyFeedDisplayedCount = nextCount
     }
 
     private func refreshBuddyFeedIfOnBuddyFeed() {
@@ -458,7 +489,7 @@ struct LogbookView: View {
                 onOpenDive: { path.append(.diveDetail($0)) }
             )
         case .buddySharedDive(let friendUID, let diveDocumentID):
-            if let row = buddyFeedRows.first(where: {
+            if let row = buddyFeedAllRows.first(where: {
                 $0.friendUID == friendUID && $0.dive.id == diveDocumentID
             }) {
                 FriendSharedDiveDetailView(dive: row.dive, friendName: row.friendDisplayName)
@@ -890,6 +921,8 @@ private struct LogbookListSurface: View, Equatable {
     @Binding var myActivitiesKindFilter: LogbookMyActivitiesKindFilter
     let items: [LogbookListDisplayItem]
     let buddyFeedRows: [LogbookBuddyFeedPresentation.Row]
+    let buddyFeedHasMoreRows: Bool
+    let buddyFeedTotalRowCount: Int
     let buddyFeedEmptyKind: LogbookBuddyFeedPresentation.EmptyKind?
     let isBuddyFeedLoading: Bool
     let isMyActivitiesLoading: Bool
@@ -904,6 +937,7 @@ private struct LogbookListSurface: View, Equatable {
     let onOpenDive: (UUID) -> Void
     let onOpenFriendProfile: (GoDiveFriendGraphService.FriendEdge) -> Void
     let onBuddyFeedRefresh: () async -> Void
+    let onBuddyFeedLoadMore: () -> Void
 
     @State private var isHeaderCollapsed = false
     @State private var headerClearance: CGFloat = AppTheme.Layout.appHeaderClearanceFallback
@@ -919,6 +953,8 @@ private struct LogbookListSurface: View, Equatable {
             showsMyActivitiesKindFilterEmptyState: showsMyActivitiesKindFilterEmptyState,
             items: items,
             buddyFeedRows: buddyFeedRows,
+            buddyFeedHasMoreRows: buddyFeedHasMoreRows,
+            buddyFeedTotalRowCount: buddyFeedTotalRowCount,
             buddyFeedEmptyKind: buddyFeedEmptyKind,
             isBuddyFeedLoading: isBuddyFeedLoading,
             isMyActivitiesLoading: isMyActivitiesLoading,
@@ -1093,17 +1129,22 @@ private struct LogbookListSurface: View, Equatable {
                 .listRowBackground(Color.clear)
                 .accessibilityHidden(true)
 
-            ForEach(buddyFeedRows) { row in
+            ForEach(Array(buddyFeedRows.enumerated()), id: \.element.id) { index, row in
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                    NavigationLink(
-                        value: LogbookRoute.buddySharedDive(
-                            friendUID: row.friendUID,
-                            diveDocumentID: row.dive.id
-                        )
-                    ) {
-                        LogbookBuddyFeedTileView(row: row)
+                    LogbookBuddyFeedNavigableTile(row: row) { isolatesHero in
+                        NavigationLink(
+                            value: LogbookRoute.buddySharedDive(
+                                friendUID: row.friendUID,
+                                diveDocumentID: row.dive.id
+                            )
+                        ) {
+                            LogbookBuddyFeedTileView(
+                                row: row,
+                                part: isolatesHero ? .body : .full
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
 
                     Button {
                         onOpenFriendProfile(
@@ -1133,6 +1174,36 @@ private struct LogbookListSurface: View, Equatable {
                 )
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
+                .onAppear {
+                    guard buddyFeedHasMoreRows else { return }
+                    guard LogbookBuddyFeedPresentation.shouldLoadNextPage(
+                        rowIndex: index,
+                        visibleRowCount: buddyFeedRows.count,
+                        totalRowCount: buddyFeedTotalRowCount,
+                        displayedCount: buddyFeedRows.count
+                    ) else { return }
+                    onBuddyFeedLoadMore()
+                }
+            }
+
+            if buddyFeedHasMoreRows {
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, AppTheme.Spacing.md)
+                    .listRowInsets(
+                        EdgeInsets(
+                            top: 0,
+                            leading: AppTheme.Spacing.lg,
+                            bottom: AppTheme.Spacing.sm,
+                            trailing: AppTheme.Spacing.lg
+                        )
+                    )
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .onAppear {
+                        onBuddyFeedLoadMore()
+                    }
+                    .accessibilityIdentifier(LogbookBuddyFeedPresentation.loadMoreAccessibilityIdentifier)
             }
 
             Color.clear

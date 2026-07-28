@@ -39,7 +39,6 @@ struct DiveLocationGoogleMapRepresentable: UIViewRepresentable {
 
     func updateUIView(_ mapView: GMSMapView, context: Context) {
         context.coordinator.parent = self
-        applyViewportPadding(on: mapView)
         context.coordinator.syncMarker(on: mapView)
         applyUserInteraction(on: mapView)
 
@@ -52,8 +51,23 @@ struct DiveLocationGoogleMapRepresentable: UIViewRepresentable {
         } ?? false
         guard layoutContext != previous else { return }
 
+        if let previous,
+           Self.restingDetentSnap(for: previous) == Self.restingDetentSnap(for: layoutContext),
+           !Self.isRestingSheetFraction(layoutContext) {
+            return
+        }
+
+        applyViewportPadding(on: mapView)
         context.coordinator.applyCamera(on: mapView, animated: animateSnap)
         context.coordinator.lastAppliedLayoutContext = layoutContext
+    }
+
+    private static func isRestingSheetFraction(_ context: DiveMapCameraLayoutContext) -> Bool {
+        DiveActivityOverviewPanelMetrics.isMinimized(context.sheetHeightFraction)
+            || DiveActivityOverviewPanelMetrics.isLarge(
+                context.sheetHeightFraction,
+                largeRestingFraction: context.largeRestingFraction
+            )
     }
 
     private static func restingDetentSnap(for context: DiveMapCameraLayoutContext) -> DiveActivityOverviewDetent {

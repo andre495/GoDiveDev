@@ -56,6 +56,8 @@ struct ViewSingleActivity: View {
     @State private var tankHeroPressureFillFraction: CGFloat = 1
     @State private var tankMinimizedProfileRevealProgress: CGFloat = 1
     @State private var tankMinimizedPsiUsedRevealProgress: CGFloat = 1
+    @State private var tankMinimizedWaterTopFadeProgress: CGFloat = 0
+    @State private var tankMinimizedChromeRevealProgress: CGFloat = 1
     @State private var tankDepthChartScrubCallout: DiveDepthProfileScrubCallout?
     @FocusState private var isNotesFieldFocused: Bool
     @State private var depthChartPreviewMediaID: UUID?
@@ -466,6 +468,8 @@ struct ViewSingleActivity: View {
         tankHeroPressureFillFraction = 1
         tankMinimizedProfileRevealProgress = 1
         tankMinimizedPsiUsedRevealProgress = 1
+        tankMinimizedWaterTopFadeProgress = 0
+        tankMinimizedChromeRevealProgress = 1
         overviewMapTeardownRequested = false
         catalogSitesForMapResolution = []
         selectedDiveMediaPhotoID = nil
@@ -812,6 +816,9 @@ struct ViewSingleActivity: View {
                             rmvRateDisplay: activity.tankHeroRMVRateLine(displayUnits: diveDisplayUnitSystem),
                             profileLineRevealProgress: tankMinimizedProfileRevealProgress,
                             psiUsedRevealProgress: tankMinimizedPsiUsedRevealProgress,
+                            liveHeightFraction: overviewPanelLiveHeightFraction,
+                            waterTopHalfFadeProgress: tankMinimizedWaterTopFadeProgress,
+                            minimizedChromeRevealProgress: tankMinimizedChromeRevealProgress,
                             scrubCallout: $tankDepthChartScrubCallout
                         )
                     case .camera:
@@ -933,7 +940,8 @@ struct ViewSingleActivity: View {
                         .ignoresSafeArea(edges: .top)
                 }
             }
-            .animation(.diveOverviewPanelDetent, value: overviewSheetDetent)
+            // Panel height springs locally; keep the hero free of implicit detent animation.
+            .animation(nil, value: overviewSheetDetent)
             .animation(nil, value: isLandscape)
         }
         .ignoresSafeArea()
@@ -1025,6 +1033,8 @@ struct ViewSingleActivity: View {
         tankHeroPressureFillFraction = 1
         tankMinimizedProfileRevealProgress = 1
         tankMinimizedPsiUsedRevealProgress = 1
+        tankMinimizedWaterTopFadeProgress = 0
+        tankMinimizedChromeRevealProgress = 1
     }
 
     private func playTankMinimizedEntranceAnimation() {
@@ -1033,17 +1043,23 @@ struct ViewSingleActivity: View {
             endPSI: activity.tankPressureEndPSI
         )
         let fraction = CGFloat(targetFill ?? 1)
-        let duration = DiveTankOverviewHeroPresentation.minimizedEntranceAnimationDuration
 
         var reset = Transaction()
         reset.disablesAnimations = true
         withTransaction(reset) {
             tankMinimizedProfileRevealProgress = 0
             tankMinimizedPsiUsedRevealProgress = 0
+            tankMinimizedWaterTopFadeProgress = 0
+            tankMinimizedChromeRevealProgress = 0
             tankHeroPressureFillFraction = 1
         }
 
-        withAnimation(.easeInOut(duration: duration)) {
+        withAnimation(DiveTankOverviewHeroPresentation.minimizedWaterTopFadeAnimation) {
+            tankMinimizedWaterTopFadeProgress = 1
+            tankMinimizedChromeRevealProgress = 1
+        }
+
+        withAnimation(DiveTankOverviewHeroPresentation.minimizedEntranceLineAnimation) {
             tankMinimizedProfileRevealProgress = 1
             tankMinimizedPsiUsedRevealProgress = 1
             if fraction < 0.999 {

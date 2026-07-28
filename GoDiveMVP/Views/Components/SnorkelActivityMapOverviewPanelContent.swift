@@ -98,7 +98,7 @@ struct SnorkelActivityMapOverviewPanelContent: View {
                 }
             }
         }
-        .animation(.diveOverviewPanelDetent, value: panelHeightFraction)
+        .animation(nil, value: panelHeightFraction)
         .animation(.diveOverviewPanelDetent, value: overviewSheetDetent)
         .frame(maxWidth: .infinity, alignment: .leading)
     }

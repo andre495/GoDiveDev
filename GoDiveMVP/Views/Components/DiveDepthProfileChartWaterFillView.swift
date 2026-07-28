@@ -1,20 +1,29 @@
 import SwiftUI
 
-/// Shimmering water gradient + miniature rising bubbles clipped above the depth profile line.
+/// Shimmering water gradient + optional miniature rising bubbles clipped above the depth profile line.
 struct DiveDepthProfileChartWaterFillView: View {
     let areaPath: Path
     let plotSize: CGSize
     var revealProgress: CGFloat = 1
     var animates: Bool = true
+    /// Rising bubble layer (tank **minimized** / landscape); omitted on portrait **large**.
+    var showsBubbles: Bool = true
+    /// **0…1** — fades the top portion of the water fill (minimized entrance).
+    var topHalfFadeProgress: CGFloat = 0
+    /// Height fraction affected by **`topHalfFadeProgress`** (default half the plot).
+    var topHalfFadeHeightFraction: CGFloat =
+        DiveTankOverviewHeroPresentation.minimizedWaterTopFadeHeightFraction
 
     var body: some View {
         ZStack {
             waterGradientLayer
-            WaterBubbleBackground(
-                animationPaused: !animates,
-                intensity: .chartUnderfill,
-                showsBackdrop: false
-            )
+            if showsBubbles {
+                WaterBubbleBackground(
+                    animationPaused: !animates,
+                    intensity: .chartUnderfill,
+                    showsBackdrop: false
+                )
+            }
         }
         .frame(width: plotSize.width, height: plotSize.height)
         .mask {
@@ -24,8 +33,26 @@ struct DiveDepthProfileChartWaterFillView: View {
             Rectangle()
                 .frame(width: max(1, plotSize.width * min(1, max(0, revealProgress))))
         }
+        .mask {
+            topHalfFadeMask
+        }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+
+    private var topHalfFadeMask: some View {
+        let fade = min(1, max(0, topHalfFadeProgress))
+        let band = min(1, max(0.01, topHalfFadeHeightFraction))
+        return LinearGradient(
+            stops: [
+                .init(color: Color.black.opacity(Double(1 - fade)), location: 0),
+                .init(color: Color.black.opacity(Double(1 - fade)), location: band * 0.55),
+                .init(color: .black, location: band),
+                .init(color: .black, location: 1),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
     }
 
     @ViewBuilder

@@ -164,7 +164,7 @@ enum DiveQuantityFormatting {
     }
 
     /// **`avgSAC`** stored as **psi/min**; metric UI shows **bar/min**.
-    static func surfaceAirConsumption(sacPSIPerMinute: Double?, system: DiveDisplayUnitSystem) -> String? {
+    nonisolated static func surfaceAirConsumption(sacPSIPerMinute: Double?, system: DiveDisplayUnitSystem) -> String? {
         guard let sacPSIPerMinute, sacPSIPerMinute > 0 else { return nil }
         switch system {
         case .metric:
@@ -176,7 +176,7 @@ enum DiveQuantityFormatting {
     }
 
     /// **`avgRMV`** stored as **L/min**; imperial UI shows **cu ft/min**.
-    static func respiratoryMinuteVolume(litersPerMinute: Double?, system: DiveDisplayUnitSystem) -> String? {
+    nonisolated static func respiratoryMinuteVolume(litersPerMinute: Double?, system: DiveDisplayUnitSystem) -> String? {
         guard let litersPerMinute, litersPerMinute > 0 else { return nil }
         switch system {
         case .metric:

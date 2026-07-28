@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import SwiftUI
 
 /// Animated frame for the tank hero cylinder (+ gas label anchor) at a resting detent.
 struct TankHeroLayoutMetrics: Equatable, Sendable {
@@ -39,14 +40,71 @@ enum DiveTankOverviewHeroPresentation: Sendable {
 
     nonisolated static let heroDetentAnimationDuration: TimeInterval = 0.45
 
-    /// Portrait **minimized** entrance — cylinder drain, profile lines, and PSI-used tally run together.
-    nonisolated static let minimizedEntranceAnimationDuration: TimeInterval = 5
+    /// Portrait **minimized** entrance — depth/gas lines + underfill wipe + PSI-used tally.
+    nonisolated static let minimizedEntranceAnimationDuration: TimeInterval = 2.4
+
+    /// After snap to **minimized** — top-half water fade + cylinder / PSI chrome fade-in.
+    nonisolated static let minimizedWaterTopFadeDuration: TimeInterval = 0.35
+
+    /// Fraction of plot height whose water fill fades on the minimized entrance.
+    nonisolated static let minimizedWaterTopFadeHeightFraction: CGFloat = 0.5
 
     nonisolated static func shouldPlayMinimizedEntranceAnimation(
         from oldDetent: DiveActivityOverviewDetent,
         to newDetent: DiveActivityOverviewDetent
     ) -> Bool {
         newDetent == .minimized && newDetent.heightFraction < oldDetent.heightFraction
+    }
+
+    /// Snappy ease-out for water / chrome fade-in after snap.
+    nonisolated static var minimizedWaterTopFadeAnimation: Animation {
+        .easeOut(duration: minimizedWaterTopFadeDuration)
+    }
+
+    /// Snappy ease-out for depth/gas line + underfill wipe + PSI tally.
+    nonisolated static var minimizedEntranceLineAnimation: Animation {
+        .easeOut(duration: minimizedEntranceAnimationDuration)
+    }
+
+    /// **0** at **large**, **1** at **minimized** — from live sheet height while dragging.
+    nonisolated static func collapseProgress(
+        liveHeightFraction: CGFloat,
+        layoutContext: DiveActivityOverviewSheetLayoutContext
+    ) -> CGFloat {
+        let large = DiveActivityOverviewPanelMetrics.largeHeightFraction(in: layoutContext)
+        let minimized = DiveActivityOverviewPanelMetrics.minimizedHeightFraction
+        let range = large - minimized
+        guard range > 0.0001 else { return 0 }
+        return min(max((large - liveHeightFraction) / range, 0), 1)
+    }
+
+    /// Collapse progress at which depth/gas strokes + under-curve fill are fully gone (lower = faster fade).
+    nonisolated static let profileStrokeFadeCompleteCollapseProgress: CGFloat = 0.22
+
+    /// Depth + gas stroke / dark underfill opacity while collapsing from **large** (fades out early on pull-down).
+    nonisolated static func profileStrokeAndUnderfillOpacity(
+        sheetDetent: DiveActivityOverviewDetent,
+        collapseProgress: CGFloat
+    ) -> CGFloat {
+        if sheetDetent == .minimized {
+            return 1
+        }
+        let t = min(1, max(0, collapseProgress))
+        let completeBy = max(profileStrokeFadeCompleteCollapseProgress, 0.05)
+        return min(1, max(0, 1 - t / completeBy))
+    }
+
+    /// Cylinder + PSI summary opacity on **minimized** (fades out while dragging toward **large**).
+    nonisolated static func minimizedChromeOpacity(
+        sheetDetent: DiveActivityOverviewDetent,
+        isLandscape: Bool,
+        collapseProgress: CGFloat,
+        chromeRevealProgress: CGFloat
+    ) -> CGFloat {
+        guard !isLandscape, sheetDetent == .minimized else { return 0 }
+        let collapse = min(1, max(0, collapseProgress))
+        let chrome = min(1, max(0, chromeRevealProgress))
+        return collapse * chrome
     }
 
     /// Interpolates consumed cylinder pressure for the minimized gas summary tally.
@@ -66,8 +124,36 @@ enum DiveTankOverviewHeroPresentation: Sendable {
         sheetDetent == .minimized ? min(1, max(0, minimizedRevealProgress)) : 1
     }
 
+    /// Water top-half fade after snap to **minimized** (**0** = full water, **1** = top half gone).
+    nonisolated static func waterTopHalfFadeProgress(
+        sheetDetent: DiveActivityOverviewDetent,
+        isLandscape: Bool,
+        fadeProgress: CGFloat
+    ) -> CGFloat {
+        guard !isLandscape, sheetDetent == .minimized else { return 0 }
+        return min(1, max(0, fadeProgress))
+    }
+
+    /// Gap above the translating chart filled with water while collapsing (**1** − top-fade).
+    nonisolated static func collapseWaterBackdropOpacity(
+        collapseProgress: CGFloat,
+        waterTopHalfFadeProgress: CGFloat
+    ) -> CGFloat {
+        let collapse = min(1, max(0, collapseProgress))
+        let topFade = min(1, max(0, waterTopHalfFadeProgress))
+        return collapse * (1 - topFade)
+    }
+
     /// Defer landscape-only chart chrome (media markers, zoom) until after rotation settles.
     nonisolated static let landscapeChartChromeCommitDelay: Duration = .milliseconds(120)
+
+    /// Bubbles on the depth chart — portrait **minimized** and **landscape** only (not portrait **large**).
+    nonisolated static func showsAnimatedDepthChartBubbles(
+        for detent: DiveActivityOverviewDetent,
+        isLandscape: Bool
+    ) -> Bool {
+        isLandscape || detent == .minimized
+    }
 
     nonisolated static func scale(for detent: DiveActivityOverviewDetent) -> CGFloat {
         detent == .minimized ? minimizedScale : 1
@@ -231,7 +317,8 @@ enum DiveTankOverviewHeroPresentation: Sendable {
         bottomContentMargin: CGFloat,
         isLandscape: Bool,
         detent: DiveActivityOverviewDetent = .minimized,
-        chartSizingBottomContentMargin: CGFloat? = nil
+        chartSizingBottomContentMargin: CGFloat? = nil,
+        collapseProgress: CGFloat? = nil
     ) -> CGRect {
         if isLandscape {
             return minimizedLandscapeProfileChartFrame(
@@ -248,25 +335,32 @@ enum DiveTankOverviewHeroPresentation: Sendable {
             bottomContentMargin: bottomContentMargin,
             detent: detent,
             chartSizingBottomContentMargin: chartSizingBottomContentMargin
-                ?? bottomContentMargin
+                ?? bottomContentMargin,
+            collapseProgress: collapseProgress
         )
     }
 
-    /// Portrait **large** and **minimized** — same fixed plot size; bottom tracks the live sheet seam.
+    /// Portrait **large** and **minimized** — base size from **large**; height scales up toward **minimized**.
     nonisolated static func minimizedPortraitProfileChartFrame(
         layoutSize: CGSize,
         layoutHeight: CGFloat,
         topObstructionHeight: CGFloat,
         bottomContentMargin: CGFloat,
         detent: DiveActivityOverviewDetent = .minimized,
-        chartSizingBottomContentMargin: CGFloat? = nil
+        chartSizingBottomContentMargin: CGFloat? = nil,
+        collapseProgress: CGFloat? = nil
     ) -> CGRect {
-        portraitProfileChartFrame(
+        let heightScale = portraitChartHeightScale(
+            detent: detent,
+            collapseProgress: collapseProgress
+        )
+        return portraitProfileChartFrame(
             layoutSize: layoutSize,
             layoutHeight: layoutHeight,
             topObstructionHeight: topObstructionHeight,
             bottomContentMargin: bottomContentMargin,
-            chartSizingBottomContentMargin: chartSizingBottomContentMargin ?? bottomContentMargin
+            chartSizingBottomContentMargin: chartSizingBottomContentMargin ?? bottomContentMargin,
+            heightScale: heightScale
         )
     }
 
@@ -276,8 +370,26 @@ enum DiveTankOverviewHeroPresentation: Sendable {
     /// Portrait tank profile — nudge the plot slightly below the sheet seam (under rounded panel corners).
     nonisolated static let largeDetentSheetSeamCornerBleed: CGFloat = 8
 
-    /// Top of portrait **minimized** chart fades to transparent over this fraction of plot height.
-    nonisolated static let minimizedPortraitChartTopFadeFraction: CGFloat = 0.14
+    /// Soft top fade on portrait tank chart (large + minimized + while dragging).
+    nonisolated static let portraitChartTopFadeFraction: CGFloat = 0.14
+
+    /// Back-compat alias — same soft top fade used for scrub callout pinning.
+    nonisolated static let minimizedPortraitChartTopFadeFraction: CGFloat = portraitChartTopFadeFraction
+
+    /// Minimized chart height ÷ large resting chart height (**~60% taller**).
+    nonisolated static let minimizedPortraitChartHeightScale: CGFloat = 1.6
+
+    /// Interpolates chart height scale from **large** (**1**) → **minimized** (**`minimizedPortraitChartHeightScale`**).
+    nonisolated static func portraitChartHeightScale(
+        detent: DiveActivityOverviewDetent,
+        collapseProgress: CGFloat? = nil
+    ) -> CGFloat {
+        if let collapseProgress {
+            let t = min(1, max(0, collapseProgress))
+            return 1 + (minimizedPortraitChartHeightScale - 1) * t
+        }
+        return detent == .minimized ? minimizedPortraitChartHeightScale : 1
+    }
 
     /// Portrait profile plot dimensions at the **large** resting detent — fixed while the grabber moves the sheet.
     nonisolated static func portraitLargeDetentProfileChartSize(
@@ -293,27 +405,31 @@ enum DiveTankOverviewHeroPresentation: Sendable {
         )
     }
 
-    /// Portrait plot frame — fixed **large**-detent size; bottom tracks the live sheet seam (translate, do not stretch).
+    /// Portrait plot frame — base **large** size × **`heightScale`**; bottom tracks the live sheet seam.
     nonisolated static func portraitProfileChartFrame(
         layoutSize: CGSize,
         layoutHeight: CGFloat,
         topObstructionHeight: CGFloat,
         bottomContentMargin: CGFloat,
-        chartSizingBottomContentMargin: CGFloat
+        chartSizingBottomContentMargin: CGFloat,
+        heightScale: CGFloat = 1
     ) -> CGRect {
-        let size = portraitLargeDetentProfileChartSize(
+        let baseSize = portraitLargeDetentProfileChartSize(
             layoutSize: layoutSize,
             layoutHeight: layoutHeight,
             topObstructionHeight: topObstructionHeight,
             chartSizingBottomContentMargin: chartSizingBottomContentMargin
         )
         let seamY = layoutHeight - bottomContentMargin
-        let y = seamY - size.height + largeDetentSheetSeamCornerBleed
+        let maxHeight = max(seamY - profileChartBandTop + largeDetentSheetSeamCornerBleed, 1)
+        let scaledHeight = baseSize.height * max(heightScale, 0.01)
+        let height = min(scaledHeight, maxHeight)
+        let y = seamY - height + largeDetentSheetSeamCornerBleed
         return CGRect(
             x: 0,
             y: max(y, profileChartBandTop),
-            width: size.width,
-            height: size.height
+            width: baseSize.width,
+            height: height
         )
     }
 

@@ -14,11 +14,11 @@ Use the **filter** next to the segment control to show **all** activities, **div
 
 | **Buddy Feed** | A merged list of dives and snorkels your friends share with you (newest first) |
 
-Buddy Feed loads when you select it. Each activity appears as a **card tile** with a hero header — **depth chart** for dives, **GPS swim track map** for snorkels — plus site name, region/country when available, key stats, and your friend’s name below the tile. **Dives** show max depth and dive time; **snorkels** show session time and swim distance. Tap a tile to open the same style of detail screen as your own dives and snorkels: a full-screen hero (map, depth chart or heart rate, or photos) with a draggable overview panel underneath. **Dives** use **Map**, **Tank**, and **Media** tabs; **snorkels** use **Map**, **Heart rate**, and **Media**. Notes, tags, buddies, marine life, equipment, and photos only appear when your friend opted in under Settings — otherwise those sections are hidden or show a short “not shared” message.
+Buddy Feed loads when you select it. Each activity appears as a **card tile** with a hero header. When your friend shared a photo **and** depth/swim data exists, the hero shows their **featured photo** first and you can swipe to the depth chart (dives) or GPS swim track (snorkels). With only media or only chart/map data, the hero shows that single view. With neither, a placeholder appears. Below the hero: site name, region/country when available, key stats, and your friend’s name. Tap the stats area to open the same style of detail screen as your own dives and snorkels.
 
 **Share dives with friends** (Settings) includes **snorkel sessions** as well as scuba dives — each uploads a friend-visible projection with the correct activity type and GPS track when available.
 
-Pull down on Buddy Feed to refresh. The feed also refreshes when you switch to **Buddy Feed**, open the **Logbook** tab while that segment is selected, return from a shared dive detail, tap the **Logbook** tab again while already on it, or bring the app back to the foreground while you’re on Buddy Feed in Logbook.
+Pull down on Buddy Feed to refresh. The feed also refreshes when you switch to **Buddy Feed**, open the **Logbook** tab while that segment is selected, return from a shared dive detail, tap the **Logbook** tab again while already on it, or bring the app back to the foreground while you’re on Buddy Feed in Logbook. The list loads **20 activities** at a time; scroll to the bottom to load the next **20**.
 
 If you have no friends yet, Buddy Feed explains that and offers **Add friends** to open the Friends list (invite via QR or link). If friends have not shared activities yet, you’ll see **No buddy activities yet** with **View friends**.
 

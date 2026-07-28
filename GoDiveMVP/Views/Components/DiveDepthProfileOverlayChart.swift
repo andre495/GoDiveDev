@@ -14,12 +14,18 @@ struct DiveDepthProfileOverlayChart: View {
     var pressureBaselinePSI: Double?
     /// **0...1** — progressive draw for depth + PSI polylines (tank **minimized** entrance).
     var profileLineRevealProgress: CGFloat = 1
+    /// Opacity for depth + gas strokes and dark underfill (collapse fade while dragging).
+    var profileStrokeAndUnderfillOpacity: CGFloat = 1
+    /// **0…1** — fades the top half of the water fill after snap to **minimized**.
+    var waterTopHalfFadeProgress: CGFloat = 0
     /// Landscape minimized profile with media markers — pinch to zoom; two-finger pan; one-finger scrub.
     var allowsZoomAndPan = false
     /// Shimmering water fill + miniature bubbles above the depth curve; static blue under the curve.
     var showsWaterFill = true
     /// Buddy-feed heroes and other compact tiles keep the fill but pause bubble / shimmer motion.
     var animatesWaterFill = true
+    /// Rising bubbles in the water fill (tank **minimized** / landscape; off for portrait **large**).
+    var showsWaterBubbles = true
     /// **0…1** — masks the plot top to transparent (portrait tank **minimized**).
     var topEdgeFadeFraction: CGFloat = 0
     /// Non-scrubbable side margins; profile extends flat from first/last samples (landscape tank hero).
@@ -31,7 +37,8 @@ struct DiveDepthProfileOverlayChart: View {
     var onScrubCalloutChange: ((DiveDepthProfileScrubCallout?) -> Void)? = nil
 
     private static let scrubHoldDuration: Duration = .milliseconds(180)
-    @State private var fingerLocationInChart: CGPoint?
+    /// Pending finger during hold — class mutation avoids SwiftUI body invalidation before scrub activates.
+    @State private var pendingFingerLocation = DiveDepthProfilePendingFingerLocation()
     @State private var scrubHoldTask: Task<Void, Never>?
     @State private var scrubActive = false
     @State private var scrubDepthIndex: Int?
@@ -50,25 +57,7 @@ struct DiveDepthProfileOverlayChart: View {
             let pressureScale = pressureDepthAlignedScale(
                 displayPressureSamples: pressureSamples
             )
-            let linePressureSamples = lineDisplayPressureSamples
             let lineReveal = min(1, max(0, profileLineRevealProgress))
-            let localPlotRect = CGRect(origin: .zero, size: rect.size)
-            let waterFillPath = DiveDepthProfileChartPresentation.depthProfileAreaPath(
-                samples: depthSamples,
-                in: localPlotRect,
-                viewport: viewport,
-                axisMaxDepthMeters: axisMaxDepth,
-                topBufferFraction: plotTopBufferFraction,
-                horizontalEdgeBufferFraction: horizontalEdgeBufferFraction
-            )
-            let underCurvePath = DiveDepthProfileChartPresentation.depthProfileUnderCurveAreaPath(
-                samples: depthSamples,
-                in: localPlotRect,
-                viewport: viewport,
-                axisMaxDepthMeters: axisMaxDepth,
-                topBufferFraction: plotTopBufferFraction,
-                horizontalEdgeBufferFraction: horizontalEdgeBufferFraction
-            )
 
             ZStack(alignment: .topLeading) {
                 if depthSamples.count < 2 {
@@ -81,16 +70,45 @@ struct DiveDepthProfileOverlayChart: View {
                         axisChrome(in: rect, viewport: viewport, axisMaxDepth: axisMaxDepth)
                     }
 
-                    plotContentLayer(
+                    DiveDepthProfileStaticPlotLayer(
+                        depthSamples: depthSamples,
+                        pressureSamples: pressureSamples,
+                        mediaMarkers: mediaMarkers,
+                        mediaPhotosByID: mediaPhotosByID,
                         rect: rect,
                         viewport: viewport,
                         axisMaxDepth: axisMaxDepth,
-                        waterFillPath: waterFillPath,
-                        underCurvePath: underCurvePath,
+                        maxElapsed: maxElapsed,
                         lineReveal: lineReveal,
-                        pressureScale: pressureScale,
-                        linePressureSamples: linePressureSamples
+                        strokeAndUnderfillOpacity: min(1, max(0, profileStrokeAndUnderfillOpacity)),
+                        waterTopHalfFadeProgress: min(1, max(0, waterTopHalfFadeProgress)),
+                        pressureScale: pressureScale.map {
+                            DiveDepthProfileStaticPlotLayer.PressureScale(
+                                minDepthMeters: $0.minDepthMeters,
+                                maxDepthMeters: $0.maxDepthMeters,
+                                minPressurePSI: $0.minPressurePSI,
+                                maxPressurePSI: $0.maxPressurePSI
+                            )
+                        },
+                        showsWaterFill: showsWaterFill,
+                        animatesWaterFill: animatesWaterFill && !scrubActive,
+                        showsWaterBubbles: showsWaterBubbles,
+                        showsGasOverlay: showsGasOverlay,
+                        topBufferFraction: plotTopBufferFraction,
+                        horizontalEdgeBufferFraction: horizontalEdgeBufferFraction,
+                        onMediaMarkerTap: onMediaMarkerTap
                     )
+                    .equatable()
+
+                    if scrubActive, let idx = scrubDepthIndex, depthSamples.indices.contains(idx) {
+                        scrubChrome(
+                            in: rect,
+                            viewport: viewport,
+                            axisMaxDepth: axisMaxDepth,
+                            depthIndex: idx,
+                            pressureScale: pressureScale
+                        )
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -107,7 +125,7 @@ struct DiveDepthProfileOverlayChart: View {
                     chartViewport: $chartViewport,
                     panGestureLastTranslationX: $panGestureLastTranslationX,
                     depthSampleCount: depthSamples.count,
-                    fingerLocationInChart: $fingerLocationInChart,
+                    pendingFingerLocation: pendingFingerLocation,
                     scrubHoldTask: $scrubHoldTask,
                     scrubActive: $scrubActive,
                     scrubDepthIndex: $scrubDepthIndex,
@@ -159,8 +177,8 @@ struct DiveDepthProfileOverlayChart: View {
     }
 
     private var chartMaxElapsed: Double {
-        let depthMax = depthSamples.map(\.elapsedSeconds).max() ?? 0
-        let pressureMax = pressureSamples.map(\.elapsedSeconds).max() ?? 0
+        let depthMax = depthSamples.last?.elapsedSeconds ?? 0
+        let pressureMax = pressureSamples.last?.elapsedSeconds ?? 0
         return max(depthMax, pressureMax, 0.001)
     }
 
@@ -173,10 +191,6 @@ struct DiveDepthProfileOverlayChart: View {
 
     private var plotTopBufferFraction: Double {
         DiveDepthProfileChartPresentation.depthAxisTopBufferFraction(for: chromeStyle)
-    }
-
-    private var lineDisplayPressureSamples: [DiveDepthProfilePressureSample] {
-        DiveDepthProfileChartPresentation.downsampledPressureSamplesForLine(pressureSamples)
     }
 
     private struct PressureDepthAlignedScale: Sendable {
@@ -199,78 +213,6 @@ struct DiveDepthProfileOverlayChart: View {
             minPressurePSI: pressureRange.min,
             maxPressurePSI: pressureRange.max
         )
-    }
-
-    @ViewBuilder
-    private func plotContentLayer(
-        rect: CGRect,
-        viewport: DiveDepthProfileChartViewport,
-        axisMaxDepth: Double,
-        waterFillPath: Path,
-        underCurvePath: Path,
-        lineReveal: CGFloat,
-        pressureScale: PressureDepthAlignedScale?,
-        linePressureSamples: [DiveDepthProfilePressureSample]
-    ) -> some View {
-        ZStack(alignment: .topLeading) {
-            if showsWaterFill {
-                DiveDepthProfileChartWaterFillView(
-                    areaPath: waterFillPath,
-                    plotSize: rect.size,
-                    revealProgress: 1,
-                    animates: animatesWaterFill
-                )
-                .offset(x: rect.minX, y: rect.minY)
-            }
-
-            DiveDepthProfileChartStaticUnderfillView(
-                areaPath: underCurvePath,
-                plotSize: rect.size,
-                revealProgress: lineReveal
-            )
-            .offset(x: rect.minX, y: rect.minY)
-
-            Group {
-                if showsGasOverlay, let pressureScale {
-                    pressurePolyline(
-                        in: rect,
-                        viewport: viewport,
-                        pressureSamples: linePressureSamples,
-                        pressureScale: pressureScale,
-                        axisMaxDepth: axisMaxDepth,
-                        revealProgress: lineReveal
-                    )
-                }
-                depthPolyline(
-                    in: rect,
-                    viewport: viewport,
-                    axisMaxDepth: axisMaxDepth,
-                    revealProgress: lineReveal
-                )
-            }
-            .drawingGroup()
-
-            mediaMarkerLayer(
-                in: rect,
-                viewport: viewport,
-                axisMaxDepth: axisMaxDepth,
-                fullElapsedMax: chartMaxElapsed
-            )
-            .opacity(Double(lineReveal))
-
-            if scrubActive, let idx = scrubDepthIndex, depthSamples.indices.contains(idx) {
-                scrubChrome(
-                    in: rect,
-                    viewport: viewport,
-                    axisMaxDepth: axisMaxDepth,
-                    depthIndex: idx,
-                    pressureScale: pressureScale
-                )
-            }
-        }
-        .frame(width: rect.width, height: rect.height)
-        .position(x: rect.midX, y: rect.midY)
-        .clipShape(Rectangle())
     }
 
     private func axisChrome(
@@ -331,109 +273,6 @@ struct DiveDepthProfileOverlayChart: View {
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
-    }
-
-    private func depthPolyline(
-        in rect: CGRect,
-        viewport: DiveDepthProfileChartViewport,
-        axisMaxDepth: Double,
-        revealProgress: CGFloat
-    ) -> some View {
-        DiveDepthProfileChartPresentation.depthProfileLinePath(
-            samples: depthSamples,
-            in: rect,
-            viewport: viewport,
-            axisMaxDepthMeters: axisMaxDepth,
-            topBufferFraction: plotTopBufferFraction,
-            horizontalEdgeBufferFraction: horizontalEdgeBufferFraction
-        )
-        .trim(from: 0, to: revealProgress)
-        .stroke(
-            AppTheme.Colors.accent,
-            style: StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round)
-        )
-        .shadow(color: AppTheme.Colors.accentLight.opacity(0.35), radius: 2, y: 1)
-    }
-
-    private func mediaMarkerLayer(
-        in rect: CGRect,
-        viewport: DiveDepthProfileChartViewport,
-        axisMaxDepth: Double,
-        fullElapsedMax: Double
-    ) -> some View {
-        let markerThumbnailSize = DiveDepthProfileMediaPlotting.markerThumbnailDisplaySize(
-            viewport: viewport,
-            fullElapsedMax: fullElapsedMax
-        )
-
-        return Group {
-            ForEach(mediaMarkers) { marker in
-                if viewport.contains(elapsedSeconds: marker.elapsedSeconds),
-                   let media = mediaPhotosByID[marker.mediaID] {
-                    Button {
-                        onMediaMarkerTap?(marker)
-                    } label: {
-                        DiveDepthProfileMediaMarkerView(
-                            media: media,
-                            thumbnailSize: markerThumbnailSize
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .position(
-                        DiveDepthProfileOverlayChartLayout.depthPoint(
-                            sample: DiveDepthProfileSample(
-                                elapsedSeconds: marker.elapsedSeconds,
-                                depthMeters: marker.depthMeters
-                            ),
-                            in: rect,
-                            viewport: viewport,
-                            maxDepth: axisMaxDepth,
-                            topBufferFraction: plotTopBufferFraction,
-                            horizontalEdgeBufferFraction: horizontalEdgeBufferFraction
-                        )
-                    )
-                    .accessibilityIdentifier("DiveDepthProfileOverlayChart.MediaMarker.\(marker.mediaID.uuidString)")
-                }
-            }
-        }
-    }
-
-    private func pressurePolyline(
-        in rect: CGRect,
-        viewport: DiveDepthProfileChartViewport,
-        pressureSamples: [DiveDepthProfilePressureSample],
-        pressureScale: PressureDepthAlignedScale,
-        axisMaxDepth: Double,
-        revealProgress: CGFloat
-    ) -> some View {
-        Path { path in
-            let points = pressureSamples.map { sample in
-                DiveDepthProfileOverlayChartLayout.pressurePoint(
-                    sample: sample,
-                    in: rect,
-                    viewport: viewport,
-                    minDepthMeters: pressureScale.minDepthMeters,
-                    maxDepthMeters: pressureScale.maxDepthMeters,
-                    axisMaxDepthMeters: axisMaxDepth,
-                    minPressurePSI: pressureScale.minPressurePSI,
-                    maxPressurePSI: pressureScale.maxPressurePSI,
-                    topBufferFraction: plotTopBufferFraction,
-                    horizontalEdgeBufferFraction: horizontalEdgeBufferFraction
-                )
-            }
-            let traced = DiveDepthProfileOverlayChartLayout.tracedProfilePath(
-                points: points,
-                in: rect,
-                horizontalEdgeBufferFraction: horizontalEdgeBufferFraction,
-                extendsIntoHorizontalBuffers: false
-            )
-            path.addPath(traced)
-        }
-        .trim(from: 0, to: revealProgress)
-        .stroke(
-            AppTheme.Colors.tankGasAccent,
-            style: StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round)
-        )
     }
 
     @ViewBuilder
@@ -597,7 +436,7 @@ struct DiveDepthProfileOverlayChart: View {
     }
 
     private func clearScrubState() {
-        fingerLocationInChart = nil
+        pendingFingerLocation.point = nil
         scrubActive = false
         scrubDepthIndex = nil
         if usesPinnedScrubCallout {
@@ -625,6 +464,221 @@ struct DiveDepthProfileOverlayChart: View {
     }
 }
 
+// MARK: - Static plot (Equatable — skips O(n) path rebuilds during scrub)
+
+private final class DiveDepthProfilePendingFingerLocation {
+    var point: CGPoint?
+}
+
+/// Depth / gas / fill layers that do not depend on scrub index.
+private struct DiveDepthProfileStaticPlotLayer: View, Equatable {
+    struct PressureScale: Equatable, Sendable {
+        let minDepthMeters: Double
+        let maxDepthMeters: Double
+        let minPressurePSI: Double
+        let maxPressurePSI: Double
+    }
+
+    let depthSamples: [DiveDepthProfileSample]
+    let pressureSamples: [DiveDepthProfilePressureSample]
+    let mediaMarkers: [DiveDepthProfileMediaMarker]
+    let mediaPhotosByID: [UUID: DiveMediaPhoto]
+    let rect: CGRect
+    let viewport: DiveDepthProfileChartViewport
+    let axisMaxDepth: Double
+    let maxElapsed: Double
+    let lineReveal: CGFloat
+    let strokeAndUnderfillOpacity: CGFloat
+    let waterTopHalfFadeProgress: CGFloat
+    let pressureScale: PressureScale?
+    let showsWaterFill: Bool
+    let animatesWaterFill: Bool
+    let showsWaterBubbles: Bool
+    let showsGasOverlay: Bool
+    let topBufferFraction: Double
+    let horizontalEdgeBufferFraction: CGFloat
+    let onMediaMarkerTap: ((DiveDepthProfileMediaMarker) -> Void)?
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.rect == rhs.rect
+            && lhs.viewport == rhs.viewport
+            && lhs.axisMaxDepth == rhs.axisMaxDepth
+            && lhs.maxElapsed == rhs.maxElapsed
+            && lhs.lineReveal == rhs.lineReveal
+            && lhs.strokeAndUnderfillOpacity == rhs.strokeAndUnderfillOpacity
+            && lhs.waterTopHalfFadeProgress == rhs.waterTopHalfFadeProgress
+            && lhs.pressureScale == rhs.pressureScale
+            && lhs.showsWaterFill == rhs.showsWaterFill
+            && lhs.animatesWaterFill == rhs.animatesWaterFill
+            && lhs.showsWaterBubbles == rhs.showsWaterBubbles
+            && lhs.showsGasOverlay == rhs.showsGasOverlay
+            && lhs.topBufferFraction == rhs.topBufferFraction
+            && lhs.horizontalEdgeBufferFraction == rhs.horizontalEdgeBufferFraction
+            && lhs.depthSamples.count == rhs.depthSamples.count
+            && lhs.depthSamples.first == rhs.depthSamples.first
+            && lhs.depthSamples.last == rhs.depthSamples.last
+            && lhs.pressureSamples.count == rhs.pressureSamples.count
+            && lhs.pressureSamples.first == rhs.pressureSamples.first
+            && lhs.pressureSamples.last == rhs.pressureSamples.last
+            && lhs.mediaMarkers.count == rhs.mediaMarkers.count
+            && lhs.mediaMarkers.first?.mediaID == rhs.mediaMarkers.first?.mediaID
+            && lhs.mediaMarkers.last?.mediaID == rhs.mediaMarkers.last?.mediaID
+    }
+
+    var body: some View {
+        let localPlotRect = CGRect(origin: .zero, size: rect.size)
+        let waterFillPath = DiveDepthProfileChartPresentation.depthProfileAreaPath(
+            samples: depthSamples,
+            in: localPlotRect,
+            viewport: viewport,
+            axisMaxDepthMeters: axisMaxDepth,
+            topBufferFraction: topBufferFraction,
+            horizontalEdgeBufferFraction: horizontalEdgeBufferFraction
+        )
+        let underCurvePath = DiveDepthProfileChartPresentation.depthProfileUnderCurveAreaPath(
+            samples: depthSamples,
+            in: localPlotRect,
+            viewport: viewport,
+            axisMaxDepthMeters: axisMaxDepth,
+            topBufferFraction: topBufferFraction,
+            horizontalEdgeBufferFraction: horizontalEdgeBufferFraction
+        )
+        let linePressureSamples = DiveDepthProfileChartPresentation.downsampledPressureSamplesForLine(
+            pressureSamples
+        )
+        let strokeOpacity = Double(min(1, max(0, strokeAndUnderfillOpacity)))
+
+        ZStack(alignment: .topLeading) {
+            if showsWaterFill {
+                DiveDepthProfileChartWaterFillView(
+                    areaPath: waterFillPath,
+                    plotSize: rect.size,
+                    revealProgress: 1,
+                    animates: animatesWaterFill,
+                    showsBubbles: showsWaterBubbles,
+                    topHalfFadeProgress: waterTopHalfFadeProgress
+                )
+                .offset(x: rect.minX, y: rect.minY)
+            }
+
+            DiveDepthProfileChartStaticUnderfillView(
+                areaPath: underCurvePath,
+                plotSize: rect.size,
+                revealProgress: lineReveal,
+                opacity: strokeAndUnderfillOpacity
+            )
+            .offset(x: rect.minX, y: rect.minY)
+
+            Group {
+                if showsGasOverlay, let pressureScale {
+                    pressurePolyline(
+                        pressureSamples: linePressureSamples,
+                        pressureScale: pressureScale
+                    )
+                }
+                depthPolyline
+            }
+            .opacity(strokeOpacity)
+            .drawingGroup()
+
+            mediaMarkerLayer
+                .opacity(Double(lineReveal) * strokeOpacity)
+        }
+        .frame(width: rect.width, height: rect.height)
+        .position(x: rect.midX, y: rect.midY)
+        .clipShape(Rectangle())
+    }
+
+    private var depthPolyline: some View {
+        DiveDepthProfileChartPresentation.depthProfileLinePath(
+            samples: depthSamples,
+            in: rect,
+            viewport: viewport,
+            axisMaxDepthMeters: axisMaxDepth,
+            topBufferFraction: topBufferFraction,
+            horizontalEdgeBufferFraction: horizontalEdgeBufferFraction
+        )
+        .trim(from: 0, to: lineReveal)
+        .stroke(
+            AppTheme.Colors.accent,
+            style: StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round)
+        )
+        .shadow(color: AppTheme.Colors.accentLight.opacity(0.35), radius: 2, y: 1)
+    }
+
+    private func pressurePolyline(
+        pressureSamples: [DiveDepthProfilePressureSample],
+        pressureScale: PressureScale
+    ) -> some View {
+        Path { path in
+            let points = pressureSamples.map { sample in
+                DiveDepthProfileOverlayChartLayout.pressurePoint(
+                    sample: sample,
+                    in: rect,
+                    viewport: viewport,
+                    minDepthMeters: pressureScale.minDepthMeters,
+                    maxDepthMeters: pressureScale.maxDepthMeters,
+                    axisMaxDepthMeters: axisMaxDepth,
+                    minPressurePSI: pressureScale.minPressurePSI,
+                    maxPressurePSI: pressureScale.maxPressurePSI,
+                    topBufferFraction: topBufferFraction,
+                    horizontalEdgeBufferFraction: horizontalEdgeBufferFraction
+                )
+            }
+            let traced = DiveDepthProfileOverlayChartLayout.tracedProfilePath(
+                points: points,
+                in: rect,
+                horizontalEdgeBufferFraction: horizontalEdgeBufferFraction,
+                extendsIntoHorizontalBuffers: false
+            )
+            path.addPath(traced)
+        }
+        .trim(from: 0, to: lineReveal)
+        .stroke(
+            AppTheme.Colors.tankGasAccent,
+            style: StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round)
+        )
+    }
+
+    private var mediaMarkerLayer: some View {
+        let markerThumbnailSize = DiveDepthProfileMediaPlotting.markerThumbnailDisplaySize(
+            viewport: viewport,
+            fullElapsedMax: maxElapsed
+        )
+
+        return Group {
+            ForEach(mediaMarkers) { marker in
+                if viewport.contains(elapsedSeconds: marker.elapsedSeconds),
+                   let media = mediaPhotosByID[marker.mediaID] {
+                    Button {
+                        onMediaMarkerTap?(marker)
+                    } label: {
+                        DiveDepthProfileMediaMarkerView(
+                            media: media,
+                            thumbnailSize: markerThumbnailSize
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .position(
+                        DiveDepthProfileOverlayChartLayout.depthPoint(
+                            sample: DiveDepthProfileSample(
+                                elapsedSeconds: marker.elapsedSeconds,
+                                depthMeters: marker.depthMeters
+                            ),
+                            in: rect,
+                            viewport: viewport,
+                            maxDepth: axisMaxDepth,
+                            topBufferFraction: topBufferFraction,
+                            horizontalEdgeBufferFraction: horizontalEdgeBufferFraction
+                        )
+                    )
+                    .accessibilityIdentifier("DiveDepthProfileOverlayChart.MediaMarker.\(marker.mediaID.uuidString)")
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Gestures
 
 private struct DiveDepthProfileOverlayChartInteractionModifier: ViewModifier {
@@ -635,7 +689,7 @@ private struct DiveDepthProfileOverlayChartInteractionModifier: ViewModifier {
     @Binding var chartViewport: DiveDepthProfileChartViewport?
     @Binding var panGestureLastTranslationX: CGFloat
     let depthSampleCount: Int
-    @Binding var fingerLocationInChart: CGPoint?
+    let pendingFingerLocation: DiveDepthProfilePendingFingerLocation
     @Binding var scrubHoldTask: Task<Void, Never>?
     @Binding var scrubActive: Bool
     @Binding var scrubDepthIndex: Int?
@@ -670,13 +724,14 @@ private struct DiveDepthProfileOverlayChartInteractionModifier: ViewModifier {
             .onChanged { value in
                 guard depthSampleCount >= 2 else { return }
                 let loc = value.location
-                fingerLocationInChart = loc
+                // Class mutation — no view invalidation until scrub activates.
+                pendingFingerLocation.point = loc
 
                 if scrubHoldTask == nil {
                     scrubHoldTask = Task { @MainActor in
                         try? await Task.sleep(for: scrubHoldDuration)
                         guard !Task.isCancelled else { return }
-                        guard let current = fingerLocationInChart else { return }
+                        guard let current = pendingFingerLocation.point else { return }
                         guard let index = nearestDepthIndex(current) else { return }
                         scrubActive = true
                         scrubDepthIndex = index

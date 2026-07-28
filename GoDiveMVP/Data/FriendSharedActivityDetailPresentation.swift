@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 /// Read-only presentation helpers for friend-visible activity detail (dives + snorkels).
@@ -177,5 +178,93 @@ enum FriendSharedActivityDetailPresentation: Sendable {
         let decoded = snorkelDerivedSnapshot(from: dive).trackCoordinates
         if decoded.count >= 2 { return decoded }
         return GoDiveSharedDiveProjectionMapping.decodedSwimTrackCoordinates(from: dive)
+    }
+
+    /// Tank hero gas label — same rules as owned **`DiveActivity.tankHeroGasMixLabel`**.
+    nonisolated static func tankHeroGasMixLabel(
+        for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
+    ) -> String {
+        DiveGasMixImport.tankHeroLabel(gasType: dive.gasType, oxygenMix: dive.oxygenMix)
+    }
+
+    /// Cylinder fill for friend tank hero (**end / start** PSI).
+    nonisolated static func tankHeroPressureFillFraction(
+        for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
+    ) -> CGFloat {
+        let fraction = DiveActivityTankPanelSummary.remainingPressureFillFraction(
+            startPSI: dive.tankPressureStartPSI,
+            endPSI: dive.tankPressureEndPSI
+        )
+        return CGFloat(fraction ?? 1)
+    }
+
+    /// Minimized gas summary SAC line — same formula path as owned **`DiveActivity.tankHeroSACRateLine`**.
+    nonisolated static func tankHeroSACRateLine(
+        for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive,
+        displayUnits: DiveDisplayUnitSystem
+    ) -> String? {
+        guard dive.tankPressureStartPSI != nil, dive.tankPressureEndPSI != nil else { return nil }
+        guard let sac = DiveSACRMVCalculation.sacPSIPerMinute(from: sacRMVCalculationInput(for: dive)) else {
+            return nil
+        }
+        return DiveQuantityFormatting.surfaceAirConsumption(sacPSIPerMinute: sac, system: displayUnits)
+    }
+
+    /// Minimized gas summary RMV line — same formula path as owned **`DiveActivity.tankHeroRMVRateLine`**.
+    nonisolated static func tankHeroRMVRateLine(
+        for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive,
+        displayUnits: DiveDisplayUnitSystem
+    ) -> String? {
+        guard dive.tankPressureStartPSI != nil, dive.tankPressureEndPSI != nil else { return nil }
+        let input = sacRMVCalculationInput(for: dive)
+        guard let sac = DiveSACRMVCalculation.sacPSIPerMinute(from: input),
+              let rmv = DiveSACRMVCalculation.rmvLitersPerMinute(from: input, sacPSIPerMinute: sac)
+        else { return nil }
+        return DiveQuantityFormatting.respiratoryMinuteVolume(litersPerMinute: rmv, system: displayUnits)
+    }
+
+    /// Landscape tank plot frame — identical inputs/outputs as owned dive **Tank** landscape.
+    nonisolated static func landscapeTankProfileChartFrame(
+        layoutSize: CGSize,
+        layoutHeight: CGFloat,
+        topObstructionHeight: CGFloat,
+        bottomSafeInset: CGFloat
+    ) -> CGRect {
+        DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstructionHeight,
+            bottomContentMargin: bottomSafeInset,
+            isLandscape: true
+        )
+    }
+
+    /// Friend tank minimized entrance uses the same durations / gate as owned **`ViewSingleActivity`**.
+    nonisolated static var tankMinimizedEntranceMatchesOwnedDive: Bool {
+        DiveTankOverviewHeroPresentation.minimizedEntranceAnimationDuration == 2.4
+            && DiveTankOverviewHeroPresentation.minimizedWaterTopFadeDuration == 0.35
+            && DiveTankOverviewHeroPresentation.profileStrokeFadeCompleteCollapseProgress == 0.22
+            && DiveTankOverviewHeroPresentation.shouldPlayMinimizedEntranceAnimation(
+                from: .large,
+                to: .minimized
+            )
+            && !DiveTankOverviewHeroPresentation.shouldPlayMinimizedEntranceAnimation(
+                from: .minimized,
+                to: .large
+            )
+    }
+
+    private nonisolated static func sacRMVCalculationInput(
+        for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
+    ) -> DiveSACRMVCalculation.Input {
+        DiveSACRMVCalculation.Input(
+            tankPressureStartPSI: dive.tankPressureStartPSI,
+            tankPressureEndPSI: dive.tankPressureEndPSI,
+            bottomTimeSeconds: dive.bottomTimeSeconds,
+            durationMinutes: dive.durationMinutes ?? 0,
+            averageDepthMeters: dive.averageDepthMeters,
+            maxDepthMeters: dive.maxDepthMeters ?? 0,
+            tankVolumeDescription: dive.tankVolumeDescription
+        )
     }
 }

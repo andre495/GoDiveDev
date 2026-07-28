@@ -321,20 +321,28 @@ enum DiveDepthProfileOverlayChartLayout: Sendable {
         return path
     }
 
+    /// Samples must be sorted by **`elapsedSeconds`** ascending.
     nonisolated static func indexNearestPressure(
         elapsedSeconds: Double,
         in samples: [DiveDepthProfilePressureSample]
     ) -> Int? {
         guard !samples.isEmpty else { return nil }
-        var bestIndex = 0
-        var bestDelta = abs(samples[0].elapsedSeconds - elapsedSeconds)
-        for i in 1 ..< samples.count {
-            let delta = abs(samples[i].elapsedSeconds - elapsedSeconds)
-            if delta < bestDelta {
-                bestDelta = delta
-                bestIndex = i
+        if samples.count == 1 { return 0 }
+        if elapsedSeconds <= samples[0].elapsedSeconds { return 0 }
+        if elapsedSeconds >= samples[samples.count - 1].elapsedSeconds { return samples.count - 1 }
+
+        var low = 0
+        var high = samples.count - 1
+        while low + 1 < high {
+            let mid = (low + high) / 2
+            if samples[mid].elapsedSeconds <= elapsedSeconds {
+                low = mid
+            } else {
+                high = mid
             }
         }
-        return bestIndex
+        let lowDelta = abs(samples[low].elapsedSeconds - elapsedSeconds)
+        let highDelta = abs(samples[high].elapsedSeconds - elapsedSeconds)
+        return highDelta < lowDelta ? high : low
     }
 }

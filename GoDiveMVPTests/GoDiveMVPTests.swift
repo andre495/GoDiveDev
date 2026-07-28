@@ -3818,6 +3818,30 @@ struct GoDiveMVPTests {
         #expect(DiveDepthProfileSeries.indexNearestElapsed(45, in: s) == 1)
         #expect(DiveDepthProfileSeries.indexNearestElapsed(0, in: s) == 0)
         #expect(DiveDepthProfileSeries.indexNearestElapsed(200, in: s) == 2)
+        #expect(DiveDepthProfileSeries.indexNearestElapsed(30, in: s) == 0)
+        #expect(DiveDepthProfileSeries.indexNearestElapsed(90, in: s) == 1)
+    }
+
+    @Test func diveActivityOverviewPanelMetrics_shouldPublishLiveHeightFraction_throttlesSmallDeltas() {
+        #expect(
+            !DiveActivityOverviewPanelMetrics.shouldPublishLiveHeightFraction(
+                previous: 0.50,
+                next: 0.503
+            )
+        )
+        #expect(
+            DiveActivityOverviewPanelMetrics.shouldPublishLiveHeightFraction(
+                previous: 0.50,
+                next: 0.50 + DiveActivityOverviewPanelMetrics.liveHeightFractionPublishEpsilon
+            )
+        )
+        #expect(
+            DiveActivityOverviewPanelMetrics.shouldPublishLiveHeightFraction(
+                previous: 0.50,
+                next: 0.501,
+                force: true
+            )
+        )
     }
 
     @Test func diveDepthProfileSeries_pressureSamples_omitsNilTankPressure() throws {
@@ -3924,12 +3948,47 @@ struct GoDiveMVPTests {
             chartSizingBottomContentMargin: largeMargin
         )
         #expect(abs(minimizedFrame.width - largeFrame.width) < 0.5)
-        #expect(abs(minimizedFrame.height - largeFrame.height) < 0.5)
+        let expectedScaled = largeFrame.height * DiveTankOverviewHeroPresentation.minimizedPortraitChartHeightScale
+        let seamMaxHeight = layoutHeight - minimizedMargin
+            + DiveTankOverviewHeroPresentation.largeDetentSheetSeamCornerBleed
+        #expect(abs(minimizedFrame.height - min(expectedScaled, seamMaxHeight)) < 1)
+        #expect(minimizedFrame.height > largeFrame.height + 1)
         #expect(abs(minimizedFrame.midX - layoutSize.width / 2) < 1)
         #expect(abs(minimizedFrame.maxY - (
             layoutHeight - minimizedMargin + DiveTankOverviewHeroPresentation.largeDetentSheetSeamCornerBleed
         )) < 0.5)
-        #expect(minimizedFrame.minY > largeFrame.minY)
+        #expect(minimizedFrame.minY >= DiveTankOverviewHeroPresentation.profileChartBandTop - 0.5)
+    }
+
+    @Test func diveTankOverviewHeroPresentation_portraitChartHeightScale_growsWithCollapse() {
+        #expect(DiveTankOverviewHeroPresentation.minimizedPortraitChartHeightScale == 1.6)
+        #expect(
+            DiveTankOverviewHeroPresentation.portraitChartHeightScale(
+                detent: .large,
+                collapseProgress: nil
+            ) == 1
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.portraitChartHeightScale(
+                detent: .minimized,
+                collapseProgress: nil
+            ) == 1.6
+        )
+        #expect(
+            abs(
+                DiveTankOverviewHeroPresentation.portraitChartHeightScale(
+                    detent: .large,
+                    collapseProgress: 0.5
+                ) - 1.3
+            ) < 0.001
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.portraitChartTopFadeFraction == 0.14
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.minimizedPortraitChartTopFadeFraction
+                == DiveTankOverviewHeroPresentation.portraitChartTopFadeFraction
+        )
     }
 
     @Test func diveTankOverviewHeroPresentation_minimizedProfileChartFrame_keepsSizeWhileSeamMoves() {
@@ -3957,7 +4016,7 @@ struct GoDiveMVPTests {
             chartSizingBottomContentMargin: largeMargin
         )
         #expect(abs(resting.width - dragged.width) < 0.5)
-        #expect(abs(resting.height - dragged.height) < 0.5)
+        #expect(dragged.height < resting.height)
         #expect(dragged.maxY < resting.maxY)
     }
 
@@ -4284,6 +4343,11 @@ struct GoDiveMVPTests {
         #expect(AppPortraitOrientationLockPolicy.locksLogbook(path: [.diveSite(sampleID)]))
         #expect(!AppPortraitOrientationLockPolicy.locksLogbook(path: [.diveDetail(sampleID)]))
         #expect(!AppPortraitOrientationLockPolicy.locksLogbook(path: [.diveMedia(sampleID, mediaID: mediaID)]))
+        #expect(
+            !AppPortraitOrientationLockPolicy.locksLogbook(
+                path: [.buddySharedDive(friendUID: "friend-1", diveDocumentID: "dive-1")]
+            )
+        )
 
         #expect(AppPortraitOrientationLockPolicy.locksFieldGuide(isShowingDiveDetail: false))
         #expect(!AppPortraitOrientationLockPolicy.locksFieldGuide(isShowingDiveDetail: true))
@@ -4418,6 +4482,33 @@ struct GoDiveMVPTests {
         #expect(
             DiveTankOverviewHeroPresentation.minimizedPortraitRotateHintTopInset
                 == DiveActivityOverviewPanelMetrics.embeddedGrabberRowHeight + 4
+        )
+    }
+
+    @Test func diveTankOverviewHeroPresentation_showsAnimatedDepthChartBubbles_byDetent() {
+        #expect(
+            !DiveTankOverviewHeroPresentation.showsAnimatedDepthChartBubbles(
+                for: .large,
+                isLandscape: false
+            )
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.showsAnimatedDepthChartBubbles(
+                for: .minimized,
+                isLandscape: false
+            )
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.showsAnimatedDepthChartBubbles(
+                for: .large,
+                isLandscape: true
+            )
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.showsAnimatedDepthChartBubbles(
+                for: .minimized,
+                isLandscape: true
+            )
         )
     }
 
@@ -20398,8 +20489,11 @@ struct GoDiveMVPTests {
         #expect(DiveTankOverviewHeroPresentation.scale(for: .large) == 1)
     }
 
-    @Test func diveTankOverviewHeroPresentation_minimizedEntranceAnimationDuration_isFiveSeconds() {
-        #expect(DiveTankOverviewHeroPresentation.minimizedEntranceAnimationDuration == 5)
+    @Test func diveTankOverviewHeroPresentation_minimizedEntranceAnimation_isSnappy() {
+        #expect(DiveTankOverviewHeroPresentation.minimizedEntranceAnimationDuration == 2.4)
+        #expect(DiveTankOverviewHeroPresentation.minimizedWaterTopFadeDuration == 0.35)
+        #expect(DiveTankOverviewHeroPresentation.minimizedWaterTopFadeHeightFraction == 0.5)
+        #expect(DiveTankOverviewHeroPresentation.profileStrokeFadeCompleteCollapseProgress == 0.22)
     }
 
     @Test func diveTankOverviewHeroPresentation_shouldPlayMinimizedEntranceAnimation_onlyWhenCollapsingToMinimized() {
@@ -20420,6 +20514,125 @@ struct GoDiveMVPTests {
                 from: .minimized,
                 to: .minimized
             )
+        )
+    }
+
+    @Test func diveTankOverviewHeroPresentation_collapseProgress_mapsLiveSheetHeight() {
+        let context = DiveActivityOverviewSheetLayoutContext.presentationReference
+        let large = DiveActivityOverviewPanelMetrics.largeHeightFraction(in: context)
+        let minimized = DiveActivityOverviewPanelMetrics.minimizedHeightFraction
+        #expect(
+            DiveTankOverviewHeroPresentation.collapseProgress(
+                liveHeightFraction: large,
+                layoutContext: context
+            ) == 0
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.collapseProgress(
+                liveHeightFraction: minimized,
+                layoutContext: context
+            ) == 1
+        )
+        let mid = DiveTankOverviewHeroPresentation.collapseProgress(
+            liveHeightFraction: (large + minimized) / 2,
+            layoutContext: context
+        )
+        #expect(abs(mid - 0.5) < 0.02)
+    }
+
+    @Test func diveTankOverviewHeroPresentation_profileStrokeOpacity_fadesWhileCollapsingFromLarge() {
+        #expect(
+            DiveTankOverviewHeroPresentation.profileStrokeAndUnderfillOpacity(
+                sheetDetent: .large,
+                collapseProgress: 0
+            ) == 1
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.profileStrokeAndUnderfillOpacity(
+                sheetDetent: .large,
+                collapseProgress: DiveTankOverviewHeroPresentation.profileStrokeFadeCompleteCollapseProgress
+            ) == 0
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.profileStrokeAndUnderfillOpacity(
+                sheetDetent: .large,
+                collapseProgress: 0.11
+            ) > 0.45
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.profileStrokeAndUnderfillOpacity(
+                sheetDetent: .large,
+                collapseProgress: 0.11
+            ) < 0.55
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.profileStrokeAndUnderfillOpacity(
+                sheetDetent: .large,
+                collapseProgress: 1
+            ) == 0
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.profileStrokeAndUnderfillOpacity(
+                sheetDetent: .minimized,
+                collapseProgress: 1
+            ) == 1
+        )
+        #expect(DiveTankOverviewHeroPresentation.profileStrokeFadeCompleteCollapseProgress == 0.22)
+    }
+
+    @Test func diveTankOverviewHeroPresentation_minimizedChromeOpacity_fadesOnExpand() {
+        #expect(
+            DiveTankOverviewHeroPresentation.minimizedChromeOpacity(
+                sheetDetent: .minimized,
+                isLandscape: false,
+                collapseProgress: 1,
+                chromeRevealProgress: 1
+            ) == 1
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.minimizedChromeOpacity(
+                sheetDetent: .minimized,
+                isLandscape: false,
+                collapseProgress: 0.25,
+                chromeRevealProgress: 1
+            ) == 0.25
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.minimizedChromeOpacity(
+                sheetDetent: .large,
+                isLandscape: false,
+                collapseProgress: 0.5,
+                chromeRevealProgress: 1
+            ) == 0
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.minimizedChromeOpacity(
+                sheetDetent: .minimized,
+                isLandscape: true,
+                collapseProgress: 1,
+                chromeRevealProgress: 1
+            ) == 0
+        )
+    }
+
+    @Test func diveTankOverviewHeroPresentation_collapseWaterBackdropOpacity_clearsWithTopFade() {
+        #expect(
+            DiveTankOverviewHeroPresentation.collapseWaterBackdropOpacity(
+                collapseProgress: 1,
+                waterTopHalfFadeProgress: 0
+            ) == 1
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.collapseWaterBackdropOpacity(
+                collapseProgress: 1,
+                waterTopHalfFadeProgress: 1
+            ) == 0
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.collapseWaterBackdropOpacity(
+                collapseProgress: 0.5,
+                waterTopHalfFadeProgress: 0
+            ) == 0.5
         )
     }
 
@@ -23961,6 +24174,8 @@ struct GoDiveMVPTests {
             showsMyActivitiesKindFilterEmptyState: false,
             items: [],
             buddyFeedRows: [],
+            buddyFeedHasMoreRows: false,
+            buddyFeedTotalRowCount: 0,
             buddyFeedEmptyKind: nil,
             isBuddyFeedLoading: false,
             isMyActivitiesLoading: false,

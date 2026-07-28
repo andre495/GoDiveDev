@@ -216,6 +216,18 @@ enum DiveActivityOverviewPanelMetrics: Sendable {
         )
     }
 
+    /// Minimum delta before republishing live height into the dive page (avoids per-frame hero rebuilds).
+    nonisolated static let liveHeightFractionPublishEpsilon: CGFloat = 0.006
+
+    nonisolated static func shouldPublishLiveHeightFraction(
+        previous: CGFloat,
+        next: CGFloat,
+        force: Bool = false,
+        epsilon: CGFloat = liveHeightFractionPublishEpsilon
+    ) -> Bool {
+        force || abs(previous - next) >= epsilon
+    }
+
     /// Whether scrolling in the panel should snap from compact to **large**.
     nonisolated static func shouldExpandFromScroll(
         restingFraction: CGFloat,

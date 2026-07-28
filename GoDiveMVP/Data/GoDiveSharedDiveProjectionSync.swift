@@ -336,7 +336,8 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
             equipmentSummary: equipment,
             profileTrackData: resolvedProfileTrackData(for: dive, modelContext: modelContext),
             swimTrackData: nil,
-            mediaPreviews: mediaPreviews
+            mediaPreviews: mediaPreviews,
+            featuredMediaPhotoID: DiveActivityMediaPresentation.featuredPhotoID(on: dive)?.uuidString
         )
     }
 
@@ -476,8 +477,18 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         dive: DiveActivity,
         ownerUID: String
     ) async -> [GoDiveSharedDiveProjectionMapping.MediaPreviewSnapshot] {
+        let sortedPhotos = DiveActivityMediaPresentation.sortedPhotos(on: dive)
+        let featuredID = DiveActivityMediaPresentation.featuredPhotoID(on: dive)
+        let uploadOrder: [DiveMediaPhoto]
+        if let featuredID,
+           let featured = sortedPhotos.first(where: { $0.id == featuredID }) {
+            uploadOrder = [featured] + sortedPhotos.filter { $0.id != featuredID }
+        } else {
+            uploadOrder = sortedPhotos
+        }
+
         var results: [GoDiveSharedDiveProjectionMapping.MediaPreviewSnapshot] = []
-        for photo in dive.mediaPhotos {
+        for photo in uploadOrder {
             guard let jpeg = photo.previewJPEGData, !jpeg.isEmpty else { continue }
             if let url = await GoDiveSharedMediaStorage.uploadPreview(
                 ownerUID: ownerUID,

@@ -54,17 +54,25 @@ enum DiveDepthProfileSeries {
     }
 
     /// Index of the sample whose **`elapsedSeconds`** is closest to **`targetElapsedSeconds`** (stable on ties: earlier index wins).
+    /// Samples must be sorted by **`elapsedSeconds`** ascending (profile import order).
     nonisolated static func indexNearestElapsed(_ targetElapsedSeconds: Double, in samples: [DiveDepthProfileSample]) -> Int {
         guard !samples.isEmpty else { return 0 }
-        var bestIndex = 0
-        var bestDelta = abs(samples[0].elapsedSeconds - targetElapsedSeconds)
-        for i in 1..<samples.count {
-            let delta = abs(samples[i].elapsedSeconds - targetElapsedSeconds)
-            if delta < bestDelta {
-                bestDelta = delta
-                bestIndex = i
+        if samples.count == 1 { return 0 }
+        if targetElapsedSeconds <= samples[0].elapsedSeconds { return 0 }
+        if targetElapsedSeconds >= samples[samples.count - 1].elapsedSeconds { return samples.count - 1 }
+
+        var low = 0
+        var high = samples.count - 1
+        while low + 1 < high {
+            let mid = (low + high) / 2
+            if samples[mid].elapsedSeconds <= targetElapsedSeconds {
+                low = mid
+            } else {
+                high = mid
             }
         }
-        return bestIndex
+        let lowDelta = abs(samples[low].elapsedSeconds - targetElapsedSeconds)
+        let highDelta = abs(samples[high].elapsedSeconds - targetElapsedSeconds)
+        return highDelta < lowDelta ? high : low
     }
 }

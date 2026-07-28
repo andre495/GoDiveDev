@@ -15,6 +15,12 @@ struct FriendSharedDiveDetailView: View {
     @State private var selectedMediaPreviewID: String?
     @State private var snorkelSnapshot = FriendSharedActivityDetailPresentation.SnorkelDerivedSnapshot.empty
     @State private var friendDepthChartScrubCallout: DiveDepthProfileScrubCallout?
+    @State private var friendTankChartSeries = GoDiveSharedDiveProjectionMapping.FriendSharedDepthChartSeries.empty
+    @State private var tankHeroPressureFillFraction: CGFloat = 1
+    @State private var tankMinimizedProfileRevealProgress: CGFloat = 1
+    @State private var tankMinimizedPsiUsedRevealProgress: CGFloat = 1
+    @State private var tankMinimizedWaterTopFadeProgress: CGFloat = 0
+    @State private var tankMinimizedChromeRevealProgress: CGFloat = 1
 
     private var currentUID: String? {
         GoDiveFirestoreUserProfileMapping.loadCachedFirebaseUID()
@@ -38,9 +44,25 @@ struct FriendSharedDiveDetailView: View {
         }
         .hidesBottomTabBarWhenPushed()
         .accessibilityIdentifier("FriendSharedDiveDetail.Root")
-        .task(id: dive.id) {
-            snorkelSnapshot = FriendSharedActivityDetailPresentation.snorkelDerivedSnapshot(from: dive)
+        .onChange(of: overviewSheetDetent) { oldDetent, newDetent in
+            guard oldDetent != newDetent else { return }
+            handleOverviewSheetDetentChange(from: oldDetent, to: newDetent)
         }
+        .onChange(of: dive.id) { _, _ in
+            resetTankMinimizedEntranceAnimationState()
+        }
+        .task(id: friendTankChartRefreshToken) {
+            snorkelSnapshot = FriendSharedActivityDetailPresentation.snorkelDerivedSnapshot(from: dive)
+            let dive = dive
+            friendTankChartSeries = await Task.detached {
+                GoDiveSharedDiveProjectionMapping.decodedDepthChartSeries(from: dive)
+            }.value
+        }
+    }
+
+    private var friendTankChartRefreshToken: String {
+        let trackLength = dive.profileTrackBase64?.count ?? 0
+        return "\(dive.id)-\(trackLength)"
     }
 
     // MARK: - Scuba
@@ -85,6 +107,9 @@ struct FriendSharedDiveDetailView: View {
             let isLandscape = DiveActivityOverviewLandscapePresentation.isLandscapeLayout(
                 layoutSize: geometry.size
             )
+            let hidesOverviewPanelInLandscape = DiveActivityOverviewLandscapePresentation.hidesOverviewPanel(
+                isLandscape: isLandscape
+            )
             let mapCoordinate = FriendSharedActivityDetailPresentation.mapCoordinate(from: dive)
             let mapLargeRestingFraction = DiveActivityOverviewPanelMetrics.largeHeightFraction(
                 in: overviewLayoutContext
@@ -94,6 +119,21 @@ struct FriendSharedDiveDetailView: View {
                 detent: overviewSheetDetent,
                 liveHeightFraction: selectedDiveTab == .map ? overviewPanelLiveHeightFraction : nil,
                 isLandscape: isLandscape
+            )
+            let tankChartSizingBottomMargin = DiveActivityOverviewDetent.bottomObstructionHeight(
+                layoutHeight: layoutHeight,
+                detent: .large,
+                bottomSafeInset: bottomSafeInset,
+                screenWidth: overviewLayoutContext.screenWidth,
+                topSafeInset: overviewLayoutContext.topSafeInset
+            )
+            let tankHeroBottomMargin = DiveTankOverviewHeroPresentation.tankHeroBottomContentMargin(
+                layoutContext: overviewLayoutContext,
+                detent: overviewSheetDetent,
+                isLandscape: isLandscape,
+                liveHeightFraction: selectedDiveTab == .tank
+                    ? overviewPanelLiveHeightFraction
+                    : nil
             )
             let isMapInteractive = selectedDiveTab == .map
                 && DiveActivityOverviewLandscapePresentation.allowsMapInteraction(
@@ -117,13 +157,40 @@ struct FriendSharedDiveDetailView: View {
                         .allowsHitTesting(isMapInteractive)
                         .ignoresSafeArea()
                     case .tank:
-                        friendTankHeroChart(
+                        DiveTankOverviewHeroView(
                             layoutSize: geometry.size,
+                            bottomContentMargin: tankHeroBottomMargin,
+                            chartSizingBottomContentMargin: tankChartSizingBottomMargin,
+                            topObstructionHeight: topObstruction,
                             layoutHeight: layoutHeight,
-                            topObstruction: topObstruction,
-                            bottomObstruction: bottomObstruction
+                            sheetDetent: overviewSheetDetent,
+                            gasMixLabel: FriendSharedActivityDetailPresentation.tankHeroGasMixLabel(for: dive),
+                            pressureRemainingFraction: tankHeroPressureFillFraction,
+                            oxygenMixPercent: dive.oxygenMix,
+                            depthSamples: friendTankChartSeries.depthSamples,
+                            pressureSamples: friendTankChartSeries.pressureSamples,
+                            maxDepthMeters: dive.maxDepthMeters ?? 0,
+                            pressureBaselinePSI: friendTankChartSeries.pressureBaselinePSI
+                                ?? dive.tankPressureEndPSI,
+                            tankPressureStartPSI: dive.tankPressureStartPSI,
+                            tankPressureEndPSI: dive.tankPressureEndPSI,
+                            sacRateDisplay: FriendSharedActivityDetailPresentation.tankHeroSACRateLine(
+                                for: dive,
+                                displayUnits: diveDisplayUnitSystem
+                            ),
+                            rmvRateDisplay: FriendSharedActivityDetailPresentation.tankHeroRMVRateLine(
+                                for: dive,
+                                displayUnits: diveDisplayUnitSystem
+                            ),
+                            profileLineRevealProgress: tankMinimizedProfileRevealProgress,
+                            psiUsedRevealProgress: tankMinimizedPsiUsedRevealProgress,
+                            liveHeightFraction: overviewPanelLiveHeightFraction,
+                            waterTopHalfFadeProgress: tankMinimizedWaterTopFadeProgress,
+                            minimizedChromeRevealProgress: tankMinimizedChromeRevealProgress,
+                            scrubCallout: $friendDepthChartScrubCallout
                         )
                         .ignoresSafeArea()
+                        .accessibilityIdentifier("FriendSharedDiveDetail.Tank.Hero")
                     case .camera:
                         FriendSharedActivityMediaHeroView(
                             previews: dive.mediaPreviews,
@@ -137,7 +204,7 @@ struct FriendSharedDiveDetailView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                if isOverviewPanelPresented {
+                if isOverviewPanelPresented, !hidesOverviewPanelInLandscape {
                     DiveActivityOverviewEmbeddedPanel(
                         selectedDetent: $overviewSheetDetent,
                         layoutHeight: layoutHeight,
@@ -203,6 +270,9 @@ struct FriendSharedDiveDetailView: View {
                         panelScrollOffsetY: $overviewPanelScrollOffsetY,
                         panelScrollContentIdentity: selectedDiveTab
                     )
+                    .overlay(alignment: .topTrailing) {
+                        friendTankMinimizedRotatePhoneHintOverlay(isLandscape: isLandscape)
+                    }
                     .zIndex(1)
                 }
             }
@@ -221,18 +291,83 @@ struct FriendSharedDiveDetailView: View {
                             .frame(maxWidth: .infinity, alignment: .top)
                             .padding(
                                 .top,
-                                DiveDepthProfileScrubCalloutPresentation.labelTopPadding(
-                                    topSafeInset: geometry.safeAreaInsets.top,
-                                    chromeTopPadding: AppTheme.Spacing.sm
-                                )
+                                friendDepthChartScrubCalloutTopPadding(in: geometry)
                             )
                     }
                     .allowsHitTesting(false)
                 }
             }
-            .animation(.diveOverviewPanelDetent, value: overviewSheetDetent)
+            .animation(nil, value: overviewSheetDetent)
+            .animation(nil, value: isLandscape)
         }
         .ignoresSafeArea()
+    }
+
+    @ViewBuilder
+    private func friendTankMinimizedRotatePhoneHintOverlay(isLandscape: Bool) -> some View {
+        if selectedDiveTab == .tank,
+           overviewSheetDetent == .minimized,
+           !isLandscape,
+           DiveTankOverviewHeroPresentation.showsRotatePhoneHint(
+               for: .minimized,
+               isLandscape: false,
+               depthSampleCount: friendTankChartSeries.depthSamples.count
+           ) {
+            DiveTankRotatePhoneHintView()
+                .padding(.top, DiveTankOverviewHeroPresentation.minimizedPortraitRotateHintTopInset)
+                .padding(.trailing, AppTheme.Spacing.md)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private func friendDepthChartScrubCalloutTopPadding(in geometry: GeometryProxy) -> CGFloat {
+        let layoutHeight = max(geometry.size.height, 1)
+        let isLandscape = DiveActivityOverviewLandscapePresentation.isLandscapeLayout(
+            layoutSize: geometry.size
+        )
+        if overviewSheetDetent == .minimized && !isLandscape {
+            let overviewLayoutContext = DiveActivityOverviewSheetLayoutContext(
+                layoutHeight: layoutHeight,
+                screenWidth: geometry.size.width,
+                topSafeInset: geometry.safeAreaInsets.top,
+                bottomSafeInset: geometry.safeAreaInsets.bottom
+            )
+            let topObstruction = DiveActivityOverviewPanelMetrics.mapTopObstructionHeight(
+                topSafeInset: geometry.safeAreaInsets.top,
+                chromeRowHeight: DiveActivityTabIcon.menuRowHeight,
+                chromeTopPadding: AppTheme.Spacing.sm
+            )
+            let bottomMargin = DiveTankOverviewHeroPresentation.tankHeroBottomContentMargin(
+                layoutContext: overviewLayoutContext,
+                detent: .minimized,
+                isLandscape: false,
+                liveHeightFraction: overviewPanelLiveHeightFraction
+            )
+            let largeMargin = DiveActivityOverviewDetent.bottomObstructionHeight(
+                layoutHeight: layoutHeight,
+                detent: .large,
+                bottomSafeInset: geometry.safeAreaInsets.bottom,
+                screenWidth: geometry.size.width,
+                topSafeInset: geometry.safeAreaInsets.top
+            )
+            let chartFrame = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
+                layoutSize: geometry.size,
+                layoutHeight: layoutHeight,
+                topObstructionHeight: topObstruction,
+                bottomContentMargin: bottomMargin,
+                isLandscape: false,
+                detent: .minimized,
+                chartSizingBottomContentMargin: largeMargin
+            )
+            return DiveDepthProfileScrubCalloutPresentation.labelTopPaddingPinnedAtMinimizedPortraitChartFade(
+                chartFrame: chartFrame
+            )
+        }
+        return DiveDepthProfileScrubCalloutPresentation.labelTopPadding(
+            topSafeInset: geometry.safeAreaInsets.top,
+            chromeTopPadding: AppTheme.Spacing.sm
+        )
     }
 
     private var scubaMapCollapsedSummary: some View {
@@ -266,38 +401,6 @@ struct FriendSharedDiveDetailView: View {
         )
     }
 
-    @ViewBuilder
-    private func friendTankHeroChart(
-        layoutSize: CGSize,
-        layoutHeight: CGFloat,
-        topObstruction: CGFloat,
-        bottomObstruction: CGFloat
-    ) -> some View {
-        let chartFrame = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
-            layoutSize: layoutSize,
-            layoutHeight: layoutHeight,
-            topObstructionHeight: topObstruction,
-            bottomContentMargin: bottomObstruction,
-            isLandscape: false,
-            detent: overviewSheetDetent
-        )
-        FriendSharedDepthProfileChartView(
-            dive: dive,
-            allowsInteraction: true,
-            animatesWaterFill: true,
-            chromeStyle: .edgeToEdge,
-            topEdgeFadeFraction: overviewSheetDetent == .minimized
-                ? DiveTankOverviewHeroPresentation.minimizedPortraitChartTopFadeFraction
-                : 0,
-            topObstructionHeight: topObstruction,
-            pinsScrubCalloutUnderTabMenu: true,
-            activeScrubCallout: $friendDepthChartScrubCallout
-        )
-        .frame(width: chartFrame.width, height: chartFrame.height)
-        .position(x: chartFrame.midX, y: chartFrame.midY)
-        .accessibilityIdentifier("FriendSharedDiveDetail.Tank.ProfileChart")
-    }
-
     private func selectDiveTab(_ tab: DiveActivityTab) {
         guard tab != selectedDiveTab else {
             syncOverviewSheetPresentation(forDiveTab: tab)
@@ -306,9 +409,15 @@ struct FriendSharedDiveDetailView: View {
         var transaction = Transaction()
         transaction.disablesAnimations = true
         withTransaction(transaction) {
+            if tab != .tank {
+                friendDepthChartScrubCallout = nil
+            }
             if let detent = DiveActivityOverviewTabSelection.overviewDetent(whenSelecting: tab) {
                 overviewSheetDetent = detent
                 isOverviewPanelPresented = true
+                if tab == .tank {
+                    resetTankMinimizedEntranceAnimationState()
+                }
             } else {
                 isOverviewPanelPresented = false
             }
@@ -322,6 +431,63 @@ struct FriendSharedDiveDetailView: View {
         }
         if let detent = DiveActivityOverviewTabSelection.overviewDetent(whenSelecting: tab) {
             overviewSheetDetent = detent
+        }
+        if tab == .tank {
+            resetTankMinimizedEntranceAnimationState()
+        }
+    }
+
+    private func handleOverviewSheetDetentChange(
+        from oldDetent: DiveActivityOverviewDetent,
+        to newDetent: DiveActivityOverviewDetent
+    ) {
+        guard dive.resolvedActivityKind == .scubaDive, selectedDiveTab == .tank else { return }
+        if DiveTankOverviewHeroPresentation.shouldPlayMinimizedEntranceAnimation(
+            from: oldDetent,
+            to: newDetent
+        ) {
+            playTankMinimizedEntranceAnimation()
+        } else if newDetent.heightFraction > oldDetent.heightFraction + 0.007 {
+            resetTankMinimizedEntranceAnimationState()
+        }
+    }
+
+    private func resetTankMinimizedEntranceAnimationState() {
+        tankHeroPressureFillFraction = 1
+        tankMinimizedProfileRevealProgress = 1
+        tankMinimizedPsiUsedRevealProgress = 1
+        tankMinimizedWaterTopFadeProgress = 0
+        tankMinimizedChromeRevealProgress = 1
+    }
+
+    private func playTankMinimizedEntranceAnimation() {
+        let targetFill = DiveActivityTankPanelSummary.remainingPressureFillFraction(
+            startPSI: dive.tankPressureStartPSI,
+            endPSI: dive.tankPressureEndPSI
+        )
+        let fraction = CGFloat(targetFill ?? 1)
+
+        var reset = Transaction()
+        reset.disablesAnimations = true
+        withTransaction(reset) {
+            tankMinimizedProfileRevealProgress = 0
+            tankMinimizedPsiUsedRevealProgress = 0
+            tankMinimizedWaterTopFadeProgress = 0
+            tankMinimizedChromeRevealProgress = 0
+            tankHeroPressureFillFraction = 1
+        }
+
+        withAnimation(DiveTankOverviewHeroPresentation.minimizedWaterTopFadeAnimation) {
+            tankMinimizedWaterTopFadeProgress = 1
+            tankMinimizedChromeRevealProgress = 1
+        }
+
+        withAnimation(DiveTankOverviewHeroPresentation.minimizedEntranceLineAnimation) {
+            tankMinimizedProfileRevealProgress = 1
+            tankMinimizedPsiUsedRevealProgress = 1
+            if fraction < 0.999 {
+                tankHeroPressureFillFraction = fraction
+            }
         }
     }
 
@@ -366,6 +532,9 @@ struct FriendSharedDiveDetailView: View {
             )
             let isLandscape = DiveActivityOverviewLandscapePresentation.isLandscapeLayout(
                 layoutSize: geometry.size
+            )
+            let hidesOverviewPanelInLandscape = DiveActivityOverviewLandscapePresentation.hidesOverviewPanel(
+                isLandscape: isLandscape
             )
             let trackCoordinates = FriendSharedActivityDetailPresentation.swimTrackCoordinates(from: dive)
             let mapCoordinate = FriendSharedActivityDetailPresentation.mapCoordinate(from: dive)
@@ -432,7 +601,7 @@ struct FriendSharedDiveDetailView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .ignoresSafeArea()
 
-                if isOverviewPanelPresented {
+                if isOverviewPanelPresented, !hidesOverviewPanelInLandscape {
                     DiveActivityOverviewEmbeddedPanel(
                         selectedDetent: $overviewSheetDetent,
                         layoutHeight: layoutHeight,
@@ -510,7 +679,8 @@ struct FriendSharedDiveDetailView: View {
                         .ignoresSafeArea(edges: .top)
                 }
             }
-            .animation(.diveOverviewPanelDetent, value: overviewSheetDetent)
+            .animation(nil, value: overviewSheetDetent)
+            .animation(nil, value: isLandscape)
         }
         .ignoresSafeArea()
     }

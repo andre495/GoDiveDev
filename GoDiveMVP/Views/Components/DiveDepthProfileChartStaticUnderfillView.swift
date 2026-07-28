@@ -6,6 +6,8 @@ struct DiveDepthProfileChartStaticUnderfillView: View {
     let plotSize: CGSize
     /// **0...1** — left-to-right reveal (tank **minimized** entrance); water fill stays full underneath.
     var revealProgress: CGFloat = 1
+    /// Additional opacity (collapse fade while dragging toward **minimized**).
+    var opacity: CGFloat = 1
 
     var body: some View {
         LinearGradient(
@@ -24,6 +26,7 @@ struct DiveDepthProfileChartStaticUnderfillView: View {
             Rectangle()
                 .frame(width: max(1, plotSize.width * min(1, max(0, revealProgress))))
         }
+        .opacity(Double(min(1, max(0, opacity))))
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }

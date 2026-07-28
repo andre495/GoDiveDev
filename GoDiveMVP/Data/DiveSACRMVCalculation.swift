@@ -73,7 +73,7 @@ enum DiveSACRMVCalculation: Sendable {
 
     // MARK: - SAC (pressure at surface)
 
-    static func sacPSIPerMinute(from input: Input) -> Double? {
+    nonisolated static func sacPSIPerMinute(from input: Input) -> Double? {
         guard let psiConsumed = pressureConsumedPSI(from: input),
               let minutes = consumptionDurationMinutes(from: input),
               minutes > 0,
@@ -90,7 +90,7 @@ enum DiveSACRMVCalculation: Sendable {
 
     // MARK: - RMV (L/min at surface)
 
-    static func rmvLitersPerMinute(from input: Input, sacPSIPerMinute: Double) -> Double? {
+    nonisolated static func rmvLitersPerMinute(from input: Input, sacPSIPerMinute: Double) -> Double? {
         if let ratedLiters = ratedTankVolumeLiters(from: input.tankVolumeDescription),
            let ratedPSI = resolvedRatedPressurePSI(from: input),
            ratedLiters > 0,
@@ -113,7 +113,7 @@ enum DiveSACRMVCalculation: Sendable {
 
     // MARK: - Helpers
 
-    static func atmospheresAbsolute(depthMeters: Double, waterColumn: WaterColumn) -> Double {
+    nonisolated static func atmospheresAbsolute(depthMeters: Double, waterColumn: WaterColumn) -> Double {
         let metersPerAtmosphere: Double
         switch waterColumn {
         case .saltwater:
@@ -124,7 +124,7 @@ enum DiveSACRMVCalculation: Sendable {
         return 1.0 + depthMeters / metersPerAtmosphere
     }
 
-    static func pressureConsumedPSI(from input: Input) -> Double? {
+    nonisolated static func pressureConsumedPSI(from input: Input) -> Double? {
         guard let start = input.tankPressureStartPSI,
               let end = input.tankPressureEndPSI,
               start > 0
@@ -134,7 +134,7 @@ enum DiveSACRMVCalculation: Sendable {
         return consumed
     }
 
-    static func consumptionDurationMinutes(from input: Input) -> Double? {
+    nonisolated static func consumptionDurationMinutes(from input: Input) -> Double? {
         if let bottom = input.bottomTimeSeconds, bottom > 0 {
             return Double(bottom) / 60.0
         }
@@ -144,14 +144,14 @@ enum DiveSACRMVCalculation: Sendable {
         return nil
     }
 
-    static func resolvedAverageDepthMeters(from input: Input) -> Double? {
+    nonisolated static func resolvedAverageDepthMeters(from input: Input) -> Double? {
         if let avg = input.averageDepthMeters, avg > 0 { return avg }
         if input.maxDepthMeters > 0 { return input.maxDepthMeters }
         return nil
     }
 
     /// Rated cylinder size for RMV — **Settings → Default tank** (import text ignored).
-    static func ratedTankVolumeLiters(
+    nonisolated static func ratedTankVolumeLiters(
         from tankVolumeDescription: String?,
         userDefaults: UserDefaults = .standard
     ) -> Double? {
@@ -159,7 +159,7 @@ enum DiveSACRMVCalculation: Sendable {
         return DiveActivityTankDefaults.resolvedSpecification(userDefaults: userDefaults).ratedVolumeSurfaceLiters
     }
 
-    static func resolvedRatedPressurePSI(from input: Input) -> Double? {
+    nonisolated static func resolvedRatedPressurePSI(from input: Input) -> Double? {
         if let start = input.tankPressureStartPSI, start >= 2500 {
             return start
         }

@@ -146,7 +146,8 @@ struct GoDiveFriendsTests {
             equipmentSummary: ["Scubapro regulator"],
             profileTrackData: profileTrack,
             swimTrackData: nil,
-            mediaPreviews: [.init(photoID: "p1", previewURL: "https://example.com/p.jpg")]
+            mediaPreviews: [.init(photoID: "p1", previewURL: "https://example.com/p.jpg")],
+            featuredMediaPhotoID: "p1"
         )
 
         let withoutOptIn = GoDiveSharedDiveProjectionMapping.projectionFields(
@@ -165,6 +166,7 @@ struct GoDiveFriendsTests {
         )
         #expect(withOptIn["notes"] as? String == "Secret note")
         #expect(withOptIn["mediaPreviews"] != nil)
+        #expect(withOptIn["featuredMediaPhotoId"] as? String == "p1")
 
         let parsed = GoDiveSharedDiveProjectionMapping.parseFriendVisibleDive(
             id: diveID.uuidString,
@@ -172,6 +174,7 @@ struct GoDiveFriendsTests {
         )
         #expect(parsed.siteName == "Blue Hole")
         #expect(parsed.notes == "Secret note")
+        #expect(parsed.featuredMediaPhotoID == "p1")
         #expect(
             GoDiveSharedDiveProjectionMapping.wasCurrentUserTagged(
                 dive: parsed,
@@ -1325,6 +1328,216 @@ struct GoDiveFriendsTests {
         #expect(body.contains(url.absoluteString))
     }
 
+    @Test func buddyFeed_rowsEqual_comparesMediaPayload() {
+        let dive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "dive-media",
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            averageDepthMeters: nil,
+            diveNumber: 3,
+            siteName: "Reef",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [.init(photoID: "p1", previewURL: "https://example.com/1.jpg")],
+            featuredMediaPhotoID: "p1",
+            profileTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+        let left = LogbookBuddyFeedPresentation.Row(
+            id: "friend_dive-media",
+            friendUID: "friend",
+            friendDisplayName: "Alex",
+            dive: dive
+        )
+        var changedMedia = dive
+        changedMedia.mediaPreviews = [.init(photoID: "p2", previewURL: "https://example.com/2.jpg")]
+        let right = LogbookBuddyFeedPresentation.Row(
+            id: "friend_dive-media",
+            friendUID: "friend",
+            friendDisplayName: "Alex",
+            dive: changedMedia
+        )
+        #expect(!LogbookBuddyFeedPresentation.rowsEqual([left], [right]))
+    }
+
+    @Test func buddyFeed_heroPages_featuredMediaFirstThenChart() throws {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let profileTrack = try #require(
+            try DiveProfileTrackCodec.encode(
+                samples: [
+                    DiveProfileTrackSample(timestamp: start, depthMeters: 0),
+                    DiveProfileTrackSample(timestamp: start.addingTimeInterval(120), depthMeters: 18.5),
+                ],
+                diveStartTime: start
+            )
+        )
+        let dive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "dive-hero",
+            startTime: start,
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            averageDepthMeters: nil,
+            diveNumber: 3,
+            siteName: "Reef",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [
+                .init(photoID: "secondary", previewURL: "https://example.com/secondary.jpg"),
+                .init(photoID: "featured", previewURL: "https://example.com/featured.jpg"),
+            ],
+            featuredMediaPhotoID: "featured",
+            profileTrackBase64: profileTrack.base64EncodedString(),
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+
+        #expect(LogbookBuddyFeedPresentation.tileFeaturedMediaPreview(for: dive)?.photoID == "featured")
+
+        let pages = LogbookBuddyFeedPresentation.heroPages(for: dive)
+        #expect(pages.count == 2)
+        if case .media(let preview) = pages[0] {
+            #expect(preview.photoID == "featured")
+        } else {
+            Issue.record("Expected featured media page first")
+        }
+        #expect(pages[1] == .activityVisualization)
+        #expect(LogbookBuddyFeedPresentation.showsHeroPager(for: dive))
+    }
+
+    @Test func buddyFeed_heroPages_mediaOnlyWithoutDepthData() {
+        let dive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "media-only",
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            averageDepthMeters: nil,
+            diveNumber: 3,
+            siteName: "Reef",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [.init(photoID: "p1", previewURL: "https://example.com/p.jpg")],
+            profileTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+        #expect(LogbookBuddyFeedPresentation.heroPages(for: dive) == [.media(dive.mediaPreviews[0])])
+        #expect(!LogbookBuddyFeedPresentation.showsHeroPager(for: dive))
+    }
+
+    @Test func buddyFeed_heroPages_chartOnlyWithoutMedia() throws {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let profileTrack = try #require(
+            try DiveProfileTrackCodec.encode(
+                samples: [
+                    DiveProfileTrackSample(timestamp: start, depthMeters: 0),
+                    DiveProfileTrackSample(timestamp: start.addingTimeInterval(60), depthMeters: 12),
+                ],
+                diveStartTime: start
+            )
+        )
+        let dive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "chart-only",
+            startTime: start,
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            averageDepthMeters: nil,
+            diveNumber: 3,
+            siteName: "Reef",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: profileTrack.base64EncodedString(),
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+        #expect(LogbookBuddyFeedPresentation.heroPages(for: dive) == [.activityVisualization])
+        #expect(!LogbookBuddyFeedPresentation.showsHeroPager(for: dive))
+    }
+
+    @Test func buddyFeed_heroPages_placeholderWhenNoMediaOrDepthData() {
+        let dive = Self.makeBuddyFeedDive(id: "empty-hero", startTime: Date())
+        #expect(LogbookBuddyFeedPresentation.heroPages(for: dive) == [.placeholder])
+        #expect(!LogbookBuddyFeedPresentation.showsHeroPager(for: dive))
+    }
+
+    @Test func buddyFeed_pagination_loadsTwentyAtATime() {
+        let rows = (0..<45).map { index in
+            LogbookBuddyFeedPresentation.Row(
+                id: "friend_dive-\(index)",
+                friendUID: "friend",
+                friendDisplayName: "Alex",
+                dive: Self.makeBuddyFeedDive(id: "dive-\(index)", startTime: Date(timeIntervalSince1970: Double(index)))
+            )
+        }
+
+        #expect(LogbookBuddyFeedPresentation.initialDisplayedCount(for: rows.count) == 20)
+        #expect(LogbookBuddyFeedPresentation.visibleRows(from: rows, displayedCount: 20).count == 20)
+        #expect(LogbookBuddyFeedPresentation.visibleRows(from: rows, displayedCount: 20).first?.dive.id == "dive-0")
+
+        let afterFirstLoadMore = LogbookBuddyFeedPresentation.nextDisplayedCount(current: 20, totalRowCount: rows.count)
+        #expect(afterFirstLoadMore == 40)
+        #expect(LogbookBuddyFeedPresentation.visibleRows(from: rows, displayedCount: afterFirstLoadMore).count == 40)
+
+        let afterSecondLoadMore = LogbookBuddyFeedPresentation.nextDisplayedCount(current: 40, totalRowCount: rows.count)
+        #expect(afterSecondLoadMore == 45)
+        #expect(!LogbookBuddyFeedPresentation.hasMoreRows(totalRowCount: rows.count, displayedCount: afterSecondLoadMore))
+
+        #expect(
+            LogbookBuddyFeedPresentation.shouldLoadNextPage(
+                rowIndex: 19,
+                visibleRowCount: 20,
+                totalRowCount: rows.count,
+                displayedCount: 20
+            )
+        )
+        #expect(
+            !LogbookBuddyFeedPresentation.shouldLoadNextPage(
+                rowIndex: 10,
+                visibleRowCount: 20,
+                totalRowCount: rows.count,
+                displayedCount: 20
+            )
+        )
+    }
+
     @Test func diveBuddyContactSMSPresentation_emptyRecipientsWithoutContact() {
         #expect(DiveBuddyContactSMSPresentation.smsRecipients(contactsIdentifier: nil).isEmpty)
     }
@@ -1357,6 +1570,128 @@ struct GoDiveFriendsTests {
         )
         #expect(FriendSharedActivityDetailPresentation.diveNumberChip(for: snorkel) == nil)
         #expect(FriendSharedActivityDetailPresentation.diveNumberPlainLabel(for: snorkel) == "#5")
+    }
+
+    @Test func friendSharedDetail_tankHeroPresentation_matchesOwnedDiveRules() {
+        let dive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "dive-tank",
+            activityKind: .scubaDive,
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            averageDepthMeters: nil,
+            diveNumber: 3,
+            siteName: "Salt Pier",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil,
+            gasType: "Nitrox",
+            oxygenMix: 32,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil,
+            tankPressureStartPSI: 3_000,
+            tankPressureEndPSI: 1_500
+        )
+        #expect(
+            FriendSharedActivityDetailPresentation.tankHeroGasMixLabel(for: dive)
+                == DiveGasMixImport.tankHeroLabel(gasType: "Nitrox", oxygenMix: 32)
+        )
+        #expect(
+            abs(
+                FriendSharedActivityDetailPresentation.tankHeroPressureFillFraction(for: dive)
+                    - 0.5
+            ) < 0.001
+        )
+
+        let layoutSize = CGSize(width: 390, height: 640)
+        let layoutHeight: CGFloat = 844
+        let topObstruction: CGFloat = 100
+        let minimizedMargin = layoutHeight * DiveActivityOverviewPanelMetrics.minimizedHeightFraction
+        let largeMargin = layoutHeight * DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
+        let friendMinimized = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstruction,
+            bottomContentMargin: minimizedMargin,
+            isLandscape: false,
+            detent: .minimized,
+            chartSizingBottomContentMargin: largeMargin
+        )
+        let ownedMinimized = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstruction,
+            bottomContentMargin: minimizedMargin,
+            isLandscape: false,
+            detent: .minimized,
+            chartSizingBottomContentMargin: largeMargin
+        )
+        let ownedLarge = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstruction,
+            bottomContentMargin: largeMargin,
+            isLandscape: false,
+            detent: .large,
+            chartSizingBottomContentMargin: largeMargin
+        )
+        #expect(friendMinimized == ownedMinimized)
+        #expect(friendMinimized.height > ownedLarge.height + 1)
+        #expect(friendMinimized.height > layoutHeight * 0.4)
+
+        let landscapeSize = CGSize(width: 844, height: 390)
+        let landscapeHeight: CGFloat = 390
+        let landscapeBottomInset: CGFloat = 21
+        let friendLandscape = FriendSharedActivityDetailPresentation.landscapeTankProfileChartFrame(
+            layoutSize: landscapeSize,
+            layoutHeight: landscapeHeight,
+            topObstructionHeight: topObstruction,
+            bottomSafeInset: landscapeBottomInset
+        )
+        let ownedLandscape = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
+            layoutSize: landscapeSize,
+            layoutHeight: landscapeHeight,
+            topObstructionHeight: topObstruction,
+            bottomContentMargin: landscapeBottomInset,
+            isLandscape: true
+        )
+        #expect(friendLandscape == ownedLandscape)
+        #expect(abs(friendLandscape.minX) < 0.5)
+        #expect(abs(friendLandscape.width - landscapeSize.width) < 0.5)
+        #expect(abs(friendLandscape.minY) < 0.5)
+        #expect(abs(friendLandscape.maxY - (landscapeHeight - landscapeBottomInset)) < 0.5)
+        #expect(
+            DiveTankOverviewHeroPresentation.showsProfileChart(
+                for: .minimized,
+                depthSampleCount: 4,
+                isLandscape: true
+            )
+        )
+        #expect(
+            DiveTankOverviewHeroPresentation.showsProfileChart(
+                for: .large,
+                depthSampleCount: 4,
+                isLandscape: true
+            )
+        )
+        #expect(
+            !DiveTankOverviewHeroPresentation.showsTankCylinderHero(
+                for: .minimized,
+                isLandscape: true
+            )
+        )
+        #expect(
+            DiveActivityOverviewLandscapePresentation.hidesOverviewPanel(isLandscape: true)
+        )
+        #expect(FriendSharedActivityDetailPresentation.tankMinimizedEntranceMatchesOwnedDive)
     }
 
     @Test func friendSharedDetail_mapCoordinate_rejectsInvalid() {

@@ -37,6 +37,12 @@ struct DiveTankOverviewHeroView: View {
     var profileLineRevealProgress: CGFloat = 1
     /// **0...1** — minimized **PSI used** tally from zero.
     var psiUsedRevealProgress: CGFloat = 1
+    /// Live overview sheet height fraction (drives collapse fades while dragging).
+    var liveHeightFraction: CGFloat? = nil
+    /// **0…1** — top-half water fade after snap to **minimized**.
+    var waterTopHalfFadeProgress: CGFloat = 0
+    /// **0…1** — cylinder + PSI chrome fade-in after snap to **minimized**.
+    var minimizedChromeRevealProgress: CGFloat = 1
 
     @State private var landscapeChartChromeReady = false
     @State private var landscapeChartChromeTask: Task<Void, Never>?
@@ -44,6 +50,37 @@ struct DiveTankOverviewHeroView: View {
 
     private var isLandscape: Bool {
         DiveTankOverviewHeroPresentation.isLandscapeLayout(layoutSize: layoutSize)
+    }
+
+    private var collapseProgress: CGFloat {
+        DiveTankOverviewHeroPresentation.collapseProgress(
+            liveHeightFraction: liveHeightFraction ?? sheetDetent.heightFraction,
+            layoutContext: DiveActivityOverviewSheetLayoutContext.presentationReference
+        )
+    }
+
+    private var profileStrokeAndUnderfillOpacity: CGFloat {
+        DiveTankOverviewHeroPresentation.profileStrokeAndUnderfillOpacity(
+            sheetDetent: sheetDetent,
+            collapseProgress: collapseProgress
+        )
+    }
+
+    private var resolvedWaterTopHalfFadeProgress: CGFloat {
+        DiveTankOverviewHeroPresentation.waterTopHalfFadeProgress(
+            sheetDetent: sheetDetent,
+            isLandscape: isLandscape,
+            fadeProgress: waterTopHalfFadeProgress
+        )
+    }
+
+    private var minimizedChromeOpacity: CGFloat {
+        DiveTankOverviewHeroPresentation.minimizedChromeOpacity(
+            sheetDetent: sheetDetent,
+            isLandscape: isLandscape,
+            collapseProgress: collapseProgress,
+            chromeRevealProgress: minimizedChromeRevealProgress
+        )
     }
 
     private var showsTankHeroVisuals: Bool {
@@ -141,22 +178,37 @@ struct DiveTankOverviewHeroView: View {
             bottomContentMargin: bottomContentMargin,
             cylinderHeight: cylinderHeight
         )
+        let chartFrame = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstructionHeight,
+            bottomContentMargin: bottomContentMargin,
+            isLandscape: isLandscape,
+            detent: sheetDetent,
+            chartSizingBottomContentMargin: chartSizingBottomContentMargin,
+            collapseProgress: isLandscape ? nil : collapseProgress
+        )
+        let backdropOpacity = DiveTankOverviewHeroPresentation.collapseWaterBackdropOpacity(
+            collapseProgress: isLandscape ? 0 : collapseProgress,
+            waterTopHalfFadeProgress: resolvedWaterTopHalfFadeProgress
+        )
+        let backdropHeight = max(0, chartFrame.minY)
 
         ZStack {
             AppTheme.Colors.screenBackgroundGradient
                 .ignoresSafeArea()
 
             Group {
+                if showsProfileChart, !isLandscape, backdropHeight > 0.5, backdropOpacity > 0.001 {
+                    DiveTankCollapseWaterBackdrop()
+                        .frame(width: layoutSize.width, height: backdropHeight)
+                        .position(x: layoutSize.width / 2, y: backdropHeight / 2)
+                        .opacity(Double(backdropOpacity))
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
+
                 if showsProfileChart {
-                    let chartFrame = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
-                        layoutSize: layoutSize,
-                        layoutHeight: layoutHeight,
-                        topObstructionHeight: topObstructionHeight,
-                        bottomContentMargin: bottomContentMargin,
-                        isLandscape: isLandscape,
-                        detent: sheetDetent,
-                        chartSizingBottomContentMargin: chartSizingBottomContentMargin
-                    )
                     DiveDepthProfileOverlayChart(
                         depthSamples: depthSamples,
                         pressureSamples: pressureSamples,
@@ -165,10 +217,16 @@ struct DiveTankOverviewHeroView: View {
                         maxDepthHintMeters: maxDepthMeters,
                         pressureBaselinePSI: pressureBaselinePSI,
                         profileLineRevealProgress: chartProfileLineRevealProgress,
+                        profileStrokeAndUnderfillOpacity: profileStrokeAndUnderfillOpacity,
+                        waterTopHalfFadeProgress: resolvedWaterTopHalfFadeProgress,
                         allowsZoomAndPan: showsInteractiveChartChrome,
-                        topEdgeFadeFraction: sheetDetent == .minimized && !isLandscape
-                            ? DiveTankOverviewHeroPresentation.minimizedPortraitChartTopFadeFraction
-                            : 0,
+                        showsWaterBubbles: DiveTankOverviewHeroPresentation.showsAnimatedDepthChartBubbles(
+                            for: sheetDetent,
+                            isLandscape: isLandscape
+                        ),
+                        topEdgeFadeFraction: isLandscape
+                            ? 0
+                            : DiveTankOverviewHeroPresentation.portraitChartTopFadeFraction,
                         horizontalEdgeBufferFraction: isLandscape
                             ? DiveDepthProfileChartPresentation.landscapeHorizontalEdgeBufferFraction
                             : 0,
@@ -193,9 +251,10 @@ struct DiveTankOverviewHeroView: View {
                             oxygenMixPercent: oxygenMixPercent
                         )
                     )
-                    .opacity(0.92)
+                    .opacity(0.92 * Double(minimizedChromeOpacity))
                     .scaleEffect(metrics.scale, anchor: .center)
                     .position(x: metrics.cylinderCenterX, y: metrics.cylinderCenterY)
+                    .accessibilityHidden(minimizedChromeOpacity < 0.05)
                 }
 
                 if showsMinimizedTankGasSummary, let consumed = psiConsumedPSI {
@@ -210,8 +269,10 @@ struct DiveTankOverviewHeroView: View {
                     )
                         .frame(width: summaryFrame.width, height: summaryFrame.height, alignment: .topLeading)
                         .position(x: summaryFrame.midX, y: summaryFrame.midY)
+                        .opacity(Double(minimizedChromeOpacity))
                         .animation(nil, value: sheetDetent)
                         .accessibilityIdentifier("DiveTank.Hero.GasSummary")
+                        .accessibilityHidden(minimizedChromeOpacity < 0.05)
                 }
 
                 Text(gasMixLabel)
@@ -230,6 +291,7 @@ struct DiveTankOverviewHeroView: View {
             value: sheetDetent
         )
         .animation(nil, value: isLandscape)
+        .animation(nil, value: collapseProgress)
         .onAppear {
             syncLandscapeChartChrome(isLandscape: isLandscape)
         }
@@ -358,6 +420,33 @@ struct DiveTankOverviewHeroView: View {
         return "Cylinder overview"
     }
 
+}
+
+/// Water fill that covers the gap above the translating tank chart while collapsing to **minimized**.
+private struct DiveTankCollapseWaterBackdrop: View {
+    var body: some View {
+        LinearGradient(
+            colors: [
+                AppTheme.Colors.surfaceGradientTop.opacity(0.62),
+                AppTheme.Colors.accentLight.opacity(0.5),
+                AppTheme.Colors.surfaceGradientBottom.opacity(0.78),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .overlay {
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0.16),
+                    AppTheme.Colors.accentLight.opacity(0.08),
+                    Color.clear,
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .blendMode(.plusLighter)
+        }
+    }
 }
 
 /// Count-up PSI / bar used — interpolates with the tank **minimized** entrance progress.

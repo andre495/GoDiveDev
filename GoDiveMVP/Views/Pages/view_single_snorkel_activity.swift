@@ -398,7 +398,7 @@ struct ViewSingleSnorkelActivity: View {
                         .ignoresSafeArea(edges: .top)
                 }
             }
-            .animation(.diveOverviewPanelDetent, value: overviewSheetDetent)
+            .animation(nil, value: overviewSheetDetent)
             .animation(nil, value: isLandscape)
         }
         .ignoresSafeArea()

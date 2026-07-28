@@ -30,19 +30,19 @@ enum DiveGasMixImport {
         resolved(fromOxygenPercent: oxygenPercent(fromFitOxygenContent: content))
     }
 
-    static let tankHeroNoGasSpecifiedLabel = "No gas specified"
+    nonisolated static let tankHeroNoGasSpecifiedLabel = "No gas specified"
 
     /// Default O₂ band when **`oxygenMix`** is unknown (**air**, 21%).
-    static let defaultOxygenMixPercent: Double = 21
+    nonisolated static let defaultOxygenMixPercent: Double = 21
 
     /// Fraction of the visible gas column drawn as yellow (bottom band); **`oxygenMix`** percent or **21%** default.
-    static func tankYellowFillFraction(oxygenMixPercent: Double?) -> CGFloat {
+    nonisolated static func tankYellowFillFraction(oxygenMixPercent: Double?) -> CGFloat {
         let pct = oxygenMixPercent ?? defaultOxygenMixPercent
         return CGFloat(min(100, max(0, pct)) / 100.0)
     }
 
     /// Tank hero label: **`gasType`** + **`oxygenMix`** (percent), or **`tankHeroNoGasSpecifiedLabel`**.
-    static func tankHeroLabel(gasType: String?, oxygenMix: Double?) -> String {
+    nonisolated static func tankHeroLabel(gasType: String?, oxygenMix: Double?) -> String {
         guard let gasType, let oxygenMix else { return tankHeroNoGasSpecifiedLabel }
         let trimmed = gasType.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return tankHeroNoGasSpecifiedLabel }

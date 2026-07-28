@@ -4,7 +4,7 @@ import UIKit
 /// Declarative rules for which navigation destinations stay portrait (tests / docs).
 enum AppPortraitOrientationLockPolicy: Sendable {
 
-    /// Portrait everywhere except **`ViewSingleActivity`** (landscape tank profile).
+    /// Portrait everywhere except dive / snorkel / buddy-shared activity detail (landscape tank profile).
     nonisolated static func locksUnlessShowingDiveActivity(_ isShowingDiveActivity: Bool) -> Bool {
         !isShowingDiveActivity
     }
@@ -21,10 +21,10 @@ enum AppPortraitOrientationLockPolicy: Sendable {
 
     nonisolated static func logbookRouteIsDiveActivity(_ route: LogbookRoute) -> Bool {
         switch route {
-        case .diveDetail, .diveMedia, .snorkelDetail, .snorkelMedia:
+        case .diveDetail, .diveMedia, .snorkelDetail, .snorkelMedia, .buddySharedDive:
             return true
         case .addActivity, .diveActivityUpload, .snorkelActivityUpload, .connectDeviceComingSoon,
-             .tripPlanner, .tripDetail, .tripDetailMedia, .diveSite, .buddySharedDive, .friendProfile, .friends,
+             .tripPlanner, .tripDetail, .tripDetailMedia, .diveSite, .friendProfile, .friends,
              .buddiesListDetail:
             return false
         }
@@ -68,7 +68,7 @@ enum AppPortraitOrientationLockPolicy: Sendable {
 
 /// Global orientation policy consulted by **`GoDiveGoogleMapsAppDelegate`**.
 ///
-/// **Default:** portrait only. **`ViewSingleActivity`** calls **`acquireLandscapeUnlock()`** while visible.
+/// **Default:** portrait only. Dive / snorkel / buddy-shared activity detail call **`acquireLandscapeUnlock()`** while visible.
 @MainActor
 final class AppPortraitOrientationLockController {
     static let shared = AppPortraitOrientationLockController()
@@ -116,7 +116,7 @@ final class AppPortraitOrientationLockController {
 import SwiftUI
 
 extension View {
-    /// Landscape allowed only while **`ViewSingleActivity`** (map / tank / media tabs) is visible.
+    /// Landscape allowed while dive / snorkel / buddy-shared activity detail is visible.
     func diveActivityLandscapeOrientation() -> some View {
         modifier(DiveActivityLandscapeOrientationModifier())
     }

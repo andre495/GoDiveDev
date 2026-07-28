@@ -44,8 +44,23 @@ struct DiveLocationMapRepresentable: UIViewRepresentable {
         } ?? false
         guard layoutContext != previous else { return }
 
+        // Skip mid-drag camera updates — pin tracks on detent snap / settle only.
+        if let previous,
+           Self.restingDetentSnap(for: previous) == Self.restingDetentSnap(for: layoutContext),
+           !Self.isRestingSheetFraction(layoutContext) {
+            return
+        }
+
         context.coordinator.applyCamera(on: mapView, animated: animateSnap)
         context.coordinator.lastAppliedLayoutContext = layoutContext
+    }
+
+    private static func isRestingSheetFraction(_ context: DiveMapCameraLayoutContext) -> Bool {
+        DiveActivityOverviewPanelMetrics.isMinimized(context.sheetHeightFraction)
+            || DiveActivityOverviewPanelMetrics.isLarge(
+                context.sheetHeightFraction,
+                largeRestingFraction: context.largeRestingFraction
+            )
     }
 
     private static func restingDetentSnap(for context: DiveMapCameraLayoutContext) -> DiveActivityOverviewDetent {

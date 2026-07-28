@@ -95,7 +95,8 @@ struct DiveActivityMapOverviewPanelContent: View {
                     .accessibilityHidden(detailsOpacity < 0.05)
             }
         }
-        .animation(.diveOverviewPanelDetent, value: panelHeightFraction)
+        // Animate only on detent snap — continuous drag fraction must not spring every sample.
+        .animation(nil, value: panelHeightFraction)
         .animation(.diveOverviewPanelDetent, value: overviewSheetDetent)
         .frame(maxWidth: .infinity, alignment: .leading)
     }

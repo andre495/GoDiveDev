@@ -112,17 +112,27 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
         .animation(isDragging ? nil : .diveOverviewPanelDetent, value: panelHeight)
         .diveActivityOverviewEmbeddedPanelChrome(translucent: usesTranslucentChrome)
         .accessibilityIdentifier("DiveActivity.OverviewEmbeddedPanel")
-        .onAppear(perform: publishLiveHeightFraction)
-        .onChange(of: selectedDetent) { _, _ in
-            publishLiveHeightFraction()
+        .onAppear {
+            publishLiveHeightFraction(force: true)
         }
-        .onChange(of: grabberDragTranslation) { _, _ in
-            publishLiveHeightFraction()
+        .onChange(of: selectedDetent) { _, _ in
+            publishLiveHeightFraction(force: true)
+        }
+        .onChange(of: grabberDragTranslation) { _, newTranslation in
+            // Force on drag end so hero/map settle at the resting seam without waiting for epsilon.
+            publishLiveHeightFraction(force: newTranslation == 0)
         }
     }
 
-    private func publishLiveHeightFraction() {
-        liveHeightFraction?.wrappedValue = contentHeightFraction
+    private func publishLiveHeightFraction(force: Bool = false) {
+        guard let liveHeightFraction else { return }
+        let next = contentHeightFraction
+        guard DiveActivityOverviewPanelMetrics.shouldPublishLiveHeightFraction(
+            previous: liveHeightFraction.wrappedValue,
+            next: next,
+            force: force
+        ) else { return }
+        liveHeightFraction.wrappedValue = next
     }
 
     private var panelGrabberRow: some View {
