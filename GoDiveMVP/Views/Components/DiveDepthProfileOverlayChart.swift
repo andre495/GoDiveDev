@@ -70,6 +70,23 @@ struct DiveDepthProfileOverlayChart: View {
                         axisChrome(in: rect, viewport: viewport, axisMaxDepth: axisMaxDepth)
                     }
 
+                    if showsWaterFill {
+                        DiveDepthProfileWaterFillPlotLayer(
+                            depthSamples: depthSamples,
+                            rect: rect,
+                            viewport: viewport,
+                            axisMaxDepth: axisMaxDepth,
+                            waterTopHalfFadeProgress: min(1, max(0, waterTopHalfFadeProgress)),
+                            animatesWaterFill: animatesWaterFill && !scrubActive,
+                            showsWaterBubbles: showsWaterBubbles,
+                            topBufferFraction: plotTopBufferFraction,
+                            horizontalEdgeBufferFraction: horizontalEdgeBufferFraction
+                        )
+                        .equatable()
+                    }
+
+                    // Stroke fade is applied outside the equatable layer so the per-frame collapse
+                    // fade during a grabber drag does not rebuild the O(n) profile paths.
                     DiveDepthProfileStaticPlotLayer(
                         depthSamples: depthSamples,
                         pressureSamples: pressureSamples,
@@ -80,8 +97,6 @@ struct DiveDepthProfileOverlayChart: View {
                         axisMaxDepth: axisMaxDepth,
                         maxElapsed: maxElapsed,
                         lineReveal: lineReveal,
-                        strokeAndUnderfillOpacity: min(1, max(0, profileStrokeAndUnderfillOpacity)),
-                        waterTopHalfFadeProgress: min(1, max(0, waterTopHalfFadeProgress)),
                         pressureScale: pressureScale.map {
                             DiveDepthProfileStaticPlotLayer.PressureScale(
                                 minDepthMeters: $0.minDepthMeters,
@@ -90,15 +105,13 @@ struct DiveDepthProfileOverlayChart: View {
                                 maxPressurePSI: $0.maxPressurePSI
                             )
                         },
-                        showsWaterFill: showsWaterFill,
-                        animatesWaterFill: animatesWaterFill && !scrubActive,
-                        showsWaterBubbles: showsWaterBubbles,
                         showsGasOverlay: showsGasOverlay,
                         topBufferFraction: plotTopBufferFraction,
                         horizontalEdgeBufferFraction: horizontalEdgeBufferFraction,
                         onMediaMarkerTap: onMediaMarkerTap
                     )
                     .equatable()
+                    .opacity(Double(min(1, max(0, profileStrokeAndUnderfillOpacity))))
 
                     if scrubActive, let idx = scrubDepthIndex, depthSamples.indices.contains(idx) {
                         scrubChrome(
@@ -470,7 +483,62 @@ private final class DiveDepthProfilePendingFingerLocation {
     var point: CGPoint?
 }
 
-/// Depth / gas / fill layers that do not depend on scrub index.
+/// Animated water fill behind the profile strokes — separate equatable layer so the collapse
+/// stroke fade (per-frame while dragging) never invalidates it.
+private struct DiveDepthProfileWaterFillPlotLayer: View, Equatable {
+    let depthSamples: [DiveDepthProfileSample]
+    let rect: CGRect
+    let viewport: DiveDepthProfileChartViewport
+    let axisMaxDepth: Double
+    let waterTopHalfFadeProgress: CGFloat
+    let animatesWaterFill: Bool
+    let showsWaterBubbles: Bool
+    let topBufferFraction: Double
+    let horizontalEdgeBufferFraction: CGFloat
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.rect == rhs.rect
+            && lhs.viewport == rhs.viewport
+            && lhs.axisMaxDepth == rhs.axisMaxDepth
+            && lhs.waterTopHalfFadeProgress == rhs.waterTopHalfFadeProgress
+            && lhs.animatesWaterFill == rhs.animatesWaterFill
+            && lhs.showsWaterBubbles == rhs.showsWaterBubbles
+            && lhs.topBufferFraction == rhs.topBufferFraction
+            && lhs.horizontalEdgeBufferFraction == rhs.horizontalEdgeBufferFraction
+            && lhs.depthSamples.count == rhs.depthSamples.count
+            && lhs.depthSamples.first == rhs.depthSamples.first
+            && lhs.depthSamples.last == rhs.depthSamples.last
+    }
+
+    var body: some View {
+        let localPlotRect = CGRect(origin: .zero, size: rect.size)
+        let waterFillPath = DiveDepthProfileChartPresentation.depthProfileAreaPath(
+            samples: depthSamples,
+            in: localPlotRect,
+            viewport: viewport,
+            axisMaxDepthMeters: axisMaxDepth,
+            topBufferFraction: topBufferFraction,
+            horizontalEdgeBufferFraction: horizontalEdgeBufferFraction
+        )
+        ZStack(alignment: .topLeading) {
+            DiveDepthProfileChartWaterFillView(
+                areaPath: waterFillPath,
+                plotSize: rect.size,
+                revealProgress: 1,
+                animates: animatesWaterFill,
+                showsBubbles: showsWaterBubbles,
+                topHalfFadeProgress: waterTopHalfFadeProgress
+            )
+            .offset(x: rect.minX, y: rect.minY)
+        }
+        .frame(width: rect.width, height: rect.height)
+        .position(x: rect.midX, y: rect.midY)
+        .clipShape(Rectangle())
+    }
+}
+
+/// Depth / gas / underfill layers that do not depend on scrub index or the collapse stroke fade
+/// (opacity is applied by the caller so drags never rebuild the O(n) paths).
 private struct DiveDepthProfileStaticPlotLayer: View, Equatable {
     struct PressureScale: Equatable, Sendable {
         let minDepthMeters: Double
@@ -488,12 +556,7 @@ private struct DiveDepthProfileStaticPlotLayer: View, Equatable {
     let axisMaxDepth: Double
     let maxElapsed: Double
     let lineReveal: CGFloat
-    let strokeAndUnderfillOpacity: CGFloat
-    let waterTopHalfFadeProgress: CGFloat
     let pressureScale: PressureScale?
-    let showsWaterFill: Bool
-    let animatesWaterFill: Bool
-    let showsWaterBubbles: Bool
     let showsGasOverlay: Bool
     let topBufferFraction: Double
     let horizontalEdgeBufferFraction: CGFloat
@@ -505,12 +568,7 @@ private struct DiveDepthProfileStaticPlotLayer: View, Equatable {
             && lhs.axisMaxDepth == rhs.axisMaxDepth
             && lhs.maxElapsed == rhs.maxElapsed
             && lhs.lineReveal == rhs.lineReveal
-            && lhs.strokeAndUnderfillOpacity == rhs.strokeAndUnderfillOpacity
-            && lhs.waterTopHalfFadeProgress == rhs.waterTopHalfFadeProgress
             && lhs.pressureScale == rhs.pressureScale
-            && lhs.showsWaterFill == rhs.showsWaterFill
-            && lhs.animatesWaterFill == rhs.animatesWaterFill
-            && lhs.showsWaterBubbles == rhs.showsWaterBubbles
             && lhs.showsGasOverlay == rhs.showsGasOverlay
             && lhs.topBufferFraction == rhs.topBufferFraction
             && lhs.horizontalEdgeBufferFraction == rhs.horizontalEdgeBufferFraction
@@ -527,14 +585,6 @@ private struct DiveDepthProfileStaticPlotLayer: View, Equatable {
 
     var body: some View {
         let localPlotRect = CGRect(origin: .zero, size: rect.size)
-        let waterFillPath = DiveDepthProfileChartPresentation.depthProfileAreaPath(
-            samples: depthSamples,
-            in: localPlotRect,
-            viewport: viewport,
-            axisMaxDepthMeters: axisMaxDepth,
-            topBufferFraction: topBufferFraction,
-            horizontalEdgeBufferFraction: horizontalEdgeBufferFraction
-        )
         let underCurvePath = DiveDepthProfileChartPresentation.depthProfileUnderCurveAreaPath(
             samples: depthSamples,
             in: localPlotRect,
@@ -546,26 +596,13 @@ private struct DiveDepthProfileStaticPlotLayer: View, Equatable {
         let linePressureSamples = DiveDepthProfileChartPresentation.downsampledPressureSamplesForLine(
             pressureSamples
         )
-        let strokeOpacity = Double(min(1, max(0, strokeAndUnderfillOpacity)))
 
         ZStack(alignment: .topLeading) {
-            if showsWaterFill {
-                DiveDepthProfileChartWaterFillView(
-                    areaPath: waterFillPath,
-                    plotSize: rect.size,
-                    revealProgress: 1,
-                    animates: animatesWaterFill,
-                    showsBubbles: showsWaterBubbles,
-                    topHalfFadeProgress: waterTopHalfFadeProgress
-                )
-                .offset(x: rect.minX, y: rect.minY)
-            }
-
             DiveDepthProfileChartStaticUnderfillView(
                 areaPath: underCurvePath,
                 plotSize: rect.size,
                 revealProgress: lineReveal,
-                opacity: strokeAndUnderfillOpacity
+                opacity: 1
             )
             .offset(x: rect.minX, y: rect.minY)
 
@@ -578,11 +615,10 @@ private struct DiveDepthProfileStaticPlotLayer: View, Equatable {
                 }
                 depthPolyline
             }
-            .opacity(strokeOpacity)
             .drawingGroup()
 
             mediaMarkerLayer
-                .opacity(Double(lineReveal) * strokeOpacity)
+                .opacity(Double(lineReveal))
         }
         .frame(width: rect.width, height: rect.height)
         .position(x: rect.midX, y: rect.midY)

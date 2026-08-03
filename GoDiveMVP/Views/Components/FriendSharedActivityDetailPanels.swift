@@ -1,15 +1,61 @@
+import SwiftData
 import SwiftUI
 
 // MARK: - Map panel
 
+/// Friend avatar + name / site identity row shared across friend-shared map, tank, and collapsed summaries.
+struct FriendSharedActivityIdentityHeader: View {
+    let dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
+    let friendName: String
+    var friendPhotoURL: String? = nil
+
+    var body: some View {
+        DiveActivityMapOverviewHeader(
+            activityKind: dive.resolvedActivityKind == .snorkel ? .snorkel : .scubaDive,
+            diveNumberChip: FriendSharedActivityDetailPresentation.diveNumberChip(for: dive),
+            siteTitle: FriendSharedActivityDetailPresentation.siteHeaderTitle(for: dive),
+            linkedCatalogSiteID: nil,
+            onOpenLinkedSite: nil,
+            regionCountryLine: FriendSharedActivityDetailPresentation.regionCountryLine(for: dive),
+            dateDashTimeLine: FriendSharedActivityDetailPresentation.dateDashTimeLine(for: dive),
+            sharedByDisplayName: friendName,
+            sharedByPhotoURL: friendPhotoURL
+        )
+    }
+}
+
 struct FriendSharedActivityMapPanelContent: View {
     let dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
     let friendName: String
+    var friendPhotoURL: String? = nil
     let showsTaggedYou: Bool
     @Binding var overviewSheetDetent: DiveActivityOverviewDetent
 
+    @Query private var ownedBuddies: [DiveBuddy]
+
     @Environment(\.diveOverviewPanelHeightFraction) private var panelHeightFraction
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
+
+    init(
+        dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive,
+        friendName: String,
+        friendPhotoURL: String? = nil,
+        showsTaggedYou: Bool,
+        overviewSheetDetent: Binding<DiveActivityOverviewDetent>,
+        ownerProfileID: UUID? = AppLaunchSessionRestorePresentation.loadPersistedProfileID()
+    ) {
+        self.dive = dive
+        self.friendName = friendName
+        self.friendPhotoURL = friendPhotoURL
+        self.showsTaggedYou = showsTaggedYou
+        _overviewSheetDetent = overviewSheetDetent
+
+        let filterOwnerID = ownerProfileID ?? UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+        _ownedBuddies = Query(
+            filter: #Predicate<DiveBuddy> { $0.ownerProfileID == filterOwnerID },
+            sort: [SortDescriptor(\DiveBuddy.displayName, order: .forward)]
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
@@ -39,7 +85,10 @@ struct FriendSharedActivityMapPanelContent: View {
                 FriendSharedActivityReadOnlySectionsView(
                     dive: dive,
                     friendName: friendName,
-                    showsTaggedYou: showsTaggedYou
+                    showsTaggedYou: showsTaggedYou,
+                    showsSharedBySection: false,
+                    showsBuddyAvatars: true,
+                    localRosterBuddies: ownedBuddies
                 )
                 .opacity(detailsOpacity)
                 .offset(y: detailsVerticalOffset)
@@ -53,14 +102,10 @@ struct FriendSharedActivityMapPanelContent: View {
     }
 
     private var mapOverviewHeader: some View {
-        DiveActivityMapOverviewHeader(
-            activityKind: dive.resolvedActivityKind == .snorkel ? .snorkel : .scubaDive,
-            diveNumberChip: FriendSharedActivityDetailPresentation.diveNumberChip(for: dive),
-            siteTitle: FriendSharedActivityDetailPresentation.siteHeaderTitle(for: dive),
-            linkedCatalogSiteID: nil,
-            onOpenLinkedSite: nil,
-            regionCountryLine: FriendSharedActivityDetailPresentation.regionCountryLine(for: dive),
-            dateDashTimeLine: FriendSharedActivityDetailPresentation.dateDashTimeLine(for: dive)
+        FriendSharedActivityIdentityHeader(
+            dive: dive,
+            friendName: friendName,
+            friendPhotoURL: friendPhotoURL
         )
     }
 
@@ -122,6 +167,7 @@ struct FriendSharedActivityMapPanelContent: View {
 struct FriendSharedActivityTankPanelContent: View {
     let dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
     let friendName: String
+    var friendPhotoURL: String? = nil
     let showsTaggedYou: Bool
     @Binding var overviewSheetDetent: DiveActivityOverviewDetent
 
@@ -130,13 +176,10 @@ struct FriendSharedActivityTankPanelContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
             if overviewSheetDetent != .minimized {
-                DiveActivityMapOverviewHeader(
-                    diveNumberChip: FriendSharedActivityDetailPresentation.diveNumberChip(for: dive),
-                    siteTitle: FriendSharedActivityDetailPresentation.siteHeaderTitle(for: dive),
-                    linkedCatalogSiteID: nil,
-                    onOpenLinkedSite: nil,
-                    regionCountryLine: FriendSharedActivityDetailPresentation.regionCountryLine(for: dive),
-                    dateDashTimeLine: FriendSharedActivityDetailPresentation.dateDashTimeLine(for: dive)
+                FriendSharedActivityIdentityHeader(
+                    dive: dive,
+                    friendName: friendName,
+                    friendPhotoURL: friendPhotoURL
                 )
             }
 
@@ -145,7 +188,9 @@ struct FriendSharedActivityTankPanelContent: View {
             FriendSharedActivityReadOnlySectionsView(
                 dive: dive,
                 friendName: friendName,
-                showsTaggedYou: showsTaggedYou
+                showsTaggedYou: showsTaggedYou,
+                showsNotesSection: false,
+                showsBuddiesSection: false
             )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -253,67 +298,7 @@ struct FriendSharedActivityHeartRatePanelContent: View {
 
 // MARK: - Media panel
 
-struct FriendSharedActivityMediaPanelContent: View {
-    let dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
-    let friendName: String
-    let showsTaggedYou: Bool
-    @Binding var selectedPreviewID: String?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-            if dive.mediaPreviews.isEmpty {
-                Text(GoDiveFriendsPresentation.mediaHiddenLabel)
-                    .font(.footnote)
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, AppTheme.Spacing.md)
-            } else {
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 108), spacing: AppTheme.Spacing.sm)],
-                    spacing: AppTheme.Spacing.sm
-                ) {
-                    ForEach(dive.mediaPreviews, id: \.photoID) { preview in
-                        Button {
-                            selectedPreviewID = preview.photoID
-                        } label: {
-                            FriendSharedMediaPreviewThumbnail(preview: preview)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-
-            FriendSharedActivityReadOnlySectionsView(
-                dive: dive,
-                friendName: friendName,
-                showsTaggedYou: showsTaggedYou,
-                showsNotesAndTags: false
-            )
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-struct FriendSharedMediaPreviewThumbnail: View {
-    let preview: GoDiveSharedDiveProjectionMapping.MediaPreviewSnapshot
-
-    var body: some View {
-        AsyncImage(url: URL(string: preview.previewURL)) { phase in
-            switch phase {
-            case .success(let image):
-                image.resizable().scaledToFill()
-            default:
-                AppTheme.Colors.surfaceElevated
-                    .overlay {
-                        ProgressView()
-                    }
-            }
-        }
-        .frame(minWidth: 108, minHeight: 108)
-        .aspectRatio(1, contentMode: .fill)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-}
+// Implemented in `FriendSharedActivityMediaPanelContent.swift`.
 
 // MARK: - Shared read-only sections
 
@@ -321,11 +306,18 @@ struct FriendSharedActivityReadOnlySectionsView: View {
     let dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
     let friendName: String
     let showsTaggedYou: Bool
-    var showsNotesAndTags: Bool = true
+    var showsNotesSection: Bool = true
+    var showsTagsSection: Bool = true
+    var showsSharedBySection: Bool = true
+    var showsBuddiesSection: Bool = true
+    var showsBuddyAvatars: Bool = false
+    var localRosterBuddies: [DiveBuddy] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-            sharedBySection
+            if showsSharedBySection {
+                sharedBySection
+            }
 
             if showsTaggedYou {
                 Label(
@@ -336,12 +328,17 @@ struct FriendSharedActivityReadOnlySectionsView: View {
                 .foregroundStyle(AppTheme.Colors.accent)
             }
 
-            if showsNotesAndTags {
+            if showsNotesSection {
                 notesSection
+            }
+
+            if showsTagsSection {
                 tagsSection
             }
 
-            buddiesSection
+            if showsBuddiesSection {
+                buddiesSection
+            }
             marineLifeSection
             equipmentSection
         }
@@ -388,15 +385,39 @@ struct FriendSharedActivityReadOnlySectionsView: View {
     private var buddiesSection: some View {
         if !dive.taggedBuddies.isEmpty {
             sectionCard(title: "Buddies") {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(Array(dive.taggedBuddies.enumerated()), id: \.offset) { _, buddy in
-                        Text(buddy.displayName)
-                            .foregroundStyle(AppTheme.Colors.textPrimary)
+                if showsBuddyAvatars {
+                    buddyAvatarRow
+                } else {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(Array(dive.taggedBuddies.enumerated()), id: \.offset) { _, buddy in
+                            Text(buddy.displayName)
+                                .foregroundStyle(AppTheme.Colors.textPrimary)
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+    }
+
+    private var buddyAvatarRow: some View {
+        let rows = FriendSharedActivityDetailPresentation.mapTaggedBuddyDisplayRows(
+            from: dive,
+            localRoster: localRosterBuddies
+        )
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: AppTheme.Spacing.lg) {
+                ForEach(rows) { row in
+                    DiveActivityBuddyAvatarChip(
+                        displayName: row.displayName,
+                        profilePhoto: row.profilePhoto,
+                        avatarDiameter: 48
+                    )
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder

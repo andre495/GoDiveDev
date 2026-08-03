@@ -260,8 +260,10 @@ enum DiveMediaReferenceLoader {
                 }
             }
 
-            // A stalled iCloud download must not hang the caller forever — fall back to the degraded frame.
-            guard deliveryMode == .opportunistic else { return }
+            // A stalled iCloud download must not hang the caller forever — this guards **every**
+            // delivery mode: high-quality share/export requests previously had no deadline, so one
+            // stalled original froze the whole friend-share publish loop. Opportunistic callers fall
+            // back to the degraded frame; high-quality callers resolve nil and soft-skip the item.
             let timeout = DiveMediaStillLoad.requestTimeoutSeconds
             DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + timeout) {
                 guard resumeGuard.claim() else { return }

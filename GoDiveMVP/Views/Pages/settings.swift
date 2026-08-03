@@ -13,6 +13,8 @@ struct SettingsView: View {
     @AppStorage(AppUserSettings.shareDivesWithFriendsKey) private var shareDivesWithFriends = true
     @AppStorage(AppUserSettings.shareNotesWithFriendsKey) private var shareNotesWithFriends = false
     @AppStorage(AppUserSettings.shareMediaWithFriendsKey) private var shareMediaWithFriends = false
+    @AppStorage(AppUserSettings.shareMediaOnWiFiOnlyKey) private var shareMediaOnWiFiOnly = false
+    @AppStorage(AppUserSettings.downloadFriendMediaOnWiFiOnlyKey) private var downloadFriendMediaOnWiFiOnly = false
 
     @State private var mediaBackfillOverlay: DiveLibraryMediaBackfillOverlayState = .hidden
     @State private var mediaBackfillTask: Task<Void, Never>?
@@ -38,6 +40,8 @@ struct SettingsView: View {
                 shareDivesWithFriends: $shareDivesWithFriends,
                 shareNotesWithFriends: $shareNotesWithFriends,
                 shareMediaWithFriends: $shareMediaWithFriends,
+                shareMediaOnWiFiOnly: $shareMediaOnWiFiOnly,
+                downloadFriendMediaOnWiFiOnly: $downloadFriendMediaOnWiFiOnly,
                 mediaBackfillOverlay: mediaBackfillOverlay,
                 onRenumberWhenEnabled: renumberAllDivesWhenEnabled,
                 onAutoUploadEnabled: startMediaBackfillForExistingDives,
@@ -191,6 +195,8 @@ private struct SettingsPageContent: View {
     @Binding var shareDivesWithFriends: Bool
     @Binding var shareNotesWithFriends: Bool
     @Binding var shareMediaWithFriends: Bool
+    @Binding var shareMediaOnWiFiOnly: Bool
+    @Binding var downloadFriendMediaOnWiFiOnly: Bool
 
     @State private var saltWaterWeightText = ""
     @State private var freshWaterWeightText = ""
@@ -308,6 +314,23 @@ private struct SettingsPageContent: View {
                 .onChange(of: shareMediaWithFriends) { _, _ in
                     onFriendShareSettingsChanged()
                 }
+
+                SettingsToggleRow(
+                    title: SettingsPresentation.ShareMediaOnWiFiOnly.title,
+                    infoMessage: SettingsPresentation.ShareMediaOnWiFiOnly.infoMessage,
+                    isOn: $shareMediaOnWiFiOnly
+                )
+                .disabled(!shareDivesWithFriends || !shareMediaWithFriends)
+                .onChange(of: shareMediaOnWiFiOnly) { _, _ in
+                    onFriendShareSettingsChanged()
+                }
+
+                SettingsToggleRow(
+                    title: SettingsPresentation.DownloadFriendMediaOnWiFiOnly.title,
+                    infoMessage: SettingsPresentation.DownloadFriendMediaOnWiFiOnly.infoMessage,
+                    isOn: $downloadFriendMediaOnWiFiOnly
+                )
+                .disabled(!shareDivesWithFriends)
 
                 SettingsToggleRow(
                     title: SettingsPresentation.ShareCrashReports.title,

@@ -120,21 +120,33 @@ enum SettingsPresentation: Sendable {
     }
 
     enum ShareDives {
-        nonisolated static let title = "Share dives with friends"
+        nonisolated static let title = "Share activities with buddies"
         nonisolated static let infoMessage =
-            "When on, friends can see your dives and snorkel sessions (site, depth or distance, duration, conditions, and more). Your private CloudKit log stays the source of truth; a friend-visible copy is stored for them to read. Notes and media stay off unless you enable those toggles."
+            "When on, buddies can see your dives and snorkel sessions (site, depth or distance, duration, conditions, and more). Your private CloudKit log stays the source of truth; a buddy-visible copy is stored for them to read. Notes and media stay off unless you enable those toggles."
     }
 
     enum ShareNotesWithFriends {
-        nonisolated static let title = "Share notes with friends"
+        nonisolated static let title = "Share notes with buddies"
         nonisolated static let infoMessage =
-            "When on, dive notes are included in what friends can see. Off by default."
+            "When on, activity notes are included in what buddies can see. Off by default."
     }
 
     enum ShareMediaWithFriends {
-        nonisolated static let title = "Share media with friends"
+        nonisolated static let title = "Share media with buddies"
         nonisolated static let infoMessage =
-            "When on, small photo previews from your dives upload so friends can see them. Full originals stay in your Photos library. Off by default."
+            "When on, buddies see thumbnails right away and full-quality photos (up to 20 per activity) and 1080p video clips (up to 10, 30 seconds each). Full originals stay in your Photos library. Off by default."
+    }
+
+    enum ShareMediaOnWiFiOnly {
+        nonisolated static let title = "Share media on Wi‑Fi only"
+        nonisolated static let infoMessage =
+            "When on, full-quality shared photos and videos upload only on Wi‑Fi. Thumbnails may still upload on cellular so buddies see activity media quickly."
+    }
+
+    enum DownloadFriendMediaOnWiFiOnly {
+        nonisolated static let title = "Download buddy media on Wi‑Fi only"
+        nonisolated static let infoMessage =
+            "When on, full-quality buddy photos and videos download only on Wi‑Fi. Thumbnails may still appear on cellular."
     }
 
     enum BulkUddfImport {

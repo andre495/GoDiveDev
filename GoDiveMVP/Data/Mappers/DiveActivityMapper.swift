@@ -69,6 +69,7 @@ enum DiveActivityMapper {
 
         activity.applyImportedGasConsumptionMetrics(volumeUsedSurfaceLiters: nil)
 
+        ActivityFriendShareConfiguration.seedBuddyShareDefaultsOnNewActivity(activity)
         return activity
     }
 }

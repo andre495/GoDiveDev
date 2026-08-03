@@ -492,7 +492,12 @@ struct LogbookView: View {
             if let row = buddyFeedAllRows.first(where: {
                 $0.friendUID == friendUID && $0.dive.id == diveDocumentID
             }) {
-                FriendSharedDiveDetailView(dive: row.dive, friendName: row.friendDisplayName)
+                FriendSharedDiveDetailView(
+                    dive: row.dive,
+                    friendName: row.friendDisplayName,
+                    friendPhotoURL: row.friendPhotoURL,
+                    friendUID: row.friendUID
+                )
                     .hidesBottomTabBarWhenPushed()
             } else {
                 Text("This shared dive is no longer available.")
@@ -1183,6 +1188,18 @@ private struct LogbookListSurface: View, Equatable {
                         displayedCount: buddyFeedRows.count
                     ) else { return }
                     onBuddyFeedLoadMore()
+                }
+                .task(id: row.id) {
+                    let thumbURLs = FriendSharedMediaPresentation.buddyFeedThumbnailPrefetchURLs(
+                        rows: buddyFeedRows,
+                        startIndex: index
+                    )
+                    let allowsNetwork = AppNetworkConnectivitySnapshot.shared.allowsCloudMediaFetch
+                    await GoDiveSharedMediaCache.shared.prefetch(
+                        remoteURLStrings: thumbURLs,
+                        tier: .thumb,
+                        allowsNetworkFetch: allowsNetwork
+                    )
                 }
             }
 

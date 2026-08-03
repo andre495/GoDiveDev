@@ -83,9 +83,26 @@ private struct ProductionAppRoot: View {
                             ?? GoDiveKeychainStore.string(for: .lastAppleUserIdentifier)
                     )
                     Task { await GoDiveFirebaseCloudMessaging.registerForFriendInvitePushesIfNeeded() }
+                    if let ownerID = accountSession.currentProfile?.id {
+                        Task {
+                            await GoDiveBuddyShareBackgroundUpload.resumePendingWork(
+                                ownerProfileID: ownerID,
+                                modelContext: ModelContext(container)
+                            )
+                        }
+                    }
                 }
                 if phase == .background {
                     GoDiveCloudKitBackgroundSync.scheduleNextOpportunities()
+                    GoDiveBuddyShareBackgroundUpload.scheduleProcessingIfNeeded()
+                    if let ownerID = accountSession.currentProfile?.id {
+                        Task {
+                            await GoDiveBuddyShareBackgroundUpload.resumePendingWork(
+                                ownerProfileID: ownerID,
+                                modelContext: ModelContext(container)
+                            )
+                        }
+                    }
                     Task { @MainActor in
                         DiveMediaReferenceLoader.clearSessionMediaCaches()
                     }

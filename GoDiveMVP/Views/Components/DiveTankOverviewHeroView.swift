@@ -39,6 +39,11 @@ struct DiveTankOverviewHeroView: View {
     var psiUsedRevealProgress: CGFloat = 1
     /// Live overview sheet height fraction (drives collapse fades while dragging).
     var liveHeightFraction: CGFloat? = nil
+    /// Per-frame drag channel — preferred over **`liveHeightFraction`** when present so only this
+    /// hero re-evaluates while the grabber moves (page state stays epsilon-throttled).
+    var liveSheetState: DiveActivityOverviewLiveSheetState? = nil
+    /// Actual sheet layout context — resolves live/resting bottom margins for the drag transform.
+    var sheetLayoutContext: DiveActivityOverviewSheetLayoutContext? = nil
     /// **0…1** — top-half water fade after snap to **minimized**.
     var waterTopHalfFadeProgress: CGFloat = 0
     /// **0…1** — cylinder + PSI chrome fade-in after snap to **minimized**.
@@ -52,10 +57,27 @@ struct DiveTankOverviewHeroView: View {
         DiveTankOverviewHeroPresentation.isLandscapeLayout(layoutSize: layoutSize)
     }
 
+    private var resolvedLiveHeightFraction: CGFloat {
+        liveSheetState?.heightFraction ?? liveHeightFraction ?? sheetDetent.heightFraction
+    }
+
     private var collapseProgress: CGFloat {
         DiveTankOverviewHeroPresentation.collapseProgress(
-            liveHeightFraction: liveHeightFraction ?? sheetDetent.heightFraction,
-            layoutContext: DiveActivityOverviewSheetLayoutContext.presentationReference
+            liveHeightFraction: resolvedLiveHeightFraction,
+            layoutContext: sheetLayoutContext ?? .presentationReference
+        )
+    }
+
+    /// Sheet obstruction height — continuous (per-frame) when the live channel is wired, else the page value.
+    private func resolvedBottomContentMargin(liveHeightFraction: CGFloat?) -> CGFloat {
+        guard !isLandscape, let sheetLayoutContext, liveSheetState != nil else {
+            return bottomContentMargin
+        }
+        return DiveActivityOverviewLandscapePresentation.mapBottomContentMargin(
+            layoutContext: sheetLayoutContext,
+            detent: sheetDetent,
+            liveHeightFraction: liveHeightFraction,
+            isLandscape: false
         )
     }
 
@@ -166,33 +188,53 @@ struct DiveTankOverviewHeroView: View {
     }
 
     var body: some View {
+        let liveBottomMargin = resolvedBottomContentMargin(liveHeightFraction: resolvedLiveHeightFraction)
+        let restingBottomMargin = resolvedBottomContentMargin(liveHeightFraction: nil)
         let cylinderHeight = DiveTankOverviewHeroPresentation.cylinderHeight(
             layoutHeight: layoutHeight,
-            bottomContentMargin: bottomContentMargin
+            bottomContentMargin: liveBottomMargin
         )
         let metrics = DiveTankOverviewHeroPresentation.layoutMetrics(
             detent: DiveTankOverviewHeroPresentation.layoutDetent(for: sheetDetent),
             layoutSize: layoutSize,
             layoutHeight: layoutHeight,
             topObstructionHeight: topObstructionHeight,
-            bottomContentMargin: bottomContentMargin,
+            bottomContentMargin: liveBottomMargin,
             cylinderHeight: cylinderHeight
         )
-        let chartFrame = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
+        // Chart mounts at its resting frame for the current detent (crisp paths, no per-frame
+        // layout) and is scale/position-transformed to the live target while the grabber moves.
+        let chartBaseFrame = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
             layoutSize: layoutSize,
             layoutHeight: layoutHeight,
             topObstructionHeight: topObstructionHeight,
-            bottomContentMargin: bottomContentMargin,
+            bottomContentMargin: restingBottomMargin,
             isLandscape: isLandscape,
             detent: sheetDetent,
             chartSizingBottomContentMargin: chartSizingBottomContentMargin,
-            collapseProgress: isLandscape ? nil : collapseProgress
+            collapseProgress: nil
+        )
+        let chartTargetFrame = isLandscape
+            ? chartBaseFrame
+            : DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
+                layoutSize: layoutSize,
+                layoutHeight: layoutHeight,
+                topObstructionHeight: topObstructionHeight,
+                bottomContentMargin: liveBottomMargin,
+                isLandscape: false,
+                detent: sheetDetent,
+                chartSizingBottomContentMargin: chartSizingBottomContentMargin,
+                collapseProgress: collapseProgress
+            )
+        let chartTransform = DiveTankOverviewHeroPresentation.portraitChartDragTransform(
+            baseFrame: chartBaseFrame,
+            targetFrame: chartTargetFrame
         )
         let backdropOpacity = DiveTankOverviewHeroPresentation.collapseWaterBackdropOpacity(
             collapseProgress: isLandscape ? 0 : collapseProgress,
             waterTopHalfFadeProgress: resolvedWaterTopHalfFadeProgress
         )
-        let backdropHeight = max(0, chartFrame.minY)
+        let backdropHeight = max(0, chartTargetFrame.minY)
 
         ZStack {
             AppTheme.Colors.screenBackgroundGradient
@@ -237,9 +279,9 @@ struct DiveTankOverviewHeroView: View {
                         ),
                         onScrubCalloutChange: { scrubCallout = $0 }
                     )
-                    .frame(width: chartFrame.width, height: chartFrame.height)
-                    .position(x: chartFrame.midX, y: chartFrame.midY)
-                    .animation(nil, value: bottomContentMargin)
+                    .frame(width: chartBaseFrame.width, height: chartBaseFrame.height)
+                    .scaleEffect(x: 1, y: chartTransform.scaleY, anchor: .center)
+                    .position(x: chartBaseFrame.midX, y: chartTransform.centerY)
                     .accessibilityIdentifier("DiveTank.Hero.ProfileChart")
                 }
 
@@ -286,12 +328,10 @@ struct DiveTankOverviewHeroView: View {
             .opacity(showsTankHeroVisuals ? 1 : 0)
             .accessibilityHidden(!showsTankHeroVisuals)
         }
-        .animation(
-            .easeInOut(duration: DiveTankOverviewHeroPresentation.heroDetentAnimationDuration),
-            value: sheetDetent
-        )
+        // Same spring as the panel height so the chart transform / cylinder settle in sync
+        // with the sheet on detent snaps (drag release, tap-to-expand, programmatic).
+        .animation(.diveOverviewPanelDetent, value: sheetDetent)
         .animation(nil, value: isLandscape)
-        .animation(nil, value: collapseProgress)
         .onAppear {
             syncLandscapeChartChrome(isLandscape: isLandscape)
         }

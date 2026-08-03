@@ -21,6 +21,8 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
     var usesOpaquePanelScrollFadeBackground: Bool = false
     /// Optional sink for the panel’s live height fraction (resting detent or grabber drag).
     var liveHeightFraction: Binding<CGFloat>? = nil
+    /// Optional per-frame channel — unthrottled drag fraction for gesture-driven heroes (tank chart).
+    var liveSheetState: DiveActivityOverviewLiveSheetState? = nil
     /// Persisted vertical scroll offset for nested-navigation return (map / tank panel).
     @Binding var panelScrollOffsetY: CGFloat
     /// Last offset saved in **`DiveActivityOverviewUIStateStore`** while the binding may read zero during nested pushes.
@@ -114,9 +116,16 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
         .accessibilityIdentifier("DiveActivity.OverviewEmbeddedPanel")
         .onAppear {
             publishLiveHeightFraction(force: true)
+            liveSheetState?.heightFraction = contentHeightFraction
         }
         .onChange(of: selectedDetent) { _, _ in
             publishLiveHeightFraction(force: true)
+            // Tap-to-expand / programmatic detent changes ride the same spring as the panel height;
+            // for drag releases `onEnded` already set the resting value inside this animation.
+            guard !isDragging else { return }
+            withAnimation(.diveOverviewPanelDetent) {
+                liveSheetState?.heightFraction = restingHeightFraction
+            }
         }
         .onChange(of: grabberDragTranslation) { _, newTranslation in
             // Force on drag end so hero/map settle at the resting seam without waiting for epsilon.
@@ -153,7 +162,9 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
                 transaction.disablesAnimations = true
                 withTransaction(transaction) {
                     grabberDragTranslation = value.translation.height
+                    liveSheetState?.heightFraction = displayHeightFraction
                 }
+                publishLiveHeightFraction()
             }
             .onEnded { value in
                 let current = restingHeightFraction
@@ -173,9 +184,14 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
                     toHeightFraction: snapped,
                     largeRestingFraction: largeRestingFraction
                 )
+                // Record the release position before the detent mutation so the page's
+                // detent-change handler can tell drag-driven snaps from taps.
+                liveSheetState?.dragReleaseHeightFraction = displayHeightFraction
                 withAnimation(.diveOverviewPanelDetent) {
                     selectedDetent = nextDetent
                     grabberDragTranslation = 0
+                    // Same spring as the panel height so hero transforms settle in sync.
+                    liveSheetState?.heightFraction = nextDetent.resolvedHeightFraction(in: layoutContext)
                 }
             }
     }

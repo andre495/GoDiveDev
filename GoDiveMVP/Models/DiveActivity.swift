@@ -161,6 +161,24 @@ final class DiveActivity {
     /// (**`DiveActivityMediaPresentation.featuredPhotoID`** resolves / falls back when this id is missing).
     var featuredMediaPhotoID: UUID?
 
+    // MARK: - Buddy network (per-activity share overrides)
+
+    /// When **`false`**, this dive is excluded from friend-visible Firestore projections.
+    var friendShareActivityEnabled: Bool = true
+    /// When **`true`** and **`friendShareActivityEnabled`**, uploads selected gallery media.
+    var friendShareMediaEnabled: Bool = false
+    /// JSON-encoded **`[UUID]`** strings — selected gallery items to share. Empty / **`nil`** = none.
+    var friendShareMediaSelectedIDsJSON: String?
+    /// **`ActivityFriendShareNotesMode`** raw value.
+    var friendShareNotesModeRaw: String = ActivityFriendShareNotesMode.off.rawValue
+    /// Friend-visible note when **`friendShareNotesModeRaw`** is **`publicNotes`**.
+    var friendSharePublicNotes: String?
+    /// Set **`true`** after the owner saves per-activity buddy share settings (otherwise global defaults apply).
+    var friendShareBuddySettingsConfigured: Bool = false
+    /// Set **`true`** after global Settings defaults are snapshotted onto this activity (new activities + one-time backfill).
+    /// Unconfigured activities with this flag use stored **`friendShare*`** fields; changing global Settings later does not alter them.
+    var friendShareBuddyDefaultsCaptured: Bool = false
+
     /// Field-guide sightings logged on this dive (**`SightingInstance`**).
     @Relationship(deleteRule: .cascade)
     var marineLifeSightingsStorage: [SightingInstance]? = []

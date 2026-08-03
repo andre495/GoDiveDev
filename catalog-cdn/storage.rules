@@ -32,7 +32,28 @@ service firebase.storage {
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
-    match /users/{userId}/sharedMedia/{diveId}/{fileName} {
+    // Schema v3 friend-shared activity media (thumb / full photo / 1080p video).
+    match /users/{userId}/sharedMedia/{activityId}/{mediaId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId
+                   && (
+                     (fileName == 'thumb.jpg'
+                       && request.resource.size < 1 * 1024 * 1024
+                       && request.resource.contentType.matches('image/.*'))
+                     ||
+                     (fileName == 'photo.jpg'
+                       && request.resource.size < 8 * 1024 * 1024
+                       && request.resource.contentType == 'image/jpeg')
+                     ||
+                     (fileName == 'video.mp4'
+                       && request.resource.size < 50 * 1024 * 1024
+                       && request.resource.contentType == 'video/mp4')
+                   );
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Legacy v2 flat preview JPEG (`{mediaId}.jpg` directly under activity folder).
+    match /users/{userId}/sharedMedia/{activityId}/{legacyFileName} {
       allow read: if true;
       allow write: if request.auth != null && request.auth.uid == userId
                    && request.resource.size < 5 * 1024 * 1024

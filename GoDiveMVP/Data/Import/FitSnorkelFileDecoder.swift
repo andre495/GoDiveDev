@@ -95,6 +95,7 @@ enum FitSnorkelFileDecoder {
         activity.profilePoints = points
         try DiveFileImportLimits.enforceProfileSampleCount(points.count)
 
+        ActivityFriendShareConfiguration.seedBuddyShareDefaultsOnNewActivity(activity)
         return activity
     }
 

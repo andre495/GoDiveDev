@@ -15032,6 +15032,15 @@ struct GoDiveMVPTests {
         #expect(DiveActivityOverviewTabSelection.overviewDetent(whenSelectingSnorkel: .camera) == .large)
     }
 
+    @Test func diveActivityOverviewTabSelection_friendSharedMedia_usesMinimizedDetent() {
+        #expect(DiveActivityOverviewTabSelection.friendSharedOverviewDetent(whenSelecting: .map) == .large)
+        #expect(DiveActivityOverviewTabSelection.friendSharedOverviewDetent(whenSelecting: .tank) == .large)
+        #expect(DiveActivityOverviewTabSelection.friendSharedOverviewDetent(whenSelecting: .camera) == .minimized)
+        #expect(DiveActivityOverviewTabSelection.friendSharedOverviewDetent(whenSelectingSnorkel: .map) == .large)
+        #expect(DiveActivityOverviewTabSelection.friendSharedOverviewDetent(whenSelectingSnorkel: .heartRate) == .large)
+        #expect(DiveActivityOverviewTabSelection.friendSharedOverviewDetent(whenSelectingSnorkel: .camera) == .minimized)
+    }
+
     @Test @MainActor func diveActivityMediaPresentation_sortedPhotos_withoutCaptureDate_respectsSortOrder() {
         let activity = DiveActivity(
             source: .manual,
@@ -18697,6 +18706,23 @@ struct GoDiveMVPTests {
         #expect(abs(size.width / size.height - 4 / 3) < 0.02)
     }
 
+    @Test func diveActivityMediaHeroPresentation_interpolatedSize_fillsViewportAtFullProgress() {
+        let band = CGRect(x: 0, y: 0, width: 390, height: 280)
+        let viewport = CGSize(width: 390, height: 844)
+        let expected = DiveActivityMediaHeroPresentation.aspectFillSize(
+            mediaAspect: 16 / 9,
+            in: viewport
+        )
+        let size = DiveActivityMediaHeroPresentation.interpolatedMediaSize(
+            mediaAspect: 16 / 9,
+            band: band,
+            viewport: viewport,
+            progress: 1
+        )
+        #expect(abs(size.width - expected.width) < 0.5)
+        #expect(abs(size.height - expected.height) < 0.5)
+    }
+
     @Test func diveActivityMediaHeroPresentation_heroBandRect_fillsToScreenTop() {
         let band = DiveActivityMediaHeroPresentation.heroBandRect(
             viewportSize: CGSize(width: 390, height: 844),
@@ -20578,6 +20604,88 @@ struct GoDiveMVPTests {
             ) == 1
         )
         #expect(DiveTankOverviewHeroPresentation.profileStrokeFadeCompleteCollapseProgress == 0.22)
+    }
+
+    @Test func diveTankOverviewHeroPresentation_shouldSkipMinimizedEntranceAfterDrag_nearMinimized() {
+        let context = DiveActivityOverviewSheetLayoutContext.presentationReference
+        let minimized = DiveActivityOverviewPanelMetrics.minimizedHeightFraction
+        #expect(
+            DiveTankOverviewHeroPresentation.shouldSkipMinimizedEntranceAfterDrag(
+                liveHeightFraction: minimized,
+                layoutContext: context
+            )
+        )
+        let large = DiveActivityOverviewPanelMetrics.largeHeightFraction(in: context)
+        #expect(
+            !DiveTankOverviewHeroPresentation.shouldSkipMinimizedEntranceAfterDrag(
+                liveHeightFraction: large,
+                layoutContext: context
+            )
+        )
+    }
+
+    @Test func diveTankOverviewHeroPresentation_interpolatedPortraitProfileChartFrame_blendsLargeAndMinimized() {
+        let layoutSize = CGSize(width: 390, height: 640)
+        let layoutHeight: CGFloat = 844
+        let topObstruction: CGFloat = 100
+        let minimizedMargin = layoutHeight * DiveActivityOverviewPanelMetrics.minimizedHeightFraction
+        let largeMargin = layoutHeight * DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
+        let large = DiveTankOverviewHeroPresentation.portraitProfileChartFrame(
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstruction,
+            bottomContentMargin: minimizedMargin,
+            chartSizingBottomContentMargin: largeMargin,
+            heightScale: 1
+        )
+        let minimized = DiveTankOverviewHeroPresentation.portraitProfileChartFrame(
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstruction,
+            bottomContentMargin: minimizedMargin,
+            chartSizingBottomContentMargin: largeMargin,
+            heightScale: DiveTankOverviewHeroPresentation.minimizedPortraitChartHeightScale
+        )
+        let mid = DiveTankOverviewHeroPresentation.interpolatedPortraitProfileChartFrame(
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstruction,
+            bottomContentMargin: minimizedMargin,
+            chartSizingBottomContentMargin: largeMargin,
+            collapseProgress: 0.5
+        )
+        #expect(abs(mid.height - (large.height + minimized.height) / 2) < 1)
+        #expect(mid.height > large.height + 1)
+        #expect(mid.height < minimized.height + 1)
+    }
+
+    @Test func diveTankOverviewHeroPresentation_portraitChartDragTransform_identityAtRestTracksTarget() {
+        let base = CGRect(x: 0, y: 100, width: 390, height: 300)
+        let identity = DiveTankOverviewHeroPresentation.portraitChartDragTransform(
+            baseFrame: base,
+            targetFrame: base
+        )
+        #expect(abs(identity.scaleY - 1) < 0.0001)
+        #expect(abs(identity.centerY - base.midY) < 0.0001)
+
+        let target = CGRect(x: 0, y: 50, width: 390, height: 450)
+        let dragged = DiveTankOverviewHeroPresentation.portraitChartDragTransform(
+            baseFrame: base,
+            targetFrame: target
+        )
+        #expect(abs(dragged.scaleY - 1.5) < 0.0001)
+        #expect(abs(dragged.centerY - target.midY) < 0.0001)
+    }
+
+    @MainActor
+    @Test func diveActivityOverviewLiveSheetState_defaultsToRestingDetentAndClearsRelease() {
+        let state = DiveActivityOverviewLiveSheetState()
+        #expect(state.heightFraction == DiveActivityOverviewDetent.defaultSelection.heightFraction)
+        #expect(state.dragReleaseHeightFraction == nil)
+        state.dragReleaseHeightFraction = 0.21
+        #expect(state.dragReleaseHeightFraction == 0.21)
+        state.dragReleaseHeightFraction = nil
+        #expect(state.dragReleaseHeightFraction == nil)
     }
 
     @Test func diveTankOverviewHeroPresentation_minimizedChromeOpacity_fadesOnExpand() {

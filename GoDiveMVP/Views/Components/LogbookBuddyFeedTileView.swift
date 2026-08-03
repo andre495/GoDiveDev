@@ -68,6 +68,8 @@ struct LogbookBuddyFeedTileView: View, Equatable {
 
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @State private var swimTrackCoordinates: [DiveCoordinate] = []
+    @State private var isTileVisible = false
+    @State private var visibleHeroPageID: String?
 
     private var heroPages: [LogbookBuddyFeedPresentation.HeroPage] {
         LogbookBuddyFeedPresentation.heroPages(for: row.dive)
@@ -92,9 +94,34 @@ struct LogbookBuddyFeedTileView: View, Equatable {
             }
         }
         .modifier(ApplyBuddyFeedTileCardStyle(apply: part == .full))
+        .onAppear { isTileVisible = true }
+        .onDisappear {
+            isTileVisible = false
+            visibleHeroPageID = nil
+        }
         .task(id: row.id) {
             await loadHeroData()
         }
+        .task(id: buddyFeedFeaturedContentPrefetchToken) {
+            guard isTileVisible else { return }
+            var urls: [String] = []
+            if let photo = FriendSharedMediaPresentation.buddyFeedFeaturedPhotoContentPrefetchURL(
+                for: row.dive
+            ) {
+                urls.append(photo)
+            }
+            if let video = FriendSharedMediaPresentation.buddyFeedFeaturedVideoContentPrefetchURL(
+                for: row.dive
+            ) {
+                urls.append(video)
+            }
+            guard !urls.isEmpty else { return }
+            await FriendSharedMediaPresentation.prefetchContentIfAllowed(urls: urls)
+        }
+    }
+
+    private var buddyFeedFeaturedContentPrefetchToken: String {
+        "\(row.id)-\(isTileVisible)"
     }
 
     @ViewBuilder
@@ -134,6 +161,12 @@ struct LogbookBuddyFeedTileView: View, Equatable {
                 }
                 .scrollTargetBehavior(.paging)
                 .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+                .scrollPosition(id: $visibleHeroPageID)
+                .onAppear {
+                    if visibleHeroPageID == nil {
+                        visibleHeroPageID = heroPages.first?.id
+                    }
+                }
             }
         } else if let page = heroPages.first {
             heroPageContent(page)
@@ -143,8 +176,11 @@ struct LogbookBuddyFeedTileView: View, Equatable {
     @ViewBuilder
     private func heroPageContent(_ page: LogbookBuddyFeedPresentation.HeroPage) -> some View {
         switch page {
-        case .media(let preview):
-            LogbookBuddyFeedMediaHeroPage(previewURL: preview.previewURL)
+        case .media(let item):
+            LogbookBuddyFeedMediaHeroPage(
+                item: item,
+                isPlaybackActive: shouldAutoplayFeaturedVideo(for: page, item: item)
+            )
         case .activityVisualization:
             activityVisualizationHero
         case .placeholder:
@@ -281,6 +317,15 @@ struct LogbookBuddyFeedTileView: View, Equatable {
         let dive = row.dive
         swimTrackCoordinates = GoDiveSharedDiveProjectionMapping.decodedSwimTrackCoordinates(from: dive)
     }
+
+    private func shouldAutoplayFeaturedVideo(
+        for page: LogbookBuddyFeedPresentation.HeroPage,
+        item: FriendSharedMediaPresentation.DisplayItem
+    ) -> Bool {
+        guard isTileVisible, item.kind == .video else { return false }
+        let activePageID = visibleHeroPageID ?? heroPages.first?.id
+        return activePageID == page.id
+    }
 }
 
 private struct ApplyBuddyFeedTileCardStyle: ViewModifier {
@@ -297,33 +342,30 @@ private struct ApplyBuddyFeedTileCardStyle: ViewModifier {
 
 /// Full-bleed shared media page inside a Buddy Feed tile hero.
 struct LogbookBuddyFeedMediaHeroPage: View {
-    let previewURL: String
+    let item: FriendSharedMediaPresentation.DisplayItem
+    var isPlaybackActive: Bool = false
 
     var body: some View {
-        AsyncImage(url: URL(string: previewURL)) { phase in
-            switch phase {
-            case .success(let image):
-                image
-                    .resizable()
-                    .scaledToFill()
-            case .failure:
-                heroPlaceholder
-            default:
-                AppTheme.Colors.surfaceElevated
-                    .overlay { ProgressView() }
+        Group {
+            if item.kind == .video {
+                FriendSharedRemoteVideoPlayerView(
+                    item: item,
+                    isPlaybackActive: isPlaybackActive,
+                    loopsPlayback: false,
+                    prefersFastPlaybackStart: true
+                )
+            } else {
+                FriendSharedMediaImageView(
+                    item: item,
+                    fidelity: .progressive,
+                    showsVideoBadge: true
+                )
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
-        .accessibilityLabel("Shared activity photo")
-    }
-
-    private var heroPlaceholder: some View {
-        AppTheme.Colors.surfaceElevated
-            .overlay {
-                Image(systemName: "photo")
-                    .font(.title2)
-                    .foregroundStyle(AppTheme.Colors.tabUnselected)
-            }
+        .accessibilityLabel(
+            item.kind == .video ? "Shared activity video" : "Shared activity photo"
+        )
     }
 }

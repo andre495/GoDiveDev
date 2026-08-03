@@ -29,6 +29,7 @@ enum AppLaunchMaintenance: Sendable {
             try MarineLifeCommonNameNormalization.normalizeStoredCatalogIfNeeded(modelContext: context)
             try AppSwiftDataOwnershipBackfill.backfillIfNeeded(modelContext: context)
             try AppSwiftDataHybridRowMigration.migrateIfNeeded(modelContext: context)
+            try ActivityFriendShareDefaultsMigration.captureMissingDefaults(modelContext: context)
         } catch {
             log.error("AppLaunchMaintenance essential tier failed: \(String(describing: error), privacy: .private)")
         }

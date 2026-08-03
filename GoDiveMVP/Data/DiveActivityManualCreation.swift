@@ -41,6 +41,7 @@ enum DiveActivityManualCreation {
             tankVolumeDescription: defaultTank.storedDescription
         )
         DiveActivityDiverWeightDefaults.applyImportDefaults(to: activity, userDefaults: userDefaults)
+        ActivityFriendShareConfiguration.seedBuddyShareDefaultsOnNewActivity(activity, userDefaults: userDefaults)
         return activity
     }
 

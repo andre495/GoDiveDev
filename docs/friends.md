@@ -24,9 +24,32 @@ You need to be signed in with Apple (Firebase social sign-in) and allow notifica
 
 Once connected, open a friend from **Buddies** to browse their **shared dives** (tap their row — friends show a badge on the avatar).
 
-By default (when **Share dives with friends** is on in Settings), friends can see dive details such as site, date, depth, duration, conditions, tags, and marine life. **Notes** and **photos** stay private unless you turn on those Settings toggles.
+By default (when **Share activities with buddies** is on in Settings), buddies can see dive and snorkel details such as site, date, depth, duration, conditions, tags, and marine life. **Notes** and **photos** stay private unless you turn on those Settings toggles. When **Share media with buddies** is on, buddies see thumbnails quickly in **Buddy Feed**, then full-quality photos (up to 20 per activity) and short video clips (up to 10, 30 seconds each) when they open the activity.
+
+### Per-activity sharing
+
+On any **owned** dive or snorkel, tap the **⋯** button (top right) to open **Buddy Sharing** for that activity only:
+
+- **Share activity with buddies** — include or exclude this entry from your buddy network (Settings must still have **Share activities with buddies** on).
+- **Share media with buddies** — turn media on for this activity and choose which photos/videos to include in a checkbox grid.
+- **Share notes with buddies** — off, share your private activity notes, or write a separate public note for buddies.
+- **Status** at the bottom — **Upload in progress…** banner while publishing, then an **Activity / Media / Notes** checklist (**Shared**, **Uploading**, or **Off**).
+
+Per-activity choices override the global defaults for that entry once you change them in **Buddy Sharing**. New activities inherit your current global defaults when they are created; changing Settings later does not alter activities you already have (unless you edit them in **Buddy Sharing**). Turning sharing off for an activity removes its Firebase projection and shared media from Storage. Global **Share activities with buddies** remains the master on/off switch for the buddy network.
+
+## Viewing friend photos and videos
+
+**Buddy Feed** loads small thumbnails first so the list stays fast. When a tile’s **featured** shared item is a photo, the hero crossfades to full quality when the content file is available. When it is a video, it **auto-plays once** (muted) after you scroll it into view — preferring a cached copy when one exists, otherwise streaming while the clip downloads. Tap an activity to open the same map / tank / media layout you use on your own dives — photos crossfade from the thumbnail to full quality when available, and videos play from the shared clip (poster thumbnail first). Opening a friend activity refreshes shared media from Firestore and starts loading **all** shared photos and videos in the background.
+
+Tap a photo in the media grid or on the hero to open **fullscreen** — pinch to zoom on full-quality stills, swipe between items, and stream videos with the same controls.
+
+In **Settings**, **Download buddy media on Wi‑Fi only** (default off) skips full-quality photo and video downloads on cellular. Thumbnails may still appear on cellular so you can browse the feed.
 
 Your own full logbook on your devices (and private iCloud sync) is unchanged — friends see a read-only shared copy, not co-edit rights. When you edit a shared dive (details, tags, buddies, media, and so on), GoDive updates that shared copy so friends see the latest info.
+
+## Background uploads
+
+Buddy-share uploads (activity projections, thumbnails, and full-quality media) continue while GoDive is in the background for a limited time, and **resume automatically** when you reopen the app or after a force-quit. If **Share media on Wi‑Fi only** is on, full-quality uploads wait for Wi‑Fi and resume when you are back on Wi‑Fi. Progress is saved on-device so finished pieces are not re-uploaded from scratch.
 
 ## Tag friends on dives
 

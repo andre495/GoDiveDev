@@ -56,7 +56,7 @@ GoDive stores your dive log primarily **on your device**. In the current product
 - There is **no** GoDive-operated cloud account that stores your full dive log on our servers  
 - When you are signed into **iCloud**, your dive log and related structured data can sync across **your** Apple devices using Apple’s **private CloudKit** database (your iCloud account — not a GoDive public feed)  
 - There is **no** public dive feed for the whole internet  
-- You can **connect with friends** via QR code or invite link (Profile → menu → Friends). When you share dives with friends (on by default once you have friends), a **friend-visible copy** of dive details is stored in **Firebase** so they can read them. **Notes** and **photo previews** stay private unless you turn those Settings on. Your private CloudKit log remains the source of truth on your devices  
+- You can **connect with friends** via QR code or invite link (Profile → menu → Friends). When you share dives with friends (on by default once you have friends), a **friend-visible copy** of dive details is stored in **Firebase** so they can read them. **Notes** and **media** stay private unless you turn those Settings on. When media sharing is on, friends see thumbnails quickly and can load full-quality photos (up to 20 per activity) and short video clips (up to 10, 30 seconds each) — not your original RAW/HEIC masters. Your private CloudKit log remains the source of truth on your devices  
 - A lightweight **social directory** profile (display name, optional photo, activity interests) is stored in **Firebase** for friends features  
 - We do **not** sell your dive log or share it with third parties for advertising  
 
@@ -76,6 +76,7 @@ Depending on how you use the app, GoDive may store locally:
 - References to items in your Photos library (device-local identifiers, cross-device Photos cloud identifiers, and optional small preview JPEGs)  
 - Marine life catalog data and your tagged sightings  
 - App settings (units, defaults, preferences)  
+- Cached friend-shared media thumbnails and full-quality photos/videos when you view buddy activities (device cache only; not uploaded elsewhere)  
 - Crash reports (technical diagnostics; see below)  
 - Diagnostic events (short security-related journal entries; see below)  
 
@@ -95,7 +96,7 @@ Signing out ends the active session. Local dive data for that profile remains on
 
 When Sign in with Apple succeeds (and Firebase is configured in the build), GoDive may create or update a **social directory** profile: display name, activity interests (scuba / free diving / snorkeling), and an optional profile photo. For new accounts, GoDive typically waits until you finish the profile photo step (upload or skip) before writing that directory entry.
 
-**Friends:** you connect via QR code or invite link (not a public browseable directory). When **Share dives with friends** is on, GoDive mirrors **friend-visible dive details** to Firebase so accepted friends can read them, and updates those copies when you edit shared dive fields. **Notes** and **photo previews** are included only if you enable those Settings. Your private CloudKit / on-device log remains the source of truth. Deleting your account removes friendships, invites, and shared projections.
+**Friends:** you connect via QR code or invite link (not a public browseable directory). When **Share activities with buddies** is on, GoDive mirrors **buddy-visible dive details** to Firebase so accepted buddies can read them, and updates those copies when you edit shared dive fields. **Notes** and **media** are included only if you enable those Settings. Shared media uploads use compressed JPEGs (location metadata stripped) and 1080p MP4 clips (capped per activity); originals stay in your Photos library. Buddies may cache thumbnails and full-quality media on their device for faster viewing. Your private CloudKit / on-device log remains the source of truth. Deleting your account removes friendships, invites, and shared projections.
 
 If you allow notifications, GoDive may store an **FCM device token** under your Firebase user (owner-only) so we can alert you when someone accepts your friend invite. Tokens are removed on sign-out from this device.
 
@@ -161,7 +162,7 @@ When a Field Guide species uses a remote image fallback, the app may fetch that 
 
 ### Firebase social directory and friends
 
-Display name, activity interests, and optional profile photo may be sent to Firebase as described in §5. When you use Friends, invite/friendship records and **friend-visible dive projections** (notes and media only if you opt in) may also be stored so friends can read what you share. This is not a public dive feed and is not a replacement for your private CloudKit log.
+Display name, activity interests, and optional profile photo may be sent to Firebase as described in §5. When you use Friends, invite/friendship records and **friend-visible dive projections** (notes and media only if you opt in) may also be stored so friends can read what you share. Friends’ devices may keep a local cache of shared thumbnails and full-quality media for faster viewing; that cache stays on the friend’s phone and is not a second copy in your private CloudKit log. This is not a public dive feed.
 
 ### iCloud dive-log sync (CloudKit)
 

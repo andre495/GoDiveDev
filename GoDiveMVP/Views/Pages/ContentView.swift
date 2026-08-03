@@ -118,6 +118,12 @@ struct ContentView: View {
             ownerProfileID: ownerID,
             modelContext: modelContext
         )
+        Task {
+            await GoDiveBuddyShareBackgroundUpload.resumePendingWork(
+                ownerProfileID: ownerID,
+                modelContext: modelContext
+            )
+        }
     }
 }
 

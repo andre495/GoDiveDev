@@ -1,14 +1,21 @@
+import FirebaseAuth
 import Foundation
 import SwiftData
 
 /// Debounced upsert / republish of friend-visible dive projections after local log changes.
+///
+/// The debounce timer and the actual publish are **separate** tasks: rescheduling only resets the
+/// timer. A publish that is already flushing (thumb uploads + Firestore writes can take many
+/// seconds) is never cancelled mid-write — new work queues behind it and drains afterwards.
 @MainActor
 enum GoDiveFriendShareRefreshCoordinator {
     private static var pendingTask: Task<Void, Never>?
+    private static var drainTask: Task<Void, Never>?
     private static var pendingDiveIDs: Set<UUID> = []
     private static var pendingFullRepublish = false
     private static var didSaveObserver: NSObjectProtocol?
     private static var explicitChangeObserver: NSObjectProtocol?
+    private static var deferredMediaUploadObserver: NSObjectProtocol?
     private static var observedOwnerProfileID: UUID?
     private static weak var observedModelContext: ModelContext?
 
@@ -47,6 +54,22 @@ enum GoDiveFriendShareRefreshCoordinator {
                 handleExplicitChange(diveID: diveID)
             }
         }
+
+        deferredMediaUploadObserver = NotificationCenter.default.addObserver(
+            forName: .goDiveSharedMediaContentUploadDue,
+            object: nil,
+            queue: .main
+        ) { _ in
+            Task { @MainActor in
+                guard let ownerProfileID = observedOwnerProfileID,
+                      let modelContext = observedModelContext
+                else { return }
+                await GoDiveBuddyShareBackgroundUpload.resumePendingWork(
+                    ownerProfileID: ownerProfileID,
+                    modelContext: modelContext
+                )
+            }
+        }
     }
 
     static func stopObservingSaves() {
@@ -58,10 +81,16 @@ enum GoDiveFriendShareRefreshCoordinator {
             NotificationCenter.default.removeObserver(explicitChangeObserver)
             self.explicitChangeObserver = nil
         }
+        if let deferredMediaUploadObserver {
+            NotificationCenter.default.removeObserver(deferredMediaUploadObserver)
+            self.deferredMediaUploadObserver = nil
+        }
         observedOwnerProfileID = nil
         observedModelContext = nil
         pendingTask?.cancel()
         pendingTask = nil
+        drainTask?.cancel()
+        drainTask = nil
         pendingDiveIDs = []
         pendingFullRepublish = false
     }
@@ -76,6 +105,7 @@ enum GoDiveFriendShareRefreshCoordinator {
         observedModelContext = modelContext
         pendingFullRepublish = true
         pendingDiveIDs = []
+        GoDiveBuddySharePendingWorkStore.markFullRepublishPending(ownerProfileID: ownerProfileID)
         scheduleFlush(debounceNanoseconds: debounceNanoseconds)
     }
 
@@ -91,6 +121,10 @@ enum GoDiveFriendShareRefreshCoordinator {
         observedModelContext = modelContext
         if !pendingFullRepublish {
             pendingDiveIDs.formUnion(diveIDs)
+            GoDiveBuddySharePendingWorkStore.addPendingUpserts(
+                ownerProfileID: ownerProfileID,
+                activityIDs: diveIDs
+            )
         }
         scheduleFlush(debounceNanoseconds: debounceNanoseconds)
     }
@@ -136,20 +170,43 @@ enum GoDiveFriendShareRefreshCoordinator {
     }
 
     private static func scheduleFlush(debounceNanoseconds: UInt64) {
+        // Only the debounce timer restarts — an in-flight drain keeps running and picks up the
+        // newly queued work on its next loop pass.
         pendingTask?.cancel()
         pendingTask = Task {
             if debounceNanoseconds > 0 {
                 try? await Task.sleep(nanoseconds: debounceNanoseconds)
             }
             guard !Task.isCancelled else { return }
-            await flushPending()
+            startDrainIfNeeded()
+        }
+    }
+
+    private static var drainGeneration = 0
+
+    private static func startDrainIfNeeded() {
+        guard drainTask == nil else { return }
+        drainGeneration += 1
+        let generation = drainGeneration
+        drainTask = Task {
+            while pendingFullRepublish || !pendingDiveIDs.isEmpty {
+                guard !Task.isCancelled else { break }
+                await flushPending()
+            }
+            if drainGeneration == generation {
+                drainTask = nil
+            }
         }
     }
 
     private static func flushPending() async {
         guard let ownerProfileID = observedOwnerProfileID,
               let modelContext = observedModelContext
-        else { return }
+        else {
+            pendingFullRepublish = false
+            pendingDiveIDs = []
+            return
+        }
 
         let fullRepublish = pendingFullRepublish
         let diveIDs = pendingDiveIDs
@@ -157,15 +214,24 @@ enum GoDiveFriendShareRefreshCoordinator {
         pendingDiveIDs = []
 
         if fullRepublish {
+            GoDiveBuddyShareBackgroundUpload.beginBackgroundExecution()
             await GoDiveSharedDiveProjectionSync.republishAllOwnedDives(
                 ownerProfileID: ownerProfileID,
                 modelContext: modelContext
             )
+            GoDiveBuddySharePendingWorkStore.clearFullRepublishPending(ownerProfileID: ownerProfileID)
+            if let ownerUID = Auth.auth().currentUser?.uid {
+                await GoDiveBuddyShareBackgroundUpload.refreshBackgroundExecutionIdleState(
+                    ownerProfileID: ownerProfileID,
+                    ownerUID: ownerUID
+                )
+            }
             return
         }
 
         guard !diveIDs.isEmpty else { return }
-        guard await GoDiveSharedDiveProjectionSync.shouldPublishProjections() else { return }
+
+        GoDiveBuddyShareBackgroundUpload.beginBackgroundExecution()
 
         let owned = (try? modelContext.fetch(FetchDescriptor<DiveActivity>()))?
             .filter { $0.ownerProfileID == ownerProfileID && diveIDs.contains($0.id) } ?? []
@@ -179,6 +245,17 @@ enum GoDiveFriendShareRefreshCoordinator {
 
         for snorkel in ownedSnorkels {
             await GoDiveSharedDiveProjectionSync.upsertSnorkel(snorkel, modelContext: modelContext)
+        }
+
+        GoDiveBuddySharePendingWorkStore.clearPendingUpserts(
+            ownerProfileID: ownerProfileID,
+            activityIDs: diveIDs
+        )
+        if let ownerUID = Auth.auth().currentUser?.uid {
+            await GoDiveBuddyShareBackgroundUpload.refreshBackgroundExecutionIdleState(
+                ownerProfileID: ownerProfileID,
+                ownerUID: ownerUID
+            )
         }
     }
 }

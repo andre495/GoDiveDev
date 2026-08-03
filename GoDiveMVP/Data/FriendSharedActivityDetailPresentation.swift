@@ -254,6 +254,108 @@ enum FriendSharedActivityDetailPresentation: Sendable {
             )
     }
 
+    /// Ephemeral catalog rows for read-only large-detent marine-life chrome.
+    nonisolated static func displayMarineLife(
+        from dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
+    ) -> [MarineLife] {
+        dive.sightings.map { sighting in
+            let catalogUUID = sighting.catalogUUID?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let stableUUID = catalogUUID.isEmpty
+                ? "friend-sighting-\(sighting.commonName.lowercased().replacingOccurrences(of: " ", with: "-"))"
+                : catalogUUID
+            return MarineLife(
+                uuid: stableUUID,
+                commonName: sighting.commonName,
+                scientificName: sighting.scientificName ?? ""
+            )
+        }
+    }
+
+    /// Ephemeral buddy rows for read-only large-detent buddy chrome.
+    nonisolated static func displayBuddies(
+        from dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
+    ) -> [DiveBuddy] {
+        dive.taggedBuddies.map { buddy in
+            let row = DiveBuddy(displayName: buddy.displayName)
+            if let firebaseUID = buddy.firebaseUID?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !firebaseUID.isEmpty {
+                row.linkedFirebaseUID = firebaseUID
+            }
+            return row
+        }
+    }
+
+    /// One tagged buddy row for friend-shared map details — prefers the viewer's local roster match.
+    struct TaggedBuddyDisplayRow: Equatable, Sendable, Identifiable {
+        var id: String
+        var displayName: String
+        var profilePhoto: Data?
+    }
+
+    /// Maps shared **`taggedBuddies`** to display rows, substituting local name/photo when
+    /// **`linkedFirebaseUID`** matches a roster buddy on this device.
+    nonisolated static func mapTaggedBuddyDisplayRows(
+        from dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive,
+        localRoster: [DiveBuddy]
+    ) -> [TaggedBuddyDisplayRow] {
+        let rosterByLinkedUID = Dictionary(
+            localRoster.compactMap { buddy -> (String, DiveBuddy)? in
+                guard let uid = DiveBuddyFriendLinkPresentation.linkedFirebaseUID(for: buddy) else {
+                    return nil
+                }
+                return (uid, buddy)
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
+
+        return dive.taggedBuddies.map { tagged in
+            let sharedName = tagged.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+            let uid = tagged.firebaseUID?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let uid, !uid.isEmpty, let localBuddy = rosterByLinkedUID[uid] {
+                return TaggedBuddyDisplayRow(
+                    id: uid,
+                    displayName: localBuddy.displayName,
+                    profilePhoto: localBuddy.profilePhoto
+                )
+            }
+            let rowID: String
+            if let uid, !uid.isEmpty {
+                rowID = uid
+            } else {
+                rowID = sharedName
+            }
+            return TaggedBuddyDisplayRow(
+                id: rowID,
+                displayName: sharedName,
+                profilePhoto: nil
+            )
+        }
+    }
+
+    /// Buddies tagged on one shared media item (not dive-level roster tags).
+    nonisolated static func displayBuddies(
+        from dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive,
+        mediaID: String?
+    ) -> [DiveBuddy] {
+        guard let mediaID = mediaID?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !mediaID.isEmpty
+        else { return [] }
+
+        var seenNames = Set<String>()
+        return dive.mediaBuddyTags
+            .filter { $0.mediaID == mediaID }
+            .compactMap { tag -> DiveBuddy? in
+                let name = tag.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !name.isEmpty, seenNames.insert(name).inserted else { return nil }
+                let row = DiveBuddy(displayName: name)
+                if let firebaseUID = tag.firebaseUID?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   !firebaseUID.isEmpty {
+                    row.linkedFirebaseUID = firebaseUID
+                }
+                return row
+            }
+    }
+
     private nonisolated static func sacRMVCalculationInput(
         for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
     ) -> DiveSACRMVCalculation.Input {

@@ -71,6 +71,17 @@ final class SnorkelActivity {
 
     var featuredMediaPhotoID: UUID?
 
+    // MARK: - Buddy network (per-activity share overrides)
+
+    var friendShareActivityEnabled: Bool = true
+    var friendShareMediaEnabled: Bool = false
+    var friendShareMediaSelectedIDsJSON: String?
+    var friendShareNotesModeRaw: String = ActivityFriendShareNotesMode.off.rawValue
+    var friendSharePublicNotes: String?
+    var friendShareBuddySettingsConfigured: Bool = false
+    /// Snapshotted global buddy-share defaults — see **`DiveActivity.friendShareBuddyDefaultsCaptured`**.
+    var friendShareBuddyDefaultsCaptured: Bool = false
+
     @Transient
     var profilePoints: [SnorkelProfilePoint] = []
 

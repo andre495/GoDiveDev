@@ -160,6 +160,7 @@ enum FitDiveFileDecoder {
         try DiveFileImportLimits.enforceProfileSampleCount(points.count)
         activity.applyImportedGasConsumptionMetrics(volumeUsedSurfaceLiters: volumeUsedSurfaceLiters)
 
+        ActivityFriendShareConfiguration.seedBuddyShareDefaultsOnNewActivity(activity)
         return activity
     }
 
