@@ -38,8 +38,6 @@ enum DiveTankOverviewHeroPresentation: Sendable {
     /// Half-line estimate for **`gasLabelCenterY`** below the cylinder (**`.headline`**).
     nonisolated static let gasLabelEstimatedHalfHeight: CGFloat = 14
 
-    nonisolated static let heroDetentAnimationDuration: TimeInterval = 0.45
-
     /// Portrait **minimized** entrance — depth/gas lines + underfill wipe + PSI-used tally.
     nonisolated static let minimizedEntranceAnimationDuration: TimeInterval = 2.4
 
@@ -80,6 +78,19 @@ enum DiveTankOverviewHeroPresentation: Sendable {
 
     /// Collapse progress at which depth/gas strokes + under-curve fill are fully gone (lower = faster fade).
     nonisolated static let profileStrokeFadeCompleteCollapseProgress: CGFloat = 0.22
+
+    /// Skip the post-snap line wipe when the user already dragged most of the way to **minimized**.
+    nonisolated static let minimizedEntranceSkipCollapseThreshold: CGFloat = 0.88
+
+    nonisolated static func shouldSkipMinimizedEntranceAfterDrag(
+        liveHeightFraction: CGFloat,
+        layoutContext: DiveActivityOverviewSheetLayoutContext
+    ) -> Bool {
+        collapseProgress(
+            liveHeightFraction: liveHeightFraction,
+            layoutContext: layoutContext
+        ) >= minimizedEntranceSkipCollapseThreshold
+    }
 
     /// Depth + gas stroke / dark underfill opacity while collapsing from **large** (fades out early on pull-down).
     nonisolated static func profileStrokeAndUnderfillOpacity(
@@ -350,9 +361,19 @@ enum DiveTankOverviewHeroPresentation: Sendable {
         chartSizingBottomContentMargin: CGFloat? = nil,
         collapseProgress: CGFloat? = nil
     ) -> CGRect {
+        if let collapseProgress {
+            return interpolatedPortraitProfileChartFrame(
+                layoutSize: layoutSize,
+                layoutHeight: layoutHeight,
+                topObstructionHeight: topObstructionHeight,
+                bottomContentMargin: bottomContentMargin,
+                chartSizingBottomContentMargin: chartSizingBottomContentMargin ?? bottomContentMargin,
+                collapseProgress: collapseProgress
+            )
+        }
         let heightScale = portraitChartHeightScale(
             detent: detent,
-            collapseProgress: collapseProgress
+            collapseProgress: nil
         )
         return portraitProfileChartFrame(
             layoutSize: layoutSize,
@@ -423,13 +444,69 @@ enum DiveTankOverviewHeroPresentation: Sendable {
         let seamY = layoutHeight - bottomContentMargin
         let maxHeight = max(seamY - profileChartBandTop + largeDetentSheetSeamCornerBleed, 1)
         let scaledHeight = baseSize.height * max(heightScale, 0.01)
-        let height = min(scaledHeight, maxHeight)
-        let y = seamY - height + largeDetentSheetSeamCornerBleed
+        var height = min(scaledHeight, maxHeight)
+        var y = seamY - height + largeDetentSheetSeamCornerBleed
+        if y < profileChartBandTop {
+            y = profileChartBandTop
+            height = max(min(scaledHeight, seamY - profileChartBandTop + largeDetentSheetSeamCornerBleed), 1)
+        }
         return CGRect(
             x: 0,
-            y: max(y, profileChartBandTop),
+            y: y,
             width: baseSize.width,
             height: height
+        )
+    }
+
+    /// Smooth portrait chart frame while dragging — linear blend between **large** and **minimized** resting sizes.
+    nonisolated static func interpolatedPortraitProfileChartFrame(
+        layoutSize: CGSize,
+        layoutHeight: CGFloat,
+        topObstructionHeight: CGFloat,
+        bottomContentMargin: CGFloat,
+        chartSizingBottomContentMargin: CGFloat,
+        collapseProgress: CGFloat
+    ) -> CGRect {
+        let t = min(1, max(0, collapseProgress))
+        let large = portraitProfileChartFrame(
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstructionHeight,
+            bottomContentMargin: bottomContentMargin,
+            chartSizingBottomContentMargin: chartSizingBottomContentMargin,
+            heightScale: 1
+        )
+        let minimized = portraitProfileChartFrame(
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstructionHeight,
+            bottomContentMargin: bottomContentMargin,
+            chartSizingBottomContentMargin: chartSizingBottomContentMargin,
+            heightScale: minimizedPortraitChartHeightScale
+        )
+        return CGRect(
+            x: large.minX + (minimized.minX - large.minX) * t,
+            y: large.minY + (minimized.minY - large.minY) * t,
+            width: large.width + (minimized.width - large.width) * t,
+            height: large.height + (minimized.height - large.height) * t
+        )
+    }
+
+    /// Render-server transform for the portrait chart while the grabber moves — the chart stays
+    /// mounted at its resting **`baseFrame`** (no layout / path rebuilds per frame) and is
+    /// y-scaled + repositioned to match **`targetFrame`**.
+    struct PortraitChartDragTransform: Equatable, Sendable {
+        let scaleY: CGFloat
+        let centerY: CGFloat
+    }
+
+    nonisolated static func portraitChartDragTransform(
+        baseFrame: CGRect,
+        targetFrame: CGRect
+    ) -> PortraitChartDragTransform {
+        PortraitChartDragTransform(
+            scaleY: targetFrame.height / max(baseFrame.height, 1),
+            centerY: targetFrame.midY
         )
     }
 

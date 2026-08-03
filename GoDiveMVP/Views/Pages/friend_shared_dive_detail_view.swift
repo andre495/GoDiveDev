@@ -4,15 +4,21 @@ import SwiftUI
 struct FriendSharedDiveDetailView: View {
     let dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
     let friendName: String
+    var friendPhotoURL: String? = nil
+    var friendUID: String? = nil
 
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
+    @State private var mediaDive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
     @State private var selectedDiveTab: DiveActivityTab = .map
     @State private var selectedSnorkelTab: SnorkelActivityTab = .map
     @State private var overviewSheetDetent = DiveActivityOverviewDetent.defaultSelection
     @State private var overviewPanelLiveHeightFraction = DiveActivityOverviewDetent.defaultSelection.heightFraction
+    /// Unthrottled per-frame drag channel — read only by the tank hero (scoped invalidation).
+    @State private var overviewLiveSheetState = DiveActivityOverviewLiveSheetState()
     @State private var isOverviewPanelPresented = true
     @State private var overviewPanelScrollOffsetY: CGFloat = 0
     @State private var selectedMediaPreviewID: String?
+    @State private var isFriendSharedMediaFullscreenPresented = false
     @State private var snorkelSnapshot = FriendSharedActivityDetailPresentation.SnorkelDerivedSnapshot.empty
     @State private var friendDepthChartScrubCallout: DiveDepthProfileScrubCallout?
     @State private var friendTankChartSeries = GoDiveSharedDiveProjectionMapping.FriendSharedDepthChartSeries.empty
@@ -33,6 +39,19 @@ struct FriendSharedDiveDetailView: View {
         )
     }
 
+    init(
+        dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive,
+        friendName: String,
+        friendPhotoURL: String? = nil,
+        friendUID: String? = nil
+    ) {
+        self.dive = dive
+        self.friendName = friendName
+        self.friendPhotoURL = friendPhotoURL
+        self.friendUID = friendUID
+        _mediaDive = State(initialValue: dive)
+    }
+
     var body: some View {
         Group {
             switch dive.resolvedActivityKind {
@@ -44,6 +63,12 @@ struct FriendSharedDiveDetailView: View {
         }
         .hidesBottomTabBarWhenPushed()
         .accessibilityIdentifier("FriendSharedDiveDetail.Root")
+        .fullScreenCover(isPresented: $isFriendSharedMediaFullscreenPresented) {
+            FriendSharedMediaFullscreenView(
+                items: friendSharedMediaDisplayItems,
+                selectedMediaID: $selectedMediaPreviewID
+            )
+        }
         .onChange(of: overviewSheetDetent) { oldDetent, newDetent in
             guard oldDetent != newDetent else { return }
             handleOverviewSheetDetentChange(from: oldDetent, to: newDetent)
@@ -58,11 +83,46 @@ struct FriendSharedDiveDetailView: View {
                 GoDiveSharedDiveProjectionMapping.decodedDepthChartSeries(from: dive)
             }.value
         }
+        .task(id: friendSharedMediaRefreshToken) {
+            await refreshFriendSharedMediaDiveIfNeeded()
+            let items = friendSharedMediaDisplayItems
+            await FriendSharedMediaPresentation.prefetchContentIfAllowed(
+                urls: FriendSharedMediaPresentation.allPhotoContentPrefetchURLs(items: items)
+                    + FriendSharedMediaPresentation.allVideoContentPrefetchURLs(items: items)
+            )
+        }
+    }
+
+    private var friendSharedMediaRefreshToken: String {
+        "\(friendUID ?? "")-\(dive.id)"
+    }
+
+    @MainActor
+    private func refreshFriendSharedMediaDiveIfNeeded() async {
+        guard let friendUID else { return }
+        guard let fresh = await GoDiveSharedDiveProjectionSync.fetchFriendSharedDive(
+            friendUID: friendUID,
+            diveDocumentID: dive.id
+        ) else { return }
+        mediaDive = fresh
     }
 
     private var friendTankChartRefreshToken: String {
         let trackLength = dive.profileTrackBase64?.count ?? 0
         return "\(dive.id)-\(trackLength)"
+    }
+
+    private var friendSharedMediaDisplayItems: [FriendSharedMediaPresentation.DisplayItem] {
+        FriendSharedMediaPresentation.orderedDisplayItems(for: mediaDive)
+    }
+
+    private func openFriendSharedMediaFullscreen(mediaID: String? = nil) {
+        if let mediaID {
+            selectedMediaPreviewID = mediaID
+        } else if selectedMediaPreviewID == nil {
+            selectedMediaPreviewID = friendSharedMediaDisplayItems.first?.mediaID
+        }
+        isFriendSharedMediaFullscreenPresented = true
     }
 
     // MARK: - Scuba
@@ -119,6 +179,12 @@ struct FriendSharedDiveDetailView: View {
                 detent: overviewSheetDetent,
                 liveHeightFraction: selectedDiveTab == .map ? overviewPanelLiveHeightFraction : nil,
                 isLandscape: isLandscape
+            )
+            let mediaUsesFullBleedHero = DiveActivityOverviewLandscapePresentation.mediaUsesFullBleedHero(
+                isLandscape: isLandscape,
+                detentUsesFullBleed: DiveActivityMediaPresentation.usesFullBleedMediaHero(
+                    for: overviewSheetDetent
+                )
             )
             let tankChartSizingBottomMargin = DiveActivityOverviewDetent.bottomObstructionHeight(
                 layoutHeight: layoutHeight,
@@ -185,6 +251,8 @@ struct FriendSharedDiveDetailView: View {
                             profileLineRevealProgress: tankMinimizedProfileRevealProgress,
                             psiUsedRevealProgress: tankMinimizedPsiUsedRevealProgress,
                             liveHeightFraction: overviewPanelLiveHeightFraction,
+                            liveSheetState: overviewLiveSheetState,
+                            sheetLayoutContext: overviewLayoutContext,
                             waterTopHalfFadeProgress: tankMinimizedWaterTopFadeProgress,
                             minimizedChromeRevealProgress: tankMinimizedChromeRevealProgress,
                             scrubCallout: $friendDepthChartScrubCallout
@@ -193,11 +261,27 @@ struct FriendSharedDiveDetailView: View {
                         .accessibilityIdentifier("FriendSharedDiveDetail.Tank.Hero")
                     case .camera:
                         FriendSharedActivityMediaHeroView(
-                            previews: dive.mediaPreviews,
-                            selectedPreviewID: $selectedMediaPreviewID,
+                            items: friendSharedMediaDisplayItems,
+                            dive: mediaDive,
+                            selectedMediaID: $selectedMediaPreviewID,
+                            sheetDetent: overviewSheetDetent,
+                            sheetHeightFraction: overviewPanelLiveHeightFraction,
                             layoutHeight: layoutHeight,
+                            screenWidth: geometry.size.width,
+                            topSafeAreaInset: geometry.safeAreaInsets.top,
                             topObstructionHeight: topObstruction,
-                            bottomObstructionHeight: bottomObstruction
+                            bottomSafeInset: bottomSafeInset,
+                            isLandscape: isLandscape,
+                            isMediaTabSelected: selectedDiveTab == .camera,
+                            bottomContentMargin: mediaUsesFullBleedHero ? 0 : bottomObstruction,
+                            captureOverlayBottomInset: isLandscape
+                                ? 0
+                                : DiveActivityMediaPresentation.captureOverlayBottomInset(
+                                    layoutHeight: layoutHeight,
+                                    detent: overviewSheetDetent,
+                                    bottomSafeInset: bottomSafeInset
+                                ),
+                            onOpenFullscreen: { openFriendSharedMediaFullscreen() }
                         )
                         .ignoresSafeArea()
                     }
@@ -225,23 +309,25 @@ struct FriendSharedDiveDetailView: View {
                             switch selectedDiveTab {
                             case .map:
                                 FriendSharedActivityMapPanelContent(
-                                    dive: dive,
+                                    dive: mediaDive,
                                     friendName: friendName,
+                                    friendPhotoURL: friendPhotoURL,
                                     showsTaggedYou: showsTaggedYou,
                                     overviewSheetDetent: $overviewSheetDetent
                                 )
                             case .tank:
                                 FriendSharedActivityTankPanelContent(
-                                    dive: dive,
+                                    dive: mediaDive,
                                     friendName: friendName,
+                                    friendPhotoURL: friendPhotoURL,
                                     showsTaggedYou: showsTaggedYou,
                                     overviewSheetDetent: $overviewSheetDetent
                                 )
                             case .camera:
                                 FriendSharedActivityMediaPanelContent(
-                                    dive: dive,
-                                    friendName: friendName,
-                                    showsTaggedYou: showsTaggedYou,
+                                    dive: mediaDive,
+                                    overviewSheetDetent: $overviewSheetDetent,
+                                    layoutHeight: layoutHeight,
                                     selectedPreviewID: $selectedMediaPreviewID
                                 )
                             }
@@ -267,6 +353,7 @@ struct FriendSharedDiveDetailView: View {
                                 isMediaTabSelected: selectedDiveTab == .camera
                             ),
                         liveHeightFraction: $overviewPanelLiveHeightFraction,
+                        liveSheetState: overviewLiveSheetState,
                         panelScrollOffsetY: $overviewPanelScrollOffsetY,
                         panelScrollContentIdentity: selectedDiveTab
                     )
@@ -386,19 +473,44 @@ struct FriendSharedDiveDetailView: View {
     }
 
     private var scubaTankCollapsedSummary: some View {
-        DiveActivityTankCollapsedSummary(
-            dateText: FriendSharedActivityDetailPresentation.startDateText(for: dive),
-            titleText: "Tank & gas",
-            diveNumberText: FriendSharedActivityDetailPresentation.diveNumberPlainLabel(for: dive),
-            startPressureText: FriendSharedActivityDetailPresentation.formattedPressure(
-                psi: dive.tankPressureStartPSI,
-                unitSystem: diveDisplayUnitSystem
-            ),
-            endPressureText: FriendSharedActivityDetailPresentation.formattedPressure(
-                psi: dive.tankPressureEndPSI,
-                unitSystem: diveDisplayUnitSystem
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            FriendSharedActivityIdentityHeader(
+                dive: dive,
+                friendName: friendName,
+                friendPhotoURL: friendPhotoURL
             )
-        )
+
+            HStack(spacing: AppTheme.Spacing.sm) {
+                friendSharedTankCollapsedChip(
+                    label: "Start",
+                    value: FriendSharedActivityDetailPresentation.formattedPressure(
+                        psi: dive.tankPressureStartPSI,
+                        unitSystem: diveDisplayUnitSystem
+                    )
+                )
+                friendSharedTankCollapsedChip(
+                    label: "End",
+                    value: FriendSharedActivityDetailPresentation.formattedPressure(
+                        psi: dive.tankPressureEndPSI,
+                        unitSystem: diveDisplayUnitSystem
+                    )
+                )
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func friendSharedTankCollapsedChip(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(AppTheme.Colors.tabUnselected)
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func selectDiveTab(_ tab: DiveActivityTab) {
@@ -412,7 +524,7 @@ struct FriendSharedDiveDetailView: View {
             if tab != .tank {
                 friendDepthChartScrubCallout = nil
             }
-            if let detent = DiveActivityOverviewTabSelection.overviewDetent(whenSelecting: tab) {
+            if let detent = DiveActivityOverviewTabSelection.friendSharedOverviewDetent(whenSelecting: tab) {
                 overviewSheetDetent = detent
                 isOverviewPanelPresented = true
                 if tab == .tank {
@@ -422,6 +534,9 @@ struct FriendSharedDiveDetailView: View {
                 isOverviewPanelPresented = false
             }
             selectedDiveTab = tab
+            if tab == .camera, selectedMediaPreviewID == nil {
+                selectedMediaPreviewID = friendSharedMediaDisplayItems.first?.mediaID
+            }
         }
     }
 
@@ -429,7 +544,7 @@ struct FriendSharedDiveDetailView: View {
         if !isOverviewPanelPresented {
             isOverviewPanelPresented = true
         }
-        if let detent = DiveActivityOverviewTabSelection.overviewDetent(whenSelecting: tab) {
+        if let detent = DiveActivityOverviewTabSelection.friendSharedOverviewDetent(whenSelecting: tab) {
             overviewSheetDetent = detent
         }
         if tab == .tank {
@@ -441,12 +556,23 @@ struct FriendSharedDiveDetailView: View {
         from oldDetent: DiveActivityOverviewDetent,
         to newDetent: DiveActivityOverviewDetent
     ) {
+        // Consume the grabber release position (nil for tap/programmatic detent changes).
+        let dragReleaseFraction = overviewLiveSheetState.dragReleaseHeightFraction
+        overviewLiveSheetState.dragReleaseHeightFraction = nil
         guard dive.resolvedActivityKind == .scubaDive, selectedDiveTab == .tank else { return }
         if DiveTankOverviewHeroPresentation.shouldPlayMinimizedEntranceAnimation(
             from: oldDetent,
             to: newDetent
         ) {
-            playTankMinimizedEntranceAnimation()
+            if let dragReleaseFraction,
+               DiveTankOverviewHeroPresentation.shouldSkipMinimizedEntranceAfterDrag(
+                   liveHeightFraction: dragReleaseFraction,
+                   layoutContext: .presentationReference
+               ) {
+                finishTankMinimizedStateAfterDrag()
+            } else {
+                playTankMinimizedEntranceAnimation()
+            }
         } else if newDetent.heightFraction > oldDetent.heightFraction + 0.007 {
             resetTankMinimizedEntranceAnimationState()
         }
@@ -458,6 +584,24 @@ struct FriendSharedDiveDetailView: View {
         tankMinimizedPsiUsedRevealProgress = 1
         tankMinimizedWaterTopFadeProgress = 0
         tankMinimizedChromeRevealProgress = 1
+    }
+
+    private func finishTankMinimizedStateAfterDrag() {
+        let targetFill = DiveActivityTankPanelSummary.remainingPressureFillFraction(
+            startPSI: dive.tankPressureStartPSI,
+            endPSI: dive.tankPressureEndPSI
+        )
+        let fraction = CGFloat(targetFill ?? 1)
+
+        var reset = Transaction()
+        reset.disablesAnimations = true
+        withTransaction(reset) {
+            tankMinimizedProfileRevealProgress = 1
+            tankMinimizedPsiUsedRevealProgress = 1
+            tankMinimizedWaterTopFadeProgress = 1
+            tankMinimizedChromeRevealProgress = 1
+            tankHeroPressureFillFraction = fraction
+        }
     }
 
     private func playTankMinimizedEntranceAnimation() {
@@ -550,6 +694,12 @@ struct FriendSharedDiveDetailView: View {
                 liveHeightFraction: selectedSnorkelTab == .heartRate ? overviewPanelLiveHeightFraction : nil,
                 isLandscape: isLandscape
             )
+            let mediaUsesFullBleedHero = DiveActivityOverviewLandscapePresentation.mediaUsesFullBleedHero(
+                isLandscape: isLandscape,
+                detentUsesFullBleed: DiveActivityMediaPresentation.usesFullBleedMediaHero(
+                    for: overviewSheetDetent
+                )
+            )
             let isMapInteractive = selectedSnorkelTab == .map
                 && DiveActivityOverviewLandscapePresentation.allowsMapInteraction(
                     isLandscape: isLandscape,
@@ -590,11 +740,27 @@ struct FriendSharedDiveDetailView: View {
                         )
                     case .camera:
                         FriendSharedActivityMediaHeroView(
-                            previews: dive.mediaPreviews,
-                            selectedPreviewID: $selectedMediaPreviewID,
+                            items: friendSharedMediaDisplayItems,
+                            dive: mediaDive,
+                            selectedMediaID: $selectedMediaPreviewID,
+                            sheetDetent: overviewSheetDetent,
+                            sheetHeightFraction: overviewPanelLiveHeightFraction,
                             layoutHeight: layoutHeight,
+                            screenWidth: geometry.size.width,
+                            topSafeAreaInset: geometry.safeAreaInsets.top,
                             topObstructionHeight: topObstruction,
-                            bottomObstructionHeight: bottomObstruction
+                            bottomSafeInset: bottomSafeInset,
+                            isLandscape: isLandscape,
+                            isMediaTabSelected: selectedSnorkelTab == .camera,
+                            bottomContentMargin: mediaUsesFullBleedHero ? 0 : bottomObstruction,
+                            captureOverlayBottomInset: isLandscape
+                                ? 0
+                                : DiveActivityMediaPresentation.captureOverlayBottomInset(
+                                    layoutHeight: layoutHeight,
+                                    detent: overviewSheetDetent,
+                                    bottomSafeInset: bottomSafeInset
+                                ),
+                            onOpenFullscreen: { openFriendSharedMediaFullscreen() }
                         )
                     }
                 }
@@ -622,14 +788,15 @@ struct FriendSharedDiveDetailView: View {
                             switch selectedSnorkelTab {
                             case .map:
                                 FriendSharedActivityMapPanelContent(
-                                    dive: dive,
+                                    dive: mediaDive,
                                     friendName: friendName,
+                                    friendPhotoURL: friendPhotoURL,
                                     showsTaggedYou: showsTaggedYou,
                                     overviewSheetDetent: $overviewSheetDetent
                                 )
                             case .heartRate:
                                 FriendSharedActivityHeartRatePanelContent(
-                                    dive: dive,
+                                    dive: mediaDive,
                                     friendName: friendName,
                                     showsTaggedYou: showsTaggedYou,
                                     snorkelSnapshot: snorkelSnapshot,
@@ -637,9 +804,9 @@ struct FriendSharedDiveDetailView: View {
                                 )
                             case .camera:
                                 FriendSharedActivityMediaPanelContent(
-                                    dive: dive,
-                                    friendName: friendName,
-                                    showsTaggedYou: showsTaggedYou,
+                                    dive: mediaDive,
+                                    overviewSheetDetent: $overviewSheetDetent,
+                                    layoutHeight: layoutHeight,
                                     selectedPreviewID: $selectedMediaPreviewID
                                 )
                             }
@@ -721,13 +888,16 @@ struct FriendSharedDiveDetailView: View {
         var transaction = Transaction()
         transaction.disablesAnimations = true
         withTransaction(transaction) {
-            if let detent = DiveActivityOverviewTabSelection.overviewDetent(whenSelectingSnorkel: tab) {
+            if let detent = DiveActivityOverviewTabSelection.friendSharedOverviewDetent(whenSelectingSnorkel: tab) {
                 overviewSheetDetent = detent
                 isOverviewPanelPresented = true
             } else {
                 isOverviewPanelPresented = false
             }
             selectedSnorkelTab = tab
+            if tab == .camera, selectedMediaPreviewID == nil {
+                selectedMediaPreviewID = friendSharedMediaDisplayItems.first?.mediaID
+            }
         }
     }
 
@@ -735,7 +905,7 @@ struct FriendSharedDiveDetailView: View {
         if !isOverviewPanelPresented {
             isOverviewPanelPresented = true
         }
-        if let detent = DiveActivityOverviewTabSelection.overviewDetent(whenSelectingSnorkel: tab) {
+        if let detent = DiveActivityOverviewTabSelection.friendSharedOverviewDetent(whenSelectingSnorkel: tab) {
             overviewSheetDetent = detent
         }
     }
@@ -777,55 +947,360 @@ struct FriendSharedDiveDetailView: View {
 // MARK: - Media hero
 
 struct FriendSharedActivityMediaHeroView: View {
-    let previews: [GoDiveSharedDiveProjectionMapping.MediaPreviewSnapshot]
-    @Binding var selectedPreviewID: String?
-    let layoutHeight: CGFloat
-    let topObstructionHeight: CGFloat
-    let bottomObstructionHeight: CGFloat
+    private struct MediaSelectionSignature: Equatable {
+        var count: Int
+        var firstID: String?
+        var lastID: String?
+    }
+
+    let items: [FriendSharedMediaPresentation.DisplayItem]
+    let dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
+    @Binding var selectedMediaID: String?
+    var sheetDetent: DiveActivityOverviewDetent = .large
+    var sheetHeightFraction: CGFloat = DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction
+    var layoutHeight: CGFloat = 0
+    var screenWidth: CGFloat = 0
+    var topSafeAreaInset: CGFloat = 0
+    var topObstructionHeight: CGFloat = 0
+    var bottomSafeInset: CGFloat = 0
+    var isLandscape: Bool = false
+    var isMediaTabSelected: Bool = true
+    var bottomContentMargin: CGFloat = 0
+    var captureOverlayBottomInset: CGFloat = 0
+    var onOpenFullscreen: (() -> Void)? = nil
+
+    @State private var isPlaybackPausedByUser = false
+    @State private var showsPlaybackChrome = true
+
+    private var showsBackgroundMedia: Bool {
+        DiveActivityMediaPresentation.showsBackgroundPhotos(for: sheetDetent)
+    }
+
+    private var shouldPlayBackgroundVideo: Bool {
+        DiveActivityMediaPresentation.shouldPlayBackgroundVideo(
+            isMediaTabSelected: isMediaTabSelected,
+            detent: sheetDetent
+        )
+    }
+
+    private var showsLandscapeGridStyleChrome: Bool {
+        DiveActivityMediaPresentation.showsLandscapeGridStyleMediaChrome(
+            isLandscape: isLandscape,
+            hasMedia: !items.isEmpty
+        )
+    }
+
+    private var selectedItem: FriendSharedMediaPresentation.DisplayItem? {
+        guard let selectedMediaID else { return items.first }
+        return items.first(where: { $0.mediaID == selectedMediaID }) ?? items.first
+    }
+
+    private var isSelectedMediaFeatured: Bool {
+        guard let selectedMediaID,
+              let featuredID = FriendSharedMediaPresentation.resolvedFeaturedMediaID(for: dive)
+        else { return false }
+        return selectedMediaID == featuredID
+    }
 
     var body: some View {
         ZStack {
             AppTheme.Colors.screenBackgroundGradient
+                .ignoresSafeArea()
 
-            if previews.isEmpty {
-                VStack(spacing: AppTheme.Spacing.sm) {
-                    Image(systemName: "photo.on.rectangle.angled")
-                        .font(.largeTitle)
-                        .foregroundStyle(AppTheme.Colors.tabUnselected)
-                    Text(GoDiveFriendsPresentation.mediaHiddenLabel)
-                        .font(.footnote)
-                        .foregroundStyle(AppTheme.Colors.secondaryText)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, AppTheme.Spacing.lg)
+            if showsBackgroundMedia {
+                if items.isEmpty {
+                    emptyState
+                } else {
+                    landscapeMediaPager
                 }
-            } else {
-                TabView(selection: $selectedPreviewID) {
-                    ForEach(previews, id: \.photoID) { preview in
-                        AsyncImage(url: URL(string: preview.previewURL)) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                            default:
-                                AppTheme.Colors.surfaceElevated
-                                    .overlay { ProgressView() }
-                            }
+            }
+
+            if showsLandscapeGridStyleChrome, isMediaTabSelected {
+                landscapeGridStyleChromeOverlay
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityIdentifier("FriendSharedDiveDetail.MediaBackground")
+        .onAppear { syncSelectionToMedia() }
+        .onChange(of: mediaIDsSignature) { _, _ in
+            syncSelectionToMedia()
+        }
+        .onChange(of: selectedMediaID) { _, _ in
+            isPlaybackPausedByUser = false
+            showsPlaybackChrome = true
+        }
+    }
+
+    private var mediaIDsSignature: MediaSelectionSignature {
+        MediaSelectionSignature(
+            count: items.count,
+            firstID: items.first?.mediaID,
+            lastID: items.last?.mediaID
+        )
+    }
+
+    private var landscapeMediaPager: some View {
+        Group {
+            if showsLandscapeGridStyleChrome {
+                mediaPager
+                    .simultaneousGesture(
+                        TapGesture().onEnded { _ in
+                            toggleLandscapePlaybackChrome()
                         }
-                        .tag(Optional(preview.photoID))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .clipped()
+                    )
+            } else {
+                mediaPager
+            }
+        }
+    }
+
+    private var mediaPager: some View {
+        GeometryReader { geometry in
+            let viewportSize = geometry.size
+            let showsGridChrome = showsLandscapeGridStyleChrome
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 0) {
+                    ForEach(items) { item in
+                        FriendSharedActivityMediaHeroPageView(
+                            item: item,
+                            isVideoPlaybackActive: shouldPlayBackgroundVideo && selectedMediaID == item.mediaID,
+                            isPausedByUserHoldFromParent: showsGridChrome
+                                && isPlaybackPausedByUser
+                                && selectedMediaID == item.mediaID,
+                            showsCaptureDateOverlay: DiveActivityMediaPresentation.showsCaptureDateOnHero(
+                                for: sheetDetent
+                            ) && !showsGridChrome,
+                            usesLiquidGlassCaptureOverlay:
+                                DiveActivityMediaPresentation.usesLiquidGlassCaptureOverlayOnHero(
+                                    for: sheetDetent
+                                ) && !showsGridChrome,
+                            captureOverlayBottomInset: captureOverlayBottomInset,
+                            captureDateLine: FriendSharedActivityDetailPresentation.dateDashTimeLine(for: dive),
+                            enablesHoldToPauseGesture: !showsGridChrome
+                        )
+                        .containerRelativeFrame(.horizontal, count: 1, span: 1, spacing: 0)
+                        .frame(height: viewportSize.height)
+                        .background(Color.black)
+                        .id(item.mediaID)
                     }
                 }
-                .tabViewStyle(.page(indexDisplayMode: previews.count > 1 ? .automatic : .never))
+                .scrollTargetLayout()
             }
+            .scrollTargetBehavior(.paging)
+            .scrollPosition(id: $selectedMediaID)
+            .frame(width: viewportSize.width, height: viewportSize.height)
+            .clipped()
+            .contentShape(Rectangle())
+            .onTapGesture {
+                guard !showsLandscapeGridStyleChrome else { return }
+                onOpenFullscreen?()
+            }
+            .task(id: prefetchToken) {
+                await prefetchFriendSharedMedia()
+            }
+            .onChange(of: selectedMediaID) { _, newValue in
+                Task {
+                    await prefetchContent(around: newValue)
+                }
+            }
+        }
+        .animation(.interactiveSpring(response: 0.38, dampingFraction: 0.86), value: sheetHeightFraction)
+        .ignoresSafeArea()
+        .padding(.bottom, bottomContentMargin)
+        .accessibilityIdentifier("FriendSharedDiveDetail.MediaBackground.Pager")
+    }
+
+    private var landscapeGridStyleChromeOverlay: some View {
+        GeometryReader { geometry in
+            let chromeOpacity = LinkedMediaFullscreenPresentation.playbackChromeOpacity(
+                dismissProgress: 0,
+                showsPlaybackChrome: showsPlaybackChrome
+            )
+            let isSelectedVideo = selectedItem?.kind == .video
+            let showsCenterPlayback = LinkedMediaFullscreenPresentation.showsCenterPlaybackControl(
+                isVideo: isSelectedVideo,
+                showsPlaybackChrome: showsPlaybackChrome
+            )
+            let starTopInset = LinkedMediaFullscreenPresentation.topChromeRowOffset(
+                safeAreaTop: geometry.safeAreaInsets.top,
+                containerSize: geometry.size
+            )
+
+            ZStack {
+                TripDetailMediaGalleryOverlayControls(
+                    bottomLeadingChrome: .captureTimestamp(
+                        primaryLine: FriendSharedActivityDetailPresentation.dateDashTimeLine(for: dive),
+                        secondaryLine: nil
+                    ),
+                    isFeatured: isSelectedMediaFeatured,
+                    showsMediaTagButtons: false,
+                    onToggleFeatured: nil,
+                    featuredStarPlacement: .topTrailing,
+                    featuredStarTopInset: starTopInset,
+                    featureToggleAccessibilityIdentifier: "FriendSharedDiveDetail.Media.Landscape.FeatureStar",
+                    captureTimestampAccessibilityIdentifier: "FriendSharedDiveDetail.Media.Landscape.CaptureTimestamp"
+                )
+                .padding(.bottom, geometry.safeAreaInsets.bottom)
+                .opacity(chromeOpacity)
+                .allowsHitTesting(false)
+
+                if showsCenterPlayback {
+                    LinkedMediaFullscreenCenterPlaybackControl(
+                        isPaused: isPlaybackPausedByUser,
+                        action: toggleLandscapePlaybackPausedByUser
+                    )
+                    .opacity(chromeOpacity)
+                    .allowsHitTesting(chromeOpacity > 0.2)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .animation(.easeInOut(duration: 0.18), value: showsPlaybackChrome)
+        }
+        .ignoresSafeArea()
+        .accessibilityIdentifier("FriendSharedDiveDetail.Media.Landscape.Chrome")
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: AppTheme.Spacing.sm) {
+            Image(systemName: "photo.on.rectangle.angled")
+                .font(.largeTitle)
+                .foregroundStyle(AppTheme.Colors.tabUnselected)
+            Text(GoDiveFriendsPresentation.mediaHiddenLabel)
+                .font(.footnote)
+                .foregroundStyle(AppTheme.Colors.secondaryText)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, AppTheme.Spacing.lg)
         }
         .padding(.top, topObstructionHeight)
-        .padding(.bottom, bottomObstructionHeight)
-        .onAppear {
-            if selectedPreviewID == nil {
-                selectedPreviewID = previews.first?.photoID
+        .padding(.bottom, bottomContentMargin)
+        .accessibilityIdentifier("FriendSharedDiveDetail.MediaBackground.Empty")
+    }
+
+    private var prefetchToken: String {
+        items.map(\.mediaID).joined(separator: "-")
+    }
+
+    private func syncSelectionToMedia() {
+        guard !items.isEmpty else {
+            selectedMediaID = nil
+            return
+        }
+        if let selectedMediaID,
+           items.contains(where: { $0.mediaID == selectedMediaID }) {
+            return
+        }
+        selectedMediaID = items.first?.mediaID
+    }
+
+    private func toggleLandscapePlaybackChrome() {
+        showsPlaybackChrome.toggle()
+    }
+
+    private func toggleLandscapePlaybackPausedByUser() {
+        guard selectedItem?.kind == .video else { return }
+        isPlaybackPausedByUser.toggle()
+        if !showsPlaybackChrome {
+            showsPlaybackChrome = true
+        }
+    }
+
+    private func prefetchFriendSharedMedia() async {
+        let thumbURLs = FriendSharedMediaPresentation.detailThumbnailPrefetchURLs(items: items)
+        let allowsNetwork = AppNetworkConnectivitySnapshot.shared.allowsCloudMediaFetch
+        await GoDiveSharedMediaCache.shared.prefetch(
+            remoteURLStrings: thumbURLs,
+            tier: .thumb,
+            allowsNetworkFetch: allowsNetwork
+        )
+        await FriendSharedMediaPresentation.prefetchContentIfAllowed(
+            urls: FriendSharedMediaPresentation.allPhotoContentPrefetchURLs(items: items)
+                + FriendSharedMediaPresentation.allVideoContentPrefetchURLs(items: items)
+        )
+        await prefetchContent(around: selectedMediaID)
+    }
+
+    private func prefetchContent(around selectedID: String?) async {
+        let contentURLs = FriendSharedMediaPresentation.detailContentPrefetchURLs(
+            items: items,
+            selectedMediaID: selectedID
+        )
+        let photoURLs = contentURLs.filter { raw in
+            guard let item = items.first(where: { $0.contentURL == raw }) else { return true }
+            return item.kind != .video
+        }
+        await FriendSharedMediaPresentation.prefetchContentIfAllowed(urls: photoURLs)
+    }
+}
+
+private struct FriendSharedActivityMediaHeroPageView: View {
+    let item: FriendSharedMediaPresentation.DisplayItem
+    var isVideoPlaybackActive: Bool
+    var isPausedByUserHoldFromParent: Bool
+    var showsCaptureDateOverlay: Bool
+    var usesLiquidGlassCaptureOverlay: Bool
+    var captureOverlayBottomInset: CGFloat
+    var captureDateLine: String
+    var enablesHoldToPauseGesture: Bool
+
+    @State private var isPausedByUserHold = false
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            if item.kind == .video {
+                FriendSharedRemoteVideoPlayerView(
+                    item: item,
+                    isPlaybackActive: isVideoPlaybackActive
+                        && !isPausedByUserHold
+                        && !isPausedByUserHoldFromParent
+                )
+            } else {
+                FriendSharedMediaImageView(item: item, fidelity: .progressive)
+            }
+
+            if showsCaptureDateOverlay {
+                captureDateOverlay
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.bottom, captureOverlayBottomInset)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
+        .gesture(holdToPauseGesture, including: enablesHoldToPauseGesture ? .gesture : .subviews)
+    }
+
+    private var captureDateOverlay: some View {
+        Group {
+            if usesLiquidGlassCaptureOverlay {
+                MediaCaptureTimestampChromeLabel(
+                    primaryLine: captureDateLine,
+                    secondaryLine: nil,
+                    accessibilityIdentifier: "FriendSharedDiveDetail.Media.CaptureTimestamp"
+                )
+            } else {
+                Text(captureDateLine)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.black.opacity(0.55), in: Capsule())
+            }
+        }
+        .padding(AppTheme.Spacing.md)
+        .accessibilityLabel("Activity date \(captureDateLine)")
+    }
+
+    private var holdToPauseGesture: some Gesture {
+        LongPressGesture(minimumDuration: 0.2)
+            .sequenced(before: DragGesture(minimumDistance: 0))
+            .onChanged { value in
+                guard item.kind == .video else { return }
+                if case .second(true, _) = value {
+                    isPausedByUserHold = true
+                }
+            }
+            .onEnded { _ in
+                isPausedByUserHold = false
+            }
     }
 }

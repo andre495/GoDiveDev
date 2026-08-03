@@ -99,6 +99,7 @@ final class GoDiveGoogleMapsAppDelegate: NSObject, UIApplicationDelegate {
         // Firebase Auth/Firestore may touch the default app during launch swizzling — configure first.
         GoDiveFirebaseBootstrap.configureIfNeeded()
         GoDiveCloudKitBackgroundSync.registerTasksIfNeeded()
+        GoDiveBuddyShareBackgroundUpload.registerTasksIfNeeded()
         GoDiveFirebaseCloudMessaging.configureAtLaunch(application: application)
         return true
     }

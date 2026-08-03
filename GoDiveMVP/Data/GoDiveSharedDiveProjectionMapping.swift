@@ -7,10 +7,16 @@ enum FriendSharedActivityKind: String, Sendable, Equatable {
     case snorkel
 }
 
+/// Photo vs video on friend-visible **`mediaItems`** (schema v3).
+enum FriendSharedMediaKind: String, Sendable, Equatable {
+    case photo
+    case video
+}
+
 /// Builds Firestore-safe friend-visible dive projections from local dive snapshots.
 enum GoDiveSharedDiveProjectionMapping: Sendable {
     nonisolated static let sharedDivesSubcollection = "sharedDives"
-    nonisolated static let schemaVersion = 2
+    nonisolated static let schemaVersion = 3
     /// Leave headroom under Firestore’s 1 MiB document limit.
     nonisolated static let maxProfileTrackBytes = 700_000
     nonisolated static let maxSwimTrackBytes = 700_000
@@ -26,9 +32,44 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
         var catalogUUID: String?
     }
 
+    struct MediaBuddyTagSnapshot: Equatable, Sendable {
+        var mediaID: String
+        var displayName: String
+        var firebaseUID: String?
+    }
+
+    /// Legacy v2 thumbnail pointer — still populated on read for existing UI.
     struct MediaPreviewSnapshot: Equatable, Sendable {
         var photoID: String
         var previewURL: String
+    }
+
+    /// Schema v3 media row (thumbnail + optional full-quality content URL).
+    struct MediaItemSnapshot: Equatable, Sendable {
+        var mediaID: String
+        var kind: FriendSharedMediaKind
+        var thumbnailURL: String?
+        var contentURL: String?
+        var width: Int?
+        var height: Int?
+        var durationSeconds: Double?
+        var contentBytes: Int?
+
+        nonisolated static func photoThumbnailOnly(
+            mediaID: String,
+            thumbnailURL: String
+        ) -> MediaItemSnapshot {
+            MediaItemSnapshot(
+                mediaID: mediaID,
+                kind: .photo,
+                thumbnailURL: thumbnailURL,
+                contentURL: nil,
+                width: nil,
+                height: nil,
+                durationSeconds: nil,
+                contentBytes: nil
+            )
+        }
     }
 
     struct DiveSnapshot: Equatable, Sendable {
@@ -74,13 +115,24 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
         var equipmentSummary: [String]
         var profileTrackData: Data?
         var swimTrackData: Data? = nil
+        /// Schema v3 rows (preferred on write).
+        var mediaItems: [MediaItemSnapshot] = []
+        /// Buddies tagged on specific shared media items (not dive-level roster tags).
+        var mediaBuddyTags: [MediaBuddyTagSnapshot] = []
+        /// Legacy v2 thumbnail rows — converted to **`mediaItems`** when v3 rows are empty.
         var mediaPreviews: [MediaPreviewSnapshot]
         var featuredMediaPhotoID: String? = nil
     }
 
     struct ShareOptions: Equatable, Sendable {
         var includeNotes: Bool
+        /// When set, written to Firestore **`notes`** (private or public buddy note).
+        var notesText: String? = nil
         var includeMedia: Bool
+        /// Selected gallery items to upload. Empty = no media when **`restrictsMediaToExplicitSelection`** is true.
+        var selectedMediaIDs: Set<UUID> = []
+        /// When **`true`**, only **`selectedMediaIDs`** are uploaded (may be empty). When **`false`**, caps apply to full gallery.
+        var restrictsMediaToExplicitSelection: Bool = false
     }
 
     /// Firestore field map (timestamps as `Date` — sync layer may swap server timestamps for `updatedAt`).
@@ -165,7 +217,7 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
             fields["swimTrackBase64"] = swimTrack.base64EncodedString()
         }
 
-        if options.includeNotes, let notes = dive.notes {
+        if options.includeNotes, let notes = options.notesText {
             let trimmed = GoDiveInputSanitization.trimmedAndCapped(
                 notes,
                 maxLength: DiveNotesValidation.maxCharacterCount
@@ -175,17 +227,66 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
             }
         }
 
-        if options.includeMedia, !dive.mediaPreviews.isEmpty {
-            fields["mediaPreviews"] = dive.mediaPreviews.map { preview in
-                [
-                    "photoId": preview.photoID,
-                    "previewURL": preview.previewURL,
-                ] as [String: Any]
+        if options.includeMedia {
+            let items = resolvedMediaItems(for: dive)
+            if !items.isEmpty {
+                fields["mediaItems"] = items.map(mediaItemFirestoreRow)
+                let featuredID = dive.featuredMediaPhotoID?
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                setOptionalString(featuredID, key: "featuredMediaId", into: &fields)
             }
-            setOptionalString(dive.featuredMediaPhotoID, key: "featuredMediaPhotoId", into: &fields)
+            if !dive.mediaBuddyTags.isEmpty {
+                fields["mediaBuddyTags"] = dive.mediaBuddyTags.map(mediaBuddyTagFirestoreRow)
+            }
         }
 
         return fields
+    }
+
+    nonisolated static func resolvedMediaItems(for dive: DiveSnapshot) -> [MediaItemSnapshot] {
+        if !dive.mediaItems.isEmpty { return dive.mediaItems }
+        return dive.mediaPreviews.map { preview in
+            .photoThumbnailOnly(mediaID: preview.photoID, thumbnailURL: preview.previewURL)
+        }
+    }
+
+    nonisolated static func legacyMediaPreviews(from items: [MediaItemSnapshot]) -> [MediaPreviewSnapshot] {
+        items.compactMap { item in
+            let thumb = item.thumbnailURL?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let content = item.contentURL?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let previewURL: String
+            if !thumb.isEmpty {
+                previewURL = thumb
+            } else if !content.isEmpty {
+                previewURL = content
+            } else {
+                return nil
+            }
+            return MediaPreviewSnapshot(photoID: item.mediaID, previewURL: previewURL)
+        }
+    }
+
+    nonisolated static func mediaBuddyTagFirestoreRow(_ tag: MediaBuddyTagSnapshot) -> [String: Any] {
+        var row: [String: Any] = [
+            "mediaId": tag.mediaID,
+            "displayName": tag.displayName,
+        ]
+        setOptionalString(tag.firebaseUID, key: "firebaseUid", into: &row)
+        return row
+    }
+
+    nonisolated static func mediaItemFirestoreRow(_ item: MediaItemSnapshot) -> [String: Any] {
+        var row: [String: Any] = [
+            "mediaId": item.mediaID,
+            "kind": item.kind.rawValue,
+        ]
+        setOptionalString(item.thumbnailURL, key: "thumbnailURL", into: &row)
+        setOptionalString(item.contentURL, key: "contentURL", into: &row)
+        setOptional(item.width, key: "width", into: &row)
+        setOptional(item.height, key: "height", into: &row)
+        setOptional(item.durationSeconds, key: "durationSeconds", into: &row)
+        setOptional(item.contentBytes, key: "contentBytes", into: &row)
+        return row
     }
 
     /// Parses a Firestore document into a display model (missing fields → nil / empty).
@@ -209,6 +310,8 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
         var sightings: [SightingSnapshot]
         var taggedBuddies: [TaggedBuddySnapshot]
         var equipmentSummary: [String]
+        var mediaItems: [MediaItemSnapshot] = []
+        var mediaBuddyTags: [MediaBuddyTagSnapshot] = []
         var mediaPreviews: [MediaPreviewSnapshot]
         var featuredMediaPhotoID: String? = nil
         var profileTrackBase64: String?
@@ -243,14 +346,20 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
                 firebaseUID: row["firebaseUid"] as? String
             )
         } ?? []
-        let media: [MediaPreviewSnapshot] = (data["mediaPreviews"] as? [[String: Any]])?.compactMap { row in
-            guard let photoID = row["photoId"] as? String,
-                  let url = row["previewURL"] as? String,
-                  !photoID.isEmpty,
-                  !url.isEmpty
-            else { return nil }
-            return MediaPreviewSnapshot(photoID: photoID, previewURL: url)
-        } ?? []
+        let mediaPayload = parseMediaPayload(from: data)
+        let mediaBuddyTags: [MediaBuddyTagSnapshot] = (data["mediaBuddyTags"] as? [[String: Any]])?
+            .compactMap { row in
+                guard let mediaID = row["mediaId"] as? String,
+                      !mediaID.isEmpty,
+                      let name = row["displayName"] as? String,
+                      !name.isEmpty
+                else { return nil }
+                return MediaBuddyTagSnapshot(
+                    mediaID: mediaID,
+                    displayName: name,
+                    firebaseUID: row["firebaseUid"] as? String
+                )
+            } ?? []
 
         let activityKind = FriendSharedActivityKind(rawValue: data["activityKind"] as? String ?? "")
             ?? .scubaDive
@@ -275,8 +384,10 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
             sightings: sightings,
             taggedBuddies: buddies,
             equipmentSummary: data["equipmentSummary"] as? [String] ?? [],
-            mediaPreviews: media,
-            featuredMediaPhotoID: data["featuredMediaPhotoId"] as? String,
+            mediaItems: mediaPayload.items,
+            mediaBuddyTags: mediaBuddyTags,
+            mediaPreviews: mediaPayload.previews,
+            featuredMediaPhotoID: mediaPayload.featuredMediaID,
             profileTrackBase64: data["profileTrackBase64"] as? String,
             swimTrackBase64: data["swimTrackBase64"] as? String,
             gasType: data["gasType"] as? String,
@@ -388,6 +499,50 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
               !uid.isEmpty
         else { return false }
         return dive.taggedBuddies.contains { $0.firebaseUID == uid }
+    }
+
+    nonisolated static func parseMediaPayload(
+        from data: [String: Any]
+    ) -> (items: [MediaItemSnapshot], previews: [MediaPreviewSnapshot], featuredMediaID: String?) {
+        let featuredID = (data["featuredMediaId"] as? String)
+            ?? (data["featuredMediaPhotoId"] as? String)
+
+        let v3Items = parseV3MediaItems(from: data)
+        if !v3Items.isEmpty {
+            return (v3Items, legacyMediaPreviews(from: v3Items), featuredID)
+        }
+
+        let v2Previews: [MediaPreviewSnapshot] = (data["mediaPreviews"] as? [[String: Any]])?.compactMap { row in
+            guard let photoID = row["photoId"] as? String,
+                  let url = row["previewURL"] as? String,
+                  !photoID.isEmpty,
+                  !url.isEmpty
+            else { return nil }
+            return MediaPreviewSnapshot(photoID: photoID, previewURL: url)
+        } ?? []
+        let items = v2Previews.map {
+            MediaItemSnapshot.photoThumbnailOnly(mediaID: $0.photoID, thumbnailURL: $0.previewURL)
+        }
+        return (items, v2Previews, featuredID)
+    }
+
+    nonisolated static func parseV3MediaItems(from data: [String: Any]) -> [MediaItemSnapshot] {
+        (data["mediaItems"] as? [[String: Any]])?.compactMap { row in
+            guard let mediaID = row["mediaId"] as? String,
+                  !mediaID.isEmpty
+            else { return nil }
+            let kind = FriendSharedMediaKind(rawValue: row["kind"] as? String ?? "") ?? .photo
+            return MediaItemSnapshot(
+                mediaID: mediaID,
+                kind: kind,
+                thumbnailURL: row["thumbnailURL"] as? String,
+                contentURL: row["contentURL"] as? String,
+                width: row["width"] as? Int,
+                height: row["height"] as? Int,
+                durationSeconds: row["durationSeconds"] as? Double,
+                contentBytes: row["contentBytes"] as? Int
+            )
+        } ?? []
     }
 
     nonisolated static func cappedProfileTrack(_ data: Data?) -> Data? {

@@ -286,6 +286,7 @@ Respect system **Low Data Mode** via `URLSessionConfiguration`.
 | `LogbookBuddyFeedTileView` | Thumb-only heroes; video badge on thumb |
 | `FriendSharedActivityDetailPanels` | Progressive thumb → content; `AVPlayer` for video |
 | `FriendSharedDiveDetailView` | Same for dive + snorkel |
+| `FriendSharedMediaFullscreenView` | Tap hero/grid → fullscreen browse; pinch-zoom photos |
 | Schema mapping | `GoDiveSharedDiveProjectionMapping` v3 types |
 | Presentation | `FriendSharedActivityDetailPresentation`, `LogbookBuddyFeedPresentation` |
 
@@ -301,15 +302,15 @@ Respect system **Low Data Mode** via `URLSessionConfiguration`.
 
 ## Implementation phases
 
-| Phase | Work |
-|-------|------|
-| **1** | Schema v3 mapping + Storage path helpers + rules deploy |
-| **2** | `GoDiveSharedMediaExport` (photo + video caps) |
-| **3** | Upload queue + two-phase Firestore publish + dedup/cleanup |
-| **4** | `GoDiveSharedMediaCache` + progressive friend UI + URL policy |
-| **5** | Snorkel parity in `upsertSnorkel` + shared selection helper |
-| **6** | WiFi-only settings + `AppUserSettings` keys |
-| **7** | Tests + `docs/friends.md` / `privacy-and-data.md` |
+| Phase | Work | Status |
+|-------|------|--------|
+| **1** | Schema v3 mapping + Storage path helpers + rules deploy | **Done** |
+| **2** | `GoDiveSharedMediaExport` + `GoDiveSharedMediaSelection` + `GoDiveSharedMediaUpload` (dive + snorkel sync) | **Done** |
+| **3** | Background upload queue + two-phase Firestore publish + dedup/cleanup + Wi‑Fi upload setting | **Done** |
+| **4** | `GoDiveSharedMediaCache` + progressive friend UI + URL policy | **Done** |
+| **5** | Fullscreen pinch-zoom + privacy/docs polish | **Done** |
+| **6** | Export hygiene + cap-trim helpers + test audit | **Done** |
+| **7** | Storage rules deploy (ops) | **Done** — **`catalog-cdn/storage.rules`** deployed to **`godive-1cff8`** |
 
 **Estimated effort:** ~1.5–2 weeks focused.
 
@@ -338,6 +339,8 @@ Respect system **Low Data Mode** via `URLSessionConfiguration`.
 - HLS / adaptive streaming
 - Per-owner Storage egress alerts (console ops only for now)
 - Owner UI surfacing when caps trim media
+
+**Phase 6 shipped:** cap-trim summary + upload log line; explicit JPEG re-encode strips GPS EXIF; remaining design-matrix unit tests.
 
 ---
 

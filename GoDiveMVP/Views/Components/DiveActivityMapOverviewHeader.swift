@@ -15,18 +15,26 @@ struct DiveActivityMapOverviewHeader: View {
     var onOpenLinkedSite: (() -> Void)?
     let regionCountryLine: String?
     let dateDashTimeLine: String
+    /// When set, shows buddy avatar + name above the site title and moves activity identity to the site row.
+    var sharedByDisplayName: String? = nil
+    var sharedByPhotoURL: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            if showsIdentityLeadingRow {
-                identityLeadingRow
-            }
+            if usesBuddyOwnerHeader {
+                buddyOwnerRow
+                siteTitleWithTrailingIdentity
+            } else {
+                if showsIdentityLeadingRow {
+                    identityLeadingRow
+                }
 
-            DiveActivityLinkedSiteTitle(
-                title: siteTitle,
-                linkedCatalogSiteID: linkedCatalogSiteID,
-                onOpenLinkedSite: onOpenLinkedSite
-            )
+                DiveActivityLinkedSiteTitle(
+                    title: siteTitle,
+                    linkedCatalogSiteID: linkedCatalogSiteID,
+                    onOpenLinkedSite: onOpenLinkedSite
+                )
+            }
 
             if let regionCountryLine, !regionCountryLine.isEmpty {
                 Text(regionCountryLine)
@@ -45,8 +53,71 @@ struct DiveActivityMapOverviewHeader: View {
         .accessibilityIdentifier("DiveOverview.MapHeader")
     }
 
+    private var usesBuddyOwnerHeader: Bool {
+        DiveActivityMapOverviewHeaderPresentation.usesBuddyOwnerLayout(
+            sharedByDisplayName: sharedByDisplayName
+        )
+    }
+
     private var showsIdentityLeadingRow: Bool {
         identityLeadingSymbolName != nil || diveNumberChip != nil
+    }
+
+    private var siteTitleWithTrailingIdentity: some View {
+        HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
+            DiveActivityLinkedSiteTitle(
+                title: siteTitle,
+                linkedCatalogSiteID: linkedCatalogSiteID,
+                onOpenLinkedSite: onOpenLinkedSite
+            )
+
+            if showsIdentityLeadingRow {
+                identityTrailingCluster
+            }
+        }
+    }
+
+    private var buddyOwnerRow: some View {
+        HStack(spacing: AppTheme.Spacing.sm) {
+            FriendSharedMapOwnerAvatarView(
+                displayName: sharedByDisplayName ?? "",
+                photoURL: sharedByPhotoURL,
+                diameter: DiveActivityMapOverviewHeaderPresentation.buddyOwnerAvatarDiameter
+            )
+
+            Text(sharedByDisplayName ?? "")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(sharedByDisplayName ?? "")
+    }
+
+    private var identityTrailingCluster: some View {
+        HStack(spacing: 6) {
+            if let identityLeadingSymbolName {
+                Image(systemName: identityLeadingSymbolName)
+                    .font(
+                        .system(
+                            size: DiveActivityOverviewPresentation.activityIdentitySymbolPointSize,
+                            weight: .semibold
+                        )
+                    )
+                    .foregroundStyle(identityLeadingSymbolColor)
+                    .accessibilityHidden(true)
+            }
+
+            if let diveNumberChip {
+                diveNumberChipLabel(diveNumberChip)
+            }
+        }
+        .layoutPriority(0)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(identityLeadingRowAccessibilityLabel)
     }
 
     private var identityLeadingSymbolName: String? {

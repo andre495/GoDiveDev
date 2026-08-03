@@ -13,8 +13,26 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
     static func shareOptions(userDefaults: UserDefaults = .standard) -> GoDiveSharedDiveProjectionMapping.ShareOptions {
         GoDiveSharedDiveProjectionMapping.ShareOptions(
             includeNotes: AppUserSettings.shareNotesWithFriends(userDefaults: userDefaults),
-            includeMedia: AppUserSettings.shareMediaWithFriends(userDefaults: userDefaults)
+            notesText: nil,
+            includeMedia: AppUserSettings.shareMediaWithFriends(userDefaults: userDefaults),
+            selectedMediaIDs: []
         )
+    }
+
+    @MainActor
+    static func shareOptions(
+        for dive: DiveActivity,
+        userDefaults: UserDefaults = .standard
+    ) -> GoDiveSharedDiveProjectionMapping.ShareOptions {
+        ActivityFriendShareConfiguration.shareOptions(for: dive, userDefaults: userDefaults)
+    }
+
+    @MainActor
+    static func shareOptions(
+        for snorkel: SnorkelActivity,
+        userDefaults: UserDefaults = .standard
+    ) -> GoDiveSharedDiveProjectionMapping.ShareOptions {
+        ActivityFriendShareConfiguration.shareOptions(for: snorkel, userDefaults: userDefaults)
     }
 
     /// Whether the owner should publish projections right now.
@@ -50,19 +68,22 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
 
         let dives = (try? modelContext.fetch(FetchDescriptor<DiveActivity>()))?
             .filter { $0.ownerProfileID == ownerProfileID } ?? []
-        let options = shareOptions(userDefaults: userDefaults)
 
         for dive in dives {
             ensureProfileTrackBlob(for: dive, modelContext: modelContext)
         }
 
         for dive in dives {
-            await upsertDive(
-                dive,
-                ownerUID: uid,
-                options: options,
-                modelContext: modelContext
-            )
+            if ActivityFriendShareConfiguration.shouldPublish(dive: dive, userDefaults: userDefaults) {
+                await upsertDive(
+                    dive,
+                    ownerUID: uid,
+                    options: shareOptions(for: dive, userDefaults: userDefaults),
+                    modelContext: modelContext
+                )
+            } else {
+                await deleteDiveProjection(diveID: dive.id)
+            }
         }
 
         let snorkels = (try? modelContext.fetch(FetchDescriptor<SnorkelActivity>()))?
@@ -71,12 +92,16 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
             ensureSwimTrackBlob(for: snorkel, modelContext: modelContext)
         }
         for snorkel in snorkels {
-            await upsertSnorkel(
-                snorkel,
-                ownerUID: uid,
-                options: options,
-                modelContext: modelContext
-            )
+            if ActivityFriendShareConfiguration.shouldPublish(snorkel: snorkel, userDefaults: userDefaults) {
+                await upsertSnorkel(
+                    snorkel,
+                    ownerUID: uid,
+                    options: shareOptions(for: snorkel, userDefaults: userDefaults),
+                    modelContext: modelContext
+                )
+            } else {
+                await deleteDiveProjection(diveID: snorkel.id)
+            }
         }
     }
 
@@ -89,24 +114,39 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
     ) async {
         GoDiveFirebaseBootstrap.configureIfNeeded()
         guard GoDiveFirebaseBootstrap.isConfigured else { return }
-        guard await shouldPublishProjections() else { return }
         guard let uid = ownerUID ?? Auth.auth().currentUser?.uid, !uid.isEmpty else { return }
 
-        let shareOptions = options ?? shareOptions()
-        var mediaPreviews: [GoDiveSharedDiveProjectionMapping.MediaPreviewSnapshot] = []
+        guard ActivityFriendShareConfiguration.shouldPublish(dive: dive) else {
+            await deleteDiveProjection(diveID: dive.id, ownerUID: uid)
+            return
+        }
+
+        guard await shouldPublishProjections() else { return }
+
+        let shareOptions = options ?? shareOptions(for: dive)
+        var mediaItems: [GoDiveSharedDiveProjectionMapping.MediaItemSnapshot] = []
         if shareOptions.includeMedia {
-            mediaPreviews = await uploadMediaPreviewsIfNeeded(dive: dive, ownerUID: uid)
+            mediaItems = await GoDiveSharedMediaUpload.uploadMediaItems(
+                activityID: dive.id,
+                on: dive,
+                ownerUID: uid,
+                selectedMediaIDs: shareOptions.selectedMediaIDs,
+                restrictsToExplicitSelection: shareOptions.restrictsMediaToExplicitSelection
+            )
+        } else {
+            await GoDiveSharedMediaUpload.clearActivityMedia(ownerUID: uid, activityID: dive.id)
         }
 
         let snapshot = makeSnapshot(
             from: dive,
-            mediaPreviews: mediaPreviews,
+            mediaItems: mediaItems,
             modelContext: modelContext
         )
-        let fields = GoDiveSharedDiveProjectionMapping.projectionFields(
+        var fields = GoDiveSharedDiveProjectionMapping.projectionFields(
             from: snapshot,
             options: shareOptions
         )
+        applyOptOutFieldDeletes(to: &fields, options: shareOptions)
 
         do {
             try await Firestore.firestore()
@@ -130,15 +170,39 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
     ) async {
         GoDiveFirebaseBootstrap.configureIfNeeded()
         guard GoDiveFirebaseBootstrap.isConfigured else { return }
-        guard await shouldPublishProjections() else { return }
         guard let uid = ownerUID ?? Auth.auth().currentUser?.uid, !uid.isEmpty else { return }
 
-        let shareOptions = options ?? shareOptions()
-        let snapshot = makeSnorkelSnapshot(from: snorkel, modelContext: modelContext)
-        let fields = GoDiveSharedDiveProjectionMapping.projectionFields(
+        guard ActivityFriendShareConfiguration.shouldPublish(snorkel: snorkel) else {
+            await deleteDiveProjection(diveID: snorkel.id, ownerUID: uid)
+            return
+        }
+
+        guard await shouldPublishProjections() else { return }
+
+        let shareOptions = options ?? shareOptions(for: snorkel)
+        var mediaItems: [GoDiveSharedDiveProjectionMapping.MediaItemSnapshot] = []
+        if shareOptions.includeMedia {
+            mediaItems = await GoDiveSharedMediaUpload.uploadMediaItems(
+                activityID: snorkel.id,
+                on: snorkel,
+                ownerUID: uid,
+                selectedMediaIDs: shareOptions.selectedMediaIDs,
+                restrictsToExplicitSelection: shareOptions.restrictsMediaToExplicitSelection
+            )
+        } else {
+            await GoDiveSharedMediaUpload.clearActivityMedia(ownerUID: uid, activityID: snorkel.id)
+        }
+
+        let snapshot = makeSnorkelSnapshot(
+            from: snorkel,
+            mediaItems: mediaItems,
+            modelContext: modelContext
+        )
+        var fields = GoDiveSharedDiveProjectionMapping.projectionFields(
             from: snapshot,
             options: shareOptions
         )
+        applyOptOutFieldDeletes(to: &fields, options: shareOptions)
 
         do {
             try await Firestore.firestore()
@@ -159,10 +223,13 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
     }
 
     @MainActor
-    static func deleteDiveProjection(diveID: UUID) async {
+    static func deleteDiveProjection(diveID: UUID, ownerUID: String? = nil) async {
         GoDiveFirebaseBootstrap.configureIfNeeded()
         guard GoDiveFirebaseBootstrap.isConfigured else { return }
-        guard let uid = Auth.auth().currentUser?.uid, !uid.isEmpty else { return }
+        guard let uid = ownerUID ?? Auth.auth().currentUser?.uid, !uid.isEmpty else { return }
+
+        await GoDiveSharedMediaUpload.clearActivityMedia(ownerUID: uid, activityID: diveID)
+
         do {
             try await Firestore.firestore()
                 .collection("users")
@@ -170,7 +237,6 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
                 .collection(GoDiveSharedDiveProjectionMapping.sharedDivesSubcollection)
                 .document(diveID.uuidString)
                 .delete()
-            await GoDiveSharedMediaStorage.deleteAllPreviews(ownerUID: uid, diveID: diveID)
         } catch {
             log.error("Shared dive delete failed: \(String(describing: error), privacy: .private)")
         }
@@ -190,6 +256,7 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
                 try await doc.reference.delete()
             }
             await GoDiveSharedMediaStorage.deleteAllForOwner(ownerUID: uid)
+            GoDiveSharedMediaPublishState.clearOwner(ownerUID: uid)
         } catch {
             log.error("Shared dives wipe failed: \(String(describing: error), privacy: .private)")
         }
@@ -235,6 +302,35 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         await fetchBuddyFeedSnapshot().rows
     }
 
+    nonisolated static func fetchFriendSharedDive(
+        friendUID: String,
+        diveDocumentID: String
+    ) async -> GoDiveSharedDiveProjectionMapping.FriendVisibleDive? {
+        GoDiveFirebaseBootstrap.configureIfNeeded()
+        guard GoDiveFirebaseBootstrap.isConfigured else { return nil }
+        guard Auth.auth().currentUser != nil else { return nil }
+        let trimmedUID = friendUID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedDiveID = diveDocumentID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedUID.isEmpty, !trimmedDiveID.isEmpty else { return nil }
+
+        do {
+            let doc = try await Firestore.firestore()
+                .collection("users")
+                .document(trimmedUID)
+                .collection(GoDiveSharedDiveProjectionMapping.sharedDivesSubcollection)
+                .document(trimmedDiveID)
+                .getDocument()
+            guard doc.exists, let data = doc.data() else { return nil }
+            return GoDiveSharedDiveProjectionMapping.parseFriendVisibleDive(
+                id: doc.documentID,
+                data: data
+            )
+        } catch {
+            log.error("Friend shared dive fetch failed: \(String(describing: error), privacy: .private)")
+            return nil
+        }
+    }
+
     nonisolated static func fetchFriendSharedDives(friendUID: String) async -> [GoDiveSharedDiveProjectionMapping.FriendVisibleDive] {
         GoDiveFirebaseBootstrap.configureIfNeeded()
         guard GoDiveFirebaseBootstrap.isConfigured else { return [] }
@@ -262,7 +358,7 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
     @MainActor
     private static func makeSnapshot(
         from dive: DiveActivity,
-        mediaPreviews: [GoDiveSharedDiveProjectionMapping.MediaPreviewSnapshot],
+        mediaItems: [GoDiveSharedDiveProjectionMapping.MediaItemSnapshot],
         modelContext: ModelContext
     ) -> GoDiveSharedDiveProjectionMapping.DiveSnapshot {
         let tagNames = dive.activityTags.map(\.name).filter { !$0.isEmpty }
@@ -291,6 +387,11 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         let place = regionCountryFields(
             linkedSite: dive.resolvedLinkedSite,
             locationName: dive.locationName
+        )
+        let sharedMediaIDs = Set(mediaItems.map(\.mediaID))
+        let mediaBuddyTags = projectionMediaBuddyTags(
+            from: dive.mediaBuddyTags,
+            sharedMediaIDs: sharedMediaIDs
         )
 
         return GoDiveSharedDiveProjectionMapping.DiveSnapshot(
@@ -336,7 +437,9 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
             equipmentSummary: equipment,
             profileTrackData: resolvedProfileTrackData(for: dive, modelContext: modelContext),
             swimTrackData: nil,
-            mediaPreviews: mediaPreviews,
+            mediaItems: mediaItems,
+            mediaBuddyTags: mediaBuddyTags,
+            mediaPreviews: [],
             featuredMediaPhotoID: DiveActivityMediaPresentation.featuredPhotoID(on: dive)?.uuidString
         )
     }
@@ -344,11 +447,17 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
     @MainActor
     private static func makeSnorkelSnapshot(
         from snorkel: SnorkelActivity,
+        mediaItems: [GoDiveSharedDiveProjectionMapping.MediaItemSnapshot],
         modelContext: ModelContext
     ) -> GoDiveSharedDiveProjectionMapping.DiveSnapshot {
         let place = regionCountryFields(
             linkedSite: snorkel.resolvedLinkedSite,
             locationName: snorkel.locationName
+        )
+        let sharedMediaIDs = Set(mediaItems.map(\.mediaID))
+        let mediaBuddyTags = projectionMediaBuddyTags(
+            from: snorkel.mediaBuddyTags,
+            sharedMediaIDs: sharedMediaIDs
         )
 
         return GoDiveSharedDiveProjectionMapping.DiveSnapshot(
@@ -394,7 +503,10 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
             equipmentSummary: [],
             profileTrackData: nil,
             swimTrackData: resolvedSwimTrackData(for: snorkel, modelContext: modelContext),
-            mediaPreviews: []
+            mediaItems: mediaItems,
+            mediaBuddyTags: mediaBuddyTags,
+            mediaPreviews: [],
+            featuredMediaPhotoID: SnorkelActivityMediaPresentation.featuredPhotoID(on: snorkel)?.uuidString
         )
     }
 
@@ -447,6 +559,29 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
     }
 
     @MainActor
+    private static func projectionMediaBuddyTags(
+        from tags: [DiveMediaBuddyTag],
+        sharedMediaIDs: Set<String>
+    ) -> [GoDiveSharedDiveProjectionMapping.MediaBuddyTagSnapshot] {
+        var seen = Set<String>()
+        return tags.compactMap { tag -> GoDiveSharedDiveProjectionMapping.MediaBuddyTagSnapshot? in
+            guard let mediaPhotoID = tag.mediaPhotoID,
+                  sharedMediaIDs.contains(mediaPhotoID.uuidString),
+                  let buddy = tag.buddy
+            else { return nil }
+            let name = buddy.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { return nil }
+            let dedupeKey = "\(mediaPhotoID.uuidString)|\(name)"
+            guard seen.insert(dedupeKey).inserted else { return nil }
+            return GoDiveSharedDiveProjectionMapping.MediaBuddyTagSnapshot(
+                mediaID: mediaPhotoID.uuidString,
+                displayName: name,
+                firebaseUID: buddy.linkedFirebaseUID
+            )
+        }
+    }
+
+    @MainActor
     private static func regionCountryFields(
         linkedSite: DiveLinkedSiteResolver.ResolvedSite?,
         locationName: String?
@@ -472,33 +607,18 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         )
     }
 
-    @MainActor
-    private static func uploadMediaPreviewsIfNeeded(
-        dive: DiveActivity,
-        ownerUID: String
-    ) async -> [GoDiveSharedDiveProjectionMapping.MediaPreviewSnapshot] {
-        let sortedPhotos = DiveActivityMediaPresentation.sortedPhotos(on: dive)
-        let featuredID = DiveActivityMediaPresentation.featuredPhotoID(on: dive)
-        let uploadOrder: [DiveMediaPhoto]
-        if let featuredID,
-           let featured = sortedPhotos.first(where: { $0.id == featuredID }) {
-            uploadOrder = [featured] + sortedPhotos.filter { $0.id != featuredID }
-        } else {
-            uploadOrder = sortedPhotos
+    nonisolated static func applyOptOutFieldDeletes(
+        to fields: inout [String: Any],
+        options: GoDiveSharedDiveProjectionMapping.ShareOptions
+    ) {
+        if !options.includeNotes {
+            fields["notes"] = FieldValue.delete()
         }
-
-        var results: [GoDiveSharedDiveProjectionMapping.MediaPreviewSnapshot] = []
-        for photo in uploadOrder {
-            guard let jpeg = photo.previewJPEGData, !jpeg.isEmpty else { continue }
-            if let url = await GoDiveSharedMediaStorage.uploadPreview(
-                ownerUID: ownerUID,
-                diveID: dive.id,
-                photoID: photo.id,
-                jpegData: jpeg
-            ) {
-                results.append(.init(photoID: photo.id.uuidString, previewURL: url))
-            }
+        if !options.includeMedia {
+            fields["mediaItems"] = FieldValue.delete()
+            fields["featuredMediaId"] = FieldValue.delete()
+            fields["mediaPreviews"] = FieldValue.delete()
+            fields["featuredMediaPhotoId"] = FieldValue.delete()
         }
-        return results
     }
 }

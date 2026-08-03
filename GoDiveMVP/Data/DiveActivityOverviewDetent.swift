@@ -26,7 +26,7 @@ enum DiveActivityOverviewDetent: CaseIterable, Equatable, Hashable, Sendable {
         }
     }
 
-    static let defaultSelection: Self = .large
+    nonisolated static let defaultSelection: Self = .large
 
     /// Map camera zoom / pin framing follows the resting overview detent.
     nonisolated var mapCameraDetent: Self { self }

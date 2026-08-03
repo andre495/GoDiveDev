@@ -52,6 +52,7 @@ struct ViewSingleSnorkelActivity: View {
     @State private var marineLifeTagMediaID: UUID?
     @State private var buddyTagMediaID: UUID?
     @State private var fishialIdentifyMediaID: UUID?
+    @State private var showsFriendShareSettings = false
 
     var body: some View {
         AppHeaderlessPage {
@@ -116,6 +117,9 @@ struct ViewSingleSnorkelActivity: View {
                 )
             }
         }
+        .sheet(isPresented: $showsFriendShareSettings) {
+            SnorkelActivityFriendShareSettingsView(activity: activity)
+        }
         .onChange(of: snorkelMediaPickerItems) { _, items in
             guard !items.isEmpty else { return }
             Task { await importSnorkelMediaPickerItems(items) }
@@ -145,6 +149,7 @@ struct ViewSingleSnorkelActivity: View {
                 HStack {
                     SecondaryDestinationBackButton()
                     Spacer(minLength: 0)
+                    activityFriendShareEditButton
                 }
                 SnorkelActivityIconTabBar(
                     selection: $selectedActivityTab,
@@ -156,6 +161,18 @@ struct ViewSingleSnorkelActivity: View {
         .padding(.horizontal, AppTheme.Spacing.md)
         .padding(.top, AppTheme.Spacing.sm)
         .animation(nil, value: overviewSheetDetent)
+    }
+
+    private var activityFriendShareEditButton: some View {
+        Button {
+            showsFriendShareSettings = true
+        } label: {
+            Image(systemName: "ellipsis")
+                .appToolbarIconButtonLabel()
+        }
+        .appStandaloneIconButtonStyle()
+        .accessibilityLabel(ActivityFriendSharePresentation.editButtonAccessibilityLabel)
+        .accessibilityIdentifier("ViewSingleSnorkelActivity.FriendShareEdit")
     }
 
     private func selectSnorkelActivityTab(_ tab: SnorkelActivityTab) {

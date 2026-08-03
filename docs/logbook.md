@@ -16,7 +16,7 @@ Use the **filter** next to the segment control to show **all** activities, **div
 
 Buddy Feed loads when you select it. Each activity appears as a **card tile** with a hero header. When your friend shared a photo **and** depth/swim data exists, the hero shows their **featured photo** first and you can swipe to the depth chart (dives) or GPS swim track (snorkels). With only media or only chart/map data, the hero shows that single view. With neither, a placeholder appears. Below the hero: site name, region/country when available, key stats, and your friend’s name. Tap the stats area to open the same style of detail screen as your own dives and snorkels.
 
-**Share dives with friends** (Settings) includes **snorkel sessions** as well as scuba dives — each uploads a friend-visible projection with the correct activity type and GPS track when available.
+**Share activities with buddies** (Settings) includes **snorkel sessions** as well as scuba dives — each uploads a buddy-visible projection with the correct activity type and GPS track when available.
 
 Pull down on Buddy Feed to refresh. The feed also refreshes when you switch to **Buddy Feed**, open the **Logbook** tab while that segment is selected, return from a shared dive detail, tap the **Logbook** tab again while already on it, or bring the app back to the foreground while you’re on Buddy Feed in Logbook. The list loads **20 activities** at a time; scroll to the bottom to load the next **20**.
 

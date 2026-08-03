@@ -41,11 +41,17 @@ struct FriendSharedLogbookView: View {
                                 ),
                                 friendUID: friend.friendUID,
                                 friendDisplayName: friend.displayName,
+                                friendPhotoURL: friend.photoURL,
                                 dive: dive
                             )
                             LogbookBuddyFeedNavigableTile(row: row) { isolatesHero in
                                 NavigationLink {
-                                    FriendSharedDiveDetailView(dive: dive, friendName: friend.displayName)
+                                    FriendSharedDiveDetailView(
+                                        dive: dive,
+                                        friendName: friend.displayName,
+                                        friendPhotoURL: friend.photoURL,
+                                        friendUID: friend.friendUID
+                                    )
                                 } label: {
                                     LogbookBuddyFeedTileView(
                                         row: row,

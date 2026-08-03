@@ -197,7 +197,7 @@ struct ActivityMediaItemView<Media: PhotoLibraryMediaRow>: View {
     }
 
     private var mediaContent: some View {
-        ZStack(alignment: .bottomLeading) {
+        ZStack(alignment: .bottom) {
             Group {
                 switch media.resolvedMediaKind {
                 case .image:
@@ -210,6 +210,7 @@ struct ActivityMediaItemView<Media: PhotoLibraryMediaRow>: View {
 
             if showsCaptureDateOverlay, let overlay = captureOverlay {
                 captureOverlayBadge(dateTimeLine: overlay.dateTimeLine, divePositionLine: overlay.divePositionLine)
+                    .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.bottom, captureOverlayBottomInset)
             }
         }
@@ -506,31 +507,31 @@ struct ActivityMediaItemView<Media: PhotoLibraryMediaRow>: View {
         mediaAspect: CGFloat,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        Group {
-            if heroFitFillProgress >= 0.999 || heroBandRect.height <= 0 {
-                content()
-                    .frame(width: viewport.width, height: viewport.height)
-                    .clipped()
-            } else {
-                let size = DiveActivityMediaHeroPresentation.interpolatedMediaSize(
-                    mediaAspect: mediaAspect,
-                    band: heroBandRect,
-                    viewport: viewport,
-                    progress: heroFitFillProgress
-                )
-                let centerY = DiveActivityMediaHeroPresentation.interpolatedMediaCenterY(
-                    band: heroBandRect,
-                    viewportHeight: viewport.height,
-                    mediaAspect: mediaAspect,
-                    progress: heroFitFillProgress
-                )
-                content()
-                    .frame(width: size.width, height: size.height)
-                    .position(x: viewport.width / 2, y: centerY)
-                    .frame(width: viewport.width, height: viewport.height)
-                    .clipped()
-            }
-        }
+        // Single layout path — avoid a structural `@ViewBuilder` branch at full bleed.
+        // Crossing ~1.0 during detent drag previously dismantled `DiveActivityFillVideoPlayerRepresentable`
+        // while `@State playerItem` survived → native AVFoundation abort.
+        let usesFullViewportBand = heroBandRect.height <= 0
+        let size: CGSize = usesFullViewportBand
+            ? viewport
+            : DiveActivityMediaHeroPresentation.interpolatedMediaSize(
+                mediaAspect: mediaAspect,
+                band: heroBandRect,
+                viewport: viewport,
+                progress: heroFitFillProgress
+            )
+        let centerY: CGFloat = usesFullViewportBand
+            ? viewport.height / 2
+            : DiveActivityMediaHeroPresentation.interpolatedMediaCenterY(
+                band: heroBandRect,
+                viewportHeight: viewport.height,
+                mediaAspect: mediaAspect,
+                progress: heroFitFillProgress
+            )
+        return content()
+            .frame(width: size.width, height: size.height)
+            .position(x: viewport.width / 2, y: centerY)
+            .frame(width: viewport.width, height: viewport.height)
+            .clipped()
     }
     #endif
 }

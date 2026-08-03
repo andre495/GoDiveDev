@@ -6,19 +6,20 @@ enum LogbookBuddyFeedPresentation: Sendable {
         var id: String
         var friendUID: String
         var friendDisplayName: String
+        var friendPhotoURL: String?
         var dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
     }
 
     /// One page in the Buddy Feed tile hero pager (featured media, depth chart / swim map, or placeholder).
     enum HeroPage: Equatable, Sendable, Identifiable {
-        case media(GoDiveSharedDiveProjectionMapping.MediaPreviewSnapshot)
+        case media(FriendSharedMediaPresentation.DisplayItem)
         case activityVisualization
         case placeholder
 
         nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
             switch (lhs, rhs) {
             case (.media(let left), .media(let right)):
-                left.photoID == right.photoID && left.previewURL == right.previewURL
+                left == right
             case (.activityVisualization, .activityVisualization):
                 true
             case (.placeholder, .placeholder):
@@ -30,8 +31,8 @@ enum LogbookBuddyFeedPresentation: Sendable {
 
         var id: String {
             switch self {
-            case .media(let preview):
-                "media-\(preview.photoID)"
+            case .media(let item):
+                "media-\(item.mediaID)"
             case .activityVisualization:
                 "activity"
             case .placeholder:
@@ -124,9 +125,11 @@ enum LogbookBuddyFeedPresentation: Sendable {
             if left.id != right.id
                 || left.friendUID != right.friendUID
                 || left.friendDisplayName != right.friendDisplayName
+                || left.friendPhotoURL != right.friendPhotoURL
                 || left.dive.id != right.dive.id
                 || left.dive.profileTrackBase64 != right.dive.profileTrackBase64
                 || left.dive.swimTrackBase64 != right.dive.swimTrackBase64
+                || left.dive.mediaItems != right.dive.mediaItems
                 || left.dive.mediaPreviews != right.dive.mediaPreviews
                 || left.dive.featuredMediaPhotoID != right.dive.featuredMediaPhotoID
             {
@@ -167,6 +170,7 @@ enum LogbookBuddyFeedPresentation: Sendable {
                         id: rowID(friendUID: friend.friendUID, diveDocumentID: dive.id),
                         friendUID: friend.friendUID,
                         friendDisplayName: friend.displayName,
+                        friendPhotoURL: friend.photoURL,
                         dive: dive
                     )
                 )
@@ -265,24 +269,33 @@ enum LogbookBuddyFeedPresentation: Sendable {
     nonisolated static func orderedMediaPreviews(
         for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
     ) -> [GoDiveSharedDiveProjectionMapping.MediaPreviewSnapshot] {
-        let previews = dive.mediaPreviews
-        guard !previews.isEmpty else { return [] }
-        guard let featuredID = dive.featuredMediaPhotoID?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !featuredID.isEmpty,
-              let featuredIndex = previews.firstIndex(where: { $0.photoID == featuredID })
-        else { return previews }
-
-        var ordered = previews
-        let featured = ordered.remove(at: featuredIndex)
-        ordered.insert(featured, at: 0)
-        return ordered
+        FriendSharedMediaPresentation.orderedDisplayItems(for: dive).compactMap { item in
+            guard let thumb = item.thumbnailURL else { return nil }
+            return GoDiveSharedDiveProjectionMapping.MediaPreviewSnapshot(
+                photoID: item.mediaID,
+                previewURL: thumb
+            )
+        }
     }
 
-    /// Single tile hero media — the owner's featured preview when known, otherwise the first shared preview.
+    /// Single tile hero media — the owner's featured item when known, otherwise the first shared item.
+    nonisolated static func tileFeaturedDisplayItem(
+        for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
+    ) -> FriendSharedMediaPresentation.DisplayItem? {
+        FriendSharedMediaPresentation.tileFeaturedDisplayItem(for: dive)
+    }
+
+    /// Legacy v2 preview helper — prefer **`tileFeaturedDisplayItem`**.
     nonisolated static func tileFeaturedMediaPreview(
         for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
     ) -> GoDiveSharedDiveProjectionMapping.MediaPreviewSnapshot? {
-        orderedMediaPreviews(for: dive).first
+        guard let item = tileFeaturedDisplayItem(for: dive),
+              let thumb = item.thumbnailURL
+        else { return nil }
+        return GoDiveSharedDiveProjectionMapping.MediaPreviewSnapshot(
+            photoID: item.mediaID,
+            previewURL: thumb
+        )
     }
 
     /// **`true`** when the tile can show a depth chart (dives) or swim map (snorkels).
@@ -310,7 +323,7 @@ enum LogbookBuddyFeedPresentation: Sendable {
         for dive: GoDiveSharedDiveProjectionMapping.FriendVisibleDive
     ) -> [HeroPage] {
         var pages: [HeroPage] = []
-        if let media = tileFeaturedMediaPreview(for: dive) {
+        if let media = tileFeaturedDisplayItem(for: dive) {
             pages.append(.media(media))
         }
         if hasSharedActivityVisualization(for: dive) {

@@ -12,21 +12,21 @@ When you’re signed into **iCloud**, most Settings (units, default tank, renumb
 
 Near the top of Settings, **iCloud dive log** shows whether private iCloud mirroring is **on** for this install and how many dives/snorkels are attached to **your profile** (what the logbook shows) versus stored on the device overall. When you **sign in with Apple**, GoDive automatically loads your **Firebase** social profile (name, friends, avatar when available) and reconnects to your **iCloud dive log** when the on-device log is empty but iCloud still has data — you should see the launch overlay while that runs. After reinstalling, leave the app open on Wi‑Fi for a few minutes if the logbook is still catching up.
 
-## Friends sharing
+## Buddy sharing
 
-These apply when you use **Profile → menu → Friends** (QR / invite link):
+These apply when you use **Profile → Buddies** (QR / invite link):
 
-### Share dives with friends
+### Share activities with buddies
 
-When **on** (default): friends can see your dive details (site, depth, duration, conditions, and more). GoDive keeps a friend-visible copy in Firebase for them to read. Your private log on device / iCloud stays the source of truth.
+When **on** (default): buddies can see your dive and snorkel details (site, depth or distance, duration, conditions, and more). GoDive keeps a buddy-visible copy in Firebase for them to read. Your private log on device / iCloud stays the source of truth.
 
-### Share notes with friends
+### Share notes with buddies
 
-When **on**, dive notes are included for friends. **Off** by default.
+When **on**, activity notes are included for buddies. **Off** by default.
 
-### Share media with friends
+### Share media with buddies
 
-When **on**, small photo **previews** upload so friends can see them. Full originals stay in your Photos library. **Off** by default.
+When **on**, buddies see thumbnails right away and full-quality photos (up to 20 per activity) and 1080p video clips (up to 10, 30 seconds each) when they open an activity. Full originals stay in your Photos library. **Off** by default.
 
 ## Display units
 

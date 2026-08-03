@@ -155,18 +155,21 @@ struct GoDiveFriendsTests {
             options: .init(includeNotes: false, includeMedia: false)
         )
         #expect(withoutOptIn["notes"] as? String == nil)
+        #expect(withoutOptIn["mediaItems"] == nil)
         #expect(withoutOptIn["mediaPreviews"] == nil)
+        #expect(withoutOptIn["schemaVersion"] as? Int == 3)
         #expect(withoutOptIn["siteName"] as? String == "Blue Hole")
         #expect(withoutOptIn["activityKind"] as? String == FriendSharedActivityKind.scubaDive.rawValue)
         #expect((withoutOptIn["profileTrackBase64"] as? String)?.isEmpty == false)
 
         let withOptIn = GoDiveSharedDiveProjectionMapping.projectionFields(
             from: snapshot,
-            options: .init(includeNotes: true, includeMedia: true)
+            options: .init(includeNotes: true, notesText: "Secret note", includeMedia: true)
         )
         #expect(withOptIn["notes"] as? String == "Secret note")
-        #expect(withOptIn["mediaPreviews"] != nil)
-        #expect(withOptIn["featuredMediaPhotoId"] as? String == "p1")
+        #expect(withOptIn["mediaItems"] != nil)
+        #expect(withOptIn["mediaPreviews"] == nil)
+        #expect(withOptIn["featuredMediaId"] as? String == "p1")
 
         let parsed = GoDiveSharedDiveProjectionMapping.parseFriendVisibleDive(
             id: diveID.uuidString,
@@ -175,6 +178,9 @@ struct GoDiveFriendsTests {
         #expect(parsed.siteName == "Blue Hole")
         #expect(parsed.notes == "Secret note")
         #expect(parsed.featuredMediaPhotoID == "p1")
+        #expect(parsed.mediaItems.count == 1)
+        #expect(parsed.mediaItems[0].thumbnailURL == "https://example.com/p.jpg")
+        #expect(parsed.mediaPreviews.count == 1)
         #expect(
             GoDiveSharedDiveProjectionMapping.wasCurrentUserTagged(
                 dive: parsed,
@@ -189,6 +195,287 @@ struct GoDiveFriendsTests {
         )
         let chartSeries = GoDiveSharedDiveProjectionMapping.decodedDepthChartSeries(from: parsed)
         #expect(chartSeries.depthSamples.count >= 2)
+    }
+
+    @Test func sharedDiveProjection_v3MediaItems_roundTrip() throws {
+        let diveID = UUID()
+        let mediaID = UUID()
+        let snapshot = GoDiveSharedDiveProjectionMapping.DiveSnapshot(
+            id: diveID,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            timeZoneOffsetSeconds: nil,
+            durationMinutes: 30,
+            maxDepthMeters: 12,
+            averageDepthMeters: nil,
+            bottomTimeSeconds: nil,
+            diveNumber: 1,
+            waterTempAvgCelsius: nil,
+            waterTempMinCelsius: nil,
+            waterTempMaxCelsius: nil,
+            siteName: "Reef",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            diveCurrentStrengthRaw: nil,
+            surfaceCondition: nil,
+            entryType: nil,
+            diveVisibilityRaw: nil,
+            diveOperatorName: nil,
+            diveMasterName: nil,
+            diveWaterTypeRaw: nil,
+            diverWeightKilograms: nil,
+            tankMaterial: nil,
+            tankVolumeDescription: nil,
+            tankPressureStartPSI: nil,
+            tankPressureEndPSI: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            avgSAC: nil,
+            avgRMV: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            profileTrackData: nil,
+            swimTrackData: nil,
+            mediaItems: [
+                .init(
+                    mediaID: mediaID.uuidString,
+                    kind: .video,
+                    thumbnailURL: "https://firebasestorage.googleapis.com/thumb.jpg",
+                    contentURL: "https://firebasestorage.googleapis.com/video.mp4",
+                    width: 1920,
+                    height: 1080,
+                    durationSeconds: 30,
+                    contentBytes: 4_000_000
+                ),
+            ],
+            mediaPreviews: [],
+            featuredMediaPhotoID: mediaID.uuidString
+        )
+
+        let fields = GoDiveSharedDiveProjectionMapping.projectionFields(
+            from: snapshot,
+            options: .init(includeNotes: false, includeMedia: true)
+        )
+        #expect(fields["schemaVersion"] as? Int == 3)
+        let rows = fields["mediaItems"] as? [[String: Any]]
+        #expect(rows?.count == 1)
+        #expect(rows?[0]["kind"] as? String == "video")
+        #expect(rows?[0]["durationSeconds"] as? Double == 30)
+
+        let parsed = GoDiveSharedDiveProjectionMapping.parseFriendVisibleDive(
+            id: diveID.uuidString,
+            data: fields
+        )
+        #expect(parsed.mediaItems.count == 1)
+        #expect(parsed.mediaItems[0].kind == .video)
+        #expect(parsed.mediaItems[0].contentURL?.contains("video.mp4") == true)
+        #expect(parsed.mediaPreviews[0].previewURL.contains("thumb.jpg"))
+    }
+
+    @Test func sharedDiveProjection_v2MediaPreviews_fallbackParse() {
+        let data: [String: Any] = [
+            "mediaPreviews": [
+                ["photoId": "legacy-photo", "previewURL": "https://example.com/legacy.jpg"],
+            ],
+            "featuredMediaPhotoId": "legacy-photo",
+        ]
+        let payload = GoDiveSharedDiveProjectionMapping.parseMediaPayload(from: data)
+        #expect(payload.items.count == 1)
+        #expect(payload.items[0].kind == .photo)
+        #expect(payload.items[0].thumbnailURL == "https://example.com/legacy.jpg")
+        #expect(payload.previews[0].photoID == "legacy-photo")
+        #expect(payload.featuredMediaID == "legacy-photo")
+    }
+
+    @Test func goDiveSharedMediaStorage_objectPaths_useTieredLayout() {
+        let ownerUID = "owner-uid"
+        let activityID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+        let mediaID = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+
+        #expect(
+            GoDiveSharedMediaStorage.objectPath(
+                ownerUID: ownerUID,
+                activityID: activityID,
+                mediaID: mediaID,
+                tier: .thumb
+            ) == "users/owner-uid/sharedMedia/00000000-0000-0000-0000-000000000001/00000000-0000-0000-0000-000000000002/thumb.jpg"
+        )
+        #expect(
+            GoDiveSharedMediaStorage.objectPath(
+                ownerUID: ownerUID,
+                activityID: activityID,
+                mediaID: mediaID,
+                tier: .photo
+            ).hasSuffix("/photo.jpg")
+        )
+        #expect(
+            GoDiveSharedMediaStorage.objectPath(
+                ownerUID: ownerUID,
+                activityID: activityID,
+                mediaID: mediaID,
+                tier: .video
+            ).hasSuffix("/video.mp4")
+        )
+        #expect(
+            GoDiveSharedMediaStorage.legacyPreviewObjectPath(
+                ownerUID: ownerUID,
+                activityID: activityID,
+                mediaID: mediaID
+            ).hasSuffix("00000000-0000-0000-0000-000000000002.jpg")
+        )
+    }
+
+    @Test func goDiveSharedMediaLimits_capsMatchDesign() {
+        #expect(GoDiveSharedMediaLimits.maxPhotosPerActivity == 20)
+        #expect(GoDiveSharedMediaLimits.maxVideosPerActivity == 10)
+        #expect(GoDiveSharedMediaLimits.maxSharedVideoDurationSeconds == 30)
+    }
+
+    @Test func goDiveSharedMediaSelection_capsPhotosAndVideosInGalleryOrder() {
+        let base = Date(timeIntervalSince1970: 1_700_000_000)
+        var candidates: [GoDiveSharedMediaSelection.ShareCandidate] = []
+        for index in 0 ..< 25 {
+            candidates.append(
+                .init(
+                    id: UUID(uuidString: String(format: "00000000-0000-0000-0000-%012x", index))!,
+                    kind: .image,
+                    capturedAt: base.addingTimeInterval(Double(index)),
+                    sortOrder: index
+                )
+            )
+        }
+        for index in 25 ..< 40 {
+            candidates.append(
+                .init(
+                    id: UUID(uuidString: String(format: "10000000-0000-0000-0000-%012x", index))!,
+                    kind: .video,
+                    capturedAt: base.addingTimeInterval(Double(index)),
+                    sortOrder: index
+                )
+            )
+        }
+
+        let filtered = GoDiveSharedMediaSelection.filteredForShare(candidates: candidates)
+        #expect(filtered.filter { $0.kind == .image }.count == 20)
+        #expect(filtered.filter { $0.kind == .video }.count == 10)
+        #expect(filtered.count == 30)
+        #expect(filtered.first?.kind == .image)
+        #expect(filtered[19].kind == .image)
+        #expect(filtered[20].kind == .video)
+    }
+
+    @Test @MainActor func goDiveSharedMediaSelection_uploadOrder_putsFeaturedFirst() {
+        let first = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+        let featured = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+        let third = UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
+
+        struct StubMedia: ActivityOverviewGalleryMedia {
+            let id: UUID
+            var capturedAt: Date? = nil
+            var sortOrder: Int = 0
+            var previewJPEGData: Data? = nil
+            var fishialConfirmedSpeciesName: String = ""
+            var photosLocalIdentifier: String = ""
+            var mediaKind: String = DiveMediaKind.image.rawValue
+        }
+
+        let selected = [
+            StubMedia(id: first),
+            StubMedia(id: featured),
+            StubMedia(id: third),
+        ]
+        let ordered = GoDiveSharedMediaSelection.uploadOrder(selected: selected, featuredID: featured)
+        #expect(ordered.map(\.id) == [featured, first, third])
+    }
+
+    @Test func goDiveSharedMediaPublishState_tracksRemovedMediaIDs() {
+        let activity = GoDiveSharedMediaPublishState.ActivityRecord(items: [
+            .init(
+                mediaID: "a",
+                kind: "photo",
+                sourceFingerprint: "fp-a",
+                exportFingerprint: nil,
+                thumbnailURL: "https://example.com/a.jpg",
+                contentURL: nil,
+                width: nil,
+                height: nil,
+                durationSeconds: nil,
+                contentBytes: nil
+            ),
+            .init(
+                mediaID: "b",
+                kind: "photo",
+                sourceFingerprint: "fp-b",
+                exportFingerprint: nil,
+                thumbnailURL: "https://example.com/b.jpg",
+                contentURL: nil,
+                width: nil,
+                height: nil,
+                durationSeconds: nil,
+                contentBytes: nil
+            ),
+        ])
+        let removed = GoDiveSharedMediaPublishState.removedMediaIDs(
+            previous: activity,
+            currentMediaIDs: ["a"]
+        )
+        #expect(removed == ["b"])
+    }
+
+    @Test func goDiveSharedMediaPublishState_sha256Hex_changesWithContent() {
+        let photo = Data([0x01, 0x02, 0x03])
+        let video = Data([0x04, 0x05, 0x06])
+        let first = GoDiveSharedMediaPublishState.sha256Hex(photo)
+        let second = GoDiveSharedMediaPublishState.sha256Hex(video)
+        #expect(first != second)
+        #expect(first == GoDiveSharedMediaPublishState.sha256Hex(photo))
+        #expect(first.count == 64)
+    }
+
+    @Test func sharedDiveProjection_applyOptOutFieldDeletes_clearsMediaAndNotes() {
+        var fields: [String: Any] = [
+            "notes": "secret",
+            "mediaItems": [["mediaId": "x"]],
+            "featuredMediaId": "x",
+            "mediaPreviews": [["photoId": "x"]],
+            "featuredMediaPhotoId": "x",
+        ]
+        GoDiveSharedDiveProjectionSync.applyOptOutFieldDeletes(
+            to: &fields,
+            options: .init(includeNotes: false, includeMedia: false)
+        )
+        #expect(fields["notes"] is FieldValue)
+        #expect(fields["mediaItems"] is FieldValue)
+        #expect(fields["featuredMediaId"] is FieldValue)
+        #expect(fields["mediaPreviews"] is FieldValue)
+        #expect(fields["featuredMediaPhotoId"] is FieldValue)
+    }
+
+    @Test func appNetworkConnectivityPresentation_friendShareContentUpload_wifiOnlyOnCellular() {
+        #expect(
+            AppNetworkConnectivityPresentation.allowsFriendShareContentUpload(
+                isConnected: true,
+                usesWiFi: false,
+                wifiOnly: true
+            ) == false
+        )
+        #expect(
+            AppNetworkConnectivityPresentation.allowsFriendShareContentUpload(
+                isConnected: true,
+                usesWiFi: true,
+                wifiOnly: true
+            )
+        )
+        #expect(
+            AppNetworkConnectivityPresentation.allowsFriendShareContentUpload(
+                isConnected: true,
+                usesWiFi: false,
+                wifiOnly: false
+            )
+        )
     }
 
     @Test func sharedDiveProjection_decodedDepthChartSeries_includesPressureBaseline() throws {
@@ -341,6 +628,7 @@ struct GoDiveFriendsTests {
             id: "friend_dive-1",
             friendUID: "friend",
             friendDisplayName: "Sam",
+            friendPhotoURL: nil,
             dive: baseDive
         )
         var withTrack = baseDive
@@ -349,6 +637,7 @@ struct GoDiveFriendsTests {
             id: "friend_dive-1",
             friendUID: "friend",
             friendDisplayName: "Sam",
+            friendPhotoURL: nil,
             dive: withTrack
         )
         #expect(!LogbookBuddyFeedPresentation.rowsEqual([left], [right]))
@@ -515,6 +804,65 @@ struct GoDiveFriendsTests {
         #expect(GoDiveSharedDiveProjectionMapping.cappedProfileTrack(ok)?.count == 10)
         #expect(GoDiveSharedDiveProjectionMapping.cappedSwimTrack(huge) == nil)
         #expect(GoDiveSharedDiveProjectionMapping.cappedSwimTrack(ok)?.count == 10)
+    }
+
+    @Test func sharedSnorkelProjection_writesMediaItemsWhenMediaOptIn() {
+        let mediaID = UUID()
+        let snapshot = GoDiveSharedDiveProjectionMapping.DiveSnapshot(
+            id: UUID(),
+            startTime: Date(),
+            timeZoneOffsetSeconds: nil,
+            durationMinutes: 20,
+            maxDepthMeters: 0,
+            averageDepthMeters: nil,
+            bottomTimeSeconds: nil,
+            diveNumber: nil,
+            waterTempAvgCelsius: nil,
+            waterTempMinCelsius: nil,
+            waterTempMaxCelsius: nil,
+            siteName: "Bay",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            diveCurrentStrengthRaw: nil,
+            surfaceCondition: nil,
+            entryType: nil,
+            diveVisibilityRaw: nil,
+            diveOperatorName: nil,
+            diveMasterName: nil,
+            diveWaterTypeRaw: nil,
+            diverWeightKilograms: nil,
+            tankMaterial: nil,
+            tankVolumeDescription: nil,
+            tankPressureStartPSI: nil,
+            tankPressureEndPSI: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            avgSAC: nil,
+            avgRMV: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            profileTrackData: nil,
+            swimTrackData: nil,
+            mediaItems: [
+                .photoThumbnailOnly(
+                    mediaID: mediaID.uuidString,
+                    thumbnailURL: "https://firebasestorage.googleapis.com/thumb.jpg"
+                ),
+            ],
+            mediaPreviews: [],
+            featuredMediaPhotoID: mediaID.uuidString
+        )
+
+        let fields = GoDiveSharedDiveProjectionMapping.projectionFields(
+            from: snapshot,
+            options: .init(includeNotes: false, includeMedia: true)
+        )
+        #expect((fields["mediaItems"] as? [[String: Any]])?.count == 1)
+        #expect(fields["featuredMediaId"] as? String == mediaID.uuidString)
     }
 
     @Test func sharedSnorkelProjection_includesKindDistanceAndTracks() throws {
@@ -1358,6 +1706,7 @@ struct GoDiveFriendsTests {
             id: "friend_dive-media",
             friendUID: "friend",
             friendDisplayName: "Alex",
+            friendPhotoURL: nil,
             dive: dive
         )
         var changedMedia = dive
@@ -1366,6 +1715,7 @@ struct GoDiveFriendsTests {
             id: "friend_dive-media",
             friendUID: "friend",
             friendDisplayName: "Alex",
+            friendPhotoURL: nil,
             dive: changedMedia
         )
         #expect(!LogbookBuddyFeedPresentation.rowsEqual([left], [right]))
@@ -1415,8 +1765,8 @@ struct GoDiveFriendsTests {
 
         let pages = LogbookBuddyFeedPresentation.heroPages(for: dive)
         #expect(pages.count == 2)
-        if case .media(let preview) = pages[0] {
-            #expect(preview.photoID == "featured")
+        if case .media(let item) = pages[0] {
+            #expect(item.mediaID == "featured")
         } else {
             Issue.record("Expected featured media page first")
         }
@@ -1449,7 +1799,13 @@ struct GoDiveFriendsTests {
             waterTempMinCelsius: nil,
             bottomTimeSeconds: nil
         )
-        #expect(LogbookBuddyFeedPresentation.heroPages(for: dive) == [.media(dive.mediaPreviews[0])])
+        let expectedItem = FriendSharedMediaPresentation.DisplayItem(
+            mediaID: "p1",
+            kind: .photo,
+            thumbnailURL: "https://example.com/p.jpg",
+            contentURL: nil
+        )
+        #expect(LogbookBuddyFeedPresentation.heroPages(for: dive) == [.media(expectedItem)])
         #expect(!LogbookBuddyFeedPresentation.showsHeroPager(for: dive))
     }
 
@@ -1504,6 +1860,7 @@ struct GoDiveFriendsTests {
                 id: "friend_dive-\(index)",
                 friendUID: "friend",
                 friendDisplayName: "Alex",
+                friendPhotoURL: nil,
                 dive: Self.makeBuddyFeedDive(id: "dive-\(index)", startTime: Date(timeIntervalSince1970: Double(index)))
             )
         }
@@ -1540,6 +1897,44 @@ struct GoDiveFriendsTests {
 
     @Test func diveBuddyContactSMSPresentation_emptyRecipientsWithoutContact() {
         #expect(DiveBuddyContactSMSPresentation.smsRecipients(contactsIdentifier: nil).isEmpty)
+    }
+
+    @Test func diveActivityMapOverviewHeaderPresentation_usesBuddyOwnerLayout_whenNamePresent() {
+        #expect(
+            DiveActivityMapOverviewHeaderPresentation.usesBuddyOwnerLayout(
+                sharedByDisplayName: "Alex"
+            )
+        )
+        #expect(
+            !DiveActivityMapOverviewHeaderPresentation.usesBuddyOwnerLayout(
+                sharedByDisplayName: "   "
+            )
+        )
+        #expect(
+            !DiveActivityMapOverviewHeaderPresentation.usesBuddyOwnerLayout(
+                sharedByDisplayName: nil
+            )
+        )
+    }
+
+    @Test func buddyFeed_rows_carryFriendPhotoURL() {
+        let friend = GoDiveFriendGraphService.FriendEdge(
+            friendUID: "friend-1",
+            friendshipID: "ship-1",
+            displayName: "Alex",
+            photoURL: "https://example.com/avatar.jpg",
+            profileHeroURL: nil,
+            profileHeroMediaKind: nil,
+            totalDiveCount: nil,
+            since: nil
+        )
+        let dive = Self.makeBuddyFeedDive(id: "dive-1", startTime: Date())
+        let rows = LogbookBuddyFeedPresentation.rows(
+            friends: [friend],
+            divesByFriendUID: [friend.friendUID: [dive]]
+        )
+        #expect(rows.count == 1)
+        #expect(rows[0].friendPhotoURL == "https://example.com/avatar.jpg")
     }
 
     @Test func friendSharedDetail_diveNumberChip_nilForSnorkel() {
@@ -1771,5 +2166,1120 @@ struct GoDiveFriendsTests {
         #expect(snapshot.avgHeartRateBPM == 100)
         #expect(snapshot.maxHeartRateBPM == 110)
         #expect(FriendSharedActivityDetailPresentation.swimTrackCoordinates(from: snorkel).count == 2)
+    }
+
+    // MARK: - Friend shared media Phase 4 (cache + presentation)
+
+    @Test func friendSharedMedia_displayItems_prefersV3Rows() {
+        let dive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "v3",
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            averageDepthMeters: nil,
+            diveNumber: 1,
+            siteName: "Reef",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaItems: [
+                .init(
+                    mediaID: "m1",
+                    kind: .video,
+                    thumbnailURL: "https://firebasestorage.googleapis.com/v0/b/t/o/thumb.jpg?alt=media",
+                    contentURL: "https://firebasestorage.googleapis.com/v0/b/t/o/video.mp4?alt=media",
+                    width: 1920,
+                    height: 1080,
+                    durationSeconds: 30,
+                    contentBytes: 1_000
+                ),
+            ],
+            mediaPreviews: [.init(photoID: "legacy", previewURL: "https://example.com/legacy.jpg")],
+            featuredMediaPhotoID: "m1",
+            profileTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+        let items = FriendSharedMediaPresentation.displayItems(for: dive)
+        #expect(items.count == 1)
+        #expect(items[0].kind == .video)
+        #expect(items[0].mediaID == "m1")
+    }
+
+    @Test func friendSharedMedia_displayItems_v2Fallback() {
+        let dive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "v2",
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            averageDepthMeters: nil,
+            diveNumber: 1,
+            siteName: "Reef",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaItems: [],
+            mediaPreviews: [.init(photoID: "p1", previewURL: "https://firebasestorage.googleapis.com/v0/b/t/o/p.jpg?alt=media")],
+            profileTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+        #expect(FriendSharedMediaPresentation.displayItems(for: dive)[0].mediaID == "p1")
+        #expect(FriendSharedMediaPresentation.displayItems(for: dive)[0].kind == .photo)
+    }
+
+    @Test func friendSharedMedia_urlPolicy_rejectsNonFirebaseHosts() {
+        let firebase = "https://firebasestorage.googleapis.com/v0/b/t/o/p.jpg?alt=media"
+        let evil = "https://evil.example.com/p.jpg"
+        #expect(FriendSharedMediaPresentation.sanitizedThumbnailURL(from: firebase) != nil)
+        #expect(FriendSharedMediaPresentation.sanitizedThumbnailURL(from: evil) == nil)
+        #expect(GoDiveSharedMediaCache.streamingURL(from: evil) == nil)
+    }
+
+    @Test func friendSharedMedia_allowsContentDownload_wifiAndLowDataGates() {
+        #expect(
+            FriendSharedMediaPresentation.allowsContentDownload(
+                isConnected: true,
+                usesWiFi: false,
+                wifiOnly: false,
+                allowsConstrainedNetworkAccess: true
+            )
+        )
+        #expect(
+            !FriendSharedMediaPresentation.allowsContentDownload(
+                isConnected: true,
+                usesWiFi: false,
+                wifiOnly: true,
+                allowsConstrainedNetworkAccess: true
+            )
+        )
+        #expect(
+            !FriendSharedMediaPresentation.allowsContentDownload(
+                isConnected: true,
+                usesWiFi: true,
+                wifiOnly: false,
+                allowsConstrainedNetworkAccess: false
+            )
+        )
+    }
+
+    @Test func friendSharedMedia_buddyFeedPrefetch_skipsInvalidURLs() {
+        let rows = [
+            LogbookBuddyFeedPresentation.Row(
+                id: "r1",
+                friendUID: "u1",
+                friendDisplayName: "Alex",
+                friendPhotoURL: nil,
+                dive: .init(
+                    id: "d1",
+                    startTime: Date(),
+                    durationMinutes: 40,
+                    maxDepthMeters: 18,
+                    averageDepthMeters: nil,
+                    diveNumber: 1,
+                    siteName: "Reef",
+                    locationName: nil,
+                    entryLatitude: nil,
+                    entryLongitude: nil,
+                    notes: nil,
+                    activityTagNames: [],
+                    sightings: [],
+                    taggedBuddies: [],
+                    equipmentSummary: [],
+                    mediaItems: [
+                        .photoThumbnailOnly(
+                            mediaID: "m1",
+                            thumbnailURL: "https://firebasestorage.googleapis.com/v0/b/t/o/t.jpg?alt=media"
+                        ),
+                    ],
+                    mediaPreviews: [],
+                    profileTrackBase64: nil,
+                    gasType: nil,
+                    oxygenMix: nil,
+                    tankVolumeDescription: nil,
+                    waterTempMinCelsius: nil,
+                    bottomTimeSeconds: nil
+                )
+            ),
+        ]
+        let urls = FriendSharedMediaPresentation.buddyFeedThumbnailPrefetchURLs(rows: rows, startIndex: 0, count: 3)
+        #expect(urls.count == 1)
+        #expect(urls[0].contains("firebasestorage.googleapis.com"))
+    }
+
+    @Test func goDiveSharedMediaCache_storesAndReadsThumb() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        GoDiveSharedMediaCache.testingRootDirectory = root
+        defer {
+            GoDiveSharedMediaCache.testingRootDirectory = nil
+            try? FileManager.default.removeItem(at: root)
+        }
+
+        let url = "https://firebasestorage.googleapis.com/v0/b/t/o/unique-\(UUID().uuidString).jpg?alt=media"
+        let cache = GoDiveSharedMediaCache(fileManager: .default, session: .shared)
+        let payload = Data([0xFF, 0xD8, 0xFF, 0xD9])
+        _ = try await cache.storeForTesting(data: payload, remoteURLString: url, tier: .thumb)
+        let cached = await cache.cachedFileURL(remoteURLString: url, tier: .thumb)
+        #expect(cached != nil)
+        let readBack = try Data(contentsOf: try #require(cached))
+        #expect(readBack == payload)
+    }
+
+    @Test func goDiveSharedMediaCache_resolvedPlaybackURL_prefersCachedFile() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        GoDiveSharedMediaCache.testingRootDirectory = root
+        defer {
+            GoDiveSharedMediaCache.testingRootDirectory = nil
+            try? FileManager.default.removeItem(at: root)
+        }
+
+        let remote = "https://firebasestorage.googleapis.com/v0/b/t/o/clip-\(UUID().uuidString).mp4?alt=media"
+        let cache = GoDiveSharedMediaCache(fileManager: .default, session: .shared)
+        _ = try await cache.storeForTesting(data: Data([0x00, 0x00, 0x00, 0x18]), remoteURLString: remote, tier: .content)
+
+        let resolved = await cache.resolvedPlaybackURL(remoteURLString: remote, tier: .content)
+        #expect(resolved?.isFileURL == true)
+        #expect(resolved?.path.contains("content") == true)
+    }
+
+    @Test func goDiveSharedMediaCache_resolvedPlaybackURL_fallsBackToRemote() async {
+        let remote = "https://firebasestorage.googleapis.com/v0/b/t/o/missing-\(UUID().uuidString).mp4?alt=media"
+        let cache = GoDiveSharedMediaCache(fileManager: .default, session: .shared)
+        let resolved = await cache.resolvedPlaybackURL(remoteURLString: remote, tier: .content)
+        #expect(resolved?.isFileURL == false)
+        #expect(resolved?.absoluteString == remote)
+    }
+
+    @Test @MainActor func friendSharedMedia_resolvedVideoPlaybackURL_usesCacheWhenPresent() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        GoDiveSharedMediaCache.testingRootDirectory = root
+        defer {
+            GoDiveSharedMediaCache.testingRootDirectory = nil
+            try? FileManager.default.removeItem(at: root)
+        }
+
+        let remote = "https://firebasestorage.googleapis.com/v0/b/t/o/hero-\(UUID().uuidString).mp4?alt=media"
+        _ = try await GoDiveSharedMediaCache.shared.storeForTesting(
+            data: Data([0x00, 0x00, 0x00, 0x20]),
+            remoteURLString: remote,
+            tier: .content
+        )
+        let resolved = await FriendSharedMediaPresentation.resolvedVideoPlaybackURL(for: remote)
+        #expect(resolved?.isFileURL == true)
+    }
+
+    @Test func friendSharedMediaFullscreen_presentationZoomAndChrome() {
+        #expect(FriendSharedMediaFullscreenPresentation.clampedZoomScale(0.5) == 1)
+        #expect(FriendSharedMediaFullscreenPresentation.clampedZoomScale(2.5) == 2.5)
+        #expect(FriendSharedMediaFullscreenPresentation.clampedZoomScale(9) == 4)
+        #expect(!FriendSharedMediaFullscreenPresentation.allowsPanGesture(atZoomScale: 1))
+        #expect(FriendSharedMediaFullscreenPresentation.allowsPanGesture(atZoomScale: 1.5))
+        let items = [
+            FriendSharedMediaPresentation.DisplayItem(
+                mediaID: "a",
+                kind: .photo,
+                thumbnailURL: nil,
+                contentURL: nil
+            ),
+            FriendSharedMediaPresentation.DisplayItem(
+                mediaID: "b",
+                kind: .photo,
+                thumbnailURL: nil,
+                contentURL: nil
+            ),
+        ]
+        #expect(FriendSharedMediaFullscreenPresentation.pageIndex(for: "b", in: items) == 1)
+        #expect(FriendSharedMediaFullscreenPresentation.chromeTitle(pageIndex: 0, pageCount: 2) == "1 / 2")
+    }
+
+    #if canImport(UIKit)
+    @Test func goDiveSharedMediaExport_sharePhotoJPEG_respectsSizeCap() {
+        let edge = GoDiveSharedMediaLimits.photoContentMaxPixelEdge
+        let size = CGSize(width: edge * 2, height: edge)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
+            UIColor.orange.setFill()
+            context.fill(CGRect(origin: .zero, size: size))
+        }
+        guard let data = GoDiveSharedMediaExport.sharePhotoJPEG(from: image) else {
+            Issue.record("Expected share JPEG export")
+            return
+        }
+        #expect(data.count <= GoDiveSharedMediaLimits.photoContentMaxBytes)
+        let dimensions = GoDiveSharedMediaExport.jpegDimensions(data)
+        #expect(dimensions?.width ?? 0 <= edge)
+        #expect(dimensions?.height ?? 0 <= edge)
+    }
+
+    @Test func goDiveSharedMediaExport_sharePhotoJPEG_doesNotEmbedGPSMetadata() {
+        let edge = GoDiveSharedMediaLimits.photoContentMaxPixelEdge
+        let size = CGSize(width: edge, height: edge / 2)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
+            UIColor.blue.setFill()
+            context.fill(CGRect(origin: .zero, size: size))
+        }
+        guard let data = GoDiveSharedMediaExport.sharePhotoJPEG(from: image) else {
+            Issue.record("Expected share JPEG export")
+            return
+        }
+        #if canImport(ImageIO)
+        #expect(!GoDiveSharedMediaExport.jpegContainsGPSMetadata(data))
+        #endif
+    }
+    #endif
+
+    @Test func goDiveSharedMediaExport_cappedVideoExportDuration_clampsAtThirtySeconds() {
+        #expect(GoDiveSharedMediaExport.cappedVideoExportDurationSeconds(60) == 30)
+        #expect(GoDiveSharedMediaExport.cappedVideoExportDurationSeconds(12.5) == 12.5)
+        #expect(GoDiveSharedMediaExport.cappedVideoExportDurationSeconds(0) == 0)
+        #expect(GoDiveSharedMediaExport.cappedVideoExportDurationSeconds(-4).isZero)
+    }
+
+    @Test func goDiveSharedMediaSelection_twelveVideos_capsAtTen() {
+        let base = Date(timeIntervalSince1970: 1_700_000_000)
+        let candidates = (0 ..< 12).map { index in
+            GoDiveSharedMediaSelection.ShareCandidate(
+                id: UUID(uuidString: String(format: "20000000-0000-0000-0000-%012x", index))!,
+                kind: .video,
+                capturedAt: base.addingTimeInterval(Double(index)),
+                sortOrder: index
+            )
+        }
+        let filtered = GoDiveSharedMediaSelection.filteredForShare(candidates: candidates)
+        #expect(filtered.count == 10)
+        #expect(filtered.allSatisfy { $0.kind == .video })
+        let summary = GoDiveSharedMediaSelection.capTrimSummary(candidates: candidates, shared: filtered)
+        #expect(summary.droppedVideoCount == 2)
+        #expect(GoDiveSharedMediaSelection.trimNoticeMessage(summary)?.contains("2 videos") == true)
+    }
+
+    @Test func goDiveSharedMediaSelection_preservesGalleryOrderAfterCaps() {
+        let base = Date(timeIntervalSince1970: 1_700_000_000)
+        var candidates: [GoDiveSharedMediaSelection.ShareCandidate] = []
+        for index in 0 ..< 22 {
+            candidates.append(
+                .init(
+                    id: UUID(uuidString: String(format: "30000000-0000-0000-0000-%012x", index))!,
+                    kind: index.isMultiple(of: 3) ? .video : .image,
+                    capturedAt: base.addingTimeInterval(Double(index)),
+                    sortOrder: index
+                )
+            )
+        }
+        let filtered = GoDiveSharedMediaSelection.filteredForShare(candidates: candidates)
+        #expect(GoDiveSharedMediaSelection.preservesGalleryOrder(candidates: candidates, filtered: filtered))
+    }
+
+    @Test func appNetworkConnectivityPresentation_friendSharedMediaContentDownload_mirrorsSelectionPolicy() {
+        #expect(
+            AppNetworkConnectivityPresentation.allowsFriendSharedMediaContentDownload(
+                isConnected: true,
+                usesWiFi: false,
+                wifiOnly: true,
+                allowsConstrainedNetworkAccess: true
+            ) == false
+        )
+        #expect(
+            AppNetworkConnectivityPresentation.allowsFriendSharedMediaContentDownload(
+                isConnected: true,
+                usesWiFi: true,
+                wifiOnly: true,
+                allowsConstrainedNetworkAccess: true
+            )
+        )
+    }
+
+    @Test func goDiveSharedMediaCache_evictsOldestWhenOverCapacity() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        GoDiveSharedMediaCache.testingRootDirectory = root
+        GoDiveSharedMediaCache.testingTierMaxBytes = [.thumb: 100]
+        defer {
+            GoDiveSharedMediaCache.testingRootDirectory = nil
+            GoDiveSharedMediaCache.testingTierMaxBytes = nil
+            try? FileManager.default.removeItem(at: root)
+        }
+
+        let cache = GoDiveSharedMediaCache(fileManager: .default, session: .shared)
+        let firstURL = "https://firebasestorage.googleapis.com/v0/b/t/o/first-\(UUID().uuidString).jpg?alt=media"
+        let secondURL = "https://firebasestorage.googleapis.com/v0/b/t/o/second-\(UUID().uuidString).jpg?alt=media"
+        _ = try await cache.storeForTesting(data: Data(repeating: 0x01, count: 60), remoteURLString: firstURL, tier: .thumb)
+        try await Task.sleep(nanoseconds: 10_000_000)
+        _ = try await cache.storeForTesting(data: Data(repeating: 0x02, count: 60), remoteURLString: secondURL, tier: .thumb)
+
+        #expect(await cache.cachedFileURL(remoteURLString: secondURL, tier: .thumb) != nil)
+        #expect(await cache.cachedFileURL(remoteURLString: firstURL, tier: .thumb) == nil)
+    }
+
+    @Test func friendSharedMediaPanelPresentation_resolvedFeaturedMediaID() {
+        let dive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "featured",
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            averageDepthMeters: nil,
+            diveNumber: 1,
+            siteName: "Reef",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaItems: [
+                .init(
+                    mediaID: "m1",
+                    kind: .photo,
+                    thumbnailURL: "https://firebasestorage.googleapis.com/v0/b/t/o/thumb.jpg?alt=media",
+                    contentURL: nil,
+                    width: nil,
+                    height: nil,
+                    durationSeconds: nil,
+                    contentBytes: nil
+                ),
+            ],
+            mediaPreviews: [],
+            featuredMediaPhotoID: "m1",
+            profileTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+        #expect(FriendSharedMediaPresentation.resolvedFeaturedMediaID(for: dive) == "m1")
+        #expect(
+            DiveActivityMediaPresentation.showsMediaCarouselInSheet(for: .minimized)
+        )
+        #expect(
+            DiveActivityMediaPresentation.showsMarineLifeDetailInSheet(for: .large)
+        )
+    }
+
+    @Test func friendSharedActivityDetailPresentation_mapsReadOnlyMediaTagModels() {
+        let dive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "tags",
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            averageDepthMeters: nil,
+            diveNumber: 2,
+            siteName: "Wall",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [
+                .init(commonName: "French Angelfish", scientificName: "Pomacanthus paru", catalogUUID: "marine-life-french-angelfish"),
+            ],
+            taggedBuddies: [
+                .init(displayName: "Alex", firebaseUID: "uid-alex"),
+            ],
+            equipmentSummary: [],
+            mediaItems: [],
+            mediaPreviews: [],
+            featuredMediaPhotoID: nil,
+            profileTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+        let species = FriendSharedActivityDetailPresentation.displayMarineLife(from: dive)
+        let buddies = FriendSharedActivityDetailPresentation.displayBuddies(from: dive)
+        #expect(species.count == 1)
+        #expect(species[0].commonName == "French Angelfish")
+        #expect(species[0].uuid == "marine-life-french-angelfish")
+        #expect(buddies.count == 1)
+        #expect(buddies[0].displayName == "Alex")
+        #expect(buddies[0].linkedFirebaseUID == "uid-alex")
+    }
+
+    @Test func friendSharedDetail_displayBuddies_filtersByMediaID() {
+        let dive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "dive-media-buddies",
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            averageDepthMeters: nil,
+            diveNumber: 1,
+            siteName: "Reef",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [
+                .init(displayName: "Activity Buddy", firebaseUID: "uid-activity"),
+            ],
+            equipmentSummary: [],
+            mediaItems: [],
+            mediaBuddyTags: [
+                .init(mediaID: "media-a", displayName: "Alex", firebaseUID: "uid-alex"),
+                .init(mediaID: "media-b", displayName: "Sam", firebaseUID: "uid-sam"),
+                .init(mediaID: "media-a", displayName: "Jamie", firebaseUID: "uid-jamie"),
+            ],
+            mediaPreviews: [],
+            featuredMediaPhotoID: nil,
+            profileTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+
+        let mediaABuddies = FriendSharedActivityDetailPresentation.displayBuddies(
+            from: dive,
+            mediaID: "media-a"
+        )
+        #expect(mediaABuddies.map(\.displayName) == ["Alex", "Jamie"])
+        #expect(FriendSharedActivityDetailPresentation.displayBuddies(from: dive, mediaID: "media-b").count == 1)
+        #expect(FriendSharedActivityDetailPresentation.displayBuddies(from: dive, mediaID: "missing").isEmpty)
+        #expect(FriendSharedActivityDetailPresentation.displayBuddies(from: dive).count == 1)
+    }
+
+    @Test func friendSharedDetail_mapTaggedBuddyDisplayRows_prefersLocalRosterMatch() {
+        let owner = UserProfile(appleUserIdentifier: "friend-map-buddy-rows", displayName: "Viewer")
+        let localAlex = DiveBuddy(displayName: "Alex Kim", owner: owner)
+        localAlex.linkedFirebaseUID = "uid-alex"
+        localAlex.profilePhoto = Data([0x01, 0x02])
+
+        let dive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "map-buddies",
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            averageDepthMeters: nil,
+            diveNumber: 1,
+            siteName: "Reef",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [
+                .init(displayName: "Alex", firebaseUID: "uid-alex"),
+                .init(displayName: "Sam Rivera", firebaseUID: "uid-sam"),
+                .init(displayName: "Jamie", firebaseUID: nil),
+            ],
+            equipmentSummary: [],
+            mediaItems: [],
+            mediaPreviews: [],
+            featuredMediaPhotoID: nil,
+            profileTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+
+        let rows = FriendSharedActivityDetailPresentation.mapTaggedBuddyDisplayRows(
+            from: dive,
+            localRoster: [localAlex]
+        )
+        #expect(rows.count == 3)
+        #expect(rows[0].displayName == "Alex Kim")
+        #expect(rows[0].profilePhoto == Data([0x01, 0x02]))
+        #expect(rows[1].displayName == "Sam Rivera")
+        #expect(rows[1].profilePhoto == nil)
+        #expect(rows[2].displayName == "Jamie")
+        #expect(rows[2].profilePhoto == nil)
+    }
+
+    @Test func sharedDiveProjection_writesMediaBuddyTagsWhenMediaShared() {
+        let mediaID = UUID()
+        let snapshot = GoDiveSharedDiveProjectionMapping.DiveSnapshot(
+            id: UUID(),
+            startTime: Date(),
+            timeZoneOffsetSeconds: nil,
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            averageDepthMeters: nil,
+            bottomTimeSeconds: nil,
+            diveNumber: 1,
+            waterTempAvgCelsius: nil,
+            waterTempMinCelsius: nil,
+            waterTempMaxCelsius: nil,
+            siteName: "Reef",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            diveCurrentStrengthRaw: nil,
+            surfaceCondition: nil,
+            entryType: nil,
+            diveVisibilityRaw: nil,
+            diveOperatorName: nil,
+            diveMasterName: nil,
+            diveWaterTypeRaw: nil,
+            diverWeightKilograms: nil,
+            tankMaterial: nil,
+            tankVolumeDescription: nil,
+            tankPressureStartPSI: nil,
+            tankPressureEndPSI: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            avgSAC: nil,
+            avgRMV: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            profileTrackData: nil,
+            swimTrackData: nil,
+            mediaItems: [
+                .init(
+                    mediaID: mediaID.uuidString,
+                    kind: .photo,
+                    thumbnailURL: "https://example.com/thumb.jpg",
+                    contentURL: "https://example.com/photo.jpg",
+                    width: nil,
+                    height: nil,
+                    durationSeconds: nil,
+                    contentBytes: nil
+                ),
+            ],
+            mediaBuddyTags: [
+                .init(mediaID: mediaID.uuidString, displayName: "Alex", firebaseUID: "uid-alex"),
+            ],
+            mediaPreviews: [],
+            featuredMediaPhotoID: mediaID.uuidString
+        )
+
+        let fields = GoDiveSharedDiveProjectionMapping.projectionFields(
+            from: snapshot,
+            options: .init(includeNotes: false, includeMedia: true)
+        )
+        let tags = fields["mediaBuddyTags"] as? [[String: Any]]
+        #expect(tags?.count == 1)
+        #expect(tags?[0]["mediaId"] as? String == mediaID.uuidString)
+        #expect(tags?[0]["displayName"] as? String == "Alex")
+
+        let parsed = GoDiveSharedDiveProjectionMapping.parseFriendVisibleDive(
+            id: snapshot.id.uuidString,
+            data: fields
+        )
+        #expect(parsed.mediaBuddyTags.count == 1)
+        #expect(parsed.mediaBuddyTags[0].displayName == "Alex")
+    }
+
+    @Test @MainActor func activityFriendShareConfiguration_inheritsGlobalDefaultsUntilConfigured() {
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 45,
+            maxDepthMeters: 18
+        )
+        #expect(!ActivityFriendShareConfiguration.usesPerActivitySettings(on: dive))
+        #expect(ActivityFriendShareConfiguration.shareActivityEnabled(on: dive))
+        #expect(!ActivityFriendShareConfiguration.restrictsMediaToExplicitSelection(on: dive))
+    }
+
+    @Test func activityFriendShareConfiguration_encodesSelectedMediaIDs() {
+        let id1 = UUID()
+        let id2 = UUID()
+        let encoded = ActivityFriendShareConfiguration.encodeMediaIDs([id1, id2])
+        let decoded = ActivityFriendShareConfiguration.decodeMediaIDs(from: encoded)
+        #expect(decoded == [id1, id2])
+    }
+
+    @Test func activityFriendShareStatusPresentation_checklist_sharingOffReturnsNil() {
+        let checklist = ActivityFriendShareStatusPresentation.shareStatusChecklist(
+            shouldPublish: false,
+            shareMediaEnabled: true,
+            hasShareableMedia: true,
+            notesExpected: true,
+            hasPendingUpload: false,
+            firestore: ActivityFriendShareStatusPresentation.FirestoreSnapshot(
+                documentExists: true,
+                hasIncompleteMediaRows: false,
+                mediaItemCount: 3,
+                hasNotesField: true
+            )
+        )
+        #expect(checklist == nil)
+    }
+
+    @Test func activityFriendShareStatusPresentation_checklist_allSharedWhenComplete() {
+        let checklist = ActivityFriendShareStatusPresentation.shareStatusChecklist(
+            shouldPublish: true,
+            shareMediaEnabled: true,
+            hasShareableMedia: true,
+            notesExpected: true,
+            hasPendingUpload: false,
+            firestore: ActivityFriendShareStatusPresentation.FirestoreSnapshot(
+                documentExists: true,
+                hasIncompleteMediaRows: false,
+                mediaItemCount: 3,
+                hasNotesField: true
+            )
+        )
+        #expect(checklist?.activity == .shared)
+        #expect(checklist?.media == .shared)
+        #expect(checklist?.notes == .shared)
+        #expect(checklist?.isUploading == false)
+    }
+
+    @Test func activityFriendShareStatusPresentation_checklist_uploadingWhileContentPending() {
+        let incomplete = ActivityFriendShareStatusPresentation.FirestoreSnapshot(
+            documentExists: true,
+            hasIncompleteMediaRows: true,
+            mediaItemCount: 3,
+            hasNotesField: false
+        )
+        let checklist = ActivityFriendShareStatusPresentation.shareStatusChecklist(
+            shouldPublish: true,
+            shareMediaEnabled: true,
+            hasShareableMedia: true,
+            notesExpected: false,
+            hasPendingUpload: false,
+            firestore: incomplete
+        )
+        #expect(checklist?.activity == .shared)
+        #expect(checklist?.media == .inProgress)
+        #expect(checklist?.notes == .off)
+        #expect(checklist?.isUploading == true)
+
+        // Queue still busy keeps media in progress even when Firestore rows look complete.
+        let queued = ActivityFriendShareStatusPresentation.shareStatusChecklist(
+            shouldPublish: true,
+            shareMediaEnabled: true,
+            hasShareableMedia: true,
+            notesExpected: false,
+            hasPendingUpload: true,
+            firestore: ActivityFriendShareStatusPresentation.FirestoreSnapshot(
+                documentExists: true,
+                hasIncompleteMediaRows: false,
+                mediaItemCount: 3,
+                hasNotesField: false
+            )
+        )
+        #expect(queued?.media == .inProgress)
+    }
+
+    @Test func activityFriendShareStatusPresentation_checklist_missingDocumentIsInProgress() {
+        let checklist = ActivityFriendShareStatusPresentation.shareStatusChecklist(
+            shouldPublish: true,
+            shareMediaEnabled: false,
+            hasShareableMedia: false,
+            notesExpected: true,
+            hasPendingUpload: false,
+            firestore: ActivityFriendShareStatusPresentation.FirestoreSnapshot(
+                documentExists: false,
+                hasIncompleteMediaRows: false,
+                mediaItemCount: 0,
+                hasNotesField: false
+            )
+        )
+        #expect(checklist?.activity == .inProgress)
+        #expect(checklist?.media == .off)
+        #expect(checklist?.notes == .inProgress)
+        #expect(checklist?.isUploading == true)
+    }
+
+    @Test func activityFriendShareStatusPresentation_notesExpected_respectsModeAndText() {
+        #expect(
+            !ActivityFriendShareStatusPresentation.notesExpected(
+                mode: .off,
+                privateNotes: "deep dive",
+                publicNotes: "hello"
+            )
+        )
+        #expect(
+            ActivityFriendShareStatusPresentation.notesExpected(
+                mode: .privateNotes,
+                privateNotes: "deep dive",
+                publicNotes: nil
+            )
+        )
+        #expect(
+            !ActivityFriendShareStatusPresentation.notesExpected(
+                mode: .privateNotes,
+                privateNotes: "   ",
+                publicNotes: "hello"
+            )
+        )
+        #expect(
+            ActivityFriendShareStatusPresentation.notesExpected(
+                mode: .publicNotes,
+                privateNotes: nil,
+                publicNotes: "great vis"
+            )
+        )
+        #expect(
+            !ActivityFriendShareStatusPresentation.notesExpected(
+                mode: .publicNotes,
+                privateNotes: "secret",
+                publicNotes: ""
+            )
+        )
+    }
+
+    @Test @MainActor func activityFriendShareConfiguration_shareOptions_publicNotes() {
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 12
+        )
+        dive.friendShareBuddySettingsConfigured = true
+        dive.friendShareActivityEnabled = true
+        dive.friendShareNotesModeRaw = ActivityFriendShareNotesMode.publicNotes.rawValue
+        dive.friendSharePublicNotes = "Saw a turtle!"
+        let options = ActivityFriendShareConfiguration.shareOptions(for: dive)
+        #expect(options.includeNotes)
+        #expect(options.notesText == "Saw a turtle!")
+    }
+
+    @Test @MainActor func activityFriendShareConfiguration_shouldPublish_falseWhenActivityShareOff() {
+        let suiteName = "GoDiveFriendsTests.activityFriendShareShouldPublish.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(true, forKey: AppUserSettings.shareDivesWithFriendsKey)
+
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 12
+        )
+        dive.friendShareBuddySettingsConfigured = true
+        dive.friendShareActivityEnabled = false
+        #expect(!ActivityFriendShareConfiguration.shouldPublish(dive: dive, userDefaults: defaults))
+    }
+
+    @Test @MainActor func activityFriendShareConfiguration_configuredOverridesGlobalMediaAndNotes() {
+        let suiteName = "GoDiveFriendsTests.activityFriendShareOverrides.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(true, forKey: AppUserSettings.shareDivesWithFriendsKey)
+        defaults.set(false, forKey: AppUserSettings.shareMediaWithFriendsKey)
+        defaults.set(false, forKey: AppUserSettings.shareNotesWithFriendsKey)
+
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 12
+        )
+        ActivityFriendShareConfiguration.applyConfiguredSettings(
+            to: dive,
+            shareActivityEnabled: true,
+            shareMediaEnabled: true,
+            selectedMediaIDs: [UUID()],
+            notesMode: .publicNotes,
+            publicNotes: "Hello buddies"
+        )
+
+        #expect(ActivityFriendShareConfiguration.shareMediaEnabled(on: dive, userDefaults: defaults))
+        #expect(ActivityFriendShareConfiguration.notesMode(on: dive, userDefaults: defaults) == .publicNotes)
+        let options = ActivityFriendShareConfiguration.shareOptions(for: dive, userDefaults: defaults)
+        #expect(options.includeMedia)
+        #expect(options.includeNotes)
+        #expect(options.notesText == "Hello buddies")
+    }
+
+    @Test @MainActor func activityFriendShareConfiguration_unconfiguredFollowsGlobalUntilCaptured() {
+        let suiteName = "GoDiveFriendsTests.activityFriendShareGlobals.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(true, forKey: AppUserSettings.shareDivesWithFriendsKey)
+        defaults.set(true, forKey: AppUserSettings.shareMediaWithFriendsKey)
+        defaults.set(true, forKey: AppUserSettings.shareNotesWithFriendsKey)
+
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 12
+        )
+        #expect(!ActivityFriendShareConfiguration.usesPerActivitySettings(on: dive))
+        #expect(!dive.friendShareBuddyDefaultsCaptured)
+        #expect(ActivityFriendShareConfiguration.shareMediaEnabled(on: dive, userDefaults: defaults))
+        #expect(ActivityFriendShareConfiguration.notesMode(on: dive, userDefaults: defaults) == .privateNotes)
+
+        ActivityFriendShareConfiguration.captureGlobalBuddyShareDefaultsIfNeeded(on: dive, userDefaults: defaults)
+        #expect(dive.friendShareBuddyDefaultsCaptured)
+        #expect(dive.friendShareMediaEnabled)
+
+        defaults.set(false, forKey: AppUserSettings.shareMediaWithFriendsKey)
+        defaults.set(false, forKey: AppUserSettings.shareNotesWithFriendsKey)
+        #expect(ActivityFriendShareConfiguration.shareMediaEnabled(on: dive, userDefaults: defaults))
+        #expect(ActivityFriendShareConfiguration.notesMode(on: dive, userDefaults: defaults) == .privateNotes)
+    }
+
+    @Test func activityFriendShareConfiguration_seedBuddyShareDefaultsOnNewActivity() {
+        let suiteName = "GoDiveFriendsTests.activityFriendShareSeed.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(true, forKey: AppUserSettings.shareDivesWithFriendsKey)
+        defaults.set(true, forKey: AppUserSettings.shareMediaWithFriendsKey)
+        defaults.set(false, forKey: AppUserSettings.shareNotesWithFriendsKey)
+
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 12
+        )
+        ActivityFriendShareConfiguration.seedBuddyShareDefaultsOnNewActivity(dive, userDefaults: defaults)
+        #expect(dive.friendShareBuddyDefaultsCaptured)
+        #expect(dive.friendShareActivityEnabled)
+        #expect(dive.friendShareMediaEnabled)
+        #expect(dive.friendShareNotesModeRaw == ActivityFriendShareNotesMode.off.rawValue)
+        #expect(!dive.friendShareBuddySettingsConfigured)
+    }
+
+    @Test func friendSharedMedia_allVideoContentPrefetchURLs_filtersVideosOnly() {
+        let items: [FriendSharedMediaPresentation.DisplayItem] = [
+            .init(mediaID: "p1", kind: .photo, thumbnailURL: "https://firebasestorage.googleapis.com/a/p1.jpg", contentURL: "https://firebasestorage.googleapis.com/a/p1-full.jpg"),
+            .init(mediaID: "v1", kind: .video, thumbnailURL: "https://firebasestorage.googleapis.com/a/v1.jpg", contentURL: "https://firebasestorage.googleapis.com/a/v1.mp4"),
+            .init(mediaID: "v2", kind: .video, thumbnailURL: nil, contentURL: "https://firebasestorage.googleapis.com/a/v2.mp4"),
+        ]
+        let urls = FriendSharedMediaPresentation.allVideoContentPrefetchURLs(items: items)
+        #expect(urls == [
+            "https://firebasestorage.googleapis.com/a/v1.mp4",
+            "https://firebasestorage.googleapis.com/a/v2.mp4",
+        ])
+    }
+
+    @Test func friendSharedMedia_allPhotoContentPrefetchURLs_filtersPhotosOnly() {
+        let items: [FriendSharedMediaPresentation.DisplayItem] = [
+            .init(mediaID: "p1", kind: .photo, thumbnailURL: "https://firebasestorage.googleapis.com/a/p1.jpg", contentURL: "https://firebasestorage.googleapis.com/a/p1-full.jpg"),
+            .init(mediaID: "p2", kind: .photo, thumbnailURL: "https://firebasestorage.googleapis.com/a/p2.jpg", contentURL: nil),
+            .init(mediaID: "v1", kind: .video, thumbnailURL: "https://firebasestorage.googleapis.com/a/v1.jpg", contentURL: "https://firebasestorage.googleapis.com/a/v1.mp4"),
+        ]
+        let urls = FriendSharedMediaPresentation.allPhotoContentPrefetchURLs(items: items)
+        #expect(urls == ["https://firebasestorage.googleapis.com/a/p1-full.jpg"])
+    }
+
+    @Test func friendSharedMedia_buddyFeedFeaturedPhotoContentPrefetchURL_usesFeaturedStill() {
+        let dive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "feed-photo",
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            averageDepthMeters: nil,
+            diveNumber: 1,
+            siteName: "Wall",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaItems: [
+                .init(
+                    mediaID: "photo",
+                    kind: .photo,
+                    thumbnailURL: "https://firebasestorage.googleapis.com/a/p.jpg",
+                    contentURL: "https://firebasestorage.googleapis.com/a/p-full.jpg",
+                    width: nil,
+                    height: nil,
+                    durationSeconds: nil,
+                    contentBytes: nil
+                ),
+            ],
+            mediaPreviews: [],
+            featuredMediaPhotoID: "photo"
+        )
+        #expect(
+            FriendSharedMediaPresentation.buddyFeedFeaturedPhotoContentPrefetchURL(for: dive)
+                == "https://firebasestorage.googleapis.com/a/p-full.jpg"
+        )
+    }
+
+    @Test func friendSharedMedia_buddyFeedFeaturedVideoContentPrefetchURL_usesFeaturedClip() {
+        let dive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "feed-video",
+            startTime: Date(),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            averageDepthMeters: nil,
+            diveNumber: 1,
+            siteName: "Wall",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaItems: [
+                .init(
+                    mediaID: "photo",
+                    kind: .photo,
+                    thumbnailURL: "https://firebasestorage.googleapis.com/a/p.jpg",
+                    contentURL: nil,
+                    width: nil,
+                    height: nil,
+                    durationSeconds: nil,
+                    contentBytes: nil
+                ),
+                .init(
+                    mediaID: "clip",
+                    kind: .video,
+                    thumbnailURL: "https://firebasestorage.googleapis.com/a/v.jpg",
+                    contentURL: "https://firebasestorage.googleapis.com/a/v.mp4",
+                    width: nil,
+                    height: nil,
+                    durationSeconds: 12,
+                    contentBytes: nil
+                ),
+            ],
+            mediaPreviews: [],
+            featuredMediaPhotoID: "clip",
+            profileTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+        #expect(
+            FriendSharedMediaPresentation.buddyFeedFeaturedVideoContentPrefetchURL(for: dive)
+                == "https://firebasestorage.googleapis.com/a/v.mp4"
+        )
+    }
+
+    @Test func goDiveSharedMediaPublishState_photosLocalIdentifierFromFingerprint() {
+        let fingerprint = GoDiveSharedMediaPublishState.sourceFingerprint(
+            mediaKind: DiveMediaKind.image.rawValue,
+            photosLocalIdentifier: "ABC-123",
+            capturedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            sortOrder: 2
+        )
+        #expect(
+            GoDiveSharedMediaPublishState.photosLocalIdentifier(fromSourceFingerprint: fingerprint)
+                == "ABC-123"
+        )
+    }
+
+    @Test func goDiveSharedMediaPublishState_pendingContentJobs_skipsCompleteRows() {
+        let ownerUID = "owner-test"
+        let activityID = UUID()
+        let mediaID = UUID()
+        GoDiveSharedMediaPublishState.saveActivityRecord(
+            ownerUID: ownerUID,
+            activityID: activityID,
+            record: .init(items: [
+                .init(
+                    mediaID: mediaID.uuidString,
+                    kind: FriendSharedMediaKind.photo.rawValue,
+                    sourceFingerprint: "image|LOCAL-ID|0|0",
+                    exportFingerprint: nil,
+                    thumbnailURL: "https://example.com/thumb.jpg",
+                    contentURL: nil,
+                    width: nil,
+                    height: nil,
+                    durationSeconds: nil,
+                    contentBytes: nil
+                ),
+                .init(
+                    mediaID: UUID().uuidString,
+                    kind: FriendSharedMediaKind.photo.rawValue,
+                    sourceFingerprint: "image|DONE|0|1",
+                    exportFingerprint: "abc",
+                    thumbnailURL: "https://example.com/thumb2.jpg",
+                    contentURL: "https://example.com/photo.jpg",
+                    width: 100,
+                    height: 100,
+                    durationSeconds: nil,
+                    contentBytes: 100
+                ),
+            ])
+        )
+        defer { GoDiveSharedMediaPublishState.clearActivity(ownerUID: ownerUID, activityID: activityID) }
+
+        let jobs = GoDiveSharedMediaUpload.pendingContentJobs(
+            ownerUID: ownerUID,
+            activityID: activityID
+        )
+        #expect(jobs.count == 1)
+        #expect(jobs[0].mediaID == mediaID)
+        #expect(jobs[0].photosLocalIdentifier == "LOCAL-ID")
+        #expect(jobs[0].kind == .photo)
+    }
+
+    @Test func goDiveBuddySharePendingWorkStore_roundTrip() {
+        let profileID = UUID()
+        let id1 = UUID()
+        let id2 = UUID()
+        defer {
+            GoDiveBuddySharePendingWorkStore.clearPendingUpserts(
+                ownerProfileID: profileID,
+                activityIDs: [id1, id2]
+            )
+            GoDiveBuddySharePendingWorkStore.clearFullRepublishPending(ownerProfileID: profileID)
+        }
+
+        GoDiveBuddySharePendingWorkStore.addPendingUpserts(
+            ownerProfileID: profileID,
+            activityIDs: [id1]
+        )
+        GoDiveBuddySharePendingWorkStore.addPendingUpserts(
+            ownerProfileID: profileID,
+            activityIDs: [id2]
+        )
+        #expect(
+            GoDiveBuddySharePendingWorkStore.pendingUpsertActivityIDs(ownerProfileID: profileID)
+                == [id1, id2]
+        )
+
+        GoDiveBuddySharePendingWorkStore.markFullRepublishPending(ownerProfileID: profileID)
+        #expect(GoDiveBuddySharePendingWorkStore.isFullRepublishPending(ownerProfileID: profileID))
+
+        GoDiveBuddySharePendingWorkStore.clearPendingUpserts(
+            ownerProfileID: profileID,
+            activityIDs: [id1]
+        )
+        #expect(
+            GoDiveBuddySharePendingWorkStore.pendingUpsertActivityIDs(ownerProfileID: profileID)
+                == [id2]
+        )
+    }
+
+    @Test func goDiveBuddyShareBackgroundUploadPresentation_taskPolicy() {
+        #expect(
+            GoDiveBuddyShareBackgroundUploadPresentation.permittedTaskIdentifiers == [
+                "PrimoSoftware.GoDiveMVP.buddy-share-upload",
+            ]
+        )
+        #expect(GoDiveBuddyShareBackgroundUploadPresentation.processingRequiresNetworkConnectivity())
+        #expect(!GoDiveBuddyShareBackgroundUploadPresentation.processingRequiresExternalPower())
+        #expect(GoDiveBuddyShareBackgroundUpload.processingEarliestInterval == 5 * 60)
     }
 }

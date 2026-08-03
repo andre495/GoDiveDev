@@ -6,6 +6,7 @@
 	<array>
 		<string>PrimoSoftware.GoDiveMVP.cloudkit-refresh</string>
 		<string>PrimoSoftware.GoDiveMVP.cloudkit-processing</string>
+		<string>PrimoSoftware.GoDiveMVP.buddy-share-upload</string>
 	</array>
 	<key>UIBackgroundModes</key>
 	<array>

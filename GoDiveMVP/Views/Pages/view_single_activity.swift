@@ -51,6 +51,8 @@ struct ViewSingleActivity: View {
     @State private var selectedActivityTab: DiveActivityTab = .map
     @State private var overviewSheetDetent = DiveActivityOverviewDetent.defaultSelection
     @State private var overviewPanelLiveHeightFraction = DiveActivityOverviewDetent.defaultSelection.heightFraction
+    /// Unthrottled per-frame drag channel — read only by the tank hero (scoped invalidation).
+    @State private var overviewLiveSheetState = DiveActivityOverviewLiveSheetState()
     @State private var isOverviewPanelPresented = true
     /// Tank hero gas column (**1** = full); animates toward **`ending/beginning`** PSI when the sheet snaps to a shorter detent.
     @State private var tankHeroPressureFillFraction: CGFloat = 1
@@ -86,6 +88,7 @@ struct ViewSingleActivity: View {
     @State private var overviewPanelScrollOffsetY: CGFloat = 0
     /// Guards redundant focus application within a single appear cycle when media is already loaded.
     @State private var didApplyInitialMediaFocus = false
+    @State private var showsFriendShareSettings = false
 
     /// **More** tab: profile samples sorted by time (read-only).
     private var moreTabSortedProfilePoints: [DiveProfilePoint] {
@@ -286,6 +289,9 @@ struct ViewSingleActivity: View {
                         captureContext: mediaCaptureContextsByID[media.id]
                     )
                 }
+            }
+            .sheet(isPresented: $showsFriendShareSettings) {
+                DiveActivityFriendShareSettingsView(activity: activity)
             }
             .alert("Could not add equipment", isPresented: equipmentLinkErrorBinding) {
                 Button("OK", role: .cancel) {}
@@ -591,6 +597,7 @@ struct ViewSingleActivity: View {
                 HStack {
                     SecondaryDestinationBackButton(onWillDismiss: requestOverviewMapTeardown)
                     Spacer(minLength: 0)
+                    activityFriendShareEditButton
                 }
 
                 activityIconTabBar
@@ -601,6 +608,18 @@ struct ViewSingleActivity: View {
         .padding(.top, AppTheme.Spacing.sm)
         .animation(nil, value: overviewSheetDetent)
         .allowsHitTesting(true)
+    }
+
+    private var activityFriendShareEditButton: some View {
+        Button {
+            showsFriendShareSettings = true
+        } label: {
+            Image(systemName: "ellipsis")
+                .appToolbarIconButtonLabel()
+        }
+        .appStandaloneIconButtonStyle()
+        .accessibilityLabel(ActivityFriendSharePresentation.editButtonAccessibilityLabel)
+        .accessibilityIdentifier("ViewSingleActivity.FriendShareEdit")
     }
 
     @ViewBuilder
@@ -817,6 +836,8 @@ struct ViewSingleActivity: View {
                             profileLineRevealProgress: tankMinimizedProfileRevealProgress,
                             psiUsedRevealProgress: tankMinimizedPsiUsedRevealProgress,
                             liveHeightFraction: overviewPanelLiveHeightFraction,
+                            liveSheetState: overviewLiveSheetState,
+                            sheetLayoutContext: overviewLayoutContext,
                             waterTopHalfFadeProgress: tankMinimizedWaterTopFadeProgress,
                             minimizedChromeRevealProgress: tankMinimizedChromeRevealProgress,
                             scrubCallout: $tankDepthChartScrubCallout
@@ -922,6 +943,7 @@ struct ViewSingleActivity: View {
                                 isMediaTabSelected: selectedActivityTab == .camera
                             ),
                         liveHeightFraction: $overviewPanelLiveHeightFraction,
+                        liveSheetState: overviewLiveSheetState,
                         panelScrollOffsetY: $overviewPanelScrollOffsetY,
                         scrollRestorationFallbackY: overviewScrollRestorationFallbackY,
                         panelScrollContentIdentity: selectedActivityTab
@@ -1018,12 +1040,23 @@ struct ViewSingleActivity: View {
         from oldDetent: DiveActivityOverviewDetent,
         to newDetent: DiveActivityOverviewDetent
     ) {
+        // Consume the grabber release position (nil for tap/programmatic detent changes).
+        let dragReleaseFraction = overviewLiveSheetState.dragReleaseHeightFraction
+        overviewLiveSheetState.dragReleaseHeightFraction = nil
         guard selectedActivityTab == .tank else { return }
         if DiveTankOverviewHeroPresentation.shouldPlayMinimizedEntranceAnimation(
             from: oldDetent,
             to: newDetent
         ) {
-            playTankMinimizedEntranceAnimation()
+            if let dragReleaseFraction,
+               DiveTankOverviewHeroPresentation.shouldSkipMinimizedEntranceAfterDrag(
+                   liveHeightFraction: dragReleaseFraction,
+                   layoutContext: .presentationReference
+               ) {
+                finishTankMinimizedStateAfterDrag()
+            } else {
+                playTankMinimizedEntranceAnimation()
+            }
         } else if newDetent.heightFraction > oldDetent.heightFraction + 0.007 {
             resetTankMinimizedEntranceAnimationState()
         }
@@ -1035,6 +1068,24 @@ struct ViewSingleActivity: View {
         tankMinimizedPsiUsedRevealProgress = 1
         tankMinimizedWaterTopFadeProgress = 0
         tankMinimizedChromeRevealProgress = 1
+    }
+
+    private func finishTankMinimizedStateAfterDrag() {
+        let targetFill = DiveActivityTankPanelSummary.remainingPressureFillFraction(
+            startPSI: activity.tankPressureStartPSI,
+            endPSI: activity.tankPressureEndPSI
+        )
+        let fraction = CGFloat(targetFill ?? 1)
+
+        var reset = Transaction()
+        reset.disablesAnimations = true
+        withTransaction(reset) {
+            tankMinimizedProfileRevealProgress = 1
+            tankMinimizedPsiUsedRevealProgress = 1
+            tankMinimizedWaterTopFadeProgress = 1
+            tankMinimizedChromeRevealProgress = 1
+            tankHeroPressureFillFraction = fraction
+        }
     }
 
     private func playTankMinimizedEntranceAnimation() {

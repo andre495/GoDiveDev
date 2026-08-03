@@ -44,6 +44,12 @@ enum AppUserSettings: Sendable {
     /// When **`true`**, dive media previews upload for friends. Default **off**.
     nonisolated static let shareMediaWithFriendsKey = "goDiveShareMediaWithFriends"
 
+    /// When **`true`**, full-quality shared media uploads wait for Wi‑Fi (thumbnails may still upload on cellular).
+    nonisolated static let shareMediaOnWiFiOnlyKey = "goDiveShareMediaOnWiFiOnly"
+
+    /// When **`true`**, full-quality friend media downloads wait for Wi‑Fi (thumbnails may still load on cellular).
+    nonisolated static let downloadFriendMediaOnWiFiOnlyKey = "goDiveDownloadFriendMediaOnWiFiOnly"
+
     nonisolated static var automaticallyRenumberDives: Bool {
         UserDefaults.standard.bool(forKey: automaticallyRenumberDivesKey)
     }
@@ -106,6 +112,14 @@ enum AppUserSettings: Sendable {
         userDefaults.bool(forKey: shareMediaWithFriendsKey)
     }
 
+    nonisolated static func shareMediaOnWiFiOnly(userDefaults: UserDefaults = .standard) -> Bool {
+        userDefaults.bool(forKey: shareMediaOnWiFiOnlyKey)
+    }
+
+    nonisolated static func downloadFriendMediaOnWiFiOnly(userDefaults: UserDefaults = .standard) -> Bool {
+        userDefaults.bool(forKey: downloadFriendMediaOnWiFiOnlyKey)
+    }
+
     /// Toggle defaults applied when the user has never changed them (call once at launch).
     /// **`register(defaults:)`** only fills keys that are not already set, so it never overrides a saved choice.
     nonisolated static func registerDefaultValues(in defaults: UserDefaults = .standard) {
@@ -116,6 +130,8 @@ enum AppUserSettings: Sendable {
             shareDivesWithFriendsKey: true,
             shareNotesWithFriendsKey: false,
             shareMediaWithFriendsKey: false,
+            shareMediaOnWiFiOnlyKey: false,
+            downloadFriendMediaOnWiFiOnlyKey: false,
         ])
     }
 

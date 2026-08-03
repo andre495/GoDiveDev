@@ -129,6 +129,11 @@ struct DiveActivityVideoPlayerView: View {
                 scheduleFullQualityUpgradeIfNeeded()
             } else {
                 cancelFullQualityUpgrade()
+                if !reusesSessionPlayerAcrossRemounts {
+                    playerItem = nil
+                    resolvedKey = nil
+                    isPlayerDisplayReady = false
+                }
             }
         }
         .onChange(of: isPausedByUserHold) { _, _ in
@@ -637,6 +642,14 @@ private final class DiveActivityFillVideoPlayerUIView: UIView {
             from: currentKey,
             to: identityKey
         )
+        if isQualityUpgradeTransition, player != nil {
+            upgradePlayerItem(playerItem, identityKey: identityKey)
+            if !isPlaybackActive {
+                syncPlaybackState()
+            }
+            lastAppliedPlaybackActive = isPlaybackActive
+            return
+        }
         if reusesCachedPlayer, isQualityUpgradeTransition {
             if player == nil,
                let previewKey = DiveMediaProgressivePresentation.previewResolvedKey(forFullResolvedKey: identityKey),
