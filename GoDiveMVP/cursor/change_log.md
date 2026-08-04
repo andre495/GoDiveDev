@@ -3400,7 +3400,7 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **Buddy-share background upload + kill resume:** **`GoDiveBuddyShareBackgroundUpload`** — `UIApplication` background task while uploads run, **`BGProcessingTask`** (`buddy-share-upload`) for opportunistic drain, disk-backed pending upsert queue (**`GoDiveBuddySharePendingWorkStore`**), resume on launch / foreground / Wi‑Fi reconnect / BG wake. Incomplete content tiers rebuild jobs from **`GoDiveSharedMediaPublishState`** (`photosLocalIdentifier(fromSourceFingerprint:)`). Wired through upload queue, **`GoDiveFriendShareRefreshCoordinator`**, **`ContentView`**, app **`scenePhase`**. Tests: **`goDiveBuddySharePendingWorkStore_*`**, **`goDiveSharedMediaPublishState_pendingContentJobs`**, **`goDiveBuddyShareBackgroundUploadPresentation_*`**.
 - **Buddy shared activity map header:** friend avatar + name above the site title on the Map tab; scuba/snorkel icon + dive **#** chip move to the site-title row (trailing); redundant **Shared by** row removed from map details. **Tank** tab uses the same identity header at **large** detent and in the minimized collapsed summary (start/end pressure chips below); tank panel omits notes and buddies (both on **Map** only). Friend **Media** tab opens at **minimized** detent (map/tank stay **large**); large-detent buddy toggle uses per-media **`mediaBuddyTags`** (not dive-level roster). **`LogbookBuddyFeedPresentation.Row`** carries **`friendPhotoURL`** into **`FriendSharedDiveDetailView`**. Map **Buddies** section shows avatar chips — local roster match by **`linkedFirebaseUID`** uses the viewer's name/photo; otherwise initials from the shared name. Tests: **`diveActivityMapOverviewHeaderPresentation_usesBuddyOwnerLayout_whenNamePresent`**, **`buddyFeed_rows_carryFriendPhotoURL`**, **`diveActivityOverviewTabSelection_friendSharedMedia_usesMinimizedDetent`**, **`friendSharedDetail_displayBuddies_filtersByMediaID`**, **`friendSharedDetail_mapTaggedBuddyDisplayRows_prefersLocalRosterMatch`**, **`sharedDiveProjection_writesMediaBuddyTagsWhenMediaShared`**.
 
-## 127 - Buddy activity shared push notifications
+## 127 - Buddy activity shared push notifications **(pushed)**
 
 **Summary:** Friends get one iOS push when a buddy shares new activities — batched server-side (20 s window per poster), first-share only (republishes / sharing off→on never re-notify), opt-out via a new Settings toggle. Tapping lands on **Logbook → Buddy Feed → activity detail** (latest activity in the series for a batched push) so **Back** returns to the feed.
 
@@ -3443,3 +3443,5 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`LogbookFeedScopePagerPresentation`** — page order + swipe-direction helpers; toggle taps animate with the pager.
 - Tests: **`logbookFeedScopePager_swipeLeftOpensBuddyFeed_swipeRightOpensMyActivities`**.
 - **`docs/logbook.md`** — swipe note.
+
+## 128 - Next batch
