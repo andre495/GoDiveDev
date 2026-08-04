@@ -10,6 +10,7 @@ struct SnorkelActivityMapOverviewPanelContent: View {
     let linkedCatalogSiteID: UUID?
     let onOpenLinkedSite: () -> Void
     let regionCountryLine: String?
+    let onEditNotes: () -> Void
 
     @Environment(\.diveOverviewPanelHeightFraction) private var panelHeightFraction
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
@@ -68,34 +69,10 @@ struct SnorkelActivityMapOverviewPanelContent: View {
             }
 
             if showsDetailsSection {
-                ActivityMapWeatherConditionsSection(
-                    activityID: activity.id,
-                    mapCoordinate: mapCoordinate,
-                    activityStart: activity.startTime,
-                    timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds,
-                    displayUnits: diveDisplayUnitSystem,
-                    isSectionVisible: overviewSheetDetent == .large,
-                    importedSnapshot: ActivityWeatherSnapshotStorage.displaySnapshot(
-                        from: activity.activityWeatherSnapshotData,
-                        activityStart: activity.startTime,
-                        timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds,
-                        displayUnits: diveDisplayUnitSystem
-                    )
-                )
-                .opacity(detailsOpacity)
-                .allowsHitTesting(detailsOpacity > 0.35)
-                .accessibilityHidden(detailsOpacity < 0.05)
-            }
-
-            if let notes = trimmedNotes {
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-                    Text("Notes")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.Colors.tabUnselected)
-                    Text(notes)
-                        .font(.body)
-                        .foregroundStyle(AppTheme.Colors.textPrimary)
-                }
+                mapDetailsSection
+                    .opacity(detailsOpacity)
+                    .allowsHitTesting(detailsOpacity > 0.35)
+                    .accessibilityHidden(detailsOpacity < 0.05)
             }
         }
         .animation(nil, value: panelHeightFraction)
@@ -103,9 +80,29 @@ struct SnorkelActivityMapOverviewPanelContent: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var trimmedNotes: String? {
-        let trimmed = activity.notes?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return trimmed.isEmpty ? nil : trimmed
+    private var mapDetailsSection: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            ActivityMapWeatherConditionsSection(
+                activityID: activity.id,
+                mapCoordinate: mapCoordinate,
+                activityStart: activity.startTime,
+                timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds,
+                displayUnits: diveDisplayUnitSystem,
+                isSectionVisible: overviewSheetDetent == .large,
+                importedSnapshot: ActivityWeatherSnapshotStorage.displaySnapshot(
+                    from: activity.activityWeatherSnapshotData,
+                    activityStart: activity.startTime,
+                    timeZoneOffsetSeconds: activity.timeZoneOffsetSeconds,
+                    displayUnits: diveDisplayUnitSystem
+                )
+            )
+
+            SnorkelActivityNotesOverviewSection(
+                notes: activity.notes,
+                onEditNotes: onEditNotes
+            )
+        }
+        .accessibilityIdentifier("SnorkelOverview.MapDetailsSection")
     }
 
     private var mapOverviewHeader: some View {

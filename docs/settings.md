@@ -20,7 +20,7 @@ These apply when you use **Profile → Buddies** (QR / invite link):
 
 When **on** (default): buddies can see your dive and snorkel details (site, depth or distance, duration, conditions, and more). GoDive keeps a buddy-visible copy in Firebase for them to read. Your private log on device / iCloud stays the source of truth.
 
-New activities always start **local only** — publish each one from the **Share** banner on its detail page (or ⋯ → **Buddy Sharing**) when you're ready. See [Friends](friends.md#publishing-a-new-activity).
+New activities always start **local only** — when you have buddies, a **Share** banner on the activity map prompts you to publish (or open ⋯ → **Activity Settings**). See [Friends](friends.md#publishing-a-new-activity).
 
 ### Share notes with buddies
 

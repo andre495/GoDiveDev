@@ -115,6 +115,42 @@ enum DiveLogbookDisplay {
         let dur = "\(activity.durationMinutes) min"
         return "\(dateStr) · \(depth) · \(dur)"
     }
+
+    /// Search / list rows for snorkel activities — same payload shape as scuba **`rowData`**.
+    nonisolated static func snorkelRowData(
+        from seeds: [LogbookActivitySnapshotSeed],
+        unitSystem: DiveDisplayUnitSystem
+    ) -> [DiveLogbookRowDisplayData] {
+        seeds.filter { $0.kind == .snorkel }.map { seed in
+            DiveLogbookRowDisplayData(
+                id: seed.id,
+                activityKind: .snorkel,
+                displayName: seed.displayName,
+                diveNumberLabel: LogbookActivityRowPresentation.snorkelChipTitle,
+                diveNumberLeadingSymbolName: LogbookActivityRowPresentation.snorkelLeadingSymbolName,
+                detailLine: snorkelDetailLine(for: seed, unitSystem: unitSystem),
+                showsDuplicateHint: false,
+                previewMediaPhotoID: seed.previewMediaPhotoID,
+                previewMediaIsSnorkel: true,
+                startTime: seed.startTime
+            )
+        }
+    }
+
+    nonisolated private static func snorkelDetailLine(
+        for seed: LogbookActivitySnapshotSeed,
+        unitSystem: DiveDisplayUnitSystem
+    ) -> String {
+        var parts = [seed.formattedStartDateOnly]
+        if let meters = seed.swimDistanceMeters, meters > 0 {
+            parts.append(DiveQuantityFormatting.swimDistance(meters: meters, system: unitSystem))
+        }
+        if seed.maxDepthMeters > 0 {
+            parts.append(DiveQuantityFormatting.depth(meters: seed.maxDepthMeters, system: unitSystem))
+        }
+        parts.append("\(seed.durationMinutes) min")
+        return parts.joined(separator: " · ")
+    }
 }
 
 /// Equality inputs for **`LogbookListSurface`** (**.equatable()**).

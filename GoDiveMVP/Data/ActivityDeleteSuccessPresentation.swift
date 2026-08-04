@@ -69,10 +69,12 @@ enum ActivityDeleteSuccessPresentation: Sendable {
         activityID: UUID
     ) -> [GlobalSearchPresentation.Destination] {
         path.filter { destination in
-            if case .dive(let id) = destination {
+            switch destination {
+            case .dive(let id), .snorkel(let id):
                 return id != activityID
+            default:
+                return true
             }
-            return true
         }
     }
 }

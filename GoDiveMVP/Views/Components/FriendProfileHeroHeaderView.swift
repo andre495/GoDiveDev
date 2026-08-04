@@ -29,11 +29,21 @@ struct FriendProfileHeroHeaderView: View {
 
     @ViewBuilder
     private var heroContent: some View {
-        switch selectedMode {
-        case .media:
-            mediaContent
-        case .map:
-            mapContent
+        let hasAssociatedMedia = heroURL != nil && mediaKind != nil
+        let keepsMediaMounted = PushedDetailHeroModePresentation.keepsMediaMountedDuringMapMode(
+            hasAssociatedMedia: hasAssociatedMedia
+        )
+        ZStack {
+            if keepsMediaMounted || selectedMode == .media {
+                mediaContent
+                    .opacity(PushedDetailHeroModePresentation.mediaLayerOpacity(selectedMode: selectedMode))
+                    .allowsHitTesting(selectedMode == .media)
+                    .accessibilityHidden(selectedMode != .media)
+            }
+
+            if selectedMode == .map {
+                mapContent
+            }
         }
     }
 
@@ -42,7 +52,9 @@ struct FriendProfileHeroHeaderView: View {
         FriendProfileRemoteHeroView(
             heroURL: heroURL,
             mediaKind: mediaKind,
-            shouldAutoPlayVideo: shouldAutoPlayVideo
+            shouldAutoPlayVideo: PushedDetailHeroModePresentation.isHeroVideoPlaybackActive(
+                shouldAutoPlaySelectedVideo: shouldAutoPlayVideo
+            )
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityIdentifier("FriendProfile.Hero.Media")

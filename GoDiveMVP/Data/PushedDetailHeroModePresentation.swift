@@ -63,4 +63,25 @@ enum PushedDetailHeroModePresentation: Sendable {
         guard currentMode == .map else { return false }
         return mapPinCount == 0
     }
+
+    /// Media stays in the hero tree while map mode is visible so looping video is not torn down.
+    nonisolated static func keepsMediaMountedDuringMapMode(
+        hasAssociatedMedia: Bool
+    ) -> Bool {
+        hasAssociatedMedia
+    }
+
+    /// Autoplay is not gated on media/map mode — remounting after map freezes the loop.
+    nonisolated static func isHeroVideoPlaybackActive(
+        shouldAutoPlaySelectedVideo: Bool
+    ) -> Bool {
+        shouldAutoPlaySelectedVideo
+    }
+
+    /// Opacity for the kept-alive media layer under an optional map overlay.
+    nonisolated static func mediaLayerOpacity(
+        selectedMode: PushedDetailHeroHeaderView.Mode
+    ) -> Double {
+        selectedMode == .media ? 1 : 0
+    }
 }

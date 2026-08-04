@@ -38,21 +38,24 @@ By default (when **Share activities with buddies** is on in Settings), buddies c
 
 ### Publishing a new activity
 
-New activities start **local only** — nothing is shared automatically when you import or log them. Take your time to tag marine life, add notes, and pick photos first. When you open the activity, a banner at the top of the details panel offers two choices:
+New activities start **local only** — nothing is shared automatically when you import or log them. Take your time to tag marine life, add notes, and pick photos first. If you have buddies in your network, a bright blue banner sits just above the details sheet on the map (visible when the sheet is expanded) with two choices:
 
 - **Share** — publish the activity to your buddy network. Buddies see it in their **Buddy Feed** and get a notification.
-- **Keep local** — the activity stays private on your devices. You can still share it later from **Buddy Sharing** (⋯ menu).
+- **Dismiss (×)** — hide the banner. The activity stays private on your devices. You can still share it later from **Activity Settings** (⋯ menu).
+
+Opening **Activity Settings** also dismisses the banner for that activity. The banner hides when you collapse the sheet and comes back when you expand it again (until you dismiss it or open settings).
 
 ### Per-activity sharing
 
-On any **owned** dive or snorkel, tap the **⋯** button (top right) to open **Buddy Sharing** for that activity only:
+On any **owned** dive or snorkel, tap the **⋯** button (top right) to open **Activity Settings** for that activity only:
 
 - **Share activity with buddies** — include or exclude this entry from your buddy network (Settings must still have **Share activities with buddies** on).
 - **Share media with buddies** — turn media on for this activity and choose which photos/videos to include in a checkbox grid.
-- **Share notes with buddies** — off, share your private activity notes, or write a separate public note for buddies.
-- **Status** at the bottom — **Upload in progress…** banner while publishing, then an **Activity / Media / Notes** checklist (**Shared**, **Uploading**, or **Off**).
+- **Share private notes with buddies** — include your private activity notes for buddies on this entry.
+- **Status** — **Upload in progress…** banner while publishing, then an **Activity / Media / Private Notes** checklist (**Shared**, **Uploading**, or **Off**).
+- **Delete dive** / **Delete snorkel** — pinned at the bottom of the sheet.
 
-Per-activity choices override the global defaults for that entry once you change them in **Buddy Sharing**. New activities snapshot your media and notes defaults when created but always start unshared until you publish them (see **Publishing a new activity** above); changing Settings later does not alter activities you already have (unless you edit them in **Buddy Sharing**). Turning sharing off for an activity removes its Firebase projection and shared media from Storage. Global **Share activities with buddies** remains the master on/off switch for the buddy network.
+Per-activity choices override the global defaults for that entry once you change them in **Activity Settings**. New activities snapshot your media and notes defaults when created but always start unshared until you publish them (see **Publishing a new activity** above); changing Settings later does not alter activities you already have (unless you edit them in **Activity Settings**). Turning sharing off for an activity removes its Firebase projection and shared media from Storage. Global **Share activities with buddies** remains the master on/off switch for the buddy network.
 
 ## Viewing friend photos and videos
 

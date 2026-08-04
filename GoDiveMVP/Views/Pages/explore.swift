@@ -117,6 +117,16 @@ struct ExploreView: View {
         .environment(\.openTripDetailMedia) { launch in
             pushExplore(.tripDetailMedia(tripID: launch.tripID, mediaID: launch.mediaID))
         }
+        .onChange(of: path) { oldPath, newPath in
+            DiveActivityOverviewUIStatePresentation.discardSessionsLeavingStack(
+                previousDiveIDs: DiveActivityOverviewUIStatePresentation.diveActivityIDs(
+                    inExplorePath: oldPath
+                ),
+                currentDiveIDs: DiveActivityOverviewUIStatePresentation.diveActivityIDs(
+                    inExplorePath: newPath
+                )
+            )
+        }
         .onReceive(
             NotificationCenter.default.publisher(
                 for: ActivityDeleteSuccessPresentation.didDeleteNotification

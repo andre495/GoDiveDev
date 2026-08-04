@@ -39,6 +39,7 @@ enum GlobalSearchResultRowContentBuilder {
         hits: [GlobalSearchPresentation.Hit],
         ownerProfileID: UUID?,
         ownerDives: [DiveActivity],
+        ownerSnorkels: [SnorkelActivity],
         diveSites: [DiveSite],
         speciesCatalog: [MarineLife],
         ownerDiveBuddies: [DiveBuddy],
@@ -49,6 +50,7 @@ enum GlobalSearchResultRowContentBuilder {
         useChronologicalNumbers: Bool
     ) -> [GlobalSearchResultRowContent] {
         let divesByID = Dictionary(ownerDives.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let snorkelsByID = Dictionary(ownerSnorkels.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let sitesByID = Dictionary(diveSites.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let speciesByUUID = Dictionary(speciesCatalog.map { ($0.uuid, $0) }, uniquingKeysWith: { first, _ in first })
         let buddiesByID = Dictionary(ownerDiveBuddies.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
@@ -73,10 +75,23 @@ enum GlobalSearchResultRowContentBuilder {
             uniquingKeysWith: { first, _ in first }
         )
 
+        let snorkelActivities: [SnorkelActivity] = hits.compactMap { hit in
+            guard case .snorkel(let id) = hit.destination else { return nil }
+            return snorkelsByID[id]
+        }
+        let snorkelRowDataByID = Dictionary(
+            DiveLogbookDisplay.snorkelRowData(
+                from: LogbookActivitySnapshotSeeding.snorkelSeeds(from: snorkelActivities),
+                unitSystem: unitSystem
+            ).map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+
         return hits.map { hit in
             let kind = kind(
                 for: hit,
                 diveRowDataByID: diveRowDataByID,
+                snorkelRowDataByID: snorkelRowDataByID,
                 sitesByID: sitesByID,
                 referenceByID: referenceByID,
                 speciesByUUID: speciesByUUID,
@@ -100,6 +115,7 @@ enum GlobalSearchResultRowContentBuilder {
     private static func kind(
         for hit: GlobalSearchPresentation.Hit,
         diveRowDataByID: [UUID: DiveLogbookRowDisplayData],
+        snorkelRowDataByID: [UUID: DiveLogbookRowDisplayData],
         sitesByID: [UUID: DiveSite],
         referenceByID: [String: DiveSiteReferenceSnapshot],
         speciesByUUID: [String: MarineLife],
@@ -113,6 +129,10 @@ enum GlobalSearchResultRowContentBuilder {
         switch hit.destination {
         case .dive(let id):
             if let data = diveRowDataByID[id] {
+                return .dive(data)
+            }
+        case .snorkel(let id):
+            if let data = snorkelRowDataByID[id] {
                 return .dive(data)
             }
         case .diveSite(let id):

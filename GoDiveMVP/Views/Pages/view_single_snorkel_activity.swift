@@ -54,8 +54,10 @@ struct ViewSingleSnorkelActivity: View {
     @State private var buddyTagMediaID: UUID?
     @State private var fishialIdentifyMediaID: UUID?
     @State private var showsFriendShareSettings = false
-    /// Local-first publish checkpoint banner (Strava-style) — seeded from the model flag on appear.
+    @State private var showsMapNotesEditSheet = false
+    /// Local-first publish checkpoint banner — pending + friends + global share (detent gated in overlay).
     @State private var showsPublishCheckpointBanner = false
+    @State private var hasFriendsInNetwork = false
 
     var body: some View {
         AppHeaderlessPage {
@@ -73,10 +75,15 @@ struct ViewSingleSnorkelActivity: View {
             persistSnorkelOverviewUIState()
         }
         .onChange(of: showsFriendShareSettings) { _, isPresented in
-            // Activity Settings save resolves the checkpoint — refresh on sheet dismiss.
-            if !isPresented {
-                showsPublishCheckpointBanner = ActivityFriendSharePublishCheckpoint.isPending(snorkel: activity)
+            // Visiting Activity Settings permanently dismisses the publish-checkpoint banner.
+            if isPresented {
+                dismissPublishCheckpointBannerIfNeeded()
+            } else {
+                refreshPublishCheckpointBannerVisibility()
             }
+        }
+        .task(id: activity.id) {
+            await refreshHasFriendsInNetwork()
         }
         .onChange(of: initialMediaFocusID) { _, _ in
             didApplyInitialMediaFocus = false
@@ -131,6 +138,9 @@ struct ViewSingleSnorkelActivity: View {
                 activity: activity,
                 onDeleted: { dismiss() }
             )
+        }
+        .sheet(isPresented: $showsMapNotesEditSheet) {
+            SnorkelActivityNotesEditSheet(activity: activity)
         }
         .onChange(of: snorkelMediaPickerItems) { _, items in
             guard !items.isEmpty else { return }
@@ -305,8 +315,11 @@ struct ViewSingleSnorkelActivity: View {
                         SnorkelHeartRateOverviewHeroView(
                             samples: derivedSnorkelData.heartRateSamples,
                             sessionMaxBPMHint: activity.maxHeartRateBPM,
+                            layoutSize: geometry.size,
+                            layoutHeight: layoutHeight,
                             bottomContentMargin: heartRateBottomMargin,
-                            topObstructionHeight: topObstruction
+                            topObstructionHeight: topObstruction,
+                            sheetDetent: overviewSheetDetent
                         )
                         .ignoresSafeArea()
                     case .camera:
@@ -414,10 +427,25 @@ struct ViewSingleSnorkelActivity: View {
                         liveHeightFraction: $overviewPanelLiveHeightFraction,
                         panelScrollOffsetY: $overviewPanelScrollOffsetY,
                         scrollRestorationFallbackY: snorkelScrollRestorationFallbackY,
-                        panelScrollContentIdentity: selectedActivityTab
+                        panelScrollContentIdentity: selectedActivityTab,
+                        onCommittedHorizontalTabSwipe: { translationWidth in
+                            guard let next = DiveActivityOverviewTabPagerPresentation
+                                .snorkelTabAfterHorizontalSwipe(
+                                    from: selectedActivityTab,
+                                    translationWidth: translationWidth
+                                )
+                            else { return }
+                            selectSnorkelActivityTab(next)
+                        }
                     )
                     .zIndex(1)
                 }
+
+                publishCheckpointBannerOverlay(
+                    layoutContext: overviewLayoutContext,
+                    isLandscape: isLandscape,
+                    hidesOverviewPanelInLandscape: hidesOverviewPanelInLandscape
+                )
             }
             .overlay(alignment: .top) {
                 if DiveActivityMediaPresentation.showsHeroTopChromeScrim(
@@ -460,8 +488,24 @@ struct ViewSingleSnorkelActivity: View {
     }
 
     @ViewBuilder
-    private var publishCheckpointBannerIfNeeded: some View {
-        if showsPublishCheckpointBanner {
+    private func publishCheckpointBannerOverlay(
+        layoutContext: DiveActivityOverviewSheetLayoutContext,
+        isLandscape: Bool,
+        hidesOverviewPanelInLandscape: Bool
+    ) -> some View {
+        let shouldShow = showsPublishCheckpointBanner
+            && selectedActivityTab == .map
+            && isOverviewPanelPresented
+            && !(isLandscape && hidesOverviewPanelInLandscape)
+            && ActivityFriendSharePublishCheckpoint.isVisibleInOverviewDetent(overviewSheetDetent)
+        if shouldShow {
+            let panelHeight = DiveActivityOverviewDetent.sheetHeight(
+                for: overviewSheetDetent,
+                layoutHeight: layoutContext.layoutHeight,
+                bottomSafeInset: layoutContext.bottomSafeInset,
+                screenWidth: layoutContext.screenWidth,
+                topSafeInset: layoutContext.topSafeInset
+            )
             ActivityPublishCheckpointBanner(
                 activityKind: .snorkel,
                 onShare: {
@@ -471,11 +515,8 @@ struct ViewSingleSnorkelActivity: View {
                         modelContext: modelContext
                     )
                 },
-                onKeepLocal: {
-                    ActivityFriendSharePublishCheckpoint.keepLocal(snorkel: activity, modelContext: modelContext)
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        showsPublishCheckpointBanner = false
-                    }
+                onDismiss: {
+                    dismissPublishCheckpointBannerIfNeeded()
                 },
                 onConfirmationFinished: {
                     withAnimation(.easeInOut(duration: 0.25)) {
@@ -483,15 +524,15 @@ struct ViewSingleSnorkelActivity: View {
                     }
                 }
             )
-            .padding(.top, AppTheme.Spacing.sm)
+            .padding(.horizontal, AppTheme.Spacing.md)
+            .padding(.bottom, panelHeight + ActivityPublishCheckpointBannerPresentation.seamGap)
+            .transition(.opacity.combined(with: .move(edge: .bottom)))
+            .zIndex(2)
         }
     }
 
     private var mapPanelContent: some View {
-        VStack(spacing: 0) {
-            publishCheckpointBannerIfNeeded
-            snorkelMapOverviewPanelContent
-        }
+        snorkelMapOverviewPanelContent
     }
 
     private var snorkelMapOverviewPanelContent: some View {
@@ -502,7 +543,8 @@ struct ViewSingleSnorkelActivity: View {
             siteTitle: siteHeaderTitle,
             linkedCatalogSiteID: activity.diveSiteID,
             onOpenLinkedSite: openLinkedDiveSiteOverview,
-            regionCountryLine: overviewMapHeaderRegionCountryLine
+            regionCountryLine: overviewMapHeaderRegionCountryLine,
+            onEditNotes: { showsMapNotesEditSheet = true }
         )
     }
 
@@ -818,13 +860,35 @@ struct ViewSingleSnorkelActivity: View {
     }
 
     private func handleSnorkelActivityAppear() {
+        DiveActivityOverviewUIStateStore.noteSnorkelSessionActive(activityID: activity.id)
         if initialMediaFocusID != nil, !didApplyInitialMediaFocus {
             DiveActivityOverviewUIStateStore.removeSnorkel(activityID: activity.id)
             applyInitialMediaFocusIfNeeded()
         } else {
             _ = restoreSnorkelOverviewUIStateIfNeeded()
         }
-        showsPublishCheckpointBanner = ActivityFriendSharePublishCheckpoint.isPending(snorkel: activity)
+        refreshPublishCheckpointBannerVisibility()
+    }
+
+    private func refreshPublishCheckpointBannerVisibility() {
+        showsPublishCheckpointBanner = ActivityFriendSharePublishCheckpoint.isPending(
+            snorkel: activity,
+            hasFriends: hasFriendsInNetwork
+        )
+    }
+
+    private func dismissPublishCheckpointBannerIfNeeded() {
+        guard showsPublishCheckpointBanner || activity.friendSharePublishCheckpointPending else { return }
+        ActivityFriendSharePublishCheckpoint.dismiss(snorkel: activity, modelContext: modelContext)
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showsPublishCheckpointBanner = false
+        }
+    }
+
+    @MainActor
+    private func refreshHasFriendsInNetwork() async {
+        hasFriendsInNetwork = await GoDiveFriendGraphService.hasAnyFriends()
+        refreshPublishCheckpointBannerVisibility()
     }
 
     @discardableResult

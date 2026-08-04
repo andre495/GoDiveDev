@@ -1,16 +1,17 @@
 # Search
 
-GoDive has a dedicated **Search** tab at the bottom of the screen (the magnifying glass). It searches your whole log — dives, buddies, sites, marine life, tags, trips, gear, certifications, and media — from one place.
+GoDive has a dedicated **Search** tab at the bottom of the screen (the magnifying glass). It searches your whole log — dives, snorkels, buddies, sites, marine life, tags, trips, gear, certifications, and media — from one place.
 
 ## Opening search
 
 Tap the **Search** tab. The tab bar morphs into a search field at the bottom. The keyboard does **not** open automatically — tap the search field when you want to type.
 
-The browse screen shows a **Search** title and nine category tiles in a **2×5** grid (last row has one tile):
+The browse screen shows a **Search** title and ten category tiles in a **2×5** grid:
 
 | Tile | What it searches |
 |------|------------------|
 | **Dives** | Your logbook dives — by site name, dive number, tags, buddies, site country/region, month or year (e.g. `March`, `2026`), tagged marine life, trip name, and notes |
+| **Snorkels** | Your snorkel sessions — by site name, buddies, site country/region, month or year, tagged marine life, and notes |
 | **Buddies** | Dive buddies |
 | **Sites** | Dive sites (your logbook sites and the full OpenDiveMap catalog) |
 | **Marine life** | Field Guide species |
@@ -32,8 +33,8 @@ Tap a thumbnail to open the full-screen viewer (same as trip media). In the view
 
 ## Results
 
-- **One category** — a flat list of matches with a **count header** on the back-button row telling you how many there are (for example `12 Buddies`, `8 Dives`, or `3 Sites`). The header fades away as you scroll down the list and reappears when you scroll back to the top. For **Tags**, each row is a tag name with a dive count — tap to open the tag detail page.
-- **Typed query, no category** — sectioned results (buddies, **media**, sites, tags, trips, marine life, gear, certifications, then dives). Every section lists **all** of its matches, so searching a buddy name shows every dive they appear on, not just the first few.
+- **One category** — a flat list of matches with a **count header** on the back-button row telling you how many there are (for example `12 Buddies`, `8 Dives`, `3 Snorkels`, or `3 Sites`). The header fades away as you scroll down the list and reappears when you scroll back to the top. For **Tags**, each row is a tag name with a dive count — tap to open the tag detail page.
+- **Typed query, no category** — sectioned results (buddies, **media**, sites, tags, trips, marine life, gear, certifications, then dives and snorkels). Every section lists **all** of its matches, so searching a buddy name shows every dive they appear on, not just the first few.
 
 The **Media** grid shows the same kind of count header (`3 videos, 12 photos`), which also fades away as you scroll.
 

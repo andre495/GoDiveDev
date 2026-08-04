@@ -113,7 +113,7 @@ enum ActivityFriendShareConfiguration: Sendable {
 
     /// Seeds a brand-new activity as a **local-only draft** (Strava-style publish checkpoint): media /
     /// notes defaults snapshot from global Settings, but sharing stays **off** until the owner explicitly
-    /// publishes from the detail-page banner or Activity Settings.
+    /// publishes from the detail-page banner (**Share**), or configures sharing in Activity Settings.
     nonisolated static func seedBuddyShareDefaultsOnNewActivity(
         _ dive: DiveActivity,
         userDefaults: UserDefaults = .standard

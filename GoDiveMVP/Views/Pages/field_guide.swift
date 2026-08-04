@@ -222,6 +222,12 @@ struct FieldGuideView: View {
         .environment(\.openCatalogDiveSiteDetail) { siteID in
             pushFieldGuide(.diveSite(siteID))
         }
+        .onChange(of: path) { oldPath, newPath in
+            DiveActivityOverviewUIStatePresentation.discardSessionsLeavingStack(
+                previousDiveIDs: fieldGuideDiveActivityIDs(in: oldPath),
+                currentDiveIDs: fieldGuideDiveActivityIDs(in: newPath)
+            )
+        }
         .onReceive(
             NotificationCenter.default.publisher(
                 for: ActivityDeleteSuccessPresentation.didDeleteNotification
@@ -304,6 +310,13 @@ struct FieldGuideView: View {
                 safeAreaTop: safeAreaTop
             )
         }
+    }
+
+    private func fieldGuideDiveActivityIDs(in path: [FieldGuideRoute]) -> Set<UUID> {
+        Set(path.compactMap { route in
+            if case .diveDetail(let id) = route { return id }
+            return nil
+        })
     }
 
     private func handleFieldGuideTabReselect() {

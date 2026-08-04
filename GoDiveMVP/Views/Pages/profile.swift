@@ -257,6 +257,20 @@ struct ProfileView: View {
         .navigationDestination(item: $profileAuxiliaryRoute) { route in
             profileAuxiliaryDestination(for: route)
         }
+        .onChange(of: profileAuxiliaryRoute) { oldRoute, newRoute in
+            let previousDiveIDs: Set<UUID> = {
+                guard case .diveDetail(let id) = oldRoute else { return [] }
+                return [id]
+            }()
+            let currentDiveIDs: Set<UUID> = {
+                guard case .diveDetail(let id) = newRoute else { return [] }
+                return [id]
+            }()
+            DiveActivityOverviewUIStatePresentation.discardSessionsLeavingStack(
+                previousDiveIDs: previousDiveIDs,
+                currentDiveIDs: currentDiveIDs
+            )
+        }
         .onReceive(
             NotificationCenter.default.publisher(
                 for: ActivityDeleteSuccessPresentation.didDeleteNotification

@@ -29,6 +29,8 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
     var scrollRestorationFallbackY: CGFloat = 0
     /// Remounts scroll when map / tank / media panel body changes.
     var panelScrollContentIdentity: AnyHashable = "default"
+    /// Large-sheet horizontal swipe — translation width for tab paging (hero / minimized ignored).
+    var onCommittedHorizontalTabSwipe: ((CGFloat) -> Void)? = nil
 
     @State private var grabberDragTranslation: CGFloat = 0
 
@@ -107,6 +109,7 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
                 scrollRestorationFallbackY: scrollRestorationFallbackY,
                 panelScrollContentIdentity: panelScrollContentIdentity
             )
+            .simultaneousGesture(horizontalTabSwipeGesture)
         }
         .frame(height: panelHeight, alignment: .top)
         .frame(maxWidth: .infinity)
@@ -194,5 +197,23 @@ struct DiveActivityOverviewEmbeddedPanel<CollapsedSummary: View, PanelContent: V
                     liveSheetState?.heightFraction = nextDetent.resolvedHeightFraction(in: layoutContext)
                 }
             }
+    }
+
+    /// Sheet body only (not the grabber, not the hero). No-ops when minimized or mid-grabber-drag.
+    private var horizontalTabSwipeGesture: some Gesture {
+        DragGesture(
+            minimumDistance: DiveActivityOverviewTabPagerPresentation.swipeMinimumDistance
+        )
+        .onEnded { value in
+            guard onCommittedHorizontalTabSwipe != nil else { return }
+            guard DiveActivityOverviewTabPagerPresentation.allowsHorizontalTabSwipe(
+                detent: selectedDetent,
+                isGrabberDragging: isDragging
+            ) else { return }
+            guard DiveActivityOverviewTabPagerPresentation.isHorizontalSwipeDominant(
+                translation: value.translation
+            ) else { return }
+            onCommittedHorizontalTabSwipe?(value.translation.width)
+        }
     }
 }

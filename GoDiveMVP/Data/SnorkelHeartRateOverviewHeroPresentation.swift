@@ -1,19 +1,33 @@
 import CoreGraphics
 
-/// Layout for the snorkel **heart rate** tab full-bleed hero chart.
+/// Layout for the snorkel **heart rate** tab full-bleed hero chart (parity with tank depth plot).
 enum SnorkelHeartRateOverviewHeroPresentation: Sendable {
-    nonisolated static let horizontalInset: CGFloat = 16
-    nonisolated static let topPaddingBelowObstruction: CGFloat = 8
-    nonisolated static let bottomPaddingAboveSheet: CGFloat = 16
+    /// Soft top fade so the plot dissolves under tab chrome (same token as tank depth).
+    nonisolated static let portraitChartTopFadeFraction: CGFloat =
+        DiveTankOverviewHeroPresentation.portraitChartTopFadeFraction
 
-    nonisolated static func chartContentInsets(
+    /// Edge-to-edge plot band flush with the hero top and sheet seam (same geometry as tank depth).
+    nonisolated static func chartFrame(
+        layoutSize: CGSize,
+        layoutHeight: CGFloat,
         topObstructionHeight: CGFloat,
-        bottomContentMargin: CGFloat
-    ) -> (top: CGFloat, horizontal: CGFloat, bottom: CGFloat) {
-        (
-            top: topObstructionHeight + topPaddingBelowObstruction,
-            horizontal: horizontalInset,
-            bottom: bottomContentMargin + bottomPaddingAboveSheet
+        bottomContentMargin: CGFloat,
+        sheetDetent: DiveActivityOverviewDetent,
+        isLandscape: Bool
+    ) -> CGRect {
+        DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstructionHeight,
+            bottomContentMargin: bottomContentMargin,
+            isLandscape: isLandscape,
+            detent: sheetDetent
+        )
+    }
+
+    nonisolated static func scrubCalloutTopPadding(topObstructionHeight: CGFloat) -> CGFloat {
+        DiveDepthProfileScrubCalloutPresentation.labelTopPadding(
+            topObstructionHeight: topObstructionHeight
         )
     }
 }

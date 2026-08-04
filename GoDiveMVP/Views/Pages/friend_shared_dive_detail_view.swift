@@ -355,7 +355,16 @@ struct FriendSharedDiveDetailView: View {
                         liveHeightFraction: $overviewPanelLiveHeightFraction,
                         liveSheetState: overviewLiveSheetState,
                         panelScrollOffsetY: $overviewPanelScrollOffsetY,
-                        panelScrollContentIdentity: selectedDiveTab
+                        panelScrollContentIdentity: selectedDiveTab,
+                        onCommittedHorizontalTabSwipe: { translationWidth in
+                            guard let next = DiveActivityOverviewTabPagerPresentation
+                                .diveTabAfterHorizontalSwipe(
+                                    from: selectedDiveTab,
+                                    translationWidth: translationWidth
+                                )
+                            else { return }
+                            selectDiveTab(next)
+                        }
                     )
                     .overlay(alignment: .topTrailing) {
                         friendTankMinimizedRotatePhoneHintOverlay(isLandscape: isLandscape)
@@ -735,8 +744,11 @@ struct FriendSharedDiveDetailView: View {
                         SnorkelHeartRateOverviewHeroView(
                             samples: snorkelSnapshot.heartRateSamples,
                             sessionMaxBPMHint: snorkelSnapshot.maxHeartRateBPM,
+                            layoutSize: geometry.size,
+                            layoutHeight: layoutHeight,
                             bottomContentMargin: heartRateBottomMargin,
-                            topObstructionHeight: topObstruction
+                            topObstructionHeight: topObstruction,
+                            sheetDetent: overviewSheetDetent
                         )
                     case .camera:
                         FriendSharedActivityMediaHeroView(
@@ -833,7 +845,16 @@ struct FriendSharedDiveDetailView: View {
                             ),
                         liveHeightFraction: $overviewPanelLiveHeightFraction,
                         panelScrollOffsetY: $overviewPanelScrollOffsetY,
-                        panelScrollContentIdentity: selectedSnorkelTab
+                        panelScrollContentIdentity: selectedSnorkelTab,
+                        onCommittedHorizontalTabSwipe: { translationWidth in
+                            guard let next = DiveActivityOverviewTabPagerPresentation
+                                .snorkelTabAfterHorizontalSwipe(
+                                    from: selectedSnorkelTab,
+                                    translationWidth: translationWidth
+                                )
+                            else { return }
+                            selectSnorkelTab(next)
+                        }
                     )
                     .zIndex(1)
                 }

@@ -12,6 +12,8 @@ Open any dive from Logbook, Home, Explore, a buddy page, or a trip to see **dive
 
 Use the **back chevron** (top leading) or swipe from the left screen edge to return to the previous screen.
 
+On the **large** bottom sheet (not the map/chart header, and not the compact minimized sheet), **swipe left/right** to move between **Map**, **Tank**, and **Media** — same idea as swiping **My Activities** / **Buddy Feed** in Logbook. Snorkel detail works the same way for **Map**, **Heart rate**, and **Media**.
+
 ## Bottom sheet detents
 
 The overview panel slides up from the bottom in three sizes:

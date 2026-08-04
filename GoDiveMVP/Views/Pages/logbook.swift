@@ -130,11 +130,13 @@ struct LogbookView: View {
     }
 
     var body: some View {
-        attachLogbookStoreObservers(
-            to: attachLogbookNotificationObservers(
-                to: logbookNavigationStack
-                    .navigationInteractivePopGestureForHiddenNavBar()
-                    .logbookTabReselectObserver()
+        attachLogbookOverviewUIStatePathObserver(
+            to: attachLogbookStoreObservers(
+                to: attachLogbookNotificationObservers(
+                    to: logbookNavigationStack
+                        .navigationInteractivePopGestureForHiddenNavBar()
+                        .logbookTabReselectObserver()
+                )
             )
         )
     }
@@ -218,6 +220,34 @@ struct LogbookView: View {
                 guard phase == .active else { return }
                 refreshBuddyFeedWhenBuddyFeedListVisible()
             }
+    }
+
+    private func attachLogbookOverviewUIStatePathObserver<Content: View>(
+        to content: Content
+    ) -> some View {
+        content.onChange(of: path) { oldPath, newPath in
+            discardOverviewUIStateLeavingLogbookPath(from: oldPath, to: newPath)
+        }
+    }
+
+    private func discardOverviewUIStateLeavingLogbookPath(
+        from oldPath: [LogbookRoute],
+        to newPath: [LogbookRoute]
+    ) {
+        DiveActivityOverviewUIStatePresentation.discardSessionsLeavingStack(
+            previousDiveIDs: DiveActivityOverviewUIStatePresentation.diveActivityIDs(
+                inLogbookPath: oldPath
+            ),
+            currentDiveIDs: DiveActivityOverviewUIStatePresentation.diveActivityIDs(
+                inLogbookPath: newPath
+            ),
+            previousSnorkelIDs: DiveActivityOverviewUIStatePresentation.snorkelActivityIDs(
+                inLogbookPath: oldPath
+            ),
+            currentSnorkelIDs: DiveActivityOverviewUIStatePresentation.snorkelActivityIDs(
+                inLogbookPath: newPath
+            )
+        )
     }
 
     private func consumePendingLogbookRouteIfNeeded() {

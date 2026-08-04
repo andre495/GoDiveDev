@@ -143,6 +143,16 @@ struct LogOverviewView: View {
                     handleReturnToHomeRoot()
                 }
             }
+            .onChange(of: path) { oldPath, newPath in
+                DiveActivityOverviewUIStatePresentation.discardSessionsLeavingStack(
+                    previousDiveIDs: DiveActivityOverviewUIStatePresentation.diveActivityIDs(
+                        inHomePath: oldPath
+                    ),
+                    currentDiveIDs: DiveActivityOverviewUIStatePresentation.diveActivityIDs(
+                        inHomePath: newPath
+                    )
+                )
+            }
             .onChange(of: ownerDiveActivities.count) { _, _ in scheduleHomeOverviewRebuild() }
             .onChange(of: automaticallyRenumberDives) { _, _ in scheduleHomeOverviewRebuild() }
             .onChange(of: buddyRosterFingerprint) { _, _ in scheduleHomeOverviewRebuild() }
@@ -232,7 +242,7 @@ struct LogOverviewView: View {
                         Circle()
                             .fill(.red)
                             .frame(width: 9, height: 9)
-                            .offset(x: -9, y: 9)
+                            .offset(x: 2, y: -2)
                     }
                 }
         }

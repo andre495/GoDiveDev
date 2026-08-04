@@ -438,10 +438,15 @@ struct GoDiveMVPTests {
             ActivityDeleteSuccessPresentation.explorePathByRemovingActivity(explore, activityID: remove)
                 == [.siteDetail(keep), .diveDetail(keep)]
         )
-        let search: [GlobalSearchPresentation.Destination] = [.dive(remove), .buddy(keep)]
+        let search: [GlobalSearchPresentation.Destination] = [
+            .dive(remove),
+            .snorkel(remove),
+            .snorkel(keep),
+            .buddy(keep),
+        ]
         #expect(
             ActivityDeleteSuccessPresentation.searchPathByRemovingActivity(search, activityID: remove)
-                == [.buddy(keep)]
+                == [.snorkel(keep), .buddy(keep)]
         )
     }
 
@@ -7949,6 +7954,24 @@ struct GoDiveMVPTests {
         #expect(DiveNotesValidation.maxCharacterCount == 2_500)
     }
 
+    @Test func activityNotesPresentation_displayValue_emptyPlaceholderAndTrim() {
+        #expect(ActivityNotesPresentation.displayValue(notes: nil) == "—")
+        #expect(ActivityNotesPresentation.displayValue(notes: "   ") == "—")
+        #expect(ActivityNotesPresentation.displayValue(notes: "  Saw a turtle  ") == "Saw a turtle")
+        #expect(!ActivityNotesPresentation.hasContent(notes: nil))
+        #expect(ActivityNotesPresentation.hasContent(notes: "Reef"))
+    }
+
+    @Test func activityNotesPresentation_sanitizedPersistMatchesDiveCap() {
+        let blank = GoDiveInputSanitization.sanitizedNotes("  \n\t  ")
+        #expect(blank == nil)
+
+        let long = String(repeating: "n", count: DiveNotesValidation.maxCharacterCount + 40)
+        let capped = GoDiveInputSanitization.sanitizedNotes(long)
+        #expect(capped?.count == DiveNotesValidation.maxCharacterCount)
+        #expect(DiveNotesValidation.cappedNotes(long).count == DiveNotesValidation.maxCharacterCount)
+    }
+
     @Test func catalogCDNClient_buildsManifestURL() {
         let base = URL(string: "https://example.web.app")!
         #expect(
@@ -15127,6 +15150,95 @@ struct GoDiveMVPTests {
         #expect(DiveActivityOverviewTabSelection.overviewDetent(whenSelectingSnorkel: .map) == .large)
         #expect(DiveActivityOverviewTabSelection.overviewDetent(whenSelectingSnorkel: .heartRate) == .large)
         #expect(DiveActivityOverviewTabSelection.overviewDetent(whenSelectingSnorkel: .camera) == .large)
+    }
+
+    @Test func diveActivityOverviewTabPager_swipeAdvancesDiveAndSnorkelTabs() {
+        let threshold = DiveActivityOverviewTabPagerPresentation.swipeAdvanceThreshold
+        #expect(
+            DiveActivityOverviewTabPagerPresentation.diveTabAfterHorizontalSwipe(
+                from: .map,
+                translationWidth: -threshold
+            ) == .tank
+        )
+        #expect(
+            DiveActivityOverviewTabPagerPresentation.diveTabAfterHorizontalSwipe(
+                from: .tank,
+                translationWidth: -threshold
+            ) == .camera
+        )
+        #expect(
+            DiveActivityOverviewTabPagerPresentation.diveTabAfterHorizontalSwipe(
+                from: .camera,
+                translationWidth: threshold
+            ) == .tank
+        )
+        #expect(
+            DiveActivityOverviewTabPagerPresentation.diveTabAfterHorizontalSwipe(
+                from: .map,
+                translationWidth: threshold
+            ) == nil
+        )
+        #expect(
+            DiveActivityOverviewTabPagerPresentation.diveTabAfterHorizontalSwipe(
+                from: .camera,
+                translationWidth: -threshold
+            ) == nil
+        )
+        #expect(
+            DiveActivityOverviewTabPagerPresentation.snorkelTabAfterHorizontalSwipe(
+                from: .map,
+                translationWidth: -threshold
+            ) == .heartRate
+        )
+        #expect(
+            DiveActivityOverviewTabPagerPresentation.snorkelTabAfterHorizontalSwipe(
+                from: .heartRate,
+                translationWidth: -threshold
+            ) == .camera
+        )
+        #expect(
+            DiveActivityOverviewTabPagerPresentation.snorkelTabAfterHorizontalSwipe(
+                from: .camera,
+                translationWidth: threshold
+            ) == .heartRate
+        )
+        #expect(
+            DiveActivityOverviewTabPagerPresentation.snorkelTabAfterHorizontalSwipe(
+                from: .map,
+                translationWidth: -(threshold - 1)
+            ) == nil
+        )
+    }
+
+    @Test func diveActivityOverviewTabPager_allowsSwipeOnlyAtLargeRestingDetent() {
+        #expect(
+            DiveActivityOverviewTabPagerPresentation.allowsHorizontalTabSwipe(
+                detent: .large,
+                isGrabberDragging: false
+            )
+        )
+        #expect(
+            !DiveActivityOverviewTabPagerPresentation.allowsHorizontalTabSwipe(
+                detent: .minimized,
+                isGrabberDragging: false
+            )
+        )
+        #expect(
+            !DiveActivityOverviewTabPagerPresentation.allowsHorizontalTabSwipe(
+                detent: .large,
+                isGrabberDragging: true
+            )
+        )
+        #expect(
+            DiveActivityOverviewTabPagerPresentation.isHorizontalSwipeDominant(
+                translation: CGSize(width: 40, height: 10)
+            )
+        )
+        #expect(
+            !DiveActivityOverviewTabPagerPresentation.isHorizontalSwipeDominant(
+                translation: CGSize(width: 10, height: 40)
+            )
+        )
     }
 
     @Test func diveActivityOverviewTabSelection_friendSharedMedia_usesMinimizedDetent() {
@@ -24687,6 +24799,122 @@ struct GoDiveMVPTests {
         #expect(DiveActivityOverviewUIStateStore.snapshot(for: activityID) == nil)
     }
 
+    @Test func diveActivityOverviewUIStateStore_discardSession_blocksPersistUntilSessionActive() {
+        DiveActivityOverviewUIStateStore.resetForTesting()
+        defer { DiveActivityOverviewUIStateStore.resetForTesting() }
+
+        let activityID = UUID()
+        let mediaSnapshot = DiveActivityOverviewUISnapshot(
+            selectedActivityTab: .camera,
+            overviewSheetDetent: .large,
+            isOverviewPanelPresented: true,
+            selectedDiveMediaPhotoID: UUID(),
+            overviewPanelScrollOffsetY: 80
+        )
+        DiveActivityOverviewUIStateStore.save(mediaSnapshot, for: activityID)
+        DiveActivityOverviewUIStateStore.discardDiveSession(activityID: activityID)
+        #expect(DiveActivityOverviewUIStateStore.snapshot(for: activityID) == nil)
+
+        // Pop-to-logbook race: `onDisappear` must not re-save after discard.
+        DiveActivityOverviewUIStateStore.save(mediaSnapshot, for: activityID)
+        #expect(DiveActivityOverviewUIStateStore.snapshot(for: activityID) == nil)
+
+        DiveActivityOverviewUIStateStore.noteDiveSessionActive(activityID: activityID)
+        let mapSnapshot = DiveActivityOverviewUISnapshot(
+            selectedActivityTab: .map,
+            overviewSheetDetent: .large,
+            isOverviewPanelPresented: true,
+            selectedDiveMediaPhotoID: nil,
+            overviewPanelScrollOffsetY: 0
+        )
+        DiveActivityOverviewUIStateStore.save(mapSnapshot, for: activityID)
+        #expect(DiveActivityOverviewUIStateStore.snapshot(for: activityID) == mapSnapshot)
+    }
+
+    @Test func diveActivityOverviewUIStatePresentation_discardWhenActivityLeavesLogbookPath() {
+        DiveActivityOverviewUIStateStore.resetForTesting()
+        defer { DiveActivityOverviewUIStateStore.resetForTesting() }
+
+        let diveID = UUID()
+        let snorkelID = UUID()
+        DiveActivityOverviewUIStateStore.save(
+            DiveActivityOverviewUISnapshot(
+                selectedActivityTab: .camera,
+                overviewSheetDetent: .large,
+                isOverviewPanelPresented: true,
+                selectedDiveMediaPhotoID: nil,
+                overviewPanelScrollOffsetY: 40
+            ),
+            for: diveID
+        )
+        DiveActivityOverviewUIStateStore.saveSnorkel(
+            SnorkelActivityOverviewUISnapshot(
+                selectedActivityTab: .camera,
+                overviewSheetDetent: .large,
+                isOverviewPanelPresented: true,
+                selectedMediaPhotoID: nil,
+                overviewPanelScrollOffsetY: 24
+            ),
+            for: snorkelID
+        )
+
+        let previous: [LogbookRoute] = [
+            .diveDetail(diveID),
+            .snorkelDetail(snorkelID),
+            .diveSite(UUID()),
+        ]
+        let current: [LogbookRoute] = [.diveSite(UUID())]
+        DiveActivityOverviewUIStatePresentation.discardSessionsLeavingStack(
+            previousDiveIDs: DiveActivityOverviewUIStatePresentation.diveActivityIDs(
+                inLogbookPath: previous
+            ),
+            currentDiveIDs: DiveActivityOverviewUIStatePresentation.diveActivityIDs(
+                inLogbookPath: current
+            ),
+            previousSnorkelIDs: DiveActivityOverviewUIStatePresentation.snorkelActivityIDs(
+                inLogbookPath: previous
+            ),
+            currentSnorkelIDs: DiveActivityOverviewUIStatePresentation.snorkelActivityIDs(
+                inLogbookPath: current
+            )
+        )
+        #expect(DiveActivityOverviewUIStateStore.snapshot(for: diveID) == nil)
+        #expect(DiveActivityOverviewUIStateStore.snorkelSnapshot(for: snorkelID) == nil)
+    }
+
+    @Test func diveActivityOverviewUIStatePresentation_keepsSnapshotWhenNestedSiteStaysOnPath() {
+        DiveActivityOverviewUIStateStore.resetForTesting()
+        defer { DiveActivityOverviewUIStateStore.resetForTesting() }
+
+        let diveID = UUID()
+        let snapshot = DiveActivityOverviewUISnapshot(
+            selectedActivityTab: .camera,
+            overviewSheetDetent: .large,
+            isOverviewPanelPresented: true,
+            selectedDiveMediaPhotoID: nil,
+            overviewPanelScrollOffsetY: 60
+        )
+        DiveActivityOverviewUIStateStore.save(snapshot, for: diveID)
+
+        let previous: [LogbookRoute] = [.diveDetail(diveID)]
+        let current: [LogbookRoute] = [.diveDetail(diveID), .diveSite(UUID())]
+        DiveActivityOverviewUIStatePresentation.discardSessionsLeavingStack(
+            previousDiveIDs: DiveActivityOverviewUIStatePresentation.diveActivityIDs(
+                inLogbookPath: previous
+            ),
+            currentDiveIDs: DiveActivityOverviewUIStatePresentation.diveActivityIDs(
+                inLogbookPath: current
+            )
+        )
+        #expect(DiveActivityOverviewUIStateStore.snapshot(for: diveID) == snapshot)
+        #expect(
+            DiveActivityOverviewUIStatePresentation.activityIDsLeavingStack(
+                previous: [diveID],
+                current: [diveID]
+            ).isEmpty
+        )
+    }
+
     @Test func diveActivityOverviewScrollRestoration_effectiveOffsetUsesFallbackWhenBindingCleared() {
         #expect(
             DiveActivityOverviewScrollRestoration.effectiveScrollOffsetForRestoration(
@@ -24776,6 +25004,29 @@ struct GoDiveMVPTests {
         #expect(DiveActivityOverviewUIStateStore.snorkelSnapshot(for: activityID) == nil)
     }
 
+    @Test @MainActor func snorkelActivityOverviewUIStateStore_discardSession_blocksPersistUntilSessionActive() {
+        DiveActivityOverviewUIStateStore.resetForTesting()
+        defer { DiveActivityOverviewUIStateStore.resetForTesting() }
+
+        let activityID = UUID()
+        let mediaSnapshot = SnorkelActivityOverviewUISnapshot(
+            selectedActivityTab: .camera,
+            overviewSheetDetent: .large,
+            isOverviewPanelPresented: true,
+            selectedMediaPhotoID: UUID(),
+            overviewPanelScrollOffsetY: 48
+        )
+        DiveActivityOverviewUIStateStore.saveSnorkel(mediaSnapshot, for: activityID)
+        DiveActivityOverviewUIStateStore.discardSnorkelSession(activityID: activityID)
+        #expect(DiveActivityOverviewUIStateStore.snorkelSnapshot(for: activityID) == nil)
+        DiveActivityOverviewUIStateStore.saveSnorkel(mediaSnapshot, for: activityID)
+        #expect(DiveActivityOverviewUIStateStore.snorkelSnapshot(for: activityID) == nil)
+
+        DiveActivityOverviewUIStateStore.noteSnorkelSessionActive(activityID: activityID)
+        DiveActivityOverviewUIStateStore.saveSnorkel(mediaSnapshot, for: activityID)
+        #expect(DiveActivityOverviewUIStateStore.snorkelSnapshot(for: activityID) == mediaSnapshot)
+    }
+
     @Test @MainActor
     func headerChromeIconForeground_alignsWithProfileAvatarRingAndBackButton() {
         // Adaptive `Color` wrappers are distinct instances; compare resolved UIColors.
@@ -24803,6 +25054,7 @@ struct GoDiveMVPTests {
                     searchHaystack: "salt pier #12 salt pier"
                 ),
             ],
+            snorkels: [],
             diveSites: [
                 GlobalSearchPresentation.DiveSiteIndexEntry(
                     title: "Salt Pier",
@@ -24919,6 +25171,7 @@ struct GoDiveMVPTests {
         let searchResults = GlobalSearchPresentation.search(
             catalog: GlobalSearchPresentation.Catalog(
                 dives: [],
+                snorkels: [],
                 diveSites: entries,
                 species: [],
                 buddies: [],
@@ -24945,6 +25198,7 @@ struct GoDiveMVPTests {
         let baseline = GlobalSearchCatalogWarming.fingerprint(
             ownerProfileID: ownerA,
             dives: [],
+            snorkels: [],
             diveSites: [],
             speciesCatalog: [],
             buddies: [],
@@ -24953,11 +25207,12 @@ struct GoDiveMVPTests {
             equipment: [],
             certifications: []
         )
-        #expect(baseline == "\(ownerA.uuidString)|0|0|0|0|0|0|0|0")
+        #expect(baseline == "\(ownerA.uuidString)|0|0|0|0|0|0|0|0|0")
         // No owner falls back to a stable sentinel rather than empty.
         let noOwner = GlobalSearchCatalogWarming.fingerprint(
             ownerProfileID: nil,
             dives: [],
+            snorkels: [],
             diveSites: [],
             speciesCatalog: [],
             buddies: [],
@@ -24966,11 +25221,12 @@ struct GoDiveMVPTests {
             equipment: [],
             certifications: []
         )
-        #expect(noOwner == "none|0|0|0|0|0|0|0|0")
+        #expect(noOwner == "none|0|0|0|0|0|0|0|0|0")
         // A different owner changes the cache key so warmed catalogs never leak across profiles.
         #expect(baseline != GlobalSearchCatalogWarming.fingerprint(
             ownerProfileID: ownerB,
             dives: [],
+            snorkels: [],
             diveSites: [],
             speciesCatalog: [],
             buddies: [],
@@ -24992,6 +25248,7 @@ struct GoDiveMVPTests {
             store: store,
             ownerProfileID: ownerID,
             dives: [],
+            snorkels: [],
             diveSites: [],
             speciesCatalog: [],
             buddies: [],
@@ -25011,6 +25268,7 @@ struct GoDiveMVPTests {
             store: store,
             ownerProfileID: ownerID,
             dives: [],
+            snorkels: [],
             diveSites: [],
             speciesCatalog: [],
             buddies: [],
@@ -25179,6 +25437,7 @@ struct GoDiveMVPTests {
             hits: [hit],
             ownerProfileID: nil,
             ownerDives: [],
+            ownerSnorkels: [],
             diveSites: [],
             speciesCatalog: [],
             ownerDiveBuddies: [],
@@ -25216,6 +25475,7 @@ struct GoDiveMVPTests {
             hits: [hit],
             ownerProfileID: UUID(),
             ownerDives: [],
+            ownerSnorkels: [],
             diveSites: [],
             speciesCatalog: [],
             ownerDiveBuddies: [],
@@ -25237,6 +25497,7 @@ struct GoDiveMVPTests {
     @Test func globalSearchPresentation_emptyQueryReturnsNoSections() {
         let catalog = GlobalSearchPresentation.Catalog(
             dives: [],
+            snorkels: [],
             diveSites: [],
             species: [],
             buddies: [],
@@ -25259,6 +25520,7 @@ struct GoDiveMVPTests {
                     searchHaystack: "salt pier"
                 ),
             ],
+            snorkels: [],
             diveSites: [
                 GlobalSearchPresentation.DiveSiteIndexEntry(
                     title: "Salt Pier",
@@ -25309,6 +25571,7 @@ struct GoDiveMVPTests {
                     searchHaystack: "hilma hooker"
                 ),
             ],
+            snorkels: [],
             diveSites: [],
             species: [],
             buddies: [],
@@ -25339,6 +25602,7 @@ struct GoDiveMVPTests {
         }
         let catalog = GlobalSearchPresentation.Catalog(
             dives: matchingDives,
+            snorkels: [],
             diveSites: [
                 GlobalSearchPresentation.DiveSiteIndexEntry(
                     title: "Reef Wall",
@@ -25697,9 +25961,10 @@ struct GoDiveMVPTests {
 
     @Test func globalSearchPresentation_contextTokens_coverMainConceptsInOrder() {
         let tokens = GlobalSearchPresentation.ContextToken.allCases
-        #expect(tokens.count == 9)
+        #expect(tokens.count == 10)
         #expect(tokens.map(\.title) == [
             "Dives",
+            "Snorkels",
             "Buddies",
             "Sites",
             "Marine life",
@@ -25711,6 +25976,7 @@ struct GoDiveMVPTests {
         ])
         #expect(tokens.map(\.accessibilityIdentifier) == [
             "GlobalSearch.ContextToken.dives",
+            "GlobalSearch.ContextToken.snorkels",
             "GlobalSearch.ContextToken.buddies",
             "GlobalSearch.ContextToken.sites",
             "GlobalSearch.ContextToken.marineLife",
@@ -25724,11 +25990,64 @@ struct GoDiveMVPTests {
 
     @Test func globalSearchPresentation_contextTokens_useFieldGuideAccentCategories() {
         let accentIDs = GlobalSearchPresentation.ContextToken.allCases.map(\.fieldGuideAccentCategoryID)
-        #expect(accentIDs.count == 9)
+        #expect(accentIDs.count == 10)
         #expect(accentIDs.contains("fishes"))
         #expect(accentIDs.contains("marine_mammals"))
+        #expect(accentIDs.contains("reptiles"))
         #expect(accentIDs.contains("corals"))
         #expect(Set(accentIDs).count >= 6)
+    }
+
+    @Test func globalSearchPresentation_contextTokenScopesSnorkelsBrowseResultsWithoutQuery() {
+        let snorkelID = UUID()
+        let catalog = GlobalSearchPresentation.Catalog(
+            dives: [
+                GlobalSearchPresentation.DiveIndexEntry(
+                    id: UUID(),
+                    title: "Salt Pier #12",
+                    subtitle: "Salt Pier",
+                    searchHaystack: "salt pier"
+                ),
+            ],
+            snorkels: [
+                GlobalSearchPresentation.DiveIndexEntry(
+                    id: snorkelID,
+                    title: "Blue Bay snorkel",
+                    subtitle: "Blue Bay",
+                    searchHaystack: "blue bay snorkel"
+                ),
+            ],
+            diveSites: [],
+            species: [],
+            buddies: [],
+            tags: [],
+            trips: [],
+            equipment: [],
+            certifications: []
+        )
+
+        let snorkelOnly = GlobalSearchPresentation.search(
+            catalog: catalog,
+            query: "",
+            contextTokens: [.snorkels]
+        )
+        #expect(snorkelOnly.sections.count == 1)
+        #expect(snorkelOnly.sections.first?.kind == .snorkels)
+        #expect(snorkelOnly.sections.first?.hits.count == 1)
+        #expect(snorkelOnly.sections.first?.hits.first?.title == "Blue Bay snorkel")
+        if case .snorkel(let id) = snorkelOnly.sections.first?.hits.first?.destination {
+            #expect(id == snorkelID)
+        } else {
+            Issue.record("Expected snorkel destination")
+        }
+
+        let filtered = GlobalSearchPresentation.search(
+            catalog: catalog,
+            query: "blue",
+            contextTokens: [.snorkels]
+        )
+        #expect(filtered.sections.first?.hits.count == 1)
+        #expect(filtered.sections.first?.hits.first?.title == "Blue Bay snorkel")
     }
 
     @Test func globalSearchPresentation_resultSections_followDisplayPriorityOrder() {
@@ -25742,6 +26061,7 @@ struct GoDiveMVPTests {
                     searchHaystack: "blue hole dive"
                 ),
             ],
+            snorkels: [],
             diveSites: [
                 GlobalSearchPresentation.DiveSiteIndexEntry(
                     title: "Blue Hole",
@@ -25855,6 +26175,7 @@ struct GoDiveMVPTests {
                     searchHaystack: "blue hole morning dive reef"
                 ),
             ],
+            snorkels: [],
             diveSites: [],
             species: [],
             buddies: [],
@@ -26078,6 +26399,8 @@ struct GoDiveMVPTests {
         #expect(GlobalSearchPresentation.ContextToken.buddies.scopedResultsCountTitle(1) == "1 Buddy")
         #expect(GlobalSearchPresentation.ContextToken.dives.scopedResultsCountTitle(0) == "0 Dives")
         #expect(GlobalSearchPresentation.ContextToken.dives.scopedResultsCountTitle(1) == "1 Dive")
+        #expect(GlobalSearchPresentation.ContextToken.snorkels.scopedResultsCountTitle(0) == "0 Snorkels")
+        #expect(GlobalSearchPresentation.ContextToken.snorkels.scopedResultsCountTitle(1) == "1 Snorkel")
         #expect(GlobalSearchPresentation.ContextToken.sites.scopedResultsCountTitle(3) == "3 Sites")
         #expect(GlobalSearchPresentation.ContextToken.trips.scopedResultsCountTitle(1) == "1 Trip")
         #expect(GlobalSearchPresentation.ContextToken.tags.scopedResultsCountTitle(5) == "5 Tags")
@@ -30439,14 +30762,95 @@ struct CrashReportingTests {
         #expect(padding.bottom == 8)
     }
 
-    @Test func snorkelHeartRateOverviewHeroPresentation_chartContentInsets_accountsForObstructions() {
-        let insets = SnorkelHeartRateOverviewHeroPresentation.chartContentInsets(
-            topObstructionHeight: 100,
-            bottomContentMargin: 200
+    @Test func snorkelHeartRateOverviewHeroPresentation_chartFrame_isEdgeToEdgeAboveSheetSeam() {
+        let layoutSize = CGSize(width: 390, height: 844)
+        let layoutHeight: CGFloat = 844
+        let topObstruction: CGFloat = 100
+        let bottomMargin: CGFloat = 200
+        let frame = SnorkelHeartRateOverviewHeroPresentation.chartFrame(
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstruction,
+            bottomContentMargin: bottomMargin,
+            sheetDetent: .large,
+            isLandscape: false
         )
-        #expect(insets.top == 108)
-        #expect(insets.horizontal == 16)
-        #expect(insets.bottom == 216)
+        let tankFrame = DiveTankOverviewHeroPresentation.minimizedProfileChartFrame(
+            layoutSize: layoutSize,
+            layoutHeight: layoutHeight,
+            topObstructionHeight: topObstruction,
+            bottomContentMargin: bottomMargin,
+            isLandscape: false,
+            detent: .large
+        )
+        #expect(frame == tankFrame)
+        #expect(frame.minX == 0)
+        #expect(frame.width == layoutSize.width)
+        #expect(frame.maxY >= layoutHeight - bottomMargin)
+    }
+
+    @Test func snorkelHeartRateProfileChartPresentation_scrubLabels_matchDepthTimeAndBPM() {
+        #expect(
+            SnorkelHeartRateProfileChartPresentation.scrubTimeLabel(elapsedSeconds: 150)
+                == "Time 2.5 min"
+        )
+        #expect(
+            SnorkelHeartRateProfileChartPresentation.scrubHeartRateLabel(bpm: 128)
+                == "128 bpm"
+        )
+    }
+
+    @Test func snorkelHeartRateProfileChartPresentation_underCurveAreaPath_closesBelowPolyline() {
+        let samples = [
+            SnorkelHeartRateProfileSample(elapsedSeconds: 0, heartRateBPM: 90),
+            SnorkelHeartRateProfileSample(elapsedSeconds: 60, heartRateBPM: 120),
+            SnorkelHeartRateProfileSample(elapsedSeconds: 120, heartRateBPM: 100),
+        ]
+        let rect = CGRect(x: 0, y: 0, width: 200, height: 100)
+        let maxElapsed = SnorkelHeartRateProfileChartPresentation.chartMaxElapsed(samples: samples)
+        let maxBPM = SnorkelHeartRateProfileChartPresentation.chartMaxBPM(samples: samples)
+        let path = SnorkelHeartRateProfileChartPresentation.underCurveAreaPath(
+            samples: samples,
+            in: rect,
+            maxElapsed: maxElapsed,
+            maxBPM: maxBPM
+        )
+        #expect(!path.isEmpty)
+        let bounds = path.boundingRect
+        #expect(abs(bounds.maxY - rect.maxY) < 0.5)
+        #expect(bounds.minY < rect.maxY - 1)
+    }
+
+    @Test func snorkelHeartRateProfileChartPresentation_indexNearestElapsed_picksClosestSample() {
+        let samples = [
+            SnorkelHeartRateProfileSample(elapsedSeconds: 0, heartRateBPM: 80),
+            SnorkelHeartRateProfileSample(elapsedSeconds: 30, heartRateBPM: 100),
+            SnorkelHeartRateProfileSample(elapsedSeconds: 90, heartRateBPM: 110),
+        ]
+        #expect(
+            SnorkelHeartRateProfileChartPresentation.indexNearestElapsed(
+                samples: samples,
+                targetElapsed: 28
+            ) == 1
+        )
+        #expect(
+            SnorkelHeartRateProfileChartPresentation.indexNearestElapsed(
+                samples: samples,
+                targetElapsed: 80
+            ) == 2
+        )
+    }
+
+    @Test func snorkelHeartRateProfileChartPresentation_scrubCalloutPosition_staysInsidePlot() {
+        let rect = CGRect(x: 0, y: 0, width: 300, height: 200)
+        let nearEdge = CGPoint(x: 4, y: 10)
+        let position = SnorkelHeartRateProfileChartPresentation.scrubCalloutPosition(
+            point: nearEdge,
+            in: rect
+        )
+        #expect(position.x >= 58)
+        #expect(position.y >= 34)
+        #expect(position.x <= rect.maxX - 58)
     }
 
     @Test @MainActor func snorkelDuplicateMatcher_blocksSameSourceActivityId() {

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Unified app-wide search — indexes dives, sites, species, people, trips, gear, and certs.
+/// Unified app-wide search — indexes dives, snorkels, sites, species, people, trips, gear, and certs.
 enum GlobalSearchPresentation: Sendable {
 
     nonisolated static let searchPrompt = "Search GoDive"
@@ -30,6 +30,7 @@ enum GlobalSearchPresentation: Sendable {
     /// Search scope chips shown on the idle search page before the user types or selects a token.
     enum ContextToken: String, Sendable, CaseIterable, Identifiable {
         case dives
+        case snorkels
         case buddies
         case sites
         case marineLife
@@ -44,6 +45,7 @@ enum GlobalSearchPresentation: Sendable {
         nonisolated var title: String {
             switch self {
             case .dives: return "Dives"
+            case .snorkels: return "Snorkels"
             case .buddies: return "Buddies"
             case .sites: return "Sites"
             case .marineLife: return "Marine life"
@@ -59,6 +61,7 @@ enum GlobalSearchPresentation: Sendable {
         nonisolated var scopedCountNoun: (singular: String, plural: String) {
             switch self {
             case .dives: return ("Dive", "Dives")
+            case .snorkels: return ("Snorkel", "Snorkels")
             case .buddies: return ("Buddy", "Buddies")
             case .sites: return ("Site", "Sites")
             case .marineLife: return ("Species", "Species")
@@ -80,6 +83,7 @@ enum GlobalSearchPresentation: Sendable {
         nonisolated var systemImage: String {
             switch self {
             case .dives: return "water.waves"
+            case .snorkels: return LogbookActivityRowPresentation.snorkelLeadingSymbolName
             case .buddies: return "person.2.fill"
             case .sites: return "mappin.and.ellipse"
             case .marineLife: return "leaf.fill"
@@ -98,6 +102,7 @@ enum GlobalSearchPresentation: Sendable {
         nonisolated var sectionKind: SectionKind {
             switch self {
             case .dives: return .dives
+            case .snorkels: return .snorkels
             case .buddies: return .buddies
             case .sites: return .diveSites
             case .marineLife: return .species
@@ -113,6 +118,7 @@ enum GlobalSearchPresentation: Sendable {
         nonisolated var fieldGuideAccentCategoryID: String {
             switch self {
             case .dives: return "marine_mammals"
+            case .snorkels: return "reptiles"
             case .buddies: return "corals"
             case .sites: return "plants"
             case .marineLife: return "fishes"
@@ -254,6 +260,7 @@ enum GlobalSearchPresentation: Sendable {
 
     enum SectionKind: String, Sendable, CaseIterable, Identifiable {
         case dives
+        case snorkels
         case diveSites
         case species
         case buddies
@@ -280,11 +287,13 @@ enum GlobalSearchPresentation: Sendable {
             .equipment,
             .certifications,
             .dives,
+            .snorkels,
         ]
 
         nonisolated var title: String {
             switch self {
             case .dives: return "Dives"
+            case .snorkels: return "Snorkels"
             case .diveSites: return "Dive sites"
             case .species: return "Marine life"
             case .buddies: return "Buddies"
@@ -299,6 +308,7 @@ enum GlobalSearchPresentation: Sendable {
 
     enum Destination: Hashable, Sendable {
         case dive(UUID)
+        case snorkel(UUID)
         case diveSite(UUID)
         case referenceSite(String)
         case species(String)
@@ -423,6 +433,7 @@ enum GlobalSearchPresentation: Sendable {
 
     struct Catalog: Sendable {
         let dives: [DiveIndexEntry]
+        let snorkels: [DiveIndexEntry]
         let diveSites: [DiveSiteIndexEntry]
         let species: [SpeciesIndexEntry]
         let buddies: [BuddyIndexEntry]
@@ -510,6 +521,26 @@ enum GlobalSearchPresentation: Sendable {
                         systemImage: "water.waves",
                         destination: .dive(entry.id),
                         accessibilityIdentifier: "GlobalSearch.Hit.Dive.\(entry.id.uuidString)",
+                        matchReasons: appliesTextFilter
+                            ? GlobalSearchMatchReasoning.reasons(query: query, fields: entry.matchFields)
+                            : []
+                    )
+                }
+        case .snorkels:
+            return catalog.snorkels
+                .filter { entry in
+                    !appliesTextFilter
+                        || CatalogSubstringSearch.matches(in: entry.searchHaystack, query: query)
+                }
+                .prefix(maxHits)
+                .map { entry in
+                    Hit(
+                        id: "snorkel-\(entry.id.uuidString)",
+                        title: entry.title,
+                        subtitle: entry.subtitle,
+                        systemImage: LogbookActivityRowPresentation.snorkelLeadingSymbolName,
+                        destination: .snorkel(entry.id),
+                        accessibilityIdentifier: "GlobalSearch.Hit.Snorkel.\(entry.id.uuidString)",
                         matchReasons: appliesTextFilter
                             ? GlobalSearchMatchReasoning.reasons(query: query, fields: entry.matchFields)
                             : []
@@ -842,6 +873,7 @@ enum GlobalSearchCatalogSeeding {
     @MainActor
     static func catalog(
         dives: [DiveActivity],
+        snorkels: [SnorkelActivity],
         diveSites: [DiveSite],
         speciesCatalog: [MarineLife],
         buddies: [DiveBuddy],
@@ -852,6 +884,7 @@ enum GlobalSearchCatalogSeeding {
         unitSystem: DiveDisplayUnitSystem
     ) -> GlobalSearchPresentation.Catalog {
         let divesByID = Dictionary(dives.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let snorkelsByID = Dictionary(snorkels.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let diveSpeciesNameByUUID = Dictionary(
             speciesCatalog.map { ($0.uuid, $0.commonName) },
             uniquingKeysWith: { first, _ in first }
@@ -883,11 +916,33 @@ enum GlobalSearchCatalogSeeding {
             )
         }
 
-        let ownerProfileID = dives.first?.ownerProfileID ?? buddies.first?.ownerProfileID
+        let snorkelEntries = LogbookActivitySnapshotSeeding.snorkelSeeds(from: snorkels).map { seed in
+            let matchFields = snorkelMatchFields(
+                seed: seed,
+                activity: snorkelsByID[seed.id],
+                speciesNameByUUID: diveSpeciesNameByUUID,
+                monthSymbols: diveIndexMonthSymbols
+            )
+            let haystack = CatalogSearchPresentation.joinedLowercasedHaystacks(
+                [seed.displayName, seed.resolvedSiteNameLowercased ?? ""] + matchFields.map(\.value)
+            )
+            return GlobalSearchPresentation.DiveIndexEntry(
+                id: seed.id,
+                title: seed.displayName,
+                subtitle: seed.resolvedSiteNameLowercased?.capitalized,
+                searchHaystack: haystack,
+                matchFields: matchFields
+            )
+        }
+
+        let ownerProfileID = dives.first?.ownerProfileID
+            ?? snorkels.first?.ownerProfileID
+            ?? buddies.first?.ownerProfileID
         let siteEntries = GlobalSearchSiteIndexSeeding.entries(
             diveSites: diveSites,
             ownerActivities: dives,
-            ownerProfileID: ownerProfileID
+            ownerProfileID: ownerProfileID,
+            additionalLogbookSiteIDs: Set(snorkels.compactMap(\.diveSiteID))
         )
 
         let speciesEntries = speciesCatalog.map { species in
@@ -968,6 +1023,7 @@ enum GlobalSearchCatalogSeeding {
         _ = unitSystem
         return GlobalSearchPresentation.Catalog(
             dives: diveEntries,
+            snorkels: snorkelEntries,
             diveSites: siteEntries,
             species: speciesEntries,
             buddies: buddyEntries,
@@ -1038,11 +1094,68 @@ enum GlobalSearchCatalogSeeding {
         return fields
     }
 
+    /// Labeled searchable fields for one snorkel — mirrors dive indexing for buddies, marine life,
+    /// site place terms, month/year, and notes (snorkels have no dive # / trip / activity-tag links today).
+    @MainActor
+    private static func snorkelMatchFields(
+        seed: LogbookActivitySnapshotSeed,
+        activity: SnorkelActivity?,
+        speciesNameByUUID: [String: String],
+        monthSymbols: [String]
+    ) -> [GlobalSearchPresentation.SearchField] {
+        var fields: [GlobalSearchPresentation.SearchField] = []
+
+        for buddy in seed.buddyDisplayNames {
+            fields.append(.init(label: "Buddy", value: buddy))
+        }
+        if let activity {
+            for name in snorkelSightingCommonNames(for: activity, speciesNameByUUID: speciesNameByUUID) {
+                fields.append(.init(label: "Marine life", value: name))
+            }
+        }
+        if let site = activity?.resolvedLinkedSite {
+            let countryTerms = DiveSiteCountryPresentation.searchTerms(for: site.country)
+            if !countryTerms.isEmpty {
+                let canonical = DiveSiteCountryPresentation.canonicalDisplayName(for: site.country)
+                fields.append(.init(
+                    label: "Country",
+                    value: countryTerms.joined(separator: " "),
+                    display: canonical
+                ))
+            }
+            let region = site.region.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !region.isEmpty {
+                fields.append(.init(label: "Region", value: region))
+            }
+        }
+        if let month = GlobalSearchDiveIndexing.monthName(for: seed.startTime, monthSymbols: monthSymbols) {
+            fields.append(.init(label: "Snorkel month", value: month))
+        }
+        if let year = GlobalSearchDiveIndexing.yearString(for: seed.startTime) {
+            fields.append(.init(label: "Snorkel year", value: year))
+        }
+        if let notes = activity?.notes?.trimmingCharacters(in: .whitespacesAndNewlines), !notes.isEmpty {
+            fields.append(.init(label: "Notes", value: notes, isSnippet: true))
+        }
+
+        return fields
+    }
+
     /// Common names of species tagged on this dive; prefers the linked catalog row, else resolves the
     /// denormalized `marineLifeUUID` against the loaded species catalog.
     @MainActor
     private static func diveSightingCommonNames(
         for activity: DiveActivity,
+        speciesNameByUUID: [String: String]
+    ) -> [String] {
+        activity.marineLifeSightings.compactMap { sighting in
+            speciesNameByUUID[sighting.marineLifeUUID]
+        }
+    }
+
+    @MainActor
+    private static func snorkelSightingCommonNames(
+        for activity: SnorkelActivity,
         speciesNameByUUID: [String: String]
     ) -> [String] {
         activity.marineLifeSightings.compactMap { sighting in
@@ -1074,13 +1187,15 @@ enum GlobalSearchSiteIndexSeeding: Sendable {
         diveSites: [DiveSite],
         ownerActivities: [DiveActivity],
         ownerProfileID: UUID?,
+        additionalLogbookSiteIDs: Set<UUID> = [],
         reference: [DiveSiteReferenceSnapshot] = DiveSiteReferenceCatalog.bundledReference()
     ) -> [GlobalSearchPresentation.DiveSiteIndexEntry] {
         let catalogByReferenceID = ExploreSiteScopePresentation.catalogSiteByOpenDiveMapID(diveSites)
-        let logbookSiteIDs = ExploreSiteScopePresentation.logbookSiteIDs(
+        var logbookSiteIDs = ExploreSiteScopePresentation.logbookSiteIDs(
             ownerActivities: ownerActivities,
             ownerProfileID: ownerProfileID
         )
+        logbookSiteIDs.formUnion(additionalLogbookSiteIDs)
         var entries: [GlobalSearchPresentation.DiveSiteIndexEntry] = []
         var indexedCatalogIDs = Set<UUID>()
 

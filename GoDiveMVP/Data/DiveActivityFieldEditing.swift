@@ -78,7 +78,7 @@ enum DiveActivityFieldEditing {
                 system: displayUnits
             )
         case .notes:
-            return trimmed(activity.notes) ?? "—"
+            return ActivityNotesPresentation.displayValue(notes: activity.notes)
         case .buddies:
             if activity.buddies.isEmpty { return "—" }
             return activity.buddies.map(\.displayName).joined(separator: ", ")

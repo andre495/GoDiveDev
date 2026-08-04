@@ -118,22 +118,17 @@ struct DiveActivityVideoPlayerView: View {
         }
         .onChange(of: isPlaybackActive) { wasActive, isActive in
             if isActive {
-                if !wasActive {
-                    playbackActivationGeneration += 1
-                }
+                // Resume via representable `configure` — do not bump identity / clear the item.
+                // Remounting after pause rebinds a stopped `AVPlayerItem` and freezes looping heroes.
                 if playerItem != nil {
                     isPlayerDisplayReady = true
-                } else if source != nil, loadFailed {
+                } else if source != nil, wasActive == false || loadFailed {
                     reloadToken += 1
                 }
                 scheduleFullQualityUpgradeIfNeeded()
             } else {
                 cancelFullQualityUpgrade()
-                if !reusesSessionPlayerAcrossRemounts {
-                    playerItem = nil
-                    resolvedKey = nil
-                    isPlayerDisplayReady = false
-                }
+                // Pause only — clearing `playerItem` here forced poster-only freezes on re-activation.
             }
         }
         .onChange(of: isPausedByUserHold) { _, _ in

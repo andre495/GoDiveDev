@@ -9,10 +9,8 @@ enum ActivityFriendSharePresentation: Sendable {
     static let shareMediaInfo = "Choose which photos and videos from this activity are visible to buddies."
     static let selectMediaTitle = "Choose shared media"
 
-    static let shareNotesTitle = "Share notes with buddies"
-    static let shareNotesInfo = "Share your private activity notes, a separate public note for buddies, or keep notes off this activity."
-
-    static let publicNotesPlaceholder = "Write a note for buddies…"
+    static let shareNotesTitle = "Share private notes with buddies"
+    static let shareNotesInfo = "When on, your private activity notes are included for buddies on this activity. Off keeps notes private."
 
     static let globalSharingOffMessage = "Buddy sharing is off in Settings, so nothing is published until you turn on Share activities with buddies. Per-activity choices are saved and apply when sharing is enabled."
 
@@ -24,7 +22,7 @@ enum ActivityFriendSharePresentation: Sendable {
     static let statusUploadBannerLabel = "Upload in progress…"
     static let statusActivityRowTitle = "Activity"
     static let statusMediaRowTitle = "Media"
-    static let statusNotesRowTitle = "Notes"
+    static let statusNotesRowTitle = "Private Notes"
     static let statusSharedLabel = "Shared"
     static let statusUploadingLabel = "Uploading"
     static let statusOffLabel = "Off"

@@ -90,8 +90,9 @@ struct ViewSingleActivity: View {
     /// Guards redundant focus application within a single appear cycle when media is already loaded.
     @State private var didApplyInitialMediaFocus = false
     @State private var showsFriendShareSettings = false
-    /// Local-first publish checkpoint banner (Strava-style) — seeded from the model flag on appear.
+    /// Local-first publish checkpoint banner — pending + friends + global share (detent gated in overlay).
     @State private var showsPublishCheckpointBanner = false
+    @State private var hasFriendsInNetwork = false
 
     /// **More** tab: profile samples sorted by time (read-only).
     private var moreTabSortedProfilePoints: [DiveProfilePoint] {
@@ -164,10 +165,15 @@ struct ViewSingleActivity: View {
                 invalidateDiveOverviewVideoPlaybackCache()
             }
             .onChange(of: showsFriendShareSettings) { _, isPresented in
-                // Activity Settings save resolves the checkpoint — refresh on sheet dismiss.
-                if !isPresented {
-                    showsPublishCheckpointBanner = ActivityFriendSharePublishCheckpoint.isPending(dive: activity)
+                // Visiting Activity Settings permanently dismisses the publish-checkpoint banner.
+                if isPresented {
+                    dismissPublishCheckpointBannerIfNeeded()
+                } else {
+                    refreshPublishCheckpointBannerVisibility()
                 }
+            }
+            .task(id: activity.id) {
+                await refreshHasFriendsInNetwork()
             }
             .onChange(of: initialMediaFocusID) { _, _ in
                 didApplyInitialMediaFocus = false
@@ -335,6 +341,7 @@ struct ViewSingleActivity: View {
 
     private func handleSingleActivityAppear() {
         DiveMediaScopeCache.shared.activateScope(.diveOverview(activity.id))
+        DiveActivityOverviewUIStateStore.noteDiveSessionActive(activityID: activity.id)
         let restoredFromStore: Bool
         if initialMediaFocusID != nil, !didApplyInitialMediaFocus {
             DiveActivityOverviewUIStateStore.remove(activityID: activity.id)
@@ -355,7 +362,28 @@ struct ViewSingleActivity: View {
         }
         presentMapSitePromptIfNeeded()
         recordDiveOverviewBreadcrumb()
-        showsPublishCheckpointBanner = ActivityFriendSharePublishCheckpoint.isPending(dive: activity)
+        refreshPublishCheckpointBannerVisibility()
+    }
+
+    private func refreshPublishCheckpointBannerVisibility() {
+        showsPublishCheckpointBanner = ActivityFriendSharePublishCheckpoint.isPending(
+            dive: activity,
+            hasFriends: hasFriendsInNetwork
+        )
+    }
+
+    private func dismissPublishCheckpointBannerIfNeeded() {
+        guard showsPublishCheckpointBanner || activity.friendSharePublishCheckpointPending else { return }
+        ActivityFriendSharePublishCheckpoint.dismiss(dive: activity, modelContext: modelContext)
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showsPublishCheckpointBanner = false
+        }
+    }
+
+    @MainActor
+    private func refreshHasFriendsInNetwork() async {
+        hasFriendsInNetwork = await GoDiveFriendGraphService.hasAnyFriends()
+        refreshPublishCheckpointBannerVisibility()
     }
 
     @discardableResult
@@ -959,13 +987,28 @@ struct ViewSingleActivity: View {
                         liveSheetState: overviewLiveSheetState,
                         panelScrollOffsetY: $overviewPanelScrollOffsetY,
                         scrollRestorationFallbackY: overviewScrollRestorationFallbackY,
-                        panelScrollContentIdentity: selectedActivityTab
+                        panelScrollContentIdentity: selectedActivityTab,
+                        onCommittedHorizontalTabSwipe: { translationWidth in
+                            guard let next = DiveActivityOverviewTabPagerPresentation
+                                .diveTabAfterHorizontalSwipe(
+                                    from: selectedActivityTab,
+                                    translationWidth: translationWidth
+                                )
+                            else { return }
+                            selectActivityTab(next)
+                        }
                     )
                     .overlay(alignment: .topTrailing) {
                         tankMinimizedRotatePhoneHintOverlay(isLandscape: isLandscape)
                     }
                     .zIndex(1)
                 }
+
+                publishCheckpointBannerOverlay(
+                    layoutContext: overviewLayoutContext,
+                    isLandscape: isLandscape,
+                    hidesOverviewPanelInLandscape: hidesOverviewPanelInLandscape
+                )
             }
             .overlay(alignment: .top) {
                 if DiveActivityMediaPresentation.showsHeroTopChromeScrim(
@@ -1822,8 +1865,24 @@ struct ViewSingleActivity: View {
     }
 
     @ViewBuilder
-    private var publishCheckpointBannerIfNeeded: some View {
-        if showsPublishCheckpointBanner {
+    private func publishCheckpointBannerOverlay(
+        layoutContext: DiveActivityOverviewSheetLayoutContext,
+        isLandscape: Bool,
+        hidesOverviewPanelInLandscape: Bool
+    ) -> some View {
+        let shouldShow = showsPublishCheckpointBanner
+            && selectedActivityTab == .map
+            && isOverviewPanelPresented
+            && !(isLandscape && hidesOverviewPanelInLandscape)
+            && ActivityFriendSharePublishCheckpoint.isVisibleInOverviewDetent(overviewSheetDetent)
+        if shouldShow {
+            let panelHeight = DiveActivityOverviewDetent.sheetHeight(
+                for: overviewSheetDetent,
+                layoutHeight: layoutContext.layoutHeight,
+                bottomSafeInset: layoutContext.bottomSafeInset,
+                screenWidth: layoutContext.screenWidth,
+                topSafeInset: layoutContext.topSafeInset
+            )
             ActivityPublishCheckpointBanner(
                 activityKind: .scubaDive,
                 onShare: {
@@ -1833,11 +1892,8 @@ struct ViewSingleActivity: View {
                         modelContext: modelContext
                     )
                 },
-                onKeepLocal: {
-                    ActivityFriendSharePublishCheckpoint.keepLocal(dive: activity, modelContext: modelContext)
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        showsPublishCheckpointBanner = false
-                    }
+                onDismiss: {
+                    dismissPublishCheckpointBannerIfNeeded()
                 },
                 onConfirmationFinished: {
                     withAnimation(.easeInOut(duration: 0.25)) {
@@ -1845,15 +1901,15 @@ struct ViewSingleActivity: View {
                     }
                 }
             )
-            .padding(.top, AppTheme.Spacing.sm)
+            .padding(.horizontal, AppTheme.Spacing.md)
+            .padding(.bottom, panelHeight + ActivityPublishCheckpointBannerPresentation.seamGap)
+            .transition(.opacity.combined(with: .move(edge: .bottom)))
+            .zIndex(2)
         }
     }
 
     private func overviewBottomPanelContent() -> some View {
-        VStack(spacing: 0) {
-            publishCheckpointBannerIfNeeded
-            diveMapOverviewPanelContent
-        }
+        diveMapOverviewPanelContent
     }
 
     private var diveMapOverviewPanelContent: some View {

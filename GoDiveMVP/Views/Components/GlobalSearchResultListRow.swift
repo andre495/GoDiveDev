@@ -119,11 +119,13 @@ struct GlobalSearchResultSymbolArtwork: View {
 
 struct GlobalSearchResultMediaArtwork: View {
     let photoID: UUID
+    var usesSnorkelMedia: Bool = false
 
     var body: some View {
         LogbookRowMediaPreviewView(
             photoID: photoID,
             extent: GlobalSearchResultListRowLayout.artworkSize,
+            usesSnorkelMedia: usesSnorkelMedia,
             placeholderStyle: .translucentOnDarkBubble,
             allowsCompactExtent: true
         )
@@ -207,6 +209,12 @@ struct GlobalSearchDiveResultListRow: View {
         return "\(number) · \(data.detailLine)"
     }
 
+    private var placeholderSymbol: String {
+        data.activityKind == .snorkel
+            ? LogbookActivityRowPresentation.snorkelLeadingSymbolName
+            : "water.waves"
+    }
+
     var body: some View {
         GlobalSearchResultListRow(
             title: data.displayName,
@@ -214,9 +222,12 @@ struct GlobalSearchDiveResultListRow: View {
             matchReasons: matchReasons
         ) {
             if let previewMediaPhotoID = data.previewMediaPhotoID {
-                GlobalSearchResultMediaArtwork(photoID: previewMediaPhotoID)
+                GlobalSearchResultMediaArtwork(
+                    photoID: previewMediaPhotoID,
+                    usesSnorkelMedia: data.previewMediaIsSnorkel
+                )
             } else {
-                GlobalSearchResultSymbolArtwork(systemName: "water.waves")
+                GlobalSearchResultSymbolArtwork(systemName: placeholderSymbol)
             }
         }
     }

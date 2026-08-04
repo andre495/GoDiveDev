@@ -116,6 +116,22 @@ struct GlobalSearchView: View {
             }
             syncResultsPanelVisibility(isActive: isActive)
         }
+        .onChange(of: path) { oldPath, newPath in
+            DiveActivityOverviewUIStatePresentation.discardSessionsLeavingStack(
+                previousDiveIDs: DiveActivityOverviewUIStatePresentation.diveActivityIDs(
+                    inSearchPath: oldPath
+                ),
+                currentDiveIDs: DiveActivityOverviewUIStatePresentation.diveActivityIDs(
+                    inSearchPath: newPath
+                ),
+                previousSnorkelIDs: DiveActivityOverviewUIStatePresentation.snorkelActivityIDs(
+                    inSearchPath: oldPath
+                ),
+                currentSnorkelIDs: DiveActivityOverviewUIStatePresentation.snorkelActivityIDs(
+                    inSearchPath: newPath
+                )
+            )
+        }
         .onChange(of: path.count) { previousDepth, depth in
             if depth > 0 {
                 mountSearchIndexImmediatelyIfNeeded()
@@ -542,6 +558,7 @@ enum GlobalSearchCatalogWarming {
     nonisolated static func fingerprint(
         ownerProfileID: UUID?,
         dives: [DiveActivity],
+        snorkels: [SnorkelActivity],
         diveSites: [DiveSite],
         speciesCatalog: [MarineLife],
         buddies: [DiveBuddy],
@@ -553,6 +570,7 @@ enum GlobalSearchCatalogWarming {
         [
             ownerProfileID?.uuidString ?? "none",
             "\(dives.count)",
+            "\(snorkels.count)",
             "\(diveSites.count)",
             "\(speciesCatalog.count)",
             "\(buddies.count)",
@@ -570,6 +588,7 @@ enum GlobalSearchCatalogWarming {
         store: GlobalSearchCatalogStore,
         ownerProfileID: UUID?,
         dives: [DiveActivity],
+        snorkels: [SnorkelActivity],
         diveSites: [DiveSite],
         speciesCatalog: [MarineLife],
         buddies: [DiveBuddy],
@@ -582,6 +601,7 @@ enum GlobalSearchCatalogWarming {
         let fingerprint = fingerprint(
             ownerProfileID: ownerProfileID,
             dives: dives,
+            snorkels: snorkels,
             diveSites: diveSites,
             speciesCatalog: speciesCatalog,
             buddies: buddies,
@@ -595,6 +615,7 @@ enum GlobalSearchCatalogWarming {
         }
         let catalog = GlobalSearchCatalogSeeding.catalog(
             dives: dives,
+            snorkels: snorkels,
             diveSites: diveSites,
             speciesCatalog: speciesCatalog,
             buddies: buddies,
@@ -640,6 +661,7 @@ private struct GlobalSearchSearchIndexLayer: View {
     var preservesDetailPushResultsSession = false
 
     @Query private var ownerDiveActivities: [DiveActivity]
+    @Query private var ownerSnorkelActivities: [SnorkelActivity]
     @Query private var ownerTrips: [DiveTrip]
     @Query private var ownerDiveBuddies: [DiveBuddy]
     @Query private var ownerEquipment: [EquipmentItem]
@@ -712,6 +734,13 @@ private struct GlobalSearchSearchIndexLayer: View {
                 SortDescriptor(\DiveActivity.id, order: .forward),
             ]
         )
+        _ownerSnorkelActivities = Query(
+            filter: #Predicate<SnorkelActivity> { $0.ownerProfileID == filterOwnerID },
+            sort: [
+                SortDescriptor(\SnorkelActivity.startTime, order: .reverse),
+                SortDescriptor(\SnorkelActivity.id, order: .forward),
+            ]
+        )
         _ownerTrips = Query(
             filter: #Predicate<DiveTrip> { $0.ownerProfileID == filterOwnerID },
             sort: [
@@ -739,6 +768,10 @@ private struct GlobalSearchSearchIndexLayer: View {
 
     private var ownerDives: [DiveActivity] {
         ownerDiveActivities
+    }
+
+    private var ownerSnorkels: [SnorkelActivity] {
+        ownerSnorkelActivities
     }
 
     private var usesFlatScopedResults: Bool {
@@ -1095,6 +1128,7 @@ private struct GlobalSearchSearchIndexLayer: View {
             hits: hits,
             ownerProfileID: ownerProfileID,
             ownerDives: ownerDives,
+            ownerSnorkels: ownerSnorkels,
             diveSites: diveSites,
             speciesCatalog: speciesCatalog,
             ownerDiveBuddies: ownerDiveBuddies,
@@ -1164,6 +1198,7 @@ private struct GlobalSearchSearchIndexLayer: View {
             store: catalogStore,
             ownerProfileID: ownerProfileID,
             dives: ownerDives,
+            snorkels: ownerSnorkels,
             diveSites: diveSites,
             speciesCatalog: speciesCatalog,
             buddies: ownerDiveBuddies,
@@ -1300,6 +1335,7 @@ private struct GlobalSearchSearchIndexLayer: View {
         GlobalSearchCatalogWarming.fingerprint(
             ownerProfileID: ownerProfileID,
             dives: ownerDives,
+            snorkels: ownerSnorkels,
             diveSites: diveSites,
             speciesCatalog: speciesCatalog,
             buddies: ownerDiveBuddies,
@@ -1323,6 +1359,7 @@ private struct GlobalSearchSearchDestinationScreen: View {
     let onOpenDive: (UUID) -> Void
 
     @Query private var ownerDiveActivities: [DiveActivity]
+    @Query private var ownerSnorkelActivities: [SnorkelActivity]
     @Query private var ownerTrips: [DiveTrip]
     @Query private var ownerDiveBuddies: [DiveBuddy]
     @Query private var ownerEquipment: [EquipmentItem]
@@ -1347,6 +1384,13 @@ private struct GlobalSearchSearchDestinationScreen: View {
             sort: [
                 SortDescriptor(\DiveActivity.startTime, order: .reverse),
                 SortDescriptor(\DiveActivity.id, order: .forward),
+            ]
+        )
+        _ownerSnorkelActivities = Query(
+            filter: #Predicate<SnorkelActivity> { $0.ownerProfileID == filterOwnerID },
+            sort: [
+                SortDescriptor(\SnorkelActivity.startTime, order: .reverse),
+                SortDescriptor(\SnorkelActivity.id, order: .forward),
             ]
         )
         _ownerTrips = Query(
@@ -1378,6 +1422,10 @@ private struct GlobalSearchSearchDestinationScreen: View {
         ownerDiveActivities
     }
 
+    private var ownerSnorkels: [SnorkelActivity] {
+        ownerSnorkelActivities
+    }
+
     var body: some View {
         destinationView
             .globalSearchPushedDestinationChrome()
@@ -1402,6 +1450,14 @@ private struct GlobalSearchSearchDestinationScreen: View {
         case .dive(let id):
             if let activity = ownerDives.first(where: { $0.id == id }) {
                 ViewSingleActivity(activity: activity)
+            } else {
+                ActivityMissingDestinationPopView {
+                    dismiss()
+                }
+            }
+        case .snorkel(let id):
+            if let activity = ownerSnorkels.first(where: { $0.id == id }) {
+                ViewSingleSnorkelActivity(activity: activity)
             } else {
                 ActivityMissingDestinationPopView {
                     dismiss()

@@ -130,11 +130,20 @@ struct PushedDetailHeroHeaderView: View {
 
     @ViewBuilder
     private var heroContent: some View {
-        switch selectedMode {
-        case .media:
-            mediaContent
-        case .map:
-            mapContent
+        let keepsMediaMounted = PushedDetailHeroModePresentation.keepsMediaMountedDuringMapMode(
+            hasAssociatedMedia: media != nil || expectsTaggedMedia
+        )
+        ZStack {
+            if keepsMediaMounted || selectedMode == .media {
+                mediaContent
+                    .opacity(PushedDetailHeroModePresentation.mediaLayerOpacity(selectedMode: selectedMode))
+                    .allowsHitTesting(selectedMode == .media)
+                    .accessibilityHidden(selectedMode != .media)
+            }
+
+            if selectedMode == .map {
+                mapContent
+            }
         }
     }
 
@@ -144,7 +153,9 @@ struct PushedDetailHeroHeaderView: View {
                 DiveActivityMediaItemView(
                     media: media,
                     showsCaptureDateOverlay: false,
-                    isVideoPlaybackActive: selectedMode == .media && shouldAutoPlaySelectedVideo,
+                    isVideoPlaybackActive: PushedDetailHeroModePresentation.isHeroVideoPlaybackActive(
+                        shouldAutoPlaySelectedVideo: shouldAutoPlaySelectedVideo
+                    ),
                     loopsVideoPlayback: true
                 )
                 .id(media.id)

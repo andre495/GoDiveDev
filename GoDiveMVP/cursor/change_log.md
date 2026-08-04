@@ -3444,4 +3444,66 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Tests: **`logbookFeedScopePager_swipeLeftOpensBuddyFeed_swipeRightOpensMyActivities`**.
 - **`docs/logbook.md`** — swipe note.
 
-## 128 - Next batch
+## 128 - Activity UX polish, search snorkels, map-first reopen **(pushed)**
+
+**Summary:** Profile / pushed hero — media↔map toggle no longer freezes looping video. Search gains a **Snorkels** category tile beside **Dives**. Rebuild publish-checkpoint share banner (friends-gated, seam overlay, detent hide, gradient).
+
+- **`PushedDetailHeroHeaderView`** — keeps tagged-media hero mounted under map mode (opacity hide) so **`AVPlayer`** is not torn down; autoplay stays active across the toggle.
+- **`FriendProfileHeroHeaderView`** — same keep-alive overlay for remote profile hero video.
+- **`PushedDetailHeroModePresentation`** — `keepsMediaMountedDuringMapMode` / `isHeroVideoPlaybackActive` / `mediaLayerOpacity`.
+- **`DiveActivityVideoPlayerView`** — pause/resume no longer clears `playerItem` or remounts identity (avoids rebinding a stopped item).
+- Tests: **`pushedDetailHeroModePresentation_keepsMediaMountedAndPlayingAcrossMapToggle`**.
+- **Search — Snorkels tile:** **`GlobalSearchPresentation.ContextToken.snorkels`** sits next to **Dives** (tile order: Dives, Snorkels, Buddies, …); indexes **`SnorkelActivity`** (site, buddies, marine life, country/region, month/year, notes); scoped browse + typed section; push opens **`ViewSingleSnorkelActivity`**. Catalog warming / site index include snorkel site links. Docs: **`docs/search.md`**.
+- Tests: **`globalSearchPresentation_contextTokens_coverMainConceptsInOrder`**, **`globalSearchPresentation_contextTokenScopesSnorkelsBrowseResultsWithoutQuery`**, scoped count + fingerprint updates.
+- **Publish-checkpoint banner rebuild:** **`ActivityPublishCheckpointBanner`** sits overlaid on the map just above the overview sheet seam (dives + snorkels); GoDive title ocean gradient fill (`accentLight` → `accent` → `accentDeep`); **Share** one-tap publish + **×** dismiss (clears pending without configuring). Shown only when the owner has friends (`GoDiveFriendGraphService.hasAnyFriends`), global buddy sharing is on, and the checkpoint is pending. Hides at **minimized** detent and reappears at **large**. Visiting **Activity Settings** permanently dismisses (open, not only save). Removed in-panel placement / **Keep local**.
+- **Banner compact chrome:** single-line caption prompt, small **×** upper-leading, Liquid Glass **Share** (`.glass` / `.controlSize(.small)`); ~60% shorter height vs the prior two-line + icon layout.
+- Tests: **`activityFriendSharePublishCheckpoint_showsBannerMatrix`** (friends gate), **`activityFriendSharePublishCheckpoint_visibleOnlyInLargeDetent`**, **`activityFriendSharePublishCheckpoint_dismissClearsPendingWithoutConfiguring`**, **`activityPublishCheckpointBanner_promptCopyPerActivityKind`** (compact line). Docs: **`docs/friends.md`**, **`docs/settings.md`**.
+
+**Summary:** Snorkel Map tab gains dive-parity editable **Notes** (same storage + blue edit sheet).
+
+- **`SnorkelActivity.notes`** already persisted / searchable / friend-shareable — wired map UI: always-visible Notes card after Weather at **large** (**—** when empty); tap card or **⋯** → **`SnorkelActivityNotesEditSheet`** (Cancel / Done, keyboard Done, **`DiveNotesValidation`** cap, **`GoDiveInputSanitization.sanitizedNotes`** on save).
+- **`SnorkelActivityNotesOverviewSection`** + **`ActivityNotesPresentation`** display helper; dive field display reuses the same empty **—** rule.
+- Tests: **`activityNotesPresentation_displayValue_emptyPlaceholderAndTrim`**, **`activityNotesPresentation_sanitizedPersistMatchesDiveCap`**. Docs: **`docs/logbook.md`**.
+
+**Summary:** Activity Settings sheet aligned with other blue overview-panel modals; notes sharing simplified to a private-notes toggle.
+
+- **`ActivityFriendShareSettingsForm`** — **`diveActivityOverviewPanelModalSheetPresentation`** (large, opaque blue, Cancel / Done); toggle spacing matches trip / notes sheets; **Delete dive** / **Delete snorkel** pinned below the scroll content.
+- Notes control is a **`SettingsToggleRow`**: **Share private notes with buddies** (legacy public-notes mode still maps on for the toggle; turning on persists **`privateNotes`**). Status checklist row renamed **Private Notes**.
+- Tests: **`activityFriendShareNotesMode_sharePrivateNotesToggle_mapsOnOffAndLegacyPublic`**. Docs: **`docs/friends.md`**, **`docs/logbook.md`**.
+
+**Summary:** Dive / snorkel overview **large** detent height matches Home / buddy / site / species blue sheets.
+
+- **`DiveActivityOverviewPanelMetrics.largeSheetHeight`** now uses **`HomeOverviewPushedLayoutPresentation.pushedPageSeamInputs()`** (Home anchor or default lifetime grid + **Top buddies** band) instead of the shorter 2×2-only stats band — activity panels were sitting slightly lower than other blue sheets.
+- **`pushedPageSeamInputs()`** is **`nonisolated`** so detent math can share the same inputs as **`BlueSheetDetailPage`**.
+- Test: **`largeHeightFraction_matchesBlueSheetSeamOnReferenceLayout`** (asserts taller than legacy 2×2-only seam).
+
+**Summary:** Home notifications bell — unread red dot sits on the icon’s upper-right corner.
+
+- **`LogOverviewView.homeNotificationsBellButton`** — badge overlay offset from centered-on-glyph (`-9, 9`) to upper-trailing (`2, -2`), matching other corner badges.
+
+**Summary:** Snorkel heart-rate chart — depth-style scrub callout + deep-blue underfill.
+
+- **`SnorkelHeartRateProfileChart`** — reuses **`DiveDepthProfileChartStaticUnderfillView`** under the BPM polyline; hold-to-scrub callout shows **Time … min** + **N bpm** (same chrome as the depth scrub label).
+- **`SnorkelHeartRateProfileChartPresentation`** — under-curve path, nearest-sample index, scrub labels, callout positioning.
+- Tests: **`snorkelHeartRateProfileChartPresentation_*`**. Docs: **`docs/logbook.md`**.
+
+**Summary:** Snorkel HR hero — edge-to-edge like tank depth; fix hold-to-scrub.
+
+- **`SnorkelHeartRateOverviewHeroView`** — chart band uses the same **`minimizedProfileChartFrame`** geometry as tank depth (full width, flush to sheet seam); soft top fade; scrub callout pinned under the icon tab bar.
+- **`SnorkelHeartRateProfileChart`** — edge-to-edge plot; hold timer no longer restarts on every finger move (matches depth scrub).
+- Test: **`snorkelHeartRateOverviewHeroPresentation_chartFrame_isEdgeToEdgeAboveSheetSeam`**.
+
+**Summary:** Dive / snorkel large sheet — swipe between icon tabs (Logbook-style).
+
+- **`DiveActivityOverviewTabPagerPresentation`** — map→tank→media (dive) / map→heart rate→media (snorkel); same swipe thresholds as Buddy Feed pager; allowed only at resting **large** (not minimized, not during grabber drag).
+- **`DiveActivityOverviewEmbeddedPanel`** — simultaneous horizontal swipe on sheet body only (hero untouched); wires owner dive / snorkel + friend-shared detail.
+- Tests: **`diveActivityOverviewTabPager_*`**. Docs: **`docs/logbook.md`**.
+
+**Summary:** Reopening an activity from Logbook (or any tab stack) always lands on the **Map** tab — nested restore no longer survives a pop back to the list.
+
+- **`DiveActivityOverviewUIStateStore`** — **`discardDiveSession`** / **`discardSnorkelSession`** clear chrome snapshots and suppress **`onDisappear`** re-persist; **`note*SessionActive`** re-enables persist while the overview is on-screen.
+- **`DiveActivityOverviewUIStatePresentation`** — discards sessions when dive/snorkel routes leave Logbook / Home / Explore / Search / Field Guide / Profile stacks; nested site/tag pushes keep the activity on the path so tab/scroll restore still works.
+- Tests: **`diveActivityOverviewUIStateStore_discardSession_blocksPersistUntilSessionActive`**, **`snorkelActivityOverviewUIStateStore_discardSession_blocksPersistUntilSessionActive`**, **`diveActivityOverviewUIStatePresentation_discardWhenActivityLeavesLogbookPath`**, **`diveActivityOverviewUIStatePresentation_keepsSnapshotWhenNestedSiteStaysOnPath`**.
+
+## 129 - Next batch
+

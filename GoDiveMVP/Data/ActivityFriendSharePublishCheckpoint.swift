@@ -2,28 +2,40 @@ import Foundation
 import SwiftData
 
 /// Strava-style publish checkpoint: new activities stay **local-only** until the owner taps
-/// **Share** (publish to the buddy network) or **Keep local** on the detail-page banner.
+/// **Share** (publish to the buddy network), dismisses the banner, or visits Activity Settings.
 /// Publishing flips the per-activity share flag and schedules the Firestore projection upsert,
 /// which in turn fires the buddy push signal on first create.
 enum ActivityFriendSharePublishCheckpoint: Sendable {
 
     /// Pure visibility rule for the banner — testable without SwiftData models.
+    /// Requires an active buddy network so the prompt is only shown when sharing has recipients.
     nonisolated static func showsBanner(
         checkpointPending: Bool,
         settingsConfigured: Bool,
-        globalSharingEnabled: Bool
+        globalSharingEnabled: Bool,
+        hasFriends: Bool
     ) -> Bool {
-        checkpointPending && !settingsConfigured && globalSharingEnabled
+        checkpointPending && !settingsConfigured && globalSharingEnabled && hasFriends
+    }
+
+    /// Banner sits above the sheet seam only while the overview panel is at **large**.
+    nonisolated static func isVisibleInOverviewDetent(_ detent: DiveActivityOverviewDetent) -> Bool {
+        detent == .large
     }
 
     // MARK: - Dive
 
     @MainActor
-    static func isPending(dive: DiveActivity, userDefaults: UserDefaults = .standard) -> Bool {
+    static func isPending(
+        dive: DiveActivity,
+        hasFriends: Bool,
+        userDefaults: UserDefaults = .standard
+    ) -> Bool {
         showsBanner(
             checkpointPending: dive.friendSharePublishCheckpointPending,
             settingsConfigured: dive.friendShareBuddySettingsConfigured,
-            globalSharingEnabled: AppUserSettings.shareDivesWithFriends(userDefaults: userDefaults)
+            globalSharingEnabled: AppUserSettings.shareDivesWithFriends(userDefaults: userDefaults),
+            hasFriends: hasFriends
         )
     }
 
@@ -54,27 +66,27 @@ enum ActivityFriendSharePublishCheckpoint: Sendable {
         )
     }
 
+    /// Permanently hides the banner (× or opening Activity Settings) without publishing.
     @MainActor
-    static func keepLocal(dive: DiveActivity, modelContext: ModelContext) {
-        ActivityFriendShareConfiguration.applyConfiguredSettings(
-            to: dive,
-            shareActivityEnabled: false,
-            shareMediaEnabled: false,
-            selectedMediaIDs: ActivityFriendShareConfiguration.selectedMediaIDs(on: dive),
-            notesMode: ActivityFriendShareNotesMode(rawValue: dive.friendShareNotesModeRaw) ?? .off,
-            publicNotes: dive.friendSharePublicNotes
-        )
+    static func dismiss(dive: DiveActivity, modelContext: ModelContext) {
+        guard dive.friendSharePublishCheckpointPending else { return }
+        dive.friendSharePublishCheckpointPending = false
         try? modelContext.save()
     }
 
     // MARK: - Snorkel
 
     @MainActor
-    static func isPending(snorkel: SnorkelActivity, userDefaults: UserDefaults = .standard) -> Bool {
+    static func isPending(
+        snorkel: SnorkelActivity,
+        hasFriends: Bool,
+        userDefaults: UserDefaults = .standard
+    ) -> Bool {
         showsBanner(
             checkpointPending: snorkel.friendSharePublishCheckpointPending,
             settingsConfigured: snorkel.friendShareBuddySettingsConfigured,
-            globalSharingEnabled: AppUserSettings.shareDivesWithFriends(userDefaults: userDefaults)
+            globalSharingEnabled: AppUserSettings.shareDivesWithFriends(userDefaults: userDefaults),
+            hasFriends: hasFriends
         )
     }
 
@@ -105,15 +117,9 @@ enum ActivityFriendSharePublishCheckpoint: Sendable {
     }
 
     @MainActor
-    static func keepLocal(snorkel: SnorkelActivity, modelContext: ModelContext) {
-        ActivityFriendShareConfiguration.applyConfiguredSettings(
-            to: snorkel,
-            shareActivityEnabled: false,
-            shareMediaEnabled: false,
-            selectedMediaIDs: ActivityFriendShareConfiguration.selectedMediaIDs(on: snorkel),
-            notesMode: ActivityFriendShareNotesMode(rawValue: snorkel.friendShareNotesModeRaw) ?? .off,
-            publicNotes: snorkel.friendSharePublicNotes
-        )
+    static func dismiss(snorkel: SnorkelActivity, modelContext: ModelContext) {
+        guard snorkel.friendSharePublishCheckpointPending else { return }
+        snorkel.friendSharePublishCheckpointPending = false
         try? modelContext.save()
     }
 

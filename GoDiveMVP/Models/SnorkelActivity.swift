@@ -81,7 +81,7 @@ final class SnorkelActivity {
     var friendShareBuddySettingsConfigured: Bool = false
     /// Snapshotted global buddy-share defaults — see **`DiveActivity.friendShareBuddyDefaultsCaptured`**.
     var friendShareBuddyDefaultsCaptured: Bool = false
-    /// Publish checkpoint — see **`DiveActivity.friendSharePublishCheckpointPending`**.
+    /// Publish checkpoint — see **`DiveActivity.friendSharePublishCheckpointPending`** (Share, dismiss, or Activity Settings).
     var friendSharePublishCheckpointPending: Bool = false
     /// One push per activity — see **`DiveActivity.friendSharePushSignalRecorded`**.
     var friendSharePushSignalRecorded: Bool = false

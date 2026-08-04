@@ -1,30 +1,33 @@
 import SwiftUI
 
-/// Heart rate vs elapsed time — polyline with touch-and-hold scrub.
+/// Heart rate vs elapsed time — edge-to-edge under-curve deep-water fill, polyline, and
+/// touch-and-hold scrub (time + BPM), styled like the dive depth profile chart.
 struct SnorkelHeartRateProfileChart: View {
     let samples: [SnorkelHeartRateProfileSample]
     var sessionMaxBPMHint: Int?
+    /// Soft top fade so the plot dissolves under tab chrome (tank depth parity).
+    var topEdgeFadeFraction: CGFloat = 0
+    /// When **true**, the parent owns the callout via **`onScrubCalloutChange`**.
+    var pinsScrubCalloutUnderTabMenu: Bool = false
+    var onScrubCalloutChange: ((SnorkelHeartRateScrubCallout?) -> Void)? = nil
 
     private static let scrubHoldDuration: Duration = .milliseconds(180)
 
+    /// Pending finger during hold — class mutation avoids SwiftUI body invalidation before scrub activates.
+    @State private var pendingFingerLocation = SnorkelHeartRatePendingFingerLocation()
     @State private var scrubHoldTask: Task<Void, Never>?
     @State private var scrubActive = false
     @State private var scrubSampleIndex: Int?
 
     var body: some View {
         GeometryReader { geo in
-            let left: CGFloat = 4
-            let top: CGFloat = 8
-            let right: CGFloat = 4
-            let bottom: CGFloat = 8
-            let rect = CGRect(
-                x: left,
-                y: top,
-                width: max(geo.size.width - left - right, 1),
-                height: max(geo.size.height - top - bottom, 1)
+            // Edge-to-edge plot (same as depth chart **`.edgeToEdge`** chrome).
+            let rect = CGRect(origin: .zero, size: geo.size)
+            let maxElapsed = SnorkelHeartRateProfileChartPresentation.chartMaxElapsed(samples: samples)
+            let maxBPM = SnorkelHeartRateProfileChartPresentation.chartMaxBPM(
+                samples: samples,
+                sessionMaxBPMHint: sessionMaxBPMHint
             )
-            let maxElapsed = chartMaxElapsed
-            let maxBPM = chartMaxBPM
 
             ZStack(alignment: .topLeading) {
                 if samples.count < 2 {
@@ -34,6 +37,7 @@ struct SnorkelHeartRateProfileChart: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                         .accessibilityIdentifier("SnorkelHeartRateProfileChart.NoSamples")
                 } else {
+                    underCurveFill(in: rect, maxElapsed: maxElapsed, maxBPM: maxBPM)
                     heartRatePolyline(in: rect, maxElapsed: maxElapsed, maxBPM: maxBPM)
 
                     if scrubActive, let idx = scrubSampleIndex, samples.indices.contains(idx) {
@@ -42,8 +46,17 @@ struct SnorkelHeartRateProfileChart: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .mask {
+                chartTopFadeMask(size: geo.size)
+            }
             .contentShape(Rectangle())
             .gesture(chartScrubGesture(rect: rect, maxElapsed: maxElapsed))
+            .onChange(of: scrubActive) { _, _ in
+                publishScrubCallout()
+            }
+            .onChange(of: scrubSampleIndex) { _, _ in
+                publishScrubCallout()
+            }
             .onDisappear {
                 cancelScrubHoldTask()
                 clearScrubState()
@@ -51,20 +64,30 @@ struct SnorkelHeartRateProfileChart: View {
         }
     }
 
-    private var chartMaxElapsed: Double {
-        max(samples.map(\.elapsedSeconds).max() ?? 0, 0.001)
-    }
-
-    private var chartMaxBPM: Double {
-        let dataMax = Double(samples.map(\.heartRateBPM).max() ?? 0)
-        let hint = Double(sessionMaxBPMHint ?? 0)
-        return max(dataMax, hint, 120)
+    private func underCurveFill(in rect: CGRect, maxElapsed: Double, maxBPM: Double) -> some View {
+        let areaPath = SnorkelHeartRateProfileChartPresentation.underCurveAreaPath(
+            samples: samples,
+            in: rect,
+            maxElapsed: maxElapsed,
+            maxBPM: maxBPM
+        )
+        return DiveDepthProfileChartStaticUnderfillView(
+            areaPath: areaPath,
+            plotSize: rect.size
+        )
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     private func heartRatePolyline(in rect: CGRect, maxElapsed: Double, maxBPM: Double) -> some View {
         Path { path in
             for (i, sample) in samples.enumerated() {
-                let p = plotPoint(sample: sample, in: rect, maxElapsed: maxElapsed, maxBPM: maxBPM)
+                let p = SnorkelHeartRateProfileChartPresentation.plotPoint(
+                    sample: sample,
+                    in: rect,
+                    maxElapsed: maxElapsed,
+                    maxBPM: maxBPM
+                )
                 if i == 0 {
                     path.move(to: p)
                 } else {
@@ -83,7 +106,12 @@ struct SnorkelHeartRateProfileChart: View {
         sampleIndex idx: Int
     ) -> some View {
         let sample = samples[idx]
-        let p = plotPoint(sample: sample, in: rect, maxElapsed: maxElapsed, maxBPM: maxBPM)
+        let p = SnorkelHeartRateProfileChartPresentation.plotPoint(
+            sample: sample,
+            in: rect,
+            maxElapsed: maxElapsed,
+            maxBPM: maxBPM
+        )
 
         Path { path in
             path.move(to: CGPoint(x: p.x, y: rect.minY))
@@ -99,45 +127,59 @@ struct SnorkelHeartRateProfileChart: View {
             }
             .position(p)
 
-        Text("\(sample.heartRateBPM) bpm")
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(AppTheme.Colors.textPrimary)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(.thinMaterial, in: Capsule())
-            .position(x: min(max(p.x, rect.minX + 40), rect.maxX - 40), y: rect.minY + 14)
+        if !pinsScrubCalloutUnderTabMenu {
+            scrubCalloutLabel(for: sample)
+                .position(
+                    SnorkelHeartRateProfileChartPresentation.scrubCalloutPosition(point: p, in: rect)
+                )
+        }
     }
 
-    private func plotPoint(
-        sample: SnorkelHeartRateProfileSample,
-        in rect: CGRect,
-        maxElapsed: Double,
-        maxBPM: Double
-    ) -> CGPoint {
-        let xFrac = sample.elapsedSeconds / maxElapsed
-        let yFrac = Double(sample.heartRateBPM) / maxBPM
-        return CGPoint(
-            x: rect.minX + CGFloat(xFrac) * rect.width,
-            y: rect.maxY - CGFloat(yFrac) * rect.height
+    private func scrubCalloutLabel(for sample: SnorkelHeartRateProfileSample) -> some View {
+        SnorkelHeartRateScrubCalloutLabel(
+            callout: SnorkelHeartRateScrubCallout(
+                elapsedSeconds: sample.elapsedSeconds,
+                heartRateBPM: sample.heartRateBPM
+            )
         )
+    }
+
+    @ViewBuilder
+    private func chartTopFadeMask(size: CGSize) -> some View {
+        let fraction = min(max(topEdgeFadeFraction, 0), 1)
+        if fraction > 0.001 {
+            let fadeHeight = size.height * fraction
+            VStack(spacing: 0) {
+                LinearGradient(
+                    colors: [.clear, .black],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: fadeHeight)
+                Rectangle().fill(.black)
+            }
+        } else {
+            Rectangle().fill(.black)
+        }
     }
 
     private func chartScrubGesture(rect: CGRect, maxElapsed: Double) -> some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
+                guard samples.count >= 2 else { return }
                 let location = value.location
-                guard rect.contains(location) else { return }
-                if !scrubActive {
-                    cancelScrubHoldTask()
-                    scrubHoldTask = Task {
+                // Class mutation — no view invalidation until scrub activates.
+                pendingFingerLocation.point = location
+
+                if scrubHoldTask == nil {
+                    scrubHoldTask = Task { @MainActor in
                         try? await Task.sleep(for: Self.scrubHoldDuration)
                         guard !Task.isCancelled else { return }
-                        await MainActor.run {
-                            scrubActive = true
-                            updateScrubIndex(at: location, in: rect, maxElapsed: maxElapsed)
-                        }
+                        guard let current = pendingFingerLocation.point else { return }
+                        scrubActive = true
+                        updateScrubIndex(at: current, in: rect, maxElapsed: maxElapsed)
                     }
-                } else {
+                } else if scrubActive {
                     updateScrubIndex(at: location, in: rect, maxElapsed: maxElapsed)
                 }
             }
@@ -149,17 +191,30 @@ struct SnorkelHeartRateProfileChart: View {
 
     private func updateScrubIndex(at location: CGPoint, in rect: CGRect, maxElapsed: Double) {
         let xFrac = (location.x - rect.minX) / max(rect.width, 1)
-        let targetElapsed = Double(xFrac) * maxElapsed
-        var bestIndex = 0
-        var bestDelta = TimeInterval.greatestFiniteMagnitude
-        for (i, sample) in samples.enumerated() {
-            let delta = abs(sample.elapsedSeconds - targetElapsed)
-            if delta < bestDelta {
-                bestDelta = delta
-                bestIndex = i
-            }
+        let clamped = min(max(xFrac, 0), 1)
+        let targetElapsed = Double(clamped) * maxElapsed
+        scrubSampleIndex = SnorkelHeartRateProfileChartPresentation.indexNearestElapsed(
+            samples: samples,
+            targetElapsed: targetElapsed
+        )
+    }
+
+    private func publishScrubCallout() {
+        guard pinsScrubCalloutUnderTabMenu else { return }
+        guard let onScrubCalloutChange else { return }
+        guard scrubActive,
+              let idx = scrubSampleIndex,
+              samples.indices.contains(idx) else {
+            onScrubCalloutChange(nil)
+            return
         }
-        scrubSampleIndex = bestIndex
+        let sample = samples[idx]
+        onScrubCalloutChange(
+            SnorkelHeartRateScrubCallout(
+                elapsedSeconds: sample.elapsedSeconds,
+                heartRateBPM: sample.heartRateBPM
+            )
+        )
     }
 
     private func cancelScrubHoldTask() {
@@ -168,7 +223,51 @@ struct SnorkelHeartRateProfileChart: View {
     }
 
     private func clearScrubState() {
+        pendingFingerLocation.point = nil
         scrubActive = false
         scrubSampleIndex = nil
+        if pinsScrubCalloutUnderTabMenu {
+            onScrubCalloutChange?(nil)
+        }
     }
+}
+
+/// Shared callout chrome for heart-rate scrub (time + BPM).
+struct SnorkelHeartRateScrubCalloutLabel: View {
+    let callout: SnorkelHeartRateScrubCallout
+
+    var body: some View {
+        let timeLabel = SnorkelHeartRateProfileChartPresentation.scrubTimeLabel(
+            elapsedSeconds: callout.elapsedSeconds
+        )
+        let heartRateLabel = SnorkelHeartRateProfileChartPresentation.scrubHeartRateLabel(
+            bpm: callout.heartRateBPM
+        )
+
+        VStack(alignment: .center, spacing: 2) {
+            Text(timeLabel)
+            Text(heartRateLabel)
+        }
+        .font(.caption.weight(.semibold).monospacedDigit())
+        .foregroundStyle(AppTheme.Colors.textPrimary)
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(AppTheme.Colors.surfaceElevated)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(AppTheme.Colors.tabUnselected.opacity(0.25), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.2), radius: 6, y: 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(timeLabel), \(heartRateLabel)")
+    }
+}
+
+/// Class-backed finger location so hold-to-scrub can track movement without restarting the timer.
+private final class SnorkelHeartRatePendingFingerLocation {
+    var point: CGPoint?
 }

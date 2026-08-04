@@ -9,13 +9,19 @@ import Testing
         #expect(DiveActivityOverviewDetent.defaultSelection == .large)
     }
 
-    @Test func largeHeightFraction_matchesBlueSheetSeamOnReferenceLayout() {
+    @Test @MainActor func largeHeightFraction_matchesBlueSheetSeamOnReferenceLayout() {
+        HomeOverviewLayoutAnchor.resetForTesting()
+        defer { HomeOverviewLayoutAnchor.resetForTesting() }
+
         let context = DiveActivityOverviewSheetLayoutContext.presentationReference
+        let seam = HomeOverviewPushedLayoutPresentation.pushedPageSeamInputs()
+        #expect(seam.showsBuddyLeaderboard)
         let heroHeight = HomeOverviewLayout.pushedHeroLayoutMetrics(
             geometryHeight: context.layoutHeight,
             screenWidth: context.screenWidth,
             topSafeAreaInset: context.topSafeInset,
-            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeight
+            statsPanelContentHeight: seam.statsPanelContentHeight,
+            showsBuddyLeaderboard: seam.showsBuddyLeaderboard
         ).heroHeight
         let expectedSeam = HomeOverviewLayout.sheetSeamYFromScreenBottom(
             pageKind: .buddyDetail,
@@ -30,6 +36,22 @@ import Testing
             topSafeInset: context.topSafeInset
         )
         #expect(abs(sheetHeight - expectedSeam) < 0.5)
+
+        // Regression: 2×2-only band left the activity panel shorter than Home / buddy / site sheets.
+        let twoByTwoOnlyHero = HomeOverviewLayout.pushedHeroLayoutMetrics(
+            geometryHeight: context.layoutHeight,
+            screenWidth: context.screenWidth,
+            topSafeAreaInset: context.topSafeInset,
+            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeight,
+            showsBuddyLeaderboard: false
+        ).heroHeight
+        let twoByTwoOnlySeam = HomeOverviewLayout.sheetSeamYFromScreenBottom(
+            pageKind: .buddyDetail,
+            geometryHeight: context.layoutHeight,
+            heroHeight: twoByTwoOnlyHero
+        )
+        #expect(sheetHeight > twoByTwoOnlySeam + 1)
+
         #expect(DiveActivityOverviewPanelMetrics.minimizedHeightFraction == 0.20)
         #expect(
             DiveActivityOverviewPanelMetrics.referenceLargeHeightFraction

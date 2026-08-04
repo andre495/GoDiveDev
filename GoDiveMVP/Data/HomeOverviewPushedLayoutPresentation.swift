@@ -62,9 +62,10 @@ enum HomeOverviewPushedLayoutPresentation {
         let showsBuddyLeaderboard: Bool
     }
 
-    /// Pushed buddy/trip hero seam without scanning the full logbook — uses Home anchor or default lifetime grid + **Top buddies** band.
-    @MainActor
-    static func pushedPageSeamInputs() -> SeamInputs {
+    /// Pushed buddy/trip / activity-overview hero seam without scanning the full logbook — uses Home anchor or default lifetime grid + **Top buddies** band.
+    ///
+    /// **`nonisolated`** so dive/snorkel **large** detent math (**`DiveActivityOverviewPanelMetrics`**) can share the same inputs as **`BlueSheetDetailPage`**.
+    nonisolated static func pushedPageSeamInputs() -> SeamInputs {
         if let anchored = HomeOverviewLayoutAnchor.matchingRootSeamInputs() {
             return SeamInputs(
                 statsPanelContentHeight: anchored.statsPanelContentHeight,

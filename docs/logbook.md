@@ -16,7 +16,7 @@ Use the **filter** next to the segment control to show **all** activities, **div
 
 Buddy Feed loads when you select it. Each activity appears as a **card tile** with a hero header. When your friend shared a photo **and** depth/swim data exists, the hero shows their **featured photo** first and you can swipe to the depth chart (dives) or GPS swim track (snorkels). With only media or only chart/map data, the hero shows that single view. With neither, a placeholder appears. Below the hero: site name, region/country when available, key stats, and your friend’s name. Tap the stats area to open the same style of detail screen as your own dives and snorkels.
 
-**Share activities with buddies** (Settings) includes **snorkel sessions** as well as scuba dives — each uploads a buddy-visible projection with the correct activity type and GPS track when available. New activities stay **local only** until you publish them: open the activity and use the **Share** banner (or ⋯ → **Buddy Sharing**) after you've tagged marine life, added notes, and picked photos.
+**Share activities with buddies** (Settings) includes **snorkel sessions** as well as scuba dives — each uploads a buddy-visible projection with the correct activity type and GPS track when available. New activities stay **local only** until you publish them: open the activity and use the **Share** banner (or ⋯ → **Activity Settings**) after you've tagged marine life, added notes, and picked photos.
 
 Pull down on Buddy Feed to refresh. The feed also refreshes when you switch to **Buddy Feed**, open the **Logbook** tab while that segment is selected, return from a shared dive detail, tap the **Logbook** tab again while already on it, or bring the app back to the foreground while you’re on Buddy Feed in Logbook. The list loads **20 activities** at a time; scroll to the bottom to load the next **20**.
 
@@ -38,7 +38,7 @@ Each row shows a type chip, site or session title, stats, and an optional thumbn
 - **Snorkel** sessions show a **swimmer** icon only (no oval chip); scuba dives show the **downward waves** icon beside an oval **#** (symbol not inside the oval).
 - **Site name** (or **New Snorkel** when no site is set)
 - **Date**, optional **swim distance** (meters or yards per Settings) and shallow **depth**, and **duration**
-- Tap the row to open **snorkel detail** — same three-tab overview as a dive (**Map**, **Heart rate**, **Media**). On **Map**, the hero shows your GPS **swim track**; expand the sheet to **large** for a **Weather** section (Apple Weather at entry time) when GPS or a linked site provides coordinates; imported snorkels keep a stored snapshot from import. The **Heart rate** tab shows a **heart-rate chart** in the hero and avg/max stats plus calories in the panel (instead of tank and gas). **Media** works like dive photos: add from your library, tag **marine life** and **buddies**, use **Fishial** identify when configured, and pick a **featured** thumbnail for the logbook row. Tap a thumbnail to open **Media** on that photo.
+- Tap the row to open **snorkel detail** — same three-tab overview as a dive (**Map**, **Heart rate**, **Media**). On the **large** sheet (not the header map/chart, and not the compact minimized sheet), **swipe left/right** to move between those tabs — same idea as swiping **My Activities** / **Buddy Feed** in Logbook. On **Map**, the hero shows your GPS **swim track**; expand the sheet to **large** for a **Weather** section (Apple Weather at entry time) when GPS or a linked site provides coordinates; imported snorkels keep a stored snapshot from import. Below Weather, a **Notes** card matches dive detail — tap the card or **⋯** to edit in the same blue sheet (empty shows **—**). The **Heart rate** tab shows a full-bleed **heart-rate chart** in the hero (edge-to-edge like the dive depth chart; touch-and-hold scrub shows **time** and **bpm**, with the same deep-blue under-curve fill) and avg/max stats plus calories in the panel (instead of tank and gas). **Media** works like dive photos: add from your library, tag **marine life** and **buddies**, use **Fishial** identify when configured, and pick a **featured** thumbnail for the logbook row. Tap a thumbnail to open **Media** on that photo.
 
 Rows grouped under the same **trip** show a colored trip header with title, dive count, and date range. Tap the trip title to open trip detail.
 
@@ -75,7 +75,7 @@ Before import, you can choose whether to **create dive sites** from import data 
 
 ## Delete an activity
 
-Open a dive or snorkel, tap **⋯** (upper right), then **Activity Settings**. Scroll to **Delete dive** or **Delete snorkel** and confirm.
+Open a dive or snorkel, tap **⋯** (upper right), then **Activity Settings**. **Delete dive** / **Delete snorkel** is pinned at the bottom of the sheet — confirm to remove the activity.
 
 - Deletion removes the activity from your log (SwiftData / private CloudKit), including profile samples, buddy tags, marine life sightings, media links, and trip links for dives.
 - Friend-shared copies are removed from Firebase when buddy sharing had published the activity.

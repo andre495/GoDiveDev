@@ -20,12 +20,16 @@ enum DiveActivityOverviewPanelMetrics: Sendable {
     }
 
     /// Sheet height for the **large** resting detent — same seam math as **`BlueSheetDetailPage`** on pushed detail.
+    ///
+    /// Uses **`HomeOverviewPushedLayoutPresentation.pushedPageSeamInputs()`** (Home anchor or default lifetime grid + **Top buddies** band) so dive/snorkel **large** matches Home / buddy / site / species sheet height — not the shorter 2×2-only band.
     nonisolated static func largeSheetHeight(in context: DiveActivityOverviewSheetLayoutContext) -> CGFloat {
+        let seam = HomeOverviewPushedLayoutPresentation.pushedPageSeamInputs()
         let heroHeight = HomeOverviewLayout.pushedHeroLayoutMetrics(
             geometryHeight: context.layoutHeight,
             screenWidth: context.screenWidth,
             topSafeAreaInset: context.topSafeInset,
-            statsPanelContentHeight: HomeOverviewLayout.heroLayoutStatsPanelContentHeight
+            statsPanelContentHeight: seam.statsPanelContentHeight,
+            showsBuddyLeaderboard: seam.showsBuddyLeaderboard
         ).heroHeight
         return HomeOverviewLayout.sheetSeamYFromScreenBottom(
             pageKind: .buddyDetail,

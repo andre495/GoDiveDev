@@ -273,6 +273,7 @@ private struct ActivityFriendShareSettingsForm: View {
     let onPerformDelete: (@escaping @MainActor @Sendable (Double) -> Void) async throws -> Void
     let onDeleted: () -> Void
 
+    @Environment(\.dismiss) private var dismiss
     @AppStorage(AppUserSettings.shareDivesWithFriendsKey) private var globalShareEnabled = true
 
     @State private var statusChecklist: ActivityFriendShareStatusPresentation.ShareStatusChecklist?
@@ -290,17 +291,50 @@ private struct ActivityFriendShareSettingsForm: View {
         shareActivityEnabled.wrappedValue
     }
 
+    private var sharePrivateNotesBinding: Binding<Bool> {
+        Binding(
+            get: { notesMode.sharePrivateNotesToggleIsOn },
+            set: { notesMode = ActivityFriendShareNotesMode.fromSharePrivateNotesToggle($0) }
+        )
+    }
+
     var body: some View {
         NavigationStack {
-            AppPage(
-                title: ActivitySettingsPresentation.pageTitle,
-                showsBackButton: true,
-                showsBrandWordmark: false,
-                scrollContentUnderHeader: true
-            ) {
-                settingsFormContent
+            VStack(spacing: 0) {
+                ScrollView {
+                    settingsFormContent
+                        .padding(.horizontal, AppTheme.Spacing.lg)
+                        .padding(.top, DiveActivityOverviewPanelMetrics.panelContentTopPadding)
+                        .padding(.bottom, AppTheme.Spacing.lg)
+                }
+                .scrollIndicators(.visible)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+                activityDeleteSection
+                    .padding(.horizontal, AppTheme.Spacing.lg)
+                    .padding(.top, AppTheme.Spacing.md)
+                    .padding(.bottom, AppTheme.Spacing.lg)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .navigationTitle(ActivitySettingsPresentation.pageTitle)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    AppGlassToolbarCancelButton(
+                        action: { dismiss() },
+                        accessibilityIdentifier: "ActivitySettings.Cancel"
+                    )
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    AppGlassProminentDoneButton(
+                        action: { dismiss() },
+                        accessibilityIdentifier: "ActivitySettings.Done"
+                    )
+                }
             }
         }
+        .diveActivityOverviewPanelModalSheetPresentation()
+        .accessibilityIdentifier("ActivitySettings.Root")
         .onAppear {
             scheduleStatusRefresh()
         }
@@ -321,9 +355,6 @@ private struct ActivityFriendShareSettingsForm: View {
         .onChange(of: selectedMediaIDs) { _, _ in
             onPersist()
             scheduleStatusRefresh()
-        }
-        .onChange(of: publicNotes) { _, _ in
-            onPersist()
         }
         .alert(
             ActivitySettingsPresentation.deleteFailedAlertTitle,
@@ -397,20 +428,22 @@ private struct ActivityFriendShareSettingsForm: View {
             .disabled(!mediaSelectionEnabled || !shareMediaEnabled.wrappedValue)
             .opacity(mediaSelectionEnabled && shareMediaEnabled.wrappedValue ? 1 : 0.45)
 
-            notesSection
+            SettingsToggleRow(
+                title: ActivityFriendSharePresentation.shareNotesTitle,
+                infoMessage: ActivityFriendSharePresentation.shareNotesInfo,
+                isOn: sharePrivateNotesBinding
+            )
+            .disabled(!notesControlsEnabled)
+            .accessibilityIdentifier("ActivityFriendShare.NotesSection")
 
             statusFooter
-
-            activityDeleteSection
         }
-        .padding(.horizontal, AppTheme.Spacing.lg)
-        .padding(.bottom, AppTheme.Spacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var activityDeleteSection: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
             Divider()
-                .padding(.top, AppTheme.Spacing.md)
 
             Button(
                 ActivitySettingsPresentation.deleteButtonTitle(activityKind: activityKind),
@@ -459,32 +492,6 @@ private struct ActivityFriendShareSettingsForm: View {
         }
     }
 
-    private var notesSection: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            SettingsPickerRow(
-                title: ActivityFriendSharePresentation.shareNotesTitle,
-                infoMessage: ActivityFriendSharePresentation.shareNotesInfo,
-                selection: $notesMode,
-                options: ActivityFriendShareNotesMode.allCases.map { mode in
-                    (mode, mode.settingsLabel)
-                }
-            )
-            .disabled(!notesControlsEnabled)
-
-            if notesMode == .publicNotes {
-                TextField(
-                    ActivityFriendSharePresentation.publicNotesPlaceholder,
-                    text: $publicNotes,
-                    axis: .vertical
-                )
-                .lineLimit(3...8)
-                .textFieldStyle(.roundedBorder)
-                .disabled(!notesControlsEnabled)
-            }
-        }
-        .accessibilityIdentifier("ActivityFriendShare.NotesSection")
-    }
-
     @ViewBuilder
     private var statusFooter: some View {
         VStack(spacing: AppTheme.Spacing.sm) {
@@ -502,7 +509,6 @@ private struct ActivityFriendShareSettingsForm: View {
                     .accessibilityIdentifier("ActivityFriendShare.StatusLabel")
             }
         }
-        .padding(.top, AppTheme.Spacing.md)
     }
 
     private var uploadInProgressBanner: some View {

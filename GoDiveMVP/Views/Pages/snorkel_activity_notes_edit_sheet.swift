@@ -1,12 +1,12 @@
 import SwiftData
 import SwiftUI
 
-/// Dedicated map-tab notes editor using the same blue panel styling as the overview detent.
-struct DiveActivityNotesEditSheet: View {
+/// Dedicated map-tab notes editor for snorkels — same blue panel chrome as dive notes.
+struct SnorkelActivityNotesEditSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
-    @Bindable var activity: DiveActivity
+    @Bindable var activity: SnorkelActivity
 
     @State private var draftText: String
     @FocusState private var isNotesFieldFocused: Bool
@@ -15,7 +15,7 @@ struct DiveActivityNotesEditSheet: View {
         static let maxCharacterCount = DiveNotesValidation.maxCharacterCount
     }
 
-    init(activity: DiveActivity) {
+    init(activity: SnorkelActivity) {
         self.activity = activity
         _draftText = State(
             initialValue: String((activity.notes ?? "").prefix(NotesPresentation.maxCharacterCount))
@@ -39,13 +39,13 @@ struct DiveActivityNotesEditSheet: View {
                                 isNotesFieldFocused = false
                                 dismiss()
                             },
-                            accessibilityIdentifier: "DiveNotesEditSheet.Cancel"
+                            accessibilityIdentifier: "SnorkelNotesEditSheet.Cancel"
                         )
                     }
                     ToolbarItem(placement: .confirmationAction) {
                         AppGlassProminentDoneButton(
                             action: saveAndDismiss,
-                            accessibilityIdentifier: "DiveNotesEditSheet.Done"
+                            accessibilityIdentifier: "SnorkelNotesEditSheet.Done"
                         )
                     }
                     ToolbarItemGroup(placement: .keyboard) {
@@ -62,7 +62,7 @@ struct DiveActivityNotesEditSheet: View {
                 }
         }
         .diveActivityOverviewPanelModalSheetPresentation()
-        .accessibilityIdentifier("DiveNotesEditSheet.Root")
+        .accessibilityIdentifier("SnorkelNotesEditSheet.Root")
     }
 
     private var draftBinding: Binding<String> {

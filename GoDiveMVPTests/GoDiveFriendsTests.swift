@@ -1441,6 +1441,23 @@ struct GoDiveFriendsTests {
         )
     }
 
+    @Test func pushedDetailHeroModePresentation_keepsMediaMountedAndPlayingAcrossMapToggle() {
+        #expect(
+            PushedDetailHeroModePresentation.keepsMediaMountedDuringMapMode(hasAssociatedMedia: true)
+        )
+        #expect(
+            !PushedDetailHeroModePresentation.keepsMediaMountedDuringMapMode(hasAssociatedMedia: false)
+        )
+        #expect(
+            PushedDetailHeroModePresentation.isHeroVideoPlaybackActive(shouldAutoPlaySelectedVideo: true)
+        )
+        #expect(
+            !PushedDetailHeroModePresentation.isHeroVideoPlaybackActive(shouldAutoPlaySelectedVideo: false)
+        )
+        #expect(PushedDetailHeroModePresentation.mediaLayerOpacity(selectedMode: .media) == 1)
+        #expect(PushedDetailHeroModePresentation.mediaLayerOpacity(selectedMode: .map) == 0)
+    }
+
     @Test @MainActor func friendInvitePostRedeemNavigation_storesFriendEdge() {
         GoDiveFriendInvitePostRedeemNavigationStore.shared.clear()
         let profile = GoDiveFriendGraphService.PublicProfileSummary(
@@ -2965,6 +2982,18 @@ struct GoDiveFriendsTests {
         )
     }
 
+    @Test func activityFriendShareNotesMode_sharePrivateNotesToggle_mapsOnOffAndLegacyPublic() {
+        #expect(!ActivityFriendShareNotesMode.off.sharePrivateNotesToggleIsOn)
+        #expect(ActivityFriendShareNotesMode.privateNotes.sharePrivateNotesToggleIsOn)
+        #expect(ActivityFriendShareNotesMode.publicNotes.sharePrivateNotesToggleIsOn)
+        #expect(ActivityFriendShareNotesMode.fromSharePrivateNotesToggle(true) == .privateNotes)
+        #expect(ActivityFriendShareNotesMode.fromSharePrivateNotesToggle(false) == .off)
+        #expect(
+            ActivityFriendSharePresentation.shareNotesTitle == "Share private notes with buddies"
+        )
+        #expect(ActivityFriendSharePresentation.statusNotesRowTitle == "Private Notes")
+    }
+
     @Test @MainActor func activityFriendShareConfiguration_shareOptions_publicNotes() {
         let dive = DiveActivity(
             source: .manual,
@@ -3165,30 +3194,72 @@ struct GoDiveFriendsTests {
             ActivityFriendSharePublishCheckpoint.showsBanner(
                 checkpointPending: true,
                 settingsConfigured: false,
-                globalSharingEnabled: true
+                globalSharingEnabled: true,
+                hasFriends: true
             )
         )
         #expect(
             !ActivityFriendSharePublishCheckpoint.showsBanner(
                 checkpointPending: false,
                 settingsConfigured: false,
-                globalSharingEnabled: true
+                globalSharingEnabled: true,
+                hasFriends: true
             )
         )
         #expect(
             !ActivityFriendSharePublishCheckpoint.showsBanner(
                 checkpointPending: true,
                 settingsConfigured: true,
-                globalSharingEnabled: true
+                globalSharingEnabled: true,
+                hasFriends: true
             )
         )
         #expect(
             !ActivityFriendSharePublishCheckpoint.showsBanner(
                 checkpointPending: true,
                 settingsConfigured: false,
-                globalSharingEnabled: false
+                globalSharingEnabled: false,
+                hasFriends: true
             )
         )
+        // No buddy network — never prompt to share.
+        #expect(
+            !ActivityFriendSharePublishCheckpoint.showsBanner(
+                checkpointPending: true,
+                settingsConfigured: false,
+                globalSharingEnabled: true,
+                hasFriends: false
+            )
+        )
+    }
+
+    @Test func activityFriendSharePublishCheckpoint_visibleOnlyInLargeDetent() {
+        #expect(
+            ActivityFriendSharePublishCheckpoint.isVisibleInOverviewDetent(.large)
+        )
+        #expect(
+            !ActivityFriendSharePublishCheckpoint.isVisibleInOverviewDetent(.minimized)
+        )
+    }
+
+    @Test @MainActor func activityFriendSharePublishCheckpoint_dismissClearsPendingWithoutConfiguring() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 12
+        )
+        dive.friendSharePublishCheckpointPending = true
+        dive.friendShareBuddyDefaultsCaptured = true
+        dive.friendShareActivityEnabled = false
+        context.insert(dive)
+
+        ActivityFriendSharePublishCheckpoint.dismiss(dive: dive, modelContext: context)
+        #expect(!dive.friendSharePublishCheckpointPending)
+        #expect(!dive.friendShareBuddySettingsConfigured)
+        #expect(!dive.friendShareActivityEnabled)
     }
 
     @Test func activityFriendSharePublishCheckpoint_publishSelectedMediaIDs() {
@@ -3215,6 +3286,14 @@ struct GoDiveFriendsTests {
         #expect(
             ActivityPublishCheckpointBannerPresentation.promptTitle(activityKind: .snorkel)
                 == "This snorkel is local only"
+        )
+        #expect(
+            ActivityPublishCheckpointBannerPresentation.compactPromptLine(activityKind: .scubaDive)
+                == "This dive is local only — share with buddies when ready."
+        )
+        #expect(
+            ActivityPublishCheckpointBannerPresentation.compactPromptLine(activityKind: .snorkel)
+                == "This snorkel is local only — share with buddies when ready."
         )
     }
 
