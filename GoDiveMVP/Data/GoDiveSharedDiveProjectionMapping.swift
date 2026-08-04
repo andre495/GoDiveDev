@@ -21,31 +21,43 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
     nonisolated static let maxProfileTrackBytes = 700_000
     nonisolated static let maxSwimTrackBytes = 700_000
 
-    struct TaggedBuddySnapshot: Equatable, Sendable {
+    struct TaggedBuddySnapshot: Equatable, Hashable, Sendable {
         var displayName: String
         var firebaseUID: String?
     }
 
-    struct SightingSnapshot: Equatable, Sendable {
+    nonisolated static func taggedBuddiesFirestoreRows(
+        from buddies: [TaggedBuddySnapshot]
+    ) -> [[String: Any]] {
+        buddies.map { buddy in
+            var row: [String: Any] = ["displayName": buddy.displayName]
+            if let firebaseUID = buddy.firebaseUID, !firebaseUID.isEmpty {
+                row["firebaseUid"] = firebaseUID
+            }
+            return row
+        }
+    }
+
+    struct SightingSnapshot: Equatable, Hashable, Sendable {
         var commonName: String
         var scientificName: String?
         var catalogUUID: String?
     }
 
-    struct MediaBuddyTagSnapshot: Equatable, Sendable {
+    struct MediaBuddyTagSnapshot: Equatable, Hashable, Sendable {
         var mediaID: String
         var displayName: String
         var firebaseUID: String?
     }
 
     /// Legacy v2 thumbnail pointer — still populated on read for existing UI.
-    struct MediaPreviewSnapshot: Equatable, Sendable {
+    struct MediaPreviewSnapshot: Equatable, Hashable, Sendable {
         var photoID: String
         var previewURL: String
     }
 
     /// Schema v3 media row (thumbnail + optional full-quality content URL).
-    struct MediaItemSnapshot: Equatable, Sendable {
+    struct MediaItemSnapshot: Equatable, Hashable, Sendable {
         var mediaID: String
         var kind: FriendSharedMediaKind
         var thumbnailURL: String?
@@ -290,7 +302,7 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
     }
 
     /// Parses a Firestore document into a display model (missing fields → nil / empty).
-    struct FriendVisibleDive: Equatable, Sendable, Identifiable {
+    struct FriendVisibleDive: Equatable, Hashable, Sendable, Identifiable {
         var id: String
         var activityKind: FriendSharedActivityKind = .scubaDive
         var startTime: Date?

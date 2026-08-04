@@ -74,6 +74,8 @@ enum HomeLifetimeStatsTilesLayout: Sendable {
     nonisolated static let panelTopEdgeInset: CGFloat = gridSpacing
 
     /// Centers the tile stack vertically between the sheet seam and measured tab-bar top.
+    /// Rejects non-finite / absurd heights so **`GeometryReader`** inside a **`TabView`** page
+    /// cannot produce **`.infinity`** spacer frames (layout abort / **`SIGABRT`**).
     nonisolated static func resolvedVerticalEdgeInsets(
         totalHeight: CGFloat,
         statRowCount: Int,
@@ -85,14 +87,20 @@ enum HomeLifetimeStatsTilesLayout: Sendable {
             showsBuddyLeaderboard: showsBuddyLeaderboard,
             includesLifetimeSummaryHeader: includesLifetimeSummaryHeader
         )
+        guard totalHeight.isFinite, minContent.isFinite else {
+            return (0, 0)
+        }
         guard totalHeight > 0, minContent > 0 else {
             return (0, 0)
         }
-        guard totalHeight >= minContent else {
+        /// Cap slack so a runaway proxy height cannot inflate clear spacers.
+        let usableHeight = min(totalHeight, minContent + 4_000)
+        guard usableHeight >= minContent else {
             return (0, 0)
         }
-        let slack = totalHeight - minContent
+        let slack = usableHeight - minContent
         let half = slack / 2
+        guard half.isFinite else { return (0, 0) }
         return (half, half)
     }
 

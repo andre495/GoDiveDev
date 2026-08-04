@@ -4,10 +4,12 @@ import SwiftUI
 
 struct DiveActivityFriendShareSettingsView: View {
     @Bindable var activity: DiveActivity
+    var onDeleted: () -> Void = {}
 
     var body: some View {
         ActivityFriendShareSettingsForm(
             activityID: activity.id,
+            activityKind: .scubaDive,
             sortedDiveMedia: DiveActivityMediaPresentation.sortedPhotos(on: activity),
             sortedSnorkelMedia: [],
             shareActivityEnabled: shareActivityBinding,
@@ -22,13 +24,17 @@ struct DiveActivityFriendShareSettingsView: View {
                 ActivityFriendShareConfiguration.shareMediaEnabled(on: activity)
             },
             privateNotesText: { activity.notes },
-            onPersist: persistDraft
+            onPersist: persistDraft,
+            onPerformDelete: performDelete,
+            onDeleted: onDeleted
         )
         .onAppear(perform: loadDraftFromActivity)
     }
 
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(AccountSession.self) private var accountSession
+    @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
 
     @State private var draftShareActivityEnabled = true
     @State private var draftShareMediaEnabled = false
@@ -103,14 +109,39 @@ struct DiveActivityFriendShareSettingsView: View {
             modelContext: modelContext
         )
     }
+
+    private func performDelete(reportProgress: @escaping @MainActor @Sendable (Double) -> Void) async throws {
+        let activityID = activity.id
+        let renumberAfterDelete = automaticallyRenumberDives
+        try await DiveActivityDeletion.delete(
+            DiveActivityDeletion.Request(
+                activityID: activityID,
+                deletedStartTime: activity.startTime,
+                deletedId: activityID,
+                renumberAfterDelete: renumberAfterDelete
+            ),
+            container: modelContext.container,
+            deferRenumber: renumberAfterDelete,
+            mainModelContext: modelContext,
+            reportProgress: reportProgress
+        )
+        if renumberAfterDelete {
+            await DivePostDeleteRenumberScheduler.shared.waitForPending()
+        }
+        ActivityDeleteSuccessPresentation.postDidDelete(activityID: activityID)
+        dismiss()
+        onDeleted()
+    }
 }
 
 struct SnorkelActivityFriendShareSettingsView: View {
     @Bindable var activity: SnorkelActivity
+    var onDeleted: () -> Void = {}
 
     var body: some View {
         ActivityFriendShareSettingsForm(
             activityID: activity.id,
+            activityKind: .snorkel,
             sortedDiveMedia: [],
             sortedSnorkelMedia: SnorkelActivityMediaPresentation.sortedPhotos(activity.mediaPhotos),
             shareActivityEnabled: shareActivityBinding,
@@ -125,11 +156,14 @@ struct SnorkelActivityFriendShareSettingsView: View {
                 ActivityFriendShareConfiguration.shareMediaEnabled(on: activity)
             },
             privateNotesText: { activity.notes },
-            onPersist: persistDraft
+            onPersist: persistDraft,
+            onPerformDelete: performDelete,
+            onDeleted: onDeleted
         )
         .onAppear(perform: loadDraftFromActivity)
     }
 
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(AccountSession.self) private var accountSession
 
@@ -206,12 +240,25 @@ struct SnorkelActivityFriendShareSettingsView: View {
             modelContext: modelContext
         )
     }
+
+    private func performDelete(reportProgress: @escaping @MainActor @Sendable (Double) -> Void) async throws {
+        let activityID = activity.id
+        try await SnorkelActivityDeletion.deletePermanently(
+            activity,
+            modelContext: modelContext,
+            reportProgress: reportProgress
+        )
+        ActivityDeleteSuccessPresentation.postDidDelete(activityID: activityID)
+        dismiss()
+        onDeleted()
+    }
 }
 
 // MARK: - Shared form
 
 private struct ActivityFriendShareSettingsForm: View {
     let activityID: UUID
+    let activityKind: FriendSharedActivityKind
     let sortedDiveMedia: [DiveMediaPhoto]
     let sortedSnorkelMedia: [SnorkelMediaPhoto]
     let shareActivityEnabled: Binding<Bool>
@@ -223,11 +270,17 @@ private struct ActivityFriendShareSettingsForm: View {
     let shareMediaEnabledForStatus: () -> Bool
     let privateNotesText: () -> String?
     let onPersist: () -> Void
+    let onPerformDelete: (@escaping @MainActor @Sendable (Double) -> Void) async throws -> Void
+    let onDeleted: () -> Void
 
     @AppStorage(AppUserSettings.shareDivesWithFriendsKey) private var globalShareEnabled = true
 
     @State private var statusChecklist: ActivityFriendShareStatusPresentation.ShareStatusChecklist?
     @State private var statusRefreshTask: Task<Void, Never>?
+    @State private var showsDeleteConfirmation = false
+    @State private var isDeleting = false
+    @State private var deleteProgress: Double = 0
+    @State private var deleteErrorMessage: String?
 
     private var mediaSelectionEnabled: Bool {
         shareActivityEnabled.wrappedValue
@@ -240,7 +293,7 @@ private struct ActivityFriendShareSettingsForm: View {
     var body: some View {
         NavigationStack {
             AppPage(
-                title: ActivityFriendSharePresentation.settingsPageTitle,
+                title: ActivitySettingsPresentation.pageTitle,
                 showsBackButton: true,
                 showsBrandWordmark: false,
                 scrollContentUnderHeader: true
@@ -272,6 +325,45 @@ private struct ActivityFriendShareSettingsForm: View {
         .onChange(of: publicNotes) { _, _ in
             onPersist()
         }
+        .alert(
+            ActivitySettingsPresentation.deleteFailedAlertTitle,
+            isPresented: deleteErrorBinding
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(deleteErrorMessage ?? "Try again.")
+        }
+        .confirmationDialog(
+            ActivitySettingsPresentation.deleteConfirmationTitle(activityKind: activityKind),
+            isPresented: $showsDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(
+                ActivitySettingsPresentation.deleteButtonTitle(activityKind: activityKind),
+                role: .destructive
+            ) {
+                confirmDelete()
+            }
+        } message: {
+            Text(ActivitySettingsPresentation.deleteConfirmationMessage)
+        }
+        .overlay {
+            if isDeleting {
+                ActivityDeleteProgressOverlay(
+                    progress: deleteProgress,
+                    accessibilityLabel: ActivitySettingsPresentation.deleteProgressAccessibilityLabel(
+                        activityKind: activityKind
+                    )
+                )
+            }
+        }
+    }
+
+    private var deleteErrorBinding: Binding<Bool> {
+        Binding(
+            get: { deleteErrorMessage != nil },
+            set: { if !$0 { deleteErrorMessage = nil } }
+        )
     }
 
     private var settingsFormContent: some View {
@@ -308,9 +400,46 @@ private struct ActivityFriendShareSettingsForm: View {
             notesSection
 
             statusFooter
+
+            activityDeleteSection
         }
         .padding(.horizontal, AppTheme.Spacing.lg)
         .padding(.bottom, AppTheme.Spacing.lg)
+    }
+
+    private var activityDeleteSection: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            Divider()
+                .padding(.top, AppTheme.Spacing.md)
+
+            Button(
+                ActivitySettingsPresentation.deleteButtonTitle(activityKind: activityKind),
+                role: .destructive
+            ) {
+                showsDeleteConfirmation = true
+            }
+            .font(.body.weight(.semibold))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .disabled(isDeleting)
+            .accessibilityIdentifier("ActivitySettings.Delete")
+        }
+    }
+
+    private func confirmDelete() {
+        guard !isDeleting else { return }
+        isDeleting = true
+        deleteProgress = 0.06
+        Task { @MainActor in
+            do {
+                try await onPerformDelete { progress in
+                    deleteProgress = progress
+                }
+            } catch {
+                deleteErrorMessage = error.localizedDescription
+                isDeleting = false
+                deleteProgress = 0
+            }
+        }
     }
 
     @ViewBuilder

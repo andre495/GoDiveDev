@@ -1,6 +1,7 @@
 ---
 description: Persist session/account identifiers in Keychain; clear on sign-out/delete
-alwaysApply: true
+globs: GoDiveMVP/Data/GoDiveKeychainStore.swift,GoDiveMVP/Data/AccountSession*.swift,GoDiveMVP/Data/ReturningAccountHints.swift,GoDiveMVP/Data/AppLaunchSession*.swift,GoDiveMVP/Data/**/*Keychain*.swift,GoDiveMVP/Views/Pages/sign_in.swift,GoDiveMVP/Views/Pages/app_session_root.swift,GoDiveMVP/Views/Components/AccountDeletion*.swift,GoDiveMVPTests/**/*Keychain*.swift,GoDiveMVPTests/**/*AccountSession*.swift,GoDiveMVPTests/**/*ReturningAccount*.swift
+alwaysApply: false
 ---
 
 # Session & account identifiers (Keychain)

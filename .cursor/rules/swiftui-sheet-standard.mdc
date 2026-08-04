@@ -1,6 +1,7 @@
 ---
 description: Standard frosted translucent chrome for all SwiftUI .sheet presentations
-alwaysApply: true
+globs: GoDiveMVP/Views/**/*.swift,GoDiveMVP/Data/**/*Sheet*.swift,GoDiveMVP/Views/Components/AppSheetPresentation.swift,GoDiveMVP/Views/Components/DiveActivityOverviewSheetLayout.swift
+alwaysApply: false
 ---
 
 # SwiftUI sheets: shared presentation chrome

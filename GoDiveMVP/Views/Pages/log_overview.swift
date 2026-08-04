@@ -30,6 +30,8 @@ struct LogOverviewView: View {
     @State private var selfBuddyID: UUID?
     @State private var homeHeroInteractionOverlayActive = false
     @State private var frozenHomeRootViewportHeight: CGFloat?
+    @State private var homeNotificationItems: [HomeNotificationsPresentation.Item] = []
+    @State private var hasFetchedNotificationsBadge = false
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
 
     private var buddyRosterFingerprint: Int {
@@ -108,10 +110,10 @@ struct LogOverviewView: View {
             BlueSheetHomeTopChrome(
                 safeTop: safeTop,
                 topInset: topInset,
-                title: "Home"
-            ) {
-                homeProfileHeaderButton
-            }
+                title: "Home",
+                trailingContent: { homeProfileHeaderButton },
+                leadingContent: { homeNotificationsBellButton }
+            )
         }
         .animation(nil, value: carouselHighlights.isEmpty)
         .animation(nil, value: showsHomeBuddyLeaderboard)
@@ -127,10 +129,14 @@ struct LogOverviewView: View {
             .navigationInteractivePopGestureForHiddenNavBar()
             .navigationDestination(for: HomeRoute.self, destination: homeDestination)
             .restoresRootTabBarWhenStackIsEmpty(isHomeNavigationStackAtRoot)
+            .coalescesNavigationStackPathDuplicates($path)
             .animation(nil, value: path.count)
             .onAppear { handleHomeRootAppear() }
             .task(id: ownerProfileID) {
                 await reloadHomeNavigationCatalogsIfNeeded()
+            }
+            .task(id: ownerProfileID) {
+                await refreshNotificationsBadgeIfNeeded()
             }
             .onChange(of: path.count) { oldCount, newCount in
                 if newCount == 0, oldCount > 0 {
@@ -171,7 +177,7 @@ struct LogOverviewView: View {
             }
         }
         .environment(\.openCatalogDiveSiteDetail) { siteID in
-            path.append(.diveSite(siteID))
+            pushHome(.diveSite(siteID))
             TripDetailMapNavigationDebug.parentStackAppendedRoute(
                 stack: .home,
                 siteID: siteID,
@@ -179,13 +185,26 @@ struct LogOverviewView: View {
             )
         }
         .environment(\.openTripPlanner) {
-            path.append(.tripPlanner)
+            pushHome(.tripPlanner)
         }
         .environment(\.openTripDetail) { tripID in
-            path.append(.tripDetail(tripID))
+            pushHome(.tripDetail(tripID))
         }
         .environment(\.openTripDetailMedia) { launch in
-            path.append(.tripDetailMedia(tripID: launch.tripID, mediaID: launch.mediaID))
+            pushHome(.tripDetailMedia(tripID: launch.tripID, mediaID: launch.mediaID))
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: ActivityDeleteSuccessPresentation.didDeleteNotification
+            )
+        ) { notification in
+            guard let activityID = ActivityDeleteSuccessPresentation.activityID(from: notification) else {
+                return
+            }
+            path = ActivityDeleteSuccessPresentation.homePathByRemovingActivity(
+                path,
+                activityID: activityID
+            )
         }
     }
 
@@ -193,9 +212,57 @@ struct LogOverviewView: View {
         accountSession.currentProfile?.profilePhoto
     }
 
+    private var hasUnreadNotifications: Bool {
+        HomeNotificationsPresentation.hasUnread(
+            items: homeNotificationItems,
+            lastSeenAt: ownerProfileID.flatMap {
+                HomeNotificationsLastSeenStore.lastSeenAt(ownerProfileID: $0)
+            }
+        )
+    }
+
+    private var homeNotificationsBellButton: some View {
+        Button {
+            pushHome(.notifications)
+        } label: {
+            Image(systemName: "bell")
+                .appToolbarIconButtonLabel()
+                .overlay(alignment: .topTrailing) {
+                    if hasUnreadNotifications {
+                        Circle()
+                            .fill(.red)
+                            .frame(width: 9, height: 9)
+                            .offset(x: -9, y: 9)
+                    }
+                }
+        }
+        .appStandaloneIconButtonStyle()
+        .foregroundStyle(.white)
+        .accessibilityLabel("Notifications")
+        .accessibilityIdentifier(HomeNotificationsPresentation.bellAccessibilityIdentifier)
+    }
+
+    /// One deferred fetch per profile session so the bell badge reflects unseen
+    /// buddy notifications without blocking Home's first frame.
+    private func refreshNotificationsBadgeIfNeeded() async {
+        guard ownerProfileID != nil, !hasFetchedNotificationsBadge else { return }
+        hasFetchedNotificationsBadge = true
+        try? await Task.sleep(for: .seconds(1.5))
+        guard !Task.isCancelled else {
+            hasFetchedNotificationsBadge = false
+            return
+        }
+        let snapshot = await GoDiveSharedDiveProjectionSync.fetchBuddyFeedSnapshot()
+        homeNotificationItems = HomeNotificationsPresentation.items(
+            friends: snapshot.friends,
+            activityRows: snapshot.rows,
+            currentFirebaseUID: GoDiveFirestoreUserProfileMapping.loadCachedFirebaseUID()
+        )
+    }
+
     private var homeProfileHeaderButton: some View {
         Button {
-            path.append(.profile)
+            pushHome(.profile)
         } label: {
             ProfileAvatarView(
                 profilePhoto: profilePhotoForHeader,
@@ -246,17 +313,17 @@ struct LogOverviewView: View {
             appliesTopSafeAreaBleed: false,
             selfBuddyID: selfBuddyID,
             isHeroPlaybackActive: isHomeNavigationStackAtRoot,
-            onOpenDive: { path.append(.diveDetail($0)) },
-            onOpenMedia: { diveID, mediaID in path.append(.diveMedia(diveID: diveID, mediaID: mediaID)) },
+            onOpenDive: { pushHome(.diveDetail($0)) },
+            onOpenMedia: { diveID, mediaID in pushHome(.diveMedia(diveID: diveID, mediaID: mediaID)) },
             onOpenBuddy: openBuddyOrProfile
         )
     }
 
     private func openBuddyOrProfile(buddyID: UUID) {
         if DiveBuddySelfRepresentation.isSelfBuddyID(buddyID, selfBuddyID: selfBuddyID) {
-            path.append(.profile)
+            pushHome(.profile)
         } else {
-            path.append(.diveBuddy(buddyID))
+            pushHome(.diveBuddy(buddyID))
         }
     }
 
@@ -268,7 +335,7 @@ struct LogOverviewView: View {
                 myActivitiesSummary: homeAggregate.myActivitiesSummary,
                 buddyLeaderboard: homeAggregate.buddyLeaderboard,
                 unitSystem: diveDisplayUnitSystem,
-                onOpenLeaderboard: { path.append(.lifetimeStatsLeaderboard($0)) },
+                onOpenLeaderboard: { pushHome(.lifetimeStatsLeaderboard($0)) },
                 onOpenBuddy: openBuddyOrProfile
             )
             .id(homeAggregate.contentFingerprint)
@@ -296,19 +363,29 @@ struct LogOverviewView: View {
             if let activity = ownerDiveActivities.first(where: { $0.id == id }) {
                 ViewSingleActivity(activity: activity)
             } else {
-                missingDestinationLabel("This dive is no longer in your log.")
+                ActivityMissingDestinationPopView {
+                    path = ActivityDeleteSuccessPresentation.homePathByRemovingActivity(
+                        path,
+                        activityID: id
+                    )
+                }
             }
         case .diveMedia(let diveID, let mediaID):
             if let activity = ownerDiveActivities.first(where: { $0.id == diveID }) {
                 ViewSingleActivity(activity: activity, initialMediaFocusID: mediaID)
             } else {
-                missingDestinationLabel("This dive is no longer in your log.")
+                ActivityMissingDestinationPopView {
+                    path = ActivityDeleteSuccessPresentation.homePathByRemovingActivity(
+                        path,
+                        activityID: diveID
+                    )
+                }
             }
         case .diveSite(let siteID):
             ExploreDiveSiteDetailHost(
                 siteID: siteID,
                 ownerProfileID: ownerProfileID,
-                onOpenDive: { path.append(.diveDetail($0)) }
+                onOpenDive: { pushHome(.diveDetail($0)) }
             )
         case .marineLife(let uuid):
             if let species = marineLifeCatalog.first(where: { $0.uuid == uuid }) {
@@ -316,7 +393,7 @@ struct LogOverviewView: View {
                     species: species,
                     ownerProfileID: ownerProfileID
                 ) { activityID in
-                    path.append(.diveDetail(activityID))
+                    pushHome(.diveDetail(activityID))
                 }
             } else {
                 missingDestinationLabel("This species is no longer in the catalog.")
@@ -330,6 +407,22 @@ struct LogOverviewView: View {
             } else {
                 missingDestinationLabel("This buddy is no longer on your roster.")
             }
+        case .notifications:
+            HomeNotificationsView(
+                ownerProfileID: ownerProfileID,
+                onOpenFriend: { pushHome(.friendProfile($0)) },
+                onOpenActivity: { pushHome(.buddySharedActivity($0)) }
+            )
+        case .friendProfile(let friend):
+            FriendProfileView(friend: friend)
+        case .buddySharedActivity(let row):
+            FriendSharedDiveDetailView(
+                dive: row.dive,
+                friendName: row.friendDisplayName,
+                friendPhotoURL: row.friendPhotoURL,
+                friendUID: row.friendUID
+            )
+            .hidesBottomTabBarWhenPushed()
         case .lifetimeStatsLeaderboard(let kind):
             HomeLifetimeStatsLeaderboardView(
                 kind: kind,
@@ -341,9 +434,9 @@ struct LogOverviewView: View {
                 unitSystem: diveDisplayUnitSystem,
                 automaticallyRenumberDives: automaticallyRenumberDives,
                 sightings: homeAggregate.sightingCountInputs,
-                onOpenDive: { path.append(.diveDetail($0)) },
-                onOpenSite: { path.append(.diveSite($0)) },
-                onOpenSpecies: { path.append(.marineLife($0)) }
+                onOpenDive: { pushHome(.diveDetail($0)) },
+                onOpenSite: { pushHome(.diveSite($0)) },
+                onOpenSpecies: { pushHome(.marineLife($0)) }
             )
         }
     }
@@ -664,6 +757,10 @@ struct LogOverviewView: View {
             taggedSpeciesCountByMediaID: taggedSpeciesCountByMediaID,
             taggedBuddyCountByMediaID: taggedBuddyCountByMediaID
         )
+    }
+
+    private func pushHome(_ route: HomeRoute) {
+        NavigationStackPushCoalescing.append(route, to: &path)
     }
 }
 

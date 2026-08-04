@@ -15,6 +15,7 @@ struct SettingsView: View {
     @AppStorage(AppUserSettings.shareMediaWithFriendsKey) private var shareMediaWithFriends = false
     @AppStorage(AppUserSettings.shareMediaOnWiFiOnlyKey) private var shareMediaOnWiFiOnly = false
     @AppStorage(AppUserSettings.downloadFriendMediaOnWiFiOnlyKey) private var downloadFriendMediaOnWiFiOnly = false
+    @AppStorage(AppUserSettings.notifyBuddyActivitySharesKey) private var notifyBuddyActivityShares = true
 
     @State private var mediaBackfillOverlay: DiveLibraryMediaBackfillOverlayState = .hidden
     @State private var mediaBackfillTask: Task<Void, Never>?
@@ -42,12 +43,14 @@ struct SettingsView: View {
                 shareMediaWithFriends: $shareMediaWithFriends,
                 shareMediaOnWiFiOnly: $shareMediaOnWiFiOnly,
                 downloadFriendMediaOnWiFiOnly: $downloadFriendMediaOnWiFiOnly,
+                notifyBuddyActivityShares: $notifyBuddyActivityShares,
                 mediaBackfillOverlay: mediaBackfillOverlay,
                 onRenumberWhenEnabled: renumberAllDivesWhenEnabled,
                 onAutoUploadEnabled: startMediaBackfillForExistingDives,
                 onShareCrashReportsEnabled: uploadCrashReportBacklog,
                 onShareSecurityEventsEnabled: uploadSecurityEventBacklog,
                 onFriendShareSettingsChanged: refreshFriendShareProjections,
+                onNotifyBuddyActivitySharesChanged: syncBuddyActivityPushPreference,
                 onDismissMediaBackfill: dismissMediaBackfillOverlay,
                 onCancelMediaBackfill: cancelMediaBackfill,
                 onSyncedSettingsChanged: pushSyncedPreferencesFromDefaults,
@@ -58,6 +61,7 @@ struct SettingsView: View {
         .onAppear {
             CrashBreadcrumbTrail.noteScreen("settings")
             pullSyncedPreferencesIntoDefaults()
+            Task { await GoDiveBuddyActivityPushPreferenceSync.pullPreferenceIntoDefaults() }
         }
         .onDisappear(perform: cancelMediaBackfillTask)
         .onChange(of: automaticallyRenumberDives) { _, _ in
@@ -113,6 +117,15 @@ struct SettingsView: View {
 
     private func uploadSecurityEventBacklog() {
         GoDiveSecurityEventJournal.uploadBacklogNow(container: modelContext.container)
+    }
+
+    private func syncBuddyActivityPushPreference(_ isOn: Bool) {
+        Task { @MainActor in
+            await GoDiveBuddyActivityPushPreferenceSync.uploadCurrentPreference()
+            if isOn {
+                await GoDiveFirebaseCloudMessaging.registerForFriendInvitePushesIfNeeded()
+            }
+        }
     }
 
     private func refreshFriendShareProjections() {
@@ -197,6 +210,7 @@ private struct SettingsPageContent: View {
     @Binding var shareMediaWithFriends: Bool
     @Binding var shareMediaOnWiFiOnly: Bool
     @Binding var downloadFriendMediaOnWiFiOnly: Bool
+    @Binding var notifyBuddyActivityShares: Bool
 
     @State private var saltWaterWeightText = ""
     @State private var freshWaterWeightText = ""
@@ -208,6 +222,7 @@ private struct SettingsPageContent: View {
     let onShareCrashReportsEnabled: () -> Void
     let onShareSecurityEventsEnabled: () -> Void
     let onFriendShareSettingsChanged: () -> Void
+    let onNotifyBuddyActivitySharesChanged: (Bool) -> Void
     let onDismissMediaBackfill: () -> Void
     let onCancelMediaBackfill: () -> Void
     let onSyncedSettingsChanged: () -> Void
@@ -331,6 +346,15 @@ private struct SettingsPageContent: View {
                     isOn: $downloadFriendMediaOnWiFiOnly
                 )
                 .disabled(!shareDivesWithFriends)
+
+                SettingsToggleRow(
+                    title: SettingsPresentation.NotifyBuddyActivityShares.title,
+                    infoMessage: SettingsPresentation.NotifyBuddyActivityShares.infoMessage,
+                    isOn: $notifyBuddyActivityShares
+                )
+                .onChange(of: notifyBuddyActivityShares) { _, isOn in
+                    onNotifyBuddyActivitySharesChanged(isOn)
+                }
 
                 SettingsToggleRow(
                     title: SettingsPresentation.ShareCrashReports.title,

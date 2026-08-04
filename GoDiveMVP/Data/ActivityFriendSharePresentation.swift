@@ -16,7 +16,7 @@ enum ActivityFriendSharePresentation: Sendable {
 
     static let globalSharingOffMessage = "Buddy sharing is off in Settings, so nothing is published until you turn on Share activities with buddies. Per-activity choices are saved and apply when sharing is enabled."
 
-    static let editButtonAccessibilityLabel = "Activity sharing settings"
+    static let editButtonAccessibilityLabel = "Activity settings"
 
     // MARK: - Publish status footer
 

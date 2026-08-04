@@ -2907,6 +2907,26 @@ struct GoDiveFriendsTests {
         #expect(checklist?.isUploading == true)
     }
 
+    @Test func activityFriendShareStatusPresentation_checklist_mediaOffWhenDocumentHasNoMediaRows() {
+        let checklist = ActivityFriendShareStatusPresentation.shareStatusChecklist(
+            shouldPublish: true,
+            shareMediaEnabled: true,
+            hasShareableMedia: true,
+            notesExpected: false,
+            hasPendingUpload: false,
+            hasLocalPendingUpload: false,
+            firestore: ActivityFriendShareStatusPresentation.FirestoreSnapshot(
+                documentExists: true,
+                hasIncompleteMediaRows: false,
+                mediaItemCount: 0,
+                hasNotesField: false
+            )
+        )
+        #expect(checklist?.activity == .shared)
+        #expect(checklist?.media == .off)
+        #expect(checklist?.isUploading == false)
+    }
+
     @Test func activityFriendShareStatusPresentation_notesExpected_respectsModeAndText() {
         #expect(
             !ActivityFriendShareStatusPresentation.notesExpected(
@@ -3054,10 +3074,171 @@ struct GoDiveFriendsTests {
         )
         ActivityFriendShareConfiguration.seedBuddyShareDefaultsOnNewActivity(dive, userDefaults: defaults)
         #expect(dive.friendShareBuddyDefaultsCaptured)
-        #expect(dive.friendShareActivityEnabled)
+        // Local-first publish checkpoint: new activities never auto-share, even with global share on.
+        #expect(!dive.friendShareActivityEnabled)
+        #expect(dive.friendSharePublishCheckpointPending)
         #expect(dive.friendShareMediaEnabled)
         #expect(dive.friendShareNotesModeRaw == ActivityFriendShareNotesMode.off.rawValue)
         #expect(!dive.friendShareBuddySettingsConfigured)
+    }
+
+    @Test func activityFriendSharePublishCheckpoint_seedNewSnorkelStaysLocalWithPendingFlag() {
+        let suiteName = "GoDiveFriendsTests.publishCheckpointSnorkelSeed.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(true, forKey: AppUserSettings.shareDivesWithFriendsKey)
+        defaults.set(true, forKey: AppUserSettings.shareMediaWithFriendsKey)
+
+        let snorkel = SnorkelActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 25
+        )
+        ActivityFriendShareConfiguration.seedBuddyShareDefaultsOnNewActivity(snorkel, userDefaults: defaults)
+        #expect(snorkel.friendShareBuddyDefaultsCaptured)
+        #expect(!snorkel.friendShareActivityEnabled)
+        #expect(snorkel.friendSharePublishCheckpointPending)
+        #expect(snorkel.friendShareMediaEnabled)
+    }
+
+    @Test func activityFriendSharePublishCheckpoint_backfillDoesNotSetPendingFlag() {
+        let suiteName = "GoDiveFriendsTests.publishCheckpointBackfill.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(true, forKey: AppUserSettings.shareDivesWithFriendsKey)
+
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 12
+        )
+        ActivityFriendShareConfiguration.captureGlobalBuddyShareDefaultsIfNeeded(on: dive, userDefaults: defaults)
+        #expect(dive.friendShareBuddyDefaultsCaptured)
+        // Pre-existing activities keep the old auto-share behavior — no checkpoint banner.
+        #expect(dive.friendShareActivityEnabled)
+        #expect(!dive.friendSharePublishCheckpointPending)
+    }
+
+    @Test @MainActor func activityFriendSharePublishCheckpoint_applyConfiguredSettingsResolvesCheckpoint() {
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 30,
+            maxDepthMeters: 12
+        )
+        dive.friendSharePublishCheckpointPending = true
+        dive.friendShareBuddyDefaultsCaptured = true
+
+        ActivityFriendShareConfiguration.applyConfiguredSettings(
+            to: dive,
+            shareActivityEnabled: true,
+            shareMediaEnabled: false,
+            selectedMediaIDs: [],
+            notesMode: .off,
+            publicNotes: nil
+        )
+        #expect(dive.friendShareBuddySettingsConfigured)
+        #expect(dive.friendShareActivityEnabled)
+        #expect(!dive.friendSharePublishCheckpointPending)
+
+        let snorkel = SnorkelActivity(
+            source: .manual,
+            startTime: Date(),
+            durationMinutes: 25
+        )
+        snorkel.friendSharePublishCheckpointPending = true
+        ActivityFriendShareConfiguration.applyConfiguredSettings(
+            to: snorkel,
+            shareActivityEnabled: false,
+            shareMediaEnabled: false,
+            selectedMediaIDs: [],
+            notesMode: .off,
+            publicNotes: nil
+        )
+        #expect(!snorkel.friendShareActivityEnabled)
+        #expect(!snorkel.friendSharePublishCheckpointPending)
+    }
+
+    @Test func activityFriendSharePublishCheckpoint_showsBannerMatrix() {
+        #expect(
+            ActivityFriendSharePublishCheckpoint.showsBanner(
+                checkpointPending: true,
+                settingsConfigured: false,
+                globalSharingEnabled: true
+            )
+        )
+        #expect(
+            !ActivityFriendSharePublishCheckpoint.showsBanner(
+                checkpointPending: false,
+                settingsConfigured: false,
+                globalSharingEnabled: true
+            )
+        )
+        #expect(
+            !ActivityFriendSharePublishCheckpoint.showsBanner(
+                checkpointPending: true,
+                settingsConfigured: true,
+                globalSharingEnabled: true
+            )
+        )
+        #expect(
+            !ActivityFriendSharePublishCheckpoint.showsBanner(
+                checkpointPending: true,
+                settingsConfigured: false,
+                globalSharingEnabled: false
+            )
+        )
+    }
+
+    @Test func activityFriendSharePublishCheckpoint_publishSelectedMediaIDs() {
+        let galleryIDs = [UUID(), UUID(), UUID()]
+        #expect(
+            ActivityFriendSharePublishCheckpoint.publishSelectedMediaIDs(
+                mediaEnabled: true,
+                galleryIDs: galleryIDs
+            ) == Set(galleryIDs)
+        )
+        #expect(
+            ActivityFriendSharePublishCheckpoint.publishSelectedMediaIDs(
+                mediaEnabled: false,
+                galleryIDs: galleryIDs
+            ).isEmpty
+        )
+    }
+
+    @Test func activityPublishCheckpointBanner_promptCopyPerActivityKind() {
+        #expect(
+            ActivityPublishCheckpointBannerPresentation.promptTitle(activityKind: .scubaDive)
+                == "This dive is local only"
+        )
+        #expect(
+            ActivityPublishCheckpointBannerPresentation.promptTitle(activityKind: .snorkel)
+                == "This snorkel is local only"
+        )
+    }
+
+    @Test func buddyActivityPushSignal_shouldRecordOnlyOnFirstProjectionCreate() {
+        #expect(
+            GoDiveBuddyActivityPushSignalSync.shouldRecordPushSignal(
+                projectionAlreadyExisted: false,
+                pushSignalAlreadyRecorded: false
+            )
+        )
+        // Media / notes republish after projection exists — no second push.
+        #expect(
+            !GoDiveBuddyActivityPushSignalSync.shouldRecordPushSignal(
+                projectionAlreadyExisted: true,
+                pushSignalAlreadyRecorded: false
+            )
+        )
+        // Projection recreated after signal already recorded — still no second push.
+        #expect(
+            !GoDiveBuddyActivityPushSignalSync.shouldRecordPushSignal(
+                projectionAlreadyExisted: false,
+                pushSignalAlreadyRecorded: true
+            )
+        )
     }
 
     @Test func friendSharedMedia_allVideoContentPrefetchURLs_filtersVideosOnly() {
@@ -3281,5 +3462,451 @@ struct GoDiveFriendsTests {
         #expect(GoDiveBuddyShareBackgroundUploadPresentation.processingRequiresNetworkConnectivity())
         #expect(!GoDiveBuddyShareBackgroundUploadPresentation.processingRequiresExternalPower())
         #expect(GoDiveBuddyShareBackgroundUpload.processingEarliestInterval == 5 * 60)
+    }
+
+    // MARK: - Buddy activity shared push notifications
+
+    @Test func buddyActivityPush_target_parsesValidPayload() {
+        let target = GoDiveBuddyActivityPushPresentation.target(fromUserInfo: [
+            "type": "buddy_activity_shared",
+            "friendUID": " friend-uid ",
+            "activityID": "activity-123",
+            "activityCount": "3",
+        ])
+        #expect(target?.friendUID == "friend-uid")
+        #expect(target?.activityID == "activity-123")
+    }
+
+    @Test func buddyActivityPush_target_rejectsWrongTypeOrMissingKeys() {
+        #expect(
+            GoDiveBuddyActivityPushPresentation.target(fromUserInfo: [
+                "type": "friend_invite_accepted",
+                "friendUID": "friend-uid",
+                "activityID": "activity-123",
+            ]) == nil
+        )
+        #expect(
+            GoDiveBuddyActivityPushPresentation.target(fromUserInfo: [
+                "type": "buddy_activity_shared",
+                "friendUID": "friend-uid",
+            ]) == nil
+        )
+        #expect(
+            GoDiveBuddyActivityPushPresentation.target(fromUserInfo: [
+                "type": "buddy_activity_shared",
+                "friendUID": "  ",
+                "activityID": "activity-123",
+            ]) == nil
+        )
+    }
+
+    @Test func buddyActivityPush_notificationCopy_singleAndBatched() {
+        #expect(
+            GoDiveBuddyActivityPushPresentation.notificationBody(
+                posterDisplayName: "Dre",
+                activityCount: 1,
+                singleActivityKind: .scubaDive
+            ) == "Dre logged a new dive."
+        )
+        #expect(
+            GoDiveBuddyActivityPushPresentation.notificationBody(
+                posterDisplayName: "Dre",
+                activityCount: 1,
+                singleActivityKind: .snorkel
+            ) == "Dre logged a new snorkel."
+        )
+        #expect(
+            GoDiveBuddyActivityPushPresentation.notificationBody(
+                posterDisplayName: "  ",
+                activityCount: 4,
+                singleActivityKind: .scubaDive
+            ) == "A dive buddy shared 4 new activities."
+        )
+        #expect(GoDiveBuddyActivityPushPresentation.notificationTitle(activityCount: 1) == "New buddy activity")
+        #expect(GoDiveBuddyActivityPushPresentation.notificationTitle(activityCount: 5) == "New buddy activities")
+    }
+
+    @Test func buddyActivityPush_taggedYouNotificationCopy_singleAndBatched() {
+        #expect(
+            GoDiveBuddyActivityPushPresentation.taggedYouNotificationBody(
+                posterDisplayName: "Dre",
+                taggedActivityCount: 1,
+                singleActivityKind: .scubaDive
+            ) == "Dre tagged you in a new dive."
+        )
+        #expect(
+            GoDiveBuddyActivityPushPresentation.taggedYouNotificationBody(
+                posterDisplayName: "Dre",
+                taggedActivityCount: 1,
+                singleActivityKind: .snorkel
+            ) == "Dre tagged you in a new snorkel."
+        )
+        #expect(
+            GoDiveBuddyActivityPushPresentation.taggedYouNotificationBody(
+                posterDisplayName: "  ",
+                taggedActivityCount: 3,
+                singleActivityKind: .scubaDive
+            ) == "A dive buddy tagged you in 3 new activities."
+        )
+        #expect(
+            GoDiveBuddyActivityPushPresentation.taggedYouNotificationTitle(taggedActivityCount: 1)
+                == "Tagged in a buddy activity"
+        )
+        #expect(
+            GoDiveBuddyActivityPushPresentation.taggedYouNotificationTitle(taggedActivityCount: 2)
+                == "Tagged in buddy activities"
+        )
+    }
+
+    @Test func buddyActivityPush_latestActivityID_picksLatestStartTime() {
+        let latest = GoDiveBuddyActivityPushPresentation.latestActivityID(from: [
+            (id: "older", startTime: Date(timeIntervalSince1970: 1_700_000_000)),
+            (id: "newest", startTime: Date(timeIntervalSince1970: 1_700_100_000)),
+            (id: "middle", startTime: Date(timeIntervalSince1970: 1_700_050_000)),
+        ])
+        #expect(latest == "newest")
+
+        // Missing start times lose to dated activities; later queue position wins ties.
+        let withNil = GoDiveBuddyActivityPushPresentation.latestActivityID(from: [
+            (id: "dated", startTime: Date(timeIntervalSince1970: 1_700_000_000)),
+            (id: "undated", startTime: nil),
+        ])
+        #expect(withNil == "dated")
+        #expect(GoDiveBuddyActivityPushPresentation.latestActivityID(from: []) == nil)
+    }
+
+    @Test func buddyActivityPush_buddyFeedContainsRow_matchesFriendAndDocument() {
+        let dive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "shared-dive-1",
+            activityKind: .scubaDive,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            averageDepthMeters: nil,
+            diveNumber: 1,
+            siteName: "Reef",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+        let rows = [
+            LogbookBuddyFeedPresentation.Row(
+                id: "friend-a-shared-dive-1",
+                friendUID: "friend-a",
+                friendDisplayName: "Alex",
+                friendPhotoURL: nil,
+                dive: dive
+            ),
+        ]
+        #expect(
+            LogbookBuddyFeedPresentation.containsRow(
+                in: rows,
+                friendUID: "friend-a",
+                diveDocumentID: "shared-dive-1"
+            )
+        )
+        #expect(
+            !LogbookBuddyFeedPresentation.containsRow(
+                in: rows,
+                friendUID: "friend-b",
+                diveDocumentID: "shared-dive-1"
+            )
+        )
+        #expect(
+            !LogbookBuddyFeedPresentation.containsRow(
+                in: rows,
+                friendUID: "friend-a",
+                diveDocumentID: "other-dive"
+            )
+        )
+    }
+
+    @Test @MainActor func buddyActivityPush_navigationStore_consumeClearsPending() {
+        let store = GoDiveBuddyActivityPushNavigationStore.shared
+        store.clear()
+        #expect(store.consumePendingTarget() == nil)
+
+        store.setPending(
+            GoDiveBuddyActivityPushPresentation.Target(
+                friendUID: "friend-a",
+                activityID: "activity-1"
+            )
+        )
+        let consumed = store.consumePendingTarget()
+        #expect(consumed?.friendUID == "friend-a")
+        #expect(consumed?.activityID == "activity-1")
+        #expect(store.consumePendingTarget() == nil)
+    }
+
+    // MARK: - Home notifications page (bell)
+
+    private func makeNotificationTestDive(
+        id: String,
+        kind: FriendSharedActivityKind = .scubaDive,
+        startTime: Date?,
+        updatedAt: Date? = nil,
+        siteName: String? = nil,
+        taggedBuddies: [GoDiveSharedDiveProjectionMapping.TaggedBuddySnapshot] = []
+    ) -> GoDiveSharedDiveProjectionMapping.FriendVisibleDive {
+        GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: id,
+            activityKind: kind,
+            startTime: startTime,
+            durationMinutes: nil,
+            maxDepthMeters: nil,
+            averageDepthMeters: nil,
+            diveNumber: nil,
+            siteName: siteName,
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: taggedBuddies,
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil,
+            updatedAt: updatedAt
+        )
+    }
+
+    @Test func homeNotifications_items_mergeAndSortNewestFirst() {
+        let friend = GoDiveFriendGraphService.friendEdge(
+            friendUID: "friend-a",
+            displayName: "Alex",
+            photoURL: "https://firebasestorage.googleapis.com/a.jpg",
+            since: Date(timeIntervalSince1970: 1_700_050_000)
+        )
+        let rows = [
+            LogbookBuddyFeedPresentation.Row(
+                id: "friend-a-older",
+                friendUID: "friend-a",
+                friendDisplayName: "Alex",
+                friendPhotoURL: nil,
+                dive: makeNotificationTestDive(
+                    id: "older",
+                    startTime: Date(timeIntervalSince1970: 1_700_000_000),
+                    siteName: "Blue Hole"
+                )
+            ),
+            LogbookBuddyFeedPresentation.Row(
+                id: "friend-a-newest",
+                friendUID: "friend-a",
+                friendDisplayName: "Alex",
+                friendPhotoURL: nil,
+                dive: makeNotificationTestDive(
+                    id: "newest",
+                    kind: .snorkel,
+                    startTime: Date(timeIntervalSince1970: 1_700_000_000),
+                    updatedAt: Date(timeIntervalSince1970: 1_700_100_000)
+                )
+            ),
+        ]
+
+        let items = HomeNotificationsPresentation.items(friends: [friend], activityRows: rows)
+        #expect(items.count == 3)
+        #expect(items[0].id == "activity-friend-a-newest")
+        #expect(items[0].message == "Alex logged a new snorkel")
+        #expect(items[1].id == "friend-friend-a")
+        #expect(items[1].message == "Alex is now your dive buddy")
+        #expect(items[2].id == "activity-friend-a-older")
+        #expect(items[2].message == "Alex logged a new dive")
+        #expect(items[2].detail == "Blue Hole")
+    }
+
+    @Test func homeNotifications_items_addTaggedYouRowWhenCurrentUserTagged() {
+        let taggedDive = makeNotificationTestDive(
+            id: "tagged-dive",
+            startTime: Date(timeIntervalSince1970: 1_700_100_000),
+            siteName: "Reef",
+            taggedBuddies: [
+                GoDiveSharedDiveProjectionMapping.TaggedBuddySnapshot(
+                    displayName: "Me",
+                    firebaseUID: "my-firebase-uid"
+                ),
+            ]
+        )
+        let row = LogbookBuddyFeedPresentation.Row(
+            id: "friend-a-tagged",
+            friendUID: "friend-a",
+            friendDisplayName: "Alex",
+            friendPhotoURL: nil,
+            dive: taggedDive
+        )
+
+        let items = HomeNotificationsPresentation.items(
+            friends: [],
+            activityRows: [row],
+            currentFirebaseUID: "my-firebase-uid"
+        )
+        #expect(items.count == 2)
+        #expect(items[0].id == "activity-tag-friend-a-tagged")
+        #expect(items[0].message == "Alex tagged you in a new dive")
+        #expect(items[1].id == "activity-friend-a-tagged")
+        #expect(items[1].message == "Alex logged a new dive")
+
+        let withoutUID = HomeNotificationsPresentation.items(
+            friends: [],
+            activityRows: [row],
+            currentFirebaseUID: nil
+        )
+        #expect(withoutUID.count == 1)
+        #expect(withoutUID[0].id == "activity-friend-a-tagged")
+    }
+
+    @Test func homeNotifications_items_skipFriendWithoutSinceDate() {
+        let friend = GoDiveFriendGraphService.friendEdge(
+            friendUID: "friend-b",
+            displayName: "Sam"
+        )
+        let items = HomeNotificationsPresentation.items(friends: [friend], activityRows: [])
+        #expect(items.isEmpty)
+    }
+
+    @Test func homeNotifications_activityDate_prefersUpdatedAtOverStartTime() {
+        let updated = Date(timeIntervalSince1970: 1_700_200_000)
+        let dive = makeNotificationTestDive(
+            id: "d",
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            updatedAt: updated
+        )
+        #expect(HomeNotificationsPresentation.activityDate(for: dive) == updated)
+
+        let startOnly = makeNotificationTestDive(
+            id: "d2",
+            startTime: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+        #expect(
+            HomeNotificationsPresentation.activityDate(for: startOnly)
+                == Date(timeIntervalSince1970: 1_700_000_000)
+        )
+    }
+
+    @Test func homeNotifications_hasUnread_gatesOnLastSeen() {
+        let item = HomeNotificationsPresentation.Item(
+            id: "friend-x",
+            kind: .friendConnected(
+                GoDiveFriendGraphService.friendEdge(friendUID: "x", displayName: "X")
+            ),
+            date: Date(timeIntervalSince1970: 1_700_000_000),
+            friendDisplayName: "X",
+            friendPhotoURL: nil,
+            message: "X is now your dive buddy",
+            detail: nil
+        )
+        #expect(HomeNotificationsPresentation.hasUnread(items: [item], lastSeenAt: nil))
+        #expect(
+            HomeNotificationsPresentation.hasUnread(
+                items: [item],
+                lastSeenAt: Date(timeIntervalSince1970: 1_699_000_000)
+            )
+        )
+        #expect(
+            !HomeNotificationsPresentation.hasUnread(
+                items: [item],
+                lastSeenAt: Date(timeIntervalSince1970: 1_700_000_001)
+            )
+        )
+        #expect(!HomeNotificationsPresentation.hasUnread(items: [], lastSeenAt: nil))
+    }
+
+    @Test func homeNotifications_lastSeenStore_roundTrip() {
+        let suite = "homeNotificationsLastSeenTests"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let profileID = UUID()
+
+        #expect(HomeNotificationsLastSeenStore.lastSeenAt(ownerProfileID: profileID, userDefaults: defaults) == nil)
+
+        let seenAt = Date(timeIntervalSince1970: 1_700_000_000)
+        HomeNotificationsLastSeenStore.markSeen(ownerProfileID: profileID, at: seenAt, userDefaults: defaults)
+        #expect(
+            HomeNotificationsLastSeenStore.lastSeenAt(ownerProfileID: profileID, userDefaults: defaults) == seenAt
+        )
+        defaults.removePersistentDomain(forName: suite)
+    }
+
+    @Test func buddyActivityPush_notifyPreferenceDefaultsOn() {
+        let defaults = UserDefaults(suiteName: "buddyActivityPushPrefTests")!
+        defaults.removePersistentDomain(forName: "buddyActivityPushPrefTests")
+        #expect(AppUserSettings.notifyBuddyActivityShares(userDefaults: defaults))
+
+        defaults.set(false, forKey: AppUserSettings.notifyBuddyActivitySharesKey)
+        #expect(!AppUserSettings.notifyBuddyActivityShares(userDefaults: defaults))
+
+        defaults.set(true, forKey: AppUserSettings.notifyBuddyActivitySharesKey)
+        #expect(AppUserSettings.notifyBuddyActivityShares(userDefaults: defaults))
+        defaults.removePersistentDomain(forName: "buddyActivityPushPrefTests")
+    }
+
+    @Test func buddyActivityPush_shouldNotifyFirstShareableProjection_matchesServerGate() {
+        #expect(
+            GoDiveBuddyActivityPushPresentation.shouldNotifyFirstShareableProjection(
+                beforeActivityKindRaw: nil,
+                afterActivityKindRaw: FriendSharedActivityKind.scubaDive.rawValue
+            )
+        )
+        #expect(
+            !GoDiveBuddyActivityPushPresentation.shouldNotifyFirstShareableProjection(
+                beforeActivityKindRaw: nil,
+                afterActivityKindRaw: nil
+            )
+        )
+        #expect(
+            !GoDiveBuddyActivityPushPresentation.shouldNotifyFirstShareableProjection(
+                beforeActivityKindRaw: nil,
+                afterActivityKindRaw: "unknown"
+            )
+        )
+        #expect(
+            !GoDiveBuddyActivityPushPresentation.shouldNotifyFirstShareableProjection(
+                beforeActivityKindRaw: FriendSharedActivityKind.scubaDive.rawValue,
+                afterActivityKindRaw: FriendSharedActivityKind.snorkel.rawValue
+            )
+        )
+        // Media-only ghost doc later gains projection — recovery notify.
+        #expect(
+            GoDiveBuddyActivityPushPresentation.shouldNotifyFirstShareableProjection(
+                beforeActivityKindRaw: nil,
+                afterActivityKindRaw: FriendSharedActivityKind.snorkel.rawValue
+            )
+        )
+    }
+
+    @Test func sharedDiveProjection_taggedBuddiesFirestoreRows_mapsFirebaseUid() {
+        let rows = GoDiveSharedDiveProjectionMapping.taggedBuddiesFirestoreRows(
+            from: [
+                GoDiveSharedDiveProjectionMapping.TaggedBuddySnapshot(
+                    displayName: "Kathleen",
+                    firebaseUID: "uid-kathleen"
+                ),
+                GoDiveSharedDiveProjectionMapping.TaggedBuddySnapshot(
+                    displayName: "Local Buddy",
+                    firebaseUID: nil
+                ),
+            ]
+        )
+        #expect(rows.count == 2)
+        #expect(rows[0]["displayName"] as? String == "Kathleen")
+        #expect(rows[0]["firebaseUid"] as? String == "uid-kathleen")
+        #expect(rows[1]["firebaseUid"] == nil)
     }
 }

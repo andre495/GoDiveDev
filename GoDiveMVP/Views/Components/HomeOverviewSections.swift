@@ -1866,9 +1866,12 @@ struct HomeLifetimeStatsSection: View {
     let unitSystem: DiveDisplayUnitSystem
     let onOpenLeaderboard: (HomeLifetimeStatsLeaderboardKind) -> Void
     let onOpenBuddy: (UUID) -> Void
+    /// When **`false`**, omit the **Top buddies** tile (Profile **Diver stats**). Home keeps the default.
+    var includesBuddyLeaderboard: Bool = true
 
     private var showsBuddyLeaderboard: Bool {
-        HomeBuddyLeaderboardPresentation.shouldShow(
+        guard includesBuddyLeaderboard else { return false }
+        return HomeBuddyLeaderboardPresentation.shouldShow(
             diveCount: stats.diveCount,
             entries: buddyLeaderboard
         )
@@ -1877,88 +1880,110 @@ struct HomeLifetimeStatsSection: View {
     var body: some View {
         let tiles = highlightTiles
         let statRowCount = HomeLifetimeStatsLayout.rowCount(tileCount: tiles.count)
-        let statTileHeight = HomeLifetimeStatsTilesLayout.statTileHeight
-        let buddyTileHeight = HomeLifetimeStatsTilesLayout.buddyTileHeight
+        let tileSpacing = HomeLifetimeStatsTilesLayout.gridSpacing
+        let columns = Array(
+            repeating: GridItem(.flexible(), spacing: tileSpacing),
+            count: HomeLifetimeStatsLayout.gridColumnCount
+        )
 
-        GeometryReader { proxy in
-            let tileSpacing = HomeLifetimeStatsTilesLayout.gridSpacing
-            let edgeInsets = HomeLifetimeStatsLayout.resolvedVerticalEdgeInsets(
-                totalHeight: proxy.size.height,
-                statRowCount: statRowCount,
-                showsBuddyLeaderboard: showsBuddyLeaderboard
-            )
-            let columns = Array(
-                repeating: GridItem(.flexible(), spacing: tileSpacing),
-                count: HomeLifetimeStatsLayout.gridColumnCount
-            )
+        Group {
+            if showsBuddyLeaderboard {
+                // Home: center the tile stack in the fixed blue panel height.
+                GeometryReader { proxy in
+                    let edgeInsets = HomeLifetimeStatsLayout.resolvedVerticalEdgeInsets(
+                        totalHeight: proxy.size.height,
+                        statRowCount: statRowCount,
+                        showsBuddyLeaderboard: true
+                    )
 
-            VStack(spacing: 0) {
-                Color.clear
-                    .frame(height: edgeInsets.top)
-                    .accessibilityHidden(true)
+                    VStack(spacing: 0) {
+                        Color.clear
+                            .frame(height: edgeInsets.top)
+                            .accessibilityHidden(true)
 
-                VStack(spacing: 0) {
-                    Color.clear
-                        .frame(height: HomeLifetimeStatsTilesLayout.lifetimeSummaryTopInset)
-                        .accessibilityHidden(true)
+                        statsStack(tiles: tiles, columns: columns, tileSpacing: tileSpacing)
 
-                    Text(LogbookMyActivitiesSummaryPresentation.headerLine(for: myActivitiesSummary))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.Colors.secondaryText)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .accessibilityIdentifier("Home.LifetimeSummary")
-
-                    Color.clear
-                        .frame(height: HomeLifetimeStatsTilesLayout.lifetimeSummaryHeaderSpacingBelow)
-                        .accessibilityHidden(true)
-
-                    VStack(spacing: showsBuddyLeaderboard ? tileSpacing : 0) {
-                        LazyVGrid(columns: columns, spacing: tileSpacing) {
-                            ForEach(tiles) { tile in
-                                HomeStatTile(
-                                    title: tile.title,
-                                    value: tile.value,
-                                    footnote: tile.footnote,
-                                    systemImage: tile.systemImage,
-                                    action: tile.action
-                                )
-                                .frame(maxWidth: .infinity)
-                                .frame(height: statTileHeight)
-                            }
-                        }
-
-                        if showsBuddyLeaderboard {
-                            HomeBuddyLeaderboardTile(
-                                entries: buddyLeaderboard,
-                                onOpenBuddy: onOpenBuddy
+                        Color.clear
+                            .frame(height: edgeInsets.bottom)
+                            .accessibilityHidden(true)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .overlay {
+                        if HomeSheetContainerDebug.showsLayoutGuides,
+                           proxy.size.width.isFinite,
+                           proxy.size.height.isFinite {
+                            HomeLifetimeStatsSectionLayoutGuides(
+                                width: proxy.size.width,
+                                height: proxy.size.height,
+                                edgeInsets: edgeInsets,
+                                statRowCount: statRowCount,
+                                showsBuddyLeaderboard: true
                             )
-                            .frame(maxWidth: .infinity)
-                            .frame(height: buddyTileHeight)
                         }
                     }
                 }
-
-                Color.clear
-                    .frame(height: edgeInsets.bottom)
-                    .accessibilityHidden(true)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            } else {
+                // Profile (and any no-buddy embedding): intrinsic top-aligned stack — avoids
+                // GeometryReader + TabView page proposing non-finite height for clear spacers.
+                statsStack(tiles: tiles, columns: columns, tileSpacing: tileSpacing)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
-            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
-            .overlay {
-                if HomeSheetContainerDebug.showsLayoutGuides {
-                    HomeLifetimeStatsSectionLayoutGuides(
-                        width: proxy.size.width,
-                        height: proxy.size.height,
-                        edgeInsets: edgeInsets,
-                        statRowCount: statRowCount,
-                        showsBuddyLeaderboard: showsBuddyLeaderboard
+        }
+        .clipped()
+        .accessibilityIdentifier("Home.LifetimeStats")
+    }
+
+    @ViewBuilder
+    private func statsStack(
+        tiles: [HomeHighlightStatTile],
+        columns: [GridItem],
+        tileSpacing: CGFloat
+    ) -> some View {
+        let statTileHeight = HomeLifetimeStatsTilesLayout.statTileHeight
+        let buddyTileHeight = HomeLifetimeStatsTilesLayout.buddyTileHeight
+
+        VStack(spacing: 0) {
+            Color.clear
+                .frame(height: HomeLifetimeStatsTilesLayout.lifetimeSummaryTopInset)
+                .accessibilityHidden(true)
+
+            Text(LogbookMyActivitiesSummaryPresentation.headerLine(for: myActivitiesSummary))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.secondaryText)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .accessibilityIdentifier("Home.LifetimeSummary")
+
+            Color.clear
+                .frame(height: HomeLifetimeStatsTilesLayout.lifetimeSummaryHeaderSpacingBelow)
+                .accessibilityHidden(true)
+
+            VStack(spacing: showsBuddyLeaderboard ? tileSpacing : 0) {
+                LazyVGrid(columns: columns, spacing: tileSpacing) {
+                    ForEach(tiles) { tile in
+                        HomeStatTile(
+                            title: tile.title,
+                            value: tile.value,
+                            footnote: tile.footnote,
+                            systemImage: tile.systemImage,
+                            action: tile.action
+                        )
+                        .frame(maxWidth: .infinity)
+                        .frame(height: statTileHeight)
+                    }
+                }
+
+                if showsBuddyLeaderboard {
+                    HomeBuddyLeaderboardTile(
+                        entries: buddyLeaderboard,
+                        onOpenBuddy: onOpenBuddy
                     )
+                    .frame(maxWidth: .infinity)
+                    .frame(height: buddyTileHeight)
                 }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .clipped()
-        .accessibilityIdentifier("Home.LifetimeStats")
     }
 
     private var highlightTiles: [HomeHighlightStatTile] {

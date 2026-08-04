@@ -78,6 +78,7 @@ struct GlobalSearchView: View {
                     onOpenDive: { pushSearchDestination(.dive($0)) }
                 )
             }
+            .coalescesNavigationStackPathDuplicates($path)
         }
         .globalSearchStackSearchable(
             isEnabled: GlobalSearchPushedDestinationPresentation.attachesStackSearch(path: path),
@@ -91,6 +92,19 @@ struct GlobalSearchView: View {
         )
         .softwareKeyboardVisibility($isKeyboardVisible, overlapHeight: $keyboardOverlapHeight)
         .accessibilityIdentifier(GlobalSearchPresentation.rootAccessibilityIdentifier)
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: ActivityDeleteSuccessPresentation.didDeleteNotification
+            )
+        ) { notification in
+            guard let activityID = ActivityDeleteSuccessPresentation.activityID(from: notification) else {
+                return
+            }
+            path = ActivityDeleteSuccessPresentation.searchPathByRemovingActivity(
+                path,
+                activityID: activityID
+            )
+        }
         .onAppear {
             syncResultsPanelVisibility(isActive: isSearchActive)
             scheduleDeferredSearchIndexMount()
@@ -329,7 +343,7 @@ struct GlobalSearchView: View {
         ) {
             dismissSearchChromeForResultPush()
         }
-        path.append(destination)
+        NavigationStackPushCoalescing.append(destination, to: &path)
     }
 
     private func dismissSearchChromeForResultPush() {
@@ -1301,6 +1315,7 @@ private struct GlobalSearchSearchIndexLayer: View {
 private struct GlobalSearchSearchDestinationScreen: View {
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = false
 
     let destination: GlobalSearchPresentation.Destination
@@ -1388,7 +1403,9 @@ private struct GlobalSearchSearchDestinationScreen: View {
             if let activity = ownerDives.first(where: { $0.id == id }) {
                 ViewSingleActivity(activity: activity)
             } else {
-                GlobalSearchMissingDestinationView(message: "This dive is no longer in your log.")
+                ActivityMissingDestinationPopView {
+                    dismiss()
+                }
             }
         case .diveSite(let id):
             ExploreDiveSiteDetailHost(

@@ -195,7 +195,7 @@ struct BlueSheetIdentityLayoutTuningView: View {
             tuningPlaceholderPanelContent(bottomInset: layout.bottomScrollInset)
                 .padding(
                     .top,
-                    BlueSheetDetailPagePinnedSummaryPresentation.bodyBottomPadding
+                    BlueSheetDetailPagePinnedSummaryPresentation.panelContentTopPadding
                         + deltas.panelContentTop
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)

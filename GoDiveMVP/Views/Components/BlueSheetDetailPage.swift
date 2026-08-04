@@ -77,6 +77,7 @@ struct BlueSheetDetailPage<
             BlueSheetDetailPanelContentTopDivider()
 
             panelContent(layout.bottomScrollInset, layout)
+                .padding(.top, BlueSheetDetailPagePinnedSummaryPresentation.panelContentTopPadding)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .padding(.horizontal, horizontalPadding)
         }

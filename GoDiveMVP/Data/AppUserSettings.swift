@@ -50,6 +50,11 @@ enum AppUserSettings: Sendable {
     /// When **`true`**, full-quality friend media downloads wait for Wi‑Fi (thumbnails may still load on cellular).
     nonisolated static let downloadFriendMediaOnWiFiOnlyKey = "goDiveDownloadFriendMediaOnWiFiOnly"
 
+    /// When **`true`**, this user receives push notifications when friends share new activities.
+    /// Default **on**; mirrored to Firestore **`users/{uid}/private/notificationPrefs`** so the
+    /// Cloud Function can filter recipients server-side.
+    nonisolated static let notifyBuddyActivitySharesKey = "goDiveNotifyBuddyActivityShares"
+
     nonisolated static var automaticallyRenumberDives: Bool {
         UserDefaults.standard.bool(forKey: automaticallyRenumberDivesKey)
     }
@@ -120,6 +125,13 @@ enum AppUserSettings: Sendable {
         userDefaults.bool(forKey: downloadFriendMediaOnWiFiOnlyKey)
     }
 
+    nonisolated static func notifyBuddyActivityShares(userDefaults: UserDefaults = .standard) -> Bool {
+        if userDefaults.object(forKey: notifyBuddyActivitySharesKey) == nil {
+            return true
+        }
+        return userDefaults.bool(forKey: notifyBuddyActivitySharesKey)
+    }
+
     /// Toggle defaults applied when the user has never changed them (call once at launch).
     /// **`register(defaults:)`** only fills keys that are not already set, so it never overrides a saved choice.
     nonisolated static func registerDefaultValues(in defaults: UserDefaults = .standard) {
@@ -132,6 +144,7 @@ enum AppUserSettings: Sendable {
             shareMediaWithFriendsKey: false,
             shareMediaOnWiFiOnlyKey: false,
             downloadFriendMediaOnWiFiOnlyKey: false,
+            notifyBuddyActivitySharesKey: true,
         ])
     }
 

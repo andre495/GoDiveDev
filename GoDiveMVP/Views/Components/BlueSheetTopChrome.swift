@@ -29,13 +29,28 @@ struct BlueSheetTopChromeFadeLayer: View {
 
 // MARK: - Home tab root
 
-/// GoDive header + **homeHeroFade** + trailing profile (or other actions).
-struct BlueSheetHomeTopChrome<Trailing: View>: View {
+/// GoDive header + **homeHeroFade** + trailing profile (or other actions) + optional leading actions (notifications bell).
+struct BlueSheetHomeTopChrome<Leading: View, Trailing: View>: View {
     let safeTop: CGFloat
     let topInset: CGFloat
     let title: String
 
-    @ViewBuilder var trailingContent: () -> Trailing
+    let trailingContent: () -> Trailing
+    let leadingContent: () -> Leading
+
+    init(
+        safeTop: CGFloat,
+        topInset: CGFloat,
+        title: String,
+        @ViewBuilder trailingContent: @escaping () -> Trailing,
+        @ViewBuilder leadingContent: @escaping () -> Leading
+    ) {
+        self.safeTop = safeTop
+        self.topInset = topInset
+        self.title = title
+        self.trailingContent = trailingContent
+        self.leadingContent = leadingContent
+    }
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -48,13 +63,30 @@ struct BlueSheetHomeTopChrome<Trailing: View>: View {
             AppHeader(
                 title: title,
                 showsBackButton: false,
-                statusBarSafeAreaTop: safeTop
-            ) {
-                trailingContent()
-            }
+                statusBarSafeAreaTop: safeTop,
+                trailingContent: { trailingContent() },
+                leadingContent: { leadingContent() }
+            )
             .frame(maxWidth: .infinity, alignment: .top)
             .zIndex(1)
         }
+    }
+}
+
+extension BlueSheetHomeTopChrome where Leading == EmptyView {
+    init(
+        safeTop: CGFloat,
+        topInset: CGFloat,
+        title: String,
+        @ViewBuilder trailingContent: @escaping () -> Trailing
+    ) {
+        self.init(
+            safeTop: safeTop,
+            topInset: topInset,
+            title: title,
+            trailingContent: trailingContent,
+            leadingContent: { EmptyView() }
+        )
     }
 }
 

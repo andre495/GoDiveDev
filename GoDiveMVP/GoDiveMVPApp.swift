@@ -82,7 +82,10 @@ private struct ProductionAppRoot: View {
                         appleUserIdentifier: accountSession.currentProfile?.appleUserIdentifier
                             ?? GoDiveKeychainStore.string(for: .lastAppleUserIdentifier)
                     )
-                    Task { await GoDiveFirebaseCloudMessaging.registerForFriendInvitePushesIfNeeded() }
+                    Task {
+                        await GoDiveBuddyActivityPushPreferenceSync.uploadCurrentPreference()
+                        await GoDiveFirebaseCloudMessaging.registerForFriendInvitePushesIfNeeded()
+                    }
                     if let ownerID = accountSession.currentProfile?.id {
                         Task {
                             await GoDiveBuddyShareBackgroundUpload.resumePendingWork(
@@ -141,7 +144,10 @@ private struct ProductionAppRoot: View {
                 HomeCarouselLaunchPreload.preloadStoredPicksIfCurrent(
                     ownerProfileID: accountSession.currentProfile?.id
                 )
-                Task { await GoDiveFirebaseCloudMessaging.registerForFriendInvitePushesIfNeeded() }
+                Task {
+                    await GoDiveBuddyActivityPushPreferenceSync.uploadCurrentPreference()
+                    await GoDiveFirebaseCloudMessaging.registerForFriendInvitePushesIfNeeded()
+                }
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(600))
                     #if canImport(GoogleMaps)

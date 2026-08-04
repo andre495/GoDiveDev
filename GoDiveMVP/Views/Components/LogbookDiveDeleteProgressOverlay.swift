@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Modal scrim + card with a single progress bar while a logbook dive delete runs (no caption).
-struct LogbookDiveDeleteProgressOverlay: View {
+/// Modal scrim + card with a single progress bar while an activity delete runs (no caption).
+struct ActivityDeleteProgressOverlay: View {
     let progress: Double
+    var accessibilityLabel: String = "Deleting activity"
 
     var body: some View {
         ZStack {
@@ -25,7 +26,7 @@ struct LogbookDiveDeleteProgressOverlay: View {
                 }
                 .shadow(color: .black.opacity(0.35), radius: 24, y: 12)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Deleting dive")
+                .accessibilityLabel(accessibilityLabel)
                 .accessibilityValue("\(Int(progress * 100)) percent")
                 .accessibilityAddTraits(.updatesFrequently)
         }
@@ -34,9 +35,12 @@ struct LogbookDiveDeleteProgressOverlay: View {
     }
 }
 
+/// Legacy name — logbook delete removed; kept for any stale references.
+typealias LogbookDiveDeleteProgressOverlay = ActivityDeleteProgressOverlay
+
 #Preview {
     ZStack {
         AppTheme.Colors.screenBackgroundGradient.ignoresSafeArea()
-        LogbookDiveDeleteProgressOverlay(progress: 0.45)
+        ActivityDeleteProgressOverlay(progress: 0.45, accessibilityLabel: "Deleting dive")
     }
 }

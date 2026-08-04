@@ -20,11 +20,28 @@ If you shared a QR code or link and notifications are allowed for GoDive, you ge
 
 You need to be signed in with Apple (Firebase social sign-in) and allow notifications when iOS asks. If you decline notifications, friends still connect; you just won’t get the alert.
 
+## When a buddy shares new activities
+
+If notifications are allowed, you also get a push when someone in your friend network shares new dives or snorkels — for example, *"Alex logged a new dive."* When a buddy shares several activities at once (like a batch import), they arrive as **one** notification: *"Alex shared 5 new activities."*
+
+If they **tag you** on a shared activity, the push uses that wording instead — for example, *"Alex tagged you in a new dive."* When several shared activities in one batch tag you, you get *"Alex tagged you in 5 new activities."*
+
+Tap the notification to open **Buddy Feed** with that activity in front of you (the most recent one when several were shared) — going back returns you to the feed. You are only notified the first time an activity is shared; edits and re-shares of the same activity don’t alert you again.
+
+You can turn these alerts off (and back on) with **Settings → Buddy activity notifications** — the invite-accepted push above is not affected by that toggle.
+
 ## What friends can see
 
 Once connected, open a friend from **Buddies** to browse their **shared dives** (tap their row — friends show a badge on the avatar).
 
 By default (when **Share activities with buddies** is on in Settings), buddies can see dive and snorkel details such as site, date, depth, duration, conditions, tags, and marine life. **Notes** and **photos** stay private unless you turn on those Settings toggles. When **Share media with buddies** is on, buddies see thumbnails quickly in **Buddy Feed**, then full-quality photos (up to 20 per activity) and short video clips (up to 10, 30 seconds each) when they open the activity.
+
+### Publishing a new activity
+
+New activities start **local only** — nothing is shared automatically when you import or log them. Take your time to tag marine life, add notes, and pick photos first. When you open the activity, a banner at the top of the details panel offers two choices:
+
+- **Share** — publish the activity to your buddy network. Buddies see it in their **Buddy Feed** and get a notification.
+- **Keep local** — the activity stays private on your devices. You can still share it later from **Buddy Sharing** (⋯ menu).
 
 ### Per-activity sharing
 
@@ -35,7 +52,7 @@ On any **owned** dive or snorkel, tap the **⋯** button (top right) to open **B
 - **Share notes with buddies** — off, share your private activity notes, or write a separate public note for buddies.
 - **Status** at the bottom — **Upload in progress…** banner while publishing, then an **Activity / Media / Notes** checklist (**Shared**, **Uploading**, or **Off**).
 
-Per-activity choices override the global defaults for that entry once you change them in **Buddy Sharing**. New activities inherit your current global defaults when they are created; changing Settings later does not alter activities you already have (unless you edit them in **Buddy Sharing**). Turning sharing off for an activity removes its Firebase projection and shared media from Storage. Global **Share activities with buddies** remains the master on/off switch for the buddy network.
+Per-activity choices override the global defaults for that entry once you change them in **Buddy Sharing**. New activities snapshot your media and notes defaults when created but always start unshared until you publish them (see **Publishing a new activity** above); changing Settings later does not alter activities you already have (unless you edit them in **Buddy Sharing**). Turning sharing off for an activity removes its Firebase projection and shared media from Storage. Global **Share activities with buddies** remains the master on/off switch for the buddy network.
 
 ## Viewing friend photos and videos
 

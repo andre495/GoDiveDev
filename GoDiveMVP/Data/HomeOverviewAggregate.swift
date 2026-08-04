@@ -116,7 +116,7 @@ enum HomeOverviewAggregateBuilder {
         }
 
         let ownerMedia = computed.ownerMediaPhotoIDs.compactMap { mediaByID[$0] }
-        let divesByID = Dictionary(uniqueKeysWithValues: activities.map { ($0.id, $0) })
+        let divesByID = Dictionary(godiveUniquingKeysWithValues: activities.map { ($0.id, $0) })
 
         return HomeOverviewAggregate(
             contentFingerprint: computed.contentFingerprint,

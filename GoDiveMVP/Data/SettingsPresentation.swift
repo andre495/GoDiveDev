@@ -149,6 +149,12 @@ enum SettingsPresentation: Sendable {
             "When on, full-quality buddy photos and videos download only on Wi‑Fi. Thumbnails may still appear on cellular."
     }
 
+    enum NotifyBuddyActivityShares {
+        nonisolated static let title = "Buddy activity notifications"
+        nonisolated static let infoMessage =
+            "When on, you get a push notification when a buddy shares new activities with their friend network. Several activities shared together arrive as one notification. Requires iOS notification permission."
+    }
+
     enum BulkUddfImport {
         nonisolated static let attachMediaTitle = "Attach photos from library"
         nonisolated static let attachMediaSubtitle =

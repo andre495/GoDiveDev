@@ -236,20 +236,30 @@ enum GoDiveFriendShareRefreshCoordinator {
         let owned = (try? modelContext.fetch(FetchDescriptor<DiveActivity>()))?
             .filter { $0.ownerProfileID == ownerProfileID && diveIDs.contains($0.id) } ?? []
 
+        var completedUpserts: Set<UUID> = []
+
         for dive in owned {
-            await GoDiveSharedDiveProjectionSync.upsertDive(dive, modelContext: modelContext)
+            let upserted = await GoDiveSharedDiveProjectionSync.upsertDive(dive, modelContext: modelContext)
+            if upserted {
+                await GoDiveSharedMediaUploadQueue.shared.awaitPendingUpload(for: dive.id)
+                completedUpserts.insert(dive.id)
+            }
         }
 
         let ownedSnorkels = (try? modelContext.fetch(FetchDescriptor<SnorkelActivity>()))?
             .filter { $0.ownerProfileID == ownerProfileID && diveIDs.contains($0.id) } ?? []
 
         for snorkel in ownedSnorkels {
-            await GoDiveSharedDiveProjectionSync.upsertSnorkel(snorkel, modelContext: modelContext)
+            let upserted = await GoDiveSharedDiveProjectionSync.upsertSnorkel(snorkel, modelContext: modelContext)
+            if upserted {
+                await GoDiveSharedMediaUploadQueue.shared.awaitPendingUpload(for: snorkel.id)
+                completedUpserts.insert(snorkel.id)
+            }
         }
 
         GoDiveBuddySharePendingWorkStore.clearPendingUpserts(
             ownerProfileID: ownerProfileID,
-            activityIDs: diveIDs
+            activityIDs: completedUpserts
         )
         if let ownerUID = Auth.auth().currentUser?.uid {
             await GoDiveBuddyShareBackgroundUpload.refreshBackgroundExecutionIdleState(

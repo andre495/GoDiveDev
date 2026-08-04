@@ -20,6 +20,12 @@ enum DiveSiteCatalogMaintenance {
         activityDescriptor.fetchLimit = 1
         guard try modelContext.fetch(activityDescriptor).isEmpty else { return }
 
+        var snorkelDescriptor = FetchDescriptor<SnorkelActivity>(
+            predicate: #Predicate<SnorkelActivity> { $0.diveSiteID == siteID }
+        )
+        snorkelDescriptor.fetchLimit = 1
+        guard try modelContext.fetch(snorkelDescriptor).isEmpty else { return }
+
         var siteDescriptor = FetchDescriptor<DiveSite>(
             predicate: #Predicate<DiveSite> { $0.id == siteID }
         )

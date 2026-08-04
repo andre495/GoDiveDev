@@ -1,6 +1,7 @@
 ---
 description: Input sanitization, FIT/UDDF import caps, CDN HTTPS path hardening
-alwaysApply: true
+globs: GoDiveMVP/Data/Import/**/*.swift,GoDiveMVP/Data/GoDiveInputSanitization.swift,GoDiveMVP/Data/CatalogCDN*.swift,GoDiveMVP/Data/**/*Validation*.swift,GoDiveMVP/Data/**/*Import*.swift,GoDiveMVP/Data/**/*Sanitiz*.swift,GoDiveMVP/Views/Pages/dive_file_import*.swift,GoDiveMVPTests/**/*Import*.swift,GoDiveMVPTests/**/*Sanitiz*.swift,GoDiveMVPTests/**/*CDN*.swift
+alwaysApply: false
 ---
 
 # Input validation & import hardening

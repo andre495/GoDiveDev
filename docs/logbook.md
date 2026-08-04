@@ -2,7 +2,7 @@
 
 The **Logbook** tab is your master activity list — **dives and snorkel sessions**, sorted **newest first**.
 
-The top bar shows **Activity Log** in large white type centered on the same row as **Trips** and **+**. Directly under the title, a compact glass control switches **My Activities** (your log) and **Buddy Feed** (friends’ shared dives and snorkels, when they’ve enabled sharing) — the same style as **Explore → My Sites / All Sites**. When **My Activities** is selected, a **filter** button sits beside that control: choose **All activities**, **Dives**, or **Snorkels** to narrow the list (Buddy Feed is unchanged). Scroll down and that control fades away; scroll back to the top (or tap the **Logbook** tab again) and it returns. The **Activity Log** title still compacts when you scroll.
+The top bar shows **Activity Log** in large white type centered on the same row as **Trips** and **+**. Directly under the title, a compact glass control switches **My Activities** (your log) and **Buddy Feed** (friends’ shared dives and snorkels, when they’ve enabled sharing) — the same style as **Explore → My Sites / All Sites**. You can also **swipe left/right** on the list to move between those segments (**My Activities** on the left, **Buddy Feed** on the right). When **My Activities** is selected, a **filter** button sits beside that control: choose **All activities**, **Dives**, or **Snorkels** to narrow the list (Buddy Feed is unchanged). Scroll down and that control fades away; scroll back to the top (or tap the **Logbook** tab again) and it returns. The **Activity Log** title still compacts when you scroll.
 
 ## My Activities vs Buddy Feed
 
@@ -16,7 +16,7 @@ Use the **filter** next to the segment control to show **all** activities, **div
 
 Buddy Feed loads when you select it. Each activity appears as a **card tile** with a hero header. When your friend shared a photo **and** depth/swim data exists, the hero shows their **featured photo** first and you can swipe to the depth chart (dives) or GPS swim track (snorkels). With only media or only chart/map data, the hero shows that single view. With neither, a placeholder appears. Below the hero: site name, region/country when available, key stats, and your friend’s name. Tap the stats area to open the same style of detail screen as your own dives and snorkels.
 
-**Share activities with buddies** (Settings) includes **snorkel sessions** as well as scuba dives — each uploads a buddy-visible projection with the correct activity type and GPS track when available.
+**Share activities with buddies** (Settings) includes **snorkel sessions** as well as scuba dives — each uploads a buddy-visible projection with the correct activity type and GPS track when available. New activities stay **local only** until you publish them: open the activity and use the **Share** banner (or ⋯ → **Buddy Sharing**) after you've tagged marine life, added notes, and picked photos.
 
 Pull down on Buddy Feed to refresh. The feed also refreshes when you switch to **Buddy Feed**, open the **Logbook** tab while that segment is selected, return from a shared dive detail, tap the **Logbook** tab again while already on it, or bring the app back to the foreground while you’re on Buddy Feed in Logbook. The list loads **20 activities** at a time; scroll to the bottom to load the next **20**.
 
@@ -73,13 +73,14 @@ Tap **+** (or the empty-state **Log Your First Dive** button) to open **Add acti
 
 Before import, you can choose whether to **create dive sites** from import data and whether to **attach photos** from your library for that session.
 
-## Delete a dive
+## Delete an activity
 
-Swipe a row left and tap **Delete**. Confirm in the dialog.
+Open a dive or snorkel, tap **⋯** (upper right), then **Activity Settings**. Scroll to **Delete dive** or **Delete snorkel** and confirm.
 
-- Deletion removes the dive, its profile samples, buddy tags on that dive, media links, and related data.
-- If **Automatically renumber dives** is on in Settings, remaining dive numbers update after delete.
-- A short progress overlay may appear while cleanup finishes.
+- Deletion removes the activity from your log (SwiftData / private CloudKit), including profile samples, buddy tags, marine life sightings, media links, and trip links for dives.
+- Friend-shared copies are removed from Firebase when buddy sharing had published the activity.
+- If **Automatically renumber dives** is on in Settings, remaining dive numbers update after you delete a dive.
+- A short progress overlay may appear while cleanup finishes. When delete succeeds, GoDive returns you to the **Logbook** list and shows a checkmark briefly.
 
 ## Duplicate dives
 

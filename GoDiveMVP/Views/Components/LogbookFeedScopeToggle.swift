@@ -18,6 +18,7 @@ struct LogbookFeedScopeToggle: View {
         .fixedSize(horizontal: true, vertical: false)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Activity log feed scope")
+        .accessibilityHint("Swipe left or right on the activity list to switch between My Activities and Buddy Feed")
         .accessibilityIdentifier(LogbookBuddyFeedPresentation.scopePickerAccessibilityIdentifier)
     }
 
@@ -25,9 +26,7 @@ struct LogbookFeedScopeToggle: View {
         let isSelected = selection == scope
 
         return Button {
-            var transaction = Transaction()
-            transaction.disablesAnimations = true
-            withTransaction(transaction) {
+            withAnimation(.snappy(duration: 0.25)) {
                 selection = scope
             }
         } label: {

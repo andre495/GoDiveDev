@@ -186,6 +186,24 @@ struct ViewDiveBuddyDetails: View {
         .navigationDestination(item: $buddyDiveNavigationID) { target in
             if let activity = ownerDiveActivitiesForLayout.first(where: { $0.id == target.id }) {
                 ViewSingleActivity(activity: activity)
+            } else {
+                ActivityMissingDestinationPopView {
+                    if buddyDiveNavigationID?.id == target.id {
+                        buddyDiveNavigationID = nil
+                    }
+                }
+            }
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: ActivityDeleteSuccessPresentation.didDeleteNotification
+            )
+        ) { notification in
+            guard let activityID = ActivityDeleteSuccessPresentation.activityID(from: notification) else {
+                return
+            }
+            if buddyDiveNavigationID?.id == activityID {
+                buddyDiveNavigationID = nil
             }
         }
         .navigationDestination(item: $buddySiteNavigationID) { siteID in
@@ -518,7 +536,10 @@ struct ViewDiveBuddyDetails: View {
     }
 
     private func openSharedDive(_ diveID: UUID) {
-        buddyDiveNavigationID = BuddyDiveNavigationID(id: diveID)
+        NavigationStackPushCoalescing.assignUnlessDuplicate(
+            BuddyDiveNavigationID(id: diveID),
+            to: &buddyDiveNavigationID
+        )
     }
 
     private func openDiveSiteFromMap(_ siteID: UUID) {

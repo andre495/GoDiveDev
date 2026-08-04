@@ -21,6 +21,9 @@ enum ProfileDetailContentPagerPresentation: Sendable {
 
     nonisolated static var defaultPage: ProfileDetailContentPage { .diverStats }
 
+    /// Profile **Diver stats** shows lifetime tiles only — no Home **Top buddies** band.
+    nonisolated static let showsBuddyLeaderboardOnDiverStats = false
+
     nonisolated static let diverStatsPageTitle = "Diver stats"
     nonisolated static let detailsPageTitle = "Details"
     nonisolated static let danSectionTitle = "DAN insurance"
@@ -86,10 +89,10 @@ enum ProfileDetailContentPagerPresentation: Sendable {
 
     nonisolated static func usesStaticPagerLayout(for page: ProfileDetailContentPage) -> Bool {
         switch page {
-        case .diverStats, .taggedMedia:
-            return false
-        case .details:
+        case .diverStats, .details:
             return true
+        case .taggedMedia:
+            return false
         }
     }
 

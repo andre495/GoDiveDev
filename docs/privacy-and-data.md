@@ -98,7 +98,7 @@ When Sign in with Apple succeeds (and Firebase is configured in the build), GoDi
 
 **Friends:** you connect via QR code or invite link (not a public browseable directory). When **Share activities with buddies** is on, GoDive mirrors **buddy-visible dive details** to Firebase so accepted buddies can read them, and updates those copies when you edit shared dive fields. **Notes** and **media** are included only if you enable those Settings. Shared media uploads use compressed JPEGs (location metadata stripped) and 1080p MP4 clips (capped per activity); originals stay in your Photos library. Buddies may cache thumbnails and full-quality media on their device for faster viewing. Your private CloudKit / on-device log remains the source of truth. Deleting your account removes friendships, invites, and shared projections.
 
-If you allow notifications, GoDive may store an **FCM device token** under your Firebase user (owner-only) so we can alert you when someone accepts your friend invite. Tokens are removed on sign-out from this device.
+If you allow notifications, GoDive may store an **FCM device token** under your Firebase user (owner-only) so we can alert you when someone accepts your friend invite or when a buddy shares new activities. Your **Buddy activity notifications** preference is stored under your Firebase user (owner-only) so alerts respect it on the server. Notifications mention your buddy's display name and how many activities were shared — never dive details. Tokens are removed on sign-out from this device.
 
 Your **featured Profile header media** (tagged photo or video) may be uploaded to Firebase so friends can see it on your friend profile page.
 

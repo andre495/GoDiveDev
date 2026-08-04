@@ -75,7 +75,7 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
 
         for dive in dives {
             if ActivityFriendShareConfiguration.shouldPublish(dive: dive, userDefaults: userDefaults) {
-                await upsertDive(
+                _ = await upsertDive(
                     dive,
                     ownerUID: uid,
                     options: shareOptions(for: dive, userDefaults: userDefaults),
@@ -93,7 +93,7 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         }
         for snorkel in snorkels {
             if ActivityFriendShareConfiguration.shouldPublish(snorkel: snorkel, userDefaults: userDefaults) {
-                await upsertSnorkel(
+                _ = await upsertSnorkel(
                     snorkel,
                     ownerUID: uid,
                     options: shareOptions(for: snorkel, userDefaults: userDefaults),
@@ -111,19 +111,25 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         ownerUID: String? = nil,
         options: GoDiveSharedDiveProjectionMapping.ShareOptions? = nil,
         modelContext: ModelContext
-    ) async {
+    ) async -> Bool {
         GoDiveFirebaseBootstrap.configureIfNeeded()
-        guard GoDiveFirebaseBootstrap.isConfigured else { return }
-        guard let uid = ownerUID ?? Auth.auth().currentUser?.uid, !uid.isEmpty else { return }
+        guard GoDiveFirebaseBootstrap.isConfigured else { return false }
+        guard let uid = ownerUID ?? Auth.auth().currentUser?.uid, !uid.isEmpty else { return false }
 
         guard ActivityFriendShareConfiguration.shouldPublish(dive: dive) else {
             await deleteDiveProjection(diveID: dive.id, ownerUID: uid)
-            return
+            return true
         }
 
-        guard await shouldPublishProjections() else { return }
+        guard await shouldPublishProjections() else { return false }
 
         let shareOptions = options ?? shareOptions(for: dive)
+        for photo in dive.mediaPhotos {
+            DiveMediaLibraryIdentifierRepair.resolveLocalIdentifierIfNeeded(
+                for: photo,
+                modelContext: modelContext
+            )
+        }
         var mediaItems: [GoDiveSharedDiveProjectionMapping.MediaItemSnapshot] = []
         if shareOptions.includeMedia {
             mediaItems = await GoDiveSharedMediaUpload.uploadMediaItems(
@@ -148,16 +154,44 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         )
         applyOptOutFieldDeletes(to: &fields, options: shareOptions)
 
+        let projectionRef = Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .collection(GoDiveSharedDiveProjectionMapping.sharedDivesSubcollection)
+            .document(dive.id.uuidString)
+
         do {
-            try await Firestore.firestore()
-                .collection("users")
-                .document(uid)
-                .collection(GoDiveSharedDiveProjectionMapping.sharedDivesSubcollection)
-                .document(dive.id.uuidString)
-                .setData(fields, merge: true)
+            let existingProjection = try await projectionRef.getDocument()
+            try await projectionRef.setData(fields, merge: true)
+            await GoDiveSharedMediaUpload.syncFirestoreMediaItemsFromPublishStateIfProjectionExists(
+                ownerUID: uid,
+                activityID: dive.id
+            )
+            // One push per activity: only on first projection create, and never again after
+            // a signal was recorded (media/notes republishes must not re-notify).
+            if GoDiveBuddyActivityPushSignalSync.shouldRecordPushSignal(
+                projectionAlreadyExisted: existingProjection.exists,
+                pushSignalAlreadyRecorded: dive.friendSharePushSignalRecorded
+            ) {
+                let recorded = await GoDiveBuddyActivityPushSignalSync.recordFirstShareIfNeeded(
+                    ownerUID: uid,
+                    activityID: dive.id,
+                    activityKind: snapshot.activityKind,
+                    startTime: dive.startTime,
+                    taggedBuddies: GoDiveSharedDiveProjectionMapping.taggedBuddiesFirestoreRows(
+                        from: snapshot.taggedBuddies
+                    )
+                )
+                if recorded {
+                    dive.friendSharePushSignalRecorded = true
+                    try? modelContext.save()
+                }
+            }
+            return true
         } catch {
             GoDiveSecurityEvent.record(.friendShareSyncFailed, detail: "upsert")
             log.error("Shared dive upsert failed: \(String(describing: error), privacy: .private)")
+            return false
         }
     }
 
@@ -167,19 +201,25 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         ownerUID: String? = nil,
         options: GoDiveSharedDiveProjectionMapping.ShareOptions? = nil,
         modelContext: ModelContext
-    ) async {
+    ) async -> Bool {
         GoDiveFirebaseBootstrap.configureIfNeeded()
-        guard GoDiveFirebaseBootstrap.isConfigured else { return }
-        guard let uid = ownerUID ?? Auth.auth().currentUser?.uid, !uid.isEmpty else { return }
+        guard GoDiveFirebaseBootstrap.isConfigured else { return false }
+        guard let uid = ownerUID ?? Auth.auth().currentUser?.uid, !uid.isEmpty else { return false }
 
         guard ActivityFriendShareConfiguration.shouldPublish(snorkel: snorkel) else {
             await deleteDiveProjection(diveID: snorkel.id, ownerUID: uid)
-            return
+            return true
         }
 
-        guard await shouldPublishProjections() else { return }
+        guard await shouldPublishProjections() else { return false }
 
         let shareOptions = options ?? shareOptions(for: snorkel)
+        for photo in snorkel.mediaPhotos {
+            SnorkelMediaLibraryIdentifierRepair.resolveLocalIdentifierIfNeeded(
+                for: photo,
+                modelContext: modelContext
+            )
+        }
         var mediaItems: [GoDiveSharedDiveProjectionMapping.MediaItemSnapshot] = []
         if shareOptions.includeMedia {
             mediaItems = await GoDiveSharedMediaUpload.uploadMediaItems(
@@ -204,16 +244,42 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         )
         applyOptOutFieldDeletes(to: &fields, options: shareOptions)
 
+        let projectionRef = Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .collection(GoDiveSharedDiveProjectionMapping.sharedDivesSubcollection)
+            .document(snorkel.id.uuidString)
+
         do {
-            try await Firestore.firestore()
-                .collection("users")
-                .document(uid)
-                .collection(GoDiveSharedDiveProjectionMapping.sharedDivesSubcollection)
-                .document(snorkel.id.uuidString)
-                .setData(fields, merge: true)
+            let existingProjection = try await projectionRef.getDocument()
+            try await projectionRef.setData(fields, merge: true)
+            await GoDiveSharedMediaUpload.syncFirestoreMediaItemsFromPublishStateIfProjectionExists(
+                ownerUID: uid,
+                activityID: snorkel.id
+            )
+            if GoDiveBuddyActivityPushSignalSync.shouldRecordPushSignal(
+                projectionAlreadyExisted: existingProjection.exists,
+                pushSignalAlreadyRecorded: snorkel.friendSharePushSignalRecorded
+            ) {
+                let recorded = await GoDiveBuddyActivityPushSignalSync.recordFirstShareIfNeeded(
+                    ownerUID: uid,
+                    activityID: snorkel.id,
+                    activityKind: snapshot.activityKind,
+                    startTime: snorkel.startTime,
+                    taggedBuddies: GoDiveSharedDiveProjectionMapping.taggedBuddiesFirestoreRows(
+                        from: snapshot.taggedBuddies
+                    )
+                )
+                if recorded {
+                    snorkel.friendSharePushSignalRecorded = true
+                    try? modelContext.save()
+                }
+            }
+            return true
         } catch {
             GoDiveSecurityEvent.record(.friendShareSyncFailed, detail: "upsertSnorkel")
             log.error("Shared snorkel upsert failed: \(String(describing: error), privacy: .private)")
+            return false
         }
     }
 
@@ -237,6 +303,10 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
                 .collection(GoDiveSharedDiveProjectionMapping.sharedDivesSubcollection)
                 .document(diveID.uuidString)
                 .delete()
+            await GoDiveBuddyActivityPushSignalSync.deleteSignal(
+                ownerUID: uid,
+                activityID: diveID
+            )
         } catch {
             log.error("Shared dive delete failed: \(String(describing: error), privacy: .private)")
         }

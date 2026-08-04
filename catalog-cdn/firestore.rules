@@ -39,6 +39,20 @@ service cloud.firestore {
           && (request.auth.uid == userId || areFriends(request.auth.uid, userId));
         allow create, update, delete: if signedIn() && request.auth.uid == userId;
       }
+
+      // One-shot push signal after projection upsert — owner get/create/delete;
+      // Cloud Function (Admin SDK) reads. Owner get is required so the client can
+      // create-once without racing a blind setData that would become a denied update.
+      match /buddySharePushSignals/{activityId} {
+        allow read: if signedIn() && request.auth.uid == userId;
+        allow create: if signedIn()
+          && request.auth.uid == userId
+          && request.resource.data.activityKind in ['snorkel', 'scubaDive']
+          && request.resource.data.startTime is timestamp
+          && request.resource.data.createdAt == request.time;
+        allow delete: if signedIn() && request.auth.uid == userId;
+        allow update: if false;
+      }
     }
 
     // QR / link invites — creator writes; any signed-in user can read by token; redeem updates status.

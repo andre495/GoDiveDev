@@ -20,6 +20,8 @@ These apply when you use **Profile → Buddies** (QR / invite link):
 
 When **on** (default): buddies can see your dive and snorkel details (site, depth or distance, duration, conditions, and more). GoDive keeps a buddy-visible copy in Firebase for them to read. Your private log on device / iCloud stays the source of truth.
 
+New activities always start **local only** — publish each one from the **Share** banner on its detail page (or ⋯ → **Buddy Sharing**) when you're ready. See [Friends](friends.md#publishing-a-new-activity).
+
 ### Share notes with buddies
 
 When **on**, activity notes are included for buddies. **Off** by default.
@@ -27,6 +29,10 @@ When **on**, activity notes are included for buddies. **Off** by default.
 ### Share media with buddies
 
 When **on**, buddies see thumbnails right away and full-quality photos (up to 20 per activity) and 1080p video clips (up to 10, 30 seconds each) when they open an activity. Full originals stay in your Photos library. **Off** by default.
+
+### Buddy activity notifications
+
+When **on** (default), you get a push notification when someone in your friend network shares new activities — one notification per batch when several are shared together. Tap it to open the activity in **Buddy Feed**. Requires iOS notification permission; see [Friends](friends.md#when-a-buddy-shares-new-activities) for details. This choice follows your account, so it applies on all your devices.
 
 ## Display units
 

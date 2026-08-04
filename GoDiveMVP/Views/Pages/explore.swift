@@ -99,11 +99,12 @@ struct ExploreView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .restoresRootTabBarWhenStackIsEmpty(isExploreNavigationStackAtRoot)
+            .coalescesNavigationStackPathDuplicates($path)
             .animation(nil, value: path.count)
             .navigationDestination(for: ExploreRoute.self, destination: exploreNavigationDestination)
         }
         .environment(\.openCatalogDiveSiteDetail) { siteID in
-            path.append(.siteDetail(siteID))
+            pushExplore(.siteDetail(siteID))
             TripDetailMapNavigationDebug.parentStackAppendedRoute(
                 stack: .explore,
                 siteID: siteID,
@@ -111,10 +112,23 @@ struct ExploreView: View {
             )
         }
         .environment(\.openTripDetail) { tripID in
-            path.append(.tripDetail(tripID))
+            pushExplore(.tripDetail(tripID))
         }
         .environment(\.openTripDetailMedia) { launch in
-            path.append(.tripDetailMedia(tripID: launch.tripID, mediaID: launch.mediaID))
+            pushExplore(.tripDetailMedia(tripID: launch.tripID, mediaID: launch.mediaID))
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: ActivityDeleteSuccessPresentation.didDeleteNotification
+            )
+        ) { notification in
+            guard let activityID = ActivityDeleteSuccessPresentation.activityID(from: notification) else {
+                return
+            }
+            path = ActivityDeleteSuccessPresentation.explorePathByRemovingActivity(
+                path,
+                activityID: activityID
+            )
         }
         .navigationInteractivePopGestureForHiddenNavBar()
         .rootTabReselectObserver(notification: .exploreTabReselected)
@@ -158,7 +172,7 @@ struct ExploreView: View {
         .sheet(isPresented: $showsAddDiveSiteSheet) {
             ExploreCatalogDiveSiteAddSheet { siteID in
                 siteScope = .allSites
-                path.append(.siteDetail(siteID))
+                pushExplore(.siteDetail(siteID))
             }
         }
     }
@@ -242,7 +256,7 @@ struct ExploreView: View {
             ExploreDiveSiteDetailHost(
                 siteID: siteID,
                 ownerProfileID: accountSession.currentProfile?.id,
-                onOpenDive: { path.append(.diveDetail($0)) }
+                onOpenDive: { pushExplore(.diveDetail($0)) }
             )
         case .referenceSiteDetail(let referenceID):
             if let snapshot = referenceCatalog.first(where: { $0.id == referenceID }) {
@@ -258,7 +272,7 @@ struct ExploreView: View {
                     species: species,
                     ownerProfileID: accountSession.currentProfile?.id
                 ) { activityID in
-                    path.append(.diveDetail(activityID))
+                    pushExplore(.diveDetail(activityID))
                 }
             } else {
                 Text("This species is no longer in the catalog.")
@@ -269,9 +283,12 @@ struct ExploreView: View {
             if let activity = ownerDiveActivities.first(where: { $0.id == id }) {
                 ViewSingleActivity(activity: activity)
             } else {
-                Text("This dive is no longer in your log.")
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-                    .padding()
+                ActivityMissingDestinationPopView {
+                    path = ActivityDeleteSuccessPresentation.explorePathByRemovingActivity(
+                        path,
+                        activityID: id
+                    )
+                }
             }
         }
     }
@@ -279,9 +296,9 @@ struct ExploreView: View {
     private func openExploreSiteSelection(_ selection: ExploreMapSiteSelection) {
         switch selection {
         case .catalog(let siteID):
-            path.append(.siteDetail(siteID))
+            pushExplore(.siteDetail(siteID))
         case .reference(let referenceID):
-            path.append(.referenceSiteDetail(referenceID))
+            pushExplore(.referenceSiteDetail(referenceID))
         }
     }
 
@@ -491,6 +508,10 @@ struct ExploreView: View {
         )) ?? []
         guard !Task.isCancelled else { return }
         hasLoadedDiveSiteCatalog = true
+    }
+
+    private func pushExplore(_ route: ExploreRoute) {
+        NavigationStackPushCoalescing.append(route, to: &path)
     }
 }
 

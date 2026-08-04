@@ -12,4 +12,10 @@ enum HomeRoute: Hashable {
     case marineLife(String)
     case diveBuddy(UUID)
     case lifetimeStatsLeaderboard(HomeLifetimeStatsLeaderboardKind)
+    /// Home bell → past notifications list.
+    case notifications
+    /// Notification row → friend profile.
+    case friendProfile(GoDiveFriendGraphService.FriendEdge)
+    /// Notification row → friend-shared activity detail (row data already loaded by the list).
+    case buddySharedActivity(LogbookBuddyFeedPresentation.Row)
 }

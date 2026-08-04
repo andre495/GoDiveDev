@@ -1,6 +1,7 @@
 ---
 description: Default SwiftUI toolbar buttons, search fields, and segmented controls to Liquid Glass
-alwaysApply: true
+globs: GoDiveMVP/Views/**/*.swift,GoDiveMVP/Views/Components/AppButtonChrome.swift,GoDiveMVP/Views/Components/CatalogSearchField.swift,GoDiveMVP/Views/Components/CatalogListSearchChrome.swift,GoDiveMVP/Views/Components/ExploreTopChrome.swift
+alwaysApply: false
 ---
 
 # SwiftUI controls: Liquid Glass by default

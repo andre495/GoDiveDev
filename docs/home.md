@@ -33,9 +33,19 @@ A **Top buddies** tile always sits below the four stat tiles. With tagged buddie
 
 Stats and buddies sit in the blue panel between the featured media and the tab bar.
 
+## Notifications
+
+Tap the **bell** (top left of Home) to open **Notifications** — a list of recent buddy events, newest first:
+
+- **New buddy connections** — "Alex is now your dive buddy". Tap to open their friend profile.
+- **Shared activities** — "Alex logged a new dive" (with the site name when shared). Tap to open that shared activity.
+- **Tagged you** — when a friend tags you on a shared dive or snorkel, you also see "Alex tagged you in a new dive" (same tap target as the shared activity above).
+
+A small red dot on the bell means there is something new since you last opened the list; opening Notifications clears it. Pull down on the list to refresh. The list is built from your friend network, so it shows these events even if a push notification never reached this device.
+
 ## Profile and navigation
 
-- Tap your **avatar** (top of Home) to open **Profile** (buddy-style blue sheet with tagged media in the header). The sheet **Details** page shows your DAN insurance number and featured certification. Use the **menu (☰)** for Trips, certifications, gear, buddies, friends, Edit Profile, and Settings.
+- Tap your **avatar** (top of Home) to open **Profile** (buddy-style blue sheet with tagged media in the header). The sheet **Diver stats** page shows the same lifetime tiles as Home (without **Top buddies**). The **Details** page shows your DAN insurance number and featured certification. Use the **menu (☰)** for Trips, certifications, gear, buddies, friends, Edit Profile, and Settings.
 - Home participates in the same navigation stack as dive detail, buddy detail, site detail, Field Guide species, and trips — use the back chevron or swipe from the left edge to return.
 
 ## Tips

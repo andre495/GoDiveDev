@@ -147,6 +147,7 @@ struct FieldGuideView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .restoresRootTabBarWhenStackIsEmpty(showsFieldGuideRootTabBar)
+            .coalescesNavigationStackPathDuplicates($path)
             .animation(nil, value: path.count)
             .navigationDestination(for: FieldGuideRoute.self) { route in
                 switch route {
@@ -163,10 +164,10 @@ struct FieldGuideView: View {
                                 subcategoryID: subcategoryID,
                                 speciesIndex: resolvedSubcategorySpeciesIndex
                             )
-                            path.append(.subcategory(payload))
+                            pushFieldGuide(.subcategory(payload))
                         },
                         onSelectSpecies: { uuid in
-                            path.append(.speciesDetail(uuid))
+                            pushFieldGuide(.speciesDetail(uuid))
                         },
                         onAddSpecies: { showsAddSpeciesSheet = true }
                     )
@@ -176,7 +177,7 @@ struct FieldGuideView: View {
                         unitSystem: diveDisplayUnitSystem,
                         catalogSnapshots: resolvedCatalogSnapshots,
                         onSelectSpecies: { uuid in
-                            path.append(.speciesDetail(uuid))
+                            pushFieldGuide(.speciesDetail(uuid))
                         },
                         onAddSpecies: { showsAddSpeciesSheet = true }
                     )
@@ -186,14 +187,14 @@ struct FieldGuideView: View {
                             species: species,
                             ownerProfileID: accountSession.currentProfile?.id
                         ) { activityID in
-                            path.append(.diveDetail(activityID))
+                            pushFieldGuide(.diveDetail(activityID))
                         }
                     } else if let species = userMarineLifeCatalog.first(where: { $0.uuid == marineLifeUUID }) {
                         FieldGuideMarineLifeDetailView(
                             species: species,
                             ownerProfileID: accountSession.currentProfile?.id
                         ) { activityID in
-                            path.append(.diveDetail(activityID))
+                            pushFieldGuide(.diveDetail(activityID))
                         }
                     } else {
                         missingSpeciesPlaceholder
@@ -202,19 +203,37 @@ struct FieldGuideView: View {
                     if let activity = ownerDiveActivitiesForNavigation.first(where: { $0.id == id }) {
                         ViewSingleActivity(activity: activity)
                     } else {
-                        missingDivePlaceholder
+                        ActivityMissingDestinationPopView {
+                            path.removeAll {
+                                if case .diveDetail(let routeID) = $0 { return routeID == id }
+                                return false
+                            }
+                        }
                     }
                 case .diveSite(let siteID):
                     ExploreDiveSiteDetailHost(
                         siteID: siteID,
                         ownerProfileID: accountSession.currentProfile?.id,
-                        onOpenDive: { path.append(.diveDetail($0)) }
+                        onOpenDive: { pushFieldGuide(.diveDetail($0)) }
                     )
                 }
             }
         }
         .environment(\.openCatalogDiveSiteDetail) { siteID in
-            path.append(.diveSite(siteID))
+            pushFieldGuide(.diveSite(siteID))
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: ActivityDeleteSuccessPresentation.didDeleteNotification
+            )
+        ) { notification in
+            guard let activityID = ActivityDeleteSuccessPresentation.activityID(from: notification) else {
+                return
+            }
+            path.removeAll {
+                if case .diveDetail(let id) = $0 { return id == activityID }
+                return false
+            }
         }
         .navigationInteractivePopGestureForHiddenNavBar()
         .rootTabReselectObserver(notification: .fieldGuideTabReselected)
@@ -237,7 +256,7 @@ struct FieldGuideView: View {
     private func handleAddedSpecies(_ marineLifeUUID: String) {
         Task {
             await reloadFieldGuideCatalogsIfNeeded(force: true)
-            path.append(.speciesDetail(marineLifeUUID))
+            pushFieldGuide(.speciesDetail(marineLifeUUID))
         }
     }
 
@@ -304,12 +323,6 @@ struct FieldGuideView: View {
             .padding()
     }
 
-    private var missingDivePlaceholder: some View {
-        Text("This dive is no longer in your log.")
-            .foregroundStyle(AppTheme.Colors.secondaryText)
-            .padding()
-    }
-
     private var missingDiveSitePlaceholder: some View {
         Text("This dive site is no longer in the catalog.")
             .foregroundStyle(AppTheme.Colors.secondaryText)
@@ -334,10 +347,14 @@ struct FieldGuideView: View {
                 scrollToTopNonce: listScrollToTopNonce,
                 onScrollOffsetChange: handleFieldGuideHubScrollOffset
             ) { summary in
-                path.append(.category(summary))
+                pushFieldGuide(.category(summary))
             }
             .equatable()
         }
+    }
+
+    private func pushFieldGuide(_ route: FieldGuideRoute) {
+        NavigationStackPushCoalescing.append(route, to: &path)
     }
 }
 

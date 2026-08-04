@@ -127,6 +127,23 @@ struct TripDetailView: View {
         .navigationDestination(item: $navigationTarget) { target in
             tripNavigationDestination(for: target)
         }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: ActivityDeleteSuccessPresentation.didDeleteNotification
+            )
+        ) { notification in
+            guard let activityID = ActivityDeleteSuccessPresentation.activityID(from: notification) else {
+                return
+            }
+            switch navigationTarget {
+            case .linkedDive(let id) where id == activityID:
+                navigationTarget = nil
+            case .diveMedia(let id, _) where id == activityID:
+                navigationTarget = nil
+            default:
+                break
+            }
+        }
         .toolbar(.hidden, for: .navigationBar)
         .task(id: tripDetailContentToken) {
             await Task.yield()
@@ -476,8 +493,7 @@ struct TripDetailView: View {
     #endif
 
     private func pushTripNavigation(_ target: TripDetailNavigationTarget) {
-        guard navigationTarget == nil else { return }
-        navigationTarget = target
+        NavigationStackPushCoalescing.assignIfNil(target, to: &navigationTarget)
     }
 
     private func openDiveSiteFromMap(_ siteID: UUID) {
@@ -508,32 +524,23 @@ struct TripDetailView: View {
             if let activity = linkedDiveActivities.first(where: { $0.id == diveID }) {
                 ViewSingleActivity(activity: activity)
             } else {
-                tripUnavailableDestination(
-                    title: "Dive unavailable",
-                    message: "This dive is no longer linked to the trip."
-                )
+                ActivityMissingDestinationPopView {
+                    if case .linkedDive(let id) = navigationTarget, id == diveID {
+                        navigationTarget = nil
+                    }
+                }
             }
         case .diveMedia(let diveID, let mediaID):
             if let activity = linkedDiveActivities.first(where: { $0.id == diveID }) {
                 ViewSingleActivity(activity: activity, initialMediaFocusID: mediaID)
             } else {
-                tripUnavailableDestination(
-                    title: "Dive unavailable",
-                    message: "This dive is no longer linked to the trip."
-                )
+                ActivityMissingDestinationPopView {
+                    if case .diveMedia(let id, _) = navigationTarget, id == diveID {
+                        navigationTarget = nil
+                    }
+                }
             }
         }
-    }
-
-    private func tripUnavailableDestination(title: String, message: String) -> some View {
-        AppPage(title: title, showsBackButton: true, showsBrandWordmark: false) {
-            Text(message)
-                .font(.body)
-                .foregroundStyle(AppTheme.Colors.secondaryText)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(AppTheme.Spacing.lg)
-        }
-        .hidesBottomTabBarWhenPushed()
     }
 
     private func catalogSitesForNavigation() -> [DiveSite] {

@@ -21,10 +21,15 @@ enum GoDiveSharedMediaExport: Sendable {
 
     @MainActor
     static func exportThumbnailJPEG<T: ActivityOverviewGalleryMedia>(for media: T) async -> Data? {
-        if let preview = media.previewJPEGData,
-           !preview.isEmpty,
-           preview.count <= GoDiveSharedMediaLimits.thumbMaxBytes {
-            return preview
+        if let preview = media.previewJPEGData, !preview.isEmpty {
+            if preview.count <= GoDiveSharedMediaLimits.thumbMaxBytes {
+                return preview
+            }
+            #if canImport(UIKit)
+            if let image = UIImage(data: preview) {
+                return DiveMediaPreviewPersistence.encodePreviewJPEG(image)
+            }
+            #endif
         }
         guard let localID = media.libraryAssetLocalIdentifier else { return nil }
         let edge = DiveMediaPreviewPersistence.storedPreviewEdge

@@ -137,6 +137,24 @@ struct ActivityTagDetailView: View {
         .navigationDestination(item: $tagDiveNavigationID) { target in
             if let activity = taggedDives.first(where: { $0.id == target.id }) {
                 ViewSingleActivity(activity: activity)
+            } else {
+                ActivityMissingDestinationPopView {
+                    if tagDiveNavigationID?.id == target.id {
+                        tagDiveNavigationID = nil
+                    }
+                }
+            }
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: ActivityDeleteSuccessPresentation.didDeleteNotification
+            )
+        ) { notification in
+            guard let activityID = ActivityDeleteSuccessPresentation.activityID(from: notification) else {
+                return
+            }
+            if tagDiveNavigationID?.id == activityID {
+                tagDiveNavigationID = nil
             }
         }
         .navigationDestination(item: $tagSiteNavigationID) { siteID in
@@ -266,7 +284,10 @@ struct ActivityTagDetailView: View {
     }
 
     private func openTaggedDive(_ diveID: UUID) {
-        tagDiveNavigationID = TagDiveNavigationID(id: diveID)
+        NavigationStackPushCoalescing.assignUnlessDuplicate(
+            TagDiveNavigationID(id: diveID),
+            to: &tagDiveNavigationID
+        )
     }
 
     private func openDiveSiteFromMap(_ siteID: UUID) {

@@ -40,6 +40,7 @@ struct ViewSingleActivity: View {
 
     @State private var marineLifeCatalog: [MarineLife] = []
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @Environment(\.openCatalogDiveSiteDetail) private var openCatalogDiveSiteDetail
     @Environment(AccountSession.self) private var accountSession
@@ -89,6 +90,8 @@ struct ViewSingleActivity: View {
     /// Guards redundant focus application within a single appear cycle when media is already loaded.
     @State private var didApplyInitialMediaFocus = false
     @State private var showsFriendShareSettings = false
+    /// Local-first publish checkpoint banner (Strava-style) — seeded from the model flag on appear.
+    @State private var showsPublishCheckpointBanner = false
 
     /// **More** tab: profile samples sorted by time (read-only).
     private var moreTabSortedProfilePoints: [DiveProfilePoint] {
@@ -159,6 +162,12 @@ struct ViewSingleActivity: View {
                 persistOverviewUIState()
                 DiveMediaScopeCache.shared.deactivateScope(.diveOverview(activity.id))
                 invalidateDiveOverviewVideoPlaybackCache()
+            }
+            .onChange(of: showsFriendShareSettings) { _, isPresented in
+                // Activity Settings save resolves the checkpoint — refresh on sheet dismiss.
+                if !isPresented {
+                    showsPublishCheckpointBanner = ActivityFriendSharePublishCheckpoint.isPending(dive: activity)
+                }
             }
             .onChange(of: initialMediaFocusID) { _, _ in
                 didApplyInitialMediaFocus = false
@@ -291,7 +300,10 @@ struct ViewSingleActivity: View {
                 }
             }
             .sheet(isPresented: $showsFriendShareSettings) {
-                DiveActivityFriendShareSettingsView(activity: activity)
+                DiveActivityFriendShareSettingsView(
+                    activity: activity,
+                    onDeleted: { dismiss() }
+                )
             }
             .alert("Could not add equipment", isPresented: equipmentLinkErrorBinding) {
                 Button("OK", role: .cancel) {}
@@ -343,6 +355,7 @@ struct ViewSingleActivity: View {
         }
         presentMapSitePromptIfNeeded()
         recordDiveOverviewBreadcrumb()
+        showsPublishCheckpointBanner = ActivityFriendSharePublishCheckpoint.isPending(dive: activity)
     }
 
     @discardableResult
@@ -1808,7 +1821,42 @@ struct ViewSingleActivity: View {
         )
     }
 
+    @ViewBuilder
+    private var publishCheckpointBannerIfNeeded: some View {
+        if showsPublishCheckpointBanner {
+            ActivityPublishCheckpointBanner(
+                activityKind: .scubaDive,
+                onShare: {
+                    ActivityFriendSharePublishCheckpoint.publish(
+                        dive: activity,
+                        ownerProfileID: accountSession.currentProfile?.id,
+                        modelContext: modelContext
+                    )
+                },
+                onKeepLocal: {
+                    ActivityFriendSharePublishCheckpoint.keepLocal(dive: activity, modelContext: modelContext)
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showsPublishCheckpointBanner = false
+                    }
+                },
+                onConfirmationFinished: {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        showsPublishCheckpointBanner = false
+                    }
+                }
+            )
+            .padding(.top, AppTheme.Spacing.sm)
+        }
+    }
+
     private func overviewBottomPanelContent() -> some View {
+        VStack(spacing: 0) {
+            publishCheckpointBannerIfNeeded
+            diveMapOverviewPanelContent
+        }
+    }
+
+    private var diveMapOverviewPanelContent: some View {
         DiveActivityMapOverviewPanelContent(
             activity: activity,
             overviewSheetDetent: $overviewSheetDetent,

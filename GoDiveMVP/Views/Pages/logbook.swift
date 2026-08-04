@@ -17,19 +17,9 @@ struct LogbookView: View {
 
     @State private var path: [LogbookRoute] = []
     @Binding var pendingRoute: LogbookRoute?
-    @State private var activityPendingDeletion: DiveActivity?
-    /// Hides the row immediately; cleared only if background delete fails.
-    @State private var optimisticallyRemovedActivityIDs: Set<UUID> = []
     @State private var logbookDisplayItems: [LogbookListDisplayItem] = []
     @State private var duplicateActivityIds: Set<UUID> = []
     @State private var logbookCacheRefreshGeneration = 0
-    /// While **`true`**, SwiftData **`@Query`** updates do not schedule row rebuilds (delete + background renumber).
-    @State private var suppressStoreDrivenRefresh = false
-    /// Skips one **`activities.count`** change after delete (optimistic rows already match; avoids O(n²) duplicate rescan).
-    @State private var skipNextActivitiesCountRefresh = false
-    @State private var isDiveDeleteInProgress = false
-    @State private var diveDeleteProgress: Double = 0
-    @State private var diveDeleteProgressStartedAt: Date?
     @State private var listScrollToTopNonce = 0
     @State private var hasPerformedInitialLogbookCacheBuild = false
     @State private var logbookFeedScope: LogbookFeedScope = .myActivities
@@ -97,7 +87,7 @@ struct LogbookView: View {
     }
 
     private var visibleActivities: [DiveActivity] {
-        activities.filter { !optimisticallyRemovedActivityIDs.contains($0.id) }
+        activities
     }
 
     private var visibleSnorkelActivities: [SnorkelActivity] {
@@ -233,7 +223,27 @@ struct LogbookView: View {
     private func consumePendingLogbookRouteIfNeeded() {
         guard let route = pendingRoute else { return }
         pendingRoute = nil
+        if case .buddySharedDive(let friendUID, let diveDocumentID) = route {
+            openBuddySharedDiveFromPush(friendUID: friendUID, diveDocumentID: diveDocumentID)
+            return
+        }
         path = LogbookPendingRouteNavigation.path(afterConsuming: route, currentPath: path)
+    }
+
+    /// Push-notification deep link: land on **Buddy Feed**, then push the target
+    /// activity once its row is loaded so **Back** returns to the feed.
+    private func openBuddySharedDiveFromPush(friendUID: String, diveDocumentID: String) {
+        logbookFeedScope = .buddyFeed
+        path.removeAll()
+        Task { @MainActor in
+            await refreshBuddyFeed()
+            guard LogbookBuddyFeedPresentation.containsRow(
+                in: buddyFeedAllRows,
+                friendUID: friendUID,
+                diveDocumentID: diveDocumentID
+            ) else { return }
+            pushLogbook(.buddySharedDive(friendUID: friendUID, diveDocumentID: diveDocumentID))
+        }
     }
 
     private var logbookNavigationStack: some View {
@@ -243,10 +253,11 @@ struct LogbookView: View {
             }
             .navigationDestination(for: LogbookRoute.self, destination: logbookRouteDestination)
             .restoresRootTabBarWhenStackIsEmpty(isLogbookNavigationStackAtRoot)
+            .coalescesNavigationStackPathDuplicates($path)
             .animation(nil, value: path.count)
         }
         .environment(\.openCatalogDiveSiteDetail) { siteID in
-            path.append(.diveSite(siteID))
+            pushLogbook(.diveSite(siteID))
             TripDetailMapNavigationDebug.parentStackAppendedRoute(
                 stack: .logbook,
                 siteID: siteID,
@@ -254,13 +265,20 @@ struct LogbookView: View {
             )
         }
         .environment(\.openTripDetail) { tripID in
-            path.append(.tripDetail(tripID))
+            pushLogbook(.tripDetail(tripID))
         }
         .environment(\.openTripDetailMedia) { launch in
-            path.append(.tripDetailMedia(tripID: launch.tripID, mediaID: launch.mediaID))
+            pushLogbook(.tripDetailMedia(tripID: launch.tripID, mediaID: launch.mediaID))
         }
         .environment(\.openBuddiesListDetailRoute) { route in
-            path.append(.buddiesListDetail(route))
+            pushLogbook(.buddiesListDetail(route))
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: ActivityDeleteSuccessPresentation.didDeleteNotification
+            )
+        ) { _ in
+            path.removeAll()
         }
     }
 
@@ -297,24 +315,12 @@ struct LogbookView: View {
     }
 
     private var logbookPageZStack: some View {
-        ZStack {
-            logbookListSurfaceView
-
-            if let activity = activityPendingDeletion {
-                confirmDeleteDiveOverlay(activity: activity)
-                    .zIndex(2)
-            }
-
-            if isDiveDeleteInProgress {
-                LogbookDiveDeleteProgressOverlay(progress: diveDeleteProgress)
-                    .zIndex(3)
-                    .transition(.opacity)
-            }
-        }
+        logbookListSurfaceView
     }
 
     private var showsMyActivitiesKindFilterEmptyState: Bool {
-        guard logbookFeedScope == .myActivities else { return false }
+        // Pager keeps the My Activities page mounted after first visit — evaluate for that page,
+        // not only when the Buddy Feed segment is selected.
         guard !showsStoredDiveEmptyState else { return false }
         guard !isMyActivitiesLogbookLoading else { return false }
         guard logbookDisplayItems.isEmpty else { return false }
@@ -328,7 +334,7 @@ struct LogbookView: View {
 
     private var isMyActivitiesLogbookLoading: Bool {
         LogbookMyActivitiesSummaryPresentation.showsLoadingChrome(
-            feedScope: logbookFeedScope,
+            feedScope: .myActivities,
             visibleDiveCount: visibleActivities.count,
             visibleSnorkelCount: visibleSnorkelActivities.count,
             kindFilter: myActivitiesKindFilter,
@@ -351,14 +357,13 @@ struct LogbookView: View {
             upcomingTripBanner: logbookUpcomingTripBanner,
             showsStoredDiveEmptyState: showsStoredDiveEmptyState,
             showsMyActivitiesKindFilterEmptyState: showsMyActivitiesKindFilterEmptyState,
-            bubbleAnimationPaused: suppressStoreDrivenRefresh || isDiveDeleteInProgress,
+            bubbleAnimationPaused: false,
             scrollToTopNonce: listScrollToTopNonce,
-            onSwipeDelete: requestDeleteForRow,
             onSelectMediaPreview: openActivityMediaPreview,
-            onOpenTrip: { path.append(.tripDetail($0)) },
-            onOpenDive: { path.append(.diveDetail($0)) },
+            onOpenTrip: { pushLogbook(.tripDetail($0)) },
+            onOpenDive: { pushLogbook(.diveDetail($0)) },
             onOpenFriendProfile: { friend in
-                path.append(.friendProfile(friend))
+                pushLogbook(.friendProfile(friend))
             },
             onBuddyFeedRefresh: refreshBuddyFeed,
             onBuddyFeedLoadMore: loadMoreBuddyFeedRowsIfNeeded
@@ -450,29 +455,45 @@ struct LogbookView: View {
             if let activity = activities.first(where: { $0.id == id }) {
                 ViewSingleActivity(activity: activity)
             } else {
-                diveNoLongerInLogText
+                ActivityMissingDestinationPopView {
+                    path = ActivityDeleteSuccessPresentation.logbookPathByRemovingActivity(
+                        path,
+                        activityID: id
+                    )
+                }
             }
         case .snorkelDetail(let id):
             if let activity = snorkelActivities.first(where: { $0.id == id }) {
                 ViewSingleSnorkelActivity(activity: activity)
             } else {
-                Text("This snorkel is no longer in your log.")
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-                    .padding()
+                ActivityMissingDestinationPopView {
+                    path = ActivityDeleteSuccessPresentation.logbookPathByRemovingActivity(
+                        path,
+                        activityID: id
+                    )
+                }
             }
         case .snorkelMedia(let id, let mediaID):
             if let activity = snorkelActivities.first(where: { $0.id == id }) {
                 ViewSingleSnorkelActivity(activity: activity, initialMediaFocusID: mediaID)
             } else {
-                Text("This snorkel is no longer in your log.")
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-                    .padding()
+                ActivityMissingDestinationPopView {
+                    path = ActivityDeleteSuccessPresentation.logbookPathByRemovingActivity(
+                        path,
+                        activityID: id
+                    )
+                }
             }
         case .diveMedia(let id, let mediaID):
             if let activity = activities.first(where: { $0.id == id }) {
                 ViewSingleActivity(activity: activity, initialMediaFocusID: mediaID)
             } else {
-                diveNoLongerInLogText
+                ActivityMissingDestinationPopView {
+                    path = ActivityDeleteSuccessPresentation.logbookPathByRemovingActivity(
+                        path,
+                        activityID: id
+                    )
+                }
             }
         case .tripDetail(let tripID):
             TripDetailStackNavigationPresentation.tripDetailDestination(tripID: tripID)
@@ -486,7 +507,7 @@ struct LogbookView: View {
             ExploreDiveSiteDetailHost(
                 siteID: siteID,
                 ownerProfileID: ownerProfileID,
-                onOpenDive: { path.append(.diveDetail($0)) }
+                onOpenDive: { pushLogbook(.diveDetail($0)) }
             )
         case .buddySharedDive(let friendUID, let diveDocumentID):
             if let row = buddyFeedAllRows.first(where: {
@@ -529,12 +550,12 @@ struct LogbookView: View {
 
     private func openImportedDiveDetail(_ diveId: UUID) {
         popLogbookImportRouteIfNeeded()
-        path.append(.diveDetail(diveId))
+        pushLogbook(.diveDetail(diveId))
     }
 
     private func openImportedSnorkelDetail(_ snorkelId: UUID) {
         popLogbookImportRouteIfNeeded()
-        path.append(.snorkelDetail(snorkelId))
+        pushLogbook(.snorkelDetail(snorkelId))
     }
 
     private func popLogbookImportRouteIfNeeded() {
@@ -543,69 +564,28 @@ struct LogbookView: View {
         }
     }
 
-    private var diveNoLongerInLogText: some View {
-        Text("This dive is no longer in your log.")
-            .foregroundStyle(AppTheme.Colors.secondaryText)
-            .padding()
-    }
-
     /// Tapping a row's media thumbnail opens activity detail on the **Media** tab for that photo.
     private func openActivityMediaPreview(_ row: DiveLogbookRowDisplayData) {
         guard let mediaID = row.previewMediaPhotoID else { return }
         switch row.activityKind {
         case .scubaDive:
-            path.append(.diveMedia(row.id, mediaID: mediaID))
+            pushLogbook(.diveMedia(row.id, mediaID: mediaID))
         case .snorkel:
-            path.append(.snorkelMedia(row.id, mediaID: mediaID))
+            pushLogbook(.snorkelMedia(row.id, mediaID: mediaID))
         }
     }
 
-    private func requestDeleteForRow(_ rowID: UUID) {
-        activityPendingDeletion = activities.first { $0.id == rowID }
-    }
-
-    /// Media attached to a dive (manual upload or import auto-attach) does not change **`activities.count`**,
-    /// so rebuild the row cache here to surface the new preview thumbnail without waiting for another trigger.
-    /// Skips the duplicate scan because adding media never changes duplicate detection.
     private func handleMediaDidChange() {
-        guard !suppressStoreDrivenRefresh else { return }
         scheduleLogbookCacheRefresh(includeDuplicateScan: false)
     }
 
     /// Trip create / auto-link does not change **`activities.count`**, so rebuild grouping here.
     private func handleTripGroupingDidChange() {
-        guard !suppressStoreDrivenRefresh else { return }
         scheduleLogbookCacheRefresh(includeDuplicateScan: false)
     }
 
     private func handleActivitiesCountChange() {
-        guard !suppressStoreDrivenRefresh else { return }
-        reconcileOptimisticDeletesWithStore()
-        if skipNextActivitiesCountRefresh {
-            skipNextActivitiesCountRefresh = false
-            return
-        }
         scheduleLogbookCacheRefresh()
-    }
-
-    /// Drops optimistic hides once the store no longer has those dive ids (background delete merged).
-    private func reconcileOptimisticDeletesWithStore() {
-        guard !optimisticallyRemovedActivityIDs.isEmpty else { return }
-        let confirmedRemoved = optimisticallyRemovedActivityIDs.filter { removedID in
-            !logbookStoreContainsActivity(id: removedID)
-        }
-        guard !confirmedRemoved.isEmpty else { return }
-        optimisticallyRemovedActivityIDs.subtract(confirmedRemoved)
-    }
-
-    /// Predicate fetch — do not read **`@Query`** model properties during merge (can trap on invalidated rows).
-    private func logbookStoreContainsActivity(id: UUID) -> Bool {
-        var descriptor = FetchDescriptor<DiveActivity>(
-            predicate: #Predicate { $0.id == id }
-        )
-        descriptor.fetchLimit = 1
-        guard let fetched = try? modelContext.fetch(descriptor) else { return true }
-        return !fetched.isEmpty
     }
 
     private func handleLogbookTabReselect() {
@@ -614,211 +594,7 @@ struct LogbookView: View {
         refreshBuddyFeedWhenBuddyFeedListVisible()
     }
 
-    private func confirmDeleteDiveOverlay(activity: DiveActivity) -> some View {
-        ZStack {
-            Color.black.opacity(0.45)
-                .ignoresSafeArea()
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    withAnimation(.easeOut(duration: 0.16)) {
-                        activityPendingDeletion = nil
-                    }
-                }
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-                Text("Delete dive?")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.textPrimary)
-
-                Text("Are you sure? This cannot be undone.")
-                    .font(.body)
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                HStack(alignment: .center) {
-                    Button("Cancel") {
-                        withAnimation(.easeOut(duration: 0.16)) {
-                            activityPendingDeletion = nil
-                        }
-                    }
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(AppTheme.Colors.tabSelected)
-                    .buttonStyle(.plain)
-
-                    Spacer(minLength: AppTheme.Spacing.lg)
-
-                    Button("Delete") {
-                        confirmDeleteDive(activity)
-                    }
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(Color.red)
-                    .buttonStyle(.plain)
-                }
-                .padding(.top, AppTheme.Spacing.sm)
-            }
-            .padding(AppTheme.Spacing.lg)
-            .frame(maxWidth: 320, alignment: .leading)
-            .background {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(AppTheme.Colors.surfaceElevated)
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(AppTheme.Colors.tabUnselected.opacity(0.15), lineWidth: 1)
-            }
-            .shadow(color: .black.opacity(0.35), radius: 24, y: 12)
-            .accessibilityAddTraits(.isModal)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private func confirmDeleteDive(_ activity: DiveActivity) {
-        let id = activity.id
-        let deletedStartTime = activity.startTime
-        let container = modelContext.container
-        let renumberAfterDelete = automaticallyRenumberDives
-
-        dismissDeleteOverlayImmediately()
-        showDiveDeleteProgressUIImmediately()
-        DiveActivityDeletionDebug.began(diveID: id)
-
-        Task { @MainActor in
-            // Paint the progress dialog before list/navigation updates block the main thread.
-            await Task.yield()
-
-            optimisticallyRemovedActivityIDs.insert(id)
-            suppressStoreDrivenRefresh = true
-            applyOptimisticDeleteToLogbookRows(removedId: id)
-            path.removeAll {
-                switch $0 {
-                case .diveDetail(let detailId): return detailId == id
-                case .diveMedia(let detailId, _): return detailId == id
-                case .snorkelDetail(let detailId): return detailId == id
-                case .snorkelMedia(let detailId, _): return detailId == id
-                case .addActivity, .diveActivityUpload, .snorkelActivityUpload, .connectDeviceComingSoon,
-                     .tripPlanner, .tripDetail, .tripDetailMedia, .diveSite, .buddySharedDive, .friendProfile, .friends,
-                     .buddiesListDetail: return false
-                }
-            }
-
-            Task(priority: .userInitiated) {
-                do {
-                    try await DiveActivityDeletion.delete(
-                        DiveActivityDeletion.Request(
-                            activityID: id,
-                            deletedStartTime: deletedStartTime,
-                            deletedId: id,
-                            renumberAfterDelete: renumberAfterDelete
-                        ),
-                        container: container,
-                        deferRenumber: renumberAfterDelete,
-                        mainModelContext: modelContext,
-                        reportProgress: { progress in
-                            diveDeleteProgress = progress
-                        }
-                    )
-                    await completeSuccessfulDiveDelete(removedId: id, renumberAfterDelete: renumberAfterDelete)
-                } catch {
-                    DiveActivityDeletionDebug.failure(diveID: id, error: error, contextLabel: "logbook")
-                    DiveActivityDeletionDebug.snapshot(
-                        diveID: id,
-                        contextLabel: "logbook-on-failure",
-                        modelContext: modelContext
-                    )
-                    await revertFailedDiveDelete(removedId: id)
-                }
-                await endDiveDeleteProgressUI()
-            }
-        }
-    }
-
-    @MainActor
-    private func completeSuccessfulDiveDelete(removedId: UUID, renumberAfterDelete: Bool) async {
-        if renumberAfterDelete {
-            await DivePostDeleteRenumberScheduler.shared.waitForPending()
-        }
-
-        let uiSynced = await waitForActivityRemovedFromUIQuery(id: removedId)
-        if uiSynced {
-            optimisticallyRemovedActivityIDs.remove(removedId)
-        }
-        suppressStoreDrivenRefresh = false
-        skipNextActivitiesCountRefresh = true
-        await refreshLogbookCacheNow(includeDuplicateScan: false)
-    }
-
-    /// Waits for SwiftData **`@Query`** / main-context fetch to reflect a background delete merge.
-    @MainActor
-    @discardableResult
-    private func waitForActivityRemovedFromUIQuery(id: UUID, timeoutSeconds: TimeInterval = 5) async -> Bool {
-        let deadline = Date().addingTimeInterval(timeoutSeconds)
-        while Date() < deadline {
-            modelContext.processPendingChanges()
-            if !activities.contains(where: { $0.id == id }) { return true }
-            if !logbookStoreContainsActivity(id: id) { return true }
-            await Task.yield()
-            try? await Task.sleep(nanoseconds: 50_000_000)
-        }
-        return false
-    }
-
-    @MainActor
-    private func revertFailedDiveDelete(removedId: UUID) async {
-        optimisticallyRemovedActivityIDs.remove(removedId)
-        suppressStoreDrivenRefresh = false
-        await refreshLogbookCacheNow(includeDuplicateScan: true)
-    }
-
-    private func showDiveDeleteProgressUIImmediately() {
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            diveDeleteProgress = 0.06
-            diveDeleteProgressStartedAt = Date()
-            isDiveDeleteInProgress = true
-        }
-    }
-
-    private func endDiveDeleteProgressUI() async {
-        await MainActor.run {
-            diveDeleteProgress = 1
-        }
-        let minVisibleSeconds: TimeInterval = 0.08
-        let elapsed = await MainActor.run {
-            Date().timeIntervalSince(diveDeleteProgressStartedAt ?? Date())
-        }
-        let delay = max(0, minVisibleSeconds - elapsed)
-        if delay > 0 {
-            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-        }
-        await MainActor.run {
-            withAnimation(.easeOut(duration: 0.16)) {
-                isDiveDeleteInProgress = false
-            }
-            diveDeleteProgress = 0
-            diveDeleteProgressStartedAt = nil
-        }
-    }
-
-    /// Drops the deleted row immediately; when automatic renumber is on, refreshes **#** labels without a full duplicate scan.
-    private func applyOptimisticDeleteToLogbookRows(removedId: UUID) {
-        logbookDisplayItems = LogbookTripGrouping.removingDive(id: removedId, from: logbookDisplayItems)
-        guard automaticallyRenumberDives else { return }
-
-        let numberingRows = visibleActivities.map {
-            DiveActivityDiveNumbering.NumberingRow(
-                id: $0.id,
-                startTime: $0.startTime,
-                diveNumberExplicitlyNone: $0.diveNumberExplicitlyNone
-            )
-        }
-        let chronologicalNumbers = DiveActivityDiveNumbering.numberedDiveSequentialIndicesById(for: numberingRows)
-        let labels = Dictionary(uniqueKeysWithValues: chronologicalNumbers.map { ($0.key, "#\($0.value)") })
-        logbookDisplayItems = LogbookTripGrouping.applyingDiveNumberLabels(labels, to: logbookDisplayItems)
-    }
-
-    /// Awaitable rebuild used at the end of delete so the dialog stays up until row data matches the store.
+    /// Awaitable rebuild used when the logbook needs an immediate cache refresh.
     @MainActor
     private func refreshLogbookCacheNow(
         includeDuplicateScan: Bool,
@@ -905,13 +681,8 @@ struct LogbookView: View {
         }
     }
 
-    /// Removes the confirmation sheet without waiting on a fade or on **`save()`**.
-    private func dismissDeleteOverlayImmediately() {
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            activityPendingDeletion = nil
-        }
+    private func pushLogbook(_ route: LogbookRoute) {
+        NavigationStackPushCoalescing.append(route, to: &path)
     }
 
     /// Sentinel **`ownerProfileID`** so **`@Query`** returns no rows when signed out.
@@ -936,7 +707,6 @@ private struct LogbookListSurface: View, Equatable {
     let showsMyActivitiesKindFilterEmptyState: Bool
     let bubbleAnimationPaused: Bool
     let scrollToTopNonce: Int
-    let onSwipeDelete: (UUID) -> Void
     let onSelectMediaPreview: (DiveLogbookRowDisplayData) -> Void
     let onOpenTrip: (UUID) -> Void
     let onOpenDive: (UUID) -> Void
@@ -1018,15 +788,44 @@ private struct LogbookListSurface: View, Equatable {
         isHeaderCollapsed = false
     }
 
-    private func handleScrollOffset(_ offset: CGFloat) {
+    private func handleScrollOffset(_ offset: CGFloat, for scope: LogbookFeedScope) {
+        // Off-screen pager page scroll geometry must not collapse / expand the shared header.
+        guard feedScopeSelection == scope else { return }
         isHeaderCollapsed = CollapsibleInlineTitleHeaderPresentation.isCollapsed(forScrollOffset: offset)
     }
 
-    @ViewBuilder
     private func logbookScrollSurface(topInset: CGFloat, bottomInset: CGFloat) -> some View {
-        if feedScope == .buddyFeed {
+        TabView(selection: $feedScopeSelection) {
+            ForEach(LogbookFeedScopePagerPresentation.pages) { scope in
+                PushedDetailContentPagerLayout.tabPage {
+                    feedScopePage(scope, topInset: topInset, bottomInset: bottomInset)
+                }
+                .tag(scope)
+            }
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .accessibilityIdentifier(LogbookFeedScopePagerPresentation.accessibilityIdentifier)
+    }
+
+    @ViewBuilder
+    private func feedScopePage(
+        _ scope: LogbookFeedScope,
+        topInset: CGFloat,
+        bottomInset: CGFloat
+    ) -> some View {
+        // Both pages stay mounted (only two scopes) so interactive swipes never flash empty.
+        switch scope {
+        case .myActivities:
+            logbookMyActivitiesSurface(topInset: topInset, bottomInset: bottomInset)
+        case .buddyFeed:
             logbookBuddyFeedSurface(topInset: topInset, bottomInset: bottomInset)
-        } else if showsStoredDiveEmptyState {
+        }
+    }
+
+    @ViewBuilder
+    private func logbookMyActivitiesSurface(topInset: CGFloat, bottomInset: CGFloat) -> some View {
+        if showsStoredDiveEmptyState {
             logbookStoredEmptyState(topInset: topInset)
         } else if showsMyActivitiesKindFilterEmptyState {
             logbookMyActivitiesKindFilterEmptyState(topInset: topInset)
@@ -1050,7 +849,7 @@ private struct LogbookListSurface: View, Equatable {
         .onScrollGeometryChange(for: CGFloat.self) { geometry in
             geometry.contentOffset.y + geometry.contentInsets.top
         } action: { offset, _ in
-            handleScrollOffset(offset)
+            handleScrollOffset(offset, for: .myActivities)
         }
     }
 
@@ -1068,7 +867,7 @@ private struct LogbookListSurface: View, Equatable {
         .onScrollGeometryChange(for: CGFloat.self) { geometry in
             geometry.contentOffset.y + geometry.contentInsets.top
         } action: { offset, _ in
-            handleScrollOffset(offset)
+            handleScrollOffset(offset, for: .myActivities)
         }
         .scrollDismissesKeyboard(.interactively)
         .ignoresSafeArea(edges: [.top, .bottom])
@@ -1089,7 +888,7 @@ private struct LogbookListSurface: View, Equatable {
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
                 geometry.contentOffset.y + geometry.contentInsets.top
             } action: { offset, _ in
-                handleScrollOffset(offset)
+                handleScrollOffset(offset, for: .buddyFeed)
             }
             .accessibilityIdentifier(LogbookBuddyFeedPresentation.buddyFeedRootAccessibilityIdentifier)
             .logbookBuddyFeedPullToRefresh(action: onBuddyFeedRefresh)
@@ -1117,7 +916,7 @@ private struct LogbookListSurface: View, Equatable {
         .onScrollGeometryChange(for: CGFloat.self) { geometry in
             geometry.contentOffset.y + geometry.contentInsets.top
         } action: { offset, _ in
-            handleScrollOffset(offset)
+            handleScrollOffset(offset, for: .buddyFeed)
         }
         .scrollDismissesKeyboard(.interactively)
         .ignoresSafeArea(edges: [.top, .bottom])
@@ -1239,7 +1038,7 @@ private struct LogbookListSurface: View, Equatable {
         .onScrollGeometryChange(for: CGFloat.self) { geometry in
             geometry.contentOffset.y + geometry.contentInsets.top
         } action: { offset, _ in
-            handleScrollOffset(offset)
+            handleScrollOffset(offset, for: .buddyFeed)
         }
         .logbookListScrollToTopTrigger(nonce: scrollToTopNonce)
         .accessibilityIdentifier(LogbookBuddyFeedPresentation.buddyFeedRootAccessibilityIdentifier)
@@ -1265,7 +1064,7 @@ private struct LogbookListSurface: View, Equatable {
         .onScrollGeometryChange(for: CGFloat.self) { geometry in
             geometry.contentOffset.y + geometry.contentInsets.top
         } action: { offset, _ in
-            handleScrollOffset(offset)
+            handleScrollOffset(offset, for: .myActivities)
         }
         .scrollDismissesKeyboard(.interactively)
         .ignoresSafeArea(edges: [.top, .bottom])
@@ -1305,7 +1104,7 @@ private struct LogbookListSurface: View, Equatable {
         .onScrollGeometryChange(for: CGFloat.self) { geometry in
             geometry.contentOffset.y + geometry.contentInsets.top
         } action: { offset, _ in
-            handleScrollOffset(offset)
+            handleScrollOffset(offset, for: .myActivities)
         }
         .logbookListScrollToTopTrigger(nonce: scrollToTopNonce)
     }
@@ -1359,13 +1158,6 @@ private struct LogbookListSurface: View, Equatable {
         switch row.activityKind {
         case .scubaDive:
             logbookActivityRowLink(row: row, route: .diveDetail(row.id))
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    Button(role: .destructive) {
-                        onSwipeDelete(row.id)
-                    } label: {
-                        Label("Delete", systemImage: "trash")
-                    }
-                }
         case .snorkel:
             logbookActivityRowLink(row: row, route: .snorkelDetail(row.id))
         }

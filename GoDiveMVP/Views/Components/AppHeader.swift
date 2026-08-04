@@ -100,7 +100,7 @@ enum AppHeaderStackedTitleChrome: Sendable {
     static let titleMultilineAlignment = TextAlignment.center
 }
 
-struct AppHeader<TrailingContent: View>: View {
+struct AppHeader<LeadingContent: View, TrailingContent: View>: View {
     private let appName = "GoDive"
     let title: String
     let showsBackButton: Bool
@@ -111,6 +111,8 @@ struct AppHeader<TrailingContent: View>: View {
     /// Flat **`linkedSiteTitleAccent`** title (catalog dive site overview — not brand gradient).
     let titleUsesLinkedSiteAccent: Bool
     let titlePlacement: AppHeaderTitlePlacement
+    /// Upper-left actions after the back chevron (Home notifications bell).
+    let leadingContent: LeadingContent
     let trailingContent: TrailingContent
     /// Pass **`GeometryReader.safeAreaInsets.top`** from the tab / page root so the status scrim matches the device inset.
     let statusBarSafeAreaTop: CGFloat
@@ -126,7 +128,8 @@ struct AppHeader<TrailingContent: View>: View {
         titlePlacement: AppHeaderTitlePlacement = .centered,
         statusBarSafeAreaTop: CGFloat = 0,
         statusBarUsesListChromeFeather: Bool = false,
-        @ViewBuilder trailingContent: () -> TrailingContent
+        @ViewBuilder trailingContent: () -> TrailingContent,
+        @ViewBuilder leadingContent: () -> LeadingContent = { EmptyView() }
     ) {
         self.title = title
         self.showsBackButton = showsBackButton
@@ -136,6 +139,7 @@ struct AppHeader<TrailingContent: View>: View {
         self.titlePlacement = titlePlacement
         self.statusBarSafeAreaTop = statusBarSafeAreaTop
         self.statusBarUsesListChromeFeather = statusBarUsesListChromeFeather
+        self.leadingContent = leadingContent()
         self.trailingContent = trailingContent()
     }
 
@@ -244,6 +248,8 @@ struct AppHeader<TrailingContent: View>: View {
             if showsBackButton {
                 SecondaryDestinationBackButton()
             }
+
+            leadingContent
         }
     }
 
@@ -351,7 +357,7 @@ struct AppHeader<TrailingContent: View>: View {
     }
 }
 
-extension AppHeader where TrailingContent == EmptyView {
+extension AppHeader where LeadingContent == EmptyView, TrailingContent == EmptyView {
     init(
         title: String,
         showsBackButton: Bool = false,

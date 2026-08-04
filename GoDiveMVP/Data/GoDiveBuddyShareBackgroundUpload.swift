@@ -129,12 +129,15 @@ enum GoDiveBuddyShareBackgroundUpload: Sendable {
             let dives = (try? modelContext.fetch(FetchDescriptor<DiveActivity>()))?
                 .filter { $0.ownerProfileID == ownerProfileID && activityIDs.contains($0.id) } ?? []
             for dive in dives {
-                await GoDiveSharedDiveProjectionSync.upsertDive(
+                let upserted = await GoDiveSharedDiveProjectionSync.upsertDive(
                     dive,
                     ownerUID: ownerUID,
                     modelContext: modelContext
                 )
-                completedUpserts.insert(dive.id)
+                if upserted {
+                    await GoDiveSharedMediaUploadQueue.shared.awaitPendingUpload(for: dive.id)
+                    completedUpserts.insert(dive.id)
+                }
                 await GoDiveSharedMediaUpload.resumeIncompleteContentPhase(
                     ownerUID: ownerUID,
                     activityID: dive.id,
@@ -145,12 +148,15 @@ enum GoDiveBuddyShareBackgroundUpload: Sendable {
             let snorkels = (try? modelContext.fetch(FetchDescriptor<SnorkelActivity>()))?
                 .filter { $0.ownerProfileID == ownerProfileID && activityIDs.contains($0.id) } ?? []
             for snorkel in snorkels {
-                await GoDiveSharedDiveProjectionSync.upsertSnorkel(
+                let upserted = await GoDiveSharedDiveProjectionSync.upsertSnorkel(
                     snorkel,
                     ownerUID: ownerUID,
                     modelContext: modelContext
                 )
-                completedUpserts.insert(snorkel.id)
+                if upserted {
+                    await GoDiveSharedMediaUploadQueue.shared.awaitPendingUpload(for: snorkel.id)
+                    completedUpserts.insert(snorkel.id)
+                }
                 await GoDiveSharedMediaUpload.resumeIncompleteContentPhase(
                     ownerUID: ownerUID,
                     activityID: snorkel.id,

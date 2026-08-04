@@ -19,7 +19,6 @@ struct ProfileView: View {
     private enum ProfileAuxiliaryRoute: Hashable, Identifiable {
         case lifetimeStatsLeaderboard(HomeLifetimeStatsLeaderboardKind)
         case diveDetail(UUID)
-        case diveBuddy(UUID)
 
         var id: Self { self }
     }
@@ -258,6 +257,18 @@ struct ProfileView: View {
         .navigationDestination(item: $profileAuxiliaryRoute) { route in
             profileAuxiliaryDestination(for: route)
         }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: ActivityDeleteSuccessPresentation.didDeleteNotification
+            )
+        ) { notification in
+            guard let activityID = ActivityDeleteSuccessPresentation.activityID(from: notification) else {
+                return
+            }
+            if case .diveDetail(let id) = profileAuxiliaryRoute, id == activityID {
+                profileAuxiliaryRoute = nil
+            }
+        }
         .sheet(isPresented: $showsProfileEditSheet) {
             if let profile = accountSession.currentProfile {
                 ProfileEditSheet(profile: profile)
@@ -411,7 +422,7 @@ struct ProfileView: View {
     }
 
     private func navigate(to route: MenuRoute) {
-        menuRoute = route
+        NavigationStackPushCoalescing.assignUnlessDuplicate(route, to: &menuRoute)
     }
 
     @ViewBuilder
@@ -446,11 +457,14 @@ struct ProfileView: View {
         ProfileDetailContentPager(
             lifetimeStats: profileHomeAggregate.lifetimeStats,
             myActivitiesSummary: profileHomeAggregate.myActivitiesSummary,
-            buddyLeaderboard: profileHomeAggregate.buddyLeaderboard,
             lifetimeStatsContentFingerprint: profileHomeAggregate.contentFingerprint,
             unitSystem: diveDisplayUnitSystem,
-            onOpenLeaderboard: { profileAuxiliaryRoute = .lifetimeStatsLeaderboard($0) },
-            onOpenBuddy: openProfileBuddyFromStats,
+            onOpenLeaderboard: {
+                NavigationStackPushCoalescing.assignUnlessDuplicate(
+                    .lifetimeStatsLeaderboard($0),
+                    to: &profileAuxiliaryRoute
+                )
+            },
             danInsuranceNumber: accountSession.currentProfile?.danInsuranceNumber,
             featuredCertification: featuredCertificationCard,
             featuredCertificationDisplay: profileFeaturedCertification,
@@ -471,13 +485,8 @@ struct ProfileView: View {
         )
     }
 
-    private func openProfileBuddyFromStats(buddyID: UUID) {
-        guard !DiveBuddySelfRepresentation.isSelfBuddyID(buddyID, selfBuddyID: selfBuddyID) else { return }
-        profileAuxiliaryRoute = .diveBuddy(buddyID)
-    }
-
     private func openProfileDive(_ diveID: UUID) {
-        profileAuxiliaryRoute = .diveDetail(diveID)
+        NavigationStackPushCoalescing.assignUnlessDuplicate(.diveDetail(diveID), to: &profileAuxiliaryRoute)
     }
 
     private func handleProfilePagerPageFirstMounted(_ page: ProfileDetailContentPage) {
@@ -550,7 +559,7 @@ struct ProfileView: View {
         let media = taggedMediaItems
 
         let offsetByActivityID = Dictionary(
-            uniqueKeysWithValues: ownedDiveActivities.map { ($0.id, $0.timeZoneOffsetSeconds) }
+            godiveUniquingKeysWithValues: ownedDiveActivities.map { ($0.id, $0.timeZoneOffsetSeconds) }
         )
         cachedTaggedMediaTimeZoneOffsetByID = DiveBuddyTaggedMediaPresentation.timeZoneOffsetByMediaID(
             tags: tags,
@@ -638,7 +647,12 @@ struct ProfileView: View {
                 unitSystem: diveDisplayUnitSystem,
                 automaticallyRenumberDives: automaticallyRenumberDives,
                 sightings: profileHomeAggregate.sightingCountInputs,
-                onOpenDive: { profileAuxiliaryRoute = .diveDetail($0) },
+                onOpenDive: {
+                    NavigationStackPushCoalescing.assignUnlessDuplicate(
+                        .diveDetail($0),
+                        to: &profileAuxiliaryRoute
+                    )
+                },
                 onOpenSite: { _ in },
                 onOpenSpecies: { _ in }
             )
@@ -646,18 +660,11 @@ struct ProfileView: View {
             if let activity = ownedDiveActivities.first(where: { $0.id == id }) {
                 ViewSingleActivity(activity: activity)
             } else {
-                Text("This dive is no longer in your log.")
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-                    .padding()
-            }
-        case .diveBuddy(let buddyID):
-            if let buddy = ownerDiveBuddies.first(where: { $0.id == buddyID }) {
-                DiveBuddyOrFriendDetailView(buddy: buddy)
-                    .hidesBottomTabBarWhenPushed()
-            } else {
-                Text("This buddy is no longer on your roster.")
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-                    .padding()
+                ActivityMissingDestinationPopView {
+                    if case .diveDetail(let routeID) = profileAuxiliaryRoute, routeID == id {
+                        profileAuxiliaryRoute = nil
+                    }
+                }
             }
         }
     }

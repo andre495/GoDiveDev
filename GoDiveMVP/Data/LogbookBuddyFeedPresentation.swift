@@ -2,7 +2,7 @@ import Foundation
 
 /// Logbook **Buddy Feed** — merged friend-visible dive projections for the Activity Log tab.
 enum LogbookBuddyFeedPresentation: Sendable {
-    struct Row: Equatable, Sendable, Identifiable {
+    struct Row: Equatable, Hashable, Sendable, Identifiable {
         var id: String
         var friendUID: String
         var friendDisplayName: String
@@ -77,6 +77,15 @@ enum LogbookBuddyFeedPresentation: Sendable {
         }
         guard visibleRowCount > 0 else { return false }
         return rowIndex >= visibleRowCount - 1
+    }
+
+    /// Whether a push-notification deep-link target is present in the loaded feed.
+    nonisolated static func containsRow(
+        in rows: [Row],
+        friendUID: String,
+        diveDocumentID: String
+    ) -> Bool {
+        rows.contains { $0.friendUID == friendUID && $0.dive.id == diveDocumentID }
     }
 
     enum EmptyKind: Equatable, Sendable {

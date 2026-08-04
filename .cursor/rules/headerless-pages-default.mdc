@@ -1,6 +1,7 @@
 ---
 description: Default new SwiftUI pages to headerless shell; optional status-bar-only scrim for scroll-under top controls
-alwaysApply: true
+globs: GoDiveMVP/Views/Pages/**/*.swift,GoDiveMVP/Views/Components/AppHeader*.swift,GoDiveMVP/Views/Components/AppPage*.swift,GoDiveMVP/Views/Components/AppHeaderless*.swift,GoDiveMVP/Views/Components/HomeRoute.swift,GoDiveMVP/Views/Components/BlueSheet*.swift,GoDiveMVP/Views/Components/*Chrome*.swift,GoDiveMVP/Views/Components/AppStatusBar*.swift
+alwaysApply: false
 ---
 
 # New pages: headerless by default + optional status-bar scrim

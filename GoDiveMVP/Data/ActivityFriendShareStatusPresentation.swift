@@ -57,6 +57,7 @@ enum ActivityFriendShareStatusPresentation: Sendable {
         hasShareableMedia: Bool,
         notesExpected: Bool,
         hasPendingUpload: Bool,
+        hasLocalPendingUpload: Bool = false,
         firestore: FirestoreSnapshot?
     ) -> ShareStatusChecklist? {
         guard shouldPublish else { return nil }
@@ -67,12 +68,16 @@ enum ActivityFriendShareStatusPresentation: Sendable {
         let media: ShareItemState
         if !shareMediaEnabled || !hasShareableMedia {
             media = .off
+        } else if hasPendingUpload || hasLocalPendingUpload {
+            media = .inProgress
         } else if let firestore,
                   firestore.documentExists,
                   firestore.mediaItemCount > 0,
-                  !firestore.hasIncompleteMediaRows,
-                  !hasPendingUpload {
+                  !firestore.hasIncompleteMediaRows {
             media = .shared
+        } else if let firestore, firestore.documentExists, firestore.mediaItemCount == 0 {
+            // Activity doc landed but no media rows — not an active upload (failed or skipped).
+            media = .off
         } else {
             media = .inProgress
         }
@@ -117,7 +122,8 @@ enum ActivityFriendShareStatusPresentation: Sendable {
             shareMediaEnabled: shareMediaEnabled,
             hasShareableMedia: hasShareableMedia,
             notesExpected: notesExpected,
-            hasPendingUpload: queuePending || localPending,
+            hasPendingUpload: queuePending,
+            hasLocalPendingUpload: localPending,
             firestore: firestore
         )
     }

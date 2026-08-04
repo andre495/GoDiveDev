@@ -81,7 +81,7 @@ Your dashboard shows rotating highlights from dive photos and four lifetime stat
 
 ### Logbook
 
-All dives appear here, newest first. Use **+** to import or add a dive. Swipe a row left to delete.
+All dives and snorkels appear here, newest first. Use **+** to import or add an activity. To delete, open the activity → **⋯** → **Activity Settings** → **Delete dive** / **Delete snorkel**.
 
 ### Open a dive
 
@@ -111,6 +111,7 @@ From **Home**, tap your avatar (top of the screen) to open **Profile**:
 
 - Buddy-style blue sheet: your tagged media in the header, photo on the seam  
 - Name and dive count beside your avatar  
+- Sheet **Diver stats** page: lifetime stat tiles (same as Home, without **Top buddies**)  
 - Sheet **Details** page: DAN insurance number and featured certification (tap the cert to open it; **View all certifications** when you have more than one)  
 - Tap the **menu** (☰) for **Trips**, **Certifications**, **Equipment locker**, **Buddies**, **Friends**, **Edit Profile**, and **Settings**, with **Sign out** pinned at the bottom  
 - Change your photo by tapping the avatar on Profile

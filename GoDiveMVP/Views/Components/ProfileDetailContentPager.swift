@@ -8,11 +8,9 @@ import UIKit
 struct ProfileDetailContentPager: View {
     let lifetimeStats: HomeLifetimeStats
     let myActivitiesSummary: LogbookMyActivitiesSummary
-    let buddyLeaderboard: [HomeBuddyLeaderboardEntry]
     let lifetimeStatsContentFingerprint: Int
     let unitSystem: DiveDisplayUnitSystem
     let onOpenLeaderboard: (HomeLifetimeStatsLeaderboardKind) -> Void
-    let onOpenBuddy: (UUID) -> Void
 
     let danInsuranceNumber: String?
     let featuredCertification: Certification?
@@ -71,10 +69,11 @@ struct ProfileDetailContentPager: View {
         HomeLifetimeStatsSection(
             stats: lifetimeStats,
             myActivitiesSummary: myActivitiesSummary,
-            buddyLeaderboard: buddyLeaderboard,
+            buddyLeaderboard: [],
             unitSystem: unitSystem,
             onOpenLeaderboard: onOpenLeaderboard,
-            onOpenBuddy: onOpenBuddy
+            onOpenBuddy: { _ in },
+            includesBuddyLeaderboard: ProfileDetailContentPagerPresentation.showsBuddyLeaderboardOnDiverStats
         )
         .id(lifetimeStatsContentFingerprint)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

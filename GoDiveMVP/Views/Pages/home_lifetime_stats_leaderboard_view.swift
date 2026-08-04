@@ -17,7 +17,7 @@ struct HomeLifetimeStatsLeaderboardView: View {
     let onOpenSpecies: (String) -> Void
 
     private var diveStatsByID: [UUID: HomeDiveStatsInput] {
-        Dictionary(uniqueKeysWithValues: diveStatsInputs.map { ($0.id, $0) })
+        Dictionary(godiveUniquingKeysWithValues: diveStatsInputs.map { ($0.id, $0) })
     }
 
     private var diveRows: [DiveLogbookRowDisplayData] {
@@ -25,7 +25,7 @@ struct HomeLifetimeStatsLeaderboardView: View {
             dives: diveStatsInputs,
             kind: kind
         )
-        let activitiesByID = Dictionary(uniqueKeysWithValues: activities.map { ($0.id, $0) })
+        let activitiesByID = Dictionary(godiveUniquingKeysWithValues: activities.map { ($0.id, $0) })
         let rankedActivities = rankedIDs.compactMap { activitiesByID[$0] }
         return DiveLogbookDisplay.rowData(
             activities: rankedActivities,
@@ -45,15 +45,15 @@ struct HomeLifetimeStatsLeaderboardView: View {
     }
 
     private var sitesByID: [UUID: DiveSite] {
-        Dictionary(uniqueKeysWithValues: diveSites.map { ($0.id, $0) })
+        Dictionary(godiveUniquingKeysWithValues: diveSites.map { ($0.id, $0) })
     }
 
     private var userSitesByID: [UUID: UserDiveSite] {
-        Dictionary(uniqueKeysWithValues: userDiveSites.map { ($0.id, $0) })
+        Dictionary(godiveUniquingKeysWithValues: userDiveSites.map { ($0.id, $0) })
     }
 
     private var marineLifeByUUID: [String: MarineLife] {
-        Dictionary(uniqueKeysWithValues: marineLifeCatalog.map { ($0.uuid, $0) })
+        Dictionary(godiveUniquingKeysWithValues: marineLifeCatalog.map { ($0.uuid, $0) })
     }
 
     private var speciesRowData: [HomeLifetimeStatsLeaderboardPresentation.SpeciesRowDisplayData] {

@@ -102,6 +102,8 @@ enum BlueSheetDetailPagePinnedSummaryPresentation: Sendable {
     nonisolated static let panelBodyTopSpacingAdjustment: CGFloat = 30
     /// Layout-lab handoff — moves **`BlueSheetDetailPanelContentTopDivider`** (negative pulls the line up).
     nonisolated static let panelContentTopDividerVerticalAdjustment: CGFloat = -21
+    /// Pager / panel body inset below the hairline (keeps content off the rule).
+    nonisolated static let panelContentTopPadding: CGFloat = AppTheme.Spacing.md
     nonisolated static var pushedDetailPinnedSummaryBottomPadding: CGFloat {
         max(
             0,

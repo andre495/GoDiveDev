@@ -19,6 +19,8 @@ struct ContentView: View {
     @State private var searchContextTokens: [GlobalSearchPresentation.ContextToken] = []
     @State private var logbookTabSelectionGeneration = 0
     @State private var pendingLogbookRoute: LogbookRoute?
+    @State private var showsActivityDeleteSuccessCheckmark = false
+    @State private var activityDeleteSuccessHideTask: Task<Void, Never>?
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -69,6 +71,7 @@ struct ContentView: View {
             CrashBreadcrumbTrail.noteRootTab(selectedTab)
             startFriendShareSaveObserverIfNeeded()
             openPendingFriendProfileAfterInviteRedeemIfNeeded()
+            openPendingBuddySharedActivityFromPushIfNeeded()
         }
         .onChange(of: selectedTab) { _, tab in
             CrashBreadcrumbTrail.noteRootTab(tab)
@@ -82,10 +85,18 @@ struct ContentView: View {
         .onChange(of: accountSession.showsMainAppShell) { _, showsMain in
             guard showsMain else { return }
             openPendingFriendProfileAfterInviteRedeemIfNeeded()
+            openPendingBuddySharedActivityFromPushIfNeeded()
         }
         .onReceive(NotificationCenter.default.publisher(for: GoDiveFirebaseCloudMessaging.openFriendsListNotification)) { _ in
             selectedTab = .logbook
             pendingLogbookRoute = .friends
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: GoDiveFirebaseCloudMessaging.openBuddySharedActivityNotification
+            )
+        ) { _ in
+            openPendingBuddySharedActivityFromPushIfNeeded()
         }
         .onReceive(
             NotificationCenter.default.publisher(
@@ -94,6 +105,41 @@ struct ContentView: View {
         ) { _ in
             openPendingFriendProfileAfterInviteRedeemIfNeeded()
         }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: ActivityDeleteSuccessPresentation.didDeleteNotification
+            )
+        ) { _ in
+            handleActivityDeletedSuccessfully()
+        }
+        .overlay {
+            if showsActivityDeleteSuccessCheckmark {
+                ActivityDeleteSuccessCheckmarkOverlay()
+            }
+        }
+    }
+
+    private func handleActivityDeletedSuccessfully() {
+        selectedTab = .logbook
+        showsActivityDeleteSuccessCheckmark = true
+        activityDeleteSuccessHideTask?.cancel()
+        activityDeleteSuccessHideTask = Task { @MainActor in
+            try? await Task.sleep(for: ActivityDeleteSuccessPresentation.overlayDuration)
+            guard !Task.isCancelled else { return }
+            showsActivityDeleteSuccessCheckmark = false
+        }
+    }
+
+    private func openPendingBuddySharedActivityFromPushIfNeeded() {
+        guard accountSession.showsMainAppShell else { return }
+        guard let target = GoDiveBuddyActivityPushNavigationStore.shared.consumePendingTarget() else {
+            return
+        }
+        selectedTab = .logbook
+        pendingLogbookRoute = .buddySharedDive(
+            friendUID: target.friendUID,
+            diveDocumentID: target.activityID
+        )
     }
 
     private func openPendingFriendProfileAfterInviteRedeemIfNeeded() {

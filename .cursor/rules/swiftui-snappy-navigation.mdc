@@ -1,6 +1,7 @@
 ---
 description: Keep navigation, sheets, and tab switches instant — local SwiftData must not block the main thread.
-alwaysApply: true
+globs: GoDiveMVP/Views/**/*.swift,GoDiveMVP/Data/**/*Cache*.swift,GoDiveMVP/Data/**/*Scheduler*.swift,GoDiveMVP/Data/**/*Aggregate*.swift,GoDiveMVP/Data/**/*Builder*.swift,GoDiveMVP/Data/AppLaunch*.swift,GoDiveMVP/Data/HomeOverview*.swift,GoDiveMVP/Data/Logbook*.swift,GoDiveMVP/Data/AppPerformance*.swift,GoDiveMVP/Data/*Warmup*.swift,GoDiveMVP/Data/*Teardown*.swift,GoDiveMVP/Data/*Deferral*.swift,GoDiveMVP/Data/*Navigation*.swift,GoDiveMVP/Data/HomeReturn*.swift,GoDiveMVP/Data/DiveDerived*.swift
+alwaysApply: false
 ---
 
 # Snappy navigation & local data

@@ -111,13 +111,17 @@ enum ActivityFriendShareConfiguration: Sendable {
         return true
     }
 
-    /// Snapshots current global Settings onto a new activity (does not mark configured).
+    /// Seeds a brand-new activity as a **local-only draft** (Strava-style publish checkpoint): media /
+    /// notes defaults snapshot from global Settings, but sharing stays **off** until the owner explicitly
+    /// publishes from the detail-page banner or Activity Settings.
     nonisolated static func seedBuddyShareDefaultsOnNewActivity(
         _ dive: DiveActivity,
         userDefaults: UserDefaults = .standard
     ) {
         guard !dive.friendShareBuddySettingsConfigured, !dive.friendShareBuddyDefaultsCaptured else { return }
         captureGlobalBuddyShareDefaults(on: dive, userDefaults: userDefaults)
+        dive.friendShareActivityEnabled = false
+        dive.friendSharePublishCheckpointPending = true
     }
 
     /// One-time backfill for activities created before defaults were snapshotted at creation.
@@ -162,6 +166,7 @@ enum ActivityFriendShareConfiguration: Sendable {
     }
 
     /// Persists a per-activity override snapshot onto the activity model.
+    /// Saving settings also resolves the publish checkpoint — the owner made an explicit choice.
     @MainActor
     static func applyConfiguredSettings(
         to dive: DiveActivity,
@@ -178,6 +183,7 @@ enum ActivityFriendShareConfiguration: Sendable {
         dive.friendShareNotesModeRaw = notesMode.rawValue
         dive.friendSharePublicNotes = publicNotes
         dive.friendShareMediaSelectedIDsJSON = encodeMediaIDs(selectedMediaIDs)
+        dive.friendSharePublishCheckpointPending = false
     }
 
     // MARK: - Snorkel
@@ -270,12 +276,15 @@ enum ActivityFriendShareConfiguration: Sendable {
         return true
     }
 
+    /// See the dive overload — new snorkels start as local-only drafts pending the publish checkpoint.
     nonisolated static func seedBuddyShareDefaultsOnNewActivity(
         _ snorkel: SnorkelActivity,
         userDefaults: UserDefaults = .standard
     ) {
         guard !snorkel.friendShareBuddySettingsConfigured, !snorkel.friendShareBuddyDefaultsCaptured else { return }
         captureGlobalBuddyShareDefaults(on: snorkel, userDefaults: userDefaults)
+        snorkel.friendShareActivityEnabled = false
+        snorkel.friendSharePublishCheckpointPending = true
     }
 
     nonisolated static func captureGlobalBuddyShareDefaultsIfNeeded(
@@ -324,6 +333,7 @@ enum ActivityFriendShareConfiguration: Sendable {
         snorkel.friendShareNotesModeRaw = notesMode.rawValue
         snorkel.friendSharePublicNotes = publicNotes
         snorkel.friendShareMediaSelectedIDsJSON = encodeMediaIDs(selectedMediaIDs)
+        snorkel.friendSharePublishCheckpointPending = false
     }
 
     // MARK: - Encoding

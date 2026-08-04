@@ -267,7 +267,8 @@ enum GoDiveSharedMediaUpload: Sendable {
         ownerUID: String,
         activityID: UUID,
         jobs: [ContentUploadJob],
-        userDefaults: UserDefaults
+        userDefaults: UserDefaults,
+        retryDepth: Int = 0
     ) async {
         guard allowsContentUpload(userDefaults: userDefaults) else {
             GoDiveBuddyShareBackgroundUpload.scheduleProcessingIfNeeded()
@@ -318,7 +319,15 @@ enum GoDiveSharedMediaUpload: Sendable {
             }
         }
 
-        guard patchedAnyRecord, !Task.isCancelled else { return }
+        guard patchedAnyRecord, !Task.isCancelled else {
+            scheduleContentRetryIfNeeded(
+                ownerUID: ownerUID,
+                activityID: activityID,
+                userDefaults: userDefaults,
+                retryDepth: retryDepth
+            )
+            return
+        }
         let finalState = GoDiveSharedMediaPublishState.loadActivity(
             ownerUID: ownerUID,
             activityID: activityID
@@ -328,6 +337,42 @@ enum GoDiveSharedMediaUpload: Sendable {
             activityID: activityID,
             records: finalState.items
         )
+        scheduleContentRetryIfNeeded(
+            ownerUID: ownerUID,
+            activityID: activityID,
+            userDefaults: userDefaults,
+            retryDepth: retryDepth
+        )
+    }
+
+  @MainActor
+    private static func scheduleContentRetryIfNeeded(
+        ownerUID: String,
+        activityID: UUID,
+        userDefaults: UserDefaults,
+        retryDepth: Int
+    ) {
+        let remaining = pendingContentJobs(ownerUID: ownerUID, activityID: activityID)
+        guard !remaining.isEmpty else { return }
+
+        GoDiveBuddyShareBackgroundUpload.scheduleProcessingIfNeeded()
+
+        guard retryDepth < 1,
+              allowsContentUpload(userDefaults: userDefaults),
+              !Task.isCancelled
+        else { return }
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard !Task.isCancelled else { return }
+            await performContentPhase(
+                ownerUID: ownerUID,
+                activityID: activityID,
+                jobs: remaining,
+                userDefaults: userDefaults,
+                retryDepth: retryDepth + 1
+            )
+        }
     }
 
     @MainActor
@@ -404,22 +449,45 @@ enum GoDiveSharedMediaUpload: Sendable {
         guard Auth.auth().currentUser?.uid == ownerUID else { return }
 
         let rows = records.map { $0.snapshot() }.map(GoDiveSharedDiveProjectionMapping.mediaItemFirestoreRow)
+        let ref = Firestore.firestore()
+            .collection("users")
+            .document(ownerUID)
+            .collection(GoDiveSharedDiveProjectionMapping.sharedDivesSubcollection)
+            .document(activityID.uuidString)
         do {
-            try await Firestore.firestore()
-                .collection("users")
-                .document(ownerUID)
-                .collection(GoDiveSharedDiveProjectionMapping.sharedDivesSubcollection)
-                .document(activityID.uuidString)
-                .setData(
-                    [
-                        "mediaItems": rows,
-                        "updatedAt": Date(),
-                    ],
-                    merge: true
-                )
+            let snapshot = try await ref.getDocument()
+            guard snapshot.exists else {
+                log.debug("Shared media Firestore patch skipped — projection doc missing")
+                return
+            }
+            try await ref.updateData(
+                [
+                    "mediaItems": rows,
+                    "updatedAt": Date(),
+                ]
+            )
         } catch {
             log.error("Shared media Firestore patch failed: \(String(describing: error), privacy: .private)")
         }
+    }
+
+    /// After the projection doc exists, merge any content-tier URLs that landed
+    /// while phase-one thumbs were still publishing.
+    @MainActor
+    static func syncFirestoreMediaItemsFromPublishStateIfProjectionExists(
+        ownerUID: String,
+        activityID: UUID
+    ) async {
+        let state = GoDiveSharedMediaPublishState.loadActivity(
+            ownerUID: ownerUID,
+            activityID: activityID
+        )
+        guard !state.items.isEmpty else { return }
+        await patchFirestoreMediaItems(
+            ownerUID: ownerUID,
+            activityID: activityID,
+            records: state.items
+        )
     }
 }
 
@@ -467,6 +535,26 @@ actor GoDiveSharedMediaUploadQueue {
 
     func hasAnyPendingUpload() -> Bool {
         !tasks.isEmpty
+    }
+
+    /// Waits for the in-flight content-tier upload for one activity (bounded wait).
+    func awaitPendingUpload(
+        for activityID: UUID,
+        timeoutNanoseconds: UInt64 = 180_000_000_000
+    ) async {
+        let key = activityID.uuidString
+        guard let uploadTask = tasks[key] else { return }
+
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                await uploadTask.value
+            }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: timeoutNanoseconds)
+            }
+            await group.next()
+            group.cancelAll()
+        }
     }
 
     private func releaseTask(forKey key: String) {

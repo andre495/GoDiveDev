@@ -178,6 +178,12 @@ final class DiveActivity {
     /// Set **`true`** after global Settings defaults are snapshotted onto this activity (new activities + one-time backfill).
     /// Unconfigured activities with this flag use stored **`friendShare*`** fields; changing global Settings later does not alter them.
     var friendShareBuddyDefaultsCaptured: Bool = false
+    /// Strava-style publish checkpoint: **`true`** on new activities until the owner chooses **Share** or
+    /// **Keep local** (or saves Activity Settings). Pre-existing records default **`false`** — no banner.
+    var friendSharePublishCheckpointPending: Bool = false
+    /// Set after the first buddy-push signal is written for this activity. Prevents media / notes
+    /// republishes from creating another **`buddySharePushSignals`** doc (one push per activity).
+    var friendSharePushSignalRecorded: Bool = false
 
     /// Field-guide sightings logged on this dive (**`SightingInstance`**).
     @Relationship(deleteRule: .cascade)

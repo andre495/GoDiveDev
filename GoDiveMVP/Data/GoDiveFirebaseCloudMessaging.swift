@@ -31,6 +31,11 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
         "GoDive.openFriendsListFromPush"
     )
 
+    /// Posts when user taps a buddy-activity-shared notification — open Buddy Feed → activity.
+    nonisolated static let openBuddySharedActivityNotification = Notification.Name(
+        "GoDive.openBuddySharedActivityFromPush"
+    )
+
     @MainActor
     static func configureAtLaunch(application: UIApplication) {
         #if canImport(FirebaseMessaging)
@@ -156,6 +161,11 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
 
     @MainActor
     static func handleNotificationResponse(userInfo: [AnyHashable: Any]) {
+        if let target = GoDiveBuddyActivityPushPresentation.target(fromUserInfo: userInfo) {
+            GoDiveBuddyActivityPushNavigationStore.shared.setPending(target)
+            NotificationCenter.default.post(name: openBuddySharedActivityNotification, object: nil)
+            return
+        }
         guard let type = userInfo["type"] as? String,
               type == GoDiveFriendInvitePushPresentation.notificationType
         else { return }

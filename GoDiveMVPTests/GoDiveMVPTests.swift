@@ -350,6 +350,101 @@ struct GoDiveMVPTests {
         #expect(PushedNavigationDeferralPresentation.afterPushDelay == .milliseconds(300))
     }
 
+    @Test func navigationStackPushCoalescing_append_blocksDuplicateTopRoute() {
+        enum Route: Equatable {
+            case dive(UUID)
+            case profile
+        }
+        let diveID = UUID()
+        var path: [Route] = []
+        #expect(NavigationStackPushCoalescing.append(.dive(diveID), to: &path))
+        #expect(path == [.dive(diveID)])
+        #expect(!NavigationStackPushCoalescing.append(.dive(diveID), to: &path))
+        #expect(path == [.dive(diveID)])
+        #expect(NavigationStackPushCoalescing.append(.profile, to: &path))
+        #expect(path == [.dive(diveID), .profile])
+        #expect(NavigationStackPushCoalescing.append(.dive(diveID), to: &path))
+        #expect(path == [.dive(diveID), .profile, .dive(diveID)])
+    }
+
+    @Test func navigationStackPushCoalescing_coalesce_removesConsecutiveDuplicates() {
+        enum Route: Equatable {
+            case a
+            case b
+        }
+        #expect(
+            NavigationStackPushCoalescing.coalescedByRemovingConsecutiveDuplicates([Route.a, .a, .b, .b, .a])
+                == [.a, .b, .a]
+        )
+        #expect(NavigationStackPushCoalescing.coalescedByRemovingConsecutiveDuplicates([Route.a]) == [.a])
+        #expect(NavigationStackPushCoalescing.coalescedByRemovingConsecutiveDuplicates([Route]()) == [])
+    }
+
+    @Test func navigationStackPushCoalescing_assignIfNil_isNoOpWhenBusy() {
+        var current: String? = "open"
+        #expect(!NavigationStackPushCoalescing.assignIfNil("next", to: &current))
+        #expect(current == "open")
+        current = nil
+        #expect(NavigationStackPushCoalescing.assignIfNil("next", to: &current))
+        #expect(current == "next")
+    }
+
+    @Test func navigationStackPushCoalescing_assignUnlessDuplicate_allowsDifferentDestination() {
+        var current: String? = "leaderboard"
+        #expect(!NavigationStackPushCoalescing.assignUnlessDuplicate("leaderboard", to: &current))
+        #expect(current == "leaderboard")
+        #expect(NavigationStackPushCoalescing.assignUnlessDuplicate("dive", to: &current))
+        #expect(current == "dive")
+    }
+
+    @Test func activityDeleteSuccessPresentation_overlayDuration_isOneSecond() {
+        #expect(ActivityDeleteSuccessPresentation.overlayDuration == .seconds(1))
+        #expect(!ActivityDeleteSuccessPresentation.checkmarkAccessibilityLabel.isEmpty)
+    }
+
+    @Test @MainActor func activityDeleteSuccessPresentation_logbookPathByRemovingActivity_dropsDetailAndMedia() {
+        let keep = UUID()
+        let remove = UUID()
+        let path: [LogbookRoute] = [
+            .tripPlanner,
+            .diveDetail(remove),
+            .snorkelDetail(keep),
+            .diveMedia(remove, mediaID: UUID()),
+            .snorkelMedia(remove, mediaID: UUID()),
+            .friends,
+        ]
+        let filtered = ActivityDeleteSuccessPresentation.logbookPathByRemovingActivity(
+            path,
+            activityID: remove
+        )
+        #expect(filtered == [.tripPlanner, .snorkelDetail(keep), .friends])
+    }
+
+    @Test @MainActor func activityDeleteSuccessPresentation_homeAndExplorePathHelpers_dropDiveRoutes() {
+        let remove = UUID()
+        let keep = UUID()
+        let mediaID = UUID()
+        let home: [HomeRoute] = [
+            .profile,
+            .diveDetail(remove),
+            .diveMedia(diveID: keep, mediaID: mediaID),
+        ]
+        #expect(
+            ActivityDeleteSuccessPresentation.homePathByRemovingActivity(home, activityID: remove)
+                == [.profile, .diveMedia(diveID: keep, mediaID: mediaID)]
+        )
+        let explore: [ExploreRoute] = [.siteDetail(keep), .diveDetail(remove), .diveDetail(keep)]
+        #expect(
+            ActivityDeleteSuccessPresentation.explorePathByRemovingActivity(explore, activityID: remove)
+                == [.siteDetail(keep), .diveDetail(keep)]
+        )
+        let search: [GlobalSearchPresentation.Destination] = [.dive(remove), .buddy(keep)]
+        #expect(
+            ActivityDeleteSuccessPresentation.searchPathByRemovingActivity(search, activityID: remove)
+                == [.buddy(keep)]
+        )
+    }
+
     @Test func diveBuddyDetailPresentation_mediaScopeDiveActivityIDs_usesSharedDivesNotFullOwnerLogbook() {
         let sharedDiveID = UUID()
         let taggedOnlyDiveID = UUID()
@@ -964,13 +1059,14 @@ struct GoDiveMVPTests {
             ]
         )
         #expect(ProfileDetailContentPagerPresentation.defaultPage == .diverStats)
+        #expect(ProfileDetailContentPagerPresentation.showsBuddyLeaderboardOnDiverStats == false)
         #expect(ProfileDetailContentPagerPresentation.pageTitle(for: .diverStats) == "Diver stats")
         #expect(ProfileDetailContentPagerPresentation.pageTitle(for: .details) == "Details")
         #expect(
             ProfileDetailContentPagerPresentation.pageTitle(for: .taggedMedia)
                 == DiveBuddyTaggedMediaPresentation.sectionTitle
         )
-        #expect(!ProfileDetailContentPagerPresentation.usesStaticPagerLayout(for: .diverStats))
+        #expect(ProfileDetailContentPagerPresentation.usesStaticPagerLayout(for: .diverStats))
         #expect(!ProfileDetailContentPagerPresentation.usesStaticPagerLayout(for: .taggedMedia))
         #expect(ProfileDetailContentPagerPresentation.danSectionTitle == "DAN insurance")
         #expect(ProfileDetailContentPagerPresentation.certificationSectionTitle == "Certification")
@@ -6690,6 +6786,7 @@ struct GoDiveMVPTests {
         #expect(presentation.bodyBottomPadding == AppTheme.Spacing.md)
         #expect(presentation.panelBodyTopSpacingAdjustment == 30)
         #expect(presentation.panelContentTopDividerVerticalAdjustment == -21)
+        #expect(presentation.panelContentTopPadding == AppTheme.Spacing.md)
         #expect(
             presentation.pushedDetailPinnedSummaryBottomPadding
                 == presentation.bodyBottomPadding
@@ -17838,6 +17935,24 @@ struct GoDiveMVPTests {
         )
     }
 
+    @Test func homeLifetimeStatsTilesLayout_resolvedVerticalEdgeInsets_rejectsNonFiniteHeight() {
+        let insets = HomeLifetimeStatsTilesLayout.resolvedVerticalEdgeInsets(
+            totalHeight: .infinity,
+            statRowCount: 2,
+            showsBuddyLeaderboard: false
+        )
+        #expect(insets.top == 0)
+        #expect(insets.bottom == 0)
+
+        let nanInsets = HomeLifetimeStatsTilesLayout.resolvedVerticalEdgeInsets(
+            totalHeight: .nan,
+            statRowCount: 2,
+            showsBuddyLeaderboard: true
+        )
+        #expect(nanInsets.top == 0)
+        #expect(nanInsets.bottom == 0)
+    }
+
     @Test func homeLifetimeStatsTilesLayout_resolvedVerticalEdgeInset_splitsSlackEvenly() {
         let spacing = HomeLifetimeStatsTilesLayout.gridSpacing
         let statRowCount = 2
@@ -24319,6 +24434,8 @@ struct GoDiveMVPTests {
         #expect(LogbookCollapsibleHeaderPresentation.buddyFeedSegmentTitle == "Buddy Feed")
         #expect(LogbookFeedScope.myActivities.systemImage == "book.closed.fill")
         #expect(LogbookFeedScope.buddyFeed.systemImage == "person.2.fill")
+        #expect(LogbookFeedScopePagerPresentation.pages == [.myActivities, .buddyFeed])
+        #expect(LogbookFeedScopePagerPresentation.accessibilityIdentifier == "Logbook.FeedScopePager")
         #expect(FieldGuideHubPresentation.tabTitle == "Field Guide")
         #expect(FieldGuideHubPresentation.titleAccessibilityIdentifier == "FieldGuide.Hub.Title")
         #expect(
@@ -24336,6 +24453,49 @@ struct GoDiveMVPTests {
                 categoryID: "fishes",
                 subcategoryID: ""
             ) == "FieldGuide.Category.fishes.Subcategory.all.Title"
+        )
+    }
+
+    @Test func logbookFeedScopePager_swipeLeftOpensBuddyFeed_swipeRightOpensMyActivities() {
+        #expect(
+            LogbookFeedScopePagerPresentation.scopeAfterHorizontalSwipe(
+                from: .myActivities,
+                translationWidth: -LogbookFeedScopePagerPresentation.swipeAdvanceThreshold
+            ) == .buddyFeed
+        )
+        #expect(
+            LogbookFeedScopePagerPresentation.scopeAfterHorizontalSwipe(
+                from: .buddyFeed,
+                translationWidth: LogbookFeedScopePagerPresentation.swipeAdvanceThreshold
+            ) == .myActivities
+        )
+        #expect(
+            LogbookFeedScopePagerPresentation.scopeAfterHorizontalSwipe(
+                from: .myActivities,
+                translationWidth: LogbookFeedScopePagerPresentation.swipeAdvanceThreshold
+            ) == nil
+        )
+        #expect(
+            LogbookFeedScopePagerPresentation.scopeAfterHorizontalSwipe(
+                from: .buddyFeed,
+                translationWidth: -LogbookFeedScopePagerPresentation.swipeAdvanceThreshold
+            ) == nil
+        )
+        #expect(
+            LogbookFeedScopePagerPresentation.scopeAfterHorizontalSwipe(
+                from: .myActivities,
+                translationWidth: -(LogbookFeedScopePagerPresentation.swipeAdvanceThreshold - 1)
+            ) == nil
+        )
+        #expect(
+            LogbookFeedScopePagerPresentation.isHorizontalSwipeDominant(
+                translation: CGSize(width: 40, height: 10)
+            )
+        )
+        #expect(
+            !LogbookFeedScopePagerPresentation.isHorizontalSwipeDominant(
+                translation: CGSize(width: 10, height: 40)
+            )
         )
     }
 
@@ -27911,6 +28071,106 @@ struct GoDiveMVPTests {
         #expect(record.activitiesSightedOn.isEmpty)
         #expect(record.sitesSightedOn.isEmpty)
         #expect(record.userTaggedMedia.isEmpty)
+    }
+
+    @Test func snorkelActivityDeletionMarineLifeCleanup_removeSnorkelReferences_stripsActivityMediaAndSite() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+        let ownerID = UUID()
+        let snorkelID = UUID()
+        let siteID = UUID()
+        let mediaID = UUID()
+        let species = MarineLife(
+            uuid: "fish-snorkel",
+            commonName: "Snorkel Fish",
+            scientificName: "Snorkelus",
+            category: "Fish"
+        )
+        let record = MarineLifeUserRecord(
+            marineLifeUUID: species.uuid,
+            isSighted: true,
+            activitiesSightedOn: [snorkelID],
+            sitesSightedOn: [siteID],
+            userTaggedMedia: [DiveActivityDeletionMarineLifeCleanup.userTaggedMediaLink(for: mediaID)]
+        )
+        record.ownerProfileID = ownerID
+        context.insert(species)
+        context.insert(record)
+
+        let activity = SnorkelActivity(id: snorkelID, startTime: .now, durationMinutes: 10)
+        let photo = SnorkelMediaPhoto(id: mediaID, sortOrder: 0, mediaKind: .image, snorkelActivity: activity)
+        activity.mediaPhotos.append(photo)
+        context.insert(activity)
+        try context.save()
+
+        try SnorkelActivityDeletionMarineLifeCleanup.removeSnorkelReferences(
+            snorkelID: snorkelID,
+            mediaPhotoIDs: [mediaID],
+            diveSiteID: siteID,
+            ownerProfileID: ownerID,
+            modelContext: context
+        )
+
+        #expect(record.activitiesSightedOn.isEmpty)
+        #expect(record.sitesSightedOn.isEmpty)
+        #expect(record.userTaggedMedia.isEmpty)
+    }
+
+    @Test @MainActor
+    func snorkelActivityDeletion_removesActivityAndCascadedBuddy() async throws {
+        let schema = Schema([
+            SnorkelActivity.self,
+            SnorkelBuddyTag.self,
+            DiveBuddy.self,
+            SnorkelProfilePoint.self,
+            DiveSite.self,
+        ])
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = ModelContext(container)
+
+        let activity = SnorkelActivity(startTime: .now, durationMinutes: 12)
+        let person = DiveBuddy(displayName: "Pat")
+        let tag = SnorkelBuddyTag(buddy: person, snorkelActivity: activity)
+        activity.buddies.append(tag)
+        context.insert(person)
+        context.insert(activity)
+        context.insert(tag)
+        try context.save()
+
+        try await SnorkelActivityDeletion.deletePermanently(activity, modelContext: context)
+
+        let snorkels = try context.fetch(FetchDescriptor<SnorkelActivity>())
+        let tags = try context.fetch(FetchDescriptor<SnorkelBuddyTag>())
+        let people = try context.fetch(FetchDescriptor<DiveBuddy>())
+        #expect(snorkels.isEmpty)
+        #expect(tags.isEmpty)
+        #expect(people.count == 1)
+    }
+
+    @Test func snorkelActivityRelationshipDetachment_clearsOwnerInverseBeforeDelete() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = ModelContext(container)
+
+        let owner = UserProfile(appleUserIdentifier: "snorkel-detach-owner", displayName: "Snorkeler")
+        let activity = SnorkelActivity(startTime: Date(), durationMinutes: 25)
+        activity.owner = owner
+        activity.ownerProfileID = owner.id
+        owner.snorkelActivities.append(activity)
+
+        context.insert(owner)
+        context.insert(activity)
+        try context.save()
+
+        SnorkelActivityRelationshipDetachment.detachNonCascadeRelationships(
+            from: activity,
+            modelContext: context
+        )
+        try context.save()
+
+        #expect(owner.snorkelActivities.isEmpty)
+        #expect(activity.owner == nil)
+        #expect(activity.diveSiteID == nil)
     }
 
     @Test func diveActivityRelationshipDetachment_clearsInverseArraysBeforeDelete() throws {
