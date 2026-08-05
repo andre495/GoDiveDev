@@ -192,7 +192,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
     <script type="application/ld+json">
       [
   {
-    "@id": "https://example.org/marine-life/",
+    "@id": "https://www.godiveios.com/marine-life/",
     "@type": [
       "https://schema.org/DefinedTermSet"
     ],
@@ -220,13 +220,13 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
     <h2 style="display:none;">Metadata</h2>
     <dl>
         <dt>URI</dt>
-        <dd><code>https://example.org/marine-life/</code></dd>
+        <dd><code>https://www.godiveios.com/marine-life/</code></dd>
         <dt><a class="proplink" href="https://www.dublincore.org/specifications/dublin-core/dcmi-terms/#http://purl.org/dc/terms/created">Created</a></dt>
         <dd>2026-08-05</dd>
         <dt><a class="proplink" href="https://www.dublincore.org/specifications/dublin-core/dcmi-terms/#http://purl.org/dc/terms/modified">Modified</a></dt>
         <dd>2026-08-05</dd>
         <dt>Version Information</dt>
-        <dd>0.1.0</dd>
+        <dd>0.2.1</dd>
         <dt>Ontology RDF</dt>
         <dd><a href="_combined.ttl">RDF (turtle)</a></dd>
     </dl>
@@ -256,6 +256,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
     <ul class="hlist">
       <li><a href="#ActivityType">activity type</a></li>
       <li><a href="#BodyOfWater">body of water</a></li>
+      <li><a href="#Country">country</a></li>
       <li><a href="#CurrentStrength">current strength</a></li>
       <li><a href="#DepthCertainty">depth certainty</a></li>
       <li><a href="#dive">dive</a></li>
@@ -273,6 +274,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
       <li><a href="#sighting">sighting</a></li>
       <li><a href="#site">site</a></li>
       <li><a href="#SiteOwnership">site ownership</a></li>
+      <li><a href="#sitereport">site report</a></li>
       <li><a href="#snorkelactivity">snorkel activity</a></li>
       <li><a href="#species">species</a></li>
       <li><a href="#taxon">taxon</a></li>
@@ -289,7 +291,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/ActivityType</code></td>
+                <td><code>https://www.godiveios.com/marine-life/ActivityType</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -306,9 +308,9 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Members</th>
                 <td>
-                    <a href="https://example.org/marine-life/activityType/Scuba">https://example.org/marine-life/activityType/Scuba</a><br/>
-                    <a href="https://example.org/marine-life/activityType/Snorkel">https://example.org/marine-life/activityType/Snorkel</a><br/>
-                    <a href="https://example.org/marine-life/activityType/Freedive">https://example.org/marine-life/activityType/Freedive</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/activityType/Scuba">https://www.godiveios.com/marine-life/activityType/Scuba</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/activityType/Snorkel">https://www.godiveios.com/marine-life/activityType/Snorkel</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/activityType/Freedive">https://www.godiveios.com/marine-life/activityType/Freedive</a><br/>
                 </td>
             </tr>
         </table>
@@ -321,7 +323,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/BodyOfWater</code></td>
+                <td><code>https://www.godiveios.com/marine-life/BodyOfWater</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -338,8 +340,39 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>In range of</th>
                 <td>
-                    <a href="#locatedinwaterbody">located in water body</a><br/>
                     <a href="#foundinwaterbody">found in water body</a><br/>
+                    <a href="#locatedinwaterbody">located in water body</a><br/>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div class="entity class" id="Country">
+        <h3>
+          country<sup title="class" class="sup-c">c</sup>
+          <span style="float:right; margin-right:10px; font-size:smaller;"><a href="#Country" title="fragment link to here">#</a> <a href="#classes" title="Classes Index">Classes</a></span>
+        </h3>
+        <table>
+            <tr>
+                <th>URI</th>
+                <td><code>https://www.godiveios.com/marine-life/Country</code></td>
+            </tr>
+            <tr>
+                <th>Description</th>
+                <td>
+                    <p>A country resource used to graph Sites (and optionally other place facts). Complements the literal mlo:country string on Site.</p>
+                </td>
+            </tr>
+            <tr>
+                <th>In domain of</th>
+                <td>
+                    <a href="#countrycode">country code</a><br/>
+                    <a href="#countryname">country name</a><br/>
+                </td>
+            </tr>
+            <tr>
+                <th>In range of</th>
+                <td>
+                    <a href="#incountry">in country</a><br/>
                 </td>
             </tr>
         </table>
@@ -352,7 +385,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/CurrentStrength</code></td>
+                <td><code>https://www.godiveios.com/marine-life/CurrentStrength</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -363,16 +396,17 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>In range of</th>
                 <td>
+                    <a href="#reportedcurrent">reported current</a><br/>
                     <a href="#currentstrength">current strength</a><br/>
                 </td>
             </tr>
             <tr>
                 <th>Members</th>
                 <td>
-                    <a href="https://example.org/marine-life/current/Medium">https://example.org/marine-life/current/Medium</a><br/>
-                    <a href="https://example.org/marine-life/current/None">https://example.org/marine-life/current/None</a><br/>
-                    <a href="https://example.org/marine-life/current/Low">https://example.org/marine-life/current/Low</a><br/>
-                    <a href="https://example.org/marine-life/current/High">https://example.org/marine-life/current/High</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/current/None">https://www.godiveios.com/marine-life/current/None</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/current/High">https://www.godiveios.com/marine-life/current/High</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/current/Low">https://www.godiveios.com/marine-life/current/Low</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/current/Medium">https://www.godiveios.com/marine-life/current/Medium</a><br/>
                 </td>
             </tr>
         </table>
@@ -385,7 +419,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/DepthCertainty</code></td>
+                <td><code>https://www.godiveios.com/marine-life/DepthCertainty</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -402,9 +436,9 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Members</th>
                 <td>
-                    <a href="https://example.org/marine-life/depthCertainty/RoughGuess">https://example.org/marine-life/depthCertainty/RoughGuess</a><br/>
-                    <a href="https://example.org/marine-life/depthCertainty/Measured">https://example.org/marine-life/depthCertainty/Measured</a><br/>
-                    <a href="https://example.org/marine-life/depthCertainty/Estimated">https://example.org/marine-life/depthCertainty/Estimated</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/depthCertainty/Measured">https://www.godiveios.com/marine-life/depthCertainty/Measured</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/depthCertainty/Estimated">https://www.godiveios.com/marine-life/depthCertainty/Estimated</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/depthCertainty/RoughGuess">https://www.godiveios.com/marine-life/depthCertainty/RoughGuess</a><br/>
                 </td>
             </tr>
         </table>
@@ -417,7 +451,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/Dive</code></td>
+                <td><code>https://www.godiveios.com/marine-life/Dive</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -441,7 +475,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/DiveActivity</code></td>
+                <td><code>https://www.godiveios.com/marine-life/DiveActivity</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -464,32 +498,32 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>In domain of</th>
                 <td>
-                    <a href="#diveoperatorname">dive operator name</a><br/>
-                    <a href="#tankpressurestart(psi)">tank pressure start (psi)</a><br/>
-                    <a href="#divemastername">dive master name</a><br/>
-                    <a href="#tankpressureend(psi)">tank pressure end (psi)</a><br/>
-                    <a href="#visibilityrating">visibility rating</a><br/>
-                    <a href="#gastype">gas type</a><br/>
-                    <a href="#divenumber">dive number</a><br/>
-                    <a href="#averageSAC(psi/min)">average SAC (psi/min)</a><br/>
                     <a href="#tankmaterial">tank material</a><br/>
-                    <a href="#diverweight(kg)">diver weight (kg)</a><br/>
-                    <a href="#minimumwatertemperature(C)">minimum water temperature (°C)</a><br/>
-                    <a href="#surfacecondition">surface condition</a><br/>
-                    <a href="#surfaceinterval(seconds)">surface interval (seconds)</a><br/>
+                    <a href="#averageSAC(psi/min)">average SAC (psi/min)</a><br/>
                     <a href="#averageRMV(L/min)">average RMV (L/min)</a><br/>
+                    <a href="#visibilityrating">visibility rating</a><br/>
+                    <a href="#tankpressureend(psi)">tank pressure end (psi)</a><br/>
                     <a href="#maximumwatertemperature(C)">maximum water temperature (°C)</a><br/>
+                    <a href="#minimumwatertemperature(C)">minimum water temperature (°C)</a><br/>
+                    <a href="#diverweight(kg)">diver weight (kg)</a><br/>
+                    <a href="#divemastername">dive master name</a><br/>
+                    <a href="#gastype">gas type</a><br/>
                     <a href="#oxygenmix(%)">oxygen mix (%)</a><br/>
-                    <a href="#bottomtime(seconds)">bottom time (seconds)</a><br/>
-                    <a href="#watertype">water type</a><br/>
                     <a href="#entrytype">entry type</a><br/>
+                    <a href="#tankpressurestart(psi)">tank pressure start (psi)</a><br/>
+                    <a href="#watertype">water type</a><br/>
+                    <a href="#surfaceinterval(seconds)">surface interval (seconds)</a><br/>
+                    <a href="#diveoperatorname">dive operator name</a><br/>
+                    <a href="#surfacecondition">surface condition</a><br/>
+                    <a href="#divenumber">dive number</a><br/>
+                    <a href="#bottomtime(seconds)">bottom time (seconds)</a><br/>
                 </td>
             </tr>
             <tr>
                 <th>In range of</th>
                 <td>
-                    <a href="#duringdive">during dive</a><br/>
                     <a href="#duringdiveactivity">during dive activity</a><br/>
+                    <a href="#duringdive">during dive</a><br/>
                 </td>
             </tr>
         </table>
@@ -502,7 +536,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/DiveSite</code></td>
+                <td><code>https://www.godiveios.com/marine-life/DiveSite</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -526,7 +560,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/Diver</code></td>
+                <td><code>https://www.godiveios.com/marine-life/Diver</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -550,7 +584,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/IdentificationCertainty</code></td>
+                <td><code>https://www.godiveios.com/marine-life/IdentificationCertainty</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -567,11 +601,11 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Members</th>
                 <td>
-                    <a href="https://example.org/marine-life/certainty/Uncertain">https://example.org/marine-life/certainty/Uncertain</a><br/>
-                    <a href="https://example.org/marine-life/certainty/Likely">https://example.org/marine-life/certainty/Likely</a><br/>
-                    <a href="https://example.org/marine-life/certainty/SelfConfirmed">https://example.org/marine-life/certainty/SelfConfirmed</a><br/>
-                    <a href="https://example.org/marine-life/certainty/AIAssessed">https://example.org/marine-life/certainty/AIAssessed</a><br/>
-                    <a href="https://example.org/marine-life/certainty/PeerConfirmed">https://example.org/marine-life/certainty/PeerConfirmed</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/certainty/SelfConfirmed">https://www.godiveios.com/marine-life/certainty/SelfConfirmed</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/certainty/Uncertain">https://www.godiveios.com/marine-life/certainty/Uncertain</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/certainty/Likely">https://www.godiveios.com/marine-life/certainty/Likely</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/certainty/PeerConfirmed">https://www.godiveios.com/marine-life/certainty/PeerConfirmed</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/certainty/AIAssessed">https://www.godiveios.com/marine-life/certainty/AIAssessed</a><br/>
                 </td>
             </tr>
         </table>
@@ -584,7 +618,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/InWaterActivity</code></td>
+                <td><code>https://www.godiveios.com/marine-life/InWaterActivity</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -602,40 +636,41 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>In domain of</th>
                 <td>
-                    <a href="#watertemperature(C)">water temperature (°C)</a><br/>
-                    <a href="#activitystarttime">activity start time</a><br/>
-                    <a href="#loggedby">logged by</a><br/>
-                    <a href="#divedate">dive date</a><br/>
                     <a href="#timeofday">time of day</a><br/>
-                    <a href="#activityduration(minutes)">activity duration (minutes)</a><br/>
-                    <a href="#timezoneoffset(seconds)">timezone offset (seconds)</a><br/>
-                    <a href="#atsite">at site</a><br/>
-                    <a href="#currentdirection">current direction</a><br/>
-                    <a href="#diveduration(minutes)">dive duration (minutes)</a><br/>
-                    <a href="#activitydate">activity date</a><br/>
-                    <a href="#divestarttime">dive start time</a><br/>
+                    <a href="#loggedby">logged by</a><br/>
                     <a href="#locationname">location name</a><br/>
-                    <a href="#isnightactivity">is night activity</a><br/>
-                    <a href="#activitynotes">activity notes</a><br/>
-                    <a href="#divesite">dive site</a><br/>
                     <a href="#watervisibility(m)">water visibility (m)</a><br/>
-                    <a href="#entrylatitude">entry latitude</a><br/>
-                    <a href="#sourcesystem">source system</a><br/>
-                    <a href="#entrylongitude">entry longitude</a><br/>
-                    <a href="#maximumdivedepth(m)">maximum dive depth (m)</a><br/>
-                    <a href="#currentnote">current note</a><br/>
-                    <a href="#activitytype">activity type</a><br/>
-                    <a href="#isnightdive">is night dive</a><br/>
-                    <a href="#maximumactivitydepth(m)">maximum activity depth (m)</a><br/>
-                    <a href="#currentstrength">current strength</a><br/>
-                    <a href="#activitystartdate-time">activity start date-time</a><br/>
                     <a href="#averagedepth(m)">average depth (m)</a><br/>
+                    <a href="#activitydate">activity date</a><br/>
+                    <a href="#atsite">at site</a><br/>
+                    <a href="#divesite">dive site</a><br/>
+                    <a href="#maximumactivitydepth(m)">maximum activity depth (m)</a><br/>
+                    <a href="#isnightdive">is night dive</a><br/>
+                    <a href="#divedate">dive date</a><br/>
+                    <a href="#watertemperature(C)">water temperature (°C)</a><br/>
+                    <a href="#currentstrength">current strength</a><br/>
+                    <a href="#entrylongitude">entry longitude</a><br/>
+                    <a href="#diveduration(minutes)">dive duration (minutes)</a><br/>
+                    <a href="#activitytype">activity type</a><br/>
+                    <a href="#isnightactivity">is night activity</a><br/>
+                    <a href="#currentnote">current note</a><br/>
+                    <a href="#maximumdivedepth(m)">maximum dive depth (m)</a><br/>
+                    <a href="#currentdirection">current direction</a><br/>
+                    <a href="#activitynotes">activity notes</a><br/>
+                    <a href="#activitystarttime">activity start time</a><br/>
+                    <a href="#sourcesystem">source system</a><br/>
+                    <a href="#activitystartdate-time">activity start date-time</a><br/>
                     <a href="#importedsitename">imported site name</a><br/>
+                    <a href="#entrylatitude">entry latitude</a><br/>
+                    <a href="#timezoneoffset(seconds)">timezone offset (seconds)</a><br/>
+                    <a href="#divestarttime">dive start time</a><br/>
+                    <a href="#activityduration(minutes)">activity duration (minutes)</a><br/>
                 </td>
             </tr>
             <tr>
                 <th>In range of</th>
                 <td>
+                    <a href="#fromactivity">from activity</a><br/>
                     <a href="#duringactivity">during activity</a><br/>
                 </td>
             </tr>
@@ -649,7 +684,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/LifeStage</code></td>
+                <td><code>https://www.godiveios.com/marine-life/LifeStage</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -666,11 +701,11 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Members</th>
                 <td>
-                    <a href="https://example.org/marine-life/lifeStage/Larva">https://example.org/marine-life/lifeStage/Larva</a><br/>
-                    <a href="https://example.org/marine-life/lifeStage/Unknown">https://example.org/marine-life/lifeStage/Unknown</a><br/>
-                    <a href="https://example.org/marine-life/lifeStage/Subadult">https://example.org/marine-life/lifeStage/Subadult</a><br/>
-                    <a href="https://example.org/marine-life/lifeStage/Juvenile">https://example.org/marine-life/lifeStage/Juvenile</a><br/>
-                    <a href="https://example.org/marine-life/lifeStage/Adult">https://example.org/marine-life/lifeStage/Adult</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/lifeStage/Juvenile">https://www.godiveios.com/marine-life/lifeStage/Juvenile</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/lifeStage/Subadult">https://www.godiveios.com/marine-life/lifeStage/Subadult</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/lifeStage/Larva">https://www.godiveios.com/marine-life/lifeStage/Larva</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/lifeStage/Adult">https://www.godiveios.com/marine-life/lifeStage/Adult</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/lifeStage/Unknown">https://www.godiveios.com/marine-life/lifeStage/Unknown</a><br/>
                 </td>
             </tr>
         </table>
@@ -683,7 +718,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/MarineLifeOwnership</code></td>
+                <td><code>https://www.godiveios.com/marine-life/MarineLifeOwnership</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -700,8 +735,8 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Members</th>
                 <td>
-                    <a href="https://example.org/marine-life/marineLifeOwnership/UserOwned">https://example.org/marine-life/marineLifeOwnership/UserOwned</a><br/>
-                    <a href="https://example.org/marine-life/marineLifeOwnership/Catalog">https://example.org/marine-life/marineLifeOwnership/Catalog</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/marineLifeOwnership/Catalog">https://www.godiveios.com/marine-life/marineLifeOwnership/Catalog</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/marineLifeOwnership/UserOwned">https://www.godiveios.com/marine-life/marineLifeOwnership/UserOwned</a><br/>
                 </td>
             </tr>
         </table>
@@ -714,7 +749,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/MediaAsset</code></td>
+                <td><code>https://www.godiveios.com/marine-life/MediaAsset</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -725,13 +760,13 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>In domain of</th>
                 <td>
-                    <a href="#capturedat">captured at</a><br/>
-                    <a href="#GoDivemediaUUID">GoDive media UUID</a><br/>
-                    <a href="#mediatype">media type</a><br/>
-                    <a href="#MIMEtype">MIME type</a><br/>
-                    <a href="#mediaURL">media URL</a><br/>
                     <a href="#caption">caption</a><br/>
+                    <a href="#MIMEtype">MIME type</a><br/>
+                    <a href="#GoDivemediaUUID">GoDive media UUID</a><br/>
+                    <a href="#capturedat">captured at</a><br/>
+                    <a href="#mediatype">media type</a><br/>
                     <a href="#takenby">taken by</a><br/>
+                    <a href="#mediaURL">media URL</a><br/>
                 </td>
             </tr>
             <tr>
@@ -750,7 +785,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/Observer</code></td>
+                <td><code>https://www.godiveios.com/marine-life/Observer</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -767,15 +802,15 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>In domain of</th>
                 <td>
-                    <a href="#divername">diver name</a><br/>
                     <a href="#observername">observer name</a><br/>
+                    <a href="#divername">diver name</a><br/>
                 </td>
             </tr>
             <tr>
                 <th>In range of</th>
                 <td>
-                    <a href="#takenby">taken by</a><br/>
                     <a href="#loggedby">logged by</a><br/>
+                    <a href="#takenby">taken by</a><br/>
                 </td>
             </tr>
         </table>
@@ -788,7 +823,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/OrganismConcept</code></td>
+                <td><code>https://www.godiveios.com/marine-life/OrganismConcept</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -805,36 +840,36 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>In domain of</th>
                 <td>
-                    <a href="#avgDepthM">average depth (m)</a><br/>
-                    <a href="#typicaldepth(m)">typical depth (m)</a><br/>
-                    <a href="#inphylum">in phylum</a><br/>
-                    <a href="#hazardnote">hazard note</a><br/>
-                    <a href="#featureimageresourcename">feature image resource name</a><br/>
-                    <a href="#GoDivemarinelifeUUID">GoDive marine life UUID</a><br/>
-                    <a href="#maximumlength(cm)">maximum length (cm)</a><br/>
-                    <a href="#classifiedas">classified as</a><br/>
-                    <a href="#foundinwaterbody">found in water body</a><br/>
-                    <a href="#abouttext">about text</a><br/>
-                    <a href="#featuremodelURL">feature model URL</a><br/>
-                    <a href="#typicallength(cm)">typical length (cm)</a><br/>
-                    <a href="#bodycolor">body color</a><br/>
-                    <a href="#category">category</a><br/>
-                    <a href="#featureimageURL">feature image URL</a><br/>
-                    <a href="#minimumsize(m)">minimum size (m)</a><br/>
-                    <a href="#habitatbehavior">habitat behavior</a><br/>
-                    <a href="#familyname">family name</a><br/>
-                    <a href="#catalogabundance">catalog abundance</a><br/>
-                    <a href="#featuremodelresourcename">feature model resource name</a><br/>
+                    <a href="#maximumsize(m)">maximum size (m)</a><br/>
                     <a href="#distinctivefeature">distinctive feature</a><br/>
+                    <a href="#maximumlength(cm)">maximum length (cm)</a><br/>
+                    <a href="#abouttext">about text</a><br/>
+                    <a href="#category">category</a><br/>
+                    <a href="#inphylum">in phylum</a><br/>
+                    <a href="#featuremodelresourcename">feature model resource name</a><br/>
+                    <a href="#minimumsize(m)">minimum size (m)</a><br/>
+                    <a href="#typicaldepth(m)">typical depth (m)</a><br/>
+                    <a href="#typicallength(cm)">typical length (cm)</a><br/>
+                    <a href="#marinelifeownership">marine life ownership</a><br/>
+                    <a href="#classifiedas">classified as</a><br/>
+                    <a href="#hasphysicaltrait">has physical trait</a><br/>
+                    <a href="#featuremodelURL">feature model URL</a><br/>
+                    <a href="#catalogabundance">catalog abundance</a><br/>
+                    <a href="#GoDivemarinelifeUUID">GoDive marine life UUID</a><br/>
+                    <a href="#featureimageresourcename">feature image resource name</a><br/>
                     <a href="#distinctivefeatures">distinctive features</a><br/>
                     <a href="#diverreaction">diver reaction</a><br/>
-                    <a href="#commonname">common name</a><br/>
-                    <a href="#behaviornote">behavior note</a><br/>
-                    <a href="#marinelifeownership">marine life ownership</a><br/>
-                    <a href="#maximumsize(m)">maximum size (m)</a><br/>
-                    <a href="#hasphysicaltrait">has physical trait</a><br/>
+                    <a href="#foundinwaterbody">found in water body</a><br/>
+                    <a href="#featureimageURL">feature image URL</a><br/>
                     <a href="#subcategory">subcategory</a><br/>
+                    <a href="#bodycolor">body color</a><br/>
+                    <a href="#avgDepthM">average depth (m)</a><br/>
+                    <a href="#familyname">family name</a><br/>
                     <a href="#habitatnote">habitat note</a><br/>
+                    <a href="#hazardnote">hazard note</a><br/>
+                    <a href="#behaviornote">behavior note</a><br/>
+                    <a href="#commonname">common name</a><br/>
+                    <a href="#habitatbehavior">habitat behavior</a><br/>
                 </td>
             </tr>
             <tr>
@@ -853,7 +888,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/PhysicalTrait</code></td>
+                <td><code>https://www.godiveios.com/marine-life/PhysicalTrait</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -883,35 +918,44 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/Sighting</code></td>
+                <td><code>https://www.godiveios.com/marine-life/Sighting</code></td>
             </tr>
             <tr>
                 <th>Description</th>
                 <td>
-                    <p>An observation of an organism during an in-water activity — maps to GoDiveMVP SightingInstance. One of two foundational facts (with OrganismConcept).</p>
+                    <p>An observation of an organism during an in-water activity — maps to GoDiveMVP SightingInstance. One of two foundational facts (with OrganismConcept). Prefer also sightingSite for direct Site graphing.</p>
                 </td>
             </tr>
             <tr>
                 <th>In domain of</th>
                 <td>
-                    <a href="#sightingdate-time">sighting date-time</a><br/>
-                    <a href="#duringdiveactivity">during dive activity</a><br/>
-                    <a href="#duringactivity">during activity</a><br/>
-                    <a href="#GoDivesightingUUID">GoDive sighting UUID</a><br/>
-                    <a href="#lifestage">life stage</a><br/>
-                    <a href="#sightingdepth(m)">sighting depth (m)</a><br/>
-                    <a href="#identificationnote">identification note</a><br/>
                     <a href="#sightedorganism">sighted organism</a><br/>
-                    <a href="#identificationcertainty">identification certainty</a><br/>
-                    <a href="#abundance">abundance</a><br/>
-                    <a href="#sightingnote">sighting note</a><br/>
-                    <a href="#depthisestimate">depth is estimate</a><br/>
+                    <a href="#identificationnote">identification note</a><br/>
+                    <a href="#duringdiveactivity">during dive activity</a><br/>
                     <a href="#duringsnorkelactivity">during snorkel activity</a><br/>
                     <a href="#observerdepth(m)">observer depth (m)</a><br/>
+                    <a href="#depthisestimate">depth is estimate</a><br/>
+                    <a href="#sightingsite">sighting site</a><br/>
                     <a href="#duringdive">during dive</a><br/>
-                    <a href="#count">count</a><br/>
-                    <a href="#hasmedia">has media</a><br/>
+                    <a href="#GoDivesightingUUID">GoDive sighting UUID</a><br/>
+                    <a href="#abundance">abundance</a><br/>
+                    <a href="#lifestage">life stage</a><br/>
+                    <a href="#duringsitereport">during site report</a><br/>
                     <a href="#depthcertainty">depth certainty</a><br/>
+                    <a href="#count">count</a><br/>
+                    <a href="#sightingdate-time">sighting date-time</a><br/>
+                    <a href="#sightingnote">sighting note</a><br/>
+                    <a href="#sightingdepth(m)">sighting depth (m)</a><br/>
+                    <a href="#duringactivity">during activity</a><br/>
+                    <a href="#identificationcertainty">identification certainty</a><br/>
+                    <a href="#hasmedia">has media</a><br/>
+                </td>
+            </tr>
+            <tr>
+                <th>In range of</th>
+                <td>
+                    <a href="#includessighting">includes sighting</a><br/>
+                    <a href="#hassighting">has sighting</a><br/>
                 </td>
             </tr>
         </table>
@@ -924,12 +968,12 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/Site</code></td>
+                <td><code>https://www.godiveios.com/marine-life/Site</code></td>
             </tr>
             <tr>
                 <th>Description</th>
                 <td>
-                    <p>Named dive/snorkel site catalog entry. Maps to GoDiveMVP DiveSite (id, siteName, country, region, bodyOfWater, lat/long, timezone, tags, rating, entry, environment, maxDepth, waterType, ownership).</p>
+                    <p>Named dive/snorkel site. Hub for characteristic graph: inCountry, locatedInWater, siteWaterType, catalog depth (siteMaxDepthM), SiteReports (visit conditions/depth), and Sightings. Maps to GoDiveMVP DiveSite (id, siteName, country, region, bodyOfWater, lat/long, timezone, tags, rating, entry, environment, maxDepth, waterType, ownership).</p>
                 </td>
             </tr>
             <tr>
@@ -941,34 +985,39 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>In domain of</th>
                 <td>
-                    <a href="#siterating">site rating</a><br/>
-                    <a href="#environment">environment</a><br/>
-                    <a href="#longitude">longitude</a><br/>
-                    <a href="#entry">entry</a><br/>
-                    <a href="#region">region</a><br/>
-                    <a href="#bodyofwatername">body of water name</a><br/>
-                    <a href="#siteentry">site entry</a><br/>
-                    <a href="#locatedinwaterbody">located in water body</a><br/>
-                    <a href="#siteownership">site ownership</a><br/>
+                    <a href="#incountry">in country</a><br/>
                     <a href="#countryorregion">country or region</a><br/>
-                    <a href="#sitename">site name</a><br/>
-                    <a href="#sitemaximumdepth(m)">site maximum depth (m)</a><br/>
-                    <a href="#sitetimezoneoffset(seconds)">site timezone offset (seconds)</a><br/>
-                    <a href="#sitewatertype">site water type</a><br/>
-                    <a href="#country">country</a><br/>
-                    <a href="#sitetag">site tag</a><br/>
-                    <a href="#latitude">latitude</a><br/>
-                    <a href="#siteenvironment">site environment</a><br/>
-                    <a href="#bodyofwater">body of water</a><br/>
-                    <a href="#siteminimumdepth(m)">site minimum depth (m)</a><br/>
                     <a href="#timezoneidentifier">timezone identifier</a><br/>
+                    <a href="#sitewatertype">site water type</a><br/>
+                    <a href="#sitetimezoneoffset(seconds)">site timezone offset (seconds)</a><br/>
+                    <a href="#siterating">site rating</a><br/>
+                    <a href="#siteentry">site entry</a><br/>
+                    <a href="#siteownership">site ownership</a><br/>
+                    <a href="#entry">entry</a><br/>
+                    <a href="#siteenvironment">site environment</a><br/>
+                    <a href="#hassitereport">has site report</a><br/>
+                    <a href="#hassighting">has sighting</a><br/>
+                    <a href="#longitude">longitude</a><br/>
+                    <a href="#siteminimumdepth(m)">site minimum depth (m)</a><br/>
+                    <a href="#locatedinwaterbody">located in water body</a><br/>
+                    <a href="#latitude">latitude</a><br/>
+                    <a href="#environment">environment</a><br/>
+                    <a href="#bodyofwatername">body of water name</a><br/>
+                    <a href="#country">country</a><br/>
+                    <a href="#sitemaximumdepth(m)">site maximum depth (m)</a><br/>
+                    <a href="#sitetag">site tag</a><br/>
+                    <a href="#region">region</a><br/>
+                    <a href="#sitename">site name</a><br/>
+                    <a href="#bodyofwater">body of water</a><br/>
                 </td>
             </tr>
             <tr>
                 <th>In range of</th>
                 <td>
                     <a href="#atsite">at site</a><br/>
+                    <a href="#reportforsite">report for site</a><br/>
                     <a href="#divesite">dive site</a><br/>
+                    <a href="#sightingsite">sighting site</a><br/>
                 </td>
             </tr>
         </table>
@@ -981,7 +1030,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/SiteOwnership</code></td>
+                <td><code>https://www.godiveios.com/marine-life/SiteOwnership</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -998,8 +1047,47 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Members</th>
                 <td>
-                    <a href="https://example.org/marine-life/siteOwnership/CatalogReference">https://example.org/marine-life/siteOwnership/CatalogReference</a><br/>
-                    <a href="https://example.org/marine-life/siteOwnership/UserOwned">https://example.org/marine-life/siteOwnership/UserOwned</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/siteOwnership/CatalogReference">https://www.godiveios.com/marine-life/siteOwnership/CatalogReference</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/siteOwnership/UserOwned">https://www.godiveios.com/marine-life/siteOwnership/UserOwned</a><br/>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div class="entity class" id="sitereport">
+        <h3>
+          site report<sup title="class" class="sup-c">c</sup>
+          <span style="float:right; margin-right:10px; font-size:smaller;"><a href="#sitereport" title="fragment link to here">#</a> <a href="#classes" title="Classes Index">Classes</a></span>
+        </h3>
+        <table>
+            <tr>
+                <th>URI</th>
+                <td><code>https://www.godiveios.com/marine-life/SiteReport</code></td>
+            </tr>
+            <tr>
+                <th>Description</th>
+                <td>
+                    <p>Visit projection at a Site: observed depth and conditions (current, visibility, temp, water type). InWaterActivity remains the GoDive source of truth; mint one SiteReport per posted activity via fromActivity when contributing to the site graph.</p>
+                </td>
+            </tr>
+            <tr>
+                <th>In domain of</th>
+                <td>
+                    <a href="#reportdate">report date</a><br/>
+                    <a href="#reportedcurrent">reported current</a><br/>
+                    <a href="#reportforsite">report for site</a><br/>
+                    <a href="#reportedwatertemperature(C)">reported water temperature (°C)</a><br/>
+                    <a href="#includessighting">includes sighting</a><br/>
+                    <a href="#reportedmaximumdepth(m)">reported maximum depth (m)</a><br/>
+                    <a href="#fromactivity">from activity</a><br/>
+                    <a href="#reportedwatertype">reported water type</a><br/>
+                    <a href="#reportedvisibility">reported visibility</a><br/>
+                </td>
+            </tr>
+            <tr>
+                <th>In range of</th>
+                <td>
+                    <a href="#hassitereport">has site report</a><br/>
+                    <a href="#duringsitereport">during site report</a><br/>
                 </td>
             </tr>
         </table>
@@ -1012,7 +1100,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/SnorkelActivity</code></td>
+                <td><code>https://www.godiveios.com/marine-life/SnorkelActivity</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -1029,11 +1117,11 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>In domain of</th>
                 <td>
-                    <a href="#averageheartrate(bpm)">average heart rate (bpm)</a><br/>
-                    <a href="#maximumheartrate(bpm)">maximum heart rate (bpm)</a><br/>
-                    <a href="#averagemovingspeed(m/s)">average moving speed (m/s)</a><br/>
                     <a href="#totalcalories">total calories</a><br/>
+                    <a href="#averagemovingspeed(m/s)">average moving speed (m/s)</a><br/>
+                    <a href="#averageheartrate(bpm)">average heart rate (bpm)</a><br/>
                     <a href="#swimdistance(m)">swim distance (m)</a><br/>
+                    <a href="#maximumheartrate(bpm)">maximum heart rate (bpm)</a><br/>
                 </td>
             </tr>
             <tr>
@@ -1052,7 +1140,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/Species</code></td>
+                <td><code>https://www.godiveios.com/marine-life/Species</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -1076,7 +1164,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/Taxon</code></td>
+                <td><code>https://www.godiveios.com/marine-life/Taxon</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -1087,9 +1175,9 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>In domain of</th>
                 <td>
-                    <a href="#broadertaxon">broader taxon</a><br/>
                     <a href="#hasrank">has rank</a><br/>
                     <a href="#WoRMSAphiaID">WoRMS AphiaID</a><br/>
+                    <a href="#broadertaxon">broader taxon</a><br/>
                 </td>
             </tr>
             <tr>
@@ -1103,14 +1191,14 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Members</th>
                 <td>
-                    <a href="https://example.org/marine-life/taxon/Porifera">https://example.org/marine-life/taxon/Porifera</a><br/>
-                    <a href="https://example.org/marine-life/taxon/Animalia">https://example.org/marine-life/taxon/Animalia</a><br/>
-                    <a href="https://example.org/marine-life/taxon/Echinodermata">https://example.org/marine-life/taxon/Echinodermata</a><br/>
-                    <a href="https://example.org/marine-life/taxon/Chordata">https://example.org/marine-life/taxon/Chordata</a><br/>
-                    <a href="https://example.org/marine-life/taxon/Annelida">https://example.org/marine-life/taxon/Annelida</a><br/>
-                    <a href="https://example.org/marine-life/taxon/Cnidaria">https://example.org/marine-life/taxon/Cnidaria</a><br/>
-                    <a href="https://example.org/marine-life/taxon/Mollusca">https://example.org/marine-life/taxon/Mollusca</a><br/>
-                    <a href="https://example.org/marine-life/taxon/Arthropoda">https://example.org/marine-life/taxon/Arthropoda</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/taxon/Annelida">https://www.godiveios.com/marine-life/taxon/Annelida</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/taxon/Mollusca">https://www.godiveios.com/marine-life/taxon/Mollusca</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/taxon/Animalia">https://www.godiveios.com/marine-life/taxon/Animalia</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/taxon/Porifera">https://www.godiveios.com/marine-life/taxon/Porifera</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/taxon/Chordata">https://www.godiveios.com/marine-life/taxon/Chordata</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/taxon/Arthropoda">https://www.godiveios.com/marine-life/taxon/Arthropoda</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/taxon/Cnidaria">https://www.godiveios.com/marine-life/taxon/Cnidaria</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/taxon/Echinodermata">https://www.godiveios.com/marine-life/taxon/Echinodermata</a><br/>
                 </td>
             </tr>
         </table>
@@ -1123,7 +1211,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/TaxonomicRank</code></td>
+                <td><code>https://www.godiveios.com/marine-life/TaxonomicRank</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -1140,13 +1228,13 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Members</th>
                 <td>
-                    <a href="https://example.org/marine-life/rank/Kingdom">https://example.org/marine-life/rank/Kingdom</a><br/>
-                    <a href="https://example.org/marine-life/rank/Phylum">https://example.org/marine-life/rank/Phylum</a><br/>
-                    <a href="https://example.org/marine-life/rank/Family">https://example.org/marine-life/rank/Family</a><br/>
-                    <a href="https://example.org/marine-life/rank/Order">https://example.org/marine-life/rank/Order</a><br/>
-                    <a href="https://example.org/marine-life/rank/Class">https://example.org/marine-life/rank/Class</a><br/>
-                    <a href="https://example.org/marine-life/rank/Species">https://example.org/marine-life/rank/Species</a><br/>
-                    <a href="https://example.org/marine-life/rank/Genus">https://example.org/marine-life/rank/Genus</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/rank/Family">https://www.godiveios.com/marine-life/rank/Family</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/rank/Genus">https://www.godiveios.com/marine-life/rank/Genus</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/rank/Order">https://www.godiveios.com/marine-life/rank/Order</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/rank/Class">https://www.godiveios.com/marine-life/rank/Class</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/rank/Kingdom">https://www.godiveios.com/marine-life/rank/Kingdom</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/rank/Species">https://www.godiveios.com/marine-life/rank/Species</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/rank/Phylum">https://www.godiveios.com/marine-life/rank/Phylum</a><br/>
                 </td>
             </tr>
         </table>
@@ -1159,7 +1247,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/TimeOfDay</code></td>
+                <td><code>https://www.godiveios.com/marine-life/TimeOfDay</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -1176,10 +1264,10 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Members</th>
                 <td>
-                    <a href="https://example.org/marine-life/timeOfDay/Dusk">https://example.org/marine-life/timeOfDay/Dusk</a><br/>
-                    <a href="https://example.org/marine-life/timeOfDay/Night">https://example.org/marine-life/timeOfDay/Night</a><br/>
-                    <a href="https://example.org/marine-life/timeOfDay/Day">https://example.org/marine-life/timeOfDay/Day</a><br/>
-                    <a href="https://example.org/marine-life/timeOfDay/Dawn">https://example.org/marine-life/timeOfDay/Dawn</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/timeOfDay/Dusk">https://www.godiveios.com/marine-life/timeOfDay/Dusk</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/timeOfDay/Night">https://www.godiveios.com/marine-life/timeOfDay/Night</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/timeOfDay/Day">https://www.godiveios.com/marine-life/timeOfDay/Day</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/timeOfDay/Dawn">https://www.godiveios.com/marine-life/timeOfDay/Dawn</a><br/>
                 </td>
             </tr>
         </table>
@@ -1192,7 +1280,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/VisibilityRating</code></td>
+                <td><code>https://www.godiveios.com/marine-life/VisibilityRating</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -1203,15 +1291,16 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>In range of</th>
                 <td>
+                    <a href="#reportedvisibility">reported visibility</a><br/>
                     <a href="#visibilityrating">visibility rating</a><br/>
                 </td>
             </tr>
             <tr>
                 <th>Members</th>
                 <td>
-                    <a href="https://example.org/marine-life/visibility/Great">https://example.org/marine-life/visibility/Great</a><br/>
-                    <a href="https://example.org/marine-life/visibility/Poor">https://example.org/marine-life/visibility/Poor</a><br/>
-                    <a href="https://example.org/marine-life/visibility/Good">https://example.org/marine-life/visibility/Good</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/visibility/Good">https://www.godiveios.com/marine-life/visibility/Good</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/visibility/Poor">https://www.godiveios.com/marine-life/visibility/Poor</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/visibility/Great">https://www.godiveios.com/marine-life/visibility/Great</a><br/>
                 </td>
             </tr>
         </table>
@@ -1224,7 +1313,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/WaterType</code></td>
+                <td><code>https://www.godiveios.com/marine-life/WaterType</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -1235,6 +1324,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>In range of</th>
                 <td>
+                    <a href="#reportedwatertype">reported water type</a><br/>
                     <a href="#sitewatertype">site water type</a><br/>
                     <a href="#watertype">water type</a><br/>
                 </td>
@@ -1242,8 +1332,8 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Members</th>
                 <td>
-                    <a href="https://example.org/marine-life/waterType/Freshwater">https://example.org/marine-life/waterType/Freshwater</a><br/>
-                    <a href="https://example.org/marine-life/waterType/Saltwater">https://example.org/marine-life/waterType/Saltwater</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/waterType/Freshwater">https://www.godiveios.com/marine-life/waterType/Freshwater</a><br/>
+                    <a href="https://www.godiveios.com/marine-life/waterType/Saltwater">https://www.godiveios.com/marine-life/waterType/Saltwater</a><br/>
                 </td>
             </tr>
         </table>
@@ -1281,6 +1371,8 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <li><a href="#commonname">common name</a></li>
         <li><a href="#count">count</a></li>
         <li><a href="#country">country</a></li>
+        <li><a href="#countrycode">country code</a></li>
+        <li><a href="#countryname">country name</a></li>
         <li><a href="#countryorregion">country or region</a></li>
         <li><a href="#currentdirection">current direction</a></li>
         <li><a href="#currentnote">current note</a></li>
@@ -1302,6 +1394,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <li><a href="#duringactivity">during activity</a></li>
         <li><a href="#duringdive">during dive</a></li>
         <li><a href="#duringdiveactivity">during dive activity</a></li>
+        <li><a href="#duringsitereport">during site report</a></li>
         <li><a href="#duringsnorkelactivity">during snorkel activity</a></li>
         <li><a href="#entry">entry</a></li>
         <li><a href="#entrylatitude">entry latitude</a></li>
@@ -1314,6 +1407,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <li><a href="#featuremodelresourcename">feature model resource name</a></li>
         <li><a href="#featuremodelURL">feature model URL</a></li>
         <li><a href="#foundinwaterbody">found in water body</a></li>
+        <li><a href="#fromactivity">from activity</a></li>
         <li><a href="#gastype">gas type</a></li>
         <li><a href="#GoDivemarinelifeUUID">GoDive marine life UUID</a></li>
         <li><a href="#GoDivemediaUUID">GoDive media UUID</a></li>
@@ -1325,11 +1419,15 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <li><a href="#hasmedia">has media</a></li>
         <li><a href="#hasphysicaltrait">has physical trait</a></li>
         <li><a href="#hasrank">has rank</a></li>
+        <li><a href="#hassighting">has sighting</a></li>
+        <li><a href="#hassitereport">has site report</a></li>
         <li><a href="#hazardnote">hazard note</a></li>
         <li><a href="#identificationcertainty">identification certainty</a></li>
         <li><a href="#identificationnote">identification note</a></li>
         <li><a href="#importedsitename">imported site name</a></li>
+        <li><a href="#incountry">in country</a></li>
         <li><a href="#inphylum">in phylum</a></li>
+        <li><a href="#includessighting">includes sighting</a></li>
         <li><a href="#isnightactivity">is night activity</a></li>
         <li><a href="#isnightdive">is night dive</a></li>
         <li><a href="#latitude">latitude</a></li>
@@ -1354,11 +1452,19 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <li><a href="#observername">observer name</a></li>
         <li><a href="#oxygenmix(%)">oxygen mix (%)</a></li>
         <li><a href="#region">region</a></li>
+        <li><a href="#reportdate">report date</a></li>
+        <li><a href="#reportforsite">report for site</a></li>
+        <li><a href="#reportedcurrent">reported current</a></li>
+        <li><a href="#reportedmaximumdepth(m)">reported maximum depth (m)</a></li>
+        <li><a href="#reportedvisibility">reported visibility</a></li>
+        <li><a href="#reportedwatertemperature(C)">reported water temperature (°C)</a></li>
+        <li><a href="#reportedwatertype">reported water type</a></li>
         <li><a href="#scientificname">scientific name</a></li>
         <li><a href="#sightedorganism">sighted organism</a></li>
         <li><a href="#sightingdate-time">sighting date-time</a></li>
         <li><a href="#sightingdepth(m)">sighting depth (m)</a></li>
         <li><a href="#sightingnote">sighting note</a></li>
+        <li><a href="#sightingsite">sighting site</a></li>
         <li><a href="#bodyofwatername">body of water name</a></li>
         <li><a href="#siteentry">site entry</a></li>
         <li><a href="#siteenvironment">site environment</a></li>
@@ -1401,7 +1507,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/aboutText</code></td>
+                <td><code>https://www.godiveios.com/marine-life/aboutText</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -1430,7 +1536,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/abundance</code></td>
+                <td><code>https://www.godiveios.com/marine-life/abundance</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -1459,7 +1565,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/activityDate</code></td>
+                <td><code>https://www.godiveios.com/marine-life/activityDate</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -1482,7 +1588,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/activityDurationMin</code></td>
+                <td><code>https://www.godiveios.com/marine-life/activityDurationMin</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -1505,7 +1611,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/activityNotes</code></td>
+                <td><code>https://www.godiveios.com/marine-life/activityNotes</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -1534,7 +1640,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/activityStartDateTime</code></td>
+                <td><code>https://www.godiveios.com/marine-life/activityStartDateTime</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -1563,7 +1669,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/activityStartTime</code></td>
+                <td><code>https://www.godiveios.com/marine-life/activityStartTime</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -1592,7 +1698,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/activityType</code></td>
+                <td><code>https://www.godiveios.com/marine-life/activityType</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -1609,7 +1715,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/ActivityType">mlo:ActivityType</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/ActivityType">mlo:ActivityType</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -1621,7 +1727,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/aphiaId</code></td>
+                <td><code>https://www.godiveios.com/marine-life/aphiaId</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -1650,7 +1756,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/atSite</code></td>
+                <td><code>https://www.godiveios.com/marine-life/atSite</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -1667,7 +1773,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/Site">mlo:Site</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/Site">mlo:Site</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -1679,7 +1785,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/averageDepthM</code></td>
+                <td><code>https://www.godiveios.com/marine-life/averageDepthM</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -1708,7 +1814,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/avgDepthM</code></td>
+                <td><code>https://www.godiveios.com/marine-life/avgDepthM</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -1737,7 +1843,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/avgHeartRateBPM</code></td>
+                <td><code>https://www.godiveios.com/marine-life/avgHeartRateBPM</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -1760,7 +1866,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/avgMovingSpeedMps</code></td>
+                <td><code>https://www.godiveios.com/marine-life/avgMovingSpeedMps</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -1783,7 +1889,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/avgRMV</code></td>
+                <td><code>https://www.godiveios.com/marine-life/avgRMV</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -1806,7 +1912,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/avgSAC</code></td>
+                <td><code>https://www.godiveios.com/marine-life/avgSAC</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -1829,7 +1935,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/behaviorNote</code></td>
+                <td><code>https://www.godiveios.com/marine-life/behaviorNote</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -1858,7 +1964,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/bodyColor</code></td>
+                <td><code>https://www.godiveios.com/marine-life/bodyColor</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -1887,7 +1993,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/bodyOfWater</code></td>
+                <td><code>https://www.godiveios.com/marine-life/bodyOfWater</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -1916,7 +2022,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/bottomTimeSeconds</code></td>
+                <td><code>https://www.godiveios.com/marine-life/bottomTimeSeconds</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -1939,7 +2045,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/broaderTaxon</code></td>
+                <td><code>https://www.godiveios.com/marine-life/broaderTaxon</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -1956,7 +2062,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/Taxon">mlo:Taxon</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/Taxon">mlo:Taxon</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -1968,7 +2074,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/caption</code></td>
+                <td><code>https://www.godiveios.com/marine-life/caption</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -1991,7 +2097,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/capturedAt</code></td>
+                <td><code>https://www.godiveios.com/marine-life/capturedAt</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -2014,7 +2120,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/catalogAbundance</code></td>
+                <td><code>https://www.godiveios.com/marine-life/catalogAbundance</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2043,7 +2149,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/category</code></td>
+                <td><code>https://www.godiveios.com/marine-life/category</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2072,7 +2178,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/classifiedAs</code></td>
+                <td><code>https://www.godiveios.com/marine-life/classifiedAs</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2089,7 +2195,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/Taxon">mlo:Taxon</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/Taxon">mlo:Taxon</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -2101,7 +2207,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/commonName</code></td>
+                <td><code>https://www.godiveios.com/marine-life/commonName</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2130,7 +2236,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/count</code></td>
+                <td><code>https://www.godiveios.com/marine-life/count</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -2153,18 +2259,70 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/country</code></td>
+                <td><code>https://www.godiveios.com/marine-life/country</code></td>
             </tr>
             <tr>
                 <th>Description</th>
                 <td>
-                    <p>GoDive DiveSite.country.</p>
+                    <p>GoDive DiveSite.country string. Prefer also mlo:inCountry to a Country resource for graphing.</p>
                 </td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
                 <td>
                     <a href="#site">site</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+            <tr>
+                <th>Range(s)</th>
+                <td>
+                    <a href="http://www.w3.org/2000/01/rdf-schema#Literal">rdfs:Literal</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div class="entity property" id="countrycode">
+        <h3>country code<sup title="property" class="sup-p">p</sup><span style="float:right; margin-right:10px; font-size:smaller;">
+            <a href="#countrycode" title="fragment link to here">#</a>&nbsp;<a href="#properties" title="Properties Index">Props</a></span>
+        </h3>
+        <table>
+            <tr>
+                <th>URI</th>
+                <td><code>https://www.godiveios.com/marine-life/countryCode</code></td>
+            </tr>
+            <tr>
+                <th>Description</th>
+                <td>
+                    <p>ISO 3166-1 alpha-2 when known (GoDive DiveSite.countryCode).</p>
+                </td>
+            </tr>
+            <tr>
+                <th>Domain(s)</th>
+                <td>
+                    <a href="#Country">country</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+            <tr>
+                <th>Range(s)</th>
+                <td>
+                    <a href="http://www.w3.org/2001/XMLSchema#string">xsd:string</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div class="entity property" id="countryname">
+        <h3>country name<sup title="property" class="sup-p">p</sup><span style="float:right; margin-right:10px; font-size:smaller;">
+            <a href="#countryname" title="fragment link to here">#</a>&nbsp;<a href="#properties" title="Properties Index">Props</a></span>
+        </h3>
+        <table>
+            <tr>
+                <th>URI</th>
+                <td><code>https://www.godiveios.com/marine-life/countryName</code></td>
+            </tr>
+            <tr>
+                <th>Domain(s)</th>
+                <td>
+                    <a href="#Country">country</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
             <tr>
@@ -2182,7 +2340,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/countryOrRegion</code></td>
+                <td><code>https://www.godiveios.com/marine-life/countryOrRegion</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2211,7 +2369,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/currentDirection</code></td>
+                <td><code>https://www.godiveios.com/marine-life/currentDirection</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2240,7 +2398,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/currentNote</code></td>
+                <td><code>https://www.godiveios.com/marine-life/currentNote</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2269,7 +2427,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/currentStrength</code></td>
+                <td><code>https://www.godiveios.com/marine-life/currentStrength</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -2280,7 +2438,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/CurrentStrength">mlo:CurrentStrength</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/CurrentStrength">mlo:CurrentStrength</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -2292,7 +2450,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/depthCertainty</code></td>
+                <td><code>https://www.godiveios.com/marine-life/depthCertainty</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -2303,7 +2461,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/DepthCertainty">mlo:DepthCertainty</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/DepthCertainty">mlo:DepthCertainty</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -2315,7 +2473,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/depthIsEstimate</code></td>
+                <td><code>https://www.godiveios.com/marine-life/depthIsEstimate</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2344,7 +2502,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/distinctiveFeature</code></td>
+                <td><code>https://www.godiveios.com/marine-life/distinctiveFeature</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2379,7 +2537,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/distinctiveFeatures</code></td>
+                <td><code>https://www.godiveios.com/marine-life/distinctiveFeatures</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2408,7 +2566,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/diveDate</code></td>
+                <td><code>https://www.godiveios.com/marine-life/diveDate</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2443,7 +2601,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/diveDurationMin</code></td>
+                <td><code>https://www.godiveios.com/marine-life/diveDurationMin</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2478,7 +2636,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/diveMasterName</code></td>
+                <td><code>https://www.godiveios.com/marine-life/diveMasterName</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -2501,7 +2659,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/diveNumber</code></td>
+                <td><code>https://www.godiveios.com/marine-life/diveNumber</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -2524,7 +2682,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/diveOperatorName</code></td>
+                <td><code>https://www.godiveios.com/marine-life/diveOperatorName</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -2547,7 +2705,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/diveSite</code></td>
+                <td><code>https://www.godiveios.com/marine-life/diveSite</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2570,7 +2728,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/Site">mlo:Site</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/Site">mlo:Site</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -2582,7 +2740,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/diveStartTime</code></td>
+                <td><code>https://www.godiveios.com/marine-life/diveStartTime</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2617,7 +2775,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/diverName</code></td>
+                <td><code>https://www.godiveios.com/marine-life/diverName</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2652,7 +2810,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/diverReaction</code></td>
+                <td><code>https://www.godiveios.com/marine-life/diverReaction</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2681,7 +2839,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/diverWeightKg</code></td>
+                <td><code>https://www.godiveios.com/marine-life/diverWeightKg</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -2704,7 +2862,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/duringActivity</code></td>
+                <td><code>https://www.godiveios.com/marine-life/duringActivity</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2721,7 +2879,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/InWaterActivity">mlo:InWaterActivity</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/InWaterActivity">mlo:InWaterActivity</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -2733,7 +2891,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/duringDive</code></td>
+                <td><code>https://www.godiveios.com/marine-life/duringDive</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2756,7 +2914,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/DiveActivity">mlo:DiveActivity</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/DiveActivity">mlo:DiveActivity</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -2768,7 +2926,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/duringDiveActivity</code></td>
+                <td><code>https://www.godiveios.com/marine-life/duringDiveActivity</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2791,7 +2949,36 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/DiveActivity">mlo:DiveActivity</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/DiveActivity">mlo:DiveActivity</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div class="entity property" id="duringsitereport">
+        <h3>during site report<sup title="property" class="sup-p">p</sup><span style="float:right; margin-right:10px; font-size:smaller;">
+            <a href="#duringsitereport" title="fragment link to here">#</a>&nbsp;<a href="#properties" title="Properties Index">Props</a></span>
+        </h3>
+        <table>
+            <tr>
+                <th>URI</th>
+                <td><code>https://www.godiveios.com/marine-life/duringSiteReport</code></td>
+            </tr>
+            <tr>
+                <th>Description</th>
+                <td>
+                    <p>Sighting belongs to the SiteReport for the same InWaterActivity (1:1 SiteReport ↔ activity). Prefer report IRI report/{activityUUID}.</p>
+                </td>
+            </tr>
+            <tr>
+                <th>Domain(s)</th>
+                <td>
+                    <a href="#sighting">sighting</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+            <tr>
+                <th>Range(s)</th>
+                <td>
+                    <a href="https://www.godiveios.com/marine-life/SiteReport">mlo:SiteReport</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -2803,7 +2990,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/duringSnorkelActivity</code></td>
+                <td><code>https://www.godiveios.com/marine-life/duringSnorkelActivity</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2826,7 +3013,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/SnorkelActivity">mlo:SnorkelActivity</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/SnorkelActivity">mlo:SnorkelActivity</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -2838,7 +3025,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/entry</code></td>
+                <td><code>https://www.godiveios.com/marine-life/entry</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2867,7 +3054,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/entryLatitude</code></td>
+                <td><code>https://www.godiveios.com/marine-life/entryLatitude</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2896,7 +3083,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/entryLongitude</code></td>
+                <td><code>https://www.godiveios.com/marine-life/entryLongitude</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2925,7 +3112,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/entryType</code></td>
+                <td><code>https://www.godiveios.com/marine-life/entryType</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2954,7 +3141,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/environment</code></td>
+                <td><code>https://www.godiveios.com/marine-life/environment</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -2983,7 +3170,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/familyName</code></td>
+                <td><code>https://www.godiveios.com/marine-life/familyName</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3012,7 +3199,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/featureImageResourceName</code></td>
+                <td><code>https://www.godiveios.com/marine-life/featureImageResourceName</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3041,7 +3228,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/featureImageURL</code></td>
+                <td><code>https://www.godiveios.com/marine-life/featureImageURL</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3070,7 +3257,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/featureModelResourceName</code></td>
+                <td><code>https://www.godiveios.com/marine-life/featureModelResourceName</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3099,7 +3286,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/featureModelURL</code></td>
+                <td><code>https://www.godiveios.com/marine-life/featureModelURL</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3128,7 +3315,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/foundInWater</code></td>
+                <td><code>https://www.godiveios.com/marine-life/foundInWater</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3145,7 +3332,36 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/BodyOfWater">mlo:BodyOfWater</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/BodyOfWater">mlo:BodyOfWater</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div class="entity property" id="fromactivity">
+        <h3>from activity<sup title="property" class="sup-p">p</sup><span style="float:right; margin-right:10px; font-size:smaller;">
+            <a href="#fromactivity" title="fragment link to here">#</a>&nbsp;<a href="#properties" title="Properties Index">Props</a></span>
+        </h3>
+        <table>
+            <tr>
+                <th>URI</th>
+                <td><code>https://www.godiveios.com/marine-life/fromActivity</code></td>
+            </tr>
+            <tr>
+                <th>Description</th>
+                <td>
+                    <p>Optional link to the DiveActivity/SnorkelActivity that sourced this report.</p>
+                </td>
+            </tr>
+            <tr>
+                <th>Domain(s)</th>
+                <td>
+                    <a href="#sitereport">site report</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+            <tr>
+                <th>Range(s)</th>
+                <td>
+                    <a href="https://www.godiveios.com/marine-life/InWaterActivity">mlo:InWaterActivity</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -3157,7 +3373,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/gasType</code></td>
+                <td><code>https://www.godiveios.com/marine-life/gasType</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3186,7 +3402,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/godiveMarineLifeUUID</code></td>
+                <td><code>https://www.godiveios.com/marine-life/godiveMarineLifeUUID</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3221,7 +3437,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/godiveMediaUUID</code></td>
+                <td><code>https://www.godiveios.com/marine-life/godiveMediaUUID</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3256,7 +3472,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/godiveSightingUUID</code></td>
+                <td><code>https://www.godiveios.com/marine-life/godiveSightingUUID</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3291,7 +3507,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/godiveSiteUUID</code></td>
+                <td><code>https://www.godiveios.com/marine-life/godiveSiteUUID</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3320,7 +3536,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/godiveUUID</code></td>
+                <td><code>https://www.godiveios.com/marine-life/godiveUUID</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3343,7 +3559,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/habitatBehavior</code></td>
+                <td><code>https://www.godiveios.com/marine-life/habitatBehavior</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3372,7 +3588,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/habitatNote</code></td>
+                <td><code>https://www.godiveios.com/marine-life/habitatNote</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3401,7 +3617,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/hasMedia</code></td>
+                <td><code>https://www.godiveios.com/marine-life/hasMedia</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3418,7 +3634,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/MediaAsset">mlo:MediaAsset</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/MediaAsset">mlo:MediaAsset</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -3430,7 +3646,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/hasPhysicalTrait</code></td>
+                <td><code>https://www.godiveios.com/marine-life/hasPhysicalTrait</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -3441,7 +3657,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/PhysicalTrait">mlo:PhysicalTrait</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/PhysicalTrait">mlo:PhysicalTrait</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -3453,7 +3669,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/hasRank</code></td>
+                <td><code>https://www.godiveios.com/marine-life/hasRank</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -3464,7 +3680,65 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/TaxonomicRank">mlo:TaxonomicRank</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/TaxonomicRank">mlo:TaxonomicRank</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div class="entity property" id="hassighting">
+        <h3>has sighting<sup title="property" class="sup-p">p</sup><span style="float:right; margin-right:10px; font-size:smaller;">
+            <a href="#hassighting" title="fragment link to here">#</a>&nbsp;<a href="#properties" title="Properties Index">Props</a></span>
+        </h3>
+        <table>
+            <tr>
+                <th>URI</th>
+                <td><code>https://www.godiveios.com/marine-life/hasSighting</code></td>
+            </tr>
+            <tr>
+                <th>Description</th>
+                <td>
+                    <p>Inverse convenience: Site → Sighting.</p>
+                </td>
+            </tr>
+            <tr>
+                <th>Domain(s)</th>
+                <td>
+                    <a href="#site">site</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+            <tr>
+                <th>Range(s)</th>
+                <td>
+                    <a href="https://www.godiveios.com/marine-life/Sighting">mlo:Sighting</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div class="entity property" id="hassitereport">
+        <h3>has site report<sup title="property" class="sup-p">p</sup><span style="float:right; margin-right:10px; font-size:smaller;">
+            <a href="#hassitereport" title="fragment link to here">#</a>&nbsp;<a href="#properties" title="Properties Index">Props</a></span>
+        </h3>
+        <table>
+            <tr>
+                <th>URI</th>
+                <td><code>https://www.godiveios.com/marine-life/hasSiteReport</code></td>
+            </tr>
+            <tr>
+                <th>Description</th>
+                <td>
+                    <p>Inverse convenience: Site → SiteReport.</p>
+                </td>
+            </tr>
+            <tr>
+                <th>Domain(s)</th>
+                <td>
+                    <a href="#site">site</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+            <tr>
+                <th>Range(s)</th>
+                <td>
+                    <a href="https://www.godiveios.com/marine-life/SiteReport">mlo:SiteReport</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -3476,7 +3750,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/hazardNote</code></td>
+                <td><code>https://www.godiveios.com/marine-life/hazardNote</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3505,7 +3779,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/identificationCertainty</code></td>
+                <td><code>https://www.godiveios.com/marine-life/identificationCertainty</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -3516,7 +3790,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/IdentificationCertainty">mlo:IdentificationCertainty</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/IdentificationCertainty">mlo:IdentificationCertainty</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -3528,7 +3802,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/identificationNote</code></td>
+                <td><code>https://www.godiveios.com/marine-life/identificationNote</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3557,7 +3831,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/importedSiteName</code></td>
+                <td><code>https://www.godiveios.com/marine-life/importedSiteName</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3579,6 +3853,35 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             </tr>
         </table>
     </div>
+    <div class="entity property" id="incountry">
+        <h3>in country<sup title="property" class="sup-p">p</sup><span style="float:right; margin-right:10px; font-size:smaller;">
+            <a href="#incountry" title="fragment link to here">#</a>&nbsp;<a href="#properties" title="Properties Index">Props</a></span>
+        </h3>
+        <table>
+            <tr>
+                <th>URI</th>
+                <td><code>https://www.godiveios.com/marine-life/inCountry</code></td>
+            </tr>
+            <tr>
+                <th>Description</th>
+                <td>
+                    <p>Structured Country link for the site characteristic graph.</p>
+                </td>
+            </tr>
+            <tr>
+                <th>Domain(s)</th>
+                <td>
+                    <a href="#site">site</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+            <tr>
+                <th>Range(s)</th>
+                <td>
+                    <a href="https://www.godiveios.com/marine-life/Country">mlo:Country</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+        </table>
+    </div>
     <div class="entity property" id="inphylum">
         <h3>in phylum<sup title="property" class="sup-p">p</sup><span style="float:right; margin-right:10px; font-size:smaller;">
             <a href="#inphylum" title="fragment link to here">#</a>&nbsp;<a href="#properties" title="Properties Index">Props</a></span>
@@ -3586,7 +3889,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/inPhylum</code></td>
+                <td><code>https://www.godiveios.com/marine-life/inPhylum</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3609,7 +3912,36 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/Taxon">mlo:Taxon</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/Taxon">mlo:Taxon</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div class="entity property" id="includessighting">
+        <h3>includes sighting<sup title="property" class="sup-p">p</sup><span style="float:right; margin-right:10px; font-size:smaller;">
+            <a href="#includessighting" title="fragment link to here">#</a>&nbsp;<a href="#properties" title="Properties Index">Props</a></span>
+        </h3>
+        <table>
+            <tr>
+                <th>URI</th>
+                <td><code>https://www.godiveios.com/marine-life/includesSighting</code></td>
+            </tr>
+            <tr>
+                <th>Description</th>
+                <td>
+                    <p>Inverse convenience: SiteReport → Sighting (all tags on that activity).</p>
+                </td>
+            </tr>
+            <tr>
+                <th>Domain(s)</th>
+                <td>
+                    <a href="#sitereport">site report</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+            <tr>
+                <th>Range(s)</th>
+                <td>
+                    <a href="https://www.godiveios.com/marine-life/Sighting">mlo:Sighting</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -3621,7 +3953,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/isNightActivity</code></td>
+                <td><code>https://www.godiveios.com/marine-life/isNightActivity</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3650,7 +3982,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/isNightDive</code></td>
+                <td><code>https://www.godiveios.com/marine-life/isNightDive</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3685,7 +4017,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/latitude</code></td>
+                <td><code>https://www.godiveios.com/marine-life/latitude</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3714,7 +4046,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/lifeStage</code></td>
+                <td><code>https://www.godiveios.com/marine-life/lifeStage</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3731,7 +4063,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/LifeStage">mlo:LifeStage</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/LifeStage">mlo:LifeStage</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -3743,7 +4075,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/locatedInWater</code></td>
+                <td><code>https://www.godiveios.com/marine-life/locatedInWater</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3760,7 +4092,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/BodyOfWater">mlo:BodyOfWater</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/BodyOfWater">mlo:BodyOfWater</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -3772,7 +4104,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/locationName</code></td>
+                <td><code>https://www.godiveios.com/marine-life/locationName</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3801,7 +4133,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/loggedBy</code></td>
+                <td><code>https://www.godiveios.com/marine-life/loggedBy</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -3812,7 +4144,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/Observer">mlo:Observer</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/Observer">mlo:Observer</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -3824,7 +4156,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/longitude</code></td>
+                <td><code>https://www.godiveios.com/marine-life/longitude</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3853,7 +4185,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/marineLifeOwnership</code></td>
+                <td><code>https://www.godiveios.com/marine-life/marineLifeOwnership</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3870,7 +4202,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/MarineLifeOwnership">mlo:MarineLifeOwnership</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/MarineLifeOwnership">mlo:MarineLifeOwnership</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -3882,7 +4214,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/maxActivityDepthM</code></td>
+                <td><code>https://www.godiveios.com/marine-life/maxActivityDepthM</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3911,7 +4243,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/maxDepthM</code></td>
+                <td><code>https://www.godiveios.com/marine-life/maxDepthM</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3934,7 +4266,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/maxDiveDepthM</code></td>
+                <td><code>https://www.godiveios.com/marine-life/maxDiveDepthM</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -3969,7 +4301,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/maxHeartRateBPM</code></td>
+                <td><code>https://www.godiveios.com/marine-life/maxHeartRateBPM</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -3992,7 +4324,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/maxLengthCm</code></td>
+                <td><code>https://www.godiveios.com/marine-life/maxLengthCm</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4021,7 +4353,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/maxSizeM</code></td>
+                <td><code>https://www.godiveios.com/marine-life/maxSizeM</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4050,7 +4382,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/mediaType</code></td>
+                <td><code>https://www.godiveios.com/marine-life/mediaType</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4079,7 +4411,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/mediaUrl</code></td>
+                <td><code>https://www.godiveios.com/marine-life/mediaUrl</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -4102,7 +4434,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/mimeType</code></td>
+                <td><code>https://www.godiveios.com/marine-life/mimeType</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4131,7 +4463,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/minDepthM</code></td>
+                <td><code>https://www.godiveios.com/marine-life/minDepthM</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4154,7 +4486,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/minSizeM</code></td>
+                <td><code>https://www.godiveios.com/marine-life/minSizeM</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4183,7 +4515,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/observerDepthM</code></td>
+                <td><code>https://www.godiveios.com/marine-life/observerDepthM</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4212,7 +4544,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/observerName</code></td>
+                <td><code>https://www.godiveios.com/marine-life/observerName</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -4235,7 +4567,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/oxygenMixPercent</code></td>
+                <td><code>https://www.godiveios.com/marine-life/oxygenMixPercent</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -4258,7 +4590,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/region</code></td>
+                <td><code>https://www.godiveios.com/marine-life/region</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4280,6 +4612,179 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             </tr>
         </table>
     </div>
+    <div class="entity property" id="reportdate">
+        <h3>report date<sup title="property" class="sup-p">p</sup><span style="float:right; margin-right:10px; font-size:smaller;">
+            <a href="#reportdate" title="fragment link to here">#</a>&nbsp;<a href="#properties" title="Properties Index">Props</a></span>
+        </h3>
+        <table>
+            <tr>
+                <th>URI</th>
+                <td><code>https://www.godiveios.com/marine-life/reportDate</code></td>
+            </tr>
+            <tr>
+                <th>Domain(s)</th>
+                <td>
+                    <a href="#sitereport">site report</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+            <tr>
+                <th>Range(s)</th>
+                <td>
+                    <a href="http://www.w3.org/2001/XMLSchema#date">xsd:date</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div class="entity property" id="reportforsite">
+        <h3>report for site<sup title="property" class="sup-p">p</sup><span style="float:right; margin-right:10px; font-size:smaller;">
+            <a href="#reportforsite" title="fragment link to here">#</a>&nbsp;<a href="#properties" title="Properties Index">Props</a></span>
+        </h3>
+        <table>
+            <tr>
+                <th>URI</th>
+                <td><code>https://www.godiveios.com/marine-life/reportForSite</code></td>
+            </tr>
+            <tr>
+                <th>Description</th>
+                <td>
+                    <p>The Site this visit report describes.</p>
+                </td>
+            </tr>
+            <tr>
+                <th>Domain(s)</th>
+                <td>
+                    <a href="#sitereport">site report</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+            <tr>
+                <th>Range(s)</th>
+                <td>
+                    <a href="https://www.godiveios.com/marine-life/Site">mlo:Site</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div class="entity property" id="reportedcurrent">
+        <h3>reported current<sup title="property" class="sup-p">p</sup><span style="float:right; margin-right:10px; font-size:smaller;">
+            <a href="#reportedcurrent" title="fragment link to here">#</a>&nbsp;<a href="#properties" title="Properties Index">Props</a></span>
+        </h3>
+        <table>
+            <tr>
+                <th>URI</th>
+                <td><code>https://www.godiveios.com/marine-life/reportedCurrent</code></td>
+            </tr>
+            <tr>
+                <th>Domain(s)</th>
+                <td>
+                    <a href="#sitereport">site report</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+            <tr>
+                <th>Range(s)</th>
+                <td>
+                    <a href="https://www.godiveios.com/marine-life/CurrentStrength">mlo:CurrentStrength</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div class="entity property" id="reportedmaximumdepth(m)">
+        <h3>reported maximum depth (m)<sup title="property" class="sup-p">p</sup><span style="float:right; margin-right:10px; font-size:smaller;">
+            <a href="#reportedmaximumdepth(m)" title="fragment link to here">#</a>&nbsp;<a href="#properties" title="Properties Index">Props</a></span>
+        </h3>
+        <table>
+            <tr>
+                <th>URI</th>
+                <td><code>https://www.godiveios.com/marine-life/reportedMaxDepthM</code></td>
+            </tr>
+            <tr>
+                <th>Description</th>
+                <td>
+                    <p>Max depth observed on this visit (from activity computer/estimate).</p>
+                </td>
+            </tr>
+            <tr>
+                <th>Domain(s)</th>
+                <td>
+                    <a href="#sitereport">site report</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+            <tr>
+                <th>Range(s)</th>
+                <td>
+                    <a href="http://www.w3.org/2001/XMLSchema#decimal">xsd:decimal</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div class="entity property" id="reportedvisibility">
+        <h3>reported visibility<sup title="property" class="sup-p">p</sup><span style="float:right; margin-right:10px; font-size:smaller;">
+            <a href="#reportedvisibility" title="fragment link to here">#</a>&nbsp;<a href="#properties" title="Properties Index">Props</a></span>
+        </h3>
+        <table>
+            <tr>
+                <th>URI</th>
+                <td><code>https://www.godiveios.com/marine-life/reportedVisibility</code></td>
+            </tr>
+            <tr>
+                <th>Domain(s)</th>
+                <td>
+                    <a href="#sitereport">site report</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+            <tr>
+                <th>Range(s)</th>
+                <td>
+                    <a href="https://www.godiveios.com/marine-life/VisibilityRating">mlo:VisibilityRating</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div class="entity property" id="reportedwatertemperature(C)">
+        <h3>reported water temperature (°C)<sup title="property" class="sup-p">p</sup><span style="float:right; margin-right:10px; font-size:smaller;">
+            <a href="#reportedwatertemperature(C)" title="fragment link to here">#</a>&nbsp;<a href="#properties" title="Properties Index">Props</a></span>
+        </h3>
+        <table>
+            <tr>
+                <th>URI</th>
+                <td><code>https://www.godiveios.com/marine-life/reportedWaterTempC</code></td>
+            </tr>
+            <tr>
+                <th>Domain(s)</th>
+                <td>
+                    <a href="#sitereport">site report</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+            <tr>
+                <th>Range(s)</th>
+                <td>
+                    <a href="http://www.w3.org/2001/XMLSchema#decimal">xsd:decimal</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div class="entity property" id="reportedwatertype">
+        <h3>reported water type<sup title="property" class="sup-p">p</sup><span style="float:right; margin-right:10px; font-size:smaller;">
+            <a href="#reportedwatertype" title="fragment link to here">#</a>&nbsp;<a href="#properties" title="Properties Index">Props</a></span>
+        </h3>
+        <table>
+            <tr>
+                <th>URI</th>
+                <td><code>https://www.godiveios.com/marine-life/reportedWaterType</code></td>
+            </tr>
+            <tr>
+                <th>Domain(s)</th>
+                <td>
+                    <a href="#sitereport">site report</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+            <tr>
+                <th>Range(s)</th>
+                <td>
+                    <a href="https://www.godiveios.com/marine-life/WaterType">mlo:WaterType</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+        </table>
+    </div>
     <div class="entity property" id="scientificname">
         <h3>scientific name<sup title="property" class="sup-p">p</sup><span style="float:right; margin-right:10px; font-size:smaller;">
             <a href="#scientificname" title="fragment link to here">#</a>&nbsp;<a href="#properties" title="Properties Index">Props</a></span>
@@ -4287,7 +4792,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/scientificName</code></td>
+                <td><code>https://www.godiveios.com/marine-life/scientificName</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4310,7 +4815,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/sightedOrganism</code></td>
+                <td><code>https://www.godiveios.com/marine-life/sightedOrganism</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -4321,7 +4826,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/OrganismConcept">mlo:OrganismConcept</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/OrganismConcept">mlo:OrganismConcept</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -4333,7 +4838,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/sightingDateTime</code></td>
+                <td><code>https://www.godiveios.com/marine-life/sightingDateTime</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4362,7 +4867,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/sightingDepthM</code></td>
+                <td><code>https://www.godiveios.com/marine-life/sightingDepthM</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4391,7 +4896,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/sightingNote</code></td>
+                <td><code>https://www.godiveios.com/marine-life/sightingNote</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -4407,6 +4912,35 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             </tr>
         </table>
     </div>
+    <div class="entity property" id="sightingsite">
+        <h3>sighting site<sup title="property" class="sup-p">p</sup><span style="float:right; margin-right:10px; font-size:smaller;">
+            <a href="#sightingsite" title="fragment link to here">#</a>&nbsp;<a href="#properties" title="Properties Index">Props</a></span>
+        </h3>
+        <table>
+            <tr>
+                <th>URI</th>
+                <td><code>https://www.godiveios.com/marine-life/sightingSite</code></td>
+            </tr>
+            <tr>
+                <th>Description</th>
+                <td>
+                    <p>Direct Site link for the site characteristic graph (denormalized from duringActivity/atSite).</p>
+                </td>
+            </tr>
+            <tr>
+                <th>Domain(s)</th>
+                <td>
+                    <a href="#sighting">sighting</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+            <tr>
+                <th>Range(s)</th>
+                <td>
+                    <a href="https://www.godiveios.com/marine-life/Site">mlo:Site</a><sup class="sup-c" title="class">c</sup>
+                </td>
+            </tr>
+        </table>
+    </div>
     <div class="entity property" id="bodyofwatername">
         <h3>body of water name<sup title="property" class="sup-p">p</sup><span style="float:right; margin-right:10px; font-size:smaller;">
             <a href="#bodyofwatername" title="fragment link to here">#</a>&nbsp;<a href="#properties" title="Properties Index">Props</a></span>
@@ -4414,7 +4948,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/siteBodyOfWaterName</code></td>
+                <td><code>https://www.godiveios.com/marine-life/siteBodyOfWaterName</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4449,7 +4983,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/siteEntry</code></td>
+                <td><code>https://www.godiveios.com/marine-life/siteEntry</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4484,7 +5018,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/siteEnvironment</code></td>
+                <td><code>https://www.godiveios.com/marine-life/siteEnvironment</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4519,7 +5053,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/siteMaxDepthM</code></td>
+                <td><code>https://www.godiveios.com/marine-life/siteMaxDepthM</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4548,7 +5082,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/siteMinDepthM</code></td>
+                <td><code>https://www.godiveios.com/marine-life/siteMinDepthM</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4577,7 +5111,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/siteName</code></td>
+                <td><code>https://www.godiveios.com/marine-life/siteName</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4606,7 +5140,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/siteOwnership</code></td>
+                <td><code>https://www.godiveios.com/marine-life/siteOwnership</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4623,7 +5157,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/SiteOwnership">mlo:SiteOwnership</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/SiteOwnership">mlo:SiteOwnership</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -4635,7 +5169,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/siteRating</code></td>
+                <td><code>https://www.godiveios.com/marine-life/siteRating</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4664,7 +5198,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/siteTag</code></td>
+                <td><code>https://www.godiveios.com/marine-life/siteTag</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4693,7 +5227,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/siteTimeZoneOffsetSeconds</code></td>
+                <td><code>https://www.godiveios.com/marine-life/siteTimeZoneOffsetSeconds</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4722,7 +5256,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/siteWaterType</code></td>
+                <td><code>https://www.godiveios.com/marine-life/siteWaterType</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4739,7 +5273,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/WaterType">mlo:WaterType</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/WaterType">mlo:WaterType</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -4751,7 +5285,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/sourceSystem</code></td>
+                <td><code>https://www.godiveios.com/marine-life/sourceSystem</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4780,7 +5314,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/subcategory</code></td>
+                <td><code>https://www.godiveios.com/marine-life/subcategory</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4809,7 +5343,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/surfaceCondition</code></td>
+                <td><code>https://www.godiveios.com/marine-life/surfaceCondition</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -4832,7 +5366,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/surfaceIntervalSeconds</code></td>
+                <td><code>https://www.godiveios.com/marine-life/surfaceIntervalSeconds</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -4855,7 +5389,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/swimDistanceM</code></td>
+                <td><code>https://www.godiveios.com/marine-life/swimDistanceM</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -4884,7 +5418,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/takenBy</code></td>
+                <td><code>https://www.godiveios.com/marine-life/takenBy</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -4895,7 +5429,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/Observer">mlo:Observer</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/Observer">mlo:Observer</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -4907,7 +5441,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/tankMaterial</code></td>
+                <td><code>https://www.godiveios.com/marine-life/tankMaterial</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -4930,7 +5464,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/tankPressureEndPSI</code></td>
+                <td><code>https://www.godiveios.com/marine-life/tankPressureEndPSI</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -4953,7 +5487,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/tankPressureStartPSI</code></td>
+                <td><code>https://www.godiveios.com/marine-life/tankPressureStartPSI</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -4976,7 +5510,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/timeOfDay</code></td>
+                <td><code>https://www.godiveios.com/marine-life/timeOfDay</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -4987,7 +5521,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/TimeOfDay">mlo:TimeOfDay</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/TimeOfDay">mlo:TimeOfDay</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -4999,7 +5533,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/timeZoneIdentifier</code></td>
+                <td><code>https://www.godiveios.com/marine-life/timeZoneIdentifier</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -5028,7 +5562,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/timeZoneOffsetSeconds</code></td>
+                <td><code>https://www.godiveios.com/marine-life/timeZoneOffsetSeconds</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -5057,7 +5591,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/totalCalories</code></td>
+                <td><code>https://www.godiveios.com/marine-life/totalCalories</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -5080,7 +5614,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/traitLabel</code></td>
+                <td><code>https://www.godiveios.com/marine-life/traitLabel</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -5109,7 +5643,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/typicalDepthM</code></td>
+                <td><code>https://www.godiveios.com/marine-life/typicalDepthM</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -5144,7 +5678,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/typicalLengthCm</code></td>
+                <td><code>https://www.godiveios.com/marine-life/typicalLengthCm</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -5173,7 +5707,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/visibilityRating</code></td>
+                <td><code>https://www.godiveios.com/marine-life/visibilityRating</code></td>
             </tr>
             <tr>
                 <th>Description</th>
@@ -5190,7 +5724,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/VisibilityRating">mlo:VisibilityRating</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/VisibilityRating">mlo:VisibilityRating</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -5202,7 +5736,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/waterName</code></td>
+                <td><code>https://www.godiveios.com/marine-life/waterName</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -5225,7 +5759,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/waterTempC</code></td>
+                <td><code>https://www.godiveios.com/marine-life/waterTempC</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -5248,7 +5782,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/waterTempMaxC</code></td>
+                <td><code>https://www.godiveios.com/marine-life/waterTempMaxC</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -5271,7 +5805,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/waterTempMinC</code></td>
+                <td><code>https://www.godiveios.com/marine-life/waterTempMinC</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -5294,7 +5828,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/waterType</code></td>
+                <td><code>https://www.godiveios.com/marine-life/waterType</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -5305,7 +5839,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
             <tr>
                 <th>Range(s)</th>
                 <td>
-                    <a href="https://example.org/marine-life/WaterType">mlo:WaterType</a><sup class="sup-c" title="class">c</sup>
+                    <a href="https://www.godiveios.com/marine-life/WaterType">mlo:WaterType</a><sup class="sup-c" title="class">c</sup>
                 </td>
             </tr>
         </table>
@@ -5317,7 +5851,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
         <table>
             <tr>
                 <th>URI</th>
-                <td><code>https://example.org/marine-life/waterVisibilityM</code></td>
+                <td><code>https://www.godiveios.com/marine-life/waterVisibilityM</code></td>
             </tr>
             <tr>
                 <th>Domain(s)</th>
@@ -5340,7 +5874,7 @@ EAfDe6H3Dy6Ll456WEJsRZS630MwCAOI20ei5OBpxse5zcBZw8eS4uPpfIuDiCainIg9umBCU0GZzgLZ
     <h2>Namespaces <span style="float:right; font-size:smaller;"><a href="">&uparrow;</a></span></h2>
     <dl>
         <dt>default (mlo)</dt>
-        <dd><code>https://example.org/marine-life/</code></dd>
+        <dd><code>https://www.godiveios.com/marine-life/</code></dd>
         <dt>brick</dt>
         <dd><code>https://brickschema.org/schema/Brick#</code></dd>
         <dt>csvw</dt>

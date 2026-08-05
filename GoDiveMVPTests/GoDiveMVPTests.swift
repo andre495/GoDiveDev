@@ -618,6 +618,23 @@ struct GoDiveMVPTests {
             DiveBuddyDetailContentPagerPresentation.pinnedPageHeaderBottomSpacing == AppTheme.Spacing.md
         )
         #expect(!DiveBuddyDetailContentPagerPresentation.showsPinnedPageHeaders)
+        #expect(
+            DiveBuddyDetailContentPagerPresentation.pageSubtitle(for: .divesTogether)
+                == "Dives Together"
+        )
+        #expect(
+            DiveBuddyDetailContentPagerPresentation.pageSubtitle(for: .tripsTogether)
+                == "Trips Together"
+        )
+        #expect(
+            DiveBuddyDetailContentPagerPresentation.pageSubtitle(for: .taggedMedia)
+                == "Your Tagged Photos"
+        )
+        #expect(
+            DiveBuddyDetailContentPagerPresentation
+                .pageSubtitleAccessibilityIdentifier(for: .divesTogether)
+                == "DiveBuddyDetails.DivesTogether.Subtitle"
+        )
     }
 
     @Test func diveActivityMediaActivation_shouldReaffirmPagerSelection_requiresActiveContext() {
@@ -7338,6 +7355,36 @@ struct GoDiveMVPTests {
             FieldGuideSpeciesDetailContentPagerPresentation.emptyStateMessage(for: .similarSpecies)
                 == "No similar species found in the catalog yet."
         )
+        #expect(FieldGuideSpeciesDetailContentPagerPresentation.similarSpeciesGridColumnCount == 2)
+        #expect(
+            FieldGuideSpeciesDetailContentPagerPresentation.pageSubtitle(for: .about) == "About"
+        )
+        #expect(
+            FieldGuideSpeciesDetailContentPagerPresentation.pageSubtitle(for: .stats)
+                == "Size and Range"
+        )
+        #expect(
+            FieldGuideSpeciesDetailContentPagerPresentation.pageSubtitle(for: .similarSpecies)
+                == "Related Species"
+        )
+        #expect(
+            FieldGuideSpeciesDetailContentPagerPresentation.pageSubtitle(for: .taggedDives)
+                == "Tagged Dives"
+        )
+        #expect(
+            FieldGuideSpeciesDetailContentPagerPresentation.pageSubtitle(for: .taggedMedia)
+                == "Tagged Media"
+        )
+        #expect(
+            FieldGuideSpeciesDetailContentPagerPresentation
+                .pageSubtitleAccessibilityIdentifier(for: .stats)
+                == "FieldGuide.SpeciesDetail.Stats.Subtitle"
+        )
+        #expect(
+            FieldGuideSpeciesDetailContentPagerPresentation
+                .similarSpeciesTileAccessibilityIdentifier(uuid: "marine-life-french-angelfish")
+                == "FieldGuide.SpeciesDetail.SimilarSpecies.marine-life-french-angelfish"
+        )
     }
 
     @Test func fieldGuidePresentation_sightedDiveRowDisplayData_ordersNewestFirst() {
@@ -11368,8 +11415,20 @@ struct GoDiveMVPTests {
         #expect(!TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .activities))
         #expect(!TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .plannedSites))
         #expect(!TripDetailContentPagerPresentation.usesStaticPagerLayout(for: .buddies))
-        #expect(TripDetailContentPagerPresentation.staticPagerContentAlignment(for: .stats) == .center)
+        #expect(TripDetailContentPagerPresentation.staticPagerContentAlignment(for: .stats) == .top)
         #expect(TripDetailContentPagerPresentation.staticPagerContentAlignment(for: .media) == .top)
+        #expect(TripDetailContentPagerPresentation.pageSubtitle(for: .stats) == "Trip Stats")
+        #expect(TripDetailContentPagerPresentation.pageSubtitle(for: .activities) == "Activities")
+        #expect(TripDetailContentPagerPresentation.pageSubtitle(for: .marineLife) == "Marine Life")
+        #expect(TripDetailContentPagerPresentation.pageSubtitle(for: .buddies) == "Dive Buddies")
+        #expect(TripDetailContentPagerPresentation.pageSubtitle(for: .media) == "Media")
+        #expect(
+            TripDetailContentPagerPresentation.pageSubtitle(for: .plannedSites) == "Planned Dive Sites"
+        )
+        #expect(
+            TripDetailContentPagerPresentation.pageSubtitleAccessibilityIdentifier(for: .stats)
+                == "TripDetail.Stats.Subtitle"
+        )
     }
 
     @Test @MainActor func tripDetailContentPager_plannedTripPages() {
@@ -15999,6 +16058,29 @@ struct GoDiveMVPTests {
                 == "Explore.DiveSiteDetail.ContentPager.MarineLifeHere"
         )
         #expect(!ExploreDiveSiteDetailContentPagerPresentation.usesStaticPagerLayout(for: .taggedMedia))
+        #expect(
+            ExploreDiveSiteDetailContentPagerPresentation.pageSubtitle(for: .diveDetails)
+                == "Dive Details"
+        )
+        #expect(
+            ExploreDiveSiteDetailContentPagerPresentation.pageSubtitle(for: .divesHere) == "Dives Here"
+        )
+        #expect(
+            ExploreDiveSiteDetailContentPagerPresentation.pageSubtitle(for: .marineLifeHere)
+                == "Marine Life Here"
+        )
+        #expect(
+            ExploreDiveSiteDetailContentPagerPresentation.pageSubtitle(for: .taggedMedia)
+                == "Tagged Media"
+        )
+        #expect(
+            ExploreDiveSiteDetailContentPagerPresentation
+                .pageSubtitleAccessibilityIdentifier(for: .divesHere)
+                == "Explore.DiveSiteDetail.DivesHere.Subtitle"
+        )
+        #expect(
+            ExploreReferenceSiteDetailContentPagerPresentation.pageSubtitle(for: .details) == "Details"
+        )
     }
 
     @Test func exploreDiveSiteDetailPresentation_prefersMapHeroWithoutTaggedMedia() {

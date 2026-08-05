@@ -4,12 +4,12 @@
 #
 # Example: familyName match (replace literals / seed as needed)
 
-PREFIX mlo: <https://example.org/marine-life/>
+PREFIX mlo: <https://www.godiveios.com/marine-life/>
 
 SELECT DISTINCT ?candidate WHERE {
   ?candidate a mlo:Species ;
              mlo:familyName ?f .
-  FILTER(?candidate != <https://example.org/marine-life/species/marine-life-african-pompano>)
+  FILTER(?candidate != <https://www.godiveios.com/marine-life/species/marine-life-african-pompano>)
   FILTER(LCASE(STR(?f)) = LCASE("Carangidae"))
 }
 

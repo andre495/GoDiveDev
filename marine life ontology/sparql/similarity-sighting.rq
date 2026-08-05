@@ -3,17 +3,17 @@
 #
 # Example: same activity (dive or snorkel)
 
-PREFIX mlo: <https://example.org/marine-life/>
+PREFIX mlo: <https://www.godiveios.com/marine-life/>
 
 SELECT DISTINCT ?candidate ?detail WHERE {
   ?s1 a mlo:Sighting ;
-      mlo:sightedOrganism <https://example.org/marine-life/species/TigerShark> ;
+      mlo:sightedOrganism <https://www.godiveios.com/marine-life/species/TigerShark> ;
       mlo:duringDiveActivity|mlo:duringSnorkelActivity|mlo:duringActivity ?activity .
   ?s2 a mlo:Sighting ;
       mlo:sightedOrganism ?candidate ;
       mlo:duringDiveActivity|mlo:duringSnorkelActivity|mlo:duringActivity ?activity .
   ?candidate a mlo:Species .
-  FILTER(?candidate != <https://example.org/marine-life/species/TigerShark>)
+  FILTER(?candidate != <https://www.godiveios.com/marine-life/species/TigerShark>)
   BIND(STR(?activity) AS ?detail)
 }
 

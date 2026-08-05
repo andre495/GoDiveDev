@@ -59,7 +59,7 @@ PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
 PREFIX sh:   <http://www.w3.org/ns/shacl#>
-PREFIX mlo:  <https://example.org/marine-life/>
+PREFIX mlo:  <https://www.godiveios.com/marine-life/>
 
 mlo:SpeciesShape
     a sh:NodeShape ;

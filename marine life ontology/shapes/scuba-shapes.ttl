@@ -2,7 +2,7 @@ PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
 PREFIX sh:   <http://www.w3.org/ns/shacl#>
-PREFIX mlo:  <https://example.org/marine-life/>
+PREFIX mlo:  <https://www.godiveios.com/marine-life/>
 
 #################################################################
 # SHACL shapes — scuba dive marine life KG
@@ -337,7 +337,7 @@ mlo:DiveActivityShape
     sh:targetClass mlo:DiveActivity ;
     sh:property [
         sh:path mlo:activityType ;
-        sh:hasValue <https://example.org/marine-life/activityType/Scuba> ;
+        sh:hasValue <https://www.godiveios.com/marine-life/activityType/Scuba> ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
@@ -362,7 +362,7 @@ mlo:SnorkelActivityShape
     sh:targetClass mlo:SnorkelActivity ;
     sh:property [
         sh:path mlo:activityType ;
-        sh:hasValue <https://example.org/marine-life/activityType/Snorkel> ;
+        sh:hasValue <https://www.godiveios.com/marine-life/activityType/Snorkel> ;
         sh:maxCount 1 ;
     ] ;
     sh:property [

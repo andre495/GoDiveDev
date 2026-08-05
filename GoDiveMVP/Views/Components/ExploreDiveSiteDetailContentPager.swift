@@ -34,15 +34,36 @@ struct ExploreDiveSiteDetailContentPager: View {
 
     @ViewBuilder
     private func pageContent(for page: ExploreDiveSiteDetailContentPage) -> some View {
-        switch page {
-        case .diveDetails:
-            diveDetailsContent
-        case .divesHere:
-            divesHereContent
-        case .marineLifeHere:
-            marineLifeHereContent
-        case .taggedMedia:
-            taggedMediaContent
+        pageBody(for: page) {
+            switch page {
+            case .diveDetails:
+                diveDetailsContent
+            case .divesHere:
+                divesHereContent
+            case .marineLifeHere:
+                marineLifeHereContent
+            case .taggedMedia:
+                taggedMediaContent
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func pageBody(
+        for page: ExploreDiveSiteDetailContentPage,
+        @ViewBuilder content: () -> some View
+    ) -> some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            Text(ExploreDiveSiteDetailContentPagerPresentation.pageSubtitle(for: page))
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier(
+                    ExploreDiveSiteDetailContentPagerPresentation
+                        .pageSubtitleAccessibilityIdentifier(for: page)
+                )
+            content()
         }
     }
 

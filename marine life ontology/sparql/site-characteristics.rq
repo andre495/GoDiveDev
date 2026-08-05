@@ -1,17 +1,17 @@
 # Site characteristic graph queries
 # Site hub: Country, BodyOfWater, WaterType, catalog depth, SiteReport, Sighting
 #
-# PREFIX mlo: <https://example.org/marine-life/>
+# PREFIX mlo: <https://www.godiveios.com/marine-life/>
 
 #################################################################
 # 1) Sites in a country (resource link)
 #################################################################
 
-PREFIX mlo: <https://example.org/marine-life/>
+PREFIX mlo: <https://www.godiveios.com/marine-life/>
 
 SELECT ?site ?siteName ?maxDepth ?waterType WHERE {
   ?site a mlo:Site ;
-        mlo:inCountry <https://example.org/marine-life/country/Australia> ;
+        mlo:inCountry <https://www.godiveios.com/marine-life/country/Australia> ;
         mlo:siteName ?siteName .
   OPTIONAL { ?site mlo:siteMaxDepthM ?maxDepth }
   OPTIONAL { ?site mlo:siteWaterType ?waterType }
@@ -25,7 +25,7 @@ LIMIT 50
 #
 # SELECT ?site ?siteName ?countryName ?maxDepth WHERE {
 #   ?site a mlo:Site ;
-#         mlo:locatedInWater <https://example.org/marine-life/water/Caribbean-Sea> ;
+#         mlo:locatedInWater <https://www.godiveios.com/marine-life/water/Caribbean-Sea> ;
 #         mlo:siteName ?siteName .
 #   OPTIONAL { ?site mlo:inCountry ?country . ?country mlo:countryName ?countryName }
 #   OPTIONAL { ?site mlo:siteMaxDepthM ?maxDepth }
@@ -38,7 +38,7 @@ LIMIT 50
 #
 # SELECT ?site ?siteName ?maxDepth WHERE {
 #   ?site a mlo:Site ;
-#         mlo:siteWaterType <https://example.org/marine-life/waterType/Saltwater> ;
+#         mlo:siteWaterType <https://www.godiveios.com/marine-life/waterType/Saltwater> ;
 #         mlo:siteMaxDepthM ?maxDepth ;
 #         mlo:siteName ?siteName .
 #   FILTER(?maxDepth >= 20 && ?maxDepth <= 40)
@@ -51,7 +51,7 @@ LIMIT 50
 #################################################################
 #
 # SELECT ?site ?report ?reportDate ?depth ?current ?visibility ?sighting ?organism WHERE {
-#   BIND(<https://example.org/marine-life/site/SSYongala> AS ?site)
+#   BIND(<https://www.godiveios.com/marine-life/site/SSYongala> AS ?site)
 #   OPTIONAL {
 #     ?site mlo:hasSiteReport ?report .
 #     OPTIONAL { ?report mlo:reportDate ?reportDate }

@@ -26,7 +26,7 @@ Normative / informative W3C sources:
 | `dcterms` | `http://purl.org/dc/terms/` |
 | `vann` | `http://purl.org/vocab/vann/` |
 
-Project: `mlo:` → `https://example.org/marine-life/` (placeholder until finalized).
+Project: `mlo:` → `https://www.godiveios.com/marine-life/` (placeholder until finalized).
 
 ## RDFS class hierarchy (essentials)
 
@@ -100,8 +100,8 @@ HTTP: `Content-Type: text/turtle; version=1.2`
 ## Suggested IRI patterns (GoDive / scuba)
 
 ```turtle
-PREFIX mlo: <https://example.org/marine-life/>
-BASE <https://example.org/marine-life/>
+PREFIX mlo: <https://www.godiveios.com/marine-life/>
+BASE <https://www.godiveios.com/marine-life/>
 
 mlo:Sighting a rdfs:Class .           # vocabulary
 <species/TigerShark> a mlo:Species .  # instance

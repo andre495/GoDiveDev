@@ -94,6 +94,35 @@ enum ExploreDiveSiteDetailContentPagerPresentation: Sendable {
 
     nonisolated static let showsPinnedPageHeaders = false
 
+    /// In-page title above each page’s body (pager dots keep shorter **`pageTitle`** labels).
+    nonisolated static func pageSubtitle(for page: ExploreDiveSiteDetailContentPage) -> String {
+        switch page {
+        case .diveDetails:
+            return "Dive Details"
+        case .divesHere:
+            return "Dives Here"
+        case .marineLifeHere:
+            return "Marine Life Here"
+        case .taggedMedia:
+            return "Tagged Media"
+        }
+    }
+
+    nonisolated static func pageSubtitleAccessibilityIdentifier(
+        for page: ExploreDiveSiteDetailContentPage
+    ) -> String {
+        switch page {
+        case .diveDetails:
+            return "Explore.DiveSiteDetail.DiveDetails.Subtitle"
+        case .divesHere:
+            return "Explore.DiveSiteDetail.DivesHere.Subtitle"
+        case .marineLifeHere:
+            return "Explore.DiveSiteDetail.MarineLifeHere.Subtitle"
+        case .taggedMedia:
+            return "Explore.DiveSiteDetail.TaggedMedia.Subtitle"
+        }
+    }
+
     nonisolated static func pagerPageLayout(for page: ExploreDiveSiteDetailContentPage) -> BlueSheetDetailPagerPageLayout {
         BlueSheetDetailPagerPageLayout(
             usesStaticLayout: usesStaticPagerLayout(for: page),

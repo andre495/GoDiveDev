@@ -89,8 +89,8 @@ Light OWL is OK for ontology headers (`owl:Ontology`, `owl:versionInfo`, `owl:sa
 PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
-PREFIX mlo:  <https://example.org/marine-life/>
-BASE <https://example.org/marine-life/>
+PREFIX mlo:  <https://www.godiveios.com/marine-life/>
+BASE <https://www.godiveios.com/marine-life/>
 
 mlo:Species a rdfs:Class ;
     rdfs:subClassOf mlo:OrganismConcept ;
@@ -106,7 +106,7 @@ Rules:
 
 - New files: `PREFIX` / `BASE` / `VERSION` (SPARQL-aligned), not `@prefix`.
 - Use `a` for `rdf:type`.
-- Project prefix: `mlo:` → `https://example.org/marine-life/`.
+- Project prefix: `mlo:` → `https://www.godiveios.com/marine-life/`.
 - **Vocabulary** terms: `mlo:TermName`.
 - **Instances**: `BASE` + relative IRI — `<species/TigerShark>`, never `mlo:species/Tiger` (slash breaks prefixed names).
 - Typed literals: `"42"^^xsd:integer`, dates `xsd:date` / `xsd:dateTime`.
@@ -120,7 +120,7 @@ Rules:
 
 ```turtle
 VERSION "1.2"
-PREFIX mlo: <https://example.org/marine-life/>
+PREFIX mlo: <https://www.godiveios.com/marine-life/>
 PREFIX prov: <http://www.w3.org/ns/prov#>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 

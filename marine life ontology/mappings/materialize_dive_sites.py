@@ -33,8 +33,8 @@ DEFAULT_DB = Path(__file__).resolve().parent / ".cache" / "dive_sites_catalog.sq
 DEFAULT_OUT = ROOT / "data" / "catalog" / "dive_sites.ttl"
 
 WATER_TYPE = {
-    "saltwater": "https://example.org/marine-life/waterType/Saltwater",
-    "freshwater": "https://example.org/marine-life/waterType/Freshwater",
+    "saltwater": "https://www.godiveios.com/marine-life/waterType/Saltwater",
+    "freshwater": "https://www.godiveios.com/marine-life/waterType/Freshwater",
 }
 FRESH_ENV = {"lake", "river", "quarry", "freshwater", "cenote", "spring", "cave"}
 

@@ -15,6 +15,7 @@ struct FieldGuideSpeciesDetailContentPager: View {
     let mediaSightings: [SightingInstance]
     let marineLifeCatalog: [MarineLife]
     let ownerProfileID: UUID?
+    let unitSystem: DiveDisplayUnitSystem
     let bottomScrollInset: CGFloat
     let onOpenDive: (UUID) -> Void
     let onOpenSpecies: ((String) -> Void)?
@@ -22,6 +23,13 @@ struct FieldGuideSpeciesDetailContentPager: View {
     @State private var selectedPage: FieldGuideSpeciesDetailContentPage =
         FieldGuideSpeciesDetailContentPagerPresentation.defaultPage
     @State private var gallerySelectedMediaID: UUID?
+
+    private var similarSpeciesColumns: [GridItem] {
+        Array(
+            repeating: GridItem(.flexible(), spacing: AppTheme.Spacing.md),
+            count: FieldGuideSpeciesDetailContentPagerPresentation.similarSpeciesGridColumnCount
+        )
+    }
 
     var body: some View {
         BlueSheetDetailPager(
@@ -36,17 +44,38 @@ struct FieldGuideSpeciesDetailContentPager: View {
 
     @ViewBuilder
     private func pageContent(for page: FieldGuideSpeciesDetailContentPage) -> some View {
-        switch page {
-        case .about:
-            aboutContent
-        case .stats:
-            statsContent
-        case .similarSpecies:
-            similarSpeciesContent
-        case .taggedDives:
-            taggedDivesContent
-        case .taggedMedia:
-            taggedMediaContent
+        pageBody(for: page) {
+            switch page {
+            case .about:
+                aboutContent
+            case .stats:
+                statsContent
+            case .similarSpecies:
+                similarSpeciesContent
+            case .taggedDives:
+                taggedDivesContent
+            case .taggedMedia:
+                taggedMediaContent
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func pageBody(
+        for page: FieldGuideSpeciesDetailContentPage,
+        @ViewBuilder content: () -> some View
+    ) -> some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            Text(FieldGuideSpeciesDetailContentPagerPresentation.pageSubtitle(for: page))
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier(
+                    FieldGuideSpeciesDetailContentPagerPresentation
+                        .pageSubtitleAccessibilityIdentifier(for: page)
+                )
+            content()
         }
     }
 
@@ -92,13 +121,9 @@ struct FieldGuideSpeciesDetailContentPager: View {
         if similarSpecies.isEmpty {
             emptyState(for: .similarSpecies)
         } else {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            LazyVGrid(columns: similarSpeciesColumns, spacing: AppTheme.Spacing.md) {
                 ForEach(similarSpecies, id: \.uuid) { snapshot in
-                    similarSpeciesRow(for: snapshot)
-                    if snapshot.uuid != similarSpecies.last?.uuid {
-                        Divider()
-                            .opacity(0.35)
-                    }
+                    similarSpeciesTile(for: snapshot)
                 }
             }
             .accessibilityIdentifier("FieldGuide.SpeciesDetail.SimilarSpecies")
@@ -106,15 +131,27 @@ struct FieldGuideSpeciesDetailContentPager: View {
     }
 
     @ViewBuilder
-    private func similarSpeciesRow(for snapshot: MarineLifeCatalogSnapshot) -> some View {
-        let row = FieldGuideSimilarSpeciesRow(snapshot: snapshot)
+    private func similarSpeciesTile(for snapshot: MarineLifeCatalogSnapshot) -> some View {
+        let card = FieldGuideSpeciesMosaicCard(
+            entry: snapshot,
+            unitSystem: unitSystem,
+            accent: FieldGuideCategoryAccent.gradientTop(
+                FieldGuideTaxonomy.resolvedCategoryID(for: snapshot)
+            )
+        )
+        .equatable()
+
+        let accessibilityID = FieldGuideSpeciesDetailContentPagerPresentation
+            .similarSpeciesTileAccessibilityIdentifier(uuid: snapshot.uuid)
+
         if let onOpenSpecies {
             Button {
                 onOpenSpecies(snapshot.uuid)
             } label: {
-                row
+                card
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier(accessibilityID)
         } else if let species = marineLifeCatalog.first(where: { $0.uuid == snapshot.uuid }) {
             NavigationLink {
                 FieldGuideMarineLifeDetailView(
@@ -124,12 +161,14 @@ struct FieldGuideSpeciesDetailContentPager: View {
                 )
                 .hidesBottomTabBarWhenPushed()
             } label: {
-                row
+                card
             }
             .buttonStyle(.plain)
             .navigationLinkIndicatorVisibility(.hidden)
+            .accessibilityIdentifier(accessibilityID)
         } else {
-            row
+            card
+                .accessibilityIdentifier(accessibilityID)
         }
     }
 

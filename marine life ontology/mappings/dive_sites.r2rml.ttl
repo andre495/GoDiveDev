@@ -2,7 +2,7 @@ PREFIX rr:   <http://www.w3.org/ns/r2rml#>
 PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
-PREFIX mlo:  <https://example.org/marine-life/>
+PREFIX mlo:  <https://www.godiveios.com/marine-life/>
 
 #################################################################
 # R2RML: GoDive dive_sites catalog → Site characteristic graph
@@ -20,7 +20,7 @@ PREFIX mlo:  <https://example.org/marine-life/>
     a rr:TriplesMap ;
     rr:logicalTable [ rr:tableName "countries" ] ;
     rr:subjectMap [
-        rr:template "https://example.org/marine-life/country/{slug}" ;
+        rr:template "https://www.godiveios.com/marine-life/country/{slug}" ;
         rr:class mlo:Country ;
     ] ;
 
@@ -44,7 +44,7 @@ PREFIX mlo:  <https://example.org/marine-life/>
     a rr:TriplesMap ;
     rr:logicalTable [ rr:tableName "bodies_of_water" ] ;
     rr:subjectMap [
-        rr:template "https://example.org/marine-life/water/{slug}" ;
+        rr:template "https://www.godiveios.com/marine-life/water/{slug}" ;
         rr:class mlo:BodyOfWater ;
     ] ;
 
@@ -60,7 +60,7 @@ PREFIX mlo:  <https://example.org/marine-life/>
     a rr:TriplesMap ;
     rr:logicalTable [ rr:tableName "dive_sites" ] ;
     rr:subjectMap [
-        rr:template "https://example.org/marine-life/site/{id}" ;
+        rr:template "https://www.godiveios.com/marine-life/site/{id}" ;
         rr:class mlo:Site ;
     ] ;
 
@@ -75,7 +75,7 @@ PREFIX mlo:  <https://example.org/marine-life/>
     rr:predicateObjectMap [
         rr:predicate mlo:siteOwnership ;
         rr:objectMap [
-            rr:constant <https://example.org/marine-life/siteOwnership/CatalogReference> ;
+            rr:constant <https://www.godiveios.com/marine-life/siteOwnership/CatalogReference> ;
         ] ;
     ] ;
 
@@ -90,7 +90,7 @@ PREFIX mlo:  <https://example.org/marine-life/>
     rr:predicateObjectMap [
         rr:predicate mlo:inCountry ;
         rr:objectMap [
-            rr:template "https://example.org/marine-life/country/{country_slug}" ;
+            rr:template "https://www.godiveios.com/marine-life/country/{country_slug}" ;
             rr:termType rr:IRI ;
         ] ;
     ] ;
@@ -98,7 +98,7 @@ PREFIX mlo:  <https://example.org/marine-life/>
     rr:predicateObjectMap [
         rr:predicate mlo:locatedInWater ;
         rr:objectMap [
-            rr:template "https://example.org/marine-life/water/{water_slug}" ;
+            rr:template "https://www.godiveios.com/marine-life/water/{water_slug}" ;
             rr:termType rr:IRI ;
         ] ;
     ] ;
@@ -171,7 +171,7 @@ PREFIX mlo:  <https://example.org/marine-life/>
     a rr:TriplesMap ;
     rr:logicalTable [ rr:tableName "dive_site_tags" ] ;
     rr:subjectMap [
-        rr:template "https://example.org/marine-life/site/{site_id}" ;
+        rr:template "https://www.godiveios.com/marine-life/site/{site_id}" ;
         rr:class mlo:Site ;
     ] ;
 

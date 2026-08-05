@@ -39,7 +39,7 @@ from server import (  # noqa: E402
 )
 from similarity import similar_species  # noqa: E402
 
-MLO = Namespace("https://example.org/marine-life/")
+MLO = Namespace("https://www.godiveios.com/marine-life/")
 
 
 def write_json(path: Path, payload: object) -> None:

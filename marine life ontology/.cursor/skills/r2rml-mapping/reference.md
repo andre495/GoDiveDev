@@ -68,7 +68,7 @@ Guidance:
 
 - Prefer opaque keys (`uuid`) over display names in IRIs
 - Separate multi-column templates with safe separators (`/`, `-`, or sub-delims)
-- Keep hosts/paths consistent with the ontology base IRI `https://example.org/marine-life/`
+- Keep hosts/paths consistent with the ontology base IRI `https://www.godiveios.com/marine-life/`
 
 Invalid IRIs produced by term maps are **data errors**.
 

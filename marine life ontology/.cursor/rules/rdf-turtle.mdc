@@ -18,6 +18,6 @@ VERSION "1.2"
 ```
 
 - Do not put R2RML (`rr:`) or SHACL (`sh:`) vocabulary in `ontology/` TBox files unless documenting imports.
-- Instance IRIs: `BASE <https://example.org/marine-life/>` then `<species/Id>`, `<sighting/Id>`, etc. Never `mlo:species/Id` (slash breaks prefixed names).
+- Instance IRIs: `BASE <https://www.godiveios.com/marine-life/>` then `<species/Id>`, `<sighting/Id>`, etc. Never `mlo:species/Id` (slash breaks prefixed names).
 - Domain priority: sightings, sites, depth, physical ID traits; taxonomy supports recognition.
 - Exclude mapping-only files under `mappings/` from ad-hoc ontology refactors without checking R2RML templates.

@@ -2,7 +2,7 @@ PREFIX rr:   <http://www.w3.org/ns/r2rml#>
 PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
-PREFIX mlo:  <https://example.org/marine-life/>
+PREFIX mlo:  <https://www.godiveios.com/marine-life/>
 
 #################################################################
 # R2RML: GoDive marine_life catalog → mlo:Species individuals
@@ -16,7 +16,7 @@ PREFIX mlo:  <https://example.org/marine-life/>
     a rr:TriplesMap ;
     rr:logicalTable [ rr:tableName "marine_life" ] ;
     rr:subjectMap [
-        rr:template "https://example.org/marine-life/species/{uuid}" ;
+        rr:template "https://www.godiveios.com/marine-life/species/{uuid}" ;
         rr:class mlo:Species ;
     ] ;
 
@@ -31,7 +31,7 @@ PREFIX mlo:  <https://example.org/marine-life/>
     rr:predicateObjectMap [
         rr:predicate mlo:marineLifeOwnership ;
         rr:objectMap [
-            rr:constant <https://example.org/marine-life/marineLifeOwnership/Catalog> ;
+            rr:constant <https://www.godiveios.com/marine-life/marineLifeOwnership/Catalog> ;
         ] ;
     ] ;
 

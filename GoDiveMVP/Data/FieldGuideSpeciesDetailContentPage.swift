@@ -85,6 +85,50 @@ enum FieldGuideSpeciesDetailContentPagerPresentation: Sendable {
 
     nonisolated static let showsPinnedPageHeaders = false
 
+    /// Same 2-column mosaic as Field Guide subcategory browse / trip marine life.
+    nonisolated static let similarSpeciesGridColumnCount = 2
+
+    /// In-page title above each page’s body (pager dots keep shorter **`pageTitle`** labels).
+    nonisolated static func pageSubtitle(for page: FieldGuideSpeciesDetailContentPage) -> String {
+        switch page {
+        case .about:
+            return "About"
+        case .stats:
+            return "Size and Range"
+        case .similarSpecies:
+            return "Related Species"
+        case .taggedDives:
+            return "Tagged Dives"
+        case .taggedMedia:
+            return "Tagged Media"
+        }
+    }
+
+    nonisolated static var similarSpeciesPageSubtitle: String {
+        pageSubtitle(for: .similarSpecies)
+    }
+
+    nonisolated static func pageSubtitleAccessibilityIdentifier(
+        for page: FieldGuideSpeciesDetailContentPage
+    ) -> String {
+        switch page {
+        case .about:
+            return "FieldGuide.SpeciesDetail.About.Subtitle"
+        case .stats:
+            return "FieldGuide.SpeciesDetail.Stats.Subtitle"
+        case .similarSpecies:
+            return "FieldGuide.SpeciesDetail.SimilarSpecies.Subtitle"
+        case .taggedDives:
+            return "FieldGuide.SpeciesDetail.TaggedDives.Subtitle"
+        case .taggedMedia:
+            return "FieldGuide.SpeciesDetail.TaggedMedia.Subtitle"
+        }
+    }
+
+    nonisolated static func similarSpeciesTileAccessibilityIdentifier(uuid: String) -> String {
+        "FieldGuide.SpeciesDetail.SimilarSpecies.\(uuid)"
+    }
+
     nonisolated static func pagerPageLayout(for page: FieldGuideSpeciesDetailContentPage) -> BlueSheetDetailPagerPageLayout {
         BlueSheetDetailPagerPageLayout(
             usesStaticLayout: usesStaticPagerLayout(for: page),

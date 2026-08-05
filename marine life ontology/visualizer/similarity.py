@@ -13,7 +13,7 @@ from typing import Any
 
 from rdflib import Graph, URIRef
 
-MLO = "https://example.org/marine-life/"
+MLO = "https://www.godiveios.com/marine-life/"
 
 BIOLOGY_WEIGHTS: dict[str, float] = {
     "familyName": 4.0,

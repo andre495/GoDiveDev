@@ -21,17 +21,29 @@ struct ExploreReferenceSiteDetailContentPager: View {
 
     @ViewBuilder
     private func pageContent(for page: ExploreReferenceSiteDetailContentPage) -> some View {
-        switch page {
-        case .details:
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-                ExploreDiveSiteDetailMetadataView(record: record)
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            Text(ExploreReferenceSiteDetailContentPagerPresentation.pageSubtitle(for: page))
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier(
+                    ExploreReferenceSiteDetailContentPagerPresentation
+                        .pageSubtitleAccessibilityIdentifier(for: page)
+                )
 
-                Text("OpenDiveMap reference site. Log a dive here to add it to your catalog.")
-                    .font(.footnote)
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
+            switch page {
+            case .details:
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+                    ExploreDiveSiteDetailMetadataView(record: record)
+
+                    Text("OpenDiveMap reference site. Log a dive here to add it to your catalog.")
+                        .font(.footnote)
+                        .foregroundStyle(AppTheme.Colors.secondaryText)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("Explore.ReferenceSiteDetail.Details")
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityIdentifier("Explore.ReferenceSiteDetail.Details")
         }
     }
 }

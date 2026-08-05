@@ -4,6 +4,9 @@ GoDive’s marine-life knowledge graph describes species, dive sites, sightings,
 
 These pages are for developers and curious divers who want to inspect the vocabulary — they are not part of the day-to-day logbook UI.
 
+**Namespace:** `mlo:` → [`https://www.godiveios.com/marine-life/`](https://www.godiveios.com/marine-life/)  
+Example species IRI: `https://www.godiveios.com/marine-life/species/marine-life-french-angelfish`
+
 ## Browse
 
 | Resource | What you’ll find |

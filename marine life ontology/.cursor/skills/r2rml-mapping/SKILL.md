@@ -88,14 +88,14 @@ Defaults (spec): templates/columns for subjects default toward IRIs; set `rr:ter
 
 ```turtle
 PREFIX rr:  <http://www.w3.org/ns/r2rml#>
-PREFIX mlo: <https://example.org/marine-life/>
+PREFIX mlo: <https://www.godiveios.com/marine-life/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 <#MarineLifeSpeciesMap>
     a rr:TriplesMap ;
     rr:logicalTable [ rr:tableName "marine_life" ] ;
     rr:subjectMap [
-        rr:template "https://example.org/marine-life/species/{uuid}" ;
+        rr:template "https://www.godiveios.com/marine-life/species/{uuid}" ;
         rr:class mlo:Species ;
     ] ;
     rr:predicateObjectMap [
@@ -120,7 +120,7 @@ PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 <#ObservationMap>
     rr:logicalTable [ rr:tableName "observation" ] ;
     rr:subjectMap [
-        rr:template "https://example.org/marine-life/sighting/{obs_id}" ;
+        rr:template "https://www.godiveios.com/marine-life/sighting/{obs_id}" ;
         rr:class mlo:Sighting ;
     ] ;
     rr:predicateObjectMap [
@@ -162,7 +162,7 @@ Use views for aggregates, filters, and normalization SQL should own.
 ## Authoring checklist
 
 - [ ] Target predicates/classes exist in `ontology/`
-- [ ] IRI templates match `https://example.org/marine-life/...` policy
+- [ ] IRI templates match `https://www.godiveios.com/marine-life/...` policy
 - [ ] `rr:class` aligns with SHACL `sh:targetClass`
 - [ ] Literals get `rr:datatype` or `rr:language`
 - [ ] NULL → no triple accounted for in shapes

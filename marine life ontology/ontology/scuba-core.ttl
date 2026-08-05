@@ -4,7 +4,7 @@ PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
 PREFIX owl:  <http://www.w3.org/2002/07/owl#>
 PREFIX dcterms: <http://purl.org/dc/terms/>
 PREFIX vann: <http://purl.org/vocab/vann/>
-PREFIX mlo:  <https://example.org/marine-life/>
+PREFIX mlo:  <https://www.godiveios.com/marine-life/>
 
 #################################################################
 # Scuba Dive Marine Life Ontology — core vocabulary (RDFS)
@@ -20,8 +20,8 @@ mlo: a owl:Ontology ;
     dcterms:created "2026-08-05"^^xsd:date ;
     dcterms:modified "2026-08-05"^^xsd:date ;
     vann:preferredNamespacePrefix "mlo" ;
-    vann:preferredNamespaceUri "https://example.org/marine-life/" ;
-    owl:versionInfo "0.2.0" .
+    vann:preferredNamespaceUri "https://www.godiveios.com/marine-life/" ;
+    owl:versionInfo "0.2.1" .
 
 # =================================================================
 # Taxonomy (identification support)

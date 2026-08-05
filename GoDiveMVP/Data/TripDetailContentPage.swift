@@ -68,9 +68,45 @@ enum TripDetailContentPagerPresentation: Sendable {
     nonisolated static func staticPagerContentAlignment(for page: TripDetailContentPage) -> Alignment {
         switch page {
         case .stats:
-            return .center
+            // Top-align so the in-page title sits with the tiles (same chrome as other blue sheets).
+            return .top
         case .media, .plannedSites, .buddies, .marineLife, .activities:
             return .top
+        }
+    }
+
+    /// In-page title above each page’s body.
+    nonisolated static func pageSubtitle(for page: TripDetailContentPage) -> String {
+        switch page {
+        case .plannedSites:
+            return "Planned Dive Sites"
+        case .buddies:
+            return "Dive Buddies"
+        case .stats:
+            return "Trip Stats"
+        case .marineLife:
+            return "Marine Life"
+        case .activities:
+            return "Activities"
+        case .media:
+            return "Media"
+        }
+    }
+
+    nonisolated static func pageSubtitleAccessibilityIdentifier(for page: TripDetailContentPage) -> String {
+        switch page {
+        case .plannedSites:
+            return "TripDetail.PlannedSites.Subtitle"
+        case .buddies:
+            return "TripDetail.Buddies.Subtitle"
+        case .stats:
+            return "TripDetail.Stats.Subtitle"
+        case .marineLife:
+            return "TripDetail.MarineLife.Subtitle"
+        case .activities:
+            return "TripDetail.Activities.Subtitle"
+        case .media:
+            return "TripDetail.Media.Subtitle"
         }
     }
 
@@ -81,6 +117,7 @@ enum TripDetailContentPagerPresentation: Sendable {
             scrollBottomInsetExtra: usesStaticPagerLayout(for: page)
                 ? 0
                 : BlueSheetDetailPagerPresentation.tripScrollBottomInsetExtra,
+            accessibilityLabel: pageSubtitle(for: page),
             accessibilityIdentifier: accessibilityIdentifier(for: page)
         )
     }

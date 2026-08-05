@@ -31,7 +31,7 @@ DEFAULT_DB = Path(__file__).resolve().parent / ".cache" / "marine_life_catalog.s
 DEFAULT_OUT = ROOT / "data" / "catalog" / "marine_life_species.ttl"
 
 RR = Namespace("http://www.w3.org/ns/r2rml#")
-MLO = Namespace("https://example.org/marine-life/")
+MLO = Namespace("https://www.godiveios.com/marine-life/")
 
 COLUMNS = [
     "uuid",

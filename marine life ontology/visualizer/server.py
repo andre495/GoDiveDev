@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parent.parent
 STATIC = Path(__file__).resolve().parent / "static"
 DEFAULT_PORT = 8765
 
-MLO = Namespace("https://example.org/marine-life/")
+MLO = Namespace("https://www.godiveios.com/marine-life/")
 
 # Files loaded by default (TBox + seeded controlled vocabs)
 DEFAULT_GLOBS = [
@@ -110,7 +110,7 @@ def build_common_name_sparql(query: str, limit: int = 25) -> str:
     """Translate a common-name search string into SPARQL."""
     # Escape for SPARQL string literal
     safe = query.replace("\\", "\\\\").replace('"', '\\"')
-    return f"""PREFIX mlo: <https://example.org/marine-life/>
+    return f"""PREFIX mlo: <https://www.godiveios.com/marine-life/>
 PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
 SELECT ?species ?commonName ?scientificName

@@ -3794,6 +3794,23 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Acknowledgments link to the ontology section.
 - User guide: Field Guide **Similar species** + Settings **Contribute sightings to community**.
 
-## 132 - Next batch
+## 132 - Next batch **(pushed)**
+
+**Summary:** Ontology base IRI migrated from placeholder `example.org` to the GoDive marketing domain.
+
+- **Namespace** — `mlo:` → **`https://www.godiveios.com/marine-life/`** across vocabulary, SHACL, R2RML, SPARQL, demo TTL, visualizer, and Cursor skills/rules.
+- **Rematerialize** — catalog `marine_life_species.ttl` / `dive_sites.ttl` + regenerated pyLODE `docs/index.html`.
+- Pages ontology intro documents the public namespace.
+
+**Summary:** Field Guide **Similar species** uses the same mosaic species tiles as subcategory browse / trip marine life.
+
+- Replaced list rows with 2-column **`FieldGuideSpeciesMosaicCard`** grid; removed **`FieldGuideSimilarSpeciesRow`**.
+- In-page titles on every species-detail pager page (**About**, **Size and Range**, **Related Species**, **Tagged Dives**, **Tagged Media**).
+- Dive-site detail pager titles (**Dive Details**, **Dives Here**, **Marine Life Here**, **Tagged Media**) + reference site **Details**.
+- Buddy detail pager titles (**Dives Together**, **Trips Together**, **Your Tagged Photos**).
+- Trip detail pager titles (**Trip Stats**, **Activities**, **Marine Life**, **Dive Buddies**, **Media**, **Planned Dive Sites**).
+- Test: mosaic column count + page subtitles + tile accessibility id.
+
+## 133 - Next batch
 
 

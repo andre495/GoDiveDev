@@ -77,6 +77,31 @@ enum DiveBuddyDetailContentPagerPresentation: Sendable {
     /// Buddy pager omits visible page headers; titles remain for accessibility labels.
     nonisolated static let showsPinnedPageHeaders = false
 
+    /// In-page title above each page’s body (pager dots keep shorter **`pageTitle`** labels).
+    nonisolated static func pageSubtitle(for page: DiveBuddyDetailContentPage) -> String {
+        switch page {
+        case .divesTogether:
+            return "Dives Together"
+        case .tripsTogether:
+            return "Trips Together"
+        case .taggedMedia:
+            return "Your Tagged Photos"
+        }
+    }
+
+    nonisolated static func pageSubtitleAccessibilityIdentifier(
+        for page: DiveBuddyDetailContentPage
+    ) -> String {
+        switch page {
+        case .divesTogether:
+            return "DiveBuddyDetails.DivesTogether.Subtitle"
+        case .tripsTogether:
+            return "DiveBuddyDetails.TripsTogether.Subtitle"
+        case .taggedMedia:
+            return "DiveBuddyDetails.TaggedMedia.Subtitle"
+        }
+    }
+
     nonisolated static func pagerPageLayout(for page: DiveBuddyDetailContentPage) -> BlueSheetDetailPagerPageLayout {
         BlueSheetDetailPagerPageLayout(
             usesStaticLayout: usesStaticPagerLayout(for: page),

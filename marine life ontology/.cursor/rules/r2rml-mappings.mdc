@@ -7,7 +7,7 @@ alwaysApply: false
 # R2RML Mapping Rules
 
 - Each triples map has exactly one `rr:logicalTable` and one subject map.
-- IRI `rr:template` values must match ontology URI patterns (`https://example.org/marine-life/...`).
+- IRI `rr:template` values must match ontology URI patterns (`https://www.godiveios.com/marine-life/...`).
 - Use `rr:class` for `rdf:type` aligned with SHACL `sh:targetClass`.
 - Literals: set `rr:datatype` or `rr:language`. Remember NULLs yield no triple.
 - Relate tables with `rr:parentTriplesMap` + `rr:joinCondition`, or an `rr:sqlQuery` view when derivation is clearer in SQL.

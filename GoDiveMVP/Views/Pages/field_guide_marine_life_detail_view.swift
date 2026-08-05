@@ -238,6 +238,7 @@ struct FieldGuideMarineLifeDetailView: View {
                     mediaSightings: taggedSightings,
                     marineLifeCatalog: catalogMarineLifeForPager,
                     ownerProfileID: accountSession.currentProfile?.id,
+                    unitSystem: diveDisplayUnitSystem,
                     bottomScrollInset: bottomScrollInset,
                     onOpenDive: onOpenDive,
                     onOpenSpecies: openCatalogMarineLifeDetail

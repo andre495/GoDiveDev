@@ -41,6 +41,23 @@ enum ExploreReferenceSiteDetailContentPagerPresentation: Sendable {
         .top
     }
 
+    /// In-page title above the body (matches dive-site detail pager chrome).
+    nonisolated static func pageSubtitle(for page: ExploreReferenceSiteDetailContentPage) -> String {
+        switch page {
+        case .details:
+            return "Details"
+        }
+    }
+
+    nonisolated static func pageSubtitleAccessibilityIdentifier(
+        for page: ExploreReferenceSiteDetailContentPage
+    ) -> String {
+        switch page {
+        case .details:
+            return "Explore.ReferenceSiteDetail.Details.Subtitle"
+        }
+    }
+
     nonisolated static func pagerPageLayout(
         for page: ExploreReferenceSiteDetailContentPage
     ) -> BlueSheetDetailPagerPageLayout {

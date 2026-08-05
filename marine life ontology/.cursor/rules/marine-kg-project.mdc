@@ -48,7 +48,7 @@ Vocabulary bridge: `ontology/godive-activity.ttl`.
 - Announce `VERSION "1.2"` only for triple terms, annotations, or directional lang tags.
 - Keep TBox (`ontology/`) separate from ABox (`data/`).
 - Model for divers first; add taxonomic detail as needed for identification.
-- Default prefix: `mlo:` → `https://example.org/marine-life/`.
+- Default prefix: `mlo:` → `https://www.godiveios.com/marine-life/`.
 - Align new terms with GoDive Swift models (`GoDiveMVP/Models`) via comments; do not invent a second parallel vocabulary.
 
 ## Delivery order

@@ -427,7 +427,7 @@
 
     function buildSearchSparql(q) {
       const safe = String(q).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-      return `PREFIX mlo: <https://example.org/marine-life/>
+      return `PREFIX mlo: <https://www.godiveios.com/marine-life/>
 PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
 SELECT ?species ?commonName ?scientificName
