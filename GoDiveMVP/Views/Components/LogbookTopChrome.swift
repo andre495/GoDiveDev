@@ -25,22 +25,26 @@ struct LogbookCollapsibleHeader: View {
                 logbookAddActivityButton
             }
 
-            HStack(spacing: AppTheme.Spacing.sm) {
-                Spacer(minLength: 0)
-                HStack(spacing: AppTheme.Spacing.sm) {
-                    LogbookFeedScopeToggle(selection: $feedScope)
-                    if feedScope == .myActivities {
-                        LogbookMyActivitiesKindFilterMenu(selection: $myActivitiesKindFilter)
-                    }
+            // Toggle centered; filter trailing-aligned under **+** without a full-width
+            // hit-testing layer covering the toggle.
+            LogbookFeedScopeToggle(selection: $feedScope)
+                .frame(maxWidth: .infinity)
+                .overlay(alignment: .trailing) {
+                    LogbookMyActivitiesKindFilterMenu(selection: $myActivitiesKindFilter)
+                        .opacity(feedScope == .myActivities ? 1 : 0)
+                        .allowsHitTesting(feedScope == .myActivities)
+                        .accessibilityHidden(feedScope != .myActivities)
+                        .frame(
+                            width: CollapsibleInlineTitleHeaderPresentation.sideControlWidth,
+                            alignment: .trailing
+                        )
+                        .padding(.trailing, AppTheme.Spacing.lg)
                 }
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, AppTheme.Spacing.lg)
-            .opacity(showsFeedScopeToggle ? 1 : 0)
-            .frame(maxHeight: showsFeedScopeToggle ? nil : 0)
-            .clipped()
-            .allowsHitTesting(showsFeedScopeToggle)
-            .accessibilityHidden(!showsFeedScopeToggle)
+                .opacity(showsFeedScopeToggle ? 1 : 0)
+                .frame(maxHeight: showsFeedScopeToggle ? nil : 0)
+                .clipped()
+                .allowsHitTesting(showsFeedScopeToggle)
+                .accessibilityHidden(!showsFeedScopeToggle)
         }
         .animation(.snappy(duration: 0.18), value: showsFeedScopeToggle)
         .animation(.snappy(duration: 0.18), value: isCollapsed)

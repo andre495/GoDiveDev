@@ -12,7 +12,7 @@ Open any dive from Logbook, Home, Explore, a buddy page, or a trip to see **dive
 
 Use the **back chevron** (top leading) or swipe from the left screen edge to return to the previous screen.
 
-On the **large** bottom sheet (not the map/chart header, and not the compact minimized sheet), **swipe left/right** to move between **Map**, **Tank**, and **Media** — same idea as swiping **My Activities** / **Buddy Feed** in Logbook. Snorkel detail works the same way for **Map**, **Heart rate**, and **Media**.
+On the **large** bottom sheet (not the map/chart header, and not the compact minimized sheet), **swipe left/right** to move between **Map**, **Tank**, and **Media** — same idea as swiping **Me** / **Buddies** in Logbook. Snorkel detail works the same way for **Map**, **Heart rate**, and **Media**.
 
 ## Bottom sheet detents
 
@@ -53,12 +53,12 @@ Tap a section **⋯** menu to edit all fields in that section in one sheet.
 - **Carousel** at minimized and medium detents jumps between items; oldest capture time on the left. At **medium**, the carousel sits near the bottom edge of the blue sheet (under **Marine life** and **Buddies**). **+** sits on the trailing edge of the carousel (same at minimized and medium).
 - **Star** on a carousel preview marks the featured Logbook thumbnail (one per dive). Selected preview always shows a star (blue if featured, white if not — tap to toggle). Featured previews keep a smaller blue star when not selected; non-featured, unselected previews show no star.
 - At **medium**, tagged **Marine life** ovals and a **Buddies** row of profile avatars appear above the carousel (tap to open the large overview on that mode). Empty prompts invite tagging.
-- At **large** on fish mode, Fishial **sparkles** leads **+** in one glass group when AI identify is available.
+- At **large**, Fishial **sparkles** and tag **+** sit upper-left (sparkles leads **+** on fish mode when AI identify is available). Upload (**photo +**) sits upper-right — same corner as the minimized carousel **+**.
 - Videos play **muted** and **loop** on the visible page; hold briefly to pause.
 
 ### Marine life on media
 
-Tag catalog species on a photo or video frame. At **large** detent, the centered fish/buddy toggle and **+** stay pinned at the top while tagged species details or buddy photos scroll underneath (soft fade, not a hard cut). On fish mode, the species panel shows the catalog **photo** by default (3D only when no picture ships). **Sparkles** (Fishial AI, when configured) sits left of **+** in one glass control — tap sparkles to identify, **+** to open the blue **Tag marine life** picker (**Cancel** / **+** new species / **Done**; buddy mode **+** opens the buddy tag picker). Tap a buddy’s photo to open their buddy page. On fish mode, **Learn More** opens that species in Field Guide.
+Tag catalog species on a photo or video frame. At **large** detent, the centered fish/buddy toggle stays pinned at the top with tag/AI controls on the upper left and upload on the upper right, while tagged species details or buddy photos scroll underneath (soft fade, not a hard cut). On fish mode, the species panel shows the catalog **photo** by default (3D only when no picture ships). **Sparkles** (Fishial AI, when configured) sits left of tag **+** in one glass control — tap sparkles to identify, **+** to open the blue **Tag marine life** picker (**Cancel** / **+** new species / **Done**; buddy mode **+** opens the buddy tag picker). Tap a buddy’s photo to open their buddy page. On fish mode, **Learn More** opens that species in Field Guide.
 
 On **Tag buddy**, **×** (upper left) or swipe the sheet down closes without saving; trailing **+** adds a roster buddy, and **Done** saves the tags. Both tag sheets open full height (**large** only).
 

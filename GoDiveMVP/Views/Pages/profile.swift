@@ -26,7 +26,6 @@ struct ProfileView: View {
     @Environment(\.openTripPlanner) private var openTripPlanner
     @Environment(AccountSession.self) private var accountSession
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
     @Query private var ownedCertifications: [Certification]
@@ -39,7 +38,6 @@ struct ProfileView: View {
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
 
     @State private var showsProfileEditSheet = false
-    @State private var showsSignOutConfirmation = false
     @State private var showsSideMenu = false
     @State private var menuRoute: MenuRoute?
     @State private var profileAuxiliaryRoute: ProfileAuxiliaryRoute?
@@ -218,12 +216,6 @@ struct ProfileView: View {
                         showsSideMenu = false
                     }
                 },
-                onEditProfile: {
-                    withAnimation(.snappy(duration: 0.28)) {
-                        showsSideMenu = false
-                    }
-                    showsProfileEditSheet = true
-                },
                 onSettings: {
                     navigate(to: .settings)
                 },
@@ -241,12 +233,6 @@ struct ProfileView: View {
                         showsSideMenu = false
                     }
                     openTripPlanner?()
-                },
-                onSignOut: {
-                    withAnimation(.snappy(duration: 0.28)) {
-                        showsSideMenu = false
-                    }
-                    showsSignOutConfirmation = true
                 }
             )
             .zIndex(1)
@@ -287,18 +273,6 @@ struct ProfileView: View {
             if let profile = accountSession.currentProfile {
                 ProfileEditSheet(profile: profile)
             }
-        }
-        .alert(
-            ProfilePresentation.signOutConfirmationTitle,
-            isPresented: $showsSignOutConfirmation
-        ) {
-            Button(ProfilePresentation.signOutCancelButtonTitle, role: .cancel) {}
-            Button(ProfilePresentation.signOutConfirmButtonTitle, role: .destructive) {
-                accountSession.signOut()
-                dismiss()
-            }
-        } message: {
-            Text(ProfilePresentation.signOutConfirmationMessage)
         }
         .task(id: accountSession.currentProfile?.id) {
             selfBuddyID = DiveBuddySelfRepresentation.resolveSelfBuddyID(
@@ -431,8 +405,26 @@ struct ProfileView: View {
                         height: Layout.avatarOverlapOffset
                     )
                     .accessibilityHidden(true)
+            },
+            titleTrailingAccessory: {
+                profileEditEllipsisButton
             }
         )
+    }
+
+    private var profileEditEllipsisButton: some View {
+        Button {
+            showsProfileEditSheet = true
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.tabSelected)
+                .frame(width: 36, height: 36)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(ProfilePresentation.editProfileAccessibilityLabel)
+        .accessibilityIdentifier(ProfilePresentation.editProfileAccessibilityIdentifier)
     }
 
     private func navigate(to route: MenuRoute) {

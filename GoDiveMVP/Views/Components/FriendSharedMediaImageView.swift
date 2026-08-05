@@ -8,6 +8,8 @@ struct FriendSharedMediaImageView: View {
     let item: FriendSharedMediaPresentation.DisplayItem
     var fidelity: Fidelity = .thumbnailOnly
     var showsVideoBadge: Bool = true
+    /// Reports loaded still / poster aspect so Media heroes can match owner detent scaling.
+    var onDisplayedImageAspectChange: ((CGFloat) -> Void)? = nil
 
     enum Fidelity: Equatable {
         case thumbnailOnly
@@ -40,6 +42,12 @@ struct FriendSharedMediaImageView: View {
         .task(id: loadToken) {
             await loadImages()
         }
+        .onChange(of: displayedImageAspectToken) { _, _ in
+            reportDisplayedImageAspectIfNeeded()
+        }
+        .onAppear {
+            reportDisplayedImageAspectIfNeeded()
+        }
         #else
         AppTheme.Colors.surfaceElevated
         #endif
@@ -53,6 +61,17 @@ struct FriendSharedMediaImageView: View {
     private var displayedImage: UIImage? {
         if fidelity == .progressive, let contentImage { return contentImage }
         return thumbnailImage ?? contentImage
+    }
+
+    private var displayedImageAspectToken: String {
+        guard let displayedImage else { return "nil" }
+        return "\(displayedImage.size.width)x\(displayedImage.size.height)"
+    }
+
+    private func reportDisplayedImageAspectIfNeeded() {
+        guard let displayedImage else { return }
+        let height = max(displayedImage.size.height, 1)
+        onDisplayedImageAspectChange?(displayedImage.size.width / height)
     }
 
     private var videoBadge: some View {

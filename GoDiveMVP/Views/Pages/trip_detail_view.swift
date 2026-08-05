@@ -186,7 +186,7 @@ struct TripDetailView: View {
 
     private var missingTripBlueSheet: some View {
         BlueSheetDetailPage(
-            configuration: .pushedDetail(
+            configuration: TripDetailPresentation.blueSheetPageConfiguration(
                 accessibilityRootIdentifier: "TripDetail.Root",
                 showsHero: false
             ),
@@ -317,7 +317,7 @@ struct TripDetailView: View {
         )
 
         BlueSheetDetailPage(
-            configuration: .pushedDetail(
+            configuration: TripDetailPresentation.blueSheetPageConfiguration(
                 accessibilityRootIdentifier: "TripDetail.Content"
             ),
             hero: { context in

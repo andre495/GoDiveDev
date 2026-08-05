@@ -98,6 +98,9 @@ enum AppSwiftDataStorePartition: Sendable {
         AppUserSettings.defaultFreshwaterWeightKilogramsKey,
         AppUserSettings.bulkUddfCreateDiveSitesKey,
         AppUserSettings.autoUploadMediaToActivitiesKey,
+        AppUserSettings.notifyAllNotificationsKey,
+        AppUserSettings.notifyGearServiceRemindersKey,
+        AppUserSettings.notifyTripRemindersKey,
     ]
 
     /// Stay device-local (privacy / diagnostics), not mirrored in the user CloudKit store.

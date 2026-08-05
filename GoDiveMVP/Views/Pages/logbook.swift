@@ -204,7 +204,6 @@ struct LogbookView: View {
             }
             .onChange(of: logbookTabSelectionGeneration) { _, _ in
                 refreshBuddyFeedWhenBuddyFeedListVisible()
-                performDeferredLogbookCacheBuildIfNeeded()
             }
             .onChange(of: isLogbookTabSelected) { _, isSelected in
                 if isSelected {
@@ -260,19 +259,156 @@ struct LogbookView: View {
         path = LogbookPendingRouteNavigation.path(afterConsuming: route, currentPath: path)
     }
 
-    /// Push-notification deep link: land on **Buddy Feed**, then push the target
-    /// activity once its row is loaded so **Back** returns to the feed.
+    /// Push-notification deep link: land on **Buddy Feed**, wait until the target
+    /// activity is in feed state (retry + direct projection fetch), then push detail
+    /// so **Back** returns to a feed that already includes that activity.
     private func openBuddySharedDiveFromPush(friendUID: String, diveDocumentID: String) {
         logbookFeedScope = .buddyFeed
         path.removeAll()
         Task { @MainActor in
-            await refreshBuddyFeed()
-            guard LogbookBuddyFeedPresentation.containsRow(
-                in: buddyFeedAllRows,
+            let ready = await ensureBuddyFeedReadyForPushDeepLink(
                 friendUID: friendUID,
                 diveDocumentID: diveDocumentID
-            ) else { return }
+            )
+            guard ready else { return }
             pushLogbook(.buddySharedDive(friendUID: friendUID, diveDocumentID: diveDocumentID))
+        }
+    }
+
+    /// Loads Buddy Feed data for a push deep link without losing to a concurrent
+    /// generation-gated refresh, then ensures the target row is present.
+    @MainActor
+    private func ensureBuddyFeedReadyForPushDeepLink(
+        friendUID: String,
+        diveDocumentID: String
+    ) async -> Bool {
+        let maxAttempts = LogbookBuddyFeedPushDeepLinkPresentation.maxLoadAttempts
+        for attempt in 0..<maxAttempts {
+            let snapshot = await GoDiveSharedDiveProjectionSync.fetchBuddyFeedSnapshot()
+            // Always apply — supersede in-flight auto-refreshes so the deep link sees this data.
+            applyBuddyFeedSnapshotInvalidatingInFlightRefresh(snapshot)
+
+            switch LogbookBuddyFeedPushDeepLinkPresentation.resolveAfterFeedLoad(
+                rows: buddyFeedAllRows,
+                friendUID: friendUID,
+                diveDocumentID: diveDocumentID
+            ) {
+            case .readyInFeed:
+                expandBuddyFeedDisplayToInclude(
+                    friendUID: friendUID,
+                    diveDocumentID: diveDocumentID
+                )
+                return true
+            case .fetchDirectProjection:
+                if await mergeDirectBuddySharedDiveIfAvailable(
+                    friendUID: friendUID,
+                    diveDocumentID: diveDocumentID,
+                    friends: snapshot.friends
+                ) {
+                    return true
+                }
+            }
+
+            guard LogbookBuddyFeedPushDeepLinkPresentation.shouldRetryAfterMiss(
+                attemptIndex: attempt,
+                maxAttempts: maxAttempts
+            ) else { break }
+            try? await Task.sleep(
+                nanoseconds: LogbookBuddyFeedPushDeepLinkPresentation.retryDelayNanoseconds
+            )
+        }
+        return false
+    }
+
+    @MainActor
+    private func mergeDirectBuddySharedDiveIfAvailable(
+        friendUID: String,
+        diveDocumentID: String,
+        friends: [GoDiveFriendGraphService.FriendEdge]
+    ) async -> Bool {
+        guard let dive = await GoDiveSharedDiveProjectionSync.fetchFriendSharedDive(
+            friendUID: friendUID,
+            diveDocumentID: diveDocumentID
+        ) else { return false }
+
+        let friend = friends.first(where: { $0.friendUID == friendUID })
+            ?? buddyFeedFriends.first(where: { $0.friendUID == friendUID })
+        let profile: GoDiveFriendGraphService.PublicProfileSummary?
+        if friend == nil {
+            profile = await GoDiveFriendGraphService.fetchPublicProfile(uid: friendUID)
+        } else {
+            profile = nil
+        }
+        let displayName = friend?.displayName
+            ?? profile?.displayName
+            ?? "Dive buddy"
+        let photoURL = friend?.photoURL ?? profile?.photoURL
+        let row = LogbookBuddyFeedPushDeepLinkPresentation.row(
+            friendUID: friendUID,
+            friendDisplayName: displayName,
+            friendPhotoURL: photoURL,
+            dive: dive
+        )
+        buddyFeedAllRows = LogbookBuddyFeedPresentation.inserting(row, into: buddyFeedAllRows)
+        expandBuddyFeedDisplayToInclude(friendUID: friendUID, diveDocumentID: diveDocumentID)
+        if friend == nil {
+            let edge = GoDiveFriendGraphService.friendEdge(
+                friendUID: friendUID,
+                displayName: displayName,
+                photoURL: photoURL,
+                profileHeroURL: profile?.profileHeroURL,
+                profileHeroMediaKind: profile?.profileHeroMediaKind,
+                totalDiveCount: profile?.totalDiveCount
+            )
+            if !buddyFeedFriends.contains(where: { $0.friendUID == friendUID }) {
+                buddyFeedFriends.append(edge)
+            }
+        }
+        return true
+    }
+
+    @MainActor
+    private func expandBuddyFeedDisplayToInclude(friendUID: String, diveDocumentID: String) {
+        buddyFeedDisplayedCount = LogbookBuddyFeedPresentation.displayedCountMakingTargetVisible(
+            rows: buddyFeedAllRows,
+            friendUID: friendUID,
+            diveDocumentID: diveDocumentID,
+            currentDisplayedCount: buddyFeedDisplayedCount
+        )
+    }
+
+    /// Applies a Buddy Feed snapshot and bumps the load generation so in-flight
+    /// `refreshBuddyFeed` calls discard stale results.
+    @MainActor
+    private func applyBuddyFeedSnapshotInvalidatingInFlightRefresh(
+        _ snapshot: (
+            friends: [GoDiveFriendGraphService.FriendEdge],
+            rows: [LogbookBuddyFeedPresentation.Row]
+        )
+    ) {
+        buddyFeedLoadGeneration += 1
+        applyBuddyFeedSnapshot(snapshot)
+    }
+
+    @MainActor
+    private func applyBuddyFeedSnapshot(
+        _ snapshot: (
+            friends: [GoDiveFriendGraphService.FriendEdge],
+            rows: [LogbookBuddyFeedPresentation.Row]
+        )
+    ) {
+        buddyFeedFriends = snapshot.friends
+        buddyFeedAllRows = snapshot.rows
+        buddyFeedDisplayedCount = LogbookBuddyFeedPresentation.initialDisplayedCount(
+            for: snapshot.rows.count
+        )
+        isBuddyFeedLoading = false
+        if let owner = accountSession.currentProfile {
+            GoDiveFriendBuddyLinking.syncRosterLinks(
+                friends: snapshot.friends,
+                owner: owner,
+                modelContext: modelContext
+            )
         }
     }
 
@@ -332,9 +468,11 @@ struct LogbookView: View {
     }
 
     private func performDeferredLogbookCacheBuildIfNeeded() {
-        guard LogbookRootAppearPresentation.shouldBuildCacheOnAppear(
+        guard LogbookRootAppearPresentation.shouldRebuildCacheOnTabSelect(
             isLogbookTabSelected: isLogbookTabSelected,
-            hasPerformedInitialCacheBuild: hasPerformedInitialLogbookCacheBuild
+            hasPerformedInitialCacheBuild: hasPerformedInitialLogbookCacheBuild,
+            hasDisplayRows: !logbookDisplayItems.isEmpty,
+            hasVisibleActivities: !visibleActivities.isEmpty
         ) else {
             return
         }
@@ -387,7 +525,7 @@ struct LogbookView: View {
             upcomingTripBanner: logbookUpcomingTripBanner,
             showsStoredDiveEmptyState: showsStoredDiveEmptyState,
             showsMyActivitiesKindFilterEmptyState: showsMyActivitiesKindFilterEmptyState,
-            bubbleAnimationPaused: false,
+            bubbleAnimationPaused: !isLogbookTabSelected,
             scrollToTopNonce: listScrollToTopNonce,
             onSelectMediaPreview: openActivityMediaPreview,
             onOpenTrip: { pushLogbook(.tripDetail($0)) },
@@ -424,19 +562,9 @@ struct LogbookView: View {
         }
         GoDiveFirebaseBootstrap.configureIfNeeded()
         let snapshot = await GoDiveSharedDiveProjectionSync.fetchBuddyFeedSnapshot()
+        // Push deep-link (or a newer refresh) may have bumped the generation — keep that state.
         guard generation == buddyFeedLoadGeneration else { return }
-        buddyFeedFriends = snapshot.friends
-        buddyFeedAllRows = snapshot.rows
-        buddyFeedDisplayedCount = LogbookBuddyFeedPresentation.initialDisplayedCount(
-            for: snapshot.rows.count
-        )
-        if let owner = accountSession.currentProfile {
-            GoDiveFriendBuddyLinking.syncRosterLinks(
-                friends: snapshot.friends,
-                owner: owner,
-                modelContext: modelContext
-            )
-        }
+        applyBuddyFeedSnapshot(snapshot)
     }
 
     @MainActor
@@ -792,6 +920,14 @@ private struct LogbookListSurface: View, Equatable {
                 .ignoresSafeArea(edges: .top)
                 .allowsHitTesting(false)
                 .zIndex(0.5)
+
+                // Absorbs list / pager pans in the chrome band so Me | Buddies stays tappable.
+                Color.clear
+                    .frame(height: topInset)
+                    .frame(maxWidth: .infinity, alignment: .top)
+                    .contentShape(Rectangle())
+                    .accessibilityHidden(true)
+                    .zIndex(0.75)
 
                 LogbookCollapsibleHeader(
                     feedScope: $feedScopeSelection,

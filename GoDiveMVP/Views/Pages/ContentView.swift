@@ -19,13 +19,17 @@ struct ContentView: View {
     @State private var searchContextTokens: [GlobalSearchPresentation.ContextToken] = []
     @State private var logbookTabSelectionGeneration = 0
     @State private var pendingLogbookRoute: LogbookRoute?
+    @State private var pendingHomeRoute: HomeRoute?
     @State private var showsActivityDeleteSuccessCheckmark = false
     @State private var activityDeleteSuccessHideTask: Task<Void, Never>?
 
     var body: some View {
         TabView(selection: $selectedTab) {
             Tab("Home", systemImage: "house", value: RootTab.home) {
-                LogOverviewView(ownerProfileID: accountSession.currentProfile?.id)
+                LogOverviewView(
+                    ownerProfileID: accountSession.currentProfile?.id,
+                    pendingRoute: $pendingHomeRoute
+                )
                     .id(accountSession.currentProfile?.id)
             }
 
@@ -40,12 +44,18 @@ struct ContentView: View {
             }
 
             Tab("Field Guide", systemImage: "leaf", value: RootTab.fieldGuide) {
-                FieldGuideView(ownerProfileID: accountSession.currentProfile?.id)
+                FieldGuideView(
+                    ownerProfileID: accountSession.currentProfile?.id,
+                    isFieldGuideTabSelected: selectedTab == .fieldGuide
+                )
                     .id(accountSession.currentProfile?.id)
             }
 
             Tab("Explore", systemImage: "map", value: RootTab.explore) {
-                ExploreView(ownerProfileID: accountSession.currentProfile?.id)
+                ExploreView(
+                    ownerProfileID: accountSession.currentProfile?.id,
+                    isExploreTabSelected: selectedTab == .explore
+                )
                     .id(accountSession.currentProfile?.id)
             }
 
@@ -72,6 +82,8 @@ struct ContentView: View {
             startFriendShareSaveObserverIfNeeded()
             openPendingFriendProfileAfterInviteRedeemIfNeeded()
             openPendingBuddySharedActivityFromPushIfNeeded()
+            openPendingEquipmentDetailFromReminderIfNeeded()
+            openPendingTripDetailFromReminderIfNeeded()
         }
         .onChange(of: selectedTab) { _, tab in
             CrashBreadcrumbTrail.noteRootTab(tab)
@@ -86,6 +98,8 @@ struct ContentView: View {
             guard showsMain else { return }
             openPendingFriendProfileAfterInviteRedeemIfNeeded()
             openPendingBuddySharedActivityFromPushIfNeeded()
+            openPendingEquipmentDetailFromReminderIfNeeded()
+            openPendingTripDetailFromReminderIfNeeded()
         }
         .onReceive(NotificationCenter.default.publisher(for: GoDiveFirebaseCloudMessaging.openFriendsListNotification)) { _ in
             selectedTab = .logbook
@@ -97,6 +111,20 @@ struct ContentView: View {
             )
         ) { _ in
             openPendingBuddySharedActivityFromPushIfNeeded()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: EquipmentServiceReminderSchedule.openEquipmentDetailNotification
+            )
+        ) { _ in
+            openPendingEquipmentDetailFromReminderIfNeeded()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: DiveTripReminderSchedule.openTripDetailNotification
+            )
+        ) { _ in
+            openPendingTripDetailFromReminderIfNeeded()
         }
         .onReceive(
             NotificationCenter.default.publisher(
@@ -140,6 +168,21 @@ struct ContentView: View {
             friendUID: target.friendUID,
             diveDocumentID: target.activityID
         )
+    }
+
+    private func openPendingEquipmentDetailFromReminderIfNeeded() {
+        guard accountSession.showsMainAppShell else { return }
+        guard let equipmentID = EquipmentServiceReminderNavigationStore.shared.consumePendingEquipmentID()
+        else { return }
+        selectedTab = .home
+        pendingHomeRoute = .equipmentDetail(equipmentID)
+    }
+
+    private func openPendingTripDetailFromReminderIfNeeded() {
+        guard accountSession.showsMainAppShell else { return }
+        guard let tripID = DiveTripReminderNavigationStore.shared.consumePendingTripID() else { return }
+        selectedTab = .home
+        pendingHomeRoute = .tripDetail(tripID)
     }
 
     private func openPendingFriendProfileAfterInviteRedeemIfNeeded() {

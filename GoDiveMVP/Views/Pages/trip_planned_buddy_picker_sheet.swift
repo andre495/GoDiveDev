@@ -6,7 +6,8 @@ struct TripPlannedBuddyPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
-    @Bindable var trip: DiveTrip
+    private let trip: DiveTrip?
+    private var selectedBuddyIDs: Binding<Set<UUID>>?
 
     @Query private var ownedBuddies: [DiveBuddy]
 
@@ -14,14 +15,29 @@ struct TripPlannedBuddyPickerSheet: View {
     @State private var draftBuddyIDs: Set<UUID> = []
     @State private var draftRosterOverrides: [UUID: DiveBuddy] = [:]
 
+    /// Persist selection onto an existing trip on **Done**.
     init(trip: DiveTrip) {
-        self._trip = Bindable(wrappedValue: trip)
+        self.trip = trip
+        self.selectedBuddyIDs = nil
         let filterOwnerID = trip.ownerProfileID
         _ownedBuddies = Query(
             filter: #Predicate<DiveBuddy> { $0.ownerProfileID == filterOwnerID },
             sort: [SortDescriptor(\DiveBuddy.displayName, order: .forward)]
         )
     }
+
+    /// Draft selection for trip create / edit forms (applied when the parent sheet saves).
+    init(selectedBuddyIDs: Binding<Set<UUID>>, ownerProfileID: UUID?) {
+        self.trip = nil
+        self.selectedBuddyIDs = selectedBuddyIDs
+        let filterOwnerID = ownerProfileID ?? Self.noOwnerQueryToken
+        _ownedBuddies = Query(
+            filter: #Predicate<DiveBuddy> { $0.ownerProfileID == filterOwnerID },
+            sort: [SortDescriptor(\DiveBuddy.displayName, order: .forward)]
+        )
+    }
+
+    private static let noOwnerQueryToken = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
 
     private var rosterByID: [UUID: DiveBuddy] {
         var map = Dictionary(uniqueKeysWithValues: ownedBuddies.map { ($0.id, $0) })
@@ -112,7 +128,11 @@ struct TripPlannedBuddyPickerSheet: View {
     }
 
     private func reloadDraftBuddyIDs() {
-        draftBuddyIDs = DiveTripPlannedBuddyDraftPresentation.plannedBuddyIDs(on: trip)
+        if let trip {
+            draftBuddyIDs = DiveTripPlannedBuddyDraftPresentation.plannedBuddyIDs(on: trip)
+        } else if let selectedBuddyIDs {
+            draftBuddyIDs = selectedBuddyIDs.wrappedValue
+        }
     }
 
     private func toggleBuddy(_ buddy: DiveBuddy) {
@@ -124,13 +144,18 @@ struct TripPlannedBuddyPickerSheet: View {
     }
 
     private func commitDraftBuddies() {
-        DiveTripPlannedBuddyDraftPresentation.apply(
-            draftBuddyIDs: draftBuddyIDs,
-            to: trip,
-            rosterByID: rosterByID,
-            modelContext: modelContext
-        )
-        try? modelContext.save()
+        if let trip {
+            DiveTripPlannedBuddyDraftPresentation.apply(
+                draftBuddyIDs: draftBuddyIDs,
+                to: trip,
+                rosterByID: rosterByID,
+                modelContext: modelContext
+            )
+            try? modelContext.save()
+            return
+        }
+
+        selectedBuddyIDs?.wrappedValue = draftBuddyIDs
     }
 }
 

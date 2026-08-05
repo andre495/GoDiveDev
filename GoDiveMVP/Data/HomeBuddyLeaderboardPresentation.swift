@@ -7,6 +7,7 @@ struct HomeBuddyLeaderboardEntry: Sendable, Equatable, Identifiable {
     let profilePhoto: Data?
     let diveCount: Int
     let rank: Int
+    var showsGoDiveUserPin: Bool = false
 }
 
 /// Aggregates buddy tags across owned dives for the Home **Top buddies** tile.
@@ -19,6 +20,7 @@ enum HomeBuddyLeaderboardPresentation {
         let displayName: String
         let profilePhoto: Data?
         let diveActivityID: UUID
+        var showsGoDiveUserPin: Bool = false
     }
 
     /// Home always reserves the **Top buddies** band so empty and populated roots share the same seam.
@@ -50,6 +52,7 @@ enum HomeBuddyLeaderboardPresentation {
         struct Accumulator {
             var displayName: String
             var profilePhoto: Data?
+            var showsGoDiveUserPin: Bool
             var diveIDs: Set<UUID> = []
         }
 
@@ -58,11 +61,15 @@ enum HomeBuddyLeaderboardPresentation {
             guard tag.buddyID != excludingBuddyID else { continue }
             var bucket = byBuddyID[tag.buddyID] ?? Accumulator(
                 displayName: tag.displayName,
-                profilePhoto: tag.profilePhoto
+                profilePhoto: tag.profilePhoto,
+                showsGoDiveUserPin: tag.showsGoDiveUserPin
             )
             bucket.displayName = tag.displayName
             if tag.profilePhoto != nil {
                 bucket.profilePhoto = tag.profilePhoto
+            }
+            if tag.showsGoDiveUserPin {
+                bucket.showsGoDiveUserPin = true
             }
             bucket.diveIDs.insert(tag.diveActivityID)
             byBuddyID[tag.buddyID] = bucket
@@ -82,7 +89,8 @@ enum HomeBuddyLeaderboardPresentation {
                 displayName: row.bucket.displayName,
                 profilePhoto: row.bucket.profilePhoto,
                 diveCount: row.count,
-                rank: index + 1
+                rank: index + 1,
+                showsGoDiveUserPin: row.bucket.showsGoDiveUserPin
             )
         }
     }
@@ -126,7 +134,8 @@ enum HomeBuddyLeaderboardSeeding {
             buddyID: buddyID,
             displayName: tag.displayName,
             profilePhoto: tag.buddy?.profilePhoto,
-            diveActivityID: diveActivityID
+            diveActivityID: diveActivityID,
+            showsGoDiveUserPin: tag.buddy.map(DiveBuddyFriendLinkPresentation.isLinkedFriend) ?? false
         )
     }
 

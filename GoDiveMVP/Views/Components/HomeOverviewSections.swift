@@ -971,7 +971,11 @@ private struct HomeMediaCarouselTaggedBuddyFanRow: View {
         .opacity(isExpanded ? 1 : 0)
         .allowsHitTesting(isExpanded)
         .animation(expandAnimation.delay(revealDelay), value: isExpanded)
-        .accessibilityLabel(buddy.displayName)
+        .accessibilityLabel(
+            buddy.showsGoDiveUserPin
+                ? "\(buddy.displayName), \(GoDiveUserAvatarPinPresentation.accessibilityLabel)"
+                : buddy.displayName
+        )
         .accessibilityHint(
             DiveBuddySelfRepresentation.isSelfBuddyID(
                 buddy.buddyID,
@@ -1000,6 +1004,7 @@ private struct HomeMediaCarouselTaggedBuddyFanRow: View {
                 .clipShape(Circle())
         }
         .frame(width: avatarDiameter, height: avatarDiameter)
+        .goDiveUserAvatarPin(shows: buddy.showsGoDiveUserPin, avatarDiameter: avatarDiameter)
     }
 }
 
@@ -2211,6 +2216,10 @@ private struct HomeBuddyLeaderboardPodiumSlot: View {
                     iconFont: .caption,
                     placeholderInitials: DiveBuddyPresentation.initials(from: entry.displayName)
                 )
+                .goDiveUserAvatarPin(
+                    shows: entry.showsGoDiveUserPin,
+                    avatarDiameter: HomeBuddyLeaderboardLayout.avatarDiameter
+                )
 
                 Text(DiveBuddyPresentation.firstName(from: entry.displayName))
                     .font(.caption2.weight(.medium))
@@ -2228,11 +2237,18 @@ private struct HomeBuddyLeaderboardPodiumSlot: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            "\(DiveBuddyPresentation.firstName(from: entry.displayName)), rank \(entry.rank), \(HomeBuddyLeaderboardPresentation.diveCountLabel(count: entry.diveCount))"
-        )
+        .accessibilityLabel(leaderboardSlotAccessibilityLabel)
         .accessibilityHint("Opens buddy details")
         .accessibilityIdentifier("Home.BuddyLeaderboard.Slot.\(entry.rank)")
+    }
+
+    private var leaderboardSlotAccessibilityLabel: String {
+        let base =
+            "\(DiveBuddyPresentation.firstName(from: entry.displayName)), rank \(entry.rank), \(HomeBuddyLeaderboardPresentation.diveCountLabel(count: entry.diveCount))"
+        if entry.showsGoDiveUserPin {
+            return "\(base), \(GoDiveUserAvatarPinPresentation.accessibilityLabel)"
+        }
+        return base
     }
 }
 

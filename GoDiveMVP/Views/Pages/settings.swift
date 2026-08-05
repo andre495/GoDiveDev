@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     @Environment(AccountSession.self) private var accountSession
     @AppStorage(AppUserSettings.automaticallyRenumberDivesKey) private var automaticallyRenumberDives = true
     @AppStorage(AppUserSettings.useImperialDisplayUnitsKey) private var useImperialDisplayUnits = true
@@ -14,13 +15,16 @@ struct SettingsView: View {
     @AppStorage(AppUserSettings.shareNotesWithFriendsKey) private var shareNotesWithFriends = false
     @AppStorage(AppUserSettings.shareMediaWithFriendsKey) private var shareMediaWithFriends = false
     @AppStorage(AppUserSettings.shareMediaOnWiFiOnlyKey) private var shareMediaOnWiFiOnly = false
-    @AppStorage(AppUserSettings.downloadFriendMediaOnWiFiOnlyKey) private var downloadFriendMediaOnWiFiOnly = false
+    @AppStorage(AppUserSettings.notifyAllNotificationsKey) private var notifyAllNotifications = true
     @AppStorage(AppUserSettings.notifyBuddyActivitySharesKey) private var notifyBuddyActivityShares = true
+    @AppStorage(AppUserSettings.notifyGearServiceRemindersKey) private var notifyGearServiceReminders = true
+    @AppStorage(AppUserSettings.notifyTripRemindersKey) private var notifyTripReminders = true
 
     @State private var mediaBackfillOverlay: DiveLibraryMediaBackfillOverlayState = .hidden
     @State private var mediaBackfillTask: Task<Void, Never>?
     @State private var showsDeleteAccountConfirmation = false
     @State private var showsDeleteAccountAppleConfirm = false
+    @State private var showsSignOutConfirmation = false
 
     var body: some View {
         AppPage(
@@ -29,7 +33,7 @@ struct SettingsView: View {
             showsBrandWordmark: false,
             scrollContentUnderHeader: true,
             collapsibleInlineTitleHeader: true,
-            showsWaterBubbleBackground: true
+            showsWaterBubbleBackground: false
         ) {
             SettingsPageContent(
                 automaticallyRenumberDives: $automaticallyRenumberDives,
@@ -42,8 +46,10 @@ struct SettingsView: View {
                 shareNotesWithFriends: $shareNotesWithFriends,
                 shareMediaWithFriends: $shareMediaWithFriends,
                 shareMediaOnWiFiOnly: $shareMediaOnWiFiOnly,
-                downloadFriendMediaOnWiFiOnly: $downloadFriendMediaOnWiFiOnly,
+                notifyAllNotifications: $notifyAllNotifications,
                 notifyBuddyActivityShares: $notifyBuddyActivityShares,
+                notifyGearServiceReminders: $notifyGearServiceReminders,
+                notifyTripReminders: $notifyTripReminders,
                 mediaBackfillOverlay: mediaBackfillOverlay,
                 onRenumberWhenEnabled: renumberAllDivesWhenEnabled,
                 onAutoUploadEnabled: startMediaBackfillForExistingDives,
@@ -51,9 +57,11 @@ struct SettingsView: View {
                 onShareSecurityEventsEnabled: uploadSecurityEventBacklog,
                 onFriendShareSettingsChanged: refreshFriendShareProjections,
                 onNotifyBuddyActivitySharesChanged: syncBuddyActivityPushPreference,
+                onNotifyTripRemindersChanged: resyncTripReminders,
                 onDismissMediaBackfill: dismissMediaBackfillOverlay,
                 onCancelMediaBackfill: cancelMediaBackfill,
                 onSyncedSettingsChanged: pushSyncedPreferencesFromDefaults,
+                onSignOut: { showsSignOutConfirmation = true },
                 onDeleteAccount: { showsDeleteAccountConfirmation = true }
             )
         }
@@ -75,6 +83,18 @@ struct SettingsView: View {
         }
         .onChange(of: autoUploadMediaToActivities) { _, _ in
             pushSyncedPreferencesFromDefaults()
+        }
+        .alert(
+            ProfilePresentation.signOutConfirmationTitle,
+            isPresented: $showsSignOutConfirmation
+        ) {
+            Button(ProfilePresentation.signOutCancelButtonTitle, role: .cancel) {}
+            Button(ProfilePresentation.signOutConfirmButtonTitle, role: .destructive) {
+                accountSession.signOut()
+                dismiss()
+            }
+        } message: {
+            Text(ProfilePresentation.signOutConfirmationMessage)
         }
         .alert(
             AccountDeletionPresentation.confirmationTitle,
@@ -125,6 +145,16 @@ struct SettingsView: View {
             if isOn {
                 await GoDiveFirebaseCloudMessaging.registerForFriendInvitePushesIfNeeded()
             }
+        }
+    }
+
+    private func resyncTripReminders() {
+        guard let ownerID = accountSession.currentProfile?.id else { return }
+        Task { @MainActor in
+            await DiveTripReminderScheduler.resyncOwnedTrips(
+                ownerProfileID: ownerID,
+                modelContext: modelContext
+            )
         }
     }
 
@@ -197,8 +227,6 @@ private struct SettingsPageContent: View {
     @Environment(\.appScrollUnderHeaderInsets) private var scrollInsets
     @Environment(\.appCollapsibleInlineTitleHeaderScrollOffset) private var collapsibleScrollOffsetHandler
 
-    @State private var iCloudDiveLogSnapshot: GoDiveCloudKitDiveLogLocalStatus.Snapshot?
-
     @Binding var automaticallyRenumberDives: Bool
     @Binding var useImperialDisplayUnits: Bool
     @Binding var defaultTankSizeRaw: String
@@ -209,8 +237,10 @@ private struct SettingsPageContent: View {
     @Binding var shareNotesWithFriends: Bool
     @Binding var shareMediaWithFriends: Bool
     @Binding var shareMediaOnWiFiOnly: Bool
-    @Binding var downloadFriendMediaOnWiFiOnly: Bool
+    @Binding var notifyAllNotifications: Bool
     @Binding var notifyBuddyActivityShares: Bool
+    @Binding var notifyGearServiceReminders: Bool
+    @Binding var notifyTripReminders: Bool
 
     @State private var saltWaterWeightText = ""
     @State private var freshWaterWeightText = ""
@@ -223,9 +253,11 @@ private struct SettingsPageContent: View {
     let onShareSecurityEventsEnabled: () -> Void
     let onFriendShareSettingsChanged: () -> Void
     let onNotifyBuddyActivitySharesChanged: (Bool) -> Void
+    let onNotifyTripRemindersChanged: () -> Void
     let onDismissMediaBackfill: () -> Void
     let onCancelMediaBackfill: () -> Void
     let onSyncedSettingsChanged: () -> Void
+    let onSignOut: () -> Void
     let onDeleteAccount: () -> Void
 
     private var isDeleteAccountEnabled: Bool {
@@ -242,7 +274,7 @@ private struct SettingsPageContent: View {
 
     var body: some View {
         ZStack {
-            settingsForm
+            settingsChrome
 
             SettingsMediaBackfillOverlayLayer(
                 overlay: mediaBackfillOverlay,
@@ -253,189 +285,15 @@ private struct SettingsPageContent: View {
     }
 
     @ViewBuilder
-    private var settingsForm: some View {
-        let scroll = ScrollView {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-                SettingsToggleRow(
-                    title: SettingsPresentation.ImperialUnits.title,
-                    infoMessage: SettingsPresentation.ImperialUnits.infoMessage,
-                    isOn: $useImperialDisplayUnits
-                )
-
-                if let iCloudDiveLogSnapshot {
-                    SettingsStatusRow(
-                        title: SettingsPresentation.ICloudDiveLog.title,
-                        subtitle: SettingsPresentation.ICloudDiveLog.subtitle(for: iCloudDiveLogSnapshot),
-                        infoMessage: SettingsPresentation.ICloudDiveLog.infoMessage,
-                        detailMessage: SettingsPresentation.ICloudDiveLog.detailMessage(for: iCloudDiveLogSnapshot)
-                    )
-                    .accessibilityIdentifier("Settings.ICloudDiveLog")
-                }
-
-                SettingsPickerRow(
-                    title: SettingsPresentation.DefaultTank.title,
-                    infoMessage: SettingsPresentation.DefaultTank.infoMessage,
-                    selection: defaultTankSelection,
-                    options: DefaultTankSize.allCases.map { (tag: $0, label: $0.settingsPickerTitle) }
-                )
-
-                defaultDiverWeightsSection
-
-                SettingsToggleRow(
-                    title: SettingsPresentation.AutomaticallyRenumberDives.title,
-                    infoMessage: SettingsPresentation.AutomaticallyRenumberDives.infoMessage,
-                    isOn: $automaticallyRenumberDives
-                )
-                .onChange(of: automaticallyRenumberDives) { _, isOn in
-                    guard isOn else { return }
-                    onRenumberWhenEnabled()
-                }
-
-                SettingsToggleRow(
-                    title: SettingsPresentation.AutoUploadMediaToActivities.title,
-                    infoMessage: SettingsPresentation.AutoUploadMediaToActivities.infoMessage,
-                    isOn: $autoUploadMediaToActivities
-                )
-                .onChange(of: autoUploadMediaToActivities) { wasOn, isOn in
-                    guard isOn, !wasOn else { return }
-                    onAutoUploadEnabled()
-                }
-
-                SettingsToggleRow(
-                    title: SettingsPresentation.ShareDives.title,
-                    infoMessage: SettingsPresentation.ShareDives.infoMessage,
-                    isOn: $shareDivesWithFriends
-                )
-                .onChange(of: shareDivesWithFriends) { _, _ in
-                    onFriendShareSettingsChanged()
-                }
-
-                SettingsToggleRow(
-                    title: SettingsPresentation.ShareNotesWithFriends.title,
-                    infoMessage: SettingsPresentation.ShareNotesWithFriends.infoMessage,
-                    isOn: $shareNotesWithFriends
-                )
-                .disabled(!shareDivesWithFriends)
-                .onChange(of: shareNotesWithFriends) { _, _ in
-                    onFriendShareSettingsChanged()
-                }
-
-                SettingsToggleRow(
-                    title: SettingsPresentation.ShareMediaWithFriends.title,
-                    infoMessage: SettingsPresentation.ShareMediaWithFriends.infoMessage,
-                    isOn: $shareMediaWithFriends
-                )
-                .disabled(!shareDivesWithFriends)
-                .onChange(of: shareMediaWithFriends) { _, _ in
-                    onFriendShareSettingsChanged()
-                }
-
-                SettingsToggleRow(
-                    title: SettingsPresentation.ShareMediaOnWiFiOnly.title,
-                    infoMessage: SettingsPresentation.ShareMediaOnWiFiOnly.infoMessage,
-                    isOn: $shareMediaOnWiFiOnly
-                )
-                .disabled(!shareDivesWithFriends || !shareMediaWithFriends)
-                .onChange(of: shareMediaOnWiFiOnly) { _, _ in
-                    onFriendShareSettingsChanged()
-                }
-
-                SettingsToggleRow(
-                    title: SettingsPresentation.DownloadFriendMediaOnWiFiOnly.title,
-                    infoMessage: SettingsPresentation.DownloadFriendMediaOnWiFiOnly.infoMessage,
-                    isOn: $downloadFriendMediaOnWiFiOnly
-                )
-                .disabled(!shareDivesWithFriends)
-
-                SettingsToggleRow(
-                    title: SettingsPresentation.NotifyBuddyActivityShares.title,
-                    infoMessage: SettingsPresentation.NotifyBuddyActivityShares.infoMessage,
-                    isOn: $notifyBuddyActivityShares
-                )
-                .onChange(of: notifyBuddyActivityShares) { _, isOn in
-                    onNotifyBuddyActivitySharesChanged(isOn)
-                }
-
-                SettingsToggleRow(
-                    title: SettingsPresentation.ShareCrashReports.title,
-                    infoMessage: SettingsPresentation.ShareCrashReports.infoMessage,
-                    isOn: $shareCrashReports
-                )
-                .onChange(of: shareCrashReports) { wasOn, isOn in
-                    guard isOn, !wasOn else { return }
-                    onShareCrashReportsEnabled()
-                }
-
-                SettingsNavigationLinkRow(
-                    title: SettingsPresentation.CrashReports.title,
-                    infoMessage: SettingsPresentation.CrashReports.infoMessage
-                ) {
-                    CrashReportsView()
-                }
-
-                SettingsToggleRow(
-                    title: SettingsPresentation.ShareSecurityEvents.title,
-                    infoMessage: SettingsPresentation.ShareSecurityEvents.infoMessage,
-                    isOn: $shareSecurityEvents
-                )
-                .onChange(of: shareSecurityEvents) { wasOn, isOn in
-                    guard isOn, !wasOn else { return }
-                    onShareSecurityEventsEnabled()
-                }
-
-                SettingsNavigationLinkRow(
-                    title: SettingsPresentation.SecurityEvents.title,
-                    infoMessage: SettingsPresentation.SecurityEvents.infoMessage
-                ) {
-                    SecurityEventsView()
-                }
-
-                #if DEBUG
-                SettingsNavigationLinkRow(
-                    title: "Blue sheet identity layout (temp)",
-                    infoMessage: "Drag avatar, name, panel hairline divider, and content top; copy delta values for profile, buddy, and friend pages."
-                ) {
-                    BlueSheetIdentityLayoutTuningView()
-                }
-                #endif
-
-                VStack(spacing: AppTheme.Spacing.sm) {
-                    Button(AccountDeletionPresentation.buttonTitle, role: .destructive) {
-                        guard isDeleteAccountEnabled else { return }
-                        onDeleteAccount()
-                    }
-                    .font(.body.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .disabled(!isDeleteAccountEnabled)
-                    .opacity(isDeleteAccountEnabled ? 1 : 0.45)
-                    .accessibilityIdentifier(AccountDeletionPresentation.accessibilityIdentifier)
-                    .accessibilityHint(
-                        isDeleteAccountEnabled
-                            ? ""
-                            : AccountDeletionPresentation.offlineDisabledMessage
-                    )
-
-                    if !isDeleteAccountEnabled {
-                        Text(AccountDeletionPresentation.offlineDisabledMessage)
-                            .font(.footnote)
-                            .foregroundStyle(AppTheme.Colors.tabUnselected)
-                            .multilineTextAlignment(.center)
-                            .frame(maxWidth: .infinity)
-                    }
-                }
-                .padding(.top, AppTheme.Spacing.lg)
-            }
-            .padding(.horizontal, AppTheme.Spacing.lg)
-            .padding(.top, topInset + AppTheme.Spacing.md)
-            .padding(.bottom, bottomInset + AppTheme.Spacing.lg)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
+    private var settingsChrome: some View {
+        let chrome = VStack(spacing: 0) {
+            settingsScroll
+            settingsVersionFooter
         }
-        .scrollIndicators(.hidden)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .ignoresSafeArea(edges: [.top, .bottom])
         .onAppear {
             reloadDefaultWeightFields()
-            reloadICloudDiveLogSnapshot()
         }
         .onChange(of: useImperialDisplayUnits) { _, _ in
             reloadDefaultWeightFields()
@@ -452,6 +310,29 @@ private struct SettingsPageContent: View {
         }
         .accessibilityIdentifier("Settings.Form")
 
+        chrome
+    }
+
+    @ViewBuilder
+    private var settingsScroll: some View {
+        let scroll = ScrollView {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                preferencesSection
+                settingsSectionDivider
+                activitySharingSection
+                settingsSectionDivider
+                notificationsSection
+                settingsSectionDivider
+                advancedSection
+            }
+            .padding(.horizontal, AppTheme.Spacing.lg)
+            .padding(.top, topInset + AppTheme.Spacing.md)
+            .padding(.bottom, AppTheme.Spacing.lg)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+        .scrollIndicators(.hidden)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
         if let collapsibleScrollOffsetHandler {
             scroll.onScrollGeometryChange(for: CGFloat.self) { geometry in
                 geometry.contentOffset.y + geometry.contentInsets.top
@@ -463,26 +344,271 @@ private struct SettingsPageContent: View {
         }
     }
 
-    private var defaultDiverWeightsSection: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+    private var settingsVersionFooter: some View {
+        VStack(spacing: 2) {
+            Text(SettingsPresentation.VersionFooter.appLine)
+            Text(SettingsPresentation.VersionFooter.companyLine)
+        }
+        .font(.footnote.italic())
+        .foregroundStyle(AppTheme.Colors.tabUnselected)
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, AppTheme.Spacing.lg)
+        .padding(.bottom, bottomInset)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("Settings.VersionFooter")
+    }
+
+    private var settingsSectionDivider: some View {
+        Divider()
+            .padding(.vertical, AppTheme.Spacing.sm)
+    }
+
+    private var preferencesSection: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
             SettingsSectionHeader(
-                title: SettingsPresentation.DefaultDiverWeights.sectionTitle,
-                infoMessage: SettingsPresentation.DefaultDiverWeights.infoMessage
+                title: SettingsPresentation.Preferences.sectionTitle,
+                infoMessage: SettingsPresentation.Preferences.infoMessage
             )
 
-            SettingsWeightFieldRow(
-                title: SettingsPresentation.DefaultDiverWeights.saltWaterTitle,
-                unitLabel: SettingsPresentation.diverWeightUnitLabel(useImperial: useImperialDisplayUnits),
-                text: $saltWaterWeightText,
-                focused: $focusedWeightField,
-                focusCase: .saltWater
+            SettingsToggleRow(
+                title: SettingsPresentation.ImperialUnits.title,
+                infoMessage: SettingsPresentation.ImperialUnits.infoMessage,
+                isOn: $useImperialDisplayUnits
             )
-            .onChange(of: saltWaterWeightText) { _, newValue in
-                persistDefaultWeightText(newValue) { kilograms in
-                    AppUserSettings.setDefaultSaltwaterWeightKilograms(kilograms)
-                }
+
+            SettingsPickerRow(
+                title: SettingsPresentation.DefaultTank.title,
+                infoMessage: SettingsPresentation.DefaultTank.infoMessage,
+                selection: defaultTankSelection,
+                options: DefaultTankSize.allCases.map { (tag: $0, label: $0.settingsPickerTitle) }
+            )
+
+            defaultDiverWeightsSection
+
+            SettingsToggleRow(
+                title: SettingsPresentation.AutomaticallyRenumberDives.title,
+                infoMessage: SettingsPresentation.AutomaticallyRenumberDives.infoMessage,
+                isOn: $automaticallyRenumberDives
+            )
+            .onChange(of: automaticallyRenumberDives) { _, isOn in
+                guard isOn else { return }
+                onRenumberWhenEnabled()
+            }
+
+            SettingsToggleRow(
+                title: SettingsPresentation.AutoUploadMediaToActivities.title,
+                infoMessage: SettingsPresentation.AutoUploadMediaToActivities.infoMessage,
+                isOn: $autoUploadMediaToActivities
+            )
+            .onChange(of: autoUploadMediaToActivities) { wasOn, isOn in
+                guard isOn, !wasOn else { return }
+                onAutoUploadEnabled()
+            }
+        }
+    }
+
+    private var activitySharingSection: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            SettingsSectionHeader(
+                title: SettingsPresentation.ActivitySharing.sectionTitle,
+                infoMessage: SettingsPresentation.ActivitySharing.infoMessage
+            )
+
+            SettingsToggleRow(
+                title: SettingsPresentation.ShareDives.title,
+                infoMessage: SettingsPresentation.ShareDives.infoMessage,
+                isOn: $shareDivesWithFriends
+            )
+            .onChange(of: shareDivesWithFriends) { _, _ in
+                onFriendShareSettingsChanged()
+            }
+
+            SettingsToggleRow(
+                title: SettingsPresentation.ShareNotesWithFriends.title,
+                infoMessage: SettingsPresentation.ShareNotesWithFriends.infoMessage,
+                isOn: $shareNotesWithFriends
+            )
+            .disabled(!shareDivesWithFriends)
+            .onChange(of: shareNotesWithFriends) { _, _ in
+                onFriendShareSettingsChanged()
+            }
+
+            SettingsToggleRow(
+                title: SettingsPresentation.ShareMediaWithFriends.title,
+                infoMessage: SettingsPresentation.ShareMediaWithFriends.infoMessage,
+                isOn: $shareMediaWithFriends
+            )
+            .disabled(!shareDivesWithFriends)
+            .onChange(of: shareMediaWithFriends) { _, _ in
+                onFriendShareSettingsChanged()
+            }
+
+            SettingsToggleRow(
+                title: SettingsPresentation.ShareMediaOnWiFiOnly.title,
+                infoMessage: SettingsPresentation.ShareMediaOnWiFiOnly.infoMessage,
+                isOn: $shareMediaOnWiFiOnly
+            )
+            .disabled(!shareDivesWithFriends || !shareMediaWithFriends)
+            .onChange(of: shareMediaOnWiFiOnly) { _, _ in
+                onFriendShareSettingsChanged()
+            }
+        }
+    }
+
+    private var notificationsSection: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            SettingsSectionHeader(
+                title: SettingsPresentation.Notifications.sectionTitle,
+                infoMessage: SettingsPresentation.Notifications.infoMessage
+            )
+
+            SettingsToggleRow(
+                title: SettingsPresentation.NotifyAllNotifications.title,
+                infoMessage: SettingsPresentation.NotifyAllNotifications.infoMessage,
+                isOn: notifyAllBinding
+            )
+
+            SettingsToggleRow(
+                title: SettingsPresentation.NotifyBuddyActivityShares.title,
+                infoMessage: SettingsPresentation.NotifyBuddyActivityShares.infoMessage,
+                isOn: $notifyBuddyActivityShares
+            )
+            .disabled(!notifyAllNotifications)
+            .onChange(of: notifyBuddyActivityShares) { _, isOn in
+                onNotifyBuddyActivitySharesChanged(isOn && notifyAllNotifications)
+            }
+
+            SettingsToggleRow(
+                title: SettingsPresentation.NotifyGearServiceReminders.title,
+                infoMessage: SettingsPresentation.NotifyGearServiceReminders.infoMessage,
+                isOn: $notifyGearServiceReminders
+            )
+            .disabled(!notifyAllNotifications)
+            .onChange(of: notifyGearServiceReminders) { _, _ in
                 onSyncedSettingsChanged()
             }
+
+            SettingsToggleRow(
+                title: SettingsPresentation.NotifyTripReminders.title,
+                infoMessage: SettingsPresentation.NotifyTripReminders.infoMessage,
+                isOn: $notifyTripReminders
+            )
+            .disabled(!notifyAllNotifications)
+            .onChange(of: notifyTripReminders) { _, _ in
+                onSyncedSettingsChanged()
+                onNotifyTripRemindersChanged()
+            }
+        }
+    }
+
+    private var advancedSection: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            SettingsSectionHeader(
+                title: SettingsPresentation.Advanced.sectionTitle,
+                infoMessage: SettingsPresentation.Advanced.infoMessage
+            )
+
+            SettingsToggleRow(
+                title: SettingsPresentation.ShareCrashReports.title,
+                infoMessage: SettingsPresentation.ShareCrashReports.infoMessage,
+                isOn: $shareCrashReports
+            )
+            .onChange(of: shareCrashReports) { wasOn, isOn in
+                guard isOn, !wasOn else { return }
+                onShareCrashReportsEnabled()
+            }
+
+            SettingsNavigationLinkRow(
+                title: SettingsPresentation.CrashReports.settingsRowTitle,
+                infoMessage: SettingsPresentation.CrashReports.infoMessage
+            ) {
+                CrashReportsView()
+            }
+
+            SettingsToggleRow(
+                title: SettingsPresentation.ShareSecurityEvents.title,
+                infoMessage: SettingsPresentation.ShareSecurityEvents.infoMessage,
+                isOn: $shareSecurityEvents
+            )
+            .onChange(of: shareSecurityEvents) { wasOn, isOn in
+                guard isOn, !wasOn else { return }
+                onShareSecurityEventsEnabled()
+            }
+
+            SettingsNavigationLinkRow(
+                title: SettingsPresentation.SecurityEvents.settingsRowTitle,
+                infoMessage: SettingsPresentation.SecurityEvents.infoMessage
+            ) {
+                SecurityEventsView()
+            }
+
+            settingsSectionDivider
+
+            Button(action: onSignOut) {
+                Text(SettingsPresentation.Advanced.signOutTitle)
+                    .font(.body.weight(.regular))
+                    .foregroundStyle(Color.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, AppTheme.Spacing.sm)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(SettingsPresentation.Advanced.signOutAccessibilityIdentifier)
+
+            VStack(spacing: AppTheme.Spacing.sm) {
+                Button(AccountDeletionPresentation.buttonTitle, role: .destructive) {
+                    guard isDeleteAccountEnabled else { return }
+                    onDeleteAccount()
+                }
+                .font(.body.weight(.regular))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .disabled(!isDeleteAccountEnabled)
+                .opacity(isDeleteAccountEnabled ? 1 : 0.45)
+                .accessibilityIdentifier(AccountDeletionPresentation.accessibilityIdentifier)
+                .accessibilityHint(
+                    isDeleteAccountEnabled
+                        ? ""
+                        : AccountDeletionPresentation.offlineDisabledMessage
+                )
+
+                if !isDeleteAccountEnabled {
+                    Text(AccountDeletionPresentation.offlineDisabledMessage)
+                        .font(.footnote)
+                        .foregroundStyle(AppTheme.Colors.tabUnselected)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+    }
+
+    private var notifyAllBinding: Binding<Bool> {
+        Binding(
+            get: { notifyAllNotifications },
+            set: { isOn in
+                notifyAllNotifications = isOn
+                if isOn,
+                   !notifyBuddyActivityShares,
+                   !notifyGearServiceReminders,
+                   !notifyTripReminders {
+                    notifyBuddyActivityShares = true
+                    notifyGearServiceReminders = true
+                    notifyTripReminders = true
+                }
+                onSyncedSettingsChanged()
+                onNotifyBuddyActivitySharesChanged(isOn && notifyBuddyActivityShares)
+                onNotifyTripRemindersChanged()
+            }
+        )
+    }
+
+    private var defaultDiverWeightsSection: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            SettingsOptionLabelRow(
+                title: SettingsPresentation.DefaultDiverWeights.title,
+                infoMessage: SettingsPresentation.DefaultDiverWeights.infoMessage
+            )
 
             SettingsWeightFieldRow(
                 title: SettingsPresentation.DefaultDiverWeights.freshWaterTitle,
@@ -497,16 +623,21 @@ private struct SettingsPageContent: View {
                 }
                 onSyncedSettingsChanged()
             }
-        }
-    }
 
-    private func reloadICloudDiveLogSnapshot() {
-        let profile = accountSession.currentProfile
-        iCloudDiveLogSnapshot = try? GoDiveCloudKitDiveLogLocalStatus.snapshot(
-            sessionProfileID: profile?.id,
-            appleUserIdentifier: profile?.appleUserIdentifier,
-            modelContext: modelContext
-        )
+            SettingsWeightFieldRow(
+                title: SettingsPresentation.DefaultDiverWeights.saltWaterTitle,
+                unitLabel: SettingsPresentation.diverWeightUnitLabel(useImperial: useImperialDisplayUnits),
+                text: $saltWaterWeightText,
+                focused: $focusedWeightField,
+                focusCase: .saltWater
+            )
+            .onChange(of: saltWaterWeightText) { _, newValue in
+                persistDefaultWeightText(newValue) { kilograms in
+                    AppUserSettings.setDefaultSaltwaterWeightKilograms(kilograms)
+                }
+                onSyncedSettingsChanged()
+            }
+        }
     }
 
     private func reloadDefaultWeightFields() {

@@ -5,9 +5,17 @@ struct DiveActivityBuddyAvatarChip: View {
     let displayName: String
     let profilePhoto: Data?
     var avatarDiameter: CGFloat = 56
+    var showsGoDiveUserPin: Bool = false
 
     private var firstName: String {
         DiveBuddyPresentation.firstName(from: displayName)
+    }
+
+    private var accessibilityLabelText: String {
+        if showsGoDiveUserPin {
+            return "\(displayName), \(GoDiveUserAvatarPinPresentation.accessibilityLabel)"
+        }
+        return displayName
     }
 
     var body: some View {
@@ -18,6 +26,7 @@ struct DiveActivityBuddyAvatarChip: View {
                 iconFont: .title3,
                 placeholderInitials: DiveBuddyPresentation.initials(from: displayName)
             )
+            .goDiveUserAvatarPin(shows: showsGoDiveUserPin, avatarDiameter: avatarDiameter)
             Text(firstName)
                 .font(.caption.weight(.medium))
                 .foregroundStyle(AppTheme.Colors.textPrimary)
@@ -26,6 +35,6 @@ struct DiveActivityBuddyAvatarChip: View {
         }
         .frame(width: max(avatarDiameter, 52))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(displayName)
+        .accessibilityLabel(accessibilityLabelText)
     }
 }

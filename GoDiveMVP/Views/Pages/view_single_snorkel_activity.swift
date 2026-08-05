@@ -57,6 +57,8 @@ struct ViewSingleSnorkelActivity: View {
     @State private var showsMapNotesEditSheet = false
     /// Local-first publish checkpoint banner — pending + friends + global share (detent gated in overlay).
     @State private var showsPublishCheckpointBanner = false
+    @State private var publishCheckpointBannerExitDirection =
+        ActivityPublishCheckpointBannerPresentation.ExitDirection.down
     @State private var hasFriendsInNetwork = false
 
     var body: some View {
@@ -507,7 +509,6 @@ struct ViewSingleSnorkelActivity: View {
                 topSafeInset: layoutContext.topSafeInset
             )
             ActivityPublishCheckpointBanner(
-                activityKind: .snorkel,
                 onShare: {
                     ActivityFriendSharePublishCheckpoint.publish(
                         snorkel: activity,
@@ -519,14 +520,16 @@ struct ViewSingleSnorkelActivity: View {
                     dismissPublishCheckpointBannerIfNeeded()
                 },
                 onConfirmationFinished: {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        showsPublishCheckpointBanner = false
-                    }
+                    hidePublishCheckpointBanner(exitDirection: .up)
                 }
             )
             .padding(.horizontal, AppTheme.Spacing.md)
             .padding(.bottom, panelHeight + ActivityPublishCheckpointBannerPresentation.seamGap)
-            .transition(.opacity.combined(with: .move(edge: .bottom)))
+            .transition(
+                ActivityPublishCheckpointBannerPresentation.transition(
+                    exitDirection: publishCheckpointBannerExitDirection
+                )
+            )
             .zIndex(2)
         }
     }
@@ -880,8 +883,23 @@ struct ViewSingleSnorkelActivity: View {
     private func dismissPublishCheckpointBannerIfNeeded() {
         guard showsPublishCheckpointBanner || activity.friendSharePublishCheckpointPending else { return }
         ActivityFriendSharePublishCheckpoint.dismiss(snorkel: activity, modelContext: modelContext)
-        withAnimation(.easeInOut(duration: 0.2)) {
-            showsPublishCheckpointBanner = false
+        hidePublishCheckpointBanner(exitDirection: .down)
+    }
+
+    private func hidePublishCheckpointBanner(
+        exitDirection: ActivityPublishCheckpointBannerPresentation.ExitDirection
+    ) {
+        // Apply removal transition on the still-mounted banner, then hide on the next
+        // turn so SwiftUI uses the updated exit direction (down for ×, up after Share).
+        publishCheckpointBannerExitDirection = exitDirection
+        let duration = exitDirection == .up
+            ? ActivityPublishCheckpointBannerPresentation.shareExitAnimationDuration
+            : ActivityPublishCheckpointBannerPresentation.dismissAnimationDuration
+        Task { @MainActor in
+            await Task.yield()
+            withAnimation(.easeInOut(duration: duration)) {
+                showsPublishCheckpointBanner = false
+            }
         }
     }
 

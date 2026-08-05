@@ -25,7 +25,7 @@ struct GlobalSearchResultRowContent: Identifiable, Equatable {
         case symbol(String)
         case media(UUID)
         case species(MarineLifeCatalogSnapshot)
-        case avatar(profilePhoto: Data?, initials: String)
+        case avatar(profilePhoto: Data?, initials: String, showsGoDiveUserPin: Bool)
         case photo(data: Data?, placeholder: String)
     }
 }
@@ -176,7 +176,8 @@ enum GlobalSearchResultRowContentBuilder {
                     ),
                     artwork: .avatar(
                         profilePhoto: buddy.profilePhoto,
-                        initials: DiveBuddyPresentation.initials(from: buddy.displayName)
+                        initials: DiveBuddyPresentation.initials(from: buddy.displayName),
+                        showsGoDiveUserPin: DiveBuddyFriendLinkPresentation.isLinkedFriend(buddy)
                     )
                 )
             }

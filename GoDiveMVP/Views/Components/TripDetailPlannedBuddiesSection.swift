@@ -118,11 +118,18 @@ private struct TripDetailPlannedBuddyGridCell: View {
         TripDetailBuddyAvatarGridCell(
             profilePhoto: member.profilePhoto,
             displayName: member.displayName,
-            subtitle: TripDetailPlannedBuddyPresentation.subtitle(for: member)
+            subtitle: TripDetailPlannedBuddyPresentation.subtitle(for: member),
+            showsGoDiveUserPin: member.showsGoDiveUserPin
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            "\(member.displayName), \(TripDetailPlannedBuddyPresentation.subtitle(for: member))"
-        )
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var accessibilityLabel: String {
+        let base = "\(member.displayName), \(TripDetailPlannedBuddyPresentation.subtitle(for: member))"
+        if member.showsGoDiveUserPin {
+            return "\(base), \(GoDiveUserAvatarPinPresentation.accessibilityLabel)"
+        }
+        return base
     }
 }

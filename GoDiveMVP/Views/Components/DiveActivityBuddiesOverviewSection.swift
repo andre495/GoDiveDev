@@ -39,7 +39,8 @@ struct DiveActivityBuddiesOverviewSection: View {
     private func buddyAvatar(for tag: DiveBuddyTag) -> some View {
         let chip = DiveActivityBuddyAvatarChip(
             displayName: tag.displayName,
-            profilePhoto: tag.buddy?.profilePhoto
+            profilePhoto: tag.buddy?.profilePhoto,
+            showsGoDiveUserPin: tag.buddy.map(DiveBuddyFriendLinkPresentation.isLinkedFriend) ?? false
         )
 
         if DiveActivityBuddiesOverviewPresentation.shouldOpenBuddyDetail(

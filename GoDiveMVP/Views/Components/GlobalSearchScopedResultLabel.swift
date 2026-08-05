@@ -31,8 +31,12 @@ struct GlobalSearchResultRowView: View {
             GlobalSearchResultMediaArtwork(photoID: photoID)
         case .species(let snapshot):
             GlobalSearchResultSpeciesArtwork(snapshot: snapshot)
-        case .avatar(let profilePhoto, let initials):
-            GlobalSearchResultAvatarArtwork(profilePhoto: profilePhoto, initials: initials)
+        case .avatar(let profilePhoto, let initials, let showsGoDiveUserPin):
+            GlobalSearchResultAvatarArtwork(
+                profilePhoto: profilePhoto,
+                initials: initials,
+                showsGoDiveUserPin: showsGoDiveUserPin
+            )
         case .photo(let data, let placeholder):
             #if canImport(UIKit)
             GlobalSearchResultPhotoArtwork(photoData: data, placeholderSystemName: placeholder)

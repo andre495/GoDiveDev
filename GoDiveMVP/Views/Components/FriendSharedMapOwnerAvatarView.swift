@@ -5,31 +5,35 @@ struct FriendSharedMapOwnerAvatarView: View {
     let displayName: String
     let photoURL: String?
     let diameter: CGFloat
+    /// Friend-shared owners are always GoDive users.
+    var showsGoDiveUserPin: Bool = true
 
     var body: some View {
-        if let photoURL,
-           let url = GoDiveRemoteURLPolicy.sanitizedFirebaseStorageURL(from: photoURL)
-        {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                default:
-                    initialsPlaceholder
+        Group {
+            if let photoURL,
+               let url = GoDiveRemoteURLPolicy.sanitizedFirebaseStorageURL(from: photoURL)
+            {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    default:
+                        initialsPlaceholder
+                    }
                 }
+                .frame(width: diameter, height: diameter)
+                .clipShape(Circle())
+                .overlay {
+                    ProfileAvatarChrome.accentRingOverlay(diameter: diameter)
+                }
+            } else {
+                initialsPlaceholder
             }
-            .frame(width: diameter, height: diameter)
-            .clipShape(Circle())
-            .overlay {
-                ProfileAvatarChrome.accentRingOverlay(diameter: diameter)
-            }
-            .accessibilityHidden(true)
-        } else {
-            initialsPlaceholder
-                .accessibilityHidden(true)
         }
+        .goDiveUserAvatarPin(shows: showsGoDiveUserPin, avatarDiameter: diameter)
+        .accessibilityHidden(true)
     }
 
     private var initialsPlaceholder: some View {

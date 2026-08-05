@@ -18,7 +18,7 @@ struct DiveActivityNotesEditSheet: View {
     init(activity: DiveActivity) {
         self.activity = activity
         _draftText = State(
-            initialValue: String((activity.notes ?? "").prefix(NotesPresentation.maxCharacterCount))
+            initialValue: DiveNotesValidation.draftNotes(activity.notes ?? "")
         )
     }
 
@@ -48,14 +48,6 @@ struct DiveActivityNotesEditSheet: View {
                             accessibilityIdentifier: "DiveNotesEditSheet.Done"
                         )
                     }
-                    ToolbarItemGroup(placement: .keyboard) {
-                        Spacer()
-                        Button("Done") {
-                            isNotesFieldFocused = false
-                        }
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(AppTheme.Colors.tabSelected)
-                    }
                 }
                 .onAppear {
                     isNotesFieldFocused = true
@@ -69,7 +61,7 @@ struct DiveActivityNotesEditSheet: View {
         Binding(
             get: { draftText },
             set: { newValue in
-                draftText = DiveNotesValidation.cappedNotes(newValue)
+                draftText = DiveNotesValidation.draftNotes(newValue)
             }
         )
     }

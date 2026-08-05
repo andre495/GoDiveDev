@@ -60,20 +60,14 @@ struct ActivityMediaBackgroundView<Media: PhotoLibraryMediaRow>: View {
         DiveActivityMediaPresentation.showsBackgroundPhotos(for: sheetDetent)
     }
 
-    private var overviewLayoutContext: DiveActivityOverviewSheetLayoutContext {
-        DiveActivityOverviewSheetLayoutContext(
+    private var mediaHeroFullBleedProgress: CGFloat {
+        DiveActivityMediaHeroPresentation.resolvedFitFillProgress(
+            sheetHeightFraction: sheetHeightFraction,
             layoutHeight: layoutHeight,
             screenWidth: screenWidth,
+            isLandscape: isLandscape,
             topSafeInset: topSafeAreaInset,
             bottomSafeInset: bottomSafeInset
-        )
-    }
-
-    private var mediaHeroFullBleedProgress: CGFloat {
-        guard !isLandscape, layoutHeight > 0, screenWidth > 0 else { return 1 }
-        return DiveActivityMediaHeroPresentation.fullBleedProgress(
-            sheetHeightFraction: sheetHeightFraction,
-            layoutContext: overviewLayoutContext
         )
     }
 

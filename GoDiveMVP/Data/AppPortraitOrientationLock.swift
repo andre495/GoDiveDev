@@ -14,7 +14,7 @@ enum AppPortraitOrientationLockPolicy: Sendable {
         case .diveDetail, .diveMedia, .buddySharedActivity:
             return true
         case .profile, .tripPlanner, .tripDetail, .tripDetailMedia, .diveSite, .marineLife, .diveBuddy,
-             .lifetimeStatsLeaderboard, .notifications, .friendProfile:
+             .lifetimeStatsLeaderboard, .notifications, .friendProfile, .equipmentDetail:
             return false
         }
     }

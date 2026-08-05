@@ -240,6 +240,7 @@ enum AppSwiftDataDualStoreMigrator {
                 serviceDate: item.serviceDate,
                 nextServiceDate: item.nextServiceDate,
                 serviceRecurrenceDays: item.serviceRecurrenceDays,
+                serviceReminderOffsetsRaw: item.serviceReminderOffsetsRaw,
                 serviceNotes: item.serviceNotes,
                 notes: item.notes,
                 equipmentPhoto: item.equipmentPhoto,

@@ -1,6 +1,7 @@
 import FirebaseFirestore
 import Foundation
 import SwiftData
+import SwiftUI
 import Testing
 #if canImport(UIKit)
 import UIKit
@@ -1610,6 +1611,31 @@ struct GoDiveFriendsTests {
         #expect(BuddiesListPresentation.friendTotalDivesLabel(12) == "12 total dives")
     }
 
+    @Test func buddiesListPresentation_showsGoDiveUserPin_forFriendsOnly() {
+        #expect(BuddiesListPresentation.showsGoDiveUserPin(isFriend: true))
+        #expect(!BuddiesListPresentation.showsGoDiveUserPin(isFriend: false))
+        #expect(BuddiesListPresentation.friendBadgeAccessibilityLabel == "GoDive user")
+        #expect(GoDiveUserAvatarPinPresentation.showsGoDiveUserPin(isFriend: true))
+        #expect(!GoDiveUserAvatarPinPresentation.showsGoDiveUserPin(isFriend: false))
+        #expect(GoDiveUserAvatarPinPresentation.accessibilityLabel == "GoDive user")
+        #expect(GoDiveUserAvatarPinPresentation.assetName == "GoDiveUserAvatarPin")
+        #expect(
+            GoDiveUserAvatarPinPresentation.pinSideLength(forAvatarDiameter: 48)
+                == max(28 as CGFloat, min(56, 48 * 0.76))
+        )
+        #expect(GoDiveUserAvatarPinPresentation.pinSideLength(forAvatarDiameter: 120) == 56)
+        #expect(GoDiveUserAvatarPinPresentation.pinSideLength(forAvatarDiameter: 30) == 28)
+        #expect(
+            BuddiesListPresentation.goDiveUserPinSideLength(forAvatarDiameter: 48)
+                == GoDiveUserAvatarPinPresentation.pinSideLength(forAvatarDiameter: 48)
+        )
+        let pin48 = GoDiveUserAvatarPinPresentation.pinSideLength(forAvatarDiameter: 48)
+        let edge48 = GoDiveUserAvatarPinPresentation.pinEdgeOverlapOffset(forAvatarDiameter: 48)
+        #expect(edge48.width == pin48 * 0.5)
+        #expect(edge48.height == pin48 * 0.5)
+        #expect(UIImage(named: GoDiveUserAvatarPinPresentation.assetName) != nil)
+    }
+
     @Test func firestoreUserProfileMapping_parsesTotalDiveCount() {
         #expect(
             GoDiveFirestoreUserProfileMapping.totalDiveCount(from: ["totalDiveCount": 8]) == 8
@@ -2727,10 +2753,13 @@ struct GoDiveFriendsTests {
         #expect(rows.count == 3)
         #expect(rows[0].displayName == "Alex Kim")
         #expect(rows[0].profilePhoto == Data([0x01, 0x02]))
+        #expect(rows[0].showsGoDiveUserPin)
         #expect(rows[1].displayName == "Sam Rivera")
         #expect(rows[1].profilePhoto == nil)
+        #expect(rows[1].showsGoDiveUserPin)
         #expect(rows[2].displayName == "Jamie")
         #expect(rows[2].profilePhoto == nil)
+        #expect(!rows[2].showsGoDiveUserPin)
     }
 
     @Test func sharedDiveProjection_writesMediaBuddyTagsWhenMediaShared() {
@@ -3278,22 +3307,28 @@ struct GoDiveFriendsTests {
         )
     }
 
-    @Test func activityPublishCheckpointBanner_promptCopyPerActivityKind() {
+    @Test func activityPublishCheckpointBanner_promptCopy() {
         #expect(
-            ActivityPublishCheckpointBannerPresentation.promptTitle(activityKind: .scubaDive)
-                == "This dive is local only"
+            ActivityPublishCheckpointBannerPresentation.promptTitle == "Share with Buddies?"
         )
         #expect(
-            ActivityPublishCheckpointBannerPresentation.promptTitle(activityKind: .snorkel)
-                == "This snorkel is local only"
+            ActivityPublishCheckpointBannerPresentation.promptSubtitlePrefix
+                == "You can change the sharing setting anytime from"
         )
         #expect(
-            ActivityPublishCheckpointBannerPresentation.compactPromptLine(activityKind: .scubaDive)
-                == "This dive is local only — share with buddies when ready."
+            ActivityPublishCheckpointBannerPresentation.menuEllipsisSystemImage == "ellipsis"
         )
         #expect(
-            ActivityPublishCheckpointBannerPresentation.compactPromptLine(activityKind: .snorkel)
-                == "This snorkel is local only — share with buddies when ready."
+            ActivityPublishCheckpointBannerPresentation.verticalPadding == 7
+        )
+    }
+
+    @Test func activityPublishCheckpointBanner_exitDirectionsAreOpposites() {
+        #expect(
+            ActivityPublishCheckpointBannerPresentation.removalEdge(for: .down) == .bottom
+        )
+        #expect(
+            ActivityPublishCheckpointBannerPresentation.removalEdge(for: .up) == .top
         )
     }
 
@@ -3318,6 +3353,42 @@ struct GoDiveFriendsTests {
                 pushSignalAlreadyRecorded: true
             )
         )
+    }
+
+    @Test func sharedDiveRepublish_doesNotWipeWhenSharingOnButFriendsUnavailable() {
+        #expect(
+            GoDiveSharedDiveProjectionSync.republishDecision(
+                shareDivesWithFriendsEnabled: false,
+                canPublishToFriends: false
+            ) == .wipeAllBecauseSharingDisabled
+        )
+        #expect(
+            GoDiveSharedDiveProjectionSync.republishDecision(
+                shareDivesWithFriendsEnabled: true,
+                canPublishToFriends: false
+            ) == .skipLeavingRemoteIntact
+        )
+        #expect(
+            GoDiveSharedDiveProjectionSync.republishDecision(
+                shareDivesWithFriendsEnabled: true,
+                canPublishToFriends: true
+            ) == .publishOwned
+        )
+    }
+
+    @Test func sharedDivePushSignal_hydratesLocalFlagFromExistingRemoteProjections() {
+        let sharedID = UUID()
+        let localOnlyID = UUID()
+        let alreadyFlaggedID = UUID()
+        let needing = GoDiveSharedDiveProjectionSync.activityIDsNeedingPushSignalHydration(
+            remoteProjectionIDs: [sharedID, alreadyFlaggedID],
+            localActivities: [
+                (sharedID, false),
+                (localOnlyID, false),
+                (alreadyFlaggedID, true),
+            ]
+        )
+        #expect(needing == [sharedID])
     }
 
     @Test func friendSharedMedia_allVideoContentPrefetchURLs_filtersVideosOnly() {
@@ -3712,6 +3783,152 @@ struct GoDiveFriendsTests {
         )
     }
 
+    @Test func buddyActivityPush_deepLink_resolvesFeedOrDirectFetch() {
+        let dive = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "shared-dive-1",
+            activityKind: .scubaDive,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            averageDepthMeters: nil,
+            diveNumber: 1,
+            siteName: "Reef",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+        let rows = [
+            LogbookBuddyFeedPushDeepLinkPresentation.row(
+                friendUID: "friend-a",
+                friendDisplayName: "Alex",
+                friendPhotoURL: nil,
+                dive: dive
+            ),
+        ]
+        #expect(
+            LogbookBuddyFeedPushDeepLinkPresentation.resolveAfterFeedLoad(
+                rows: rows,
+                friendUID: "friend-a",
+                diveDocumentID: "shared-dive-1"
+            ) == .readyInFeed
+        )
+        #expect(
+            LogbookBuddyFeedPushDeepLinkPresentation.resolveAfterFeedLoad(
+                rows: rows,
+                friendUID: "friend-a",
+                diveDocumentID: "missing"
+            ) == .fetchDirectProjection
+        )
+        #expect(
+            LogbookBuddyFeedPushDeepLinkPresentation.shouldRetryAfterMiss(
+                attemptIndex: 0,
+                maxAttempts: 5
+            )
+        )
+        #expect(
+            !LogbookBuddyFeedPushDeepLinkPresentation.shouldRetryAfterMiss(
+                attemptIndex: 4,
+                maxAttempts: 5
+            )
+        )
+    }
+
+    @Test func buddyActivityPush_deepLink_insertsRowAndExpandsDisplayedCount() {
+        let older = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "older",
+            activityKind: .scubaDive,
+            startTime: Date(timeIntervalSince1970: 1_700_000_000),
+            durationMinutes: 40,
+            maxDepthMeters: 18,
+            averageDepthMeters: nil,
+            diveNumber: 1,
+            siteName: "A",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+        let newer = GoDiveSharedDiveProjectionMapping.FriendVisibleDive(
+            id: "newer",
+            activityKind: .snorkel,
+            startTime: Date(timeIntervalSince1970: 1_700_100_000),
+            durationMinutes: 30,
+            maxDepthMeters: 5,
+            averageDepthMeters: nil,
+            diveNumber: nil,
+            siteName: "B",
+            locationName: nil,
+            entryLatitude: nil,
+            entryLongitude: nil,
+            notes: nil,
+            activityTagNames: [],
+            sightings: [],
+            taggedBuddies: [],
+            equipmentSummary: [],
+            mediaPreviews: [],
+            profileTrackBase64: nil,
+            gasType: nil,
+            oxygenMix: nil,
+            tankVolumeDescription: nil,
+            waterTempMinCelsius: nil,
+            bottomTimeSeconds: nil
+        )
+        let existing = LogbookBuddyFeedPushDeepLinkPresentation.row(
+            friendUID: "friend-a",
+            friendDisplayName: "Alex",
+            friendPhotoURL: nil,
+            dive: older
+        )
+        let incoming = LogbookBuddyFeedPushDeepLinkPresentation.row(
+            friendUID: "friend-a",
+            friendDisplayName: "Alex",
+            friendPhotoURL: nil,
+            dive: newer
+        )
+        let merged = LogbookBuddyFeedPresentation.inserting(incoming, into: [existing])
+        #expect(merged.count == 2)
+        #expect(merged.first?.dive.id == "newer")
+        #expect(
+            LogbookBuddyFeedPresentation.displayedCountMakingTargetVisible(
+                rows: merged,
+                friendUID: "friend-a",
+                diveDocumentID: "older",
+                currentDisplayedCount: 1
+            ) == 2
+        )
+        #expect(
+            LogbookBuddyFeedPresentation.displayedCountMakingTargetVisible(
+                rows: merged,
+                friendUID: "friend-a",
+                diveDocumentID: "newer",
+                currentDisplayedCount: 1
+            ) == 1
+        )
+    }
+
     @Test @MainActor func buddyActivityPush_navigationStore_consumeClearsPending() {
         let store = GoDiveBuddyActivityPushNavigationStore.shared
         store.clear()
@@ -3933,6 +4150,10 @@ struct GoDiveFriendsTests {
 
         defaults.set(true, forKey: AppUserSettings.notifyBuddyActivitySharesKey)
         #expect(AppUserSettings.notifyBuddyActivityShares(userDefaults: defaults))
+
+        defaults.set(false, forKey: AppUserSettings.notifyAllNotificationsKey)
+        #expect(!AppUserSettings.notifyBuddyActivityShares(userDefaults: defaults))
+        #expect(AppUserSettings.notifyBuddyActivitySharesPreference(userDefaults: defaults))
         defaults.removePersistentDomain(forName: "buddyActivityPushPrefTests")
     }
 

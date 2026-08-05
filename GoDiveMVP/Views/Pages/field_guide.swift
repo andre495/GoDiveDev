@@ -31,9 +31,11 @@ struct FieldGuideView: View {
     @State private var showsAddSpeciesSheet = false
 
     private let ownerProfileID: UUID?
+    private let isFieldGuideTabSelected: Bool
 
-    init(ownerProfileID: UUID?) {
+    init(ownerProfileID: UUID?, isFieldGuideTabSelected: Bool = true) {
         self.ownerProfileID = ownerProfileID
+        self.isFieldGuideTabSelected = isFieldGuideTabSelected
         let filterOwnerID = ownerProfileID ?? Self.noOwnerQueryToken
         _ownerDiveActivities = Query(
             filter: #Predicate<DiveActivity> { $0.ownerProfileID == filterOwnerID },
@@ -301,7 +303,9 @@ struct FieldGuideView: View {
     private func sectionContent(topInset: CGFloat, bottomInset: CGFloat, safeAreaTop: CGFloat) -> some View {
         ZStack(alignment: .top) {
             if !GoDiveUITestConfiguration.isActive {
-                WaterBubbleBackground(animationPaused: isNavigatingCatalog)
+                WaterBubbleBackground(
+                    animationPaused: !isFieldGuideTabSelected || isNavigatingCatalog
+                )
             }
 
             fieldGuideCatalogListContent(

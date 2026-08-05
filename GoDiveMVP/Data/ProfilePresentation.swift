@@ -57,7 +57,7 @@ enum ProfilePresentation: Sendable {
         }
     }
 
-    /// Confirmation alert when the user taps **Sign out** on Profile.
+    /// Confirmation alert when the user taps **Sign Out** in Settings → Advanced.
     nonisolated static let signOutConfirmationTitle = "Sign out?"
     nonisolated static let signOutConfirmationMessage =
         "Are you sure you want to sign out? Your dives stay on this device for this Apple ID."
@@ -73,7 +73,6 @@ enum ProfilePresentation: Sendable {
     nonisolated static let menuCloseAccessibilityLabel = "Close profile menu"
     /// Glyph size so the hamburger reads about as tall as the glass back control.
     nonisolated static let menuIconPointSize: CGFloat = 28
-    nonisolated static let menuEditProfileTitle = "Edit Profile"
     nonisolated static let menuSettingsTitle = "Settings"
     nonisolated static let menuCertificationsTitle = "Certifications"
     nonisolated static let menuEquipmentTitle = "Equipment Locker"
@@ -82,14 +81,17 @@ enum ProfilePresentation: Sendable {
     nonisolated static let menuTripsTitle = "Trips"
     nonisolated static let menuSignOutTitle = "Sign out"
 
+    /// Blue **⋯** beside the display name on Profile (opens Edit Profile).
+    nonisolated static let editProfileAccessibilityLabel = "Edit Profile"
+    nonisolated static let editProfileAccessibilityIdentifier = "Profile.EditButton"
+
     /// Ordered page titles shown in the Profile side menu (tagged media lives on the Profile page).
-    /// **Sign out** is pinned separately at the bottom of the overlay.
+    /// **Edit Profile** is the **⋯** beside the display name. **Sign Out** lives under **Settings → Advanced**.
     nonisolated static let sideMenuItemTitles: [String] = [
         menuTripsTitle,
         menuCertificationsTitle,
         menuEquipmentTitle,
         menuBuddiesTitle,
-        menuEditProfileTitle,
         menuSettingsTitle,
     ]
 }

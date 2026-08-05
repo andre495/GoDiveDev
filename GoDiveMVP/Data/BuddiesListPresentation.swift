@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import SwiftData
 
@@ -9,7 +10,16 @@ enum BuddiesListPresentation: Sendable {
         "Tap + to add a dive buddy, or invite someone with the QR button. Connected GoDive friends appear here too."
     nonisolated static let inviteButtonTitle = "Invite"
     nonisolated static let inviteAccessibilityLabel = "Invite to GoDive"
-    nonisolated static let friendBadgeAccessibilityLabel = "GoDive friend"
+    nonisolated static let friendBadgeAccessibilityLabel = "GoDive user"
+
+    nonisolated static func showsGoDiveUserPin(isFriend: Bool) -> Bool {
+        isFriend
+    }
+
+    /// Pin side length for a buddy / friend avatar — see **`GoDiveUserAvatarPinPresentation`**.
+    nonisolated static func goDiveUserPinSideLength(forAvatarDiameter diameter: CGFloat) -> CGFloat {
+        GoDiveUserAvatarPinPresentation.pinSideLength(forAvatarDiameter: diameter)
+    }
 
     nonisolated static func friendTotalDivesLabel(_ count: Int) -> String {
         switch count {

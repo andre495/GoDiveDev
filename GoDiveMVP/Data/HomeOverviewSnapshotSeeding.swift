@@ -98,7 +98,8 @@ enum HomeOverviewSnapshotSeeding {
                         diveActivityID: tag.diveActivityID ?? activity.id,
                         buddyID: buddyID,
                         displayName: tag.buddy?.displayName ?? "Buddy",
-                        profilePhoto: tag.buddy?.profilePhoto
+                        profilePhoto: tag.buddy?.profilePhoto,
+                        showsGoDiveUserPin: tag.buddy.map(DiveBuddyFriendLinkPresentation.isLinkedFriend) ?? false
                     )
                 )
             }

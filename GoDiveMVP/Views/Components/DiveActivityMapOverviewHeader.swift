@@ -94,7 +94,11 @@ struct DiveActivityMapOverviewHeader: View {
             Spacer(minLength: 0)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(sharedByDisplayName ?? "")
+        .accessibilityLabel(
+            sharedByDisplayName.map {
+                "\($0), \(GoDiveUserAvatarPinPresentation.accessibilityLabel)"
+            } ?? GoDiveUserAvatarPinPresentation.accessibilityLabel
+        )
     }
 
     private var identityTrailingCluster: some View {

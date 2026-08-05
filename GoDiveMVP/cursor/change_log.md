@@ -3505,5 +3505,122 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`DiveActivityOverviewUIStatePresentation`** — discards sessions when dive/snorkel routes leave Logbook / Home / Explore / Search / Field Guide / Profile stacks; nested site/tag pushes keep the activity on the path so tab/scroll restore still works.
 - Tests: **`diveActivityOverviewUIStateStore_discardSession_blocksPersistUntilSessionActive`**, **`snorkelActivityOverviewUIStateStore_discardSession_blocksPersistUntilSessionActive`**, **`diveActivityOverviewUIStatePresentation_discardWhenActivityLeavesLogbookPath`**, **`diveActivityOverviewUIStatePresentation_keepsSnapshotWhenNestedSiteStaysOnPath`**.
 
-## 129 - Next batch
+## 129 - Equipment + trip reminder notifications **(pushed)**
+
+**Summary:** Local owner-only reminders for gear service and upcoming trips, plus a reorganized Settings page (Preferences / Activity Sharing / Notifications / Advanced) with an all-notifications master switch. Reminder taps open the matching gear or trip detail on Home.
+
+- **Settings layout** — Sections: **Preferences** (Units, Default Tank Type, Default Weights fresh/salt, Automatically Renumber Dives, auto-upload), **Activity Sharing** (share activities/notes/media, upload on wifi only), **Notifications** (**All notifications** + Buddy activity / Gear Servicing / Trip Reminders), **Advanced** (crash + diagnostic share/view, red **Sign Out** / **Delete Account**). Footer: *GoDive v0.MVP* / *Primo Software LLC*. Removed download Wi‑Fi-only toggle (downloads always Wi‑Fi or cellular). Removed DEBUG blue-sheet identity layout tuning. Chrome polish: no water bubbles; centered section titles; regular-weight row labels.
+- **Settings → Notifications** — **All notifications** gates buddy / gear / trip effective delivery; per-toggle prefs preserved. Gear servicing default for new gear: 1 week when on, none when off (per-item overrides). Trip reminders: only trip control. Gear/trip/all prefs sync via **`UserPreferences`**.
+- **Sign Out** moved from Profile ☰ menu to **Settings → Advanced**.
+- **Gear — `EquipmentItem.serviceReminderOffsetsRaw`** — comma-separated lead times or **`none`**; cleared when recurring service is off. Legacy **`nil`** = no reminders until configured.
+- **Gear — schedule / UI** — **`EquipmentServiceReminderSchedule`** / **`Scheduler`**; add/edit form toggles; copy *“Your {gear} needs service in 1 week / today”*; tap → **`HomeRoute.equipmentDetail`**.
+- **Trips** — **`DiveTripReminderSchedule`** / **`Scheduler`**: 1 month / 1 week / tomorrow; no day-of. Honors Settings all-notifications + trip toggle. Destination prefers countries, else trip name. Tap → **`HomeRoute.tripDetail`**.
+- **Shared** — **`GoDiveLocalNotificationAuthorization`**; fire at 9:00 local.
+- Tests: gear + trip schedule/copy/nav; global default offsets; Settings notification master gate; download media always allows cellular; Settings presentation section titles.
+- Docs: **`docs/settings.md`**, **`docs/trips-and-buddies.md`**.
+
+- **Buddy share / push — no re-notify after rebuild** — Full republish no longer deletes all **`sharedDives`** when sharing is on but the friends graph is empty/unavailable (early launch / network blip). That wipe→recreate path was re-firing **`buddySharePushSignals`** for history already in Firebase. Republish now hydrates **`friendSharePushSignalRecorded`** from existing remote projection IDs, skips push signals when the projection doc already exists, and does not bump **`updatedAt`** on full republish merges (so Buddy Feed / Home Notifications do not reshuffle as “new”). Wipe remains only when Settings **Share activities** is off (or account delete). Tests: **`sharedDiveRepublish_doesNotWipeWhenSharingOnButFriendsUnavailable`**, **`sharedDivePushSignal_hydratesLocalFlagFromExistingRemoteProjections`**. Docs: **`docs/friends.md`**, **`cursor/buddy_activity_push_notifications.md`**.
+- **Buddy activity push tap → open activity** — Deep link waits until Buddy Feed has the target row (retry + direct projection fetch; invalidates racing auto-refresh) before pushing **`buddySharedDive`**. Payload already carries the single activity or latest-in-batch ID. Tests: **`buddyActivityPush_deepLink_resolvesFeedOrDirectFetch`**, **`buddyActivityPush_deepLink_insertsRowAndExpandsDisplayedCount`**.
+- **Logbook feed scope labels** — Toggle copy is **Me | Buddies** (was My Activities | Buddy Feed). Kind-filter control stays mounted (hidden) on **Buddies** so the toggle does not re-center/shift between scopes. Docs: **`docs/logbook.md`**.
+- **Logbook Me | Buddies chrome** — Equal-width segments (sized to the longer label); toggle centered; kind filter aligned under the **+** import control and vertically centered with the toggle.
+- **Segmented toggle tap reliability** — Sticky multi-tap on **Me | Buddies**, **My Sites | All Sites**, **Map/Media** (and related icon tab bars) came from **`.glassEffect(.regular.interactive())`** on a plain-Button shell (highlight without action) plus List/map pans under Logbook/Explore chrome. Shells now use non-interactive **`.regular`** glass + full-segment **`contentShape`**; Logbook/Explore add an AppPage-style chrome hit shield; Logbook filter uses trailing overlay so it does not cover the toggle. Test: **`shellUsesInteractiveGlass`** false.
+- **Me | Buddies label fit** — Equal segment width adds icon/slack room so **Buddies** is not clipped.
+- **Notes typing (dive + snorkel)** — Live **`TextEditor`** bindings no longer trim on every keystroke (that removed trailing spaces / blocked Return). Draft path keeps spaces and newlines; trim + empty→`nil` only on Done / focus loss. Shared helper: **`DiveNotesValidation.draftNotes`** / **`GoDiveInputSanitization.cappedNotesDraft`**. Tests: **`diveNotesValidation_draftKeepsSpacesAndNewlinesWhileTyping`**, **`diveNotesValidation_persistTrimsEndsButKeepsInternalWhitespace`**.
+
+**Summary:** Media tab **large** sheet chrome — upload upper-right; tag/AI upper-left.
+
+- **`DiveActivityMediaLargeDetentOverviewContent`** — Fishial sparkles + tag **+** move to the leading edge; **`photo.badge.plus`** upload sits trailing (same corner as minimized carousel). Shared **`DiveActivityMediaAddPhotosPickerButton`**.
+- Presentation helpers: **`placesLargeDetentTagActionsLeading`**, **`placesLargeDetentAddMediaControlTrailing`**.
+- Test: **`diveActivityMediaPresentation_largeDetentChrome_placesTagActionsLeadingAndUploadTrailing`**. Docs: **`docs/dive-detail.md`**.
+- **Buddy Feed Media hero detent scaling** — Friend-shared activity Media tab photos/videos now interpolate band-fill ↔ full-bleed with the overview sheet detent (same **`DiveActivityMediaHeroPresentation`** path as owned dive/snorkel Media). Shared **`resolvedFitFillProgress`** gates landscape / missing layout to full bleed. Tests: **`diveActivityMediaHeroPresentation_resolvedFitFillProgress_matchesOwnerAndBuddyHeroGates`**.
+
+**Summary:** Publish-checkpoint banner — taller two-line copy with inline **⋯** hint.
+
+- **`ActivityPublishCheckpointBanner`** — title **Share with Buddies?**; subtitle *You can change the sharing setting anytime from* + inline **ellipsis** (Activity Settings); **Share** stays trailing; ~30% taller chrome (`verticalPadding` 5→7, two-line layout).
+- Exit motion: **×** / Activity Settings dismiss slides **down**; post-**Share** confirmation slides **up** off the map (`ExitDirection` + asymmetric transition).
+- Tests: **`activityPublishCheckpointBanner_promptCopy`**, **`activityPublishCheckpointBanner_exitDirectionsAreOpposites`**. Docs: **`docs/friends.md`**.
+
+- **Notes edit sheets** — Removed the keyboard accessory **Done** on **`DiveActivityNotesEditSheet`** / **`SnorkelActivityNotesEditSheet`**; sheet-top **Done** (save + dismiss) is enough.
+
+**Summary:** Settings **Default Weights** — left-justified option label (not a centered section title).
+
+- **`SettingsOptionLabelRow`** — body-regular, leading title + info (same chrome as toggle/picker rows).
+- **`defaultDiverWeightsSection`** uses that instead of **`SettingsSectionHeader`**; presentation copy key renamed to **`title`**.
+- Version / developer footer sits flush to the bottom safe-area edge (no extra bottom padding).
+- Divider between Advanced options and **Sign Out**.
+
+**Summary:** Profile **Edit Profile** moves from the ☰ menu to a blue **⋯** beside the display name.
+
+- **`BlueSheetPinnedSummary`** supports optional **`titleTrailingAccessory`** (Profile uses accent **ellipsis**).
+- **`ProfileSideMenuOverlay`** no longer lists **Edit Profile**; side-menu titles are Trips / Certifications / Equipment Locker / Buddies / Settings.
+- Tests + user guide (**`docs/getting-started.md`**, **`docs/home.md`**, **`docs/index.md`**) updated.
+
+- **Search — no per-section hit cap** — Removed **`GlobalSearchPresentation.maxHitsPerSection`** (was 500). Scoped browse and typed queries return every matching row for sites, species, dives, and all other sections. Test: **`globalSearchPresentation_returnsAllMatchesBeyondFormerFiveHundredCap`**.
+
+- **Buddies list — GoDive pin** — Linked GoDive friends show the light-blue pin (**`GoDiveLogoPinPresentation.lightBlueImage`**, catalog dark / **pin DARK**) on the **trailing** edge of the tile; avatar checkmark badge removed. Non-friends still show **Invite**. Test: **`buddiesListPresentation_showsGoDiveUserPin_forFriendsOnly`**. Docs: **`docs/friends.md`**, **`docs/trips-and-buddies.md`**.
+
+- **GoDive user pin on avatars** — Moved the light-blue pin from the Buddies-list trailing edge onto the **lower-right of the avatar circle**, and reuse it wherever buddy/friend avatars appear (friend profile, Home tagged/top buddies, activity chips, trips, search, friend-shared owner). Shared **`GoDiveUserAvatarPinPresentation`** (diameter-based size) + **`goDiveUserAvatarPin`** overlay; gate via linked friend / friend edge. Tests: **`buddiesListPresentation_showsGoDiveUserPin_forFriendsOnly`**, **`friendSharedDetail_mapTaggedBuddyDisplayRows_prefersLocalRosterMatch`**. Docs: **`docs/friends.md`**, **`docs/trips-and-buddies.md`**.
+- **Avatar pin asset + size** — Badge uses dedicated **`GoDiveUserAvatarPin`** (**`pin simple DARK.png`** from Desktop **`GoDiveMVP_icon`**); display size ~2× prior (`max(28, min(56, diameter * 0.76))`). Launch / sign-in **`GoDiveLogoPin`** unchanged.
+- **Avatar pin edge overlap** — Pin offsets outward from bottom-trailing by half its side length so it straddles the avatar rim.
+
+- **Snappier main-tab switches** — Stop redundant work on tab re-select: Logbook no longer full-rebuilds/duplicate-scans when the list is warm (`LogbookRootAppearPresentation.shouldRebuildCacheOnTabSelect`; tab-generation only refreshes Buddy Feed); Home skips full aggregate rebuild whenever the dashboard has already built (`HomeReturnNavigationPresentation` warm aggregate — carousel PhotoKit warm only); Explore skips scope-cache rebuild when the sync token is unchanged (`ExploreScopeCacheAppearPresentation`); pause **`WaterBubbleBackground`** on Logbook / Field Guide / Explore when off-tab. Tests: **`logbookRootAppearPresentation_*`**, **`homeReturnNavigationPresentation_*`**, **`exploreScopeCacheAppearPresentation_skipsWarmUnchangedToken`**.
+
+- **Explore map blank** — Removed the tab/mount gate that swapped in a solid `AppTheme.Colors.surface` placeholder. Explore always mounts `ExploreCatalogMapView` in map mode again (same as before the snappier-tab deferral). `isExploreTabSelected` still pauses list bubbles / skips warm scope rebuilds.
+- **`DiveSiteSelectableCountry`** — **`nonisolated struct`** so Equatable works from nonisolated country-picker helpers under default MainActor isolation (clears Swift 6 warnings).
+
+- **Snorkel heart-rate chart** — Peak BPM sits below the icon tab menu (same top headroom as depth **`.edgeToEdge`**). Hold-to-scrub callout labels match depth style: **Time … min** + **Heart Rate … bpm**. Tests: **`snorkelHeartRateProfileChartPresentation_scrubLabels_matchDepthTimeAndBPM`**, **`snorkelHeartRateProfileChartPresentation_plotPoint_keepsPeakBelowTopBuffer`**.
+
+**Summary:** Rebuild **New trip** / **Edit trip** blue sheets — name, countries, native calendar dates, and buddies.
+
+- **`TripAddSheetView`** / **`TripEditSheetView`** — Form layout matching other blue Cancel/Done modals; sections for trip name, countries, Apple **`UICalendarView`** range, and buddies (**Add buddies** → draft **`TripPlannedBuddyPickerSheet`**).
+- **`DiveTripFormValues`** — persists **`countries`** on create/apply (canonical labels); round-trips countries text from existing trips.
+- **`TripPlannedBuddyPickerSheet`** — draft **`Binding<Set<UUID>>`** mode for create/edit before/without mutating trip until parent **Done**.
+- Tests: form countries persist + presentation accessibility IDs. Docs: **`docs/trips-and-buddies.md`**.
+
+**Summary:** Trip countries — pick from ISO flag list (same as map emoji), not free text.
+
+- **`DiveSiteCountryPresentation.selectableCountries`** — English ISO alpha-2 options + flag emoji (includes Caribbean Netherlands); search matches aliases.
+- **`TripCountryPickerSheet`** — searchable blue multi-select (**Cancel** / **Done**); form shows selected flags + **Add countries**.
+- **`DiveTripFormValues.selectedCountries`** — ordered picker selection (comma-text bridge kept for tests).
+- Tests: selectable list + toggle canonical names. Docs: **`docs/trips-and-buddies.md`**.
+
+**Summary:** Trip form calendar — slightly smaller so it is not clipped.
+
+- **`DiveTripDateRangePickerPresentation`** — height **300**, scale **0.90**, wider horizontal insets (**28**).
+- Test: **`diveTripDateRangePickerPresentation_calendarLayout_isCompactForFormSheet`**.
+
+**Summary:** Trip form buddies — blue **+** inline with section title (no full-width Add button).
+
+- **`TripPlannerFormContent`** Buddies header uses **`DiveActivitySectionHeaderActionButton`** (**plus**).
+
+**Summary:** Trip dates — two graphical Start / End pickers; end follows start’s month.
+
+- Replaced single range **`UICalendarView`** with two **`.graphical`** **`DatePicker`**s.
+- **`DiveTripFormValues.setStartDate`** / **`endDateDefaultedToStartMonth`** — after start is set, end keeps its day-of-month in start’s year/month (clamped ≥ start).
+- Removed unused **`TripDateRangeCalendarView`**.
+- Tests: end-month defaulting. Docs: **`docs/trips-and-buddies.md`**.
+
+**Summary:** Trip dates — progressive fields; start calendar on tap, end after start is chosen.
+
+- **`TripPlannerDateFieldRow`** + **`TripSingleDateCalendarView`** — Start field expands calendar; picking a day collapses it and reveals End field/calendar (anchored to start month).
+- **`hasChosenStartDate`** required to save; first start pick sets end = start.
+- Tests + docs updated.
+
+**Summary:** Trip form countries — blue **+** inline with section title (matches buddies).
+
+- **`TripPlannerFormContent`** Countries header uses **`DiveActivitySectionHeaderActionButton`** (**plus**).
+
+**Summary:** Trip progressive calendars — smaller again so they are not oversized/clipped.
+
+- **`DiveTripDateRangePickerPresentation`** — height **280**, scale **0.88**, horizontal inset **28** via **`tripPlannerSingleCalendarChrome()`**.
+- Test: **`diveTripDateRangePickerPresentation_singleCalendarLayout_isCompactForFormSheet`**.
+
+**Summary:** Trip detail blue sheet — divider + content area align with other blue-sheet pages.
+
+- **`TripDetailView`** uses **`pushedDetailWithStandardPanelBodySpacing`** (25 pt pinned→divider clearance) instead of plain **`.pushedDetail`** (0 pt), matching equipment / certs / sites / species / profile / buddy.
+- **`TripDetailPresentation.blueSheetPageConfiguration`** — shared factory for content + missing-trip shells.
+- Test: **`tripDetailPresentation_blueSheetUsesStandardPanelBodySpacing`**.
+
+## 130 - Next batch
+
 

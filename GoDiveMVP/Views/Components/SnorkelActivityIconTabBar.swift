@@ -11,10 +11,12 @@ struct SnorkelActivityIconTabBar: View {
             }
         }
         .padding(DiveActivityTabBarPresentation.shellPadding)
+        // Non-interactive glass: `.interactive()` on a plain-Button shell steals taps.
         .glassEffect(
-            .regular.interactive(),
+            .regular,
             in: .rect(cornerRadius: DiveActivityTabBarPresentation.shellCornerRadius)
         )
+        .contentShape(Rectangle())
         .fixedSize(horizontal: true, vertical: false)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("SnorkelActivity.IconTabs")

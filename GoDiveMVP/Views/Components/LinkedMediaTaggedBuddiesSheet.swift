@@ -46,7 +46,7 @@ struct LinkedMediaTaggedOverviewAddTagsButton: View {
     }
 }
 
-/// Marine-life large-detent trailing actions — Fishial **sparkles** (leading) + **+** in one capsule.
+/// Marine-life large-detent leading actions — Fishial **sparkles** + tag **+** in one capsule.
 struct DiveActivityMediaLargeDetentMarineLifeTrailingActions: View {
     var showsFishialIdentifyAction: Bool
     var onIdentifyFish: (() -> Void)?

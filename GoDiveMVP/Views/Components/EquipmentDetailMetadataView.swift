@@ -57,6 +57,14 @@ struct EquipmentDetailMetadataView: View {
                 label: "Recurrence",
                 value: EquipmentItemPresentation.formattedRecurrence(days: item.serviceRecurrenceDays)
             )
+            if item.nextServiceDate != nil || item.serviceRecurrenceDays != nil {
+                detailRow(
+                    label: "Service reminders",
+                    value: EquipmentItemPresentation.formattedServiceReminders(
+                        raw: item.serviceReminderOffsetsRaw
+                    )
+                )
+            }
             detailRow(label: "Service notes", value: EquipmentItemPresentation.displayString(item.serviceNotes))
         }
     }

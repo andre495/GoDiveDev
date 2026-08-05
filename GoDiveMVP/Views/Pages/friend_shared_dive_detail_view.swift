@@ -1004,6 +1004,27 @@ struct FriendSharedActivityMediaHeroView: View {
         )
     }
 
+    private var mediaHeroFullBleedProgress: CGFloat {
+        DiveActivityMediaHeroPresentation.resolvedFitFillProgress(
+            sheetHeightFraction: sheetHeightFraction,
+            layoutHeight: layoutHeight,
+            screenWidth: screenWidth,
+            isLandscape: isLandscape,
+            topSafeInset: topSafeAreaInset,
+            bottomSafeInset: bottomSafeInset
+        )
+    }
+
+    private func mediaHeroBandRect(viewportSize: CGSize) -> CGRect {
+        DiveActivityMediaHeroPresentation.heroBandRect(
+            viewportSize: viewportSize,
+            layoutHeight: layoutHeight,
+            sheetHeightFraction: sheetHeightFraction,
+            bottomSafeInset: bottomSafeInset,
+            topObstructionHeight: topObstructionHeight
+        )
+    }
+
     private var showsLandscapeGridStyleChrome: Bool {
         DiveActivityMediaPresentation.showsLandscapeGridStyleMediaChrome(
             isLandscape: isLandscape,
@@ -1078,6 +1099,8 @@ struct FriendSharedActivityMediaHeroView: View {
     private var mediaPager: some View {
         GeometryReader { geometry in
             let viewportSize = geometry.size
+            let heroBand = mediaHeroBandRect(viewportSize: viewportSize)
+            let heroProgress = mediaHeroFullBleedProgress
             let showsGridChrome = showsLandscapeGridStyleChrome
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -1098,7 +1121,9 @@ struct FriendSharedActivityMediaHeroView: View {
                                 ) && !showsGridChrome,
                             captureOverlayBottomInset: captureOverlayBottomInset,
                             captureDateLine: FriendSharedActivityDetailPresentation.dateDashTimeLine(for: dive),
-                            enablesHoldToPauseGesture: !showsGridChrome
+                            enablesHoldToPauseGesture: !showsGridChrome,
+                            heroFitFillProgress: heroProgress,
+                            heroBandRect: heroBand
                         )
                         .containerRelativeFrame(.horizontal, count: 1, span: 1, spacing: 0)
                         .frame(height: viewportSize.height)
@@ -1263,20 +1288,44 @@ private struct FriendSharedActivityMediaHeroPageView: View {
     var captureOverlayBottomInset: CGFloat
     var captureDateLine: String
     var enablesHoldToPauseGesture: Bool
+    /// **0** = aspect-fill in **`heroBandRect`** (top + sides to sheet seam); **1** = full viewport fill.
+    var heroFitFillProgress: CGFloat = 1
+    var heroBandRect: CGRect = .zero
 
     @State private var isPausedByUserHold = false
+    @State private var resolvedMediaAspect: CGFloat = 16.0 / 9.0
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            if item.kind == .video {
-                FriendSharedRemoteVideoPlayerView(
-                    item: item,
-                    isPlaybackActive: isVideoPlaybackActive
-                        && !isPausedByUserHold
-                        && !isPausedByUserHoldFromParent
-                )
-            } else {
-                FriendSharedMediaImageView(item: item, fidelity: .progressive)
+            GeometryReader { geometry in
+                heroClippedMediaContainer(
+                    viewport: geometry.size,
+                    mediaAspect: resolvedMediaAspect
+                ) {
+                    Group {
+                        if item.kind == .video {
+                            FriendSharedRemoteVideoPlayerView(
+                                item: item,
+                                isPlaybackActive: isVideoPlaybackActive
+                                    && !isPausedByUserHold
+                                    && !isPausedByUserHoldFromParent,
+                                onDisplayedImageAspectChange: { aspect in
+                                    resolvedMediaAspect = aspect
+                                }
+                            )
+                        } else {
+                            FriendSharedMediaImageView(
+                                item: item,
+                                fidelity: .progressive,
+                                onDisplayedImageAspectChange: { aspect in
+                                    resolvedMediaAspect = aspect
+                                }
+                            )
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped()
+                }
             }
 
             if showsCaptureDateOverlay {
@@ -1288,6 +1337,37 @@ private struct FriendSharedActivityMediaHeroPageView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
         .gesture(holdToPauseGesture, including: enablesHoldToPauseGesture ? .gesture : .subviews)
+    }
+
+    private func heroClippedMediaContainer<Content: View>(
+        viewport: CGSize,
+        mediaAspect: CGFloat,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        // Single layout path — avoid a structural branch at full bleed so remote
+        // `AVPlayer` representables are not dismantled mid-detent drag.
+        let usesFullViewportBand = heroBandRect.height <= 0
+        let size: CGSize = usesFullViewportBand
+            ? viewport
+            : DiveActivityMediaHeroPresentation.interpolatedMediaSize(
+                mediaAspect: mediaAspect,
+                band: heroBandRect,
+                viewport: viewport,
+                progress: heroFitFillProgress
+            )
+        let centerY: CGFloat = usesFullViewportBand
+            ? viewport.height / 2
+            : DiveActivityMediaHeroPresentation.interpolatedMediaCenterY(
+                band: heroBandRect,
+                viewportHeight: viewport.height,
+                mediaAspect: mediaAspect,
+                progress: heroFitFillProgress
+            )
+        return content()
+            .frame(width: size.width, height: size.height)
+            .position(x: viewport.width / 2, y: centerY)
+            .frame(width: viewport.width, height: viewport.height)
+            .clipped()
     }
 
     private var captureDateOverlay: some View {

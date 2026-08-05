@@ -46,6 +46,12 @@ enum EquipmentItemPresentation: Sendable {
         return "Every \(parts.interval) \(unitLabel)"
     }
 
+    static func formattedServiceReminders(raw: String?) -> String {
+        EquipmentServiceReminderSchedule.formattedSummary(
+            EquipmentServiceReminderSchedule.decode(raw)
+        )
+    }
+
     static func yesNo(_ value: Bool) -> String {
         value ? "Yes" : "No"
     }

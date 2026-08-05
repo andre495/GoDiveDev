@@ -13,7 +13,7 @@ struct ActivityPhotosPanelContent<Media: PhotoLibraryMediaRow>: View {
     var onTagMarineLife: (() -> Void)?
     var showsBuddyTagInSheet = false
     var onTagBuddies: (() -> Void)?
-    /// Opens Fishial identify from the **large** marine-life chrome (sparkles leading **+**).
+    /// Opens Fishial identify from the **large** marine-life chrome (sparkles beside tag **+**, upper-leading).
     var onIdentifyFish: (() -> Void)? = nil
     /// Expands the overview sheet to **large** tagged-species detail (medium oval chips).
     var onExpandMarineLifeDetail: (() -> Void)?
@@ -121,7 +121,9 @@ struct ActivityPhotosPanelContent<Media: PhotoLibraryMediaRow>: View {
                     onOpenDive: onOpenDive,
                     selectedTaggedSpeciesUUID: $selectedTaggedSpeciesUUID,
                     overlaysChrome: true,
-                    onCollapseToMedium: onCollapsePanelToMedium
+                    onCollapseToMedium: onCollapsePanelToMedium,
+                    mediaPickerItems: $mediaPickerItems,
+                    isMediaImportInProgress: isImportInProgress
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             } else if usesCarouselPinnedLayout {
@@ -293,7 +295,10 @@ struct ActivityPhotosPanelContent<Media: PhotoLibraryMediaRow>: View {
                 .opacity(isImportInProgress ? 0.45 : 1)
             }
 
-            addMediaButton
+            DiveActivityMediaAddPhotosPickerButton(
+                mediaPickerItems: $mediaPickerItems,
+                isImportInProgress: isImportInProgress
+            )
         }
     }
 
@@ -405,7 +410,8 @@ struct ActivityPhotosPanelContent<Media: PhotoLibraryMediaRow>: View {
                             DiveActivityBuddyAvatarChip(
                                 displayName: buddy.displayName,
                                 profilePhoto: buddy.profilePhoto,
-                                avatarDiameter: DiveMediaBuddyTagPresentation.mediumAvatarDiameter
+                                avatarDiameter: DiveMediaBuddyTagPresentation.mediumAvatarDiameter,
+                                showsGoDiveUserPin: DiveBuddyFriendLinkPresentation.isLinkedFriend(buddy)
                             )
                         }
                         .buttonStyle(.plain)
@@ -415,7 +421,8 @@ struct ActivityPhotosPanelContent<Media: PhotoLibraryMediaRow>: View {
                         DiveActivityBuddyAvatarChip(
                             displayName: buddy.displayName,
                             profilePhoto: buddy.profilePhoto,
-                            avatarDiameter: DiveMediaBuddyTagPresentation.mediumAvatarDiameter
+                            avatarDiameter: DiveMediaBuddyTagPresentation.mediumAvatarDiameter,
+                            showsGoDiveUserPin: DiveBuddyFriendLinkPresentation.isLinkedFriend(buddy)
                         )
                         .accessibilityIdentifier("DiveOverview.MediaBuddyTag.\(buddy.id.uuidString)")
                     }
@@ -449,7 +456,14 @@ struct ActivityPhotosPanelContent<Media: PhotoLibraryMediaRow>: View {
         return DiveActivityMediaPresentation.speciesWasFishialIdentified(species: species, on: selectedMedia)
     }
 
-    private var addMediaButton: some View {
+}
+
+/// Shared Media **+** control — minimized carousel trailing edge and **large** chrome upper-trailing.
+struct DiveActivityMediaAddPhotosPickerButton: View {
+    @Binding var mediaPickerItems: [PhotosPickerItem]
+    var isImportInProgress = false
+
+    var body: some View {
         PhotosPicker(
             selection: $mediaPickerItems,
             maxSelectionCount: 20,

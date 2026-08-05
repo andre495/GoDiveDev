@@ -10,6 +10,10 @@ struct SnorkelHeartRateScrubCallout: Equatable, Sendable {
 
 /// Geometry and scrub labels for **`SnorkelHeartRateProfileChart`** (testable off the main actor).
 enum SnorkelHeartRateProfileChartPresentation: Sendable {
+    /// Empty band above peak BPM so the line stays below the icon tab menu (same total as depth **`.edgeToEdge`**).
+    nonisolated static let heartRateAxisTopBufferFraction: Double =
+        DiveDepthProfileChartPresentation.depthAxisTopBufferFraction(for: .edgeToEdge)
+
     nonisolated static func chartMaxElapsed(samples: [SnorkelHeartRateProfileSample]) -> Double {
         max(samples.map(\.elapsedSeconds).max() ?? 0, 0.001)
     }
@@ -23,19 +27,36 @@ enum SnorkelHeartRateProfileChartPresentation: Sendable {
         return max(dataMax, hint, 120)
     }
 
+    /// **0…1** BPM data fraction → plot **y** fraction from the top, with headroom under the tab chrome.
+    nonisolated static func heartRatePlotFractionFromTop(
+        bpm: Double,
+        maxBPM: Double,
+        topBufferFraction: Double = heartRateAxisTopBufferFraction
+    ) -> Double {
+        let bpmScale = max(maxBPM, 0.001)
+        let dataFraction = min(max(bpm / bpmScale, 0), 1)
+        let buffer = min(max(topBufferFraction, 0), 0.9)
+        // Peak BPM sits at `buffer`; floor (0 bpm) sits at the plot bottom.
+        return buffer + (1 - dataFraction) * (1 - buffer)
+    }
+
     nonisolated static func plotPoint(
         sample: SnorkelHeartRateProfileSample,
         in rect: CGRect,
         maxElapsed: Double,
-        maxBPM: Double
+        maxBPM: Double,
+        topBufferFraction: Double = heartRateAxisTopBufferFraction
     ) -> CGPoint {
         let elapsed = max(maxElapsed, 0.001)
-        let bpmScale = max(maxBPM, 0.001)
         let xFrac = sample.elapsedSeconds / elapsed
-        let yFrac = Double(sample.heartRateBPM) / bpmScale
+        let yFracFromTop = heartRatePlotFractionFromTop(
+            bpm: Double(sample.heartRateBPM),
+            maxBPM: maxBPM,
+            topBufferFraction: topBufferFraction
+        )
         return CGPoint(
             x: rect.minX + CGFloat(xFrac) * rect.width,
-            y: rect.maxY - CGFloat(yFrac) * rect.height
+            y: rect.minY + CGFloat(yFracFromTop) * rect.height
         )
     }
 
@@ -44,7 +65,8 @@ enum SnorkelHeartRateProfileChartPresentation: Sendable {
         samples: [SnorkelHeartRateProfileSample],
         in rect: CGRect,
         maxElapsed: Double,
-        maxBPM: Double
+        maxBPM: Double,
+        topBufferFraction: Double = heartRateAxisTopBufferFraction
     ) -> Path {
         guard samples.count >= 2,
               let first = samples.first,
@@ -58,7 +80,8 @@ enum SnorkelHeartRateProfileChartPresentation: Sendable {
                 sample: sample,
                 in: rect,
                 maxElapsed: maxElapsed,
-                maxBPM: maxBPM
+                maxBPM: maxBPM,
+                topBufferFraction: topBufferFraction
             )
             if index == 0 {
                 path.move(to: point)
@@ -71,13 +94,15 @@ enum SnorkelHeartRateProfileChartPresentation: Sendable {
             sample: last,
             in: rect,
             maxElapsed: maxElapsed,
-            maxBPM: maxBPM
+            maxBPM: maxBPM,
+            topBufferFraction: topBufferFraction
         )
         let firstPoint = plotPoint(
             sample: first,
             in: rect,
             maxElapsed: maxElapsed,
-            maxBPM: maxBPM
+            maxBPM: maxBPM,
+            topBufferFraction: topBufferFraction
         )
         path.addLine(to: CGPoint(x: lastPoint.x, y: rect.maxY))
         path.addLine(to: CGPoint(x: firstPoint.x, y: rect.maxY))
@@ -106,8 +131,9 @@ enum SnorkelHeartRateProfileChartPresentation: Sendable {
         DiveDepthProfileChartAxisPresentation.scrubTimeLabel(elapsedSeconds: elapsedSeconds)
     }
 
+    /// Mirrors depth scrub **`Depth …`** — e.g. **`Heart Rate 128 bpm`**.
     nonisolated static func scrubHeartRateLabel(bpm: Int) -> String {
-        "\(max(bpm, 0)) bpm"
+        "Heart Rate \(max(bpm, 0)) bpm"
     }
 
     /// Keeps the two-line callout inside the chart; prefers sitting above the scrub point.

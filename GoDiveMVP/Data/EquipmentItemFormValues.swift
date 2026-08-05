@@ -20,6 +20,9 @@ struct EquipmentItemFormValues: Equatable, Sendable {
     var recurrenceIntervalCount: Int = 1
     var recurrenceUnit: EquipmentRecurrenceUnit = .years
 
+    /// Empty set = no notifications. New drafts follow Settings → Gear servicing (1 week or off).
+    var serviceReminderOffsets: Set<EquipmentServiceReminderOffset> = []
+
     var serviceNotes: String = ""
 
     var notes: String = ""
@@ -41,7 +44,9 @@ struct EquipmentItemFormValues: Equatable, Sendable {
     }
 
     /// Empty draft for **Add equipment** (custom **`init(from:)`** replaces the memberwise default).
-    init() {}
+    init() {
+        serviceReminderOffsets = EquipmentServiceReminderSchedule.defaultOffsets()
+    }
 
     init(from item: EquipmentItem) {
         manufacturer = item.manufacturer
@@ -83,9 +88,41 @@ struct EquipmentItemFormValues: Equatable, Sendable {
             includesRecurringService = true
         }
 
+        if includesRecurringService {
+            serviceReminderOffsets = EquipmentServiceReminderSchedule.decode(item.serviceReminderOffsetsRaw)
+        } else {
+            serviceReminderOffsets = EquipmentServiceReminderSchedule.defaultOffsets()
+        }
+
         serviceNotes = item.serviceNotes ?? ""
         notes = item.notes ?? ""
         equipmentPhoto = item.equipmentPhoto
+    }
+
+    /// Persisted reminder token when recurring service is on; otherwise **`nil`**.
+    var persistedServiceReminderOffsetsRaw: String? {
+        guard includesRecurringService else { return nil }
+        return EquipmentServiceReminderSchedule.encode(serviceReminderOffsets)
+    }
+
+    mutating func setServiceReminderOffset(_ offset: EquipmentServiceReminderOffset, enabled: Bool) {
+        if enabled {
+            serviceReminderOffsets.insert(offset)
+        } else {
+            serviceReminderOffsets.remove(offset)
+        }
+    }
+
+    mutating func setNoServiceReminders() {
+        serviceReminderOffsets = []
+    }
+
+    /// Used when the user turns **No notifications** off — always offers the 1-week starting point
+    /// (even if the global gear default is off), since they are explicitly enabling reminders on this item.
+    mutating func restoreDefaultServiceRemindersIfEmpty() {
+        if serviceReminderOffsets.isEmpty {
+            serviceReminderOffsets = EquipmentServiceReminderSchedule.enabledDefaultOffsets
+        }
     }
 
     func apply(to item: EquipmentItem) {
@@ -117,6 +154,7 @@ struct EquipmentItemFormValues: Equatable, Sendable {
         item.serviceDate = lastDate
         item.nextServiceDate = nextDate
         item.serviceRecurrenceDays = recurrenceDays
+        item.serviceReminderOffsetsRaw = persistedServiceReminderOffsetsRaw
         item.serviceNotes = service.isEmpty ? nil : service
         item.notes = note.isEmpty ? nil : note
         item.equipmentPhoto = equipmentPhoto
@@ -152,6 +190,7 @@ struct EquipmentItemFormValues: Equatable, Sendable {
             serviceDate: lastDate,
             nextServiceDate: nextDate,
             serviceRecurrenceDays: recurrenceDays,
+            serviceReminderOffsetsRaw: persistedServiceReminderOffsetsRaw,
             serviceNotes: service.isEmpty ? nil : service,
             notes: note.isEmpty ? nil : note,
             equipmentPhoto: equipmentPhoto

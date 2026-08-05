@@ -9,10 +9,15 @@ import FirebaseFirestore
 
 /// One-shot Firestore signal so `notifyBuddyActivityShared` runs after a full projection
 /// upsert — avoids missed pushes when `sharedDives` only receives merge updates.
+///
+/// Already-shared activities are recognized by an existing **`sharedDives`** doc and/or local
+/// **`friendSharePushSignalRecorded`** (hydrated from Firebase on republish when local state was
+/// lost after rebuild). Signal docs themselves are deleted after FCM, so they are not durable.
 enum GoDiveBuddyActivityPushSignalSync: Sendable {
     nonisolated static let signalsSubcollection = "buddySharePushSignals"
 
     /// Whether the upsert path should write a push signal for this activity.
+    /// Never signals when the projection already exists in Firebase (already viewable by buddies).
     nonisolated static func shouldRecordPushSignal(
         projectionAlreadyExisted: Bool,
         pushSignalAlreadyRecorded: Bool

@@ -9,6 +9,7 @@ enum DiveMediaBuddyTagPresentation {
         let buddyID: UUID
         let displayName: String
         let profilePhoto: Data?
+        var showsGoDiveUserPin: Bool = false
     }
 
     nonisolated static func taggedRows(
@@ -22,10 +23,12 @@ enum DiveMediaBuddyTagPresentation {
             .compactMap { tag -> TaggedBuddyRow? in
                 guard let buddyID = tag.buddyID, !seenBuddyIDs.contains(buddyID) else { return nil }
                 seenBuddyIDs.insert(buddyID)
+                let buddy = tag.buddy
                 return TaggedBuddyRow(
                     buddyID: buddyID,
-                    displayName: tag.buddy?.displayName ?? "Buddy",
-                    profilePhoto: tag.buddy?.profilePhoto
+                    displayName: buddy?.displayName ?? "Buddy",
+                    profilePhoto: buddy?.profilePhoto,
+                    showsGoDiveUserPin: buddy.map(DiveBuddyFriendLinkPresentation.isLinkedFriend) ?? false
                 )
             }
             .sorted {

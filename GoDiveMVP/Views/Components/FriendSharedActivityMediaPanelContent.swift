@@ -253,7 +253,8 @@ struct FriendSharedActivityMediaPanelContent: View {
                                 DiveActivityBuddyAvatarChip(
                                     displayName: buddy.displayName,
                                     profilePhoto: buddy.profilePhoto,
-                                    avatarDiameter: DiveMediaBuddyTagPresentation.mediumAvatarDiameter
+                                    avatarDiameter: DiveMediaBuddyTagPresentation.mediumAvatarDiameter,
+                                    showsGoDiveUserPin: DiveBuddyFriendLinkPresentation.isLinkedFriend(buddy)
                                 )
                             }
                             .buttonStyle(.plain)

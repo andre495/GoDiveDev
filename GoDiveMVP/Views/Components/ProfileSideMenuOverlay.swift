@@ -4,13 +4,11 @@ import SwiftUI
 struct ProfileSideMenuOverlay: View {
     let isPresented: Bool
     let onDismiss: () -> Void
-    let onEditProfile: () -> Void
     let onSettings: () -> Void
     let onCertifications: () -> Void
     let onEquipment: () -> Void
     let onBuddies: () -> Void
     let onTrips: () -> Void
-    let onSignOut: () -> Void
 
     var body: some View {
         GeometryReader { geometry in
@@ -82,11 +80,6 @@ struct ProfileSideMenuOverlay: View {
                     action: onBuddies
                 )
                 menuRow(
-                    title: ProfilePresentation.menuEditProfileTitle,
-                    accessibilityIdentifier: "Profile.EditButton",
-                    action: onEditProfile
-                )
-                menuRow(
                     title: ProfilePresentation.menuSettingsTitle,
                     accessibilityIdentifier: "Profile.SettingsButton",
                     action: onSettings
@@ -95,19 +88,6 @@ struct ProfileSideMenuOverlay: View {
             .padding(.horizontal, AppTheme.Spacing.lg)
 
             Spacer(minLength: 0)
-
-            Button(action: onSignOut) {
-                Text(ProfilePresentation.menuSignOutTitle)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(Color.red)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, AppTheme.Spacing.md)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, AppTheme.Spacing.lg)
-            .padding(.bottom, AppTheme.Spacing.lg)
-            .accessibilityIdentifier("Profile.SignOut")
         }
         .accessibilityIdentifier("Profile.SideMenu")
     }

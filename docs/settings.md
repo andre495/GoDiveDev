@@ -4,39 +4,13 @@ Open **Profile → menu (☰) → Settings**.
 
 The **Settings** title uses the same collapsible large-title header as Certifications and Friends — it compacts when you scroll and expands when you return to the top.
 
-Settings use compact rows with an **info** (ⓘ) button on some items for longer explanations in a popup.
+Settings are grouped into **Preferences**, **Activity Sharing**, **Notifications**, and **Advanced**, with compact rows and an **info** (ⓘ) button on some items for longer explanations. The bottom of the screen shows **GoDive v0.MVP** and **Primo Software LLC**.
 
-When you’re signed into **iCloud**, most Settings (units, default tank, renumber, auto-upload media, default diver weights, and bulk UDDF “create dive sites”) sync across **your** Apple devices with your dive log. **Share crash reports**, **Share diagnostic events**, and friend-share toggles stay on this device only.
+When you’re signed into **iCloud**, most Preferences and notification choices (units, default tank, renumber, auto-upload media, default weights, bulk UDDF “create dive sites”, and the all-notifications / gear / trip toggles) sync across **your** Apple devices with your dive log. **Share crash reports**, **Share diagnostic events**, and friend-share toggles stay on this device only.
 
-### iCloud dive log (status)
+## Preferences
 
-Near the top of Settings, **iCloud dive log** shows whether private iCloud mirroring is **on** for this install and how many dives/snorkels are attached to **your profile** (what the logbook shows) versus stored on the device overall. When you **sign in with Apple**, GoDive automatically loads your **Firebase** social profile (name, friends, avatar when available) and reconnects to your **iCloud dive log** when the on-device log is empty but iCloud still has data — you should see the launch overlay while that runs. After reinstalling, leave the app open on Wi‑Fi for a few minutes if the logbook is still catching up.
-
-## Buddy sharing
-
-These apply when you use **Profile → Buddies** (QR / invite link):
-
-### Share activities with buddies
-
-When **on** (default): buddies can see your dive and snorkel details (site, depth or distance, duration, conditions, and more). GoDive keeps a buddy-visible copy in Firebase for them to read. Your private log on device / iCloud stays the source of truth.
-
-New activities always start **local only** — when you have buddies, a **Share** banner on the activity map prompts you to publish (or open ⋯ → **Activity Settings**). See [Friends](friends.md#publishing-a-new-activity).
-
-### Share notes with buddies
-
-When **on**, activity notes are included for buddies. **Off** by default.
-
-### Share media with buddies
-
-When **on**, buddies see thumbnails right away and full-quality photos (up to 20 per activity) and 1080p video clips (up to 10, 30 seconds each) when they open an activity. Full originals stay in your Photos library. **Off** by default.
-
-### Buddy activity notifications
-
-When **on** (default), you get a push notification when someone in your friend network shares new activities — one notification per batch when several are shared together. Tap it to open the activity in **Buddy Feed**. Requires iOS notification permission; see [Friends](friends.md#when-a-buddy-shares-new-activities) for details. This choice follows your account, so it applies on all your devices.
-
-## Display units
-
-### Imperial units
+### Units
 
 When **on** (default for new installs):
 
@@ -49,7 +23,7 @@ When **off**, GoDive shows **metric** (meters, Celsius).
 !!! note
     Stored dive data stays in canonical metric units internally. Toggling units only changes **display** — nothing is converted in your saved log.
 
-## Default tank
+### Default Tank Type
 
 Choose the cylinder GoDive assumes for **gas calculations** when an import doesn’t specify size:
 
@@ -62,7 +36,11 @@ Choose the cylinder GoDive assumes for **gas calculations** when an import doesn
 
 Affects **SAC**, **RMV**, and tank summaries on new imports and manual dives without their own volume data.
 
-## Automatically renumber dives
+### Default Weights
+
+Optional defaults for **fresh water** and **salt water** that pre-fill the Weights section on newly imported dives. Clear a field to stop auto-filling that water type. You can still change weight on each dive.
+
+### Automatically Renumber Dives
 
 When **on** (default):
 
@@ -74,7 +52,7 @@ When **off**, existing numbers are kept except new imports still chain from the 
 
 Turning this **on** once renumbers the entire logbook immediately.
 
-## Auto-upload media to activities
+### Auto-upload media to activities
 
 When **on** (default):
 
@@ -83,18 +61,51 @@ When **on** (default):
 
 Requires **Photos** permission. GoDive stores **references** to library assets (identifiers), not full copies of your files.
 
-### How matching works
-
-- Uses the photo or video **creation date** from Photos.  
-- Applies dive timezone from site, GPS, or import metadata.  
-- Includes a few minutes padding before and after the logged dive.  
-- Action-camera videos with odd timezone metadata get extra tolerance.
-
 When **off**, imports skip library scan unless you enable attach on the import options screen for that one import.
 
-## Crash reporting
+## Activity Sharing
 
-If GoDive crashes or quits unexpectedly, a report is saved in the app's on-device database.
+These apply when you use **Profile → Buddies** (QR / invite link):
+
+### Share activities with buddies
+
+When **on** (default): buddies can see your dive and snorkel details (site, depth or distance, duration, conditions, and more). GoDive keeps a buddy-visible copy in Firebase for them to read. Your private log on device / iCloud stays the source of truth.
+
+New activities always start **local only** — when you have buddies, a **Share with Buddies?** banner on the activity map prompts you to publish (or open ⋯ → **Activity Settings**). See [Friends](friends.md#publishing-a-new-activity).
+
+### Share Private notes with buddies
+
+When **on**, activity notes are included for buddies. **Off** by default.
+
+### Share Media with buddies
+
+When **on**, buddies see thumbnails right away and full-quality photos (up to 20 per activity) and 1080p video clips (up to 10, 30 seconds each) when they open an activity. Full originals stay in your Photos library. **Off** by default.
+
+Buddy media **downloads** always use Wi‑Fi or cellular (there is no download Wi‑Fi-only setting).
+
+### Upload media on wifi only
+
+When **on**, full-quality shared photos and videos **upload** only on Wi‑Fi. Thumbnails may still upload on cellular so buddies see activity media quickly.
+
+## Notifications
+
+### All notifications
+
+Master switch for buddy activity pushes, gear servicing defaults, and trip reminders. When **off**, those alerts stop; individual toggles keep their settings and apply again when this is turned back on.
+
+### Buddy activity
+
+When **on** (default), you get a push notification when someone in your friend network shares new activities — one notification per batch when several are shared together. Tap it to open the activity in **Buddy Feed**. Requires iOS notification permission; see [Friends](friends.md#when-a-buddy-shares-new-activities) for details. This choice follows your account, so it applies on all your devices.
+
+### Gear Servicing
+
+When **on** (default), new gear with recurring service starts with a **1 week prior** reminder. When **off**, new gear defaults to **no reminders**. You can still change reminders on each gear item in the add/edit sheet — those per-item choices override this default.
+
+### Trip Reminders
+
+When **on** (default), GoDive reminds you about upcoming trips **1 month** before, **1 week** before, and the **day before**. Turn **off** to stop all trip reminders. This is the only trip notification control (there are no per-trip settings).
+
+## Advanced
 
 ### Share crash reports
 
@@ -104,9 +115,9 @@ When **on**, saved reports upload automatically to the GoDive developer so probl
 - Turning the toggle on also sends any reports saved while it was off.
 - When **off** (the default), reports stay on your device.
 
-### Crash Reports page
+### View crash reports
 
-Open **Settings → Crash Reports** to review what was captured:
+Open **Settings → Advanced → View crash reports** to review what was captured:
 
 - Reports list newest first, each showing whether it was **sent to the developer**.
 - Tap a report for full detail, or use **Share** to send it manually (works regardless of the toggle).
@@ -117,10 +128,6 @@ Reports include technical diagnostics plus a short **breadcrumb trail** of recen
 !!! note
     System crash diagnostics (full call stacks) can take until the **next app launch** to appear. An **Abnormal exit** entry may show first with breadcrumbs; a fuller **Crash** entry can follow later.
 
-## Diagnostic events
-
-GoDive keeps a short on-device journal of security-related events (sign-in, sign-out, rejected imports, catalog refresh issues). The journal syncs with your dive account across your Apple devices.
-
 ### Share diagnostic events
 
 When **on**, scrubbed events upload automatically to the GoDive developer. Events contain **short technical tokens only** — never your dive log, photos, or personal data.
@@ -129,13 +136,29 @@ When **on**, scrubbed events upload automatically to the GoDive developer. Event
 - Turning the toggle on also sends any events saved while it was off.
 - When **off** (the default), the journal stays on your devices.
 
-### Diagnostic Events page
+### View diagnostic events
 
-Open **Settings → Diagnostic Events** to review what was recorded:
+Open **Settings → Advanced → View diagnostic events** to review what was recorded:
 
 - Events list newest first, each showing whether it was **sent to the developer**.
 - Tap an event for full detail, or use **Share** to send it manually (works regardless of the toggle).
 - **Clear All** deletes every stored event for your account on this device (asks to confirm).
+
+### Sign Out
+
+**Sign Out** is under **Settings → Advanced** (red). Tapping it asks **Are you sure?** before clearing the session. Your dives for that Apple ID remain on the device until you delete the app or its data.
+
+### Delete Account
+
+**Delete Account** is under **Settings → Advanced** (red). It stays grayed out when the device is offline — deletion needs a network connection for Apple and account cleanup.
+
+Flow when online:
+
+1. **Are you sure?** confirmation.  
+2. **Sign in with Apple** once more to authorize permanent deletion.  
+3. GoDive removes your **social profile** (Firebase), **revokes** Sign in with Apple for this app, **deletes** your on-device dive log and related data (and syncs those deletes to your private iCloud dive store when CloudKit is enabled), then **signs you out**.
+
+This cannot be undone. Catalog species/sites that come with the app are not removed.
 
 ## Related settings elsewhere
 
@@ -147,19 +170,3 @@ These aren’t on the Settings page but interact with it:
 | **Hide dive number** | Dive detail edit | Shows **-** in Logbook |
 | **Auto-add equipment** | Equipment locker item | Links gear on import |
 | **Create dive sites** | Import options sheet | Per-import site creation |
-
-## Sign out
-
-**Sign out** lives in the **Profile → menu (☰)** panel (pinned at the bottom), not on Settings or the main Profile page. Tapping it asks **Are you sure?** before clearing the session. Your dives for that Apple ID remain on the device until you delete the app or its data.
-
-## Delete account
-
-**Delete account** is at the bottom of **Settings** (red). It stays grayed out when the device is offline — deletion needs a network connection for Apple and account cleanup.
-
-Flow when online:
-
-1. **Are you sure?** confirmation.  
-2. **Sign in with Apple** once more to authorize permanent deletion.  
-3. GoDive removes your **social profile** (Firebase), **revokes** Sign in with Apple for this app, **deletes** your on-device dive log and related data (and syncs those deletes to your private iCloud dive store when CloudKit is enabled), then **signs you out**.
-
-This cannot be undone. Catalog species/sites that come with the app are not removed.

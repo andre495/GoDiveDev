@@ -290,6 +290,7 @@ enum FriendSharedActivityDetailPresentation: Sendable {
         var id: String
         var displayName: String
         var profilePhoto: Data?
+        var showsGoDiveUserPin: Bool
     }
 
     /// Maps shared **`taggedBuddies`** to display rows, substituting local name/photo when
@@ -311,11 +312,13 @@ enum FriendSharedActivityDetailPresentation: Sendable {
         return dive.taggedBuddies.map { tagged in
             let sharedName = tagged.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
             let uid = tagged.firebaseUID?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let isGoDiveUser = uid.map { !$0.isEmpty } ?? false
             if let uid, !uid.isEmpty, let localBuddy = rosterByLinkedUID[uid] {
                 return TaggedBuddyDisplayRow(
                     id: uid,
                     displayName: localBuddy.displayName,
-                    profilePhoto: localBuddy.profilePhoto
+                    profilePhoto: localBuddy.profilePhoto,
+                    showsGoDiveUserPin: true
                 )
             }
             let rowID: String
@@ -327,7 +330,8 @@ enum FriendSharedActivityDetailPresentation: Sendable {
             return TaggedBuddyDisplayRow(
                 id: rowID,
                 displayName: sharedName,
-                profilePhoto: nil
+                profilePhoto: nil,
+                showsGoDiveUserPin: isGoDiveUser
             )
         }
     }

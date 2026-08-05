@@ -31,11 +31,14 @@ struct ExploreView: View {
     @State private var scopeCacheRebuildTask: Task<Void, Never>?
     @State private var listRowsRefreshTask: Task<Void, Never>?
     @State private var showsAddDiveSiteSheet = false
+    @State private var appliedScopeCacheSyncToken: String?
 
     private let ownerProfileID: UUID?
+    private let isExploreTabSelected: Bool
 
-    init(ownerProfileID: UUID?) {
+    init(ownerProfileID: UUID?, isExploreTabSelected: Bool = true) {
         self.ownerProfileID = ownerProfileID
+        self.isExploreTabSelected = isExploreTabSelected
         let filterOwnerID = ownerProfileID ?? Self.noOwnerQueryToken
         _ownerDiveActivities = Query(
             filter: #Predicate<DiveActivity> { $0.ownerProfileID == filterOwnerID },
@@ -165,7 +168,7 @@ struct ExploreView: View {
         }
         .onAppear {
             applyDefaultSiteScopeIfNeeded()
-            scheduleScopeCacheRebuild()
+            rebuildScopeCacheOnAppearIfNeeded()
             Task { await loadDiveSiteCatalogIfNeeded() }
         }
         .task(id: ownerProfileID) {
@@ -194,12 +197,14 @@ struct ExploreView: View {
 
             ZStack(alignment: .top) {
                 if viewMode == .list, !GoDiveUITestConfiguration.isActive {
-                    WaterBubbleBackground()
+                    WaterBubbleBackground(animationPaused: !isExploreTabSelected)
                 }
 
                 Group {
                     switch viewMode {
                     case .map:
+                        // Always mount in map mode (same as pre-deferral). Tab-selected gates /
+                        // `@State` latches left a solid surface placeholder on device.
                         ExploreCatalogMapView(
                             sites: mapPlottableSites,
                             sitesChangeSignature: mapPlottableSignature,
@@ -230,6 +235,14 @@ struct ExploreView: View {
                         .allowsHitTesting(false)
                         .zIndex(0.5)
                 }
+
+                // Absorbs map / list pans in the chrome band so My Sites | All Sites stays tappable.
+                Color.clear
+                    .frame(height: topInset)
+                    .frame(maxWidth: .infinity, alignment: .top)
+                    .contentShape(Rectangle())
+                    .accessibilityHidden(true)
+                    .zIndex(0.75)
 
                 ExploreTopChrome(
                     viewMode: $viewMode,
@@ -394,11 +407,24 @@ struct ExploreView: View {
         siteScope = ExploreSiteScopePresentation.defaultScope(hasLoggedActivities: hasLoggedActivities)
     }
 
+    private func rebuildScopeCacheOnAppearIfNeeded() {
+        let token = scopeCacheSyncToken
+        guard ExploreScopeCacheAppearPresentation.shouldRebuildScopeCacheOnAppear(
+            isCacheEmpty: scopeCache == .empty,
+            appliedSyncToken: appliedScopeCacheSyncToken,
+            currentSyncToken: token
+        ) else {
+            return
+        }
+        scheduleScopeCacheRebuild()
+    }
+
     private func scheduleScopeCacheRebuild() {
         let profileID = accountSession.currentProfile?.id
         let catalog = diveSites
         let userSites = userDiveSites
         let activities = ownerDiveActivitiesForScope
+        let syncToken = scopeCacheSyncToken
         scopeCacheRebuildTask?.cancel()
 
         if scopeCache == .empty {
@@ -408,6 +434,7 @@ struct ExploreView: View {
                 userSites: userSites,
                 ownerActivities: activities
             )
+            appliedScopeCacheSyncToken = syncToken
             if let profileID {
                 OwnerDiveIndexSessionCache.publish(
                     activities: activities,
@@ -427,6 +454,7 @@ struct ExploreView: View {
             )
             guard !Task.isCancelled else { return }
             scopeCache = snapshot
+            appliedScopeCacheSyncToken = syncToken
             if let profileID {
                 OwnerDiveIndexSessionCache.publish(
                     activities: activities,

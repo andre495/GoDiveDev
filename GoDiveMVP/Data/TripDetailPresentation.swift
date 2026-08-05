@@ -4,6 +4,18 @@ import Foundation
 /// Trip detail hero chrome — media/map header and featured trip media.
 enum TripDetailPresentation: Sendable {
 
+    /// Upcoming / active / past trip detail — same pinned-summary → divider → pager clearance as
+    /// equipment, certs, sites, and species (`pushedDetailWithStandardPanelBodySpacing`).
+    nonisolated static func blueSheetPageConfiguration(
+        accessibilityRootIdentifier: String,
+        showsHero: Bool = true
+    ) -> BlueSheetDetailPageConfiguration {
+        .pushedDetailWithStandardPanelBodySpacing(
+            accessibilityRootIdentifier: accessibilityRootIdentifier,
+            showsHero: showsHero
+        )
+    }
+
     nonisolated static let heroModeToggleBottomPadding: CGFloat =
         DiveBuddyDetailPresentation.heroModeToggleBottomPadding
 

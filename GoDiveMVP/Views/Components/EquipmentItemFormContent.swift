@@ -162,12 +162,59 @@ struct EquipmentItemFormContent: View {
                         .foregroundStyle(AppTheme.Colors.secondaryText)
                         .modifier(EquipmentItemFormListRowBackground(clears: clearsListRowBackgrounds))
                 }
+
+                serviceRemindersBlock
             }
 
             TextField("Service notes", text: $form.serviceNotes, axis: .vertical)
                 .lineLimit(3...6)
                 .modifier(EquipmentItemFormListRowBackground(clears: clearsListRowBackgrounds))
         }
+    }
+
+    @ViewBuilder
+    private var serviceRemindersBlock: some View {
+        Text("Service reminders")
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(AppTheme.Colors.secondaryText)
+            .accessibilityIdentifier("EquipmentForm.ServiceRemindersHeader")
+            .modifier(EquipmentItemFormListRowBackground(clears: clearsListRowBackgrounds))
+
+        ForEach(EquipmentServiceReminderOffset.allCases) { offset in
+            Toggle(offset.displayName, isOn: serviceReminderOffsetBinding(offset))
+                .accessibilityIdentifier("EquipmentForm.ServiceReminder.\(offset.rawValue)")
+                .modifier(EquipmentItemFormListRowBackground(clears: clearsListRowBackgrounds))
+        }
+
+        Toggle("No notifications", isOn: noServiceRemindersBinding)
+            .accessibilityIdentifier("EquipmentForm.ServiceReminder.none")
+            .modifier(EquipmentItemFormListRowBackground(clears: clearsListRowBackgrounds))
+    }
+
+    private func serviceReminderOffsetBinding(_ offset: EquipmentServiceReminderOffset) -> Binding<Bool> {
+        Binding(
+            get: { form.serviceReminderOffsets.contains(offset) },
+            set: { enabled in
+                var next = form
+                next.setServiceReminderOffset(offset, enabled: enabled)
+                form = next
+            }
+        )
+    }
+
+    private var noServiceRemindersBinding: Binding<Bool> {
+        Binding(
+            get: { form.serviceReminderOffsets.isEmpty },
+            set: { enabled in
+                var next = form
+                if enabled {
+                    next.setNoServiceReminders()
+                } else {
+                    next.restoreDefaultServiceRemindersIfEmpty()
+                }
+                form = next
+            }
+        )
     }
 
     private var recurrenceIntervalRow: some View {

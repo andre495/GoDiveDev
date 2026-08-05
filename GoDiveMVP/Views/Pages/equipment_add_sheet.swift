@@ -70,6 +70,10 @@ struct EquipmentAddSheetView: View {
 
         do {
             try modelContext.save()
+            let savedItem = item
+            Task { @MainActor in
+                await EquipmentServiceReminderScheduler.reschedule(for: savedItem)
+            }
             onSaved()
             dismiss()
         } catch {

@@ -11,10 +11,12 @@ struct DiveActivityMediaLargeDetentModeToggle: View {
             }
         }
         .padding(PushedDetailHeroModeTogglePresentation.shellPadding)
+        // Non-interactive glass: `.interactive()` on a plain-Button shell steals taps.
         .glassEffect(
-            .regular.interactive(),
+            .regular,
             in: .rect(cornerRadius: PushedDetailHeroModeTogglePresentation.shellCornerRadius)
         )
+        .contentShape(Rectangle())
         .fixedSize(horizontal: true, vertical: false)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("DiveOverview.MediaLargeModeToggle")

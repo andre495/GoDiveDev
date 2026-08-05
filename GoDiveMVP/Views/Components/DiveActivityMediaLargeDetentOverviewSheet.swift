@@ -1,6 +1,7 @@
+import PhotosUI
 import SwiftUI
 
-/// Shared dive Media **large** detent overview — fish/buddy toggle, **+**, species detail / buddy grid.
+/// Shared dive Media **large** detent overview — fish/buddy toggle, leading tag/AI, trailing upload, species detail / buddy grid.
 struct DiveActivityMediaLargeDetentOverviewContent: View {
     private struct BuddyDetailCover: Identifiable {
         let buddy: DiveBuddy
@@ -24,10 +25,13 @@ struct DiveActivityMediaLargeDetentOverviewContent: View {
     var ownerProfileID: UUID? = nil
     var onOpenDive: ((UUID) -> Void)? = nil
     @Binding var selectedTaggedSpeciesUUID: String?
-    /// When true, draws the toggle/**+** row pinned above scroll. When false, only body content.
+    /// When true, draws the toggle / tag / upload row pinned above scroll. When false, only body content.
     var overlaysChrome: Bool = true
     /// Soft-collapse the dive overview panel when the user overscrolls past the top of tagged detail.
     var onCollapseToMedium: (() -> Void)? = nil
+    /// Owner Media tab — same **PhotosPicker** as minimized carousel trailing **+**.
+    var mediaPickerItems: Binding<[PhotosPickerItem]>? = nil
+    var isMediaImportInProgress = false
 
     @State private var buddyDetailCover: BuddyDetailCover?
     @State private var speciesDetailCover: SpeciesDetailCover?
@@ -139,9 +143,11 @@ struct DiveActivityMediaLargeDetentOverviewContent: View {
     var chromeRow: some View {
         ZStack {
             HStack(alignment: .center, spacing: AppTheme.Spacing.sm) {
+                leadingChromeActions
+
                 Spacer(minLength: 0)
 
-                trailingChromeActions
+                trailingAddMediaChrome
             }
 
             DiveActivityMediaLargeDetentModeToggle(selectedMode: $mode)
@@ -149,7 +155,7 @@ struct DiveActivityMediaLargeDetentOverviewContent: View {
     }
 
     @ViewBuilder
-    private var trailingChromeActions: some View {
+    private var leadingChromeActions: some View {
         switch mode {
         case .marineLife:
             if showsFishialIdentifyAction || onTagMarineLife != nil {
@@ -170,6 +176,16 @@ struct DiveActivityMediaLargeDetentOverviewContent: View {
                     addTagAction()
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var trailingAddMediaChrome: some View {
+        if let mediaPickerItems {
+            DiveActivityMediaAddPhotosPickerButton(
+                mediaPickerItems: mediaPickerItems,
+                isImportInProgress: isMediaImportInProgress
+            )
         }
     }
 
@@ -251,9 +267,17 @@ struct DiveActivityMediaLargeDetentOverviewContent: View {
                     iconFont: .title2,
                     placeholderInitials: DiveBuddyPresentation.initials(from: buddy.displayName)
                 )
+                .goDiveUserAvatarPin(
+                    shows: DiveBuddyFriendLinkPresentation.isLinkedFriend(buddy),
+                    avatarDiameter: LinkedMediaTaggedBuddiesSheetPresentation.avatarDiameter
+                )
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Open \(buddy.displayName)")
+            .accessibilityLabel(
+                DiveBuddyFriendLinkPresentation.isLinkedFriend(buddy)
+                    ? "Open \(buddy.displayName), \(GoDiveUserAvatarPinPresentation.accessibilityLabel)"
+                    : "Open \(buddy.displayName)"
+            )
             .accessibilityHint("Opens buddy details")
             .accessibilityIdentifier("DiveOverview.MediaLargeBuddyAvatar.\(buddy.id.uuidString)")
 

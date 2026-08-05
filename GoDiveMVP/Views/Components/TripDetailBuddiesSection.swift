@@ -77,13 +77,18 @@ private struct TripDetailBuddyGridCell: View {
         TripDetailBuddyAvatarGridCell(
             profilePhoto: rosterBuddy?.profilePhoto,
             displayName: summary.displayName,
-            subtitle: DiveTripPresentation.tripBuddyTaggedDiveCountLabel(count: summary.diveCount)
+            subtitle: DiveTripPresentation.tripBuddyTaggedDiveCountLabel(count: summary.diveCount),
+            showsGoDiveUserPin: rosterBuddy.map(DiveBuddyFriendLinkPresentation.isLinkedFriend) ?? false
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
     }
 
     private var accessibilityLabel: String {
-        "\(summary.displayName), \(DiveTripPresentation.tripBuddyTaggedDiveCountLabel(count: summary.diveCount))"
+        let base = "\(summary.displayName), \(DiveTripPresentation.tripBuddyTaggedDiveCountLabel(count: summary.diveCount))"
+        if let rosterBuddy, DiveBuddyFriendLinkPresentation.isLinkedFriend(rosterBuddy) {
+            return "\(base), \(GoDiveUserAvatarPinPresentation.accessibilityLabel)"
+        }
+        return base
     }
 }

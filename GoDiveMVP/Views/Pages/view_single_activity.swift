@@ -92,6 +92,8 @@ struct ViewSingleActivity: View {
     @State private var showsFriendShareSettings = false
     /// Local-first publish checkpoint banner — pending + friends + global share (detent gated in overlay).
     @State private var showsPublishCheckpointBanner = false
+    @State private var publishCheckpointBannerExitDirection =
+        ActivityPublishCheckpointBannerPresentation.ExitDirection.down
     @State private var hasFriendsInNetwork = false
 
     /// **More** tab: profile samples sorted by time (read-only).
@@ -375,8 +377,23 @@ struct ViewSingleActivity: View {
     private func dismissPublishCheckpointBannerIfNeeded() {
         guard showsPublishCheckpointBanner || activity.friendSharePublishCheckpointPending else { return }
         ActivityFriendSharePublishCheckpoint.dismiss(dive: activity, modelContext: modelContext)
-        withAnimation(.easeInOut(duration: 0.2)) {
-            showsPublishCheckpointBanner = false
+        hidePublishCheckpointBanner(exitDirection: .down)
+    }
+
+    private func hidePublishCheckpointBanner(
+        exitDirection: ActivityPublishCheckpointBannerPresentation.ExitDirection
+    ) {
+        // Apply removal transition on the still-mounted banner, then hide on the next
+        // turn so SwiftUI uses the updated exit direction (down for ×, up after Share).
+        publishCheckpointBannerExitDirection = exitDirection
+        let duration = exitDirection == .up
+            ? ActivityPublishCheckpointBannerPresentation.shareExitAnimationDuration
+            : ActivityPublishCheckpointBannerPresentation.dismissAnimationDuration
+        Task { @MainActor in
+            await Task.yield()
+            withAnimation(.easeInOut(duration: duration)) {
+                showsPublishCheckpointBanner = false
+            }
         }
     }
 
@@ -1434,7 +1451,8 @@ struct ViewSingleActivity: View {
                                 ForEach(activity.buddies, id: \.id) { tag in
                                     DiveActivityBuddyAvatarChip(
                                         displayName: tag.displayName,
-                                        profilePhoto: tag.buddy?.profilePhoto
+                                        profilePhoto: tag.buddy?.profilePhoto,
+                                        showsGoDiveUserPin: tag.buddy.map(DiveBuddyFriendLinkPresentation.isLinkedFriend) ?? false
                                     )
                                 }
                             }
@@ -1469,21 +1487,30 @@ struct ViewSingleActivity: View {
             .onAppear {
                 clampNotesToLimitIfNeeded()
             }
+            .onChange(of: isNotesFieldFocused) { _, focused in
+                guard !focused else { return }
+                persistNotesTrimmedIfNeeded()
+            }
     }
 
     private func clampNotesToLimitIfNeeded() {
         guard let notes = activity.notes else { return }
         guard notes.count > DetailNotes.maxCharacterCount else { return }
-        activity.notes = DiveNotesValidation.cappedNotes(notes)
+        activity.notes = DiveNotesValidation.draftNotes(notes)
+    }
+
+    private func persistNotesTrimmedIfNeeded() {
+        activity.notes = GoDiveInputSanitization.sanitizedNotes(activity.notes ?? "")
     }
 
     private var notesBinding: Binding<String> {
         Binding(
             get: {
-                DiveNotesValidation.cappedNotes(activity.notes ?? "")
+                activity.notes ?? ""
             },
             set: { newValue in
-                activity.notes = GoDiveInputSanitization.sanitizedNotes(newValue)
+                let draft = DiveNotesValidation.draftNotes(newValue)
+                activity.notes = draft.isEmpty ? nil : draft
             }
         )
     }
@@ -1884,7 +1911,6 @@ struct ViewSingleActivity: View {
                 topSafeInset: layoutContext.topSafeInset
             )
             ActivityPublishCheckpointBanner(
-                activityKind: .scubaDive,
                 onShare: {
                     ActivityFriendSharePublishCheckpoint.publish(
                         dive: activity,
@@ -1896,14 +1922,16 @@ struct ViewSingleActivity: View {
                     dismissPublishCheckpointBannerIfNeeded()
                 },
                 onConfirmationFinished: {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        showsPublishCheckpointBanner = false
-                    }
+                    hidePublishCheckpointBanner(exitDirection: .up)
                 }
             )
             .padding(.horizontal, AppTheme.Spacing.md)
             .padding(.bottom, panelHeight + ActivityPublishCheckpointBannerPresentation.seamGap)
-            .transition(.opacity.combined(with: .move(edge: .bottom)))
+            .transition(
+                ActivityPublishCheckpointBannerPresentation.transition(
+                    exitDirection: publishCheckpointBannerExitDirection
+                )
+            )
             .zIndex(2)
         }
     }

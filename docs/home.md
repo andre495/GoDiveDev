@@ -45,7 +45,7 @@ A small red dot on the bell means there is something new since you last opened t
 
 ## Profile and navigation
 
-- Tap your **avatar** (top of Home) to open **Profile** (buddy-style blue sheet with tagged media in the header). The sheet **Diver stats** page shows the same lifetime tiles as Home (without **Top buddies**). The **Details** page shows your DAN insurance number and featured certification. Use the **menu (☰)** for Trips, certifications, gear, buddies, friends, Edit Profile, and Settings.
+- Tap your **avatar** (top of Home) to open **Profile** (buddy-style blue sheet with tagged media in the header). The sheet **Diver stats** page shows the same lifetime tiles as Home (without **Top buddies**). The **Details** page shows your DAN insurance number and featured certification. Tap the blue **⋯** beside your name to edit your profile. Use the **menu (☰)** for Trips, certifications, gear, buddies, and Settings.
 - Home participates in the same navigation stack as dive detail, buddy detail, site detail, Field Guide species, and trips — use the back chevron or swipe from the left edge to return.
 
 ## Tips

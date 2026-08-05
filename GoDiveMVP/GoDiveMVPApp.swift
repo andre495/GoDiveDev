@@ -93,6 +93,16 @@ private struct ProductionAppRoot: View {
                                 modelContext: ModelContext(container)
                             )
                         }
+                        Task { @MainActor in
+                            await EquipmentServiceReminderScheduler.resyncOwnedEquipment(
+                                ownerProfileID: ownerID,
+                                modelContext: ModelContext(container)
+                            )
+                            await DiveTripReminderScheduler.resyncOwnedTrips(
+                                ownerProfileID: ownerID,
+                                modelContext: ModelContext(container)
+                            )
+                        }
                     }
                 }
                 if phase == .background {

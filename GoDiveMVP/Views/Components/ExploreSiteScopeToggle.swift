@@ -14,7 +14,10 @@ struct ExploreSiteScopeToggle: View {
             }
         }
         .padding(4)
-        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: shellCornerRadius))
+        // Non-interactive glass: `.interactive()` on a plain-Button shell highlights without
+        // reliably delivering the tap to the segment action.
+        .glassEffect(.regular, in: .rect(cornerRadius: shellCornerRadius))
+        .contentShape(Rectangle())
         .fixedSize(horizontal: true, vertical: false)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Dive site catalog scope")
@@ -40,6 +43,7 @@ struct ExploreSiteScopeToggle: View {
             }
             .padding(.horizontal, 10)
             .frame(height: 32)
+            .contentShape(Rectangle())
             .foregroundStyle(isSelected ? AppTheme.Colors.tabSelected : AppTheme.Colors.tabUnselected)
             .background {
                 if isSelected {
@@ -49,6 +53,7 @@ struct ExploreSiteScopeToggle: View {
             }
         }
         .buttonStyle(.plain)
+        .contentShape(Rectangle())
         .accessibilityLabel(scope.accessibilityLabel)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier("Explore.SiteScope.\(scope.rawValue)")

@@ -2,7 +2,7 @@ import Foundation
 
 /// Copy for Settings → Delete account.
 enum AccountDeletionPresentation: Sendable {
-    nonisolated static let buttonTitle = "Delete account"
+    nonisolated static let buttonTitle = "Delete Account"
     nonisolated static let confirmationTitle = "Delete account?"
     nonisolated static let confirmationMessage =
         "This permanently deletes your GoDive profile, dive log, and cloud data for this Apple ID. This cannot be undone."

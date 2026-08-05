@@ -38,6 +38,9 @@ final class EquipmentItem {
     var nextServiceDate: Date?
     /// Recurrence interval stored as calendar days (e.g. every **2** weeks → **14**).
     var serviceRecurrenceDays: Int?
+    /// Comma-separated **`EquipmentServiceReminderOffset`** raw values, or **`none`** when reminders are off.
+    /// **`nil`** on legacy rows means no reminders until the user configures them.
+    var serviceReminderOffsetsRaw: String?
     var serviceNotes: String?
 
     var notes: String?
@@ -64,6 +67,7 @@ final class EquipmentItem {
         serviceDate: Date? = nil,
         nextServiceDate: Date? = nil,
         serviceRecurrenceDays: Int? = nil,
+        serviceReminderOffsetsRaw: String? = nil,
         serviceNotes: String? = nil,
         notes: String? = nil,
         equipmentPhoto: Data? = nil,
@@ -83,6 +87,7 @@ final class EquipmentItem {
         self.serviceDate = serviceDate
         self.nextServiceDate = nextServiceDate
         self.serviceRecurrenceDays = serviceRecurrenceDays
+        self.serviceReminderOffsetsRaw = serviceReminderOffsetsRaw
         self.serviceNotes = serviceNotes
         self.notes = notes
         self.equipmentPhoto = equipmentPhoto

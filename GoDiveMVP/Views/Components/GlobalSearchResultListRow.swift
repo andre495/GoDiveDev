@@ -156,15 +156,19 @@ struct GlobalSearchResultSpeciesArtwork: View {
 struct GlobalSearchResultAvatarArtwork: View {
     let profilePhoto: Data?
     let initials: String
+    var showsGoDiveUserPin: Bool = false
+
+    private var diameter: CGFloat { GlobalSearchResultListRowLayout.artworkSize }
 
     var body: some View {
         ProfileAvatarView(
             profilePhoto: profilePhoto,
-            diameter: GlobalSearchResultListRowLayout.artworkSize,
+            diameter: diameter,
             iconFont: .caption,
             placeholderInitials: initials,
             placeholderBackground: .translucentOnDarkBubble
         )
+        .goDiveUserAvatarPin(shows: showsGoDiveUserPin, avatarDiameter: diameter)
     }
 }
 

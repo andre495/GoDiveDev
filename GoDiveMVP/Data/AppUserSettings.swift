@@ -47,13 +47,24 @@ enum AppUserSettings: Sendable {
     /// When **`true`**, full-quality shared media uploads wait for Wi‑Fi (thumbnails may still upload on cellular).
     nonisolated static let shareMediaOnWiFiOnlyKey = "goDiveShareMediaOnWiFiOnly"
 
-    /// When **`true`**, full-quality friend media downloads wait for Wi‑Fi (thumbnails may still load on cellular).
+    /// Legacy key — downloads always use Wi‑Fi or cellular; see **`downloadFriendMediaOnWiFiOnly`**.
     nonisolated static let downloadFriendMediaOnWiFiOnlyKey = "goDiveDownloadFriendMediaOnWiFiOnly"
+
+    /// Master switch for all GoDive notifications (buddy / gear / trip). Default **on**.
+    nonisolated static let notifyAllNotificationsKey = "goDiveNotifyAllNotifications"
 
     /// When **`true`**, this user receives push notifications when friends share new activities.
     /// Default **on**; mirrored to Firestore **`users/{uid}/private/notificationPrefs`** so the
-    /// Cloud Function can filter recipients server-side.
+    /// Cloud Function can filter recipients server-side. Gated by **`notifyAllNotifications`**.
     nonisolated static let notifyBuddyActivitySharesKey = "goDiveNotifyBuddyActivityShares"
+
+    /// Global default for new gear service reminders (per-item settings still override). Default **on**.
+    /// Gated by **`notifyAllNotifications`**.
+    nonisolated static let notifyGearServiceRemindersKey = "goDiveNotifyGearServiceReminders"
+
+    /// Master switch for upcoming-trip local reminders. Default **on**.
+    /// Gated by **`notifyAllNotifications`**.
+    nonisolated static let notifyTripRemindersKey = "goDiveNotifyTripReminders"
 
     nonisolated static var automaticallyRenumberDives: Bool {
         UserDefaults.standard.bool(forKey: automaticallyRenumberDivesKey)
@@ -121,15 +132,47 @@ enum AppUserSettings: Sendable {
         userDefaults.bool(forKey: shareMediaOnWiFiOnlyKey)
     }
 
+    /// Always **`false`** — buddy media downloads use Wi‑Fi or cellular (no Settings gate).
     nonisolated static func downloadFriendMediaOnWiFiOnly(userDefaults: UserDefaults = .standard) -> Bool {
-        userDefaults.bool(forKey: downloadFriendMediaOnWiFiOnlyKey)
+        _ = userDefaults
+        return false
     }
 
+    nonisolated static func notifyAllNotifications(userDefaults: UserDefaults = .standard) -> Bool {
+        registeredOrDefaultTrue(forKey: notifyAllNotificationsKey, userDefaults: userDefaults)
+    }
+
+    /// Stored buddy-activity preference (ignores the all-notifications master). Used by Settings sync UI.
+    nonisolated static func notifyBuddyActivitySharesPreference(userDefaults: UserDefaults = .standard) -> Bool {
+        registeredOrDefaultTrue(forKey: notifyBuddyActivitySharesKey, userDefaults: userDefaults)
+    }
+
+    /// Effective: master on **and** buddy-activity preference on.
     nonisolated static func notifyBuddyActivityShares(userDefaults: UserDefaults = .standard) -> Bool {
-        if userDefaults.object(forKey: notifyBuddyActivitySharesKey) == nil {
-            return true
-        }
-        return userDefaults.bool(forKey: notifyBuddyActivitySharesKey)
+        notifyAllNotifications(userDefaults: userDefaults)
+            && notifyBuddyActivitySharesPreference(userDefaults: userDefaults)
+    }
+
+    /// Stored gear-reminder default (ignores the all-notifications master). Used by Settings sync UI.
+    nonisolated static func notifyGearServiceRemindersPreference(userDefaults: UserDefaults = .standard) -> Bool {
+        registeredOrDefaultTrue(forKey: notifyGearServiceRemindersKey, userDefaults: userDefaults)
+    }
+
+    /// Effective: master on **and** gear-reminder preference on.
+    nonisolated static func notifyGearServiceReminders(userDefaults: UserDefaults = .standard) -> Bool {
+        notifyAllNotifications(userDefaults: userDefaults)
+            && notifyGearServiceRemindersPreference(userDefaults: userDefaults)
+    }
+
+    /// Stored trip-reminder preference (ignores the all-notifications master). Used by Settings sync UI.
+    nonisolated static func notifyTripRemindersPreference(userDefaults: UserDefaults = .standard) -> Bool {
+        registeredOrDefaultTrue(forKey: notifyTripRemindersKey, userDefaults: userDefaults)
+    }
+
+    /// Effective: master on **and** trip-reminder preference on.
+    nonisolated static func notifyTripReminders(userDefaults: UserDefaults = .standard) -> Bool {
+        notifyAllNotifications(userDefaults: userDefaults)
+            && notifyTripRemindersPreference(userDefaults: userDefaults)
     }
 
     /// Toggle defaults applied when the user has never changed them (call once at launch).
@@ -143,9 +186,21 @@ enum AppUserSettings: Sendable {
             shareNotesWithFriendsKey: false,
             shareMediaWithFriendsKey: false,
             shareMediaOnWiFiOnlyKey: false,
-            downloadFriendMediaOnWiFiOnlyKey: false,
+            notifyAllNotificationsKey: true,
             notifyBuddyActivitySharesKey: true,
+            notifyGearServiceRemindersKey: true,
+            notifyTripRemindersKey: true,
         ])
+    }
+
+    private nonisolated static func registeredOrDefaultTrue(
+        forKey key: String,
+        userDefaults: UserDefaults
+    ) -> Bool {
+        if userDefaults.object(forKey: key) == nil {
+            return true
+        }
+        return userDefaults.bool(forKey: key)
     }
 
     private nonisolated static func optionalPositiveWeightKilograms(

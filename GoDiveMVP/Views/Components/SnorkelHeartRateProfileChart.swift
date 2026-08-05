@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Heart rate vs elapsed time — edge-to-edge under-curve deep-water fill, polyline, and
-/// touch-and-hold scrub (time + BPM), styled like the dive depth profile chart.
+/// touch-and-hold scrub (**Time … min** + **Heart Rate … bpm**), styled like the dive depth profile chart.
 struct SnorkelHeartRateProfileChart: View {
     let samples: [SnorkelHeartRateProfileSample]
     var sessionMaxBPMHint: Int?

@@ -355,7 +355,11 @@ private struct BuddiesListRowView: View {
                 .fill(AppTheme.Colors.surfaceElevated)
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(row.displayName), \(row.subtitle)")
+        .accessibilityLabel(
+            showsGoDiveUserPin
+                ? "\(row.displayName), \(row.subtitle), \(GoDiveUserAvatarPinPresentation.accessibilityLabel)"
+                : "\(row.displayName), \(row.subtitle)"
+        )
         .accessibilityHint(showsInviteButton ? "Opens buddy details. Invite sends a link separately." : "")
     }
 
@@ -420,6 +424,10 @@ private struct BuddiesListRowView: View {
         row.buddy != nil && !row.isFriend
     }
 
+    private var showsGoDiveUserPin: Bool {
+        GoDiveUserAvatarPinPresentation.showsGoDiveUserPin(isFriend: row.isFriend)
+    }
+
     private var inviteButton: some View {
         Button(action: onInvite) {
             Group {
@@ -448,22 +456,20 @@ private struct BuddiesListAvatarView: View {
 
     private let diameter: CGFloat = 48
 
-    var body: some View {
-        ZStack(alignment: .bottomTrailing) {
-            avatarContent
-                .frame(width: diameter, height: diameter)
-                .clipShape(Circle())
+    private var showsGoDiveUserPin: Bool {
+        GoDiveUserAvatarPinPresentation.showsGoDiveUserPin(isFriend: row.isFriend)
+    }
 
-            if row.isFriend {
-                Image(systemName: "person.crop.circle.fill.badge.checkmark")
-                    .font(.system(size: 18))
-                    .symbolRenderingMode(.palette)
-                    .foregroundStyle(.white, AppTheme.Colors.accent)
-                    .background(Circle().fill(.white).frame(width: 14, height: 14))
-                    .offset(x: 4, y: 4)
-                    .accessibilityLabel(BuddiesListPresentation.friendBadgeAccessibilityLabel)
+    var body: some View {
+        avatarContent
+            .frame(width: diameter, height: diameter)
+            .clipShape(Circle())
+            .overlay {
+                if row.buddy == nil {
+                    ProfileAvatarChrome.accentRingOverlay(diameter: diameter)
+                }
             }
-        }
+            .goDiveUserAvatarPin(shows: showsGoDiveUserPin, avatarDiameter: diameter)
     }
 
     @ViewBuilder

@@ -918,7 +918,7 @@ struct GoDiveMVPTests {
     }
 
     @Test func accountDeletionPresentation_copyIsDestructive() {
-        #expect(AccountDeletionPresentation.buttonTitle == "Delete account")
+        #expect(AccountDeletionPresentation.buttonTitle == "Delete Account")
         #expect(AccountDeletionPresentation.confirmButtonTitle == "Delete account")
         #expect(AccountDeletionPresentation.confirmationTitle.contains("Delete"))
         #expect(!AccountDeletionPresentation.confirmationMessage.isEmpty)
@@ -1033,7 +1033,8 @@ struct GoDiveMVPTests {
     }
 
     @Test func profilePresentation_sideMenuTitles_arePageTitlesOnly() {
-        #expect(ProfilePresentation.menuEditProfileTitle == "Edit Profile")
+        #expect(ProfilePresentation.editProfileAccessibilityLabel == "Edit Profile")
+        #expect(ProfilePresentation.editProfileAccessibilityIdentifier == "Profile.EditButton")
         #expect(ProfilePresentation.menuSettingsTitle == "Settings")
         #expect(ProfilePresentation.menuCertificationsTitle == "Certifications")
         #expect(ProfilePresentation.menuEquipmentTitle == "Equipment Locker")
@@ -1047,9 +1048,9 @@ struct GoDiveMVPTests {
             "Certifications",
             "Equipment Locker",
             "Buddies",
-            "Edit Profile",
             "Settings",
         ])
+        #expect(!ProfilePresentation.sideMenuItemTitles.contains("Edit Profile"))
         #expect(!ProfilePresentation.sideMenuItemTitles.contains("My tagged media"))
         #expect(!ProfilePresentation.sideMenuItemTitles.contains("Sign out"))
     }
@@ -2482,6 +2483,350 @@ struct GoDiveMVPTests {
         #expect(item.serviceNotes == "Annual")
         #expect(item.notes == "Travel fins")
         #expect(item.equipmentPhoto == Data([0x01]))
+        #expect(item.serviceReminderOffsetsRaw == "oneWeekPrior")
+    }
+
+    @Test func equipmentServiceReminderSchedule_encodeDecode_roundTripsAndNone() {
+        #expect(EquipmentServiceReminderSchedule.encode([]) == "none")
+        #expect(EquipmentServiceReminderSchedule.decode("none").isEmpty)
+        #expect(EquipmentServiceReminderSchedule.decode(nil).isEmpty)
+        #expect(EquipmentServiceReminderSchedule.decode("").isEmpty)
+
+        let multi: Set<EquipmentServiceReminderOffset> = [.dayOfService, .oneMonthPrior, .oneWeekPrior]
+        let encoded = EquipmentServiceReminderSchedule.encode(multi)
+        #expect(encoded == "oneMonthPrior,oneWeekPrior,dayOfService")
+        #expect(EquipmentServiceReminderSchedule.decode(encoded) == multi)
+    }
+
+    @Test func equipmentServiceReminderSchedule_fireDate_offsetsRelativeToServiceDay() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let next = try #require(
+            calendar.date(from: DateComponents(year: 2026, month: 8, day: 15, hour: 15, minute: 30))
+        )
+        let now = try #require(
+            calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 12))
+        )
+
+        let month = try #require(
+            EquipmentServiceReminderSchedule.fireDate(
+                nextServiceDate: next,
+                offset: .oneMonthPrior,
+                calendar: calendar,
+                now: now
+            )
+        )
+        #expect(calendar.component(.month, from: month) == 7)
+        #expect(calendar.component(.day, from: month) == 15)
+        #expect(calendar.component(.hour, from: month) == 9)
+
+        let week = try #require(
+            EquipmentServiceReminderSchedule.fireDate(
+                nextServiceDate: next,
+                offset: .oneWeekPrior,
+                calendar: calendar,
+                now: now
+            )
+        )
+        #expect(calendar.isDate(week, inSameDayAs: try #require(calendar.date(byAdding: .day, value: -7, to: calendar.startOfDay(for: next)))))
+
+        let day = try #require(
+            EquipmentServiceReminderSchedule.fireDate(
+                nextServiceDate: next,
+                offset: .oneDayPrior,
+                calendar: calendar,
+                now: now
+            )
+        )
+        #expect(calendar.isDate(day, inSameDayAs: try #require(calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: next)))))
+
+        let dayOf = try #require(
+            EquipmentServiceReminderSchedule.fireDate(
+                nextServiceDate: next,
+                offset: .dayOfService,
+                calendar: calendar,
+                now: now
+            )
+        )
+        #expect(calendar.isDate(dayOf, inSameDayAs: next))
+        #expect(calendar.component(.hour, from: dayOf) == 9)
+
+        #expect(
+            EquipmentServiceReminderSchedule.fireDate(
+                nextServiceDate: next,
+                offset: .dayOfService,
+                calendar: calendar,
+                now: try #require(calendar.date(byAdding: .day, value: 1, to: next))
+            ) == nil
+        )
+    }
+
+    @Test func equipmentServiceReminderSchedule_notificationIdentifiers_areStablePerOffset() {
+        let id = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!
+        #expect(
+            EquipmentServiceReminderSchedule.notificationIdentifier(equipmentID: id, offset: .oneWeekPrior)
+                == "equipment-service-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee-oneWeekPrior"
+        )
+        #expect(EquipmentServiceReminderSchedule.allNotificationIdentifiers(for: id).count == 4)
+    }
+
+    @Test func equipmentServiceReminderSchedule_notificationBody_matchesRequestedCopy() {
+        #expect(
+            EquipmentServiceReminderSchedule.notificationBody(
+                equipmentTitle: "Apeks XTX50",
+                offset: .oneMonthPrior
+            ) == "Your Apeks XTX50 needs service in 1 month"
+        )
+        #expect(
+            EquipmentServiceReminderSchedule.notificationBody(
+                equipmentTitle: "Apeks XTX50",
+                offset: .oneWeekPrior
+            ) == "Your Apeks XTX50 needs service in 1 week"
+        )
+        #expect(
+            EquipmentServiceReminderSchedule.notificationBody(
+                equipmentTitle: "Apeks XTX50",
+                offset: .oneDayPrior
+            ) == "Your Apeks XTX50 needs service in 1 day"
+        )
+        #expect(
+            EquipmentServiceReminderSchedule.notificationBody(
+                equipmentTitle: "Apeks XTX50",
+                offset: .dayOfService
+            ) == "Your Apeks XTX50 needs service today"
+        )
+        #expect(
+            EquipmentServiceReminderSchedule.notificationBody(
+                equipmentTitle: "  ",
+                offset: .oneWeekPrior
+            ) == "Your gear needs service in 1 week"
+        )
+    }
+
+    @Test func equipmentServiceReminderSchedule_equipmentID_fromUserInfo() {
+        let id = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!
+        let userInfo: [AnyHashable: Any] = [
+            EquipmentServiceReminderSchedule.userInfoTypeKey:
+                EquipmentServiceReminderSchedule.userInfoTypeValue,
+            EquipmentServiceReminderSchedule.userInfoEquipmentIDKey: id.uuidString,
+        ]
+        #expect(EquipmentServiceReminderSchedule.equipmentID(fromUserInfo: userInfo) == id)
+        #expect(
+            EquipmentServiceReminderSchedule.equipmentID(
+                fromUserInfo: ["type": "buddy_activity_shared"]
+            ) == nil
+        )
+    }
+
+    @Test @MainActor
+    func equipmentServiceReminderNavigationStore_setAndConsumePending() {
+        let store = EquipmentServiceReminderNavigationStore.shared
+        store.clear()
+        let id = UUID()
+        store.setPending(equipmentID: id)
+        #expect(store.pendingEquipmentID == id)
+        #expect(store.consumePendingEquipmentID() == id)
+        #expect(store.pendingEquipmentID == nil)
+    }
+
+    @Test func diveTripReminderSchedule_destinationLabel_prefersCountriesThenTitle() {
+        #expect(
+            DiveTripReminderSchedule.destinationLabel(
+                countries: ["Bonaire", "Curaçao"],
+                title: "Ignore me"
+            ) == "Bonaire, Curaçao"
+        )
+        #expect(
+            DiveTripReminderSchedule.destinationLabel(countries: [], title: "Bonaire 2026")
+                == "Bonaire 2026"
+        )
+        #expect(DiveTripReminderSchedule.destinationLabel(countries: [], title: "  ") == nil)
+    }
+
+    @Test func diveTripReminderSchedule_notificationBody_matchesRequestedCopy() {
+        #expect(
+            DiveTripReminderSchedule.notificationBody(
+                destinationLabel: "Bonaire",
+                offset: .oneMonthPrior
+            ) == "Your trip to Bonaire is in 1 month. Almost there!"
+        )
+        #expect(
+            DiveTripReminderSchedule.notificationBody(
+                destinationLabel: "Indonesia, Philippines",
+                offset: .oneWeekPrior
+            ) == "Your trip to Indonesia, Philippines is in 1 week. Pack your bags!"
+        )
+        #expect(
+            DiveTripReminderSchedule.notificationBody(
+                destinationLabel: "Maldives",
+                offset: .oneDayPrior
+            ) == "Your trip to Maldives is tomorrow!"
+        )
+        #expect(
+            DiveTripReminderSchedule.notificationBody(
+                destinationLabel: nil,
+                offset: .oneWeekPrior
+            ) == "Your trip is in 1 week. Pack your bags!"
+        )
+    }
+
+    @Test func diveTripReminderSchedule_fireDate_offsetsRelativeToStartDay() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let start = try #require(
+            calendar.date(from: DateComponents(year: 2026, month: 9, day: 20, hour: 8))
+        )
+        let now = try #require(
+            calendar.date(from: DateComponents(year: 2026, month: 7, day: 1, hour: 12))
+        )
+
+        let month = try #require(
+            DiveTripReminderSchedule.fireDate(
+                tripStartDate: start,
+                offset: .oneMonthPrior,
+                calendar: calendar,
+                now: now
+            )
+        )
+        #expect(calendar.component(.month, from: month) == 8)
+        #expect(calendar.component(.day, from: month) == 20)
+        #expect(calendar.component(.hour, from: month) == 9)
+
+        let week = try #require(
+            DiveTripReminderSchedule.fireDate(
+                tripStartDate: start,
+                offset: .oneWeekPrior,
+                calendar: calendar,
+                now: now
+            )
+        )
+        #expect(
+            calendar.isDate(
+                week,
+                inSameDayAs: try #require(calendar.date(byAdding: .day, value: -7, to: calendar.startOfDay(for: start)))
+            )
+        )
+
+        let day = try #require(
+            DiveTripReminderSchedule.fireDate(
+                tripStartDate: start,
+                offset: .oneDayPrior,
+                calendar: calendar,
+                now: now
+            )
+        )
+        #expect(
+            calendar.isDate(
+                day,
+                inSameDayAs: try #require(calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: start)))
+            )
+        )
+
+        #expect(
+            DiveTripReminderSchedule.fireDate(
+                tripStartDate: start,
+                offset: .oneDayPrior,
+                calendar: calendar,
+                now: try #require(calendar.date(byAdding: .day, value: 1, to: start))
+            ) == nil
+        )
+    }
+
+    @Test func diveTripReminderSchedule_tripID_fromUserInfo() {
+        let id = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!
+        let userInfo: [AnyHashable: Any] = [
+            DiveTripReminderSchedule.userInfoTypeKey: DiveTripReminderSchedule.userInfoTypeValue,
+            DiveTripReminderSchedule.userInfoTripIDKey: id.uuidString,
+        ]
+        #expect(DiveTripReminderSchedule.tripID(fromUserInfo: userInfo) == id)
+        #expect(
+            DiveTripReminderSchedule.tripID(fromUserInfo: ["type": "equipment_service_reminder"]) == nil
+        )
+        #expect(DiveTripReminderSchedule.allNotificationIdentifiers(for: id).count == 3)
+    }
+
+    @Test @MainActor
+    func diveTripReminderNavigationStore_setAndConsumePending() {
+        let store = DiveTripReminderNavigationStore.shared
+        store.clear()
+        let id = UUID()
+        store.setPending(tripID: id)
+        #expect(store.pendingTripID == id)
+        #expect(store.consumePendingTripID() == id)
+        #expect(store.pendingTripID == nil)
+    }
+
+    @Test func equipmentItemFormValues_defaultServiceReminders_followsGlobalGearSetting() throws {
+        let suiteName = "GoDiveGearReminderDefaults-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set(true, forKey: AppUserSettings.notifyGearServiceRemindersKey)
+        #expect(
+            EquipmentServiceReminderSchedule.defaultOffsets(userDefaults: defaults) == [.oneWeekPrior]
+        )
+
+        defaults.set(false, forKey: AppUserSettings.notifyGearServiceRemindersKey)
+        #expect(EquipmentServiceReminderSchedule.defaultOffsets(userDefaults: defaults).isEmpty)
+
+        // Empty add-form draft uses the live app defaults key (registered on → 1 week).
+        let form = EquipmentItemFormValues()
+        #expect(
+            form.serviceReminderOffsets == EquipmentServiceReminderSchedule.defaultOffsets()
+        )
+    }
+
+    @Test func equipmentItemFormValues_makeEquipmentItem_persistsMultiReminderSelection() {
+        var form = EquipmentItemFormValues()
+        form.manufacturer = "Apeks"
+        form.model = "XTX"
+        form.includesRecurringService = true
+        form.nextServiceDate = Date(timeIntervalSince1970: 2_000_000)
+        form.serviceReminderOffsets = [.oneMonthPrior, .oneDayPrior]
+        let item = form.makeEquipmentItem()
+        #expect(item.serviceReminderOffsetsRaw == "oneMonthPrior,oneDayPrior")
+    }
+
+    @Test func equipmentItemFormValues_makeEquipmentItem_persistsNoneReminders() {
+        var form = EquipmentItemFormValues()
+        form.manufacturer = "Apeks"
+        form.model = "XTX"
+        form.includesRecurringService = true
+        form.setNoServiceReminders()
+        let item = form.makeEquipmentItem()
+        #expect(item.serviceReminderOffsetsRaw == "none")
+    }
+
+    @Test func equipmentItemFormValues_clearsRemindersWhenRecurringOff() {
+        var form = EquipmentItemFormValues()
+        form.manufacturer = "Apeks"
+        form.model = "XTX"
+        form.includesRecurringService = false
+        form.serviceReminderOffsets = [.oneWeekPrior, .dayOfService]
+        let item = form.makeEquipmentItem()
+        #expect(item.serviceReminderOffsetsRaw == nil)
+    }
+
+    @Test func equipmentItemFormValues_initFromItem_restoresReminderOffsets() {
+        let item = EquipmentItem(
+            manufacturer: "Mares",
+            model: "Prestige",
+            type: "Fins",
+            nextServiceDate: Date(timeIntervalSince1970: 2_000_000),
+            serviceRecurrenceDays: 14,
+            serviceReminderOffsetsRaw: "oneMonthPrior,dayOfService"
+        )
+        let form = EquipmentItemFormValues(from: item)
+        #expect(form.serviceReminderOffsets == [.oneMonthPrior, .dayOfService])
+    }
+
+    @Test func equipmentItemPresentation_formattedServiceReminders_summarizesOrNone() {
+        #expect(EquipmentItemPresentation.formattedServiceReminders(raw: nil) == "None")
+        #expect(EquipmentItemPresentation.formattedServiceReminders(raw: "none") == "None")
+        #expect(
+            EquipmentItemPresentation.formattedServiceReminders(raw: "oneWeekPrior,dayOfService")
+                == "1 week prior, Day of service"
+        )
     }
 
     @Test func equipmentItemFormValues_parsedPrice_emptyWhenBlank() {
@@ -2565,6 +2910,7 @@ struct GoDiveMVPTests {
         #expect(item.nextServiceDate == nil)
         #expect(item.serviceDate == nil)
         #expect(item.serviceRecurrenceDays == nil)
+        #expect(item.serviceReminderOffsetsRaw == nil)
     }
 
     @Test func equipmentItemFormValues_apply_clearsScheduleWhenRecurringOff() {
@@ -2573,7 +2919,8 @@ struct GoDiveMVPTests {
             model: "Avanti",
             type: "Fins",
             nextServiceDate: Date(timeIntervalSince1970: 2_000_000),
-            serviceRecurrenceDays: 14
+            serviceRecurrenceDays: 14,
+            serviceReminderOffsetsRaw: "oneWeekPrior"
         )
         var form = EquipmentItemFormValues(from: item)
         form.includesRecurringService = false
@@ -2581,6 +2928,7 @@ struct GoDiveMVPTests {
         #expect(item.nextServiceDate == nil)
         #expect(item.serviceDate == nil)
         #expect(item.serviceRecurrenceDays == nil)
+        #expect(item.serviceReminderOffsetsRaw == nil)
     }
 
     @Test func equipmentItemPresentation_formattedRecurrence_describesInterval() {
@@ -3728,13 +4076,25 @@ struct GoDiveMVPTests {
 
     @Test func settingsPresentation_exposesSettingTitlesAndInfoCopy() {
         #expect(SettingsPresentation.pageTitle == "Settings")
-        #expect(SettingsPresentation.ImperialUnits.title == "Imperial units")
+        #expect(SettingsPresentation.Preferences.sectionTitle == "Preferences")
+        #expect(SettingsPresentation.ActivitySharing.sectionTitle == "Activity Sharing")
+        #expect(SettingsPresentation.Advanced.sectionTitle == "Advanced")
+        #expect(SettingsPresentation.ImperialUnits.title == "Units")
         #expect(SettingsPresentation.ImperialUnits.infoMessage.contains("feet"))
-        #expect(SettingsPresentation.DefaultTank.title == "Default tank")
-        #expect(SettingsPresentation.AutomaticallyRenumberDives.title == "Automatically renumber dives")
+        #expect(SettingsPresentation.DefaultTank.title == "Default Tank Type")
+        #expect(SettingsPresentation.AutomaticallyRenumberDives.title == "Automatically Renumber Dives")
+        #expect(SettingsPresentation.DefaultDiverWeights.title == "Default Weights")
+        #expect(SettingsPresentation.ShareNotesWithFriends.title == "Share Private notes with buddies")
+        #expect(SettingsPresentation.ShareMediaOnWiFiOnly.title == "Upload media on wifi only")
+        #expect(SettingsPresentation.NotifyAllNotifications.title == "All notifications")
+        #expect(SettingsPresentation.CrashReports.settingsRowTitle == "View crash reports")
+        #expect(SettingsPresentation.SecurityEvents.settingsRowTitle == "View diagnostic events")
+        #expect(SettingsPresentation.Advanced.signOutTitle == "Sign Out")
+        #expect(SettingsPresentation.VersionFooter.appLine == "GoDive v0.MVP")
+        #expect(SettingsPresentation.VersionFooter.companyLine == "Primo Software LLC")
         #expect(
-            SettingsPresentation.infoAccessibilityLabel(forSettingTitle: "Imperial units")
-                == "More information about Imperial units"
+            SettingsPresentation.infoAccessibilityLabel(forSettingTitle: "Units")
+                == "More information about Units"
         )
         #expect(SettingsPresentation.BulkUddfImport.attachMediaTitle == "Attach photos from library")
         #expect(SettingsPresentation.BulkUddfImport.attachMediaSubtitle.contains("few minutes"))
@@ -7972,6 +8332,21 @@ struct GoDiveMVPTests {
         #expect(DiveNotesValidation.cappedNotes(long).count == DiveNotesValidation.maxCharacterCount)
     }
 
+    @Test func diveNotesValidation_draftKeepsSpacesAndNewlinesWhileTyping() {
+        #expect(DiveNotesValidation.draftNotes("Saw a ") == "Saw a ")
+        #expect(DiveNotesValidation.draftNotes("Line one\n") == "Line one\n")
+        #expect(DiveNotesValidation.draftNotes("Reef\u{0000} wall") == "Reef wall")
+
+        let long = String(repeating: "n", count: DiveNotesValidation.maxCharacterCount + 40)
+        #expect(DiveNotesValidation.draftNotes(long).count == DiveNotesValidation.maxCharacterCount)
+    }
+
+    @Test func diveNotesValidation_persistTrimsEndsButKeepsInternalWhitespace() {
+        #expect(GoDiveInputSanitization.sanitizedNotes("  Saw a turtle  ") == "Saw a turtle")
+        #expect(GoDiveInputSanitization.sanitizedNotes("Line one\nLine two") == "Line one\nLine two")
+        #expect(DiveNotesValidation.cappedNotes("  hello  ") == "hello")
+    }
+
     @Test func catalogCDNClient_buildsManifestURL() {
         let base = URL(string: "https://example.web.app")!
         #expect(
@@ -8689,6 +9064,13 @@ struct GoDiveMVPTests {
         )
         #expect(DiveActivityMediaLargeDetentMode.marineLife.systemImage == "fish.fill")
         #expect(DiveActivityMediaLargeDetentMode.buddies.systemImage == "person.2.fill")
+    }
+
+    @Test func diveActivityMediaPresentation_largeDetentChrome_placesTagActionsLeadingAndUploadTrailing() {
+        #expect(DiveActivityMediaPresentation.placesLargeDetentTagActionsLeading(for: .large))
+        #expect(!DiveActivityMediaPresentation.placesLargeDetentTagActionsLeading(for: .minimized))
+        #expect(DiveActivityMediaPresentation.placesLargeDetentAddMediaControlTrailing(for: .large))
+        #expect(!DiveActivityMediaPresentation.placesLargeDetentAddMediaControlTrailing(for: .minimized))
     }
 
     @Test func diveActivityOverviewPanelMetrics_mediaCarouselScreenAlignmentTopInset_matchesDetentGap() {
@@ -9683,6 +10065,16 @@ struct GoDiveMVPTests {
         #expect(TripPlannerPresentation.newTripSheetTitle == "Plan a trip")
         #expect(TripPlannerPresentation.addTripDoneAccessibilityIdentifier == "TripAddSheet.Done")
         #expect(TripPlannerPresentation.addTripCancelAccessibilityIdentifier == "TripAddSheet.Cancel")
+        #expect(TripPlannerPresentation.addTripBuddiesAccessibilityIdentifier == "TripAddSheet.AddBuddies")
+        #expect(TripPlannerPresentation.editTripBuddiesAccessibilityIdentifier == "TripEditSheet.AddBuddies")
+        #expect(TripPlannerPresentation.addTripCountriesAccessibilityIdentifier == "TripAddSheet.AddCountries")
+        #expect(TripPlannerPresentation.editTripCountriesAccessibilityIdentifier == "TripEditSheet.AddCountries")
+        #expect(TripPlannerPresentation.countryPickerCancelAccessibilityIdentifier == "TripCountryPicker.Cancel")
+        #expect(TripPlannerPresentation.countryPickerDoneAccessibilityIdentifier == "TripCountryPicker.Done")
+        #expect(TripPlannerPresentation.tripNameSectionTitle == "Trip name")
+        #expect(TripPlannerPresentation.buddiesSectionTitle == "Buddies")
+        #expect(TripPlannerPresentation.addBuddiesButtonTitle == "Add buddies")
+        #expect(TripPlannerPresentation.addCountriesButtonTitle == "Add countries")
         #expect(TripPlannerPresentation.editTripDoneAccessibilityIdentifier == "TripEditSheet.Done")
         #expect(TripPlannerPresentation.editTripCancelAccessibilityIdentifier == "TripEditSheet.Cancel")
     }
@@ -9926,6 +10318,67 @@ struct GoDiveMVPTests {
         #expect(sections[0].phase == .upcoming)
     }
 
+    @Test func diveTripDateRangePickerPresentation_endDateDefaultedToStartMonth() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let start = calendar.date(from: DateComponents(year: 2026, month: 8, day: 10))!
+        let endInOtherMonth = calendar.date(from: DateComponents(year: 2026, month: 3, day: 20))!
+        let aligned = DiveTripDateRangePickerPresentation.endDateDefaultedToStartMonth(
+            start: start,
+            currentEnd: endInOtherMonth,
+            calendar: calendar
+        )
+        #expect(calendar.component(.year, from: aligned) == 2026)
+        #expect(calendar.component(.month, from: aligned) == 8)
+        #expect(calendar.component(.day, from: aligned) == 20)
+
+        let endBeforeStartDay = calendar.date(from: DateComponents(year: 2026, month: 3, day: 5))!
+        let clamped = DiveTripDateRangePickerPresentation.endDateDefaultedToStartMonth(
+            start: start,
+            currentEnd: endBeforeStartDay,
+            calendar: calendar
+        )
+        #expect(clamped == calendar.startOfDay(for: start))
+    }
+
+    @Test func diveTripDateRangePickerPresentation_singleCalendarLayout_isCompactForFormSheet() {
+        #expect(DiveTripDateRangePickerPresentation.singleCalendarHeight == 280)
+        #expect(DiveTripDateRangePickerPresentation.singleCalendarScale == 0.88)
+        #expect(DiveTripDateRangePickerPresentation.singleCalendarHorizontalInset == 28)
+        #expect(DiveTripDateRangePickerPresentation.singleCalendarScale < 1)
+    }
+
+    @Test func diveTripFormValues_setStartDate_firstPickMatchesEndToStart() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        var form = DiveTripFormValues()
+        form.title = "Reef week"
+        form.endDate = calendar.date(from: DateComponents(year: 2026, month: 1, day: 18))!
+        let start = calendar.date(from: DateComponents(year: 2026, month: 9, day: 3))!
+        form.setStartDate(start, calendar: calendar)
+        #expect(form.hasChosenStartDate)
+        #expect(form.startDate == calendar.startOfDay(for: start))
+        #expect(form.endDate == form.startDate)
+        #expect(DiveTripDateRangePickerPresentation.shouldShowEndDateControls(hasChosenStartDate: true))
+    }
+
+    @Test func diveTripFormValues_setStartDate_laterChangeKeepsEndDayInStartMonth() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        var form = DiveTripFormValues()
+        form.hasChosenStartDate = true
+        form.startDate = calendar.date(from: DateComponents(year: 2026, month: 1, day: 3))!
+        form.endDate = calendar.date(from: DateComponents(year: 2026, month: 1, day: 18))!
+        form.setStartDate(
+            calendar.date(from: DateComponents(year: 2026, month: 9, day: 3))!,
+            calendar: calendar
+        )
+        #expect(calendar.component(.month, from: form.startDate) == 9)
+        #expect(calendar.component(.month, from: form.endDate) == 9)
+        #expect(calendar.component(.day, from: form.endDate) == 18)
+        #expect(form.hasValidDateRange)
+    }
+
     @Test func diveTripDateRangePickerPresentation_normalizedDates_singleDayWhenEndMissing() {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
@@ -9960,8 +10413,16 @@ struct GoDiveMVPTests {
         form = DiveTripFormValues()
         form.title = "  Reef week  "
         #expect(form.trimmedTitle == "Reef week")
+        #expect(!form.canSave)
+        form.hasChosenStartDate = true
         #expect(form.canSave)
         #expect(form.parsedCountries.isEmpty)
+
+        form.countriesText = "Dutch Caribbean, Bonaire"
+        #expect(form.parsedCountries == ["Caribbean Netherlands", "Bonaire"])
+        let trip = form.makeDiveTrip()
+        #expect(trip.countries == ["Caribbean Netherlands", "Bonaire"])
+        #expect(trip.title == "Reef week")
     }
 
     @Test @MainActor func diveTripFormValues_initFromTripAndApply() throws {
@@ -9985,11 +10446,13 @@ struct GoDiveMVPTests {
         context.insert(trip)
 
         var form = DiveTripFormValues(from: trip)
+        #expect(form.countriesText == "Bonaire")
         form.title = "Bonaire 2026"
+        form.countriesText = "Bonaire, Curaçao"
         form.apply(to: trip)
 
         #expect(trip.displayTitle == "Bonaire 2026")
-        #expect(trip.countries == ["Bonaire"])
+        #expect(trip.countries == ["Bonaire", "Curaçao"])
     }
 
     @Test @MainActor func diveTripDeletion_deletePermanentlyRemovesTrip() throws {
@@ -10038,6 +10501,7 @@ struct GoDiveMVPTests {
 
         var form = DiveTripFormValues()
         form.title = "Day trip"
+        form.hasChosenStartDate = true
         form.startDate = day
         form.endDate = later
         #expect(form.hasValidDateRange)
@@ -10291,6 +10755,28 @@ struct GoDiveMVPTests {
         #expect(tiles[3].linkedDiveID == nil)
     }
 
+    @Test func tripDetailPresentation_blueSheetUsesStandardPanelBodySpacing() {
+        let content = TripDetailPresentation.blueSheetPageConfiguration(
+            accessibilityRootIdentifier: "TripDetail.Content"
+        )
+        #expect(content.presentation == .pushedDetail)
+        #expect(content.showsHero)
+        #expect(
+            content.pinnedSummaryBottomPadding
+                == BlueSheetDetailPagePinnedSummaryPresentation.pushedDetailPinnedSummaryBottomPadding
+        )
+
+        let missing = TripDetailPresentation.blueSheetPageConfiguration(
+            accessibilityRootIdentifier: "TripDetail.Root",
+            showsHero: false
+        )
+        #expect(!missing.showsHero)
+        #expect(
+            missing.pinnedSummaryBottomPadding
+                == BlueSheetDetailPagePinnedSummaryPresentation.pushedDetailPinnedSummaryBottomPadding
+        )
+    }
+
     @Test @MainActor func tripDetailContentPager_activeTripPages() {
         #expect(TripDetailContentPagerPresentation.pageCount(hasStarted: true) == 5)
         #expect(
@@ -10400,6 +10886,30 @@ struct GoDiveMVPTests {
 
         #expect(DiveTripPlannedBuddyDraftPresentation.plannedBuddyIDs(on: trip) == [sam.id])
         #expect(DiveTripPlannedBuddyLinking.plannedBuddies(for: trip).map(\.id) == [sam.id])
+    }
+
+    @Test @MainActor func diveTripPlannedBuddyDraftPresentation_rosterByID_fallsBackToModelContext() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let owner = UserProfile(appleUserIdentifier: "owner-roster-fallback", displayName: "Alex")
+        let jordan = DiveBuddy(displayName: "Jordan", owner: owner)
+        context.insert(owner)
+        context.insert(jordan)
+        try context.save()
+
+        let map = DiveTripPlannedBuddyDraftPresentation.rosterByID(
+            ownedBuddies: [],
+            selectedBuddyIDs: [jordan.id],
+            modelContext: context
+        )
+        #expect(map[jordan.id]?.displayName == "Jordan")
+
+        let selected = DiveTripPlannedBuddyDraftPresentation.selectedBuddies(
+            ownedBuddies: [],
+            selectedBuddyIDs: [jordan.id],
+            modelContext: context
+        )
+        #expect(selected.map(\.id) == [jordan.id])
     }
 
     @Test func diveTripPresentation_plannedBuddyPickerAccessibilityIdentifiers() {
@@ -11087,21 +11597,6 @@ struct GoDiveMVPTests {
             catalogSites: [planned, catalogOnly]
         )
         #expect(resolvedCatalog?.id == catalogID)
-    }
-
-    @Test func blueSheetIdentityLayoutTuning_handoffSummary_listsDeltaKeys() {
-        let summary = BlueSheetIdentityLayoutTuningPresentation.handoffSummary(
-            deltas: BlueSheetIdentityLayoutTuningPresentation.Deltas(
-                avatarLeading: 2,
-                avatarVertical: -4,
-                identityTextVertical: 1.5,
-                panelDividerVertical: -3,
-                panelContentTop: 8
-            )
-        )
-        #expect(summary.contains("avatarLeading: +2.0 pt"))
-        #expect(summary.contains("panelDividerVertical:"))
-        #expect(summary.contains("panelContentTop: +8.0 pt"))
     }
 
     @Test @MainActor func logbookRoute_includesCatalogSiteDetail() {
@@ -14533,6 +15028,54 @@ struct GoDiveMVPTests {
             == "🇺🇸 Midway, Utah, United States")
     }
 
+    @Test func diveSiteCountryPresentation_selectableCountries_includesFlagMappedISORegions() {
+        let countries = DiveSiteCountryPresentation.selectableCountries()
+        #expect(countries.count > 100)
+        #expect(countries.contains(where: { $0.name == "United States" && $0.flagEmoji == "🇺🇸" }))
+        #expect(countries.contains(where: {
+            $0.name == DiveSiteCountryPresentation.caribbeanNetherlands && $0.flagEmoji == "🇧🇶"
+        }))
+        #expect(countries.map(\.name) == countries.map(\.name).sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        })
+
+        #expect(
+            DiveSiteCountryPresentation.matchesSelectableCountry(
+                DiveSiteSelectableCountry(
+                    name: DiveSiteCountryPresentation.caribbeanNetherlands,
+                    isoRegionCode: "BQ",
+                    flagEmoji: "🇧🇶"
+                ),
+                query: "dutch"
+            )
+        )
+        #expect(
+            DiveSiteCountryPresentation.matchesSelectableCountry(
+                DiveSiteSelectableCountry(
+                    name: DiveSiteCountryPresentation.caribbeanNetherlands,
+                    isoRegionCode: "BQ",
+                    flagEmoji: "🇧🇶"
+                ),
+                query: "bonaire"
+            )
+        )
+
+        let withLegacy = DiveSiteCountryPresentation.selectableCountries(
+            includingSelected: ["Bonaire Reef Week"]
+        )
+        #expect(withLegacy.contains(where: { $0.name == "Bonaire Reef Week" }))
+    }
+
+    @Test func diveTripFormValues_toggleCountry_addsAndRemovesCanonicalNames() {
+        var countries: [String] = []
+        DiveTripFormValues.toggleCountry("Dutch Caribbean", in: &countries)
+        #expect(countries == [DiveSiteCountryPresentation.caribbeanNetherlands])
+        DiveTripFormValues.toggleCountry("Curaçao", in: &countries)
+        #expect(countries == [DiveSiteCountryPresentation.caribbeanNetherlands, "Curaçao"])
+        DiveTripFormValues.toggleCountry("caribbean netherlands", in: &countries)
+        #expect(countries == ["Curaçao"])
+    }
+
     @Test func exploreDiveSiteListDisplay_cityCountryLine_formatsRegionAndCountry() {
         #expect(
             ExploreDiveSiteListDisplay.cityCountryLine(country: "Bonaire", region: "Caribbean")
@@ -16540,43 +17083,44 @@ struct GoDiveMVPTests {
         )
     }
 
-    @Test func homeReturnNavigationPresentation_skipsRedundantRebuildWhenCarouselReady() {
+    @Test func homeReturnNavigationPresentation_skipsRedundantRebuildWhenAggregateWarm() {
         #expect(
             HomeReturnNavigationPresentation.shouldSkipFullRebuildOnReturn(
                 hasPerformedInitialBuild: true,
-                carouselSlidesAreDisplayable: true,
-                hasCarouselHighlights: true
+                hasWarmAggregate: true
             )
         )
         #expect(
             !HomeReturnNavigationPresentation.shouldSkipFullRebuildOnReturn(
                 hasPerformedInitialBuild: false,
-                carouselSlidesAreDisplayable: true,
-                hasCarouselHighlights: true
+                hasWarmAggregate: true
             )
         )
         #expect(
             !HomeReturnNavigationPresentation.shouldSkipFullRebuildOnReturn(
                 hasPerformedInitialBuild: true,
-                carouselSlidesAreDisplayable: false,
-                hasCarouselHighlights: true
+                hasWarmAggregate: false
             )
+        )
+        #expect(
+            HomeReturnNavigationPresentation.hasWarmAggregate(hasPerformedInitialBuild: true)
+        )
+        #expect(
+            !HomeReturnNavigationPresentation.hasWarmAggregate(hasPerformedInitialBuild: false)
         )
     }
 
-    @Test func homeReturnNavigationPresentation_skipsForegroundRebuildWhenCarouselReady() {
+    @Test func homeReturnNavigationPresentation_skipsForegroundRebuildWhenAggregateWarm() {
         #expect(
             HomeReturnNavigationPresentation.shouldSkipFullRebuildOnForegroundActivation(
                 hasPerformedInitialBuild: true,
-                carouselSlidesAreDisplayable: true,
-                hasCarouselHighlights: true
+                hasWarmAggregate: true
             )
         )
         #expect(
             !HomeReturnNavigationPresentation.shouldSkipFullRebuildOnForegroundActivation(
                 hasPerformedInitialBuild: true,
-                carouselSlidesAreDisplayable: true,
-                hasCarouselHighlights: false
+                hasWarmAggregate: false
             )
         )
     }
@@ -18704,9 +19248,89 @@ struct GoDiveMVPTests {
             )
         )
         #expect(
-            LogbookRootAppearPresentation.shouldBuildCacheOnAppear(
+            !LogbookRootAppearPresentation.shouldBuildCacheOnAppear(
+                isLogbookTabSelected: true,
+                hasPerformedInitialCacheBuild: true
+            )
+        )
+        #expect(
+            !LogbookRootAppearPresentation.shouldBuildCacheOnAppear(
                 isLogbookTabSelected: false,
                 hasPerformedInitialCacheBuild: true
+            )
+        )
+    }
+
+    @Test func logbookRootAppearPresentation_rebuildsOnTabSelectOnlyWhenColdOrEmpty() {
+        #expect(
+            LogbookRootAppearPresentation.shouldRebuildCacheOnTabSelect(
+                isLogbookTabSelected: true,
+                hasPerformedInitialCacheBuild: false,
+                hasDisplayRows: false,
+                hasVisibleActivities: false
+            )
+        )
+        #expect(
+            !LogbookRootAppearPresentation.shouldRebuildCacheOnTabSelect(
+                isLogbookTabSelected: true,
+                hasPerformedInitialCacheBuild: true,
+                hasDisplayRows: true,
+                hasVisibleActivities: true
+            )
+        )
+        #expect(
+            LogbookRootAppearPresentation.shouldRebuildCacheOnTabSelect(
+                isLogbookTabSelected: true,
+                hasPerformedInitialCacheBuild: true,
+                hasDisplayRows: false,
+                hasVisibleActivities: true
+            )
+        )
+        #expect(
+            !LogbookRootAppearPresentation.shouldRebuildCacheOnTabSelect(
+                isLogbookTabSelected: true,
+                hasPerformedInitialCacheBuild: true,
+                hasDisplayRows: false,
+                hasVisibleActivities: false
+            )
+        )
+        #expect(
+            !LogbookRootAppearPresentation.shouldRebuildCacheOnTabSelect(
+                isLogbookTabSelected: false,
+                hasPerformedInitialCacheBuild: false,
+                hasDisplayRows: false,
+                hasVisibleActivities: true
+            )
+        )
+    }
+
+    @Test func exploreScopeCacheAppearPresentation_skipsWarmUnchangedToken() {
+        #expect(
+            ExploreScopeCacheAppearPresentation.shouldRebuildScopeCacheOnAppear(
+                isCacheEmpty: true,
+                appliedSyncToken: nil,
+                currentSyncToken: "a"
+            )
+        )
+        #expect(
+            ExploreScopeCacheAppearPresentation.shouldRebuildScopeCacheOnAppear(
+                isCacheEmpty: false,
+                appliedSyncToken: nil,
+                currentSyncToken: "a"
+            )
+        )
+        #expect(
+            !ExploreScopeCacheAppearPresentation.shouldRebuildScopeCacheOnAppear(
+                isCacheEmpty: false,
+                appliedSyncToken: "a",
+                currentSyncToken: "a"
+            )
+        )
+        #expect(
+            ExploreScopeCacheAppearPresentation.shouldRebuildScopeCacheOnAppear(
+                isCacheEmpty: false,
+                appliedSyncToken: "a",
+                currentSyncToken: "b"
             )
         )
     }
@@ -18917,6 +19541,57 @@ struct GoDiveMVPTests {
             layoutContext: context
         )
         #expect(midProgress > 0.4 && midProgress < 0.6)
+    }
+
+    @Test func diveActivityMediaHeroPresentation_resolvedFitFillProgress_matchesOwnerAndBuddyHeroGates() {
+        let context = DiveActivityOverviewSheetLayoutContext.presentationReference
+        let large = DiveActivityOverviewPanelMetrics.largeHeightFraction(in: context)
+        let minimized = DiveActivityOverviewPanelMetrics.minimizedHeightFraction
+
+        #expect(
+            abs(
+                DiveActivityMediaHeroPresentation.resolvedFitFillProgress(
+                    sheetHeightFraction: large,
+                    layoutHeight: context.layoutHeight,
+                    screenWidth: context.screenWidth,
+                    isLandscape: false,
+                    topSafeInset: context.topSafeInset,
+                    bottomSafeInset: context.bottomSafeInset
+                )
+            ) < 0.001
+        )
+        #expect(
+            abs(
+                DiveActivityMediaHeroPresentation.resolvedFitFillProgress(
+                    sheetHeightFraction: minimized,
+                    layoutHeight: context.layoutHeight,
+                    screenWidth: context.screenWidth,
+                    isLandscape: false,
+                    topSafeInset: context.topSafeInset,
+                    bottomSafeInset: context.bottomSafeInset
+                ) - 1
+            ) < 0.001
+        )
+        #expect(
+            DiveActivityMediaHeroPresentation.resolvedFitFillProgress(
+                sheetHeightFraction: large,
+                layoutHeight: context.layoutHeight,
+                screenWidth: context.screenWidth,
+                isLandscape: true,
+                topSafeInset: context.topSafeInset,
+                bottomSafeInset: context.bottomSafeInset
+            ) == 1
+        )
+        #expect(
+            DiveActivityMediaHeroPresentation.resolvedFitFillProgress(
+                sheetHeightFraction: large,
+                layoutHeight: 0,
+                screenWidth: context.screenWidth,
+                isLandscape: false,
+                topSafeInset: context.topSafeInset,
+                bottomSafeInset: context.bottomSafeInset
+            ) == 1
+        )
     }
 
     @Test func diveActivityMediaHeroPresentation_interpolatedSize_fillsBandAtZeroProgress() {
@@ -24542,8 +25217,21 @@ struct GoDiveMVPTests {
     @Test func logbookAndFieldGuideCollapsibleHeaderTitles() {
         #expect(LogbookCollapsibleHeaderPresentation.title == "Activity Log")
         #expect(LogbookCollapsibleHeaderPresentation.titleAccessibilityIdentifier == "Logbook.Title")
-        #expect(LogbookCollapsibleHeaderPresentation.myActivitiesSegmentTitle == "My Activities")
-        #expect(LogbookCollapsibleHeaderPresentation.buddyFeedSegmentTitle == "Buddy Feed")
+        #expect(LogbookCollapsibleHeaderPresentation.myActivitiesSegmentTitle == "Me")
+        #expect(LogbookCollapsibleHeaderPresentation.buddyFeedSegmentTitle == "Buddies")
+        #expect(LogbookFeedScope.myActivities.segmentTitle == "Me")
+        #expect(LogbookFeedScope.buddyFeed.segmentTitle == "Buddies")
+        #expect(LogbookFeedScope.myActivities.accessibilityLabel == "Me")
+        #expect(LogbookFeedScope.buddyFeed.accessibilityLabel == "Buddies")
+        // Equal Me / Buddies columns are sized to the longer title.
+        let equalWidth = LogbookFeedScopeTogglePresentation.equalSegmentWidth()
+        #expect(
+            equalWidth == LogbookFeedScopeTogglePresentation.equalSegmentWidth(titles: ["Buddies"])
+        )
+        #expect(
+            equalWidth > LogbookFeedScopeTogglePresentation.equalSegmentWidth(titles: ["Me"])
+        )
+        #expect(!LogbookFeedScopeTogglePresentation.shellUsesInteractiveGlass)
         #expect(LogbookFeedScope.myActivities.systemImage == "book.closed.fill")
         #expect(LogbookFeedScope.buddyFeed.systemImage == "person.2.fill")
         #expect(LogbookFeedScopePagerPresentation.pages == [.myActivities, .buddyFeed])
@@ -25624,6 +26312,44 @@ struct GoDiveMVPTests {
         // Typed multi-category search no longer truncates dives at 12 — all 15 matches come back.
         #expect(diveSection?.hits.count == 15)
         #expect(results.sections.contains { $0.kind == .diveSites })
+    }
+
+    @Test func globalSearchPresentation_returnsAllMatchesBeyondFormerFiveHundredCap() {
+        let siteCount = 501
+        let speciesCount = 501
+        let diveSites = (0..<siteCount).map { index in
+            GlobalSearchPresentation.DiveSiteIndexEntry(
+                title: "Coral Site \(index)",
+                subtitle: "Test Region",
+                searchHaystacks: ["Coral Site \(index)"],
+                destination: .diveSite(UUID())
+            )
+        }
+        let species = (0..<speciesCount).map { index in
+            GlobalSearchPresentation.SpeciesIndexEntry(
+                uuid: "species-\(index)",
+                title: "Coral Fish \(index)",
+                subtitle: nil,
+                searchText: "coral fish \(index)"
+            )
+        }
+        let catalog = GlobalSearchPresentation.Catalog(
+            dives: [],
+            snorkels: [],
+            diveSites: diveSites,
+            species: species,
+            buddies: [],
+            tags: [],
+            trips: [],
+            equipment: [],
+            certifications: []
+        )
+
+        let results = GlobalSearchPresentation.search(catalog: catalog, query: "coral")
+        let siteSection = results.sections.first { $0.kind == .diveSites }
+        let speciesSection = results.sections.first { $0.kind == .species }
+        #expect(siteSection?.hits.count == siteCount)
+        #expect(speciesSection?.hits.count == speciesCount)
     }
 
     @Test func globalSearchResultsDismissPresentation_engagesOnlyForHorizontalEdgeSwipe() {
@@ -29077,6 +29803,44 @@ struct GoDiveMVPTests {
         #expect(defaults.bool(forKey: AppUserSettings.automaticallyRenumberDivesKey))
         #expect(defaults.bool(forKey: AppUserSettings.useImperialDisplayUnitsKey))
         #expect(defaults.bool(forKey: AppUserSettings.autoUploadMediaToActivitiesKey))
+        #expect(defaults.bool(forKey: AppUserSettings.notifyAllNotificationsKey))
+        #expect(defaults.bool(forKey: AppUserSettings.notifyBuddyActivitySharesKey))
+        #expect(defaults.bool(forKey: AppUserSettings.notifyGearServiceRemindersKey))
+        #expect(defaults.bool(forKey: AppUserSettings.notifyTripRemindersKey))
+    }
+
+    @Test func appUserSettings_notificationToggles_defaultOnUntilExplicitlyOff() throws {
+        let suiteName = "GoDiveNotificationDefaults-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        #expect(AppUserSettings.notifyAllNotifications(userDefaults: defaults))
+        #expect(AppUserSettings.notifyGearServiceReminders(userDefaults: defaults))
+        #expect(AppUserSettings.notifyTripReminders(userDefaults: defaults))
+
+        defaults.set(false, forKey: AppUserSettings.notifyGearServiceRemindersKey)
+        defaults.set(false, forKey: AppUserSettings.notifyTripRemindersKey)
+        #expect(!AppUserSettings.notifyGearServiceReminders(userDefaults: defaults))
+        #expect(!AppUserSettings.notifyTripReminders(userDefaults: defaults))
+
+        defaults.set(true, forKey: AppUserSettings.notifyGearServiceRemindersKey)
+        defaults.set(true, forKey: AppUserSettings.notifyTripRemindersKey)
+        defaults.set(false, forKey: AppUserSettings.notifyAllNotificationsKey)
+        #expect(!AppUserSettings.notifyGearServiceReminders(userDefaults: defaults))
+        #expect(!AppUserSettings.notifyTripReminders(userDefaults: defaults))
+        #expect(AppUserSettings.notifyGearServiceRemindersPreference(userDefaults: defaults))
+        #expect(AppUserSettings.notifyTripRemindersPreference(userDefaults: defaults))
+    }
+
+    @Test func appUserSettings_downloadFriendMediaOnWiFiOnly_alwaysAllowsCellular() throws {
+        let suiteName = "GoDiveDownloadMediaWiFi-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set(true, forKey: AppUserSettings.downloadFriendMediaOnWiFiOnlyKey)
+        #expect(!AppUserSettings.downloadFriendMediaOnWiFiOnly(userDefaults: defaults))
+        defaults.set(false, forKey: AppUserSettings.downloadFriendMediaOnWiFiOnlyKey)
+        #expect(!AppUserSettings.downloadFriendMediaOnWiFiOnly(userDefaults: defaults))
     }
 
     @Test func appUserSettings_registerDefaultValues_doesNotOverrideSavedOffChoice() throws {
@@ -29794,6 +30558,8 @@ struct CrashReportingTests {
 
         defaults.set(false, forKey: AppUserSettings.autoUploadMediaToActivitiesKey)
         defaults.set(DefaultTankSize.al63.rawValue, forKey: AppUserSettings.defaultTankSizeKey)
+        defaults.set(false, forKey: AppUserSettings.notifyGearServiceRemindersKey)
+        defaults.set(false, forKey: AppUserSettings.notifyTripRemindersKey)
         try UserPreferencesSync.pushUserDefaultsToStore(
             owner: owner,
             modelContext: context,
@@ -29803,6 +30569,8 @@ struct CrashReportingTests {
         let prefs = try context.fetch(FetchDescriptor<UserPreferences>()).first
         #expect(prefs?.autoUploadMediaToActivities == false)
         #expect(prefs?.defaultTankSizeRaw == DefaultTankSize.al63.rawValue)
+        #expect(prefs?.notifyGearServiceReminders == false)
+        #expect(prefs?.notifyTripReminders == false)
     }
 
     @Test func appSwiftDataDualStoreFactory_phase2UserPrivateCloudKitPolicy() throws {
@@ -30796,8 +31564,33 @@ struct CrashReportingTests {
         )
         #expect(
             SnorkelHeartRateProfileChartPresentation.scrubHeartRateLabel(bpm: 128)
-                == "128 bpm"
+                == "Heart Rate 128 bpm"
         )
+        #expect(
+            SnorkelHeartRateProfileChartPresentation.heartRateAxisTopBufferFraction
+                == DiveDepthProfileChartPresentation.depthAxisTopBufferFraction(for: .edgeToEdge)
+        )
+    }
+
+    @Test func snorkelHeartRateProfileChartPresentation_plotPoint_keepsPeakBelowTopBuffer() {
+        let rect = CGRect(x: 0, y: 0, width: 200, height: 100)
+        let maxBPM = 160.0
+        let peak = SnorkelHeartRateProfileChartPresentation.plotPoint(
+            sample: SnorkelHeartRateProfileSample(elapsedSeconds: 30, heartRateBPM: 160),
+            in: rect,
+            maxElapsed: 60,
+            maxBPM: maxBPM
+        )
+        let floor = SnorkelHeartRateProfileChartPresentation.plotPoint(
+            sample: SnorkelHeartRateProfileSample(elapsedSeconds: 0, heartRateBPM: 0),
+            in: rect,
+            maxElapsed: 60,
+            maxBPM: maxBPM
+        )
+        let buffer = SnorkelHeartRateProfileChartPresentation.heartRateAxisTopBufferFraction
+        #expect(abs(peak.y - (rect.minY + CGFloat(buffer) * rect.height)) < 0.5)
+        #expect(abs(floor.y - rect.maxY) < 0.5)
+        #expect(peak.y > rect.minY + 1)
     }
 
     @Test func snorkelHeartRateProfileChartPresentation_underCurveAreaPath_closesBelowPolyline() {
@@ -30819,6 +31612,8 @@ struct CrashReportingTests {
         let bounds = path.boundingRect
         #expect(abs(bounds.maxY - rect.maxY) < 0.5)
         #expect(bounds.minY < rect.maxY - 1)
+        let buffer = SnorkelHeartRateProfileChartPresentation.heartRateAxisTopBufferFraction
+        #expect(bounds.minY >= rect.minY + CGFloat(buffer) * rect.height - 0.5)
     }
 
     @Test func snorkelHeartRateProfileChartPresentation_indexNearestElapsed_picksClosestSample() {

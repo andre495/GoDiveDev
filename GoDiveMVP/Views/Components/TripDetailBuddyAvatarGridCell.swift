@@ -5,15 +5,19 @@ struct TripDetailBuddyAvatarGridCell: View {
     let profilePhoto: Data?
     let displayName: String
     let subtitle: String
+    var showsGoDiveUserPin: Bool = false
+
+    private var avatarDiameter: CGFloat { TripDetailBuddiesPresentation.avatarDiameter }
 
     var body: some View {
         VStack(spacing: AppTheme.Spacing.sm) {
             ProfileAvatarView(
                 profilePhoto: profilePhoto,
-                diameter: TripDetailBuddiesPresentation.avatarDiameter,
+                diameter: avatarDiameter,
                 iconFont: .title2,
                 placeholderInitials: DiveBuddyPresentation.initials(from: displayName)
             )
+            .goDiveUserAvatarPin(shows: showsGoDiveUserPin, avatarDiameter: avatarDiameter)
 
             Text(displayName)
                 .font(.footnote.weight(.semibold))

@@ -230,11 +230,7 @@ enum GoDiveSharedDiveProjectionMapping: Sendable {
         }
 
         if options.includeNotes, let notes = options.notesText {
-            let trimmed = GoDiveInputSanitization.trimmedAndCapped(
-                notes,
-                maxLength: DiveNotesValidation.maxCharacterCount
-            )
-            if !trimmed.isEmpty {
+            if let trimmed = GoDiveInputSanitization.sanitizedNotes(notes) {
                 fields["notes"] = trimmed
             }
         }

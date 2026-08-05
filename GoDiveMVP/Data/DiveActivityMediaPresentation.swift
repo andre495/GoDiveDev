@@ -199,7 +199,7 @@ enum DiveActivityMediaPresentation: Sendable {
         return 0
     }
 
-    /// Soft top feather under the pinned fish/buddy toggle/**+** while body content scrolls.
+    /// Soft top feather under the pinned fish/buddy toggle / tag / upload chrome while body content scrolls.
     nonisolated static var largeDetentPinnedChromeScrollFadeHeight: CGFloat {
         largeDetentTagOverviewChromeHeight
             + DiveActivityOverviewPanelMetrics.mediaLargeDetentPinnedChromeFadeExtra
@@ -324,18 +324,28 @@ enum DiveActivityMediaPresentation: Sendable {
         carouselThumbnailExtent(isSelected: isSelected) * 0.22
     }
 
-    /// Trailing **+** on the **large** tagged-species sheet — opens the marine-life tag flow.
+    /// Leading tag **+** on the **large** tagged-species sheet — opens the marine-life tag flow.
     nonisolated static func showsLargeDetentAddMarineLifeControl(for detent: DiveActivityOverviewDetent) -> Bool {
         detent == .large
     }
 
-    /// Trailing **+** on the **large** buddy overview — opens the buddy tag flow.
+    /// Leading tag **+** on the **large** buddy overview — opens the buddy tag flow.
     nonisolated static func showsLargeDetentAddBuddyControl(for detent: DiveActivityOverviewDetent) -> Bool {
         detent == .large
     }
 
-    /// Fish / buddy mode toggle + **+** chrome on the **large** Media sheet when media exists.
+    /// Fish / buddy mode toggle + tag/AI + upload chrome on the **large** Media sheet when media exists.
     nonisolated static func showsLargeDetentTagOverviewChrome(for detent: DiveActivityOverviewDetent) -> Bool {
+        detent == .large
+    }
+
+    /// **Large** Media chrome: Fishial / tag **+** sit on the leading edge (toggle stays centered).
+    nonisolated static func placesLargeDetentTagActionsLeading(for detent: DiveActivityOverviewDetent) -> Bool {
+        detent == .large
+    }
+
+    /// **Large** Media chrome: upload (**photo.badge.plus**) sits trailing — same corner as minimized carousel **+**.
+    nonisolated static func placesLargeDetentAddMediaControlTrailing(for detent: DiveActivityOverviewDetent) -> Bool {
         detent == .large
     }
 

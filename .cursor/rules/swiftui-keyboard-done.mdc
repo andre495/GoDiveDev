@@ -32,4 +32,6 @@ Use **`ToolbarItemGroup(placement: .keyboard)`** so iOS shows the bar **above** 
 
 **Do not** rely on the user swiping the keyboard away as the only dismissal path; **Done** must clear focus (`false` / `nil`), which dismisses the keyboard.
 
+**Exception — modal sheets with a confirmation Done:** Skip the keyboard accessory when the sheet already has a top **Done** (or equivalent confirmation action) that clears focus and dismisses/saves — e.g. **`DiveActivityNotesEditSheet`** / **`SnorkelActivityNotesEditSheet`**. Do not add a second Done above the keyboard on those screens.
+
 Prefer this SwiftUI **focus** approach over `UIApplication` / `resignFirstResponder` unless focus APIs cannot be applied to that control.

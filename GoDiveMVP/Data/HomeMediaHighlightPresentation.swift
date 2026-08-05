@@ -216,7 +216,8 @@ enum HomeMediaHighlightPresentation {
                 DiveMediaBuddyTagPresentation.TaggedBuddyRow(
                     buddyID: buddyID,
                     displayName: tag.displayName,
-                    profilePhoto: tag.profilePhoto
+                    profilePhoto: tag.profilePhoto,
+                    showsGoDiveUserPin: tag.showsGoDiveUserPin
                 )
             )
         }
@@ -287,6 +288,7 @@ struct HomeMediaHighlightBuddyTagInput: Sendable, Equatable {
     var buddyID: UUID? = nil
     var displayName: String = "Buddy"
     var profilePhoto: Data? = nil
+    var showsGoDiveUserPin: Bool = false
 }
 
 /// Deterministic shuffle for carousel picks (stable for a given seed / day).

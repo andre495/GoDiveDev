@@ -5,6 +5,7 @@ struct TripPlannedBuddyMember: Sendable, Equatable, Identifiable {
     let displayName: String
     let profilePhoto: Data?
     let isOwner: Bool
+    var showsGoDiveUserPin: Bool = false
 }
 
 enum TripDetailPlannedBuddyPresentation: Sendable {
@@ -30,7 +31,8 @@ enum TripDetailPlannedBuddyPresentation: Sendable {
                     id: owner.id,
                     displayName: owner.displayName,
                     profilePhoto: owner.profilePhoto,
-                    isOwner: true
+                    isOwner: true,
+                    showsGoDiveUserPin: false
                 )
             )
         }
@@ -39,7 +41,8 @@ enum TripDetailPlannedBuddyPresentation: Sendable {
                 id: $0.id,
                 displayName: $0.displayName,
                 profilePhoto: $0.profilePhoto,
-                isOwner: false
+                isOwner: false,
+                showsGoDiveUserPin: DiveBuddyFriendLinkPresentation.isLinkedFriend($0)
             )
         })
         return members

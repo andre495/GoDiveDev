@@ -5,6 +5,16 @@ import FirebaseFirestore
 import FirebaseStorage
 import SwiftData
 
+/// Outcome of a full friend-share republish gate (testable without Firestore).
+nonisolated enum GoDiveSharedDiveRepublishDecision: Equatable, Sendable {
+    /// Settings → Share activities is off — remove all remote projections.
+    case wipeAllBecauseSharingDisabled
+    /// Sharing is on, but friends are unavailable / empty — do not touch remote docs.
+    case skipLeavingRemoteIntact
+    /// Sharing is on and friends exist — upsert owned publishable activities.
+    case publishOwned
+}
+
 /// Mirrors friend-visible dive projections to Firestore for accepted friends.
 enum GoDiveSharedDiveProjectionSync: Sendable {
     nonisolated private static let log = Logger(subsystem: "PrimoSoftware.GoDiveMVP", category: "FriendShareSync")
@@ -46,6 +56,22 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         return await GoDiveFriendGraphService.hasAnyFriends()
     }
 
+    /// Full-republish policy: wipe remote projections only when the owner turned sharing off.
+    /// When sharing is on but friends are unavailable / empty, leave Firebase intact so a later
+    /// upsert does not recreate existing docs as "first share" and re-notify buddies.
+    nonisolated static func republishDecision(
+        shareDivesWithFriendsEnabled: Bool,
+        canPublishToFriends: Bool
+    ) -> GoDiveSharedDiveRepublishDecision {
+        if !shareDivesWithFriendsEnabled {
+            return .wipeAllBecauseSharingDisabled
+        }
+        if !canPublishToFriends {
+            return .skipLeavingRemoteIntact
+        }
+        return .publishOwned
+    }
+
     @MainActor
     static func republishAllOwnedDives(
         ownerProfileID: UUID,
@@ -57,14 +83,32 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         guard GoDiveFirebaseBootstrap.isConfigured else { return }
         guard let uid = Auth.auth().currentUser?.uid, !uid.isEmpty else { return }
 
-        let shouldPublish = await shouldPublishProjections(
+        let sharingEnabled = AppUserSettings.shareDivesWithFriends(userDefaults: userDefaults)
+        let canPublish = await shouldPublishProjections(
             userDefaults: userDefaults,
             assumeHasFriends: assumeHasFriends
         )
-        if !shouldPublish {
+        switch republishDecision(
+            shareDivesWithFriendsEnabled: sharingEnabled,
+            canPublishToFriends: canPublish
+        ) {
+        case .wipeAllBecauseSharingDisabled:
             await deleteAllSharedDivesForCurrentUser()
             return
+        case .skipLeavingRemoteIntact:
+            log.notice("Friend-share republish skipped; leaving existing sharedDives intact")
+            return
+        case .publishOwned:
+            break
         }
+
+        // Rebuild / CloudKit restore can lose local `friendSharePushSignalRecorded`. Re-attach it
+        // from projections already viewable by buddies before any upsert can write push signals.
+        await hydratePushSignalRecordedFromRemoteProjections(
+            ownerUID: uid,
+            ownerProfileID: ownerProfileID,
+            modelContext: modelContext
+        )
 
         let dives = (try? modelContext.fetch(FetchDescriptor<DiveActivity>()))?
             .filter { $0.ownerProfileID == ownerProfileID } ?? []
@@ -79,7 +123,8 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
                     dive,
                     ownerUID: uid,
                     options: shareOptions(for: dive, userDefaults: userDefaults),
-                    modelContext: modelContext
+                    modelContext: modelContext,
+                    bumpUpdatedAt: false
                 )
             } else {
                 await deleteDiveProjection(diveID: dive.id)
@@ -97,7 +142,8 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
                     snorkel,
                     ownerUID: uid,
                     options: shareOptions(for: snorkel, userDefaults: userDefaults),
-                    modelContext: modelContext
+                    modelContext: modelContext,
+                    bumpUpdatedAt: false
                 )
             } else {
                 await deleteDiveProjection(diveID: snorkel.id)
@@ -110,7 +156,8 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         _ dive: DiveActivity,
         ownerUID: String? = nil,
         options: GoDiveSharedDiveProjectionMapping.ShareOptions? = nil,
-        modelContext: ModelContext
+        modelContext: ModelContext,
+        bumpUpdatedAt: Bool = true
     ) async -> Bool {
         GoDiveFirebaseBootstrap.configureIfNeeded()
         guard GoDiveFirebaseBootstrap.isConfigured else { return false }
@@ -162,10 +209,19 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
 
         do {
             let existingProjection = try await projectionRef.getDocument()
+            // Full republish must not make every buddy feed / Home Notifications row look brand-new.
+            if existingProjection.exists, !bumpUpdatedAt {
+                fields.removeValue(forKey: "updatedAt")
+            }
             try await projectionRef.setData(fields, merge: true)
             await GoDiveSharedMediaUpload.syncFirestoreMediaItemsFromPublishStateIfProjectionExists(
                 ownerUID: uid,
                 activityID: dive.id
+            )
+            markPushSignalRecordedIfNeeded(
+                activityAlreadySharedRemotely: existingProjection.exists,
+                activity: dive,
+                modelContext: modelContext
             )
             // One push per activity: only on first projection create, and never again after
             // a signal was recorded (media/notes republishes must not re-notify).
@@ -200,7 +256,8 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
         _ snorkel: SnorkelActivity,
         ownerUID: String? = nil,
         options: GoDiveSharedDiveProjectionMapping.ShareOptions? = nil,
-        modelContext: ModelContext
+        modelContext: ModelContext,
+        bumpUpdatedAt: Bool = true
     ) async -> Bool {
         GoDiveFirebaseBootstrap.configureIfNeeded()
         guard GoDiveFirebaseBootstrap.isConfigured else { return false }
@@ -252,10 +309,18 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
 
         do {
             let existingProjection = try await projectionRef.getDocument()
+            if existingProjection.exists, !bumpUpdatedAt {
+                fields.removeValue(forKey: "updatedAt")
+            }
             try await projectionRef.setData(fields, merge: true)
             await GoDiveSharedMediaUpload.syncFirestoreMediaItemsFromPublishStateIfProjectionExists(
                 ownerUID: uid,
                 activityID: snorkel.id
+            )
+            markPushSignalRecordedIfNeeded(
+                activityAlreadySharedRemotely: existingProjection.exists,
+                activity: snorkel,
+                modelContext: modelContext
             )
             if GoDiveBuddyActivityPushSignalSync.shouldRecordPushSignal(
                 projectionAlreadyExisted: existingProjection.exists,
@@ -690,5 +755,96 @@ enum GoDiveSharedDiveProjectionSync: Sendable {
             fields["mediaPreviews"] = FieldValue.delete()
             fields["featuredMediaPhotoId"] = FieldValue.delete()
         }
+    }
+
+    /// Marks local activities as already push-signaled when a Firebase projection already exists.
+    nonisolated static func activityIDsNeedingPushSignalHydration(
+        remoteProjectionIDs: Set<UUID>,
+        localActivities: [(id: UUID, pushSignalAlreadyRecorded: Bool)]
+    ) -> Set<UUID> {
+        Set(
+            localActivities.compactMap { activity in
+                guard !activity.pushSignalAlreadyRecorded,
+                      remoteProjectionIDs.contains(activity.id)
+                else { return nil }
+                return activity.id
+            }
+        )
+    }
+
+    @MainActor
+    private static func hydratePushSignalRecordedFromRemoteProjections(
+        ownerUID: String,
+        ownerProfileID: UUID,
+        modelContext: ModelContext
+    ) async {
+        let remoteIDs = await fetchOwnedSharedDiveDocumentIDs(ownerUID: ownerUID)
+        guard !remoteIDs.isEmpty else { return }
+
+        let dives = (try? modelContext.fetch(FetchDescriptor<DiveActivity>()))?
+            .filter { $0.ownerProfileID == ownerProfileID } ?? []
+        let snorkels = (try? modelContext.fetch(FetchDescriptor<SnorkelActivity>()))?
+            .filter { $0.ownerProfileID == ownerProfileID } ?? []
+
+        let needingHydration = activityIDsNeedingPushSignalHydration(
+            remoteProjectionIDs: remoteIDs,
+            localActivities:
+                dives.map { ($0.id, $0.friendSharePushSignalRecorded) }
+                + snorkels.map { ($0.id, $0.friendSharePushSignalRecorded) }
+        )
+        guard !needingHydration.isEmpty else { return }
+
+        var didChange = false
+        for dive in dives where needingHydration.contains(dive.id) {
+            dive.friendSharePushSignalRecorded = true
+            didChange = true
+        }
+        for snorkel in snorkels where needingHydration.contains(snorkel.id) {
+            snorkel.friendSharePushSignalRecorded = true
+            didChange = true
+        }
+        if didChange {
+            try? modelContext.save()
+            log.notice("Hydrated friend-share push flags from existing sharedDives")
+        }
+    }
+
+    @MainActor
+    private static func fetchOwnedSharedDiveDocumentIDs(ownerUID: String) async -> Set<UUID> {
+        do {
+            let snap = try await Firestore.firestore()
+                .collection("users")
+                .document(ownerUID)
+                .collection(GoDiveSharedDiveProjectionMapping.sharedDivesSubcollection)
+                .getDocuments()
+            return Set(snap.documents.compactMap { UUID(uuidString: $0.documentID) })
+        } catch {
+            log.error(
+                "Owned sharedDives ID fetch failed: \(String(describing: error), privacy: .private)"
+            )
+            return []
+        }
+    }
+
+    @MainActor
+    private static func markPushSignalRecordedIfNeeded(
+        activityAlreadySharedRemotely: Bool,
+        activity dive: DiveActivity,
+        modelContext: ModelContext
+    ) {
+        guard activityAlreadySharedRemotely, !dive.friendSharePushSignalRecorded else { return }
+        dive.friendSharePushSignalRecorded = true
+        try? modelContext.save()
+    }
+
+    @MainActor
+    private static func markPushSignalRecordedIfNeeded(
+        activityAlreadySharedRemotely: Bool,
+        activity snorkel: SnorkelActivity,
+        modelContext: ModelContext
+    ) {
+        guard activityAlreadySharedRemotely, !snorkel.friendSharePushSignalRecorded else { return }
+        snorkel.friendSharePushSignalRecorded = true
+        try? modelContext.save()
     }
 }

@@ -22,11 +22,11 @@ You need to be signed in with Apple (Firebase social sign-in) and allow notifica
 
 ## When a buddy shares new activities
 
-If notifications are allowed, you also get a push when someone in your friend network shares new dives or snorkels — for example, *"Alex logged a new dive."* When a buddy shares several activities at once (like a batch import), they arrive as **one** notification: *"Alex shared 5 new activities."*
+If notifications are allowed, you also get a push when someone in your friend network shares **new** dives or snorkels — for example, *"Alex logged a new dive."* Activities that were already shared (already visible in Buddy Feed) do not notify again after your buddy reinstalls or rebuilds the app. When a buddy shares several **new** activities at once (like a batch import), they arrive as **one** notification: *"Alex shared 5 new activities."*
 
 If they **tag you** on a shared activity, the push uses that wording instead — for example, *"Alex tagged you in a new dive."* When several shared activities in one batch tag you, you get *"Alex tagged you in 5 new activities."*
 
-Tap the notification to open **Buddy Feed** with that activity in front of you (the most recent one when several were shared) — going back returns you to the feed. You are only notified the first time an activity is shared; edits and re-shares of the same activity don’t alert you again.
+Tap the notification to open that shared activity (the most recent one when several were shared). GoDive loads Buddy Feed data first so the activity is ready, then opens it — going back returns you to the feed. You are only notified the first time an activity is shared; edits and re-shares of the same activity don’t alert you again.
 
 You can turn these alerts off (and back on) with **Settings → Buddy activity notifications** — the invite-accepted push above is not affected by that toggle.
 
@@ -38,7 +38,7 @@ By default (when **Share activities with buddies** is on in Settings), buddies c
 
 ### Publishing a new activity
 
-New activities start **local only** — nothing is shared automatically when you import or log them. Take your time to tag marine life, add notes, and pick photos first. If you have buddies in your network, a bright blue banner sits just above the details sheet on the map (visible when the sheet is expanded) with two choices:
+New activities start **local only** — nothing is shared automatically when you import or log them. Take your time to tag marine life, add notes, and pick photos first. If you have buddies in your network, a bright blue **Share with Buddies?** banner sits just above the details sheet on the map (visible when the sheet is expanded). It notes that you can change sharing anytime from the **⋯** menu, with:
 
 - **Share** — publish the activity to your buddy network. Buddies see it in their **Buddy Feed** and get a notification.
 - **Dismiss (×)** — hide the banner. The activity stays private on your devices. You can still share it later from **Activity Settings** (⋯ menu).
@@ -63,19 +63,19 @@ Per-activity choices override the global defaults for that entry once you change
 
 Tap a photo in the media grid or on the hero to open **fullscreen** — pinch to zoom on full-quality stills, swipe between items, and stream videos with the same controls.
 
-In **Settings**, **Download buddy media on Wi‑Fi only** (default off) skips full-quality photo and video downloads on cellular. Thumbnails may still appear on cellular so you can browse the feed.
+Buddy media downloads use **Wi‑Fi or cellular**. Use **Settings → Activity Sharing → Upload media on wifi only** if you want your own full-quality **uploads** to wait for Wi‑Fi.
 
 Your own full logbook on your devices (and private iCloud sync) is unchanged — friends see a read-only shared copy, not co-edit rights. When you edit a shared dive (details, tags, buddies, media, and so on), GoDive updates that shared copy so friends see the latest info.
 
 ## Background uploads
 
-Buddy-share uploads (activity projections, thumbnails, and full-quality media) continue while GoDive is in the background for a limited time, and **resume automatically** when you reopen the app or after a force-quit. If **Share media on Wi‑Fi only** is on, full-quality uploads wait for Wi‑Fi and resume when you are back on Wi‑Fi. Progress is saved on-device so finished pieces are not re-uploaded from scratch.
+Buddy-share uploads (activity projections, thumbnails, and full-quality media) continue while GoDive is in the background for a limited time, and **resume automatically** when you reopen the app or after a force-quit. If **Upload media on wifi only** is on, full-quality uploads wait for Wi‑Fi and resume when you are back on Wi‑Fi. Progress is saved on-device so finished pieces are not re-uploaded from scratch.
 
 ## Tag friends on dives
 
 When you connect with someone (or they connect with you), GoDive links them to your **Dive Buddies** roster. If you already had a buddy with a matching name, that roster row becomes the friend link instead of creating a duplicate — your existing dive and trip tags stay on the same person. The same name check runs when you **import a dive**, **tag a buddy on a dive or photo**, or **add a buddy** to your roster.
 
-Linked friends show a badge on their avatar in **Buddies**. Tap them from a dive, trip, search, or **Profile → Buddies** to open their **friend profile** (not the local-only buddy detail page). Buddies who are not friends yet show an **Invite** button — it creates your invite link and opens Messages (prefilled to their linked contact when you connected them in Contacts).
+Linked friends show the light-blue GoDive pin on the lower-right of their avatar (Buddies list, friend profile, Home, activities, trips, and search). Tap them from a dive, trip, search, or **Profile → Buddies** to open their **friend profile** (not the local-only buddy detail page). Buddies who are not friends yet show an **Invite** button — it creates your invite link and opens Messages (prefilled to their linked contact when you connected them in Contacts).
 
 Tag friends on a dive from the dive overview **Buddies** sheet like any other buddy. If they tagged you on a dive they shared, their shared dive detail can show that you were tagged.
 

@@ -55,7 +55,7 @@ Returning visits while logged out start onboarding again from the welcome screen
 When you open GoDive after onboarding, sign in with **Sign in with Apple**. GoDive uses your Apple ID to keep your dive profile tied to your account.
 
 - If Apple provides your name once, GoDive uses it for your display name.
-- Otherwise your name starts as **Diver** — you can change it anytime from **Profile → menu → Edit Profile**.
+- Otherwise your name starts as **Diver** — you can change it anytime from **Profile** by tapping the blue **⋯** beside your name.
 - On devices signed into **iCloud**, your dive log can sync across your Apple devices (**CloudKit**) over Wi‑Fi or cellular, including in the background when iOS allows.
 - GoDive may also create a lightweight **Firebase** social profile (display name) for future friends features — that is separate from your dive log. See the [Privacy Policy](privacy-and-data.md).
 
@@ -113,7 +113,7 @@ From **Home**, tap your avatar (top of the screen) to open **Profile**:
 - Name and dive count beside your avatar  
 - Sheet **Diver stats** page: lifetime stat tiles (same as Home, without **Top buddies**)  
 - Sheet **Details** page: DAN insurance number and featured certification (tap the cert to open it; **View all certifications** when you have more than one)  
-- Tap the **menu** (☰) for **Trips**, **Certifications**, **Equipment locker**, **Buddies**, **Friends**, **Edit Profile**, and **Settings**, with **Sign out** pinned at the bottom  
+- Tap the blue **⋯** beside your name to **Edit Profile**. Tap the **menu** (☰) for **Trips**, **Certifications**, **Equipment locker**, **Buddies**, and **Settings**. **Sign Out** is under **Settings → Advanced**.  
 - Change your photo by tapping the avatar on Profile
 
 ## Permissions GoDive may ask for

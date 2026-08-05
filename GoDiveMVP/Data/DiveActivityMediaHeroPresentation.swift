@@ -19,6 +19,28 @@ enum DiveActivityMediaHeroPresentation: Sendable {
         return min(max((large - sheetHeightFraction) / range, 0), 1)
     }
 
+    /// Owner + buddy-feed Media heroes — landscape / missing layout stay full-bleed.
+    nonisolated static func resolvedFitFillProgress(
+        sheetHeightFraction: CGFloat,
+        layoutHeight: CGFloat,
+        screenWidth: CGFloat,
+        isLandscape: Bool,
+        topSafeInset: CGFloat,
+        bottomSafeInset: CGFloat
+    ) -> CGFloat {
+        guard !isLandscape, layoutHeight > 0, screenWidth > 0 else { return 1 }
+        let layoutContext = DiveActivityOverviewSheetLayoutContext(
+            layoutHeight: layoutHeight,
+            screenWidth: screenWidth,
+            topSafeInset: topSafeInset,
+            bottomSafeInset: bottomSafeInset
+        )
+        return fullBleedProgress(
+            sheetHeightFraction: sheetHeightFraction,
+            layoutContext: layoutContext
+        )
+    }
+
     nonisolated static func heroBandRect(
         viewportSize: CGSize,
         layoutHeight: CGFloat,

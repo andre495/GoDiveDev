@@ -85,7 +85,41 @@ enum LogbookBuddyFeedPresentation: Sendable {
         friendUID: String,
         diveDocumentID: String
     ) -> Bool {
-        rows.contains { $0.friendUID == friendUID && $0.dive.id == diveDocumentID }
+        row(in: rows, friendUID: friendUID, diveDocumentID: diveDocumentID) != nil
+    }
+
+    nonisolated static func row(
+        in rows: [Row],
+        friendUID: String,
+        diveDocumentID: String
+    ) -> Row? {
+        rows.first { $0.friendUID == friendUID && $0.dive.id == diveDocumentID }
+    }
+
+    /// Inserts or replaces a row, then re-sorts newest-first (used when a push deep-link
+    /// fetches the projection directly before the full feed list includes it).
+    nonisolated static func inserting(_ row: Row, into rows: [Row]) -> [Row] {
+        var next = rows.filter { existing in
+            existing.id != row.id
+                && !(existing.friendUID == row.friendUID && existing.dive.id == row.dive.id)
+        }
+        next.append(row)
+        return sortRowsNewestFirst(next)
+    }
+
+    /// Expands the visible page window so a deep-linked activity is not stuck behind “Load more”.
+    nonisolated static func displayedCountMakingTargetVisible(
+        rows: [Row],
+        friendUID: String,
+        diveDocumentID: String,
+        currentDisplayedCount: Int
+    ) -> Int {
+        guard let index = rows.firstIndex(where: {
+            $0.friendUID == friendUID && $0.dive.id == diveDocumentID
+        }) else {
+            return currentDisplayedCount
+        }
+        return max(currentDisplayedCount, index + 1)
     }
 
     enum EmptyKind: Equatable, Sendable {

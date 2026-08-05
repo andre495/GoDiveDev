@@ -74,7 +74,7 @@ struct BlueSheetDetailPageConfiguration: Sendable, Equatable {
         )
     }
 
-    /// Pushed catalog-style detail (sites, species, gear, certs) — same pinned-summary → pager clearance as profile / buddy identity pages; not Home tab root.
+    /// Pushed catalog / trip detail (sites, species, gear, certs, trips) — same pinned-summary → pager clearance as profile / buddy identity pages; not Home tab root.
     nonisolated static func pushedDetailWithStandardPanelBodySpacing(
         accessibilityRootIdentifier: String,
         showsHero: Bool = true,

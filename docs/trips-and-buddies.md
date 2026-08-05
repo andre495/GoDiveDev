@@ -25,11 +25,15 @@ An **upcoming** trip also surfaces as a **Trip on the horizon** banner at the to
 Tap **+** to open the full-height blue form (no grabber). Use **Cancel** to discard or **Done** to save:
 
 - **Trip name** (required)  
-- **Dates** — one calendar: tap the first day, then the last day (tap the same day for a single-day trip); the selected range is highlighted  
+- **Countries** — optional; blue **+** beside the Countries title opens a searchable list with flag emojis (same mapping as place lines on the map). Tap to select one or more; **Done** saves the selection  
+- **Dates** — tap the **Start** field to open its calendar; after you pick a start day, the **End** field appears and its calendar opens on that same month (change the end day anytime; it stays on or after start)  
+- **Buddies** — optional; blue **+** beside the Buddies title opens the roster picker (**Cancel**, **+** for a new roster buddy, **Done**)  
 
 Trips cannot share any calendar days — if your dates overlap an existing trip, the form shows an error and **Done** stays disabled until you adjust the range.
 
-Add **planned dive sites** and **buddies** on the trip detail page after saving. Tap **+** on planned sites to open the full-height blue picker (no grabber): **Cancel** discards changes; **Done** saves the selection. **Add buddy** opens the same blue roster picker with **Cancel**, **+** (new roster buddy), and **Done**.
+Upcoming trips get local reminders **1 month** before (*Almost there!*), **1 week** before (*Pack your bags!*), and the **day before** (*…is tomorrow!*). There is no day-of reminder. Tapping a reminder opens that trip’s detail page. Turn trip reminders on or off in **Settings → Notifications → Trip Reminders** (also gated by **All notifications**).
+
+Add **planned dive sites** on the trip detail page after saving (and you can still add or change buddies there). Tap **+** on planned sites to open the full-height blue picker (no grabber): **Cancel** discards changes; **Done** saves the selection. **Add buddy** on trip detail opens the same blue roster picker.
 
 ### Trip detail
 
@@ -52,7 +56,7 @@ Each trip opens a map-forward overview:
     - **Buddies** with dive counts  
     - **Trip media** gallery  
 
-Use **Edit** (⋯ menu) to change the trip name and dates — same blue sheet as **New trip** (**Cancel** / **Done**; **Delete trip** at the bottom). **Share** exports a share card image with map, buddies, and species highlights.
+Use **Edit** (⋯ menu) to change the trip name, countries, dates, and buddies — same blue sheet as **New trip** (**Cancel** / **Done**; **Delete trip** at the bottom). **Share** exports a share card image with map, buddies, and species highlights.
 
 ### Linking dives to trips
 
@@ -64,7 +68,7 @@ Open **Profile → menu (☰) → Buddies** for your roster.
 
 The **Buddies** title compacts on scroll and expands when you return to the top of the list.
 
-Your local **dive buddy** roster and **GoDive friends** appear in one list. Friends have a badge on the avatar; everyone else can be invited with **Invite** (SMS with your link). The **QR** button in the top bar still opens the share sheet for QR / copy link.
+Your local **dive buddy** roster and **GoDive friends** appear in one list. Friends show the light-blue GoDive pin on the lower-right of their avatar; everyone else can be invited with **Invite** (SMS with your link). The **QR** button in the top bar still opens the share sheet for QR / copy link.
 
 ### Roster
 
@@ -99,7 +103,7 @@ From buddy **Edit**, **Delete buddy** removes them from the roster and untags th
 
 ## Equipment (related)
 
-**Profile → menu (☰) → Equipment locker** stores your gear. The locker list uses the same scroll-collapsing **Equipment Locker** title as Trips and Buddies. Tap **+** for the full-height blue **New equipment** sheet (**Cancel** / **Done**). Items with **Auto-add on import** link to new dives automatically. From dive detail **Tank** tab → **Equipment**, attach locker items to a specific dive.
+**Profile → menu (☰) → Equipment locker** stores your gear. The locker list uses the same scroll-collapsing **Equipment Locker** title as Trips and Buddies. Tap **+** for the full-height blue **New equipment** sheet (**Cancel** / **Done**). When **Recurring service** is on, you can choose local **service reminders** (1 month prior, 1 week prior, 1 day prior, and/or day of service — or **No notifications**). New gear follows **Settings → Notifications → Gear Servicing** (default **1 week** when that toggle is on, none when off; also gated by **All notifications**); each item can override. Reminder text looks like *Your [gear] needs service in 1 week* (or *today*); tapping opens that item. Items with **Auto-add on import** link to new dives automatically. From dive detail **Tank** tab → **Equipment**, attach locker items to a specific dive.
 
 ## Certifications (related)
 

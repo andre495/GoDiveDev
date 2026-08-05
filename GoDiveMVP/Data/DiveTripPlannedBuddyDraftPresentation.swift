@@ -8,6 +8,40 @@ enum DiveTripPlannedBuddyDraftPresentation {
         Set(trip.buddyLinks.compactMap(\.buddyID))
     }
 
+    /// Owner roster map plus SwiftData fallback for freshly inserted buddies not yet in `@Query`.
+    static func rosterByID(
+        ownedBuddies: [DiveBuddy],
+        selectedBuddyIDs: Set<UUID>,
+        modelContext: ModelContext
+    ) -> [UUID: DiveBuddy] {
+        var map = Dictionary(uniqueKeysWithValues: ownedBuddies.map { ($0.id, $0) })
+        for buddyID in selectedBuddyIDs where map[buddyID] == nil {
+            var descriptor = FetchDescriptor<DiveBuddy>(
+                predicate: #Predicate<DiveBuddy> { $0.id == buddyID }
+            )
+            descriptor.fetchLimit = 1
+            if let buddy = try? modelContext.fetch(descriptor).first {
+                map[buddyID] = buddy
+            }
+        }
+        return map
+    }
+
+    static func selectedBuddies(
+        ownedBuddies: [DiveBuddy],
+        selectedBuddyIDs: Set<UUID>,
+        modelContext: ModelContext
+    ) -> [DiveBuddy] {
+        let map = rosterByID(
+            ownedBuddies: ownedBuddies,
+            selectedBuddyIDs: selectedBuddyIDs,
+            modelContext: modelContext
+        )
+        return selectedBuddyIDs.compactMap { map[$0] }.sorted {
+            $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
+        }
+    }
+
     static func apply(
         draftBuddyIDs: Set<UUID>,
         to trip: DiveTrip,

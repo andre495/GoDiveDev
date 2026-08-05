@@ -7,9 +7,6 @@ enum GlobalSearchPresentation: Sendable {
     nonisolated static let rootAccessibilityIdentifier = "GlobalSearch.Root"
     nonisolated static let resultsListAccessibilityIdentifier = "GlobalSearch.ResultsList"
     nonisolated static let resultsBackButtonAccessibilityIdentifier = "GlobalSearch.ResultsBack"
-    /// Maximum matches listed per section. Applies to both scoped browse (a category tile) and typed queries so
-    /// cross-category results are never silently truncated (typed searches previously capped each section at 12).
-    nonisolated static let maxHitsPerSection = 500
     nonisolated static let contextTokensAccessibilityIdentifier = "GlobalSearch.ContextTokens"
     /// Brief delay after returning from a pushed result so **`.searchable`** can reattach before presenting the field.
     nonisolated static let stackSearchRestoreDelayNanoseconds: UInt64 = 80_000_000
@@ -482,15 +479,12 @@ enum GlobalSearchPresentation: Sendable {
             return SectionKind.resultSectionDisplayOrder.filter { scoped.contains($0) }
         }()
 
-        let maxHits = maxHitsPerSection
-
         let sections = sectionKinds.compactMap { kind -> Section? in
             let hits = hits(
                 for: kind,
                 catalog: catalog,
                 query: query,
-                appliesTextFilter: appliesTextFilter,
-                maxHits: maxHits
+                appliesTextFilter: appliesTextFilter
             )
             guard !hits.isEmpty else { return nil }
             return Section(kind: kind, hits: hits)
@@ -502,8 +496,7 @@ enum GlobalSearchPresentation: Sendable {
         for kind: SectionKind,
         catalog: Catalog,
         query: String,
-        appliesTextFilter: Bool,
-        maxHits: Int
+        appliesTextFilter: Bool
     ) -> [Hit] {
         switch kind {
         case .dives:
@@ -512,7 +505,6 @@ enum GlobalSearchPresentation: Sendable {
                     !appliesTextFilter
                         || CatalogSubstringSearch.matches(in: entry.searchHaystack, query: query)
                 }
-                .prefix(maxHits)
                 .map { entry in
                     Hit(
                         id: "dive-\(entry.id.uuidString)",
@@ -532,7 +524,6 @@ enum GlobalSearchPresentation: Sendable {
                     !appliesTextFilter
                         || CatalogSubstringSearch.matches(in: entry.searchHaystack, query: query)
                 }
-                .prefix(maxHits)
                 .map { entry in
                     Hit(
                         id: "snorkel-\(entry.id.uuidString)",
@@ -552,7 +543,6 @@ enum GlobalSearchPresentation: Sendable {
                     !appliesTextFilter
                         || CatalogSubstringSearch.matchesAny(in: entry.searchHaystacks, query: query)
                 }
-                .prefix(maxHits)
                 .map { entry in
                     Hit(
                         id: diveSiteHitID(for: entry.destination),
@@ -569,7 +559,6 @@ enum GlobalSearchPresentation: Sendable {
                     !appliesTextFilter
                         || CatalogSubstringSearch.matches(in: entry.searchText, query: query)
                 }
-                .prefix(maxHits)
                 .map { entry in
                     Hit(
                         id: "species-\(entry.uuid)",
@@ -586,7 +575,6 @@ enum GlobalSearchPresentation: Sendable {
                     !appliesTextFilter
                         || CatalogSubstringSearch.matches(in: entry.displayName, query: query)
                 }
-                .prefix(maxHits)
                 .map { entry in
                     Hit(
                         id: "buddy-\(entry.id.uuidString)",
@@ -603,7 +591,6 @@ enum GlobalSearchPresentation: Sendable {
                     !appliesTextFilter
                         || CatalogSubstringSearch.matches(in: entry.searchHaystack, query: query)
                 }
-                .prefix(maxHits)
                 .map { entry in
                     Hit(
                         id: "tag-\(entry.id.uuidString)",
@@ -623,7 +610,6 @@ enum GlobalSearchPresentation: Sendable {
                             query: query
                         )
                 }
-                .prefix(maxHits)
                 .map { entry in
                     Hit(
                         id: "trip-\(entry.id.uuidString)",
@@ -640,7 +626,6 @@ enum GlobalSearchPresentation: Sendable {
                     !appliesTextFilter
                         || CatalogSubstringSearch.matchesAny(in: entry.searchHaystacks, query: query)
                 }
-                .prefix(maxHits)
                 .map { entry in
                     Hit(
                         id: "equipment-\(entry.id.uuidString)",
@@ -657,7 +642,6 @@ enum GlobalSearchPresentation: Sendable {
                     !appliesTextFilter
                         || CatalogSubstringSearch.matchesAny(in: entry.searchHaystacks, query: query)
                 }
-                .prefix(maxHits)
                 .map { entry in
                     Hit(
                         id: "cert-\(entry.id.uuidString)",

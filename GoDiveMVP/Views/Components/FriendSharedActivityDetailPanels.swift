@@ -411,7 +411,8 @@ struct FriendSharedActivityReadOnlySectionsView: View {
                     DiveActivityBuddyAvatarChip(
                         displayName: row.displayName,
                         profilePhoto: row.profilePhoto,
-                        avatarDiameter: 48
+                        avatarDiameter: 48,
+                        showsGoDiveUserPin: row.showsGoDiveUserPin
                     )
                 }
             }

@@ -11,6 +11,8 @@ struct FriendSharedRemoteVideoPlayerView: View {
     var loopsPlayback: Bool = true
     /// Buddy Feed / hero tiles — start sooner with a smaller buffer (may rebuffer on slow networks).
     var prefersFastPlaybackStart: Bool = false
+    /// Poster aspect for Media hero detent scaling (same path as stills).
+    var onDisplayedImageAspectChange: ((CGFloat) -> Void)? = nil
 
     #if canImport(UIKit)
     @State private var player: AVPlayer?
@@ -23,7 +25,8 @@ struct FriendSharedRemoteVideoPlayerView: View {
             FriendSharedMediaImageView(
                 item: item,
                 fidelity: .thumbnailOnly,
-                showsVideoBadge: player == nil
+                showsVideoBadge: player == nil,
+                onDisplayedImageAspectChange: onDisplayedImageAspectChange
             )
 
             if let player {

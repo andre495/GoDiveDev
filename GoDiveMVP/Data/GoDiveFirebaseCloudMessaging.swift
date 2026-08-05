@@ -161,6 +161,22 @@ enum GoDiveFirebaseCloudMessaging: Sendable {
 
     @MainActor
     static func handleNotificationResponse(userInfo: [AnyHashable: Any]) {
+        if let equipmentID = EquipmentServiceReminderSchedule.equipmentID(fromUserInfo: userInfo) {
+            EquipmentServiceReminderNavigationStore.shared.setPending(equipmentID: equipmentID)
+            NotificationCenter.default.post(
+                name: EquipmentServiceReminderSchedule.openEquipmentDetailNotification,
+                object: nil
+            )
+            return
+        }
+        if let tripID = DiveTripReminderSchedule.tripID(fromUserInfo: userInfo) {
+            DiveTripReminderNavigationStore.shared.setPending(tripID: tripID)
+            NotificationCenter.default.post(
+                name: DiveTripReminderSchedule.openTripDetailNotification,
+                object: nil
+            )
+            return
+        }
         if let target = GoDiveBuddyActivityPushPresentation.target(fromUserInfo: userInfo) {
             GoDiveBuddyActivityPushNavigationStore.shared.setPending(target)
             NotificationCenter.default.post(name: openBuddySharedActivityNotification, object: nil)

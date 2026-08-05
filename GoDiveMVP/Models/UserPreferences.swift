@@ -22,6 +22,12 @@ final class UserPreferences {
     var defaultFreshwaterWeightKilograms: Double?
     var bulkUddfCreateDiveSites: Bool = true
     var autoUploadMediaToActivities: Bool = true
+    /// Master switch for all notification categories (buddy / gear / trip).
+    var notifyAllNotifications: Bool = true
+    /// Global default for new gear service reminder selections (per-item overrides).
+    var notifyGearServiceReminders: Bool = true
+    /// Preference for upcoming-trip local reminders (also gated by **`notifyAllNotifications`**).
+    var notifyTripReminders: Bool = true
 
     var updatedAt: Date = Date()
 
@@ -35,6 +41,9 @@ final class UserPreferences {
         defaultFreshwaterWeightKilograms: Double? = nil,
         bulkUddfCreateDiveSites: Bool = true,
         autoUploadMediaToActivities: Bool = true,
+        notifyAllNotifications: Bool = true,
+        notifyGearServiceReminders: Bool = true,
+        notifyTripReminders: Bool = true,
         updatedAt: Date = Date()
     ) {
         self.id = id
@@ -47,6 +56,9 @@ final class UserPreferences {
         self.defaultFreshwaterWeightKilograms = defaultFreshwaterWeightKilograms
         self.bulkUddfCreateDiveSites = bulkUddfCreateDiveSites
         self.autoUploadMediaToActivities = autoUploadMediaToActivities
+        self.notifyAllNotifications = notifyAllNotifications
+        self.notifyGearServiceReminders = notifyGearServiceReminders
+        self.notifyTripReminders = notifyTripReminders
         self.updatedAt = updatedAt
     }
 }

@@ -19,6 +19,8 @@ struct LogOverviewView: View {
 
     private let ownerProfileID: UUID?
 
+    @Binding private var pendingRoute: HomeRoute?
+
     @State private var path: [HomeRoute] = []
     @State private var carouselHighlights: [HomeMediaHighlight] = []
     @State private var homeAggregate = HomeOverviewAggregate.empty
@@ -57,8 +59,12 @@ struct LogOverviewView: View {
     /// Sentinel owner id so **`@Query`** returns no rows when signed out (matches Logbook).
     private static let noOwnerQueryToken = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
 
-    init(ownerProfileID: UUID?) {
+    init(
+        ownerProfileID: UUID?,
+        pendingRoute: Binding<HomeRoute?> = .constant(nil)
+    ) {
         self.ownerProfileID = ownerProfileID
+        _pendingRoute = pendingRoute
         let filterOwnerID = ownerProfileID ?? Self.noOwnerQueryToken
         _ownerDiveActivities = Query(
             filter: #Predicate<DiveActivity> { $0.ownerProfileID == filterOwnerID },
@@ -131,7 +137,13 @@ struct LogOverviewView: View {
             .restoresRootTabBarWhenStackIsEmpty(isHomeNavigationStackAtRoot)
             .coalescesNavigationStackPathDuplicates($path)
             .animation(nil, value: path.count)
-            .onAppear { handleHomeRootAppear() }
+            .modifier(
+                HomePendingRouteAndAppearModifier(
+                    pendingRoute: $pendingRoute,
+                    path: $path,
+                    onAppearHome: handleHomeRootAppear
+                )
+            )
             .task(id: ownerProfileID) {
                 await reloadHomeNavigationCatalogsIfNeeded()
             }
@@ -425,6 +437,11 @@ struct LogOverviewView: View {
             )
         case .friendProfile(let friend):
             FriendProfileView(friend: friend)
+        case .equipmentDetail(let equipmentID):
+            HomeEquipmentDetailDestination(
+                equipmentID: equipmentID,
+                ownerProfileID: ownerProfileID
+            )
         case .buddySharedActivity(let row):
             FriendSharedDiveDetailView(
                 dive: row.dive,
@@ -476,10 +493,12 @@ struct LogOverviewView: View {
     }
 
     private func handleReturnToHomeRoot() {
+        let hasWarmAggregate = HomeReturnNavigationPresentation.hasWarmAggregate(
+            hasPerformedInitialBuild: hasPerformedInitialHomeBuild
+        )
         if HomeReturnNavigationPresentation.shouldSkipFullRebuildOnReturn(
             hasPerformedInitialBuild: hasPerformedInitialHomeBuild,
-            carouselSlidesAreDisplayable: carouselSlidesAreDisplayable(using: homeAggregate),
-            hasCarouselHighlights: !carouselHighlights.isEmpty
+            hasWarmAggregate: hasWarmAggregate
         ) {
             scheduleCarouselWarmupIfNeeded(using: homeAggregate)
             return
@@ -492,10 +511,12 @@ struct LogOverviewView: View {
             scheduleHomeOverviewRebuild(immediate: true)
             return
         }
+        let hasWarmAggregate = HomeReturnNavigationPresentation.hasWarmAggregate(
+            hasPerformedInitialBuild: hasPerformedInitialHomeBuild
+        )
         if HomeReturnNavigationPresentation.shouldSkipFullRebuildOnForegroundActivation(
             hasPerformedInitialBuild: hasPerformedInitialHomeBuild,
-            carouselSlidesAreDisplayable: carouselSlidesAreDisplayable(using: homeAggregate),
-            hasCarouselHighlights: !carouselHighlights.isEmpty
+            hasWarmAggregate: hasWarmAggregate
         ) {
             scheduleCarouselWarmupIfNeeded(using: homeAggregate)
             return
@@ -771,6 +792,64 @@ struct LogOverviewView: View {
 
     private func pushHome(_ route: HomeRoute) {
         NavigationStackPushCoalescing.append(route, to: &path)
+    }
+}
+
+/// Keeps Home `body` smaller for the type checker; applies pending deep-link routes.
+private struct HomePendingRouteAndAppearModifier: ViewModifier {
+    @Binding var pendingRoute: HomeRoute?
+    @Binding var path: [HomeRoute]
+    let onAppearHome: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                onAppearHome()
+                consumePendingHomeRouteIfNeeded()
+            }
+            .onChange(of: pendingRoute) { _, _ in
+                consumePendingHomeRouteIfNeeded()
+            }
+    }
+
+    private func consumePendingHomeRouteIfNeeded() {
+        guard let route = pendingRoute else { return }
+        pendingRoute = nil
+        path = [route]
+    }
+}
+
+/// Isolated equipment lookup so Home does not need a full locker `@Query`.
+private struct HomeEquipmentDetailDestination: View {
+    let equipmentID: UUID
+    let ownerProfileID: UUID?
+
+    @Query private var ownedEquipment: [EquipmentItem]
+
+    init(equipmentID: UUID, ownerProfileID: UUID?) {
+        self.equipmentID = equipmentID
+        self.ownerProfileID = ownerProfileID
+        let filterOwnerID = ownerProfileID
+            ?? UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+        _ownedEquipment = Query(
+            filter: #Predicate<EquipmentItem> { $0.ownerProfileID == filterOwnerID },
+            sort: [
+                SortDescriptor(\EquipmentItem.manufacturer, order: .forward),
+                SortDescriptor(\EquipmentItem.model, order: .forward),
+            ]
+        )
+    }
+
+    var body: some View {
+        if let item = ownedEquipment.first(where: { $0.id == equipmentID }) {
+            ViewEquipmentDetails(item: item)
+        } else {
+            ContentUnavailableView(
+                "Equipment unavailable",
+                systemImage: "archivebox",
+                description: Text("This equipment item is no longer in your locker.")
+            )
+        }
     }
 }
 

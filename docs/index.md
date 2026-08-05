@@ -11,7 +11,7 @@ GoDive is a dive log for iPhone. It helps you import dives from your dive comput
 | **Field Guide** | Browse a marine life catalog; tag species on dive photos |
 | **Explore** | Map or list of dive sites; add your own sites |
 | **Search** | App-wide search across dives, sites, species, buddies, trips, gear, and more |
-| **Profile** | Avatar on Home; buddy-style blue sheet (tagged media hero); side menu for trips, certifications, gear, buddies, **Friends**, Edit Profile, Settings |
+| **Profile** | Avatar on Home; buddy-style blue sheet (tagged media hero); blue **⋯** beside your name edits profile; side menu for trips, certifications, gear, buddies, Settings |
 
 ## The main tabs
 

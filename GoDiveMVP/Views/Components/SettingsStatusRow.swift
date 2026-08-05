@@ -17,7 +17,7 @@ struct SettingsStatusRow: View {
             } label: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(.body.weight(.semibold))
+                        .font(.body.weight(.regular))
                         .foregroundStyle(AppTheme.Colors.textPrimary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .multilineTextAlignment(.leading)

@@ -86,6 +86,9 @@ enum UserPreferencesSync: Sendable {
         userDefaults.set(prefs.defaultTankSizeRaw, forKey: AppUserSettings.defaultTankSizeKey)
         userDefaults.set(prefs.bulkUddfCreateDiveSites, forKey: AppUserSettings.bulkUddfCreateDiveSitesKey)
         userDefaults.set(prefs.autoUploadMediaToActivities, forKey: AppUserSettings.autoUploadMediaToActivitiesKey)
+        userDefaults.set(prefs.notifyAllNotifications, forKey: AppUserSettings.notifyAllNotificationsKey)
+        userDefaults.set(prefs.notifyGearServiceReminders, forKey: AppUserSettings.notifyGearServiceRemindersKey)
+        userDefaults.set(prefs.notifyTripReminders, forKey: AppUserSettings.notifyTripRemindersKey)
         AppUserSettings.setDefaultSaltwaterWeightKilograms(
             prefs.defaultSaltwaterWeightKilograms,
             userDefaults: userDefaults
@@ -109,6 +112,11 @@ enum UserPreferencesSync: Sendable {
             ? true
             : userDefaults.bool(forKey: AppUserSettings.bulkUddfCreateDiveSitesKey)
         prefs.autoUploadMediaToActivities = userDefaults.bool(forKey: AppUserSettings.autoUploadMediaToActivitiesKey)
+        prefs.notifyAllNotifications = AppUserSettings.notifyAllNotifications(userDefaults: userDefaults)
+        prefs.notifyGearServiceReminders = AppUserSettings.notifyGearServiceRemindersPreference(
+            userDefaults: userDefaults
+        )
+        prefs.notifyTripReminders = AppUserSettings.notifyTripRemindersPreference(userDefaults: userDefaults)
         prefs.defaultSaltwaterWeightKilograms = AppUserSettings.defaultSaltwaterWeightKilograms(
             userDefaults: userDefaults
         )
