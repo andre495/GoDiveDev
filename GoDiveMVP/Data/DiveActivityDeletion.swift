@@ -33,9 +33,19 @@ enum DiveActivityDeletion {
 
         await emitDeleteProgress(0.12, handler: reportProgress)
 
+        let sightingUUIDs = await OntologyGraphActivityCleanup.sightingUUIDs(
+            diveActivityID: request.activityID,
+            container: container
+        )
+
         let worker = DiveBackgroundDeletionWorker(modelContainer: container)
         try await worker.deleteDive(id: request.activityID)
         await emitDeleteProgress(0.72, handler: reportProgress)
+
+        await OntologyGraphActivityCleanup.markCommunityContributionsDeleted(
+            activityUUID: request.activityID,
+            sightingUUIDs: sightingUUIDs
+        )
 
         do {
             try await DiveActivityStoreSync.awaitDiveAbsent(

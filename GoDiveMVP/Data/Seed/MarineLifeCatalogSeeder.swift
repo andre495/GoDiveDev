@@ -1,9 +1,9 @@
 import Foundation
 import SwiftData
 
-/// Idempotent load of bundled **`marine_life_sample.json`** into the catalog (independent of dive mock seeding).
+/// Idempotent load of bundled **`marine_life.json`** into the catalog (independent of dive mock seeding).
 enum MarineLifeCatalogSeeder {
-  static let bundledResourceName = "marine_life_sample"
+  static let bundledResourceName = "marine_life"
 
   static func seedBundledCatalogIfNeeded(
     context: ModelContext,

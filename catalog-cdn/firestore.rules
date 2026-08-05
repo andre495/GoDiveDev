@@ -40,6 +40,18 @@ service cloud.firestore {
         allow create, update, delete: if signedIn() && request.auth.uid == userId;
       }
 
+      // Private staging for anonymized community sighting contributions (owner only).
+      // Cloud Function mirrors active docs into communitySightings/{contributionId}.
+      match /ontologySightingContributions/{sightingUUID} {
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
+
+      // Private staging for SiteReport (1:1 with dive/snorkel activity).
+      // Cloud Function mirrors into communitySiteReports/{contributionId}.
+      match /ontologySiteReportContributions/{activityUUID} {
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
+
       // One-shot push signal after projection upsert — owner get/create/delete;
       // Cloud Function (Admin SDK) reads. Owner get is required so the client can
       // create-once without racing a blind setData that would become a denied update.
@@ -87,6 +99,24 @@ service cloud.firestore {
         && request.auth.uid != get(/databases/$(database)/documents/friendInvites/$(request.resource.data.inviteToken)).data.fromUid;
       allow delete: if signedIn() && request.auth.uid in resource.data.members;
       allow update: if false;
+    }
+
+    // Anonymized community sighting events — signed-in read; Admin SDK write only.
+    match /communitySightings/{contributionId} {
+      allow read: if signedIn();
+      allow create, update, delete: if false;
+    }
+
+    // Anonymized SiteReport visits (1:1 activity) — signed-in read; Admin SDK write only.
+    match /communitySiteReports/{contributionId} {
+      allow read: if signedIn();
+      allow create, update, delete: if false;
+    }
+
+    // Derived catalog meta (species similarity checksum) — signed-in read; Admin SDK write.
+    match /catalogMeta/{docId} {
+      allow read: if signedIn();
+      allow create, update, delete: if false;
     }
 
     // Deny everything else by default.

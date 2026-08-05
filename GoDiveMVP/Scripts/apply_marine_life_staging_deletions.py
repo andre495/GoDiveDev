@@ -3,7 +3,7 @@
 Remove staging rows marked markForDeletion=yes from the Caribbean catalog workflow.
 
 Deletes matching rows from marine_life_caribbean_staging.csv, optional bundled JPEGs,
-manifest entries, and (with --sync-json) drops uuids from marine_life_sample.json.
+manifest entries, and (with --sync-json) drops uuids from marine_life.json.
 
 Usage:
   GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/apply_marine_life_staging_deletions.py --dry-run
@@ -31,7 +31,7 @@ from marine_life_bundle_image_utils import bundle_photo_filename
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 SYNC_SCRIPT = SCRIPT_DIR / "sync_marine_life_staging_to_json.py"
-DEFAULT_JSON = PROJECT_DIR / "MockData/marine_life_sample.json"
+DEFAULT_JSON = PROJECT_DIR / "Resources/Catalog/marine_life.json"
 
 
 def marked_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -181,7 +181,7 @@ def main() -> int:
         print(f"Running sync: {SYNC_SCRIPT.name}" + (" --all" if args.all else ""))
         return run_sync_json(include_all=args.all)
 
-    print("Tip: run with --sync-json --all to refresh marine_life_sample.json after deletions.")
+    print("Tip: run with --sync-json --all to refresh marine_life.json after deletions.")
     return 0
 
 

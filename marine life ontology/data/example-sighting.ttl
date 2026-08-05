@@ -1,0 +1,259 @@
+PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
+PREFIX mlo:  <https://example.org/marine-life/>
+BASE <https://example.org/marine-life/>
+
+#################################################################
+# Example — Site characteristic graph + activities + sightings
+# Site hub: Country, BodyOfWater, WaterType, catalog depth,
+# SiteReport (visit conditions), Sighting.
+#################################################################
+
+<country/Australia> a mlo:Country ;
+    mlo:countryName "Australia"@en ;
+    mlo:countryCode "AU" .
+
+<taxon/GaleocerdoCuvier> a mlo:Taxon ;
+    mlo:hasRank <rank/Species> ;
+    mlo:scientificName "Galeocerdo cuvier" ;
+    mlo:broaderTaxon <taxon/Chordata> .
+
+<species/TigerShark> a mlo:Species ;
+    mlo:godiveMarineLifeUUID "ml-tiger-shark-demo-uuid" ;
+    mlo:marineLifeOwnership <marineLifeOwnership/Catalog> ;
+    mlo:commonName "tiger shark"@en ;
+    mlo:scientificName "Galeocerdo cuvier" ;
+    mlo:category "Sharks and Rays"@en ;
+    mlo:subcategory "sharks-and-rays"@en ;
+    mlo:familyName "Requiem sharks"@en ;
+    mlo:aboutText "Large coastal shark with vertical flank stripes; often seen on wrecks and drop-offs."@en ;
+    mlo:classifiedAs <taxon/GaleocerdoCuvier> ;
+    mlo:inPhylum <taxon/Chordata> ;
+    mlo:minSizeM 3.0 ;
+    mlo:maxSizeM 5.5 ;
+    mlo:minDepthM 0 ;
+    mlo:maxDepthM 350 ;
+    mlo:avgDepthM 30 ;
+    mlo:distinctiveFeatures "tiger-like flank stripes, blunt snout"@en ;
+    mlo:catalogAbundance "uncommon"@en ;
+    mlo:habitatBehavior "coastal reefs, channels, drop-offs; curious around divers"@en ;
+    mlo:diverReaction "maintain awareness and distance; do not provoke"@en ;
+    mlo:foundInWater <water/CoralSea> ;
+    mlo:hasPhysicalTrait <trait/TigerStripes> .
+
+<trait/TigerStripes> a mlo:PhysicalTrait ;
+    mlo:traitLabel "dark vertical tiger stripes on flanks"@en .
+
+<water/CoralSea> a mlo:BodyOfWater ;
+    mlo:waterName "Coral Sea"@en .
+
+<site/SSYongala> a mlo:Site ;
+    mlo:siteName "SS Yongala"@en ;
+    mlo:godiveUUID "site-yongala-demo-uuid" ;
+    mlo:country "Australia"@en ;
+    mlo:inCountry <country/Australia> ;
+    mlo:region "Queensland"@en ;
+    mlo:bodyOfWater "Coral Sea"@en ;
+    mlo:locatedInWater <water/CoralSea> ;
+    mlo:entry "boat"@en ;
+    mlo:environment "ocean"@en ;
+    mlo:siteMaxDepthM 30 ;
+    mlo:siteMinDepthM 16 ;
+    mlo:latitude -19.3044 ;
+    mlo:longitude 147.6231 ;
+    mlo:timeZoneIdentifier "Australia/Brisbane" ;
+    mlo:siteWaterType <waterType/Saltwater> ;
+    mlo:siteOwnership <siteOwnership/CatalogReference> ;
+    mlo:siteTag "wreck"@en ;
+    mlo:siteRating 5 ;
+    mlo:hasSiteReport <report/2024-03-15-Yongala> ;
+    mlo:hasSighting <sighting/42> , <sighting/44> .
+
+<site/HastingsReef> a mlo:Site ;
+    mlo:siteName "Hastings Reef"@en ;
+    mlo:godiveUUID "site-hastings-demo-uuid" ;
+    mlo:country "Australia"@en ;
+    mlo:inCountry <country/Australia> ;
+    mlo:region "Queensland"@en ;
+    mlo:bodyOfWater "Coral Sea"@en ;
+    mlo:locatedInWater <water/CoralSea> ;
+    mlo:entry "boat"@en ;
+    mlo:environment "ocean"@en ;
+    mlo:siteMaxDepthM 18 ;
+    mlo:latitude -16.516 ;
+    mlo:longitude 146.0 ;
+    mlo:siteWaterType <waterType/Saltwater> ;
+    mlo:siteOwnership <siteOwnership/CatalogReference> ;
+    mlo:hasSiteReport <report/2024-03-16-Hastings> ;
+    mlo:hasSighting <sighting/43> , <sighting/45> .
+
+<observer/Alex> a mlo:Observer ;
+    mlo:observerName "Alex" ;
+    mlo:godiveUUID "profile-alex-demo-uuid" .
+
+# --- Scuba: DiveActivity ---
+
+<activity/2024-03-15-Yongala> a mlo:DiveActivity ;
+    mlo:activityType <activityType/Scuba> ;
+    mlo:godiveUUID "dive-yongala-2024-03-15-uuid" ;
+    mlo:sourceSystem "Garmin MK3" ;
+    mlo:activityDate "2024-03-15"^^xsd:date ;
+    mlo:activityStartDateTime "2024-03-15T09:40:00+10:00"^^xsd:dateTime ;
+    mlo:activityStartTime "09:40:00"^^xsd:time ;
+    mlo:timeOfDay <timeOfDay/Day> ;
+    mlo:isNightActivity false ;
+    mlo:atSite <site/SSYongala> ;
+    mlo:godiveSiteUUID "site-yongala-demo-uuid" ;
+    mlo:loggedBy <observer/Alex> ;
+    mlo:maxActivityDepthM 28 ;
+    mlo:averageDepthM 18.5 ;
+    mlo:activityDurationMin 42 ;
+    mlo:bottomTimeSeconds 2400 ;
+    mlo:waterTempC 27.5 ;
+    mlo:waterTempMinC 26.8 ;
+    mlo:waterTempMaxC 28.1 ;
+    mlo:waterVisibilityM 18 ;
+    mlo:visibilityRating <visibility/Great> ;
+    mlo:waterType <waterType/Saltwater> ;
+    mlo:currentStrength <current/Low> ;
+    mlo:currentDirection "northbound along the wreck"@en ;
+    mlo:gasType "Air" ;
+    mlo:oxygenMixPercent 21 ;
+    mlo:entryLatitude -19.3044 ;
+    mlo:entryLongitude 147.6231 .
+
+# SiteReport projected from the Yongala dive (visit conditions / depth)
+<report/2024-03-15-Yongala> a mlo:SiteReport ;
+    mlo:reportForSite <site/SSYongala> ;
+    mlo:fromActivity <activity/2024-03-15-Yongala> ;
+    mlo:reportDate "2024-03-15"^^xsd:date ;
+    mlo:reportedMaxDepthM 28 ;
+    mlo:reportedCurrent <current/Low> ;
+    mlo:reportedVisibility <visibility/Great> ;
+    mlo:reportedWaterTempC 27.5 ;
+    mlo:reportedWaterType <waterType/Saltwater> ;
+    mlo:includesSighting <sighting/42> , <sighting/44> .
+
+<sighting/42> a mlo:Sighting ;
+    mlo:godiveSightingUUID "sighting-42-demo-uuid" ;
+    mlo:duringDiveActivity <activity/2024-03-15-Yongala> ;
+    mlo:duringSiteReport <report/2024-03-15-Yongala> ;
+    mlo:sightingSite <site/SSYongala> ;
+    mlo:sightedOrganism <species/TigerShark> ;
+    mlo:sightingDateTime "2024-03-15T09:55:00+10:00"^^xsd:dateTime ;
+    mlo:sightingDepthM 24 ;
+    mlo:observerDepthM 24 ;
+    mlo:depthIsEstimate false ;
+    mlo:depthCertainty <depthCertainty/Measured> ;
+    mlo:count 1 ;
+    mlo:lifeStage <lifeStage/Adult> ;
+    mlo:identificationCertainty <certainty/SelfConfirmed> ;
+    mlo:sightingNote "Cruised along wreck mid-water."@en ;
+    mlo:hasMedia <media/42-photo-1> .
+
+<media/42-photo-1> a mlo:MediaAsset ;
+    mlo:godiveMediaUUID "media-42-demo-uuid" ;
+    mlo:mediaUrl "https://example.org/media/dives/2024-03-15/tiger-shark-01.jpg"^^xsd:anyURI ;
+    mlo:mediaType "photo" ;
+    mlo:mimeType "image/jpeg" ;
+    mlo:caption "Adult tiger shark mid-water beside the Yongala wreck"@en ;
+    mlo:takenBy <observer/Alex> ;
+    mlo:capturedAt "2024-03-15T09:55:00+10:00"^^xsd:dateTime .
+
+# --- Snorkel: SnorkelActivity ---
+
+<activity/2024-03-16-Hastings> a mlo:SnorkelActivity ;
+    mlo:activityType <activityType/Snorkel> ;
+    mlo:godiveUUID "snorkel-hastings-2024-03-16-uuid" ;
+    mlo:sourceSystem "Garmin MK3" ;
+    mlo:activityDate "2024-03-16"^^xsd:date ;
+    mlo:activityStartDateTime "2024-03-16T11:15:00+10:00"^^xsd:dateTime ;
+    mlo:activityStartTime "11:15:00"^^xsd:time ;
+    mlo:timeOfDay <timeOfDay/Day> ;
+    mlo:isNightActivity false ;
+    mlo:atSite <site/HastingsReef> ;
+    mlo:godiveSiteUUID "site-hastings-demo-uuid" ;
+    mlo:loggedBy <observer/Alex> ;
+    mlo:maxActivityDepthM 1.2 ;
+    mlo:activityDurationMin 55 ;
+    mlo:swimDistanceM 1240 ;
+    mlo:avgHeartRateBPM 98 ;
+    mlo:maxHeartRateBPM 132 ;
+    mlo:waterTempC 28.0 ;
+    mlo:currentStrength <current/None> ;
+    mlo:entryLatitude -16.516 ;
+    mlo:entryLongitude 146.0 .
+
+# SiteReport projected from the Hastings snorkel
+<report/2024-03-16-Hastings> a mlo:SiteReport ;
+    mlo:reportForSite <site/HastingsReef> ;
+    mlo:fromActivity <activity/2024-03-16-Hastings> ;
+    mlo:reportDate "2024-03-16"^^xsd:date ;
+    mlo:reportedMaxDepthM 1.2 ;
+    mlo:reportedCurrent <current/None> ;
+    mlo:reportedWaterTempC 28.0 ;
+    mlo:reportedWaterType <waterType/Saltwater> ;
+    mlo:includesSighting <sighting/43> , <sighting/45> .
+
+<sighting/43> a mlo:Sighting ;
+    mlo:godiveSightingUUID "sighting-43-demo-uuid" ;
+    mlo:duringSnorkelActivity <activity/2024-03-16-Hastings> ;
+    mlo:duringSiteReport <report/2024-03-16-Hastings> ;
+    mlo:sightingSite <site/HastingsReef> ;
+    mlo:sightedOrganism <species/TigerShark> ;
+    mlo:sightingDateTime "2024-03-16T11:40:00+10:00"^^xsd:dateTime ;
+    mlo:observerDepthM 0.5 ;
+    mlo:sightingDepthM 8 ;
+    mlo:depthIsEstimate true ;
+    mlo:depthCertainty <depthCertainty/Estimated> ;
+    mlo:count 1 ;
+    mlo:lifeStage <lifeStage/Adult> ;
+    mlo:identificationCertainty <certainty/AIAssessed> ;
+    mlo:sightingNote "Passed below the reef edge; depth guessed from snorkel."@en .
+
+#################################################################
+# Extra sightings — seed co-occurrence for similarity demos
+# (catalog individuals already defined in marine_life_species.ttl)
+#################################################################
+
+# Lemon shark on the same Yongala day dive as the tiger shark
+<sighting/44> a mlo:Sighting ;
+    mlo:godiveSightingUUID "sighting-44-demo-uuid" ;
+    mlo:duringDiveActivity <activity/2024-03-15-Yongala> ;
+    mlo:duringSiteReport <report/2024-03-15-Yongala> ;
+    mlo:sightingSite <site/SSYongala> ;
+    mlo:sightedOrganism <species/marine-life-lemon-shark> ;
+    mlo:sightingDateTime "2024-03-15T10:05:00+10:00"^^xsd:dateTime ;
+    mlo:sightingDepthM 22 ;
+    mlo:observerDepthM 22 ;
+    mlo:depthIsEstimate false ;
+    mlo:depthCertainty <depthCertainty/Measured> ;
+    mlo:count 1 ;
+    mlo:lifeStage <lifeStage/Adult> ;
+    mlo:identificationCertainty <certainty/Likely> ;
+    mlo:sightingNote "Second requiem-type shark near the wreck mid-water."@en .
+
+# Bar jack on the Hastings snorkel (same water body / time-of-day class as tiger)
+<sighting/45> a mlo:Sighting ;
+    mlo:godiveSightingUUID "sighting-45-demo-uuid" ;
+    mlo:duringSnorkelActivity <activity/2024-03-16-Hastings> ;
+    mlo:duringSiteReport <report/2024-03-16-Hastings> ;
+    mlo:sightingSite <site/HastingsReef> ;
+    mlo:sightedOrganism <species/marine-life-bar-jack> ;
+    mlo:sightingDateTime "2024-03-16T11:25:00+10:00"^^xsd:dateTime ;
+    mlo:observerDepthM 0.5 ;
+    mlo:sightingDepthM 4 ;
+    mlo:depthIsEstimate true ;
+    mlo:depthCertainty <depthCertainty/Estimated> ;
+    mlo:count 6 ;
+    mlo:lifeStage <lifeStage/Adult> ;
+    mlo:identificationCertainty <certainty/SelfConfirmed> ;
+    mlo:sightingNote "Small school along the reef crest."@en .
+
+# Catalog enrichment used by biology + water-body similarity
+<species/marine-life-lemon-shark>
+    mlo:foundInWater <water/CoralSea> .
+
+<species/marine-life-bar-jack>
+    mlo:foundInWater <water/CoralSea> .

@@ -1,0 +1,59 @@
+---
+description: Scuba dive marine life knowledge graph project context
+alwaysApply: true
+---
+
+# Scuba Dive Marine Life Ontology
+
+Build an RDF knowledge graph for **scuba and snorkel**, aligned with **GoDiveMVP** SwiftData models (`GoDiveMVP/Models`).
+
+Two foundations: **OrganismConcept** and **Sighting**, connected through activity subclasses:
+
+```
+InWaterActivity
+  ├── DiveActivity     ← GoDive DiveActivity
+  └── SnorkelActivity  ← GoDive SnorkelActivity
+Sighting ─duringDiveActivity|duringSnorkelActivity→ activity
+```
+
+## Domain emphasis
+
+| Primary (in-water) | Supporting (biology) |
+|--------------------|----------------------|
+| Sightings + DiveActivity / SnorkelActivity | Species / organism concepts |
+| Site hub: Country, BodyOfWater, water type, catalog depth, SiteReport, Sighting | Taxa & ranks |
+| Depth (estimated for snorkel), conditions (via SiteReport / activity) | Physical traits for ID |
+| GoDive enums: current, visibility, water type | Life stage, ID certainty, media |
+
+Site characteristic graph: catalog seeds Country / water / type / depth; user visits mint `SiteReport` + `hasSighting` later.
+
+Vocabulary bridge: `ontology/godive-activity.ttl`.
+
+## Stack (W3C)
+
+| Layer | Standard | Project path |
+|-------|----------|--------------|
+| Vocabulary | RDF 1.2 + RDFS | `ontology/` |
+| Example / instance data | Turtle | `data/` |
+| Validation | SHACL 1.2 Core | `shapes/` |
+| RDB → RDF | R2RML | `mappings/` |
+
+## Agent behavior
+
+- **Before editing ontology / shapes / mappings**, read the matching skill under `.cursor/skills/`:
+  - Vocabulary / Turtle → `rdf-12-ontology`
+  - Restrictions / validation → `shacl-constraints`
+  - Catalog loading → `r2rml-mapping`
+- Prefer Turtle. Use `BASE` + relative IRIs for instances (`<species/TigerShark>`), not `mlo:species/Tiger` (invalid prefixed name).
+- Announce `VERSION "1.2"` only for triple terms, annotations, or directional lang tags.
+- Keep TBox (`ontology/`) separate from ABox (`data/`).
+- Model for divers first; add taxonomic detail as needed for identification.
+- Default prefix: `mlo:` → `https://example.org/marine-life/`.
+- Align new terms with GoDive Swift models (`GoDiveMVP/Models`) via comments; do not invent a second parallel vocabulary.
+
+## Delivery order
+
+1. Vocabulary (`ontology/scuba-core.ttl`, `godive-activity.ttl`)
+2. SHACL (`shapes/scuba-shapes.ttl`)
+3. R2RML mappings into conforming instance data
+4. Rematerialize catalog Turtle when mappings change

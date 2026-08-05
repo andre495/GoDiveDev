@@ -164,7 +164,7 @@ def main() -> int:
 
     config = load_config(args.config)
     staging_path = PROJECT_DIR / config["output_staging_csv"]
-    json_path = PROJECT_DIR / config.get("output_json", "MockData/marine_life_sample.json")
+    json_path = PROJECT_DIR / config.get("output_json", "Resources/Catalog/marine_life.json")
 
     if not staging_path.is_file():
         print(f"Staging CSV not found: {staging_path}", file=sys.stderr)
@@ -201,7 +201,7 @@ def main() -> int:
         run_sync(json_path, args.all)
         print(f"Synced JSON to {json_path}")
 
-    report_path = PROJECT_DIR / "MockData/reef_filter_report.json"
+    report_path = PROJECT_DIR / "CatalogAuthoring/reef_filter_report.json"
     report = {
         "fish_only": fish_only,
         "reef_match_keys": len(reef_keys),

@@ -15,6 +15,7 @@ struct SettingsView: View {
     @AppStorage(AppUserSettings.shareNotesWithFriendsKey) private var shareNotesWithFriends = false
     @AppStorage(AppUserSettings.shareMediaWithFriendsKey) private var shareMediaWithFriends = false
     @AppStorage(AppUserSettings.shareMediaOnWiFiOnlyKey) private var shareMediaOnWiFiOnly = false
+    @AppStorage(AppUserSettings.contributeCommunitySightingsKey) private var contributeCommunitySightings = false
     @AppStorage(AppUserSettings.notifyAllNotificationsKey) private var notifyAllNotifications = true
     @AppStorage(AppUserSettings.notifyBuddyActivitySharesKey) private var notifyBuddyActivityShares = true
     @AppStorage(AppUserSettings.notifyGearServiceRemindersKey) private var notifyGearServiceReminders = true
@@ -46,6 +47,7 @@ struct SettingsView: View {
                 shareNotesWithFriends: $shareNotesWithFriends,
                 shareMediaWithFriends: $shareMediaWithFriends,
                 shareMediaOnWiFiOnly: $shareMediaOnWiFiOnly,
+                contributeCommunitySightings: $contributeCommunitySightings,
                 notifyAllNotifications: $notifyAllNotifications,
                 notifyBuddyActivityShares: $notifyBuddyActivityShares,
                 notifyGearServiceReminders: $notifyGearServiceReminders,
@@ -56,6 +58,7 @@ struct SettingsView: View {
                 onShareCrashReportsEnabled: uploadCrashReportBacklog,
                 onShareSecurityEventsEnabled: uploadSecurityEventBacklog,
                 onFriendShareSettingsChanged: refreshFriendShareProjections,
+                onCommunitySightingsContributionChanged: handleCommunitySightingsContributionChanged,
                 onNotifyBuddyActivitySharesChanged: syncBuddyActivityPushPreference,
                 onNotifyTripRemindersChanged: resyncTripReminders,
                 onDismissMediaBackfill: dismissMediaBackfillOverlay,
@@ -168,6 +171,30 @@ struct SettingsView: View {
         }
     }
 
+    private func handleCommunitySightingsContributionChanged() {
+        pushSyncedPreferencesFromDefaults()
+        guard let owner = accountSession.currentProfile else { return }
+        let ownerProfileID = owner.id
+        if AppUserSettings.contributeCommunitySightings() {
+            // Collect on MainActor (SwiftData), then Firestore WriteBatch commits off-actor.
+            Task { @MainActor in
+                await OntologySiteReportContributionSync.backfillAllOwnedSiteReports(
+                    ownerProfileID: ownerProfileID,
+                    modelContext: modelContext
+                )
+                await OntologySightingContributionSync.backfillAllOwnedSightings(
+                    ownerProfileID: ownerProfileID,
+                    modelContext: modelContext
+                )
+            }
+        } else {
+            Task.detached(priority: .utility) {
+                await OntologySiteReportContributionSync.markAllContributionsDeleted()
+                await OntologySightingContributionSync.markAllContributionsDeleted()
+            }
+        }
+    }
+
     private func startMediaBackfillForExistingDives() {
         guard let ownerID = accountSession.currentProfile?.id else { return }
 
@@ -237,6 +264,7 @@ private struct SettingsPageContent: View {
     @Binding var shareNotesWithFriends: Bool
     @Binding var shareMediaWithFriends: Bool
     @Binding var shareMediaOnWiFiOnly: Bool
+    @Binding var contributeCommunitySightings: Bool
     @Binding var notifyAllNotifications: Bool
     @Binding var notifyBuddyActivityShares: Bool
     @Binding var notifyGearServiceReminders: Bool
@@ -252,6 +280,7 @@ private struct SettingsPageContent: View {
     let onShareCrashReportsEnabled: () -> Void
     let onShareSecurityEventsEnabled: () -> Void
     let onFriendShareSettingsChanged: () -> Void
+    let onCommunitySightingsContributionChanged: () -> Void
     let onNotifyBuddyActivitySharesChanged: (Bool) -> Void
     let onNotifyTripRemindersChanged: () -> Void
     let onDismissMediaBackfill: () -> Void
@@ -452,6 +481,15 @@ private struct SettingsPageContent: View {
             .disabled(!shareDivesWithFriends || !shareMediaWithFriends)
             .onChange(of: shareMediaOnWiFiOnly) { _, _ in
                 onFriendShareSettingsChanged()
+            }
+
+            SettingsToggleRow(
+                title: SettingsPresentation.ContributeCommunitySightings.title,
+                infoMessage: SettingsPresentation.ContributeCommunitySightings.infoMessage,
+                isOn: $contributeCommunitySightings
+            )
+            .onChange(of: contributeCommunitySightings) { _, _ in
+                onCommunitySightingsContributionChanged()
             }
         }
     }

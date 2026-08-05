@@ -1,0 +1,79 @@
+# Site characteristic graph queries
+# Site hub: Country, BodyOfWater, WaterType, catalog depth, SiteReport, Sighting
+#
+# PREFIX mlo: <https://example.org/marine-life/>
+
+#################################################################
+# 1) Sites in a country (resource link)
+#################################################################
+
+PREFIX mlo: <https://example.org/marine-life/>
+
+SELECT ?site ?siteName ?maxDepth ?waterType WHERE {
+  ?site a mlo:Site ;
+        mlo:inCountry <https://example.org/marine-life/country/Australia> ;
+        mlo:siteName ?siteName .
+  OPTIONAL { ?site mlo:siteMaxDepthM ?maxDepth }
+  OPTIONAL { ?site mlo:siteWaterType ?waterType }
+}
+ORDER BY ?siteName
+LIMIT 50
+
+#################################################################
+# 2) Sites in a body of water
+#################################################################
+#
+# SELECT ?site ?siteName ?countryName ?maxDepth WHERE {
+#   ?site a mlo:Site ;
+#         mlo:locatedInWater <https://example.org/marine-life/water/Caribbean-Sea> ;
+#         mlo:siteName ?siteName .
+#   OPTIONAL { ?site mlo:inCountry ?country . ?country mlo:countryName ?countryName }
+#   OPTIONAL { ?site mlo:siteMaxDepthM ?maxDepth }
+# }
+# ORDER BY ?siteName
+
+#################################################################
+# 3) Sites by water type + depth band (catalog depth)
+#################################################################
+#
+# SELECT ?site ?siteName ?maxDepth WHERE {
+#   ?site a mlo:Site ;
+#         mlo:siteWaterType <https://example.org/marine-life/waterType/Saltwater> ;
+#         mlo:siteMaxDepthM ?maxDepth ;
+#         mlo:siteName ?siteName .
+#   FILTER(?maxDepth >= 20 && ?maxDepth <= 40)
+# }
+# ORDER BY DESC(?maxDepth)
+# LIMIT 50
+
+#################################################################
+# 4) Site neighborhood: reports + sightings (demo / user posts)
+#################################################################
+#
+# SELECT ?site ?report ?reportDate ?depth ?current ?visibility ?sighting ?organism WHERE {
+#   BIND(<https://example.org/marine-life/site/SSYongala> AS ?site)
+#   OPTIONAL {
+#     ?site mlo:hasSiteReport ?report .
+#     OPTIONAL { ?report mlo:reportDate ?reportDate }
+#     OPTIONAL { ?report mlo:reportedMaxDepthM ?depth }
+#     OPTIONAL { ?report mlo:reportedCurrent ?current }
+#     OPTIONAL { ?report mlo:reportedVisibility ?visibility }
+#   }
+#   OPTIONAL {
+#     ?site mlo:hasSighting ?sighting .
+#     OPTIONAL { ?sighting mlo:sightedOrganism ?organism }
+#   }
+# }
+
+#################################################################
+# 5) Full characteristic path for a site
+#################################################################
+#
+# SELECT ?site ?country ?water ?waterType ?maxDepth WHERE {
+#   ?site a mlo:Site ;
+#         mlo:siteName "SS Yongala"@en .
+#   OPTIONAL { ?site mlo:inCountry ?country }
+#   OPTIONAL { ?site mlo:locatedInWater ?water }
+#   OPTIONAL { ?site mlo:siteWaterType ?waterType }
+#   OPTIONAL { ?site mlo:siteMaxDepthM ?maxDepth }
+# }

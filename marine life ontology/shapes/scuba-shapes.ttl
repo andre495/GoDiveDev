@@ -1,0 +1,503 @@
+PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
+PREFIX sh:   <http://www.w3.org/ns/shacl#>
+PREFIX mlo:  <https://example.org/marine-life/>
+
+#################################################################
+# SHACL shapes — scuba dive marine life KG
+#################################################################
+
+mlo:SpeciesShape
+    a sh:NodeShape ;
+    sh:targetClass mlo:Species ;
+    sh:property [
+        sh:path mlo:commonName ;
+        sh:minCount 1 ;
+        sh:name "common name" ;
+        sh:message "Species should have at least one common name (GoDive MarineLife.commonName)."@en ;
+        sh:nodeKind sh:Literal ;
+    ] ;
+    sh:property [
+        sh:path mlo:scientificName ;
+        sh:nodeKind sh:Literal ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:godiveMarineLifeUUID ;
+        sh:datatype xsd:string ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:category ;
+        sh:nodeKind sh:Literal ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:familyName ;
+        sh:nodeKind sh:Literal ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:minSizeM ;
+        sh:datatype xsd:decimal ;
+        sh:minInclusive 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:maxSizeM ;
+        sh:datatype xsd:decimal ;
+        sh:minInclusive 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:avgDepthM ;
+        sh:datatype xsd:decimal ;
+        sh:minInclusive 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:minDepthM ;
+        sh:datatype xsd:decimal ;
+        sh:minInclusive 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:maxDepthM ;
+        sh:datatype xsd:decimal ;
+        sh:minInclusive 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:classifiedAs ;
+        sh:class mlo:Taxon ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:foundInWater ;
+        sh:class mlo:BodyOfWater ;
+    ] .
+
+mlo:TaxonShape
+    a sh:NodeShape ;
+    sh:targetClass mlo:Taxon ;
+    sh:property [
+        sh:path mlo:scientificName ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:hasRank ;
+        sh:class mlo:TaxonomicRank ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:broaderTaxon ;
+        sh:class mlo:Taxon ;
+        sh:maxCount 1 ;
+    ] .
+
+mlo:CountryShape
+    a sh:NodeShape ;
+    sh:targetClass mlo:Country ;
+    sh:property [
+        sh:path mlo:countryName ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:Literal ;
+    ] ;
+    sh:property [
+        sh:path mlo:countryCode ;
+        sh:datatype xsd:string ;
+        sh:maxCount 1 ;
+    ] .
+
+mlo:BodyOfWaterShape
+    a sh:NodeShape ;
+    sh:targetClass mlo:BodyOfWater ;
+    sh:property [
+        sh:path mlo:waterName ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:Literal ;
+    ] .
+
+mlo:SiteShape
+    a sh:NodeShape ;
+    sh:targetClass mlo:Site ;
+    sh:property [
+        sh:path mlo:siteName ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:Literal ;
+    ] ;
+    sh:property [
+        sh:path mlo:country ;
+        sh:nodeKind sh:Literal ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:inCountry ;
+        sh:class mlo:Country ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:region ;
+        sh:nodeKind sh:Literal ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:bodyOfWater ;
+        sh:nodeKind sh:Literal ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:locatedInWater ;
+        sh:class mlo:BodyOfWater ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:hasSiteReport ;
+        sh:class mlo:SiteReport ;
+    ] ;
+    sh:property [
+        sh:path mlo:hasSighting ;
+        sh:class mlo:Sighting ;
+    ] ;
+    sh:property [
+        sh:path mlo:latitude ;
+        sh:datatype xsd:decimal ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:longitude ;
+        sh:datatype xsd:decimal ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:timeZoneIdentifier ;
+        sh:datatype xsd:string ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:siteMaxDepthM ;
+        sh:datatype xsd:decimal ;
+        sh:minInclusive 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:entry ;
+        sh:nodeKind sh:Literal ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:environment ;
+        sh:nodeKind sh:Literal ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:siteWaterType ;
+        sh:class mlo:WaterType ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:siteOwnership ;
+        sh:class mlo:SiteOwnership ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:siteRating ;
+        sh:datatype xsd:integer ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:godiveUUID ;
+        sh:datatype xsd:string ;
+        sh:maxCount 1 ;
+    ] .
+
+mlo:SiteReportShape
+    a sh:NodeShape ;
+    sh:targetClass mlo:SiteReport ;
+    sh:property [
+        sh:path mlo:reportForSite ;
+        sh:class mlo:Site ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:fromActivity ;
+        sh:class mlo:InWaterActivity ;
+        sh:maxCount 1 ;
+        sh:message "Prefer one SiteReport per InWaterActivity (1:1)."@en ;
+    ] ;
+    sh:property [
+        sh:path mlo:reportDate ;
+        sh:datatype xsd:date ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:reportedMaxDepthM ;
+        sh:datatype xsd:decimal ;
+        sh:minInclusive 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:reportedCurrent ;
+        sh:class mlo:CurrentStrength ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:reportedVisibility ;
+        sh:class mlo:VisibilityRating ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:reportedWaterTempC ;
+        sh:datatype xsd:decimal ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:reportedWaterType ;
+        sh:class mlo:WaterType ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:includesSighting ;
+        sh:class mlo:Sighting ;
+    ] .
+
+mlo:InWaterActivityShape
+    a sh:NodeShape ;
+    sh:targetClass mlo:InWaterActivity ;
+    sh:property [
+        sh:path mlo:activityDate ;
+        sh:datatype xsd:date ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:atSite ;
+        sh:class mlo:Site ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:activityType ;
+        sh:class mlo:ActivityType ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:loggedBy ;
+        sh:class mlo:Observer ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:maxActivityDepthM ;
+        sh:datatype xsd:decimal ;
+        sh:minInclusive 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:godiveUUID ;
+        sh:datatype xsd:string ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:timeOfDay ;
+        sh:class mlo:TimeOfDay ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:isNightActivity ;
+        sh:datatype xsd:boolean ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:activityStartTime ;
+        sh:datatype xsd:time ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:currentStrength ;
+        sh:class mlo:CurrentStrength ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:currentDirection ;
+        sh:nodeKind sh:Literal ;
+        sh:maxCount 1 ;
+    ] .
+
+mlo:DiveActivityShape
+    a sh:NodeShape ;
+    sh:targetClass mlo:DiveActivity ;
+    sh:property [
+        sh:path mlo:activityType ;
+        sh:hasValue <https://example.org/marine-life/activityType/Scuba> ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:bottomTimeSeconds ;
+        sh:datatype xsd:integer ;
+        sh:minInclusive 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:visibilityRating ;
+        sh:class mlo:VisibilityRating ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:waterType ;
+        sh:class mlo:WaterType ;
+        sh:maxCount 1 ;
+    ] .
+
+mlo:SnorkelActivityShape
+    a sh:NodeShape ;
+    sh:targetClass mlo:SnorkelActivity ;
+    sh:property [
+        sh:path mlo:activityType ;
+        sh:hasValue <https://example.org/marine-life/activityType/Snorkel> ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:swimDistanceM ;
+        sh:datatype xsd:decimal ;
+        sh:minInclusive 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:avgHeartRateBPM ;
+        sh:datatype xsd:integer ;
+        sh:minInclusive 0 ;
+        sh:maxCount 1 ;
+    ] .
+
+mlo:SightingShape
+    a sh:NodeShape ;
+    sh:targetClass mlo:Sighting ;
+    sh:property [
+        sh:path mlo:sightedOrganism ;
+        sh:class mlo:OrganismConcept ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:sightingSite ;
+        sh:class mlo:Site ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:duringSiteReport ;
+        sh:class mlo:SiteReport ;
+        sh:maxCount 1 ;
+    ] ;
+    # Exactly one of dive or snorkel activity (GoDive SightingInstance)
+    sh:or (
+        [
+            sh:property [
+                sh:path mlo:duringDiveActivity ;
+                sh:class mlo:DiveActivity ;
+                sh:minCount 1 ;
+                sh:maxCount 1 ;
+            ] ;
+            sh:property [
+                sh:path mlo:duringSnorkelActivity ;
+                sh:maxCount 0 ;
+            ] ;
+        ]
+        [
+            sh:property [
+                sh:path mlo:duringSnorkelActivity ;
+                sh:class mlo:SnorkelActivity ;
+                sh:minCount 1 ;
+                sh:maxCount 1 ;
+            ] ;
+            sh:property [
+                sh:path mlo:duringDiveActivity ;
+                sh:maxCount 0 ;
+            ] ;
+        ]
+    ) ;
+    sh:property [
+        sh:path mlo:sightingDepthM ;
+        sh:datatype xsd:decimal ;
+        sh:minInclusive 0 ;
+        sh:maxCount 1 ;
+        sh:name "sighting depth (organism)" ;
+        sh:message "Organism depth; for snorkel this is often an estimate."@en ;
+    ] ;
+    sh:property [
+        sh:path mlo:observerDepthM ;
+        sh:datatype xsd:decimal ;
+        sh:minInclusive 0 ;
+        sh:maxCount 1 ;
+        sh:name "observer depth" ;
+    ] ;
+    sh:property [
+        sh:path mlo:depthIsEstimate ;
+        sh:datatype xsd:boolean ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:depthCertainty ;
+        sh:class mlo:DepthCertainty ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:count ;
+        sh:datatype xsd:integer ;
+        sh:minInclusive 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:identificationCertainty ;
+        sh:class mlo:IdentificationCertainty ;
+        sh:maxCount 1 ;
+        sh:name "identification certainty" ;
+    ] ;
+    sh:property [
+        sh:path mlo:lifeStage ;
+        sh:class mlo:LifeStage ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:hasMedia ;
+        sh:class mlo:MediaAsset ;
+    ] .
+
+mlo:MediaAssetShape
+    a sh:NodeShape ;
+    sh:targetClass mlo:MediaAsset ;
+    sh:property [
+        sh:path mlo:mediaUrl ;
+        sh:datatype xsd:anyURI ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:mediaType ;
+        sh:in ( "photo" "video" "audio" ) ;
+        sh:maxCount 1 ;
+        sh:message "mediaType should be one of: photo, video, audio."@en ;
+    ] ;
+    sh:property [
+        sh:path mlo:mimeType ;
+        sh:datatype xsd:string ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:takenBy ;
+        sh:class mlo:Observer ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mlo:capturedAt ;
+        sh:datatype xsd:dateTime ;
+        sh:maxCount 1 ;
+    ] .

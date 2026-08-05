@@ -212,6 +212,10 @@ enum FitDiveFileImport {
                 modelContext: modelContext
             )
             try modelContext.save()
+            await OntologySiteReportContributionSync.syncAfterDivePersisted(
+                dive: activity,
+                modelContext: modelContext
+            )
             if attachMedia {
                 await DiveLibraryMediaAutoAttachScheduler.attachAfterDivePersisted(
                     activity,

@@ -45,9 +45,9 @@ try:
 except ImportError:  # pragma: no cover
     UnidentifiedImageError = Exception  # type: ignore[misc, assignment]
 
-DEFAULT_STAGING = PROJECT_DIR / "MockData/marine_life_caribbean_staging.csv"
+DEFAULT_STAGING = PROJECT_DIR / "CatalogAuthoring/marine_life_caribbean_staging.csv"
 DEFAULT_OUTPUT_DIR = PROJECT_DIR / "Resources/MarineLifePhotos"
-DEFAULT_MANIFEST = PROJECT_DIR / "MockData/marine_life_bundle_photos_manifest.json"
+DEFAULT_MANIFEST = PROJECT_DIR / "CatalogAuthoring/marine_life_bundle_photos_manifest.json"
 
 def load_staging_rows(path: Path) -> list[dict[str, str]]:
     with path.open(encoding="utf-8", newline="") as handle:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Merge marine_life_caribbean_staging.csv into marine_life_sample.json.
+Merge marine_life_caribbean_staging.csv into marine_life.json.
 
 Default: only rows with non-empty aboutText ship to the app bundle (your
 description workflow). Output is **staging-only** — legacy JSON rows whose UUIDs
@@ -34,8 +34,8 @@ from fishbase_catalog_utils import (
 )
 
 
-DEFAULT_STAGING = PROJECT_DIR / "MockData/marine_life_caribbean_staging.csv"
-DEFAULT_JSON = PROJECT_DIR / "MockData/marine_life_sample.json"
+DEFAULT_STAGING = PROJECT_DIR / "CatalogAuthoring/marine_life_caribbean_staging.csv"
+DEFAULT_JSON = PROJECT_DIR / "Resources/Catalog/marine_life.json"
 
 PROSE_FIELDS_STAGING = [
     "aboutText",

@@ -9,7 +9,7 @@ from typing import Any
 from fishbase_catalog_utils import PROJECT_DIR, staging_row_marked_for_deletion
 from marine_life_bundle_image_utils import bundle_photo_filename
 
-DEFAULT_STAGING = PROJECT_DIR / "MockData/marine_life_caribbean_staging.csv"
+DEFAULT_STAGING = PROJECT_DIR / "CatalogAuthoring/marine_life_caribbean_staging.csv"
 DEFAULT_PHOTOS_DIR = PROJECT_DIR / "Resources/MarineLifePhotos"
 
 

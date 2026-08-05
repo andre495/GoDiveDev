@@ -8,9 +8,9 @@ Facts-only import from [FishBase](https://www.fishbase.se) (fish) and [SeaLifeBa
 
 | File | Role |
 |------|------|
-| `marine_life_caribbean_staging.csv` | **Authoring sheet** — diver-visible Caribbean saltwater species (fish + invertebrates) |
-| `marine_life_sample.json` | **App seed** — curated species shipped in the bundle |
-| `marine_life_source.csv` | Legacy scratch pad (angelfish batch); optional |
+| `CatalogAuthoring/marine_life_caribbean_staging.csv` | **Authoring sheet** — diver-visible Caribbean saltwater species (fish + invertebrates) |
+| `Resources/Catalog/marine_life.json` | **App seed** — curated species shipped in the bundle (`MarineLifeCatalogSeeder`) |
+| `CatalogAuthoring/marine_life_source.csv` | Legacy scratch pad (angelfish batch); optional |
 | `Scripts/extract_fishbase_caribbean.py` | Rebuild **fish** rows in staging CSV from FishBase |
 | `Scripts/extract_sealifebase_caribbean.py` | **Append** non-fish rows from SeaLifeBase (keeps existing fish) |
 | `Scripts/sync_marine_life_staging_to_json.py` | Merge staging → JSON |
@@ -20,9 +20,9 @@ Facts-only import from [FishBase](https://www.fishbase.se) (fish) and [SeaLifeBa
 | `Scripts/fetch_snorkelstj_species_reference.py` | Crawl snorkelstj.com species pages → common names |
 | `Scripts/validate_marine_life_by_snorkelstj.py` | Fuzzy-match staging common names against snorkelstj.com |
 | `Scripts/snorkelstj_caribbean_config.json` | Crawl seeds, fuzzy threshold, cache path |
-| `MockData/snorkelstj_species_reference.csv` | Cached snorkelstj.com species names |
+| `CatalogAuthoring/snorkelstj_species_reference.csv` | Cached snorkelstj.com species names |
 | `Scripts/reef_caribbean_config.json` | REEF regions (TWA + SAS) and cache path |
-| `MockData/reef_species_reference.csv` | Cached REEF species reference export |
+| `CatalogAuthoring/reef_species_reference.csv` | Cached REEF species reference export |
 | `marine_life_image_cache.json` | API result cache (re-runs skip network when cached) |
 
 ## One-time setup
@@ -89,14 +89,14 @@ python3 GoDiveMVP/Scripts/filter_marine_life_by_reef.py --apply --sync-json --al
 python3 GoDiveMVP/Scripts/filter_marine_life_by_reef.py --apply --all-species --sync-json --all
 ```
 
-Matching is on normalized **genus + species** for fish rows. REEF exports are cached in **`MockData/reef_species_reference.csv`**; use **`--refresh-reef`** to re-download.
+Matching is on normalized **genus + species** for fish rows. REEF exports are cached in **`CatalogAuthoring/reef_species_reference.csv`**; use **`--refresh-reef`** to re-download.
 
 ## Cross-reference with Caribbean Reef Life (Mickey Charteris)
 
 The book’s **Scientific Name Index** (pages 450–463 in the 4th edition) is the authoritative glossary. It is **not** published as a downloadable list on [caribbeanreeflife.com](https://www.caribbeanreeflife.com) — only sample pages are online — so extract names from your purchased **interactive PDF** or **ePub export**.
 
 ```bash
-# 1. Place your ebook PDF at MockData/CaribbeanReefLife.pdf (gitignored) or pass --pdf
+# 1. Place your ebook PDF at CatalogAuthoring/CaribbeanReefLife.pdf (gitignored) or pass --pdf
 python3 GoDiveMVP/Scripts/extract_caribbean_reef_life_reference.py --pdf ~/Downloads/CaribbeanReefLife.pdf
 
 # 2. Validation report (fish-only by default; inverts unchanged)
@@ -106,7 +106,7 @@ python3 GoDiveMVP/Scripts/validate_marine_life_by_crl.py
 python3 GoDiveMVP/Scripts/validate_marine_life_by_crl.py --apply --sync-json --all
 ```
 
-Outputs **`MockData/caribbean_reef_life_species_reference.csv`** (~1,800 names from a full PDF) and **`MockData/caribbean_reef_life_validation_report.json`** (matched / not-in-book counts plus samples). Use **`--all-species`** to validate invertebrates too once the full index is extracted.
+Outputs **`CatalogAuthoring/caribbean_reef_life_species_reference.csv`** (~1,800 names from a full PDF) and **`CatalogAuthoring/caribbean_reef_life_validation_report.json`** (matched / not-in-book counts plus samples). Use **`--all-species`** to validate invertebrates too once the full index is extracted.
 
 ## Cross-reference with snorkelstj.com (fuzzy common names)
 
@@ -123,7 +123,7 @@ python3 GoDiveMVP/Scripts/validate_marine_life_by_snorkelstj.py
 python3 GoDiveMVP/Scripts/validate_marine_life_by_snorkelstj.py --apply --sync-json --all
 ```
 
-Report: **`MockData/snorkelstj_validation_report.json`**. Tune fuzziness with **`--threshold 0.92`** (stricter) or **`--threshold 0.85`** (looser).
+Report: **`CatalogAuthoring/snorkelstj_validation_report.json`**. Tune fuzziness with **`--threshold 0.92`** (stricter) or **`--threshold 0.85`** (looser).
 
 ## Hero images (CC0 / CC BY)
 
@@ -155,7 +155,7 @@ Writes **`Resources/MarineLifePhotos/{uuid}.jpg`** (960×720, center-cropped 4:3
 
 To replace one image manually: paste a new URL in **`featureImageURL`**, re-run **`download_marine_life_images.py --overwrite --limit 1`** (or edit the CSV row uuid only and download), then sync JSON.
 
-Manifest: **`MockData/marine_life_bundle_photos_manifest.json`** (source URL + SHA256 per bundled file).
+Manifest: **`CatalogAuthoring/marine_life_bundle_photos_manifest.json`** (source URL + SHA256 per bundled file).
 
 ## Manual image review (local HTML UI)
 
@@ -167,7 +167,7 @@ open http://127.0.0.1:8765
 - **Tinder-style review** — one species at a time with large 4:3 photo, **Accept** (green check clears `imageNeedsReview`) or **Edit** (paste a new URL → **Save + download bundle**). Swipe right to accept, left to edit. Keyboard: **A** / **→** accept, **E** / **←** edit. Default queue: **Needs review**.
 - Filter queue by **needs review**, **no image**, or **missing bundle**.
 - Edit sheet → paste a new **CC0 / CC BY** URL, edit license/attribution, then **Save + download bundle** (updates staging CSV and **`Resources/MarineLifePhotos/{uuid}.jpg`**).
-- **Mark for removal** → sets **`markForDeletion=yes`** on the staging row (red **Remove** badge). Apply deletions with **`apply_marine_life_staging_deletions.py --sync-json --all`** to remove rows from CSV, bundled photos, manifest, and **`marine_life_sample.json`**.
+- **Mark for removal** → sets **`markForDeletion=yes`** on the staging row (red **Remove** badge). Apply deletions with **`apply_marine_life_staging_deletions.py --sync-json --all`** to remove rows from CSV, bundled photos, manifest, and **`marine_life.json`**.
 - After batch edits, run **`sync_marine_life_staging_to_json.py --all`** before rebuilding the app.
 
 ## reefguide.org image fetch (optional)
@@ -213,7 +213,7 @@ GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/extract_marine_life_images_
 
 - Indexes EPUB image filenames (works on an unpacked `.epub` directory or a zipped `.epub`), matching staging rows by **`scientificName`** (preferred) then **`commonName`**.
 - **`--bundle`** center-crops each match to 960×720 and writes **`Resources/MarineLifePhotos/{uuid}.jpg`**, sets **`featureImageResourceName`**, and tags the row **`imageSource=caribbean-reef-life`**, **`imageLicense="© Mickey Charteris — permission required"`**, **`imageNeedsReview=yes`**. Provenance is recorded in the bundle manifest.
-- **Never syncs `marine_life_sample.json`** — review in the HTML UI and run **`sync_marine_life_staging_to_json.py --all`** yourself only once you have permission.
+- **Never syncs `marine_life.json`** — review in the HTML UI and run **`sync_marine_life_staging_to_json.py --all`** yourself only once you have permission.
 - Filename matching (v1) covers ~452 of the ~803 image-less rows; the rest use descriptive book filenames and can still be filled from Commons / WoRMS.
 
 ## Your authoring loop
@@ -229,7 +229,7 @@ GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/extract_marine_life_images_
 GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/sync_marine_life_staging_to_json.py
 ```
 
-Default: rows with **non-empty `aboutText`** merge into `marine_life_sample.json`. With FishBase descriptions enabled (~569/601 filled), that ships nearly the full staging set. Use `--all` to include the few facts-only rows still missing text. Output is **staging-only** (legacy JSON uuids not in the CSV are dropped). Use `--dry-run` to preview counts.
+Default: rows with **non-empty `aboutText`** merge into `marine_life.json`. With FishBase descriptions enabled (~569/601 filled), that ships nearly the full staging set. Use `--all` to include the few facts-only rows still missing text. Output is **staging-only** (legacy JSON uuids not in the CSV are dropped). Use `--dry-run` to preview counts.
 
 5. Run the app — `MarineLifeCatalogSeeder` upserts by `uuid` and **removes** catalog rows no longer in bundled JSON.
 

@@ -53,7 +53,7 @@ def main() -> int:
     parser.add_argument(
         "--output",
         type=str,
-        default="GoDiveMVP/MockData/opendivemap_dive_sites_reference.json",
+        default="GoDiveMVP/Resources/Catalog/dive_sites.json",
         help="Output JSON path (reference rows for the app bundle).",
     )
     parser.add_argument("--page-size", type=int, default=DEFAULT_PAGE_SIZE)

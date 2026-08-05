@@ -98,6 +98,7 @@ enum AppSwiftDataStorePartition: Sendable {
         AppUserSettings.defaultFreshwaterWeightKilogramsKey,
         AppUserSettings.bulkUddfCreateDiveSitesKey,
         AppUserSettings.autoUploadMediaToActivitiesKey,
+        AppUserSettings.contributeCommunitySightingsKey,
         AppUserSettings.notifyAllNotificationsKey,
         AppUserSettings.notifyGearServiceRemindersKey,
         AppUserSettings.notifyTripRemindersKey,

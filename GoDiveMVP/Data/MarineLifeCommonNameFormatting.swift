@@ -2,14 +2,39 @@ import Foundation
 import SwiftData
 
 /// Title-cases each word in catalog common names (e.g. "French angelfish" → "French Angelfish").
-enum MarineLifeCommonNameFormatting: Sendable {
+/// Also strips life-stage suffix **`(juvenile)`** so adult/juvenile morphs share one display name.
+nonisolated enum MarineLifeCommonNameFormatting: Sendable {
+    private static let juvenileSuffixRegex: NSRegularExpression = {
+        try! NSRegularExpression(
+            pattern: #"\s*\(\s*juvenile\s*\)\s*"#,
+            options: [.caseInsensitive]
+        )
+    }()
+
     nonisolated static func normalized(_ raw: String) -> String {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "" }
-        return trimmed
+        let withoutJuvenile = stripJuvenileSuffix(trimmed)
+        guard !withoutJuvenile.isEmpty else { return "" }
+        return withoutJuvenile
             .split(whereSeparator: \.isWhitespace)
             .map { titleCaseToken(String($0)) }
             .joined(separator: " ")
+    }
+
+    /// Removes `\(\s*juvenile\s*\)` (case-insensitive) and collapses leftover whitespace.
+    nonisolated static func stripJuvenileSuffix(_ raw: String) -> String {
+        let ns = raw as NSString
+        let range = NSRange(location: 0, length: ns.length)
+        let stripped = juvenileSuffixRegex.stringByReplacingMatches(
+            in: raw,
+            options: [],
+            range: range,
+            withTemplate: " "
+        )
+        return stripped
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "-")))
     }
 
     nonisolated private static func titleCaseToken(_ token: String) -> String {

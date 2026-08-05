@@ -78,6 +78,9 @@ struct GlobalSearchView: View {
                     onOpenDive: { pushSearchDestination(.dive($0)) }
                 )
             }
+            .environment(\.openCatalogMarineLifeDetail) { marineLifeUUID in
+                pushSearchDestination(.species(marineLifeUUID))
+            }
             .coalescesNavigationStackPathDuplicates($path)
         }
         .globalSearchStackSearchable(

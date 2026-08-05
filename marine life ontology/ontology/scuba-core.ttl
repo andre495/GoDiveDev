@@ -1,0 +1,893 @@
+PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
+PREFIX owl:  <http://www.w3.org/2002/07/owl#>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX vann: <http://purl.org/vocab/vann/>
+PREFIX mlo:  <https://example.org/marine-life/>
+
+#################################################################
+# Scuba Dive Marine Life Ontology — core vocabulary (RDFS)
+# Focus: what divers see, where, how deep, and how to recognize it.
+# Biology (taxonomy) supports identification; diving context is primary.
+#################################################################
+
+mlo: a owl:Ontology ;
+    rdfs:label "Scuba Dive Marine Life Ontology"@en ;
+    rdfs:comment "Vocabulary for scuba/snorkel knowledge graphs: organism concepts, taxonomic identity, physical traits, sites and water bodies, and sightings during in-water activities (with depth and conditions)."@en ;
+    dcterms:title "Scuba Dive Marine Life Ontology"@en ;
+    dcterms:description """Two foundational building blocks: OrganismConcept (kinds of marine life with traits, taxonomy, and environment links) and Sighting (timestamped observations during an InWaterActivity such as scuba or snorkel, with depth, conditions, observer, and media)."""@en ;
+    dcterms:created "2026-08-05"^^xsd:date ;
+    dcterms:modified "2026-08-05"^^xsd:date ;
+    vann:preferredNamespacePrefix "mlo" ;
+    vann:preferredNamespaceUri "https://example.org/marine-life/" ;
+    owl:versionInfo "0.2.0" .
+
+# =================================================================
+# Taxonomy (identification support)
+# =================================================================
+
+mlo:TaxonomicRank a rdfs:Class ;
+    rdfs:label "taxonomic rank"@en ;
+    rdfs:comment "A level in the taxonomic hierarchy (kingdom, phylum, class, order, family, genus, species)."@en .
+
+mlo:Taxon a rdfs:Class ;
+    rdfs:label "taxon"@en ;
+    rdfs:comment "A named taxonomic group at any rank, e.g. Chordata (phylum) or Carcharhinidae (family)."@en .
+
+mlo:OrganismConcept a rdfs:Class ;
+    rdfs:label "organism concept"@en ;
+    rdfs:comment "A kind of marine organism divers may encounter. Maps to GoDiveMVP MarineLife / UserMarineLife catalog rows (field-guide species)."@en .
+
+mlo:Species a rdfs:Class ;
+    rdfs:subClassOf mlo:OrganismConcept ;
+    rdfs:label "species"@en ;
+    rdfs:comment "Species-level organism concept (typical typing for GoDive MarineLife rows)."@en .
+
+mlo:MarineLifeOwnership a rdfs:Class ;
+    rdfs:label "marine life ownership"@en ;
+    rdfs:comment "GoDive MarineLifeOwnership: catalog or userOwned."@en .
+
+mlo:hasRank a rdf:Property ;
+    rdfs:domain mlo:Taxon ;
+    rdfs:range mlo:TaxonomicRank ;
+    rdfs:label "has rank"@en .
+
+mlo:broaderTaxon a rdf:Property ;
+    rdfs:domain mlo:Taxon ;
+    rdfs:range mlo:Taxon ;
+    rdfs:label "broader taxon"@en ;
+    rdfs:comment "Immediate parent taxon (e.g. species → genus → family → … → phylum)."@en .
+
+mlo:classifiedAs a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range mlo:Taxon ;
+    rdfs:label "classified as"@en ;
+    rdfs:comment "Optional structured taxon link (beyond GoDive's flat category/familyName strings)."@en .
+
+mlo:inPhylum a rdf:Property ;
+    rdfs:subPropertyOf mlo:classifiedAs ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range mlo:Taxon ;
+    rdfs:label "in phylum"@en ;
+    rdfs:comment "Convenience link from an organism to its phylum taxon (e.g. Chordata)."@en .
+
+mlo:scientificName a rdf:Property ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "scientific name"@en ;
+    rdfs:comment "GoDive MarineLife.scientificName (on organism); also used on Taxon resources."@en .
+
+mlo:commonName a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "common name"@en ;
+    rdfs:comment "GoDive MarineLife.commonName."@en .
+
+mlo:marineLifeOwnership a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range mlo:MarineLifeOwnership ;
+    rdfs:label "marine life ownership"@en ;
+    rdfs:comment "GoDive MarineLife.ownership (catalog / userOwned)."@en .
+
+mlo:category a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "category"@en ;
+    rdfs:comment "GoDive MarineLife.category (field-guide category)."@en .
+
+mlo:subcategory a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "subcategory"@en ;
+    rdfs:comment "GoDive MarineLife.subcategory (slug or display label)."@en .
+
+mlo:familyName a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "family name"@en ;
+    rdfs:comment "GoDive MarineLife.familyName (e.g. Angelfishes)."@en .
+
+mlo:aboutText a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "about text"@en ;
+    rdfs:comment "GoDive MarineLife.aboutText."@en .
+
+mlo:featureImageURL a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range xsd:anyURI ;
+    rdfs:label "feature image URL"@en ;
+    rdfs:comment "GoDive MarineLife.featureImageURL."@en .
+
+mlo:featureImageResourceName a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range xsd:string ;
+    rdfs:label "feature image resource name"@en ;
+    rdfs:comment "GoDive MarineLife.featureImageResourceName (bundled JPEG name, no extension)."@en .
+
+mlo:featureModelURL a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range xsd:anyURI ;
+    rdfs:label "feature model URL"@en ;
+    rdfs:comment "GoDive MarineLife.featureModelURL (remote USDZ)."@en .
+
+mlo:featureModelResourceName a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range xsd:string ;
+    rdfs:label "feature model resource name"@en ;
+    rdfs:comment "GoDive MarineLife.featureModelResourceName (bundled USDZ name, no extension)."@en .
+
+mlo:aphiaId a rdf:Property ;
+    rdfs:domain mlo:Taxon ;
+    rdfs:range xsd:integer ;
+    rdfs:label "WoRMS AphiaID"@en ;
+    rdfs:comment "Optional link key to the World Register of Marine Species (not in GoDive MarineLife)."@en .
+
+# =================================================================
+# Physical / field-guide characteristics (GoDive MarineLife + extras)
+# =================================================================
+
+mlo:PhysicalTrait a rdfs:Class ;
+    rdfs:label "physical trait"@en ;
+    rdfs:comment "Structured trait resource (ontology extension; GoDive uses distinctiveFeatures string)."@en .
+
+mlo:hasPhysicalTrait a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range mlo:PhysicalTrait ;
+    rdfs:label "has physical trait"@en .
+
+mlo:traitLabel a rdf:Property ;
+    rdfs:domain mlo:PhysicalTrait ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "trait label"@en ;
+    rdfs:comment "Short description, e.g. \"vertical tiger stripes\", \"black tip on dorsal fin\"."@en .
+
+mlo:bodyColor a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "body color"@en ;
+    rdfs:comment "Ontology extension (not a dedicated GoDive MarineLife field)."@en .
+
+mlo:minSizeM a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "minimum size (m)"@en ;
+    rdfs:comment "GoDive MarineLife.minSizeMeters."@en .
+
+mlo:maxSizeM a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "maximum size (m)"@en ;
+    rdfs:comment "GoDive MarineLife.maxSizeMeters."@en .
+
+mlo:maxLengthCm a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "maximum length (cm)"@en ;
+    rdfs:comment "Legacy cm helper; prefer maxSizeM (GoDive stores meters)."@en .
+
+mlo:typicalLengthCm a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "typical length (cm)"@en ;
+    rdfs:comment "Legacy cm helper; GoDive has min/max size in meters only."@en .
+
+mlo:distinctiveFeatures a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "distinctive features"@en ;
+    rdfs:comment "GoDive MarineLife.distinctiveFeatures."@en .
+
+mlo:distinctiveFeature a rdf:Property ;
+    rdfs:subPropertyOf mlo:distinctiveFeatures ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "distinctive feature"@en ;
+    rdfs:comment "Alias for distinctiveFeatures."@en .
+
+mlo:catalogAbundance a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "catalog abundance"@en ;
+    rdfs:comment "GoDive MarineLife.abundance (species-level; distinct from sighting abundance)."@en .
+
+mlo:habitatBehavior a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "habitat behavior"@en ;
+    rdfs:comment "GoDive MarineLife.habitatBehavior."@en .
+
+mlo:diverReaction a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "diver reaction"@en ;
+    rdfs:comment "GoDive MarineLife.diverReaction (how divers should respond / behave)."@en .
+
+mlo:behaviorNote a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "behavior note"@en ;
+    rdfs:comment "Ontology extension; prefer habitatBehavior for GoDive parity."@en .
+
+mlo:hazardNote a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "hazard note"@en ;
+    rdfs:comment "Ontology extension for explicit hazard text; related to but not the same as diverReaction."@en .
+
+# =================================================================
+# Places: countries, bodies of water, sites, and site reports
+# Aligned with GoDiveMVP/Models/DiveSite.swift (class named Site here)
+# Site is the hub: Country, BodyOfWater, WaterType, catalog depth,
+# SiteReport (visit conditions/depth), and Sighting.
+# =================================================================
+
+mlo:Country a rdfs:Class ;
+    rdfs:label "country"@en ;
+    rdfs:comment "A country resource used to graph Sites (and optionally other place facts). Complements the literal mlo:country string on Site."@en .
+
+mlo:countryName a rdf:Property ;
+    rdfs:domain mlo:Country ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "country name"@en .
+
+mlo:countryCode a rdf:Property ;
+    rdfs:domain mlo:Country ;
+    rdfs:range xsd:string ;
+    rdfs:label "country code"@en ;
+    rdfs:comment "ISO 3166-1 alpha-2 when known (GoDive DiveSite.countryCode)."@en .
+
+mlo:BodyOfWater a rdfs:Class ;
+    rdfs:label "body of water"@en ;
+    rdfs:comment "An ocean, sea, gulf, bay, lagoon, or other water body resource (optional structured link from a Site)."@en .
+
+mlo:Site a rdfs:Class ;
+    rdfs:label "site"@en ;
+    rdfs:comment "Named dive/snorkel site. Hub for characteristic graph: inCountry, locatedInWater, siteWaterType, catalog depth (siteMaxDepthM), SiteReports (visit conditions/depth), and Sightings. Maps to GoDiveMVP DiveSite (id, siteName, country, region, bodyOfWater, lat/long, timezone, tags, rating, entry, environment, maxDepth, waterType, ownership)."@en .
+
+# Backward-compatible alias
+mlo:DiveSite a rdfs:Class ;
+    rdfs:subClassOf mlo:Site ;
+    rdfs:label "dive site"@en ;
+    rdfs:comment "Alias for mlo:Site (GoDive type name DiveSite)."@en .
+
+mlo:SiteOwnership a rdfs:Class ;
+    rdfs:label "site ownership"@en ;
+    rdfs:comment "GoDive DiveSiteOwnership: catalogReference or userOwned."@en .
+
+mlo:SiteReport a rdfs:Class ;
+    rdfs:label "site report"@en ;
+    rdfs:comment "Visit projection at a Site: observed depth and conditions (current, visibility, temp, water type). InWaterActivity remains the GoDive source of truth; mint one SiteReport per posted activity via fromActivity when contributing to the site graph."@en .
+
+mlo:siteName a rdf:Property ;
+    rdfs:domain mlo:Site ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "site name"@en ;
+    rdfs:comment "GoDive DiveSite.siteName."@en .
+
+mlo:country a rdf:Property ;
+    rdfs:domain mlo:Site ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "country"@en ;
+    rdfs:comment "GoDive DiveSite.country string. Prefer also mlo:inCountry to a Country resource for graphing."@en .
+
+mlo:inCountry a rdf:Property ;
+    rdfs:domain mlo:Site ;
+    rdfs:range mlo:Country ;
+    rdfs:label "in country"@en ;
+    rdfs:comment "Structured Country link for the site characteristic graph."@en .
+
+mlo:region a rdf:Property ;
+    rdfs:domain mlo:Site ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "region"@en ;
+    rdfs:comment "GoDive DiveSite.region (state, province, atoll group, etc.)."@en .
+
+mlo:bodyOfWater a rdf:Property ;
+    rdfs:domain mlo:Site ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "body of water"@en ;
+    rdfs:comment "GoDive DiveSite.bodyOfWater string (sea, strait, reef, bay). Use locatedInWater for a BodyOfWater resource."@en .
+
+mlo:siteBodyOfWaterName a rdf:Property ;
+    rdfs:subPropertyOf mlo:bodyOfWater ;
+    rdfs:domain mlo:Site ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "body of water name"@en ;
+    rdfs:comment "Alias for bodyOfWater."@en .
+
+mlo:locatedInWater a rdf:Property ;
+    rdfs:domain mlo:Site ;
+    rdfs:range mlo:BodyOfWater ;
+    rdfs:label "located in water body"@en ;
+    rdfs:comment "Optional link to a BodyOfWater resource (beyond GoDive's bodyOfWater string)."@en .
+
+mlo:waterName a rdf:Property ;
+    rdfs:domain mlo:BodyOfWater ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "water body name"@en .
+
+mlo:reportForSite a rdf:Property ;
+    rdfs:domain mlo:SiteReport ;
+    rdfs:range mlo:Site ;
+    rdfs:label "report for site"@en ;
+    rdfs:comment "The Site this visit report describes."@en .
+
+mlo:hasSiteReport a rdf:Property ;
+    rdfs:domain mlo:Site ;
+    rdfs:range mlo:SiteReport ;
+    rdfs:label "has site report"@en ;
+    rdfs:comment "Inverse convenience: Site → SiteReport."@en .
+
+mlo:fromActivity a rdf:Property ;
+    rdfs:domain mlo:SiteReport ;
+    rdfs:range mlo:InWaterActivity ;
+    rdfs:label "from activity"@en ;
+    rdfs:comment "Optional link to the DiveActivity/SnorkelActivity that sourced this report."@en .
+
+mlo:reportDate a rdf:Property ;
+    rdfs:domain mlo:SiteReport ;
+    rdfs:range xsd:date ;
+    rdfs:label "report date"@en .
+
+mlo:reportedMaxDepthM a rdf:Property ;
+    rdfs:domain mlo:SiteReport ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "reported maximum depth (m)"@en ;
+    rdfs:comment "Max depth observed on this visit (from activity computer/estimate)."@en .
+
+mlo:reportedCurrent a rdf:Property ;
+    rdfs:domain mlo:SiteReport ;
+    rdfs:range mlo:CurrentStrength ;
+    rdfs:label "reported current"@en .
+
+mlo:reportedVisibility a rdf:Property ;
+    rdfs:domain mlo:SiteReport ;
+    rdfs:range mlo:VisibilityRating ;
+    rdfs:label "reported visibility"@en .
+
+mlo:reportedWaterTempC a rdf:Property ;
+    rdfs:domain mlo:SiteReport ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "reported water temperature (°C)"@en .
+
+mlo:reportedWaterType a rdf:Property ;
+    rdfs:domain mlo:SiteReport ;
+    rdfs:range mlo:WaterType ;
+    rdfs:label "reported water type"@en .
+
+mlo:latitude a rdf:Property ;
+    rdfs:domain mlo:Site ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "latitude"@en ;
+    rdfs:comment "GoDive DiveSite.latCoords."@en .
+
+mlo:longitude a rdf:Property ;
+    rdfs:domain mlo:Site ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "longitude"@en ;
+    rdfs:comment "GoDive DiveSite.longCoords."@en .
+
+mlo:timeZoneIdentifier a rdf:Property ;
+    rdfs:domain mlo:Site ;
+    rdfs:range xsd:string ;
+    rdfs:label "timezone identifier"@en ;
+    rdfs:comment "IANA timezone (GoDive DiveSite.timeZoneIdentifier)."@en .
+
+mlo:siteTimeZoneOffsetSeconds a rdf:Property ;
+    rdfs:domain mlo:Site ;
+    rdfs:range xsd:integer ;
+    rdfs:label "site timezone offset (seconds)"@en ;
+    rdfs:comment "GoDive DiveSite.timeZoneOffsetSeconds (east of UTC)."@en .
+
+mlo:siteTag a rdf:Property ;
+    rdfs:domain mlo:Site ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "site tag"@en ;
+    rdfs:comment "GoDive DiveSite.siteTags entry (repeatable)."@en .
+
+mlo:siteRating a rdf:Property ;
+    rdfs:domain mlo:Site ;
+    rdfs:range xsd:integer ;
+    rdfs:label "site rating"@en ;
+    rdfs:comment "GoDive DiveSite.siteRating."@en .
+
+mlo:entry a rdf:Property ;
+    rdfs:domain mlo:Site ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "entry"@en ;
+    rdfs:comment "GoDive DiveSite.entry (shore, boat, etc.)."@en .
+
+mlo:siteEntry a rdf:Property ;
+    rdfs:subPropertyOf mlo:entry ;
+    rdfs:domain mlo:Site ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "site entry"@en ;
+    rdfs:comment "Alias for entry."@en .
+
+mlo:environment a rdf:Property ;
+    rdfs:domain mlo:Site ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "environment"@en ;
+    rdfs:comment "GoDive DiveSite.environment (ocean, lake, etc.)."@en .
+
+mlo:siteEnvironment a rdf:Property ;
+    rdfs:subPropertyOf mlo:environment ;
+    rdfs:domain mlo:Site ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "site environment"@en ;
+    rdfs:comment "Alias for environment."@en .
+
+mlo:siteMaxDepthM a rdf:Property ;
+    rdfs:domain mlo:Site ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "site maximum depth (m)"@en ;
+    rdfs:comment "GoDive DiveSite.maxDepthMeters."@en .
+
+mlo:siteMinDepthM a rdf:Property ;
+    rdfs:domain mlo:Site ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "site minimum depth (m)"@en ;
+    rdfs:comment "Optional extension (not in GoDive DiveSite)."@en .
+
+mlo:siteWaterType a rdf:Property ;
+    rdfs:domain mlo:Site ;
+    rdfs:range mlo:WaterType ;
+    rdfs:label "site water type"@en ;
+    rdfs:comment "GoDive DiveSite.waterType (saltwater / freshwater)."@en .
+
+mlo:siteOwnership a rdf:Property ;
+    rdfs:domain mlo:Site ;
+    rdfs:range mlo:SiteOwnership ;
+    rdfs:label "site ownership"@en ;
+    rdfs:comment "GoDive DiveSite.ownership (catalogReference / userOwned)."@en .
+
+mlo:countryOrRegion a rdf:Property ;
+    rdfs:domain mlo:Site ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "country or region"@en ;
+    rdfs:comment "Legacy combined label; prefer separate country + region (GoDive)."@en .
+
+# =================================================================
+# Depth & habitat preferences (organism + sighting)
+# =================================================================
+
+mlo:minDepthM a rdf:Property ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "minimum depth (m)"@en ;
+    rdfs:comment "GoDive MarineLife.minDepthMeters when on an organism; also used for site/activity contexts."@en .
+
+mlo:maxDepthM a rdf:Property ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "maximum depth (m)"@en ;
+    rdfs:comment "GoDive MarineLife.maxDepthMeters when on an organism; also used for site/activity contexts."@en .
+
+mlo:avgDepthM a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "average depth (m)"@en ;
+    rdfs:comment "GoDive MarineLife.avgDepthMeters."@en .
+
+mlo:typicalDepthM a rdf:Property ;
+    rdfs:subPropertyOf mlo:avgDepthM ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "typical depth (m)"@en ;
+    rdfs:comment "Alias for avgDepthM."@en .
+
+mlo:habitatNote a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "habitat note"@en ;
+    rdfs:comment "Ontology extension; prefer habitatBehavior for GoDive parity."@en .
+
+mlo:foundInWater a rdf:Property ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range mlo:BodyOfWater ;
+    rdfs:label "found in water body"@en ;
+    rdfs:comment "Ontology extension: structured water-body link (not on GoDive MarineLife)."@en .
+
+# =================================================================
+# In-water activity + sightings (scuba, snorkel, etc.)
+# =================================================================
+
+mlo:Observer a rdfs:Class ;
+    rdfs:label "observer"@en ;
+    rdfs:comment "A person who logs an in-water activity or sighting (scuba diver, snorkeler, etc.)."@en .
+
+# Backward-compatible alias
+mlo:Diver a rdfs:Class ;
+    rdfs:subClassOf mlo:Observer ;
+    rdfs:label "diver"@en ;
+    rdfs:comment "Alias for Observer; prefer mlo:Observer."@en .
+
+mlo:ActivityType a rdfs:Class ;
+    rdfs:label "activity type"@en ;
+    rdfs:comment "Kind of in-water activity: scuba, snorkel, freedive, etc."@en .
+
+mlo:InWaterActivity a rdfs:Class ;
+    rdfs:label "in-water activity"@en ;
+    rdfs:comment "Shared parent for scuba and snorkel outings (aligned with GoDiveMVP DiveActivity / SnorkelActivity). Sightings attach here via duringActivity."@en .
+
+mlo:DiveActivity a rdfs:Class ;
+    rdfs:subClassOf mlo:InWaterActivity ;
+    rdfs:label "dive activity"@en ;
+    rdfs:comment "Scuba dive session. Maps to GoDiveMVP DiveActivity. Scuba-specific properties live in godive-activity.ttl."@en .
+
+mlo:SnorkelActivity a rdfs:Class ;
+    rdfs:subClassOf mlo:InWaterActivity ;
+    rdfs:label "snorkel activity"@en ;
+    rdfs:comment "Snorkel / surface-swim session. Maps to GoDiveMVP SnorkelActivity. Snorkel-specific properties live in godive-activity.ttl."@en .
+
+# Backward-compatible alias
+mlo:Dive a rdfs:Class ;
+    rdfs:subClassOf mlo:DiveActivity ;
+    rdfs:label "dive"@en ;
+    rdfs:comment "Alias for DiveActivity."@en .
+
+mlo:Sighting a rdfs:Class ;
+    rdfs:label "sighting"@en ;
+    rdfs:comment "An observation of an organism during an in-water activity — maps to GoDiveMVP SightingInstance. One of two foundational facts (with OrganismConcept). Prefer also sightingSite for direct Site graphing."@en .
+
+mlo:sightingSite a rdf:Property ;
+    rdfs:domain mlo:Sighting ;
+    rdfs:range mlo:Site ;
+    rdfs:label "sighting site"@en ;
+    rdfs:comment "Direct Site link for the site characteristic graph (denormalized from duringActivity/atSite)."@en .
+
+mlo:hasSighting a rdf:Property ;
+    rdfs:domain mlo:Site ;
+    rdfs:range mlo:Sighting ;
+    rdfs:label "has sighting"@en ;
+    rdfs:comment "Inverse convenience: Site → Sighting."@en .
+
+mlo:duringSiteReport a rdf:Property ;
+    rdfs:domain mlo:Sighting ;
+    rdfs:range mlo:SiteReport ;
+    rdfs:label "during site report"@en ;
+    rdfs:comment "Sighting belongs to the SiteReport for the same InWaterActivity (1:1 SiteReport ↔ activity). Prefer report IRI report/{activityUUID}."@en .
+
+mlo:includesSighting a rdf:Property ;
+    rdfs:domain mlo:SiteReport ;
+    rdfs:range mlo:Sighting ;
+    rdfs:label "includes sighting"@en ;
+    rdfs:comment "Inverse convenience: SiteReport → Sighting (all tags on that activity)."@en .
+
+mlo:observerName a rdf:Property ;
+    rdfs:domain mlo:Observer ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "observer name"@en .
+
+mlo:diverName a rdf:Property ;
+    rdfs:subPropertyOf mlo:observerName ;
+    rdfs:domain mlo:Observer ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "diver name"@en ;
+    rdfs:comment "Alias for observerName."@en .
+
+mlo:activityType a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range mlo:ActivityType ;
+    rdfs:label "activity type"@en ;
+    rdfs:comment "Scuba, snorkel, freedive, etc."@en .
+
+mlo:activityDate a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range xsd:date ;
+    rdfs:label "activity date"@en .
+
+mlo:diveDate a rdf:Property ;
+    rdfs:subPropertyOf mlo:activityDate ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range xsd:date ;
+    rdfs:label "dive date"@en ;
+    rdfs:comment "Alias for activityDate."@en .
+
+mlo:atSite a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range mlo:Site ;
+    rdfs:label "at site"@en ;
+    rdfs:comment "GoDive diveSiteID resolved to a Site."@en .
+
+mlo:diveSite a rdf:Property ;
+    rdfs:subPropertyOf mlo:atSite ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range mlo:Site ;
+    rdfs:label "dive site"@en ;
+    rdfs:comment "Alias for atSite."@en .
+
+mlo:maxActivityDepthM a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "maximum activity depth (m)"@en ;
+    rdfs:comment "Deepest depth reached by the observer during the activity (computer/gauge or estimate)."@en .
+
+mlo:maxDiveDepthM a rdf:Property ;
+    rdfs:subPropertyOf mlo:maxActivityDepthM ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "maximum dive depth (m)"@en ;
+    rdfs:comment "Alias for maxActivityDepthM."@en .
+
+mlo:activityDurationMin a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range xsd:integer ;
+    rdfs:label "activity duration (minutes)"@en .
+
+mlo:diveDurationMin a rdf:Property ;
+    rdfs:subPropertyOf mlo:activityDurationMin ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range xsd:integer ;
+    rdfs:label "dive duration (minutes)"@en ;
+    rdfs:comment "Alias for activityDurationMin."@en .
+
+mlo:loggedBy a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range mlo:Observer ;
+    rdfs:label "logged by"@en .
+
+mlo:duringActivity a rdf:Property ;
+    rdfs:domain mlo:Sighting ;
+    rdfs:range mlo:InWaterActivity ;
+    rdfs:label "during activity"@en ;
+    rdfs:comment "Parent link from a sighting to its scuba or snorkel activity (GoDive: diveActivity / snorkelActivity)."@en .
+
+mlo:duringDiveActivity a rdf:Property ;
+    rdfs:subPropertyOf mlo:duringActivity ;
+    rdfs:domain mlo:Sighting ;
+    rdfs:range mlo:DiveActivity ;
+    rdfs:label "during dive activity"@en ;
+    rdfs:comment "Sighting logged on a DiveActivity (GoDive SightingInstance.diveActivity)."@en .
+
+mlo:duringSnorkelActivity a rdf:Property ;
+    rdfs:subPropertyOf mlo:duringActivity ;
+    rdfs:domain mlo:Sighting ;
+    rdfs:range mlo:SnorkelActivity ;
+    rdfs:label "during snorkel activity"@en ;
+    rdfs:comment "Sighting logged on a SnorkelActivity (GoDive SightingInstance.snorkelActivity)."@en .
+
+mlo:duringDive a rdf:Property ;
+    rdfs:subPropertyOf mlo:duringDiveActivity ;
+    rdfs:domain mlo:Sighting ;
+    rdfs:range mlo:DiveActivity ;
+    rdfs:label "during dive"@en ;
+    rdfs:comment "Alias for duringDiveActivity."@en .
+
+mlo:activityStartDateTime a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "activity start date-time"@en ;
+    rdfs:comment "UTC start instant (GoDive DiveActivity/SnorkelActivity.startTime)."@en .
+
+mlo:godiveUUID a rdf:Property ;
+    rdfs:range xsd:string ;
+    rdfs:label "GoDive UUID"@en ;
+    rdfs:comment "Stable UUID string from GoDiveMVP SwiftData (activity id, sightingUUID, site id, marineLifeUUID, etc.)."@en .
+
+mlo:sourceSystem a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "source system"@en ;
+    rdfs:comment "Import origin (GoDive DiveSource): Garmin MK3, MacDive, Manual, etc."@en .
+
+mlo:sightedOrganism a rdf:Property ;
+    rdfs:domain mlo:Sighting ;
+    rdfs:range mlo:OrganismConcept ;
+    rdfs:label "sighted organism"@en .
+
+mlo:sightingDepthM a rdf:Property ;
+    rdfs:domain mlo:Sighting ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "sighting depth (m)"@en ;
+    rdfs:comment "Estimated or measured depth of the organism when sighted. For snorkel, this is often a guess because the observer is usually at a different depth looking down/through the water column."@en .
+
+mlo:observerDepthM a rdf:Property ;
+    rdfs:domain mlo:Sighting ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "observer depth (m)"@en ;
+    rdfs:comment "Depth of the observer at the moment of the sighting (often near the surface for snorkel)."@en .
+
+mlo:DepthCertainty a rdfs:Class ;
+    rdfs:label "depth certainty"@en ;
+    rdfs:comment "How reliable the organism depth value is: measured (e.g. dive computer at organism depth), estimated, or rough guess."@en .
+
+mlo:depthCertainty a rdf:Property ;
+    rdfs:domain mlo:Sighting ;
+    rdfs:range mlo:DepthCertainty ;
+    rdfs:label "depth certainty"@en .
+
+mlo:depthIsEstimate a rdf:Property ;
+    rdfs:domain mlo:Sighting ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "depth is estimate"@en ;
+    rdfs:comment "True when sightingDepthM is estimated rather than measured — typical for snorkel sightings."@en .
+
+mlo:abundance a rdf:Property ;
+    rdfs:domain mlo:Sighting ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "abundance"@en ;
+    rdfs:comment "How many were seen: single, few, many, school, etc."@en .
+
+mlo:count a rdf:Property ;
+    rdfs:domain mlo:Sighting ;
+    rdfs:range xsd:integer ;
+    rdfs:label "count"@en .
+
+mlo:sightingNote a rdf:Property ;
+    rdfs:domain mlo:Sighting ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "sighting note"@en .
+
+mlo:waterVisibilityM a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "water visibility (m)"@en .
+
+mlo:waterTempC a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "water temperature (°C)"@en .
+
+# =================================================================
+# Identification certainty (how sure the observer is about the ID)
+# =================================================================
+
+mlo:IdentificationCertainty a rdfs:Class ;
+    rdfs:label "identification certainty"@en ;
+    rdfs:comment "Controlled level of confidence in the organism identification for a sighting: uncertain, likely, AI assessed, self confirmed, or peer confirmed."@en .
+
+mlo:identificationCertainty a rdf:Property ;
+    rdfs:domain mlo:Sighting ;
+    rdfs:range mlo:IdentificationCertainty ;
+    rdfs:label "identification certainty"@en .
+
+mlo:identificationNote a rdf:Property ;
+    rdfs:domain mlo:Sighting ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "identification note"@en ;
+    rdfs:comment "Why the ID is certain or uncertain (field marks seen, look-alikes considered, etc.)."@en .
+
+# =================================================================
+# Life stage
+# =================================================================
+
+mlo:LifeStage a rdfs:Class ;
+    rdfs:label "life stage"@en ;
+    rdfs:comment "Developmental or size stage of the organism as observed (larva, juvenile, adult, etc.)."@en .
+
+mlo:lifeStage a rdf:Property ;
+    rdfs:domain mlo:Sighting ;
+    rdfs:range mlo:LifeStage ;
+    rdfs:label "life stage"@en ;
+    rdfs:comment "Life stage of the organism in this sighting."@en .
+
+# =================================================================
+# Time of day / night activity
+# =================================================================
+
+mlo:TimeOfDay a rdfs:Class ;
+    rdfs:label "time of day"@en ;
+    rdfs:comment "Coarse activity timing category: dawn, day, dusk, or night."@en .
+
+mlo:timeOfDay a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range mlo:TimeOfDay ;
+    rdfs:label "time of day"@en .
+
+mlo:isNightActivity a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "is night activity"@en ;
+    rdfs:comment "True when the activity is conducted primarily in darkness."@en .
+
+mlo:isNightDive a rdf:Property ;
+    rdfs:subPropertyOf mlo:isNightActivity ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "is night dive"@en ;
+    rdfs:comment "Alias for isNightActivity."@en .
+
+mlo:activityStartTime a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range xsd:time ;
+    rdfs:label "activity start time"@en ;
+    rdfs:comment "Local start time (optional; use with activityDate)."@en .
+
+mlo:diveStartTime a rdf:Property ;
+    rdfs:subPropertyOf mlo:activityStartTime ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range xsd:time ;
+    rdfs:label "dive start time"@en ;
+    rdfs:comment "Alias for activityStartTime."@en .
+
+# =================================================================
+# Current conditions
+# =================================================================
+
+mlo:CurrentStrength a rdfs:Class ;
+    rdfs:label "current strength"@en ;
+    rdfs:comment "Qualitative strength of water current during the activity."@en .
+
+mlo:currentStrength a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range mlo:CurrentStrength ;
+    rdfs:label "current strength"@en .
+
+mlo:currentDirection a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "current direction"@en ;
+    rdfs:comment "Free-text or bearing description, e.g. \"northbound along wreck\", \"from the SE\"."@en .
+
+mlo:currentNote a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "current note"@en ;
+    rdfs:comment "Additional current context (surge, downcurrent, changing mid-activity, etc.)."@en .
+
+# =================================================================
+# Media (photos / video attached to sightings)
+# =================================================================
+
+mlo:MediaAsset a rdfs:Class ;
+    rdfs:label "media asset"@en ;
+    rdfs:comment "A photo, video, or other media file documenting a sighting or activity."@en .
+
+mlo:hasMedia a rdf:Property ;
+    rdfs:domain mlo:Sighting ;
+    rdfs:range mlo:MediaAsset ;
+    rdfs:label "has media"@en ;
+    rdfs:comment "Media documenting this sighting."@en .
+
+mlo:mediaUrl a rdf:Property ;
+    rdfs:domain mlo:MediaAsset ;
+    rdfs:range xsd:anyURI ;
+    rdfs:label "media URL"@en .
+
+mlo:mediaType a rdf:Property ;
+    rdfs:domain mlo:MediaAsset ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "media type"@en ;
+    rdfs:comment "High-level kind: photo, video, audio, etc."@en .
+
+mlo:mimeType a rdf:Property ;
+    rdfs:domain mlo:MediaAsset ;
+    rdfs:range xsd:string ;
+    rdfs:label "MIME type"@en ;
+    rdfs:comment "e.g. image/jpeg, video/mp4."@en .
+
+mlo:caption a rdf:Property ;
+    rdfs:domain mlo:MediaAsset ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "caption"@en .
+
+mlo:takenBy a rdf:Property ;
+    rdfs:domain mlo:MediaAsset ;
+    rdfs:range mlo:Observer ;
+    rdfs:label "taken by"@en .
+
+mlo:capturedAt a rdf:Property ;
+    rdfs:domain mlo:MediaAsset ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "captured at"@en .
+

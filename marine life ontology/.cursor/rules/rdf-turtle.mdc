@@ -1,0 +1,23 @@
+---
+description: RDF 1.2 Turtle/TriG authoring conventions
+globs: "**/*.{ttl,trig,nt,nq}"
+alwaysApply: false
+---
+
+# RDF Serialization Rules
+
+- Use `PREFIX` / `BASE` / `VERSION` (not `@prefix`) in new Turtle.
+- Subjects: IRI or blank node. Predicates: IRI. Objects: IRI, blank node, literal, or triple term.
+- Model vocabulary with `rdfs:Class`, `rdf:Property`, `rdfs:subClassOf`, `rdfs:domain`, `rdfs:range`, `rdfs:label`.
+- RDFS domain/range are entailment axioms — not validation. Put cardinality/datatype checks in SHACL (`shapes/`).
+- For provenance on asserted facts, prefer annotation syntax:
+
+```turtle
+VERSION "1.2"
+:s :p :o ~ :reifier {| :source :dataset1 |} .
+```
+
+- Do not put R2RML (`rr:`) or SHACL (`sh:`) vocabulary in `ontology/` TBox files unless documenting imports.
+- Instance IRIs: `BASE <https://example.org/marine-life/>` then `<species/Id>`, `<sighting/Id>`, etc. Never `mlo:species/Id` (slash breaks prefixed names).
+- Domain priority: sightings, sites, depth, physical ID traits; taxonomy supports recognition.
+- Exclude mapping-only files under `mappings/` from ad-hoc ontology refactors without checking R2RML templates.

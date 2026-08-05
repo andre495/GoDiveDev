@@ -12,9 +12,19 @@ enum SnorkelActivityDeletion {
     ) async throws {
         await emitDeleteProgress(0.12, handler: reportProgress)
 
+        let sightingUUIDs = await OntologyGraphActivityCleanup.sightingUUIDs(
+            snorkelActivityID: activityID,
+            container: container
+        )
+
         let worker = SnorkelBackgroundDeletionWorker(modelContainer: container)
         try await worker.deleteSnorkel(id: activityID)
         await emitDeleteProgress(0.72, handler: reportProgress)
+
+        await OntologyGraphActivityCleanup.markCommunityContributionsDeleted(
+            activityUUID: activityID,
+            sightingUUIDs: sightingUUIDs
+        )
 
         try await SnorkelActivityStoreSync.awaitSnorkelAbsent(
             snorkelID: activityID,

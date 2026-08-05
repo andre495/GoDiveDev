@@ -28,6 +28,7 @@ enum FieldGuideMarineLifeCatalogImageContentMode: Equatable {
 struct FieldGuideMarineLifeCatalogImage: View {
     enum Placement: Equatable {
         case mosaicTile(accent: Color)
+        case listThumbnail(accent: Color, size: CGFloat = 56)
         case detailHero(
             alignment: Alignment = .center,
             contentMode: FieldGuideMarineLifeCatalogImageContentMode =
@@ -55,6 +56,16 @@ struct FieldGuideMarineLifeCatalogImage: View {
                 aspectRatio: FieldGuideMarineLifeImageLayout.mosaicAspectRatio,
                 fillsAvailableHeight: false,
                 cornerRadius: 0,
+                accent: accent,
+                alignment: .center,
+                contentMode: .fill
+            )
+        case .listThumbnail(let accent, let size):
+            boundedImage(
+                height: size,
+                aspectRatio: 1,
+                fillsAvailableHeight: false,
+                cornerRadius: 10,
                 accent: accent,
                 alignment: .center,
                 contentMode: .fill
@@ -245,7 +256,7 @@ struct FieldGuideMarineLifeCatalogImage: View {
         case .detailHero:
             // Field Guide detail hero — letterbox on the screen gradient.
             return true
-        case .mediaSheetHero, .mosaicTile:
+        case .mediaSheetHero, .mosaicTile, .listThumbnail:
             // Dive / Home / trip media heroes — image only (no blue / gradient side bars).
             return false
         }
@@ -290,6 +301,8 @@ struct FieldGuideMarineLifeCatalogImage: View {
         switch placement {
         case .mosaicTile:
             return .title2
+        case .listThumbnail:
+            return .body
         case .detailHero, .mediaSheetHero:
             return .largeTitle
         }

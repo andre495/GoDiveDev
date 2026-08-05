@@ -249,6 +249,13 @@ enum UddfDiveFileImport {
             )
             try modelContext.save()
 
+            for dive in inserted {
+                await OntologySiteReportContributionSync.syncAfterDivePersisted(
+                    dive: dive,
+                    modelContext: modelContext
+                )
+            }
+
             let shouldAttachMedia = attachMediaFromPhotoLibrary
                 ?? AppUserSettings.autoUploadMediaToActivities
             await DiveLibraryMediaAutoAttachScheduler.attachAfterDivesPersisted(

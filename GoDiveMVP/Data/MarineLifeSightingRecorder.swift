@@ -214,8 +214,9 @@ enum MarineLifeSightingRecorder {
     ) throws {
         guard !marineLife.isEmpty else { return }
 
+        var created: [SightingInstance] = []
         for species in marineLife {
-            _ = try tagSpecies(
+            let sighting = try tagSpecies(
                 species,
                 on: media,
                 dive: dive,
@@ -224,12 +225,14 @@ enum MarineLifeSightingRecorder {
                 modelContext: modelContext,
                 persistImmediately: false
             )
+            created.append(sighting)
         }
 
         if modelContext.hasChanges {
             try modelContext.save()
         }
         DiveActivityMediaStorage.postMediaDidChange()
+        scheduleCommunityContributionUpserts(created, modelContext: modelContext)
     }
 
     /// Persists multiple dive-level species tags (no media) with a single save at the end.
@@ -241,19 +244,87 @@ enum MarineLifeSightingRecorder {
     ) throws {
         guard !marineLife.isEmpty else { return }
 
+        var created: [SightingInstance] = []
         for species in marineLife {
-            _ = try tagSpeciesOnDive(
+            let sighting = try tagSpeciesOnDive(
                 species,
                 dive: dive,
                 owner: owner,
                 modelContext: modelContext,
                 persistImmediately: false
             )
+            created.append(sighting)
         }
 
         if modelContext.hasChanges {
             try modelContext.save()
         }
+        scheduleCommunityContributionUpserts(created, modelContext: modelContext)
+    }
+
+    /// Removes media-linked sightings for the species on this photo and updates overlays.
+    static func untagSpecies(
+        marineLifeUUID: String,
+        on media: DiveMediaPhoto,
+        dive: DiveActivity,
+        owner: UserProfile,
+        modelContext: ModelContext
+    ) throws {
+        let rows = try sightings(forMediaPhotoID: media.id, modelContext: modelContext)
+            .filter { $0.marineLifeUUID == marineLifeUUID }
+        let deletedUUIDs = rows.map(\.sightingUUID)
+        for row in rows {
+            modelContext.delete(row)
+        }
+        try clearUserRecordLinksAfterUntag(
+            marineLifeUUID: marineLifeUUID,
+            activityID: dive.id,
+            diveSiteID: dive.diveSiteID,
+            mediaLink: userTaggedMediaLink(for: media),
+            owner: owner,
+            modelContext: modelContext,
+            remainingOnActivity: {
+                try existingSightingOnDive(
+                    marineLifeUUID: marineLifeUUID,
+                    diveActivityID: dive.id,
+                    modelContext: modelContext
+                ) != nil
+            }
+        )
+        if modelContext.hasChanges {
+            try modelContext.save()
+        }
+        DiveActivityMediaStorage.postMediaDidChange()
+        scheduleCommunityContributionDeletes(deletedUUIDs)
+    }
+
+    /// Removes dive-level (and media-linked) sightings of the species on this dive.
+    static func untagSpeciesOnDive(
+        marineLifeUUID: String,
+        dive: DiveActivity,
+        owner: UserProfile,
+        modelContext: ModelContext
+    ) throws {
+        let rows = try sightings(forDiveActivityID: dive.id, modelContext: modelContext)
+            .filter { $0.marineLifeUUID == marineLifeUUID }
+        let deletedUUIDs = rows.map(\.sightingUUID)
+        for row in rows {
+            modelContext.delete(row)
+        }
+        try clearUserRecordLinksAfterUntag(
+            marineLifeUUID: marineLifeUUID,
+            activityID: dive.id,
+            diveSiteID: dive.diveSiteID,
+            mediaLink: nil,
+            owner: owner,
+            modelContext: modelContext,
+            remainingOnActivity: { false }
+        )
+        if modelContext.hasChanges {
+            try modelContext.save()
+        }
+        DiveActivityMediaStorage.postMediaDidChange()
+        scheduleCommunityContributionDeletes(deletedUUIDs)
     }
 
     // MARK: - Snorkel
@@ -332,8 +403,9 @@ enum MarineLifeSightingRecorder {
     ) throws {
         guard !marineLife.isEmpty else { return }
 
+        var created: [SightingInstance] = []
         for species in marineLife {
-            _ = try tagSpecies(
+            let sighting = try tagSpecies(
                 species,
                 on: media,
                 snorkel: snorkel,
@@ -341,12 +413,117 @@ enum MarineLifeSightingRecorder {
                 modelContext: modelContext,
                 persistImmediately: false
             )
+            created.append(sighting)
         }
 
         if modelContext.hasChanges {
             try modelContext.save()
         }
         DiveActivityMediaStorage.postMediaDidChange()
+        scheduleCommunityContributionUpserts(created, modelContext: modelContext)
+    }
+
+    static func untagSpecies(
+        marineLifeUUID: String,
+        on media: SnorkelMediaPhoto,
+        snorkel: SnorkelActivity,
+        owner: UserProfile,
+        modelContext: ModelContext
+    ) throws {
+        let rows = try sightings(forSnorkelActivityID: snorkel.id, modelContext: modelContext)
+            .filter {
+                $0.marineLifeUUID == marineLifeUUID && $0.snorkelMediaPhotoID == media.id
+            }
+        let deletedUUIDs = rows.map(\.sightingUUID)
+        for row in rows {
+            modelContext.delete(row)
+        }
+        try clearUserRecordLinksAfterUntag(
+            marineLifeUUID: marineLifeUUID,
+            activityID: snorkel.id,
+            diveSiteID: snorkel.diveSiteID,
+            mediaLink: "media:\(media.id.uuidString)",
+            owner: owner,
+            modelContext: modelContext,
+            remainingOnActivity: {
+                let remaining = try sightings(
+                    forSnorkelActivityID: snorkel.id,
+                    modelContext: modelContext
+                )
+                return remaining.contains { $0.marineLifeUUID == marineLifeUUID }
+            }
+        )
+        if modelContext.hasChanges {
+            try modelContext.save()
+        }
+        DiveActivityMediaStorage.postMediaDidChange()
+        scheduleCommunityContributionDeletes(deletedUUIDs)
+    }
+
+    private static func clearUserRecordLinksAfterUntag(
+        marineLifeUUID: String,
+        activityID: UUID,
+        diveSiteID: UUID?,
+        mediaLink: String?,
+        owner: UserProfile,
+        modelContext: ModelContext,
+        remainingOnActivity: () throws -> Bool
+    ) throws {
+        let records = try MarineLifeUserRecordOwnership.userRecords(
+            forOwnerProfileID: owner.id,
+            modelContext: modelContext
+        )
+        guard let record = MarineLifeUserRecordOwnership.userRecord(
+            marineLifeUUID: marineLifeUUID,
+            ownerProfileID: owner.id,
+            in: records
+        ) else { return }
+
+        if let mediaLink {
+            record.userTaggedMedia = record.userTaggedMedia.filter { $0 != mediaLink }
+        }
+        if try !remainingOnActivity() {
+            record.activitiesSightedOn = record.activitiesSightedOn.filter { $0 != activityID }
+        }
+        if record.activitiesSightedOn.isEmpty {
+            record.isSighted = false
+            if let diveSiteID {
+                record.sitesSightedOn = record.sitesSightedOn.filter { $0 != diveSiteID }
+            }
+        }
+    }
+
+    private static func scheduleCommunityContributionUpserts(
+        _ sightings: [SightingInstance],
+        modelContext: ModelContext
+    ) {
+        let uuids = sightings.map(\.sightingUUID)
+        guard !uuids.isEmpty else { return }
+        let container = modelContext.container
+        Task { @MainActor in
+            let context = ModelContext(container)
+            var resolved: [SightingInstance] = []
+            for uuid in uuids {
+                var descriptor = FetchDescriptor<SightingInstance>(
+                    predicate: #Predicate<SightingInstance> { $0.sightingUUID == uuid }
+                )
+                descriptor.fetchLimit = 1
+                if let sighting = try? context.fetch(descriptor).first {
+                    resolved.append(sighting)
+                }
+            }
+            await OntologySightingContributionSync.syncAfterTags(
+                sightings: resolved,
+                modelContext: context
+            )
+        }
+    }
+
+    private static func scheduleCommunityContributionDeletes(_ sightingUUIDs: [String]) {
+        guard !sightingUUIDs.isEmpty else { return }
+        Task { @MainActor in
+            await OntologySightingContributionSync.markDeleted(sightingUUIDs: sightingUUIDs)
+        }
     }
 
     private static func syncUserRecordSnorkel(

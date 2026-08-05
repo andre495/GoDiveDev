@@ -1,0 +1,17 @@
+# Biology similarity — hard candidate facets (one signal per query).
+# Soft scores (category / sizeOverlap / depthOverlap) are applied in Python
+# on the candidate set. Runtime: visualizer/similarity.py
+#
+# Example: familyName match (replace literals / seed as needed)
+
+PREFIX mlo: <https://example.org/marine-life/>
+
+SELECT DISTINCT ?candidate WHERE {
+  ?candidate a mlo:Species ;
+             mlo:familyName ?f .
+  FILTER(?candidate != <https://example.org/marine-life/species/marine-life-african-pompano>)
+  FILTER(LCASE(STR(?f)) = LCASE("Carangidae"))
+}
+
+# Also queried separately in code:
+#   subcategory, classifiedAs, hasPhysicalTrait, foundInWater

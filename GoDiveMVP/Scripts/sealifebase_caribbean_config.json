@@ -17,7 +17,7 @@
     "ecology_coral_reefs_flag_value": 1,
     "max_depth_meters": 130
   },
-  "output_staging_csv": "MockData/marine_life_caribbean_staging.csv",
+  "output_staging_csv": "CatalogAuthoring/marine_life_caribbean_staging.csv",
   "exclude_classes": [
     "Actinopterygii",
     "Chondrichthyes",

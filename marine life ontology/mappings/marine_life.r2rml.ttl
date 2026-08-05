@@ -1,0 +1,164 @@
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
+PREFIX mlo:  <https://example.org/marine-life/>
+
+#################################################################
+# R2RML: GoDive marine_life catalog → mlo:Species individuals
+#
+# Source table: marine_life (SQLite, loaded from
+#   godivemvp/GoDiveMVP/Resources/Catalog/marine_life.json)
+# Run: python mappings/materialize_marine_life.py
+#################################################################
+
+<#MarineLifeSpeciesMap>
+    a rr:TriplesMap ;
+    rr:logicalTable [ rr:tableName "marine_life" ] ;
+    rr:subjectMap [
+        rr:template "https://example.org/marine-life/species/{uuid}" ;
+        rr:class mlo:Species ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:godiveMarineLifeUUID ;
+        rr:objectMap [
+            rr:column "uuid" ;
+            rr:datatype xsd:string ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:marineLifeOwnership ;
+        rr:objectMap [
+            rr:constant <https://example.org/marine-life/marineLifeOwnership/Catalog> ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:commonName ;
+        rr:objectMap [
+            rr:column "common_name" ;
+            rr:language "en" ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:scientificName ;
+        rr:objectMap [
+            rr:column "scientific_name" ;
+            rr:datatype xsd:string ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:category ;
+        rr:objectMap [
+            rr:column "category" ;
+            rr:language "en" ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:subcategory ;
+        rr:objectMap [
+            rr:column "subcategory" ;
+            rr:language "en" ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:familyName ;
+        rr:objectMap [
+            rr:column "family_name" ;
+            rr:datatype xsd:string ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:aboutText ;
+        rr:objectMap [
+            rr:column "description" ;
+            rr:language "en" ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:distinctiveFeatures ;
+        rr:objectMap [
+            rr:column "distinctive_features" ;
+            rr:language "en" ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:featureImageResourceName ;
+        rr:objectMap [
+            rr:column "feature_image_resource" ;
+            rr:datatype xsd:string ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:featureImageURL ;
+        rr:objectMap [
+            rr:column "feature_image" ;
+            rr:termType rr:IRI ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:featureModelResourceName ;
+        rr:objectMap [
+            rr:column "feature_model" ;
+            rr:datatype xsd:string ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:maxSizeM ;
+        rr:objectMap [
+            rr:column "max_size" ;
+            rr:datatype xsd:decimal ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:minDepthM ;
+        rr:objectMap [
+            rr:column "min_depth" ;
+            rr:datatype xsd:decimal ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:maxDepthM ;
+        rr:objectMap [
+            rr:column "max_depth" ;
+            rr:datatype xsd:decimal ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:catalogAbundance ;
+        rr:objectMap [
+            rr:column "abundance" ;
+            rr:language "en" ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:habitatBehavior ;
+        rr:objectMap [
+            rr:column "habitat_behavior" ;
+            rr:language "en" ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:diverReaction ;
+        rr:objectMap [
+            rr:column "diver_reaction" ;
+            rr:language "en" ;
+        ] ;
+    ] .

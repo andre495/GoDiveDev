@@ -1,0 +1,77 @@
+PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX mlo:  <https://example.org/marine-life/>
+BASE <https://example.org/marine-life/>
+
+#################################################################
+# Seed taxonomic ranks and common marine phyla divers encounter.
+# Expand with more taxa as the KG grows; link WoRMS via mlo:aphiaId.
+#################################################################
+
+# --- Ranks ---
+
+<rank/Kingdom> a mlo:TaxonomicRank ; rdfs:label "kingdom"@en .
+<rank/Phylum>  a mlo:TaxonomicRank ; rdfs:label "phylum"@en .
+<rank/Class>   a mlo:TaxonomicRank ; rdfs:label "class"@en .
+<rank/Order>   a mlo:TaxonomicRank ; rdfs:label "order"@en .
+<rank/Family>  a mlo:TaxonomicRank ; rdfs:label "family"@en .
+<rank/Genus>   a mlo:TaxonomicRank ; rdfs:label "genus"@en .
+<rank/Species> a mlo:TaxonomicRank ; rdfs:label "species"@en .
+
+# --- Animalia ---
+
+<taxon/Animalia> a mlo:Taxon ;
+    mlo:hasRank <rank/Kingdom> ;
+    mlo:scientificName "Animalia" ;
+    rdfs:label "Animals"@en .
+
+# --- Phyla commonly noted by divers ---
+
+<taxon/Chordata> a mlo:Taxon ;
+    mlo:hasRank <rank/Phylum> ;
+    mlo:broaderTaxon <taxon/Animalia> ;
+    mlo:scientificName "Chordata" ;
+    mlo:aphiaId 1821 ;
+    rdfs:label "Chordates"@en ;
+    rdfs:comment "Includes fish, sharks, rays, marine mammals, sea turtles — frequent dive sightings."@en .
+
+<taxon/Cnidaria> a mlo:Taxon ;
+    mlo:hasRank <rank/Phylum> ;
+    mlo:broaderTaxon <taxon/Animalia> ;
+    mlo:scientificName "Cnidaria" ;
+    rdfs:label "Cnidarians"@en ;
+    rdfs:comment "Jellies, corals, anemones, hydroids."@en .
+
+<taxon/Mollusca> a mlo:Taxon ;
+    mlo:hasRank <rank/Phylum> ;
+    mlo:broaderTaxon <taxon/Animalia> ;
+    mlo:scientificName "Mollusca" ;
+    rdfs:label "Molluscs"@en ;
+    rdfs:comment "Nudibranchs, octopuses, squids, clams, snails."@en .
+
+<taxon/Echinodermata> a mlo:Taxon ;
+    mlo:hasRank <rank/Phylum> ;
+    mlo:broaderTaxon <taxon/Animalia> ;
+    mlo:scientificName "Echinodermata" ;
+    rdfs:label "Echinoderms"@en ;
+    rdfs:comment "Sea stars, urchins, cucumbers, feather stars."@en .
+
+<taxon/Arthropoda> a mlo:Taxon ;
+    mlo:hasRank <rank/Phylum> ;
+    mlo:broaderTaxon <taxon/Animalia> ;
+    mlo:scientificName "Arthropoda" ;
+    rdfs:label "Arthropods"@en ;
+    rdfs:comment "Shrimps, lobsters, crabs, mantis shrimp."@en .
+
+<taxon/Annelida> a mlo:Taxon ;
+    mlo:hasRank <rank/Phylum> ;
+    mlo:broaderTaxon <taxon/Animalia> ;
+    mlo:scientificName "Annelida" ;
+    rdfs:label "Annelids"@en ;
+    rdfs:comment "Segmented worms, including Christmas-tree worms and other tube worms."@en .
+
+<taxon/Porifera> a mlo:Taxon ;
+    mlo:hasRank <rank/Phylum> ;
+    mlo:broaderTaxon <taxon/Animalia> ;
+    mlo:scientificName "Porifera" ;
+    rdfs:label "Sponges"@en .

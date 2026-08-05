@@ -29,7 +29,7 @@ WORMS_SOURCE = "worms"
 WORMS_ATTRIBUTION_PREFIX = "Photo via WoRMS Photogallery"
 CACHE_VERSION = "1-worms"
 
-DEFAULT_CACHE = PROJECT_DIR / "MockData/worms_image_cache.json"
+DEFAULT_CACHE = PROJECT_DIR / "CatalogAuthoring/worms_image_cache.json"
 
 GALLERY_ENTRY_RE = re.compile(
     r'href="aphia\.php\?p=image&pic=(\d+)&tid=(\d+)"[^>]*>.*?'

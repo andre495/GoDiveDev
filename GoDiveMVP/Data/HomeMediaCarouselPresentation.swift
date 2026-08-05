@@ -67,7 +67,7 @@ enum HomeMediaCarouselPresentation: Sendable {
 
     /// Trailing bottom-chrome chips on Home featured media (leading → trailing).
     /// Fish sits immediately left of the buddy chip; buddy stays trailing-most (bottom-right).
-    enum SlideChromeTrailingControl: Equatable, Sendable {
+    nonisolated enum SlideChromeTrailingControl: Equatable, Sendable {
         case species
         case buddies
     }

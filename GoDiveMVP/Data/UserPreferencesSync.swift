@@ -86,6 +86,10 @@ enum UserPreferencesSync: Sendable {
         userDefaults.set(prefs.defaultTankSizeRaw, forKey: AppUserSettings.defaultTankSizeKey)
         userDefaults.set(prefs.bulkUddfCreateDiveSites, forKey: AppUserSettings.bulkUddfCreateDiveSitesKey)
         userDefaults.set(prefs.autoUploadMediaToActivities, forKey: AppUserSettings.autoUploadMediaToActivitiesKey)
+        userDefaults.set(
+            prefs.contributeCommunitySightings,
+            forKey: AppUserSettings.contributeCommunitySightingsKey
+        )
         userDefaults.set(prefs.notifyAllNotifications, forKey: AppUserSettings.notifyAllNotificationsKey)
         userDefaults.set(prefs.notifyGearServiceReminders, forKey: AppUserSettings.notifyGearServiceRemindersKey)
         userDefaults.set(prefs.notifyTripReminders, forKey: AppUserSettings.notifyTripRemindersKey)
@@ -112,6 +116,9 @@ enum UserPreferencesSync: Sendable {
             ? true
             : userDefaults.bool(forKey: AppUserSettings.bulkUddfCreateDiveSitesKey)
         prefs.autoUploadMediaToActivities = userDefaults.bool(forKey: AppUserSettings.autoUploadMediaToActivitiesKey)
+        prefs.contributeCommunitySightings = AppUserSettings.contributeCommunitySightings(
+            userDefaults: userDefaults
+        )
         prefs.notifyAllNotifications = AppUserSettings.notifyAllNotifications(userDefaults: userDefaults)
         prefs.notifyGearServiceReminders = AppUserSettings.notifyGearServiceRemindersPreference(
             userDefaults: userDefaults

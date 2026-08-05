@@ -37,7 +37,7 @@ from reefguide_image_utils import (
     load_caribbean_catalog,
 )
 
-DEFAULT_CACHE = PROJECT_DIR / "MockData/reefguide_image_cache.json"
+DEFAULT_CACHE = PROJECT_DIR / "CatalogAuthoring/reefguide_image_cache.json"
 SCRIPT_DIR = Path(__file__).resolve().parent
 DOWNLOAD_SCRIPT = SCRIPT_DIR / "download_marine_life_images.py"
 

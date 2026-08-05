@@ -105,6 +105,7 @@ extension UserMarineLife {
             maxSizeMeters: maxSizeMeters,
             avgDepthMeters: avgDepthMeters,
             familyName: familyName,
+            aboutText: aboutText,
             minDepthMeters: minDepthMeters,
             maxDepthMeters: maxDepthMeters,
             distinctiveFeatures: distinctiveFeatures,

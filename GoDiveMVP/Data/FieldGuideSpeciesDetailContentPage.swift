@@ -5,6 +5,7 @@ import SwiftUI
 enum FieldGuideSpeciesDetailContentPage: Hashable, Sendable, Identifiable {
     case about
     case stats
+    case similarSpecies
     case taggedDives
     case taggedMedia
 
@@ -16,6 +17,7 @@ enum FieldGuideSpeciesDetailContentPagerPresentation: Sendable {
     nonisolated static let pages: [FieldGuideSpeciesDetailContentPage] = [
         .about,
         .stats,
+        .similarSpecies,
         .taggedDives,
         .taggedMedia,
     ]
@@ -34,6 +36,8 @@ enum FieldGuideSpeciesDetailContentPagerPresentation: Sendable {
             return "About"
         case .stats:
             return "Size and range"
+        case .similarSpecies:
+            return "Similar species"
         case .taggedDives:
             return "Tagged dives"
         case .taggedMedia:
@@ -47,6 +51,8 @@ enum FieldGuideSpeciesDetailContentPagerPresentation: Sendable {
             return "No description available for this species yet."
         case .stats:
             return ""
+        case .similarSpecies:
+            return "No similar species found in the catalog yet."
         case .taggedDives:
             return "No dives tagged with this species yet."
         case .taggedMedia:
@@ -60,6 +66,8 @@ enum FieldGuideSpeciesDetailContentPagerPresentation: Sendable {
             return "FieldGuide.SpeciesDetail.ContentPager.About"
         case .stats:
             return "FieldGuide.SpeciesDetail.ContentPager.Stats"
+        case .similarSpecies:
+            return "FieldGuide.SpeciesDetail.ContentPager.SimilarSpecies"
         case .taggedDives:
             return "FieldGuide.SpeciesDetail.ContentPager.TaggedDives"
         case .taggedMedia:

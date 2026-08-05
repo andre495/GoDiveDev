@@ -1,0 +1,246 @@
+PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
+PREFIX mlo:  <https://example.org/marine-life/>
+
+#################################################################
+# GoDiveMVP activity bridge — dive + snorkel specialization
+# Source models: GoDiveMVP/Models/{DiveActivity,SnorkelActivity,
+#   SightingInstance}.swift
+# Site catalog terms live in scuba-core.ttl as mlo:Site (GoDive DiveSite).
+#
+# Hierarchy:
+#   InWaterActivity
+#     ├── DiveActivity   (scuba)
+#     └── SnorkelActivity
+#   Sighting ──duringDiveActivity──▶ DiveActivity
+#           ──duringSnorkelActivity▶ SnorkelActivity
+#   Activity ──atSite──▶ Site
+#################################################################
+
+# =================================================================
+# Shared activity fields (both DiveActivity & SnorkelActivity)
+# =================================================================
+
+mlo:averageDepthM a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "average depth (m)"@en ;
+    rdfs:comment "GoDive DiveActivity.averageDepthMeters (scuba); uncommon for snorkel."@en .
+
+mlo:entryLatitude a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "entry latitude"@en ;
+    rdfs:comment "GoDive entryLatitude."@en .
+
+mlo:entryLongitude a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "entry longitude"@en ;
+    rdfs:comment "GoDive entryLongitude."@en .
+
+mlo:importedSiteName a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "imported site name"@en ;
+    rdfs:comment "GoDive siteName string before/without catalog link."@en .
+
+mlo:locationName a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "location name"@en ;
+    rdfs:comment "GoDive locationName."@en .
+
+mlo:activityNotes a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "activity notes"@en ;
+    rdfs:comment "GoDive notes on the activity."@en .
+
+mlo:timeZoneOffsetSeconds a rdf:Property ;
+    rdfs:domain mlo:InWaterActivity ;
+    rdfs:range xsd:integer ;
+    rdfs:label "timezone offset (seconds)"@en ;
+    rdfs:comment "Seconds east of UTC (GoDive timeZoneOffsetSeconds)."@en .
+
+mlo:godiveSiteUUID a rdf:Property ;
+    rdfs:subPropertyOf mlo:godiveUUID ;
+    rdfs:range xsd:string ;
+    rdfs:label "GoDive site UUID"@en ;
+    rdfs:comment "GoDive diveSiteID / Site.id (catalog or user-owned site)."@en .
+
+# =================================================================
+# DiveActivity-only (scuba) — GoDive DiveActivity
+# =================================================================
+
+mlo:bottomTimeSeconds a rdf:Property ;
+    rdfs:domain mlo:DiveActivity ;
+    rdfs:range xsd:integer ;
+    rdfs:label "bottom time (seconds)"@en .
+
+mlo:surfaceIntervalSeconds a rdf:Property ;
+    rdfs:domain mlo:DiveActivity ;
+    rdfs:range xsd:integer ;
+    rdfs:label "surface interval (seconds)"@en .
+
+mlo:diveNumber a rdf:Property ;
+    rdfs:domain mlo:DiveActivity ;
+    rdfs:range xsd:integer ;
+    rdfs:label "dive number"@en .
+
+mlo:waterTempMinC a rdf:Property ;
+    rdfs:domain mlo:DiveActivity ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "minimum water temperature (°C)"@en .
+
+mlo:waterTempMaxC a rdf:Property ;
+    rdfs:domain mlo:DiveActivity ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "maximum water temperature (°C)"@en .
+
+mlo:VisibilityRating a rdfs:Class ;
+    rdfs:label "visibility rating"@en ;
+    rdfs:comment "GoDive DiveVisibilityRating: poor, good, great."@en .
+
+mlo:visibilityRating a rdf:Property ;
+    rdfs:domain mlo:DiveActivity ;
+    rdfs:range mlo:VisibilityRating ;
+    rdfs:label "visibility rating"@en ;
+    rdfs:comment "Qualitative visibility (GoDive diveVisibility). Prefer alongside waterVisibilityM when both known."@en .
+
+mlo:WaterType a rdfs:Class ;
+    rdfs:label "water type"@en ;
+    rdfs:comment "GoDive DiveWaterType: saltwater or freshwater."@en .
+
+mlo:waterType a rdf:Property ;
+    rdfs:domain mlo:DiveActivity ;
+    rdfs:range mlo:WaterType ;
+    rdfs:label "water type"@en .
+
+mlo:surfaceCondition a rdf:Property ;
+    rdfs:domain mlo:DiveActivity ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "surface condition"@en .
+
+mlo:entryType a rdf:Property ;
+    rdfs:domain mlo:DiveActivity ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "entry type"@en ;
+    rdfs:comment "Activity entry type (GoDive DiveActivity.entryType). Site catalog entry is mlo:entry on Site."@en .
+
+mlo:diveOperatorName a rdf:Property ;
+    rdfs:domain mlo:DiveActivity ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "dive operator name"@en .
+
+mlo:diveMasterName a rdf:Property ;
+    rdfs:domain mlo:DiveActivity ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "dive master name"@en .
+
+mlo:gasType a rdf:Property ;
+    rdfs:domain mlo:DiveActivity ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "gas type"@en ;
+    rdfs:comment "Air, Nitrox, etc."@en .
+
+mlo:oxygenMixPercent a rdf:Property ;
+    rdfs:domain mlo:DiveActivity ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "oxygen mix (%)"@en .
+
+mlo:tankMaterial a rdf:Property ;
+    rdfs:domain mlo:DiveActivity ;
+    rdfs:range rdfs:Literal ;
+    rdfs:label "tank material"@en .
+
+mlo:tankPressureStartPSI a rdf:Property ;
+    rdfs:domain mlo:DiveActivity ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "tank pressure start (psi)"@en .
+
+mlo:tankPressureEndPSI a rdf:Property ;
+    rdfs:domain mlo:DiveActivity ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "tank pressure end (psi)"@en .
+
+mlo:avgSAC a rdf:Property ;
+    rdfs:domain mlo:DiveActivity ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "average SAC (psi/min)"@en .
+
+mlo:avgRMV a rdf:Property ;
+    rdfs:domain mlo:DiveActivity ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "average RMV (L/min)"@en .
+
+mlo:diverWeightKg a rdf:Property ;
+    rdfs:domain mlo:DiveActivity ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "diver weight (kg)"@en .
+
+# currentStrength already on InWaterActivity in scuba-core — domain stays shared;
+# GoDive diveCurrentStrength maps to mlo:currentStrength (none/low/medium/high).
+
+# =================================================================
+# SnorkelActivity-only — GoDive SnorkelActivity
+# =================================================================
+
+mlo:swimDistanceM a rdf:Property ;
+    rdfs:domain mlo:SnorkelActivity ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "swim distance (m)"@en ;
+    rdfs:comment "GoDive swimDistanceMeters."@en .
+
+mlo:totalCalories a rdf:Property ;
+    rdfs:domain mlo:SnorkelActivity ;
+    rdfs:range xsd:integer ;
+    rdfs:label "total calories"@en .
+
+mlo:avgHeartRateBPM a rdf:Property ;
+    rdfs:domain mlo:SnorkelActivity ;
+    rdfs:range xsd:integer ;
+    rdfs:label "average heart rate (bpm)"@en .
+
+mlo:maxHeartRateBPM a rdf:Property ;
+    rdfs:domain mlo:SnorkelActivity ;
+    rdfs:range xsd:integer ;
+    rdfs:label "maximum heart rate (bpm)"@en .
+
+mlo:avgMovingSpeedMps a rdf:Property ;
+    rdfs:domain mlo:SnorkelActivity ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "average moving speed (m/s)"@en .
+
+# =================================================================
+# SightingInstance bridge fields
+# =================================================================
+
+mlo:sightingDateTime a rdf:Property ;
+    rdfs:domain mlo:Sighting ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "sighting date-time"@en ;
+    rdfs:comment "GoDive SightingInstance.sightingDateTime (UTC)."@en .
+
+mlo:godiveSightingUUID a rdf:Property ;
+    rdfs:subPropertyOf mlo:godiveUUID ;
+    rdfs:domain mlo:Sighting ;
+    rdfs:range xsd:string ;
+    rdfs:label "GoDive sighting UUID"@en ;
+    rdfs:comment "GoDive SightingInstance.sightingUUID."@en .
+
+mlo:godiveMarineLifeUUID a rdf:Property ;
+    rdfs:subPropertyOf mlo:godiveUUID ;
+    rdfs:domain mlo:OrganismConcept ;
+    rdfs:range xsd:string ;
+    rdfs:label "GoDive marine life UUID"@en ;
+    rdfs:comment "GoDive MarineLife.uuid / UserMarineLife.uuid (SightingInstance.marineLifeUUID)."@en .
+
+mlo:godiveMediaUUID a rdf:Property ;
+    rdfs:subPropertyOf mlo:godiveUUID ;
+    rdfs:domain mlo:MediaAsset ;
+    rdfs:range xsd:string ;
+    rdfs:label "GoDive media UUID"@en ;
+    rdfs:comment "GoDive DiveMediaPhoto.id or SnorkelMediaPhoto.id."@en .
+

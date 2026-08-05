@@ -42,6 +42,12 @@ enum CatalogCDNRefresh: Sendable {
                 remoteCatalogVersion: manifest.catalogVersion,
                 appliedCatalogVersion: applied
             ) else {
+                _ = await SpeciesSimilarityCDNCache.refreshIfNeeded(
+                    hostingBaseURL: baseURL,
+                    userDefaults: userDefaults,
+                    session: resolvedSession,
+                    fileManager: fileManager
+                )
                 return .skippedUpToDate(appliedVersion: applied)
             }
 
@@ -90,6 +96,12 @@ enum CatalogCDNRefresh: Sendable {
             }
 
             userDefaults.set(manifest.catalogVersion, forKey: appliedCatalogVersionDefaultsKey)
+            _ = await SpeciesSimilarityCDNCache.refreshIfNeeded(
+                hostingBaseURL: baseURL,
+                userDefaults: userDefaults,
+                session: resolvedSession,
+                fileManager: fileManager
+            )
             return .applied(
                 catalogVersion: manifest.catalogVersion,
                 marineLifeUpserted: marineUpserted,

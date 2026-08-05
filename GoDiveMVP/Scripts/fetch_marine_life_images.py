@@ -7,7 +7,7 @@ Fallback: Openverse API (same licenses, broader providers).
 
 Writes featureImageURL plus workflow metadata columns on the staging CSV.
 Does not overwrite rows that already have images unless --overwrite is set.
-Skips species that already have feature_image in marine_life_sample.json by default.
+Skips species that already have feature_image in marine_life.json by default.
 
 Usage:
   GoDiveMVP/Scripts/.venv/bin/python GoDiveMVP/Scripts/fetch_marine_life_images.py --dry-run --limit 20
@@ -40,9 +40,9 @@ from marine_life_image_utils import (
 )
 
 
-DEFAULT_STAGING = PROJECT_DIR / "MockData/marine_life_caribbean_staging.csv"
-DEFAULT_JSON = PROJECT_DIR / "MockData/marine_life_sample.json"
-DEFAULT_CACHE = PROJECT_DIR / "MockData/marine_life_image_cache.json"
+DEFAULT_STAGING = PROJECT_DIR / "CatalogAuthoring/marine_life_caribbean_staging.csv"
+DEFAULT_JSON = PROJECT_DIR / "Resources/Catalog/marine_life.json"
+DEFAULT_CACHE = PROJECT_DIR / "CatalogAuthoring/marine_life_image_cache.json"
 
 
 def load_staging_rows(path: Path) -> list[dict[str, str]]:
@@ -216,7 +216,7 @@ def main() -> int:
     parser.add_argument(
         "--no-respect-bundled",
         action="store_true",
-        help="Fetch even when marine_life_sample.json already has feature_image",
+        help="Fetch even when marine_life.json already has feature_image",
     )
     parser.add_argument(
         "--cc0-only",

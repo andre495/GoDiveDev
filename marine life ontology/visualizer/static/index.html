@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ontology visualizer</title>
+  <script src="./vendor/vis-network.min.js"></script>
+  <script src="./biology-similarity.js"></script>
+  <style>
+    :root {
+      --bg: #0f1714;
+      --panel: #1a2621;
+      --text: #e7f0eb;
+      --muted: #9bb0a6;
+      --accent: #3d9b7a;
+      --border: #2c3d35;
+      --focus: #e8c57a;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      flex: 0 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+    }
+    header h1 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0;
+      letter-spacing: 0.02em;
+    }
+    header .stats {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    button, select, input {
+      background: #24352e;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.35rem 0.7rem;
+      font: inherit;
+    }
+    button { cursor: pointer; }
+    button:hover { border-color: var(--accent); }
+    input {
+      min-width: 14rem;
+    }
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .search-row {
+      position: relative;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      align-items: center;
+    }
+    #suggestList {
+      display: none;
+      position: absolute;
+      top: calc(100% + 0.25rem);
+      left: 0;
+      z-index: 40;
+      min-width: min(22rem, 90vw);
+      max-width: 28rem;
+      max-height: 18rem;
+      overflow: auto;
+      margin: 0;
+      padding: 0.25rem;
+      list-style: none;
+      background: #1a2621;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+    }
+    #suggestList.open { display: block; }
+    #suggestList button {
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border-color: transparent;
+      border-radius: 6px;
+      padding: 0.45rem 0.6rem;
+    }
+    #suggestList button:hover,
+    #suggestList button.active {
+      background: #24382f;
+      border-color: var(--focus);
+    }
+    #suggestList .sci {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-style: italic;
+    }
+    #suggestList .empty {
+      padding: 0.5rem 0.65rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    #error {
+      flex: 0 0 auto;
+      display: none;
+      margin: 0;
+      padding: 0.75rem 1rem;
+      background: #3a1d1d;
+      color: #ffb4b4;
+      border-bottom: 1px solid #5a2a2a;
+      font-size: 0.9rem;
+    }
+    .workspace {
+      flex: 1 1 auto;
+      display: grid;
+      grid-template-columns: 1fr minmax(280px, 34%);
+      min-height: 0;
+    }
+    #network {
+      width: 100%;
+      min-height: 480px;
+      height: 100%;
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #1c3a30 0%, transparent 50%),
+        var(--bg);
+    }
+    aside {
+      border-left: 1px solid var(--border);
+      background: #13201b;
+      overflow: auto;
+      padding: 0.85rem 1rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+    aside h2 {
+      margin: 0;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    #sparqlBox {
+      margin: 0;
+      padding: 0.65rem 0.75rem;
+      background: #0c1411;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: #b7d2c4;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 0.72rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 12rem;
+      overflow: auto;
+    }
+    #results {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    #results button.result {
+      width: 100%;
+      text-align: left;
+      background: #1c2c26;
+    }
+    #results button.result:hover,
+    #results button.result.active {
+      border-color: var(--focus);
+      background: #24382f;
+    }
+    #results .sci {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-style: italic;
+    }
+    #detailEmpty {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin: 0;
+    }
+    #detailTitle {
+      margin: 0;
+      font-size: 1.15rem;
+    }
+    #detailSci {
+      margin: 0;
+      color: var(--muted);
+      font-style: italic;
+      font-size: 0.9rem;
+    }
+    #detailIri {
+      margin: 0;
+      font-size: 0.72rem;
+      color: var(--muted);
+      word-break: break-all;
+    }
+    #detailProps {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      font-size: 0.82rem;
+    }
+    #detailProps li {
+      padding: 0.35rem 0;
+      border-bottom: 1px solid #24352e;
+    }
+    #detailProps .pred {
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .similar-modes {
+      display: flex;
+      gap: 0.35rem;
+      margin-bottom: 0.5rem;
+    }
+    .similar-modes .modeBtn {
+      font-size: 0.78rem;
+      padding: 0.25rem 0.55rem;
+    }
+    .similar-modes .modeBtn.active {
+      border-color: var(--focus);
+      background: #24382f;
+    }
+    #similarResults {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    #similarResults button.result {
+      width: 100%;
+      text-align: left;
+      background: #1c2c26;
+    }
+    #similarResults button.result:hover {
+      border-color: var(--focus);
+      background: #24382f;
+    }
+    #similarResults .meta {
+      display: block;
+      color: var(--muted);
+      font-size: 0.75rem;
+      margin-top: 0.15rem;
+    }
+    #similarResults .evidence {
+      display: block;
+      color: #b7d2c4;
+      font-size: 0.72rem;
+      margin-top: 0.2rem;
+    }
+    .legend {
+      margin-left: auto;
+      display: flex;
+      gap: 0.75rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .swatch::before {
+      content: "";
+      display: inline-block;
+      width: 0.65rem;
+      height: 0.65rem;
+      border-radius: 50%;
+      margin-right: 0.3rem;
+      vertical-align: middle;
+    }
+    .swatch.typeClass::before { background: #4ea37f; }
+    .swatch.property::before { background: #d4a24c; }
+    .swatch.individual::before { background: #6b8fd4; }
+    .swatch.site::before { background: #3db8a8; }
+    .swatch.country::before { background: #c4a35a; }
+    .swatch.water::before { background: #4a90c8; }
+    .swatch.report::before { background: #c47a5a; }
+    .swatch.sighting::before { background: #b86bc4; }
+    .swatch.literal::before { background: #8a7a9a; }
+    @media (max-width: 900px) {
+      .workspace { grid-template-columns: 1fr; grid-template-rows: 55vh auto; }
+      aside { border-left: none; border-top: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Scuba ontology</h1>
+    <select id="preset">
+      <option value="ontology">Ontology + seeds</option>
+      <option value="ontology+data">Ontology + example data</option>
+      <option value="all" id="presetAllOption">All Turtle files</option>
+    </select>
+    <button id="reload" type="button">Reload</button>
+    <button id="fit" type="button">Fit</button>
+    <div class="search-row">
+      <input id="searchInput" type="search" placeholder="Type a common name…" autocomplete="off" aria-autocomplete="list" aria-controls="suggestList" />
+      <ul id="suggestList" role="listbox"></ul>
+    </div>
+    <span class="stats" id="stats">Loading…</span>
+    <div class="legend">
+      <span class="swatch typeClass">class</span>
+      <span class="swatch property">property</span>
+      <span class="swatch individual">individual</span>
+      <span class="swatch site">site</span>
+      <span class="swatch country">country</span>
+      <span class="swatch water">water</span>
+      <span class="swatch report">report</span>
+      <span class="swatch sighting">sighting</span>
+      <span class="swatch literal">value</span>
+    </div>
+  </header>
+  <p id="error"></p>
+  <div class="workspace">
+    <div id="network"></div>
+    <aside>
+      <section>
+        <h2>SPARQL</h2>
+        <pre id="sparqlBox">Search by common name to generate a query.</pre>
+      </section>
+      <section>
+        <h2>Matches</h2>
+        <ul id="results"></ul>
+      </section>
+      <section>
+        <h2>Species</h2>
+        <p id="detailEmpty">Pick a match to show its 2-hop neighborhood (Reload restores the full ontology).</p>
+        <div id="detailPanel" hidden>
+          <h3 id="detailTitle"></h3>
+          <p id="detailSci"></p>
+          <p id="detailIri"></p>
+          <ul id="detailProps"></ul>
+        </div>
+      </section>
+      <section id="similarSection" hidden>
+        <h2>Similar</h2>
+        <div class="similar-modes">
+          <button type="button" class="modeBtn active" data-mode="both">Both</button>
+          <button type="button" class="modeBtn" data-mode="biology">Biology</button>
+          <button type="button" class="modeBtn" data-mode="sighting">Sightings</button>
+        </div>
+        <ul id="similarResults"></ul>
+      </section>
+    </aside>
+  </div>
+  <script>
+    const container = document.getElementById("network");
+    const statsEl = document.getElementById("stats");
+    const errorEl = document.getElementById("error");
+    const presetEl = document.getElementById("preset");
+    const searchInput = document.getElementById("searchInput");
+    const suggestList = document.getElementById("suggestList");
+    const sparqlBox = document.getElementById("sparqlBox");
+    const resultsEl = document.getElementById("results");
+    const detailEmpty = document.getElementById("detailEmpty");
+    const detailPanel = document.getElementById("detailPanel");
+    const detailTitle = document.getElementById("detailTitle");
+    const detailSci = document.getElementById("detailSci");
+    const detailIri = document.getElementById("detailIri");
+    const detailProps = document.getElementById("detailProps");
+    const similarSection = document.getElementById("similarSection");
+    const similarResults = document.getElementById("similarResults");
+
+    const IS_STATIC = document.documentElement.dataset.static === "1";
+    const DATA_BASE = new URL("./data/", window.location.href);
+
+    let searchTimer = null;
+    let searchSeq = 0;
+    let latestResults = [];
+    let highlightIndex = -1;
+    let similarMode = "both";
+    let currentSpeciesIri = null;
+    let similarSeq = 0;
+    let speciesIndex = null;
+    let sightingSimilarById = null;
+
+    if (IS_STATIC) {
+      const allOpt = document.getElementById("presetAllOption");
+      if (allOpt) allOpt.remove();
+    }
+
+    function speciesFileId(iri) {
+      const s = String(iri || "");
+      return s.replace(/\/+$/, "").split("/").pop();
+    }
+
+    async function ensureSpeciesIndex() {
+      if (speciesIndex) return speciesIndex;
+      const res = await fetch(new URL("species-index.json", DATA_BASE));
+      if (!res.ok) throw new Error("Failed to load species index");
+      speciesIndex = await res.json();
+      return speciesIndex;
+    }
+
+    async function ensureSightingSimilar() {
+      if (sightingSimilarById) return sightingSimilarById;
+      try {
+        const res = await fetch(new URL("similar-sighting.json", DATA_BASE));
+        if (!res.ok) {
+          sightingSimilarById = {};
+          return sightingSimilarById;
+        }
+        const data = await res.json();
+        sightingSimilarById = data.byId || {};
+      } catch (_) {
+        sightingSimilarById = {};
+      }
+      return sightingSimilarById;
+    }
+
+    function buildSearchSparql(q) {
+      const safe = String(q).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+      return `PREFIX mlo: <https://example.org/marine-life/>
+PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT ?species ?commonName ?scientificName
+WHERE {
+  ?species a mlo:Species ;
+           mlo:commonName ?commonName .
+  OPTIONAL { ?species mlo:scientificName ?scientificName }
+  FILTER(CONTAINS(LCASE(STR(?commonName)), LCASE("${safe}")))
+}
+ORDER BY ?commonName
+LIMIT 25`;
+    }
+
+    function showError(msg) {
+      errorEl.textContent = msg;
+      errorEl.style.display = "block";
+    }
+
+    function clearError() {
+      errorEl.style.display = "none";
+    }
+
+    if (typeof vis === "undefined" || !vis.Network) {
+      showError("vis-network failed to load.");
+      throw new Error("vis-network missing");
+    }
+
+    const groups = {
+      typeClass: {
+        shape: "dot",
+        color: { background: "#1f4d3a", border: "#4ea37f", highlight: { background: "#2a6b50", border: "#7ed0a8" } },
+        font: { color: "#e7f0eb" },
+      },
+      property: {
+        shape: "box",
+        color: { background: "#4a3a1c", border: "#d4a24c", highlight: { background: "#6a5228", border: "#e8c57a" } },
+        font: { color: "#e7f0eb" },
+      },
+      individual: {
+        shape: "dot",
+        color: { background: "#243554", border: "#6b8fd4", highlight: { background: "#314a73", border: "#9bb3e6" } },
+        font: { color: "#e7f0eb" },
+      },
+      site: {
+        shape: "dot",
+        color: { background: "#1a4a45", border: "#3db8a8", highlight: { background: "#276660", border: "#6fd4c6" } },
+        font: { color: "#e7f0eb" },
+      },
+      country: {
+        shape: "dot",
+        color: { background: "#4a3d22", border: "#c4a35a", highlight: { background: "#6a5630", border: "#e0c488" } },
+        font: { color: "#e7f0eb" },
+      },
+      water: {
+        shape: "dot",
+        color: { background: "#1a3550", border: "#4a90c8", highlight: { background: "#274a6a", border: "#7ab4e0" } },
+        font: { color: "#e7f0eb" },
+      },
+      report: {
+        shape: "dot",
+        color: { background: "#4a2e22", border: "#c47a5a", highlight: { background: "#6a4030", border: "#e09a7a" } },
+        font: { color: "#e7f0eb" },
+      },
+      sighting: {
+        shape: "dot",
+        color: { background: "#3a2448", border: "#b86bc4", highlight: { background: "#523260", border: "#d49ae0" } },
+        font: { color: "#e7f0eb" },
+      },
+      literal: {
+        shape: "box",
+        color: { background: "#2a2433", border: "#8a7a9a", highlight: { background: "#3a3148", border: "#b5a5c5" } },
+        font: { color: "#e7f0eb", size: 12 },
+      },
+    };
+
+    const nodesDS = new vis.DataSet([]);
+    const edgesDS = new vis.DataSet([]);
+    const network = new vis.Network(
+      container,
+      { nodes: nodesDS, edges: edgesDS },
+      {
+        groups,
+        nodes: { shape: "dot", size: 22, font: { face: "sans-serif", size: 14, color: "#e7f0eb" } },
+        edges: {
+          color: { color: "#8aa399", highlight: "#c5ddd0" },
+          font: { color: "#c5ddd0", strokeWidth: 0, size: 11, align: "middle" },
+          // "dynamic" re-smooths every physics tick and looks glitchy on replace
+          smooth: { type: "cubicBezier", forceDirection: "none", roundness: 0.4 },
+          width: 1.5,
+        },
+        physics: {
+          enabled: true,
+          solver: "barnesHut",
+          barnesHut: {
+            gravitationalConstant: -3000,
+            springLength: 140,
+            springConstant: 0.04,
+            avoidOverlap: 0.3,
+          },
+          stabilization: { enabled: true, iterations: 150, fit: true },
+        },
+        interaction: { hover: true, tooltipDelay: 120, navigationButtons: true, keyboard: true },
+      }
+    );
+
+    let graphGen = 0;
+    let stabilizeHandler = null;
+
+    function clearStabilizeHandler() {
+      if (stabilizeHandler) {
+        network.off("stabilizationIterationsDone", stabilizeHandler);
+        stabilizeHandler = null;
+      }
+    }
+
+    function setGraphData(nodes, edges, { focusId = null } = {}) {
+      const gen = ++graphGen;
+      clearStabilizeHandler();
+
+      // Stop camera/physics mid-flight before swapping datasets
+      try {
+        network.stopSimulation();
+      } catch (_) {
+        /* ignore */
+      }
+
+      network.setOptions({ physics: { enabled: false } });
+      nodesDS.clear();
+      edgesDS.clear();
+      const norm = normalizeNodes(nodes);
+      if (norm.length) nodesDS.add(norm);
+      if (edges.length) edgesDS.add(edges);
+
+      // Stabilize off-screen, then show once — avoids fit/focus fighting physics
+      network.setOptions({
+        physics: {
+          enabled: true,
+          stabilization: { enabled: true, iterations: 120, fit: true },
+        },
+      });
+
+      stabilizeHandler = () => {
+        if (gen !== graphGen) return;
+        clearStabilizeHandler();
+        network.setOptions({ physics: { enabled: false } });
+        if (focusId && nodesDS.get(focusId)) {
+          network.selectNodes([focusId]);
+          network.focus(focusId, { scale: 1.1, animation: false });
+        } else {
+          network.fit({ animation: false });
+        }
+      };
+      network.once("stabilizationIterationsDone", stabilizeHandler);
+
+      // Safety: if stabilization never fires (tiny graphs), settle anyway
+      setTimeout(() => {
+        if (gen !== graphGen || !stabilizeHandler) return;
+        stabilizeHandler();
+      }, 900);
+    }
+
+    const presets = {
+      ontology: [
+        "ontology/scuba-core.ttl",
+        "ontology/godive-activity.ttl",
+        "ontology/taxonomy-seed.ttl",
+        "ontology/dive-vocab-seed.ttl",
+      ],
+      "ontology+data": [
+        "ontology/scuba-core.ttl",
+        "ontology/godive-activity.ttl",
+        "ontology/taxonomy-seed.ttl",
+        "ontology/dive-vocab-seed.ttl",
+        "data/example-sighting.ttl",
+      ],
+    };
+
+    function normalizeNodes(nodes) {
+      return nodes.map((n) => ({
+        ...n,
+        group: n.group === "class" ? "typeClass" : n.group,
+      }));
+    }
+
+    async function loadGraph() {
+      clearError();
+      statsEl.textContent = "Loading…";
+      try {
+        let data;
+        const preset = presetEl.value;
+        if (IS_STATIC) {
+          const key = preset === "ontology+data" ? "ontology-data" : "ontology";
+          const res = await fetch(new URL(`graphs/${key}.json`, DATA_BASE));
+          data = await res.json();
+          if (!res.ok) {
+            showError(data.error || "Failed to load graph");
+            return;
+          }
+        } else {
+          let files;
+          if (preset === "all") {
+            const list = await fetch("/api/files").then((r) => r.json());
+            files = list.files.filter(
+              (f) =>
+                !f.startsWith("shapes/") &&
+                !f.includes("marine_life_species") &&
+                !f.includes("dive_sites.ttl")
+            );
+          } else {
+            files = presets[preset];
+          }
+          const url = "/api/graph?files=" + encodeURIComponent(files.join(","));
+          const res = await fetch(url);
+          data = await res.json();
+          if (!res.ok) {
+            showError(data.error || "Failed to load graph");
+            return;
+          }
+        }
+        setGraphData(data.nodes || [], data.edges || []);
+        const s = data.stats || {};
+        const nodes = data.nodes || [];
+        statsEl.textContent =
+          `${s.classes ?? "—"} classes · ${s.properties ?? "—"} properties · ${s.individuals ?? "—"} individuals · ${s.triples ?? "—"} triples · drawn ${nodes.length}`;
+        if (!nodes.length) {
+          showError("Graph returned 0 nodes.");
+        }
+      } catch (err) {
+        showError(String(err));
+        console.error(err);
+      }
+    }
+
+    function clearSuggestions() {
+      latestResults = [];
+      highlightIndex = -1;
+      suggestList.innerHTML = "";
+      suggestList.classList.remove("open");
+      resultsEl.innerHTML = "";
+    }
+
+    function renderResultButtons(results, { openSuggest }) {
+      latestResults = results;
+      highlightIndex = -1;
+      resultsEl.innerHTML = "";
+      suggestList.innerHTML = "";
+
+      if (!results.length) {
+        resultsEl.innerHTML = "<li style='color:var(--muted)'>No species matched.</li>";
+        if (openSuggest) {
+          suggestList.innerHTML = "<li class='empty'>No matches</li>";
+          suggestList.classList.add("open");
+        } else {
+          suggestList.classList.remove("open");
+        }
+        return;
+      }
+
+      for (const [i, r] of results.entries()) {
+        const sideLi = document.createElement("li");
+        const sideBtn = document.createElement("button");
+        sideBtn.type = "button";
+        sideBtn.className = "result";
+        sideBtn.innerHTML =
+          `<span>${escapeHtml(r.commonName)}</span>` +
+          (r.scientificName ? `<span class="sci">${escapeHtml(r.scientificName)}</span>` : "");
+        sideBtn.addEventListener("click", () => selectSpecies(r, sideBtn));
+        sideLi.appendChild(sideBtn);
+        resultsEl.appendChild(sideLi);
+
+        const sugLi = document.createElement("li");
+        const sugBtn = document.createElement("button");
+        sugBtn.type = "button";
+        sugBtn.role = "option";
+        sugBtn.dataset.index = String(i);
+        sugBtn.innerHTML =
+          `<span>${escapeHtml(r.commonName)}</span>` +
+          (r.scientificName ? `<span class="sci">${escapeHtml(r.scientificName)}</span>` : "");
+        sugBtn.addEventListener("mousedown", (e) => {
+          e.preventDefault(); // keep focus; avoid blur-before-click
+          selectSpecies(r, sideBtn);
+        });
+        sugLi.appendChild(sugBtn);
+        suggestList.appendChild(sugLi);
+      }
+
+      if (openSuggest) suggestList.classList.add("open");
+      else suggestList.classList.remove("open");
+    }
+
+    function setHighlight(index) {
+      const buttons = suggestList.querySelectorAll("button[data-index]");
+      if (!buttons.length) return;
+      highlightIndex = ((index % buttons.length) + buttons.length) % buttons.length;
+      buttons.forEach((b, i) => b.classList.toggle("active", i === highlightIndex));
+      buttons[highlightIndex].scrollIntoView({ block: "nearest" });
+    }
+
+    async function runSearch({ openSuggest = true } = {}) {
+      clearError();
+      const q = searchInput.value.trim();
+      if (q.length < 2) {
+        clearSuggestions();
+        if (q.length === 1) {
+          sparqlBox.textContent = "Type at least 2 characters…";
+          statsEl.textContent = "Keep typing…";
+        } else {
+          sparqlBox.textContent = "Search by common name to generate a query.";
+        }
+        return;
+      }
+
+      const seq = ++searchSeq;
+      statsEl.textContent = "Searching…";
+      try {
+        let results = [];
+        if (IS_STATIC) {
+          const index = await ensureSpeciesIndex();
+          if (seq !== searchSeq) return;
+          sparqlBox.textContent = buildSearchSparql(q);
+          const needle = q.toLowerCase();
+          results = (index.species || [])
+            .filter((s) => String(s.commonName || "").toLowerCase().includes(needle))
+            .slice(0, 25)
+            .map((s) => ({
+              iri: s.iri,
+              commonName: s.commonName,
+              scientificName: s.scientificName,
+              label: s.commonName,
+            }));
+        } else {
+          const res = await fetch("/api/search?q=" + encodeURIComponent(q));
+          const data = await res.json();
+          if (seq !== searchSeq) return; // stale response
+          sparqlBox.textContent = data.sparql || data.error || "";
+          if (!res.ok) {
+            showError(data.error || "Search failed");
+            statsEl.textContent = "Search error";
+            clearSuggestions();
+            return;
+          }
+          results = data.results || [];
+        }
+        statsEl.textContent = `${results.length} match${results.length === 1 ? "" : "es"} for “${q}”`;
+        renderResultButtons(results, { openSuggest });
+      } catch (err) {
+        if (seq !== searchSeq) return;
+        showError(String(err));
+        console.error(err);
+      }
+    }
+
+    function scheduleSearch() {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => runSearch({ openSuggest: true }), 220);
+    }
+
+    function selectSpecies(result, sideBtn) {
+      clearTimeout(searchTimer);
+      searchInput.value = result.commonName;
+      suggestList.classList.remove("open");
+      openSpecies(result.iri, sideBtn);
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    let openSpeciesSeq = 0;
+
+    async function loadSimilar(iri) {
+      const seq = ++similarSeq;
+      currentSpeciesIri = iri;
+      similarSection.hidden = false;
+      similarResults.innerHTML = "<li style='color:var(--muted)'>Scoring…</li>";
+      try {
+        let rows = [];
+        if (IS_STATIC) {
+          const index = await ensureSpeciesIndex();
+          const sightMap = await ensureSightingSimilar();
+          if (seq !== similarSeq) return;
+          const id = speciesFileId(iri);
+          const seed = (index.species || []).find((s) => s.id === id || s.iri === iri);
+          const bio =
+            seed && globalThis.OntologyBiologySimilarity
+              ? OntologyBiologySimilarity.rankBiology(seed, index.species || [], 12)
+              : [];
+          const sight = sightMap[id] || [];
+          if (similarMode === "biology") {
+            rows = bio;
+            sparqlBox.textContent =
+              "# Static Pages mode: biology similarity scored in the browser\n" +
+              "# (same weights as Field Guide / ontology lab biology path).";
+          } else if (similarMode === "sighting") {
+            rows = sight;
+            sparqlBox.textContent =
+              "# Static Pages mode: sighting similarity from demo SiteReports only\n" +
+              "# (precomputed from data/example-sighting.ttl).";
+          } else {
+            const byIri = new Map();
+            for (const r of bio) {
+              byIri.set(r.iri, {
+                ...r,
+                sightingScore: 0,
+                score: r.biologyScore,
+              });
+            }
+            for (const r of sight) {
+              const prev = byIri.get(r.iri);
+              if (prev) {
+                prev.sightingScore = r.sightingScore ?? r.score ?? 0;
+                prev.score =
+                  Math.round((prev.biologyScore + prev.sightingScore) * 100) / 100;
+                const ev = [...(prev.evidence || []), ...(r.evidence || [])];
+                prev.evidence = ev;
+              } else {
+                byIri.set(r.iri, {
+                  ...r,
+                  biologyScore: r.biologyScore ?? 0,
+                  sightingScore: r.sightingScore ?? r.score ?? 0,
+                  score: r.score,
+                });
+              }
+            }
+            rows = [...byIri.values()].sort(
+              (a, b) =>
+                b.score - a.score ||
+                String(a.commonName).localeCompare(String(b.commonName), undefined, {
+                  sensitivity: "base",
+                })
+            );
+            sparqlBox.textContent =
+              "# Static Pages mode: biology (browser) + demo sighting scores merged.";
+          }
+        } else {
+          const res = await fetch(
+            "/api/similar?iri=" +
+              encodeURIComponent(iri) +
+              "&mode=" +
+              encodeURIComponent(similarMode) +
+              "&limit=12"
+          );
+          const data = await res.json();
+          if (seq !== similarSeq) return;
+          if (data.sparql) {
+            const parts = [];
+            if (data.sparql.biology) parts.push("# Biology candidates\n" + data.sparql.biology);
+            if (data.sparql.sighting) parts.push("# Sighting candidates\n" + data.sparql.sighting);
+            if (parts.length) sparqlBox.textContent = parts.join("\n\n");
+          }
+          rows = data.results || [];
+        }
+        similarResults.innerHTML = "";
+        if (!rows.length) {
+          similarResults.innerHTML =
+            "<li style='color:var(--muted)'>No weighted matches for this mode.</li>";
+          return;
+        }
+        for (const r of rows) {
+          const li = document.createElement("li");
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "result";
+          const topEvidence = (r.evidence || [])
+            .slice(0, 3)
+            .map((e) => `${e.signal}${e.detailLabel ? ":" + e.detailLabel : ""}`)
+            .join(" · ");
+          btn.innerHTML =
+            `<span>${escapeHtml(r.commonName)}</span>` +
+            (r.scientificName
+              ? `<span class="sci">${escapeHtml(r.scientificName)}</span>`
+              : "") +
+            `<span class="meta">score ${r.score} · bio ${r.biologyScore} · sight ${r.sightingScore}</span>` +
+            (topEvidence ? `<span class="evidence">${escapeHtml(topEvidence)}</span>` : "");
+          btn.addEventListener("click", () => openSpecies(r.iri, null));
+          li.appendChild(btn);
+          similarResults.appendChild(li);
+        }
+      } catch (err) {
+        if (seq !== similarSeq) return;
+        similarResults.innerHTML =
+          "<li style='color:#ffb4b4'>Similarity failed.</li>";
+        console.error(err);
+      }
+    }
+
+    async function openSpecies(iri, buttonEl) {
+      clearError();
+      const seq = ++openSpeciesSeq;
+      resultsEl.querySelectorAll("button.result").forEach((b) => b.classList.remove("active"));
+      if (buttonEl) buttonEl.classList.add("active");
+      statsEl.textContent = "Loading neighborhood…";
+      try {
+        let data;
+        if (IS_STATIC) {
+          const id = speciesFileId(iri);
+          const res = await fetch(new URL(`species/${id}.json`, DATA_BASE));
+          data = await res.json();
+          if (seq !== openSpeciesSeq) return;
+          if (!res.ok) {
+            showError(data.error || "Failed to open species");
+            return;
+          }
+        } else {
+          const res = await fetch(
+            "/api/species?iri=" + encodeURIComponent(iri) + "&depth=2"
+          );
+          data = await res.json();
+          if (seq !== openSpeciesSeq) return;
+          if (!res.ok) {
+            showError(data.error || "Failed to open species");
+            return;
+          }
+        }
+        // Replace overview with ego graph (stabilize once; no competing fit/focus)
+        setGraphData(data.nodes || [], data.edges || [], { focusId: iri });
+        const gs = data.graphStats || {};
+        statsEl.textContent =
+          `${data.commonName || "Species"} · ${gs.nodes ?? (data.nodes || []).length} nodes · ` +
+          `${gs.edges ?? (data.edges || []).length} edges · 2 hops`;
+
+        detailEmpty.hidden = true;
+        detailPanel.hidden = false;
+        detailTitle.textContent = data.commonName || "Species";
+        detailSci.textContent = data.scientificName || "";
+        detailIri.textContent = data.iri;
+        detailProps.innerHTML = "";
+        for (const p of data.properties || []) {
+          const li = document.createElement("li");
+          const obj =
+            p.objectKind === "iri"
+              ? escapeHtml(p.objectLabel || p.object)
+              : escapeHtml(p.object) + (p.language ? `@${escapeHtml(p.language)}` : "");
+          li.innerHTML = `<span class="pred">${escapeHtml(p.predicateLabel)}</span><br>${obj}`;
+          detailProps.appendChild(li);
+        }
+        loadSimilar(iri);
+        // Detail panel can change aside scroll; keep canvas size in sync once
+        requestAnimationFrame(() => {
+          if (seq !== openSpeciesSeq) return;
+          network.redraw();
+        });
+      } catch (err) {
+        if (seq !== openSpeciesSeq) return;
+        showError(String(err));
+        console.error(err);
+      }
+    }
+
+    document.querySelectorAll(".modeBtn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        similarMode = btn.dataset.mode || "both";
+        document.querySelectorAll(".modeBtn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        if (currentSpeciesIri) loadSimilar(currentSpeciesIri);
+      });
+    });
+
+    document.getElementById("reload").addEventListener("click", loadGraph);
+    document.getElementById("fit").addEventListener("click", () => network.fit({ animation: true }));
+    searchInput.addEventListener("input", scheduleSearch);
+    searchInput.addEventListener("focus", () => {
+      if (latestResults.length) suggestList.classList.add("open");
+      else if (searchInput.value.trim().length >= 2) runSearch({ openSuggest: true });
+    });
+    searchInput.addEventListener("blur", () => {
+      setTimeout(() => suggestList.classList.remove("open"), 120);
+    });
+    searchInput.addEventListener("keydown", (e) => {
+      const open = suggestList.classList.contains("open");
+      if (e.key === "ArrowDown" && open) {
+        e.preventDefault();
+        setHighlight(highlightIndex + 1);
+      } else if (e.key === "ArrowUp" && open) {
+        e.preventDefault();
+        setHighlight(highlightIndex <= 0 ? latestResults.length - 1 : highlightIndex - 1);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (open && highlightIndex >= 0 && latestResults[highlightIndex]) {
+          const sideBtn = resultsEl.querySelectorAll("button.result")[highlightIndex];
+          selectSpecies(latestResults[highlightIndex], sideBtn || null);
+        } else {
+          runSearch({ openSuggest: true });
+        }
+      } else if (e.key === "Escape") {
+        suggestList.classList.remove("open");
+      }
+    });
+    presetEl.addEventListener("change", loadGraph);
+    window.addEventListener("resize", () => network.redraw());
+    loadGraph();
+  </script>
+</body>
+</html>

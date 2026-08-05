@@ -14,7 +14,7 @@
     "include_ecology_coral_reefs": true,
     "max_depth_meters": 130
   },
-  "output_staging_csv": "MockData/marine_life_caribbean_staging.csv",
+  "output_staging_csv": "CatalogAuthoring/marine_life_caribbean_staging.csv",
   "marine_life_images": {
     "allow_cc_by": true,
     "search_suffixes": ["underwater", "diver", "scuba"],

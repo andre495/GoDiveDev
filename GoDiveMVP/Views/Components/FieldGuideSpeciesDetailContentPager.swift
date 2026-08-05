@@ -1,12 +1,13 @@
 import SwiftUI
 
-/// Swipable species detail pages — about → stats → tagged dives → tagged media.
+/// Swipable species detail pages — about → stats → similar → tagged dives → tagged media.
 struct FieldGuideSpeciesDetailContentPager: View {
     let aboutText: String
     let typicalSizeLine: String
     let depthLine: String
     let depthRowTitle: String
     let distinctiveFeatures: String
+    let similarSpecies: [MarineLifeCatalogSnapshot]
     let taggedDiveRows: [DiveLogbookRowDisplayData]
     let taggedMediaItems: [DiveMediaPhoto]
     let taggedMediaTimeZoneOffsetByID: [UUID: Int?]
@@ -16,6 +17,7 @@ struct FieldGuideSpeciesDetailContentPager: View {
     let ownerProfileID: UUID?
     let bottomScrollInset: CGFloat
     let onOpenDive: (UUID) -> Void
+    let onOpenSpecies: ((String) -> Void)?
 
     @State private var selectedPage: FieldGuideSpeciesDetailContentPage =
         FieldGuideSpeciesDetailContentPagerPresentation.defaultPage
@@ -39,6 +41,8 @@ struct FieldGuideSpeciesDetailContentPager: View {
             aboutContent
         case .stats:
             statsContent
+        case .similarSpecies:
+            similarSpeciesContent
         case .taggedDives:
             taggedDivesContent
         case .taggedMedia:
@@ -81,6 +85,52 @@ struct FieldGuideSpeciesDetailContentPager: View {
             }
         }
         .accessibilityIdentifier("FieldGuide.SpeciesDetail.Stats")
+    }
+
+    @ViewBuilder
+    private var similarSpeciesContent: some View {
+        if similarSpecies.isEmpty {
+            emptyState(for: .similarSpecies)
+        } else {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+                ForEach(similarSpecies, id: \.uuid) { snapshot in
+                    similarSpeciesRow(for: snapshot)
+                    if snapshot.uuid != similarSpecies.last?.uuid {
+                        Divider()
+                            .opacity(0.35)
+                    }
+                }
+            }
+            .accessibilityIdentifier("FieldGuide.SpeciesDetail.SimilarSpecies")
+        }
+    }
+
+    @ViewBuilder
+    private func similarSpeciesRow(for snapshot: MarineLifeCatalogSnapshot) -> some View {
+        let row = FieldGuideSimilarSpeciesRow(snapshot: snapshot)
+        if let onOpenSpecies {
+            Button {
+                onOpenSpecies(snapshot.uuid)
+            } label: {
+                row
+            }
+            .buttonStyle(.plain)
+        } else if let species = marineLifeCatalog.first(where: { $0.uuid == snapshot.uuid }) {
+            NavigationLink {
+                FieldGuideMarineLifeDetailView(
+                    species: species,
+                    ownerProfileID: ownerProfileID,
+                    onOpenDive: onOpenDive
+                )
+                .hidesBottomTabBarWhenPushed()
+            } label: {
+                row
+            }
+            .buttonStyle(.plain)
+            .navigationLinkIndicatorVisibility(.hidden)
+        } else {
+            row
+        }
     }
 
     @ViewBuilder
@@ -132,6 +182,8 @@ struct FieldGuideSpeciesDetailContentPager: View {
             return "FieldGuide.SpeciesDetail.About.Empty"
         case .stats:
             return "FieldGuide.SpeciesDetail.Stats.Empty"
+        case .similarSpecies:
+            return "FieldGuide.SpeciesDetail.SimilarSpecies.Empty"
         case .taggedDives:
             return "FieldGuide.SpeciesDetail.TaggedDives.Empty"
         case .taggedMedia:

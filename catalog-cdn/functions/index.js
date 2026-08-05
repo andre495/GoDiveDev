@@ -1,12 +1,26 @@
 const {
   onDocumentCreated,
   onDocumentUpdated,
+  onDocumentWritten,
 } = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { initializeApp } = require("firebase-admin/app");
-const { getFirestore, Timestamp } = require("firebase-admin/firestore");
+const { getFirestore, Timestamp, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
+const { getStorage } = require("firebase-admin/storage");
+const crypto = require("crypto");
+const {
+  buildSpeciesSimilarity,
+  publicFieldsFromPrivate,
+  publicFieldsFromSiteReportPrivate,
+} = require("./speciesSimilarity");
 
 initializeApp();
+
+const COMMUNITY_SIGHTINGS = "communitySightings";
+const COMMUNITY_SITE_REPORTS = "communitySiteReports";
+const SPECIES_SIMILARITY_STORAGE_PATH = "catalog/v1/species_similarity.json";
+const SPECIES_SIMILARITY_META_PATH = "catalog/v1/species_similarity.meta.json";
 
 const FCM_DOC_PREFIX = "fcm_";
 const INVITE_STATUS_REDEEMED = "redeemed";
@@ -541,6 +555,145 @@ exports.notifyBuddyActivityShared = onDocumentCreated(
 
     await Promise.all(
       pendingToSend.map((item) => signalCollection.doc(item.id).delete())
+    );
+  }
+);
+
+/**
+ * Mirror owner private staging → anonymized communitySightings/{contributionId}.
+ */
+exports.mirrorOntologySightingContribution = onDocumentWritten(
+  "users/{uid}/ontologySightingContributions/{sightingUUID}",
+  async (event) => {
+    const after = event.data.after.exists ? event.data.after.data() : null;
+    const before = event.data.before.exists ? event.data.before.data() : null;
+    const db = getFirestore();
+
+    if (!after) {
+      const contributionId =
+        before && typeof before.contributionId === "string"
+          ? before.contributionId.trim()
+          : "";
+      if (!contributionId) return;
+      await db.collection(COMMUNITY_SIGHTINGS).doc(contributionId).delete();
+      return;
+    }
+
+    const publicFields = publicFieldsFromPrivate(after);
+    if (!publicFields) return;
+
+    const ref = db.collection(COMMUNITY_SIGHTINGS).doc(publicFields.contributionId);
+    if (publicFields.status === "deleted") {
+      await ref.delete();
+      return;
+    }
+
+    await ref.set(
+      {
+        ...publicFields,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
+);
+
+/**
+ * Mirror owner private SiteReport staging → communitySiteReports/{contributionId}.
+ * One SiteReport per dive/snorkel activity (conditions + depth); sightings link via siteReportId.
+ */
+exports.mirrorOntologySiteReportContribution = onDocumentWritten(
+  "users/{uid}/ontologySiteReportContributions/{activityUUID}",
+  async (event) => {
+    const after = event.data.after.exists ? event.data.after.data() : null;
+    const before = event.data.before.exists ? event.data.before.data() : null;
+    const db = getFirestore();
+
+    if (!after) {
+      const contributionId =
+        before && typeof before.contributionId === "string"
+          ? before.contributionId.trim()
+          : "";
+      if (!contributionId) return;
+      await db.collection(COMMUNITY_SITE_REPORTS).doc(contributionId).delete();
+      return;
+    }
+
+    const publicFields = publicFieldsFromSiteReportPrivate(after);
+    if (!publicFields) return;
+
+    const ref = db.collection(COMMUNITY_SITE_REPORTS).doc(publicFields.contributionId);
+    if (publicFields.status === "deleted") {
+      await ref.delete();
+      return;
+    }
+
+    await ref.set(
+      {
+        ...publicFields,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
+);
+
+/**
+ * Daily rebuild of community sighting similarity cache → Storage (public catalog path).
+ */
+exports.rebuildSpeciesSimilarityCache = onSchedule(
+  {
+    schedule: "every 24 hours",
+    timeZone: "UTC",
+  },
+  async () => {
+    const db = getFirestore();
+    const snap = await db.collection(COMMUNITY_SIGHTINGS).get();
+    const rows = [];
+    snap.forEach((doc) => {
+      const data = doc.data() || {};
+      rows.push({
+        contributionId: doc.id,
+        ...data,
+      });
+    });
+
+    const payload = buildSpeciesSimilarity(rows, { limit: 15 });
+    const body = JSON.stringify(payload);
+    const sha256 = crypto.createHash("sha256").update(body, "utf8").digest("hex");
+    const meta = {
+      schemaVersion: 1,
+      path: SPECIES_SIMILARITY_STORAGE_PATH,
+      sha256,
+      updatedAt: payload.updatedAt,
+      speciesCount: Object.keys(payload.bySpecies || {}).length,
+    };
+
+    const bucket = getStorage().bucket();
+    await bucket.file(SPECIES_SIMILARITY_STORAGE_PATH).save(body, {
+      contentType: "application/json",
+      metadata: {
+        cacheControl: "public, max-age=3600",
+      },
+    });
+    await bucket.file(SPECIES_SIMILARITY_META_PATH).save(JSON.stringify(meta), {
+      contentType: "application/json",
+      metadata: {
+        cacheControl: "public, max-age=60, must-revalidate",
+      },
+    });
+
+    await db.collection("catalogMeta").doc("speciesSimilarity").set(
+      {
+        ...meta,
+        storagePath: SPECIES_SIMILARITY_STORAGE_PATH,
+        writtenAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    console.log(
+      `species similarity rebuilt: ${meta.speciesCount} seeds, sha256=${sha256.slice(0, 12)}…`
     );
   }
 );

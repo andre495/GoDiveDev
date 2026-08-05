@@ -75,8 +75,13 @@ Add or extend rules as later OWASP phases land (import caps, crash scrubbing, et
 | `users/{uid}` (public profile) | Any **authenticated** Firebase user | Owner only (`request.auth.uid == uid`) |
 | `users/{uid}/private/{doc}` | Owner only | Owner only |
 | `users/{uid}/sharedDives/{diveId}` | Owner or **active friend** | Owner only |
+| `users/{uid}/ontologySightingContributions/{sightingUUID}` | Owner only | Owner only (Settings opt-in community graph) |
+| `users/{uid}/ontologySiteReportContributions/{activityUUID}` | Owner only | Owner only (Settings opt-in; 1:1 SiteReport per activity) |
 | `friendInvites/{token}` | Any authenticated (token must be known) | Creator create/revoke; redeeming user may mark redeemed |
 | `friendships/{sortedPair}` | Members | Create via valid open invite; members may delete |
+| `communitySightings/{contributionId}` | Any authenticated | **Deny** (Admin SDK / ingest Cloud Function only) |
+| `communitySiteReports/{contributionId}` | Any authenticated | **Deny** (Admin SDK / ingest Cloud Function only) |
+| `catalogMeta/{docId}` | Any authenticated | **Deny** (Admin SDK only) |
 | All other paths | **Deny** | **Deny** |
 
 **Public profile may include:** `displayName`, `handle` (reserved), `photoURL`, `interests`, `discoverable`, timestamps, `schemaVersion`.  
@@ -84,10 +89,12 @@ Add or extend rules as later OWASP phases land (import caps, crash scrubbing, et
 
 **Friend-visible dive projections** may include structured dive fields (site, depths, times, conditions, tags, sightings, capped depth track, etc.). **Notes** and **media preview URLs** are included only when the owner opts in (Settings). FIT/UDDF source files and full Photos library bytes must not appear in Firestore.
 
+**Community sighting / SiteReport staging / public mirror:** private SiteReport staging (1:1 with activity) may include anonymized site/depth/conditions/date/activityKind plus opaque `contributionId`. Sighting staging may include species + opaque `siteReportId` linking to that report. Public `communitySightings` / `communitySiteReports` must **not** include Firebase UID, CloudKit profile ID, media, notes, or GPS. Contribution requires Settings opt-in (**default off**) and Firebase Auth; soft-fail otherwise.
+
 **Policy notes**
 
 - The owner’s private CloudKit dive log remains source of truth; Firestore projections are a **friends-readable mirror**, not a second dive-log account.
-- Soft-fail Firebase Auth must not invent Firestore write rights; local SIWA session alone does not authorize directory writes.
+- Soft-fail Firebase Auth must not invent Firestore write rights; local SIWA session alone does not authorize directory writes or community contribution staging.
 
 Rules file: `catalog-cdn/firestore.rules` (deploy via project Firebase workflow).
 
@@ -95,7 +102,7 @@ Rules file: `catalog-cdn/firestore.rules` (deploy via project Firebase workflow)
 
 | Path | Read | Write / delete |
 |------|------|----------------|
-| `catalog/v1/**` | Public | **Deny** (CI/admin publish only) |
+| `catalog/v1/**` (including `species_similarity.json`) | Public | **Deny** (CI/admin publish + scheduled similarity Function via Admin SDK) |
 | `users/{uid}/**` (avatars + opt-in shared media previews) | Public (download URL / friends UI) | Owner only; ≤ 5 MB; `image/*` |
 | Other paths | Default deny (unmatched) | Default deny |
 
@@ -108,6 +115,7 @@ Rules file: `catalog-cdn/storage.rules`.
 | Asset | Read | Write |
 |-------|------|-------|
 | Manifests + catalog JSON (HTTPS) | App clients; SHA-256 verified after download | GoDive publish pipeline only |
+| `catalog/v1/species_similarity.json` | App clients; SHA-256 verified (Storage meta / Hosting bootstrap) | Scheduled Cloud Function + publish pipeline |
 | Secrets | `CatalogCDNSecrets.plist` optional; HTTPS base URL only | Not in git |
 
 Fail closed on checksum mismatch / non-HTTPS base URL (Phase 2/3 may harden redirects further).

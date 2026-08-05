@@ -18,8 +18,8 @@ REPO = ROOT.parent
 PUBLIC_V1 = ROOT / "public" / "catalog" / "v1"
 PHOTOS_DIR = REPO / "GoDiveMVP" / "Resources" / "MarineLifePhotos"
 MODELS_DIR = REPO / "GoDiveMVP" / "Resources" / "MarineLife3D"
-ML_SOURCE = REPO / "GoDiveMVP" / "MockData" / "marine_life_sample.json"
-ODM_SOURCE = REPO / "GoDiveMVP" / "MockData" / "opendivemap_dive_sites_reference.json"
+ML_SOURCE = REPO / "GoDiveMVP" / "Resources" / "Catalog" / "marine_life.json"
+ODM_SOURCE = REPO / "GoDiveMVP" / "Resources" / "Catalog" / "dive_sites.json"
 FIREBASE_TOOLS_CONFIG = Path.home() / ".config" / "configstore" / "firebase-tools.json"
 
 DEFAULT_BUCKET = "godive-1cff8.firebasestorage.app"
@@ -73,6 +73,15 @@ def write_payloads(bucket: str, catalog_version: int) -> dict:
     rows, ml_bytes = build_marine_life(bucket)
     (PUBLIC_V1 / "marine_life.json").write_bytes(ml_bytes)
 
+    # Bootstrap Hosting copy; scheduled Cloud Function refreshes Storage path nightly.
+    similarity_obj = {
+        "schemaVersion": 1,
+        "updatedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "bySpecies": {},
+    }
+    similarity_bytes = compact_json(similarity_obj)
+    (PUBLIC_V1 / "species_similarity.json").write_bytes(similarity_bytes)
+
     manifest = {
         "schemaVersion": 1,
         "catalogVersion": catalog_version,
@@ -89,6 +98,12 @@ def write_payloads(bucket: str, catalog_version: int) -> dict:
             "path": "catalog/v1/dive_sites.json",
             "sha256": sha256_hex(sites_bytes),
             "itemCount": len(odm),
+        },
+        "speciesSimilarity": {
+            "format": "full",
+            "path": "catalog/v1/species_similarity.json",
+            "sha256": sha256_hex(similarity_bytes),
+            "itemCount": 0,
         },
     }
     (PUBLIC_V1 / "manifest.json").write_text(

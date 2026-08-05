@@ -18,7 +18,7 @@ nonisolated struct DiveSiteReferenceSnapshot: Codable, Equatable, Sendable {
 
 /// Loads bundled OpenDiveMap reference rows for import matching (lazy, in-memory cache).
 enum DiveSiteReferenceCatalog: Sendable {
-    nonisolated static let bundledResourceName = "opendivemap_dive_sites_reference"
+    nonisolated static let bundledResourceName = "dive_sites"
 
     /// Lock-guarded caches so the ~3,100-row JSON decode can be warmed **off the main actor**
     /// (search-index prewarm) while main-thread callers safely read the shared cache.

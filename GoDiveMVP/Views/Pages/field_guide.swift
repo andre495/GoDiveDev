@@ -224,6 +224,9 @@ struct FieldGuideView: View {
         .environment(\.openCatalogDiveSiteDetail) { siteID in
             pushFieldGuide(.diveSite(siteID))
         }
+        .environment(\.openCatalogMarineLifeDetail) { marineLifeUUID in
+            pushFieldGuide(.speciesDetail(marineLifeUUID))
+        }
         .onChange(of: path) { oldPath, newPath in
             DiveActivityOverviewUIStatePresentation.discardSessionsLeavingStack(
                 previousDiveIDs: fieldGuideDiveActivityIDs(in: oldPath),

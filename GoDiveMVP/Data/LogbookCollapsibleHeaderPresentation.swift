@@ -87,6 +87,39 @@ enum LogbookFeedScope: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+/// iOS 26 root-tab minimize needs a vertical content scroll view; Logbook’s Me | Buddies page
+/// **`TabView`** otherwise wins automatic detection with its horizontal pager.
+enum RootTabBarMinimizeScrollPresentation: Sendable {
+    /// Disable UIKit bottom inset adjustment so lists can scroll under the frosted tab bar
+    /// (same scroll-under pattern as Explore / Field Guide).
+    nonisolated static let disablesContentInsetAdjustmentForScrollUnderTabBar = true
+
+    /// Whether this feed-scope page should publish its list/scroll view for tab-bar minimize.
+    nonisolated static func shouldAssociate(
+        pageScope: LogbookFeedScope,
+        selectedScope: LogbookFeedScope
+    ) -> Bool {
+        pageScope == selectedScope
+    }
+
+    /// Prefer **`UITableView`** / vertical scrollers; skip horizontal page-style scrollers.
+    nonisolated static func isEligibleVerticalContentScrollView(
+        isTableView: Bool,
+        isPagingEnabled: Bool,
+        contentWidth: CGFloat,
+        boundsWidth: CGFloat,
+        contentHeight: CGFloat,
+        boundsHeight: CGFloat
+    ) -> Bool {
+        if isTableView { return true }
+        let overflowsHorizontally = contentWidth > boundsWidth + 1
+        let overflowsVertically = contentHeight > boundsHeight + 1
+        if isPagingEnabled && overflowsHorizontally { return false }
+        if overflowsHorizontally && !overflowsVertically { return false }
+        return true
+    }
+}
+
 /// Horizontal pager between **Me** (left) and **Buddies** (right).
 enum LogbookFeedScopePagerPresentation: Sendable {
     /// Left → right order matching **`LogbookFeedScopeToggle`**.

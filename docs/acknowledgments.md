@@ -65,7 +65,7 @@ These require network access and (for some) developer configuration in the app b
 |--------|----------|
 | **[Wix](https://www.wix.com/)** (Premium) | Public product landing page for GoDive (site project **GoDive** / GoDive iOS), served at **[godiveios.com](https://godiveios.com)** with the domain registered at GoDaddy and connected to Wix |
 
-The iPhone app does not embed or require Wix. The user guide remains on [GitHub Pages](https://andre495.github.io/GoDiveDev/).
+The iPhone app does not embed or require Wix. The user guide remains on [GitHub Pages](https://andre495.github.io/GoDiveDev/), including a public [marine life ontology](ontology/) section (vocabulary docs + static graph visualizer).
 
 ## Apple platform services
 

@@ -341,7 +341,7 @@ def main() -> int:
         run_generate_taxonomy(epub_path)
 
     staging_path = PROJECT_DIR / config["output_staging_csv"]
-    json_path = PROJECT_DIR / config.get("output_json", "MockData/marine_life_sample.json")
+    json_path = PROJECT_DIR / config.get("output_json", "Resources/Catalog/marine_life.json")
     reference_path = PROJECT_DIR / config["reference_cache_csv"]
 
     print(f"Extracting master species list from {epub_path}...")

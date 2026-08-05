@@ -3751,6 +3751,49 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - Media uses **`onTapGesture`** for open (paging drag wins); chrome gradient is non-interactive so empty band pans reach the pager.
 - Test: **`usesTapGestureForOpenMediaOnScrollPage`**.
 
-## 131 - Next batch
+## 131 - Next batch **(pushed)**
+
+**Summary:** Restore Logbook root-tab minimize-on-scroll-down after the Me | Buddies page pager broke UIKit’s automatic content-scroll detection; hide the Me-only kind filter on Buddies. Move marine life and dive-site catalogs out of MockData into bundled Resources + CatalogAuthoring.
+
+- **Logbook tab bar minimize** — Me | Buddies horizontal page **`TabView`** was winning automatic **`tabBarMinimizeBehavior(.onScrollDown)`** detection. Active feed **`List`** / **`ScrollView`** now publishes itself via **`setContentScrollView(_:for: .bottom)`** (**`associatesRootTabBarMinimizeScroll`**, **`RootTabBarMinimizeScrollAssociator`** / **`RootTabBarMinimizeScrollPresentation`**). Tests: **`rootTabBarMinimizeScrollPresentation_*`**, **`rootTabBarMinimizeScrollAssociator_prefersNestedTableOverHorizontalPager`**.
+- **Logbook kind filter on Buddies** — filter button unmounts on **Buddies** (Liquid Glass still drew at opacity 0); clear same-size placeholder keeps **Me | Buddies** centered. **`LogbookMyActivitiesKindFilterPresentation.showsFilterButton(for:)`**.
+- **Logbook scroll under tab bar** — Me | Buddies page **`TabView`** + minimize scroll association were pinning list content above the menu. Geometry + pager ignore bottom safe area; associated scroll views use **`contentInsetAdjustmentBehavior = .never`** so rows scroll behind the frosted / minimized tab bar again (manual bottom spacer unchanged).
+- **Marine life catalog layout** — shipped seed moved out of **`MockData/`** to **`Resources/Catalog/marine_life.json`** (renamed from **`marine_life_sample.json`**); **`MarineLifeCatalogSeeder.bundledResourceName`** is **`marine_life`**. Authoring CSV / caches / workflow live under **`CatalogAuthoring/`** (Xcode membership exception — not in the IPA). Scripts, CDN builder, authoring rule, and READMEs updated. Test: **`marineLifeCatalogSeeder_usesBundledMarineLifeResourceName`**.
+- **Dive site catalog layout** — OpenDiveMap reference moved from **`MockData/opendivemap_dive_sites_reference.json`** to **`Resources/Catalog/dive_sites.json`**; **`DiveSiteReferenceCatalog.bundledResourceName`** is **`dive_sites`**. Fetch script + **`opendivemap_config.json`** + CDN builder updated; optional staging path under **`CatalogAuthoring/`**. Tiny **`divesites_sample.json`** stays in **`MockData/`** for opt-in Debug seeding. Test: **`diveSiteReferenceCatalog_usesBundledDiveSitesResourceName`**.
+
+**Summary:** Field Guide species detail — on-device biology **Similar species** (cap 6) + strip **`(juvenile)`** from common names.
+
+- **Biology similarity** — **`MarineLifeBiologySimilarity`** ports ontology lab weights (family / subcategory / body shape + soft color / size / category / depth) over **`MarineLifeCatalogSnapshot`** (now includes **`aboutText`**). No RDF runtime; scores computed on open, not persisted.
+- **Similar species pager** — new blue-sheet page after **Size and range**; thumbnail + name rows (max 6); tap pushes via **`openCatalogMarineLifeDetail`** (Field Guide / Explore / Home / Search) with **`NavigationLink`** fallback.
+- **Juvenile name cleanup** — **`MarineLifeCommonNameFormatting`** strips `\(\s*juvenile\s*\)` before title-case; launch backfill + seed upsert pick it up.
+- Tests: French angelfish golden top-6; juvenile strip; pager page count **5**.
+
+**Summary:** Community anonymized sightings (Settings opt-in) + scheduled CDN species-similarity cache merged into Field Guide Similar species.
+
+- **Opt-in** — Settings **Contribute sightings to community** (default **off**); **`AppUserSettings`** + **`UserPreferences`** sync; soft-fail without Firebase Auth.
+- **Export / sync** — **`SightingGraphExport`** anonymized payload; **`OntologySightingContributionSync`** private Firestore staging (backfill / upsert / delete / opt-out). Cloud Function mirrors to **`communitySightings`**; daily Function publishes **`catalog/v1/species_similarity.json`**.
+- **Untag** — **`MarineLifeSightingRecorder.untagSpecies*`**; dive/snorkel tag sheets toggle off (was add-only).
+- **CDN + UI** — **`SpeciesSimilarityCDNCache`**; **`MarineLifeBiologySimilarity.merge`** = biology + CDN **`sightingScore`** (no per-tag recompute).
+- Trust docs / handoff updated; Functions + Firestore rules deployed to **`godive-1cff8`**.
+- Tests: export mapper, sync gate, untag, merge ranking, CDN path for similarity JSON.
+- **Community toggle performance** — opt-in backfill / opt-out wipe and multi-tag sync use Firestore **WriteBatch** (chunks of **400**); SwiftData collect stays on MainActor, commits run off-actor (`Task.detached` on opt-out). Tests: batch chunking + owned staging write filter.
+- **Community sighting context** — export resolves site from activity when sighting site is nil; includes **`UserDiveSite`** / ODM / catalog UUID + **`country`** / **`region`** / **`waterBody`**; **`timeOfDay`** + date bucket use activity (then site) timezone offset instead of UTC. Schema **v2**; CF mirror + soft country/region scoring. Tests for local TOD + activity/user-site fallback.
+
+**Summary:** Community graph SiteReport is 1:1 with each dive/snorkel activity; tagged marine life sightings link to that report.
+
+- **SiteReport mint** — **`SiteReportGraphExport`** + **`OntologySiteReportContributionSync`** upsert private staging on FIT/UDDF/manual dive persist, snorkel import, Settings opt-in backfill; delete marks report + activity sightings deleted.
+- **Sightings link** — **`SightingGraphExport`** schema **v3** adds opaque **`siteReportId`**; tag sync refreshes the parent SiteReport then writes sightings.
+- **Ontology** — **`duringSiteReport`** / **`includesSighting`**; example TTL wired 1:1.
+- **Firebase** — staging **`ontologySiteReportContributions`**, public **`communitySiteReports`**, CF mirror; similarity awards **`sameSiteReport`**.
+- Tests: site report export + contribution id stability; JS similarity siteReportId.
+
+**Summary:** Publish marine-life ontology vocabulary docs + static graph visualizer on GitHub Pages.
+
+- **Pages** — MkDocs **Ontology** nav → `docs/ontology/`; CI (`deploy-docs.yml`) runs pyLODE then **`export_github_pages.py`** into **`site/ontology/{vocabulary,visualizer}`**.
+- **Static visualizer** — prebuilt overview graphs, species index, per-species ego JSON; browser biology similarity; demo sighting scores from example TTL.
+- Acknowledgments link to the ontology section.
+- User guide: Field Guide **Similar species** + Settings **Contribute sightings to community**.
+
+## 132 - Next batch
 
 

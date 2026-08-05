@@ -55,10 +55,18 @@ struct LogbookCollapsibleHeader: View {
             ZStack {
                 HStack(spacing: 0) {
                     Spacer(minLength: 0)
-                    LogbookMyActivitiesKindFilterMenu(selection: $myActivitiesKindFilter)
-                        .opacity(feedScope == .myActivities ? 1 : 0)
-                        .allowsHitTesting(feedScope == .myActivities)
-                        .accessibilityHidden(feedScope != .myActivities)
+                    // Keep a same-size trailing slot on Buddies so Me | Buddies stays centered
+                    // (Liquid Glass still draws at opacity 0, so unmount the real button).
+                    if LogbookMyActivitiesKindFilterPresentation.showsFilterButton(for: feedScope) {
+                        LogbookMyActivitiesKindFilterMenu(selection: $myActivitiesKindFilter)
+                    } else {
+                        Color.clear
+                            .frame(
+                                width: AppToolbarIconButtonMetrics.tapDimension,
+                                height: AppToolbarIconButtonMetrics.tapDimension
+                            )
+                            .accessibilityHidden(true)
+                    }
                 }
                 .padding(.trailing, AppTheme.Spacing.lg)
 

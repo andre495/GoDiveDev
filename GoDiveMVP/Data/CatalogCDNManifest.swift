@@ -8,6 +8,7 @@ nonisolated struct CatalogCDNManifest: Codable, Equatable, Sendable {
     var generatedAt: String?
     var marineLife: CatalogPayload?
     var diveSites: CatalogPayload?
+    var speciesSimilarity: CatalogPayload?
 
     nonisolated struct CatalogPayload: Codable, Equatable, Sendable {
         var format: String

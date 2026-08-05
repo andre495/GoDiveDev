@@ -37,8 +37,8 @@ from worms_image_utils import (
     find_worms_image,
 )
 
-DEFAULT_CACHE = PROJECT_DIR / "MockData/worms_image_cache.json"
-DEFAULT_JSON = PROJECT_DIR / "MockData/marine_life_sample.json"
+DEFAULT_CACHE = PROJECT_DIR / "CatalogAuthoring/worms_image_cache.json"
+DEFAULT_JSON = PROJECT_DIR / "Resources/Catalog/marine_life.json"
 SCRIPT_DIR = Path(__file__).resolve().parent
 DOWNLOAD_SCRIPT = SCRIPT_DIR / "download_marine_life_images.py"
 

@@ -201,6 +201,10 @@ enum FitSnorkelFileImport {
         }
 
         try modelContext.save()
+        await OntologySiteReportContributionSync.syncAfterSnorkelPersisted(
+            snorkel: activity,
+            modelContext: modelContext
+        )
 
         if attachMedia {
             await SnorkelLibraryMediaAutoAttachScheduler.attachAfterSnorkelPersisted(

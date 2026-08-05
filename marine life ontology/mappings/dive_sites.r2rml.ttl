@@ -1,0 +1,184 @@
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
+PREFIX mlo:  <https://example.org/marine-life/>
+
+#################################################################
+# R2RML: GoDive dive_sites catalog → Site characteristic graph
+#
+# Source tables (SQLite, loaded from
+#   catalog-cdn/public/catalog/v1/dive_sites.json):
+#   - dive_sites
+#   - dive_site_tags  (flattened topologies → mlo:siteTag)
+#   - countries
+#   - bodies_of_water
+# Run: python mappings/materialize_dive_sites.py
+#################################################################
+
+<#CountryMap>
+    a rr:TriplesMap ;
+    rr:logicalTable [ rr:tableName "countries" ] ;
+    rr:subjectMap [
+        rr:template "https://example.org/marine-life/country/{slug}" ;
+        rr:class mlo:Country ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:countryName ;
+        rr:objectMap [
+            rr:column "name" ;
+            rr:language "en" ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:countryCode ;
+        rr:objectMap [
+            rr:column "code" ;
+            rr:datatype xsd:string ;
+        ] ;
+    ] .
+
+<#BodyOfWaterMap>
+    a rr:TriplesMap ;
+    rr:logicalTable [ rr:tableName "bodies_of_water" ] ;
+    rr:subjectMap [
+        rr:template "https://example.org/marine-life/water/{slug}" ;
+        rr:class mlo:BodyOfWater ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:waterName ;
+        rr:objectMap [
+            rr:column "name" ;
+            rr:language "en" ;
+        ] ;
+    ] .
+
+<#DiveSiteMap>
+    a rr:TriplesMap ;
+    rr:logicalTable [ rr:tableName "dive_sites" ] ;
+    rr:subjectMap [
+        rr:template "https://example.org/marine-life/site/{id}" ;
+        rr:class mlo:Site ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:godiveUUID ;
+        rr:objectMap [
+            rr:column "id" ;
+            rr:datatype xsd:string ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:siteOwnership ;
+        rr:objectMap [
+            rr:constant <https://example.org/marine-life/siteOwnership/CatalogReference> ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:siteWaterType ;
+        rr:objectMap [
+            rr:column "water_type_iri" ;
+            rr:termType rr:IRI ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:inCountry ;
+        rr:objectMap [
+            rr:template "https://example.org/marine-life/country/{country_slug}" ;
+            rr:termType rr:IRI ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:locatedInWater ;
+        rr:objectMap [
+            rr:template "https://example.org/marine-life/water/{water_slug}" ;
+            rr:termType rr:IRI ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:siteName ;
+        rr:objectMap [
+            rr:column "name" ;
+            rr:language "en" ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:country ;
+        rr:objectMap [
+            rr:column "country" ;
+            rr:language "en" ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:bodyOfWater ;
+        rr:objectMap [
+            rr:column "sea_name" ;
+            rr:language "en" ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:latitude ;
+        rr:objectMap [
+            rr:column "latitude" ;
+            rr:datatype xsd:decimal ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:longitude ;
+        rr:objectMap [
+            rr:column "longitude" ;
+            rr:datatype xsd:decimal ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:siteMaxDepthM ;
+        rr:objectMap [
+            rr:column "max_depth_m" ;
+            rr:datatype xsd:decimal ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:entry ;
+        rr:objectMap [
+            rr:column "entry" ;
+            rr:language "en" ;
+        ] ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:environment ;
+        rr:objectMap [
+            rr:column "environment" ;
+            rr:language "en" ;
+        ] ;
+    ] .
+
+<#DiveSiteTagMap>
+    a rr:TriplesMap ;
+    rr:logicalTable [ rr:tableName "dive_site_tags" ] ;
+    rr:subjectMap [
+        rr:template "https://example.org/marine-life/site/{site_id}" ;
+        rr:class mlo:Site ;
+    ] ;
+
+    rr:predicateObjectMap [
+        rr:predicate mlo:siteTag ;
+        rr:objectMap [
+            rr:column "tag" ;
+            rr:language "en" ;
+        ] ;
+    ] .

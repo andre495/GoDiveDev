@@ -15,6 +15,11 @@ enum LogbookMyActivitiesKindFilterPresentation: Sendable {
     /// Circular Liquid Glass button next to Me/Buddies (separate from the scope toggle shell).
     nonisolated static let usesGlassButtonStyle = true
 
+    /// Kind filter applies to **Me** only — hide the control on **Buddies**.
+    nonisolated static func showsFilterButton(for feedScope: LogbookFeedScope) -> Bool {
+        feedScope == .myActivities
+    }
+
     nonisolated static func menuTitle(for filter: LogbookMyActivitiesKindFilter) -> String {
         switch filter {
         case .all:

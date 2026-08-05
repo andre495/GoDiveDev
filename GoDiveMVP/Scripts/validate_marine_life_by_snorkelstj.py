@@ -117,7 +117,7 @@ def main() -> int:
     config = load_config(args.config)
     cache_path = PROJECT_DIR / config["reference_cache_csv"]
     staging_path = PROJECT_DIR / config["output_staging_csv"]
-    json_path = PROJECT_DIR / config.get("output_json", "MockData/marine_life_sample.json")
+    json_path = PROJECT_DIR / config.get("output_json", "Resources/Catalog/marine_life.json")
     threshold = args.threshold if args.threshold is not None else float(config.get("fuzzy_match_threshold", 0.88))
 
     if args.refresh:
@@ -156,7 +156,7 @@ def main() -> int:
         for category, count in unmatched_by_category.most_common():
             print(f"  {category}: {count}")
 
-    report_path = PROJECT_DIR / "MockData/snorkelstj_validation_report.json"
+    report_path = PROJECT_DIR / "CatalogAuthoring/snorkelstj_validation_report.json"
     report = {
         "reference_species": len(reference_rows),
         "threshold": threshold,

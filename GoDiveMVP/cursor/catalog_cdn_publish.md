@@ -35,6 +35,7 @@ npx firebase-tools@latest deploy --only hosting:catalog,storage --project godive
 ```
 
 - Bump **`catalogVersion`** whenever JSON or asset pointers change.
+- Source inputs: **`GoDiveMVP/Resources/Catalog/marine_life.json`** and **`GoDiveMVP/Resources/Catalog/dive_sites.json`** (not MockData).
 - **`dive_sites.json`** must be OpenDiveMap reference shape (`id`, `name`, `country`, …) — not `DiveSiteDTO`.
 - Storage rules: public **read** only under `catalog/v1/**` (`storage.rules`).
 

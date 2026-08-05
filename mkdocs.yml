@@ -45,6 +45,7 @@ nav:
   - Import dives: import.md
   - Settings: settings.md
   - Privacy Policy: privacy-and-data.md
+  - Ontology: ontology/index.md
   - Acknowledgments: acknowledgments.md
 
 markdown_extensions:

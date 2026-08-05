@@ -25,6 +25,7 @@ struct DiveMarineLifeTagPickerSheet: View {
     @State private var displayedRows: [DiveMarineLifeTagPickerPresentation.RowDisplayData] = []
     @State private var persistedMarineLifeUUIDs: Set<String> = []
     @State private var pendingMarineLifeUUIDs: Set<String> = []
+    @State private var pendingUntagMarineLifeUUIDs: Set<String> = []
     @State private var tagErrorMessage: String?
     @State private var speciesSearchQuery = ""
     @FocusState private var isSpeciesSearchFocused: Bool
@@ -36,7 +37,9 @@ struct DiveMarineLifeTagPickerSheet: View {
     }
 
     private var effectiveTaggedUUIDs: Set<String> {
-        persistedMarineLifeUUIDs.union(pendingMarineLifeUUIDs)
+        persistedMarineLifeUUIDs
+            .subtracting(pendingUntagMarineLifeUUIDs)
+            .union(pendingMarineLifeUUIDs)
     }
 
     var body: some View {
@@ -138,7 +141,7 @@ struct DiveMarineLifeTagPickerSheet: View {
         List {
             ForEach(displayedRows) { row in
                 Button {
-                    stageTag(for: row)
+                    toggleTag(for: row)
                 } label: {
                     DiveMarineLifeTagSpeciesRow(
                         commonName: row.commonName,
@@ -151,7 +154,6 @@ struct DiveMarineLifeTagPickerSheet: View {
                     .equatable()
                 }
                 .buttonStyle(.plain)
-                .disabled(row.isTagged)
                 .listRowInsets(EdgeInsets(
                     top: AppTheme.Spacing.sm,
                     leading: AppTheme.Spacing.lg,
@@ -250,16 +252,31 @@ struct DiveMarineLifeTagPickerSheet: View {
         )) ?? []
         persistedMarineLifeUUIDs = Set(sightings.map(\.marineLifeUUID))
         pendingMarineLifeUUIDs.removeAll()
+        pendingUntagMarineLifeUUIDs.removeAll()
     }
 
-    private func stageTag(for row: DiveMarineLifeTagPickerPresentation.RowDisplayData) {
-        guard !effectiveTaggedUUIDs.contains(row.marineLifeUUID) else { return }
-        pendingMarineLifeUUIDs.insert(row.marineLifeUUID)
-        markRowTagged(marineLifeUUID: row.marineLifeUUID, isTagged: true)
+    private func toggleTag(for row: DiveMarineLifeTagPickerPresentation.RowDisplayData) {
+        let uuid = row.marineLifeUUID
+        if effectiveTaggedUUIDs.contains(uuid) {
+            if pendingMarineLifeUUIDs.contains(uuid) {
+                pendingMarineLifeUUIDs.remove(uuid)
+            } else {
+                pendingUntagMarineLifeUUIDs.insert(uuid)
+            }
+            markRowTagged(marineLifeUUID: uuid, isTagged: false)
+        } else {
+            if pendingUntagMarineLifeUUIDs.contains(uuid) {
+                pendingUntagMarineLifeUUIDs.remove(uuid)
+            } else {
+                pendingMarineLifeUUIDs.insert(uuid)
+            }
+            markRowTagged(marineLifeUUID: uuid, isTagged: true)
+        }
     }
 
     private func discardPendingTagsAndDismiss() {
         pendingMarineLifeUUIDs.removeAll()
+        pendingUntagMarineLifeUUIDs.removeAll()
         dismiss()
     }
 
@@ -286,7 +303,9 @@ struct DiveMarineLifeTagPickerSheet: View {
 
     @discardableResult
     private func commitPendingTags() -> Bool {
-        guard !pendingMarineLifeUUIDs.isEmpty else { return true }
+        guard !pendingMarineLifeUUIDs.isEmpty || !pendingUntagMarineLifeUUIDs.isEmpty else {
+            return true
+        }
 
         let speciesToPersist = pendingMarineLifeUUIDs.compactMap { catalogByUUID[$0] }
         guard speciesToPersist.count == pendingMarineLifeUUIDs.count else {
@@ -300,16 +319,29 @@ struct DiveMarineLifeTagPickerSheet: View {
         }
 
         do {
-            try MarineLifeSightingRecorder.tagPendingSpecies(
-                speciesToPersist,
-                on: media,
-                dive: dive,
-                captureContext: captureContext,
-                owner: owner,
-                modelContext: modelContext
-            )
+            if !speciesToPersist.isEmpty {
+                try MarineLifeSightingRecorder.tagPendingSpecies(
+                    speciesToPersist,
+                    on: media,
+                    dive: dive,
+                    captureContext: captureContext,
+                    owner: owner,
+                    modelContext: modelContext
+                )
+            }
+            for uuid in pendingUntagMarineLifeUUIDs {
+                try MarineLifeSightingRecorder.untagSpecies(
+                    marineLifeUUID: uuid,
+                    on: media,
+                    dive: dive,
+                    owner: owner,
+                    modelContext: modelContext
+                )
+            }
             persistedMarineLifeUUIDs.formUnion(pendingMarineLifeUUIDs)
+            persistedMarineLifeUUIDs.subtract(pendingUntagMarineLifeUUIDs)
             pendingMarineLifeUUIDs.removeAll()
+            pendingUntagMarineLifeUUIDs.removeAll()
             onTagged()
             return true
         } catch {

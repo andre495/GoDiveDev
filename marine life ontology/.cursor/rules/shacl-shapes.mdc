@@ -1,0 +1,15 @@
+---
+description: SHACL shapes graph conventions for validation
+globs: "shapes/**/*.ttl,**/*shape*.ttl,**/*shacl*.ttl"
+alwaysApply: false
+---
+
+# SHACL Shape Rules
+
+- Shapes graphs validate data graphs; keep them under `shapes/`.
+- Prefer `sh:NodeShape` + `sh:targetClass` over coupling class and shape, unless the user asks for `sh:ShapeClass`.
+- Every property shape needs `sh:path`. Set `sh:minCount` / `sh:maxCount`, and `sh:datatype` or `sh:class`, explicitly when the domain requires it.
+- Use SHACL Core first (`sh:datatype`, `sh:class`, `sh:in`, `sh:pattern`, `sh:node`, `sh:closed`). SPARQL constraints only when Core cannot express the rule.
+- Add `sh:message` for non-obvious constraints. Default severity is `sh:Violation`.
+- After R2RML changes, re-check that generated triples still satisfy these shapes.
+- Do not weaken shapes to hide bad source data without calling that out to the user.

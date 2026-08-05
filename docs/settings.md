@@ -65,7 +65,7 @@ When **off**, imports skip library scan unless you enable attach on the import o
 
 ## Activity Sharing
 
-These apply when you use **Profile → Buddies** (QR / invite link):
+Buddy options apply when you use **Profile → Buddies** (QR / invite link). Community contribution is separate and optional.
 
 ### Share activities with buddies
 
@@ -86,6 +86,10 @@ Buddy media **downloads** always use Wi‑Fi or cellular (there is no download W
 ### Upload media on wifi only
 
 When **on**, full-quality shared photos and videos **upload** only on Wi‑Fi. Thumbnails may still upload on cellular so buddies see activity media quickly.
+
+### Contribute sightings to community
+
+When **on**, GoDive may share **anonymized** marine-life sightings and per-activity site reports (species, dive-site id, depth, time of day, date, and conditions — **not** your name, photos, notes, or exact GPS) so the community similarity graph can improve Field Guide **Similar species**. **Off** by default. Requires a GoDive social sign-in. Turning it **on** can backfill your existing activities; turning it **off** removes your contributions from the community mirror.
 
 ## Notifications
 

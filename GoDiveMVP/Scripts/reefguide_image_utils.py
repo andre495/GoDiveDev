@@ -24,7 +24,7 @@ REEFGUIDE_ATTRIBUTION = "Photo © Florent Charpin, reefguide.org"
 CACHE_VERSION = "2-carib"
 
 DEFAULT_CARIBBEAN_REGIONS = ("carib", "keys")
-DEFAULT_CATALOG_CACHE = PROJECT_DIR / "MockData/reefguide_caribbean_catalog.json"
+DEFAULT_CATALOG_CACHE = PROJECT_DIR / "CatalogAuthoring/reefguide_caribbean_catalog.json"
 
 TOC_SCI_LINK_RE = re.compile(
     r'<a class="tocnamesci" href="([^"]+\.html)">((?:&nbsp;)*)([^<]+)</a>',

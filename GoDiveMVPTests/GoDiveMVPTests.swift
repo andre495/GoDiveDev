@@ -7303,18 +7303,27 @@ struct GoDiveMVPTests {
     }
 
     @Test @MainActor func fieldGuideSpeciesDetailContentPager_pages() {
-        #expect(FieldGuideSpeciesDetailContentPagerPresentation.pageCount == 4)
+        #expect(FieldGuideSpeciesDetailContentPagerPresentation.pageCount == 5)
         #expect(
             FieldGuideSpeciesDetailContentPagerPresentation.pages == [
                 .about,
                 .stats,
+                .similarSpecies,
                 .taggedDives,
                 .taggedMedia,
             ]
         )
         #expect(FieldGuideSpeciesDetailContentPagerPresentation.defaultPage == .about)
         #expect(
+            FieldGuideSpeciesDetailContentPagerPresentation.pageTitle(for: .similarSpecies)
+                == "Similar species"
+        )
+        #expect(
             FieldGuideSpeciesDetailContentPagerPresentation.pageTitle(for: .taggedDives) == "Tagged dives"
+        )
+        #expect(
+            FieldGuideSpeciesDetailContentPagerPresentation.accessibilityIdentifier(for: .similarSpecies)
+                == "FieldGuide.SpeciesDetail.ContentPager.SimilarSpecies"
         )
         #expect(
             FieldGuideSpeciesDetailContentPagerPresentation.accessibilityIdentifier(for: .taggedMedia)
@@ -7324,6 +7333,10 @@ struct GoDiveMVPTests {
         #expect(
             FieldGuideSpeciesDetailContentPagerPresentation.emptyStateMessage(for: .taggedDives)
                 == "No dives tagged with this species yet."
+        )
+        #expect(
+            FieldGuideSpeciesDetailContentPagerPresentation.emptyStateMessage(for: .similarSpecies)
+                == "No similar species found in the catalog yet."
         )
     }
 
@@ -7717,6 +7730,14 @@ struct GoDiveMVPTests {
         })
     }
 
+    @Test func marineLifeCatalogSeeder_usesBundledMarineLifeResourceName() {
+        #expect(MarineLifeCatalogSeeder.bundledResourceName == "marine_life")
+    }
+
+    @Test func diveSiteReferenceCatalog_usesBundledDiveSitesResourceName() {
+        #expect(DiveSiteReferenceCatalog.bundledResourceName == "dive_sites")
+    }
+
     @Test @MainActor func marineLifeCatalogSeeder_seedsFrenchAngelfishModel() throws {
         let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
         let context = container.mainContext
@@ -7838,7 +7859,7 @@ struct GoDiveMVPTests {
         let species = try context.fetch(FetchDescriptor<MarineLife>()).first {
             $0.uuid == "marine-life-rock-beauty"
         }
-        #expect(species?.commonName == "Rock Beauty (juvenile)")
+        #expect(species?.commonName == "Rock Beauty")
         #expect(species?.scientificName == "Holacanthus tricolor")
         #expect(species?.featureModelResourceName == "RockBeauty")
     }
@@ -7905,7 +7926,7 @@ struct GoDiveMVPTests {
             ("marine-life-barred-hamlet", "Barred Hamlet", "Hypoplectrus puella", "BarredHamlet"),
             ("marine-life-black-hamlet", "Black Hamlet", "Hypoplectrus nigricans", "BlackHamlet"),
             ("marine-life-butter-hamlet", "Butter Hamlet", "Hypoplectrus unicolor", "ButterHamlet"),
-            ("marine-life-gray-angelfish", "Gray Angelfish (juvenile)", "Pomacanthus arcuatus", "GrayAngelfish"),
+            ("marine-life-gray-angelfish", "Gray Angelfish", "Pomacanthus arcuatus", "GrayAngelfish"),
             ("marine-life-indigo-hamlet", "Indigo Hamlet", "Hypoplectrus indigo", "IndigoHamlet"),
             ("marine-life-longspine-squirrelfish", "Longspine Squirrelfish", "Holocentrus rufus", "LongspineSquirrelfish"),
             ("marine-life-spot-fin-porcupinefish", "Porcupinefish", "Diodon hystrix", "PorcupineFish"),
@@ -8211,6 +8232,8 @@ struct GoDiveMVPTests {
     @Test func catalogCDNPathValidation_allowsCatalogV1Only() {
         #expect(CatalogCDNPathValidation.isAllowedRelativePath("catalog/v1/manifest.json"))
         #expect(CatalogCDNPathValidation.isAllowedRelativePath("/catalog/v1/marine-life.json"))
+        #expect(CatalogCDNPathValidation.isAllowedRelativePath("catalog/v1/species_similarity.json"))
+        #expect(CatalogCDNPathValidation.isAllowedRelativePath("catalog/v1/species_similarity.meta.json"))
         #expect(!CatalogCDNPathValidation.isAllowedRelativePath("../catalog/v1/x.json"))
         #expect(!CatalogCDNPathValidation.isAllowedRelativePath("catalog/v2/x.json"))
         #expect(!CatalogCDNPathValidation.isAllowedRelativePath("https://evil.example/catalog/v1/x.json"))
@@ -8572,6 +8595,531 @@ struct GoDiveMVPTests {
         #expect(queen?.maxDepthMeters == 70)
     }
 
+    @Test @MainActor func marineLifeBiologySimilarity_frenchAngelfishGoldenTopMatches() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        try MarineLifeCatalogSeeder.seedBundledCatalogIfNeeded(context: context)
+        let catalog = try context.fetch(FetchDescriptor<MarineLife>()).map(\.fieldGuideCatalogSnapshot)
+        let seed = catalog.first { $0.uuid == "marine-life-french-angelfish" }
+        #expect(seed != nil)
+        guard let seed else { return }
+
+        let ranked = MarineLifeBiologySimilarity.rank(
+            seed: seed,
+            catalog: catalog,
+            limit: MarineLifeBiologySimilarity.defaultLimit
+        )
+        #expect(ranked.count == 6)
+        #expect(ranked.map(\.uuid) == [
+            "marine-life-angelfish",
+            "marine-life-queen-angelfish",
+            "marine-life-rock-beauty",
+            "marine-life-cherubfish",
+            "marine-life-flameback-angelfish",
+            "marine-life-gray-angelfish",
+        ])
+        #expect(ranked[0].score == 16.5)
+        #expect(ranked[1].score == 16.5)
+        #expect(ranked[2].score == 16.5)
+        #expect(ranked[3].score == 14.5)
+        #expect(ranked[4].score == 14.5)
+        #expect(ranked[5].score == 14.5)
+        #expect(ranked.allSatisfy { $0.uuid != seed.uuid })
+    }
+
+    @Test func sightingGraphExport_anonymizedFieldsDateTruncationAndMissingSite() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let midday = calendar.date(from: DateComponents(year: 2026, month: 8, day: 5, hour: 14))!
+        let night = calendar.date(from: DateComponents(year: 2026, month: 8, day: 5, hour: 2))!
+
+        #expect(SightingGraphExport.sightingDateString(from: midday) == "2026-08-05")
+        #expect(SightingGraphExport.timeOfDay(from: midday) == "day")
+        #expect(SightingGraphExport.timeOfDay(from: night) == "night")
+
+        // UTC 02:00 with UTC-4 offset → local 22:00 previous evening → night + local date 2026-08-04.
+        let utcEarly = calendar.date(from: DateComponents(year: 2026, month: 8, day: 5, hour: 2))!
+        #expect(
+            SightingGraphExport.timeOfDay(from: utcEarly, timeZoneOffsetSeconds: -4 * 3600) == "night"
+        )
+        #expect(
+            SightingGraphExport.sightingDateString(from: utcEarly, timeZoneOffsetSeconds: -4 * 3600)
+                == "2026-08-04"
+        )
+        // UTC 22:00 with UTC-4 → local 18:00 → crepuscular.
+        let utcLate = calendar.date(from: DateComponents(year: 2026, month: 8, day: 5, hour: 22))!
+        #expect(
+            SightingGraphExport.timeOfDay(from: utcLate, timeZoneOffsetSeconds: -4 * 3600)
+                == "crepuscular"
+        )
+
+        let diveID = UUID()
+        let payload = SightingGraphExport.payload(
+            sightingUUID: "local-sighting-1",
+            contributionId: "contrib-opaque-1",
+            marineLifeUUID: "marine-life-french-angelfish",
+            sightingDateTime: midday,
+            diveActivityID: diveID,
+            snorkelActivityID: nil,
+            diveSiteID: nil,
+            sightingDepthMeters: 12.5,
+            catalogSites: [],
+            siteReportId: "site-report-opaque-1"
+        )
+        #expect(payload != nil)
+        guard let payload else { return }
+        #expect(payload.marineLifeUUID == "marine-life-french-angelfish")
+        #expect(payload.contributionId == "contrib-opaque-1")
+        #expect(payload.siteReportId == "site-report-opaque-1")
+        #expect(payload.activityKind == "dive")
+        #expect(payload.sightingDate == "2026-08-05")
+        #expect(payload.timeOfDay == "day")
+        #expect(payload.sightingDepthM == 12.5)
+        #expect(payload.odmSiteId == nil)
+        #expect(payload.diveSiteCatalogUUID == nil)
+        #expect(payload.status == "active")
+        #expect(payload.schemaVersion == SightingGraphExport.schemaVersion)
+        #expect(SightingGraphExport.schemaVersion == 3)
+
+        let fields = SightingGraphExport.firestoreFields(from: payload)
+        #expect(fields["marineLifeUUID"] as? String == "marine-life-french-angelfish")
+        #expect(fields["contributionId"] as? String == "contrib-opaque-1")
+        #expect(fields["siteReportId"] as? String == "site-report-opaque-1")
+        #expect(fields["lat"] == nil)
+        #expect(fields["lon"] == nil)
+        #expect(fields["latitude"] == nil)
+        #expect(fields["longitude"] == nil)
+        #expect(fields["profileID"] == nil)
+        #expect(fields["uid"] == nil)
+        #expect(fields["sightingUUID"] == nil)
+        #expect(fields["siteName"] == nil)
+
+        let siteID = UUID()
+        let site = DiveSite(
+            id: siteID,
+            siteName: "Salt Pier",
+            country: "Bonaire",
+            region: "Kralendijk",
+            bodyOfWater: "Caribbean Sea",
+            siteTags: [DiveSiteCatalogMatcher.openDiveMapSiteTag(referenceID: "s4g6dz")]
+        )
+        let withSite = SightingGraphExport.payload(
+            sightingUUID: "local-sighting-2",
+            contributionId: "contrib-opaque-2",
+            marineLifeUUID: "marine-life-french-angelfish",
+            sightingDateTime: midday,
+            diveActivityID: diveID,
+            snorkelActivityID: nil,
+            diveSiteID: siteID,
+            sightingDepthMeters: nil,
+            catalogSites: [site]
+        )
+        #expect(withSite?.odmSiteId == "s4g6dz")
+        #expect(withSite?.diveSiteCatalogUUID == siteID.uuidString.lowercased())
+        #expect(withSite?.waterBody == "Caribbean Sea")
+        #expect(withSite?.country == "Bonaire")
+        #expect(withSite?.region == "Kralendijk")
+        #expect(withSite?.sightingDepthM == nil)
+        #expect(SightingGraphExport.firestoreFields(from: withSite!).keys.contains("country"))
+
+        // Activity site fallback when sighting.diveSiteID is nil.
+        let fromActivitySite = SightingGraphExport.payload(
+            sightingUUID: "local-sighting-3",
+            contributionId: "contrib-opaque-3",
+            marineLifeUUID: "marine-life-french-angelfish",
+            sightingDateTime: utcLate,
+            diveActivityID: diveID,
+            snorkelActivityID: nil,
+            diveSiteID: nil,
+            sightingDepthMeters: 10,
+            catalogSites: [site],
+            activity: .init(diveSiteID: siteID, timeZoneOffsetSeconds: -4 * 3600)
+        )
+        #expect(fromActivitySite?.odmSiteId == "s4g6dz")
+        #expect(fromActivitySite?.country == "Bonaire")
+        #expect(fromActivitySite?.timeOfDay == "crepuscular")
+        #expect(fromActivitySite?.sightingDate == "2026-08-05")
+
+        let userSiteID = UUID()
+        let catalogRef = UUID()
+        let userSite = UserDiveSite(
+            id: userSiteID,
+            siteName: "Custom Reef",
+            country: "Curaçao",
+            region: "Westpunt",
+            bodyOfWater: "Caribbean Sea",
+            catalogDiveSiteID: catalogRef,
+            openDiveMapReferenceID: "odm-custom-1"
+        )
+        let fromUserSite = SightingGraphExport.payload(
+            sightingUUID: "local-sighting-4",
+            contributionId: "contrib-opaque-4",
+            marineLifeUUID: "marine-life-french-angelfish",
+            sightingDateTime: midday,
+            diveActivityID: diveID,
+            snorkelActivityID: nil,
+            diveSiteID: nil,
+            sightingDepthMeters: 8,
+            catalogSites: [],
+            userSites: [userSite],
+            activity: .init(diveSiteID: userSiteID, timeZoneOffsetSeconds: -4 * 3600)
+        )
+        #expect(fromUserSite?.odmSiteId == "odm-custom-1")
+        #expect(fromUserSite?.diveSiteCatalogUUID == catalogRef.uuidString.lowercased())
+        #expect(fromUserSite?.country == "Curaçao")
+
+        #expect(
+            SightingGraphExport.payload(
+                sightingUUID: "x",
+                contributionId: "y",
+                marineLifeUUID: "marine-life-x",
+                sightingDateTime: midday,
+                diveActivityID: nil,
+                snorkelActivityID: nil,
+                diveSiteID: nil,
+                sightingDepthMeters: 1,
+                catalogSites: []
+            ) == nil
+        )
+    }
+
+    @Test func ontologySightingContributionSync_gateRespectsOptOutAndStableContributionId() throws {
+        let suiteName = "GoDiveOntologySyncGate-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        #expect(!AppUserSettings.contributeCommunitySightings(userDefaults: defaults))
+        #expect(!OntologySightingContributionSync.shouldContribute(userDefaults: defaults))
+
+        defaults.set(true, forKey: AppUserSettings.contributeCommunitySightingsKey)
+        // Opt-in alone is insufficient without Firebase Auth — soft-fail closed.
+        #expect(!OntologySightingContributionSync.shouldContribute(userDefaults: defaults))
+
+        let first = OntologySightingContributionSync.contributionId(
+            forSightingUUID: "sighting-a",
+            userDefaults: defaults
+        )
+        let second = OntologySightingContributionSync.contributionId(
+            forSightingUUID: "sighting-a",
+            userDefaults: defaults
+        )
+        let other = OntologySightingContributionSync.contributionId(
+            forSightingUUID: "sighting-b",
+            userDefaults: defaults
+        )
+        #expect(first == second)
+        #expect(first != other)
+        #expect(!first.isEmpty)
+    }
+
+    @Test func ontologySightingContributionSync_chunkedBatches_respectsFirestoreLimit() {
+        #expect(OntologySightingContributionSync.firestoreBatchMaxOps == 400)
+        #expect(OntologySightingContributionSync.chunkedBatches([Int]()).isEmpty)
+        #expect(OntologySightingContributionSync.chunkedBatches([1, 2, 3], size: 2) == [[1, 2], [3]])
+        let items = Array(0 ..< 801)
+        let chunks = OntologySightingContributionSync.chunkedBatches(items)
+        #expect(chunks.count == 3)
+        #expect(chunks[0].count == 400)
+        #expect(chunks[1].count == 400)
+        #expect(chunks[2].count == 1)
+        #expect(chunks.flatMap { $0 } == items)
+    }
+
+    @Test func siteReportGraphExport_oneToOneWithActivityAndConditions() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let start = calendar.date(from: DateComponents(year: 2026, month: 3, day: 15, hour: 9, minute: 40))!
+
+        let siteID = UUID()
+        let site = DiveSite(
+            id: siteID,
+            siteName: "SS Yongala",
+            country: "Australia",
+            region: "Queensland",
+            bodyOfWater: "Coral Sea",
+            siteTags: [DiveSiteCatalogMatcher.openDiveMapSiteTag(referenceID: "yongala")]
+        )
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: start,
+            timeZoneOffsetSeconds: 10 * 3600,
+            durationMinutes: 42,
+            maxDepthMeters: 28,
+            waterTempAvgCelsius: 27.5,
+            diveCurrentStrength: .low,
+            diveVisibility: .great,
+            diveWaterType: .saltwater
+        )
+        dive.diveSiteID = siteID
+
+        let reportId = "site-report-opaque-yongala"
+        let payload = SiteReportGraphExport.payload(
+            from: dive,
+            contributionId: reportId,
+            catalogSites: [site]
+        )
+        #expect(payload != nil)
+        guard let payload else { return }
+        #expect(payload.contributionId == reportId)
+        #expect(payload.activityKind == "dive")
+        #expect(payload.reportedMaxDepthM == 28)
+        #expect(payload.reportedCurrent == "low")
+        #expect(payload.reportedVisibility == "great")
+        #expect(payload.reportedWaterTempC == 27.5)
+        #expect(payload.reportedWaterType == "saltwater")
+        #expect(payload.country == "Australia")
+        #expect(payload.waterBody == "Coral Sea")
+        #expect(payload.odmSiteId == "yongala")
+        #expect(payload.schemaVersion == SiteReportGraphExport.schemaVersion)
+
+        let fields = SiteReportGraphExport.firestoreFields(from: payload)
+        #expect(fields["kind"] as? String == "siteReport")
+        #expect(fields["reportedMaxDepthM"] as? Double == 28)
+        #expect(fields["siteName"] == nil)
+        #expect(fields["uid"] == nil)
+
+        let suiteName = "GoDiveSiteReportIds-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let activityUUID = dive.id
+        let first = OntologySiteReportContributionSync.contributionId(
+            forActivityUUID: activityUUID,
+            userDefaults: defaults
+        )
+        let second = OntologySiteReportContributionSync.contributionId(
+            forActivityUUID: activityUUID,
+            userDefaults: defaults
+        )
+        #expect(first == second)
+        #expect(first != reportId)
+
+        // Sighting payload links to the same opaque SiteReport id.
+        let sightingPayload = SightingGraphExport.payload(
+            sightingUUID: "s-1",
+            contributionId: "sight-contrib",
+            marineLifeUUID: "marine-life-tiger-shark",
+            sightingDateTime: start,
+            diveActivityID: activityUUID,
+            snorkelActivityID: nil,
+            diveSiteID: siteID,
+            sightingDepthMeters: 24,
+            catalogSites: [site],
+            siteReportId: first
+        )
+        #expect(sightingPayload?.siteReportId == first)
+    }
+
+    @Test @MainActor func ontologySightingContributionSync_ownedStagingWrites_filtersByOwner() throws {
+        let suiteName = "GoDiveOntologyOwnedWrites-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let owner = UserProfile(appleUserIdentifier: "owner-ontology-batch", displayName: "Pat")
+        let other = UserProfile(appleUserIdentifier: "other-ontology-batch", displayName: "Other")
+        let ownedDive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 2_300_000),
+            durationMinutes: 40,
+            maxDepthMeters: 12
+        )
+        ownedDive.owner = owner
+        ownedDive.ownerProfileID = owner.id
+        let otherDive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 2_300_100),
+            durationMinutes: 30,
+            maxDepthMeters: 10
+        )
+        otherDive.owner = other
+        otherDive.ownerProfileID = other.id
+        context.insert(owner)
+        context.insert(other)
+        context.insert(ownedDive)
+        context.insert(otherDive)
+
+        let ownedSighting = SightingInstance(
+            sightingUUID: "owned-sighting-1",
+            marineLifeUUID: "marine-life-french-angelfish",
+            sightingDateTime: ownedDive.startTime,
+            diveActivity: ownedDive,
+            sightingDepthMeters: 8
+        )
+        let otherSighting = SightingInstance(
+            sightingUUID: "other-sighting-1",
+            marineLifeUUID: "marine-life-queen-angelfish",
+            sightingDateTime: otherDive.startTime,
+            diveActivity: otherDive,
+            sightingDepthMeters: 6
+        )
+        context.insert(ownedSighting)
+        context.insert(otherSighting)
+        try context.save()
+
+        let writes = OntologySightingContributionSync.ownedStagingWrites(
+            ownerProfileID: owner.id,
+            modelContext: context,
+            userDefaults: defaults
+        )
+        #expect(writes.count == 1)
+        #expect(writes[0].documentID == "owned-sighting-1")
+        #expect(writes[0].payload.marineLifeUUID == "marine-life-french-angelfish")
+        #expect(writes[0].payload.status == "active")
+        #expect(writes[0].payload.activityKind == "dive")
+    }
+
+    @Test func marineLifeBiologySimilarity_mergePrefersSightingBoostForFrenchAngelfishFixture() {
+        let biology: [MarineLifeBiologySimilarity.RankedMatch] = [
+            .init(uuid: "marine-life-angelfish", score: 16.5, evidence: []),
+            .init(uuid: "marine-life-queen-angelfish", score: 16.5, evidence: []),
+            .init(uuid: "marine-life-rock-beauty", score: 16.5, evidence: []),
+            .init(uuid: "marine-life-cherubfish", score: 14.5, evidence: []),
+            .init(uuid: "marine-life-flameback-angelfish", score: 14.5, evidence: []),
+            .init(uuid: "marine-life-gray-angelfish", score: 14.5, evidence: []),
+        ]
+        let sightingScores: [String: Double] = [
+            "marine-life-gray-angelfish": 5.0,
+            "marine-life-community-only": 3.0,
+        ]
+        let merged = MarineLifeBiologySimilarity.merge(
+            biology: biology,
+            sightingScoresByUUID: sightingScores,
+            limit: 8
+        )
+        #expect(merged.first?.uuid == "marine-life-gray-angelfish")
+        #expect(merged.first?.totalScore == 19.5)
+        #expect(merged.first?.biologyScore == 14.5)
+        #expect(merged.first?.sightingScore == 5.0)
+        #expect(merged.contains { $0.uuid == "marine-life-community-only" && $0.totalScore == 3.0 })
+        #expect(merged.count == 7)
+
+        let cache = SpeciesSimilarityCacheDocument(
+            schemaVersion: 1,
+            updatedAt: "2026-08-05T00:00:00Z",
+            bySpecies: [
+                "marine-life-french-angelfish": [
+                    .init(uuid: "marine-life-gray-angelfish", sightingScore: 5.0, evidence: nil),
+                    .init(uuid: "marine-life-community-only", sightingScore: 3.0, evidence: nil),
+                ],
+            ]
+        )
+        let fromCache = SpeciesSimilarityCDNCache.sightingScores(
+            forSeedUUID: "marine-life-french-angelfish",
+            document: cache
+        )
+        #expect(fromCache["marine-life-gray-angelfish"] == 5.0)
+        #expect(
+            SpeciesSimilarityCDNCache.sightingScores(
+                forSeedUUID: "missing",
+                document: cache
+            ).isEmpty
+        )
+    }
+
+    @Test @MainActor func marineLifeSightingRecorder_untagSpeciesOnDive_removesLocalSighting() throws {
+        let container = try AppSwiftDataSchema.makeContainer(isStoredInMemoryOnly: true)
+        let context = container.mainContext
+        let owner = UserProfile(appleUserIdentifier: "owner-untag", displayName: "Pat")
+        let dive = DiveActivity(
+            source: .manual,
+            startTime: Date(timeIntervalSince1970: 2_200_000),
+            durationMinutes: 40,
+            maxDepthMeters: 16
+        )
+        dive.owner = owner
+        let species = MarineLife(uuid: "marine-life-test-untag", commonName: "Untag Fish")
+        context.insert(owner)
+        context.insert(dive)
+        context.insert(species)
+        try context.save()
+
+        _ = try MarineLifeSightingRecorder.tagSpeciesOnDive(
+            species,
+            dive: dive,
+            owner: owner,
+            modelContext: context
+        )
+        #expect(
+            try MarineLifeSightingRecorder.sightings(
+                forDiveActivityID: dive.id,
+                modelContext: context
+            ).count == 1
+        )
+
+        try MarineLifeSightingRecorder.untagSpeciesOnDive(
+            marineLifeUUID: species.uuid,
+            dive: dive,
+            owner: owner,
+            modelContext: context
+        )
+        #expect(
+            try MarineLifeSightingRecorder.sightings(
+                forDiveActivityID: dive.id,
+                modelContext: context
+            ).isEmpty
+        )
+    }
+
+    @Test func marineLifeBiologySimilarity_excludesSeedAndRespectsLimit() {
+        let seed = MarineLifeCatalogSnapshot(
+            uuid: "marine-life-seed",
+            commonName: "Seed Fish",
+            scientificName: "",
+            category: "fishes",
+            subcategory: "angelfishes",
+            featureImageURL: "",
+            minSizeMeters: 0,
+            maxSizeMeters: 0.4,
+            avgDepthMeters: 0,
+            familyName: "Pomacanthidae",
+            aboutText: "Yellow and gray fish",
+            minDepthMeters: 3,
+            maxDepthMeters: 100,
+            distinctiveFeatures: "Body shape: short and / or deep"
+        )
+        let twin = MarineLifeCatalogSnapshot(
+            uuid: "marine-life-twin",
+            commonName: "Twin Fish",
+            scientificName: "",
+            category: "fishes",
+            subcategory: "angelfishes",
+            featureImageURL: "",
+            minSizeMeters: 0,
+            maxSizeMeters: 0.4,
+            avgDepthMeters: 0,
+            familyName: "Pomacanthidae",
+            aboutText: "Yellow reef fish",
+            minDepthMeters: 3,
+            maxDepthMeters: 80,
+            distinctiveFeatures: "Body shape: short and / or deep"
+        )
+        let other = MarineLifeCatalogSnapshot(
+            uuid: "marine-life-other",
+            commonName: "Other Fish",
+            scientificName: "",
+            category: "fishes",
+            subcategory: "angelfishes",
+            featureImageURL: "",
+            minSizeMeters: 0,
+            maxSizeMeters: 0.4,
+            avgDepthMeters: 0,
+            familyName: "Pomacanthidae",
+            aboutText: "Yellow reef fish",
+            minDepthMeters: 3,
+            maxDepthMeters: 80,
+            distinctiveFeatures: "Body shape: short and / or deep"
+        )
+        let ranked = MarineLifeBiologySimilarity.rank(
+            seed: seed,
+            catalog: [seed, twin, other],
+            limit: 1
+        )
+        #expect(ranked.count == 1)
+        #expect(ranked[0].uuid == "marine-life-other" || ranked[0].uuid == "marine-life-twin")
+        #expect(!ranked.contains(where: { $0.uuid == seed.uuid }))
+    }
+
     @Test func marineLifeCommonNameFormatting_titleCasesEachWord() {
         #expect(MarineLifeCommonNameFormatting.normalized("French angelfish") == "French Angelfish")
         #expect(MarineLifeCommonNameFormatting.normalized("  GREEN SEA TURTLE  ") == "Green Sea Turtle")
@@ -8581,6 +9129,16 @@ struct GoDiveMVPTests {
     @Test func marineLifeCommonNameFormatting_handlesHyphensAndApostrophes() {
         #expect(MarineLifeCommonNameFormatting.normalized("king angelfish") == "King Angelfish")
         #expect(MarineLifeCommonNameFormatting.normalized("two-spot demoiselle") == "Two-Spot Demoiselle")
+    }
+
+    @Test func marineLifeCommonNameFormatting_stripsJuvenileSuffix() {
+        #expect(MarineLifeCommonNameFormatting.normalized("Rock Beauty (juvenile)") == "Rock Beauty")
+        #expect(MarineLifeCommonNameFormatting.normalized("Blue angelfish (Juvenile)") == "Blue Angelfish")
+        #expect(MarineLifeCommonNameFormatting.normalized("Gray Angelfish ( juvenile )") == "Gray Angelfish")
+        #expect(
+            MarineLifeCommonNameFormatting.stripJuvenileSuffix("rock beauty (juvenile)")
+                == "rock beauty"
+        )
     }
 
     @Test @MainActor func marineLife_initNormalizesCommonName() throws {
@@ -25346,6 +25904,90 @@ struct GoDiveMVPTests {
         #expect(base != scrolled)
     }
 
+    @Test func rootTabBarMinimizeScrollPresentation_associatesOnlySelectedFeedScope() {
+        #expect(
+            RootTabBarMinimizeScrollPresentation.shouldAssociate(
+                pageScope: .myActivities,
+                selectedScope: .myActivities
+            )
+        )
+        #expect(
+            !RootTabBarMinimizeScrollPresentation.shouldAssociate(
+                pageScope: .buddyFeed,
+                selectedScope: .myActivities
+            )
+        )
+        #expect(
+            RootTabBarMinimizeScrollPresentation.shouldAssociate(
+                pageScope: .buddyFeed,
+                selectedScope: .buddyFeed
+            )
+        )
+        #expect(
+            RootTabBarMinimizeScrollPresentation.disablesContentInsetAdjustmentForScrollUnderTabBar
+        )
+    }
+
+    @Test func rootTabBarMinimizeScrollPresentation_skipsHorizontalPagingScrollers() {
+        #expect(
+            RootTabBarMinimizeScrollPresentation.isEligibleVerticalContentScrollView(
+                isTableView: true,
+                isPagingEnabled: true,
+                contentWidth: 300,
+                boundsWidth: 100,
+                contentHeight: 100,
+                boundsHeight: 100
+            )
+        )
+        #expect(
+            !RootTabBarMinimizeScrollPresentation.isEligibleVerticalContentScrollView(
+                isTableView: false,
+                isPagingEnabled: true,
+                contentWidth: 300,
+                boundsWidth: 100,
+                contentHeight: 100,
+                boundsHeight: 100
+            )
+        )
+        #expect(
+            RootTabBarMinimizeScrollPresentation.isEligibleVerticalContentScrollView(
+                isTableView: false,
+                isPagingEnabled: false,
+                contentWidth: 100,
+                boundsWidth: 100,
+                contentHeight: 400,
+                boundsHeight: 100
+            )
+        )
+        #expect(
+            !RootTabBarMinimizeScrollPresentation.isEligibleVerticalContentScrollView(
+                isTableView: false,
+                isPagingEnabled: false,
+                contentWidth: 400,
+                boundsWidth: 100,
+                contentHeight: 100,
+                boundsHeight: 100
+            )
+        )
+    }
+
+#if os(iOS)
+    @MainActor
+    @Test func rootTabBarMinimizeScrollAssociator_prefersNestedTableOverHorizontalPager() {
+        let horizontal = UIScrollView(frame: CGRect(x: 0, y: 0, width: 100, height: 200))
+        horizontal.isPagingEnabled = true
+        horizontal.contentSize = CGSize(width: 300, height: 200)
+
+        let table = UITableView(frame: CGRect(x: 0, y: 0, width: 100, height: 200))
+        let probe = UIView(frame: .zero)
+        table.addSubview(probe)
+        horizontal.addSubview(table)
+
+        let found = RootTabBarMinimizeScrollAssociator.findVerticalContentScrollView(startingFrom: probe)
+        #expect(found === table)
+    }
+#endif
+
     @Test func collapsibleInlineTitleHeaderPresentation_scrollOffsetCollapseLogic() {
         #expect(CollapsibleInlineTitleHeaderPresentation.collapseScrollOffsetThreshold == 8)
         #expect(!CollapsibleInlineTitleHeaderPresentation.isCollapsed(forScrollOffset: 0))
@@ -25397,6 +26039,12 @@ struct GoDiveMVPTests {
                 + (LogbookFeedScopeTogglePresentation.shellPadding * 2)
         )
         #expect(LogbookMyActivitiesKindFilterPresentation.usesGlassButtonStyle)
+        #expect(
+            LogbookMyActivitiesKindFilterPresentation.showsFilterButton(for: .myActivities)
+        )
+        #expect(
+            !LogbookMyActivitiesKindFilterPresentation.showsFilterButton(for: .buddyFeed)
+        )
         #expect(LogbookFeedScope.myActivities.systemImage == "book.closed.fill")
         #expect(LogbookFeedScope.buddyFeed.systemImage == "person.2.fill")
         #expect(LogbookFeedScopePagerPresentation.pages == [.myActivities, .buddyFeed])
@@ -29972,6 +30620,8 @@ struct GoDiveMVPTests {
         #expect(defaults.bool(forKey: AppUserSettings.notifyBuddyActivitySharesKey))
         #expect(defaults.bool(forKey: AppUserSettings.notifyGearServiceRemindersKey))
         #expect(defaults.bool(forKey: AppUserSettings.notifyTripRemindersKey))
+        #expect(!defaults.bool(forKey: AppUserSettings.contributeCommunitySightingsKey))
+        #expect(!AppUserSettings.contributeCommunitySightings(userDefaults: defaults))
     }
 
     @Test func appUserSettings_notificationToggles_defaultOnUntilExplicitlyOff() throws {
@@ -30661,6 +31311,11 @@ struct CrashReportingTests {
         #expect(AppSwiftDataStorePartition.userModelTypeNames.contains("UserPreferences"))
         #expect(AppSwiftDataStorePartition.userModelTypeNames.contains("SecurityEventRecord"))
         #expect(AppSwiftDataStorePartition.syncedPreferenceKeys.contains(AppUserSettings.useImperialDisplayUnitsKey))
+        #expect(
+            AppSwiftDataStorePartition.syncedPreferenceKeys.contains(
+                AppUserSettings.contributeCommunitySightingsKey
+            )
+        )
         #expect(AppSwiftDataStorePartition.localOnlyPreferenceKeys.contains(AppUserSettings.shareCrashReportsKey))
         #expect(AppSwiftDataStorePartition.localOnlyPreferenceKeys.contains(AppUserSettings.shareSecurityEventsKey))
         #expect(

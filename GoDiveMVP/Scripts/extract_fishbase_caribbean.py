@@ -2,7 +2,7 @@
 """
 Extract Caribbean saltwater fish facts from FishBase parquet snapshots.
 
-Outputs MockData/marine_life_caribbean_staging.csv with FishBase-sourced fields
+Outputs CatalogAuthoring/marine_life_caribbean_staging.csv with FishBase-sourced fields
 filled (including placeholder descriptions when enabled) and user prose left
 empty when descriptions are disabled.
 

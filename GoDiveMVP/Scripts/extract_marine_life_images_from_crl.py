@@ -12,7 +12,7 @@ like the other image pipelines.
 LICENSING: CRL photos are © Mickey Charteris and require written permission before you
 ship them in the app. Every staged row is flagged `imageSource=caribbean-reef-life`,
 `imageLicense="© Mickey Charteris — permission required"`, and `imageNeedsReview=yes`.
-This script never writes marine_life_sample.json — run sync_marine_life_staging_to_json.py
+This script never writes marine_life.json — run sync_marine_life_staging_to_json.py
 yourself only once you have permission and have reviewed the matches.
 
 Usage:

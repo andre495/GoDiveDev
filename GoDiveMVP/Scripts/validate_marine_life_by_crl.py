@@ -111,9 +111,9 @@ def main() -> int:
 
     config = load_config(args.config)
     staging_path = PROJECT_DIR / config["output_staging_csv"]
-    json_path = PROJECT_DIR / config.get("output_json", "MockData/marine_life_sample.json")
+    json_path = PROJECT_DIR / config.get("output_json", "Resources/Catalog/marine_life.json")
     cache_path = PROJECT_DIR / config["reference_cache_csv"]
-    pdf_path = PROJECT_DIR / config.get("default_pdf_path", "MockData/CaribbeanReefLife.pdf")
+    pdf_path = PROJECT_DIR / config.get("default_pdf_path", "CatalogAuthoring/CaribbeanReefLife.pdf")
 
     if not staging_path.is_file():
         print(f"Staging CSV not found: {staging_path}", file=sys.stderr)
@@ -152,7 +152,7 @@ def main() -> int:
         for category, count in unmatched_by_category.most_common():
             print(f"  {category}: {count}")
 
-    report_path = PROJECT_DIR / "MockData/caribbean_reef_life_validation_report.json"
+    report_path = PROJECT_DIR / "CatalogAuthoring/caribbean_reef_life_validation_report.json"
     report = {
         "fish_only": fish_only,
         "crl_reference_names": len(crl_keys),

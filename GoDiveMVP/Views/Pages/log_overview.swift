@@ -221,6 +221,9 @@ struct LogOverviewView: View {
                 pathCountAfterAppend: path.count
             )
         }
+        .environment(\.openCatalogMarineLifeDetail) { marineLifeUUID in
+            pushHome(.marineLife(marineLifeUUID))
+        }
         .environment(\.openTripPlanner) {
             pushHome(.tripPlanner)
         }

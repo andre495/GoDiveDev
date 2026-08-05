@@ -77,7 +77,7 @@ def main() -> int:
         if not source_path.is_file():
             print(f"PDF not found: {source_path}", file=sys.stderr)
             print(
-                "Place your Caribbean Reef Life ebook PDF at MockData/CaribbeanReefLife.pdf "
+                "Place your Caribbean Reef Life ebook PDF at CatalogAuthoring/CaribbeanReefLife.pdf "
                 "or pass --pdf /path/to/file.pdf",
                 file=sys.stderr,
             )

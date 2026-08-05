@@ -940,7 +940,6 @@ private struct LogbookListSurface: View, Equatable {
                 .zIndex(1)
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
-            .ignoresSafeArea(edges: .bottom)
             .onPreferenceChange(AppHeaderMetrics.HeightKey.self) { height in
                 if height > 0 { headerClearance = height }
             }
@@ -948,6 +947,8 @@ private struct LogbookListSurface: View, Equatable {
                 expandHeaderForScrollToTop()
             }
         }
+        // Full-screen height (under tab bar) so Me | Buddies lists can scroll behind the menu.
+        .ignoresSafeArea(edges: .bottom)
     }
 
     private func expandHeaderForScrollToTop() {
@@ -971,6 +972,8 @@ private struct LogbookListSurface: View, Equatable {
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // Page TabView otherwise clips lists to the tab-bar safe area (Explore/Field Guide do not).
+        .ignoresSafeArea(edges: [.top, .bottom])
         .accessibilityIdentifier(LogbookFeedScopePagerPresentation.accessibilityIdentifier)
     }
 
@@ -1017,6 +1020,12 @@ private struct LogbookListSurface: View, Equatable {
         } action: { offset, _ in
             handleScrollOffset(offset, for: .myActivities)
         }
+        .associatesRootTabBarMinimizeScroll(
+            isActive: RootTabBarMinimizeScrollPresentation.shouldAssociate(
+                pageScope: .myActivities,
+                selectedScope: feedScopeSelection
+            )
+        )
     }
 
     private func logbookMyActivitiesKindFilterEmptyState(topInset: CGFloat) -> some View {
@@ -1037,6 +1046,12 @@ private struct LogbookListSurface: View, Equatable {
         }
         .scrollDismissesKeyboard(.interactively)
         .ignoresSafeArea(edges: [.top, .bottom])
+        .associatesRootTabBarMinimizeScroll(
+            isActive: RootTabBarMinimizeScrollPresentation.shouldAssociate(
+                pageScope: .myActivities,
+                selectedScope: feedScopeSelection
+            )
+        )
         .accessibilityIdentifier("Logbook.MyActivitiesKindFilter.Empty")
     }
 
@@ -1056,6 +1071,12 @@ private struct LogbookListSurface: View, Equatable {
             } action: { offset, _ in
                 handleScrollOffset(offset, for: .buddyFeed)
             }
+            .associatesRootTabBarMinimizeScroll(
+                isActive: RootTabBarMinimizeScrollPresentation.shouldAssociate(
+                    pageScope: .buddyFeed,
+                    selectedScope: feedScopeSelection
+                )
+            )
             .accessibilityIdentifier(LogbookBuddyFeedPresentation.buddyFeedRootAccessibilityIdentifier)
             .logbookBuddyFeedPullToRefresh(action: onBuddyFeedRefresh)
         } else if let emptyKind = buddyFeedEmptyKind {
@@ -1086,6 +1107,12 @@ private struct LogbookListSurface: View, Equatable {
         }
         .scrollDismissesKeyboard(.interactively)
         .ignoresSafeArea(edges: [.top, .bottom])
+        .associatesRootTabBarMinimizeScroll(
+            isActive: RootTabBarMinimizeScrollPresentation.shouldAssociate(
+                pageScope: .buddyFeed,
+                selectedScope: feedScopeSelection
+            )
+        )
         .accessibilityIdentifier(LogbookBuddyFeedPresentation.buddyFeedRootAccessibilityIdentifier)
         .logbookBuddyFeedPullToRefresh(action: onBuddyFeedRefresh)
     }
@@ -1206,6 +1233,12 @@ private struct LogbookListSurface: View, Equatable {
         } action: { offset, _ in
             handleScrollOffset(offset, for: .buddyFeed)
         }
+        .associatesRootTabBarMinimizeScroll(
+            isActive: RootTabBarMinimizeScrollPresentation.shouldAssociate(
+                pageScope: .buddyFeed,
+                selectedScope: feedScopeSelection
+            )
+        )
         .logbookListScrollToTopTrigger(nonce: scrollToTopNonce)
         .accessibilityIdentifier(LogbookBuddyFeedPresentation.buddyFeedRootAccessibilityIdentifier)
         .logbookBuddyFeedPullToRefresh(action: onBuddyFeedRefresh)
@@ -1234,6 +1267,12 @@ private struct LogbookListSurface: View, Equatable {
         }
         .scrollDismissesKeyboard(.interactively)
         .ignoresSafeArea(edges: [.top, .bottom])
+        .associatesRootTabBarMinimizeScroll(
+            isActive: RootTabBarMinimizeScrollPresentation.shouldAssociate(
+                pageScope: .myActivities,
+                selectedScope: feedScopeSelection
+            )
+        )
     }
 
     private func logbookDiveList(topInset: CGFloat, bottomInset: CGFloat) -> some View {
@@ -1272,6 +1311,12 @@ private struct LogbookListSurface: View, Equatable {
         } action: { offset, _ in
             handleScrollOffset(offset, for: .myActivities)
         }
+        .associatesRootTabBarMinimizeScroll(
+            isActive: RootTabBarMinimizeScrollPresentation.shouldAssociate(
+                pageScope: .myActivities,
+                selectedScope: feedScopeSelection
+            )
+        )
         .logbookListScrollToTopTrigger(nonce: scrollToTopNonce)
     }
 

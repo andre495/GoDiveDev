@@ -114,6 +114,9 @@ struct ExploreView: View {
                 pathCountAfterAppend: path.count
             )
         }
+        .environment(\.openCatalogMarineLifeDetail) { marineLifeUUID in
+            pushExplore(.speciesDetail(marineLifeUUID))
+        }
         .environment(\.openTripDetail) { tripID in
             pushExplore(.tripDetail(tripID))
         }

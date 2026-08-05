@@ -6,12 +6,15 @@ struct FieldGuideMarineLifeDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.diveDisplayUnitSystem) private var diveDisplayUnitSystem
     @Environment(\.openCatalogDiveSiteDetail) private var openCatalogDiveSiteDetail
+    @Environment(\.openCatalogMarineLifeDetail) private var openCatalogMarineLifeDetail
     @Environment(AccountSession.self) private var accountSession
 
     @Query private var userRecords: [MarineLifeUserRecord]
     @Query private var ownerDiveActivities: [DiveActivity]
     @Query private var taggedSightings: [SightingInstance]
     @State private var diveSiteCatalog: [DiveSite] = []
+    @State private var similarSpecies: [MarineLifeCatalogSnapshot] = []
+    @State private var loadedMarineLifeCatalog: [MarineLife] = []
 
     let species: FieldGuideSpeciesBinding
     let onOpenDive: (UUID) -> Void
@@ -78,11 +81,14 @@ struct FieldGuideMarineLifeDetailView: View {
     }
 
     private var catalogMarineLifeForPager: [MarineLife] {
+        if !loadedMarineLifeCatalog.isEmpty {
+            return loadedMarineLifeCatalog
+        }
         switch species {
         case .catalog(let catalog):
-            [catalog]
+            return [catalog]
         case .user:
-            []
+            return []
         }
     }
 
@@ -224,6 +230,7 @@ struct FieldGuideMarineLifeDetailView: View {
                     ),
                     depthRowTitle: depthRowTitle,
                     distinctiveFeatures: species.distinctiveFeatures,
+                    similarSpecies: similarSpecies,
                     taggedDiveRows: taggedDiveRows,
                     taggedMediaItems: taggedMediaItems,
                     taggedMediaTimeZoneOffsetByID: taggedMediaTimeZoneOffsetByID,
@@ -232,7 +239,8 @@ struct FieldGuideMarineLifeDetailView: View {
                     marineLifeCatalog: catalogMarineLifeForPager,
                     ownerProfileID: accountSession.currentProfile?.id,
                     bottomScrollInset: bottomScrollInset,
-                    onOpenDive: onOpenDive
+                    onOpenDive: onOpenDive,
+                    onOpenSpecies: openCatalogMarineLifeDetail
                 )
             },
             topChrome: { safeTop, topInset, _ in
@@ -251,6 +259,7 @@ struct FieldGuideMarineLifeDetailView: View {
         }
         .task(id: species.uuid) {
             diveSiteCatalog = await DiveSiteCatalogLoader.loadSortedCatalog(modelContext: modelContext)
+            await refreshSimilarSpecies()
         }
         .onAppear {
             DiveMediaScopeCache.shared.activateScope(.marineLifeSpecies(species.uuid))
@@ -414,6 +423,40 @@ struct FieldGuideMarineLifeDetailView: View {
         if let openCatalogDiveSiteDetail {
             openCatalogDiveSiteDetail(siteID)
         }
+    }
+
+    @MainActor
+    private func refreshSimilarSpecies() async {
+        let seedSnapshot = species.fieldGuideCatalogSnapshot
+        let seedUUID = seedSnapshot.uuid
+        let container = modelContext.container
+        _ = await SpeciesSimilarityCDNCache.refreshIfNeeded()
+        let ordered = await Task.detached(priority: .userInitiated) {
+            let context = ModelContext(container)
+            let catalog = (try? context.fetch(FetchDescriptor<MarineLife>())) ?? []
+            let snapshots = catalog.map(\.fieldGuideCatalogSnapshot)
+            let biology = MarineLifeBiologySimilarity.rank(
+                seed: seedSnapshot,
+                catalog: snapshots,
+                limit: 50
+            )
+            let sightingScores = SpeciesSimilarityCDNCache.sightingScores(
+                forSeedUUID: seedUUID,
+                document: SpeciesSimilarityCDNCache.loadCachedDocument()
+            )
+            let merged = MarineLifeBiologySimilarity.merge(
+                biology: biology,
+                sightingScoresByUUID: sightingScores,
+                limit: MarineLifeBiologySimilarity.defaultLimit
+            )
+            let byUUID = Dictionary(uniqueKeysWithValues: snapshots.map { ($0.uuid, $0) })
+            return merged.compactMap { byUUID[$0.uuid] }
+        }.value
+        guard !Task.isCancelled, seedUUID == species.uuid else { return }
+        similarSpecies = ordered
+        loadedMarineLifeCatalog = await MarineLifeCatalogLoader.loadSortedCatalog(
+            modelContext: modelContext
+        )
     }
 
     private var taxonomyLabel: String {

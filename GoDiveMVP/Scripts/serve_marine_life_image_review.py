@@ -55,7 +55,7 @@ except ImportError:  # pragma: no cover
 SCRIPT_DIR = Path(__file__).resolve().parent
 HTML_PATH = SCRIPT_DIR / "marine_life_image_review.html"
 DEFAULT_PORT = 8765
-DEFAULT_MANIFEST = PROJECT_DIR / "MockData/marine_life_bundle_photos_manifest.json"
+DEFAULT_MANIFEST = PROJECT_DIR / "CatalogAuthoring/marine_life_bundle_photos_manifest.json"
 
 
 class ReviewServerState:

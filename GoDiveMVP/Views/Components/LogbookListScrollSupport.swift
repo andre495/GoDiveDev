@@ -185,6 +185,122 @@ enum RootTabListScrollSupport {
         }
     }
 }
+
+/// Publishes the nearest vertical list/scroll view as the tab’s bottom-edge content scroll view so
+/// **`tabBarMinimizeBehavior(.onScrollDown)`** still engages under nested page **`TabView`**s.
+enum RootTabBarMinimizeScrollAssociator {
+    @MainActor
+    static func associate(from view: UIView) {
+        guard let scrollView = findVerticalContentScrollView(startingFrom: view) else { return }
+        guard let viewController = view.nearestViewController else { return }
+
+        // Keep SwiftUI’s scroll-under-tab-bar layout (manual bottom spacer). System adjustment
+        // after **`setContentScrollView`** otherwise pins content above the menu.
+        if RootTabBarMinimizeScrollPresentation.disablesContentInsetAdjustmentForScrollUnderTabBar {
+            scrollView.contentInsetAdjustmentBehavior = .never
+        }
+
+        var targets: [UIViewController] = [viewController]
+        if let navigationController = viewController.navigationController {
+            targets.append(navigationController)
+            if let top = navigationController.topViewController, top !== viewController {
+                targets.append(top)
+            }
+        }
+        if let selected = viewController.tabBarController?.selectedViewController {
+            if !targets.contains(where: { $0 === selected }) {
+                targets.append(selected)
+            }
+            if let navigationController = selected as? UINavigationController {
+                if !targets.contains(where: { $0 === navigationController }) {
+                    targets.append(navigationController)
+                }
+                if let top = navigationController.topViewController,
+                   !targets.contains(where: { $0 === top }) {
+                    targets.append(top)
+                }
+            }
+        }
+
+        for target in targets {
+            target.setContentScrollView(scrollView, for: .bottom)
+        }
+    }
+
+    static func findVerticalContentScrollView(startingFrom view: UIView) -> UIScrollView? {
+        var current: UIView? = view
+        while let candidate = current {
+            if let scrollView = candidate as? UIScrollView,
+               isEligibleVerticalContentScrollView(scrollView) {
+                return scrollView
+            }
+            if let scrollView = findVerticalContentScrollView(in: candidate) {
+                return scrollView
+            }
+            current = candidate.superview
+        }
+        return nil
+    }
+
+    private static func findVerticalContentScrollView(in view: UIView) -> UIScrollView? {
+        if let scrollView = view as? UIScrollView,
+           isEligibleVerticalContentScrollView(scrollView) {
+            return scrollView
+        }
+        for subview in view.subviews {
+            if let scrollView = findVerticalContentScrollView(in: subview) {
+                return scrollView
+            }
+        }
+        return nil
+    }
+
+    static func isEligibleVerticalContentScrollView(_ scrollView: UIScrollView) -> Bool {
+        RootTabBarMinimizeScrollPresentation.isEligibleVerticalContentScrollView(
+            isTableView: scrollView is UITableView,
+            isPagingEnabled: scrollView.isPagingEnabled,
+            contentWidth: scrollView.contentSize.width,
+            boundsWidth: scrollView.bounds.width,
+            contentHeight: scrollView.contentSize.height,
+            boundsHeight: scrollView.bounds.height
+        )
+    }
+}
+
+private struct RootTabBarMinimizeScrollInstaller: UIViewRepresentable {
+    let isActive: Bool
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: .zero)
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = .clear
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        context.coordinator.isActive = isActive
+        guard isActive else { return }
+        DispatchQueue.main.async {
+            guard context.coordinator.isActive else { return }
+            RootTabBarMinimizeScrollAssociator.associate(from: uiView)
+        }
+        // List / ScrollView hosts often attach one run-loop later (same timing as scroll-to-top).
+        Task { @MainActor in
+            await Task.yield()
+            try? await Task.sleep(for: .milliseconds(32))
+            guard context.coordinator.isActive else { return }
+            RootTabBarMinimizeScrollAssociator.associate(from: uiView)
+        }
+    }
+
+    final class Coordinator {
+        var isActive = false
+    }
+}
 #endif
 
 extension View {
@@ -206,6 +322,19 @@ extension View {
         #if canImport(UIKit)
         overlay(alignment: .top) {
             ListScrollToTopTrigger(nonce: nonce)
+                .frame(width: 0, height: 0)
+                .accessibilityHidden(true)
+        }
+        #else
+        self
+        #endif
+    }
+
+    /// Binds this scroll surface to root-tab minimize (**`.onScrollDown`**) when **`isActive`**.
+    func associatesRootTabBarMinimizeScroll(isActive: Bool = true) -> some View {
+        #if canImport(UIKit)
+        overlay(alignment: .top) {
+            RootTabBarMinimizeScrollInstaller(isActive: isActive)
                 .frame(width: 0, height: 0)
                 .accessibilityHidden(true)
         }

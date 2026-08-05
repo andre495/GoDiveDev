@@ -1,0 +1,148 @@
+PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX mlo:  <https://example.org/marine-life/>
+BASE <https://example.org/marine-life/>
+
+#################################################################
+# Controlled vocabularies for in-water activity logging
+# (activity type, ID certainty, depth certainty, life stage,
+#  time of day, current strength)
+#################################################################
+
+# --- Activity type ---
+
+<activityType/Scuba> a mlo:ActivityType ;
+    rdfs:label "scuba"@en ;
+    rdfs:comment "Open- or closed-circuit scuba dive."@en .
+
+<activityType/Snorkel> a mlo:ActivityType ;
+    rdfs:label "snorkel"@en ;
+    rdfs:comment "Surface / near-surface snorkel; organism depth is often estimated from above."@en .
+
+<activityType/Freedive> a mlo:ActivityType ;
+    rdfs:label "freedive"@en .
+
+# --- Depth certainty (organism depth on a sighting) ---
+
+<depthCertainty/Measured> a mlo:DepthCertainty ;
+    rdfs:label "measured"@en ;
+    rdfs:comment "Depth from a gauge/computer at or very near the organism."@en .
+
+<depthCertainty/Estimated> a mlo:DepthCertainty ;
+    rdfs:label "estimated"@en ;
+    rdfs:comment "Reasonable estimate; common when snorkeling and looking down the water column."@en .
+
+<depthCertainty/RoughGuess> a mlo:DepthCertainty ;
+    rdfs:label "rough guess"@en ;
+    rdfs:comment "Low-confidence depth guess."@en .
+
+# --- Identification certainty ---
+
+<certainty/Uncertain> a mlo:IdentificationCertainty ;
+    rdfs:label "uncertain"@en ;
+    rdfs:comment "Identification is weak, deferred, or not trusted yet."@en .
+
+<certainty/Likely> a mlo:IdentificationCertainty ;
+    rdfs:label "likely"@en ;
+    rdfs:comment "Good match with some remaining doubt (incomplete view, look-alikes, etc.)."@en .
+
+<certainty/AIAssessed> a mlo:IdentificationCertainty ;
+    rdfs:label "AI assessed"@en ;
+    rdfs:comment "Identification proposed by an AI classifier from media (photo/video); not yet human-confirmed."@en .
+
+<certainty/SelfConfirmed> a mlo:IdentificationCertainty ;
+    rdfs:label "self confirmed"@en ;
+    rdfs:comment "Observer is confident in their own identification from the sighting."@en .
+
+<certainty/PeerConfirmed> a mlo:IdentificationCertainty ;
+    rdfs:label "peer confirmed"@en ;
+    rdfs:comment "Identification corroborated by another person (buddy, instructor, community reviewer, etc.)."@en .
+
+# --- Life stage ---
+
+<lifeStage/Larva> a mlo:LifeStage ;
+    rdfs:label "larva"@en .
+
+<lifeStage/Juvenile> a mlo:LifeStage ;
+    rdfs:label "juvenile"@en .
+
+<lifeStage/Subadult> a mlo:LifeStage ;
+    rdfs:label "subadult"@en .
+
+<lifeStage/Adult> a mlo:LifeStage ;
+    rdfs:label "adult"@en .
+
+<lifeStage/Unknown> a mlo:LifeStage ;
+    rdfs:label "unknown"@en ;
+    rdfs:comment "Stage not determined from the observation."@en .
+
+# --- Time of day ---
+
+<timeOfDay/Dawn> a mlo:TimeOfDay ;
+    rdfs:label "dawn"@en .
+
+<timeOfDay/Day> a mlo:TimeOfDay ;
+    rdfs:label "day"@en .
+
+<timeOfDay/Dusk> a mlo:TimeOfDay ;
+    rdfs:label "dusk"@en .
+
+<timeOfDay/Night> a mlo:TimeOfDay ;
+    rdfs:label "night"@en .
+
+# --- Current strength (GoDive DiveCurrentStrength) ---
+
+<current/None> a mlo:CurrentStrength ;
+    rdfs:label "none"@en ;
+    rdfs:comment "GoDive: none."@en .
+
+<current/Low> a mlo:CurrentStrength ;
+    rdfs:label "low"@en ;
+    rdfs:comment "GoDive: low."@en .
+
+<current/Medium> a mlo:CurrentStrength ;
+    rdfs:label "medium"@en ;
+    rdfs:comment "GoDive: medium."@en .
+
+<current/High> a mlo:CurrentStrength ;
+    rdfs:label "high"@en ;
+    rdfs:comment "GoDive: high."@en .
+
+# --- Visibility rating (GoDive DiveVisibilityRating) ---
+
+<visibility/Poor> a mlo:VisibilityRating ;
+    rdfs:label "poor"@en .
+
+<visibility/Good> a mlo:VisibilityRating ;
+    rdfs:label "good"@en .
+
+<visibility/Great> a mlo:VisibilityRating ;
+    rdfs:label "great"@en .
+
+# --- Water type (GoDive DiveWaterType) ---
+
+<waterType/Saltwater> a mlo:WaterType ;
+    rdfs:label "salt water"@en .
+
+<waterType/Freshwater> a mlo:WaterType ;
+    rdfs:label "fresh water"@en .
+
+# --- Site ownership (GoDive DiveSiteOwnership) ---
+
+<siteOwnership/CatalogReference> a mlo:SiteOwnership ;
+    rdfs:label "catalog reference"@en ;
+    rdfs:comment "GoDive: catalogReference (OpenDiveMap / CDN)."@en .
+
+<siteOwnership/UserOwned> a mlo:SiteOwnership ;
+    rdfs:label "user owned"@en ;
+    rdfs:comment "GoDive: userOwned."@en .
+
+# --- Marine life ownership (GoDive MarineLifeOwnership) ---
+
+<marineLifeOwnership/Catalog> a mlo:MarineLifeOwnership ;
+    rdfs:label "catalog"@en ;
+    rdfs:comment "GoDive: catalog (bundled / remote catalog species)."@en .
+
+<marineLifeOwnership/UserOwned> a mlo:MarineLifeOwnership ;
+    rdfs:label "user owned"@en ;
+    rdfs:comment "GoDive: userOwned (UserMarineLife)."@en .

@@ -85,6 +85,20 @@ enum DiveActivityManualCreation {
                 ownerProfileID: owner.id,
                 modelContext: modelContext
             )
+            let diveID = activity.id
+            Task { @MainActor in
+                // Re-fetch: caller may still hold the inserted row; soft-fail if missing.
+                var descriptor = FetchDescriptor<DiveActivity>(
+                    predicate: #Predicate<DiveActivity> { $0.id == diveID }
+                )
+                descriptor.fetchLimit = 1
+                if let dive = try? modelContext.fetch(descriptor).first {
+                    await OntologySiteReportContributionSync.syncAfterDivePersisted(
+                        dive: dive,
+                        modelContext: modelContext
+                    )
+                }
+            }
             return DiveFileImportOutcome(
                 userMessage: "\(successMessagePrefix).",
                 primaryInsertedDiveId: activity.id
