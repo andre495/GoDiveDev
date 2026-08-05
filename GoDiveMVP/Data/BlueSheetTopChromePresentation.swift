@@ -1,6 +1,14 @@
 import CoreGraphics
 import Foundation
 
+/// Trailing edit affordance style for page / detail toolbars (**`AppEditToolbarButton`**).
+enum AppEditToolbarButtonStyle: String, Sendable, Equatable {
+    /// Liquid Glass **Edit** text capsule.
+    case textLabel
+    /// Circular Liquid Glass **⋯** (matches activity / profile edit chrome).
+    case ellipsis
+}
+
 /// Top chrome fade tokens for **Home** vs pushed **detail** blue-sheet pages.
 enum BlueSheetTopChromePresentation: Sendable {
 

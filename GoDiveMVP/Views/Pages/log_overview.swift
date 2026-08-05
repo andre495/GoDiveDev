@@ -31,6 +31,8 @@ struct LogOverviewView: View {
     @State private var homeOverviewRebuildGeneration = 0
     @State private var selfBuddyID: UUID?
     @State private var homeHeroInteractionOverlayActive = false
+    @State private var homeMarineLifeOverlayActive = false
+    @State private var homeMarineLifeOverlayCloseRequestID = 0
     @State private var frozenHomeRootViewportHeight: CGFloat?
     @State private var homeNotificationItems: [HomeNotificationsPresentation.Item] = []
     @State private var hasFetchedNotificationsBadge = false
@@ -97,7 +99,10 @@ struct LogOverviewView: View {
             configuration: .tabRoot(accessibilityRootIdentifier: "GoDive.Home"),
             seamInputs: seamInputs,
             isNavigationStackAtRoot: isHomeNavigationStackAtRoot,
-            allowsTopChromeHitTesting: !homeHeroInteractionOverlayActive,
+            allowsTopChromeHitTesting: HomeMediaCarouselPresentation.allowsHomeTopChromeHitTesting(
+                showsMarineLifeOverlay: homeMarineLifeOverlayActive,
+                homeHeroInteractionOverlayActive: homeHeroInteractionOverlayActive
+            ),
             onLayoutResolved: { layout in
                 HomeOverviewLayoutAnchor.publishHomeTabRootLayout(
                     layout,
@@ -118,11 +123,20 @@ struct LogOverviewView: View {
                 topInset: topInset,
                 title: "Home",
                 trailingContent: { homeProfileHeaderButton },
-                leadingContent: { homeNotificationsBellButton }
+                leadingContent: {
+                    if HomeMediaCarouselPresentation.shouldShowHomeNotificationsBell(
+                        showsMarineLifeOverlay: homeMarineLifeOverlayActive
+                    ) {
+                        homeNotificationsBellButton
+                    } else {
+                        homeMarineLifeOverlayCloseButton
+                    }
+                }
             )
         }
         .animation(nil, value: carouselHighlights.isEmpty)
         .animation(nil, value: showsHomeBuddyLeaderboard)
+        .animation(.snappy(duration: 0.18), value: homeMarineLifeOverlayActive)
     }
 
     var body: some View {
@@ -130,6 +144,7 @@ struct LogOverviewView: View {
             homeDashboard()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onPreferenceChange(HomeHeroInteractionOverlayKey.self) { homeHeroInteractionOverlayActive = $0 }
+            .onPreferenceChange(HomeMarineLifeOverlayActiveKey.self) { homeMarineLifeOverlayActive = $0 }
             .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(.hidden, for: .navigationBar)
             .navigationInteractivePopGestureForHiddenNavBar()
@@ -264,6 +279,19 @@ struct LogOverviewView: View {
         .accessibilityIdentifier(HomeNotificationsPresentation.bellAccessibilityIdentifier)
     }
 
+    private var homeMarineLifeOverlayCloseButton: some View {
+        Button {
+            homeMarineLifeOverlayCloseRequestID += 1
+        } label: {
+            Image(systemName: "xmark")
+                .appToolbarIconButtonLabel()
+        }
+        .appStandaloneIconButtonStyle()
+        .foregroundStyle(.white)
+        .accessibilityLabel("Close marine life overview")
+        .accessibilityIdentifier("Home.MediaCarousel.MarineLifeOverlay.Close")
+    }
+
     /// One deferred fetch per profile session so the bell badge reflects unseen
     /// buddy notifications without blocking Home's first frame.
     private func refreshNotificationsBadgeIfNeeded() async {
@@ -335,6 +363,7 @@ struct LogOverviewView: View {
             appliesTopSafeAreaBleed: false,
             selfBuddyID: selfBuddyID,
             isHeroPlaybackActive: isHomeNavigationStackAtRoot,
+            marineLifeOverlayCloseRequestID: homeMarineLifeOverlayCloseRequestID,
             onOpenDive: { pushHome(.diveDetail($0)) },
             onOpenMedia: { diveID, mediaID in pushHome(.diveMedia(diveID: diveID, mediaID: mediaID)) },
             onOpenBuddy: openBuddyOrProfile

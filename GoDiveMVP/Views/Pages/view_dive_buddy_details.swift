@@ -179,7 +179,9 @@ struct ViewDiveBuddyDetails: View {
                     safeTop: safeTop,
                     topInset: topInset,
                     onEdit: { showsEditSheet = true },
-                    editAccessibilityIdentifier: "DiveBuddyDetails.Edit"
+                    editAccessibilityIdentifier: DiveBuddyDetailPresentation.editToolbarAccessibilityIdentifier,
+                    editAccessibilityLabel: DiveBuddyDetailPresentation.editToolbarAccessibilityLabel,
+                    editActionStyle: DiveBuddyDetailPresentation.editToolbarActionStyle
                 )
             }
         )

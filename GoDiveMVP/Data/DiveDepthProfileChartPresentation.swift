@@ -22,6 +22,11 @@ enum DiveDepthProfileChartPresentation: Sendable {
     /// Landscape hero — non-scrubbable visual margin; profile underfill extends flat, lines stay in the data band.
     nonisolated static let landscapeHorizontalEdgeBufferFraction: CGFloat = 0.07
 
+    /// Opacity for the top stop of the static deep-water underfill (below the depth line).
+    nonisolated static let underfillTopOpacity: Double = 0.55
+    /// Opacity for the bottom stop of the static deep-water underfill (plot floor).
+    nonisolated static let underfillBottomOpacity: Double = 0.94
+
     nonisolated static func depthAxisTopBufferFraction(
         for chromeStyle: ChromeStyle
     ) -> Double {

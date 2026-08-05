@@ -3621,6 +3621,136 @@ Agents: log work in the **latest open section** and update **`cursor/app_summary
 - **`TripDetailPresentation.blueSheetPageConfiguration`** — shared factory for content + missing-trip shells.
 - Test: **`tripDetailPresentation_blueSheetUsesStandardPanelBodySpacing`**.
 
-## 130 - Next batch
+## 130 - Next batch **(pushed)**
+
+**Summary:** Bug fix — Home media carousel swipes intermittently unresponsive.
+
+- Root causes: (1) expanded buddy strip locked pager **`scrollDisabled`**; (2) full-page **`onTapGesture`** delayed the paged **`TabView`** pan; (3) muted video **`UIView`** ate hits; (4) after last→first wrap, UIKit could stay on the duplicate dead-end page while the binding said **0**.
+- Fixes: buddy expand no longer locks paging (swipe advances + dismisses strip); slide open uses plain **`Button`**; video player **`isUserInteractionEnabled = false`** (+ SwiftUI **`allowsHitTesting(false)`**); looping snap-back remounts the **`TabView`** via **`loopingPagerIdentityAfterReset`**.
+- Tests: remount identity bump; **`taggedBuddyPagerScrollDisabled`** only for fish overlay.
+
+**Summary:** Home featured-media bottom chrome — fish chip sits left of the buddy chip (buddy stays bottom-right).
+
+- **`HomeMediaCarouselSlideBottomChrome`** — trailing cluster is fish → buddy (was fish beside the dive-link capsule on the leading edge); fish collapses while the buddy list is expanded.
+- **`HomeMediaCarouselPresentation.slideChromeTrailingControls`** — documents trailing order (species, then buddies).
+- Test: **`homeMediaCarouselPresentation_slideChromeTrailingControls_fishLeadsBuddy`**.
+
+**Summary:** Activity detail top-chrome **⋯** matches back button — white, not accent blue.
+
+- Dive / snorkel activity friend-share edit ellipsis uses **`appHeaderChromeIconForeground()`** (`view_single_activity`, `view_single_snorkel_activity`).
+
+**Summary:** GoDive avatar pin — nudge up/left for more rim overlap.
+
+- **`GoDiveUserAvatarPinPresentation.pinEdgeOutwardFraction`** — **0.32** (was half pin side); pin sits further over the avatar lower-right.
+- Test: **`buddiesListPresentation_showsGoDiveUserPin_forFriendsOnly`**.
+
+**Summary:** GoDive avatar pin — appearance-aware light / dark assets.
+
+- **`GoDiveUserAvatarPin`** catalog — light mode **`pin simple LIGHT`**, dark mode **`pin simple DARK`** (same pattern as **`GoDiveLogoPin`**).
+- Test: **`buddiesListPresentation_showsGoDiveUserPin_forFriendsOnly`** asserts distinct light/dark variants.
+
+**Summary:** Depth profile underfill — dark navy in light mode.
+
+- **`AppTheme.Colors.depthProfileUnderfillTop` / `Bottom`** — light mode navy matches **`accentDeep`** / pin simple light (not pale page gradients); dark mode keeps deep ocean stops.
+- **`DiveDepthProfileChartStaticUnderfillView`** uses those tokens (snorkel HR underfill included).
+- Test: **`diveDepthProfileChartPresentation_underfill_usesDarkNavyInLightMode`**.
+
+**Summary:** Activity Log Me/Buddies + filter — drop frosted glass backgrounds.
+
+- **`LogbookFeedScopeToggle`** — no **`glassEffect`** shell (selected segment fill only).
+- **`LogbookMyActivitiesKindFilterMenu`** — plain icon button (no Liquid Glass circle).
+- Tests: **`usesGlassShell`** / **`usesGlassButtonStyle`** false.
+
+**Summary:** Collapsible page titles slightly smaller than the GoDive brand wordmark.
+
+- **`AppTheme.Typography.headerPageTitle`** (**`.title`**) — default for **`CollapsibleInlineTitleHeader`** / **`AppPage`** collapsible chrome (Activity Log, Field Guide, Notifications, Settings, Buddies, Trips, Top 10, etc.).
+- Brand / launch titles stay **`headerBrandTitle`** (**`.largeTitle`**).
+- Test: **`collapsibleInlineTitleHeaderPresentation_scrollOffsetCollapseLogic`** asserts **`.title1`** is smaller than brand **`.largeTitle`**.
+
+**Summary:** Buddy detail top chrome — **⋯** instead of **Edit** text.
+
+- **`AppEditToolbarButtonStyle.ellipsis`** + **`BlueSheetDetailTopChrome.editActionStyle`**; buddy uses **`DiveBuddyDetailPresentation.editToolbarActionStyle`**.
+- Docs: **`docs/trips-and-buddies.md`**. Test: **`diveBuddyDetailPresentation_layoutAndHeroSelection`**.
+
+**Summary:** Activity Log Me/Buddies + filter — restore app toggle / glass button chrome.
+
+- **`LogbookFeedScopeToggle`** — Liquid Glass shell again (matches Explore site-scope / dive icon tabs).
+- **`LogbookMyActivitiesKindFilterMenu`** — separate circular Liquid Glass button (not inside the toggle shell).
+- **`LogbookCollapsibleHeader`** wraps both in **`GlassEffectContainer`**.
+- Tests: **`usesGlassShell`** / **`usesGlassButtonStyle`** true.
+
+**Summary:** Activity Log feed chrome — fix filter clip + dark band behind Me/Buddies.
+
+- **`LogbookCollapsibleHeader`** — Explore-style **`ZStack`** (centered toggle + trailing filter siblings); stop stretching the glass toggle with **`maxWidth: .infinity`** (full-width dark glass band).
+- Feed-scope row uses **`chromeRowHeight`** / **`appGlassChromeControlRowHeight()`** (44pt) so the filter circle is not clipped by the shorter toggle shell; drop **`.clipped()`** on that row so Liquid Glass soft edges stay intact.
+- Test: **`chromeRowHeight`** matches glass control height and exceeds toggle shell height.
+
+**Summary:** Home fish overlay **×** sits in the notifications bell slot; bell hides while open.
+
+- **`marineLifeCarouselOverlayCloseTopOffsetFromHeaderAlignment`** → **0**; close leading inset matches **`AppHeader`** (**`Spacing.lg`**).
+- **`HomeMarineLifeOverlayActiveKey`** + **`shouldShowHomeNotificationsBell`** — bell omitted while overlay is open.
+- Test: **`homeMediaCarouselPresentation_marineLifeOverlayCloseTopInset_alignsWithHomeHeaderProfileRow`**.
+
+**Summary:** Fish overlay — keep **×** on the bell slot; restore species content **75** pt below it.
+
+- **`marineLifeCarouselOverlaySpeciesContentTopOffsetFromCloseButton`** (**75**) — feature image / name use this band; close control stays header-aligned.
+- Overlay feature-column layout keys off **`speciesContentTopInset`**, not **`closeTopInset`**.
+- Tests: close vs species content inset split.
+
+**Summary:** Home fish overlay **×** moves into **`AppHeader`** leading chrome (true bell-slot alignment).
+
+- **`LogOverviewView`** swaps bell ↔ chrome **×**; close request ID dismisses carousel overlay.
+- Overlay no longer draws its own close when **`showsCloseControlInHomeTopChrome`**.
+- Top chrome stays hittable while fish overlay is open (**`allowsHomeTopChromeHitTesting`**).
+- Tests updated for chrome close + hit-testing rules.
+
+**Summary:** Bug fix — Home fish overlay **×** tap did not dismiss.
+
+- Species pager UIKit hit-testing sat above the header **×**; chrome alignment looked right but taps never closed the overlay.
+- Overlay installs a clear bell-slot hit target (calls **`onClose`**) when chrome owns the visible **×**; **`BlueSheetHeaderPageLayout`** top chrome **`zIndex(10)`**.
+- Test: **`marineLifeOverlayUsesClearCloseHitTarget`**.
+
+**Summary:** Bug fix — Home featured-media fish count badge was clipping.
+
+- Trailing fish chip always **`clipped()`** while collapsing for the buddy fan — that also cut the count badge’s top-trailing overhang when expanded.
+- Clip only while collapsed; pad Home chrome chips for **`MediaTagCountBadgePresentation`** overflow.
+- Tests: overflow insets + **`clipsHomeChromeChipWhenCollapsed`**.
+
+**Summary:** Bug fix — Home media carousel swipe reliability (ScrollView paging).
+
+- Replaced looping paged **`TabView`** (duplicate last page + delayed remount) with dive-Media-style **`ScrollView`** + **`scrollTargetBehavior(.paging)`** — 1:1 slides, no UIKit desync dead-ends.
+- Last→first auto-advance jumps without animating backward through middle slides; chrome **`Spacer`** no longer steals horizontal pans.
+- Tests: scroll paging helpers (**`clampedPagerIndex`**, wrap animation gate); looping page count is 1:1.
+
+**Summary:** Bug fix — Home featured media sat too high after ScrollView paging.
+
+- Horizontal **`ScrollView`** under-reported page height (safe-area), so seam crop math pulled media up above the sheet tuck.
+- Prefer laid-out **`carouselContentHeight`** for band math (**`featuredMediaLayoutViewportHeight`**); ScrollView ignores top safe area like the old hero bleed.
+- Test: layout viewport height prefers the taller carousel page size.
+
+**Summary:** Bug fix — Home featured media still too high in the header.
+
+- Removed extra ScrollView **`ignoresSafeArea(top)`** (double-bleed with **`PushedHeroBand`** shifted media up).
+- Seam crop uses the page size only (no GeometryReader height); **`LazyHStack(alignment: .top)`** so pages are not vertically centered off the seam.
+- Test: **`featuredMediaLayoutViewportHeight`** always prefers laid-out page height.
+
+**Summary:** Bug fix — Home media black gap above the blue sheet.
+
+- Crop only bled **52 pt** past the seam while overlap is **`panelOverlap` (~187)** — left a black band between media and sheet.
+- **`featuredMediaBleedBelowSeam`** now equals **`panelOverlap`** so media fills to the hero floor and tucks under the sheet.
+- Test: band height / bottom Y equal the viewport height.
+
+**Summary:** Home featured-media chrome (site / fish / buddy) sits lower under the seam.
+
+- **`slideChromeDistanceBelowSeam`** **56** (was effectively **`Spacing.md` / 16**) — dive-link, fish, and buddy chips drop with the tucked media.
+- Test: **`slideChromeBottomInset`** matches overlap minus that distance.
+
+**Summary:** Bug fix — Home carousel only swiped in the bottom chrome band.
+
+- Full-page open-media **`Button`** stole the **`ScrollView`** pan; only the chrome **`Spacer`** pass-through stayed swipeable.
+- Media uses **`onTapGesture`** for open (paging drag wins); chrome gradient is non-interactive so empty band pans reach the pager.
+- Test: **`usesTapGestureForOpenMediaOnScrollPage`**.
+
+## 131 - Next batch
 
 

@@ -75,7 +75,7 @@ Buddy-share uploads (activity projections, thumbnails, and full-quality media) c
 
 When you connect with someone (or they connect with you), GoDive links them to your **Dive Buddies** roster. If you already had a buddy with a matching name, that roster row becomes the friend link instead of creating a duplicate — your existing dive and trip tags stay on the same person. The same name check runs when you **import a dive**, **tag a buddy on a dive or photo**, or **add a buddy** to your roster.
 
-Linked friends show the light-blue GoDive pin on the lower-right of their avatar (Buddies list, friend profile, Home, activities, trips, and search). Tap them from a dive, trip, search, or **Profile → Buddies** to open their **friend profile** (not the local-only buddy detail page). Buddies who are not friends yet show an **Invite** button — it creates your invite link and opens Messages (prefilled to their linked contact when you connected them in Contacts).
+Linked friends show the GoDive pin on the lower-right of their avatar (Buddies list, friend profile, Home, activities, trips, and search). Tap them from a dive, trip, search, or **Profile → Buddies** to open their **friend profile** (not the local-only buddy detail page). Buddies who are not friends yet show an **Invite** button — it creates your invite link and opens Messages (prefilled to their linked contact when you connected them in Contacts).
 
 Tag friends on a dive from the dive overview **Buddies** sheet like any other buddy. If they tagged you on a dive they shared, their shared dive detail can show that you were tagged.
 

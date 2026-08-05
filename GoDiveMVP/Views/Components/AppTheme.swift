@@ -29,6 +29,15 @@ enum AppTheme {
             light: UIColor(red: 0.58, green: 0.74, blue: 0.88, alpha: 1.0),
             dark: UIColor(red: 0.02, green: 0.05, blue: 0.09, alpha: 1.0)
         )
+        /// Static fill **below** the depth-profile curve (and snorkel HR underfill). Light mode uses navy matching **`accentDeep`** / pin simple light — not pale page gradients.
+        static let depthProfileUnderfillTop = adaptive(
+            light: UIColor(red: 0.00, green: 0.18, blue: 0.36, alpha: 1.0),
+            dark: UIColor(red: 0.10, green: 0.17, blue: 0.26, alpha: 1.0)
+        )
+        static let depthProfileUnderfillBottom = adaptive(
+            light: UIColor(red: 0.00, green: 0.10, blue: 0.22, alpha: 1.0),
+            dark: UIColor(red: 0.02, green: 0.05, blue: 0.09, alpha: 1.0)
+        )
         /// Alias for in-app pages; **`LaunchScreen.storyboard`** + **`AppLaunchOverlay`** use fixed dark **`AppLaunchLayout`** colors instead.
         static let launchScreenBackground = surfaceGradientBottom
 
@@ -263,8 +272,10 @@ enum AppTheme {
     }
 
     enum Typography {
-        /// **`AppHeader`** brand wordmark and launch/loading titles — same **`.largeTitle`** as collapsible page headers (**Activity Log**, **Field Guide**, etc.).
+        /// **`AppHeader`** brand wordmark and launch/loading titles (**`.largeTitle`**).
         static let headerBrandTitle: Font = .largeTitle
+        /// Centered collapsible page titles (**Activity Log**, **Field Guide**, **Notifications**, etc.) — one step below brand.
+        static let headerPageTitle: Font = .title
         static let headerTitle = Font.title
     }
 

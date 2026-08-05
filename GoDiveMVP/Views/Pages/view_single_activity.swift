@@ -676,6 +676,7 @@ struct ViewSingleActivity: View {
                 .appToolbarIconButtonLabel()
         }
         .appStandaloneIconButtonStyle()
+        .appHeaderChromeIconForeground()
         .accessibilityLabel(ActivityFriendSharePresentation.editButtonAccessibilityLabel)
         .accessibilityIdentifier("ViewSingleActivity.FriendShareEdit")
     }

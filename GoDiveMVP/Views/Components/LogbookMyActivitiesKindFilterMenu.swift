@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Kind filter for **My Activities** — adjacent to **`LogbookFeedScopeToggle`**.
+/// Kind filter for **My Activities** — separate Liquid Glass circle next to **`LogbookFeedScopeToggle`**.
 struct LogbookMyActivitiesKindFilterMenu: View {
     @Binding var selection: LogbookMyActivitiesKindFilter
 

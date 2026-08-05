@@ -38,9 +38,9 @@ struct AppPage<Content: View, TrailingContent: View>: View {
     let titleUsesLinkedSiteAccent: Bool
     let titlePlacement: AppHeaderTitlePlacement
     let scrollContentUnderHeader: Bool
-    /// Logbook-style **`.largeTitle`** inline with back / trailing actions; compacts on scroll.
+    /// Logbook-style page title inline with back / trailing actions; compacts on scroll.
     let collapsibleInlineTitleHeader: Bool
-    /// Expanded font for the collapsible inline title (defaults to the **`.largeTitle`** brand style).
+    /// Expanded font for the collapsible inline title (defaults to **`headerPageTitle`**).
     let collapsibleInlineTitleFont: Font
     /// Rising bubbles behind scroll-under list content (Logbook-style); requires **`scrollContentUnderHeader`**.
     let showsWaterBubbleBackground: Bool
@@ -59,7 +59,7 @@ struct AppPage<Content: View, TrailingContent: View>: View {
         titlePlacement: AppHeaderTitlePlacement = .centered,
         scrollContentUnderHeader: Bool = false,
         collapsibleInlineTitleHeader: Bool = false,
-        collapsibleInlineTitleFont: Font = AppTheme.Typography.headerBrandTitle,
+        collapsibleInlineTitleFont: Font = AppTheme.Typography.headerPageTitle,
         showsWaterBubbleBackground: Bool = false,
         @ViewBuilder trailingContent: () -> TrailingContent,
         @ViewBuilder content: () -> Content
@@ -222,7 +222,7 @@ extension AppPage where TrailingContent == EmptyView {
         titlePlacement: AppHeaderTitlePlacement = .centered,
         scrollContentUnderHeader: Bool = false,
         collapsibleInlineTitleHeader: Bool = false,
-        collapsibleInlineTitleFont: Font = AppTheme.Typography.headerBrandTitle,
+        collapsibleInlineTitleFont: Font = AppTheme.Typography.headerPageTitle,
         showsWaterBubbleBackground: Bool = false,
         @ViewBuilder content: () -> Content
     ) {

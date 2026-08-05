@@ -62,48 +62,88 @@ enum HomeMediaCarouselPresentation: Sendable {
     /// Minimum tappable square for fish / buddy icon chips (visual glass circle may stay smaller).
     nonisolated static let taggedOverlayIconTapDimension: CGFloat = 56
 
+    /// How far below the sheet seam the dive-link / fish / buddy row sits (larger → lower on screen).
+    nonisolated static let slideChromeDistanceBelowSeam: CGFloat = 56
+
+    /// Trailing bottom-chrome chips on Home featured media (leading → trailing).
+    /// Fish sits immediately left of the buddy chip; buddy stays trailing-most (bottom-right).
+    enum SlideChromeTrailingControl: Equatable, Sendable {
+        case species
+        case buddies
+    }
+
+    /// Ordered trailing overlay chips: species (fish) then buddies when both are present.
+    nonisolated static func slideChromeTrailingControls(
+        hasTaggedSpecies: Bool,
+        hasTaggedBuddies: Bool
+    ) -> [SlideChromeTrailingControl] {
+        var controls: [SlideChromeTrailingControl] = []
+        if hasTaggedSpecies {
+            controls.append(.species)
+        }
+        if hasTaggedBuddies {
+            controls.append(.buddies)
+        }
+        return controls
+    }
+
     /// Next slide index; wraps from last → first.
     nonisolated static func nextIndex(after current: Int, count: Int) -> Int {
         guard count > 0 else { return 0 }
         return (current + 1) % count
     }
 
-    /// **`TabView`** page count — appends a duplicate first slide so last → first animates forward.
+    /// Home featured media uses **`ScrollView`** paging (same pattern as dive Media), not a looping
+    /// paged **`TabView`**. Kept for tests / call sites that still speak in “pager index” terms.
     nonisolated static func loopingPagerSlideCount(slideCount: Int) -> Int {
-        slideCount > 1 ? slideCount + 1 : max(slideCount, 0)
+        max(slideCount, 0)
     }
 
-    /// Maps pager position to the real highlight index (duplicate last page shows slide **0**).
+    /// Identity map — scroll pages are 1:1 with highlights (no duplicate wrap page).
     nonisolated static func logicalSlideIndex(pagerIndex: Int, slideCount: Int) -> Int {
         guard slideCount > 0 else { return 0 }
-        return pagerIndex % slideCount
+        return min(max(pagerIndex, 0), slideCount - 1)
     }
 
-    /// Auto-advance target — from last real slide, step onto duplicate first instead of wrapping backward.
+    /// Auto-advance target — wraps last → first via **`nextIndex`** (no duplicate page).
     nonisolated static func nextLoopingPagerIndex(after pagerIndex: Int, slideCount: Int) -> Int {
-        guard slideCount > 1 else { return 0 }
-        if pagerIndex == slideCount - 1 {
-            return slideCount
-        }
-        return min(pagerIndex + 1, slideCount)
+        nextIndex(after: pagerIndex, count: slideCount)
     }
 
-    /// After landing on the duplicate first page, snap back to index **0** without animation.
+    /// Legacy looping-**`TabView`** reset — always **`false`** with scroll paging (no duplicate page).
     nonisolated static func shouldResetLoopingPagerIndex(pagerIndex: Int, slideCount: Int) -> Bool {
-        slideCount > 1 && pagerIndex == slideCount
+        _ = pagerIndex
+        _ = slideCount
+        return false
     }
 
-    /// Programmatic slide-advance animation length (forward wrap onto the duplicate first page).
+    /// Programmatic slide-advance animation length (forward step between real slides).
     nonisolated static let slideAdvanceAnimationSeconds: TimeInterval = 0.35
 
-    /// Delay before the duplicate-first page snaps back to index **0**.
-    ///
-    /// Must outlast **`slideAdvanceAnimationSeconds`** plus settle time: a non-animated selection
-    /// jump issued while the pager is still animating / decelerating desyncs the paged
-    /// **`TabView`** (it keeps showing the duplicate last page — which has no next page — while
-    /// the binding says **0**), leaving forward swipes on the first item unresponsive until the
-    /// next auto-advance resyncs it.
+    /// Unused with scroll paging (no duplicate-page snap-back). Kept so older tests compile.
     nonisolated static let loopingPagerResetDelaySeconds: TimeInterval = 0.6
+
+    /// Unused with scroll paging. Kept so older tests compile.
+    nonisolated static func loopingPagerIdentityAfterReset(currentIdentity: Int) -> Int {
+        currentIdentity &+ 1
+    }
+
+    /// Last → first auto-advance jumps without animation so the pager does not scrub backward
+    /// through middle slides.
+    nonisolated static func shouldDisableAnimationForAutoAdvanceWrap(
+        fromIndex: Int,
+        toIndex: Int,
+        slideCount: Int
+    ) -> Bool {
+        slideCount > 1 && fromIndex == slideCount - 1 && toIndex == 0
+    }
+
+    /// Clamp a scroll-position selection into highlight bounds.
+    nonisolated static func clampedPagerIndex(_ index: Int?, slideCount: Int) -> Int {
+        guard slideCount > 0 else { return 0 }
+        guard let index else { return 0 }
+        return min(max(index, 0), slideCount - 1)
+    }
 
     nonisolated static func shouldAutoAdvance(slideCount: Int) -> Bool {
         slideCount > 1
@@ -121,10 +161,34 @@ enum HomeMediaCarouselPresentation: Sendable {
         slideCount > 0 && slideCount <= HomeMediaHighlightPresentation.carouselLimit
     }
 
-    /// Extra bleed below the template seam so Home media tucks into the blue-sheet overlap (not the full hero bottom).
-    nonisolated static let featuredMediaBleedBelowSeam: CGFloat = 52
+    /// How far media extends past the sheet seam into the overlap.
+    ///
+    /// Equal to **`panelOverlap`** so the crop reaches the hero floor — a smaller bleed left a
+    /// black gap between the media and the blue sheet.
+    nonisolated static var featuredMediaBleedBelowSeam: CGFloat {
+        HomeOverviewLayout.panelOverlap
+    }
 
-    /// Media band from screen top to just below the blue-sheet seam (viewport coordinates).
+    /// Seam-crop viewport height for Home featured media.
+    ///
+    /// Always prefer the laid-out carousel page height. Do **not** take
+    /// **`max(geometry, page)`** — inventing a taller crop than the view can show clips the
+    /// bottom seam bleed and leaves media sitting too high in the header.
+    nonisolated static func featuredMediaLayoutViewportHeight(
+        geometryHeight: CGFloat,
+        carouselContentHeight: CGFloat
+    ) -> CGFloat {
+        if carouselContentHeight > 0 {
+            return carouselContentHeight
+        }
+        return max(geometryHeight, 1)
+    }
+
+    /// Open-media control on a scroll page must not be a full-bleed **`Button`** — that steals
+    /// the paging pan. Use **`onTapGesture`** (scroll wins on drag; tap still opens media).
+    nonisolated static let usesTapGestureForOpenMediaOnScrollPage = true
+
+    /// Media band from screen top through the blue-sheet overlap to the hero floor (viewport coordinates).
     nonisolated static func featuredMediaBottomYFromTop(
         viewportHeight: CGFloat,
         panelOverlap: CGFloat = HomeOverviewLayout.panelOverlap
@@ -156,9 +220,7 @@ enum HomeMediaCarouselPresentation: Sendable {
         )
     }
 
-    /// Only the **selected pager page** may drive muted playback — not every page that shares the
-    /// same logical slide. The looping carousel duplicates slide **0** as the last pager page; both
-    /// would otherwise bind one **`AVPlayer`** to two layers and leave the first item silent / stuck.
+    /// Only the **selected** scroll page may drive muted playback.
     nonisolated static func isPagerPagePlaybackActive(
         pagerIndex: Int,
         selectedPagerIndex: Int
@@ -485,8 +547,13 @@ enum HomeMediaCarouselPresentation: Sendable {
             + marineLifeCarouselOverlaySpeciesToPageIndicatorSpacing
     }
 
-    /// Shifts the overlay **×** (and species image + name) down from header-aligned default.
-    nonisolated static let marineLifeCarouselOverlayCloseTopOffsetFromHeaderAlignment: CGFloat = 75
+    /// Extra Y shift for the overlay **×** relative to the Home notifications bell / header chrome row.
+    /// **`0`** keeps **×** in the bell’s slot (bell hides while the overlay is open).
+    nonisolated static let marineLifeCarouselOverlayCloseTopOffsetFromHeaderAlignment: CGFloat = 0
+
+    /// Species image / name sit below the header-aligned **×** — restores the pre–bell-slot content band
+    /// (**75** pt) without dragging the close control down with them.
+    nonisolated static let marineLifeCarouselOverlaySpeciesContentTopOffsetFromCloseButton: CGFloat = 75
 
     /// Mirrors **`AppTheme.Layout.appHeaderTopPadding`** for nonisolated layout math.
     nonisolated static let marineLifeOverlayHomeHeaderTopPadding: CGFloat = AppTheme.Spacing.sm
@@ -497,6 +564,9 @@ enum HomeMediaCarouselPresentation: Sendable {
     /// Mirrors **`AppToolbarIconButtonMetrics.tapDimension`** for nonisolated layout math.
     nonisolated static let marineLifeOverlayCloseButtonTapDimension: CGFloat = 44
 
+    /// Leading inset for the overlay **×** — matches Home **`AppHeader`** horizontal padding (bell slot).
+    nonisolated static let marineLifeOverlayCloseLeadingInset: CGFloat = AppTheme.Spacing.lg
+
     nonisolated static func marineLifeOverlayHeaderBrandRowHeight() -> CGFloat {
         max(
             AppHeaderBrandRowMetrics.wordmarkLineHeight,
@@ -504,7 +574,37 @@ enum HomeMediaCarouselPresentation: Sendable {
         )
     }
 
-    /// Vertically centers the overlay **×** with the Home **`AppHeader`** profile avatar row.
+    /// Hide the Home notifications bell while the fish overlay occupies its chrome slot.
+    nonisolated static func shouldShowHomeNotificationsBell(
+        showsMarineLifeOverlay: Bool
+    ) -> Bool {
+        !showsMarineLifeOverlay
+    }
+
+    /// **×** lives in Home **`AppHeader`** leading chrome (same slot as the bell), not inside the overlay.
+    nonisolated static let showsCloseControlInHomeTopChrome = true
+
+    /// Overlay always keeps a close control above the species pager — visible **×** when chrome
+    /// does not own it, otherwise a clear hit target in the bell-slot rect (UIKit pager otherwise
+    /// swallows taps meant for the header **×**).
+    nonisolated static func marineLifeOverlayUsesClearCloseHitTarget(
+        showsCloseControlInHomeTopChrome: Bool = showsCloseControlInHomeTopChrome
+    ) -> Bool {
+        showsCloseControlInHomeTopChrome
+    }
+
+    /// Keep header chrome tappable for the chrome **×** while the fish overlay is open; still block
+    /// chrome hits for other hero interaction holds (expanded buddy strip).
+    nonisolated static func allowsHomeTopChromeHitTesting(
+        showsMarineLifeOverlay: Bool,
+        homeHeroInteractionOverlayActive: Bool
+    ) -> Bool {
+        if showsMarineLifeOverlay { return true }
+        return !homeHeroInteractionOverlayActive
+    }
+
+    /// Species-content baseline: centers on the Home header brand row (same math as the bell slot).
+    /// The chrome **×** is laid out by **`AppHeader`**; this inset only positions overlay content.
     nonisolated static func marineLifeOverlayCloseTopInset(
         topSafeAreaInset: CGFloat,
         headerClearance: CGFloat
@@ -536,18 +636,19 @@ enum HomeMediaCarouselPresentation: Sendable {
         )
     }
 
-    /// Species feature image top (**`marineLifeOverlayCloseTopInset`**).
+    /// Species feature image top — below the header-aligned **×**.
     nonisolated static func marineLifeCarouselOverlaySpeciesContentTopInset(
         closeTopInset: CGFloat
     ) -> CGFloat {
-        closeTopInset
+        closeTopInset + marineLifeCarouselOverlaySpeciesContentTopOffsetFromCloseButton
     }
 
     /// Species common name sits below the feature image top.
     nonisolated static func marineLifeCarouselOverlaySpeciesNameTopInset(
         closeTopInset: CGFloat
     ) -> CGFloat {
-        closeTopInset + marineLifeCarouselOverlaySpeciesNameTopOffsetFromFeatureImageTop
+        marineLifeCarouselOverlaySpeciesContentTopInset(closeTopInset: closeTopInset)
+            + marineLifeCarouselOverlaySpeciesNameTopOffsetFromFeatureImageTop
     }
 
     /// Legacy hero-band bias helper — prefer **`marineLifeCarouselOverlaySpeciesContentTopInset(closeTopInset:)`**.
@@ -792,12 +893,15 @@ enum HomeMediaCarouselPresentation: Sendable {
         stripWidth > maxVisibleWidth + 0.5
     }
 
-    /// Locks the carousel pager while fish overlay or expanded buddy strip is active.
+    /// Locks the Home carousel pager only while the fish overlay is up (its species **`TabView`**
+    /// must own horizontal swipes). An expanded buddy strip no longer locks paging — swiping the
+    /// media advances slides and dismisses the strip via selection **`onChange`**.
     nonisolated static func taggedBuddyPagerScrollDisabled(
         hasExpandedBuddyList: Bool,
         showsMarineLifeOverlay: Bool = false
     ) -> Bool {
-        hasExpandedBuddyList || showsMarineLifeOverlay
+        _ = hasExpandedBuddyList
+        return showsMarineLifeOverlay
     }
 
     nonisolated static func taggedSpecies(

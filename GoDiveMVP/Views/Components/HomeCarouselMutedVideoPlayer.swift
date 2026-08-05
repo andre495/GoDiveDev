@@ -51,6 +51,8 @@ final class HomeCarouselMutedVideoPlayerUIView: UIView {
     override init(frame: CGRect) {
         super.init(frame: frame)
         clipsToBounds = true
+        // Display-only — keep the Home carousel TabView pan gesture responsive.
+        isUserInteractionEnabled = false
         playerLayer.videoGravity = .resizeAspectFill
     }
 
@@ -105,8 +107,8 @@ final class HomeCarouselMutedVideoPlayerUIView: UIView {
         removeEndObserver()
         statusObservation?.invalidate()
         statusObservation = nil
-        // Do not pause — Home shares one **`AVPlayer`** per library id across the looping
-        // duplicate of slide **0**; pausing here would mute the selected page.
+        // Do not pause — Home shares one **`AVPlayer`** per library id across slide remounts;
+        // pausing here would mute the selected page when the representable tears down.
         playerLayer.player = nil
         player = nil
         isPlaybackActive = false

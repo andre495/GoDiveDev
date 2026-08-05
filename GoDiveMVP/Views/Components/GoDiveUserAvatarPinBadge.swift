@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Light-blue GoDive pin for the lower-right corner of a buddy / friend avatar circle.
+/// Appearance-aware GoDive pin for the lower-right corner of a buddy / friend avatar circle.
 struct GoDiveUserAvatarPinBadge: View {
     let avatarDiameter: CGFloat
 

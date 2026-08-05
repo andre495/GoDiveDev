@@ -14,6 +14,8 @@ struct HomeMediaCarouselMarineLifeOverlay: View {
     @Binding var selectedSpeciesUUID: String?
     var onOpenDive: (UUID) -> Void
     var onClose: () -> Void
+    /// When **`true`**, draws an in-overlay **×**. Home hosts close in top chrome instead.
+    var showsCloseButton: Bool = !HomeMediaCarouselPresentation.showsCloseControlInHomeTopChrome
 
     private var featureImageMaxWidth: CGFloat {
         HomeMediaCarouselPresentation.marineLifeCarouselOverlayImageMaxWidth(
@@ -39,6 +41,13 @@ struct HomeMediaCarouselMarineLifeOverlay: View {
         )
     }
 
+    /// Feature image + name band — below the header-aligned **×** (previous content Y).
+    private var speciesContentTopInset: CGFloat {
+        HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesContentTopInset(
+            closeTopInset: closeTopInset
+        )
+    }
+
     private var speciesNameTopInset: CGFloat {
         HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesNameTopInset(
             closeTopInset: closeTopInset
@@ -54,7 +63,7 @@ struct HomeMediaCarouselMarineLifeOverlay: View {
 
     private var featureImageColumnHeight: CGFloat {
         HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageColumnHeight(
-            closeTopInset: closeTopInset,
+            closeTopInset: speciesContentTopInset,
             pageIndicatorTopInset: pageIndicatorTopInset,
             heroBandBottomYFromTop: heroBandBottomYFromTop
         )
@@ -95,7 +104,7 @@ struct HomeMediaCarouselMarineLifeOverlay: View {
 
     private var resolvedFeatureImageColumnLayout: (topInset: CGFloat, height: CGFloat) {
         HomeMediaCarouselPresentation.marineLifeCarouselOverlayFeatureImageColumnLayout(
-            closeTopInset: closeTopInset,
+            closeTopInset: speciesContentTopInset,
             featureImageColumnHeight: featureImageColumnHeight
         )
     }
@@ -113,8 +122,11 @@ struct HomeMediaCarouselMarineLifeOverlay: View {
                     .zIndex(2)
             }
 
-            closeButton
-                .padding(.leading, speciesLeadingInset)
+            // Always keep a close hit target above the species **`TabView`**. When Home draws
+            // **×** in **`AppHeader`**, that chrome control can sit under the UIKit pager’s
+            // hit-testing and appear dead — this clear target matches the bell-slot rect.
+            closeHitTarget
+                .padding(.leading, HomeMediaCarouselPresentation.marineLifeOverlayCloseLeadingInset)
                 .padding(.top, closeTopInset)
                 .zIndex(3)
         }
@@ -122,6 +134,26 @@ struct HomeMediaCarouselMarineLifeOverlay: View {
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("Home.MediaCarousel.MarineLifeOverlay")
+    }
+
+    @ViewBuilder
+    private var closeHitTarget: some View {
+        if HomeMediaCarouselPresentation.marineLifeOverlayUsesClearCloseHitTarget(
+            showsCloseControlInHomeTopChrome: !showsCloseButton
+        ) {
+            Button(action: onClose) {
+                Color.clear
+                    .frame(
+                        width: HomeMediaCarouselPresentation.marineLifeOverlayCloseButtonTapDimension,
+                        height: HomeMediaCarouselPresentation.marineLifeOverlayCloseButtonTapDimension
+                    )
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHidden(true)
+        } else {
+            closeButton
+        }
     }
 
     private var fullMediaScrim: some View {

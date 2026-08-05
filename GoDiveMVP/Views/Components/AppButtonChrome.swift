@@ -117,25 +117,42 @@ extension View {
     }
 }
 
-/// Liquid Glass **Edit** label for page / detail toolbars (not dive overview field-section ellipsis).
+/// Liquid Glass edit control for page / detail toolbars (not dive overview field-section ellipsis).
 struct AppEditToolbarButton: View {
     let action: () -> Void
     let accessibilityIdentifier: String
     var title: String = "Edit"
     var accessibilityLabel: String?
+    var style: AppEditToolbarButtonStyle = .textLabel
 
     var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.body.weight(.semibold))
-                .padding(.horizontal, AppTheme.Spacing.sm)
-                .frame(maxHeight: .infinity)
-                .contentShape(Rectangle())
+        switch style {
+        case .textLabel:
+            Button(action: action) {
+                Text(title)
+                    .font(.body.weight(.semibold))
+                    .padding(.horizontal, AppTheme.Spacing.sm)
+                    .frame(maxHeight: .infinity)
+                    .contentShape(Rectangle())
+            }
+            .appGlassToolbarTextButtonStyle()
+            .foregroundStyle(AppTheme.Colors.headerChromeIconForeground)
+            .accessibilityLabel(resolvedAccessibilityLabel)
+            .accessibilityIdentifier(accessibilityIdentifier)
+        case .ellipsis:
+            Button(action: action) {
+                Image(systemName: "ellipsis")
+                    .appToolbarIconButtonLabel()
+            }
+            .appStandaloneIconButtonStyle()
+            .appHeaderChromeIconForeground()
+            .accessibilityLabel(resolvedAccessibilityLabel)
+            .accessibilityIdentifier(accessibilityIdentifier)
         }
-        .appGlassToolbarTextButtonStyle()
-        .foregroundStyle(AppTheme.Colors.headerChromeIconForeground)
-        .accessibilityLabel(accessibilityLabel ?? title)
-        .accessibilityIdentifier(accessibilityIdentifier)
+    }
+
+    private var resolvedAccessibilityLabel: String {
+        accessibilityLabel ?? title
     }
 }
 

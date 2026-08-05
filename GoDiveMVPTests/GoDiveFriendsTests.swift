@@ -1631,9 +1631,26 @@ struct GoDiveFriendsTests {
         )
         let pin48 = GoDiveUserAvatarPinPresentation.pinSideLength(forAvatarDiameter: 48)
         let edge48 = GoDiveUserAvatarPinPresentation.pinEdgeOverlapOffset(forAvatarDiameter: 48)
-        #expect(edge48.width == pin48 * 0.5)
-        #expect(edge48.height == pin48 * 0.5)
+        let outwardFraction = GoDiveUserAvatarPinPresentation.pinEdgeOutwardFraction
+        #expect(outwardFraction == 0.32)
+        #expect(edge48.width == pin48 * outwardFraction)
+        #expect(edge48.height == pin48 * outwardFraction)
         #expect(UIImage(named: GoDiveUserAvatarPinPresentation.assetName) != nil)
+        let lightTraits = UITraitCollection(userInterfaceStyle: .light)
+        let darkTraits = UITraitCollection(userInterfaceStyle: .dark)
+        let lightPin = UIImage(
+            named: GoDiveUserAvatarPinPresentation.assetName,
+            in: nil,
+            compatibleWith: lightTraits
+        )
+        let darkPin = UIImage(
+            named: GoDiveUserAvatarPinPresentation.assetName,
+            in: nil,
+            compatibleWith: darkTraits
+        )
+        #expect(lightPin != nil)
+        #expect(darkPin != nil)
+        #expect(lightPin?.pngData() != darkPin?.pngData())
     }
 
     @Test func firestoreUserProfileMapping_parsesTotalDiveCount() {

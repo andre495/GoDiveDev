@@ -68,7 +68,7 @@ Open **Profile → menu (☰) → Buddies** for your roster.
 
 The **Buddies** title compacts on scroll and expands when you return to the top of the list.
 
-Your local **dive buddy** roster and **GoDive friends** appear in one list. Friends show the light-blue GoDive pin on the lower-right of their avatar; everyone else can be invited with **Invite** (SMS with your link). The **QR** button in the top bar still opens the share sheet for QR / copy link.
+Your local **dive buddy** roster and **GoDive friends** appear in one list. Friends show the GoDive pin on the lower-right of their avatar; everyone else can be invited with **Invite** (SMS with your link). The **QR** button in the top bar still opens the share sheet for QR / copy link.
 
 ### Roster
 
@@ -82,7 +82,7 @@ Tap a buddy for:
 - Stats panel with avatar and dives-together count  
 - Pager: **Dives together**, **Trips together**, **Your tagged photos**  
 
-Tap a dive or photo to open dive detail or full-screen media. In full-screen media, the Home-style dive chip (lower left) opens the dive; **buddy** and **fish** share one glass control (lower right) and turn blue when that media is tagged. **Edit** changes name and photo; optionally **link to Contacts** for photo sync.
+Tap a dive or photo to open dive detail or full-screen media. In full-screen media, the Home-style dive chip (lower left) opens the dive; **buddy** and **fish** share one glass control (lower right) and turn blue when that media is tagged. Tap **⋯** (upper right) to change name and photo; optionally **link to Contacts** for photo sync.
 
 ### Tag buddies on a dive
 
@@ -96,7 +96,7 @@ Importing FIT or UDDF files can create buddy names from the file; GoDive may fuz
 
 ### Delete a buddy
 
-From buddy **Edit**, **Delete buddy** removes them from the roster and untags them on all dives (with confirmation).
+From buddy **⋯** → edit sheet, **Delete buddy** removes them from the roster and untags them on all dives (with confirmation).
 
 !!! tip "Your name"
     GoDive won’t tag a buddy whose name closely matches your own profile name on import or manual add.

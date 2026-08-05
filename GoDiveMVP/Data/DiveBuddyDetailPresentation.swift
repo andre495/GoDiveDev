@@ -5,6 +5,11 @@ import SwiftData
 /// Buddy detail hero chrome — tagged-media banner and overlapping profile avatar layout.
 enum DiveBuddyDetailPresentation: Sendable {
 
+    /// Trailing top-chrome edit — **⋯** (not the **Edit** text capsule).
+    nonisolated static let editToolbarActionStyle: AppEditToolbarButtonStyle = .ellipsis
+    nonisolated static let editToolbarAccessibilityIdentifier = "DiveBuddyDetails.Edit"
+    nonisolated static let editToolbarAccessibilityLabel = "Edit"
+
     /// Hero/sheet seam — same default band as **`HomeOverviewLayout.heroLayoutStatsPanelContentHeight`**.
     nonisolated static let heroLayoutStatsPanelContentHeight: CGFloat =
         HomeOverviewLayout.heroLayoutStatsPanelContentHeight

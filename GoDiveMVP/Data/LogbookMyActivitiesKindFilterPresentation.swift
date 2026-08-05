@@ -12,6 +12,8 @@ enum LogbookMyActivitiesKindFilter: String, CaseIterable, Identifiable, Sendable
 enum LogbookMyActivitiesKindFilterPresentation: Sendable {
     nonisolated static let menuAccessibilityIdentifier = "Logbook.MyActivitiesKindFilter.Menu"
     nonisolated static let filterButtonAccessibilityIdentifier = "Logbook.MyActivitiesKindFilter.Button"
+    /// Circular Liquid Glass button next to Me/Buddies (separate from the scope toggle shell).
+    nonisolated static let usesGlassButtonStyle = true
 
     nonisolated static func menuTitle(for filter: LogbookMyActivitiesKindFilter) -> String {
         switch filter {

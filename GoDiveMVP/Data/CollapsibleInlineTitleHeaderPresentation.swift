@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Shared collapsible inline title chrome — Logbook-style row with scroll-offset compaction.
 enum CollapsibleInlineTitleHeaderPresentation: Sendable {
@@ -10,6 +13,11 @@ enum CollapsibleInlineTitleHeaderPresentation: Sendable {
 
     /// Fixed width for leading / trailing columns — title uses the remaining row width.
     nonisolated static let sideControlWidth: CGFloat = 44
+
+    /// UIKit text style for expanded page titles — matches **`AppTheme.Typography.headerPageTitle`** (**`.title`** / **`.title1`**).
+    #if canImport(UIKit)
+    nonisolated static var expandedTitleTextStyle: UIFont.TextStyle { .title1 }
+    #endif
 
     /// Default single-line shrink for centered page titles (**`CollapsibleInlineTitleHeader`**).
     nonisolated static let minimumTitleScaleFactor: CGFloat = 0.5

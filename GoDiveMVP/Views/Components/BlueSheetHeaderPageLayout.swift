@@ -81,6 +81,9 @@ struct BlueSheetHeaderPageLayout<
             }
 
             topChrome(context.safeTop, context.topInset)
+                // Above hero / fish overlay so header actions (Home **×**, bell, profile) win hits
+                // over UIKit paged **`TabView`** surfaces in the hero band.
+                .zIndex(10)
         }
         .frame(width: context.geometryWidth, height: context.layoutHeight)
         .ignoresSafeArea(edges: .bottom)

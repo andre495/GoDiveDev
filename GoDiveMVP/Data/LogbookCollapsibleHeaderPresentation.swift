@@ -22,11 +22,13 @@ enum LogbookFeedScopeTogglePresentation: Sendable {
     nonisolated static let widthSlack: CGFloat = 8
     nonisolated static let interSegmentSpacing: CGFloat = 4
     nonisolated static let shellPadding: CGFloat = 4
+    nonisolated static let shellCornerRadius: CGFloat = 12
+    nonisolated static let segmentCornerRadius: CGFloat = 8
 
-    /// Segmented glass shells must **not** use interactive glass — it highlights the shell
-    /// without reliably delivering taps to nested plain Buttons (Me/Buddies, My Sites/All Sites,
-    /// Map/Media, dive icon tabs).
-    nonisolated static let shellUsesInteractiveGlass = false
+    /// Liquid Glass shell matching Explore site-scope / dive icon-tab toggles.
+    nonisolated static let usesGlassShell = true
+    /// Feed-scope chrome row height — matches filter glass (**44**), not the shorter toggle shell (~**40**).
+    nonisolated static let chromeRowHeight: CGFloat = 44
 
     /// Equal width for both segments — sized to the longest label + icon + padding.
     nonisolated static func equalSegmentWidth(

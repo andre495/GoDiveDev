@@ -12,8 +12,12 @@ struct DiveDepthProfileChartStaticUnderfillView: View {
     var body: some View {
         LinearGradient(
             colors: [
-                AppTheme.Colors.surfaceGradientTop.opacity(0.55),
-                AppTheme.Colors.surfaceGradientBottom.opacity(0.94),
+                AppTheme.Colors.depthProfileUnderfillTop.opacity(
+                    DiveDepthProfileChartPresentation.underfillTopOpacity
+                ),
+                AppTheme.Colors.depthProfileUnderfillBottom.opacity(
+                    DiveDepthProfileChartPresentation.underfillBottomOpacity
+                ),
             ],
             startPoint: .top,
             endPoint: .bottom

@@ -195,6 +195,7 @@ struct ViewSingleSnorkelActivity: View {
                 .appToolbarIconButtonLabel()
         }
         .appStandaloneIconButtonStyle()
+        .appHeaderChromeIconForeground()
         .accessibilityLabel(ActivityFriendSharePresentation.editButtonAccessibilityLabel)
         .accessibilityIdentifier("ViewSingleSnorkelActivity.FriendShareEdit")
     }

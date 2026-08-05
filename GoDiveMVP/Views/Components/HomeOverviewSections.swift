@@ -15,7 +15,11 @@ enum HomeMediaCarouselLayout {
 
     /// Bottom inset for slide chrome — sits in the hero/panel overlap band (UI only; does not move the sheet seam).
     static var slideChromeBottomInset: CGFloat {
-        HomeLifetimeStatsLayout.panelOverlap - AppTheme.Spacing.md
+        max(
+            HomeLifetimeStatsLayout.panelOverlap
+                - HomeMediaCarouselPresentation.slideChromeDistanceBelowSeam,
+            AppTheme.Spacing.md
+        )
     }
 
     /// Dive-site capsule + fish / buddy icon chips share this height.
@@ -178,6 +182,15 @@ enum HomeHeroInteractionOverlayKey: PreferenceKey {
     }
 }
 
+/// When **`true`**, the Home fish overlay is open — hide the notifications bell so **×** owns that chrome slot.
+enum HomeMarineLifeOverlayActiveKey: PreferenceKey {
+    static var defaultValue: Bool = false
+
+    static func reduce(value: inout Bool, nextValue: () -> Bool) {
+        value = value || nextValue()
+    }
+}
+
 struct HomeMediaCarouselSection: View {
     let highlights: [HomeMediaHighlight]
     let mediaByID: [UUID: DiveMediaPhoto]
@@ -193,18 +206,20 @@ struct HomeMediaCarouselSection: View {
     let selfBuddyID: UUID?
     /// False while a pushed Home **`NavigationStack`** destination covers the hero.
     var isHeroPlaybackActive: Bool = true
+    /// Bumped by Home top-chrome **×** to dismiss the fish overlay.
+    var marineLifeOverlayCloseRequestID: Int = 0
     let onOpenDive: (UUID) -> Void
     let onOpenMedia: (UUID, UUID) -> Void
     let onOpenBuddy: (UUID) -> Void
 
     @Environment(\.scenePhase) private var scenePhase
-    @State private var pagerSelectedIndex = 0
+    /// Scroll-paging selection (**`scrollPosition`**) — optional to match the ScrollView API.
+    @State private var pagerSelectedIndex: Int? = 0
     @State private var isCarouselVisible = false
     @State private var marineLifeOverlayMediaID: UUID?
     @State private var selectedTaggedSpeciesUUID: String?
     @State private var expandedBuddyListMediaID: UUID?
     @State private var playbackResumeToken = 0
-    @State private var loopingPagerResetTask: Task<Void, Never>?
 
     private var resolvedHeroBandHeight: CGFloat {
         heroBandHeight ?? HomeMediaCarouselLayout.heroHeight(
@@ -254,13 +269,9 @@ struct HomeMediaCarouselSection: View {
         HomeMediaCarouselPresentation.keepsAllSlidesLoaded(slideCount: highlights.count)
     }
 
-    private var pagerSlideCount: Int {
-        HomeMediaCarouselPresentation.loopingPagerSlideCount(slideCount: highlights.count)
-    }
-
     private var activeLogicalSlideIndex: Int {
-        HomeMediaCarouselPresentation.logicalSlideIndex(
-            pagerIndex: pagerSelectedIndex,
+        HomeMediaCarouselPresentation.clampedPagerIndex(
+            pagerSelectedIndex,
             slideCount: highlights.count
         )
     }
@@ -279,58 +290,72 @@ struct HomeMediaCarouselSection: View {
         )
     }
 
-    /// Playback must key off the **selected pager page** — the looping duplicate of slide **0**
-    /// shares its logical index and must not bind/pause the shared muted player.
+    /// Playback must key off the **selected** scroll page only.
     private func isPagerPagePlaybackActive(_ pagerIndex: Int) -> Bool {
         isPlaybackAllowed
             && HomeMediaCarouselPresentation.isPagerPagePlaybackActive(
                 pagerIndex: pagerIndex,
-                selectedPagerIndex: pagerSelectedIndex
+                selectedPagerIndex: activeLogicalSlideIndex
             )
     }
 
     var body: some View {
         ZStack(alignment: .top) {
-            TabView(selection: $pagerSelectedIndex) {
-                ForEach(0..<pagerSlideCount, id: \.self) { pagerIndex in
-                    let logicalIndex = HomeMediaCarouselPresentation.logicalSlideIndex(
-                        pagerIndex: pagerIndex,
-                        slideCount: highlights.count
-                    )
-                    let highlight = highlights[logicalIndex]
-                    if let media = mediaByID[highlight.mediaID] {
-                        let pagePlaybackActive = isPagerPagePlaybackActive(pagerIndex)
-                        HomeMediaCarouselPage(
-                            highlight: highlight,
-                            media: media,
-                            slideIndex: logicalIndex,
-                            slideCount: highlights.count,
-                            pageWidth: containerWidth,
-                            pageHeight: resolvedCarouselContentHeight,
-                            isVideoPlaybackActive: pagePlaybackActive,
-                            shouldPrepareVideo: shouldPrepareVideo(for: logicalIndex),
-                            isAutoAdvanceActive: isAutoAdvanceEnabled && pagePlaybackActive,
-                            loopsSlidePlayback: HomeMediaCarouselPresentation.shouldLoopCarouselVideo(
-                                isPagePlaybackActive: pagePlaybackActive
-                            ),
-                            playbackResumeToken: pagePlaybackActive ? playbackResumeToken : 0,
-                            playbackAllowed: isPlaybackAllowed,
-                            showsBottomChrome: !showsMarineLifeOverlay,
-                            onSlideFinished: { finishSlide(at: logicalIndex) },
-                            onOpenMedia: { onOpenMedia(highlight.diveActivityID, highlight.mediaID) },
-                            onOpenDive: { onOpenDive(highlight.diveActivityID) },
-                            onShowTaggedSpecies: { openMarineLifeOverlay(for: highlight.mediaID) },
-                            taggedBuddies: taggedBuddyRowsByMediaID[highlight.mediaID] ?? [],
-                            isBuddyListExpanded: expandedBuddyListMediaID == highlight.mediaID,
-                            onToggleBuddyList: { toggleBuddyList(for: highlight.mediaID) },
-                            selfBuddyID: selfBuddyID,
-                            onOpenBuddy: onOpenBuddy
+            // ScrollView paging — same approach as dive Media. The old looping paged TabView
+            // desynced after wrap and swallowed swipes; this keeps 1:1 pages and reliable pans.
+            ScrollView(.horizontal, showsIndicators: false) {
+                // **`.top`** — default center alignment vertically shifts pages when the scroll
+                // container’s height disagrees with the page, pulling media above the sheet seam.
+                LazyHStack(alignment: .top, spacing: 0) {
+                    ForEach(0..<highlights.count, id: \.self) { pagerIndex in
+                        let highlight = highlights[pagerIndex]
+                        Group {
+                            if let media = mediaByID[highlight.mediaID] {
+                                let pagePlaybackActive = isPagerPagePlaybackActive(pagerIndex)
+                                HomeMediaCarouselPage(
+                                    highlight: highlight,
+                                    media: media,
+                                    slideIndex: pagerIndex,
+                                    slideCount: highlights.count,
+                                    pageWidth: containerWidth,
+                                    pageHeight: resolvedCarouselContentHeight,
+                                    isVideoPlaybackActive: pagePlaybackActive,
+                                    shouldPrepareVideo: shouldPrepareVideo(for: pagerIndex),
+                                    isAutoAdvanceActive: isAutoAdvanceEnabled && pagePlaybackActive,
+                                    loopsSlidePlayback: HomeMediaCarouselPresentation.shouldLoopCarouselVideo(
+                                        isPagePlaybackActive: pagePlaybackActive
+                                    ),
+                                    playbackResumeToken: pagePlaybackActive ? playbackResumeToken : 0,
+                                    playbackAllowed: isPlaybackAllowed,
+                                    showsBottomChrome: !showsMarineLifeOverlay,
+                                    onSlideFinished: { finishSlide(at: pagerIndex) },
+                                    onOpenMedia: { onOpenMedia(highlight.diveActivityID, highlight.mediaID) },
+                                    onOpenDive: { onOpenDive(highlight.diveActivityID) },
+                                    onShowTaggedSpecies: { openMarineLifeOverlay(for: highlight.mediaID) },
+                                    taggedBuddies: taggedBuddyRowsByMediaID[highlight.mediaID] ?? [],
+                                    isBuddyListExpanded: expandedBuddyListMediaID == highlight.mediaID,
+                                    onToggleBuddyList: { toggleBuddyList(for: highlight.mediaID) },
+                                    selfBuddyID: selfBuddyID,
+                                    onOpenBuddy: onOpenBuddy
+                                )
+                            } else {
+                                Color.black
+                            }
+                        }
+                        .frame(
+                            width: containerWidth,
+                            height: resolvedCarouselContentHeight,
+                            alignment: .top
                         )
-                        .tag(pagerIndex)
+                        .id(pagerIndex)
                     }
                 }
+                .scrollTargetLayout()
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
+            // Do **not** add **`ignoresSafeArea(top)`** here — **`PushedHeroBand`** already
+            // applies the hero bleed; a second ignore shifts media up off the sheet seam.
+            .scrollTargetBehavior(.paging)
+            .scrollPosition(id: $pagerSelectedIndex)
             .scrollDisabled(
                 HomeMediaCarouselPresentation.taggedBuddyPagerScrollDisabled(
                     hasExpandedBuddyList: expandedBuddyListMediaID != nil,
@@ -342,34 +367,24 @@ struct HomeMediaCarouselSection: View {
             .onChange(of: pagerSelectedIndex) { oldIndex, newIndex in
                 closeMarineLifeOverlay()
                 closeBuddyList()
-                loopingPagerResetTask?.cancel()
-                if HomeMediaCarouselPresentation.shouldResetLoopingPagerIndex(
-                    pagerIndex: newIndex,
+                let from = HomeMediaCarouselPresentation.clampedPagerIndex(
+                    oldIndex,
                     slideCount: highlights.count
-                ) {
-                    // Defer the snap-back until the forward wrap animation / swipe settle
-                    // finishes — an immediate non-animated jump here desyncs the paged
-                    // TabView and leaves swipes on the first item unresponsive.
-                    scheduleLoopingPagerReset()
-                    logSlideSelection(
-                        from: HomeMediaCarouselPresentation.logicalSlideIndex(
-                            pagerIndex: oldIndex,
-                            slideCount: highlights.count
-                        ),
-                        to: 0
-                    )
-                    return
-                }
-                logSlideSelection(
-                    from: HomeMediaCarouselPresentation.logicalSlideIndex(
-                        pagerIndex: oldIndex,
-                        slideCount: highlights.count
-                    ),
-                    to: HomeMediaCarouselPresentation.logicalSlideIndex(
-                        pagerIndex: newIndex,
-                        slideCount: highlights.count
-                    )
                 )
+                let to = HomeMediaCarouselPresentation.clampedPagerIndex(
+                    newIndex,
+                    slideCount: highlights.count
+                )
+                logSlideSelection(from: from, to: to)
+            }
+            .onChange(of: highlights.count) { _, count in
+                let clamped = HomeMediaCarouselPresentation.clampedPagerIndex(
+                    pagerSelectedIndex,
+                    slideCount: count
+                )
+                if pagerSelectedIndex != clamped {
+                    pagerSelectedIndex = clamped
+                }
             }
 
             if !showsMarineLifeOverlay {
@@ -429,6 +444,10 @@ struct HomeMediaCarouselSection: View {
                     key: HomeHeroInteractionOverlayKey.self,
                     value: isCarouselInteractionHold
                 )
+                .preference(
+                    key: HomeMarineLifeOverlayActiveKey.self,
+                    value: showsMarineLifeOverlay
+                )
         }
         .accessibilityIdentifier("Home.MediaCarousel")
         .onAppear {
@@ -442,8 +461,6 @@ struct HomeMediaCarouselSection: View {
         }
         .onDisappear {
             isCarouselVisible = false
-            loopingPagerResetTask?.cancel()
-            loopingPagerResetTask = nil
             HomeMediaCarouselDebug.carouselVisibility(visible: false, slideCount: highlights.count)
         }
         .onChange(of: scenePhase) { _, phase in
@@ -466,6 +483,10 @@ struct HomeMediaCarouselSection: View {
                 closeMarineLifeOverlay()
                 closeBuddyList()
             }
+        }
+        .onChange(of: marineLifeOverlayCloseRequestID) { oldID, newID in
+            guard newID != oldID, newID > 0 else { return }
+            closeMarineLifeOverlay()
         }
     }
 
@@ -527,32 +548,24 @@ struct HomeMediaCarouselSection: View {
 
     private func advanceToNextSlide() {
         guard HomeMediaCarouselPresentation.shouldAutoAdvance(slideCount: highlights.count) else { return }
-        let next = HomeMediaCarouselPresentation.nextLoopingPagerIndex(
-            after: pagerSelectedIndex,
-            slideCount: highlights.count
+        let from = activeLogicalSlideIndex
+        let next = HomeMediaCarouselPresentation.nextIndex(
+            after: from,
+            count: highlights.count
         )
-        withAnimation(.easeInOut(duration: HomeMediaCarouselPresentation.slideAdvanceAnimationSeconds)) {
-            pagerSelectedIndex = next
-        }
-    }
-
-    /// Snap the duplicate-first page back to index **0** once the wrap transition has settled.
-    /// The duplicate renders identical slide-0 content (and owns playback while selected), so the
-    /// user sees nothing; re-verifies the pager is still on the duplicate before jumping.
-    private func scheduleLoopingPagerReset() {
-        loopingPagerResetTask = Task { @MainActor in
-            try? await Task.sleep(
-                for: .seconds(HomeMediaCarouselPresentation.loopingPagerResetDelaySeconds)
-            )
-            guard !Task.isCancelled else { return }
-            guard HomeMediaCarouselPresentation.shouldResetLoopingPagerIndex(
-                pagerIndex: pagerSelectedIndex,
-                slideCount: highlights.count
-            ) else { return }
+        if HomeMediaCarouselPresentation.shouldDisableAnimationForAutoAdvanceWrap(
+            fromIndex: from,
+            toIndex: next,
+            slideCount: highlights.count
+        ) {
             var transaction = Transaction()
             transaction.disablesAnimations = true
             withTransaction(transaction) {
-                pagerSelectedIndex = 0
+                pagerSelectedIndex = next
+            }
+        } else {
+            withAnimation(.easeInOut(duration: HomeMediaCarouselPresentation.slideAdvanceAnimationSeconds)) {
+                pagerSelectedIndex = next
             }
         }
     }
@@ -663,24 +676,31 @@ private struct HomeMediaCarouselPage: View {
     let onOpenBuddy: (UUID) -> Void
 
     var body: some View {
-        HomeMediaCarouselMediaView(
-            media: media,
-            slideIndex: slideIndex,
-            slideCount: slideCount,
-            containerWidth: pageWidth,
-            isVideoPlaybackActive: isVideoPlaybackActive,
-            shouldPrepareVideo: shouldPrepareVideo,
-            isAutoAdvanceActive: isAutoAdvanceActive,
-            loopsSlidePlayback: loopsSlidePlayback,
-            playbackResumeToken: playbackResumeToken,
-            playbackAllowed: playbackAllowed,
-            onSlideFinished: onSlideFinished
-        )
-        .frame(width: pageWidth, height: pageHeight)
-        .clipped()
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onOpenMedia)
-        .overlay(alignment: .bottom) {
+        // Full-page **`Button`** steals the horizontal **`ScrollView`** pan (only the chrome
+        // **`Spacer`** pass-through stayed swipeable). **`onTapGesture`** yields to paging drags
+        // and still opens media on a tap; chrome buttons sit above and keep their own hits.
+        ZStack(alignment: .bottom) {
+            HomeMediaCarouselMediaView(
+                media: media,
+                slideIndex: slideIndex,
+                slideCount: slideCount,
+                containerWidth: pageWidth,
+                containerHeight: pageHeight,
+                isVideoPlaybackActive: isVideoPlaybackActive,
+                shouldPrepareVideo: shouldPrepareVideo,
+                isAutoAdvanceActive: isAutoAdvanceActive,
+                loopsSlidePlayback: loopsSlidePlayback,
+                playbackResumeToken: playbackResumeToken,
+                playbackAllowed: playbackAllowed,
+                onSlideFinished: onSlideFinished
+            )
+            .frame(width: pageWidth, height: pageHeight)
+            .clipped()
+            .contentShape(Rectangle())
+            .onTapGesture(perform: onOpenMedia)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint("Opens this media on the dive")
+
             if showsBottomChrome {
                 HomeMediaCarouselSlideBottomChrome(
                     highlight: highlight,
@@ -721,27 +741,62 @@ private struct HomeMediaCarouselSlideBottomChrome: View {
     }
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: AppTheme.Spacing.md) {
-            Group {
+        // Position controls without a full-bleed hit target — empty chrome band must pass
+        // horizontal pans through to the media **`ScrollView`**.
+        ZStack(alignment: .bottom) {
+            HomeMediaCarouselFooterGradient(height: Layout.gradientHeight)
+                .frame(maxWidth: .infinity)
+                .allowsHitTesting(false)
+
+            HStack(alignment: .bottom, spacing: AppTheme.Spacing.md) {
                 MediaDiveLinkChromeButton(
                     siteDisplayName: highlight.siteDisplayName,
                     diveNumberLabel: highlight.diveNumberLabel,
                     linkedTripTitle: highlight.linkedTripTitle,
                     action: onOpenDive
                 )
+                .opacity(isBuddyListExpanded ? 0 : 1)
+                .allowsHitTesting(!isBuddyListExpanded)
+                .accessibilityHidden(isBuddyListExpanded)
 
-                if highlight.hasTaggedSpecies {
-                    HomeMediaCarouselTaggedSpeciesButton(
-                        taggedCount: highlight.taggedSpeciesCount,
-                        action: onShowTaggedSpecies
-                    )
-                }
+                Spacer(minLength: AppTheme.Spacing.sm)
+                    .allowsHitTesting(false)
+
+                trailingTagControls
             }
-            .opacity(isBuddyListExpanded ? 0 : 1)
-            .allowsHitTesting(!isBuddyListExpanded)
-            .accessibilityHidden(isBuddyListExpanded)
+            .padding(.horizontal, AppTheme.Spacing.lg)
+            .padding(.bottom, HomeMediaCarouselLayout.slideChromeBottomInset)
+        }
+        .animation(buddyChromeAnimation, value: isBuddyListExpanded)
+        .frame(maxWidth: .infinity, alignment: .bottomLeading)
+        .accessibilityIdentifier("Home.MediaCarousel.Overlay")
+    }
 
-            Spacer(minLength: AppTheme.Spacing.sm)
+    /// Fish immediately left of buddy; buddy stays bottom-trailing.
+    @ViewBuilder
+    private var trailingTagControls: some View {
+        HStack(alignment: .bottom, spacing: AppTheme.Spacing.sm) {
+            if highlight.hasTaggedSpecies {
+                HomeMediaCarouselTaggedSpeciesButton(
+                    taggedCount: highlight.taggedSpeciesCount,
+                    action: onShowTaggedSpecies
+                )
+                .opacity(isBuddyListExpanded ? 0 : 1)
+                .allowsHitTesting(!isBuddyListExpanded)
+                .accessibilityHidden(isBuddyListExpanded)
+                .frame(
+                    width: isBuddyListExpanded
+                        ? 0
+                        : HomeMediaCarouselLayout.taggedOverlayIconTapDimension
+                )
+                .modifier(
+                    HomeMediaCarouselCollapsedChipClip(
+                        isCollapsed: MediaTagCountBadgePresentation.clipsHomeChromeChipWhenCollapsed(
+                            isCollapsed: isBuddyListExpanded
+                        )
+                    )
+                )
+            }
 
             if highlight.hasTaggedBuddies {
                 HomeMediaCarouselTaggedBuddiesButton(
@@ -756,15 +811,6 @@ private struct HomeMediaCarouselSlideBottomChrome: View {
                 .zIndex(isBuddyListExpanded ? 2 : 0)
             }
         }
-        .animation(buddyChromeAnimation, value: isBuddyListExpanded)
-        .padding(.horizontal, AppTheme.Spacing.lg)
-        .padding(.bottom, HomeMediaCarouselLayout.slideChromeBottomInset)
-        .frame(maxWidth: .infinity, alignment: .bottomLeading)
-        .background(alignment: .bottom) {
-            HomeMediaCarouselFooterGradient(height: Layout.gradientHeight)
-                .allowsHitTesting(false)
-        }
-        .accessibilityIdentifier("Home.MediaCarousel.Overlay")
     }
 }
 
@@ -811,6 +857,10 @@ private struct HomeMediaCarouselTaggedSpeciesButton: View {
                     MediaTagCountBadge(count: taggedCount)
                 }
             }
+            // Reserve the badge’s top-trailing overhang inside the tap frame so parents
+            // / glass compositing cannot clip the count circle.
+            .padding(.top, taggedCount > 1 ? MediaTagCountBadgePresentation.homeOverflowTop : 0)
+            .padding(.trailing, taggedCount > 1 ? MediaTagCountBadgePresentation.homeOverflowTrailing : 0)
             .frame(width: tapDimension, height: tapDimension, alignment: .center)
             .contentShape(Rectangle())
         }
@@ -894,6 +944,18 @@ private struct HomeMediaCarouselTaggedBuddiesButton: View {
                         MediaTagCountBadge(count: taggedCount)
                     }
                 }
+                .padding(
+                    .top,
+                    taggedCount > 1 && !isExpanded
+                        ? MediaTagCountBadgePresentation.homeOverflowTop
+                        : 0
+                )
+                .padding(
+                    .trailing,
+                    taggedCount > 1 && !isExpanded
+                        ? MediaTagCountBadgePresentation.homeOverflowTrailing
+                        : 0
+                )
                 .frame(width: Layout.iconTapDimension, height: Layout.iconTapDimension, alignment: .center)
                 .contentShape(Rectangle())
             }
@@ -1018,6 +1080,8 @@ private struct HomeMediaCarouselMediaView: View {
     var slideIndex: Int = 0
     var slideCount: Int = 1
     var containerWidth: CGFloat = HomeMediaHighlightWarmupPresentation.defaultHeroContainerWidth
+    /// Laid-out carousel page height — preferred over GeometryReader for seam crop math.
+    var containerHeight: CGFloat = 0
     var isVideoPlaybackActive: Bool
     var shouldPrepareVideo: Bool = false
     var isAutoAdvanceActive: Bool
@@ -1054,39 +1118,46 @@ private struct HomeMediaCarouselMediaView: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            let viewport = geometry.size
-            let mediaBandRect = HomeMediaCarouselPresentation.featuredMediaBandRect(
-                viewportWidth: viewport.width,
-                viewportHeight: viewport.height
+        // Use the page’s laid-out size for seam crop — GeometryReader inside a horizontal
+        // ScrollView is an unreliable height source and was shifting media above the sheet.
+        let viewport = CGSize(
+            width: max(containerWidth, 1),
+            height: HomeMediaCarouselPresentation.featuredMediaLayoutViewportHeight(
+                geometryHeight: 0,
+                carouselContentHeight: containerHeight
             )
-            let mediaAspect = resolvedMediaAspect(fallback: 16 / 9)
+        )
+        let mediaBandRect = HomeMediaCarouselPresentation.featuredMediaBandRect(
+            viewportWidth: viewport.width,
+            viewportHeight: viewport.height
+        )
+        let mediaAspect = resolvedMediaAspect(fallback: 16 / 9)
 
-            ZStack {
+        ZStack {
+            homeCarouselBandClippedMedia(
+                viewport: viewport,
+                mediaBandRect: mediaBandRect,
+                mediaAspect: mediaAspect
+            ) {
+                photoContent
+                    .accessibilityHidden(isVideo && isVideoPlaybackActive)
+            }
+
+            if isVideo && isVideoPlaybackActive {
                 homeCarouselBandClippedMedia(
                     viewport: viewport,
                     mediaBandRect: mediaBandRect,
                     mediaAspect: mediaAspect
                 ) {
-                    photoContent
-                        .accessibilityHidden(isVideo && isVideoPlaybackActive)
+                    homeCarouselVideoLayer
                 }
-
-                if isVideo && isVideoPlaybackActive {
-                    homeCarouselBandClippedMedia(
-                        viewport: viewport,
-                        mediaBandRect: mediaBandRect,
-                        mediaAspect: mediaAspect
-                    ) {
-                        homeCarouselVideoLayer
-                    }
-                    .id("\(media.id)-resume-\(playbackResumeToken)")
-                }
+                .allowsHitTesting(false)
+                .id("\(media.id)-resume-\(playbackResumeToken)")
             }
-            .frame(width: viewport.width, height: viewport.height)
-            .clipped()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(width: viewport.width, height: viewport.height)
+        .clipped()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onAppear {
             DiveMediaPreviewStorage.seedSessionCacheIfNeeded(for: media)
             logVideoLayer(mounted: isVideo)
@@ -2261,6 +2332,19 @@ private struct HomeMediaCarouselTopSafeAreaBleedModifier: ViewModifier {
             content
                 .padding(.top, -topSafeAreaInset)
                 .ignoresSafeArea(edges: .top)
+        } else {
+            content
+        }
+    }
+}
+
+/// Clips Home fish/buddy chrome only while the chip collapses to zero width.
+private struct HomeMediaCarouselCollapsedChipClip: ViewModifier {
+    let isCollapsed: Bool
+
+    func body(content: Content) -> some View {
+        if isCollapsed {
+            content.clipped()
         } else {
             content
         }

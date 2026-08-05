@@ -1,12 +1,10 @@
 import SwiftUI
 
-/// **Me / Buddies** control for Activity Log — matches **`ExploreSiteScopeToggle`** chrome.
-/// Segments share one equal width (sized to the longer label) so the control stays balanced.
+/// **Me / Buddies** control for Activity Log — equal-width segments in a Liquid Glass shell
+/// (same chrome pattern as **`ExploreSiteScopeToggle`** / dive icon tabs).
 struct LogbookFeedScopeToggle: View {
     @Binding var selection: LogbookFeedScope
 
-    private let segmentCornerRadius: CGFloat = 8
-    private let shellCornerRadius: CGFloat = 12
     private var equalSegmentWidth: CGFloat {
         LogbookFeedScopeTogglePresentation.equalSegmentWidth()
     }
@@ -18,9 +16,11 @@ struct LogbookFeedScopeToggle: View {
             }
         }
         .padding(LogbookFeedScopeTogglePresentation.shellPadding)
-        // Non-interactive glass: `.interactive()` on a plain-Button shell highlights without
-        // reliably delivering the tap to the segment action.
-        .glassEffect(.regular, in: .rect(cornerRadius: shellCornerRadius))
+        // Non-interactive glass: `.interactive()` on a plain-Button shell steals taps.
+        .glassEffect(
+            .regular,
+            in: .rect(cornerRadius: LogbookFeedScopeTogglePresentation.shellCornerRadius)
+        )
         .contentShape(Rectangle())
         .fixedSize(horizontal: true, vertical: false)
         .accessibilityElement(children: .contain)
@@ -56,8 +56,11 @@ struct LogbookFeedScopeToggle: View {
             .foregroundStyle(isSelected ? AppTheme.Colors.tabSelected : AppTheme.Colors.tabUnselected)
             .background {
                 if isSelected {
-                    RoundedRectangle(cornerRadius: segmentCornerRadius, style: .continuous)
-                        .fill(AppTheme.Colors.surfaceElevated.opacity(0.92))
+                    RoundedRectangle(
+                        cornerRadius: LogbookFeedScopeTogglePresentation.segmentCornerRadius,
+                        style: .continuous
+                    )
+                    .fill(AppTheme.Colors.surfaceElevated.opacity(0.92))
                 }
             }
         }

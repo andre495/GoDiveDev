@@ -1,15 +1,15 @@
 import SwiftUI
 
-/// Inline **`.largeTitle`** row — fixed-width leading / trailing controls with a centered title that compacts on scroll.
+/// Inline page-title row — fixed-width leading / trailing controls with a centered title that compacts on scroll.
 struct CollapsibleInlineTitleHeader<Leading: View, Trailing: View>: View {
     let title: String
     let isCollapsed: Bool
     let statusBarSafeAreaTop: CGFloat
     var titleAccessibilityIdentifier: String?
     var minimumTitleScaleFactor: CGFloat = CollapsibleInlineTitleHeaderPresentation.minimumTitleScaleFactor
-    /// Expanded (uncollapsed) title font — defaults to the **`.largeTitle`** brand style; screens with longer
+    /// Expanded (uncollapsed) title font — defaults to **`headerPageTitle`** (**`.title`**); screens with longer
     /// dynamic titles (e.g. Media browse counts) can pass a smaller font.
-    var expandedTitleFont: Font = AppTheme.Typography.headerBrandTitle
+    var expandedTitleFont: Font = AppTheme.Typography.headerPageTitle
     @ViewBuilder let leading: () -> Leading
     @ViewBuilder let trailing: () -> Trailing
 

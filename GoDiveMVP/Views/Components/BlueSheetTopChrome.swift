@@ -98,12 +98,14 @@ struct BlueSheetDetailEditAction: View {
     let action: () -> Void
     let accessibilityIdentifier: String
     var accessibilityLabel: String?
+    var style: AppEditToolbarButtonStyle = .textLabel
 
     var body: some View {
         AppEditToolbarButton(
             action: action,
             accessibilityIdentifier: accessibilityIdentifier,
-            accessibilityLabel: accessibilityLabel
+            accessibilityLabel: accessibilityLabel,
+            style: style
         )
         .disabled(!isEnabled)
     }
@@ -119,6 +121,7 @@ struct BlueSheetDetailTopChrome: View {
     let onEdit: () -> Void
     var editAccessibilityIdentifier: String
     var editAccessibilityLabel: String?
+    var editActionStyle: AppEditToolbarButtonStyle = .textLabel
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -140,7 +143,8 @@ struct BlueSheetDetailTopChrome: View {
                         isEnabled: isEditEnabled,
                         action: onEdit,
                         accessibilityIdentifier: editAccessibilityIdentifier,
-                        accessibilityLabel: editAccessibilityLabel
+                        accessibilityLabel: editAccessibilityLabel,
+                        style: editActionStyle
                     )
                 }
             }

@@ -166,6 +166,9 @@ struct GoDiveMVPTests {
                 == DiveBuddyDetailPresentation.heroLayoutStatsPanelContentHeight
         )
         #expect(DiveBuddyDetailPresentation.profileAvatarDiameter == 120)
+        #expect(DiveBuddyDetailPresentation.editToolbarActionStyle == .ellipsis)
+        #expect(DiveBuddyDetailPresentation.editToolbarAccessibilityIdentifier == "DiveBuddyDetails.Edit")
+        #expect(DiveBuddyDetailPresentation.editToolbarAccessibilityLabel == "Edit")
         #expect(DiveBuddyDetailPresentation.avatarOverlapOffset() == 60)
         #expect(DiveBuddyDetailPresentation.avatarLeadingInset == AppTheme.Spacing.lg)
         #expect(DiveBuddyDetailPresentation.identityTextLift == 12)
@@ -4692,6 +4695,17 @@ struct GoDiveMVPTests {
         #expect(!below.contains(CGPoint(x: 100, y: 8)))
         #expect(below.contains(CGPoint(x: 100, y: 92)))
         #expect(!above.contains(CGPoint(x: 100, y: 92)))
+    }
+
+    @Test func diveDepthProfileChartPresentation_underfill_usesDarkNavyInLightMode() {
+        #expect(DiveDepthProfileChartPresentation.underfillTopOpacity == 0.55)
+        #expect(DiveDepthProfileChartPresentation.underfillBottomOpacity == 0.94)
+        let light = UITraitCollection(userInterfaceStyle: .light)
+        let underfillTop = UIColor(AppTheme.Colors.depthProfileUnderfillTop).resolvedColor(with: light)
+        let accentDeep = UIColor(AppTheme.Colors.accentDeep).resolvedColor(with: light)
+        let pageTop = UIColor(AppTheme.Colors.surfaceGradientTop).resolvedColor(with: light)
+        #expect(underfillTop == accentDeep)
+        #expect(underfillTop != pageTop)
     }
 
     @Test func diveDepthProfileChartAxisPresentation_depthTicks_unitAware() {
@@ -17760,8 +17774,14 @@ struct GoDiveMVPTests {
 
     @Test func homeMediaCarouselLayout_slideChromeBottomInset_sitsInPanelOverlapBand() {
         let inset = HomeMediaCarouselLayout.slideChromeBottomInset
-        #expect(inset < HomeLifetimeStatsLayout.panelOverlap + AppTheme.Spacing.sm)
-        #expect(inset >= HomeLifetimeStatsLayout.panelOverlap - AppTheme.Spacing.lg)
+        let belowSeam = HomeMediaCarouselPresentation.slideChromeDistanceBelowSeam
+        #expect(belowSeam == 56)
+        #expect(
+            inset
+                == HomeLifetimeStatsLayout.panelOverlap - belowSeam
+        )
+        #expect(inset < HomeLifetimeStatsLayout.panelOverlap)
+        #expect(inset >= AppTheme.Spacing.md)
         #expect(HomeMediaCarouselPresentation.keepsAllSlidesLoaded(slideCount: 3))
         #expect(HomeMediaCarouselPresentation.keepsAllSlidesLoaded(slideCount: 1))
         #expect(!HomeMediaCarouselPresentation.keepsAllSlidesLoaded(slideCount: 0))
@@ -17812,30 +17832,72 @@ struct GoDiveMVPTests {
             viewportWidth: 390,
             viewportHeight: viewportHeight
         )
-        let expectedHeight = max(viewportHeight - HomeOverviewLayout.panelOverlap, 0)
-            + HomeMediaCarouselPresentation.featuredMediaBleedBelowSeam
+        // Bleed equals panel overlap → media fills to the hero floor (no black gap above the sheet).
+        #expect(
+            HomeMediaCarouselPresentation.featuredMediaBleedBelowSeam
+                == HomeOverviewLayout.panelOverlap
+        )
+        let expectedHeight = viewportHeight
         #expect(rect.origin.x == 0)
         #expect(rect.origin.y == 0)
         #expect(rect.width == 390)
         #expect(abs(rect.height - expectedHeight) < 0.001)
+        #expect(
+            abs(
+                HomeMediaCarouselPresentation.featuredMediaBottomYFromTop(
+                    viewportHeight: viewportHeight
+                ) - viewportHeight
+            ) < 0.001
+        )
+        // Always use laid-out page height (do not max with a taller geometry — that clips seam bleed).
+        #expect(
+            HomeMediaCarouselPresentation.featuredMediaLayoutViewportHeight(
+                geometryHeight: 440,
+                carouselContentHeight: 500
+            ) == 500
+        )
+        #expect(
+            HomeMediaCarouselPresentation.featuredMediaLayoutViewportHeight(
+                geometryHeight: 520,
+                carouselContentHeight: 500
+            ) == 500
+        )
+        #expect(
+            HomeMediaCarouselPresentation.featuredMediaLayoutViewportHeight(
+                geometryHeight: 440,
+                carouselContentHeight: 0
+            ) == 440
+        )
+        #expect(HomeMediaCarouselPresentation.usesTapGestureForOpenMediaOnScrollPage)
     }
 
     @Test func homeMediaCarouselPresentation_nextIndex_wrapsAndRequiresMultipleSlides() {
         #expect(HomeMediaCarouselPresentation.nextIndex(after: 0, count: 3) == 1)
         #expect(HomeMediaCarouselPresentation.nextIndex(after: 2, count: 3) == 0)
-        #expect(HomeMediaCarouselPresentation.loopingPagerSlideCount(slideCount: 3) == 4)
+        // Scroll paging is 1:1 with highlights (no duplicate wrap page).
+        #expect(HomeMediaCarouselPresentation.loopingPagerSlideCount(slideCount: 3) == 3)
         #expect(HomeMediaCarouselPresentation.loopingPagerSlideCount(slideCount: 1) == 1)
-        #expect(HomeMediaCarouselPresentation.logicalSlideIndex(pagerIndex: 3, slideCount: 3) == 0)
-        #expect(HomeMediaCarouselPresentation.nextLoopingPagerIndex(after: 2, slideCount: 3) == 3)
+        #expect(HomeMediaCarouselPresentation.logicalSlideIndex(pagerIndex: 2, slideCount: 3) == 2)
+        #expect(HomeMediaCarouselPresentation.logicalSlideIndex(pagerIndex: 9, slideCount: 3) == 2)
+        #expect(HomeMediaCarouselPresentation.nextLoopingPagerIndex(after: 2, slideCount: 3) == 0)
         #expect(HomeMediaCarouselPresentation.nextLoopingPagerIndex(after: 0, slideCount: 3) == 1)
-        #expect(HomeMediaCarouselPresentation.shouldResetLoopingPagerIndex(pagerIndex: 3, slideCount: 3))
-        #expect(!HomeMediaCarouselPresentation.shouldResetLoopingPagerIndex(pagerIndex: 2, slideCount: 3))
-        // Deferred duplicate-page snap-back must outlast the forward wrap animation — an
-        // immediate reset mid-transition desyncs the pager and drops swipes on slide 0.
+        #expect(!HomeMediaCarouselPresentation.shouldResetLoopingPagerIndex(pagerIndex: 3, slideCount: 3))
         #expect(
-            HomeMediaCarouselPresentation.loopingPagerResetDelaySeconds
-                > HomeMediaCarouselPresentation.slideAdvanceAnimationSeconds
+            HomeMediaCarouselPresentation.shouldDisableAnimationForAutoAdvanceWrap(
+                fromIndex: 2,
+                toIndex: 0,
+                slideCount: 3
+            )
         )
+        #expect(
+            !HomeMediaCarouselPresentation.shouldDisableAnimationForAutoAdvanceWrap(
+                fromIndex: 0,
+                toIndex: 1,
+                slideCount: 3
+            )
+        )
+        #expect(HomeMediaCarouselPresentation.clampedPagerIndex(nil, slideCount: 3) == 0)
+        #expect(HomeMediaCarouselPresentation.clampedPagerIndex(5, slideCount: 3) == 2)
         #expect(HomeMediaCarouselPresentation.nextIndex(after: 0, count: 0) == 0)
         #expect(HomeMediaCarouselPresentation.shouldAutoAdvance(slideCount: 1) == false)
         #expect(HomeMediaCarouselPresentation.shouldAutoAdvance(slideCount: 2) == true)
@@ -18262,14 +18324,21 @@ struct GoDiveMVPTests {
             )
         )
 
+        // Expanded buddy strip must not lock Home carousel paging (felt like dead swipes).
         #expect(
-            HomeMediaCarouselPresentation.taggedBuddyPagerScrollDisabled(
+            !HomeMediaCarouselPresentation.taggedBuddyPagerScrollDisabled(
                 hasExpandedBuddyList: true
             )
         )
         #expect(
             HomeMediaCarouselPresentation.taggedBuddyPagerScrollDisabled(
                 hasExpandedBuddyList: false,
+                showsMarineLifeOverlay: true
+            )
+        )
+        #expect(
+            HomeMediaCarouselPresentation.taggedBuddyPagerScrollDisabled(
+                hasExpandedBuddyList: true,
                 showsMarineLifeOverlay: true
             )
         )
@@ -18360,6 +18429,33 @@ struct GoDiveMVPTests {
         #expect(height > AppTheme.Layout.glassChromeControlHeight)
     }
 
+    @Test func homeMediaCarouselPresentation_slideChromeTrailingControls_fishLeadsBuddy() {
+        #expect(
+            HomeMediaCarouselPresentation.slideChromeTrailingControls(
+                hasTaggedSpecies: false,
+                hasTaggedBuddies: false
+            ).isEmpty
+        )
+        #expect(
+            HomeMediaCarouselPresentation.slideChromeTrailingControls(
+                hasTaggedSpecies: true,
+                hasTaggedBuddies: false
+            ) == [.species]
+        )
+        #expect(
+            HomeMediaCarouselPresentation.slideChromeTrailingControls(
+                hasTaggedSpecies: false,
+                hasTaggedBuddies: true
+            ) == [.buddies]
+        )
+        #expect(
+            HomeMediaCarouselPresentation.slideChromeTrailingControls(
+                hasTaggedSpecies: true,
+                hasTaggedBuddies: true
+            ) == [.species, .buddies]
+        )
+    }
+
     @Test @MainActor
     func homeMediaCarouselDiveLinkChrome_usesAdaptiveSlateForeground() {
         #expect(
@@ -18401,6 +18497,35 @@ struct GoDiveMVPTests {
     @Test func homeMediaCarouselPresentation_marineLifeOverlayCloseTopInset_alignsWithHomeHeaderProfileRow() {
         let topSafeAreaInset: CGFloat = 59
         let headerClearance: CGFloat = 112
+        #expect(HomeMediaCarouselPresentation.marineLifeCarouselOverlayCloseTopOffsetFromHeaderAlignment == 0)
+        #expect(HomeMediaCarouselPresentation.showsCloseControlInHomeTopChrome)
+        #expect(HomeMediaCarouselPresentation.marineLifeOverlayUsesClearCloseHitTarget())
+        #expect(
+            !HomeMediaCarouselPresentation.marineLifeOverlayUsesClearCloseHitTarget(
+                showsCloseControlInHomeTopChrome: false
+            )
+        )
+        #expect(
+            HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesContentTopOffsetFromCloseButton
+                == 75
+        )
+        #expect(
+            HomeMediaCarouselPresentation.marineLifeOverlayCloseLeadingInset == AppTheme.Spacing.lg
+        )
+        #expect(HomeMediaCarouselPresentation.shouldShowHomeNotificationsBell(showsMarineLifeOverlay: false))
+        #expect(!HomeMediaCarouselPresentation.shouldShowHomeNotificationsBell(showsMarineLifeOverlay: true))
+        #expect(
+            HomeMediaCarouselPresentation.allowsHomeTopChromeHitTesting(
+                showsMarineLifeOverlay: true,
+                homeHeroInteractionOverlayActive: true
+            )
+        )
+        #expect(
+            !HomeMediaCarouselPresentation.allowsHomeTopChromeHitTesting(
+                showsMarineLifeOverlay: false,
+                homeHeroInteractionOverlayActive: true
+            )
+        )
         let inset = HomeMediaCarouselPresentation.marineLifeOverlayCloseTopInset(
             topSafeAreaInset: topSafeAreaInset,
             headerClearance: headerClearance
@@ -18418,6 +18543,13 @@ struct GoDiveMVPTests {
                         + HomeMediaCarouselPresentation.marineLifeCarouselOverlayCloseTopOffsetFromHeaderAlignment
                 )
         )
+        #expect(
+            HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesContentTopInset(
+                closeTopInset: inset
+            )
+                == inset
+                    + HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesContentTopOffsetFromCloseButton
+        )
     }
 
     @Test func homeMediaCarouselPresentation_marineLifeCarouselOverlaySpeciesDescriptionLineLimit_fitsAbovePageDots() {
@@ -18430,7 +18562,9 @@ struct GoDiveMVPTests {
             speciesNameTopInset: speciesNameTop,
             pageIndicatorTopInset: pageIndicatorTop
         )
-        #expect(limit > 4)
+        // Species band sits 75 pt below the header-aligned × — fewer description lines than the
+        // old close-tied layout, but still room for several lines above page dots.
+        #expect(limit >= 4)
         let reservedDescriptionHeight = CGFloat(limit) * HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesDescriptionLineHeight
         let reservedNameHeight = 2 * HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesCommonNameLineHeight
         #expect(
@@ -18478,13 +18612,17 @@ struct GoDiveMVPTests {
         let speciesTopInset = HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesContentTopInset(
             closeTopInset: closeInset
         )
-        #expect(speciesTopInset == closeInset)
+        #expect(
+            speciesTopInset
+                == closeInset
+                    + HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesContentTopOffsetFromCloseButton
+        )
         let speciesNameTopInset = HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesNameTopInset(
             closeTopInset: closeInset
         )
         #expect(
             speciesNameTopInset
-                == closeInset
+                == speciesTopInset
                     + HomeMediaCarouselPresentation.marineLifeCarouselOverlaySpeciesNameTopOffsetFromFeatureImageTop
         )
         let pageIndicatorTopInset = HomeMediaCarouselPresentation.marineLifeCarouselOverlayPageIndicatorTopInsetFromTop(
@@ -19954,6 +20092,14 @@ struct GoDiveMVPTests {
         #expect(LinkedMediaGridPresentation.showsTagCountBadge(tagCount: 0) == false)
         #expect(LinkedMediaGridPresentation.showsTagCountBadge(tagCount: 1) == false)
         #expect(LinkedMediaGridPresentation.showsTagCountBadge(tagCount: 2))
+        #expect(MediaTagCountBadgePresentation.homeOverflowTop == 4)
+        #expect(MediaTagCountBadgePresentation.homeOverflowTrailing == 4)
+        #expect(
+            !MediaTagCountBadgePresentation.clipsHomeChromeChipWhenCollapsed(isCollapsed: false)
+        )
+        #expect(
+            MediaTagCountBadgePresentation.clipsHomeChromeChipWhenCollapsed(isCollapsed: true)
+        )
         #expect(
             LinkedMediaGridPresentation.tagOverviewMode(isBuddyBadge: false) == .marineLife
         )
@@ -25212,6 +25358,12 @@ struct GoDiveMVPTests {
         #expect(CollapsibleInlineTitleHeaderPresentation.browseTitleMinimumScaleFactor == 0.45)
         #expect(CollapsibleInlineTitleHeaderPresentation.topObstructionHeight(safeAreaTop: 59) == 127)
         #expect(CollapsibleInlineTitleHeaderPresentation.scrimBandHeight(safeAreaTop: 59) == 255)
+        // Page titles (Activity Log, Field Guide, Notifications, …) use **`.title`**, not brand **`.largeTitle`**.
+        #expect(CollapsibleInlineTitleHeaderPresentation.expandedTitleTextStyle == .title1)
+        #expect(
+            UIFont.preferredFont(forTextStyle: .title1).pointSize
+                < UIFont.preferredFont(forTextStyle: .largeTitle).pointSize
+        )
     }
 
     @Test func logbookAndFieldGuideCollapsibleHeaderTitles() {
@@ -25231,7 +25383,20 @@ struct GoDiveMVPTests {
         #expect(
             equalWidth > LogbookFeedScopeTogglePresentation.equalSegmentWidth(titles: ["Me"])
         )
-        #expect(!LogbookFeedScopeTogglePresentation.shellUsesInteractiveGlass)
+        #expect(LogbookFeedScopeTogglePresentation.usesGlassShell)
+        #expect(LogbookFeedScopeTogglePresentation.shellCornerRadius == 12)
+        #expect(LogbookFeedScopeTogglePresentation.segmentCornerRadius == 8)
+        // Filter glass is 44pt; toggle shell is ~40pt — chrome row must use the taller height.
+        #expect(
+            LogbookFeedScopeTogglePresentation.chromeRowHeight
+                == AppTheme.Layout.glassChromeControlHeight
+        )
+        #expect(
+            LogbookFeedScopeTogglePresentation.chromeRowHeight
+                > LogbookFeedScopeTogglePresentation.segmentHeight
+                + (LogbookFeedScopeTogglePresentation.shellPadding * 2)
+        )
+        #expect(LogbookMyActivitiesKindFilterPresentation.usesGlassButtonStyle)
         #expect(LogbookFeedScope.myActivities.systemImage == "book.closed.fill")
         #expect(LogbookFeedScope.buddyFeed.systemImage == "person.2.fill")
         #expect(LogbookFeedScopePagerPresentation.pages == [.myActivities, .buddyFeed])

@@ -10,6 +10,16 @@ enum MediaTagCountBadgePresentation: Sendable {
     /// Grid corner badges sit on a smaller icon; keep the same circle, slightly tighter offset.
     nonisolated static let gridOffsetX: CGFloat = 3
     nonisolated static let gridOffsetY: CGFloat = -3
+
+    /// Layout padding so the Home chrome badge’s offset stays inside the chip bounds (avoids clip).
+    nonisolated static var homeOverflowTop: CGFloat { max(0, -offsetY) }
+    nonisolated static var homeOverflowTrailing: CGFloat { max(0, offsetX) }
+
+    /// Collapse the fish chip with a clip only while width animates to **0** — clipping while
+    /// expanded was cutting the count badge’s top-trailing overhang.
+    nonisolated static func clipsHomeChromeChipWhenCollapsed(isCollapsed: Bool) -> Bool {
+        isCollapsed
+    }
 }
 
 /// Notification-style count on media tag icons — always circular (never a stretched capsule).
